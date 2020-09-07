@@ -4,6 +4,7 @@ use crate::{camera, instance, mesh, pipeline_handler, texture};
 use crate::{PhySize, WindowEvent};
 use camera::{Camera, CameraController, Projection};
 use cgmath::prelude::*;
+use cgmath::{Vector3, Quaternion};
 use iced_wgpu::wgpu;
 use winit::event::*;
 use instance::Instance;
@@ -165,6 +166,18 @@ impl Scene {
         }
         self.update.need_update = false;
     }
+
+    pub fn get_fovy(&self) -> f32 {
+        self.state.projection.get_fovy().0
+    }
+
+    pub fn get_ratio(&self) -> f32 {
+        self.state.projection.get_ratio()
+    }
+
+    pub fn get_camera_direction(&self) -> cgmath::Vector3<f32> {
+        self.state.camera.direction()
+    }
 }
 
 /// Create an instance of a cylinder going from source to dest
@@ -224,8 +237,22 @@ struct State {
 
 impl State {
     pub fn new(size: PhySize) -> Self {
-        let camera = Camera::new((0.0, 5.0, 10.0), cgmath::Deg(-90.0), cgmath::Deg(-20.0));
-        let projection = Projection::new(size.width, size.height, cgmath::Deg(45.0), 0.1, 100.0);
+        let camera = Camera::new((0.0, 5.0, 10.0), Quaternion::from([1., 0., 0., 0.]));
+        let projection = Projection::new(size.width, size.height, cgmath::Deg(70.0), 0.1, 100.0);
+        let camera_controller = camera::CameraController::new(4.0, 0.04);
+        Self {
+            camera,
+            projection,
+            camera_controller,
+            last_mouse_position: (0., 0.).into(),
+            mouse_pressed: false
+        }
+    }
+
+    pub fn new_with_parameters(size: PhySize, position: Vector3<f32>, rotation: Quaternion<f32>) -> Self {
+        let position: [f32; 3] = position.into();
+        let camera = Camera::new(position, rotation);
+        let projection = Projection::new(size.width, size.height, cgmath::Deg(70.0), 0.1, 100.0);
         let camera_controller = camera::CameraController::new(4.0, 0.04);
         Self {
             camera,

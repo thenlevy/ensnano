@@ -5,7 +5,7 @@ use iced_winit::winit;
 use winit::event::*;
 use winit::dpi::PhysicalPosition;
 use winit::dpi::LogicalPosition;
-use cgmath::{ Matrix4, Point3, Vector3, Rad };
+use cgmath::{ Matrix4, Point3, Vector3, Rad, Quaternion };
 use cgmath::prelude::*;
 #[rustfmt::skip]
 pub const OPENGL_TO_WGPU_MATRIX: cgmath::Matrix4<f32> = cgmath::Matrix4::new(
@@ -18,38 +18,42 @@ pub const OPENGL_TO_WGPU_MATRIX: cgmath::Matrix4<f32> = cgmath::Matrix4::new(
 #[derive(Debug)]
 pub struct Camera {
     pub position: Point3<f32>,
-    pub yaw: Rad<f32>,
-    pub pitch: Rad<f32>,
+    pub quaternion: Quaternion<f32>,
 }
 
 impl Camera {
     pub fn new<
         V: Into<Point3<f32>>,
-        Y: Into<Rad<f32>>,
-        P: Into<Rad<f32>>,
     >(
         position: V,
-        yaw: Y,
-        pitch: P,
+        quaternion: Quaternion<f32>,
     ) -> Self {
         Self {
             position: position.into(),
-            yaw: yaw.into(),
-            pitch: pitch.into(),
+            quaternion,
         }
     }
 
     pub fn calc_matrix(&self) -> Matrix4<f32> {
         Matrix4::look_at_dir(
             self.position,
-            Vector3::new(
-                self.yaw.0.cos(),
-                self.pitch.0.sin(),
-                self.yaw.0.sin(),
-            ).normalize(),
+            self.direction(),
             Vector3::unit_y(),
         )
     }
+
+    pub fn direction(&self) -> Vector3<f32> {
+        self.quaternion.rotate_vector(Vector3::from([0., 0., -1.]))
+    }
+
+    pub fn right_vec(&self) -> Vector3<f32> {
+        self.quaternion.rotate_vector(Vector3::from([1., 0., 0.]))
+    }
+
+    pub fn up_vec(&self) -> Vector3<f32> {
+        self.right_vec().cross(self.direction())
+    }
+
 }
 
 pub struct Projection {
@@ -81,6 +85,14 @@ impl Projection {
 
     pub fn calc_matrix(&self) -> Matrix4<f32> {
         OPENGL_TO_WGPU_MATRIX * cgmath::perspective(self.fovy, self.aspect, self.znear, self.zfar)
+    }
+
+    pub fn get_fovy(&self) -> Rad<f32> {
+        self.fovy
+    }
+
+    pub fn get_ratio(&self) -> f32 {
+        self.aspect
     }
 }
 
@@ -167,9 +179,8 @@ impl CameraController {
         let dt = dt.as_secs_f32();
 
         // Move forward/backward and left/right
-        let (yaw_sin, yaw_cos) = camera.yaw.0.sin_cos();
-        let forward = Vector3::new(yaw_cos, 0.0, yaw_sin).normalize();
-        let right = Vector3::new(-yaw_sin, 0.0, yaw_cos).normalize();
+        let forward = camera.direction();
+        let right = camera.right_vec();
         camera.position += forward * (self.amount_forward - self.amount_backward) * self.speed * dt;
         camera.position += right * (self.amount_right - self.amount_left) * self.speed * dt;
 
@@ -177,17 +188,20 @@ impl CameraController {
         // Note: this isn't an actual zoom. The camera's position
         // changes when zooming. I've added this to make it easier
         // to get closer to an object you want to focus on.
-        let (pitch_sin, pitch_cos) = camera.pitch.0.sin_cos();
-        let scrollward = Vector3::new(pitch_cos * yaw_cos, pitch_sin, pitch_cos * yaw_sin).normalize();
+        let scrollward = camera.direction();
         camera.position += scrollward * self.scroll * self.speed * self.sensitivity * dt;
 
         // Move up/down. Since we don't use roll, we can just
         // modify the y coordinate directly.
         camera.position.y += (self.amount_up - self.amount_down) * self.speed * dt;
 
-        // Rotate
-        camera.yaw += Rad(self.rotate_horizontal) * self.sensitivity * dt;
-        camera.pitch += Rad(-self.rotate_vertical) * self.sensitivity * dt;
+        // Rotate    
+        let x_angle = self.rotate_horizontal * FRAC_PI_2;
+        let y_angle = self.rotate_vertical * FRAC_PI_2;
+        let rotation = Quaternion::from_sv(x_angle, Vector3::from([0., 1., 0.]))
+            * Quaternion::from_sv(y_angle, Vector3::from([1., 0., 0.]));
+
+        camera.quaternion = camera.quaternion * rotation;
 
         // If process_mouse isn't called every frame, these values
         // will not get set to zero, and the camera will rotate
@@ -195,12 +209,5 @@ impl CameraController {
         self.rotate_horizontal = 0.0;
         self.rotate_vertical = 0.0;
         self.scroll = 0.;
-
-        // Keep the camera's angle from going too high/low.
-        if camera.pitch < -Rad(FRAC_PI_2) {
-            camera.pitch = -Rad(FRAC_PI_2);
-        } else if camera.pitch > Rad(FRAC_PI_2) {
-            camera.pitch = Rad(FRAC_PI_2);
-        }
     }
 }
