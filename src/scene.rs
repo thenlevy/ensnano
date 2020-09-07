@@ -1,3 +1,4 @@
+use std::time::Duration;
 use crate::consts::*;
 use crate::{camera, instance, mesh, pipeline_handler, texture};
 use crate::{PhySize, WindowEvent};
@@ -71,8 +72,9 @@ impl Scene {
         self.update.need_update = true;
     }
 
-    pub fn update_size(&mut self, size: PhySize, device: &Device) {
+    pub fn resize(&mut self, size: PhySize, device: &Device) {
         self.depth_texture = texture::Texture::create_depth_texture(device, &size);
+        self.state.resize(size);
     }
 
     pub fn update_spheres(&mut self, positions: &Vec<[f32; 3]>) {
@@ -102,7 +104,13 @@ impl Scene {
     }
 
     pub fn input(&mut self, event: &WindowEvent) -> bool {
-        self.state.input(event)
+        if self.state.input(event) {
+            self.update.camera_update = true;
+            self.update.need_update = true;
+            true
+        } else {
+            false
+        }
     }
 
     pub fn draw(
@@ -110,9 +118,10 @@ impl Scene {
         encoder: &mut wgpu::CommandEncoder,
         target: &wgpu::TextureView,
         device: &Device,
+        dt: Duration,
     ) {
         if self.update.need_update {
-            self.perform_update(device);
+            self.perform_update(device, dt);
         }
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
@@ -142,7 +151,7 @@ impl Scene {
         self.tube_pipeline_handler.draw(device, &mut render_pass);
     }
 
-    fn perform_update(&mut self, device: &Device) {
+    fn perform_update(&mut self, device: &Device, dt: Duration) {
         if let Some(tube_instances) = self.update.tube_instances.take() {
             self.tube_pipeline_handler
                 .update_instances(device, tube_instances);
@@ -152,6 +161,7 @@ impl Scene {
                 .update_instances(device, sphere_instances);
         }
         if self.update.camera_update {
+            self.state.update_camera(dt);
             self.sphere_pipeline_handler
                 .update_viewer(device, &self.state.camera, &self.state.projection);
             self.tube_pipeline_handler
@@ -248,7 +258,7 @@ impl State {
     pub fn new(size: PhySize) -> Self {
         let camera = Camera::new((0.0, 5.0, 10.0), cgmath::Deg(-90.0), cgmath::Deg(-20.0));
         let projection = Projection::new(size.width, size.height, cgmath::Deg(45.0), 0.1, 100.0);
-        let camera_controller = camera::CameraController::new(4.0, 0.4);
+        let camera_controller = camera::CameraController::new(4.0, 0.04);
         Self {
             camera,
             projection,
@@ -256,6 +266,10 @@ impl State {
             last_mouse_position: (0., 0.).into(),
             mouse_pressed: false
         }
+    }
+
+    pub fn resize(&mut self, new_size: PhySize) {
+        self.projection.resize(new_size.width, new_size.height);
     }
 
     fn input(&mut self, event: &WindowEvent) -> bool {
@@ -293,9 +307,14 @@ impl State {
                 if self.mouse_pressed {
                     self.camera_controller.process_mouse(mouse_dx, mouse_dy);
                 }
-                true
+                self.mouse_pressed
             }
             _ => false,
         }
     }
+
+    fn update_camera(&mut self, dt: Duration) {
+        self.camera_controller.update_camera(&mut self.camera, dt);
+    }
+
 }

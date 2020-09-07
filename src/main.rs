@@ -78,6 +78,7 @@ fn main() {
     let mut controls = Controls::new();
 
     // Run event loop
+    let mut last_render_time = std::time::Instant::now();
     event_loop.run(move |event, _, control_flow| {
         // You should change this if you want to render continuosly
         *control_flow = ControlFlow::Wait;
@@ -178,6 +179,7 @@ fn main() {
             Event::RedrawRequested(_) => {
                 if resized {
                     let size = window.inner_size();
+                    scene.resize(size, &device);
 
                     swap_chain = SwapChain::new(&device, &surface, format, size.width, size.height);
                 }
@@ -188,7 +190,10 @@ fn main() {
                     device.create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 });
 
                 // We draw the scene first
-                scene.draw(&mut encoder, &frame.view, &device);
+                let now = std::time::Instant::now();
+                let dt = now - last_render_time;
+                last_render_time = now;
+                scene.draw(&mut encoder, &frame.view, &device, dt);
 
                 // And then iced on top
                 let mouse_cursor = renderer.draw(

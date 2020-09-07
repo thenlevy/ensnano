@@ -163,73 +163,6 @@ impl CameraController {
         };
     }
 
-    /*
-    pub fn process_events(&mut self, event: &WindowEvent) -> bool {
-        match event {
-            WindowEvent::KeyboardInput {
-                input:
-                    KeyboardInput {
-                        state,
-                        virtual_keycode: Some(keycode),
-                        ..
-                    },
-                ..
-            } => {
-                let is_pressed = *state == ElementState::Pressed;
-                match keycode {
-                    VirtualKeyCode::Space => {
-                        self.is_up_pressed = is_pressed;
-                        true
-                    }
-                    VirtualKeyCode::LShift => {
-                        self.is_down_pressed = is_pressed;
-                        true
-                    }
-                    VirtualKeyCode::W | VirtualKeyCode::Up => {
-                        self.is_forward_pressed = is_pressed;
-                        true
-                    }
-                    VirtualKeyCode::A | VirtualKeyCode::Left => {
-                        self.is_left_pressed = is_pressed;
-                        true
-                    }
-                    VirtualKeyCode::S | VirtualKeyCode::Down => {
-                        self.is_backward_pressed = is_pressed;
-                        true
-                    }
-                    VirtualKeyCode::D | VirtualKeyCode::Right => {
-                        self.is_right_pressed = is_pressed;
-                        true
-                    }
-                    _ => false,
-                }
-            }
-            WindowEvent::MouseInput {
-                button: MouseButton::Left,
-                state,
-                ..
-            } => {
-                self.mouse_pressed = *state == ElementState::Pressed;
-                true
-            }
-            WindowEvent::CursorMoved {
-                position,
-                ..
-            } => {
-                let mouse_dx = position.x - self.last_mouse_pos.x;
-                let mouse_dy = position.y - self.last_mouse_pos.y;
-                self.last_mouse_pos = *position;
-                if self.mouse_pressed {
-                    self.process_mouse(mouse_dx as f32, mouse_dy as f32);
-                }
-                self.mouse_pressed
-            }
-            _ => false,
-        }
-    }
-        */
-
-
     pub fn update_camera(&mut self, camera: &mut Camera, dt: Duration) {
         let dt = dt.as_secs_f32();
 
@@ -261,6 +194,7 @@ impl CameraController {
         // when moving in a non cardinal direction.
         self.rotate_horizontal = 0.0;
         self.rotate_vertical = 0.0;
+        self.scroll = 0.;
 
         // Keep the camera's angle from going too high/low.
         if camera.pitch < -Rad(FRAC_PI_2) {
