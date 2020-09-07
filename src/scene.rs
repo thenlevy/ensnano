@@ -1,17 +1,19 @@
 use crate::consts::*;
 use crate::{camera, instance, mesh, pipeline_handler, texture};
 use crate::{PhySize, WindowEvent};
-use camera::{default_camera, Camera, CameraController};
+use camera::{Camera, CameraController, Projection};
 use cgmath::prelude::*;
 use iced_wgpu::wgpu;
+use winit::event::*;
 use instance::Instance;
 use pipeline_handler::PipelineHandler;
 use texture::Texture;
 use wgpu::{Device, PrimitiveTopology};
+use iced_winit::winit;
+use winit::dpi::{PhysicalPosition};
 
 pub struct Scene {
-    camera: Camera,
-    camera_controller: CameraController,
+    state: State,
     sphere_pipeline_handler: PipelineHandler,
     tube_pipeline_handler: PipelineHandler,
     /// the number of tube to display
@@ -23,8 +25,7 @@ pub struct Scene {
 impl Scene {
     /// Create a new scene that will be displayed on `device`
     pub fn new(device: &Device, size: PhySize) -> Self {
-        let camera = default_camera(size);
-        let camera_controller = CameraController::new(0.2);
+        let state = State::new(size);
 
         let number_instances = 3;
         let (sphere_instances, tube_instances) = create_instances(3);
@@ -38,23 +39,24 @@ impl Scene {
             device,
             sphere_mesh,
             sphere_instances,
-            &camera,
+            &state.camera,
+            &state.projection,
             PrimitiveTopology::TriangleList,
         );
         let tube_pipeline_handler = PipelineHandler::new(
             device,
             tube_mesh,
             tube_instances,
-            &camera,
+            &state.camera,
+            &state.projection,
             PrimitiveTopology::TriangleStrip,
         );
 
         let update = SceneUpdate::new();
 
         Self {
-            camera,
-            camera_controller,
             number_instances,
+            state,
             depth_texture,
             update,
             sphere_pipeline_handler,
@@ -67,6 +69,10 @@ impl Scene {
         self.update.sphere_instances = Some(sphere_instances);
         self.update.tube_instances = Some(tube_instances);
         self.update.need_update = true;
+    }
+
+    pub fn update_size(&mut self, size: PhySize, device: &Device) {
+        self.depth_texture = texture::Texture::create_depth_texture(device, &size);
     }
 
     pub fn update_spheres(&mut self, positions: &Vec<[f32; 3]>) {
@@ -96,14 +102,7 @@ impl Scene {
     }
 
     pub fn input(&mut self, event: &WindowEvent) -> bool {
-        let ret = self.camera_controller.process_events(event);
-        if ret {
-            self.camera_controller.update_camera(&mut self.camera);
-            self.update.need_update = true;
-            self.update.camera_update = true;
-        }
-
-        ret
+        self.state.input(event)
     }
 
     pub fn draw(
@@ -154,9 +153,9 @@ impl Scene {
         }
         if self.update.camera_update {
             self.sphere_pipeline_handler
-                .update_viewer(device, &self.camera);
+                .update_viewer(device, &self.state.camera, &self.state.projection);
             self.tube_pipeline_handler
-                .update_viewer(device, &self.camera);
+                .update_viewer(device, &self.state.camera, &self.state.projection);
             self.update.camera_update = false;
         }
         self.update.need_update = false;
@@ -233,6 +232,70 @@ impl SceneUpdate {
             sphere_instances: None,
             need_update: false,
             camera_update: false,
+        }
+    }
+}
+
+struct State {
+    camera: Camera,
+    projection: Projection,
+    camera_controller: CameraController,
+    last_mouse_position: PhysicalPosition<f64>,
+    mouse_pressed: bool,
+}
+
+impl State {
+    pub fn new(size: PhySize) -> Self {
+        let camera = Camera::new((0.0, 5.0, 10.0), cgmath::Deg(-90.0), cgmath::Deg(-20.0));
+        let projection = Projection::new(size.width, size.height, cgmath::Deg(45.0), 0.1, 100.0);
+        let camera_controller = camera::CameraController::new(4.0, 0.4);
+        Self {
+            camera,
+            projection,
+            camera_controller,
+            last_mouse_position: (0., 0.).into(),
+            mouse_pressed: false
+        }
+    }
+
+    fn input(&mut self, event: &WindowEvent) -> bool {
+        match event {
+            WindowEvent::KeyboardInput {
+                input: KeyboardInput {
+                    virtual_keycode: Some(key),
+                    state,
+                    ..
+                },
+                ..
+            } => self.camera_controller.process_keyboard(*key, *state),
+            WindowEvent::MouseWheel {
+                delta,
+                ..
+            } => {
+                self.camera_controller.process_scroll(delta);
+                true
+            }
+            WindowEvent::MouseInput {
+                button: MouseButton::Left,
+                state,
+                ..
+            } => {
+                self.mouse_pressed = *state == ElementState::Pressed;
+                true
+            }
+            WindowEvent::CursorMoved {
+                position,
+                ..
+            } => {
+                let mouse_dx = position.x - self.last_mouse_position.x;
+                let mouse_dy = position.y - self.last_mouse_position.y;
+                self.last_mouse_position = *position;
+                if self.mouse_pressed {
+                    self.camera_controller.process_mouse(mouse_dx, mouse_dy);
+                }
+                true
+            }
+            _ => false,
         }
     }
 }

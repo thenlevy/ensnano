@@ -1,5 +1,5 @@
 use crate::{camera, instance, light, mesh, texture, uniforms, utils};
-use camera::Camera;
+use camera::{ Camera, Projection };
 use iced_wgpu::wgpu;
 use instance::Instance;
 use light::create_light;
@@ -27,13 +27,14 @@ impl PipelineHandler {
         mesh: Mesh,
         instances: Vec<Instance>,
         camera: &Camera,
+        projection: &Projection,
         primitive_topology: wgpu::PrimitiveTopology,
     ) -> Self {
         let instances_data: Vec<_> = instances.iter().map(|i| i.to_raw()).collect();
         let (instances_bg, instances_layout) = create_instances_bind_group(device, &instances_data);
 
         let mut viewer_data = Uniforms::new();
-        viewer_data.update_view_proj(&camera);
+        viewer_data.update_view_proj(camera, projection);
         let (viewer, viewer_layout) = create_viewer_bind_group(device, &viewer_data);
 
         let (light, light_layout) = create_light(device);
@@ -66,8 +67,8 @@ impl PipelineHandler {
         }
     }
 
-    pub fn update_viewer(&mut self, device: &Device, camera: &Camera) {
-        self.viewer_data.update_view_proj(camera);
+    pub fn update_viewer(&mut self, device: &Device, camera: &Camera, projection: &Projection) {
+        self.viewer_data.update_view_proj(camera, projection);
         let (viewer, viewer_layout) = create_viewer_bind_group(device, &self.viewer_data);
         self.bind_groups.viewer = viewer;
         self.bind_groups.viewer_layout = viewer_layout;
