@@ -6,7 +6,7 @@ use iced_wgpu::{wgpu, window::SwapChain, Primitive, Renderer, Settings, Target};
 use iced_winit::{winit, Cache, Clipboard, MouseCursor, Size, UserInterface};
 
 use winit::{
-    event::{Event, ModifiersState, WindowEvent},
+    event::{Event, ModifiersState, WindowEvent, KeyboardInput, VirtualKeyCode},
     event_loop::{ControlFlow, EventLoop},
 };
 mod scene;
@@ -97,6 +97,15 @@ fn main() {
                         WindowEvent::CloseRequested => {
                             *control_flow = ControlFlow::Exit;
                         }
+                        WindowEvent::KeyboardInput {
+                            input: KeyboardInput {
+                                virtual_keycode: Some(VirtualKeyCode::F),
+                                state,
+                                ..
+                            },
+                            ..
+                        } => design_handler.fit_design(&mut scene),
+
 
                         _ => {}
                     }

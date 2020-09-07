@@ -38,7 +38,7 @@ impl Camera {
         Matrix4::look_at_dir(
             self.position,
             self.direction(),
-            Vector3::unit_y(),
+            self.up_vec(),
         )
     }
 
@@ -175,6 +175,26 @@ impl CameraController {
         };
     }
 
+    pub fn update_quaternion(&mut self, camera: &mut Camera, old_quaternion: Quaternion<f32>) {
+        let x_angle = self.rotate_horizontal * FRAC_PI_2;
+        let y_angle = -self.rotate_vertical * FRAC_PI_2;
+        println!("x_angle: {}", x_angle);
+        println!("y_angle: {}", y_angle);
+        let rotation = Quaternion::from_axis_angle(Vector3::from([0., 1., 0.]), Rad(x_angle))
+            * Quaternion::from_axis_angle(Vector3::from([1., 0., 0.]), Rad(y_angle));
+
+        println!("old quat {:?}", old_quaternion);
+        println!("rotation {:?}", rotation);
+        println!("up_before {:?}", camera.up_vec());
+        camera.quaternion = old_quaternion * rotation;
+        println!("up_after {:?}", camera.up_vec());
+
+        // If process_mouse isn't called every frame, these values
+        // will not get set to zero, and the camera will rotate
+        // when moving in a non cardinal direction.
+        self.rotate_horizontal = 0.0;
+        self.rotate_vertical = 0.0;
+    }
     pub fn update_camera(&mut self, camera: &mut Camera, dt: Duration) {
         let dt = dt.as_secs_f32();
 
@@ -193,21 +213,10 @@ impl CameraController {
 
         // Move up/down. Since we don't use roll, we can just
         // modify the y coordinate directly.
-        camera.position.y += (self.amount_up - self.amount_down) * self.speed * dt;
+
+        camera.position += camera.up_vec() * (self.amount_up - self.amount_down) * self.speed * dt;
 
         // Rotate    
-        let x_angle = self.rotate_horizontal * FRAC_PI_2;
-        let y_angle = self.rotate_vertical * FRAC_PI_2;
-        let rotation = Quaternion::from_sv(x_angle, Vector3::from([0., 1., 0.]))
-            * Quaternion::from_sv(y_angle, Vector3::from([1., 0., 0.]));
-
-        camera.quaternion = camera.quaternion * rotation;
-
-        // If process_mouse isn't called every frame, these values
-        // will not get set to zero, and the camera will rotate
-        // when moving in a non cardinal direction.
-        self.rotate_horizontal = 0.0;
-        self.rotate_vertical = 0.0;
         self.scroll = 0.;
     }
 }

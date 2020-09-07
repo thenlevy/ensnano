@@ -1,7 +1,9 @@
 use std::path::Path;
 use crate::scene::Scene;
-use cgmath::{ Quaternion, Vector3 };
+use cgmath::{ Quaternion, Vector3, Rad };
+use cgmath::prelude::*;
 use std::f32::consts::PI;
+use std::f32::consts::FRAC_PI_2;
 
 type Basis = (f32, f64, f64, [f32; 3], u32);
 
@@ -56,9 +58,7 @@ impl DesignHandler {
 
         let rotation = self.get_fitting_quaternion(scene);
         let position = self.get_fitting_position(scene);
-
-
-        //self.needs_redraw = true;
+        scene.fit(position, rotation);
     }
 
     fn boundaries(&self) -> [f64; 6] {
@@ -128,25 +128,20 @@ impl DesignHandler {
 
         let bases = self.get_bases(scene);
 
-        let horizontal = bases[0].0;
-        let vertical = bases[1].0;
 
-        let fovy = scene.get_fovy();
-        let ratio = scene.get_ratio();
-        let z_back = vertical / 2. / fovy.tan();
         let rotation = if bases[2].4 == 1 {
             if bases[1].4 == 0 {
-                Quaternion::from_sv(-PI / 2., Vector3::from([1., 0., 0.])) 
-                    * Quaternion::from_sv(-PI / 2., Vector3::from([0., 1., 0.]))
+                Quaternion::from_axis_angle(Vector3::from([1., 0., 0.]), Rad(-FRAC_PI_2))
+                    * Quaternion::from_axis_angle(Vector3::from([0., 1., 0.]), Rad(-FRAC_PI_2))
             } else {
-                Quaternion::from_sv(PI / 2., Vector3::from([1., 0., 0.]))
+                Quaternion::from_axis_angle(Vector3::from([1., 0., 0.]), Rad(FRAC_PI_2))
             }
         } else if bases[2].4 == 0 {
             if bases[1].4 == 1 {
-                Quaternion::from_sv(-PI / 2., Vector3::from([0., 1., 0.])) 
-                    * Quaternion::from_sv(-PI / 2., Vector3::from([1., 0., 0.]))
+                Quaternion::from_axis_angle(Vector3::from([0., 1., 0.]), Rad(-FRAC_PI_2))
+                    * Quaternion::from_axis_angle(Vector3::from([1., 0., 0.]), Rad(-FRAC_PI_2))
             } else {
-                Quaternion::from_sv(PI / 2., Vector3::from([0., 1., 0.]))
+                Quaternion::from_axis_angle(Vector3::from([0., 1., 0.]), Rad(FRAC_PI_2))
             }
         } else {
             Quaternion::from([1., 0., 0., 0.])
@@ -156,11 +151,9 @@ impl DesignHandler {
 
     fn get_fitting_position(&self, scene: &Scene) -> Vector3<f32> {
         let mut bases = self.get_bases(scene);
-        let horizontal = bases[0].0;
         let vertical = bases[1].0;
 
         let fovy = scene.get_fovy();
-        let ratio = scene.get_ratio();
         let z_back = vertical / 2. / fovy.tan();
 
         bases.sort_by_key(|b| b.4);
