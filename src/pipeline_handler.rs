@@ -1,7 +1,7 @@
 use crate::{camera, instance, light, mesh, texture, uniforms, utils};
 use camera::{ Camera, Projection };
 use iced_wgpu::wgpu;
-use instance::Instance;
+use instance::{ Instance, InstanceRaw };
 use light::create_light;
 use mesh::{DrawModel, Mesh, Vertex};
 use texture::Texture;
@@ -161,14 +161,15 @@ fn create_instances_bind_group<I: bytemuck::Pod>(
     instances_data: &[I],
 ) -> (BindGroup, BindGroupLayout) {
     // create the model matrices and fill them in instance_buffer
-    let instance_buffer_size = instances_data.len() * std::mem::size_of::<cgmath::Matrix4<f32>>();
+    // instances_data has type &[InstanceRaw]
+    let instance_buffer_size = instances_data.len() * std::mem::size_of::<InstanceRaw>();
     let instance_buffer = create_buffer_with_data(
         &device,
         bytemuck::cast_slice(instances_data),
         wgpu::BufferUsage::STORAGE_READ,
     );
 
-    let uniform_bind_group_layout =
+    let instance_bind_group_layout =
         device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             bindings: &[wgpu::BindGroupLayoutBinding {
                 binding: 0,
@@ -182,8 +183,8 @@ fn create_instances_bind_group<I: bytemuck::Pod>(
             }],
         });
 
-    let uniform_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-        layout: &uniform_bind_group_layout,
+    let instance_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+        layout: &instance_bind_group_layout,
         bindings: &[wgpu::Binding {
             binding: 0,
             resource: wgpu::BindingResource::Buffer {
@@ -193,7 +194,7 @@ fn create_instances_bind_group<I: bytemuck::Pod>(
         }],
     });
 
-    (uniform_bind_group, uniform_bind_group_layout)
+    (instance_bind_group, instance_bind_group_layout)
 }
 
 /// Create the bind group for the perspective and view matrices.

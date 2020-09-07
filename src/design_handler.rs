@@ -19,6 +19,11 @@ impl DesignHandler {
         let mut covalent_bound = Vec::new();
         let mut old_position = None;
         for strand in &self.design.strands {
+            let color = if let Some(ref color) = strand.color {
+                color.as_int()
+            } else {
+                strand.default_color().as_int()
+            };
             for domain in &strand.domains {
                 for nucl in domain.iter() {
                     let position = self.design.helices[domain.helix as usize].space_pos(
@@ -28,10 +33,10 @@ impl DesignHandler {
                     );
                     let position = [position[0] as f32, position[1] as f32, position[2] as f32];
                     if let Some(old_position) = old_position.take() {
-                        covalent_bound.push((old_position, position));
+                        covalent_bound.push((old_position, position, color));
                     }
                     old_position = Some(position);
-                    nucleotide.push(position.clone());
+                    nucleotide.push((position.clone(), color));
                 }
             }
             old_position = None;

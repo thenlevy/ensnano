@@ -15,9 +15,14 @@ uniform Uniforms {
     mat4 u_view_proj;
 };
 
+struct Instances {
+    mat4 model;
+    vec3 color;
+};
+
 layout(set=1, binding=0) 
-buffer Instances {
-    mat4 s_models[];
+buffer InstancesBlock {
+    Instances instances[];
 };
 
 layout(set=2, binding=0) uniform Light {
@@ -26,9 +31,9 @@ layout(set=2, binding=0) uniform Light {
 };
 
 void main() {
-    v_color = vec3(0.5, 0.1, 0.5);
+    v_color = instances[gl_InstanceIndex].color;
 
-    mat4 model_matrix = s_models[gl_InstanceIndex];
+    mat4 model_matrix = instances[gl_InstanceIndex].model;
     mat3 normal_matrix = mat3(transpose(inverse(model_matrix)));
 
     /*Note: I'm currently doing things in world space .
@@ -40,7 +45,7 @@ void main() {
     so we'd have to pass those in separately. We'd also have to transform our 
     light's position using something like view_matrix * model_matrix * */
     v_normal = normal_matrix * a_normal;
-    vec4 model_space = s_models[gl_InstanceIndex] * vec4(a_position, 1.0); 
+    vec4 model_space = model_matrix * vec4(a_position, 1.0); 
     v_position = model_space.xyz;
     gl_Position = u_view_proj * model_space;
 }
