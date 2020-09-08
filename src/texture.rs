@@ -8,7 +8,6 @@ pub struct Texture {
 }
 
 impl Texture {
-
     pub const DEPTH_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float; // 1.
 
     pub fn create_depth_texture(device: &wgpu::Device, size: &PhySize) -> Self {
@@ -25,8 +24,8 @@ impl Texture {
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
             format: Self::DEPTH_FORMAT,
-            usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT // 3.
-                | wgpu::TextureUsage::SAMPLED 
+            usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT
+                | wgpu::TextureUsage::SAMPLED
                 | wgpu::TextureUsage::COPY_SRC,
         };
         let texture = device.create_texture(&desc);
@@ -51,6 +50,4 @@ impl Texture {
             sampler,
         }
     }
-
 }
-

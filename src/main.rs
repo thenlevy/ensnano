@@ -6,7 +6,7 @@ use iced_wgpu::{wgpu, window::SwapChain, Primitive, Renderer, Settings, Target};
 use iced_winit::{winit, Cache, Clipboard, MouseCursor, Size, UserInterface};
 
 use winit::{
-    event::{Event, ModifiersState, WindowEvent, KeyboardInput, VirtualKeyCode},
+    event::{Event, KeyboardInput, ModifiersState, VirtualKeyCode, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
 };
 mod scene;
@@ -14,6 +14,7 @@ mod scene;
 mod camera;
 mod consts;
 mod controls;
+mod design_handler;
 mod instance;
 mod light;
 mod mesh;
@@ -21,7 +22,6 @@ mod pipeline_handler;
 mod texture;
 mod uniforms;
 mod utils;
-mod design_handler;
 
 use design_handler::DesignHandler;
 
@@ -29,7 +29,7 @@ use controls::Controls;
 use scene::Scene;
 
 fn main() {
-    let args: Vec<String> =  env::args().collect();
+    let args: Vec<String> = env::args().collect();
     let path = Path::new(&args[1]);
     env_logger::init();
 
@@ -98,17 +98,16 @@ fn main() {
                             *control_flow = ControlFlow::Exit;
                         }
                         WindowEvent::KeyboardInput {
-                            input: KeyboardInput {
-                                virtual_keycode: Some(VirtualKeyCode::F),
-                                state,
-                                ..
-                            },
+                            input:
+                                KeyboardInput {
+                                    virtual_keycode: Some(VirtualKeyCode::F),
+                                    ..
+                                },
                             ..
                         } => {
-                                design_handler.fit_design(&mut scene);
-                                scene.update_camera();
-                        },
-
+                            design_handler.fit_design(&mut scene);
+                            scene.update_camera();
+                        }
 
                         _ => {}
                     }

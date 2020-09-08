@@ -1,23 +1,20 @@
-use std::path::Path;
 use crate::scene::Scene;
-use cgmath::{ Quaternion, Vector3, Rad, Matrix3 };
 use cgmath::prelude::*;
-use std::f32::consts::PI;
-use std::f32::consts::FRAC_PI_2;
+use cgmath::{Matrix3, Quaternion, Vector3};
+use std::path::Path;
 
 type Basis = (f32, f64, f64, [f32; 3], u32);
 
 pub struct DesignHandler {
-    design: codenano::Design<(), ()>
+    design: codenano::Design<(), ()>,
 }
 
 impl DesignHandler {
     pub fn new(json_path: &Path) -> Self {
-        let json_str = std::fs::read_to_string(json_path).expect(&format!("File not found {:?}", json_path));
+        let json_str =
+            std::fs::read_to_string(json_path).expect(&format!("File not found {:?}", json_path));
         let design = serde_json::from_str(&json_str).expect("Error in .json file");
-        Self {
-            design
-        }
+        Self { design }
     }
 
     pub fn update_scene(&self, scene: &mut Scene) {
@@ -35,7 +32,7 @@ impl DesignHandler {
                     let position = self.design.helices[domain.helix as usize].space_pos(
                         self.design.parameters.as_ref().unwrap(),
                         nucl,
-                        domain.forward
+                        domain.forward,
                     );
                     let position = [position[0] as f32, position[1] as f32, position[2] as f32];
                     if let Some(old_position) = old_position.take() {
@@ -53,9 +50,7 @@ impl DesignHandler {
 }
 
 impl DesignHandler {
-
     pub fn fit_design(&self, scene: &mut Scene) {
-
         let mut bases = self.get_bases(scene);
         let rotation = self.get_fitting_quaternion(&bases);
         let direction = rotation.rotate_vector([0., 0., -1.].into());
@@ -136,7 +131,12 @@ impl DesignHandler {
     }
 
     /// Given the orientation of the camera, computes its position so that it can see everything.
-    fn get_fitting_position(&self, bases: &mut Vec<Basis>, scene: &Scene, direction: &Vector3<f32>) -> Vector3<f32> {
+    fn get_fitting_position(
+        &self,
+        bases: &mut Vec<Basis>,
+        scene: &Scene,
+        direction: &Vector3<f32>,
+    ) -> Vector3<f32> {
         let ratio = scene.get_ratio();
         // We want to fit both the x and the y axis.
         let vertical = (bases[1].0).max(bases[0].0 / ratio) + bases[2].0;
@@ -148,5 +148,4 @@ impl DesignHandler {
         let coord = Vector3::from([bases[0].1 as f32, bases[1].1 as f32, bases[2].1 as f32]);
         coord - direction * x_back
     }
-
 }

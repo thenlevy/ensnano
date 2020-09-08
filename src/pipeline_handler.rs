@@ -1,7 +1,7 @@
 use crate::{camera, instance, light, mesh, texture, uniforms, utils};
-use camera::{ Camera, Projection };
+use camera::{Camera, Projection};
 use iced_wgpu::wgpu;
-use instance::{ Instance, InstanceRaw };
+use instance::{Instance, InstanceRaw};
 use light::create_light;
 use mesh::{DrawModel, Mesh, Vertex};
 use texture::Texture;

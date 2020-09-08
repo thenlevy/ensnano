@@ -1,4 +1,4 @@
-use crate::camera::{ Camera, Projection };
+use crate::camera::{Camera, Projection};
 
 #[repr(C)] // We need this for Rust to store our data correctly for the shaders
 #[derive(Debug, Copy, Clone)] // This is so we can store this in a buffer

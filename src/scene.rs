@@ -1,18 +1,17 @@
-use std::time::Duration;
-use crate::consts::*;
 use crate::{camera, instance, mesh, pipeline_handler, texture};
 use crate::{PhySize, WindowEvent};
 use camera::{Camera, CameraController, Projection};
 use cgmath::prelude::*;
-use cgmath::{Vector3, Quaternion};
+use cgmath::{Quaternion, Vector3};
 use iced_wgpu::wgpu;
-use winit::event::*;
+use iced_winit::winit;
 use instance::Instance;
 use pipeline_handler::PipelineHandler;
+use std::time::Duration;
 use texture::Texture;
 use wgpu::{Device, PrimitiveTopology};
-use iced_winit::winit;
-use winit::dpi::{PhysicalPosition};
+use winit::dpi::PhysicalPosition;
+use winit::event::*;
 
 pub struct Scene {
     state: State,
@@ -80,7 +79,11 @@ impl Scene {
         let instances = positions
             .iter()
             .map(|(v, color)| Instance {
-                position: cgmath::Vector3::<f32> { x: v[0], y: v[1], z: v[2] },
+                position: cgmath::Vector3::<f32> {
+                    x: v[0],
+                    y: v[1],
+                    z: v[2],
+                },
                 rotation: cgmath::Quaternion::new(1., 0., 0., 0.),
                 color: Instance::color_from_u32(*color),
             })
@@ -88,7 +91,7 @@ impl Scene {
         self.update.sphere_instances = Some(instances);
         self.update.need_update = true;
     }
-    
+
     pub fn update_camera(&mut self) {
         self.update.need_update = true;
         self.update.camera_update = true;
@@ -98,8 +101,16 @@ impl Scene {
         let instances = pairs
             .iter()
             .map(|(a, b, color)| {
-                let position_a = cgmath::Vector3::<f32> { x: a[0], y: a[1], z: a[2] };
-                let position_b = cgmath::Vector3::<f32> { x: b[0], y: b[1], z: b[2] };
+                let position_a = cgmath::Vector3::<f32> {
+                    x: a[0],
+                    y: a[1],
+                    z: a[2],
+                };
+                let position_b = cgmath::Vector3::<f32> {
+                    x: b[0],
+                    y: b[1],
+                    z: b[2],
+                };
                 create_bound(position_a, position_b, *color)
             })
             .flatten()
@@ -166,10 +177,16 @@ impl Scene {
         }
         if self.update.camera_update {
             self.state.update_camera(dt);
-            self.sphere_pipeline_handler
-                .update_viewer(device, &self.state.camera, &self.state.projection);
-            self.tube_pipeline_handler
-                .update_viewer(device, &self.state.camera, &self.state.projection);
+            self.sphere_pipeline_handler.update_viewer(
+                device,
+                &self.state.camera,
+                &self.state.projection,
+            );
+            self.tube_pipeline_handler.update_viewer(
+                device,
+                &self.state.camera,
+                &self.state.projection,
+            );
             self.update.camera_update = false;
         }
         self.update.need_update = false;
@@ -182,14 +199,14 @@ impl Scene {
     pub fn get_ratio(&self) -> f32 {
         self.state.projection.get_ratio()
     }
-
-    pub fn get_camera_direction(&self) -> cgmath::Vector3<f32> {
-        self.state.camera.direction()
-    }
 }
 
 /// Create an instance of a cylinder going from source to dest
-fn create_bound(source: cgmath::Vector3<f32>, dest: cgmath::Vector3<f32>, color: u32) -> Vec<Instance> {
+fn create_bound(
+    source: cgmath::Vector3<f32>,
+    dest: cgmath::Vector3<f32>,
+    color: u32,
+) -> Vec<Instance> {
     let mut ret = Vec::new();
     let color = Instance::color_from_u32(color);
     let rotation = cgmath::Quaternion::between_vectors(
@@ -211,7 +228,11 @@ fn create_bound(source: cgmath::Vector3<f32>, dest: cgmath::Vector3<f32>, color:
         };
         current_source = position + one_step / 2.;
         current_length = (source - current_source).magnitude();
-        ret.push(Instance {position, rotation, color});
+        ret.push(Instance {
+            position,
+            rotation,
+            color,
+        });
     }
     ret
 }
@@ -258,11 +279,15 @@ impl State {
             camera_controller,
             last_mouse_position: (0., 0.).into(),
             last_quaternion: [1., 0., 0., 0.].into(),
-            mouse_pressed: false
+            mouse_pressed: false,
         }
     }
 
-    pub fn new_with_parameters(size: PhySize, position: Vector3<f32>, rotation: Quaternion<f32>) -> Self {
+    pub fn new_with_parameters(
+        size: PhySize,
+        position: Vector3<f32>,
+        rotation: Quaternion<f32>,
+    ) -> Self {
         let position: [f32; 3] = position.into();
         let camera = Camera::new(position, rotation);
         let projection = Projection::new(size.width, size.height, cgmath::Deg(70.0), 0.1, 1000.0);
@@ -274,7 +299,7 @@ impl State {
             camera_controller,
             last_mouse_position: (0., 0.).into(),
             last_quaternion: rotation.into(),
-            mouse_pressed: false
+            mouse_pressed: false,
         }
     }
 
@@ -285,17 +310,15 @@ impl State {
     fn input(&mut self, event: &WindowEvent) -> bool {
         match event {
             WindowEvent::KeyboardInput {
-                input: KeyboardInput {
-                    virtual_keycode: Some(key),
-                    state,
-                    ..
-                },
+                input:
+                    KeyboardInput {
+                        virtual_keycode: Some(key),
+                        state,
+                        ..
+                    },
                 ..
             } => self.camera_controller.process_keyboard(*key, *state),
-            WindowEvent::MouseWheel {
-                delta,
-                ..
-            } => {
+            WindowEvent::MouseWheel { delta, .. } => {
                 self.camera_controller.process_scroll(delta);
                 true
             }
@@ -308,13 +331,12 @@ impl State {
                 self.mouse_pressed = *state == ElementState::Pressed;
                 true
             }
-            WindowEvent::CursorMoved {
-                position,
-                ..
-            } => {
+            WindowEvent::CursorMoved { position, .. } => {
                 if self.mouse_pressed {
-                    let mouse_dx = (position.x - self.last_mouse_position.x) / self.size.width as f64;
-                    let mouse_dy = (position.y - self.last_mouse_position.y) / self.size.height as f64;
+                    let mouse_dx =
+                        (position.x - self.last_mouse_position.x) / self.size.width as f64;
+                    let mouse_dy =
+                        (position.y - self.last_mouse_position.y) / self.size.height as f64;
                     self.camera_controller.process_mouse(mouse_dx, mouse_dy);
                 } else {
                     self.last_mouse_position = *position;
@@ -327,7 +349,7 @@ impl State {
 
     fn update_camera(&mut self, dt: Duration) {
         self.camera_controller.update_camera(&mut self.camera, dt);
-        self.camera_controller.update_quaternion(&mut self.camera, self.last_quaternion);
+        self.camera_controller
+            .update_quaternion(&mut self.camera, self.last_quaternion);
     }
-
 }
