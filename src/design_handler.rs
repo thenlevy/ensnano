@@ -1,6 +1,6 @@
 use std::path::Path;
 use crate::scene::Scene;
-use cgmath::{ Quaternion, Vector3, Rad };
+use cgmath::{ Quaternion, Vector3, Rad, Matrix3 };
 use cgmath::prelude::*;
 use std::f32::consts::PI;
 use std::f32::consts::FRAC_PI_2;
@@ -56,8 +56,10 @@ impl DesignHandler {
 
     pub fn fit_design(&self, scene: &mut Scene) {
 
-        let rotation = self.get_fitting_quaternion(scene);
-        let position = self.get_fitting_position(scene);
+        let mut bases = self.get_bases(scene);
+        let rotation = self.get_fitting_quaternion(&bases);
+        let direction = rotation.rotate_vector([0., 0., -1.].into());
+        let position = self.get_fitting_position(&mut bases, scene, &direction);
         scene.fit(position, rotation);
     }
 
@@ -101,6 +103,7 @@ impl DesignHandler {
         [min_x, max_x, min_y, max_y, min_z, max_z]
     }
 
+    /// Return the 3 axis sorted by magnitude of instances coordinates
     fn get_bases(&self, scene: &Scene) -> Vec<Basis> {
         let [min_x, max_x, min_y, max_y, min_z, max_z] = self.boundaries();
         let delta_x = ((max_x - min_x) * 1.1) as f32;
@@ -117,48 +120,33 @@ impl DesignHandler {
 
         let ratio = scene.get_ratio();
 
-        if bases[0].0 / ratio > bases[1].0 {
+        if ratio < 1. {
             bases.swap(0, 1);
         }
 
         bases
     }
 
-    fn get_fitting_quaternion(&self, scene: &Scene) -> Quaternion<f32> {
-
-        let bases = self.get_bases(scene);
-
-
-        let rotation = if bases[2].4 == 1 {
-            if bases[1].4 == 0 {
-                Quaternion::from_axis_angle(Vector3::from([1., 0., 0.]), Rad(-FRAC_PI_2))
-                    * Quaternion::from_axis_angle(Vector3::from([0., 1., 0.]), Rad(-FRAC_PI_2))
-            } else {
-                Quaternion::from_axis_angle(Vector3::from([1., 0., 0.]), Rad(FRAC_PI_2))
-            }
-        } else if bases[2].4 == 0 {
-            if bases[1].4 == 1 {
-                Quaternion::from_axis_angle(Vector3::from([0., 1., 0.]), Rad(-FRAC_PI_2))
-                    * Quaternion::from_axis_angle(Vector3::from([1., 0., 0.]), Rad(-FRAC_PI_2))
-            } else {
-                Quaternion::from_axis_angle(Vector3::from([0., 1., 0.]), Rad(FRAC_PI_2))
-            }
-        } else {
-            Quaternion::from([1., 0., 0., 0.])
-       };
-       rotation
+    fn get_fitting_quaternion(&self, bases: &Vec<Basis>) -> Quaternion<f32> {
+        let right: Vector3<f32> = bases[0].3.into();
+        let up: Vector3<f32> = bases[1].3.into();
+        let reverse_direction = right.cross(up);
+        let rotation_matrix = Matrix3::from_cols(right, up, reverse_direction);
+        rotation_matrix.into()
     }
 
-    fn get_fitting_position(&self, scene: &Scene) -> Vector3<f32> {
-        let mut bases = self.get_bases(scene);
-        let vertical = bases[1].0;
+    /// Given the orientation of the camera, computes its position so that it can see everything.
+    fn get_fitting_position(&self, bases: &mut Vec<Basis>, scene: &Scene, direction: &Vector3<f32>) -> Vector3<f32> {
+        let ratio = scene.get_ratio();
+        // We want to fit both the x and the y axis.
+        let vertical = (bases[1].0).max(bases[0].0 / ratio) + bases[2].0;
 
         let fovy = scene.get_fovy();
-        let z_back = vertical / 2. / fovy.tan();
+        let x_back = vertical / 2. / (fovy / 2.).tan();
 
         bases.sort_by_key(|b| b.4);
         let coord = Vector3::from([bases[0].1 as f32, bases[1].1 as f32, bases[2].1 as f32]);
-        coord - scene.get_camera_direction() * z_back
+        coord - direction * x_back
     }
 
 }

@@ -74,7 +74,6 @@ impl Scene {
 
     pub fn fit(&mut self, position: Vector3<f32>, quaternion: Quaternion<f32>) {
         self.state = State::new_with_parameters(self.state.size, position, quaternion);
-
     }
 
     pub fn update_spheres(&mut self, positions: &Vec<([f32; 3], u32)>) {
@@ -88,6 +87,11 @@ impl Scene {
             .collect();
         self.update.sphere_instances = Some(instances);
         self.update.need_update = true;
+    }
+    
+    pub fn update_camera(&mut self) {
+        self.update.need_update = true;
+        self.update.camera_update = true;
     }
 
     pub fn update_tubes(&mut self, pairs: &Vec<([f32; 3], [f32; 3], u32)>) {
@@ -106,8 +110,7 @@ impl Scene {
 
     pub fn input(&mut self, event: &WindowEvent) -> bool {
         if self.state.input(event) {
-            self.update.camera_update = true;
-            self.update.need_update = true;
+            self.update_camera();
             true
         } else {
             false
@@ -232,6 +235,7 @@ impl SceneUpdate {
     }
 }
 
+/// Process the inputs on a scene and gives instruction to the camera_controller
 struct State {
     camera: Camera,
     projection: Projection,
@@ -269,7 +273,7 @@ impl State {
             size,
             camera_controller,
             last_mouse_position: (0., 0.).into(),
-            last_quaternion: [1., 0., 0., 0.].into(),
+            last_quaternion: rotation.into(),
             mouse_pressed: false
         }
     }

@@ -104,7 +104,10 @@ fn main() {
                                 ..
                             },
                             ..
-                        } => design_handler.fit_design(&mut scene),
+                        } => {
+                                design_handler.fit_design(&mut scene);
+                                scene.update_camera();
+                        },
 
 
                         _ => {}

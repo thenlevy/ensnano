@@ -1,9 +1,7 @@
 use std::f32::consts::FRAC_PI_2;
 use std::time::Duration;
-use crate::PhySize;
 use iced_winit::winit;
 use winit::event::*;
-use winit::dpi::PhysicalPosition;
 use winit::dpi::LogicalPosition;
 use cgmath::{ Matrix4, Point3, Vector3, Rad, Quaternion };
 use cgmath::prelude::*;
@@ -17,7 +15,12 @@ pub const OPENGL_TO_WGPU_MATRIX: cgmath::Matrix4<f32> = cgmath::Matrix4::new(
 
 #[derive(Debug)]
 pub struct Camera {
+    /// The eye of the camera
     pub position: Point3<f32>,
+    /// The orientation of the camera. 
+    ///
+    /// `quaternion` represents the camera's basis and the camera is looking forward its x axis
+    /// with its y axis pointing up.
     pub quaternion: Quaternion<f32>,
 }
 
@@ -34,6 +37,7 @@ impl Camera {
         }
     }
 
+    /// The view matrix of the camera
     pub fn calc_matrix(&self) -> Matrix4<f32> {
         Matrix4::look_at_dir(
             self.position,
@@ -42,20 +46,24 @@ impl Camera {
         )
     }
 
+    /// The camera's direction is the negative of its z-axis
     pub fn direction(&self) -> Vector3<f32> {
         self.quaternion.rotate_vector(Vector3::from([0., 0., -1.]))
     }
 
+    /// The camera's right is its x_axis
     pub fn right_vec(&self) -> Vector3<f32> {
         self.quaternion.rotate_vector(Vector3::from([1., 0., 0.]))
     }
 
+    /// The camera's y_axis
     pub fn up_vec(&self) -> Vector3<f32> {
         self.right_vec().cross(self.direction())
     }
 
 }
 
+/// This structure holds the information needed to compute the projection matrix.
 pub struct Projection {
     aspect: f32,
     fovy: Rad<f32>,
@@ -83,6 +91,10 @@ impl Projection {
         self.aspect = width as f32 / height as f32;
     }
 
+    /// Computes the projection matrix.
+    ///
+    /// The matrix is multiplied by `OPENGL_TO_WGPU_MATRIX` so that the product Projection * View *
+    /// Model is understood by wgpu
     pub fn calc_matrix(&self) -> Matrix4<f32> {
         OPENGL_TO_WGPU_MATRIX * cgmath::perspective(self.fovy, self.aspect, self.znear, self.zfar)
     }
@@ -178,16 +190,10 @@ impl CameraController {
     pub fn update_quaternion(&mut self, camera: &mut Camera, old_quaternion: Quaternion<f32>) {
         let x_angle = self.rotate_horizontal * FRAC_PI_2;
         let y_angle = -self.rotate_vertical * FRAC_PI_2;
-        println!("x_angle: {}", x_angle);
-        println!("y_angle: {}", y_angle);
         let rotation = Quaternion::from_axis_angle(Vector3::from([0., 1., 0.]), Rad(x_angle))
-            * Quaternion::from_axis_angle(Vector3::from([1., 0., 0.]), Rad(y_angle));
+            * Quaternion::from_axis_angle(Vector3::from([0., 0., 1.]), Rad(y_angle));
 
-        println!("old quat {:?}", old_quaternion);
-        println!("rotation {:?}", rotation);
-        println!("up_before {:?}", camera.up_vec());
         camera.quaternion = old_quaternion * rotation;
-        println!("up_after {:?}", camera.up_vec());
 
         // If process_mouse isn't called every frame, these values
         // will not get set to zero, and the camera will rotate
