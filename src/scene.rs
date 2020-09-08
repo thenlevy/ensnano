@@ -72,7 +72,7 @@ impl Scene {
     }
 
     pub fn fit(&mut self, position: Vector3<f32>, quaternion: Quaternion<f32>) {
-        self.state = State::new_with_parameters(self.state.size, position, quaternion);
+        self.state.update_with_parameters(position, quaternion);
     }
 
     pub fn update_spheres(&mut self, positions: &Vec<([f32; 3], u32)>) {
@@ -262,9 +262,11 @@ struct State {
     projection: Projection,
     size: PhySize,
     camera_controller: CameraController,
-    last_mouse_position: PhysicalPosition<f64>,
+    last_clicked_position: PhysicalPosition<f64>,
+    mouse_position: PhysicalPosition<f64>,
     last_quaternion: Quaternion<f32>,
     mouse_pressed: bool,
+    processed_move: bool,
 }
 
 impl State {
@@ -277,30 +279,24 @@ impl State {
             projection,
             size,
             camera_controller,
-            last_mouse_position: (0., 0.).into(),
+            last_clicked_position: (0., 0.).into(),
+            mouse_position: (0., 0.).into(),
             last_quaternion: [1., 0., 0., 0.].into(),
             mouse_pressed: false,
+            processed_move: false,
         }
     }
 
-    pub fn new_with_parameters(
-        size: PhySize,
+    pub fn update_with_parameters(
+        &mut self,
         position: Vector3<f32>,
         rotation: Quaternion<f32>,
-    ) -> Self {
+    ) {
         let position: [f32; 3] = position.into();
-        let camera = Camera::new(position, rotation);
-        let projection = Projection::new(size.width, size.height, cgmath::Deg(70.0), 0.1, 1000.0);
-        let camera_controller = camera::CameraController::new(4.0, 0.04);
-        Self {
-            camera,
-            projection,
-            size,
-            camera_controller,
-            last_mouse_position: (0., 0.).into(),
-            last_quaternion: rotation.into(),
-            mouse_pressed: false,
-        }
+        self.camera = Camera::new(position, rotation);
+        self.projection = Projection::new(self.size.width, self.size.height, cgmath::Deg(70.0), 0.1, 1000.0);
+        self.camera_controller = camera::CameraController::new(4.0, 0.04);
+        self.last_quaternion = rotation;
     }
 
     pub fn resize(&mut self, new_size: PhySize) {
@@ -329,17 +325,21 @@ impl State {
             } => {
                 self.last_quaternion = self.camera.quaternion;
                 self.mouse_pressed = *state == ElementState::Pressed;
-                true
+                if *state == ElementState::Pressed {
+                    self.last_clicked_position = self.mouse_position;
+                    self.processed_move = false;
+                }
+                self.mouse_pressed
             }
             WindowEvent::CursorMoved { position, .. } => {
+                self.mouse_position = *position;
                 if self.mouse_pressed {
                     let mouse_dx =
-                        (position.x - self.last_mouse_position.x) / self.size.width as f64;
+                        (position.x - self.last_clicked_position.x) / self.size.width as f64;
                     let mouse_dy =
-                        (position.y - self.last_mouse_position.y) / self.size.height as f64;
+                        (position.y - self.last_clicked_position.y) / self.size.height as f64;
                     self.camera_controller.process_mouse(mouse_dx, mouse_dy);
-                } else {
-                    self.last_mouse_position = *position;
+                    self.processed_move = true;
                 }
                 self.mouse_pressed
             }
@@ -348,8 +348,10 @@ impl State {
     }
 
     fn update_camera(&mut self, dt: Duration) {
+        if self.mouse_pressed && self.processed_move {
+            self.camera_controller
+                .update_quaternion(&mut self.camera, self.last_quaternion);
+        }
         self.camera_controller.update_camera(&mut self.camera, dt);
-        self.camera_controller
-            .update_quaternion(&mut self.camera, self.last_quaternion);
     }
 }
