@@ -1,68 +1,63 @@
 use crate::scene::Scene;
+use crate::design_handler::DesignHandler;
 
 use iced_wgpu::Renderer;
-use iced_winit::{slider, Align, Color, Column, Element, Length, Row, Slider, Text};
+use iced::{button, slider, Align, Button, Color, Column, Element, Length, Row, Slider, Text, widget};
 
 pub struct Controls {
     slider: slider::State,
+    button: button::State,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Message {
-    NumberInstancesChanged(u32),
+    SceneFitRequested,
 }
 
 impl Controls {
     pub fn new() -> Controls {
         Controls {
             slider: Default::default(),
+            button: Default::default(),
         }
     }
 
-    pub fn update(&self, message: Message, scene: &mut Scene) {
+    pub fn update(&self, message: Message, design_handler: &DesignHandler, scene: &mut Scene) {
         match message {
-            Message::NumberInstancesChanged(number_instances) => {
-                scene.number_instances = number_instances;
-                //scene.update();
+            Message::SceneFitRequested => {
+                println!("message recived");
+                design_handler.fit_design(scene);
             }
         }
     }
 
-    pub fn view(&mut self, scene: &Scene) -> Element<Message, Renderer> {
+    pub fn view(&mut self, scene: &Scene) -> Element<Message> {
         let slider_n = &mut self.slider;
         let number_instances = scene.number_instances;
 
-        let sliders = Row::new()
+        let button = Button::new(&mut self.button, Text::new("Fit Scene")).on_press(Message::SceneFitRequested);
+        let buttons = Row::new()
             .width(Length::Units(500))
             .spacing(20)
-            .push(Slider::new(
-                slider_n,
-                0.0..=10.,
-                number_instances as f32,
-                move |n| Message::NumberInstancesChanged(n as u32),
-            ));
+            .push(button);
+
 
         Row::new()
             .width(Length::Fill)
             .height(Length::Fill)
-            .align_items(Align::End)
+            .align_items(Align::Start)
             .push(
                 Column::new()
                     .width(Length::Fill)
-                    .align_items(Align::End)
+                    .align_items(Align::Start)
                     .push(
                         Column::new()
                             .padding(10)
                             .spacing(10)
-                            .push(Text::new("Number of cubes").color(Color::WHITE))
-                            .push(sliders)
-                            .push(
-                                Text::new(format!("{:?}", number_instances))
-                                    .size(14)
-                                    .color(Color::WHITE),
-                            ),
+                            .push(buttons)
                     ),
             )
             .into()
     }
 }
+

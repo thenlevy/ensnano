@@ -15,6 +15,7 @@ mod camera;
 mod consts;
 mod controls;
 mod design_handler;
+//mod design_viewer;
 mod instance;
 mod light;
 mod mesh;
@@ -85,43 +86,40 @@ fn main() {
 
         match event {
             Event::WindowEvent { event, .. } => {
-                if !scene.input(&event) {
-                    match event {
-                        WindowEvent::ModifiersChanged(new_modifiers) => {
-                            modifiers = new_modifiers;
-                        }
-                        WindowEvent::Resized(new_size) => {
-                            logical_size = new_size.to_logical(window.scale_factor());
-                            resized = true;
-                        }
-                        WindowEvent::CloseRequested => {
-                            *control_flow = ControlFlow::Exit;
-                        }
-                        WindowEvent::KeyboardInput {
-                            input:
-                                KeyboardInput {
-                                    virtual_keycode: Some(VirtualKeyCode::F),
-                                    ..
-                                },
-                            ..
-                        } => {
-                            design_handler.fit_design(&mut scene);
-                            scene.update_camera();
-                        }
-
-                        _ => {}
+                scene.input(&event);
+                match event {
+                    WindowEvent::ModifiersChanged(new_modifiers) => {
+                        modifiers = new_modifiers;
+                    }
+                    WindowEvent::Resized(new_size) => {
+                        logical_size = new_size.to_logical(window.scale_factor());
+                        resized = true;
+                    }
+                    WindowEvent::CloseRequested => {
+                        *control_flow = ControlFlow::Exit;
+                    }
+                    WindowEvent::KeyboardInput {
+                        input:
+                            KeyboardInput {
+                                virtual_keycode: Some(VirtualKeyCode::F),
+                                ..
+                            },
+                        ..
+                    } => {
+                        design_handler.fit_design(&mut scene);
+                        scene.update_camera();
                     }
 
-                    // Map window event to iced event
-                    if let Some(event) = iced_winit::conversion::window_event(
-                        &event,
-                        window.scale_factor(),
-                        modifiers,
-                    ) {
-                        events.push(event);
-                    }
-                } else {
-                    window.request_redraw();
+                    _ => {}
+                }
+
+                // Map window event to iced event
+                if let Some(event) = iced_winit::conversion::window_event(
+                    &event,
+                    window.scale_factor(),
+                    modifiers,
+                ) {
+                    events.push(event);
                 }
             }
             Event::MainEventsCleared => {
@@ -165,7 +163,7 @@ fn main() {
                     // about messages, so updating our state is pretty
                     // straightforward.
                     for message in messages {
-                        controls.update(message, &mut scene);
+                        controls.update(message, &design_handler, &mut scene);
                     }
 
                     // Once the state has been changed, we rebuild our updated
@@ -216,7 +214,7 @@ fn main() {
                     },
                     &output,
                     window.scale_factor(),
-                    &["Some debug information!"],
+                    &[""],
                 );
 
                 // Then we submit the work
