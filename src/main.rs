@@ -95,7 +95,7 @@ fn main() {
 
         match event {
             Event::WindowEvent { event, .. } => {
-                scene.input(&event);
+                scene.input(&event, &device);
                 match event {
                     WindowEvent::ModifiersChanged(new_modifiers) => {
                         modifiers = new_modifiers;

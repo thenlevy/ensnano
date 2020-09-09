@@ -12,7 +12,6 @@ impl Texture {
 
     pub fn create_depth_texture(device: &wgpu::Device, size: &PhySize) -> Self {
         let size = wgpu::Extent3d {
-            // 2.
             width: size.width,
             height: size.height,
             depth: 1,

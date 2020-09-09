@@ -145,21 +145,42 @@ impl Scene {
         self.update.need_update = true;
     }
 
-    pub fn input(&mut self, event: &WindowEvent) -> bool {
+    pub fn input(&mut self, event: &WindowEvent, device: &Device) -> bool {
         let mut clicked_pixel: Option<PhysicalPosition<f64>> = None;
         if self.state.input(event, &mut clicked_pixel) {
             self.update_camera();
             true
         } else if clicked_pixel.is_some() {
             let clicked_pixel = clicked_pixel.unwrap();
-            let selected_id = self.get_selected_id(clicked_pixel);
+            let selected_id = self.get_selected_id(clicked_pixel, device);
             selected_id != 0xFFFFFF
         }else {
             false
         }
     }
 
-    fn get_selected_id(&self, clicked_pixel: PhysicalPosition<f64>) -> u32 {
+    fn get_selected_id(&mut self, clicked_pixel: PhysicalPosition<f64>, device: &Device) -> u32 {
+        let size = wgpu::Extent3d {
+            width: self.state.size.width,
+            height: self.state.size.height,
+            depth: 1,
+        };
+        let desc = wgpu::TextureDescriptor {
+            size,
+            array_layer_count: 1,
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Bgra8UnormSrgb,
+            usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT
+                | wgpu::TextureUsage::SAMPLED
+                | wgpu::TextureUsage::COPY_SRC,
+        };
+        let texture = device.create_texture(&desc);
+        let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 1 });
+        self.draw( &mut encoder, &texture.create_default_view(), device, std::time::Duration::from_millis(0), true);
+        println!("drawn of fake texture succesfully");
+
         0
     }
 
