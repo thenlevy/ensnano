@@ -163,7 +163,12 @@ impl CameraController {
     }
 
     pub fn is_moving(&self) -> bool {
-        self.amount_down > 0. || self.amount_up > 0. || self.amount_right > 0. || self.amount_left > 0. || self.amount_forward > 0. || self.amount_backward > 0.
+        self.amount_down > 0.
+            || self.amount_up > 0.
+            || self.amount_right > 0.
+            || self.amount_left > 0.
+            || self.amount_forward > 0.
+            || self.amount_backward > 0.
     }
 
     pub fn process_mouse(&mut self, mouse_dx: f64, mouse_dy: f64) {
@@ -211,7 +216,6 @@ impl CameraController {
 
         // Move up/down
         camera.position += camera.up_vec() * (self.amount_up - self.amount_down) * self.speed * dt;
-
     }
     pub fn update_camera(&mut self, camera: &mut Camera, dt: Duration) {
         if self.processed_move {
@@ -226,9 +230,8 @@ impl CameraController {
                 self.last_quaternion = camera.quaternion;
                 self.rotate_vertical = 0.;
                 self.rotate_horizontal = 0.;
-            },
+            }
             ElementState::Pressed => self.processed_move = false,
         }
     }
-
 }

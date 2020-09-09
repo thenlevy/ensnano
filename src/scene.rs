@@ -291,14 +291,16 @@ impl State {
         }
     }
 
-    pub fn update_with_parameters(
-        &mut self,
-        position: Vector3<f32>,
-        rotation: Quaternion<f32>,
-    ) {
+    pub fn update_with_parameters(&mut self, position: Vector3<f32>, rotation: Quaternion<f32>) {
         let position: [f32; 3] = position.into();
         self.camera = Camera::new(position, rotation);
-        self.projection = Projection::new(self.size.width, self.size.height, cgmath::Deg(70.0), 0.1, 1000.0);
+        self.projection = Projection::new(
+            self.size.width,
+            self.size.height,
+            cgmath::Deg(70.0),
+            0.1,
+            1000.0,
+        );
         self.camera_controller = camera::CameraController::new(4.0, 0.04, &self.camera);
     }
 

@@ -1,6 +1,6 @@
 use std::env;
 use std::path::Path;
-use std::time::{Instant, Duration};
+use std::time::{Duration, Instant};
 type PhySize = iced_winit::winit::dpi::PhysicalSize<u32>;
 
 use iced_wgpu::{wgpu, window::SwapChain, Primitive, Renderer, Settings, Target};
@@ -115,11 +115,9 @@ fn main() {
                 }
 
                 // Map window event to iced event
-                if let Some(event) = iced_winit::conversion::window_event(
-                    &event,
-                    window.scale_factor(),
-                    modifiers,
-                ) {
+                if let Some(event) =
+                    iced_winit::conversion::window_event(&event, window.scale_factor(), modifiers)
+                {
                     events.push(event);
                 }
             }
