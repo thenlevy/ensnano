@@ -1,7 +1,7 @@
 use crate::design_handler::DesignHandler;
 use crate::scene::Scene;
-use std::path::PathBuf;
 use native_dialog::Dialog;
+use std::path::PathBuf;
 
 use iced::{button, slider, Align, Button, Column, Element, Length, Row, Text};
 
@@ -40,7 +40,7 @@ impl Controls {
                 if let Ok(result) = result {
                     if let Some(path) = result {
                         design_handler.get_design(&path);
-                        design_handler.update_scene(scene);
+                        design_handler.update_scene(scene, true);
                     }
                 }
             }
@@ -54,7 +54,7 @@ impl Controls {
         let button_fit = Button::new(&mut self.button_fit, Text::new("Fit Scene"))
             .on_press(Message::SceneFitRequested);
         let button_file = Button::new(&mut self.button_file, Text::new("Open design"))
-            .on_press( Message::FileOpeningRequested);
+            .on_press(Message::FileOpeningRequested);
         let buttons = Row::new()
             .width(Length::Units(500))
             .spacing(20)
@@ -74,4 +74,3 @@ impl Controls {
             .into()
     }
 }
-

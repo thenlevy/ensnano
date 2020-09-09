@@ -32,10 +32,18 @@ use scene::Scene;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
-    let path = Path::new(&args[1]);
+    let path = if args.len() >= 2 {
+        Some(Path::new(&args[1]))
+    } else {
+        None
+    };
     env_logger::init();
 
-    let mut design_handler = DesignHandler::new(path);
+    let mut design_handler = if let Some(path) = path {
+        DesignHandler::new_with_path(path)
+    } else {
+        DesignHandler::new()
+    };
 
     // Initialize winit
     let event_loop = EventLoop::new();
@@ -76,7 +84,7 @@ fn main() {
 
     // Initialize scene and GUI controls
     let mut scene = Scene::new(&device, window.inner_size());
-    design_handler.update_scene(&mut scene);
+    design_handler.update_scene(&mut scene, true);
     let mut controls = Controls::new();
 
     // Run event loop

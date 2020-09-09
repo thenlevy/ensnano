@@ -10,7 +10,12 @@ pub struct DesignHandler {
 }
 
 impl DesignHandler {
-    pub fn new(json_path: &Path) -> Self {
+    pub fn new() -> Self {
+        let design = codenano::Design::<(), ()>::new();
+        Self { design }
+    }
+
+    pub fn new_with_path(json_path: &Path) -> Self {
         let json_str =
             std::fs::read_to_string(json_path).expect(&format!("File not found {:?}", json_path));
         let design = serde_json::from_str(&json_str).expect("Error in .json file");
@@ -29,7 +34,7 @@ impl DesignHandler {
         }
     }
 
-    pub fn update_scene(&self, scene: &mut Scene) {
+    pub fn update_scene(&self, scene: &mut Scene, fit: bool) {
         let mut nucleotide = Vec::new();
         let mut covalent_bound = Vec::new();
         let mut old_position = None;
@@ -58,6 +63,9 @@ impl DesignHandler {
         }
         scene.update_spheres(&nucleotide);
         scene.update_tubes(&covalent_bound);
+        if fit {
+            self.fit_design(scene);
+        }
     }
 }
 
