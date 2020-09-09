@@ -22,7 +22,7 @@ void main() {
     vec3 normal = normalize(v_normal);
     vec3 light_dir = normalize(light_position - v_position);
 
-    float ambient_strength = 0.1;
+    float ambient_strength = 0.3;
     vec3 ambient_color = light_color * ambient_strength;
 
     float diffuse_strength = max(dot(normal, light_dir), 0.0);
