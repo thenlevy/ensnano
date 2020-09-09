@@ -104,10 +104,12 @@ pub struct CameraController {
     rotate_horizontal: f32,
     rotate_vertical: f32,
     scroll: f32,
+    last_quaternion: Quaternion<f32>,
+    processed_move: bool,
 }
 
 impl CameraController {
-    pub fn new(speed: f32, sensitivity: f32) -> Self {
+    pub fn new(speed: f32, sensitivity: f32, camera: &Camera) -> Self {
         Self {
             speed,
             sensitivity,
@@ -120,6 +122,8 @@ impl CameraController {
             rotate_horizontal: 0.0,
             rotate_vertical: 0.0,
             scroll: 0.0,
+            last_quaternion: camera.quaternion,
+            processed_move: false,
         }
     }
 
@@ -161,6 +165,8 @@ impl CameraController {
     pub fn process_mouse(&mut self, mouse_dx: f64, mouse_dy: f64) {
         self.rotate_horizontal = mouse_dx as f32;
         self.rotate_vertical = mouse_dy as f32;
+        println!("dx {}, dy {}", mouse_dx, mouse_dy);
+        self.processed_move = true;
     }
 
     pub fn process_scroll(&mut self, delta: &MouseScrollDelta) {
@@ -171,13 +177,13 @@ impl CameraController {
         };
     }
 
-    pub fn update_quaternion(&mut self, camera: &mut Camera, old_quaternion: Quaternion<f32>) {
+    fn rotate_camera(&mut self, camera: &mut Camera) {
         let x_angle = self.rotate_horizontal * FRAC_PI_2;
         let y_angle = -self.rotate_vertical * FRAC_PI_2;
         let rotation = Quaternion::from_axis_angle(Vector3::from([0., 1., 0.]), Rad(x_angle))
             * Quaternion::from_axis_angle(Vector3::from([1., 0., 0.]), Rad(y_angle));
 
-        camera.quaternion = old_quaternion * rotation;
+        camera.quaternion = self.last_quaternion * rotation;
 
         // If process_mouse isn't called every frame, these values
         // will not get set to zero, and the camera will rotate
@@ -185,7 +191,8 @@ impl CameraController {
         self.rotate_horizontal = 0.0;
         self.rotate_vertical = 0.0;
     }
-    pub fn update_camera(&mut self, camera: &mut Camera, dt: Duration) {
+
+    fn move_camera(&mut self, camera: &mut Camera, dt: Duration) {
         let dt = dt.as_secs_f32();
 
         // Move forward/backward and left/right
@@ -209,4 +216,22 @@ impl CameraController {
         // Rotate
         self.scroll = 0.;
     }
+    pub fn update_camera(&mut self, camera: &mut Camera, dt: Duration) {
+        if self.processed_move {
+            self.rotate_camera(camera);
+        }
+        self.move_camera(camera, dt);
+    }
+
+    pub fn process_click(&mut self, camera: &Camera, state: &ElementState) {
+        match *state {
+            ElementState::Released => {
+                self.last_quaternion = camera.quaternion;
+                self.rotate_vertical = 0.;
+                self.rotate_horizontal = 0.;
+            },
+            ElementState::Pressed => self.processed_move = false,
+        }
+    }
+
 }

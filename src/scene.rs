@@ -264,16 +264,14 @@ struct State {
     camera_controller: CameraController,
     last_clicked_position: PhysicalPosition<f64>,
     mouse_position: PhysicalPosition<f64>,
-    last_quaternion: Quaternion<f32>,
     mouse_pressed: bool,
-    processed_move: bool,
 }
 
 impl State {
     pub fn new(size: PhySize) -> Self {
         let camera = Camera::new((0.0, 5.0, 10.0), Quaternion::from([1., 0., 0., 0.]));
         let projection = Projection::new(size.width, size.height, cgmath::Deg(70.0), 0.1, 1000.0);
-        let camera_controller = camera::CameraController::new(4.0, 0.04);
+        let camera_controller = camera::CameraController::new(4.0, 0.04, &camera);
         Self {
             camera,
             projection,
@@ -281,9 +279,7 @@ impl State {
             camera_controller,
             last_clicked_position: (0., 0.).into(),
             mouse_position: (0., 0.).into(),
-            last_quaternion: [1., 0., 0., 0.].into(),
             mouse_pressed: false,
-            processed_move: false,
         }
     }
 
@@ -295,8 +291,7 @@ impl State {
         let position: [f32; 3] = position.into();
         self.camera = Camera::new(position, rotation);
         self.projection = Projection::new(self.size.width, self.size.height, cgmath::Deg(70.0), 0.1, 1000.0);
-        self.camera_controller = camera::CameraController::new(4.0, 0.04);
-        self.last_quaternion = rotation;
+        self.camera_controller = camera::CameraController::new(4.0, 0.04, &self.camera);
     }
 
     pub fn resize(&mut self, new_size: PhySize) {
@@ -323,11 +318,10 @@ impl State {
                 state,
                 ..
             } => {
-                self.last_quaternion = self.camera.quaternion;
+                self.camera_controller.process_click(&self.camera, state);
                 self.mouse_pressed = *state == ElementState::Pressed;
                 if *state == ElementState::Pressed {
                     self.last_clicked_position = self.mouse_position;
-                    self.processed_move = false;
                 }
                 self.mouse_pressed
             }
@@ -339,7 +333,6 @@ impl State {
                     let mouse_dy =
                         (position.y - self.last_clicked_position.y) / self.size.height as f64;
                     self.camera_controller.process_mouse(mouse_dx, mouse_dy);
-                    self.processed_move = true;
                 }
                 self.mouse_pressed
             }
@@ -348,10 +341,6 @@ impl State {
     }
 
     fn update_camera(&mut self, dt: Duration) {
-        if self.mouse_pressed && self.processed_move {
-            self.camera_controller
-                .update_quaternion(&mut self.camera, self.last_quaternion);
-        }
         self.camera_controller.update_camera(&mut self.camera, dt);
     }
 }
