@@ -35,7 +35,7 @@ fn main() {
     let path = Path::new(&args[1]);
     env_logger::init();
 
-    let design_handler = DesignHandler::new(path);
+    let mut design_handler = DesignHandler::new(path);
 
     // Initialize winit
     let event_loop = EventLoop::new();
@@ -167,7 +167,7 @@ fn main() {
                     // about messages, so updating our state is pretty
                     // straightforward.
                     for message in messages {
-                        controls.update(message, &design_handler, &mut scene);
+                        controls.update(message, &mut design_handler, &mut scene);
                     }
 
                     // Once the state has been changed, we rebuild our updated

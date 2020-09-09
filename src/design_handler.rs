@@ -1,7 +1,7 @@
 use crate::scene::Scene;
 use cgmath::prelude::*;
 use cgmath::{Matrix3, Quaternion, Vector3};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 type Basis = (f32, f64, f64, [f32; 3], u32);
 
@@ -15,6 +15,18 @@ impl DesignHandler {
             std::fs::read_to_string(json_path).expect(&format!("File not found {:?}", json_path));
         let design = serde_json::from_str(&json_str).expect("Error in .json file");
         Self { design }
+    }
+
+    pub fn get_design(&mut self, file: &PathBuf) {
+        let json_str = std::fs::read_to_string(file);
+        if let Ok(json_str) = json_str {
+            let design = serde_json::from_str(&json_str);
+            if let Ok(design) = design {
+                self.design = design
+            } else {
+                println!("could not read the new json file");
+            }
+        }
     }
 
     pub fn update_scene(&self, scene: &mut Scene) {

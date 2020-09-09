@@ -1,30 +1,48 @@
 use crate::design_handler::DesignHandler;
 use crate::scene::Scene;
+use std::path::PathBuf;
+use native_dialog::Dialog;
 
 use iced::{button, slider, Align, Button, Column, Element, Length, Row, Text};
 
 pub struct Controls {
     slider: slider::State,
-    button: button::State,
+    button_fit: button::State,
+    button_file: button::State,
 }
 
 #[derive(Debug, Clone)]
 pub enum Message {
     SceneFitRequested,
+    FileOpeningRequested,
 }
 
 impl Controls {
     pub fn new() -> Controls {
         Controls {
             slider: Default::default(),
-            button: Default::default(),
+            button_fit: Default::default(),
+            button_file: Default::default(),
         }
     }
 
-    pub fn update(&self, message: Message, design_handler: &DesignHandler, scene: &mut Scene) {
+    pub fn update(&self, message: Message, design_handler: &mut DesignHandler, scene: &mut Scene) {
         match message {
             Message::SceneFitRequested => {
                 design_handler.fit_design(scene);
+            }
+            Message::FileOpeningRequested => {
+                let dialog = native_dialog::OpenSingleFile {
+                    dir: None,
+                    filter: None,
+                };
+                let result = dialog.show();
+                if let Ok(result) = result {
+                    if let Some(path) = result {
+                        design_handler.get_design(&path);
+                        design_handler.update_scene(scene);
+                    }
+                }
             }
         }
     }
@@ -33,12 +51,15 @@ impl Controls {
         let slider_n = &mut self.slider;
         let number_instances = scene.number_instances;
 
-        let button = Button::new(&mut self.button, Text::new("Fit Scene"))
+        let button_fit = Button::new(&mut self.button_fit, Text::new("Fit Scene"))
             .on_press(Message::SceneFitRequested);
+        let button_file = Button::new(&mut self.button_file, Text::new("Open design"))
+            .on_press( Message::FileOpeningRequested);
         let buttons = Row::new()
             .width(Length::Units(500))
             .spacing(20)
-            .push(button);
+            .push(button_fit)
+            .push(button_file);
 
         Row::new()
             .width(Length::Fill)
