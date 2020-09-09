@@ -69,6 +69,7 @@ impl Scene {
     pub fn resize(&mut self, size: PhySize, device: &Device) {
         self.depth_texture = texture::Texture::create_depth_texture(device, &size);
         self.state.resize(size);
+        self.update_camera();
     }
 
     pub fn fit(&mut self, position: Vector3<f32>, quaternion: Quaternion<f32>) {
@@ -135,6 +136,9 @@ impl Scene {
         device: &Device,
         dt: Duration,
     ) {
+        if self.state.camera_is_moving() {
+            self.update_camera();
+        }
         if self.update.need_update {
             self.perform_update(device, dt);
         }
@@ -198,6 +202,10 @@ impl Scene {
 
     pub fn get_ratio(&self) -> f32 {
         self.state.projection.get_ratio()
+    }
+
+    pub fn camera_is_moving(&self) -> bool {
+        self.state.camera_is_moving()
     }
 }
 
@@ -338,6 +346,10 @@ impl State {
             }
             _ => false,
         }
+    }
+
+    pub fn camera_is_moving(&self) -> bool {
+        self.camera_controller.is_moving()
     }
 
     fn update_camera(&mut self, dt: Duration) {

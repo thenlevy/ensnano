@@ -1,5 +1,6 @@
 use std::env;
 use std::path::Path;
+use std::time::{Instant, Duration};
 type PhySize = iced_winit::winit::dpi::PhysicalSize<u32>;
 
 use iced_wgpu::{wgpu, window::SwapChain, Primitive, Renderer, Settings, Target};
@@ -81,7 +82,7 @@ fn main() {
     let mut last_render_time = std::time::Instant::now();
     event_loop.run(move |event, _, control_flow| {
         // You should change this if you want to render continuosly
-        *control_flow = ControlFlow::Wait;
+        *control_flow = ControlFlow::WaitUntil(Instant::now() + Duration::from_millis(40));
 
         match event {
             Event::WindowEvent { event, .. } => {
@@ -127,6 +128,11 @@ fn main() {
             Event::MainEventsCleared => {
                 // If no relevant events happened, we can simply skip this
                 if events.is_empty() {
+                    if scene.camera_is_moving() {
+                        window.request_redraw();
+                    } else {
+                        last_render_time = Instant::now();
+                    }
                     return;
                 }
 

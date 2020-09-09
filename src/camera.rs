@@ -162,10 +162,13 @@ impl CameraController {
         }
     }
 
+    pub fn is_moving(&self) -> bool {
+        self.amount_down > 0. || self.amount_up > 0. || self.amount_right > 0. || self.amount_left > 0. || self.amount_forward > 0. || self.amount_backward > 0.
+    }
+
     pub fn process_mouse(&mut self, mouse_dx: f64, mouse_dy: f64) {
         self.rotate_horizontal = mouse_dx as f32;
         self.rotate_vertical = mouse_dy as f32;
-        println!("dx {}, dy {}", mouse_dx, mouse_dy);
         self.processed_move = true;
     }
 
@@ -185,9 +188,6 @@ impl CameraController {
 
         camera.quaternion = self.last_quaternion * rotation;
 
-        // If process_mouse isn't called every frame, these values
-        // will not get set to zero, and the camera will rotate
-        // when moving in a non cardinal direction.
         self.rotate_horizontal = 0.0;
         self.rotate_vertical = 0.0;
     }
@@ -207,14 +207,11 @@ impl CameraController {
         // to get closer to an object you want to focus on.
         let scrollward = camera.direction();
         camera.position += scrollward * self.scroll * self.speed * self.sensitivity * dt;
+        self.scroll = 0.;
 
-        // Move up/down. Since we don't use roll, we can just
-        // modify the y coordinate directly.
-
+        // Move up/down
         camera.position += camera.up_vec() * (self.amount_up - self.amount_down) * self.speed * dt;
 
-        // Rotate
-        self.scroll = 0.;
     }
     pub fn update_camera(&mut self, camera: &mut Camera, dt: Duration) {
         if self.processed_move {
