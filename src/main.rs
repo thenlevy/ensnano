@@ -214,7 +214,7 @@ fn main() {
                 let now = std::time::Instant::now();
                 let dt = now - last_render_time;
                 last_render_time = now;
-                scene.draw(&mut encoder, &frame.view, &device, dt);
+                scene.draw(&mut encoder, &frame.view, &device, dt, false);
 
                 // And then iced on top
                 let mouse_cursor = renderer.draw(

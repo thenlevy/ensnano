@@ -17,6 +17,8 @@ pub struct Scene {
     state: State,
     sphere_pipeline_handler: PipelineHandler,
     tube_pipeline_handler: PipelineHandler,
+    fake_tube_pipeline_handler: PipelineHandler,
+    fake_sphere_pipeline_handler: PipelineHandler,
     /// the number of tube to display
     pub number_instances: u32,
     depth_texture: Texture,
@@ -31,9 +33,13 @@ impl Scene {
         let number_instances = 3;
         let sphere_instances = Vec::new();
         let tube_instances = Vec::new();
+        let fake_sphere_instances = Vec::new();
+        let fake_tube_instances = Vec::new();
 
         let sphere_mesh = mesh::Mesh::sphere(device);
         let tube_mesh = mesh::Mesh::tube(device);
+        let fake_sphere_mesh = mesh::Mesh::sphere(device);
+        let fake_tube_mesh = mesh::Mesh::tube(device);
 
         let depth_texture = texture::Texture::create_depth_texture(device, &size);
 
@@ -53,6 +59,23 @@ impl Scene {
             &state.projection,
             PrimitiveTopology::TriangleStrip,
         );
+        let fake_tube_pipeline_handler = PipelineHandler::new(
+            device,
+            fake_tube_mesh,
+            fake_tube_instances,
+            &state.camera,
+            &state.projection,
+            PrimitiveTopology::TriangleStrip,
+        );
+        let fake_sphere_pipeline_handler = PipelineHandler::new(
+            device,
+            fake_sphere_mesh,
+            fake_sphere_instances,
+            &state.camera,
+            &state.projection,
+            PrimitiveTopology::TriangleStrip,
+        );
+
 
         let update = SceneUpdate::new();
 
@@ -63,6 +86,8 @@ impl Scene {
             update,
             sphere_pipeline_handler,
             tube_pipeline_handler,
+            fake_sphere_pipeline_handler,
+            fake_tube_pipeline_handler,
         }
     }
 
@@ -121,12 +146,21 @@ impl Scene {
     }
 
     pub fn input(&mut self, event: &WindowEvent) -> bool {
-        if self.state.input(event) {
+        let mut clicked_pixel: Option<PhysicalPosition<f64>> = None;
+        if self.state.input(event, &mut clicked_pixel) {
             self.update_camera();
             true
-        } else {
+        } else if clicked_pixel.is_some() {
+            let clicked_pixel = clicked_pixel.unwrap();
+            let selected_id = self.get_selected_id(clicked_pixel);
+            selected_id != 0xFFFFFF
+        }else {
             false
         }
+    }
+
+    fn get_selected_id(&self, clicked_pixel: PhysicalPosition<f64>) -> u32 {
+        0
     }
 
     pub fn draw(
@@ -135,6 +169,7 @@ impl Scene {
         target: &wgpu::TextureView,
         device: &Device,
         dt: Duration,
+        fake_color: bool,
     ) {
         if self.state.camera_is_moving() {
             self.update_camera();
@@ -142,18 +177,28 @@ impl Scene {
         if self.update.need_update {
             self.perform_update(device, dt);
         }
+        let clear_color = if fake_color {
+            wgpu::Color {
+                r: 1.,
+                g: 1.,
+                b: 1.,
+                a: 1.,
+            }
+        } else {
+            wgpu::Color {
+                r: 0.1,
+                g: 0.2,
+                b: 0.3,
+                a: 1.,
+            }
+        };
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
                 attachment: target,
                 resolve_target: None,
                 load_op: wgpu::LoadOp::Clear,
                 store_op: wgpu::StoreOp::Store,
-                clear_color: wgpu::Color {
-                    r: 0.1,
-                    g: 0.2,
-                    b: 0.3,
-                    a: 1.0,
-                },
+                clear_color,
             }],
             depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachmentDescriptor {
                 attachment: &self.depth_texture.view,
@@ -166,18 +211,31 @@ impl Scene {
             }),
         });
 
-        self.sphere_pipeline_handler.draw(device, &mut render_pass);
-        self.tube_pipeline_handler.draw(device, &mut render_pass);
+        if fake_color {
+            self.fake_sphere_pipeline_handler.draw(device, &mut render_pass);
+            self.fake_tube_pipeline_handler.draw(device, &mut render_pass);
+        } else {
+            self.sphere_pipeline_handler.draw(device, &mut render_pass);
+            self.tube_pipeline_handler.draw(device, &mut render_pass);
+        }
     }
 
     fn perform_update(&mut self, device: &Device, dt: Duration) {
-        if let Some(tube_instances) = self.update.tube_instances.take() {
+        if let Some(instances) = self.update.tube_instances.take() {
             self.tube_pipeline_handler
-                .update_instances(device, tube_instances);
+                .update_instances(device, instances);
         }
-        if let Some(sphere_instances) = self.update.sphere_instances.take() {
+        if let Some(instances) = self.update.sphere_instances.take() {
             self.sphere_pipeline_handler
-                .update_instances(device, sphere_instances);
+                .update_instances(device, instances);
+        }
+        if let Some(instances) = self.update.fake_sphere_instances.take() {
+            self.fake_sphere_pipeline_handler
+                .update_instances(device, instances);
+        }
+        if let Some(instances) = self.update.fake_tube_instances.take() {
+            self.fake_tube_pipeline_handler
+                .update_instances(device, instances);
         }
         if self.update.camera_update {
             self.state.update_camera(dt);
@@ -249,6 +307,8 @@ fn create_bound(
 pub struct SceneUpdate {
     pub tube_instances: Option<Vec<Instance>>,
     pub sphere_instances: Option<Vec<Instance>>,
+    pub fake_tube_instances: Option<Vec<Instance>>,
+    pub fake_sphere_instances: Option<Vec<Instance>>,
     pub need_update: bool,
     pub camera_update: bool,
 }
@@ -258,6 +318,8 @@ impl SceneUpdate {
         Self {
             tube_instances: None,
             sphere_instances: None,
+            fake_tube_instances: None,
+            fake_sphere_instances: None,
             need_update: false,
             camera_update: false,
         }
@@ -308,7 +370,7 @@ impl State {
         self.projection.resize(new_size.width, new_size.height);
     }
 
-    fn input(&mut self, event: &WindowEvent) -> bool {
+    fn input(&mut self, event: &WindowEvent, clicked_pixel: &mut Option<PhysicalPosition<f64>>) -> bool {
         match event {
             WindowEvent::KeyboardInput {
                 input:
@@ -332,6 +394,9 @@ impl State {
                 self.mouse_pressed = *state == ElementState::Pressed;
                 if *state == ElementState::Pressed {
                     self.last_clicked_position = self.mouse_position;
+                } else if position_difference(self.last_clicked_position, self.mouse_position) < 5. {
+                    println!("attempt to select");
+                    *clicked_pixel = Some(self.last_clicked_position);
                 }
                 self.mouse_pressed
             }
@@ -357,4 +422,8 @@ impl State {
     fn update_camera(&mut self, dt: Duration) {
         self.camera_controller.update_camera(&mut self.camera, dt);
     }
+}
+
+fn position_difference(a: PhysicalPosition<f64>, b: PhysicalPosition<f64>) -> f64 {
+    (a.x - b.x).abs().max((a.y - b.y).abs())
 }
