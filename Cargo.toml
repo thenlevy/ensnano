@@ -19,4 +19,4 @@ native-dialog = "0.4.2"
 
 [dependencies.codenano]
 version = "0.5.1"
-features = []
+default-features = false
