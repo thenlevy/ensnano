@@ -95,7 +95,7 @@ fn main() {
 
         match event {
             Event::WindowEvent { event, .. } => {
-                scene.input(&event);
+                scene.input(&event, &device, &mut queue);
                 match event {
                     WindowEvent::ModifiersChanged(new_modifiers) => {
                         modifiers = new_modifiers;
@@ -203,6 +203,7 @@ fn main() {
                     scene.resize(size, &device);
 
                     swap_chain = SwapChain::new(&device, &surface, format, size.width, size.height);
+                    resized = false;
                 }
 
                 let (frame, viewport) = swap_chain.next_frame();
@@ -214,7 +215,7 @@ fn main() {
                 let now = std::time::Instant::now();
                 let dt = now - last_render_time;
                 last_render_time = now;
-                scene.draw(&mut encoder, &frame.view, &device, dt);
+                scene.draw(&mut encoder, &frame.view, &device, dt, false);
 
                 // And then iced on top
                 let mouse_cursor = renderer.draw(

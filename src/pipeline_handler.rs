@@ -29,6 +29,7 @@ impl PipelineHandler {
         camera: &Camera,
         projection: &Projection,
         primitive_topology: wgpu::PrimitiveTopology,
+        fake_color: bool,
     ) -> Self {
         let instances_data: Vec<_> = instances.iter().map(|i| i.to_raw()).collect();
         let (instances_bg, instances_layout) = create_instances_bind_group(device, &instances_data);
@@ -50,11 +51,17 @@ impl PipelineHandler {
 
         let vs = include_bytes!("vert.spv");
         let fs = include_bytes!("frag.spv");
+        let fake_fs = include_bytes!("fake_color.spv");
 
         let vertex_module =
             device.create_shader_module(&wgpu::read_spirv(std::io::Cursor::new(&vs[..])).unwrap());
-        let fragment_module =
-            device.create_shader_module(&wgpu::read_spirv(std::io::Cursor::new(&fs[..])).unwrap());
+        let fragment_module = if fake_color {
+            device.create_shader_module(
+                &wgpu::read_spirv(std::io::Cursor::new(&fake_fs[..])).unwrap(),
+            )
+        } else {
+            device.create_shader_module(&wgpu::read_spirv(std::io::Cursor::new(&fs[..])).unwrap())
+        };
 
         Self {
             mesh,
