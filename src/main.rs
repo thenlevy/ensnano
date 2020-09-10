@@ -95,7 +95,9 @@ fn main() {
 
         match event {
             Event::WindowEvent { event, .. } => {
-                scene.input(&event, &device, &mut queue);
+                if scene.input(&event, &device, &mut queue) {
+                    design_handler.update_scene_selection(&mut scene);
+                }
                 match event {
                     WindowEvent::ModifiersChanged(new_modifiers) => {
                         modifiers = new_modifiers;

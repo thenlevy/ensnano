@@ -21,6 +21,7 @@ pub struct Scene {
     pub number_instances: u32,
     depth_texture: Texture,
     update: SceneUpdate,
+    selected_id: Option<u32>,
 }
 
 impl Scene {
@@ -33,8 +34,6 @@ impl Scene {
         let depth_texture = texture::Texture::create_depth_texture(device, &size);
         let pipeline_handlers = PipelineHandlers::init(device, &state.camera, &state.projection);
 
-
-
         let update = SceneUpdate::new();
 
         Self {
@@ -43,6 +42,7 @@ impl Scene {
             depth_texture,
             update,
             pipeline_handlers,
+            selected_id: None,
         }
     }
 
@@ -132,17 +132,22 @@ impl Scene {
         let mut clicked_pixel: Option<PhysicalPosition<f64>> = None;
         if self.state.input(event, &mut clicked_pixel) {
             self.update_camera();
-            true
-        } else if clicked_pixel.is_some() {
+        }
+        if clicked_pixel.is_some() {
             let clicked_pixel = clicked_pixel.unwrap();
-            let selected_id = self.get_selected_id(clicked_pixel, device, queue);
-            selected_id != 0xFFFFFF
+            let selected_id = self.set_selected_id(clicked_pixel, device, queue);
+            if selected_id != 0xFFFFFF {
+                self.selected_id = Some(selected_id);
+            } else {
+                self.selected_id = None;
+            }
+            true
         } else {
             false
         }
     }
 
-    fn get_selected_id(
+    fn set_selected_id(
         &mut self,
         clicked_pixel: PhysicalPosition<f64>,
         device: &Device,
@@ -228,6 +233,26 @@ impl Scene {
         color & 0x00FFFFFF
     }
 
+    pub fn get_selected_id(&self) -> Option<u32> {
+        self.selected_id
+    }
+
+    pub fn update_selected_tube(&mut self, source: [f32; 3], dest: [f32 ; 3]) {
+        let bound = create_bound(source.into(), dest.into(), 0);
+        self.update.selected_tube = Some(bound);
+        self.update.need_update = true;
+    }
+
+    pub fn update_selected_sphere(&mut self, position: [f32; 3]) {
+        let instance = Instance {
+            position: position.into(),
+            rotation: [1., 0., 0., 0.].into(),
+            color: Instance::color_from_u32(0),
+        };
+        self.update.selected_sphere = Some(instance);
+        self.update.need_update = true;
+    }
+
     pub fn draw(
         &mut self,
         encoder: &mut wgpu::CommandEncoder,
@@ -289,8 +314,7 @@ impl Scene {
         self.pipeline_handlers.update(&mut self.update, device);
         if self.update.camera_update {
             self.state.update_camera(dt);
-            for handler in self.pipeline_handlers.all().iter_mut()
-            {
+            for handler in self.pipeline_handlers.all().iter_mut() {
                 handler.update_viewer(device, &self.state.camera, &self.state.projection);
             }
             self.update.camera_update = false;
@@ -353,6 +377,8 @@ pub struct SceneUpdate {
     pub sphere_instances: Option<Vec<Instance>>,
     pub fake_tube_instances: Option<Vec<Instance>>,
     pub fake_sphere_instances: Option<Vec<Instance>>,
+    pub selected_tube: Option<Vec<Instance>>,
+    pub selected_sphere: Option<Instance>,
     pub need_update: bool,
     pub camera_update: bool,
 }
@@ -364,6 +390,8 @@ impl SceneUpdate {
             sphere_instances: None,
             fake_tube_instances: None,
             fake_sphere_instances: None,
+            selected_tube: None,
+            selected_sphere: None,
             need_update: false,
             camera_update: false,
         }
@@ -395,7 +423,7 @@ impl PipelineHandlers {
             camera,
             projection,
             PrimitiveTopology::TriangleList,
-            false,
+            pipeline_handler::Flavour::Real,
         );
         let tube_pipeline_handler = PipelineHandler::new(
             device,
@@ -404,7 +432,7 @@ impl PipelineHandlers {
             camera,
             projection,
             PrimitiveTopology::TriangleStrip,
-            false,
+            pipeline_handler::Flavour::Real,
         );
         let fake_tube_pipeline_handler = PipelineHandler::new(
             device,
@@ -413,7 +441,7 @@ impl PipelineHandlers {
             camera,
             projection,
             PrimitiveTopology::TriangleStrip,
-            true,
+            pipeline_handler::Flavour::Fake,
         );
         let fake_sphere_pipeline_handler = PipelineHandler::new(
             device,
@@ -422,7 +450,7 @@ impl PipelineHandlers {
             camera,
             projection,
             PrimitiveTopology::TriangleStrip,
-            true,
+            pipeline_handler::Flavour::Fake,
         );
         let selected_sphere_pipeline_handler = PipelineHandler::new(
             device,
@@ -431,7 +459,7 @@ impl PipelineHandlers {
             camera,
             projection,
             PrimitiveTopology::TriangleStrip,
-            true,
+            pipeline_handler::Flavour::Selected,
         );
         let selected_tube_pipeline_handler = PipelineHandler::new(
             device,
@@ -440,7 +468,7 @@ impl PipelineHandlers {
             camera,
             projection,
             PrimitiveTopology::TriangleStrip,
-            true,
+            pipeline_handler::Flavour::Selected,
         );
 
         Self {
@@ -454,37 +482,47 @@ impl PipelineHandlers {
     }
 
     fn all(&mut self) -> Vec<&mut PipelineHandler> {
-        vec![&mut self.sphere, &mut self.tube, &mut self.fake_sphere, &mut self.fake_tube, &mut self.selected_tube, &mut self.selected_sphere]
+        vec![
+            &mut self.sphere,
+            &mut self.tube,
+            &mut self.fake_sphere,
+            &mut self.fake_tube,
+            &mut self.selected_tube,
+            &mut self.selected_sphere,
+        ]
     }
 
     fn real(&mut self) -> Vec<&mut PipelineHandler> {
-        vec![&mut self.sphere, &mut self.tube]
+        vec![&mut self.sphere, &mut self.tube, &mut self.selected_sphere, &mut self.selected_tube]
     }
 
     fn fake(&mut self) -> Vec<&mut PipelineHandler> {
         vec![&mut self.fake_sphere, &mut self.fake_tube]
     }
 
-    fn selected(&mut self) -> Vec<&mut PipelineHandler> {
-        vec![&mut self.selected_sphere, &mut self.selected_tube]
-    }
 
     fn update(&mut self, update: &mut SceneUpdate, device: &Device) {
         if let Some(instances) = update.tube_instances.take() {
-            self.tube
-                .update_instances(device, instances);
+            self.tube.update_instances(device, instances);
         }
         if let Some(instances) = update.sphere_instances.take() {
-            self.sphere
-                .update_instances(device, instances);
+            self.sphere.update_instances(device, instances);
         }
         if let Some(instances) = update.fake_sphere_instances.take() {
-            self.fake_sphere
-                .update_instances(device, instances);
+            self.fake_sphere.update_instances(device, instances);
         }
         if let Some(instances) = update.fake_tube_instances.take() {
-            self.fake_tube
-                .update_instances(device, instances);
+            self.fake_tube.update_instances(device, instances);
+        }
+        if update.selected_tube.is_some() || update.selected_sphere.is_some() {
+            self.selected_sphere.update_instances(device, Vec::new());
+            self.selected_tube.update_instances(device, Vec::new());
+        }
+        if let Some(instances) = update.selected_tube.take() {
+            self.selected_tube.update_instances(device, instances);
+        }
+        if let Some(instances) = update.selected_sphere.take() {
+            self.selected_sphere.update_instances(device, vec![instances]);
         }
     }
 }

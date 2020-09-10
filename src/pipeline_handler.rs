@@ -21,6 +21,12 @@ pub struct PipelineHandler {
     primitive_topology: wgpu::PrimitiveTopology,
 }
 
+pub enum Flavour {
+    Real,
+    Fake,
+    Selected,
+}
+
 impl PipelineHandler {
     pub fn new(
         device: &Device,
@@ -29,7 +35,7 @@ impl PipelineHandler {
         camera: &Camera,
         projection: &Projection,
         primitive_topology: wgpu::PrimitiveTopology,
-        fake_color: bool,
+        flavour: Flavour,
     ) -> Self {
         let instances_data: Vec<_> = instances.iter().map(|i| i.to_raw()).collect();
         let (instances_bg, instances_layout) = create_instances_bind_group(device, &instances_data);
@@ -52,15 +58,19 @@ impl PipelineHandler {
         let vs = include_bytes!("vert.spv");
         let fs = include_bytes!("frag.spv");
         let fake_fs = include_bytes!("fake_color.spv");
+        let selected_fs = include_bytes!("selected_frag.spv");
 
         let vertex_module =
             device.create_shader_module(&wgpu::read_spirv(std::io::Cursor::new(&vs[..])).unwrap());
-        let fragment_module = if fake_color {
-            device.create_shader_module(
+        let fragment_module = match flavour {
+            Flavour::Real => device
+                .create_shader_module(&wgpu::read_spirv(std::io::Cursor::new(&fs[..])).unwrap()),
+            Flavour::Fake => device.create_shader_module(
                 &wgpu::read_spirv(std::io::Cursor::new(&fake_fs[..])).unwrap(),
-            )
-        } else {
-            device.create_shader_module(&wgpu::read_spirv(std::io::Cursor::new(&fs[..])).unwrap())
+            ),
+            Flavour::Selected => device.create_shader_module(
+                &wgpu::read_spirv(std::io::Cursor::new(&selected_fs[..])).unwrap(),
+            ),
         };
 
         Self {

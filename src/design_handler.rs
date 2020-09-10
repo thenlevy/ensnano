@@ -160,6 +160,24 @@ impl DesignHandler {
         }
     }
 
+    pub fn update_scene_selection(&self, scene: &mut Scene) {
+        if let Some(id) = scene.get_selected_id() {
+            if let Some(kind) = self.object_type.get(&id) {
+                match kind {
+                    ObjectType::Bound => {
+                        let (nucl1, nucl2) = self.nucleotides_involved.get(&id).unwrap();
+                        let pos1 = self.get_space_pos(nucl1).unwrap();
+                        let pos2 = self.get_space_pos(nucl2).unwrap();
+                        scene.update_selected_tube(pos1, pos2);
+                    },
+                    ObjectType::Nucleotide => {
+                        scene.update_selected_sphere(*self.space_position.get(&id).unwrap())
+                    }
+                }
+            }
+        }
+    }
+
     fn get_space_pos(&self, nucl: &Nucl) -> Option<[f32; 3]> {
         let id = self.identifier_nucl.get(nucl);
         if let Some(ref id) = id {
