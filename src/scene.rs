@@ -7,8 +7,8 @@ use iced_wgpu::wgpu;
 use iced_winit::winit;
 use instance::Instance;
 use pipeline_handler::PipelineHandler;
-use std::time::Duration;
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 use texture::Texture;
 use wgpu::{Device, PrimitiveTopology};
 use winit::dpi::PhysicalPosition;
@@ -51,6 +51,7 @@ impl Scene {
             &state.camera,
             &state.projection,
             PrimitiveTopology::TriangleList,
+            false,
         );
         let tube_pipeline_handler = PipelineHandler::new(
             device,
@@ -59,6 +60,7 @@ impl Scene {
             &state.camera,
             &state.projection,
             PrimitiveTopology::TriangleStrip,
+            false,
         );
         let fake_tube_pipeline_handler = PipelineHandler::new(
             device,
@@ -67,6 +69,7 @@ impl Scene {
             &state.camera,
             &state.projection,
             PrimitiveTopology::TriangleStrip,
+            true,
         );
         let fake_sphere_pipeline_handler = PipelineHandler::new(
             device,
@@ -75,8 +78,8 @@ impl Scene {
             &state.camera,
             &state.projection,
             PrimitiveTopology::TriangleStrip,
+            true,
         );
-
 
         let update = SceneUpdate::new();
 
@@ -103,10 +106,10 @@ impl Scene {
         self.state.update_with_parameters(position, quaternion);
     }
 
-    pub fn update_spheres(&mut self, positions: &Vec<([f32; 3], u32)>) {
+    pub fn update_spheres(&mut self, positions: &Vec<([f32; 3], u32, u32)>) {
         let instances = positions
             .iter()
-            .map(|(v, color)| Instance {
+            .map(|(v, color, _)| Instance {
                 position: cgmath::Vector3::<f32> {
                     x: v[0],
                     y: v[1],
@@ -116,7 +119,16 @@ impl Scene {
                 color: Instance::color_from_u32(*color),
             })
             .collect();
+        let fake_instances = positions
+            .iter()
+            .map(|(v, _, fake_color)| Instance {
+                position: (*v).into(),
+                rotation: [1., 0., 0., 0.].into(),
+                color: Instance::color_from_u32(*fake_color),
+            })
+            .collect();
         self.update.sphere_instances = Some(instances);
+        self.update.fake_sphere_instances = Some(fake_instances);
         self.update.need_update = true;
     }
 
@@ -125,10 +137,10 @@ impl Scene {
         self.update.camera_update = true;
     }
 
-    pub fn update_tubes(&mut self, pairs: &Vec<([f32; 3], [f32; 3], u32)>) {
+    pub fn update_tubes(&mut self, pairs: &Vec<([f32; 3], [f32; 3], u32, u32)>) {
         let instances = pairs
             .iter()
-            .map(|(a, b, color)| {
+            .map(|(a, b, color, _)| {
                 let position_a = cgmath::Vector3::<f32> {
                     x: a[0],
                     y: a[1],
@@ -143,7 +155,25 @@ impl Scene {
             })
             .flatten()
             .collect();
+        let fake_instances = pairs
+            .iter()
+            .map(|(a, b, _, fake_color)| {
+                let position_a = cgmath::Vector3::<f32> {
+                    x: a[0],
+                    y: a[1],
+                    z: a[2],
+                };
+                let position_b = cgmath::Vector3::<f32> {
+                    x: b[0],
+                    y: b[1],
+                    z: b[2],
+                };
+                create_bound(position_a, position_b, *fake_color)
+            })
+            .flatten()
+            .collect();
         self.update.tube_instances = Some(instances);
+        self.update.fake_tube_instances = Some(fake_instances);
         self.update.need_update = true;
     }
 
@@ -156,12 +186,17 @@ impl Scene {
             let clicked_pixel = clicked_pixel.unwrap();
             let selected_id = self.get_selected_id(clicked_pixel, device, queue);
             selected_id != 0xFFFFFF
-        }else {
+        } else {
             false
         }
     }
 
-    fn get_selected_id(&mut self, clicked_pixel: PhysicalPosition<f64>, device: &Device, queue: &mut wgpu::Queue) -> u32 {
+    fn get_selected_id(
+        &mut self,
+        clicked_pixel: PhysicalPosition<f64>,
+        device: &Device,
+        queue: &mut wgpu::Queue,
+    ) -> u32 {
         let size = wgpu::Extent3d {
             width: self.state.size.width,
             height: self.state.size.height,
@@ -180,8 +215,15 @@ impl Scene {
         };
         let texture = device.create_texture(&desc);
         let texture_view = texture.create_default_view();
-        let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 1 });
-        self.draw( &mut encoder, &texture_view, device, std::time::Duration::from_millis(0), true);
+        let mut encoder =
+            device.create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 1 });
+        self.draw(
+            &mut encoder,
+            &texture_view,
+            device,
+            std::time::Duration::from_millis(0),
+            true,
+        );
         println!("drawn of fake texture succesfully");
 
         let buf_size = size.width * size.height * std::mem::size_of::<u32>() as u32;
@@ -190,7 +232,7 @@ impl Scene {
             usage: wgpu::BufferUsage::MAP_READ | wgpu::BufferUsage::COPY_DST,
         });
         println!("{}", size.width);
-        let buffer_copy_view = wgpu::BufferCopyView { 
+        let buffer_copy_view = wgpu::BufferCopyView {
             buffer: &staging_buffer,
             offset: 0,
             row_pitch: size.width * std::mem::size_of::<u32>() as u32,
@@ -204,19 +246,24 @@ impl Scene {
         };
         encoder.copy_texture_to_buffer(texture_copy_view, buffer_copy_view, size);
         queue.submit(&[encoder.finish()]);
-        let pixel = (clicked_pixel.y as u32 * size.width + clicked_pixel.x as u32) * std::mem::size_of::<u32>() as u32 ;
+        let pixel = (clicked_pixel.y as u32 * size.width + clicked_pixel.x as u32)
+            * std::mem::size_of::<u32>() as u32;
         let color = Arc::new(Mutex::new(None));
         {
             let color = Arc::clone(&color);
-            staging_buffer.map_read_async(pixel as u64, std::mem::size_of::<u32>() as u64, move |result: wgpu::BufferMapAsyncResult<&[u32]>| {
-                if let Ok(mapping) = result {
-                    let ret = mapping.data[0];
-                    let mut color_ref = color.lock().unwrap();
-                    *color_ref = Some(ret);
-                } else {
-                    panic!("Buffer map read async");
-                }
-            });
+            staging_buffer.map_read_async(
+                pixel as u64,
+                std::mem::size_of::<u32>() as u64,
+                move |result: wgpu::BufferMapAsyncResult<&[u32]>| {
+                    if let Ok(mapping) = result {
+                        let ret = mapping.data[0];
+                        let mut color_ref = color.lock().unwrap();
+                        *color_ref = Some(ret);
+                    } else {
+                        panic!("Buffer map read async");
+                    }
+                },
+            );
         }
         while color.lock().unwrap().is_none() {
             device.poll(true);
@@ -226,7 +273,7 @@ impl Scene {
         let r = (color & 0x00FF0000) >> 16;
         let g = (color & 0x0000FF00) >> 8;
         let b = color & 0x000000FF;
-        println!("read {}, {}, {}, {}",r, g, b, a);
+        println!("read {}, {}, {}, {}", r, g, b, a);
         color & 0x00FFFFFF
     }
 
@@ -279,8 +326,10 @@ impl Scene {
         });
 
         if fake_color {
-            self.sphere_pipeline_handler.draw(device, &mut render_pass);
-            self.tube_pipeline_handler.draw(device, &mut render_pass);
+            self.fake_sphere_pipeline_handler
+                .draw(device, &mut render_pass);
+            self.fake_tube_pipeline_handler
+                .draw(device, &mut render_pass);
         } else {
             self.sphere_pipeline_handler.draw(device, &mut render_pass);
             self.tube_pipeline_handler.draw(device, &mut render_pass);
@@ -306,16 +355,16 @@ impl Scene {
         }
         if self.update.camera_update {
             self.state.update_camera(dt);
-            self.sphere_pipeline_handler.update_viewer(
-                device,
-                &self.state.camera,
-                &self.state.projection,
-            );
-            self.tube_pipeline_handler.update_viewer(
-                device,
-                &self.state.camera,
-                &self.state.projection,
-            );
+            for handler in [
+                &mut self.sphere_pipeline_handler,
+                &mut self.fake_sphere_pipeline_handler,
+                &mut self.tube_pipeline_handler,
+                &mut self.fake_tube_pipeline_handler,
+            ]
+            .iter_mut()
+            {
+                handler.update_viewer(device, &self.state.camera, &self.state.projection);
+            }
             self.update.camera_update = false;
         }
         self.update.need_update = false;
@@ -438,7 +487,11 @@ impl State {
         self.size = new_size;
     }
 
-    fn input(&mut self, event: &WindowEvent, clicked_pixel: &mut Option<PhysicalPosition<f64>>) -> bool {
+    fn input(
+        &mut self,
+        event: &WindowEvent,
+        clicked_pixel: &mut Option<PhysicalPosition<f64>>,
+    ) -> bool {
         match event {
             WindowEvent::KeyboardInput {
                 input:
@@ -462,7 +515,8 @@ impl State {
                 self.mouse_pressed = *state == ElementState::Pressed;
                 if *state == ElementState::Pressed {
                     self.last_clicked_position = self.mouse_position;
-                } else if position_difference(self.last_clicked_position, self.mouse_position) < 5. {
+                } else if position_difference(self.last_clicked_position, self.mouse_position) < 5.
+                {
                     println!("attempt to select");
                     *clicked_pixel = Some(self.last_clicked_position);
                 }
