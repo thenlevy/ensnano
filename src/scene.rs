@@ -8,6 +8,7 @@ use iced_winit::winit;
 use instance::Instance;
 use pipeline_handler::PipelineHandler;
 use std::time::Duration;
+use std::sync::{Arc, Mutex};
 use texture::Texture;
 use wgpu::{Device, PrimitiveTopology};
 use winit::dpi::PhysicalPosition;
@@ -204,18 +205,29 @@ impl Scene {
         encoder.copy_texture_to_buffer(texture_copy_view, buffer_copy_view, size);
         queue.submit(&[encoder.finish()]);
         let pixel = (clicked_pixel.y as u32 * size.width + clicked_pixel.x as u32) * std::mem::size_of::<u32>() as u32 ;
-        staging_buffer.map_read_async(pixel as u64, std::mem::size_of::<u32>() as u64, |result: wgpu::BufferMapAsyncResult<&[u32]>| {
-            if let Ok(mapping) = result {
-                let color = mapping.data[0];
-                let a = (color & 0xFF000000) >> 24;
-                let r = (color & 0x00FF0000) >> 16;
-                let g = (color & 0x0000FF00) >> 8;
-                let b = color & 0x000000FF;
-
-                println!("read {}, {}, {}, {}",r, g, b, a);
-            }
-        });
-        0
+        let color = Arc::new(Mutex::new(None));
+        {
+            let color = Arc::clone(&color);
+            staging_buffer.map_read_async(pixel as u64, std::mem::size_of::<u32>() as u64, move |result: wgpu::BufferMapAsyncResult<&[u32]>| {
+                if let Ok(mapping) = result {
+                    let ret = mapping.data[0];
+                    let mut color_ref = color.lock().unwrap();
+                    *color_ref = Some(ret);
+                } else {
+                    panic!("Buffer map read async");
+                }
+            });
+        }
+        while color.lock().unwrap().is_none() {
+            device.poll(true);
+        }
+        let color = color.lock().unwrap().unwrap();
+        let a = (color & 0xFF000000) >> 24;
+        let r = (color & 0x00FF0000) >> 16;
+        let g = (color & 0x0000FF00) >> 8;
+        let b = color & 0x000000FF;
+        println!("read {}, {}, {}, {}",r, g, b, a);
+        color & 0x00FFFFFF
     }
 
     pub fn draw(

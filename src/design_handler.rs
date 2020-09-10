@@ -2,24 +2,97 @@ use crate::scene::Scene;
 use cgmath::prelude::*;
 use cgmath::{Matrix3, Quaternion, Vector3};
 use std::path::{Path, PathBuf};
+use std::collections::HashMap;
 
 type Basis = (f32, f64, f64, [f32; 3], u32);
 
+#[derive(Clone, Copy, Eq, PartialEq)]
+pub enum ObjectType {
+    Nucleotide,
+    Bound,
+}
+
+#[derive(Clone, Copy, Eq, PartialEq)]
+pub struct Nucl {
+    position: isize,
+    helix: isize,
+    forward: bool,
+    /// Some(s_id) if the nucleotide lies on the strand s_id. None otherwise
+    strand: Option<usize>,
+}
+
+
 pub struct DesignHandler {
     design: codenano::Design<(), ()>,
+    object_type: HashMap<usize, ObjectType>,
+    nucleotide: HashMap<usize, Nucl>,
+    nucleotides_involved: HashMap<usize, (Nucl, Nucl)>,
+    space_position: HashMap<usize, [f32 ; 3]>,
+    identifier_nucl: HashMap<Nucl, usize>,
+    identifier_bound: HashMap<(Nucl, Nucl), usize>,
 }
 
 impl DesignHandler {
     pub fn new() -> Self {
         let design = codenano::Design::<(), ()>::new();
-        Self { design }
+        Self {
+            design,
+            object_type: HashMap::new(),
+            space_position: HashMap::new(),
+            identifier_nucl: HashMap::new(),
+            identifier_bound: HashMap::new(),
+            nucleotides_involved: HashMap::new(),
+            nucleotide: HashMap::new(),
+        }
     }
 
     pub fn new_with_path(json_path: &Path) -> Self {
         let json_str =
             std::fs::read_to_string(json_path).expect(&format!("File not found {:?}", json_path));
         let design = serde_json::from_str(&json_str).expect("Error in .json file");
-        Self { design }
+        let mut ret = Self {
+            design,
+            object_type: HashMap::new(),
+            space_position: HashMap::new(),
+            identifier_nucl: HashMap::new(),
+            identifier_bound: HashMap::new(),
+            nucleotides_involved: HashMap::new(),
+            nucleotide: HashMap::new(),
+        };
+        ret.make_hash_maps();
+        ret
+    }
+
+    fn make_hash_maps(&mut self) {
+        let object_type = HashMap::new();
+        let nucleotide = HashMap::new();
+        let mut id = 0usize;
+        for (s_id, strand) in self.design.strands.iter().enumerate() {
+            for domain in &strand.domains {
+                for nucl_position in domain.iter() {
+                    let position = self.design.helices[domain.helix as usize].space_pos(
+                        self.design.parameters.as_ref().unwrap(),
+                        nucl_position,
+                        domain.forward,
+                    );
+                    let nucl = Nucl {
+                        position: nucl_position,
+                        forward: domain.forward,
+                        helix: domain.helix,
+                        strand: Some(s_id),
+                    };
+                    object_type.insert(id, ObjectType::Nucleotide);
+                    let position = [position[0] as f32, position[1] as f32, position[2] as f32];
+                    id += 1;
+                    if let Some(old_position) = old_position.take() {
+                        covalent_bound.push((old_position, position, color));
+                    }
+                    old_position = Some(position);
+                    nucleotide.push((position.clone(), color));
+                }
+            }
+            old_position = None;
+        }
     }
 
     pub fn get_design(&mut self, file: &PathBuf) {
