@@ -52,7 +52,9 @@ pub struct Mesh {
 impl Mesh {
     /// Represents a tube with radius of BOUND_RADIUS, height of BOUND_LENGTH, and centered at
     /// (0, 0, 0) pointing to (1, 0, 0).
-    pub fn tube(device: &Device) -> Self {
+    pub fn tube(device: &Device, bigger: bool) -> Self {
+        let scale = if bigger { SELECT_SCALE_FACTOR } else { 1. };
+        let radius = scale * BOUND_RADIUS;
         let vertices = (0..(2 * NB_RAY_TUBE))
             .map(|i| {
                 let point = i / 2;
@@ -60,8 +62,8 @@ impl Mesh {
                 let theta = (point as f32) * 2. * PI / NB_RAY_TUBE as f32;
                 let position = [
                     side * BOUND_LENGTH / 2.,
-                    theta.sin() * BOUND_RADIUS,
-                    theta.cos() * BOUND_RADIUS,
+                    theta.sin() * radius,
+                    theta.cos() * radius,
                 ];
 
                 let normal = [0., theta.sin(), theta.cos()];
@@ -91,7 +93,8 @@ impl Mesh {
         }
     }
 
-    pub fn sphere(device: &Device) -> Self {
+    pub fn sphere(device: &Device, bigger: bool) -> Self {
+        let scale = if bigger { SELECT_SCALE_FACTOR } else { 1. };
         let mut vertices = Vec::new();
 
         let stack_step = PI / NB_STACK_SPHERE as f32;
@@ -99,8 +102,9 @@ impl Mesh {
         for i in 0..=NB_STACK_SPHERE {
             // 0..=x means that x is included
             let stack_angle = PI / 2. - (i as f32) * stack_step;
-            let xy = SPHERE_RADIUS * stack_angle.cos();
-            let z = SPHERE_RADIUS * stack_angle.sin();
+            let radius = SPHERE_RADIUS * scale;
+            let xy = radius * stack_angle.cos();
+            let z = radius * stack_angle.sin();
 
             for j in 0..=NB_SECTOR_SPHERE {
                 let sector_angle = j as f32 * sector_step;
