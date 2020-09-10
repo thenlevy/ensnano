@@ -94,6 +94,7 @@ impl Scene {
     pub fn resize(&mut self, size: PhySize, device: &Device) {
         self.depth_texture = texture::Texture::create_depth_texture(device, &size);
         self.state.resize(size);
+        println!("state resized");
         self.update_camera();
     }
 
@@ -145,21 +146,21 @@ impl Scene {
         self.update.need_update = true;
     }
 
-    pub fn input(&mut self, event: &WindowEvent, device: &Device) -> bool {
+    pub fn input(&mut self, event: &WindowEvent, device: &Device, queue: &mut wgpu::Queue) -> bool {
         let mut clicked_pixel: Option<PhysicalPosition<f64>> = None;
         if self.state.input(event, &mut clicked_pixel) {
             self.update_camera();
             true
         } else if clicked_pixel.is_some() {
             let clicked_pixel = clicked_pixel.unwrap();
-            let selected_id = self.get_selected_id(clicked_pixel, device);
+            let selected_id = self.get_selected_id(clicked_pixel, device, queue);
             selected_id != 0xFFFFFF
         }else {
             false
         }
     }
 
-    fn get_selected_id(&mut self, clicked_pixel: PhysicalPosition<f64>, device: &Device) -> u32 {
+    fn get_selected_id(&mut self, clicked_pixel: PhysicalPosition<f64>, device: &Device, queue: &mut wgpu::Queue) -> u32 {
         let size = wgpu::Extent3d {
             width: self.state.size.width,
             height: self.state.size.height,
@@ -177,10 +178,43 @@ impl Scene {
                 | wgpu::TextureUsage::COPY_SRC,
         };
         let texture = device.create_texture(&desc);
+        let texture_view = texture.create_default_view();
         let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 1 });
-        self.draw( &mut encoder, &texture.create_default_view(), device, std::time::Duration::from_millis(0), true);
+        self.draw( &mut encoder, &texture_view, device, std::time::Duration::from_millis(0), true);
         println!("drawn of fake texture succesfully");
 
+        let buf_size = size.width * size.height * std::mem::size_of::<u32>() as u32;
+        let staging_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            size: buf_size as u64,
+            usage: wgpu::BufferUsage::MAP_READ | wgpu::BufferUsage::COPY_DST,
+        });
+        println!("{}", size.width);
+        let buffer_copy_view = wgpu::BufferCopyView { 
+            buffer: &staging_buffer,
+            offset: 0,
+            row_pitch: size.width * std::mem::size_of::<u32>() as u32,
+            image_height: size.height * std::mem::size_of::<u32>() as u32,
+        };
+        let texture_copy_view = wgpu::TextureCopyView {
+            texture: &texture,
+            mip_level: 0,
+            array_layer: 0,
+            origin: wgpu::Origin3d::ZERO,
+        };
+        encoder.copy_texture_to_buffer(texture_copy_view, buffer_copy_view, size);
+        queue.submit(&[encoder.finish()]);
+        let pixel = (clicked_pixel.y as u32 * size.width + clicked_pixel.x as u32) * std::mem::size_of::<u32>() as u32 ;
+        staging_buffer.map_read_async(pixel as u64, std::mem::size_of::<u32>() as u64, |result: wgpu::BufferMapAsyncResult<&[u32]>| {
+            if let Ok(mapping) = result {
+                let color = mapping.data[0];
+                let a = (color & 0xFF000000) >> 24;
+                let r = (color & 0x00FF0000) >> 16;
+                let g = (color & 0x0000FF00) >> 8;
+                let b = color & 0x000000FF;
+
+                println!("read {}, {}, {}, {}",r, g, b, a);
+            }
+        });
         0
     }
 
@@ -233,8 +267,8 @@ impl Scene {
         });
 
         if fake_color {
-            self.fake_sphere_pipeline_handler.draw(device, &mut render_pass);
-            self.fake_tube_pipeline_handler.draw(device, &mut render_pass);
+            self.sphere_pipeline_handler.draw(device, &mut render_pass);
+            self.tube_pipeline_handler.draw(device, &mut render_pass);
         } else {
             self.sphere_pipeline_handler.draw(device, &mut render_pass);
             self.tube_pipeline_handler.draw(device, &mut render_pass);
@@ -389,6 +423,7 @@ impl State {
 
     pub fn resize(&mut self, new_size: PhySize) {
         self.projection.resize(new_size.width, new_size.height);
+        self.size = new_size;
     }
 
     fn input(&mut self, event: &WindowEvent, clicked_pixel: &mut Option<PhysicalPosition<f64>>) -> bool {

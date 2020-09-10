@@ -95,7 +95,7 @@ fn main() {
 
         match event {
             Event::WindowEvent { event, .. } => {
-                scene.input(&event, &device);
+                scene.input(&event, &device, &mut queue);
                 match event {
                     WindowEvent::ModifiersChanged(new_modifiers) => {
                         modifiers = new_modifiers;
@@ -203,6 +203,7 @@ fn main() {
                     scene.resize(size, &device);
 
                     swap_chain = SwapChain::new(&device, &surface, format, size.width, size.height);
+                    resized = false;
                 }
 
                 let (frame, viewport) = swap_chain.next_frame();
