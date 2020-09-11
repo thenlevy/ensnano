@@ -31,23 +31,23 @@ pub fn create_light(device: &Device) -> (BindGroup, BindGroupLayout) {
     );
 
     let light_bind_group_layout =
-        device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            bindings: &[wgpu::BindGroupLayoutBinding {
-                binding: 0,
-                visibility: wgpu::ShaderStage::VERTEX | wgpu::ShaderStage::FRAGMENT,
-                ty: wgpu::BindingType::UniformBuffer { dynamic: false },
-            }],
-        });
+    device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+        entries: &[wgpu::BindGroupLayoutEntry {
+            binding: 0,
+            visibility: wgpu::ShaderStage::VERTEX | wgpu::ShaderStage::FRAGMENT,
+            ty: wgpu::BindingType::UniformBuffer { dynamic: false, min_binding_size: None },
+            count: None,
+        }],
+        label: Some("light_bind_group_layout"),
+    });
 
     let light_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
         layout: &light_bind_group_layout,
-        bindings: &[wgpu::Binding {
+        entries: &[wgpu::BindGroupEntry {
             binding: 0,
-            resource: wgpu::BindingResource::Buffer {
-                buffer: &light_buffer,
-                range: 0..std::mem::size_of_val(&light) as wgpu::BufferAddress,
-            },
+            resource: wgpu::BindingResource::Buffer(light_buffer.slice(..))
         }],
+        label: Some("light bind group"),
     });
     (light_bind_group, light_bind_group_layout)
 }

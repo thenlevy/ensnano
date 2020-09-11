@@ -45,7 +45,7 @@ impl DesignHandler {
         }
     }
 
-    pub fn new_with_path(json_path: &Path) -> Self {
+    pub fn new_with_path(json_path: &PathBuf) -> Self {
         let json_str =
             std::fs::read_to_string(json_path).expect(&format!("File not found {:?}", json_path));
         let design = serde_json::from_str(&json_str).expect("Error in .json file");

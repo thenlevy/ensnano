@@ -9,10 +9,12 @@ use instance::Instance;
 use pipeline_handler::PipelineHandler;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
+use std::convert::TryInto;
 use texture::Texture;
 use wgpu::{Device, PrimitiveTopology};
 use winit::dpi::PhysicalPosition;
 use winit::event::*;
+use futures::executor;
 
 pub struct Scene {
     state: State,
@@ -79,7 +81,7 @@ impl Scene {
         };
         let desc = wgpu::TextureDescriptor {
             size,
-            array_layer_count: 1,
+            //array_layer_count: 1,
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
@@ -87,11 +89,23 @@ impl Scene {
             usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT
                 | wgpu::TextureUsage::SAMPLED
                 | wgpu::TextureUsage::COPY_SRC,
+            label: None,
         };
+        let texture_view_descriptor = wgpu::TextureViewDescriptor {
+            label: None,
+            format: Some(wgpu::TextureFormat::Bgra8Unorm),
+            dimension: Some(wgpu::TextureViewDimension::D2),
+            aspect: wgpu::TextureAspect::All,
+            base_mip_level: 1,
+            level_count: None,
+            base_array_layer: 1,
+            array_layer_count: None,
+        };
+
         let texture = device.create_texture(&desc);
-        let texture_view = texture.create_default_view();
+        let texture_view = texture.create_view(&texture_view_descriptor);
         let mut encoder =
-            device.create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 1 });
+            device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
         self.draw(
             &mut encoder,
             &texture_view,
@@ -104,45 +118,47 @@ impl Scene {
         let staging_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             size: buf_size as u64,
             usage: wgpu::BufferUsage::MAP_READ | wgpu::BufferUsage::COPY_DST,
+            mapped_at_creation: false,
+            label: None,
         });
 
         let buffer_copy_view = wgpu::BufferCopyView {
             buffer: &staging_buffer,
-            offset: 0,
-            row_pitch: size.width * std::mem::size_of::<u32>() as u32,
-            image_height: size.height * std::mem::size_of::<u32>() as u32,
+            layout: wgpu::TextureDataLayout {
+                offset: 0,
+                bytes_per_row: size.width * std::mem::size_of::<u32>() as u32,
+                rows_per_image: size.height * std::mem::size_of::<u32>() as u32,
+            }
         };
         let texture_copy_view = wgpu::TextureCopyView {
             texture: &texture,
             mip_level: 0,
-            array_layer: 0,
             origin: wgpu::Origin3d::ZERO,
         };
         encoder.copy_texture_to_buffer(texture_copy_view, buffer_copy_view, size);
-        queue.submit(&[encoder.finish()]);
+        queue.submit(Some(encoder.finish()));
+
         let pixel = (clicked_pixel.y as u32 * size.width + clicked_pixel.x as u32)
             * std::mem::size_of::<u32>() as u32;
-        let color = Arc::new(Mutex::new(None));
-        {
-            let color = Arc::clone(&color);
-            staging_buffer.map_read_async(
-                pixel as u64,
-                std::mem::size_of::<u32>() as u64,
-                move |result: wgpu::BufferMapAsyncResult<&[u32]>| {
-                    if let Ok(mapping) = result {
-                        let ret = mapping.data[0];
-                        let mut color_ref = color.lock().unwrap();
-                        *color_ref = Some(ret);
-                    } else {
-                        panic!("Buffer map read async");
-                    }
-                },
-            );
-        }
-        while color.lock().unwrap().is_none() {
-            device.poll(true);
-        }
-        let color = color.lock().unwrap().unwrap();
+        let pixel = pixel as u64;
+        let offset = std::mem::size_of::<u32>() as u64;
+
+        let buffer_slice = staging_buffer.slice(pixel..(pixel+offset));
+        let buffer_future = buffer_slice.map_async(wgpu::MapMode::Read);
+        device.poll(wgpu::Maintain::Wait);
+        let color = async {
+            if let Ok(()) = buffer_future.await {
+                let data = buffer_slice.get_mapped_range();
+                let color = data.chunks_exact(4)
+                    .map(|b| u32::from_ne_bytes(b.try_into().unwrap()))
+                    .next()
+                    .unwrap();
+                color
+            } else {
+                panic!("could not read fake texture");
+            }
+        };
+        let color = executor::block_on(color);
         let a = (color & 0xFF000000) >> 24;
         let r = (color & 0x00FF0000) >> 16;
         let g = (color & 0x0000FF00) >> 8;
@@ -209,18 +225,21 @@ impl Scene {
             color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
                 attachment: target,
                 resolve_target: None,
-                load_op: wgpu::LoadOp::Clear,
-                store_op: wgpu::StoreOp::Store,
-                clear_color,
+                ops: wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(clear_color),
+                    store: true,
+                },
             }],
             depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachmentDescriptor {
                 attachment: &self.depth_texture.view,
-                depth_load_op: wgpu::LoadOp::Clear,
-                depth_store_op: wgpu::StoreOp::Store,
-                clear_depth: 1.0,
-                stencil_load_op: wgpu::LoadOp::Clear,
-                stencil_store_op: wgpu::StoreOp::Store,
-                clear_stencil: 0,
+                depth_ops: Some(wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(1.),
+                    store: true,
+                }),
+                stencil_ops: Some(wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(0),
+                    store: true,
+                }),
             }),
         });
         for pipeline_handler in handlers.iter_mut() {

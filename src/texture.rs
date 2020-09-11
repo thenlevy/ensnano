@@ -18,7 +18,6 @@ impl Texture {
         };
         let desc = wgpu::TextureDescriptor {
             size,
-            array_layer_count: 1,
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
@@ -26,12 +25,25 @@ impl Texture {
             usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT
                 | wgpu::TextureUsage::SAMPLED
                 | wgpu::TextureUsage::COPY_SRC,
+            label: Some("desc"),
         };
         let texture = device.create_texture(&desc);
 
-        let view = texture.create_default_view();
+        let view_descriptor = wgpu::TextureViewDescriptor {
+            label: Some("view_descriptor"),
+            format: Some(Self::DEPTH_FORMAT),
+            dimension: Some(wgpu::TextureViewDimension::D2),
+            aspect: wgpu::TextureAspect::DepthOnly,
+            base_mip_level: 1,
+            level_count: None,
+            base_array_layer: 1,
+            array_layer_count: None,
+        };
+
+        let view = texture.create_view(&view_descriptor);
         let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             // 4.
+            label: Some("sampler"),
             address_mode_u: wgpu::AddressMode::ClampToEdge,
             address_mode_v: wgpu::AddressMode::ClampToEdge,
             address_mode_w: wgpu::AddressMode::ClampToEdge,
@@ -40,7 +52,8 @@ impl Texture {
             mipmap_filter: wgpu::FilterMode::Nearest,
             lod_min_clamp: -100.0,
             lod_max_clamp: 100.0,
-            compare_function: wgpu::CompareFunction::LessEqual, // 5.
+            compare: Some(wgpu::CompareFunction::LessEqual), // 5.
+            anisotropy_clamp: None,
         });
 
         Self {

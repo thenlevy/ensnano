@@ -7,7 +7,7 @@ use mesh::{DrawModel, Mesh, Vertex};
 use texture::Texture;
 use uniforms::Uniforms;
 use utils::create_buffer_with_data;
-use wgpu::{BindGroup, BindGroupLayout, Device, RenderPass, RenderPipeline};
+use wgpu::{BindGroup, BindGroupLayout, Device, RenderPass, RenderPipeline, StencilStateDescriptor, include_spirv};
 
 /// A structure that can create a pipeline which will draw several instances of the same
 /// mesh.
@@ -57,22 +57,13 @@ impl PipelineHandler {
             light_layout,
         };
 
-        let vs = include_bytes!("vert.spv");
-        let fs = include_bytes!("frag.spv");
-        let fake_fs = include_bytes!("fake_color.spv");
-        let selected_fs = include_bytes!("selected_frag.spv");
-
-        let vertex_module =
-            device.create_shader_module(&wgpu::read_spirv(std::io::Cursor::new(&vs[..])).unwrap());
+        let vertex_module = 
+            device.create_shader_module(include_spirv!("vert.spv"));
         let fragment_module = match flavour {
             Flavour::Real => device
-                .create_shader_module(&wgpu::read_spirv(std::io::Cursor::new(&fs[..])).unwrap()),
-            Flavour::Fake => device.create_shader_module(
-                &wgpu::read_spirv(std::io::Cursor::new(&fake_fs[..])).unwrap(),
-            ),
-            Flavour::Selected => device.create_shader_module(
-                &wgpu::read_spirv(std::io::Cursor::new(&selected_fs[..])).unwrap(),
-            ),
+                .create_shader_module(include_spirv!("frag.spv")),
+            Flavour::Fake => device.create_shader_module(include_spirv!("fake_color.spv")),
+            Flavour::Selected => device.create_shader_module(include_spirv!("selected_frag.spv")),
         };
 
         Self {
@@ -123,6 +114,8 @@ impl PipelineHandler {
                     &self.bind_groups.instances_layout,
                     &self.bind_groups.light_layout,
                 ],
+                push_constant_ranges: &[],
+                label: Some("render_pipeline_layout"),
             });
 
         let format = match self.flavour {
@@ -150,7 +143,7 @@ impl PipelineHandler {
         };
 
         device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            layout: &render_pipeline_layout,
+            layout: Some(&render_pipeline_layout),
             vertex_stage: wgpu::ProgrammableStageDescriptor {
                 module: &self.vertex_module,
                 entry_point: "main",
@@ -165,6 +158,7 @@ impl PipelineHandler {
                 depth_bias: 0,
                 depth_bias_slope_scale: 0.0,
                 depth_bias_clamp: 0.0,
+                clamp_depth: false,
             }),
             primitive_topology: self.primitive_topology,
             color_states: &[wgpu::ColorStateDescriptor {
@@ -177,16 +171,21 @@ impl PipelineHandler {
                 format: Texture::DEPTH_FORMAT,
                 depth_write_enabled: true,
                 depth_compare: wgpu::CompareFunction::Less,
-                stencil_front: wgpu::StencilStateFaceDescriptor::IGNORE,
-                stencil_back: wgpu::StencilStateFaceDescriptor::IGNORE,
-                stencil_read_mask: 0,
-                stencil_write_mask: 0,
+                stencil: StencilStateDescriptor {
+                    front: wgpu::StencilStateFaceDescriptor::IGNORE,
+                    back: wgpu::StencilStateFaceDescriptor::IGNORE,
+                    read_mask: 0,
+                    write_mask: 0,
+                },
             }),
-            index_format: wgpu::IndexFormat::Uint16,
-            vertex_buffers: &[mesh::MeshVertex::desc()],
+            vertex_state: wgpu::VertexStateDescriptor {
+                index_format: wgpu::IndexFormat::Uint16,
+                vertex_buffers: &[mesh::MeshVertex::desc()],
+            },
             sample_count: 1,
             sample_mask: !0,
             alpha_to_coverage_enabled: false,
+            label: Some("render pipeline") 
         })
     }
 }
@@ -210,12 +209,12 @@ fn create_instances_bind_group<I: bytemuck::Pod>(
     let instance_buffer = create_buffer_with_data(
         &device,
         bytemuck::cast_slice(instances_data),
-        wgpu::BufferUsage::STORAGE_READ,
+        wgpu::BufferUsage::STORAGE,
     );
 
     let instance_bind_group_layout =
         device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            bindings: &[wgpu::BindGroupLayoutBinding {
+            entries: &[wgpu::BindGroupLayoutEntry {
                 binding: 0,
                 visibility: wgpu::ShaderStage::VERTEX,
                 ty: wgpu::BindingType::StorageBuffer {
@@ -223,19 +222,20 @@ fn create_instances_bind_group<I: bytemuck::Pod>(
                     dynamic: false,
                     // The shader is not allowed to modify it's contents
                     readonly: true,
+                    min_binding_size: None,
                 },
+                count: None,
             }],
+            label: Some("instance_bind_group_layout"),
         });
 
     let instance_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
         layout: &instance_bind_group_layout,
-        bindings: &[wgpu::Binding {
+        entries: &[wgpu::BindGroupEntry {
             binding: 0,
-            resource: wgpu::BindingResource::Buffer {
-                buffer: &instance_buffer,
-                range: 0..instance_buffer_size as wgpu::BufferAddress,
-            },
+            resource: wgpu::BindingResource::Buffer(instance_buffer.slice(..)),
         }],
+        label: Some("instance_bind_group"),
     });
 
     (instance_bind_group, instance_bind_group_layout)
@@ -253,29 +253,28 @@ fn create_viewer_bind_group<V: bytemuck::Pod>(
     );
     let uniform_bind_group_layout =
         device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            bindings: &[
+            entries: &[
                 // perspective and view
-                wgpu::BindGroupLayoutBinding {
+                wgpu::BindGroupLayoutEntry {
                     binding: 0,
                     visibility: wgpu::ShaderStage::VERTEX | wgpu::ShaderStage::FRAGMENT,
-                    ty: wgpu::BindingType::UniformBuffer { dynamic: false },
+                    ty: wgpu::BindingType::UniformBuffer { dynamic: false, min_binding_size: None },
+                    count: None,
                 },
             ],
+            label: Some("uniform_bind_group_layout"),
         });
 
     let uniform_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
         layout: &uniform_bind_group_layout,
-        bindings: &[
+        entries: &[
             // perspective and view
-            wgpu::Binding {
+            wgpu::BindGroupEntry {
                 binding: 0,
-                resource: wgpu::BindingResource::Buffer {
-                    buffer: &viewer_buffer,
-                    // FYI: you can share a single buffer between bindings.
-                    range: 0..std::mem::size_of_val(&viewer_data) as wgpu::BufferAddress,
-                },
+                resource: wgpu::BindingResource::Buffer(viewer_buffer.slice(..)),
             },
         ],
+        label: Some("uniform_bind_group"),
     });
 
     (uniform_bind_group, uniform_bind_group_layout)

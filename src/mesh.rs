@@ -203,8 +203,8 @@ where
         instances_bg: &'b wgpu::BindGroup,
         light: &'b wgpu::BindGroup,
     ) {
-        self.set_vertex_buffers(0, &[(&mesh.vertex_buffer, 0)]);
-        self.set_index_buffer(&mesh.index_buffer, 0);
+        self.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));
+        self.set_index_buffer(mesh.index_buffer.slice(..));
         self.set_bind_group(VIEWER_BINDING_ID, &viewer, &[]);
         self.set_bind_group(INSTANCES_BINDING_ID, &instances_bg, &[]);
         self.set_bind_group(LIGHT_BINDING_ID, &light, &[]);

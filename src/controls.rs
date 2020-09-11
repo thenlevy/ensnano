@@ -1,8 +1,16 @@
 use crate::design_handler::DesignHandler;
-use crate::scene::Scene;
+use crate::scene::{Scene};
+use crate::PhySize;
+use std::path::PathBuf;
 use native_dialog::Dialog;
+use iced_wgpu::wgpu;
+use wgpu::Device;
 
-use iced::{button, Align, Button, Column, Element, Length, Row, Text};
+use iced_wgpu::Renderer;
+use iced_winit::{
+    slider, Align, Color, Column, Command, Element, Length, Program, Row,
+    Slider, Text, button, Button
+};
 
 pub struct Controls {
     button_fit: button::State,
@@ -17,16 +25,22 @@ pub enum Message {
 
 impl Controls {
     pub fn new() -> Controls {
-        Controls {
+        Self {
             button_fit: Default::default(),
             button_file: Default::default(),
         }
     }
+}
 
-    pub fn update(&self, message: Message, design_handler: &mut DesignHandler, scene: &mut Scene) {
+impl Program for Controls {
+    type Renderer = Renderer;
+    type Message = Message;
+    
+
+    fn update(&mut self, message: Message) -> Command<Message> {
         match message {
             Message::SceneFitRequested => {
-                design_handler.fit_design(scene);
+                self.design_handler.fit_design(&mut self.scene);
             }
             Message::FileOpeningRequested => {
                 let dialog = native_dialog::OpenSingleFile {
@@ -36,16 +50,17 @@ impl Controls {
                 let result = dialog.show();
                 if let Ok(result) = result {
                     if let Some(path) = result {
-                        design_handler.get_design(&path);
-                        design_handler.update_scene(scene, true);
-                        design_handler.fit_design(scene);
+                        self.design_handler.get_design(&path);
+                        self.design_handler.update_scene(&mut self.scene, true);
+                        self.design_handler.fit_design(&mut self.scene);
                     }
                 }
             }
-        }
+        };
+        Command::none()
     }
 
-    pub fn view(&mut self) -> Element<Message> {
+    fn view(&mut self) -> Element<Message, Renderer> {
         let button_fit = Button::new(&mut self.button_fit, Text::new("Fit Scene"))
             .on_press(Message::SceneFitRequested);
         let button_file = Button::new(&mut self.button_file, Text::new("Open design"))
