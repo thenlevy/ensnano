@@ -164,7 +164,7 @@ impl Scene {
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Bgra8UnormSrgb,
+            format: wgpu::TextureFormat::Bgra8Unorm,
             usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT
                 | wgpu::TextureUsage::SAMPLED
                 | wgpu::TextureUsage::COPY_SRC,
@@ -237,7 +237,7 @@ impl Scene {
         self.selected_id
     }
 
-    pub fn update_selected_tube(&mut self, source: [f32; 3], dest: [f32 ; 3]) {
+    pub fn update_selected_tube(&mut self, source: [f32; 3], dest: [f32; 3]) {
         let bound = create_bound(source.into(), dest.into(), 0);
         self.update.selected_tube = Some(bound);
         self.update.need_update = true;
@@ -493,13 +493,17 @@ impl PipelineHandlers {
     }
 
     fn real(&mut self) -> Vec<&mut PipelineHandler> {
-        vec![&mut self.sphere, &mut self.tube, &mut self.selected_sphere, &mut self.selected_tube]
+        vec![
+            &mut self.sphere,
+            &mut self.tube,
+            &mut self.selected_sphere,
+            &mut self.selected_tube,
+        ]
     }
 
     fn fake(&mut self) -> Vec<&mut PipelineHandler> {
         vec![&mut self.fake_sphere, &mut self.fake_tube]
     }
-
 
     fn update(&mut self, update: &mut SceneUpdate, device: &Device) {
         if let Some(instances) = update.tube_instances.take() {
@@ -522,7 +526,8 @@ impl PipelineHandlers {
             self.selected_tube.update_instances(device, instances);
         }
         if let Some(instances) = update.selected_sphere.take() {
-            self.selected_sphere.update_instances(device, vec![instances]);
+            self.selected_sphere
+                .update_instances(device, vec![instances]);
         }
     }
 }

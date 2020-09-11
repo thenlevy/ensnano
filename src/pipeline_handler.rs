@@ -19,6 +19,7 @@ pub struct PipelineHandler {
     vertex_module: wgpu::ShaderModule,
     fragment_module: wgpu::ShaderModule,
     primitive_topology: wgpu::PrimitiveTopology,
+    flavour: Flavour,
 }
 
 pub enum Flavour {
@@ -81,6 +82,7 @@ impl PipelineHandler {
             vertex_module,
             fragment_module,
             primitive_topology,
+            flavour,
         }
     }
 
@@ -122,6 +124,11 @@ impl PipelineHandler {
                 ],
             });
 
+        let format = match self.flavour {
+            Flavour::Fake => wgpu::TextureFormat::Bgra8Unorm,
+            _ => wgpu::TextureFormat::Bgra8UnormSrgb,
+        };
+
         device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             layout: &render_pipeline_layout,
             vertex_stage: wgpu::ProgrammableStageDescriptor {
@@ -141,7 +148,7 @@ impl PipelineHandler {
             }),
             primitive_topology: self.primitive_topology,
             color_states: &[wgpu::ColorStateDescriptor {
-                format: wgpu::TextureFormat::Bgra8UnormSrgb,
+                format,
                 color_blend: wgpu::BlendDescriptor::REPLACE,
                 alpha_blend: wgpu::BlendDescriptor::REPLACE,
                 write_mask: wgpu::ColorWrite::ALL,

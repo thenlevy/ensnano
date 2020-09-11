@@ -12,7 +12,7 @@ pub enum ObjectType {
     Bound,
 }
 
-#[derive(Clone, Copy, Eq, PartialEq, Hash)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash, Debug)]
 pub struct Nucl {
     position: isize,
     helix: isize,
@@ -150,7 +150,7 @@ impl DesignHandler {
                 self.get_space_pos(nucl1).unwrap(),
                 self.get_space_pos(nucl2).unwrap(),
                 color,
-                (*b_id | 0xF00000),
+                *b_id,
             ));
         }
         scene.update_spheres(&nucleotide);
@@ -169,7 +169,7 @@ impl DesignHandler {
                         let pos1 = self.get_space_pos(nucl1).unwrap();
                         let pos2 = self.get_space_pos(nucl2).unwrap();
                         scene.update_selected_tube(pos1, pos2);
-                    },
+                    }
                     ObjectType::Nucleotide => {
                         scene.update_selected_sphere(*self.space_position.get(&id).unwrap())
                     }
