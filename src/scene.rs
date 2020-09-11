@@ -1,4 +1,4 @@
-use crate::{camera, instance, mesh, pipeline_handler, texture};
+use crate::{camera, instance, mesh, pipeline_handler, texture, utils};
 use crate::{PhySize, WindowEvent};
 use camera::{Camera, CameraController, Projection};
 use cgmath::prelude::*;
@@ -15,6 +15,7 @@ use wgpu::{Device, PrimitiveTopology};
 use winit::dpi::PhysicalPosition;
 use winit::event::*;
 use futures::executor;
+use utils::{BufferDimensions};
 
 pub struct Scene {
     state: State,
@@ -89,16 +90,16 @@ impl Scene {
             usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT
                 | wgpu::TextureUsage::SAMPLED
                 | wgpu::TextureUsage::COPY_SRC,
-            label: None,
+            label: Some("desc"),
         };
         let texture_view_descriptor = wgpu::TextureViewDescriptor {
-            label: None,
+            label: Some("texture_view_descriptor"),
             format: Some(wgpu::TextureFormat::Bgra8Unorm),
             dimension: Some(wgpu::TextureViewDimension::D2),
             aspect: wgpu::TextureAspect::All,
-            base_mip_level: 1,
+            base_mip_level: 0,
             level_count: None,
-            base_array_layer: 1,
+            base_array_layer: 0,
             array_layer_count: None,
         };
 
@@ -114,20 +115,21 @@ impl Scene {
             true,
         );
 
-        let buf_size = size.width * size.height * std::mem::size_of::<u32>() as u32;
+        let buffer_dimensions = BufferDimensions::new(size.width as usize, size.height as usize);
+        let buf_size = buffer_dimensions.padded_bytes_per_row * buffer_dimensions.height;
         let staging_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             size: buf_size as u64,
             usage: wgpu::BufferUsage::MAP_READ | wgpu::BufferUsage::COPY_DST,
             mapped_at_creation: false,
-            label: None,
+            label: Some("staging_buffer"),
         });
 
         let buffer_copy_view = wgpu::BufferCopyView {
             buffer: &staging_buffer,
             layout: wgpu::TextureDataLayout {
                 offset: 0,
-                bytes_per_row: size.width * std::mem::size_of::<u32>() as u32,
-                rows_per_image: size.height * std::mem::size_of::<u32>() as u32,
+                bytes_per_row: buffer_dimensions.padded_bytes_per_row as u32,
+                rows_per_image: 0,
             }
         };
         let texture_copy_view = wgpu::TextureCopyView {
@@ -138,21 +140,30 @@ impl Scene {
         encoder.copy_texture_to_buffer(texture_copy_view, buffer_copy_view, size);
         queue.submit(Some(encoder.finish()));
 
-        let pixel = (clicked_pixel.y as u32 * size.width + clicked_pixel.x as u32)
+        let pixel = (clicked_pixel.y as u32 * size.width+ clicked_pixel.x as u32)
             * std::mem::size_of::<u32>() as u32;
-        let pixel = pixel as u64;
+        let pixel = pixel as usize;
         let offset = std::mem::size_of::<u32>() as u64;
 
-        let buffer_slice = staging_buffer.slice(pixel..(pixel+offset));
+        let buffer_slice = staging_buffer.slice(..);
         let buffer_future = buffer_slice.map_async(wgpu::MapMode::Read);
         device.poll(wgpu::Maintain::Wait);
         let color = async {
             if let Ok(()) = buffer_future.await {
                 let data = buffer_slice.get_mapped_range();
-                let color = data.chunks_exact(4)
-                    .map(|b| u32::from_ne_bytes(b.try_into().unwrap()))
-                    .next()
-                    .unwrap();
+                let pixels:Vec<u8> = data.chunks_exact(buffer_dimensions.padded_bytes_per_row)
+                    .flat_map(|chunk| chunk[..buffer_dimensions.unpadded_bytes_per_row].to_vec())
+                    .collect();
+
+                let a = (pixels[pixel + 3] as u32) << 24;
+                let r = (pixels[pixel + 2] as u32) << 16;
+                let g = (pixels[pixel + 1] as u32) << 8;
+                let b = pixels[pixel] as u32;
+                println!("read {}, {}, {}, {}", r, g, b, a);
+                let color = a + r + g + b;
+                drop(data);
+                staging_buffer.unmap();
+                //color
                 color
             } else {
                 panic!("could not read fake texture");

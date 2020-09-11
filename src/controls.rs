@@ -5,6 +5,7 @@ use std::path::PathBuf;
 use native_dialog::Dialog;
 use iced_wgpu::wgpu;
 use wgpu::Device;
+use std::sync::{Arc, Mutex};
 
 use iced_wgpu::Renderer;
 use iced_winit::{
@@ -15,6 +16,8 @@ use iced_winit::{
 pub struct Controls {
     button_fit: button::State,
     button_file: button::State,
+    pub fitting_requested: Arc<Mutex<bool>>,
+    pub file_opening_request: Arc<Mutex<Option<PathBuf>>>,
 }
 
 #[derive(Debug, Clone)]
@@ -24,10 +27,12 @@ pub enum Message {
 }
 
 impl Controls {
-    pub fn new() -> Controls {
+    pub fn new(fitting_requested: &Arc<Mutex<bool>>, file_opening_request: &Arc<Mutex<Option<PathBuf>>>) -> Controls {
         Self {
             button_fit: Default::default(),
             button_file: Default::default(),
+            fitting_requested: fitting_requested.clone(),
+            file_opening_request: file_opening_request.clone(),
         }
     }
 }
@@ -40,7 +45,8 @@ impl Program for Controls {
     fn update(&mut self, message: Message) -> Command<Message> {
         match message {
             Message::SceneFitRequested => {
-                self.design_handler.fit_design(&mut self.scene);
+                //self.design_handler.fit_design(&mut self.scene);
+                *self.fitting_requested.lock().expect("fitting_requested") = true;
             }
             Message::FileOpeningRequested => {
                 let dialog = native_dialog::OpenSingleFile {
@@ -50,9 +56,7 @@ impl Program for Controls {
                 let result = dialog.show();
                 if let Ok(result) = result {
                     if let Some(path) = result {
-                        self.design_handler.get_design(&path);
-                        self.design_handler.update_scene(&mut self.scene, true);
-                        self.design_handler.fit_design(&mut self.scene);
+                        *self.file_opening_request.lock().expect("file_opening_request") = Some(PathBuf::from(path));
                     }
                 }
             }

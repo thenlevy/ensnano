@@ -1,6 +1,7 @@
 use std::env;
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
+use std::sync::{Arc, Mutex};
 pub type PhySize = iced_winit::winit::dpi::PhysicalSize<u32>;
 
 use iced_wgpu::{wgpu, Backend, Renderer, Settings, Viewport};
@@ -105,7 +106,9 @@ fn main() {
     };
     let mut scene = Scene::new(&device, window.inner_size());
     design_handler.update_scene(&mut scene, true);
-    let mut controls = Controls::new();
+    let fitting_request = Arc::new(Mutex::new(false));
+    let file_opening_request = Arc::new(Mutex::new(None));
+    let mut controls = Controls::new(&fitting_request, &file_opening_request);
 
     // Initialize iced
     let mut events = Vec::new();
@@ -132,7 +135,7 @@ fn main() {
 
         match event {
             Event::WindowEvent { event, .. } => {
-                if controls.input_event(&event, &device, &mut queue) {
+                if scene.input(&event, &device, &mut queue) {
                     design_handler.update_scene_selection(&mut scene);
                 }
                 match event {
@@ -183,8 +186,16 @@ fn main() {
                         &mut renderer,
                         &mut debug,
                     );
-                window.request_redraw();
+                    if *fitting_request.lock().expect("fitting_request") {
+                        design_handler.fit_design(&mut scene);
+                    }
+                    if let Some(ref path) = *file_opening_request.lock().expect("file_opening_request") {
+                        design_handler.get_design(path);
+                        design_handler.update_scene(&mut scene, true);
+                        design_handler.fit_design(&mut scene);
+                    }
                 }
+                window.request_redraw();
             }
             Event::RedrawRequested(_) => {
                 if resized {
@@ -227,6 +238,7 @@ fn main() {
                 );
 
                 // Then we submit the work
+                staging_belt.finish();
                 queue.submit(Some(encoder.finish()));
 
                 // And update the mouse cursor

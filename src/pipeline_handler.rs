@@ -20,6 +20,7 @@ pub struct PipelineHandler {
     fragment_module: wgpu::ShaderModule,
     primitive_topology: wgpu::PrimitiveTopology,
     flavour: Flavour,
+    pipeline: Option<RenderPipeline>,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -75,6 +76,7 @@ impl PipelineHandler {
             fragment_module,
             primitive_topology,
             flavour,
+            pipeline: None,
         }
     }
 
@@ -93,9 +95,9 @@ impl PipelineHandler {
         self.bind_groups.instances_layout = instances_layout;
     }
 
-    pub fn draw<'a, 'b: 'a>(&'b self, device: &Device, render_pass: &mut RenderPass<'a>) {
-        let pipeline = self.create_pipeline(device);
-        render_pass.set_pipeline(&pipeline);
+    pub fn draw<'a>(&'a mut self, device: &Device, render_pass: &mut RenderPass<'a>) {
+        self.pipeline = Some(self.create_pipeline(device));
+        render_pass.set_pipeline(self.pipeline.as_ref().unwrap());
 
         render_pass.draw_mesh_instanced(
             &self.mesh,

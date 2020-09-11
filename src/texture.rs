@@ -34,9 +34,9 @@ impl Texture {
             format: Some(Self::DEPTH_FORMAT),
             dimension: Some(wgpu::TextureViewDimension::D2),
             aspect: wgpu::TextureAspect::DepthOnly,
-            base_mip_level: 1,
+            base_mip_level: 0,
             level_count: None,
-            base_array_layer: 1,
+            base_array_layer: 0,
             array_layer_count: None,
         };
 
