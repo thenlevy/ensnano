@@ -1,12 +1,10 @@
 use crate::design_handler::DesignHandler;
 use crate::scene::Scene;
 use native_dialog::Dialog;
-use std::path::PathBuf;
 
-use iced::{button, slider, Align, Button, Column, Element, Length, Row, Text};
+use iced::{button, Align, Button, Column, Element, Length, Row, Text};
 
 pub struct Controls {
-    slider: slider::State,
     button_fit: button::State,
     button_file: button::State,
 }
@@ -20,7 +18,6 @@ pub enum Message {
 impl Controls {
     pub fn new() -> Controls {
         Controls {
-            slider: Default::default(),
             button_fit: Default::default(),
             button_file: Default::default(),
         }
@@ -41,16 +38,14 @@ impl Controls {
                     if let Some(path) = result {
                         design_handler.get_design(&path);
                         design_handler.update_scene(scene, true);
+                        design_handler.fit_design(scene);
                     }
                 }
             }
         }
     }
 
-    pub fn view(&mut self, scene: &Scene) -> Element<Message> {
-        let slider_n = &mut self.slider;
-        let number_instances = scene.number_instances;
-
+    pub fn view(&mut self) -> Element<Message> {
         let button_fit = Button::new(&mut self.button_fit, Text::new("Fit Scene"))
             .on_press(Message::SceneFitRequested);
         let button_file = Button::new(&mut self.button_file, Text::new("Open design"))

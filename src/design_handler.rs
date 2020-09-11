@@ -1,4 +1,4 @@
-use crate::scene::Scene;
+use crate::scene::{ Scene, SceneNotification };
 use cgmath::prelude::*;
 use cgmath::{Matrix3, Quaternion, Vector3};
 use std::collections::HashMap;
@@ -153,8 +153,8 @@ impl DesignHandler {
                 *b_id,
             ));
         }
-        scene.update_spheres(&nucleotide);
-        scene.update_tubes(&covalent_bound);
+        scene.notify(SceneNotification::NewSpheres(&nucleotide));
+        scene.notify(SceneNotification::NewTubes(&covalent_bound));
         if fit {
             self.fit_design(scene);
         }
@@ -198,7 +198,7 @@ impl DesignHandler {
         let rotation = self.get_fitting_quaternion(&bases);
         let direction = rotation.rotate_vector([0., 0., -1.].into());
         let position = self.get_fitting_position(&mut bases, scene, &direction);
-        scene.fit(position, rotation);
+        scene.notify(SceneNotification::NewCamera(position, rotation));
     }
 
     fn boundaries(&self) -> [f64; 6] {

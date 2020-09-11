@@ -28,7 +28,7 @@ mod utils;
 use design_handler::DesignHandler;
 
 use controls::Controls;
-use scene::Scene;
+use scene::{ Scene, SceneNotification };
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -118,7 +118,6 @@ fn main() {
                         ..
                     } => {
                         design_handler.fit_design(&mut scene);
-                        scene.update_camera();
                     }
 
                     _ => {}
@@ -149,7 +148,7 @@ fn main() {
 
                 // First, we build our user interface.
                 let mut user_interface = UserInterface::build(
-                    controls.view(&scene),
+                    controls.view(),
                     Size::new(logical_size.width, logical_size.height),
                     cache.take().unwrap(),
                     &mut renderer,
@@ -183,7 +182,7 @@ fn main() {
                     // Once the state has been changed, we rebuild our updated
                     // user interface.
                     UserInterface::build(
-                        controls.view(&scene),
+                        controls.view(),
                         Size::new(logical_size.width, logical_size.height),
                         cache.take().unwrap(),
                         &mut renderer,
@@ -202,7 +201,7 @@ fn main() {
             Event::RedrawRequested(_) => {
                 if resized {
                     let size = window.inner_size();
-                    scene.resize(size, &device);
+                    scene.notify(SceneNotification::Resize(size, &device));
 
                     swap_chain = SwapChain::new(&device, &surface, format, size.width, size.height);
                     resized = false;

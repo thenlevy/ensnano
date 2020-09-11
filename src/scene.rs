@@ -46,92 +46,11 @@ impl Scene {
         }
     }
 
-    pub fn resize(&mut self, size: PhySize, device: &Device) {
-        self.depth_texture = texture::Texture::create_depth_texture(device, &size);
-        self.state.resize(size);
-        println!("state resized");
-        self.update_camera();
-    }
-
-    pub fn fit(&mut self, position: Vector3<f32>, quaternion: Quaternion<f32>) {
-        self.state.update_with_parameters(position, quaternion);
-    }
-
-    pub fn update_spheres(&mut self, positions: &Vec<([f32; 3], u32, u32)>) {
-        let instances = positions
-            .iter()
-            .map(|(v, color, _)| Instance {
-                position: cgmath::Vector3::<f32> {
-                    x: v[0],
-                    y: v[1],
-                    z: v[2],
-                },
-                rotation: cgmath::Quaternion::new(1., 0., 0., 0.),
-                color: Instance::color_from_u32(*color),
-            })
-            .collect();
-        let fake_instances = positions
-            .iter()
-            .map(|(v, _, fake_color)| Instance {
-                position: (*v).into(),
-                rotation: [1., 0., 0., 0.].into(),
-                color: Instance::color_from_u32(*fake_color),
-            })
-            .collect();
-        self.update.sphere_instances = Some(instances);
-        self.update.fake_sphere_instances = Some(fake_instances);
-        self.update.need_update = true;
-    }
-
-    pub fn update_camera(&mut self) {
-        self.update.need_update = true;
-        self.update.camera_update = true;
-    }
-
-    pub fn update_tubes(&mut self, pairs: &Vec<([f32; 3], [f32; 3], u32, u32)>) {
-        let instances = pairs
-            .iter()
-            .map(|(a, b, color, _)| {
-                let position_a = cgmath::Vector3::<f32> {
-                    x: a[0],
-                    y: a[1],
-                    z: a[2],
-                };
-                let position_b = cgmath::Vector3::<f32> {
-                    x: b[0],
-                    y: b[1],
-                    z: b[2],
-                };
-                create_bound(position_a, position_b, *color)
-            })
-            .flatten()
-            .collect();
-        let fake_instances = pairs
-            .iter()
-            .map(|(a, b, _, fake_color)| {
-                let position_a = cgmath::Vector3::<f32> {
-                    x: a[0],
-                    y: a[1],
-                    z: a[2],
-                };
-                let position_b = cgmath::Vector3::<f32> {
-                    x: b[0],
-                    y: b[1],
-                    z: b[2],
-                };
-                create_bound(position_a, position_b, *fake_color)
-            })
-            .flatten()
-            .collect();
-        self.update.tube_instances = Some(instances);
-        self.update.fake_tube_instances = Some(fake_instances);
-        self.update.need_update = true;
-    }
-
+    /// Input an event to the scene. Return true, if the selected object of the scene has changed
     pub fn input(&mut self, event: &WindowEvent, device: &Device, queue: &mut wgpu::Queue) -> bool {
         let mut clicked_pixel: Option<PhysicalPosition<f64>> = None;
         if self.state.input(event, &mut clicked_pixel) {
-            self.update_camera();
+            self.notify(SceneNotification::CameraMoved);
         }
         if clicked_pixel.is_some() {
             let clicked_pixel = clicked_pixel.unwrap();
@@ -180,14 +99,13 @@ impl Scene {
             std::time::Duration::from_millis(0),
             true,
         );
-        println!("drawn of fake texture succesfully");
 
         let buf_size = size.width * size.height * std::mem::size_of::<u32>() as u32;
         let staging_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             size: buf_size as u64,
             usage: wgpu::BufferUsage::MAP_READ | wgpu::BufferUsage::COPY_DST,
         });
-        println!("{}", size.width);
+
         let buffer_copy_view = wgpu::BufferCopyView {
             buffer: &staging_buffer,
             offset: 0,
@@ -262,7 +180,7 @@ impl Scene {
         fake_color: bool,
     ) {
         if self.state.camera_is_moving() {
-            self.update_camera();
+            self.notify(SceneNotification::CameraMoved);
         }
         if self.update.need_update {
             self.perform_update(device, dt);
@@ -638,4 +556,97 @@ impl State {
 
 fn position_difference(a: PhysicalPosition<f64>, b: PhysicalPosition<f64>) -> f64 {
     (a.x - b.x).abs().max((a.y - b.y).abs())
+}
+
+pub enum SceneNotification<'a> {
+    CameraMoved,
+    NewCamera(Vector3<f32>, Quaternion<f32>),
+    NewSpheres(&'a Vec<([f32 ; 3], u32, u32)>),
+    NewTubes(&'a Vec<([f32 ;3], [f32 ; 3], u32, u32)>),
+    Resize(PhySize, &'a Device),
+}
+
+impl Scene {
+    pub fn notify(&mut self, notification: SceneNotification) {
+        match notification {
+            SceneNotification::NewSpheres(instances) => self.new_spheres(instances),
+            SceneNotification::NewTubes(instances) => self.new_tubes(instances),
+            SceneNotification::NewCamera(position, projection) => 
+                self.state.update_with_parameters(position, projection),
+            SceneNotification::CameraMoved => self.update.camera_update = true,
+            SceneNotification::Resize(size, device) => self.resize(size, device),
+        };
+        self.update.need_update = true;
+
+    }
+
+    fn new_spheres(&mut self, positions: &Vec<([f32; 3], u32, u32)>) {
+        let instances = positions
+            .iter()
+            .map(|(v, color, _)| Instance {
+                position: cgmath::Vector3::<f32> {
+                    x: v[0],
+                    y: v[1],
+                    z: v[2],
+                },
+                rotation: cgmath::Quaternion::new(1., 0., 0., 0.),
+                color: Instance::color_from_u32(*color),
+            })
+            .collect();
+        let fake_instances = positions
+            .iter()
+            .map(|(v, _, fake_color)| Instance {
+                position: (*v).into(),
+                rotation: [1., 0., 0., 0.].into(),
+                color: Instance::color_from_u32(*fake_color),
+            })
+            .collect();
+        self.update.sphere_instances = Some(instances);
+        self.update.fake_sphere_instances = Some(fake_instances);
+    }
+
+    fn new_tubes(&mut self, pairs: &Vec<([f32; 3], [f32; 3], u32, u32)>) {
+        let instances = pairs
+            .iter()
+            .map(|(a, b, color, _)| {
+                let position_a = cgmath::Vector3::<f32> {
+                    x: a[0],
+                    y: a[1],
+                    z: a[2],
+                };
+                let position_b = cgmath::Vector3::<f32> {
+                    x: b[0],
+                    y: b[1],
+                    z: b[2],
+                };
+                create_bound(position_a, position_b, *color)
+            })
+            .flatten()
+            .collect();
+        let fake_instances = pairs
+            .iter()
+            .map(|(a, b, _, fake_color)| {
+                let position_a = cgmath::Vector3::<f32> {
+                    x: a[0],
+                    y: a[1],
+                    z: a[2],
+                };
+                let position_b = cgmath::Vector3::<f32> {
+                    x: b[0],
+                    y: b[1],
+                    z: b[2],
+                };
+                create_bound(position_a, position_b, *fake_color)
+            })
+            .flatten()
+            .collect();
+        self.update.tube_instances = Some(instances);
+        self.update.fake_tube_instances = Some(fake_instances);
+    }
+
+    fn resize(&mut self, size: PhySize, device: &Device) {
+        self.depth_texture = texture::Texture::create_depth_texture(device, &size);
+        self.state.resize(size);
+        self.update.camera_update = true;
+    }
 }
