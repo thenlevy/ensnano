@@ -12,7 +12,7 @@ iced_wgpu = { git = "https://github.com/hecrj/iced", rev = "49076c6ac2983e2076da
 iced_winit = { git = "https://github.com/hecrj/iced", rev = "49076c6ac2983e2076dae64f68a2e801904d7ce9" }
 bytemuck = "1.2.0"
 failure = "0.1.8"
-cgmath = "0.17"
+ultraviolet = "0.6.0"
 env_logger = "0.7"
 serde_json = "1.0.57"
 native-dialog = "0.4.2"

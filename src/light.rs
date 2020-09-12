@@ -1,14 +1,15 @@
 use crate::utils::create_buffer_with_data;
 use iced_wgpu::wgpu;
 use wgpu::{BindGroup, BindGroupLayout, Device};
+use ultraviolet::Vec3;
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct Light {
-    position: cgmath::Vector3<f32>,
+    position: Vec3,
     // Due to uniforms requiring 16 byte (4 float) spacing, we need to use a padding field here
     _padding: u32,
-    color: cgmath::Vector3<f32>,
+    color: Vec3,
 }
 
 impl Light {

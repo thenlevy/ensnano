@@ -1,8 +1,7 @@
 use crate::scene::{ Scene, SceneNotification };
-use cgmath::prelude::*;
-use cgmath::{Matrix3, Quaternion, Vector3};
 use std::collections::HashMap;
 use std::path::PathBuf;
+use ultraviolet::{Vec3, Rotor3};
 
 type Basis = (f32, f64, f64, [f32; 3], u32);
 
@@ -196,7 +195,7 @@ impl DesignHandler {
     pub fn fit_design(&self, scene: &mut Scene) {
         let mut bases = self.get_bases(scene);
         let rotation = self.get_fitting_quaternion(&bases);
-        let direction = rotation.rotate_vector([0., 0., -1.].into());
+        let direction = rotation * -Vec3::unit_z();
         let position = self.get_fitting_position(&mut bases, scene, &direction);
         scene.notify(SceneNotification::NewCamera(position, rotation));
     }
@@ -265,12 +264,18 @@ impl DesignHandler {
         bases
     }
 
-    fn get_fitting_quaternion(&self, bases: &Vec<Basis>) -> Quaternion<f32> {
-        let right: Vector3<f32> = bases[0].3.into();
-        let up: Vector3<f32> = bases[1].3.into();
+    fn get_fitting_quaternion(&self, bases: &Vec<Basis>) -> Rotor3 {
+        let right: Vec3 = bases[0].3.into();
+        let up: Vec3 = bases[1].3.into();
         let reverse_direction = right.cross(up);
-        let rotation_matrix = Matrix3::from_cols(right, up, reverse_direction);
-        rotation_matrix.into()
+        let rotation_matrix = ultraviolet::Mat3::new(right, up, reverse_direction);
+        let from = Vec3::new(1., 2., 3.).normalized();
+        let to = right + 2. * up + 3. * reverse_direction;
+        println!("{:?}", rotation_matrix);
+        //rotation_matrix.into()
+        let ret = Rotor3::from_rotation_between(to.normalized(), from);
+        println!("rotor {:?}", ret.into_matrix());
+        ret
     }
 
     /// Given the orientation of the camera, computes its position so that it can see everything.
@@ -278,8 +283,8 @@ impl DesignHandler {
         &self,
         bases: &mut Vec<Basis>,
         scene: &Scene,
-        direction: &Vector3<f32>,
-    ) -> Vector3<f32> {
+        direction: &Vec3,
+    ) -> Vec3 {
         let ratio = scene.get_ratio();
         // We want to fit both the x and the y axis.
         let vertical = (bases[1].0).max(bases[0].0 / ratio) + bases[2].0;
@@ -288,7 +293,8 @@ impl DesignHandler {
         let x_back = vertical / 2. / (fovy / 2.).tan();
 
         bases.sort_by_key(|b| b.4);
-        let coord = Vector3::from([bases[0].1 as f32, bases[1].1 as f32, bases[2].1 as f32]);
-        coord - direction * x_back
+        let coord = Vec3::new(bases[0].1 as f32, bases[1].1 as f32, bases[2].1 as f32);
+        coord - *direction * x_back
     }
 }
+

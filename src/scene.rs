@@ -1,8 +1,6 @@
 use crate::{camera, instance, mesh, pipeline_handler, texture, utils};
 use crate::{PhySize, WindowEvent};
 use camera::{Camera, CameraController, Projection};
-use cgmath::prelude::*;
-use cgmath::{Quaternion, Vector3};
 use iced_wgpu::wgpu;
 use iced_winit::winit;
 use instance::Instance;
@@ -14,6 +12,7 @@ use winit::dpi::PhysicalPosition;
 use winit::event::*;
 use futures::executor;
 use utils::{BufferDimensions};
+use ultraviolet::{Vec3, Rotor3};
 
 pub struct Scene {
     state: State,
@@ -182,7 +181,7 @@ impl Scene {
     pub fn update_selected_sphere(&mut self, position: [f32; 3]) {
         let instance = Instance {
             position: position.into(),
-            rotation: [1., 0., 0., 0.].into(),
+            rotor: Rotor3::identity(),
             color: Instance::color_from_u32(0),
         };
         self.update.selected_sphere = Some(instance);
@@ -262,7 +261,7 @@ impl Scene {
     }
 
     pub fn get_fovy(&self) -> f32 {
-        self.state.projection.get_fovy().0
+        self.state.projection.get_fovy()
     }
 
     pub fn get_ratio(&self) -> f32 {
@@ -273,22 +272,23 @@ impl Scene {
 
 /// Create an instance of a cylinder going from source to dest
 fn create_bound(
-    source: cgmath::Vector3<f32>,
-    dest: cgmath::Vector3<f32>,
+    source: Vec3,
+    dest: Vec3,
     color: u32,
 ) -> Vec<Instance> {
     let mut ret = Vec::new();
     let color = Instance::color_from_u32(color);
-    let rotation = cgmath::Quaternion::between_vectors(
-        cgmath::Vector3::new(1., 0., 0.),
-        (dest - source).normalize(),
-    );
+    let rotor = Rotor3::from_rotation_between(Vec3::unit_x(), (dest - source).normalized());
+    //let rotation = cgmath::Quaternion::between_vectors(
+        //cgmath::Vector3::new(1., 0., 0.),
+        //(dest - source).normalize(),
+    //);
 
-    let obj = (dest - source).magnitude();
+    let obj = (dest - source).mag();
     let mut current_source = source.clone();
     let mut current_length = 0.;
     let one_step_len = crate::consts::BOUND_LENGTH;
-    let step_dir = (dest - source).normalize();
+    let step_dir = (dest - source).normalized();
     let one_step = step_dir * one_step_len;
     while current_length < obj {
         let position = if current_length + one_step_len > obj {
@@ -297,10 +297,10 @@ fn create_bound(
             current_source + one_step / 2.
         };
         current_source = position + one_step / 2.;
-        current_length = (source - current_source).magnitude();
+        current_length = (source - current_source).mag();
         ret.push(Instance {
             position,
-            rotation,
+            rotor,
             color,
         });
     }
@@ -481,8 +481,8 @@ struct State {
 
 impl State {
     pub fn new(size: PhySize) -> Self {
-        let camera = Camera::new((0.0, 5.0, 10.0), Quaternion::from([1., 0., 0., 0.]));
-        let projection = Projection::new(size.width, size.height, cgmath::Deg(70.0), 0.1, 1000.0);
+        let camera = Camera::new((0.0, 5.0, 10.0), Rotor3::identity());
+        let projection = Projection::new(size.width, size.height, 70f32.to_radians(), 0.1, 1000.0);
         let camera_controller = camera::CameraController::new(4.0, 0.04, &camera);
         Self {
             camera,
@@ -495,13 +495,13 @@ impl State {
         }
     }
 
-    pub fn update_with_parameters(&mut self, position: Vector3<f32>, rotation: Quaternion<f32>) {
+    pub fn update_with_parameters(&mut self, position: Vec3, rotation: Rotor3) {
         let position: [f32; 3] = position.into();
         self.camera = Camera::new(position, rotation);
         self.projection = Projection::new(
             self.size.width,
             self.size.height,
-            cgmath::Deg(70.0),
+            70f32.to_radians(),
             0.1,
             1000.0,
         );
@@ -577,7 +577,7 @@ fn position_difference(a: PhysicalPosition<f64>, b: PhysicalPosition<f64>) -> f6
 
 pub enum SceneNotification<'a> {
     CameraMoved,
-    NewCamera(Vector3<f32>, Quaternion<f32>),
+    NewCamera(Vec3, Rotor3),
     NewSpheres(&'a Vec<([f32 ; 3], u32, u32)>),
     NewTubes(&'a Vec<([f32 ;3], [f32 ; 3], u32, u32)>),
     Resize(PhySize, &'a Device),
@@ -603,20 +603,20 @@ impl Scene {
         let instances = positions
             .iter()
             .map(|(v, color, _)| Instance {
-                position: cgmath::Vector3::<f32> {
+                position: Vec3 {
                     x: v[0],
                     y: v[1],
                     z: v[2],
                 },
-                rotation: cgmath::Quaternion::new(1., 0., 0., 0.),
-                color: Instance::color_from_u32(*color),
+               rotor: Rotor3::identity(),
+               color: Instance::color_from_u32(*color),
             })
             .collect();
         let fake_instances = positions
             .iter()
             .map(|(v, _, fake_color)| Instance {
                 position: (*v).into(),
-                rotation: [1., 0., 0., 0.].into(),
+                rotor: Rotor3::identity(),
                 color: Instance::color_from_u32(*fake_color),
             })
             .collect();
@@ -628,12 +628,12 @@ impl Scene {
         let instances = pairs
             .iter()
             .map(|(a, b, color, _)| {
-                let position_a = cgmath::Vector3::<f32> {
+                let position_a = Vec3 {
                     x: a[0],
                     y: a[1],
                     z: a[2],
                 };
-                let position_b = cgmath::Vector3::<f32> {
+                let position_b = Vec3 {
                     x: b[0],
                     y: b[1],
                     z: b[2],
@@ -645,12 +645,12 @@ impl Scene {
         let fake_instances = pairs
             .iter()
             .map(|(a, b, _, fake_color)| {
-                let position_a = cgmath::Vector3::<f32> {
+                let position_a = Vec3 {
                     x: a[0],
                     y: a[1],
                     z: a[2],
                 };
-                let position_b = cgmath::Vector3::<f32> {
+                let position_b = Vec3 {
                     x: b[0],
                     y: b[1],
                     z: b[2],

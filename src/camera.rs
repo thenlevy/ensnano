@@ -1,54 +1,48 @@
-use cgmath::prelude::*;
-use cgmath::{Matrix4, Point3, Quaternion, Rad, Vector3};
+use ultraviolet::{Vec3, Rotor3, Mat4};
 use iced_winit::winit;
 use std::f32::consts::FRAC_PI_2;
 use std::time::Duration;
 use winit::dpi::LogicalPosition;
 use winit::event::*;
-#[rustfmt::skip]
-pub const OPENGL_TO_WGPU_MATRIX: cgmath::Matrix4<f32> = cgmath::Matrix4::new(
-    1.0, 0.0, 0.0, 0.0,
-    0.0, 1.0, 0.0, 0.0,
-    0.0, 0.0, 0.5, 0.0,
-    0.0, 0.0, 0.5, 1.0,
-);
 
 #[derive(Debug)]
 pub struct Camera {
     /// The eye of the camera
-    pub position: Point3<f32>,
+    pub position: Vec3,
     /// The orientation of the camera.
     ///
-    /// `quaternion` represents the camera's basis and the camera is looking in the opposite
-    /// direction of its z axis with its y axis pointing up.
-    pub quaternion: Quaternion<f32>,
+    /// `rotor` is an object that can cat as a transformation of the world basis into the camera's
+    /// basis. The camera is looking in the opposite direction of its z axis with its y axis 
+    /// pointing up.
+    pub rotor: Rotor3,
 }
 
 impl Camera {
-    pub fn new<V: Into<Point3<f32>>>(position: V, quaternion: Quaternion<f32>) -> Self {
+    pub fn new<V: Into<Vec3>>(position: V, rotor: Rotor3) -> Self {
         Self {
             position: position.into(),
-            quaternion,
+            rotor,
         }
     }
 
     /// The view matrix of the camera
-    pub fn calc_matrix(&self) -> Matrix4<f32> {
-        Matrix4::look_at_dir(self.position, self.direction(), self.up_vec())
+    pub fn calc_matrix(&self) -> Mat4 {
+        let at = self.position + self.direction();
+        Mat4::look_at(self.position, at, self.up_vec())
     }
 
     /// The camera's direction is the negative of its z-axis
-    pub fn direction(&self) -> Vector3<f32> {
-        self.quaternion.rotate_vector(Vector3::from([0., 0., -1.]))
+    pub fn direction(&self) -> Vec3 {
+        self.rotor * Vec3::from([0., 0., -1.])
     }
 
     /// The camera's right is its x_axis
-    pub fn right_vec(&self) -> Vector3<f32> {
-        self.quaternion.rotate_vector(Vector3::from([1., 0., 0.]))
+    pub fn right_vec(&self) -> Vec3 {
+        self.rotor * Vec3::from([1., 0., 0.])
     }
 
     /// The camera's y_axis
-    pub fn up_vec(&self) -> Vector3<f32> {
+    pub fn up_vec(&self) -> Vec3 {
         self.right_vec().cross(self.direction())
     }
 }
@@ -56,16 +50,17 @@ impl Camera {
 /// This structure holds the information needed to compute the projection matrix.
 pub struct Projection {
     aspect: f32,
-    fovy: Rad<f32>,
+    /// Field of view in *radiants*
+    fovy: f32,
     znear: f32,
     zfar: f32,
 }
 
 impl Projection {
-    pub fn new<F: Into<Rad<f32>>>(width: u32, height: u32, fovy: F, znear: f32, zfar: f32) -> Self {
+    pub fn new(width: u32, height: u32, fovy: f32, znear: f32, zfar: f32) -> Self {
         Self {
             aspect: width as f32 / height as f32,
-            fovy: fovy.into(),
+            fovy,
             znear,
             zfar,
         }
@@ -76,14 +71,11 @@ impl Projection {
     }
 
     /// Computes the projection matrix.
-    ///
-    /// The matrix is multiplied by `OPENGL_TO_WGPU_MATRIX` so that the product Projection * View *
-    /// Model is understood by wgpu
-    pub fn calc_matrix(&self) -> Matrix4<f32> {
-        OPENGL_TO_WGPU_MATRIX * cgmath::perspective(self.fovy, self.aspect, self.znear, self.zfar)
+    pub fn calc_matrix(&self) -> Mat4 {
+        ultraviolet::projection::rh_yup::perspective_wgpu_dx(self.fovy, self.aspect, self.znear, self.zfar)
     }
 
-    pub fn get_fovy(&self) -> Rad<f32> {
+    pub fn get_fovy(&self) -> f32 {
         self.fovy
     }
 
@@ -104,7 +96,7 @@ pub struct CameraController {
     rotate_horizontal: f32,
     rotate_vertical: f32,
     scroll: f32,
-    last_quaternion: Quaternion<f32>,
+    last_rotor: Rotor3,
     processed_move: bool,
 }
 
@@ -122,7 +114,7 @@ impl CameraController {
             rotate_horizontal: 0.0,
             rotate_vertical: 0.0,
             scroll: 0.0,
-            last_quaternion: camera.quaternion,
+            last_rotor: Rotor3::identity(),
             processed_move: false,
         }
     }
@@ -188,10 +180,11 @@ impl CameraController {
     fn rotate_camera(&mut self, camera: &mut Camera) {
         let x_angle = self.rotate_horizontal * FRAC_PI_2;
         let y_angle = self.rotate_vertical * FRAC_PI_2;
-        let rotation = Quaternion::from_axis_angle(Vector3::from([0., 1., 0.]), Rad(x_angle))
-            * Quaternion::from_axis_angle(Vector3::from([1., 0., 0.]), Rad(y_angle));
+        //let rotation = Quaternion::from_axis_angle(Vector3::from([0., 1., 0.]), Rad(x_angle))
+            //* Quaternion::from_axis_angle(Vector3::from([1., 0., 0.]), Rad(y_angle));
+        let rotation = Rotor3::from_rotation_xz(x_angle) * Rotor3::from_rotation_yz(y_angle);
 
-        camera.quaternion = self.last_quaternion * rotation;
+        camera.rotor = rotation * self.last_rotor;
 
         self.rotate_horizontal = 0.0;
         self.rotate_vertical = 0.0;
@@ -227,7 +220,7 @@ impl CameraController {
     pub fn process_click(&mut self, camera: &Camera, state: &ElementState) {
         match *state {
             ElementState::Released => {
-                self.last_quaternion = camera.quaternion;
+                self.last_rotor = camera.rotor;
                 self.rotate_vertical = 0.;
                 self.rotate_horizontal = 0.;
             }
