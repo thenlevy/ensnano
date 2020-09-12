@@ -187,7 +187,7 @@ impl CameraController {
 
     fn rotate_camera(&mut self, camera: &mut Camera) {
         let x_angle = self.rotate_horizontal * FRAC_PI_2;
-        let y_angle = -self.rotate_vertical * FRAC_PI_2;
+        let y_angle = self.rotate_vertical * FRAC_PI_2;
         let rotation = Quaternion::from_axis_angle(Vector3::from([0., 1., 0.]), Rad(x_angle))
             * Quaternion::from_axis_angle(Vector3::from([1., 0., 0.]), Rad(y_angle));
 

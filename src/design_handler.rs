@@ -2,7 +2,7 @@ use crate::scene::{ Scene, SceneNotification };
 use cgmath::prelude::*;
 use cgmath::{Matrix3, Quaternion, Vector3};
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 type Basis = (f32, f64, f64, [f32; 3], u32);
 

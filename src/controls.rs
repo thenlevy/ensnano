@@ -1,16 +1,11 @@
-use crate::design_handler::DesignHandler;
-use crate::scene::{Scene};
-use crate::PhySize;
 use std::path::PathBuf;
 use native_dialog::Dialog;
-use iced_wgpu::wgpu;
-use wgpu::Device;
 use std::sync::{Arc, Mutex};
 
 use iced_wgpu::Renderer;
 use iced_winit::{
-    slider, Align, Color, Column, Command, Element, Length, Program, Row,
-    Slider, Text, button, Button
+    Align, Column, Command, Element, Length, Program, Row,
+    Text, button, Button
 };
 
 pub struct Controls {
@@ -45,7 +40,6 @@ impl Program for Controls {
     fn update(&mut self, message: Message) -> Command<Message> {
         match message {
             Message::SceneFitRequested => {
-                //self.design_handler.fit_design(&mut self.scene);
                 *self.fitting_requested.lock().expect("fitting_requested") = true;
             }
             Message::FileOpeningRequested => {

@@ -108,10 +108,8 @@ fn main() {
     design_handler.update_scene(&mut scene, true);
     let fitting_request = Arc::new(Mutex::new(false));
     let file_opening_request = Arc::new(Mutex::new(None));
-    let mut controls = Controls::new(&fitting_request, &file_opening_request);
+    let controls = Controls::new(&fitting_request, &file_opening_request);
 
-    // Initialize iced
-    let mut events = Vec::new();
     //let mut cache = Some(Cache::default());
     let mut debug = Debug::new();
     let mut renderer = Renderer::new(Backend::new(&mut device, Settings::default()));
@@ -142,12 +140,16 @@ fn main() {
                     WindowEvent::ModifiersChanged(new_modifiers) => {
                         modifiers = new_modifiers;
                     }
+                    WindowEvent::CursorMoved { position, .. } => {
+                        cursor_position = position;
+                    }
                     WindowEvent::Resized(new_size) => {
                         viewport = Viewport::with_physical_size(
                             Size::new(new_size.width, new_size.height),
                             window.scale_factor(),
                         );
                         resized = true;
+                        scene.notify(SceneNotification::Resize(new_size, &device));
                     }
                     WindowEvent::CloseRequested => {
                         *control_flow = ControlFlow::Exit;
@@ -170,7 +172,7 @@ fn main() {
                 if let Some(event) =
                     iced_winit::conversion::window_event(&event, window.scale_factor(), modifiers)
                 {
-                    events.push(event);
+                   state.queue_event(event);
                 }
             }
             Event::MainEventsCleared => {
@@ -186,13 +188,20 @@ fn main() {
                         &mut renderer,
                         &mut debug,
                     );
-                    if *fitting_request.lock().expect("fitting_request") {
-                        design_handler.fit_design(&mut scene);
+                    {
+                        let mut fitting_request_lock = fitting_request.lock().expect("fitting_request");
+                        if *fitting_request_lock {
+                            design_handler.fit_design(&mut scene);
+                            *fitting_request_lock = false;
+                        }
                     }
-                    if let Some(ref path) = *file_opening_request.lock().expect("file_opening_request") {
-                        design_handler.get_design(path);
-                        design_handler.update_scene(&mut scene, true);
-                        design_handler.fit_design(&mut scene);
+                    {
+                        let mut file_opening_request_lock = file_opening_request.lock().expect("fitting_request_lock");
+                        if let Some(ref path) = *file_opening_request_lock {
+                            design_handler.get_design(path);
+                            design_handler.update_scene(&mut scene, true);
+                            *file_opening_request_lock = None;
+                        }
                     }
                 }
                 window.request_redraw();

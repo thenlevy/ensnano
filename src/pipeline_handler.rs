@@ -1,7 +1,7 @@
 use crate::{camera, instance, light, mesh, texture, uniforms, utils};
 use camera::{Camera, Projection};
 use iced_wgpu::wgpu;
-use instance::{Instance, InstanceRaw};
+use instance::Instance;
 use light::create_light;
 use mesh::{DrawModel, Mesh, Vertex};
 use texture::Texture;
@@ -207,7 +207,6 @@ fn create_instances_bind_group<I: bytemuck::Pod>(
 ) -> (BindGroup, BindGroupLayout) {
     // create the model matrices and fill them in instance_buffer
     // instances_data has type &[InstanceRaw]
-    let instance_buffer_size = instances_data.len() * std::mem::size_of::<InstanceRaw>();
     let instance_buffer = create_buffer_with_data(
         &device,
         bytemuck::cast_slice(instances_data),

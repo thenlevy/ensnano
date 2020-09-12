@@ -7,9 +7,7 @@ use iced_wgpu::wgpu;
 use iced_winit::winit;
 use instance::Instance;
 use pipeline_handler::PipelineHandler;
-use std::sync::{Arc, Mutex};
 use std::time::Duration;
-use std::convert::TryInto;
 use texture::Texture;
 use wgpu::{Device, PrimitiveTopology};
 use winit::dpi::PhysicalPosition;
@@ -143,7 +141,6 @@ impl Scene {
         let pixel = (clicked_pixel.y as u32 * size.width+ clicked_pixel.x as u32)
             * std::mem::size_of::<u32>() as u32;
         let pixel = pixel as usize;
-        let offset = std::mem::size_of::<u32>() as u64;
 
         let buffer_slice = staging_buffer.slice(..);
         let buffer_future = buffer_slice.map_async(wgpu::MapMode::Read);
@@ -159,7 +156,6 @@ impl Scene {
                 let r = (pixels[pixel + 2] as u32) << 16;
                 let g = (pixels[pixel + 1] as u32) << 8;
                 let b = pixels[pixel] as u32;
-                println!("read {}, {}, {}, {}", r, g, b, a);
                 let color = a + r + g + b;
                 drop(data);
                 staging_buffer.unmap();
@@ -170,11 +166,6 @@ impl Scene {
             }
         };
         let color = executor::block_on(color);
-        let a = (color & 0xFF000000) >> 24;
-        let r = (color & 0x00FF0000) >> 16;
-        let g = (color & 0x0000FF00) >> 8;
-        let b = color & 0x000000FF;
-        println!("read {}, {}, {}, {}", r, g, b, a);
         color & 0x00FFFFFF
     }
 
@@ -278,9 +269,6 @@ impl Scene {
         self.state.projection.get_ratio()
     }
 
-    pub fn camera_is_moving(&self) -> bool {
-        self.state.camera_is_moving()
-    }
 }
 
 /// Create an instance of a cylinder going from source to dest
@@ -555,7 +543,6 @@ impl State {
                     self.last_clicked_position = self.mouse_position;
                 } else if position_difference(self.last_clicked_position, self.mouse_position) < 5.
                 {
-                    println!("attempt to select");
                     *clicked_pixel = Some(self.last_clicked_position);
                 }
                 self.mouse_pressed
@@ -601,8 +588,10 @@ impl Scene {
         match notification {
             SceneNotification::NewSpheres(instances) => self.new_spheres(instances),
             SceneNotification::NewTubes(instances) => self.new_tubes(instances),
-            SceneNotification::NewCamera(position, projection) => 
-                self.state.update_with_parameters(position, projection),
+            SceneNotification::NewCamera(position, projection) => {
+                self.state.update_with_parameters(position, projection);
+                self.update.camera_update = true;
+            }
             SceneNotification::CameraMoved => self.update.camera_update = true,
             SceneNotification::Resize(size, device) => self.resize(size, device),
         };
