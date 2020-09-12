@@ -114,7 +114,7 @@ impl CameraController {
             rotate_horizontal: 0.0,
             rotate_vertical: 0.0,
             scroll: 0.0,
-            last_rotor: Rotor3::identity(),
+            last_rotor: camera.rotor,
             processed_move: false,
         }
     }
@@ -182,9 +182,12 @@ impl CameraController {
         let y_angle = self.rotate_vertical * FRAC_PI_2;
         //let rotation = Quaternion::from_axis_angle(Vector3::from([0., 1., 0.]), Rad(x_angle))
             //* Quaternion::from_axis_angle(Vector3::from([1., 0., 0.]), Rad(y_angle));
-        let rotation = Rotor3::from_rotation_xz(x_angle) * Rotor3::from_rotation_yz(y_angle);
+        let rotation = Rotor3::from_rotation_xz(x_angle) * Rotor3::from_rotation_yz(-y_angle);
+        println!("rotation {:?}", rotation);
+        println!("self.last_rotor {:?}", self.last_rotor);
 
-        camera.rotor = rotation * self.last_rotor;
+        camera.rotor = self.last_rotor * rotation;
+        println!("camera.rotor {:?}", camera.rotor);
 
         self.rotate_horizontal = 0.0;
         self.rotate_vertical = 0.0;

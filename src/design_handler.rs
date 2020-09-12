@@ -2,6 +2,7 @@ use crate::scene::{ Scene, SceneNotification };
 use std::collections::HashMap;
 use std::path::PathBuf;
 use ultraviolet::{Vec3, Rotor3};
+use crate::utils::rotation_to_rotor;
 
 type Basis = (f32, f64, f64, [f32; 3], u32);
 
@@ -273,7 +274,7 @@ impl DesignHandler {
         let to = right + 2. * up + 3. * reverse_direction;
         println!("{:?}", rotation_matrix);
         //rotation_matrix.into()
-        let ret = Rotor3::from_rotation_between(to.normalized(), from);
+        let ret = rotation_to_rotor(&rotation_matrix);
         println!("rotor {:?}", ret.into_matrix());
         ret
     }
