@@ -1,4 +1,4 @@
-use crate::{camera, instance, mesh, pipeline_handler, texture, utils};
+use crate::{camera, instance, mesh, pipeline_handler, texture, utils, design};
 use crate::{PhySize, WindowEvent};
 use camera::{Camera, CameraController, Projection};
 use iced_wgpu::wgpu;
@@ -13,12 +13,13 @@ use winit::event::*;
 use futures::executor;
 use utils::{BufferDimensions};
 use ultraviolet::{Vec3, Rotor3};
+use design::Design;
 
 pub struct Scene {
     state: State,
+    designs: Vec<Design>,
     pipeline_handlers: PipelineHandlers,
     /// the number of tube to display
-    pub number_instances: u32,
     depth_texture: Texture,
     update: SceneUpdate,
     selected_id: Option<u32>,
@@ -37,7 +38,7 @@ impl Scene {
         let update = SceneUpdate::new();
 
         Self {
-            number_instances,
+            designs: Vec::new(),
             state,
             depth_texture,
             update,

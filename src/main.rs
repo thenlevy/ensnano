@@ -18,6 +18,7 @@ mod scene;
 mod camera;
 mod consts;
 mod controls;
+mod design;
 mod design_handler;
 //mod design_viewer;
 mod instance;

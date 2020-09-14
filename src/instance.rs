@@ -7,6 +7,7 @@ pub struct Instance {
     /// The rotation of the instance
     pub rotor: Rotor3,
     pub color: Vec3,
+    pub id: u32
 }
 
 #[repr(C)]
@@ -15,7 +16,7 @@ pub struct InstanceRaw {
     /// The model matrix of the instance
     pub model: Mat4,
     pub color: Vec3,
-    _padding: u32,
+    id: u32,
 }
 
 unsafe impl bytemuck::Pod for InstanceRaw {}
@@ -27,7 +28,7 @@ impl Instance {
             model: Mat4::from_translation(self.position)
                 * self.rotor.into_matrix().into_homogeneous(),
             color: self.color,
-            _padding: 0,
+            id: self.id,
         }
     }
 

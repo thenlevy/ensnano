@@ -19,7 +19,6 @@ pub struct PipelineHandler {
     vertex_module: wgpu::ShaderModule,
     fragment_module: wgpu::ShaderModule,
     primitive_topology: wgpu::PrimitiveTopology,
-    flavour: Flavour,
     pipeline: Option<RenderPipeline>,
 }
 
@@ -38,7 +37,6 @@ impl PipelineHandler {
         camera: &Camera,
         projection: &Projection,
         primitive_topology: wgpu::PrimitiveTopology,
-        flavour: Flavour,
     ) -> Self {
         let instances_data: Vec<_> = instances.iter().map(|i| i.to_raw()).collect();
         let (instances_bg, instances_layout) = create_instances_bind_group(device, &instances_data);
@@ -95,8 +93,8 @@ impl PipelineHandler {
         self.bind_groups.instances_layout = instances_layout;
     }
 
-    pub fn draw<'a>(&'a mut self, device: &Device, render_pass: &mut RenderPass<'a>) {
-        self.pipeline = Some(self.create_pipeline(device));
+    pub fn draw<'a>(&'a mut self, device: &Device, render_pass: &mut RenderPass<'a>, flavour: Flavour) {
+        self.pipeline = Some(self.create_pipeline(device, flavour));
         render_pass.set_pipeline(self.pipeline.as_ref().unwrap());
 
         render_pass.draw_mesh_instanced(
@@ -108,7 +106,7 @@ impl PipelineHandler {
         );
     }
 
-    fn create_pipeline(&self, device: &Device) -> RenderPipeline {
+    fn create_pipeline(&self, device: &Device, flavour: Flavour) -> RenderPipeline {
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 bind_group_layouts: &[
@@ -120,12 +118,12 @@ impl PipelineHandler {
                 label: Some("render_pipeline_layout"),
             });
 
-        let format = match self.flavour {
+        let format = match flavour {
             Flavour::Fake => wgpu::TextureFormat::Bgra8Unorm,
             _ => wgpu::TextureFormat::Bgra8UnormSrgb,
         };
 
-        let color_blend = if self.flavour != Flavour::Fake {
+        let color_blend = if flavour != Flavour::Fake {
             wgpu::BlendDescriptor {
                 src_factor: wgpu::BlendFactor::SrcAlpha,
                 dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
@@ -134,7 +132,7 @@ impl PipelineHandler {
         } else {
             wgpu::BlendDescriptor::REPLACE
         };
-        let alpha_blend = if self.flavour != Flavour::Fake {
+        let alpha_blend = if flavour != Flavour::Fake {
             wgpu::BlendDescriptor {
                 src_factor: wgpu::BlendFactor::One,
                 dst_factor: wgpu::BlendFactor::One,
