@@ -113,12 +113,20 @@ impl Scene {
         let texture_view = texture.create_view(&texture_view_descriptor);
         let mut encoder =
             device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
-        self.draw(
+        /*self.draw(
             &mut encoder,
             &texture_view,
             device,
             std::time::Duration::from_millis(0),
             true,
+        );*/
+        self.view.borrow_mut().draw(
+            &mut encoder,
+            &texture_view,
+            device,
+            std::time::Duration::from_millis(0),
+            true,
+            queue,
         );
 
         let buffer_dimensions = BufferDimensions::new(size.width as usize, size.height as usize);
@@ -167,6 +175,7 @@ impl Scene {
                 let color = a + r + g + b;
                 drop(data);
                 staging_buffer.unmap();
+                println!("{}, {}, {}, {}", a, r, g, b);
                 //color
                 color
             } else {
@@ -182,7 +191,7 @@ impl Scene {
     }
 
     pub fn update_selected_tube(&mut self, source: [f32; 3], dest: [f32; 3]) {
-        let bound = create_bound(source.into(), dest.into(), 0);
+        let bound = create_bound(source.into(), dest.into(), 0, 0);
         self.update.selected_tube = Some(bound);
         self.update.need_update = true;
     }
@@ -192,6 +201,7 @@ impl Scene {
             position: position.into(),
             rotor: Rotor3::identity(),
             color: Instance::color_from_u32(0),
+            id: 0,
         };
         self.update.selected_sphere = Some(instance);
         self.update.need_update = true;
@@ -276,6 +286,9 @@ impl Scene {
         if let Some(instance) = self.update.sphere_instances.take() {
             self.view.borrow_mut().update(ViewUpdate::Spheres(instance))
         }
+        if let Some(instance) = self.update.tube_instances.take() {
+            self.view.borrow_mut().update(ViewUpdate::Tubes(instance))
+        }
         self.pipeline_handlers.update(&mut self.update, device);
         if self.update.camera_update {
             self.state.update_camera(dt);
@@ -304,6 +317,7 @@ fn create_bound(
     source: Vec3,
     dest: Vec3,
     color: u32,
+    id: u32,
 ) -> Vec<Instance> {
     let mut ret = Vec::new();
     let color = Instance::color_from_u32(color);
@@ -331,6 +345,7 @@ fn create_bound(
             position,
             rotor,
             color,
+            id,
         });
     }
     ret
@@ -631,7 +646,7 @@ impl Scene {
     fn new_spheres(&mut self, positions: &Vec<([f32; 3], u32, u32)>) {
         let instances = positions
             .iter()
-            .map(|(v, color, _)| Instance {
+            .map(|(v, color, id)| Instance {
                 position: Vec3 {
                     x: v[0],
                     y: v[1],
@@ -639,6 +654,7 @@ impl Scene {
                 },
                rotor: Rotor3::identity(),
                color: Instance::color_from_u32(*color),
+               id: *id,
             })
             .collect();
         let fake_instances = positions
@@ -647,6 +663,7 @@ impl Scene {
                 position: (*v).into(),
                 rotor: Rotor3::identity(),
                 color: Instance::color_from_u32(*fake_color),
+                id: *fake_color,
             })
             .collect();
         self.update.sphere_instances = Some(instances);
@@ -656,7 +673,7 @@ impl Scene {
     fn new_tubes(&mut self, pairs: &Vec<([f32; 3], [f32; 3], u32, u32)>) {
         let instances = pairs
             .iter()
-            .map(|(a, b, color, _)| {
+            .map(|(a, b, color, id)| {
                 let position_a = Vec3 {
                     x: a[0],
                     y: a[1],
@@ -667,7 +684,7 @@ impl Scene {
                     y: b[1],
                     z: b[2],
                 };
-                create_bound(position_a, position_b, *color)
+                create_bound(position_a, position_b, *color, *id)
             })
             .flatten()
             .collect();
@@ -684,7 +701,7 @@ impl Scene {
                     y: b[1],
                     z: b[2],
                 };
-                create_bound(position_a, position_b, *fake_color)
+                create_bound(position_a, position_b, *fake_color, *fake_color)
             })
             .flatten()
             .collect();

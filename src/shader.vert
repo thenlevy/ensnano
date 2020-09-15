@@ -7,6 +7,7 @@ layout(location=1) in vec3 a_normal;
 layout(location=0) out vec3 v_color;
 layout(location=1) out vec3 v_normal;
 layout(location=2) out vec3 v_position;
+layout(location=3) out vec4 v_id;
 
 
 layout(set=0, binding=0)
@@ -18,6 +19,7 @@ uniform Uniforms {
 struct Instances {
     mat4 model;
     vec3 color;
+    vec4 id;
 };
 
 layout(set=1, binding=0) 
@@ -47,5 +49,6 @@ void main() {
     v_normal = normal_matrix * a_normal;
     vec4 model_space = model_matrix * vec4(a_position, 1.0); 
     v_position = model_space.xyz;
+    v_id = instances[gl_InstanceIndex].id;
     gl_Position = u_view_proj * model_space;
 }
