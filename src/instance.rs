@@ -37,4 +37,8 @@ impl Instance {
         let blue = color & 0x0000FF;
         Vec3::new(red as f32 / 255., green as f32 / 255., blue as f32 / 255.)
     }
+
+    pub fn size_of_raw() -> usize {
+        std::mem::size_of::<Mat4>() + std::mem::size_of::<Vec3>() + std::mem::size_of::<u32>()
+    }
 }

@@ -4,6 +4,8 @@ use std::f32::consts::FRAC_PI_2;
 use std::time::Duration;
 use winit::dpi::LogicalPosition;
 use winit::event::*;
+use std::rc::Rc;
+use std::cell::RefCell;
 
 #[derive(Debug)]
 pub struct Camera {
@@ -16,6 +18,8 @@ pub struct Camera {
     /// pointing up.
     pub rotor: Rotor3,
 }
+
+pub type CameraPtr = Rc<RefCell<Camera>>;
 
 impl Camera {
     pub fn new<V: Into<Vec3>>(position: V, rotor: Rotor3) -> Self {
@@ -55,6 +59,8 @@ pub struct Projection {
     znear: f32,
     zfar: f32,
 }
+
+pub type ProjectionPtr = Rc<RefCell<Projection>>;
 
 impl Projection {
     pub fn new(width: u32, height: u32, fovy: f32, znear: f32, zfar: f32) -> Self {

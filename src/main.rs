@@ -234,6 +234,7 @@ fn main() {
                 let dt = now - last_render_time;
                 last_render_time = now;
                 scene.draw(&mut encoder, &frame.output.view, &device, dt, false);
+                scene.draw_view(&mut encoder, &frame.output.view, &device, dt, false, &queue);
 
                 // And then iced on top
                 let mouse_interaction = renderer.backend_mut().draw(

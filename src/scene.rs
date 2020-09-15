@@ -6,14 +6,19 @@ use iced_winit::winit;
 use instance::Instance;
 use pipeline_handler::PipelineHandler;
 use std::time::Duration;
+use std::rc::Rc;
+use std::cell::RefCell;
 use texture::Texture;
-use wgpu::{Device, PrimitiveTopology};
+use wgpu::{Device, PrimitiveTopology, Queue};
 use winit::dpi::PhysicalPosition;
 use winit::event::*;
 use futures::executor;
 use utils::{BufferDimensions};
 use ultraviolet::{Vec3, Rotor3};
+mod view;
+use view::{View, ViewUpdate};
 
+type ViewPtr = Rc<RefCell<View>>;
 pub struct Scene {
     state: State,
     pipeline_handlers: PipelineHandlers,
@@ -22,7 +27,9 @@ pub struct Scene {
     depth_texture: Texture,
     update: SceneUpdate,
     selected_id: Option<u32>,
+    view: ViewPtr,
 }
+
 
 impl Scene {
     /// Create a new scene that will be displayed on `device`
@@ -36,7 +43,9 @@ impl Scene {
 
         let update = SceneUpdate::new();
 
+        let view = Rc::new(RefCell::new(View::new(size, device)));
         Self {
+            view,
             number_instances,
             state,
             depth_texture,
@@ -196,6 +205,7 @@ impl Scene {
         dt: Duration,
         fake_color: bool,
     ) {
+        // Instead: Ask the controller to update the view 
         if self.state.camera_is_moving() {
             self.notify(SceneNotification::CameraMoved);
         }
@@ -222,39 +232,57 @@ impl Scene {
         } else {
             self.pipeline_handlers.real()
         };
-        let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-            color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
-                attachment: target,
-                resolve_target: None,
-                ops: wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(clear_color),
-                    store: true,
-                },
-            }],
-            depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachmentDescriptor {
-                attachment: &self.depth_texture.view,
-                depth_ops: Some(wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(1.),
-                    store: true,
+        {
+            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
+                    attachment: target,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(clear_color),
+                        store: true,
+                    },
+                }],
+                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachmentDescriptor {
+                    attachment: &self.depth_texture.view,
+                    depth_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(1.),
+                        store: true,
+                    }),
+                    stencil_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(0),
+                        store: true,
+                    }),
                 }),
-                stencil_ops: Some(wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(0),
-                    store: true,
-                }),
-            }),
-        });
-        for pipeline_handler in handlers.iter_mut() {
-            pipeline_handler.draw(device, &mut render_pass);
+            });
+            for pipeline_handler in handlers.iter_mut() {
+                pipeline_handler.draw(device, &mut render_pass);
+            }
         }
     }
 
+    pub fn draw_view(
+        &mut self,
+        encoder: &mut wgpu::CommandEncoder,
+        target: &wgpu::TextureView,
+        device: &Device,
+        dt: Duration,
+        fake_color: bool,
+        queue: &Queue,
+    ) {
+        self.view.borrow_mut().draw(encoder, target, device, dt, fake_color, queue);
+    }
+
     fn perform_update(&mut self, device: &Device, dt: Duration) {
+        if let Some(instance) = self.update.sphere_instances.take() {
+            self.view.borrow_mut().update(ViewUpdate::Spheres(instance))
+        }
         self.pipeline_handlers.update(&mut self.update, device);
         if self.update.camera_update {
             self.state.update_camera(dt);
             for handler in self.pipeline_handlers.all().iter_mut() {
                 handler.update_viewer(device, &self.state.camera, &self.state.projection);
             }
+
             self.update.camera_update = false;
         }
         self.update.need_update = false;

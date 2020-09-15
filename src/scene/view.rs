@@ -1,0 +1,242 @@
+use crate::{instance, mesh, texture, utils, camera};
+use crate::{PhySize, WindowEvent};
+use camera::{Camera, CameraController, Projection, CameraPtr, ProjectionPtr};
+use iced_wgpu::wgpu;
+use iced_winit::winit;
+use std::rc::Rc;
+use std::cell::RefCell;
+use instance::Instance;
+use std::time::Duration;
+use texture::Texture;
+use wgpu::{Device, PrimitiveTopology, Queue};
+use winit::dpi::PhysicalPosition;
+use winit::event::*;
+use futures::executor;
+use utils::{BufferDimensions};
+use ultraviolet::{Vec3, Rotor3};
+
+mod pipeline_handler;
+use pipeline_handler::PipelineHandler;
+
+pub struct View {
+    camera: CameraPtr,
+    projection: ProjectionPtr,
+    pipeline_handlers: PipelineHandlers,
+    depth_texture: Texture,
+}
+
+impl View {
+    pub fn new(size: PhySize, device: &Device) -> Self {
+        let camera = Rc::new(RefCell::new(Camera::new((0.0, 5.0, 10.0), Rotor3::identity())));
+        let projection = Rc::new(RefCell::new(Projection::new(size.width, size.height, 70f32.to_radians(), 0.1, 1000.0)));
+        let pipeline_handlers = PipelineHandlers::init(device, &camera, &projection);
+        let depth_texture = texture::Texture::create_depth_texture(device, &size);
+        Self {
+            camera,
+            projection,
+            pipeline_handlers,
+            depth_texture,
+        }
+    }
+
+    pub fn update(&mut self, view_update: ViewUpdate) {
+        self.pipeline_handlers.update(view_update);
+    }
+
+    pub fn draw(
+        &mut self,
+        encoder: &mut wgpu::CommandEncoder,
+        target: &wgpu::TextureView,
+        device: &Device,
+        dt: Duration,
+        fake_color: bool,
+        queue: &Queue,
+    ) {
+        // TODO: Ask the controller to update the view 
+        let clear_color = if fake_color {
+            wgpu::Color {
+                r: 1.,
+                g: 1.,
+                b: 1.,
+                a: 1.,
+            }
+        } else {
+            wgpu::Color {
+                r: 0.1,
+                g: 0.2,
+                b: 0.3,
+                a: 1.,
+            }
+        };
+        let mut handlers = if fake_color {
+            self.pipeline_handlers.fake()
+        } else {
+            self.pipeline_handlers.real()
+        };
+        let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
+                attachment: target,
+                resolve_target: None,
+                ops: wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(clear_color),
+                    store: true,
+                },
+            }],
+            depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachmentDescriptor {
+                attachment: &self.depth_texture.view,
+                depth_ops: Some(wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(1.),
+                    store: true,
+                }),
+                stencil_ops: Some(wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(0),
+                    store: true,
+                }),
+            }),
+        });
+        for pipeline_handler in handlers.iter_mut() {
+            pipeline_handler.draw(device, &mut render_pass, queue);
+        }
+    }
+
+}
+
+#[derive(Debug)]
+pub enum ViewUpdate {
+    Spheres(Vec<Instance>),
+    Tubes(Vec<Instance>),
+    SelectedSphere(Vec<Instance>),
+    SelectedTubes(Vec<Instance>),
+}
+
+struct PipelineHandlers {
+    sphere: PipelineHandler,
+    tube: PipelineHandler,
+    fake_tube: PipelineHandler,
+    fake_sphere: PipelineHandler,
+    selected_sphere: PipelineHandler,
+    selected_tube: PipelineHandler,
+}
+
+impl PipelineHandlers {
+    fn init(device: &Device, camera: &CameraPtr, projection: &ProjectionPtr) -> Self {
+        let sphere_mesh = mesh::Mesh::sphere(device, false);
+        let tube_mesh = mesh::Mesh::tube(device, false);
+        let fake_sphere_mesh = mesh::Mesh::sphere(device, false);
+        let fake_tube_mesh = mesh::Mesh::tube(device, false);
+        let selected_sphere_mesh = mesh::Mesh::sphere(device, true);
+        let selected_tube_mesh = mesh::Mesh::tube(device, true);
+
+        let sphere_pipeline_handler = PipelineHandler::new(
+            device,
+            sphere_mesh,
+            Vec::new(),
+            camera,
+            projection,
+            PrimitiveTopology::TriangleList,
+            pipeline_handler::Flavour::Real,
+        );
+        let tube_pipeline_handler = PipelineHandler::new(
+            device,
+            tube_mesh,
+            Vec::new(),
+            camera,
+            projection,
+            PrimitiveTopology::TriangleStrip,
+            pipeline_handler::Flavour::Real,
+        );
+        let fake_tube_pipeline_handler = PipelineHandler::new(
+            device,
+            fake_tube_mesh,
+            Vec::new(),
+            camera,
+            projection,
+            PrimitiveTopology::TriangleStrip,
+            pipeline_handler::Flavour::Fake,
+        );
+        let fake_sphere_pipeline_handler = PipelineHandler::new(
+            device,
+            fake_sphere_mesh,
+            Vec::new(),
+            camera,
+            projection,
+            PrimitiveTopology::TriangleStrip,
+            pipeline_handler::Flavour::Fake,
+        );
+        let selected_sphere_pipeline_handler = PipelineHandler::new(
+            device,
+            selected_sphere_mesh,
+            Vec::new(),
+            camera,
+            projection,
+            PrimitiveTopology::TriangleStrip,
+            pipeline_handler::Flavour::Selected,
+        );
+        let selected_tube_pipeline_handler = PipelineHandler::new(
+            device,
+            selected_tube_mesh,
+            Vec::new(),
+            camera,
+            projection,
+            PrimitiveTopology::TriangleStrip,
+            pipeline_handler::Flavour::Selected,
+        );
+
+        Self {
+            sphere: sphere_pipeline_handler,
+            tube: tube_pipeline_handler,
+            fake_sphere: fake_sphere_pipeline_handler,
+            fake_tube: fake_tube_pipeline_handler,
+            selected_sphere: selected_sphere_pipeline_handler,
+            selected_tube: selected_tube_pipeline_handler,
+        }
+    }
+
+    fn all(&mut self) -> Vec<&mut PipelineHandler> {
+        vec![
+            &mut self.sphere,
+            &mut self.tube,
+            &mut self.fake_sphere,
+            &mut self.fake_tube,
+            &mut self.selected_tube,
+            &mut self.selected_sphere,
+        ]
+    }
+
+    fn real(&mut self) -> Vec<&mut PipelineHandler> {
+        vec![
+            &mut self.sphere,
+            &mut self.tube,
+            &mut self.selected_sphere,
+            &mut self.selected_tube,
+        ]
+    }
+
+    fn fake(&mut self) -> Vec<&mut PipelineHandler> {
+        vec![&mut self.fake_sphere, &mut self.fake_tube]
+    }
+
+    fn update(&mut self, update: ViewUpdate) {
+        match update {
+            ViewUpdate::Spheres(instances) => {
+                let instances = Rc::new(instances);
+                self.sphere.new_instances(instances.clone());
+                self.fake_sphere.new_instances(instances);
+            },
+            ViewUpdate::Tubes(instances) => {
+                let instances = Rc::new(instances);
+                self.tube.new_instances(instances.clone());
+                self.fake_tube.new_instances(instances);
+            },
+            ViewUpdate::SelectedTubes(instances) => {
+                self.selected_sphere.new_instances(Rc::new(Vec::new()));
+                self.selected_tube.new_instances(Rc::new(instances));
+            },
+            ViewUpdate::SelectedSphere(instances) => {
+                self.selected_tube.new_instances(Rc::new(Vec::new()));
+                self.selected_sphere.new_instances(Rc::new(instances));
+            }
+        }
+    }
+
+}
