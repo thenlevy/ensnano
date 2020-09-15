@@ -149,7 +149,7 @@ fn main() {
                             window.scale_factor(),
                         );
                         resized = true;
-                        scene.notify(SceneNotification::Resize(new_size, &device));
+                        scene.notify(SceneNotification::Resize(new_size));
                     }
                     WindowEvent::CloseRequested => {
                         *control_flow = ControlFlow::Exit;
@@ -233,7 +233,7 @@ fn main() {
                 let now = std::time::Instant::now();
                 let dt = now - last_render_time;
                 last_render_time = now;
-                scene.draw(&mut encoder, &frame.output.view, &device, dt, false);
+                //scene.draw(&mut encoder, &frame.output.view, &device, dt, false);
                 scene.draw_view(&mut encoder, &frame.output.view, &device, dt, false, &queue);
 
                 // And then iced on top

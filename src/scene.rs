@@ -1,14 +1,12 @@
-use crate::{camera, instance, mesh, pipeline_handler, texture, utils};
+use crate::{camera, instance, mesh, pipeline_handler, utils};
 use crate::{PhySize, WindowEvent};
 use camera::{Camera, CameraController, Projection};
 use iced_wgpu::wgpu;
 use iced_winit::winit;
 use instance::Instance;
-use pipeline_handler::PipelineHandler;
 use std::time::Duration;
 use std::rc::Rc;
 use std::cell::RefCell;
-use texture::Texture;
 use wgpu::{Device, PrimitiveTopology, Queue};
 use winit::dpi::PhysicalPosition;
 use winit::event::*;
@@ -21,10 +19,8 @@ use view::{View, ViewUpdate};
 type ViewPtr = Rc<RefCell<View>>;
 pub struct Scene {
     state: State,
-    pipeline_handlers: PipelineHandlers,
     /// the number of tube to display
     pub number_instances: u32,
-    depth_texture: Texture,
     update: SceneUpdate,
     selected_id: Option<u32>,
     view: ViewPtr,
@@ -38,9 +34,6 @@ impl Scene {
 
         let number_instances = 3;
 
-        let depth_texture = texture::Texture::create_depth_texture(device, &size);
-        let pipeline_handlers = PipelineHandlers::init(device, &state.camera, &state.projection);
-
         let update = SceneUpdate::new();
 
         let view = Rc::new(RefCell::new(View::new(size, device)));
@@ -48,9 +41,7 @@ impl Scene {
             view,
             number_instances,
             state,
-            depth_texture,
             update,
-            pipeline_handlers,
             selected_id: None,
         }
     }
@@ -207,7 +198,7 @@ impl Scene {
         self.update.need_update = true;
     }
 
-    pub fn draw(
+    /*pub fn draw(
         &mut self,
         encoder: &mut wgpu::CommandEncoder,
         target: &wgpu::TextureView,
@@ -268,7 +259,7 @@ impl Scene {
                 pipeline_handler.draw(device, &mut render_pass);
             }
         }
-    }
+    }*/
 
     pub fn draw_view(
         &mut self,
@@ -279,6 +270,12 @@ impl Scene {
         fake_color: bool,
         queue: &Queue,
     ) {
+        if self.state.camera_is_moving() {
+            self.notify(SceneNotification::CameraMoved);
+        }
+        if self.update.need_update {
+            self.perform_update(device, dt);
+        }
         self.view.borrow_mut().draw(encoder, target, device, dt, fake_color, queue);
     }
 
@@ -289,12 +286,19 @@ impl Scene {
         if let Some(instance) = self.update.tube_instances.take() {
             self.view.borrow_mut().update(ViewUpdate::Tubes(instance))
         }
-        self.pipeline_handlers.update(&mut self.update, device);
+        if let Some(sphere) = self.update.selected_sphere.take() {
+            self.view.borrow_mut().update(ViewUpdate::SelectedSpheres(vec![sphere]))
+        }
+        if let Some(tubes) = self.update.selected_tube.take() {
+            self.view.borrow_mut().update(ViewUpdate::SelectedTubes(tubes))
+        }
+        //self.pipeline_handlers.update(&mut self.update, device);
         if self.update.camera_update {
             self.state.update_camera(dt);
+            /*
             for handler in self.pipeline_handlers.all().iter_mut() {
                 handler.update_viewer(device, &self.state.camera, &self.state.projection);
-            }
+            }*/
             self.view.borrow_mut().update(ViewUpdate::Viewer(self.state.camera.clone(), self.state.projection.clone()));
 
             self.update.camera_update = false;
@@ -378,6 +382,7 @@ impl SceneUpdate {
     }
 }
 
+/*
 struct PipelineHandlers {
     sphere: PipelineHandler,
     tube: PipelineHandler,
@@ -511,6 +516,7 @@ impl PipelineHandlers {
         }
     }
 }
+*/
 
 /// Process the inputs on a scene and gives instruction to the camera_controller
 struct State {
@@ -624,7 +630,7 @@ pub enum SceneNotification<'a> {
     NewCamera(Vec3, Rotor3),
     NewSpheres(&'a Vec<([f32 ; 3], u32, u32)>),
     NewTubes(&'a Vec<([f32 ;3], [f32 ; 3], u32, u32)>),
-    Resize(PhySize, &'a Device),
+    Resize(PhySize),
 }
 
 impl Scene {
@@ -637,7 +643,7 @@ impl Scene {
                 self.update.camera_update = true;
             }
             SceneNotification::CameraMoved => self.update.camera_update = true,
-            SceneNotification::Resize(size, device) => self.resize(size, device),
+            SceneNotification::Resize(size) => self.resize(size),
         };
         self.update.need_update = true;
 
@@ -709,8 +715,9 @@ impl Scene {
         self.update.fake_tube_instances = Some(fake_instances);
     }
 
-    fn resize(&mut self, size: PhySize, device: &Device) {
-        self.depth_texture = texture::Texture::create_depth_texture(device, &size);
+    fn resize(&mut self, size: PhySize) {
+        //self.depth_texture = texture::Texture::create_depth_texture(device, &size);
+        self.view.borrow_mut().update(ViewUpdate::Size(size));
         self.state.resize(size);
         self.update.camera_update = true;
     }

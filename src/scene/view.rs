@@ -23,6 +23,7 @@ pub struct View {
     projection: ProjectionPtr,
     pipeline_handlers: PipelineHandlers,
     depth_texture: Texture,
+    new_size: Option<PhySize>,
 }
 
 impl View {
@@ -36,11 +37,17 @@ impl View {
             projection,
             pipeline_handlers,
             depth_texture,
+            new_size: None,
         }
     }
 
     pub fn update(&mut self, view_update: ViewUpdate) {
-        self.pipeline_handlers.update(view_update);
+        match view_update {
+            ViewUpdate::Size(size) => {
+                self.new_size = Some(size)
+            },
+            _ => self.pipeline_handlers.update(view_update)
+        }
     }
 
     pub fn draw(
@@ -52,6 +59,9 @@ impl View {
         fake_color: bool,
         queue: &Queue,
     ) {
+        if let Some(size) = self.new_size.take() {
+            self.depth_texture = Texture::create_depth_texture(device, &size);
+        }
         // TODO: Ask the controller to update the view 
         let clear_color = if fake_color {
             wgpu::Color {
@@ -105,9 +115,10 @@ impl View {
 pub enum ViewUpdate {
     Spheres(Vec<Instance>),
     Tubes(Vec<Instance>),
-    SelectedSphere(Vec<Instance>),
+    SelectedSpheres(Vec<Instance>),
     SelectedTubes(Vec<Instance>),
     Viewer(Camera, Projection),
+    Size(PhySize),
 }
 
 struct PipelineHandlers {
@@ -233,7 +244,7 @@ impl PipelineHandlers {
                 self.selected_sphere.new_instances(Rc::new(Vec::new()));
                 self.selected_tube.new_instances(Rc::new(instances));
             },
-            ViewUpdate::SelectedSphere(instances) => {
+            ViewUpdate::SelectedSpheres(instances) => {
                 self.selected_tube.new_instances(Rc::new(Vec::new()));
                 self.selected_sphere.new_instances(Rc::new(instances));
             }
@@ -242,8 +253,9 @@ impl PipelineHandlers {
                     pipeline.new_viewer(camera.clone(), projection.clone())
                 }
             }
-
-
+            ViewUpdate::Size(size) => {
+                unreachable!();
+            }
         }
     }
 
