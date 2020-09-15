@@ -22,6 +22,13 @@ impl Uniforms {
         }
     }
 
+    pub fn from_view_proj(camera: &Camera, projection: &Projection) -> Self {
+        Self {
+            camera_position: camera.position.into_homogeneous_point(),
+            view_proj: projection.calc_matrix() * camera.calc_matrix()
+        }
+    }
+
     pub fn update_view_proj(&mut self, camera: &Camera, projection: &Projection) {
         self.camera_position = camera.position.into_homogeneous_point();
         self.view_proj = projection.calc_matrix() * camera.calc_matrix()

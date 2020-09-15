@@ -18,7 +18,7 @@ pub struct PipelineHandler {
     mesh: Mesh,
     new_instances: Option<Rc<Vec<Instance>>>,
     number_instances: usize,
-    viewer_data: Uniforms,
+    new_viewer_data: Option<Uniforms>,
     bind_groups: BindGroups,
     vertex_module: wgpu::ShaderModule,
     fragment_module: wgpu::ShaderModule,
@@ -52,7 +52,7 @@ impl PipelineHandler {
 
         let mut viewer_data = Uniforms::new();
         viewer_data.update_view_proj(&*camera.borrow(), &*projection.borrow());
-        let (viewer, viewer_layout) = create_viewer_bind_group(device, &viewer_data);
+        let (viewer, viewer_layout, viewer_buffer) = create_viewer_bind_group(device, &viewer_data);
 
         let (light, light_layout) = create_light(device);
 
@@ -64,6 +64,7 @@ impl PipelineHandler {
             instances_buffer: instance_buffer,
             viewer,
             viewer_layout,
+            viewer_buffer,
             light,
             light_layout,
         };
@@ -81,7 +82,7 @@ impl PipelineHandler {
             mesh,
             new_instances: None,
             number_instances,
-            viewer_data,
+            new_viewer_data: None,
             bind_groups,
             vertex_module,
             fragment_module,
@@ -91,11 +92,8 @@ impl PipelineHandler {
         }
     }
 
-    pub fn update_viewer(&mut self, device: &Device, camera: &Camera, projection: &Projection) {
-        self.viewer_data.update_view_proj(camera, projection);
-        let (viewer, viewer_layout) = create_viewer_bind_group(device, &self.viewer_data);
-        self.bind_groups.viewer = viewer;
-        self.bind_groups.viewer_layout = viewer_layout;
+    pub fn new_viewer(&mut self, camera: Camera, projection: Projection) {
+        self.new_viewer_data = Some(Uniforms::from_view_proj(&camera, &projection));
     }
 
     pub fn new_instances(&mut self, instances: Rc<Vec<Instance>>) {
@@ -110,11 +108,18 @@ impl PipelineHandler {
         }
     }
 
+    pub fn update_viewer(&mut self, device: &Device, queue: &Queue) {
+        if let Some(viewer_data) = self.new_viewer_data.take() {
+            self.bind_groups.update_viewer(&viewer_data, queue)
+        }
+    }
+
     pub fn draw<'a>(&'a mut self, device: &Device, render_pass: &mut RenderPass<'a>, queue: &Queue) {
         if self.pipeline.is_none() {
             self.pipeline = Some(self.create_pipeline(device));
         }
         self.update_instances(device, queue);
+        self.update_viewer(device, queue);
         render_pass.set_pipeline(self.pipeline.as_ref().unwrap());
 
         render_pass.draw_mesh_instanced(
@@ -218,6 +223,7 @@ struct BindGroups {
     instances_len: u64,
     viewer: BindGroup,
     viewer_layout: BindGroupLayout,
+    viewer_buffer: Buffer,
     light: BindGroup,
     light_layout: BindGroupLayout,
 }
@@ -254,6 +260,10 @@ impl BindGroups {
             });
         }
         queue.write_buffer(&self.instances_buffer, 0, instances_bytes);
+    }
+
+    pub fn update_viewer<U: bytemuck::Pod>(&mut self, viewer_data: &U, queue: &Queue) {
+        queue.write_buffer(&self.viewer_buffer, 0, bytemuck::cast_slice(&[*viewer_data]));
     }
 
 }
@@ -303,7 +313,7 @@ fn create_instances_bind_group<I: bytemuck::Pod>(
 fn create_viewer_bind_group<V: bytemuck::Pod>(
     device: &Device,
     viewer_data: &V,
-) -> (BindGroup, BindGroupLayout) {
+) -> (BindGroup, BindGroupLayout, Buffer) {
     let viewer_buffer = create_buffer_with_data(
         &device,
         bytemuck::cast_slice(&[*viewer_data]),
@@ -335,5 +345,5 @@ fn create_viewer_bind_group<V: bytemuck::Pod>(
         label: Some("uniform_bind_group"),
     });
 
-    (uniform_bind_group, uniform_bind_group_layout)
+    (uniform_bind_group, uniform_bind_group_layout, viewer_buffer)
 }

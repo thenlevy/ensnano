@@ -7,7 +7,7 @@ use winit::event::*;
 use std::rc::Rc;
 use std::cell::RefCell;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Camera {
     /// The eye of the camera
     pub position: Vec3,
@@ -51,6 +51,8 @@ impl Camera {
     }
 }
 
+
+#[derive(Debug, Clone)]
 /// This structure holds the information needed to compute the projection matrix.
 pub struct Projection {
     aspect: f32,

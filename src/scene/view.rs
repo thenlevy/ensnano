@@ -107,6 +107,7 @@ pub enum ViewUpdate {
     Tubes(Vec<Instance>),
     SelectedSphere(Vec<Instance>),
     SelectedTubes(Vec<Instance>),
+    Viewer(Camera, Projection),
 }
 
 struct PipelineHandlers {
@@ -236,6 +237,13 @@ impl PipelineHandlers {
                 self.selected_tube.new_instances(Rc::new(Vec::new()));
                 self.selected_sphere.new_instances(Rc::new(instances));
             }
+            ViewUpdate::Viewer(camera, projection) => {
+                for pipeline in self.all() {
+                    pipeline.new_viewer(camera.clone(), projection.clone())
+                }
+            }
+
+
         }
     }
 

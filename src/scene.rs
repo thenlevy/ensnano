@@ -282,6 +282,7 @@ impl Scene {
             for handler in self.pipeline_handlers.all().iter_mut() {
                 handler.update_viewer(device, &self.state.camera, &self.state.projection);
             }
+            self.view.borrow_mut().update(ViewUpdate::Viewer(self.state.camera.clone(), self.state.projection.clone()));
 
             self.update.camera_update = false;
         }
