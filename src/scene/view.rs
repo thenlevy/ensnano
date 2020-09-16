@@ -1,20 +1,14 @@
-use crate::{instance, mesh, texture, utils};
-use crate::{PhySize, WindowEvent};
+use crate::{instance, mesh, texture};
+use crate::PhySize;
 use super::camera;
-use camera::{Camera, CameraController, Projection, CameraPtr, ProjectionPtr};
+use camera::{Camera, Projection, CameraPtr, ProjectionPtr};
 use iced_wgpu::wgpu;
-use iced_winit::winit;
 use std::rc::Rc;
 use std::cell::RefCell;
 use instance::Instance;
-use std::time::Duration;
 use texture::Texture;
 use wgpu::{Device, PrimitiveTopology, Queue};
-use winit::dpi::PhysicalPosition;
-use winit::event::*;
-use futures::executor;
-use utils::{BufferDimensions};
-use ultraviolet::{Vec3, Rotor3};
+use ultraviolet::Rotor3;
 
 mod pipeline_handler;
 use pipeline_handler::PipelineHandler;
@@ -61,7 +55,6 @@ impl View {
         encoder: &mut wgpu::CommandEncoder,
         target: &wgpu::TextureView,
         device: &Device,
-        dt: Duration,
         fake_color: bool,
         queue: &Queue,
     ) {

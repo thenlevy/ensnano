@@ -270,10 +270,7 @@ impl DesignHandler {
         let up: Vec3 = bases[1].3.into();
         let reverse_direction = right.cross(up);
         let rotation_matrix = ultraviolet::Mat3::new(right, up, reverse_direction);
-        let from = Vec3::new(1., 2., 3.).normalized();
-        let to = right + 2. * up + 3. * reverse_direction;
         println!("{:?}", rotation_matrix);
-        //rotation_matrix.into()
         let ret = rotation_to_rotor(&rotation_matrix);
         println!("rotor {:?}", ret.into_matrix());
         ret

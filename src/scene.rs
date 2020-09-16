@@ -1,4 +1,4 @@
-use crate::{instance, mesh, utils};
+use crate::{instance, utils};
 use crate::{PhySize, WindowEvent};
 use iced_wgpu::wgpu;
 use iced_winit::winit;
@@ -6,14 +6,12 @@ use instance::Instance;
 use std::time::Duration;
 use std::rc::Rc;
 use std::cell::RefCell;
-use wgpu::{Device, PrimitiveTopology, Queue};
+use wgpu::{Device, Queue};
 use winit::dpi::PhysicalPosition;
-use winit::event::*;
 use futures::executor;
-use utils::{BufferDimensions};
+use utils::BufferDimensions;
 use ultraviolet::{Vec3, Rotor3};
 mod camera;
-use camera::{Camera, CameraController, CameraPtr};
 mod view;
 use view::{View, ViewUpdate};
 mod controller;
@@ -109,7 +107,6 @@ impl Scene {
             &mut encoder,
             &texture_view,
             device,
-            std::time::Duration::from_millis(0),
             true,
             queue,
         );
@@ -207,7 +204,7 @@ impl Scene {
         if self.update.need_update {
             self.perform_update(dt);
         }
-        self.view.borrow_mut().draw(encoder, target, device, dt, fake_color, queue);
+        self.view.borrow_mut().draw(encoder, target, device, fake_color, queue);
     }
 
     fn perform_update(&mut self, dt: Duration) {

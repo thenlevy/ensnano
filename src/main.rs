@@ -14,18 +14,13 @@ use winit::{
     event_loop::{ControlFlow, EventLoop},
 };
 mod scene;
-//mod model;
-//mod camera;
 mod consts;
 mod controls;
 mod design_handler;
-//mod design_viewer;
 mod instance;
 mod light;
 mod mesh;
-//mod pipeline_handler;
 mod texture;
-//mod uniforms;
 mod utils;
 
 use design_handler::DesignHandler;

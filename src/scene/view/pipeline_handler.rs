@@ -106,7 +106,7 @@ impl PipelineHandler {
         }
     }
 
-    pub fn update_viewer(&mut self, device: &Device, queue: &Queue) {
+    pub fn update_viewer(&mut self, queue: &Queue) {
         if let Some(viewer_data) = self.new_viewer_data.take() {
             self.bind_groups.update_viewer(&viewer_data, queue)
         }
@@ -117,7 +117,7 @@ impl PipelineHandler {
             self.pipeline = Some(self.create_pipeline(device));
         }
         self.update_instances(device, queue);
-        self.update_viewer(device, queue);
+        self.update_viewer(queue);
         render_pass.set_pipeline(self.pipeline.as_ref().unwrap());
 
         render_pass.draw_mesh_instanced(
