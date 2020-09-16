@@ -1,16 +1,14 @@
-use crate::{camera, instance, light, mesh, texture, uniforms, utils};
-use camera::{Camera, Projection};
+use crate::{instance, light, mesh, texture,  utils};
 use iced_wgpu::wgpu;
 use instance::Instance;
 use light::create_light;
 use mesh::{DrawModel, Mesh, Vertex};
 use texture::Texture;
-use uniforms::Uniforms;
 use utils::create_buffer_with_data;
 use wgpu::{BindGroup, BindGroupLayout, Buffer, Device, RenderPass, RenderPipeline, StencilStateDescriptor, Queue, include_spirv};
 use std::rc::Rc;
 
-use super::{CameraPtr, ProjectionPtr};
+use super::{CameraPtr, ProjectionPtr, Uniforms};
 
 /// A structure that can create a pipeline which will draw several instances of the same
 /// mesh.
@@ -51,7 +49,7 @@ impl PipelineHandler {
         let (instances_bg, instances_layout, instance_buffer) = create_instances_bind_group(device, &instances_data);
 
         let mut viewer_data = Uniforms::new();
-        viewer_data.update_view_proj(&*camera.borrow(), &*projection.borrow());
+        viewer_data.update_view_proj(camera.clone(), projection.clone());
         let (viewer, viewer_layout, viewer_buffer) = create_viewer_bind_group(device, &viewer_data);
 
         let (light, light_layout) = create_light(device);
@@ -92,8 +90,8 @@ impl PipelineHandler {
         }
     }
 
-    pub fn new_viewer(&mut self, camera: Camera, projection: Projection) {
-        self.new_viewer_data = Some(Uniforms::from_view_proj(&camera, &projection));
+    pub fn new_viewer(&mut self, camera: CameraPtr, projection: ProjectionPtr) {
+        self.new_viewer_data = Some(Uniforms::from_view_proj(camera, projection));
     }
 
     pub fn new_instances(&mut self, instances: Rc<Vec<Instance>>) {

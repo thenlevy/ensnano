@@ -1,5 +1,6 @@
-use crate::{instance, mesh, texture, utils, camera};
+use crate::{instance, mesh, texture, utils};
 use crate::{PhySize, WindowEvent};
+use super::camera;
 use camera::{Camera, CameraController, Projection, CameraPtr, ProjectionPtr};
 use iced_wgpu::wgpu;
 use iced_winit::winit;
@@ -17,6 +18,8 @@ use ultraviolet::{Vec3, Rotor3};
 
 mod pipeline_handler;
 use pipeline_handler::PipelineHandler;
+mod uniforms;
+use uniforms::Uniforms;
 
 pub struct View {
     camera: CameraPtr,
@@ -45,6 +48,9 @@ impl View {
         match view_update {
             ViewUpdate::Size(size) => {
                 self.new_size = Some(size)
+            },
+            ViewUpdate::Camera => {
+                self.pipeline_handlers.new_viewer(self.camera.clone(), self.projection.clone())
             },
             _ => self.pipeline_handlers.update(view_update)
         }
@@ -109,15 +115,23 @@ impl View {
         }
     }
 
+    pub fn get_camera(&self) -> CameraPtr {
+        self.camera.clone()
+    }
+
+    pub fn get_projection(&self) -> ProjectionPtr {
+        self.projection.clone()
+    }
+
 }
 
 #[derive(Debug)]
 pub enum ViewUpdate {
+    Camera,
     Spheres(Vec<Instance>),
     Tubes(Vec<Instance>),
     SelectedSpheres(Vec<Instance>),
     SelectedTubes(Vec<Instance>),
-    Viewer(Camera, Projection),
     Size(PhySize),
 }
 
@@ -248,15 +262,15 @@ impl PipelineHandlers {
                 self.selected_tube.new_instances(Rc::new(Vec::new()));
                 self.selected_sphere.new_instances(Rc::new(instances));
             }
-            ViewUpdate::Viewer(camera, projection) => {
-                for pipeline in self.all() {
-                    pipeline.new_viewer(camera.clone(), projection.clone())
-                }
-            }
-            ViewUpdate::Size(size) => {
+            ViewUpdate::Camera | ViewUpdate::Size(_) => {
                 unreachable!();
             }
         }
     }
 
+    fn new_viewer(&mut self, camera: CameraPtr, projection: ProjectionPtr) {
+        for pipeline in self.all() {
+            pipeline.new_viewer(camera.clone(), projection.clone())
+        }
+    }
 }

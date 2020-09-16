@@ -2,12 +2,13 @@ use ultraviolet::{Vec3, Rotor3, Mat4};
 use iced_winit::winit;
 use std::f32::consts::FRAC_PI_2;
 use std::time::Duration;
-use winit::dpi::LogicalPosition;
-use winit::event::*;
 use std::rc::Rc;
 use std::cell::RefCell;
+use winit::dpi::LogicalPosition;
+use winit::event::*;
+use super::PhySize;
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Camera {
     /// The eye of the camera
     pub position: Vec3,
@@ -51,8 +52,7 @@ impl Camera {
     }
 }
 
-
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 /// This structure holds the information needed to compute the projection matrix.
 pub struct Projection {
     aspect: f32,
@@ -106,10 +106,12 @@ pub struct CameraController {
     scroll: f32,
     last_rotor: Rotor3,
     processed_move: bool,
+    camera: CameraPtr,
+    projection: ProjectionPtr,
 }
 
 impl CameraController {
-    pub fn new(speed: f32, sensitivity: f32, camera: &Camera) -> Self {
+    pub fn new(speed: f32, sensitivity: f32, camera: CameraPtr, projection: ProjectionPtr) -> Self {
         Self {
             speed,
             sensitivity,
@@ -122,8 +124,10 @@ impl CameraController {
             rotate_horizontal: 0.0,
             rotate_vertical: 0.0,
             scroll: 0.0,
-            last_rotor: camera.rotor,
+            last_rotor: camera.clone().borrow().rotor,
             processed_move: false,
+            camera,
+            projection,
         }
     }
 
@@ -185,7 +189,8 @@ impl CameraController {
         };
     }
 
-    fn rotate_camera(&mut self, camera: &mut Camera) {
+    fn rotate_camera(&mut self) {
+        let mut camera = self.camera.borrow_mut();
         let x_angle = self.rotate_horizontal * FRAC_PI_2;
         let y_angle = self.rotate_vertical * FRAC_PI_2;
         let rotation = Rotor3::from_rotation_xz(x_angle) * Rotor3::from_rotation_yz(-y_angle);
@@ -196,34 +201,46 @@ impl CameraController {
         self.rotate_vertical = 0.0;
     }
 
-    fn move_camera(&mut self, camera: &mut Camera, dt: Duration) {
+    fn move_camera(&mut self, dt: Duration) {
         let dt = dt.as_secs_f32();
 
         // Move forward/backward and left/right
-        let forward = camera.direction();
-        let right = camera.right_vec();
-        camera.position += forward * (self.amount_forward - self.amount_backward) * self.speed * dt;
-        camera.position += right * (self.amount_right - self.amount_left) * self.speed * dt;
+        let forward = self.camera.borrow().direction();
+        let right = self.camera.borrow().right_vec();
+
+        {
+            let mut camera = self.camera.borrow_mut();
+            camera.position += forward * (self.amount_forward - self.amount_backward) * self.speed * dt;
+            camera.position += right * (self.amount_right - self.amount_left) * self.speed * dt;
+        }
 
         // Move in/out (aka. "zoom")
         // Note: this isn't an actual zoom. The camera's position
         // changes when zooming. I've added this to make it easier
         // to get closer to an object you want to focus on.
-        let scrollward = camera.direction();
-        camera.position += scrollward * self.scroll * self.speed * self.sensitivity * dt;
+        let scrollward = self.camera.borrow().direction();
+        {
+            let mut camera = self.camera.borrow_mut();
+            camera.position += scrollward * self.scroll * self.speed * self.sensitivity * dt;
+        }
         self.scroll = 0.;
 
         // Move up/down
-        camera.position += camera.up_vec() * (self.amount_up - self.amount_down) * self.speed * dt;
-    }
-    pub fn update_camera(&mut self, camera: &mut Camera, dt: Duration) {
-        if self.processed_move {
-            self.rotate_camera(camera);
+        let up_vec = self.camera.borrow().up_vec();
+        {
+            let mut camera = self.camera.borrow_mut();
+            camera.position += up_vec * (self.amount_up - self.amount_down) * self.speed * dt;
         }
-        self.move_camera(camera, dt);
+    }
+    pub fn update_camera(&mut self, dt: Duration) {
+        if self.processed_move {
+            self.rotate_camera();
+        }
+        self.move_camera(dt);
     }
 
-    pub fn process_click(&mut self, camera: &Camera, state: &ElementState) {
+    pub fn process_click(&mut self, state: &ElementState) {
+        let camera = self.camera.borrow();
         match *state {
             ElementState::Released => {
                 self.last_rotor = camera.rotor;
@@ -232,5 +249,15 @@ impl CameraController {
             }
             ElementState::Pressed => self.processed_move = false,
         }
+    }
+
+    pub fn teleport_camera(&mut self, position: Vec3, rotation: Rotor3) {
+        let mut camera = self.camera.borrow_mut();
+        camera.position = position;
+        camera.rotor = rotation;
+    }
+
+    pub fn resize(&mut self, size: PhySize) {
+        self.projection.borrow_mut().resize(size.width, size.height)
     }
 }

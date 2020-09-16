@@ -15,7 +15,7 @@ use winit::{
 };
 mod scene;
 //mod model;
-mod camera;
+//mod camera;
 mod consts;
 mod controls;
 mod design_handler;
@@ -23,9 +23,9 @@ mod design_handler;
 mod instance;
 mod light;
 mod mesh;
-mod pipeline_handler;
+//mod pipeline_handler;
 mod texture;
-mod uniforms;
+//mod uniforms;
 mod utils;
 
 use design_handler::DesignHandler;
