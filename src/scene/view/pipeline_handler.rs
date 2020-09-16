@@ -7,6 +7,7 @@ use texture::Texture;
 use utils::create_buffer_with_data;
 use wgpu::{BindGroup, BindGroupLayout, Buffer, Device, RenderPass, RenderPipeline, StencilStateDescriptor, Queue, include_spirv};
 use std::rc::Rc;
+use ultraviolet::Mat4;
 
 use super::{CameraPtr, ProjectionPtr, Uniforms};
 
@@ -15,6 +16,7 @@ use super::{CameraPtr, ProjectionPtr, Uniforms};
 pub struct PipelineHandler {
     mesh: Mesh,
     new_instances: Option<Rc<Vec<Instance>>>,
+    new_model_matrices: Option<Rc<Vec<Mat4>>>,
     number_instances: usize,
     new_viewer_data: Option<Uniforms>,
     bind_groups: BindGroups,
@@ -37,6 +39,7 @@ impl PipelineHandler {
         device: &Device,
         mesh: Mesh,
         instances: Vec<Instance>,
+        //model_matrices: Vec<Mat4>,
         camera: &CameraPtr,
         projection: &ProjectionPtr,
         primitive_topology: wgpu::PrimitiveTopology,
@@ -81,6 +84,7 @@ impl PipelineHandler {
             new_instances: None,
             number_instances,
             new_viewer_data: None,
+            new_model_matrices: None,
             bind_groups,
             vertex_module,
             fragment_module,

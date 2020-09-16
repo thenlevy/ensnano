@@ -5,16 +5,16 @@ use std::rc::Rc;
 type ViewPtr = Rc<RefCell<View>>;
 type DataPtr = Rc<RefCell<Data>>;
 
-struct Controller {
+pub struct Controller {
     view: ViewPtr,
     data: DataPtr,
 }
 
 impl Controller {
-    pub fn new(view: &ViewPtr, data: &DataPtr) -> Self {
+    pub fn new(view: ViewPtr, data: DataPtr) -> Self {
         Self {
-            view: view.clone(),
-            data: data.clone(),
+            view,
+            data,
         }
     }
 }

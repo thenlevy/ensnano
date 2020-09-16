@@ -3,6 +3,10 @@ use std::rc::Rc;
 use std::collections::HashMap;
 use super::View;
 use std::path::PathBuf;
+use ultraviolet::{Vec3, Rotor3};
+use crate::utils::rotation_to_rotor;
+
+type Basis = (f32, f64, f64, [f32; 3], u32);
 
 type ViewPtr = Rc<RefCell<View>>;
 pub struct Data {
@@ -15,6 +19,7 @@ pub struct Data {
     identifier_nucl: HashMap<Nucl, u32>,
     identifier_bound: HashMap<(Nucl, Nucl), u32>,
     nucl_to_strand: HashMap<Nucl, usize>,
+    update_status: bool,
 }
 
 impl Data {
@@ -30,6 +35,7 @@ impl Data {
             nucleotides_involved: HashMap::new(),
             nucleotide: HashMap::new(),
             nucl_to_strand: HashMap::new(),
+            update_status: false,
         }
     }
 
@@ -47,8 +53,10 @@ impl Data {
             nucleotides_involved: HashMap::new(),
             nucleotide: HashMap::new(),
             nucl_to_strand: HashMap::new(),
+            update_status: true,
         };
         ret.make_hash_maps();
+        ret.update_view();
         ret
     }
 
@@ -146,25 +154,28 @@ impl Data {
         self.view.borrow_mut().update_tubes(&covalent_bound);
     }
 
-    /*
-    pub fn update_scene_selection(&self, scene: &mut Scene) {
-        if let Some(id) = scene.get_selected_id() {
-            if let Some(kind) = self.object_type.get(&id) {
-                match kind {
-                    ObjectType::Bound => {
-                        let (nucl1, nucl2) = self.nucleotides_involved.get(&id).unwrap();
-                        let pos1 = self.get_space_pos(nucl1).unwrap();
-                        let pos2 = self.get_space_pos(nucl2).unwrap();
-                        scene.update_selected_tube(pos1, pos2);
-                    }
-                    ObjectType::Nucleotide => {
-                        scene.update_selected_sphere(*self.space_position.get(&id).unwrap())
-                    }
+    pub fn was_updated(&mut self) -> bool {
+        let ret = self.update_status;
+        self.update_status = false;
+        ret
+    }
+
+    pub fn update_selection(&mut self, id: u32) {
+        if let Some(kind) = self.object_type.get(&id) {
+            match kind {
+                ObjectType::Bound => {
+                    let (nucl1, nucl2) = self.nucleotides_involved.get(&id).unwrap();
+                    let pos1 = self.get_space_pos(nucl1).unwrap();
+                    let pos2 = self.get_space_pos(nucl2).unwrap();
+                    self.view.borrow_mut().update_selected_tubes(&vec![(pos1, pos2)]);
+                }
+                ObjectType::Nucleotide => {
+                    self.view.borrow_mut().update_selected_spheres(&vec![*self.space_position.get(&id).unwrap()])
                 }
             }
+            self.update_status = true;
         }
     }
-    */
 
     fn get_space_pos(&self, nucl: &Nucl) -> Option<[f32; 3]> {
         let id = self.identifier_nucl.get(nucl);
@@ -177,6 +188,104 @@ impl Data {
         } else {
             None
         }
+    }
+    pub fn fit_design(&self, ratio: f32, fovy: f32) -> (Vec3, Rotor3) {
+        let mut bases = self.get_bases(ratio);
+        let rotation = self.get_fitting_quaternion(&bases);
+        let direction = rotation * -Vec3::unit_z();
+        let position = self.get_fitting_position(&mut bases, ratio, fovy, &direction);
+        (position, rotation)
+    }
+
+    fn boundaries(&self) -> [f64; 6] {
+        let mut min_x = std::f64::INFINITY;
+        let mut min_y = std::f64::INFINITY;
+        let mut min_z = std::f64::INFINITY;
+        let mut max_x = std::f64::NEG_INFINITY;
+        let mut max_y = std::f64::NEG_INFINITY;
+        let mut max_z = std::f64::NEG_INFINITY;
+
+        let param = &self.design.parameters.unwrap();
+        for s in &self.design.strands {
+            for d in &s.domains {
+                let helix = &self.design.helices[d.helix as usize];
+                for coord in vec![
+                    helix.space_pos(param, d.start, d.forward),
+                    helix.space_pos(param, d.end, d.forward),
+                ] {
+                    if coord[0] < min_x {
+                        min_x = coord[0];
+                    }
+                    if coord[0] > max_x {
+                        max_x = coord[0];
+                    }
+                    if coord[1] < min_y {
+                        min_y = coord[1];
+                    }
+                    if coord[1] > max_y {
+                        max_y = coord[1];
+                    }
+                    if coord[2] < min_z {
+                        min_z = coord[2];
+                    }
+                    if coord[2] > max_z {
+                        max_z = coord[2];
+                    }
+                }
+            }
+        }
+        [min_x, max_x, min_y, max_y, min_z, max_z]
+    }
+
+    /// Return the 3 axis sorted by magnitude of instances coordinates
+    fn get_bases(&self, ratio: f32) -> Vec<Basis> {
+        let [min_x, max_x, min_y, max_y, min_z, max_z] = self.boundaries();
+        let delta_x = ((max_x - min_x) * 1.1) as f32;
+        let delta_y = ((max_y - min_y) * 1.1) as f32;
+        let delta_z = ((max_z - min_z) * 1.1) as f32;
+
+        let mut bases = vec![
+            (delta_x, (max_x + min_x) / 2., max_x, [1., 0., 0.], 0),
+            (delta_y, (max_y + min_y) / 2., max_y, [0., 1., 0.], 1),
+            (delta_z, (max_z + min_z) / 2., max_z, [0., 0., 1.], 2),
+        ];
+
+        bases.sort_by(|a, b| (b.0).partial_cmp(&(a.0)).unwrap());
+
+        if ratio < 1. {
+            bases.swap(0, 1);
+        }
+
+        bases
+    }
+
+    fn get_fitting_quaternion(&self, bases: &Vec<Basis>) -> Rotor3 {
+        let right: Vec3 = bases[0].3.into();
+        let up: Vec3 = bases[1].3.into();
+        let reverse_direction = right.cross(up);
+        let rotation_matrix = ultraviolet::Mat3::new(right, up, reverse_direction);
+        println!("{:?}", rotation_matrix);
+        let ret = rotation_to_rotor(&rotation_matrix);
+        println!("rotor {:?}", ret.into_matrix());
+        ret
+    }
+
+    /// Given the orientation of the camera, computes its position so that it can see everything.
+    fn get_fitting_position(
+        &self,
+        bases: &mut Vec<Basis>,
+        ratio: f32,
+        fovy: f32,
+        direction: &Vec3,
+    ) -> Vec3 {
+        // We want to fit both the x and the y axis.
+        let vertical = (bases[1].0).max(bases[0].0 / ratio) + bases[2].0;
+
+        let x_back = vertical / 2. / (fovy / 2.).tan();
+
+        bases.sort_by_key(|b| b.4);
+        let coord = Vec3::new(bases[0].1 as f32, bases[1].1 as f32, bases[2].1 as f32);
+        coord - *direction * x_back
     }
 }
 

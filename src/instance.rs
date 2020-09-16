@@ -1,5 +1,5 @@
 use ultraviolet::{Vec3, Rotor3, Mat4, Vec4};
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 /// The instantiation of an object
 pub struct Instance {
     /// The position in space

@@ -17,12 +17,14 @@ use view::{View, ViewUpdate};
 mod controller;
 use controller::{ Controller, Consequence };
 use design::Design;
+use std::path::PathBuf;
 
 type ViewPtr = Rc<RefCell<View>>;
 pub struct Scene {
     designs: Vec<Design>,
     update: SceneUpdate,
     selected_id: Option<u32>,
+    selected_design: Option<u32>,
     view: ViewPtr,
     controller: Controller,
 }
@@ -40,12 +42,21 @@ impl Scene {
             designs: Vec::new(),
             update,
             selected_id: None,
+            selected_design: None,
             controller,
         }
     }
 
+    pub fn add_design(&mut self, path: &PathBuf) {
+        self.designs.push(Design::new_with_path(path))
+    }
+
+    pub fn clear_design(&mut self, path: &PathBuf) {
+        self.designs = vec![Design::new_with_path(path)]
+    }
+
     /// Input an event to the scene. Return true, if the selected object of the scene has changed
-    pub fn input(&mut self, event: &WindowEvent, device: &Device, queue: &mut wgpu::Queue) -> bool {
+    pub fn input(&mut self, event: &WindowEvent, device: &Device, queue: &mut wgpu::Queue) {
         let mut clicked_pixel = None;
         let consequence = self.controller.input(event);
         match consequence {
@@ -55,15 +66,15 @@ impl Scene {
         };
         if clicked_pixel.is_some() {
             let clicked_pixel = clicked_pixel.unwrap();
-            let selected_id = self.set_selected_id(clicked_pixel, device, queue);
+            let (selected_id, design_id) = self.set_selected_id(clicked_pixel, device, queue);
             if selected_id != 0xFFFFFF {
                 self.selected_id = Some(selected_id);
+                self.selected_design = Some(design_id);
+                self.designs[design_id as usize].update_selection(selected_id);
             } else {
                 self.selected_id = None;
+                self.selected_design = None;
             }
-            true
-        } else {
-            false
         }
     }
 
@@ -72,7 +83,7 @@ impl Scene {
         clicked_pixel: PhysicalPosition<f64>,
         device: &Device,
         queue: &mut wgpu::Queue,
-    ) -> u32 {
+    ) -> (u32, u32) {
         let size = wgpu::Extent3d {
             width: self.controller.get_window_size().width,
             height: self.controller.get_window_size().height,
@@ -145,29 +156,35 @@ impl Scene {
         let buffer_slice = staging_buffer.slice(..);
         let buffer_future = buffer_slice.map_async(wgpu::MapMode::Read);
         device.poll(wgpu::Maintain::Wait);
-        let color = async {
+        let future_color = async {
             if let Ok(()) = buffer_future.await {
                 let data = buffer_slice.get_mapped_range();
                 let pixels:Vec<u8> = data.chunks_exact(buffer_dimensions.padded_bytes_per_row)
                     .flat_map(|chunk| chunk[..buffer_dimensions.unpadded_bytes_per_row].to_vec())
                     .collect();
 
-                let a = (pixels[pixel + 3] as u32) << 24;
+                let a = pixels[pixel + 3] as u32;
                 let r = (pixels[pixel + 2] as u32) << 16;
                 let g = (pixels[pixel + 1] as u32) << 8;
                 let b = pixels[pixel] as u32;
-                let color = a + r + g + b;
+                let color = r + g + b;
                 drop(data);
                 staging_buffer.unmap();
                 println!("{}, {}, {}, {}", a, r, g, b);
                 //color
-                color
+                (color, a)
             } else {
                 panic!("could not read fake texture");
             }
         };
-        let color = executor::block_on(color);
-        color & 0x00FFFFFF
+        executor::block_on(future_color)
+    }
+
+    pub fn fit_design(&mut self) {
+        if self.designs.len() > 0 {
+            let (position, rotor) = self.designs[0].fit(self.get_fovy(), self.get_ratio());
+            self.notify(SceneNotification::NewCamera(position, rotor));
+        }
     }
 
     pub fn get_selected_id(&self) -> Option<u32> {
@@ -203,6 +220,7 @@ impl Scene {
         if self.controller.camera_is_moving() {
             self.notify(SceneNotification::CameraMoved);
         }
+        self.fetch_design_updates();
         if self.update.need_update {
             self.perform_update(dt);
         }
@@ -229,6 +247,45 @@ impl Scene {
             self.update.camera_update = false;
         }
         self.update.need_update = false;
+    }
+
+    fn fetch_design_updates(&mut self) {
+        let need_update = self.designs.iter_mut().fold(false, |acc, design| acc | design.was_updated());
+
+        if need_update {
+            println!("need update");
+            let mut sphere_instances = vec![];
+            let mut tube_instances = vec![];
+            let mut selected_sphere_instances = vec![];
+            let mut selected_tube_instances = vec![];
+            for d in self.designs.iter() {
+                for s in d.spheres().iter() {
+                    sphere_instances.push(*s);
+                }
+                for t in d.tubes().iter() {
+                    tube_instances.push(*t);
+                }
+                for s in d.selected_spheres().iter() {
+                    selected_sphere_instances.push(*s);
+                }
+                for t in d.selected_tubes().iter() {
+                    selected_tube_instances.push(*t);
+                }
+            }
+            self.update.sphere_instances = Some(sphere_instances);
+            self.update.tube_instances = Some(tube_instances);
+            self.update.selected_tube = if selected_tube_instances.len() > 0 {
+                Some(selected_tube_instances)
+            } else {
+                None
+            };
+            self.update.selected_sphere = if selected_sphere_instances.len() > 0 {
+                Some(selected_sphere_instances[0])
+            } else {
+                None
+            };
+        }
+        self.update.need_update |= need_update;
     }
 
     pub fn get_fovy(&self) -> f32 {

@@ -17,14 +17,14 @@ mod scene;
 mod consts;
 mod controls;
 mod design;
-mod design_handler;
+//mod design_handler;
 mod instance;
 mod light;
 mod mesh;
 mod texture;
 mod utils;
 
-use design_handler::DesignHandler;
+//use design_handler::DesignHandler;
 
 use controls::Controls;
 use scene::{ Scene, SceneNotification };
@@ -95,13 +95,11 @@ fn main() {
     let mut local_pool = futures::executor::LocalPool::new();
 
     // Initialize scene and GUI controls
-    let mut design_handler = if let Some(path) = path {
-        DesignHandler::new_with_path(&path)
-    } else {
-        DesignHandler::new()
-    };
     let mut scene = Scene::new(&device, window.inner_size());
-    design_handler.update_scene(&mut scene, true);
+    if let Some(ref path) = path {
+        scene.add_design(path)
+    }
+    scene.fit_design();
     let fitting_request = Arc::new(Mutex::new(false));
     let file_opening_request = Arc::new(Mutex::new(None));
     let controls = Controls::new(&fitting_request, &file_opening_request);
@@ -129,9 +127,7 @@ fn main() {
 
         match event {
             Event::WindowEvent { event, .. } => {
-                if scene.input(&event, &device, &mut queue) {
-                    design_handler.update_scene_selection(&mut scene);
-                }
+                scene.input(&event, &device, &mut queue);
                 match event {
                     WindowEvent::ModifiersChanged(new_modifiers) => {
                         modifiers = new_modifiers;
@@ -158,7 +154,8 @@ fn main() {
                             },
                         ..
                     } => {
-                        design_handler.fit_design(&mut scene);
+                        scene.fit_design();
+                        //design_handler.fit_design(&mut scene);
                     }
 
                     _ => {}
@@ -187,15 +184,17 @@ fn main() {
                     {
                         let mut fitting_request_lock = fitting_request.lock().expect("fitting_request");
                         if *fitting_request_lock {
-                            design_handler.fit_design(&mut scene);
+                            //design_handler.fit_design(&mut scene);
+                            scene.fit_design();
                             *fitting_request_lock = false;
                         }
                     }
                     {
                         let mut file_opening_request_lock = file_opening_request.lock().expect("fitting_request_lock");
                         if let Some(ref path) = *file_opening_request_lock {
-                            design_handler.get_design(path);
-                            design_handler.update_scene(&mut scene, true);
+                            //design_handler.get_design(path);
+                            //design_handler.update_scene(&mut scene, true);
+                            scene.add_design(path);
                             *file_opening_request_lock = None;
                         }
                     }
