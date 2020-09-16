@@ -1,4 +1,4 @@
-use crate::{instance, utils};
+use crate::{instance, utils, design};
 use crate::{PhySize, WindowEvent};
 use iced_wgpu::wgpu;
 use iced_winit::winit;
@@ -16,10 +16,11 @@ mod view;
 use view::{View, ViewUpdate};
 mod controller;
 use controller::{ Controller, Consequence };
+use design::Design;
 
 type ViewPtr = Rc<RefCell<View>>;
 pub struct Scene {
-    /// the number of tube to display
+    designs: Vec<Design>,
     update: SceneUpdate,
     selected_id: Option<u32>,
     view: ViewPtr,
@@ -36,6 +37,7 @@ impl Scene {
         let controller = Controller::new(view.clone(), size);
         Self {
             view,
+            designs: Vec::new(),
             update,
             selected_id: None,
             controller,

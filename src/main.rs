@@ -16,6 +16,7 @@ use winit::{
 mod scene;
 mod consts;
 mod controls;
+mod design;
 mod design_handler;
 mod instance;
 mod light;
