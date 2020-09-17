@@ -392,7 +392,7 @@ impl Helix {
     /// Angle of base number `n` around this helix.
     pub fn theta(&self, n: isize, forward: bool, cst: &Parameters) -> f64 {
         let shift = if forward { cst.groove_angle } else { 0. };
-        n as f64 * 2. * PI / cst.bases_per_turn + shift + self.roll
+        n as f64 * 2. * PI / cst.bases_per_turn + shift + self.roll + PI
     }
 
     /*
