@@ -149,21 +149,16 @@ impl Scene {
         encoder.copy_texture_to_buffer(texture_copy_view, buffer_copy_view, size);
         queue.submit(Some(encoder.finish()));
 
-        let pixel = clicked_pixel.y as u32 * buffer_dimensions.padded_bytes_per_row as u32
-            + clicked_pixel.x as u32 * std::mem::size_of::<u32>() as u32;
-        let pixel = pixel as usize;
+        let pixel = clicked_pixel.y as usize * buffer_dimensions.padded_bytes_per_row
+            + clicked_pixel.x as usize * std::mem::size_of::<u32>();
 
         let buffer_slice = staging_buffer.slice(..);
         let buffer_future = buffer_slice.map_async(wgpu::MapMode::Read);
         device.poll(wgpu::Maintain::Wait);
+
         let future_color = async {
             if let Ok(()) = buffer_future.await {
                 let pixels = buffer_slice.get_mapped_range();
-                println!("buffer ready");
-                /*let pixels:Vec<u8> = data.chunks_exact(buffer_dimensions.padded_bytes_per_row)
-                    .flat_map(|chunk| chunk[..buffer_dimensions.unpadded_bytes_per_row].to_vec())
-                    .collect();*/
-
                 let a = pixels[pixel + 3] as u32;
                 let r = (pixels[pixel + 2] as u32) << 16;
                 let g = (pixels[pixel + 1] as u32) << 8;
@@ -171,8 +166,6 @@ impl Scene {
                 let color = r + g + b;
                 drop(pixels);
                 staging_buffer.unmap();
-                println!("{}, {}, {}, {}", a, r, g, b);
-                //color
                 (color, a)
             } else {
                 panic!("could not read fake texture");
@@ -254,7 +247,6 @@ impl Scene {
         let need_update = self.designs.iter_mut().fold(false, |acc, design| acc | design.was_updated());
 
         if need_update {
-            println!("need update");
             let mut sphere_instances = vec![];
             let mut tube_instances = vec![];
             let mut selected_sphere_instances = vec![];

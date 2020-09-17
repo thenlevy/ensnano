@@ -53,6 +53,7 @@ impl View {
                id: 0,
             })
             .collect());
+        self.selected_tubes = Rc::new(Vec::new());
     }
 
     pub fn update_tubes(&mut self, pairs: &Vec<([f32 ; 3], [f32; 3], u32, u32)>) {
@@ -93,6 +94,7 @@ impl View {
             })
             .flatten()
             .collect());
+        self.selected_spheres = Rc::new(Vec::new());
     }
 }
 
