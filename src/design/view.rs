@@ -1,5 +1,5 @@
 use crate::instance::Instance;
-use ultraviolet::{Rotor3, Vec3};
+use ultraviolet::{Mat4, Rotor3, Vec3};
 use std::rc::Rc;
 
 pub struct View {
@@ -9,10 +9,12 @@ pub struct View {
     rotor: Rotor3,
     selected_tubes: Rc<Vec<Instance>>,
     selected_spheres: Rc<Vec<Instance>>,
+    was_updated: bool,
+    id: u32,
 }
 
 impl View {
-    pub fn new() -> Self {
+    pub fn new(id: u32) -> Self {
         Self {
             spheres: Rc::new(Vec::new()),
             tubes: Rc::new(Vec::new()),
@@ -20,21 +22,26 @@ impl View {
             rotor: Rotor3::identity(),
             selected_spheres: Rc::new(Vec::new()),
             selected_tubes: Rc::new(Vec::new()),
+            was_updated: true,
+            id,
         }
     }
 
     pub fn update_spheres(&mut self, positions: &Vec<([f32 ; 3], u32, u32)>) {
         self.spheres = Rc::new(positions
             .iter()
-            .map(|(v, color, id)| Instance {
-                position: Vec3 {
-                    x: v[0],
-                    y: v[1],
-                    z: v[2],
-                },
-               rotor: Rotor3::identity(),
-               color: Instance::color_from_u32(*color),
-               id: *id,
+            .map(|(v, color, id)| {
+                let id = *id | (self.id << 24);
+                Instance {
+                    position: Vec3 {
+                        x: v[0],
+                        y: v[1],
+                        z: v[2],
+                    },
+                   rotor: Rotor3::identity(),
+                   color: Instance::color_from_u32(*color),
+                   id: id,
+                }
             })
             .collect());
     }
@@ -70,7 +77,8 @@ impl View {
                     y: b[1],
                     z: b[2],
                 };
-                create_bound(position_a, position_b, *color, *id)
+                let id = *id | (self.id << 24);
+                create_bound(position_a, position_b, *color, id)
             })
             .flatten()
             .collect());
@@ -96,6 +104,12 @@ impl View {
             .collect());
         self.selected_spheres = Rc::new(Vec::new());
     }
+
+    pub fn was_updated(&mut self) -> bool {
+        let ret = self.was_updated;
+        self.was_updated = false;
+        ret
+    }
 }
 
 impl View {
@@ -113,6 +127,10 @@ impl View {
 
     pub fn get_selected_tubes(&self) -> Rc<Vec<Instance>> {
         self.selected_tubes.clone()
+    }
+
+    pub fn get_model_matrix(&self) -> Mat4 {
+        Mat4::from_translation(self.origin) * self.rotor.into_matrix().into_homogeneous()
     }
 }
 

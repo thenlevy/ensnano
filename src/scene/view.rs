@@ -8,7 +8,7 @@ use std::cell::RefCell;
 use instance::Instance;
 use texture::Texture;
 use wgpu::{Device, PrimitiveTopology, Queue};
-use ultraviolet::Rotor3;
+use ultraviolet::{Mat4, Rotor3};
 
 mod pipeline_handler;
 use pipeline_handler::PipelineHandler;
@@ -126,6 +126,7 @@ pub enum ViewUpdate {
     SelectedSpheres(Vec<Instance>),
     SelectedTubes(Vec<Instance>),
     Size(PhySize),
+    ModelMatricies(Vec<Mat4>),
 }
 
 struct PipelineHandlers {
@@ -150,6 +151,7 @@ impl PipelineHandlers {
             device,
             sphere_mesh,
             Vec::new(),
+            Vec::new(),
             camera,
             projection,
             PrimitiveTopology::TriangleList,
@@ -158,6 +160,7 @@ impl PipelineHandlers {
         let tube_pipeline_handler = PipelineHandler::new(
             device,
             tube_mesh,
+            Vec::new(),
             Vec::new(),
             camera,
             projection,
@@ -168,6 +171,7 @@ impl PipelineHandlers {
             device,
             fake_tube_mesh,
             Vec::new(),
+            Vec::new(),
             camera,
             projection,
             PrimitiveTopology::TriangleStrip,
@@ -176,6 +180,7 @@ impl PipelineHandlers {
         let fake_sphere_pipeline_handler = PipelineHandler::new(
             device,
             fake_sphere_mesh,
+            Vec::new(),
             Vec::new(),
             camera,
             projection,
@@ -186,6 +191,7 @@ impl PipelineHandlers {
             device,
             selected_sphere_mesh,
             Vec::new(),
+            Vec::new(),
             camera,
             projection,
             PrimitiveTopology::TriangleStrip,
@@ -194,6 +200,7 @@ impl PipelineHandlers {
         let selected_tube_pipeline_handler = PipelineHandler::new(
             device,
             selected_tube_mesh,
+            Vec::new(),
             Vec::new(),
             camera,
             projection,
@@ -254,6 +261,12 @@ impl PipelineHandlers {
             ViewUpdate::SelectedSpheres(instances) => {
                 self.selected_tube.new_instances(Rc::new(Vec::new()));
                 self.selected_sphere.new_instances(Rc::new(instances));
+            }
+            ViewUpdate::ModelMatricies(matrices) => {
+                let matrices = Rc::new(matrices);
+                for pipeline in self.all().iter_mut() {
+                    pipeline.new_model_matrices(matrices.clone());
+                }
             }
             ViewUpdate::Camera | ViewUpdate::Size(_) => {
                 unreachable!();

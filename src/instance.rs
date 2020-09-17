@@ -16,8 +16,8 @@ pub struct InstanceRaw {
     /// The model matrix of the instance
     pub model: Mat4,
     pub color: Vec3,
-    pub id: Vec4,
     _padding: u32,
+    pub id: Vec4,
 }
 
 unsafe impl bytemuck::Pod for InstanceRaw {}
@@ -46,7 +46,7 @@ impl Instance {
         let r = (id & 0x00FF0000) >> 16;
         let g = (id & 0x0000FF00) >> 8;
         let b = id & 0x000000FF;
-        Vec4::new(a as f32 / 255., r as f32 / 255., g as f32 / 255., b as f32 / 255.)
+        Vec4::new(r as f32 / 255., g as f32 / 255., b as f32 / 255., a as f32)
     }
 
     pub fn size_of_raw() -> usize {

@@ -170,6 +170,7 @@ where
         viewer: &'b wgpu::BindGroup,
         instance_bg: &'b wgpu::BindGroup,
         light: &'b wgpu::BindGroup,
+        model_matrices: &'b wgpu::BindGroup,
     );
     fn draw_mesh_instanced(
         &mut self,
@@ -178,6 +179,7 @@ where
         viewer: &'b wgpu::BindGroup,
         instances_bg: &'b wgpu::BindGroup,
         light: &'b wgpu::BindGroup,
+        model_matrices: &'b wgpu::BindGroup,
     );
 }
 
@@ -191,8 +193,9 @@ where
         viewer: &'b wgpu::BindGroup,
         instances_bg: &'b wgpu::BindGroup,
         light: &'b wgpu::BindGroup,
+        model_matrices: &'b wgpu::BindGroup,
     ) {
-        self.draw_mesh_instanced(mesh, 0..1, viewer, instances_bg, light);
+        self.draw_mesh_instanced(mesh, 0..1, viewer, instances_bg, light, model_matrices);
     }
 
     fn draw_mesh_instanced(
@@ -202,12 +205,14 @@ where
         viewer: &'b wgpu::BindGroup,
         instances_bg: &'b wgpu::BindGroup,
         light: &'b wgpu::BindGroup,
+        model_matrices: &'b wgpu::BindGroup,
     ) {
         self.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));
         self.set_index_buffer(mesh.index_buffer.slice(..));
         self.set_bind_group(VIEWER_BINDING_ID, &viewer, &[]);
         self.set_bind_group(INSTANCES_BINDING_ID, &instances_bg, &[]);
         self.set_bind_group(LIGHT_BINDING_ID, &light, &[]);
+        self.set_bind_group(MODEL_BINDING_ID, &model_matrices, &[]);
         //self.draw_indexed(0..mesh.num_elements, 0, instances);
         self.draw_indexed(0..mesh.num_elements, 0, instances);
     }

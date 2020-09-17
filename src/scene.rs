@@ -10,7 +10,7 @@ use wgpu::{Device, Queue};
 use winit::dpi::PhysicalPosition;
 use futures::executor;
 use utils::BufferDimensions;
-use ultraviolet::{Vec3, Rotor3};
+use ultraviolet::{Mat4, Vec3, Rotor3};
 mod camera;
 mod view;
 use view::{View, ViewUpdate};
@@ -48,11 +48,11 @@ impl Scene {
     }
 
     pub fn add_design(&mut self, path: &PathBuf) {
-        self.designs.push(Design::new_with_path(path))
+        self.designs.push(Design::new_with_path(path, self.designs.len() as u32))
     }
 
     pub fn clear_design(&mut self, path: &PathBuf) {
-        self.designs = vec![Design::new_with_path(path)]
+        self.designs = vec![Design::new_with_path(path, 0)]
     }
 
     /// Input an event to the scene. Return true, if the selected object of the scene has changed
@@ -67,10 +67,14 @@ impl Scene {
         if clicked_pixel.is_some() {
             let clicked_pixel = clicked_pixel.unwrap();
             let (selected_id, design_id) = self.set_selected_id(clicked_pixel, device, queue);
+            println!("selected {}, design{}", selected_id, design_id);
             if selected_id != 0xFFFFFF {
                 self.selected_id = Some(selected_id);
                 self.selected_design = Some(design_id);
-                self.designs[design_id as usize].update_selection(selected_id);
+                for i in 0..self.designs.len() {
+                    let arg = if i == design_id as usize { Some(selected_id) } else { None };
+                    self.designs[i].update_selection(arg);
+                }
             } else {
                 self.selected_id = None;
                 self.selected_design = None;
@@ -166,6 +170,7 @@ impl Scene {
                 let color = r + g + b;
                 drop(pixels);
                 staging_buffer.unmap();
+                println!("a {} r {} g {} b{}", a, r, g, b);
                 (color, a)
             } else {
                 panic!("could not read fake texture");
@@ -214,7 +219,8 @@ impl Scene {
         if self.controller.camera_is_moving() {
             self.notify(SceneNotification::CameraMoved);
         }
-        self.fetch_design_updates();
+        self.fetch_data_updates();
+        self.fetch_view_updates();
         if self.update.need_update {
             self.perform_update(dt);
         }
@@ -234,6 +240,9 @@ impl Scene {
         if let Some(tubes) = self.update.selected_tube.take() {
             self.view.borrow_mut().update(ViewUpdate::SelectedTubes(tubes))
         }
+        if let Some(matrices) = self.update.model_matrices.take() {
+            self.view.borrow_mut().update(ViewUpdate::ModelMatricies(matrices))
+        }
 
         if self.update.camera_update {
             self.controller.update_camera(dt);
@@ -243,8 +252,8 @@ impl Scene {
         self.update.need_update = false;
     }
 
-    fn fetch_design_updates(&mut self) {
-        let need_update = self.designs.iter_mut().fold(false, |acc, design| acc | design.was_updated());
+    fn fetch_data_updates(&mut self) {
+        let need_update = self.designs.iter_mut().fold(false, |acc, design| acc | design.data_was_updated());
 
         if need_update {
             let mut sphere_instances = vec![];
@@ -279,6 +288,18 @@ impl Scene {
             };
         }
         self.update.need_update |= need_update;
+    }
+
+    fn fetch_view_updates(&mut self) {
+        let need_update = self.designs.iter_mut().fold(false, |acc, design| acc | design.view_was_updated());
+
+        if need_update {
+            let matrices: Vec<_> = self.designs.iter().map(|d| d.model_matrix()).collect();
+            println!("{:?}", matrices);
+            self.update.model_matrices = Some(matrices);
+        }
+        self.update.need_update |= need_update;
+
     }
 
     pub fn get_fovy(&self) -> f32 {
@@ -334,6 +355,7 @@ pub struct SceneUpdate {
     pub fake_sphere_instances: Option<Vec<Instance>>,
     pub selected_tube: Option<Vec<Instance>>,
     pub selected_sphere: Option<Instance>,
+    pub model_matrices: Option<Vec<Mat4>>,
     pub need_update: bool,
     pub camera_update: bool,
 }
@@ -349,6 +371,7 @@ impl SceneUpdate {
             selected_sphere: None,
             need_update: false,
             camera_update: false,
+            model_matrices: None,
         }
     }
 }

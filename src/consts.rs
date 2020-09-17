@@ -1,6 +1,7 @@
 pub const VIEWER_BINDING_ID: u32 = 0;
 pub const INSTANCES_BINDING_ID: u32 = 1;
 pub const LIGHT_BINDING_ID: u32 = 2;
+pub const MODEL_BINDING_ID: u32 = 3;
 
 pub const VERTEX_POSITION_ADRESS: u32 = 0;
 pub const VERTEX_NORMAL_ADRESS: u32 = 1;

@@ -32,10 +32,16 @@ layout(set=2, binding=0) uniform Light {
     vec3 light_color;
 };
 
+layout(set=3, binding=0) buffer ModelBlock {
+    mat4 model_matrix2[];
+};
+
 void main() {
     v_color = instances[gl_InstanceIndex].color;
+    int model_idx = int(instances[gl_InstanceIndex].id.w);
 
-    mat4 model_matrix = instances[gl_InstanceIndex].model;
+    //mat4 model_matrix = model_matrix2[model_idx] * instances[gl_InstanceIndex].model;
+    mat4 model_matrix = model_matrix2[0] * instances[gl_InstanceIndex].model;
     mat3 normal_matrix = mat3(transpose(inverse(model_matrix)));
 
     /*Note: I'm currently doing things in world space .
@@ -49,6 +55,6 @@ void main() {
     v_normal = normal_matrix * a_normal;
     vec4 model_space = model_matrix * vec4(a_position, 1.0); 
     v_position = model_space.xyz;
-    v_id = instances[gl_InstanceIndex].id;
+    v_id = vec4(instances[gl_InstanceIndex].id.xyz, instances[gl_InstanceIndex].id.w / 255.);
     gl_Position = u_view_proj * model_space;
 }

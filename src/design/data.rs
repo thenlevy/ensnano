@@ -162,21 +162,29 @@ impl Data {
         ret
     }
 
-    pub fn update_selection(&mut self, id: u32) {
-        if let Some(kind) = self.object_type.get(&id) {
-            match kind {
-                ObjectType::Bound => {
-                    let (nucl1, nucl2) = self.nucleotides_involved.get(&id).unwrap();
-                    let pos1 = self.get_space_pos(nucl1).unwrap();
-                    let pos2 = self.get_space_pos(nucl2).unwrap();
-                    self.view.borrow_mut().update_selected_tubes(&vec![(pos1, pos2)]);
+    pub fn update_selection(&mut self, id: Option<u32>) {
+        if let Some(id) = id {
+            if let Some(kind) = self.object_type.get(&id) {
+                match kind {
+                    ObjectType::Bound => {
+                        let (nucl1, nucl2) = self.nucleotides_involved.get(&id).unwrap();
+                        let pos1 = self.get_space_pos(nucl1).unwrap();
+                        let pos2 = self.get_space_pos(nucl2).unwrap();
+                        self.view.borrow_mut().update_selected_tubes(&vec![(pos1, pos2)]);
+                    }
+                    ObjectType::Nucleotide => {
+                        self.view.borrow_mut().update_selected_spheres(&vec![*self.space_position.get(&id).unwrap()])
+                    }
                 }
-                ObjectType::Nucleotide => {
-                    self.view.borrow_mut().update_selected_spheres(&vec![*self.space_position.get(&id).unwrap()])
-                }
+                self.update_status = true;
+            } else {
+                println!("not found");
             }
-            self.update_status = true;
+        } else {
+            self.view.borrow_mut().update_selected_tubes(&vec![]);
+            self.view.borrow_mut().update_selected_spheres(&vec![])
         }
+
     }
 
     fn get_space_pos(&self, nucl: &Nucl) -> Option<[f32; 3]> {
