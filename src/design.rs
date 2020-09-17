@@ -65,6 +65,10 @@ impl Design {
         self.view.borrow().get_model_matrix()
     }
 
+    pub fn middle_point(&self) -> Vec3 {
+        self.data.borrow().middle_point()
+    }
+
     pub fn selected_spheres(&self) -> Rc<Vec<Instance>> {
         self.view.borrow().get_selected_spheres().clone()
     }

@@ -108,6 +108,7 @@ pub struct CameraController {
     processed_move: bool,
     camera: CameraPtr,
     projection: ProjectionPtr,
+    middle_point: Option<Vec3>,
 }
 
 impl CameraController {
@@ -128,6 +129,7 @@ impl CameraController {
             processed_move: false,
             camera,
             projection,
+            middle_point: None,
         }
     }
 
@@ -162,6 +164,14 @@ impl CameraController {
                 self.amount_down = amount;
                 true
             }
+            VirtualKeyCode::H if amount > 0. => {
+                self.rotate_camera_around(FRAC_PI_2 / 2., self.middle_point.unwrap_or(Vec3::zero()));
+                true
+            }
+            VirtualKeyCode::L if amount > 0. => {
+                self.rotate_camera_around(-FRAC_PI_2 / 2., self.middle_point.unwrap_or(Vec3::zero()));
+                true
+            }
             _ => false,
         }
     }
@@ -173,6 +183,10 @@ impl CameraController {
             || self.amount_left > 0.
             || self.amount_forward > 0.
             || self.amount_backward > 0.
+    }
+
+    pub fn set_middle_point(&mut self, point: Vec3) {
+        self.middle_point = Some(point)
     }
 
     pub fn process_mouse(&mut self, mouse_dx: f64, mouse_dy: f64) {
@@ -260,5 +274,20 @@ impl CameraController {
 
     pub fn resize(&mut self, size: PhySize) {
         self.projection.borrow_mut().resize(size.width, size.height)
+    }
+
+    pub fn rotate_camera_around(&mut self, theta: f32, point: Vec3) {
+        let curent = self.camera.borrow().position - point;
+        // Point -> position
+        let plane = ultraviolet::Bivec3::from_normalized_axis(self.camera.borrow().up_vec());
+        let new = curent.rotated_by(Rotor3::from_angle_plane(theta, plane.normalized()));
+        let new_position = point + new;
+        let new_direction = (point - new_position).normalized();
+        let new_right = new_direction.cross(self.camera.borrow().up_vec());
+        let new_up = self.camera.borrow().up_vec();
+        let matrix = ultraviolet::Mat3::new(new_right, new_up, -new_direction);
+        let rotor = matrix.into_rotor3();
+        self.teleport_camera(new_position, rotor);
+        
     }
 }

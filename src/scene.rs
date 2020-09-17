@@ -182,6 +182,7 @@ impl Scene {
     pub fn fit_design(&mut self) {
         if self.designs.len() > 0 {
             let (position, rotor) = self.designs[0].fit(self.get_fovy(), self.get_ratio());
+            self.controller.set_middle_point(self.designs[0].middle_point());
             self.notify(SceneNotification::NewCamera(position, rotor));
         }
     }

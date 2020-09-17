@@ -105,6 +105,10 @@ impl Controller {
         self.camera_controller.is_moving()
     }
 
+    pub fn set_middle_point(&mut self, point: Vec3) {
+        self.camera_controller.set_middle_point(point)
+    }
+
     pub fn update_camera(&mut self, dt: Duration) {
         self.camera_controller.update_camera(dt);
     }

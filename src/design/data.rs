@@ -207,6 +207,13 @@ impl Data {
         (position, rotation)
     }
 
+    pub fn middle_point(&self) -> Vec3 {
+        let boundaries = self.boundaries();
+        Vec3::new((boundaries[0] + boundaries[1]) as f32 / 2.,
+                  (boundaries[2] + boundaries[3]) as f32 / 2.,
+                  (boundaries[4] + boundaries[5])  as f32/ 2.,)
+    }
+
     fn boundaries(&self) -> [f64; 6] {
         let mut min_x = std::f64::INFINITY;
         let mut min_y = std::f64::INFINITY;

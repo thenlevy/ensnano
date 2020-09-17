@@ -10,6 +10,7 @@ edition = "2018"
 iced = { git = "https://github.com/hecrj/iced", rev = "49076c6ac2983e2076dae64f68a2e801904d7ce9" }
 iced_wgpu = { git = "https://github.com/hecrj/iced", rev = "49076c6ac2983e2076dae64f68a2e801904d7ce9" }
 iced_winit = { git = "https://github.com/hecrj/iced", rev = "49076c6ac2983e2076dae64f68a2e801904d7ce9" }
+ultraviolet = { git = "https://github.com/termhn/ultraviolet", rev = "941204e4747c3c3f7257c924fd1759005d1d0eaf", features = ["f64"] }
 bytemuck = "1.2.0"
 failure = "0.1.8"
 env_logger = "0.7"
@@ -19,6 +20,3 @@ futures = "0.3.5"
 serde = "1.0.116"
 serde_derive = "1.0.116"
 
-[dependencies.ultraviolet]
-version = "0.6.0"
-features = ["f64"]
