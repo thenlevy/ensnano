@@ -6,6 +6,8 @@ use std::path::PathBuf;
 use ultraviolet::{Vec3, Rotor3};
 use crate::utils::rotation_to_rotor;
 
+mod codenano;
+
 type Basis = (f32, f64, f64, [f32; 3], u32);
 
 type ViewPtr = Rc<RefCell<View>>;

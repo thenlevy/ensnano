@@ -13,6 +13,11 @@ use winit::{
     event::{Event, KeyboardInput, ModifiersState, VirtualKeyCode, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
 };
+
+#[macro_use]
+extern crate serde_derive;
+extern crate serde;
+
 mod scene;
 mod consts;
 mod controls;
