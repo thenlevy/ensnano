@@ -158,7 +158,7 @@ impl CameraController {
                 self.amount_up = amount;
                 true
             }
-            VirtualKeyCode::LShift => {
+            VirtualKeyCode::K => {
                 self.amount_down = amount;
                 true
             }
@@ -255,6 +255,7 @@ impl CameraController {
         let mut camera = self.camera.borrow_mut();
         camera.position = position;
         camera.rotor = rotation;
+        self.last_rotor = rotation;
     }
 
     pub fn resize(&mut self, size: PhySize) {
