@@ -149,8 +149,8 @@ impl Scene {
         encoder.copy_texture_to_buffer(texture_copy_view, buffer_copy_view, size);
         queue.submit(Some(encoder.finish()));
 
-        let pixel = (clicked_pixel.y as u32 * size.width+ clicked_pixel.x as u32)
-            * std::mem::size_of::<u32>() as u32;
+        let pixel = clicked_pixel.y as u32 * buffer_dimensions.padded_bytes_per_row as u32
+            + clicked_pixel.x as u32 * std::mem::size_of::<u32>() as u32;
         let pixel = pixel as usize;
 
         let buffer_slice = staging_buffer.slice(..);
@@ -158,17 +158,18 @@ impl Scene {
         device.poll(wgpu::Maintain::Wait);
         let future_color = async {
             if let Ok(()) = buffer_future.await {
-                let data = buffer_slice.get_mapped_range();
-                let pixels:Vec<u8> = data.chunks_exact(buffer_dimensions.padded_bytes_per_row)
+                let pixels = buffer_slice.get_mapped_range();
+                println!("buffer ready");
+                /*let pixels:Vec<u8> = data.chunks_exact(buffer_dimensions.padded_bytes_per_row)
                     .flat_map(|chunk| chunk[..buffer_dimensions.unpadded_bytes_per_row].to_vec())
-                    .collect();
+                    .collect();*/
 
                 let a = pixels[pixel + 3] as u32;
                 let r = (pixels[pixel + 2] as u32) << 16;
                 let g = (pixels[pixel + 1] as u32) << 8;
                 let b = pixels[pixel] as u32;
                 let color = r + g + b;
-                drop(data);
+                drop(pixels);
                 staging_buffer.unmap();
                 println!("{}, {}, {}, {}", a, r, g, b);
                 //color
