@@ -28,11 +28,21 @@ mod light;
 mod mesh;
 mod texture;
 mod utils;
+mod multiplexer;
 
 //use design_handler::DesignHandler;
 
 use controls::Controls;
 use scene::{ Scene, SceneNotification };
+use multiplexer::{Multiplexer, DrawArea};
+
+fn convert_size(size: PhySize) -> Size<f32> {
+    Size::new(size.width as f32, size.height as f32)
+}
+
+fn convert_size_u32(size: PhySize) -> Size<u32> {
+    Size::new(size.width, size.height)
+}
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -100,7 +110,9 @@ fn main() {
     let mut local_pool = futures::executor::LocalPool::new();
 
     // Initialize scene and GUI controls
-    let mut scene = Scene::new(&device, window.inner_size());
+    let mut multiplexer = Multiplexer::new(window.inner_size());
+    let scene_area = multiplexer.get_scene_area();
+    let mut scene = Scene::new(&device, window.inner_size(), scene_area);
     if let Some(ref path) = path {
         scene.add_design(path)
     }
@@ -112,10 +124,12 @@ fn main() {
     //let mut cache = Some(Cache::default());
     let mut debug = Debug::new();
     let mut renderer = Renderer::new(Backend::new(&mut device, Settings::default()));
+    let top_bar_area = multiplexer.get_top_bar_area();
+    println!("top_bar {:?}", top_bar_area);
     let mut state = program::State::new(
         controls,
-        viewport.logical_size(),
-        conversion::cursor_position(cursor_position, viewport.scale_factor()),
+        convert_size(top_bar_area.size),
+        conversion::cursor_position(cursor_position, window.scale_factor()),
         &mut renderer,
         &mut debug,
     );
@@ -131,57 +145,47 @@ fn main() {
         *control_flow = ControlFlow::WaitUntil(Instant::now() + Duration::from_millis(40));
 
         match event {
+            Event::WindowEvent {
+                event: WindowEvent::CloseRequested,
+                ..
+            } => *control_flow = ControlFlow::Exit,
             Event::WindowEvent { event, .. } => {
-                scene.input(&event, &device, &mut queue);
-                match event {
-                    WindowEvent::ModifiersChanged(new_modifiers) => {
-                        modifiers = new_modifiers;
-                    }
-                    WindowEvent::CursorMoved { position, .. } => {
-                        cursor_position = position;
-                    }
-                    WindowEvent::Resized(new_size) => {
-                        viewport = Viewport::with_physical_size(
-                            Size::new(new_size.width, new_size.height),
-                            window.scale_factor(),
-                        );
-                        resized = true;
-                        scene.notify(SceneNotification::Resize(new_size));
-                    }
-                    WindowEvent::CloseRequested => {
-                        *control_flow = ControlFlow::Exit;
-                    }
-                    WindowEvent::KeyboardInput {
-                        input:
-                            KeyboardInput {
-                                virtual_keycode: Some(VirtualKeyCode::F),
-                                ..
-                            },
-                        ..
-                    } => {
-                        scene.fit_design();
-                        //design_handler.fit_design(&mut scene);
-                    }
+                //let modifiers = multiplexer.modifiers();
+                if let WindowEvent::Resized(window_size) = event {
+                    resized = true;
+                }
+                if let Some(event) = event.to_static() {
+                    let event = multiplexer.event(event);
 
-                    _ => {}
+                    // Iced panel
+                    if let Some((event, area)) = event {
+                        if area == multiplexer.top_bar {
+                            let event = iced_winit::conversion::window_event(
+                                &event,
+                                window.scale_factor(),
+                                modifiers,
+                            );
+                            if let Some(event) = event {
+                                state.queue_event(event);
+                            }
+                        } else if area == multiplexer.scene {
+                            let cursor_position = multiplexer.scene_cursor_position;
+                            scene.input(&event, &device, &mut queue, cursor_position);
+                        }
+                    }
+                    // 3D view
                 }
 
-                // Map window event to iced event
-                if let Some(event) =
-                    iced_winit::conversion::window_event(&event, window.scale_factor(), modifiers)
-                {
-                   state.queue_event(event);
-                }
             }
             Event::MainEventsCleared => {
+                let top_bar_area = multiplexer.get_top_bar_area();
+                let top_bar_cursor = multiplexer.top_bar_cursor_position;
+
                 if !state.is_queue_empty() {
                     // We update iced
                     let _ = state.update(
-                        viewport.logical_size(),
-                        conversion::cursor_position(
-                            cursor_position,
-                            viewport.scale_factor(),
-                        ),
+                        convert_size(top_bar_area.size),
+                        conversion::cursor_position(top_bar_cursor, window.scale_factor()),
                         None,
                         &mut renderer,
                         &mut debug,
@@ -207,22 +211,42 @@ fn main() {
                 window.request_redraw();
             }
             Event::RedrawRequested(_) => {
+                let top_bar_area = multiplexer.get_top_bar_area();
+                let top_bar_cursor = multiplexer.top_bar_cursor_position;
                 if resized {
-                    let size = window.inner_size();
+                    let window_size = window.inner_size();
+                    let scene_area = multiplexer.get_scene_area();
+                    scene.notify(SceneNotification::NewSize(window_size, scene_area));
 
                     swap_chain = device.create_swap_chain(
                         &surface,
                         &wgpu::SwapChainDescriptor {
                             usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
                             format,
-                            width: size.width,
-                            height: size.height,
+                            width: window_size.width,
+                            height: window_size.height,
                             present_mode: wgpu::PresentMode::Mailbox,
                         },
                     );
 
-                    resized = false;
                 }
+                                // Get viewports from the partition
+
+
+                // If there are events pending
+                if !state.is_queue_empty() || resized {
+                    // We update iced
+                    let _ = state.update(
+                        convert_size(top_bar_area.size),
+                        conversion::cursor_position(top_bar_cursor, window.scale_factor()),
+                        None,
+                        &mut renderer,
+                        &mut debug,
+                    );
+                }
+
+                resized = false;
+
 
                 let frame = swap_chain.get_current_frame().expect("Next frame");
 

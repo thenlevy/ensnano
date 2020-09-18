@@ -1,5 +1,5 @@
 use crate::{instance, mesh, texture};
-use crate::PhySize;
+use crate::{PhySize, DrawArea};
 use super::camera;
 use camera::{Camera, Projection, CameraPtr, ProjectionPtr};
 use iced_wgpu::wgpu;
@@ -24,11 +24,11 @@ pub struct View {
 }
 
 impl View {
-    pub fn new(size: PhySize, device: &Device) -> Self {
+    pub fn new(window_size: PhySize, area_size: PhySize, device: &Device) -> Self {
         let camera = Rc::new(RefCell::new(Camera::new((0.0, 5.0, 10.0), Rotor3::identity())));
-        let projection = Rc::new(RefCell::new(Projection::new(size.width, size.height, 70f32.to_radians(), 0.1, 1000.0)));
+        let projection = Rc::new(RefCell::new(Projection::new(area_size.width, area_size.height, 70f32.to_radians(), 0.1, 1000.0)));
         let pipeline_handlers = PipelineHandlers::init(device, &camera, &projection);
-        let depth_texture = texture::Texture::create_depth_texture(device, &size);
+        let depth_texture = texture::Texture::create_depth_texture(device, &window_size);
         Self {
             camera,
             projection,
@@ -57,6 +57,7 @@ impl View {
         device: &Device,
         fake_color: bool,
         queue: &Queue,
+        area: DrawArea,
     ) {
         if let Some(size) = self.new_size.take() {
             self.depth_texture = Texture::create_depth_texture(device, &size);
@@ -70,9 +71,9 @@ impl View {
             }
         } else {
             wgpu::Color {
-                r: 0.961,
-                g: 0.961,
-                b: 0.863,
+                r: 0.4,
+                g: 0.4,
+                b: 0.4,
                 a: 1.,
             }
         };
@@ -102,6 +103,21 @@ impl View {
                 }),
             }),
         });
+        render_pass.set_viewport(
+            area.position.x as f32,
+            area.position.y as f32,
+            area.size.width as f32,
+            area.size.height as f32,
+            0.0,
+            1.0,
+        );
+        render_pass.set_scissor_rect(
+            area.position.x,
+            area.position.y,
+            area.size.width,
+            area.size.height,
+        );
+
         for pipeline_handler in handlers.iter_mut() {
             pipeline_handler.draw(device, &mut render_pass, queue);
         }

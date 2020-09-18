@@ -1,5 +1,5 @@
 use crate::{instance, utils, design};
-use crate::{PhySize, WindowEvent};
+use crate::{DrawArea, PhySize, WindowEvent};
 use iced_wgpu::wgpu;
 use iced_winit::winit;
 use instance::Instance;
@@ -27,16 +27,16 @@ pub struct Scene {
     selected_design: Option<u32>,
     view: ViewPtr,
     controller: Controller,
+    area: DrawArea,
 }
 
 
 impl Scene {
     /// Create a new scene that will be displayed on `device`
-    pub fn new(device: &Device, size: PhySize) -> Self {
+    pub fn new(device: &Device, window_size: PhySize, area: DrawArea) -> Self {
         let update = SceneUpdate::new();
-
-        let view = Rc::new(RefCell::new(View::new(size, device)));
-        let controller = Controller::new(view.clone(), size);
+        let view = Rc::new(RefCell::new(View::new(window_size, area.size, device)));
+        let controller = Controller::new(view.clone(), window_size, area.size);
         Self {
             view,
             designs: Vec::new(),
@@ -44,6 +44,7 @@ impl Scene {
             selected_id: None,
             selected_design: None,
             controller,
+            area,
         }
     }
 
@@ -56,9 +57,9 @@ impl Scene {
     }
 
     /// Input an event to the scene. Return true, if the selected object of the scene has changed
-    pub fn input(&mut self, event: &WindowEvent, device: &Device, queue: &mut wgpu::Queue) {
+    pub fn input(&mut self, event: &WindowEvent, device: &Device, queue: &mut wgpu::Queue, cursor_position: PhysicalPosition<f64>) {
         let mut clicked_pixel = None;
-        let consequence = self.controller.input(event);
+        let consequence = self.controller.input(event, cursor_position);
         match consequence {
             Consequence::Nothing => (),
             Consequence::CameraMoved => self.notify(SceneNotification::CameraMoved),
@@ -126,6 +127,7 @@ impl Scene {
             device,
             true,
             queue,
+            self.area
         );
 
         let buffer_dimensions = BufferDimensions::new(size.width as usize, size.height as usize);
@@ -153,8 +155,8 @@ impl Scene {
         encoder.copy_texture_to_buffer(texture_copy_view, buffer_copy_view, size);
         queue.submit(Some(encoder.finish()));
 
-        let pixel = clicked_pixel.y as usize * buffer_dimensions.padded_bytes_per_row
-            + clicked_pixel.x as usize * std::mem::size_of::<u32>();
+        let pixel = (self.area.position.y as usize + clicked_pixel.y as usize) * buffer_dimensions.padded_bytes_per_row
+            + (self.area.position.x as usize + clicked_pixel.x as usize) * std::mem::size_of::<u32>();
 
         let buffer_slice = staging_buffer.slice(..);
         let buffer_future = buffer_slice.map_async(wgpu::MapMode::Read);
@@ -208,7 +210,7 @@ impl Scene {
         if self.update.need_update {
             self.perform_update(dt);
         }
-        self.view.borrow_mut().draw(encoder, target, device, fake_color, queue);
+        self.view.borrow_mut().draw(encoder, target, device, fake_color, queue, self.area);
     }
 
     fn perform_update(&mut self, dt: Duration) {
@@ -328,7 +330,7 @@ impl SceneUpdate {
 pub enum SceneNotification {
     CameraMoved,
     NewCamera(Vec3, Rotor3),
-    Resize(PhySize),
+    NewSize(PhySize, DrawArea),
 }
 
 impl Scene {
@@ -339,15 +341,18 @@ impl Scene {
                 self.update.camera_update = true;
             }
             SceneNotification::CameraMoved => self.update.camera_update = true,
-            SceneNotification::Resize(size) => self.resize(size),
+            SceneNotification::NewSize(window_size, area) => {
+                self.area = area;
+                self.resize(window_size);
+            }
         };
         self.update.need_update = true;
 
     }
 
-    fn resize(&mut self, size: PhySize) {
-        self.view.borrow_mut().update(ViewUpdate::Size(size));
-        self.controller.resize(size);
+    fn resize(&mut self, window_size: PhySize) {
+        self.view.borrow_mut().update(ViewUpdate::Size(window_size));
+        self.controller.resize(window_size, self.area.size);
         self.update.camera_update = true;
     }
 }

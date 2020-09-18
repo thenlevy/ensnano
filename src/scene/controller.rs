@@ -11,6 +11,7 @@ pub struct Controller {
     last_clicked_position: Option<PhysicalPosition<f64>>,
     mouse_position: PhysicalPosition<f64>,
     window_size: PhySize,
+    area_size: PhySize,
 }
 
 const NO_POS: PhysicalPosition<f64> = PhysicalPosition::new(f64::NAN, f64::NAN);
@@ -22,7 +23,7 @@ pub enum Consequence {
 }
 
 impl Controller {
-    pub fn new(view: ViewPtr, window_size: PhySize) -> Self {
+    pub fn new(view: ViewPtr, window_size: PhySize, area_size: PhySize) -> Self {
         let camera_controller = {
             let view = view.borrow();
             CameraController::new(4.0, 0.04, view.get_camera(), view.get_projection())
@@ -33,6 +34,7 @@ impl Controller {
             last_clicked_position: None,
             mouse_position: PhysicalPosition::new(0., 0.),
             window_size,
+            area_size,
         }
     }
 
@@ -43,6 +45,7 @@ impl Controller {
     pub fn input(
         &mut self,
         event: &WindowEvent,
+        position: PhysicalPosition<f64>,
     ) -> Consequence {
         match event {
             WindowEvent::KeyboardInput {
@@ -84,13 +87,13 @@ impl Controller {
                     Consequence::Nothing
                 }
             }
-            WindowEvent::CursorMoved { position, .. } => {
-                self.mouse_position = *position;
+            WindowEvent::CursorMoved { .. } => {
+                self.mouse_position = position;
                 if let Some(clicked_position) = self.last_clicked_position {
                     let mouse_dx =
-                        (position.x - clicked_position.x) / self.window_size.width as f64;
+                        (position.x - clicked_position.x) / self.area_size.width as f64;
                     let mouse_dy =
-                        (position.y - clicked_position.y) / self.window_size.height as f64;
+                        (position.y - clicked_position.y) / self.area_size.height as f64;
                     self.camera_controller.process_mouse(mouse_dx, mouse_dy);
                     Consequence::CameraMoved
                 } else {
@@ -113,9 +116,11 @@ impl Controller {
         self.camera_controller.update_camera(dt);
     }
 
-    pub fn resize(&mut self, window_size: PhySize) {
+    pub fn resize(&mut self, window_size: PhySize, area_size: PhySize) {
         self.window_size = window_size;
-        self.camera_controller.resize(window_size);
+        self.area_size = area_size;
+        self.camera_controller.resize(area_size);
+        // the view needs the window size to build a depth texture
         self.view.borrow_mut().update(super::view::ViewUpdate::Size(window_size));
     }
 

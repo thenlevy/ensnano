@@ -65,7 +65,6 @@ impl Program for Controls {
             .on_press(Message::FileOpeningRequested);
         let buttons = Row::new()
             .width(Length::Units(500))
-            .spacing(20)
             .push(button_fit)
             .push(button_file);
 
