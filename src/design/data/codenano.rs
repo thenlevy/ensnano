@@ -1,6 +1,6 @@
-use std::fmt;
 use std::borrow::Cow;
 use std::f64::consts::PI;
+use std::fmt;
 use ultraviolet::DVec3;
 
 /// The main type of this crate, describing a DNA design.
@@ -33,7 +33,6 @@ impl<StrandLabel: serde::Serialize, DomainLabel: serde::Serialize>
             parameters: Some(Parameters::DEFAULT),
         }
     }
-
 }
 
 /// A DNA strand.
@@ -87,7 +86,6 @@ impl<StrandLabel, DomainLabel> Strand<StrandLabel, DomainLabel> {
     }
 }
 
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 /// Colors
@@ -103,7 +101,7 @@ pub enum Color {
         /// Green field
         g: u8,
         /// Blue field
-        b: u8
+        b: u8,
     },
 }
 
@@ -117,9 +115,7 @@ impl Color {
                 let s = s.trim_start_matches("#");
                 u32::from_str_radix(s, 16).unwrap()
             }
-            Color::Rgb { r, g, b } => {
-                ((r as u32) << 16) | ((g as u32) << 8) | (b as u32)
-            }
+            Color::Rgb { r, g, b } => ((r as u32) << 16) | ((g as u32) << 8) | (b as u32),
         }
     }
 
@@ -325,7 +321,6 @@ impl Parameters {
     };
 }
 
-
 /// Represents 3D coordinates of the point of a finite element system
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 #[repr(C)]
@@ -333,7 +328,7 @@ pub struct Point {
     /// x coordinate
     pub x: f64,
     /// y coordinate
-    pub y:f64,
+    pub y: f64,
     /// z coordinate
     pub z: f64,
 }
@@ -351,10 +346,13 @@ impl Point {
 
     #[allow(dead_code)]
     pub fn to_vec3(&self) -> DVec3 {
-        DVec3 { x:self.x, y:self.y, z:self.z }
+        DVec3 {
+            x: self.x,
+            y: self.y,
+            z: self.z,
+        }
     }
 }
-
 
 /// A DNA helix. All bases of all strands must be on a helix.
 ///
@@ -364,19 +362,19 @@ impl Point {
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Helix {
     /// Position of the position of the helix axis.
-    #[serde(default="zero_point")]
+    #[serde(default = "zero_point")]
     pub position: Point,
 
     /// Angle around the axis of the helix.
-    #[serde(default="zero_f64")]
+    #[serde(default = "zero_f64")]
     pub roll: f64,
 
     /// Horizontal rotation.
-    #[serde(default="zero_f64")]
+    #[serde(default = "zero_f64")]
     pub yaw: f64,
 
     /// Vertical rotation.
-    #[serde(default="zero_f64")]
+    #[serde(default = "zero_f64")]
     pub pitch: f64,
 
     /// Maximum available position of the helix.
@@ -387,12 +385,15 @@ pub struct Helix {
 }
 
 fn zero_point() -> Point {
-    Point { x: 0., y: 0. ,z: 0. }
+    Point {
+        x: 0.,
+        y: 0.,
+        z: 0.,
+    }
 }
 fn zero_f64() -> f64 {
     0.
 }
-
 
 impl fmt::Debug for Helix {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -516,7 +517,7 @@ impl Helix {
         new_position[2] += self.position.z;
         Helix {
             position: Point::from_coord(new_position),
-            .. self.clone()
+            ..self.clone()
         }
     }
 
@@ -530,7 +531,7 @@ impl Helix {
         new_position[2] += self.position.z;
         Helix {
             position: Point::from_coord(new_position),
-            .. self.clone()
+            ..self.clone()
         }
     }
 
@@ -544,7 +545,7 @@ impl Helix {
         new_position[2] += self.position.z;
         Helix {
             position: Point::from_coord(new_position),
-            .. self.clone()
+            ..self.clone()
         }
     }
 
@@ -558,7 +559,7 @@ impl Helix {
         new_position[2] += self.position.z;
         Helix {
             position: Point::from_coord(new_position),
-            .. self.clone()
+            ..self.clone()
         }
     }
 

@@ -1,4 +1,4 @@
-use super::{ Data, View };
+use super::{Data, View};
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -12,9 +12,6 @@ pub struct Controller {
 
 impl Controller {
     pub fn new(view: ViewPtr, data: DataPtr) -> Self {
-        Self {
-            view,
-            data,
-        }
+        Self { view, data }
     }
 }

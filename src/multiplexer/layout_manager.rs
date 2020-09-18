@@ -1,5 +1,5 @@
-use std::rc::Rc;
 use std::cell::RefCell;
+use std::rc::Rc;
 
 enum LayoutNode {
     Area(f64, f64, f64, f64, usize),
@@ -19,10 +19,7 @@ impl LayoutTree {
         let root = Rc::new(RefCell::new(LayoutNode::Area(0., 0., 1., 1., 0)));
         let mut area = Vec::new();
         area.push(root.clone());
-        Self {
-            root,
-            area,
-        }
+        Self { root, area }
     }
 
     pub fn vsplit(&mut self, area_idx: usize, top_proportion: f64) -> (usize, usize) {
@@ -54,20 +51,28 @@ impl LayoutTree {
     pub fn get_area(&self, area: usize) -> (f64, f64, f64, f64) {
         match *self.area[area].borrow() {
             LayoutNode::Area(left, top, right, bottom, _) => (left, top, right, bottom),
-            _ => panic!("got split_node")
+            _ => panic!("got split_node"),
         }
     }
 }
 
 impl LayoutNode {
-    pub fn vsplit(&mut self, top_proportion: f64, bottom_idx: usize) -> (LayoutNodePtr, LayoutNodePtr) {
+    pub fn vsplit(
+        &mut self,
+        top_proportion: f64,
+        bottom_idx: usize,
+    ) -> (LayoutNodePtr, LayoutNodePtr) {
         assert!(top_proportion >= 0. && top_proportion <= 1.);
         match self {
             LayoutNode::Area(left, top, right, bottom, idx) => {
                 let separation = top_proportion * (*top + *bottom);
                 println!("separation {}", separation);
-                let top_area = Rc::new(RefCell::new(LayoutNode::Area(*left, *top, *right, separation, *idx)));
-                let bottom_area = Rc::new(RefCell::new(LayoutNode::Area(*left, separation, *right, *bottom, bottom_idx)));
+                let top_area = Rc::new(RefCell::new(LayoutNode::Area(
+                    *left, *top, *right, separation, *idx,
+                )));
+                let bottom_area = Rc::new(RefCell::new(LayoutNode::Area(
+                    *left, separation, *right, *bottom, bottom_idx,
+                )));
                 *self = LayoutNode::VSplit(separation, top_area.clone(), bottom_area.clone());
                 (top_area, bottom_area)
             }
@@ -77,13 +82,21 @@ impl LayoutNode {
         }
     }
 
-    pub fn hsplit(&mut self, left_proportion: f64, right_idx: usize) -> (LayoutNodePtr, LayoutNodePtr) {
+    pub fn hsplit(
+        &mut self,
+        left_proportion: f64,
+        right_idx: usize,
+    ) -> (LayoutNodePtr, LayoutNodePtr) {
         assert!(left_proportion >= 0. && left_proportion <= 1.);
         match self {
             LayoutNode::Area(left, top, right, bottom, idx) => {
                 let separation = left_proportion * (*left + *right);
-                let left_area = Rc::new(RefCell::new(LayoutNode::Area(*left, *top, separation, *bottom, *idx)));
-                let right_area = Rc::new(RefCell::new(LayoutNode::Area(separation, *top, *right, *bottom, right_idx)));
+                let left_area = Rc::new(RefCell::new(LayoutNode::Area(
+                    *left, *top, separation, *bottom, *idx,
+                )));
+                let right_area = Rc::new(RefCell::new(LayoutNode::Area(
+                    separation, *top, *right, *bottom, right_idx,
+                )));
                 *self = LayoutNode::HSplit(separation, left_area.clone(), right_area.clone());
                 (left_area, right_area)
             }
@@ -112,7 +125,4 @@ impl LayoutNode {
             }
         }
     }
-
 }
-
-

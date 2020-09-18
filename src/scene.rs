@@ -1,21 +1,21 @@
-use crate::{instance, utils, design};
+use crate::{design, instance, utils};
 use crate::{DrawArea, PhySize, WindowEvent};
+use futures::executor;
 use iced_wgpu::wgpu;
 use iced_winit::winit;
 use instance::Instance;
-use std::time::Duration;
-use std::rc::Rc;
 use std::cell::RefCell;
+use std::rc::Rc;
+use std::time::Duration;
+use ultraviolet::{Mat4, Rotor3, Vec3};
+use utils::BufferDimensions;
 use wgpu::{Device, Queue};
 use winit::dpi::PhysicalPosition;
-use futures::executor;
-use utils::BufferDimensions;
-use ultraviolet::{Mat4, Vec3, Rotor3};
 mod camera;
 mod view;
 use view::{View, ViewUpdate};
 mod controller;
-use controller::{ Controller, Consequence };
+use controller::{Consequence, Controller};
 use design::Design;
 use std::path::PathBuf;
 
@@ -29,7 +29,6 @@ pub struct Scene {
     controller: Controller,
     area: DrawArea,
 }
-
 
 impl Scene {
     /// Create a new scene that will be displayed on `device`
@@ -49,7 +48,8 @@ impl Scene {
     }
 
     pub fn add_design(&mut self, path: &PathBuf) {
-        self.designs.push(Design::new_with_path(path, self.designs.len() as u32))
+        self.designs
+            .push(Design::new_with_path(path, self.designs.len() as u32))
     }
 
     pub fn clear_design(&mut self, path: &PathBuf) {
@@ -57,7 +57,13 @@ impl Scene {
     }
 
     /// Input an event to the scene. Return true, if the selected object of the scene has changed
-    pub fn input(&mut self, event: &WindowEvent, device: &Device, queue: &mut wgpu::Queue, cursor_position: PhysicalPosition<f64>) {
+    pub fn input(
+        &mut self,
+        event: &WindowEvent,
+        device: &Device,
+        queue: &mut wgpu::Queue,
+        cursor_position: PhysicalPosition<f64>,
+    ) {
         let mut clicked_pixel = None;
         let consequence = self.controller.input(event, cursor_position);
         match consequence {
@@ -73,7 +79,11 @@ impl Scene {
                 self.selected_id = Some(selected_id);
                 self.selected_design = Some(design_id);
                 for i in 0..self.designs.len() {
-                    let arg = if i == design_id as usize { Some(selected_id) } else { None };
+                    let arg = if i == design_id as usize {
+                        Some(selected_id)
+                    } else {
+                        None
+                    };
                     self.designs[i].update_selection(arg);
                 }
             } else {
@@ -121,14 +131,9 @@ impl Scene {
         let mut encoder =
             device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
 
-        self.view.borrow_mut().draw(
-            &mut encoder,
-            &texture_view,
-            device,
-            true,
-            queue,
-            self.area
-        );
+        self.view
+            .borrow_mut()
+            .draw(&mut encoder, &texture_view, device, true, queue, self.area);
 
         let buffer_dimensions = BufferDimensions::new(size.width as usize, size.height as usize);
         let buf_size = buffer_dimensions.padded_bytes_per_row * buffer_dimensions.height;
@@ -145,7 +150,7 @@ impl Scene {
                 offset: 0,
                 bytes_per_row: buffer_dimensions.padded_bytes_per_row as u32,
                 rows_per_image: 0,
-            }
+            },
         };
         let texture_copy_view = wgpu::TextureCopyView {
             texture: &texture,
@@ -155,8 +160,10 @@ impl Scene {
         encoder.copy_texture_to_buffer(texture_copy_view, buffer_copy_view, size);
         queue.submit(Some(encoder.finish()));
 
-        let pixel = (self.area.position.y as usize + clicked_pixel.y as usize) * buffer_dimensions.padded_bytes_per_row
-            + (self.area.position.x as usize + clicked_pixel.x as usize) * std::mem::size_of::<u32>();
+        let pixel = (self.area.position.y as usize + clicked_pixel.y as usize)
+            * buffer_dimensions.padded_bytes_per_row
+            + (self.area.position.x as usize + clicked_pixel.x as usize)
+                * std::mem::size_of::<u32>();
 
         let buffer_slice = staging_buffer.slice(..);
         let buffer_future = buffer_slice.map_async(wgpu::MapMode::Read);
@@ -184,7 +191,8 @@ impl Scene {
     pub fn fit_design(&mut self) {
         if self.designs.len() > 0 {
             let (position, rotor) = self.designs[0].fit(self.get_fovy(), self.get_ratio());
-            self.controller.set_middle_point(self.designs[0].middle_point());
+            self.controller
+                .set_middle_point(self.designs[0].middle_point());
             self.notify(SceneNotification::NewCamera(position, rotor));
         }
     }
@@ -210,7 +218,9 @@ impl Scene {
         if self.update.need_update {
             self.perform_update(dt);
         }
-        self.view.borrow_mut().draw(encoder, target, device, fake_color, queue, self.area);
+        self.view
+            .borrow_mut()
+            .draw(encoder, target, device, fake_color, queue, self.area);
     }
 
     fn perform_update(&mut self, dt: Duration) {
@@ -221,13 +231,19 @@ impl Scene {
             self.view.borrow_mut().update(ViewUpdate::Tubes(instance))
         }
         if let Some(sphere) = self.update.selected_sphere.take() {
-            self.view.borrow_mut().update(ViewUpdate::SelectedSpheres(vec![sphere]))
+            self.view
+                .borrow_mut()
+                .update(ViewUpdate::SelectedSpheres(vec![sphere]))
         }
         if let Some(tubes) = self.update.selected_tube.take() {
-            self.view.borrow_mut().update(ViewUpdate::SelectedTubes(tubes))
+            self.view
+                .borrow_mut()
+                .update(ViewUpdate::SelectedTubes(tubes))
         }
         if let Some(matrices) = self.update.model_matrices.take() {
-            self.view.borrow_mut().update(ViewUpdate::ModelMatricies(matrices))
+            self.view
+                .borrow_mut()
+                .update(ViewUpdate::ModelMatricies(matrices))
         }
 
         if self.update.camera_update {
@@ -239,7 +255,10 @@ impl Scene {
     }
 
     fn fetch_data_updates(&mut self) {
-        let need_update = self.designs.iter_mut().fold(false, |acc, design| acc | design.data_was_updated());
+        let need_update = self
+            .designs
+            .iter_mut()
+            .fold(false, |acc, design| acc | design.data_was_updated());
 
         if need_update {
             let mut sphere_instances = vec![];
@@ -277,7 +296,10 @@ impl Scene {
     }
 
     fn fetch_view_updates(&mut self) {
-        let need_update = self.designs.iter_mut().fold(false, |acc, design| acc | design.view_was_updated());
+        let need_update = self
+            .designs
+            .iter_mut()
+            .fold(false, |acc, design| acc | design.view_was_updated());
 
         if need_update {
             let matrices: Vec<_> = self.designs.iter().map(|d| d.model_matrix()).collect();
@@ -285,7 +307,6 @@ impl Scene {
             self.update.model_matrices = Some(matrices);
         }
         self.update.need_update |= need_update;
-
     }
 
     pub fn get_fovy(&self) -> f32 {
@@ -295,7 +316,6 @@ impl Scene {
     pub fn get_ratio(&self) -> f32 {
         self.view.borrow().get_projection().borrow().get_ratio()
     }
-
 }
 
 /// A structure that stores the element that needs to be updated in a scene
@@ -347,7 +367,6 @@ impl Scene {
             }
         };
         self.update.need_update = true;
-
     }
 
     fn resize(&mut self, window_size: PhySize) {

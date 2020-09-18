@@ -1,15 +1,15 @@
-mod view;
-mod data;
 mod controller;
+mod data;
+mod view;
 
 use crate::instance::Instance;
-use ultraviolet::{Mat4, Rotor3, Vec3};
-use std::cell::RefCell;
-use std::rc::Rc;
-use view::View;
-use data::Data;
 use controller::Controller;
+use data::Data;
+use std::cell::RefCell;
 use std::path::PathBuf;
+use std::rc::Rc;
+use ultraviolet::{Mat4, Rotor3, Vec3};
+use view::View;
 
 pub struct Design {
     view: Rc<RefCell<View>>,
@@ -18,7 +18,6 @@ pub struct Design {
 }
 
 impl Design {
-
     pub fn new(id: u32) -> Self {
         let view = Rc::new(RefCell::new(View::new(id)));
         let data = Rc::new(RefCell::new(Data::new(&view)));

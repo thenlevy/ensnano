@@ -1,10 +1,10 @@
-use std::cell::RefCell;
-use std::rc::Rc;
-use std::collections::HashMap;
 use super::View;
-use std::path::PathBuf;
-use ultraviolet::{Vec3, Rotor3};
 use crate::utils::rotation_to_rotor;
+use std::cell::RefCell;
+use std::collections::HashMap;
+use std::path::PathBuf;
+use std::rc::Rc;
+use ultraviolet::{Rotor3, Vec3};
 
 mod codenano;
 
@@ -170,11 +170,14 @@ impl Data {
                         let (nucl1, nucl2) = self.nucleotides_involved.get(&id).unwrap();
                         let pos1 = self.get_space_pos(nucl1).unwrap();
                         let pos2 = self.get_space_pos(nucl2).unwrap();
-                        self.view.borrow_mut().update_selected_tubes(&vec![(pos1, pos2)]);
+                        self.view
+                            .borrow_mut()
+                            .update_selected_tubes(&vec![(pos1, pos2)]);
                     }
-                    ObjectType::Nucleotide => {
-                        self.view.borrow_mut().update_selected_spheres(&vec![*self.space_position.get(&id).unwrap()])
-                    }
+                    ObjectType::Nucleotide => self
+                        .view
+                        .borrow_mut()
+                        .update_selected_spheres(&vec![*self.space_position.get(&id).unwrap()]),
                 }
                 self.update_status = true;
             } else {
@@ -184,7 +187,6 @@ impl Data {
             self.view.borrow_mut().update_selected_tubes(&vec![]);
             self.view.borrow_mut().update_selected_spheres(&vec![])
         }
-
     }
 
     fn get_space_pos(&self, nucl: &Nucl) -> Option<[f32; 3]> {
@@ -209,9 +211,11 @@ impl Data {
 
     pub fn middle_point(&self) -> Vec3 {
         let boundaries = self.boundaries();
-        Vec3::new((boundaries[0] + boundaries[1]) as f32 / 2.,
-                  (boundaries[2] + boundaries[3]) as f32 / 2.,
-                  (boundaries[4] + boundaries[5])  as f32/ 2.,)
+        Vec3::new(
+            (boundaries[0] + boundaries[1]) as f32 / 2.,
+            (boundaries[2] + boundaries[3]) as f32 / 2.,
+            (boundaries[4] + boundaries[5]) as f32 / 2.,
+        )
     }
 
     fn boundaries(&self) -> [f64; 6] {
@@ -305,7 +309,6 @@ impl Data {
         coord - *direction * x_back
     }
 }
-
 
 #[derive(Clone, Copy, Eq, PartialEq)]
 enum ObjectType {

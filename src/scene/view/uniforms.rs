@@ -1,5 +1,5 @@
 use super::camera::{CameraPtr, ProjectionPtr};
-use ultraviolet::{Vec4, Mat4};
+use ultraviolet::{Mat4, Vec4};
 
 #[repr(C)] // We need this for Rust to store our data correctly for the shaders
 #[derive(Debug, Copy, Clone)] // This is so we can store this in a buffer
@@ -25,7 +25,7 @@ impl Uniforms {
     pub fn from_view_proj(camera: CameraPtr, projection: ProjectionPtr) -> Self {
         Self {
             camera_position: camera.borrow().position.into_homogeneous_point(),
-            view_proj: projection.borrow().calc_matrix() * camera.borrow().calc_matrix()
+            view_proj: projection.borrow().calc_matrix() * camera.borrow().calc_matrix(),
         }
     }
 

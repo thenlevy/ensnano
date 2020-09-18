@@ -1,7 +1,7 @@
 use crate::utils::create_buffer_with_data;
 use iced_wgpu::wgpu;
-use wgpu::{BindGroup, BindGroupLayout, Device};
 use ultraviolet::Vec3;
+use wgpu::{BindGroup, BindGroupLayout, Device};
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
@@ -32,21 +32,24 @@ pub fn create_light(device: &Device) -> (BindGroup, BindGroupLayout) {
     );
 
     let light_bind_group_layout =
-    device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-        entries: &[wgpu::BindGroupLayoutEntry {
-            binding: 0,
-            visibility: wgpu::ShaderStage::VERTEX | wgpu::ShaderStage::FRAGMENT,
-            ty: wgpu::BindingType::UniformBuffer { dynamic: false, min_binding_size: None },
-            count: None,
-        }],
-        label: Some("light_bind_group_layout"),
-    });
+        device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            entries: &[wgpu::BindGroupLayoutEntry {
+                binding: 0,
+                visibility: wgpu::ShaderStage::VERTEX | wgpu::ShaderStage::FRAGMENT,
+                ty: wgpu::BindingType::UniformBuffer {
+                    dynamic: false,
+                    min_binding_size: None,
+                },
+                count: None,
+            }],
+            label: Some("light_bind_group_layout"),
+        });
 
     let light_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
         layout: &light_bind_group_layout,
         entries: &[wgpu::BindGroupEntry {
             binding: 0,
-            resource: wgpu::BindingResource::Buffer(light_buffer.slice(..))
+            resource: wgpu::BindingResource::Buffer(light_buffer.slice(..)),
         }],
         label: Some("light bind group"),
     });

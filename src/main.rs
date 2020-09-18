@@ -1,7 +1,7 @@
 use std::env;
 use std::path::PathBuf;
-use std::time::{Duration, Instant};
 use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 pub type PhySize = iced_winit::winit::dpi::PhysicalSize<u32>;
 
 use iced_wgpu::{wgpu, Backend, Renderer, Settings, Viewport};
@@ -18,23 +18,23 @@ use winit::{
 extern crate serde_derive;
 extern crate serde;
 
-mod scene;
 mod consts;
 mod controls;
 mod design;
+mod scene;
 //mod design_handler;
 mod instance;
 mod light;
 mod mesh;
+mod multiplexer;
 mod texture;
 mod utils;
-mod multiplexer;
 
 //use design_handler::DesignHandler;
 
 use controls::Controls;
-use scene::{ Scene, SceneNotification };
-use multiplexer::{Multiplexer, DrawArea};
+use multiplexer::{DrawArea, Multiplexer};
+use scene::{Scene, SceneNotification};
 
 fn convert_size(size: PhySize) -> Size<f32> {
     Size::new(size.width as f32, size.height as f32)
@@ -63,11 +63,11 @@ fn main() {
     );
     let mut cursor_position = PhysicalPosition::new(-1.0, -1.0);
     let mut modifiers = ModifiersState::default();
-    
+
     let instance = wgpu::Instance::new(wgpu::BackendBit::PRIMARY);
     let surface = unsafe { instance.create_surface(&window) };
     // Initialize WGPU
-     let (mut device, mut queue) = futures::executor::block_on(async {
+    let (mut device, mut queue) = futures::executor::block_on(async {
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions {
                 power_preference: wgpu::PowerPreference::Default,
@@ -118,8 +118,13 @@ fn main() {
     }
     scene.fit_design();
     let fitting_request = Arc::new(Mutex::new(false));
-    let file_opening_request = Arc::new(Mutex::new(None));
-    let controls = Controls::new(&fitting_request, &file_opening_request);
+    let file_add_request = Arc::new(Mutex::new(None));
+    let file_replace_request = Arc::new(Mutex::new(None));
+    let controls = Controls::new(
+        fitting_request.clone(),
+        file_add_request.clone(),
+        file_replace_request.clone(),
+    );
 
     //let mut cache = Some(Cache::default());
     let mut debug = Debug::new();
@@ -136,7 +141,6 @@ fn main() {
 
     //let mut output = (Primitive::None, MouseCursor::OutOfBounds);
     //let clipboard = Clipboard::new(&window);
-
 
     // Run event loop
     let mut last_render_time = std::time::Instant::now();
@@ -175,7 +179,6 @@ fn main() {
                     }
                     // 3D view
                 }
-
             }
             Event::MainEventsCleared => {
                 let top_bar_area = multiplexer.get_top_bar_area();
@@ -191,7 +194,8 @@ fn main() {
                         &mut debug,
                     );
                     {
-                        let mut fitting_request_lock = fitting_request.lock().expect("fitting_request");
+                        let mut fitting_request_lock =
+                            fitting_request.lock().expect("fitting_request");
                         if *fitting_request_lock {
                             //design_handler.fit_design(&mut scene);
                             scene.fit_design();
@@ -199,12 +203,23 @@ fn main() {
                         }
                     }
                     {
-                        let mut file_opening_request_lock = file_opening_request.lock().expect("fitting_request_lock");
-                        if let Some(ref path) = *file_opening_request_lock {
+                        let mut file_add_request_lock =
+                            file_add_request.lock().expect("fitting_request_lock");
+                        if let Some(ref path) = *file_add_request_lock {
                             //design_handler.get_design(path);
                             //design_handler.update_scene(&mut scene, true);
                             scene.add_design(path);
-                            *file_opening_request_lock = None;
+                            *file_add_request_lock = None;
+                        }
+                    }
+                    {
+                        let mut file_replace_request_lock =
+                            file_replace_request.lock().expect("fitting_request_lock");
+                        if let Some(ref path) = *file_replace_request_lock {
+                            //design_handler.get_design(path);
+                            //design_handler.update_scene(&mut scene, true);
+                            scene.clear_design(path);
+                            *file_replace_request_lock = None;
                         }
                     }
                 }
@@ -228,10 +243,8 @@ fn main() {
                             present_mode: wgpu::PresentMode::Mailbox,
                         },
                     );
-
                 }
-                                // Get viewports from the partition
-
+                // Get viewports from the partition
 
                 // If there are events pending
                 if !state.is_queue_empty() || resized {
@@ -247,7 +260,6 @@ fn main() {
 
                 resized = false;
 
-
                 let frame = swap_chain.get_current_frame().expect("Next frame");
 
                 let mut encoder =
@@ -259,6 +271,11 @@ fn main() {
                 last_render_time = now;
                 //scene.draw(&mut encoder, &frame.output.view, &device, dt, false);
                 scene.draw_view(&mut encoder, &frame.output.view, &device, dt, false, &queue);
+
+                let viewport = Viewport::with_physical_size(
+                    convert_size_u32(multiplexer.window_size),
+                    window.scale_factor(),
+                );
 
                 // And then iced on top
                 let mouse_interaction = renderer.backend_mut().draw(
@@ -276,11 +293,8 @@ fn main() {
                 queue.submit(Some(encoder.finish()));
 
                 // And update the mouse cursor
-                window.set_cursor_icon(
-                    iced_winit::conversion::mouse_interaction(
-                        mouse_interaction,
-                    ),
-                );
+                window
+                    .set_cursor_icon(iced_winit::conversion::mouse_interaction(mouse_interaction));
                 local_pool
                     .spawner()
                     .spawn(staging_belt.recall())

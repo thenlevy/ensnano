@@ -1,5 +1,5 @@
-use super::{ Duration, ViewPtr, camera };
-use crate::{ WindowEvent, PhysicalPosition, PhySize};
+use super::{camera, Duration, ViewPtr};
+use crate::{PhySize, PhysicalPosition, WindowEvent};
 use iced_winit::winit::event::*;
 use ultraviolet::{Rotor3, Vec3};
 
@@ -42,11 +42,7 @@ impl Controller {
         self.camera_controller.teleport_camera(position, rotation)
     }
 
-    pub fn input(
-        &mut self,
-        event: &WindowEvent,
-        position: PhysicalPosition<f64>,
-    ) -> Consequence {
+    pub fn input(&mut self, event: &WindowEvent, position: PhysicalPosition<f64>) -> Consequence {
         match event {
             WindowEvent::KeyboardInput {
                 input:
@@ -62,7 +58,7 @@ impl Controller {
                 } else {
                     Consequence::Nothing
                 }
-            },
+            }
             WindowEvent::MouseWheel { delta, .. } => {
                 self.camera_controller.process_scroll(delta);
                 Consequence::CameraMoved
@@ -75,9 +71,12 @@ impl Controller {
                 self.camera_controller.process_click(state);
                 if *state == ElementState::Pressed {
                     self.last_clicked_position = Some(self.mouse_position);
-                } else if position_difference(self.last_clicked_position.unwrap_or(NO_POS), self.mouse_position) < 5.
+                } else if position_difference(
+                    self.last_clicked_position.unwrap_or(NO_POS),
+                    self.mouse_position,
+                ) < 5.
                 {
-                    return Consequence::PixelSelected(self.last_clicked_position.take().unwrap())
+                    return Consequence::PixelSelected(self.last_clicked_position.take().unwrap());
                 } else {
                     self.last_clicked_position = None;
                 }
@@ -90,10 +89,8 @@ impl Controller {
             WindowEvent::CursorMoved { .. } => {
                 self.mouse_position = position;
                 if let Some(clicked_position) = self.last_clicked_position {
-                    let mouse_dx =
-                        (position.x - clicked_position.x) / self.area_size.width as f64;
-                    let mouse_dy =
-                        (position.y - clicked_position.y) / self.area_size.height as f64;
+                    let mouse_dx = (position.x - clicked_position.x) / self.area_size.width as f64;
+                    let mouse_dy = (position.y - clicked_position.y) / self.area_size.height as f64;
                     self.camera_controller.process_mouse(mouse_dx, mouse_dy);
                     Consequence::CameraMoved
                 } else {
@@ -121,7 +118,9 @@ impl Controller {
         self.area_size = area_size;
         self.camera_controller.resize(area_size);
         // the view needs the window size to build a depth texture
-        self.view.borrow_mut().update(super::view::ViewUpdate::Size(window_size));
+        self.view
+            .borrow_mut()
+            .update(super::view::ViewUpdate::Size(window_size));
     }
 
     pub fn get_window_size(&self) -> PhySize {
@@ -132,4 +131,3 @@ impl Controller {
 fn position_difference(a: PhysicalPosition<f64>, b: PhysicalPosition<f64>) -> f64 {
     (a.x - b.x).abs().max((a.y - b.y).abs())
 }
-

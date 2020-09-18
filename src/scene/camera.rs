@@ -1,12 +1,12 @@
-use ultraviolet::{Vec3, Rotor3, Mat4};
+use super::PhySize;
 use iced_winit::winit;
-use std::f32::consts::FRAC_PI_2;
-use std::time::Duration;
-use std::rc::Rc;
 use std::cell::RefCell;
+use std::f32::consts::FRAC_PI_2;
+use std::rc::Rc;
+use std::time::Duration;
+use ultraviolet::{Mat4, Rotor3, Vec3};
 use winit::dpi::LogicalPosition;
 use winit::event::*;
-use super::PhySize;
 
 #[derive(Debug)]
 pub struct Camera {
@@ -15,7 +15,7 @@ pub struct Camera {
     /// The orientation of the camera.
     ///
     /// `rotor` is an object that can cat as a transformation of the world basis into the camera's
-    /// basis. The camera is looking in the opposite direction of its z axis with its y axis 
+    /// basis. The camera is looking in the opposite direction of its z axis with its y axis
     /// pointing up.
     pub rotor: Rotor3,
 }
@@ -80,7 +80,12 @@ impl Projection {
 
     /// Computes the projection matrix.
     pub fn calc_matrix(&self) -> Mat4 {
-        ultraviolet::projection::rh_yup::perspective_wgpu_dx(self.fovy, self.aspect, self.znear, self.zfar)
+        ultraviolet::projection::rh_yup::perspective_wgpu_dx(
+            self.fovy,
+            self.aspect,
+            self.znear,
+            self.zfar,
+        )
     }
 
     pub fn get_fovy(&self) -> f32 {
@@ -165,11 +170,17 @@ impl CameraController {
                 true
             }
             VirtualKeyCode::H if amount > 0. => {
-                self.rotate_camera_around(FRAC_PI_2 / 2., self.middle_point.unwrap_or(Vec3::zero()));
+                self.rotate_camera_around(
+                    FRAC_PI_2 / 2.,
+                    self.middle_point.unwrap_or(Vec3::zero()),
+                );
                 true
             }
             VirtualKeyCode::L if amount > 0. => {
-                self.rotate_camera_around(-FRAC_PI_2 / 2., self.middle_point.unwrap_or(Vec3::zero()));
+                self.rotate_camera_around(
+                    -FRAC_PI_2 / 2.,
+                    self.middle_point.unwrap_or(Vec3::zero()),
+                );
                 true
             }
             _ => false,
@@ -224,7 +235,8 @@ impl CameraController {
 
         {
             let mut camera = self.camera.borrow_mut();
-            camera.position += forward * (self.amount_forward - self.amount_backward) * self.speed * dt;
+            camera.position +=
+                forward * (self.amount_forward - self.amount_backward) * self.speed * dt;
             camera.position += right * (self.amount_right - self.amount_left) * self.speed * dt;
         }
 
@@ -288,6 +300,5 @@ impl CameraController {
         let matrix = ultraviolet::Mat3::new(new_right, new_up, -new_direction);
         let rotor = matrix.into_rotor3();
         self.teleport_camera(new_position, rotor);
-        
     }
 }

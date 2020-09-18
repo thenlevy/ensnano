@@ -1,6 +1,6 @@
 use crate::instance::Instance;
-use ultraviolet::{Mat4, Rotor3, Vec3};
 use std::rc::Rc;
+use ultraviolet::{Mat4, Rotor3, Vec3};
 
 pub struct View {
     spheres: Rc<Vec<Instance>>,
@@ -27,81 +27,89 @@ impl View {
         }
     }
 
-    pub fn update_spheres(&mut self, positions: &Vec<([f32 ; 3], u32, u32)>) {
-        self.spheres = Rc::new(positions
-            .iter()
-            .map(|(v, color, id)| {
-                let id = *id | (self.id << 24);
-                Instance {
+    pub fn update_spheres(&mut self, positions: &Vec<([f32; 3], u32, u32)>) {
+        self.spheres = Rc::new(
+            positions
+                .iter()
+                .map(|(v, color, id)| {
+                    let id = *id | (self.id << 24);
+                    Instance {
+                        position: Vec3 {
+                            x: v[0],
+                            y: v[1],
+                            z: v[2],
+                        },
+                        rotor: Rotor3::identity(),
+                        color: Instance::color_from_u32(*color),
+                        id: id,
+                    }
+                })
+                .collect(),
+        );
+    }
+
+    pub fn update_selected_spheres(&mut self, positions: &Vec<[f32; 3]>) {
+        self.selected_spheres = Rc::new(
+            positions
+                .iter()
+                .map(|v| Instance {
                     position: Vec3 {
                         x: v[0],
                         y: v[1],
                         z: v[2],
                     },
-                   rotor: Rotor3::identity(),
-                   color: Instance::color_from_u32(*color),
-                   id: id,
-                }
-            })
-            .collect());
-    }
-
-    pub fn update_selected_spheres(&mut self, positions: &Vec<[f32 ; 3]>) {
-        self.selected_spheres = Rc::new(positions
-            .iter()
-            .map(|v| Instance {
-                position: Vec3 {
-                    x: v[0],
-                    y: v[1],
-                    z: v[2],
-                },
-               rotor: Rotor3::identity(),
-               color: Vec3::zero(),
-               id: 0,
-            })
-            .collect());
+                    rotor: Rotor3::identity(),
+                    color: Vec3::zero(),
+                    id: 0,
+                })
+                .collect(),
+        );
         self.selected_tubes = Rc::new(Vec::new());
     }
 
-    pub fn update_tubes(&mut self, pairs: &Vec<([f32 ; 3], [f32; 3], u32, u32)>) {
-        self.tubes = Rc::new(pairs
-            .iter()
-            .map(|(a, b, color, id)| {
-                let position_a = Vec3 {
-                    x: a[0],
-                    y: a[1],
-                    z: a[2],
-                };
-                let position_b = Vec3 {
-                    x: b[0],
-                    y: b[1],
-                    z: b[2],
-                };
-                let id = *id | (self.id << 24);
-                create_bound(position_a, position_b, *color, id)
-            })
-            .flatten()
-            .collect());
+    pub fn update_tubes(&mut self, pairs: &Vec<([f32; 3], [f32; 3], u32, u32)>) {
+        self.tubes = Rc::new(
+            pairs
+                .iter()
+                .map(|(a, b, color, id)| {
+                    let position_a = Vec3 {
+                        x: a[0],
+                        y: a[1],
+                        z: a[2],
+                    };
+                    let position_b = Vec3 {
+                        x: b[0],
+                        y: b[1],
+                        z: b[2],
+                    };
+                    let id = *id | (self.id << 24);
+                    create_bound(position_a, position_b, *color, id)
+                })
+                .flatten()
+                .collect(),
+        );
     }
 
-    pub fn update_selected_tubes(&mut self, pairs: &Vec<([f32 ; 3], [f32; 3])>) {
-        self.selected_tubes = Rc::new(pairs
-            .iter()
-            .map(|(a, b)| {
-                let position_a = Vec3 {
-                    x: a[0],
-                    y: a[1],
-                    z: a[2],
-                };
-                let position_b = Vec3 {
-                    x: b[0],
-                    y: b[1],
-                    z: b[2],
-                };
-                create_bound(position_a, position_b, 0, 0)
-            })
-            .flatten()
-            .collect());
+    pub fn update_selected_tubes(&mut self, pairs: &Vec<([f32; 3], [f32; 3])>) {
+        self.selected_tubes = Rc::new(
+            pairs
+                .iter()
+                .map(|(a, b)| {
+                    let position_a = Vec3 {
+                        x: a[0],
+                        y: a[1],
+                        z: a[2],
+                    };
+                    let position_b = Vec3 {
+                        x: b[0],
+                        y: b[1],
+                        z: b[2],
+                    };
+                    create_bound(position_a, position_b, 0, 0)
+                })
+                .flatten()
+                .collect(),
+        );
         self.selected_spheres = Rc::new(Vec::new());
     }
 
@@ -134,13 +142,7 @@ impl View {
     }
 }
 
-
-fn create_bound(
-    source: Vec3,
-    dest: Vec3,
-    color: u32,
-    id: u32,
-) -> Vec<Instance> {
+fn create_bound(source: Vec3, dest: Vec3, color: u32, id: u32) -> Vec<Instance> {
     let mut ret = Vec::new();
     let color = Instance::color_from_u32(color);
     let rotor = Rotor3::from_rotation_between(Vec3::unit_x(), (dest - source).normalized());

@@ -1,14 +1,14 @@
-use crate::{instance, mesh, texture};
-use crate::{PhySize, DrawArea};
 use super::camera;
-use camera::{Camera, Projection, CameraPtr, ProjectionPtr};
+use crate::{instance, mesh, texture};
+use crate::{DrawArea, PhySize};
+use camera::{Camera, CameraPtr, Projection, ProjectionPtr};
 use iced_wgpu::wgpu;
-use std::rc::Rc;
-use std::cell::RefCell;
 use instance::Instance;
+use std::cell::RefCell;
+use std::rc::Rc;
 use texture::Texture;
-use wgpu::{Device, PrimitiveTopology, Queue};
 use ultraviolet::{Mat4, Rotor3};
+use wgpu::{Device, PrimitiveTopology, Queue};
 
 mod pipeline_handler;
 use pipeline_handler::PipelineHandler;
@@ -25,8 +25,17 @@ pub struct View {
 
 impl View {
     pub fn new(window_size: PhySize, area_size: PhySize, device: &Device) -> Self {
-        let camera = Rc::new(RefCell::new(Camera::new((0.0, 5.0, 10.0), Rotor3::identity())));
-        let projection = Rc::new(RefCell::new(Projection::new(area_size.width, area_size.height, 70f32.to_radians(), 0.1, 1000.0)));
+        let camera = Rc::new(RefCell::new(Camera::new(
+            (0.0, 5.0, 10.0),
+            Rotor3::identity(),
+        )));
+        let projection = Rc::new(RefCell::new(Projection::new(
+            area_size.width,
+            area_size.height,
+            70f32.to_radians(),
+            0.1,
+            1000.0,
+        )));
         let pipeline_handlers = PipelineHandlers::init(device, &camera, &projection);
         let depth_texture = texture::Texture::create_depth_texture(device, &window_size);
         Self {
@@ -40,13 +49,11 @@ impl View {
 
     pub fn update(&mut self, view_update: ViewUpdate) {
         match view_update {
-            ViewUpdate::Size(size) => {
-                self.new_size = Some(size)
-            },
-            ViewUpdate::Camera => {
-                self.pipeline_handlers.new_viewer(self.camera.clone(), self.projection.clone())
-            },
-            _ => self.pipeline_handlers.update(view_update)
+            ViewUpdate::Size(size) => self.new_size = Some(size),
+            ViewUpdate::Camera => self
+                .pipeline_handlers
+                .new_viewer(self.camera.clone(), self.projection.clone()),
+            _ => self.pipeline_handlers.update(view_update),
         }
     }
 
@@ -130,7 +137,6 @@ impl View {
     pub fn get_projection(&self) -> ProjectionPtr {
         self.projection.clone()
     }
-
 }
 
 #[derive(Debug)]
@@ -263,16 +269,16 @@ impl PipelineHandlers {
                 let instances = Rc::new(instances);
                 self.sphere.new_instances(instances.clone());
                 self.fake_sphere.new_instances(instances);
-            },
+            }
             ViewUpdate::Tubes(instances) => {
                 let instances = Rc::new(instances);
                 self.tube.new_instances(instances.clone());
                 self.fake_tube.new_instances(instances);
-            },
+            }
             ViewUpdate::SelectedTubes(instances) => {
                 self.selected_sphere.new_instances(Rc::new(Vec::new()));
                 self.selected_tube.new_instances(Rc::new(instances));
-            },
+            }
             ViewUpdate::SelectedSpheres(instances) => {
                 self.selected_tube.new_instances(Rc::new(Vec::new()));
                 self.selected_sphere.new_instances(Rc::new(instances));

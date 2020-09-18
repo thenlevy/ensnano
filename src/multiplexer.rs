@@ -2,7 +2,7 @@ use crate::PhySize;
 use iced_winit::winit;
 use winit::{
     dpi::{PhysicalPosition, PhysicalSize},
-    event::{ModifiersState, WindowEvent, MouseButton, ElementState},
+    event::{ElementState, ModifiersState, MouseButton, WindowEvent},
 };
 
 mod layout_manager;
@@ -25,11 +25,10 @@ pub struct Multiplexer {
     pub top_bar_cursor_position: PhysicalPosition<f64>,
 }
 
-
 impl Multiplexer {
     pub fn new(window_size: PhySize) -> Self {
         let mut layout_manager = LayoutTree::new();
-        let (top_bar, scene) = layout_manager.vsplit(0, 0.1);
+        let (top_bar, scene) = layout_manager.vsplit(0, 0.05);
         Self {
             window_size,
             layout_manager,
@@ -54,10 +53,7 @@ impl Multiplexer {
             size: PhysicalSize::new((right - left) as u32, (bottom - top) as u32),
         }
     }
-    pub fn event(
-        &mut self,
-        event: WindowEvent<'static>,
-    ) -> Option<(WindowEvent<'static>, usize)> {
+    pub fn event(&mut self, event: WindowEvent<'static>) -> Option<(WindowEvent<'static>, usize)> {
         match &event {
             WindowEvent::CursorMoved { position, .. } => {
                 let &PhysicalPosition { x, y } = position;
@@ -68,7 +64,7 @@ impl Multiplexer {
                     }
                     if self.focus == Some(self.top_bar) {
                         self.top_bar_cursor_position = *position;
-                    } else if self.focus == Some(self.scene){
+                    } else if self.focus == Some(self.scene) {
                         let scene_area = self.get_scene_area();
                         self.scene_cursor_position = *position;
                         self.scene_cursor_position.x -= scene_area.position.x as f64;
@@ -82,7 +78,11 @@ impl Multiplexer {
             WindowEvent::Resized(new_size) => {
                 self.window_size = *new_size;
             }
-            WindowEvent::MouseInput { button: MouseButton::Left, state, .. } => match state {
+            WindowEvent::MouseInput {
+                button: MouseButton::Left,
+                state,
+                ..
+            } => match state {
                 ElementState::Pressed => self.mouse_clicked = true,
                 ElementState::Released => self.mouse_clicked = false,
             },
@@ -94,11 +94,13 @@ impl Multiplexer {
         } else {
             None
         }
-
     }
 
     fn pixel_to_area(&self, x: f64, y: f64) -> usize {
-        self.layout_manager.get_area_pixel(x / self.window_size.width as f64, y / self.window_size.height as f64)
+        self.layout_manager.get_area_pixel(
+            x / self.window_size.width as f64,
+            y / self.window_size.height as f64,
+        )
     }
 
     pub fn get_scene_area(&self) -> DrawArea {

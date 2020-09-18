@@ -1,13 +1,16 @@
-use crate::{instance, light, mesh, texture,  utils};
+use crate::{instance, light, mesh, texture, utils};
 use iced_wgpu::wgpu;
 use instance::Instance;
 use light::create_light;
 use mesh::{DrawModel, Mesh, Vertex};
-use texture::Texture;
-use utils::create_buffer_with_data;
-use wgpu::{BindGroup, BindGroupLayout, Buffer, Device, RenderPass, RenderPipeline, StencilStateDescriptor, Queue, include_spirv};
 use std::rc::Rc;
+use texture::Texture;
 use ultraviolet::Mat4;
+use utils::create_buffer_with_data;
+use wgpu::{
+    include_spirv, BindGroup, BindGroupLayout, Buffer, Device, Queue, RenderPass, RenderPipeline,
+    StencilStateDescriptor,
+};
 
 use super::{CameraPtr, ProjectionPtr, Uniforms};
 
@@ -56,17 +59,19 @@ impl PipelineHandler {
         let instances_data: Vec<_> = instances.iter().map(|i| i.to_raw()).collect();
         let instances_len = (instances_data.len() * Instance::size_of_raw()) as u64;
         let instances_capacity = instances_len as usize;
-        let (instances_bg, instances_layout, instance_buffer) = create_instances_bind_group(device, &instances_data);
+        let (instances_bg, instances_layout, instance_buffer) =
+            create_instances_bind_group(device, &instances_data);
 
         let mut viewer_data = Uniforms::new();
         viewer_data.update_view_proj(camera.clone(), projection.clone());
         let (viewer, viewer_layout, viewer_buffer) = create_viewer_bind_group(device, &viewer_data);
 
         let model_matrices_len = model_matrices.len() as u64 * 32 * 4;
-        let model_matrices_capacity= model_matrices_len as usize;
+        let model_matrices_capacity = model_matrices_len as usize;
         let byte_matrices: Vec<_> = model_matrices.iter().map(|m| ByteMat4(*m)).collect();
         println!("byte_matrices {:?}", byte_matrices);
-        let (model_matrices, model_matrices_layout, model_matrices_buffer) = create_instances_bind_group(device, &byte_matrices);
+        let (model_matrices, model_matrices_layout, model_matrices_buffer) =
+            create_instances_bind_group(device, &byte_matrices);
 
         let (light, light_layout) = create_light(device);
 
@@ -88,11 +93,9 @@ impl PipelineHandler {
             model_matrices_capacity,
         };
 
-        let vertex_module = 
-            device.create_shader_module(include_spirv!("vert.spv"));
+        let vertex_module = device.create_shader_module(include_spirv!("vert.spv"));
         let fragment_module = match flavour {
-            Flavour::Real => device
-                .create_shader_module(include_spirv!("frag.spv")),
+            Flavour::Real => device.create_shader_module(include_spirv!("frag.spv")),
             Flavour::Fake => device.create_shader_module(include_spirv!("fake_color.spv")),
             Flavour::Selected => device.create_shader_module(include_spirv!("selected_frag.spv")),
         };
@@ -128,7 +131,8 @@ impl PipelineHandler {
         if let Some(ref instances) = self.new_instances.take() {
             self.number_instances = instances.len();
             let instances_data: Vec<_> = instances.iter().map(|i| i.to_raw()).collect();
-            self.bind_groups.update_instances(instances_data.as_slice(), device, queue);
+            self.bind_groups
+                .update_instances(instances_data.as_slice(), device, queue);
         }
     }
 
@@ -141,11 +145,17 @@ impl PipelineHandler {
     fn update_model_matrices(&mut self, device: &Device, queue: &Queue) {
         if let Some(matrices) = self.new_model_matrices.take() {
             let byte_matrices: Vec<_> = matrices.iter().map(|m| ByteMat4(*m)).collect();
-            self.bind_groups.update_model_matrices(byte_matrices.as_slice(), device, queue)
+            self.bind_groups
+                .update_model_matrices(byte_matrices.as_slice(), device, queue)
         }
     }
 
-    pub fn draw<'a>(&'a mut self, device: &Device, render_pass: &mut RenderPass<'a>, queue: &Queue) {
+    pub fn draw<'a>(
+        &'a mut self,
+        device: &Device,
+        render_pass: &mut RenderPass<'a>,
+        queue: &Queue,
+    ) {
         if self.pipeline.is_none() {
             self.pipeline = Some(self.create_pipeline(device));
         }
@@ -186,7 +196,7 @@ impl PipelineHandler {
             wgpu::BlendDescriptor {
                 src_factor: wgpu::BlendFactor::SrcAlpha,
                 dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
-                operation: wgpu::BlendOperation::Add,                 
+                operation: wgpu::BlendOperation::Add,
             }
         } else {
             wgpu::BlendDescriptor::REPLACE
@@ -195,7 +205,7 @@ impl PipelineHandler {
             wgpu::BlendDescriptor {
                 src_factor: wgpu::BlendFactor::One,
                 dst_factor: wgpu::BlendFactor::One,
-                operation: wgpu::BlendOperation::Add,                 
+                operation: wgpu::BlendOperation::Add,
             }
         } else {
             wgpu::BlendDescriptor::REPLACE
@@ -244,7 +254,7 @@ impl PipelineHandler {
             sample_count: 1,
             sample_mask: !0,
             alpha_to_coverage_enabled: false,
-            label: Some("render pipeline") 
+            label: Some("render pipeline"),
         })
     }
 }
@@ -268,20 +278,49 @@ struct BindGroups {
 }
 
 impl BindGroups {
-    fn update_model_matrices<M: bytemuck::Pod>(&mut self, matrices: &[M], device: &Device, queue: &Queue) {
-        update_buffer(matrices, device, queue, &mut self.model_matrices_capacity, &mut self.model_matrices_len, &mut self.model_matrices_buffer, &mut self.model_matrices, &self.model_matrices_layout)
+    fn update_model_matrices<M: bytemuck::Pod>(
+        &mut self,
+        matrices: &[M],
+        device: &Device,
+        queue: &Queue,
+    ) {
+        update_buffer(
+            matrices,
+            device,
+            queue,
+            &mut self.model_matrices_capacity,
+            &mut self.model_matrices_len,
+            &mut self.model_matrices_buffer,
+            &mut self.model_matrices,
+            &self.model_matrices_layout,
+        )
     }
 
-    fn update_instances<I: bytemuck::Pod>(&mut self, instances_data: &[I], device: &Device, queue: &Queue) {
-        update_buffer(instances_data, device, queue, &mut self.instances_capacity, &mut self.instances_len, &mut self.instances_buffer, &mut self.instances, &self.instances_layout)
-
+    fn update_instances<I: bytemuck::Pod>(
+        &mut self,
+        instances_data: &[I],
+        device: &Device,
+        queue: &Queue,
+    ) {
+        update_buffer(
+            instances_data,
+            device,
+            queue,
+            &mut self.instances_capacity,
+            &mut self.instances_len,
+            &mut self.instances_buffer,
+            &mut self.instances,
+            &self.instances_layout,
+        )
     }
 
     pub fn update_viewer<U: bytemuck::Pod>(&mut self, viewer_data: &U, queue: &Queue) {
-        queue.write_buffer(&self.viewer_buffer, 0, bytemuck::cast_slice(&[*viewer_data]));
+        queue.write_buffer(
+            &self.viewer_buffer,
+            0,
+            bytemuck::cast_slice(&[*viewer_data]),
+        );
     }
-
-
 }
 /// Create the bind group for the model matrices.
 fn create_instances_bind_group<I: bytemuck::Pod>(
@@ -322,7 +361,11 @@ fn create_instances_bind_group<I: bytemuck::Pod>(
         label: Some("instance_bind_group"),
     });
 
-    (instance_bind_group, instance_bind_group_layout, instance_buffer)
+    (
+        instance_bind_group,
+        instance_bind_group_layout,
+        instance_buffer,
+    )
 }
 
 /// Create the bind group for the perspective and view matrices.
@@ -342,7 +385,10 @@ fn create_viewer_bind_group<V: bytemuck::Pod>(
                 wgpu::BindGroupLayoutEntry {
                     binding: 0,
                     visibility: wgpu::ShaderStage::VERTEX | wgpu::ShaderStage::FRAGMENT,
-                    ty: wgpu::BindingType::UniformBuffer { dynamic: false, min_binding_size: None },
+                    ty: wgpu::BindingType::UniformBuffer {
+                        dynamic: false,
+                        min_binding_size: None,
+                    },
                     count: None,
                 },
             ],
@@ -364,7 +410,16 @@ fn create_viewer_bind_group<V: bytemuck::Pod>(
     (uniform_bind_group, uniform_bind_group_layout, viewer_buffer)
 }
 
-fn update_buffer<I: bytemuck::Pod>(data: &[I], device: &Device, queue: &Queue, capacity: &mut usize, len: &mut u64, buffer: &mut Buffer, bg: &mut BindGroup, layout: &BindGroupLayout) {
+fn update_buffer<I: bytemuck::Pod>(
+    data: &[I],
+    device: &Device,
+    queue: &Queue,
+    capacity: &mut usize,
+    len: &mut u64,
+    buffer: &mut Buffer,
+    bg: &mut BindGroup,
+    layout: &BindGroupLayout,
+) {
     let bytes = bytemuck::cast_slice(data);
     if *capacity < bytes.len() {
         *len = bytes.len() as u64;
@@ -372,26 +427,26 @@ fn update_buffer<I: bytemuck::Pod>(data: &[I], device: &Device, queue: &Queue, c
             label: Some(&format!("capacity = {}", 2 * bytes.len())),
             size: 2 * bytes.len() as u64,
             usage: wgpu::BufferUsage::STORAGE | wgpu::BufferUsage::COPY_DST,
-            mapped_at_creation: false
+            mapped_at_creation: false,
         });
         *capacity = 2 * bytes.len();
-        *bg = device.create_bind_group(&wgpu::BindGroupDescriptor{
+        *bg = device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout,
             entries: &[wgpu::BindGroupEntry {
                 binding: 0,
-                resource: wgpu::BindingResource::Buffer(buffer.slice(..*len))
+                resource: wgpu::BindingResource::Buffer(buffer.slice(..*len)),
             }],
-            label: None
+            label: None,
         });
     } else if *len != bytes.len() as u64 {
         *len = bytes.len() as u64;
-        *bg = device.create_bind_group(&wgpu::BindGroupDescriptor{
+        *bg = device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout,
             entries: &[wgpu::BindGroupEntry {
                 binding: 0,
-                resource: wgpu::BindingResource::Buffer(buffer.slice(..*len))
+                resource: wgpu::BindingResource::Buffer(buffer.slice(..*len)),
             }],
-            label: None
+            label: None,
         });
     }
     queue.write_buffer(buffer, 0, bytes);

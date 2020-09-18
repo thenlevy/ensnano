@@ -1,4 +1,4 @@
-use ultraviolet::{Vec3, Rotor3, Mat4, Vec4};
+use ultraviolet::{Mat4, Rotor3, Vec3, Vec4};
 #[derive(Debug, Copy, Clone)]
 /// The instantiation of an object
 pub struct Instance {
@@ -7,7 +7,7 @@ pub struct Instance {
     /// The rotation of the instance
     pub rotor: Rotor3,
     pub color: Vec3,
-    pub id: u32
+    pub id: u32,
 }
 
 #[repr(C)]
