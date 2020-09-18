@@ -191,23 +191,6 @@ impl Scene {
         self.selected_id
     }
 
-    pub fn update_selected_tube(&mut self, source: [f32; 3], dest: [f32; 3]) {
-        let bound = create_bound(source.into(), dest.into(), 0, 0);
-        self.update.selected_tube = Some(bound);
-        self.update.need_update = true;
-    }
-
-    pub fn update_selected_sphere(&mut self, position: [f32; 3]) {
-        let instance = Instance {
-            position: position.into(),
-            rotor: Rotor3::identity(),
-            color: Instance::color_from_u32(0),
-            id: 0,
-        };
-        self.update.selected_sphere = Some(instance);
-        self.update.need_update = true;
-    }
-
     pub fn draw_view(
         &mut self,
         encoder: &mut wgpu::CommandEncoder,
@@ -313,41 +296,6 @@ impl Scene {
 
 }
 
-/// Create an instance of a cylinder going from source to dest
-fn create_bound(
-    source: Vec3,
-    dest: Vec3,
-    color: u32,
-    id: u32,
-) -> Vec<Instance> {
-    let mut ret = Vec::new();
-    let color = Instance::color_from_u32(color);
-    let rotor = Rotor3::from_rotation_between(Vec3::unit_x(), (dest - source).normalized());
-
-    let obj = (dest - source).mag();
-    let mut current_source = source.clone();
-    let mut current_length = 0.;
-    let one_step_len = crate::consts::BOUND_LENGTH;
-    let step_dir = (dest - source).normalized();
-    let one_step = step_dir * one_step_len;
-    while current_length < obj {
-        let position = if current_length + one_step_len > obj {
-            current_source + step_dir * (obj - current_length) / 2.
-        } else {
-            current_source + one_step / 2.
-        };
-        current_source = position + one_step / 2.;
-        current_length = (source - current_source).mag();
-        ret.push(Instance {
-            position,
-            rotor,
-            color,
-            id,
-        });
-    }
-    ret
-}
-
 /// A structure that stores the element that needs to be updated in a scene
 pub struct SceneUpdate {
     pub tube_instances: Option<Vec<Instance>>,
@@ -377,19 +325,15 @@ impl SceneUpdate {
     }
 }
 
-pub enum SceneNotification<'a> {
+pub enum SceneNotification {
     CameraMoved,
     NewCamera(Vec3, Rotor3),
-    NewSpheres(&'a Vec<([f32 ; 3], u32, u32)>),
-    NewTubes(&'a Vec<([f32 ;3], [f32 ; 3], u32, u32)>),
     Resize(PhySize),
 }
 
 impl Scene {
     pub fn notify(&mut self, notification: SceneNotification) {
         match notification {
-            SceneNotification::NewSpheres(instances) => self.new_spheres(instances),
-            SceneNotification::NewTubes(instances) => self.new_tubes(instances),
             SceneNotification::NewCamera(position, projection) => {
                 self.controller.teleport_camera(position, projection);
                 self.update.camera_update = true;
@@ -399,72 +343,6 @@ impl Scene {
         };
         self.update.need_update = true;
 
-    }
-
-    fn new_spheres(&mut self, positions: &Vec<([f32; 3], u32, u32)>) {
-        let instances = positions
-            .iter()
-            .map(|(v, color, id)| Instance {
-                position: Vec3 {
-                    x: v[0],
-                    y: v[1],
-                    z: v[2],
-                },
-               rotor: Rotor3::identity(),
-               color: Instance::color_from_u32(*color),
-               id: *id,
-            })
-            .collect();
-        let fake_instances = positions
-            .iter()
-            .map(|(v, _, fake_color)| Instance {
-                position: (*v).into(),
-                rotor: Rotor3::identity(),
-                color: Instance::color_from_u32(*fake_color),
-                id: *fake_color,
-            })
-            .collect();
-        self.update.sphere_instances = Some(instances);
-        self.update.fake_sphere_instances = Some(fake_instances);
-    }
-
-    fn new_tubes(&mut self, pairs: &Vec<([f32; 3], [f32; 3], u32, u32)>) {
-        let instances = pairs
-            .iter()
-            .map(|(a, b, color, id)| {
-                let position_a = Vec3 {
-                    x: a[0],
-                    y: a[1],
-                    z: a[2],
-                };
-                let position_b = Vec3 {
-                    x: b[0],
-                    y: b[1],
-                    z: b[2],
-                };
-                create_bound(position_a, position_b, *color, *id)
-            })
-            .flatten()
-            .collect();
-        let fake_instances = pairs
-            .iter()
-            .map(|(a, b, _, fake_color)| {
-                let position_a = Vec3 {
-                    x: a[0],
-                    y: a[1],
-                    z: a[2],
-                };
-                let position_b = Vec3 {
-                    x: b[0],
-                    y: b[1],
-                    z: b[2],
-                };
-                create_bound(position_a, position_b, *fake_color, *fake_color)
-            })
-            .flatten()
-            .collect();
-        self.update.tube_instances = Some(instances);
-        self.update.fake_tube_instances = Some(fake_instances);
     }
 
     fn resize(&mut self, size: PhySize) {

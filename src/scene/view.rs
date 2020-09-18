@@ -61,7 +61,6 @@ impl View {
         if let Some(size) = self.new_size.take() {
             self.depth_texture = Texture::create_depth_texture(device, &size);
         }
-        // TODO: Ask the controller to update the view 
         let clear_color = if fake_color {
             wgpu::Color {
                 r: 1.,
@@ -71,9 +70,9 @@ impl View {
             }
         } else {
             wgpu::Color {
-                r: 0.1,
-                g: 0.2,
-                b: 0.3,
+                r: 0.961,
+                g: 0.961,
+                b: 0.863,
                 a: 1.,
             }
         };
