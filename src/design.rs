@@ -79,4 +79,12 @@ impl Design {
     pub fn update_selection(&mut self, id: Option<u32>) {
         self.data.borrow_mut().update_selection(id);
     }
+
+    pub fn translate(&mut self, right: Vec3, up: Vec3) {
+        self.controller.translate(right, up)
+    }
+
+    pub fn update_position(&mut self) {
+        self.controller.update()
+    }
 }

@@ -7,7 +7,7 @@ use instance::Instance;
 use std::cell::RefCell;
 use std::rc::Rc;
 use texture::Texture;
-use ultraviolet::{Mat4, Rotor3};
+use ultraviolet::{Mat4, Rotor3, Vec3};
 use wgpu::{Device, PrimitiveTopology, Queue};
 
 mod pipeline_handler;
@@ -136,6 +136,14 @@ impl View {
 
     pub fn get_projection(&self) -> ProjectionPtr {
         self.projection.clone()
+    }
+
+    pub fn right_vec(&self) -> Vec3 {
+        self.camera.borrow().right_vec()
+    }
+
+    pub fn up_vec(&self) -> Vec3 {
+        self.camera.borrow().up_vec()
     }
 }
 
@@ -300,4 +308,5 @@ impl PipelineHandlers {
             pipeline.new_viewer(camera.clone(), projection.clone())
         }
     }
+
 }

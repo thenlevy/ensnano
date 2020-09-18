@@ -41,7 +41,7 @@ void main() {
     int model_idx = int(instances[gl_InstanceIndex].id.w);
 
     //mat4 model_matrix = model_matrix2[model_idx] * instances[gl_InstanceIndex].model;
-    mat4 model_matrix = model_matrix2[0] * instances[gl_InstanceIndex].model;
+    mat4 model_matrix = model_matrix2[model_idx] * instances[gl_InstanceIndex].model;
     mat3 normal_matrix = mat3(transpose(inverse(model_matrix)));
 
     /*Note: I'm currently doing things in world space .

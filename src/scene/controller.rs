@@ -19,6 +19,9 @@ const NO_POS: PhysicalPosition<f64> = PhysicalPosition::new(f64::NAN, f64::NAN);
 pub enum Consequence {
     CameraMoved,
     PixelSelected(PhysicalPosition<f64>),
+    Translation(f64, f64),
+    MovementEnded,
+    Rotation(f64, f64),
     Nothing,
 }
 
@@ -42,7 +45,7 @@ impl Controller {
         self.camera_controller.teleport_camera(position, rotation)
     }
 
-    pub fn input(&mut self, event: &WindowEvent, position: PhysicalPosition<f64>) -> Consequence {
+    pub fn input(&mut self, event: &WindowEvent, position: PhysicalPosition<f64>, camera_can_move: bool) -> Consequence {
         match event {
             WindowEvent::KeyboardInput {
                 input:
@@ -81,7 +84,7 @@ impl Controller {
                     self.last_clicked_position = None;
                 }
                 if self.last_clicked_position.is_some() {
-                    Consequence::CameraMoved
+                    Consequence::MovementEnded
                 } else {
                     Consequence::Nothing
                 }
@@ -91,8 +94,12 @@ impl Controller {
                 if let Some(clicked_position) = self.last_clicked_position {
                     let mouse_dx = (position.x - clicked_position.x) / self.area_size.width as f64;
                     let mouse_dy = (position.y - clicked_position.y) / self.area_size.height as f64;
-                    self.camera_controller.process_mouse(mouse_dx, mouse_dy);
-                    Consequence::CameraMoved
+                    if camera_can_move {
+                        self.camera_controller.process_mouse(mouse_dx, mouse_dy);
+                        Consequence::CameraMoved
+                    } else {
+                        Consequence::Translation(mouse_dx, mouse_dy)
+                    }
                 } else {
                     Consequence::Nothing
                 }

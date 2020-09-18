@@ -5,8 +5,8 @@ use ultraviolet::{Mat4, Rotor3, Vec3};
 pub struct View {
     spheres: Rc<Vec<Instance>>,
     tubes: Rc<Vec<Instance>>,
-    origin: Vec3,
-    rotor: Rotor3,
+    pub origin: Vec3,
+    pub rotor: Rotor3,
     selected_tubes: Rc<Vec<Instance>>,
     selected_spheres: Rc<Vec<Instance>>,
     was_updated: bool,
@@ -60,7 +60,7 @@ impl View {
                     },
                     rotor: Rotor3::identity(),
                     color: Vec3::zero(),
-                    id: 0,
+                    id: self.id << 24,
                 })
                 .collect(),
         );
@@ -105,7 +105,7 @@ impl View {
                         y: b[1],
                         z: b[2],
                     };
-                    create_bound(position_a, position_b, 0, 0)
+                    create_bound(position_a, position_b, 0, self.id << 24)
                 })
                 .flatten()
                 .collect(),
@@ -118,6 +118,16 @@ impl View {
         self.was_updated = false;
         ret
     }
+
+    pub fn set_origin(&mut self, origin: Vec3) {
+        self.origin = origin;
+        self.was_updated = true;
+    }
+
+    pub fn origin(&self) -> Vec3 {
+        self.origin
+    }
+
 }
 
 impl View {

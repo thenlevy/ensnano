@@ -65,11 +65,23 @@ impl Scene {
         cursor_position: PhysicalPosition<f64>,
     ) {
         let mut clicked_pixel = None;
-        let consequence = self.controller.input(event, cursor_position);
+        let camera_can_move = self.selected_design.is_none();
+        let consequence = self.controller.input(event, cursor_position, camera_can_move);
         match consequence {
             Consequence::Nothing => (),
             Consequence::CameraMoved => self.notify(SceneNotification::CameraMoved),
             Consequence::PixelSelected(clicked) => clicked_pixel = Some(clicked),
+            Consequence::Translation(x, y) => {
+                let right_vec = 5. * x as f32 * self.view.borrow().right_vec();
+                let up_vec = 5. * -y as f32 * self.view.borrow().up_vec();
+                self.designs[self.selected_design.expect("no design selected") as usize].translate(right_vec, up_vec);
+            }
+            Consequence::MovementEnded => {
+                for d in self.designs.iter_mut() {
+                    d.update_position();
+                }
+            }
+            Consequence::Rotation(_, _) => unimplemented!(),
         };
         if clicked_pixel.is_some() {
             let clicked_pixel = clicked_pixel.unwrap();
@@ -303,7 +315,6 @@ impl Scene {
 
         if need_update {
             let matrices: Vec<_> = self.designs.iter().map(|d| d.model_matrix()).collect();
-            println!("{:?}", matrices);
             self.update.model_matrices = Some(matrices);
         }
         self.update.need_update |= need_update;
