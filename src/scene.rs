@@ -81,7 +81,13 @@ impl Scene {
                     d.update_position();
                 }
             }
-            Consequence::Rotation(_, _) => unimplemented!(),
+            Consequence::Rotation(x, y) => {
+                let cam_right = self.view.borrow().right_vec();
+                let cam_up = self.view.borrow().up_vec();
+                let origin = self.get_selected_position().unwrap();
+                self.designs[self.selected_design.unwrap() as usize]
+                    .rotate(x, y, cam_right, cam_up, origin);
+            }
         };
         if clicked_pixel.is_some() {
             let clicked_pixel = clicked_pixel.unwrap();

@@ -5,8 +5,7 @@ use ultraviolet::{Mat4, Rotor3, Vec3};
 pub struct View {
     spheres: Rc<Vec<Instance>>,
     tubes: Rc<Vec<Instance>>,
-    pub origin: Vec3,
-    pub rotor: Rotor3,
+    pub model_matrix: Mat4,
     selected_tubes: Rc<Vec<Instance>>,
     selected_spheres: Rc<Vec<Instance>>,
     was_updated: bool,
@@ -18,8 +17,7 @@ impl View {
         Self {
             spheres: Rc::new(Vec::new()),
             tubes: Rc::new(Vec::new()),
-            origin: Vec3::zero(),
-            rotor: Rotor3::identity(),
+            model_matrix: Mat4::identity(),
             selected_spheres: Rc::new(Vec::new()),
             selected_tubes: Rc::new(Vec::new()),
             was_updated: true,
@@ -119,13 +117,9 @@ impl View {
         ret
     }
 
-    pub fn set_origin(&mut self, origin: Vec3) {
-        self.origin = origin;
+    pub fn set_matrix(&mut self, matrix: Mat4) {
+        self.model_matrix = matrix;
         self.was_updated = true;
-    }
-
-    pub fn origin(&self) -> Vec3 {
-        self.origin
     }
 }
 
@@ -147,7 +141,20 @@ impl View {
     }
 
     pub fn get_model_matrix(&self) -> Mat4 {
-        Mat4::from_translation(self.origin) * self.rotor.into_matrix().into_homogeneous()
+        //Mat4::from_translation(self.origin) * self.rotor.into_matrix().into_homogeneous()
+        self.model_matrix
+    }
+
+    pub fn direction(&self) -> Vec3 {
+        self.model_matrix.transform_vec3(Vec3::from([0., 0., -1.]))
+    }
+
+    pub fn right_vec(&self) -> Vec3 {
+        self.model_matrix.transform_vec3(Vec3::from([1., 0., 0.]))
+    }
+
+    pub fn up_vec(&self) -> Vec3 {
+        self.right_vec().cross(self.direction())
     }
 }
 

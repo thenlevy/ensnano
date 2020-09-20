@@ -12,6 +12,8 @@ pub struct Controller {
     mouse_position: PhysicalPosition<f64>,
     window_size: PhySize,
     area_size: PhySize,
+    current_modifiers: ModifiersState,
+    modifiers_when_clicked: ModifiersState,
 }
 
 const NO_POS: PhysicalPosition<f64> = PhysicalPosition::new(f64::NAN, f64::NAN);
@@ -38,6 +40,8 @@ impl Controller {
             mouse_position: PhysicalPosition::new(0., 0.),
             window_size,
             area_size,
+            current_modifiers: ModifiersState::empty(),
+            modifiers_when_clicked: ModifiersState::empty(),
         }
     }
 
@@ -52,6 +56,10 @@ impl Controller {
         camera_can_move: bool,
     ) -> Consequence {
         match event {
+            WindowEvent::ModifiersChanged(modifiers) => {
+                self.current_modifiers = *modifiers;
+                Consequence::Nothing
+            }
             WindowEvent::KeyboardInput {
                 input:
                     KeyboardInput {
@@ -79,6 +87,7 @@ impl Controller {
                 self.camera_controller.process_click(state);
                 if *state == ElementState::Pressed {
                     self.last_clicked_position = Some(self.mouse_position);
+                    self.modifiers_when_clicked = self.current_modifiers;
                 } else if position_difference(
                     self.last_clicked_position.unwrap_or(NO_POS),
                     self.mouse_position,
@@ -103,7 +112,11 @@ impl Controller {
                         self.camera_controller.process_mouse(mouse_dx, mouse_dy);
                         Consequence::CameraMoved
                     } else {
-                        Consequence::Translation(mouse_dx, mouse_dy)
+                        if self.modifiers_when_clicked.alt() {
+                            Consequence::Rotation(mouse_dx, mouse_dy)
+                        } else {
+                            Consequence::Translation(mouse_dx, mouse_dy)
+                        }
                     }
                 } else {
                     Consequence::Nothing

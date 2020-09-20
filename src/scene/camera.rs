@@ -202,7 +202,7 @@ impl CameraController {
 
     pub fn process_mouse(&mut self, mouse_dx: f64, mouse_dy: f64) {
         self.rotate_horizontal = mouse_dx as f32;
-        self.rotate_vertical = mouse_dy as f32;
+        self.rotate_vertical = -mouse_dy as f32;
         self.processed_move = true;
     }
 
@@ -216,9 +216,9 @@ impl CameraController {
 
     fn rotate_camera(&mut self) {
         let mut camera = self.camera.borrow_mut();
-        let x_angle = self.rotate_horizontal * FRAC_PI_2;
-        let y_angle = self.rotate_vertical * FRAC_PI_2;
-        let rotation = Rotor3::from_rotation_xz(x_angle) * Rotor3::from_rotation_yz(-y_angle);
+        let y_angle = self.rotate_horizontal * FRAC_PI_2;
+        let x_angle = self.rotate_vertical * FRAC_PI_2;
+        let rotation = Rotor3::from_rotation_xz(y_angle) * Rotor3::from_rotation_yz(x_angle);
 
         camera.rotor = self.last_rotor * rotation;
 

@@ -84,11 +84,18 @@ impl Design {
         self.controller.translate(right, up)
     }
 
+    pub fn rotate(&mut self, x: f64, y: f64, cam_right: Vec3, cam_up: Vec3, origin: Vec3) {
+        self.controller.rotate(cam_right, cam_up, x, y, origin);
+    }
+
     pub fn update_position(&mut self) {
         self.controller.update()
     }
 
     pub fn get_element_position(&self, id: u32) -> Option<Vec3> {
-        self.data.borrow().get_element_position(id)
+        self.data
+            .borrow()
+            .get_element_position(id)
+            .map(|x| self.view.borrow().model_matrix.transform_point3(x))
     }
 }

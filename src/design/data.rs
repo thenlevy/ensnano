@@ -310,7 +310,19 @@ impl Data {
     }
 
     pub fn get_element_position(&self, id: u32) -> Option<Vec3> {
-        self.space_position.get(&id).map(|x| x.into())
+        if let Some(object_type) = self.object_type.get(&id) {
+            match object_type {
+                ObjectType::Nucleotide => self.space_position.get(&id).map(|x| x.into()),
+                ObjectType::Bound => {
+                    let (nucl_a, nucl_b) = self.nucleotides_involved.get(&id)?;
+                    let a = self.get_space_pos(nucl_a)?;
+                    let b = self.get_space_pos(nucl_b)?;
+                    Some((Vec3::from(a) + Vec3::from(b)) / 2.)
+                }
+            }
+        } else {
+            None
+        }
     }
 }
 
