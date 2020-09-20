@@ -308,6 +308,10 @@ impl Data {
         let coord = Vec3::new(bases[0].1 as f32, bases[1].1 as f32, bases[2].1 as f32);
         coord - *direction * x_back
     }
+
+    pub fn get_element_position(&self, id: u32) -> Option<Vec3> {
+        self.space_position.get(&id).map(|x| x.into())
+    }
 }
 
 #[derive(Clone, Copy, Eq, PartialEq)]

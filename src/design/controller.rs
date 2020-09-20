@@ -19,12 +19,14 @@ impl Controller {
             view,
             data,
             old_position: Vec3::zero(),
-            old_rotation: Rotor3::identity()
+            old_rotation: Rotor3::identity(),
         }
     }
 
     pub fn translate(&mut self, right: Vec3, up: Vec3) {
-        self.view.borrow_mut().set_origin(self.old_position + right + up)
+        self.view
+            .borrow_mut()
+            .set_origin(self.old_position + right + up)
     }
 
     pub fn update(&mut self) {

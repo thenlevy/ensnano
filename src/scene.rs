@@ -66,15 +66,15 @@ impl Scene {
     ) {
         let mut clicked_pixel = None;
         let camera_can_move = self.selected_design.is_none();
-        let consequence = self.controller.input(event, cursor_position, camera_can_move);
+        let consequence = self
+            .controller
+            .input(event, cursor_position, camera_can_move);
         match consequence {
             Consequence::Nothing => (),
             Consequence::CameraMoved => self.notify(SceneNotification::CameraMoved),
             Consequence::PixelSelected(clicked) => clicked_pixel = Some(clicked),
             Consequence::Translation(x, y) => {
-                let right_vec = 5. * x as f32 * self.view.borrow().right_vec();
-                let up_vec = 5. * -y as f32 * self.view.borrow().up_vec();
-                self.designs[self.selected_design.expect("no design selected") as usize].translate(right_vec, up_vec);
+                self.translate_selected_design(x, y);
             }
             Consequence::MovementEnded => {
                 for d in self.designs.iter_mut() {
@@ -200,6 +200,27 @@ impl Scene {
         executor::block_on(future_color)
     }
 
+    fn translate_selected_design(&mut self, x: f64, y: f64) {
+        let distance = (self.get_selected_position().unwrap() - self.camera_position())
+            .dot(self.camera_direction())
+            .abs()
+            .sqrt();
+        let height = 2. * distance * (self.get_fovy() / 2.).tan();
+        let width = height * self.get_ratio();
+        let right_vec = width * x as f32 * self.view.borrow().right_vec();
+        let up_vec = height * -y as f32 * self.view.borrow().up_vec();
+        self.designs[self.selected_design.expect("no design selected") as usize]
+            .translate(right_vec, up_vec);
+    }
+
+    fn get_selected_position(&self) -> Option<Vec3> {
+        if let Some(d_id) = self.selected_design {
+            self.designs[d_id as usize].get_element_position(self.selected_id.unwrap())
+        } else {
+            None
+        }
+    }
+
     pub fn fit_design(&mut self) {
         if self.designs.len() > 0 {
             let (position, rotor) = self.designs[0].fit(self.get_fovy(), self.get_ratio());
@@ -211,6 +232,14 @@ impl Scene {
 
     pub fn get_selected_id(&self) -> Option<u32> {
         self.selected_id
+    }
+
+    fn camera_position(&self) -> Vec3 {
+        self.view.borrow().get_camera_position()
+    }
+
+    fn camera_direction(&self) -> Vec3 {
+        self.view.borrow().get_camera_position()
     }
 
     pub fn draw_view(

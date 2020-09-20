@@ -45,7 +45,12 @@ impl Controller {
         self.camera_controller.teleport_camera(position, rotation)
     }
 
-    pub fn input(&mut self, event: &WindowEvent, position: PhysicalPosition<f64>, camera_can_move: bool) -> Consequence {
+    pub fn input(
+        &mut self,
+        event: &WindowEvent,
+        position: PhysicalPosition<f64>,
+        camera_can_move: bool,
+    ) -> Consequence {
         match event {
             WindowEvent::KeyboardInput {
                 input:

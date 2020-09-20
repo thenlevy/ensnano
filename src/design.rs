@@ -87,4 +87,8 @@ impl Design {
     pub fn update_position(&mut self) {
         self.controller.update()
     }
+
+    pub fn get_element_position(&self, id: u32) -> Option<Vec3> {
+        self.data.borrow().get_element_position(id)
+    }
 }

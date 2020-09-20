@@ -127,7 +127,6 @@ impl View {
     pub fn origin(&self) -> Vec3 {
         self.origin
     }
-
 }
 
 impl View {

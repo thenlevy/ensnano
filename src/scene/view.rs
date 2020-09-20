@@ -134,6 +134,14 @@ impl View {
         self.camera.clone()
     }
 
+    pub fn get_camera_position(&self) -> Vec3 {
+        self.camera.borrow().position
+    }
+
+    pub fn get_camera_direction(&self) -> Vec3 {
+        self.camera.borrow().direction()
+    }
+
     pub fn get_projection(&self) -> ProjectionPtr {
         self.projection.clone()
     }
@@ -308,5 +316,4 @@ impl PipelineHandlers {
             pipeline.new_viewer(camera.clone(), projection.clone())
         }
     }
-
 }
