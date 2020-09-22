@@ -1,5 +1,6 @@
 use super::{camera, Duration, ViewPtr};
 use crate::{PhySize, PhysicalPosition, WindowEvent};
+use iced_winit::winit;
 use iced_winit::winit::event::*;
 use ultraviolet::{Rotor3, Vec3};
 
@@ -8,7 +9,8 @@ use camera::CameraController;
 pub struct Controller {
     view: ViewPtr,
     camera_controller: CameraController,
-    last_clicked_position: Option<PhysicalPosition<f64>>,
+    last_left_clicked_position: Option<PhysicalPosition<f64>>,
+    last_right_clicked_position: Option<PhysicalPosition<f64>>,
     mouse_position: PhysicalPosition<f64>,
     window_size: PhySize,
     area_size: PhySize,
@@ -21,9 +23,10 @@ const NO_POS: PhysicalPosition<f64> = PhysicalPosition::new(f64::NAN, f64::NAN);
 pub enum Consequence {
     CameraMoved,
     PixelSelected(PhysicalPosition<f64>),
-    Translation(f64, f64),
+    Translation(f64, f64, f64),
     MovementEnded,
     Rotation(f64, f64),
+    Swing(f64, f64),
     Nothing,
 }
 
@@ -36,7 +39,8 @@ impl Controller {
         Self {
             view,
             camera_controller,
-            last_clicked_position: None,
+            last_left_clicked_position: None,
+            last_right_clicked_position: None,
             mouse_position: PhysicalPosition::new(0., 0.),
             window_size,
             area_size,
@@ -76,8 +80,20 @@ impl Controller {
                 }
             }
             WindowEvent::MouseWheel { delta, .. } => {
-                self.camera_controller.process_scroll(delta);
-                Consequence::CameraMoved
+                if !camera_can_move && self.last_left_clicked_position.is_some() {
+                    let scroll = match delta {
+                        // I'm assuming a line is about 100 pixels
+                        MouseScrollDelta::LineDelta(_, scroll) => *scroll as f64 * 10.,
+                        MouseScrollDelta::PixelDelta(winit::dpi::LogicalPosition {
+                            y: scroll,
+                            ..
+                        }) => *scroll as f64,
+                    };
+                    Consequence::Translation(0., 0., scroll)
+                } else {
+                    self.camera_controller.process_scroll(delta);
+                    Consequence::CameraMoved
+                }
             }
             WindowEvent::MouseInput {
                 button: MouseButton::Left,
@@ -85,19 +101,48 @@ impl Controller {
                 ..
             } => {
                 self.camera_controller.process_click(state);
+                let mut released = false;
                 if *state == ElementState::Pressed {
-                    self.last_clicked_position = Some(self.mouse_position);
+                    self.last_left_clicked_position = Some(self.mouse_position);
                     self.modifiers_when_clicked = self.current_modifiers;
                 } else if position_difference(
-                    self.last_clicked_position.unwrap_or(NO_POS),
+                    self.last_left_clicked_position.unwrap_or(NO_POS),
                     self.mouse_position,
                 ) < 5.
                 {
-                    return Consequence::PixelSelected(self.last_clicked_position.take().unwrap());
+                    return Consequence::PixelSelected(
+                        self.last_left_clicked_position.take().unwrap(),
+                    );
                 } else {
-                    self.last_clicked_position = None;
+                    released = true;
                 }
-                if self.last_clicked_position.is_some() {
+                if self.last_left_clicked_position.is_some() {
+                    if released {
+                        self.last_left_clicked_position = None;
+                    }
+                    Consequence::MovementEnded
+                } else {
+                    Consequence::Nothing
+                }
+            }
+            WindowEvent::MouseInput {
+                button: MouseButton::Right,
+                state,
+                ..
+            } => {
+                let mut released = false;
+                self.camera_controller.process_click(state);
+                if *state == ElementState::Pressed {
+                    self.last_right_clicked_position = Some(self.mouse_position);
+                    self.modifiers_when_clicked = self.current_modifiers;
+                    self.camera_controller.foccus();
+                } else {
+                    released = true;
+                }
+                if self.last_right_clicked_position.is_some() {
+                    if released {
+                        self.last_right_clicked_position = None;
+                    }
                     Consequence::MovementEnded
                 } else {
                     Consequence::Nothing
@@ -105,7 +150,7 @@ impl Controller {
             }
             WindowEvent::CursorMoved { .. } => {
                 self.mouse_position = position;
-                if let Some(clicked_position) = self.last_clicked_position {
+                if let Some(clicked_position) = self.last_left_clicked_position {
                     let mouse_dx = (position.x - clicked_position.x) / self.area_size.width as f64;
                     let mouse_dy = (position.y - clicked_position.y) / self.area_size.height as f64;
                     if camera_can_move {
@@ -115,9 +160,13 @@ impl Controller {
                         if self.modifiers_when_clicked.alt() {
                             Consequence::Rotation(mouse_dx, mouse_dy)
                         } else {
-                            Consequence::Translation(mouse_dx, mouse_dy)
+                            Consequence::Translation(mouse_dx, mouse_dy, 0.)
                         }
                     }
+                } else if let Some(clicked_position) = self.last_right_clicked_position {
+                    let mouse_dx = (position.x - clicked_position.x) / self.area_size.width as f64;
+                    let mouse_dy = (position.y - clicked_position.y) / self.area_size.height as f64;
+                    Consequence::Swing(mouse_dx, mouse_dy)
                 } else {
                     Consequence::Nothing
                 }
@@ -130,8 +179,12 @@ impl Controller {
         self.camera_controller.is_moving()
     }
 
-    pub fn set_middle_point(&mut self, point: Vec3) {
-        self.camera_controller.set_middle_point(point)
+    pub fn set_pivot_point(&mut self, point: Vec3) {
+        self.camera_controller.set_pivot_point(point)
+    }
+
+    pub fn swing(&mut self, x: f64, y: f64) {
+        self.camera_controller.swing(x, y);
     }
 
     pub fn update_camera(&mut self, dt: Duration) {

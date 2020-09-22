@@ -203,19 +203,22 @@ impl Data {
     }
     pub fn fit_design(&self, ratio: f32, fovy: f32) -> (Vec3, Rotor3) {
         let mut bases = self.get_bases(ratio);
-        let rotation = self.get_fitting_quaternion(&bases);
-        let direction = rotation * -Vec3::unit_z();
+        let rotation = self.get_fitting_rotor(&bases);
+        let direction = rotation.reversed() * -Vec3::unit_z();
+        println!("direction {:?}", direction);
         let position = self.get_fitting_position(&mut bases, ratio, fovy, &direction);
+        println!("position {:?}", position);
         (position, rotation)
     }
 
     pub fn middle_point(&self) -> Vec3 {
         let boundaries = self.boundaries();
-        Vec3::new(
+        let middle = Vec3::new(
             (boundaries[0] + boundaries[1]) as f32 / 2.,
             (boundaries[2] + boundaries[3]) as f32 / 2.,
             (boundaries[4] + boundaries[5]) as f32 / 2.,
-        )
+        );
+        self.view.borrow().model_matrix.transform_vec3(middle)
     }
 
     fn boundaries(&self) -> [f64; 6] {
@@ -280,15 +283,16 @@ impl Data {
         bases
     }
 
-    fn get_fitting_quaternion(&self, bases: &Vec<Basis>) -> Rotor3 {
+    /// Return a rotor that will maps the longest axis to the camera's x axis,
+    /// and the second longest axis to the camera's y axis
+    fn get_fitting_rotor(&self, bases: &Vec<Basis>) -> Rotor3 {
         let right: Vec3 = bases[0].3.into();
         let up: Vec3 = bases[1].3.into();
         let reverse_direction = right.cross(up);
-        let rotation_matrix = ultraviolet::Mat3::new(right, up, reverse_direction);
-        println!("{:?}", rotation_matrix);
-        let ret = rotation_to_rotor(&rotation_matrix);
-        println!("rotor {:?}", ret.into_matrix());
-        ret
+        // The arguments of Mat3::new are the columns so this is the *inverse* of the rotation
+        // matrix
+        let inv_rotation_matrix = ultraviolet::Mat3::new(right, up, reverse_direction);
+        inv_rotation_matrix.into_rotor3().reversed()
     }
 
     /// Given the orientation of the camera, computes its position so that it can see everything.
@@ -305,7 +309,8 @@ impl Data {
         let x_back = vertical / 2. / (fovy / 2.).tan();
 
         bases.sort_by_key(|b| b.4);
-        let coord = Vec3::new(bases[0].1 as f32, bases[1].1 as f32, bases[2].1 as f32);
+        let coord = self.middle_point();
+        println!("middle_point {:?}", coord);
         coord - *direction * x_back
     }
 

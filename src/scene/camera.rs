@@ -1,20 +1,20 @@
 use super::PhySize;
 use iced_winit::winit;
 use std::cell::RefCell;
-use std::f32::consts::FRAC_PI_2;
+use std::f32::consts::{FRAC_PI_2, PI};
 use std::rc::Rc;
 use std::time::Duration;
-use ultraviolet::{Mat4, Rotor3, Vec3};
+use ultraviolet::{Bivec3, Mat3, Mat4, Rotor3, Vec3};
 use winit::dpi::LogicalPosition;
 use winit::event::*;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Camera {
     /// The eye of the camera
     pub position: Vec3,
     /// The orientation of the camera.
     ///
-    /// `rotor` is an object that can cat as a transformation of the world basis into the camera's
+    /// `rotor` is an object that can cast as a transformation of the world basis into the camera's
     /// basis. The camera is looking in the opposite direction of its z axis with its y axis
     /// pointing up.
     pub rotor: Rotor3,
@@ -36,17 +36,17 @@ impl Camera {
         Mat4::look_at(self.position, at, self.up_vec())
     }
 
-    /// The camera's direction is the negative of its z-axis
+    /// The direction of the camera, expressed in the world coordinates
     pub fn direction(&self) -> Vec3 {
-        self.rotor * Vec3::from([0., 0., -1.])
+        self.rotor.reversed() * Vec3::from([0., 0., -1.])
     }
 
-    /// The camera's right is its x_axis
+    /// The right vector of the camera, expressed in the world coordinates
     pub fn right_vec(&self) -> Vec3 {
-        self.rotor * Vec3::from([1., 0., 0.])
+        self.rotor.reversed() * Vec3::from([1., 0., 0.])
     }
 
-    /// The camera's y_axis
+    /// The up vector of the camera, expressed in the world coordinates.
     pub fn up_vec(&self) -> Vec3 {
         self.right_vec().cross(self.direction())
     }
@@ -112,8 +112,9 @@ pub struct CameraController {
     last_rotor: Rotor3,
     processed_move: bool,
     camera: CameraPtr,
+    cam0: Camera,
     projection: ProjectionPtr,
-    middle_point: Option<Vec3>,
+    pivot_point: Option<Vec3>,
 }
 
 impl CameraController {
@@ -132,9 +133,10 @@ impl CameraController {
             scroll: 0.0,
             last_rotor: camera.clone().borrow().rotor,
             processed_move: false,
-            camera,
+            camera: camera.clone(),
+            cam0: camera.borrow().clone(),
             projection,
-            middle_point: None,
+            pivot_point: None,
         }
     }
 
@@ -165,22 +167,44 @@ impl CameraController {
                 self.amount_up = amount;
                 true
             }
-            VirtualKeyCode::K => {
+            VirtualKeyCode::E => {
                 self.amount_down = amount;
                 true
             }
             VirtualKeyCode::H if amount > 0. => {
                 self.rotate_camera_around(
-                    FRAC_PI_2 / 2.,
-                    self.middle_point.unwrap_or(Vec3::zero()),
+                    FRAC_PI_2 / 20.,
+                    0.,
+                    self.pivot_point.unwrap_or(Vec3::zero()),
                 );
+                self.cam0 = self.camera.borrow().clone();
                 true
             }
             VirtualKeyCode::L if amount > 0. => {
                 self.rotate_camera_around(
-                    -FRAC_PI_2 / 2.,
-                    self.middle_point.unwrap_or(Vec3::zero()),
+                    -FRAC_PI_2 / 20.,
+                    0.,
+                    self.pivot_point.unwrap_or(Vec3::zero()),
                 );
+                self.cam0 = self.camera.borrow().clone();
+                true
+            }
+            VirtualKeyCode::J if amount > 0. => {
+                self.rotate_camera_around(
+                    0.,
+                    FRAC_PI_2 / 20.,
+                    self.pivot_point.unwrap_or(Vec3::zero()),
+                );
+                self.cam0 = self.camera.borrow().clone();
+                true
+            }
+            VirtualKeyCode::K if amount > 0. => {
+                self.rotate_camera_around(
+                    0.,
+                    -FRAC_PI_2 / 20.,
+                    self.pivot_point.unwrap_or(Vec3::zero()),
+                );
+                self.cam0 = self.camera.borrow().clone();
                 true
             }
             _ => false,
@@ -196,8 +220,8 @@ impl CameraController {
             || self.amount_backward > 0.
     }
 
-    pub fn set_middle_point(&mut self, point: Vec3) {
-        self.middle_point = Some(point)
+    pub fn set_pivot_point(&mut self, point: Vec3) {
+        self.pivot_point = Some(point)
     }
 
     pub fn process_mouse(&mut self, mouse_dx: f64, mouse_dy: f64) {
@@ -214,14 +238,21 @@ impl CameraController {
         };
     }
 
+    /// Rotate the head of the camera on its yz plane and xz plane according to the values of
+    /// self.rotate_horizontal and self.rotate_vertical.
     fn rotate_camera(&mut self) {
-        let mut camera = self.camera.borrow_mut();
-        let y_angle = self.rotate_horizontal * FRAC_PI_2;
-        let x_angle = self.rotate_vertical * FRAC_PI_2;
-        let rotation = Rotor3::from_rotation_xz(y_angle) * Rotor3::from_rotation_yz(x_angle);
+        let xz_angle = self.rotate_horizontal * FRAC_PI_2;
+        let yz_angle = self.rotate_vertical * FRAC_PI_2;
 
-        camera.rotor = self.last_rotor * rotation;
+        // We want to build a rotation that will
+        // first maps (1, 0, 0) to (cos(yz_angle), -sin(yz_angle), 0)
+        // and then (0, 1, 0) to (0, cos(xz_angle), -sin(yz_angle))
 
+        let rotation = Rotor3::from_rotation_xz(xz_angle) * Rotor3::from_rotation_yz(yz_angle);
+
+        self.camera.borrow_mut().rotor = rotation * self.cam0.rotor;
+
+        // Since we have rotated the camera we can reset those values
         self.rotate_horizontal = 0.0;
         self.rotate_vertical = 0.0;
     }
@@ -270,6 +301,7 @@ impl CameraController {
         match *state {
             ElementState::Released => {
                 self.last_rotor = camera.rotor;
+                self.cam0 = self.camera.borrow().clone();
                 self.rotate_vertical = 0.;
                 self.rotate_horizontal = 0.;
             }
@@ -282,23 +314,55 @@ impl CameraController {
         camera.position = position;
         camera.rotor = rotation;
         self.last_rotor = rotation;
+        self.cam0 = camera.clone();
     }
 
     pub fn resize(&mut self, size: PhySize) {
         self.projection.borrow_mut().resize(size.width, size.height)
     }
 
-    pub fn rotate_camera_around(&mut self, theta: f32, point: Vec3) {
-        let curent = self.camera.borrow().position - point;
-        // Point -> position
-        let plane = ultraviolet::Bivec3::from_normalized_axis(self.camera.borrow().up_vec());
-        let new = curent.rotated_by(Rotor3::from_angle_plane(theta, plane.normalized()));
-        let new_position = point + new;
-        let new_direction = (point - new_position).normalized();
-        let new_right = new_direction.cross(self.camera.borrow().up_vec());
-        let new_up = self.camera.borrow().up_vec();
-        let matrix = ultraviolet::Mat3::new(new_right, new_up, -new_direction);
-        let rotor = matrix.into_rotor3();
-        self.teleport_camera(new_position, rotor);
+    pub fn foccus(&mut self) {
+        if let Some(point) = self.pivot_point {
+            self.look_at_point(point)
+        }
+    }
+
+    /// Swing the camera arrond `self.pivot_point`. Assumes that the pivot_point is where the
+    /// camera points at.
+    pub fn swing(&mut self, x: f64, y: f64) {
+        let angle_yz = -(y.min(1.).max(-1.)) as f32 * PI;
+        let angle_xz = x.min(1.).max(-1.) as f32 * PI;
+        self.rotate_camera_around(angle_xz, angle_yz, self.pivot_point.unwrap());
+    }
+
+    /// Rotate the camera arround a point.
+    /// `point` is given in the world's coordiantes.
+    pub fn rotate_camera_around(&mut self, xz_angle: f32, yz_angle: f32, point: Vec3) {
+        // We first modify the camera orientation and then position it at the correct position
+        let distance = (self.camera.borrow().position - point).mag();
+        let rotation = Rotor3::from_rotation_xz(xz_angle) * Rotor3::from_rotation_yz(yz_angle);
+        self.camera.borrow_mut().rotor = rotation * self.cam0.rotor;
+        let new_direction = self.camera.borrow().direction();
+        self.camera.borrow_mut().position = point - distance * new_direction;
+    }
+
+    /// Modify the camera's rotor so that the camera looks at `point`.
+    /// `point` is given in the world's coordinates
+    pub fn look_at_point(&mut self, point: Vec3) {
+        // We express the rotation of the camera in the camera's coordinates
+        // The current camera's direction is the opposite of it's z axis
+        let direction = -Vec3::unit_z();
+        // The future camera's direction is the vector from it to the point, to express it in the
+        // camera's coordinates, the camera's rotor is applied to it.
+        let new_direction = (point - self.camera.borrow().position)
+            .normalized()
+            .rotated_by(self.camera.borrow().rotor);
+        let angle_xz = -new_direction.dot(Vec3::unit_x()).asin();
+        let angle_yz = -new_direction.dot(Vec3::unit_y()).asin();
+        let rotation = Rotor3::from_rotation_yz(angle_yz) * Rotor3::from_rotation_xz(angle_xz);
+
+        // and we apply this rotation to the camera
+        let new_rotor = rotation * self.camera.borrow().rotor;
+        self.camera.borrow_mut().rotor = new_rotor;
     }
 }

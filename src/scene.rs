@@ -64,7 +64,6 @@ impl Scene {
         queue: &mut wgpu::Queue,
         cursor_position: PhysicalPosition<f64>,
     ) {
-        let mut clicked_pixel = None;
         let camera_can_move = self.selected_design.is_none();
         let consequence = self
             .controller
@@ -72,9 +71,9 @@ impl Scene {
         match consequence {
             Consequence::Nothing => (),
             Consequence::CameraMoved => self.notify(SceneNotification::CameraMoved),
-            Consequence::PixelSelected(clicked) => clicked_pixel = Some(clicked),
-            Consequence::Translation(x, y) => {
-                self.translate_selected_design(x, y);
+            Consequence::PixelSelected(clicked) => self.click_on(clicked, device, queue),
+            Consequence::Translation(x, y, z) => {
+                self.translate_selected_design(x, y, z);
             }
             Consequence::MovementEnded => {
                 for d in self.designs.iter_mut() {
@@ -88,26 +87,41 @@ impl Scene {
                 self.designs[self.selected_design.unwrap() as usize]
                     .rotate(x, y, cam_right, cam_up, origin);
             }
-        };
-        if clicked_pixel.is_some() {
-            let clicked_pixel = clicked_pixel.unwrap();
-            let (selected_id, design_id) = self.set_selected_id(clicked_pixel, device, queue);
-            println!("selected {}, design{}", selected_id, design_id);
-            if selected_id != 0xFFFFFF {
-                self.selected_id = Some(selected_id);
-                self.selected_design = Some(design_id);
-                for i in 0..self.designs.len() {
-                    let arg = if i == design_id as usize {
-                        Some(selected_id)
-                    } else {
-                        None
-                    };
-                    self.designs[i].update_selection(arg);
+            Consequence::Swing(x, y) => {
+                if let Some(id) = self.selected_id {
+                    let pivot = self.designs[self.selected_design.unwrap() as usize]
+                        .get_element_position(id)
+                        .unwrap();
+                    self.controller.set_pivot_point(pivot);
+                    self.controller.swing(x, y);
+                    self.notify(SceneNotification::CameraMoved);
                 }
-            } else {
-                self.selected_id = None;
-                self.selected_design = None;
             }
+        };
+    }
+
+    fn click_on(
+        &mut self,
+        clicked_pixel: PhysicalPosition<f64>,
+        device: &Device,
+        queue: &mut Queue,
+    ) {
+        let (selected_id, design_id) = self.set_selected_id(clicked_pixel, device, queue);
+        println!("selected {}, design{}", selected_id, design_id);
+        if selected_id != 0xFFFFFF {
+            self.selected_id = Some(selected_id);
+            self.selected_design = Some(design_id);
+            for i in 0..self.designs.len() {
+                let arg = if i == design_id as usize {
+                    Some(selected_id)
+                } else {
+                    None
+                };
+                self.designs[i].update_selection(arg);
+            }
+        } else {
+            self.selected_id = None;
+            self.selected_design = None;
         }
     }
 
@@ -206,7 +220,7 @@ impl Scene {
         executor::block_on(future_color)
     }
 
-    fn translate_selected_design(&mut self, x: f64, y: f64) {
+    fn translate_selected_design(&mut self, x: f64, y: f64, z: f64) {
         let distance = (self.get_selected_position().unwrap() - self.camera_position())
             .dot(self.camera_direction())
             .abs()
@@ -215,8 +229,9 @@ impl Scene {
         let width = height * self.get_ratio();
         let right_vec = width * x as f32 * self.view.borrow().right_vec();
         let up_vec = height * -y as f32 * self.view.borrow().up_vec();
+        let forward = z as f32 * self.view.borrow().get_camera_direction();
         self.designs[self.selected_design.expect("no design selected") as usize]
-            .translate(right_vec, up_vec);
+            .translate(right_vec, up_vec, forward);
     }
 
     fn get_selected_position(&self) -> Option<Vec3> {
@@ -231,7 +246,7 @@ impl Scene {
         if self.designs.len() > 0 {
             let (position, rotor) = self.designs[0].fit(self.get_fovy(), self.get_ratio());
             self.controller
-                .set_middle_point(self.designs[0].middle_point());
+                .set_pivot_point(self.designs[0].middle_point());
             self.notify(SceneNotification::NewCamera(position, rotor));
         }
     }

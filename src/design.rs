@@ -80,8 +80,8 @@ impl Design {
         self.data.borrow_mut().update_selection(id);
     }
 
-    pub fn translate(&mut self, right: Vec3, up: Vec3) {
-        self.controller.translate(right, up)
+    pub fn translate(&mut self, right: Vec3, up: Vec3, forward: Vec3) {
+        self.controller.translate(right, up, forward)
     }
 
     pub fn rotate(&mut self, x: f64, y: f64, cam_right: Vec3, cam_up: Vec3, origin: Vec3) {
