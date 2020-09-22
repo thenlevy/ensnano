@@ -13,11 +13,13 @@ use view::View;
 
 pub struct Design {
     view: Rc<RefCell<View>>,
+    #[allow(dead_code)]
     controller: Controller,
     data: Rc<RefCell<Data>>,
 }
 
 impl Design {
+    #[allow(dead_code)]
     pub fn new(id: u32) -> Self {
         let view = Rc::new(RefCell::new(View::new(id)));
         let data = Rc::new(RefCell::new(Data::new(&view)));

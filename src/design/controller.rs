@@ -1,15 +1,16 @@
 use super::{Data, View};
 use std::cell::RefCell;
 use std::rc::Rc;
-use ultraviolet::{Mat3, Mat4, Rotor3, Vec3};
+use ultraviolet::{Mat4, Rotor3, Vec3};
 
-use std::f32::consts::{FRAC_PI_4, PI};
+use std::f32::consts::FRAC_PI_4;
 
 type ViewPtr = Rc<RefCell<View>>;
 type DataPtr = Rc<RefCell<Data>>;
 
 pub struct Controller {
     view: ViewPtr,
+    #[allow(dead_code)]
     data: DataPtr,
     old_matrix: Mat4,
     forward: Vec3,

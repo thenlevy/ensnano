@@ -4,7 +4,7 @@ use std::cell::RefCell;
 use std::f32::consts::{FRAC_PI_2, PI};
 use std::rc::Rc;
 use std::time::Duration;
-use ultraviolet::{Bivec3, Mat3, Mat4, Rotor3, Vec3};
+use ultraviolet::{Mat4, Rotor3, Vec3};
 use winit::dpi::LogicalPosition;
 use winit::event::*;
 
@@ -351,7 +351,7 @@ impl CameraController {
     pub fn look_at_point(&mut self, point: Vec3) {
         // We express the rotation of the camera in the camera's coordinates
         // The current camera's direction is the opposite of it's z axis
-        let direction = -Vec3::unit_z();
+        //
         // The future camera's direction is the vector from it to the point, to express it in the
         // camera's coordinates, the camera's rotor is applied to it.
         let new_direction = (point - self.camera.borrow().position)

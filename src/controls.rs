@@ -5,7 +5,7 @@ use std::sync::{Arc, Mutex};
 use iced::{container, Background, Container};
 use iced_wgpu::Renderer;
 use iced_winit::{
-    button, Align, Button, Color, Column, Command, Element, Length, Program, Row, Text,
+    button, Button, Color, Command, Element, Length, Program, Row, Text,
 };
 
 pub struct Controls {

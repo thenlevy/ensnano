@@ -4,6 +4,7 @@ use std::rc::Rc;
 enum LayoutNode {
     Area(f64, f64, f64, f64, usize),
     VSplit(f64, Rc<RefCell<LayoutNode>>, Rc<RefCell<LayoutNode>>),
+    #[allow(dead_code)]
     HSplit(f64, Rc<RefCell<LayoutNode>>, Rc<RefCell<LayoutNode>>),
 }
 
@@ -33,6 +34,7 @@ impl LayoutTree {
         (area_idx, bottom_idx)
     }
 
+    #[allow(dead_code)]
     pub fn hsplit(&mut self, area_idx: usize, left_proportion: f64) -> (usize, usize) {
         let right_idx = self.area.len();
         let (left, right) = {
@@ -66,7 +68,6 @@ impl LayoutNode {
         match self {
             LayoutNode::Area(left, top, right, bottom, idx) => {
                 let separation = top_proportion * (*top + *bottom);
-                println!("separation {}", separation);
                 let top_area = Rc::new(RefCell::new(LayoutNode::Area(
                     *left, *top, *right, separation, *idx,
                 )));
@@ -82,6 +83,7 @@ impl LayoutNode {
         }
     }
 
+    #[allow(dead_code)]
     pub fn hsplit(
         &mut self,
         left_proportion: f64,

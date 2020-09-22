@@ -2,7 +2,7 @@ use crate::PhySize;
 use iced_winit::winit;
 use winit::{
     dpi::{PhysicalPosition, PhysicalSize},
-    event::{ElementState, ModifiersState, MouseButton, WindowEvent},
+    event::{ElementState, MouseButton, WindowEvent},
 };
 
 mod layout_manager;

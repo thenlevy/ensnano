@@ -1,5 +1,4 @@
 use super::View;
-use crate::utils::rotation_to_rotor;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -25,6 +24,7 @@ pub struct Data {
 }
 
 impl Data {
+    #[allow(dead_code)]
     pub fn new(view: &ViewPtr) -> Self {
         let design = codenano::Design::<(), ()>::new();
         Self {
@@ -113,6 +113,7 @@ impl Data {
         self.space_position = space_position;
     }
 
+    #[allow(dead_code)]
     pub fn get_design(&mut self, file: &PathBuf) {
         let json_str = std::fs::read_to_string(file);
         if let Ok(json_str) = json_str {
@@ -205,9 +206,7 @@ impl Data {
         let mut bases = self.get_bases(ratio);
         let rotation = self.get_fitting_rotor(&bases);
         let direction = rotation.reversed() * -Vec3::unit_z();
-        println!("direction {:?}", direction);
         let position = self.get_fitting_position(&mut bases, ratio, fovy, &direction);
-        println!("position {:?}", position);
         (position, rotation)
     }
 
@@ -310,7 +309,6 @@ impl Data {
 
         bases.sort_by_key(|b| b.4);
         let coord = self.middle_point();
-        println!("middle_point {:?}", coord);
         coord - *direction * x_back
     }
 

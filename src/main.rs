@@ -10,7 +10,7 @@ use iced_winit::{conversion, futures, program, winit, Debug, Size};
 use futures::task::SpawnExt;
 use winit::{
     dpi::PhysicalPosition,
-    event::{Event, KeyboardInput, ModifiersState, VirtualKeyCode, WindowEvent},
+    event::{Event, ModifiersState, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
 };
 
@@ -56,13 +56,8 @@ fn main() {
     let event_loop = EventLoop::new();
     let window = winit::window::Window::new(&event_loop).unwrap();
 
-    let physical_size = window.inner_size();
-    let mut viewport = Viewport::with_physical_size(
-        Size::new(physical_size.width, physical_size.height),
-        window.scale_factor(),
-    );
-    let mut cursor_position = PhysicalPosition::new(-1.0, -1.0);
-    let mut modifiers = ModifiersState::default();
+    let cursor_position = PhysicalPosition::new(-1.0, -1.0);
+    let modifiers = ModifiersState::default();
 
     let instance = wgpu::Instance::new(wgpu::BackendBit::PRIMARY);
     let surface = unsafe { instance.create_surface(&window) };
@@ -130,7 +125,6 @@ fn main() {
     let mut debug = Debug::new();
     let mut renderer = Renderer::new(Backend::new(&mut device, Settings::default()));
     let top_bar_area = multiplexer.get_top_bar_area();
-    println!("top_bar {:?}", top_bar_area);
     let mut state = program::State::new(
         controls,
         convert_size(top_bar_area.size),
@@ -155,7 +149,7 @@ fn main() {
             } => *control_flow = ControlFlow::Exit,
             Event::WindowEvent { event, .. } => {
                 //let modifiers = multiplexer.modifiers();
-                if let WindowEvent::Resized(window_size) = event {
+                if let WindowEvent::Resized(_) = event {
                     resized = true;
                 }
                 if let Some(event) = event.to_static() {

@@ -141,21 +141,9 @@ impl View {
     }
 
     pub fn get_model_matrix(&self) -> Mat4 {
-        //Mat4::from_translation(self.origin) * self.rotor.into_matrix().into_homogeneous()
         self.model_matrix
     }
 
-    pub fn direction(&self) -> Vec3 {
-        self.model_matrix.transform_vec3(Vec3::from([0., 0., -1.]))
-    }
-
-    pub fn right_vec(&self) -> Vec3 {
-        self.model_matrix.transform_vec3(Vec3::from([1., 0., 0.]))
-    }
-
-    pub fn up_vec(&self) -> Vec3 {
-        self.right_vec().cross(self.direction())
-    }
 }
 
 fn create_bound(source: Vec3, dest: Vec3, color: u32, id: u32) -> Vec<Instance> {

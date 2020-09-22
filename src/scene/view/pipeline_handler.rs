@@ -69,7 +69,6 @@ impl PipelineHandler {
         let model_matrices_len = model_matrices.len() as u64 * 32 * 4;
         let model_matrices_capacity = model_matrices_len as usize;
         let byte_matrices: Vec<_> = model_matrices.iter().map(|m| ByteMat4(*m)).collect();
-        println!("byte_matrices {:?}", byte_matrices);
         let (model_matrices, model_matrices_layout, model_matrices_buffer) =
             create_instances_bind_group(device, &byte_matrices);
 

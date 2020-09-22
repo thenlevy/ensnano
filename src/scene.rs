@@ -107,7 +107,6 @@ impl Scene {
         queue: &mut Queue,
     ) {
         let (selected_id, design_id) = self.set_selected_id(clicked_pixel, device, queue);
-        println!("selected {}, design{}", selected_id, design_id);
         if selected_id != 0xFFFFFF {
             self.selected_id = Some(selected_id);
             self.selected_design = Some(design_id);
@@ -136,6 +135,70 @@ impl Scene {
             height: self.controller.get_window_size().height,
             depth: 1,
         };
+
+        let (texture, texture_view) = self.create_fake_scene_texture(device, size);
+
+        let mut encoder =
+            device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+
+        self.view
+            .borrow_mut()
+            .draw(&mut encoder, &texture_view, device, true, queue, self.area);
+
+        // create a buffer and fill it with the texture
+        let buffer_dimensions = BufferDimensions::new(size.width as usize, size.height as usize);
+        let buf_size = buffer_dimensions.padded_bytes_per_row * buffer_dimensions.height;
+        let staging_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            size: buf_size as u64,
+            usage: wgpu::BufferUsage::MAP_READ | wgpu::BufferUsage::COPY_DST,
+            mapped_at_creation: false,
+            label: Some("staging_buffer"),
+        });
+        let buffer_copy_view = wgpu::BufferCopyView {
+            buffer: &staging_buffer,
+            layout: wgpu::TextureDataLayout {
+                offset: 0,
+                bytes_per_row: buffer_dimensions.padded_bytes_per_row as u32,
+                rows_per_image: 0,
+            },
+        };
+        let texture_copy_view = wgpu::TextureCopyView {
+            texture: &texture,
+            mip_level: 0,
+            origin: wgpu::Origin3d::ZERO,
+        };
+        encoder.copy_texture_to_buffer(texture_copy_view, buffer_copy_view, size);
+        queue.submit(Some(encoder.finish()));
+
+        // recover the desired pixel
+        let pixel = (self.area.position.y as usize + clicked_pixel.y as usize)
+            * buffer_dimensions.padded_bytes_per_row
+            + (self.area.position.x as usize + clicked_pixel.x as usize)
+                * std::mem::size_of::<u32>();
+
+        let buffer_slice = staging_buffer.slice(..);
+        let buffer_future = buffer_slice.map_async(wgpu::MapMode::Read);
+        device.poll(wgpu::Maintain::Wait);
+
+        let future_color = async {
+            if let Ok(()) = buffer_future.await {
+                let pixels = buffer_slice.get_mapped_range();
+                let a = pixels[pixel + 3] as u32;
+                let r = (pixels[pixel + 2] as u32) << 16;
+                let g = (pixels[pixel + 1] as u32) << 8;
+                let b = pixels[pixel] as u32;
+                let color = r + g + b;
+                drop(pixels);
+                staging_buffer.unmap();
+                (color, a)
+            } else {
+                panic!("could not read fake texture");
+            }
+        };
+        executor::block_on(future_color)
+    }
+
+    fn create_fake_scene_texture(&self, device: &Device, size: wgpu::Extent3d) -> (wgpu::Texture, wgpu::TextureView) {
         let desc = wgpu::TextureDescriptor {
             size,
             mip_level_count: 1,
@@ -159,65 +222,8 @@ impl Scene {
         };
 
         let texture = device.create_texture(&desc);
-        let texture_view = texture.create_view(&texture_view_descriptor);
-        let mut encoder =
-            device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
-
-        self.view
-            .borrow_mut()
-            .draw(&mut encoder, &texture_view, device, true, queue, self.area);
-
-        let buffer_dimensions = BufferDimensions::new(size.width as usize, size.height as usize);
-        let buf_size = buffer_dimensions.padded_bytes_per_row * buffer_dimensions.height;
-        let staging_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            size: buf_size as u64,
-            usage: wgpu::BufferUsage::MAP_READ | wgpu::BufferUsage::COPY_DST,
-            mapped_at_creation: false,
-            label: Some("staging_buffer"),
-        });
-
-        let buffer_copy_view = wgpu::BufferCopyView {
-            buffer: &staging_buffer,
-            layout: wgpu::TextureDataLayout {
-                offset: 0,
-                bytes_per_row: buffer_dimensions.padded_bytes_per_row as u32,
-                rows_per_image: 0,
-            },
-        };
-        let texture_copy_view = wgpu::TextureCopyView {
-            texture: &texture,
-            mip_level: 0,
-            origin: wgpu::Origin3d::ZERO,
-        };
-        encoder.copy_texture_to_buffer(texture_copy_view, buffer_copy_view, size);
-        queue.submit(Some(encoder.finish()));
-
-        let pixel = (self.area.position.y as usize + clicked_pixel.y as usize)
-            * buffer_dimensions.padded_bytes_per_row
-            + (self.area.position.x as usize + clicked_pixel.x as usize)
-                * std::mem::size_of::<u32>();
-
-        let buffer_slice = staging_buffer.slice(..);
-        let buffer_future = buffer_slice.map_async(wgpu::MapMode::Read);
-        device.poll(wgpu::Maintain::Wait);
-
-        let future_color = async {
-            if let Ok(()) = buffer_future.await {
-                let pixels = buffer_slice.get_mapped_range();
-                let a = pixels[pixel + 3] as u32;
-                let r = (pixels[pixel + 2] as u32) << 16;
-                let g = (pixels[pixel + 1] as u32) << 8;
-                let b = pixels[pixel] as u32;
-                let color = r + g + b;
-                drop(pixels);
-                staging_buffer.unmap();
-                println!("a {} r {} g {} b{}", a, r, g, b);
-                (color, a)
-            } else {
-                panic!("could not read fake texture");
-            }
-        };
-        executor::block_on(future_color)
+        let view = texture.create_view(&texture_view_descriptor);
+        (texture, view)
     }
 
     fn translate_selected_design(&mut self, x: f64, y: f64, z: f64) {
@@ -249,10 +255,6 @@ impl Scene {
                 .set_pivot_point(self.designs[0].middle_point());
             self.notify(SceneNotification::NewCamera(position, rotor));
         }
-    }
-
-    pub fn get_selected_id(&self) -> Option<u32> {
-        self.selected_id
     }
 
     fn camera_position(&self) -> Vec3 {
