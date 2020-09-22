@@ -106,6 +106,7 @@ fn main() {
 
     // Initialize scene and GUI controls
     let mut multiplexer = Multiplexer::new(window.inner_size());
+    let top_bar_area = multiplexer.get_top_bar_area();
     let scene_area = multiplexer.get_scene_area();
     let mut scene = Scene::new(&device, window.inner_size(), scene_area);
     if let Some(ref path) = path {
@@ -119,6 +120,7 @@ fn main() {
         fitting_request.clone(),
         file_add_request.clone(),
         file_replace_request.clone(),
+        top_bar_area.size.height,
     );
 
     //let mut cache = Some(Cache::default());
@@ -160,7 +162,8 @@ fn main() {
                         if area == multiplexer.top_bar {
                             let event = iced_winit::conversion::window_event(
                                 &event,
-                                window.scale_factor(),
+                                //window.scale_factor(),
+                                1.,
                                 modifiers,
                             );
                             if let Some(event) = event {
@@ -182,7 +185,7 @@ fn main() {
                     // We update iced
                     let _ = state.update(
                         convert_size(top_bar_area.size),
-                        conversion::cursor_position(top_bar_cursor, window.scale_factor()),
+                        conversion::cursor_position(top_bar_cursor, 1.),
                         None,
                         &mut renderer,
                         &mut debug,
@@ -268,7 +271,8 @@ fn main() {
 
                 let viewport = Viewport::with_physical_size(
                     convert_size_u32(multiplexer.window_size),
-                    window.scale_factor(),
+                    //window.scale_factor(),
+                    1.,
                 );
 
                 // And then iced on top

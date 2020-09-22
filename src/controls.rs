@@ -5,8 +5,9 @@ use std::sync::{Arc, Mutex};
 use iced::{container, Background, Container};
 use iced_wgpu::Renderer;
 use iced_winit::{
-    button, Button, Color, Command, Element, Length, Program, Row, Text,
+    button, Button, Color, Command, Element, Length, Program, Row, Text
 };
+use iced::{Image, image};
 
 pub struct Controls {
     button_fit: button::State,
@@ -15,6 +16,7 @@ pub struct Controls {
     pub fitting_requested: Arc<Mutex<bool>>,
     pub file_add_request: Arc<Mutex<Option<PathBuf>>>,
     pub file_replace_request: Arc<Mutex<Option<PathBuf>>>,
+    height: u16,
 }
 
 #[derive(Debug, Clone)]
@@ -29,6 +31,7 @@ impl Controls {
         fitting_requested: Arc<Mutex<bool>>,
         file_add_request: Arc<Mutex<Option<PathBuf>>>,
         file_replace_request: Arc<Mutex<Option<PathBuf>>>,
+        height: u32,
     ) -> Controls {
         Self {
             button_fit: Default::default(),
@@ -37,6 +40,7 @@ impl Controls {
             fitting_requested,
             file_add_request,
             file_replace_request,
+            height: height as u16,
         }
     }
 }
@@ -83,15 +87,18 @@ impl Program for Controls {
     }
 
     fn view(&mut self) -> Element<Message, Renderer> {
-        let button_fit = Button::new(&mut self.button_fit, Text::new("Fit Scene"))
-            .on_press(Message::SceneFitRequested);
-        let button_add_file = Button::new(&mut self.button_add_file, Text::new("Add design"))
-            .on_press(Message::FileAddRequested);
+        let button_fit = Button::new(&mut self.button_fit, Image::new("icons/adjust_page.png"))
+            .on_press(Message::SceneFitRequested)
+            .height(Length::Units(self.height));
+        let button_add_file = Button::new(&mut self.button_add_file, Image::new("icons/add_file.png").height(Length::Units(self.height)))
+            .on_press(Message::FileAddRequested).height(Length::Units(self.height));
         let button_replace_file =
-            Button::new(&mut self.button_replace_file, Text::new("Replace designs"))
-                .on_press(Message::FileReplaceRequested);
+            Button::new(&mut self.button_replace_file, Image::new("icons/delete.png"))
+                .on_press(Message::FileReplaceRequested)
+                .height(Length::Units(self.height));
         let buttons = Row::new()
             .width(Length::Fill)
+            .height(Length::Units(self.height))
             .push(button_fit)
             .push(button_add_file)
             .push(button_replace_file);

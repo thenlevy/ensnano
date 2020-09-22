@@ -7,7 +7,7 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-iced = { git = "https://github.com/hecrj/iced", rev = "49076c6ac2983e2076dae64f68a2e801904d7ce9" }
+iced = { git = "https://github.com/hecrj/iced", rev = "49076c6ac2983e2076dae64f68a2e801904d7ce9", features=["image"] }
 iced_wgpu = { git = "https://github.com/hecrj/iced", rev = "49076c6ac2983e2076dae64f68a2e801904d7ce9" }
 iced_winit = { git = "https://github.com/hecrj/iced", rev = "49076c6ac2983e2076dae64f68a2e801904d7ce9" }
 ultraviolet = { git = "https://github.com/termhn/ultraviolet", rev = "941204e4747c3c3f7257c924fd1759005d1d0eaf", features = ["f64"] }
