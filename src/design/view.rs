@@ -2,13 +2,17 @@ use crate::utils::instance::Instance;
 use std::rc::Rc;
 use ultraviolet::{Mat4, Rotor3, Vec3};
 
+/// An object that stores the instances to be drawn to represent the desgin.
 pub struct View {
     spheres: Rc<Vec<Instance>>,
     tubes: Rc<Vec<Instance>>,
+    /// The model matrix of the design
     pub model_matrix: Mat4,
     selected_tubes: Rc<Vec<Instance>>,
     selected_spheres: Rc<Vec<Instance>>,
+    /// True if there are new instances to be fetched
     was_updated: bool,
+    /// The identifier of the design. Used for fake color drawing
     id: u32,
 }
 
@@ -25,6 +29,7 @@ impl View {
         }
     }
 
+    /// Update the instances of spheres, given the list of their center, color and identifier.
     pub fn update_spheres(&mut self, positions: &Vec<([f32; 3], u32, u32)>) {
         self.spheres = Rc::new(
             positions
@@ -46,6 +51,7 @@ impl View {
         );
     }
 
+    /// Update the instances of selected spheres, given the list of their center.
     pub fn update_selected_spheres(&mut self, positions: &Vec<[f32; 3]>) {
         self.selected_spheres = Rc::new(
             positions
@@ -65,6 +71,9 @@ impl View {
         self.selected_tubes = Rc::new(Vec::new());
     }
 
+    /// Update the list of tubes given the list of tubes of the form
+    /// `(a, b, c, id)` where a and b are the center of the sphere to be connected by the tube, `c`
+    /// is the color of the tube and `id` is the identifier of the tube.
     pub fn update_tubes(&mut self, pairs: &Vec<([f32; 3], [f32; 3], u32, u32)>) {
         self.tubes = Rc::new(
             pairs
@@ -88,6 +97,8 @@ impl View {
         );
     }
 
+    /// update the list of selected tubes given the list of tube of the form
+    /// `(a, b)` where `a` and `b` are the center of the sphere joined by the tubes
     pub fn update_selected_tubes(&mut self, pairs: &Vec<([f32; 3], [f32; 3])>) {
         self.selected_tubes = Rc::new(
             pairs
@@ -111,12 +122,14 @@ impl View {
         self.selected_spheres = Rc::new(Vec::new());
     }
 
+    /// Return true if the view was updated since the last time this function was called
     pub fn was_updated(&mut self) -> bool {
         let ret = self.was_updated;
         self.was_updated = false;
         ret
     }
 
+    /// Update the model matrix
     pub fn set_matrix(&mut self, matrix: Mat4) {
         self.model_matrix = matrix;
         self.was_updated = true;
@@ -124,22 +137,27 @@ impl View {
 }
 
 impl View {
+    /// Return the sphere instances
     pub fn get_spheres(&self) -> Rc<Vec<Instance>> {
         self.spheres.clone()
     }
 
+    /// Return the tube instances
     pub fn get_tubes(&self) -> Rc<Vec<Instance>> {
         self.tubes.clone()
     }
 
+    /// Return the instances of selected spheres
     pub fn get_selected_spheres(&self) -> Rc<Vec<Instance>> {
         self.selected_spheres.clone()
     }
 
+    /// Return the instances of selected tubes
     pub fn get_selected_tubes(&self) -> Rc<Vec<Instance>> {
         self.selected_tubes.clone()
     }
 
+    /// Return the model matrix
     pub fn get_model_matrix(&self) -> Mat4 {
         self.model_matrix
     }

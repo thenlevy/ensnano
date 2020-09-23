@@ -98,7 +98,7 @@ impl Scene {
             }
             Consequence::MovementEnded => {
                 for d in self.designs.iter_mut() {
-                    d.update_position();
+                    d.reset_movement();
                 }
             }
             Consequence::Rotation(x, y) => {
@@ -331,7 +331,7 @@ impl Scene {
         if let Some(matrices) = self.update.model_matrices.take() {
             self.view
                 .borrow_mut()
-                .update(ViewUpdate::ModelMatricies(matrices))
+                .update(ViewUpdate::ModelMatrices(matrices))
         }
 
         if self.update.camera_update {

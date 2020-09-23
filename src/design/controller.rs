@@ -9,10 +9,13 @@ type ViewPtr = Rc<RefCell<View>>;
 type DataPtr = Rc<RefCell<Data>>;
 
 pub struct Controller {
+    /// The view controlled by self
     view: ViewPtr,
     #[allow(dead_code)]
     data: DataPtr,
+    /// A copy of the model_matrix of the view before the current movement
     old_matrix: Mat4,
+    /// The forward vector of the current movement
     forward: Vec3,
 }
 
@@ -51,7 +54,8 @@ impl Controller {
         self.view.borrow_mut().set_matrix(new_matrix);
     }
 
-    pub fn update(&mut self) {
+    /// Reset the movement computed by self
+    pub fn reset_movement(&mut self) {
         self.old_matrix = self.view.borrow().model_matrix;
         self.forward = Vec3::zero();
     }

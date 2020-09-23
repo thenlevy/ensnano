@@ -41,6 +41,7 @@ impl Data {
         }
     }
 
+    /// Create a new data by reading a file. At the moment only codenano's format is supported
     pub fn new_with_path(view: &ViewPtr, json_path: &PathBuf) -> Self {
         let json_str =
             std::fs::read_to_string(json_path).expect(&format!("File not found {:?}", json_path));
@@ -114,7 +115,7 @@ impl Data {
     }
 
     #[allow(dead_code)]
-    pub fn get_design(&mut self, file: &PathBuf) {
+    pub fn read_file(&mut self, file: &PathBuf) {
         let json_str = std::fs::read_to_string(file);
         if let Ok(json_str) = json_str {
             let design = serde_json::from_str(&json_str);
@@ -127,6 +128,7 @@ impl Data {
         self.make_hash_maps();
     }
 
+    /// Update the instances held by the view
     pub fn update_view(&self) {
         let mut nucleotide = Vec::new();
         let mut covalent_bound = Vec::new();
@@ -157,12 +159,14 @@ impl Data {
         self.view.borrow_mut().update_tubes(&covalent_bound);
     }
 
+    /// Return true if self was updated since the last time this function was called.
     pub fn was_updated(&mut self) -> bool {
         let ret = self.update_status;
         self.update_status = false;
         ret
     }
 
+    /// Update or reset the set of selected items
     pub fn update_selection(&mut self, id: Option<u32>) {
         if let Some(id) = id {
             if let Some(kind) = self.object_type.get(&id) {
@@ -202,6 +206,8 @@ impl Data {
             None
         }
     }
+
+    /// Return a camera position and orientation so that self fits in the scene.
     pub fn fit_design(&self, ratio: f32, fovy: f32) -> (Vec3, Rotor3) {
         let mut bases = self.get_bases(ratio);
         let rotation = self.get_fitting_rotor(&bases);
@@ -210,6 +216,7 @@ impl Data {
         (position, rotation)
     }
 
+    /// Return the middle point of `self` in the world coordinates
     pub fn middle_point(&self) -> Vec3 {
         let boundaries = self.boundaries();
         let middle = Vec3::new(
