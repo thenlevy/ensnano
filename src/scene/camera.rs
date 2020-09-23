@@ -1,4 +1,4 @@
-use super::PhySize;
+use super::{PhySize, ClickMode};
 use iced_winit::winit;
 use std::cell::RefCell;
 use std::f32::consts::{FRAC_PI_2, PI};
@@ -104,10 +104,8 @@ pub struct CameraController {
     amount_down: f32,
     amount_left: f32,
     amount_right: f32,
-    amount_forward: f32,
-    amount_backward: f32,
-    rotate_horizontal: f32,
-    rotate_vertical: f32,
+    mouse_horizontal: f32,
+    mouse_vertical: f32,
     scroll: f32,
     last_rotor: Rotor3,
     processed_move: bool,
@@ -124,12 +122,10 @@ impl CameraController {
             sensitivity,
             amount_left: 0.0,
             amount_right: 0.0,
-            amount_forward: 0.0,
-            amount_backward: 0.0,
             amount_up: 0.0,
             amount_down: 0.0,
-            rotate_horizontal: 0.0,
-            rotate_vertical: 0.0,
+            mouse_horizontal: 0.0,
+            mouse_vertical: 0.0,
             scroll: 0.0,
             last_rotor: camera.clone().borrow().rotor,
             processed_move: false,
@@ -148,11 +144,11 @@ impl CameraController {
         };
         match key {
             VirtualKeyCode::W | VirtualKeyCode::Up => {
-                self.amount_forward = amount;
+                self.amount_up = amount;
                 true
             }
             VirtualKeyCode::S | VirtualKeyCode::Down => {
-                self.amount_backward = amount;
+                self.amount_down = amount;
                 true
             }
             VirtualKeyCode::A | VirtualKeyCode::Left => {
@@ -161,14 +157,6 @@ impl CameraController {
             }
             VirtualKeyCode::D | VirtualKeyCode::Right => {
                 self.amount_right = amount;
-                true
-            }
-            VirtualKeyCode::Space => {
-                self.amount_up = amount;
-                true
-            }
-            VirtualKeyCode::E => {
-                self.amount_down = amount;
                 true
             }
             VirtualKeyCode::H if amount > 0. => {
@@ -216,8 +204,7 @@ impl CameraController {
             || self.amount_up > 0.
             || self.amount_right > 0.
             || self.amount_left > 0.
-            || self.amount_forward > 0.
-            || self.amount_backward > 0.
+            || self.scroll.abs() > 0.
     }
 
     pub fn set_pivot_point(&mut self, point: Vec3) {
@@ -225,8 +212,8 @@ impl CameraController {
     }
 
     pub fn process_mouse(&mut self, mouse_dx: f64, mouse_dy: f64) {
-        self.rotate_horizontal = mouse_dx as f32;
-        self.rotate_vertical = -mouse_dy as f32;
+        self.mouse_horizontal = -mouse_dx as f32;
+        self.mouse_vertical = -mouse_dy as f32;
         self.processed_move = true;
     }
 
@@ -239,10 +226,10 @@ impl CameraController {
     }
 
     /// Rotate the head of the camera on its yz plane and xz plane according to the values of
-    /// self.rotate_horizontal and self.rotate_vertical.
+    /// self.mouse_horizontal and self.mouse_vertical
     fn rotate_camera(&mut self) {
-        let xz_angle = self.rotate_horizontal * FRAC_PI_2;
-        let yz_angle = self.rotate_vertical * FRAC_PI_2;
+        let xz_angle = self.mouse_horizontal * FRAC_PI_2;
+        let yz_angle = self.mouse_vertical * FRAC_PI_2;
 
         // We want to build a rotation that will
         // first maps (1, 0, 0) to (cos(yz_angle), -sin(yz_angle), 0)
@@ -253,22 +240,37 @@ impl CameraController {
         self.camera.borrow_mut().rotor = rotation * self.cam0.rotor;
 
         // Since we have rotated the camera we can reset those values
-        self.rotate_horizontal = 0.0;
-        self.rotate_vertical = 0.0;
+        self.mouse_horizontal = 0.0;
+        self.mouse_vertical = 0.0;
     }
 
+    /// Translate the camera
+    fn translate_camera(&mut self) {
+        let right = self.mouse_horizontal;
+        let up = -self.mouse_vertical;
+
+        let right_vec = self.camera.borrow().right_vec() * 10.;
+        let up_vec = self.camera.borrow().up_vec() * 10.;
+
+        let old_pos = self.cam0.position;
+        self.camera.borrow_mut().position = old_pos + right * right_vec + up * up_vec;
+
+        self.mouse_horizontal = 0.0;
+        self.mouse_vertical = 0.0;
+    }
+
+    /// Move the camera according to the keyboard input
     fn move_camera(&mut self, dt: Duration) {
         let dt = dt.as_secs_f32();
 
         // Move forward/backward and left/right
-        let forward = self.camera.borrow().direction();
         let right = self.camera.borrow().right_vec();
+        let up_vec = self.camera.borrow().up_vec();
 
         {
             let mut camera = self.camera.borrow_mut();
-            camera.position +=
-                forward * (self.amount_forward - self.amount_backward) * self.speed * dt;
             camera.position += right * (self.amount_right - self.amount_left) * self.speed * dt;
+            camera.position += up_vec * (self.amount_up - self.amount_down) * self.speed * dt;
         }
 
         // Move in/out (aka. "zoom")
@@ -280,20 +282,21 @@ impl CameraController {
             let mut camera = self.camera.borrow_mut();
             camera.position += scrollward * self.scroll * self.speed * self.sensitivity * dt;
         }
+        self.cam0 = self.camera.borrow().clone();
         self.scroll = 0.;
 
-        // Move up/down
-        let up_vec = self.camera.borrow().up_vec();
-        {
-            let mut camera = self.camera.borrow_mut();
-            camera.position += up_vec * (self.amount_up - self.amount_down) * self.speed * dt;
-        }
     }
-    pub fn update_camera(&mut self, dt: Duration) {
+
+    pub fn update_camera(&mut self, dt: Duration, click_mode: ClickMode) {
         if self.processed_move {
-            self.rotate_camera();
+            match click_mode {
+                ClickMode::RotateCam => self.rotate_camera(),
+                ClickMode::TranslateCam => self.translate_camera(),
+            }
         }
-        self.move_camera(dt);
+        if self.is_moving() {
+            self.move_camera(dt);
+        }
     }
 
     pub fn process_click(&mut self, state: &ElementState) {
@@ -302,8 +305,8 @@ impl CameraController {
             ElementState::Released => {
                 self.last_rotor = camera.rotor;
                 self.cam0 = self.camera.borrow().clone();
-                self.rotate_vertical = 0.;
-                self.rotate_horizontal = 0.;
+                self.mouse_horizontal = 0.;
+                self.mouse_vertical = 0.;
             }
             ElementState::Pressed => self.processed_move = false,
         }

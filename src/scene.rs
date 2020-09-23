@@ -21,6 +21,7 @@ use view::{View, ViewUpdate};
 /// Handling of inputs and notifications
 mod controller;
 use controller::{Consequence, Controller};
+pub use controller::ClickMode;
 use design::Design;
 use std::path::PathBuf;
 
@@ -470,3 +471,4 @@ impl Scene {
         self.update.camera_update = true;
     }
 }
+

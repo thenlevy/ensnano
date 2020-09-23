@@ -6,6 +6,13 @@ use ultraviolet::{Rotor3, Vec3};
 
 use camera::CameraController;
 
+/// The effect that draging the mouse have
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ClickMode {
+    TranslateCam,
+    RotateCam,
+}
+
 /// An object handling input and notification for the scene.
 pub struct Controller {
     /// A pointer to the View
@@ -26,6 +33,8 @@ pub struct Controller {
     current_modifiers: ModifiersState,
     /// The modifiers when a click was performed
     modifiers_when_clicked: ModifiersState,
+    /// The effect that dragging the mouse has
+    click_mode: ClickMode
 }
 
 const NO_POS: PhysicalPosition<f64> = PhysicalPosition::new(f64::NAN, f64::NAN);
@@ -56,6 +65,7 @@ impl Controller {
             area_size,
             current_modifiers: ModifiersState::empty(),
             modifiers_when_clicked: ModifiersState::empty(),
+            click_mode: ClickMode::TranslateCam,
         }
     }
 
@@ -211,7 +221,7 @@ impl Controller {
 
     /// Moves the camera according to its speed and the time elapsed since previous frame
     pub fn update_camera(&mut self, dt: Duration) {
-        self.camera_controller.update_camera(dt);
+        self.camera_controller.update_camera(dt, self.click_mode);
     }
 
     /// Handles a resizing of the window and/or drawing area
