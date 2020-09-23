@@ -15,11 +15,17 @@ use pipeline_handler::PipelineHandler;
 mod uniforms;
 use uniforms::Uniforms;
 
+/// An object that handles the communication with the GPU to draw the scene.
 pub struct View {
+    /// The camera, that is in charge of producing the view and projection matrices.
     camera: CameraPtr,
     projection: ProjectionPtr,
+    /// The pipeline handles handles the communication with the gpu
     pipeline_handlers: PipelineHandlers,
+    /// The depth texture is updated every time the size of the drawing area is modified
     depth_texture: Texture,
+    /// A possible update of the size of the drawing area, must be taken into account before
+    /// drawing the next frame
     new_size: Option<PhySize>,
 }
 
@@ -47,6 +53,7 @@ impl View {
         }
     }
 
+    /// Notify the view of an update
     pub fn update(&mut self, view_update: ViewUpdate) {
         match view_update {
             ViewUpdate::Size(size) => self.new_size = Some(size),
@@ -57,6 +64,7 @@ impl View {
         }
     }
 
+    /// Draw the scene
     pub fn draw(
         &mut self,
         encoder: &mut wgpu::CommandEncoder,
@@ -130,40 +138,56 @@ impl View {
         }
     }
 
+    /// Get a pointer to the camera
     pub fn get_camera(&self) -> CameraPtr {
         self.camera.clone()
     }
 
+    /// The position of the camera. A.k.a the point that is mapped to (0,0,0) by the view matrix
     pub fn get_camera_position(&self) -> Vec3 {
         self.camera.borrow().position
     }
 
+    /// The direction vector of the camera. A.k.a. the vector that is mapped to (0,0,-1) by the
+    /// view matrix
     pub fn get_camera_direction(&self) -> Vec3 {
         self.camera.borrow().direction()
     }
 
+    /// A pointer to the projection camera
     pub fn get_projection(&self) -> ProjectionPtr {
         self.projection.clone()
     }
 
+    /// The right vector of the camera. A.k.a. the vector that is mapped to (1,0,0) by the view
+    /// matrix
     pub fn right_vec(&self) -> Vec3 {
         self.camera.borrow().right_vec()
     }
 
+    /// The up vector of the camera. A.k.a. the vector that is mapped to (0,1,0) by the view matrix
     pub fn up_vec(&self) -> Vec3 {
         self.camera.borrow().up_vec()
     }
 }
 
+/// An notification to be given to the view
 #[derive(Debug)]
 pub enum ViewUpdate {
+    /// The camera has moved and the view and projection matrix must be updated.
     Camera,
+    /// The set of spheres have been modified
     Spheres(Vec<Instance>),
+    /// The set of tubes have been modified
     Tubes(Vec<Instance>),
+    /// The set of selected spheres has been modified
     SelectedSpheres(Vec<Instance>),
+    /// The set of selected tubes has been modified
     SelectedTubes(Vec<Instance>),
+    /// The size of the drawing area has been modified
     Size(PhySize),
-    ModelMatricies(Vec<Mat4>),
+    /// The set of model matrices has been modified
+    ModelMatrices(Vec<Mat4>),
 }
 
 struct PipelineHandlers {
@@ -299,7 +323,7 @@ impl PipelineHandlers {
                 self.selected_tube.new_instances(Rc::new(Vec::new()));
                 self.selected_sphere.new_instances(Rc::new(instances));
             }
-            ViewUpdate::ModelMatricies(matrices) => {
+            ViewUpdate::ModelMatrices(matrices) => {
                 let matrices = Rc::new(matrices);
                 for pipeline in self.all().iter_mut() {
                     pipeline.new_model_matrices(matrices.clone());

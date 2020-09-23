@@ -6,15 +6,25 @@ use ultraviolet::{Rotor3, Vec3};
 
 use camera::CameraController;
 
+/// An object handling input and notification for the scene.
 pub struct Controller {
+    /// A pointer to the View
     view: ViewPtr,
+    /// The event that modify the camera are forwarded to the camera_controller
     camera_controller: CameraController,
+    /// The postion where the user has clicked left
     last_left_clicked_position: Option<PhysicalPosition<f64>>,
+    /// The postion where the user has clicked right
     last_right_clicked_position: Option<PhysicalPosition<f64>>,
+    /// The position of the mouse
     mouse_position: PhysicalPosition<f64>,
+    /// The size of the window
     window_size: PhySize,
+    /// The size of the drawing area
     area_size: PhySize,
+    /// The current modifiers 
     current_modifiers: ModifiersState,
+    /// The modifiers when a click was performed
     modifiers_when_clicked: ModifiersState,
 }
 
@@ -49,10 +59,19 @@ impl Controller {
         }
     }
 
+    /// Replace the camera by a new one.
     pub fn teleport_camera(&mut self, position: Vec3, rotation: Rotor3) {
         self.camera_controller.teleport_camera(position, rotation)
     }
 
+    /// Handles input
+    /// # Argument
+    ///
+    /// * `event` the event to be handled
+    ///
+    /// * `position` the position of the mouse *in the drawing area coordinates*
+    ///
+    /// * `camera_can_move` wether the camera can move or not TODO replace with a Mode
     pub fn input(
         &mut self,
         event: &WindowEvent,
@@ -175,22 +194,27 @@ impl Controller {
         }
     }
 
+    /// True if the camera is moving and its position must be updated before next frame
     pub fn camera_is_moving(&self) -> bool {
         self.camera_controller.is_moving()
     }
 
+    /// Set the pivot point of the camera
     pub fn set_pivot_point(&mut self, point: Vec3) {
         self.camera_controller.set_pivot_point(point)
     }
 
+    /// Swing the camera arround its pivot point
     pub fn swing(&mut self, x: f64, y: f64) {
         self.camera_controller.swing(x, y);
     }
 
+    /// Moves the camera according to its speed and the time elapsed since previous frame
     pub fn update_camera(&mut self, dt: Duration) {
         self.camera_controller.update_camera(dt);
     }
 
+    /// Handles a resizing of the window and/or drawing area
     pub fn resize(&mut self, window_size: PhySize, area_size: PhySize) {
         self.window_size = window_size;
         self.area_size = area_size;

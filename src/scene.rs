@@ -1,5 +1,3 @@
-use crate::{design, utils};
-use crate::{DrawArea, PhySize, WindowEvent};
 use futures::executor;
 use iced_wgpu::wgpu;
 use iced_winit::winit;
@@ -7,26 +5,40 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use std::time::Duration;
 use ultraviolet::{Mat4, Rotor3, Vec3};
+
+use crate::{design, utils};
+use crate::{DrawArea, PhySize, WindowEvent};
 use utils::{instance, BufferDimensions};
 use instance::Instance;
 use wgpu::{Device, Queue};
 use winit::dpi::PhysicalPosition;
+
+/// Computation of the view and projection matrix.
 mod camera;
+/// Display of the scene
 mod view;
 use view::{View, ViewUpdate};
+/// Handling of inputs and notifications
 mod controller;
 use controller::{Consequence, Controller};
 use design::Design;
 use std::path::PathBuf;
 
 type ViewPtr = Rc<RefCell<View>>;
+
+/// A structure responsible of the 3D display of the designs
 pub struct Scene {
+    /// The designs to be displayed
     designs: Vec<Design>,
+    /// The update to be performed before next frame
     update: SceneUpdate,
     selected_id: Option<u32>,
     selected_design: Option<u32>,
+    /// The Object that handles communication with the gpu
     view: ViewPtr,
+    /// The Object that handles input and notifications
     controller: Controller,
+    /// The limits of the area on which the scene is displayed
     area: DrawArea,
 }
 
@@ -38,7 +50,7 @@ impl Scene {
     ///
     /// * `window_size` the *Physical* size of the window in which the application is displayed
     ///
-    /// * `area` 
+    /// * `area` the limits, in *physical* size of the area on which the scene is displayed
     pub fn new(device: &Device, window_size: PhySize, area: DrawArea) -> Self {
         let update = SceneUpdate::new();
         let view = Rc::new(RefCell::new(View::new(window_size, area.size, device)));
@@ -54,11 +66,13 @@ impl Scene {
         }
     }
 
+    /// Add a design to be rendered.
     pub fn add_design(&mut self, path: &PathBuf) {
         self.designs
             .push(Design::new_with_path(path, self.designs.len() as u32))
     }
 
+    /// Remove all designs and replace by a new one.
     pub fn clear_design(&mut self, path: &PathBuf) {
         self.designs = vec![Design::new_with_path(path, 0)]
     }
@@ -255,6 +269,8 @@ impl Scene {
         }
     }
 
+    /// Adapt the camera, position, orientation and pivot point to a design so that the design fits
+    /// the scene, and the pivot point of the camera is the center of the design.
     pub fn fit_design(&mut self) {
         if self.designs.len() > 0 {
             let (position, rotor) = self.designs[0].fit(self.get_fovy(), self.get_ratio());
@@ -272,6 +288,7 @@ impl Scene {
         self.view.borrow().get_camera_position()
     }
 
+    /// Draw the scene
     pub fn draw_view(
         &mut self,
         encoder: &mut wgpu::CommandEncoder,
@@ -379,10 +396,12 @@ impl Scene {
         self.update.need_update |= need_update;
     }
 
+    /// Return the vertical field of view of the camera in radians
     pub fn get_fovy(&self) -> f32 {
         self.view.borrow().get_projection().borrow().get_fovy()
     }
 
+    /// Return the width/height ratio of the camera
     pub fn get_ratio(&self) -> f32 {
         self.view.borrow().get_projection().borrow().get_ratio()
     }
@@ -417,13 +436,19 @@ impl SceneUpdate {
     }
 }
 
+/// A notification to be given to the scene
 pub enum SceneNotification {
+    /// The camera has moved. As a consequence, the projection and view matrix must be
+    /// updated.
     CameraMoved,
+    /// The camera is replaced by a new one. 
     NewCamera(Vec3, Rotor3),
+    /// The drawing area has been modified
     NewSize(PhySize, DrawArea),
 }
 
 impl Scene {
+    /// Send a notificatoin to the scene
     pub fn notify(&mut self, notification: SceneNotification) {
         match notification {
             SceneNotification::NewCamera(position, projection) => {

@@ -25,23 +25,41 @@ unsafe impl bytemuck::Pod for ByteMat4 {}
 /// A structure that can create a pipeline which will draw several instances of the same
 /// mesh.
 pub struct PipelineHandler {
+    /// The mesh to be drawn
     mesh: Mesh,
+    /// A possible updates to the instances to be drawn. Must be taken into account before drawing
+    /// next frame
     new_instances: Option<Rc<Vec<Instance>>>,
+    /// A possible updates to the model matrices. Must be taken into account before drawing
+    /// next frame
     new_model_matrices: Option<Rc<Vec<Mat4>>>,
+    /// The number of instance to draw.
     number_instances: usize,
+    /// A possible update to the projection and view matrices. Must be taken into acccount before
+    /// drawing next frame
     new_viewer_data: Option<Uniforms>,
+    /// The data sent the the GPU
     bind_groups: BindGroups,
+    /// The compiled vertex shader
     vertex_module: wgpu::ShaderModule,
+    /// The compiled fragment shader
     fragment_module: wgpu::ShaderModule,
+    /// The primitive used for drawing
     primitive_topology: wgpu::PrimitiveTopology,
+    /// The kind of pipepline that the pipline is
     flavour: Flavour,
+    /// The pipeline created by `self`
     pipeline: Option<RenderPipeline>,
 }
 
+/// The type of pipepline
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Flavour {
+    /// For drawing tubes and spheres in their real colors
     Real,
+    /// For drawing tubes and spheres in a fake color encoding their identifier
     Fake,
+    /// For drawing the selection effect
     Selected,
 }
 
