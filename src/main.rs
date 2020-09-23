@@ -33,7 +33,7 @@ mod utils;
 //use design_handler::DesignHandler;
 
 use controls::Controls;
-use multiplexer::{DrawArea, Multiplexer};
+use multiplexer::{DrawArea, Multiplexer, ElementType};
 use scene::{Scene, SceneNotification};
 
 fn convert_size(size: PhySize) -> Size<f32> {
@@ -104,15 +104,19 @@ fn main() {
     let mut staging_belt = wgpu::util::StagingBelt::new(5 * 1024);
     let mut local_pool = futures::executor::LocalPool::new();
 
-    // Initialize scene and GUI controls
-    let mut multiplexer = Multiplexer::new(window.inner_size());
-    let top_bar_area = multiplexer.get_top_bar_area();
-    let scene_area = multiplexer.get_scene_area();
+    // Initialize the layout
+    let mut multiplexer = Multiplexer::new(window.inner_size(), window.scale_factor());
+
+    // Initialize the scene
+    let scene_area = multiplexer.get_element_area(ElementType::Scene);
     let mut scene = Scene::new(&device, window.inner_size(), scene_area);
     if let Some(ref path) = path {
-        scene.add_design(path)
+        scene.add_design(path);
+        scene.fit_design();
     }
-    scene.fit_design();
+
+    // Initialize the UI
+    let top_bar_area = multiplexer.get_element_area(ElementType::TopBar);
     let fitting_request = Arc::new(Mutex::new(false));
     let file_add_request = Arc::new(Mutex::new(None));
     let file_replace_request = Arc::new(Mutex::new(None));
@@ -120,13 +124,11 @@ fn main() {
         fitting_request.clone(),
         file_add_request.clone(),
         file_replace_request.clone(),
-        top_bar_area.size.height,
+        top_bar_area.size.to_logical(window.scale_factor()),
     );
 
-    //let mut cache = Some(Cache::default());
     let mut debug = Debug::new();
     let mut renderer = Renderer::new(Backend::new(&mut device, Settings::default()));
-    let top_bar_area = multiplexer.get_top_bar_area();
     let mut state = program::State::new(
         controls,
         convert_size(top_bar_area.size),
@@ -134,9 +136,6 @@ fn main() {
         &mut renderer,
         &mut debug,
     );
-
-    //let mut output = (Primitive::None, MouseCursor::OutOfBounds);
-    //let clipboard = Clipboard::new(&window);
 
     // Run event loop
     let mut last_render_time = std::time::Instant::now();
@@ -156,36 +155,41 @@ fn main() {
                 }
                 if let Some(event) = event.to_static() {
                     let event = multiplexer.event(event);
-
                     // Iced panel
                     if let Some((event, area)) = event {
-                        if area == multiplexer.top_bar {
-                            let event = iced_winit::conversion::window_event(
-                                &event,
-                                //window.scale_factor(),
-                                1.,
-                                modifiers,
-                            );
-                            if let Some(event) = event {
-                                state.queue_event(event);
+                        match area {
+                            ElementType::TopBar => {
+                                let event = iced_winit::conversion::window_event(
+                                    &event,
+                                    window.scale_factor(),
+                                    modifiers,
+                                );
+                                if let Some(event) = event {
+                                    state.queue_event(event);
+                                }
                             }
-                        } else if area == multiplexer.scene {
-                            let cursor_position = multiplexer.scene_cursor_position;
-                            scene.input(&event, &device, &mut queue, cursor_position);
+                            ElementType::Scene => {
+                                let cursor_position = multiplexer.get_cursor_position();
+                                scene.input(&event, &device, &mut queue, cursor_position);
+                            }
+                            _ => unreachable!()
                         }
                     }
-                    // 3D view
                 }
             }
             Event::MainEventsCleared => {
-                let top_bar_area = multiplexer.get_top_bar_area();
-                let top_bar_cursor = multiplexer.top_bar_cursor_position;
+                let top_bar_area = multiplexer.get_element_area(ElementType::TopBar);
+                let top_bar_cursor = if multiplexer.foccused_element() == Some(ElementType::TopBar) {
+                    multiplexer.get_cursor_position()
+                } else {
+                    PhysicalPosition::new(-1., -1.)
+                };
 
                 if !state.is_queue_empty() {
                     // We update iced
                     let _ = state.update(
                         convert_size(top_bar_area.size),
-                        conversion::cursor_position(top_bar_cursor, 1.),
+                        conversion::cursor_position(top_bar_cursor, window.scale_factor()),
                         None,
                         &mut renderer,
                         &mut debug,
@@ -223,11 +227,15 @@ fn main() {
                 window.request_redraw();
             }
             Event::RedrawRequested(_) => {
-                let top_bar_area = multiplexer.get_top_bar_area();
-                let top_bar_cursor = multiplexer.top_bar_cursor_position;
+                let top_bar_area = multiplexer.get_element_area(ElementType::TopBar);
+                let top_bar_cursor = if multiplexer.foccused_element() == Some(ElementType::TopBar) {
+                    multiplexer.get_cursor_position()
+                } else {
+                    PhysicalPosition::new(-1., -1.)
+                };
                 if resized {
                     let window_size = window.inner_size();
-                    let scene_area = multiplexer.get_scene_area();
+                    let scene_area = multiplexer.get_element_area(ElementType::Scene);
                     scene.notify(SceneNotification::NewSize(window_size, scene_area));
 
                     swap_chain = device.create_swap_chain(
@@ -271,8 +279,7 @@ fn main() {
 
                 let viewport = Viewport::with_physical_size(
                     convert_size_u32(multiplexer.window_size),
-                    //window.scale_factor(),
-                    1.,
+                    window.scale_factor(),
                 );
 
                 // And then iced on top

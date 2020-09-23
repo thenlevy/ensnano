@@ -31,7 +31,14 @@ pub struct Scene {
 }
 
 impl Scene {
-    /// Create a new scene that will be displayed on `device`
+    /// Create a new scene.
+    /// # Argument
+    ///
+    /// * `device` a reference to a `Device` object. This can be seen as a socket to the GPU
+    ///
+    /// * `window_size` the *Physical* size of the window in which the application is displayed
+    ///
+    /// * `area` 
     pub fn new(device: &Device, window_size: PhySize, area: DrawArea) -> Self {
         let update = SceneUpdate::new();
         let view = Rc::new(RefCell::new(View::new(window_size, area.size, device)));
