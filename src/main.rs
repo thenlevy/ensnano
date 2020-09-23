@@ -19,15 +19,14 @@ extern crate serde_derive;
 extern crate serde;
 
 mod consts;
+/// GUI Top Bar
 mod controls;
+/// Design handling 
 mod design;
+/// 3D scene drawing
 mod scene;
-//mod design_handler;
-mod instance;
-mod light;
-mod mesh;
+/// Separation of the window into drawing regions
 mod multiplexer;
-mod texture;
 mod utils;
 
 //use design_handler::DesignHandler;

@@ -1,14 +1,14 @@
-use crate::{design, instance, utils};
+use crate::{design, utils};
 use crate::{DrawArea, PhySize, WindowEvent};
 use futures::executor;
 use iced_wgpu::wgpu;
 use iced_winit::winit;
-use instance::Instance;
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::time::Duration;
 use ultraviolet::{Mat4, Rotor3, Vec3};
-use utils::BufferDimensions;
+use utils::{instance, BufferDimensions};
+use instance::Instance;
 use wgpu::{Device, Queue};
 use winit::dpi::PhysicalPosition;
 mod camera;

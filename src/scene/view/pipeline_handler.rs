@@ -1,4 +1,5 @@
-use crate::{instance, light, mesh, texture, utils};
+use crate::utils;
+use utils::{instance, mesh, light, texture};
 use iced_wgpu::wgpu;
 use instance::Instance;
 use light::create_light;

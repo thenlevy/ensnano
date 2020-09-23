@@ -2,7 +2,7 @@ mod controller;
 mod data;
 mod view;
 
-use crate::instance::Instance;
+use crate::utils::instance::Instance;
 use controller::Controller;
 use data::Data;
 use std::cell::RefCell;

@@ -1,4 +1,4 @@
-use crate::instance::Instance;
+use crate::utils::instance::Instance;
 use std::rc::Rc;
 use ultraviolet::{Mat4, Rotor3, Vec3};
 

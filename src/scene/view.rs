@@ -1,5 +1,5 @@
 use super::camera;
-use crate::{instance, mesh, texture};
+use crate::utils::{instance, mesh, texture};
 use crate::{DrawArea, PhySize};
 use camera::{Camera, CameraPtr, Projection, ProjectionPtr};
 use iced_wgpu::wgpu;
