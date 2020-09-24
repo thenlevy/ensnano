@@ -2,6 +2,7 @@ use std::env;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
+use std::rc::Rc;
 pub type PhySize = iced_winit::winit::dpi::PhysicalSize<u32>;
 
 use iced_wgpu::{wgpu, Backend, Renderer, Settings, Viewport};
@@ -99,6 +100,9 @@ fn main() {
             },
         )
     };
+    let mut renderer = Renderer::new(Backend::new(&mut device, Settings::default()));
+    let device = Rc::new(device);
+    let queue = Rc::new(queue);
     let mut resized = false;
     let mut staging_belt = wgpu::util::StagingBelt::new(5 * 1024);
     let mut local_pool = futures::executor::LocalPool::new();
@@ -108,7 +112,7 @@ fn main() {
 
     // Initialize the scene
     let scene_area = multiplexer.get_element_area(ElementType::Scene);
-    let mut scene = Scene::new(&device, window.inner_size(), scene_area);
+    let mut scene = Scene::new(device.clone(), queue.clone(), window.inner_size(), scene_area);
     if let Some(ref path) = path {
         scene.add_design(path);
         scene.fit_design();
@@ -127,7 +131,6 @@ fn main() {
     );
 
     let mut debug = Debug::new();
-    let mut renderer = Renderer::new(Backend::new(&mut device, Settings::default()));
     let mut state = program::State::new(
         controls,
         convert_size(top_bar_area.size),
@@ -169,7 +172,7 @@ fn main() {
                             }
                             ElementType::Scene => {
                                 let cursor_position = multiplexer.get_cursor_position();
-                                scene.input(&event, &device, &mut queue, cursor_position);
+                                scene.input(&event, cursor_position);
                             }
                             _ => unreachable!()
                         }
@@ -283,7 +286,7 @@ fn main() {
 
                 // And then iced on top
                 let mouse_interaction = renderer.backend_mut().draw(
-                    &mut device,
+                    &device,
                     &mut staging_belt,
                     &mut encoder,
                     &frame.output.view,

@@ -14,6 +14,7 @@ mod pipeline_handler;
 use pipeline_handler::PipelineHandler;
 mod uniforms;
 use uniforms::Uniforms;
+mod bindgroup_manager;
 
 /// An object that handles the communication with the GPU to draw the scene.
 pub struct View {
@@ -27,10 +28,12 @@ pub struct View {
     /// A possible update of the size of the drawing area, must be taken into account before
     /// drawing the next frame
     new_size: Option<PhySize>,
+    queue: Rc<Queue>,
+    device: Rc<Device>,
 }
 
 impl View {
-    pub fn new(window_size: PhySize, area_size: PhySize, device: &Device) -> Self {
+    pub fn new(window_size: PhySize, area_size: PhySize, device: Rc<Device>, queue: Rc<Queue>) -> Self {
         let camera = Rc::new(RefCell::new(Camera::new(
             (0.0, 5.0, 10.0),
             Rotor3::identity(),
@@ -42,14 +45,16 @@ impl View {
             0.1,
             1000.0,
         )));
-        let pipeline_handlers = PipelineHandlers::init(device, &camera, &projection);
-        let depth_texture = texture::Texture::create_depth_texture(device, &window_size);
+        let pipeline_handlers = PipelineHandlers::init(device.clone(), queue.clone(), &camera, &projection);
+        let depth_texture = texture::Texture::create_depth_texture(device.clone().as_ref(), &window_size);
         Self {
             camera,
             projection,
             pipeline_handlers,
             depth_texture,
             new_size: None,
+            queue,
+            device,
         }
     }
 
@@ -69,13 +74,11 @@ impl View {
         &mut self,
         encoder: &mut wgpu::CommandEncoder,
         target: &wgpu::TextureView,
-        device: &Device,
         fake_color: bool,
-        queue: &Queue,
         area: DrawArea,
     ) {
         if let Some(size) = self.new_size.take() {
-            self.depth_texture = Texture::create_depth_texture(device, &size);
+            self.depth_texture = Texture::create_depth_texture(self.device.as_ref(), &size);
         }
         let clear_color = if fake_color {
             wgpu::Color {
@@ -134,7 +137,7 @@ impl View {
         );
 
         for pipeline_handler in handlers.iter_mut() {
-            pipeline_handler.draw(device, &mut render_pass, queue);
+            pipeline_handler.draw(&mut render_pass);
         }
     }
 
@@ -200,69 +203,63 @@ struct PipelineHandlers {
 }
 
 impl PipelineHandlers {
-    fn init(device: &Device, camera: &CameraPtr, projection: &ProjectionPtr) -> Self {
-        let sphere_mesh = mesh::Mesh::sphere(device, false);
-        let tube_mesh = mesh::Mesh::tube(device, false);
-        let fake_sphere_mesh = mesh::Mesh::sphere(device, false);
-        let fake_tube_mesh = mesh::Mesh::tube(device, false);
-        let selected_sphere_mesh = mesh::Mesh::sphere(device, true);
-        let selected_tube_mesh = mesh::Mesh::tube(device, true);
+    fn init(device: Rc<Device>, queue: Rc<Queue>, camera: &CameraPtr, projection: &ProjectionPtr) -> Self {
+        let sphere_mesh = mesh::Mesh::sphere(device.as_ref(), false);
+        let tube_mesh = mesh::Mesh::tube(device.as_ref(), false);
+        let fake_sphere_mesh = mesh::Mesh::sphere(device.as_ref(), false);
+        let fake_tube_mesh = mesh::Mesh::tube(device.as_ref(), false);
+        let selected_sphere_mesh = mesh::Mesh::sphere(device.as_ref(), true);
+        let selected_tube_mesh = mesh::Mesh::tube(device.as_ref(), true);
 
         let sphere_pipeline_handler = PipelineHandler::new(
-            device,
+            device.clone(),
+            queue.clone(),
             sphere_mesh,
-            Vec::new(),
-            Vec::new(),
             camera,
             projection,
             PrimitiveTopology::TriangleList,
             pipeline_handler::Flavour::Real,
         );
         let tube_pipeline_handler = PipelineHandler::new(
-            device,
+            device.clone(),
+            queue.clone(),
             tube_mesh,
-            Vec::new(),
-            Vec::new(),
             camera,
             projection,
             PrimitiveTopology::TriangleStrip,
             pipeline_handler::Flavour::Real,
         );
         let fake_tube_pipeline_handler = PipelineHandler::new(
-            device,
+            device.clone(),
+            queue.clone(),
             fake_tube_mesh,
-            Vec::new(),
-            Vec::new(),
             camera,
             projection,
             PrimitiveTopology::TriangleStrip,
             pipeline_handler::Flavour::Fake,
         );
         let fake_sphere_pipeline_handler = PipelineHandler::new(
-            device,
+            device.clone(),
+            queue.clone(),
             fake_sphere_mesh,
-            Vec::new(),
-            Vec::new(),
             camera,
             projection,
             PrimitiveTopology::TriangleStrip,
             pipeline_handler::Flavour::Fake,
         );
         let selected_sphere_pipeline_handler = PipelineHandler::new(
-            device,
+            device.clone(),
+            queue.clone(),
             selected_sphere_mesh,
-            Vec::new(),
-            Vec::new(),
             camera,
             projection,
             PrimitiveTopology::TriangleStrip,
             pipeline_handler::Flavour::Selected,
         );
         let selected_tube_pipeline_handler = PipelineHandler::new(
-            device,
+            device.clone(),
+            queue.clone(),
             selected_tube_mesh,
-            Vec::new(),
-            Vec::new(),
             camera,
             projection,
             PrimitiveTopology::TriangleStrip,

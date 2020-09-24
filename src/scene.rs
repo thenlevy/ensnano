@@ -29,6 +29,8 @@ type ViewPtr = Rc<RefCell<View>>;
 
 /// A structure responsible of the 3D display of the designs
 pub struct Scene {
+    device: Rc<Device>,
+    queue: Rc<Queue>,
     /// The designs to be displayed
     designs: Vec<Design>,
     /// The update to be performed before next frame
@@ -49,14 +51,18 @@ impl Scene {
     ///
     /// * `device` a reference to a `Device` object. This can be seen as a socket to the GPU
     ///
+    /// * `queue` the command queue of `device`.
+    ///
     /// * `window_size` the *Physical* size of the window in which the application is displayed
     ///
     /// * `area` the limits, in *physical* size of the area on which the scene is displayed
-    pub fn new(device: &Device, window_size: PhySize, area: DrawArea) -> Self {
+    pub fn new(device: Rc<Device>, queue: Rc<Queue>, window_size: PhySize, area: DrawArea) -> Self {
         let update = SceneUpdate::new();
-        let view = Rc::new(RefCell::new(View::new(window_size, area.size, device)));
+        let view = Rc::new(RefCell::new(View::new(window_size, area.size, device.clone(), queue.clone())));
         let controller = Controller::new(view.clone(), window_size, area.size);
         Self {
+            device,
+            queue,
             view,
             designs: Vec::new(),
             update,
@@ -82,8 +88,6 @@ impl Scene {
     pub fn input(
         &mut self,
         event: &WindowEvent,
-        device: &Device,
-        queue: &mut wgpu::Queue,
         cursor_position: PhysicalPosition<f64>,
     ) {
         let camera_can_move = self.selected_design.is_none();
@@ -93,7 +97,7 @@ impl Scene {
         match consequence {
             Consequence::Nothing => (),
             Consequence::CameraMoved => self.notify(SceneNotification::CameraMoved),
-            Consequence::PixelSelected(clicked) => self.click_on(clicked, device, queue),
+            Consequence::PixelSelected(clicked) => self.click_on(clicked),
             Consequence::Translation(x, y, z) => {
                 self.translate_selected_design(x, y, z);
             }
@@ -125,10 +129,8 @@ impl Scene {
     fn click_on(
         &mut self,
         clicked_pixel: PhysicalPosition<f64>,
-        device: &Device,
-        queue: &mut Queue,
     ) {
-        let (selected_id, design_id) = self.set_selected_id(clicked_pixel, device, queue);
+        let (selected_id, design_id) = self.set_selected_id(clicked_pixel);
         if selected_id != 0xFFFFFF {
             self.selected_id = Some(selected_id);
             self.selected_design = Some(design_id);
@@ -149,8 +151,6 @@ impl Scene {
     fn set_selected_id(
         &mut self,
         clicked_pixel: PhysicalPosition<f64>,
-        device: &Device,
-        queue: &mut wgpu::Queue,
     ) -> (u32, u32) {
         let size = wgpu::Extent3d {
             width: self.controller.get_window_size().width,
@@ -158,19 +158,19 @@ impl Scene {
             depth: 1,
         };
 
-        let (texture, texture_view) = self.create_fake_scene_texture(device, size);
+        let (texture, texture_view) = self.create_fake_scene_texture(self.device.as_ref(), size);
 
         let mut encoder =
-            device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+            self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
 
         self.view
             .borrow_mut()
-            .draw(&mut encoder, &texture_view, device, true, queue, self.area);
+            .draw(&mut encoder, &texture_view, true, self.area);
 
         // create a buffer and fill it with the texture
         let buffer_dimensions = BufferDimensions::new(size.width as usize, size.height as usize);
         let buf_size = buffer_dimensions.padded_bytes_per_row * buffer_dimensions.height;
-        let staging_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+        let staging_buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
             size: buf_size as u64,
             usage: wgpu::BufferUsage::MAP_READ | wgpu::BufferUsage::COPY_DST,
             mapped_at_creation: false,
@@ -190,7 +190,7 @@ impl Scene {
             origin: wgpu::Origin3d::ZERO,
         };
         encoder.copy_texture_to_buffer(texture_copy_view, buffer_copy_view, size);
-        queue.submit(Some(encoder.finish()));
+        self.queue.submit(Some(encoder.finish()));
 
         // recover the desired pixel
         let pixel = (self.area.position.y as usize + clicked_pixel.y as usize)
@@ -200,7 +200,7 @@ impl Scene {
 
         let buffer_slice = staging_buffer.slice(..);
         let buffer_future = buffer_slice.map_async(wgpu::MapMode::Read);
-        device.poll(wgpu::Maintain::Wait);
+        self.device.poll(wgpu::Maintain::Wait);
 
         let future_color = async {
             if let Ok(()) = buffer_future.await {
@@ -309,7 +309,7 @@ impl Scene {
         }
         self.view
             .borrow_mut()
-            .draw(encoder, target, device, fake_color, queue, self.area);
+            .draw(encoder, target, fake_color, self.area);
     }
 
     fn perform_update(&mut self, dt: Duration) {
