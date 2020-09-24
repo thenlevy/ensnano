@@ -47,6 +47,7 @@ pub enum Consequence {
     Rotation(f64, f64),
     Swing(f64, f64),
     Nothing,
+    CursorMoved(PhysicalPosition<f64>),
 }
 
 impl Controller {
@@ -197,7 +198,7 @@ impl Controller {
                     let mouse_dy = (position.y - clicked_position.y) / self.area_size.height as f64;
                     Consequence::Swing(mouse_dx, mouse_dy)
                 } else {
-                    Consequence::Nothing
+                    Consequence::CursorMoved(position)
                 }
             }
             _ => Consequence::Nothing,

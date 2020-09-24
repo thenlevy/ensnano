@@ -91,9 +91,22 @@ impl Design {
         self.view.borrow().get_selected_tubes().clone()
     }
 
+    pub fn candidate_spheres(&self) -> Rc<Vec<Instance>> {
+        self.view.borrow().get_candidate_spheres().clone()
+    }
+
+    pub fn candidate_tubes(&self) -> Rc<Vec<Instance>> {
+        self.view.borrow().get_candidate_tubes().clone()
+    }
+
     /// Select the item with identifier id in self.
     pub fn update_selection(&mut self, id: Option<u32>) {
         self.data.borrow_mut().update_selection(id);
+    }
+
+    /// Check the item with identifier id in self.
+    pub fn update_candidate(&mut self, id: Option<u32>) {
+        self.data.borrow_mut().update_candidate(id);
     }
 
     /// Translate the representation of self

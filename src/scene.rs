@@ -37,12 +37,15 @@ pub struct Scene {
     update: SceneUpdate,
     selected_id: Option<u32>,
     selected_design: Option<u32>,
+    checked_id: Option<u32>,
+    checked_design: Option<u32>,
     /// The Object that handles communication with the gpu
     view: ViewPtr,
     /// The Object that handles input and notifications
     controller: Controller,
     /// The limits of the area on which the scene is displayed
     area: DrawArea,
+    pixel_to_check: Option<PhysicalPosition<f64>>
 }
 
 impl Scene {
@@ -68,8 +71,11 @@ impl Scene {
             update,
             selected_id: None,
             selected_design: None,
+            checked_id: None,
+            checked_design: None,
             controller,
             area,
+            pixel_to_check: None,
         }
     }
 
@@ -123,6 +129,9 @@ impl Scene {
                     self.notify(SceneNotification::CameraMoved);
                 }
             }
+            Consequence::CursorMoved(clicked) => {
+                self.pixel_to_check = Some(clicked)
+            }
         };
     }
 
@@ -134,17 +143,65 @@ impl Scene {
         if selected_id != 0xFFFFFF {
             self.selected_id = Some(selected_id);
             self.selected_design = Some(design_id);
-            for i in 0..self.designs.len() {
-                let arg = if i == design_id as usize {
-                    Some(selected_id)
-                } else {
-                    None
-                };
-                self.designs[i].update_selection(arg);
-            }
         } else {
             self.selected_id = None;
             self.selected_design = None;
+        }
+        self.update_selection();
+    }
+
+    fn check_on(
+        &mut self,
+        clicked_pixel: PhysicalPosition<f64>,
+    ) {
+        let (checked_id, design_id) = self.set_selected_id(clicked_pixel);
+        if checked_id != 0xFFFFFF {
+            self.checked_id = Some(checked_id);
+            self.checked_design = Some(design_id);
+        } else {
+            self.checked_id = None;
+            self.checked_design = None;
+        }
+        self.update_check();
+    }
+
+    fn update_selection(&mut self) {
+        let design_id = if let Some(id) = self.selected_design {
+            id
+        } else {
+            self.designs.len() as u32
+        };
+        let selected_id = self.selected_id.unwrap_or(0);
+
+        for i in 0..self.designs.len() {
+            let arg = if i == design_id as usize {
+                Some(selected_id)
+            } else {
+                None
+            };
+            self.designs[i].update_selection(arg);
+        }
+    }
+
+    fn update_check(&mut self) {
+        if self.checked_id == self.selected_id && self.checked_design == self.selected_design {
+            self.checked_id = None;
+            self.checked_design = None;
+        }
+        let checked_design = if let Some(id) = self.checked_design {
+            id
+        } else {
+            self.designs.len() as u32
+        };
+        let checked_id = self.checked_id.unwrap_or(0);
+
+        for i in 0..self.designs.len() {
+            let arg = if i == checked_design as usize {
+                Some(checked_id)
+            } else {
+                None
+            };
+            self.designs[i].update_candidate(arg);
         }
     }
 
@@ -168,7 +225,12 @@ impl Scene {
             .draw(&mut encoder, &texture_view, true, self.area);
 
         // create a buffer and fill it with the texture
-        let buffer_dimensions = BufferDimensions::new(size.width as usize, size.height as usize);
+        let extent = wgpu::Extent3d {
+            width: 1,
+            height: 1,
+            depth: 1,
+        };
+        let buffer_dimensions = BufferDimensions::new(extent.width as usize, extent.height as usize);
         let buf_size = buffer_dimensions.padded_bytes_per_row * buffer_dimensions.height;
         let staging_buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
             size: buf_size as u64,
@@ -184,19 +246,21 @@ impl Scene {
                 rows_per_image: 0,
             },
         };
+        let origin = wgpu::Origin3d {
+           x: clicked_pixel.cast::<u32>().x, 
+           y: clicked_pixel.cast::<u32>().y + self.area.position.y, 
+           z: 0,
+        };
         let texture_copy_view = wgpu::TextureCopyView {
             texture: &texture,
             mip_level: 0,
-            origin: wgpu::Origin3d::ZERO,
+            origin,
         };
-        encoder.copy_texture_to_buffer(texture_copy_view, buffer_copy_view, size);
+
+        encoder.copy_texture_to_buffer(texture_copy_view, buffer_copy_view, extent);
         self.queue.submit(Some(encoder.finish()));
 
-        // recover the desired pixel
-        let pixel = (self.area.position.y as usize + clicked_pixel.y as usize)
-            * buffer_dimensions.padded_bytes_per_row
-            + (self.area.position.x as usize + clicked_pixel.x as usize)
-                * std::mem::size_of::<u32>();
+        let pixel = 0;
 
         let buffer_slice = staging_buffer.slice(..);
         let buffer_future = buffer_slice.map_async(wgpu::MapMode::Read);
@@ -299,6 +363,9 @@ impl Scene {
         fake_color: bool,
         queue: &Queue,
     ) {
+        if let Some(pixel) = self.pixel_to_check.take() {
+            self.check_on(pixel)
+        }
         if self.controller.camera_is_moving() {
             self.notify(SceneNotification::CameraMoved);
         }
@@ -322,12 +389,22 @@ impl Scene {
         if let Some(sphere) = self.update.selected_sphere.take() {
             self.view
                 .borrow_mut()
-                .update(ViewUpdate::SelectedSpheres(vec![sphere]))
+                .update(ViewUpdate::SelectedSpheres(sphere))
         }
         if let Some(tubes) = self.update.selected_tube.take() {
             self.view
                 .borrow_mut()
                 .update(ViewUpdate::SelectedTubes(tubes))
+        }
+        if let Some(sphere) = self.update.candidate_spheres.take() {
+            self.view
+                .borrow_mut()
+                .update(ViewUpdate::CandidateSpheres(sphere))
+        }
+        if let Some(tubes) = self.update.candidate_tubes.take() {
+            self.view
+                .borrow_mut()
+                .update(ViewUpdate::CandidateTubes(tubes))
         }
         if let Some(matrices) = self.update.model_matrices.take() {
             self.view
@@ -354,6 +431,8 @@ impl Scene {
             let mut tube_instances = vec![];
             let mut selected_sphere_instances = vec![];
             let mut selected_tube_instances = vec![];
+            let mut candidate_sphere_instances = vec![];
+            let mut candidate_tube_instances = vec![];
             for d in self.designs.iter() {
                 for s in d.spheres().iter() {
                     sphere_instances.push(*s);
@@ -367,19 +446,19 @@ impl Scene {
                 for t in d.selected_tubes().iter() {
                     selected_tube_instances.push(*t);
                 }
+                for s in d.candidate_spheres().iter() {
+                    candidate_sphere_instances.push(*s);
+                }
+                for t in d.candidate_tubes().iter() {
+                    candidate_tube_instances.push(*t);
+                }
             }
             self.update.sphere_instances = Some(sphere_instances);
             self.update.tube_instances = Some(tube_instances);
-            self.update.selected_tube = if selected_tube_instances.len() > 0 {
-                Some(selected_tube_instances)
-            } else {
-                None
-            };
-            self.update.selected_sphere = if selected_sphere_instances.len() > 0 {
-                Some(selected_sphere_instances[0])
-            } else {
-                None
-            };
+            self.update.selected_tube = Some(selected_tube_instances);
+            self.update.selected_sphere = Some(selected_sphere_instances);
+            self.update.candidate_tubes = Some(candidate_tube_instances);
+            self.update.candidate_spheres = Some(candidate_sphere_instances);
         }
         self.update.need_update |= need_update;
     }
@@ -415,7 +494,9 @@ pub struct SceneUpdate {
     pub fake_tube_instances: Option<Vec<Instance>>,
     pub fake_sphere_instances: Option<Vec<Instance>>,
     pub selected_tube: Option<Vec<Instance>>,
-    pub selected_sphere: Option<Instance>,
+    pub selected_sphere: Option<Vec<Instance>>,
+    pub candidate_spheres: Option<Vec<Instance>>,
+    pub candidate_tubes: Option<Vec<Instance>>,
     pub model_matrices: Option<Vec<Mat4>>,
     pub need_update: bool,
     pub camera_update: bool,
@@ -430,6 +511,8 @@ impl SceneUpdate {
             fake_sphere_instances: None,
             selected_tube: None,
             selected_sphere: None,
+            candidate_spheres: None,
+            candidate_tubes: None,
             need_update: false,
             camera_update: false,
             model_matrices: None,

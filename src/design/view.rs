@@ -10,6 +10,8 @@ pub struct View {
     pub model_matrix: Mat4,
     selected_tubes: Rc<Vec<Instance>>,
     selected_spheres: Rc<Vec<Instance>>,
+    candidate_tubes: Rc<Vec<Instance>>,
+    candidate_spheres: Rc<Vec<Instance>>,
     /// True if there are new instances to be fetched
     was_updated: bool,
     /// The identifier of the design. Used for fake color drawing
@@ -24,6 +26,8 @@ impl View {
             model_matrix: Mat4::identity(),
             selected_spheres: Rc::new(Vec::new()),
             selected_tubes: Rc::new(Vec::new()),
+            candidate_spheres: Rc::new(Vec::new()),
+            candidate_tubes: Rc::new(Vec::new()),
             was_updated: true,
             id,
         }
@@ -68,7 +72,25 @@ impl View {
                 })
                 .collect(),
         );
-        self.selected_tubes = Rc::new(Vec::new());
+    }
+
+    /// Update the instances of candidate spheres, given the list of their center.
+    pub fn update_candidate_spheres(&mut self, positions: &Vec<[f32; 3]>) {
+        self.candidate_spheres = Rc::new(
+            positions
+                .iter()
+                .map(|v| Instance {
+                    position: Vec3 {
+                        x: v[0],
+                        y: v[1],
+                        z: v[2],
+                    },
+                    rotor: Rotor3::identity(),
+                    color: Vec3::zero(),
+                    id: self.id << 24,
+                })
+                .collect(),
+        );
     }
 
     /// Update the list of tubes given the list of tubes of the form
@@ -119,7 +141,30 @@ impl View {
                 .flatten()
                 .collect(),
         );
-        self.selected_spheres = Rc::new(Vec::new());
+    }
+
+    /// update the list of candidate tubes given the list of tube of the form
+    /// `(a, b)` where `a` and `b` are the center of the sphere joined by the tubes
+    pub fn update_candidate_tubes(&mut self, pairs: &Vec<([f32; 3], [f32; 3])>) {
+        self.candidate_tubes = Rc::new(
+            pairs
+                .iter()
+                .map(|(a, b)| {
+                    let position_a = Vec3 {
+                        x: a[0],
+                        y: a[1],
+                        z: a[2],
+                    };
+                    let position_b = Vec3 {
+                        x: b[0],
+                        y: b[1],
+                        z: b[2],
+                    };
+                    create_bound(position_a, position_b, 0, self.id << 24)
+                })
+                .flatten()
+                .collect(),
+        );
     }
 
     /// Return true if the view was updated since the last time this function was called
@@ -155,6 +200,14 @@ impl View {
     /// Return the instances of selected tubes
     pub fn get_selected_tubes(&self) -> Rc<Vec<Instance>> {
         self.selected_tubes.clone()
+    }
+
+    pub fn get_candidate_spheres(&self) -> Rc<Vec<Instance>> {
+        self.candidate_spheres.clone()
+    }
+
+    pub fn get_candidate_tubes(&self) -> Rc<Vec<Instance>> {
+        self.candidate_tubes.clone()
     }
 
     /// Return the model matrix

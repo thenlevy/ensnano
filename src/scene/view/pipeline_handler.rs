@@ -62,6 +62,8 @@ pub enum Flavour {
     Fake,
     /// For drawing the selection effect
     Selected,
+    /// For drawing the "under the cursor" effect
+    Candidate,
 }
 
 impl PipelineHandler {
@@ -97,6 +99,7 @@ impl PipelineHandler {
             Flavour::Real => device.create_shader_module(include_spirv!("frag.spv")),
             Flavour::Fake => device.create_shader_module(include_spirv!("fake_color.spv")),
             Flavour::Selected => device.create_shader_module(include_spirv!("selected_frag.spv")),
+            Flavour::Candidate => device.create_shader_module(include_spirv!("candidate.spv")),
         };
 
         Self {

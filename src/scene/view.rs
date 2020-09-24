@@ -187,6 +187,10 @@ pub enum ViewUpdate {
     SelectedSpheres(Vec<Instance>),
     /// The set of selected tubes has been modified
     SelectedTubes(Vec<Instance>),
+    /// The set of candidate spheres has been modified
+    CandidateSpheres(Vec<Instance>),
+    /// The set of candidate tubes has been modified
+    CandidateTubes(Vec<Instance>),
     /// The size of the drawing area has been modified
     Size(PhySize),
     /// The set of model matrices has been modified
@@ -200,6 +204,8 @@ struct PipelineHandlers {
     fake_sphere: PipelineHandler,
     selected_sphere: PipelineHandler,
     selected_tube: PipelineHandler,
+    candidate_sphere: PipelineHandler,
+    candidate_tube: PipelineHandler,
 }
 
 impl PipelineHandlers {
@@ -210,6 +216,8 @@ impl PipelineHandlers {
         let fake_tube_mesh = mesh::Mesh::tube(device.as_ref(), false);
         let selected_sphere_mesh = mesh::Mesh::sphere(device.as_ref(), true);
         let selected_tube_mesh = mesh::Mesh::tube(device.as_ref(), true);
+        let candidate_sphere_mesh = mesh::Mesh::sphere(device.as_ref(), true);
+        let candidate_tube_mesh = mesh::Mesh::tube(device.as_ref(), true);
 
         let sphere_pipeline_handler = PipelineHandler::new(
             device.clone(),
@@ -265,6 +273,24 @@ impl PipelineHandlers {
             PrimitiveTopology::TriangleStrip,
             pipeline_handler::Flavour::Selected,
         );
+        let candidate_sphere = PipelineHandler::new(
+            device.clone(),
+            queue.clone(),
+            candidate_sphere_mesh,
+            camera,
+            projection,
+            PrimitiveTopology::TriangleStrip,
+            pipeline_handler::Flavour::Candidate,
+        );
+        let candidate_tube = PipelineHandler::new(
+            device.clone(),
+            queue.clone(),
+            candidate_tube_mesh,
+            camera,
+            projection,
+            PrimitiveTopology::TriangleStrip,
+            pipeline_handler::Flavour::Candidate,
+        );
 
         Self {
             sphere: sphere_pipeline_handler,
@@ -273,6 +299,8 @@ impl PipelineHandlers {
             fake_tube: fake_tube_pipeline_handler,
             selected_sphere: selected_sphere_pipeline_handler,
             selected_tube: selected_tube_pipeline_handler,
+            candidate_sphere,
+            candidate_tube,
         }
     }
 
@@ -284,6 +312,8 @@ impl PipelineHandlers {
             &mut self.fake_tube,
             &mut self.selected_tube,
             &mut self.selected_sphere,
+            &mut self.candidate_tube,
+            &mut self.candidate_sphere,
         ]
     }
 
@@ -293,6 +323,8 @@ impl PipelineHandlers {
             &mut self.tube,
             &mut self.selected_sphere,
             &mut self.selected_tube,
+            &mut self.candidate_tube,
+            &mut self.candidate_sphere,
         ]
     }
 
@@ -313,11 +345,9 @@ impl PipelineHandlers {
                 self.fake_tube.new_instances(instances);
             }
             ViewUpdate::SelectedTubes(instances) => {
-                self.selected_sphere.new_instances(Rc::new(Vec::new()));
                 self.selected_tube.new_instances(Rc::new(instances));
             }
             ViewUpdate::SelectedSpheres(instances) => {
-                self.selected_tube.new_instances(Rc::new(Vec::new()));
                 self.selected_sphere.new_instances(Rc::new(instances));
             }
             ViewUpdate::ModelMatrices(matrices) => {
@@ -325,6 +355,12 @@ impl PipelineHandlers {
                 for pipeline in self.all().iter_mut() {
                     pipeline.new_model_matrices(matrices.clone());
                 }
+            }
+            ViewUpdate::CandidateSpheres(instances) => {
+                self.candidate_sphere.new_instances(Rc::new(instances));
+            }
+            ViewUpdate::CandidateTubes(instances) => {
+                self.candidate_tube.new_instances(Rc::new(instances));
             }
             ViewUpdate::Camera | ViewUpdate::Size(_) => {
                 unreachable!();
