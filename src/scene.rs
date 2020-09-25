@@ -21,26 +21,25 @@ use view::{View, ViewUpdate};
 /// Handling of inputs and notifications
 mod controller;
 use controller::{Consequence, Controller};
+mod data;
+use data::Data;
 pub use controller::ClickMode;
 use design::Design;
 use std::path::PathBuf;
 
 type ViewPtr = Rc<RefCell<View>>;
+type DataPtr = Rc<RefCell<Data>>;
 
 /// A structure responsible of the 3D display of the designs
 pub struct Scene {
     device: Rc<Device>,
     queue: Rc<Queue>,
-    /// The designs to be displayed
-    designs: Vec<Design>,
     /// The update to be performed before next frame
     update: SceneUpdate,
-    selected_id: Option<u32>,
-    selected_design: Option<u32>,
-    checked_id: Option<u32>,
-    checked_design: Option<u32>,
-    /// The Object that handles communication with the gpu
+    /// The Object that handles the drawing to the 3d texture
     view: ViewPtr,
+    /// The Object thant handles the designs data
+    data: DataPtr,
     /// The Object that handles input and notifications
     controller: Controller,
     /// The limits of the area on which the scene is displayed
@@ -62,17 +61,14 @@ impl Scene {
     pub fn new(device: Rc<Device>, queue: Rc<Queue>, window_size: PhySize, area: DrawArea) -> Self {
         let update = SceneUpdate::new();
         let view = Rc::new(RefCell::new(View::new(window_size, area.size, device.clone(), queue.clone())));
+        let data = Rc::new(RefCell::new(Data::new(view)));
         let controller = Controller::new(view.clone(), window_size, area.size);
         Self {
             device,
             queue,
             view,
-            designs: Vec::new(),
+            data,
             update,
-            selected_id: None,
-            selected_design: None,
-            checked_id: None,
-            checked_design: None,
             controller,
             area,
             pixel_to_check: None,
@@ -81,13 +77,17 @@ impl Scene {
 
     /// Add a design to be rendered.
     pub fn add_design(&mut self, path: &PathBuf) {
-        self.designs
-            .push(Design::new_with_path(path, self.designs.len() as u32))
+        self.data.borrow_mut().add_design(path)
     }
 
-    /// Remove all designs and replace by a new one.
-    pub fn clear_design(&mut self, path: &PathBuf) {
-        self.designs = vec![Design::new_with_path(path, 0)]
+    /// Remove all designs
+    pub fn clear_design(&mut self) {
+        self.data.borrow_mut().clear_designs()
+    }
+
+    /// Return the list of designs selected
+    fn get_selected_designs(&self) -> Vec<u32> {
+        self.data.borrow().get_selected_designs()
     }
 
     /// Input an event to the scene. Return true, if the selected object of the scene has changed
@@ -96,7 +96,7 @@ impl Scene {
         event: &WindowEvent,
         cursor_position: PhysicalPosition<f64>,
     ) {
-        let camera_can_move = self.selected_design.is_none();
+        let camera_can_move = self.get_selected_designs().len() == 0;
         let consequence = self
             .controller
             .input(event, cursor_position, camera_can_move);

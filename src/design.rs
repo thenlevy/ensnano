@@ -1,15 +1,14 @@
 use std::cell::RefCell;
 use std::path::PathBuf;
 use std::rc::Rc;
-use ultraviolet::{Mat4, Rotor3, Vec3};
-
-use crate::utils::instance::Instance;
+use ultraviolet::{Mat4, Vec3};
 
 mod controller;
 mod data;
 mod view;
 use controller::Controller;
 use data::Data;
+pub use data::{ObjectType, Nucl};
 use view::View;
 
 pub struct Design {
@@ -21,8 +20,8 @@ pub struct Design {
 
 impl Design {
     #[allow(dead_code)]
-    pub fn new(id: u32) -> Self {
-        let view = Rc::new(RefCell::new(View::new(id)));
+    pub fn new() -> Self {
+        let view = Rc::new(RefCell::new(View::new()));
         let data = Rc::new(RefCell::new(Data::new(&view)));
         let controller = Controller::new(view.clone(), data.clone());
         Self {
@@ -33,8 +32,8 @@ impl Design {
     }
 
     /// Create a new design by reading a file. At the moment only codenano format is supported
-    pub fn new_with_path(path: &PathBuf, id: u32) -> Self {
-        let view = Rc::new(RefCell::new(View::new(id)));
+    pub fn new_with_path(path: &PathBuf) -> Self {
+        let view = Rc::new(RefCell::new(View::new()));
         let data = Rc::new(RefCell::new(Data::new_with_path(&view, path)));
         let controller = Controller::new(view.clone(), data.clone());
         Self {
@@ -54,59 +53,10 @@ impl Design {
         self.view.borrow_mut().was_updated()
     }
 
-    /// Return a postion and orientation for a camera that would allow the design to fit in the
-    /// scene
-    pub fn fit(&self, ratio: f32, fovy: f32) -> (Vec3, Rotor3) {
-        self.data.borrow().fit_design(ratio, fovy)
-    }
-
-    /// Return the list of sphere instances to be displayed to represent the design
-    pub fn spheres(&self) -> Rc<Vec<Instance>> {
-        self.view.borrow().get_spheres().clone()
-    }
-
-    /// Return the list of tube instances to be displayed to represent the design
-    pub fn tubes(&self) -> Rc<Vec<Instance>> {
-        self.view.borrow().get_tubes().clone()
-    }
 
     /// Return the model matrix used to display the design
-    pub fn model_matrix(&self) -> Mat4 {
+    pub fn get_model_matrix(&self) -> Mat4 {
         self.view.borrow().get_model_matrix()
-    }
-
-    /// Return the point in the middle of the representation of the design (in the world
-    /// coordinates)
-    pub fn middle_point(&self) -> Vec3 {
-        self.data.borrow().middle_point()
-    }
-
-    /// Return the list of instances of selected spheres.
-    pub fn selected_spheres(&self) -> Rc<Vec<Instance>> {
-        self.view.borrow().get_selected_spheres().clone()
-    }
-
-    /// Return the list of instances of selected tubes.
-    pub fn selected_tubes(&self) -> Rc<Vec<Instance>> {
-        self.view.borrow().get_selected_tubes().clone()
-    }
-
-    pub fn candidate_spheres(&self) -> Rc<Vec<Instance>> {
-        self.view.borrow().get_candidate_spheres().clone()
-    }
-
-    pub fn candidate_tubes(&self) -> Rc<Vec<Instance>> {
-        self.view.borrow().get_candidate_tubes().clone()
-    }
-
-    /// Select the item with identifier id in self.
-    pub fn update_selection(&mut self, id: Option<u32>) {
-        self.data.borrow_mut().update_selection(id);
-    }
-
-    /// Check the item with identifier id in self.
-    pub fn update_candidate(&mut self, id: Option<u32>) {
-        self.data.borrow_mut().update_candidate(id);
     }
 
     /// Translate the representation of self
@@ -131,4 +81,33 @@ impl Design {
             .get_element_position(id)
             .map(|x| self.view.borrow().model_matrix.transform_point3(x))
     }
+
+    pub fn get_object_type(&self, id: u32) -> Option<ObjectType> {
+        self.data.borrow().get_object_type(id)
+    }
+
+    pub fn get_nucl_involved(&self, id: u32) -> Option<(u32, u32)> {
+        self.data.borrow().get_nucl_involved(id)
+    }
+
+    pub fn get_color(&self, id: u32) -> Option<u32> {
+        self.data.borrow().get_color(id)
+    }
+
+    pub fn get_all_nucl_ids(&self) -> Vec<u32> {
+        self.data.borrow().get_all_nucl_ids().collect()
+    }
+
+    pub fn get_all_bound_ids(&self) -> Vec<u32> {
+        self.data.borrow().get_all_bound_ids().collect()
+    }
+
+    pub fn is_nucl(&self, id: u32) -> bool {
+        self.data.borrow().is_nucl(id)
+    }
+
+    pub fn is_bound(&self, id: u32) -> bool {
+        self.data.borrow().is_bound(id)
+    }
+
 }
