@@ -24,10 +24,14 @@ mod consts;
 mod controls;
 /// Design handling 
 mod design;
+use design::Design;
 /// 3D scene drawing
 mod scene;
 /// Separation of the window into drawing regions
 mod multiplexer;
+/// Message passing between applications
+mod mediator;
+use mediator::Mediator;
 mod utils;
 
 //use design_handler::DesignHandler;
@@ -112,10 +116,13 @@ fn main() {
 
     // Initialize the scene
     let scene_area = multiplexer.get_element_area(ElementType::Scene);
-    let mut scene = Scene::new(device.clone(), queue.clone(), window.inner_size(), scene_area);
+    let mediator = Arc::new(Mutex::new(Mediator::new()));
+    let mut scene = Arc::new(Mutex::new(Scene::new(device.clone(), queue.clone(), window.inner_size(), scene_area, mediator.clone())));
+    mediator.lock().unwrap().add_application(scene.clone());
     if let Some(ref path) = path {
-        scene.add_design(path);
-        scene.fit_design();
+        let design = Arc::new(Mutex::new(Design::new_with_path(0, path)));
+        mediator.lock().unwrap().add_design(design);
+        scene.lock().unwrap().fit_design();
     }
 
     // Initialize the UI
@@ -172,7 +179,7 @@ fn main() {
                             }
                             ElementType::Scene => {
                                 let cursor_position = multiplexer.get_cursor_position();
-                                scene.input(&event, cursor_position);
+                                scene.lock().unwrap().input(&event, cursor_position);
                             }
                             _ => unreachable!()
                         }
@@ -201,7 +208,7 @@ fn main() {
                             fitting_request.lock().expect("fitting_request");
                         if *fitting_request_lock {
                             //design_handler.fit_design(&mut scene);
-                            scene.fit_design();
+                            scene.lock().unwrap().fit_design();
                             *fitting_request_lock = false;
                         }
                     }
@@ -211,7 +218,9 @@ fn main() {
                         if let Some(ref path) = *file_add_request_lock {
                             //design_handler.get_design(path);
                             //design_handler.update_scene(&mut scene, true);
-                            scene.add_design(path);
+                            let d_id = mediator.lock().unwrap().nb_design();
+                            let design = Arc::new(Mutex::new(Design::new_with_path(d_id, path)));
+                            mediator.lock().unwrap().add_design(design);
                             *file_add_request_lock = None;
                         }
                     }
@@ -221,7 +230,7 @@ fn main() {
                         if let Some(ref path) = *file_replace_request_lock {
                             //design_handler.get_design(path);
                             //design_handler.update_scene(&mut scene, true);
-                            scene.clear_design(path);
+                            mediator.lock().unwrap().clear_designs();
                             *file_replace_request_lock = None;
                         }
                     }
@@ -238,7 +247,7 @@ fn main() {
                 if resized {
                     let window_size = window.inner_size();
                     let scene_area = multiplexer.get_element_area(ElementType::Scene);
-                    scene.notify(SceneNotification::NewSize(window_size, scene_area));
+                    scene.lock().unwrap().notify(SceneNotification::NewSize(window_size, scene_area));
 
                     swap_chain = device.create_swap_chain(
                         &surface,
@@ -277,7 +286,8 @@ fn main() {
                 let dt = now - last_render_time;
                 last_render_time = now;
                 //scene.draw(&mut encoder, &frame.output.view, &device, dt, false);
-                scene.draw_view(&mut encoder, &frame.output.view, &device, dt, false, &queue);
+                mediator.lock().unwrap().observe_designs();
+                scene.lock().unwrap().draw_view(&mut encoder, &frame.output.view, &device, dt, false, &queue);
 
                 let viewport = Viewport::with_physical_size(
                     convert_size_u32(multiplexer.window_size),

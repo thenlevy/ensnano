@@ -4,12 +4,14 @@ use iced_winit::winit;
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::time::Duration;
+use std::sync::{Arc, Mutex};
 use ultraviolet::{Mat4, Rotor3, Vec3};
 
-use crate::{design, utils};
+use crate::{design, utils, mediator};
 use crate::{DrawArea, PhySize, WindowEvent};
 use utils::{instance, BufferDimensions};
 use instance::Instance;
+use mediator::{MediatorPtr, Application, Notification, AppNotification};
 use wgpu::{Device, Queue};
 use winit::dpi::PhysicalPosition;
 
@@ -24,7 +26,7 @@ use controller::{Consequence, Controller};
 mod data;
 use data::Data;
 pub use controller::ClickMode;
-use design::Design;
+use design::{Design, DesignRotation, DesignTranslation, DesignNotification, DesignNotificationContent};
 use std::path::PathBuf;
 
 type ViewPtr = Rc<RefCell<View>>;
@@ -44,7 +46,8 @@ pub struct Scene {
     controller: Controller,
     /// The limits of the area on which the scene is displayed
     area: DrawArea,
-    pixel_to_check: Option<PhysicalPosition<f64>>
+    pixel_to_check: Option<PhysicalPosition<f64>>,
+    mediator: MediatorPtr,
 }
 
 impl Scene {
@@ -58,10 +61,10 @@ impl Scene {
     /// * `window_size` the *Physical* size of the window in which the application is displayed
     ///
     /// * `area` the limits, in *physical* size of the area on which the scene is displayed
-    pub fn new(device: Rc<Device>, queue: Rc<Queue>, window_size: PhySize, area: DrawArea) -> Self {
+    pub fn new(device: Rc<Device>, queue: Rc<Queue>, window_size: PhySize, area: DrawArea, mediator: MediatorPtr) -> Self {
         let update = SceneUpdate::new();
         let view = Rc::new(RefCell::new(View::new(window_size, area.size, device.clone(), queue.clone())));
-        let data = Rc::new(RefCell::new(Data::new(view)));
+        let data = Rc::new(RefCell::new(Data::new(view.clone())));
         let controller = Controller::new(view.clone(), window_size, area.size);
         Self {
             device,
@@ -72,12 +75,13 @@ impl Scene {
             controller,
             area,
             pixel_to_check: None,
+            mediator,
         }
     }
 
     /// Add a design to be rendered.
-    pub fn add_design(&mut self, path: &PathBuf) {
-        self.data.borrow_mut().add_design(path)
+    pub fn add_design(&mut self, design: Arc<Mutex<Design>>) {
+        self.data.borrow_mut().add_design(design)
     }
 
     /// Remove all designs
@@ -108,22 +112,22 @@ impl Scene {
                 self.translate_selected_design(x, y, z);
             }
             Consequence::MovementEnded => {
-                for d in self.designs.iter_mut() {
-                    d.reset_movement();
-                }
+                self.mediator.lock().unwrap().notify_all_designs(AppNotification::MovementEnded);
             }
             Consequence::Rotation(x, y) => {
-                let cam_right = self.view.borrow().right_vec();
-                let cam_up = self.view.borrow().up_vec();
-                let origin = self.get_selected_position().unwrap();
-                self.designs[self.selected_design.unwrap() as usize]
-                    .rotate(x, y, cam_right, cam_up, origin);
+                let rotation = DesignRotation {
+                    origin: self.get_selected_position().unwrap(),
+                    up_vec: self.view.borrow().up_vec(),
+                    right_vec: self.view.borrow().right_vec(),
+                    angle_xz: x as f32 * std::f32::consts::PI,
+                    angle_yz: y as f32 * std::f32::consts::PI,
+                };
+                self.mediator.lock().unwrap().notify_designs(&self.data.borrow().get_selected_designs(), AppNotification::Rotation(&rotation))
             }
             Consequence::Swing(x, y) => {
-                if let Some(id) = self.selected_id {
-                    let pivot = self.designs[self.selected_design.unwrap() as usize]
-                        .get_element_position(id)
-                        .unwrap();
+                let selected = self.data.borrow().get_selected_ids().clone();
+                if let Some((design_id, element_id)) = selected.get(0) {
+                    let pivot = self.data.borrow().get_element_position(*design_id, *element_id);
                     self.controller.set_pivot_point(pivot);
                     self.controller.swing(x, y);
                     self.notify(SceneNotification::CameraMoved);
@@ -141,13 +145,11 @@ impl Scene {
     ) {
         let (selected_id, design_id) = self.set_selected_id(clicked_pixel);
         if selected_id != 0xFFFFFF {
-            self.selected_id = Some(selected_id);
-            self.selected_design = Some(design_id);
+            self.data.borrow_mut().set_selection(design_id, selected_id);
         } else {
-            self.selected_id = None;
-            self.selected_design = None;
+            self.data.borrow_mut().reset_selection();
         }
-        self.update_selection();
+        self.data.borrow_mut().notify_selection_update();
     }
 
     fn check_on(
@@ -156,53 +158,11 @@ impl Scene {
     ) {
         let (checked_id, design_id) = self.set_selected_id(clicked_pixel);
         if checked_id != 0xFFFFFF {
-            self.checked_id = Some(checked_id);
-            self.checked_design = Some(design_id);
+            self.data.borrow_mut().set_candidate(design_id, checked_id);
         } else {
-            self.checked_id = None;
-            self.checked_design = None;
+            self.data.borrow_mut().reset_candidate();
         }
-        self.update_check();
-    }
-
-    fn update_selection(&mut self) {
-        let design_id = if let Some(id) = self.selected_design {
-            id
-        } else {
-            self.designs.len() as u32
-        };
-        let selected_id = self.selected_id.unwrap_or(0);
-
-        for i in 0..self.designs.len() {
-            let arg = if i == design_id as usize {
-                Some(selected_id)
-            } else {
-                None
-            };
-            self.designs[i].update_selection(arg);
-        }
-    }
-
-    fn update_check(&mut self) {
-        if self.checked_id == self.selected_id && self.checked_design == self.selected_design {
-            self.checked_id = None;
-            self.checked_design = None;
-        }
-        let checked_design = if let Some(id) = self.checked_design {
-            id
-        } else {
-            self.designs.len() as u32
-        };
-        let checked_id = self.checked_id.unwrap_or(0);
-
-        for i in 0..self.designs.len() {
-            let arg = if i == checked_design as usize {
-                Some(checked_id)
-            } else {
-                None
-            };
-            self.designs[i].update_candidate(arg);
-        }
+        self.data.borrow_mut().notify_candidate_update();
     }
 
     fn set_selected_id(
@@ -322,25 +282,26 @@ impl Scene {
         let right_vec = width * x as f32 * self.view.borrow().right_vec();
         let up_vec = height * -y as f32 * self.view.borrow().up_vec();
         let forward = z as f32 * self.view.borrow().get_camera_direction();
-        self.designs[self.selected_design.expect("no design selected") as usize]
-            .translate(right_vec, up_vec, forward);
+        let translation = DesignTranslation {
+            right: right_vec,
+            up: up_vec,
+            forward,
+        };
+        self.mediator.lock().unwrap().notify_designs(&self.get_selected_designs(), AppNotification::Translation(&translation));
     }
 
     fn get_selected_position(&self) -> Option<Vec3> {
-        if let Some(d_id) = self.selected_design {
-            self.designs[d_id as usize].get_element_position(self.selected_id.unwrap())
-        } else {
-            None
-        }
+        self.data.borrow().get_selected_position()
     }
 
     /// Adapt the camera, position, orientation and pivot point to a design so that the design fits
     /// the scene, and the pivot point of the camera is the center of the design.
     pub fn fit_design(&mut self) {
-        if self.designs.len() > 0 {
-            let (position, rotor) = self.designs[0].fit(self.get_fovy(), self.get_ratio());
+        let camera = self.data.borrow().get_fitting_camera(self.get_ratio(), self.get_fovy());
+        if let Some((position, rotor)) = camera {
+            let pivot_point = self.data.borrow().get_middle_point(0).clone();
             self.controller
-                .set_pivot_point(self.designs[0].middle_point());
+                .set_pivot_point(pivot_point);
             self.notify(SceneNotification::NewCamera(position, rotor));
         }
     }
@@ -369,48 +330,16 @@ impl Scene {
         if self.controller.camera_is_moving() {
             self.notify(SceneNotification::CameraMoved);
         }
-        self.fetch_data_updates();
-        self.fetch_view_updates();
         if self.update.need_update {
             self.perform_update(dt);
         }
+
         self.view
             .borrow_mut()
             .draw(encoder, target, fake_color, self.area);
     }
 
     fn perform_update(&mut self, dt: Duration) {
-        if let Some(instance) = self.update.sphere_instances.take() {
-            self.view.borrow_mut().update(ViewUpdate::Spheres(instance))
-        }
-        if let Some(instance) = self.update.tube_instances.take() {
-            self.view.borrow_mut().update(ViewUpdate::Tubes(instance))
-        }
-        if let Some(sphere) = self.update.selected_sphere.take() {
-            self.view
-                .borrow_mut()
-                .update(ViewUpdate::SelectedSpheres(sphere))
-        }
-        if let Some(tubes) = self.update.selected_tube.take() {
-            self.view
-                .borrow_mut()
-                .update(ViewUpdate::SelectedTubes(tubes))
-        }
-        if let Some(sphere) = self.update.candidate_spheres.take() {
-            self.view
-                .borrow_mut()
-                .update(ViewUpdate::CandidateSpheres(sphere))
-        }
-        if let Some(tubes) = self.update.candidate_tubes.take() {
-            self.view
-                .borrow_mut()
-                .update(ViewUpdate::CandidateTubes(tubes))
-        }
-        if let Some(matrices) = self.update.model_matrices.take() {
-            self.view
-                .borrow_mut()
-                .update(ViewUpdate::ModelMatrices(matrices))
-        }
 
         if self.update.camera_update {
             self.controller.update_camera(dt);
@@ -420,61 +349,6 @@ impl Scene {
         self.update.need_update = false;
     }
 
-    fn fetch_data_updates(&mut self) {
-        let need_update = self
-            .designs
-            .iter_mut()
-            .fold(false, |acc, design| acc | design.data_was_updated());
-
-        if need_update {
-            let mut sphere_instances = vec![];
-            let mut tube_instances = vec![];
-            let mut selected_sphere_instances = vec![];
-            let mut selected_tube_instances = vec![];
-            let mut candidate_sphere_instances = vec![];
-            let mut candidate_tube_instances = vec![];
-            for d in self.designs.iter() {
-                for s in d.spheres().iter() {
-                    sphere_instances.push(*s);
-                }
-                for t in d.tubes().iter() {
-                    tube_instances.push(*t);
-                }
-                for s in d.selected_spheres().iter() {
-                    selected_sphere_instances.push(*s);
-                }
-                for t in d.selected_tubes().iter() {
-                    selected_tube_instances.push(*t);
-                }
-                for s in d.candidate_spheres().iter() {
-                    candidate_sphere_instances.push(*s);
-                }
-                for t in d.candidate_tubes().iter() {
-                    candidate_tube_instances.push(*t);
-                }
-            }
-            self.update.sphere_instances = Some(sphere_instances);
-            self.update.tube_instances = Some(tube_instances);
-            self.update.selected_tube = Some(selected_tube_instances);
-            self.update.selected_sphere = Some(selected_sphere_instances);
-            self.update.candidate_tubes = Some(candidate_tube_instances);
-            self.update.candidate_spheres = Some(candidate_sphere_instances);
-        }
-        self.update.need_update |= need_update;
-    }
-
-    fn fetch_view_updates(&mut self) {
-        let need_update = self
-            .designs
-            .iter_mut()
-            .fold(false, |acc, design| acc | design.view_was_updated());
-
-        if need_update {
-            let matrices: Vec<_> = self.designs.iter().map(|d| d.model_matrix()).collect();
-            self.update.model_matrices = Some(matrices);
-        }
-        self.update.need_update |= need_update;
-    }
 
     /// Return the vertical field of view of the camera in radians
     pub fn get_fovy(&self) -> f32 {
@@ -555,3 +429,29 @@ impl Scene {
     }
 }
 
+impl Application for Scene {
+    fn on_notify(&mut self, notification: Notification) {
+        match notification {
+            Notification::DesignNotification(notification) => self.handle_design_notification(notification),
+            Notification::AppNotification(_) => (),
+            Notification::NewDesign(design) => {
+                self.add_design(design)
+            }
+            Notification::ClearDesigns => {
+                self.clear_design()
+            }
+        }
+    }
+}
+
+impl Scene {
+    fn handle_design_notification(&mut self, notification: DesignNotification) {
+        let design_id = notification.design_id;
+        match notification.content {
+            DesignNotificationContent::ModelChanged(matrix) => {
+                self.update.need_update = true;
+                self.view.borrow_mut().update_model_matrix(design_id, matrix)
+            }
+        }
+    }
+}

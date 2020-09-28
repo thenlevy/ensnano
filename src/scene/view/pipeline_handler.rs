@@ -131,6 +131,10 @@ impl PipelineHandler {
         self.new_model_matrices = Some(matrices)
     }
 
+    pub fn update_model_matrix(&mut self, design_id: usize, matrix: Mat4) {
+        self.bind_groups.update_model_matrix(design_id, matrix)
+    }
+
     fn update_instances(&mut self) {
         if let Some(ref instances) = self.new_instances.take() {
             self.number_instances = instances.len();
@@ -275,6 +279,13 @@ impl BindGroups {
         matrices: &[M],
     ) {
         self.model_matrices.update(matrices);
+    }
+
+    fn update_model_matrix(&mut self, design_id: usize, matrix: Mat4) {
+        let byte_mat = ByteMat4(matrix);
+        let matrix_bytes = bytemuck::bytes_of(&byte_mat);
+        let offset = design_id * matrix_bytes.len();
+        self.model_matrices.update_offset(offset, matrix_bytes)
     }
 
     fn update_instances<I: bytemuck::Pod>(

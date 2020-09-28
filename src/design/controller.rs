@@ -29,34 +29,50 @@ impl Controller {
         }
     }
 
-    pub fn translate(&mut self, right: Vec3, up: Vec3, forward: Vec3) {
-        self.forward += forward;
+    pub fn translate(&mut self, translation: &DesignTranslation) {
+        self.forward += translation.forward;
         self.view
             .borrow_mut()
-            .set_matrix(self.old_matrix.translated(&(right + up + self.forward)))
+            .set_matrix(self.old_matrix.translated(&(translation.right + translation.up + self.forward)))
     }
 
-    pub fn rotate(&mut self, cam_right: Vec3, cam_up: Vec3, x: f64, y: f64, origin: Vec3) {
-        let angle_yz = y.min(1.).max(-1.) as f32 * FRAC_PI_4;
-        let angle_xz = -(x.min(1.).max(-1.)) as f32 * FRAC_PI_4;
+    pub fn rotate(&mut self, rotation: &DesignRotation) {
+        let angle_yz = rotation.angle_yz;
+        let angle_xz = rotation.angle_xz;
 
-        let plane_xz = ultraviolet::Bivec3::from_normalized_axis(cam_up).normalized();
-        let plane_yz = ultraviolet::Bivec3::from_normalized_axis(cam_right).normalized();
+        let plane_xz = ultraviolet::Bivec3::from_normalized_axis(rotation.up_vec).normalized();
+        let plane_yz = ultraviolet::Bivec3::from_normalized_axis(rotation.right_vec).normalized();
 
-        let rotation = Rotor3::from_angle_plane(angle_yz, plane_yz).normalized()
+        let rotor = Rotor3::from_angle_plane(angle_yz, plane_yz).normalized()
             * Rotor3::from_angle_plane(angle_xz, plane_xz).normalized();
+        
+        let origin = rotation.origin;
 
         let new_matrix = Mat4::from_translation(origin)
-            * rotation.normalized().into_matrix().into_homogeneous()
+            * rotor.normalized().into_matrix().into_homogeneous()
             * Mat4::from_translation(-origin)
             * self.old_matrix;
 
         self.view.borrow_mut().set_matrix(new_matrix);
     }
 
-    /// Reset the movement computed by self
-    pub fn reset_movement(&mut self) {
+    /// Terminate the movement computed by self
+    pub fn terminate_movement(&mut self) {
         self.old_matrix = self.view.borrow().model_matrix;
         self.forward = Vec3::zero();
     }
+}
+
+pub struct DesignRotation {
+    pub origin: Vec3,
+    pub up_vec: Vec3,
+    pub right_vec: Vec3,
+    pub angle_yz: f32,
+    pub angle_xz: f32,
+}
+
+pub struct DesignTranslation {
+    pub right: Vec3,
+    pub up: Vec3,
+    pub forward: Vec3,
 }

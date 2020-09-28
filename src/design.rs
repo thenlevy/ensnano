@@ -3,10 +3,14 @@ use std::path::PathBuf;
 use std::rc::Rc;
 use ultraviolet::{Mat4, Vec3};
 
+use crate::mediator;
+use mediator::{MediatorPtr, AppNotification, Notification, Mediator};
+
 mod controller;
 mod data;
 mod view;
 use controller::Controller;
+pub use controller::{DesignTranslation, DesignRotation};
 use data::Data;
 pub use data::{ObjectType, Nucl};
 use view::View;
@@ -16,11 +20,12 @@ pub struct Design {
     #[allow(dead_code)]
     controller: Controller,
     data: Rc<RefCell<Data>>,
+    id: usize,
 }
 
 impl Design {
     #[allow(dead_code)]
-    pub fn new() -> Self {
+    pub fn new(id: usize) -> Self {
         let view = Rc::new(RefCell::new(View::new()));
         let data = Rc::new(RefCell::new(Data::new(&view)));
         let controller = Controller::new(view.clone(), data.clone());
@@ -28,11 +33,12 @@ impl Design {
             view,
             data,
             controller,
+            id,
         }
     }
 
     /// Create a new design by reading a file. At the moment only codenano format is supported
-    pub fn new_with_path(path: &PathBuf) -> Self {
+    pub fn new_with_path(id: usize, path: &PathBuf) -> Self {
         let view = Rc::new(RefCell::new(View::new()));
         let data = Rc::new(RefCell::new(Data::new_with_path(&view, path)));
         let controller = Controller::new(view.clone(), data.clone());
@@ -40,6 +46,7 @@ impl Design {
             view,
             data,
             controller,
+            id,
         }
     }
 
@@ -49,8 +56,16 @@ impl Design {
     }
 
     /// `true` if the view has been updated since the last time this function was called
-    pub fn view_was_updated(&mut self) -> bool {
-        self.view.borrow_mut().was_updated()
+    pub fn view_was_updated(&mut self) -> Option<DesignNotification> {
+        if self.view.borrow_mut().was_updated() {
+            let notification = DesignNotification {
+                content: DesignNotificationContent::ModelChanged(self.get_model_matrix()),
+                design_id: self.id as usize
+            };
+            Some(notification)
+        } else {
+            None
+        }
     }
 
 
@@ -60,18 +75,18 @@ impl Design {
     }
 
     /// Translate the representation of self
-    pub fn translate(&mut self, right: Vec3, up: Vec3, forward: Vec3) {
-        self.controller.translate(right, up, forward)
+    pub fn apply_translation(&mut self, translation: &DesignTranslation) {
+        self.controller.translate(translation);
     }
 
     /// Rotate the representation of self arround `origin`
-    pub fn rotate(&mut self, x: f64, y: f64, cam_right: Vec3, cam_up: Vec3, origin: Vec3) {
-        self.controller.rotate(cam_right, cam_up, x, y, origin);
+    pub fn apply_rotation(&mut self, rotation: &DesignRotation) {
+        self.controller.rotate(rotation);
     }
 
-    /// Reset the movement performed by self. 
-    pub fn reset_movement(&mut self) {
-        self.controller.reset_movement()
+    /// Terminate the movement performed by self. 
+    pub fn terminate_movement(&mut self) {
+        self.controller.terminate_movement()
     }
 
     /// Get the position of an item of self in the world coordinates
@@ -110,4 +125,25 @@ impl Design {
         self.data.borrow().is_bound(id)
     }
 
+    pub fn on_notify(&mut self, notification: AppNotification) {
+        match notification {
+            AppNotification::MovementEnded => self.terminate_movement(),
+            AppNotification::Rotation(rotation) => self.apply_rotation(rotation),
+            AppNotification::Translation(translation) => self.apply_translation(translation),
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct DesignNotification {
+    pub design_id: usize,
+    pub content: DesignNotificationContent,
+}
+
+
+/// A modification to the design that must be notified to the applications
+#[derive(Clone)]
+pub enum DesignNotificationContent {
+    /// The model matrix of the design has been modified
+    ModelChanged(Mat4)
 }

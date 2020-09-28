@@ -1,47 +1,56 @@
 use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
 use std::rc::Rc;
-use ultraviolet::{Vec3, Rotor3};
+use ultraviolet::{Mat4, Vec3, Rotor3};
 use crate::utils::instance::Instance;
 use crate::design::{Design, ObjectType};
 
+
 /// An object that handles the 3d graphcial representation of a `Design`
 pub struct Design3D {
-    design: Rc<Design>,
+    design: Arc<Mutex<Design>>,
 }
 
 type Basis = (f32, f32, f32, [f32; 3], u32);
 
 impl Design3D {
 
-    pub fn new_with_path(path: &PathBuf) -> Self {
+    pub fn new(design: Arc<Mutex<Design>>) -> Self {
         Self {
-            design: Rc::new(Design::new_with_path(path))
+            design,
         }
     }
 
     /// Convert a list of ids into a list of instances
-    pub fn id_to_instances(&self, ids: &mut dyn Iterator<Item = &u32>) -> Vec<Instance> {
-        ids.map(|id| self.make_instance(*id)).collect()
+    pub fn id_to_instances(&self, ids: Vec<u32>) -> Vec<Instance> {
+        ids.iter().map(|id| self.make_instance(*id)).collect()
     }
 
     /// Return the list of sphere instances to be displayed to represent the design
     pub fn get_spheres(&self) -> Rc<Vec<Instance>> {
-        Rc::new(self.id_to_instances(&mut self.design.get_all_nucl_ids().iter()))
+        let ids = self.design.lock().unwrap().get_all_nucl_ids();
+        Rc::new(self.id_to_instances(ids))
     }
 
     /// Return the list of tube instances to be displayed to represent the design
     pub fn get_tubes(&self) -> Rc<Vec<Instance>> {
-        Rc::new(self.id_to_instances(&mut self.design.get_all_bound_ids().iter()))
+        let ids = self.design.lock().unwrap().get_all_bound_ids();
+        Rc::new(self.id_to_instances(ids))
     }
 
+    /*
     /// Extract the ids that are identifier of spheres and return the corresponding instances
     pub fn extract_spheres(&self, ids: &Vec<u32>) -> Rc<Vec<Instance>> {
-        Rc::new(self.id_to_instances(&mut ids.iter().filter(|id| self.design.is_nucl(**id))))
+        Rc::new(self.id_to_instances(&mut ids.iter().filter(|id| self.design.lock().unwrap().is_nucl(**id))))
     }
 
     /// Extract the ids that are identifier of tubes and return the corresponding instances
     pub fn extract_tubes(&self, ids: &Vec<u32>) -> Rc<Vec<Instance>> {
-        Rc::new(self.id_to_instances(&mut ids.iter().filter(|id| self.design.is_bound(**id))))
+        Rc::new(self.id_to_instances(&mut ids.iter().filter(|id| self.design.lock().unwrap().is_bound(**id))))
+    }*/
+
+    pub fn get_model_matrix(&self) -> Mat4 {
+        self.design.lock().unwrap().get_model_matrix()
     }
 
     /// Convert return an instance representing the object with identifier `id`
@@ -65,35 +74,39 @@ impl Design3D {
     }
 
     pub fn is_nucl(&self, id: u32) -> bool {
-        self.design.is_nucl(id)
+        self.design.lock().unwrap().is_nucl(id)
     }
 
     pub fn is_bound(&self, id: u32) -> bool {
-        self.design.is_bound(id)
+        self.design.lock().unwrap().is_bound(id)
     }
 
     fn get_nucl_involved(&self, id: u32) -> Option<(u32, u32)> {
-        self.design.get_nucl_involved(id)
+        self.design.lock().unwrap().get_nucl_involved(id)
     }
 
     fn get_object_type(&self, id: u32) -> Option<ObjectType> {
-        self.design.get_object_type(id)
+        self.design.lock().unwrap().get_object_type(id)
     }
 
-    fn get_element_position(&self, id: u32) -> Option<Vec3> {
-        self.design.get_element_position(id)
+    pub fn get_element_position(&self, id: u32) -> Option<Vec3> {
+        self.design.lock().unwrap().get_element_position(id)
     }
 
     fn get_color(&self, id: u32) -> Option<u32> {
-        self.design.get_color(id)
+        self.design.lock().unwrap().get_color(id)
     }
 
 
     /// Return a camera position and orientation so that self fits in the scene.
-    pub fn fit_design(&self, ratio: f32, fovy: f32) -> (Vec3, Rotor3) {
+    pub fn get_fitting_camera(&self, ratio: f32, fovy: f32) -> (Vec3, Rotor3) {
+        println!("bases");
         let mut bases = self.get_bases(ratio);
+        println!("rotation");
         let rotation = self.get_fitting_rotor(&bases);
+        println!("direction");
         let direction = rotation.reversed() * -Vec3::unit_z();
+        println!("position");
         let position = self.get_fitting_position(&mut bases, ratio, fovy, &direction);
         (position, rotation)
     }
@@ -106,7 +119,7 @@ impl Design3D {
             (boundaries[2] + boundaries[3]) as f32 / 2.,
             (boundaries[4] + boundaries[5]) as f32 / 2.,
         );
-        self.design.get_model_matrix().transform_vec3(middle)
+        self.design.lock().unwrap().get_model_matrix().transform_vec3(middle)
     }
 
     fn boundaries(&self) -> [f32; 6] {
@@ -117,8 +130,9 @@ impl Design3D {
         let mut max_y = std::f32::NEG_INFINITY;
         let mut max_z = std::f32::NEG_INFINITY;
 
-        for id in self.design.get_all_nucl_ids() {
-            let coord: [f32; 3] = self.design.get_element_position(id).unwrap().into();
+        let ids = self.design.lock().unwrap().get_all_nucl_ids();
+        for id in ids {
+            let coord: [f32; 3] = self.design.lock().unwrap().get_element_position(id).unwrap().into();
             if coord[0] < min_x {
                 min_x = coord[0];
             }
@@ -238,6 +252,7 @@ pub enum ObjectRepr {
 }
 
 fn create_bound(source: Vec3, dest: Vec3, color: u32, id: u32) -> Instance {
+    println!("create bound");
     let color = Instance::color_from_u32(color);
     let rotor = Rotor3::from_rotation_between(Vec3::unit_x(), (dest - source).normalized());
     let position = (dest + source) / 2.;

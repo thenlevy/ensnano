@@ -12,7 +12,7 @@ impl View {
     pub fn new() -> Self {
         Self {
             model_matrix: Mat4::identity(),
-            was_updated: true,
+            was_updated: false,
         }
     }
 

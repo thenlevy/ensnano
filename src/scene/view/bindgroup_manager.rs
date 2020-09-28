@@ -97,6 +97,11 @@ impl DynamicBindGroup {
         self.queue.write_buffer(&self.buffer, 0, bytes);
     }
 
+    pub fn update_offset(&mut self, offset: usize, bytes: &[u8]) {
+        debug_assert!(self.length as usize >= offset + bytes.len());
+        self.queue.write_buffer(&self.buffer, offset as u64, bytes);
+    }
+
     pub fn get_bindgroup(&self) -> &BindGroup {
         &self.bind_group
     }

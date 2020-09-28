@@ -78,7 +78,7 @@ impl Data {
         let mut old_nucl = None;
         let mut old_nucl_id = None;
         for (s_id, strand) in self.design.strands.iter().enumerate() {
-            let color = strand.color.unwrap_or(strand.default_color()).as_int();
+            let color = strand.color.as_ref().unwrap_or(&strand.default_color()).as_int();
             for domain in &strand.domains {
                 for nucl_position in domain.iter() {
                     let position = self.design.helices[domain.helix as usize].space_pos(

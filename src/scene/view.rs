@@ -141,6 +141,11 @@ impl View {
         }
     }
 
+    /// Update the model matrix associated to a given desgin.
+    pub fn update_model_matrix(&mut self, design_id: usize, matrix: Mat4) {
+        self.pipeline_handlers.update_model_matrix(design_id, matrix)
+    }
+
     /// Get a pointer to the camera
     pub fn get_camera(&self) -> CameraPtr {
         self.camera.clone()
@@ -180,17 +185,17 @@ pub enum ViewUpdate {
     /// The camera has moved and the view and projection matrix must be updated.
     Camera,
     /// The set of spheres have been modified
-    Spheres(Vec<Instance>),
+    Spheres(Rc<Vec<Instance>>),
     /// The set of tubes have been modified
-    Tubes(Vec<Instance>),
+    Tubes(Rc<Vec<Instance>>),
     /// The set of selected spheres has been modified
-    SelectedSpheres(Vec<Instance>),
+    SelectedSpheres(Rc<Vec<Instance>>),
     /// The set of selected tubes has been modified
-    SelectedTubes(Vec<Instance>),
+    SelectedTubes(Rc<Vec<Instance>>),
     /// The set of candidate spheres has been modified
-    CandidateSpheres(Vec<Instance>),
+    CandidateSpheres(Rc<Vec<Instance>>),
     /// The set of candidate tubes has been modified
-    CandidateTubes(Vec<Instance>),
+    CandidateTubes(Rc<Vec<Instance>>),
     /// The size of the drawing area has been modified
     Size(PhySize),
     /// The set of model matrices has been modified
@@ -335,20 +340,18 @@ impl PipelineHandlers {
     fn update(&mut self, update: ViewUpdate) {
         match update {
             ViewUpdate::Spheres(instances) => {
-                let instances = Rc::new(instances);
                 self.sphere.new_instances(instances.clone());
                 self.fake_sphere.new_instances(instances);
             }
             ViewUpdate::Tubes(instances) => {
-                let instances = Rc::new(instances);
                 self.tube.new_instances(instances.clone());
                 self.fake_tube.new_instances(instances);
             }
             ViewUpdate::SelectedTubes(instances) => {
-                self.selected_tube.new_instances(Rc::new(instances));
+                self.selected_tube.new_instances(instances);
             }
             ViewUpdate::SelectedSpheres(instances) => {
-                self.selected_sphere.new_instances(Rc::new(instances));
+                self.selected_sphere.new_instances(instances);
             }
             ViewUpdate::ModelMatrices(matrices) => {
                 let matrices = Rc::new(matrices);
@@ -357,10 +360,10 @@ impl PipelineHandlers {
                 }
             }
             ViewUpdate::CandidateSpheres(instances) => {
-                self.candidate_sphere.new_instances(Rc::new(instances));
+                self.candidate_sphere.new_instances(instances);
             }
             ViewUpdate::CandidateTubes(instances) => {
-                self.candidate_tube.new_instances(Rc::new(instances));
+                self.candidate_tube.new_instances(instances);
             }
             ViewUpdate::Camera | ViewUpdate::Size(_) => {
                 unreachable!();
@@ -371,6 +374,12 @@ impl PipelineHandlers {
     fn new_viewer(&mut self, camera: CameraPtr, projection: ProjectionPtr) {
         for pipeline in self.all() {
             pipeline.new_viewer(camera.clone(), projection.clone())
+        }
+    }
+
+    pub fn update_model_matrix(&mut self, design_id: usize, matrix: Mat4) {
+        for pipeline in self.all() {
+            pipeline.update_model_matrix(design_id, matrix)
         }
     }
 }
