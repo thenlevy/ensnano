@@ -23,6 +23,7 @@ pub struct LeftPanel {
 #[derive(Debug, Clone)]
 pub enum Message {
     SelectionModeChanged(SelectionMode),
+    Resized(LogicalSize<f64>, LogicalPosition<f64>),
 }
 
 impl LeftPanel {
@@ -41,6 +42,11 @@ impl LeftPanel {
             logical_position,
         }
     }
+
+    pub fn resize(&mut self, logical_size: LogicalSize<f64>, logical_position: LogicalPosition<f64>) {
+        self.logical_size = logical_size;
+        self.logical_position = logical_position;
+    }
 }
 
 impl Program for LeftPanel {
@@ -53,6 +59,7 @@ impl Program for LeftPanel {
                 self.selection_mode = selection_mode;
                 *self.selection_mode_request.lock().unwrap() = Some(selection_mode);
             }
+            Message::Resized(size, position) => self.resize(size, position)
         };
         Command::none()
     }

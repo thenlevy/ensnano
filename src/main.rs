@@ -319,6 +319,14 @@ fn main() {
                             present_mode: wgpu::PresentMode::Mailbox,
                         },
                     );
+
+                    let top_bar_area = multiplexer.get_element_area(ElementType::TopBar);
+                    top_bar_state.queue_message(gui::top_bar::Message::Resize(top_bar_area.size.to_logical(window.scale_factor())));
+
+                    let left_panel_area = multiplexer.get_element_area(ElementType::LeftPanel);
+                    left_panel_state.queue_message(
+                        gui::left_panel::Message::Resized(left_panel_area.size.to_logical(window.scale_factor()),
+                                                          left_panel_area.position.to_logical(window.scale_factor())));
                 }
                 // Get viewports from the partition
 
@@ -355,7 +363,6 @@ fn main() {
                 let now = std::time::Instant::now();
                 let dt = now - last_render_time;
                 last_render_time = now;
-                //scene.draw(&mut encoder, &frame.output.view, &device, dt, false);
                 mediator.lock().unwrap().observe_designs();
                 scene
                     .lock()

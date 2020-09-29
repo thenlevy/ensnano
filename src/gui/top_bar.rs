@@ -23,6 +23,7 @@ pub enum Message {
     SceneFitRequested,
     FileAddRequested,
     FileReplaceRequested,
+    Resize(LogicalSize<f64>),
 }
 
 impl TopBar {
@@ -41,6 +42,10 @@ impl TopBar {
             file_replace_request,
             logical_size,
         }
+    }
+
+    pub fn resize(&mut self, logical_size: LogicalSize<f64>) {
+        self.logical_size = logical_size;
     }
 }
 
@@ -81,6 +86,7 @@ impl Program for TopBar {
                     }
                 }
             }
+            Message::Resize(size) => self.resize(size),
         };
         Command::none()
     }
