@@ -6,7 +6,7 @@ use super::{View, ViewUpdate};
 use ultraviolet::{Rotor3, Vec3};
 
 use crate::utils::instance::Instance;
-use crate::design::Design;
+use crate::design::{Design, Referential};
 
 type ViewPtr = Rc<RefCell<View>>;
 
@@ -106,13 +106,13 @@ impl Data {
         Rc::new(ret)
     }
 
-    pub fn get_element_position(&self, design_id: u32, element_id: u32) -> Vec3 {
-        self.designs[design_id as usize].get_element_position(element_id).unwrap()
+    pub fn get_element_position(&self, design_id: u32, element_id: u32, referential: Referential) -> Vec3 {
+        self.designs[design_id as usize].get_element_position(element_id, referential).unwrap()
     }
 
     pub fn get_selected_position(&self) -> Option<Vec3> {
         let (desgin_id, element_id) = self.selected.get(0)?;
-        Some(self.get_element_position(*desgin_id, *element_id))
+        Some(self.get_element_position(*desgin_id, *element_id, Referential::World))
     }
 
     pub fn set_selection(&mut self, design_id: u32, element_id: u32) {

@@ -219,7 +219,6 @@ fn main() {
                             //design_handler.get_design(path);
                             //design_handler.update_scene(&mut scene, true);
                             let d_id = mediator.lock().unwrap().nb_design();
-                            println!("d_id {}", d_id);
                             let design = Arc::new(Mutex::new(Design::new_with_path(d_id, path)));
                             mediator.lock().unwrap().add_design(design);
                             *file_add_request_lock = None;

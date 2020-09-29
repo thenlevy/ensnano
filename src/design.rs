@@ -90,11 +90,17 @@ impl Design {
     }
 
     /// Get the position of an item of self in the world coordinates
-    pub fn get_element_position(&self, id: u32) -> Option<Vec3> {
-        self.data
-            .borrow()
-            .get_element_position(id)
-            .map(|x| self.view.borrow().model_matrix.transform_point3(x))
+    pub fn get_element_position(&self, id: u32, referential: Referential) -> Option<Vec3> {
+        if referential.is_world() {
+            self.data
+                .borrow()
+                .get_element_position(id)
+                .map(|x| self.view.borrow().model_matrix.transform_point3(x))
+        } else {
+            self.data
+                .borrow()
+                .get_element_position(id)
+        }
     }
 
     pub fn get_object_type(&self, id: u32) -> Option<ObjectType> {
@@ -150,4 +156,20 @@ pub struct DesignNotification {
 pub enum DesignNotificationContent {
     /// The model matrix of the design has been modified
     ModelChanged(Mat4)
+}
+
+/// The referential in which one wants to get an element's coordinates
+#[derive(Debug, Clone, Copy)]
+pub enum Referential {
+    World,
+    Model,
+}
+
+impl Referential {
+    pub fn is_world(&self) -> bool {
+        match self {
+            Referential::World => true,
+            _ => false
+        }
+    }
 }

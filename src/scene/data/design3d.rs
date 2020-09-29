@@ -3,7 +3,7 @@ use std::sync::{Arc, Mutex};
 use std::rc::Rc;
 use ultraviolet::{Mat4, Vec3, Rotor3};
 use crate::utils::instance::Instance;
-use crate::design::{Design, ObjectType};
+use crate::design::{Design, ObjectType, Referential};
 
 
 /// An object that handles the 3d graphcial representation of a `Design`
@@ -60,16 +60,17 @@ impl Design3D {
     /// This function will panic if `id` does not represent an object of the design
     pub fn make_instance(&self, id: u32) -> Instance {
         let kind = self.get_object_type(id).expect("id not in design"); 
+        let referential = Referential::Model;
         let instanciable = match kind {
             ObjectType::Bound(id1, id2) => {
-                let pos1 = self.get_element_position(id1).unwrap();
-                let pos2 = self.get_element_position(id2).unwrap();
+                let pos1 = self.get_element_position(id1, referential).unwrap();
+                let pos2 = self.get_element_position(id2, referential).unwrap();
                 let color = self.get_color(id).unwrap_or(0);
                 let id = id | self.id << 24;
                 Instantiable::new(ObjectRepr::Tube(pos1, pos2), color, id)
             }
             ObjectType::Nucleotide(id) => {
-                let position = self.get_element_position(id).unwrap();
+                let position = self.get_element_position(id, referential).unwrap();
                 let color = self.get_color(id).unwrap();
                 let id = id | self.id << 24;
                 Instantiable::new(ObjectRepr::Sphere(position), color, id)
@@ -94,8 +95,8 @@ impl Design3D {
         self.design.lock().unwrap().get_object_type(id)
     }
 
-    pub fn get_element_position(&self, id: u32) -> Option<Vec3> {
-        self.design.lock().unwrap().get_element_position(id)
+    pub fn get_element_position(&self, id: u32, referential: Referential) -> Option<Vec3> {
+        self.design.lock().unwrap().get_element_position(id, referential)
     }
 
     fn get_color(&self, id: u32) -> Option<u32> {
@@ -105,13 +106,9 @@ impl Design3D {
 
     /// Return a camera position and orientation so that self fits in the scene.
     pub fn get_fitting_camera(&self, ratio: f32, fovy: f32) -> (Vec3, Rotor3) {
-        println!("bases");
         let mut bases = self.get_bases(ratio);
-        println!("rotation");
         let rotation = self.get_fitting_rotor(&bases);
-        println!("direction");
         let direction = rotation.reversed() * -Vec3::unit_z();
-        println!("position");
         let position = self.get_fitting_position(&mut bases, ratio, fovy, &direction);
         (position, rotation)
     }
@@ -137,7 +134,7 @@ impl Design3D {
 
         let ids = self.design.lock().unwrap().get_all_nucl_ids();
         for id in ids {
-            let coord: [f32; 3] = self.design.lock().unwrap().get_element_position(id).unwrap().into();
+            let coord: [f32; 3] = self.design.lock().unwrap().get_element_position(id, Referential::World).unwrap().into();
             if coord[0] < min_x {
                 min_x = coord[0];
             }
@@ -270,3 +267,4 @@ fn create_bound(source: Vec3, dest: Vec3, color: u32, id: u32) -> Instance {
         scale
     }
 }
+

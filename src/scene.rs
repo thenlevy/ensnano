@@ -125,9 +125,8 @@ impl Scene {
                 self.mediator.lock().unwrap().notify_designs(&self.data.borrow().get_selected_designs(), AppNotification::Rotation(&rotation))
             }
             Consequence::Swing(x, y) => {
-                let selected = self.data.borrow().get_selected_ids().clone();
-                if let Some((design_id, element_id)) = selected.get(0) {
-                    let pivot = self.data.borrow().get_element_position(*design_id, *element_id);
+                let pivot = self.data.borrow().get_selected_position();
+                if let Some(pivot) = pivot {
                     self.controller.set_pivot_point(pivot);
                     self.controller.swing(x, y);
                     self.notify(SceneNotification::CameraMoved);
