@@ -1,6 +1,7 @@
 use std::rc::Rc;
 use std::cell::RefCell;
 use std::sync::{Arc, Mutex};
+use std::collections::HashSet;
 use super::{View, ViewUpdate};
 
 use ultraviolet::{Rotor3, Vec3};
@@ -19,6 +20,7 @@ pub struct Data {
     designs: Vec<Design3D>,
     selected: Vec<(u32, u32)>,
     candidates: Vec<(u32, u32)>,
+    selection_mode: SelectionMode,
 }
 
 impl Data {
@@ -29,6 +31,7 @@ impl Data {
             designs: Vec::new(),
             selected: Vec::new(),
             candidates: Vec::new(),
+            selection_mode: SelectionMode::default(),
         }
     }
 
@@ -50,21 +53,32 @@ impl Data {
         self.notify_instance_update();
     }
 
-    pub fn get_selected_designs(&self) -> Vec<u32> {
+    pub fn get_selected_designs(&self) -> HashSet<u32> {
         self.selected.iter().map(|x| x.0).collect()
     }
 
-    pub fn get_selected_ids<'a>(&'a self) -> &'a Vec<(u32, u32)> {
-        &self.selected
+    pub fn get_candidate_designs(&self) -> HashSet<u32> {
+        self.candidates.iter().map(|x| x.0).collect()
     }
 
     /// Return the instances of selected spheres
     pub fn get_selected_spheres(&self) -> Rc<Vec<Instance>> {
         let mut ret = Vec::with_capacity(self.selected.len());
-        for (d_id, id) in self.selected.iter() {
-            let d_id = *d_id as usize;
-            if self.designs[d_id].is_nucl(*id) {
-                ret.push(self.designs[d_id].make_instance(*id))
+        match self.selection_mode {
+            SelectionMode::Nucleotide => {
+                for (d_id, id) in self.selected.iter() {
+                    let d_id = *d_id as usize;
+                    if self.designs[d_id].is_nucl(*id) {
+                        ret.push(self.designs[d_id].make_instance(*id))
+                    }
+                }
+            }
+            SelectionMode::Design => {
+                for d_id in self.get_selected_designs().iter() {
+                    for sphere in self.designs[*d_id as usize].get_spheres().iter() {
+                        ret.push(*sphere)
+                    }
+                }
             }
         }
         Rc::new(ret)
@@ -73,10 +87,21 @@ impl Data {
     /// Return the instances of selected tubes
     pub fn get_selected_tubes(&self) -> Rc<Vec<Instance>> {
         let mut ret = Vec::with_capacity(self.selected.len());
-        for (d_id, id) in self.selected.iter() {
-            let d_id = *d_id as usize;
-            if self.designs[d_id].is_bound(*id) {
-                ret.push(self.designs[d_id].make_instance(*id))
+        match self.selection_mode {
+            SelectionMode::Nucleotide => {
+                for (d_id, id) in self.selected.iter() {
+                    let d_id = *d_id as usize;
+                    if self.designs[d_id].is_bound(*id) {
+                        ret.push(self.designs[d_id].make_instance(*id))
+                    }
+                }
+            }
+            SelectionMode::Design => {
+                for d_id in self.get_selected_designs().iter() {
+                    for tube in self.designs[*d_id as usize].get_tubes().iter() {
+                        ret.push(*tube)
+                    }
+                }
             }
         }
         Rc::new(ret)
@@ -85,10 +110,21 @@ impl Data {
     /// Return the instances of candidate spheres
     pub fn get_candidate_spheres(&self) -> Rc<Vec<Instance>> {
         let mut ret = Vec::with_capacity(self.selected.len());
-        for (d_id, id) in self.candidates.iter() {
-            let d_id = *d_id as usize;
-            if self.designs[d_id].is_nucl(*id) {
-                ret.push(self.designs[d_id].make_instance(*id))
+        match self.selection_mode {
+            SelectionMode::Nucleotide => {
+                for (d_id, id) in self.candidates.iter() {
+                    let d_id = *d_id as usize;
+                    if self.designs[d_id].is_nucl(*id) {
+                        ret.push(self.designs[d_id].make_instance(*id))
+                    }
+                }
+            }
+            SelectionMode::Design => {
+                for d_id in self.get_candidate_designs().iter() {
+                    for sphere in self.designs[*d_id as usize].get_spheres().iter() {
+                        ret.push(*sphere)
+                    }
+                }
             }
         }
         Rc::new(ret)
@@ -97,10 +133,21 @@ impl Data {
     /// Return the instances of candidate tubes
     pub fn get_candidate_tubes(&self) -> Rc<Vec<Instance>> {
         let mut ret = Vec::with_capacity(self.selected.len());
-        for (d_id, id) in self.candidates.iter() {
-            let d_id = *d_id as usize;
-            if self.designs[d_id].is_bound(*id) {
-                ret.push(self.designs[d_id].make_instance(*id))
+        match self.selection_mode {
+            SelectionMode::Nucleotide => {
+                for (d_id, id) in self.candidates.iter() {
+                    let d_id = *d_id as usize;
+                    if self.designs[d_id].is_bound(*id) {
+                        ret.push(self.designs[d_id].make_instance(*id))
+                    }
+                }
+            }
+            SelectionMode::Design => {
+                for d_id in self.get_candidate_designs().iter() {
+                    for tube in self.designs[*d_id as usize].get_tubes().iter() {
+                        ret.push(*tube)
+                    }
+                }
             }
         }
         Rc::new(ret)
@@ -182,9 +229,52 @@ impl Data {
         self.designs.iter().map(|d| d.get_tubes().len()).sum()
     }
 
+    pub fn toggle_selection_mode(&mut self) {
+        self.selection_mode = match self.selection_mode {
+            SelectionMode::Design => SelectionMode::Nucleotide,
+            SelectionMode::Nucleotide => SelectionMode::Design,
+        }
+    }
+
+    pub fn change_selection_mode(&mut self, selection_mode: SelectionMode) {
+        self.selection_mode = selection_mode;
+    }
 
 }
 
 fn last_two_bytes(x: u32) -> u32 {
     (x & 0xFF000000) >> 24
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SelectionMode {
+    Nucleotide,
+    Design,
+}
+
+impl Default for SelectionMode {
+    fn default() -> Self {
+        SelectionMode::Nucleotide
+    }
+}
+
+impl std::fmt::Display for SelectionMode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                SelectionMode::Design => "Design",
+                SelectionMode::Nucleotide => "Nucleotide",
+            }
+        )
+    }
+}
+
+impl SelectionMode {
+    pub const ALL: [SelectionMode; 2] = [
+        SelectionMode::Nucleotide,
+        SelectionMode::Design
+    ];
+}
+

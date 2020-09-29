@@ -130,10 +130,12 @@ fn main() {
     let fitting_request = Arc::new(Mutex::new(false));
     let file_add_request = Arc::new(Mutex::new(None));
     let file_replace_request = Arc::new(Mutex::new(None));
+    let selection_mode_request = Arc::new(Mutex::new(None));
     let controls = Controls::new(
         fitting_request.clone(),
         file_add_request.clone(),
         file_replace_request.clone(),
+        selection_mode_request.clone(),
         top_bar_area.size.to_logical(window.scale_factor()),
     );
 
@@ -232,6 +234,13 @@ fn main() {
                             //design_handler.update_scene(&mut scene, true);
                             mediator.lock().unwrap().clear_designs();
                             *file_replace_request_lock = None;
+                        }
+                    }
+                    {
+                        let mut selection_mode_request = selection_mode_request.lock().unwrap();
+                        if let Some(selection_mode) = *selection_mode_request {
+                            scene.lock().unwrap().change_selection_mode(selection_mode);
+                            *selection_mode_request = None;
                         }
                     }
                 }

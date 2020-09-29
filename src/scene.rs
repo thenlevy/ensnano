@@ -1,6 +1,7 @@
 use futures::executor;
 use iced_wgpu::wgpu;
 use iced_winit::winit;
+use std::collections::HashSet;
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::time::Duration;
@@ -25,9 +26,9 @@ mod controller;
 use controller::{Consequence, Controller};
 mod data;
 use data::Data;
+pub use data::SelectionMode;
 pub use controller::ClickMode;
 use design::{Design, DesignRotation, DesignTranslation, DesignNotification, DesignNotificationContent};
-use std::path::PathBuf;
 
 type ViewPtr = Rc<RefCell<View>>;
 type DataPtr = Rc<RefCell<Data>>;
@@ -65,7 +66,7 @@ impl Scene {
         let update = SceneUpdate::new();
         let view = Rc::new(RefCell::new(View::new(window_size, area.size, device.clone(), queue.clone())));
         let data = Rc::new(RefCell::new(Data::new(view.clone())));
-        let controller = Controller::new(view.clone(), window_size, area.size);
+        let controller = Controller::new(view.clone(), data.clone(), window_size, area.size);
         Self {
             device,
             queue,
@@ -90,7 +91,7 @@ impl Scene {
     }
 
     /// Return the list of designs selected
-    fn get_selected_designs(&self) -> Vec<u32> {
+    fn get_selected_designs(&self) -> HashSet<u32> {
         self.data.borrow().get_selected_designs()
     }
 
@@ -357,6 +358,10 @@ impl Scene {
     /// Return the width/height ratio of the camera
     pub fn get_ratio(&self) -> f32 {
         self.view.borrow().get_projection().borrow().get_ratio()
+    }
+
+    pub fn change_selection_mode(&mut self, selection_mode: SelectionMode) {
+        self.data.borrow_mut().change_selection_mode(selection_mode)
     }
 }
 

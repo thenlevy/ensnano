@@ -8,7 +8,7 @@
 /// The mediator also holds data that is common to all applications.
 
 use std::sync::{Arc, Mutex};
-use std::path::PathBuf;
+use std::collections::HashSet;
 
 use crate::design;
 
@@ -71,7 +71,7 @@ impl Mediator {
         }
     }
 
-    pub fn notify_designs(&mut self, designs: &Vec<u32>, notification: AppNotification) {
+    pub fn notify_designs(&mut self, designs: &HashSet<u32>, notification: AppNotification) {
         for design_id in designs.iter() {
             self.designs.clone()[*design_id as usize].lock().unwrap().on_notify(notification.clone());
             //design.on_notify(notification.clone(), self);

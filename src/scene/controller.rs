@@ -1,4 +1,4 @@
-use super::{camera, Duration, ViewPtr};
+use super::{camera, DataPtr, Duration, ViewPtr};
 use crate::{PhySize, PhysicalPosition, WindowEvent};
 use iced_winit::winit;
 use iced_winit::winit::event::*;
@@ -17,6 +17,8 @@ pub enum ClickMode {
 pub struct Controller {
     /// A pointer to the View
     view: ViewPtr,
+    /// A pointer to the data
+    data: DataPtr,
     /// The event that modify the camera are forwarded to the camera_controller
     camera_controller: CameraController,
     /// The postion where the user has clicked left
@@ -51,13 +53,14 @@ pub enum Consequence {
 }
 
 impl Controller {
-    pub fn new(view: ViewPtr, window_size: PhySize, area_size: PhySize) -> Self {
+    pub fn new(view: ViewPtr, data: DataPtr, window_size: PhySize, area_size: PhySize) -> Self {
         let camera_controller = {
             let view = view.borrow();
             CameraController::new(4.0, 0.04, view.get_camera(), view.get_projection())
         };
         Self {
             view,
+            data,
             camera_controller,
             last_left_clicked_position: None,
             last_right_clicked_position: None,
@@ -103,10 +106,19 @@ impl Controller {
                     },
                 ..
             } => {
-                if self.camera_controller.process_keyboard(*key, *state) {
-                    Consequence::CameraMoved
-                } else {
-                    Consequence::Nothing
+                match *key {
+                    VirtualKeyCode::T if *state == ElementState::Released=> { 
+                        self.data.borrow_mut().toggle_selection_mode();
+                        println!("toggled");
+                        Consequence::Nothing
+                    }
+                    _ => { 
+                        if self.camera_controller.process_keyboard(*key, *state) {
+                            Consequence::CameraMoved
+                        } else {
+                            Consequence::Nothing
+                        }
+                    }
                 }
             }
             WindowEvent::MouseWheel { delta, .. } => {
