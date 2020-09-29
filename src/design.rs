@@ -132,6 +132,10 @@ impl Design {
             AppNotification::Translation(translation) => self.apply_translation(translation),
         }
     }
+    
+    pub fn get_id(&self) -> usize {
+        self.id
+    }
 }
 
 #[derive(Clone)]

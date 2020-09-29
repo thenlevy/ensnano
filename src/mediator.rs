@@ -50,7 +50,6 @@ impl Mediator {
     }
 
     pub fn add_design(&mut self, design: Arc<Mutex<Design>>) {
-        println!("in add_design");
         self.designs.push(design.clone());
         self.notify_apps(Notification::NewDesign(design));
     }
@@ -62,7 +61,6 @@ impl Mediator {
     pub fn notify_apps(&mut self, notification: Notification) {
         for app_wrapper in self.applications.clone() {
             let mut app = app_wrapper.lock().unwrap(); 
-            println!("notifying");
             app.on_notify(notification.clone());
         }
     }

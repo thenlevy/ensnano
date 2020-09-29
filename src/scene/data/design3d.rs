@@ -9,6 +9,7 @@ use crate::design::{Design, ObjectType};
 /// An object that handles the 3d graphcial representation of a `Design`
 pub struct Design3D {
     design: Arc<Mutex<Design>>,
+    id: u32,
 }
 
 type Basis = (f32, f32, f32, [f32; 3], u32);
@@ -16,8 +17,10 @@ type Basis = (f32, f32, f32, [f32; 3], u32);
 impl Design3D {
 
     pub fn new(design: Arc<Mutex<Design>>) -> Self {
+        let id = design.lock().unwrap().get_id() as u32;
         Self {
             design,
+            id,
         }
     }
 
@@ -62,11 +65,13 @@ impl Design3D {
                 let pos1 = self.get_element_position(id1).unwrap();
                 let pos2 = self.get_element_position(id2).unwrap();
                 let color = self.get_color(id).unwrap_or(0);
+                let id = id | self.id << 24;
                 Instantiable::new(ObjectRepr::Tube(pos1, pos2), color, id)
             }
             ObjectType::Nucleotide(id) => {
                 let position = self.get_element_position(id).unwrap();
                 let color = self.get_color(id).unwrap();
+                let id = id | self.id << 24;
                 Instantiable::new(ObjectRepr::Sphere(position), color, id)
             }
         };
@@ -252,7 +257,6 @@ pub enum ObjectRepr {
 }
 
 fn create_bound(source: Vec3, dest: Vec3, color: u32, id: u32) -> Instance {
-    println!("create bound");
     let color = Instance::color_from_u32(color);
     let rotor = Rotor3::from_rotation_between(Vec3::unit_x(), (dest - source).normalized());
     let position = (dest + source) / 2.;
