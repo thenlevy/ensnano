@@ -207,7 +207,7 @@ impl Scene {
             },
         };
         let origin = wgpu::Origin3d {
-           x: clicked_pixel.cast::<u32>().x, 
+           x: clicked_pixel.cast::<u32>().x + self.area.position.x, 
            y: clicked_pixel.cast::<u32>().y + self.area.position.y, 
            z: 0,
         };

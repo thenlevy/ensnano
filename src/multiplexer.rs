@@ -24,6 +24,8 @@ pub enum ElementType {
     TopBar,
     /// The 3D scene
     Scene,
+    /// The Left Panel
+    LeftPanel,
     /// An area that has not been attributed to an element
     Unattributed,
 }
@@ -50,8 +52,10 @@ impl Multiplexer {
     pub fn new(window_size: PhySize, scale_factor: f64) -> Self {
         let mut layout_manager = LayoutTree::new();
         let (top_bar, scene) = layout_manager.vsplit(0, 0.05);
+        let (left_pannel, scene) = layout_manager.hsplit(scene, 0.2);
         layout_manager.attribute_element(top_bar, ElementType::TopBar);
         layout_manager.attribute_element(scene, ElementType::Scene);
+        layout_manager.attribute_element(left_pannel, ElementType::LeftPanel);
         Self {
             window_size,
             scale_factor,
@@ -90,8 +94,13 @@ impl Multiplexer {
                     if !self.mouse_clicked {
                         self.focus = Some(element);
                     }
-                    self.cursor_position.x = position.x - area.position.cast::<f64>().x;
-                    self.cursor_position.y = position.y - area.position.cast::<f64>().y;
+                    if self.foccused_element() == Some(ElementType::Scene) {
+                        self.cursor_position.x = position.x - area.position.cast::<f64>().x;
+                        self.cursor_position.y = position.y - area.position.cast::<f64>().y;
+                    } else {
+                        self.cursor_position.x = position.x;
+                        self.cursor_position.y = position.y;
+                    }
                 }
             }
             WindowEvent::Resized(new_size) => {

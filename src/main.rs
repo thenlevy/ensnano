@@ -20,8 +20,7 @@ extern crate serde_derive;
 extern crate serde;
 
 mod consts;
-/// GUI Top Bar
-mod controls;
+mod gui;
 /// Design handling 
 mod design;
 use design::Design;
@@ -36,7 +35,7 @@ mod utils;
 
 //use design_handler::DesignHandler;
 
-use controls::Controls;
+use gui::{TopBar, LeftPanel};
 use multiplexer::{DrawArea, Multiplexer, ElementType};
 use scene::{Scene, SceneNotification};
 
@@ -131,22 +130,39 @@ fn main() {
     let file_add_request = Arc::new(Mutex::new(None));
     let file_replace_request = Arc::new(Mutex::new(None));
     let selection_mode_request = Arc::new(Mutex::new(None));
-    let controls = Controls::new(
+    let top_bar = TopBar::new(
         fitting_request.clone(),
         file_add_request.clone(),
         file_replace_request.clone(),
-        selection_mode_request.clone(),
         top_bar_area.size.to_logical(window.scale_factor()),
     );
 
-    let mut debug = Debug::new();
-    let mut state = program::State::new(
-        controls,
+    let left_panel_area = multiplexer.get_element_area(ElementType::LeftPanel);
+    let left_panel = LeftPanel::new(
+        selection_mode_request.clone(),
+        left_panel_area.size.to_logical(window.scale_factor()),
+        left_panel_area.position.to_logical(window.scale_factor()),
+    );
+
+
+    let mut top_bar_debug = Debug::new();
+    let mut top_bar_state = program::State::new(
+        top_bar,
         convert_size(top_bar_area.size),
         conversion::cursor_position(cursor_position, window.scale_factor()),
         &mut renderer,
-        &mut debug,
+        &mut top_bar_debug,
     );
+
+    let mut left_panel_debug = Debug::new();
+    let mut left_panel_state = program::State::new(
+        left_panel,
+        convert_size(left_panel_area.size),
+        conversion::cursor_position(cursor_position, window.scale_factor()),
+        &mut renderer,
+        &mut left_panel_debug,
+    );
+
 
     // Run event loop
     let mut last_render_time = std::time::Instant::now();
@@ -176,14 +192,24 @@ fn main() {
                                     modifiers,
                                 );
                                 if let Some(event) = event {
-                                    state.queue_event(event);
+                                    top_bar_state.queue_event(event);
                                 }
                             }
                             ElementType::Scene => {
                                 let cursor_position = multiplexer.get_cursor_position();
                                 scene.lock().unwrap().input(&event, cursor_position);
                             }
-                            _ => unreachable!()
+                            ElementType::LeftPanel => {
+                                let event = iced_winit::conversion::window_event(
+                                    &event,
+                                    window.scale_factor(),
+                                    modifiers,
+                                );
+                                if let Some(event) = event {
+                                    left_panel_state.queue_event(event);
+                                }
+                            }
+                            ElementType::Unattributed => unreachable!()
                         }
                     }
                 }
@@ -196,14 +222,19 @@ fn main() {
                     PhysicalPosition::new(-1., -1.)
                 };
 
-                if !state.is_queue_empty() {
+                let left_panel_cursor = if multiplexer.foccused_element() == Some(ElementType::LeftPanel) {
+                    multiplexer.get_cursor_position()
+                } else {
+                    PhysicalPosition::new(-1., -1.)
+                };
+                if !top_bar_state.is_queue_empty() {
                     // We update iced
-                    let _ = state.update(
+                    let _ = top_bar_state.update(
                         convert_size(top_bar_area.size),
                         conversion::cursor_position(top_bar_cursor, window.scale_factor()),
                         None,
                         &mut renderer,
-                        &mut debug,
+                        &mut top_bar_debug,
                     );
                     {
                         let mut fitting_request_lock =
@@ -236,6 +267,15 @@ fn main() {
                             *file_replace_request_lock = None;
                         }
                     }
+                }
+                if !left_panel_state.is_queue_empty() {
+                    let _ = left_panel_state.update(
+                        convert_size(window.inner_size()),
+                        conversion::cursor_position(left_panel_cursor, window.scale_factor()),
+                        None,
+                        &mut renderer,
+                        &mut top_bar_debug,
+                    );
                     {
                         let mut selection_mode_request = selection_mode_request.lock().unwrap();
                         if let Some(selection_mode) = *selection_mode_request {
@@ -249,6 +289,11 @@ fn main() {
             Event::RedrawRequested(_) => {
                 let top_bar_area = multiplexer.get_element_area(ElementType::TopBar);
                 let top_bar_cursor = if multiplexer.foccused_element() == Some(ElementType::TopBar) {
+                    multiplexer.get_cursor_position()
+                } else {
+                    PhysicalPosition::new(-1., -1.)
+                };
+                let left_panel_cursor = if multiplexer.foccused_element() == Some(ElementType::LeftPanel) {
                     multiplexer.get_cursor_position()
                 } else {
                     PhysicalPosition::new(-1., -1.)
@@ -272,14 +317,24 @@ fn main() {
                 // Get viewports from the partition
 
                 // If there are events pending
-                if !state.is_queue_empty() || resized {
+                if !top_bar_state.is_queue_empty() || resized {
                     // We update iced
-                    let _ = state.update(
+                    let _ = top_bar_state.update(
                         convert_size(top_bar_area.size),
                         conversion::cursor_position(top_bar_cursor, window.scale_factor()),
                         None,
                         &mut renderer,
-                        &mut debug,
+                        &mut top_bar_debug,
+                    );
+                }
+
+                if !left_panel_state.is_queue_empty() || resized {
+                    let _ = left_panel_state.update(
+                        convert_size(left_panel_area.size),
+                        conversion::cursor_position(left_panel_cursor, window.scale_factor()),
+                        None,
+                        &mut renderer,
+                        &mut left_panel_debug,
                     );
                 }
 
@@ -303,6 +358,16 @@ fn main() {
                     window.scale_factor(),
                 );
 
+                let _left_panel_interaction = renderer.backend_mut().draw(
+                    &device,
+                    &mut staging_belt,
+                    &mut encoder,
+                    &frame.output.view,
+                    &viewport,
+                    left_panel_state.primitive(),
+                    &left_panel_debug.overlay()
+                );
+
                 // And then iced on top
                 let mouse_interaction = renderer.backend_mut().draw(
                     &device,
@@ -310,9 +375,10 @@ fn main() {
                     &mut encoder,
                     &frame.output.view,
                     &viewport,
-                    state.primitive(),
-                    &debug.overlay(),
+                    top_bar_state.primitive(),
+                    &top_bar_debug.overlay(),
                 );
+
 
                 // Then we submit the work
                 staging_belt.finish();
