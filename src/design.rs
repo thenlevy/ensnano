@@ -142,6 +142,14 @@ impl Design {
     pub fn get_id(&self) -> usize {
         self.id
     }
+
+    pub fn get_strand(&self, element_id: u32) -> Option<usize> {
+        self.data.borrow().get_strand(element_id)
+    }
+
+    pub fn get_strand_elements(&self, strand_id: usize) -> Vec<u32> {
+        self.data.borrow().get_strand_elements(strand_id)
+    }
 }
 
 #[derive(Clone)]

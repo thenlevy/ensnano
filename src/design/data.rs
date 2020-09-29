@@ -18,7 +18,7 @@ pub struct Data {
     space_position: HashMap<u32, [f32; 3]>,
     identifier_nucl: HashMap<Nucl, u32>,
     identifier_bound: HashMap<(Nucl, Nucl), u32>,
-    nucl_to_strand: HashMap<Nucl, usize>,
+    strand_map: HashMap<u32, usize>,
     color: HashMap<u32, u32>,
     update_status: bool,
 }
@@ -36,7 +36,7 @@ impl Data {
             identifier_bound: HashMap::new(),
             nucleotides_involved: HashMap::new(),
             nucleotide: HashMap::new(),
-            nucl_to_strand: HashMap::new(),
+            strand_map: HashMap::new(),
             color: HashMap::new(),
             update_status: false,
         }
@@ -56,7 +56,7 @@ impl Data {
             identifier_bound: HashMap::new(),
             nucleotides_involved: HashMap::new(),
             nucleotide: HashMap::new(),
-            nucl_to_strand: HashMap::new(),
+            strand_map: HashMap::new(),
             color: HashMap::new(),
             update_status: true,
         };
@@ -71,7 +71,7 @@ impl Data {
         let mut identifier_bound = HashMap::new();
         let mut nucleotides_involved = HashMap::new();
         let mut nucleotide = HashMap::new();
-        let mut nucl_to_strand = HashMap::new();
+        let mut strand_map = HashMap::new();
         let mut color_map = HashMap::new();
         let mut id = 0u32;
         let mut nucl_id = 0u32;
@@ -96,7 +96,7 @@ impl Data {
                     object_type.insert(nucl_id, ObjectType::Nucleotide(nucl_id));
                     nucleotide.insert(nucl_id, nucl);
                     identifier_nucl.insert(nucl, nucl_id);
-                    nucl_to_strand.insert(nucl, s_id);
+                    strand_map.insert(nucl_id, s_id);
                     color_map.insert(nucl_id, color);
                     let position = [position[0] as f32, position[1] as f32, position[2] as f32];
                     space_position.insert(nucl_id, position);
@@ -108,6 +108,7 @@ impl Data {
                         identifier_bound.insert(bound, bound_id);
                         nucleotides_involved.insert(bound_id, bound);
                         color_map.insert(bound_id, color);
+                        strand_map.insert(bound_id, s_id);
                     }
                     old_nucl = Some(nucl);
                     old_nucl_id = Some(nucl_id);
@@ -121,7 +122,7 @@ impl Data {
         self.nucleotides_involved = nucleotides_involved;
         self.identifier_nucl = identifier_nucl;
         self.identifier_bound = identifier_bound;
-        self.nucl_to_strand = nucl_to_strand;
+        self.strand_map = strand_map;
         self.space_position = space_position;
         self.color = color_map;
     }
@@ -218,6 +219,21 @@ impl Data {
     pub fn is_bound(&self, id: u32) -> bool {
         self.nucleotides_involved.contains_key(&id)
     }
+
+    pub fn get_strand(&self, id: u32) -> Option<usize> {
+        self.strand_map.get(&id).cloned()
+    }
+
+    pub fn get_strand_elements(&self, s_id: usize) -> Vec<u32> {
+        let mut ret = Vec::new();
+        for elt in self.object_type.keys() {
+            if self.strand_map.get(&elt) == Some(&s_id) {
+                ret.push(*elt)
+            }
+        }
+        ret
+    }
+
 }
 
 #[derive(Clone, Copy, Eq, PartialEq)]
@@ -239,6 +255,10 @@ impl ObjectType {
             ObjectType::Bound(_, _) => true,
             _ => false,
         }
+    }
+
+    pub fn same_type(&self, other: Self) -> bool {
+        self.is_nucl() == other.is_nucl()
     }
 }
 

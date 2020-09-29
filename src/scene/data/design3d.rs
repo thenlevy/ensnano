@@ -4,6 +4,7 @@ use std::rc::Rc;
 use ultraviolet::{Mat4, Vec3, Rotor3};
 use crate::utils::instance::Instance;
 use crate::design::{Design, ObjectType, Referential};
+use std::collections::HashSet;
 
 
 /// An object that handles the 3d graphcial representation of a `Design`
@@ -209,6 +210,28 @@ impl Design3D {
         coord - *direction * x_back
     }
 
+    pub fn get_all_elements(&self) -> HashSet<u32> {
+        let mut ret = HashSet::new();
+        for x in self.design.lock().unwrap().get_all_nucl_ids().iter() {
+            ret.insert(*x);
+        }
+        for x in self.design.lock().unwrap().get_all_bound_ids().iter() {
+            ret.insert(*x);
+        }
+        ret
+    }
+
+    pub fn get_strand(&self, element_id: u32) -> u32 {
+        self.design.lock().unwrap().get_strand(element_id).unwrap() as u32
+    }
+
+    pub fn get_strand_elements(&self, strand_id: u32) -> HashSet<u32> {
+        self.design.lock().unwrap().get_strand_elements(strand_id as usize).into_iter().collect()
+    }
+
+    pub fn get_element_type(&self, e_id: u32) -> Option<ObjectType> {
+        self.design.lock().unwrap().get_object_type(e_id)
+    }
 }
 
 

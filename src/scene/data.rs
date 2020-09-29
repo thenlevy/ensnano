@@ -7,7 +7,7 @@ use super::{View, ViewUpdate};
 use ultraviolet::{Rotor3, Vec3};
 
 use crate::utils::instance::Instance;
-use crate::design::{Design, Referential};
+use crate::design::{Design, Referential, ObjectType};
 
 type ViewPtr = Rc<RefCell<View>>;
 
@@ -61,25 +61,39 @@ impl Data {
         self.candidates.iter().map(|x| x.0).collect()
     }
 
+    fn expand_selection(&self, object_type: ObjectType) -> HashSet<(u32, u32)> {
+        let mut ret = HashSet::new();
+        for (d_id, elt_id) in &self.selected {
+            let group_id = self.get_group_identifier(*d_id, *elt_id);
+            let group = self.get_group_member(*d_id, group_id);
+            for elt in group.iter() {
+                if self.designs[*d_id as usize].get_element_type(*elt).unwrap().same_type(object_type) {
+                    ret.insert((*d_id, *elt));
+                }
+            }
+        }
+        ret
+    }
+
+    fn expand_candidate(&self, object_type: ObjectType) -> HashSet<(u32, u32)> {
+        let mut ret = HashSet::new();
+        for (d_id, elt_id) in &self.candidates {
+            let group_id = self.get_group_identifier(*d_id, *elt_id);
+            let group = self.get_group_member(*d_id, group_id);
+            for elt in group.iter() {
+                if self.designs[*d_id as usize].get_element_type(*elt).unwrap().same_type(object_type) {
+                    ret.insert((*d_id, *elt));
+                }
+            }
+        }
+        ret
+    }
+
     /// Return the instances of selected spheres
     pub fn get_selected_spheres(&self) -> Rc<Vec<Instance>> {
         let mut ret = Vec::with_capacity(self.selected.len());
-        match self.selection_mode {
-            SelectionMode::Nucleotide => {
-                for (d_id, id) in self.selected.iter() {
-                    let d_id = *d_id as usize;
-                    if self.designs[d_id].is_nucl(*id) {
-                        ret.push(self.designs[d_id].make_instance(*id))
-                    }
-                }
-            }
-            SelectionMode::Design => {
-                for d_id in self.get_selected_designs().iter() {
-                    for sphere in self.designs[*d_id as usize].get_spheres().iter() {
-                        ret.push(*sphere)
-                    }
-                }
-            }
+        for (d_id, id) in self.expand_selection(ObjectType::Nucleotide(0)).iter() {
+            ret.push(self.designs[*d_id as usize].make_instance(*id))
         }
         Rc::new(ret)
     }
@@ -87,22 +101,8 @@ impl Data {
     /// Return the instances of selected tubes
     pub fn get_selected_tubes(&self) -> Rc<Vec<Instance>> {
         let mut ret = Vec::with_capacity(self.selected.len());
-        match self.selection_mode {
-            SelectionMode::Nucleotide => {
-                for (d_id, id) in self.selected.iter() {
-                    let d_id = *d_id as usize;
-                    if self.designs[d_id].is_bound(*id) {
-                        ret.push(self.designs[d_id].make_instance(*id))
-                    }
-                }
-            }
-            SelectionMode::Design => {
-                for d_id in self.get_selected_designs().iter() {
-                    for tube in self.designs[*d_id as usize].get_tubes().iter() {
-                        ret.push(*tube)
-                    }
-                }
-            }
+        for (d_id, id) in self.expand_selection(ObjectType::Bound(0, 0)).iter() {
+            ret.push(self.designs[*d_id as usize].make_instance(*id))
         }
         Rc::new(ret)
     }
@@ -110,22 +110,8 @@ impl Data {
     /// Return the instances of candidate spheres
     pub fn get_candidate_spheres(&self) -> Rc<Vec<Instance>> {
         let mut ret = Vec::with_capacity(self.selected.len());
-        match self.selection_mode {
-            SelectionMode::Nucleotide => {
-                for (d_id, id) in self.candidates.iter() {
-                    let d_id = *d_id as usize;
-                    if self.designs[d_id].is_nucl(*id) {
-                        ret.push(self.designs[d_id].make_instance(*id))
-                    }
-                }
-            }
-            SelectionMode::Design => {
-                for d_id in self.get_candidate_designs().iter() {
-                    for sphere in self.designs[*d_id as usize].get_spheres().iter() {
-                        ret.push(*sphere)
-                    }
-                }
-            }
+        for (d_id, id) in self.expand_candidate(ObjectType::Nucleotide(0)).iter() {
+            ret.push(self.designs[*d_id as usize].make_instance(*id))
         }
         Rc::new(ret)
     }
@@ -133,24 +119,27 @@ impl Data {
     /// Return the instances of candidate tubes
     pub fn get_candidate_tubes(&self) -> Rc<Vec<Instance>> {
         let mut ret = Vec::with_capacity(self.selected.len());
-        match self.selection_mode {
-            SelectionMode::Nucleotide => {
-                for (d_id, id) in self.candidates.iter() {
-                    let d_id = *d_id as usize;
-                    if self.designs[d_id].is_bound(*id) {
-                        ret.push(self.designs[d_id].make_instance(*id))
-                    }
-                }
-            }
-            SelectionMode::Design => {
-                for d_id in self.get_candidate_designs().iter() {
-                    for tube in self.designs[*d_id as usize].get_tubes().iter() {
-                        ret.push(*tube)
-                    }
-                }
-            }
+        for (d_id, id) in self.expand_candidate(ObjectType::Bound(0, 0)).iter() {
+            ret.push(self.designs[*d_id as usize].make_instance(*id))
         }
         Rc::new(ret)
+    }
+
+    /// Return the group to which an element belongs. The group depends on self.selection_mode.
+    fn get_group_identifier(&self, design_id: u32, element_id: u32) -> u32 {
+        match self.selection_mode {
+            SelectionMode::Nucleotide => element_id,
+            SelectionMode::Design => design_id,
+            SelectionMode::Strand => self.designs[design_id as usize].get_strand(element_id)
+        }
+    }
+
+    fn get_group_member(&self, design_id: u32, group_id: u32) -> HashSet<u32> {
+        match self.selection_mode {
+            SelectionMode::Nucleotide => vec![group_id].into_iter().collect(),
+            SelectionMode::Design => self.designs[design_id as usize].get_all_elements(),
+            SelectionMode::Strand => self.designs[design_id as usize].get_strand_elements(group_id),
+        }
     }
 
     pub fn get_element_position(&self, design_id: u32, element_id: u32, referential: Referential) -> Vec3 {
@@ -231,8 +220,10 @@ impl Data {
 
     pub fn toggle_selection_mode(&mut self) {
         self.selection_mode = match self.selection_mode {
-            SelectionMode::Design => SelectionMode::Nucleotide,
             SelectionMode::Nucleotide => SelectionMode::Design,
+            SelectionMode::Design => SelectionMode::Strand,
+            SelectionMode::Strand => SelectionMode::Nucleotide,
+
         }
     }
 
@@ -250,6 +241,7 @@ fn last_two_bytes(x: u32) -> u32 {
 pub enum SelectionMode {
     Nucleotide,
     Design,
+    Strand,
 }
 
 impl Default for SelectionMode {
@@ -266,15 +258,17 @@ impl std::fmt::Display for SelectionMode {
             match self {
                 SelectionMode::Design => "Design",
                 SelectionMode::Nucleotide => "Nucleotide",
+                SelectionMode::Strand => "Strand",
             }
         )
     }
 }
 
 impl SelectionMode {
-    pub const ALL: [SelectionMode; 2] = [
+    pub const ALL: [SelectionMode; 3] = [
         SelectionMode::Nucleotide,
-        SelectionMode::Design
+        SelectionMode::Design,
+        SelectionMode::Strand,
     ];
 }
 
