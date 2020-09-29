@@ -1,10 +1,10 @@
 use iced_wgpu::wgpu;
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
 
-pub mod texture;
+pub mod instance;
 pub mod light;
 pub mod mesh;
-pub mod instance;
+pub mod texture;
 
 pub fn create_buffer_with_data(
     device: &wgpu::Device,
@@ -41,4 +41,3 @@ impl BufferDimensions {
         }
     }
 }
-

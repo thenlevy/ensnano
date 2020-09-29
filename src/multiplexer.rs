@@ -83,7 +83,10 @@ impl Multiplexer {
     }
 
     /// Forwards event to the elment on which they happen.
-    pub fn event(&mut self, event: WindowEvent<'static>) -> Option<(WindowEvent<'static>, ElementType)> {
+    pub fn event(
+        &mut self,
+        event: WindowEvent<'static>,
+    ) -> Option<(WindowEvent<'static>, ElementType)> {
         match &event {
             WindowEvent::CursorMoved { position, .. } => {
                 let &PhysicalPosition { x, y } = position;
@@ -106,7 +109,7 @@ impl Multiplexer {
             WindowEvent::Resized(new_size) => {
                 self.window_size = *new_size;
             }
-            WindowEvent::ScaleFactorChanged { scale_factor, ..} => {
+            WindowEvent::ScaleFactorChanged { scale_factor, .. } => {
                 self.scale_factor = *scale_factor;
             }
             WindowEvent::MouseInput {

@@ -4,15 +4,15 @@ use std::rc::Rc;
 use ultraviolet::{Mat4, Vec3};
 
 use crate::mediator;
-use mediator::{MediatorPtr, AppNotification, Notification, Mediator};
+use mediator::AppNotification;
 
 mod controller;
 mod data;
 mod view;
 use controller::Controller;
-pub use controller::{DesignTranslation, DesignRotation};
+pub use controller::{DesignRotation, DesignTranslation};
 use data::Data;
-pub use data::{ObjectType, Nucl};
+pub use data::{Nucl, ObjectType};
 use view::View;
 
 pub struct Design {
@@ -27,7 +27,7 @@ impl Design {
     #[allow(dead_code)]
     pub fn new(id: usize) -> Self {
         let view = Rc::new(RefCell::new(View::new()));
-        let data = Rc::new(RefCell::new(Data::new(&view)));
+        let data = Rc::new(RefCell::new(Data::new()));
         let controller = Controller::new(view.clone(), data.clone());
         Self {
             view,
@@ -40,7 +40,7 @@ impl Design {
     /// Create a new design by reading a file. At the moment only codenano format is supported
     pub fn new_with_path(id: usize, path: &PathBuf) -> Self {
         let view = Rc::new(RefCell::new(View::new()));
-        let data = Rc::new(RefCell::new(Data::new_with_path(&view, path)));
+        let data = Rc::new(RefCell::new(Data::new_with_path(path)));
         let controller = Controller::new(view.clone(), data.clone());
         Self {
             view,
@@ -51,6 +51,7 @@ impl Design {
     }
 
     /// `true` if the data has been updated since the last time this function was called
+    #[allow(dead_code)]
     pub fn data_was_updated(&mut self) -> bool {
         self.data.borrow_mut().was_updated()
     }
@@ -60,14 +61,13 @@ impl Design {
         if self.view.borrow_mut().was_updated() {
             let notification = DesignNotification {
                 content: DesignNotificationContent::ModelChanged(self.get_model_matrix()),
-                design_id: self.id as usize
+                design_id: self.id as usize,
             };
             Some(notification)
         } else {
             None
         }
     }
-
 
     /// Return the model matrix used to display the design
     pub fn get_model_matrix(&self) -> Mat4 {
@@ -84,7 +84,7 @@ impl Design {
         self.controller.rotate(rotation);
     }
 
-    /// Terminate the movement performed by self. 
+    /// Terminate the movement performed by self.
     pub fn terminate_movement(&mut self) {
         self.controller.terminate_movement()
     }
@@ -97,18 +97,12 @@ impl Design {
                 .get_element_position(id)
                 .map(|x| self.view.borrow().model_matrix.transform_point3(x))
         } else {
-            self.data
-                .borrow()
-                .get_element_position(id)
+            self.data.borrow().get_element_position(id)
         }
     }
 
     pub fn get_object_type(&self, id: u32) -> Option<ObjectType> {
         self.data.borrow().get_object_type(id)
-    }
-
-    pub fn get_nucl_involved(&self, id: u32) -> Option<(u32, u32)> {
-        self.data.borrow().get_nucl_involved(id)
     }
 
     pub fn get_color(&self, id: u32) -> Option<u32> {
@@ -123,14 +117,6 @@ impl Design {
         self.data.borrow().get_all_bound_ids().collect()
     }
 
-    pub fn is_nucl(&self, id: u32) -> bool {
-        self.data.borrow().is_nucl(id)
-    }
-
-    pub fn is_bound(&self, id: u32) -> bool {
-        self.data.borrow().is_bound(id)
-    }
-
     pub fn on_notify(&mut self, notification: AppNotification) {
         match notification {
             AppNotification::MovementEnded => self.terminate_movement(),
@@ -138,7 +124,7 @@ impl Design {
             AppNotification::Translation(translation) => self.apply_translation(translation),
         }
     }
-    
+
     pub fn get_id(&self) -> usize {
         self.id
     }
@@ -158,12 +144,11 @@ pub struct DesignNotification {
     pub content: DesignNotificationContent,
 }
 
-
 /// A modification to the design that must be notified to the applications
 #[derive(Clone)]
 pub enum DesignNotificationContent {
     /// The model matrix of the design has been modified
-    ModelChanged(Mat4)
+    ModelChanged(Mat4),
 }
 
 /// The referential in which one wants to get an element's coordinates
@@ -177,7 +162,7 @@ impl Referential {
     pub fn is_world(&self) -> bool {
         match self {
             Referential::World => true,
-            _ => false
+            _ => false,
         }
     }
 }

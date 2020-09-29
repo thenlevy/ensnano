@@ -3,8 +3,6 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use ultraviolet::{Mat4, Rotor3, Vec3};
 
-use std::f32::consts::FRAC_PI_4;
-
 type ViewPtr = Rc<RefCell<View>>;
 type DataPtr = Rc<RefCell<Data>>;
 
@@ -31,9 +29,10 @@ impl Controller {
 
     pub fn translate(&mut self, translation: &DesignTranslation) {
         self.forward += translation.forward;
-        self.view
-            .borrow_mut()
-            .set_matrix(self.old_matrix.translated(&(translation.right + translation.up + self.forward)))
+        self.view.borrow_mut().set_matrix(
+            self.old_matrix
+                .translated(&(translation.right + translation.up + self.forward)),
+        )
     }
 
     pub fn rotate(&mut self, rotation: &DesignRotation) {
@@ -45,7 +44,7 @@ impl Controller {
 
         let rotor = Rotor3::from_angle_plane(angle_yz, plane_yz).normalized()
             * Rotor3::from_angle_plane(angle_xz, plane_xz).normalized();
-        
+
         let origin = rotation.origin;
 
         let new_matrix = Mat4::from_translation(origin)

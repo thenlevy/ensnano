@@ -2,14 +2,11 @@ use native_dialog::Dialog;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
+use iced::Image;
 use iced::{container, Background, Container};
 use iced_wgpu::Renderer;
-use iced_winit::{
-    button, Button, Color, Command, Element, Length, Program, Row, 
-};
 use iced_winit::winit::dpi::LogicalSize;
-use iced::Image;
-
+use iced_winit::{button, Button, Color, Command, Element, Length, Program, Row};
 
 pub struct TopBar {
     button_fit: button::State,
@@ -93,13 +90,18 @@ impl Program for TopBar {
         let button_fit = Button::new(&mut self.button_fit, Image::new("icons/adjust_page.png"))
             .on_press(Message::SceneFitRequested)
             .height(Length::Units(height));
-        let button_add_file = Button::new(&mut self.button_add_file, Image::new("icons/add_file.png").height(Length::Units(height)))
-            .on_press(Message::FileAddRequested).height(Length::Units(height));
-        let button_replace_file =
-            Button::new(&mut self.button_replace_file, Image::new("icons/delete.png"))
-                .on_press(Message::FileReplaceRequested)
-                .height(Length::Units(height));
-
+        let button_add_file = Button::new(
+            &mut self.button_add_file,
+            Image::new("icons/add_file.png").height(Length::Units(height)),
+        )
+        .on_press(Message::FileAddRequested)
+        .height(Length::Units(height));
+        let button_replace_file = Button::new(
+            &mut self.button_replace_file,
+            Image::new("icons/delete.png"),
+        )
+        .on_press(Message::FileReplaceRequested)
+        .height(Length::Units(height));
 
         let buttons = Row::new()
             .width(Length::Fill)

@@ -1,16 +1,10 @@
-use super::View;
-use std::cell::RefCell;
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::rc::Rc;
-use ultraviolet::{Rotor3, Vec3};
+use ultraviolet::Vec3;
 
 mod codenano;
 
-
-type ViewPtr = Rc<RefCell<View>>;
 pub struct Data {
-    view: ViewPtr,
     design: codenano::Design<(), ()>,
     object_type: HashMap<u32, ObjectType>,
     nucleotide: HashMap<u32, Nucl>,
@@ -25,10 +19,9 @@ pub struct Data {
 
 impl Data {
     #[allow(dead_code)]
-    pub fn new(view: &ViewPtr) -> Self {
+    pub fn new() -> Self {
         let design = codenano::Design::<(), ()>::new();
         Self {
-            view: view.clone(),
             design,
             object_type: HashMap::new(),
             space_position: HashMap::new(),
@@ -43,12 +36,11 @@ impl Data {
     }
 
     /// Create a new data by reading a file. At the moment only codenano's format is supported
-    pub fn new_with_path(view: &ViewPtr, json_path: &PathBuf) -> Self {
+    pub fn new_with_path(json_path: &PathBuf) -> Self {
         let json_str =
             std::fs::read_to_string(json_path).expect(&format!("File not found {:?}", json_path));
         let design = serde_json::from_str(&json_str).expect("Error in .json file");
         let mut ret = Self {
-            view: view.clone(),
             design,
             object_type: HashMap::new(),
             space_position: HashMap::new(),
@@ -74,11 +66,15 @@ impl Data {
         let mut strand_map = HashMap::new();
         let mut color_map = HashMap::new();
         let mut id = 0u32;
-        let mut nucl_id = 0u32;
+        let mut nucl_id;
         let mut old_nucl = None;
         let mut old_nucl_id = None;
         for (s_id, strand) in self.design.strands.iter().enumerate() {
-            let color = strand.color.as_ref().unwrap_or(&strand.default_color()).as_int();
+            let color = strand
+                .color
+                .as_ref()
+                .unwrap_or(&strand.default_color())
+                .as_int();
             for domain in &strand.domains {
                 for nucl_position in domain.iter() {
                     let position = self.design.helices[domain.helix as usize].space_pos(
@@ -104,7 +100,8 @@ impl Data {
                         let bound_id = id;
                         id += 1;
                         let bound = (old_nucl, nucl);
-                        object_type.insert(bound_id, ObjectType::Bound(old_nucl_id.unwrap(), nucl_id));
+                        object_type
+                            .insert(bound_id, ObjectType::Bound(old_nucl_id.unwrap(), nucl_id));
                         identifier_bound.insert(bound, bound_id);
                         nucleotides_involved.insert(bound_id, bound);
                         color_map.insert(bound_id, color);
@@ -182,21 +179,12 @@ impl Data {
     }
 
     /// Return the ObjectType associated to the identifier `id`
-    pub fn get_object_type(&self, id:u32) -> Option<ObjectType> {
+    pub fn get_object_type(&self, id: u32) -> Option<ObjectType> {
         self.object_type.get(&id).cloned()
     }
 
-    /// Return the identifier of the nucleotide involved in the bound `id`.
-    pub fn get_nucl_involved(&self, id: u32) -> Option<(u32, u32)> {
-        if let Some((n1, n2)) = self.nucleotides_involved.get(&id) {
-            Some((*self.identifier_nucl.get(n1).unwrap(), *self.identifier_nucl.get(n2).unwrap()))
-        } else {
-            None
-        }
-    }
-
     /// Return the color of the element with identifier `id`
-    pub fn get_color(&self, id:u32) -> Option<u32> {
+    pub fn get_color(&self, id: u32) -> Option<u32> {
         self.color.get(&id).cloned()
     }
 
@@ -208,16 +196,6 @@ impl Data {
     /// Return an iterator over all the identifier of elements that are bounds
     pub fn get_all_bound_ids<'a>(&'a self) -> impl Iterator<Item = u32> + 'a {
         self.nucleotides_involved.keys().copied()
-    }
-
-    /// Return true if `id` is the identifier of a nucleotide
-    pub fn is_nucl(&self, id: u32) -> bool {
-        self.nucleotide.contains_key(&id)
-    }
-
-    /// Return true if `id` is the identifier of a bound
-    pub fn is_bound(&self, id: u32) -> bool {
-        self.nucleotides_involved.contains_key(&id)
     }
 
     pub fn get_strand(&self, id: u32) -> Option<usize> {
@@ -233,7 +211,6 @@ impl Data {
         }
         ret
     }
-
 }
 
 #[derive(Clone, Copy, Eq, PartialEq)]
@@ -246,10 +223,11 @@ impl ObjectType {
     pub fn is_nucl(&self) -> bool {
         match self {
             ObjectType::Nucleotide(_) => true,
-            _ => false
+            _ => false,
         }
     }
 
+    #[allow(dead_code)]
     pub fn is_bound(&self) -> bool {
         match self {
             ObjectType::Bound(_, _) => true,

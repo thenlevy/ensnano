@@ -1,5 +1,4 @@
 use crate::utils;
-use utils::{instance, mesh, light, texture};
 use iced_wgpu::wgpu;
 use instance::Instance;
 use light::create_light;
@@ -7,12 +6,16 @@ use mesh::{DrawModel, Mesh, Vertex};
 use std::rc::Rc;
 use texture::Texture;
 use ultraviolet::Mat4;
+use utils::{instance, light, mesh, texture};
 use wgpu::{
     include_spirv, BindGroup, BindGroupLayout, Device, Queue, RenderPass, RenderPipeline,
     StencilStateDescriptor,
 };
 
-use super::{CameraPtr, ProjectionPtr, Uniforms, bindgroup_manager::{DynamicBindGroup, UniformBindGroup}};
+use super::{
+    bindgroup_manager::{DynamicBindGroup, UniformBindGroup},
+    CameraPtr, ProjectionPtr, Uniforms,
+};
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
@@ -25,7 +28,6 @@ unsafe impl bytemuck::Pod for ByteMat4 {}
 /// mesh.
 pub struct PipelineHandler {
     device: Rc<Device>,
-    queue: Rc<Queue>,
     /// The mesh to be drawn
     mesh: Mesh,
     /// A possible updates to the instances to be drawn. Must be taken into account before drawing
@@ -104,7 +106,6 @@ impl PipelineHandler {
 
         Self {
             device,
-            queue,
             mesh,
             new_instances: None,
             number_instances: 0,
@@ -139,8 +140,7 @@ impl PipelineHandler {
         if let Some(ref instances) = self.new_instances.take() {
             self.number_instances = instances.len();
             let instances_data: Vec<_> = instances.iter().map(|i| i.to_raw()).collect();
-            self.bind_groups
-                .update_instances(instances_data.as_slice());
+            self.bind_groups.update_instances(instances_data.as_slice());
         }
     }
 
@@ -158,10 +158,7 @@ impl PipelineHandler {
         }
     }
 
-    pub fn draw<'a>(
-        &'a mut self,
-        render_pass: &mut RenderPass<'a>,
-    ) {
+    pub fn draw<'a>(&'a mut self, render_pass: &mut RenderPass<'a>) {
         if self.pipeline.is_none() {
             self.pipeline = Some(self.create_pipeline(self.device.as_ref()));
         }
@@ -274,10 +271,7 @@ struct BindGroups {
 }
 
 impl BindGroups {
-    fn update_model_matrices<M: bytemuck::Pod>(
-        &mut self,
-        matrices: &[M],
-    ) {
+    fn update_model_matrices<M: bytemuck::Pod>(&mut self, matrices: &[M]) {
         self.model_matrices.update(matrices);
     }
 
@@ -288,10 +282,7 @@ impl BindGroups {
         self.model_matrices.update_offset(offset, matrix_bytes)
     }
 
-    fn update_instances<I: bytemuck::Pod>(
-        &mut self,
-        instances_data: &[I],
-    ) {
+    fn update_instances<I: bytemuck::Pod>(&mut self, instances_data: &[I]) {
         self.instances.update(instances_data);
     }
 

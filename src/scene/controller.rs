@@ -10,6 +10,7 @@ use camera::CameraController;
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ClickMode {
     TranslateCam,
+    #[allow(dead_code)]
     RotateCam,
 }
 
@@ -31,12 +32,12 @@ pub struct Controller {
     window_size: PhySize,
     /// The size of the drawing area
     area_size: PhySize,
-    /// The current modifiers 
+    /// The current modifiers
     current_modifiers: ModifiersState,
     /// The modifiers when a click was performed
     modifiers_when_clicked: ModifiersState,
     /// The effect that dragging the mouse has
-    click_mode: ClickMode
+    click_mode: ClickMode,
 }
 
 const NO_POS: PhysicalPosition<f64> = PhysicalPosition::new(f64::NAN, f64::NAN);
@@ -105,22 +106,20 @@ impl Controller {
                         ..
                     },
                 ..
-            } => {
-                match *key {
-                    VirtualKeyCode::T if *state == ElementState::Released=> { 
-                        self.data.borrow_mut().toggle_selection_mode();
-                        println!("toggled");
+            } => match *key {
+                VirtualKeyCode::T if *state == ElementState::Released => {
+                    self.data.borrow_mut().toggle_selection_mode();
+                    println!("toggled");
+                    Consequence::Nothing
+                }
+                _ => {
+                    if self.camera_controller.process_keyboard(*key, *state) {
+                        Consequence::CameraMoved
+                    } else {
                         Consequence::Nothing
                     }
-                    _ => { 
-                        if self.camera_controller.process_keyboard(*key, *state) {
-                            Consequence::CameraMoved
-                        } else {
-                            Consequence::Nothing
-                        }
-                    }
                 }
-            }
+            },
             WindowEvent::MouseWheel { delta, .. } => {
                 if !camera_can_move && self.last_left_clicked_position.is_some() {
                     let scroll = match delta {

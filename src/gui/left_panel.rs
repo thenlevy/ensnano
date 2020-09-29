@@ -2,10 +2,11 @@ use std::sync::{Arc, Mutex};
 
 use iced::{container, Background, Container};
 use iced_wgpu::Renderer;
+use iced_winit::winit::dpi::{LogicalPosition, LogicalSize};
 use iced_winit::{
-    Color, Command, Element, Length, Program, pick_list, PickList, scrollable, Scrollable, Text, Space, Column
+    pick_list, scrollable, Color, Column, Command, Element, Length, PickList, Program, Scrollable,
+    Space, Text,
 };
-use iced_winit::winit::dpi::{LogicalSize, LogicalPosition};
 
 use crate::scene::SelectionMode;
 
@@ -63,9 +64,10 @@ impl Program for LeftPanel {
             &mut self.pick_selection_mode,
             &SelectionMode::ALL[..],
             Some(self.selection_mode),
-            Message::SelectionModeChanged);
+            Message::SelectionModeChanged,
+        );
 
-        let mut selection_mode_scroll = Scrollable::new(&mut self.scroll_selection_mode)
+        let selection_mode_scroll = Scrollable::new(&mut self.scroll_selection_mode)
             .push(Text::new("Selection mode"))
             .push(selection_mode_list);
 

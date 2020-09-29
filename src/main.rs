@@ -1,8 +1,8 @@
 use std::env;
 use std::path::PathBuf;
+use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
-use std::rc::Rc;
 pub type PhySize = iced_winit::winit::dpi::PhysicalSize<u32>;
 
 use iced_wgpu::{wgpu, Backend, Renderer, Settings, Viewport};
@@ -20,23 +20,23 @@ extern crate serde_derive;
 extern crate serde;
 
 mod consts;
-mod gui;
-/// Design handling 
+/// Design handling
 mod design;
+mod gui;
 use design::Design;
-/// 3D scene drawing
-mod scene;
-/// Separation of the window into drawing regions
-mod multiplexer;
 /// Message passing between applications
 mod mediator;
+/// Separation of the window into drawing regions
+mod multiplexer;
+/// 3D scene drawing
+mod scene;
 use mediator::Mediator;
 mod utils;
 
 //use design_handler::DesignHandler;
 
-use gui::{TopBar, LeftPanel};
-use multiplexer::{DrawArea, Multiplexer, ElementType};
+use gui::{LeftPanel, TopBar};
+use multiplexer::{DrawArea, ElementType, Multiplexer};
 use scene::{Scene, SceneNotification};
 
 fn convert_size(size: PhySize) -> Size<f32> {
@@ -65,7 +65,7 @@ fn main() {
     let instance = wgpu::Instance::new(wgpu::BackendBit::PRIMARY);
     let surface = unsafe { instance.create_surface(&window) };
     // Initialize WGPU
-    let (mut device, mut queue) = futures::executor::block_on(async {
+    let (mut device, queue) = futures::executor::block_on(async {
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions {
                 power_preference: wgpu::PowerPreference::Default,
@@ -116,7 +116,13 @@ fn main() {
     // Initialize the scene
     let scene_area = multiplexer.get_element_area(ElementType::Scene);
     let mediator = Arc::new(Mutex::new(Mediator::new()));
-    let mut scene = Arc::new(Mutex::new(Scene::new(device.clone(), queue.clone(), window.inner_size(), scene_area, mediator.clone())));
+    let scene = Arc::new(Mutex::new(Scene::new(
+        device.clone(),
+        queue.clone(),
+        window.inner_size(),
+        scene_area,
+        mediator.clone(),
+    )));
     mediator.lock().unwrap().add_application(scene.clone());
     if let Some(ref path) = path {
         let design = Arc::new(Mutex::new(Design::new_with_path(0, path)));
@@ -144,7 +150,6 @@ fn main() {
         left_panel_area.position.to_logical(window.scale_factor()),
     );
 
-
     let mut top_bar_debug = Debug::new();
     let mut top_bar_state = program::State::new(
         top_bar,
@@ -162,7 +167,6 @@ fn main() {
         &mut renderer,
         &mut left_panel_debug,
     );
-
 
     // Run event loop
     let mut last_render_time = std::time::Instant::now();
@@ -209,24 +213,26 @@ fn main() {
                                     left_panel_state.queue_event(event);
                                 }
                             }
-                            ElementType::Unattributed => unreachable!()
+                            ElementType::Unattributed => unreachable!(),
                         }
                     }
                 }
             }
             Event::MainEventsCleared => {
                 let top_bar_area = multiplexer.get_element_area(ElementType::TopBar);
-                let top_bar_cursor = if multiplexer.foccused_element() == Some(ElementType::TopBar) {
+                let top_bar_cursor = if multiplexer.foccused_element() == Some(ElementType::TopBar)
+                {
                     multiplexer.get_cursor_position()
                 } else {
                     PhysicalPosition::new(-1., -1.)
                 };
 
-                let left_panel_cursor = if multiplexer.foccused_element() == Some(ElementType::LeftPanel) {
-                    multiplexer.get_cursor_position()
-                } else {
-                    PhysicalPosition::new(-1., -1.)
-                };
+                let left_panel_cursor =
+                    if multiplexer.foccused_element() == Some(ElementType::LeftPanel) {
+                        multiplexer.get_cursor_position()
+                    } else {
+                        PhysicalPosition::new(-1., -1.)
+                    };
                 if !top_bar_state.is_queue_empty() {
                     // We update iced
                     let _ = top_bar_state.update(
@@ -240,7 +246,6 @@ fn main() {
                         let mut fitting_request_lock =
                             fitting_request.lock().expect("fitting_request");
                         if *fitting_request_lock {
-                            //design_handler.fit_design(&mut scene);
                             scene.lock().unwrap().fit_design();
                             *fitting_request_lock = false;
                         }
@@ -249,8 +254,6 @@ fn main() {
                         let mut file_add_request_lock =
                             file_add_request.lock().expect("fitting_request_lock");
                         if let Some(ref path) = *file_add_request_lock {
-                            //design_handler.get_design(path);
-                            //design_handler.update_scene(&mut scene, true);
                             let d_id = mediator.lock().unwrap().nb_design();
                             let design = Arc::new(Mutex::new(Design::new_with_path(d_id, path)));
                             mediator.lock().unwrap().add_design(design);
@@ -260,9 +263,7 @@ fn main() {
                     {
                         let mut file_replace_request_lock =
                             file_replace_request.lock().expect("fitting_request_lock");
-                        if let Some(ref path) = *file_replace_request_lock {
-                            //design_handler.get_design(path);
-                            //design_handler.update_scene(&mut scene, true);
+                        if let Some(_) = *file_replace_request_lock {
                             mediator.lock().unwrap().clear_designs();
                             *file_replace_request_lock = None;
                         }
@@ -288,20 +289,25 @@ fn main() {
             }
             Event::RedrawRequested(_) => {
                 let top_bar_area = multiplexer.get_element_area(ElementType::TopBar);
-                let top_bar_cursor = if multiplexer.foccused_element() == Some(ElementType::TopBar) {
+                let top_bar_cursor = if multiplexer.foccused_element() == Some(ElementType::TopBar)
+                {
                     multiplexer.get_cursor_position()
                 } else {
                     PhysicalPosition::new(-1., -1.)
                 };
-                let left_panel_cursor = if multiplexer.foccused_element() == Some(ElementType::LeftPanel) {
-                    multiplexer.get_cursor_position()
-                } else {
-                    PhysicalPosition::new(-1., -1.)
-                };
+                let left_panel_cursor =
+                    if multiplexer.foccused_element() == Some(ElementType::LeftPanel) {
+                        multiplexer.get_cursor_position()
+                    } else {
+                        PhysicalPosition::new(-1., -1.)
+                    };
                 if resized {
                     let window_size = window.inner_size();
                     let scene_area = multiplexer.get_element_area(ElementType::Scene);
-                    scene.lock().unwrap().notify(SceneNotification::NewSize(window_size, scene_area));
+                    scene
+                        .lock()
+                        .unwrap()
+                        .notify(SceneNotification::NewSize(window_size, scene_area));
 
                     swap_chain = device.create_swap_chain(
                         &surface,
@@ -351,7 +357,10 @@ fn main() {
                 last_render_time = now;
                 //scene.draw(&mut encoder, &frame.output.view, &device, dt, false);
                 mediator.lock().unwrap().observe_designs();
-                scene.lock().unwrap().draw_view(&mut encoder, &frame.output.view, &device, dt, false, &queue);
+                scene
+                    .lock()
+                    .unwrap()
+                    .draw_view(&mut encoder, &frame.output.view, dt, false);
 
                 let viewport = Viewport::with_physical_size(
                     convert_size_u32(multiplexer.window_size),
@@ -365,7 +374,7 @@ fn main() {
                     &frame.output.view,
                     &viewport,
                     left_panel_state.primitive(),
-                    &left_panel_debug.overlay()
+                    &left_panel_debug.overlay(),
                 );
 
                 // And then iced on top
@@ -378,7 +387,6 @@ fn main() {
                     top_bar_state.primitive(),
                     &top_bar_debug.overlay(),
                 );
-
 
                 // Then we submit the work
                 staging_belt.finish();

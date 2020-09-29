@@ -1,13 +1,13 @@
-use std::rc::Rc;
-use std::cell::RefCell;
-use std::sync::{Arc, Mutex};
-use std::collections::HashSet;
 use super::{View, ViewUpdate};
+use std::cell::RefCell;
+use std::collections::HashSet;
+use std::rc::Rc;
+use std::sync::{Arc, Mutex};
 
 use ultraviolet::{Rotor3, Vec3};
 
+use crate::design::{Design, ObjectType, Referential};
 use crate::utils::instance::Instance;
-use crate::design::{Design, Referential, ObjectType};
 
 type ViewPtr = Rc<RefCell<View>>;
 
@@ -24,7 +24,6 @@ pub struct Data {
 }
 
 impl Data {
-
     pub fn new(view: ViewPtr) -> Self {
         Self {
             view,
@@ -36,8 +35,7 @@ impl Data {
     }
 
     pub fn add_design(&mut self, design: Arc<Mutex<Design>>) {
-        self.designs
-            .push(Design3D::new(design));
+        self.designs.push(Design3D::new(design));
         self.notify_instance_update();
         self.notify_selection_update();
         self.notify_candidate_update();
@@ -57,17 +55,17 @@ impl Data {
         self.selected.iter().map(|x| x.0).collect()
     }
 
-    pub fn get_candidate_designs(&self) -> HashSet<u32> {
-        self.candidates.iter().map(|x| x.0).collect()
-    }
-
     fn expand_selection(&self, object_type: ObjectType) -> HashSet<(u32, u32)> {
         let mut ret = HashSet::new();
         for (d_id, elt_id) in &self.selected {
             let group_id = self.get_group_identifier(*d_id, *elt_id);
             let group = self.get_group_member(*d_id, group_id);
             for elt in group.iter() {
-                if self.designs[*d_id as usize].get_element_type(*elt).unwrap().same_type(object_type) {
+                if self.designs[*d_id as usize]
+                    .get_element_type(*elt)
+                    .unwrap()
+                    .same_type(object_type)
+                {
                     ret.insert((*d_id, *elt));
                 }
             }
@@ -81,7 +79,11 @@ impl Data {
             let group_id = self.get_group_identifier(*d_id, *elt_id);
             let group = self.get_group_member(*d_id, group_id);
             for elt in group.iter() {
-                if self.designs[*d_id as usize].get_element_type(*elt).unwrap().same_type(object_type) {
+                if self.designs[*d_id as usize]
+                    .get_element_type(*elt)
+                    .unwrap()
+                    .same_type(object_type)
+                {
                     ret.insert((*d_id, *elt));
                 }
             }
@@ -130,7 +132,7 @@ impl Data {
         match self.selection_mode {
             SelectionMode::Nucleotide => element_id,
             SelectionMode::Design => design_id,
-            SelectionMode::Strand => self.designs[design_id as usize].get_strand(element_id)
+            SelectionMode::Strand => self.designs[design_id as usize].get_strand(element_id),
         }
     }
 
@@ -142,8 +144,15 @@ impl Data {
         }
     }
 
-    pub fn get_element_position(&self, design_id: u32, element_id: u32, referential: Referential) -> Vec3 {
-        self.designs[design_id as usize].get_element_position(element_id, referential).unwrap()
+    pub fn get_element_position(
+        &self,
+        design_id: u32,
+        element_id: u32,
+        referential: Referential,
+    ) -> Vec3 {
+        self.designs[design_id as usize]
+            .get_element_position(element_id, referential)
+            .unwrap()
     }
 
     pub fn get_selected_position(&self) -> Option<Vec3> {
@@ -160,8 +169,12 @@ impl Data {
     }
 
     pub fn notify_selection_update(&mut self) {
-        self.view.borrow_mut().update(ViewUpdate::SelectedTubes(self.get_selected_tubes()));
-        self.view.borrow_mut().update(ViewUpdate::SelectedSpheres(self.get_selected_spheres()));
+        self.view
+            .borrow_mut()
+            .update(ViewUpdate::SelectedTubes(self.get_selected_tubes()));
+        self.view
+            .borrow_mut()
+            .update(ViewUpdate::SelectedSpheres(self.get_selected_spheres()));
     }
 
     pub fn set_candidate(&mut self, design_id: u32, element_id: u32) {
@@ -173,8 +186,12 @@ impl Data {
     }
 
     pub fn notify_candidate_update(&mut self) {
-        self.view.borrow_mut().update(ViewUpdate::CandidateTubes(self.get_candidate_tubes()));
-        self.view.borrow_mut().update(ViewUpdate::CandidateSpheres(self.get_candidate_spheres()));
+        self.view
+            .borrow_mut()
+            .update(ViewUpdate::CandidateTubes(self.get_candidate_tubes()));
+        self.view
+            .borrow_mut()
+            .update(ViewUpdate::CandidateSpheres(self.get_candidate_spheres()));
     }
 
     pub fn notify_instance_update(&mut self) {
@@ -189,8 +206,12 @@ impl Data {
                 tubes.push(*tube);
             }
         }
-        self.view.borrow_mut().update(ViewUpdate::Tubes(Rc::new(tubes)));
-        self.view.borrow_mut().update(ViewUpdate::Spheres(Rc::new(spheres)));
+        self.view
+            .borrow_mut()
+            .update(ViewUpdate::Tubes(Rc::new(tubes)));
+        self.view
+            .borrow_mut()
+            .update(ViewUpdate::Spheres(Rc::new(spheres)));
     }
 
     pub fn notify_matrices_update(&mut self) {
@@ -198,7 +219,9 @@ impl Data {
         for design in self.designs.iter() {
             matrices.push(design.get_model_matrix());
         }
-        self.view.borrow_mut().update(ViewUpdate::ModelMatrices(matrices));
+        self.view
+            .borrow_mut()
+            .update(ViewUpdate::ModelMatrices(matrices));
     }
 
     pub fn get_fitting_camera(&self, ratio: f32, fovy: f32) -> Option<(Vec3, Rotor3)> {
@@ -223,18 +246,12 @@ impl Data {
             SelectionMode::Nucleotide => SelectionMode::Design,
             SelectionMode::Design => SelectionMode::Strand,
             SelectionMode::Strand => SelectionMode::Nucleotide,
-
         }
     }
 
     pub fn change_selection_mode(&mut self, selection_mode: SelectionMode) {
         self.selection_mode = selection_mode;
     }
-
-}
-
-fn last_two_bytes(x: u32) -> u32 {
-    (x & 0xFF000000) >> 24
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -271,4 +288,3 @@ impl SelectionMode {
         SelectionMode::Strand,
     ];
 }
-

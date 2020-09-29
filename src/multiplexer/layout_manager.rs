@@ -1,6 +1,6 @@
 use std::cell::RefCell;
-use std::rc::Rc;
 use std::collections::HashMap;
+use std::rc::Rc;
 
 use super::ElementType;
 
@@ -46,7 +46,12 @@ impl LayoutTree {
         area.push(root.clone());
         let element_type = vec![ElementType::Unattributed];
         let area_identifer = HashMap::new();
-        Self { root, area, element_type, area_identifer}
+        Self {
+            root,
+            area,
+            element_type,
+            area_identifer,
+        }
     }
 
     /// Vertically split an area in two.
@@ -106,7 +111,10 @@ impl LayoutTree {
 
     /// Return the boundaries of the area attributed to an element
     pub fn get_area(&self, element: ElementType) -> (f64, f64, f64, f64) {
-        let area_id = *self.area_identifer.get(&element).expect("Try to get the area of an element that was not given one");
+        let area_id = *self
+            .area_identifer
+            .get(&element)
+            .expect("Try to get the area of an element that was not given one");
         match *self.area[area_id].borrow() {
             LayoutNode::Area(left, top, right, bottom, _) => (left, top, right, bottom),
             _ => panic!("got split_node"),

@@ -35,6 +35,4 @@ impl View {
     pub fn get_model_matrix(&self) -> Mat4 {
         self.model_matrix
     }
-
 }
-

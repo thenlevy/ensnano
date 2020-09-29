@@ -1,14 +1,13 @@
+use std::collections::HashSet;
 /// The Mediator coordinates the interaction between the designs and the applications.
 /// When a design is modified, it notifies the mediator of its changes and the mediator forwards
 /// that information to the applications.
 ///
 /// When an application wants to modify a design, it makes the modification request to the
-/// mediator. 
+/// mediator.
 ///
 /// The mediator also holds data that is common to all applications.
-
 use std::sync::{Arc, Mutex};
-use std::collections::HashSet;
 
 use crate::design;
 
@@ -18,12 +17,13 @@ pub type MediatorPtr = Arc<Mutex<Mediator>>;
 
 pub struct Mediator {
     applications: Vec<Arc<Mutex<dyn Application>>>,
-    designs: Vec<Arc<Mutex<Design>>>
+    designs: Vec<Arc<Mutex<Design>>>,
 }
 
 #[derive(Clone)]
 pub enum Notification<'a> {
     DesignNotification(DesignNotification),
+    #[allow(dead_code)]
     AppNotification(AppNotification<'a>),
     NewDesign(Arc<Mutex<Design>>),
     ClearDesigns,
@@ -60,20 +60,26 @@ impl Mediator {
 
     pub fn notify_apps(&mut self, notification: Notification) {
         for app_wrapper in self.applications.clone() {
-            let mut app = app_wrapper.lock().unwrap(); 
+            let mut app = app_wrapper.lock().unwrap();
             app.on_notify(notification.clone());
         }
     }
 
     pub fn notify_all_designs(&mut self, notification: AppNotification) {
         for design_wrapper in self.designs.clone() {
-            design_wrapper.lock().unwrap().on_notify(notification.clone())
+            design_wrapper
+                .lock()
+                .unwrap()
+                .on_notify(notification.clone())
         }
     }
 
     pub fn notify_designs(&mut self, designs: &HashSet<u32>, notification: AppNotification) {
         for design_id in designs.iter() {
-            self.designs.clone()[*design_id as usize].lock().unwrap().on_notify(notification.clone());
+            self.designs.clone()[*design_id as usize]
+                .lock()
+                .unwrap()
+                .on_notify(notification.clone());
             //design.on_notify(notification.clone(), self);
         }
     }

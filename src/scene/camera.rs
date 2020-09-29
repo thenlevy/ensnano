@@ -1,4 +1,4 @@
-use super::{PhySize, ClickMode};
+use super::{ClickMode, PhySize};
 use iced_winit::winit;
 use std::cell::RefCell;
 use std::f32::consts::{FRAC_PI_2, PI};
@@ -284,7 +284,6 @@ impl CameraController {
         }
         self.cam0 = self.camera.borrow().clone();
         self.scroll = 0.;
-
     }
 
     pub fn update_camera(&mut self, dt: Duration, click_mode: ClickMode) {

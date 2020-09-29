@@ -26,14 +26,14 @@ unsafe impl bytemuck::Zeroable for InstanceRaw {}
 
 impl Instance {
     pub fn to_raw(&self) -> InstanceRaw {
-        let scale = Mat4::from_nonuniform_scale(Vec3::new(self.scale, 1., 1.,));
+        let scale = Mat4::from_nonuniform_scale(Vec3::new(self.scale, 1., 1.));
         InstanceRaw {
             model: Mat4::from_translation(self.position)
                 * self.rotor.into_matrix().into_homogeneous()
                 * scale,
             color: self.color,
             id: Self::id_from_u32(self.id),
-            _padding: 0
+            _padding: 0,
         }
     }
 
@@ -51,5 +51,4 @@ impl Instance {
         let b = id & 0x000000FF;
         Vec4::new(r as f32 / 255., g as f32 / 255., b as f32 / 255., a as f32)
     }
-
 }

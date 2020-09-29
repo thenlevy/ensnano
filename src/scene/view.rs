@@ -28,12 +28,16 @@ pub struct View {
     /// A possible update of the size of the drawing area, must be taken into account before
     /// drawing the next frame
     new_size: Option<PhySize>,
-    queue: Rc<Queue>,
     device: Rc<Device>,
 }
 
 impl View {
-    pub fn new(window_size: PhySize, area_size: PhySize, device: Rc<Device>, queue: Rc<Queue>) -> Self {
+    pub fn new(
+        window_size: PhySize,
+        area_size: PhySize,
+        device: Rc<Device>,
+        queue: Rc<Queue>,
+    ) -> Self {
         let camera = Rc::new(RefCell::new(Camera::new(
             (0.0, 5.0, 10.0),
             Rotor3::identity(),
@@ -45,15 +49,16 @@ impl View {
             0.1,
             1000.0,
         )));
-        let pipeline_handlers = PipelineHandlers::init(device.clone(), queue.clone(), &camera, &projection);
-        let depth_texture = texture::Texture::create_depth_texture(device.clone().as_ref(), &window_size);
+        let pipeline_handlers =
+            PipelineHandlers::init(device.clone(), queue.clone(), &camera, &projection);
+        let depth_texture =
+            texture::Texture::create_depth_texture(device.clone().as_ref(), &window_size);
         Self {
             camera,
             projection,
             pipeline_handlers,
             depth_texture,
             new_size: None,
-            queue,
             device,
         }
     }
@@ -143,7 +148,8 @@ impl View {
 
     /// Update the model matrix associated to a given desgin.
     pub fn update_model_matrix(&mut self, design_id: usize, matrix: Mat4) {
-        self.pipeline_handlers.update_model_matrix(design_id, matrix)
+        self.pipeline_handlers
+            .update_model_matrix(design_id, matrix)
     }
 
     /// Get a pointer to the camera
@@ -214,7 +220,12 @@ struct PipelineHandlers {
 }
 
 impl PipelineHandlers {
-    fn init(device: Rc<Device>, queue: Rc<Queue>, camera: &CameraPtr, projection: &ProjectionPtr) -> Self {
+    fn init(
+        device: Rc<Device>,
+        queue: Rc<Queue>,
+        camera: &CameraPtr,
+        projection: &ProjectionPtr,
+    ) -> Self {
         let sphere_mesh = mesh::Mesh::sphere(device.as_ref(), false);
         let tube_mesh = mesh::Mesh::tube(device.as_ref(), false);
         let fake_sphere_mesh = mesh::Mesh::sphere(device.as_ref(), false);

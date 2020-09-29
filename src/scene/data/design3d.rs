@@ -1,11 +1,9 @@
-use std::path::PathBuf;
-use std::sync::{Arc, Mutex};
-use std::rc::Rc;
-use ultraviolet::{Mat4, Vec3, Rotor3};
-use crate::utils::instance::Instance;
 use crate::design::{Design, ObjectType, Referential};
+use crate::utils::instance::Instance;
 use std::collections::HashSet;
-
+use std::rc::Rc;
+use std::sync::{Arc, Mutex};
+use ultraviolet::{Mat4, Rotor3, Vec3};
 
 /// An object that handles the 3d graphcial representation of a `Design`
 pub struct Design3D {
@@ -16,13 +14,9 @@ pub struct Design3D {
 type Basis = (f32, f32, f32, [f32; 3], u32);
 
 impl Design3D {
-
     pub fn new(design: Arc<Mutex<Design>>) -> Self {
         let id = design.lock().unwrap().get_id() as u32;
-        Self {
-            design,
-            id,
-        }
+        Self { design, id }
     }
 
     /// Convert a list of ids into a list of instances
@@ -60,7 +54,7 @@ impl Design3D {
     /// Convert return an instance representing the object with identifier `id`
     /// This function will panic if `id` does not represent an object of the design
     pub fn make_instance(&self, id: u32) -> Instance {
-        let kind = self.get_object_type(id).expect("id not in design"); 
+        let kind = self.get_object_type(id).expect("id not in design");
         let referential = Referential::Model;
         let instanciable = match kind {
             ObjectType::Bound(id1, id2) => {
@@ -80,30 +74,20 @@ impl Design3D {
         instanciable.to_instance()
     }
 
-    pub fn is_nucl(&self, id: u32) -> bool {
-        self.design.lock().unwrap().is_nucl(id)
-    }
-
-    pub fn is_bound(&self, id: u32) -> bool {
-        self.design.lock().unwrap().is_bound(id)
-    }
-
-    fn get_nucl_involved(&self, id: u32) -> Option<(u32, u32)> {
-        self.design.lock().unwrap().get_nucl_involved(id)
-    }
-
     fn get_object_type(&self, id: u32) -> Option<ObjectType> {
         self.design.lock().unwrap().get_object_type(id)
     }
 
     pub fn get_element_position(&self, id: u32, referential: Referential) -> Option<Vec3> {
-        self.design.lock().unwrap().get_element_position(id, referential)
+        self.design
+            .lock()
+            .unwrap()
+            .get_element_position(id, referential)
     }
 
     fn get_color(&self, id: u32) -> Option<u32> {
         self.design.lock().unwrap().get_color(id)
     }
-
 
     /// Return a camera position and orientation so that self fits in the scene.
     pub fn get_fitting_camera(&self, ratio: f32, fovy: f32) -> (Vec3, Rotor3) {
@@ -122,7 +106,11 @@ impl Design3D {
             (boundaries[2] + boundaries[3]) as f32 / 2.,
             (boundaries[4] + boundaries[5]) as f32 / 2.,
         );
-        self.design.lock().unwrap().get_model_matrix().transform_vec3(middle)
+        self.design
+            .lock()
+            .unwrap()
+            .get_model_matrix()
+            .transform_vec3(middle)
     }
 
     fn boundaries(&self) -> [f32; 6] {
@@ -135,7 +123,13 @@ impl Design3D {
 
         let ids = self.design.lock().unwrap().get_all_nucl_ids();
         for id in ids {
-            let coord: [f32; 3] = self.design.lock().unwrap().get_element_position(id, Referential::World).unwrap().into();
+            let coord: [f32; 3] = self
+                .design
+                .lock()
+                .unwrap()
+                .get_element_position(id, Referential::World)
+                .unwrap()
+                .into();
             if coord[0] < min_x {
                 min_x = coord[0];
             }
@@ -226,14 +220,18 @@ impl Design3D {
     }
 
     pub fn get_strand_elements(&self, strand_id: u32) -> HashSet<u32> {
-        self.design.lock().unwrap().get_strand_elements(strand_id as usize).into_iter().collect()
+        self.design
+            .lock()
+            .unwrap()
+            .get_strand_elements(strand_id as usize)
+            .into_iter()
+            .collect()
     }
 
     pub fn get_element_type(&self, e_id: u32) -> Option<ObjectType> {
         self.design.lock().unwrap().get_object_type(e_id)
     }
 }
-
 
 pub struct Instantiable {
     repr: ObjectRepr,
@@ -243,27 +241,19 @@ pub struct Instantiable {
 
 impl Instantiable {
     pub fn new(repr: ObjectRepr, color: u32, id: u32) -> Self {
-        Self {
-            repr,
-            color,
-            id
-        }
+        Self { repr, color, id }
     }
 
     pub fn to_instance(&self) -> Instance {
         match self.repr {
-            ObjectRepr::Tube(a, b) => {
-                create_bound(a.into(), b.into(), self.color, self.id)
-            }
-            ObjectRepr::Sphere(x) => {
-                Instance {
-                    position: x.into(),
-                    rotor: Rotor3::identity(),
-                    color: Instance::color_from_u32(self.color),
-                    id: self.id,
-                    scale: 1.
-                }
-            }
+            ObjectRepr::Tube(a, b) => create_bound(a.into(), b.into(), self.color, self.id),
+            ObjectRepr::Sphere(x) => Instance {
+                position: x.into(),
+                rotor: Rotor3::identity(),
+                color: Instance::color_from_u32(self.color),
+                id: self.id,
+                scale: 1.,
+            },
         }
     }
 }
@@ -287,7 +277,6 @@ fn create_bound(source: Vec3, dest: Vec3, color: u32, id: u32) -> Instance {
         color,
         rotor,
         id,
-        scale
+        scale,
     }
 }
-

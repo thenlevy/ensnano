@@ -1,9 +1,8 @@
 use std::rc::Rc;
 
-use iced_wgpu::wgpu;
-use wgpu::{BindGroupLayout, BindGroupLayoutDescriptor, BindGroup, BindGroupEntry, Buffer,
-           BufferDescriptor, Device, Queue};
 use crate::utils::create_buffer_with_data;
+use iced_wgpu::wgpu;
+use wgpu::{BindGroup, BindGroupLayout, Buffer, BufferDescriptor, Device, Queue};
 
 pub struct DynamicBindGroup {
     layout: BindGroupLayout,
@@ -12,37 +11,35 @@ pub struct DynamicBindGroup {
     length: u64,
     bind_group: BindGroup,
     device: Rc<Device>,
-    queue: Rc<Queue>
+    queue: Rc<Queue>,
 }
 
 impl DynamicBindGroup {
-
     pub fn new(device: Rc<Device>, queue: Rc<Queue>) -> Self {
         let buffer = device.create_buffer(&BufferDescriptor {
             label: None,
             size: 0,
             usage: wgpu::BufferUsage::STORAGE | wgpu::BufferUsage::COPY_DST,
-            mapped_at_creation: false
+            mapped_at_creation: false,
         });
         let capacity = 0;
         let length = 0;
 
-        let layout =
-            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                entries: &[wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStage::VERTEX,
-                    ty: wgpu::BindingType::StorageBuffer {
-                        // We don't plan on changing the size of this buffer
-                        dynamic: false,
-                        // The shader is not allowed to modify it's contents
-                        readonly: true,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                }],
-                label: None,
-            });
+        let layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            entries: &[wgpu::BindGroupLayoutEntry {
+                binding: 0,
+                visibility: wgpu::ShaderStage::VERTEX,
+                ty: wgpu::BindingType::StorageBuffer {
+                    // We don't plan on changing the size of this buffer
+                    dynamic: false,
+                    // The shader is not allowed to modify it's contents
+                    readonly: true,
+                    min_binding_size: None,
+                },
+                count: None,
+            }],
+            label: None,
+        });
 
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &layout,
@@ -115,34 +112,31 @@ pub struct UniformBindGroup {
     layout: BindGroupLayout,
     buffer: Buffer,
     bind_group: BindGroup,
-    device: Rc<Device>,
-    queue: Rc<Queue>
+    queue: Rc<Queue>,
 }
 
 impl UniformBindGroup {
-
-    pub fn new<I: bytemuck::Pod>(device: Rc<Device>, queue: Rc<Queue>, viewer_data:&I) -> Self {
+    pub fn new<I: bytemuck::Pod>(device: Rc<Device>, queue: Rc<Queue>, viewer_data: &I) -> Self {
         let buffer = create_buffer_with_data(
             &device,
             bytemuck::cast_slice(&[*viewer_data]),
             wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
         );
-        let layout =
-            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                entries: &[
-                    // perspective and view
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 0,
-                        visibility: wgpu::ShaderStage::VERTEX | wgpu::ShaderStage::FRAGMENT,
-                        ty: wgpu::BindingType::UniformBuffer {
-                            dynamic: false,
-                            min_binding_size: None,
-                        },
-                        count: None,
+        let layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            entries: &[
+                // perspective and view
+                wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStage::VERTEX | wgpu::ShaderStage::FRAGMENT,
+                    ty: wgpu::BindingType::UniformBuffer {
+                        dynamic: false,
+                        min_binding_size: None,
                     },
-                ],
-                label: Some("uniform_bind_group_layout"),
-            });
+                    count: None,
+                },
+            ],
+            label: Some("uniform_bind_group_layout"),
+        });
 
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &layout,
@@ -157,7 +151,6 @@ impl UniformBindGroup {
         });
 
         Self {
-            device,
             queue,
             bind_group,
             layout,
@@ -166,11 +159,8 @@ impl UniformBindGroup {
     }
 
     pub fn update<I: bytemuck::Pod>(&mut self, new_data: &I) {
-        self.queue.write_buffer(
-            &self.buffer,
-            0,
-            bytemuck::cast_slice(&[*new_data]),
-        );
+        self.queue
+            .write_buffer(&self.buffer, 0, bytemuck::cast_slice(&[*new_data]));
     }
 
     pub fn get_bindgroup(&self) -> &BindGroup {

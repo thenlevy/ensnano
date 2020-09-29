@@ -1,18 +1,18 @@
 use futures::executor;
 use iced_wgpu::wgpu;
 use iced_winit::winit;
-use std::collections::HashSet;
 use std::cell::RefCell;
+use std::collections::HashSet;
 use std::rc::Rc;
-use std::time::Duration;
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 use ultraviolet::{Mat4, Rotor3, Vec3};
 
-use crate::{design, utils, mediator};
+use crate::{design, mediator, utils};
 use crate::{DrawArea, PhySize, WindowEvent};
-use utils::{instance, BufferDimensions};
 use instance::Instance;
-use mediator::{MediatorPtr, Application, Notification, AppNotification};
+use mediator::{AppNotification, Application, MediatorPtr, Notification};
+use utils::{instance, BufferDimensions};
 use wgpu::{Device, Queue};
 use winit::dpi::PhysicalPosition;
 
@@ -25,10 +25,12 @@ use view::{View, ViewUpdate};
 mod controller;
 use controller::{Consequence, Controller};
 mod data;
+pub use controller::ClickMode;
 use data::Data;
 pub use data::SelectionMode;
-pub use controller::ClickMode;
-use design::{Design, DesignRotation, DesignTranslation, DesignNotification, DesignNotificationContent};
+use design::{
+    Design, DesignNotification, DesignNotificationContent, DesignRotation, DesignTranslation,
+};
 
 type ViewPtr = Rc<RefCell<View>>;
 type DataPtr = Rc<RefCell<Data>>;
@@ -62,9 +64,20 @@ impl Scene {
     /// * `window_size` the *Physical* size of the window in which the application is displayed
     ///
     /// * `area` the limits, in *physical* size of the area on which the scene is displayed
-    pub fn new(device: Rc<Device>, queue: Rc<Queue>, window_size: PhySize, area: DrawArea, mediator: MediatorPtr) -> Self {
+    pub fn new(
+        device: Rc<Device>,
+        queue: Rc<Queue>,
+        window_size: PhySize,
+        area: DrawArea,
+        mediator: MediatorPtr,
+    ) -> Self {
         let update = SceneUpdate::new();
-        let view = Rc::new(RefCell::new(View::new(window_size, area.size, device.clone(), queue.clone())));
+        let view = Rc::new(RefCell::new(View::new(
+            window_size,
+            area.size,
+            device.clone(),
+            queue.clone(),
+        )));
         let data = Rc::new(RefCell::new(Data::new(view.clone())));
         let controller = Controller::new(view.clone(), data.clone(), window_size, area.size);
         Self {
@@ -96,11 +109,7 @@ impl Scene {
     }
 
     /// Input an event to the scene. Return true, if the selected object of the scene has changed
-    pub fn input(
-        &mut self,
-        event: &WindowEvent,
-        cursor_position: PhysicalPosition<f64>,
-    ) {
+    pub fn input(&mut self, event: &WindowEvent, cursor_position: PhysicalPosition<f64>) {
         let camera_can_move = self.get_selected_designs().len() == 0;
         let consequence = self
             .controller
@@ -113,7 +122,10 @@ impl Scene {
                 self.translate_selected_design(x, y, z);
             }
             Consequence::MovementEnded => {
-                self.mediator.lock().unwrap().notify_all_designs(AppNotification::MovementEnded);
+                self.mediator
+                    .lock()
+                    .unwrap()
+                    .notify_all_designs(AppNotification::MovementEnded);
             }
             Consequence::Rotation(x, y) => {
                 let rotation = DesignRotation {
@@ -123,7 +135,10 @@ impl Scene {
                     angle_xz: x as f32 * std::f32::consts::PI,
                     angle_yz: y as f32 * std::f32::consts::PI,
                 };
-                self.mediator.lock().unwrap().notify_designs(&self.data.borrow().get_selected_designs(), AppNotification::Rotation(&rotation))
+                self.mediator.lock().unwrap().notify_designs(
+                    &self.data.borrow().get_selected_designs(),
+                    AppNotification::Rotation(&rotation),
+                )
             }
             Consequence::Swing(x, y) => {
                 let pivot = self.data.borrow().get_selected_position();
@@ -133,16 +148,11 @@ impl Scene {
                     self.notify(SceneNotification::CameraMoved);
                 }
             }
-            Consequence::CursorMoved(clicked) => {
-                self.pixel_to_check = Some(clicked)
-            }
+            Consequence::CursorMoved(clicked) => self.pixel_to_check = Some(clicked),
         };
     }
 
-    fn click_on(
-        &mut self,
-        clicked_pixel: PhysicalPosition<f64>,
-    ) {
+    fn click_on(&mut self, clicked_pixel: PhysicalPosition<f64>) {
         let (selected_id, design_id) = self.set_selected_id(clicked_pixel);
         if selected_id != 0xFFFFFF {
             self.data.borrow_mut().set_selection(design_id, selected_id);
@@ -152,10 +162,7 @@ impl Scene {
         self.data.borrow_mut().notify_selection_update();
     }
 
-    fn check_on(
-        &mut self,
-        clicked_pixel: PhysicalPosition<f64>,
-    ) {
+    fn check_on(&mut self, clicked_pixel: PhysicalPosition<f64>) {
         let (checked_id, design_id) = self.set_selected_id(clicked_pixel);
         if checked_id != 0xFFFFFF {
             self.data.borrow_mut().set_candidate(design_id, checked_id);
@@ -165,10 +172,7 @@ impl Scene {
         self.data.borrow_mut().notify_candidate_update();
     }
 
-    fn set_selected_id(
-        &mut self,
-        clicked_pixel: PhysicalPosition<f64>,
-    ) -> (u32, u32) {
+    fn set_selected_id(&mut self, clicked_pixel: PhysicalPosition<f64>) -> (u32, u32) {
         let size = wgpu::Extent3d {
             width: self.controller.get_window_size().width,
             height: self.controller.get_window_size().height,
@@ -177,8 +181,9 @@ impl Scene {
 
         let (texture, texture_view) = self.create_fake_scene_texture(self.device.as_ref(), size);
 
-        let mut encoder =
-            self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+        let mut encoder = self
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
 
         self.view
             .borrow_mut()
@@ -190,7 +195,8 @@ impl Scene {
             height: 1,
             depth: 1,
         };
-        let buffer_dimensions = BufferDimensions::new(extent.width as usize, extent.height as usize);
+        let buffer_dimensions =
+            BufferDimensions::new(extent.width as usize, extent.height as usize);
         let buf_size = buffer_dimensions.padded_bytes_per_row * buffer_dimensions.height;
         let staging_buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
             size: buf_size as u64,
@@ -207,9 +213,9 @@ impl Scene {
             },
         };
         let origin = wgpu::Origin3d {
-           x: clicked_pixel.cast::<u32>().x + self.area.position.x, 
-           y: clicked_pixel.cast::<u32>().y + self.area.position.y, 
-           z: 0,
+            x: clicked_pixel.cast::<u32>().x + self.area.position.x,
+            y: clicked_pixel.cast::<u32>().y + self.area.position.y,
+            z: 0,
         };
         let texture_copy_view = wgpu::TextureCopyView {
             texture: &texture,
@@ -244,7 +250,11 @@ impl Scene {
         executor::block_on(future_color)
     }
 
-    fn create_fake_scene_texture(&self, device: &Device, size: wgpu::Extent3d) -> (wgpu::Texture, wgpu::TextureView) {
+    fn create_fake_scene_texture(
+        &self,
+        device: &Device,
+        size: wgpu::Extent3d,
+    ) -> (wgpu::Texture, wgpu::TextureView) {
         let desc = wgpu::TextureDescriptor {
             size,
             mip_level_count: 1,
@@ -287,7 +297,10 @@ impl Scene {
             up: up_vec,
             forward,
         };
-        self.mediator.lock().unwrap().notify_designs(&self.get_selected_designs(), AppNotification::Translation(&translation));
+        self.mediator.lock().unwrap().notify_designs(
+            &self.get_selected_designs(),
+            AppNotification::Translation(&translation),
+        );
     }
 
     fn get_selected_position(&self) -> Option<Vec3> {
@@ -297,11 +310,13 @@ impl Scene {
     /// Adapt the camera, position, orientation and pivot point to a design so that the design fits
     /// the scene, and the pivot point of the camera is the center of the design.
     pub fn fit_design(&mut self) {
-        let camera = self.data.borrow().get_fitting_camera(self.get_ratio(), self.get_fovy());
+        let camera = self
+            .data
+            .borrow()
+            .get_fitting_camera(self.get_ratio(), self.get_fovy());
         if let Some((position, rotor)) = camera {
             let pivot_point = self.data.borrow().get_middle_point(0).clone();
-            self.controller
-                .set_pivot_point(pivot_point);
+            self.controller.set_pivot_point(pivot_point);
             self.notify(SceneNotification::NewCamera(position, rotor));
         }
     }
@@ -319,10 +334,8 @@ impl Scene {
         &mut self,
         encoder: &mut wgpu::CommandEncoder,
         target: &wgpu::TextureView,
-        device: &Device,
         dt: Duration,
         fake_color: bool,
-        queue: &Queue,
     ) {
         if let Some(pixel) = self.pixel_to_check.take() {
             self.check_on(pixel)
@@ -340,7 +353,6 @@ impl Scene {
     }
 
     fn perform_update(&mut self, dt: Duration) {
-
         if self.update.camera_update {
             self.controller.update_camera(dt);
             self.view.borrow_mut().update(ViewUpdate::Camera);
@@ -348,7 +360,6 @@ impl Scene {
         }
         self.update.need_update = false;
     }
-
 
     /// Return the vertical field of view of the camera in radians
     pub fn get_fovy(&self) -> f32 {
@@ -403,7 +414,7 @@ pub enum SceneNotification {
     /// The camera has moved. As a consequence, the projection and view matrix must be
     /// updated.
     CameraMoved,
-    /// The camera is replaced by a new one. 
+    /// The camera is replaced by a new one.
     NewCamera(Vec3, Rotor3),
     /// The drawing area has been modified
     NewSize(PhySize, DrawArea),
@@ -436,14 +447,12 @@ impl Scene {
 impl Application for Scene {
     fn on_notify(&mut self, notification: Notification) {
         match notification {
-            Notification::DesignNotification(notification) => self.handle_design_notification(notification),
+            Notification::DesignNotification(notification) => {
+                self.handle_design_notification(notification)
+            }
             Notification::AppNotification(_) => (),
-            Notification::NewDesign(design) => {
-                self.add_design(design)
-            }
-            Notification::ClearDesigns => {
-                self.clear_design()
-            }
+            Notification::NewDesign(design) => self.add_design(design),
+            Notification::ClearDesigns => self.clear_design(),
         }
     }
 }
@@ -454,7 +463,9 @@ impl Scene {
         match notification.content {
             DesignNotificationContent::ModelChanged(matrix) => {
                 self.update.need_update = true;
-                self.view.borrow_mut().update_model_matrix(design_id, matrix)
+                self.view
+                    .borrow_mut()
+                    .update_model_matrix(design_id, matrix)
             }
         }
     }
