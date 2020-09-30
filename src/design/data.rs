@@ -4,6 +4,7 @@ use ultraviolet::Vec3;
 use native_dialog::{Dialog, MessageAlert};
 
 mod codenano;
+mod icednano;
 
 pub struct Data {
     design: codenano::Design<(), ()>,

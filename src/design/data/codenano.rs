@@ -408,28 +408,6 @@ impl Helix {
         n as f64 * 2. * PI / cst.bases_per_turn + shift + self.roll + PI
     }
 
-    /*
-    // Return `R(y,theta)*point` where `R(u,theta)` is the matrix of the rotation of axis u and
-    // angle theta and `*` is a matrix,vector multiplication
-    fn ry(point: &[f64], theta: f64) -> [f64; 3] {
-        [
-            point[0] * theta.cos() + point[2] * theta.sin(),
-            point[1],
-            point[0] * -theta.sin() + point[2] * theta.cos(),
-        ]
-    }
-
-    // Return `R(z,theta)*point` where `R(u,theta)` is the matrix of the rotation of axis u and
-    // angle theta and `*` is a matrix,vector multiplication
-    fn rz(point: &[f64], theta: f64) -> [f64; 3] {
-        [
-            point[0] * theta.cos() + point[1] * -theta.sin(),
-            point[0] * theta.sin() + point[1] * theta.cos(),
-            point[2],
-        ]
-    }
-    */
-
     /// 3D position of a nucleotide on this helix. `n` is the position along the axis, and `forward` is true iff the 5' to 3' direction of the strand containing that nucleotide runs in the same direction as the axis of the helix.
     pub fn space_pos(&self, p: &Parameters, n: isize, forward: bool) -> [f64; 3] {
         let theta = self.theta(n, forward, p);
