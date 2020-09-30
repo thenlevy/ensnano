@@ -38,16 +38,16 @@ impl Design {
     }
 
     /// Create a new design by reading a file. At the moment only codenano format is supported
-    pub fn new_with_path(id: usize, path: &PathBuf) -> Self {
+    pub fn new_with_path(id: usize, path: &PathBuf) -> Option<Self> {
         let view = Rc::new(RefCell::new(View::new()));
-        let data = Rc::new(RefCell::new(Data::new_with_path(path)));
+        let data = Rc::new(RefCell::new(Data::new_with_path(path)?));
         let controller = Controller::new(view.clone(), data.clone());
-        Self {
+        Some(Self {
             view,
             data,
             controller,
             id,
-        }
+        })
     }
 
     /// `true` if the data has been updated since the last time this function was called

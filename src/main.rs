@@ -125,9 +125,12 @@ fn main() {
     )));
     mediator.lock().unwrap().add_application(scene.clone());
     if let Some(ref path) = path {
-        let design = Arc::new(Mutex::new(Design::new_with_path(0, path)));
-        mediator.lock().unwrap().add_design(design);
-        scene.lock().unwrap().fit_design();
+        let design = Design::new_with_path(0, path);
+        if let Some(design) = design {
+            let design = Arc::new(Mutex::new(design));
+            mediator.lock().unwrap().add_design(design);
+            scene.lock().unwrap().fit_design();
+        }
     }
 
     // Initialize the UI
@@ -255,8 +258,11 @@ fn main() {
                             file_add_request.lock().expect("fitting_request_lock");
                         if let Some(ref path) = *file_add_request_lock {
                             let d_id = mediator.lock().unwrap().nb_design();
-                            let design = Arc::new(Mutex::new(Design::new_with_path(d_id, path)));
-                            mediator.lock().unwrap().add_design(design);
+                            let design = Design::new_with_path(d_id, path);
+                            if let Some(design) = design {
+                                let design = Arc::new(Mutex::new(design));
+                                mediator.lock().unwrap().add_design(design);
+                            }
                             *file_add_request_lock = None;
                         }
                     }

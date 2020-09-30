@@ -55,6 +55,7 @@ impl Mediator {
     }
 
     pub fn clear_designs(&mut self) {
+        self.designs = vec![];
         self.notify_apps(Notification::ClearDesigns)
     }
 

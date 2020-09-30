@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 use ultraviolet::Vec3;
+use native_dialog::{Dialog, MessageAlert};
 
 mod codenano;
 
@@ -36,12 +37,24 @@ impl Data {
     }
 
     /// Create a new data by reading a file. At the moment only codenano's format is supported
-    pub fn new_with_path(json_path: &PathBuf) -> Self {
+    pub fn new_with_path(json_path: &PathBuf) -> Option<Self> {
         let json_str =
             std::fs::read_to_string(json_path).expect(&format!("File not found {:?}", json_path));
-        let design = serde_json::from_str(&json_str).expect("Error in .json file");
+        let design = serde_json::from_str(&json_str);
+        if !design.is_ok() {
+            let error_msg = MessageAlert {
+                title: "Error",
+                text: "Unrecognized file format",
+                typ: native_dialog::MessageType::Error
+            };
+            std::thread::spawn(|| {
+                error_msg.show().unwrap_or(());
+            });
+            return None
+        }
+
         let mut ret = Self {
-            design,
+            design: design.unwrap(),
             object_type: HashMap::new(),
             space_position: HashMap::new(),
             identifier_nucl: HashMap::new(),
@@ -53,7 +66,7 @@ impl Data {
             update_status: true,
         };
         ret.make_hash_maps();
-        ret
+        Some(ret)
     }
 
     fn make_hash_maps(&mut self) {
