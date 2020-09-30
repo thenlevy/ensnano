@@ -109,7 +109,6 @@ impl Controller {
             } => match *key {
                 VirtualKeyCode::T if *state == ElementState::Released => {
                     self.data.borrow_mut().toggle_selection_mode();
-                    println!("toggled");
                     Consequence::Nothing
                 }
                 _ => {
@@ -134,6 +133,17 @@ impl Controller {
                 } else {
                     self.camera_controller.process_scroll(delta);
                     Consequence::CameraMoved
+                }
+            }
+            WindowEvent::CursorLeft { .. } => {
+                if self.last_left_clicked_position.is_some() {
+                    self.last_left_clicked_position = None;
+                    Consequence::MovementEnded
+                } else if self.last_right_clicked_position.is_some() {
+                    self.last_right_clicked_position = None;
+                    Consequence::MovementEnded
+                } else {
+                    Consequence::Nothing
                 }
             }
             WindowEvent::MouseInput {

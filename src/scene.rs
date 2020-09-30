@@ -213,8 +213,8 @@ impl Scene {
             },
         };
         let origin = wgpu::Origin3d {
-            x: clicked_pixel.cast::<u32>().x + self.area.position.x,
-            y: clicked_pixel.cast::<u32>().y + self.area.position.y,
+            x: clicked_pixel.cast::<u32>().x.min(self.area.size.width - 1) + self.area.position.x,
+            y: clicked_pixel.cast::<u32>().y.min(self.area.size.height - 1) + self.area.position.y,
             z: 0,
         };
         let texture_copy_view = wgpu::TextureCopyView {
