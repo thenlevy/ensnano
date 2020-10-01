@@ -1,4 +1,3 @@
-use std::collections::HashSet;
 /// The Mediator coordinates the interaction between the designs and the applications.
 /// When a design is modified, it notifies the mediator of its changes and the mediator forwards
 /// that information to the applications.
@@ -8,6 +7,10 @@ use std::collections::HashSet;
 ///
 /// The mediator also holds data that is common to all applications.
 use std::sync::{Arc, Mutex};
+use std::collections::HashSet;
+use std::path::PathBuf;
+
+use native_dialog::{Dialog, MessageAlert};
 
 use crate::design;
 
@@ -18,6 +21,7 @@ pub type MediatorPtr = Arc<Mutex<Mediator>>;
 pub struct Mediator {
     applications: Vec<Arc<Mutex<dyn Application>>>,
     designs: Vec<Arc<Mutex<Design>>>,
+    selected_design: Option<usize>,
 }
 
 #[derive(Clone)]
@@ -38,6 +42,7 @@ impl Mediator {
         Self {
             applications: Vec::new(),
             designs: Vec::new(),
+            selected_design: None,
         }
     }
 
@@ -52,6 +57,21 @@ impl Mediator {
     pub fn add_design(&mut self, design: Arc<Mutex<Design>>) {
         self.designs.push(design.clone());
         self.notify_apps(Notification::NewDesign(design));
+    }
+
+    pub fn save_design(&mut self, path: &PathBuf) {
+        if let Some(d_id) = self.selected_design {
+            self.designs[d_id].lock().unwrap().save_to(path)
+        } else {
+            let error_msg = MessageAlert {
+                title: "Error",
+                text: "No design selected",
+                typ: native_dialog::MessageType::Error
+            };
+            std::thread::spawn(|| {
+                error_msg.show().unwrap_or(());
+            });
+        }
     }
 
     pub fn clear_designs(&mut self) {

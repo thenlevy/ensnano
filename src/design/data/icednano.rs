@@ -4,22 +4,55 @@
 
 use std::borrow::Cow;
 use std::f32::consts::PI;
+use std::collections::HashMap;
 
 use ultraviolet::Vec3;
+
+use super::codenano;
 
 /// The `icednano` Design structure.
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Design {
-    /// The vector of all helices used in this design. Helices have a
+    /// The collection of all helices used in this design. Helices have a
     /// position and an orientation in 3D.
-    pub helices: Vec<Helix>,
+    pub helices: HashMap<usize, Helix>,
     /// The vector of strands.
-    pub strands: Vec<Strand>,
+    pub strands: HashMap<usize, Strand>,
     /// Parameters of DNA geometry. This can be skipped (in JSON), or
     /// set to `None` in Rust, in which case a default set of
     /// parameters from the literature is used.
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub parameters: Option<Parameters>,
+}
+
+impl Design {
+    pub fn from_codenano<Sl, Dl>(codenano_desgin: &codenano::Design<Sl, Dl>) -> Self {
+        let mut helices = HashMap::new();
+        for (i, helix) in codenano_desgin.helices.iter().enumerate() {
+            helices.insert(i, Helix::from_codenano(helix));
+        }
+
+        let mut strands = HashMap::new();
+        for (i, strand) in codenano_desgin.strands.iter().enumerate() {
+            strands.insert(i, Strand::from_codenano(strand));
+        }
+
+        let parameters = codenano_desgin.parameters.map(|p| Parameters::from_codenano(&p)).unwrap_or_default();
+        
+        Self {
+            helices,
+            strands,
+            parameters: Some(parameters)
+        }
+    }
+
+    pub fn new() -> Self {
+        Self {
+            helices: HashMap::new(),
+            strands: HashMap::new(),
+            parameters: Some(Parameters::DEFAULT),
+        }
+    }
 }
 
 /// A DNA strand. Strands are represented as sequences of `Domains`.
@@ -41,6 +74,18 @@ pub struct Strand {
     /// chosen automatically.
     #[serde(serialize_with = "hexa_u32", default)]
     pub color: u32,
+}
+
+impl Strand {
+    pub fn from_codenano<Sl, Dl>(codenano_strand: &codenano::Strand<Sl, Dl>) -> Self {
+        let domains = codenano_strand.domains.iter().map(|d| Domain::from_codenano(d)).collect();
+        Self {
+            domains,
+            sequence: codenano_strand.sequence.clone(),
+            cyclic: codenano_strand.cyclic,
+            color: codenano_strand.color.clone().unwrap_or(codenano_strand.default_color()).as_int(),
+        }
+    }
 }
 
 fn is_false(x: &bool) -> bool {
@@ -66,7 +111,7 @@ pub enum Domain {
 pub struct HelixInterval {
     /// Index of the helix in the array of helices. Indices start at
     /// 0.
-    pub helix: isize,
+    pub helix: usize,
     /// Position of the leftmost base of this domain along the helix
     /// (this might be the first or last base of the domain, depending
     /// on the `orientation` parameter below).
@@ -84,6 +129,55 @@ pub struct HelixInterval {
     /// may have sequences too. The precedence has to be defined by
     /// the user of this library.
     pub sequence: Option<Cow<'static, str>>,
+}
+
+impl Domain {
+    pub fn from_codenano<Dl>(codenano_domain: &codenano::Domain<Dl>) -> Self {
+        let interval = HelixInterval {
+            helix: codenano_domain.helix as usize,
+            start: codenano_domain.start,
+            end: codenano_domain.end,
+            forward: codenano_domain.forward,
+            sequence: codenano_domain.sequence.clone(),
+        };
+        Self::HelixDomain(interval)
+    }
+}
+
+impl HelixInterval {
+    pub fn iter(&self) -> DomainIter {
+        DomainIter {
+            start: self.start,
+            end: self.end,
+            forward: self.forward
+        }
+    }
+}
+
+/// An iterator over all positions of a domain.
+pub struct DomainIter {
+    start: isize,
+    end: isize,
+    forward: bool,
+}
+
+impl Iterator for DomainIter {
+    type Item = isize;
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.start >= self.end {
+            None
+        } else {
+            if self.forward {
+                let s = self.start;
+                self.start += 1;
+                Some(s)
+            } else {
+                let s = self.end;
+                self.end -= 1;
+                Some(s - 1)
+            }
+        }
+    }
 }
 
 /// DNA geometric parameters.
@@ -127,6 +221,22 @@ impl Parameters {
         // From Paul's paper.
         inter_helix_gap: 0.65,
     };
+
+    pub fn from_codenano(codenano_param: &codenano::Parameters) -> Self {
+        Self {
+            z_step: codenano_param.z_step as f32,
+            helix_radius: codenano_param.helix_radius as f32,
+            bases_per_turn: codenano_param.bases_per_turn as f32,
+            groove_angle: codenano_param.groove_angle as f32,
+            inter_helix_gap: codenano_param.inter_helix_gap as f32,
+        }
+    }
+}
+
+impl std::default::Default for Parameters {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
 }
 
 /// A DNA helix. All bases of all strands must be on a helix.
@@ -152,6 +262,22 @@ pub struct Helix {
     #[serde(default = "zero_f32")]
     pub pitch: f32,
 
+}
+
+impl Helix {
+    pub fn from_codenano(codenano_helix: &codenano::Helix) -> Self {
+        let position = Vec3::new(
+                          codenano_helix.position.x as f32,
+                          codenano_helix.position.y as f32,
+                          codenano_helix.position.z as f32
+                          );
+        Self {
+            position,
+            roll: codenano_helix.roll as f32,
+            yaw: codenano_helix.yaw as f32,
+            pitch: codenano_helix.pitch as f32,
+        }
+    }
 }
 
 pub fn zero_f32() -> f32 {
@@ -226,3 +352,4 @@ impl Helix {
         )
     }
 }
+

@@ -12,9 +12,11 @@ pub struct TopBar {
     button_fit: button::State,
     button_add_file: button::State,
     button_replace_file: button::State,
+    button_save: button::State,
     pub fitting_requested: Arc<Mutex<bool>>,
     pub file_add_request: Arc<Mutex<Option<PathBuf>>>,
     pub file_replace_request: Arc<Mutex<Option<PathBuf>>>,
+    pub file_save_request: Arc<Mutex<Option<PathBuf>>>,
     logical_size: LogicalSize<f64>,
 }
 
@@ -23,6 +25,7 @@ pub enum Message {
     SceneFitRequested,
     FileAddRequested,
     FileReplaceRequested,
+    FileSaveRequested,
     Resize(LogicalSize<f64>),
 }
 
@@ -31,15 +34,18 @@ impl TopBar {
         fitting_requested: Arc<Mutex<bool>>,
         file_add_request: Arc<Mutex<Option<PathBuf>>>,
         file_replace_request: Arc<Mutex<Option<PathBuf>>>,
+        file_save_request: Arc<Mutex<Option<PathBuf>>>,
         logical_size: LogicalSize<f64>,
     ) -> TopBar {
         Self {
             button_fit: Default::default(),
             button_add_file: Default::default(),
             button_replace_file: Default::default(),
+            button_save: Default::default(),
             fitting_requested,
             file_add_request,
             file_replace_request,
+            file_save_request,
             logical_size,
         }
     }
@@ -86,6 +92,29 @@ impl Program for TopBar {
                     }
                 }
             }
+            Message::FileSaveRequested => {
+                let dialog = native_dialog::OpenSingleDir {
+                    dir: None,
+                };
+                let result = dialog.show();
+                if let Ok(result) = result {
+                    if let Some(mut path) = result {
+                        path.push("icednano.json");
+                        if path.exists() {
+                            let mut addon = 1;
+                            while path.exists() {
+                                path.pop();
+                                path.push(format!("icednano{}.json", addon));
+                                addon += 1;
+                            }
+                        }
+                        *self
+                            .file_save_request
+                            .lock()
+                            .expect("file_opening_request") = Some(PathBuf::from(path));
+                    }
+                }
+            }
             Message::Resize(size) => self.resize(size),
         };
         Command::none()
@@ -108,13 +137,20 @@ impl Program for TopBar {
         )
         .on_press(Message::FileReplaceRequested)
         .height(Length::Units(height));
+        let button_save = Button::new(
+            &mut self.button_save,
+            Image::new("icons/save.png"),
+        )
+            .on_press(Message::FileSaveRequested)
+            .height(Length::Units(height));
 
         let buttons = Row::new()
             .width(Length::Fill)
             .height(Length::Units(height))
             .push(button_fit)
             .push(button_add_file)
-            .push(button_replace_file);
+            .push(button_replace_file)
+            .push(button_save);
 
         Container::new(buttons)
             .width(Length::Fill)

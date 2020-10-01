@@ -2,6 +2,7 @@ use std::cell::RefCell;
 use std::path::PathBuf;
 use std::rc::Rc;
 use ultraviolet::{Mat4, Vec3};
+use native_dialog::{Dialog, MessageAlert};
 
 use crate::mediator;
 use mediator::AppNotification;
@@ -136,7 +137,22 @@ impl Design {
     pub fn get_strand_elements(&self, strand_id: usize) -> Vec<u32> {
         self.data.borrow().get_strand_elements(strand_id)
     }
+
+    pub fn save_to(&self, path: &PathBuf) {
+        let result = self.data.borrow().save_file(path);
+        if result.is_err() {
+            let error_msg = MessageAlert {
+                title: "Error",
+                text: "Could not save_file",
+                typ: native_dialog::MessageType::Error
+            };
+            std::thread::spawn(|| {
+                error_msg.show().unwrap_or(());
+            });
+        }
+    }
 }
+
 
 #[derive(Clone)]
 pub struct DesignNotification {

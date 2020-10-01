@@ -139,10 +139,12 @@ fn main() {
     let file_add_request = Arc::new(Mutex::new(None));
     let file_replace_request = Arc::new(Mutex::new(None));
     let selection_mode_request = Arc::new(Mutex::new(None));
+    let file_save_request = Arc::new(Mutex::new(None));
     let top_bar = TopBar::new(
         fitting_request.clone(),
         file_add_request.clone(),
         file_replace_request.clone(),
+        file_save_request.clone(),
         top_bar_area.size.to_logical(window.scale_factor()),
     );
 
@@ -272,6 +274,14 @@ fn main() {
                         if let Some(_) = *file_replace_request_lock {
                             mediator.lock().unwrap().clear_designs();
                             *file_replace_request_lock = None;
+                        }
+                    }
+                    {
+                        let mut file_save_request_lock = 
+                            file_save_request.lock().expect("file save request lock");
+                        if let Some(ref path) = *file_save_request_lock {
+                            mediator.lock().unwrap().save_design(path);
+                            *file_save_request_lock = None;
                         }
                     }
                 }
