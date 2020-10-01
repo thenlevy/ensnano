@@ -79,6 +79,10 @@ impl Mediator {
         self.notify_apps(Notification::ClearDesigns)
     }
 
+    pub fn notify_selection(&mut self, selected_id: Option<u32>) {
+        self.selected_design = selected_id.map(|x| x as usize)
+    }
+
     pub fn notify_apps(&mut self, notification: Notification) {
         for app_wrapper in self.applications.clone() {
             let mut app = app_wrapper.lock().unwrap();
