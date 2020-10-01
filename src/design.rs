@@ -51,17 +51,24 @@ impl Design {
         })
     }
 
-    /// `true` if the data has been updated since the last time this function was called
-    #[allow(dead_code)]
-    pub fn data_was_updated(&mut self) -> bool {
-        self.data.borrow_mut().was_updated()
-    }
-
     /// `true` if the view has been updated since the last time this function was called
     pub fn view_was_updated(&mut self) -> Option<DesignNotification> {
         if self.view.borrow_mut().was_updated() {
             let notification = DesignNotification {
                 content: DesignNotificationContent::ModelChanged(self.get_model_matrix()),
+                design_id: self.id as usize,
+            };
+            Some(notification)
+        } else {
+            None
+        }
+    }
+
+    /// Return a notification to send to the observer if the data was changed.
+    pub fn data_was_updated(&mut self) -> Option<DesignNotification> {
+        if self.data.borrow_mut().was_updated() {
+            let notification = DesignNotification {
+                content: DesignNotificationContent::InstanceChanged,
                 design_id: self.id as usize,
             };
             Some(notification)
@@ -141,15 +148,20 @@ impl Design {
     pub fn save_to(&self, path: &PathBuf) {
         let result = self.data.borrow().save_file(path);
         if result.is_err() {
-            let error_msg = MessageAlert {
-                title: "Error",
-                text: "Could not save_file",
-                typ: native_dialog::MessageType::Error
-            };
-            std::thread::spawn(|| {
+            let text = format!("Could not save_file {:?}", result);
+            std::thread::spawn(move || {
+                let error_msg = MessageAlert {
+                    title: "Error",
+                    text: &text,
+                    typ: native_dialog::MessageType::Error
+                };
                 error_msg.show().unwrap_or(());
             });
         }
+    }
+
+    pub fn change_strand_color(&mut self, strand_id: usize, color: u32) {
+        self.data.borrow_mut().change_strand_color(strand_id, color);
     }
 }
 
@@ -165,6 +177,8 @@ pub struct DesignNotification {
 pub enum DesignNotificationContent {
     /// The model matrix of the design has been modified
     ModelChanged(Mat4),
+    /// The design was modified
+    InstanceChanged,
 }
 
 /// The referential in which one wants to get an element's coordinates

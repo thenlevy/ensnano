@@ -160,8 +160,13 @@ impl Data {
         Some(self.get_element_position(*desgin_id, *element_id, Referential::World))
     }
 
-    pub fn set_selection(&mut self, design_id: u32, element_id: u32) {
+    pub fn set_selection(&mut self, design_id: u32, element_id: u32) -> (Option<u32>, Option<usize>) {
         self.selected = vec![(design_id, element_id)];
+        match self.selection_mode {
+            SelectionMode::Design => (Some(design_id), None),
+            SelectionMode::Strand => (Some(design_id), Some(self.get_group_identifier(design_id, element_id) as usize)),
+            SelectionMode::Nucleotide => (None, None)
+        }
     }
 
     pub fn reset_selection(&mut self) {

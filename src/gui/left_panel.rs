@@ -10,6 +10,9 @@ use iced_winit::{
 
 use crate::scene::SelectionMode;
 
+mod color_picker;
+use color_picker::ColorPicker;
+
 pub struct LeftPanel {
     pick_selection_mode: pick_list::State<SelectionMode>,
     scroll_selection_mode: scrollable::State,
@@ -18,17 +21,22 @@ pub struct LeftPanel {
     pub selection_mode_request: Arc<Mutex<Option<SelectionMode>>>,
     logical_size: LogicalSize<f64>,
     logical_position: LogicalPosition<f64>,
+    strand_color: u32,
+    strand_color_change_request: Arc<Mutex<Option<u32>>>,
+    color_picker: ColorPicker,
 }
 
 #[derive(Debug, Clone)]
 pub enum Message {
     SelectionModeChanged(SelectionMode),
     Resized(LogicalSize<f64>, LogicalPosition<f64>),
+    StrandColorChanged(Color),
 }
 
 impl LeftPanel {
     pub fn new(
         selection_mode_request: Arc<Mutex<Option<SelectionMode>>>,
+        strand_color_change_request: Arc<Mutex<Option<u32>>>,
         logical_size: LogicalSize<f64>,
         logical_position: LogicalPosition<f64>,
     ) -> Self {
@@ -40,6 +48,9 @@ impl LeftPanel {
             selection_mode_request,
             logical_size,
             logical_position,
+            strand_color: 0,
+            strand_color_change_request,
+            color_picker: ColorPicker::new(),
         }
     }
 
@@ -59,7 +70,16 @@ impl Program for LeftPanel {
                 self.selection_mode = selection_mode;
                 *self.selection_mode_request.lock().unwrap() = Some(selection_mode);
             }
-            Message::Resized(size, position) => self.resize(size, position)
+            Message::StrandColorChanged(color) => {
+                let red = ((color.r * 255.) as u32) << 16;
+                let green = ((color.g * 255.) as u32) << 8;
+                let blue = (color.b * 255.) as u32;
+                self.color_picker.update_color(color);
+                let color = red + green + blue;
+                *self.strand_color_change_request.lock().unwrap() = Some(color);
+            }
+
+            Message::Resized(size, position) => self.resize(size, position),
         };
         Command::none()
     }
@@ -84,11 +104,15 @@ impl Program for LeftPanel {
 
         let empty_space = Space::new(Length::Units(width), Length::Units(position_top));
 
-        let widget = Column::new()
+        let mut widget = Column::new()
             .push(empty_space)
             .push(global_scroll)
             .width(Length::Units(width))
             .height(Length::Fill);
+
+        if self.selection_mode == SelectionMode::Strand {
+           widget = widget.push(self.color_picker.view());
+        }
 
         Container::new(widget)
             .style(TopBarStyle)

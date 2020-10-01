@@ -22,6 +22,7 @@ pub struct Mediator {
     applications: Vec<Arc<Mutex<dyn Application>>>,
     designs: Vec<Arc<Mutex<Design>>>,
     selected_design: Option<usize>,
+    selected_strand: Option<usize>,
 }
 
 #[derive(Clone)]
@@ -43,6 +44,7 @@ impl Mediator {
             applications: Vec::new(),
             designs: Vec::new(),
             selected_design: None,
+            selected_strand: None,
         }
     }
 
@@ -57,6 +59,14 @@ impl Mediator {
     pub fn add_design(&mut self, design: Arc<Mutex<Design>>) {
         self.designs.push(design.clone());
         self.notify_apps(Notification::NewDesign(design));
+    }
+
+    pub fn change_strand_color(&mut self, color: u32) {
+        if let Some(design_id) = self.selected_design {
+            if let Some(strand_id) = self.selected_strand {
+                self.designs[design_id].lock().unwrap().change_strand_color(strand_id, color);
+            }
+        }
     }
 
     pub fn save_design(&mut self, path: &PathBuf) {
@@ -79,8 +89,9 @@ impl Mediator {
         self.notify_apps(Notification::ClearDesigns)
     }
 
-    pub fn notify_selection(&mut self, selected_id: Option<u32>) {
-        self.selected_design = selected_id.map(|x| x as usize)
+    pub fn notify_selection(&mut self, selected_design: Option<u32>, selected_strand: Option<usize>) {
+        self.selected_design = selected_design.map(|x| x as usize);
+        self.selected_strand = selected_strand;
     }
 
     pub fn notify_apps(&mut self, notification: Notification) {
@@ -110,10 +121,17 @@ impl Mediator {
     }
 
     pub fn observe_designs(&mut self) {
+        let mut notifications = Vec::new();
         for design_wrapper in self.designs.clone() {
             if let Some(notification) = design_wrapper.lock().unwrap().view_was_updated() {
-                self.notify_apps(Notification::DesignNotification(notification))
+                notifications.push(Notification::DesignNotification(notification))
             }
+            if let Some(notification) = design_wrapper.lock().unwrap().data_was_updated() {
+                notifications.push(Notification::DesignNotification(notification))
+            }
+        }
+        for notification in notifications {
+            self.notify_apps(notification)
         }
     }
 }

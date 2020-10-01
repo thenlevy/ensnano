@@ -155,11 +155,11 @@ impl Scene {
     fn click_on(&mut self, clicked_pixel: PhysicalPosition<f64>) {
         let (selected_id, design_id) = self.set_selected_id(clicked_pixel);
         if selected_id != 0xFFFFFF {
-            self.data.borrow_mut().set_selection(design_id, selected_id);
-            self.mediator.lock().unwrap().notify_selection(Some(design_id));
+            let (design, strand) = self.data.borrow_mut().set_selection(design_id, selected_id);
+            self.mediator.lock().unwrap().notify_selection(design, strand);
         } else {
             self.data.borrow_mut().reset_selection();
-            self.mediator.lock().unwrap().notify_selection(None);
+            self.mediator.lock().unwrap().notify_selection(None, None);
         }
         self.data.borrow_mut().notify_selection_update();
     }
@@ -468,6 +468,9 @@ impl Scene {
                 self.view
                     .borrow_mut()
                     .update_model_matrix(design_id, matrix)
+            }
+            DesignNotificationContent::InstanceChanged => {
+                self.data.borrow_mut().notify_instance_update()
             }
         }
     }

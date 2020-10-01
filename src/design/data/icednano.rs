@@ -72,7 +72,7 @@ pub struct Strand {
     pub cyclic: bool,
     /// Colour of this strand. If skipped, a default colour will be
     /// chosen automatically.
-    #[serde(serialize_with = "hexa_u32", default)]
+    #[serde(default)]
     pub color: u32,
 }
 
@@ -91,11 +91,6 @@ impl Strand {
 fn is_false(x: &bool) -> bool {
     !*x
 }
-
-fn hexa_u32<S>(x: &u32, serializer: S) -> Result<S::Ok, S::Error> where S: serde::Serializer {
-    serializer.serialize_str(&format!("{:#08X}", x))
-}
-
 
 /// A domain can be either an interval of nucleotides on an helix, or an "Insertion" that is a set
 /// of nucleotides that are not on an helix and form an independent loop.

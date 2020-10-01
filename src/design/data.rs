@@ -53,7 +53,7 @@ impl Data {
             nucleotide: HashMap::new(),
             strand_map: HashMap::new(),
             color: HashMap::new(),
-            update_status: true,
+            update_status: false,
         };
         ret.make_hash_maps();
         Some(ret)
@@ -126,8 +126,8 @@ impl Data {
     }
 
     pub fn save_file(&self, path: &PathBuf) -> std::io::Result<()>{
-        let json_content = serde_json::to_string(&self.design);
-        let mut f = std::fs::File::open(path)?;
+        let json_content = serde_json::to_string_pretty(&self.design);
+        let mut f = std::fs::File::create(path)?;
         f.write_all(json_content.expect("serde_json failed").as_bytes())
     }
 
@@ -178,7 +178,8 @@ impl Data {
 
     /// Return the color of the element with identifier `id`
     pub fn get_color(&self, id: u32) -> Option<u32> {
-        self.color.get(&id).cloned()
+        let strand = self.strand_map.get(&id)?;
+        self.design.strands.get(strand).map(|s| s.color)
     }
 
     /// Return an iterator over all the identifier of elements that are nucleotides
@@ -203,6 +204,12 @@ impl Data {
             }
         }
         ret
+    }
+
+    pub fn change_strand_color(&mut self, s_id: usize, color: u32) {
+        self.design.strands.get_mut(&s_id).expect("wrong s_id in change_strand_color").color = color;
+        self.color.insert(s_id as u32, color);
+        self.update_status = true;
     }
 }
 

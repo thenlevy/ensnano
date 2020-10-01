@@ -140,6 +140,7 @@ fn main() {
     let file_replace_request = Arc::new(Mutex::new(None));
     let selection_mode_request = Arc::new(Mutex::new(None));
     let file_save_request = Arc::new(Mutex::new(None));
+    let strand_color_change_request = Arc::new(Mutex::new(None));
     let top_bar = TopBar::new(
         fitting_request.clone(),
         file_add_request.clone(),
@@ -151,6 +152,7 @@ fn main() {
     let left_panel_area = multiplexer.get_element_area(ElementType::LeftPanel);
     let left_panel = LeftPanel::new(
         selection_mode_request.clone(),
+        strand_color_change_request.clone(),
         left_panel_area.size.to_logical(window.scale_factor()),
         left_panel_area.position.to_logical(window.scale_factor()),
     );
@@ -298,6 +300,13 @@ fn main() {
                         if let Some(selection_mode) = *selection_mode_request {
                             scene.lock().unwrap().change_selection_mode(selection_mode);
                             *selection_mode_request = None;
+                        }
+                    }
+                    {
+                        let mut strand_color_change_request = strand_color_change_request.lock().unwrap();
+                        if let Some(color) = *strand_color_change_request {
+                            mediator.lock().unwrap().change_strand_color(color);
+                            *strand_color_change_request = None;
                         }
                     }
                 }
