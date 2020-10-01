@@ -23,6 +23,7 @@ pub struct Mediator {
     designs: Vec<Arc<Mutex<Design>>>,
     selected_design: Option<usize>,
     selected_strand: Option<usize>,
+    new_strand: bool,
 }
 
 #[derive(Clone)]
@@ -45,6 +46,7 @@ impl Mediator {
             designs: Vec::new(),
             selected_design: None,
             selected_strand: None,
+            new_strand: false,
         }
     }
 
@@ -67,6 +69,16 @@ impl Mediator {
                 self.designs[design_id].lock().unwrap().change_strand_color(strand_id, color);
             }
         }
+    }
+
+    pub fn get_strand_color(&mut self) -> Option<u32> {
+        if !self.new_strand {
+            return None
+        }
+        self.new_strand = false;
+        let d_id = self.selected_design?;
+        let s_id = self.selected_strand?;
+        self.designs[d_id].lock().unwrap().get_strand_color(s_id)
     }
 
     pub fn save_design(&mut self, path: &PathBuf) {
@@ -92,6 +104,7 @@ impl Mediator {
     pub fn notify_selection(&mut self, selected_design: Option<u32>, selected_strand: Option<usize>) {
         self.selected_design = selected_design.map(|x| x as usize);
         self.selected_strand = selected_strand;
+        self.new_strand = self.selected_strand.is_some();
     }
 
     pub fn notify_apps(&mut self, notification: Notification) {

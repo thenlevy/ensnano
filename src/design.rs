@@ -163,6 +163,10 @@ impl Design {
     pub fn change_strand_color(&mut self, strand_id: usize, color: u32) {
         self.data.borrow_mut().change_strand_color(strand_id, color);
     }
+
+    pub fn get_strand_color(&self, strand_id: usize) -> Option<u32> {
+        self.data.borrow().get_strand_color(strand_id)
+    }
 }
 
 

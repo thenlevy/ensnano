@@ -21,7 +21,6 @@ pub struct LeftPanel {
     pub selection_mode_request: Arc<Mutex<Option<SelectionMode>>>,
     logical_size: LogicalSize<f64>,
     logical_position: LogicalPosition<f64>,
-    strand_color: u32,
     strand_color_change_request: Arc<Mutex<Option<u32>>>,
     color_picker: ColorPicker,
 }
@@ -48,7 +47,6 @@ impl LeftPanel {
             selection_mode_request,
             logical_size,
             logical_position,
-            strand_color: 0,
             strand_color_change_request,
             color_picker: ColorPicker::new(),
         }

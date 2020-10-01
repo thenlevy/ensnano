@@ -1,6 +1,6 @@
 use super::Message;
 use iced::{
-    slider, Color, Column, Element, Slider
+    slider, Color, Column, Slider
 };
 
 

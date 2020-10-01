@@ -310,6 +310,12 @@ fn main() {
                         }
                     }
                 }
+                let color = mediator.lock().unwrap().get_strand_color();
+                if let Some(color) = color {
+                    let bytes = color.to_be_bytes();
+                    let color = iced::Color::from_rgb8(bytes[1], bytes[2], bytes[3]);
+                    left_panel_state.queue_message(gui::left_panel::Message::StrandColorChanged(color));
+                }
                 window.request_redraw();
             }
             Event::RedrawRequested(_) => {

@@ -211,6 +211,10 @@ impl Data {
         self.color.insert(s_id as u32, color);
         self.update_status = true;
     }
+
+    pub fn get_strand_color(&self, s_id: usize) -> Option<u32> {
+        self.design.strands.get(&s_id).map(|s| s.color)
+    }
 }
 
 fn read_file(path: &PathBuf) -> Option<icednano::Design> {
