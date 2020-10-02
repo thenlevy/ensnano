@@ -8,6 +8,8 @@ use iced_winit::{
     Space, Text,
 };
 
+use color_space::{Hsv, Rgb};
+
 use crate::scene::SelectionMode;
 
 mod color_picker;
@@ -30,6 +32,7 @@ pub enum Message {
     SelectionModeChanged(SelectionMode),
     Resized(LogicalSize<f64>, LogicalPosition<f64>),
     StrandColorChanged(Color),
+    HueChanged(f32),
 }
 
 impl LeftPanel {
@@ -73,10 +76,12 @@ impl Program for LeftPanel {
                 let green = ((color.g * 255.) as u32) << 8;
                 let blue = (color.b * 255.) as u32;
                 self.color_picker.update_color(color);
+                let hue = Hsv::from(Rgb::new(color.r as f64 * 255., color.g as f64 * 255., color.b as f64 * 255.)).h;
+                self.color_picker.change_hue(hue as f32);
                 let color = red + green + blue;
                 *self.strand_color_change_request.lock().unwrap() = Some(color);
             }
-
+            Message::HueChanged(x) => self.color_picker.change_hue(x),
             Message::Resized(size, position) => self.resize(size, position),
         };
         Command::none()
@@ -109,7 +114,7 @@ impl Program for LeftPanel {
             .height(Length::Fill);
 
         if self.selection_mode == SelectionMode::Strand {
-           widget = widget.push(self.color_picker.view());
+           widget = widget.spacing(5).push(self.color_picker.view());
         }
 
         Container::new(widget)
