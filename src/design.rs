@@ -109,6 +109,13 @@ impl Design {
         }
     }
 
+    /// Get the position of the nucleotid `nucl_id` on helix_id in the model coordinates
+    pub fn get_helix_nucl(&self, helix_id: usize, nucl_id: isize, forward: bool) -> Vec3 {
+        self.data
+            .borrow()
+            .get_helix_nucl(helix_id, nucl_id, forward)
+    }
+
     pub fn get_object_type(&self, id: u32) -> Option<ObjectType> {
         self.data.borrow().get_object_type(id)
     }
@@ -141,8 +148,16 @@ impl Design {
         self.data.borrow().get_strand(element_id)
     }
 
+    pub fn get_helix(&self, element_id: u32) -> Option<usize> {
+        self.data.borrow().get_helix(element_id)
+    }
+
     pub fn get_strand_elements(&self, strand_id: usize) -> Vec<u32> {
         self.data.borrow().get_strand_elements(strand_id)
+    }
+
+    pub fn get_helix_elements(&self, helix_id: usize) -> Vec<u32> {
+        self.data.borrow().get_helix_elements(helix_id)
     }
 
     pub fn save_to(&self, path: &PathBuf) {

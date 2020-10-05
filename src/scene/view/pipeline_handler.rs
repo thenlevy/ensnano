@@ -66,6 +66,8 @@ pub enum Flavour {
     Selected,
     /// For drawing the "under the cursor" effect
     Candidate,
+    /// For drawing the phantom helices
+    Phantom,
 }
 
 impl PipelineHandler {
@@ -99,6 +101,7 @@ impl PipelineHandler {
         let vertex_module = device.create_shader_module(include_spirv!("vert.spv"));
         let fragment_module = match flavour {
             Flavour::Real => device.create_shader_module(include_spirv!("frag.spv")),
+            Flavour::Phantom => device.create_shader_module(include_spirv!("phantom.spv")),
             Flavour::Fake => device.create_shader_module(include_spirv!("fake_color.spv")),
             Flavour::Selected => device.create_shader_module(include_spirv!("selected_frag.spv")),
             Flavour::Candidate => device.create_shader_module(include_spirv!("candidate.spv")),

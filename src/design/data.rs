@@ -71,7 +71,7 @@ impl Data {
         let mut nucleotide = HashMap::new();
         let mut strand_map = HashMap::new();
         let mut color_map = HashMap::new();
-        let mut helix_map = HashMap::new(); 
+        let mut helix_map = HashMap::new();
         let mut id = 0u32;
         let mut nucl_id;
         let mut old_nucl = None;
@@ -178,6 +178,10 @@ impl Data {
         }
     }
 
+    pub fn get_helix_nucl(&self, helix_id: usize, nucl: isize, forward: bool) -> Vec3 {
+        self.design.helices[&helix_id].space_pos(&self.design.parameters.unwrap(), nucl, forward)
+    }
+
     /// Return the ObjectType associated to the identifier `id`
     pub fn get_object_type(&self, id: u32) -> Option<ObjectType> {
         self.object_type.get(&id).cloned()
@@ -203,10 +207,24 @@ impl Data {
         self.strand_map.get(&id).cloned()
     }
 
+    pub fn get_helix(&self, id: u32) -> Option<usize> {
+        self.helix_map.get(&id).cloned()
+    }
+
     pub fn get_strand_elements(&self, s_id: usize) -> Vec<u32> {
         let mut ret = Vec::new();
         for elt in self.object_type.keys() {
             if self.strand_map.get(&elt) == Some(&s_id) {
+                ret.push(*elt)
+            }
+        }
+        ret
+    }
+
+    pub fn get_helix_elements(&self, h_id: usize) -> Vec<u32> {
+        let mut ret = Vec::new();
+        for elt in self.object_type.keys() {
+            if self.helix_map.get(&elt) == Some(&h_id) {
                 ret.push(*elt)
             }
         }

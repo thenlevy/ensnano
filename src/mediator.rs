@@ -21,8 +21,7 @@ pub type MediatorPtr = Arc<Mutex<Mediator>>;
 pub struct Mediator {
     applications: Vec<Arc<Mutex<dyn Application>>>,
     designs: Vec<Arc<Mutex<Design>>>,
-    selected_design: Option<usize>,
-    selected_strand: Option<usize>,
+    selection: Selection,
     new_strand: bool,
 }
 
@@ -44,8 +43,7 @@ impl Mediator {
         Self {
             applications: Vec::new(),
             designs: Vec::new(),
-            selected_design: None,
-            selected_strand: None,
+            selection: Selection::Nothing,
             new_strand: false,
         }
     }
@@ -64,29 +62,32 @@ impl Mediator {
     }
 
     pub fn change_strand_color(&mut self, color: u32) {
-        if let Some(design_id) = self.selected_design {
-            if let Some(strand_id) = self.selected_strand {
-                self.designs[design_id]
-                    .lock()
-                    .unwrap()
-                    .change_strand_color(strand_id, color);
-            }
+        match self.selection {
+            Selection::Strand(design_id, strand_id) => self.designs[design_id as usize]
+                .lock()
+                .unwrap()
+                .change_strand_color(strand_id as usize, color),
+            _ => (),
         }
     }
 
-    pub fn get_strand_color(&mut self) -> Option<u32> {
+    pub fn get_new_strand_color(&mut self) -> Option<u32> {
         if !self.new_strand {
             return None;
         }
         self.new_strand = false;
-        let d_id = self.selected_design?;
-        let s_id = self.selected_strand?;
-        self.designs[d_id].lock().unwrap().get_strand_color(s_id)
+        match self.selection {
+            Selection::Strand(design_id, strand_id) => self.designs[design_id as usize]
+                .lock()
+                .unwrap()
+                .get_strand_color(strand_id as usize),
+            _ => None,
+        }
     }
 
     pub fn save_design(&mut self, path: &PathBuf) {
-        if let Some(d_id) = self.selected_design {
-            self.designs[d_id].lock().unwrap().save_to(path)
+        if let Some(d_id) = self.selected_design() {
+            self.designs[d_id as usize].lock().unwrap().save_to(path)
         } else {
             let error_msg = MessageAlert {
                 title: "Error",
@@ -104,14 +105,9 @@ impl Mediator {
         self.notify_apps(Notification::ClearDesigns)
     }
 
-    pub fn notify_selection(
-        &mut self,
-        selected_design: Option<u32>,
-        selected_strand: Option<usize>,
-    ) {
-        self.selected_design = selected_design.map(|x| x as usize);
-        self.selected_strand = selected_strand;
-        self.new_strand = self.selected_strand.is_some();
+    pub fn notify_selection(&mut self, selection: Selection) {
+        self.selection = selection;
+        self.new_strand = self.selection.is_strand();
     }
 
     pub fn notify_apps(&mut self, notification: Notification) {
@@ -154,6 +150,10 @@ impl Mediator {
             self.notify_apps(notification)
         }
     }
+
+    fn selected_design(&self) -> Option<u32> {
+        self.selection.get_design()
+    }
 }
 
 #[derive(Clone)]
@@ -161,4 +161,32 @@ pub enum AppNotification<'a> {
     MovementEnded,
     Rotation(&'a DesignRotation),
     Translation(&'a DesignTranslation),
+}
+
+#[derive(Clone, Copy)]
+pub enum Selection {
+    Nucleotide(u32, u32),
+    Design(u32),
+    Strand(u32, u32),
+    Helix(u32, u32),
+    Nothing,
+}
+
+impl Selection {
+    pub fn is_strand(&self) -> bool {
+        match self {
+            Selection::Strand(_, _) => true,
+            _ => false,
+        }
+    }
+
+    pub fn get_design(&self) -> Option<u32> {
+        match self {
+            Selection::Design(d) => Some(*d),
+            Selection::Strand(d, _) => Some(*d),
+            Selection::Helix(d, _) => Some(*d),
+            Selection::Nucleotide(d, _) => Some(*d),
+            Selection::Nothing => None,
+        }
+    }
 }

@@ -206,6 +206,8 @@ pub enum ViewUpdate {
     Size(PhySize),
     /// The set of model matrices has been modified
     ModelMatrices(Vec<Mat4>),
+    /// The set of phantom instances has been modified
+    PhantomInstances(Rc<Vec<Instance>>, Rc<Vec<Instance>>),
 }
 
 struct PipelineHandlers {
@@ -217,6 +219,8 @@ struct PipelineHandlers {
     selected_tube: PipelineHandler,
     candidate_sphere: PipelineHandler,
     candidate_tube: PipelineHandler,
+    phantom_sphere: PipelineHandler,
+    phantom_tube: PipelineHandler,
 }
 
 impl PipelineHandlers {
@@ -234,6 +238,8 @@ impl PipelineHandlers {
         let selected_tube_mesh = mesh::Mesh::tube(device.as_ref(), true);
         let candidate_sphere_mesh = mesh::Mesh::sphere(device.as_ref(), true);
         let candidate_tube_mesh = mesh::Mesh::tube(device.as_ref(), true);
+        let phantom_tube_mesh = mesh::Mesh::tube(device.as_ref(), false);
+        let phantom_sphere_mesh = mesh::Mesh::sphere(device.as_ref(), false);
 
         let sphere_pipeline_handler = PipelineHandler::new(
             device.clone(),
@@ -307,6 +313,24 @@ impl PipelineHandlers {
             PrimitiveTopology::TriangleStrip,
             pipeline_handler::Flavour::Candidate,
         );
+        let phantom_sphere = PipelineHandler::new(
+            device.clone(),
+            queue.clone(),
+            phantom_sphere_mesh,
+            camera,
+            projection,
+            PrimitiveTopology::TriangleStrip,
+            pipeline_handler::Flavour::Phantom,
+        );
+        let phantom_tube = PipelineHandler::new(
+            device.clone(),
+            queue.clone(),
+            phantom_tube_mesh,
+            camera,
+            projection,
+            PrimitiveTopology::TriangleStrip,
+            pipeline_handler::Flavour::Phantom,
+        );
 
         Self {
             sphere: sphere_pipeline_handler,
@@ -317,6 +341,8 @@ impl PipelineHandlers {
             selected_tube: selected_tube_pipeline_handler,
             candidate_sphere,
             candidate_tube,
+            phantom_sphere,
+            phantom_tube,
         }
     }
 
@@ -330,6 +356,8 @@ impl PipelineHandlers {
             &mut self.selected_sphere,
             &mut self.candidate_tube,
             &mut self.candidate_sphere,
+            &mut self.phantom_tube,
+            &mut self.phantom_sphere,
         ]
     }
 
@@ -341,6 +369,8 @@ impl PipelineHandlers {
             &mut self.selected_tube,
             &mut self.candidate_tube,
             &mut self.candidate_sphere,
+            &mut self.phantom_tube,
+            &mut self.phantom_sphere,
         ]
     }
 
@@ -375,6 +405,10 @@ impl PipelineHandlers {
             }
             ViewUpdate::CandidateTubes(instances) => {
                 self.candidate_tube.new_instances(instances);
+            }
+            ViewUpdate::PhantomInstances(sphere, tube) => {
+                self.phantom_sphere.new_instances(sphere);
+                self.phantom_tube.new_instances(tube);
             }
             ViewUpdate::Camera | ViewUpdate::Size(_) => {
                 unreachable!();

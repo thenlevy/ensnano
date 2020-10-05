@@ -1,7 +1,7 @@
 // shader.frag
 #version 450
 
-layout(location=0) in vec3 v_color;
+layout(location=0) in vec4 v_color;
 layout(location=1) in vec3 v_normal;
 layout(location=2) in vec3 v_position;
 layout(location=3) in vec4 v_id;
@@ -34,7 +34,7 @@ void main() {
     float specular_strength = pow(max(dot(view_dir, reflect_dir), 0.0), 32);
     vec3 specular_color = specular_strength * light_color;
 
-    vec3 result = (ambient_color + diffuse_color + specular_color) * v_color;
+    vec3 result = (ambient_color + diffuse_color + specular_color) * v_color.xyz;
 
     f_color = vec4(result, 1.);
 }

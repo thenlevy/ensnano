@@ -11,7 +11,7 @@ use ultraviolet::{Mat4, Rotor3, Vec3};
 use crate::{design, mediator, utils};
 use crate::{DrawArea, PhySize, WindowEvent};
 use instance::Instance;
-use mediator::{AppNotification, Application, MediatorPtr, Notification};
+use mediator::{AppNotification, Application, MediatorPtr, Notification, Selection};
 use utils::{instance, BufferDimensions};
 use wgpu::{Device, Queue};
 use winit::dpi::PhysicalPosition;
@@ -155,14 +155,14 @@ impl Scene {
     fn click_on(&mut self, clicked_pixel: PhysicalPosition<f64>) {
         let (selected_id, design_id) = self.set_selected_id(clicked_pixel);
         if selected_id != 0xFFFFFF {
-            let (design, strand) = self.data.borrow_mut().set_selection(design_id, selected_id);
+            let selection = self.data.borrow_mut().set_selection(design_id, selected_id);
+            self.mediator.lock().unwrap().notify_selection(selection);
+        } else {
+            self.data.borrow_mut().reset_selection();
             self.mediator
                 .lock()
                 .unwrap()
-                .notify_selection(design, strand);
-        } else {
-            self.data.borrow_mut().reset_selection();
-            self.mediator.lock().unwrap().notify_selection(None, None);
+                .notify_selection(Selection::Nothing);
         }
         self.data.borrow_mut().notify_selection_update();
     }

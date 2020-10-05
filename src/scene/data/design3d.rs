@@ -71,7 +71,42 @@ impl Design3D {
                 Instantiable::new(ObjectRepr::Sphere(position), color, id)
             }
         };
-        instanciable.to_instance()
+        instanciable.to_instance(false)
+    }
+
+    pub fn make_phantom_helix_instances(
+        &self,
+        helix_ids: &HashSet<u32>,
+    ) -> (Rc<Vec<Instance>>, Rc<Vec<Instance>>) {
+        let range_phantom = 1000;
+        let mut spheres = Vec::new();
+        let mut tubes = Vec::new();
+        for helix_id in helix_ids.iter() {
+            for forward in [false, true].iter() {
+                let mut previous_nucl = None;
+                for i in -range_phantom..=range_phantom {
+                    let nucl_coord =
+                        self.design
+                            .lock()
+                            .unwrap()
+                            .get_helix_nucl(*helix_id as usize, i, *forward);
+                    let color = 0xA0D0D0D0;
+                    let id = 0;
+                    spheres.push(
+                        Instantiable::new(ObjectRepr::Sphere(nucl_coord), color, id)
+                            .to_instance(true),
+                    );
+                    if let Some(coord) = previous_nucl {
+                        tubes.push(
+                            Instantiable::new(ObjectRepr::Tube(nucl_coord, coord), color, id)
+                                .to_instance(true),
+                        );
+                    }
+                    previous_nucl = Some(nucl_coord);
+                }
+            }
+        }
+        (Rc::new(spheres), Rc::new(tubes))
     }
 
     fn get_object_type(&self, id: u32) -> Option<ObjectType> {
@@ -219,6 +254,10 @@ impl Design3D {
         self.design.lock().unwrap().get_strand(element_id).unwrap() as u32
     }
 
+    pub fn get_helix(&self, element_id: u32) -> u32 {
+        self.design.lock().unwrap().get_helix(element_id).unwrap() as u32
+    }
+
     pub fn get_strand_elements(&self, strand_id: u32) -> HashSet<u32> {
         self.design
             .lock()
@@ -230,6 +269,15 @@ impl Design3D {
 
     pub fn get_element_type(&self, e_id: u32) -> Option<ObjectType> {
         self.design.lock().unwrap().get_object_type(e_id)
+    }
+
+    pub fn get_helix_elements(&self, helix_id: u32) -> HashSet<u32> {
+        self.design
+            .lock()
+            .unwrap()
+            .get_helix_elements(helix_id as usize)
+            .into_iter()
+            .collect()
     }
 }
 
@@ -244,13 +292,20 @@ impl Instantiable {
         Self { repr, color, id }
     }
 
-    pub fn to_instance(&self) -> Instance {
+    pub fn to_instance(&self, use_alpha: bool) -> Instance {
+        let color = if use_alpha {
+            Instance::color_from_au32(self.color)
+        } else {
+            Instance::color_from_u32(self.color)
+        };
         match self.repr {
-            ObjectRepr::Tube(a, b) => create_bound(a.into(), b.into(), self.color, self.id),
+            ObjectRepr::Tube(a, b) => {
+                create_bound(a.into(), b.into(), self.color, self.id, use_alpha)
+            }
             ObjectRepr::Sphere(x) => Instance {
                 position: x.into(),
                 rotor: Rotor3::identity(),
-                color: Instance::color_from_u32(self.color),
+                color,
                 id: self.id,
                 scale: 1.,
             },
@@ -266,8 +321,12 @@ pub enum ObjectRepr {
     Tube(Vec3, Vec3),
 }
 
-fn create_bound(source: Vec3, dest: Vec3, color: u32, id: u32) -> Instance {
-    let color = Instance::color_from_u32(color);
+fn create_bound(source: Vec3, dest: Vec3, color: u32, id: u32, use_alpha: bool) -> Instance {
+    let color = if use_alpha {
+        Instance::color_from_au32(color)
+    } else {
+        Instance::color_from_u32(color)
+    };
     let rotor = Rotor3::from_rotation_between(Vec3::unit_x(), (dest - source).normalized());
     let position = (dest + source) / 2.;
     let scale = (dest - source).mag();

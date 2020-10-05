@@ -7,6 +7,7 @@ use std::sync::{Arc, Mutex};
 use ultraviolet::{Rotor3, Vec3};
 
 use crate::design::{Design, ObjectType, Referential};
+use crate::mediator::Selection;
 use crate::utils::instance::Instance;
 
 type ViewPtr = Rc<RefCell<View>>;
@@ -135,6 +136,7 @@ impl Data {
             SelectionMode::Nucleotide => element_id,
             SelectionMode::Design => design_id,
             SelectionMode::Strand => self.designs[design_id as usize].get_strand(element_id),
+            SelectionMode::Helix => self.designs[design_id as usize].get_helix(element_id),
         }
     }
 
@@ -143,6 +145,7 @@ impl Data {
             SelectionMode::Nucleotide => vec![group_id].into_iter().collect(),
             SelectionMode::Design => self.designs[design_id as usize].get_all_elements(),
             SelectionMode::Strand => self.designs[design_id as usize].get_strand_elements(group_id),
+            SelectionMode::Helix => self.designs[design_id as usize].get_helix_elements(group_id),
         }
     }
 
@@ -161,22 +164,19 @@ impl Data {
         self.selected_position
     }
 
-    pub fn set_selection(
-        &mut self,
-        design_id: u32,
-        element_id: u32,
-    ) -> (Option<u32>, Option<usize>) {
+    pub fn set_selection(&mut self, design_id: u32, element_id: u32) -> Selection {
         self.selected = vec![(design_id, element_id)];
         self.selected_position = {
-            self.selected.get(0).map(|(design_id, element_id)| self.get_element_position(*design_id, *element_id, Referential::World))
+            self.selected.get(0).map(|(design_id, element_id)| {
+                self.get_element_position(*design_id, *element_id, Referential::World)
+            })
         };
+        let group_id = self.get_group_identifier(design_id, element_id);
         match self.selection_mode {
-            SelectionMode::Design => (Some(design_id), None),
-            SelectionMode::Strand => (
-                Some(design_id),
-                Some(self.get_group_identifier(design_id, element_id) as usize),
-            ),
-            SelectionMode::Nucleotide => (None, None),
+            SelectionMode::Design => Selection::Design(design_id),
+            SelectionMode::Strand => Selection::Strand(design_id, group_id),
+            SelectionMode::Nucleotide => Selection::Nucleotide(design_id, group_id),
+            SelectionMode::Helix => Selection::Helix(design_id, group_id),
         }
     }
 
@@ -191,6 +191,28 @@ impl Data {
         self.view
             .borrow_mut()
             .update(ViewUpdate::SelectedSpheres(self.get_selected_spheres()));
+        let (sphere, vec) = self.get_phantom_instances();
+        self.view
+            .borrow_mut()
+            .update(ViewUpdate::PhantomInstances(sphere, vec));
+    }
+
+    pub fn get_phantom_instances(&self) -> (Rc<Vec<Instance>>, Rc<Vec<Instance>>) {
+        if self.selected.is_empty() {
+            return (Rc::new(Vec::new()), Rc::new(Vec::new()));
+        }
+        match self.selection_mode {
+            SelectionMode::Helix => {
+                let mut selected_helices = HashSet::new();
+                for (d_id, elt_id) in &self.selected {
+                    let group_id = self.get_group_identifier(*d_id, *elt_id);
+                    selected_helices.insert(group_id);
+                }
+                self.designs[self.selected[0].0 as usize]
+                    .make_phantom_helix_instances(&selected_helices)
+            }
+            _ => (Rc::new(Vec::new()), Rc::new(Vec::new())),
+        }
     }
 
     pub fn set_candidate(&mut self, design_id: u32, element_id: u32) {
@@ -261,7 +283,8 @@ impl Data {
         self.selection_mode = match self.selection_mode {
             SelectionMode::Nucleotide => SelectionMode::Design,
             SelectionMode::Design => SelectionMode::Strand,
-            SelectionMode::Strand => SelectionMode::Nucleotide,
+            SelectionMode::Strand => SelectionMode::Helix,
+            SelectionMode::Helix => SelectionMode::Nucleotide,
         }
     }
 
@@ -275,6 +298,7 @@ pub enum SelectionMode {
     Nucleotide,
     Design,
     Strand,
+    Helix,
 }
 
 impl Default for SelectionMode {
@@ -292,15 +316,17 @@ impl std::fmt::Display for SelectionMode {
                 SelectionMode::Design => "Design",
                 SelectionMode::Nucleotide => "Nucleotide",
                 SelectionMode::Strand => "Strand",
+                SelectionMode::Helix => "Helix",
             }
         )
     }
 }
 
 impl SelectionMode {
-    pub const ALL: [SelectionMode; 3] = [
+    pub const ALL: [SelectionMode; 4] = [
         SelectionMode::Nucleotide,
         SelectionMode::Design,
         SelectionMode::Strand,
+        SelectionMode::Helix,
     ];
 }

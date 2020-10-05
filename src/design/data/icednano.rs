@@ -283,7 +283,7 @@ impl Helix {
         let orientation = Rotor3::from_rotation_xz(-codenano_helix.yaw as f32)
             * Rotor3::from_rotation_xy(codenano_helix.pitch as f32)
             * Rotor3::from_rotation_yz(codenano_helix.roll as f32);
-    
+
         Self {
             position,
             orientation,
