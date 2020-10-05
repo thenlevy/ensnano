@@ -1,8 +1,8 @@
+use native_dialog::{Dialog, MessageAlert};
 use std::cell::RefCell;
 use std::path::PathBuf;
 use std::rc::Rc;
 use ultraviolet::{Mat4, Vec3};
-use native_dialog::{Dialog, MessageAlert};
 
 use crate::mediator;
 use mediator::AppNotification;
@@ -153,7 +153,7 @@ impl Design {
                 let error_msg = MessageAlert {
                     title: "Error",
                     text: &text,
-                    typ: native_dialog::MessageType::Error
+                    typ: native_dialog::MessageType::Error,
                 };
                 error_msg.show().unwrap_or(());
             });
@@ -168,7 +168,6 @@ impl Design {
         self.data.borrow().get_strand_color(strand_id)
     }
 }
-
 
 #[derive(Clone)]
 pub struct DesignNotification {

@@ -55,7 +55,11 @@ impl LeftPanel {
         }
     }
 
-    pub fn resize(&mut self, logical_size: LogicalSize<f64>, logical_position: LogicalPosition<f64>) {
+    pub fn resize(
+        &mut self,
+        logical_size: LogicalSize<f64>,
+        logical_position: LogicalPosition<f64>,
+    ) {
         self.logical_size = logical_size;
         self.logical_position = logical_position;
     }
@@ -76,7 +80,12 @@ impl Program for LeftPanel {
                 let green = ((color.g * 255.) as u32) << 8;
                 let blue = (color.b * 255.) as u32;
                 self.color_picker.update_color(color);
-                let hue = Hsv::from(Rgb::new(color.r as f64 * 255., color.g as f64 * 255., color.b as f64 * 255.)).h;
+                let hue = Hsv::from(Rgb::new(
+                    color.r as f64 * 255.,
+                    color.g as f64 * 255.,
+                    color.b as f64 * 255.,
+                ))
+                .h;
                 self.color_picker.change_hue(hue as f32);
                 let color = red + green + blue;
                 *self.strand_color_change_request.lock().unwrap() = Some(color);
@@ -114,7 +123,7 @@ impl Program for LeftPanel {
             .height(Length::Fill);
 
         if self.selection_mode == SelectionMode::Strand {
-           widget = widget.spacing(5).push(self.color_picker.view());
+            widget = widget.spacing(5).push(self.color_picker.view());
         }
 
         Container::new(widget)

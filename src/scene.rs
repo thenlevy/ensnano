@@ -156,7 +156,10 @@ impl Scene {
         let (selected_id, design_id) = self.set_selected_id(clicked_pixel);
         if selected_id != 0xFFFFFF {
             let (design, strand) = self.data.borrow_mut().set_selection(design_id, selected_id);
-            self.mediator.lock().unwrap().notify_selection(design, strand);
+            self.mediator
+                .lock()
+                .unwrap()
+                .notify_selection(design, strand);
         } else {
             self.data.borrow_mut().reset_selection();
             self.mediator.lock().unwrap().notify_selection(None, None);

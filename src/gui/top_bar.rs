@@ -93,9 +93,7 @@ impl Program for TopBar {
                 }
             }
             Message::FileSaveRequested => {
-                let dialog = native_dialog::OpenSingleDir {
-                    dir: None,
-                };
+                let dialog = native_dialog::OpenSingleDir { dir: None };
                 let result = dialog.show();
                 if let Ok(result) = result {
                     if let Some(mut path) = result {
@@ -108,10 +106,8 @@ impl Program for TopBar {
                                 addon += 1;
                             }
                         }
-                        *self
-                            .file_save_request
-                            .lock()
-                            .expect("file_opening_request") = Some(PathBuf::from(path));
+                        *self.file_save_request.lock().expect("file_opening_request") =
+                            Some(PathBuf::from(path));
                     }
                 }
             }
@@ -137,10 +133,7 @@ impl Program for TopBar {
         )
         .on_press(Message::FileReplaceRequested)
         .height(Length::Units(height));
-        let button_save = Button::new(
-            &mut self.button_save,
-            Image::new("icons/save.png"),
-        )
+        let button_save = Button::new(&mut self.button_save, Image::new("icons/save.png"))
             .on_press(Message::FileSaveRequested)
             .height(Length::Units(height));
 

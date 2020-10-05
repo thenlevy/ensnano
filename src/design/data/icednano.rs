@@ -1,12 +1,11 @@
 /// This module defines the icednano format.
 /// All other format supported by icednano are converted into this format and run-time manipulation
 /// of designs are performed on an `icednano::Design` structure
-
 use std::borrow::Cow;
-use std::f32::consts::PI;
 use std::collections::HashMap;
+use std::f32::consts::PI;
 
-use ultraviolet::Vec3;
+use ultraviolet::{Rotor3, Vec3};
 
 use super::codenano;
 
@@ -37,12 +36,15 @@ impl Design {
             strands.insert(i, Strand::from_codenano(strand));
         }
 
-        let parameters = codenano_desgin.parameters.map(|p| Parameters::from_codenano(&p)).unwrap_or_default();
-        
+        let parameters = codenano_desgin
+            .parameters
+            .map(|p| Parameters::from_codenano(&p))
+            .unwrap_or_default();
+
         Self {
             helices,
             strands,
-            parameters: Some(parameters)
+            parameters: Some(parameters),
         }
     }
 
@@ -78,12 +80,20 @@ pub struct Strand {
 
 impl Strand {
     pub fn from_codenano<Sl, Dl>(codenano_strand: &codenano::Strand<Sl, Dl>) -> Self {
-        let domains = codenano_strand.domains.iter().map(|d| Domain::from_codenano(d)).collect();
+        let domains = codenano_strand
+            .domains
+            .iter()
+            .map(|d| Domain::from_codenano(d))
+            .collect();
         Self {
             domains,
             sequence: codenano_strand.sequence.clone(),
             cyclic: codenano_strand.cyclic,
-            color: codenano_strand.color.clone().unwrap_or(codenano_strand.default_color()).as_int(),
+            color: codenano_strand
+                .color
+                .clone()
+                .unwrap_or(codenano_strand.default_color())
+                .as_int(),
         }
     }
 }
@@ -144,7 +154,7 @@ impl HelixInterval {
         DomainIter {
             start: self.start,
             end: self.end,
-            forward: self.forward
+            forward: self.forward,
         }
     }
 }
@@ -245,32 +255,38 @@ pub struct Helix {
     #[serde(default = "Vec3::zero")]
     pub position: Vec3,
 
-    /// Angle around the axis of the helix.
-    #[serde(default = "zero_f32")]
-    pub roll: f32,
-
-    /// Horizontal rotation.
-    #[serde(default = "zero_f32")]
-    pub yaw: f32,
-
-    /// Vertical rotation.
-    #[serde(default = "zero_f32")]
-    pub pitch: f32,
-
+    /// Orientation of the helix
+    pub orientation: Rotor3,
 }
 
 impl Helix {
     pub fn from_codenano(codenano_helix: &codenano::Helix) -> Self {
         let position = Vec3::new(
-                          codenano_helix.position.x as f32,
-                          codenano_helix.position.y as f32,
-                          codenano_helix.position.z as f32
-                          );
+            codenano_helix.position.x as f32,
+            codenano_helix.position.y as f32,
+            codenano_helix.position.z as f32,
+        );
+        /*
+        let mut roll = codenano_helix.roll.rem_euclid(2. * std::f64::consts::PI);
+        if roll > std::f64::consts::PI {
+            roll -= 2. * std::f64::consts::PI;
+        }
+        let mut pitch = codenano_helix.pitch.rem_euclid(2. * std::f64::consts::PI);
+        if pitch > std::f64::consts::PI {
+            pitch -= 2. * std::f64::consts::PI;
+        }
+        let mut yaw = codenano_helix.yaw.rem_euclid(2. * std::f64::consts::PI);
+        if yaw > std::f64::consts::PI {
+            yaw -= 2. * std::f64::consts::PI;
+        }
+        */
+        let orientation = Rotor3::from_rotation_xz(-codenano_helix.yaw as f32)
+            * Rotor3::from_rotation_xy(codenano_helix.pitch as f32)
+            * Rotor3::from_rotation_yz(codenano_helix.roll as f32);
+    
         Self {
             position,
-            roll: codenano_helix.roll as f32,
-            yaw: codenano_helix.yaw as f32,
-            pitch: codenano_helix.pitch as f32,
+            orientation,
         }
     }
 }
@@ -279,34 +295,17 @@ pub fn zero_f32() -> f32 {
     0f32
 }
 
-
 const KELLY: [u32; 19] = [
-    0xF3C300,
-    0x875692, // 0xF38400, // Orange, too close to others
-    0xA1CAF1,
-    0xBE0032,
-    0xC2B280,
-    0x848482,
-    0x008856,
-    0xE68FAC,
-    0x0067A5,
-    0xF99379,
-    0x604E97,
-    0xF6A600,
-    0xB3446C,
-    0xDCD300,
-    0x882D17,
-    0x8DB600,
-    0x654522,
-    0xE25822,
-    0x2B3D26,
+    0xF3C300, 0x875692, // 0xF38400, // Orange, too close to others
+    0xA1CAF1, 0xBE0032, 0xC2B280, 0x848482, 0x008856, 0xE68FAC, 0x0067A5, 0xF99379, 0x604E97,
+    0xF6A600, 0xB3446C, 0xDCD300, 0x882D17, 0x8DB600, 0x654522, 0xE25822, 0x2B3D26,
 ];
 
 impl Helix {
     /// Angle of base number `n` around this helix.
     pub fn theta(&self, n: isize, forward: bool, cst: &Parameters) -> f32 {
         let shift = if forward { cst.groove_angle } else { 0. };
-        n as f32 * 2. * PI / cst.bases_per_turn + shift + self.roll + PI
+        n as f32 * 2. * PI / cst.bases_per_turn + shift + PI
     }
 
     /// 3D position of a nucleotide on this helix. `n` is the position along the axis, and `forward` is true iff the 5' to 3' direction of the strand containing that nucleotide runs in the same direction as the axis of the helix.
@@ -328,23 +327,6 @@ impl Helix {
     }
 
     pub(crate) fn rotate_point(&self, ret: Vec3) -> Vec3 {
-        let forward = [
-            self.yaw.cos() * self.pitch.cos(),
-            self.pitch.sin(),
-            -self.yaw.sin() * self.pitch.cos(),
-        ];
-        let right = [self.yaw.sin(), 0., self.yaw.cos()];
-        let up = [
-            right[1] * forward[2] - right[2] * forward[1],
-            right[2] * forward[0] - right[0] * forward[2],
-            right[0] * forward[1] - right[1] * forward[0],
-        ];
-
-        Vec3::new(
-            ret[0] * forward[0] + ret[1] * up[0] + ret[2] * right[0],
-            ret[0] * forward[1] + ret[1] * up[1] + ret[2] * right[1],
-            ret[0] * forward[2] + ret[1] * up[2] + ret[2] * right[2],
-        )
+        ret.rotated_by(self.orientation)
     }
 }
-

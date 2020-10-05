@@ -279,7 +279,7 @@ fn main() {
                         }
                     }
                     {
-                        let mut file_save_request_lock = 
+                        let mut file_save_request_lock =
                             file_save_request.lock().expect("file save request lock");
                         if let Some(ref path) = *file_save_request_lock {
                             mediator.lock().unwrap().save_design(path);
@@ -303,7 +303,8 @@ fn main() {
                         }
                     }
                     {
-                        let mut strand_color_change_request = strand_color_change_request.lock().unwrap();
+                        let mut strand_color_change_request =
+                            strand_color_change_request.lock().unwrap();
                         if let Some(color) = *strand_color_change_request {
                             mediator.lock().unwrap().change_strand_color(color);
                             *strand_color_change_request = None;
@@ -314,7 +315,8 @@ fn main() {
                 if let Some(color) = color {
                     let bytes = color.to_be_bytes();
                     let color = iced::Color::from_rgb8(bytes[1], bytes[2], bytes[3]);
-                    left_panel_state.queue_message(gui::left_panel::Message::StrandColorChanged(color));
+                    left_panel_state
+                        .queue_message(gui::left_panel::Message::StrandColorChanged(color));
                 }
                 window.request_redraw();
             }
@@ -352,12 +354,15 @@ fn main() {
                     );
 
                     let top_bar_area = multiplexer.get_element_area(ElementType::TopBar);
-                    top_bar_state.queue_message(gui::top_bar::Message::Resize(top_bar_area.size.to_logical(window.scale_factor())));
+                    top_bar_state.queue_message(gui::top_bar::Message::Resize(
+                        top_bar_area.size.to_logical(window.scale_factor()),
+                    ));
 
                     let left_panel_area = multiplexer.get_element_area(ElementType::LeftPanel);
-                    left_panel_state.queue_message(
-                        gui::left_panel::Message::Resized(left_panel_area.size.to_logical(window.scale_factor()),
-                                                          left_panel_area.position.to_logical(window.scale_factor())));
+                    left_panel_state.queue_message(gui::left_panel::Message::Resized(
+                        left_panel_area.size.to_logical(window.scale_factor()),
+                        left_panel_area.position.to_logical(window.scale_factor()),
+                    ));
                 }
                 // Get viewports from the partition
 

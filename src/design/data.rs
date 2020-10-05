@@ -1,8 +1,8 @@
+use native_dialog::{Dialog, MessageAlert};
 use std::collections::HashMap;
+use std::io::Write;
 use std::path::PathBuf;
 use ultraviolet::Vec3;
-use native_dialog::{Dialog, MessageAlert};
-use std::io::Write;
 
 mod codenano;
 mod icednano;
@@ -16,6 +16,7 @@ pub struct Data {
     identifier_nucl: HashMap<Nucl, u32>,
     identifier_bound: HashMap<(Nucl, Nucl), u32>,
     strand_map: HashMap<u32, usize>,
+    helix_map: HashMap<u32, usize>,
     color: HashMap<u32, u32>,
     update_status: bool,
 }
@@ -33,6 +34,7 @@ impl Data {
             nucleotides_involved: HashMap::new(),
             nucleotide: HashMap::new(),
             strand_map: HashMap::new(),
+            helix_map: HashMap::new(),
             color: HashMap::new(),
             update_status: false,
         }
@@ -52,6 +54,7 @@ impl Data {
             nucleotides_involved: HashMap::new(),
             nucleotide: HashMap::new(),
             strand_map: HashMap::new(),
+            helix_map: HashMap::new(),
             color: HashMap::new(),
             update_status: false,
         };
@@ -68,6 +71,7 @@ impl Data {
         let mut nucleotide = HashMap::new();
         let mut strand_map = HashMap::new();
         let mut color_map = HashMap::new();
+        let mut helix_map = HashMap::new(); 
         let mut id = 0u32;
         let mut nucl_id;
         let mut old_nucl = None;
@@ -94,6 +98,7 @@ impl Data {
                         identifier_nucl.insert(nucl, nucl_id);
                         strand_map.insert(nucl_id, *s_id);
                         color_map.insert(nucl_id, color);
+                        helix_map.insert(nucl_id, nucl.helix);
                         let position = [position[0] as f32, position[1] as f32, position[2] as f32];
                         space_position.insert(nucl_id, position);
                         if let Some(old_nucl) = old_nucl.take() {
@@ -106,6 +111,7 @@ impl Data {
                             nucleotides_involved.insert(bound_id, bound);
                             color_map.insert(bound_id, color);
                             strand_map.insert(bound_id, *s_id);
+                            helix_map.insert(bound_id, nucl.helix);
                         }
                         old_nucl = Some(nucl);
                         old_nucl_id = Some(nucl_id);
@@ -123,9 +129,10 @@ impl Data {
         self.strand_map = strand_map;
         self.space_position = space_position;
         self.color = color_map;
+        self.helix_map = helix_map;
     }
 
-    pub fn save_file(&self, path: &PathBuf) -> std::io::Result<()>{
+    pub fn save_file(&self, path: &PathBuf) -> std::io::Result<()> {
         let json_content = serde_json::to_string_pretty(&self.design);
         let mut f = std::fs::File::create(path)?;
         f.write_all(json_content.expect("serde_json failed").as_bytes())
@@ -207,7 +214,11 @@ impl Data {
     }
 
     pub fn change_strand_color(&mut self, s_id: usize, color: u32) {
-        self.design.strands.get_mut(&s_id).expect("wrong s_id in change_strand_color").color = color;
+        self.design
+            .strands
+            .get_mut(&s_id)
+            .expect("wrong s_id in change_strand_color")
+            .color = color;
         self.color.insert(s_id as u32, color);
         self.update_status = true;
     }
@@ -218,42 +229,41 @@ impl Data {
 }
 
 fn read_file(path: &PathBuf) -> Option<icednano::Design> {
-    let json_str =
-        std::fs::read_to_string(path).expect(&format!("File not found {:?}", path));
+    let json_str = std::fs::read_to_string(path).expect(&format!("File not found {:?}", path));
 
-    let design: Result<icednano::Design,_> = serde_json::from_str(&json_str);
+    let design: Result<icednano::Design, _> = serde_json::from_str(&json_str);
     if design.is_ok() {
         let info_msg = MessageAlert {
             title: "Info",
             text: "Recognized icednano file format",
-            typ: native_dialog::MessageType::Info
+            typ: native_dialog::MessageType::Info,
         };
         std::thread::spawn(|| {
             info_msg.show().unwrap_or(());
         });
-        return Some(design.unwrap())
+        return Some(design.unwrap());
     } else {
         let cdn_design: Result<codenano::Design<(), ()>, _> = serde_json::from_str(&json_str);
         if cdn_design.is_ok() {
             let info_msg = MessageAlert {
                 title: "Info",
                 text: "Recognized codenano file format",
-                typ: native_dialog::MessageType::Info
+                typ: native_dialog::MessageType::Info,
             };
             std::thread::spawn(|| {
                 info_msg.show().unwrap_or(());
             });
-            return Some(icednano::Design::from_codenano(&cdn_design.unwrap()))
+            return Some(icednano::Design::from_codenano(&cdn_design.unwrap()));
         } else {
             let error_msg = MessageAlert {
                 title: "Error",
                 text: "Unrecognized file format",
-                typ: native_dialog::MessageType::Error
+                typ: native_dialog::MessageType::Error,
             };
             std::thread::spawn(|| {
                 error_msg.show().unwrap_or(());
             });
-            return None
+            return None;
         }
     }
 }

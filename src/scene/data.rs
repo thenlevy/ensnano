@@ -21,6 +21,7 @@ pub struct Data {
     selected: Vec<(u32, u32)>,
     candidates: Vec<(u32, u32)>,
     selection_mode: SelectionMode,
+    selected_position: Option<Vec3>,
 }
 
 impl Data {
@@ -31,6 +32,7 @@ impl Data {
             selected: Vec::new(),
             candidates: Vec::new(),
             selection_mode: SelectionMode::default(),
+            selected_position: None,
         }
     }
 
@@ -156,16 +158,25 @@ impl Data {
     }
 
     pub fn get_selected_position(&self) -> Option<Vec3> {
-        let (desgin_id, element_id) = self.selected.get(0)?;
-        Some(self.get_element_position(*desgin_id, *element_id, Referential::World))
+        self.selected_position
     }
 
-    pub fn set_selection(&mut self, design_id: u32, element_id: u32) -> (Option<u32>, Option<usize>) {
+    pub fn set_selection(
+        &mut self,
+        design_id: u32,
+        element_id: u32,
+    ) -> (Option<u32>, Option<usize>) {
         self.selected = vec![(design_id, element_id)];
+        self.selected_position = {
+            self.selected.get(0).map(|(design_id, element_id)| self.get_element_position(*design_id, *element_id, Referential::World))
+        };
         match self.selection_mode {
             SelectionMode::Design => (Some(design_id), None),
-            SelectionMode::Strand => (Some(design_id), Some(self.get_group_identifier(design_id, element_id) as usize)),
-            SelectionMode::Nucleotide => (None, None)
+            SelectionMode::Strand => (
+                Some(design_id),
+                Some(self.get_group_identifier(design_id, element_id) as usize),
+            ),
+            SelectionMode::Nucleotide => (None, None),
         }
     }
 

@@ -90,7 +90,11 @@ impl Multiplexer {
         let mut focus_changed = false;
         let mut device_id_msg = None;
         match &event {
-            WindowEvent::CursorMoved { position, device_id, .. } => {
+            WindowEvent::CursorMoved {
+                position,
+                device_id,
+                ..
+            } => {
                 let &PhysicalPosition { x, y } = position;
                 if x > 0.0 || y > 0.0 {
                     let element = self.pixel_to_element(*position);
@@ -130,7 +134,12 @@ impl Multiplexer {
 
         if let Some(focus) = self.focus {
             if focus_changed {
-                Some((WindowEvent::CursorLeft {device_id: device_id_msg.unwrap()} , focus))
+                Some((
+                    WindowEvent::CursorLeft {
+                        device_id: device_id_msg.unwrap(),
+                    },
+                    focus,
+                ))
             } else {
                 Some((event, focus))
             }

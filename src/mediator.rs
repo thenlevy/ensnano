@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+use std::path::PathBuf;
 /// The Mediator coordinates the interaction between the designs and the applications.
 /// When a design is modified, it notifies the mediator of its changes and the mediator forwards
 /// that information to the applications.
@@ -7,8 +9,6 @@
 ///
 /// The mediator also holds data that is common to all applications.
 use std::sync::{Arc, Mutex};
-use std::collections::HashSet;
-use std::path::PathBuf;
 
 use native_dialog::{Dialog, MessageAlert};
 
@@ -66,14 +66,17 @@ impl Mediator {
     pub fn change_strand_color(&mut self, color: u32) {
         if let Some(design_id) = self.selected_design {
             if let Some(strand_id) = self.selected_strand {
-                self.designs[design_id].lock().unwrap().change_strand_color(strand_id, color);
+                self.designs[design_id]
+                    .lock()
+                    .unwrap()
+                    .change_strand_color(strand_id, color);
             }
         }
     }
 
     pub fn get_strand_color(&mut self) -> Option<u32> {
         if !self.new_strand {
-            return None
+            return None;
         }
         self.new_strand = false;
         let d_id = self.selected_design?;
@@ -88,7 +91,7 @@ impl Mediator {
             let error_msg = MessageAlert {
                 title: "Error",
                 text: "No design selected",
-                typ: native_dialog::MessageType::Error
+                typ: native_dialog::MessageType::Error,
             };
             std::thread::spawn(|| {
                 error_msg.show().unwrap_or(());
@@ -101,7 +104,11 @@ impl Mediator {
         self.notify_apps(Notification::ClearDesigns)
     }
 
-    pub fn notify_selection(&mut self, selected_design: Option<u32>, selected_strand: Option<usize>) {
+    pub fn notify_selection(
+        &mut self,
+        selected_design: Option<u32>,
+        selected_strand: Option<usize>,
+    ) {
         self.selected_design = selected_design.map(|x| x as usize);
         self.selected_strand = selected_strand;
         self.new_strand = self.selected_strand.is_some();
