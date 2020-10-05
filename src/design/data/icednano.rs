@@ -329,4 +329,17 @@ impl Helix {
     pub(crate) fn rotate_point(&self, ret: Vec3) -> Vec3 {
         ret.rotated_by(self.orientation)
     }
+
+    fn append_translation(&mut self, translation: Vec3) {
+        self.position += translation;
+    }
+
+    fn append_rotation(&mut self, rotation: Rotor3) {
+        self.orientation = rotation * self.orientation;
+        self.position = rotation * self.position;
+    }
+
+    pub fn roll(&mut self, roll: f32) {
+        self.orientation = self.orientation * Rotor3::from_rotation_xy(roll)
+    }
 }

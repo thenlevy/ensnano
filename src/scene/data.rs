@@ -22,6 +22,7 @@ pub struct Data {
     selected: Vec<(u32, u32)>,
     candidates: Vec<(u32, u32)>,
     selection_mode: SelectionMode,
+    rotation_mode: RotationMode,
     selected_position: Option<Vec3>,
 }
 
@@ -33,6 +34,7 @@ impl Data {
             selected: Vec::new(),
             candidates: Vec::new(),
             selection_mode: SelectionMode::default(),
+            rotation_mode: RotationMode::default(),
             selected_position: None,
         }
     }
@@ -180,6 +182,14 @@ impl Data {
         }
     }
 
+    pub fn end_movement(&mut self) {
+        self.selected_position = {
+            self.selected.get(0).map(|(design_id, element_id)| {
+                self.get_element_position(*design_id, *element_id, Referential::World)
+            })
+        };
+    }
+
     pub fn reset_selection(&mut self) {
         self.selected = Vec::new();
     }
@@ -291,6 +301,14 @@ impl Data {
     pub fn change_selection_mode(&mut self, selection_mode: SelectionMode) {
         self.selection_mode = selection_mode;
     }
+
+    pub fn get_rotation_mode(&self) -> RotationMode {
+        self.rotation_mode
+    }
+
+    pub fn change_rotation_mode(&mut self, rotation_mode: RotationMode) {
+        self.rotation_mode = rotation_mode;
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -328,5 +346,40 @@ impl SelectionMode {
         SelectionMode::Design,
         SelectionMode::Strand,
         SelectionMode::Helix,
+    ];
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RotationMode {
+    Camera,
+    Design,
+    Helix,
+}
+
+impl Default for RotationMode {
+    fn default() -> Self {
+        RotationMode::Camera
+    }
+}
+
+impl std::fmt::Display for RotationMode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                RotationMode::Camera => "Camera",
+                RotationMode::Design => "Design",
+                RotationMode::Helix => "Helix",
+            }
+        )
+    }
+}
+
+impl RotationMode {
+    pub const ALL: [RotationMode; 3] = [
+        RotationMode::Camera,
+        RotationMode::Design,
+        RotationMode::Helix,
     ];
 }

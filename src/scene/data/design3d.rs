@@ -91,7 +91,7 @@ impl Design3D {
                             .unwrap()
                             .get_helix_nucl(*helix_id as usize, i, *forward);
                     let color = 0xA0D0D0D0;
-                    let id = 0;
+                    let id = self.id << 24;
                     spheres.push(
                         Instantiable::new(ObjectRepr::Sphere(nucl_coord), color, id)
                             .to_instance(true),

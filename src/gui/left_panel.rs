@@ -10,21 +10,24 @@ use iced_winit::{
 
 use color_space::{Hsv, Rgb};
 
-use crate::scene::SelectionMode;
+use crate::scene::{RotationMode, SelectionMode};
 
+use super::Requests;
 mod color_picker;
 use color_picker::ColorPicker;
 
 pub struct LeftPanel {
     pick_selection_mode: pick_list::State<SelectionMode>,
+    pick_rotation_mode: pick_list::State<RotationMode>,
     scroll_selection_mode: scrollable::State,
+    scroll_rotation_mode: scrollable::State,
     selection_mode: SelectionMode,
+    rotation_mode: RotationMode,
     global_scroll: scrollable::State,
-    pub selection_mode_request: Arc<Mutex<Option<SelectionMode>>>,
     logical_size: LogicalSize<f64>,
     logical_position: LogicalPosition<f64>,
-    strand_color_change_request: Arc<Mutex<Option<u32>>>,
     color_picker: ColorPicker,
+    requests: Arc<Mutex<Requests>>,
 }
 
 #[derive(Debug, Clone)]
@@ -33,25 +36,27 @@ pub enum Message {
     Resized(LogicalSize<f64>, LogicalPosition<f64>),
     StrandColorChanged(Color),
     HueChanged(f32),
+    RotationModeChanged(RotationMode),
 }
 
 impl LeftPanel {
     pub fn new(
-        selection_mode_request: Arc<Mutex<Option<SelectionMode>>>,
-        strand_color_change_request: Arc<Mutex<Option<u32>>>,
+        requests: Arc<Mutex<Requests>>,
         logical_size: LogicalSize<f64>,
         logical_position: LogicalPosition<f64>,
     ) -> Self {
         Self {
             pick_selection_mode: Default::default(),
+            scroll_rotation_mode: Default::default(),
             scroll_selection_mode: Default::default(),
             selection_mode: Default::default(),
+            pick_rotation_mode: Default::default(),
+            rotation_mode: Default::default(),
             global_scroll: Default::default(),
-            selection_mode_request,
             logical_size,
             logical_position,
-            strand_color_change_request,
             color_picker: ColorPicker::new(),
+            requests,
         }
     }
 
@@ -73,7 +78,11 @@ impl Program for LeftPanel {
         match message {
             Message::SelectionModeChanged(selection_mode) => {
                 self.selection_mode = selection_mode;
-                *self.selection_mode_request.lock().unwrap() = Some(selection_mode);
+                self.requests.lock().unwrap().selection_mode = Some(selection_mode);
+            }
+            Message::RotationModeChanged(rotation_mode) => {
+                self.rotation_mode = rotation_mode;
+                self.requests.lock().unwrap().rotation_mode = Some(rotation_mode)
             }
             Message::StrandColorChanged(color) => {
                 let red = ((color.r * 255.) as u32) << 16;
@@ -88,7 +97,7 @@ impl Program for LeftPanel {
                 .h;
                 self.color_picker.change_hue(hue as f32);
                 let color = red + green + blue;
-                *self.strand_color_change_request.lock().unwrap() = Some(color);
+                self.requests.lock().unwrap().strand_color_change = Some(color);
             }
             Message::HueChanged(x) => self.color_picker.change_hue(x),
             Message::Resized(size, position) => self.resize(size, position),
@@ -110,9 +119,21 @@ impl Program for LeftPanel {
             .push(Text::new("Selection mode"))
             .push(selection_mode_list);
 
+        let rotation_mode_list = PickList::new(
+            &mut self.pick_rotation_mode,
+            &RotationMode::ALL[..],
+            Some(self.rotation_mode),
+            Message::RotationModeChanged,
+        );
+
+        let rotation_mode_scroll = Scrollable::new(&mut self.scroll_rotation_mode)
+            .push(Text::new("Rotation mode"))
+            .push(rotation_mode_list);
+
         let global_scroll = Scrollable::new(&mut self.global_scroll)
             .width(Length::Units(width))
-            .push(selection_mode_scroll);
+            .push(selection_mode_scroll)
+            .push(rotation_mode_scroll);
 
         let empty_space = Space::new(Length::Units(width), Length::Units(position_top));
 

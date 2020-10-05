@@ -27,7 +27,7 @@ use controller::{Consequence, Controller};
 mod data;
 pub use controller::ClickMode;
 use data::Data;
-pub use data::SelectionMode;
+pub use data::{RotationMode, SelectionMode};
 use design::{
     Design, DesignNotification, DesignNotificationContent, DesignRotation, DesignTranslation,
 };
@@ -126,6 +126,7 @@ impl Scene {
                     .lock()
                     .unwrap()
                     .notify_all_designs(AppNotification::MovementEnded);
+                self.data.borrow_mut().end_movement();
             }
             Consequence::Rotation(x, y) => {
                 let rotation = DesignRotation {
@@ -141,11 +142,30 @@ impl Scene {
                 )
             }
             Consequence::Swing(x, y) => {
-                let pivot = self.data.borrow().get_selected_position();
-                if let Some(pivot) = pivot {
-                    self.controller.set_pivot_point(pivot);
-                    self.controller.swing(x, y);
-                    self.notify(SceneNotification::CameraMoved);
+                let rotation_mode = self.data.borrow().get_rotation_mode();
+                match rotation_mode {
+                    RotationMode::Camera => {
+                        let pivot = self.data.borrow().get_selected_position();
+                        if let Some(pivot) = pivot {
+                            self.controller.set_pivot_point(pivot);
+                            self.controller.swing(x, y);
+                            self.notify(SceneNotification::CameraMoved);
+                        }
+                    }
+                    RotationMode::Design => {
+                        let rotation = DesignRotation {
+                            origin: self.get_selected_position().unwrap(),
+                            up_vec: self.view.borrow().up_vec(),
+                            right_vec: self.view.borrow().right_vec(),
+                            angle_xz: x as f32 * std::f32::consts::PI,
+                            angle_yz: y as f32 * std::f32::consts::PI,
+                        };
+                        self.mediator.lock().unwrap().notify_designs(
+                            &self.data.borrow().get_selected_designs(),
+                            AppNotification::Rotation(&rotation),
+                        )
+                    }
+                    _ => (),
                 }
             }
             Consequence::CursorMoved(clicked) => self.pixel_to_check = Some(clicked),
@@ -378,6 +398,10 @@ impl Scene {
 
     pub fn change_selection_mode(&mut self, selection_mode: SelectionMode) {
         self.data.borrow_mut().change_selection_mode(selection_mode)
+    }
+
+    pub fn change_rotation_mode(&mut self, rotation_mode: RotationMode) {
+        self.data.borrow_mut().change_rotation_mode(rotation_mode)
     }
 }
 

@@ -35,7 +35,7 @@ mod utils;
 
 //use design_handler::DesignHandler;
 
-use gui::{LeftPanel, TopBar};
+use gui::{LeftPanel, Requests, TopBar};
 use multiplexer::{DrawArea, ElementType, Multiplexer};
 use scene::{Scene, SceneNotification};
 
@@ -135,24 +135,15 @@ fn main() {
 
     // Initialize the UI
     let top_bar_area = multiplexer.get_element_area(ElementType::TopBar);
-    let fitting_request = Arc::new(Mutex::new(false));
-    let file_add_request = Arc::new(Mutex::new(None));
-    let file_replace_request = Arc::new(Mutex::new(None));
-    let selection_mode_request = Arc::new(Mutex::new(None));
-    let file_save_request = Arc::new(Mutex::new(None));
-    let strand_color_change_request = Arc::new(Mutex::new(None));
+    let requests = Arc::new(Mutex::new(Requests::new()));
     let top_bar = TopBar::new(
-        fitting_request.clone(),
-        file_add_request.clone(),
-        file_replace_request.clone(),
-        file_save_request.clone(),
+        requests.clone(),
         top_bar_area.size.to_logical(window.scale_factor()),
     );
 
     let left_panel_area = multiplexer.get_element_area(ElementType::LeftPanel);
     let left_panel = LeftPanel::new(
-        selection_mode_request.clone(),
-        strand_color_change_request.clone(),
+        requests.clone(),
         left_panel_area.size.to_logical(window.scale_factor()),
         left_panel_area.position.to_logical(window.scale_factor()),
     );
@@ -250,40 +241,30 @@ fn main() {
                         &mut top_bar_debug,
                     );
                     {
-                        let mut fitting_request_lock =
-                            fitting_request.lock().expect("fitting_request");
-                        if *fitting_request_lock {
+                        let mut requests = requests.lock().expect("requests");
+                        if requests.fitting {
                             scene.lock().unwrap().fit_design();
-                            *fitting_request_lock = false;
+                            requests.fitting = false;
                         }
-                    }
-                    {
-                        let mut file_add_request_lock =
-                            file_add_request.lock().expect("fitting_request_lock");
-                        if let Some(ref path) = *file_add_request_lock {
+
+                        if let Some(ref path) = requests.file_add {
                             let d_id = mediator.lock().unwrap().nb_design();
                             let design = Design::new_with_path(d_id, path);
                             if let Some(design) = design {
                                 let design = Arc::new(Mutex::new(design));
                                 mediator.lock().unwrap().add_design(design);
                             }
-                            *file_add_request_lock = None;
+                            requests.file_add = None;
                         }
-                    }
-                    {
-                        let mut file_replace_request_lock =
-                            file_replace_request.lock().expect("fitting_request_lock");
-                        if let Some(_) = *file_replace_request_lock {
+
+                        if requests.file_clear {
                             mediator.lock().unwrap().clear_designs();
-                            *file_replace_request_lock = None;
+                            requests.file_clear = false;
                         }
-                    }
-                    {
-                        let mut file_save_request_lock =
-                            file_save_request.lock().expect("file save request lock");
-                        if let Some(ref path) = *file_save_request_lock {
+
+                        if let Some(ref path) = requests.file_save {
                             mediator.lock().unwrap().save_design(path);
-                            *file_save_request_lock = None;
+                            requests.file_save = None;
                         }
                     }
                 }
@@ -296,18 +277,20 @@ fn main() {
                         &mut top_bar_debug,
                     );
                     {
-                        let mut selection_mode_request = selection_mode_request.lock().unwrap();
-                        if let Some(selection_mode) = *selection_mode_request {
+                        let mut requests = requests.lock().unwrap();
+                        if let Some(selection_mode) = requests.selection_mode {
                             scene.lock().unwrap().change_selection_mode(selection_mode);
-                            *selection_mode_request = None;
+                            requests.selection_mode = None;
                         }
-                    }
-                    {
-                        let mut strand_color_change_request =
-                            strand_color_change_request.lock().unwrap();
-                        if let Some(color) = *strand_color_change_request {
+
+                        if let Some(rotation_mode) = requests.rotation_mode {
+                            scene.lock().unwrap().change_rotation_mode(rotation_mode);
+                            requests.rotation_mode = None;
+                        }
+
+                        if let Some(color) = requests.strand_color_change {
                             mediator.lock().unwrap().change_strand_color(color);
-                            *strand_color_change_request = None;
+                            requests.strand_color_change = None;
                         }
                     }
                 }
