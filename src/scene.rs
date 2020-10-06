@@ -72,14 +72,14 @@ impl Scene {
         mediator: MediatorPtr,
     ) -> Self {
         let update = SceneUpdate::new();
-        let view = Rc::new(RefCell::new(View::new(
+        let view: ViewPtr = Rc::new(RefCell::new(View::new(
             window_size,
             area.size,
             device.clone(),
             queue.clone(),
         )));
-        let data = Rc::new(RefCell::new(Data::new(view.clone())));
-        let controller = Controller::new(view.clone(), data.clone(), window_size, area.size);
+        let data: DataPtr = Rc::new(RefCell::new(Data::new(view.clone())));
+        let controller: Controller = Controller::new(view.clone(), data.clone(), window_size, area.size);
         Self {
             device,
             queue,

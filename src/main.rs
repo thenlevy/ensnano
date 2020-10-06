@@ -33,8 +33,6 @@ mod scene;
 use mediator::Mediator;
 mod utils;
 
-//use design_handler::DesignHandler;
-
 use gui::{LeftPanel, Requests, TopBar};
 use multiplexer::{DrawArea, ElementType, Multiplexer};
 use scene::{Scene, SceneNotification};
@@ -48,6 +46,7 @@ fn convert_size_u32(size: PhySize) -> Size<u32> {
 }
 
 fn main() {
+    // parse arugments, if an argument was given it is treated as a file to open
     let args: Vec<String> = env::args().collect();
     let path = if args.len() >= 2 {
         Some(PathBuf::from(&args[1]))
@@ -110,12 +109,14 @@ fn main() {
     let mut staging_belt = wgpu::util::StagingBelt::new(5 * 1024);
     let mut local_pool = futures::executor::LocalPool::new();
 
+    // Initialize the mediator
+    let mediator = Arc::new(Mutex::new(Mediator::new()));
+
     // Initialize the layout
     let mut multiplexer = Multiplexer::new(window.inner_size(), window.scale_factor());
 
     // Initialize the scene
     let scene_area = multiplexer.get_element_area(ElementType::Scene);
-    let mediator = Arc::new(Mutex::new(Mediator::new()));
     let scene = Arc::new(Mutex::new(Scene::new(
         device.clone(),
         queue.clone(),
@@ -124,6 +125,8 @@ fn main() {
         mediator.clone(),
     )));
     mediator.lock().unwrap().add_application(scene.clone());
+
+    // Add a design to the scene if one was given as a command line arguement
     if let Some(ref path) = path {
         let design = Design::new_with_path(0, path);
         if let Some(design) = design {
@@ -134,20 +137,14 @@ fn main() {
     }
 
     // Initialize the UI
-    let top_bar_area = multiplexer.get_element_area(ElementType::TopBar);
     let requests = Arc::new(Mutex::new(Requests::new()));
+
+    // Top bar
+    let top_bar_area = multiplexer.get_element_area(ElementType::TopBar);
     let top_bar = TopBar::new(
         requests.clone(),
         top_bar_area.size.to_logical(window.scale_factor()),
     );
-
-    let left_panel_area = multiplexer.get_element_area(ElementType::LeftPanel);
-    let left_panel = LeftPanel::new(
-        requests.clone(),
-        left_panel_area.size.to_logical(window.scale_factor()),
-        left_panel_area.position.to_logical(window.scale_factor()),
-    );
-
     let mut top_bar_debug = Debug::new();
     let mut top_bar_state = program::State::new(
         top_bar,
@@ -157,6 +154,13 @@ fn main() {
         &mut top_bar_debug,
     );
 
+    // Left panel
+    let left_panel_area = multiplexer.get_element_area(ElementType::LeftPanel);
+    let left_panel = LeftPanel::new(
+        requests.clone(),
+        left_panel_area.size.to_logical(window.scale_factor()),
+        left_panel_area.position.to_logical(window.scale_factor()),
+    );
     let mut left_panel_debug = Debug::new();
     let mut left_panel_state = program::State::new(
         left_panel,
@@ -169,8 +173,8 @@ fn main() {
     // Run event loop
     let mut last_render_time = std::time::Instant::now();
     event_loop.run(move |event, _, control_flow| {
-        // You should change this if you want to render continuosly
-        *control_flow = ControlFlow::WaitUntil(Instant::now() + Duration::from_millis(40));
+        // Wait for event or redraw a frame every 33 ms (30 frame per seconds)
+        *control_flow = ControlFlow::WaitUntil(Instant::now() + Duration::from_millis(33));
 
         match event {
             Event::WindowEvent {
@@ -183,9 +187,11 @@ fn main() {
                     resized = true;
                 }
                 if let Some(event) = event.to_static() {
+                    // Feed the event to the multiplexer
                     let event = multiplexer.event(event);
-                    // Iced panel
+
                     if let Some((event, area)) = event {
+                        // pass the event to the area on which it happenened
                         match area {
                             ElementType::TopBar => {
                                 let event = iced_winit::conversion::window_event(
@@ -217,20 +223,16 @@ fn main() {
                 }
             }
             Event::MainEventsCleared => {
+                // When there is no more event to deal with
                 let top_bar_area = multiplexer.get_element_area(ElementType::TopBar);
+
+                // Treat eventual event that happenened in the gui top bar
                 let top_bar_cursor = if multiplexer.foccused_element() == Some(ElementType::TopBar)
                 {
                     multiplexer.get_cursor_position()
                 } else {
                     PhysicalPosition::new(-1., -1.)
                 };
-
-                let left_panel_cursor =
-                    if multiplexer.foccused_element() == Some(ElementType::LeftPanel) {
-                        multiplexer.get_cursor_position()
-                    } else {
-                        PhysicalPosition::new(-1., -1.)
-                    };
                 if !top_bar_state.is_queue_empty() {
                     // We update iced
                     let _ = top_bar_state.update(
@@ -268,6 +270,14 @@ fn main() {
                         }
                     }
                 }
+
+                // Treat eventual event that happenend in the gui left panel.
+                let left_panel_cursor =
+                    if multiplexer.foccused_element() == Some(ElementType::LeftPanel) {
+                        multiplexer.get_cursor_position()
+                    } else {
+                        PhysicalPosition::new(-1., -1.)
+                    };
                 if !left_panel_state.is_queue_empty() {
                     let _ = left_panel_state.update(
                         convert_size(window.inner_size()),

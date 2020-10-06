@@ -15,20 +15,28 @@ use pipeline_handler::PipelineHandler;
 mod uniforms;
 use uniforms::Uniforms;
 mod bindgroup_manager;
+mod plane_drawer;
+
+use bindgroup_manager::UniformBindGroup;
+use plane_drawer::PlaneDrawer;
+pub use plane_drawer::Plane;
 
 /// An object that handles the communication with the GPU to draw the scene.
 pub struct View {
     /// The camera, that is in charge of producing the view and projection matrices.
     camera: CameraPtr,
     projection: ProjectionPtr,
-    /// The pipeline handles handles the communication with the gpu
+    /// The pipeline handler contains the pipepline that draw meshes
     pipeline_handlers: PipelineHandlers,
+    /// The plane_drawer handles the pipline that draws planes
+    plane_drawer: PlaneDrawer,
     /// The depth texture is updated every time the size of the drawing area is modified
     depth_texture: Texture,
     /// A possible update of the size of the drawing area, must be taken into account before
     /// drawing the next frame
     new_size: Option<PhySize>,
     device: Rc<Device>,
+    viewer: Rc<RefCell<UniformBindGroup>>,
 }
 
 impl View {
@@ -53,6 +61,8 @@ impl View {
             PipelineHandlers::init(device.clone(), queue.clone(), &camera, &projection);
         let depth_texture =
             texture::Texture::create_depth_texture(device.clone().as_ref(), &window_size);
+        let viewer = Rc::new(RefCell::new(UniformBindGroup::new(device.clone(), queue.clone(), &Uniforms::from_view_proj(camera.clone(), projection.clone()))));
+        let plane_drawer = PlaneDrawer::new(0x800000FF, viewer.clone(), device.clone());
         Self {
             camera,
             projection,
@@ -60,6 +70,8 @@ impl View {
             depth_texture,
             new_size: None,
             device,
+            plane_drawer,
+            viewer,
         }
     }
 
@@ -67,11 +79,19 @@ impl View {
     pub fn update(&mut self, view_update: ViewUpdate) {
         match view_update {
             ViewUpdate::Size(size) => self.new_size = Some(size),
-            ViewUpdate::Camera => self
+            ViewUpdate::Plane(plane) => self.new_plane(plane),
+            ViewUpdate::Camera => {
+                self
                 .pipeline_handlers
-                .new_viewer(self.camera.clone(), self.projection.clone()),
+                .new_viewer(self.camera.clone(), self.projection.clone());
+                self.viewer.borrow_mut().update(&Uniforms::from_view_proj(self.camera.clone(), self.projection.clone()))
+            }
             _ => self.pipeline_handlers.update(view_update),
         }
+    }
+
+    fn new_plane(&mut self, plane: Option<Plane>) {
+        self.plane_drawer.new_plane(plane);
     }
 
     /// Draw the scene
@@ -105,6 +125,8 @@ impl View {
         } else {
             self.pipeline_handlers.real()
         };
+        let viewer = self.viewer.borrow();
+        let viewer_bind_group = viewer.get_bindgroup();
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
                 attachment: target,
@@ -144,6 +166,12 @@ impl View {
         for pipeline_handler in handlers.iter_mut() {
             pipeline_handler.draw(&mut render_pass);
         }
+
+        /*
+         * TODO: plane drawer needs better implementation
+         * if !fake_color {
+            self.plane_drawer.draw(&mut render_pass, &viewer_bind_group)
+        }*/
     }
 
     /// Update the model matrix associated to a given desgin.
@@ -208,6 +236,8 @@ pub enum ViewUpdate {
     ModelMatrices(Vec<Mat4>),
     /// The set of phantom instances has been modified
     PhantomInstances(Rc<Vec<Instance>>, Rc<Vec<Instance>>),
+    /// The plane to be drawn has been modified
+    Plane(Option<Plane>),
 }
 
 struct PipelineHandlers {
@@ -410,7 +440,7 @@ impl PipelineHandlers {
                 self.phantom_sphere.new_instances(sphere);
                 self.phantom_tube.new_instances(tube);
             }
-            ViewUpdate::Camera | ViewUpdate::Size(_) => {
+            ViewUpdate::Camera | ViewUpdate::Size(_) | ViewUpdate::Plane(_) => {
                 unreachable!();
             }
         }
