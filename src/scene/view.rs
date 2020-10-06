@@ -15,11 +15,13 @@ use pipeline_handler::PipelineHandler;
 mod uniforms;
 use uniforms::Uniforms;
 mod bindgroup_manager;
-mod plane_drawer;
+//mod plane_drawer;
+mod handle_drawer;
 
 use bindgroup_manager::UniformBindGroup;
-use plane_drawer::PlaneDrawer;
-pub use plane_drawer::Plane;
+use handle_drawer::{HandleDrawer, Handle};
+//use plane_drawer::PlaneDrawer;
+//pub use plane_drawer::Plane;
 
 /// An object that handles the communication with the GPU to draw the scene.
 pub struct View {
@@ -28,15 +30,16 @@ pub struct View {
     projection: ProjectionPtr,
     /// The pipeline handler contains the pipepline that draw meshes
     pipeline_handlers: PipelineHandlers,
-    /// The plane_drawer handles the pipline that draws planes
-    plane_drawer: PlaneDrawer,
     /// The depth texture is updated every time the size of the drawing area is modified
     depth_texture: Texture,
+    /// The handle drawers draw handles to translate the elements
+    handle_drawers: Vec<HandleDrawer>,
     /// A possible update of the size of the drawing area, must be taken into account before
     /// drawing the next frame
     new_size: Option<PhySize>,
     device: Rc<Device>,
     viewer: Rc<RefCell<UniformBindGroup>>,
+
 }
 
 impl View {
@@ -62,16 +65,15 @@ impl View {
         let depth_texture =
             texture::Texture::create_depth_texture(device.clone().as_ref(), &window_size);
         let viewer = Rc::new(RefCell::new(UniformBindGroup::new(device.clone(), queue.clone(), &Uniforms::from_view_proj(camera.clone(), projection.clone()))));
-        let plane_drawer = PlaneDrawer::new(0x800000FF, viewer.clone(), device.clone());
         Self {
             camera,
             projection,
             pipeline_handlers,
             depth_texture,
             new_size: None,
-            device,
-            plane_drawer,
+            device: device.clone(),
             viewer,
+            handle_drawers: vec![HandleDrawer::new(device.clone()),  HandleDrawer::new(device.clone()), HandleDrawer::new(device.clone())],
         }
     }
 
@@ -79,19 +81,26 @@ impl View {
     pub fn update(&mut self, view_update: ViewUpdate) {
         match view_update {
             ViewUpdate::Size(size) => self.new_size = Some(size),
-            ViewUpdate::Plane(plane) => self.new_plane(plane),
             ViewUpdate::Camera => {
                 self
                 .pipeline_handlers
                 .new_viewer(self.camera.clone(), self.projection.clone());
                 self.viewer.borrow_mut().update(&Uniforms::from_view_proj(self.camera.clone(), self.projection.clone()))
             }
+            ViewUpdate::Handles(descr) => {
+                if let Some(descr) = descr {
+                    let handles = descr.make_handles(self.camera.clone(), self.projection.clone());
+                    for i in 0..3 {
+                        self.handle_drawers[i].new_handle(Some(handles[i]))
+                    }
+                } else {
+                    for i in 0..3 {
+                        self.handle_drawers[i].new_handle(None)
+                    }
+                }
+            }
             _ => self.pipeline_handlers.update(view_update),
         }
-    }
-
-    fn new_plane(&mut self, plane: Option<Plane>) {
-        self.plane_drawer.new_plane(plane);
     }
 
     /// Draw the scene
@@ -127,6 +136,7 @@ impl View {
         };
         let viewer = self.viewer.borrow();
         let viewer_bind_group = viewer.get_bindgroup();
+        let viewer_bind_group_layout = viewer.get_layout();
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
                 attachment: target,
@@ -172,6 +182,12 @@ impl View {
          * if !fake_color {
             self.plane_drawer.draw(&mut render_pass, &viewer_bind_group)
         }*/
+
+        if !fake_color {
+            for drawer in self.handle_drawers.iter_mut() {
+                drawer.draw(&mut render_pass, &viewer_bind_group, &viewer_bind_group_layout);
+            }
+        }
     }
 
     /// Update the model matrix associated to a given desgin.
@@ -236,9 +252,29 @@ pub enum ViewUpdate {
     ModelMatrices(Vec<Mat4>),
     /// The set of phantom instances has been modified
     PhantomInstances(Rc<Vec<Instance>>, Rc<Vec<Instance>>),
-    /// The plane to be drawn has been modified
-    Plane(Option<Plane>),
+    Handles(Option<HandlesDescriptor>),
 }
+
+#[derive(Clone, Debug)]
+pub struct HandlesDescriptor {
+    pub origin: Vec3,
+    pub right: Vec3,
+    pub up: Vec3,
+    pub size: f32,
+}
+
+impl HandlesDescriptor {
+    pub fn make_handles(&self, camera: CameraPtr, projection: ProjectionPtr) -> Vec<Handle> {
+        let dist = (camera.borrow().position - self.origin).mag();
+        let length = self.size * dist * (projection.borrow().get_fovy() / 2.).tan();
+        vec![
+            Handle::new(self.origin, self.right, self.up, 0xFF0000, length),
+            Handle::new(self.origin, self.up, self.right, 0xFF00, length),
+            Handle::new(self.origin, self.up.cross(self.right), self.right, 0xFF, length)
+        ]
+    }
+}
+
 
 struct PipelineHandlers {
     sphere: PipelineHandler,
@@ -440,7 +476,7 @@ impl PipelineHandlers {
                 self.phantom_sphere.new_instances(sphere);
                 self.phantom_tube.new_instances(tube);
             }
-            ViewUpdate::Camera | ViewUpdate::Size(_) | ViewUpdate::Plane(_) => {
+            ViewUpdate::Camera | ViewUpdate::Size(_) | ViewUpdate::Handles(_) => {
                 unreachable!();
             }
         }

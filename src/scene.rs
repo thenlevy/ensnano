@@ -20,7 +20,7 @@ use winit::dpi::PhysicalPosition;
 mod camera;
 /// Display of the scene
 mod view;
-use view::{View, ViewUpdate};
+use view::{HandlesDescriptor, View, ViewUpdate};
 /// Handling of inputs and notifications
 mod controller;
 use controller::{Consequence, Controller};
@@ -177,12 +177,22 @@ impl Scene {
         if selected_id != 0xFFFFFF {
             let selection = self.data.borrow_mut().set_selection(design_id, selected_id);
             self.mediator.lock().unwrap().notify_selection(selection);
+            let origin = self.data.borrow().get_selected_position().unwrap();
+            let right = self.view.borrow().right_vec();
+            let up = self.view.borrow().up_vec();
+            self.view.borrow_mut().update(ViewUpdate::Handles(Some(HandlesDescriptor{
+                origin,
+                right,
+                up,
+                size: 0.05
+            })));
         } else {
             self.data.borrow_mut().reset_selection();
             self.mediator
                 .lock()
                 .unwrap()
                 .notify_selection(Selection::Nothing);
+            self.view.borrow_mut().update(ViewUpdate::Handles(None))
         }
         self.data.borrow_mut().notify_selection_update();
     }
