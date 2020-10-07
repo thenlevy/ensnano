@@ -1,23 +1,13 @@
 use std::rc::Rc;
-use std::cell::RefCell;
-
 use iced_wgpu::wgpu;
 use wgpu::{
-    include_spirv, BindGroup, BindGroupLayout, Device, Queue, RenderPass, RenderPipeline,
+    include_spirv, Device, RenderPass, RenderPipeline,
     StencilStateDescriptor,
 };
 
 use crate::consts::*;
 use crate::utils::{create_buffer_with_data, texture::Texture};
-use super::bindgroup_manager::UniformBindGroup;
 use ultraviolet::Vec3;
-
-const PLANE_SIZE: i32 = 10;
-
-// TODO make it a parameter
-const INTER_HELIX_GAP: f32 = 0.65;
-const LINE_COLOR: u32 = 0xA0000000;
-const LINE_WIDTH: f32 = INTER_HELIX_GAP / 100.;
 
 #[derive(Debug, Clone, Copy)]
 struct VertexRaw {
@@ -79,6 +69,7 @@ impl Vertex {
 pub struct Handle {
     pub origin: Vec3,
     pub direction: Vec3,
+    pub translation: Vec3,
     normal: Vec3,
     color: u32,
     id: u32,
@@ -90,6 +81,7 @@ impl Handle {
         Self {
             origin,
             direction,
+            translation: Vec3::zero(),
             normal,
             color,
             id,
@@ -108,21 +100,11 @@ impl Handle {
         for x in [-1f32, 1.].iter() {
             for y in [-1., 1.].iter() {
                 for z in [0., 1.].iter() {
-                    ret.push(Vertex::new(self.origin + self.normal * *x * width + *y * self.direction.cross(self.normal) * width + *z * self.direction * self.length ,color));
+                    ret.push(Vertex::new(self.origin + self.normal * *x * width + *y * self.direction.cross(self.normal) * width + *z * self.direction * self.length + self.translation,color));
                 }
             }
         }
         ret
-    }
-
-    pub fn update(&mut self, origin: Vec3, direction: Vec3, normal: Vec3, length: f32) {
-        *self = Self {
-            origin,
-            direction,
-            normal,
-            length,
-            ..*self
-        }
     }
 
     fn indices() -> Vec<u16> {

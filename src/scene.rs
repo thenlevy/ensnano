@@ -119,7 +119,10 @@ impl Scene {
             Consequence::PixelSelected(clicked) => self.click_on(clicked),
             Consequence::Translation(dir, x_coord, y_coord) => {
                 let translation = self.view.borrow().compute_translation_handle(x_coord as f32, y_coord as f32, dir);
-                translation.map(|t| self.translate_selected_design(t));
+                translation.map(|t| {
+                    self.translate_selected_design(t);
+                    self.view.borrow_mut().translate_handle(t);
+                });
             }
             Consequence::MovementEnded => {
                 self.mediator
@@ -127,6 +130,7 @@ impl Scene {
                     .unwrap()
                     .notify_all_designs(AppNotification::MovementEnded);
                 self.data.borrow_mut().end_movement();
+                self.update_handle();
             }
             Consequence::Rotation(x, y) => {
                 let rotation = DesignRotation {
@@ -185,6 +189,7 @@ impl Scene {
                 .notify_selection(Selection::Nothing);
         }
         self.data.borrow_mut().notify_selection_update();
+        self.update_handle();
     }
 
     fn check_on(&mut self, clicked_pixel: PhysicalPosition<f64>) {
@@ -192,7 +197,7 @@ impl Scene {
         if design_id == 0xFF {
             self.controller.notify(checked_id);
         }
-        else if checked_id != 0xFFFFFF {
+        if checked_id != 0xFFFFFF && design_id !=0xFF {
             self.data.borrow_mut().set_candidate(design_id, checked_id);
         } else {
             self.data.borrow_mut().reset_candidate();
@@ -360,6 +365,13 @@ impl Scene {
         if self.update.need_update {
             self.perform_update(dt);
         }
+
+        self.view
+            .borrow_mut()
+            .draw(encoder, target, fake_color, self.area);
+    }
+
+    fn update_handle(&mut self) {
         let origin = self.data.borrow().get_selected_position();
         let descr = origin.map(|origin| HandlesDescriptor {
             origin,
@@ -367,10 +379,6 @@ impl Scene {
             size: 0.25
         });
         self.view.borrow_mut().update(ViewUpdate::Handles(descr));
-
-        self.view
-            .borrow_mut()
-            .draw(encoder, target, fake_color, self.area);
     }
 
     fn perform_update(&mut self, dt: Duration) {
@@ -378,6 +386,7 @@ impl Scene {
             self.controller.update_camera(dt);
             self.view.borrow_mut().update(ViewUpdate::Camera);
             self.update.camera_update = false;
+            self.update_handle()
         }
         self.update.need_update = false;
     }

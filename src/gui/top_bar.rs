@@ -68,19 +68,10 @@ impl Program for TopBar {
                 }
             }
             Message::FileReplaceRequested => {
-                let dialog = native_dialog::OpenSingleFile {
-                    dir: None,
-                    filter: None,
-                };
-                let result = dialog.show();
-                if let Ok(result) = result {
-                    if let Some(path) = result {
-                        self.requests
-                            .lock()
-                            .expect("file_opening_request")
-                            .file_clear = false;
-                    }
-                }
+                self.requests
+                    .lock()
+                    .expect("file_opening_request")
+                    .file_clear = false;
             }
             Message::FileSaveRequested => {
                 let dialog = native_dialog::OpenSingleDir { dir: None };

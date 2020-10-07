@@ -224,6 +224,10 @@ impl View {
         let p2 = unproject_point_on_line(origin, dir, self.camera.clone(), self.projection.clone(), x_coord, y_coord)?;
         Some(p2 - origin)
     }
+
+    pub fn translate_handle(&mut self, translation: Vec3) {
+        self.handle_drawers.translate(translation);
+    }
 }
 
 /// An notification to be given to the view
@@ -273,13 +277,21 @@ impl HandlesDescriptor {
         [
             Handle::new(self.origin, right, up, 0xFF0000, RIGHT_HANDLE_ID , length),
             Handle::new(self.origin, up, right, 0xFF00, UP_HANDLE_ID, length),
-            Handle::new(self.origin, dir, right, 0xFF, DIR_HANDLE_ID, length)
+            Handle::new(self.origin, dir, up, 0xFF, DIR_HANDLE_ID, length)
         ]
     }
 
     fn make_axis(&self, camera: CameraPtr) -> (Vec3, Vec3, Vec3) {
         match self.orientation {
-            HandleOrientation::Camera => (camera.borrow().right_vec(), camera.borrow().up_vec(), camera.borrow().direction()),
+            HandleOrientation::Camera => {
+                let right = camera.borrow().right_vec();
+                let up = camera.borrow().up_vec();
+                let dir = camera.borrow().direction();
+                let rotor = Rotor3::from_angle_plane(-std::f32::consts::FRAC_PI_4, right.wedge(dir).normalized());
+                (rotor.reversed() * camera.borrow().right_vec(),
+                 camera.borrow().up_vec(),
+                 rotor.reversed() * -camera.borrow().direction())
+            }
             HandleOrientation::Rotor(rotor) => (rotor * Vec3::unit_x(), rotor * Vec3::unit_y(), rotor * -Vec3::unit_z())
         }
     }
@@ -343,6 +355,15 @@ impl HandlesDrawer {
             let handle = handles[i];
             (handle.origin, handle.direction)
         })
+    }
+
+    pub fn translate(&mut self, translation: Vec3) {
+        self.handles.as_mut().map(|handles| {
+            for h in handles.iter_mut() {
+                h.translation = translation;
+            }
+        }).unwrap_or(());
+        self.update_drawers();
     }
 }
 

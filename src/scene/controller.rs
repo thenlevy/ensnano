@@ -259,7 +259,7 @@ impl Controller {
             RIGHT_HANDLE_ID => self.state = State::Translate(HandleDir::Right),
             UP_HANDLE_ID => self.state = State::Translate(HandleDir::Up),
             DIR_HANDLE_ID => self.state = State::Translate(HandleDir::Dir),
-            _ => (),
+            _ => self.state = State::MoveCamera,
         }
     }
 }
