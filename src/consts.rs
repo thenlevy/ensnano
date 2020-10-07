@@ -14,7 +14,7 @@ pub const SPHERE_RADIUS: f32 = 0.2;
 pub const NB_STACK_SPHERE: u16 = 12;
 pub const NB_SECTOR_SPHERE: u16 = 12;
 
-pub const NB_SECTOR_CIRCLE: u16 = 360;
+pub const NB_SECTOR_CIRCLE: u16 = 36;
 
 pub const SELECT_SCALE_FACTOR: f32 = 1.3;
 

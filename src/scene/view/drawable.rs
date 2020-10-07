@@ -11,8 +11,11 @@ pub trait Drawable {
     fn vertices(&self, fake: bool) -> Vec<Vertex>;
     fn primitive_topology() -> wgpu::PrimitiveTopology;
 
+    fn use_alpha() -> bool {
+       false 
+    }
     fn update_buffer(&self, vertex_buffer: &mut Option<wgpu::Buffer>, device: Rc<Device>, fake: bool) {
-        let raw_vertices = self.vertices(fake).iter().map(|v| v.to_raw()).collect::<Vec<_>>();
+        let raw_vertices = self.vertices(fake).iter().map(|v| v.to_raw(Self::use_alpha())).collect::<Vec<_>>();
         *vertex_buffer = Some(create_buffer_with_data(
             device.as_ref(),
             bytemuck::cast_slice(raw_vertices.as_slice()),
@@ -155,7 +158,7 @@ impl<D: Drawable> Drawer<D> {
                 depth_bias_clamp: 0.0,
                 clamp_depth: false,
             }),
-            primitive_topology: wgpu::PrimitiveTopology::TriangleList,
+            primitive_topology: self.primitive_topology,
             color_states: &[wgpu::ColorStateDescriptor {
                 format,
                 color_blend,
@@ -221,14 +224,19 @@ pub struct Vertex {
 }
 
 impl Vertex {
-    fn to_raw(&self) -> VertexRaw {
+    fn to_raw(&self, use_alpha: bool) -> VertexRaw {
+        let alpha = if use_alpha {
+            ((self.color & 0xFF000000) >> 24) as f32 / 255.
+        } else {
+            1.
+        };
         VertexRaw {
             position: self.position.into(),
             color: [
                 ((self.color & 0xFF0000) >> 16) as f32 / 255.,
                 ((self.color & 0xFF00) >> 8) as f32 / 255.,
                 (self.color & 0xFF) as f32 / 255.,
-                1.,
+                alpha,
             ],
         }
     }

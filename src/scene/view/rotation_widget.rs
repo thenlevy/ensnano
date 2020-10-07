@@ -74,7 +74,7 @@ impl RotationWidgetDescriptor {
     fn make_circles(&self, camera: CameraPtr, projection: ProjectionPtr) -> [Circle ; 3] {
         let dist = (camera.borrow().position - self.origin).mag();
         let (right, up, dir) = self.make_axis(camera);
-        let length = self.size * dist * (projection.borrow().get_fovy() / 2.).tan();
+        let length = self.size * dist * (projection.borrow().get_fovy() / 2.).tan() * 1.1;
         [
             Circle::new(self.origin, length, up, dir, 0xFF_00_00, RIGHT_CIRCLE_ID),
             Circle::new(self.origin, length, right, dir, 0xFF_00, UP_CIRCLE_ID),
@@ -94,10 +94,9 @@ impl RotationWidgetDescriptor {
                 let right = camera.borrow().right_vec();
                 let up = camera.borrow().up_vec();
                 let dir = camera.borrow().direction();
-                let rotor = Rotor3::from_angle_plane(-std::f32::consts::FRAC_PI_4, right.wedge(dir).normalized());
-                (rotor * camera.borrow().right_vec(),
+                (right,
                  up,
-                 rotor * -camera.borrow().direction())
+                 dir)
             }
             RotationWidgetOrientation::Rotor(rotor) => (rotor * Vec3::unit_x(), rotor * Vec3::unit_y(), rotor * -Vec3::unit_z())
         }
@@ -137,7 +136,7 @@ impl Drawable for Circle {
         };
         for i in 0..=NB_SECTOR_CIRCLE {
             let theta = 2. * PI * i as f32 / NB_SECTOR_CIRCLE as f32;
-            vertices.push(Vertex::new(self.origin + self.right * theta.cos() + self.up * theta.sin(), color));
+            vertices.push(Vertex::new(self.origin + self.radius * ( self.right * theta.cos() + self.up * theta.sin()), color));
         }
         vertices
     }
@@ -164,7 +163,7 @@ impl Sphere {
     pub fn new(position: Vec3, radius: f32, color: u32, id: u32) -> Self {
         Self {
             position,
-            radius: radius/ 4.,
+            radius,
             color,
             id,
         }
@@ -227,5 +226,9 @@ impl Drawable for Sphere {
 
     fn primitive_topology() -> wgpu::PrimitiveTopology {
         wgpu::PrimitiveTopology::TriangleList
+    }
+
+    fn use_alpha() -> bool {
+        true
     }
 }

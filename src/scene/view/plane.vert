@@ -13,5 +13,6 @@ uniform Uniforms {
 
 void main() {
     v_color = a_color;
+    glLineWidth(5.);
     gl_Position = u_view_proj * vec4(a_position, 1.0);
 }
