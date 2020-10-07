@@ -20,7 +20,7 @@ use winit::dpi::PhysicalPosition;
 mod camera;
 /// Display of the scene
 mod view;
-use view::{HandlesDescriptor, View, ViewUpdate};
+use view::{HandlesDescriptor, View, ViewUpdate, HandleOrientation, HandleDir};
 /// Handling of inputs and notifications
 mod controller;
 use controller::{Consequence, Controller};
@@ -29,7 +29,7 @@ pub use controller::ClickMode;
 use data::Data;
 pub use data::{RotationMode, SelectionMode};
 use design::{
-    Design, DesignNotification, DesignNotificationContent, DesignRotation, DesignTranslation,
+    Design, DesignNotification, DesignNotificationContent, DesignRotation
 };
 
 type ViewPtr = Rc<RefCell<View>>;
@@ -110,16 +110,16 @@ impl Scene {
 
     /// Input an event to the scene. Return true, if the selected object of the scene has changed
     pub fn input(&mut self, event: &WindowEvent, cursor_position: PhysicalPosition<f64>) {
-        let camera_can_move = self.get_selected_designs().len() == 0;
         let consequence = self
             .controller
-            .input(event, cursor_position, camera_can_move);
+            .input(event, cursor_position);
         match consequence {
             Consequence::Nothing => (),
             Consequence::CameraMoved => self.notify(SceneNotification::CameraMoved),
             Consequence::PixelSelected(clicked) => self.click_on(clicked),
-            Consequence::Translation(x, y, z) => {
-                self.translate_selected_design(x, y, z);
+            Consequence::Translation(dir, x_coord, y_coord) => {
+                let translation = self.view.borrow().compute_translation_handle(x_coord as f32, y_coord as f32, dir);
+                translation.map(|t| self.translate_selected_design(t));
             }
             Consequence::MovementEnded => {
                 self.mediator
@@ -174,32 +174,25 @@ impl Scene {
 
     fn click_on(&mut self, clicked_pixel: PhysicalPosition<f64>) {
         let (selected_id, design_id) = self.set_selected_id(clicked_pixel);
-        if selected_id != 0xFFFFFF {
+        if design_id != 0xFF{
             let selection = self.data.borrow_mut().set_selection(design_id, selected_id);
             self.mediator.lock().unwrap().notify_selection(selection);
-            let origin = self.data.borrow().get_selected_position().unwrap();
-            let right = self.view.borrow().right_vec();
-            let up = self.view.borrow().up_vec();
-            self.view.borrow_mut().update(ViewUpdate::Handles(Some(HandlesDescriptor{
-                origin,
-                right,
-                up,
-                size: 0.05
-            })));
         } else {
             self.data.borrow_mut().reset_selection();
             self.mediator
                 .lock()
                 .unwrap()
                 .notify_selection(Selection::Nothing);
-            self.view.borrow_mut().update(ViewUpdate::Handles(None))
         }
         self.data.borrow_mut().notify_selection_update();
     }
 
     fn check_on(&mut self, clicked_pixel: PhysicalPosition<f64>) {
         let (checked_id, design_id) = self.set_selected_id(clicked_pixel);
-        if checked_id != 0xFFFFFF {
+        if design_id == 0xFF {
+            self.controller.notify(checked_id);
+        }
+        else if checked_id != 0xFFFFFF {
             self.data.borrow_mut().set_candidate(design_id, checked_id);
         } else {
             self.data.borrow_mut().reset_candidate();
@@ -317,21 +310,7 @@ impl Scene {
         (texture, view)
     }
 
-    fn translate_selected_design(&mut self, x: f64, y: f64, z: f64) {
-        let distance = (self.get_selected_position().unwrap() - self.camera_position())
-            .dot(self.camera_direction())
-            .abs()
-            .sqrt();
-        let height = 2. * distance * (self.get_fovy() / 2.).tan();
-        let width = height * self.get_ratio();
-        let right_vec = width * x as f32 * self.view.borrow().right_vec();
-        let up_vec = height * -y as f32 * self.view.borrow().up_vec();
-        let forward = z as f32 * self.view.borrow().get_camera_direction();
-        let translation = DesignTranslation {
-            right: right_vec,
-            up: up_vec,
-            forward,
-        };
+    fn translate_selected_design(&mut self, translation: Vec3) {
         self.mediator.lock().unwrap().notify_designs(
             &self.get_selected_designs(),
             AppNotification::Translation(&translation),
@@ -381,6 +360,13 @@ impl Scene {
         if self.update.need_update {
             self.perform_update(dt);
         }
+        let origin = self.data.borrow().get_selected_position();
+        let descr = origin.map(|origin| HandlesDescriptor {
+            origin,
+            orientation: HandleOrientation::Camera,
+            size: 0.25
+        });
+        self.view.borrow_mut().update(ViewUpdate::Handles(descr));
 
         self.view
             .borrow_mut()

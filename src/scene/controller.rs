@@ -1,8 +1,9 @@
-use super::{camera, DataPtr, Duration, ViewPtr};
+use super::{camera, DataPtr, Duration, ViewPtr, HandleDir};
 use crate::{PhySize, PhysicalPosition, WindowEvent};
 use iced_winit::winit;
 use iced_winit::winit::event::*;
 use ultraviolet::{Rotor3, Vec3};
+use crate::consts::*;
 
 use camera::CameraController;
 
@@ -10,8 +11,12 @@ use camera::CameraController;
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ClickMode {
     TranslateCam,
-    #[allow(dead_code)]
     RotateCam,
+}
+
+enum State {
+    MoveCamera,
+    Translate(HandleDir),
 }
 
 /// An object handling input and notification for the scene.
@@ -38,6 +43,7 @@ pub struct Controller {
     modifiers_when_clicked: ModifiersState,
     /// The effect that dragging the mouse has
     click_mode: ClickMode,
+    state: State,
 }
 
 const NO_POS: PhysicalPosition<f64> = PhysicalPosition::new(f64::NAN, f64::NAN);
@@ -45,7 +51,7 @@ const NO_POS: PhysicalPosition<f64> = PhysicalPosition::new(f64::NAN, f64::NAN);
 pub enum Consequence {
     CameraMoved,
     PixelSelected(PhysicalPosition<f64>),
-    Translation(f64, f64, f64),
+    Translation(HandleDir, f64, f64),
     MovementEnded,
     Rotation(f64, f64),
     Swing(f64, f64),
@@ -71,6 +77,7 @@ impl Controller {
             current_modifiers: ModifiersState::empty(),
             modifiers_when_clicked: ModifiersState::empty(),
             click_mode: ClickMode::TranslateCam,
+            state: State::MoveCamera,
         }
     }
 
@@ -85,13 +92,10 @@ impl Controller {
     /// * `event` the event to be handled
     ///
     /// * `position` the position of the mouse *in the drawing area coordinates*
-    ///
-    /// * `camera_can_move` wether the camera can move or not TODO replace with a Mode
     pub fn input(
         &mut self,
         event: &WindowEvent,
         position: PhysicalPosition<f64>,
-        camera_can_move: bool,
     ) -> Consequence {
         match event {
             WindowEvent::ModifiersChanged(modifiers) => {
@@ -120,20 +124,8 @@ impl Controller {
                 }
             },
             WindowEvent::MouseWheel { delta, .. } => {
-                if !camera_can_move && self.last_left_clicked_position.is_some() {
-                    let scroll = match delta {
-                        // I'm assuming a line is about 100 pixels
-                        MouseScrollDelta::LineDelta(_, scroll) => *scroll as f64 * 10.,
-                        MouseScrollDelta::PixelDelta(winit::dpi::LogicalPosition {
-                            y: scroll,
-                            ..
-                        }) => *scroll as f64,
-                    };
-                    Consequence::Translation(0., 0., scroll)
-                } else {
-                    self.camera_controller.process_scroll(delta);
-                    Consequence::CameraMoved
-                }
+                self.camera_controller.process_scroll(delta);
+                Consequence::CameraMoved
             }
             WindowEvent::CursorLeft { .. } => {
                 if self.last_left_clicked_position.is_some() {
@@ -189,6 +181,7 @@ impl Controller {
                     self.camera_controller.foccus();
                 } else {
                     released = true;
+                    self.state = State::MoveCamera;
                 }
                 if self.last_right_clicked_position.is_some() {
                     if released {
@@ -204,15 +197,14 @@ impl Controller {
                 if let Some(clicked_position) = self.last_left_clicked_position {
                     let mouse_dx = (position.x - clicked_position.x) / self.area_size.width as f64;
                     let mouse_dy = (position.y - clicked_position.y) / self.area_size.height as f64;
-                    if camera_can_move {
-                        self.camera_controller.process_mouse(mouse_dx, mouse_dy);
-                        Consequence::CameraMoved
-                    } else {
-                        if self.modifiers_when_clicked.alt() {
-                            Consequence::Rotation(mouse_dx, mouse_dy)
-                        } else {
-                            Consequence::Translation(mouse_dx, mouse_dy, 0.)
+                    let mouse_x = position.x / self.area_size.width as f64;
+                    let mouse_y = position.y / self.area_size.height as f64;
+                    match &self.state {
+                        State::MoveCamera => {
+                            self.camera_controller.process_mouse(mouse_dx, mouse_dy);
+                            Consequence::CameraMoved
                         }
+                        State::Translate(dir) => Consequence::Translation(*dir, mouse_x, mouse_y),
                     }
                 } else if let Some(clicked_position) = self.last_right_clicked_position {
                     let mouse_dx = (position.x - clicked_position.x) / self.area_size.width as f64;
@@ -259,6 +251,16 @@ impl Controller {
 
     pub fn get_window_size(&self) -> PhySize {
         self.window_size
+    }
+
+    pub fn notify(&mut self, notification_id: u32) {
+        let notification_id = notification_id | 0xFF_00_00_00;
+        match notification_id {
+            RIGHT_HANDLE_ID => self.state = State::Translate(HandleDir::Right),
+            UP_HANDLE_ID => self.state = State::Translate(HandleDir::Up),
+            DIR_HANDLE_ID => self.state = State::Translate(HandleDir::Dir),
+            _ => (),
+        }
     }
 }
 

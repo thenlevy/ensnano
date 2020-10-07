@@ -27,11 +27,10 @@ impl Controller {
         }
     }
 
-    pub fn translate(&mut self, translation: &DesignTranslation) {
-        self.forward += translation.forward;
+    pub fn translate(&mut self, translation: &Vec3) {
         self.view.borrow_mut().set_matrix(
             self.old_matrix
-                .translated(&(translation.right + translation.up + self.forward)),
+                .translated(translation),
         )
     }
 
@@ -71,8 +70,3 @@ pub struct DesignRotation {
     pub angle_xz: f32,
 }
 
-pub struct DesignTranslation {
-    pub right: Vec3,
-    pub up: Vec3,
-    pub forward: Vec3,
-}

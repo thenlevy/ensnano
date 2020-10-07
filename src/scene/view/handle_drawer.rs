@@ -77,35 +77,52 @@ impl Vertex {
 
 #[derive(Clone, Copy, Debug)]
 pub struct Handle {
-    origin: Vec3,
-    direction: Vec3,
+    pub origin: Vec3,
+    pub direction: Vec3,
     normal: Vec3,
     color: u32,
+    id: u32,
     length: f32,
 }
 
 impl Handle {
-    pub fn new(origin: Vec3, direction: Vec3, normal: Vec3, color: u32, length: f32) -> Self {
+    pub fn new(origin: Vec3, direction: Vec3, normal: Vec3, color: u32, id: u32, length: f32) -> Self {
         Self {
             origin,
             direction,
             normal,
             color,
+            id,
             length,
         }
     }
 
-    fn vertices(&self) -> Vec<Vertex> {
+    fn vertices(&self, fake: bool) -> Vec<Vertex> {
         let mut ret = Vec::new();
-        let width = self.length / 10.;
+        let width = self.length / 30.;
+        let color = if fake {
+            self.id
+        } else {
+            self.color
+        };
         for x in [-1f32, 1.].iter() {
             for y in [-1., 1.].iter() {
                 for z in [0., 1.].iter() {
-                    ret.push(Vertex::new(self.origin + self.normal * *x * width + *y * self.direction.cross(self.normal) * width + *z * self.direction * self.length ,self.color));
+                    ret.push(Vertex::new(self.origin + self.normal * *x * width + *y * self.direction.cross(self.normal) * width + *z * self.direction * self.length ,color));
                 }
             }
         }
         ret
+    }
+
+    pub fn update(&mut self, origin: Vec3, direction: Vec3, normal: Vec3, length: f32) {
+        *self = Self {
+            origin,
+            direction,
+            normal,
+            length,
+            ..*self
+        }
     }
 
     fn indices() -> Vec<u16> {
@@ -124,8 +141,8 @@ impl Handle {
             1, 3, 7]
     }
 
-    fn update_buffer(&self, vertex_buffer: &mut Option<wgpu::Buffer>, device: Rc<Device>) {
-        let raw_vertices = self.vertices().iter().map(|v| v.to_raw()).collect::<Vec<_>>();
+    fn update_buffer(&self, vertex_buffer: &mut Option<wgpu::Buffer>, device: Rc<Device>, fake: bool) {
+        let raw_vertices = self.vertices(fake).iter().map(|v| v.to_raw()).collect::<Vec<_>>();
         *vertex_buffer = Some(create_buffer_with_data(
             device.as_ref(),
             bytemuck::cast_slice(raw_vertices.as_slice()),
@@ -143,8 +160,12 @@ pub struct HandleDrawer {
     new_handle: Option<Handle>,
     /// The pipeline created by `self`
     pipeline: Option<RenderPipeline>,
-    /// The vertices to draw in order to draw the plane
+    /// The pipeline created by `self` for drawing on the fake texture
+    pipeline_fake: Option<RenderPipeline>,
+    /// The vertices to draw in order to draw the handle
     vertex_buffer: Option<wgpu::Buffer>,
+    /// The vertices to draw in order to draw on the fake texture
+    fake_vertex_buffer: Option<wgpu::Buffer>,
     index_buffer: wgpu::Buffer,
 }
 
@@ -161,8 +182,10 @@ impl HandleDrawer {
             device,
             new_handle: None,
             vertex_buffer: None,
+            fake_vertex_buffer: None,
             index_buffer,
             pipeline: None,
+            pipeline_fake: None,
         }
     }
 
@@ -171,21 +194,33 @@ impl HandleDrawer {
             self.new_handle = handle;
         } else {
             self.vertex_buffer = None;
+            self.fake_vertex_buffer = None;
         }
     }
         
-    pub fn draw<'a>(&'a mut self, render_pass: &mut RenderPass<'a>, viewer_bind_group: &'a wgpu::BindGroup, viewer_bind_group_layout: &'a wgpu::BindGroupLayout) {
+    pub fn draw<'a>(&'a mut self, render_pass: &mut RenderPass<'a>, viewer_bind_group: &'a wgpu::BindGroup, viewer_bind_group_layout: &'a wgpu::BindGroupLayout, fake: bool) {
         self.update_handle();
         if self.vertex_buffer.is_some() {
-            if self.pipeline.is_none() {
-                self.pipeline = Some(self.create_pipeline(viewer_bind_group_layout));
-            }
+            let pipeline = if fake {
+                if self.pipeline_fake.is_none() {
+                    self.pipeline_fake = Some(self.create_pipeline(viewer_bind_group_layout, true))
+                }
+                self.pipeline_fake.as_ref().unwrap()
+            } else {
+                if self.pipeline.is_none() {
+                    self.pipeline = Some(self.create_pipeline(viewer_bind_group_layout, false));
+                }
+                self.pipeline.as_ref().unwrap()
+            };
 
-            render_pass.set_pipeline(self.pipeline.as_ref().unwrap());
-            render_pass.set_vertex_buffer(0, self.vertex_buffer.as_ref().unwrap().slice(..));
+            render_pass.set_pipeline(pipeline);
+            if fake {
+                render_pass.set_vertex_buffer(0, self.fake_vertex_buffer.as_ref().unwrap().slice(..));
+            } else {
+                render_pass.set_vertex_buffer(0, self.vertex_buffer.as_ref().unwrap().slice(..));
+            }
             render_pass.set_index_buffer(self.index_buffer.slice(..));
             render_pass.set_bind_group(VIEWER_BINDING_ID, viewer_bind_group, &[]);
-            println!("about to draw");
 
             let nb_index = Handle::indices().len() as u32;
             render_pass.draw_indexed(0..nb_index, 0, 0..1);
@@ -194,11 +229,12 @@ impl HandleDrawer {
 
     fn update_handle(&mut self) {
         if let Some(handle) = self.new_handle.take() {
-            handle.update_buffer(&mut self.vertex_buffer, self.device.clone());
+            handle.update_buffer(&mut self.vertex_buffer, self.device.clone(), false);
+            handle.update_buffer(&mut self.fake_vertex_buffer, self.device.clone(), true);
         }
     }
 
-    fn create_pipeline(&self, viewer_bind_group_layout: &wgpu::BindGroupLayout) -> RenderPipeline {
+    fn create_pipeline(&self, viewer_bind_group_layout: &wgpu::BindGroupLayout, fake: bool) -> RenderPipeline {
         let vertex_module = self.device.create_shader_module(include_spirv!("plane_vert.spv"));
         let fragment_module = self.device.create_shader_module(include_spirv!("plane_frag.spv"));
         let render_pipeline_layout =
@@ -210,7 +246,11 @@ impl HandleDrawer {
                 label: Some("render_pipeline_layout"),
             });
 
-        let format = wgpu::TextureFormat::Bgra8UnormSrgb;
+        let format = if fake {
+            wgpu::TextureFormat::Bgra8Unorm
+        } else {
+            wgpu::TextureFormat::Bgra8UnormSrgb
+        };
 
         let color_blend =
             wgpu::BlendDescriptor {

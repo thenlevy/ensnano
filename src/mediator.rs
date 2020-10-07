@@ -14,7 +14,7 @@ use native_dialog::{Dialog, MessageAlert};
 
 use crate::design;
 
-use design::{Design, DesignNotification, DesignRotation, DesignTranslation};
+use design::{Design, DesignNotification, DesignRotation};
 
 pub type MediatorPtr = Arc<Mutex<Mediator>>;
 
@@ -160,7 +160,7 @@ impl Mediator {
 pub enum AppNotification<'a> {
     MovementEnded,
     Rotation(&'a DesignRotation),
-    Translation(&'a DesignTranslation),
+    Translation(&'a ultraviolet::Vec3),
 }
 
 #[derive(Clone, Copy)]

@@ -11,7 +11,7 @@ mod controller;
 mod data;
 mod view;
 use controller::Controller;
-pub use controller::{DesignRotation, DesignTranslation};
+pub use controller::DesignRotation;
 use data::Data;
 pub use data::{Nucl, ObjectType};
 use view::View;
@@ -83,7 +83,7 @@ impl Design {
     }
 
     /// Translate the representation of self
-    pub fn apply_translation(&mut self, translation: &DesignTranslation) {
+    pub fn apply_translation(&mut self, translation: &Vec3) {
         self.controller.translate(translation);
     }
 

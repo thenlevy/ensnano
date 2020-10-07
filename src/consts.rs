@@ -15,3 +15,7 @@ pub const NB_STACK_SPHERE: u16 = 12;
 pub const NB_SECTOR_SPHERE: u16 = 12;
 
 pub const SELECT_SCALE_FACTOR: f32 = 1.3;
+
+pub const RIGHT_HANDLE_ID: u32 = 0xFF_00_00_00;
+pub const UP_HANDLE_ID: u32 = 0xFF_00_00_01;
+pub const DIR_HANDLE_ID: u32 = 0xFF_00_00_02;
