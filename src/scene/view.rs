@@ -1,7 +1,6 @@
 use super::camera;
 use crate::utils::{instance, mesh, texture};
 use crate::{DrawArea, PhySize};
-use crate::consts::*;
 use camera::{Camera, CameraPtr, Projection, ProjectionPtr};
 use iced_wgpu::wgpu;
 use instance::Instance;
@@ -19,10 +18,16 @@ mod bindgroup_manager;
 //mod plane_drawer;
 mod handle_drawer;
 mod maths;
+mod drawable;
+mod rotation_widget;
 
 use bindgroup_manager::UniformBindGroup;
-use handle_drawer::{HandleDrawer, Handle};
+use handle_drawer::HandlesDrawer;
+pub use handle_drawer::{HandleDir, HandleOrientation, HandlesDescriptor};
 use maths::unproject_point_on_line;
+use drawable::{Drawer, Vertex, Drawable};
+use rotation_widget::RotationWidget;
+pub use rotation_widget::{RotationWidgetOrientation, RotationWidgetDescriptor};
 //use plane_drawer::PlaneDrawer;
 //pub use plane_drawer::Plane;
 
@@ -37,6 +42,8 @@ pub struct View {
     depth_texture: Texture,
     /// The handle drawers draw handles to translate the elements
     handle_drawers: HandlesDrawer,
+    /// The rotation widget draw the widget to rotate the elements
+    rotation_widget: RotationWidget,
     /// A possible update of the size of the drawing area, must be taken into account before
     /// drawing the next frame
     new_size: Option<PhySize>,
@@ -77,6 +84,7 @@ impl View {
             device: device.clone(),
             viewer,
             handle_drawers: HandlesDrawer::new(device.clone()),
+            rotation_widget: RotationWidget::new(device.clone()),
         }
     }
 
@@ -92,6 +100,7 @@ impl View {
                 self.handle_drawers.update_camera(self.camera.clone(), self.projection.clone());
             }
             ViewUpdate::Handles(descr) => self.handle_drawers.update_decriptor(descr, self.camera.clone(), self.projection.clone()),
+            ViewUpdate::RotationWidget(descr) => self.rotation_widget.update_decriptor(descr, self.camera.clone(), self.projection.clone()),
             _ => self.pipeline_handlers.update(view_update),
         }
     }
@@ -177,8 +186,11 @@ impl View {
         }*/
 
         for drawer in self.handle_drawers.drawers() {
-            drawer.draw(&mut render_pass, viewer_bind_group, viewer_bind_group_layout, fake_color)
+            drawer.draw(&mut render_pass, viewer_bind_group, viewer_bind_group_layout, fake_color);
         }
+
+        self.rotation_widget.draw(&mut render_pass, viewer_bind_group, viewer_bind_group_layout, fake_color);
+
     }
 
     /// Update the model matrix associated to a given desgin.
@@ -254,119 +266,8 @@ pub enum ViewUpdate {
     /// The set of phantom instances has been modified
     PhantomInstances(Rc<Vec<Instance>>, Rc<Vec<Instance>>),
     Handles(Option<HandlesDescriptor>),
+    RotationWidget(Option<RotationWidgetDescriptor>),
 }
-
-#[derive(Clone, Debug)]
-pub struct HandlesDescriptor {
-    pub origin: Vec3,
-    pub orientation: HandleOrientation,
-    pub size: f32,
-}
-
-#[derive(Debug, Clone)]
-pub enum HandleOrientation {
-    Camera,
-    Rotor(Rotor3),
-}
-
-impl HandlesDescriptor {
-    pub fn make_handles(&self, camera: CameraPtr, projection: ProjectionPtr) -> [Handle ; 3] {
-        let dist = (camera.borrow().position - self.origin).mag();
-        let (right, up, dir) = self.make_axis(camera);
-        let length = self.size * dist * (projection.borrow().get_fovy() / 2.).tan();
-        [
-            Handle::new(self.origin, right, up, 0xFF0000, RIGHT_HANDLE_ID , length),
-            Handle::new(self.origin, up, right, 0xFF00, UP_HANDLE_ID, length),
-            Handle::new(self.origin, dir, up, 0xFF, DIR_HANDLE_ID, length)
-        ]
-    }
-
-    fn make_axis(&self, camera: CameraPtr) -> (Vec3, Vec3, Vec3) {
-        match self.orientation {
-            HandleOrientation::Camera => {
-                let right = camera.borrow().right_vec();
-                let up = camera.borrow().up_vec();
-                let dir = camera.borrow().direction();
-                let rotor = Rotor3::from_angle_plane(-std::f32::consts::FRAC_PI_4, right.wedge(dir).normalized());
-                (rotor.reversed() * camera.borrow().right_vec(),
-                 camera.borrow().up_vec(),
-                 rotor.reversed() * -camera.borrow().direction())
-            }
-            HandleOrientation::Rotor(rotor) => (rotor * Vec3::unit_x(), rotor * Vec3::unit_y(), rotor * -Vec3::unit_z())
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
-pub enum HandleDir {
-    Right,
-    Up,
-    Dir,
-}
-
-struct HandlesDrawer {
-    descriptor: Option<HandlesDescriptor>,
-    handles: Option<[Handle ; 3]>,
-    drawers: [HandleDrawer ; 3],
-}
-
-impl HandlesDrawer {
-    pub fn new(device: Rc<Device>) -> Self {
-        Self {
-            descriptor: None,
-            handles: None,
-            drawers: [HandleDrawer::new(device.clone()), HandleDrawer::new(device.clone()), HandleDrawer::new(device.clone())]
-        }
-    }
-
-    pub fn update_decriptor(&mut self, descriptor: Option<HandlesDescriptor>, camera: CameraPtr, projection: ProjectionPtr) {
-        self.descriptor = descriptor;
-        self.update_camera(camera, projection);
-    }
-
-    pub fn update_camera(&mut self, camera: CameraPtr, projection: ProjectionPtr) {
-        self.handles = self.descriptor.as_ref().map(|desc| desc.make_handles(camera, projection));
-        self.update_drawers();
-    }
-
-    fn update_drawers(&mut self) {
-        if let Some(handles) = self.handles {
-            for i in 0..3 {
-                self.drawers[i].new_handle(Some(handles[i]));
-            }
-        } else {
-            for i in 0..3 {
-                self.drawers[i].new_handle(None);
-            }
-        }
-    }
-
-    pub fn drawers(&mut self) -> &mut [HandleDrawer ;3] {
-        &mut self.drawers
-    }
-
-    pub fn get_handle(&self, direction: HandleDir) -> Option<(Vec3, Vec3)> {
-        self.handles.as_ref().map(|handles| {
-            let i = match direction {
-                HandleDir::Right => 0,
-                HandleDir::Up => 1,
-                HandleDir::Dir => 2,
-            };
-            let handle = handles[i];
-            (handle.origin, handle.direction)
-        })
-    }
-
-    pub fn translate(&mut self, translation: Vec3) {
-        self.handles.as_mut().map(|handles| {
-            for h in handles.iter_mut() {
-                h.translation = translation;
-            }
-        }).unwrap_or(());
-        self.update_drawers();
-    }
-}
-
 
 struct PipelineHandlers {
     sphere: PipelineHandler,
@@ -568,7 +469,7 @@ impl PipelineHandlers {
                 self.phantom_sphere.new_instances(sphere);
                 self.phantom_tube.new_instances(tube);
             }
-            ViewUpdate::Camera | ViewUpdate::Size(_) | ViewUpdate::Handles(_) => {
+            ViewUpdate::Camera | ViewUpdate::Size(_) | ViewUpdate::Handles(_) | ViewUpdate::RotationWidget(_)=> {
                 unreachable!();
             }
         }

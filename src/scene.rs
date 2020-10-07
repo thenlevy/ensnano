@@ -20,7 +20,7 @@ use winit::dpi::PhysicalPosition;
 mod camera;
 /// Display of the scene
 mod view;
-use view::{HandlesDescriptor, View, ViewUpdate, HandleOrientation, HandleDir};
+use view::{HandlesDescriptor, View, ViewUpdate, HandleOrientation, HandleDir, RotationWidgetDescriptor, RotationWidgetOrientation};
 /// Handling of inputs and notifications
 mod controller;
 use controller::{Consequence, Controller};
@@ -373,12 +373,18 @@ impl Scene {
 
     fn update_handle(&mut self) {
         let origin = self.data.borrow().get_selected_position();
-        let descr = origin.map(|origin| HandlesDescriptor {
+        let descr = origin.clone().map(|origin| HandlesDescriptor {
             origin,
             orientation: HandleOrientation::Camera,
             size: 0.25
         });
         self.view.borrow_mut().update(ViewUpdate::Handles(descr));
+        let descr = origin.map(|origin| RotationWidgetDescriptor {
+            origin,
+            orientation: RotationWidgetOrientation::Camera,
+            size: 0.2
+        });
+        self.view.borrow_mut().update(ViewUpdate::RotationWidget(descr));
     }
 
     fn perform_update(&mut self, dt: Duration) {
