@@ -27,7 +27,7 @@ pub use handle_drawer::{HandleDir, HandleOrientation, HandlesDescriptor};
 use maths::unproject_point_on_line;
 use drawable::{Drawer, Vertex, Drawable};
 use rotation_widget::RotationWidget;
-pub use rotation_widget::{RotationWidgetOrientation, RotationWidgetDescriptor};
+pub use rotation_widget::{RotationWidgetOrientation, RotationWidgetDescriptor, RotationMode};
 //use plane_drawer::PlaneDrawer;
 //pub use plane_drawer::Plane;
 
@@ -239,6 +239,14 @@ impl View {
 
     pub fn translate_handle(&mut self, translation: Vec3) {
         self.handle_drawers.translate(translation);
+    }
+
+    pub fn init_rotation(&mut self, x_coord: f32, y_coord: f32) {
+        self.rotation_widget.init_rotation(x_coord, y_coord)
+    }
+
+    pub fn compute_rotation(&self, x: f32, y: f32, mode: RotationMode) -> Option<(Rotor3, Vec3)> {
+        self.rotation_widget.compute_rotation(x, y, self.camera.clone(), self.projection.clone(), mode)
     }
 }
 

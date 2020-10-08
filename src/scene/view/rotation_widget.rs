@@ -3,8 +3,17 @@ use std::rc::Rc;
 use iced_wgpu::wgpu;
 use wgpu::Device;
 use ultraviolet::{Rotor3, Vec3};
-use super::{CameraPtr, Drawer, Drawable, ProjectionPtr, Vertex};
+use super::{CameraPtr, Drawer, Drawable, ProjectionPtr, Vertex, maths};
 use crate::consts::*;
+
+
+#[derive(Debug, Clone, Copy)]
+pub enum RotationMode {
+    Right,
+    Up,
+    Front,
+    Free,
+}
 
 pub struct RotationWidget {
     descriptor: Option<RotationWidgetDescriptor>,
@@ -12,6 +21,7 @@ pub struct RotationWidget {
     circles: Option<[Circle; 3]>,
     sphere_drawer: Drawer<Sphere>,
     circle_drawers: [Drawer<Circle>; 3],
+    rotation_origin: Option<(f32, f32)>,
 }
 
 impl RotationWidget {
@@ -21,7 +31,8 @@ impl RotationWidget {
             sphere: None,
             circles: None,
             sphere_drawer: Drawer::new(device.clone()),
-            circle_drawers: [Drawer::new(device.clone()), Drawer::new(device.clone()), Drawer::new(device.clone())]
+            circle_drawers: [Drawer::new(device.clone()), Drawer::new(device.clone()), Drawer::new(device.clone())],
+            rotation_origin: None,
         }
     }
 
@@ -50,10 +61,33 @@ impl RotationWidget {
     }
 
     pub fn draw<'a>(&'a mut self, render_pass: &mut wgpu::RenderPass<'a>, viewer_bind_group: &'a wgpu::BindGroup, viewer_bind_group_layout: &'a wgpu::BindGroupLayout, fake: bool) {
-        self.sphere_drawer.draw(render_pass, viewer_bind_group, viewer_bind_group_layout, fake);
         for drawer in self.circle_drawers.iter_mut() {
             drawer.draw(render_pass, viewer_bind_group, viewer_bind_group_layout, fake);
         }
+        self.sphere_drawer.draw(render_pass, viewer_bind_group, viewer_bind_group_layout, fake);
+    }
+
+    pub fn init_rotation(&mut self, x: f32, y: f32) {
+        self.rotation_origin = Some((x, y))
+    }
+
+    pub fn compute_rotation(&self, x: f32, y: f32, camera: CameraPtr, projection: ProjectionPtr, mode: RotationMode) -> Option<(Rotor3, Vec3)> {
+        let (x_init, y_init) = self.rotation_origin?;
+        println!("origin");
+        let circles = &self.circles?;
+        println!("circles");
+        let (origin, normal) = match mode {
+            RotationMode::Right => (circles[0].origin, circles[0].normal()),
+            RotationMode::Up => (circles[1].origin, circles[1].normal()),
+            RotationMode::Front => (circles[2].origin, circles[2].normal()),
+            _ => unreachable!(),
+        };
+        println!("normal {:?}", normal);
+        let point_clicked = maths::unproject_point_on_plane(origin, normal, camera.clone(), projection.clone(), x_init, y_init)?;
+        println!("point clicked {:?}", point_clicked);
+        let point_moved = maths::unproject_point_on_plane(origin, normal, camera.clone(), projection.clone(), x, y)?;
+        println!("point moved {:?}", point_moved);
+        Some((Rotor3::from_rotation_between((point_clicked - origin).normalized(), (point_moved - origin).normalized()), origin))
     }
 }
 
@@ -124,11 +158,15 @@ impl Circle {
             id,
         }
     }
+
+    pub fn normal(&self) -> Vec3 {
+        self.right.cross(self.up)
+    }
 }
 
 impl Drawable for Circle {
     fn vertices(&self, fake: bool) -> Vec<Vertex> {
-        let mut vertices = Vec::with_capacity(NB_SECTOR_CIRCLE as usize + 1);
+        let mut vertices = Vec::with_capacity(2 * NB_SECTOR_CIRCLE as usize + 2);
         let color = if fake {
             self.id
         } else {
@@ -137,16 +175,17 @@ impl Drawable for Circle {
         for i in 0..=NB_SECTOR_CIRCLE {
             let theta = 2. * PI * i as f32 / NB_SECTOR_CIRCLE as f32;
             vertices.push(Vertex::new(self.origin + self.radius * ( self.right * theta.cos() + self.up * theta.sin()), color));
+            vertices.push(Vertex::new(self.origin + self.radius * 0.9 * ( self.right * theta.cos() + self.up * theta.sin()), color));
         }
         vertices
     }
 
     fn indices() -> Vec<u16> {
-        (0..=NB_SECTOR_CIRCLE).collect()
+        (0..=2*NB_SECTOR_CIRCLE + 1).collect()
     }
 
     fn primitive_topology() -> wgpu::PrimitiveTopology {
-        wgpu::PrimitiveTopology::LineStrip
+        wgpu::PrimitiveTopology::TriangleStrip
     }
 
 }

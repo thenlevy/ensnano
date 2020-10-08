@@ -35,14 +35,8 @@ impl Controller {
     }
 
     pub fn rotate(&mut self, rotation: &DesignRotation) {
-        let angle_yz = rotation.angle_yz;
-        let angle_xz = rotation.angle_xz;
 
-        let plane_xz = ultraviolet::Bivec3::from_normalized_axis(rotation.up_vec).normalized();
-        let plane_yz = ultraviolet::Bivec3::from_normalized_axis(rotation.right_vec).normalized();
-
-        let rotor =
-            Mat4::from_angle_plane(angle_yz, plane_yz) * Mat4::from_angle_plane(angle_xz, plane_xz);
+        let rotor = rotation.rotation.into_matrix().into_homogeneous();
 
         //println!("{:?}", rotor.normalized().into_matrix());
 
@@ -64,9 +58,6 @@ impl Controller {
 
 pub struct DesignRotation {
     pub origin: Vec3,
-    pub up_vec: Vec3,
-    pub right_vec: Vec3,
-    pub angle_yz: f32,
-    pub angle_xz: f32,
+    pub rotation: Rotor3,
 }
 

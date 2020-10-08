@@ -58,3 +58,40 @@ pub fn unproject_point_on_line(
     }
 }
 
+/// Shoot a ray from the camera and compute its intersection with the plane P: (p- p0).dot(n) - 0
+/// if the intersection if the point p, the return value is the coordinates of the point p.
+/// If the line and the plane are parallel, None is returned
+pub fn unproject_point_on_plane(
+    objective_origin: Vec3,
+    objective_normal: Vec3,
+    camera: CameraPtr,
+    projection: ProjectionPtr,
+    x_ndc: f32,
+    y_ndc: f32,
+) -> Option<Vec3> {
+    let x_screen = 2. * x_ndc - 1.;
+    let y_screen = 1. - 2. * y_ndc;
+
+    let p1 = camera.borrow().position;
+    let p2 = {
+        let correction = (projection.borrow().get_fovy()/ 2.).tan();
+        let right = camera.borrow().right_vec() * correction * projection.borrow().get_ratio();
+        let up = camera.borrow().up_vec() * correction;
+        let direction = camera.borrow().direction();
+        p1 + right * x_screen * projection.borrow().get_ratio() + up * y_screen + direction
+    };
+
+    let dir = p2 - p1;
+    
+    println!("normal {:?}", objective_normal);
+    println!("dir {:?}", dir);
+
+    let denom = dir.dot(objective_normal);
+    println!("denom {:?}", denom);
+    if denom.abs() > 1e-3 {
+        let mu = (objective_origin - p1).dot(objective_normal) / denom;
+        Some(p1 + mu * dir)
+    } else {
+        None
+    }
+}

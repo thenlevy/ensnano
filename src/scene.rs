@@ -20,7 +20,7 @@ use winit::dpi::PhysicalPosition;
 mod camera;
 /// Display of the scene
 mod view;
-use view::{HandlesDescriptor, View, ViewUpdate, HandleOrientation, HandleDir, RotationWidgetDescriptor, RotationWidgetOrientation};
+use view::{HandlesDescriptor, View, ViewUpdate, HandleOrientation, HandleDir, RotationWidgetDescriptor, RotationWidgetOrientation, RotationMode as WidgetRotationMode};
 /// Handling of inputs and notifications
 mod controller;
 use controller::{Consequence, Controller};
@@ -132,18 +132,22 @@ impl Scene {
                 self.data.borrow_mut().end_movement();
                 self.update_handle();
             }
-            Consequence::Rotation(x, y) => {
-                let rotation = DesignRotation {
+            Consequence::InitRotation(x, y) => {
+                self.view.borrow_mut().init_rotation(x as f32, y as f32)
+            }
+            Consequence::Rotation(mode, x, y) => {
+                /*let rotation = DesignRotation {
                     origin: self.get_selected_position().unwrap(),
                     up_vec: self.view.borrow().up_vec(),
                     right_vec: self.view.borrow().right_vec(),
                     angle_xz: x as f32 * std::f32::consts::PI,
                     angle_yz: y as f32 * std::f32::consts::PI,
-                };
-                self.mediator.lock().unwrap().notify_designs(
-                    &self.data.borrow().get_selected_designs(),
-                    AppNotification::Rotation(&rotation),
-                )
+                };*/
+                let rotation = self.view.borrow().compute_rotation(x as f32, y as f32, mode);
+                println!("rotation {:?}", rotation);
+                rotation.map(|(r, o)| {
+                    self.rotate_selected_desgin(r, o);
+                });
             }
             Consequence::Swing(x, y) => {
                 let rotation_mode = self.data.borrow().get_rotation_mode();
@@ -157,7 +161,7 @@ impl Scene {
                         }
                     }
                     RotationMode::Design => {
-                        let rotation = DesignRotation {
+                        /*let rotation = DesignRotation {
                             origin: self.get_selected_position().unwrap(),
                             up_vec: self.view.borrow().up_vec(),
                             right_vec: self.view.borrow().right_vec(),
@@ -167,7 +171,7 @@ impl Scene {
                         self.mediator.lock().unwrap().notify_designs(
                             &self.data.borrow().get_selected_designs(),
                             AppNotification::Rotation(&rotation),
-                        )
+                        )*/
                     }
                     _ => (),
                 }
@@ -320,6 +324,17 @@ impl Scene {
             &self.get_selected_designs(),
             AppNotification::Translation(&translation),
         );
+    }
+
+    fn rotate_selected_desgin(&mut self, rotation: Rotor3, origin: Vec3) {
+        let rotation = DesignRotation {
+            rotation,
+            origin
+        };
+        self.mediator.lock().unwrap().notify_designs(
+            &self.data.borrow().get_selected_designs(),
+            AppNotification::Rotation(&rotation),
+        )
     }
 
     fn get_selected_position(&self) -> Option<Vec3> {

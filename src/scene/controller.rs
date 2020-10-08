@@ -1,6 +1,5 @@
-use super::{camera, DataPtr, Duration, ViewPtr, HandleDir};
+use super::{camera, DataPtr, Duration, ViewPtr, HandleDir, WidgetRotationMode as RotationMode};
 use crate::{PhySize, PhysicalPosition, WindowEvent};
-use iced_winit::winit;
 use iced_winit::winit::event::*;
 use ultraviolet::{Rotor3, Vec3};
 use crate::consts::*;
@@ -17,6 +16,7 @@ pub enum ClickMode {
 enum State {
     MoveCamera,
     Translate(HandleDir),
+    Rotate(RotationMode),
 }
 
 /// An object handling input and notification for the scene.
@@ -53,7 +53,8 @@ pub enum Consequence {
     PixelSelected(PhysicalPosition<f64>),
     Translation(HandleDir, f64, f64),
     MovementEnded,
-    Rotation(f64, f64),
+    Rotation(RotationMode, f64, f64),
+    InitRotation(f64, f64),
     Swing(f64, f64),
     Nothing,
     CursorMoved(PhysicalPosition<f64>),
@@ -143,29 +144,19 @@ impl Controller {
                 state,
                 ..
             } => {
-                self.camera_controller.process_click(state);
-                let mut released = false;
-                if *state == ElementState::Pressed {
-                    self.last_left_clicked_position = Some(self.mouse_position);
-                    self.modifiers_when_clicked = self.current_modifiers;
-                } else if position_difference(
-                    self.last_left_clicked_position.unwrap_or(NO_POS),
-                    self.mouse_position,
-                ) < 5.
-                {
-                    return Consequence::PixelSelected(
-                        self.last_left_clicked_position.take().unwrap(),
-                    );
-                } else {
-                    released = true;
-                }
-                if self.last_left_clicked_position.is_some() {
-                    if released {
-                        self.last_left_clicked_position = None;
+                match self.state {
+                    State::MoveCamera => self.left_click_camera(state),
+                    State::Rotate(_) => {
+                        if *state == ElementState::Pressed {
+                            let (x, y) = self.logical_mouse_position();
+                            self.last_left_clicked_position = Some(self.mouse_position);
+                            Consequence::InitRotation(x, y)
+                        } else {
+                            self.last_left_clicked_position = None;
+                            Consequence::MovementEnded
+                        }
                     }
-                    Consequence::MovementEnded
-                } else {
-                    Consequence::Nothing
+                    _ => Consequence::Nothing
                 }
             }
             WindowEvent::MouseInput {
@@ -205,6 +196,7 @@ impl Controller {
                             Consequence::CameraMoved
                         }
                         State::Translate(dir) => Consequence::Translation(*dir, mouse_x, mouse_y),
+                        State::Rotate(mode) => Consequence::Rotation(*mode, mouse_x, mouse_y),
                     }
                 } else if let Some(clicked_position) = self.last_right_clicked_position {
                     let mouse_dx = (position.x - clicked_position.x) / self.area_size.width as f64;
@@ -259,8 +251,43 @@ impl Controller {
             RIGHT_HANDLE_ID => self.state = State::Translate(HandleDir::Right),
             UP_HANDLE_ID => self.state = State::Translate(HandleDir::Up),
             DIR_HANDLE_ID => self.state = State::Translate(HandleDir::Dir),
+            RIGHT_CIRCLE_ID => self.state = State::Rotate(RotationMode::Right),
+            UP_CIRCLE_ID => self.state = State::Rotate(RotationMode::Up),
+            FRONT_CIRCLE_ID => self.state = State::Rotate(RotationMode::Front),
             _ => self.state = State::MoveCamera,
         }
+    }
+
+    fn left_click_camera(&mut self, state: &ElementState) -> Consequence {
+        self.camera_controller.process_click(state);
+        let mut released = false;
+        if *state == ElementState::Pressed {
+            self.last_left_clicked_position = Some(self.mouse_position);
+            self.modifiers_when_clicked = self.current_modifiers;
+        } else if position_difference(
+            self.last_left_clicked_position.unwrap_or(NO_POS),
+            self.mouse_position,
+        ) < 5.
+        {
+            return Consequence::PixelSelected(
+                self.last_left_clicked_position.take().unwrap(),
+            );
+        } else {
+            released = true;
+        }
+        if self.last_left_clicked_position.is_some() {
+            if released {
+                self.last_left_clicked_position = None;
+            }
+            Consequence::MovementEnded
+        } else {
+            Consequence::Nothing
+        }
+    }
+
+    fn logical_mouse_position(&self) -> (f64, f64) {
+        (self.mouse_position.x / self.area_size.width as f64,
+         self.mouse_position.y / self.area_size.height as f64)
     }
 }
 
