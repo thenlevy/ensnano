@@ -57,6 +57,7 @@ pub struct HandlesDrawer {
     descriptor: Option<HandlesDescriptor>,
     handles: Option<[Handle ; 3]>,
     drawers: [Drawer<Handle> ; 3],
+    origin_translation: Option<(f32, f32)>,
 }
 
 impl HandlesDrawer {
@@ -64,7 +65,8 @@ impl HandlesDrawer {
         Self {
             descriptor: None,
             handles: None,
-            drawers: [Drawer::new(device.clone()), Drawer::new(device.clone()), Drawer::new(device.clone())]
+            drawers: [Drawer::new(device.clone()), Drawer::new(device.clone()), Drawer::new(device.clone())],
+            origin_translation: None,
         }
     }
 
@@ -76,6 +78,14 @@ impl HandlesDrawer {
     pub fn update_camera(&mut self, camera: CameraPtr, projection: ProjectionPtr) {
         self.handles = self.descriptor.as_ref().map(|desc| desc.make_handles(camera, projection));
         self.update_drawers();
+    }
+
+    pub fn init_translation(&mut self, x: f32, y: f32) {
+        self.origin_translation = Some((x, y))
+    }
+
+    pub fn get_origin_translation(&self) -> Option<(f32, f32)> {
+        self.origin_translation
     }
 
     fn update_drawers(&mut self) {

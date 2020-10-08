@@ -121,7 +121,6 @@ impl Scene {
                 let translation = self.view.borrow().compute_translation_handle(x_coord as f32, y_coord as f32, dir);
                 translation.map(|t| {
                     self.translate_selected_design(t);
-                    self.view.borrow_mut().translate_handle(t);
                 });
             }
             Consequence::MovementEnded => {
@@ -134,6 +133,9 @@ impl Scene {
             }
             Consequence::InitRotation(x, y) => {
                 self.view.borrow_mut().init_rotation(x as f32, y as f32)
+            }
+            Consequence::InitTranslation(x, y) => {
+                self.view.borrow_mut().init_translation(x as f32, y as f32)
             }
             Consequence::Rotation(mode, x, y) => {
                 /*let rotation = DesignRotation {
@@ -320,6 +322,7 @@ impl Scene {
     }
 
     fn translate_selected_design(&mut self, translation: Vec3) {
+        self.view.borrow_mut().translate_widgets(translation);
         self.mediator.lock().unwrap().notify_designs(
             &self.get_selected_designs(),
             AppNotification::Translation(&translation),

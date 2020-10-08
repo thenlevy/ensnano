@@ -34,17 +34,12 @@ pub fn unproject_point_on_line(
     objective_direction: Vec3,
     camera: CameraPtr,
     projection: ProjectionPtr,
-    x_coord: f32,
-    y_coord: f32,
+    x_ndc: f32,
+    y_ndc: f32,
 ) -> Option<Vec3> {
 
     let p1 = camera.borrow().position;
-    let p2 = {
-        let right = camera.borrow().right_vec();
-        let up = camera.borrow().up_vec();
-        let direction = camera.borrow().direction();
-        p1 + right * (x_coord - 0.5) * projection.borrow().get_ratio() + up * (0.5 - y_coord) + direction
-    };
+    let p2 = ndc_to_world(x_ndc, y_ndc, camera, projection);
 
     let p3 = objective_origin;
     let p4 = objective_origin + objective_direction;
@@ -69,6 +64,21 @@ pub fn unproject_point_on_plane(
     x_ndc: f32,
     y_ndc: f32,
 ) -> Option<Vec3> {
+    let p1 = camera.borrow().position;
+    let p2 = ndc_to_world(x_ndc, y_ndc, camera, projection);
+
+    let dir = p2 - p1;
+
+    let denom = dir.dot(objective_normal);
+    if denom.abs() > 1e-3 {
+        let mu = (objective_origin - p1).dot(objective_normal) / denom;
+        Some(p1 + mu * dir)
+    } else {
+        None
+    }
+}
+
+fn ndc_to_world(x_ndc: f32, y_ndc: f32, camera: CameraPtr, projection: ProjectionPtr) -> Vec3 {
     let x_screen = 2. * x_ndc - 1.;
     let y_screen = 1. - 2. * y_ndc;
 
@@ -80,18 +90,5 @@ pub fn unproject_point_on_plane(
         let direction = camera.borrow().direction();
         p1 + right * x_screen * projection.borrow().get_ratio() + up * y_screen + direction
     };
-
-    let dir = p2 - p1;
-    
-    println!("normal {:?}", objective_normal);
-    println!("dir {:?}", dir);
-
-    let denom = dir.dot(objective_normal);
-    println!("denom {:?}", denom);
-    if denom.abs() > 1e-3 {
-        let mu = (objective_origin - p1).dot(objective_normal) / denom;
-        Some(p1 + mu * dir)
-    } else {
-        None
-    }
+    p2
 }

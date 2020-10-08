@@ -233,16 +233,23 @@ impl View {
 
     pub fn compute_translation_handle(&self, x_coord: f32, y_coord: f32, direction: HandleDir) -> Option<Vec3> {
         let (origin, dir) = self.handle_drawers.get_handle(direction)?;
+        let (x0, y0) = self.handle_drawers.get_origin_translation()?;
+        let p1 = unproject_point_on_line(origin, dir, self.camera.clone(), self.projection.clone(), x0, y0)?;
         let p2 = unproject_point_on_line(origin, dir, self.camera.clone(), self.projection.clone(), x_coord, y_coord)?;
-        Some(p2 - origin)
+        Some(p2 - p1)
     }
 
-    pub fn translate_handle(&mut self, translation: Vec3) {
+    pub fn translate_widgets(&mut self, translation: Vec3) {
         self.handle_drawers.translate(translation);
+        self.rotation_widget.translate(translation);
     }
 
     pub fn init_rotation(&mut self, x_coord: f32, y_coord: f32) {
         self.rotation_widget.init_rotation(x_coord, y_coord)
+    }
+
+    pub fn init_translation(&mut self, x: f32, y: f32) {
+        self.handle_drawers.init_translation(x, y)
     }
 
     pub fn compute_rotation(&self, x: f32, y: f32, mode: RotationMode) -> Option<(Rotor3, Vec3)> {

@@ -55,6 +55,7 @@ pub enum Consequence {
     MovementEnded,
     Rotation(RotationMode, f64, f64),
     InitRotation(f64, f64),
+    InitTranslation(f64, f64),
     Swing(f64, f64),
     Nothing,
     CursorMoved(PhysicalPosition<f64>),
@@ -156,7 +157,16 @@ impl Controller {
                             Consequence::MovementEnded
                         }
                     }
-                    _ => Consequence::Nothing
+                    State::Translate(_) => {
+                        if *state == ElementState::Pressed {
+                            let (x, y) = self.logical_mouse_position();
+                            self.last_left_clicked_position = Some(self.mouse_position);
+                            Consequence::InitTranslation(x, y)
+                        } else {
+                            self.last_left_clicked_position = None;
+                            Consequence::MovementEnded
+                        }
+                    }
                 }
             }
             WindowEvent::MouseInput {

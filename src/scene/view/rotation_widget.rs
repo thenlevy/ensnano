@@ -22,6 +22,7 @@ pub struct RotationWidget {
     sphere_drawer: Drawer<Sphere>,
     circle_drawers: [Drawer<Circle>; 3],
     rotation_origin: Option<(f32, f32)>,
+    translation: Vec3,
 }
 
 impl RotationWidget {
@@ -33,11 +34,13 @@ impl RotationWidget {
             sphere_drawer: Drawer::new(device.clone()),
             circle_drawers: [Drawer::new(device.clone()), Drawer::new(device.clone()), Drawer::new(device.clone())],
             rotation_origin: None,
+            translation: Vec3::zero(),
         }
     }
 
     pub fn update_decriptor(&mut self, descriptor: Option<RotationWidgetDescriptor>, camera: CameraPtr, projection: ProjectionPtr) {
         self.descriptor = descriptor;
+        self.translation = Vec3::zero();
         self.update_camera(camera, projection);
     }
 
@@ -88,6 +91,18 @@ impl RotationWidget {
         let point_moved = maths::unproject_point_on_plane(origin, normal, camera.clone(), projection.clone(), x, y)?;
         println!("point moved {:?}", point_moved);
         Some((Rotor3::from_rotation_between((point_clicked - origin).normalized(), (point_moved - origin).normalized()), origin))
+    }
+
+    pub fn translate(&mut self, translation: Vec3) {
+        if let Some(ref mut circles) = self.circles {
+            for circle in circles.iter_mut() {
+                circle.translate(translation);
+            }
+        }
+        if let Some(ref mut sphere) = self.sphere {
+            sphere.translate(translation);
+        }
+        self.update_drawers()
     }
 }
 
@@ -144,7 +159,8 @@ pub struct Circle {
     right: Vec3,
     up: Vec3,
     color: u32,
-    id: u32
+    id: u32,
+    translation: Vec3,
 }
 
 impl Circle {
@@ -156,11 +172,16 @@ impl Circle {
             up,
             color,
             id,
+            translation: Vec3::zero(),
         }
     }
 
     pub fn normal(&self) -> Vec3 {
         self.right.cross(self.up)
+    }
+
+    pub fn translate(&mut self, translation: Vec3) {
+        self.translation = translation;
     }
 }
 
@@ -174,8 +195,8 @@ impl Drawable for Circle {
         };
         for i in 0..=NB_SECTOR_CIRCLE {
             let theta = 2. * PI * i as f32 / NB_SECTOR_CIRCLE as f32;
-            vertices.push(Vertex::new(self.origin + self.radius * ( self.right * theta.cos() + self.up * theta.sin()), color));
-            vertices.push(Vertex::new(self.origin + self.radius * 0.9 * ( self.right * theta.cos() + self.up * theta.sin()), color));
+            vertices.push(Vertex::new(self.translation + self.origin + self.radius * ( self.right * theta.cos() + self.up * theta.sin()), color));
+            vertices.push(Vertex::new(self.translation + self.origin + self.radius * 0.9 * ( self.right * theta.cos() + self.up * theta.sin()), color));
         }
         vertices
     }
@@ -196,6 +217,7 @@ pub struct Sphere {
     pub radius: f32,
     color: u32,
     id: u32,
+    translation: Vec3,
 }
 
 impl Sphere {
@@ -205,7 +227,12 @@ impl Sphere {
             radius,
             color,
             id,
+            translation: Vec3::zero(),
         }
+    }
+
+    pub fn translate(&mut self, translation: Vec3) {
+        self.translation = translation;
     }
 }
 
@@ -231,7 +258,7 @@ impl Drawable for Sphere {
                 let x = xy * sector_angle.cos();
                 let y = xy * sector_angle.sin();
 
-                vertices.push(Vertex::new(self.position + Vec3::new(x, y, z), color))
+                vertices.push(Vertex::new(self.translation + self.position + Vec3::new(x, y, z), color))
             }
         }
         vertices
