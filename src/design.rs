@@ -11,7 +11,7 @@ mod controller;
 mod data;
 mod view;
 use controller::Controller;
-pub use controller::DesignRotation;
+pub use controller::{DesignRotation, IsometryTarget};
 use data::Data;
 pub use data::{Nucl, ObjectType};
 use view::View;

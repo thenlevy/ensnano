@@ -31,7 +31,7 @@ mod data;
 pub use controller::ClickMode;
 use data::Data;
 pub use data::{RotationMode, SelectionMode};
-use design::{Design, DesignNotification, DesignNotificationContent, DesignRotation};
+use design::{Design, DesignNotification, DesignNotificationContent, DesignRotation, IsometryTarget};
 
 type ViewPtr = Rc<RefCell<View>>;
 type DataPtr = Rc<RefCell<Data>>;
@@ -329,7 +329,11 @@ impl Scene {
     }
 
     fn rotate_selected_desgin(&mut self, rotation: Rotor3, origin: Vec3) {
-        let rotation = DesignRotation { rotation, origin };
+        let target = match self.data.borrow().rotation_mode {
+            RotationMode::Helix => IsometryTarget::Helix(self.data.borrow().get_selected_group()),
+            _ => IsometryTarget::Design,
+        };
+        let rotation = DesignRotation { rotation, origin, target  };
         self.mediator.lock().unwrap().notify_designs(
             &self.data.borrow().get_selected_designs(),
             AppNotification::Rotation(&rotation),

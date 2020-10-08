@@ -251,12 +251,18 @@ impl std::default::Default for Parameters {
 /// ![Aircraft angles](https://www.grc.nasa.gov/www/k-12/airplane/Images/rotations.gif)
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Helix {
+    #[serde(alias = "position")]
     /// Position of the origin of the helix axis.
-    #[serde(default = "Vec3::zero")]
     pub position: Vec3,
 
+    #[serde(alias = "orientation")]
     /// Orientation of the helix
     pub orientation: Rotor3,
+
+    #[serde(alias = "position", skip_serializing)]
+    old_position: Vec3,
+    #[serde(alias = "orientation", skip_serializing)]
+    old_orientation: Rotor3,
 }
 
 impl Helix {
@@ -287,6 +293,8 @@ impl Helix {
         Self {
             position,
             orientation,
+            old_position: position,
+            old_orientation: orientation,
         }
     }
 }
@@ -337,6 +345,20 @@ impl Helix {
     fn append_rotation(&mut self, rotation: Rotor3) {
         self.orientation = rotation * self.orientation;
         self.position = rotation * self.position;
+    }
+
+    pub fn rotate_arround(&mut self, rotation: Rotor3, origin: Vec3) {
+        let origin = (origin - self.position).rotated_by(self.orientation.reversed());
+        self.orientation = self.old_orientation;
+        self.position = self.old_position;
+        self.append_translation(-origin);
+        self.append_rotation(rotation);
+        self.append_translation(origin);
+    }
+
+    pub fn end_movement(&mut self) {
+        self.old_position = self.position;
+        self.old_orientation = self.old_orientation;
     }
 
     pub fn roll(&mut self, roll: f32) {

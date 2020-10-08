@@ -22,7 +22,7 @@ pub struct Data {
     selected: Vec<(u32, u32)>,
     candidates: Vec<(u32, u32)>,
     selection_mode: SelectionMode,
-    rotation_mode: RotationMode,
+    pub rotation_mode: RotationMode,
     selected_position: Option<Vec3>,
 }
 
@@ -130,6 +130,10 @@ impl Data {
             ret.push(self.designs[*d_id as usize].make_instance(*id))
         }
         Rc::new(ret)
+    }
+
+    pub fn get_selected_group(&self) -> u32 {
+        self.get_group_identifier(self.selected[0].0, self.selected[0].1)
     }
 
     /// Return the group to which an element belongs. The group depends on self.selection_mode.

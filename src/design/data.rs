@@ -244,6 +244,17 @@ impl Data {
     pub fn get_strand_color(&self, s_id: usize) -> Option<u32> {
         self.design.strands.get(&s_id).map(|s| s.color)
     }
+
+    pub fn rotate_helix_arround(&mut self, h_id: usize, rotation: ultraviolet::Rotor3, origin: Vec3) {
+        self.design.helices.get_mut(&h_id).map(|h| h.rotate_arround(rotation, origin)).unwrap_or_default();
+        self.make_hash_maps();
+    }
+
+    pub fn terminate_movement(&mut self) {
+        for helix in self.design.helices.values_mut() {
+            helix.end_movement();
+        }
+    }
 }
 
 fn read_file(path: &PathBuf) -> Option<icednano::Design> {

@@ -34,27 +34,39 @@ impl Controller {
     }
 
     pub fn rotate(&mut self, rotation: &DesignRotation) {
-        let rotor = rotation.rotation.into_matrix().into_homogeneous();
+        match rotation.target {
+            IsometryTarget::Design => {
+                let rotor = rotation.rotation.into_matrix().into_homogeneous();
 
-        //println!("{:?}", rotor.normalized().into_matrix());
+                let origin = rotation.origin;
 
-        let origin = rotation.origin;
-
-        let new_matrix = Mat4::from_translation(origin)
-            * rotor
-            * Mat4::from_translation(-origin)
-            * self.old_matrix;
-        self.view.borrow_mut().set_matrix(new_matrix);
+                let new_matrix = Mat4::from_translation(origin)
+                    * rotor
+                    * Mat4::from_translation(-origin)
+                    * self.old_matrix;
+                self.view.borrow_mut().set_matrix(new_matrix);
+            }
+            IsometryTarget::Helix(n) => {
+                self.data.borrow_mut().rotate_helix_arround(n as usize, rotation.rotation, rotation.origin)
+            }
+        }
     }
 
     /// Terminate the movement computed by self
     pub fn terminate_movement(&mut self) {
         self.old_matrix = self.view.borrow().model_matrix;
         self.forward = Vec3::zero();
+        self.data.borrow_mut().terminate_movement();
     }
 }
 
 pub struct DesignRotation {
     pub origin: Vec3,
     pub rotation: Rotor3,
+    pub target: IsometryTarget,
+}
+
+pub enum IsometryTarget {
+    Design,
+    Helix(u32),
 }
