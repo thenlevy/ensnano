@@ -233,8 +233,10 @@ fn main() {
                 } else {
                     PhysicalPosition::new(-1., -1.)
                 };
+                let mut redraw = false;
                 if !top_bar_state.is_queue_empty() {
                     // We update iced
+                    redraw = true;
                     let _ = top_bar_state.update(
                         convert_size(top_bar_area.size),
                         conversion::cursor_position(top_bar_cursor, window.scale_factor()),
@@ -279,6 +281,7 @@ fn main() {
                         PhysicalPosition::new(-1., -1.)
                     };
                 if !left_panel_state.is_queue_empty() {
+                    redraw = true;
                     let _ = left_panel_state.update(
                         convert_size(window.inner_size()),
                         conversion::cursor_position(left_panel_cursor, window.scale_factor()),
@@ -311,7 +314,13 @@ fn main() {
                     left_panel_state
                         .queue_message(gui::left_panel::Message::StrandColorChanged(color));
                 }
-                window.request_redraw();
+                let now = std::time::Instant::now();
+                let dt = now - last_render_time;
+                last_render_time = now;
+
+                if redraw || scene.lock().unwrap().need_redraw(dt) {
+                    window.request_redraw();
+                }
             }
             Event::RedrawRequested(_) => {
                 let top_bar_area = multiplexer.get_element_area(ElementType::TopBar);
@@ -389,14 +398,11 @@ fn main() {
                     device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
 
                 // We draw the scene first
-                let now = std::time::Instant::now();
-                let dt = now - last_render_time;
-                last_render_time = now;
                 mediator.lock().unwrap().observe_designs();
                 scene
                     .lock()
                     .unwrap()
-                    .draw_view(&mut encoder, &frame.output.view, dt, false);
+                    .draw_view(&mut encoder, &frame.output.view, false);
 
                 let viewport = Viewport::with_physical_size(
                     convert_size_u32(multiplexer.window_size),

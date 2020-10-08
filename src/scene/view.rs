@@ -49,6 +49,8 @@ pub struct View {
     new_size: Option<PhySize>,
     device: Rc<Device>,
     viewer: Rc<RefCell<UniformBindGroup>>,
+    need_redraw: bool,
+    need_redraw_fake: bool,
 }
 
 impl View {
@@ -88,11 +90,15 @@ impl View {
             viewer,
             handle_drawers: HandlesDrawer::new(device.clone()),
             rotation_widget: RotationWidget::new(device.clone()),
+            need_redraw: true,
+            need_redraw_fake: true,
         }
     }
 
     /// Notify the view of an update
     pub fn update(&mut self, view_update: ViewUpdate) {
+        self.need_redraw = true;
+        self.need_redraw_fake = true;
         match view_update {
             ViewUpdate::Size(size) => self.new_size = Some(size),
             ViewUpdate::Camera => {
@@ -119,6 +125,14 @@ impl View {
         }
     }
 
+    pub fn need_redraw_fake(&self) -> bool {
+        self.need_redraw_fake
+    }
+
+    pub fn need_redraw(&self) -> bool {
+        self.need_redraw
+    }
+
     /// Draw the scene
     pub fn draw(
         &mut self,
@@ -127,6 +141,11 @@ impl View {
         fake_color: bool,
         area: DrawArea,
     ) {
+        if fake_color {
+            self.need_redraw_fake = false;
+        } else {
+            self.need_redraw = false;
+        }
         if let Some(size) = self.new_size.take() {
             self.depth_texture = Texture::create_depth_texture(self.device.as_ref(), &size);
         }

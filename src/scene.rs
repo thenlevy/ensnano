@@ -54,6 +54,7 @@ pub struct Scene {
     area: DrawArea,
     pixel_to_check: Option<PhysicalPosition<f64>>,
     mediator: MediatorPtr,
+    fake_pixels: Option<Vec<u8>>,
 }
 
 impl Scene {
@@ -94,6 +95,7 @@ impl Scene {
             area,
             pixel_to_check: None,
             mediator,
+            fake_pixels: None,
         }
     }
 
@@ -213,6 +215,25 @@ impl Scene {
     }
 
     fn set_selected_id(&mut self, clicked_pixel: PhysicalPosition<f64>) -> (u32, u32) {
+        let pixel = (
+            clicked_pixel.cast::<u32>().x.min(self.area.size.width - 1) + self.area.position.x,
+            clicked_pixel.cast::<u32>().y.min(self.area.size.height - 1) + self.area.position.y);
+           
+        if self.fake_pixels.is_none() || self.view.borrow().need_redraw_fake() {
+            self.fake_pixels = Some(self.update_fake_pixels());
+        }
+
+        let byte0 = (pixel.0 * self.area.size.width + pixel.1) as usize;
+        let pixels = self.fake_pixels.as_ref().unwrap();
+        let a = pixels[byte0 + 3] as u32;
+        let r = (pixels[byte0 + 2] as u32) << 16;
+        let g = (pixels[byte0 + 1] as u32) << 8;
+        let b = pixels[byte0] as u32;
+        let color = r + g + b;
+        (color, a)
+    }
+
+    fn update_fake_pixels(&mut self) -> Vec<u8> {
         let size = wgpu::Extent3d {
             width: self.controller.get_window_size().width,
             height: self.controller.get_window_size().height,
@@ -231,8 +252,8 @@ impl Scene {
 
         // create a buffer and fill it with the texture
         let extent = wgpu::Extent3d {
-            width: 1,
-            height: 1,
+            width: size.width,
+            height: size.height,
             depth: 1,
         };
         let buffer_dimensions =
@@ -253,8 +274,8 @@ impl Scene {
             },
         };
         let origin = wgpu::Origin3d {
-            x: clicked_pixel.cast::<u32>().x.min(self.area.size.width - 1) + self.area.position.x,
-            y: clicked_pixel.cast::<u32>().y.min(self.area.size.height - 1) + self.area.position.y,
+            x: 0,
+            y: 0,
             z: 0,
         };
         let texture_copy_view = wgpu::TextureCopyView {
@@ -266,28 +287,27 @@ impl Scene {
         encoder.copy_texture_to_buffer(texture_copy_view, buffer_copy_view, extent);
         self.queue.submit(Some(encoder.finish()));
 
-        let pixel = 0;
-
         let buffer_slice = staging_buffer.slice(..);
         let buffer_future = buffer_slice.map_async(wgpu::MapMode::Read);
         self.device.poll(wgpu::Maintain::Wait);
 
-        let future_color = async {
+        let pixels = async {
             if let Ok(()) = buffer_future.await {
-                let pixels = buffer_slice.get_mapped_range();
-                let a = pixels[pixel + 3] as u32;
-                let r = (pixels[pixel + 2] as u32) << 16;
-                let g = (pixels[pixel + 1] as u32) << 8;
-                let b = pixels[pixel] as u32;
-                let color = r + g + b;
-                drop(pixels);
+                let pixels_slice = buffer_slice.get_mapped_range();
+                let mut pixels = Vec::with_capacity((size.height * size.width) as usize);
+                for chunck in pixels_slice.chunks(buffer_dimensions.padded_bytes_per_row) {
+                    for byte in chunck[..buffer_dimensions.unpadded_bytes_per_row].iter() {
+                        pixels.push(*byte);
+                    }
+                }
+                drop(pixels_slice);
                 staging_buffer.unmap();
-                (color, a)
+                pixels
             } else {
                 panic!("could not read fake texture");
             }
         };
-        executor::block_on(future_color)
+        executor::block_on(pixels)
     }
 
     fn create_fake_scene_texture(
@@ -372,14 +392,7 @@ impl Scene {
         self.view.borrow().get_camera_position()
     }
 
-    /// Draw the scene
-    pub fn draw_view(
-        &mut self,
-        encoder: &mut wgpu::CommandEncoder,
-        target: &wgpu::TextureView,
-        dt: Duration,
-        fake_color: bool,
-    ) {
+    pub fn need_redraw(&mut self, dt: Duration) -> bool {
         if let Some(pixel) = self.pixel_to_check.take() {
             self.check_on(pixel)
         }
@@ -389,7 +402,16 @@ impl Scene {
         if self.update.need_update {
             self.perform_update(dt);
         }
+        self.view.borrow().need_redraw()
+    }
 
+    /// Draw the scene
+    pub fn draw_view(
+        &mut self,
+        encoder: &mut wgpu::CommandEncoder,
+        target: &wgpu::TextureView,
+        fake_color: bool,
+    ) {
         self.view
             .borrow_mut()
             .draw(encoder, target, fake_color, self.area);
