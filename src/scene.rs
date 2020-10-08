@@ -31,7 +31,9 @@ mod data;
 pub use controller::ClickMode;
 use data::Data;
 pub use data::{RotationMode, SelectionMode};
-use design::{Design, DesignNotification, DesignNotificationContent, DesignRotation, IsometryTarget};
+use design::{
+    Design, DesignNotification, DesignNotificationContent, DesignRotation, IsometryTarget,
+};
 
 type ViewPtr = Rc<RefCell<View>>;
 type DataPtr = Rc<RefCell<Data>>;
@@ -329,15 +331,19 @@ impl Scene {
     }
 
     fn rotate_selected_desgin(&mut self, rotation: Rotor3, origin: Vec3) {
-        let target = match self.data.borrow().rotation_mode {
-            RotationMode::Helix => IsometryTarget::Helix(self.data.borrow().get_selected_group()),
+        let target = match self.data.borrow().selection_mode {
+            SelectionMode::Helix => IsometryTarget::Helix(self.data.borrow().get_selected_group()),
             _ => IsometryTarget::Design,
         };
-        let rotation = DesignRotation { rotation, origin, target  };
+        let rotation = DesignRotation {
+            rotation,
+            origin,
+            target,
+        };
         self.mediator.lock().unwrap().notify_designs(
             &self.data.borrow().get_selected_designs(),
             AppNotification::Rotation(&rotation),
-        )
+        );
     }
 
     fn get_selected_position(&self) -> Option<Vec3> {
@@ -527,9 +533,7 @@ impl Scene {
                     .borrow_mut()
                     .update_model_matrix(design_id, matrix)
             }
-            DesignNotificationContent::InstanceChanged => {
-                self.data.borrow_mut().notify_instance_update()
-            }
+            DesignNotificationContent::InstanceChanged => self.data.borrow_mut().update_view(),
         }
     }
 }

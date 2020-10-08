@@ -101,11 +101,11 @@ impl Design {
     pub fn get_element_position(&self, id: u32, referential: Referential) -> Option<Vec3> {
         if referential.is_world() {
             self.data
-                .borrow()
+                .borrow_mut()
                 .get_element_position(id)
                 .map(|x| self.view.borrow().model_matrix.transform_point3(x))
         } else {
-            self.data.borrow().get_element_position(id)
+            self.data.borrow_mut().get_element_position(id)
         }
     }
 

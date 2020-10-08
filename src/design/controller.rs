@@ -36,6 +36,7 @@ impl Controller {
     pub fn rotate(&mut self, rotation: &DesignRotation) {
         match rotation.target {
             IsometryTarget::Design => {
+                // Design are rotated in the worlds coordinates
                 let rotor = rotation.rotation.into_matrix().into_homogeneous();
 
                 let origin = rotation.origin;
@@ -47,7 +48,11 @@ impl Controller {
                 self.view.borrow_mut().set_matrix(new_matrix);
             }
             IsometryTarget::Helix(n) => {
-                self.data.borrow_mut().rotate_helix_arround(n as usize, rotation.rotation, rotation.origin)
+                // Helices are rotated in the model coordinates.
+                let origin = self.old_matrix.inversed().transform_point3(rotation.origin);
+                self.data
+                    .borrow_mut()
+                    .rotate_helix_arround(n as usize, rotation.rotation, origin)
             }
         }
     }

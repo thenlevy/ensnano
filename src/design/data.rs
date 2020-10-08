@@ -19,6 +19,7 @@ pub struct Data {
     helix_map: HashMap<u32, usize>,
     color: HashMap<u32, u32>,
     update_status: bool,
+    hash_maps_update: bool,
 }
 
 impl Data {
@@ -37,6 +38,7 @@ impl Data {
             helix_map: HashMap::new(),
             color: HashMap::new(),
             update_status: false,
+            hash_maps_update: false,
         }
     }
 
@@ -57,8 +59,11 @@ impl Data {
             helix_map: HashMap::new(),
             color: HashMap::new(),
             update_status: false,
+            // false because we call make_hash_maps here
+            hash_maps_update: false,
         };
         ret.make_hash_maps();
+        ret.terminate_movement();
         Some(ret)
     }
 
@@ -162,7 +167,11 @@ impl Data {
     /// If the element is a nucleotide, return the center of the nucleotide.
     /// If the element is a bound, return the middle of the segment between the two nucleotides
     /// involved in the bound.
-    pub fn get_element_position(&self, id: u32) -> Option<Vec3> {
+    pub fn get_element_position(&mut self, id: u32) -> Option<Vec3> {
+        if self.hash_maps_update {
+            self.make_hash_maps();
+            self.hash_maps_update = false;
+        }
         if let Some(object_type) = self.object_type.get(&id) {
             match object_type {
                 ObjectType::Nucleotide(id) => self.space_position.get(&id).map(|x| x.into()),
@@ -245,9 +254,19 @@ impl Data {
         self.design.strands.get(&s_id).map(|s| s.color)
     }
 
-    pub fn rotate_helix_arround(&mut self, h_id: usize, rotation: ultraviolet::Rotor3, origin: Vec3) {
-        self.design.helices.get_mut(&h_id).map(|h| h.rotate_arround(rotation, origin)).unwrap_or_default();
-        self.make_hash_maps();
+    pub fn rotate_helix_arround(
+        &mut self,
+        h_id: usize,
+        rotation: ultraviolet::Rotor3,
+        origin: Vec3,
+    ) {
+        self.design
+            .helices
+            .get_mut(&h_id)
+            .map(|h| h.rotate_arround(rotation, origin))
+            .unwrap_or_default();
+        self.hash_maps_update = true;
+        self.update_status = true;
     }
 
     pub fn terminate_movement(&mut self) {

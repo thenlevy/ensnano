@@ -21,7 +21,7 @@ pub struct Data {
     designs: Vec<Design3D>,
     selected: Vec<(u32, u32)>,
     candidates: Vec<(u32, u32)>,
-    selection_mode: SelectionMode,
+    pub selection_mode: SelectionMode,
     pub rotation_mode: RotationMode,
     selected_position: Option<Vec3>,
 }
@@ -54,6 +54,13 @@ impl Data {
         self.notify_selection_update();
         self.notify_candidate_update();
         self.notify_instance_update();
+    }
+
+    pub fn update_view(&mut self) {
+        self.notify_instance_update();
+        self.notify_selection_update();
+        self.notify_candidate_update();
+        self.notify_matrices_update();
     }
 
     pub fn get_selected_designs(&self) -> HashSet<u32> {
