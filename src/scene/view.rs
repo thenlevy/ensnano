@@ -16,18 +16,18 @@ mod uniforms;
 use uniforms::Uniforms;
 mod bindgroup_manager;
 //mod plane_drawer;
+mod drawable;
 mod handle_drawer;
 mod maths;
-mod drawable;
 mod rotation_widget;
 
 use bindgroup_manager::UniformBindGroup;
+use drawable::{Drawable, Drawer, Vertex};
 use handle_drawer::HandlesDrawer;
 pub use handle_drawer::{HandleDir, HandleOrientation, HandlesDescriptor};
 use maths::unproject_point_on_line;
-use drawable::{Drawer, Vertex, Drawable};
 use rotation_widget::RotationWidget;
-pub use rotation_widget::{RotationWidgetOrientation, RotationWidgetDescriptor, RotationMode};
+pub use rotation_widget::{RotationMode, RotationWidgetDescriptor, RotationWidgetOrientation};
 //use plane_drawer::PlaneDrawer;
 //pub use plane_drawer::Plane;
 
@@ -49,7 +49,6 @@ pub struct View {
     new_size: Option<PhySize>,
     device: Rc<Device>,
     viewer: Rc<RefCell<UniformBindGroup>>,
-
 }
 
 impl View {
@@ -74,7 +73,11 @@ impl View {
             PipelineHandlers::init(device.clone(), queue.clone(), &camera, &projection);
         let depth_texture =
             texture::Texture::create_depth_texture(device.clone().as_ref(), &window_size);
-        let viewer = Rc::new(RefCell::new(UniformBindGroup::new(device.clone(), queue.clone(), &Uniforms::from_view_proj(camera.clone(), projection.clone()))));
+        let viewer = Rc::new(RefCell::new(UniformBindGroup::new(
+            device.clone(),
+            queue.clone(),
+            &Uniforms::from_view_proj(camera.clone(), projection.clone()),
+        )));
         Self {
             camera,
             projection,
@@ -93,14 +96,25 @@ impl View {
         match view_update {
             ViewUpdate::Size(size) => self.new_size = Some(size),
             ViewUpdate::Camera => {
-                self
-                .pipeline_handlers
-                .new_viewer(self.camera.clone(), self.projection.clone());
-                self.viewer.borrow_mut().update(&Uniforms::from_view_proj(self.camera.clone(), self.projection.clone()));
-                self.handle_drawers.update_camera(self.camera.clone(), self.projection.clone());
+                self.pipeline_handlers
+                    .new_viewer(self.camera.clone(), self.projection.clone());
+                self.viewer.borrow_mut().update(&Uniforms::from_view_proj(
+                    self.camera.clone(),
+                    self.projection.clone(),
+                ));
+                self.handle_drawers
+                    .update_camera(self.camera.clone(), self.projection.clone());
             }
-            ViewUpdate::Handles(descr) => self.handle_drawers.update_decriptor(descr, self.camera.clone(), self.projection.clone()),
-            ViewUpdate::RotationWidget(descr) => self.rotation_widget.update_decriptor(descr, self.camera.clone(), self.projection.clone()),
+            ViewUpdate::Handles(descr) => self.handle_drawers.update_decriptor(
+                descr,
+                self.camera.clone(),
+                self.projection.clone(),
+            ),
+            ViewUpdate::RotationWidget(descr) => self.rotation_widget.update_decriptor(
+                descr,
+                self.camera.clone(),
+                self.projection.clone(),
+            ),
             _ => self.pipeline_handlers.update(view_update),
         }
     }
@@ -186,11 +200,20 @@ impl View {
         }*/
 
         for drawer in self.handle_drawers.drawers() {
-            drawer.draw(&mut render_pass, viewer_bind_group, viewer_bind_group_layout, fake_color);
+            drawer.draw(
+                &mut render_pass,
+                viewer_bind_group,
+                viewer_bind_group_layout,
+                fake_color,
+            );
         }
 
-        self.rotation_widget.draw(&mut render_pass, viewer_bind_group, viewer_bind_group_layout, fake_color);
-
+        self.rotation_widget.draw(
+            &mut render_pass,
+            viewer_bind_group,
+            viewer_bind_group_layout,
+            fake_color,
+        );
     }
 
     /// Update the model matrix associated to a given desgin.
@@ -231,11 +254,30 @@ impl View {
         self.camera.borrow().up_vec()
     }
 
-    pub fn compute_translation_handle(&self, x_coord: f32, y_coord: f32, direction: HandleDir) -> Option<Vec3> {
+    pub fn compute_translation_handle(
+        &self,
+        x_coord: f32,
+        y_coord: f32,
+        direction: HandleDir,
+    ) -> Option<Vec3> {
         let (origin, dir) = self.handle_drawers.get_handle(direction)?;
         let (x0, y0) = self.handle_drawers.get_origin_translation()?;
-        let p1 = unproject_point_on_line(origin, dir, self.camera.clone(), self.projection.clone(), x0, y0)?;
-        let p2 = unproject_point_on_line(origin, dir, self.camera.clone(), self.projection.clone(), x_coord, y_coord)?;
+        let p1 = unproject_point_on_line(
+            origin,
+            dir,
+            self.camera.clone(),
+            self.projection.clone(),
+            x0,
+            y0,
+        )?;
+        let p2 = unproject_point_on_line(
+            origin,
+            dir,
+            self.camera.clone(),
+            self.projection.clone(),
+            x_coord,
+            y_coord,
+        )?;
         Some(p2 - p1)
     }
 
@@ -253,7 +295,13 @@ impl View {
     }
 
     pub fn compute_rotation(&self, x: f32, y: f32, mode: RotationMode) -> Option<(Rotor3, Vec3)> {
-        self.rotation_widget.compute_rotation(x, y, self.camera.clone(), self.projection.clone(), mode)
+        self.rotation_widget.compute_rotation(
+            x,
+            y,
+            self.camera.clone(),
+            self.projection.clone(),
+            mode,
+        )
     }
 }
 
@@ -484,7 +532,10 @@ impl PipelineHandlers {
                 self.phantom_sphere.new_instances(sphere);
                 self.phantom_tube.new_instances(tube);
             }
-            ViewUpdate::Camera | ViewUpdate::Size(_) | ViewUpdate::Handles(_) | ViewUpdate::RotationWidget(_)=> {
+            ViewUpdate::Camera
+            | ViewUpdate::Size(_)
+            | ViewUpdate::Handles(_)
+            | ViewUpdate::RotationWidget(_) => {
                 unreachable!();
             }
         }
@@ -502,4 +553,3 @@ impl PipelineHandlers {
         }
     }
 }
-

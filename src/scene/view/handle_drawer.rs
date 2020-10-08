@@ -1,9 +1,9 @@
-use std::rc::Rc;
-use iced_wgpu::wgpu;
-use wgpu::Device;
-use ultraviolet::{Rotor3, Vec3};
-use super::{Drawer, CameraPtr, ProjectionPtr, Drawable, Vertex};
+use super::{CameraPtr, Drawable, Drawer, ProjectionPtr, Vertex};
 use crate::consts::*;
+use iced_wgpu::wgpu;
+use std::rc::Rc;
+use ultraviolet::{Rotor3, Vec3};
+use wgpu::Device;
 
 #[derive(Clone, Debug)]
 pub struct HandlesDescriptor {
@@ -19,14 +19,14 @@ pub enum HandleOrientation {
 }
 
 impl HandlesDescriptor {
-    pub fn make_handles(&self, camera: CameraPtr, projection: ProjectionPtr) -> [Handle ; 3] {
+    pub fn make_handles(&self, camera: CameraPtr, projection: ProjectionPtr) -> [Handle; 3] {
         let dist = (camera.borrow().position - self.origin).mag();
         let (right, up, dir) = self.make_axis(camera);
         let length = self.size * dist * (projection.borrow().get_fovy() / 2.).tan();
         [
-            Handle::new(self.origin, right, up, 0xFF0000, RIGHT_HANDLE_ID , length),
+            Handle::new(self.origin, right, up, 0xFF0000, RIGHT_HANDLE_ID, length),
             Handle::new(self.origin, up, right, 0xFF00, UP_HANDLE_ID, length),
-            Handle::new(self.origin, dir, up, 0xFF, DIR_HANDLE_ID, length)
+            Handle::new(self.origin, dir, up, 0xFF, DIR_HANDLE_ID, length),
         ]
     }
 
@@ -36,12 +36,21 @@ impl HandlesDescriptor {
                 let right = camera.borrow().right_vec();
                 let up = camera.borrow().up_vec();
                 let dir = camera.borrow().direction();
-                let rotor = Rotor3::from_angle_plane(-std::f32::consts::FRAC_PI_4, right.wedge(dir).normalized());
-                (rotor * camera.borrow().right_vec(),
-                 up,
-                 rotor * -camera.borrow().direction())
+                let rotor = Rotor3::from_angle_plane(
+                    -std::f32::consts::FRAC_PI_4,
+                    right.wedge(dir).normalized(),
+                );
+                (
+                    rotor * camera.borrow().right_vec(),
+                    up,
+                    rotor * -camera.borrow().direction(),
+                )
             }
-            HandleOrientation::Rotor(rotor) => (rotor * Vec3::unit_x(), rotor * Vec3::unit_y(), rotor * -Vec3::unit_z())
+            HandleOrientation::Rotor(rotor) => (
+                rotor * Vec3::unit_x(),
+                rotor * Vec3::unit_y(),
+                rotor * -Vec3::unit_z(),
+            ),
         }
     }
 }
@@ -55,8 +64,8 @@ pub enum HandleDir {
 
 pub struct HandlesDrawer {
     descriptor: Option<HandlesDescriptor>,
-    handles: Option<[Handle ; 3]>,
-    drawers: [Drawer<Handle> ; 3],
+    handles: Option<[Handle; 3]>,
+    drawers: [Drawer<Handle>; 3],
     origin_translation: Option<(f32, f32)>,
 }
 
@@ -65,18 +74,30 @@ impl HandlesDrawer {
         Self {
             descriptor: None,
             handles: None,
-            drawers: [Drawer::new(device.clone()), Drawer::new(device.clone()), Drawer::new(device.clone())],
+            drawers: [
+                Drawer::new(device.clone()),
+                Drawer::new(device.clone()),
+                Drawer::new(device.clone()),
+            ],
             origin_translation: None,
         }
     }
 
-    pub fn update_decriptor(&mut self, descriptor: Option<HandlesDescriptor>, camera: CameraPtr, projection: ProjectionPtr) {
+    pub fn update_decriptor(
+        &mut self,
+        descriptor: Option<HandlesDescriptor>,
+        camera: CameraPtr,
+        projection: ProjectionPtr,
+    ) {
         self.descriptor = descriptor;
         self.update_camera(camera, projection);
     }
 
     pub fn update_camera(&mut self, camera: CameraPtr, projection: ProjectionPtr) {
-        self.handles = self.descriptor.as_ref().map(|desc| desc.make_handles(camera, projection));
+        self.handles = self
+            .descriptor
+            .as_ref()
+            .map(|desc| desc.make_handles(camera, projection));
         self.update_drawers();
     }
 
@@ -100,7 +121,7 @@ impl HandlesDrawer {
         }
     }
 
-    pub fn drawers(&mut self) -> &mut [Drawer<Handle> ;3] {
+    pub fn drawers(&mut self) -> &mut [Drawer<Handle>; 3] {
         &mut self.drawers
     }
 
@@ -117,11 +138,14 @@ impl HandlesDrawer {
     }
 
     pub fn translate(&mut self, translation: Vec3) {
-        self.handles.as_mut().map(|handles| {
-            for h in handles.iter_mut() {
-                h.translation = translation;
-            }
-        }).unwrap_or(());
+        self.handles
+            .as_mut()
+            .map(|handles| {
+                for h in handles.iter_mut() {
+                    h.translation = translation;
+                }
+            })
+            .unwrap_or(());
         self.update_drawers();
     }
 }
@@ -137,7 +161,14 @@ pub struct Handle {
 }
 
 impl Handle {
-    pub fn new(origin: Vec3, direction: Vec3, normal: Vec3, color: u32, id: u32, length: f32) -> Self {
+    pub fn new(
+        origin: Vec3,
+        direction: Vec3,
+        normal: Vec3,
+        color: u32,
+        id: u32,
+        length: f32,
+    ) -> Self {
         Self {
             origin,
             direction,
@@ -151,19 +182,21 @@ impl Handle {
 }
 
 impl Drawable for Handle {
-
     fn vertices(&self, fake: bool) -> Vec<Vertex> {
         let mut ret = Vec::new();
         let width = self.length / 30.;
-        let color = if fake {
-            self.id
-        } else {
-            self.color
-        };
+        let color = if fake { self.id } else { self.color };
         for x in [-1f32, 1.].iter() {
             for y in [-1., 1.].iter() {
                 for z in [0., 1.].iter() {
-                    ret.push(Vertex::new(self.origin + self.normal * *x * width + *y * self.direction.cross(self.normal) * width + *z * self.direction * self.length + self.translation,color));
+                    ret.push(Vertex::new(
+                        self.origin
+                            + self.normal * *x * width
+                            + *y * self.direction.cross(self.normal) * width
+                            + *z * self.direction * self.length
+                            + self.translation,
+                        color,
+                    ));
                 }
             }
         }
@@ -172,22 +205,12 @@ impl Drawable for Handle {
 
     fn indices() -> Vec<u16> {
         vec![
-            0, 1, 2,
-            1, 2, 3,
-            0, 1, 5,
-            0, 4, 5,
-            0, 4, 6,
-            0, 6, 2,
-            5, 4, 6,
-            5, 6, 7,
-            2, 6, 7,
-            3, 6, 7,
-            1, 5, 7,
-            1, 3, 7]
+            0, 1, 2, 1, 2, 3, 0, 1, 5, 0, 4, 5, 0, 4, 6, 0, 6, 2, 5, 4, 6, 5, 6, 7, 2, 6, 7, 3, 6,
+            7, 1, 5, 7, 1, 3, 7,
+        ]
     }
 
     fn primitive_topology() -> wgpu::PrimitiveTopology {
         wgpu::PrimitiveTopology::TriangleList
     }
 }
-

@@ -28,14 +28,12 @@ impl Controller {
     }
 
     pub fn translate(&mut self, translation: &Vec3) {
-        self.view.borrow_mut().set_matrix(
-            self.old_matrix
-                .translated(translation),
-        )
+        self.view
+            .borrow_mut()
+            .set_matrix(self.old_matrix.translated(translation))
     }
 
     pub fn rotate(&mut self, rotation: &DesignRotation) {
-
         let rotor = rotation.rotation.into_matrix().into_homogeneous();
 
         //println!("{:?}", rotor.normalized().into_matrix());
@@ -60,4 +58,3 @@ pub struct DesignRotation {
     pub origin: Vec3,
     pub rotation: Rotor3,
 }
-

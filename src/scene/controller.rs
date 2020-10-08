@@ -1,8 +1,8 @@
-use super::{camera, DataPtr, Duration, ViewPtr, HandleDir, WidgetRotationMode as RotationMode};
+use super::{camera, DataPtr, Duration, HandleDir, ViewPtr, WidgetRotationMode as RotationMode};
+use crate::consts::*;
 use crate::{PhySize, PhysicalPosition, WindowEvent};
 use iced_winit::winit::event::*;
 use ultraviolet::{Rotor3, Vec3};
-use crate::consts::*;
 
 use camera::CameraController;
 
@@ -94,11 +94,7 @@ impl Controller {
     /// * `event` the event to be handled
     ///
     /// * `position` the position of the mouse *in the drawing area coordinates*
-    pub fn input(
-        &mut self,
-        event: &WindowEvent,
-        position: PhysicalPosition<f64>,
-    ) -> Consequence {
+    pub fn input(&mut self, event: &WindowEvent, position: PhysicalPosition<f64>) -> Consequence {
         match event {
             WindowEvent::ModifiersChanged(modifiers) => {
                 self.current_modifiers = *modifiers;
@@ -144,31 +140,29 @@ impl Controller {
                 button: MouseButton::Left,
                 state,
                 ..
-            } => {
-                match self.state {
-                    State::MoveCamera => self.left_click_camera(state),
-                    State::Rotate(_) => {
-                        if *state == ElementState::Pressed {
-                            let (x, y) = self.logical_mouse_position();
-                            self.last_left_clicked_position = Some(self.mouse_position);
-                            Consequence::InitRotation(x, y)
-                        } else {
-                            self.last_left_clicked_position = None;
-                            Consequence::MovementEnded
-                        }
-                    }
-                    State::Translate(_) => {
-                        if *state == ElementState::Pressed {
-                            let (x, y) = self.logical_mouse_position();
-                            self.last_left_clicked_position = Some(self.mouse_position);
-                            Consequence::InitTranslation(x, y)
-                        } else {
-                            self.last_left_clicked_position = None;
-                            Consequence::MovementEnded
-                        }
+            } => match self.state {
+                State::MoveCamera => self.left_click_camera(state),
+                State::Rotate(_) => {
+                    if *state == ElementState::Pressed {
+                        let (x, y) = self.logical_mouse_position();
+                        self.last_left_clicked_position = Some(self.mouse_position);
+                        Consequence::InitRotation(x, y)
+                    } else {
+                        self.last_left_clicked_position = None;
+                        Consequence::MovementEnded
                     }
                 }
-            }
+                State::Translate(_) => {
+                    if *state == ElementState::Pressed {
+                        let (x, y) = self.logical_mouse_position();
+                        self.last_left_clicked_position = Some(self.mouse_position);
+                        Consequence::InitTranslation(x, y)
+                    } else {
+                        self.last_left_clicked_position = None;
+                        Consequence::MovementEnded
+                    }
+                }
+            },
             WindowEvent::MouseInput {
                 button: MouseButton::Right,
                 state,
@@ -279,9 +273,7 @@ impl Controller {
             self.mouse_position,
         ) < 5.
         {
-            return Consequence::PixelSelected(
-                self.last_left_clicked_position.take().unwrap(),
-            );
+            return Consequence::PixelSelected(self.last_left_clicked_position.take().unwrap());
         } else {
             released = true;
         }
@@ -296,8 +288,10 @@ impl Controller {
     }
 
     fn logical_mouse_position(&self) -> (f64, f64) {
-        (self.mouse_position.x / self.area_size.width as f64,
-         self.mouse_position.y / self.area_size.height as f64)
+        (
+            self.mouse_position.x / self.area_size.width as f64,
+            self.mouse_position.y / self.area_size.height as f64,
+        )
     }
 }
 

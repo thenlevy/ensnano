@@ -20,7 +20,10 @@ use winit::dpi::PhysicalPosition;
 mod camera;
 /// Display of the scene
 mod view;
-use view::{HandlesDescriptor, View, ViewUpdate, HandleOrientation, HandleDir, RotationWidgetDescriptor, RotationWidgetOrientation, RotationMode as WidgetRotationMode};
+use view::{
+    HandleDir, HandleOrientation, HandlesDescriptor, RotationMode as WidgetRotationMode,
+    RotationWidgetDescriptor, RotationWidgetOrientation, View, ViewUpdate,
+};
 /// Handling of inputs and notifications
 mod controller;
 use controller::{Consequence, Controller};
@@ -28,9 +31,7 @@ mod data;
 pub use controller::ClickMode;
 use data::Data;
 pub use data::{RotationMode, SelectionMode};
-use design::{
-    Design, DesignNotification, DesignNotificationContent, DesignRotation
-};
+use design::{Design, DesignNotification, DesignNotificationContent, DesignRotation};
 
 type ViewPtr = Rc<RefCell<View>>;
 type DataPtr = Rc<RefCell<Data>>;
@@ -79,7 +80,8 @@ impl Scene {
             queue.clone(),
         )));
         let data: DataPtr = Rc::new(RefCell::new(Data::new(view.clone())));
-        let controller: Controller = Controller::new(view.clone(), data.clone(), window_size, area.size);
+        let controller: Controller =
+            Controller::new(view.clone(), data.clone(), window_size, area.size);
         Self {
             device,
             queue,
@@ -110,15 +112,17 @@ impl Scene {
 
     /// Input an event to the scene. Return true, if the selected object of the scene has changed
     pub fn input(&mut self, event: &WindowEvent, cursor_position: PhysicalPosition<f64>) {
-        let consequence = self
-            .controller
-            .input(event, cursor_position);
+        let consequence = self.controller.input(event, cursor_position);
         match consequence {
             Consequence::Nothing => (),
             Consequence::CameraMoved => self.notify(SceneNotification::CameraMoved),
             Consequence::PixelSelected(clicked) => self.click_on(clicked),
             Consequence::Translation(dir, x_coord, y_coord) => {
-                let translation = self.view.borrow().compute_translation_handle(x_coord as f32, y_coord as f32, dir);
+                let translation = self.view.borrow().compute_translation_handle(
+                    x_coord as f32,
+                    y_coord as f32,
+                    dir,
+                );
                 translation.map(|t| {
                     self.translate_selected_design(t);
                 });
@@ -138,15 +142,10 @@ impl Scene {
                 self.view.borrow_mut().init_translation(x as f32, y as f32)
             }
             Consequence::Rotation(mode, x, y) => {
-                /*let rotation = DesignRotation {
-                    origin: self.get_selected_position().unwrap(),
-                    up_vec: self.view.borrow().up_vec(),
-                    right_vec: self.view.borrow().right_vec(),
-                    angle_xz: x as f32 * std::f32::consts::PI,
-                    angle_yz: y as f32 * std::f32::consts::PI,
-                };*/
-                let rotation = self.view.borrow().compute_rotation(x as f32, y as f32, mode);
-                println!("rotation {:?}", rotation);
+                let rotation = self
+                    .view
+                    .borrow()
+                    .compute_rotation(x as f32, y as f32, mode);
                 rotation.map(|(r, o)| {
                     self.rotate_selected_desgin(r, o);
                 });
@@ -184,7 +183,7 @@ impl Scene {
 
     fn click_on(&mut self, clicked_pixel: PhysicalPosition<f64>) {
         let (selected_id, design_id) = self.set_selected_id(clicked_pixel);
-        if design_id != 0xFF{
+        if design_id != 0xFF {
             let selection = self.data.borrow_mut().set_selection(design_id, selected_id);
             self.mediator.lock().unwrap().notify_selection(selection);
         } else {
@@ -203,7 +202,7 @@ impl Scene {
         if design_id == 0xFF {
             self.controller.notify(checked_id);
         }
-        if checked_id != 0xFFFFFF && design_id !=0xFF {
+        if checked_id != 0xFFFFFF && design_id != 0xFF {
             self.data.borrow_mut().set_candidate(design_id, checked_id);
         } else {
             self.data.borrow_mut().reset_candidate();
@@ -330,10 +329,7 @@ impl Scene {
     }
 
     fn rotate_selected_desgin(&mut self, rotation: Rotor3, origin: Vec3) {
-        let rotation = DesignRotation {
-            rotation,
-            origin
-        };
+        let rotation = DesignRotation { rotation, origin };
         self.mediator.lock().unwrap().notify_designs(
             &self.data.borrow().get_selected_designs(),
             AppNotification::Rotation(&rotation),
@@ -394,15 +390,17 @@ impl Scene {
         let descr = origin.clone().map(|origin| HandlesDescriptor {
             origin,
             orientation: HandleOrientation::Camera,
-            size: 0.25
+            size: 0.25,
         });
         self.view.borrow_mut().update(ViewUpdate::Handles(descr));
         let descr = origin.map(|origin| RotationWidgetDescriptor {
             origin,
             orientation: RotationWidgetOrientation::Camera,
-            size: 0.2
+            size: 0.2,
         });
-        self.view.borrow_mut().update(ViewUpdate::RotationWidget(descr));
+        self.view
+            .borrow_mut()
+            .update(ViewUpdate::RotationWidget(descr));
     }
 
     fn perform_update(&mut self, dt: Duration) {
