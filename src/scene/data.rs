@@ -24,6 +24,10 @@ pub struct Data {
     pub selection_mode: SelectionMode,
     pub rotation_mode: RotationMode,
     selected_position: Option<Vec3>,
+    selection_update: bool,
+    candidate_update: bool,
+    instance_update: bool,
+    matrices_update: bool,
 }
 
 impl Data {
@@ -36,14 +40,16 @@ impl Data {
             selection_mode: SelectionMode::default(),
             rotation_mode: RotationMode::default(),
             selected_position: None,
+            selection_update: false,
+            candidate_update: false,
+            instance_update: false,
+            matrices_update: false,
         }
     }
 
     pub fn add_design(&mut self, design: Arc<Mutex<Design>>) {
         self.designs.push(Design3D::new(design));
         self.notify_instance_update();
-        self.notify_selection_update();
-        self.notify_candidate_update();
         self.notify_matrices_update();
     }
 
@@ -51,16 +57,31 @@ impl Data {
         self.designs = Vec::new();
         self.selected = Vec::new();
         self.candidates = Vec::new();
-        self.notify_selection_update();
-        self.notify_candidate_update();
+        self.reset_selection();
+        self.reset_candidate();
         self.notify_instance_update();
+        self.notify_matrices_update();
     }
 
     pub fn update_view(&mut self) {
-        self.notify_instance_update();
-        self.notify_selection_update();
-        self.notify_candidate_update();
-        self.notify_matrices_update();
+        if self.instance_update {
+            self.update_instances();
+            self.instance_update = false;
+        }
+
+        if self.selection_update {
+            self.update_selection();
+            self.selection_update = false;
+        }
+        if self.candidate_update {
+            self.update_candidate();
+            self.candidate_update = false;
+        }
+
+        if self.matrices_update {
+            self.update_matrices();
+            self.matrices_update = false;
+        }
     }
 
     pub fn get_selected_designs(&self) -> HashSet<u32> {
@@ -178,6 +199,7 @@ impl Data {
     }
 
     pub fn set_selection(&mut self, design_id: u32, element_id: u32) -> Selection {
+        self.selection_update |= self.selected != vec![(design_id, element_id)];
         self.selected = vec![(design_id, element_id)];
         self.selected_position = {
             self.selected.get(0).map(|(design_id, element_id)| {
@@ -202,10 +224,11 @@ impl Data {
     }
 
     pub fn reset_selection(&mut self) {
+        self.selection_update |= !self.selected.is_empty();
         self.selected = Vec::new();
     }
 
-    pub fn notify_selection_update(&mut self) {
+    fn update_selection(&mut self) {
         self.view
             .borrow_mut()
             .update(ViewUpdate::SelectedTubes(self.get_selected_tubes()));
@@ -237,14 +260,17 @@ impl Data {
     }
 
     pub fn set_candidate(&mut self, design_id: u32, element_id: u32) {
-        self.candidates = vec![(design_id, element_id)];
+        let future_candidate = vec![(design_id, element_id)];
+        self.candidate_update |= self.candidates == future_candidate;
+        self.candidates = future_candidate;
     }
 
     pub fn reset_candidate(&mut self) {
+        self.candidate_update |= !self.candidates.is_empty();
         self.candidates = Vec::new();
     }
 
-    pub fn notify_candidate_update(&mut self) {
+    fn update_candidate(&mut self) {
         self.view
             .borrow_mut()
             .update(ViewUpdate::CandidateTubes(self.get_candidate_tubes()));
@@ -254,6 +280,11 @@ impl Data {
     }
 
     pub fn notify_instance_update(&mut self) {
+        println!("notifed instance update");
+        self.instance_update = true;
+    }
+
+    fn update_instances(&mut self) {
         let mut spheres = Vec::with_capacity(self.get_number_spheres());
         let mut tubes = Vec::with_capacity(self.get_number_tubes());
 
@@ -265,6 +296,7 @@ impl Data {
                 tubes.push(*tube);
             }
         }
+        println!("update instance");
         self.view
             .borrow_mut()
             .update(ViewUpdate::Tubes(Rc::new(tubes)));
@@ -274,6 +306,10 @@ impl Data {
     }
 
     pub fn notify_matrices_update(&mut self) {
+        self.matrices_update = true;
+    }
+
+    fn update_matrices(&mut self) {
         let mut matrices = Vec::new();
         for design in self.designs.iter() {
             matrices.push(design.get_model_matrix());

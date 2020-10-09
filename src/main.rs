@@ -318,7 +318,8 @@ fn main() {
                 let dt = now - last_render_time;
                 last_render_time = now;
 
-                if redraw || scene.lock().unwrap().need_redraw(dt) {
+                mediator.lock().unwrap().observe_designs();
+                if redraw | scene.lock().unwrap().need_redraw(dt) {
                     window.request_redraw();
                 }
             }
@@ -398,7 +399,6 @@ fn main() {
                     device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
 
                 // We draw the scene first
-                mediator.lock().unwrap().observe_designs();
                 scene
                     .lock()
                     .unwrap()

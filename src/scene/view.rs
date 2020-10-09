@@ -98,9 +98,11 @@ impl View {
     /// Notify the view of an update
     pub fn update(&mut self, view_update: ViewUpdate) {
         self.need_redraw = true;
-        self.need_redraw_fake = true;
         match view_update {
-            ViewUpdate::Size(size) => self.new_size = Some(size),
+            ViewUpdate::Size(size) => {
+                self.new_size = Some(size);
+                self.need_redraw_fake = true;
+            }
             ViewUpdate::Camera => {
                 self.pipeline_handlers
                     .new_viewer(self.camera.clone(), self.projection.clone());
@@ -110,18 +112,26 @@ impl View {
                 ));
                 self.handle_drawers
                     .update_camera(self.camera.clone(), self.projection.clone());
+                self.need_redraw_fake = true;
             }
-            ViewUpdate::Handles(descr) => self.handle_drawers.update_decriptor(
-                descr,
-                self.camera.clone(),
-                self.projection.clone(),
-            ),
-            ViewUpdate::RotationWidget(descr) => self.rotation_widget.update_decriptor(
-                descr,
-                self.camera.clone(),
-                self.projection.clone(),
-            ),
-            _ => self.pipeline_handlers.update(view_update),
+            ViewUpdate::Handles(descr) => {
+                self.handle_drawers.update_decriptor(
+                    descr,
+                    self.camera.clone(),
+                    self.projection.clone(),
+                );
+                self.need_redraw_fake = true;
+            }
+
+            ViewUpdate::RotationWidget(descr) => {
+                self.rotation_widget.update_decriptor(
+                    descr,
+                    self.camera.clone(),
+                    self.projection.clone(),
+                );
+                self.need_redraw_fake = true;
+            }
+            _ => self.need_redraw_fake |= self.pipeline_handlers.update(view_update),
         }
     }
 
@@ -141,11 +151,6 @@ impl View {
         fake_color: bool,
         area: DrawArea,
     ) {
-        if fake_color {
-            self.need_redraw_fake = false;
-        } else {
-            self.need_redraw = false;
-        }
         if let Some(size) = self.new_size.take() {
             self.depth_texture = Texture::create_depth_texture(self.device.as_ref(), &size);
         }
@@ -233,10 +238,17 @@ impl View {
             viewer_bind_group_layout,
             fake_color,
         );
+
+        if fake_color {
+            self.need_redraw_fake = false;
+        } else {
+            self.need_redraw = false;
+        }
     }
 
     /// Update the model matrix associated to a given desgin.
     pub fn update_model_matrix(&mut self, design_id: usize, matrix: Mat4) {
+        self.need_redraw = true;
         self.pipeline_handlers
             .update_model_matrix(design_id, matrix)
     }
@@ -301,15 +313,18 @@ impl View {
     }
 
     pub fn translate_widgets(&mut self, translation: Vec3) {
+        self.need_redraw = true;
         self.handle_drawers.translate(translation);
         self.rotation_widget.translate(translation);
     }
 
     pub fn init_rotation(&mut self, x_coord: f32, y_coord: f32) {
+        self.need_redraw = true;
         self.rotation_widget.init_rotation(x_coord, y_coord)
     }
 
     pub fn init_translation(&mut self, x: f32, y: f32) {
+        self.need_redraw = true;
         self.handle_drawers.init_translation(x, y)
     }
 
@@ -519,37 +534,45 @@ impl PipelineHandlers {
         vec![&mut self.fake_sphere, &mut self.fake_tube]
     }
 
-    fn update(&mut self, update: ViewUpdate) {
+    fn update(&mut self, update: ViewUpdate) -> bool {
         match update {
             ViewUpdate::Spheres(instances) => {
                 self.sphere.new_instances(instances.clone());
                 self.fake_sphere.new_instances(instances);
+                true
             }
             ViewUpdate::Tubes(instances) => {
                 self.tube.new_instances(instances.clone());
                 self.fake_tube.new_instances(instances);
+                true
             }
             ViewUpdate::SelectedTubes(instances) => {
                 self.selected_tube.new_instances(instances);
+                false
             }
             ViewUpdate::SelectedSpheres(instances) => {
                 self.selected_sphere.new_instances(instances);
+                false
             }
             ViewUpdate::ModelMatrices(matrices) => {
                 let matrices = Rc::new(matrices);
                 for pipeline in self.all().iter_mut() {
                     pipeline.new_model_matrices(matrices.clone());
                 }
+                true
             }
             ViewUpdate::CandidateSpheres(instances) => {
                 self.candidate_sphere.new_instances(instances);
+                false
             }
             ViewUpdate::CandidateTubes(instances) => {
                 self.candidate_tube.new_instances(instances);
+                false
             }
             ViewUpdate::PhantomInstances(sphere, tube) => {
                 self.phantom_sphere.new_instances(sphere);
                 self.phantom_tube.new_instances(tube);
+                false
             }
             ViewUpdate::Camera
             | ViewUpdate::Size(_)

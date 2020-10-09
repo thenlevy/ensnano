@@ -197,7 +197,6 @@ impl Scene {
                 .unwrap()
                 .notify_selection(Selection::Nothing);
         }
-        self.data.borrow_mut().notify_selection_update();
         self.update_handle();
     }
 
@@ -211,19 +210,20 @@ impl Scene {
         } else {
             self.data.borrow_mut().reset_candidate();
         }
-        self.data.borrow_mut().notify_candidate_update();
     }
 
     fn set_selected_id(&mut self, clicked_pixel: PhysicalPosition<f64>) -> (u32, u32) {
         let pixel = (
             clicked_pixel.cast::<u32>().x.min(self.area.size.width - 1) + self.area.position.x,
-            clicked_pixel.cast::<u32>().y.min(self.area.size.height - 1) + self.area.position.y);
-           
+            clicked_pixel.cast::<u32>().y.min(self.area.size.height - 1) + self.area.position.y,
+        );
+
         if self.fake_pixels.is_none() || self.view.borrow().need_redraw_fake() {
             self.fake_pixels = Some(self.update_fake_pixels());
         }
 
-        let byte0 = (pixel.0 * self.area.size.width + pixel.1) as usize;
+        let byte0 = (pixel.1 * self.controller.get_window_size().width + pixel.0) as usize
+            * std::mem::size_of::<u32>();
         let pixels = self.fake_pixels.as_ref().unwrap();
         let a = pixels[byte0 + 3] as u32;
         let r = (pixels[byte0 + 2] as u32) << 16;
@@ -273,11 +273,7 @@ impl Scene {
                 rows_per_image: 0,
             },
         };
-        let origin = wgpu::Origin3d {
-            x: 0,
-            y: 0,
-            z: 0,
-        };
+        let origin = wgpu::Origin3d { x: 0, y: 0, z: 0 };
         let texture_copy_view = wgpu::TextureCopyView {
             texture: &texture,
             mip_level: 0,
@@ -402,6 +398,7 @@ impl Scene {
         if self.update.need_update {
             self.perform_update(dt);
         }
+        self.data.borrow_mut().update_view();
         self.view.borrow().need_redraw()
     }
 
@@ -551,11 +548,14 @@ impl Scene {
         match notification.content {
             DesignNotificationContent::ModelChanged(matrix) => {
                 self.update.need_update = true;
+                self.data.borrow_mut().notify_matrices_update();
                 self.view
                     .borrow_mut()
                     .update_model_matrix(design_id, matrix)
             }
-            DesignNotificationContent::InstanceChanged => self.data.borrow_mut().update_view(),
+            DesignNotificationContent::InstanceChanged => {
+                self.data.borrow_mut().notify_instance_update()
+            }
         }
     }
 }
