@@ -249,6 +249,7 @@ impl Data {
     /// Clear self.selected
     pub fn reset_selection(&mut self) {
         self.selection_update |= !self.selected.is_empty();
+        self.selected_position = None;
         self.selected = Vec::new();
     }
 

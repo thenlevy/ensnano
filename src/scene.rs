@@ -27,6 +27,7 @@ use view::{
 /// Handling of inputs and notifications
 mod controller;
 use controller::{Consequence, Controller};
+/// Handling of designs and internal data
 mod data;
 pub use controller::ClickMode;
 use data::Data;
