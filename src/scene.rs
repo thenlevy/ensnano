@@ -206,6 +206,7 @@ impl Scene {
         let (checked_id, design_id) = self.set_selected_id(clicked_pixel);
         if design_id == 0xFF {
             self.controller.notify(checked_id);
+            self.view.borrow_mut().set_widget_candidate(checked_id);
         }
         if checked_id != 0xFFFFFF && design_id != 0xFF {
             self.data.borrow_mut().set_candidate(design_id, checked_id);
@@ -417,7 +418,6 @@ impl Scene {
     }
 
     fn update_handle(&mut self) {
-        println!("updating handle");
         let origin = self.data.borrow().get_selected_position();
         let descr = origin.clone().map(|origin| HandlesDescriptor {
             origin,

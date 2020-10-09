@@ -66,6 +66,9 @@ pub struct HandlesDrawer {
     descriptor: Option<HandlesDescriptor>,
     handles: Option<[Handle; 3]>,
     drawers: [Drawer<Handle>; 3],
+    big_handle: Option<Handle>,
+    big_handle_drawer: Drawer<Handle>,
+    selected: Option<usize>,
     origin_translation: Option<(f32, f32)>,
 }
 
@@ -79,8 +82,34 @@ impl HandlesDrawer {
                 Drawer::new(device.clone()),
                 Drawer::new(device.clone()),
             ],
+            big_handle: None,
+            big_handle_drawer: Drawer::new(device.clone()),
+            selected: None,
             origin_translation: None,
         }
+    }
+
+    pub fn draw<'a>(
+        &'a mut self,
+        render_pass: &mut wgpu::RenderPass<'a>,
+        viewer_bind_group: &'a wgpu::BindGroup,
+        viewer_bind_group_layout: &'a wgpu::BindGroupLayout,
+        fake: bool,
+    ) {
+        for drawer in self.drawers.iter_mut() {
+            drawer.draw(
+                render_pass,
+                viewer_bind_group,
+                viewer_bind_group_layout,
+                fake,
+            );
+        }
+        self.big_handle_drawer.draw(
+            render_pass,
+            viewer_bind_group,
+            viewer_bind_group_layout,
+            fake,
+        );
     }
 
     pub fn update_decriptor(
@@ -137,6 +166,29 @@ impl HandlesDrawer {
         })
     }
 
+    pub fn set_selected(&mut self, selected_id: u32) -> bool {
+        let selected_id = selected_id | 0xFF_00_00_00;
+        let new_selection = match selected_id {
+            RIGHT_HANDLE_ID => Some(0),
+            UP_HANDLE_ID => Some(1),
+            DIR_HANDLE_ID => Some(2),
+            _ => None,
+        };
+        let ret = new_selection != self.selected;
+        self.select_handle(new_selection);
+        ret
+    }
+
+    fn select_handle(&mut self, selected: Option<usize>) {
+        self.big_handle = if let Some(selected) = selected {
+            self.handles.map(|t| t[selected].into_big())
+        } else {
+            None
+        };
+        self.selected = selected;
+        self.big_handle_drawer.new_object(self.big_handle);
+    }
+
     pub fn translate(&mut self, translation: Vec3) {
         self.handles
             .as_mut()
@@ -179,12 +231,28 @@ impl Handle {
             length,
         }
     }
+
+    pub fn into_big(&self) -> Self {
+        Self {
+            length: 1.1 * self.length,
+            ..*self
+        }
+    }
 }
 
 impl Drawable for Handle {
     fn vertices(&self, fake: bool) -> Vec<Vertex> {
         let mut ret = Vec::new();
-        let width = self.length / 30.;
+        let length = if fake {
+            self.length * 1.03
+        } else {
+            self.length
+        };
+        let width = if fake {
+            length / 30. * SELECT_SCALE_FACTOR
+        } else {
+            length / 30.
+        };
         let color = if fake { self.id } else { self.color };
         for x in [-1f32, 1.].iter() {
             for y in [-1., 1.].iter() {
@@ -193,7 +261,7 @@ impl Drawable for Handle {
                         self.origin
                             + self.normal * *x * width
                             + *y * self.direction.cross(self.normal) * width
-                            + *z * self.direction * self.length
+                            + *z * self.direction * length
                             + self.translation,
                         color,
                     ));

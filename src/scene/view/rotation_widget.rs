@@ -20,8 +20,11 @@ pub struct RotationWidget {
     circles: Option<[Circle; 3]>,
     sphere_drawer: Drawer<Sphere>,
     circle_drawers: [Drawer<Circle>; 3],
+    big_circle: Option<Circle>,
+    big_circle_drawer: Drawer<Circle>,
     rotation_origin: Option<(f32, f32)>,
     translation: Vec3,
+    selected: Option<usize>,
 }
 
 impl RotationWidget {
@@ -36,8 +39,11 @@ impl RotationWidget {
                 Drawer::new(device.clone()),
                 Drawer::new(device.clone()),
             ],
+            big_circle: None,
+            big_circle_drawer: Drawer::new(device),
             rotation_origin: None,
             translation: Vec3::zero(),
+            selected: None,
         }
     }
 
@@ -50,6 +56,29 @@ impl RotationWidget {
         self.descriptor = descriptor;
         self.translation = Vec3::zero();
         self.update_camera(camera, projection);
+    }
+
+    pub fn set_selected(&mut self, selected_id: u32) -> bool {
+        let selected_id = selected_id | 0xFF_00_00_00;
+        let new_selection = match selected_id {
+            RIGHT_CIRCLE_ID => Some(0),
+            UP_CIRCLE_ID => Some(1),
+            FRONT_CIRCLE_ID => Some(2),
+            _ => None,
+        };
+        let ret = new_selection != self.selected;
+        self.select_circle(new_selection);
+        ret
+    }
+
+    fn select_circle(&mut self, selected: Option<usize>) {
+        self.big_circle = if let Some(selected) = selected {
+            self.circles.map(|t| t[selected].into_big())
+        } else {
+            None
+        };
+        self.selected = selected;
+        self.big_circle_drawer.new_object(self.big_circle);
     }
 
     pub fn update_camera(&mut self, camera: CameraPtr, projection: ProjectionPtr) {
@@ -98,6 +127,14 @@ impl RotationWidget {
             viewer_bind_group_layout,
             fake,
         );
+        if !fake {
+            self.big_circle_drawer.draw(
+                render_pass,
+                viewer_bind_group,
+                viewer_bind_group_layout,
+                fake,
+            )
+        }
     }
 
     pub fn init_rotation(&mut self, x: f32, y: f32) {
@@ -217,6 +254,7 @@ impl RotationWidgetDescriptor {
 pub struct Circle {
     pub origin: Vec3,
     pub radius: f32,
+    thickness: f32,
     right: Vec3,
     up: Vec3,
     color: u32,
@@ -230,6 +268,7 @@ impl Circle {
             origin,
             radius,
             right,
+            thickness: 0.1,
             up,
             color,
             id,
@@ -244,24 +283,36 @@ impl Circle {
     pub fn translate(&mut self, translation: Vec3) {
         self.translation = translation;
     }
+
+    pub fn into_big(&self) -> Self {
+        Self {
+            thickness: 0.3,
+            ..*self
+        }
+    }
 }
 
 impl Drawable for Circle {
     fn vertices(&self, fake: bool) -> Vec<Vertex> {
         let mut vertices = Vec::with_capacity(2 * NB_SECTOR_CIRCLE as usize + 2);
         let color = if fake { self.id } else { self.color };
+        let thickness = if fake { 0.3 } else { self.thickness };
         for i in 0..=NB_SECTOR_CIRCLE {
             let theta = 2. * PI * i as f32 / NB_SECTOR_CIRCLE as f32;
             vertices.push(Vertex::new(
                 self.translation
                     + self.origin
-                    + self.radius * (self.right * theta.cos() + self.up * theta.sin()),
+                    + self.radius
+                        * (1. + thickness / 2.)
+                        * (self.right * theta.cos() + self.up * theta.sin()),
                 color,
             ));
             vertices.push(Vertex::new(
                 self.translation
                     + self.origin
-                    + self.radius * 0.9 * (self.right * theta.cos() + self.up * theta.sin()),
+                    + self.radius
+                        * (1. - thickness / 2.)
+                        * (self.right * theta.cos() + self.up * theta.sin()),
                 color,
             ));
         }

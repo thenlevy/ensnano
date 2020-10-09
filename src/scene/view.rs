@@ -235,14 +235,12 @@ impl View {
             self.plane_drawer.draw(&mut render_pass, &viewer_bind_group)
         }*/
 
-        for drawer in self.handle_drawers.drawers() {
-            drawer.draw(
-                &mut render_pass,
-                viewer_bind_group,
-                viewer_bind_group_layout,
-                fake_color,
-            );
-        }
+        self.handle_drawers.draw(
+            &mut render_pass,
+            viewer_bind_group,
+            viewer_bind_group_layout,
+            fake_color,
+        );
 
         self.rotation_widget.draw(
             &mut render_pass,
@@ -355,6 +353,11 @@ impl View {
             self.projection.clone(),
             mode,
         )
+    }
+
+    pub fn set_widget_candidate(&mut self, selected_id: u32) {
+        self.need_redraw |= self.rotation_widget.set_selected(selected_id);
+        self.need_redraw |= self.handle_drawers.set_selected(selected_id);
     }
 }
 
