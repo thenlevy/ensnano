@@ -22,6 +22,7 @@ extern crate serde;
 mod consts;
 /// Design handling
 mod design;
+/// Graphical interface drawing
 mod gui;
 use design::Design;
 /// Message passing between applications

@@ -1,3 +1,7 @@
+//! This modules handles internal informations about the scene, such as the selected objects etc..
+//! It also communicates with the desgings to get the position of the objects to draw on the scene.
+
+
 use super::{View, ViewUpdate};
 use std::cell::RefCell;
 use std::collections::HashSet;
@@ -18,11 +22,18 @@ use design3d::Design3D;
 
 pub struct Data {
     view: ViewPtr,
+    /// A `Design3D` is associated to each design.
     designs: Vec<Design3D>,
+    /// The set of selected elements represented by `(design identifier, group identifier)`
     selected: Vec<(u32, u32)>,
+    /// The set of candidates elements represented by `(design identifier, group identifier)`
     candidates: Vec<(u32, u32)>,
+    /// The kind of selection being perfomed on the scene.
     pub selection_mode: SelectionMode,
+    /// The kind of rotation being perfomed on the scene.
     pub rotation_mode: RotationMode,
+    /// A position determined by the current selection. If only one nucleotide is selected, it's
+    /// the position of the nucleotide.
     selected_position: Option<Vec3>,
     selection_update: bool,
     candidate_update: bool,
@@ -47,12 +58,14 @@ impl Data {
         }
     }
 
+    /// Add a new design to be drawn
     pub fn add_design(&mut self, design: Arc<Mutex<Design>>) {
         self.designs.push(Design3D::new(design));
         self.notify_instance_update();
         self.notify_matrices_update();
     }
 
+    /// Remove all designs to be drawn
     pub fn clear_designs(&mut self) {
         self.designs = Vec::new();
         self.selected = Vec::new();
@@ -63,6 +76,7 @@ impl Data {
         self.notify_matrices_update();
     }
 
+    /// Forwards all needed update to the view
     pub fn update_view(&mut self) {
         if self.instance_update {
             self.update_instances();
@@ -84,10 +98,12 @@ impl Data {
         }
     }
 
+    /// Return the sets of selected designs
     pub fn get_selected_designs(&self) -> HashSet<u32> {
         self.selected.iter().map(|x| x.0).collect()
     }
 
+    /// Convert `self.selection` into a set of elements according to `self.selection_mode`
     fn expand_selection(&self, object_type: ObjectType) -> HashSet<(u32, u32)> {
         let mut ret = HashSet::new();
         for (d_id, elt_id) in &self.selected {
@@ -106,6 +122,7 @@ impl Data {
         ret
     }
 
+    /// Convert `self.candidates` into a set of elements according to `self.selection_mode`
     fn expand_candidate(&self, object_type: ObjectType) -> HashSet<(u32, u32)> {
         let mut ret = HashSet::new();
         for (d_id, elt_id) in &self.candidates {
@@ -160,6 +177,7 @@ impl Data {
         Rc::new(ret)
     }
 
+    /// Return the identifier of the first selected group
     pub fn get_selected_group(&self) -> u32 {
         self.get_group_identifier(self.selected[0].0, self.selected[0].1)
     }
@@ -174,6 +192,7 @@ impl Data {
         }
     }
 
+    /// Return the set of elements in a given group
     fn get_group_member(&self, design_id: u32, group_id: u32) -> HashSet<u32> {
         match self.selection_mode {
             SelectionMode::Nucleotide => vec![group_id].into_iter().collect(),
@@ -183,6 +202,7 @@ impl Data {
         }
     }
 
+    /// Return the postion of a given element, either in the world pov or in the model pov
     pub fn get_element_position(
         &self,
         design_id: u32,
@@ -198,6 +218,8 @@ impl Data {
         self.selected_position
     }
 
+    /// Update the selection by selecting the group to which a given nucleotide belongs. Return the
+    /// selected group
     pub fn set_selection(&mut self, design_id: u32, element_id: u32) -> Selection {
         self.selection_update |= self.selected != vec![(design_id, element_id)];
         self.selected = vec![(design_id, element_id)];
@@ -215,6 +237,7 @@ impl Data {
         }
     }
 
+    /// This function must be called when the current movement ends.
     pub fn end_movement(&mut self) {
         self.selected_position = {
             self.selected.get(0).map(|(design_id, element_id)| {
@@ -223,11 +246,13 @@ impl Data {
         };
     }
 
+    /// Clear self.selected
     pub fn reset_selection(&mut self) {
         self.selection_update |= !self.selected.is_empty();
         self.selected = Vec::new();
     }
 
+    /// Notify the view that the selected elements have been modified
     fn update_selection(&mut self) {
         self.view
             .borrow_mut()
@@ -241,6 +266,7 @@ impl Data {
             .update(ViewUpdate::PhantomInstances(sphere, vec));
     }
 
+    /// Return the sets of elements of the phantom helix
     pub fn get_phantom_instances(&self) -> (Rc<Vec<Instance>>, Rc<Vec<Instance>>) {
         if self.selected.is_empty() {
             return (Rc::new(Vec::new()), Rc::new(Vec::new()));
@@ -259,17 +285,20 @@ impl Data {
         }
     }
 
+    /// Set the set of candidates to a given nucleotide
     pub fn set_candidate(&mut self, design_id: u32, element_id: u32) {
         let future_candidate = vec![(design_id, element_id)];
         self.candidate_update |= self.candidates == future_candidate;
         self.candidates = future_candidate;
     }
 
+    /// Clear the set of candidates to a given nucleotide
     pub fn reset_candidate(&mut self) {
         self.candidate_update |= !self.candidates.is_empty();
         self.candidates = Vec::new();
     }
 
+    /// Notify the view that the instances of candidates have changed
     fn update_candidate(&mut self) {
         self.view
             .borrow_mut()
@@ -279,11 +308,12 @@ impl Data {
             .update(ViewUpdate::CandidateSpheres(self.get_candidate_spheres()));
     }
 
+    /// This function must be called when the designs have been modified
     pub fn notify_instance_update(&mut self) {
-        println!("notifed instance update");
         self.instance_update = true;
     }
 
+    /// Notify the view that the set of instances have been modified.
     fn update_instances(&mut self) {
         let mut spheres = Vec::with_capacity(self.get_number_spheres());
         let mut tubes = Vec::with_capacity(self.get_number_tubes());
@@ -296,7 +326,6 @@ impl Data {
                 tubes.push(*tube);
             }
         }
-        println!("update instance");
         self.view
             .borrow_mut()
             .update(ViewUpdate::Tubes(Rc::new(tubes)));
@@ -305,10 +334,12 @@ impl Data {
             .update(ViewUpdate::Spheres(Rc::new(spheres)));
     }
 
+    /// This fuction must be called when the model matrices have been modfied
     pub fn notify_matrices_update(&mut self) {
         self.matrices_update = true;
     }
 
+    /// Notify the view of an update of the model matrices
     fn update_matrices(&mut self) {
         let mut matrices = Vec::new();
         for design in self.designs.iter() {
@@ -319,11 +350,13 @@ impl Data {
             .update(ViewUpdate::ModelMatrices(matrices));
     }
 
+    /// Return a position and rotation of the camera that fits the first design
     pub fn get_fitting_camera(&self, ratio: f32, fovy: f32) -> Option<(Vec3, Rotor3)> {
         let design = self.designs.get(0)?;
         Some(design.get_fitting_camera(ratio, fovy))
     }
 
+    /// Return the point in the middle of the selected design
     pub fn get_middle_point(&self, design_id: u32) -> Vec3 {
         self.designs[design_id as usize].middle_point()
     }

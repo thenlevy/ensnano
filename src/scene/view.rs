@@ -1,3 +1,6 @@
+//! The view module handles the drawing of the scene on texture. The scene can be drawn on the next
+//! frame to be displayed, or on a "fake texture" that is used to map pixels to objects.
+
 use super::camera;
 use crate::utils::{instance, mesh, texture};
 use crate::{DrawArea, PhySize};
@@ -10,15 +13,20 @@ use texture::Texture;
 use ultraviolet::{Mat4, Rotor3, Vec3};
 use wgpu::{Device, PrimitiveTopology, Queue};
 
+/// A `PipelineHandler` is a structure that is responsible for drawing a mesh
 mod pipeline_handler;
 use pipeline_handler::PipelineHandler;
+/// A `Uniform` is a structure that manages view and projection matrices.
 mod uniforms;
 use uniforms::Uniforms;
+/// A `BindGroup` manager is a structure that manages a bindgroup and its associated buffer
 mod bindgroup_manager;
-//mod plane_drawer;
+/// This modules defines a trait for drawing widget made of several meshes.
 mod drawable;
+/// A HandleDrawer draws the widget for translating objects
 mod handle_drawer;
 mod maths;
+/// A RotationWidget draws the widget for rotating objects
 mod rotation_widget;
 
 use bindgroup_manager::UniformBindGroup;
@@ -48,6 +56,9 @@ pub struct View {
     /// drawing the next frame
     new_size: Option<PhySize>,
     device: Rc<Device>,
+    /// A bind group associated to the uniform buffer containing the view and projection matrices.
+    //TODO this is currently only passed to the widgets, it could be passed to the mesh pipeline as
+    //well.
     viewer: Rc<RefCell<UniformBindGroup>>,
     need_redraw: bool,
     need_redraw_fake: bool,
@@ -95,7 +106,8 @@ impl View {
         }
     }
 
-    /// Notify the view of an update
+    /// Notify the view of an update. According to the nature of this update, the view decides if
+    /// it needs to be redrawn or not.
     pub fn update(&mut self, view_update: ViewUpdate) {
         self.need_redraw = true;
         match view_update {
@@ -285,6 +297,8 @@ impl View {
         self.camera.borrow().up_vec()
     }
 
+    /// Compute the translation that needs to be applied to the objects affected by the handle
+    /// widget.
     pub fn compute_translation_handle(
         &self,
         x_coord: f32,
@@ -312,22 +326,27 @@ impl View {
         Some(p2 - p1)
     }
 
+    /// Translate the widgets when the associated objects are translated.
     pub fn translate_widgets(&mut self, translation: Vec3) {
         self.need_redraw = true;
         self.handle_drawers.translate(translation);
         self.rotation_widget.translate(translation);
     }
 
+    /// Initialise the rotation that will be applied on objects affected by the rotation widget.
     pub fn init_rotation(&mut self, x_coord: f32, y_coord: f32) {
         self.need_redraw = true;
         self.rotation_widget.init_rotation(x_coord, y_coord)
     }
 
+    /// Initialise the translation that will be applied on objects affected by the handle widget.
     pub fn init_translation(&mut self, x: f32, y: f32) {
         self.need_redraw = true;
         self.handle_drawers.init_translation(x, y)
     }
 
+    /// Compute the rotation that needs to be applied to the objects affected by the rotation
+    /// widget.
     pub fn compute_rotation(&self, x: f32, y: f32, mode: RotationMode) -> Option<(Rotor3, Vec3)> {
         self.rotation_widget.compute_rotation(
             x,
@@ -366,16 +385,27 @@ pub enum ViewUpdate {
     RotationWidget(Option<RotationWidgetDescriptor>),
 }
 
+/// The structure gathers all the pipepline that are used to draw meshes on the scene
 struct PipelineHandlers {
+    /// The nucleotides
     sphere: PipelineHandler,
+    /// The bounds
     tube: PipelineHandler,
-    fake_tube: PipelineHandler,
+    /// The pipepline used to draw nucleotides on the fake texture
     fake_sphere: PipelineHandler,
+    /// The pipepline used to draw bounds on the fake texture
+    fake_tube: PipelineHandler,
+    /// The selected nucleotides
     selected_sphere: PipelineHandler,
+    /// The selected bounds
     selected_tube: PipelineHandler,
+    /// The candidate nucleotides
     candidate_sphere: PipelineHandler,
+    /// The candidate tube
     candidate_tube: PipelineHandler,
+    /// The nucleotides of the phantom helix
     phantom_sphere: PipelineHandler,
+    /// The bounds of the fake helices
     phantom_tube: PipelineHandler,
 }
 
@@ -534,6 +564,7 @@ impl PipelineHandlers {
         vec![&mut self.fake_sphere, &mut self.fake_tube]
     }
 
+    /// Forwards an update to the relevant piplines. Return true if the fake view must be redrawn
     fn update(&mut self, update: ViewUpdate) -> bool {
         match update {
             ViewUpdate::Spheres(instances) => {
@@ -583,12 +614,14 @@ impl PipelineHandlers {
         }
     }
 
+    /// Request an update of the projection and view matrices of all the pipeplines
     fn new_viewer(&mut self, camera: CameraPtr, projection: ProjectionPtr) {
         for pipeline in self.all() {
             pipeline.new_viewer(camera.clone(), projection.clone())
         }
     }
 
+    /// Request an update the model matrices of all the pipelines
     pub fn update_model_matrix(&mut self, design_id: usize, matrix: Mat4) {
         for pipeline in self.all() {
             pipeline.update_model_matrix(design_id, matrix)

@@ -1,9 +1,11 @@
+/// This modules contains structure that manipulate bind groups and their associated buffers.
 use std::rc::Rc;
 
 use crate::utils::create_buffer_with_data;
 use iced_wgpu::wgpu;
 use wgpu::{BindGroup, BindGroupLayout, Buffer, BufferDescriptor, Device, Queue};
 
+/// A bind group with an associated buffer whose size may varry
 pub struct DynamicBindGroup {
     layout: BindGroupLayout,
     buffer: Buffer,
@@ -61,6 +63,7 @@ impl DynamicBindGroup {
         }
     }
 
+    /// Replace the data of the associated buffer.
     pub fn update<I: bytemuck::Pod>(&mut self, data: &[I]) {
         let bytes = bytemuck::cast_slice(data);
         if self.capacity < bytes.len() {
@@ -108,6 +111,7 @@ impl DynamicBindGroup {
     }
 }
 
+/// A structure that manages a bind group associated to a uniform buffer
 pub struct UniformBindGroup {
     layout: BindGroupLayout,
     buffer: Buffer,

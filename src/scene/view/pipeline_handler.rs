@@ -1,3 +1,5 @@
+/// The PipelineHandler are responsible for drawing meshes. They are given a `Mesh`, a vector of
+/// `Instances` and the projection, view and model matrices.
 use crate::utils;
 use iced_wgpu::wgpu;
 use instance::Instance;
@@ -55,7 +57,8 @@ pub struct PipelineHandler {
     pipeline: Option<RenderPipeline>,
 }
 
-/// The type of pipepline
+/// The type of pipepline. This is used to decide which shader modulue shoud be used by the
+/// pipepline
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Flavour {
     /// For drawing tubes and spheres in their real colors
@@ -123,22 +126,30 @@ impl PipelineHandler {
         }
     }
 
+    /// Request an update of the view and projection matrices. This matrices are provided by the camera and
+    /// projection objects.
+    /// These new matrices are used on the next frame
     pub fn new_viewer(&mut self, camera: CameraPtr, projection: ProjectionPtr) {
         self.new_viewer_data = Some(Uniforms::from_view_proj(camera, projection));
     }
 
+    /// Request an update of the set of instances to draw. This update take effects on the next frame
     pub fn new_instances(&mut self, instances: Rc<Vec<Instance>>) {
         self.new_instances = Some(instances.clone())
     }
 
+    /// Request an update all the model matrices
     pub fn new_model_matrices(&mut self, matrices: Rc<Vec<Mat4>>) {
         self.new_model_matrices = Some(matrices)
     }
 
+    /// Request an update of a single model matrix
     pub fn update_model_matrix(&mut self, design_id: usize, matrix: Mat4) {
         self.bind_groups.update_model_matrix(design_id, matrix)
     }
 
+    /// If one or several update of the set of instances were requested before the last call of
+    /// this function, perform the most recent update.
     fn update_instances(&mut self) {
         if let Some(ref instances) = self.new_instances.take() {
             self.number_instances = instances.len();
@@ -147,12 +158,16 @@ impl PipelineHandler {
         }
     }
 
+    /// If one or several update of the view and projection matrices were requested before the last call of
+    /// this function, perform the most recent update.
     fn update_viewer(&mut self) {
         if let Some(viewer_data) = self.new_viewer_data.take() {
             self.bind_groups.update_viewer(&viewer_data)
         }
     }
 
+    /// If one or several update of the model matrices were requested before the last call of
+    /// this function, perform the most recent update.
     fn update_model_matrices(&mut self) {
         if let Some(matrices) = self.new_model_matrices.take() {
             let byte_matrices: Vec<_> = matrices.iter().map(|m| ByteMat4(*m)).collect();
@@ -161,6 +176,7 @@ impl PipelineHandler {
         }
     }
 
+    /// Draw the instances of the mesh on the render pass
     pub fn draw<'a>(&'a mut self, render_pass: &mut RenderPass<'a>) {
         if self.pipeline.is_none() {
             self.pipeline = Some(self.create_pipeline(self.device.as_ref()));
@@ -180,6 +196,8 @@ impl PipelineHandler {
         );
     }
 
+    /// Create a render pipepline. This function is meant to be called once, before drawing for the
+    /// first time.
     fn create_pipeline(&self, device: &Device) -> RenderPipeline {
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -193,11 +211,15 @@ impl PipelineHandler {
                 label: Some("render_pipeline_layout"),
             });
 
+        // texture displayed on the frame requires to use srgb, texture used for object
+        // identification must be in linear format
         let format = match self.flavour {
             Flavour::Fake => wgpu::TextureFormat::Bgra8Unorm,
             _ => wgpu::TextureFormat::Bgra8UnormSrgb,
         };
 
+        // We use alpha blending on texture displayed on the frame. For fake texture we simply rely
+        // on depth.
         let color_blend = if self.flavour != Flavour::Fake {
             wgpu::BlendDescriptor {
                 src_factor: wgpu::BlendFactor::SrcAlpha,
@@ -265,6 +287,7 @@ impl PipelineHandler {
     }
 }
 
+/// Handles the bindgroups and bindgroup layouts of a piepline.
 struct BindGroups {
     instances: DynamicBindGroup,
     viewer: UniformBindGroup,
