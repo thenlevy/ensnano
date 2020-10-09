@@ -17,6 +17,7 @@ enum State {
     MoveCamera,
     Translate(HandleDir),
     Rotate(RotationMode),
+    TogglingWidget,
 }
 
 /// An object handling input and notification for the scene.
@@ -59,6 +60,7 @@ pub enum Consequence {
     Swing(f64, f64),
     Nothing,
     CursorMoved(PhysicalPosition<f64>),
+    ToggleWidget,
 }
 
 impl Controller {
@@ -162,6 +164,14 @@ impl Controller {
                         Consequence::MovementEnded
                     }
                 }
+                State::TogglingWidget => {
+                    if *state == ElementState::Pressed {
+                        Consequence::ToggleWidget
+                    } else {
+                        self.last_left_clicked_position = None;
+                        Consequence::MovementEnded
+                    }
+                }
             },
             WindowEvent::MouseInput {
                 button: MouseButton::Right,
@@ -195,7 +205,7 @@ impl Controller {
                     let mouse_x = position.x / self.area_size.width as f64;
                     let mouse_y = position.y / self.area_size.height as f64;
                     match &self.state {
-                        State::MoveCamera => {
+                        State::MoveCamera | State::TogglingWidget => {
                             self.camera_controller.process_mouse(mouse_dx, mouse_dy);
                             Consequence::CameraMoved
                         }
@@ -258,6 +268,7 @@ impl Controller {
             RIGHT_CIRCLE_ID => self.state = State::Rotate(RotationMode::Right),
             UP_CIRCLE_ID => self.state = State::Rotate(RotationMode::Up),
             FRONT_CIRCLE_ID => self.state = State::Rotate(RotationMode::Front),
+            SPHERE_WIDGET_ID => self.state = State::TogglingWidget,
             _ => self.state = State::MoveCamera,
         }
     }

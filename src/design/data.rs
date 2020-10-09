@@ -274,6 +274,14 @@ impl Data {
             helix.end_movement();
         }
     }
+
+    pub fn get_helix_basis(&self, h_id: usize) -> Option<ultraviolet::Rotor3> {
+        self.design
+            .helices
+            .get(&h_id)
+            .as_ref()
+            .map(|h| h.orientation)
+    }
 }
 
 fn read_file(path: &PathBuf) -> Option<icednano::Design> {

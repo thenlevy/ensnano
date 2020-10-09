@@ -183,6 +183,7 @@ impl Scene {
                 }
             }
             Consequence::CursorMoved(clicked) => self.pixel_to_check = Some(clicked),
+            Consequence::ToggleWidget => self.data.borrow_mut().toggle_widget_basis(),
         };
     }
 
@@ -416,16 +417,17 @@ impl Scene {
     }
 
     fn update_handle(&mut self) {
+        println!("updating handle");
         let origin = self.data.borrow().get_selected_position();
         let descr = origin.clone().map(|origin| HandlesDescriptor {
             origin,
-            orientation: HandleOrientation::Camera,
+            orientation: HandleOrientation::Rotor(self.data.borrow().get_widget_basis()),
             size: 0.25,
         });
         self.view.borrow_mut().update(ViewUpdate::Handles(descr));
         let descr = origin.map(|origin| RotationWidgetDescriptor {
             origin,
-            orientation: RotationWidgetOrientation::Camera,
+            orientation: RotationWidgetOrientation::Rotor(self.data.borrow().get_widget_basis()),
             size: 0.2,
         });
         self.view

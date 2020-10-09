@@ -311,8 +311,13 @@ impl Drawable for Sphere {
         for i in 0..=NB_STACK_SPHERE {
             // 0..=x means that x is included
             let stack_angle = PI / 2. - (i as f32) * stack_step;
-            let xy = self.radius * stack_angle.cos();
-            let z = self.radius * stack_angle.sin();
+            let radius = if fake {
+                SPHERE_RADIUS * SELECT_SCALE_FACTOR
+            } else {
+                self.radius
+            };
+            let xy = radius * stack_angle.cos();
+            let z = radius * stack_angle.sin();
 
             for j in 0..=NB_SECTOR_SPHERE {
                 let sector_angle = j as f32 * sector_step;

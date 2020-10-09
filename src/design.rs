@@ -182,6 +182,23 @@ impl Design {
     pub fn get_strand_color(&self, strand_id: usize) -> Option<u32> {
         self.data.borrow().get_strand_color(strand_id)
     }
+
+    pub fn get_basis(&self) -> ultraviolet::Rotor3 {
+        let mat4 = self.view.borrow().get_model_matrix();
+        let mat3 = ultraviolet::Mat3::new(
+            mat4.transform_vec3(Vec3::unit_x()),
+            mat4.transform_vec3(Vec3::unit_y()),
+            mat4.transform_vec3(Vec3::unit_z()),
+        );
+        mat3.into_rotor3()
+    }
+
+    pub fn get_helix_basis(&self, h_id: u32) -> Option<ultraviolet::Rotor3> {
+        self.data
+            .borrow()
+            .get_helix_basis(h_id as usize)
+            .map(|r| self.get_basis() * r)
+    }
 }
 
 #[derive(Clone)]

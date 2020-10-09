@@ -1,7 +1,6 @@
 //! This modules handles internal informations about the scene, such as the selected objects etc..
 //! It also communicates with the desgings to get the position of the objects to draw on the scene.
 
-
 use super::{View, ViewUpdate};
 use std::cell::RefCell;
 use std::collections::HashSet;
@@ -39,6 +38,7 @@ pub struct Data {
     candidate_update: bool,
     instance_update: bool,
     matrices_update: bool,
+    widget_basis: Option<WidgetBasis>,
 }
 
 impl Data {
@@ -55,6 +55,7 @@ impl Data {
             candidate_update: false,
             instance_update: false,
             matrices_update: false,
+            widget_basis: None,
         }
     }
 
@@ -221,8 +222,14 @@ impl Data {
     /// Update the selection by selecting the group to which a given nucleotide belongs. Return the
     /// selected group
     pub fn set_selection(&mut self, design_id: u32, element_id: u32) -> Selection {
-        self.selection_update |= self.selected != vec![(design_id, element_id)];
-        self.selected = vec![(design_id, element_id)];
+        let future_selection = vec![(design_id, element_id)];
+        if self.selected == future_selection {
+            self.toggle_widget_basis()
+        } else {
+            self.widget_basis = Some(WidgetBasis::World);
+            self.selection_update = true;
+        }
+        self.selected = future_selection;
         self.selected_position = {
             self.selected.get(0).map(|(design_id, element_id)| {
                 self.get_element_position(*design_id, *element_id, Referential::World)
@@ -390,6 +397,31 @@ impl Data {
     pub fn change_rotation_mode(&mut self, rotation_mode: RotationMode) {
         self.rotation_mode = rotation_mode;
     }
+
+    pub fn toggle_widget_basis(&mut self) {
+        println!("toggling widget");
+        self.widget_basis.as_mut().map(|w| w.toggle());
+    }
+
+    pub fn get_widget_basis(&self) -> Rotor3 {
+        match self.widget_basis.as_ref().expect("widget basis") {
+            WidgetBasis::World => Rotor3::identity(),
+            WidgetBasis::Object => self.get_selected_basis().unwrap(),
+        }
+    }
+
+    fn get_selected_basis(&self) -> Option<Rotor3> {
+        let (d_id, e_id) = self.selected[0];
+        match self.selection_mode {
+            SelectionMode::Nucleotide | SelectionMode::Design | SelectionMode::Strand => {
+                Some(self.designs[d_id as usize].get_basis())
+            }
+            SelectionMode::Helix => {
+                let h_id = self.get_selected_group();
+                self.designs[d_id as usize].get_helix_basis(h_id)
+            }
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -463,4 +495,19 @@ impl RotationMode {
         RotationMode::Design,
         RotationMode::Helix,
     ];
+}
+
+#[derive(Clone, Copy)]
+enum WidgetBasis {
+    World,
+    Object,
+}
+
+impl WidgetBasis {
+    pub fn toggle(&mut self) {
+        match self {
+            WidgetBasis::World => *self = WidgetBasis::Object,
+            WidgetBasis::Object => *self = WidgetBasis::World,
+        }
+    }
 }

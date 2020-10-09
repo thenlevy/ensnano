@@ -36,17 +36,6 @@ impl Design3D {
         Rc::new(self.id_to_instances(ids))
     }
 
-    /*
-    /// Extract the ids that are identifier of spheres and return the corresponding instances
-    pub fn extract_spheres(&self, ids: &Vec<u32>) -> Rc<Vec<Instance>> {
-        Rc::new(self.id_to_instances(&mut ids.iter().filter(|id| self.design.lock().unwrap().is_nucl(**id))))
-    }
-
-    /// Extract the ids that are identifier of tubes and return the corresponding instances
-    pub fn extract_tubes(&self, ids: &Vec<u32>) -> Rc<Vec<Instance>> {
-        Rc::new(self.id_to_instances(&mut ids.iter().filter(|id| self.design.lock().unwrap().is_bound(**id))))
-    }*/
-
     pub fn get_model_matrix(&self) -> Mat4 {
         self.design.lock().unwrap().get_model_matrix()
     }
@@ -278,6 +267,14 @@ impl Design3D {
             .get_helix_elements(helix_id as usize)
             .into_iter()
             .collect()
+    }
+
+    pub fn get_helix_basis(&self, h_id: u32) -> Option<Rotor3> {
+        self.design.lock().unwrap().get_helix_basis(h_id)
+    }
+
+    pub fn get_basis(&self) -> Rotor3 {
+        self.design.lock().unwrap().get_basis()
     }
 }
 
