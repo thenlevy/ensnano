@@ -50,9 +50,14 @@ impl Controller {
             IsometryTarget::Helix(n) => {
                 // Helices are rotated in the model coordinates.
                 let origin = self.old_matrix.inversed().transform_point3(rotation.origin);
+                let basis = ultraviolet::Mat3::new(
+                    self.old_matrix.transform_vec3(Vec3::unit_x()),
+                    self.old_matrix.transform_vec3(Vec3::unit_y()),
+                    self.old_matrix.transform_vec3(Vec3::unit_z()),
+                ).into_rotor3();
                 self.data
                     .borrow_mut()
-                    .rotate_helix_arround(n as usize, rotation.rotation, origin)
+                    .rotate_helix_arround(n as usize, basis.reversed() * rotation.rotation, origin)
             }
         }
     }
