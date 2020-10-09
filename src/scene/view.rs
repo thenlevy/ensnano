@@ -60,6 +60,7 @@ pub struct View {
     //TODO this is currently only passed to the widgets, it could be passed to the mesh pipeline as
     //well.
     viewer: Rc<RefCell<UniformBindGroup>>,
+    redraw_twice: bool,
     need_redraw: bool,
     need_redraw_fake: bool,
 }
@@ -101,6 +102,7 @@ impl View {
             viewer,
             handle_drawers: HandlesDrawer::new(device.clone()),
             rotation_widget: RotationWidget::new(device.clone()),
+            redraw_twice: false,
             need_redraw: true,
             need_redraw_fake: true,
         }
@@ -152,7 +154,7 @@ impl View {
     }
 
     pub fn need_redraw(&self) -> bool {
-        self.need_redraw
+        self.need_redraw | self.redraw_twice
     }
 
     /// Draw the scene
@@ -160,9 +162,10 @@ impl View {
         &mut self,
         encoder: &mut wgpu::CommandEncoder,
         target: &wgpu::TextureView,
-        fake_color: bool,
+        draw_type: DrawType,
         area: DrawArea,
     ) {
+        let fake_color = draw_type.is_fake();
         if let Some(size) = self.new_size.take() {
             self.depth_texture = Texture::create_depth_texture(self.device.as_ref(), &size);
         }
@@ -225,8 +228,10 @@ impl View {
             area.size.height,
         );
 
-        for pipeline_handler in handlers.iter_mut() {
-            pipeline_handler.draw(&mut render_pass);
+        if draw_type.wants_mesh() {
+            for pipeline_handler in handlers.iter_mut() {
+                pipeline_handler.draw(&mut render_pass);
+            }
         }
 
         /*
@@ -235,24 +240,31 @@ impl View {
             self.plane_drawer.draw(&mut render_pass, &viewer_bind_group)
         }*/
 
-        self.handle_drawers.draw(
-            &mut render_pass,
-            viewer_bind_group,
-            viewer_bind_group_layout,
-            fake_color,
-        );
+        if draw_type.wants_widget() {
+            self.handle_drawers.draw(
+                &mut render_pass,
+                viewer_bind_group,
+                viewer_bind_group_layout,
+                fake_color,
+            );
 
-        self.rotation_widget.draw(
-            &mut render_pass,
-            viewer_bind_group,
-            viewer_bind_group_layout,
-            fake_color,
-        );
+            self.rotation_widget.draw(
+                &mut render_pass,
+                viewer_bind_group,
+                viewer_bind_group_layout,
+                fake_color,
+            );
+        }
 
         if fake_color {
             self.need_redraw_fake = false;
         } else {
-            self.need_redraw = false;
+            if self.redraw_twice {
+                self.redraw_twice = false;
+                self.need_redraw = true;
+            } else {
+                self.need_redraw = false;
+            }
         }
     }
 
@@ -356,8 +368,8 @@ impl View {
     }
 
     pub fn set_widget_candidate(&mut self, selected_id: u32) {
-        self.need_redraw |= self.rotation_widget.set_selected(selected_id);
-        self.need_redraw |= self.handle_drawers.set_selected(selected_id);
+        self.redraw_twice |= self.rotation_widget.set_selected(selected_id);
+        self.redraw_twice |= self.handle_drawers.set_selected(selected_id);
     }
 }
 
@@ -628,6 +640,35 @@ impl PipelineHandlers {
     pub fn update_model_matrix(&mut self, design_id: usize, matrix: Mat4) {
         for pipeline in self.all() {
             pipeline.update_model_matrix(design_id, matrix)
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Copy, Clone)]
+pub enum DrawType {
+    Scene,
+    ElementID,
+    Widget,
+}
+
+impl DrawType {
+    fn is_fake(&self) -> bool {
+        *self != DrawType::Scene
+    }
+
+    fn wants_mesh(&self) -> bool {
+        match self {
+            DrawType::Scene => true,
+            DrawType::ElementID => true,
+            DrawType::Widget => false,
+        }
+    }
+
+    fn wants_widget(&self) -> bool {
+        match self {
+            DrawType::Scene => true,
+            DrawType::ElementID => false,
+            DrawType::Widget => true,
         }
     }
 }

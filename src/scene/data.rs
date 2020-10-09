@@ -399,7 +399,6 @@ impl Data {
     }
 
     pub fn toggle_widget_basis(&mut self) {
-        println!("toggling widget");
         self.widget_basis.as_mut().map(|w| w.toggle());
     }
 

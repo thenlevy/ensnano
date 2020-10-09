@@ -22,7 +22,7 @@ mod camera;
 mod view;
 use view::{
     HandleDir, HandleOrientation, HandlesDescriptor, RotationMode as WidgetRotationMode,
-    RotationWidgetDescriptor, RotationWidgetOrientation, View, ViewUpdate,
+    RotationWidgetDescriptor, RotationWidgetOrientation, View, ViewUpdate, DrawType,
 };
 /// Handling of inputs and notifications
 mod controller;
@@ -56,6 +56,7 @@ pub struct Scene {
     pixel_to_check: Option<PhysicalPosition<f64>>,
     mediator: MediatorPtr,
     fake_pixels: Option<Vec<u8>>,
+    fake_pixels_widget: Option<Vec<u8>>,
 }
 
 impl Scene {
@@ -97,6 +98,7 @@ impl Scene {
             pixel_to_check: None,
             mediator,
             fake_pixels: None,
+            fake_pixels_widget: None,
         }
     }
 
@@ -222,12 +224,24 @@ impl Scene {
         );
 
         if self.fake_pixels.is_none() || self.view.borrow().need_redraw_fake() {
-            self.fake_pixels = Some(self.update_fake_pixels());
+            self.fake_pixels = Some(self.update_fake_pixels(false));
+            self.fake_pixels_widget = Some(self.update_fake_pixels(true));
         }
 
         let byte0 = (pixel.1 * self.controller.get_window_size().width + pixel.0) as usize
             * std::mem::size_of::<u32>();
-        let pixels = self.fake_pixels.as_ref().unwrap();
+
+        let pixels = self.fake_pixels_widget.as_ref().unwrap();
+        let ret = Self::get_pixel_from_bytes(byte0, pixels);
+        if ret != (0xFF_FF_FF, 0xFF) {
+            ret
+        } else {
+            let pixels = self.fake_pixels.as_ref().unwrap();
+            Self::get_pixel_from_bytes(byte0, pixels)
+        }
+    }
+
+    fn get_pixel_from_bytes(byte0: usize, pixels: &[u8]) -> (u32, u32) {
         let a = pixels[byte0 + 3] as u32;
         let r = (pixels[byte0 + 2] as u32) << 16;
         let g = (pixels[byte0 + 1] as u32) << 8;
@@ -236,7 +250,7 @@ impl Scene {
         (color, a)
     }
 
-    fn update_fake_pixels(&mut self) -> Vec<u8> {
+    fn update_fake_pixels(&mut self, widget: bool) -> Vec<u8> {
         let size = wgpu::Extent3d {
             width: self.controller.get_window_size().width,
             height: self.controller.get_window_size().height,
@@ -249,9 +263,14 @@ impl Scene {
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
 
+        let draw_type = if widget {
+            DrawType::Widget
+        } else {
+            DrawType::ElementID
+        };
         self.view
             .borrow_mut()
-            .draw(&mut encoder, &texture_view, true, self.area);
+            .draw(&mut encoder, &texture_view, draw_type, self.area);
 
         // create a buffer and fill it with the texture
         let extent = wgpu::Extent3d {
@@ -410,11 +429,10 @@ impl Scene {
         &mut self,
         encoder: &mut wgpu::CommandEncoder,
         target: &wgpu::TextureView,
-        fake_color: bool,
     ) {
         self.view
             .borrow_mut()
-            .draw(encoder, target, fake_color, self.area);
+            .draw(encoder, target, DrawType::Scene, self.area);
     }
 
     fn update_handle(&mut self) {

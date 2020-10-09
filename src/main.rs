@@ -403,7 +403,7 @@ fn main() {
                 scene
                     .lock()
                     .unwrap()
-                    .draw_view(&mut encoder, &frame.output.view, false);
+                    .draw_view(&mut encoder, &frame.output.view);
 
                 let viewport = Viewport::with_physical_size(
                     convert_size_u32(multiplexer.window_size),
