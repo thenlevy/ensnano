@@ -31,7 +31,7 @@ use controller::{Consequence, Controller};
 mod data;
 pub use controller::ClickMode;
 use data::Data;
-pub use data::{RotationMode, SelectionMode};
+pub use data::{ActionMode, SelectionMode};
 use design::{
     Design, DesignNotification, DesignNotificationContent, DesignRotation, IsometryTarget,
 };
@@ -117,7 +117,8 @@ impl Scene {
         self.data.borrow().get_selected_designs()
     }
 
-    /// Input an event to the scene. Return true, if the selected object of the scene has changed
+    /// Input an event to the scene. The controller parse the event and return the consequence that
+    /// the event must have. 
     pub fn input(&mut self, event: &WindowEvent, cursor_position: PhysicalPosition<f64>) {
         let consequence = self.controller.input(event, cursor_position);
         match consequence {
@@ -158,30 +159,11 @@ impl Scene {
                 });
             }
             Consequence::Swing(x, y) => {
-                let rotation_mode = self.data.borrow().get_rotation_mode();
-                match rotation_mode {
-                    RotationMode::Camera => {
-                        let pivot = self.data.borrow().get_selected_position();
-                        if let Some(pivot) = pivot {
-                            self.controller.set_pivot_point(pivot);
-                            self.controller.swing(x, y);
-                            self.notify(SceneNotification::CameraMoved);
-                        }
-                    }
-                    RotationMode::Design => {
-                        /*let rotation = DesignRotation {
-                            origin: self.get_selected_position().unwrap(),
-                            up_vec: self.view.borrow().up_vec(),
-                            right_vec: self.view.borrow().right_vec(),
-                            angle_xz: x as f32 * std::f32::consts::PI,
-                            angle_yz: y as f32 * std::f32::consts::PI,
-                        };
-                        self.mediator.lock().unwrap().notify_designs(
-                            &self.data.borrow().get_selected_designs(),
-                            AppNotification::Rotation(&rotation),
-                        )*/
-                    }
-                    _ => (),
+                let pivot = self.data.borrow().get_selected_position();
+                if let Some(pivot) = pivot {
+                    self.controller.set_pivot_point(pivot);
+                    self.controller.swing(x, y);
+                    self.notify(SceneNotification::CameraMoved);
                 }
             }
             Consequence::CursorMoved(clicked) => self.pixel_to_check = Some(clicked),
@@ -477,8 +459,8 @@ impl Scene {
         self.data.borrow_mut().change_selection_mode(selection_mode)
     }
 
-    pub fn change_rotation_mode(&mut self, rotation_mode: RotationMode) {
-        self.data.borrow_mut().change_rotation_mode(rotation_mode)
+    pub fn change_action_mode(&mut self, action_mode: ActionMode) {
+        self.data.borrow_mut().change_action_mode(action_mode)
     }
 }
 

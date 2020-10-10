@@ -297,9 +297,9 @@ fn main() {
                             requests.selection_mode = None;
                         }
 
-                        if let Some(rotation_mode) = requests.rotation_mode {
-                            scene.lock().unwrap().change_rotation_mode(rotation_mode);
-                            requests.rotation_mode = None;
+                        if let Some(action_mode) = requests.action_mode {
+                            scene.lock().unwrap().change_action_mode(action_mode);
+                            requests.action_mode = None;
                         }
 
                         if let Some(color) = requests.strand_color_change {

@@ -5,13 +5,13 @@ pub use top_bar::TopBar;
 pub mod left_panel;
 pub use left_panel::LeftPanel;
 
-use crate::scene::{RotationMode, SelectionMode};
+use crate::scene::{ActionMode, SelectionMode};
 use std::path::PathBuf;
 
 /// A structure that contains all the requests that can be made through the GUI.
 pub struct Requests {
     /// A change of the rotation mode
-    pub rotation_mode: Option<RotationMode>,
+    pub action_mode: Option<ActionMode>,
     /// A change of the selection mode
     pub selection_mode: Option<SelectionMode>,
     /// A request to move the camera so that the frustrum fits the desgin
@@ -30,7 +30,7 @@ impl Requests {
     /// Initialise the request structures with no requests
     pub fn new() -> Self {
         Self {
-            rotation_mode: None,
+            action_mode: None,
             selection_mode: None,
             fitting: false,
             file_add: None,

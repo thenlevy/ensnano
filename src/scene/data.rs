@@ -29,8 +29,8 @@ pub struct Data {
     candidates: Vec<(u32, u32)>,
     /// The kind of selection being perfomed on the scene.
     pub selection_mode: SelectionMode,
-    /// The kind of rotation being perfomed on the scene.
-    pub rotation_mode: RotationMode,
+    /// The kind of action being performed on the scene
+    pub action_mode: ActionMode,
     /// A position determined by the current selection. If only one nucleotide is selected, it's
     /// the position of the nucleotide.
     selected_position: Option<Vec3>,
@@ -49,7 +49,7 @@ impl Data {
             selected: Vec::new(),
             candidates: Vec::new(),
             selection_mode: SelectionMode::default(),
-            rotation_mode: RotationMode::default(),
+            action_mode: Default::default(),
             selected_position: None,
             selection_update: false,
             candidate_update: false,
@@ -390,12 +390,12 @@ impl Data {
         self.selection_mode = selection_mode;
     }
 
-    pub fn get_rotation_mode(&self) -> RotationMode {
-        self.rotation_mode
+    pub fn get_action_mode(&self) -> ActionMode {
+        self.action_mode
     }
 
-    pub fn change_rotation_mode(&mut self, rotation_mode: RotationMode) {
-        self.rotation_mode = rotation_mode;
+    pub fn change_action_mode(&mut self, action_mode: ActionMode) {
+        self.action_mode = action_mode;
     }
 
     pub fn toggle_widget_basis(&mut self) {
@@ -461,38 +461,46 @@ impl SelectionMode {
     ];
 }
 
+/// Describe the action currently done by the user when they click left
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum RotationMode {
-    Camera,
-    Design,
-    Helix,
+pub enum ActionMode {
+    /// User is moving the camera
+    Normal,
+    /// User can translate objects and move the camera
+    Translate,
+    /// User can rotate objects and move the camera
+    Rotate,
+    /// User can elongate/shorten strands
+    Build,
 }
 
-impl Default for RotationMode {
+impl Default for ActionMode {
     fn default() -> Self {
-        RotationMode::Camera
+        ActionMode::Normal
     }
 }
 
-impl std::fmt::Display for RotationMode {
+impl std::fmt::Display for ActionMode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
             "{}",
             match self {
-                RotationMode::Camera => "Camera",
-                RotationMode::Design => "Design",
-                RotationMode::Helix => "Helix",
+                ActionMode::Normal => "Normal",
+                ActionMode::Translate => "Translate",
+                ActionMode::Rotate => "Rotate",
+                ActionMode::Build => "Build",
             }
         )
     }
 }
 
-impl RotationMode {
-    pub const ALL: [RotationMode; 3] = [
-        RotationMode::Camera,
-        RotationMode::Design,
-        RotationMode::Helix,
+impl ActionMode {
+    pub const ALL: [ActionMode; 4] = [
+        ActionMode::Normal,
+        ActionMode::Translate,
+        ActionMode::Rotate,
+        ActionMode::Build,
     ];
 }
 
