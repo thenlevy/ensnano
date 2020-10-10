@@ -57,7 +57,7 @@ impl Controller {
                 ).into_rotor3();
                 self.data
                     .borrow_mut()
-                    .rotate_helix_arround(n as usize, basis.reversed() * rotation.rotation, origin)
+                    .rotate_helix_arround(n as usize, rotation.rotation.rotated_by(basis.reversed()), origin)
             }
         }
     }
