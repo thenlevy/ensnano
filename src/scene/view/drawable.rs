@@ -147,16 +147,23 @@ impl<D: Drawable> Drawer<D> {
             wgpu::TextureFormat::Bgra8UnormSrgb
         };
 
-        let color_blend = wgpu::BlendDescriptor {
-            src_factor: wgpu::BlendFactor::SrcAlpha,
-            dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
-            operation: wgpu::BlendOperation::Add,
+        let color_blend = if !fake {
+            wgpu::BlendDescriptor {
+                src_factor: wgpu::BlendFactor::SrcAlpha,
+                dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+                operation: wgpu::BlendOperation::Add,
+            }
+        } else {
+            wgpu::BlendDescriptor::REPLACE
         };
-
-        let alpha_blend = wgpu::BlendDescriptor {
-            src_factor: wgpu::BlendFactor::One,
-            dst_factor: wgpu::BlendFactor::One,
-            operation: wgpu::BlendOperation::Add,
+        let alpha_blend = if !fake {
+            wgpu::BlendDescriptor {
+                src_factor: wgpu::BlendFactor::One,
+                dst_factor: wgpu::BlendFactor::One,
+                operation: wgpu::BlendOperation::Add,
+            }
+        } else {
+            wgpu::BlendDescriptor::REPLACE
         };
 
         self.device
@@ -241,11 +248,12 @@ impl VertexRaw {
 pub struct Vertex {
     position: Vec3,
     color: u32,
+    fake: bool
 }
 
 impl Vertex {
     fn to_raw(&self, use_alpha: bool) -> VertexRaw {
-        let alpha = if use_alpha {
+        let alpha = if use_alpha || self.fake {
             ((self.color & 0xFF000000) >> 24) as f32 / 255.
         } else {
             1.
@@ -261,7 +269,7 @@ impl Vertex {
         }
     }
 
-    pub fn new(position: Vec3, color: u32) -> Self {
-        Self { position, color }
+    pub fn new(position: Vec3, color: u32, fake: bool) -> Self {
+        Self { position, color, fake}
     }
 }

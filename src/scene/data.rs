@@ -193,6 +193,10 @@ impl Data {
         }
     }
 
+    fn get_helix_identifier(&self, design_id: u32, element_id: u32) -> u32 {
+        self.designs[design_id as usize].get_helix(element_id)
+    }
+
     /// Return the set of elements in a given group
     fn get_group_member(&self, design_id: u32, group_id: u32) -> HashSet<u32> {
         match self.selection_mode {
@@ -279,18 +283,21 @@ impl Data {
         if self.selected.is_empty() {
             return (Rc::new(Vec::new()), Rc::new(Vec::new()));
         }
-        match self.selection_mode {
-            SelectionMode::Helix => {
-                let mut selected_helices = HashSet::new();
-                for (d_id, elt_id) in &self.selected {
-                    let group_id = self.get_group_identifier(*d_id, *elt_id);
-                    selected_helices.insert(group_id);
-                }
-                self.designs[self.selected[0].0 as usize]
-                    .make_phantom_helix_instances(&selected_helices)
+        if self.must_draw_phantom() {
+            let mut selected_helices = HashSet::new();
+            for (d_id, elt_id) in &self.selected {
+                let group_id = self.get_helix_identifier(*d_id, *elt_id);
+                selected_helices.insert(group_id);
             }
-            _ => (Rc::new(Vec::new()), Rc::new(Vec::new())),
+            self.designs[self.selected[0].0 as usize]
+                .make_phantom_helix_instances(&selected_helices)
+        } else {
+            (Rc::new(Vec::new()), Rc::new(Vec::new()))
         }
+    }
+
+    fn must_draw_phantom(&self) -> bool {
+        self.selection_mode == SelectionMode::Helix || self.action_mode == ActionMode::Build
     }
 
     /// Set the set of candidates to a given nucleotide

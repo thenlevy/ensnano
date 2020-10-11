@@ -18,10 +18,10 @@ pub const NB_SECTOR_CIRCLE: u16 = 36;
 
 pub const SELECT_SCALE_FACTOR: f32 = 1.3;
 
-pub const RIGHT_HANDLE_ID: u32 = 0xFF_00_00_00;
-pub const UP_HANDLE_ID: u32 = 0xFF_00_00_01;
-pub const DIR_HANDLE_ID: u32 = 0xFF_00_00_02;
-pub const RIGHT_CIRCLE_ID: u32 = 0xFF_00_00_03;
-pub const UP_CIRCLE_ID: u32 = 0xFF_00_00_04;
-pub const FRONT_CIRCLE_ID: u32 = 0xFF_00_00_05;
-pub const SPHERE_WIDGET_ID: u32 = 0xFF_00_00_06;
+pub const RIGHT_HANDLE_ID: u32 = 0;
+pub const UP_HANDLE_ID: u32 = 1;
+pub const DIR_HANDLE_ID: u32 = 2;
+pub const RIGHT_CIRCLE_ID: u32 = 3;
+pub const UP_CIRCLE_ID: u32 = 4;
+pub const FRONT_CIRCLE_ID: u32 = 5;
+pub const SPHERE_WIDGET_ID: u32 = 6;

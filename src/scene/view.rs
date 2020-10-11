@@ -652,8 +652,9 @@ impl PipelineHandlers {
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub enum DrawType {
     Scene,
-    ElementID,
+    Design,
     Widget,
+    Phantom,
 }
 
 impl DrawType {
@@ -664,16 +665,18 @@ impl DrawType {
     fn wants_mesh(&self) -> bool {
         match self {
             DrawType::Scene => true,
-            DrawType::ElementID => true,
+            DrawType::Design => true,
             DrawType::Widget => false,
+            DrawType::Phantom => false,
         }
     }
 
     fn wants_widget(&self) -> bool {
         match self {
             DrawType::Scene => true,
-            DrawType::ElementID => false,
+            DrawType::Design => false,
             DrawType::Widget => true,
+            DrawType::Phantom => false,
         }
     }
 }

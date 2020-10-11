@@ -1,4 +1,3 @@
-use futures::executor;
 use iced_wgpu::wgpu;
 use iced_winit::winit;
 use std::cell::RefCell;
@@ -35,6 +34,8 @@ pub use data::{ActionMode, SelectionMode};
 use design::{
     Design, DesignNotification, DesignNotificationContent, DesignRotation, IsometryTarget,
 };
+mod element_selector;
+use element_selector::{SceneElement, ElementSelector};
 
 type ViewPtr = Rc<RefCell<View>>;
 type DataPtr = Rc<RefCell<Data>>;
@@ -55,8 +56,7 @@ pub struct Scene {
     area: DrawArea,
     pixel_to_check: Option<PhysicalPosition<f64>>,
     mediator: MediatorPtr,
-    fake_pixels: Option<Vec<u8>>,
-    fake_pixels_widget: Option<Vec<u8>>,
+    element_selector: ElementSelector,
 }
 
 impl Scene {
@@ -87,6 +87,7 @@ impl Scene {
         let data: DataPtr = Rc::new(RefCell::new(Data::new(view.clone())));
         let controller: Controller =
             Controller::new(view.clone(), data.clone(), window_size, area.size);
+        let element_selector = ElementSelector::new(device.clone(), queue.clone(), controller.get_window_size(), view.clone(), data.clone(), area);
         Self {
             device,
             queue,
@@ -97,8 +98,7 @@ impl Scene {
             area,
             pixel_to_check: None,
             mediator,
-            fake_pixels: None,
-            fake_pixels_widget: None,
+            element_selector,
         }
     }
 
@@ -174,10 +174,15 @@ impl Scene {
     }
 
     fn click_on(&mut self, clicked_pixel: PhysicalPosition<f64>) {
-        let (selected_id, design_id) = self.set_selected_id(clicked_pixel);
-        if design_id != 0xFF {
-            let selection = self.data.borrow_mut().set_selection(design_id, selected_id);
-            self.mediator.lock().unwrap().notify_selection(selection);
+        let element = self.element_selector.set_selected_id(clicked_pixel);
+        if let Some(element) = element {
+            match element {
+                SceneElement::DesignElement(design_id, element_id) => {
+                    let selection = self.data.borrow_mut().set_selection(design_id, element_id);
+                    self.mediator.lock().unwrap().notify_selection(selection);
+                }
+                _ => ()
+            }
         } else {
             self.data.borrow_mut().reset_selection();
             self.mediator
@@ -185,164 +190,26 @@ impl Scene {
                 .unwrap()
                 .notify_selection(Selection::Nothing);
         }
+
         self.update_handle();
     }
 
     fn check_on(&mut self, clicked_pixel: PhysicalPosition<f64>) {
-        let (checked_id, design_id) = self.set_selected_id(clicked_pixel);
-        if design_id == 0xFF {
-            self.controller.notify(checked_id);
-            self.view.borrow_mut().set_widget_candidate(checked_id);
-        }
-        if checked_id != 0xFFFFFF && design_id != 0xFF {
-            self.data.borrow_mut().set_candidate(design_id, checked_id);
+        let element = self.element_selector.set_selected_id(clicked_pixel);
+        self.controller.notify(element);
+        if let Some(element) = element {
+            match element {
+                SceneElement::DesignElement(design_id, element_id) =>
+                    self.data.borrow_mut().set_candidate(design_id, element_id),
+                SceneElement::WidgetElement(widget_id) =>
+                    self.view.borrow_mut().set_widget_candidate(widget_id),
+                _ => ()
+            }
         } else {
             self.data.borrow_mut().reset_candidate();
         }
     }
 
-    fn set_selected_id(&mut self, clicked_pixel: PhysicalPosition<f64>) -> (u32, u32) {
-        let pixel = (
-            clicked_pixel.cast::<u32>().x.min(self.area.size.width - 1) + self.area.position.x,
-            clicked_pixel.cast::<u32>().y.min(self.area.size.height - 1) + self.area.position.y,
-        );
-
-        if self.fake_pixels.is_none() || self.view.borrow().need_redraw_fake() {
-            self.fake_pixels = Some(self.update_fake_pixels(false));
-            self.fake_pixels_widget = Some(self.update_fake_pixels(true));
-        }
-
-        let byte0 = (pixel.1 * self.controller.get_window_size().width + pixel.0) as usize
-            * std::mem::size_of::<u32>();
-
-        let pixels = self.fake_pixels_widget.as_ref().unwrap();
-        let ret = Self::get_pixel_from_bytes(byte0, pixels);
-        if ret != (0xFF_FF_FF, 0xFF) {
-            ret
-        } else {
-            let pixels = self.fake_pixels.as_ref().unwrap();
-            Self::get_pixel_from_bytes(byte0, pixels)
-        }
-    }
-
-    fn get_pixel_from_bytes(byte0: usize, pixels: &[u8]) -> (u32, u32) {
-        let a = pixels[byte0 + 3] as u32;
-        let r = (pixels[byte0 + 2] as u32) << 16;
-        let g = (pixels[byte0 + 1] as u32) << 8;
-        let b = pixels[byte0] as u32;
-        let color = r + g + b;
-        (color, a)
-    }
-
-    fn update_fake_pixels(&mut self, widget: bool) -> Vec<u8> {
-        let size = wgpu::Extent3d {
-            width: self.controller.get_window_size().width,
-            height: self.controller.get_window_size().height,
-            depth: 1,
-        };
-
-        let (texture, texture_view) = self.create_fake_scene_texture(self.device.as_ref(), size);
-
-        let mut encoder = self
-            .device
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
-
-        let draw_type = if widget {
-            DrawType::Widget
-        } else {
-            DrawType::ElementID
-        };
-        self.view
-            .borrow_mut()
-            .draw(&mut encoder, &texture_view, draw_type, self.area, self.data.borrow().get_action_mode());
-
-        // create a buffer and fill it with the texture
-        let extent = wgpu::Extent3d {
-            width: size.width,
-            height: size.height,
-            depth: 1,
-        };
-        let buffer_dimensions =
-            BufferDimensions::new(extent.width as usize, extent.height as usize);
-        let buf_size = buffer_dimensions.padded_bytes_per_row * buffer_dimensions.height;
-        let staging_buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
-            size: buf_size as u64,
-            usage: wgpu::BufferUsage::MAP_READ | wgpu::BufferUsage::COPY_DST,
-            mapped_at_creation: false,
-            label: Some("staging_buffer"),
-        });
-        let buffer_copy_view = wgpu::BufferCopyView {
-            buffer: &staging_buffer,
-            layout: wgpu::TextureDataLayout {
-                offset: 0,
-                bytes_per_row: buffer_dimensions.padded_bytes_per_row as u32,
-                rows_per_image: 0,
-            },
-        };
-        let origin = wgpu::Origin3d { x: 0, y: 0, z: 0 };
-        let texture_copy_view = wgpu::TextureCopyView {
-            texture: &texture,
-            mip_level: 0,
-            origin,
-        };
-
-        encoder.copy_texture_to_buffer(texture_copy_view, buffer_copy_view, extent);
-        self.queue.submit(Some(encoder.finish()));
-
-        let buffer_slice = staging_buffer.slice(..);
-        let buffer_future = buffer_slice.map_async(wgpu::MapMode::Read);
-        self.device.poll(wgpu::Maintain::Wait);
-
-        let pixels = async {
-            if let Ok(()) = buffer_future.await {
-                let pixels_slice = buffer_slice.get_mapped_range();
-                let mut pixels = Vec::with_capacity((size.height * size.width) as usize);
-                for chunck in pixels_slice.chunks(buffer_dimensions.padded_bytes_per_row) {
-                    for byte in chunck[..buffer_dimensions.unpadded_bytes_per_row].iter() {
-                        pixels.push(*byte);
-                    }
-                }
-                drop(pixels_slice);
-                staging_buffer.unmap();
-                pixels
-            } else {
-                panic!("could not read fake texture");
-            }
-        };
-        executor::block_on(pixels)
-    }
-
-    fn create_fake_scene_texture(
-        &self,
-        device: &Device,
-        size: wgpu::Extent3d,
-    ) -> (wgpu::Texture, wgpu::TextureView) {
-        let desc = wgpu::TextureDescriptor {
-            size,
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Bgra8Unorm,
-            usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT
-                | wgpu::TextureUsage::SAMPLED
-                | wgpu::TextureUsage::COPY_SRC,
-            label: Some("desc"),
-        };
-        let texture_view_descriptor = wgpu::TextureViewDescriptor {
-            label: Some("texture_view_descriptor"),
-            format: Some(wgpu::TextureFormat::Bgra8Unorm),
-            dimension: Some(wgpu::TextureViewDimension::D2),
-            aspect: wgpu::TextureAspect::All,
-            base_mip_level: 0,
-            level_count: None,
-            base_array_layer: 0,
-            array_layer_count: None,
-        };
-
-        let texture = device.create_texture(&desc);
-        let view = texture.create_view(&texture_view_descriptor);
-        (texture, view)
-    }
 
     fn translate_selected_design(&mut self, translation: Vec3) {
         self.view.borrow_mut().translate_widgets(translation);
@@ -531,6 +398,7 @@ impl Scene {
         self.view.borrow_mut().update(ViewUpdate::Size(window_size));
         self.controller.resize(window_size, self.area.size);
         self.update.camera_update = true;
+        self.element_selector.resize(self.controller.get_window_size(), self.area);
     }
 }
 

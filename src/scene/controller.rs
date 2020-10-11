@@ -1,4 +1,4 @@
-use super::{camera, DataPtr, Duration, HandleDir, ViewPtr, WidgetRotationMode as RotationMode};
+use super::{camera, DataPtr, Duration, HandleDir, ViewPtr, WidgetRotationMode as RotationMode, SceneElement};
 use crate::consts::*;
 use crate::{PhySize, PhysicalPosition, WindowEvent};
 use iced_winit::winit::event::*;
@@ -259,17 +259,20 @@ impl Controller {
         self.window_size
     }
 
-    pub fn notify(&mut self, notification_id: u32) {
-        let notification_id = notification_id | 0xFF_00_00_00;
-        match notification_id {
-            RIGHT_HANDLE_ID => self.state = State::Translate(HandleDir::Right),
-            UP_HANDLE_ID => self.state = State::Translate(HandleDir::Up),
-            DIR_HANDLE_ID => self.state = State::Translate(HandleDir::Dir),
-            RIGHT_CIRCLE_ID => self.state = State::Rotate(RotationMode::Right),
-            UP_CIRCLE_ID => self.state = State::Rotate(RotationMode::Up),
-            FRONT_CIRCLE_ID => self.state = State::Rotate(RotationMode::Front),
-            SPHERE_WIDGET_ID => self.state = State::TogglingWidget,
-            _ => self.state = State::MoveCamera,
+    pub fn notify(&mut self, element: Option<SceneElement>) {
+        if let Some(SceneElement::WidgetElement(widget_id)) = element {
+            match widget_id {
+                RIGHT_HANDLE_ID => self.state = State::Translate(HandleDir::Right),
+                UP_HANDLE_ID => self.state = State::Translate(HandleDir::Up),
+                DIR_HANDLE_ID => self.state = State::Translate(HandleDir::Dir),
+                RIGHT_CIRCLE_ID => self.state = State::Rotate(RotationMode::Right),
+                UP_CIRCLE_ID => self.state = State::Rotate(RotationMode::Up),
+                FRONT_CIRCLE_ID => self.state = State::Rotate(RotationMode::Front),
+                SPHERE_WIDGET_ID => self.state = State::TogglingWidget,
+                _ => self.state = State::MoveCamera,
+            }
+        } else {
+            self.state = State::MoveCamera
         }
     }
 

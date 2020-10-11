@@ -59,7 +59,7 @@ impl RotationWidget {
     }
 
     pub fn set_selected(&mut self, selected_id: u32) -> bool {
-        let selected_id = selected_id | 0xFF_00_00_00;
+        let selected_id = selected_id;
         let new_selection = match selected_id {
             RIGHT_CIRCLE_ID => Some(0),
             UP_CIRCLE_ID => Some(1),
@@ -306,6 +306,7 @@ impl Drawable for Circle {
                         * (1. + thickness / 2.)
                         * (self.right * theta.cos() + self.up * theta.sin()),
                 color,
+                fake,
             ));
             vertices.push(Vertex::new(
                 self.translation
@@ -314,6 +315,7 @@ impl Drawable for Circle {
                         * (1. - thickness / 2.)
                         * (self.right * theta.cos() + self.up * theta.sin()),
                 color,
+                fake,
             ));
         }
         vertices
@@ -379,6 +381,7 @@ impl Drawable for Sphere {
                 vertices.push(Vertex::new(
                     self.translation + self.position + Vec3::new(x, y, z),
                     color,
+                    fake,
                 ))
             }
         }

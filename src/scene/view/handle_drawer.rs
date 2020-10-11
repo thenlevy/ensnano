@@ -168,7 +168,7 @@ impl HandlesDrawer {
     }
 
     pub fn set_selected(&mut self, selected_id: u32) -> bool {
-        let selected_id = selected_id | 0xFF_00_00_00;
+        let selected_id = selected_id;
         let new_selection = match selected_id {
             RIGHT_HANDLE_ID => Some(0),
             UP_HANDLE_ID => Some(1),
@@ -266,6 +266,7 @@ impl Drawable for Handle {
                             + *z * self.direction * length
                             + self.translation,
                         color,
+                        fake,
                     ));
                 }
             }
