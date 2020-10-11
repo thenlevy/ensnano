@@ -396,6 +396,7 @@ impl Data {
 
     pub fn change_action_mode(&mut self, action_mode: ActionMode) {
         self.action_mode = action_mode;
+        self.update_matrices();
     }
 
     pub fn toggle_widget_basis(&mut self) {
@@ -502,6 +503,20 @@ impl ActionMode {
         ActionMode::Rotate,
         ActionMode::Build,
     ];
+
+    pub fn wants_rotation(&self) -> bool {
+        match self {
+            ActionMode::Rotate => true,
+            _ => false,
+        }
+    }
+
+    pub fn wants_handle(&self) -> bool {
+        match self {
+            ActionMode::Translate => true,
+            _ => false,
+        }
+    }
 }
 
 #[derive(Clone, Copy)]

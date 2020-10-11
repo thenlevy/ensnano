@@ -154,9 +154,11 @@ impl Scene {
                     .view
                     .borrow()
                     .compute_rotation(x as f32, y as f32, mode);
-                rotation.map(|(r, o)| {
-                    self.rotate_selected_desgin(r, o);
-                });
+                if let Some((rotation, origin)) = rotation {
+                    self.rotate_selected_desgin(rotation, origin)
+                } else {
+                    println!("Warning rotiation was None")
+                }
             }
             Consequence::Swing(x, y) => {
                 let pivot = self.data.borrow().get_selected_position();
@@ -252,7 +254,7 @@ impl Scene {
         };
         self.view
             .borrow_mut()
-            .draw(&mut encoder, &texture_view, draw_type, self.area);
+            .draw(&mut encoder, &texture_view, draw_type, self.area, self.data.borrow().get_action_mode());
 
         // create a buffer and fill it with the texture
         let extent = wgpu::Extent3d {
@@ -414,7 +416,7 @@ impl Scene {
     ) {
         self.view
             .borrow_mut()
-            .draw(encoder, target, DrawType::Scene, self.area);
+            .draw(encoder, target, DrawType::Scene, self.area, self.data.borrow().get_action_mode());
     }
 
     fn update_handle(&mut self) {

@@ -148,6 +148,7 @@ impl HandlesDrawer {
                 self.drawers[i].new_object(None);
             }
         }
+        self.big_handle_drawer.new_object(self.big_handle)
     }
 
     pub fn drawers(&mut self) -> &mut [Drawer<Handle>; 3] {
@@ -198,6 +199,7 @@ impl HandlesDrawer {
                 }
             })
             .unwrap_or(());
+        self.big_handle.as_mut().map(|h| h.translation = translation);
         self.update_drawers();
     }
 }

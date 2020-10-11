@@ -1,7 +1,7 @@
 //! The view module handles the drawing of the scene on texture. The scene can be drawn on the next
 //! frame to be displayed, or on a "fake texture" that is used to map pixels to objects.
 
-use super::camera;
+use super::{camera, ActionMode};
 use crate::utils::{instance, mesh, texture};
 use crate::{DrawArea, PhySize};
 use camera::{Camera, CameraPtr, Projection, ProjectionPtr};
@@ -164,6 +164,7 @@ impl View {
         target: &wgpu::TextureView,
         draw_type: DrawType,
         area: DrawArea,
+        action_mode: ActionMode,
     ) {
         let fake_color = draw_type.is_fake();
         if let Some(size) = self.new_size.take() {
@@ -241,19 +242,23 @@ impl View {
         }*/
 
         if draw_type.wants_widget() {
-            self.handle_drawers.draw(
-                &mut render_pass,
-                viewer_bind_group,
-                viewer_bind_group_layout,
-                fake_color,
-            );
+            if action_mode.wants_handle() {
+                self.handle_drawers.draw(
+                    &mut render_pass,
+                    viewer_bind_group,
+                    viewer_bind_group_layout,
+                    fake_color,
+                );
+            }
 
-            self.rotation_widget.draw(
-                &mut render_pass,
-                viewer_bind_group,
-                viewer_bind_group_layout,
-                fake_color,
-            );
+            if action_mode.wants_rotation() {
+                self.rotation_widget.draw(
+                    &mut render_pass,
+                    viewer_bind_group,
+                    viewer_bind_group_layout,
+                    fake_color,
+                );
+            }
         }
 
         if fake_color {
