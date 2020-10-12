@@ -3,7 +3,7 @@
 
 use super::{SceneElement, View, ViewUpdate};
 use std::cell::RefCell;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 
@@ -39,7 +39,6 @@ pub struct Data {
     instance_update: bool,
     matrices_update: bool,
     widget_basis: Option<WidgetBasis>,
-    phantom_helix: Option<HelixDescr>,
 }
 
 impl Data {
@@ -57,7 +56,6 @@ impl Data {
             instance_update: false,
             matrices_update: false,
             widget_basis: None,
-            phantom_helix: None,
         }
     }
 
@@ -279,7 +277,6 @@ impl Data {
             self.selection_update = true;
         }
         self.selected = future_selection;
-        self.update_phantom_helix(element);
         self.update_selected_position();
         let selection = if let Some(element) = element {
             match element {
@@ -298,22 +295,6 @@ impl Data {
             Selection::Nothing
         };
         Some(selection)
-    }
-
-    fn update_phantom_helix(&mut self, element: Option<SceneElement>) {
-        match element {
-            Some(SceneElement::DesignElement(design_id, element_id)) => {
-                if self.selection_mode == SelectionMode::Helix || self.action_mode == ActionMode::Build {
-                    let helix_id = self.get_helix_identifier(design_id, element_id);
-                    self.phantom_helix = Some(HelixDescr{ design: design_id, helix: helix_id });
-                }
-                else {
-                    self.phantom_helix = None
-                }
-            }
-            Some(SceneElement::PhantomElement(_)) => (),
-            _ => self.phantom_helix = None
-        }
     }
 
     /// This function must be called when the current movement ends.
@@ -359,18 +340,55 @@ impl Data {
             return (Rc::new(Vec::new()), Rc::new(Vec::new()));
         }
         if self.must_draw_phantom() {
-            let mut selected_helices = HashSet::new();
-            selected_helices.insert(self.phantom_helix.as_ref().unwrap().helix);
-            let d_id = self.phantom_helix.as_ref().unwrap().design;
-            self.designs[d_id as usize]
-                .make_phantom_helix_instances(&selected_helices)
+            let phantom_map = self.get_phantom_helices_set();
+            let mut ret_sphere = Vec::new();
+            let mut ret_tube = Vec::new();
+            for (d_id, set) in phantom_map.iter() {
+                let (spheres, tubes) = self.designs[*d_id as usize]
+                    .make_phantom_helix_instances(set);
+                for sphere in spheres.iter().cloned() {
+                    ret_sphere.push(sphere);
+                }
+                for tube in tubes.iter().cloned() {
+                    ret_tube.push(tube);
+                }
+            }
+            (Rc::new(ret_sphere), Rc::new(ret_tube))
         } else {
             (Rc::new(Vec::new()), Rc::new(Vec::new()))
         }
     }
 
+    fn get_phantom_helices_set(&self) -> HashMap<u32, HashSet<u32>> {
+        let mut ret = HashMap::new();
+        for element in self.selected.iter() {
+            match element {
+                SceneElement::DesignElement(d_id, elt_id) => {
+                    let set = ret.entry(*d_id).or_insert(HashSet::new());
+                    set.insert(self.get_helix_identifier(*d_id, *elt_id));
+                }
+                SceneElement::PhantomElement(phantom_element) => {
+                    let set = ret.entry(phantom_element.design_id).or_insert(HashSet::new());
+                    set.insert(phantom_element.helix_id);
+                }
+                SceneElement::WidgetElement(_) => unreachable!(),
+            }
+        }
+        ret
+    }
+
     fn must_draw_phantom(&self) -> bool {
-        self.phantom_helix.is_some()
+        let ret = self.selection_mode == SelectionMode::Helix || self.action_mode == ActionMode::Build;
+        if ret {
+            true
+        } else {
+            for element in self.selected.iter() {
+                if let SceneElement::PhantomElement(_) = element {
+                    return true
+                }
+            }
+            false
+        }
     }
 
     /// Set the set of candidates to a given nucleotide
