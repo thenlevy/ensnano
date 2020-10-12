@@ -185,10 +185,11 @@ impl View {
                 a: 1.,
             }
         };
-        let mut handlers = if fake_color {
-            self.pipeline_handlers.fake()
-        } else {
-            self.pipeline_handlers.real()
+        let mut handlers = match draw_type {
+            DrawType::Design => self.pipeline_handlers.fake(),
+            DrawType::Scene => self.pipeline_handlers.real(),
+            DrawType::Phantom => self.pipeline_handlers.fake_phantoms(),
+            _ => Vec::new(),
         };
         let viewer = self.viewer.borrow();
         let viewer_bind_group = viewer.get_bindgroup();
@@ -229,10 +230,8 @@ impl View {
             area.size.height,
         );
 
-        if draw_type.wants_mesh() {
-            for pipeline_handler in handlers.iter_mut() {
-                pipeline_handler.draw(&mut render_pass);
-            }
+        for pipeline_handler in handlers.iter_mut() {
+            pipeline_handler.draw(&mut render_pass);
         }
 
         /*
@@ -372,7 +371,7 @@ impl View {
         )
     }
 
-    pub fn set_widget_candidate(&mut self, selected_id: u32) {
+    pub fn set_widget_candidate(&mut self, selected_id: Option<u32>) {
         self.redraw_twice |= self.rotation_widget.set_selected(selected_id);
         self.redraw_twice |= self.handle_drawers.set_selected(selected_id);
     }
@@ -425,8 +424,10 @@ struct PipelineHandlers {
     candidate_tube: PipelineHandler,
     /// The nucleotides of the phantom helix
     phantom_sphere: PipelineHandler,
-    /// The bounds of the fake helices
+    /// The bounds of the phantom helix
     phantom_tube: PipelineHandler,
+    fake_phantom_sphere: PipelineHandler,
+    fake_phantom_tube: PipelineHandler,
 }
 
 impl PipelineHandlers {
@@ -446,6 +447,8 @@ impl PipelineHandlers {
         let candidate_tube_mesh = mesh::Mesh::tube(device.as_ref(), true);
         let phantom_tube_mesh = mesh::Mesh::tube(device.as_ref(), false);
         let phantom_sphere_mesh = mesh::Mesh::sphere(device.as_ref(), false);
+        let fake_phantom_sphere_mesh = mesh::Mesh::sphere(device.as_ref(), false);
+        let fake_phantom_tube_mesh = mesh::Mesh::tube(device.as_ref(), false);
 
         let sphere_pipeline_handler = PipelineHandler::new(
             device.clone(),
@@ -537,6 +540,24 @@ impl PipelineHandlers {
             PrimitiveTopology::TriangleStrip,
             pipeline_handler::Flavour::Phantom,
         );
+        let fake_phantom_sphere = PipelineHandler::new(
+            device.clone(),
+            queue.clone(),
+            fake_phantom_sphere_mesh,
+            camera,
+            projection,
+            PrimitiveTopology::TriangleStrip,
+            pipeline_handler::Flavour::Fake,
+        );
+        let fake_phantom_tube = PipelineHandler::new(
+            device.clone(),
+            queue.clone(),
+            fake_phantom_tube_mesh,
+            camera,
+            projection,
+            PrimitiveTopology::TriangleStrip,
+            pipeline_handler::Flavour::Fake,
+        );
 
         Self {
             sphere: sphere_pipeline_handler,
@@ -549,6 +570,8 @@ impl PipelineHandlers {
             candidate_tube,
             phantom_sphere,
             phantom_tube,
+            fake_phantom_sphere,
+            fake_phantom_tube,
         }
     }
 
@@ -564,6 +587,8 @@ impl PipelineHandlers {
             &mut self.candidate_sphere,
             &mut self.phantom_tube,
             &mut self.phantom_sphere,
+            &mut self.fake_phantom_tube,
+            &mut self.fake_phantom_sphere,
         ]
     }
 
@@ -577,6 +602,13 @@ impl PipelineHandlers {
             &mut self.candidate_sphere,
             &mut self.phantom_tube,
             &mut self.phantom_sphere,
+        ]
+    }
+
+    fn fake_phantoms(&mut self) -> Vec<&mut PipelineHandler> {
+        vec![
+            &mut self.fake_phantom_sphere,
+            &mut self.fake_phantom_tube,
         ]
     }
 
@@ -621,8 +653,10 @@ impl PipelineHandlers {
                 false
             }
             ViewUpdate::PhantomInstances(sphere, tube) => {
-                self.phantom_sphere.new_instances(sphere);
-                self.phantom_tube.new_instances(tube);
+                self.phantom_sphere.new_instances(sphere.clone());
+                self.phantom_tube.new_instances(tube.clone());
+                self.fake_phantom_sphere.new_instances(sphere);
+                self.fake_phantom_tube.new_instances(tube);
                 false
             }
             ViewUpdate::Camera
@@ -668,6 +702,14 @@ impl DrawType {
             DrawType::Design => true,
             DrawType::Widget => false,
             DrawType::Phantom => false,
+        }
+    }
+
+    fn wants_phantom(&self) -> bool {
+        match self {
+            DrawType::Scene => true,
+            DrawType::Phantom => true,
+            _ => false,
         }
     }
 

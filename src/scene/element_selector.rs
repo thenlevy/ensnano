@@ -4,7 +4,8 @@ use futures::executor;
 use iced_winit::winit::dpi::{PhysicalSize, PhysicalPosition};
 use iced_wgpu::wgpu;
 use super::{DrawArea, DrawType, Device, ViewPtr, Queue, DataPtr};
-use crate::utils::BufferDimensions;
+use crate::utils;
+use utils::BufferDimensions;
 
 pub struct ElementSelector {
     device: Rc<Device>,
@@ -192,7 +193,7 @@ impl ElementSelector {
 pub enum SceneElement {
     DesignElement(u32, u32),
     WidgetElement(u32),
-    PhantomElement(u32)
+    PhantomElement(utils::PhantomElement)
 }
 
 struct SceneReader {
@@ -220,7 +221,7 @@ impl SceneReader {
         } else {
             match self.draw_type {
                 DrawType::Design => Some(SceneElement::DesignElement(a, color)),
-                DrawType::Phantom => Some(SceneElement::PhantomElement(color)),
+                DrawType::Phantom => Some(SceneElement::PhantomElement(utils::phantom_helix_decoder(color))),
                 DrawType::Widget => Some(SceneElement::WidgetElement(color)),
                 DrawType::Scene => unreachable!(),
             }

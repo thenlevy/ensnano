@@ -25,3 +25,5 @@ pub const RIGHT_CIRCLE_ID: u32 = 3;
 pub const UP_CIRCLE_ID: u32 = 4;
 pub const FRONT_CIRCLE_ID: u32 = 5;
 pub const SPHERE_WIDGET_ID: u32 = 6;
+
+pub const PHANTOM_RANGE: i32 = 1000;

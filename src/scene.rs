@@ -42,8 +42,6 @@ type DataPtr = Rc<RefCell<Data>>;
 
 /// A structure responsible of the 3D display of the designs
 pub struct Scene {
-    device: Rc<Device>,
-    queue: Rc<Queue>,
     /// The update to be performed before next frame
     update: SceneUpdate,
     /// The Object that handles the drawing to the 3d texture
@@ -89,8 +87,6 @@ impl Scene {
             Controller::new(view.clone(), data.clone(), window_size, area.size);
         let element_selector = ElementSelector::new(device.clone(), queue.clone(), controller.get_window_size(), view.clone(), data.clone(), area);
         Self {
-            device,
-            queue,
             view,
             data,
             update,
@@ -175,39 +171,38 @@ impl Scene {
 
     fn click_on(&mut self, clicked_pixel: PhysicalPosition<f64>) {
         let element = self.element_selector.set_selected_id(clicked_pixel);
-        if let Some(element) = element {
-            match element {
-                SceneElement::DesignElement(design_id, element_id) => {
-                    let selection = self.data.borrow_mut().set_selection(design_id, element_id);
-                    self.mediator.lock().unwrap().notify_selection(selection);
-                }
-                _ => ()
-            }
-        } else {
-            self.data.borrow_mut().reset_selection();
+        let selection = self.data.borrow_mut().set_selection(element);
+        if let Some(selection) = selection {
             self.mediator
                 .lock()
                 .unwrap()
-                .notify_selection(Selection::Nothing);
+                .notify_selection(selection);
         }
-
         self.update_handle();
     }
 
     fn check_on(&mut self, clicked_pixel: PhysicalPosition<f64>) {
         let element = self.element_selector.set_selected_id(clicked_pixel);
         self.controller.notify(element);
+        self.data.borrow_mut().set_candidate(element);
+        let widget = if let Some(SceneElement::WidgetElement(widget_id)) = element {
+            Some(widget_id)
+        } else {
+            None
+        };
+        /*
         if let Some(element) = element {
             match element {
                 SceneElement::DesignElement(design_id, element_id) =>
                     self.data.borrow_mut().set_candidate(design_id, element_id),
                 SceneElement::WidgetElement(widget_id) =>
-                    self.view.borrow_mut().set_widget_candidate(widget_id),
+                    widget = Some(widget_id),
                 _ => ()
             }
         } else {
             self.data.borrow_mut().reset_candidate();
-        }
+        }*/
+        self.view.borrow_mut().set_widget_candidate(widget);
     }
 
 

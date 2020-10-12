@@ -58,12 +58,11 @@ impl RotationWidget {
         self.update_camera(camera, projection);
     }
 
-    pub fn set_selected(&mut self, selected_id: u32) -> bool {
-        let selected_id = selected_id;
+    pub fn set_selected(&mut self, selected_id: Option<u32>) -> bool {
         let new_selection = match selected_id {
-            RIGHT_CIRCLE_ID => Some(0),
-            UP_CIRCLE_ID => Some(1),
-            FRONT_CIRCLE_ID => Some(2),
+            Some(RIGHT_CIRCLE_ID) => Some(0),
+            Some(UP_CIRCLE_ID) => Some(1),
+            Some(FRONT_CIRCLE_ID) => Some(2),
             _ => None,
         };
         let ret = new_selection != self.selected;

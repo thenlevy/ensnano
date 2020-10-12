@@ -167,12 +167,12 @@ impl HandlesDrawer {
         })
     }
 
-    pub fn set_selected(&mut self, selected_id: u32) -> bool {
+    pub fn set_selected(&mut self, selected_id: Option<u32>) -> bool {
         let selected_id = selected_id;
         let new_selection = match selected_id {
-            RIGHT_HANDLE_ID => Some(0),
-            UP_HANDLE_ID => Some(1),
-            DIR_HANDLE_ID => Some(2),
+            Some(RIGHT_HANDLE_ID) => Some(0),
+            Some(UP_HANDLE_ID) => Some(1),
+            Some(DIR_HANDLE_ID) => Some(2),
             _ => None,
         };
         let ret = new_selection != self.selected;

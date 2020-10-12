@@ -4,6 +4,8 @@ use std::collections::HashSet;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 use ultraviolet::{Mat4, Rotor3, Vec3};
+use crate::consts::*;
+use crate::utils;
 
 /// An object that handles the 3d graphcial representation of a `Design`
 pub struct Design3D {
@@ -63,11 +65,30 @@ impl Design3D {
         instanciable.to_instance(false)
     }
 
+    pub fn make_instance_phantom(&self, phantom_element: &utils::PhantomElement) -> Instance {
+        let helix_id = phantom_element.helix_id;
+        let i = phantom_element.position;
+        let forward = phantom_element.forward;
+        let color = 0xA0D0D0D0;
+        if phantom_element.bound {
+            let nucl_1 = self.design.lock().unwrap().get_helix_nucl(helix_id as usize, i as isize, forward);
+            let nucl_2 = self.design.lock().unwrap().get_helix_nucl(helix_id as usize, (i - 1) as isize, forward);
+            let id = utils::phantom_helix_encoder_bound(self.id, helix_id, i, forward);
+                Instantiable::new(ObjectRepr::Tube(nucl_1, nucl_2), color, id)
+                    .to_instance(true)
+        } else {
+            let nucl_coord = self.design.lock().unwrap().get_helix_nucl(helix_id as usize, i as isize, forward);
+            let id = utils::phantom_helix_encoder_nucl(self.id, helix_id, i, forward);
+            Instantiable::new(ObjectRepr::Sphere(nucl_coord), color, id)
+                .to_instance(true)
+        }
+    }
+
     pub fn make_phantom_helix_instances(
         &self,
         helix_ids: &HashSet<u32>,
     ) -> (Rc<Vec<Instance>>, Rc<Vec<Instance>>) {
-        let range_phantom = 1000;
+        let range_phantom = PHANTOM_RANGE;
         let mut spheres = Vec::new();
         let mut tubes = Vec::new();
         for helix_id in helix_ids.iter() {
@@ -78,14 +99,15 @@ impl Design3D {
                         self.design
                             .lock()
                             .unwrap()
-                            .get_helix_nucl(*helix_id as usize, i, *forward);
+                            .get_helix_nucl(*helix_id as usize, i as isize, *forward);
                     let color = 0xA0D0D0D0;
-                    let id = self.id << 24;
+                    let id = utils::phantom_helix_encoder_nucl(self.id, *helix_id, i, *forward);
                     spheres.push(
                         Instantiable::new(ObjectRepr::Sphere(nucl_coord), color, id)
                             .to_instance(true),
                     );
                     if let Some(coord) = previous_nucl {
+                        let id = utils::phantom_helix_encoder_bound(self.id, *helix_id, i, *forward);
                         tubes.push(
                             Instantiable::new(ObjectRepr::Tube(nucl_coord, coord), color, id)
                                 .to_instance(true),

@@ -338,7 +338,6 @@ impl ObjectType {
         }
     }
 
-    #[allow(dead_code)]
     pub fn is_bound(&self) -> bool {
         match self {
             ObjectType::Bound(_, _) => true,

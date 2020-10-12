@@ -1,7 +1,7 @@
 //! This modules handles internal informations about the scene, such as the selected objects etc..
 //! It also communicates with the desgings to get the position of the objects to draw on the scene.
 
-use super::{View, ViewUpdate};
+use super::{SceneElement, View, ViewUpdate};
 use std::cell::RefCell;
 use std::collections::HashSet;
 use std::rc::Rc;
@@ -23,10 +23,10 @@ pub struct Data {
     view: ViewPtr,
     /// A `Design3D` is associated to each design.
     designs: Vec<Design3D>,
-    /// The set of selected elements represented by `(design identifier, group identifier)`
-    selected: Vec<(u32, u32)>,
-    /// The set of candidates elements represented by `(design identifier, group identifier)`
-    candidates: Vec<(u32, u32)>,
+    /// The set of selected elements
+    selected: Vec<SceneElement>,
+    /// The set of candidates elements
+    candidates: Vec<SceneElement>,
     /// The kind of selection being perfomed on the scene.
     pub selection_mode: SelectionMode,
     /// The kind of action being performed on the scene
@@ -39,6 +39,7 @@ pub struct Data {
     instance_update: bool,
     matrices_update: bool,
     widget_basis: Option<WidgetBasis>,
+    phantom_helix: Option<HelixDescr>,
 }
 
 impl Data {
@@ -56,6 +57,7 @@ impl Data {
             instance_update: false,
             matrices_update: false,
             widget_basis: None,
+            phantom_helix: None,
         }
     }
 
@@ -101,22 +103,37 @@ impl Data {
 
     /// Return the sets of selected designs
     pub fn get_selected_designs(&self) -> HashSet<u32> {
-        self.selected.iter().map(|x| x.0).collect()
+        self.selected.iter().map(|x| self.get_element_design(x)).collect()
+    }
+
+    fn get_element_design(&self, element: &SceneElement) -> u32 {
+        match element {
+            SceneElement::DesignElement(d_id, _) => *d_id,
+            SceneElement::PhantomElement(phantom_element) => phantom_element.design_id,
+            _ => unreachable!()
+        }
     }
 
     /// Convert `self.selection` into a set of elements according to `self.selection_mode`
-    fn expand_selection(&self, object_type: ObjectType) -> HashSet<(u32, u32)> {
-        let mut ret = HashSet::new();
-        for (d_id, elt_id) in &self.selected {
-            let group_id = self.get_group_identifier(*d_id, *elt_id);
-            let group = self.get_group_member(*d_id, group_id);
-            for elt in group.iter() {
-                if self.designs[*d_id as usize]
-                    .get_element_type(*elt)
-                    .unwrap()
-                    .same_type(object_type)
-                {
-                    ret.insert((*d_id, *elt));
+    fn expand_selection(&self, object_type: ObjectType) -> Vec<SceneElement> {
+        let mut ret = Vec::new();
+        for element in &self.selected {
+            if let SceneElement::DesignElement(d_id, elt_id) = element {
+                let group_id = self.get_group_identifier(*d_id, *elt_id);
+                let group = self.get_group_member(*d_id, group_id);
+                for elt in group.iter() {
+                    if self.designs[*d_id as usize]
+                        .get_element_type(*elt)
+                        .unwrap()
+                        .same_type(object_type)
+                    {
+                        ret.push(SceneElement::DesignElement(*d_id, *elt));
+                    }
+                }
+            }
+            else if let SceneElement::PhantomElement(phantom_element) = element {
+                if phantom_element.bound == object_type.is_bound() {
+                    ret.push(SceneElement::PhantomElement(*phantom_element));
                 }
             }
         }
@@ -126,16 +143,18 @@ impl Data {
     /// Convert `self.candidates` into a set of elements according to `self.selection_mode`
     fn expand_candidate(&self, object_type: ObjectType) -> HashSet<(u32, u32)> {
         let mut ret = HashSet::new();
-        for (d_id, elt_id) in &self.candidates {
-            let group_id = self.get_group_identifier(*d_id, *elt_id);
-            let group = self.get_group_member(*d_id, group_id);
-            for elt in group.iter() {
-                if self.designs[*d_id as usize]
-                    .get_element_type(*elt)
-                    .unwrap()
-                    .same_type(object_type)
-                {
-                    ret.insert((*d_id, *elt));
+        for element in &self.candidates {
+            if let SceneElement::DesignElement(d_id, elt_id) = element {
+                let group_id = self.get_group_identifier(*d_id, *elt_id);
+                let group = self.get_group_member(*d_id, group_id);
+                for elt in group.iter() {
+                    if self.designs[*d_id as usize]
+                        .get_element_type(*elt)
+                        .unwrap()
+                        .same_type(object_type)
+                    {
+                        ret.insert((*d_id, *elt));
+                    }
                 }
             }
         }
@@ -145,8 +164,14 @@ impl Data {
     /// Return the instances of selected spheres
     pub fn get_selected_spheres(&self) -> Rc<Vec<Instance>> {
         let mut ret = Vec::with_capacity(self.selected.len());
-        for (d_id, id) in self.expand_selection(ObjectType::Nucleotide(0)).iter() {
-            ret.push(self.designs[*d_id as usize].make_instance(*id))
+        for element in self.expand_selection(ObjectType::Nucleotide(0)).iter() {
+            match element {
+                SceneElement::DesignElement(d_id, id) =>
+                    ret.push(self.designs[*d_id as usize].make_instance(*id)),
+                SceneElement::PhantomElement(phantom_element) =>
+                    ret.push(self.designs[phantom_element.design_id as usize].make_instance_phantom(phantom_element)),
+                _ => unreachable!(),
+            }
         }
         Rc::new(ret)
     }
@@ -154,8 +179,14 @@ impl Data {
     /// Return the instances of selected tubes
     pub fn get_selected_tubes(&self) -> Rc<Vec<Instance>> {
         let mut ret = Vec::with_capacity(self.selected.len());
-        for (d_id, id) in self.expand_selection(ObjectType::Bound(0, 0)).iter() {
-            ret.push(self.designs[*d_id as usize].make_instance(*id))
+        for element in self.expand_selection(ObjectType::Bound(0, 0)).iter() {
+            match element {
+                SceneElement::DesignElement(d_id, id) =>
+                    ret.push(self.designs[*d_id as usize].make_instance(*id)),
+                SceneElement::PhantomElement(phantom_element) =>
+                    ret.push(self.designs[phantom_element.design_id as usize].make_instance_phantom(phantom_element)),
+                _ => unreachable!(),
+            }
         }
         Rc::new(ret)
     }
@@ -180,7 +211,13 @@ impl Data {
 
     /// Return the identifier of the first selected group
     pub fn get_selected_group(&self) -> u32 {
-        self.get_group_identifier(self.selected[0].0, self.selected[0].1)
+        match self.selected.get(0) {
+            Some(SceneElement::DesignElement(design_id, element_id)) => 
+                self.get_group_identifier(*design_id, *element_id),
+            Some(SceneElement::PhantomElement(phantom_element)) =>
+                phantom_element.helix_id,
+            _ => unreachable!()
+        }
     }
 
     /// Return the group to which an element belongs. The group depends on self.selection_mode.
@@ -225,8 +262,16 @@ impl Data {
 
     /// Update the selection by selecting the group to which a given nucleotide belongs. Return the
     /// selected group
-    pub fn set_selection(&mut self, design_id: u32, element_id: u32) -> Selection {
-        let future_selection = vec![(design_id, element_id)];
+    pub fn set_selection(&mut self, element: Option<SceneElement>) -> Option<Selection> {
+        println!("element {:?}", element);
+        if let Some(SceneElement::WidgetElement(_)) = element {
+            return None
+        }
+        let future_selection = if let Some(element) = element {
+            vec![element]
+        } else {
+            Vec::new()
+        };
         if self.selected == future_selection {
             self.toggle_widget_basis()
         } else {
@@ -234,26 +279,56 @@ impl Data {
             self.selection_update = true;
         }
         self.selected = future_selection;
-        self.selected_position = {
-            self.selected.get(0).map(|(design_id, element_id)| {
-                self.get_element_position(*design_id, *element_id, Referential::World)
-            })
+        self.update_phantom_helix(element);
+        self.update_selected_position();
+        let selection = if let Some(element) = element {
+            match element {
+                SceneElement::DesignElement(design_id, element_id) => {
+                    let group_id = self.get_group_identifier(design_id, element_id);
+                    match self.selection_mode {
+                        SelectionMode::Design => Selection::Design(design_id),
+                        SelectionMode::Strand => Selection::Strand(design_id, group_id),
+                        SelectionMode::Nucleotide => Selection::Nucleotide(design_id, group_id),
+                        SelectionMode::Helix => Selection::Helix(design_id, group_id),
+                    }
+                }
+                _ => Selection::Nothing
+            }
+        } else {
+            Selection::Nothing
         };
-        let group_id = self.get_group_identifier(design_id, element_id);
-        match self.selection_mode {
-            SelectionMode::Design => Selection::Design(design_id),
-            SelectionMode::Strand => Selection::Strand(design_id, group_id),
-            SelectionMode::Nucleotide => Selection::Nucleotide(design_id, group_id),
-            SelectionMode::Helix => Selection::Helix(design_id, group_id),
+        Some(selection)
+    }
+
+    fn update_phantom_helix(&mut self, element: Option<SceneElement>) {
+        match element {
+            Some(SceneElement::DesignElement(design_id, element_id)) => {
+                if self.selection_mode == SelectionMode::Helix || self.action_mode == ActionMode::Build {
+                    let helix_id = self.get_helix_identifier(design_id, element_id);
+                    self.phantom_helix = Some(HelixDescr{ design: design_id, helix: helix_id });
+                }
+                else {
+                    self.phantom_helix = None
+                }
+            }
+            Some(SceneElement::PhantomElement(_)) => (),
+            _ => self.phantom_helix = None
         }
     }
 
     /// This function must be called when the current movement ends.
     pub fn end_movement(&mut self) {
+        self.update_selected_position()
+    }
+
+    fn update_selected_position(&mut self) {
         self.selected_position = {
-            self.selected.get(0).map(|(design_id, element_id)| {
-                self.get_element_position(*design_id, *element_id, Referential::World)
-            })
+            let element = self.selected.get(0);
+            match element {
+                Some(SceneElement::DesignElement(design_id, element_id)) => 
+                    Some(self.get_element_position(*design_id, *element_id, Referential::World)),
+                _ => None
+            }
         };
     }
 
@@ -285,11 +360,9 @@ impl Data {
         }
         if self.must_draw_phantom() {
             let mut selected_helices = HashSet::new();
-            for (d_id, elt_id) in &self.selected {
-                let group_id = self.get_helix_identifier(*d_id, *elt_id);
-                selected_helices.insert(group_id);
-            }
-            self.designs[self.selected[0].0 as usize]
+            selected_helices.insert(self.phantom_helix.as_ref().unwrap().helix);
+            let d_id = self.phantom_helix.as_ref().unwrap().design;
+            self.designs[d_id as usize]
                 .make_phantom_helix_instances(&selected_helices)
         } else {
             (Rc::new(Vec::new()), Rc::new(Vec::new()))
@@ -297,12 +370,16 @@ impl Data {
     }
 
     fn must_draw_phantom(&self) -> bool {
-        self.selection_mode == SelectionMode::Helix || self.action_mode == ActionMode::Build
+        self.phantom_helix.is_some()
     }
 
     /// Set the set of candidates to a given nucleotide
-    pub fn set_candidate(&mut self, design_id: u32, element_id: u32) {
-        let future_candidate = vec![(design_id, element_id)];
+    pub fn set_candidate(&mut self, element: Option<SceneElement>) {
+        let future_candidate = if let Some(element) = element {
+            vec![element]
+        } else {
+            Vec::new()
+        };
         self.candidate_update |= self.candidates == future_candidate;
         self.candidates = future_candidate;
     }
@@ -418,15 +495,31 @@ impl Data {
     }
 
     fn get_selected_basis(&self) -> Option<Rotor3> {
-        let (d_id, e_id) = self.selected[0];
-        match self.selection_mode {
-            SelectionMode::Nucleotide | SelectionMode::Design | SelectionMode::Strand => {
-                Some(self.designs[d_id as usize].get_basis())
+        match self.selected.get(0) {
+            Some(SceneElement::DesignElement(d_id, _)) => {
+                match self.selection_mode {
+                    SelectionMode::Nucleotide | SelectionMode::Design | SelectionMode::Strand => {
+                        Some(self.designs[*d_id as usize].get_basis())
+                    }
+                    SelectionMode::Helix => {
+                        let h_id = self.get_selected_group();
+                        self.designs[*d_id as usize].get_helix_basis(h_id)
+                    }
+                }
             }
-            SelectionMode::Helix => {
-                let h_id = self.get_selected_group();
-                self.designs[d_id as usize].get_helix_basis(h_id)
+            Some(SceneElement::PhantomElement(phantom_element)) => {
+                let d_id = phantom_element.design_id;
+                match self.selection_mode {
+                    SelectionMode::Nucleotide | SelectionMode::Design | SelectionMode::Strand => {
+                        Some(self.designs[d_id as usize].get_basis())
+                    }
+                    SelectionMode::Helix => {
+                        let h_id = phantom_element.helix_id;
+                        self.designs[d_id as usize].get_helix_basis(h_id)
+                    }
+                }
             }
+        _ => None
         }
     }
 }
@@ -539,4 +632,9 @@ impl WidgetBasis {
             WidgetBasis::Object => *self = WidgetBasis::World,
         }
     }
+}
+
+struct HelixDescr {
+    pub design: u32,
+    pub helix: u32
 }
