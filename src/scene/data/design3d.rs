@@ -340,6 +340,16 @@ impl Design3D {
     pub fn get_basis(&self) -> Rotor3 {
         self.design.lock().unwrap().get_basis()
     }
+
+    pub fn get_element_5prime(&self, element_id: u32) -> Option<SceneElement> {
+        let id = self.design.lock().unwrap().get_element_5prime(element_id)?;
+        Some(SceneElement::DesignElement(self.id, id))
+    }
+
+    pub fn get_element_3prime(&self, element_id: u32) -> Option<SceneElement> {
+        let id = self.design.lock().unwrap().get_element_3prime(element_id)?;
+        Some(SceneElement::DesignElement(self.id, id))
+    }
 }
 
 pub struct Instantiable {

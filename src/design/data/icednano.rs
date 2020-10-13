@@ -96,6 +96,48 @@ impl Strand {
                 .as_int(),
         }
     }
+
+    pub fn get_5prime(&self) -> Option<Nucl> {
+        for domain in self.domains.iter() {
+            match domain {
+                Domain::Insertion(_) => (),
+                Domain::HelixDomain(h) => {
+                    let position = if h.forward {
+                        h.start
+                    } else {
+                        h.end - 1
+                    };
+                    return Some(Nucl {
+                            helix: h.helix,
+                            position: position,
+                            forward: h.forward
+                        })
+                }
+            }
+        }
+        None
+    }
+
+    pub fn get_3prime(&self) -> Option<Nucl> {
+        for domain in self.domains.iter().rev() {
+            match domain {
+                Domain::Insertion(_) => (),
+                Domain::HelixDomain(h) => {
+                    let position = if h.forward {
+                        h.end - 1
+                    } else {
+                        h.start
+                    };
+                    return Some(Nucl {
+                            helix: h.helix,
+                            position: position,
+                            forward: h.forward
+                        })
+                }
+            }
+        }
+        None
+    }
 }
 
 fn is_false(x: &bool) -> bool {
@@ -370,4 +412,11 @@ impl Helix {
     pub fn roll(&mut self, roll: f32) {
         self.orientation = self.orientation * Rotor3::from_rotation_xy(roll)
     }
+}
+
+#[derive(Clone, Copy, Eq, PartialEq, Hash, Debug)]
+pub struct Nucl {
+    pub position: isize,
+    pub helix: usize,
+    pub forward: bool,
 }

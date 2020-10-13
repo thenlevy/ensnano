@@ -6,6 +6,7 @@ use ultraviolet::Vec3;
 
 mod codenano;
 mod icednano;
+pub use icednano::Nucl;
 
 pub struct Data {
     design: icednano::Design,
@@ -315,6 +316,16 @@ impl Data {
             .as_ref()
             .map(|h| h.orientation)
     }
+
+    pub fn get_5prime(&self, strand_id: usize) -> Option<u32> {
+        let nucl = self.design.strands.get(&strand_id).and_then(|s| s.get_5prime())?;
+        self.identifier_nucl.get(&nucl).cloned()
+    }
+
+    pub fn get_3prime(&self, strand_id: usize) -> Option<u32> {
+        let nucl = self.design.strands.get(&strand_id).and_then(|s| s.get_3prime())?;
+        self.identifier_nucl.get(&nucl).cloned()
+    }
 }
 
 fn read_file(path: &PathBuf) -> Option<icednano::Design> {
@@ -383,9 +394,3 @@ impl ObjectType {
     }
 }
 
-#[derive(Clone, Copy, Eq, PartialEq, Hash, Debug)]
-pub struct Nucl {
-    position: isize,
-    helix: usize,
-    forward: bool,
-}

@@ -270,7 +270,6 @@ impl Data {
     /// Update the selection by selecting the group to which a given nucleotide belongs. Return the
     /// selected group
     pub fn set_selection(&mut self, element: Option<SceneElement>) -> Option<Selection> {
-        println!("element {:?}", element);
         if let Some(SceneElement::WidgetElement(_)) = element {
             return None
         }
@@ -526,6 +525,32 @@ impl Data {
                 }
             }
         _ => None
+        }
+    }
+
+    pub fn select_5prime(&mut self) {
+        let selected = self.selected.get(0);
+        match selected {
+            Some(SceneElement::DesignElement(d_id, e_id)) => {
+                let new_selection = self.designs.get(*d_id as usize).and_then(|d| d.get_element_5prime(*e_id));
+                if new_selection.is_some() {
+                    self.set_selection(new_selection);
+                }
+            }
+            _ => ()
+        }
+    }
+
+    pub fn select_3prime(&mut self) {
+        let selected = self.selected.get(0);
+        match selected {
+            Some(SceneElement::DesignElement(d_id, e_id)) => {
+                let new_selection = self.designs.get(*d_id as usize).and_then(|d| d.get_element_3prime(*e_id));
+                if new_selection.is_some() {
+                    self.set_selection(new_selection);
+                }
+            }
+            _ => ()
         }
     }
 }

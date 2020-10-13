@@ -218,6 +218,16 @@ impl Design {
             .get_helix_basis(h_id as usize)
             .map(|r| self.get_basis() * r)
     }
+
+    pub fn get_element_5prime(&self, element: u32) -> Option<u32> {
+        let strand = self.get_strand(element)?;
+        self.data.borrow().get_5prime(strand)
+    }
+
+    pub fn get_element_3prime(&self, element: u32) -> Option<u32> {
+        let strand = self.get_strand(element)?;
+        self.data.borrow().get_3prime(strand)
+    }
 }
 
 #[derive(Clone)]
