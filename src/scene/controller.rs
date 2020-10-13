@@ -3,6 +3,7 @@ use crate::consts::*;
 use crate::{PhySize, PhysicalPosition, WindowEvent};
 use iced_winit::winit::event::*;
 use ultraviolet::{Rotor3, Vec3};
+use crate::design::StrandBuilder;
 
 use camera::CameraController;
 
@@ -18,6 +19,7 @@ enum State {
     Translate(HandleDir),
     Rotate(RotationMode),
     TogglingWidget,
+    Building(StrandBuilder),
 }
 
 /// An object handling input and notification for the scene.
@@ -150,35 +152,57 @@ impl Controller {
                 button: MouseButton::Left,
                 state,
                 ..
-            } => match self.state {
-                State::MoveCamera => self.left_click_camera(state),
-                State::Rotate(_) => {
-                    if *state == ElementState::Pressed {
-                        let (x, y) = self.logical_mouse_position();
-                        self.last_left_clicked_position = Some(self.mouse_position);
-                        Consequence::InitRotation(x, y)
+            } => { 
+                    let builder = if *state == ElementState::Pressed {
+                        self.data.borrow_mut().get_strand_builder()
                     } else {
-                        self.last_left_clicked_position = None;
-                        Consequence::MovementEnded
+                        None
+                    };
+                match self.state {
+                    State::MoveCamera => {
+                        if let Some(builder) = builder {
+                            self.state = State::Building(builder);
+                            self.last_left_clicked_position = Some(self.mouse_position);
+                            Consequence::Nothing
+                        } else {
+                            self.left_click_camera(state)
+                        }
                     }
-                }
-                State::Translate(_) => {
-                    if *state == ElementState::Pressed {
-                        let (x, y) = self.logical_mouse_position();
-                        self.last_left_clicked_position = Some(self.mouse_position);
-                        Consequence::InitTranslation(x, y)
-                    } else {
-                        self.last_left_clicked_position = None;
-                        Consequence::MovementEnded
+                    State::Rotate(_) => {
+                        if *state == ElementState::Pressed {
+                            let (x, y) = self.logical_mouse_position();
+                            self.last_left_clicked_position = Some(self.mouse_position);
+                            Consequence::InitRotation(x, y)
+                        } else {
+                            self.last_left_clicked_position = None;
+                            Consequence::MovementEnded
+                        }
                     }
-                }
-                State::TogglingWidget => {
-                    if *state == ElementState::Pressed {
-                        Consequence::ToggleWidget
-                    } else {
-                        self.last_left_clicked_position = None;
-                        Consequence::MovementEnded
+                    State::Translate(_) => {
+                        if *state == ElementState::Pressed {
+                            let (x, y) = self.logical_mouse_position();
+                            self.last_left_clicked_position = Some(self.mouse_position);
+                            Consequence::InitTranslation(x, y)
+                        } else {
+                            self.last_left_clicked_position = None;
+                            Consequence::MovementEnded
+                        }
                     }
+                    State::TogglingWidget => {
+                        if *state == ElementState::Pressed {
+                            Consequence::ToggleWidget
+                        } else {
+                            self.last_left_clicked_position = None;
+                            Consequence::MovementEnded
+                        }
+                    }
+                    State::Building(_) => {
+                        println!("not building");
+                        if *state == ElementState::Released {
+                           self.state = State::MoveCamera;
+                        }
+                        self.left_click_camera(state)
+                    },
                 }
             },
             WindowEvent::MouseInput {
@@ -219,13 +243,17 @@ impl Controller {
                         }
                         State::Translate(dir) => Consequence::Translation(*dir, mouse_x, mouse_y),
                         State::Rotate(mode) => Consequence::Rotation(*mode, mouse_x, mouse_y),
+                        State::Building(_) => Consequence::Nothing,
                     }
                 } else if let Some(clicked_position) = self.last_right_clicked_position {
                     let mouse_dx = (position.x - clicked_position.x) / self.area_size.width as f64;
                     let mouse_dy = (position.y - clicked_position.y) / self.area_size.height as f64;
                     Consequence::Swing(mouse_dx, mouse_dy)
                 } else {
-                    Consequence::CursorMoved(position)
+                    match self.state {
+                        State::Building(_) => Consequence::Nothing,
+                        _ => Consequence::CursorMoved(position),
+                    }
                 }
             }
             _ => Consequence::Nothing,

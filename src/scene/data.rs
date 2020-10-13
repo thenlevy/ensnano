@@ -9,7 +9,7 @@ use std::sync::{Arc, Mutex};
 
 use ultraviolet::{Rotor3, Vec3};
 
-use crate::design::{Design, ObjectType, Referential};
+use crate::design::{Design, ObjectType, Referential, StrandBuilder};
 use crate::mediator::Selection;
 use crate::utils::instance::Instance;
 
@@ -569,6 +569,16 @@ impl Data {
                 }
             }
             _ => ()
+        }
+    }
+
+    pub fn get_strand_builder(&mut self) -> Option<StrandBuilder> {
+        if self.action_mode != ActionMode::Build {
+            None
+        } else {
+            let selected = self.selected.get(0)?;
+            let design = selected.get_design()?;
+            self.designs[design as usize].get_builder(selected)
         }
     }
 }

@@ -13,7 +13,7 @@ mod view;
 use controller::Controller;
 pub use controller::{DesignRotation, IsometryTarget};
 use data::Data;
-pub use data::{Nucl, ObjectType};
+pub use data::{StrandBuilder, Nucl, ObjectType};
 use view::View;
 
 pub struct Design {
@@ -227,6 +227,15 @@ impl Design {
     pub fn get_element_3prime(&self, element: u32) -> Option<u32> {
         let strand = self.get_strand(element)?;
         self.data.borrow().get_3prime(strand)
+    }
+
+    pub fn get_builder(&mut self, helix: usize, position: isize, forward: bool) -> Option<StrandBuilder> {
+        self.data.borrow_mut().get_strand_builder(helix, position, forward)
+    }
+
+    pub fn get_builder_element(&mut self, element_id: u32) -> Option<StrandBuilder> {
+        let nucl = self.data.borrow().get_nucl(element_id)?;
+        self.get_builder(nucl.helix, nucl.position, nucl.forward)
     }
 }
 

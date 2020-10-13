@@ -9,7 +9,8 @@ mod icednano;
 mod strand_builder;
 pub use icednano::Nucl;
 pub use icednano::Design;
-use strand_builder::{StrandBuilder, DomainIdentifier, NeighbourDescriptor};
+use strand_builder::{DomainIdentifier, NeighbourDescriptor};
+pub use strand_builder::StrandBuilder;
 
 pub struct Data {
     design: icednano::Design,
@@ -218,6 +219,10 @@ impl Data {
         self.design.helices.get(&nucl.helix).map(|h| h.axis_position(self.design.parameters.as_ref().unwrap(), nucl.position))
     }
 
+    pub fn get_nucl(&self, e_id: u32) -> Option<Nucl> {
+        self.nucleotide.get(&e_id).cloned()
+    }
+
     pub fn get_helix_nucl(&self, helix_id: usize, nucl: isize, forward: bool, on_axis: bool) -> Option<Vec3> {
         self.design.helices.get(&helix_id).map(|h| {
             if on_axis {
@@ -367,6 +372,7 @@ impl Data {
             }
             self.design.strands.insert(new_key, icednano::Strand::init(helix, position, forward));
             self.hash_maps_update = true;
+            self.update_status = true;
             Some(StrandBuilder::init_empty(DomainIdentifier { strand: new_key, domain: 0 }, helix, position, forward, left.or(right)))
         }
     }

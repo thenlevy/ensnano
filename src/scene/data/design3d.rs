@@ -6,7 +6,7 @@ use std::sync::{Arc, Mutex};
 use ultraviolet::{Mat4, Rotor3, Vec3};
 use crate::consts::*;
 use crate::utils;
-use super::SceneElement;
+use super::{StrandBuilder, SceneElement};
 
 /// An object that handles the 3d graphcial representation of a `Design`
 pub struct Design3D {
@@ -349,6 +349,20 @@ impl Design3D {
     pub fn get_element_3prime(&self, element_id: u32) -> Option<SceneElement> {
         let id = self.design.lock().unwrap().get_element_3prime(element_id)?;
         Some(SceneElement::DesignElement(self.id, id))
+    }
+
+    pub fn get_builder(&self, element: &SceneElement) -> Option<StrandBuilder> {
+        match element {
+            SceneElement::DesignElement(_, e_id) => self.design.lock().unwrap().get_builder_element(*e_id),
+            SceneElement::PhantomElement(phantom_element) => {
+                let helix = phantom_element.helix_id as usize;
+                let position = phantom_element.position as isize;
+                let forward = phantom_element.forward;
+                self.design.lock().unwrap().get_builder(helix, position, forward)
+            }
+            _ => None
+        }
+
     }
 }
 
