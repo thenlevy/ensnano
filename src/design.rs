@@ -97,7 +97,7 @@ impl Design {
         self.controller.terminate_movement()
     }
 
-    /// Get the position of an item of self in the world coordinates
+    /// Get the position of an item of self in a given rerential
     pub fn get_element_position(&self, id: u32, referential: Referential) -> Option<Vec3> {
         if referential.is_world() {
             self.data
@@ -109,11 +109,30 @@ impl Design {
         }
     }
 
+    /// Get the position of an item of self in a given referential
+    pub fn get_element_axis_position(&self, id: u32, referential: Referential) -> Option<Vec3> {
+        if referential.is_world() {
+            self.data
+                .borrow_mut()
+                .get_element_axis_position(id)
+                .map(|x| self.view.borrow().model_matrix.transform_point3(x))
+        } else {
+            self.data.borrow_mut().get_element_axis_position(id)
+        }
+    }
+
     /// Get the position of the nucleotid `nucl_id` on helix_id in the model coordinates
-    pub fn get_helix_nucl(&self, helix_id: usize, nucl_id: isize, forward: bool) -> Vec3 {
+    pub fn get_helix_nucl(&self, helix_id: usize, nucl_id: isize, forward: bool, referential: Referential, on_axis: bool) -> Option<Vec3> {
+        if referential.is_world() {
         self.data
             .borrow()
-            .get_helix_nucl(helix_id, nucl_id, forward)
+            .get_helix_nucl(helix_id, nucl_id, forward, on_axis)
+            .map(|x| self.view.borrow().model_matrix.transform_point3(x))
+        } else {
+        self.data
+            .borrow()
+            .get_helix_nucl(helix_id, nucl_id, forward, on_axis)
+        }
     }
 
     pub fn get_object_type(&self, id: u32) -> Option<ObjectType> {

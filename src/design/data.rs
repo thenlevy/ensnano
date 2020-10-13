@@ -187,8 +187,41 @@ impl Data {
         }
     }
 
-    pub fn get_helix_nucl(&self, helix_id: usize, nucl: isize, forward: bool) -> Vec3 {
-        self.design.helices[&helix_id].space_pos(&self.design.parameters.unwrap(), nucl, forward)
+    pub fn get_element_axis_position(&mut self, id: u32) -> Option<Vec3> {
+        if self.hash_maps_update {
+            self.make_hash_maps();
+            self.hash_maps_update = false;
+        }
+        if let Some(object_type) = self.object_type.get(&id) {
+            match object_type {
+                ObjectType::Nucleotide(id) => {
+                    let nucl = self.nucleotide.get(id)?;
+                    self.get_axis_pos(*nucl)
+                }
+                ObjectType::Bound(_, _) => {
+                    let (nucl_a, nucl_b) = self.nucleotides_involved.get(&id)?;
+                    let a = self.get_axis_pos(*nucl_a)?;
+                    let b = self.get_axis_pos(*nucl_b)?;
+                    Some((Vec3::from(a) + Vec3::from(b)) / 2.)
+                }
+            }
+        } else {
+            None
+        }
+    }
+
+    fn get_axis_pos(&self, nucl: Nucl) -> Option<Vec3> {
+        self.design.helices.get(&nucl.helix).map(|h| h.axis_position(self.design.parameters.as_ref().unwrap(), nucl.position))
+    }
+
+    pub fn get_helix_nucl(&self, helix_id: usize, nucl: isize, forward: bool, on_axis: bool) -> Option<Vec3> {
+        self.design.helices.get(&helix_id).map(|h| {
+            if on_axis {
+                h.axis_position(&self.design.parameters.unwrap(), nucl)
+            } else {
+                h.space_pos(&self.design.parameters.unwrap(), nucl, forward)
+            }
+        })
     }
 
     /// Return the ObjectType associated to the identifier `id`

@@ -324,12 +324,21 @@ impl Helix {
         );
 
         ret = self.rotate_point(ret);
-        /*
-        ret = Helix::ry(&ret, self.yaw);
-        ret = Helix::rz(&ret, self.pitch);
-        */
         ret += self.position;
         ret
+    }
+
+    pub fn axis_position(&self, p: &Parameters, n: isize) -> Vec3 {
+        let mut ret = Vec3::new(
+            n as f32 * p.z_step,
+            0.,
+            0.,
+        );
+
+        ret = self.rotate_point(ret);
+        ret += self.position;
+        ret
+
     }
 
     pub(crate) fn rotate_point(&self, ret: Vec3) -> Vec3 {

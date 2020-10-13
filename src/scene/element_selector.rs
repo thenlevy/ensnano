@@ -196,6 +196,16 @@ pub enum SceneElement {
     PhantomElement(utils::PhantomElement)
 }
 
+impl SceneElement {
+    pub fn get_design(&self) -> Option<u32> {
+        match self {
+            SceneElement::DesignElement(d, _) => Some(*d),
+            SceneElement::WidgetElement(_) => None,
+            SceneElement::PhantomElement(p) => Some(p.design_id)
+        }
+    }
+}
+
 struct SceneReader {
     pixels: Option<Vec<u8>>,
     draw_type: DrawType
