@@ -8,6 +8,7 @@ use std::f32::consts::PI;
 use ultraviolet::{Rotor3, Vec3};
 
 use super::codenano;
+use super::strand_builder::{DomainIdentifier, NeighbourDescriptor};
 
 /// The `icednano` Design structure.
 #[derive(Serialize, Deserialize, Clone)]
@@ -55,6 +56,25 @@ impl Design {
             parameters: Some(Parameters::DEFAULT),
         }
     }
+
+    pub fn get_neighbour_nucl(&self, helix: usize, position: isize, forward: bool) -> Option<NeighbourDescriptor> {
+        for (s_id, s) in self.strands.iter() {
+            for (d_id, d) in s.domains.iter().enumerate() {
+                if let Some(other) = d.other_end(helix, position, forward) {
+                    return Some(NeighbourDescriptor {
+                        identifier: DomainIdentifier {
+                            strand: *s_id,
+                            domain: d_id,
+                        },
+                        fixed_end: other,
+                        initial_moving_end: position,
+                        moving_end: position,
+                    })
+                }
+            }
+        }
+        None
+    }
 }
 
 /// A DNA strand. Strands are represented as sequences of `Domains`.
@@ -94,6 +114,22 @@ impl Strand {
                 .clone()
                 .unwrap_or(codenano_strand.default_color())
                 .as_int(),
+        }
+    }
+
+    pub fn init(helix: usize, position: isize, forward: bool) -> Self {
+        let domains = vec![Domain::HelixDomain(HelixInterval{
+            sequence: None,
+            start: position,
+            end: position + 1,
+            helix,
+            forward
+        })];
+        Self {
+            domains,
+            sequence: None,
+            cyclic: false,
+            color: 0xFF_FF_FF,
         }
     }
 
@@ -189,6 +225,26 @@ impl Domain {
         };
         Self::HelixDomain(interval)
     }
+
+    pub fn other_end(&self, helix: usize, position: isize, forward: bool) -> Option<isize> {
+        match self {
+            Self::Insertion(_) => None,
+            Self::HelixDomain(interval) => {
+                if interval.helix == helix && forward == interval.forward {
+                    if interval.start == position {
+                        Some(interval.end - 1)
+                    } else if interval.end - 1 == position {
+                        Some(interval.start)
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            }
+        }
+    }
+
 }
 
 impl HelixInterval {

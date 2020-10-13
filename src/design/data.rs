@@ -6,7 +6,10 @@ use ultraviolet::Vec3;
 
 mod codenano;
 mod icednano;
+mod strand_builder;
 pub use icednano::Nucl;
+pub use icednano::Design;
+use strand_builder::{StrandBuilder, DomainIdentifier, NeighbourDescriptor};
 
 pub struct Data {
     design: icednano::Design,
@@ -325,6 +328,47 @@ impl Data {
     pub fn get_3prime(&self, strand_id: usize) -> Option<u32> {
         let nucl = self.design.strands.get(&strand_id).and_then(|s| s.get_3prime())?;
         self.identifier_nucl.get(&nucl).cloned()
+    }
+
+    pub fn get_neighbour_nucl(&self, helix: usize, position: isize, forwrard: bool) -> Option<NeighbourDescriptor> {
+        self.design.get_neighbour_nucl(helix, position, forwrard)
+    }
+
+    pub fn update_strand(&mut self, identifier: DomainIdentifier, position: isize, fixed_position: isize) {
+        let start = position.min(fixed_position);
+        let end = position.max(fixed_position) - 1;
+        let domain = &mut self.design.strands.get_mut(&identifier.strand).unwrap().domains[identifier.domain];
+        match domain {
+            icednano::Domain::HelixDomain(domain) => {
+                domain.start = start;
+                domain.end = end;
+            }
+            _ => (),
+        }
+        self.hash_maps_update = true;
+    }
+
+    pub fn get_strand_builder(&mut self, helix: usize, position: isize, forward: bool) -> Option<StrandBuilder> {
+        let left = self.design.get_neighbour_nucl(helix, position - 1, forward);
+        let right = self.design.get_neighbour_nucl(helix, position + 1, forward);
+        if left.is_some() && right.is_some() {
+            return None;
+        }
+        if self.identifier_nucl.contains_key(&Nucl {helix, position, forward}) {
+            if let Some(desc) = self.design.get_neighbour_nucl(helix, position, forward) {
+                Some(StrandBuilder::init_existing(desc.identifier, helix, position, forward, desc.fixed_end, left.or(right)))
+            } else {
+                None
+            }
+        } else {
+            let mut new_key = 0usize;
+            while self.design.strands.contains_key(&new_key) {
+                new_key += 1;
+            }
+            self.design.strands.insert(new_key, icednano::Strand::init(helix, position, forward));
+            self.hash_maps_update = true;
+            Some(StrandBuilder::init_empty(DomainIdentifier { strand: new_key, domain: 0 }, helix, position, forward, left.or(right)))
+        }
     }
 }
 
