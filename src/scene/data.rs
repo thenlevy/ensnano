@@ -167,7 +167,9 @@ impl Data {
                 SceneElement::DesignElement(d_id, id) =>
                     ret.push(self.designs[*d_id as usize].make_instance(*id)),
                 SceneElement::PhantomElement(phantom_element) =>
-                    ret.push(self.designs[phantom_element.design_id as usize].make_instance_phantom(phantom_element)),
+                    if let Some(instance) = self.designs.get(phantom_element.design_id as usize).and_then(|d| d.make_instance_phantom(phantom_element)) {
+                        ret.push(instance);
+                    }
                 _ => unreachable!(),
             }
         }
@@ -181,8 +183,11 @@ impl Data {
             match element {
                 SceneElement::DesignElement(d_id, id) =>
                     ret.push(self.designs[*d_id as usize].make_instance(*id)),
-                SceneElement::PhantomElement(phantom_element) =>
-                    ret.push(self.designs[phantom_element.design_id as usize].make_instance_phantom(phantom_element)),
+                SceneElement::PhantomElement(phantom_element) => {
+                    if let Some(instance) = self.designs.get(phantom_element.design_id as usize).and_then(|d| d.make_instance_phantom(phantom_element)) {
+                        ret.push(instance);
+                    }
+                }
                 _ => unreachable!(),
             }
         }
@@ -245,13 +250,15 @@ impl Data {
     /// Return the postion of a given element, either in the world pov or in the model pov
     pub fn get_element_position(
         &self,
-        design_id: u32,
-        element_id: u32,
+        element: &SceneElement,
         referential: Referential,
-    ) -> Vec3 {
-        self.designs[design_id as usize]
-            .get_element_position(element_id, referential)
-            .unwrap()
+    ) -> Option<Vec3> {
+        let design_id = element.get_design()?;
+        let design = self.designs.get(design_id as usize)?;
+        match self.selection_mode {
+            SelectionMode::Helix => design.get_element_axis_position(element, referential),
+            SelectionMode::Nucleotide | SelectionMode::Strand | SelectionMode:: Design => design.get_element_position(element, referential),
+        }
     }
 
     pub fn get_selected_position(&self) -> Option<Vec3> {
@@ -261,7 +268,6 @@ impl Data {
     /// Update the selection by selecting the group to which a given nucleotide belongs. Return the
     /// selected group
     pub fn set_selection(&mut self, element: Option<SceneElement>) -> Option<Selection> {
-        println!("element {:?}", element);
         if let Some(SceneElement::WidgetElement(_)) = element {
             return None
         }
@@ -304,11 +310,10 @@ impl Data {
 
     fn update_selected_position(&mut self) {
         self.selected_position = {
-            let element = self.selected.get(0);
-            match element {
-                Some(SceneElement::DesignElement(design_id, element_id)) => 
-                    Some(self.get_element_position(*design_id, *element_id, Referential::World)),
-                _ => None
+            if let Some(element) = self.selected.get(0) {
+                self.get_element_position(element, Referential::World)
+            } else {
+                None
             }
         };
     }
@@ -538,6 +543,32 @@ impl Data {
                 }
             }
         _ => None
+        }
+    }
+
+    pub fn select_5prime(&mut self) {
+        let selected = self.selected.get(0);
+        match selected {
+            Some(SceneElement::DesignElement(d_id, e_id)) => {
+                let new_selection = self.designs.get(*d_id as usize).and_then(|d| d.get_element_5prime(*e_id));
+                if new_selection.is_some() {
+                    self.set_selection(new_selection);
+                }
+            }
+            _ => ()
+        }
+    }
+
+    pub fn select_3prime(&mut self) {
+        let selected = self.selected.get(0);
+        match selected {
+            Some(SceneElement::DesignElement(d_id, e_id)) => {
+                let new_selection = self.designs.get(*d_id as usize).and_then(|d| d.get_element_3prime(*e_id));
+                if new_selection.is_some() {
+                    self.set_selection(new_selection);
+                }
+            }
+            _ => ()
         }
     }
 }

@@ -115,6 +115,14 @@ impl Controller {
                     self.data.borrow_mut().toggle_selection_mode();
                     Consequence::Nothing
                 }
+                VirtualKeyCode::H if self.current_modifiers.shift() => {
+                    self.data.borrow_mut().select_5prime();
+                    Consequence::Nothing
+                }
+                VirtualKeyCode::L if self.current_modifiers.shift() => {
+                    self.data.borrow_mut().select_3prime();
+                    Consequence::Nothing
+                }
                 _ => {
                     if self.camera_controller.process_keyboard(*key, *state) {
                         Consequence::CameraMoved
