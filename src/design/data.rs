@@ -386,12 +386,10 @@ impl Data {
         self.update_status = true;
     }
 
-    pub fn get_strand_builder(
-        &mut self,
-        helix: usize,
-        position: isize,
-        forward: bool,
-    ) -> Option<StrandBuilder> {
+    pub fn get_strand_builder(&mut self, nucl: Nucl) -> Option<StrandBuilder> {
+        let helix = nucl.helix;
+        let position = nucl.position;
+        let forward = nucl.forward;
         let left = self.design.get_neighbour_nucl(helix, position - 1, forward);
         let right = self.design.get_neighbour_nucl(helix, position + 1, forward);
         if left.is_some() && right.is_some() {
@@ -402,17 +400,11 @@ impl Data {
             .helices
             .get(&helix)
             .map(|h| h.get_axis(&self.design.parameters.unwrap()))?;
-        if self.identifier_nucl.contains_key(&Nucl {
-            helix,
-            position,
-            forward,
-        }) {
+        if self.identifier_nucl.contains_key(&nucl) {
             if let Some(desc) = self.design.get_neighbour_nucl(helix, position, forward) {
                 Some(StrandBuilder::init_existing(
                     desc.identifier,
-                    helix,
-                    position,
-                    forward,
+                    nucl,
                     axis,
                     desc.fixed_end,
                     left.or(right),
@@ -435,9 +427,7 @@ impl Data {
                     strand: new_key,
                     domain: 0,
                 },
-                helix,
-                position,
-                forward,
+                nucl,
                 axis,
                 left.or(right),
             ))
