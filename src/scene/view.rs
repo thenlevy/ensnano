@@ -2,6 +2,7 @@
 //! frame to be displayed, or on a "fake texture" that is used to map pixels to objects.
 
 use super::{camera, ActionMode};
+use crate::design::Axis;
 use crate::utils::{instance, mesh, texture};
 use crate::{DrawArea, PhySize};
 use camera::{Camera, CameraPtr, Projection, ProjectionPtr};
@@ -12,7 +13,6 @@ use std::rc::Rc;
 use texture::Texture;
 use ultraviolet::{Mat4, Rotor3, Vec3};
 use wgpu::{Device, PrimitiveTopology, Queue};
-use crate::design::Axis;
 
 /// A `PipelineHandler` is a structure that is responsible for drawing a mesh
 mod pipeline_handler;
@@ -377,7 +377,12 @@ impl View {
         self.redraw_twice |= self.handle_drawers.set_selected(selected_id);
     }
 
-    pub fn compute_projection_axis(&self, axis: &Axis, mouse_x: f64, mouse_y: f64) -> Option<isize> {
+    pub fn compute_projection_axis(
+        &self,
+        axis: &Axis,
+        mouse_x: f64,
+        mouse_y: f64,
+    ) -> Option<isize> {
         let p1 = unproject_point_on_line(
             axis.origin,
             axis.direction,
@@ -389,7 +394,6 @@ impl View {
 
         let sign = (p1 - axis.origin).dot(axis.direction).signum();
         Some(((p1 - axis.origin).mag() * sign / axis.direction.mag()).round() as isize)
-
     }
 }
 

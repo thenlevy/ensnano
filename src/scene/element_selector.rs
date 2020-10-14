@@ -78,19 +78,6 @@ impl ElementSelector {
         return None;
     }
 
-    fn get_pixel_from_bytes(byte0: usize, pixels: &[u8]) -> Option<(u32, u32)> {
-        let a = pixels[byte0 + 3] as u32;
-        let r = (pixels[byte0 + 2] as u32) << 16;
-        let g = (pixels[byte0 + 1] as u32) << 8;
-        let b = pixels[byte0] as u32;
-        let color = r + g + b;
-        if (color, a) != (0xFF_FF_FF, 0xFF) {
-            Some((color, a))
-        } else {
-            None
-        }
-    }
-
     fn update_fake_pixels(&self, draw_type: DrawType) -> Vec<u8> {
         let size = wgpu::Extent3d {
             width: self.window_size.width,
@@ -233,10 +220,10 @@ impl SceneReader {
 
     fn read_pixel(&self, byte0: usize) -> Option<SceneElement> {
         let pixels = self.pixels.as_ref().unwrap();
-        let a = pixels[byte0 + 3] as u32;
-        let r = (pixels[byte0 + 2] as u32) << 16;
-        let g = (pixels[byte0 + 1] as u32) << 8;
-        let b = pixels[byte0] as u32;
+        let a = *pixels.get(byte0 + 3)? as u32;
+        let r = (*pixels.get(byte0 + 2)? as u32) << 16;
+        let g = (*pixels.get(byte0 + 1)? as u32) << 8;
+        let b = (*pixels.get(byte0)?) as u32;
         let color = r + g + b;
         if a == 0xFF {
             None

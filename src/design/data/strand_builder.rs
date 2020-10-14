@@ -122,7 +122,7 @@ impl StrandBuilder {
 
     fn attach_neighbour(&mut self, descriptor: &NeighbourDescriptor) -> bool {
         if self.identifier == descriptor.identifier || self.neighbour_strand.is_some() {
-            return false
+            return false;
         }
         self.neighbour_direction = if descriptor.fixed_end > descriptor.initial_moving_end {
             Some(EditDirection::Positive)
@@ -136,16 +136,23 @@ impl StrandBuilder {
     fn incr_position(&mut self) {
         // Eventually detach from neighbour
         if let Some(desc) = self.neighbour_strand.as_mut() {
-            if desc.initial_moving_end == self.current_position - 1 && self.neighbour_direction == Some(EditDirection::Negative) {
+            if desc.initial_moving_end == self.current_position - 1
+                && self.neighbour_direction == Some(EditDirection::Negative)
+            {
                 self.detach_neighbour();
             } else {
                 desc.moving_end += 1;
             }
         }
         self.current_position += 1;
-        let desc = self.data.as_ref().unwrap().lock().unwrap().get_neighbour_nucl(self.helix, self.current_position + 1, self.forward);
-        if let Some(ref desc) = desc
-        {
+        let desc = self
+            .data
+            .as_ref()
+            .unwrap()
+            .lock()
+            .unwrap()
+            .get_neighbour_nucl(self.helix, self.current_position + 1, self.forward);
+        if let Some(ref desc) = desc {
             if self.attach_neighbour(desc) {
                 self.max_pos = Some(desc.fixed_end - 1);
             }
@@ -155,16 +162,23 @@ impl StrandBuilder {
     fn decr_position(&mut self) {
         // Update neighbour and eventually detach from it
         if let Some(desc) = self.neighbour_strand.as_mut() {
-            if desc.initial_moving_end == self.current_position + 1 && self.neighbour_direction == Some(EditDirection::Positive) {
+            if desc.initial_moving_end == self.current_position + 1
+                && self.neighbour_direction == Some(EditDirection::Positive)
+            {
                 self.detach_neighbour();
             } else {
                 desc.moving_end -= 1;
             }
         }
         self.current_position -= 1;
-        let desc = self.data.as_ref().unwrap().lock().unwrap().get_neighbour_nucl(self.helix, self.current_position - 1, self.forward);
-        if let Some(ref desc) = desc
-        {
+        let desc = self
+            .data
+            .as_ref()
+            .unwrap()
+            .lock()
+            .unwrap()
+            .get_neighbour_nucl(self.helix, self.current_position - 1, self.forward);
+        if let Some(ref desc) = desc {
             if self.attach_neighbour(desc) {
                 self.min_pos = Some(desc.fixed_end + 1);
             }

@@ -246,14 +246,18 @@ impl Controller {
                         State::Translate(dir) => Consequence::Translation(*dir, mouse_x, mouse_y),
                         State::Rotate(mode) => Consequence::Rotation(*mode, mouse_x, mouse_y),
                         State::Building(ref mut builder) => {
-                            let position = self.view.borrow().compute_projection_axis(&builder.axis, mouse_x, mouse_y);
+                            let position = self.view.borrow().compute_projection_axis(
+                                &builder.axis,
+                                mouse_x,
+                                mouse_y,
+                            );
                             if let Some(position) = position {
                                 self.data.borrow_mut().reset_selection();
                                 self.data.borrow_mut().reset_candidate();
                                 builder.move_to(position);
                             }
                             Consequence::Nothing
-                        },
+                        }
                     }
                 } else if let Some(clicked_position) = self.last_right_clicked_position {
                     let mouse_dx = (position.x - clicked_position.x) / self.area_size.width as f64;
