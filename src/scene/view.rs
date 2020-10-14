@@ -12,6 +12,7 @@ use std::rc::Rc;
 use texture::Texture;
 use ultraviolet::{Mat4, Rotor3, Vec3};
 use wgpu::{Device, PrimitiveTopology, Queue};
+use crate::design::Axis;
 
 /// A `PipelineHandler` is a structure that is responsible for drawing a mesh
 mod pipeline_handler;
@@ -374,6 +375,21 @@ impl View {
     pub fn set_widget_candidate(&mut self, selected_id: Option<u32>) {
         self.redraw_twice |= self.rotation_widget.set_selected(selected_id);
         self.redraw_twice |= self.handle_drawers.set_selected(selected_id);
+    }
+
+    pub fn compute_projection_axis(&self, axis: &Axis, mouse_x: f64, mouse_y: f64) -> Option<isize> {
+        let p1 = unproject_point_on_line(
+            axis.origin,
+            axis.direction,
+            self.camera.clone(),
+            self.projection.clone(),
+            mouse_x as f32,
+            mouse_y as f32,
+        )?;
+
+        let sign = (p1 - axis.origin).dot(axis.direction).signum();
+        Some(((p1 - axis.origin).mag() * sign / axis.direction.mag()).round() as isize)
+
     }
 }
 

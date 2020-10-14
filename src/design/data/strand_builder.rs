@@ -4,18 +4,15 @@ use ultraviolet::Mat4;
 
 pub struct StrandBuilder {
     data: Option<Arc<Mutex<Data>>>,
-    initial_position: isize,
+    pub initial_position: isize,
     forward: bool,
     helix: usize,
-    axis: Axis,
+    pub axis: Axis,
     identifier: DomainIdentifier,
     fixed_end: Option<isize>,
     current_position: isize,
     /// The enventual other strand being modified by the current modification
     neighbour_strand: Option<NeighbourDescriptor>,
-    /// The initial position of the end of neighbour_strand that can be moved by the curent
-    /// modification
-    neighbour_initial_position: Option<isize>,
     /// The direction in which the end of neighbour_strand can go, starting from its inital
     /// position
     neighbour_direction: Option<EditDirection>,
@@ -41,12 +38,10 @@ impl StrandBuilder {
     ) -> Self {
         let mut neighbour_strand = None;
         let mut neighbour_direction = None;
-        let mut neighbour_initial_position = None;
         let mut min_pos = None;
         let mut max_pos = None;
         if let Some(desc) = neighbour {
             neighbour_strand = Some(desc);
-            neighbour_initial_position = Some(desc.initial_moving_end);
             neighbour_direction = if desc.initial_moving_end < initial_position {
                 min_pos = Some(desc.fixed_end);
                 Some(EditDirection::Negative)
@@ -66,7 +61,6 @@ impl StrandBuilder {
             fixed_end: None,
             current_position: initial_position,
             neighbour_strand,
-            neighbour_initial_position,
             neighbour_direction,
             min_pos,
             max_pos,
@@ -91,11 +85,9 @@ impl StrandBuilder {
             min_pos = Some(other_end);
         }
         let neighbour_strand;
-        let neighbour_initial_position;
         let neighbour_direction;
         if let Some(desc) = neighbour {
             neighbour_strand = Some(desc);
-            neighbour_initial_position = Some(desc.initial_moving_end);
             neighbour_direction = Some(EditDirection::Both);
             if desc.initial_moving_end > initial_position {
                 max_pos = Some(desc.fixed_end)
@@ -104,7 +96,6 @@ impl StrandBuilder {
             }
         } else {
             neighbour_strand = None;
-            neighbour_initial_position = None;
             neighbour_direction = None;
         }
         Self {
@@ -117,7 +108,6 @@ impl StrandBuilder {
             fixed_end: Some(other_end),
             current_position: initial_position,
             neighbour_strand,
-            neighbour_initial_position,
             neighbour_direction,
             max_pos,
             min_pos,
@@ -127,75 +117,89 @@ impl StrandBuilder {
 
     fn detach_neighbour(&mut self) {
         self.neighbour_direction = None;
-        self.neighbour_initial_position = None;
-        self.neighbour_strand = None;
+        self.detached_neighbour = self.neighbour_strand.take();
     }
 
-    fn attach_neighbour(&mut self, descriptor: &NeighbourDescriptor) {
+    fn attach_neighbour(&mut self, descriptor: &NeighbourDescriptor) -> bool {
+        if self.identifier == descriptor.identifier || self.neighbour_strand.is_some() {
+            return false
+        }
         self.neighbour_direction = if descriptor.fixed_end > descriptor.initial_moving_end {
             Some(EditDirection::Positive)
         } else {
             Some(EditDirection::Negative)
         };
-        self.neighbour_initial_position = Some(descriptor.initial_moving_end);
         self.neighbour_strand = Some(*descriptor);
+        true
     }
 
-    fn incr_position(&mut self, data: &Data) {
+    fn incr_position(&mut self) {
         // Eventually detach from neighbour
-        if self.neighbour_initial_position == Some(self.current_position - 1)
-            && self.neighbour_direction == Some(EditDirection::Negative)
-        {
-            self.detach_neighbour();
+        if let Some(desc) = self.neighbour_strand.as_mut() {
+            if desc.initial_moving_end == self.current_position - 1 && self.neighbour_direction == Some(EditDirection::Negative) {
+                self.detach_neighbour();
+            } else {
+                desc.moving_end += 1;
+            }
         }
         self.current_position += 1;
-        if let Some(ref desc) =
-            data.get_neighbour_nucl(self.helix, self.current_position + 1, self.forward)
+        let desc = self.data.as_ref().unwrap().lock().unwrap().get_neighbour_nucl(self.helix, self.current_position + 1, self.forward);
+        if let Some(ref desc) = desc
         {
-            self.attach_neighbour(desc)
+            if self.attach_neighbour(desc) {
+                self.max_pos = Some(desc.fixed_end - 1);
+            }
         }
     }
 
-    fn decr_position(&mut self, data: &Data) {
-        // Eventually detach from neighbour
-        if self.neighbour_initial_position == Some(self.current_position + 1)
-            && self.neighbour_direction == Some(EditDirection::Positive)
-        {
-            self.detach_neighbour();
+    fn decr_position(&mut self) {
+        // Update neighbour and eventually detach from it
+        if let Some(desc) = self.neighbour_strand.as_mut() {
+            if desc.initial_moving_end == self.current_position + 1 && self.neighbour_direction == Some(EditDirection::Positive) {
+                self.detach_neighbour();
+            } else {
+                desc.moving_end -= 1;
+            }
         }
         self.current_position -= 1;
-        if let Some(ref desc) =
-            data.get_neighbour_nucl(self.helix, self.current_position - 1, self.forward)
+        let desc = self.data.as_ref().unwrap().lock().unwrap().get_neighbour_nucl(self.helix, self.current_position - 1, self.forward);
+        if let Some(ref desc) = desc
         {
-            self.attach_neighbour(desc)
+            if self.attach_neighbour(desc) {
+                self.min_pos = Some(desc.fixed_end + 1);
+            }
         }
     }
 
-    fn move_to(&mut self, objective: isize, data: &mut Data) {
+    pub fn move_to(&mut self, objective: isize) {
         let mut need_update = false;
         if objective > self.current_position {
             while self.current_position < objective.min(self.max_pos.unwrap_or(objective)) {
-                self.incr_position(data);
+                self.incr_position();
                 need_update = true;
             }
         } else if objective < self.current_position {
             while self.current_position > objective.max(self.min_pos.unwrap_or(objective)) {
-                self.decr_position(data);
+                self.decr_position();
                 need_update = true;
             }
         }
         if need_update {
-            self.update(data)
+            self.update()
         }
     }
 
-    fn update(&self, data: &mut Data) {
+    fn update(&mut self) {
+        let mut data = self.data.as_mut().unwrap().lock().unwrap();
         data.update_strand(
             self.identifier,
             self.current_position,
             self.fixed_end.unwrap_or(self.initial_position),
         );
         if let Some(desc) = self.neighbour_strand {
+            data.update_strand(desc.identifier, desc.moving_end, desc.fixed_end)
+        }
+        if let Some(desc) = self.detached_neighbour.take() {
             data.update_strand(desc.identifier, desc.moving_end, desc.fixed_end)
         }
     }

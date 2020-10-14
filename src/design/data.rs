@@ -368,7 +368,7 @@ impl Data {
         fixed_position: isize,
     ) {
         let start = position.min(fixed_position);
-        let end = position.max(fixed_position) - 1;
+        let end = position.max(fixed_position) + 1;
         let domain = &mut self
             .design
             .strands
@@ -383,6 +383,7 @@ impl Data {
             _ => (),
         }
         self.hash_maps_update = true;
+        self.update_status = true;
     }
 
     pub fn get_strand_builder(

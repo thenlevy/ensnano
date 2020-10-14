@@ -199,8 +199,8 @@ impl Controller {
                         }
                     }
                     State::Building(_) => {
-                        println!("not building");
                         if *state == ElementState::Released {
+                            println!("not building");
                             self.state = State::MoveCamera;
                         }
                         self.left_click_camera(state)
@@ -238,14 +238,22 @@ impl Controller {
                     let mouse_dy = (position.y - clicked_position.y) / self.area_size.height as f64;
                     let mouse_x = position.x / self.area_size.width as f64;
                     let mouse_y = position.y / self.area_size.height as f64;
-                    match &self.state {
+                    match &mut self.state {
                         State::MoveCamera | State::TogglingWidget => {
                             self.camera_controller.process_mouse(mouse_dx, mouse_dy);
                             Consequence::CameraMoved
                         }
                         State::Translate(dir) => Consequence::Translation(*dir, mouse_x, mouse_y),
                         State::Rotate(mode) => Consequence::Rotation(*mode, mouse_x, mouse_y),
-                        State::Building(_) => Consequence::Nothing,
+                        State::Building(ref mut builder) => {
+                            let position = self.view.borrow().compute_projection_axis(&builder.axis, mouse_x, mouse_y);
+                            if let Some(position) = position {
+                                self.data.borrow_mut().reset_selection();
+                                self.data.borrow_mut().reset_candidate();
+                                builder.move_to(position);
+                            }
+                            Consequence::Nothing
+                        },
                     }
                 } else if let Some(clicked_position) = self.last_right_clicked_position {
                     let mouse_dx = (position.x - clicked_position.x) / self.area_size.width as f64;

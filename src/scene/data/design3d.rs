@@ -24,7 +24,13 @@ impl Design3D {
 
     /// Convert a list of ids into a list of instances
     pub fn id_to_instances(&self, ids: Vec<u32>) -> Vec<Instance> {
-        ids.iter().map(|id| self.make_instance(*id)).collect()
+        let mut ret = Vec::new();
+        for id in ids.iter() {
+            if let Some(instance) = self.make_instance(*id) {
+                ret.push(instance)
+            }
+        }
+        ret
     }
 
     /// Return the list of sphere instances to be displayed to represent the design
@@ -45,25 +51,25 @@ impl Design3D {
 
     /// Convert return an instance representing the object with identifier `id`
     /// This function will panic if `id` does not represent an object of the design
-    pub fn make_instance(&self, id: u32) -> Instance {
-        let kind = self.get_object_type(id).expect("id not in design");
+    pub fn make_instance(&self, id: u32) -> Option<Instance> {
+        let kind = self.get_object_type(id)?;
         let referential = Referential::Model;
         let instanciable = match kind {
             ObjectType::Bound(id1, id2) => {
-                let pos1 = self.get_design_element_position(id1, referential).unwrap();
-                let pos2 = self.get_design_element_position(id2, referential).unwrap();
+                let pos1 = self.get_design_element_position(id1, referential)?;
+                let pos2 = self.get_design_element_position(id2, referential)?;
                 let color = self.get_color(id).unwrap_or(0);
                 let id = id | self.id << 24;
                 Instantiable::new(ObjectRepr::Tube(pos1, pos2), color, id)
             }
             ObjectType::Nucleotide(id) => {
-                let position = self.get_design_element_position(id, referential).unwrap();
-                let color = self.get_color(id).unwrap();
+                let position = self.get_design_element_position(id, referential)?;
+                let color = self.get_color(id)?;
                 let id = id | self.id << 24;
                 Instantiable::new(ObjectRepr::Sphere(position), color, id)
             }
         };
-        instanciable.to_instance(false)
+        Some(instanciable.to_instance(false))
     }
 
     pub fn make_instance_phantom(

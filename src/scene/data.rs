@@ -167,7 +167,9 @@ impl Data {
         for element in self.expand_selection(ObjectType::Nucleotide(0)).iter() {
             match element {
                 SceneElement::DesignElement(d_id, id) => {
-                    ret.push(self.designs[*d_id as usize].make_instance(*id))
+                    if let Some(instance) = self.designs[*d_id as usize].make_instance(*id) {
+                        ret.push(instance)
+                    }
                 }
                 SceneElement::PhantomElement(phantom_element) => {
                     if let Some(instance) = self
@@ -190,7 +192,9 @@ impl Data {
         for element in self.expand_selection(ObjectType::Bound(0, 0)).iter() {
             match element {
                 SceneElement::DesignElement(d_id, id) => {
-                    ret.push(self.designs[*d_id as usize].make_instance(*id))
+                    if let Some(instance) = self.designs[*d_id as usize].make_instance(*id) {
+                        ret.push(instance)
+                    }
                 }
                 SceneElement::PhantomElement(phantom_element) => {
                     if let Some(instance) = self
@@ -211,7 +215,9 @@ impl Data {
     pub fn get_candidate_spheres(&self) -> Rc<Vec<Instance>> {
         let mut ret = Vec::with_capacity(self.selected.len());
         for (d_id, id) in self.expand_candidate(ObjectType::Nucleotide(0)).iter() {
-            ret.push(self.designs[*d_id as usize].make_instance(*id))
+            if let Some(instance) = self.designs[*d_id as usize].make_instance(*id) {
+                ret.push(instance)
+            }
         }
         Rc::new(ret)
     }
@@ -220,7 +226,9 @@ impl Data {
     pub fn get_candidate_tubes(&self) -> Rc<Vec<Instance>> {
         let mut ret = Vec::with_capacity(self.selected.len());
         for (d_id, id) in self.expand_candidate(ObjectType::Bound(0, 0)).iter() {
-            ret.push(self.designs[*d_id as usize].make_instance(*id))
+            if let Some(instance) = self.designs[*d_id as usize].make_instance(*id) {
+                ret.push(instance)
+            }
         }
         Rc::new(ret)
     }
