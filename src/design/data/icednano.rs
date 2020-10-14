@@ -475,6 +475,22 @@ pub struct Nucl {
     pub forward: bool,
 }
 
+impl Nucl {
+    pub fn left(&self) -> Self {
+        Self {
+            position: self.position - 1,
+            ..*self
+        }
+    }
+
+    pub fn right(&self) -> Self {
+        Self {
+            position: self.position + 1,
+            ..*self
+        }
+    }
+}
+
 /// Represents the axis of an helix. At the moment it is a line. In the future it might also be a
 /// bezier curve
 pub struct Axis {

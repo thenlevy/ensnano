@@ -1,6 +1,6 @@
 use super::{SceneElement, StrandBuilder};
 use crate::consts::*;
-use crate::design::{Design, ObjectType, Referential};
+use crate::design::{Design, ObjectType, Referential, Nucl};
 use crate::utils;
 use crate::utils::instance::Instance;
 use std::collections::HashSet;
@@ -76,22 +76,23 @@ impl Design3D {
         &self,
         phantom_element: &utils::PhantomElement,
     ) -> Option<Instance> {
+        let nucl = Nucl {
+           helix: phantom_element.helix_id as usize,
+           position: phantom_element.position as isize,
+           forward: phantom_element.forward
+        };
         let helix_id = phantom_element.helix_id;
         let i = phantom_element.position;
         let forward = phantom_element.forward;
         let color = 0xA0D0D0D0;
         if phantom_element.bound {
             let nucl_1 = self.design.lock().unwrap().get_helix_nucl(
-                helix_id as usize,
-                i as isize,
-                forward,
+                nucl,
                 Referential::Model,
                 false,
             )?;
             let nucl_2 = self.design.lock().unwrap().get_helix_nucl(
-                helix_id as usize,
-                (i - 1) as isize,
-                forward,
+                nucl.left(),
                 Referential::Model,
                 false,
             )?;
@@ -99,9 +100,7 @@ impl Design3D {
             Some(Instantiable::new(ObjectRepr::Tube(nucl_1, nucl_2), color, id).to_instance(true))
         } else {
             let nucl_coord = self.design.lock().unwrap().get_helix_nucl(
-                helix_id as usize,
-                i as isize,
-                forward,
+                nucl,
                 Referential::Model,
                 false,
             )?;
@@ -119,27 +118,26 @@ impl Design3D {
         let helix_id = phantom_element.helix_id;
         let i = phantom_element.position;
         let forward = phantom_element.forward;
+        let nucl = Nucl {
+            helix: helix_id as usize,
+            position: i as isize,
+            forward,
+        };
         if phantom_element.bound {
             let nucl_1 = self.design.lock().unwrap().get_helix_nucl(
-                helix_id as usize,
-                i as isize,
-                forward,
+                nucl,
                 referential,
                 on_axis,
             )?;
             let nucl_2 = self.design.lock().unwrap().get_helix_nucl(
-                helix_id as usize,
-                (i - 1) as isize,
-                forward,
+                nucl.left(),
                 referential,
                 on_axis,
             )?;
             Some((nucl_1 + nucl_2) / 2.)
         } else {
             let nucl_coord = self.design.lock().unwrap().get_helix_nucl(
-                helix_id as usize,
-                i as isize,
-                forward,
+                nucl,
                 referential,
                 on_axis,
             );
@@ -159,9 +157,11 @@ impl Design3D {
                 let mut previous_nucl = None;
                 for i in -range_phantom..=range_phantom {
                     let nucl_coord = self.design.lock().unwrap().get_helix_nucl(
-                        *helix_id as usize,
-                        i as isize,
-                        *forward,
+                        Nucl {
+                            helix: *helix_id as usize,
+                            position: i as isize,
+                            forward: *forward,
+                        },
                         Referential::Model,
                         false,
                     );
@@ -428,13 +428,15 @@ impl Design3D {
                 self.design.lock().unwrap().get_builder_element(*e_id)
             }
             SceneElement::PhantomElement(phantom_element) => {
-                let helix = phantom_element.helix_id as usize;
-                let position = phantom_element.position as isize;
-                let forward = phantom_element.forward;
+                let nucl = Nucl {
+                helix: phantom_element.helix_id as usize,
+                position: phantom_element.position as isize,
+                forward: phantom_element.forward,
+                };
                 self.design
                     .lock()
                     .unwrap()
-                    .get_builder(helix, position, forward)
+                    .get_builder(nucl)
             }
             _ => None,
         }

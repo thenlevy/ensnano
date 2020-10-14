@@ -1,3 +1,10 @@
+//! This modules defines the type `design::Controller` that handles the manipulation of the `view`
+//! of the design. 
+//!
+//! The `Controller` can be in a state in which the current opperation being applied can varry. In
+//! this state, `Conroller` keep track of the old state of the data being modified, in addition to
+//! the current state. When the
+//! opperation is terminated. The old state of the data is also updated.
 use super::{Data, View};
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -10,12 +17,10 @@ type DataPtr = Arc<Mutex<Data>>;
 pub struct Controller {
     /// The view controlled by self
     view: ViewPtr,
-    #[allow(dead_code)]
+    /// The data controlled by self
     data: DataPtr,
     /// A copy of the model_matrix of the view before the current movement
     old_matrix: Mat4,
-    /// The forward vector of the current movement
-    forward: Vec3,
 }
 
 impl Controller {
@@ -24,16 +29,17 @@ impl Controller {
             view,
             data,
             old_matrix: Mat4::identity(),
-            forward: Vec3::zero(),
         }
     }
 
+    /// Translate the whole view of the design
     pub fn translate(&mut self, translation: &Vec3) {
         self.view
             .borrow_mut()
             .set_matrix(self.old_matrix.translated(translation))
     }
 
+    /// Apply a DesignRotation to the view of the design
     pub fn rotate(&mut self, rotation: &DesignRotation) {
         match rotation.target {
             IsometryTarget::Design => {
@@ -69,18 +75,22 @@ impl Controller {
     /// Terminate the movement computed by self
     pub fn terminate_movement(&mut self) {
         self.old_matrix = self.view.borrow().model_matrix;
-        self.forward = Vec3::zero();
         self.data.lock().unwrap().terminate_movement();
     }
 }
 
+/// A rotation on an element of a design.
 pub struct DesignRotation {
     pub origin: Vec3,
     pub rotation: Rotor3,
+    /// The element of the design on which the rotation will be applied
     pub target: IsometryTarget,
 }
 
+/// A element on which an isometry must be applied
 pub enum IsometryTarget {
+    /// The view of the whole design
     Design,
+    /// An helix of the design
     Helix(u32),
 }

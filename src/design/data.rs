@@ -1,3 +1,12 @@
+//! This modules defines the type `design::Data` which handles the data representing a DNA
+//! nanostructure.
+//!
+//! In addition to its `design` field, the `Data` struct has several hashmaps that are usefull to
+//! quickly access information about the design. These hasmaps must be updated when the design is
+//! modified.
+//!
+//! At the moment, the hash maps are completely recomputed on every modification of the design. In
+//! the future this might be optimised.
 use native_dialog::{Dialog, MessageAlert};
 use std::collections::HashMap;
 use std::io::Write;
@@ -15,15 +24,27 @@ use strand_builder::{DomainIdentifier, NeighbourDescriptor};
 pub struct Data {
     design: icednano::Design,
     object_type: HashMap<u32, ObjectType>,
+    /// Maps identifier of nucleotide to Nucleotide objects
     nucleotide: HashMap<u32, Nucl>,
+    /// Maps identifier of bounds to the pair of nucleotides involved in the bound
     nucleotides_involved: HashMap<u32, (Nucl, Nucl)>,
+    /// Maps identifier of element to their position in the Model's coordinates
     space_position: HashMap<u32, [f32; 3]>,
+    /// Maps a Nucl object to its identifier
     identifier_nucl: HashMap<Nucl, u32>,
+    /// Maps a pair of nucleotide forming a bound to the identifier of the bound
     identifier_bound: HashMap<(Nucl, Nucl), u32>,
+    /// Maps the identifier of a element to the identifier of the strands to which it belongs
     strand_map: HashMap<u32, usize>,
+    /// Maps the identifier of a element to the identifier of the helix to which it belongs
     helix_map: HashMap<u32, usize>,
+    /// Maps the identifier of an element to its color
     color: HashMap<u32, u32>,
+    /// Must be set to true when the design is modified, so that its obeservers get notified of the
+    /// modification
     update_status: bool,
+    /// Must be set to true when a modification that requires an update of the hash maps is
+    /// performed
     hash_maps_update: bool,
 }
 
@@ -72,6 +93,7 @@ impl Data {
         Some(ret)
     }
 
+    /// Update all the hash maps
     fn make_hash_maps(&mut self) {
         let mut object_type = HashMap::new();
         let mut space_position = HashMap::new();
@@ -142,6 +164,7 @@ impl Data {
         self.helix_map = helix_map;
     }
 
+    /// Save the design to a file in the `icednano` format
     pub fn save_file(&self, path: &PathBuf) -> std::io::Result<()> {
         let json_content = serde_json::to_string_pretty(&self.design);
         let mut f = std::fs::File::create(path)?;
@@ -149,12 +172,16 @@ impl Data {
     }
 
     /// Return true if self was updated since the last time this function was called.
+    /// This function is meant to be called by the mediator that will notify all the obeservers
+    /// that a update took place.
     pub fn was_updated(&mut self) -> bool {
         let ret = self.update_status;
         self.update_status = false;
         ret
     }
 
+    /// Return the position of a nucleotide, this function is only used internally. The
+    /// corresponding public methods is `Data::get_element_position`.
     fn get_space_pos(&self, nucl: &Nucl) -> Option<[f32; 3]> {
         let id = self.identifier_nucl.get(nucl);
         if let Some(ref id) = id {
@@ -192,6 +219,7 @@ impl Data {
         }
     }
 
+    /// Get the position of an element, projected on the Helix on which it lies.
     pub fn get_element_axis_position(&mut self, id: u32) -> Option<Vec3> {
         if self.hash_maps_update {
             self.make_hash_maps();
@@ -222,22 +250,23 @@ impl Data {
             .map(|h| h.axis_position(self.design.parameters.as_ref().unwrap(), nucl.position))
     }
 
+    /// Get the nucleotide corresponding to an identifier
     pub fn get_nucl(&self, e_id: u32) -> Option<Nucl> {
         self.nucleotide.get(&e_id).cloned()
     }
 
+    /// Get the position of a nucleotide, eventually projected on the axis of the helix that
+    /// supports it.
     pub fn get_helix_nucl(
         &self,
-        helix_id: usize,
-        nucl: isize,
-        forward: bool,
+        nucl: Nucl,
         on_axis: bool,
     ) -> Option<Vec3> {
-        self.design.helices.get(&helix_id).map(|h| {
+        self.design.helices.get(&nucl.helix).map(|h| {
             if on_axis {
-                h.axis_position(&self.design.parameters.unwrap(), nucl)
+                h.axis_position(&self.design.parameters.unwrap(), nucl.position)
             } else {
-                h.space_pos(&self.design.parameters.unwrap(), nucl, forward)
+                h.space_pos(&self.design.parameters.unwrap(), nucl.position, nucl.forward)
             }
         })
     }
@@ -263,14 +292,17 @@ impl Data {
         self.nucleotides_involved.keys().copied()
     }
 
+    /// Return the identifier of the strand on which an element lies
     pub fn get_strand(&self, id: u32) -> Option<usize> {
         self.strand_map.get(&id).cloned()
     }
 
+    /// Return the identifier of the helix on which an element lies
     pub fn get_helix(&self, id: u32) -> Option<usize> {
         self.helix_map.get(&id).cloned()
     }
 
+    /// Return all the elements of a strand 
     pub fn get_strand_elements(&self, s_id: usize) -> Vec<u32> {
         let mut ret = Vec::new();
         for elt in self.object_type.keys() {
@@ -281,6 +313,7 @@ impl Data {
         ret
     }
 
+    /// Return all the elements that lie on an helix
     pub fn get_helix_elements(&self, h_id: usize) -> Vec<u32> {
         let mut ret = Vec::new();
         for elt in self.object_type.keys() {
@@ -291,6 +324,7 @@ impl Data {
         ret
     }
 
+    /// Change the color of a strand
     pub fn change_strand_color(&mut self, s_id: usize, color: u32) {
         self.design
             .strands

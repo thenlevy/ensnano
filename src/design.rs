@@ -1,3 +1,4 @@
+//! This modules defines the type `Design` which offers an interface to a DNA nanostructure design.
 use native_dialog::{Dialog, MessageAlert};
 use std::cell::RefCell;
 use std::path::PathBuf;
@@ -124,12 +125,11 @@ impl Design {
         }
     }
 
-    /// Get the position of the nucleotid `nucl_id` on helix_id in the model coordinates
+    /// Get the position of a nucleotide in a given referential. Eventually project the nucleotide
+    /// on the it's helix's axis.
     pub fn get_helix_nucl(
         &self,
-        helix_id: usize,
-        nucl_id: isize,
-        forward: bool,
+        nucl: Nucl,
         referential: Referential,
         on_axis: bool,
     ) -> Option<Vec3> {
@@ -137,13 +137,13 @@ impl Design {
             self.data
                 .lock()
                 .unwrap()
-                .get_helix_nucl(helix_id, nucl_id, forward, on_axis)
+                .get_helix_nucl(nucl, on_axis)
                 .map(|x| self.view.borrow().model_matrix.transform_point3(x))
         } else {
             self.data
                 .lock()
                 .unwrap()
-                .get_helix_nucl(helix_id, nucl_id, forward, on_axis)
+                .get_helix_nucl(nucl, on_axis)
         }
     }
 
@@ -247,14 +247,12 @@ impl Design {
 
     pub fn get_builder(
         &mut self,
-        helix: usize,
-        position: isize,
-        forward: bool,
+        nucl: Nucl,
     ) -> Option<StrandBuilder> {
         self.data
             .lock()
             .unwrap()
-            .get_strand_builder(helix, position, forward)
+            .get_strand_builder(nucl)
             .map(|b| {
                 b.transformed(&self.view.borrow().get_model_matrix())
                     .given_data(self.data.clone())
@@ -263,7 +261,7 @@ impl Design {
 
     pub fn get_builder_element(&mut self, element_id: u32) -> Option<StrandBuilder> {
         let nucl = self.data.lock().unwrap().get_nucl(element_id)?;
-        self.get_builder(nucl.helix, nucl.position, nucl.forward)
+        self.get_builder(nucl)
     }
 }
 
