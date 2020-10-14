@@ -8,9 +8,9 @@ mod codenano;
 mod icednano;
 mod strand_builder;
 pub use icednano::Nucl;
-pub use icednano::Design;
-use strand_builder::{DomainIdentifier, NeighbourDescriptor};
+pub use icednano::{Axis, Design};
 pub use strand_builder::StrandBuilder;
+use strand_builder::{DomainIdentifier, NeighbourDescriptor};
 
 pub struct Data {
     design: icednano::Design,
@@ -216,14 +216,23 @@ impl Data {
     }
 
     fn get_axis_pos(&self, nucl: Nucl) -> Option<Vec3> {
-        self.design.helices.get(&nucl.helix).map(|h| h.axis_position(self.design.parameters.as_ref().unwrap(), nucl.position))
+        self.design
+            .helices
+            .get(&nucl.helix)
+            .map(|h| h.axis_position(self.design.parameters.as_ref().unwrap(), nucl.position))
     }
 
     pub fn get_nucl(&self, e_id: u32) -> Option<Nucl> {
         self.nucleotide.get(&e_id).cloned()
     }
 
-    pub fn get_helix_nucl(&self, helix_id: usize, nucl: isize, forward: bool, on_axis: bool) -> Option<Vec3> {
+    pub fn get_helix_nucl(
+        &self,
+        helix_id: usize,
+        nucl: isize,
+        forward: bool,
+        on_axis: bool,
+    ) -> Option<Vec3> {
         self.design.helices.get(&helix_id).map(|h| {
             if on_axis {
                 h.axis_position(&self.design.parameters.unwrap(), nucl)
@@ -326,23 +335,46 @@ impl Data {
     }
 
     pub fn get_5prime(&self, strand_id: usize) -> Option<u32> {
-        let nucl = self.design.strands.get(&strand_id).and_then(|s| s.get_5prime())?;
+        let nucl = self
+            .design
+            .strands
+            .get(&strand_id)
+            .and_then(|s| s.get_5prime())?;
         self.identifier_nucl.get(&nucl).cloned()
     }
 
     pub fn get_3prime(&self, strand_id: usize) -> Option<u32> {
-        let nucl = self.design.strands.get(&strand_id).and_then(|s| s.get_3prime())?;
+        let nucl = self
+            .design
+            .strands
+            .get(&strand_id)
+            .and_then(|s| s.get_3prime())?;
         self.identifier_nucl.get(&nucl).cloned()
     }
 
-    pub fn get_neighbour_nucl(&self, helix: usize, position: isize, forwrard: bool) -> Option<NeighbourDescriptor> {
+    pub fn get_neighbour_nucl(
+        &self,
+        helix: usize,
+        position: isize,
+        forwrard: bool,
+    ) -> Option<NeighbourDescriptor> {
         self.design.get_neighbour_nucl(helix, position, forwrard)
     }
 
-    pub fn update_strand(&mut self, identifier: DomainIdentifier, position: isize, fixed_position: isize) {
+    pub fn update_strand(
+        &mut self,
+        identifier: DomainIdentifier,
+        position: isize,
+        fixed_position: isize,
+    ) {
         let start = position.min(fixed_position);
         let end = position.max(fixed_position) - 1;
-        let domain = &mut self.design.strands.get_mut(&identifier.strand).unwrap().domains[identifier.domain];
+        let domain = &mut self
+            .design
+            .strands
+            .get_mut(&identifier.strand)
+            .unwrap()
+            .domains[identifier.domain];
         match domain {
             icednano::Domain::HelixDomain(domain) => {
                 domain.start = start;
@@ -353,15 +385,37 @@ impl Data {
         self.hash_maps_update = true;
     }
 
-    pub fn get_strand_builder(&mut self, helix: usize, position: isize, forward: bool) -> Option<StrandBuilder> {
+    pub fn get_strand_builder(
+        &mut self,
+        helix: usize,
+        position: isize,
+        forward: bool,
+    ) -> Option<StrandBuilder> {
         let left = self.design.get_neighbour_nucl(helix, position - 1, forward);
         let right = self.design.get_neighbour_nucl(helix, position + 1, forward);
         if left.is_some() && right.is_some() {
             return None;
         }
-        if self.identifier_nucl.contains_key(&Nucl {helix, position, forward}) {
+        let axis = self
+            .design
+            .helices
+            .get(&helix)
+            .map(|h| h.get_axis(&self.design.parameters.unwrap()))?;
+        if self.identifier_nucl.contains_key(&Nucl {
+            helix,
+            position,
+            forward,
+        }) {
             if let Some(desc) = self.design.get_neighbour_nucl(helix, position, forward) {
-                Some(StrandBuilder::init_existing(desc.identifier, helix, position, forward, desc.fixed_end, left.or(right)))
+                Some(StrandBuilder::init_existing(
+                    desc.identifier,
+                    helix,
+                    position,
+                    forward,
+                    axis,
+                    desc.fixed_end,
+                    left.or(right),
+                ))
             } else {
                 None
             }
@@ -370,10 +424,22 @@ impl Data {
             while self.design.strands.contains_key(&new_key) {
                 new_key += 1;
             }
-            self.design.strands.insert(new_key, icednano::Strand::init(helix, position, forward));
+            self.design
+                .strands
+                .insert(new_key, icednano::Strand::init(helix, position, forward));
             self.hash_maps_update = true;
             self.update_status = true;
-            Some(StrandBuilder::init_empty(DomainIdentifier { strand: new_key, domain: 0 }, helix, position, forward, left.or(right)))
+            Some(StrandBuilder::init_empty(
+                DomainIdentifier {
+                    strand: new_key,
+                    domain: 0,
+                },
+                helix,
+                position,
+                forward,
+                axis,
+                left.or(right),
+            ))
         }
     }
 }
@@ -443,4 +509,3 @@ impl ObjectType {
         self.is_nucl() == other.is_nucl()
     }
 }
-

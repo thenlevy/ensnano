@@ -606,10 +606,7 @@ impl PipelineHandlers {
     }
 
     fn fake_phantoms(&mut self) -> Vec<&mut PipelineHandler> {
-        vec![
-            &mut self.fake_phantom_sphere,
-            &mut self.fake_phantom_tube,
-        ]
+        vec![&mut self.fake_phantom_sphere, &mut self.fake_phantom_tube]
     }
 
     fn fake(&mut self) -> Vec<&mut PipelineHandler> {

@@ -1,10 +1,11 @@
 use super::{Data, View};
 use std::cell::RefCell;
 use std::rc::Rc;
+use std::sync::{Arc, Mutex};
 use ultraviolet::{Mat4, Rotor3, Vec3};
 
 type ViewPtr = Rc<RefCell<View>>;
-type DataPtr = Rc<RefCell<Data>>;
+type DataPtr = Arc<Mutex<Data>>;
 
 pub struct Controller {
     /// The view controlled by self
@@ -54,10 +55,13 @@ impl Controller {
                     self.old_matrix.transform_vec3(Vec3::unit_x()),
                     self.old_matrix.transform_vec3(Vec3::unit_y()),
                     self.old_matrix.transform_vec3(Vec3::unit_z()),
-                ).into_rotor3();
-                self.data
-                    .borrow_mut()
-                    .rotate_helix_arround(n as usize, rotation.rotation.rotated_by(basis.reversed()), origin)
+                )
+                .into_rotor3();
+                self.data.lock().unwrap().rotate_helix_arround(
+                    n as usize,
+                    rotation.rotation.rotated_by(basis.reversed()),
+                    origin,
+                )
             }
         }
     }
@@ -66,7 +70,7 @@ impl Controller {
     pub fn terminate_movement(&mut self) {
         self.old_matrix = self.view.borrow().model_matrix;
         self.forward = Vec3::zero();
-        self.data.borrow_mut().terminate_movement();
+        self.data.lock().unwrap().terminate_movement();
     }
 }
 

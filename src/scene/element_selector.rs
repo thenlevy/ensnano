@@ -1,10 +1,10 @@
 use std::rc::Rc;
 
-use futures::executor;
-use iced_winit::winit::dpi::{PhysicalSize, PhysicalPosition};
-use iced_wgpu::wgpu;
-use super::{DrawArea, DrawType, Device, ViewPtr, Queue, DataPtr};
+use super::{DataPtr, Device, DrawArea, DrawType, Queue, ViewPtr};
 use crate::utils;
+use futures::executor;
+use iced_wgpu::wgpu;
+use iced_winit::winit::dpi::{PhysicalPosition, PhysicalSize};
 use utils::BufferDimensions;
 
 pub struct ElementSelector {
@@ -15,11 +15,17 @@ pub struct ElementSelector {
     view: ViewPtr,
     data: DataPtr,
     area: DrawArea,
-
 }
 
 impl ElementSelector {
-    pub fn new(device: Rc<Device>, queue: Rc<Queue>, window_size: PhysicalSize<u32>, view: ViewPtr, data: DataPtr, area: DrawArea) -> Self {
+    pub fn new(
+        device: Rc<Device>,
+        queue: Rc<Queue>,
+        window_size: PhysicalSize<u32>,
+        view: ViewPtr,
+        data: DataPtr,
+        area: DrawArea,
+    ) -> Self {
         let readers = vec![
             SceneReader::new(DrawType::Widget),
             SceneReader::new(DrawType::Phantom),
@@ -41,7 +47,10 @@ impl ElementSelector {
         self.window_size = window_size;
     }
 
-    pub fn set_selected_id(&mut self, clicked_pixel: PhysicalPosition<f64>) -> Option<SceneElement> {
+    pub fn set_selected_id(
+        &mut self,
+        clicked_pixel: PhysicalPosition<f64>,
+    ) -> Option<SceneElement> {
         let pixel = (
             clicked_pixel.cast::<u32>().x.min(self.area.size.width - 1) + self.area.position.x,
             clicked_pixel.cast::<u32>().y.min(self.area.size.height - 1) + self.area.position.y,
@@ -54,8 +63,8 @@ impl ElementSelector {
             }
         }
 
-        let byte0 = (pixel.1 * self.window_size.width + pixel.0) as usize
-            * std::mem::size_of::<u32>();
+        let byte0 =
+            (pixel.1 * self.window_size.width + pixel.0) as usize * std::mem::size_of::<u32>();
 
         self.get_highest_priority_element(byte0)
     }
@@ -63,10 +72,10 @@ impl ElementSelector {
     fn get_highest_priority_element(&self, byte0: usize) -> Option<SceneElement> {
         for reader in self.readers.iter() {
             if let Some(element) = reader.read_pixel(byte0) {
-                return Some(element)
+                return Some(element);
             }
-        } 
-        return None
+        }
+        return None;
     }
 
     fn get_pixel_from_bytes(byte0: usize, pixels: &[u8]) -> Option<(u32, u32)> {
@@ -95,9 +104,13 @@ impl ElementSelector {
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
 
-        self.view
-            .borrow_mut()
-            .draw(&mut encoder, &texture_view, draw_type, self.area, self.data.borrow().get_action_mode());
+        self.view.borrow_mut().draw(
+            &mut encoder,
+            &texture_view,
+            draw_type,
+            self.area,
+            self.data.borrow().get_action_mode(),
+        );
 
         // create a buffer and fill it with the texture
         let extent = wgpu::Extent3d {
@@ -186,14 +199,13 @@ impl ElementSelector {
         let view = texture.create_view(&texture_view_descriptor);
         (texture, view)
     }
-
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum SceneElement {
     DesignElement(u32, u32),
     WidgetElement(u32),
-    PhantomElement(utils::PhantomElement)
+    PhantomElement(utils::PhantomElement),
 }
 
 impl SceneElement {
@@ -201,21 +213,21 @@ impl SceneElement {
         match self {
             SceneElement::DesignElement(d, _) => Some(*d),
             SceneElement::WidgetElement(_) => None,
-            SceneElement::PhantomElement(p) => Some(p.design_id)
+            SceneElement::PhantomElement(p) => Some(p.design_id),
         }
     }
 }
 
 struct SceneReader {
     pixels: Option<Vec<u8>>,
-    draw_type: DrawType
+    draw_type: DrawType,
 }
 
 impl SceneReader {
     pub fn new(draw_type: DrawType) -> Self {
         Self {
             pixels: None,
-            draw_type
+            draw_type,
         }
     }
 
@@ -231,11 +243,12 @@ impl SceneReader {
         } else {
             match self.draw_type {
                 DrawType::Design => Some(SceneElement::DesignElement(a, color)),
-                DrawType::Phantom => Some(SceneElement::PhantomElement(utils::phantom_helix_decoder(color))),
+                DrawType::Phantom => Some(SceneElement::PhantomElement(
+                    utils::phantom_helix_decoder(color),
+                )),
                 DrawType::Widget => Some(SceneElement::WidgetElement(color)),
                 DrawType::Scene => unreachable!(),
             }
         }
     }
 }
-

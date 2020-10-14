@@ -1,12 +1,12 @@
+use super::{SceneElement, StrandBuilder};
+use crate::consts::*;
 use crate::design::{Design, ObjectType, Referential};
+use crate::utils;
 use crate::utils::instance::Instance;
 use std::collections::HashSet;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 use ultraviolet::{Mat4, Rotor3, Vec3};
-use crate::consts::*;
-use crate::utils;
-use super::{StrandBuilder, SceneElement};
 
 /// An object that handles the 3d graphcial representation of a `Design`
 pub struct Design3D {
@@ -66,35 +66,77 @@ impl Design3D {
         instanciable.to_instance(false)
     }
 
-    pub fn make_instance_phantom(&self, phantom_element: &utils::PhantomElement) -> Option<Instance> {
+    pub fn make_instance_phantom(
+        &self,
+        phantom_element: &utils::PhantomElement,
+    ) -> Option<Instance> {
         let helix_id = phantom_element.helix_id;
         let i = phantom_element.position;
         let forward = phantom_element.forward;
         let color = 0xA0D0D0D0;
         if phantom_element.bound {
-            let nucl_1 = self.design.lock().unwrap().get_helix_nucl(helix_id as usize, i as isize, forward, Referential::Model, false)?;
-            let nucl_2 = self.design.lock().unwrap().get_helix_nucl(helix_id as usize, (i - 1) as isize, forward, Referential::Model, false)?;
+            let nucl_1 = self.design.lock().unwrap().get_helix_nucl(
+                helix_id as usize,
+                i as isize,
+                forward,
+                Referential::Model,
+                false,
+            )?;
+            let nucl_2 = self.design.lock().unwrap().get_helix_nucl(
+                helix_id as usize,
+                (i - 1) as isize,
+                forward,
+                Referential::Model,
+                false,
+            )?;
             let id = utils::phantom_helix_encoder_bound(self.id, helix_id, i, forward);
-                Some(Instantiable::new(ObjectRepr::Tube(nucl_1, nucl_2), color, id)
-                    .to_instance(true))
+            Some(Instantiable::new(ObjectRepr::Tube(nucl_1, nucl_2), color, id).to_instance(true))
         } else {
-            let nucl_coord = self.design.lock().unwrap().get_helix_nucl(helix_id as usize, i as isize, forward, Referential::Model, false)?;
+            let nucl_coord = self.design.lock().unwrap().get_helix_nucl(
+                helix_id as usize,
+                i as isize,
+                forward,
+                Referential::Model,
+                false,
+            )?;
             let id = utils::phantom_helix_encoder_nucl(self.id, helix_id, i, forward);
-            Some(Instantiable::new(ObjectRepr::Sphere(nucl_coord), color, id)
-                .to_instance(true))
+            Some(Instantiable::new(ObjectRepr::Sphere(nucl_coord), color, id).to_instance(true))
         }
     }
 
-    pub fn get_phantom_element_position(&self, phantom_element: &utils::PhantomElement, referential: Referential, on_axis: bool) -> Option<Vec3> {
+    pub fn get_phantom_element_position(
+        &self,
+        phantom_element: &utils::PhantomElement,
+        referential: Referential,
+        on_axis: bool,
+    ) -> Option<Vec3> {
         let helix_id = phantom_element.helix_id;
         let i = phantom_element.position;
         let forward = phantom_element.forward;
         if phantom_element.bound {
-            let nucl_1 = self.design.lock().unwrap().get_helix_nucl(helix_id as usize, i as isize, forward, referential, on_axis)?;
-            let nucl_2 = self.design.lock().unwrap().get_helix_nucl(helix_id as usize, (i - 1) as isize, forward, referential, on_axis)?;
+            let nucl_1 = self.design.lock().unwrap().get_helix_nucl(
+                helix_id as usize,
+                i as isize,
+                forward,
+                referential,
+                on_axis,
+            )?;
+            let nucl_2 = self.design.lock().unwrap().get_helix_nucl(
+                helix_id as usize,
+                (i - 1) as isize,
+                forward,
+                referential,
+                on_axis,
+            )?;
             Some((nucl_1 + nucl_2) / 2.)
         } else {
-            let nucl_coord = self.design.lock().unwrap().get_helix_nucl(helix_id as usize, i as isize, forward, referential, on_axis);
+            let nucl_coord = self.design.lock().unwrap().get_helix_nucl(
+                helix_id as usize,
+                i as isize,
+                forward,
+                referential,
+                on_axis,
+            );
             nucl_coord
         }
     }
@@ -110,11 +152,13 @@ impl Design3D {
             for forward in [false, true].iter() {
                 let mut previous_nucl = None;
                 for i in -range_phantom..=range_phantom {
-                    let nucl_coord =
-                        self.design
-                            .lock()
-                            .unwrap()
-                            .get_helix_nucl(*helix_id as usize, i as isize, *forward, Referential::Model, false);
+                    let nucl_coord = self.design.lock().unwrap().get_helix_nucl(
+                        *helix_id as usize,
+                        i as isize,
+                        *forward,
+                        Referential::Model,
+                        false,
+                    );
                     let color = 0xA0D0D0D0;
                     if nucl_coord.is_none() {
                         continue;
@@ -126,7 +170,8 @@ impl Design3D {
                             .to_instance(true),
                     );
                     if let Some(coord) = previous_nucl {
-                        let id = utils::phantom_helix_encoder_bound(self.id, *helix_id, i, *forward);
+                        let id =
+                            utils::phantom_helix_encoder_bound(self.id, *helix_id, i, *forward);
                         tubes.push(
                             Instantiable::new(ObjectRepr::Tube(nucl_coord, coord), color, id)
                                 .to_instance(true),
@@ -143,18 +188,34 @@ impl Design3D {
         self.design.lock().unwrap().get_object_type(id)
     }
 
-    pub fn get_element_position(&self, element: &SceneElement, referential: Referential) -> Option<Vec3> {
+    pub fn get_element_position(
+        &self,
+        element: &SceneElement,
+        referential: Referential,
+    ) -> Option<Vec3> {
         match element {
-            SceneElement::DesignElement(_, e_id) => self.get_design_element_position(*e_id, referential),
-            SceneElement::PhantomElement(phantom) => self.get_phantom_element_position(phantom, referential, false),
-            _ => None
+            SceneElement::DesignElement(_, e_id) => {
+                self.get_design_element_position(*e_id, referential)
+            }
+            SceneElement::PhantomElement(phantom) => {
+                self.get_phantom_element_position(phantom, referential, false)
+            }
+            _ => None,
         }
     }
 
-    pub fn get_element_axis_position(&self, element: &SceneElement, referential: Referential) -> Option<Vec3> {
+    pub fn get_element_axis_position(
+        &self,
+        element: &SceneElement,
+        referential: Referential,
+    ) -> Option<Vec3> {
         match element {
-            SceneElement::DesignElement(_, e_id) => self.get_design_element_axis_position(*e_id, referential),
-            SceneElement::PhantomElement(phantom) => self.get_phantom_element_position(phantom, referential, true),
+            SceneElement::DesignElement(_, e_id) => {
+                self.get_design_element_axis_position(*e_id, referential)
+            }
+            SceneElement::PhantomElement(phantom) => {
+                self.get_phantom_element_position(phantom, referential, true)
+            }
             SceneElement::WidgetElement(_) => None,
         }
     }
@@ -166,7 +227,11 @@ impl Design3D {
             .get_element_position(id, referential)
     }
 
-    pub fn get_design_element_axis_position(&self, id: u32, referential: Referential) -> Option<Vec3> {
+    pub fn get_design_element_axis_position(
+        &self,
+        id: u32,
+        referential: Referential,
+    ) -> Option<Vec3> {
         self.design
             .lock()
             .unwrap()
@@ -353,16 +418,20 @@ impl Design3D {
 
     pub fn get_builder(&self, element: &SceneElement) -> Option<StrandBuilder> {
         match element {
-            SceneElement::DesignElement(_, e_id) => self.design.lock().unwrap().get_builder_element(*e_id),
+            SceneElement::DesignElement(_, e_id) => {
+                self.design.lock().unwrap().get_builder_element(*e_id)
+            }
             SceneElement::PhantomElement(phantom_element) => {
                 let helix = phantom_element.helix_id as usize;
                 let position = phantom_element.position as isize;
                 let forward = phantom_element.forward;
-                self.design.lock().unwrap().get_builder(helix, position, forward)
+                self.design
+                    .lock()
+                    .unwrap()
+                    .get_builder(helix, position, forward)
             }
-            _ => None
+            _ => None,
         }
-
     }
 }
 

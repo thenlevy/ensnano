@@ -248,7 +248,7 @@ impl VertexRaw {
 pub struct Vertex {
     position: Vec3,
     color: u32,
-    fake: bool
+    fake: bool,
 }
 
 impl Vertex {
@@ -270,6 +270,10 @@ impl Vertex {
     }
 
     pub fn new(position: Vec3, color: u32, fake: bool) -> Self {
-        Self { position, color, fake}
+        Self {
+            position,
+            color,
+            fake,
+        }
     }
 }

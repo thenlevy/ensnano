@@ -5,7 +5,7 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 use std::f32::consts::PI;
 
-use ultraviolet::{Rotor3, Vec3};
+use ultraviolet::{Mat4, Rotor3, Vec3};
 
 use super::codenano;
 use super::strand_builder::{DomainIdentifier, NeighbourDescriptor};
@@ -57,7 +57,12 @@ impl Design {
         }
     }
 
-    pub fn get_neighbour_nucl(&self, helix: usize, position: isize, forward: bool) -> Option<NeighbourDescriptor> {
+    pub fn get_neighbour_nucl(
+        &self,
+        helix: usize,
+        position: isize,
+        forward: bool,
+    ) -> Option<NeighbourDescriptor> {
         for (s_id, s) in self.strands.iter() {
             for (d_id, d) in s.domains.iter().enumerate() {
                 if let Some(other) = d.other_end(helix, position, forward) {
@@ -69,7 +74,7 @@ impl Design {
                         fixed_end: other,
                         initial_moving_end: position,
                         moving_end: position,
-                    })
+                    });
                 }
             }
         }
@@ -118,12 +123,12 @@ impl Strand {
     }
 
     pub fn init(helix: usize, position: isize, forward: bool) -> Self {
-        let domains = vec![Domain::HelixDomain(HelixInterval{
+        let domains = vec![Domain::HelixDomain(HelixInterval {
             sequence: None,
             start: position,
             end: position + 1,
             helix,
-            forward
+            forward,
         })];
         Self {
             domains,
@@ -138,16 +143,12 @@ impl Strand {
             match domain {
                 Domain::Insertion(_) => (),
                 Domain::HelixDomain(h) => {
-                    let position = if h.forward {
-                        h.start
-                    } else {
-                        h.end - 1
-                    };
+                    let position = if h.forward { h.start } else { h.end - 1 };
                     return Some(Nucl {
-                            helix: h.helix,
-                            position: position,
-                            forward: h.forward
-                        })
+                        helix: h.helix,
+                        position: position,
+                        forward: h.forward,
+                    });
                 }
             }
         }
@@ -159,16 +160,12 @@ impl Strand {
             match domain {
                 Domain::Insertion(_) => (),
                 Domain::HelixDomain(h) => {
-                    let position = if h.forward {
-                        h.end - 1
-                    } else {
-                        h.start
-                    };
+                    let position = if h.forward { h.end - 1 } else { h.start };
                     return Some(Nucl {
-                            helix: h.helix,
-                            position: position,
-                            forward: h.forward
-                        })
+                        helix: h.helix,
+                        position: position,
+                        forward: h.forward,
+                    });
                 }
             }
         }
@@ -244,7 +241,6 @@ impl Domain {
             }
         }
     }
-
 }
 
 impl HelixInterval {
@@ -426,17 +422,19 @@ impl Helix {
         ret
     }
 
+    pub fn get_axis(&self, p: &Parameters) -> Axis {
+        Axis {
+            origin: self.position,
+            direction: self.axis_position(p, 1) - self.position,
+        }
+    }
+
     pub fn axis_position(&self, p: &Parameters, n: isize) -> Vec3 {
-        let mut ret = Vec3::new(
-            n as f32 * p.z_step,
-            0.,
-            0.,
-        );
+        let mut ret = Vec3::new(n as f32 * p.z_step, 0., 0.);
 
         ret = self.rotate_point(ret);
         ret += self.position;
         ret
-
     }
 
     pub(crate) fn rotate_point(&self, ret: Vec3) -> Vec3 {
@@ -475,4 +473,19 @@ pub struct Nucl {
     pub position: isize,
     pub helix: usize,
     pub forward: bool,
+}
+
+/// Represents the axis of an helix. At the moment it is a line. In the future it might also be a
+/// bezier curve
+pub struct Axis {
+    pub origin: Vec3,
+    pub direction: Vec3,
+}
+
+impl Axis {
+    pub fn transformed(&self, model_matrix: &Mat4) -> Self {
+        let origin = model_matrix.transform_point3(self.origin);
+        let direction = model_matrix.transform_vec3(self.direction);
+        Self { origin, direction }
+    }
 }

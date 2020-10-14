@@ -20,8 +20,8 @@ mod camera;
 /// Display of the scene
 mod view;
 use view::{
-    HandleDir, HandleOrientation, HandlesDescriptor, RotationMode as WidgetRotationMode,
-    RotationWidgetDescriptor, RotationWidgetOrientation, View, ViewUpdate, DrawType,
+    DrawType, HandleDir, HandleOrientation, HandlesDescriptor, RotationMode as WidgetRotationMode,
+    RotationWidgetDescriptor, RotationWidgetOrientation, View, ViewUpdate,
 };
 /// Handling of inputs and notifications
 mod controller;
@@ -35,7 +35,7 @@ use design::{
     Design, DesignNotification, DesignNotificationContent, DesignRotation, IsometryTarget,
 };
 mod element_selector;
-use element_selector::{SceneElement, ElementSelector};
+use element_selector::{ElementSelector, SceneElement};
 
 type ViewPtr = Rc<RefCell<View>>;
 type DataPtr = Rc<RefCell<Data>>;
@@ -85,7 +85,14 @@ impl Scene {
         let data: DataPtr = Rc::new(RefCell::new(Data::new(view.clone())));
         let controller: Controller =
             Controller::new(view.clone(), data.clone(), window_size, area.size);
-        let element_selector = ElementSelector::new(device.clone(), queue.clone(), controller.get_window_size(), view.clone(), data.clone(), area);
+        let element_selector = ElementSelector::new(
+            device.clone(),
+            queue.clone(),
+            controller.get_window_size(),
+            view.clone(),
+            data.clone(),
+            area,
+        );
         Self {
             view,
             data,
@@ -114,7 +121,7 @@ impl Scene {
     }
 
     /// Input an event to the scene. The controller parse the event and return the consequence that
-    /// the event must have. 
+    /// the event must have.
     pub fn input(&mut self, event: &WindowEvent, cursor_position: PhysicalPosition<f64>) {
         let consequence = self.controller.input(event, cursor_position);
         match consequence {
@@ -173,10 +180,7 @@ impl Scene {
         let element = self.element_selector.set_selected_id(clicked_pixel);
         let selection = self.data.borrow_mut().set_selection(element);
         if let Some(selection) = selection {
-            self.mediator
-                .lock()
-                .unwrap()
-                .notify_selection(selection);
+            self.mediator.lock().unwrap().notify_selection(selection);
         }
         self.update_handle();
     }
@@ -204,7 +208,6 @@ impl Scene {
         }*/
         self.view.borrow_mut().set_widget_candidate(widget);
     }
-
 
     fn translate_selected_design(&mut self, translation: Vec3) {
         self.view.borrow_mut().translate_widgets(translation);
@@ -271,14 +274,14 @@ impl Scene {
     }
 
     /// Draw the scene
-    pub fn draw_view(
-        &mut self,
-        encoder: &mut wgpu::CommandEncoder,
-        target: &wgpu::TextureView,
-    ) {
-        self.view
-            .borrow_mut()
-            .draw(encoder, target, DrawType::Scene, self.area, self.data.borrow().get_action_mode());
+    pub fn draw_view(&mut self, encoder: &mut wgpu::CommandEncoder, target: &wgpu::TextureView) {
+        self.view.borrow_mut().draw(
+            encoder,
+            target,
+            DrawType::Scene,
+            self.area,
+            self.data.borrow().get_action_mode(),
+        );
     }
 
     fn update_handle(&mut self) {
@@ -326,7 +329,6 @@ impl Scene {
     pub fn change_action_mode(&mut self, action_mode: ActionMode) {
         self.data.borrow_mut().change_action_mode(action_mode)
     }
-
 }
 
 /// A structure that stores the element that needs to be updated in a scene
@@ -394,7 +396,8 @@ impl Scene {
         self.view.borrow_mut().update(ViewUpdate::Size(window_size));
         self.controller.resize(window_size, self.area.size);
         self.update.camera_update = true;
-        self.element_selector.resize(self.controller.get_window_size(), self.area);
+        self.element_selector
+            .resize(self.controller.get_window_size(), self.area);
     }
 }
 

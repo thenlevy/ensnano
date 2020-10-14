@@ -1,9 +1,13 @@
-use super::Data;
+use super::{Axis, Data};
+use std::sync::{Arc, Mutex};
+use ultraviolet::Mat4;
 
 pub struct StrandBuilder {
+    data: Option<Arc<Mutex<Data>>>,
     initial_position: isize,
     forward: bool,
     helix: usize,
+    axis: Axis,
     identifier: DomainIdentifier,
     fixed_end: Option<isize>,
     current_position: isize,
@@ -27,7 +31,14 @@ pub struct StrandBuilder {
 impl StrandBuilder {
     /// Create a strand that will build a new strand. This means that the inital position
     /// correspons to a phantom nucleotide
-    pub fn init_empty(identifier: DomainIdentifier, helix: usize, initial_position: isize, forward: bool, neighbour: Option<NeighbourDescriptor>) -> Self {
+    pub fn init_empty(
+        identifier: DomainIdentifier,
+        helix: usize,
+        initial_position: isize,
+        forward: bool,
+        axis: Axis,
+        neighbour: Option<NeighbourDescriptor>,
+    ) -> Self {
         let mut neighbour_strand = None;
         let mut neighbour_direction = None;
         let mut neighbour_initial_position = None;
@@ -46,10 +57,12 @@ impl StrandBuilder {
         }
 
         Self {
+            data: None,
             initial_position,
             helix,
             forward,
             identifier,
+            axis,
             fixed_end: None,
             current_position: initial_position,
             neighbour_strand,
@@ -61,7 +74,15 @@ impl StrandBuilder {
         }
     }
 
-    pub fn init_existing(identifier: DomainIdentifier, helix: usize, initial_position: isize, forward: bool, other_end: isize, neighbour: Option<NeighbourDescriptor>) -> Self {
+    pub fn init_existing(
+        identifier: DomainIdentifier,
+        helix: usize,
+        initial_position: isize,
+        forward: bool,
+        axis: Axis,
+        other_end: isize,
+        neighbour: Option<NeighbourDescriptor>,
+    ) -> Self {
         let mut min_pos = None;
         let mut max_pos = None;
         if initial_position < other_end {
@@ -87,9 +108,11 @@ impl StrandBuilder {
             neighbour_direction = None;
         }
         Self {
+            data: None,
             helix,
             initial_position,
             forward,
+            axis,
             identifier,
             fixed_end: Some(other_end),
             current_position: initial_position,
@@ -120,22 +143,30 @@ impl StrandBuilder {
 
     fn incr_position(&mut self, data: &Data) {
         // Eventually detach from neighbour
-        if self.neighbour_initial_position == Some(self.current_position - 1) && self.neighbour_direction == Some(EditDirection::Negative) {
+        if self.neighbour_initial_position == Some(self.current_position - 1)
+            && self.neighbour_direction == Some(EditDirection::Negative)
+        {
             self.detach_neighbour();
         }
         self.current_position += 1;
-        if let Some(ref desc) = data.get_neighbour_nucl(self.helix, self.current_position + 1, self.forward) {
+        if let Some(ref desc) =
+            data.get_neighbour_nucl(self.helix, self.current_position + 1, self.forward)
+        {
             self.attach_neighbour(desc)
         }
     }
 
     fn decr_position(&mut self, data: &Data) {
         // Eventually detach from neighbour
-        if self.neighbour_initial_position == Some(self.current_position + 1) && self.neighbour_direction == Some(EditDirection::Positive) {
+        if self.neighbour_initial_position == Some(self.current_position + 1)
+            && self.neighbour_direction == Some(EditDirection::Positive)
+        {
             self.detach_neighbour();
         }
         self.current_position -= 1;
-        if let Some(ref desc) = data.get_neighbour_nucl(self.helix, self.current_position - 1, self.forward) {
+        if let Some(ref desc) =
+            data.get_neighbour_nucl(self.helix, self.current_position - 1, self.forward)
+        {
             self.attach_neighbour(desc)
         }
     }
@@ -159,12 +190,28 @@ impl StrandBuilder {
     }
 
     fn update(&self, data: &mut Data) {
-        data.update_strand(self.identifier, self.current_position, self.fixed_end.unwrap_or(self.initial_position));
+        data.update_strand(
+            self.identifier,
+            self.current_position,
+            self.fixed_end.unwrap_or(self.initial_position),
+        );
         if let Some(desc) = self.neighbour_strand {
             data.update_strand(desc.identifier, desc.moving_end, desc.fixed_end)
         }
     }
 
+    pub fn transformed(self, model_matrix: &Mat4) -> Self {
+        let new_axis = self.axis.transformed(model_matrix);
+        Self {
+            axis: new_axis,
+            ..self
+        }
+    }
+
+    pub fn given_data(self, data: Arc<Mutex<Data>>) -> Self {
+        let data = Some(data);
+        Self { data, ..self }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]

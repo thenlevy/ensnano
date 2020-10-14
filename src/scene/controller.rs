@@ -1,9 +1,11 @@
-use super::{camera, DataPtr, Duration, HandleDir, ViewPtr, WidgetRotationMode as RotationMode, SceneElement};
+use super::{
+    camera, DataPtr, Duration, HandleDir, SceneElement, ViewPtr, WidgetRotationMode as RotationMode,
+};
 use crate::consts::*;
+use crate::design::StrandBuilder;
 use crate::{PhySize, PhysicalPosition, WindowEvent};
 use iced_winit::winit::event::*;
 use ultraviolet::{Rotor3, Vec3};
-use crate::design::StrandBuilder;
 
 use camera::CameraController;
 
@@ -152,12 +154,12 @@ impl Controller {
                 button: MouseButton::Left,
                 state,
                 ..
-            } => { 
-                    let builder = if *state == ElementState::Pressed {
-                        self.data.borrow_mut().get_strand_builder()
-                    } else {
-                        None
-                    };
+            } => {
+                let builder = if *state == ElementState::Pressed {
+                    self.data.borrow_mut().get_strand_builder()
+                } else {
+                    None
+                };
                 match self.state {
                     State::MoveCamera => {
                         if let Some(builder) = builder {
@@ -199,12 +201,12 @@ impl Controller {
                     State::Building(_) => {
                         println!("not building");
                         if *state == ElementState::Released {
-                           self.state = State::MoveCamera;
+                            self.state = State::MoveCamera;
                         }
                         self.left_click_camera(state)
-                    },
+                    }
                 }
-            },
+            }
             WindowEvent::MouseInput {
                 button: MouseButton::Right,
                 state,

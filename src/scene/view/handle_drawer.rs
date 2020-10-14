@@ -199,7 +199,9 @@ impl HandlesDrawer {
                 }
             })
             .unwrap_or(());
-        self.big_handle.as_mut().map(|h| h.translation = translation);
+        self.big_handle
+            .as_mut()
+            .map(|h| h.translation = translation);
         self.update_drawers();
     }
 }
