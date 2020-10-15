@@ -339,6 +339,8 @@ impl Data {
         self.design.strands.get(&s_id).map(|s| s.color)
     }
 
+    /// Apply `rotation` on helix `h_id` arround `origin`. `rotation` and `origin` must be
+    /// expressed in the model coordinates
     pub fn rotate_helix_arround(
         &mut self,
         h_id: usize,
@@ -354,12 +356,14 @@ impl Data {
         self.update_status = true;
     }
 
+    /// End current movement. This means that the old_matrices take the value of the current ones.
     pub fn terminate_movement(&mut self) {
         for helix in self.design.helices.values_mut() {
             helix.end_movement();
         }
     }
 
+    /// Return the orientation of an helix. (`None` if the helix id does not exists)
     pub fn get_helix_basis(&self, h_id: usize) -> Option<ultraviolet::Rotor3> {
         self.design
             .helices
@@ -368,6 +372,7 @@ impl Data {
             .map(|h| h.orientation)
     }
 
+    /// Return the identifier of the 5' nucleotide of a strand.
     pub fn get_5prime(&self, strand_id: usize) -> Option<u32> {
         let nucl = self
             .design
@@ -377,6 +382,7 @@ impl Data {
         self.identifier_nucl.get(&nucl).cloned()
     }
 
+    /// Return the identifier of the 3' nucleotide of a strand.
     pub fn get_3prime(&self, strand_id: usize) -> Option<u32> {
         let nucl = self
             .design
@@ -386,15 +392,17 @@ impl Data {
         self.identifier_nucl.get(&nucl).cloned()
     }
 
+    /// Return a NeighbourDescriptor describing the domain on which a nucleotide lies ; or `None`
+    /// if the nucleotide position is empty.
     pub fn get_neighbour_nucl(
         &self,
-        helix: usize,
-        position: isize,
-        forwrard: bool,
+        nucl: Nucl,
     ) -> Option<NeighbourDescriptor> {
-        self.design.get_neighbour_nucl(helix, position, forwrard)
+        self.design.get_neighbour_nucl(nucl)
     }
 
+    /// Move one end of a domain. This function requires that one end of the domain is
+    /// `fixed_position`. The other end is moved to `position`.
     pub fn update_strand(
         &mut self,
         identifier: DomainIdentifier,
@@ -411,6 +419,7 @@ impl Data {
             .domains[identifier.domain];
         match domain {
             icednano::Domain::HelixDomain(domain) => {
+                assert!(domain.start == fixed_position || domain.end - 1 == fixed_position);
                 domain.start = start;
                 domain.end = end;
             }
@@ -420,12 +429,23 @@ impl Data {
         self.update_status = true;
     }
 
+    /// Return a `StrandBuilder` with moving end `nucl` if possible. To create a
+    /// `StrandBuilder` with moving end `nucl` one of the following must be true
+    /// 
+    /// * `nucl` is an end of an existing domain. In this case the `StrandBuilder` will be edditing
+    /// that domain.
+    ///
+    /// * The position `nucl` is empty *and at least one of the neighbour position (`nucl.left()`
+    /// or `nucl.right()`) is empty. In this case a new strand is created with one domain, that
+    /// will be eddited by the returned `StrandBuilder`.
+    ///
+    /// If it not possible to create a `StrandBuilder`, `None` is returned.
     pub fn get_strand_builder(&mut self, nucl: Nucl) -> Option<StrandBuilder> {
         let helix = nucl.helix;
         let position = nucl.position;
         let forward = nucl.forward;
-        let left = self.design.get_neighbour_nucl(helix, position - 1, forward);
-        let right = self.design.get_neighbour_nucl(helix, position + 1, forward);
+        let left = self.design.get_neighbour_nucl(nucl.left());
+        let right = self.design.get_neighbour_nucl(nucl.right());
         if left.is_some() && right.is_some() {
             return None;
         }
@@ -435,7 +455,7 @@ impl Data {
             .get(&helix)
             .map(|h| h.get_axis(&self.design.parameters.unwrap()))?;
         if self.identifier_nucl.contains_key(&nucl) {
-            if let Some(desc) = self.design.get_neighbour_nucl(helix, position, forward) {
+            if let Some(desc) = self.design.get_neighbour_nucl(nucl) {
                 Some(StrandBuilder::init_existing(
                     desc.identifier,
                     nucl,
@@ -469,33 +489,23 @@ impl Data {
     }
 }
 
+/// Create a design by parsing a file
 fn read_file(path: &PathBuf) -> Option<icednano::Design> {
     let json_str = std::fs::read_to_string(path).expect(&format!("File not found {:?}", path));
 
     let design: Result<icednano::Design, _> = serde_json::from_str(&json_str);
+    // First try to read icednano format
     if design.is_ok() {
-        let info_msg = MessageAlert {
-            title: "Info",
-            text: "Recognized icednano file format",
-            typ: native_dialog::MessageType::Info,
-        };
-        std::thread::spawn(|| {
-            info_msg.show().unwrap_or(());
-        });
         return Some(design.unwrap());
     } else {
+        // If the file is not in icednano format, try the other supported format
         let cdn_design: Result<codenano::Design<(), ()>, _> = serde_json::from_str(&json_str);
+        
+        // Try codenano format
         if cdn_design.is_ok() {
-            let info_msg = MessageAlert {
-                title: "Info",
-                text: "Recognized codenano file format",
-                typ: native_dialog::MessageType::Info,
-            };
-            std::thread::spawn(|| {
-                info_msg.show().unwrap_or(());
-            });
             return Some(icednano::Design::from_codenano(&cdn_design.unwrap()));
         } else {
+            // The file is not in any supported format
             let error_msg = MessageAlert {
                 title: "Error",
                 text: "Unrecognized file format",
@@ -511,7 +521,9 @@ fn read_file(path: &PathBuf) -> Option<icednano::Design> {
 
 #[derive(Clone, Copy, Eq, PartialEq)]
 pub enum ObjectType {
+    /// A nucleotide identified by its identifier
     Nucleotide(u32),
+    /// A bound, identified by the identifier of the two nucleotides that it bounds.
     Bound(u32, u32),
 }
 

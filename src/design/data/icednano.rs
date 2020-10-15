@@ -59,21 +59,19 @@ impl Design {
 
     pub fn get_neighbour_nucl(
         &self,
-        helix: usize,
-        position: isize,
-        forward: bool,
+        nucl: Nucl,
     ) -> Option<NeighbourDescriptor> {
         for (s_id, s) in self.strands.iter() {
             for (d_id, d) in s.domains.iter().enumerate() {
-                if let Some(other) = d.other_end(helix, position, forward) {
+                if let Some(other) = d.other_end(nucl) {
                     return Some(NeighbourDescriptor {
                         identifier: DomainIdentifier {
                             strand: *s_id,
                             domain: d_id,
                         },
                         fixed_end: other,
-                        initial_moving_end: position,
-                        moving_end: position,
+                        initial_moving_end: nucl.position,
+                        moving_end: nucl.position,
                     });
                 }
             }
@@ -223,14 +221,14 @@ impl Domain {
         Self::HelixDomain(interval)
     }
 
-    pub fn other_end(&self, helix: usize, position: isize, forward: bool) -> Option<isize> {
+    pub fn other_end(&self, nucl: Nucl) -> Option<isize> {
         match self {
             Self::Insertion(_) => None,
             Self::HelixDomain(interval) => {
-                if interval.helix == helix && forward == interval.forward {
-                    if interval.start == position {
+                if interval.helix == nucl.helix && nucl.forward == interval.forward {
+                    if interval.start == nucl.position {
                         Some(interval.end - 1)
-                    } else if interval.end - 1 == position {
+                    } else if interval.end - 1 == nucl.position {
                         Some(interval.start)
                     } else {
                         None

@@ -26,12 +26,10 @@ use ultraviolet::Mat4;
 pub struct StrandBuilder {
     /// The data to modify when applying updates
     data: Option<Arc<Mutex<Data>>>,
+    /// The nucleotide that can move
+    moving_end: Nucl,
     /// The initial position of the moving end
     pub initial_position: isize,
-    /// Direction of the support strand on which the domain lies
-    forward: bool,
-    /// Identifier of the support helix on which the domain lies
-    helix: usize,
     /// Axis of the support helix on which the domain lies
     pub axis: Axis,
     /// The identifier of the domain being eddited
@@ -39,8 +37,6 @@ pub struct StrandBuilder {
     /// The fixed_end of the domain being eddited, `None` if the domain is new and can go in both
     /// direction
     fixed_end: Option<isize>,
-    /// The current position of the moving end
-    current_position: isize,
     /// The enventual other strand being modified by the current modification
     neighbour_strand: Option<NeighbourDescriptor>,
     /// The direction in which the end of neighbour_strand can go, starting from its inital
@@ -92,12 +88,10 @@ impl StrandBuilder {
         Self {
             data: None,
             initial_position: nucl.position,
-            helix: nucl.helix,
-            forward: nucl.forward,
+            moving_end: nucl,
             identifier,
             axis,
             fixed_end: None,
-            current_position: nucl.position,
             neighbour_strand,
             neighbour_direction,
             min_pos,
@@ -150,13 +144,11 @@ impl StrandBuilder {
         }
         Self {
             data: None,
-            helix: nucl.helix,
+            moving_end: nucl,
             initial_position,
-            forward: nucl.forward,
             axis,
             identifier,
             fixed_end: Some(other_end),
-            current_position: initial_position,
             neighbour_strand,
             neighbour_direction,
             max_pos,
@@ -192,7 +184,7 @@ impl StrandBuilder {
     fn incr_position(&mut self) {
         // Eventually detach from neighbour
         if let Some(desc) = self.neighbour_strand.as_mut() {
-            if desc.initial_moving_end == self.current_position - 1
+            if desc.initial_moving_end == self.moving_end.position - 1
                 && self.neighbour_direction == Some(EditDirection::Negative)
             {
                 self.detach_neighbour();
@@ -200,14 +192,14 @@ impl StrandBuilder {
                 desc.moving_end += 1;
             }
         }
-        self.current_position += 1;
+        self.moving_end.position += 1;
         let desc = self
             .data
             .as_ref()
             .unwrap()
             .lock()
             .unwrap()
-            .get_neighbour_nucl(self.helix, self.current_position + 1, self.forward);
+            .get_neighbour_nucl(self.moving_end.right());
         if let Some(ref desc) = desc {
             if self.attach_neighbour(desc) {
                 self.max_pos = Some(desc.fixed_end - 1);
@@ -219,7 +211,7 @@ impl StrandBuilder {
     fn decr_position(&mut self) {
         // Update neighbour and eventually detach from it
         if let Some(desc) = self.neighbour_strand.as_mut() {
-            if desc.initial_moving_end == self.current_position + 1
+            if desc.initial_moving_end == self.moving_end.position + 1
                 && self.neighbour_direction == Some(EditDirection::Positive)
             {
                 self.detach_neighbour();
@@ -227,14 +219,14 @@ impl StrandBuilder {
                 desc.moving_end -= 1;
             }
         }
-        self.current_position -= 1;
+        self.moving_end.position -= 1;
         let desc = self
             .data
             .as_ref()
             .unwrap()
             .lock()
             .unwrap()
-            .get_neighbour_nucl(self.helix, self.current_position - 1, self.forward);
+            .get_neighbour_nucl(self.moving_end.left());
         if let Some(ref desc) = desc {
             if self.attach_neighbour(desc) {
                 self.min_pos = Some(desc.fixed_end + 1);
@@ -246,13 +238,13 @@ impl StrandBuilder {
     /// moving end, it will go as far as possible.
     pub fn move_to(&mut self, objective: isize) {
         let mut need_update = false;
-        if objective > self.current_position {
-            while self.current_position < objective.min(self.max_pos.unwrap_or(objective)) {
+        if objective > self.moving_end.position {
+            while self.moving_end.position < objective.min(self.max_pos.unwrap_or(objective)) {
                 self.incr_position();
                 need_update = true;
             }
-        } else if objective < self.current_position {
-            while self.current_position > objective.max(self.min_pos.unwrap_or(objective)) {
+        } else if objective < self.moving_end.position {
+            while self.moving_end.position > objective.max(self.min_pos.unwrap_or(objective)) {
                 self.decr_position();
                 need_update = true;
             }
@@ -267,7 +259,7 @@ impl StrandBuilder {
         let mut data = self.data.as_mut().unwrap().lock().unwrap();
         data.update_strand(
             self.identifier,
-            self.current_position,
+            self.moving_end.position,
             self.fixed_end.unwrap_or(self.initial_position),
         );
         if let Some(desc) = self.neighbour_strand {
