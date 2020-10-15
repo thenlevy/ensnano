@@ -160,6 +160,7 @@ impl Controller {
                 } else {
                     None
                 };
+                println!("builder {:?}", builder.as_ref().map(|b| &b.axis));
                 match self.state {
                     State::MoveCamera => {
                         if let Some(builder) = builder {

@@ -491,6 +491,7 @@ impl Nucl {
 
 /// Represents the axis of an helix. At the moment it is a line. In the future it might also be a
 /// bezier curve
+#[derive(Debug)]
 pub struct Axis {
     pub origin: Vec3,
     pub direction: Vec3,
