@@ -138,9 +138,9 @@ impl StrandBuilder {
             neighbour_strand = Some(desc);
             neighbour_direction = Some(EditDirection::Both);
             if desc.initial_moving_end > initial_position {
-                max_pos = Some(desc.fixed_end)
+                max_pos = Some(desc.fixed_end - 1)
             } else {
-                min_pos = Some(desc.fixed_end)
+                min_pos = Some(desc.fixed_end + 1)
             }
         } else {
             neighbour_strand = None;
