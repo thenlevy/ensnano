@@ -1,12 +1,13 @@
 //! This modules defines the type `design::Data` which handles the data representing a DNA
 //! nanostructure.
 //!
-//! In addition to its `design` field, the `Data` struct has several hashmaps that are usefull to
-//! quickly access information about the design. These hasmaps must be updated when the design is
-//! modified.
+//! The element of a design (nucleotides and bounds) have an identifier that is an u32. Only the
+//! last 24 bits of of this identifier can be used, the 8 first bits are reserved for the
+//! identifier of the design.
 //!
-//! At the moment, the hash maps are completely recomputed on every modification of the design. In
-//! the future this might be optimised.
+//! The `Data` objects can convert these identifier into `Nucl` position or retrieve information
+//! about the element such as its position, color etc...
+//!
 use native_dialog::{Dialog, MessageAlert};
 use std::collections::HashMap;
 use std::io::Write;
@@ -21,6 +22,12 @@ pub use icednano::{Axis, Design};
 pub use strand_builder::StrandBuilder;
 use strand_builder::{DomainIdentifier, NeighbourDescriptor};
 
+/// In addition to its `design` field, the `Data` struct has several hashmaps that are usefull to
+/// quickly access information about the design. These hasmaps must be updated when the design is
+/// modified.
+///
+/// At the moment, the hash maps are completely recomputed on every modification of the design. In
+/// the future this might be optimised.
 pub struct Data {
     design: icednano::Design,
     object_type: HashMap<u32, ObjectType>,

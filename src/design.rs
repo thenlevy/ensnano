@@ -1,4 +1,4 @@
-//! This modules defines the type `Design` which offers an interface to a DNA nanostructure design.
+//! This modules defines the type [`Design`](Design) which offers an interface to a DNA nanostructure design.
 use native_dialog::{Dialog, MessageAlert};
 use std::cell::RefCell;
 use std::path::PathBuf;
@@ -147,22 +147,28 @@ impl Design {
         }
     }
 
+    /// Return the `ObjectType` of an element
     pub fn get_object_type(&self, id: u32) -> Option<ObjectType> {
         self.data.lock().unwrap().get_object_type(id)
     }
 
+    /// Return the color of an element
     pub fn get_color(&self, id: u32) -> Option<u32> {
         self.data.lock().unwrap().get_color(id)
     }
 
+    /// Return all identifier of nucleotides
     pub fn get_all_nucl_ids(&self) -> Vec<u32> {
         self.data.lock().unwrap().get_all_nucl_ids().collect()
     }
 
+    /// Return all identifer of bounds
     pub fn get_all_bound_ids(&self) -> Vec<u32> {
         self.data.lock().unwrap().get_all_bound_ids().collect()
     }
 
+    /// Notify the design of a notification. This is how applications communicate their
+    /// modification request to the design
     pub fn on_notify(&mut self, notification: AppNotification) {
         match notification {
             AppNotification::MovementEnded => self.terminate_movement(),
@@ -171,26 +177,32 @@ impl Design {
         }
     }
 
+    /// The identifier of the design
     pub fn get_id(&self) -> usize {
         self.id
     }
 
+    /// Return the identifier of the strand on which an element lies
     pub fn get_strand(&self, element_id: u32) -> Option<usize> {
         self.data.lock().unwrap().get_strand(element_id)
     }
 
+    /// Return the identifier of the helix on which an element lies
     pub fn get_helix(&self, element_id: u32) -> Option<usize> {
         self.data.lock().unwrap().get_helix(element_id)
     }
 
+    /// Return all the identifier of the elements that lie on a strand
     pub fn get_strand_elements(&self, strand_id: usize) -> Vec<u32> {
         self.data.lock().unwrap().get_strand_elements(strand_id)
     }
 
+    /// Return all the identifier of the elements that lie on an helix
     pub fn get_helix_elements(&self, helix_id: usize) -> Vec<u32> {
         self.data.lock().unwrap().get_helix_elements(helix_id)
     }
 
+    /// Save the design in icednano format
     pub fn save_to(&self, path: &PathBuf) {
         let result = self.data.lock().unwrap().save_file(path);
         if result.is_err() {
@@ -206,6 +218,7 @@ impl Design {
         }
     }
 
+    /// Change the collor of a strand
     pub fn change_strand_color(&mut self, strand_id: usize, color: u32) {
         self.data
             .lock()
@@ -217,6 +230,7 @@ impl Design {
         self.data.lock().unwrap().get_strand_color(strand_id)
     }
 
+    /// Get the basis of the model in the world's coordinates
     pub fn get_basis(&self) -> ultraviolet::Rotor3 {
         let mat4 = self.view.borrow().get_model_matrix();
         let mat3 = ultraviolet::Mat3::new(
@@ -227,6 +241,7 @@ impl Design {
         mat3.into_rotor3()
     }
 
+    /// Return the basis of an helix in the world's coordinates
     pub fn get_helix_basis(&self, h_id: u32) -> Option<ultraviolet::Rotor3> {
         self.data
             .lock()
@@ -235,16 +250,20 @@ impl Design {
             .map(|r| self.get_basis() * r)
     }
 
+    /// Return the identifier of the 5' end of the strand on which an element lies.
     pub fn get_element_5prime(&self, element: u32) -> Option<u32> {
         let strand = self.get_strand(element)?;
         self.data.lock().unwrap().get_5prime(strand)
     }
 
+    /// Return the identifier of the 3' end of the strand on which an element lies.
     pub fn get_element_3prime(&self, element: u32) -> Option<u32> {
         let strand = self.get_strand(element)?;
         self.data.lock().unwrap().get_3prime(strand)
     }
 
+    /// Return a `StrandBuilder` with moving end `nucl` if possibile (see
+    /// [`Data::get_strand_builder`](data::Data::get_strand_builder)).
     pub fn get_builder(
         &mut self,
         nucl: Nucl,
@@ -259,6 +278,8 @@ impl Design {
             })
     }
 
+    /// Return a `StrandBuilder` whose moving end is given by an element, if possible ( see
+    /// [`Data::get_strand_builder`](data::Data::get_strand_builder) )
     pub fn get_builder_element(&mut self, element_id: u32) -> Option<StrandBuilder> {
         let nucl = self.data.lock().unwrap().get_nucl(element_id)?;
         self.get_builder(nucl)
