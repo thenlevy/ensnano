@@ -274,7 +274,7 @@ impl Design {
             .get_strand_builder(nucl)
             .map(|b| {
                 b.transformed(&self.view.borrow().get_model_matrix())
-                    .given_data(self.data.clone())
+                    .given_data(self.data.clone(), self.id as u32)
             })
     }
 

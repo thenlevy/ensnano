@@ -23,6 +23,7 @@ use super::{Axis, Data, Nucl};
 use std::sync::{Arc, Mutex};
 use ultraviolet::Mat4;
 
+#[derive(Clone)]
 pub struct StrandBuilder {
     /// The data to modify when applying updates
     data: Option<Arc<Mutex<Data>>>,
@@ -50,6 +51,8 @@ pub struct StrandBuilder {
     max_pos: Option<isize>,
     /// A envtual neighbour that was detached during the movement
     detached_neighbour: Option<NeighbourDescriptor>,
+    /// The id of the design being eddited
+    design_id: u32,
 }
 
 impl StrandBuilder {
@@ -97,6 +100,7 @@ impl StrandBuilder {
             min_pos,
             max_pos,
             detached_neighbour: None,
+            design_id: 0,
         }
     }
 
@@ -154,6 +158,7 @@ impl StrandBuilder {
             max_pos,
             min_pos,
             detached_neighbour: None,
+            design_id: 0,
         }
     }
 
@@ -282,9 +287,20 @@ impl StrandBuilder {
 
     /// Initialise the data pointer. This function is used at the creation of the
     /// builder.
-    pub fn given_data(self, data: Arc<Mutex<Data>>) -> Self {
+    pub fn given_data(self, data: Arc<Mutex<Data>>, design_id: u32) -> Self {
         let data = Some(data);
-        Self { data, ..self }
+        Self { data, design_id, ..self }
+    }
+
+
+    /// Return the identifier of the element on the moving end position
+    pub fn get_moving_end_identifier(&self) -> Option<u32> {
+        self.data.as_ref().unwrap().lock().unwrap().get_identifier_nucl(self.moving_end)
+    }
+
+    /// Return the identifier of the design being eddited
+    pub fn get_design_id(&self) -> u32 {
+        self.design_id
     }
 }
 

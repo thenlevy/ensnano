@@ -16,6 +16,7 @@ pub enum ClickMode {
     RotateCam,
 }
 
+#[derive(Clone)]
 enum State {
     MoveCamera,
     Translate(HandleDir),
@@ -78,6 +79,7 @@ pub enum Consequence {
     Nothing,
     CursorMoved(PhysicalPosition<f64>),
     ToggleWidget,
+    BuildEnded(u32, u32),
 }
 
 impl Controller {
@@ -173,15 +175,10 @@ impl Controller {
                 } else {
                     None
                 };
-                println!("builder {:?}", builder.as_ref().map(|b| &b.axis));
-                print!("state ");
                 self.state.debug();
-                println!("last_left_clicked_position {:?}", self.last_left_clicked_position);
-                println!("last_right_clicked_position {:?}", self.last_right_clicked_position);
-                match self.state {
+                match self.state.clone() {
                     State::MoveCamera => {
                         if let Some(builder) = builder {
-                            println!("start building");
                             self.state = State::Building(builder);
                             self.last_left_clicked_position = Some(self.mouse_position);
                             Consequence::Nothing
@@ -217,12 +214,19 @@ impl Controller {
                             Consequence::MovementEnded
                         }
                     }
-                    State::Building(_) => {
+                    State::Building(builder) => {
                         if *state == ElementState::Released {
-                            println!("not building");
                             self.state = State::MoveCamera;
                         }
-                        self.left_click_camera(state)
+                        self.last_left_clicked_position = None;
+                        let d_id = builder.get_design_id();
+                        let id = builder.get_moving_end_identifier();
+                        if let Some(id) = id {
+                            Consequence::BuildEnded(d_id, id)
+                        } else {
+                            println!("Warning could not recover id of moving end");
+                            Consequence::Nothing
+                        }
                     }
                 }
             }
@@ -329,7 +333,6 @@ impl Controller {
 
     pub fn notify(&mut self, element: Option<SceneElement>) {
         if let State::Building(_) = self.state {
-            println!("avoid notification");
             return
         }
         if let Some(SceneElement::WidgetElement(widget_id)) = element {
