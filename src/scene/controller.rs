@@ -24,6 +24,19 @@ enum State {
     Building(StrandBuilder),
 }
 
+impl State {
+    fn debug(&self) {
+        use State::*;
+        match self {
+            MoveCamera => println!("move camera"),
+            Translate(_) => println!("translate"),
+            Rotate(_) => println!("rotate"),
+            TogglingWidget => println!("toggling"),
+            Building(_) => println!("building"),
+        }
+    }
+}
+
 /// An object handling input and notification for the scene.
 pub struct Controller {
     /// A pointer to the View
@@ -161,6 +174,10 @@ impl Controller {
                     None
                 };
                 println!("builder {:?}", builder.as_ref().map(|b| &b.axis));
+                print!("state ");
+                self.state.debug();
+                println!("last_left_clicked_position {:?}", self.last_left_clicked_position);
+                println!("last_right_clicked_position {:?}", self.last_right_clicked_position);
                 match self.state {
                     State::MoveCamera => {
                         if let Some(builder) = builder {
@@ -218,7 +235,6 @@ impl Controller {
                 if *state == ElementState::Pressed {
                     self.last_right_clicked_position = Some(self.mouse_position);
                     self.modifiers_when_clicked = self.current_modifiers;
-                    self.camera_controller.foccus();
                 } else {
                     released = true;
                     self.state = State::MoveCamera;

@@ -323,12 +323,6 @@ impl CameraController {
         self.projection.borrow_mut().resize(size.width, size.height)
     }
 
-    pub fn foccus(&mut self) {
-        if let Some(point) = self.pivot_point {
-            self.look_at_point(point)
-        }
-    }
-
     /// Swing the camera arrond `self.pivot_point`. Assumes that the pivot_point is where the
     /// camera points at.
     pub fn swing(&mut self, x: f64, y: f64) {
@@ -341,15 +335,21 @@ impl CameraController {
     /// `point` is given in the world's coordiantes.
     pub fn rotate_camera_around(&mut self, xz_angle: f32, yz_angle: f32, point: Vec3) {
         // We first modify the camera orientation and then position it at the correct position
-        let distance = (self.camera.borrow().position - point).mag();
+        let to_point = point - self.camera.borrow().position;
+        let up = to_point.dot(self.camera.borrow().up_vec());
+        let right = to_point.dot(self.camera.borrow().right_vec());
+        let dir = to_point.dot(self.camera.borrow().direction());
         let rotation = Rotor3::from_rotation_xz(xz_angle) * Rotor3::from_rotation_yz(yz_angle);
         self.camera.borrow_mut().rotor = rotation * self.cam0.rotor;
         let new_direction = self.camera.borrow().direction();
-        self.camera.borrow_mut().position = point - distance * new_direction;
+        let new_up = self.camera.borrow().up_vec();
+        let new_right = self.camera.borrow().right_vec();
+        self.camera.borrow_mut().position = point - dir * new_direction - up * new_up - right * new_right
     }
 
     /// Modify the camera's rotor so that the camera looks at `point`.
     /// `point` is given in the world's coordinates
+    #[allow(dead_code)] //  dead code allowed because maybe it could be usefull
     pub fn look_at_point(&mut self, point: Vec3) {
         // We express the rotation of the camera in the camera's coordinates
         // The current camera's direction is the opposite of it's z axis
