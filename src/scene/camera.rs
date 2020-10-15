@@ -220,7 +220,7 @@ impl CameraController {
     pub fn process_scroll(&mut self, delta: &MouseScrollDelta) {
         self.scroll = -match delta {
             // I'm assuming a line is about 100 pixels
-            MouseScrollDelta::LineDelta(_, scroll) => scroll * 100.0,
+            MouseScrollDelta::LineDelta(_, scroll) => scroll * 10.0,
             MouseScrollDelta::PixelDelta(LogicalPosition { y: scroll, .. }) => *scroll as f32,
         };
     }
@@ -249,8 +249,15 @@ impl CameraController {
         let right = self.mouse_horizontal;
         let up = -self.mouse_vertical;
 
-        let right_vec = self.camera.borrow().right_vec() * 10.;
-        let up_vec = self.camera.borrow().up_vec() * 10.;
+        let scale = if let Some(pivot) = self.pivot_point {
+            (pivot - self.camera.borrow().position).dot(self.camera.borrow().direction())
+
+        } else {
+            10.
+        };
+
+        let right_vec = self.camera.borrow().right_vec() * scale * self.projection.borrow().get_ratio();
+        let up_vec = self.camera.borrow().up_vec() * scale;
 
         let old_pos = self.cam0.position;
         self.camera.borrow_mut().position = old_pos + right * right_vec + up * up_vec;
@@ -277,7 +284,11 @@ impl CameraController {
         // Note: this isn't an actual zoom. The camera's position
         // changes when zooming. I've added this to make it easier
         // to get closer to an object you want to focus on.
-        let scrollward = self.camera.borrow().direction();
+        let scrollward = if let Some(pivot) = self.pivot_point {
+            pivot - self.camera.borrow().position
+        } else {
+            self.camera.borrow().direction()
+        };
         {
             let mut camera = self.camera.borrow_mut();
             camera.position += scrollward * self.scroll * self.speed * self.sensitivity * dt;

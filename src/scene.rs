@@ -182,6 +182,10 @@ impl Scene {
         if let Some(selection) = selection {
             self.mediator.lock().unwrap().notify_selection(selection);
         }
+        let pivot = self.data.borrow().get_selected_position();
+        if let Some(pivot) = pivot {
+            self.controller.set_pivot_point(pivot);
+        }
         self.update_handle();
     }
 
