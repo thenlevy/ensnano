@@ -181,6 +181,7 @@ impl Controller {
                 match self.state {
                     State::MoveCamera => {
                         if let Some(builder) = builder {
+                            println!("start building");
                             self.state = State::Building(builder);
                             self.last_left_clicked_position = Some(self.mouse_position);
                             Consequence::Nothing
@@ -327,6 +328,10 @@ impl Controller {
     }
 
     pub fn notify(&mut self, element: Option<SceneElement>) {
+        if let State::Building(_) = self.state {
+            println!("avoid notification");
+            return
+        }
         if let Some(SceneElement::WidgetElement(widget_id)) = element {
             match widget_id {
                 RIGHT_HANDLE_ID => self.state = State::Translate(HandleDir::Right),
