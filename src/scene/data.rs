@@ -141,8 +141,8 @@ impl Data {
     }
 
     /// Convert `self.candidates` into a set of elements according to `self.selection_mode`
-    fn expand_candidate(&self, object_type: ObjectType) -> HashSet<(u32, u32)> {
-        let mut ret = HashSet::new();
+    fn expand_candidate(&self, object_type: ObjectType) -> Vec<SceneElement> {
+        let mut ret = Vec::new();
         for element in &self.candidates {
             if let SceneElement::DesignElement(d_id, elt_id) = element {
                 let group_id = self.get_group_identifier(*d_id, *elt_id);
@@ -153,8 +153,12 @@ impl Data {
                         .unwrap()
                         .same_type(object_type)
                     {
-                        ret.insert((*d_id, *elt));
+                        ret.push(SceneElement::DesignElement(*d_id, *elt));
                     }
+                }
+            } else if let SceneElement::PhantomElement(phantom_element) = element {
+                if phantom_element.bound == object_type.is_bound() {
+                    ret.push(SceneElement::PhantomElement(*phantom_element));
                 }
             }
         }
@@ -214,9 +218,23 @@ impl Data {
     /// Return the instances of candidate spheres
     pub fn get_candidate_spheres(&self) -> Rc<Vec<Instance>> {
         let mut ret = Vec::with_capacity(self.selected.len());
-        for (d_id, id) in self.expand_candidate(ObjectType::Nucleotide(0)).iter() {
-            if let Some(instance) = self.designs[*d_id as usize].make_instance(*id) {
-                ret.push(instance)
+        for element in self.expand_candidate(ObjectType::Nucleotide(0)).iter() {
+            match element {
+                SceneElement::DesignElement(d_id, id) => {
+                    if let Some(instance) = self.designs[*d_id as usize].make_instance(*id) {
+                        ret.push(instance)
+                    }
+                }
+                SceneElement::PhantomElement(phantom_element) => {
+                    if let Some(instance) = self
+                        .designs
+                        .get(phantom_element.design_id as usize)
+                        .and_then(|d| d.make_instance_phantom(phantom_element))
+                    {
+                        ret.push(instance);
+                    }
+                }
+                _ => unreachable!(),
             }
         }
         Rc::new(ret)
@@ -225,9 +243,23 @@ impl Data {
     /// Return the instances of candidate tubes
     pub fn get_candidate_tubes(&self) -> Rc<Vec<Instance>> {
         let mut ret = Vec::with_capacity(self.selected.len());
-        for (d_id, id) in self.expand_candidate(ObjectType::Bound(0, 0)).iter() {
-            if let Some(instance) = self.designs[*d_id as usize].make_instance(*id) {
-                ret.push(instance)
+        for element in self.expand_candidate(ObjectType::Bound(0, 0)).iter() {
+            match element {
+                SceneElement::DesignElement(d_id, id) => {
+                    if let Some(instance) = self.designs[*d_id as usize].make_instance(*id) {
+                        ret.push(instance)
+                    }
+                }
+                SceneElement::PhantomElement(phantom_element) => {
+                    if let Some(instance) = self
+                        .designs
+                        .get(phantom_element.design_id as usize)
+                        .and_then(|d| d.make_instance_phantom(phantom_element))
+                    {
+                        ret.push(instance);
+                    }
+                }
+                _ => unreachable!(),
             }
         }
         Rc::new(ret)
@@ -606,7 +638,7 @@ impl Data {
         if self.action_mode != ActionMode::Build {
             None
         } else {
-            let selected = self.selected.get(0)?;
+            let selected = self.candidates.get(0)?;
             let design = selected.get_design()?;
             self.designs[design as usize].get_builder(selected)
         }
