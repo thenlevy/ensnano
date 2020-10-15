@@ -51,11 +51,6 @@ impl ElementSelector {
         &mut self,
         clicked_pixel: PhysicalPosition<f64>,
     ) -> Option<SceneElement> {
-        let pixel = (
-            clicked_pixel.cast::<u32>().x.min(self.area.size.width - 1) + self.area.position.x,
-            clicked_pixel.cast::<u32>().y.min(self.area.size.height - 1) + self.area.position.y,
-        );
-
         if self.readers[0].pixels.is_none() || self.view.borrow().need_redraw_fake() {
             for i in 0..self.readers.len() {
                 let pixels = self.update_fake_pixels(self.readers[i].draw_type);
@@ -63,17 +58,32 @@ impl ElementSelector {
             }
         }
 
-        let byte0 =
-            (pixel.1 * self.window_size.width + pixel.0) as usize * std::mem::size_of::<u32>();
 
-        self.get_highest_priority_element(byte0)
+        self.get_highest_priority_element(clicked_pixel)
     }
 
-    fn get_highest_priority_element(&self, byte0: usize) -> Option<SceneElement> {
-        for reader in self.readers.iter() {
-            if let Some(element) = reader.read_pixel(byte0) {
-                return Some(element);
+    fn get_highest_priority_element(&self, clicked_pixel: PhysicalPosition<f64>) -> Option<SceneElement> {
+        let pixel = (
+            clicked_pixel.cast::<u32>().x.min(self.area.size.width - 1) + self.area.position.x,
+            clicked_pixel.cast::<u32>().y.min(self.area.size.height - 1) + self.area.position.y,
+        );
+        for max_delta in 0..=5 {
+            let min_x = pixel.0.max(max_delta) - max_delta;
+            let max_x = (pixel.0 + max_delta).min(self.window_size.width - 1);
+            let min_y = pixel.1.max(max_delta) - max_delta;
+            let max_y = (pixel.1 + max_delta).min(self.window_size.height - 1);
+            for x in min_x..=max_x {
+                for y in min_y..=max_y {
+                    let byte0 =
+                        (y * self.window_size.width + x) as usize * std::mem::size_of::<u32>();
+                    for reader in self.readers.iter() {
+                        if let Some(element) = reader.read_pixel(byte0) {
+                            return Some(element);
+                        }
+                    }
+                }
             }
+
         }
         return None;
     }
