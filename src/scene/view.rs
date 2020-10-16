@@ -29,6 +29,7 @@ mod handle_drawer;
 mod maths;
 /// A RotationWidget draws the widget for rotating objects
 mod rotation_widget;
+mod letter;
 
 use bindgroup_manager::UniformBindGroup;
 use drawable::{Drawable, Drawer, Vertex};
@@ -37,6 +38,8 @@ pub use handle_drawer::{HandleDir, HandleOrientation, HandlesDescriptor};
 use maths::unproject_point_on_line;
 use rotation_widget::RotationWidget;
 pub use rotation_widget::{RotationMode, RotationWidgetDescriptor, RotationWidgetOrientation};
+use letter::LetterDrawer;
+pub use letter::LetterInstance;
 //use plane_drawer::PlaneDrawer;
 //pub use plane_drawer::Plane;
 
@@ -55,6 +58,7 @@ pub struct View {
     rotation_widget: RotationWidget,
     /// A possible update of the size of the drawing area, must be taken into account before
     /// drawing the next frame
+    letter_drawer: LetterDrawer,
     new_size: Option<PhySize>,
     device: Rc<Device>,
     /// A bind group associated to the uniform buffer containing the view and projection matrices.
@@ -86,6 +90,7 @@ impl View {
         )));
         let pipeline_handlers =
             PipelineHandlers::init(device.clone(), queue.clone(), &camera, &projection);
+        let letter_drawer =  LetterDrawer::new(device.clone(), queue.clone(), '$', &camera, &projection);
         let depth_texture =
             texture::Texture::create_depth_texture(device.clone().as_ref(), &window_size);
         let viewer = Rc::new(RefCell::new(UniformBindGroup::new(
@@ -103,6 +108,7 @@ impl View {
             viewer,
             handle_drawers: HandlesDrawer::new(device.clone()),
             rotation_widget: RotationWidget::new(device.clone()),
+            letter_drawer,
             redraw_twice: false,
             need_redraw: true,
             need_redraw_fake: true,
@@ -127,6 +133,7 @@ impl View {
                 ));
                 self.handle_drawers
                     .update_camera(self.camera.clone(), self.projection.clone());
+                self.letter_drawer.new_viewer(self.camera.clone(), self.projection.clone());
                 self.need_redraw_fake = true;
             }
             ViewUpdate::Handles(descr) => {
@@ -146,7 +153,14 @@ impl View {
                 );
                 self.need_redraw_fake = true;
             }
-            _ => self.need_redraw_fake |= self.pipeline_handlers.update(view_update),
+            ViewUpdate::ModelMatrices(ref matrices) => {
+                self.letter_drawer.new_model_matrices(Rc::new(matrices.clone()));
+                self.pipeline_handlers.update(view_update);
+            }
+            ViewUpdate::Letter(letter) => self.letter_drawer.new_instances(letter),
+            _ => {
+                self.need_redraw_fake |= self.pipeline_handlers.update(view_update);
+            }
         }
     }
 
@@ -259,6 +273,10 @@ impl View {
                     fake_color,
                 );
             }
+        }
+        
+        if !fake_color {
+            self.letter_drawer.draw(&mut render_pass)
         }
 
         if fake_color {
@@ -422,6 +440,7 @@ pub enum ViewUpdate {
     PhantomInstances(Rc<Vec<Instance>>, Rc<Vec<Instance>>),
     Handles(Option<HandlesDescriptor>),
     RotationWidget(Option<RotationWidgetDescriptor>),
+    Letter(Rc<Vec<LetterInstance>>),
 }
 
 /// The structure gathers all the pipepline that are used to draw meshes on the scene
@@ -679,7 +698,8 @@ impl PipelineHandlers {
             ViewUpdate::Camera
             | ViewUpdate::Size(_)
             | ViewUpdate::Handles(_)
-            | ViewUpdate::RotationWidget(_) => {
+            | ViewUpdate::RotationWidget(_)
+            | ViewUpdate::Letter(_) => {
                 unreachable!();
             }
         }

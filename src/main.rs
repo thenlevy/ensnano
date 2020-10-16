@@ -33,6 +33,7 @@ mod multiplexer;
 mod scene;
 use mediator::Mediator;
 mod utils;
+mod text;
 
 use gui::{LeftPanel, Requests, TopBar};
 use multiplexer::{DrawArea, ElementType, Multiplexer};
