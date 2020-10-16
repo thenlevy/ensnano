@@ -13,6 +13,7 @@ use camera::CameraController;
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ClickMode {
     TranslateCam,
+    #[allow(dead_code)]
     RotateCam,
 }
 
@@ -26,6 +27,7 @@ enum State {
 }
 
 impl State {
+    #[allow(dead_code)]
     fn debug(&self) {
         use State::*;
         match self {
@@ -175,7 +177,6 @@ impl Controller {
                 } else {
                     None
                 };
-                self.state.debug();
                 match self.state.clone() {
                     State::MoveCamera => {
                         if let Some(builder) = builder {
@@ -333,7 +334,7 @@ impl Controller {
 
     pub fn notify(&mut self, element: Option<SceneElement>) {
         if let State::Building(_) = self.state {
-            return
+            return;
         }
         if let Some(SceneElement::WidgetElement(widget_id)) = element {
             match widget_id {

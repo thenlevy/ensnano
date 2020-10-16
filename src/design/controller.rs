@@ -1,5 +1,5 @@
 //! This modules defines the type `design::Controller` that handles the manipulation of the `view`
-//! of the design. 
+//! of the design.
 //!
 //! The `Controller` can be in a state in which the current opperation being applied can varry. In
 //! this state, `Conroller` keep track of the old state of the data being modified, in addition to

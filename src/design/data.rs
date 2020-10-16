@@ -264,16 +264,16 @@ impl Data {
 
     /// Get the position of a nucleotide, eventually projected on the axis of the helix that
     /// supports it.
-    pub fn get_helix_nucl(
-        &self,
-        nucl: Nucl,
-        on_axis: bool,
-    ) -> Option<Vec3> {
+    pub fn get_helix_nucl(&self, nucl: Nucl, on_axis: bool) -> Option<Vec3> {
         self.design.helices.get(&nucl.helix).map(|h| {
             if on_axis {
                 h.axis_position(&self.design.parameters.unwrap(), nucl.position)
             } else {
-                h.space_pos(&self.design.parameters.unwrap(), nucl.position, nucl.forward)
+                h.space_pos(
+                    &self.design.parameters.unwrap(),
+                    nucl.position,
+                    nucl.forward,
+                )
             }
         })
     }
@@ -309,7 +309,7 @@ impl Data {
         self.helix_map.get(&id).cloned()
     }
 
-    /// Return all the elements of a strand 
+    /// Return all the elements of a strand
     pub fn get_strand_elements(&self, s_id: usize) -> Vec<u32> {
         let mut ret = Vec::new();
         for elt in self.object_type.keys() {
@@ -406,10 +406,7 @@ impl Data {
 
     /// Return a NeighbourDescriptor describing the domain on which a nucleotide lies ; or `None`
     /// if the nucleotide position is empty.
-    pub fn get_neighbour_nucl(
-        &self,
-        nucl: Nucl,
-    ) -> Option<NeighbourDescriptor> {
+    pub fn get_neighbour_nucl(&self, nucl: Nucl) -> Option<NeighbourDescriptor> {
         self.design.get_neighbour_nucl(nucl)
     }
 
@@ -443,7 +440,7 @@ impl Data {
 
     /// Return a `StrandBuilder` with moving end `nucl` if possible. To create a
     /// `StrandBuilder` with moving end `nucl` one of the following must be true
-    /// 
+    ///
     /// * `nucl` is an end of an existing domain. In this case the `StrandBuilder` will be edditing
     /// that domain.
     ///
@@ -512,7 +509,7 @@ fn read_file(path: &PathBuf) -> Option<icednano::Design> {
     } else {
         // If the file is not in icednano format, try the other supported format
         let cdn_design: Result<codenano::Design<(), ()>, _> = serde_json::from_str(&json_str);
-        
+
         // Try codenano format
         if cdn_design.is_ok() {
             return Some(icednano::Design::from_codenano(&cdn_design.unwrap()));

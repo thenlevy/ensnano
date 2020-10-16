@@ -58,11 +58,13 @@ impl ElementSelector {
             }
         }
 
-
         self.get_highest_priority_element(clicked_pixel)
     }
 
-    fn get_highest_priority_element(&self, clicked_pixel: PhysicalPosition<f64>) -> Option<SceneElement> {
+    fn get_highest_priority_element(
+        &self,
+        clicked_pixel: PhysicalPosition<f64>,
+    ) -> Option<SceneElement> {
         let pixel = (
             clicked_pixel.cast::<u32>().x.min(self.area.size.width - 1) + self.area.position.x,
             clicked_pixel.cast::<u32>().y.min(self.area.size.height - 1) + self.area.position.y,
@@ -83,7 +85,6 @@ impl ElementSelector {
                     }
                 }
             }
-
         }
         return None;
     }

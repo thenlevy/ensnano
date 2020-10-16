@@ -173,7 +173,9 @@ impl Scene {
             }
             Consequence::CursorMoved(clicked) => self.pixel_to_check = Some(clicked),
             Consequence::ToggleWidget => self.data.borrow_mut().toggle_widget_basis(),
-            Consequence::BuildEnded(d_id, id) => self.select(Some(SceneElement::DesignElement(d_id, id))),
+            Consequence::BuildEnded(d_id, id) => {
+                self.select(Some(SceneElement::DesignElement(d_id, id)))
+            }
         };
     }
 
@@ -192,7 +194,6 @@ impl Scene {
             self.controller.set_pivot_point(pivot);
         }
         self.update_handle();
-
     }
 
     fn check_on(&mut self, clicked_pixel: PhysicalPosition<f64>) {

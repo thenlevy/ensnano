@@ -1,6 +1,6 @@
 use super::{SceneElement, StrandBuilder};
 use crate::consts::*;
-use crate::design::{Design, ObjectType, Referential, Nucl};
+use crate::design::{Design, Nucl, ObjectType, Referential};
 use crate::utils;
 use crate::utils::instance::Instance;
 use std::collections::HashSet;
@@ -77,20 +77,20 @@ impl Design3D {
         phantom_element: &utils::PhantomElement,
     ) -> Option<Instance> {
         let nucl = Nucl {
-           helix: phantom_element.helix_id as usize,
-           position: phantom_element.position as isize,
-           forward: phantom_element.forward
+            helix: phantom_element.helix_id as usize,
+            position: phantom_element.position as isize,
+            forward: phantom_element.forward,
         };
         let helix_id = phantom_element.helix_id;
         let i = phantom_element.position;
         let forward = phantom_element.forward;
         let color = 0xA0D0D0D0;
         if phantom_element.bound {
-            let nucl_1 = self.design.lock().unwrap().get_helix_nucl(
-                nucl,
-                Referential::Model,
-                false,
-            )?;
+            let nucl_1 =
+                self.design
+                    .lock()
+                    .unwrap()
+                    .get_helix_nucl(nucl, Referential::Model, false)?;
             let nucl_2 = self.design.lock().unwrap().get_helix_nucl(
                 nucl.left(),
                 Referential::Model,
@@ -99,11 +99,11 @@ impl Design3D {
             let id = utils::phantom_helix_encoder_bound(self.id, helix_id, i, forward);
             Some(Instantiable::new(ObjectRepr::Tube(nucl_1, nucl_2), color, id).to_instance(true))
         } else {
-            let nucl_coord = self.design.lock().unwrap().get_helix_nucl(
-                nucl,
-                Referential::Model,
-                false,
-            )?;
+            let nucl_coord =
+                self.design
+                    .lock()
+                    .unwrap()
+                    .get_helix_nucl(nucl, Referential::Model, false)?;
             let id = utils::phantom_helix_encoder_nucl(self.id, helix_id, i, forward);
             Some(Instantiable::new(ObjectRepr::Sphere(nucl_coord), color, id).to_instance(true))
         }
@@ -124,23 +124,23 @@ impl Design3D {
             forward,
         };
         if phantom_element.bound {
-            let nucl_1 = self.design.lock().unwrap().get_helix_nucl(
-                nucl,
-                referential,
-                on_axis,
-            )?;
-            let nucl_2 = self.design.lock().unwrap().get_helix_nucl(
-                nucl.left(),
-                referential,
-                on_axis,
-            )?;
+            let nucl_1 = self
+                .design
+                .lock()
+                .unwrap()
+                .get_helix_nucl(nucl, referential, on_axis)?;
+            let nucl_2 =
+                self.design
+                    .lock()
+                    .unwrap()
+                    .get_helix_nucl(nucl.left(), referential, on_axis)?;
             Some((nucl_1 + nucl_2) / 2.)
         } else {
-            let nucl_coord = self.design.lock().unwrap().get_helix_nucl(
-                nucl,
-                referential,
-                on_axis,
-            );
+            let nucl_coord = self
+                .design
+                .lock()
+                .unwrap()
+                .get_helix_nucl(nucl, referential, on_axis);
             nucl_coord
         }
     }
@@ -429,14 +429,11 @@ impl Design3D {
             }
             SceneElement::PhantomElement(phantom_element) => {
                 let nucl = Nucl {
-                helix: phantom_element.helix_id as usize,
-                position: phantom_element.position as isize,
-                forward: phantom_element.forward,
+                    helix: phantom_element.helix_id as usize,
+                    position: phantom_element.position as isize,
+                    forward: phantom_element.forward,
                 };
-                self.design
-                    .lock()
-                    .unwrap()
-                    .get_builder(nucl)
+                self.design.lock().unwrap().get_builder(nucl)
             }
             _ => None,
         }

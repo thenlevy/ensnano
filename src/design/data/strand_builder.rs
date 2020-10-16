@@ -289,13 +289,21 @@ impl StrandBuilder {
     /// builder.
     pub fn given_data(self, data: Arc<Mutex<Data>>, design_id: u32) -> Self {
         let data = Some(data);
-        Self { data, design_id, ..self }
+        Self {
+            data,
+            design_id,
+            ..self
+        }
     }
-
 
     /// Return the identifier of the element on the moving end position
     pub fn get_moving_end_identifier(&self) -> Option<u32> {
-        self.data.as_ref().unwrap().lock().unwrap().get_identifier_nucl(self.moving_end)
+        self.data
+            .as_ref()
+            .unwrap()
+            .lock()
+            .unwrap()
+            .get_identifier_nucl(self.moving_end)
     }
 
     /// Return the identifier of the design being eddited

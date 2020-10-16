@@ -251,12 +251,12 @@ impl CameraController {
 
         let scale = if let Some(pivot) = self.pivot_point {
             (pivot - self.camera.borrow().position).dot(self.camera.borrow().direction())
-
         } else {
             10.
         };
 
-        let right_vec = self.camera.borrow().right_vec() * scale * self.projection.borrow().get_ratio();
+        let right_vec =
+            self.camera.borrow().right_vec() * scale * self.projection.borrow().get_ratio();
         let up_vec = self.camera.borrow().up_vec() * scale;
 
         let old_pos = self.cam0.position;
@@ -355,7 +355,8 @@ impl CameraController {
         let new_direction = self.camera.borrow().direction();
         let new_up = self.camera.borrow().up_vec();
         let new_right = self.camera.borrow().right_vec();
-        self.camera.borrow_mut().position = point - dir * new_direction - up * new_up - right * new_right
+        self.camera.borrow_mut().position =
+            point - dir * new_direction - up * new_up - right * new_right
     }
 
     /// Modify the camera's rotor so that the camera looks at `point`.

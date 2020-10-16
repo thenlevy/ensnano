@@ -57,10 +57,7 @@ impl Design {
         }
     }
 
-    pub fn get_neighbour_nucl(
-        &self,
-        nucl: Nucl,
-    ) -> Option<NeighbourDescriptor> {
+    pub fn get_neighbour_nucl(&self, nucl: Nucl) -> Option<NeighbourDescriptor> {
         for (s_id, s) in self.strands.iter() {
             for (d_id, d) in s.domains.iter().enumerate() {
                 if let Some(other) = d.other_end(nucl) {
