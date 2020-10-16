@@ -21,7 +21,7 @@ mod camera;
 mod view;
 use view::{
     DrawType, HandleDir, HandleOrientation, HandlesDescriptor, RotationMode as WidgetRotationMode,
-    RotationWidgetDescriptor, RotationWidgetOrientation, View, ViewUpdate,
+    RotationWidgetDescriptor, RotationWidgetOrientation, View, ViewUpdate, LetterInstance,
 };
 /// Handling of inputs and notifications
 mod controller;
@@ -286,6 +286,7 @@ impl Scene {
 
     /// Draw the scene
     pub fn draw_view(&mut self, encoder: &mut wgpu::CommandEncoder, target: &wgpu::TextureView) {
+        self.view.borrow_mut().update(ViewUpdate::Letter(Rc::new(vec![LetterInstance{ position: Vec3::zero(), color: ultraviolet::Vec4::zero() }])));
         self.view.borrow_mut().draw(
             encoder,
             target,

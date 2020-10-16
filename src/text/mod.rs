@@ -183,7 +183,6 @@ impl Letter {
             contents: bytemuck::cast_slice(INDICES),
             usage: wgpu::BufferUsage::INDEX,
         });
-        let num_indices = INDICES.len() as u32;
 
         Self {
             size,

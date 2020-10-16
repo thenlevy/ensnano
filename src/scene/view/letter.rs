@@ -129,9 +129,11 @@ impl LetterDrawer {
     /// this function, perform the most recent update.
     fn update_instances(&mut self) {
         if let Some(ref instances) = self.new_instances.take() {
+            println!("updating instance");
             self.number_instances = instances.len();
             let instances_data: Vec<_> = instances.iter().map(|i| i.seen_by(self.camera.clone())).collect();
             self.bind_groups.update_instances(instances_data.as_slice());
+            println!("ok");
         }
     }
 
