@@ -1,14 +1,15 @@
+//! The Mediator coordinates the interaction between the designs and the applications.
+//! When a design is modified, it notifies the mediator of its changes and the mediator forwards
+//! that information to the applications.
+//!
+//! When an application wants to modify a design, it makes the modification request to the
+//! mediator.
+//!
+//! The mediator also holds data that is common to all applications.
+use std::sync::{Arc, Mutex};
 use std::collections::HashSet;
 use std::path::PathBuf;
-/// The Mediator coordinates the interaction between the designs and the applications.
-/// When a design is modified, it notifies the mediator of its changes and the mediator forwards
-/// that information to the applications.
-///
-/// When an application wants to modify a design, it makes the modification request to the
-/// mediator.
-///
-/// The mediator also holds data that is common to all applications.
-use std::sync::{Arc, Mutex};
+use crate::Messages;
 
 use native_dialog::{Dialog, MessageAlert};
 
@@ -23,7 +24,7 @@ pub struct Mediator {
     designs: Vec<Arc<Mutex<Design>>>,
     selection: Selection,
     new_strand: bool,
-
+    messages: Arc<Mutex<Messages>>,
 }
 
 #[derive(Clone)]
@@ -40,12 +41,13 @@ pub trait Application {
 }
 
 impl Mediator {
-    pub fn new() -> Self {
+    pub fn new(messages: Arc<Mutex<Messages>>) -> Self {
         Self {
             applications: Vec::new(),
             designs: Vec::new(),
             selection: Selection::Nothing,
             new_strand: false,
+            messages,
         }
     }
 
@@ -82,33 +84,6 @@ impl Mediator {
         }
     }
 
-    pub fn get_new_strand_sequence(&mut self) -> Option<String> {
-        if !self.new_strand {
-            return None;
-        }
-        match self.selection {
-            Selection::Strand(design_id, strand_id) => self.designs[design_id as usize]
-                .lock()
-                .unwrap()
-                .get_strand_sequence(strand_id as usize),
-            _ => None,
-        }
-    }
-
-    pub fn get_new_strand_color(&mut self) -> Option<u32> {
-        if !self.new_strand {
-            return None;
-        }
-        self.new_strand = false;
-        match self.selection {
-            Selection::Strand(design_id, strand_id) => self.designs[design_id as usize]
-                .lock()
-                .unwrap()
-                .get_strand_color(strand_id as usize),
-            _ => None,
-        }
-    }
-
     pub fn save_design(&mut self, path: &PathBuf) {
         if let Some(d_id) = self.selected_design() {
             self.designs[d_id as usize].lock().unwrap().save_to(path)
@@ -131,7 +106,18 @@ impl Mediator {
 
     pub fn notify_selection(&mut self, selection: Selection) {
         self.selection = selection;
-        self.new_strand = self.selection.is_strand();
+        if selection.is_strand() {
+            let mut messages = self.messages.lock().unwrap();
+            if let Selection::Strand(d_id, s_id) = selection {
+                let design = self.designs[d_id as usize].lock().unwrap();
+                if let Some(color) = design.get_strand_color(s_id as usize) {
+                    messages.push_color(color);
+                }
+                if let Some(sequence) = design.get_strand_sequence(s_id as usize) {
+                    messages.push_sequence(sequence);
+                }
+            }
+        }
     }
 
     pub fn notify_apps(&mut self, notification: Notification) {

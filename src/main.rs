@@ -1,4 +1,5 @@
 use std::env;
+use std::collections::VecDeque;
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
@@ -112,7 +113,8 @@ fn main() {
     let mut local_pool = futures::executor::LocalPool::new();
 
     // Initialize the mediator
-    let mediator = Arc::new(Mutex::new(Mediator::new()));
+    let messages = Arc::new(Mutex::new(Messages::new()));
+    let mediator = Arc::new(Mutex::new(Mediator::new(messages.clone())));
 
     // Initialize the layout
     let mut multiplexer = Multiplexer::new(window.inner_size(), window.scale_factor());
@@ -313,17 +315,14 @@ fn main() {
 
                     }
                 }
-                let sequence = mediator.lock().unwrap().get_new_strand_sequence();
-                let color = mediator.lock().unwrap().get_new_strand_color();
-                if let Some(color) = color {
-                    let bytes = color.to_be_bytes();
-                    let color = iced::Color::from_rgb8(bytes[1], bytes[2], bytes[3]);
-                    left_panel_state
-                        .queue_message(gui::left_panel::Message::StrandColorChanged(color));
-                }
-                if let Some(sequence) = sequence {
-                    left_panel_state
-                        .queue_message(gui::left_panel::Message::SequenceChanged(sequence));
+                {
+                    let mut messages = messages.lock().unwrap();
+                    for m in messages.left_panel.drain(..) {
+                        left_panel_state.queue_message(m);
+                    }
+                    for m in messages.top_bar.drain(..) {
+                        top_bar_state.queue_message(m);
+                    }
                 }
                 let now = std::time::Instant::now();
                 let dt = now - last_render_time;
@@ -459,3 +458,31 @@ fn main() {
         }
     })
 }
+
+pub struct Messages {
+    left_panel: VecDeque<gui::left_panel::Message>,
+    #[allow(dead_code)]
+    top_bar: VecDeque<gui::top_bar::Message>,
+}
+
+impl Messages {
+    pub fn new() -> Self {
+        Self {
+            left_panel: VecDeque::new(),
+            top_bar: VecDeque::new(),
+        }
+    }
+
+    pub fn push_color(&mut self, color: u32) {
+        let bytes = color.to_be_bytes();
+        // bytes is [A, R, G, B]
+        let color = iced::Color::from_rgb8(bytes[1], bytes[2], bytes[3]);
+        self.left_panel
+            .push_front(gui::left_panel::Message::StrandColorChanged(color));
+    }
+
+    pub fn push_sequence(&mut self, sequence: String) {
+        self.left_panel.push_front(gui::left_panel::Message::SequenceChanged(sequence));
+    }
+}
+
