@@ -23,6 +23,7 @@ pub struct Mediator {
     designs: Vec<Arc<Mutex<Design>>>,
     selection: Selection,
     new_strand: bool,
+
 }
 
 #[derive(Clone)]
@@ -68,6 +69,29 @@ impl Mediator {
                 .unwrap()
                 .change_strand_color(strand_id as usize, color),
             _ => (),
+        }
+    }
+
+    pub fn change_sequence(&mut self, sequence: String) {
+        match self.selection {
+            Selection::Strand(design_id, strand_id) => self.designs[design_id as usize]
+                .lock()
+                .unwrap()
+                .change_strand_sequence(strand_id as usize, sequence),
+            _ => (),
+        }
+    }
+
+    pub fn get_new_strand_sequence(&mut self) -> Option<String> {
+        if !self.new_strand {
+            return None;
+        }
+        match self.selection {
+            Selection::Strand(design_id, strand_id) => self.designs[design_id as usize]
+                .lock()
+                .unwrap()
+                .get_strand_sequence(strand_id as usize),
+            _ => None,
         }
     }
 

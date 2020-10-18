@@ -15,6 +15,8 @@ use crate::scene::{ActionMode, SelectionMode};
 use super::Requests;
 mod color_picker;
 use color_picker::ColorPicker;
+mod sequence_input;
+use sequence_input::SequenceInput;
 
 pub struct LeftPanel {
     pick_selection_mode: pick_list::State<SelectionMode>,
@@ -27,6 +29,7 @@ pub struct LeftPanel {
     logical_size: LogicalSize<f64>,
     logical_position: LogicalPosition<f64>,
     color_picker: ColorPicker,
+    sequence_input: SequenceInput,
     requests: Arc<Mutex<Requests>>,
 }
 
@@ -37,6 +40,7 @@ pub enum Message {
     StrandColorChanged(Color),
     HueChanged(f32),
     ActionModeChanged(ActionMode),
+    SequenceChanged(String),
 }
 
 impl LeftPanel {
@@ -56,6 +60,7 @@ impl LeftPanel {
             logical_size,
             logical_position,
             color_picker: ColorPicker::new(),
+            sequence_input: SequenceInput::new(),
             requests,
         }
     }
@@ -100,6 +105,10 @@ impl Program for LeftPanel {
                 self.requests.lock().unwrap().strand_color_change = Some(color);
             }
             Message::HueChanged(x) => self.color_picker.change_hue(x),
+            Message::SequenceChanged(s) => {
+                self.requests.lock().unwrap().sequence_change = Some(s.clone());
+                self.sequence_input.update_sequence(s);
+            }
             Message::Resized(size, position) => self.resize(size, position),
         };
         Command::none()
@@ -144,7 +153,7 @@ impl Program for LeftPanel {
             .height(Length::Fill);
 
         if self.selection_mode == SelectionMode::Strand {
-            widget = widget.spacing(5).push(self.color_picker.view());
+            widget = widget.spacing(5).push(self.color_picker.view()).spacing(5).push(self.sequence_input.view());
         }
 
         Container::new(widget)

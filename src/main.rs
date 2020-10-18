@@ -303,18 +303,27 @@ fn main() {
                             requests.action_mode = None;
                         }
 
+                        if let Some(sequence) = requests.sequence_change.take() {
+                            mediator.lock().unwrap().change_sequence(sequence);
+                        }
                         if let Some(color) = requests.strand_color_change {
                             mediator.lock().unwrap().change_strand_color(color);
                             requests.strand_color_change = None;
                         }
+
                     }
                 }
+                let sequence = mediator.lock().unwrap().get_new_strand_sequence();
                 let color = mediator.lock().unwrap().get_new_strand_color();
                 if let Some(color) = color {
                     let bytes = color.to_be_bytes();
                     let color = iced::Color::from_rgb8(bytes[1], bytes[2], bytes[3]);
                     left_panel_state
                         .queue_message(gui::left_panel::Message::StrandColorChanged(color));
+                }
+                if let Some(sequence) = sequence {
+                    left_panel_state
+                        .queue_message(gui::left_panel::Message::SequenceChanged(sequence));
                 }
                 let now = std::time::Instant::now();
                 let dt = now - last_render_time;

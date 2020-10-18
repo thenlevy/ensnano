@@ -24,6 +24,8 @@ pub struct Requests {
     pub file_save: Option<PathBuf>,
     /// A request to change the color of the selcted strand
     pub strand_color_change: Option<u32>,
+    /// A request to change the sequence of the selected strand
+    pub sequence_change: Option<String>,
 }
 
 impl Requests {
@@ -37,6 +39,7 @@ impl Requests {
             file_clear: false,
             file_save: None,
             strand_color_change: None,
+            sequence_change: None,
         }
     }
 }

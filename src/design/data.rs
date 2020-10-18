@@ -360,8 +360,23 @@ impl Data {
         self.update_status = true;
     }
 
+    /// Change the color of a strand
+    pub fn change_strand_sequence(&mut self, s_id: usize, sequence: String) {
+        self.design
+            .strands
+            .get_mut(&s_id)
+            .expect("wrong s_id in change_strand_color")
+            .sequence = Some(std::borrow::Cow::Owned(sequence));
+        self.update_status = true;
+        self.hash_maps_update = true;
+    }
+
     pub fn get_strand_color(&self, s_id: usize) -> Option<u32> {
         self.design.strands.get(&s_id).map(|s| s.color)
+    }
+
+    pub fn get_strand_sequence(&self, s_id: usize) -> Option<String> {
+        self.design.strands.get(&s_id).map(|s| s.sequence.as_ref().unwrap_or(&std::borrow::Cow::Owned(String::new())).to_string())
     }
 
     /// Apply `rotation` on helix `h_id` arround `origin`. `rotation` and `origin` must be

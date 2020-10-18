@@ -223,8 +223,20 @@ impl Design {
             .change_strand_color(strand_id, color);
     }
 
+    /// Change the sequence of a strand
+    pub fn change_strand_sequence(&mut self, strand_id: usize, sequence: String) {
+        self.data
+            .lock()
+            .unwrap()
+            .change_strand_sequence(strand_id, sequence);
+    }
+
     pub fn get_strand_color(&self, strand_id: usize) -> Option<u32> {
         self.data.lock().unwrap().get_strand_color(strand_id)
+    }
+
+    pub fn get_strand_sequence(&self, strand_id: usize) -> Option<String> {
+        self.data.lock().unwrap().get_strand_sequence(strand_id)
     }
 
     /// Get the basis of the model in the world's coordinates
