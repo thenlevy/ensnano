@@ -274,6 +274,18 @@ impl Design {
         let nucl = self.data.lock().unwrap().get_nucl(element_id)?;
         self.get_builder(nucl)
     }
+
+    /// If element_id is the identifier of a nucleotide, return the position on which the
+    /// nucleotide's symbols must be displayed
+    pub fn get_symbol_position(&self, element_id: u32) -> Option<Vec3> {
+        self.data.lock().unwrap().get_symbol_position(element_id)
+    }
+
+    /// If element_id is the identifier of a nucleotide, return the eventual corresponding 
+    /// symbols
+    pub fn get_symbol(&self, element_id: u32) -> Option<char> {
+        self.data.lock().unwrap().get_symbol(element_id)
+    }
 }
 
 #[derive(Clone)]

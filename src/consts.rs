@@ -28,3 +28,6 @@ pub const FRONT_CIRCLE_ID: u32 = 5;
 pub const SPHERE_WIDGET_ID: u32 = 6;
 
 pub const PHANTOM_RANGE: i32 = 1000;
+
+pub const BASIS_SYMBOLS: &[char] = &['A', 'T', 'G', 'C', '*'];
+pub const NB_BASIS_SYMBOLS: usize = BASIS_SYMBOLS.len();

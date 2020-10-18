@@ -491,6 +491,7 @@ impl Data {
         let mut spheres = Vec::with_capacity(self.get_number_spheres());
         let mut tubes = Vec::with_capacity(self.get_number_tubes());
 
+        let mut letters = Vec::new();
         for design in self.designs.iter() {
             for sphere in design.get_spheres().iter() {
                 spheres.push(*sphere);
@@ -498,6 +499,7 @@ impl Data {
             for tube in design.get_tubes().iter() {
                 tubes.push(*tube);
             }
+            letters = design.get_letter_instances();
         }
         self.view
             .borrow_mut()
@@ -505,6 +507,7 @@ impl Data {
         self.view
             .borrow_mut()
             .update(ViewUpdate::Spheres(Rc::new(spheres)));
+        self.view.borrow_mut().update(ViewUpdate::Letter(letters));
     }
 
     /// This fuction must be called when the model matrices have been modfied

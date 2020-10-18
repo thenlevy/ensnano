@@ -5,6 +5,7 @@ use super::{camera, ActionMode};
 use crate::design::Axis;
 use crate::utils::{instance, mesh, texture};
 use crate::{DrawArea, PhySize};
+use crate::consts::*;
 use camera::{Camera, CameraPtr, Projection, ProjectionPtr};
 use iced_wgpu::wgpu;
 use instance::Instance;
@@ -58,8 +59,9 @@ pub struct View {
     rotation_widget: RotationWidget,
     /// A possible update of the size of the drawing area, must be taken into account before
     /// drawing the next frame
-    letter_drawer: LetterDrawer,
     new_size: Option<PhySize>,
+    /// The pipilines that draw the basis symbols
+    letter_drawer: Vec<LetterDrawer>,
     device: Rc<Device>,
     /// A bind group associated to the uniform buffer containing the view and projection matrices.
     //TODO this is currently only passed to the widgets, it could be passed to the mesh pipeline as
@@ -90,7 +92,7 @@ impl View {
         )));
         let pipeline_handlers =
             PipelineHandlers::init(device.clone(), queue.clone(), &camera, &projection);
-        let letter_drawer =  LetterDrawer::new(device.clone(), queue.clone(), '$', &camera, &projection);
+        let letter_drawer = BASIS_SYMBOLS.iter().map(|c| LetterDrawer::new(device.clone(), queue.clone(), *c, &camera, &projection)).collect();
         let depth_texture =
             texture::Texture::create_depth_texture(device.clone().as_ref(), &window_size);
         let viewer = Rc::new(RefCell::new(UniformBindGroup::new(
@@ -133,7 +135,9 @@ impl View {
                 ));
                 self.handle_drawers
                     .update_camera(self.camera.clone(), self.projection.clone());
-                self.letter_drawer.new_viewer(self.camera.clone(), self.projection.clone());
+                for i in 0..NB_BASIS_SYMBOLS {
+                    self.letter_drawer[i].new_viewer(self.camera.clone(), self.projection.clone());
+                }
                 self.need_redraw_fake = true;
             }
             ViewUpdate::Handles(descr) => {
@@ -154,10 +158,16 @@ impl View {
                 self.need_redraw_fake = true;
             }
             ViewUpdate::ModelMatrices(ref matrices) => {
-                self.letter_drawer.new_model_matrices(Rc::new(matrices.clone()));
+                for i in 0..NB_BASIS_SYMBOLS {
+                    self.letter_drawer[i].new_model_matrices(Rc::new(matrices.clone()));
+                }
                 self.pipeline_handlers.update(view_update);
             }
-            ViewUpdate::Letter(letter) => self.letter_drawer.new_instances(letter),
+            ViewUpdate::Letter(letter) => {
+                for i in 0..letter.len() {
+                    self.letter_drawer[i].new_instances(letter[i].clone());
+                }
+            }
             _ => {
                 self.need_redraw_fake |= self.pipeline_handlers.update(view_update);
             }
@@ -276,7 +286,9 @@ impl View {
         }
         
         if !fake_color {
-            self.letter_drawer.draw(&mut render_pass)
+            for drawer in self.letter_drawer.iter_mut() {
+                drawer.draw(&mut render_pass)
+            }
         }
 
         if fake_color {
@@ -440,7 +452,7 @@ pub enum ViewUpdate {
     PhantomInstances(Rc<Vec<Instance>>, Rc<Vec<Instance>>),
     Handles(Option<HandlesDescriptor>),
     RotationWidget(Option<RotationWidgetDescriptor>),
-    Letter(Rc<Vec<LetterInstance>>),
+    Letter(Vec<Rc<Vec<LetterInstance>>>),
 }
 
 /// The structure gathers all the pipepline that are used to draw meshes on the scene

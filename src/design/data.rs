@@ -53,6 +53,8 @@ pub struct Data {
     /// Must be set to true when a modification that requires an update of the hash maps is
     /// performed
     hash_maps_update: bool,
+    /// Maps nucleotides to basis characters
+    basis_map: HashMap<Nucl, char>
 }
 
 impl Data {
@@ -72,6 +74,7 @@ impl Data {
             color: HashMap::new(),
             update_status: false,
             hash_maps_update: false,
+            basis_map: HashMap::new(),
         }
     }
 
@@ -94,6 +97,7 @@ impl Data {
             update_status: false,
             // false because we call make_hash_maps here
             hash_maps_update: false,
+            basis_map: HashMap::new(),
         };
         ret.make_hash_maps();
         ret.terminate_movement();
@@ -111,15 +115,19 @@ impl Data {
         let mut strand_map = HashMap::new();
         let mut color_map = HashMap::new();
         let mut helix_map = HashMap::new();
+        let mut basis_map = HashMap::new();
         let mut id = 0u32;
         let mut nucl_id;
         let mut old_nucl = None;
         let mut old_nucl_id = None;
         for (s_id, strand) in self.design.strands.iter() {
+            let mut strand_position = 0;
+            let strand_seq = strand.sequence.as_ref().filter(|s| s.is_ascii());
             let color = strand.color;
             for domain in &strand.domains {
                 if let icednano::Domain::HelixDomain(domain) = domain {
-                    for nucl_position in domain.iter() {
+                    let dom_seq = domain.sequence.as_ref().filter(|s| s.is_ascii());
+                    for (dom_position, nucl_position) in domain.iter().enumerate() {
                         let position = self.design.helices[&domain.helix].space_pos(
                             self.design.parameters.as_ref().unwrap(),
                             nucl_position,
@@ -138,6 +146,13 @@ impl Data {
                         strand_map.insert(nucl_id, *s_id);
                         color_map.insert(nucl_id, color);
                         helix_map.insert(nucl_id, nucl.helix);
+                        let basis = dom_seq.as_ref().and_then(|s| s.as_bytes().get(dom_position)).or(strand_seq.as_ref().and_then(|s| s.as_bytes().get(strand_position))).or(Some(&('*' as u8)));
+                        if let Some(basis) = basis {
+                            basis_map.insert(nucl, *basis as char);
+                        } else {
+                            basis_map.remove(&nucl);
+                        }
+                        strand_position += 1;
                         let position = [position[0] as f32, position[1] as f32, position[2] as f32];
                         space_position.insert(nucl_id, position);
                         if let Some(old_nucl) = old_nucl.take() {
@@ -155,6 +170,8 @@ impl Data {
                         old_nucl = Some(nucl);
                         old_nucl_id = Some(nucl_id);
                     }
+                } else if let icednano::Domain::Insertion(n) = domain {
+                    strand_position += n;
                 }
             }
             old_nucl = None;
@@ -169,6 +186,7 @@ impl Data {
         self.space_position = space_position;
         self.color = color_map;
         self.helix_map = helix_map;
+        self.basis_map = basis_map;
     }
 
     /// Save the design to a file in the `icednano` format
@@ -496,6 +514,19 @@ impl Data {
             ))
         }
     }
+
+    pub fn get_symbol(&self, e_id: u32) -> Option<char> {
+        self.nucleotide.get(&e_id).and_then(|nucl| self.basis_map.get(nucl)).cloned()
+    }
+
+    pub fn get_symbol_position(&self, e_id: u32) -> Option<Vec3> {
+        self.nucleotide.get(&e_id).and_then(|nucl| {
+            let axis_position = self.get_helix_nucl(*nucl, true)?;
+            let nucl_position = self.get_helix_nucl(*nucl, false)?;
+            Some(axis_position + 1.1 * (nucl_position - axis_position))
+        })
+    }
+
 }
 
 /// Create a design by parsing a file

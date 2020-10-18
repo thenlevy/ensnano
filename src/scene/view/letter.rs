@@ -11,7 +11,7 @@ use super::{
     CameraPtr, ProjectionPtr, Uniforms,
 };
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct LetterInstance {
     pub position: Vec3,
     pub color: Vec4,

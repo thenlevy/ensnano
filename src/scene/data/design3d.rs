@@ -1,9 +1,9 @@
-use super::{SceneElement, StrandBuilder};
+use super::{SceneElement, StrandBuilder, LetterInstance};
 use crate::consts::*;
 use crate::design::{Design, Nucl, ObjectType, Referential};
 use crate::utils;
 use crate::utils::instance::Instance;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 use ultraviolet::{Mat4, Rotor3, Vec3};
@@ -12,6 +12,7 @@ use ultraviolet::{Mat4, Rotor3, Vec3};
 pub struct Design3D {
     design: Arc<Mutex<Design>>,
     id: u32,
+    symbol_map: HashMap<char, usize>,
 }
 
 type Basis = (f32, f32, f32, [f32; 3], u32);
@@ -19,7 +20,11 @@ type Basis = (f32, f32, f32, [f32; 3], u32);
 impl Design3D {
     pub fn new(design: Arc<Mutex<Design>>) -> Self {
         let id = design.lock().unwrap().get_id() as u32;
-        Self { design, id }
+        let mut symbol_map = HashMap::new();
+        for (s_id, s) in BASIS_SYMBOLS.iter().enumerate() {
+            symbol_map.insert(*s, s_id);
+        }
+        Self { design, id, symbol_map }
     }
 
     /// Convert a list of ids into a list of instances
@@ -37,6 +42,29 @@ impl Design3D {
     pub fn get_spheres(&self) -> Rc<Vec<Instance>> {
         let ids = self.design.lock().unwrap().get_all_nucl_ids();
         Rc::new(self.id_to_instances(ids))
+    }
+
+    pub fn get_letter_instances(&self) -> Vec<Rc<Vec<LetterInstance>>> {
+        let ids = self.design.lock().unwrap().get_all_nucl_ids();
+        let mut vecs = vec![Vec::new(); NB_BASIS_SYMBOLS];
+        for id in ids {
+            let pos = self.design.lock().unwrap().get_symbol_position(id);
+            let symbol = self.design.lock().unwrap().get_symbol(id);
+            if let Some((pos, symbol)) = pos.zip(symbol) {
+                if let Some(id) = self.symbol_map.get(&symbol) {
+                    let instance = LetterInstance {
+                        position: pos,
+                        color: ultraviolet::Vec4::new(0., 0., 0., 1.),
+                    };
+                    vecs[*id].push(instance);
+                }
+            }
+        }
+        let mut ret = Vec::new();
+        for i in 0..NB_BASIS_SYMBOLS {
+            ret.push(Rc::new(vecs[i].clone()));
+        }
+        ret
     }
 
     /// Return the list of tube instances to be displayed to represent the design
