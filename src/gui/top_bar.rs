@@ -6,7 +6,7 @@ use iced::Image;
 use iced::{container, Background, Container};
 use iced_wgpu::Renderer;
 use iced_winit::winit::dpi::LogicalSize;
-use iced_winit::{button, Button, Color, Command, Element, Length, Program, Row};
+use iced_winit::{button, Button, checkbox, Checkbox, Color, Command, Element, Length, Program, Row};
 
 use super::Requests;
 
@@ -15,6 +15,7 @@ pub struct TopBar {
     button_add_file: button::State,
     button_replace_file: button::State,
     button_save: button::State,
+    toggle_text_value: bool,
     requests: Arc<Mutex<Requests>>,
     logical_size: LogicalSize<f64>,
 }
@@ -26,6 +27,7 @@ pub enum Message {
     FileReplaceRequested,
     FileSaveRequested,
     Resize(LogicalSize<f64>),
+    ToggleText(bool),
 }
 
 impl TopBar {
@@ -35,6 +37,7 @@ impl TopBar {
             button_add_file: Default::default(),
             button_replace_file: Default::default(),
             button_save: Default::default(),
+            toggle_text_value: false,
             requests,
             logical_size,
         }
@@ -95,6 +98,10 @@ impl Program for TopBar {
                 }
             }
             Message::Resize(size) => self.resize(size),
+            Message::ToggleText(b) => {
+                self.requests.lock().unwrap().toggle_text = Some(b);
+                self.toggle_text_value = b;
+            }
         };
         Command::none()
     }
@@ -126,7 +133,8 @@ impl Program for TopBar {
             .push(button_fit)
             .push(button_add_file)
             .push(button_replace_file)
-            .push(button_save);
+            .push(button_save)
+            .push(Checkbox::new(self.toggle_text_value, "Show Sequences", Message::ToggleText));
 
         Container::new(buttons)
             .width(Length::Fill)

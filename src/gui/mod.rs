@@ -26,6 +26,8 @@ pub struct Requests {
     pub strand_color_change: Option<u32>,
     /// A request to change the sequence of the selected strand
     pub sequence_change: Option<String>,
+    /// A request to show/hide the sequences
+    pub toggle_text: Option<bool>,
 }
 
 impl Requests {
@@ -40,6 +42,7 @@ impl Requests {
             file_save: None,
             strand_color_change: None,
             sequence_change: None,
+            toggle_text: None,
         }
     }
 }
