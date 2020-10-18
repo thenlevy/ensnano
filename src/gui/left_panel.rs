@@ -7,6 +7,7 @@ use iced_winit::{
     pick_list, scrollable, Color, Column, Command, Element, Length, PickList, Program, Scrollable,
     Space, Text,
 };
+use native_dialog::Dialog;
 
 use color_space::{Hsv, Rgb};
 
@@ -41,6 +42,7 @@ pub enum Message {
     HueChanged(f32),
     ActionModeChanged(ActionMode),
     SequenceChanged(String),
+    SequenceFileRequested,
 }
 
 impl LeftPanel {
@@ -108,6 +110,21 @@ impl Program for LeftPanel {
             Message::SequenceChanged(s) => {
                 self.requests.lock().unwrap().sequence_change = Some(s.clone());
                 self.sequence_input.update_sequence(s);
+            }
+            Message::SequenceFileRequested => {
+                let dialog = native_dialog::OpenSingleFile {
+                    dir: None,
+                    filter: None,
+                };
+                let result = dialog.show();
+                if let Ok(result) = result {
+                    if let Some(path) = result {
+                        let content = std::fs::read_to_string(path);
+                        if content.is_ok() {
+                            self.update(Message::SequenceChanged(content.unwrap()));
+                        }
+                    }
+                }
             }
             Message::Resized(size, position) => self.resize(size, position),
         };

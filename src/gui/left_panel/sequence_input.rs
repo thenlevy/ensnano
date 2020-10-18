@@ -1,8 +1,9 @@
 use super::Message;
-use iced::{text_input, TextInput, Row};
+use iced::{text_input, button, Button, TextInput, Row, Text};
 
 pub struct SequenceInput {
     input: text_input::State,
+    button_state: button::State,
     sequence: String,
 }
 
@@ -11,6 +12,7 @@ impl SequenceInput {
         Self {
             input: Default::default(),
             sequence: String::new(),
+            button_state: Default::default(),
         }
     }
     pub fn view(&mut self) -> Row<Message> {
@@ -20,7 +22,8 @@ impl SequenceInput {
                     &mut self.input,
                     "Sequence",
                     &mut self.sequence,
-                    Message::SequenceChanged));
+                    Message::SequenceChanged))
+            .push(Button::new(&mut self.button_state, Text::new("Load File")).on_press(Message::SequenceFileRequested));
         sequence_input
     }
 
