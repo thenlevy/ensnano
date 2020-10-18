@@ -13,7 +13,8 @@ layout(location=3) out vec4 v_id;
 layout(set=0, binding=0)
 uniform Uniforms {
     vec3 u_camera_position;
-    mat4 u_view_proj;
+    mat4 u_view;
+    mat4 u_proj;
 };
 
 struct Instances {
@@ -56,5 +57,5 @@ void main() {
     vec4 model_space = model_matrix * vec4(a_position, 1.0); 
     v_position = model_space.xyz;
     v_id = vec4(instances[gl_InstanceIndex].id.xyz, instances[gl_InstanceIndex].id.w / 255.);
-    gl_Position = u_view_proj * model_space;
+    gl_Position = u_proj * u_view * model_space;
 }

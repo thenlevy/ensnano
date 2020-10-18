@@ -10,7 +10,8 @@ layout(location=0) out vec4 f_color;
 
 layout(set=0, binding=0) uniform Uniform {
     uniform vec3 u_camera_position;
-    mat4 u_view_proj;
+    mat4 u_view;
+    mat4 u_proj;
 };
 
 layout(set=2, binding = 0) uniform Light {

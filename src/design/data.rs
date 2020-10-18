@@ -146,7 +146,7 @@ impl Data {
                         strand_map.insert(nucl_id, *s_id);
                         color_map.insert(nucl_id, color);
                         helix_map.insert(nucl_id, nucl.helix);
-                        let basis = dom_seq.as_ref().and_then(|s| s.as_bytes().get(dom_position)).or(strand_seq.as_ref().and_then(|s| s.as_bytes().get(strand_position))).or(Some(&('*' as u8)));
+                        let basis = dom_seq.as_ref().and_then(|s| s.as_bytes().get(dom_position)).or(strand_seq.as_ref().and_then(|s| s.as_bytes().get(strand_position)));
                         if let Some(basis) = basis {
                             basis_map.insert(nucl, *basis as char);
                         } else {
@@ -516,17 +516,25 @@ impl Data {
     }
 
     pub fn get_symbol(&self, e_id: u32) -> Option<char> {
-        self.nucleotide.get(&e_id).and_then(|nucl| self.basis_map.get(nucl)).cloned()
+        self.nucleotide.get(&e_id).and_then(|nucl| self.basis_map.get(nucl).cloned().or(compl(self.basis_map.get(&nucl.compl()).cloned())))
     }
 
     pub fn get_symbol_position(&self, e_id: u32) -> Option<Vec3> {
         self.nucleotide.get(&e_id).and_then(|nucl| {
-            let axis_position = self.get_helix_nucl(*nucl, true)?;
-            let nucl_position = self.get_helix_nucl(*nucl, false)?;
-            Some(axis_position + 1.1 * (nucl_position - axis_position))
+            self.get_helix_nucl(*nucl, false)
         })
     }
 
+}
+
+fn compl(c: Option<char>) -> Option<char> {
+    match c {
+        Some('T') => Some('A'),
+        Some('A') => Some('T'),
+        Some('G') => Some('C'),
+        Some('C') => Some('G'),
+        _ => None,
+    }
 }
 
 /// Create a design by parsing a file

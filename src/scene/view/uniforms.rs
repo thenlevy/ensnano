@@ -7,8 +7,8 @@ use ultraviolet::{Mat4, Vec4};
 /// and View matrices.
 pub struct Uniforms {
     pub camera_position: Vec4,
-    /// View * Projection matrix
-    pub view_proj: Mat4,
+    pub view: Mat4,
+    pub proj: Mat4,
 }
 
 unsafe impl bytemuck::Pod for Uniforms {}
@@ -18,19 +18,22 @@ impl Uniforms {
     pub fn new() -> Self {
         Self {
             camera_position: Vec4::zero(),
-            view_proj: Mat4::identity(),
+            view: Mat4::identity(),
+            proj: Mat4::identity(),
         }
     }
 
     pub fn from_view_proj(camera: CameraPtr, projection: ProjectionPtr) -> Self {
         Self {
             camera_position: camera.borrow().position.into_homogeneous_point(),
-            view_proj: projection.borrow().calc_matrix() * camera.borrow().calc_matrix(),
+            view: camera.borrow().calc_matrix(),
+            proj: projection.borrow().calc_matrix(),
         }
     }
 
     pub fn update_view_proj(&mut self, camera: CameraPtr, projection: ProjectionPtr) {
         self.camera_position = camera.borrow().position.into_homogeneous_point();
-        self.view_proj = projection.borrow().calc_matrix() * camera.borrow().calc_matrix()
+        self.view = camera.borrow().calc_matrix();
+        self.proj = projection.borrow().calc_matrix();
     }
 }

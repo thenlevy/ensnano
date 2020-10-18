@@ -484,6 +484,13 @@ impl Nucl {
             ..*self
         }
     }
+
+    pub fn compl(&self) -> Self {
+        Self {
+            forward: !self.forward,
+            ..*self
+        }
+    }
 }
 
 /// Represents the axis of an helix. At the moment it is a line. In the future it might also be a

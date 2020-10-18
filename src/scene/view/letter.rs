@@ -18,11 +18,9 @@ pub struct LetterInstance {
 }
 
 impl LetterInstance {
-    pub fn seen_by(&self, camera: CameraPtr) -> InstanceRaw {
-        let matrix = Mat3::new(camera.borrow().right_vec(), camera.borrow().up_vec(), -camera.borrow().direction());
+    pub fn to_raw(&self) -> InstanceRaw {
         InstanceRaw {
-            model: Mat4::from_translation(self.position)
-                * matrix.into_homogeneous(),
+            model: Mat4::from_translation(self.position),
             color: self.color,
             // We do not draw the letters on fake textures
             id: Vec4::zero(),
@@ -128,12 +126,10 @@ impl LetterDrawer {
     /// If one or several update of the set of instances were requested before the last call of
     /// this function, perform the most recent update.
     fn update_instances(&mut self) {
-        if let Some(ref instances) = self.new_instances.take() {
-            println!("updating instance");
+        if let Some(ref instances) = self.new_instances {
             self.number_instances = instances.len();
-            let instances_data: Vec<_> = instances.iter().map(|i| i.seen_by(self.camera.clone())).collect();
+            let instances_data: Vec<_> = instances.iter().map(|i| i.to_raw()).collect();
             self.bind_groups.update_instances(instances_data.as_slice());
-            println!("ok");
         }
     }
 
@@ -160,8 +156,8 @@ impl LetterDrawer {
         if self.pipeline.is_none() {
             self.pipeline = Some(self.create_pipeline(self.device.as_ref()));
         }
-        self.update_instances();
         self.update_viewer();
+        self.update_instances();
         self.update_model_matrices();
         render_pass.set_pipeline(self.pipeline.as_ref().unwrap());
         render_pass.set_bind_group(VIEWER_BINDING_ID, self.bind_groups.viewer.get_bindgroup(), &[]);
