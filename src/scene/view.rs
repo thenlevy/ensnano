@@ -70,6 +70,7 @@ pub struct View {
     redraw_twice: bool,
     need_redraw: bool,
     need_redraw_fake: bool,
+    draw_letter: bool,
 }
 
 impl View {
@@ -114,6 +115,7 @@ impl View {
             redraw_twice: false,
             need_redraw: true,
             need_redraw_fake: true,
+            draw_letter: false,
         }
     }
 
@@ -285,7 +287,7 @@ impl View {
             }
         }
         
-        if !fake_color {
+        if !fake_color && self.draw_letter {
             for drawer in self.letter_drawer.iter_mut() {
                 drawer.draw(&mut render_pass)
             }
@@ -340,6 +342,10 @@ impl View {
     /// The up vector of the camera. A.k.a. the vector that is mapped to (0,1,0) by the view matrix
     pub fn up_vec(&self) -> Vec3 {
         self.camera.borrow().up_vec()
+    }
+
+    pub fn set_draw_letter(&mut self, value: bool) {
+        self.draw_letter = value;
     }
 
     /// Compute the translation that needs to be applied to the objects affected by the handle

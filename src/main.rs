@@ -274,6 +274,11 @@ fn main() {
                             mediator.lock().unwrap().save_design(path);
                             requests.file_save = None;
                         }
+
+                        if let Some(value) = requests.toggle_text {
+                            mediator.lock().unwrap().toggle_text(value);
+                            requests.toggle_text = None;
+                        }
                     }
                 }
 

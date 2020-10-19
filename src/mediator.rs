@@ -33,6 +33,7 @@ pub enum Notification<'a> {
     #[allow(dead_code)]
     AppNotification(AppNotification<'a>),
     NewDesign(Arc<Mutex<Design>>),
+    ToggleText(bool),
     ClearDesigns,
 }
 
@@ -118,6 +119,10 @@ impl Mediator {
                 }
             }
         }
+    }
+
+    pub fn toggle_text(&mut self, value: bool) {
+        self.notify_apps(Notification::ToggleText(value));
     }
 
     pub fn notify_apps(&mut self, notification: Notification) {

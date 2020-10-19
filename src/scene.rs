@@ -421,6 +421,7 @@ impl Application for Scene {
             Notification::AppNotification(_) => (),
             Notification::NewDesign(design) => self.add_design(design),
             Notification::ClearDesigns => self.clear_design(),
+            Notification::ToggleText(value) => self.view.borrow_mut().set_draw_letter(value),
         }
     }
 }
