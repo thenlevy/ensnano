@@ -1,4 +1,4 @@
-use super::{ViewPtr, DataPtr};
+use super::{DataPtr, ViewPtr};
 
 pub struct Controller {
     view: ViewPtr,
@@ -7,9 +7,6 @@ pub struct Controller {
 
 impl Controller {
     pub fn new(view: ViewPtr, data: DataPtr) -> Self {
-        Self {
-            view,
-            data
-        }
+        Self { view, data }
     }
 }

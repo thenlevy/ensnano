@@ -54,7 +54,7 @@ pub struct Data {
     /// performed
     hash_maps_update: bool,
     /// Maps nucleotides to basis characters
-    basis_map: HashMap<Nucl, char>
+    basis_map: HashMap<Nucl, char>,
 }
 
 impl Data {
@@ -146,7 +146,12 @@ impl Data {
                         strand_map.insert(nucl_id, *s_id);
                         color_map.insert(nucl_id, color);
                         helix_map.insert(nucl_id, nucl.helix);
-                        let basis = dom_seq.as_ref().and_then(|s| s.as_bytes().get(dom_position)).or(strand_seq.as_ref().and_then(|s| s.as_bytes().get(strand_position)));
+                        let basis = dom_seq
+                            .as_ref()
+                            .and_then(|s| s.as_bytes().get(dom_position))
+                            .or(strand_seq
+                                .as_ref()
+                                .and_then(|s| s.as_bytes().get(strand_position)));
                         if let Some(basis) = basis {
                             basis_map.insert(nucl, *basis as char);
                         } else {
@@ -376,7 +381,12 @@ impl Data {
     }
 
     pub fn get_strand_sequence(&self, s_id: usize) -> Option<String> {
-        self.design.strands.get(&s_id).map(|s| s.sequence.as_ref().unwrap_or(&std::borrow::Cow::Owned(String::new())).to_string())
+        self.design.strands.get(&s_id).map(|s| {
+            s.sequence
+                .as_ref()
+                .unwrap_or(&std::borrow::Cow::Owned(String::new()))
+                .to_string()
+        })
     }
 
     /// Apply `rotation` on helix `h_id` arround `origin`. `rotation` and `origin` must be
@@ -531,15 +541,19 @@ impl Data {
     }
 
     pub fn get_symbol(&self, e_id: u32) -> Option<char> {
-        self.nucleotide.get(&e_id).and_then(|nucl| self.basis_map.get(nucl).cloned().or(compl(self.basis_map.get(&nucl.compl()).cloned())))
-    }
-
-    pub fn get_symbol_position(&self, e_id: u32) -> Option<Vec3> {
         self.nucleotide.get(&e_id).and_then(|nucl| {
-            self.get_helix_nucl(*nucl, false)
+            self.basis_map
+                .get(nucl)
+                .cloned()
+                .or(compl(self.basis_map.get(&nucl.compl()).cloned()))
         })
     }
 
+    pub fn get_symbol_position(&self, e_id: u32) -> Option<Vec3> {
+        self.nucleotide
+            .get(&e_id)
+            .and_then(|nucl| self.get_helix_nucl(*nucl, false))
+    }
 }
 
 fn compl(c: Option<char>) -> Option<char> {

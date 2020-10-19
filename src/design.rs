@@ -293,7 +293,7 @@ impl Design {
         self.data.lock().unwrap().get_symbol_position(element_id)
     }
 
-    /// If element_id is the identifier of a nucleotide, return the eventual corresponding 
+    /// If element_id is the identifier of a nucleotide, return the eventual corresponding
     /// symbols
     pub fn get_symbol(&self, element_id: u32) -> Option<char> {
         self.data.lock().unwrap().get_symbol(element_id)

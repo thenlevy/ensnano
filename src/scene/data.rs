@@ -1,7 +1,7 @@
 //! This modules handles internal informations about the scene, such as the selected objects etc..
 //! It also communicates with the desgings to get the position of the objects to draw on the scene.
 
-use super::{SceneElement, View, ViewUpdate, LetterInstance};
+use super::{LetterInstance, SceneElement, View, ViewUpdate};
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;

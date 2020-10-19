@@ -1,7 +1,10 @@
+use ab_glyph::{point, Font, FontRef, Glyph};
 use iced_wgpu::wgpu;
-use wgpu::{util::DeviceExt, Device, Queue, Extent3d, Texture, TextureView, Sampler, BindGroup, BindGroupLayout};
 use std::rc::Rc;
-use ab_glyph::{FontRef, Font, Glyph, point};
+use wgpu::{
+    util::DeviceExt, BindGroup, BindGroupLayout, Device, Extent3d, Queue, Sampler, Texture,
+    TextureView,
+};
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
@@ -67,7 +70,6 @@ pub struct Letter {
     pub bind_group_layout: BindGroupLayout,
 }
 
-
 impl Letter {
     pub fn new(character: char, device: Rc<Device>, queue: Rc<Queue>) -> Self {
         let size = Extent3d {
@@ -76,26 +78,27 @@ impl Letter {
             depth: 1,
         };
 
-        let diffuse_texture = device.create_texture(
-            &wgpu::TextureDescriptor {
-                // All textures are stored as 3d, we represent our 2d texture
-                // by setting depth to 1.
-                size,
-                mip_level_count: 1, // We'll talk about this a little later
-                sample_count: 1,
-                dimension: wgpu::TextureDimension::D2,
-                format: wgpu::TextureFormat::Rgba8UnormSrgb,
-                // SAMPLED tells wgpu that we want to use this texture in shaders
-                // COPY_DST means that we want to copy data to this texture
-                usage: wgpu::TextureUsage::SAMPLED | wgpu::TextureUsage::COPY_DST,
-                label: Some("diffuse_texture"),
-            }
-        );
+        let diffuse_texture = device.create_texture(&wgpu::TextureDescriptor {
+            // All textures are stored as 3d, we represent our 2d texture
+            // by setting depth to 1.
+            size,
+            mip_level_count: 1, // We'll talk about this a little later
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba8UnormSrgb,
+            // SAMPLED tells wgpu that we want to use this texture in shaders
+            // COPY_DST means that we want to copy data to this texture
+            usage: wgpu::TextureUsage::SAMPLED | wgpu::TextureUsage::COPY_DST,
+            label: Some("diffuse_texture"),
+        });
 
-        let mut pixels = vec![0u8 ; (size.width * size.height * 4) as usize];
+        let mut pixels = vec![0u8; (size.width * size.height * 4) as usize];
 
-        let font = FontRef::try_from_slice(include_bytes!("../../font/DejaVuSansMono.ttf")).expect("Could not read font");
-        let q_glyph: Glyph = font.glyph_id(character).with_scale_and_position(size.width as f32, point(0.0, 0.0));
+        let font = FontRef::try_from_slice(include_bytes!("../../font/DejaVuSansMono.ttf"))
+            .expect("Could not read font");
+        let q_glyph: Glyph = font
+            .glyph_id(character)
+            .with_scale_and_position(size.width as f32, point(0.0, 0.0));
 
         if let Some(q) = font.outline_glyph(q_glyph) {
             let rect = q.px_bounds();
@@ -123,7 +126,8 @@ impl Letter {
             size,
         );
 
-        let diffuse_texture_view = diffuse_texture.create_view(&wgpu::TextureViewDescriptor::default());
+        let diffuse_texture_view =
+            diffuse_texture.create_view(&wgpu::TextureViewDescriptor::default());
         let diffuse_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             address_mode_u: wgpu::AddressMode::ClampToEdge,
             address_mode_v: wgpu::AddressMode::ClampToEdge,
@@ -134,8 +138,8 @@ impl Letter {
             ..Default::default()
         });
 
-        let texture_bind_group_layout = device.create_bind_group_layout(
-            &wgpu::BindGroupLayoutDescriptor {
+        let texture_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 entries: &[
                     wgpu::BindGroupLayoutEntry {
                         binding: 0,
@@ -150,28 +154,25 @@ impl Letter {
                     wgpu::BindGroupLayoutEntry {
                         binding: 1,
                         visibility: wgpu::ShaderStage::FRAGMENT,
-                        ty: wgpu::BindingType::Sampler {
-                            comparison: false,
-                        },
+                        ty: wgpu::BindingType::Sampler { comparison: false },
                         count: None,
                     },
                 ],
                 label: Some("texture_bind_group_layout"),
-        });
-        let diffuse_bind_group = device.create_bind_group(
-            &wgpu::BindGroupDescriptor {
-                layout: &texture_bind_group_layout,
-                entries: &[
-                    wgpu::BindGroupEntry {
-                        binding: 0,
-                        resource: wgpu::BindingResource::TextureView(&diffuse_texture_view),
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 1,
-                        resource: wgpu::BindingResource::Sampler(&diffuse_sampler),
-                    }
-                ],
-                label: Some("diffuse_bind_group"),
+            });
+        let diffuse_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &texture_bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(&diffuse_texture_view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Sampler(&diffuse_sampler),
+                },
+            ],
+            label: Some("diffuse_bind_group"),
         });
         let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Vertex Buffer"),

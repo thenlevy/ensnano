@@ -1,22 +1,20 @@
 //! This module handles the 2D view
 
-
+use crate::{DrawArea, PhySize};
 use iced_wgpu::wgpu;
-use wgpu::{Device, Queue};
 use iced_winit::winit;
 use std::cell::RefCell;
 use std::collections::HashSet;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
-use crate::{DrawArea, PhySize};
+use wgpu::{Device, Queue};
 
-
-mod view;
 mod controller;
 mod data;
+mod view;
+use controller::Controller;
 use data::Data;
 use view::View;
-use controller::Controller;
 
 type ViewPtr = Rc<RefCell<View>>;
 type DataPtr = Rc<RefCell<Data>>;
@@ -37,16 +35,11 @@ impl FlatScene {
             view,
             data,
             controller,
-            area
+            area,
         }
     }
 
     pub fn draw_view(&mut self, encoder: &mut wgpu::CommandEncoder, target: &wgpu::TextureView) {
-        self.view.borrow_mut().draw(
-            encoder,
-            target,
-            self.area,
-        );
+        self.view.borrow_mut().draw(encoder, target, self.area);
     }
 }
-

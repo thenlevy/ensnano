@@ -1,4 +1,4 @@
-use super::{SceneElement, StrandBuilder, LetterInstance};
+use super::{LetterInstance, SceneElement, StrandBuilder};
 use crate::consts::*;
 use crate::design::{Design, Nucl, ObjectType, Referential};
 use crate::utils;
@@ -24,7 +24,11 @@ impl Design3D {
         for (s_id, s) in BASIS_SYMBOLS.iter().enumerate() {
             symbol_map.insert(*s, s_id);
         }
-        Self { design, id, symbol_map }
+        Self {
+            design,
+            id,
+            symbol_map,
+        }
     }
 
     /// Convert a list of ids into a list of instances

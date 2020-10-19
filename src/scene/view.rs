@@ -2,10 +2,10 @@
 //! frame to be displayed, or on a "fake texture" that is used to map pixels to objects.
 
 use super::{camera, ActionMode};
+use crate::consts::*;
 use crate::design::Axis;
 use crate::utils::{instance, mesh, texture};
 use crate::{DrawArea, PhySize};
-use crate::consts::*;
 use camera::{Camera, CameraPtr, Projection, ProjectionPtr};
 use iced_wgpu::wgpu;
 use instance::Instance;
@@ -27,20 +27,20 @@ mod bindgroup_manager;
 mod drawable;
 /// A HandleDrawer draws the widget for translating objects
 mod handle_drawer;
+mod letter;
 mod maths;
 /// A RotationWidget draws the widget for rotating objects
 mod rotation_widget;
-mod letter;
 
 use bindgroup_manager::UniformBindGroup;
 use drawable::{Drawable, Drawer, Vertex};
 use handle_drawer::HandlesDrawer;
 pub use handle_drawer::{HandleDir, HandleOrientation, HandlesDescriptor};
+use letter::LetterDrawer;
+pub use letter::LetterInstance;
 use maths::unproject_point_on_line;
 use rotation_widget::RotationWidget;
 pub use rotation_widget::{RotationMode, RotationWidgetDescriptor, RotationWidgetOrientation};
-use letter::LetterDrawer;
-pub use letter::LetterInstance;
 //use plane_drawer::PlaneDrawer;
 //pub use plane_drawer::Plane;
 
@@ -93,7 +93,10 @@ impl View {
         )));
         let pipeline_handlers =
             PipelineHandlers::init(device.clone(), queue.clone(), &camera, &projection);
-        let letter_drawer = BASIS_SYMBOLS.iter().map(|c| LetterDrawer::new(device.clone(), queue.clone(), *c, &camera, &projection)).collect();
+        let letter_drawer = BASIS_SYMBOLS
+            .iter()
+            .map(|c| LetterDrawer::new(device.clone(), queue.clone(), *c, &camera, &projection))
+            .collect();
         let depth_texture =
             texture::Texture::create_depth_texture(device.clone().as_ref(), &window_size);
         let viewer = Rc::new(RefCell::new(UniformBindGroup::new(
@@ -286,7 +289,7 @@ impl View {
                 );
             }
         }
-        
+
         if !fake_color && self.draw_letter {
             for drawer in self.letter_drawer.iter_mut() {
                 drawer.draw(&mut render_pass)

@@ -1,5 +1,5 @@
-use std::env;
 use std::collections::VecDeque;
+use std::env;
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
@@ -33,14 +33,14 @@ mod multiplexer;
 /// 3D scene drawing
 mod scene;
 use mediator::Mediator;
-mod utils;
-mod text;
 mod flatscene;
+mod text;
+mod utils;
 
+use flatscene::FlatScene;
 use gui::{LeftPanel, Requests, TopBar};
 use multiplexer::{DrawArea, ElementType, Multiplexer};
 use scene::{Scene, SceneNotification};
-use flatscene::FlatScene;
 
 fn convert_size(size: PhySize) -> Size<f32> {
     Size::new(size.width as f32, size.height as f32)
@@ -133,7 +133,12 @@ fn main() {
     mediator.lock().unwrap().add_application(scene.clone());
 
     let mut draw_flat = false;
-    let flat_scene = Arc::new(Mutex::new(FlatScene::new(device.clone(), queue.clone(), window.inner_size(), scene_area)));
+    let flat_scene = Arc::new(Mutex::new(FlatScene::new(
+        device.clone(),
+        queue.clone(),
+        window.inner_size(),
+        scene_area,
+    )));
 
     // Add a design to the scene if one was given as a command line arguement
     if let Some(ref path) = path {
@@ -329,7 +334,6 @@ fn main() {
                             mediator.lock().unwrap().change_strand_color(color);
                             requests.strand_color_change = None;
                         }
-
                     }
                 }
                 {
@@ -427,7 +431,10 @@ fn main() {
 
                 // We draw the scene first
                 if draw_flat {
-                    flat_scene.lock().unwrap().draw_view(&mut encoder, &frame.output.view);
+                    flat_scene
+                        .lock()
+                        .unwrap()
+                        .draw_view(&mut encoder, &frame.output.view);
                 } else {
                     scene
                         .lock()
@@ -503,7 +510,7 @@ impl Messages {
     }
 
     pub fn push_sequence(&mut self, sequence: String) {
-        self.left_panel.push_front(gui::left_panel::Message::SequenceChanged(sequence));
+        self.left_panel
+            .push_front(gui::left_panel::Message::SequenceChanged(sequence));
     }
 }
-

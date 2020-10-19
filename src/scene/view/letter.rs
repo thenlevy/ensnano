@@ -1,15 +1,15 @@
-use std::rc::Rc;
 use iced_wgpu::wgpu;
-use wgpu::{RenderPass, Device, Queue, RenderPipeline, include_spirv};
-use ultraviolet::{Vec3, Vec4, Mat4, Mat3};
+use std::rc::Rc;
+use ultraviolet::{Mat3, Mat4, Vec3, Vec4};
+use wgpu::{include_spirv, Device, Queue, RenderPass, RenderPipeline};
 
-use crate::utils::{instance::InstanceRaw, texture::Texture};
-use crate::text::{Vertex, Letter};
-use crate::consts::*;
 use super::{
     bindgroup_manager::{DynamicBindGroup, UniformBindGroup},
     CameraPtr, ProjectionPtr, Uniforms,
 };
+use crate::consts::*;
+use crate::text::{Letter, Vertex};
+use crate::utils::{instance::InstanceRaw, texture::Texture};
 
 #[derive(Debug, Clone)]
 pub struct LetterInstance {
@@ -27,7 +27,6 @@ impl LetterInstance {
         }
     }
 }
-
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
@@ -61,7 +60,6 @@ pub struct LetterDrawer {
     camera: CameraPtr,
 }
 
-
 impl LetterDrawer {
     pub fn new(
         device: Rc<Device>,
@@ -79,13 +77,11 @@ impl LetterDrawer {
 
         let model_matrices = DynamicBindGroup::new(device.clone(), queue.clone());
 
-
         let bind_groups = BindGroups {
             instances,
             viewer,
             model_matrices,
         };
-
 
         Self {
             device,
@@ -99,7 +95,6 @@ impl LetterDrawer {
             camera: camera.clone(),
         }
     }
-
 
     /// Request an update of the view and projection matrices. This matrices are provided by the camera and
     /// projection objects.
@@ -160,10 +155,22 @@ impl LetterDrawer {
         self.update_instances();
         self.update_model_matrices();
         render_pass.set_pipeline(self.pipeline.as_ref().unwrap());
-        render_pass.set_bind_group(VIEWER_BINDING_ID, self.bind_groups.viewer.get_bindgroup(), &[]);
-        render_pass.set_bind_group(INSTANCES_BINDING_ID, self.bind_groups.instances.get_bindgroup(), &[]);
+        render_pass.set_bind_group(
+            VIEWER_BINDING_ID,
+            self.bind_groups.viewer.get_bindgroup(),
+            &[],
+        );
+        render_pass.set_bind_group(
+            INSTANCES_BINDING_ID,
+            self.bind_groups.instances.get_bindgroup(),
+            &[],
+        );
         render_pass.set_bind_group(TEXTURE_BINDING_ID, &self.letter.bind_group, &[]);
-        render_pass.set_bind_group(MODEL_BINDING_ID, self.bind_groups.model_matrices.get_bindgroup(), &[]);
+        render_pass.set_bind_group(
+            MODEL_BINDING_ID,
+            self.bind_groups.model_matrices.get_bindgroup(),
+            &[],
+        );
         render_pass.set_vertex_buffer(0, self.letter.vertex_buffer.slice(..));
         render_pass.set_index_buffer(self.letter.index_buffer.slice(..));
 
@@ -189,19 +196,17 @@ impl LetterDrawer {
 
         let format = wgpu::TextureFormat::Bgra8UnormSrgb;
 
-        let color_blend =
-            wgpu::BlendDescriptor {
-                src_factor: wgpu::BlendFactor::SrcAlpha,
-                dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
-                operation: wgpu::BlendOperation::Add,
-            };
+        let color_blend = wgpu::BlendDescriptor {
+            src_factor: wgpu::BlendFactor::SrcAlpha,
+            dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+            operation: wgpu::BlendOperation::Add,
+        };
 
-        let alpha_blend =
-            wgpu::BlendDescriptor {
-                src_factor: wgpu::BlendFactor::One,
-                dst_factor: wgpu::BlendFactor::One,
-                operation: wgpu::BlendOperation::Add,
-            };
+        let alpha_blend = wgpu::BlendDescriptor {
+            src_factor: wgpu::BlendFactor::One,
+            dst_factor: wgpu::BlendFactor::One,
+            operation: wgpu::BlendOperation::Add,
+        };
 
         device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             layout: Some(&render_pipeline_layout),
@@ -278,4 +283,3 @@ impl BindGroups {
         self.viewer.update(viewer_data);
     }
 }
-

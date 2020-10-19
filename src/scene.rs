@@ -20,8 +20,9 @@ mod camera;
 /// Display of the scene
 mod view;
 use view::{
-    DrawType, HandleDir, HandleOrientation, HandlesDescriptor, RotationMode as WidgetRotationMode,
-    RotationWidgetDescriptor, RotationWidgetOrientation, View, ViewUpdate, LetterInstance,
+    DrawType, HandleDir, HandleOrientation, HandlesDescriptor, LetterInstance,
+    RotationMode as WidgetRotationMode, RotationWidgetDescriptor, RotationWidgetOrientation, View,
+    ViewUpdate,
 };
 /// Handling of inputs and notifications
 mod controller;

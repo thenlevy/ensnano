@@ -6,7 +6,9 @@ use iced::Image;
 use iced::{container, Background, Container};
 use iced_wgpu::Renderer;
 use iced_winit::winit::dpi::LogicalSize;
-use iced_winit::{button, Button, checkbox, Checkbox, Color, Command, Element, Length, Program, Row};
+use iced_winit::{
+    button, checkbox, Button, Checkbox, Color, Command, Element, Length, Program, Row,
+};
 
 use super::Requests;
 
@@ -133,8 +135,10 @@ impl Program for TopBar {
             .on_press(Message::FileSaveRequested)
             .height(Length::Units(height));
 
-        let button_2d = Button::new(&mut self.button_2d, iced::Text::new("2D")).on_press(Message::ToggleView(true));
-        let button_3d = Button::new(&mut self.button_3d, iced::Text::new("3D")).on_press(Message::ToggleView(false));
+        let button_2d = Button::new(&mut self.button_2d, iced::Text::new("2D"))
+            .on_press(Message::ToggleView(true));
+        let button_3d = Button::new(&mut self.button_3d, iced::Text::new("3D"))
+            .on_press(Message::ToggleView(false));
 
         let buttons = Row::new()
             .width(Length::Fill)
@@ -143,7 +147,11 @@ impl Program for TopBar {
             .push(button_add_file)
             .push(button_replace_file)
             .push(button_save)
-            .push(Checkbox::new(self.toggle_text_value, "Show Sequences", Message::ToggleText))
+            .push(Checkbox::new(
+                self.toggle_text_value,
+                "Show Sequences",
+                Message::ToggleText,
+            ))
             .push(button_2d)
             .push(button_3d);
 

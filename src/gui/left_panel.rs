@@ -170,7 +170,11 @@ impl Program for LeftPanel {
             .height(Length::Fill);
 
         if self.selection_mode == SelectionMode::Strand {
-            widget = widget.spacing(5).push(self.color_picker.view()).spacing(5).push(self.sequence_input.view());
+            widget = widget
+                .spacing(5)
+                .push(self.color_picker.view())
+                .spacing(5)
+                .push(self.sequence_input.view());
         }
 
         Container::new(widget)

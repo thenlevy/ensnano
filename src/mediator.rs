@@ -6,10 +6,10 @@
 //! mediator.
 //!
 //! The mediator also holds data that is common to all applications.
-use std::sync::{Arc, Mutex};
+use crate::Messages;
 use std::collections::HashSet;
 use std::path::PathBuf;
-use crate::Messages;
+use std::sync::{Arc, Mutex};
 
 use native_dialog::{Dialog, MessageAlert};
 

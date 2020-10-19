@@ -1,5 +1,5 @@
 use super::Message;
-use iced::{text_input, button, Button, TextInput, Row, Text};
+use iced::{button, text_input, Button, Row, Text, TextInput};
 
 pub struct SequenceInput {
     input: text_input::State,
@@ -19,16 +19,19 @@ impl SequenceInput {
         let sequence_input = Row::new()
             .spacing(5)
             .push(TextInput::new(
-                    &mut self.input,
-                    "Sequence",
-                    &mut self.sequence,
-                    Message::SequenceChanged))
-            .push(Button::new(&mut self.button_state, Text::new("Load File")).on_press(Message::SequenceFileRequested));
+                &mut self.input,
+                "Sequence",
+                &mut self.sequence,
+                Message::SequenceChanged,
+            ))
+            .push(
+                Button::new(&mut self.button_state, Text::new("Load File"))
+                    .on_press(Message::SequenceFileRequested),
+            );
         sequence_input
     }
 
     pub fn update_sequence(&mut self, sequence: String) {
         self.sequence = sequence;
     }
-
 }

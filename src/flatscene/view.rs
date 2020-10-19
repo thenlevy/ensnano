@@ -1,8 +1,8 @@
-use std::rc::Rc;
+use crate::utils::texture::Texture;
+use crate::{DrawArea, PhySize};
 use iced_wgpu::wgpu;
+use std::rc::Rc;
 use wgpu::{Device, Queue};
-use crate::{PhySize, DrawArea};
-use crate::utils::{texture::Texture};
 
 pub struct View {
     device: Rc<Device>,
@@ -20,7 +20,12 @@ impl View {
         }
     }
 
-    pub fn draw(&mut self, encoder: &mut wgpu::CommandEncoder, target: &wgpu::TextureView, area: DrawArea) {
+    pub fn draw(
+        &mut self,
+        encoder: &mut wgpu::CommandEncoder,
+        target: &wgpu::TextureView,
+        area: DrawArea,
+    ) {
         let clear_color = wgpu::Color {
             r: 1.,
             g: 1.,
@@ -62,6 +67,16 @@ impl View {
             area.size.width,
             area.size.height,
         );
-
     }
 }
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+struct Globals {
+    resolution: [f32; 2],
+    scroll_offset: [f32; 2],
+    zoom: f32,
+}
+
+unsafe impl bytemuck::Zeroable for Globals {}
+unsafe impl bytemuck::Pod for Globals {}
