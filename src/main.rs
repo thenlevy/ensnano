@@ -35,10 +35,12 @@ mod scene;
 use mediator::Mediator;
 mod utils;
 mod text;
+mod flatscene;
 
 use gui::{LeftPanel, Requests, TopBar};
 use multiplexer::{DrawArea, ElementType, Multiplexer};
 use scene::{Scene, SceneNotification};
+use flatscene::FlatScene;
 
 fn convert_size(size: PhySize) -> Size<f32> {
     Size::new(size.width as f32, size.height as f32)
@@ -119,7 +121,7 @@ fn main() {
     // Initialize the layout
     let mut multiplexer = Multiplexer::new(window.inner_size(), window.scale_factor());
 
-    // Initialize the scene
+    // Initialize the scenes
     let scene_area = multiplexer.get_element_area(ElementType::Scene);
     let scene = Arc::new(Mutex::new(Scene::new(
         device.clone(),
@@ -129,6 +131,9 @@ fn main() {
         mediator.clone(),
     )));
     mediator.lock().unwrap().add_application(scene.clone());
+
+    let mut draw_flat = false;
+    let flat_scene = Arc::new(Mutex::new(FlatScene::new(device.clone(), queue.clone(), window.inner_size(), scene_area)));
 
     // Add a design to the scene if one was given as a command line arguement
     if let Some(ref path) = path {
@@ -209,7 +214,9 @@ fn main() {
                             }
                             ElementType::Scene => {
                                 let cursor_position = multiplexer.get_cursor_position();
-                                scene.lock().unwrap().input(&event, cursor_position);
+                                if !draw_flat {
+                                    scene.lock().unwrap().input(&event, cursor_position);
+                                }
                             }
                             ElementType::LeftPanel => {
                                 let event = iced_winit::conversion::window_event(
@@ -278,6 +285,11 @@ fn main() {
                         if let Some(value) = requests.toggle_text {
                             mediator.lock().unwrap().toggle_text(value);
                             requests.toggle_text = None;
+                        }
+
+                        if let Some(value) = requests.toggle_scene {
+                            draw_flat = value;
+                            requests.toggle_scene = None;
                         }
                     }
                 }
@@ -414,10 +426,14 @@ fn main() {
                     device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
 
                 // We draw the scene first
-                scene
-                    .lock()
-                    .unwrap()
-                    .draw_view(&mut encoder, &frame.output.view);
+                if draw_flat {
+                    flat_scene.lock().unwrap().draw_view(&mut encoder, &frame.output.view);
+                } else {
+                    scene
+                        .lock()
+                        .unwrap()
+                        .draw_view(&mut encoder, &frame.output.view);
+                }
 
                 let viewport = Viewport::with_physical_size(
                     convert_size_u32(multiplexer.window_size),

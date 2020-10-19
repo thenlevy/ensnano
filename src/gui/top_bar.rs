@@ -15,6 +15,8 @@ pub struct TopBar {
     button_add_file: button::State,
     button_replace_file: button::State,
     button_save: button::State,
+    button_3d: button::State,
+    button_2d: button::State,
     toggle_text_value: bool,
     requests: Arc<Mutex<Requests>>,
     logical_size: LogicalSize<f64>,
@@ -28,6 +30,7 @@ pub enum Message {
     FileSaveRequested,
     Resize(LogicalSize<f64>),
     ToggleText(bool),
+    ToggleView(bool),
 }
 
 impl TopBar {
@@ -37,6 +40,8 @@ impl TopBar {
             button_add_file: Default::default(),
             button_replace_file: Default::default(),
             button_save: Default::default(),
+            button_2d: Default::default(),
+            button_3d: Default::default(),
             toggle_text_value: false,
             requests,
             logical_size,
@@ -102,6 +107,7 @@ impl Program for TopBar {
                 self.requests.lock().unwrap().toggle_text = Some(b);
                 self.toggle_text_value = b;
             }
+            Message::ToggleView(b) => self.requests.lock().unwrap().toggle_scene = Some(b),
         };
         Command::none()
     }
@@ -127,6 +133,9 @@ impl Program for TopBar {
             .on_press(Message::FileSaveRequested)
             .height(Length::Units(height));
 
+        let button_2d = Button::new(&mut self.button_2d, iced::Text::new("2D")).on_press(Message::ToggleView(true));
+        let button_3d = Button::new(&mut self.button_3d, iced::Text::new("3D")).on_press(Message::ToggleView(false));
+
         let buttons = Row::new()
             .width(Length::Fill)
             .height(Length::Units(height))
@@ -134,7 +143,9 @@ impl Program for TopBar {
             .push(button_add_file)
             .push(button_replace_file)
             .push(button_save)
-            .push(Checkbox::new(self.toggle_text_value, "Show Sequences", Message::ToggleText));
+            .push(Checkbox::new(self.toggle_text_value, "Show Sequences", Message::ToggleText))
+            .push(button_2d)
+            .push(button_3d);
 
         Container::new(buttons)
             .width(Length::Fill)

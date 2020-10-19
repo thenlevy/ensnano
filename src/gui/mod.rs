@@ -28,6 +28,8 @@ pub struct Requests {
     pub sequence_change: Option<String>,
     /// A request to show/hide the sequences
     pub toggle_text: Option<bool>,
+    /// A request to change the view
+    pub toggle_scene: Option<bool>,
 }
 
 impl Requests {
@@ -43,6 +45,7 @@ impl Requests {
             strand_color_change: None,
             sequence_change: None,
             toggle_text: None,
+            toggle_scene: None,
         }
     }
 }
