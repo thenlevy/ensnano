@@ -47,7 +47,7 @@ impl Helix {
         }
     }
 
-    pub fn to_vertices(&self, model_id: i32) -> Vertices {
+    pub fn to_vertices(&self, model_id: u32) -> Vertices {
         let mut vertices = Vertices::new();
         let left = 0.;
         let right = (self.right - self.left) as f32;
@@ -88,14 +88,14 @@ impl Helix {
 pub struct GpuVertex {
     position: [f32; 2],
     normal: [f32; 2],
-    prim_id: i32,
+    prim_id: u32,
 }
 unsafe impl bytemuck::Pod for GpuVertex {}
 unsafe impl bytemuck::Zeroable for GpuVertex {}
 
 /// This vertex constructor forwards the positions and normals provided by the
 /// tessellators and add a shape id.
-pub struct WithId(pub i32);
+pub struct WithId(pub u32);
 
 impl StrokeVertexConstructor<GpuVertex> for WithId {
     fn new_vertex(&mut self, vertex: StrokeVertex) -> GpuVertex {

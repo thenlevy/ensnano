@@ -13,9 +13,9 @@ use wgpu::{
     include_spirv, BindGroup, BindGroupLayout, Device, Queue, RenderPass, RenderPipeline,
     StencilStateDescriptor,
 };
+use utils::bindgroup_manager::{DynamicBindGroup, UniformBindGroup};
 
 use super::{
-    bindgroup_manager::{DynamicBindGroup, UniformBindGroup},
     CameraPtr, ProjectionPtr, Uniforms,
 };
 

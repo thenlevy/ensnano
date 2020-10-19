@@ -4,7 +4,7 @@
 use super::{camera, ActionMode};
 use crate::consts::*;
 use crate::design::Axis;
-use crate::utils::{instance, mesh, texture};
+use crate::utils::{instance, mesh, texture, bindgroup_manager};
 use crate::{DrawArea, PhySize};
 use camera::{Camera, CameraPtr, Projection, ProjectionPtr};
 use iced_wgpu::wgpu;
@@ -21,8 +21,6 @@ use pipeline_handler::PipelineHandler;
 /// A `Uniform` is a structure that manages view and projection matrices.
 mod uniforms;
 use uniforms::Uniforms;
-/// A `BindGroup` manager is a structure that manages a bindgroup and its associated buffer
-mod bindgroup_manager;
 /// This modules defines a trait for drawing widget made of several meshes.
 mod drawable;
 /// A HandleDrawer draws the widget for translating objects
