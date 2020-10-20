@@ -32,12 +32,13 @@ impl FlatScene {
         let globals = Globals {
             resolution: [area.size.width as f32, area.size.height as f32],
             scroll_offset: [0. ,0.],
-            zoom: 1.
+            zoom: 100.,
+            _padding: 0.,
         };
         let view = Rc::new(RefCell::new(View::new(device, queue, window_size, &globals)));
         let data = Rc::new(RefCell::new(Data::new(view.clone())));
         let controller = Controller::new(view.clone(), data.clone());
-        view.borrow_mut().add_helix(Helix::new(3, 10, ultraviolet::Vec2::new(1., 1.)));
+        view.borrow_mut().add_helix(Helix::new(3, 10, ultraviolet::Vec2::new(0., 0.)));
         Self {
             globals,
             view,
@@ -58,6 +59,7 @@ struct Globals {
     resolution: [f32; 2],
     scroll_offset: [f32; 2],
     zoom: f32,
+    _padding: f32,
 }
 
 unsafe impl bytemuck::Zeroable for Globals {}

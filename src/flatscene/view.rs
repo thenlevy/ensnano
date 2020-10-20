@@ -32,7 +32,7 @@ impl View {
         let fs_module =
             &device.create_shader_module(wgpu::include_spirv!("view/grid.frag.spv"));
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            bind_group_layouts: &[&globals.get_layout(), models.get_layout()],
+            bind_group_layouts: &[globals.get_layout(), models.get_layout()],
             push_constant_ranges: &[],
             label: None,
         });
@@ -40,7 +40,7 @@ impl View {
         let depth_stencil_state = Some(wgpu::DepthStencilStateDescriptor {
             format: wgpu::TextureFormat::Depth32Float,
             depth_write_enabled: true,
-            depth_compare: wgpu::CompareFunction::Greater,
+            depth_compare: wgpu::CompareFunction::Less,
             stencil: wgpu::StencilStateDescriptor {
                 front: wgpu::StencilStateFaceDescriptor::IGNORE,
                 back: wgpu::StencilStateFaceDescriptor::IGNORE,
@@ -49,7 +49,7 @@ impl View {
             },
         });
 
-        let mut render_pipeline_descriptor = wgpu::RenderPipelineDescriptor {
+        let render_pipeline_descriptor = wgpu::RenderPipelineDescriptor {
             layout: Some(&pipeline_layout),
             vertex_stage: wgpu::ProgrammableStageDescriptor {
                 module: &vs_module,
@@ -119,7 +119,9 @@ impl View {
     pub fn add_helix(&mut self, helix: Helix) {
         let id_helix = self.helices.len() as u32;
         self.helices.push(HelixView::new(self.device.clone(), self.queue.clone(), id_helix));
+        self.helices[id_helix as usize].update(&helix);
         self.helices_model.push(helix.model());
+        println!("{:?}", self.helices_model);
         self.models.update(self.helices_model.as_slice());
     }
 
@@ -170,6 +172,8 @@ impl View {
             area.size.width,
             area.size.height,
         );
+        render_pass.set_bind_group(0, self.globals.get_bindgroup(), &[]);
+        render_pass.set_bind_group(1, self.models.get_bindgroup(), &[]);
         render_pass.set_pipeline(&self.pipeline);
 
         for helix in self.helices.iter() {

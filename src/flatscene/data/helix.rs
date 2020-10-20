@@ -43,7 +43,7 @@ impl Helix {
             scale: 1f32,
             color: 0xFF_4A4946,
             z_index: 0,
-            stroke_width: 0.1f32,
+            stroke_width: 0.1,
         }
     }
 
@@ -69,6 +69,7 @@ impl Helix {
             &tessellation::StrokeOptions::default(),
             &mut tessellation::BuffersBuilder::new(&mut vertices, WithId(model_id)),
         );
+        println!("vertices {:?}", vertices);
         vertices
     }
 
@@ -84,7 +85,7 @@ impl Helix {
 }
 
 #[repr(C)]
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct GpuVertex {
     position: [f32; 2],
     normal: [f32; 2],

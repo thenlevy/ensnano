@@ -20,11 +20,11 @@ impl HelixView {
         }
     }
 
-    pub fn update(&mut self, helix: Helix) {
+    pub fn update(&mut self, helix: &Helix) {
         let vertices = helix.to_vertices(self.id);
         self.vertex_buffer.update(vertices.vertices.as_slice());
         self.index_buffer.update(vertices.indices.as_slice());
-        self.num_instance = vertices.vertices.len() as u32;
+        self.num_instance = vertices.indices.len() as u32;
     }
 
     pub fn draw<'a>(&'a self, pipeline: &RenderPipeline, render_pass: &mut RenderPass<'a>) {
@@ -40,6 +40,7 @@ struct DynamicBuffer {
     length: u64,
     device: Rc<Device>,
     queue: Rc<Queue>,
+    usage: wgpu::BufferUsage,
 }
 
 impl DynamicBuffer {
@@ -59,6 +60,7 @@ impl DynamicBuffer {
             buffer,
             capacity,
             length,
+            usage,
         }
     }
 
@@ -70,7 +72,7 @@ impl DynamicBuffer {
             self.buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
                 label: Some(&format!("capacity = {}", 2 * bytes.len())),
                 size: 2 * bytes.len() as u64,
-                usage: wgpu::BufferUsage::STORAGE | wgpu::BufferUsage::COPY_DST,
+                usage: self.usage | wgpu::BufferUsage::COPY_DST,
                 mapped_at_creation: false,
             });
             self.capacity = 2 * bytes.len();
