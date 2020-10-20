@@ -1,3 +1,4 @@
+use super::Nucl;
 use crate::utils::instance::Instance;
 use lyon::math::{rect, Point};
 use lyon::path::builder::{BorderRadii, PathBuilder};
@@ -88,6 +89,18 @@ impl Helix {
             z_index: self.z_index,
             stroke_width: self.stroke_width,
         }
+    }
+
+    pub fn get_nucl_position(&self, nucl: &Nucl) -> Vec2 {
+        let local_position = nucl.position as f32 * Vec2::unit_x()
+            + Vec2::new(0.5, 0.5)
+            + if nucl.forward {
+                Vec2::zero()
+            } else {
+                Vec2::unit_y()
+            };
+
+        self.isometry * (self.scale * local_position)
     }
 }
 

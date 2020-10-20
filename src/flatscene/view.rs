@@ -1,4 +1,4 @@
-use super::data::{GpuVertex, Helix, HelixModel};
+use super::data::{GpuVertex, Helix, HelixModel, Strand, StrandVertex};
 use super::CameraPtr;
 use crate::utils::bindgroup_manager::{DynamicBindGroup, UniformBindGroup};
 use crate::utils::texture::Texture;
@@ -8,17 +8,19 @@ use std::rc::Rc;
 use wgpu::{Device, Queue, RenderPipeline};
 
 mod helix_view;
-use helix_view::HelixView;
+use helix_view::{HelixView, StrandView};
 
 pub struct View {
     device: Rc<Device>,
     queue: Rc<Queue>,
     depth_texture: Texture,
     helices: Vec<HelixView>,
+    strands: Vec<StrandView>,
     helices_model: Vec<HelixModel>,
     models: DynamicBindGroup,
     globals: UniformBindGroup,
-    pipeline: RenderPipeline,
+    helices_pipeline: RenderPipeline,
+    strand_pipeline: RenderPipeline,
     camera: CameraPtr,
 }
 
@@ -34,14 +36,6 @@ impl View {
         let globals =
             UniformBindGroup::new(device.clone(), queue.clone(), camera.borrow().get_globals());
 
-        let vs_module = &device.create_shader_module(wgpu::include_spirv!("view/grid.vert.spv"));
-        let fs_module = &device.create_shader_module(wgpu::include_spirv!("view/grid.frag.spv"));
-        let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            bind_group_layouts: &[globals.get_layout(), models.get_layout()],
-            push_constant_ranges: &[],
-            label: None,
-        });
-
         let depth_stencil_state = Some(wgpu::DepthStencilStateDescriptor {
             format: wgpu::TextureFormat::Depth32Float,
             depth_write_enabled: true,
@@ -54,70 +48,26 @@ impl View {
             },
         });
 
-        let render_pipeline_descriptor = wgpu::RenderPipelineDescriptor {
-            layout: Some(&pipeline_layout),
-            vertex_stage: wgpu::ProgrammableStageDescriptor {
-                module: &vs_module,
-                entry_point: "main",
-            },
-            fragment_stage: Some(wgpu::ProgrammableStageDescriptor {
-                module: &fs_module,
-                entry_point: "main",
-            }),
-            rasterization_state: Some(wgpu::RasterizationStateDescriptor {
-                front_face: wgpu::FrontFace::Ccw,
-                cull_mode: wgpu::CullMode::None,
-                ..Default::default()
-            }),
-            primitive_topology: wgpu::PrimitiveTopology::TriangleList,
-            color_states: &[wgpu::ColorStateDescriptor {
-                format: wgpu::TextureFormat::Bgra8UnormSrgb,
-                color_blend: wgpu::BlendDescriptor::REPLACE,
-                alpha_blend: wgpu::BlendDescriptor::REPLACE,
-                write_mask: wgpu::ColorWrite::ALL,
-            }],
-            depth_stencil_state,
-            vertex_state: wgpu::VertexStateDescriptor {
-                index_format: wgpu::IndexFormat::Uint16,
-                vertex_buffers: &[wgpu::VertexBufferDescriptor {
-                    stride: std::mem::size_of::<GpuVertex>() as u64,
-                    step_mode: wgpu::InputStepMode::Vertex,
-                    attributes: &[
-                        wgpu::VertexAttributeDescriptor {
-                            offset: 0,
-                            format: wgpu::VertexFormat::Float2,
-                            shader_location: 0,
-                        },
-                        wgpu::VertexAttributeDescriptor {
-                            offset: 8,
-                            format: wgpu::VertexFormat::Float2,
-                            shader_location: 1,
-                        },
-                        wgpu::VertexAttributeDescriptor {
-                            offset: 16,
-                            format: wgpu::VertexFormat::Uint,
-                            shader_location: 2,
-                        },
-                    ],
-                }],
-            },
-            sample_count: 1,
-            sample_mask: !0,
-            alpha_to_coverage_enabled: false,
-            label: None,
-        };
-
-        let render_pipeline = device.create_render_pipeline(&render_pipeline_descriptor);
+        let helices_pipeline = helices_pipeline_descr(
+            &device,
+            globals.get_layout(),
+            models.get_layout(),
+            depth_stencil_state.clone(),
+        );
+        let strand_pipeline =
+            strand_pipeline_descr(&device, globals.get_layout(), depth_stencil_state.clone());
 
         Self {
             device: device.clone(),
             queue: queue.clone(),
             depth_texture,
             helices: Vec::new(),
+            strands: Vec::new(),
             helices_model: Vec::new(),
             models,
             globals,
-            pipeline: render_pipeline,
+            helices_pipeline,
+            strand_pipeline,
             camera,
         }
     }
@@ -132,6 +82,16 @@ impl View {
         self.helices[id_helix as usize].update(&helix);
         self.helices_model.push(helix.model());
         self.models.update(self.helices_model.as_slice());
+    }
+
+    pub fn add_strand(&mut self, strand: Strand, helices: &Vec<Helix>) {
+        self.strands
+            .push(StrandView::new(self.device.clone(), self.queue.clone()));
+        self.strands
+            .iter_mut()
+            .last()
+            .unwrap()
+            .update(&strand, helices);
     }
 
     pub fn needs_redraw(&self) -> bool {
@@ -190,10 +150,153 @@ impl View {
         );
         render_pass.set_bind_group(0, self.globals.get_bindgroup(), &[]);
         render_pass.set_bind_group(1, self.models.get_bindgroup(), &[]);
-        render_pass.set_pipeline(&self.pipeline);
+        render_pass.set_pipeline(&self.helices_pipeline);
 
         for helix in self.helices.iter() {
-            helix.draw(&self.pipeline, &mut render_pass);
+            helix.draw(&mut render_pass);
+        }
+        render_pass.set_pipeline(&self.strand_pipeline);
+        for strand in self.strands.iter() {
+            strand.draw(&mut render_pass);
         }
     }
+}
+
+fn helices_pipeline_descr(
+    device: &Device,
+    globals_layout: &wgpu::BindGroupLayout,
+    models_layout: &wgpu::BindGroupLayout,
+    depth_stencil_state: Option<wgpu::DepthStencilStateDescriptor>,
+) -> wgpu::RenderPipeline {
+    let vs_module = &device.create_shader_module(wgpu::include_spirv!("view/grid.vert.spv"));
+    let fs_module = &device.create_shader_module(wgpu::include_spirv!("view/grid.frag.spv"));
+    let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+        bind_group_layouts: &[globals_layout, models_layout],
+        push_constant_ranges: &[],
+        label: None,
+    });
+
+    let desc = wgpu::RenderPipelineDescriptor {
+        layout: Some(&pipeline_layout),
+        vertex_stage: wgpu::ProgrammableStageDescriptor {
+            module: &vs_module,
+            entry_point: "main",
+        },
+        fragment_stage: Some(wgpu::ProgrammableStageDescriptor {
+            module: &fs_module,
+            entry_point: "main",
+        }),
+        rasterization_state: Some(wgpu::RasterizationStateDescriptor {
+            front_face: wgpu::FrontFace::Ccw,
+            cull_mode: wgpu::CullMode::None,
+            ..Default::default()
+        }),
+        primitive_topology: wgpu::PrimitiveTopology::TriangleList,
+        color_states: &[wgpu::ColorStateDescriptor {
+            format: wgpu::TextureFormat::Bgra8UnormSrgb,
+            color_blend: wgpu::BlendDescriptor::REPLACE,
+            alpha_blend: wgpu::BlendDescriptor::REPLACE,
+            write_mask: wgpu::ColorWrite::ALL,
+        }],
+        depth_stencil_state,
+        vertex_state: wgpu::VertexStateDescriptor {
+            index_format: wgpu::IndexFormat::Uint16,
+            vertex_buffers: &[wgpu::VertexBufferDescriptor {
+                stride: std::mem::size_of::<GpuVertex>() as u64,
+                step_mode: wgpu::InputStepMode::Vertex,
+                attributes: &[
+                    wgpu::VertexAttributeDescriptor {
+                        offset: 0,
+                        format: wgpu::VertexFormat::Float2,
+                        shader_location: 0,
+                    },
+                    wgpu::VertexAttributeDescriptor {
+                        offset: 8,
+                        format: wgpu::VertexFormat::Float2,
+                        shader_location: 1,
+                    },
+                    wgpu::VertexAttributeDescriptor {
+                        offset: 16,
+                        format: wgpu::VertexFormat::Uint,
+                        shader_location: 2,
+                    },
+                ],
+            }],
+        },
+        sample_count: 1,
+        sample_mask: !0,
+        alpha_to_coverage_enabled: false,
+        label: None,
+    };
+
+    device.create_render_pipeline(&desc)
+}
+
+fn strand_pipeline_descr(
+    device: &Device,
+    globals: &wgpu::BindGroupLayout,
+    depth_stencil_state: Option<wgpu::DepthStencilStateDescriptor>,
+) -> wgpu::RenderPipeline {
+    let vs_module = &device.create_shader_module(wgpu::include_spirv!("view/strand.vert.spv"));
+    let fs_module = &device.create_shader_module(wgpu::include_spirv!("view/strand.frag.spv"));
+    let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+        bind_group_layouts: &[globals],
+        push_constant_ranges: &[],
+        label: None,
+    });
+
+    let desc = wgpu::RenderPipelineDescriptor {
+        layout: Some(&pipeline_layout),
+        vertex_stage: wgpu::ProgrammableStageDescriptor {
+            module: &vs_module,
+            entry_point: "main",
+        },
+        fragment_stage: Some(wgpu::ProgrammableStageDescriptor {
+            module: &fs_module,
+            entry_point: "main",
+        }),
+        rasterization_state: Some(wgpu::RasterizationStateDescriptor {
+            front_face: wgpu::FrontFace::Ccw,
+            cull_mode: wgpu::CullMode::None,
+            ..Default::default()
+        }),
+        primitive_topology: wgpu::PrimitiveTopology::TriangleList,
+        color_states: &[wgpu::ColorStateDescriptor {
+            format: wgpu::TextureFormat::Bgra8UnormSrgb,
+            color_blend: wgpu::BlendDescriptor::REPLACE,
+            alpha_blend: wgpu::BlendDescriptor::REPLACE,
+            write_mask: wgpu::ColorWrite::ALL,
+        }],
+        depth_stencil_state,
+        vertex_state: wgpu::VertexStateDescriptor {
+            index_format: wgpu::IndexFormat::Uint16,
+            vertex_buffers: &[wgpu::VertexBufferDescriptor {
+                stride: std::mem::size_of::<StrandVertex>() as u64,
+                step_mode: wgpu::InputStepMode::Vertex,
+                attributes: &[
+                    wgpu::VertexAttributeDescriptor {
+                        offset: 0,
+                        format: wgpu::VertexFormat::Float2,
+                        shader_location: 0,
+                    },
+                    wgpu::VertexAttributeDescriptor {
+                        offset: 8,
+                        format: wgpu::VertexFormat::Float2,
+                        shader_location: 1,
+                    },
+                    wgpu::VertexAttributeDescriptor {
+                        offset: 16,
+                        format: wgpu::VertexFormat::Float4,
+                        shader_location: 2,
+                    },
+                ],
+            }],
+        },
+        sample_count: 1,
+        sample_mask: !0,
+        alpha_to_coverage_enabled: false,
+        label: None,
+    };
+
+    device.create_render_pipeline(&desc)
 }

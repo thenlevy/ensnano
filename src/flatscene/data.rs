@@ -5,6 +5,8 @@ pub struct Data {
 
 mod helix;
 pub use helix::{GpuVertex, Helix, HelixModel};
+mod strand;
+pub use strand::{Nucl, Strand, StrandVertex};
 
 impl Data {
     pub fn new(view: ViewPtr) -> Self {

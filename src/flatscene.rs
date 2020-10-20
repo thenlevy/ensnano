@@ -15,7 +15,7 @@ mod data;
 mod view;
 use camera::{Camera, Globals};
 use controller::Controller;
-use data::{Data, Helix};
+use data::{Data, Helix, Nucl, Strand};
 use view::View;
 
 type ViewPtr = Rc<RefCell<View>>;
@@ -47,8 +47,45 @@ impl FlatScene {
         let data = Rc::new(RefCell::new(Data::new(view.clone())));
         let controller =
             Controller::new(view.clone(), data.clone(), window_size, area.size, camera);
+        let helices = vec![
+            Helix::new(3, 10, ultraviolet::Vec2::new(0., 0.)),
+            Helix::new(3, 30, ultraviolet::Vec2::new(0., -3.)),
+            Helix::new(3, 45, ultraviolet::Vec2::new(0., 3.)),
+        ];
         view.borrow_mut()
             .add_helix(Helix::new(3, 10, ultraviolet::Vec2::new(0., 0.)));
+        view.borrow_mut()
+            .add_helix(Helix::new(3, 30, ultraviolet::Vec2::new(0., -3.)));
+        view.borrow_mut()
+            .add_helix(Helix::new(3, 45, ultraviolet::Vec2::new(0., 3.)));
+        view.borrow_mut().add_strand(
+            Strand {
+                color: 0xFF_ABCDEF,
+                points: vec![
+                    Nucl {
+                        helix: 0,
+                        position: 0,
+                        forward: true,
+                    },
+                    Nucl {
+                        helix: 0,
+                        position: 10,
+                        forward: true,
+                    },
+                    Nucl {
+                        helix: 1,
+                        position: 10,
+                        forward: false,
+                    },
+                    Nucl {
+                        helix: 1,
+                        position: 5,
+                        forward: false,
+                    },
+                ],
+            },
+            &helices,
+        );
         Self {
             view,
             data,
