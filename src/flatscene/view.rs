@@ -1,11 +1,11 @@
-use crate::utils::texture::Texture;
+use super::data::{GpuVertex, Helix, HelixModel};
+use super::CameraPtr;
 use crate::utils::bindgroup_manager::{DynamicBindGroup, UniformBindGroup};
+use crate::utils::texture::Texture;
 use crate::{DrawArea, PhySize};
-use super::Globals;
 use iced_wgpu::wgpu;
 use std::rc::Rc;
 use wgpu::{Device, Queue, RenderPipeline};
-use super::data::{Helix, GpuVertex, HelixModel};
 
 mod helix_view;
 use helix_view::HelixView;
@@ -19,24 +19,29 @@ pub struct View {
     models: DynamicBindGroup,
     globals: UniformBindGroup,
     pipeline: RenderPipeline,
+    camera: CameraPtr,
 }
 
 impl View {
-    pub(super) fn new(device: Rc<Device>, queue: Rc<Queue>, window_size: PhySize, globals: &Globals) -> Self {
+    pub(super) fn new(
+        device: Rc<Device>,
+        queue: Rc<Queue>,
+        window_size: PhySize,
+        camera: CameraPtr,
+    ) -> Self {
         let depth_texture = Texture::create_depth_texture(device.clone().as_ref(), &window_size);
         let models = DynamicBindGroup::new(device.clone(), queue.clone());
-        let globals = UniformBindGroup::new(device.clone(), queue.clone(), globals);
-        
-        let vs_module =
-            &device.create_shader_module(wgpu::include_spirv!("view/grid.vert.spv"));
-        let fs_module =
-            &device.create_shader_module(wgpu::include_spirv!("view/grid.frag.spv"));
+        let globals =
+            UniformBindGroup::new(device.clone(), queue.clone(), camera.borrow().get_globals());
+
+        let vs_module = &device.create_shader_module(wgpu::include_spirv!("view/grid.vert.spv"));
+        let fs_module = &device.create_shader_module(wgpu::include_spirv!("view/grid.frag.spv"));
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             bind_group_layouts: &[globals.get_layout(), models.get_layout()],
             push_constant_ranges: &[],
             label: None,
         });
-        
+
         let depth_stencil_state = Some(wgpu::DepthStencilStateDescriptor {
             format: wgpu::TextureFormat::Depth32Float,
             depth_write_enabled: true,
@@ -113,16 +118,24 @@ impl View {
             models,
             globals,
             pipeline: render_pipeline,
+            camera,
         }
     }
 
     pub fn add_helix(&mut self, helix: Helix) {
         let id_helix = self.helices.len() as u32;
-        self.helices.push(HelixView::new(self.device.clone(), self.queue.clone(), id_helix));
+        self.helices.push(HelixView::new(
+            self.device.clone(),
+            self.queue.clone(),
+            id_helix,
+        ));
         self.helices[id_helix as usize].update(&helix);
         self.helices_model.push(helix.model());
-        println!("{:?}", self.helices_model);
         self.models.update(self.helices_model.as_slice());
+    }
+
+    pub fn needs_redraw(&self) -> bool {
+        self.camera.borrow().was_updated()
     }
 
     pub fn draw(
@@ -131,6 +144,9 @@ impl View {
         target: &wgpu::TextureView,
         area: DrawArea,
     ) {
+        if let Some(globals) = self.camera.borrow_mut().update() {
+            self.globals.update(globals);
+        }
         let clear_color = wgpu::Color {
             r: 1.,
             g: 1.,
@@ -181,4 +197,3 @@ impl View {
         }
     }
 }
-

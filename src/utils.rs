@@ -2,11 +2,11 @@ use crate::consts::*;
 use iced_wgpu::wgpu;
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
 
+pub mod bindgroup_manager;
 pub mod instance;
 pub mod light;
 pub mod mesh;
 pub mod texture;
-pub mod bindgroup_manager;
 
 pub fn create_buffer_with_data(
     device: &wgpu::Device,

@@ -8,16 +8,14 @@ use mesh::{DrawModel, Mesh, Vertex};
 use std::rc::Rc;
 use texture::Texture;
 use ultraviolet::Mat4;
+use utils::bindgroup_manager::{DynamicBindGroup, UniformBindGroup};
 use utils::{instance, light, mesh, texture};
 use wgpu::{
     include_spirv, BindGroup, BindGroupLayout, Device, Queue, RenderPass, RenderPipeline,
     StencilStateDescriptor,
 };
-use utils::bindgroup_manager::{DynamicBindGroup, UniformBindGroup};
 
-use super::{
-    CameraPtr, ProjectionPtr, Uniforms,
-};
+use super::{CameraPtr, ProjectionPtr, Uniforms};
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]

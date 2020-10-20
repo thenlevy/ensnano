@@ -4,7 +4,7 @@ pub struct Data {
 }
 
 mod helix;
-pub use helix::{Helix, HelixModel, GpuVertex};
+pub use helix::{GpuVertex, Helix, HelixModel};
 
 impl Data {
     pub fn new(view: ViewPtr) -> Self {

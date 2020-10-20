@@ -219,7 +219,9 @@ fn main() {
                             }
                             ElementType::Scene => {
                                 let cursor_position = multiplexer.get_cursor_position();
-                                if !draw_flat {
+                                if draw_flat {
+                                    flat_scene.lock().unwrap().input(&event, cursor_position);
+                                } else {
                                     scene.lock().unwrap().input(&event, cursor_position);
                                 }
                             }
@@ -350,7 +352,10 @@ fn main() {
                 last_render_time = now;
 
                 mediator.lock().unwrap().observe_designs();
-                if redraw | scene.lock().unwrap().need_redraw(dt) {
+                if redraw
+                    | scene.lock().unwrap().need_redraw(dt)
+                    | flat_scene.lock().unwrap().needs_redraw()
+                {
                     window.request_redraw();
                 }
             }

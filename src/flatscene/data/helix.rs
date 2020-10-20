@@ -24,10 +24,10 @@ pub struct Helix {
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
 pub struct HelixModel {
-    color: Vec4, // padding 0
-    position: Vec2, // padding 2
-    rotation: Mat2, // padding 2
-    z_index: i32, // padding 3
+    color: Vec4,       // padding 0
+    position: Vec2,    // padding 2
+    rotation: Mat2,    // padding 2
+    z_index: i32,      // padding 3
     stroke_width: f32, // padding 0
 }
 
@@ -63,13 +63,20 @@ impl Helix {
             &BorderRadii::new(0.1),
             lyon::tessellation::path::Winding::Positive,
         );
+        for i in 1..(self.right - self.left) {
+            builder.begin(Point::new(i as f32, 0.));
+            builder.line_to(Point::new(i as f32, 2.));
+            builder.end(false);
+        }
+        builder.begin(Point::new(0., 1.));
+        builder.line_to(Point::new(right, 1.));
+        builder.end(false);
         let path = builder.build();
         stroke_tess.tessellate_path(
             &path,
             &tessellation::StrokeOptions::default(),
             &mut tessellation::BuffersBuilder::new(&mut vertices, WithId(model_id)),
         );
-        println!("vertices {:?}", vertices);
         vertices
     }
 

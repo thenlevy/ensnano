@@ -4,7 +4,7 @@
 use super::{camera, ActionMode};
 use crate::consts::*;
 use crate::design::Axis;
-use crate::utils::{instance, mesh, texture, bindgroup_manager};
+use crate::utils::{bindgroup_manager, instance, mesh, texture};
 use crate::{DrawArea, PhySize};
 use camera::{Camera, CameraPtr, Projection, ProjectionPtr};
 use iced_wgpu::wgpu;

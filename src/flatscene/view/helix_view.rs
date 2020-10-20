@@ -1,7 +1,7 @@
-use std::rc::Rc;
-use iced_wgpu::wgpu;
-use wgpu::{Device, Buffer, Queue, RenderPipeline, RenderPass};
 use super::super::data::Helix;
+use iced_wgpu::wgpu;
+use std::rc::Rc;
+use wgpu::{Buffer, Device, Queue, RenderPass, RenderPipeline};
 
 pub struct HelixView {
     vertex_buffer: DynamicBuffer,
@@ -13,7 +13,11 @@ pub struct HelixView {
 impl HelixView {
     pub fn new(device: Rc<Device>, queue: Rc<Queue>, id: u32) -> Self {
         Self {
-            vertex_buffer: DynamicBuffer::new(device.clone(), queue.clone(), wgpu::BufferUsage::VERTEX),
+            vertex_buffer: DynamicBuffer::new(
+                device.clone(),
+                queue.clone(),
+                wgpu::BufferUsage::VERTEX,
+            ),
             index_buffer: DynamicBuffer::new(device, queue, wgpu::BufferUsage::INDEX),
             num_instance: 0,
             id,
@@ -85,5 +89,4 @@ impl DynamicBuffer {
     pub fn get_slice(&self) -> wgpu::BufferSlice {
         self.buffer.slice(..self.length)
     }
-
 }
