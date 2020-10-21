@@ -1,4 +1,4 @@
-use super::Helix;
+use super::helix::{Extremity, Helix};
 pub use crate::design::Nucl;
 use lyon::math::{rect, Point};
 use lyon::path::builder::{BorderRadii, PathBuilder};
@@ -26,14 +26,17 @@ impl Strand {
         let mut stroke_tess = lyon::tessellation::StrokeTessellator::new();
 
         let mut builder = Path::builder();
-        let mut init = true;
         // TODO use builder with attribute to put z_coordinates
-        for nucl in self.points.iter() {
-            let position = helices[nucl.helix].get_nucl_position(nucl);
+        for (i, nucl) in self.points.iter().enumerate() {
+            let extremity = match i {
+                0 => Extremity::Prime5,
+                n if n == self.points.len() - 1 => Extremity::Prime3,
+                _ => Extremity::Inside,
+            };
+            let position = helices[nucl.helix].get_nucl_position(nucl, extremity);
             let point = Point::new(position.x, position.y);
-            if init {
+            if i == 0 {
                 builder.begin(point);
-                init = false;
             } else {
                 builder.line_to(point);
             }

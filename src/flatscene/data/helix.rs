@@ -56,7 +56,7 @@ impl Helix {
     pub fn to_vertices(&self, model_id: u32) -> Vertices {
         let mut vertices = Vertices::new();
         let left = self.left as f32;
-        let right = self.right as f32;
+        let right = self.right as f32 + 1.;
         let top = 0.;
         let bottom = 2.;
 
@@ -65,11 +65,11 @@ impl Helix {
         let mut builder = Path::builder();
 
         builder.add_rounded_rectangle(
-            &rect(left, top, right, bottom),
+            &rect(left, top, right - left, bottom - top),
             &BorderRadii::new(0.1),
             lyon::tessellation::path::Winding::Positive,
         );
-        for i in (self.left + 1)..self.right {
+        for i in (self.left + 1)..=self.right {
             builder.begin(Point::new(i as f32, 0.));
             builder.line_to(Point::new(i as f32, 2.));
             builder.end(false);
@@ -96,9 +96,16 @@ impl Helix {
         }
     }
 
-    pub fn get_nucl_position(&self, nucl: &Nucl) -> Vec2 {
+    pub fn get_nucl_position(&self, nucl: &Nucl, extremity: Extremity) -> Vec2 {
+        let shift = match (extremity, nucl.forward) {
+            (Extremity::Inside, _) => Vec2::new(0.5, 0.5),
+            (Extremity::Prime5, true) => Vec2::new(0., 0.5),
+            (Extremity::Prime5, false) => Vec2::new(1., 0.5),
+            (Extremity::Prime3, true) => Vec2::new(1., 0.5),
+            (Extremity::Prime3, false) => Vec2::new(0., 0.5),
+        };
         let local_position = nucl.position as f32 * Vec2::unit_x()
-            + Vec2::new(0.5, 0.5)
+            + shift
             + if nucl.forward {
                 Vec2::zero()
             } else {
@@ -107,6 +114,12 @@ impl Helix {
 
         self.isometry * (self.scale * local_position)
     }
+}
+
+pub enum Extremity {
+    Inside,
+    Prime5,
+    Prime3,
 }
 
 #[repr(C)]

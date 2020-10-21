@@ -104,11 +104,12 @@ impl DynamicBuffer {
     /// Replace the data of the associated buffer.
     pub fn update<I: bytemuck::Pod>(&mut self, data: &[I]) {
         let mut bytes: Vec<u8> = bytemuck::cast_slice(data).into();
+        let length = bytes.len();
         while bytes.len() % 4 != 0 {
             bytes.push(0)
         }
         if self.capacity < bytes.len() {
-            self.length = bytes.len() as u64;
+            self.length = length as u64;
             self.buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
                 label: Some(&format!("capacity = {}", 2 * bytes.len())),
                 size: 2 * bytes.len() as u64,
@@ -116,8 +117,8 @@ impl DynamicBuffer {
                 mapped_at_creation: false,
             });
             self.capacity = 2 * bytes.len();
-        } else if self.length != bytes.len() as u64 {
-            self.length = bytes.len() as u64;
+        } else if self.length != length as u64 {
+            self.length = length as u64;
         }
         self.queue.write_buffer(&self.buffer, 0, bytes.as_slice());
     }
