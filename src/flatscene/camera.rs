@@ -55,6 +55,11 @@ impl Camera {
         self.old_globals = self.globals.clone();
     }
 
+    pub fn resize(&mut self, res_x: f32, res_y: f32) {
+        self.globals.resolution[0] = res_x;
+        self.globals.resolution[1] = res_y;
+    }
+
     fn transform_vec(&self, x: f32, y: f32) -> (f32, f32) {
         (
             self.globals.resolution[0] * x / self.globals.zoom,

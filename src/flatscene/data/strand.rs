@@ -1,4 +1,5 @@
 use super::Helix;
+pub use crate::design::Nucl;
 use lyon::math::{rect, Point};
 use lyon::path::builder::{BorderRadii, PathBuilder};
 use lyon::path::Path;
@@ -14,6 +15,10 @@ pub struct Strand {
 }
 
 impl Strand {
+    pub fn new(color: u32, points: Vec<Nucl>) -> Self {
+        Self { color, points }
+    }
+
     pub fn to_vertices(&self, helices: &Vec<Helix>) -> Vertices {
         let mut vertices = Vertices::new();
         let color = crate::utils::instance::Instance::color_from_u32(self.color);
@@ -42,12 +47,6 @@ impl Strand {
         );
         vertices
     }
-}
-
-pub struct Nucl {
-    pub helix: usize,
-    pub position: isize,
-    pub forward: bool,
 }
 
 #[repr(C)]

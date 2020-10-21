@@ -554,6 +554,23 @@ impl Data {
             .get(&e_id)
             .and_then(|nucl| self.get_helix_nucl(*nucl, false))
     }
+
+    pub fn get_strand_points(&self, s_id: usize) -> Option<Vec<Nucl>> {
+        let strand = self.design.strands.get(&s_id)?;
+        let mut ret = Vec::new();
+        for domain in strand.domains.iter() {
+            if let icednano::Domain::HelixDomain(domain) = domain {
+                if domain.forward {
+                    ret.push(Nucl::new(domain.helix, domain.start, domain.forward));
+                    ret.push(Nucl::new(domain.helix, domain.end - 1, domain.forward));
+                } else {
+                    ret.push(Nucl::new(domain.helix, domain.end - 1, domain.forward));
+                    ret.push(Nucl::new(domain.helix, domain.start, domain.forward));
+                }
+            }
+        }
+        Some(ret)
+    }
 }
 
 fn compl(c: Option<char>) -> Option<char> {

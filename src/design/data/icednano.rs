@@ -471,6 +471,14 @@ pub struct Nucl {
 }
 
 impl Nucl {
+    pub fn new(helix: usize, position: isize, forward: bool) -> Self {
+        Self {
+            helix,
+            position,
+            forward,
+        }
+    }
+
     pub fn left(&self) -> Self {
         Self {
             position: self.position - 1,

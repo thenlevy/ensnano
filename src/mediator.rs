@@ -28,12 +28,17 @@ pub struct Mediator {
 }
 
 #[derive(Clone)]
+/// A notification that must be send to the application
 pub enum Notification<'a> {
+    /// A design has been modified
     DesignNotification(DesignNotification),
     #[allow(dead_code)]
     AppNotification(AppNotification<'a>),
+    /// A new design has been added
     NewDesign(Arc<Mutex<Design>>),
+    /// The application must show/hide the sequences
     ToggleText(bool),
+    /// The designs have been deleted
     ClearDesigns,
 }
 

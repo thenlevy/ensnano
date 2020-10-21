@@ -22,6 +22,7 @@ pub struct View {
     helices_pipeline: RenderPipeline,
     strand_pipeline: RenderPipeline,
     camera: CameraPtr,
+    was_updated: bool,
 }
 
 impl View {
@@ -69,10 +70,17 @@ impl View {
             helices_pipeline,
             strand_pipeline,
             camera,
+            was_updated: false,
         }
     }
 
-    pub fn add_helix(&mut self, helix: Helix) {
+    pub fn resize(&mut self, window_size: PhySize) {
+        self.depth_texture =
+            Texture::create_depth_texture(self.device.clone().as_ref(), &window_size);
+        self.was_updated = true;
+    }
+
+    pub fn add_helix(&mut self, helix: &Helix) {
         let id_helix = self.helices.len() as u32;
         self.helices.push(HelixView::new(
             self.device.clone(),
@@ -84,7 +92,16 @@ impl View {
         self.models.update(self.helices_model.as_slice());
     }
 
-    pub fn add_strand(&mut self, strand: Strand, helices: &Vec<Helix>) {
+    pub fn update_helices(&mut self, helices: &Vec<Helix>) {
+        for (i, h) in self.helices.iter_mut().enumerate() {
+            h.update(&helices[i])
+        }
+        for i in self.helices.len()..helices.len() {
+            self.add_helix(&helices[i])
+        }
+    }
+
+    pub fn add_strand(&mut self, strand: &Strand, helices: &Vec<Helix>) {
         self.strands
             .push(StrandView::new(self.device.clone(), self.queue.clone()));
         self.strands
@@ -92,6 +109,15 @@ impl View {
             .last()
             .unwrap()
             .update(&strand, helices);
+    }
+
+    pub fn update_strands(&mut self, strands: &Vec<Strand>, helices: &Vec<Helix>) {
+        for (i, s) in self.strands.iter_mut().enumerate() {
+            s.update(&strands[i], helices);
+        }
+        for i in self.strands.len()..strands.len() {
+            self.add_strand(&strands[i], helices)
+        }
     }
 
     pub fn needs_redraw(&self) -> bool {
@@ -159,6 +185,7 @@ impl View {
         for strand in self.strands.iter() {
             strand.draw(&mut render_pass);
         }
+        self.was_updated = false;
     }
 }
 

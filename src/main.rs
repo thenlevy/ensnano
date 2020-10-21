@@ -139,6 +139,7 @@ fn main() {
         window.inner_size(),
         scene_area,
     )));
+    mediator.lock().unwrap().add_application(flat_scene.clone());
 
     // Add a design to the scene if one was given as a command line arguement
     if let Some(ref path) = path {
@@ -380,6 +381,7 @@ fn main() {
                         .lock()
                         .unwrap()
                         .notify(SceneNotification::NewSize(window_size, scene_area));
+                    flat_scene.lock().unwrap().resize(window_size, scene_area);
 
                     swap_chain = device.create_swap_chain(
                         &surface,

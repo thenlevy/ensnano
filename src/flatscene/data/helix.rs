@@ -1,4 +1,4 @@
-use super::Nucl;
+use super::{Helix2d, Nucl};
 use crate::utils::instance::Instance;
 use lyon::math::{rect, Point};
 use lyon::path::builder::{BorderRadii, PathBuilder};
@@ -48,10 +48,15 @@ impl Helix {
         }
     }
 
+    pub fn update(&mut self, helix2d: &Helix2d) {
+        self.left = self.left.min(helix2d.left);
+        self.right = self.right.max(helix2d.right);
+    }
+
     pub fn to_vertices(&self, model_id: u32) -> Vertices {
         let mut vertices = Vertices::new();
-        let left = 0.;
-        let right = (self.right - self.left) as f32;
+        let left = self.left as f32;
+        let right = self.right as f32;
         let top = 0.;
         let bottom = 2.;
 
@@ -60,16 +65,16 @@ impl Helix {
         let mut builder = Path::builder();
 
         builder.add_rounded_rectangle(
-            &rect(0., 0., right, bottom),
+            &rect(left, top, right, bottom),
             &BorderRadii::new(0.1),
             lyon::tessellation::path::Winding::Positive,
         );
-        for i in 1..(self.right - self.left) {
+        for i in (self.left + 1)..self.right {
             builder.begin(Point::new(i as f32, 0.));
             builder.line_to(Point::new(i as f32, 2.));
             builder.end(false);
         }
-        builder.begin(Point::new(0., 1.));
+        builder.begin(Point::new(left, 1.));
         builder.line_to(Point::new(right, 1.));
         builder.end(false);
         let path = builder.build();

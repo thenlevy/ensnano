@@ -298,6 +298,10 @@ impl Design {
     pub fn get_symbol(&self, element_id: u32) -> Option<char> {
         self.data.lock().unwrap().get_symbol(element_id)
     }
+
+    pub fn get_strand_points(&self, s_id: usize) -> Option<Vec<Nucl>> {
+        self.data.lock().unwrap().get_strand_points(s_id)
+    }
 }
 
 #[derive(Clone)]

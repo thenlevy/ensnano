@@ -37,6 +37,14 @@ impl Controller {
         }
     }
 
+    pub fn resize(&mut self, window_size: PhySize, area_size: PhySize) {
+        self.area_size = area_size;
+        self.window_size = window_size;
+        self.camera
+            .borrow_mut()
+            .resize(area_size.width as f32, area_size.height as f32);
+    }
+
     pub fn input(&mut self, event: &WindowEvent, position: PhysicalPosition<f64>) {
         match event {
             WindowEvent::MouseInput {
