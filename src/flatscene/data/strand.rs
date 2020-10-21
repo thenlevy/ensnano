@@ -6,6 +6,7 @@ use lyon::path::Path;
 use lyon::tessellation;
 use lyon::tessellation::geometry_builder::simple_builder;
 use lyon::tessellation::{StrokeVertex, StrokeVertexConstructor};
+use ultraviolet::Vec2;
 
 type Vertices = lyon::tessellation::VertexBuffers<StrandVertex, u16>;
 
@@ -27,25 +28,46 @@ impl Strand {
 
         let mut builder = Path::builder();
         // TODO use builder with attribute to put z_coordinates
+        let mut last_pos = None;
+        let mut last_helix = None;
+        let mut last_forward = None;
         for (i, nucl) in self.points.iter().enumerate() {
-            let extremity = match i {
-                0 => Extremity::Prime5,
-                n if n == self.points.len() - 1 => Extremity::Prime3,
-                _ => Extremity::Inside,
-            };
-            let position = helices[nucl.helix].get_nucl_position(nucl, extremity);
+            let position = helices[nucl.helix].get_nucl_position(nucl);
             let point = Point::new(position.x, position.y);
             if i == 0 {
                 builder.begin(point);
+            } else if Some(nucl.helix) != last_helix && last_pos.is_some() {
+                let last_pos = last_pos.unwrap();
+                let normal = {
+                    let diff = (position - last_pos).normalized();
+                    Vec2::new(diff.y, diff.x)
+                };
+                let control = (last_pos + position) / 2. + normal / 3.;
+                builder.quadratic_bezier_to(Point::new(control.x, control.y), point);
             } else {
                 builder.line_to(point);
             }
+            last_helix = Some(nucl.helix);
+            last_pos = Some(position);
+            last_forward = Some(nucl.forward);
+        }
+        // Draw the tick of the 3' end if the strand is not empty
+        if last_forward == Some(true) {
+            let up = last_pos.unwrap() + 0.075 * Vec2::unit_y();
+            let arrow_end = up + Vec2::new(-0.25, 0.25);
+            builder.line_to(Point::new(up.x, up.y));
+            builder.line_to(Point::new(arrow_end.x, arrow_end.y));
+        } else if last_forward == Some(false) {
+            let down = last_pos.unwrap() - 0.075 * Vec2::unit_y();
+            let arrow_end = down + Vec2::new(0.25, -0.25);
+            builder.line_to(Point::new(down.x, down.y));
+            builder.line_to(Point::new(arrow_end.x, arrow_end.y));
         }
         builder.end(false);
         let path = builder.build();
         stroke_tess.tessellate_path(
             &path,
-            &tessellation::StrokeOptions::default(),
+            &tessellation::StrokeOptions::tolerance(0.01),
             &mut tessellation::BuffersBuilder::new(&mut vertices, WithColor(color)),
         );
         vertices

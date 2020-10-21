@@ -96,16 +96,9 @@ impl Helix {
         }
     }
 
-    pub fn get_nucl_position(&self, nucl: &Nucl, extremity: Extremity) -> Vec2 {
-        let shift = match (extremity, nucl.forward) {
-            (Extremity::Inside, _) => Vec2::new(0.5, 0.5),
-            (Extremity::Prime5, true) => Vec2::new(0., 0.5),
-            (Extremity::Prime5, false) => Vec2::new(1., 0.5),
-            (Extremity::Prime3, true) => Vec2::new(1., 0.5),
-            (Extremity::Prime3, false) => Vec2::new(0., 0.5),
-        };
+    pub fn get_nucl_position(&self, nucl: &Nucl) -> Vec2 {
         let local_position = nucl.position as f32 * Vec2::unit_x()
-            + shift
+            + Vec2::new(0.5, 0.5)
             + if nucl.forward {
                 Vec2::zero()
             } else {
