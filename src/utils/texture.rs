@@ -10,7 +10,7 @@ pub struct Texture {
 impl Texture {
     pub const DEPTH_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float; // 1.
 
-    pub fn create_depth_texture(device: &wgpu::Device, size: &PhySize) -> Self {
+    pub fn create_depth_texture(device: &wgpu::Device, size: &PhySize, sample_count: u32) -> Self {
         let size = wgpu::Extent3d {
             width: size.width,
             height: size.height,
@@ -19,7 +19,7 @@ impl Texture {
         let desc = wgpu::TextureDescriptor {
             size,
             mip_level_count: 1,
-            sample_count: 1,
+            sample_count,
             dimension: wgpu::TextureDimension::D2,
             format: Self::DEPTH_FORMAT,
             usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT
@@ -61,5 +61,26 @@ impl Texture {
             view,
             sampler,
         }
+    }
+
+    pub fn create_msaa_texture(device: &wgpu::Device, size: &PhySize, sample_count: u32, format: wgpu::TextureFormat) -> wgpu::TextureView {
+        let multisampled_frame_descriptor = &wgpu::TextureDescriptor {
+            label: Some("Multisampled frame descriptor"),
+            size: wgpu::Extent3d {
+                width: size.width,
+                height: size.height,
+                depth: 1,
+            },
+            mip_level_count: 1,
+            sample_count,
+            dimension: wgpu::TextureDimension::D2,
+            format,
+            usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
+        };
+
+        device
+            .create_texture(multisampled_frame_descriptor)
+            .create_view(&wgpu::TextureViewDescriptor::default())
+
     }
 }

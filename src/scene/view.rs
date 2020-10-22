@@ -96,7 +96,7 @@ impl View {
             .map(|c| LetterDrawer::new(device.clone(), queue.clone(), *c, &camera, &projection))
             .collect();
         let depth_texture =
-            texture::Texture::create_depth_texture(device.clone().as_ref(), &window_size);
+            texture::Texture::create_depth_texture(device.clone().as_ref(), &window_size, 1);
         let viewer = Rc::new(RefCell::new(UniformBindGroup::new(
             device.clone(),
             queue.clone(),
@@ -196,7 +196,7 @@ impl View {
     ) {
         let fake_color = draw_type.is_fake();
         if let Some(size) = self.new_size.take() {
-            self.depth_texture = Texture::create_depth_texture(self.device.as_ref(), &size);
+            self.depth_texture = Texture::create_depth_texture(self.device.as_ref(), &size, 1);
         }
         let clear_color = if fake_color {
             wgpu::Color {

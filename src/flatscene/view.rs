@@ -10,6 +10,8 @@ use wgpu::{Device, Queue, RenderPipeline};
 mod helix_view;
 use helix_view::{HelixView, StrandView};
 
+const SAMPLE_COUNT: u32 = 8;
+
 pub struct View {
     device: Rc<Device>,
     queue: Rc<Queue>,
@@ -23,6 +25,7 @@ pub struct View {
     strand_pipeline: RenderPipeline,
     camera: CameraPtr,
     was_updated: bool,
+    window_size: PhySize,
 }
 
 impl View {
@@ -32,7 +35,7 @@ impl View {
         window_size: PhySize,
         camera: CameraPtr,
     ) -> Self {
-        let depth_texture = Texture::create_depth_texture(device.clone().as_ref(), &window_size);
+        let depth_texture = Texture::create_depth_texture(device.clone().as_ref(), &window_size, SAMPLE_COUNT);
         let models = DynamicBindGroup::new(device.clone(), queue.clone());
         let globals =
             UniformBindGroup::new(device.clone(), queue.clone(), camera.borrow().get_globals());
@@ -71,12 +74,14 @@ impl View {
             strand_pipeline,
             camera,
             was_updated: false,
+            window_size,
         }
     }
 
     pub fn resize(&mut self, window_size: PhySize) {
         self.depth_texture =
-            Texture::create_depth_texture(self.device.clone().as_ref(), &window_size);
+            Texture::create_depth_texture(self.device.clone().as_ref(), &window_size, SAMPLE_COUNT);
+        self.window_size = window_size;
         self.was_updated = true;
     }
 
@@ -139,10 +144,29 @@ impl View {
             b: 1.,
             a: 1.,
         };
+
+        let msaa_texture = if SAMPLE_COUNT > 1 {
+            Some(crate::utils::texture::Texture::create_msaa_texture(self.device.clone().as_ref(), &self.window_size, SAMPLE_COUNT, wgpu::TextureFormat::Bgra8UnormSrgb))
+        } else {
+            None
+        };
+
+        let attachment = if msaa_texture.is_some() {
+            msaa_texture.as_ref().unwrap()
+        } else {
+            target
+        };
+
+        let resolve_target = if msaa_texture.is_some() {
+            Some(target)
+        } else {
+            None
+        };
+
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
-                attachment: target,
-                resolve_target: None,
+                attachment,
+                resolve_target,
                 ops: wgpu::Operations {
                     load: wgpu::LoadOp::Clear(clear_color),
                     store: true,
@@ -250,7 +274,7 @@ fn helices_pipeline_descr(
                 ],
             }],
         },
-        sample_count: 1,
+        sample_count: SAMPLE_COUNT,
         sample_mask: !0,
         alpha_to_coverage_enabled: false,
         label: None,
@@ -319,7 +343,7 @@ fn strand_pipeline_descr(
                 ],
             }],
         },
-        sample_count: 1,
+        sample_count: SAMPLE_COUNT,
         sample_mask: !0,
         alpha_to_coverage_enabled: false,
         label: None,
