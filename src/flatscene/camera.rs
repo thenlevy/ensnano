@@ -1,7 +1,3 @@
-use iced_winit::winit;
-use winit::dpi::LogicalPosition;
-use winit::event::MouseScrollDelta;
-
 pub struct Camera {
     globals: Globals,
     was_updated: bool,

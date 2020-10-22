@@ -11,7 +11,6 @@ pub enum RotationMode {
     Right,
     Up,
     Front,
-    Free,
 }
 
 pub struct RotationWidget {
@@ -154,7 +153,6 @@ impl RotationWidget {
             RotationMode::Right => (circles[0].origin, circles[0].normal()),
             RotationMode::Up => (circles[1].origin, circles[1].normal()),
             RotationMode::Front => (circles[2].origin, circles[2].normal()),
-            _ => unreachable!(),
         };
         let point_clicked = maths::unproject_point_on_plane(
             origin,
@@ -203,14 +201,13 @@ pub struct RotationWidgetDescriptor {
 
 #[derive(Debug, Clone)]
 pub enum RotationWidgetOrientation {
-    Camera,
     Rotor(Rotor3),
 }
 
 impl RotationWidgetDescriptor {
     fn make_circles(&self, camera: CameraPtr, projection: ProjectionPtr) -> [Circle; 3] {
         let dist = (camera.borrow().position - self.origin).mag();
-        let (right, up, dir) = self.make_axis(camera);
+        let (right, up, dir) = self.make_axis();
         let length = self.size * dist * (projection.borrow().get_fovy() / 2.).tan() * 1.1;
         [
             Circle::new(self.origin, length, up, dir, 0xFF_00_00, RIGHT_CIRCLE_ID),
@@ -232,14 +229,8 @@ impl RotationWidgetDescriptor {
         Sphere::new(self.origin, length, 0xA0_54_54_44, SPHERE_WIDGET_ID)
     }
 
-    fn make_axis(&self, camera: CameraPtr) -> (Vec3, Vec3, Vec3) {
+    fn make_axis(&self) -> (Vec3, Vec3, Vec3) {
         match self.orientation {
-            RotationWidgetOrientation::Camera => {
-                let right = camera.borrow().right_vec();
-                let up = camera.borrow().up_vec();
-                let dir = camera.borrow().direction();
-                (right, up, dir)
-            }
             RotationWidgetOrientation::Rotor(rotor) => (
                 rotor * Vec3::unit_x(),
                 rotor * Vec3::unit_y(),

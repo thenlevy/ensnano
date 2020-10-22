@@ -6,9 +6,7 @@ use iced::Image;
 use iced::{container, Background, Container};
 use iced_wgpu::Renderer;
 use iced_winit::winit::dpi::LogicalSize;
-use iced_winit::{
-    button, checkbox, Button, Checkbox, Color, Command, Element, Length, Program, Row,
-};
+use iced_winit::{button, Button, Checkbox, Color, Command, Element, Length, Program, Row};
 
 use super::Requests;
 

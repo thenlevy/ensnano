@@ -83,6 +83,7 @@ impl Design2d {
 /// Store the informations needed to represent an helix from the design
 pub struct Helix2d {
     /// The id of the helix within the design
+    #[allow(dead_code)] // this attribute will be useful when we build strand from 2d view
     id: usize,
     /// The smallest position of a nucleotide of the helix
     pub left: isize,

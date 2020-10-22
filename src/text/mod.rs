@@ -101,7 +101,6 @@ impl Letter {
             .with_scale_and_position(size.width as f32, point(0.0, 0.0));
 
         if let Some(q) = font.outline_glyph(q_glyph) {
-            let rect = q.px_bounds();
             q.draw(|x, y, c| {
                 for i in 0..4 {
                     pixels[((x + y * size.width) * 4 + i) as usize] = (c * 255.) as u8;

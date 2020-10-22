@@ -1,6 +1,6 @@
 use iced_wgpu::wgpu;
 use std::rc::Rc;
-use ultraviolet::{Mat3, Mat4, Vec3, Vec4};
+use ultraviolet::{Mat4, Vec3, Vec4};
 use wgpu::{include_spirv, Device, Queue, RenderPass, RenderPipeline};
 
 use super::{
@@ -56,8 +56,6 @@ pub struct LetterDrawer {
     bind_groups: BindGroups,
     /// The pipeline created by `self`
     pipeline: Option<RenderPipeline>,
-    /// The viewer of the letter
-    camera: CameraPtr,
 }
 
 impl LetterDrawer {
@@ -92,7 +90,6 @@ impl LetterDrawer {
             new_model_matrices: None,
             bind_groups,
             pipeline: None,
-            camera: camera.clone(),
         }
     }
 
@@ -114,6 +111,7 @@ impl LetterDrawer {
     }
 
     /// Request an update of a single model matrix
+    #[allow(dead_code)] // Might be usefull if we want to optimize
     pub fn update_model_matrix(&mut self, design_id: usize, matrix: Mat4) {
         self.bind_groups.update_model_matrix(design_id, matrix)
     }
@@ -268,6 +266,7 @@ impl BindGroups {
         self.model_matrices.update(matrices);
     }
 
+    #[allow(dead_code)] // might be usefull if we want to optimize
     fn update_model_matrix(&mut self, design_id: usize, matrix: Mat4) {
         let byte_mat = ByteMat4(matrix);
         let matrix_bytes = bytemuck::bytes_of(&byte_mat);

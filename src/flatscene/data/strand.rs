@@ -1,10 +1,8 @@
-use super::helix::{Extremity, Helix};
+use super::helix::Helix;
 pub use crate::design::Nucl;
-use lyon::math::{rect, Point};
-use lyon::path::builder::{BorderRadii, PathBuilder};
+use lyon::math::Point;
 use lyon::path::Path;
 use lyon::tessellation;
-use lyon::tessellation::geometry_builder::simple_builder;
 use lyon::tessellation::{StrokeVertex, StrokeVertexConstructor};
 use ultraviolet::Vec2;
 
@@ -65,11 +63,13 @@ impl Strand {
         }
         builder.end(false);
         let path = builder.build();
-        stroke_tess.tessellate_path(
-            &path,
-            &tessellation::StrokeOptions::tolerance(0.01),
-            &mut tessellation::BuffersBuilder::new(&mut vertices, WithColor(color)),
-        );
+        stroke_tess
+            .tessellate_path(
+                &path,
+                &tessellation::StrokeOptions::tolerance(0.01),
+                &mut tessellation::BuffersBuilder::new(&mut vertices, WithColor(color)),
+            )
+            .expect("Error durring tessellation");
         vertices
     }
 }

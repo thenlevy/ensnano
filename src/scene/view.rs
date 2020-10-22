@@ -318,31 +318,9 @@ impl View {
         self.camera.clone()
     }
 
-    /// The position of the camera. A.k.a the point that is mapped to (0,0,0) by the view matrix
-    pub fn get_camera_position(&self) -> Vec3 {
-        self.camera.borrow().position
-    }
-
-    /// The direction vector of the camera. A.k.a. the vector that is mapped to (0,0,-1) by the
-    /// view matrix
-    pub fn get_camera_direction(&self) -> Vec3 {
-        self.camera.borrow().direction()
-    }
-
     /// A pointer to the projection camera
     pub fn get_projection(&self) -> ProjectionPtr {
         self.projection.clone()
-    }
-
-    /// The right vector of the camera. A.k.a. the vector that is mapped to (1,0,0) by the view
-    /// matrix
-    pub fn right_vec(&self) -> Vec3 {
-        self.camera.borrow().right_vec()
-    }
-
-    /// The up vector of the camera. A.k.a. the vector that is mapped to (0,1,0) by the view matrix
-    pub fn up_vec(&self) -> Vec3 {
-        self.camera.borrow().up_vec()
     }
 
     pub fn set_draw_letter(&mut self, value: bool) {
@@ -750,23 +728,6 @@ pub enum DrawType {
 impl DrawType {
     fn is_fake(&self) -> bool {
         *self != DrawType::Scene
-    }
-
-    fn wants_mesh(&self) -> bool {
-        match self {
-            DrawType::Scene => true,
-            DrawType::Design => true,
-            DrawType::Widget => false,
-            DrawType::Phantom => false,
-        }
-    }
-
-    fn wants_phantom(&self) -> bool {
-        match self {
-            DrawType::Scene => true,
-            DrawType::Phantom => true,
-            _ => false,
-        }
     }
 
     fn wants_widget(&self) -> bool {

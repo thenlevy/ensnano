@@ -685,8 +685,3 @@ impl WidgetBasis {
         }
     }
 }
-
-struct HelixDescr {
-    pub design: u32,
-    pub helix: u32,
-}

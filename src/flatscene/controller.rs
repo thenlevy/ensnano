@@ -2,10 +2,10 @@ use super::{CameraPtr, DataPtr, PhySize, PhysicalPosition, ViewPtr, WindowEvent}
 use iced_winit::winit::event::*;
 use ultraviolet::Vec2;
 
-const NO_POS: PhysicalPosition<f64> = PhysicalPosition::new(f64::NAN, f64::NAN);
-
 pub struct Controller {
+    #[allow(dead_code)]
     view: ViewPtr,
+    #[allow(dead_code)]
     data: DataPtr,
     last_left_clicked_position: Option<PhysicalPosition<f64>>,
     mouse_position: PhysicalPosition<f64>,
@@ -162,8 +162,4 @@ enum State {
     Normal,
     Translating,
     Rotating(Vec2),
-}
-
-fn position_difference(a: PhysicalPosition<f64>, b: PhysicalPosition<f64>) -> f64 {
-    (a.x - b.x).abs().max((a.y - b.y).abs())
 }

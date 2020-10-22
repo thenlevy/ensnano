@@ -18,7 +18,7 @@ mod data;
 mod view;
 use camera::{Camera, Globals};
 use controller::Controller;
-use data::{Data, Helix, Nucl, Strand};
+use data::Data;
 use view::View;
 
 type ViewPtr = Rc<RefCell<View>>;

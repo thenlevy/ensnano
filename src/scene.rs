@@ -11,9 +11,9 @@ use crate::{design, mediator, utils};
 use crate::{DrawArea, PhySize, WindowEvent};
 use instance::Instance;
 use mediator::{
-    ActionMode, AppNotification, Application, MediatorPtr, Notification, Selection, SelectionMode,
+    ActionMode, AppNotification, Application, MediatorPtr, Notification, SelectionMode,
 };
-use utils::{instance, BufferDimensions};
+use utils::instance;
 use wgpu::{Device, Queue};
 use winit::dpi::PhysicalPosition;
 
@@ -246,10 +246,6 @@ impl Scene {
         );
     }
 
-    fn get_selected_position(&self) -> Option<Vec3> {
-        self.data.borrow().get_selected_position()
-    }
-
     /// Adapt the camera, position, orientation and pivot point to a design so that the design fits
     /// the scene, and the pivot point of the camera is the center of the design.
     pub fn fit_design(&mut self) {
@@ -262,14 +258,6 @@ impl Scene {
             self.controller.set_pivot_point(pivot_point);
             self.notify(SceneNotification::NewCamera(position, rotor));
         }
-    }
-
-    fn camera_position(&self) -> Vec3 {
-        self.view.borrow().get_camera_position()
-    }
-
-    fn camera_direction(&self) -> Vec3 {
-        self.view.borrow().get_camera_position()
     }
 
     pub fn need_redraw(&mut self, dt: Duration) -> bool {

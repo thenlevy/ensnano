@@ -14,14 +14,13 @@ pub struct HandlesDescriptor {
 
 #[derive(Debug, Clone)]
 pub enum HandleOrientation {
-    Camera,
     Rotor(Rotor3),
 }
 
 impl HandlesDescriptor {
     pub fn make_handles(&self, camera: CameraPtr, projection: ProjectionPtr) -> [Handle; 3] {
         let dist = (camera.borrow().position - self.origin).mag();
-        let (right, up, dir) = self.make_axis(camera);
+        let (right, up, dir) = self.make_axis();
         let length = self.size * dist * (projection.borrow().get_fovy() / 2.).tan();
         [
             Handle::new(self.origin, right, up, 0xFF0000, RIGHT_HANDLE_ID, length),
@@ -30,22 +29,8 @@ impl HandlesDescriptor {
         ]
     }
 
-    fn make_axis(&self, camera: CameraPtr) -> (Vec3, Vec3, Vec3) {
+    fn make_axis(&self) -> (Vec3, Vec3, Vec3) {
         match self.orientation {
-            HandleOrientation::Camera => {
-                let right = camera.borrow().right_vec();
-                let up = camera.borrow().up_vec();
-                let dir = camera.borrow().direction();
-                let rotor = Rotor3::from_angle_plane(
-                    -std::f32::consts::FRAC_PI_4,
-                    right.wedge(dir).normalized(),
-                );
-                (
-                    rotor * camera.borrow().right_vec(),
-                    up,
-                    rotor * -camera.borrow().direction(),
-                )
-            }
             HandleOrientation::Rotor(rotor) => (
                 rotor * Vec3::unit_x(),
                 rotor * Vec3::unit_y(),
@@ -149,10 +134,6 @@ impl HandlesDrawer {
             }
         }
         self.big_handle_drawer.new_object(self.big_handle)
-    }
-
-    pub fn drawers(&mut self) -> &mut [Drawer<Handle>; 3] {
-        &mut self.drawers
     }
 
     pub fn get_handle(&self, direction: HandleDir) -> Option<(Vec3, Vec3)> {

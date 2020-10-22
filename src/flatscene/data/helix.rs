@@ -4,7 +4,6 @@ use lyon::math::{rect, Point};
 use lyon::path::builder::{BorderRadii, PathBuilder};
 use lyon::path::Path;
 use lyon::tessellation;
-use lyon::tessellation::geometry_builder::simple_builder;
 use lyon::tessellation::{StrokeVertex, StrokeVertexConstructor};
 use ultraviolet::{Isometry2, Mat2, Rotor2, Vec2, Vec4};
 
@@ -80,11 +79,13 @@ impl Helix {
         builder.line_to(Point::new(right, 1.));
         builder.end(false);
         let path = builder.build();
-        stroke_tess.tessellate_path(
-            &path,
-            &tessellation::StrokeOptions::default(),
-            &mut tessellation::BuffersBuilder::new(&mut vertices, WithId(model_id)),
-        );
+        stroke_tess
+            .tessellate_path(
+                &path,
+                &tessellation::StrokeOptions::default(),
+                &mut tessellation::BuffersBuilder::new(&mut vertices, WithId(model_id)),
+            )
+            .expect("error durring tessellation");
         vertices
     }
 
@@ -134,10 +135,6 @@ impl Helix {
         }
     }
 
-    pub fn get_position(&self) -> Vec2 {
-        self.isometry.translation
-    }
-
     pub fn translate(&mut self, translation: Vec2) {
         self.isometry.translation = self.old_isometry.translation + translation
     }
@@ -161,12 +158,6 @@ impl Helix {
     pub fn set_color(&mut self, color: u32) {
         self.color = color
     }
-}
-
-pub enum Extremity {
-    Inside,
-    Prime5,
-    Prime3,
 }
 
 #[repr(C)]

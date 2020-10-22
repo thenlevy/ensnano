@@ -386,16 +386,6 @@ impl Helix {
     }
 }
 
-pub fn zero_f32() -> f32 {
-    0f32
-}
-
-const KELLY: [u32; 19] = [
-    0xF3C300, 0x875692, // 0xF38400, // Orange, too close to others
-    0xA1CAF1, 0xBE0032, 0xC2B280, 0x848482, 0x008856, 0xE68FAC, 0x0067A5, 0xF99379, 0x604E97,
-    0xF6A600, 0xB3446C, 0xDCD300, 0x882D17, 0x8DB600, 0x654522, 0xE25822, 0x2B3D26,
-];
-
 impl Helix {
     /// Angle of base number `n` around this helix.
     pub fn theta(&self, n: isize, forward: bool, cst: &Parameters) -> f32 {
@@ -458,6 +448,7 @@ impl Helix {
         self.old_orientation = self.orientation;
     }
 
+    #[allow(dead_code)]
     pub fn roll(&mut self, roll: f32) {
         self.orientation = self.orientation * Rotor3::from_rotation_xy(roll)
     }
