@@ -87,9 +87,9 @@ impl PipelineHandler {
         viewer_data.update_view_proj(camera.clone(), projection.clone());
         let viewer = UniformBindGroup::new(device.clone(), queue.clone(), &viewer_data);
 
-        let model_matrices = DynamicBindGroup::new(device.clone(), queue.clone());
+        let model_matrices = DynamicBindGroup::new(device.clone(), queue);
 
-        let (light, light_layout) = create_light(device.clone().as_ref());
+        let (light, light_layout) = create_light(device.as_ref());
 
         let bind_groups = BindGroups {
             instances,
@@ -133,7 +133,7 @@ impl PipelineHandler {
 
     /// Request an update of the set of instances to draw. This update take effects on the next frame
     pub fn new_instances(&mut self, instances: Rc<Vec<Instance>>) {
-        self.new_instances = Some(instances.clone())
+        self.new_instances = Some(instances)
     }
 
     /// Request an update all the model matrices

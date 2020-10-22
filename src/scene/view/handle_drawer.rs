@@ -68,7 +68,7 @@ impl HandlesDrawer {
                 Drawer::new(device.clone()),
             ],
             big_handle: None,
-            big_handle_drawer: Drawer::new(device.clone()),
+            big_handle_drawer: Drawer::new(device),
             selected: None,
             origin_translation: None,
         }
@@ -125,8 +125,8 @@ impl HandlesDrawer {
 
     fn update_drawers(&mut self) {
         if let Some(handles) = self.handles {
-            for i in 0..3 {
-                self.drawers[i].new_object(Some(handles[i]));
+            for (i, handle) in handles.iter().enumerate() {
+                self.drawers[i].new_object(Some(*handle));
             }
         } else {
             for i in 0..3 {
@@ -163,7 +163,7 @@ impl HandlesDrawer {
 
     fn select_handle(&mut self, selected: Option<usize>) {
         self.big_handle = if let Some(selected) = selected {
-            self.handles.map(|t| t[selected].into_big())
+            self.handles.map(|t| t[selected].bigger_version())
         } else {
             None
         };
@@ -180,9 +180,9 @@ impl HandlesDrawer {
                 }
             })
             .unwrap_or(());
-        self.big_handle
-            .as_mut()
-            .map(|h| h.translation = translation);
+        if let Some(h) = self.big_handle.as_mut() {
+            h.translation = translation
+        }
         self.update_drawers();
     }
 }
@@ -217,7 +217,7 @@ impl Handle {
         }
     }
 
-    pub fn into_big(&self) -> Self {
+    pub fn bigger_version(&self) -> Self {
         Self {
             length: 1.1 * self.length,
             ..*self

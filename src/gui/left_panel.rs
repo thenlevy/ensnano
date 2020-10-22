@@ -120,8 +120,8 @@ impl Program for LeftPanel {
                 if let Ok(result) = result {
                     if let Some(path) = result {
                         let content = std::fs::read_to_string(path);
-                        if content.is_ok() {
-                            self.update(Message::SequenceChanged(content.unwrap()));
+                        if let Ok(content) = content {
+                            self.update(Message::SequenceChanged(content));
                         }
                     }
                 }

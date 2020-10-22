@@ -65,8 +65,8 @@ impl Design3D {
             }
         }
         let mut ret = Vec::new();
-        for i in 0..NB_BASIS_SYMBOLS {
-            ret.push(Rc::new(vecs[i].clone()));
+        for vec in vecs.iter().take(NB_BASIS_SYMBOLS) {
+            ret.push(Rc::new(vec.clone()));
         }
         ret
     }
@@ -367,7 +367,7 @@ impl Design3D {
 
     /// Return a rotor that will maps the longest axis to the camera's x axis,
     /// and the second longest axis to the camera's y axis
-    fn get_fitting_rotor(&self, bases: &Vec<Basis>) -> Rotor3 {
+    fn get_fitting_rotor(&self, bases: &[Basis]) -> Rotor3 {
         let right: Vec3 = bases[0].3.into();
         let up: Vec3 = bases[1].3.into();
         let reverse_direction = right.cross(up);
@@ -490,11 +490,9 @@ impl Instantiable {
             Instance::color_from_u32(self.color)
         };
         match self.repr {
-            ObjectRepr::Tube(a, b) => {
-                create_bound(a.into(), b.into(), self.color, self.id, use_alpha)
-            }
+            ObjectRepr::Tube(a, b) => create_bound(a, b, self.color, self.id, use_alpha),
             ObjectRepr::Sphere(x) => Instance {
-                position: x.into(),
+                position: x,
                 rotor: Rotor3::identity(),
                 color,
                 id: self.id,

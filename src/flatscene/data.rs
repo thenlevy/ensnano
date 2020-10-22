@@ -44,8 +44,8 @@ impl Data {
     fn fetch_helices(&mut self) {
         let nb_helix = self.helices.len();
         let new_helices = self.design.get_helices();
-        for i in 0..nb_helix {
-            self.helices[i].update(&new_helices[i]);
+        for (i, helix) in self.helices.iter_mut().enumerate() {
+            helix.update(&new_helices[i]);
         }
         for (delta, h) in new_helices[nb_helix..].iter().enumerate() {
             self.helices.push(Helix::new(

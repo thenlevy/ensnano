@@ -88,8 +88,8 @@ impl Scene {
         let controller: Controller =
             Controller::new(view.clone(), data.clone(), window_size, area.size);
         let element_selector = ElementSelector::new(
-            device.clone(),
-            queue.clone(),
+            device,
+            queue,
             controller.get_window_size(),
             view.clone(),
             data.clone(),
@@ -136,9 +136,9 @@ impl Scene {
                     y_coord as f32,
                     dir,
                 );
-                translation.map(|t| {
+                if let Some(t) = translation {
                     self.translate_selected_design(t);
-                });
+                }
             }
             Consequence::MovementEnded => {
                 self.mediator
@@ -254,7 +254,7 @@ impl Scene {
             .borrow()
             .get_fitting_camera(self.get_ratio(), self.get_fovy());
         if let Some((position, rotor)) = camera {
-            let pivot_point = self.data.borrow().get_middle_point(0).clone();
+            let pivot_point = self.data.borrow().get_middle_point(0);
             self.controller.set_pivot_point(pivot_point);
             self.notify(SceneNotification::NewCamera(position, rotor));
         }

@@ -69,22 +69,20 @@ impl Mediator {
     }
 
     pub fn change_strand_color(&mut self, color: u32) {
-        match self.selection {
-            Selection::Strand(design_id, strand_id) => self.designs[design_id as usize]
+        if let Selection::Strand(design_id, strand_id) = self.selection {
+            self.designs[design_id as usize]
                 .lock()
                 .unwrap()
-                .change_strand_color(strand_id as usize, color),
-            _ => (),
+                .change_strand_color(strand_id as usize, color)
         }
     }
 
     pub fn change_sequence(&mut self, sequence: String) {
-        match self.selection {
-            Selection::Strand(design_id, strand_id) => self.designs[design_id as usize]
+        if let Selection::Strand(design_id, strand_id) = self.selection {
+            self.designs[design_id as usize]
                 .lock()
                 .unwrap()
-                .change_strand_sequence(strand_id as usize, sequence),
-            _ => (),
+                .change_strand_sequence(strand_id as usize, sequence)
         }
     }
 

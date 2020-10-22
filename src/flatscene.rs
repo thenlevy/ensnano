@@ -162,6 +162,7 @@ impl FlatScene {
 
 impl Application for FlatScene {
     fn on_notify(&mut self, notification: Notification) {
+        #[allow(clippy::single_match)] // we will implement for notification in the future
         match notification {
             Notification::NewDesign(design) => self.add_design(design),
             _ => (),

@@ -69,7 +69,7 @@ fn main() {
     let instance = wgpu::Instance::new(wgpu::BackendBit::PRIMARY);
     let surface = unsafe { instance.create_surface(&window) };
     // Initialize WGPU
-    let (mut device, queue) = futures::executor::block_on(async {
+    let (device, queue) = futures::executor::block_on(async {
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions {
                 power_preference: wgpu::PowerPreference::Default,
@@ -107,7 +107,7 @@ fn main() {
             },
         )
     };
-    let mut renderer = Renderer::new(Backend::new(&mut device, Settings::default()));
+    let mut renderer = Renderer::new(Backend::new(&device, Settings::default()));
     let device = Rc::new(device);
     let queue = Rc::new(queue);
     let mut resized = false;
@@ -502,6 +502,7 @@ pub struct Messages {
 }
 
 impl Messages {
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         Self {
             left_panel: VecDeque::new(),

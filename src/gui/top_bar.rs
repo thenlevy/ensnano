@@ -1,5 +1,4 @@
 use native_dialog::Dialog;
-use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
 use iced::Image;
@@ -70,8 +69,7 @@ impl Program for TopBar {
                 let result = dialog.show();
                 if let Ok(result) = result {
                     if let Some(path) = result {
-                        self.requests.lock().expect("file_opening_request").file_add =
-                            Some(PathBuf::from(path));
+                        self.requests.lock().expect("file_opening_request").file_add = Some(path);
                     }
                 }
             }
@@ -98,7 +96,7 @@ impl Program for TopBar {
                         self.requests
                             .lock()
                             .expect("file_opening_request")
-                            .file_save = Some(PathBuf::from(path));
+                            .file_save = Some(path);
                     }
                 }
             }

@@ -127,10 +127,10 @@ impl CameraController {
             mouse_horizontal: 0.0,
             mouse_vertical: 0.0,
             scroll: 0.0,
-            last_rotor: camera.clone().borrow().rotor,
+            last_rotor: camera.borrow().rotor,
             processed_move: false,
             camera: camera.clone(),
-            cam0: camera.borrow().clone(),
+            cam0: camera.borrow().clone(), // clone the camera not the pointer !
             projection,
             pivot_point: None,
         }
@@ -163,7 +163,7 @@ impl CameraController {
                 self.rotate_camera_around(
                     FRAC_PI_2 / 20.,
                     0.,
-                    self.pivot_point.unwrap_or(Vec3::zero()),
+                    self.pivot_point.unwrap_or_else(Vec3::zero),
                 );
                 self.cam0 = self.camera.borrow().clone();
                 true
@@ -172,7 +172,7 @@ impl CameraController {
                 self.rotate_camera_around(
                     -FRAC_PI_2 / 20.,
                     0.,
-                    self.pivot_point.unwrap_or(Vec3::zero()),
+                    self.pivot_point.unwrap_or_else(Vec3::zero),
                 );
                 self.cam0 = self.camera.borrow().clone();
                 true
@@ -181,7 +181,7 @@ impl CameraController {
                 self.rotate_camera_around(
                     0.,
                     FRAC_PI_2 / 20.,
-                    self.pivot_point.unwrap_or(Vec3::zero()),
+                    self.pivot_point.unwrap_or_else(Vec3::zero),
                 );
                 self.cam0 = self.camera.borrow().clone();
                 true
@@ -190,7 +190,7 @@ impl CameraController {
                 self.rotate_camera_around(
                     0.,
                     -FRAC_PI_2 / 20.,
-                    self.pivot_point.unwrap_or(Vec3::zero()),
+                    self.pivot_point.unwrap_or_else(Vec3::zero),
                 );
                 self.cam0 = self.camera.borrow().clone();
                 true

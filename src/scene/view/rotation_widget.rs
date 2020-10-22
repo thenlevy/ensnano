@@ -71,7 +71,7 @@ impl RotationWidget {
 
     fn select_circle(&mut self, selected: Option<usize>) {
         self.big_circle = if let Some(selected) = selected {
-            self.circles.map(|t| t[selected].into_big())
+            self.circles.map(|t| t[selected].bigger_version())
         } else {
             None
         };
@@ -93,8 +93,8 @@ impl RotationWidget {
 
     fn update_drawers(&mut self) {
         if let Some(circles) = self.circles {
-            for i in 0..3 {
-                self.circle_drawers[i].new_object(Some(circles[i]));
+            for (i, drawer) in self.circle_drawers.iter_mut().enumerate() {
+                drawer.new_object(Some(circles[i]));
             }
         } else {
             for i in 0..3 {
@@ -162,14 +162,8 @@ impl RotationWidget {
             x_init,
             y_init,
         )?;
-        let point_moved = maths::unproject_point_on_plane(
-            origin,
-            normal,
-            camera.clone(),
-            projection.clone(),
-            x,
-            y,
-        )?;
+        let point_moved =
+            maths::unproject_point_on_plane(origin, normal, camera, projection, x, y)?;
         Some((
             Rotor3::from_rotation_between(
                 (point_clicked - origin).normalized(),
@@ -274,7 +268,7 @@ impl Circle {
         self.translation = translation;
     }
 
-    pub fn into_big(&self) -> Self {
+    pub fn bigger_version(&self) -> Self {
         Self {
             thickness: 0.3,
             ..*self

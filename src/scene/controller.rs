@@ -23,7 +23,7 @@ enum State {
     Translate(HandleDir),
     Rotate(RotationMode),
     TogglingWidget,
-    Building(StrandBuilder),
+    Building(Box<StrandBuilder>),
 }
 
 impl State {
@@ -180,7 +180,7 @@ impl Controller {
                 match self.state.clone() {
                     State::MoveCamera => {
                         if let Some(builder) = builder {
-                            self.state = State::Building(builder);
+                            self.state = State::Building(Box::new(builder));
                             self.last_left_clicked_position = Some(self.mouse_position);
                             Consequence::Nothing
                         } else {

@@ -20,6 +20,7 @@
 //! was not next to the domain at the creation of the builder, it can only become smaller than it
 //! initially was.
 use super::{Axis, Data, Nucl};
+use std::cmp::Ordering;
 use std::sync::{Arc, Mutex};
 use ultraviolet::Mat4;
 
@@ -243,16 +244,20 @@ impl StrandBuilder {
     /// moving end, it will go as far as possible.
     pub fn move_to(&mut self, objective: isize) {
         let mut need_update = false;
-        if objective > self.moving_end.position {
-            while self.moving_end.position < objective.min(self.max_pos.unwrap_or(objective)) {
-                self.incr_position();
-                need_update = true;
+        match objective.cmp(&self.moving_end.position) {
+            Ordering::Greater => {
+                while self.moving_end.position < objective.min(self.max_pos.unwrap_or(objective)) {
+                    self.incr_position();
+                    need_update = true;
+                }
             }
-        } else if objective < self.moving_end.position {
-            while self.moving_end.position > objective.max(self.min_pos.unwrap_or(objective)) {
-                self.decr_position();
-                need_update = true;
+            Ordering::Less => {
+                while self.moving_end.position > objective.max(self.min_pos.unwrap_or(objective)) {
+                    self.decr_position();
+                    need_update = true;
+                }
             }
+            _ => (),
         }
         if need_update {
             self.update()

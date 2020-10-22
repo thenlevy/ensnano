@@ -39,7 +39,7 @@ impl ColorPicker {
             .push(LightSatSquare::new(
                 self.hue as f64,
                 &mut self.light_sat_square_state,
-                |c| Message::StrandColorChanged(c),
+                Message::StrandColorChanged,
             ));
         color_picker
     }
@@ -137,7 +137,7 @@ mod hue_column {
                 ];
                 vertices.push(Vertex2D {
                     position: [0., y_max * (i as f32 / nb_row as f32)],
-                    color: color.clone(),
+                    color,
                 });
                 vertices.push(Vertex2D {
                     position: [x_max, y_max * (i as f32 / nb_row as f32)],
@@ -181,16 +181,14 @@ mod hue_column {
                 } else if cursor_position.y >= bounds.y + bounds.height {
                     messages.push((self.on_slide)(360.));
                 } else {
-                    let percent =
-                        f32::from(cursor_position.y - bounds.y) / f32::from(bounds.height);
-
+                    let percent = cursor_position.y - bounds.y / bounds.height;
                     let value = percent * 360.;
                     messages.push((self.on_slide)(value));
                 }
             };
 
-            match event {
-                Event::Mouse(mouse_event) => match mouse_event {
+            if let Event::Mouse(mouse_event) = event {
+                match mouse_event {
                     mouse::Event::ButtonPressed(mouse::Button::Left) => {
                         if layout.bounds().contains(cursor_position) {
                             change();
@@ -208,8 +206,7 @@ mod hue_column {
                         }
                     }
                     _ => {}
-                },
-                _ => {}
+                }
             }
         }
     }
@@ -323,7 +320,7 @@ mod light_sat_square {
                             x_max * (j as f32 / nb_column as f32),
                             y_max * (i as f32 / nb_row as f32),
                         ],
-                        color: color.clone(),
+                        color,
                     });
                     if i > 0 && j > 0 {
                         indices.push(nb_row * (i - 1) + j - 1);
@@ -384,8 +381,8 @@ mod light_sat_square {
                 messages.push((self.on_slide)(value));
             };
 
-            match event {
-                Event::Mouse(mouse_event) => match mouse_event {
+            if let Event::Mouse(mouse_event) = event {
+                match mouse_event {
                     mouse::Event::ButtonPressed(mouse::Button::Left) => {
                         if layout.bounds().contains(cursor_position) {
                             change();
@@ -403,8 +400,7 @@ mod light_sat_square {
                         }
                     }
                     _ => {}
-                },
-                _ => {}
+                }
             }
         }
     }

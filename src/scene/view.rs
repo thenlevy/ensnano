@@ -96,10 +96,10 @@ impl View {
             .map(|c| LetterDrawer::new(device.clone(), queue.clone(), *c, &camera, &projection))
             .collect();
         let depth_texture =
-            texture::Texture::create_depth_texture(device.clone().as_ref(), &window_size, 1);
+            texture::Texture::create_depth_texture(device.as_ref(), &window_size, 1);
         let viewer = Rc::new(RefCell::new(UniformBindGroup::new(
             device.clone(),
-            queue.clone(),
+            queue,
             &Uniforms::from_view_proj(camera.clone(), projection.clone()),
         )));
         Self {
@@ -111,7 +111,7 @@ impl View {
             device: device.clone(),
             viewer,
             handle_drawers: HandlesDrawer::new(device.clone()),
-            rotation_widget: RotationWidget::new(device.clone()),
+            rotation_widget: RotationWidget::new(device),
             letter_drawer,
             redraw_twice: false,
             need_redraw: true,
@@ -167,8 +167,8 @@ impl View {
                 self.pipeline_handlers.update(view_update);
             }
             ViewUpdate::Letter(letter) => {
-                for i in 0..letter.len() {
-                    self.letter_drawer[i].new_instances(letter[i].clone());
+                for (i, instance) in letter.iter().enumerate() {
+                    self.letter_drawer[i].new_instances(instance.clone());
                 }
             }
             _ => {
@@ -296,13 +296,11 @@ impl View {
 
         if fake_color {
             self.need_redraw_fake = false;
+        } else if self.redraw_twice {
+            self.redraw_twice = false;
+            self.need_redraw = true;
         } else {
-            if self.redraw_twice {
-                self.redraw_twice = false;
-                self.need_redraw = true;
-            } else {
-                self.need_redraw = false;
-            }
+            self.need_redraw = false;
         }
     }
 
@@ -586,8 +584,8 @@ impl PipelineHandlers {
             pipeline_handler::Flavour::Fake,
         );
         let fake_phantom_tube = PipelineHandler::new(
-            device.clone(),
-            queue.clone(),
+            device,
+            queue,
             fake_phantom_tube_mesh,
             camera,
             projection,

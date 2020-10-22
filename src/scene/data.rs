@@ -424,13 +424,13 @@ impl Data {
         for element in self.selected.iter() {
             match element {
                 SceneElement::DesignElement(d_id, elt_id) => {
-                    let set = ret.entry(*d_id).or_insert(HashSet::new());
+                    let set = ret.entry(*d_id).or_insert_with(HashSet::new);
                     set.insert(self.get_helix_identifier(*d_id, *elt_id));
                 }
                 SceneElement::PhantomElement(phantom_element) => {
                     let set = ret
                         .entry(phantom_element.design_id)
-                        .or_insert(HashSet::new());
+                        .or_insert_with(HashSet::new);
                     set.insert(phantom_element.helix_id);
                 }
                 SceneElement::WidgetElement(_) => unreachable!(),
@@ -568,7 +568,9 @@ impl Data {
     }
 
     pub fn toggle_widget_basis(&mut self) {
-        self.widget_basis.as_mut().map(|w| w.toggle());
+        if let Some(w) = self.widget_basis.as_mut() {
+            w.toggle()
+        }
     }
 
     pub fn get_widget_basis(&self) -> Rotor3 {
@@ -607,33 +609,27 @@ impl Data {
 
     pub fn select_5prime(&mut self) {
         let selected = self.selected.get(0);
-        match selected {
-            Some(SceneElement::DesignElement(d_id, e_id)) => {
-                let new_selection = self
-                    .designs
-                    .get(*d_id as usize)
-                    .and_then(|d| d.get_element_5prime(*e_id));
-                if new_selection.is_some() {
-                    self.set_selection(new_selection);
-                }
+        if let Some(SceneElement::DesignElement(d_id, e_id)) = selected {
+            let new_selection = self
+                .designs
+                .get(*d_id as usize)
+                .and_then(|d| d.get_element_5prime(*e_id));
+            if new_selection.is_some() {
+                self.set_selection(new_selection);
             }
-            _ => (),
         }
     }
 
     pub fn select_3prime(&mut self) {
         let selected = self.selected.get(0);
-        match selected {
-            Some(SceneElement::DesignElement(d_id, e_id)) => {
-                let new_selection = self
-                    .designs
-                    .get(*d_id as usize)
-                    .and_then(|d| d.get_element_3prime(*e_id));
-                if new_selection.is_some() {
-                    self.set_selection(new_selection);
-                }
+        if let Some(SceneElement::DesignElement(d_id, e_id)) = selected {
+            let new_selection = self
+                .designs
+                .get(*d_id as usize)
+                .and_then(|d| d.get_element_3prime(*e_id));
+            if new_selection.is_some() {
+                self.set_selection(new_selection);
             }
-            _ => (),
         }
     }
 

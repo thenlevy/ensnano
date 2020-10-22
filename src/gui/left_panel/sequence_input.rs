@@ -21,7 +21,7 @@ impl SequenceInput {
             .push(TextInput::new(
                 &mut self.input,
                 "Sequence",
-                &mut self.sequence,
+                &self.sequence,
                 Message::SequenceChanged,
             ))
             .push(

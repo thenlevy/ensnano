@@ -18,7 +18,7 @@ impl Strand {
         Self { color, points }
     }
 
-    pub fn to_vertices(&self, helices: &Vec<Helix>) -> Vertices {
+    pub fn to_vertices(&self, helices: &[Helix]) -> Vertices {
         let mut vertices = Vertices::new();
         let color = crate::utils::instance::Instance::color_from_u32(self.color);
         let color = [color.x, color.y, color.z, color.w];

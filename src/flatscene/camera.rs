@@ -7,7 +7,7 @@ pub struct Camera {
 impl Camera {
     pub fn new(globals: Globals) -> Self {
         Self {
-            old_globals: globals.clone(),
+            old_globals: globals,
             globals,
             was_updated: true,
         }
@@ -48,7 +48,7 @@ impl Camera {
     }
 
     pub fn end_movement(&mut self) {
-        self.old_globals = self.globals.clone();
+        self.old_globals = self.globals;
     }
 
     pub fn resize(&mut self, res_x: f32, res_y: f32) {

@@ -112,7 +112,7 @@ impl Strand {
             color: codenano_strand
                 .color
                 .clone()
-                .unwrap_or(codenano_strand.default_color())
+                .unwrap_or_else(|| codenano_strand.default_color())
                 .as_int(),
         }
     }
@@ -141,7 +141,7 @@ impl Strand {
                     let position = if h.forward { h.start } else { h.end - 1 };
                     return Some(Nucl {
                         helix: h.helix,
-                        position: position,
+                        position,
                         forward: h.forward,
                     });
                 }
@@ -158,7 +158,7 @@ impl Strand {
                     let position = if h.forward { h.end - 1 } else { h.start };
                     return Some(Nucl {
                         helix: h.helix,
-                        position: position,
+                        position,
                         forward: h.forward,
                     });
                 }
@@ -260,16 +260,14 @@ impl Iterator for DomainIter {
     fn next(&mut self) -> Option<Self::Item> {
         if self.start >= self.end {
             None
+        } else if self.forward {
+            let s = self.start;
+            self.start += 1;
+            Some(s)
         } else {
-            if self.forward {
-                let s = self.start;
-                self.start += 1;
-                Some(s)
-            } else {
-                let s = self.end;
-                self.end -= 1;
-                Some(s - 1)
-            }
+            let s = self.end;
+            self.end -= 1;
+            Some(s - 1)
         }
     }
 }
@@ -362,15 +360,15 @@ impl Helix {
         /*
         let mut roll = codenano_helix.roll.rem_euclid(2. * std::f64::consts::PI);
         if roll > std::f64::consts::PI {
-            roll -= 2. * std::f64::consts::PI;
+        roll -= 2. * std::f64::consts::PI;
         }
         let mut pitch = codenano_helix.pitch.rem_euclid(2. * std::f64::consts::PI);
         if pitch > std::f64::consts::PI {
-            pitch -= 2. * std::f64::consts::PI;
+        pitch -= 2. * std::f64::consts::PI;
         }
         let mut yaw = codenano_helix.yaw.rem_euclid(2. * std::f64::consts::PI);
         if yaw > std::f64::consts::PI {
-            yaw -= 2. * std::f64::consts::PI;
+        yaw -= 2. * std::f64::consts::PI;
         }
         */
         let orientation = Rotor3::from_rotation_xz(-codenano_helix.yaw as f32)

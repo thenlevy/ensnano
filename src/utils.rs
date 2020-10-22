@@ -54,7 +54,7 @@ pub fn phantom_helix_encoder_nucl(
     let max_pos_id = (2 * PHANTOM_RANGE) as u32 * 4 + 3;
     let helix = helix_id * max_pos_id;
     assert!(helix <= 0xFF_FF_FF);
-    helix + pos_id | design_id << 24
+    (helix + pos_id) | (design_id << 24)
 }
 
 pub fn phantom_helix_encoder_bound(
@@ -67,7 +67,7 @@ pub fn phantom_helix_encoder_bound(
     let max_pos_id = (2 * PHANTOM_RANGE) as u32 * 4 + 3;
     let helix = helix_id * max_pos_id;
     assert!(helix <= 0xFF_FF_FF);
-    helix + pos_id | design_id << 24
+    (helix + pos_id) | (design_id << 24)
 }
 
 pub fn phantom_helix_decoder(id: u32) -> PhantomElement {

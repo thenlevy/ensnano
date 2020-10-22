@@ -57,7 +57,7 @@ impl StrandView {
         }
     }
 
-    pub fn update(&mut self, strand: &Strand, helices: &Vec<Helix>) {
+    pub fn update(&mut self, strand: &Strand, helices: &[Helix]) {
         let vertices = strand.to_vertices(helices);
         self.vertex_buffer.update(vertices.vertices.as_slice());
         self.index_buffer.update(vertices.indices.as_slice());

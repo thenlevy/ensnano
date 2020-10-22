@@ -36,7 +36,7 @@ impl View {
         camera: CameraPtr,
     ) -> Self {
         let depth_texture =
-            Texture::create_depth_texture(device.clone().as_ref(), &window_size, SAMPLE_COUNT);
+            Texture::create_depth_texture(device.as_ref(), &window_size, SAMPLE_COUNT);
         let models = DynamicBindGroup::new(device.clone(), queue.clone());
         let globals =
             UniformBindGroup::new(device.clone(), queue.clone(), camera.borrow().get_globals());
@@ -60,11 +60,11 @@ impl View {
             depth_stencil_state.clone(),
         );
         let strand_pipeline =
-            strand_pipeline_descr(&device, globals.get_layout(), depth_stencil_state.clone());
+            strand_pipeline_descr(&device, globals.get_layout(), depth_stencil_state);
 
         Self {
-            device: device.clone(),
-            queue: queue.clone(),
+            device,
+            queue,
             depth_texture,
             helices: Vec::new(),
             strands: Vec::new(),
@@ -98,19 +98,19 @@ impl View {
         self.models.update(self.helices_model.as_slice());
     }
 
-    pub fn update_helices(&mut self, helices: &Vec<Helix>) {
+    pub fn update_helices(&mut self, helices: &[Helix]) {
         for (i, h) in self.helices.iter_mut().enumerate() {
             self.helices_model[i] = helices[i].model();
             h.update(&helices[i])
         }
-        for i in self.helices.len()..helices.len() {
-            self.add_helix(&helices[i])
+        for helix in helices.iter().skip(self.helices.len()) {
+            self.add_helix(helix)
         }
         self.models.update(self.helices_model.as_slice());
         self.was_updated = true;
     }
 
-    pub fn add_strand(&mut self, strand: &Strand, helices: &Vec<Helix>) {
+    pub fn add_strand(&mut self, strand: &Strand, helices: &[Helix]) {
         self.strands
             .push(StrandView::new(self.device.clone(), self.queue.clone()));
         self.strands
@@ -120,12 +120,12 @@ impl View {
             .update(&strand, helices);
     }
 
-    pub fn update_strands(&mut self, strands: &Vec<Strand>, helices: &Vec<Helix>) {
+    pub fn update_strands(&mut self, strands: &[Strand], helices: &[Helix]) {
         for (i, s) in self.strands.iter_mut().enumerate() {
             s.update(&strands[i], helices);
         }
-        for i in self.strands.len()..strands.len() {
-            self.add_strand(&strands[i], helices)
+        for strand in strands.iter().skip(self.strands.len()) {
+            self.add_strand(strand, helices)
         }
         self.was_updated = true;
     }

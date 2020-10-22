@@ -71,7 +71,7 @@ fn none<Label>() -> Option<Label> {
 impl<StrandLabel, DomainLabel> Strand<StrandLabel, DomainLabel> {
     /// Provide a default color to the strand.
     pub fn default_color(&self) -> Color {
-        for domain in self.domains.iter() {
+        if let Some(domain) = self.domains.get(0) {
             let x1 = if domain.forward {
                 domain.end - 1
             } else {
@@ -112,7 +112,7 @@ impl Color {
             Color::Int(n) => n,
             Color::Hex(ref s) => {
                 let s = s.trim_start_matches("0x");
-                let s = s.trim_start_matches("#");
+                let s = s.trim_start_matches('#');
                 u32::from_str_radix(s, 16).unwrap()
             }
             Color::Rgb { r, g, b } => ((r as u32) << 16) | ((g as u32) << 8) | (b as u32),
@@ -229,12 +229,10 @@ impl<Label> Domain<Label> {
     pub fn first_nucl(&self) -> Option<(isize, isize, bool)> {
         if self.start >= self.end {
             None
+        } else if self.forward {
+            Some((self.helix, self.start, self.forward))
         } else {
-            if self.forward {
-                Some((self.helix, self.start, self.forward))
-            } else {
-                Some((self.helix, self.end - 1, self.forward))
-            }
+            Some((self.helix, self.end - 1, self.forward))
         }
     }
 
@@ -243,12 +241,10 @@ impl<Label> Domain<Label> {
     pub fn last_nucl(&self) -> Option<(isize, isize, bool)> {
         if self.start >= self.end {
             None
+        } else if self.forward {
+            Some((self.helix, self.end - 1, self.forward))
         } else {
-            if self.forward {
-                Some((self.helix, self.end - 1, self.forward))
-            } else {
-                Some((self.helix, self.start, self.forward))
-            }
+            Some((self.helix, self.start, self.forward))
         }
     }
 }
@@ -265,16 +261,14 @@ impl Iterator for DomainIter {
     fn next(&mut self) -> Option<Self::Item> {
         if self.start >= self.end {
             None
+        } else if self.forward {
+            let s = self.start;
+            self.start += 1;
+            Some(s)
         } else {
-            if self.forward {
-                let s = self.start;
-                self.start += 1;
-                Some(s)
-            } else {
-                let s = self.end;
-                self.end -= 1;
-                Some(s - 1)
-            }
+            let s = self.end;
+            self.end -= 1;
+            Some(s - 1)
         }
     }
 }

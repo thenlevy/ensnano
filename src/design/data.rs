@@ -149,9 +149,11 @@ impl Data {
                         let basis = dom_seq
                             .as_ref()
                             .and_then(|s| s.as_bytes().get(dom_position))
-                            .or(strand_seq
-                                .as_ref()
-                                .and_then(|s| s.as_bytes().get(strand_position)));
+                            .or_else(|| {
+                                strand_seq
+                                    .as_ref()
+                                    .and_then(|s| s.as_bytes().get(strand_position))
+                            });
                         if let Some(basis) = basis {
                             basis_map.insert(nucl, *basis as char);
                         } else {
@@ -265,7 +267,7 @@ impl Data {
                     let (nucl_a, nucl_b) = self.nucleotides_involved.get(&id)?;
                     let a = self.get_axis_pos(*nucl_a)?;
                     let b = self.get_axis_pos(*nucl_b)?;
-                    Some((Vec3::from(a) + Vec3::from(b)) / 2.)
+                    Some((a + b) / 2.)
                 }
             }
         } else {
@@ -469,13 +471,10 @@ impl Data {
             .get_mut(&identifier.strand)
             .unwrap()
             .domains[identifier.domain];
-        match domain {
-            icednano::Domain::HelixDomain(domain) => {
-                assert!(domain.start == fixed_position || domain.end - 1 == fixed_position);
-                domain.start = start;
-                domain.end = end;
-            }
-            _ => (),
+        if let icednano::Domain::HelixDomain(domain) = domain {
+            assert!(domain.start == fixed_position || domain.end - 1 == fixed_position);
+            domain.start = start;
+            domain.end = end;
         }
         self.hash_maps_update = true;
         self.update_status = true;
@@ -545,7 +544,7 @@ impl Data {
             self.basis_map
                 .get(nucl)
                 .cloned()
-                .or(compl(self.basis_map.get(&nucl.compl()).cloned()))
+                .or_else(|| compl(self.basis_map.get(&nucl.compl()).cloned()))
         })
     }
 
@@ -585,19 +584,20 @@ fn compl(c: Option<char>) -> Option<char> {
 
 /// Create a design by parsing a file
 fn read_file(path: &PathBuf) -> Option<icednano::Design> {
-    let json_str = std::fs::read_to_string(path).expect(&format!("File not found {:?}", path));
+    let json_str =
+        std::fs::read_to_string(path).unwrap_or_else(|_| panic!("File not found {:?}", path));
 
     let design: Result<icednano::Design, _> = serde_json::from_str(&json_str);
     // First try to read icednano format
-    if design.is_ok() {
-        return Some(design.unwrap());
+    if let Ok(design) = design {
+        Some(design)
     } else {
         // If the file is not in icednano format, try the other supported format
         let cdn_design: Result<codenano::Design<(), ()>, _> = serde_json::from_str(&json_str);
 
         // Try codenano format
-        if cdn_design.is_ok() {
-            return Some(icednano::Design::from_codenano(&cdn_design.unwrap()));
+        if let Ok(design) = cdn_design {
+            Some(icednano::Design::from_codenano(&design))
         } else {
             // The file is not in any supported format
             let error_msg = MessageAlert {
@@ -608,7 +608,7 @@ fn read_file(path: &PathBuf) -> Option<icednano::Design> {
             std::thread::spawn(|| {
                 error_msg.show().unwrap_or(());
             });
-            return None;
+            None
         }
     }
 }

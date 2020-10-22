@@ -86,7 +86,7 @@ impl ElementSelector {
                 }
             }
         }
-        return None;
+        None
     }
 
     fn update_fake_pixels(&self, draw_type: DrawType) -> Vec<u8> {

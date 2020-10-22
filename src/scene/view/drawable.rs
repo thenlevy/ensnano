@@ -53,7 +53,7 @@ pub struct Drawer<D: Drawable> {
 impl<D: Drawable> Drawer<D> {
     pub fn new(device: Rc<Device>) -> Self {
         let index_buffer = create_buffer_with_data(
-            device.clone().as_ref(),
+            device.as_ref(),
             bytemuck::cast_slice(D::indices().as_slice()),
             wgpu::BufferUsage::INDEX,
         );
