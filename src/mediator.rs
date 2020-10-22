@@ -23,7 +23,6 @@ pub struct Mediator {
     applications: Vec<Arc<Mutex<dyn Application>>>,
     designs: Vec<Arc<Mutex<Design>>>,
     selection: Selection,
-    new_strand: bool,
     messages: Arc<Mutex<Messages>>,
 }
 
@@ -52,7 +51,6 @@ impl Mediator {
             applications: Vec::new(),
             designs: Vec::new(),
             selection: Selection::Nothing,
-            new_strand: false,
             messages,
         }
     }
@@ -208,5 +206,77 @@ impl Selection {
             Selection::Nucleotide(d, _) => Some(*d),
             Selection::Nothing => None,
         }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SelectionMode {
+    Nucleotide,
+    Design,
+    Strand,
+    Helix,
+}
+
+impl Default for SelectionMode {
+    fn default() -> Self {
+        SelectionMode::Nucleotide
+    }
+}
+
+impl std::fmt::Display for SelectionMode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                SelectionMode::Design => "Design",
+                SelectionMode::Nucleotide => "Nucleotide",
+                SelectionMode::Strand => "Strand",
+                SelectionMode::Helix => "Helix",
+            }
+        )
+    }
+}
+
+impl SelectionMode {
+    pub const ALL: [SelectionMode; 4] = [
+        SelectionMode::Nucleotide,
+        SelectionMode::Design,
+        SelectionMode::Strand,
+        SelectionMode::Helix,
+    ];
+}
+
+/// Describe the action currently done by the user when they click left
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ActionMode {
+    /// User is moving the camera
+    Normal,
+    /// User can translate objects and move the camera
+    Translate,
+    /// User can rotate objects and move the camera
+    Rotate,
+    /// User can elongate/shorten strands
+    Build,
+}
+
+impl Default for ActionMode {
+    fn default() -> Self {
+        ActionMode::Normal
+    }
+}
+
+impl std::fmt::Display for ActionMode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                ActionMode::Normal => "Normal",
+                ActionMode::Translate => "Translate",
+                ActionMode::Rotate => "Rotate",
+                ActionMode::Build => "Build",
+            }
+        )
     }
 }

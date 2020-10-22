@@ -327,6 +327,7 @@ fn main() {
 
                         if let Some(action_mode) = requests.action_mode {
                             scene.lock().unwrap().change_action_mode(action_mode);
+                            flat_scene.lock().unwrap().change_action_mode(action_mode);
                             requests.action_mode = None;
                         }
 

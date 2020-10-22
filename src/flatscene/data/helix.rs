@@ -16,6 +16,7 @@ pub struct Helix {
     /// The first nucleotide that is not drawn
     right: isize,
     isometry: Isometry2,
+    old_isometry: Isometry2,
     scale: f32,
     color: u32,
     z_index: i32,
@@ -41,6 +42,7 @@ impl Helix {
             left,
             right,
             isometry: Isometry2::new(position, Rotor2::identity()),
+            old_isometry: Isometry2::new(position, Rotor2::identity()),
             scale: 1f32,
             color: 0xFF_4A4946,
             z_index: 0,
@@ -105,12 +107,18 @@ impl Helix {
                 Vec2::unit_y()
             };
 
-        self.isometry * (self.scale * local_position)
+        self.isometry
+            .into_homogeneous_matrix()
+            .transform_point2(self.scale * local_position)
     }
 
     /// Return the nucleotide displayed at position (x, y) or None if (x, y) is outside the helix
     pub fn get_click(&self, x: f32, y: f32) -> Option<(isize, bool)> {
-        let click = self.isometry.inversed() * Vec2::new(x, y);
+        let click = {
+            let ret = Vec2::new(x, y);
+            let iso = self.isometry.inversed().into_homogeneous_matrix();
+            iso.transform_point2(ret)
+        };
         let forward = if click.y >= 0. && click.y <= 1. {
             Some(true)
         } else if click.y >= 1. && click.y <= 2. {
@@ -130,14 +138,29 @@ impl Helix {
         self.isometry.translation
     }
 
-    pub fn set_position(&mut self, position: Vec2) {
-        self.isometry.translation = position
+    pub fn translate(&mut self, translation: Vec2) {
+        self.isometry.translation = self.old_isometry.translation + translation
+    }
+
+    pub fn rotate(&mut self, pivot: Vec2, angle: f32) {
+        self.isometry = self.old_isometry;
+        self.isometry.append_translation(-pivot);
+        self.isometry
+            .append_rotation(ultraviolet::Rotor2::from_angle(angle));
+        self.isometry.append_translation(pivot);
+    }
+
+    pub fn get_pivot(&self, position: isize) -> Vec2 {
+        self.isometry * (self.scale * Vec2::new(position as f32, 1.))
+    }
+
+    pub fn end_movement(&mut self) {
+        self.old_isometry = self.isometry
     }
 
     pub fn set_color(&mut self, color: u32) {
         self.color = color
     }
-
 }
 
 pub enum Extremity {

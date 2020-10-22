@@ -63,7 +63,12 @@ impl Texture {
         }
     }
 
-    pub fn create_msaa_texture(device: &wgpu::Device, size: &PhySize, sample_count: u32, format: wgpu::TextureFormat) -> wgpu::TextureView {
+    pub fn create_msaa_texture(
+        device: &wgpu::Device,
+        size: &PhySize,
+        sample_count: u32,
+        format: wgpu::TextureFormat,
+    ) -> wgpu::TextureView {
         let multisampled_frame_descriptor = &wgpu::TextureDescriptor {
             label: Some("Multisampled frame descriptor"),
             size: wgpu::Extent3d {
@@ -81,6 +86,5 @@ impl Texture {
         device
             .create_texture(multisampled_frame_descriptor)
             .create_view(&wgpu::TextureViewDescriptor::default())
-
     }
 }

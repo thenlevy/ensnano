@@ -10,7 +10,9 @@ use ultraviolet::{Mat4, Rotor3, Vec3};
 use crate::{design, mediator, utils};
 use crate::{DrawArea, PhySize, WindowEvent};
 use instance::Instance;
-use mediator::{AppNotification, Application, MediatorPtr, Notification, Selection};
+use mediator::{
+    ActionMode, AppNotification, Application, MediatorPtr, Notification, Selection, SelectionMode,
+};
 use utils::{instance, BufferDimensions};
 use wgpu::{Device, Queue};
 use winit::dpi::PhysicalPosition;
@@ -31,7 +33,6 @@ use controller::{Consequence, Controller};
 mod data;
 pub use controller::ClickMode;
 use data::Data;
-pub use data::{ActionMode, SelectionMode};
 use design::{
     Design, DesignNotification, DesignNotificationContent, DesignRotation, IsometryTarget,
 };

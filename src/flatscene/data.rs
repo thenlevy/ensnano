@@ -16,7 +16,6 @@ pub struct Data {
     instance_update: bool,
     helices: Vec<Helix>,
     selected_helix: Option<usize>,
-    old_position: Option<Vec2>,
 }
 
 impl Data {
@@ -27,7 +26,6 @@ impl Data {
             instance_update: true,
             helices: Vec::new(),
             selected_helix: None,
-            old_position: None,
         }
     }
 
@@ -63,13 +61,17 @@ impl Data {
             let ret = h.get_click(x, y).map(|(position, forward)| Nucl {
                 helix: h_id,
                 position,
-                forward
+                forward,
             });
             if ret.is_some() {
-                return ret
+                return ret;
             }
         }
         None
+    }
+
+    pub fn get_pivot_position(&self, helix: usize, position: isize) -> Option<Vec2> {
+        self.helices.get(helix).map(|h| h.get_pivot(position))
     }
 
     pub fn set_selected_helix(&mut self, helix: Option<usize>) {
@@ -77,7 +79,6 @@ impl Data {
             self.helices[h].set_color(0);
         }
         self.selected_helix = helix;
-        self.old_position = helix.map(|h| self.helices[h].get_position());
         if let Some(h) = helix {
             self.helices[h].set_color(0xFF_00_00);
         }
@@ -86,9 +87,21 @@ impl Data {
 
     pub fn translate_helix(&mut self, translation: Vec2) {
         if let Some(h) = self.selected_helix {
-            let position = self.old_position.unwrap() + translation;
-            self.helices[h].set_position(position);
+            self.helices[h].translate(translation);
             self.instance_update = true;
+        }
+    }
+
+    pub fn rotate_helix(&mut self, pivot: Vec2, angle: f32) {
+        if let Some(h) = self.selected_helix {
+            self.helices[h].rotate(pivot, angle);
+            self.instance_update = true;
+        }
+    }
+
+    pub fn end_movement(&mut self) {
+        for h in self.helices.iter_mut() {
+            h.end_movement()
         }
     }
 }

@@ -11,7 +11,7 @@ use native_dialog::Dialog;
 
 use color_space::{Hsv, Rgb};
 
-use crate::scene::{ActionMode, SelectionMode};
+use crate::mediator::{ActionMode, SelectionMode};
 
 use super::Requests;
 mod color_picker;

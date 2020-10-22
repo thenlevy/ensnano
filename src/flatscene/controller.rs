@@ -1,5 +1,6 @@
 use super::{CameraPtr, DataPtr, PhySize, PhysicalPosition, ViewPtr, WindowEvent};
 use iced_winit::winit::event::*;
+use ultraviolet::Vec2;
 
 const NO_POS: PhysicalPosition<f64> = PhysicalPosition::new(f64::NAN, f64::NAN);
 
@@ -18,10 +19,10 @@ pub enum Consequence {
     #[allow(dead_code)]
     GlobalsChanged,
     Nothing,
-    #[allow(dead_code)]
     MovementEnded,
     Clicked(f32, f32),
     Translated(f32, f32),
+    Rotated(Vec2, f32),
 }
 
 impl Controller {
@@ -60,18 +61,16 @@ impl Controller {
                 ..
             } => {
                 if *state == ElementState::Released {
-                    let attempt_select = position_difference(self.last_left_clicked_position.unwrap_or(NO_POS), self.mouse_position) < 5.;
                     self.last_left_clicked_position = None;
                     self.camera.borrow_mut().end_movement();
-                    if attempt_select {
-                        let (x, y) = self.camera.borrow().screen_to_world(self.mouse_position.x as f32, self.mouse_position.y as f32);
-                        Consequence::Clicked(x, y)
-                    } else {
-                        Consequence::Nothing
-                    }
+                    Consequence::MovementEnded
                 } else {
                     self.last_left_clicked_position = Some(self.mouse_position);
-                    Consequence::Nothing
+                    let (x, y) = self.camera.borrow().screen_to_world(
+                        self.mouse_position.x as f32,
+                        self.mouse_position.y as f32,
+                    );
+                    Consequence::Clicked(x, y)
                 }
             }
             WindowEvent::CursorMoved { .. } => {
@@ -79,21 +78,44 @@ impl Controller {
                 if let Some(clicked_position) = self.last_left_clicked_position {
                     match self.state {
                         State::Normal => {
-                            let mouse_dx = (position.x - clicked_position.x) / self.area_size.width as f64;
-                            let mouse_dy = (position.y - clicked_position.y) / self.area_size.height as f64;
+                            let mouse_dx =
+                                (position.x - clicked_position.x) / self.area_size.width as f64;
+                            let mouse_dy =
+                                (position.y - clicked_position.y) / self.area_size.height as f64;
                             self.camera
-                            .borrow_mut()
-                            .process_mouse(mouse_dx as f32, mouse_dy as f32);
+                                .borrow_mut()
+                                .process_mouse(mouse_dx as f32, mouse_dy as f32);
                             Consequence::Nothing
                         }
                         State::Translating => {
                             let (mouse_dx, mouse_dy) = {
-                                let (x, y) = self.camera.borrow().screen_to_world(position.x as f32, position.y as f32);
-                                let (old_x, old_y) = self.camera.borrow().screen_to_world(clicked_position.x as f32, clicked_position.y as f32);
+                                let (x, y) = self
+                                    .camera
+                                    .borrow()
+                                    .screen_to_world(position.x as f32, position.y as f32);
+                                let (old_x, old_y) = self.camera.borrow().screen_to_world(
+                                    clicked_position.x as f32,
+                                    clicked_position.y as f32,
+                                );
                                 (x - old_x, y - old_y)
                             };
 
                             Consequence::Translated(mouse_dx as f32, mouse_dy as f32)
+                        }
+                        State::Rotating(pivot) => {
+                            let angle = {
+                                let (x, y) = self
+                                    .camera
+                                    .borrow()
+                                    .screen_to_world(position.x as f32, position.y as f32);
+                                let (old_x, old_y) = self.camera.borrow().screen_to_world(
+                                    clicked_position.x as f32,
+                                    clicked_position.y as f32,
+                                );
+                                (y - pivot.y).atan2(x - pivot.x)
+                                    - (old_y - pivot.y).atan2(old_x - pivot.x)
+                            };
+                            Consequence::Rotated(pivot, angle)
                         }
                     }
                 } else {
@@ -117,7 +139,7 @@ impl Controller {
                     self.camera.borrow_mut().zoom_out();
                     Consequence::Nothing
                 }
-                _ => Consequence::Nothing ,
+                _ => Consequence::Nothing,
             },
             _ => Consequence::Nothing,
         }
@@ -125,17 +147,21 @@ impl Controller {
 
     pub fn notify_select(&mut self) {
         self.state = State::Translating
-    } 
+    }
+
+    pub fn set_pivot(&mut self, pivot: Vec2) {
+        self.state = State::Rotating(pivot)
+    }
 
     pub fn notify_unselect(&mut self) {
         self.state = State::Normal
     }
-    
 }
 
 enum State {
     Normal,
     Translating,
+    Rotating(Vec2),
 }
 
 fn position_difference(a: PhysicalPosition<f64>, b: PhysicalPosition<f64>) -> f64 {

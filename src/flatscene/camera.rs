@@ -70,8 +70,12 @@ impl Camera {
     pub fn screen_to_world(&self, x_screen: f32, y_screen: f32) -> (f32, f32) {
         let x_ndc = 2. * x_screen / self.globals.resolution[0] - 1.;
         let y_ndc = 2. * y_screen / self.globals.resolution[1] - 1.;
-        (x_ndc * self.globals.resolution[0] / (2. * self.globals.zoom) + self.globals.scroll_offset[0],
-         y_ndc * self.globals.resolution[1] / (2. * self.globals.zoom) + self.globals.scroll_offset[1])
+        (
+            x_ndc * self.globals.resolution[0] / (2. * self.globals.zoom)
+                + self.globals.scroll_offset[0],
+            y_ndc * self.globals.resolution[1] / (2. * self.globals.zoom)
+                + self.globals.scroll_offset[1],
+        )
     }
 }
 

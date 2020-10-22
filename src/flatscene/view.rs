@@ -35,7 +35,8 @@ impl View {
         window_size: PhySize,
         camera: CameraPtr,
     ) -> Self {
-        let depth_texture = Texture::create_depth_texture(device.clone().as_ref(), &window_size, SAMPLE_COUNT);
+        let depth_texture =
+            Texture::create_depth_texture(device.clone().as_ref(), &window_size, SAMPLE_COUNT);
         let models = DynamicBindGroup::new(device.clone(), queue.clone());
         let globals =
             UniformBindGroup::new(device.clone(), queue.clone(), camera.borrow().get_globals());
@@ -126,6 +127,7 @@ impl View {
         for i in self.strands.len()..strands.len() {
             self.add_strand(&strands[i], helices)
         }
+        self.was_updated = true;
     }
 
     pub fn needs_redraw(&self) -> bool {
@@ -149,7 +151,12 @@ impl View {
         };
 
         let msaa_texture = if SAMPLE_COUNT > 1 {
-            Some(crate::utils::texture::Texture::create_msaa_texture(self.device.clone().as_ref(), &self.window_size, SAMPLE_COUNT, wgpu::TextureFormat::Bgra8UnormSrgb))
+            Some(crate::utils::texture::Texture::create_msaa_texture(
+                self.device.clone().as_ref(),
+                &self.window_size,
+                SAMPLE_COUNT,
+                wgpu::TextureFormat::Bgra8UnormSrgb,
+            ))
         } else {
             None
         };

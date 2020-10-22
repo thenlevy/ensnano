@@ -5,7 +5,7 @@ use crate::mediator;
 use crate::{DrawArea, PhySize, WindowEvent};
 use iced_wgpu::wgpu;
 use iced_winit::winit;
-use mediator::{Application, Notification};
+use mediator::{ActionMode, Application, Notification};
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
@@ -34,6 +34,7 @@ pub struct FlatScene {
     selected_design: usize,
     device: Rc<Device>,
     queue: Rc<Queue>,
+    action_mode: ActionMode,
 }
 
 impl FlatScene {
@@ -47,6 +48,7 @@ impl FlatScene {
             selected_design: 0,
             device,
             queue,
+            action_mode: ActionMode::Normal,
         }
     }
 
@@ -97,24 +99,51 @@ impl FlatScene {
         }
     }
 
+    pub fn change_action_mode(&mut self, action_mode: ActionMode) {
+        self.action_mode = action_mode
+    }
+
     pub fn input(&mut self, event: &WindowEvent, cursor_position: PhysicalPosition<f64>) {
         if let Some(controller) = self.controller.get_mut(self.selected_design) {
             let consequence = controller.input(event, cursor_position);
             use controller::Consequence::*;
             match consequence {
-                Clicked(x, y) => {
-                    let nucl = self.data[self.selected_design].borrow().get_click(x, y);
-                    self.data[self.selected_design].borrow_mut().set_selected_helix(nucl.map(|n| n.helix));
-                    if nucl.is_some() {
-                        self.controller[self.selected_design].notify_select()
-                    } else {
-                        self.controller[self.selected_design].notify_unselect()
+                Clicked(x, y) => match self.action_mode {
+                    ActionMode::Rotate => {
+                        let nucl = self.data[self.selected_design].borrow().get_click(x, y);
+                        self.data[self.selected_design]
+                            .borrow_mut()
+                            .set_selected_helix(nucl.map(|n| n.helix));
+                        if let Some(nucl) = nucl {
+                            let pivot = self.data[self.selected_design]
+                                .borrow()
+                                .get_pivot_position(nucl.helix, nucl.position);
+                            self.controller[self.selected_design].set_pivot(pivot.unwrap())
+                        } else {
+                            self.controller[self.selected_design].notify_unselect()
+                        }
                     }
-                }
-                Translated(x, y) => {
-                    self.data[self.selected_design].borrow_mut().translate_helix(ultraviolet::Vec2::new(x, y))
-                }
-                _ => ()
+                    ActionMode::Translate => {
+                        let nucl = self.data[self.selected_design].borrow().get_click(x, y);
+                        self.data[self.selected_design]
+                            .borrow_mut()
+                            .set_selected_helix(nucl.map(|n| n.helix));
+                        if nucl.is_some() {
+                            self.controller[self.selected_design].notify_select()
+                        } else {
+                            self.controller[self.selected_design].notify_unselect()
+                        }
+                    }
+                    _ => (),
+                },
+                Translated(x, y) => self.data[self.selected_design]
+                    .borrow_mut()
+                    .translate_helix(ultraviolet::Vec2::new(x, y)),
+                Rotated(pivot, angle) => self.data[self.selected_design]
+                    .borrow_mut()
+                    .rotate_helix(pivot, angle),
+                MovementEnded => self.data[self.selected_design].borrow_mut().end_movement(),
+                _ => (),
             }
         }
     }
@@ -129,7 +158,6 @@ impl FlatScene {
             false
         }
     }
-
 }
 
 impl Application for FlatScene {

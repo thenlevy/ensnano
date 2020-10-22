@@ -5,7 +5,7 @@ pub use top_bar::TopBar;
 pub mod left_panel;
 pub use left_panel::LeftPanel;
 
-use crate::scene::{ActionMode, SelectionMode};
+use crate::mediator::{ActionMode, SelectionMode};
 use std::path::PathBuf;
 
 /// A structure that contains all the requests that can be made through the GUI.
