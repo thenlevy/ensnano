@@ -99,64 +99,37 @@ impl FlatScene {
 
     pub fn input(&mut self, event: &WindowEvent, cursor_position: PhysicalPosition<f64>) {
         if let Some(controller) = self.controller.get_mut(self.selected_design) {
-            controller.input(event, cursor_position);
+            let consequence = controller.input(event, cursor_position);
+            use controller::Consequence::*;
+            match consequence {
+                Clicked(x, y) => {
+                    let nucl = self.data[self.selected_design].borrow().get_click(x, y);
+                    self.data[self.selected_design].borrow_mut().set_selected_helix(nucl.map(|n| n.helix));
+                    if nucl.is_some() {
+                        self.controller[self.selected_design].notify_select()
+                    } else {
+                        self.controller[self.selected_design].notify_unselect()
+                    }
+                }
+                Translated(x, y) => {
+                    self.data[self.selected_design].borrow_mut().translate_helix(ultraviolet::Vec2::new(x, y))
+                }
+                _ => ()
+            }
         }
     }
 
     pub fn needs_redraw(&self) -> bool {
         if let Some(view) = self.view.get(self.selected_design) {
+            self.data[self.selected_design]
+                .borrow_mut()
+                .perform_update();
             view.borrow().needs_redraw()
         } else {
             false
         }
     }
 
-    /*
-    fn test(&mut self) {
-        let helices = vec![
-            Helix::new(3, 10, ultraviolet::Vec2::new(0., 0.)),
-            Helix::new(3, 30, ultraviolet::Vec2::new(0., -3.)),
-            Helix::new(3, 45, ultraviolet::Vec2::new(0., 3.)),
-        ];
-        self.view
-            .borrow_mut()
-            .add_helix(Helix::new(3, 10, ultraviolet::Vec2::new(0., 0.)));
-        self.view
-            .borrow_mut()
-            .add_helix(Helix::new(3, 30, ultraviolet::Vec2::new(0., -3.)));
-        self.view
-            .borrow_mut()
-            .add_helix(Helix::new(3, 45, ultraviolet::Vec2::new(0., 3.)));
-        self.view.borrow_mut().add_strand(
-            Strand {
-                color: 0xFF_ABCDEF,
-                points: vec![
-                    Nucl {
-                        helix: 0,
-                        position: 0,
-                        forward: true,
-                    },
-                    Nucl {
-                        helix: 0,
-                        position: 10,
-                        forward: true,
-                    },
-                    Nucl {
-                        helix: 1,
-                        position: 10,
-                        forward: false,
-                    },
-                    Nucl {
-                        helix: 1,
-                        position: 5,
-                        forward: false,
-                    },
-                ],
-            },
-            &helices,
-        );
-    }
-    */
 }
 
 impl Application for FlatScene {

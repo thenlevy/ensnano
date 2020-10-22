@@ -99,11 +99,14 @@ impl View {
 
     pub fn update_helices(&mut self, helices: &Vec<Helix>) {
         for (i, h) in self.helices.iter_mut().enumerate() {
+            self.helices_model[i] = helices[i].model();
             h.update(&helices[i])
         }
         for i in self.helices.len()..helices.len() {
             self.add_helix(&helices[i])
         }
+        self.models.update(self.helices_model.as_slice());
+        self.was_updated = true;
     }
 
     pub fn add_strand(&mut self, strand: &Strand, helices: &Vec<Helix>) {
@@ -126,7 +129,7 @@ impl View {
     }
 
     pub fn needs_redraw(&self) -> bool {
-        self.camera.borrow().was_updated()
+        self.camera.borrow().was_updated() | self.was_updated
     }
 
     pub fn draw(

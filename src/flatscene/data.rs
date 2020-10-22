@@ -15,6 +15,8 @@ pub struct Data {
     design: Design2d,
     instance_update: bool,
     helices: Vec<Helix>,
+    selected_helix: Option<usize>,
+    old_position: Option<Vec2>,
 }
 
 impl Data {
@@ -24,6 +26,8 @@ impl Data {
             design: Design2d::new(design),
             instance_update: true,
             helices: Vec::new(),
+            selected_helix: None,
+            old_position: None,
         }
     }
 
@@ -51,6 +55,40 @@ impl Data {
                 h.right,
                 (3. * (delta + nb_helix) as f32) * Vec2::unit_y(),
             ))
+        }
+    }
+
+    pub fn get_click(&self, x: f32, y: f32) -> Option<Nucl> {
+        for (h_id, h) in self.helices.iter().enumerate() {
+            let ret = h.get_click(x, y).map(|(position, forward)| Nucl {
+                helix: h_id,
+                position,
+                forward
+            });
+            if ret.is_some() {
+                return ret
+            }
+        }
+        None
+    }
+
+    pub fn set_selected_helix(&mut self, helix: Option<usize>) {
+        if let Some(h) = self.selected_helix {
+            self.helices[h].set_color(0);
+        }
+        self.selected_helix = helix;
+        self.old_position = helix.map(|h| self.helices[h].get_position());
+        if let Some(h) = helix {
+            self.helices[h].set_color(0xFF_00_00);
+        }
+        self.instance_update = true;
+    }
+
+    pub fn translate_helix(&mut self, translation: Vec2) {
+        if let Some(h) = self.selected_helix {
+            let position = self.old_position.unwrap() + translation;
+            self.helices[h].set_position(position);
+            self.instance_update = true;
         }
     }
 }

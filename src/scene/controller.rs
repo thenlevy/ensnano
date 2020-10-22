@@ -363,6 +363,7 @@ impl Controller {
             self.mouse_position,
         ) < 5.
         {
+            // self.last_left_clicked_position = None; TODO determine if I should uncomment this???
             return Consequence::PixelSelected(self.last_left_clicked_position.take().unwrap());
         } else {
             released = true;

@@ -107,6 +107,37 @@ impl Helix {
 
         self.isometry * (self.scale * local_position)
     }
+
+    /// Return the nucleotide displayed at position (x, y) or None if (x, y) is outside the helix
+    pub fn get_click(&self, x: f32, y: f32) -> Option<(isize, bool)> {
+        let click = self.isometry.inversed() * Vec2::new(x, y);
+        let forward = if click.y >= 0. && click.y <= 1. {
+            Some(true)
+        } else if click.y >= 1. && click.y <= 2. {
+            Some(false)
+        } else {
+            None
+        }?;
+        let position = click.x.floor() as isize;
+        if position >= self.left && position <= self.right {
+            Some((position, forward))
+        } else {
+            None
+        }
+    }
+
+    pub fn get_position(&self) -> Vec2 {
+        self.isometry.translation
+    }
+
+    pub fn set_position(&mut self, position: Vec2) {
+        self.isometry.translation = position
+    }
+
+    pub fn set_color(&mut self, color: u32) {
+        self.color = color
+    }
+
 }
 
 pub enum Extremity {
