@@ -99,7 +99,7 @@ impl Projection {
 
 pub struct CameraController {
     speed: f32,
-    sensitivity: f32,
+    pub sensitivity: f32,
     amount_up: f32,
     amount_down: f32,
     amount_left: f32,

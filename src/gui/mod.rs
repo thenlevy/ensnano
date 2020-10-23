@@ -30,6 +30,8 @@ pub struct Requests {
     pub toggle_text: Option<bool>,
     /// A request to change the view
     pub toggle_scene: Option<bool>,
+    /// A request to change the sensitivity of scrolling
+    pub scroll_sensitivity: Option<f32>,
 }
 
 impl Requests {
@@ -46,6 +48,7 @@ impl Requests {
             sequence_change: None,
             toggle_text: None,
             toggle_scene: None,
+            scroll_sensitivity: None,
         }
     }
 }

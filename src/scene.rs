@@ -330,6 +330,10 @@ impl Scene {
     pub fn change_action_mode(&mut self, action_mode: ActionMode) {
         self.data.borrow_mut().change_action_mode(action_mode)
     }
+
+    pub fn change_sensitivity(&mut self, sensitivity: f32) {
+        self.controller.change_sensitivity(sensitivity)
+    }
 }
 
 /// A structure that stores the element that needs to be updated in a scene

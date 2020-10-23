@@ -88,7 +88,7 @@ impl Controller {
     pub fn new(view: ViewPtr, data: DataPtr, window_size: PhySize, area_size: PhySize) -> Self {
         let camera_controller = {
             let view = view.borrow();
-            CameraController::new(4.0, 0.04, view.get_camera(), view.get_projection())
+            CameraController::new(4.0, BASE_SCROLL_SENSITIVITY, view.get_camera(), view.get_projection())
         };
         Self {
             view,
@@ -383,6 +383,10 @@ impl Controller {
             self.mouse_position.x / self.area_size.width as f64,
             self.mouse_position.y / self.area_size.height as f64,
         )
+    }
+
+    pub fn change_sensitivity(&mut self, sensitivity: f32) {
+        self.camera_controller.sensitivity = 10f32.powf(sensitivity / 10.) * BASE_SCROLL_SENSITIVITY
     }
 }
 
