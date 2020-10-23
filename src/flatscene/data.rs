@@ -74,6 +74,18 @@ impl Data {
         self.helices.get(helix).map(|h| h.get_pivot(position))
     }
 
+    /// If (x, y) is on a nucleotide, select, the corresponding helix, and return a pivot on the
+    /// corresponding nucleotide. Otherwise, clear the selection and return `None`.
+    pub fn request_pivot(&mut self, x: f32, y: f32) -> Option<Vec2> {
+        if let Some(nucl) = self.get_click(x, y) {
+            self.set_selected_helix(Some(nucl.helix));
+            self.get_pivot_position(nucl.helix, nucl.position)
+        } else {
+            self.set_selected_helix(None);
+            None
+        }
+    }
+
     pub fn set_selected_helix(&mut self, helix: Option<usize>) {
         if let Some(h) = self.selected_helix {
             self.helices[h].set_color(0);

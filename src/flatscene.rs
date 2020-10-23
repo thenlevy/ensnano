@@ -25,12 +25,19 @@ type ViewPtr = Rc<RefCell<View>>;
 type DataPtr = Rc<RefCell<Data>>;
 type CameraPtr = Rc<RefCell<Camera>>;
 
+/// A Flatscene handles one design at a time
 pub struct FlatScene {
+    /// Handle the data to send to the GPU
     view: Vec<ViewPtr>,
+    /// Handle the data representing the design
     data: Vec<DataPtr>,
+    /// Handle the inputs
     controller: Vec<Controller>,
+    /// The area on which the flatscene is displayed
     area: DrawArea,
+    /// The size of the window on which the flatscene is displayed
     window_size: PhySize,
+    /// The identifer of the design being drawn
     selected_design: usize,
     device: Rc<Device>,
     queue: Rc<Queue>,
@@ -52,6 +59,7 @@ impl FlatScene {
         }
     }
 
+    /// Add a design to the scene. This creates a new `View`, a new `Data` and a new `Controller`
     pub fn add_design(&mut self, design: Arc<Mutex<Design>>) {
         let globals = Globals {
             resolution: [self.area.size.width as f32, self.area.size.height as f32],
@@ -79,6 +87,7 @@ impl FlatScene {
         self.controller.push(controller);
     }
 
+    /// Draw the view of the currently selected design
     pub fn draw_view(&mut self, encoder: &mut wgpu::CommandEncoder, target: &wgpu::TextureView) {
         if let Some(view) = self.view.get(self.selected_design) {
             self.data[self.selected_design]
@@ -88,6 +97,7 @@ impl FlatScene {
         }
     }
 
+    /// This function must be called when the drawing area of the flatscene is modified
     pub fn resize(&mut self, window_size: PhySize, area: DrawArea) {
         self.window_size = window_size;
         self.area = area;
@@ -99,10 +109,12 @@ impl FlatScene {
         }
     }
 
+    /// Change the action beign performed by the user
     pub fn change_action_mode(&mut self, action_mode: ActionMode) {
         self.action_mode = action_mode
     }
 
+    /// Handle an input that happend while the cursor was on the flatscene drawing area
     pub fn input(&mut self, event: &WindowEvent, cursor_position: PhysicalPosition<f64>) {
         if let Some(controller) = self.controller.get_mut(self.selected_design) {
             let consequence = controller.input(event, cursor_position);
@@ -148,6 +160,7 @@ impl FlatScene {
         }
     }
 
+    /// Ask the view if it has been modified since the last drawing
     pub fn needs_redraw(&self) -> bool {
         if let Some(view) = self.view.get(self.selected_design) {
             self.data[self.selected_design]
