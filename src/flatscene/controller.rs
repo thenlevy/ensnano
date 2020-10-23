@@ -7,6 +7,7 @@
 use super::{CameraPtr, DataPtr, PhySize, PhysicalPosition, ViewPtr, WindowEvent};
 use iced_winit::winit::event::*;
 use ultraviolet::Vec2;
+use std::cell::RefCell;
 
 pub struct Controller {
     #[allow(dead_code)]
@@ -19,7 +20,7 @@ pub struct Controller {
     window_size: PhySize,
     area_size: PhySize,
     camera: CameraPtr,
-    state: State,
+    state: RefCell<Box<dyn ControllerState>>,
 }
 
 pub enum Consequence {
@@ -49,7 +50,9 @@ impl Controller {
             last_right_clicked_position: None,
             mouse_position: PhysicalPosition::new(-1., -1.),
             camera,
-            state: State::Normal,
+            state: RefCell::new(Box::new(NormalState {
+                mouse_position: PhysicalPosition::new(-1., -1.)
+            })),
         }
     }
 
@@ -62,97 +65,15 @@ impl Controller {
     }
 
     pub fn input(&mut self, event: &WindowEvent, position: PhysicalPosition<f64>) -> Consequence {
-        match event {
-            WindowEvent::MouseInput {
-                button: MouseButton::Left,
-                state,
-                ..
-            } => {
-                if *state == ElementState::Released {
-                    self.last_left_clicked_position = None;
-                    self.camera.borrow_mut().end_movement();
-                    Consequence::MovementEnded
-                } else {
-                    self.last_left_clicked_position = Some(self.mouse_position);
-                    let (x, y) = self.camera.borrow().screen_to_world(
-                        self.mouse_position.x as f32,
-                        self.mouse_position.y as f32,
-                    );
-                    Consequence::Clicked(x, y)
-                }
-            }
-            WindowEvent::CursorMoved { .. } => {
-                self.mouse_position = position;
-                if let Some(clicked_position) = self.last_left_clicked_position {
-                    match self.state {
-                        State::Normal => {
-                            let mouse_dx =
-                                (position.x - clicked_position.x) / self.area_size.width as f64;
-                            let mouse_dy =
-                                (position.y - clicked_position.y) / self.area_size.height as f64;
-                            self.camera
-                                .borrow_mut()
-                                .process_mouse(mouse_dx as f32, mouse_dy as f32);
-                            Consequence::Nothing
-                        }
-                        State::Translating => {
-                            let (mouse_dx, mouse_dy) = {
-                                let (x, y) = self
-                                    .camera
-                                    .borrow()
-                                    .screen_to_world(position.x as f32, position.y as f32);
-                                let (old_x, old_y) = self.camera.borrow().screen_to_world(
-                                    clicked_position.x as f32,
-                                    clicked_position.y as f32,
-                                );
-                                (x - old_x, y - old_y)
-                            };
-
-                            Consequence::Translated(mouse_dx as f32, mouse_dy as f32)
-                        }
-                        State::Rotating(pivot) => {
-                            let angle = {
-                                let (x, y) = self
-                                    .camera
-                                    .borrow()
-                                    .screen_to_world(position.x as f32, position.y as f32);
-                                let (old_x, old_y) = self.camera.borrow().screen_to_world(
-                                    clicked_position.x as f32,
-                                    clicked_position.y as f32,
-                                );
-                                (y - pivot.y).atan2(x - pivot.x)
-                                    - (old_y - pivot.y).atan2(old_x - pivot.x)
-                            };
-                            Consequence::Rotated(pivot, angle)
-                        }
-                    }
-                } else {
-                    Consequence::Nothing
-                }
-            }
-            WindowEvent::KeyboardInput {
-                input:
-                    KeyboardInput {
-                        virtual_keycode: Some(key),
-                        state: ElementState::Pressed,
-                        ..
-                    },
-                ..
-            } => match *key {
-                VirtualKeyCode::Up => {
-                    self.camera.borrow_mut().zoom_in();
-                    Consequence::Nothing
-                }
-                VirtualKeyCode::Down => {
-                    self.camera.borrow_mut().zoom_out();
-                    Consequence::Nothing
-                }
-                _ => Consequence::Nothing,
-            },
-            _ => Consequence::Nothing,
+        let transition = self.state.borrow_mut().input(event, position, self);
+        if let Some(state) = transition.new_state {
+            println!("{}", state.display());
+            self.state = RefCell::new(state)
         }
+        transition.consequences
     }
 
+    /*
     pub fn notify_select(&mut self) {
         self.state = State::Translating
     }
@@ -163,7 +84,7 @@ impl Controller {
 
     pub fn notify_unselect(&mut self) {
         self.state = State::Normal
-    }
+    }*/
 
     pub fn process_keyboard(&self, event: &WindowEvent) {
         if let WindowEvent::KeyboardInput {
@@ -216,6 +137,8 @@ trait ControllerState {
         position: PhysicalPosition<f64>,
         controller: &Controller,
     ) -> Transition;
+
+    fn display(&self) -> String;
 }
 
 struct NormalState {
@@ -223,6 +146,10 @@ struct NormalState {
 }
 
 impl ControllerState for NormalState {
+    fn display(&self) -> String {
+        String::from("Normal state")
+    }
+
     fn input(
         &mut self,
         event: &WindowEvent,
@@ -257,7 +184,7 @@ impl ControllerState for NormalState {
                     Transition {
                         new_state: Some(Box::new(MovingCamera {
                             mouse_position: self.mouse_position,
-                            clicked_position_screen: Vec2::new(self.mouse_position.x as f32, self.mouse_position.y as f32),
+                            clicked_position_screen: self.mouse_position,
                             pivot: None,
                         })),
                         consequences: Consequence::Nothing,
@@ -284,6 +211,9 @@ struct Translating {
 }
 
 impl ControllerState for Translating {
+    fn display(&self) -> String {
+        String::from("Translating state")
+    }
     fn input(
         &mut self,
         event: &WindowEvent,
@@ -300,6 +230,7 @@ impl ControllerState for Translating {
                     *state == ElementState::Released,
                     "Pressed mouse button in translating mode"
                 );
+                controller.data.borrow_mut().end_movement();
                 Transition {
                     new_state: Some(Box::new(ReleasedPivot {
                         mouse_position: self.mouse_position,
@@ -334,11 +265,14 @@ impl ControllerState for Translating {
 
 struct MovingCamera {
     mouse_position: PhysicalPosition<f64>,
-    clicked_position_screen: Vec2,
+    clicked_position_screen: PhysicalPosition<f64>,
     pivot: Option<Vec2>,
 }
 
 impl ControllerState for MovingCamera {
+    fn display(&self) -> String {
+        String::from("Moving camera")
+    }
     fn input(
         &mut self,
         event: &WindowEvent,
@@ -355,6 +289,7 @@ impl ControllerState for MovingCamera {
                     *state == ElementState::Released,
                     "Pressed mouse button in translating mode"
                 );
+                controller.camera.borrow_mut().end_movement();
                 Transition {
                     new_state: Some(Box::new(NormalState {
                         mouse_position: self.mouse_position,
@@ -365,9 +300,9 @@ impl ControllerState for MovingCamera {
             WindowEvent::CursorMoved { .. } => {
                 self.mouse_position = position;
                 let mouse_dx =
-                    (position.x as f32 - self.clicked_position_screen.x) / controller.area_size.width as f32;
+                    (position.x as f32 - self.clicked_position_screen.x as f32) / controller.area_size.width as f32;
                 let mouse_dy =
-                    (position.y as f32 - self.clicked_position_screen.y) / controller.area_size.height as f32;
+                    (position.y as f32 - self.clicked_position_screen.y as f32) / controller.area_size.height as f32;
                 controller.camera
                     .borrow_mut()
                     .process_mouse(mouse_dx, mouse_dy);
@@ -388,6 +323,9 @@ struct ReleasedPivot {
 }
 
 impl ControllerState for ReleasedPivot {
+    fn display(&self) -> String {
+        String::from("Released Pivot")
+    }
     fn input(
         &mut self,
         event: &WindowEvent,
@@ -453,13 +391,72 @@ struct LeavingPivot {
 }
 
 impl ControllerState for LeavingPivot {
+    fn display(&self) -> String {
+        String::from("Leaving Pivot")
+    }
     fn input(
         &mut self,
         event: &WindowEvent,
         position: PhysicalPosition<f64>,
         controller: &Controller,
     ) -> Transition {
-        unimplemented!()
+        match event {
+            WindowEvent::MouseInput {
+                button: MouseButton::Left,
+                state,
+                ..
+            } => {
+                assert!(
+                    *state == ElementState::Released,
+                    "Pressed mouse button in LeavingPivot state"
+                );
+                Transition {
+                    new_state: Some(Box::new(NormalState {
+                        mouse_position: self.mouse_position,
+                    })),
+                    consequences: Consequence::Nothing,
+                }
+            }
+            WindowEvent::MouseInput {
+                button: MouseButton::Right,
+                state,
+                ..
+            } => {
+                assert!(
+                    *state == ElementState::Pressed,
+                    "Released right mouse button in ReleasedPivot state"
+                );
+                Transition {
+                    new_state: Some(Box::new(Rotating {
+                        pivot: self.pivot,
+                        clicked_position_screen: self.mouse_position,
+                        mouse_position: self.mouse_position,
+                        button: MouseButton::Right,
+                    })),
+                    consequences: Consequence::Nothing,
+                }
+            }
+            WindowEvent::CursorMoved { .. } => {
+                self.mouse_position = position;
+                if position_difference(self.clicked_position_screen, self.mouse_position) > 5. {
+                    Transition {
+                        new_state: Some(Box::new(MovingCamera {
+                            pivot: Some(self.pivot),
+                            mouse_position: self.mouse_position,
+                            clicked_position_screen: self.clicked_position_screen,
+                        })),
+                        consequences: Consequence::Nothing,
+                    }
+                } else {
+                    Transition::nothing()
+                }
+            }
+            WindowEvent::KeyboardInput{ .. } => {
+                controller.process_keyboard(event);
+                Transition::nothing()
+            }
+            _ => Transition::nothing(),
+        }
     }
 
 }
@@ -472,13 +469,75 @@ struct Rotating {
 }
 
 impl ControllerState for Rotating {
+    fn display(&self) -> String {
+        String::from("Rotating")
+    }
     fn input(
         &mut self,
         event: &WindowEvent,
         position: PhysicalPosition<f64>,
         controller: &Controller,
     ) -> Transition {
-        unimplemented!()
+        match event {
+            WindowEvent::MouseInput {
+                button: MouseButton::Left,
+                state,
+                ..
+            } => {
+                assert!(
+                    *state == ElementState::Released,
+                    "Pressed mouse button in LeavingPivot state"
+                );
+                controller.data.borrow_mut().end_movement();
+                Transition {
+                    new_state: Some(Box::new(NormalState {
+                        mouse_position: self.mouse_position,
+                    })),
+                    consequences: Consequence::Nothing,
+                }
+            }
+            WindowEvent::MouseInput {
+                button,
+                state,
+                ..
+            } if *button == self.button => {
+                assert!(
+                    *state == ElementState::Released,
+                    "Pressed mouse button in Rotating state"
+                );
+                Transition {
+                    new_state: Some(Box::new(NormalState {
+                        mouse_position: self.mouse_position,
+                    })),
+                    consequences: Consequence::Nothing,
+                }
+            }
+            WindowEvent::CursorMoved { .. } => {
+                self.mouse_position = position;
+                let angle = {
+                    let (x, y) = controller
+                        .camera
+                        .borrow()
+                        .screen_to_world(position.x as f32, position.y as f32);
+                    let (old_x, old_y) = controller.camera.borrow().screen_to_world(
+                        self.clicked_position_screen.x as f32,
+                        self.clicked_position_screen.y as f32,
+                    );
+                    (y - self.pivot.y).atan2(x - self.pivot.x)
+                        - (old_y - self.pivot.y).atan2(old_x - self.pivot.x)
+                };
+                controller.data.borrow_mut().rotate_helix(self.pivot, angle);
+                Transition::nothing()
+            }
+            WindowEvent::KeyboardInput{ .. } => {
+                controller.process_keyboard(event);
+                Transition::nothing()
+            }
+            _ => Transition::nothing(),
+        }
     }
+}
 
+fn position_difference(a: PhysicalPosition<f64>, b: PhysicalPosition<f64>) -> f64 {
+    (a.x - b.x).abs().max((a.y - b.y).abs())
 }

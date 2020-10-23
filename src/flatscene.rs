@@ -118,6 +118,7 @@ impl FlatScene {
     pub fn input(&mut self, event: &WindowEvent, cursor_position: PhysicalPosition<f64>) {
         if let Some(controller) = self.controller.get_mut(self.selected_design) {
             let consequence = controller.input(event, cursor_position);
+            /*
             use controller::Consequence::*;
             match consequence {
                 Clicked(x, y) => match self.action_mode {
@@ -157,6 +158,7 @@ impl FlatScene {
                 MovementEnded => self.data[self.selected_design].borrow_mut().end_movement(),
                 _ => (),
             }
+            */
         }
     }
 
