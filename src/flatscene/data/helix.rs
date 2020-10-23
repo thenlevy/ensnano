@@ -45,7 +45,7 @@ impl Helix {
             scale: 1f32,
             color: 0xFF_4A4946,
             z_index: 0,
-            stroke_width: 0.1,
+            stroke_width: 0.01,
         }
     }
 
