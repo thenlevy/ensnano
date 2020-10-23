@@ -5,7 +5,7 @@ use iced_wgpu::Renderer;
 use iced_winit::winit::dpi::{LogicalPosition, LogicalSize};
 use iced_winit::{
     pick_list, scrollable, Color, Column, Command, Element, Length, PickList, Program, Scrollable,
-    Space, Text,
+    Space, Text, slider, Slider,
 };
 use native_dialog::Dialog;
 
@@ -24,11 +24,13 @@ pub struct LeftPanel {
     pick_action_mode: pick_list::State<ActionMode>,
     scroll_selection_mode: scrollable::State,
     scroll_action_mode: scrollable::State,
+    scroll_sensitivity_slider: slider::State,
     selection_mode: SelectionMode,
     action_mode: ActionMode,
     global_scroll: scrollable::State,
     logical_size: LogicalSize<f64>,
     logical_position: LogicalPosition<f64>,
+    scroll_sensitivity: f32,
     color_picker: ColorPicker,
     sequence_input: SequenceInput,
     requests: Arc<Mutex<Requests>>,
@@ -43,6 +45,7 @@ pub enum Message {
     ActionModeChanged(ActionMode),
     SequenceChanged(String),
     SequenceFileRequested,
+    ScrollSensitivityChanged(f32),
 }
 
 impl LeftPanel {
@@ -56,11 +59,13 @@ impl LeftPanel {
             scroll_action_mode: Default::default(),
             scroll_selection_mode: Default::default(),
             selection_mode: Default::default(),
+            scroll_sensitivity_slider: Default::default(),
             pick_action_mode: Default::default(),
             action_mode: Default::default(),
             global_scroll: Default::default(),
             logical_size,
             logical_position,
+            scroll_sensitivity: 0f32,
             color_picker: ColorPicker::new(),
             sequence_input: SequenceInput::new(),
             requests,
@@ -111,6 +116,10 @@ impl Program for LeftPanel {
                 self.requests.lock().unwrap().sequence_change = Some(s.clone());
                 self.sequence_input.update_sequence(s);
             }
+            Message::ScrollSensitivityChanged(x) => {
+                self.requests.lock().unwrap().scroll_sensitivity = Some(x);
+                self.scroll_sensitivity = x;
+            }
             Message::SequenceFileRequested => {
                 let dialog = native_dialog::OpenSingleFile {
                     dir: None,
@@ -152,12 +161,16 @@ impl Program for LeftPanel {
             Message::ActionModeChanged,
         );
 
+        let slider = Slider::new(&mut self.scroll_sensitivity_slider, -20f32..=20f32, self.scroll_sensitivity, Message::ScrollSensitivityChanged);
+
         let action_mode_scroll = Scrollable::new(&mut self.scroll_action_mode)
             .push(Text::new("Action mode"))
             .push(action_mode_list);
 
         let global_scroll = Scrollable::new(&mut self.global_scroll)
             .width(Length::Units(width))
+            .push(Text::new("Scroll sensitivity"))
+            .push(slider)
             .push(selection_mode_scroll)
             .push(action_mode_scroll);
 

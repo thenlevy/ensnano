@@ -338,6 +338,10 @@ fn main() {
                             mediator.lock().unwrap().change_strand_color(color);
                             requests.strand_color_change = None;
                         }
+                        if let Some(sensitivity) = requests.scroll_sensitivity.take() {
+                            scene.lock().unwrap().change_sensitivity(sensitivity);
+                            //flat_scene.lock().unwrap().change_sensitivity(sensitivity);
+                        }
                     }
                 }
                 {
