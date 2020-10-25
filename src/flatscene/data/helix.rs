@@ -45,7 +45,7 @@ impl Helix {
             old_isometry: Isometry2::new(position, Rotor2::identity()),
             scale: 1f32,
             color: 0xFF_4A4946,
-            z_index: 0,
+            z_index: 1000,
             stroke_width: 0.01,
             id,
         }
@@ -194,6 +194,14 @@ impl Helix {
 
     pub fn get_depth(&self) -> f32 {
         self.z_index as f32 + self.id as f32 / 1000.
+    }
+
+    pub fn move_forward(&mut self) {
+        self.z_index -= 1;
+    }
+
+    pub fn move_backward(&mut self) {
+        self.z_index += 1;
     }
 }
 

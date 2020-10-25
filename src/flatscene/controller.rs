@@ -98,6 +98,12 @@ impl Controller {
                 VirtualKeyCode::Down => {
                     self.camera.borrow_mut().zoom_out();
                 }
+                VirtualKeyCode::J => {
+                    self.data.borrow_mut().move_helix_backward();
+                }
+                VirtualKeyCode::K => {
+                    self.data.borrow_mut().move_helix_forward();
+                }
                 _ => (),
             }
         }

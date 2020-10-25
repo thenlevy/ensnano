@@ -117,4 +117,17 @@ impl Data {
             h.end_movement()
         }
     }
+
+    pub fn move_helix_forward(&mut self) {
+        if let Some(helix) = self.selected_helix {
+            self.helices[helix].move_forward()
+        }
+    }
+
+    pub fn move_helix_backward(&mut self) {
+        if let Some(helix) = self.selected_helix {
+            self.helices[helix].move_backward()
+        }
+    }
 }
+
