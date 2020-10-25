@@ -17,6 +17,7 @@ pub struct View {
     queue: Rc<Queue>,
     depth_texture: Texture,
     helices: Vec<HelixView>,
+    helices_background: Vec<HelixView>,
     strands: Vec<StrandView>,
     helices_model: Vec<HelixModel>,
     models: DynamicBindGroup,
@@ -69,6 +70,7 @@ impl View {
             helices: Vec::new(),
             strands: Vec::new(),
             helices_model: Vec::new(),
+            helices_background: Vec::new(),
             models,
             globals,
             helices_pipeline,
@@ -92,8 +94,16 @@ impl View {
             self.device.clone(),
             self.queue.clone(),
             id_helix,
+            false,
+        ));
+        self.helices_background.push(HelixView::new(
+                self.device.clone(),
+                self.queue.clone(),
+                id_helix,
+                true
         ));
         self.helices[id_helix as usize].update(&helix);
+        self.helices_background[id_helix as usize].update(&helix);
         self.helices_model.push(helix.model());
         self.models.update(self.helices_model.as_slice());
     }
@@ -101,6 +111,7 @@ impl View {
     pub fn update_helices(&mut self, helices: &[Helix]) {
         for (i, h) in self.helices.iter_mut().enumerate() {
             self.helices_model[i] = helices[i].model();
+            self.helices_background[i].update(&helices[i]);
             h.update(&helices[i])
         }
         for helix in helices.iter().skip(self.helices.len()) {
@@ -212,9 +223,13 @@ impl View {
         render_pass.set_bind_group(1, self.models.get_bindgroup(), &[]);
         render_pass.set_pipeline(&self.helices_pipeline);
 
+        for background in self.helices_background.iter() {
+            background.draw(&mut render_pass);
+        }
         for helix in self.helices.iter() {
             helix.draw(&mut render_pass);
         }
+
         render_pass.set_pipeline(&self.strand_pipeline);
         for strand in self.strands.iter() {
             strand.draw(&mut render_pass);
@@ -265,23 +280,7 @@ fn helices_pipeline_descr(
             vertex_buffers: &[wgpu::VertexBufferDescriptor {
                 stride: std::mem::size_of::<GpuVertex>() as u64,
                 step_mode: wgpu::InputStepMode::Vertex,
-                attributes: &[
-                    wgpu::VertexAttributeDescriptor {
-                        offset: 0,
-                        format: wgpu::VertexFormat::Float2,
-                        shader_location: 0,
-                    },
-                    wgpu::VertexAttributeDescriptor {
-                        offset: 8,
-                        format: wgpu::VertexFormat::Float2,
-                        shader_location: 1,
-                    },
-                    wgpu::VertexAttributeDescriptor {
-                        offset: 16,
-                        format: wgpu::VertexFormat::Uint,
-                        shader_location: 2,
-                    },
-                ],
+                attributes: &wgpu::vertex_attr_array![0 => Float2, 1 => Float2, 2 => Uint, 3 => Uint],
             }],
         },
         sample_count: SAMPLE_COUNT,

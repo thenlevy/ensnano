@@ -21,6 +21,7 @@ buffer u_models { Model models[]; };
 layout(location = 0) in vec2 a_position;
 layout(location = 1) in vec2 a_normal;
 layout(location = 2) in uint a_model_id;
+layout(location = 3) in uint a_is_background;
 
 layout(location = 0) out vec4 v_color;
 
@@ -35,7 +36,8 @@ void main() {
     vec2 world_pos = local_pos - u_scroll_offset + model.translate;
     vec2 transformed_pos = world_pos * zoom_factor * invert_y;
 
-    float z = float(model.z_index) / 4096.0;
+    float background_depth = a_is_background > 0 ? 0.5 : 0.;
+    float z = (float(model.z_index * 1000 + a_model_id) + background_depth);
     gl_Position = vec4(transformed_pos, z / 1000.0, 1.0);
-    v_color = model.color;
+    v_color = a_is_background > 0 ? vec4(1., 1., 1., 1.) : model.color;
 }

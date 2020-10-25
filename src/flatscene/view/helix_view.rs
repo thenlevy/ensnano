@@ -8,10 +8,11 @@ pub struct HelixView {
     index_buffer: DynamicBuffer,
     num_instance: u32,
     id: u32,
+    background: bool,
 }
 
 impl HelixView {
-    pub fn new(device: Rc<Device>, queue: Rc<Queue>, id: u32) -> Self {
+    pub fn new(device: Rc<Device>, queue: Rc<Queue>, id: u32, background: bool) -> Self {
         Self {
             vertex_buffer: DynamicBuffer::new(
                 device.clone(),
@@ -21,11 +22,16 @@ impl HelixView {
             index_buffer: DynamicBuffer::new(device, queue, wgpu::BufferUsage::INDEX),
             num_instance: 0,
             id,
+            background,
         }
     }
 
     pub fn update(&mut self, helix: &Helix) {
-        let vertices = helix.to_vertices(self.id);
+        let vertices = if self.background {
+            helix.background_vertices(self.id)
+        } else {
+            helix.to_vertices(self.id)
+        };
         self.vertex_buffer.update(vertices.vertices.as_slice());
         self.index_buffer.update(vertices.indices.as_slice());
         self.num_instance = vertices.indices.len() as u32;

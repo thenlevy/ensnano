@@ -4,7 +4,7 @@ use lyon::math::{rect, Point};
 use lyon::path::builder::{BorderRadii, PathBuilder};
 use lyon::path::Path;
 use lyon::tessellation;
-use lyon::tessellation::{StrokeVertex, StrokeVertexConstructor};
+use lyon::tessellation::{FillVertex, FillVertexConstructor, StrokeVertex, StrokeVertexConstructor};
 use ultraviolet::{Isometry2, Mat2, Rotor2, Vec2, Vec4};
 
 type Vertices = lyon::tessellation::VertexBuffers<GpuVertex, u16>;
@@ -54,6 +54,34 @@ impl Helix {
         self.right = self.right.max(helix2d.right);
     }
 
+    pub fn background_vertices(&self, model_id: u32) -> Vertices {
+        let mut vertices = Vertices::new();
+        let left = self.left as f32;
+        let right = self.right as f32 + 1.;
+        let top = 0.;
+        let bottom = 2.;
+        let mut fill_tess = lyon::tessellation::FillTessellator::new();
+
+        let mut builder = Path::builder();
+        builder.add_rounded_rectangle(
+            &rect(left, top, right - left, bottom - top),
+            &BorderRadii::new(0.1),
+            lyon::tessellation::path::Winding::Positive,
+        );
+        let path = builder.build();
+        fill_tess
+            .tessellate_path(
+                &path,
+                &tessellation::FillOptions::default(),
+                &mut tessellation::BuffersBuilder::new(&mut vertices, WithAttribute(VertexAttribute {
+                    id: model_id,
+                    background: true
+                })),
+            )
+            .expect("error durring tessellation");
+        vertices
+    }
+
     pub fn to_vertices(&self, model_id: u32) -> Vertices {
         let mut vertices = Vertices::new();
         let left = self.left as f32;
@@ -83,7 +111,10 @@ impl Helix {
             .tessellate_path(
                 &path,
                 &tessellation::StrokeOptions::default(),
-                &mut tessellation::BuffersBuilder::new(&mut vertices, WithId(model_id)),
+                &mut tessellation::BuffersBuilder::new(&mut vertices, WithAttribute(VertexAttribute {
+                    id: model_id,
+                    background: false
+                })),
             )
             .expect("error durring tessellation");
         vertices
@@ -166,20 +197,38 @@ pub struct GpuVertex {
     position: [f32; 2],
     normal: [f32; 2],
     prim_id: u32,
+    background: u32,
 }
 unsafe impl bytemuck::Pod for GpuVertex {}
 unsafe impl bytemuck::Zeroable for GpuVertex {}
 
+struct VertexAttribute {
+    id: u32,
+    background: bool,
+}
+
 /// This vertex constructor forwards the positions and normals provided by the
 /// tessellators and add a shape id.
-pub struct WithId(pub u32);
+struct WithAttribute(VertexAttribute);
 
-impl StrokeVertexConstructor<GpuVertex> for WithId {
+impl StrokeVertexConstructor<GpuVertex> for WithAttribute {
     fn new_vertex(&mut self, vertex: StrokeVertex) -> GpuVertex {
         GpuVertex {
             position: vertex.position_on_path().to_array(),
             normal: vertex.normal().to_array(),
-            prim_id: self.0,
+            prim_id: self.0.id,
+            background: self.0.background as u32,
+        }
+    }
+}
+
+impl FillVertexConstructor<GpuVertex> for WithAttribute {
+    fn new_vertex(&mut self, vertex: FillVertex) -> GpuVertex {
+        GpuVertex {
+            position: vertex.position().to_array(),
+            normal: [0., 0.],
+            prim_id: self.0.id,
+            background: self.0.background as u32,
         }
     }
 }
