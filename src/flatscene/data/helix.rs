@@ -45,7 +45,7 @@ impl Helix {
             old_isometry: Isometry2::new(position, Rotor2::identity()),
             scale: 1f32,
             color: 0xFF_4A4946,
-            z_index: 1000,
+            z_index: 500,
             stroke_width: 0.01,
             id,
         }

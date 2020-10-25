@@ -120,13 +120,15 @@ impl Data {
 
     pub fn move_helix_forward(&mut self) {
         if let Some(helix) = self.selected_helix {
-            self.helices[helix].move_forward()
+            self.helices[helix].move_forward();
+            self.instance_update = true;
         }
     }
 
     pub fn move_helix_backward(&mut self) {
         if let Some(helix) = self.selected_helix {
-            self.helices[helix].move_backward()
+            self.helices[helix].move_backward();
+            self.instance_update = true;
         }
     }
 }

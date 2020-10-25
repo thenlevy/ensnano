@@ -27,6 +27,6 @@ void main() {
 // We want the strand to have the depth of the grid - 0.25.
 
     float z = a_depth * 1000.;
-    gl_Position = vec4(transformed_pos, z / 1000.0, 1.0);
+    gl_Position = vec4(transformed_pos, z / 1e6, 1.0);
     v_color = a_color;
 }
