@@ -20,6 +20,7 @@ pub struct Helix {
     color: u32,
     z_index: i32,
     stroke_width: f32,
+    id: u32,
 }
 
 #[repr(C)]
@@ -36,7 +37,7 @@ unsafe impl bytemuck::Zeroable for HelixModel {}
 unsafe impl bytemuck::Pod for HelixModel {}
 
 impl Helix {
-    pub fn new(left: isize, right: isize, position: Vec2) -> Self {
+    pub fn new(left: isize, right: isize, position: Vec2, id: u32) -> Self {
         Self {
             left,
             right,
@@ -46,6 +47,7 @@ impl Helix {
             color: 0xFF_4A4946,
             z_index: 0,
             stroke_width: 0.01,
+            id,
         }
     }
 
@@ -54,7 +56,7 @@ impl Helix {
         self.right = self.right.max(helix2d.right);
     }
 
-    pub fn background_vertices(&self, model_id: u32) -> Vertices {
+    pub fn background_vertices(&self) -> Vertices {
         let mut vertices = Vertices::new();
         let left = self.left as f32;
         let right = self.right as f32 + 1.;
@@ -74,7 +76,7 @@ impl Helix {
                 &path,
                 &tessellation::FillOptions::default(),
                 &mut tessellation::BuffersBuilder::new(&mut vertices, WithAttribute(VertexAttribute {
-                    id: model_id,
+                    id: self.id,
                     background: true
                 })),
             )
@@ -82,7 +84,7 @@ impl Helix {
         vertices
     }
 
-    pub fn to_vertices(&self, model_id: u32) -> Vertices {
+    pub fn to_vertices(&self) -> Vertices {
         let mut vertices = Vertices::new();
         let left = self.left as f32;
         let right = self.right as f32 + 1.;
@@ -112,7 +114,7 @@ impl Helix {
                 &path,
                 &tessellation::StrokeOptions::default(),
                 &mut tessellation::BuffersBuilder::new(&mut vertices, WithAttribute(VertexAttribute {
-                    id: model_id,
+                    id: self.id,
                     background: false
                 })),
             )
@@ -188,6 +190,10 @@ impl Helix {
 
     pub fn set_color(&mut self, color: u32) {
         self.color = color
+    }
+
+    pub fn get_depth(&self) -> f32 {
+        self.z_index as f32 + self.id as f32 / 1000.
     }
 }
 

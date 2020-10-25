@@ -28,9 +28,9 @@ impl HelixView {
 
     pub fn update(&mut self, helix: &Helix) {
         let vertices = if self.background {
-            helix.background_vertices(self.id)
+            helix.background_vertices()
         } else {
-            helix.to_vertices(self.id)
+            helix.to_vertices()
         };
         self.vertex_buffer.update(vertices.vertices.as_slice());
         self.index_buffer.update(vertices.indices.as_slice());

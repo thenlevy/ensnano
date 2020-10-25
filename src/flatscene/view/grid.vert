@@ -36,7 +36,7 @@ void main() {
     vec2 world_pos = local_pos - u_scroll_offset + model.translate;
     vec2 transformed_pos = world_pos * zoom_factor * invert_y;
 
-    float background_depth = a_is_background > 0 ? 0.5 : 0.;
+    float background_depth = a_is_background > 0 ? 0.5 : 0.25;
     float z = (float(model.z_index * 1000 + a_model_id) + background_depth);
     gl_Position = vec4(transformed_pos, z / 1000.0, 1.0);
     v_color = a_is_background > 0 ? vec4(1., 1., 1., 1.) : model.color;
