@@ -4,8 +4,8 @@ use iced::{container, Background, Container};
 use iced_wgpu::Renderer;
 use iced_winit::winit::dpi::{LogicalPosition, LogicalSize};
 use iced_winit::{
-    pick_list, scrollable, Color, Column, Command, Element, Length, PickList, Program, Scrollable,
-    Space, Text, slider, Slider,
+    pick_list, scrollable, slider, Color, Column, Command, Element, Length, PickList, Program,
+    Scrollable, Slider, Space, Text,
 };
 use native_dialog::Dialog;
 
@@ -161,7 +161,12 @@ impl Program for LeftPanel {
             Message::ActionModeChanged,
         );
 
-        let slider = Slider::new(&mut self.scroll_sensitivity_slider, -20f32..=20f32, self.scroll_sensitivity, Message::ScrollSensitivityChanged);
+        let slider = Slider::new(
+            &mut self.scroll_sensitivity_slider,
+            -20f32..=20f32,
+            self.scroll_sensitivity,
+            Message::ScrollSensitivityChanged,
+        );
 
         let action_mode_scroll = Scrollable::new(&mut self.scroll_action_mode)
             .push(Text::new("Action mode"))

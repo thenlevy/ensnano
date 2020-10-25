@@ -4,19 +4,17 @@
 //! happens. In addition to the transistion in the automat, a `Consequence` is returned to the
 //! scene, that describes the consequences that the input must have on the view or the data held by
 //! the scene.
+use super::data::Nucl;
 use super::{CameraPtr, DataPtr, PhySize, PhysicalPosition, ViewPtr, WindowEvent};
 use iced_winit::winit::event::*;
-use ultraviolet::Vec2;
 use std::cell::RefCell;
+use ultraviolet::Vec2;
 
 pub struct Controller {
     #[allow(dead_code)]
     view: ViewPtr,
     #[allow(dead_code)]
     data: DataPtr,
-    last_left_clicked_position: Option<PhysicalPosition<f64>>,
-    last_right_clicked_position: Option<PhysicalPosition<f64>>,
-    mouse_position: PhysicalPosition<f64>,
     window_size: PhySize,
     area_size: PhySize,
     camera: CameraPtr,
@@ -46,12 +44,9 @@ impl Controller {
             data,
             window_size,
             area_size,
-            last_left_clicked_position: None,
-            last_right_clicked_position: None,
-            mouse_position: PhysicalPosition::new(-1., -1.),
             camera,
             state: RefCell::new(Box::new(NormalState {
-                mouse_position: PhysicalPosition::new(-1., -1.)
+                mouse_position: PhysicalPosition::new(-1., -1.),
             })),
         }
     }
@@ -67,7 +62,6 @@ impl Controller {
     pub fn input(&mut self, event: &WindowEvent, position: PhysicalPosition<f64>) -> Consequence {
         let transition = self.state.borrow_mut().input(event, position, self);
         if let Some(state) = transition.new_state {
-            println!("{}", state.display());
             self.state = RefCell::new(state)
         }
         transition.consequences
@@ -138,6 +132,7 @@ trait ControllerState {
         controller: &Controller,
     ) -> Transition;
 
+    #[allow(dead_code)]
     fn display(&self) -> String;
 }
 
@@ -170,13 +165,17 @@ impl ControllerState for NormalState {
                     .camera
                     .borrow()
                     .screen_to_world(self.mouse_position.x as f32, self.mouse_position.y as f32);
-                let pivot_opt = controller.data.borrow_mut().request_pivot(x, y);
-                if let Some(pivot) = pivot_opt {
+                let pivot_opt = controller.data.borrow().get_click(x, y);
+                controller
+                    .data
+                    .borrow_mut()
+                    .set_selected_helix(pivot_opt.map(|p| p.helix));
+                if let Some(pivot_nucl) = pivot_opt {
                     Transition {
                         new_state: Some(Box::new(Translating {
                             mouse_position: self.mouse_position,
                             clicked_position_world: Vec2::new(x, y),
-                            pivot,
+                            pivot_nucl,
                         })),
                         consequences: Consequence::Nothing,
                     }
@@ -185,7 +184,7 @@ impl ControllerState for NormalState {
                         new_state: Some(Box::new(MovingCamera {
                             mouse_position: self.mouse_position,
                             clicked_position_screen: self.mouse_position,
-                            pivot: None,
+                            pivot_nucl: None,
                         })),
                         consequences: Consequence::Nothing,
                     }
@@ -195,7 +194,7 @@ impl ControllerState for NormalState {
                 self.mouse_position = position;
                 Transition::nothing()
             }
-            WindowEvent::KeyboardInput{ .. } => {
+            WindowEvent::KeyboardInput { .. } => {
                 controller.process_keyboard(event);
                 Transition::nothing()
             }
@@ -207,7 +206,7 @@ impl ControllerState for NormalState {
 struct Translating {
     mouse_position: PhysicalPosition<f64>,
     clicked_position_world: Vec2,
-    pivot: Vec2,
+    pivot_nucl: Nucl,
 }
 
 impl ControllerState for Translating {
@@ -234,7 +233,7 @@ impl ControllerState for Translating {
                 Transition {
                     new_state: Some(Box::new(ReleasedPivot {
                         mouse_position: self.mouse_position,
-                        pivot: self.pivot,
+                        pivot_nucl: self.pivot_nucl,
                     })),
                     consequences: Consequence::Nothing,
                 }
@@ -246,7 +245,10 @@ impl ControllerState for Translating {
                         .camera
                         .borrow()
                         .screen_to_world(position.x as f32, position.y as f32);
-                    (x - self.clicked_position_world.x, y - self.clicked_position_world.y)
+                    (
+                        x - self.clicked_position_world.x,
+                        y - self.clicked_position_world.y,
+                    )
                 };
                 controller
                     .data
@@ -254,7 +256,7 @@ impl ControllerState for Translating {
                     .translate_helix(Vec2::new(mouse_dx, mouse_dy));
                 Transition::nothing()
             }
-            WindowEvent::KeyboardInput{ .. } => {
+            WindowEvent::KeyboardInput { .. } => {
                 controller.process_keyboard(event);
                 Transition::nothing()
             }
@@ -266,7 +268,7 @@ impl ControllerState for Translating {
 struct MovingCamera {
     mouse_position: PhysicalPosition<f64>,
     clicked_position_screen: PhysicalPosition<f64>,
-    pivot: Option<Vec2>,
+    pivot_nucl: Option<Nucl>,
 }
 
 impl ControllerState for MovingCamera {
@@ -290,25 +292,36 @@ impl ControllerState for MovingCamera {
                     "Pressed mouse button in translating mode"
                 );
                 controller.camera.borrow_mut().end_movement();
-                Transition {
-                    new_state: Some(Box::new(NormalState {
-                        mouse_position: self.mouse_position,
-                    })),
-                    consequences: Consequence::Nothing,
+                if let Some(pivot_nucl) = self.pivot_nucl {
+                    Transition {
+                        new_state: Some(Box::new(ReleasedPivot {
+                            mouse_position: self.mouse_position,
+                            pivot_nucl,
+                        })),
+                        consequences: Consequence::Nothing,
+                    }
+                } else {
+                    Transition {
+                        new_state: Some(Box::new(NormalState {
+                            mouse_position: self.mouse_position,
+                        })),
+                        consequences: Consequence::Nothing,
+                    }
                 }
             }
             WindowEvent::CursorMoved { .. } => {
                 self.mouse_position = position;
-                let mouse_dx =
-                    (position.x as f32 - self.clicked_position_screen.x as f32) / controller.area_size.width as f32;
-                let mouse_dy =
-                    (position.y as f32 - self.clicked_position_screen.y as f32) / controller.area_size.height as f32;
-                controller.camera
+                let mouse_dx = (position.x as f32 - self.clicked_position_screen.x as f32)
+                    / controller.area_size.width as f32;
+                let mouse_dy = (position.y as f32 - self.clicked_position_screen.y as f32)
+                    / controller.area_size.height as f32;
+                controller
+                    .camera
                     .borrow_mut()
                     .process_mouse(mouse_dx, mouse_dy);
                 Transition::nothing()
             }
-            WindowEvent::KeyboardInput{ .. } => {
+            WindowEvent::KeyboardInput { .. } => {
                 controller.process_keyboard(event);
                 Transition::nothing()
             }
@@ -319,7 +332,7 @@ impl ControllerState for MovingCamera {
 
 struct ReleasedPivot {
     mouse_position: PhysicalPosition<f64>,
-    pivot: Vec2,
+    pivot_nucl: Nucl,
 }
 
 impl ControllerState for ReleasedPivot {
@@ -342,13 +355,33 @@ impl ControllerState for ReleasedPivot {
                     *state == ElementState::Pressed,
                     "Released mouse button in ReleasedPivot state"
                 );
-                Transition {
-                    new_state: Some(Box::new(LeavingPivot {
-                        pivot: self.pivot,
-                        clicked_position_screen: self.mouse_position,
-                        mouse_position: self.mouse_position,
-                    })),
-                    consequences: Consequence::Nothing,
+                let (x, y) = controller
+                    .camera
+                    .borrow()
+                    .screen_to_world(self.mouse_position.x as f32, self.mouse_position.y as f32);
+                let pivot_opt = controller.data.borrow().get_click(x, y);
+                if let Some(pivot) = pivot_opt {
+                    controller
+                        .data
+                        .borrow_mut()
+                        .set_selected_helix(Some(pivot.helix));
+                    Transition {
+                        new_state: Some(Box::new(Translating {
+                            pivot_nucl: pivot,
+                            clicked_position_world: Vec2::new(x, y),
+                            mouse_position: self.mouse_position,
+                        })),
+                        consequences: Consequence::Nothing,
+                    }
+                } else {
+                    Transition {
+                        new_state: Some(Box::new(LeavingPivot {
+                            pivot_nucl: self.pivot_nucl,
+                            clicked_position_screen: self.mouse_position,
+                            mouse_position: self.mouse_position,
+                        })),
+                        consequences: Consequence::Nothing,
+                    }
                 }
             }
             WindowEvent::MouseInput {
@@ -360,9 +393,15 @@ impl ControllerState for ReleasedPivot {
                     *state == ElementState::Pressed,
                     "Released right mouse button in ReleasedPivot state"
                 );
+                let pivot_coordinates = controller
+                    .data
+                    .borrow()
+                    .get_pivot_position(self.pivot_nucl.helix, self.pivot_nucl.position)
+                    .expect("pivot coordinates");
                 Transition {
                     new_state: Some(Box::new(Rotating {
-                        pivot: self.pivot,
+                        pivot_nucl: self.pivot_nucl,
+                        pivot_coordinates,
                         clicked_position_screen: self.mouse_position,
                         mouse_position: self.mouse_position,
                         button: MouseButton::Right,
@@ -374,7 +413,7 @@ impl ControllerState for ReleasedPivot {
                 self.mouse_position = position;
                 Transition::nothing()
             }
-            WindowEvent::KeyboardInput{ .. } => {
+            WindowEvent::KeyboardInput { .. } => {
                 controller.process_keyboard(event);
                 Transition::nothing()
             }
@@ -383,9 +422,9 @@ impl ControllerState for ReleasedPivot {
     }
 }
 
-/// This state in entered when use user has 
+/// This state in entered when use user has
 struct LeavingPivot {
-    pivot: Vec2,
+    pivot_nucl: Nucl,
     clicked_position_screen: PhysicalPosition<f64>,
     mouse_position: PhysicalPosition<f64>,
 }
@@ -410,6 +449,7 @@ impl ControllerState for LeavingPivot {
                     *state == ElementState::Released,
                     "Pressed mouse button in LeavingPivot state"
                 );
+                controller.data.borrow_mut().set_selected_helix(None);
                 Transition {
                     new_state: Some(Box::new(NormalState {
                         mouse_position: self.mouse_position,
@@ -426,9 +466,15 @@ impl ControllerState for LeavingPivot {
                     *state == ElementState::Pressed,
                     "Released right mouse button in ReleasedPivot state"
                 );
+                let pivot_coordinates = controller
+                    .data
+                    .borrow()
+                    .get_pivot_position(self.pivot_nucl.helix, self.pivot_nucl.position)
+                    .expect("pivot coordinates");
                 Transition {
                     new_state: Some(Box::new(Rotating {
-                        pivot: self.pivot,
+                        pivot_nucl: self.pivot_nucl,
+                        pivot_coordinates,
                         clicked_position_screen: self.mouse_position,
                         mouse_position: self.mouse_position,
                         button: MouseButton::Right,
@@ -441,7 +487,7 @@ impl ControllerState for LeavingPivot {
                 if position_difference(self.clicked_position_screen, self.mouse_position) > 5. {
                     Transition {
                         new_state: Some(Box::new(MovingCamera {
-                            pivot: Some(self.pivot),
+                            pivot_nucl: Some(self.pivot_nucl),
                             mouse_position: self.mouse_position,
                             clicked_position_screen: self.clicked_position_screen,
                         })),
@@ -451,18 +497,18 @@ impl ControllerState for LeavingPivot {
                     Transition::nothing()
                 }
             }
-            WindowEvent::KeyboardInput{ .. } => {
+            WindowEvent::KeyboardInput { .. } => {
                 controller.process_keyboard(event);
                 Transition::nothing()
             }
             _ => Transition::nothing(),
         }
     }
-
 }
 
 struct Rotating {
-    pivot: Vec2,
+    pivot_nucl: Nucl,
+    pivot_coordinates: Vec2,
     clicked_position_screen: PhysicalPosition<f64>,
     button: MouseButton,
     mouse_position: PhysicalPosition<f64>,
@@ -496,18 +542,15 @@ impl ControllerState for Rotating {
                     consequences: Consequence::Nothing,
                 }
             }
-            WindowEvent::MouseInput {
-                button,
-                state,
-                ..
-            } if *button == self.button => {
+            WindowEvent::MouseInput { button, state, .. } if *button == self.button => {
                 assert!(
                     *state == ElementState::Released,
                     "Pressed mouse button in Rotating state"
                 );
                 Transition {
-                    new_state: Some(Box::new(NormalState {
+                    new_state: Some(Box::new(ReleasedPivot {
                         mouse_position: self.mouse_position,
+                        pivot_nucl: self.pivot_nucl,
                     })),
                     consequences: Consequence::Nothing,
                 }
@@ -523,13 +566,16 @@ impl ControllerState for Rotating {
                         self.clicked_position_screen.x as f32,
                         self.clicked_position_screen.y as f32,
                     );
-                    (y - self.pivot.y).atan2(x - self.pivot.x)
-                        - (old_y - self.pivot.y).atan2(old_x - self.pivot.x)
+                    (y - self.pivot_coordinates.y).atan2(x - self.pivot_coordinates.x)
+                        - (old_y - self.pivot_coordinates.y).atan2(old_x - self.pivot_coordinates.x)
                 };
-                controller.data.borrow_mut().rotate_helix(self.pivot, angle);
+                controller
+                    .data
+                    .borrow_mut()
+                    .rotate_helix(self.pivot_coordinates, angle);
                 Transition::nothing()
             }
-            WindowEvent::KeyboardInput{ .. } => {
+            WindowEvent::KeyboardInput { .. } => {
                 controller.process_keyboard(event);
                 Transition::nothing()
             }
