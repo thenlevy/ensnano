@@ -1,5 +1,5 @@
 use super::ViewPtr;
-use crate::design::Design;
+use crate::design::{Design, StrandBuilder};
 use std::sync::{Arc, Mutex};
 use ultraviolet::Vec2;
 
@@ -130,5 +130,13 @@ impl Data {
             self.helices[helix].move_backward();
             self.instance_update = true;
         }
+    }
+
+    pub fn get_builder(&self, nucl: Nucl) -> Option<StrandBuilder> {
+        self.design.get_builder(nucl)
+    }
+
+    pub fn notify_update(&mut self) {
+        self.instance_update = true;
     }
 }

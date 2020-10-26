@@ -5,7 +5,7 @@
 //! scene, that describes the consequences that the input must have on the view or the data held by
 //! the scene.
 use super::data::Nucl;
-use super::{CameraPtr, DataPtr, PhySize, PhysicalPosition, ViewPtr, WindowEvent};
+use super::{ActionMode, CameraPtr, DataPtr, PhySize, PhysicalPosition, ViewPtr, WindowEvent};
 use iced_winit::winit::event::*;
 use std::cell::RefCell;
 use ultraviolet::Vec2;
@@ -22,6 +22,7 @@ pub struct Controller {
     area_size: PhySize,
     camera: CameraPtr,
     state: RefCell<Box<dyn ControllerState>>,
+    action_mode: ActionMode,
 }
 
 pub enum Consequence {
@@ -51,6 +52,7 @@ impl Controller {
             state: RefCell::new(Box::new(NormalState {
                 mouse_position: PhysicalPosition::new(-1., -1.),
             })),
+            action_mode: ActionMode::Normal,
         }
     }
 
@@ -70,6 +72,10 @@ impl Controller {
             self.state.borrow().transition_to(&self);
         }
         transition.consequences
+    }
+
+    pub fn set_action_mode(&mut self, action_mode: ActionMode) {
+        self.action_mode = action_mode;
     }
 
     pub fn process_keyboard(&self, event: &WindowEvent) {

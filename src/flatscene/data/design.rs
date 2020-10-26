@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 use super::{Nucl, Strand};
-use crate::design::Design;
+use crate::design::{StrandBuilder, Design};
 
 pub(super) struct Design2d {
     /// The 2d helices
@@ -77,6 +77,10 @@ impl Design2d {
 
     pub fn get_strands(&self) -> &Vec<Strand> {
         &self.strands
+    }
+    
+    pub fn get_builder(&self, nucl: Nucl) -> Option<StrandBuilder> {
+        self.design.lock().unwrap().get_builder(nucl)
     }
 }
 

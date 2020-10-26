@@ -41,7 +41,6 @@ pub struct FlatScene {
     selected_design: usize,
     device: Rc<Device>,
     queue: Rc<Queue>,
-    action_mode: ActionMode,
 }
 
 impl FlatScene {
@@ -55,7 +54,6 @@ impl FlatScene {
             selected_design: 0,
             device,
             queue,
-            action_mode: ActionMode::Normal,
         }
     }
 
@@ -111,7 +109,9 @@ impl FlatScene {
 
     /// Change the action beign performed by the user
     pub fn change_action_mode(&mut self, action_mode: ActionMode) {
-        self.action_mode = action_mode
+        if let Some(controller) = self.controller.get_mut(self.selected_design) {
+            controller.set_action_mode(action_mode)
+        }
     }
 
     /// Handle an input that happend while the cursor was on the flatscene drawing area

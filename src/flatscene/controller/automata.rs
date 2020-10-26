@@ -1,4 +1,5 @@
 use super::*;
+use crate::design::StrandBuilder;
 
 pub struct Transition {
     pub new_state: Option<Box<dyn ControllerState>>,
@@ -61,13 +62,24 @@ impl ControllerState for NormalState {
                     .screen_to_world(self.mouse_position.x as f32, self.mouse_position.y as f32);
                 let pivot_opt = controller.data.borrow().get_click(x, y);
                 if let Some(pivot_nucl) = pivot_opt {
-                    Transition {
-                        new_state: Some(Box::new(Translating {
-                            mouse_position: self.mouse_position,
-                            clicked_position_world: Vec2::new(x, y),
-                            pivot_nucl,
-                        })),
-                        consequences: Consequence::Nothing,
+                    if let Some(builder) = controller.data.borrow().get_builder(pivot_nucl).filter(|_| controller.action_mode == ActionMode::Build) {
+                        Transition {
+                            new_state: Some(Box::new(Building {
+                                mouse_position: self.mouse_position,
+                                nucl: pivot_nucl,
+                                builder,
+                            })),
+                            consequences: Consequence::Nothing,
+                        }
+                    } else {
+                        Transition {
+                            new_state: Some(Box::new(Translating {
+                                mouse_position: self.mouse_position,
+                                clicked_position_world: Vec2::new(x, y),
+                                pivot_nucl,
+                            })),
+                            consequences: Consequence::Nothing,
+                        }
                     }
                 } else {
                     Transition {
@@ -466,22 +478,6 @@ impl ControllerState for Rotating {
         controller: &Controller,
     ) -> Transition {
         match event {
-            WindowEvent::MouseInput {
-                button: MouseButton::Left,
-                state,
-                ..
-            } => {
-                assert!(
-                    *state == ElementState::Released,
-                    "Pressed mouse button in LeavingPivot state"
-                );
-                Transition {
-                    new_state: Some(Box::new(NormalState {
-                        mouse_position: self.mouse_position,
-                    })),
-                    consequences: Consequence::Nothing,
-                }
-            }
             WindowEvent::MouseInput { button, state, .. } if *button == self.button => {
                 assert!(
                     *state == ElementState::Released,
@@ -524,6 +520,67 @@ impl ControllerState for Rotating {
     }
 }
 
+struct Building {
+    mouse_position: PhysicalPosition<f64>,
+    builder: StrandBuilder,
+    nucl: Nucl,
+}
+
+impl ControllerState for Building {
+    fn transition_from(&self, _controller: &Controller) {
+        ()
+    }
+
+    fn transition_to(&self, _controller: &Controller) {
+        ()
+    }
+
+    fn display(&self) -> String {
+        String::from("Building")
+    }
+
+    fn input(&mut self, event: &WindowEvent, position: PhysicalPosition<f64>, controller: &Controller) -> Transition {
+        match event {
+            WindowEvent::MouseInput {
+                button: MouseButton::Left,
+                state,
+                ..
+            } => {
+                assert!(
+                    *state == ElementState::Released,
+                    "Pressed mouse button in Building state"
+                );
+                Transition {
+                    new_state: Some(Box::new(NormalState {
+                        mouse_position: self.mouse_position,
+                    })),
+                    consequences: Consequence::Nothing,
+                }
+            }
+            WindowEvent::CursorMoved { .. } => {
+                self.mouse_position = position;
+                let (x, y) = controller.camera.borrow().screen_to_world(self.mouse_position.x as f32, self.mouse_position.y as f32);
+                let nucl = controller.data.borrow().get_click(x, y);
+                match nucl {
+                    Some(Nucl { helix, position, forward }) if helix == self.nucl.helix && forward == self.nucl.forward => {
+                        self.builder.move_to(position);
+                        controller.data.borrow_mut().notify_update();
+                    }
+                    _ => (),
+                }
+                Transition::nothing()
+            }
+            WindowEvent::KeyboardInput { .. } => {
+                controller.process_keyboard(event);
+                Transition::nothing()
+            }
+            _ => Transition::nothing(),
+        }
+    }
+}
+
 fn position_difference(a: PhysicalPosition<f64>, b: PhysicalPosition<f64>) -> f64 {
     (a.x - b.x).abs().max((a.y - b.y).abs())
 }
+
+
