@@ -161,4 +161,8 @@ impl Data {
     pub fn notify_update(&mut self) {
         self.instance_update = true;
     }
+
+    pub fn merge_strand(&mut self, prime5: usize, prime3: usize) {
+        self.design.merge_strand(prime5, prime3)
+    }
 }

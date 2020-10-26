@@ -14,6 +14,8 @@ use std::io::Write;
 use std::path::PathBuf;
 use ultraviolet::Vec3;
 
+use std::borrow::Cow;
+
 mod codenano;
 mod icednano;
 mod strand_builder;
@@ -595,6 +597,39 @@ impl Data {
         } else {
             None
         }
+    }
+
+    pub fn merge_strands(&mut self, prime5: usize, prime3: usize) {
+        // We panic, if we can't find the strand, because this means that the program has a bug
+        let strand5prime = self.design.strands.remove(&prime5).expect("strand 5 prime");
+        let strand3prime = self.design.strands.remove(&prime3).expect("strand 3 prime");
+        let len = strand5prime.domains.len() + strand3prime.domains.len();
+        let mut domains = Vec::with_capacity(len);
+        for domain in strand5prime.domains.iter() {
+            domains.push(domain.clone());
+        }
+        for domain in strand3prime.domains.iter() {
+            domains.push(domain.clone());
+        }
+        let sequence = if let Some((seq5, seq3)) = strand5prime.sequence.clone().zip(strand3prime.sequence.clone()) {
+            let new_seq = seq5.into_owned() + &seq3.into_owned();
+            Some(Cow::Owned(new_seq))
+        } else if let Some(ref seq5) = strand5prime.sequence {
+           Some(seq5.clone())
+        } else if let Some(ref seq3) = strand3prime.sequence {
+            Some(seq3.clone())
+        } else {
+            None
+        };
+        let new_strand = icednano::Strand {
+            domains,
+            color: strand5prime.color,
+            sequence,
+            cyclic: false,
+        };
+        self.design.strands.insert(prime5, new_strand);
+        self.hash_maps_update = true;
+        self.update_status = true;
     }
 }
 

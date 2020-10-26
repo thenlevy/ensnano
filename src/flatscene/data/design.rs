@@ -82,6 +82,11 @@ impl Design2d {
     pub fn get_builder(&self, nucl: Nucl) -> Option<StrandBuilder> {
         self.design.lock().unwrap().get_builder(nucl)
     }
+
+    pub fn merge_strand(&mut self, prime5: usize, prime3: usize) {
+        self.design.lock().unwrap().merge_strands(prime5, prime3)
+    }
+
 }
 
 /// Store the informations needed to represent an helix from the design

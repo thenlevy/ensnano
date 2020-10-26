@@ -302,6 +302,10 @@ impl Design {
     pub fn get_strand_points(&self, s_id: usize) -> Option<Vec<Nucl>> {
         self.data.lock().unwrap().get_strand_points(s_id)
     }
+
+    pub fn merge_strands(&mut self, prime5: usize, prime3: usize) {
+        self.data.lock().unwrap().merge_strands(prime5, prime3)
+    }
 }
 
 #[derive(Clone)]
