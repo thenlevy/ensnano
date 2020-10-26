@@ -14,6 +14,7 @@ pub struct Data {
     view: ViewPtr,
     design: Design2d,
     instance_update: bool,
+    instance_reset: bool,
     helices: Vec<Helix>,
     selected_helix: Option<usize>,
 }
@@ -24,12 +25,17 @@ impl Data {
             view,
             design: Design2d::new(design),
             instance_update: true,
+            instance_reset: false,
             helices: Vec::new(),
             selected_helix: None,
         }
     }
 
     pub fn perform_update(&mut self) {
+        if self.instance_reset {
+            self.view.borrow_mut().reset();
+            self.instance_reset = false;
+        }
         if self.instance_update {
             self.design.update();
             self.fetch_helices();
@@ -163,6 +169,8 @@ impl Data {
     }
 
     pub fn merge_strand(&mut self, prime5: usize, prime3: usize) {
+        self.instance_reset = true;
+        self.instance_update = true;
         self.design.merge_strand(prime5, prime3)
     }
 }

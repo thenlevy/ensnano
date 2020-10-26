@@ -306,6 +306,10 @@ impl Design {
     pub fn merge_strands(&mut self, prime5: usize, prime3: usize) {
         self.data.lock().unwrap().merge_strands(prime5, prime3)
     }
+
+    pub fn get_all_strand_ids(&self) -> Vec<usize> {
+        self.data.lock().unwrap().get_all_strand_ids()
+    }
 }
 
 #[derive(Clone)]

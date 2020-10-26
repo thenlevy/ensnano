@@ -6,6 +6,8 @@ use wgpu::{
     TextureView,
 };
 
+use crate::consts::SAMPLE_COUNT;
+
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
 pub struct Vertex {
@@ -83,7 +85,7 @@ impl Letter {
             // by setting depth to 1.
             size,
             mip_level_count: 1, // We'll talk about this a little later
-            sample_count: 1,
+            sample_count: SAMPLE_COUNT,
             dimension: wgpu::TextureDimension::D2,
             format: wgpu::TextureFormat::Rgba8UnormSrgb,
             // SAMPLED tells wgpu that we want to use this texture in shaders
@@ -144,7 +146,7 @@ impl Letter {
                         binding: 0,
                         visibility: wgpu::ShaderStage::FRAGMENT,
                         ty: wgpu::BindingType::SampledTexture {
-                            multisampled: false,
+                            multisampled: true,
                             dimension: wgpu::TextureViewDimension::D2,
                             component_type: wgpu::TextureComponentType::Uint,
                         },

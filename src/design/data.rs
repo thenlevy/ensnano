@@ -631,6 +631,10 @@ impl Data {
         self.hash_maps_update = true;
         self.update_status = true;
     }
+
+    pub fn get_all_strand_ids(&self) -> Vec<usize> {
+        self.design.strands.keys().cloned().collect()
+    }
 }
 
 fn compl(c: Option<char>) -> Option<char> {

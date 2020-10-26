@@ -131,6 +131,12 @@ impl View {
             .update(&strand, helices);
     }
 
+    pub fn reset(&mut self) {
+        self.helices.clear();
+        self.strands.clear();
+        self.helices_background.clear();
+    }
+
     pub fn update_strands(&mut self, strands: &[Strand], helices: &[Helix]) {
         for (i, s) in self.strands.iter_mut().enumerate() {
             s.update(&strands[i], helices);

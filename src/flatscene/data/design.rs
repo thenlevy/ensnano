@@ -30,15 +30,15 @@ impl Design2d {
         // At the moment we rebuild the strands from scratch. If needed, this might be an optimisation
         // target
         self.strands = Vec::new();
-        let mut strand_id = 0;
-        let mut strand_opt = self.design.lock().unwrap().get_strand_points(strand_id);
-        while strand_opt.is_some() {
+        let strand_ids = self.design.lock().unwrap().get_all_strand_ids();
+        for strand_id in strand_ids.iter() {
+            let strand_opt = self.design.lock().unwrap().get_strand_points(*strand_id);
             let mut strand = strand_opt.unwrap();
             let color = self
                 .design
                 .lock()
                 .unwrap()
-                .get_strand_color(strand_id)
+                .get_strand_color(*strand_id)
                 .unwrap_or_else(|| {
                     println!("Warning: could not find strand color, this is not normal");
                     0
@@ -50,8 +50,6 @@ impl Design2d {
                 nucl.helix = self.id_map[&nucl.helix]
             }
             self.strands.push(Strand::new(color, strand));
-            strand_id += 1;
-            strand_opt = self.design.lock().unwrap().get_strand_points(strand_id);
         }
     }
 
