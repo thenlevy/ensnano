@@ -32,9 +32,7 @@ impl ColorPicker {
     pub fn view(&mut self) -> Row<Message> {
         let color_picker = Row::new()
             .spacing(5)
-            .push(HueColumn::new(&mut self.hue_state, |x| {
-                Message::HueChanged(x)
-            }))
+            .push(HueColumn::new(&mut self.hue_state, Message::HueChanged))
             .spacing(10)
             .push(LightSatSquare::new(
                 self.hue as f64,
@@ -126,7 +124,7 @@ mod hue_column {
 
             let mut vertices = Vec::new();
             let mut indices = Vec::new();
-            for i in 0..nb_row {
+            for i in 0..=nb_row {
                 let hsv = Hsv::new(i as f64 / nb_row as f64 * 360., 1., 1.);
                 let rgb = Rgb::from(hsv);
                 let color = [
@@ -181,7 +179,7 @@ mod hue_column {
                 } else if cursor_position.y >= bounds.y + bounds.height {
                     messages.push((self.on_slide)(360.));
                 } else {
-                    let percent = cursor_position.y - bounds.y / bounds.height;
+                    let percent = (cursor_position.y - bounds.y) / bounds.height;
                     let value = percent * 360.;
                     messages.push((self.on_slide)(value));
                 }
