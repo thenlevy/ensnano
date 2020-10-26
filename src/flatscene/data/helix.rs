@@ -52,8 +52,8 @@ impl Helix {
     }
 
     pub fn update(&mut self, helix2d: &Helix2d) {
-        self.left = self.left.min(helix2d.left);
-        self.right = self.right.max(helix2d.right);
+        self.left = self.left.min(helix2d.left - 1);
+        self.right = self.right.max(helix2d.right + 1);
     }
 
     pub fn background_vertices(&self) -> Vertices {
