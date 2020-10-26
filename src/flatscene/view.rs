@@ -10,7 +10,7 @@ use wgpu::{Device, Queue, RenderPipeline};
 mod helix_view;
 use helix_view::{HelixView, StrandView};
 
-const SAMPLE_COUNT: u32 = 4;
+use crate::consts::SAMPLE_COUNT;
 
 pub struct View {
     device: Rc<Device>,

@@ -33,3 +33,5 @@ pub const BASIS_SYMBOLS: &[char] = &['A', 'T', 'G', 'C', '*'];
 pub const NB_BASIS_SYMBOLS: usize = BASIS_SYMBOLS.len();
 
 pub const BASE_SCROLL_SENSITIVITY: f32 = 0.04;
+
+pub const SAMPLE_COUNT: u32 = 4;

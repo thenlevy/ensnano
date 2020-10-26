@@ -570,6 +570,32 @@ impl Data {
         }
         Some(ret)
     }
+
+    /// Return the identifier of the strand whose nucl is the 5' end of, or `None` if nucl is not
+    /// the 5' end of any strand.
+    pub fn prime5_of(&self, nucl: &Nucl) -> Option<usize> {
+        let id = self.identifier_nucl.get(nucl)?;
+        let strand_id = self.strand_map.get(id)?;
+        let real_prime5 = self.get_5prime(*strand_id)?;
+        if *id == real_prime5 {
+            Some(*strand_id)
+        } else {
+            None
+        }
+    }
+
+    /// Return the identifier of the strand whose nucl is the 3' end of, or `None` if nucl is not
+    /// the 3' end of any strand.
+    pub fn prime3_of(&self, nucl: &Nucl) -> Option<usize> {
+        let id = self.identifier_nucl.get(nucl)?;
+        let strand_id = self.strand_map.get(id)?;
+        let real_prime3 = self.get_3prime(*strand_id)?;
+        if *id == real_prime3 {
+            Some(*strand_id)
+        } else {
+            None
+        }
+    }
 }
 
 fn compl(c: Option<char>) -> Option<char> {

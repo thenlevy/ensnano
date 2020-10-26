@@ -42,8 +42,6 @@ use element_selector::{ElementSelector, SceneElement};
 type ViewPtr = Rc<RefCell<View>>;
 type DataPtr = Rc<RefCell<Data>>;
 
-const SAMPLE_COUNT: u32 = 4;
-
 /// A structure responsible of the 3D display of the designs
 pub struct Scene {
     /// The update to be performed before next frame

@@ -71,6 +71,24 @@ impl Data {
         None
     }
 
+    pub fn get_click_design(&self, x: f32, y: f32) -> Option<Nucl> {
+        for (h_id, h) in self.helices.iter().enumerate() {
+            let ret = h.get_click(x, y).map(|(position, forward)| Nucl {
+                helix: h_id,
+                position,
+                forward,
+            });
+            if let Some(ret) = ret {
+                let real_helix = self.design.get_helices()[ret.helix].id;
+                return Some(Nucl {
+                    helix: real_helix,
+                    ..ret
+                });
+            }
+        }
+        None
+    }
+
     pub fn get_pivot_position(&self, helix: usize, position: isize) -> Option<Vec2> {
         self.helices.get(helix).map(|h| h.get_pivot(position))
     }
@@ -133,7 +151,11 @@ impl Data {
     }
 
     pub fn get_builder(&self, nucl: Nucl) -> Option<StrandBuilder> {
-        self.design.get_builder(nucl)
+        let real_helix = self.design.get_helices()[nucl.helix].id;
+        self.design.get_builder(Nucl {
+            helix: real_helix,
+            ..nucl 
+        })
     }
 
     pub fn notify_update(&mut self) {

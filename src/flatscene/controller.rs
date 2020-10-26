@@ -68,6 +68,7 @@ impl Controller {
         let transition = self.state.borrow_mut().input(event, position, self);
         if let Some(state) = transition.new_state {
             self.state.borrow().transition_from(&self);
+            println!("{}", state.display());
             self.state = RefCell::new(state);
             self.state.borrow().transition_to(&self);
         }

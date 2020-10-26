@@ -42,8 +42,6 @@ pub use rotation_widget::{RotationMode, RotationWidgetDescriptor, RotationWidget
 //use plane_drawer::PlaneDrawer;
 //pub use plane_drawer::Plane;
 
-use super::SAMPLE_COUNT;
-
 /// An object that handles the communication with the GPU to draw the scene.
 pub struct View {
     /// The camera, that is in charge of producing the view and projection matrices.
@@ -219,6 +217,16 @@ impl View {
             self.depth_texture =
                 Texture::create_depth_texture(self.device.as_ref(), &size, SAMPLE_COUNT);
             self.fake_depth_texture = Texture::create_depth_texture(self.device.as_ref(), &size, 1);
+            self.msaa_texture = if SAMPLE_COUNT > 1 {
+                Some(crate::utils::texture::Texture::create_msaa_texture(
+                        self.device.clone().as_ref(),
+                        &size,
+                        SAMPLE_COUNT,
+                        wgpu::TextureFormat::Bgra8UnormSrgb,
+                ))
+            } else {
+                None
+            };
         }
         let clear_color = if fake_color {
             wgpu::Color {
