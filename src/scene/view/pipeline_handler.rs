@@ -15,7 +15,7 @@ use wgpu::{
     StencilStateDescriptor,
 };
 
-use super::{CameraPtr, ProjectionPtr, Uniforms};
+use super::{CameraPtr, ProjectionPtr, SAMPLE_COUNT, Uniforms};
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
@@ -237,6 +237,12 @@ impl PipelineHandler {
             wgpu::BlendDescriptor::REPLACE
         };
 
+        let sample_count = if self.flavour == Flavour::Fake {
+            1
+        } else {
+            SAMPLE_COUNT
+        };
+
         device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             layout: Some(&render_pipeline_layout),
             vertex_stage: wgpu::ProgrammableStageDescriptor {
@@ -277,7 +283,7 @@ impl PipelineHandler {
                 index_format: wgpu::IndexFormat::Uint16,
                 vertex_buffers: &[mesh::MeshVertex::desc()],
             },
-            sample_count: 1,
+            sample_count,
             sample_mask: !0,
             alpha_to_coverage_enabled: false,
             label: Some("render pipeline"),

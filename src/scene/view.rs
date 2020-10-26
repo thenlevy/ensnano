@@ -42,6 +42,8 @@ pub use rotation_widget::{RotationMode, RotationWidgetDescriptor, RotationWidget
 //use plane_drawer::PlaneDrawer;
 //pub use plane_drawer::Plane;
 
+use super::SAMPLE_COUNT;
+
 /// An object that handles the communication with the GPU to draw the scene.
 pub struct View {
     /// The camera, that is in charge of producing the view and projection matrices.
@@ -51,6 +53,9 @@ pub struct View {
     pipeline_handlers: PipelineHandlers,
     /// The depth texture is updated every time the size of the drawing area is modified
     depth_texture: Texture,
+    /// The fake depth texture is updated every time the size of the drawing area is modified and
+    /// has a sample count of 1
+    fake_depth_texture: Texture,
     /// The handle drawers draw handles to translate the elements
     handle_drawers: HandlesDrawer,
     /// The rotation widget draw the widget to rotate the elements
@@ -69,6 +74,7 @@ pub struct View {
     need_redraw: bool,
     need_redraw_fake: bool,
     draw_letter: bool,
+    msaa_texture: Option<wgpu::TextureView>,
 }
 
 impl View {
@@ -96,17 +102,30 @@ impl View {
             .map(|c| LetterDrawer::new(device.clone(), queue.clone(), *c, &camera, &projection))
             .collect();
         let depth_texture =
+            texture::Texture::create_depth_texture(device.as_ref(), &window_size, SAMPLE_COUNT);
+        let fake_depth_texture =
             texture::Texture::create_depth_texture(device.as_ref(), &window_size, 1);
         let viewer = Rc::new(RefCell::new(UniformBindGroup::new(
             device.clone(),
             queue,
             &Uniforms::from_view_proj(camera.clone(), projection.clone()),
         )));
+        let msaa_texture = if SAMPLE_COUNT > 1 {
+            Some(crate::utils::texture::Texture::create_msaa_texture(
+                device.clone().as_ref(),
+                &window_size,
+                SAMPLE_COUNT,
+                wgpu::TextureFormat::Bgra8UnormSrgb,
+            ))
+        } else {
+            None
+        };
         Self {
             camera,
             projection,
             pipeline_handlers,
             depth_texture,
+            fake_depth_texture,
             new_size: None,
             device: device.clone(),
             viewer,
@@ -117,6 +136,7 @@ impl View {
             need_redraw: true,
             need_redraw_fake: true,
             draw_letter: false,
+            msaa_texture,
         }
     }
 
@@ -196,7 +216,8 @@ impl View {
     ) {
         let fake_color = draw_type.is_fake();
         if let Some(size) = self.new_size.take() {
-            self.depth_texture = Texture::create_depth_texture(self.device.as_ref(), &size, 1);
+            self.depth_texture = Texture::create_depth_texture(self.device.as_ref(), &size, SAMPLE_COUNT);
+            self.fake_depth_texture = Texture::create_depth_texture(self.device.as_ref(), &size, 1);
         }
         let clear_color = if fake_color {
             wgpu::Color {
@@ -222,17 +243,40 @@ impl View {
         let viewer = self.viewer.borrow();
         let viewer_bind_group = viewer.get_bindgroup();
         let viewer_bind_group_layout = viewer.get_layout();
+
+        let attachment = if !fake_color {
+            if let Some(ref msaa) = self.msaa_texture {
+            msaa
+            } else {
+                target
+            }
+        } else {
+            target
+        };
+
+        let resolve_target = if !fake_color && self.msaa_texture.is_some() {
+            Some(target)
+        } else {
+            None
+        };
+
+        let depth_attachement = if !fake_color {
+            &self.depth_texture
+        } else {
+            &self.fake_depth_texture
+        };
+
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
-                attachment: target,
-                resolve_target: None,
+                attachment,
+                resolve_target,
                 ops: wgpu::Operations {
                     load: wgpu::LoadOp::Clear(clear_color),
                     store: true,
                 },
             }],
             depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachmentDescriptor {
-                attachment: &self.depth_texture.view,
+                attachment: &depth_attachement.view,
                 depth_ops: Some(wgpu::Operations {
                     load: wgpu::LoadOp::Clear(1.),
                     store: true,

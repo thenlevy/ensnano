@@ -5,6 +5,7 @@ use iced_wgpu::wgpu;
 use std::rc::Rc;
 use ultraviolet::Vec3;
 use wgpu::{include_spirv, Device, RenderPass, RenderPipeline};
+use super::SAMPLE_COUNT;
 
 pub trait Drawable {
     fn indices() -> Vec<u16>;
@@ -207,7 +208,7 @@ impl<D: Drawable> Drawer<D> {
                     index_format: wgpu::IndexFormat::Uint16,
                     vertex_buffers: &[VertexRaw::buffer_desc()],
                 },
-                sample_count: 1,
+                sample_count: SAMPLE_COUNT,
                 sample_mask: !0,
                 alpha_to_coverage_enabled: false,
                 label: Some("render pipeline"),
