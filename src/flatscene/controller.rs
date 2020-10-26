@@ -107,4 +107,3 @@ enum State {
     Translating,
     Rotating(Vec2),
 }
-

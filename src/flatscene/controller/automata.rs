@@ -167,7 +167,10 @@ impl ControllerState for Translating {
     }
 
     fn transition_to(&self, controller: &Controller) {
-        controller.data.borrow_mut().set_selected_helix(Some(self.pivot_nucl.helix))
+        controller
+            .data
+            .borrow_mut()
+            .set_selected_helix(Some(self.pivot_nucl.helix))
     }
 }
 
@@ -241,7 +244,6 @@ impl ControllerState for MovingCamera {
     fn transition_to(&self, _controller: &Controller) {
         ()
     }
-
 }
 
 pub struct ReleasedPivot {
@@ -250,15 +252,16 @@ pub struct ReleasedPivot {
 }
 
 impl ControllerState for ReleasedPivot {
-
     fn transition_to(&self, controller: &Controller) {
-        controller.data.borrow_mut().set_selected_helix(Some(self.pivot_nucl.helix));
+        controller
+            .data
+            .borrow_mut()
+            .set_selected_helix(Some(self.pivot_nucl.helix));
     }
 
     fn transition_from(&self, _controller: &Controller) {
         ()
     }
-
 
     fn display(&self) -> String {
         String::from("Released Pivot")
@@ -350,7 +353,6 @@ pub struct LeavingPivot {
 }
 
 impl ControllerState for LeavingPivot {
-
     fn transition_to(&self, _controller: &Controller) {
         ()
     }
@@ -358,7 +360,6 @@ impl ControllerState for LeavingPivot {
     fn transition_from(&self, _controller: &Controller) {
         ()
     }
-
 
     fn display(&self) -> String {
         String::from("Leaving Pivot")
@@ -444,9 +445,11 @@ pub struct Rotating {
 }
 
 impl ControllerState for Rotating {
-
     fn transition_to(&self, controller: &Controller) {
-         controller.data.borrow_mut().set_selected_helix(Some(self.pivot_nucl.helix))
+        controller
+            .data
+            .borrow_mut()
+            .set_selected_helix(Some(self.pivot_nucl.helix))
     }
 
     fn transition_from(&self, controller: &Controller) {

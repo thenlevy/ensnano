@@ -1,3 +1,4 @@
+use super::SAMPLE_COUNT;
 use crate::consts::*;
 use crate::utils::create_buffer_with_data;
 use crate::utils::texture::Texture;
@@ -5,7 +6,6 @@ use iced_wgpu::wgpu;
 use std::rc::Rc;
 use ultraviolet::Vec3;
 use wgpu::{include_spirv, Device, RenderPass, RenderPipeline};
-use super::SAMPLE_COUNT;
 
 pub trait Drawable {
     fn indices() -> Vec<u16>;

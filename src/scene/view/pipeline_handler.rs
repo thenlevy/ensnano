@@ -15,7 +15,7 @@ use wgpu::{
     StencilStateDescriptor,
 };
 
-use super::{CameraPtr, ProjectionPtr, SAMPLE_COUNT, Uniforms};
+use super::{CameraPtr, ProjectionPtr, Uniforms, SAMPLE_COUNT};
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]

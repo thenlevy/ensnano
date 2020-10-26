@@ -4,7 +4,9 @@ use lyon::math::{rect, Point};
 use lyon::path::builder::{BorderRadii, PathBuilder};
 use lyon::path::Path;
 use lyon::tessellation;
-use lyon::tessellation::{FillVertex, FillVertexConstructor, StrokeVertex, StrokeVertexConstructor};
+use lyon::tessellation::{
+    FillVertex, FillVertexConstructor, StrokeVertex, StrokeVertexConstructor,
+};
 use ultraviolet::{Isometry2, Mat2, Rotor2, Vec2, Vec4};
 
 type Vertices = lyon::tessellation::VertexBuffers<GpuVertex, u16>;
@@ -75,10 +77,13 @@ impl Helix {
             .tessellate_path(
                 &path,
                 &tessellation::FillOptions::default(),
-                &mut tessellation::BuffersBuilder::new(&mut vertices, WithAttribute(VertexAttribute {
-                    id: self.id,
-                    background: true
-                })),
+                &mut tessellation::BuffersBuilder::new(
+                    &mut vertices,
+                    WithAttribute(VertexAttribute {
+                        id: self.id,
+                        background: true,
+                    }),
+                ),
             )
             .expect("error durring tessellation");
         vertices
@@ -113,10 +118,13 @@ impl Helix {
             .tessellate_path(
                 &path,
                 &tessellation::StrokeOptions::default(),
-                &mut tessellation::BuffersBuilder::new(&mut vertices, WithAttribute(VertexAttribute {
-                    id: self.id,
-                    background: false
-                })),
+                &mut tessellation::BuffersBuilder::new(
+                    &mut vertices,
+                    WithAttribute(VertexAttribute {
+                        id: self.id,
+                        background: false,
+                    }),
+                ),
             )
             .expect("error durring tessellation");
         vertices

@@ -97,10 +97,10 @@ impl View {
             false,
         ));
         self.helices_background.push(HelixView::new(
-                self.device.clone(),
-                self.queue.clone(),
-                id_helix,
-                true
+            self.device.clone(),
+            self.queue.clone(),
+            id_helix,
+            true,
         ));
         self.helices[id_helix as usize].update(&helix);
         self.helices_background[id_helix as usize].update(&helix);

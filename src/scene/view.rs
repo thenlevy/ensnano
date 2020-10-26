@@ -216,7 +216,8 @@ impl View {
     ) {
         let fake_color = draw_type.is_fake();
         if let Some(size) = self.new_size.take() {
-            self.depth_texture = Texture::create_depth_texture(self.device.as_ref(), &size, SAMPLE_COUNT);
+            self.depth_texture =
+                Texture::create_depth_texture(self.device.as_ref(), &size, SAMPLE_COUNT);
             self.fake_depth_texture = Texture::create_depth_texture(self.device.as_ref(), &size, 1);
         }
         let clear_color = if fake_color {
@@ -246,7 +247,7 @@ impl View {
 
         let attachment = if !fake_color {
             if let Some(ref msaa) = self.msaa_texture {
-            msaa
+                msaa
             } else {
                 target
             }
