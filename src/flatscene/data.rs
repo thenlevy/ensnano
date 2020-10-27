@@ -6,7 +6,7 @@ use ultraviolet::Vec2;
 mod helix;
 pub use helix::{GpuVertex, Helix, HelixModel};
 mod strand;
-pub use strand::{Nucl, Strand, StrandVertex};
+pub use strand::{Nucl, Strand, StrandVertex, FreeEnd};
 mod design;
 use design::{Design2d, Helix2d};
 
@@ -185,7 +185,17 @@ impl Data {
         }
     }
 
-    pub fn set_current_xover(&mut self, xover: Option<(Nucl, Nucl)>) {}
+    pub fn is_strand_end(&self, nucl: Nucl) -> bool {
+        let nucl = self.to_real(nucl);
+        self.design.prime3_of(nucl).or(self.design.prime5_of(nucl)).is_some()
+    }
+
+    pub fn set_free_end(&mut self, free_end: Option<FreeEnd>) {
+        self.view.borrow_mut().set_free_end(free_end);
+        self.view
+            .borrow_mut()
+            .update_strands(&self.design.get_strands(), &self.helices);
+    }
 
     pub fn xover(&mut self, from: Nucl, to: Nucl) {
         let nucl1 = self.to_real(from);
@@ -216,3 +226,4 @@ impl Data {
         }
     }
 }
+

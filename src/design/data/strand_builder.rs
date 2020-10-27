@@ -315,6 +315,14 @@ impl StrandBuilder {
     pub fn get_design_id(&self) -> u32 {
         self.design_id
     }
+
+    pub fn get_strand_id(&self) -> usize {
+        self.identifier.strand
+    }
+
+    pub fn reset(&mut self) {
+        self.move_to(self.initial_position)
+    }
 }
 
 /// The direction in which a moving end can go

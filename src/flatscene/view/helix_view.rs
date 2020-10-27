@@ -1,4 +1,4 @@
-use super::{Helix, Strand};
+use super::{Helix, Strand, FreeEnd};
 use iced_wgpu::wgpu;
 use std::rc::Rc;
 use wgpu::{Buffer, Device, Queue, RenderPass};
@@ -63,8 +63,8 @@ impl StrandView {
         }
     }
 
-    pub fn update(&mut self, strand: &Strand, helices: &[Helix]) {
-        let vertices = strand.to_vertices(helices);
+    pub fn update(&mut self, strand: &Strand, helices: &[Helix], free_end: &Option<FreeEnd>) {
+        let vertices = strand.to_vertices(helices, free_end);
         self.vertex_buffer.update(vertices.vertices.as_slice());
         self.index_buffer.update(vertices.indices.as_slice());
         self.num_instance = vertices.indices.len() as u32;

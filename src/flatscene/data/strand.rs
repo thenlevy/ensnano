@@ -11,14 +11,15 @@ type Vertices = lyon::tessellation::VertexBuffers<StrandVertex, u16>;
 pub struct Strand {
     pub color: u32,
     pub points: Vec<Nucl>,
+    pub id: usize,
 }
 
 impl Strand {
-    pub fn new(color: u32, points: Vec<Nucl>) -> Self {
-        Self { color, points }
+    pub fn new(color: u32, points: Vec<Nucl>, id: usize) -> Self {
+        Self { color, points, id }
     }
 
-    pub fn to_vertices(&self, helices: &[Helix]) -> Vertices {
+    pub fn to_vertices(&self, helices: &[Helix], free_end: &Option<FreeEnd>) -> Vertices {
         let mut vertices = Vertices::new();
         let color = crate::utils::instance::Instance::color_from_u32(self.color);
         let color = [color.x, color.y, color.z, color.w];
@@ -53,19 +54,37 @@ impl Strand {
             last_forward = Some(nucl.forward);
             last_depth = Some(depth);
         }
-        // Draw the tick of the 3' end if the strand is not empty
-        if last_forward == Some(true) {
-            let depth = last_depth.expect("last depth");
-            let up = last_pos.unwrap() + 0.075 * Vec2::unit_y();
-            let arrow_end = up + Vec2::new(-0.25, 0.25);
-            builder.line_to(Point::new(up.x, up.y), &[depth]);
-            builder.line_to(Point::new(arrow_end.x, arrow_end.y), &[depth]);
-        } else if last_forward == Some(false) {
-            let depth = last_depth.expect("last depth");
-            let down = last_pos.unwrap() - 0.075 * Vec2::unit_y();
-            let arrow_end = down + Vec2::new(0.25, -0.25);
-            builder.line_to(Point::new(down.x, down.y), &[depth]);
-            builder.line_to(Point::new(arrow_end.x, arrow_end.y), &[depth]);
+        match free_end {
+            Some(FreeEnd {
+                strand_id,
+                point: position
+            }) if *strand_id == self.id => {
+                let last_pos = last_pos.unwrap();
+                let point = Point::new(position.x, position.y);
+                let normal = {
+                    let diff = (*position - last_pos).normalized();
+                    Vec2::new(diff.y, diff.x)
+                };
+                let control = (last_pos + *position) / 2. + normal / 3.;
+                let depth = 1e-6;
+                builder.quadratic_bezier_to(Point::new(control.x, control.y), point, &[depth]);
+            }
+            _ => {
+                // Draw the tick of the 3' end if the strand is not empty
+                if last_forward == Some(true) {
+                    let depth = last_depth.expect("last depth");
+                    let up = last_pos.unwrap() + 0.075 * Vec2::unit_y();
+                    let arrow_end = up + Vec2::new(-0.25, 0.25);
+                    builder.line_to(Point::new(up.x, up.y), &[depth]);
+                    builder.line_to(Point::new(arrow_end.x, arrow_end.y), &[depth]);
+                } else if last_forward == Some(false) {
+                    let depth = last_depth.expect("last depth");
+                    let down = last_pos.unwrap() - 0.075 * Vec2::unit_y();
+                    let arrow_end = down + Vec2::new(0.25, -0.25);
+                    builder.line_to(Point::new(down.x, down.y), &[depth]);
+                    builder.line_to(Point::new(arrow_end.x, arrow_end.y), &[depth]);
+                }
+            }
         }
         builder.end(false);
         let path = builder.build();
@@ -102,4 +121,9 @@ impl StrokeVertexConstructor<StrandVertex> for WithColor {
             depth: vertex.interpolated_attributes()[0],
         }
     }
+}
+
+pub struct FreeEnd {
+    pub strand_id: usize,
+    pub point: Vec2
 }

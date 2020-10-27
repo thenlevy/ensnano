@@ -13,6 +13,13 @@ impl Transition {
             consequences: Consequence::Nothing,
         }
     }
+    
+    pub fn consequence(consequences: Consequence) -> Self {
+        Self {
+            new_state: None,
+            consequences,
+        }
+    }
 }
 
 pub trait ControllerState {
@@ -73,6 +80,7 @@ impl ControllerState for NormalState {
                                 mouse_position: self.mouse_position,
                                 nucl: pivot_nucl,
                                 builder,
+                                end: controller.data.borrow().is_strand_end(pivot_nucl)
                             })),
                             consequences: Consequence::Nothing,
                         }
@@ -119,6 +127,7 @@ impl ControllerState for NormalState {
 
     fn transition_to(&self, controller: &Controller) {
         controller.data.borrow_mut().set_selected_helix(None);
+        controller.data.borrow_mut().set_free_end(None);
     }
 
     fn transition_from(&self, _controller: &Controller) {
@@ -537,6 +546,7 @@ struct Building {
     mouse_position: PhysicalPosition<f64>,
     builder: StrandBuilder,
     nucl: Nucl,
+    end: bool,
 }
 
 impl ControllerState for Building {
@@ -590,9 +600,11 @@ impl ControllerState for Building {
                     }) if helix == self.nucl.helix && forward == self.nucl.forward => {
                         self.builder.move_to(position);
                         controller.data.borrow_mut().notify_update();
-                        Transition::nothing()
+                        Transition::consequence(Consequence::FreeEnd(None))
                     }
                     Some(nucl) if controller.data.borrow().can_cross_to(self.nucl, nucl) => {
+                        self.builder.reset();
+                        controller.data.borrow_mut().notify_update();
                         Transition {
                             new_state: Some(Box::new(Crossing {
                                 mouse_position: self.mouse_position,
@@ -600,10 +612,20 @@ impl ControllerState for Building {
                                 to: nucl,
                                 builder: self.builder.clone(),
                             })),
-                            consequences: Consequence::Nothing,
+                            consequences: Consequence::FreeEnd(Some(FreeEnd {
+                                strand_id: self.builder.get_strand_id(),
+                                point: Vec2::new(x, y)
+                            }).filter(|_| self.end))
                         }
                     }
-                    _ => Transition::nothing(),
+                    _ => {
+                            self.builder.reset();
+                            controller.data.borrow_mut().notify_update();
+                            Transition::consequence(Consequence::FreeEnd(Some(FreeEnd {
+                            strand_id: self.builder.get_strand_id(),
+                            point: Vec2::new(x, y)
+                        }).filter(|_| self.end)))
+                    }
                 }
             }
             WindowEvent::KeyboardInput { .. } => {
@@ -623,15 +645,12 @@ pub struct Crossing {
 }
 
 impl ControllerState for Crossing {
-    fn transition_to(&self, controller: &Controller) {
-        controller
-            .data
-            .borrow_mut()
-            .set_current_xover(Some((self.from, self.to)))
+    fn transition_to(&self, _controller: &Controller) {
+        ()
     }
 
-    fn transition_from(&self, controller: &Controller) {
-        controller.data.borrow_mut().set_current_xover(None)
+    fn transition_from(&self, _controller: &Controller) {
+        ()
     }
 
     fn display(&self) -> String {
@@ -674,11 +693,15 @@ impl ControllerState for Crossing {
                             mouse_position: self.mouse_position,
                             builder: self.builder.clone(),
                             nucl: self.from,
+                            end: true,
                         })),
                         consequences: Consequence::Nothing,
                     }
                 } else {
-                    Transition::nothing()
+                    Transition::consequence(Consequence::FreeEnd(Some(FreeEnd {
+                        strand_id: self.builder.get_strand_id(),
+                        point: Vec2::new(x, y)
+                    })))
                 }
             }
             WindowEvent::KeyboardInput { .. } => {

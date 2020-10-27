@@ -49,7 +49,7 @@ impl Design2d {
             for nucl in strand.iter_mut() {
                 nucl.helix = self.id_map[&nucl.helix]
             }
-            self.strands.push(Strand::new(color, strand));
+            self.strands.push(Strand::new(color, strand, *strand_id));
         }
     }
 

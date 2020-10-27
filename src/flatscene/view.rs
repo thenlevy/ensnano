@@ -1,4 +1,4 @@
-use super::data::{GpuVertex, Helix, HelixModel, Strand, StrandVertex};
+use super::data::{GpuVertex, Helix, HelixModel, Strand, StrandVertex, FreeEnd};
 use super::CameraPtr;
 use crate::utils::bindgroup_manager::{DynamicBindGroup, UniformBindGroup};
 use crate::utils::texture::Texture;
@@ -27,6 +27,7 @@ pub struct View {
     camera: CameraPtr,
     was_updated: bool,
     window_size: PhySize,
+    free_end: Option<FreeEnd>,
 }
 
 impl View {
@@ -78,6 +79,7 @@ impl View {
             camera,
             was_updated: false,
             window_size,
+            free_end: None,
         }
     }
 
@@ -128,7 +130,7 @@ impl View {
             .iter_mut()
             .last()
             .unwrap()
-            .update(&strand, helices);
+            .update(&strand, helices, &self.free_end);
     }
 
     pub fn reset(&mut self) {
@@ -139,12 +141,16 @@ impl View {
 
     pub fn update_strands(&mut self, strands: &[Strand], helices: &[Helix]) {
         for (i, s) in self.strands.iter_mut().enumerate() {
-            s.update(&strands[i], helices);
+            s.update(&strands[i], helices, &self.free_end);
         }
         for strand in strands.iter().skip(self.strands.len()) {
             self.add_strand(strand, helices)
         }
         self.was_updated = true;
+    }
+
+    pub fn set_free_end(&mut self, free_end: Option<FreeEnd>) {
+        self.free_end = free_end;
     }
 
     pub fn needs_redraw(&self) -> bool {

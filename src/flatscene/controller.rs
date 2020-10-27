@@ -4,7 +4,7 @@
 //! happens. In addition to the transistion in the automat, a `Consequence` is returned to the
 //! scene, that describes the consequences that the input must have on the view or the data held by
 //! the scene.
-use super::data::Nucl;
+use super::data::{FreeEnd, Nucl};
 use super::{ActionMode, CameraPtr, DataPtr, PhySize, PhysicalPosition, ViewPtr, WindowEvent};
 use iced_winit::winit::event::*;
 use std::cell::RefCell;
@@ -31,6 +31,7 @@ pub enum Consequence {
     Nothing,
     Xover(Nucl, Nucl),
     Cut(Nucl),
+    FreeEnd(Option<FreeEnd>)
 }
 
 impl Controller {

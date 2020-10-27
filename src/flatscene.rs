@@ -126,6 +126,9 @@ impl FlatScene {
                 Consequence::Cut(nucl) => self.data[self.selected_design]
                     .borrow_mut()
                     .split_strand(nucl),
+                Consequence::FreeEnd(free_end) => self.data[self.selected_design]
+                    .borrow_mut()
+                    .set_free_end(free_end),
                 _ => (),
             }
         }
