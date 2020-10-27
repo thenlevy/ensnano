@@ -310,6 +310,14 @@ impl Design {
     pub fn get_all_strand_ids(&self) -> Vec<usize> {
         self.data.lock().unwrap().get_all_strand_ids()
     }
+
+    pub fn prime3_of(&self, nucl: Nucl) -> Option<usize> {
+        self.data.lock().unwrap().prime3_of(&nucl)
+    }
+
+    pub fn prime5_of(&self, nucl: Nucl) -> Option<usize> {
+        self.data.lock().unwrap().prime5_of(&nucl)
+    }
 }
 
 #[derive(Clone)]

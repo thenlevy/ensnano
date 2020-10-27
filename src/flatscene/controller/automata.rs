@@ -567,10 +567,21 @@ impl ControllerState for Building {
                         println!("moving to {:?}", nucl);
                         self.builder.move_to(position);
                         controller.data.borrow_mut().notify_update();
+                        Transition::nothing()
                     }
-                    _ => (),
+                    Some(nucl) if controller.data.borrow().can_cross_to(self.nucl, nucl) => {
+                        Transition {
+                            new_state: Some(Box::new(Crossing {
+                                mouse_position: self.mouse_position,
+                                from: self.nucl,
+                                to: nucl,
+                                builder: self.builder.clone()
+                            })),
+                            consequences: Consequence::Nothing
+                        }
+                    }
+                    _ => Transition::nothing(),
                 }
-                Transition::nothing()
             }
             WindowEvent::KeyboardInput { .. } => {
                 controller.process_keyboard(event);
@@ -579,6 +590,72 @@ impl ControllerState for Building {
             _ => Transition::nothing(),
         }
     }
+}
+
+pub struct Crossing {
+    mouse_position: PhysicalPosition<f64>,
+    from: Nucl,
+    to: Nucl,
+    builder: StrandBuilder,
+}
+
+impl ControllerState for Crossing {
+    fn transition_to(&self, controller: &Controller) {
+        controller.data.borrow_mut().set_current_xover(Some((self.from, self.to)))
+    }
+
+    fn transition_from(&self, controller: &Controller) {
+        controller.data.borrow_mut().set_current_xover(None)
+    }
+    
+    fn display(&self) -> String {
+        String::from("Crossing")
+    }
+
+    fn input(&mut self, event: &WindowEvent, position: PhysicalPosition<f64>, controller: &Controller) -> Transition {
+        match event {
+            WindowEvent::MouseInput {
+                button: MouseButton::Left,
+                state,
+                ..
+            } => {
+                assert!(
+                    *state == ElementState::Released,
+                    "Pressed mouse button in Crossing state"
+                );
+                Transition {
+                    new_state: Some(Box::new(NormalState {
+                        mouse_position: self.mouse_position,
+                    })),
+                    consequences: Consequence::Xover(self.from, self.to),
+                }
+            }
+            WindowEvent::CursorMoved { .. } => {
+                self.mouse_position = position;
+                let (x, y) = controller.camera.borrow().screen_to_world(self.mouse_position.x as f32, self.mouse_position.y as f32);
+                let nucl = controller.data.borrow().get_click(x, y);
+                if nucl != Some(self.to) {
+                    Transition {
+                        new_state: Some(Box::new(Building {
+                            mouse_position: self.mouse_position,
+                            builder: self.builder.clone(),
+                            nucl: self.from,
+                        })),
+                        consequences: Consequence::Nothing
+                    }
+                } else {
+                    Transition::nothing()
+                }
+            }
+            WindowEvent::KeyboardInput { .. } => {
+                controller.process_keyboard(event);
+                Transition::nothing()
+            }
+            _ => Transition::nothing(),
+        }
+
+    }
+
 }
 
 fn position_difference(a: PhysicalPosition<f64>, b: PhysicalPosition<f64>) -> f64 {

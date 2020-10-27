@@ -33,6 +33,7 @@ pub enum Consequence {
     Clicked(f32, f32),
     Translated(f32, f32),
     Rotated(Vec2, f32),
+    Xover(Nucl, Nucl),
 }
 
 impl Controller {

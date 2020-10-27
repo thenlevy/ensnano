@@ -173,4 +173,32 @@ impl Data {
         self.instance_update = true;
         self.design.merge_strand(prime5, prime3)
     }
+
+    pub fn can_cross_to(&self, from: Nucl, to: Nucl) -> bool {
+        let from = self.to_real(from);
+        let to = self.to_real(to);
+        let prim5 = self.design.prime5_of(from).or(self.design.prime5_of(to));
+        let prim3 = self.design.prime3_of(from).or(self.design.prime3_of(to));
+        prim3.and(prim5).is_some()
+    }
+
+    pub fn set_current_xover(&mut self, xover: Option<(Nucl, Nucl)>) {
+
+    }
+
+    pub fn xover(&mut self, from: Nucl, to: Nucl) {
+        let nucl1 = self.to_real(from);
+        let nucl2 = self.to_real(to);
+        let prim5 = self.design.prime5_of(nucl1).or(self.design.prime5_of(nucl2)).unwrap();
+        let prim3 = self.design.prime3_of(nucl1).or(self.design.prime3_of(nucl2)).unwrap();
+        self.merge_strand(prim3, prim5)
+    }
+
+    fn to_real(&self, nucl: Nucl) -> Nucl {
+        let real_helix = self.design.get_helices()[nucl.helix].id;
+        Nucl {
+            helix: real_helix,
+            ..nucl
+        }
+    }
 }

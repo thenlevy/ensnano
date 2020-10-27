@@ -85,6 +85,14 @@ impl Design2d {
         self.design.lock().unwrap().merge_strands(prime5, prime3)
     }
 
+    pub fn prime3_of(&self, nucl: Nucl) -> Option<usize> {
+        self.design.lock().unwrap().prime3_of(nucl)
+    } 
+
+    pub fn prime5_of(&self, nucl: Nucl) -> Option<usize> {
+        self.design.lock().unwrap().prime5_of(nucl)
+    }
+
 }
 
 /// Store the informations needed to represent an helix from the design

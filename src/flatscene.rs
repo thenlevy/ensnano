@@ -118,47 +118,11 @@ impl FlatScene {
     pub fn input(&mut self, event: &WindowEvent, cursor_position: PhysicalPosition<f64>) {
         if let Some(controller) = self.controller.get_mut(self.selected_design) {
             let consequence = controller.input(event, cursor_position);
-            /*
-            use controller::Consequence::*;
+            use controller::Consequence;
             match consequence {
-                Clicked(x, y) => match self.action_mode {
-                    ActionMode::Rotate => {
-                        let nucl = self.data[self.selected_design].borrow().get_click(x, y);
-                        self.data[self.selected_design]
-                            .borrow_mut()
-                            .set_selected_helix(nucl.map(|n| n.helix));
-                        if let Some(nucl) = nucl {
-                            let pivot = self.data[self.selected_design]
-                                .borrow()
-                                .get_pivot_position(nucl.helix, nucl.position);
-                            self.controller[self.selected_design].set_pivot(pivot.unwrap())
-                        } else {
-                            self.controller[self.selected_design].notify_unselect()
-                        }
-                    }
-                    ActionMode::Translate => {
-                        let nucl = self.data[self.selected_design].borrow().get_click(x, y);
-                        self.data[self.selected_design]
-                            .borrow_mut()
-                            .set_selected_helix(nucl.map(|n| n.helix));
-                        if nucl.is_some() {
-                            self.controller[self.selected_design].notify_select()
-                        } else {
-                            self.controller[self.selected_design].notify_unselect()
-                        }
-                    }
-                    _ => (),
-                },
-                Translated(x, y) => self.data[self.selected_design]
-                    .borrow_mut()
-                    .translate_helix(ultraviolet::Vec2::new(x, y)),
-                Rotated(pivot, angle) => self.data[self.selected_design]
-                    .borrow_mut()
-                    .rotate_helix(pivot, angle),
-                MovementEnded => self.data[self.selected_design].borrow_mut().end_movement(),
+                Consequence::Xover(nucl1, nucl2) => self.data[self.selected_design].borrow_mut().xover(nucl1, nucl2),
                 _ => (),
             }
-            */
         }
     }
 
