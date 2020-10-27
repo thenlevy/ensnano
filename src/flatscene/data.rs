@@ -129,6 +129,13 @@ impl Data {
         }
     }
 
+    pub fn snap_helix(&mut self, pivot: Nucl, destination: Vec2) {
+        if let Some(h) = self.selected_helix {
+            self.helices[h].snap(pivot, destination);
+            self.instance_update = true;
+        }
+    }
+
     pub fn rotate_helix(&mut self, pivot: Vec2, angle: f32) {
         if let Some(h) = self.selected_helix {
             self.helices[h].rotate(pivot, angle);

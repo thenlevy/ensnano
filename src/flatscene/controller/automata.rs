@@ -172,20 +172,21 @@ impl ControllerState for Translating {
             }
             WindowEvent::CursorMoved { .. } => {
                 self.mouse_position = position;
+                let (x, y) = controller
+                    .camera
+                    .borrow()
+                    .screen_to_world(position.x as f32, position.y as f32);
                 let (mouse_dx, mouse_dy) = {
-                    let (x, y) = controller
-                        .camera
-                        .borrow()
-                        .screen_to_world(position.x as f32, position.y as f32);
                     (
                         x - self.clicked_position_world.x,
                         y - self.clicked_position_world.y,
                     )
                 };
-                controller
+                /*controller
                     .data
                     .borrow_mut()
-                    .translate_helix(Vec2::new(mouse_dx, mouse_dy));
+                    .translate_helix(Vec2::new(mouse_dx, mouse_dy));*/
+                controller.data.borrow_mut().snap_helix(self.pivot_nucl, Vec2::new(x, y));
                 Transition::nothing()
             }
             WindowEvent::KeyboardInput { .. } => {

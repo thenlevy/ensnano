@@ -154,6 +154,20 @@ impl Helix {
             .transform_point2(self.scale * local_position)
     }
 
+    fn get_old_pivot_position(&self, nucl: &Nucl) -> Vec2 {
+        let local_position = nucl.position as f32 * Vec2::unit_x()
+            + if nucl.forward {
+                Vec2::zero()
+            } else {
+                Vec2::unit_y()
+            };
+
+        self.old_isometry
+            .into_homogeneous_matrix()
+            .transform_point2(self.scale * local_position)
+
+    }
+
     /// Return the nucleotide displayed at position (x, y) or None if (x, y) is outside the helix
     pub fn get_click(&self, x: f32, y: f32) -> Option<(isize, bool)> {
         let click = {
@@ -180,7 +194,18 @@ impl Helix {
         self.isometry.translation = self.old_isometry.translation + translation
     }
 
+    /// Translate self so that the pivot ends up on position.
+    pub fn snap(&mut self, pivot: Nucl, position: Vec2) {
+        let position = Vec2::new(position.x.round(), position.y.round());
+        let old_pos = self.get_old_pivot_position(&pivot);
+        self.translate(position - old_pos)
+    }
+
     pub fn rotate(&mut self, pivot: Vec2, angle: f32) {
+        let angle = {
+            let k = (angle / std::f32::consts::FRAC_PI_8).round();
+            k * std::f32::consts::FRAC_PI_8
+        };
         self.isometry = self.old_isometry;
         self.isometry.append_translation(-pivot);
         self.isometry
