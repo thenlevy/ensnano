@@ -179,7 +179,10 @@ impl Data {
         let to = self.to_real(to);
         let prim5 = self.design.prime5_of(from).or(self.design.prime5_of(to));
         let prim3 = self.design.prime3_of(from).or(self.design.prime3_of(to));
-        prim3.and(prim5).is_some()
+        match prim3.zip(prim5) {
+            Some((a, b)) if a != b => true,
+            _ => false 
+        }
     }
 
     pub fn set_current_xover(&mut self, xover: Option<(Nucl, Nucl)>) {

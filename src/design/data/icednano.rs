@@ -2,7 +2,7 @@
 /// All other format supported by icednano are converted into this format and run-time manipulation
 /// of designs are performed on an `icednano::Design` structure
 use std::borrow::Cow;
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::f32::consts::PI;
 
 use ultraviolet::{Mat4, Rotor3, Vec3};
@@ -15,9 +15,9 @@ use super::strand_builder::{DomainIdentifier, NeighbourDescriptor};
 pub struct Design {
     /// The collection of all helices used in this design. Helices have a
     /// position and an orientation in 3D.
-    pub helices: HashMap<usize, Helix>,
+    pub helices: BTreeMap<usize, Helix>,
     /// The vector of strands.
-    pub strands: HashMap<usize, Strand>,
+    pub strands: BTreeMap<usize, Strand>,
     /// Parameters of DNA geometry. This can be skipped (in JSON), or
     /// set to `None` in Rust, in which case a default set of
     /// parameters from the literature is used.
@@ -27,12 +27,12 @@ pub struct Design {
 
 impl Design {
     pub fn from_codenano<Sl, Dl>(codenano_desgin: &codenano::Design<Sl, Dl>) -> Self {
-        let mut helices = HashMap::new();
+        let mut helices = BTreeMap::new();
         for (i, helix) in codenano_desgin.helices.iter().enumerate() {
             helices.insert(i, Helix::from_codenano(helix));
         }
 
-        let mut strands = HashMap::new();
+        let mut strands = BTreeMap::new();
         for (i, strand) in codenano_desgin.strands.iter().enumerate() {
             strands.insert(i, Strand::from_codenano(strand));
         }
@@ -51,8 +51,8 @@ impl Design {
 
     pub fn new() -> Self {
         Self {
-            helices: HashMap::new(),
-            strands: HashMap::new(),
+            helices: BTreeMap::new(),
+            strands: BTreeMap::new(),
             parameters: Some(Parameters::DEFAULT),
         }
     }

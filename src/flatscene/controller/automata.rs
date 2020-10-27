@@ -561,10 +561,8 @@ impl ControllerState for Building {
                 self.mouse_position = position;
                 let (x, y) = controller.camera.borrow().screen_to_world(self.mouse_position.x as f32, self.mouse_position.y as f32);
                 let nucl = controller.data.borrow().get_click(x, y);
-                println!("got {:?}", controller.data.borrow().get_click_design(x, y));
                 match nucl {
                     Some(Nucl { helix, position, forward }) if helix == self.nucl.helix && forward == self.nucl.forward => {
-                        println!("moving to {:?}", nucl);
                         self.builder.move_to(position);
                         controller.data.borrow_mut().notify_update();
                         Transition::nothing()
