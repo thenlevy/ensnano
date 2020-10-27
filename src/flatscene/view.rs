@@ -9,6 +9,8 @@ use wgpu::{Device, Queue, RenderPipeline};
 
 mod helix_view;
 use helix_view::{HelixView, StrandView};
+mod background;
+use background::Background;
 
 use crate::consts::SAMPLE_COUNT;
 
@@ -28,6 +30,8 @@ pub struct View {
     was_updated: bool,
     window_size: PhySize,
     free_end: Option<FreeEnd>,
+    background: Background,
+
 }
 
 impl View {
@@ -62,7 +66,9 @@ impl View {
             depth_stencil_state.clone(),
         );
         let strand_pipeline =
-            strand_pipeline_descr(&device, globals.get_layout(), depth_stencil_state);
+            strand_pipeline_descr(&device, globals.get_layout(), depth_stencil_state.clone());
+
+        let background = Background::new(&device, globals.get_layout(), &depth_stencil_state);
 
         Self {
             device,
@@ -80,6 +86,7 @@ impl View {
             was_updated: false,
             window_size,
             free_end: None,
+            background,
         }
     }
 
@@ -233,7 +240,10 @@ impl View {
         );
         render_pass.set_bind_group(0, self.globals.get_bindgroup(), &[]);
         render_pass.set_bind_group(1, self.models.get_bindgroup(), &[]);
+        self.background.draw(&mut render_pass);
+
         render_pass.set_pipeline(&self.helices_pipeline);
+
 
         for background in self.helices_background.iter() {
             background.draw(&mut render_pass);
