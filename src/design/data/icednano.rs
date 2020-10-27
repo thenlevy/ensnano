@@ -221,7 +221,7 @@ impl Domain {
     pub fn length(&self) -> usize {
         match self {
             Self::Insertion(n) => *n,
-            Self::HelixDomain(interval) => (interval.end - interval.start).max(0) as usize
+            Self::HelixDomain(interval) => (interval.end - interval.start).max(0) as usize,
         }
     }
 

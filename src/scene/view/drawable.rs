@@ -166,12 +166,8 @@ impl<D: Drawable> Drawer<D> {
         } else {
             wgpu::BlendDescriptor::REPLACE
         };
-        
-        let sample_count = if !fake {
-            SAMPLE_COUNT
-        } else {
-            1
-        };
+
+        let sample_count = if !fake { SAMPLE_COUNT } else { 1 };
 
         self.device
             .create_render_pipeline(&wgpu::RenderPipelineDescriptor {

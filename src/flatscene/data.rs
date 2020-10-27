@@ -160,7 +160,7 @@ impl Data {
         let real_helix = self.design.get_helices()[nucl.helix].id;
         self.design.get_builder(Nucl {
             helix: real_helix,
-            ..nucl 
+            ..nucl
         })
     }
 
@@ -181,19 +181,25 @@ impl Data {
         let prim3 = self.design.prime3_of(from).or(self.design.prime3_of(to));
         match prim3.zip(prim5) {
             Some((a, b)) if a != b => true,
-            _ => false 
+            _ => false,
         }
     }
 
-    pub fn set_current_xover(&mut self, xover: Option<(Nucl, Nucl)>) {
-
-    }
+    pub fn set_current_xover(&mut self, xover: Option<(Nucl, Nucl)>) {}
 
     pub fn xover(&mut self, from: Nucl, to: Nucl) {
         let nucl1 = self.to_real(from);
         let nucl2 = self.to_real(to);
-        let prim5 = self.design.prime5_of(nucl1).or(self.design.prime5_of(nucl2)).unwrap();
-        let prim3 = self.design.prime3_of(nucl1).or(self.design.prime3_of(nucl2)).unwrap();
+        let prim5 = self
+            .design
+            .prime5_of(nucl1)
+            .or(self.design.prime5_of(nucl2))
+            .unwrap();
+        let prim3 = self
+            .design
+            .prime3_of(nucl1)
+            .or(self.design.prime3_of(nucl2))
+            .unwrap();
         self.merge_strand(prim3, prim5)
     }
 
@@ -209,5 +215,4 @@ impl Data {
             ..nucl
         }
     }
-
 }

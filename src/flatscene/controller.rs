@@ -101,9 +101,7 @@ impl Controller {
                 VirtualKeyCode::K => {
                     self.data.borrow_mut().move_helix_forward();
                 }
-                VirtualKeyCode::X => {
-                    self.data.borrow_mut().merge_strand(0, 1)
-                }
+                VirtualKeyCode::X => self.data.borrow_mut().merge_strand(0, 1),
                 _ => (),
             }
         }

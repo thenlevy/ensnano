@@ -611,11 +611,15 @@ impl Data {
         for domain in strand3prime.domains.iter() {
             domains.push(domain.clone());
         }
-        let sequence = if let Some((seq5, seq3)) = strand5prime.sequence.clone().zip(strand3prime.sequence.clone()) {
+        let sequence = if let Some((seq5, seq3)) = strand5prime
+            .sequence
+            .clone()
+            .zip(strand3prime.sequence.clone())
+        {
             let new_seq = seq5.into_owned() + &seq3.into_owned();
             Some(Cow::Owned(new_seq))
         } else if let Some(ref seq5) = strand5prime.sequence {
-           Some(seq5.clone())
+            Some(seq5.clone())
         } else if let Some(ref seq3) = strand3prime.sequence {
             Some(seq3.clone())
         } else {
@@ -633,11 +637,16 @@ impl Data {
     }
 
     pub fn split_strand(&mut self, nucl: &Nucl) {
-        let id = self.identifier_nucl.get(nucl).and_then(|id| self.strand_map.get(id)).expect("nucl").clone();
+        let id = self
+            .identifier_nucl
+            .get(nucl)
+            .and_then(|id| self.strand_map.get(id))
+            .expect("nucl")
+            .clone();
         let strand = self.design.strands.remove(&id).expect("strand");
         if strand.cyclic {
             println!("Cutting cyclic strand is not implemented yet");
-            return
+            return;
         }
         let mut i = 0;
         let mut prim5_domains = Vec::new();
@@ -645,12 +654,12 @@ impl Data {
         for (d_id, domain) in strand.domains.iter().enumerate() {
             if domain.prime5_end() == Some(*nucl) {
                 i = d_id;
-                break
+                break;
             } else if domain.prime3_end() == Some(*nucl) {
                 i = d_id + 1;
                 prim5_domains.push(domain.clone());
                 len_prim5 += domain.length();
-                break
+                break;
             } else {
                 len_prim5 += domain.length();
                 prim5_domains.push(domain.clone());
@@ -668,7 +677,6 @@ impl Data {
             let chars = seq.chars();
             seq_prim5 = Some(Cow::Owned(chars.clone().take(len_prim5).collect()));
             seq_prim3 = Some(Cow::Owned(chars.clone().skip(len_prim5).collect()));
-
         } else {
             seq_prim3 = None;
             seq_prim5 = None;

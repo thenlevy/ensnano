@@ -219,10 +219,10 @@ impl View {
             self.fake_depth_texture = Texture::create_depth_texture(self.device.as_ref(), &size, 1);
             self.msaa_texture = if SAMPLE_COUNT > 1 {
                 Some(crate::utils::texture::Texture::create_msaa_texture(
-                        self.device.clone().as_ref(),
-                        &size,
-                        SAMPLE_COUNT,
-                        wgpu::TextureFormat::Bgra8UnormSrgb,
+                    self.device.clone().as_ref(),
+                    &size,
+                    SAMPLE_COUNT,
+                    wgpu::TextureFormat::Bgra8UnormSrgb,
                 ))
             } else {
                 None

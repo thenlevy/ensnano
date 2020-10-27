@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 use super::{Nucl, Strand};
-use crate::design::{StrandBuilder, Design};
+use crate::design::{Design, StrandBuilder};
 
 pub(super) struct Design2d {
     /// The 2d helices
@@ -76,7 +76,7 @@ impl Design2d {
     pub fn get_strands(&self) -> &Vec<Strand> {
         &self.strands
     }
-    
+
     pub fn get_builder(&self, nucl: Nucl) -> Option<StrandBuilder> {
         self.design.lock().unwrap().get_builder(nucl)
     }
@@ -87,7 +87,7 @@ impl Design2d {
 
     pub fn prime3_of(&self, nucl: Nucl) -> Option<usize> {
         self.design.lock().unwrap().prime3_of(nucl)
-    } 
+    }
 
     pub fn prime5_of(&self, nucl: Nucl) -> Option<usize> {
         self.design.lock().unwrap().prime5_of(nucl)

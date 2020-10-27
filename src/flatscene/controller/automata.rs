@@ -62,7 +62,12 @@ impl ControllerState for NormalState {
                     .screen_to_world(self.mouse_position.x as f32, self.mouse_position.y as f32);
                 let pivot_opt = controller.data.borrow().get_click(x, y);
                 if let Some(pivot_nucl) = pivot_opt {
-                    if let Some(builder) = controller.data.borrow().get_builder(pivot_nucl).filter(|_| controller.action_mode == ActionMode::Build) {
+                    if let Some(builder) = controller
+                        .data
+                        .borrow()
+                        .get_builder(pivot_nucl)
+                        .filter(|_| controller.action_mode == ActionMode::Build)
+                    {
                         Transition {
                             new_state: Some(Box::new(Building {
                                 mouse_position: self.mouse_position,
@@ -75,11 +80,11 @@ impl ControllerState for NormalState {
                         Transition {
                             new_state: Some(Box::new(Cutting {
                                 nucl: pivot_nucl,
-                                mouse_position: self.mouse_position
+                                mouse_position: self.mouse_position,
                             })),
                             consequences: Consequence::Nothing,
                         }
-                    }else {
+                    } else {
                         Transition {
                             new_state: Some(Box::new(Translating {
                                 mouse_position: self.mouse_position,
@@ -547,7 +552,12 @@ impl ControllerState for Building {
         String::from("Building")
     }
 
-    fn input(&mut self, event: &WindowEvent, position: PhysicalPosition<f64>, controller: &Controller) -> Transition {
+    fn input(
+        &mut self,
+        event: &WindowEvent,
+        position: PhysicalPosition<f64>,
+        controller: &Controller,
+    ) -> Transition {
         match event {
             WindowEvent::MouseInput {
                 button: MouseButton::Left,
@@ -567,10 +577,17 @@ impl ControllerState for Building {
             }
             WindowEvent::CursorMoved { .. } => {
                 self.mouse_position = position;
-                let (x, y) = controller.camera.borrow().screen_to_world(self.mouse_position.x as f32, self.mouse_position.y as f32);
+                let (x, y) = controller
+                    .camera
+                    .borrow()
+                    .screen_to_world(self.mouse_position.x as f32, self.mouse_position.y as f32);
                 let nucl = controller.data.borrow().get_click(x, y);
                 match nucl {
-                    Some(Nucl { helix, position, forward }) if helix == self.nucl.helix && forward == self.nucl.forward => {
+                    Some(Nucl {
+                        helix,
+                        position,
+                        forward,
+                    }) if helix == self.nucl.helix && forward == self.nucl.forward => {
                         self.builder.move_to(position);
                         controller.data.borrow_mut().notify_update();
                         Transition::nothing()
@@ -581,9 +598,9 @@ impl ControllerState for Building {
                                 mouse_position: self.mouse_position,
                                 from: self.nucl,
                                 to: nucl,
-                                builder: self.builder.clone()
+                                builder: self.builder.clone(),
                             })),
-                            consequences: Consequence::Nothing
+                            consequences: Consequence::Nothing,
                         }
                     }
                     _ => Transition::nothing(),
@@ -607,18 +624,26 @@ pub struct Crossing {
 
 impl ControllerState for Crossing {
     fn transition_to(&self, controller: &Controller) {
-        controller.data.borrow_mut().set_current_xover(Some((self.from, self.to)))
+        controller
+            .data
+            .borrow_mut()
+            .set_current_xover(Some((self.from, self.to)))
     }
 
     fn transition_from(&self, controller: &Controller) {
         controller.data.borrow_mut().set_current_xover(None)
     }
-    
+
     fn display(&self) -> String {
         String::from("Crossing")
     }
 
-    fn input(&mut self, event: &WindowEvent, position: PhysicalPosition<f64>, controller: &Controller) -> Transition {
+    fn input(
+        &mut self,
+        event: &WindowEvent,
+        position: PhysicalPosition<f64>,
+        controller: &Controller,
+    ) -> Transition {
         match event {
             WindowEvent::MouseInput {
                 button: MouseButton::Left,
@@ -638,7 +663,10 @@ impl ControllerState for Crossing {
             }
             WindowEvent::CursorMoved { .. } => {
                 self.mouse_position = position;
-                let (x, y) = controller.camera.borrow().screen_to_world(self.mouse_position.x as f32, self.mouse_position.y as f32);
+                let (x, y) = controller
+                    .camera
+                    .borrow()
+                    .screen_to_world(self.mouse_position.x as f32, self.mouse_position.y as f32);
                 let nucl = controller.data.borrow().get_click(x, y);
                 if nucl != Some(self.to) {
                     Transition {
@@ -647,7 +675,7 @@ impl ControllerState for Crossing {
                             builder: self.builder.clone(),
                             nucl: self.from,
                         })),
-                        consequences: Consequence::Nothing
+                        consequences: Consequence::Nothing,
                     }
                 } else {
                     Transition::nothing()
@@ -660,7 +688,6 @@ impl ControllerState for Crossing {
             _ => Transition::nothing(),
         }
     }
-
 }
 
 struct Cutting {
@@ -681,7 +708,12 @@ impl ControllerState for Cutting {
         String::from("Cutting")
     }
 
-    fn input(&mut self, event: &WindowEvent, position: PhysicalPosition<f64>, controller: &Controller) -> Transition {
+    fn input(
+        &mut self,
+        event: &WindowEvent,
+        position: PhysicalPosition<f64>,
+        controller: &Controller,
+    ) -> Transition {
         match event {
             WindowEvent::MouseInput {
                 button: MouseButton::Left,
@@ -692,7 +724,10 @@ impl ControllerState for Cutting {
                     *state == ElementState::Released,
                     "Pressed mouse button in Cutting state"
                 );
-                let (x, y) = controller.camera.borrow().screen_to_world(self.mouse_position.x as f32, self.mouse_position.y as f32);
+                let (x, y) = controller
+                    .camera
+                    .borrow()
+                    .screen_to_world(self.mouse_position.x as f32, self.mouse_position.y as f32);
                 let nucl = controller.data.borrow().get_click(x, y);
                 let consequences = if nucl == Some(self.nucl) {
                     Consequence::Cut(self.nucl)
@@ -717,12 +752,8 @@ impl ControllerState for Cutting {
             _ => Transition::nothing(),
         }
     }
-
 }
-
 
 fn position_difference(a: PhysicalPosition<f64>, b: PhysicalPosition<f64>) -> f64 {
     (a.x - b.x).abs().max((a.y - b.y).abs())
 }
-
-
