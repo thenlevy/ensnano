@@ -93,6 +93,9 @@ impl Design2d {
         self.design.lock().unwrap().prime5_of(nucl)
     }
 
+    pub fn split_strand(&self, nucl: Nucl) {
+        self.design.lock().unwrap().split_strand(nucl)
+    }
 }
 
 /// Store the informations needed to represent an helix from the design

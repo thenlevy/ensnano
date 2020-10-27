@@ -121,6 +121,7 @@ impl FlatScene {
             use controller::Consequence;
             match consequence {
                 Consequence::Xover(nucl1, nucl2) => self.data[self.selected_design].borrow_mut().xover(nucl1, nucl2),
+                Consequence::Cut(nucl) => self.data[self.selected_design].borrow_mut().split_strand(nucl),
                 _ => (),
             }
         }

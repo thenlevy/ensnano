@@ -318,6 +318,10 @@ impl Design {
     pub fn prime5_of(&self, nucl: Nucl) -> Option<usize> {
         self.data.lock().unwrap().prime5_of(&nucl)
     }
+
+    pub fn split_strand(&self, nucl: Nucl) {
+        self.data.lock().unwrap().split_strand(&nucl)
+    }
 }
 
 #[derive(Clone)]

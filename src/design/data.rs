@@ -632,6 +632,69 @@ impl Data {
         self.update_status = true;
     }
 
+    pub fn split_strand(&mut self, nucl: &Nucl) {
+        let id = self.identifier_nucl.get(nucl).and_then(|id| self.strand_map.get(id)).expect("nucl").clone();
+        let strand = self.design.strands.remove(&id).expect("strand");
+        if strand.cyclic {
+            println!("Cutting cyclic strand is not implemented yet");
+            return
+        }
+        let mut i = 0;
+        let mut prim5_domains = Vec::new();
+        let mut len_prim5 = 0;
+        for (d_id, domain) in strand.domains.iter().enumerate() {
+            if domain.prime5_end() == Some(*nucl) {
+                i = d_id;
+                break
+            } else if domain.prime3_end() == Some(*nucl) {
+                i = d_id + 1;
+                prim5_domains.push(domain.clone());
+                len_prim5 += domain.length();
+                break
+            } else {
+                len_prim5 += domain.length();
+                prim5_domains.push(domain.clone());
+            }
+        }
+        let mut prim3_domains = Vec::new();
+
+        for domain in strand.domains.iter().skip(i) {
+            prim3_domains.push(domain.clone());
+        }
+        let seq_prim5;
+        let seq_prim3;
+        if let Some(seq) = strand.sequence {
+            let seq = seq.into_owned();
+            let chars = seq.chars();
+            seq_prim5 = Some(Cow::Owned(chars.clone().take(len_prim5).collect()));
+            seq_prim3 = Some(Cow::Owned(chars.clone().skip(len_prim5).collect()));
+
+        } else {
+            seq_prim3 = None;
+            seq_prim5 = None;
+        }
+
+        let strand_5prime = icednano::Strand {
+            domains: prim5_domains,
+            color: strand.color,
+            cyclic: false,
+            sequence: seq_prim5,
+        };
+
+        let strand_3prime = icednano::Strand {
+            domains: prim3_domains,
+            color: strand.color,
+            cyclic: false,
+            sequence: seq_prim3,
+        };
+        let id_5prime = *self.design.strands.keys().max().unwrap_or(&0) + 1;
+        let id_3prime = id_5prime + 1;
+        self.design.strands.insert(id_5prime, strand_5prime);
+        self.design.strands.insert(id_3prime, strand_3prime);
+        self.update_status = true;
+        self.hash_maps_update = true;
+    }
+
     pub fn get_all_strand_ids(&self) -> Vec<usize> {
         self.design.strands.keys().cloned().collect()
     }

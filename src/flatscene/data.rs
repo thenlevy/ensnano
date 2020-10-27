@@ -197,6 +197,11 @@ impl Data {
         self.merge_strand(prim3, prim5)
     }
 
+    pub fn split_strand(&self, nucl: Nucl) {
+        let nucl = self.to_real(nucl);
+        self.design.split_strand(nucl);
+    }
+
     fn to_real(&self, nucl: Nucl) -> Nucl {
         let real_helix = self.design.get_helices()[nucl.helix].id;
         Nucl {
@@ -204,4 +209,5 @@ impl Data {
             ..nucl
         }
     }
+
 }

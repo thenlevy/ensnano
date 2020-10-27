@@ -71,7 +71,15 @@ impl ControllerState for NormalState {
                             })),
                             consequences: Consequence::Nothing,
                         }
-                    } else {
+                    } else if controller.action_mode == ActionMode::Rotate {
+                        Transition {
+                            new_state: Some(Box::new(Cutting {
+                                nucl: pivot_nucl,
+                                mouse_position: self.mouse_position
+                            })),
+                            consequences: Consequence::Nothing,
+                        }
+                    }else {
                         Transition {
                             new_state: Some(Box::new(Translating {
                                 mouse_position: self.mouse_position,
@@ -651,10 +659,67 @@ impl ControllerState for Crossing {
             }
             _ => Transition::nothing(),
         }
-
     }
 
 }
+
+struct Cutting {
+    mouse_position: PhysicalPosition<f64>,
+    nucl: Nucl,
+}
+
+impl ControllerState for Cutting {
+    fn transition_from(&self, _controller: &Controller) {
+        ()
+    }
+
+    fn transition_to(&self, _controller: &Controller) {
+        ()
+    }
+
+    fn display(&self) -> String {
+        String::from("Cutting")
+    }
+
+    fn input(&mut self, event: &WindowEvent, position: PhysicalPosition<f64>, controller: &Controller) -> Transition {
+        match event {
+            WindowEvent::MouseInput {
+                button: MouseButton::Left,
+                state,
+                ..
+            } => {
+                assert!(
+                    *state == ElementState::Released,
+                    "Pressed mouse button in Cutting state"
+                );
+                let (x, y) = controller.camera.borrow().screen_to_world(self.mouse_position.x as f32, self.mouse_position.y as f32);
+                let nucl = controller.data.borrow().get_click(x, y);
+                let consequences = if nucl == Some(self.nucl) {
+                    Consequence::Cut(self.nucl)
+                } else {
+                    Consequence::Nothing
+                };
+                Transition {
+                    new_state: Some(Box::new(NormalState {
+                        mouse_position: self.mouse_position,
+                    })),
+                    consequences,
+                }
+            }
+            WindowEvent::CursorMoved { .. } => {
+                self.mouse_position = position;
+                Transition::nothing()
+            }
+            WindowEvent::KeyboardInput { .. } => {
+                controller.process_keyboard(event);
+                Transition::nothing()
+            }
+            _ => Transition::nothing(),
+        }
+    }
+
+}
+
 
 fn position_difference(a: PhysicalPosition<f64>, b: PhysicalPosition<f64>) -> f64 {
     (a.x - b.x).abs().max((a.y - b.y).abs())

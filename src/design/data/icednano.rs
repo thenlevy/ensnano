@@ -218,6 +218,13 @@ impl Domain {
         Self::HelixDomain(interval)
     }
 
+    pub fn length(&self) -> usize {
+        match self {
+            Self::Insertion(n) => *n,
+            Self::HelixDomain(interval) => (interval.end - interval.start).max(0) as usize
+        }
+    }
+
     pub fn other_end(&self, nucl: Nucl) -> Option<isize> {
         match self {
             Self::Insertion(_) => None,
@@ -233,6 +240,42 @@ impl Domain {
                 } else {
                     None
                 }
+            }
+        }
+    }
+
+    pub fn prime5_end(&self) -> Option<Nucl> {
+        match self {
+            Self::Insertion(_) => None,
+            Self::HelixDomain(interval) => {
+                let position = if interval.forward {
+                    interval.start
+                } else {
+                    interval.end - 1
+                };
+                Some(Nucl {
+                    helix: interval.helix,
+                    position,
+                    forward: interval.forward,
+                })
+            }
+        }
+    }
+
+    pub fn prime3_end(&self) -> Option<Nucl> {
+        match self {
+            Self::Insertion(_) => None,
+            Self::HelixDomain(interval) => {
+                let position = if interval.forward {
+                    interval.end - 1
+                } else {
+                    interval.start
+                };
+                Some(Nucl {
+                    helix: interval.helix,
+                    position,
+                    forward: interval.forward,
+                })
             }
         }
     }

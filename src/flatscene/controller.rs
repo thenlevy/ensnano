@@ -29,11 +29,8 @@ pub enum Consequence {
     #[allow(dead_code)]
     GlobalsChanged,
     Nothing,
-    MovementEnded,
-    Clicked(f32, f32),
-    Translated(f32, f32),
-    Rotated(Vec2, f32),
     Xover(Nucl, Nucl),
+    Cut(Nucl),
 }
 
 impl Controller {
