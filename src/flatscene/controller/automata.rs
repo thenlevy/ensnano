@@ -76,7 +76,7 @@ impl ControllerState for NormalState {
                             })),
                             consequences: Consequence::Nothing,
                         }
-                    } else if controller.action_mode == ActionMode::Rotate {
+                    } else if controller.action_mode == ActionMode::Cut {
                         Transition {
                             new_state: Some(Box::new(Cutting {
                                 nucl: pivot_nucl,

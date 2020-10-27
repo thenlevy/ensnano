@@ -648,7 +648,7 @@ impl Data {
             println!("Cutting cyclic strand is not implemented yet");
             return;
         }
-        let mut i = 0;
+        let mut i = strand.domains.len();
         let mut prim5_domains = Vec::new();
         let mut len_prim5 = 0;
         for (d_id, domain) in strand.domains.iter().enumerate() {

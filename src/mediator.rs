@@ -256,6 +256,8 @@ pub enum ActionMode {
     Rotate,
     /// User can elongate/shorten strands
     Build,
+    /// Use can cut strands
+    Cut,
 }
 
 impl Default for ActionMode {
@@ -274,6 +276,7 @@ impl std::fmt::Display for ActionMode {
                 ActionMode::Translate => "Translate",
                 ActionMode::Rotate => "Rotate",
                 ActionMode::Build => "Build",
+                ActionMode::Cut => "Cut",
             }
         )
     }

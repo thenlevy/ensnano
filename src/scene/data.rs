@@ -645,11 +645,12 @@ impl Data {
 }
 
 impl ActionMode {
-    pub const ALL: [ActionMode; 4] = [
+    pub const ALL: [ActionMode; 5] = [
         ActionMode::Normal,
         ActionMode::Translate,
         ActionMode::Rotate,
         ActionMode::Build,
+        ActionMode::Cut,
     ];
 
     pub fn wants_rotation(&self) -> bool {
