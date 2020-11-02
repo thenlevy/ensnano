@@ -76,6 +76,7 @@ impl Scene {
         window_size: PhySize,
         area: DrawArea,
         mediator: MediatorPtr,
+        encoder: &mut wgpu::CommandEncoder,
     ) -> Self {
         let update = SceneUpdate::new();
         let view: ViewPtr = Rc::new(RefCell::new(View::new(
@@ -83,6 +84,7 @@ impl Scene {
             area.size,
             device.clone(),
             queue.clone(),
+            encoder,
         )));
         let data: DataPtr = Rc::new(RefCell::new(Data::new(view.clone())));
         let controller: Controller =

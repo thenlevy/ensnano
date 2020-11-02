@@ -122,6 +122,8 @@ fn main() {
     let mut multiplexer = Multiplexer::new(window.inner_size(), window.scale_factor());
 
     // Initialize the scenes
+    let mut encoder =
+        device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
     let scene_area = multiplexer.get_element_area(ElementType::Scene);
     let scene = Arc::new(Mutex::new(Scene::new(
         device.clone(),
@@ -129,7 +131,9 @@ fn main() {
         window.inner_size(),
         scene_area,
         mediator.clone(),
+        &mut encoder,
     )));
+    queue.submit(Some(encoder.finish()));
     mediator.lock().unwrap().add_application(scene.clone());
 
     let mut draw_flat = false;

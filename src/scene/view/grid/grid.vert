@@ -1,0 +1,48 @@
+#version 450
+
+layout(location=0) out uint v_grid_type;
+layout(location=1) out vec2 v_tex_coords;
+
+
+layout(set=0, binding=0)
+uniform Uniforms {
+    vec3 u_camera_position;
+    mat4 u_view;
+    mat4 u_proj;
+};
+
+struct Instances {
+    mat4 model;
+    float min_x;
+    float max_x;
+    float min_y;
+    float max_y;
+    uint grid_type;
+};
+
+layout(set=1, binding=0) 
+buffer InstancesBlock {
+    Instances instances[];
+};
+
+void main() {
+    v_grid_type = instances[gl_InstanceIndex].grid_type;
+
+    float min_x = instances[gl_InstanceIndex].min_x;
+    float max_x = instances[gl_InstanceIndex].max_x;
+    float min_y = instances[gl_InstanceIndex].min_y;
+    float max_y = instances[gl_InstanceIndex].max_y;
+
+    vec2 position[4] = vec2[4](
+        vec2(min_x, min_y),
+        vec2(min_x, max_y),
+        vec2(max_x, min_y),
+        vec2(max_x, max_y)
+    );
+    v_tex_coords = position[gl_VertexIndex];
+
+    mat4 model_matrix = instances[gl_InstanceIndex].model;
+
+    vec4 model_space = model_matrix * vec4(position[gl_VertexIndex], 0., 1.0); 
+    gl_Position = u_proj * u_view * model_space;
+}

@@ -19,6 +19,7 @@ use std::borrow::Cow;
 mod codenano;
 mod icednano;
 mod strand_builder;
+mod grid;
 pub use icednano::Nucl;
 pub use icednano::{Axis, Design};
 pub use strand_builder::StrandBuilder;

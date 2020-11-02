@@ -29,6 +29,7 @@ mod letter;
 mod maths;
 /// A RotationWidget draws the widget for rotating objects
 mod rotation_widget;
+mod grid;
 
 use bindgroup_manager::UniformBindGroup;
 use drawable::{Drawable, Drawer, Vertex};
@@ -39,6 +40,8 @@ pub use letter::LetterInstance;
 use maths::unproject_point_on_line;
 use rotation_widget::RotationWidget;
 pub use rotation_widget::{RotationMode, RotationWidgetDescriptor, RotationWidgetOrientation};
+use grid::GridDrawer;
+pub use grid::GridInstance;
 //use plane_drawer::PlaneDrawer;
 //pub use plane_drawer::Plane;
 
@@ -73,6 +76,7 @@ pub struct View {
     need_redraw_fake: bool,
     draw_letter: bool,
     msaa_texture: Option<wgpu::TextureView>,
+    grid_drawer: GridDrawer,
 }
 
 impl View {
@@ -81,6 +85,7 @@ impl View {
         area_size: PhySize,
         device: Rc<Device>,
         queue: Rc<Queue>,
+        encoder: &mut wgpu::CommandEncoder,
     ) -> Self {
         let camera = Rc::new(RefCell::new(Camera::new(
             (0.0, 5.0, 10.0),
@@ -105,7 +110,7 @@ impl View {
             texture::Texture::create_depth_texture(device.as_ref(), &window_size, 1);
         let viewer = Rc::new(RefCell::new(UniformBindGroup::new(
             device.clone(),
-            queue,
+            queue.clone(),
             &Uniforms::from_view_proj(camera.clone(), projection.clone()),
         )));
         let msaa_texture = if SAMPLE_COUNT > 1 {
@@ -118,6 +123,9 @@ impl View {
         } else {
             None
         };
+
+        let grid_drawer = GridDrawer::new(device.clone(), queue.clone(), &camera, &projection, encoder);
+
         Self {
             camera,
             projection,
@@ -135,6 +143,7 @@ impl View {
             need_redraw_fake: true,
             draw_letter: false,
             msaa_texture,
+            grid_drawer,
         }
     }
 
@@ -159,6 +168,7 @@ impl View {
                 for i in 0..NB_BASIS_SYMBOLS {
                     self.letter_drawer[i].new_viewer(self.camera.clone(), self.projection.clone());
                 }
+                self.grid_drawer.new_viewer(self.camera.clone(), self.projection.clone());
                 self.need_redraw_fake = true;
             }
             ViewUpdate::Handles(descr) => {
@@ -345,6 +355,10 @@ impl View {
             for drawer in self.letter_drawer.iter_mut() {
                 drawer.draw(&mut render_pass)
             }
+        }
+
+        if !fake_color {
+            self.grid_drawer.draw(&mut render_pass)
         }
 
         if fake_color {
