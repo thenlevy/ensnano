@@ -1,6 +1,8 @@
 /*
-This file is a modified version of a file originally published in the `Lyon` project.
-See thirdparty/lyon/LICENSE
+This file contains fragment of code that were originally published in the `lyon` crate
+Original source: https://github.com/nical/lyon/blob/master/examples/wgpu/shaders/background.vert.glsl
+The original source was distributed under the MIT License by Nicolas Silva.
+A copy of the original license is available in thirdparties/lyon/LICENSE
 */
 #version 450
 

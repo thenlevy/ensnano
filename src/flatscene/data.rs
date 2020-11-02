@@ -9,6 +9,7 @@ mod strand;
 pub use strand::{Nucl, Strand, StrandVertex, FreeEnd};
 mod design;
 use design::{Design2d, Helix2d};
+use crate::consts::*;
 
 pub struct Data {
     view: ViewPtr,
@@ -113,11 +114,11 @@ impl Data {
 
     pub fn set_selected_helix(&mut self, helix: Option<usize>) {
         if let Some(h) = self.selected_helix {
-            self.helices[h].set_color(0);
+            self.helices[h].set_color(HELIX_BORDER_COLOR);
         }
         self.selected_helix = helix;
         if let Some(h) = helix {
-            self.helices[h].set_color(0xFF_00_00);
+            self.helices[h].set_color(0xFF_BF_1E_28);
         }
         self.instance_update = true;
     }

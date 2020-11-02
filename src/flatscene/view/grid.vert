@@ -39,5 +39,5 @@ void main() {
     float background_depth = a_is_background > 0 ? 0.5 : 0.25;
     float z = (float(model.z_index * 1000 + a_model_id) + background_depth);
     gl_Position = vec4(transformed_pos, z / 1e6, 1.0);
-    v_color = a_is_background > 0 ? vec4(1., 1., 1., 1.) : model.color;
+    v_color = a_is_background > 0 ? vec4(0.95, 0.95, 0.95, 1.) : model.color;
 }

@@ -1,6 +1,8 @@
 /*
 This file contains fragment of code that were originally published in the `lyon` crate
-See thirdparty/lyon/LICENSE
+Original source: https://github.com/nical/lyon/blob/master/examples/wgpu/src/main.rs
+The original source was distributed under the MIT License by Nicolas Silva.
+A copy of the original license is available in thirdparties/lyon/LICENSE
 */
 
 use super::*;

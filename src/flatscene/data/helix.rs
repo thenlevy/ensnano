@@ -8,6 +8,7 @@ use lyon::tessellation::{
     FillVertex, FillVertexConstructor, StrokeVertex, StrokeVertexConstructor,
 };
 use ultraviolet::{Isometry2, Mat2, Rotor2, Vec2, Vec4};
+use crate::consts::*;
 
 type Vertices = lyon::tessellation::VertexBuffers<GpuVertex, u16>;
 
@@ -46,7 +47,7 @@ impl Helix {
             isometry: Isometry2::new(position, Rotor2::identity()),
             old_isometry: Isometry2::new(position, Rotor2::identity()),
             scale: 1f32,
-            color: 0xFF_4A4946,
+            color: HELIX_BORDER_COLOR,
             z_index: 500,
             stroke_width: 0.01,
             id,

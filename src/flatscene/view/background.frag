@@ -1,6 +1,8 @@
 /*
-This file is a modified version of a file originally published in the `Lyon` project.
-See thirdparty/lyon/LICENSE
+This file contains fragment of code that were originally published in the `lyon` crate
+Original source: https://github.com/nical/lyon/blob/master/examples/wgpu/shaders/background.frag.glsl
+The original source was distributed under the MIT License by Nicolas Silva.
+A copy of the original license is available in thirdparties/lyon/LICENSE
 */
 #version 450
 
@@ -19,26 +21,26 @@ void main() {
     // #005fa4
     float vignette = clamp(0.7 * length(v_position), 0.0, 1.0);
     out_color = mix(
-        vec4(0.0, 0.47, 0.9, 1.0),
-        vec4(0.0, 0.1, 0.64, 1.0),
+        vec4(0.9, 0.9, 0.9, 1.0),
+        vec4(0.64, 0.64, 0.64, 1.0),
         vignette
     );
 
     // TODO: properly adapt the grid while zooming in and out.
-    float grid_scale = 5.0;
+    float grid_scale = 20.;
     if (v_zoom < 2.5) {
-        grid_scale = 1.0;
+        grid_scale = 4.;
     }
 
     vec2 pos = px_position + v_scroll_offset * v_zoom;
 
     if (mod(pos.x, 20.0 / grid_scale * v_zoom) <= 1.0 ||
         mod(pos.y, 20.0 / grid_scale * v_zoom) <= 1.0) {
-        out_color *= 1.2;
+        out_color /= 1.2;
     }
 
     if (mod(pos.x, 100.0 / grid_scale * v_zoom) <= 2.0 ||
         mod(pos.y, 100.0 / grid_scale * v_zoom) <= 2.0) {
-        out_color *= 1.2;
+        out_color /= 1.2;
     }
 }
