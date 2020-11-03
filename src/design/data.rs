@@ -109,6 +109,8 @@ impl Data {
             basis_map: HashMap::new(),
             grid_manager,
         };
+        ret.grid_manager.create_grids(&mut ret.design);
+        ret.grid_manager.update(&mut ret.design);
         ret.make_hash_maps();
         ret.terminate_movement();
         Some(ret)
@@ -717,6 +719,10 @@ impl Data {
 
     pub fn get_grid_instances(&self) -> Vec<GridInstance> {
         self.grid_manager.grid_instances()
+    }
+
+    pub fn create_grids(&mut self) {
+        self.grid_manager.create_grids(&mut self.design)
     }
 }
 

@@ -202,11 +202,11 @@ impl GridDrawer {
 
         let new_instances = vec![GridInstance {
             position: Vec3::zero(),
-            orientation: Rotor3::from_rotation_xz(std::f32::consts::FRAC_PI_2),
-            min_x: -2,
-            max_x: 2,
-            min_y: -3,
-            max_y: 3,
+            orientation: Rotor3::from_rotation_xz(-std::f32::consts::FRAC_PI_2),
+            min_x: 0,
+            max_x: 3,
+            min_y: 0,
+            max_y: 1,
             grid_type: GridType::Honeycomb,
         }];
 

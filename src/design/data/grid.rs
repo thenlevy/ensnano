@@ -3,6 +3,7 @@ use std::marker::PhantomData;
 use std::collections::HashMap;
 use super::icednano::{Design, Parameters};
 use ultraviolet::{Rotor3, Vec3, Vec2};
+use std::f32::consts::FRAC_PI_2;
 
 use crate::scene::{GridType as GridType_, GridInstance};
 
@@ -105,11 +106,11 @@ pub struct HoneyComb;
 impl GridDivision for HoneyComb {
     fn origin_helix(parameters: &Parameters, x: isize, y: isize) -> Vec2 {
         let r = parameters.inter_helix_gap / 2. + parameters.helix_radius;
-        let lower = 3. * r * y as f32;
-        let upper = lower + r;
+        let upper = -3. * r * y as f32;
+        let lower = upper - r;
         Vec2::new(
             x as f32 * r * 3f32.sqrt(),
-            if x % 2 == y % 2 {lower} else {upper},
+            if x.abs() % 2 != y.abs() % 2 {lower} else {upper},
         )
     }
 
@@ -122,8 +123,8 @@ impl GridDivision for HoneyComb {
 
         let mut ret = first_guess;
         let mut best_dist = (Self::origin_helix(parameters, first_guess.0, first_guess.1) - Vec2::new(x, y)).mag();
-        for dx in [-1, 0, 1].iter() {
-            for dy in [-1, 0, 1].iter() {
+        for dx in [-2, -1, 0, 1, 2].iter() {
+            for dy in [-2, -1, 0, 1, 2].iter() {
                 let guess = (first_guess.0 + dx, first_guess.1 + dy);
                 let dist = (Self::origin_helix(parameters, guess.0, guess.1) - Vec2::new(x, y)).mag();
                 if dist < best_dist {
@@ -229,6 +230,58 @@ impl GridManager {
             ret[grid].max_y = ret[grid].max_y.max(grid_position.y as i32 + 2);
         }
         ret
+    }
+
+    pub fn create_grids(&mut self, design: &mut Design) {
+        let parameters = design.parameters.unwrap_or_default();
+        //let new_square_grids = Vec::new();
+        for (h_id, h) in design.helices.iter_mut() {
+            if h.grid_position.is_some() {
+                continue;
+            }
+            let axis = h.get_axis(&parameters);
+            if let Some(position) = self.attach_existing(axis.origin, axis.direction) {
+                h.grid_position = Some(position)
+            }
+        }
+    }
+
+    pub fn update(&mut self, design: &mut Design) {
+        for (h_id, h) in design.helices.iter_mut() {
+            if let Some(grid_position) = h.grid_position {
+                self.helix_to_pos.insert(*h_id, grid_position);
+                if let Some(grid) = self.square_grids.get(&grid_position.grid) {
+                    h.position = grid.position_helix(grid_position.x, grid_position.y);
+                } else {
+                    let grid = self.honeycomb_grids.get(&grid_position.grid).unwrap();
+                    h.position = grid.position_helix(grid_position.x, grid_position.y);
+                }
+            }
+        }
+    }
+
+    fn attach_existing(&self, origin: Vec3, direction: Vec3) -> Option<GridPosition> {
+        for (g_id, g) in self.square_grids.iter() {
+            if (g.angle_axis(direction) - FRAC_PI_2).abs() < 0.3 {
+                let (x, y) = g.interpolate_helix(origin, direction).unwrap();
+                return Some(GridPosition {
+                    grid: *g_id,
+                    x,
+                    y
+                })
+            }
+        }
+        for (g_id, g) in self.honeycomb_grids.iter() {
+            if (g.angle_axis(direction) - FRAC_PI_2).abs() < 0.3 {
+                let (x, y) = g.interpolate_helix(origin, direction).unwrap();
+                return Some(GridPosition {
+                    grid: *g_id,
+                    x,
+                    y
+                })
+            }
+        }
+        None
     }
 
 }
