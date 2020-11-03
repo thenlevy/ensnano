@@ -15,7 +15,7 @@ mod view;
 use controller::Controller;
 pub use controller::{DesignRotation, IsometryTarget};
 use data::Data;
-pub use data::{Axis, Nucl, ObjectType, StrandBuilder};
+pub use data::{Axis, Nucl, ObjectType, StrandBuilder, Parameters};
 use view::View;
 
 pub struct Design {

@@ -124,7 +124,7 @@ impl View {
             None
         };
 
-        let grid_drawer = GridDrawer::new(device.clone(), queue.clone(), &camera, &projection, encoder);
+        let grid_drawer = GridDrawer::new(device.clone(), queue.clone(), &camera, &projection, encoder, None);
 
         Self {
             camera,

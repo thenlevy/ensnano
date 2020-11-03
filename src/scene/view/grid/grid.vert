@@ -1,7 +1,8 @@
 #version 450
 
 layout(location=0) out uint v_grid_type;
-layout(location=1) out vec2 v_tex_coords;
+layout(location=1) out vec2 v_tex_honney_coords;
+layout(location=2) out vec2 v_tex_square_coords;
 
 
 layout(set=0, binding=0)
@@ -25,8 +26,15 @@ buffer InstancesBlock {
     Instances instances[];
 };
 
+layout(set = 3, binding = 0)
+uniform Parameters {
+    float u_helix_radius;
+    float u_inter_helix_gap;
+};
+
 void main() {
     v_grid_type = instances[gl_InstanceIndex].grid_type;
+    float r = u_helix_radius + u_inter_helix_gap / 2.;
 
     float min_x = instances[gl_InstanceIndex].min_x;
     float max_x = instances[gl_InstanceIndex].max_x;
@@ -39,10 +47,13 @@ void main() {
         vec2(max_x, min_y),
         vec2(max_x, max_y)
     );
-    v_tex_coords = position[gl_VertexIndex];
+    v_tex_honney_coords = position[gl_VertexIndex] * vec2(1., 1./3.);
+    v_tex_square_coords = position[gl_VertexIndex];
 
     mat4 model_matrix = instances[gl_InstanceIndex].model;
+    
+    vec2 coeff = v_grid_type == 0 ? vec2(2. * r, 2. * r) : vec2(sqrt(3) * r, r);
 
-    vec4 model_space = model_matrix * vec4(position[gl_VertexIndex], 0., 1.0); 
+    vec4 model_space = model_matrix * vec4(position[gl_VertexIndex] * coeff, 0., 1.0); 
     gl_Position = u_proj * u_view * model_space;
 }

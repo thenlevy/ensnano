@@ -9,7 +9,8 @@ use super::{
     CameraPtr, ProjectionPtr, Uniforms,
 };
 use crate::consts::*;
-use crate::utils::{instance::InstanceRaw, texture::Texture};
+use crate::utils::texture::Texture;
+use crate::design::Parameters;
 
 mod texture;
 
@@ -59,6 +60,26 @@ struct GridInstanceRaw {
 unsafe impl bytemuck::Zeroable for GridInstanceRaw {}
 unsafe impl bytemuck::Pod for GridInstanceRaw {}
 
+#[repr(C)]
+#[derive(Copy, Clone)]
+struct ParametersRaw {
+    pub helix_radius: f32,
+    pub inter_helix_gap: f32,
+    pub _padding: [f32 ; 2],
+}
+
+unsafe impl bytemuck::Zeroable for ParametersRaw {}
+unsafe impl bytemuck::Pod for ParametersRaw {}
+
+impl ParametersRaw {
+    pub fn from_parameters(parameters: &Parameters) -> Self {
+        Self {
+            helix_radius: parameters.helix_radius,
+            inter_helix_gap: parameters.inter_helix_gap,
+            _padding: [0f32, 0f32],
+        }
+    }
+}
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
@@ -86,6 +107,7 @@ pub struct GridDrawer {
     honney_texture: texture::HonneyTexture,
     texture_bind_group: wgpu::BindGroup,
     texture_bind_group_layout: wgpu::BindGroupLayout,
+    parameters: Parameters,
 }
 
 impl GridDrawer {
@@ -95,6 +117,7 @@ impl GridDrawer {
         camera: &CameraPtr,
         projection: &ProjectionPtr,
         encoder: &mut wgpu::CommandEncoder,
+        parameters: Option<Parameters>,
     ) -> Self {
         let instances = DynamicBindGroup::new(device.clone(), queue.clone());
 
@@ -102,9 +125,14 @@ impl GridDrawer {
         viewer_data.update_view_proj(camera.clone(), projection.clone());
         let viewer = UniformBindGroup::new(device.clone(), queue.clone(), &viewer_data);
 
+        let parameters = parameters.unwrap_or_default();
+        let parameters_data = ParametersRaw::from_parameters(&parameters);
+        let parameters_bg = UniformBindGroup::new(device.clone(), queue.clone(), &parameters_data);
+
         let bind_groups = BindGroups {
             instances,
             viewer,
+            parameters: parameters_bg
         };
 
         let square_texture = texture::SquareTexture::new(device.clone().as_ref(), encoder);
@@ -174,11 +202,11 @@ impl GridDrawer {
 
         let new_instances = vec![GridInstance {
             position: Vec3::zero(),
-            orientation: Rotor3::identity(),
-            min_x: -10,
-            max_x: 10,
-            min_y: -20,
-            max_y: 40,
+            orientation: Rotor3::from_rotation_xz(std::f32::consts::FRAC_PI_2),
+            min_x: -2,
+            max_x: 2,
+            min_y: -3,
+            max_y: 3,
             grid_type: GridType::Honeycomb,
         }];
 
@@ -193,6 +221,7 @@ impl GridDrawer {
             square_texture,
             texture_bind_group,
             texture_bind_group_layout,
+            parameters,
         }
     }
 
@@ -245,6 +274,7 @@ impl GridDrawer {
             &[],
         );
         render_pass.set_bind_group(TEXTURE_BINDING_ID, &self.texture_bind_group, &[]);
+        render_pass.set_bind_group(3, &self.bind_groups.parameters.get_bindgroup(), &[]);
         render_pass.draw(0..4, 0..self.number_instances as u32);
     }
 
@@ -259,6 +289,7 @@ impl GridDrawer {
                     &self.bind_groups.viewer.get_layout(),
                     &self.bind_groups.instances.get_layout(),
                     &self.texture_bind_group_layout,
+                    &self.bind_groups.parameters.get_layout(),
                 ],
                 push_constant_ranges: &[],
                 label: Some("render_pipeline_layout"),
@@ -330,6 +361,7 @@ impl GridDrawer {
 struct BindGroups {
     instances: DynamicBindGroup,
     viewer: UniformBindGroup,
+    parameters: UniformBindGroup,
 }
 
 impl BindGroups {
@@ -340,5 +372,9 @@ impl BindGroups {
 
     pub fn update_viewer<U: bytemuck::Pod>(&mut self, viewer_data: &U) {
         self.viewer.update(viewer_data);
+    }
+
+    pub fn update_parameters<U: bytemuck::Pod>(&mut self, parameters_data: &U) {
+        self.parameters.update(parameters_data);
     }
 }

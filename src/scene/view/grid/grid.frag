@@ -2,7 +2,8 @@
 #version 450
 
 layout(location=0) flat in uint v_grid_type;
-layout(location=1) in vec2 v_tex_coords;
+layout(location=1) in vec2 v_tex_honey_coords;
+layout(location=2) in vec2 v_tex_square_coords;
 
 layout(location=0) out vec4 f_color;
 
@@ -16,9 +17,9 @@ void main() {
     vec4 color;
 
     if (v_grid_type == 0) {
-       color = texture(sampler2D(t_square, s_square), v_tex_coords);
+       color = texture(sampler2D(t_square, s_square), v_tex_square_coords);
     } else {
-       color = texture(sampler2D(t_honney, s_honney), v_tex_coords);
+       color = texture(sampler2D(t_honney, s_honney), v_tex_honey_coords);
     }
 
     if (color.w < 0.01) {

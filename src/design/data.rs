@@ -21,7 +21,7 @@ mod icednano;
 mod strand_builder;
 mod grid;
 pub use icednano::Nucl;
-pub use icednano::{Axis, Design};
+pub use icednano::{Axis, Design, Parameters};
 pub use strand_builder::StrandBuilder;
 use strand_builder::{DomainIdentifier, NeighbourDescriptor};
 
