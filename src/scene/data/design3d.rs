@@ -7,6 +7,7 @@ use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 use ultraviolet::{Mat4, Rotor3, Vec3};
+use super::super::GridInstance;
 
 /// An object that handles the 3d graphcial representation of a `Design`
 pub struct Design3D {
@@ -469,6 +470,10 @@ impl Design3D {
             }
             _ => None,
         }
+    }
+
+    pub fn get_grid(&self) -> Vec<GridInstance> {
+        self.design.lock().unwrap().get_grid_instance()
     }
 }
 

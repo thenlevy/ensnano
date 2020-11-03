@@ -9,6 +9,7 @@ use ultraviolet::{Mat4, Rotor3, Vec3};
 
 use super::codenano;
 use super::strand_builder::{DomainIdentifier, NeighbourDescriptor};
+use super::grid::{GridPosition, GridDescriptor};
 
 /// The `icednano` Design structure.
 #[derive(Serialize, Deserialize, Clone)]
@@ -23,6 +24,9 @@ pub struct Design {
     /// parameters from the literature is used.
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub parameters: Option<Parameters>,
+
+    #[serde(default)]
+    pub grids: Vec<GridDescriptor>,
 }
 
 impl Design {
@@ -46,6 +50,7 @@ impl Design {
             helices,
             strands,
             parameters: Some(parameters),
+            grids: Vec::new(),
         }
     }
 
@@ -54,6 +59,7 @@ impl Design {
             helices: BTreeMap::new(),
             strands: BTreeMap::new(),
             parameters: Some(Parameters::DEFAULT),
+            grids: Vec::new(),
         }
     }
 
@@ -387,6 +393,9 @@ pub struct Helix {
     /// Orientation of the helix
     pub orientation: Rotor3,
 
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub grid_position: Option<GridPosition>,
+
     #[serde(default, skip_serializing)]
     old_position: Vec3,
     #[serde(default, skip_serializing)]
@@ -423,6 +432,7 @@ impl Helix {
             orientation,
             old_position: position,
             old_orientation: orientation,
+            grid_position: None,
         }
     }
 }

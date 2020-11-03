@@ -17,6 +17,7 @@ pub use controller::{DesignRotation, IsometryTarget};
 use data::Data;
 pub use data::{Axis, Nucl, ObjectType, StrandBuilder, Parameters};
 use view::View;
+use crate::scene::GridInstance;
 
 pub struct Design {
     view: Rc<RefCell<View>>,
@@ -321,6 +322,10 @@ impl Design {
 
     pub fn split_strand(&self, nucl: Nucl) {
         self.data.lock().unwrap().split_strand(&nucl)
+    }
+
+    pub fn get_grid_instance(&self) -> Vec<GridInstance> {
+        self.data.lock().unwrap().get_grid_instances()
     }
 }
 

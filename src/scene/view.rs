@@ -41,7 +41,7 @@ use maths::unproject_point_on_line;
 use rotation_widget::RotationWidget;
 pub use rotation_widget::{RotationMode, RotationWidgetDescriptor, RotationWidgetOrientation};
 use grid::GridDrawer;
-pub use grid::GridInstance;
+pub use grid::{GridType, GridInstance};
 //use plane_drawer::PlaneDrawer;
 //pub use plane_drawer::Plane;
 
@@ -198,6 +198,9 @@ impl View {
                 for (i, instance) in letter.iter().enumerate() {
                     self.letter_drawer[i].new_instances(instance.clone());
                 }
+            }
+            ViewUpdate::Grids(grid) => {
+                self.grid_drawer.new_instances(grid)
             }
             _ => {
                 self.need_redraw_fake |= self.pipeline_handlers.update(view_update);
@@ -503,6 +506,7 @@ pub enum ViewUpdate {
     Handles(Option<HandlesDescriptor>),
     RotationWidget(Option<RotationWidgetDescriptor>),
     Letter(Vec<Rc<Vec<LetterInstance>>>),
+    Grids(Rc<Vec<GridInstance>>),
 }
 
 /// The structure gathers all the pipepline that are used to draw meshes on the scene
@@ -761,7 +765,8 @@ impl PipelineHandlers {
             | ViewUpdate::Size(_)
             | ViewUpdate::Handles(_)
             | ViewUpdate::RotationWidget(_)
-            | ViewUpdate::Letter(_) => {
+            | ViewUpdate::Letter(_)
+            | ViewUpdate::Grids(_) => {
                 unreachable!();
             }
         }

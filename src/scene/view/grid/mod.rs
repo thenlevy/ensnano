@@ -20,7 +20,7 @@ pub enum GridType {
     Honeycomb = 1,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct GridInstance {
     pub position: Vec3,
     pub orientation: Rotor3,

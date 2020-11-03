@@ -24,6 +24,8 @@ pub use icednano::Nucl;
 pub use icednano::{Axis, Design, Parameters};
 pub use strand_builder::StrandBuilder;
 use strand_builder::{DomainIdentifier, NeighbourDescriptor};
+use grid::GridManager;
+use crate::scene::GridInstance;
 
 /// In addition to its `design` field, the `Data` struct has several hashmaps that are usefull to
 /// quickly access information about the design. These hasmaps must be updated when the design is
@@ -58,12 +60,14 @@ pub struct Data {
     hash_maps_update: bool,
     /// Maps nucleotides to basis characters
     basis_map: HashMap<Nucl, char>,
+    grid_manager: GridManager,
 }
 
 impl Data {
     #[allow(dead_code)]
     pub fn new() -> Self {
         let design = icednano::Design::new();
+        let grid_manager = GridManager::new();
         Self {
             design,
             object_type: HashMap::new(),
@@ -78,6 +82,7 @@ impl Data {
             update_status: false,
             hash_maps_update: false,
             basis_map: HashMap::new(),
+            grid_manager,
         }
     }
 
@@ -86,6 +91,7 @@ impl Data {
     /// * icednano
     pub fn new_with_path(json_path: &PathBuf) -> Option<Self> {
         let design = read_file(json_path)?;
+        let grid_manager = GridManager::new_from_design(&design);
         let mut ret = Self {
             design,
             object_type: HashMap::new(),
@@ -101,6 +107,7 @@ impl Data {
             // false because we call make_hash_maps here
             hash_maps_update: false,
             basis_map: HashMap::new(),
+            grid_manager,
         };
         ret.make_hash_maps();
         ret.terminate_movement();
@@ -706,6 +713,10 @@ impl Data {
 
     pub fn get_all_strand_ids(&self) -> Vec<usize> {
         self.design.strands.keys().cloned().collect()
+    }
+
+    pub fn get_grid_instances(&self) -> Vec<GridInstance> {
+        self.grid_manager.grid_instances()
     }
 }
 
