@@ -172,6 +172,7 @@ impl Design {
             AppNotification::MovementEnded => self.terminate_movement(),
             AppNotification::Rotation(rotation) => self.apply_rotation(rotation),
             AppNotification::Translation(translation) => self.apply_translation(translation),
+            AppNotification::MakeGrids => self.data.lock().unwrap().create_grids(),
         }
     }
 

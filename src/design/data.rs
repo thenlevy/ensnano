@@ -109,8 +109,6 @@ impl Data {
             basis_map: HashMap::new(),
             grid_manager,
         };
-        ret.grid_manager.create_grids(&mut ret.design);
-        ret.grid_manager.update(&mut ret.design);
         ret.make_hash_maps();
         ret.terminate_movement();
         Some(ret)
@@ -722,7 +720,11 @@ impl Data {
     }
 
     pub fn create_grids(&mut self) {
-        self.grid_manager.create_grids(&mut self.design)
+        let groups = self.find_parallel_helices();
+        self.grid_manager.guess_grids(&mut self.design, &groups);
+        self.grid_manager.update(&mut self.design);
+        self.update_status = true;
+        self.hash_maps_update = true;
     }
 }
 

@@ -32,6 +32,7 @@ pub struct Requests {
     pub toggle_scene: Option<bool>,
     /// A request to change the sensitivity of scrolling
     pub scroll_sensitivity: Option<f32>,
+    pub make_grids: bool,
 }
 
 impl Requests {
@@ -49,6 +50,7 @@ impl Requests {
             toggle_text: None,
             toggle_scene: None,
             scroll_sensitivity: None,
+            make_grids: false,
         }
     }
 }

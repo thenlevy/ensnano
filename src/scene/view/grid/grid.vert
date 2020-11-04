@@ -55,6 +55,7 @@ void main() {
     vec2 coeff = v_grid_type == 0 ? vec2(2. * r, 2. * r) : vec2(sqrt(3) * r,  3 * r);
 
     vec2 pos = position[gl_VertexIndex] * coeff;
-    vec4 model_space = model_matrix * vec4(0., -pos.y + r, pos.x, 1.0); 
+    float y_shift = v_grid_type == 0 ? 0.0 : r;
+    vec4 model_space = model_matrix * vec4(0., -pos.y + y_shift, pos.x, 1.0); 
     gl_Position = u_proj * u_view * model_space;
 }

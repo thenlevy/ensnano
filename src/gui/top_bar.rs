@@ -16,6 +16,7 @@ pub struct TopBar {
     button_save: button::State,
     button_3d: button::State,
     button_2d: button::State,
+    button_make_grid: button::State,
     toggle_text_value: bool,
     requests: Arc<Mutex<Requests>>,
     logical_size: LogicalSize<f64>,
@@ -30,6 +31,7 @@ pub enum Message {
     Resize(LogicalSize<f64>),
     ToggleText(bool),
     ToggleView(bool),
+    MakeGrids,
 }
 
 impl TopBar {
@@ -41,6 +43,7 @@ impl TopBar {
             button_save: Default::default(),
             button_2d: Default::default(),
             button_3d: Default::default(),
+            button_make_grid: Default::default(),
             toggle_text_value: false,
             requests,
             logical_size,
@@ -105,6 +108,7 @@ impl Program for TopBar {
                 self.requests.lock().unwrap().toggle_text = Some(b);
                 self.toggle_text_value = b;
             }
+            Message::MakeGrids => self.requests.lock().unwrap().make_grids = true,
             Message::ToggleView(b) => self.requests.lock().unwrap().toggle_scene = Some(b),
         };
         Command::none()
@@ -136,6 +140,8 @@ impl Program for TopBar {
         let button_3d = Button::new(&mut self.button_3d, iced::Text::new("3D"))
             .on_press(Message::ToggleView(false));
 
+        let button_make_grid = Button::new(&mut self.button_make_grid, iced::Text::new("Make grids")).on_press(Message::MakeGrids);
+
         let buttons = Row::new()
             .width(Length::Fill)
             .height(Length::Units(height))
@@ -149,7 +155,8 @@ impl Program for TopBar {
                 Message::ToggleText,
             ))
             .push(button_2d)
-            .push(button_3d);
+            .push(button_3d)
+            .push(button_make_grid);
 
         Container::new(buttons)
             .width(Length::Fill)

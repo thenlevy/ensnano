@@ -103,11 +103,8 @@ pub struct GridDrawer {
     bind_groups: BindGroups,
     /// The pipeline created by `self`
     pipeline: Option<RenderPipeline>,
-    square_texture: texture::SquareTexture,
-    honney_texture: texture::HonneyTexture,
     texture_bind_group: wgpu::BindGroup,
     texture_bind_group_layout: wgpu::BindGroupLayout,
-    parameters: Parameters,
 }
 
 impl GridDrawer {
@@ -204,10 +201,10 @@ impl GridDrawer {
             position: Vec3::zero(),
             orientation: Rotor3::from_rotation_xz(-std::f32::consts::FRAC_PI_2),
             min_x: 0,
-            max_x: 3,
+            max_x: 1,
             min_y: 0,
             max_y: 1,
-            grid_type: GridType::Honeycomb,
+            grid_type: GridType::Square,
         }];
 
         Self {
@@ -217,11 +214,8 @@ impl GridDrawer {
             new_viewer_data: None,
             bind_groups,
             pipeline: None,
-            honney_texture,
-            square_texture,
             texture_bind_group,
             texture_bind_group_layout,
-            parameters,
         }
     }
 

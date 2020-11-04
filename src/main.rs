@@ -303,6 +303,12 @@ fn main() {
                             draw_flat = value;
                             requests.toggle_scene = None;
                         }
+
+                        if requests.make_grids {
+                            mediator.lock().unwrap().make_grids();
+                            requests.make_grids = false
+                        }
+
                     }
                 }
 

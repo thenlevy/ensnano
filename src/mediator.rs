@@ -152,6 +152,10 @@ impl Mediator {
         }
     }
 
+    pub fn make_grids(&mut self) {
+        self.notify_all_designs(AppNotification::MakeGrids)
+    }
+
     pub fn observe_designs(&mut self) {
         let mut notifications = Vec::new();
         for design_wrapper in self.designs.clone() {
@@ -177,6 +181,7 @@ pub enum AppNotification<'a> {
     MovementEnded,
     Rotation(&'a DesignRotation),
     Translation(&'a ultraviolet::Vec3),
+    MakeGrids,
 }
 
 #[derive(Clone, Copy)]
