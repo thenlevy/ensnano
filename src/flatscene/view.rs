@@ -11,6 +11,9 @@ mod helix_view;
 use helix_view::{HelixView, StrandView};
 mod background;
 use background::Background;
+mod circles;
+use circles::CircleDrawer;
+pub use circles::CircleInstance;
 
 use crate::consts::SAMPLE_COUNT;
 
@@ -31,7 +34,7 @@ pub struct View {
     window_size: PhySize,
     free_end: Option<FreeEnd>,
     background: Background,
-
+    circle_drawer: CircleDrawer,
 }
 
 impl View {
@@ -40,6 +43,7 @@ impl View {
         queue: Rc<Queue>,
         window_size: PhySize,
         camera: CameraPtr,
+        encoder: &mut wgpu::CommandEncoder,
     ) -> Self {
         let depth_texture =
             Texture::create_depth_texture(device.as_ref(), &window_size, SAMPLE_COUNT);
@@ -69,6 +73,7 @@ impl View {
             strand_pipeline_descr(&device, globals.get_layout(), depth_stencil_state.clone());
 
         let background = Background::new(&device, globals.get_layout(), &depth_stencil_state);
+        let circle_drawer = CircleDrawer::new(device.clone(), queue.clone(), encoder, globals.get_layout());
 
         Self {
             device,
@@ -87,6 +92,7 @@ impl View {
             window_size,
             free_end: None,
             background,
+            circle_drawer,
         }
     }
 
@@ -256,6 +262,8 @@ impl View {
         for strand in self.strands.iter() {
             strand.draw(&mut render_pass);
         }
+
+        self.circle_drawer.draw(&mut render_pass);
         self.was_updated = false;
     }
 }
