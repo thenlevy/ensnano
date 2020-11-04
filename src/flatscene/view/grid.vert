@@ -32,7 +32,7 @@ void main() {
     vec2 invert_y = vec2(1.0, -1.0);
 
     vec2 zoom_factor = u_zoom / (vec2(0.5, 0.5) * u_resolution);
-    vec2 local_pos = model.rotate * (a_position + a_normal * model.width / max(zoom_factor, 0.1));
+    vec2 local_pos = model.rotate * (a_position + a_normal * model.width / max(zoom_factor, 0.3));
     vec2 world_pos = local_pos - u_scroll_offset + model.translate;
     vec2 transformed_pos = world_pos * zoom_factor * invert_y;
 
