@@ -1,4 +1,4 @@
-use super::data::{GpuVertex, Helix, HelixModel, Strand, StrandVertex, FreeEnd};
+use super::data::{FreeEnd, GpuVertex, Helix, HelixModel, Strand, StrandVertex};
 use super::CameraPtr;
 use crate::utils::bindgroup_manager::{DynamicBindGroup, UniformBindGroup};
 use crate::utils::texture::Texture;
@@ -21,7 +21,8 @@ pub struct View {
     device: Rc<Device>,
     queue: Rc<Queue>,
     depth_texture: Texture,
-    helices: Vec<HelixView>,
+    helices: Vec<Helix>,
+    helices_view: Vec<HelixView>,
     helices_background: Vec<HelixView>,
     strands: Vec<StrandView>,
     helices_model: Vec<HelixModel>,
@@ -73,13 +74,15 @@ impl View {
             strand_pipeline_descr(&device, globals.get_layout(), depth_stencil_state.clone());
 
         let background = Background::new(&device, globals.get_layout(), &depth_stencil_state);
-        let circle_drawer = CircleDrawer::new(device.clone(), queue.clone(), encoder, globals.get_layout());
+        let circle_drawer =
+            CircleDrawer::new(device.clone(), queue.clone(), encoder, globals.get_layout());
 
         Self {
             device,
             queue,
             depth_texture,
             helices: Vec::new(),
+            helices_view: Vec::new(),
             strands: Vec::new(),
             helices_model: Vec::new(),
             helices_background: Vec::new(),
@@ -103,9 +106,9 @@ impl View {
         self.was_updated = true;
     }
 
-    pub fn add_helix(&mut self, helix: &Helix) {
-        let id_helix = self.helices.len() as u32;
-        self.helices.push(HelixView::new(
+    fn add_helix(&mut self, helix: &Helix) {
+        let id_helix = self.helices_view.len() as u32;
+        self.helices_view.push(HelixView::new(
             self.device.clone(),
             self.queue.clone(),
             id_helix,
@@ -117,22 +120,23 @@ impl View {
             id_helix,
             true,
         ));
-        self.helices[id_helix as usize].update(&helix);
+        self.helices_view[id_helix as usize].update(&helix);
         self.helices_background[id_helix as usize].update(&helix);
         self.helices_model.push(helix.model());
         self.models.update(self.helices_model.as_slice());
     }
 
     pub fn update_helices(&mut self, helices: &[Helix]) {
-        for (i, h) in self.helices.iter_mut().enumerate() {
+        for (i, h) in self.helices_view.iter_mut().enumerate() {
             self.helices_model[i] = helices[i].model();
             self.helices_background[i].update(&helices[i]);
             h.update(&helices[i])
         }
-        for helix in helices.iter().skip(self.helices.len()) {
+        for helix in helices.iter().skip(self.helices_view.len()) {
             self.add_helix(helix)
         }
         self.models.update(self.helices_model.as_slice());
+        self.helices = helices.to_vec();
         self.was_updated = true;
     }
 
@@ -147,7 +151,7 @@ impl View {
     }
 
     pub fn reset(&mut self) {
-        self.helices.clear();
+        self.helices_view.clear();
         self.strands.clear();
         self.helices_background.clear();
     }
@@ -176,9 +180,16 @@ impl View {
         target: &wgpu::TextureView,
         area: DrawArea,
     ) {
+        let mut need_new_circles = false;
         if let Some(globals) = self.camera.borrow_mut().update() {
             self.globals.update(globals);
+            need_new_circles = true;
         }
+        if need_new_circles || self.was_updated {
+            let instances = self.generate_instances();
+            self.circle_drawer.new_instances(Rc::new(instances));
+        }
+
         let clear_color = wgpu::Color {
             r: 1.,
             g: 1.,
@@ -250,11 +261,10 @@ impl View {
 
         render_pass.set_pipeline(&self.helices_pipeline);
 
-
         for background in self.helices_background.iter() {
             background.draw(&mut render_pass);
         }
-        for helix in self.helices.iter() {
+        for helix in self.helices_view.iter() {
             helix.draw(&mut render_pass);
         }
 
@@ -265,6 +275,16 @@ impl View {
 
         self.circle_drawer.draw(&mut render_pass);
         self.was_updated = false;
+    }
+
+    fn generate_instances(&self) -> Vec<CircleInstance> {
+        let mut ret = Vec::new();
+        for h in self.helices.iter() {
+            if let Some(circle) = h.get_circle(&self.camera) {
+                ret.push(circle);
+            }
+        }
+        ret
     }
 }
 

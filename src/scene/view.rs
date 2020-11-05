@@ -23,16 +23,18 @@ mod uniforms;
 use uniforms::Uniforms;
 /// This modules defines a trait for drawing widget made of several meshes.
 mod drawable;
+mod grid;
 /// A HandleDrawer draws the widget for translating objects
 mod handle_drawer;
 mod letter;
 mod maths;
 /// A RotationWidget draws the widget for rotating objects
 mod rotation_widget;
-mod grid;
 
 use bindgroup_manager::UniformBindGroup;
 use drawable::{Drawable, Drawer, Vertex};
+use grid::GridDrawer;
+pub use grid::{GridInstance, GridType};
 use handle_drawer::HandlesDrawer;
 pub use handle_drawer::{HandleDir, HandleOrientation, HandlesDescriptor};
 use letter::LetterDrawer;
@@ -40,8 +42,6 @@ pub use letter::LetterInstance;
 use maths::unproject_point_on_line;
 use rotation_widget::RotationWidget;
 pub use rotation_widget::{RotationMode, RotationWidgetDescriptor, RotationWidgetOrientation};
-use grid::GridDrawer;
-pub use grid::{GridType, GridInstance};
 //use plane_drawer::PlaneDrawer;
 //pub use plane_drawer::Plane;
 
@@ -124,7 +124,14 @@ impl View {
             None
         };
 
-        let grid_drawer = GridDrawer::new(device.clone(), queue.clone(), &camera, &projection, encoder, None);
+        let grid_drawer = GridDrawer::new(
+            device.clone(),
+            queue.clone(),
+            &camera,
+            &projection,
+            encoder,
+            None,
+        );
 
         Self {
             camera,
@@ -168,7 +175,8 @@ impl View {
                 for i in 0..NB_BASIS_SYMBOLS {
                     self.letter_drawer[i].new_viewer(self.camera.clone(), self.projection.clone());
                 }
-                self.grid_drawer.new_viewer(self.camera.clone(), self.projection.clone());
+                self.grid_drawer
+                    .new_viewer(self.camera.clone(), self.projection.clone());
                 self.need_redraw_fake = true;
             }
             ViewUpdate::Handles(descr) => {
@@ -199,9 +207,7 @@ impl View {
                     self.letter_drawer[i].new_instances(instance.clone());
                 }
             }
-            ViewUpdate::Grids(grid) => {
-                self.grid_drawer.new_instances(grid)
-            }
+            ViewUpdate::Grids(grid) => self.grid_drawer.new_instances(grid),
             _ => {
                 self.need_redraw_fake |= self.pipeline_handlers.update(view_update);
             }

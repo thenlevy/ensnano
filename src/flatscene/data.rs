@@ -6,10 +6,10 @@ use ultraviolet::Vec2;
 mod helix;
 pub use helix::{GpuVertex, Helix, HelixModel};
 mod strand;
-pub use strand::{Nucl, Strand, StrandVertex, FreeEnd};
+pub use strand::{FreeEnd, Nucl, Strand, StrandVertex};
 mod design;
-use design::{Design2d, Helix2d};
 use crate::consts::*;
+use design::{Design2d, Helix2d};
 
 pub struct Data {
     view: ViewPtr,
@@ -195,7 +195,10 @@ impl Data {
 
     pub fn is_strand_end(&self, nucl: Nucl) -> bool {
         let nucl = self.to_real(nucl);
-        self.design.prime3_of(nucl).or(self.design.prime5_of(nucl)).is_some()
+        self.design
+            .prime3_of(nucl)
+            .or(self.design.prime5_of(nucl))
+            .is_some()
     }
 
     pub fn set_free_end(&mut self, free_end: Option<FreeEnd>) {
@@ -234,4 +237,3 @@ impl Data {
         }
     }
 }
-

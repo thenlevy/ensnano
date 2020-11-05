@@ -6,8 +6,8 @@ A copy of the original license is available in thirdparties/lyon/LICENSE
 */
 
 use super::*;
-use lyon::tessellation::*;
 use lyon::geom::*;
+use lyon::tessellation::*;
 use wgpu::util::DeviceExt;
 
 pub struct Background {
@@ -16,9 +16,12 @@ pub struct Background {
     ibo: wgpu::Buffer,
 }
 
-
 impl Background {
-    pub fn new(device: &Device, globals_layout: &wgpu::BindGroupLayout, depth_stencil_state: &Option<wgpu::DepthStencilStateDescriptor>) -> Self {
+    pub fn new(
+        device: &Device,
+        globals_layout: &wgpu::BindGroupLayout,
+        depth_stencil_state: &Option<wgpu::DepthStencilStateDescriptor>,
+    ) -> Self {
         let mut bg_geometry: VertexBuffers<BgPoint, u16> = VertexBuffers::new();
         let mut fill_tess = FillTessellator::new();
 
@@ -53,7 +56,6 @@ impl Background {
             label: None,
         });
 
-        
         let bg_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             layout: Some(&pipeline_layout),
             vertex_stage: wgpu::ProgrammableStageDescriptor {
@@ -108,9 +110,7 @@ impl Background {
         render_pass.set_vertex_buffer(0, self.vbo.slice(..));
         render_pass.draw_indexed(0..6, 0, 0..1);
     }
-
 }
-
 
 #[repr(C)]
 #[derive(Copy, Clone)]
@@ -119,7 +119,6 @@ struct BgPoint {
 }
 unsafe impl bytemuck::Pod for BgPoint {}
 unsafe impl bytemuck::Zeroable for BgPoint {}
-
 
 pub struct Custom;
 

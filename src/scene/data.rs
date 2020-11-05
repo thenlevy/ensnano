@@ -512,7 +512,9 @@ impl Data {
             .borrow_mut()
             .update(ViewUpdate::Spheres(Rc::new(spheres)));
         self.view.borrow_mut().update(ViewUpdate::Letter(letters));
-        self.view.borrow_mut().update(ViewUpdate::Grids(Rc::new(grids)));
+        self.view
+            .borrow_mut()
+            .update(ViewUpdate::Grids(Rc::new(grids)));
     }
 
     /// This fuction must be called when the model matrices have been modfied

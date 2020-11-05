@@ -8,8 +8,8 @@ use std::f32::consts::PI;
 use ultraviolet::{Mat4, Rotor3, Vec3};
 
 use super::codenano;
+use super::grid::{GridDescriptor, GridPosition};
 use super::strand_builder::{DomainIdentifier, NeighbourDescriptor};
-use super::grid::{GridPosition, GridDescriptor};
 
 /// The `icednano` Design structure.
 #[derive(Serialize, Deserialize, Clone)]

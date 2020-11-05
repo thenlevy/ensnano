@@ -1,3 +1,4 @@
+use super::super::GridInstance;
 use super::{LetterInstance, SceneElement, StrandBuilder};
 use crate::consts::*;
 use crate::design::{Design, Nucl, ObjectType, Referential};
@@ -7,7 +8,6 @@ use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 use ultraviolet::{Mat4, Rotor3, Vec3};
-use super::super::GridInstance;
 
 /// An object that handles the 3d graphcial representation of a `Design`
 pub struct Design3D {

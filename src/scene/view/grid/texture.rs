@@ -1,21 +1,19 @@
 use lyon::math::Point;
 use lyon::path::Path;
 use lyon::tessellation;
-use lyon::tessellation::{
-    StrokeVertex, StrokeVertexConstructor,
-};
+use lyon::tessellation::{StrokeVertex, StrokeVertexConstructor};
 
 const TEXTURE_SIZE: u32 = 512;
 use crate::consts::*;
 
 use iced_wgpu::wgpu;
-use wgpu::{Device, Texture, TextureView, Sampler};
 use wgpu::util::DeviceExt;
+use wgpu::{Device, Sampler, Texture, TextureView};
 
 #[derive(Clone, Copy)]
 pub struct Vertex {
-    position: [f32 ; 2],
-    normal: [f32 ; 2],
+    position: [f32; 2],
+    normal: [f32; 2],
 }
 
 unsafe impl bytemuck::Zeroable for Vertex {}
@@ -41,7 +39,6 @@ impl Vertex {
             ],
         }
     }
-
 }
 
 type Vertices = lyon::tessellation::VertexBuffers<Vertex, u16>;
@@ -54,21 +51,19 @@ pub struct SquareTexture {
 
 impl SquareTexture {
     pub fn new(device: &Device, encoder: &mut wgpu::CommandEncoder) -> Self {
-        let texture = device.create_texture(
-            &wgpu::TextureDescriptor {
-                size: wgpu::Extent3d {
-                    width: TEXTURE_SIZE,
-                    height: TEXTURE_SIZE,
-                    depth: 1,
-                },
-                mip_level_count: 1,
-                sample_count: 1,
-                dimension: wgpu::TextureDimension::D2,
-                format: wgpu::TextureFormat::Rgba8UnormSrgb,
-                usage: wgpu::TextureUsage::SAMPLED | wgpu::TextureUsage::OUTPUT_ATTACHMENT,
-                label: Some("square texture"),
-            }
-        );
+        let texture = device.create_texture(&wgpu::TextureDescriptor {
+            size: wgpu::Extent3d {
+                width: TEXTURE_SIZE,
+                height: TEXTURE_SIZE,
+                depth: 1,
+            },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba8UnormSrgb,
+            usage: wgpu::TextureUsage::SAMPLED | wgpu::TextureUsage::OUTPUT_ATTACHMENT,
+            label: Some("square texture"),
+        });
 
         let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
         fill_square_texture(&view, device, encoder);
@@ -85,11 +80,10 @@ impl SquareTexture {
         Self {
             texture,
             view,
-            sampler
+            sampler,
         }
     }
 }
-
 
 fn fill_square_texture(target: &TextureView, device: &Device, encoder: &mut wgpu::CommandEncoder) {
     let pipeline = pipeline(device);
@@ -119,10 +113,10 @@ fn fill_square_texture(target: &TextureView, device: &Device, encoder: &mut wgpu
 
     let msaa_texture = if SAMPLE_COUNT > 1 {
         Some(crate::utils::texture::Texture::create_msaa_texture(
-                device,
-                &texture_size,
-                SAMPLE_COUNT,
-                wgpu::TextureFormat::Bgra8UnormSrgb,
+            device,
+            &texture_size,
+            SAMPLE_COUNT,
+            wgpu::TextureFormat::Bgra8UnormSrgb,
         ))
     } else {
         None
@@ -148,7 +142,7 @@ fn fill_square_texture(target: &TextureView, device: &Device, encoder: &mut wgpu
                 store: true,
             },
         }],
-        depth_stencil_attachment: None
+        depth_stencil_attachment: None,
     });
 
     render_pass.set_viewport(
@@ -165,7 +159,6 @@ fn fill_square_texture(target: &TextureView, device: &Device, encoder: &mut wgpu
     render_pass.set_index_buffer(ibo.slice(..));
     render_pass.set_vertex_buffer(0, vbo.slice(..));
     render_pass.draw_indexed(0..vertices.indices.len() as u32, 0, 0..1);
-
 }
 
 fn square_texture_vertices() -> Vertices {
@@ -185,10 +178,7 @@ fn square_texture_vertices() -> Vertices {
         .tessellate_path(
             &path,
             &tessellation::StrokeOptions::default(),
-            &mut tessellation::BuffersBuilder::new(
-                &mut vertices,
-                Custom,
-            ),
+            &mut tessellation::BuffersBuilder::new(&mut vertices, Custom),
         )
         .expect("error durring tessellation");
     vertices
@@ -202,21 +192,19 @@ pub struct HonneyTexture {
 
 impl HonneyTexture {
     pub fn new(device: &Device, encoder: &mut wgpu::CommandEncoder) -> Self {
-        let texture = device.create_texture(
-            &wgpu::TextureDescriptor {
-                size: wgpu::Extent3d {
-                    width: TEXTURE_SIZE,
-                    height: TEXTURE_SIZE,
-                    depth: 1,
-                },
-                mip_level_count: 1,
-                sample_count: 1,
-                dimension: wgpu::TextureDimension::D2,
-                format: wgpu::TextureFormat::Rgba8UnormSrgb,
-                usage: wgpu::TextureUsage::SAMPLED | wgpu::TextureUsage::OUTPUT_ATTACHMENT,
-                label: Some("honneycomb texture"),
-            }
-        );
+        let texture = device.create_texture(&wgpu::TextureDescriptor {
+            size: wgpu::Extent3d {
+                width: TEXTURE_SIZE,
+                height: TEXTURE_SIZE,
+                depth: 1,
+            },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba8UnormSrgb,
+            usage: wgpu::TextureUsage::SAMPLED | wgpu::TextureUsage::OUTPUT_ATTACHMENT,
+            label: Some("honneycomb texture"),
+        });
 
         let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
         fill_honneycomb_texture(&view, device, encoder);
@@ -233,12 +221,16 @@ impl HonneyTexture {
         Self {
             texture,
             view,
-            sampler
+            sampler,
         }
     }
 }
 
-fn fill_honneycomb_texture(target: &TextureView, device: &Device, encoder: &mut wgpu::CommandEncoder) {
+fn fill_honneycomb_texture(
+    target: &TextureView,
+    device: &Device,
+    encoder: &mut wgpu::CommandEncoder,
+) {
     let pipeline = pipeline(device);
     let vertices = honeycomb_texture_vertices();
     let vbo = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -266,10 +258,10 @@ fn fill_honneycomb_texture(target: &TextureView, device: &Device, encoder: &mut 
 
     let msaa_texture = if SAMPLE_COUNT > 1 {
         Some(crate::utils::texture::Texture::create_msaa_texture(
-                device,
-                &texture_size,
-                SAMPLE_COUNT,
-                wgpu::TextureFormat::Bgra8UnormSrgb,
+            device,
+            &texture_size,
+            SAMPLE_COUNT,
+            wgpu::TextureFormat::Bgra8UnormSrgb,
         ))
     } else {
         None
@@ -295,7 +287,7 @@ fn fill_honneycomb_texture(target: &TextureView, device: &Device, encoder: &mut 
                 store: true,
             },
         }],
-        depth_stencil_attachment: None
+        depth_stencil_attachment: None,
     });
 
     render_pass.set_viewport(
@@ -312,7 +304,6 @@ fn fill_honneycomb_texture(target: &TextureView, device: &Device, encoder: &mut 
     render_pass.set_index_buffer(ibo.slice(..));
     render_pass.set_vertex_buffer(0, vbo.slice(..));
     render_pass.draw_indexed(0..vertices.indices.len() as u32, 0, 0..1);
-
 }
 
 fn honeycomb_texture_vertices() -> Vertices {
@@ -322,8 +313,8 @@ fn honeycomb_texture_vertices() -> Vertices {
     let mut builder = Path::builder();
 
     builder.begin(Point::new(1., -1.));
-    builder.line_to(Point::new(1., -1./3.));
-    builder.line_to(Point::new(-1., 1./3.));
+    builder.line_to(Point::new(1., -1. / 3.));
+    builder.line_to(Point::new(-1., 1. / 3.));
     builder.line_to(Point::new(-1., 1.));
     builder.end(false);
     let path = builder.build();
@@ -332,15 +323,11 @@ fn honeycomb_texture_vertices() -> Vertices {
         .tessellate_path(
             &path,
             &tessellation::StrokeOptions::default(),
-            &mut tessellation::BuffersBuilder::new(
-                &mut vertices,
-                Custom,
-            ),
+            &mut tessellation::BuffersBuilder::new(&mut vertices, Custom),
         )
         .expect("error durring tessellation");
     vertices
 }
-
 
 struct Custom;
 
@@ -353,9 +340,7 @@ impl StrokeVertexConstructor<Vertex> for Custom {
     }
 }
 
-fn pipeline(
-    device: &Device,
-) -> wgpu::RenderPipeline {
+fn pipeline(device: &Device) -> wgpu::RenderPipeline {
     let vs_module = &device.create_shader_module(wgpu::include_spirv!("texture.vert.spv"));
     let fs_module = &device.create_shader_module(wgpu::include_spirv!("texture.frag.spv"));
     let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {

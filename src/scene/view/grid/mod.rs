@@ -1,7 +1,6 @@
-
 use iced_wgpu::wgpu;
 use std::rc::Rc;
-use ultraviolet::{Mat4, Vec3, Vec4, Rotor3};
+use ultraviolet::{Mat4, Rotor3, Vec3, Vec4};
 use wgpu::{include_spirv, Device, Queue, RenderPass, RenderPipeline};
 
 use super::{
@@ -9,8 +8,8 @@ use super::{
     CameraPtr, ProjectionPtr, Uniforms,
 };
 use crate::consts::*;
-use crate::utils::texture::Texture;
 use crate::design::Parameters;
+use crate::utils::texture::Texture;
 
 mod texture;
 
@@ -34,7 +33,8 @@ pub struct GridInstance {
 impl GridInstance {
     fn to_raw(&self) -> GridInstanceRaw {
         GridInstanceRaw {
-            model: Mat4::from_translation(self.position) * self.orientation.into_matrix().into_homogeneous(),
+            model: Mat4::from_translation(self.position)
+                * self.orientation.into_matrix().into_homogeneous(),
             min_x: self.min_x as f32,
             max_x: self.max_x as f32,
             min_y: self.min_y as f32,
@@ -48,11 +48,11 @@ impl GridInstance {
 #[repr(C)]
 #[derive(Copy, Clone)]
 struct GridInstanceRaw {
-    pub model: Mat4, // padding 0
-    pub min_x: f32, // padding 1
-    pub max_x: f32, // padding 2
-    pub min_y: f32, // padding 3
-    pub max_y: f32, // padding 0
+    pub model: Mat4,    // padding 0
+    pub min_x: f32,     // padding 1
+    pub max_x: f32,     // padding 2
+    pub min_y: f32,     // padding 3
+    pub max_y: f32,     // padding 0
     pub grid_type: u32, // padding 1
     pub _padding: Vec3,
 }
@@ -65,7 +65,7 @@ unsafe impl bytemuck::Pod for GridInstanceRaw {}
 struct ParametersRaw {
     pub helix_radius: f32,
     pub inter_helix_gap: f32,
-    pub _padding: [f32 ; 2],
+    pub _padding: [f32; 2],
 }
 
 unsafe impl bytemuck::Zeroable for ParametersRaw {}
@@ -129,7 +129,7 @@ impl GridDrawer {
         let bind_groups = BindGroups {
             instances,
             viewer,
-            parameters: parameters_bg
+            parameters: parameters_bg,
         };
 
         let square_texture = texture::SquareTexture::new(device.clone().as_ref(), encoder);
@@ -359,7 +359,6 @@ struct BindGroups {
 }
 
 impl BindGroups {
-
     fn update_instances<I: bytemuck::Pod>(&mut self, instances_data: &[I]) {
         self.instances.update(instances_data);
     }

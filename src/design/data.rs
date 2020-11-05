@@ -17,15 +17,15 @@ use ultraviolet::Vec3;
 use std::borrow::Cow;
 
 mod codenano;
+mod grid;
 mod icednano;
 mod strand_builder;
-mod grid;
+use crate::scene::GridInstance;
+use grid::GridManager;
 pub use icednano::Nucl;
 pub use icednano::{Axis, Design, Parameters};
 pub use strand_builder::StrandBuilder;
 use strand_builder::{DomainIdentifier, NeighbourDescriptor};
-use grid::GridManager;
-use crate::scene::GridInstance;
 
 /// In addition to its `design` field, the `Data` struct has several hashmaps that are usefull to
 /// quickly access information about the design. These hasmaps must be updated when the design is

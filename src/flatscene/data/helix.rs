@@ -1,4 +1,7 @@
+use super::super::view::CircleInstance;
+use super::super::CameraPtr;
 use super::{Helix2d, Nucl};
+use crate::consts::*;
 use crate::utils::instance::Instance;
 use lyon::math::{rect, Point};
 use lyon::path::builder::{BorderRadii, PathBuilder};
@@ -8,10 +11,10 @@ use lyon::tessellation::{
     FillVertex, FillVertexConstructor, StrokeVertex, StrokeVertexConstructor,
 };
 use ultraviolet::{Isometry2, Mat2, Rotor2, Vec2, Vec4};
-use crate::consts::*;
 
 type Vertices = lyon::tessellation::VertexBuffers<GpuVertex, u16>;
 
+#[derive(Clone)]
 pub struct Helix {
     /// The first drawn nucleotide
     left: isize,
@@ -166,7 +169,6 @@ impl Helix {
         self.old_isometry
             .into_homogeneous_matrix()
             .transform_point2(self.scale * local_position)
-
     }
 
     /// Return the nucleotide displayed at position (x, y) or None if (x, y) is outside the helix
@@ -237,6 +239,105 @@ impl Helix {
     pub fn move_backward(&mut self) {
         self.z_index += 1;
     }
+
+    fn x_position(&self, x: isize) -> Vec2 {
+        let local_position = x as f32 * Vec2::unit_x() + Vec2::unit_y();
+
+        self.isometry
+            .into_homogeneous_matrix()
+            .transform_point2(self.scale * local_position)
+    }
+
+    pub fn get_circle(&self, camera: &CameraPtr) -> Option<CircleInstance> {
+        let globals = camera.borrow().get_globals().clone();
+        let leftmost_position = self.x_position(self.left);
+        let rightmost_position = self.x_position(self.right);
+        let to_screen = |vec: Vec2| {
+            let temp = vec - Vec2::new(globals.scroll_offset[0], globals.scroll_offset[1]);
+            Vec2::new(
+                temp.x * 2. * globals.zoom / globals.resolution[0],
+                -temp.y * 2. * globals.zoom / globals.resolution[1],
+            )
+        };
+        let in_screen = |vec: Vec2| vec.x <= 1. && vec.y <= 1. && vec.x >= -1. && vec.y >= -1.;
+
+        let left_screen = to_screen(leftmost_position);
+        let right_screen = to_screen(rightmost_position);
+        let visible = segment_intersect(
+            left_screen,
+            right_screen,
+            Vec2::new(-1., -1.),
+            Vec2::new(1., -1.),
+        ) || segment_intersect(
+            left_screen,
+            right_screen,
+            Vec2::new(-1., -1.),
+            Vec2::new(-1., 1.),
+        ) || segment_intersect(
+            left_screen,
+            right_screen,
+            Vec2::new(-1., 1.),
+            Vec2::new(1., 1.),
+        ) || segment_intersect(
+            left_screen,
+            right_screen,
+            Vec2::new(1., -1.),
+            Vec2::new(1., 1.),
+        ) || in_screen(to_screen(self.x_position(self.left)));
+
+        if visible {
+            let left_candidate = self.x_position(self.left - 1);
+            let right_candidate = self.x_position(self.right + 2);
+
+            if in_screen(to_screen(left_candidate)) {
+                Some(CircleInstance {
+                    center: left_candidate,
+                })
+            } else if in_screen(to_screen(right_candidate)) {
+                Some(CircleInstance {
+                    center: right_candidate,
+                })
+            } else if let Some((_, t)) = line_intersect(
+                left_screen,
+                right_screen,
+                Vec2::new(-1., -1.),
+                Vec2::new(-1., 1.),
+            )
+            .filter(|(s, _)| *s >= 0. && *s <= 1.)
+            {
+                let candidate =
+                    self.x_position(self.left + 1) + t * (rightmost_position - leftmost_position);
+                if in_screen(to_screen(candidate)) {
+                    Some(CircleInstance { center: candidate })
+                } else {
+                    Some(CircleInstance {
+                        center: self.x_position(self.left - 1)
+                            + t * (rightmost_position - leftmost_position),
+                    })
+                }
+            } else if let Some((_, t)) = line_intersect(
+                left_screen,
+                right_screen,
+                Vec2::new(-1., 1.),
+                Vec2::new(1., 1.),
+            ) {
+                let candidate =
+                    self.x_position(self.left + 1) + t * (rightmost_position - leftmost_position);
+                if in_screen(to_screen(candidate)) {
+                    Some(CircleInstance { center: candidate })
+                } else {
+                    Some(CircleInstance {
+                        center: self.x_position(self.left - 1)
+                            + t * (rightmost_position - leftmost_position),
+                    })
+                }
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
 }
 
 #[repr(C)]
@@ -278,5 +379,34 @@ impl FillVertexConstructor<GpuVertex> for WithAttribute {
             prim_id: self.0.id,
             background: self.0.background as u32,
         }
+    }
+}
+
+fn segment_intersect(u0: Vec2, v0: Vec2, u1: Vec2, v1: Vec2) -> bool {
+    if let Some((s, t)) = line_intersect(u0, v0, u1, v1) {
+        s >= 0. && s <= 1. && t >= 0. && t <= 1.
+    } else {
+        false
+    }
+}
+
+fn line_intersect(u0: Vec2, v0: Vec2, u1: Vec2, v1: Vec2) -> Option<(f32, f32)> {
+    let v0 = v0 - u0;
+    let v1 = v1 - u1;
+    let x00 = u0.x;
+    let y00 = u0.y;
+    let x10 = u1.x;
+    let y10 = u1.y;
+    let x01 = v0.x;
+    let y01 = v0.y;
+    let x11 = v1.x;
+    let y11 = v1.y;
+    let d = x11 * y01 - x01 * y11;
+    if d.abs() > 1e-5 {
+        let s = (1. / d) * ((x00 - x10) * y01 - (y00 - y10) * x01);
+        let t = (1. / d) * -(-(x00 - x10) * y11 + (y00 - y10) * x11);
+        Some((s, t))
+    } else {
+        None
     }
 }

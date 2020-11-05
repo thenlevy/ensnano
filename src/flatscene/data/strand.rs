@@ -57,7 +57,7 @@ impl Strand {
         match free_end {
             Some(FreeEnd {
                 strand_id,
-                point: position
+                point: position,
             }) if *strand_id == self.id => {
                 let last_pos = last_pos.unwrap();
                 let point = Point::new(position.x, position.y);
@@ -125,5 +125,5 @@ impl StrokeVertexConstructor<StrandVertex> for WithColor {
 
 pub struct FreeEnd {
     pub strand_id: usize,
-    pub point: Vec2
+    pub point: Vec2,
 }

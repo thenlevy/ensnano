@@ -1,4 +1,4 @@
-use super::{Helix, Strand, FreeEnd};
+use super::{FreeEnd, Helix, Strand};
 use iced_wgpu::wgpu;
 use std::rc::Rc;
 use wgpu::{Buffer, Device, Queue, RenderPass};

@@ -12,12 +12,12 @@ use mediator::AppNotification;
 mod controller;
 mod data;
 mod view;
+use crate::scene::GridInstance;
 use controller::Controller;
 pub use controller::{DesignRotation, IsometryTarget};
 use data::Data;
-pub use data::{Axis, Nucl, ObjectType, StrandBuilder, Parameters};
+pub use data::{Axis, Nucl, ObjectType, Parameters, StrandBuilder};
 use view::View;
-use crate::scene::GridInstance;
 
 pub struct Design {
     view: Rc<RefCell<View>>,

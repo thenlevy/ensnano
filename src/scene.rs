@@ -26,7 +26,7 @@ use view::{
     RotationMode as WidgetRotationMode, RotationWidgetDescriptor, RotationWidgetOrientation, View,
     ViewUpdate,
 };
-pub use view::{GridType, GridInstance};
+pub use view::{GridInstance, GridType};
 /// Handling of inputs and notifications
 mod controller;
 use controller::{Consequence, Controller};

@@ -1,12 +1,11 @@
-
-use std::marker::PhantomData;
-use std::collections::HashMap;
 use super::icednano::{Design, Parameters};
-use ultraviolet::{Rotor3, Vec3, Vec2};
-use std::f32::consts::FRAC_PI_2;
 use super::{icednano, Data};
+use std::collections::HashMap;
+use std::f32::consts::FRAC_PI_2;
+use std::marker::PhantomData;
+use ultraviolet::{Rotor3, Vec2, Vec3};
 
-use crate::scene::{GridType as GridType_, GridInstance};
+use crate::scene::{GridInstance, GridType as GridType_};
 
 pub struct Grid<T: GridDivision> {
     pub position: Vec3,
@@ -19,7 +18,7 @@ pub struct Grid<T: GridDivision> {
 pub struct GridDescriptor {
     pub position: Vec3,
     pub orientation: Rotor3,
-    pub grid_type: GridType
+    pub grid_type: GridType,
 }
 
 #[derive(Serialize, Deserialize, Clone, Copy)]
@@ -34,7 +33,7 @@ impl<T: GridDivision> Grid<T> {
             position,
             orientation,
             parameters,
-            phantom_data: PhantomData
+            phantom_data: PhantomData,
         }
     }
 
@@ -50,7 +49,10 @@ impl<T: GridDivision> Grid<T> {
         let intersection = self.real_intersection(origin, direction)?;
         let z_vec = Vec3::unit_z().rotated_by(self.orientation);
         let y_vec = Vec3::unit_y().rotated_by(self.orientation);
-        Some(Vec2::new((intersection - self.position).dot(z_vec), (intersection - self.position).dot(y_vec)))
+        Some(Vec2::new(
+            (intersection - self.position).dot(z_vec),
+            (intersection - self.position).dot(y_vec),
+        ))
     }
 
     fn real_intersection(&self, origin: Vec3, direction: Vec3) -> Option<Vec3> {
@@ -78,7 +80,11 @@ impl<T: GridDivision> Grid<T> {
 
     pub fn interpolate_helix(&self, origin: Vec3, axis: Vec3) -> Option<(isize, isize)> {
         let intersection = self.line_intersection(origin, axis)?;
-        Some(T::interpolate(&self.parameters, intersection.x, intersection.y))
+        Some(T::interpolate(
+            &self.parameters,
+            intersection.x,
+            intersection.y,
+        ))
     }
 
     fn error_group(&self, group: &Vec<usize>, design: &Design) -> f32 {
@@ -92,21 +98,20 @@ impl<T: GridDivision> Grid<T> {
     }
 
     fn error_helix(&self, origin: Vec3, direction: Vec3) -> f32 {
-        let position_descrete = self.interpolate_helix(origin, direction).map(|(x, y)| self.position_helix(x, y));
+        let position_descrete = self
+            .interpolate_helix(origin, direction)
+            .map(|(x, y)| self.position_helix(x, y));
         if let Some(position) = self.real_intersection(origin, direction) {
             (position - position_descrete.unwrap()).mag_sq()
         } else {
             std::f32::INFINITY
         }
     }
-
 }
 
 pub trait GridDivision {
-
     fn origin_helix(parameters: &Parameters, x: isize, y: isize) -> Vec2;
     fn interpolate(parameters: &Parameters, x: f32, y: f32) -> (isize, isize);
-
 }
 
 pub struct SquareGrid;
@@ -122,12 +127,12 @@ impl GridDivision for SquareGrid {
     fn interpolate(parameters: &Parameters, x: f32, y: f32) -> (isize, isize) {
         (
             (x / (parameters.helix_radius * 2. + parameters.inter_helix_gap)).round() as isize,
-            (y / -(parameters.helix_radius * 2. + parameters.inter_helix_gap)).round() as isize
+            (y / -(parameters.helix_radius * 2. + parameters.inter_helix_gap)).round() as isize,
         )
     }
 }
 
-pub struct HoneyComb; 
+pub struct HoneyComb;
 
 impl GridDivision for HoneyComb {
     fn origin_helix(parameters: &Parameters, x: isize, y: isize) -> Vec2 {
@@ -136,7 +141,11 @@ impl GridDivision for HoneyComb {
         let lower = upper - r;
         Vec2::new(
             x as f32 * r * 3f32.sqrt(),
-            if x.abs() % 2 != y.abs() % 2 {lower} else {upper},
+            if x.abs() % 2 != y.abs() % 2 {
+                lower
+            } else {
+                upper
+            },
         )
     }
 
@@ -144,15 +153,18 @@ impl GridDivision for HoneyComb {
         let r = parameters.inter_helix_gap / 2. + parameters.helix_radius;
         let first_guess = (
             (x / (r * 3f32.sqrt())).round() as isize,
-            (y / (-3. * r)).floor() as isize
+            (y / (-3. * r)).floor() as isize,
         );
 
         let mut ret = first_guess;
-        let mut best_dist = (Self::origin_helix(parameters, first_guess.0, first_guess.1) - Vec2::new(x, y)).mag_sq();
+        let mut best_dist = (Self::origin_helix(parameters, first_guess.0, first_guess.1)
+            - Vec2::new(x, y))
+        .mag_sq();
         for dx in [-2, -1, 0, 1, 2].iter() {
             for dy in [-2, -1, 0, 1, 2].iter() {
                 let guess = (first_guess.0 + dx, first_guess.1 + dy);
-                let dist = (Self::origin_helix(parameters, guess.0, guess.1) - Vec2::new(x, y)).mag_sq();
+                let dist =
+                    (Self::origin_helix(parameters, guess.0, guess.1) - Vec2::new(x, y)).mag_sq();
                 if dist < best_dist {
                     ret = guess;
                     best_dist = dist;
@@ -161,7 +173,6 @@ impl GridDivision for HoneyComb {
         }
         ret
     }
-
 }
 
 #[derive(Clone, Serialize, Deserialize, Copy)]
@@ -196,12 +207,20 @@ impl GridManager {
         for desc in design.grids.iter() {
             match desc.grid_type {
                 GridType::Square => {
-                    let grid: Grid<SquareGrid> = Grid::new(desc.position, desc.orientation, design.parameters.unwrap_or_default());
+                    let grid: Grid<SquareGrid> = Grid::new(
+                        desc.position,
+                        desc.orientation,
+                        design.parameters.unwrap_or_default(),
+                    );
                     square_grids.insert(nb_grid, grid);
                     nb_grid += 1;
                 }
                 GridType::Honeycomb => {
-                    let grid: Grid<HoneyComb> = Grid::new(desc.position, desc.orientation, design.parameters.unwrap_or_default());
+                    let grid: Grid<HoneyComb> = Grid::new(
+                        desc.position,
+                        desc.orientation,
+                        design.parameters.unwrap_or_default(),
+                    );
                     honeycomb_grids.insert(nb_grid, grid);
                     nb_grid += 1;
                 }
@@ -217,7 +236,7 @@ impl GridManager {
             nb_grid,
             square_grids,
             honeycomb_grids,
-            helix_to_pos
+            helix_to_pos,
         }
     }
 
@@ -232,7 +251,7 @@ impl GridManager {
                     max_x: 2,
                     min_y: -2,
                     max_y: 2,
-                    grid_type: GridType_::Square
+                    grid_type: GridType_::Square,
                 }
             } else {
                 let original = self.honeycomb_grids.get(&i).unwrap();
@@ -243,7 +262,7 @@ impl GridManager {
                     max_x: 2,
                     min_y: -2,
                     max_y: 2,
-                    grid_type: GridType_::Honeycomb
+                    grid_type: GridType_::Honeycomb,
                 }
             };
             ret.push(grid);
@@ -280,12 +299,20 @@ impl GridManager {
             let desc = self.find_grid_for_group(group, design);
             match desc.grid_type {
                 GridType::Square => {
-                    let grid: Grid<SquareGrid> = Grid::new(desc.position, desc.orientation, design.parameters.unwrap_or_default());
+                    let grid: Grid<SquareGrid> = Grid::new(
+                        desc.position,
+                        desc.orientation,
+                        design.parameters.unwrap_or_default(),
+                    );
                     self.square_grids.insert(self.nb_grid, grid);
                     self.nb_grid += 1;
                 }
                 GridType::Honeycomb => {
-                    let grid: Grid<HoneyComb> = Grid::new(desc.position, desc.orientation, design.parameters.unwrap_or_default());
+                    let grid: Grid<HoneyComb> = Grid::new(
+                        desc.position,
+                        desc.orientation,
+                        design.parameters.unwrap_or_default(),
+                    );
                     self.honeycomb_grids.insert(self.nb_grid, grid);
                     self.nb_grid += 1;
                 }
@@ -324,11 +351,7 @@ impl GridManager {
             if err < best_err {
                 let (x, y) = g.interpolate_helix(origin, direction).unwrap();
                 best_err = err;
-                ret = Some(GridPosition {
-                    grid: *g_id,
-                    x,
-                    y
-                })
+                ret = Some(GridPosition { grid: *g_id, x, y })
             }
         }
         for (g_id, g) in self.honeycomb_grids.iter() {
@@ -336,11 +359,7 @@ impl GridManager {
             if err < best_err {
                 best_err = err;
                 let (x, y) = g.interpolate_helix(origin, direction).unwrap();
-                ret = Some(GridPosition {
-                    grid: *g_id,
-                    x,
-                    y
-                })
+                ret = Some(GridPosition { grid: *g_id, x, y })
             }
         }
         ret
@@ -349,8 +368,15 @@ impl GridManager {
     fn find_grid_for_group(&self, group: &Vec<usize>, design: &Design) -> GridDescriptor {
         let parameters = design.parameters.unwrap_or_default();
         let leader = design.helices.get(&group[0]).unwrap();
-        let orientation = Rotor3::from_rotation_between(Vec3::unit_x(), leader.get_axis(&parameters).direction.normalized());
-        let mut hex_grid: Grid<HoneyComb> = Grid::new(leader.position, orientation, design.parameters.unwrap_or_default());
+        let orientation = Rotor3::from_rotation_between(
+            Vec3::unit_x(),
+            leader.get_axis(&parameters).direction.normalized(),
+        );
+        let mut hex_grid: Grid<HoneyComb> = Grid::new(
+            leader.position,
+            orientation,
+            design.parameters.unwrap_or_default(),
+        );
         let mut best_err = hex_grid.error_group(&group, design);
         for dx in [-1, 0, 1].iter() {
             for dy in [-1, 0, 1].iter() {
@@ -358,7 +384,11 @@ impl GridManager {
                 for i in 0..100 {
                     let angle = i as f32 * FRAC_PI_2 / 100.;
                     let rotor = Rotor3::from_rotation_yz(angle);
-                    let grid: Grid<HoneyComb> = Grid::new(position, orientation.rotated_by(rotor), design.parameters.unwrap_or_default());
+                    let grid: Grid<HoneyComb> = Grid::new(
+                        position,
+                        orientation.rotated_by(rotor),
+                        design.parameters.unwrap_or_default(),
+                    );
                     let err = grid.error_group(group, design);
                     if err < best_err {
                         hex_grid = grid;
@@ -368,12 +398,20 @@ impl GridManager {
             }
         }
 
-        let mut square_grid: Grid<SquareGrid> = Grid::new(leader.position, leader.orientation, design.parameters.unwrap_or_default());
+        let mut square_grid: Grid<SquareGrid> = Grid::new(
+            leader.position,
+            leader.orientation,
+            design.parameters.unwrap_or_default(),
+        );
         let mut best_square_err = square_grid.error_group(&group, design);
         for i in 0..100 {
             let angle = i as f32 * FRAC_PI_2 / 100.;
             let rotor = Rotor3::from_rotation_yz(angle);
-            let grid: Grid<SquareGrid> = Grid::new(leader.position, orientation.rotated_by(rotor), design.parameters.unwrap_or_default());
+            let grid: Grid<SquareGrid> = Grid::new(
+                leader.position,
+                orientation.rotated_by(rotor),
+                design.parameters.unwrap_or_default(),
+            );
             let err = grid.error_group(group, design);
             if err < best_square_err {
                 square_grid = grid;
@@ -384,19 +422,17 @@ impl GridManager {
             GridDescriptor {
                 position: square_grid.position,
                 orientation: square_grid.orientation,
-                grid_type: GridType::Square
+                grid_type: GridType::Square,
             }
         } else {
             GridDescriptor {
                 position: hex_grid.position,
                 orientation: hex_grid.orientation,
-                grid_type: GridType::Honeycomb
+                grid_type: GridType::Honeycomb,
             }
         }
     }
 }
-
-
 
 impl Data {
     pub fn find_parallel_helices(&self) -> HashMap<usize, Vec<usize>> {
@@ -412,7 +448,9 @@ impl Data {
                         let new_helix = helix_interval.helix;
                         if let Some(helix) = current_helix.take() {
                             if helix != new_helix {
-                                let nb_cross = candidates.entry((helix.min(new_helix), helix.max(new_helix))).or_insert(0);
+                                let nb_cross = candidates
+                                    .entry((helix.min(new_helix), helix.max(new_helix)))
+                                    .or_insert(0);
                                 *nb_cross += 1;
                                 if *nb_cross >= 3 {
                                     merger.union(helix, new_helix);
@@ -421,7 +459,7 @@ impl Data {
                         }
                         current_helix = Some(new_helix);
                     }
-                    _ => ()
+                    _ => (),
                 }
             }
         }

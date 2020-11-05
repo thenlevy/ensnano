@@ -66,8 +66,9 @@ impl FlatScene {
             _padding: 0.,
         };
         let camera = Rc::new(RefCell::new(Camera::new(globals)));
-        let mut encoder =
-            self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+        let mut encoder = self
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
         let view = Rc::new(RefCell::new(View::new(
             self.device.clone(),
             self.queue.clone(),

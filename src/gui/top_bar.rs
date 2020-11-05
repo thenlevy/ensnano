@@ -140,7 +140,9 @@ impl Program for TopBar {
         let button_3d = Button::new(&mut self.button_3d, iced::Text::new("3D"))
             .on_press(Message::ToggleView(false));
 
-        let button_make_grid = Button::new(&mut self.button_make_grid, iced::Text::new("Make grids")).on_press(Message::MakeGrids);
+        let button_make_grid =
+            Button::new(&mut self.button_make_grid, iced::Text::new("Make grids"))
+                .on_press(Message::MakeGrids);
 
         let buttons = Row::new()
             .width(Length::Fill)

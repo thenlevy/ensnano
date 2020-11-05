@@ -308,7 +308,6 @@ fn main() {
                             mediator.lock().unwrap().make_grids();
                             requests.make_grids = false
                         }
-
                     }
                 }
 
