@@ -1,4 +1,4 @@
-use super::super::view::CircleInstance;
+use super::super::view::{CharInstance, CircleInstance};
 use super::super::CameraPtr;
 use super::{Helix2d, Nucl};
 use crate::consts::*;
@@ -10,6 +10,7 @@ use lyon::tessellation;
 use lyon::tessellation::{
     FillVertex, FillVertexConstructor, StrokeVertex, StrokeVertexConstructor,
 };
+use std::collections::HashMap;
 use ultraviolet::{Isometry2, Mat2, Rotor2, Vec2, Vec4};
 
 type Vertices = lyon::tessellation::VertexBuffers<GpuVertex, u16>;
@@ -336,6 +337,23 @@ impl Helix {
             }
         } else {
             None
+        }
+    }
+
+    pub fn add_char_instances(
+        &self,
+        camera: &CameraPtr,
+        char_map: &mut HashMap<char, Vec<CharInstance>>,
+    ) {
+        let circle = self.get_circle(camera);
+        if let Some(circle) = circle {
+            let instances = char_map.get_mut(&'4').unwrap();
+            instances.push(CharInstance {
+                center: circle.center,
+                rotation: self.isometry.rotation.into_matrix(),
+                size: 0.7,
+                z_index: -1,
+            })
         }
     }
 }

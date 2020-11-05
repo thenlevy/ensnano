@@ -4,6 +4,7 @@ use crate::utils::bindgroup_manager::{DynamicBindGroup, UniformBindGroup};
 use crate::utils::texture::Texture;
 use crate::{DrawArea, PhySize};
 use iced_wgpu::wgpu;
+use std::collections::HashMap;
 use std::rc::Rc;
 use wgpu::{Device, Queue, RenderPipeline};
 
@@ -14,6 +15,9 @@ use background::Background;
 mod circles;
 use circles::CircleDrawer;
 pub use circles::CircleInstance;
+mod chars;
+use chars::CharDrawer;
+pub use chars::CharInstance;
 
 use crate::consts::SAMPLE_COUNT;
 
@@ -36,6 +40,8 @@ pub struct View {
     free_end: Option<FreeEnd>,
     background: Background,
     circle_drawer: CircleDrawer,
+    char_drawers: HashMap<char, CharDrawer>,
+    char_map: HashMap<char, Vec<CharInstance>>,
 }
 
 impl View {
@@ -76,6 +82,18 @@ impl View {
         let background = Background::new(&device, globals.get_layout(), &depth_stencil_state);
         let circle_drawer =
             CircleDrawer::new(device.clone(), queue.clone(), encoder, globals.get_layout());
+        let chars = [
+            'A', 'T', 'G', 'C', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
+        ];
+        let mut char_drawers = HashMap::new();
+        let mut char_map = HashMap::new();
+        for c in chars.iter() {
+            char_drawers.insert(
+                *c,
+                CharDrawer::new(device.clone(), queue.clone(), globals.get_layout(), *c),
+            );
+            char_map.insert(*c, Vec::new());
+        }
 
         Self {
             device,
@@ -96,6 +114,8 @@ impl View {
             free_end: None,
             background,
             circle_drawer,
+            char_drawers,
+            char_map,
         }
     }
 
@@ -186,8 +206,9 @@ impl View {
             need_new_circles = true;
         }
         if need_new_circles || self.was_updated {
-            let instances = self.generate_instances();
+            let instances = self.generate_circle_instances();
             self.circle_drawer.new_instances(Rc::new(instances));
+            self.generate_char_instances();
         }
 
         let clear_color = wgpu::Color {
@@ -274,10 +295,13 @@ impl View {
         }
 
         self.circle_drawer.draw(&mut render_pass);
+        for drawer in self.char_drawers.values_mut() {
+            drawer.draw(&mut render_pass);
+        }
         self.was_updated = false;
     }
 
-    fn generate_instances(&self) -> Vec<CircleInstance> {
+    fn generate_circle_instances(&self) -> Vec<CircleInstance> {
         let mut ret = Vec::new();
         for h in self.helices.iter() {
             if let Some(circle) = h.get_circle(&self.camera) {
@@ -285,6 +309,23 @@ impl View {
             }
         }
         ret
+    }
+
+    fn generate_char_instances(&mut self) {
+        for v in self.char_map.values_mut() {
+            v.clear();
+        }
+
+        for h in self.helices.iter() {
+            h.add_char_instances(&self.camera, &mut self.char_map)
+        }
+
+        for (c, v) in self.char_map.iter() {
+            self.char_drawers
+                .get_mut(c)
+                .unwrap()
+                .new_instances(Rc::new(v.clone()))
+        }
     }
 }
 

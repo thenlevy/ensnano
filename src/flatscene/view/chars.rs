@@ -1,27 +1,30 @@
 use iced_wgpu::wgpu;
 use std::rc::Rc;
-use ultraviolet::Vec2;
+use ultraviolet::{Mat2, Vec2};
 use wgpu::{include_spirv, BindGroupLayout, Device, Queue, RenderPass, RenderPipeline};
 
 use crate::consts::*;
+use crate::text::Letter;
 use crate::utils::bindgroup_manager::{DynamicBindGroup, UniformBindGroup};
 use crate::utils::texture::Texture;
-mod textures;
 
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub struct CircleInstance {
+pub struct CharInstance {
     pub center: Vec2,
+    pub rotation: Mat2,
+    pub size: f32,
+    pub z_index: i32,
 }
 
-unsafe impl bytemuck::Zeroable for CircleInstance {}
-unsafe impl bytemuck::Pod for CircleInstance {}
+unsafe impl bytemuck::Zeroable for CharInstance {}
+unsafe impl bytemuck::Pod for CharInstance {}
 
-pub struct CircleDrawer {
+pub struct CharDrawer {
     device: Rc<Device>,
     /// A possible updates to the instances to be drawn. Must be taken into account before drawing
     /// next frame
-    new_instances: Option<Rc<Vec<CircleInstance>>>,
+    new_instances: Option<Rc<Vec<CharInstance>>>,
     /// The number of instance to draw.
     number_instances: usize,
     /// The data sent the the GPU
@@ -32,57 +35,25 @@ pub struct CircleDrawer {
     texture_bind_group_layout: wgpu::BindGroupLayout,
 }
 
-impl CircleDrawer {
+impl CharDrawer {
     pub fn new(
         device: Rc<Device>,
         queue: Rc<Queue>,
-        encoder: &mut wgpu::CommandEncoder,
         globals_layout: &BindGroupLayout,
+        character: char,
     ) -> Self {
         let instances_bg = DynamicBindGroup::new(device.clone(), queue.clone());
-        let circle_texture = textures::CircleTexture::new(device.clone().as_ref(), encoder);
-        let texture_bind_group_layout =
-            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                entries: &[
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 0,
-                        visibility: wgpu::ShaderStage::FRAGMENT,
-                        ty: wgpu::BindingType::SampledTexture {
-                            multisampled: true,
-                            dimension: wgpu::TextureViewDimension::D2,
-                            component_type: wgpu::TextureComponentType::Uint,
-                        },
-                        count: None,
-                    },
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 1,
-                        visibility: wgpu::ShaderStage::FRAGMENT,
-                        ty: wgpu::BindingType::Sampler { comparison: false },
-                        count: None,
-                    },
-                ],
-                label: Some("texture_bind_group_layout"),
-            });
+        let char_texture = Letter::new(character, device.clone(), queue.clone());
+        let texture_bind_group_layout = char_texture.bind_group_layout;
 
-        let texture_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &texture_bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&circle_texture.view),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::Sampler(&circle_texture.sampler),
-                },
-            ],
-            label: Some("diffuse_bind_group"),
-        });
+        let texture_bind_group = char_texture.bind_group;
 
-        let new_instances = vec![CircleInstance {
+        let new_instances = vec![CharInstance {
             center: Vec2::zero(),
+            rotation: Mat2::identity(),
+            z_index: -1,
+            size: 1.,
         }];
-
         let mut ret = Self {
             device,
             new_instances: Some(Rc::new(new_instances)),
@@ -105,7 +76,7 @@ impl CircleDrawer {
         render_pass.draw(0..4, 0..self.number_instances as u32);
     }
 
-    pub fn new_instances(&mut self, instances: Rc<Vec<CircleInstance>>) {
+    pub fn new_instances(&mut self, instances: Rc<Vec<CharInstance>>) {
         self.new_instances = Some(instances)
     }
 
@@ -122,10 +93,10 @@ impl CircleDrawer {
     fn create_pipeline(&self, globals_layout: &BindGroupLayout) -> RenderPipeline {
         let vertex_module = self
             .device
-            .create_shader_module(include_spirv!("circle.vert.spv"));
+            .create_shader_module(include_spirv!("chars.vert.spv"));
         let fragment_module = self
             .device
-            .create_shader_module(include_spirv!("circle.frag.spv"));
+            .create_shader_module(include_spirv!("chars.frag.spv"));
         let render_pipeline_layout =
             self.device
                 .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
