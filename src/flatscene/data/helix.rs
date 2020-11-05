@@ -347,7 +347,7 @@ impl Helix {
     ) {
         let circle = self.get_circle(camera);
         if let Some(circle) = circle {
-            let instances = char_map.get_mut(&'4').unwrap();
+            let instances = char_map.get_mut(&'G').unwrap();
             instances.push(CharInstance {
                 center: circle.center,
                 rotation: self.isometry.rotation.into_matrix(),

@@ -85,7 +85,7 @@ impl Letter {
             // by setting depth to 1.
             size,
             mip_level_count: 1, // We'll talk about this a little later
-            sample_count: SAMPLE_COUNT,
+            sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
             format: wgpu::TextureFormat::Rgba8UnormSrgb,
             // SAMPLED tells wgpu that we want to use this texture in shaders
