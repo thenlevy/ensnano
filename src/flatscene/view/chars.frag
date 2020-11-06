@@ -12,7 +12,7 @@ layout(set = 2, binding = 1) uniform sampler s_circle;
 void main() {
     vec4 color;
 
-    color = texture(sampler2D(t_circle, s_circle), v_tex_coords / 2. + 0.5);
+    color = texture(sampler2D(t_circle, s_circle), v_tex_coords);
 
     if (color.w < 0.01) {
     discard;

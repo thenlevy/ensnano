@@ -21,10 +21,14 @@ buffer InstancesBlock {
     Instances instances[];
 };
 
+layout(set=2, binding = 2) uniform TexSize {
+   vec2 tex_size;
+};
+
 void main() {
-    float min_x = -1.;
+    float min_x = 0.;
     float max_x = 1.;
-    float min_y = -1;
+    float min_y = 0.;
     float max_y = 1.;
 
     vec2 position[4] = vec2[4](
@@ -34,13 +38,12 @@ void main() {
         vec2(max_x, max_y)
     );
 
-    // The conversion to [0, 1] x [0, 1] is done in the fragment shader
-    v_tex_coords = position[gl_VertexIndex] * vec2(1., 1.);
+    v_tex_coords = position[gl_VertexIndex] * vec2(1., 1.) * tex_size / 512.;
 
     mat2 rotate = instances[gl_InstanceIndex].rotation;
     float size = instances[gl_InstanceIndex].size;
 
-    vec2 local_pos = instances[gl_InstanceIndex].center + rotate *(position[gl_VertexIndex] * size);
+    vec2 local_pos = instances[gl_InstanceIndex].center + rotate *((position[gl_VertexIndex] * 2. - 1.) * tex_size / 512. * size);
     vec2 world_pos = local_pos - u_scroll_offset; 
     vec2 zoom_factor = u_zoom / (vec2(0.5, 0.5) * u_resolution);
     vec2 transformed_pos = world_pos * zoom_factor * vec2(1., -1);

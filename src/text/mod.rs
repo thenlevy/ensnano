@@ -70,6 +70,7 @@ pub struct Letter {
     pub vertex_buffer: wgpu::Buffer,
     pub index_buffer: wgpu::Buffer,
     pub bind_group_layout: BindGroupLayout,
+    pub char_size: [f32 ; 2],
 }
 
 const MIP_LEVEL_COUNT: u32 = 6;
@@ -96,6 +97,8 @@ impl Letter {
             label: Some("diffuse_texture"),
         });
 
+        let mut char_size = [512f32, 512f32];
+
         for mip_level in 0..MIP_LEVEL_COUNT {
             let size = Extent3d {
                 width: 1 << (MIP_LEVEL_COUNT + 3 - mip_level),
@@ -108,7 +111,7 @@ impl Letter {
                 .expect("Could not read font");
             let q_glyph: Glyph = font
                 .glyph_id(character)
-                .with_scale_and_position(size.width as f32, point(0.0, 0.0));
+                .with_scale_and_position(size.width as f32 * 1.5, point(0.0, 0.0));
 
             if let Some(q) = font.outline_glyph(q_glyph) {
                 q.draw(|x, y, c| {
@@ -116,6 +119,10 @@ impl Letter {
                         pixels[((x + y * size.width) * 4 + i) as usize] = (c * 255.) as u8;
                     }
                 });
+                if mip_level == 0 {
+                    char_size[0] = q.px_bounds().width();
+                    char_size[1] = q.px_bounds().height();
+                }
             }
 
             queue.write_texture(
@@ -144,7 +151,7 @@ impl Letter {
             address_mode_w: wgpu::AddressMode::ClampToEdge,
             mag_filter: wgpu::FilterMode::Linear,
             min_filter: wgpu::FilterMode::Linear,
-            mipmap_filter: wgpu::FilterMode::Linear,
+            mipmap_filter: wgpu::FilterMode::Nearest,
             ..Default::default()
         });
 
@@ -167,6 +174,15 @@ impl Letter {
                         ty: wgpu::BindingType::Sampler { comparison: false },
                         count: None,
                     },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 2,
+                        visibility: wgpu::ShaderStage::VERTEX,
+                        ty: wgpu::BindingType::UniformBuffer {
+                            min_binding_size: None,
+                            dynamic: false,
+                        },
+                        count: None,
+                    },
                 ],
                 label: Some("texture_bind_group_layout"),
             });
@@ -181,6 +197,14 @@ impl Letter {
                     binding: 1,
                     resource: wgpu::BindingResource::Sampler(&diffuse_sampler),
                 },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: wgpu::BindingResource::Buffer(device.create_buffer_init(&wgpu::util::BufferInitDescriptor{
+                        usage: wgpu::BufferUsage::UNIFORM,
+                        contents: bytemuck::cast_slice(&char_size),
+                        label: None,
+                    }).slice(..))
+                }
             ],
             label: Some("diffuse_bind_group"),
         });
@@ -204,6 +228,7 @@ impl Letter {
             vertex_buffer,
             index_buffer,
             bind_group_layout: texture_bind_group_layout,
+            char_size,
         }
     }
 }
