@@ -72,11 +72,13 @@ pub struct Letter {
     pub bind_group_layout: BindGroupLayout,
 }
 
+const MIP_LEVEL_COUNT: u32 = 6;
+
 impl Letter {
     pub fn new(character: char, device: Rc<Device>, queue: Rc<Queue>) -> Self {
         let size = Extent3d {
-            width: 256,
-            height: 256,
+            width: 1 << (MIP_LEVEL_COUNT + 3),
+            height: 1 << (MIP_LEVEL_COUNT + 3),
             depth: 1,
         };
 
@@ -84,7 +86,7 @@ impl Letter {
             // All textures are stored as 3d, we represent our 2d texture
             // by setting depth to 1.
             size,
-            mip_level_count: 1, // We'll talk about this a little later
+            mip_level_count: MIP_LEVEL_COUNT, // We'll talk about this a little later
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
             format: wgpu::TextureFormat::Rgba8UnormSrgb,
@@ -94,38 +96,45 @@ impl Letter {
             label: Some("diffuse_texture"),
         });
 
-        let mut pixels = vec![0u8; (size.width * size.height * 4) as usize];
+        for mip_level in 0..MIP_LEVEL_COUNT {
+            let size = Extent3d {
+                width: 1 << (MIP_LEVEL_COUNT + 3 - mip_level),
+                height: 1 << (MIP_LEVEL_COUNT + 3 - mip_level),
+                depth: 1,
+            };
+            let mut pixels = vec![0u8; (size.width * size.height * 4) as usize];
 
-        let font = FontRef::try_from_slice(include_bytes!("../../font/DejaVuSansMono.ttf"))
-            .expect("Could not read font");
-        let q_glyph: Glyph = font
-            .glyph_id(character)
-            .with_scale_and_position(size.width as f32, point(0.0, 0.0));
+            let font = FontRef::try_from_slice(include_bytes!("../../font/Monospace.ttf"))
+                .expect("Could not read font");
+            let q_glyph: Glyph = font
+                .glyph_id(character)
+                .with_scale_and_position(size.width as f32, point(0.0, 0.0));
 
-        if let Some(q) = font.outline_glyph(q_glyph) {
-            q.draw(|x, y, c| {
-                for i in 0..4 {
-                    pixels[((x + y * size.width) * 4 + i) as usize] = (c * 255.) as u8;
-                }
-            });
+            if let Some(q) = font.outline_glyph(q_glyph) {
+                q.draw(|x, y, c| {
+                    for i in 0..4 {
+                        pixels[((x + y * size.width) * 4 + i) as usize] = (c * 255.) as u8;
+                    }
+                });
+            }
+
+            queue.write_texture(
+                // Tells wgpu where to copy the pixel data
+                wgpu::TextureCopyView {
+                    texture: &diffuse_texture,
+                    mip_level,
+                    origin: wgpu::Origin3d::ZERO,
+                },
+                &pixels,
+                // The layout of the texture
+                wgpu::TextureDataLayout {
+                    offset: 0,
+                    bytes_per_row: 4 * size.width,
+                    rows_per_image: size.height,
+                },
+                size,
+            );
         }
-
-        queue.write_texture(
-            // Tells wgpu where to copy the pixel data
-            wgpu::TextureCopyView {
-                texture: &diffuse_texture,
-                mip_level: 0,
-                origin: wgpu::Origin3d::ZERO,
-            },
-            &pixels,
-            // The layout of the texture
-            wgpu::TextureDataLayout {
-                offset: 0,
-                bytes_per_row: 4 * size.width,
-                rows_per_image: size.height,
-            },
-            size,
-        );
 
         let diffuse_texture_view =
             diffuse_texture.create_view(&wgpu::TextureViewDescriptor::default());
@@ -134,8 +143,8 @@ impl Letter {
             address_mode_v: wgpu::AddressMode::ClampToEdge,
             address_mode_w: wgpu::AddressMode::ClampToEdge,
             mag_filter: wgpu::FilterMode::Linear,
-            min_filter: wgpu::FilterMode::Nearest,
-            mipmap_filter: wgpu::FilterMode::Nearest,
+            min_filter: wgpu::FilterMode::Linear,
+            mipmap_filter: wgpu::FilterMode::Linear,
             ..Default::default()
         });
 
