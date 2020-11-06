@@ -249,6 +249,14 @@ impl Helix {
             .transform_point2(self.scale * local_position)
     }
 
+    fn num_position_top(&self, x: isize) -> Vec2 {
+        let local_position = x as f32 * Vec2::unit_x() - 0.1 * Vec2::unit_y();
+
+        self.isometry
+            .into_homogeneous_matrix()
+            .transform_point2(self.scale * local_position)
+    }
+
     pub fn get_circle(&self, camera: &CameraPtr) -> Option<CircleInstance> {
         let globals = camera.borrow().get_globals().clone();
         let leftmost_position = self.x_position(self.left);
@@ -347,13 +355,30 @@ impl Helix {
     ) {
         let circle = self.get_circle(camera);
         if let Some(circle) = circle {
-            let instances = char_map.get_mut(&'G').unwrap();
-            instances.push(CharInstance {
-                center: circle.center,
-                rotation: self.isometry.rotation.into_matrix(),
-                size: 0.7,
-                z_index: -1,
-            })
+            let nb_chars = self.id.to_string().len(); // ok to use len because digits are ascii
+            for (c_idx, c) in self.id.to_string().chars().enumerate() {
+                let instances = char_map.get_mut(&c).unwrap();
+                instances.push(CharInstance {
+                    center: circle.center + (c_idx as f32 - (nb_chars - 1) as f32 / 2.) * (1. / nb_chars as f32) * Vec2::unit_x(),
+                    rotation: self.isometry.rotation.into_matrix(),
+                    size: 0.7 / nb_chars as f32,
+                    z_index: -1,
+                })
+            }
+        }
+        let mut pos = self.left;
+        while pos <= self.right {
+            let nb_chars = pos.to_string().len(); // ok to use len because digits are ascii
+            for (c_idx, c) in pos.to_string().chars().enumerate() {
+                let instances = char_map.get_mut(&c).unwrap();
+                instances.push(CharInstance {
+                    center: self.num_position_top(pos) + (c_idx as f32 - (nb_chars - 1) as f32 / 2.) * 0.2 * Vec2::unit_x(),
+                    rotation: self.isometry.rotation.into_matrix(),
+                    size: 0.2,
+                    z_index: -1,
+                })
+            }
+            pos += 5;
         }
     }
 }

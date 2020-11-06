@@ -107,7 +107,7 @@ impl Letter {
             };
             let mut pixels = vec![0u8; (size.width * size.height * 4) as usize];
 
-            let font = FontRef::try_from_slice(include_bytes!("../../font/Monospace.ttf"))
+            let font = FontRef::try_from_slice(include_bytes!("../../font/MonospaceBold.ttf"))
                 .expect("Could not read font");
             let q_glyph: Glyph = font
                 .glyph_id(character)
@@ -151,7 +151,7 @@ impl Letter {
             address_mode_w: wgpu::AddressMode::ClampToEdge,
             mag_filter: wgpu::FilterMode::Linear,
             min_filter: wgpu::FilterMode::Linear,
-            mipmap_filter: wgpu::FilterMode::Nearest,
+            mipmap_filter: wgpu::FilterMode::Linear,
             ..Default::default()
         });
 
