@@ -107,11 +107,20 @@ impl<T: GridDivision> Grid<T> {
             std::f32::INFINITY
         }
     }
+
+    pub fn desc(&self) -> GridDescriptor {
+        GridDescriptor {
+            position: self.position,
+            orientation: self.orientation,
+            grid_type: T::grid_type(),
+        }
+    }
 }
 
 pub trait GridDivision {
     fn origin_helix(parameters: &Parameters, x: isize, y: isize) -> Vec2;
     fn interpolate(parameters: &Parameters, x: f32, y: f32) -> (isize, isize);
+    fn grid_type() -> GridType;
 }
 
 pub struct SquareGrid;
@@ -130,6 +139,8 @@ impl GridDivision for SquareGrid {
             (y / -(parameters.helix_radius * 2. + parameters.inter_helix_gap)).round() as isize,
         )
     }
+
+    fn grid_type() -> GridType { GridType::Square }
 }
 
 pub struct HoneyComb;
@@ -173,6 +184,8 @@ impl GridDivision for HoneyComb {
         }
         ret
     }
+
+    fn grid_type() -> GridType { GridType::Honeycomb }
 }
 
 #[derive(Clone, Serialize, Deserialize, Copy)]
@@ -339,6 +352,16 @@ impl GridManager {
                     let grid = self.honeycomb_grids.get(&grid_position.grid).unwrap();
                     h.position = grid.position_helix(grid_position.x, grid_position.y);
                 }
+            }
+        }
+        design.grids.clear();
+        for g_id in 0..self.nb_grid {
+            if let Some(g) = self.square_grids.get(&g_id) {
+                design.grids.push(g.desc())
+            } else {
+                // ok to unwrap because it's a bug if g is None
+                let g = self.honeycomb_grids.get(&g_id).unwrap();
+                design.grids.push(g.desc())
             }
         }
     }

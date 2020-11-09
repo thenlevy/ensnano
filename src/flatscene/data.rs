@@ -58,7 +58,7 @@ impl Data {
             self.helices.push(Helix::new(
                 h.left,
                 h.right,
-                (3. * (delta + nb_helix) as f32) * Vec2::unit_y(),
+                (9. * (delta + nb_helix) as f32) * Vec2::unit_y(),
                 (delta + nb_helix) as u32,
             ))
         }
