@@ -1,4 +1,4 @@
-use super::Message;
+use super::{ColorMessage, Message};
 use iced::{Color, Row};
 
 pub struct ColorPicker {
@@ -29,15 +29,15 @@ impl ColorPicker {
         self.hue = hue
     }
 
-    pub fn view(&mut self) -> Row<Message> {
+    pub fn new_view(&mut self) -> Row<ColorMessage> {
         let color_picker = Row::new()
             .spacing(5)
-            .push(HueColumn::new(&mut self.hue_state, Message::HueChanged))
+            .push(HueColumn::new(&mut self.hue_state, ColorMessage::HueChanged))
             .spacing(10)
             .push(LightSatSquare::new(
                 self.hue as f64,
                 &mut self.light_sat_square_state,
-                Message::StrandColorChanged,
+                ColorMessage::StrandColorChanged,
             ));
         color_picker
     }

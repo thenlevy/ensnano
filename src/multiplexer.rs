@@ -26,8 +26,19 @@ pub enum ElementType {
     Scene,
     /// The Left Panel
     LeftPanel,
+    /// An overlay area
+    Overlay(usize),
     /// An area that has not been attributed to an element
     Unattributed,
+}
+
+impl ElementType {
+    pub fn need_shift(&self) -> bool {
+        match self {
+            ElementType::Scene | ElementType::Overlay(_) => true,
+            _ => false
+        }
+    }
 }
 
 /// A structure that handles the division of the window into different `DrawArea`
@@ -45,6 +56,8 @@ pub struct Multiplexer {
     mouse_clicked: bool,
     /// The *physical* position of the cursor on the focus area
     cursor_position: PhysicalPosition<f64>,
+    /// The area that are drawn on top of the application
+    overlays: Vec<Overlay>,
 }
 
 impl Multiplexer {
@@ -63,22 +76,30 @@ impl Multiplexer {
             focus: None,
             mouse_clicked: false,
             cursor_position: PhysicalPosition::new(-1., -1.),
+            overlays: Vec::new(),
         }
     }
 
     /// Return the drawing area attributed to an element.
     pub fn get_draw_area(&self, element_type: ElementType) -> DrawArea {
-        let (left, top, right, bottom) = self.layout_manager.get_area(element_type);
-        let top = top * self.window_size.height as f64;
-        let left = left * self.window_size.width as f64;
-        let bottom = bottom * self.window_size.height as f64;
-        let right = right * self.window_size.width as f64;
+        use ElementType::Overlay;
+        let (position, size) = if let Overlay(n) = element_type {
+            (self.overlays[n].position,
+             self.overlays[n].size)
+        } else {
+            let (left, top, right, bottom) = self.layout_manager.get_area(element_type);
+            let top = top * self.window_size.height as f64;
+            let left = left * self.window_size.width as f64;
+            let bottom = bottom * self.window_size.height as f64;
+            let right = right * self.window_size.width as f64;
 
-        let position = PhysicalPosition::new(left, top);
-        let size = PhysicalSize::new(right - left, bottom - top);
+            (PhysicalPosition::new(left, top).cast::<u32>(),
+            PhysicalSize::new(right - left, bottom - top).cast::<u32>(),
+            )
+        };
         DrawArea {
-            position: position.cast::<u32>(),
-            size: size.cast::<u32>(),
+            position,
+            size,
         }
     }
 
@@ -106,7 +127,7 @@ impl Multiplexer {
                         focus_changed = true;
                         device_id_msg = Some(*device_id);
                     }
-                    if self.foccused_element() == Some(ElementType::Scene) {
+                    if self.foccused_element().filter(|elt_type| elt_type.need_shift()).is_some() {
                         self.cursor_position.x = position.x - area.position.cast::<f64>().x;
                         self.cursor_position.y = position.y - area.position.cast::<f64>().y;
                     } else {
@@ -129,16 +150,16 @@ impl Multiplexer {
                 ElementState::Pressed => self.mouse_clicked = true,
                 ElementState::Released => self.mouse_clicked = false,
             },
-            _ => {}
+                _ => {}
         }
 
         if let Some(focus) = self.focus {
             if focus_changed {
                 Some((
-                    WindowEvent::CursorLeft {
-                        device_id: device_id_msg.unwrap(),
-                    },
-                    focus,
+                        WindowEvent::CursorLeft {
+                            device_id: device_id_msg.unwrap(),
+                        },
+                        focus,
                 ))
             } else {
                 Some((event, focus))
@@ -150,6 +171,12 @@ impl Multiplexer {
 
     /// Maps *physical* pixels to an element
     fn pixel_to_element(&self, pixel: PhysicalPosition<f64>) -> ElementType {
+        let pixel_u32 = pixel.cast::<u32>();
+        for (n, overlay) in self.overlays.iter().enumerate() {
+            if overlay.contains_pixel(pixel_u32) {
+                return ElementType::Overlay(n)
+            }
+        }
         self.layout_manager.get_area_pixel(
             pixel.x / self.window_size.width as f64,
             pixel.y / self.window_size.height as f64,
@@ -169,5 +196,24 @@ impl Multiplexer {
     /// Return the foccused element
     pub fn foccused_element(&self) -> Option<ElementType> {
         self.focus
+    }
+
+    pub fn set_overlays(&mut self, overlays: Vec<Overlay>) {
+        self.overlays = overlays
+    }
+}
+
+#[derive(Clone)]
+pub struct Overlay {
+    pub position: PhysicalPosition<u32>,
+    pub size: PhysicalSize<u32>,
+}
+
+impl Overlay {
+    pub fn contains_pixel(&self, pixel: PhysicalPosition<u32>) -> bool {
+        pixel.x >= self.position.x 
+            && pixel.y >= self.position.y 
+            && pixel.x < self.position.x + self.size.width 
+            && pixel.y < self.position.y + self.size.height 
     }
 }

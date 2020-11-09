@@ -5,7 +5,7 @@ use iced_wgpu::Renderer;
 use iced_winit::winit::dpi::{LogicalPosition, LogicalSize};
 use iced_winit::{
     pick_list, scrollable, slider, Color, Column, Command, Element, Length, PickList, Program,
-    Scrollable, Slider, Space, Text,
+    Scrollable, Slider, Space, Text, button, Button
 };
 use native_dialog::Dialog;
 
@@ -13,7 +13,7 @@ use color_space::{Hsv, Rgb};
 
 use crate::mediator::{ActionMode, SelectionMode};
 
-use super::Requests;
+use super::{OverlayType, Requests};
 mod color_picker;
 use color_picker::ColorPicker;
 mod sequence_input;
@@ -31,7 +31,7 @@ pub struct LeftPanel {
     logical_size: LogicalSize<f64>,
     logical_position: LogicalPosition<f64>,
     scroll_sensitivity: f32,
-    color_picker: ColorPicker,
+    open_color: button::State,
     sequence_input: SequenceInput,
     requests: Arc<Mutex<Requests>>,
 }
@@ -40,8 +40,7 @@ pub struct LeftPanel {
 pub enum Message {
     SelectionModeChanged(SelectionMode),
     Resized(LogicalSize<f64>, LogicalPosition<f64>),
-    StrandColorChanged(Color),
-    HueChanged(f32),
+    OpenColor,
     ActionModeChanged(ActionMode),
     SequenceChanged(String),
     SequenceFileRequested,
@@ -66,7 +65,7 @@ impl LeftPanel {
             logical_size,
             logical_position,
             scroll_sensitivity: 0f32,
-            color_picker: ColorPicker::new(),
+            open_color: Default::default(),
             sequence_input: SequenceInput::new(),
             requests,
         }
@@ -96,22 +95,6 @@ impl Program for LeftPanel {
                 self.action_mode = action_mode;
                 self.requests.lock().unwrap().action_mode = Some(action_mode)
             }
-            Message::StrandColorChanged(color) => {
-                let red = ((color.r * 255.) as u32) << 16;
-                let green = ((color.g * 255.) as u32) << 8;
-                let blue = (color.b * 255.) as u32;
-                self.color_picker.update_color(color);
-                let hue = Hsv::from(Rgb::new(
-                    color.r as f64 * 255.,
-                    color.g as f64 * 255.,
-                    color.b as f64 * 255.,
-                ))
-                .h;
-                self.color_picker.change_hue(hue as f32);
-                let color = red + green + blue;
-                self.requests.lock().unwrap().strand_color_change = Some(color);
-            }
-            Message::HueChanged(x) => self.color_picker.change_hue(x),
             Message::SequenceChanged(s) => {
                 self.requests.lock().unwrap().sequence_change = Some(s.clone());
                 self.sequence_input.update_sequence(s);
@@ -135,6 +118,7 @@ impl Program for LeftPanel {
                     }
                 }
             }
+            Message::OpenColor => self.requests.lock().unwrap().overlay_opened = Some(OverlayType::Color),
             Message::Resized(size, position) => self.resize(size, position),
         };
         Command::none()
@@ -190,7 +174,7 @@ impl Program for LeftPanel {
         if self.selection_mode == SelectionMode::Strand {
             widget = widget
                 .spacing(5)
-                .push(self.color_picker.view())
+                .push(Button::new(&mut self.open_color, Text::new("Change color")).on_press(Message::OpenColor))
                 .spacing(5)
                 .push(self.sequence_input.view());
         }
@@ -218,3 +202,101 @@ pub const BACKGROUND: Color = Color::from_rgb(
     0xD4 as f32 / 255.0,
     0xFF as f32 / 255.0,
 );
+
+pub struct ColorOverlay {
+    logical_size: LogicalSize<f64>,
+    color_picker: ColorPicker,
+    close_button: iced::button::State,
+    requests: Arc<Mutex<Requests>>,
+}
+
+impl ColorOverlay {
+    pub fn new(
+        requests: Arc<Mutex<Requests>>,
+        logical_size: LogicalSize<f64>,
+    ) -> Self {
+        Self {
+            logical_size,
+            close_button: Default::default(),
+            color_picker: ColorPicker::new(),
+            requests,
+        }
+    }
+
+    pub fn resize(
+        &mut self,
+        logical_size: LogicalSize<f64>,
+    ) {
+        self.logical_size = logical_size;
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum ColorMessage {
+    StrandColorChanged(Color),
+    HueChanged(f32),
+    Resized(LogicalSize<f64>),
+    Closed,
+}
+
+
+impl Program for ColorOverlay {
+    type Renderer = Renderer;
+    type Message = ColorMessage;
+
+    fn update(&mut self, message: ColorMessage) -> Command<ColorMessage> {
+        match message {
+            ColorMessage::StrandColorChanged(color) => {
+                let red = ((color.r * 255.) as u32) << 16;
+                let green = ((color.g * 255.) as u32) << 8;
+                let blue = (color.b * 255.) as u32;
+                self.color_picker.update_color(color);
+                let hue = Hsv::from(Rgb::new(
+                    color.r as f64 * 255.,
+                    color.g as f64 * 255.,
+                    color.b as f64 * 255.,
+                ))
+                .h;
+                self.color_picker.change_hue(hue as f32);
+                let color = red + green + blue;
+                self.requests.lock().unwrap().strand_color_change = Some(color);
+            }
+            ColorMessage::HueChanged(x) => self.color_picker.change_hue(x),
+            ColorMessage::Closed => self.requests.lock().unwrap().overlay_closed = Some(OverlayType::Color),
+            ColorMessage::Resized(size) => self.resize(size),
+        };
+        Command::none()
+    }
+
+    fn view(&mut self) -> Element<ColorMessage, Renderer> {
+        let width = self.logical_size.cast::<u16>().width;
+
+        let widget = Column::new()
+            .width(Length::Units(width))
+            .height(Length::Fill)
+            .spacing(5)
+            .push(self.color_picker.new_view())
+            .spacing(5)
+            .push(Button::new(&mut self.close_button, Text::new("Close")).on_press(ColorMessage::Closed));
+
+
+        Container::new(widget)
+            .style(FloatingStyle)
+            .height(Length::Fill)
+            .into()
+    }
+}
+
+struct FloatingStyle;
+impl container::StyleSheet for FloatingStyle {
+    fn style(&self) -> container::Style {
+        container::Style {
+            background: Some(Background::Color(BACKGROUND)),
+            text_color: Some(Color::WHITE),
+            border_width: 3,
+            border_radius: 3,
+            border_color: Color::BLACK,
+            ..container::Style::default()
+        }
+    }
+}

@@ -8,12 +8,14 @@ pub type PhySize = iced_winit::winit::dpi::PhysicalSize<u32>;
 
 use iced_wgpu::{wgpu, Backend, Renderer, Settings, Viewport};
 use iced_winit::{conversion, futures, program, winit, Debug, Size};
+use iced_native::Event as IcedEvent;
 
 use futures::task::SpawnExt;
 use winit::{
-    dpi::PhysicalPosition,
+    dpi::{PhysicalSize, PhysicalPosition},
     event::{Event, ModifiersState, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
+    window::Window,
 };
 
 #[macro_use]
@@ -38,8 +40,8 @@ mod text;
 mod utils;
 
 use flatscene::FlatScene;
-use gui::{LeftPanel, Requests, TopBar};
-use multiplexer::{DrawArea, ElementType, Multiplexer};
+use gui::{LeftPanel, Requests, TopBar, ColorOverlay, OverlayType};
+use multiplexer::{DrawArea, ElementType, Multiplexer, Overlay};
 use scene::{Scene, SceneNotification};
 
 fn convert_size(size: PhySize) -> Size<f32> {
@@ -189,6 +191,8 @@ fn main() {
         &mut left_panel_debug,
     );
 
+    let mut overlay_manager = OverlayManager::new(requests.clone(), &window, &mut renderer);
+
     // Run event loop
     let mut last_render_time = std::time::Instant::now();
     event_loop.run(move |event, _, control_flow| {
@@ -220,6 +224,16 @@ fn main() {
                                 );
                                 if let Some(event) = event {
                                     top_bar_state.queue_event(event);
+                                }
+                            }
+                            ElementType::Overlay(n) => {
+                                let event = iced_winit::conversion::window_event(
+                                    &event,
+                                    window.scale_factor(),
+                                    modifiers,
+                                );
+                                if let Some(event) = event {
+                                    overlay_manager.forward_event(event, n);
                                 }
                             }
                             ElementType::Scene => {
@@ -312,13 +326,15 @@ fn main() {
                 }
 
                 // Treat eventual event that happenend in the gui left panel.
+                let overlay_change = overlay_manager.fetch_change(&multiplexer, &window, &mut renderer);
+                let left_panel_area = multiplexer.get_element_area(ElementType::LeftPanel);
                 let left_panel_cursor =
                     if multiplexer.foccused_element() == Some(ElementType::LeftPanel) {
                         multiplexer.get_cursor_position()
                     } else {
                         PhysicalPosition::new(-1., -1.)
                     };
-                if !left_panel_state.is_queue_empty() {
+                if !left_panel_state.is_queue_empty() || overlay_change {
                     redraw = true;
                     let _ = left_panel_state.update(
                         convert_size(window.inner_size()),
@@ -351,6 +367,14 @@ fn main() {
                             scene.lock().unwrap().change_sensitivity(sensitivity);
                             //flat_scene.lock().unwrap().change_sensitivity(sensitivity);
                         }
+
+                        if let Some(overlay_type) = requests.overlay_closed.take() {
+                            overlay_manager.rm_overlay(overlay_type, &mut multiplexer);
+                        }
+
+                        if let Some(overlay_type) = requests.overlay_opened.take() {
+                            overlay_manager.add_overlay(overlay_type, &mut multiplexer);
+                        }
                     }
                 }
                 {
@@ -361,6 +385,7 @@ fn main() {
                     for m in messages.top_bar.drain(..) {
                         top_bar_state.queue_message(m);
                     }
+                    overlay_manager.forward_messages(&mut messages);
                 }
                 let now = std::time::Instant::now();
                 let dt = now - last_render_time;
@@ -435,13 +460,15 @@ fn main() {
 
                 if !left_panel_state.is_queue_empty() || resized {
                     let _ = left_panel_state.update(
-                        convert_size(left_panel_area.size),
+                        convert_size(window.inner_size()),
                         conversion::cursor_position(left_panel_cursor, window.scale_factor()),
                         None,
                         &mut renderer,
                         &mut left_panel_debug,
                     );
                 }
+
+                overlay_manager.process_event(&mut renderer, resized, &multiplexer, &window);
 
                 resized = false;
 
@@ -489,6 +516,8 @@ fn main() {
                     &top_bar_debug.overlay(),
                 );
 
+                overlay_manager.render(&device, &mut staging_belt, &mut encoder, &frame.output.view, &multiplexer, &window, &mut renderer);
+
                 // Then we submit the work
                 staging_belt.finish();
                 queue.submit(Some(encoder.finish()));
@@ -512,6 +541,7 @@ pub struct Messages {
     left_panel: VecDeque<gui::left_panel::Message>,
     #[allow(dead_code)]
     top_bar: VecDeque<gui::top_bar::Message>,
+    color_overlay: VecDeque<gui::left_panel::ColorMessage>,
 }
 
 impl Messages {
@@ -520,6 +550,7 @@ impl Messages {
         Self {
             left_panel: VecDeque::new(),
             top_bar: VecDeque::new(),
+            color_overlay: VecDeque::new(),
         }
     }
 
@@ -527,12 +558,164 @@ impl Messages {
         let bytes = color.to_be_bytes();
         // bytes is [A, R, G, B]
         let color = iced::Color::from_rgb8(bytes[1], bytes[2], bytes[3]);
-        self.left_panel
-            .push_front(gui::left_panel::Message::StrandColorChanged(color));
+        self.color_overlay
+            .push_front(gui::left_panel::ColorMessage::StrandColorChanged(color));
     }
 
     pub fn push_sequence(&mut self, sequence: String) {
         self.left_panel
             .push_front(gui::left_panel::Message::SequenceChanged(sequence));
+    }
+}
+
+
+pub struct OverlayManager {
+    color_state: iced_native::program::State<ColorOverlay>,
+    color_debug: Debug,
+    overlay_types: Vec<OverlayType>,
+    overlays: Vec<Overlay>,
+}
+
+impl OverlayManager {
+    pub fn new(requests: Arc<Mutex<Requests>>, window: &Window, renderer: &mut Renderer) -> Self {
+        let color = ColorOverlay::new(
+        requests.clone(),
+        PhysicalSize::new(250., 250.).to_logical(window.scale_factor()));
+        let mut color_debug = Debug::new();
+        let color_state = program::State::new(
+            color,
+            convert_size(PhysicalSize::new(250, 250)),
+            conversion::cursor_position(PhysicalPosition::new(-1f64, -1f64), window.scale_factor()),
+            renderer,
+            &mut color_debug,
+        );
+        Self {
+            color_state,
+            color_debug,
+            overlay_types: Vec::new(),
+            overlays: Vec::new(),
+        }
+    }
+
+    fn forward_event(&mut self, event: IcedEvent, n: usize) {
+        match self.overlay_types.get(n) {
+            None => {
+                println!("recieve event from non existing overlay");
+                unreachable!();
+            },
+            Some(OverlayType::Color) => {
+                self.color_state.queue_event(event)
+            }
+        }
+
+    }
+
+    fn add_overlay(&mut self, overlay_type: OverlayType, multiplexer: &mut Multiplexer) {
+        match overlay_type {
+            OverlayType::Color => {
+                self.overlays.push(Overlay{
+                    position: PhysicalPosition::new(500, 500),
+                    size: PhysicalSize::new(250, 250),
+                })
+            }
+        }
+        self.overlay_types.push(overlay_type);
+        self.update_multiplexer(multiplexer);
+    }
+
+    fn process_event(&mut self, renderer: &mut Renderer, resized: bool, multiplexer: &Multiplexer, window: &Window) {
+        for (n, overlay) in self.overlay_types.iter().enumerate() {
+            let cursor_position = if multiplexer.foccused_element() == Some(ElementType::Overlay(n)) {
+                multiplexer.get_cursor_position()
+            } else {
+                PhysicalPosition::new(-1., -1.)
+            };
+            match overlay {
+                OverlayType::Color => {
+                    if !self.color_state.is_queue_empty() || resized {
+                        let _ = self.color_state.update(
+                            convert_size(PhysicalSize::new(250, 250)),
+                            conversion::cursor_position(cursor_position, window.scale_factor()),
+                            None,
+                            renderer,
+                            &mut self.color_debug,
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    fn render(&self, device: &wgpu::Device, staging_belt: &mut wgpu::util::StagingBelt, encoder: &mut wgpu::CommandEncoder, target: &wgpu::TextureView, multiplexer: &Multiplexer, window: &Window, renderer: &mut Renderer) {
+        for overlay_type in self.overlay_types.iter() {
+            match overlay_type {
+                OverlayType::Color => {
+                    let color_viewport = Viewport::with_physical_size_and_position(
+                        convert_size_u32(multiplexer.window_size),
+                        (500, 500),
+                        window.scale_factor(),
+                    );
+                    let _color_interaction = renderer.backend_mut().draw(
+                        &device,
+                        staging_belt,
+                        encoder,
+                        &target,
+                        &color_viewport,
+                        self.color_state.primitive(),
+                        &self.color_debug.overlay(),
+                    );
+                }
+            }
+        }
+    }
+
+    fn rm_overlay(&mut self, overlay_type: OverlayType, multiplexer: &mut Multiplexer) {
+        let mut rm_idx = Vec::new();
+        for (idx, overlay_type_) in self.overlay_types.iter().rev().enumerate() {
+            if *overlay_type_ == overlay_type {
+                rm_idx.push(idx);
+            }
+        }
+        for idx in rm_idx.iter() {
+            self.overlays.remove(*idx);
+            self.overlay_types.remove(*idx);
+        }
+        self.update_multiplexer(multiplexer);
+    }
+
+    fn update_multiplexer(&self, multiplexer: &mut Multiplexer) {
+        multiplexer.set_overlays(self.overlays.clone())
+    }
+
+    fn forward_messages(&mut self, messages: &mut Messages) {
+        for m in messages.color_overlay.drain(..) {
+            self.color_state.queue_message(m);
+        }
+    }
+
+    fn fetch_change(&mut self, multiplexer: &Multiplexer, window: &Window, renderer: &mut Renderer) -> bool {
+        let mut ret = false;
+        for (n, overlay) in self.overlay_types.iter().enumerate() {
+            let cursor_position = if multiplexer.foccused_element() == Some(ElementType::Overlay(n)) {
+                multiplexer.get_cursor_position()
+            } else {
+                PhysicalPosition::new(-1., -1.)
+            };
+            match overlay {
+                OverlayType::Color => {
+                    if !self.color_state.is_queue_empty() {
+                        ret = true;
+                        let _ = self.color_state.update(
+                            convert_size(PhysicalSize::new(250, 250)),
+                            conversion::cursor_position(cursor_position, window.scale_factor()),
+                            None,
+                            renderer,
+                            &mut self.color_debug,
+                        );
+                    }
+                }
+            }
+        }
+        ret
     }
 }

@@ -3,7 +3,7 @@ pub mod top_bar;
 pub use top_bar::TopBar;
 /// Draw the left pannel of the GUI
 pub mod left_panel;
-pub use left_panel::LeftPanel;
+pub use left_panel::{ColorOverlay, LeftPanel};
 
 use crate::mediator::{ActionMode, SelectionMode};
 use std::path::PathBuf;
@@ -33,6 +33,8 @@ pub struct Requests {
     /// A request to change the sensitivity of scrolling
     pub scroll_sensitivity: Option<f32>,
     pub make_grids: bool,
+    pub overlay_closed: Option<OverlayType>,
+    pub overlay_opened: Option<OverlayType>,
 }
 
 impl Requests {
@@ -51,6 +53,13 @@ impl Requests {
             toggle_scene: None,
             scroll_sensitivity: None,
             make_grids: false,
+            overlay_closed: None,
+            overlay_opened: None,
         }
     }
+}
+
+#[derive(PartialEq)]
+pub enum OverlayType {
+    Color
 }
