@@ -46,7 +46,7 @@ impl ColorPicker {
 mod hue_column {
     use iced_graphics::{
         triangle::{Mesh2D, Vertex2D},
-        Backend, Defaults, Primitive, Renderer,
+        Backend, Defaults, Primitive, Renderer, Rectangle,
     };
     use iced_native::{
         layout, mouse, Clipboard, Element, Event, Hasher, Layout, Length, Point, Size, Vector,
@@ -114,6 +114,7 @@ mod hue_column {
             _defaults: &Defaults,
             layout: Layout<'_>,
             _cursor_position: Point,
+            _viewport: &Rectangle,
         ) -> (Primitive, mouse::Interaction) {
             let b = layout.bounds();
 
@@ -224,7 +225,7 @@ mod light_sat_square {
     use super::Color;
     use iced_graphics::{
         triangle::{Mesh2D, Vertex2D},
-        Backend, Defaults, Primitive, Renderer,
+        Backend, Defaults, Primitive, Renderer, Rectangle
     };
     use iced_native::{
         layout, mouse, Clipboard, Element, Event, Hasher, Layout, Length, Point, Size, Vector,
@@ -297,6 +298,7 @@ mod light_sat_square {
             _defaults: &Defaults,
             layout: Layout<'_>,
             _cursor_position: Point,
+            _viewport: &Rectangle,
         ) -> (Primitive, mouse::Interaction) {
             let b = layout.bounds();
 

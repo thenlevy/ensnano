@@ -5,7 +5,7 @@ use std::f32::consts::{FRAC_PI_2, PI};
 use std::rc::Rc;
 use std::time::Duration;
 use ultraviolet::{Mat4, Rotor3, Vec3};
-use winit::dpi::LogicalPosition;
+use winit::dpi::PhysicalPosition;
 use winit::event::*;
 
 #[derive(Debug, Clone)]
@@ -221,7 +221,7 @@ impl CameraController {
         self.scroll = -match delta {
             // I'm assuming a line is about 100 pixels
             MouseScrollDelta::LineDelta(_, scroll) => scroll * 10.0,
-            MouseScrollDelta::PixelDelta(LogicalPosition { y: scroll, .. }) => *scroll as f32,
+            MouseScrollDelta::PixelDelta(PhysicalPosition { y: scroll, .. }) => *scroll as f32,
         };
     }
 
