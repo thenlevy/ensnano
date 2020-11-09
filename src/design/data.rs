@@ -22,6 +22,7 @@ mod icednano;
 mod strand_builder;
 use crate::scene::GridInstance;
 use grid::GridManager;
+pub use grid::Grid2D;
 pub use icednano::Nucl;
 pub use icednano::{Axis, Design, Parameters};
 pub use strand_builder::StrandBuilder;
@@ -61,6 +62,7 @@ pub struct Data {
     /// Maps nucleotides to basis characters
     basis_map: HashMap<Nucl, char>,
     grid_manager: GridManager,
+    grids: Vec<Grid2D>,
 }
 
 impl Data {
@@ -83,6 +85,7 @@ impl Data {
             hash_maps_update: false,
             basis_map: HashMap::new(),
             grid_manager,
+            grids: Vec::new(),
         }
     }
 
@@ -92,6 +95,10 @@ impl Data {
     pub fn new_with_path(json_path: &PathBuf) -> Option<Self> {
         let design = read_file(json_path)?;
         let grid_manager = GridManager::new_from_design(&design);
+        let mut grids = grid_manager.grids2d();
+        for g in grids.iter_mut() {
+            g.update(&design);
+        }
         let mut ret = Self {
             design,
             object_type: HashMap::new(),
@@ -108,6 +115,7 @@ impl Data {
             hash_maps_update: false,
             basis_map: HashMap::new(),
             grid_manager,
+            grids,
         };
         ret.make_hash_maps();
         ret.terminate_movement();
@@ -726,6 +734,14 @@ impl Data {
         self.update_status = true;
         self.hash_maps_update = true;
     }
+
+    fn update_grids(&mut self) {
+        let mut grids = self.grid_manager.grids2d();
+        for g in grids.iter_mut() {
+            g.update(&self.design);
+        }
+        self.grids = grids;
+    }
 }
 
 fn compl(c: Option<char>) -> Option<char> {
@@ -796,3 +812,4 @@ impl ObjectType {
         self.is_nucl() == other.is_nucl()
     }
 }
+

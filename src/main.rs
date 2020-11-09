@@ -38,11 +38,13 @@ use mediator::Mediator;
 mod flatscene;
 mod text;
 mod utils;
+mod grid_panel;
 
 use flatscene::FlatScene;
 use gui::{LeftPanel, Requests, TopBar, ColorOverlay, OverlayType};
 use multiplexer::{DrawArea, ElementType, Multiplexer, Overlay};
 use scene::{Scene, SceneNotification};
+use grid_panel::GridPanel;
 
 fn convert_size(size: PhySize) -> Size<f32> {
     Size::new(size.width as f32, size.height as f32)
@@ -146,6 +148,14 @@ fn main() {
         scene_area,
     )));
     mediator.lock().unwrap().add_application(flat_scene.clone());
+
+    let grid_panel_area = multiplexer.get_element_area(ElementType::GridPanel);
+    let grid_panel = Arc::new(Mutex::new(GridPanel::new(
+                device.clone(),
+                queue.clone(),
+                window.inner_size(),
+                grid_panel_area,
+    )));
 
     // Add a design to the scene if one was given as a command line arguement
     if let Some(ref path) = path {
@@ -254,6 +264,7 @@ fn main() {
                                     left_panel_state.queue_event(event);
                                 }
                             }
+                            ElementType::GridPanel => (),
                             ElementType::Unattributed => unreachable!(),
                         }
                     }
@@ -489,6 +500,8 @@ fn main() {
                         .unwrap()
                         .draw_view(&mut encoder, &frame.output.view);
                 }
+                let grid_panel_area = multiplexer.get_element_area(ElementType::GridPanel);
+                grid_panel.lock().unwrap().draw(&mut encoder, &frame.output.view); 
 
                 let viewport = Viewport::with_physical_size(
                     convert_size_u32(multiplexer.window_size),

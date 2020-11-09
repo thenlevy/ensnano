@@ -27,6 +27,7 @@ pub enum ElementType {
     /// The Left Panel
     LeftPanel,
     /// An overlay area
+    GridPanel,
     Overlay(usize),
     /// An area that has not been attributed to an element
     Unattributed,
@@ -35,7 +36,7 @@ pub enum ElementType {
 impl ElementType {
     pub fn need_shift(&self) -> bool {
         match self {
-            ElementType::Scene | ElementType::Overlay(_) => true,
+            ElementType::Scene | ElementType::GridPanel | ElementType::Overlay(_) => true,
             _ => false
         }
     }
@@ -66,9 +67,11 @@ impl Multiplexer {
         let mut layout_manager = LayoutTree::new();
         let (top_bar, scene) = layout_manager.vsplit(0, 0.05);
         let (left_pannel, scene) = layout_manager.hsplit(scene, 0.2);
+        let (scene, grid_panel) = layout_manager.hsplit(scene, 0.8);
         layout_manager.attribute_element(top_bar, ElementType::TopBar);
         layout_manager.attribute_element(scene, ElementType::Scene);
         layout_manager.attribute_element(left_pannel, ElementType::LeftPanel);
+        layout_manager.attribute_element(grid_panel, ElementType::GridPanel);
         Self {
             window_size,
             scale_factor,

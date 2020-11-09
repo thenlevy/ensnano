@@ -27,6 +27,15 @@ pub enum GridType {
     Honeycomb,
 }
 
+impl GridType {
+    pub fn helix_position(&self, x: isize, y: isize) -> Vec2 {
+        match self {
+            GridType::Square => SquareGrid::origin_helix(&Parameters::default(), x, y),
+            GridType::Honeycomb => HoneyComb::origin_helix(&Parameters::default(), x, y)
+        }
+    }
+}
+
 impl<T: GridDivision> Grid<T> {
     pub fn new(position: Vec3, orientation: Rotor3, parameters: Parameters) -> Self {
         Self {
@@ -455,6 +464,18 @@ impl GridManager {
             }
         }
     }
+
+    pub fn grids2d(&self) -> Vec<Grid2D> {
+        let mut ret = Vec::new();
+        for n in 0..self.nb_grid {
+            if self.square_grids.contains_key(&n) {
+                ret.push(Grid2D::new(n, GridType::Square));
+            } else {
+                ret.push(Grid2D::new(n, GridType::Honeycomb));
+            }
+        }
+        ret
+    }
 }
 
 impl Data {
@@ -532,5 +553,37 @@ impl GroupMerger {
                 self.rank[xroot] += 1;
             }
         }
+    }
+}
+
+pub struct Grid2D {
+    helices: HashMap<(isize, isize), usize>,
+    grid_type: GridType,
+    id: usize,
+}
+
+impl Grid2D {
+    pub fn new(id: usize, grid_type: GridType) -> Self {
+        Self {
+            helices: HashMap::new(),
+            grid_type,
+            id,
+        }
+    }
+
+    pub fn update(&mut self, design: &Design) {
+        for (h_id, h) in design.helices.iter() {
+            if let Some(grid_position) = h.grid_position.filter(|gp| gp.grid == self.id) {
+                self.helices.insert((grid_position.x, grid_position.y), *h_id);
+            }
+        }
+    }
+
+    pub fn helices(&self) -> &HashMap<(isize, isize), usize> {
+        &self.helices
+    }
+
+    pub fn helix_position(&self, x: isize, y: isize) -> Vec2 {
+        self.grid_type.helix_position(x, y)
     }
 }

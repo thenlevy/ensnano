@@ -12,7 +12,7 @@ use std::sync::{Arc, Mutex};
 use wgpu::{Device, Queue};
 use winit::dpi::PhysicalPosition;
 
-mod camera;
+use crate::utils::camera2d as camera;
 mod controller;
 mod data;
 mod view;
