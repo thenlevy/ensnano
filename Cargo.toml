@@ -7,11 +7,11 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-iced = { git = "https://github.com/hecrj/iced", rev = "da1a3eed1e6e67c2c0507e3b939e4aacdc06c19a", features=["image"] }
-iced_wgpu = { git = "https://github.com/hecrj/iced", rev = "da1a3eed1e6e67c2c0507e3b939e4aacdc06c19a" }
-iced_graphics = { git = "https://github.com/hecrj/iced", rev = "da1a3eed1e6e67c2c0507e3b939e4aacdc06c19a" }
-iced_winit = { git = "https://github.com/hecrj/iced", rev = "da1a3eed1e6e67c2c0507e3b939e4aacdc06c19a" }
-iced_native = { git = "https://github.com/hecrj/iced", rev = "da1a3eed1e6e67c2c0507e3b939e4aacdc06c19a" }
+iced = { git = "https://github.com/thenlevy/iced", rev = "2ec72b0db5300df84cc70c79cf395f8c5a3564cb", features=["image"] }
+iced_wgpu = { git = "https://github.com/thenlevy/iced", rev = "2ec72b0db5300df84cc70c79cf395f8c5a3564cb" }
+iced_graphics = { git = "https://github.com/thenlevy/iced", rev = "2ec72b0db5300df84cc70c79cf395f8c5a3564cb" }
+iced_winit = { git = "https://github.com/thenlevy/iced", rev = "2ec72b0db5300df84cc70c79cf395f8c5a3564cb" }
+iced_native = { git = "https://github.com/thenlevy/iced", rev = "2ec72b0db5300df84cc70c79cf395f8c5a3564cb" }
 ultraviolet = { git = "https://github.com/thenlevy/ultraviolet", rev = "8ba34" , features = ["f64", "serde"] }
 bytemuck = "1.2.0"
 failure = "0.1.8"
