@@ -69,20 +69,31 @@ impl ControllerState for NormalState {
                     .screen_to_world(self.mouse_position.x as f32, self.mouse_position.y as f32);
                 let pivot_opt = controller.data.borrow().get_click(x, y);
                 if let Some(pivot_nucl) = pivot_opt {
-                    if let Some(builder) = controller
-                        .data
-                        .borrow()
-                        .get_builder(pivot_nucl)
-                        .filter(|_| controller.action_mode == ActionMode::Build)
-                    {
-                        Transition {
-                            new_state: Some(Box::new(Building {
-                                mouse_position: self.mouse_position,
-                                nucl: pivot_nucl,
-                                builder,
-                                end: controller.data.borrow().is_strand_end(pivot_nucl),
-                            })),
-                            consequences: Consequence::Nothing,
+                    if controller.action_mode == ActionMode::Build {
+                        if let Some(builder) = controller
+                            .data
+                            .borrow()
+                            .get_builder(pivot_nucl)
+                        {
+                            Transition {
+                                new_state: Some(Box::new(Building {
+                                    mouse_position: self.mouse_position,
+                                    nucl: pivot_nucl,
+                                    builder,
+                                    end: controller.data.borrow().is_strand_end(pivot_nucl),
+                                })),
+                                consequences: Consequence::Nothing,
+                            }
+                        }
+                        else {
+                            Transition {
+                                new_state: Some(Box::new(Translating {
+                                    mouse_position: self.mouse_position,
+                                    clicked_position_world: Vec2::new(x, y),
+                                    pivot_nucl,
+                                })),
+                                consequences: Consequence::Nothing,
+                            }
                         }
                     } else if controller.action_mode == ActionMode::Cut {
                         Transition {
