@@ -105,7 +105,7 @@ impl View {
             .map(|c| LetterDrawer::new(device.clone(), queue.clone(), *c, &camera, &projection))
             .collect();
         let depth_texture =
-            texture::Texture::create_depth_texture(device.as_ref(), &window_size, SAMPLE_COUNT);
+            texture::Texture::create_depth_texture(device.as_ref(), &area_size, SAMPLE_COUNT);
         let fake_depth_texture =
             texture::Texture::create_depth_texture(device.as_ref(), &window_size, 1);
         let viewer = Rc::new(RefCell::new(UniformBindGroup::new(
@@ -116,7 +116,7 @@ impl View {
         let msaa_texture = if SAMPLE_COUNT > 1 {
             Some(crate::utils::texture::Texture::create_msaa_texture(
                 device.clone().as_ref(),
-                &window_size,
+                &area_size,
                 SAMPLE_COUNT,
                 wgpu::TextureFormat::Bgra8UnormSrgb,
             ))
@@ -234,12 +234,12 @@ impl View {
         let fake_color = draw_type.is_fake();
         if let Some(size) = self.new_size.take() {
             self.depth_texture =
-                Texture::create_depth_texture(self.device.as_ref(), &size, SAMPLE_COUNT);
+                Texture::create_depth_texture(self.device.as_ref(), &area.size, SAMPLE_COUNT);
             self.fake_depth_texture = Texture::create_depth_texture(self.device.as_ref(), &size, 1);
             self.msaa_texture = if SAMPLE_COUNT > 1 {
                 Some(crate::utils::texture::Texture::create_msaa_texture(
                     self.device.clone().as_ref(),
-                    &size,
+                    &area.size,
                     SAMPLE_COUNT,
                     wgpu::TextureFormat::Bgra8UnormSrgb,
                 ))
@@ -315,20 +315,22 @@ impl View {
                 }),
             }),
         });
-        render_pass.set_viewport(
-            area.position.x as f32,
-            area.position.y as f32,
-            area.size.width as f32,
-            area.size.height as f32,
-            0.0,
-            1.0,
-        );
-        render_pass.set_scissor_rect(
-            area.position.x,
-            area.position.y,
-            area.size.width,
-            area.size.height,
-        );
+        if fake_color {
+            render_pass.set_viewport(
+                area.position.x as f32,
+                area.position.y as f32,
+                area.size.width as f32,
+                area.size.height as f32,
+                0.0,
+                1.0,
+            );
+            render_pass.set_scissor_rect(
+                area.position.x,
+                area.position.y,
+                area.size.width,
+                area.size.height,
+            );
+        }
 
         for pipeline_handler in handlers.iter_mut() {
             pipeline_handler.draw(&mut render_pass);

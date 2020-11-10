@@ -12,20 +12,19 @@ pub struct View {
     device: Rc<Device>,
     queue: Rc<Queue>,
     background_pipeline: RenderPipeline,
-    window_size: PhySize,
+    area_size: PhySize,
     depth_texture: Texture,
-
 }
 
 impl View {
     pub fn new(
         device: Rc<Device>,
         queue: Rc<Queue>,
-        window_size: PhySize,
+        area: DrawArea,
         camera: CameraPtr,
     ) -> Self {
         let depth_texture =
-            Texture::create_depth_texture(device.as_ref(), &window_size, SAMPLE_COUNT);
+            Texture::create_depth_texture(device.as_ref(), &area.size, SAMPLE_COUNT);
         let globals =
             UniformBindGroup::new(device.clone(), queue.clone(), camera.borrow().get_globals());
 
@@ -45,7 +44,7 @@ impl View {
             device,
             queue,
             background_pipeline,
-            window_size,
+            area_size: area.size,
             depth_texture,
         }
     }
@@ -66,7 +65,7 @@ impl View {
         let msaa_texture = if SAMPLE_COUNT > 1 {
             Some(crate::utils::texture::Texture::create_msaa_texture(
                 self.device.clone().as_ref(),
-                &self.window_size,
+                &self.area_size,
                 SAMPLE_COUNT,
                 wgpu::TextureFormat::Bgra8UnormSrgb,
             ))
@@ -107,22 +106,14 @@ impl View {
                 }),
             }),
         });
-        render_pass.set_viewport(
-            area.position.x as f32,
-            area.position.y as f32,
-            area.size.width as f32,
-            area.size.height as f32,
-            0.0,
-            1.0,
-        );
-        render_pass.set_scissor_rect(
-            area.position.x,
-            area.position.y,
-            area.size.width,
-            area.size.height,
-        );
         render_pass.set_pipeline(&self.background_pipeline);
         render_pass.draw(0..4, 0..1);
+    }
+
+    pub fn resize(&mut self, area: DrawArea) {
+        self.depth_texture = 
+            Texture::create_depth_texture(self.device.as_ref(), &area.size, SAMPLE_COUNT);
+        self.area_size = area.size;
     }
 }
 
@@ -150,7 +141,7 @@ fn background_pipeline(device: &Device, depth_stencil_state: Option<wgpu::DepthS
             cull_mode: wgpu::CullMode::None,
             ..Default::default()
         }),
-        primitive_topology: wgpu::PrimitiveTopology::TriangleList,
+        primitive_topology: wgpu::PrimitiveTopology::TriangleStrip,
         color_states: &[wgpu::ColorStateDescriptor {
             format: wgpu::TextureFormat::Bgra8UnormSrgb,
             color_blend: wgpu::BlendDescriptor::REPLACE,

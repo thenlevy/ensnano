@@ -36,7 +36,7 @@ pub struct View {
     strand_pipeline: RenderPipeline,
     camera: CameraPtr,
     was_updated: bool,
-    window_size: PhySize,
+    area_size: PhySize,
     free_end: Option<FreeEnd>,
     background: Background,
     circle_drawer: CircleDrawer,
@@ -48,12 +48,12 @@ impl View {
     pub(super) fn new(
         device: Rc<Device>,
         queue: Rc<Queue>,
-        window_size: PhySize,
+        area: DrawArea,
         camera: CameraPtr,
         encoder: &mut wgpu::CommandEncoder,
     ) -> Self {
         let depth_texture =
-            Texture::create_depth_texture(device.as_ref(), &window_size, SAMPLE_COUNT);
+            Texture::create_depth_texture(device.as_ref(), &area.size, SAMPLE_COUNT);
         let models = DynamicBindGroup::new(device.clone(), queue.clone());
         let globals =
             UniformBindGroup::new(device.clone(), queue.clone(), camera.borrow().get_globals());
@@ -110,7 +110,7 @@ impl View {
             strand_pipeline,
             camera,
             was_updated: false,
-            window_size,
+            area_size: area.size,
             free_end: None,
             background,
             circle_drawer,
@@ -119,10 +119,10 @@ impl View {
         }
     }
 
-    pub fn resize(&mut self, window_size: PhySize) {
+    pub fn resize(&mut self, area: DrawArea) {
         self.depth_texture =
-            Texture::create_depth_texture(self.device.clone().as_ref(), &window_size, SAMPLE_COUNT);
-        self.window_size = window_size;
+            Texture::create_depth_texture(self.device.clone().as_ref(), &area.size, SAMPLE_COUNT);
+        self.area_size = area.size;
         self.was_updated = true;
     }
 
@@ -221,7 +221,7 @@ impl View {
         let msaa_texture = if SAMPLE_COUNT > 1 {
             Some(crate::utils::texture::Texture::create_msaa_texture(
                 self.device.clone().as_ref(),
-                &self.window_size,
+                &self.area_size,
                 SAMPLE_COUNT,
                 wgpu::TextureFormat::Bgra8UnormSrgb,
             ))
@@ -262,20 +262,6 @@ impl View {
                 }),
             }),
         });
-        render_pass.set_viewport(
-            area.position.x as f32,
-            area.position.y as f32,
-            area.size.width as f32,
-            area.size.height as f32,
-            0.0,
-            1.0,
-        );
-        render_pass.set_scissor_rect(
-            area.position.x,
-            area.position.y,
-            area.size.width,
-            area.size.height,
-        );
         render_pass.set_bind_group(0, self.globals.get_bindgroup(), &[]);
         render_pass.set_bind_group(1, self.models.get_bindgroup(), &[]);
         self.background.draw(&mut render_pass);

@@ -1,9 +1,13 @@
+use std::rc::Rc;
 use crate::PhySize;
 use iced_winit::winit;
 use winit::{
     dpi::{PhysicalPosition, PhysicalSize},
     event::{ElementState, MouseButton, WindowEvent},
 };
+use iced_wgpu::wgpu;
+use wgpu::Device;
+use crate::utils::texture::SampledTexture;
 
 mod layout_manager;
 use layout_manager::LayoutTree;
@@ -26,8 +30,8 @@ pub enum ElementType {
     Scene,
     /// The Left Panel
     LeftPanel,
-    /// An overlay area
     GridPanel,
+    /// An overlay area
     Overlay(usize),
     /// An area that has not been attributed to an element
     Unattributed,
@@ -59,11 +63,23 @@ pub struct Multiplexer {
     cursor_position: PhysicalPosition<f64>,
     /// The area that are drawn on top of the application
     overlays: Vec<Overlay>,
+    /// The texture on which the scene is rendered
+    scene_texture: Option<SampledTexture>,
+    /// The texture on which the top bar gui is rendered
+    top_bar_texture: Option<SampledTexture>,
+    /// The texture on which the left pannel is rendered
+    left_pannel_texture: Option<SampledTexture>,
+    /// The textures on which the overlays are rendered
+    overlays_textures: Vec<SampledTexture>,
+    /// The texture on wich the grid is rendered
+    grid_panel_texture: Option<SampledTexture>,
+    device: Rc<Device>,
+    pipeline: Option<wgpu::RenderPipeline>,
 }
 
 impl Multiplexer {
     /// Create a new multiplexer for a window with size `window_size`.
-    pub fn new(window_size: PhySize, scale_factor: f64) -> Self {
+    pub fn new(window_size: PhySize, scale_factor: f64, device: Rc<Device>) -> Self {
         let mut layout_manager = LayoutTree::new();
         let (top_bar, scene) = layout_manager.vsplit(0, 0.05);
         let (left_pannel, scene) = layout_manager.hsplit(scene, 0.2);
@@ -72,14 +88,110 @@ impl Multiplexer {
         layout_manager.attribute_element(scene, ElementType::Scene);
         layout_manager.attribute_element(left_pannel, ElementType::LeftPanel);
         layout_manager.attribute_element(grid_panel, ElementType::GridPanel);
-        Self {
+        let mut ret = Self {
             window_size,
             scale_factor,
             layout_manager,
             focus: None,
             mouse_clicked: false,
             cursor_position: PhysicalPosition::new(-1., -1.),
+            scene_texture: None,
+            top_bar_texture: None,
+            left_pannel_texture: None,
+            grid_panel_texture: None,
             overlays: Vec::new(),
+            overlays_textures: Vec::new(),
+            device,
+            pipeline: None,
+        };
+        ret.generate_textures();
+        ret
+    }
+
+    /// Return a view of the texture on which the element must be rendered
+    pub fn get_texture_view(&self, element_type: ElementType) -> &wgpu::TextureView {
+        match element_type {
+            ElementType::Scene => &self.scene_texture.as_ref().unwrap().view,
+            ElementType::LeftPanel => &self.left_pannel_texture.as_ref().unwrap().view,
+            ElementType::TopBar => &self.top_bar_texture.as_ref().unwrap().view,
+            ElementType::Overlay(n) => &self.overlays_textures[n].view,
+            ElementType::GridPanel => &self.grid_panel_texture.as_ref().unwrap().view,
+            _ => unreachable!()
+        }
+    }
+
+    pub fn draw(
+        &mut self,
+        encoder: &mut wgpu::CommandEncoder,
+        target: &wgpu::TextureView,
+    ) {
+        if self.pipeline.is_none() {
+            let bg_layout = &self.top_bar_texture.as_ref().unwrap().bg_layout;
+            self.pipeline = Some(create_pipeline(self.device.as_ref(), bg_layout));
+        }
+        let clear_color = wgpu::Color {
+            r: 0.,
+            g: 0.,
+            b: 0.,
+            a: 1.,
+        };
+
+        let msaa_texture = None;
+
+        let attachment = if msaa_texture.is_some() {
+            msaa_texture.as_ref().unwrap()
+        } else {
+            target
+        };
+
+        let resolve_target = if msaa_texture.is_some() {
+            Some(target)
+        } else {
+            None
+        };
+
+        let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
+                attachment,
+                resolve_target,
+                ops: wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(clear_color),
+                    store: true,
+                },
+            }],
+            depth_stencil_attachment: None,
+        });
+        for element in [ElementType::TopBar, ElementType::LeftPanel, ElementType::GridPanel, ElementType::Scene].iter() {
+            let area = self.get_draw_area(*element);
+            render_pass.set_bind_group(0, self.get_bind_group(element), &[]);
+
+            render_pass.set_viewport(
+                area.position.x as f32,
+                area.position.y as f32,
+                area.size.width as f32,
+                area.size.height as f32,
+                0.0,
+                1.0,
+            );
+            render_pass.set_scissor_rect(
+                area.position.x,
+                area.position.y,
+                area.size.width,
+                area.size.height,
+            );
+            render_pass.set_pipeline(self.pipeline.as_ref().unwrap());
+            render_pass.draw(0..4, 0..1);
+        }
+    }
+
+    fn get_bind_group(&self, element_type: &ElementType) -> &wgpu::BindGroup {
+        match element_type {
+            ElementType::TopBar => &self.top_bar_texture.as_ref().unwrap().bind_group,
+            ElementType::LeftPanel => &self.left_pannel_texture.as_ref().unwrap().bind_group,
+            ElementType::Scene => &self.scene_texture.as_ref().unwrap().bind_group,
+            ElementType::GridPanel => &self.grid_panel_texture.as_ref().unwrap().bind_group,
+            ElementType::Overlay(n) => &self.overlays_textures[*n].bind_group,
+            ElementType::Unattributed => unreachable!(),
         }
     }
 
@@ -130,20 +242,17 @@ impl Multiplexer {
                         focus_changed = true;
                         device_id_msg = Some(*device_id);
                     }
-                    if self.foccused_element().filter(|elt_type| elt_type.need_shift()).is_some() {
-                        self.cursor_position.x = position.x - area.position.cast::<f64>().x;
-                        self.cursor_position.y = position.y - area.position.cast::<f64>().y;
-                    } else {
-                        self.cursor_position.x = position.x;
-                        self.cursor_position.y = position.y;
-                    }
+                    self.cursor_position.x = position.x - area.position.cast::<f64>().x;
+                    self.cursor_position.y = position.y - area.position.cast::<f64>().y;
                 }
             }
             WindowEvent::Resized(new_size) => {
                 self.window_size = *new_size;
+                self.generate_textures();
             }
             WindowEvent::ScaleFactorChanged { scale_factor, .. } => {
                 self.scale_factor = *scale_factor;
+                self.generate_textures();
             }
             WindowEvent::MouseInput {
                 button: MouseButton::Left,
@@ -169,6 +278,26 @@ impl Multiplexer {
             }
         } else {
             None
+        }
+    }
+
+    fn generate_textures(&mut self) {
+        let scene_size = self.get_draw_area(ElementType::Scene).size;
+        self.scene_texture = Some(SampledTexture::create_target_texture(self.device.as_ref(), &scene_size));
+
+        let top_bar_size = self.get_draw_area(ElementType::TopBar).size;
+        self.top_bar_texture = Some(SampledTexture::create_target_texture(self.device.as_ref(), &top_bar_size));
+
+        let left_pannel_size = self.get_draw_area(ElementType::LeftPanel).size;
+        self.left_pannel_texture = Some(SampledTexture::create_target_texture(self.device.as_ref(), &left_pannel_size));
+
+        let grid_panel_size = self.get_draw_area(ElementType::GridPanel).size;
+        self.grid_panel_texture = Some(SampledTexture::create_target_texture(self.device.as_ref(), &grid_panel_size));
+
+        self.overlays_textures.clear();
+        for overlay in self.overlays.iter() {
+            let size = overlay.size;
+            self.overlays_textures.push(SampledTexture::create_target_texture(self.device.as_ref(), &size));
         }
     }
 
@@ -202,7 +331,12 @@ impl Multiplexer {
     }
 
     pub fn set_overlays(&mut self, overlays: Vec<Overlay>) {
-        self.overlays = overlays
+        self.overlays = overlays;
+        self.overlays_textures.clear();
+        for overlay in self.overlays.iter_mut() {
+            let size = overlay.size;
+            self.overlays_textures.push(SampledTexture::create_target_texture(self.device.as_ref(), &size));
+        }
     }
 }
 
@@ -219,4 +353,49 @@ impl Overlay {
             && pixel.x < self.position.x + self.size.width 
             && pixel.y < self.position.y + self.size.height 
     }
+}
+
+fn create_pipeline(device: &Device, bg_layout: &wgpu::BindGroupLayout) -> wgpu::RenderPipeline {
+    let vs_module = &device.create_shader_module(wgpu::include_spirv!("multiplexer/draw.vert.spv"));
+    let fs_module = &device.create_shader_module(wgpu::include_spirv!("multiplexer/draw.frag.spv"));
+    let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+        bind_group_layouts: &[bg_layout],
+        push_constant_ranges: &[],
+        label: None,
+    });
+
+    let desc = wgpu::RenderPipelineDescriptor {
+        layout: Some(&pipeline_layout),
+        vertex_stage: wgpu::ProgrammableStageDescriptor {
+            module: &vs_module,
+            entry_point: "main",
+        },
+        fragment_stage: Some(wgpu::ProgrammableStageDescriptor {
+            module: &fs_module,
+            entry_point: "main",
+        }),
+        rasterization_state: Some(wgpu::RasterizationStateDescriptor {
+            front_face: wgpu::FrontFace::Ccw,
+            cull_mode: wgpu::CullMode::None,
+            ..Default::default()
+        }),
+        primitive_topology: wgpu::PrimitiveTopology::TriangleStrip,
+        color_states: &[wgpu::ColorStateDescriptor {
+            format: wgpu::TextureFormat::Bgra8UnormSrgb,
+            color_blend: wgpu::BlendDescriptor::REPLACE,
+            alpha_blend: wgpu::BlendDescriptor::REPLACE,
+            write_mask: wgpu::ColorWrite::ALL,
+        }],
+        depth_stencil_state: None,
+        vertex_state: wgpu::VertexStateDescriptor {
+            index_format: wgpu::IndexFormat::Uint16,
+            vertex_buffers: &[],
+        },
+        sample_count: 1,
+        sample_mask: !0,
+        alpha_to_coverage_enabled: false,
+        label: None,
+    };
+
+    device.create_render_pipeline(&desc)
 }

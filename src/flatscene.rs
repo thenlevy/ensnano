@@ -72,7 +72,7 @@ impl FlatScene {
         let view = Rc::new(RefCell::new(View::new(
             self.device.clone(),
             self.queue.clone(),
-            self.window_size,
+            self.area,
             camera.clone(),
             &mut encoder,
         )));
@@ -105,7 +105,7 @@ impl FlatScene {
         self.window_size = window_size;
         self.area = area;
         for view in self.view.iter() {
-            view.borrow_mut().resize(window_size);
+            view.borrow_mut().resize(area);
         }
         for controller in self.controller.iter_mut() {
             controller.resize(window_size, area.size);

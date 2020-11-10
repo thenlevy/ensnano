@@ -47,7 +47,7 @@ impl GridPanel {
             _padding: 0.,
         };
         let camera = Rc::new(RefCell::new(Camera::new(globals)));
-        let view = Rc::new(RefCell::new(View::new(device.clone(), queue.clone(), window_size, camera.clone())));
+        let view = Rc::new(RefCell::new(View::new(device.clone(), queue.clone(), area, camera.clone())));
         let data = Rc::new(RefCell::new(Data::new(view.clone())));
         let controller = Controller::new(view.clone(), data.clone());
         Self {
@@ -67,6 +67,12 @@ impl GridPanel {
             target,
             self.area,
         );
+    }
+
+    pub fn resize(&mut self, window_size: PhySize, area: DrawArea) {
+        self.area = area;
+        self.window_size = window_size;
+        self.view.borrow_mut().resize(area);
     }
 
 }

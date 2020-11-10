@@ -123,7 +123,7 @@ fn main() {
     let mediator = Arc::new(Mutex::new(Mediator::new(messages.clone())));
 
     // Initialize the layout
-    let mut multiplexer = Multiplexer::new(window.inner_size(), window.scale_factor());
+    let mut multiplexer = Multiplexer::new(window.inner_size(), window.scale_factor(), device.clone());
 
     // Initialize the scenes
     let mut encoder =
@@ -432,6 +432,8 @@ fn main() {
                         .unwrap()
                         .notify(SceneNotification::NewSize(window_size, scene_area));
                     flat_scene.lock().unwrap().resize(window_size, scene_area);
+                    let grid_panel_area = multiplexer.get_element_area(ElementType::GridPanel);
+                    grid_panel.lock().unwrap().resize(window_size, grid_panel_area);
 
                     swap_chain = device.create_swap_chain(
                         &surface,
@@ -493,18 +495,18 @@ fn main() {
                     flat_scene
                         .lock()
                         .unwrap()
-                        .draw_view(&mut encoder, &frame.output.view);
+                        .draw_view(&mut encoder, multiplexer.get_texture_view(ElementType::Scene));
                 } else {
                     scene
                         .lock()
                         .unwrap()
-                        .draw_view(&mut encoder, &frame.output.view);
+                        .draw_view(&mut encoder, multiplexer.get_texture_view(ElementType::Scene));
                 }
                 let grid_panel_area = multiplexer.get_element_area(ElementType::GridPanel);
-                grid_panel.lock().unwrap().draw(&mut encoder, &frame.output.view); 
+                grid_panel.lock().unwrap().draw(&mut encoder, multiplexer.get_texture_view(ElementType::GridPanel)); 
 
-                let viewport = Viewport::with_physical_size(
-                    convert_size_u32(multiplexer.window_size),
+                let viewport_left_panel = Viewport::with_physical_size(
+                    convert_size_u32(multiplexer.get_element_area(ElementType::LeftPanel).size),
                     window.scale_factor(),
                 );
 
@@ -512,24 +514,29 @@ fn main() {
                     &device,
                     &mut staging_belt,
                     &mut encoder,
-                    &frame.output.view,
-                    &viewport,
+                    multiplexer.get_texture_view(ElementType::LeftPanel),
+                    &viewport_left_panel,
                     left_panel_state.primitive(),
                     &left_panel_debug.overlay(),
                 );
 
                 // And then iced on top
+                let viewport_top_bar = Viewport::with_physical_size(
+                    convert_size_u32(multiplexer.get_element_area(ElementType::TopBar).size),
+                    window.scale_factor(),
+                );
                 let mouse_interaction = renderer.backend_mut().draw(
                     &device,
                     &mut staging_belt,
                     &mut encoder,
-                    &frame.output.view,
-                    &viewport,
+                    multiplexer.get_texture_view(ElementType::TopBar),
+                    &viewport_top_bar,
                     top_bar_state.primitive(),
                     &top_bar_debug.overlay(),
                 );
 
-                overlay_manager.render(&device, &mut staging_belt, &mut encoder, &frame.output.view, &multiplexer, &window, &mut renderer);
+                multiplexer.draw(&mut encoder, &frame.output.view);
+                //overlay_manager.render(&device, &mut staging_belt, &mut encoder, &frame.output.view, &multiplexer, &window, &mut renderer);
 
                 // Then we submit the work
                 staging_belt.finish();
