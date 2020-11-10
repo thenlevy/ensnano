@@ -27,6 +27,7 @@ pub use icednano::Nucl;
 pub use icednano::{Axis, Design, Parameters};
 pub use strand_builder::StrandBuilder;
 use strand_builder::{DomainIdentifier, NeighbourDescriptor};
+use std::sync::{Arc, RwLock};
 
 /// In addition to its `design` field, the `Data` struct has several hashmaps that are usefull to
 /// quickly access information about the design. These hasmaps must be updated when the design is
@@ -62,7 +63,7 @@ pub struct Data {
     /// Maps nucleotides to basis characters
     basis_map: HashMap<Nucl, char>,
     grid_manager: GridManager,
-    grids: Vec<Grid2D>,
+    grids: Vec<Arc<RwLock<Grid2D>>>,
 }
 
 impl Data {
@@ -97,7 +98,7 @@ impl Data {
         let grid_manager = GridManager::new_from_design(&design);
         let mut grids = grid_manager.grids2d();
         for g in grids.iter_mut() {
-            g.update(&design);
+            g.write().unwrap().update(&design);
         }
         let mut ret = Self {
             design,
@@ -731,6 +732,7 @@ impl Data {
         let groups = self.find_parallel_helices();
         self.grid_manager.guess_grids(&mut self.design, &groups);
         self.grid_manager.update(&mut self.design);
+        self.update_grids();
         self.update_status = true;
         self.hash_maps_update = true;
     }
@@ -738,9 +740,13 @@ impl Data {
     fn update_grids(&mut self) {
         let mut grids = self.grid_manager.grids2d();
         for g in grids.iter_mut() {
-            g.update(&self.design);
+            g.write().unwrap().update(&self.design);
         }
         self.grids = grids;
+    }
+
+    pub fn get_grid(&self, id: usize) -> Option<Arc<RwLock<Grid2D>>> {
+        self.grids.get(id).cloned()
     }
 }
 

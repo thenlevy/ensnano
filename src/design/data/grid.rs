@@ -3,6 +3,7 @@ use super::{icednano, Data};
 use std::collections::HashMap;
 use std::f32::consts::FRAC_PI_2;
 use std::marker::PhantomData;
+use std::sync::{Arc, RwLock};
 use ultraviolet::{Rotor3, Vec2, Vec3};
 
 use crate::scene::{GridInstance, GridType as GridType_};
@@ -465,13 +466,13 @@ impl GridManager {
         }
     }
 
-    pub fn grids2d(&self) -> Vec<Grid2D> {
+    pub fn grids2d(&self) -> Vec<Arc<RwLock<Grid2D>>> {
         let mut ret = Vec::new();
         for n in 0..self.nb_grid {
             if self.square_grids.contains_key(&n) {
-                ret.push(Grid2D::new(n, GridType::Square));
+                ret.push(Arc::new(RwLock::new(Grid2D::new(n, GridType::Square))));
             } else {
-                ret.push(Grid2D::new(n, GridType::Honeycomb));
+                ret.push(Arc::new(RwLock::new(Grid2D::new(n, GridType::Honeycomb))));
             }
         }
         ret

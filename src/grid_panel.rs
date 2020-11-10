@@ -39,15 +39,15 @@ pub struct GridPanel {
 }
 
 impl GridPanel {
-    pub fn new(device: Rc<Device>, queue: Rc<Queue>, window_size: PhySize, area: DrawArea) -> Self {
+    pub fn new(device: Rc<Device>, queue: Rc<Queue>, window_size: PhySize, area: DrawArea, encoder: &mut wgpu::CommandEncoder) -> Self {
         let globals = Globals {
             resolution: [area.size.width as f32, area.size.height as f32],
             scroll_offset: [0., 0.],
-            zoom: 100.,
+            zoom: 10.,
             _padding: 0.,
         };
         let camera = Rc::new(RefCell::new(Camera::new(globals)));
-        let view = Rc::new(RefCell::new(View::new(device.clone(), queue.clone(), area, camera.clone())));
+        let view = Rc::new(RefCell::new(View::new(device.clone(), queue.clone(), area, camera.clone(), encoder)));
         let data = Rc::new(RefCell::new(Data::new(view.clone())));
         let controller = Controller::new(view.clone(), data.clone());
         Self {
@@ -61,7 +61,12 @@ impl GridPanel {
         }
     }
 
+    pub fn add_design(&mut self, design: Arc<Mutex<Design>>) {
+        self.data.borrow_mut().add_design(design)
+    }
+
     pub fn draw(&mut self, encoder: &mut wgpu::CommandEncoder, target: &wgpu::TextureView) {
+        self.data.borrow().update_view();
         self.view.borrow_mut().draw(
             encoder,
             target,
@@ -75,4 +80,14 @@ impl GridPanel {
         self.view.borrow_mut().resize(area);
     }
 
+}
+
+impl Application for GridPanel {
+    fn on_notify(&mut self, notification: Notification) {
+        #[allow(clippy::single_match)] // we will implement for notification in the future
+        match notification {
+            Notification::NewDesign(design) => self.add_design(design),
+            _ => (),
+        }
+    }
 }

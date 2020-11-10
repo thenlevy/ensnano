@@ -149,13 +149,18 @@ fn main() {
     )));
     mediator.lock().unwrap().add_application(flat_scene.clone());
 
+    let mut encoder =
+        device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
     let grid_panel_area = multiplexer.get_element_area(ElementType::GridPanel);
     let grid_panel = Arc::new(Mutex::new(GridPanel::new(
                 device.clone(),
                 queue.clone(),
                 window.inner_size(),
                 grid_panel_area,
+                &mut encoder,
     )));
+    queue.submit(Some(encoder.finish()));
+    mediator.lock().unwrap().add_application(grid_panel.clone());
 
     // Add a design to the scene if one was given as a command line arguement
     if let Some(ref path) = path {

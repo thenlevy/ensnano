@@ -8,5 +8,5 @@ const vec2 positions[4] = vec2[4](
 );
 
 void main() {
-    gl_Position = vec4(positions[gl_VertexIndex], 0.0, 1.0);
+    gl_Position = vec4(positions[gl_VertexIndex], 1. - 1e-6, 1.0);
 }

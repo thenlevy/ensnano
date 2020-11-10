@@ -1,5 +1,6 @@
 
 use std::rc::Rc;
+use std::collections::HashMap;
 use iced_wgpu::wgpu;
 use wgpu::{Device, Queue, RenderPipeline};
 use super::{DrawArea, CameraPtr};
@@ -7,6 +8,11 @@ use crate::PhySize;
 use crate::consts::*;
 use crate::utils::bindgroup_manager::{DynamicBindGroup, UniformBindGroup};
 use crate::utils::texture::Texture;
+use crate::utils::{chars2d as chars, circles2d as circles};
+use circles::CircleDrawer;
+pub use circles::CircleInstance;
+use chars::CharDrawer;
+pub use chars::CharInstance;
 
 pub struct View {
     device: Rc<Device>,
@@ -14,6 +20,10 @@ pub struct View {
     background_pipeline: RenderPipeline,
     area_size: PhySize,
     depth_texture: Texture,
+    circle_drawer: CircleDrawer,
+    char_drawers: HashMap<char, CharDrawer>,
+    char_map: HashMap<char, Vec<CharInstance>>,
+    globals: UniformBindGroup,
 }
 
 impl View {
@@ -22,6 +32,7 @@ impl View {
         queue: Rc<Queue>,
         area: DrawArea,
         camera: CameraPtr,
+        encoder: &mut wgpu::CommandEncoder,
     ) -> Self {
         let depth_texture =
             Texture::create_depth_texture(device.as_ref(), &area.size, SAMPLE_COUNT);
@@ -40,12 +51,30 @@ impl View {
             },
         });
         let background_pipeline = background_pipeline(device.clone().as_ref(), depth_stencil_state);
+        let circle_drawer =
+            CircleDrawer::new(device.clone(), queue.clone(), encoder, globals.get_layout());
+        let chars = [
+            'A', 'T', 'G', 'C', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '-',
+        ];
+        let mut char_drawers = HashMap::new();
+        let mut char_map = HashMap::new();
+        for c in chars.iter() {
+            char_drawers.insert(
+                *c,
+                CharDrawer::new(device.clone(), queue.clone(), globals.get_layout(), *c),
+            );
+            char_map.insert(*c, Vec::new());
+        }
         Self {
             device,
             queue,
             background_pipeline,
             area_size: area.size,
             depth_texture,
+            circle_drawer,
+            char_map,
+            char_drawers,
+            globals,
         }
     }
 
@@ -106,14 +135,42 @@ impl View {
                 }),
             }),
         });
+
+        // Draw the background
         render_pass.set_pipeline(&self.background_pipeline);
         render_pass.draw(0..4, 0..1);
+
+        // Everything else requires the globals bind group to be set
+        render_pass.set_bind_group(0, self.globals.get_bindgroup(), &[]);
+
+        // Draw the circles representing the helices
+        self.circle_drawer.draw(&mut render_pass);
+
+        // Draw the helices numbers
+        for drawer in self.char_drawers.values_mut() {
+            drawer.draw(&mut render_pass);
+        }
+        
     }
 
     pub fn resize(&mut self, area: DrawArea) {
         self.depth_texture = 
             Texture::create_depth_texture(self.device.as_ref(), &area.size, SAMPLE_COUNT);
         self.area_size = area.size;
+    }
+
+    pub fn update_circles(&mut self, circles: Vec<CircleInstance>) {
+        self.circle_drawer.new_instances(Rc::new(circles));
+        for (c, v) in self.char_map.iter() {
+            self.char_drawers
+                .get_mut(c)
+                .unwrap()
+                .new_instances(Rc::new(v.clone()))
+        }
+    }
+
+    pub fn get_char_map(&mut self) -> &mut HashMap<char, Vec<CharInstance>> {
+        &mut self.char_map
     }
 }
 

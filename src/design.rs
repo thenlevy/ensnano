@@ -3,7 +3,7 @@ use native_dialog::{Dialog, MessageAlert};
 use std::cell::RefCell;
 use std::path::PathBuf;
 use std::rc::Rc;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 use ultraviolet::{Mat4, Vec3};
 
 use crate::mediator;
@@ -16,7 +16,7 @@ use crate::scene::GridInstance;
 use controller::Controller;
 pub use controller::{DesignRotation, IsometryTarget};
 use data::Data;
-pub use data::{Axis, Nucl, ObjectType, Parameters, StrandBuilder};
+pub use data::{Grid2D, Axis, Nucl, ObjectType, Parameters, StrandBuilder};
 use view::View;
 
 pub struct Design {
@@ -327,6 +327,10 @@ impl Design {
 
     pub fn get_grid_instance(&self) -> Vec<GridInstance> {
         self.data.lock().unwrap().get_grid_instances()
+    }
+
+    pub fn get_grid2d(&self, id: usize) -> Option<Arc<RwLock<Grid2D>>> {
+        self.data.lock().unwrap().get_grid(id)
     }
 }
 

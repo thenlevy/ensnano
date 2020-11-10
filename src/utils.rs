@@ -8,6 +8,8 @@ pub mod light;
 pub mod mesh;
 pub mod texture;
 pub mod camera2d;
+pub mod chars2d;
+pub mod circles2d;
 
 pub fn create_buffer_with_data(
     device: &wgpu::Device,

@@ -12,10 +12,9 @@ mod helix_view;
 use helix_view::{HelixView, StrandView};
 mod background;
 use background::Background;
-mod circles;
+use crate::utils::{chars2d as chars, circles2d as circles};
 use circles::CircleDrawer;
 pub use circles::CircleInstance;
-mod chars;
 use chars::CharDrawer;
 pub use chars::CharInstance;
 
