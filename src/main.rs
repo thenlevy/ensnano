@@ -317,6 +317,9 @@ fn main() {
 
                         if let Some(value) = requests.toggle_scene {
                             multiplexer.change_split(value);
+                            scheduler.lock().unwrap().forward_new_size(window.inner_size(), &multiplexer);
+                            redraw_left_panel = true;
+                            redraw_top_bar = true;
                             requests.toggle_scene = None;
                         }
 

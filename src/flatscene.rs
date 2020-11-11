@@ -157,6 +157,8 @@ impl Application for FlatScene {
         #[allow(clippy::single_match)] // we will implement for notification in the future
         match notification {
             Notification::NewDesign(design) => self.add_design(design),
+            Notification::NewActionMode(am) => self.change_action_mode(am),
+            Notification::DesignNotification(_) => self.data[self.selected_design].borrow_mut().perform_update(),
             _ => (),
         }
     }

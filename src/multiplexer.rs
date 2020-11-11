@@ -176,7 +176,7 @@ impl Multiplexer {
             }],
             depth_stencil_attachment: None,
         });
-        for element in [ElementType::TopBar, ElementType::LeftPanel, ElementType::GridPanel, ElementType::Scene].iter() {
+        for element in [ElementType::TopBar, ElementType::LeftPanel, ElementType::GridPanel, ElementType::Scene, ElementType::FlatScene].iter() {
             if let Some(area) = self.get_draw_area(*element) {
                 render_pass.set_bind_group(0, self.get_bind_group(element), &[]);
 
@@ -323,6 +323,8 @@ impl Multiplexer {
                 }
             }
         }
+        self.split_mode = split_mode;
+        self.generate_textures();
     }
 
     fn texture(&mut self, element_type: ElementType) -> Option<SampledTexture> {
