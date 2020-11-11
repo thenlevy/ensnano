@@ -36,10 +36,10 @@ void main() {
     v_grid_type = instances[gl_InstanceIndex].grid_type;
     float r = u_helix_radius + u_inter_helix_gap / 2.;
 
-    float min_x = instances[gl_InstanceIndex].min_x;
-    float max_x = instances[gl_InstanceIndex].max_x;
-    float min_y = instances[gl_InstanceIndex].min_y;
-    float max_y = instances[gl_InstanceIndex].max_y;
+    float min_x = instances[gl_InstanceIndex].min_x - 0.025;
+    float max_x = instances[gl_InstanceIndex].max_x + 0.025;
+    float min_y = instances[gl_InstanceIndex].min_y - 0.025;
+    float max_y = instances[gl_InstanceIndex].max_y + 0.025;
 
     vec2 position[4] = vec2[4](
         vec2(min_x, min_y),

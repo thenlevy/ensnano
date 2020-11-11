@@ -72,7 +72,7 @@ impl SquareTexture {
             address_mode_v: wgpu::AddressMode::MirrorRepeat,
             address_mode_w: wgpu::AddressMode::MirrorRepeat,
             mag_filter: wgpu::FilterMode::Linear,
-            min_filter: wgpu::FilterMode::Nearest,
+            min_filter: wgpu::FilterMode::Linear,
             mipmap_filter: wgpu::FilterMode::Nearest,
             ..Default::default()
         });
@@ -100,10 +100,10 @@ fn fill_square_texture(target: &TextureView, device: &Device, encoder: &mut wgpu
         usage: wgpu::BufferUsage::INDEX,
     });
     let clear_color = wgpu::Color {
-        r: 1.,
-        g: 1.,
+        r: 0.,
+        g: 0.,
         b: 1.,
-        a: 0., // this will be usefull to discard fragments that are not on the grid
+        a: 0.4, // this will be usefull to discard fragments that are not on the grid
     };
 
     let texture_size = iced_winit::winit::dpi::PhysicalSize {
@@ -213,7 +213,7 @@ impl HonneyTexture {
             address_mode_v: wgpu::AddressMode::MirrorRepeat,
             address_mode_w: wgpu::AddressMode::MirrorRepeat,
             mag_filter: wgpu::FilterMode::Linear,
-            min_filter: wgpu::FilterMode::Nearest,
+            min_filter: wgpu::FilterMode::Linear,
             mipmap_filter: wgpu::FilterMode::Nearest,
             ..Default::default()
         });
@@ -245,10 +245,10 @@ fn fill_honneycomb_texture(
         usage: wgpu::BufferUsage::INDEX,
     });
     let clear_color = wgpu::Color {
-        r: 1.,
-        g: 1.,
+        r: 0.,
+        g: 0.,
         b: 1.,
-        a: 0., // this will be usefull to discard fragments that are not on the grid
+        a: 0.4, // this will be usefull to discard fragments that are not on the grid
     };
 
     let texture_size = iced_winit::winit::dpi::PhysicalSize {
