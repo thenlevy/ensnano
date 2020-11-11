@@ -69,6 +69,7 @@ impl Camera {
     pub fn resize(&mut self, res_x: f32, res_y: f32) {
         self.globals.resolution[0] = res_x;
         self.globals.resolution[1] = res_y;
+        self.was_updated = true;
     }
 
     /// Convert a *vector* in screen coordinate to a vector in world coordinate. (Does not apply

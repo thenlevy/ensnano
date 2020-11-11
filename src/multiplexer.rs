@@ -313,7 +313,7 @@ impl Multiplexer {
                     let id = self.layout_manager.get_area_id(ElementType::Scene).or(self.layout_manager.get_area_id(ElementType::FlatScene)).unwrap();
                     match split_mode {
                         SplitMode::Both => {
-                            let (scene, flat_scene) = self.layout_manager.vsplit(id, 0.5);
+                            let (scene, flat_scene) = self.layout_manager.hsplit(id, 0.5);
                             self.layout_manager.attribute_element(scene, ElementType::Scene);
                             self.layout_manager.attribute_element(flat_scene, ElementType::FlatScene);
                         },

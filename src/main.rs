@@ -43,7 +43,7 @@ mod utils;
 use flatscene::FlatScene;
 use gui::{LeftPanel, Requests, TopBar, ColorOverlay, OverlayType};
 use multiplexer::{DrawArea, ElementType, Multiplexer, Overlay, SplitMode};
-use scene::{Scene, SceneNotification};
+use scene::Scene;
 
 fn convert_size(size: PhySize) -> Size<f32> {
     Size::new(size.width as f32, size.height as f32)
@@ -141,7 +141,6 @@ fn main() {
     mediator.lock().unwrap().add_application(scene.clone(), ElementType::Scene);
     scheduler.lock().unwrap().add_application(scene.clone(), ElementType::Scene);
 
-    let mut draw_flat = false;
     let flat_scene = Arc::new(Mutex::new(FlatScene::new(
         device.clone(),
         queue.clone(),
@@ -214,6 +213,8 @@ fn main() {
                 //let modifiers = multiplexer.modifiers();
                 if let WindowEvent::Resized(_) = event {
                     resized = true;
+                    redraw_top_bar = true;
+                    redraw_left_panel = true;
                 }
                 if let Some(event) = event.to_static() {
                     // Feed the event to the multiplexer
@@ -480,20 +481,6 @@ fn main() {
                 let dt = now - last_render_time;
                 scheduler.lock().unwrap().draw_apps(&mut encoder, &multiplexer, dt);
                 last_render_time = now;
-                /*
-                if draw_flat {
-                    flat_scene
-                        .lock()
-                        .unwrap()
-                        .draw_view(&mut encoder, multiplexer.get_texture_view(ElementType::Scene));
-                } else {
-                    scene
-                        .lock()
-                        .unwrap()
-                        .draw_view(&mut encoder, multiplexer.get_texture_view(ElementType::Scene));
-                }
-                */
-
 
                 if redraw_left_panel {
                     let viewport_left_panel = Viewport::with_physical_size(
@@ -661,6 +648,7 @@ impl OverlayManager {
         }
     }
 
+    #[allow(dead_code)]
     fn render(&self, device: &wgpu::Device, staging_belt: &mut wgpu::util::StagingBelt, encoder: &mut wgpu::CommandEncoder, target: &wgpu::TextureView, multiplexer: &Multiplexer, window: &Window, renderer: &mut Renderer) {
         for overlay_type in self.overlay_types.iter() {
             match overlay_type {

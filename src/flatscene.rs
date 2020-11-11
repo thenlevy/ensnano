@@ -158,7 +158,7 @@ impl Application for FlatScene {
         match notification {
             Notification::NewDesign(design) => self.add_design(design),
             Notification::NewActionMode(am) => self.change_action_mode(am),
-            Notification::DesignNotification(_) => self.data[self.selected_design].borrow_mut().perform_update(),
+            Notification::DesignNotification(_) => self.data[self.selected_design].borrow_mut().notify_update(),
             _ => (),
         }
     }
