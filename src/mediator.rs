@@ -6,10 +6,12 @@
 //! mediator.
 //!
 //! The mediator also holds data that is common to all applications.
-use crate::Messages;
-use std::collections::HashSet;
+use crate::{DrawArea, IcedMessages, WindowEvent, Duration, ElementType, Multiplexer};
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
+use iced_winit::winit::dpi::{PhysicalPosition, PhysicalSize};
+use iced_wgpu::wgpu;
 
 use native_dialog::{Dialog, MessageAlert};
 
@@ -20,10 +22,49 @@ use design::{Design, DesignNotification, DesignRotation};
 pub type MediatorPtr = Arc<Mutex<Mediator>>;
 
 pub struct Mediator {
-    applications: Vec<Arc<Mutex<dyn Application>>>,
+    applications: HashMap<ElementType, Arc<Mutex<dyn Application>>>,
     designs: Vec<Arc<Mutex<Design>>>,
     selection: Selection,
-    messages: Arc<Mutex<Messages>>,
+    messages: Arc<Mutex<IcedMessages>>,
+}
+
+pub struct Scheduler {
+    applications: HashMap<ElementType, Arc<Mutex<dyn Application>>>,
+}
+
+impl Scheduler {
+    pub fn new() -> Self {
+        Self {
+            applications: HashMap::new(),
+        }
+    }
+
+    pub fn add_application(&mut self, application: Arc<Mutex<dyn Application>>, element_type: ElementType) {
+        self.applications.insert(element_type, application);
+    }
+
+    pub fn forward_event(&mut self, event: &WindowEvent, area: ElementType, cursor_position: PhysicalPosition<f64>) {
+        if let Some(app) = self.applications.get_mut(&area) {
+            app.lock().unwrap().on_event(event, cursor_position)
+        }
+    }
+
+    pub fn draw_apps(&mut self, encoder: &mut wgpu::CommandEncoder, multiplexer: &Multiplexer, dt: Duration) {
+        for (area, app) in self.applications.iter_mut() {
+            if let Some(target) = multiplexer.get_texture_view(*area) {
+                app.lock().unwrap().on_redraw_request(encoder, target, dt);
+            }
+        }
+    }
+
+    pub fn forward_new_size(&mut self, window_size: PhysicalSize<u32>, multiplexer: &Multiplexer) {
+        for (area, app) in self.applications.iter_mut() {
+            if let Some(draw_area) = multiplexer.get_draw_area(*area) {
+                app.lock().unwrap().on_resize(window_size, draw_area);
+            }
+        }
+    }
+
 }
 
 #[derive(Clone)]
@@ -37,26 +78,57 @@ pub enum Notification<'a> {
     NewDesign(Arc<Mutex<Design>>),
     /// The application must show/hide the sequences
     ToggleText(bool),
+    /// The scroll sensitivity has been modified
+    NewSensitivity(f32),
+    /// The action mode has been modified
+    NewActionMode(ActionMode),
+    /// The selection mode has been modified
+    NewSelectionMode(SelectionMode),
+    FitRequest,
     /// The designs have been deleted
     ClearDesigns,
 }
 
 pub trait Application {
+    /// For notification about the data
     fn on_notify(&mut self, notification: Notification);
+    /// The method must be called when the window is resized or when the drawing area is modified
+    fn on_resize(&mut self, window_size: PhysicalSize<u32>, area: DrawArea);
+    /// The methods is used to forwards the window events to applications
+    fn on_event(&mut self, event: &WindowEvent, position: PhysicalPosition<f64> ); 
+    /// The method is used to forwards redraw_requests to applications
+    fn on_redraw_request(&mut self, encoder: &mut wgpu::CommandEncoder, target: &wgpu::TextureView, dt: Duration);
 }
 
 impl Mediator {
-    pub fn new(messages: Arc<Mutex<Messages>>) -> Self {
+    pub fn new(messages: Arc<Mutex<IcedMessages>>) -> Self {
         Self {
-            applications: Vec::new(),
+            applications: HashMap::new(),
             designs: Vec::new(),
             selection: Selection::Nothing,
             messages,
         }
     }
 
-    pub fn add_application(&mut self, application: Arc<Mutex<dyn Application>>) {
-        self.applications.push(application)
+    pub fn add_application(&mut self, application: Arc<Mutex<dyn Application>>, element_type: ElementType) {
+        self.applications.insert(element_type, application);
+    }
+
+
+    pub fn change_sensitivity(&mut self, sensitivity: f32) {
+        self.notify_apps(Notification::NewSensitivity(sensitivity));
+    }
+
+    pub fn change_action_mode(&mut self, action_mode: ActionMode) {
+        self.notify_apps(Notification::NewActionMode(action_mode))
+    }
+
+    pub fn change_selection_mode(&mut self, selection_mode: SelectionMode) {
+        self.notify_apps(Notification::NewSelectionMode(selection_mode))
+    }
+
+    pub fn request_fits(&mut self) {
+        self.notify_apps(Notification::FitRequest)
     }
 
     pub fn nb_design(&self) -> usize {
@@ -127,7 +199,7 @@ impl Mediator {
     }
 
     pub fn notify_apps(&mut self, notification: Notification) {
-        for app_wrapper in self.applications.clone() {
+        for app_wrapper in self.applications.values().cloned() {
             let mut app = app_wrapper.lock().unwrap();
             app.on_notify(notification.clone());
         }

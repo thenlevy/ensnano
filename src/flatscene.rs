@@ -2,7 +2,7 @@
 
 use crate::design::Design;
 use crate::mediator;
-use crate::{DrawArea, PhySize, WindowEvent};
+use crate::{DrawArea, PhySize, WindowEvent, Duration};
 use iced_wgpu::wgpu;
 use iced_winit::winit;
 use mediator::{ActionMode, Application, Notification};
@@ -58,7 +58,7 @@ impl FlatScene {
     }
 
     /// Add a design to the scene. This creates a new `View`, a new `Data` and a new `Controller`
-    pub fn add_design(&mut self, design: Arc<Mutex<Design>>) {
+    fn add_design(&mut self, design: Arc<Mutex<Design>>) {
         let globals = Globals {
             resolution: [self.area.size.width as f32, self.area.size.height as f32],
             scroll_offset: [0., 0.],
@@ -91,7 +91,7 @@ impl FlatScene {
     }
 
     /// Draw the view of the currently selected design
-    pub fn draw_view(&mut self, encoder: &mut wgpu::CommandEncoder, target: &wgpu::TextureView) {
+    fn draw_view(&mut self, encoder: &mut wgpu::CommandEncoder, target: &wgpu::TextureView) {
         if let Some(view) = self.view.get(self.selected_design) {
             self.data[self.selected_design]
                 .borrow_mut()
@@ -101,7 +101,7 @@ impl FlatScene {
     }
 
     /// This function must be called when the drawing area of the flatscene is modified
-    pub fn resize(&mut self, window_size: PhySize, area: DrawArea) {
+    fn resize(&mut self, window_size: PhySize, area: DrawArea) {
         self.window_size = window_size;
         self.area = area;
         for view in self.view.iter() {
@@ -113,14 +113,14 @@ impl FlatScene {
     }
 
     /// Change the action beign performed by the user
-    pub fn change_action_mode(&mut self, action_mode: ActionMode) {
+    fn change_action_mode(&mut self, action_mode: ActionMode) {
         if let Some(controller) = self.controller.get_mut(self.selected_design) {
             controller.set_action_mode(action_mode)
         }
     }
 
     /// Handle an input that happend while the cursor was on the flatscene drawing area
-    pub fn input(&mut self, event: &WindowEvent, cursor_position: PhysicalPosition<f64>) {
+    fn input(&mut self, event: &WindowEvent, cursor_position: PhysicalPosition<f64>) {
         if let Some(controller) = self.controller.get_mut(self.selected_design) {
             let consequence = controller.input(event, cursor_position);
             use controller::Consequence;
@@ -140,7 +140,7 @@ impl FlatScene {
     }
 
     /// Ask the view if it has been modified since the last drawing
-    pub fn needs_redraw(&self) -> bool {
+    fn needs_redraw(&self) -> bool {
         if let Some(view) = self.view.get(self.selected_design) {
             self.data[self.selected_design]
                 .borrow_mut()
@@ -158,6 +158,20 @@ impl Application for FlatScene {
         match notification {
             Notification::NewDesign(design) => self.add_design(design),
             _ => (),
+        }
+    }
+
+    fn on_resize(&mut self, window_size: PhySize, area: DrawArea) {
+        self.resize(window_size, area)
+    }
+
+    fn on_event(&mut self, event: &WindowEvent, cursor_position: PhysicalPosition<f64>) {
+        self.input(event, cursor_position)
+    }
+
+    fn on_redraw_request(&mut self, encoder: &mut wgpu::CommandEncoder, target: &wgpu::TextureView, _dt: Duration) {
+        if self.needs_redraw() {
+            self.draw_view(encoder, target)
         }
     }
 }

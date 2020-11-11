@@ -28,6 +28,8 @@ pub enum ElementType {
     TopBar,
     /// The 3D scene
     Scene,
+    /// The flat Scene
+    FlatScene,
     /// The Left Panel
     LeftPanel,
     GridPanel,
@@ -44,6 +46,13 @@ impl ElementType {
             _ => false
         }
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum SplitMode {
+    Flat,
+    Scene3D,
+    Both
 }
 
 /// A structure that handles the division of the window into different `DrawArea`
@@ -73,8 +82,11 @@ pub struct Multiplexer {
     overlays_textures: Vec<SampledTexture>,
     /// The texture on wich the grid is rendered
     grid_panel_texture: Option<SampledTexture>,
+    /// The texutre on which the flat scene is rendered,
+    flat_scene_texture: Option<SampledTexture>,
     device: Rc<Device>,
     pipeline: Option<wgpu::RenderPipeline>,
+    split_mode: SplitMode,
 }
 
 impl Multiplexer {
@@ -83,11 +95,11 @@ impl Multiplexer {
         let mut layout_manager = LayoutTree::new();
         let (top_bar, scene) = layout_manager.vsplit(0, 0.05);
         let (left_pannel, scene) = layout_manager.hsplit(scene, 0.2);
-        let (scene, grid_panel) = layout_manager.hsplit(scene, 0.8);
+        //let (scene, grid_panel) = layout_manager.hsplit(scene, 0.8);
         layout_manager.attribute_element(top_bar, ElementType::TopBar);
         layout_manager.attribute_element(scene, ElementType::Scene);
         layout_manager.attribute_element(left_pannel, ElementType::LeftPanel);
-        layout_manager.attribute_element(grid_panel, ElementType::GridPanel);
+        //layout_manager.attribute_element(grid_panel, ElementType::GridPanel);
         let mut ret = Self {
             window_size,
             scale_factor,
@@ -96,6 +108,7 @@ impl Multiplexer {
             mouse_clicked: false,
             cursor_position: PhysicalPosition::new(-1., -1.),
             scene_texture: None,
+            flat_scene_texture: None,
             top_bar_texture: None,
             left_pannel_texture: None,
             grid_panel_texture: None,
@@ -103,20 +116,22 @@ impl Multiplexer {
             overlays_textures: Vec::new(),
             device,
             pipeline: None,
+            split_mode: SplitMode::Scene3D,
         };
         ret.generate_textures();
         ret
     }
 
     /// Return a view of the texture on which the element must be rendered
-    pub fn get_texture_view(&self, element_type: ElementType) -> &wgpu::TextureView {
+    pub fn get_texture_view(&self, element_type: ElementType) -> Option<&wgpu::TextureView> {
         match element_type {
-            ElementType::Scene => &self.scene_texture.as_ref().unwrap().view,
-            ElementType::LeftPanel => &self.left_pannel_texture.as_ref().unwrap().view,
-            ElementType::TopBar => &self.top_bar_texture.as_ref().unwrap().view,
-            ElementType::Overlay(n) => &self.overlays_textures[n].view,
-            ElementType::GridPanel => &self.grid_panel_texture.as_ref().unwrap().view,
-            _ => unreachable!()
+            ElementType::Scene => self.scene_texture.as_ref().map(|t| &t.view),
+            ElementType::LeftPanel => self.left_pannel_texture.as_ref().map(|t| &t.view),
+            ElementType::TopBar => self.top_bar_texture.as_ref().map(|t| &t.view),
+            ElementType::Overlay(n) => Some(&self.overlays_textures[n].view),
+            ElementType::GridPanel => self.grid_panel_texture.as_ref().map(|t| &t.view),
+            ElementType::FlatScene => self.flat_scene_texture.as_ref().map(|t| &t.view),
+            ElementType::Unattributed => unreachable!(),
         }
     }
 
@@ -162,25 +177,26 @@ impl Multiplexer {
             depth_stencil_attachment: None,
         });
         for element in [ElementType::TopBar, ElementType::LeftPanel, ElementType::GridPanel, ElementType::Scene].iter() {
-            let area = self.get_draw_area(*element);
-            render_pass.set_bind_group(0, self.get_bind_group(element), &[]);
+            if let Some(area) = self.get_draw_area(*element) {
+                render_pass.set_bind_group(0, self.get_bind_group(element), &[]);
 
-            render_pass.set_viewport(
-                area.position.x as f32,
-                area.position.y as f32,
-                area.size.width as f32,
-                area.size.height as f32,
-                0.0,
-                1.0,
-            );
-            render_pass.set_scissor_rect(
-                area.position.x,
-                area.position.y,
-                area.size.width,
-                area.size.height,
-            );
-            render_pass.set_pipeline(self.pipeline.as_ref().unwrap());
-            render_pass.draw(0..4, 0..1);
+                render_pass.set_viewport(
+                    area.position.x as f32,
+                    area.position.y as f32,
+                    area.size.width as f32,
+                    area.size.height as f32,
+                    0.0,
+                    1.0,
+                );
+                render_pass.set_scissor_rect(
+                    area.position.x,
+                    area.position.y,
+                    area.size.width,
+                    area.size.height,
+                );
+                render_pass.set_pipeline(self.pipeline.as_ref().unwrap());
+                render_pass.draw(0..4, 0..1);
+            }
         }
     }
 
@@ -189,6 +205,7 @@ impl Multiplexer {
             ElementType::TopBar => &self.top_bar_texture.as_ref().unwrap().bind_group,
             ElementType::LeftPanel => &self.left_pannel_texture.as_ref().unwrap().bind_group,
             ElementType::Scene => &self.scene_texture.as_ref().unwrap().bind_group,
+            ElementType::FlatScene => &self.flat_scene_texture.as_ref().unwrap().bind_group,
             ElementType::GridPanel => &self.grid_panel_texture.as_ref().unwrap().bind_group,
             ElementType::Overlay(n) => &self.overlays_textures[*n].bind_group,
             ElementType::Unattributed => unreachable!(),
@@ -196,13 +213,13 @@ impl Multiplexer {
     }
 
     /// Return the drawing area attributed to an element.
-    pub fn get_draw_area(&self, element_type: ElementType) -> DrawArea {
+    pub fn get_draw_area(&self, element_type: ElementType) -> Option<DrawArea> {
         use ElementType::Overlay;
         let (position, size) = if let Overlay(n) = element_type {
             (self.overlays[n].position,
              self.overlays[n].size)
         } else {
-            let (left, top, right, bottom) = self.layout_manager.get_area(element_type);
+            let (left, top, right, bottom) = self.layout_manager.get_area(element_type)?;
             let top = top * self.window_size.height as f64;
             let left = left * self.window_size.width as f64;
             let bottom = bottom * self.window_size.height as f64;
@@ -212,10 +229,10 @@ impl Multiplexer {
             PhysicalSize::new(right - left, bottom - top).cast::<u32>(),
             )
         };
-        DrawArea {
+        Some(DrawArea {
             position,
             size,
-        }
+        })
     }
 
     /// Forwards event to the elment on which they happen.
@@ -234,7 +251,7 @@ impl Multiplexer {
                 let &PhysicalPosition { x, y } = position;
                 if x > 0.0 || y > 0.0 {
                     let element = self.pixel_to_element(*position);
-                    let area = self.get_draw_area(element);
+                    let area = self.get_draw_area(element).expect(&format!("Element does not exsist {:?}", element));
 
                     if !self.mouse_clicked {
                         self.focus = Some(element);
@@ -281,18 +298,44 @@ impl Multiplexer {
         }
     }
 
+    pub fn change_split(&mut self, split_mode: SplitMode) {
+        if split_mode != self.split_mode {
+            match self.split_mode {
+                SplitMode::Both => {
+                    let new_type = match split_mode {
+                        SplitMode::Scene3D => ElementType::Scene,
+                        SplitMode::Flat => ElementType::FlatScene,
+                        SplitMode::Both => unreachable!(),
+                    };
+                    self.layout_manager.merge(ElementType::Scene, new_type);
+                }
+                SplitMode::Scene3D | SplitMode::Flat => {
+                    let id = self.layout_manager.get_area_id(ElementType::Scene).or(self.layout_manager.get_area_id(ElementType::FlatScene)).unwrap();
+                    match split_mode {
+                        SplitMode::Both => {
+                            let (scene, flat_scene) = self.layout_manager.vsplit(id, 0.5);
+                            self.layout_manager.attribute_element(scene, ElementType::Scene);
+                            self.layout_manager.attribute_element(flat_scene, ElementType::FlatScene);
+                        },
+                        SplitMode::Scene3D => self.layout_manager.attribute_element(id, ElementType::Scene),
+                        SplitMode::Flat => self.layout_manager.attribute_element(id, ElementType::FlatScene),
+                    }
+                }
+            }
+        }
+    }
+
+    fn texture(&mut self, element_type: ElementType) -> Option<SampledTexture> {
+        self.get_draw_area(element_type).map(|a| SampledTexture::create_target_texture(self.device.as_ref(), &a.size))
+    }
+
+
     fn generate_textures(&mut self) {
-        let scene_size = self.get_draw_area(ElementType::Scene).size;
-        self.scene_texture = Some(SampledTexture::create_target_texture(self.device.as_ref(), &scene_size));
-
-        let top_bar_size = self.get_draw_area(ElementType::TopBar).size;
-        self.top_bar_texture = Some(SampledTexture::create_target_texture(self.device.as_ref(), &top_bar_size));
-
-        let left_pannel_size = self.get_draw_area(ElementType::LeftPanel).size;
-        self.left_pannel_texture = Some(SampledTexture::create_target_texture(self.device.as_ref(), &left_pannel_size));
-
-        let grid_panel_size = self.get_draw_area(ElementType::GridPanel).size;
-        self.grid_panel_texture = Some(SampledTexture::create_target_texture(self.device.as_ref(), &grid_panel_size));
+        self.scene_texture = self.texture(ElementType::Scene);
+        self.top_bar_texture = self.texture(ElementType::TopBar);
+        self.left_pannel_texture = self.texture(ElementType::LeftPanel);
+        self.grid_panel_texture = self.texture(ElementType::GridPanel);
+        self.flat_scene_texture = self.texture(ElementType::FlatScene);
 
         self.overlays_textures.clear();
         for overlay in self.overlays.iter() {
@@ -316,7 +359,7 @@ impl Multiplexer {
     }
 
     /// Get the drawing area attributed to an element.
-    pub fn get_element_area(&self, element: ElementType) -> DrawArea {
+    pub fn get_element_area(&self, element: ElementType) -> Option<DrawArea> {
         self.get_draw_area(element)
     }
 

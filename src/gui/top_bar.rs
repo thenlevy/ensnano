@@ -7,7 +7,7 @@ use iced_wgpu::Renderer;
 use iced_winit::winit::dpi::LogicalSize;
 use iced_winit::{button, Button, Checkbox, Color, Command, Element, Length, Program, Row};
 
-use super::Requests;
+use super::{SplitMode, Requests};
 
 pub struct TopBar {
     button_fit: button::State,
@@ -16,6 +16,7 @@ pub struct TopBar {
     button_save: button::State,
     button_3d: button::State,
     button_2d: button::State,
+    button_split: button::State,
     button_make_grid: button::State,
     toggle_text_value: bool,
     requests: Arc<Mutex<Requests>>,
@@ -30,7 +31,7 @@ pub enum Message {
     FileSaveRequested,
     Resize(LogicalSize<f64>),
     ToggleText(bool),
-    ToggleView(bool),
+    ToggleView(SplitMode),
     MakeGrids,
 }
 
@@ -43,6 +44,7 @@ impl TopBar {
             button_save: Default::default(),
             button_2d: Default::default(),
             button_3d: Default::default(),
+            button_split: Default::default(),
             button_make_grid: Default::default(),
             toggle_text_value: false,
             requests,
@@ -136,9 +138,11 @@ impl Program for TopBar {
             .height(Length::Units(height));
 
         let button_2d = Button::new(&mut self.button_2d, iced::Text::new("2D"))
-            .on_press(Message::ToggleView(true));
+            .on_press(Message::ToggleView(SplitMode::Flat));
         let button_3d = Button::new(&mut self.button_3d, iced::Text::new("3D"))
-            .on_press(Message::ToggleView(false));
+            .on_press(Message::ToggleView(SplitMode::Scene3D));
+        let button_split = Button::new(&mut self.button_split, iced::Text::new("Split"))
+            .on_press(Message::ToggleView(SplitMode::Both));
 
         let button_make_grid =
             Button::new(&mut self.button_make_grid, iced::Text::new("Make grids"))
@@ -158,6 +162,7 @@ impl Program for TopBar {
             ))
             .push(button_2d)
             .push(button_3d)
+            .push(button_split)
             .push(button_make_grid);
 
         Container::new(buttons)

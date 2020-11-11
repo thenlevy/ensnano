@@ -6,6 +6,7 @@ pub mod left_panel;
 pub use left_panel::{ColorOverlay, LeftPanel};
 
 use crate::mediator::{ActionMode, SelectionMode};
+use crate::SplitMode;
 use std::path::PathBuf;
 
 /// A structure that contains all the requests that can be made through the GUI.
@@ -29,7 +30,7 @@ pub struct Requests {
     /// A request to show/hide the sequences
     pub toggle_text: Option<bool>,
     /// A request to change the view
-    pub toggle_scene: Option<bool>,
+    pub toggle_scene: Option<SplitMode>,
     /// A request to change the sensitivity of scrolling
     pub scroll_sensitivity: Option<f32>,
     pub make_grids: bool,

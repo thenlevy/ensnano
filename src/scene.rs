@@ -111,12 +111,12 @@ impl Scene {
     }
 
     /// Add a design to be rendered.
-    pub fn add_design(&mut self, design: Arc<Mutex<Design>>) {
+    fn add_design(&mut self, design: Arc<Mutex<Design>>) {
         self.data.borrow_mut().add_design(design)
     }
 
     /// Remove all designs
-    pub fn clear_design(&mut self) {
+    fn clear_design(&mut self) {
         self.data.borrow_mut().clear_designs()
     }
 
@@ -127,7 +127,7 @@ impl Scene {
 
     /// Input an event to the scene. The controller parse the event and return the consequence that
     /// the event must have.
-    pub fn input(&mut self, event: &WindowEvent, cursor_position: PhysicalPosition<f64>) {
+    fn input(&mut self, event: &WindowEvent, cursor_position: PhysicalPosition<f64>) {
         let consequence = self.controller.input(event, cursor_position);
         match consequence {
             Consequence::Nothing => (),
@@ -251,7 +251,7 @@ impl Scene {
 
     /// Adapt the camera, position, orientation and pivot point to a design so that the design fits
     /// the scene, and the pivot point of the camera is the center of the design.
-    pub fn fit_design(&mut self) {
+    fn fit_design(&mut self) {
         let camera = self
             .data
             .borrow()
@@ -263,7 +263,7 @@ impl Scene {
         }
     }
 
-    pub fn need_redraw(&mut self, dt: Duration) -> bool {
+    fn need_redraw(&mut self, dt: Duration) -> bool {
         if let Some(pixel) = self.pixel_to_check.take() {
             self.check_on(pixel)
         }
@@ -278,7 +278,7 @@ impl Scene {
     }
 
     /// Draw the scene
-    pub fn draw_view(&mut self, encoder: &mut wgpu::CommandEncoder, target: &wgpu::TextureView) {
+    fn draw_view(&mut self, encoder: &mut wgpu::CommandEncoder, target: &wgpu::TextureView) {
         self.view.borrow_mut().draw(
             encoder,
             target,
@@ -317,24 +317,24 @@ impl Scene {
     }
 
     /// Return the vertical field of view of the camera in radians
-    pub fn get_fovy(&self) -> f32 {
+    fn get_fovy(&self) -> f32 {
         self.view.borrow().get_projection().borrow().get_fovy()
     }
 
     /// Return the width/height ratio of the camera
-    pub fn get_ratio(&self) -> f32 {
+    fn get_ratio(&self) -> f32 {
         self.view.borrow().get_projection().borrow().get_ratio()
     }
 
-    pub fn change_selection_mode(&mut self, selection_mode: SelectionMode) {
+    fn change_selection_mode(&mut self, selection_mode: SelectionMode) {
         self.data.borrow_mut().change_selection_mode(selection_mode)
     }
 
-    pub fn change_action_mode(&mut self, action_mode: ActionMode) {
+    fn change_action_mode(&mut self, action_mode: ActionMode) {
         self.data.borrow_mut().change_action_mode(action_mode)
     }
 
-    pub fn change_sensitivity(&mut self, sensitivity: f32) {
+    fn change_sensitivity(&mut self, sensitivity: f32) {
         self.controller.change_sensitivity(sensitivity)
     }
 }
@@ -419,6 +419,24 @@ impl Application for Scene {
             Notification::NewDesign(design) => self.add_design(design),
             Notification::ClearDesigns => self.clear_design(),
             Notification::ToggleText(value) => self.view.borrow_mut().set_draw_letter(value),
+            Notification::FitRequest => self.fit_design(),
+            Notification::NewActionMode(am) => self.change_action_mode(am),
+            Notification::NewSelectionMode(sm) => self.change_selection_mode(sm),
+            Notification::NewSensitivity(x) => self.change_sensitivity(x),
+        }
+    }
+
+    fn on_event(&mut self, event: &WindowEvent, cursor_position: PhysicalPosition<f64>) {
+        self.input(event, cursor_position)
+    }
+
+    fn on_resize(&mut self, window_size: PhySize, area: DrawArea) {
+        self.notify(SceneNotification::NewSize(window_size, area))
+    }
+
+    fn on_redraw_request(&mut self, encoder: &mut wgpu::CommandEncoder, target: &wgpu::TextureView, dt: Duration) {
+        if self.need_redraw(dt) {
+            self.draw_view(encoder, target)
         }
     }
 }

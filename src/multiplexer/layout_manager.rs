@@ -5,6 +5,7 @@ use std::rc::Rc;
 use super::ElementType;
 
 /// A node of a `LayoutTree`
+#[derive(Clone)]
 enum LayoutNode {
     /// A leaf of a `LayoutTree`. Represents an area that can be drawn on.
     /// The first 4 attributes represents the boundaries of the area, expressed between 0. and 1.,
@@ -36,6 +37,8 @@ pub struct LayoutTree {
     element_type: Vec<ElementType>,
     /// A HashMap mapping element types to area identifer
     area_identifer: HashMap<ElementType, usize>,
+    /// An array mapping area to their parent node
+    parent: Vec<usize>,
 }
 
 impl LayoutTree {
@@ -51,6 +54,7 @@ impl LayoutTree {
             area,
             element_type,
             area_identifer,
+            parent: vec![0],
         }
     }
 
@@ -58,7 +62,7 @@ impl LayoutTree {
     ///
     /// # Arguments
     ///
-    /// * `area_idx` the idenfier of the area beein split.
+    /// * `parent_idx` the idenfier of the area beein split.
     ///
     /// * `top_proportion`, the proportion of the initial area attributed to the top area
     ///
@@ -66,23 +70,27 @@ impl LayoutTree {
     ///
     /// A pair `(t, b)` where `t` is the identifier of the top area and `b` the identifier of the
     /// bottom area
-    pub fn vsplit(&mut self, area_idx: usize, top_proportion: f64) -> (usize, usize) {
-        let bottom_idx = self.area.len();
+    pub fn vsplit(&mut self, parent_idx: usize, top_proportion: f64) -> (usize, usize) {
+        let top_idx = self.area.len();
+        let bottom_idx = self.area.len() + 1;
         let (top, bottom) = {
-            let mut area = self.area[area_idx].borrow_mut();
-            area.vsplit(top_proportion, bottom_idx)
+            let mut area = self.area[parent_idx].borrow_mut();
+            area.vsplit(top_proportion, top_idx, bottom_idx)
         };
-        self.area[area_idx] = top;
+        self.area.push(top);
         self.area.push(bottom);
+        self.parent.push(parent_idx);
+        self.parent.push(parent_idx);
         self.element_type.push(ElementType::Unattributed);
-        (area_idx, bottom_idx)
+        self.element_type.push(ElementType::Unattributed);
+        (top_idx, bottom_idx)
     }
 
     /// Horizontally split an area in two.
     ///
     /// # Arguments
     ///
-    /// * `area_idx` the idenfier of the area beein split.
+    /// * `parent_idx` the idenfier of the area beein split.
     ///
     /// * `left_proportion`, the proportion of the initial area attributed to the left area
     ///
@@ -91,16 +99,33 @@ impl LayoutTree {
     /// A pair `(l, r)` where `l` is the identifier of the left area and `r` the identifier of the
     /// right area
     #[allow(dead_code)]
-    pub fn hsplit(&mut self, area_idx: usize, left_proportion: f64) -> (usize, usize) {
-        let right_idx = self.area.len();
+    pub fn hsplit(&mut self, parent_idx: usize, left_proportion: f64) -> (usize, usize) {
+        let left_idx = self.area.len();
+        let right_idx = self.area.len() + 1;
         let (left, right) = {
-            let mut area = self.area[area_idx].borrow_mut();
-            area.hsplit(left_proportion, right_idx)
+            let mut area = self.area[parent_idx].borrow_mut();
+            area.hsplit(left_proportion, left_idx, right_idx)
         };
-        self.area[area_idx] = left;
+        self.area.push(left);
         self.area.push(right);
+        self.parent.push(parent_idx);
+        self.parent.push(parent_idx);
         self.element_type.push(ElementType::Unattributed);
-        (area_idx, right_idx)
+        self.element_type.push(ElementType::Unattributed);
+        (left_idx, right_idx)
+    }
+
+    pub fn merge(&mut self, old_leaf: ElementType, new_leaf: ElementType) {
+        let area_id = *self
+            .area_identifer
+            .get(&old_leaf)
+            .expect("Try to get the area of an element that was not given one");
+        let parent_id = self.parent[area_id];
+        let childs = self.area[parent_id].borrow_mut().merge(parent_id);
+        let old_brother = self.element_type[childs.1];
+        self.area_identifer.remove(&old_leaf);
+        self.area_identifer.remove(&old_brother);
+        self.attribute_element(parent_id, new_leaf);
     }
 
     /// Get the Element owning the pixel `(x, y)`
@@ -110,15 +135,18 @@ impl LayoutTree {
     }
 
     /// Return the boundaries of the area attributed to an element
-    pub fn get_area(&self, element: ElementType) -> (f64, f64, f64, f64) {
+    pub fn get_area(&self, element: ElementType) -> Option<(f64, f64, f64, f64)> {
         let area_id = *self
             .area_identifer
-            .get(&element)
-            .expect("Try to get the area of an element that was not given one");
+            .get(&element)?;
         match *self.area[area_id].borrow() {
-            LayoutNode::Area(left, top, right, bottom, _) => (left, top, right, bottom),
+            LayoutNode::Area(left, top, right, bottom, _) => Some((left, top, right, bottom)),
             _ => panic!("got split_node"),
         }
+    }
+
+    pub fn get_area_id(&self, element: ElementType) -> Option<usize> {
+        self.area_identifer.get(&element).cloned()
     }
 
     /// Attribute an element_type to an area.
@@ -135,8 +163,9 @@ impl LayoutNode {
     ///
     /// * `top_proportion`, the proportion of the initial area attributed to the top area
     ///
-    /// * `bottom_idx`, the identifier of the bottom area. The top area is given the identifier of
-    /// its parent.
+    /// * `top_idx`, the identifier of the top area.
+    ///
+    /// * `bottom_idx`, the identifier of the bottom area.
     ///
     /// # Return value
     ///
@@ -145,6 +174,7 @@ impl LayoutNode {
     pub fn vsplit(
         &mut self,
         top_proportion: f64,
+        top_idx: usize,
         bottom_idx: usize,
     ) -> (LayoutNodePtr, LayoutNodePtr) {
         assert!(top_proportion >= 0. && top_proportion <= 1.);
@@ -152,7 +182,7 @@ impl LayoutNode {
             LayoutNode::Area(left, top, right, bottom, idx) => {
                 let separation = top_proportion * (*top + *bottom);
                 let top_area = Rc::new(RefCell::new(LayoutNode::Area(
-                    *left, *top, *right, separation, *idx,
+                    *left, *top, *right, separation, top_idx,
                 )));
                 let bottom_area = Rc::new(RefCell::new(LayoutNode::Area(
                     *left, separation, *right, *bottom, bottom_idx,
@@ -172,8 +202,9 @@ impl LayoutNode {
     ///
     /// * `left_proportion`, the proportion of the initial area attributed to the left area
     ///
-    /// * `right_idx`, the identifier of the right area. The left area is given the identifier of
-    /// its parent.
+    /// * `left_idx`, the identifier to be given to the left area.
+    ///
+    /// * `right_idx`, the identifier to be given to the right area.
     ///
     /// # Return value
     ///
@@ -183,6 +214,7 @@ impl LayoutNode {
     pub fn hsplit(
         &mut self,
         left_proportion: f64,
+        left_idx: usize,
         right_idx: usize,
     ) -> (LayoutNodePtr, LayoutNodePtr) {
         assert!(left_proportion >= 0. && left_proportion <= 1.);
@@ -190,7 +222,7 @@ impl LayoutNode {
             LayoutNode::Area(left, top, right, bottom, idx) => {
                 let separation = left_proportion * (*left + *right);
                 let left_area = Rc::new(RefCell::new(LayoutNode::Area(
-                    *left, *top, separation, *bottom, *idx,
+                    *left, *top, separation, *bottom, left_idx,
                 )));
                 let right_area = Rc::new(RefCell::new(LayoutNode::Area(
                     separation, *top, *right, *bottom, right_idx,
@@ -202,6 +234,34 @@ impl LayoutNode {
                 panic!("splitting a node");
             }
         }
+    }
+
+    /// Merge the two children of self. These children must be leaves
+    pub fn merge(&mut self, idx: usize) -> (usize, usize) {
+        let mut ret = (0, 0);
+        let new_self = match self {
+            LayoutNode::VSplit(_, top, bottom) => {
+                match (top.borrow().clone(), bottom.borrow().clone()) {
+                    (LayoutNode::Area(left, top, right, _, c1), LayoutNode::Area(_, _, _, bottom, c2)) => {
+                        ret = (c1, c2);
+                        LayoutNode::Area(left, top, right, bottom, idx)
+                    }
+                    _ => panic!("merge")
+                }
+            }
+            LayoutNode::HSplit(_, left, right) => {
+                match (left.borrow().clone(), right.borrow().clone()) {
+                    (LayoutNode::Area(left, top, _, bottom, c1), LayoutNode::Area(_, _, right, _, c2)) => {
+                        ret = (c1, c2);
+                        LayoutNode::Area(left, top, right, bottom, idx)
+                    }
+                    _ => panic!("merge")
+                }
+            }
+            _ => panic!("merging a leaf")
+        };
+        *self = new_self;
+        ret
     }
 
     /// Return the identifier of the leaf owning pixel `(x, y)`
