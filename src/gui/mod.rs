@@ -62,5 +62,5 @@ impl Requests {
 
 #[derive(PartialEq)]
 pub enum OverlayType {
-    Color
+    Color,
 }

@@ -6,12 +6,12 @@
 //! mediator.
 //!
 //! The mediator also holds data that is common to all applications.
-use crate::{DrawArea, IcedMessages, WindowEvent, Duration, ElementType, Multiplexer};
+use crate::{DrawArea, Duration, ElementType, IcedMessages, Multiplexer, WindowEvent};
+use iced_wgpu::wgpu;
+use iced_winit::winit::dpi::{PhysicalPosition, PhysicalSize};
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
-use iced_winit::winit::dpi::{PhysicalPosition, PhysicalSize};
-use iced_wgpu::wgpu;
 
 use native_dialog::{Dialog, MessageAlert};
 
@@ -39,17 +39,31 @@ impl Scheduler {
         }
     }
 
-    pub fn add_application(&mut self, application: Arc<Mutex<dyn Application>>, element_type: ElementType) {
+    pub fn add_application(
+        &mut self,
+        application: Arc<Mutex<dyn Application>>,
+        element_type: ElementType,
+    ) {
         self.applications.insert(element_type, application);
     }
 
-    pub fn forward_event(&mut self, event: &WindowEvent, area: ElementType, cursor_position: PhysicalPosition<f64>) {
+    pub fn forward_event(
+        &mut self,
+        event: &WindowEvent,
+        area: ElementType,
+        cursor_position: PhysicalPosition<f64>,
+    ) {
         if let Some(app) = self.applications.get_mut(&area) {
             app.lock().unwrap().on_event(event, cursor_position)
         }
     }
 
-    pub fn draw_apps(&mut self, encoder: &mut wgpu::CommandEncoder, multiplexer: &Multiplexer, dt: Duration) {
+    pub fn draw_apps(
+        &mut self,
+        encoder: &mut wgpu::CommandEncoder,
+        multiplexer: &Multiplexer,
+        dt: Duration,
+    ) {
         for (area, app) in self.applications.iter_mut() {
             if let Some(target) = multiplexer.get_texture_view(*area) {
                 app.lock().unwrap().on_redraw_request(encoder, target, dt);
@@ -64,7 +78,6 @@ impl Scheduler {
             }
         }
     }
-
 }
 
 #[derive(Clone)]
@@ -95,9 +108,14 @@ pub trait Application {
     /// The method must be called when the window is resized or when the drawing area is modified
     fn on_resize(&mut self, window_size: PhysicalSize<u32>, area: DrawArea);
     /// The methods is used to forwards the window events to applications
-    fn on_event(&mut self, event: &WindowEvent, position: PhysicalPosition<f64> ); 
+    fn on_event(&mut self, event: &WindowEvent, position: PhysicalPosition<f64>);
     /// The method is used to forwards redraw_requests to applications
-    fn on_redraw_request(&mut self, encoder: &mut wgpu::CommandEncoder, target: &wgpu::TextureView, dt: Duration);
+    fn on_redraw_request(
+        &mut self,
+        encoder: &mut wgpu::CommandEncoder,
+        target: &wgpu::TextureView,
+        dt: Duration,
+    );
 }
 
 impl Mediator {
@@ -110,10 +128,13 @@ impl Mediator {
         }
     }
 
-    pub fn add_application(&mut self, application: Arc<Mutex<dyn Application>>, element_type: ElementType) {
+    pub fn add_application(
+        &mut self,
+        application: Arc<Mutex<dyn Application>>,
+        element_type: ElementType,
+    ) {
         self.applications.insert(element_type, application);
     }
-
 
     pub fn change_sensitivity(&mut self, sensitivity: f32) {
         self.notify_apps(Notification::NewSensitivity(sensitivity));

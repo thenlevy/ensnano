@@ -146,9 +146,7 @@ impl LayoutTree {
 
     /// Return the boundaries of the area attributed to an element
     pub fn get_area(&self, element: ElementType) -> Option<(f64, f64, f64, f64)> {
-        let area_id = *self
-            .area_identifer
-            .get(&element)?;
+        let area_id = *self.area_identifer.get(&element)?;
         match *self.area[area_id].borrow() {
             LayoutNode::Area(left, top, right, bottom, _) => Some((left, top, right, bottom)),
             _ => panic!("got split_node"),
@@ -256,23 +254,29 @@ impl LayoutNode {
         let new_self = match self {
             LayoutNode::VSplit(_, top, bottom) => {
                 match (top.borrow().clone(), bottom.borrow().clone()) {
-                    (LayoutNode::Area(left, top, right, _, c1), LayoutNode::Area(_, _, _, bottom, c2)) => {
+                    (
+                        LayoutNode::Area(left, top, right, _, c1),
+                        LayoutNode::Area(_, _, _, bottom, c2),
+                    ) => {
                         ret = (c1, c2);
                         LayoutNode::Area(left, top, right, bottom, idx)
                     }
-                    _ => panic!("merge")
+                    _ => panic!("merge"),
                 }
             }
             LayoutNode::HSplit(_, left, right) => {
                 match (left.borrow().clone(), right.borrow().clone()) {
-                    (LayoutNode::Area(left, top, _, bottom, c1), LayoutNode::Area(_, _, right, _, c2)) => {
+                    (
+                        LayoutNode::Area(left, top, _, bottom, c1),
+                        LayoutNode::Area(_, _, right, _, c2),
+                    ) => {
                         ret = (c1, c2);
                         LayoutNode::Area(left, top, right, bottom, idx)
                     }
-                    _ => panic!("merge")
+                    _ => panic!("merge"),
                 }
             }
-            _ => panic!("merging a leaf")
+            _ => panic!("merging a leaf"),
         };
         *self = new_self;
         ret

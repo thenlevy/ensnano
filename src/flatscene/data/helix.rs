@@ -359,7 +359,10 @@ impl Helix {
             for (c_idx, c) in self.id.to_string().chars().enumerate() {
                 let instances = char_map.get_mut(&c).unwrap();
                 instances.push(CharInstance {
-                    center: circle.center + (c_idx as f32 - (nb_chars - 1) as f32 / 2.) * (1. / nb_chars as f32) * Vec2::unit_x(),
+                    center: circle.center
+                        + (c_idx as f32 - (nb_chars - 1) as f32 / 2.)
+                            * (1. / nb_chars as f32)
+                            * Vec2::unit_x(),
                     rotation: self.isometry.rotation.into_matrix(),
                     size: 0.7 / nb_chars as f32,
                     z_index: -1,
@@ -372,7 +375,8 @@ impl Helix {
             for (c_idx, c) in pos.to_string().chars().enumerate() {
                 let instances = char_map.get_mut(&c).unwrap();
                 instances.push(CharInstance {
-                    center: self.num_position_top(pos) + (c_idx as f32 - (nb_chars - 1) as f32 / 2.) * 0.2 * Vec2::unit_x(),
+                    center: self.num_position_top(pos)
+                        + (c_idx as f32 - (nb_chars - 1) as f32 / 2.) * 0.2 * Vec2::unit_x(),
                     rotation: self.isometry.rotation.into_matrix(),
                     size: 0.2,
                     z_index: -1,

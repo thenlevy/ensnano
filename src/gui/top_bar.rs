@@ -7,7 +7,7 @@ use iced_wgpu::Renderer;
 use iced_winit::winit::dpi::LogicalSize;
 use iced_winit::{button, Button, Checkbox, Color, Command, Element, Length, Program, Row};
 
-use super::{SplitMode, Requests};
+use super::{Requests, SplitMode};
 
 pub struct TopBar {
     button_fit: button::State,

@@ -4,8 +4,8 @@ use iced::{container, Background, Container};
 use iced_wgpu::Renderer;
 use iced_winit::winit::dpi::{LogicalPosition, LogicalSize};
 use iced_winit::{
-    pick_list, scrollable, slider, Color, Column, Command, Element, Length, PickList, Program,
-    Scrollable, Slider, Space, Text, button, Button
+    button, pick_list, scrollable, slider, Button, Color, Column, Command, Element, Length,
+    PickList, Program, Scrollable, Slider, Space, Text,
 };
 use native_dialog::Dialog;
 
@@ -118,7 +118,9 @@ impl Program for LeftPanel {
                     }
                 }
             }
-            Message::OpenColor => self.requests.lock().unwrap().overlay_opened = Some(OverlayType::Color),
+            Message::OpenColor => {
+                self.requests.lock().unwrap().overlay_opened = Some(OverlayType::Color)
+            }
             Message::Resized(size, position) => self.resize(size, position),
         };
         Command::none()
@@ -174,7 +176,10 @@ impl Program for LeftPanel {
         if self.selection_mode == SelectionMode::Strand {
             widget = widget
                 .spacing(5)
-                .push(Button::new(&mut self.open_color, Text::new("Change color")).on_press(Message::OpenColor))
+                .push(
+                    Button::new(&mut self.open_color, Text::new("Change color"))
+                        .on_press(Message::OpenColor),
+                )
                 .spacing(5)
                 .push(self.sequence_input.view());
         }
@@ -211,10 +216,7 @@ pub struct ColorOverlay {
 }
 
 impl ColorOverlay {
-    pub fn new(
-        requests: Arc<Mutex<Requests>>,
-        logical_size: LogicalSize<f64>,
-    ) -> Self {
+    pub fn new(requests: Arc<Mutex<Requests>>, logical_size: LogicalSize<f64>) -> Self {
         Self {
             logical_size,
             close_button: Default::default(),
@@ -223,10 +225,7 @@ impl ColorOverlay {
         }
     }
 
-    pub fn resize(
-        &mut self,
-        logical_size: LogicalSize<f64>,
-    ) {
+    pub fn resize(&mut self, logical_size: LogicalSize<f64>) {
         self.logical_size = logical_size;
     }
 }
@@ -238,7 +237,6 @@ pub enum ColorMessage {
     Resized(LogicalSize<f64>),
     Closed,
 }
-
 
 impl Program for ColorOverlay {
     type Renderer = Renderer;
@@ -262,7 +260,9 @@ impl Program for ColorOverlay {
                 self.requests.lock().unwrap().strand_color_change = Some(color);
             }
             ColorMessage::HueChanged(x) => self.color_picker.change_hue(x),
-            ColorMessage::Closed => self.requests.lock().unwrap().overlay_closed = Some(OverlayType::Color),
+            ColorMessage::Closed => {
+                self.requests.lock().unwrap().overlay_closed = Some(OverlayType::Color)
+            }
             ColorMessage::Resized(size) => self.resize(size),
         };
         Command::none()
@@ -277,8 +277,10 @@ impl Program for ColorOverlay {
             .spacing(5)
             .push(self.color_picker.new_view())
             .spacing(5)
-            .push(Button::new(&mut self.close_button, Text::new("Close")).on_press(ColorMessage::Closed));
-
+            .push(
+                Button::new(&mut self.close_button, Text::new("Close"))
+                    .on_press(ColorMessage::Closed),
+            );
 
         Container::new(widget)
             .style(FloatingStyle)

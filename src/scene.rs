@@ -434,7 +434,12 @@ impl Application for Scene {
         self.notify(SceneNotification::NewSize(window_size, area))
     }
 
-    fn on_redraw_request(&mut self, encoder: &mut wgpu::CommandEncoder, target: &wgpu::TextureView, dt: Duration) {
+    fn on_redraw_request(
+        &mut self,
+        encoder: &mut wgpu::CommandEncoder,
+        target: &wgpu::TextureView,
+        dt: Duration,
+    ) {
         if self.need_redraw(dt) {
             self.draw_view(encoder, target)
         }

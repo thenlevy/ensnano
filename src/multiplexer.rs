@@ -1,13 +1,13 @@
-use std::rc::Rc;
+use crate::utils::texture::SampledTexture;
 use crate::PhySize;
+use iced_wgpu::wgpu;
 use iced_winit::winit;
+use std::rc::Rc;
+use wgpu::Device;
 use winit::{
     dpi::{PhysicalPosition, PhysicalSize},
     event::{ElementState, MouseButton, WindowEvent},
 };
-use iced_wgpu::wgpu;
-use wgpu::Device;
-use crate::utils::texture::SampledTexture;
 
 mod layout_manager;
 use layout_manager::LayoutTree;
@@ -43,7 +43,7 @@ impl ElementType {
     pub fn need_shift(&self) -> bool {
         match self {
             ElementType::Scene | ElementType::GridPanel | ElementType::Overlay(_) => true,
-            _ => false
+            _ => false,
         }
     }
 }
@@ -52,7 +52,7 @@ impl ElementType {
 pub enum SplitMode {
     Flat,
     Scene3D,
-    Both
+    Both,
 }
 
 /// A structure that handles the division of the window into different `DrawArea`
@@ -135,11 +135,7 @@ impl Multiplexer {
         }
     }
 
-    pub fn draw(
-        &mut self,
-        encoder: &mut wgpu::CommandEncoder,
-        target: &wgpu::TextureView,
-    ) {
+    pub fn draw(&mut self, encoder: &mut wgpu::CommandEncoder, target: &wgpu::TextureView) {
         if self.pipeline.is_none() {
             let bg_layout = &self.top_bar_texture.as_ref().unwrap().bg_layout;
             self.pipeline = Some(create_pipeline(self.device.as_ref(), bg_layout));
@@ -176,7 +172,15 @@ impl Multiplexer {
             }],
             depth_stencil_attachment: None,
         });
-        for element in [ElementType::TopBar, ElementType::LeftPanel, ElementType::GridPanel, ElementType::Scene, ElementType::FlatScene].iter() {
+        for element in [
+            ElementType::TopBar,
+            ElementType::LeftPanel,
+            ElementType::GridPanel,
+            ElementType::Scene,
+            ElementType::FlatScene,
+        ]
+        .iter()
+        {
             if let Some(area) = self.get_draw_area(*element) {
                 render_pass.set_bind_group(0, self.get_bind_group(element), &[]);
 
@@ -216,8 +220,7 @@ impl Multiplexer {
     pub fn get_draw_area(&self, element_type: ElementType) -> Option<DrawArea> {
         use ElementType::Overlay;
         let (position, size) = if let Overlay(n) = element_type {
-            (self.overlays[n].position,
-             self.overlays[n].size)
+            (self.overlays[n].position, self.overlays[n].size)
         } else {
             let (left, top, right, bottom) = self.layout_manager.get_area(element_type)?;
             let top = top * self.window_size.height as f64;
@@ -225,14 +228,12 @@ impl Multiplexer {
             let bottom = bottom * self.window_size.height as f64;
             let right = right * self.window_size.width as f64;
 
-            (PhysicalPosition::new(left, top).cast::<u32>(),
-            PhysicalSize::new(right - left, bottom - top).cast::<u32>(),
+            (
+                PhysicalPosition::new(left, top).cast::<u32>(),
+                PhysicalSize::new(right - left, bottom - top).cast::<u32>(),
             )
         };
-        Some(DrawArea {
-            position,
-            size,
-        })
+        Some(DrawArea { position, size })
     }
 
     /// Forwards event to the elment on which they happen.
@@ -251,7 +252,9 @@ impl Multiplexer {
                 let &PhysicalPosition { x, y } = position;
                 if x > 0.0 || y > 0.0 {
                     let element = self.pixel_to_element(*position);
-                    let area = self.get_draw_area(element).expect(&format!("Element does not exsist {:?}", element));
+                    let area = self
+                        .get_draw_area(element)
+                        .expect(&format!("Element does not exsist {:?}", element));
 
                     if !self.mouse_clicked {
                         self.focus = Some(element);
@@ -279,16 +282,16 @@ impl Multiplexer {
                 ElementState::Pressed => self.mouse_clicked = true,
                 ElementState::Released => self.mouse_clicked = false,
             },
-                _ => {}
+            _ => {}
         }
 
         if let Some(focus) = self.focus {
             if focus_changed {
                 Some((
-                        WindowEvent::CursorLeft {
-                            device_id: device_id_msg.unwrap(),
-                        },
-                        focus,
+                    WindowEvent::CursorLeft {
+                        device_id: device_id_msg.unwrap(),
+                    },
+                    focus,
                 ))
             } else {
                 Some((event, focus))
@@ -310,15 +313,25 @@ impl Multiplexer {
                     self.layout_manager.merge(ElementType::Scene, new_type);
                 }
                 SplitMode::Scene3D | SplitMode::Flat => {
-                    let id = self.layout_manager.get_area_id(ElementType::Scene).or(self.layout_manager.get_area_id(ElementType::FlatScene)).unwrap();
+                    let id = self
+                        .layout_manager
+                        .get_area_id(ElementType::Scene)
+                        .or(self.layout_manager.get_area_id(ElementType::FlatScene))
+                        .unwrap();
                     match split_mode {
                         SplitMode::Both => {
                             let (scene, flat_scene) = self.layout_manager.hsplit(id, 0.5);
-                            self.layout_manager.attribute_element(scene, ElementType::Scene);
-                            self.layout_manager.attribute_element(flat_scene, ElementType::FlatScene);
-                        },
-                        SplitMode::Scene3D => self.layout_manager.attribute_element(id, ElementType::Scene),
-                        SplitMode::Flat => self.layout_manager.attribute_element(id, ElementType::FlatScene),
+                            self.layout_manager
+                                .attribute_element(scene, ElementType::Scene);
+                            self.layout_manager
+                                .attribute_element(flat_scene, ElementType::FlatScene);
+                        }
+                        SplitMode::Scene3D => self
+                            .layout_manager
+                            .attribute_element(id, ElementType::Scene),
+                        SplitMode::Flat => self
+                            .layout_manager
+                            .attribute_element(id, ElementType::FlatScene),
                     }
                 }
             }
@@ -328,9 +341,9 @@ impl Multiplexer {
     }
 
     fn texture(&mut self, element_type: ElementType) -> Option<SampledTexture> {
-        self.get_draw_area(element_type).map(|a| SampledTexture::create_target_texture(self.device.as_ref(), &a.size))
+        self.get_draw_area(element_type)
+            .map(|a| SampledTexture::create_target_texture(self.device.as_ref(), &a.size))
     }
-
 
     fn generate_textures(&mut self) {
         self.scene_texture = self.texture(ElementType::Scene);
@@ -342,7 +355,11 @@ impl Multiplexer {
         self.overlays_textures.clear();
         for overlay in self.overlays.iter() {
             let size = overlay.size;
-            self.overlays_textures.push(SampledTexture::create_target_texture(self.device.as_ref(), &size));
+            self.overlays_textures
+                .push(SampledTexture::create_target_texture(
+                    self.device.as_ref(),
+                    &size,
+                ));
         }
     }
 
@@ -351,7 +368,7 @@ impl Multiplexer {
         let pixel_u32 = pixel.cast::<u32>();
         for (n, overlay) in self.overlays.iter().enumerate() {
             if overlay.contains_pixel(pixel_u32) {
-                return ElementType::Overlay(n)
+                return ElementType::Overlay(n);
             }
         }
         self.layout_manager.get_area_pixel(
@@ -380,7 +397,11 @@ impl Multiplexer {
         self.overlays_textures.clear();
         for overlay in self.overlays.iter_mut() {
             let size = overlay.size;
-            self.overlays_textures.push(SampledTexture::create_target_texture(self.device.as_ref(), &size));
+            self.overlays_textures
+                .push(SampledTexture::create_target_texture(
+                    self.device.as_ref(),
+                    &size,
+                ));
         }
     }
 }
@@ -393,10 +414,10 @@ pub struct Overlay {
 
 impl Overlay {
     pub fn contains_pixel(&self, pixel: PhysicalPosition<u32>) -> bool {
-        pixel.x >= self.position.x 
-            && pixel.y >= self.position.y 
-            && pixel.x < self.position.x + self.size.width 
-            && pixel.y < self.position.y + self.size.height 
+        pixel.x >= self.position.x
+            && pixel.y >= self.position.y
+            && pixel.x < self.position.x + self.size.width
+            && pixel.y < self.position.y + self.size.height
     }
 }
 

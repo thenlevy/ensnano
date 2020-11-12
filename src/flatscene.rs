@@ -2,7 +2,7 @@
 
 use crate::design::Design;
 use crate::mediator;
-use crate::{DrawArea, PhySize, WindowEvent, Duration};
+use crate::{DrawArea, Duration, PhySize, WindowEvent};
 use iced_wgpu::wgpu;
 use iced_winit::winit;
 use mediator::{ActionMode, Application, Notification};
@@ -158,7 +158,9 @@ impl Application for FlatScene {
         match notification {
             Notification::NewDesign(design) => self.add_design(design),
             Notification::NewActionMode(am) => self.change_action_mode(am),
-            Notification::DesignNotification(_) => self.data[self.selected_design].borrow_mut().notify_update(),
+            Notification::DesignNotification(_) => {
+                self.data[self.selected_design].borrow_mut().notify_update()
+            }
             _ => (),
         }
     }
@@ -171,7 +173,12 @@ impl Application for FlatScene {
         self.input(event, cursor_position)
     }
 
-    fn on_redraw_request(&mut self, encoder: &mut wgpu::CommandEncoder, target: &wgpu::TextureView, _dt: Duration) {
+    fn on_redraw_request(
+        &mut self,
+        encoder: &mut wgpu::CommandEncoder,
+        target: &wgpu::TextureView,
+        _dt: Duration,
+    ) {
         if self.needs_redraw() {
             self.draw_view(encoder, target)
         }

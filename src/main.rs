@@ -6,13 +6,13 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 pub type PhySize = iced_winit::winit::dpi::PhysicalSize<u32>;
 
+use iced_native::Event as IcedEvent;
 use iced_wgpu::{wgpu, Backend, Renderer, Settings, Viewport};
 use iced_winit::{conversion, futures, program, winit, Debug, Size};
-use iced_native::Event as IcedEvent;
 
 use futures::task::SpawnExt;
 use winit::{
-    dpi::{PhysicalSize, PhysicalPosition},
+    dpi::{PhysicalPosition, PhysicalSize},
     event::{Event, ModifiersState, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
     window::Window,
@@ -34,14 +34,14 @@ mod mediator;
 mod multiplexer;
 /// 3D scene drawing
 mod scene;
-use mediator::{Scheduler, Mediator};
+use mediator::{Mediator, Scheduler};
 mod flatscene;
 mod text;
 mod utils;
 // mod grid_panel; We don't use the grid panel atm
 
 use flatscene::FlatScene;
-use gui::{LeftPanel, Requests, TopBar, ColorOverlay, OverlayType};
+use gui::{ColorOverlay, LeftPanel, OverlayType, Requests, TopBar};
 use multiplexer::{DrawArea, ElementType, Multiplexer, Overlay, SplitMode};
 use scene::Scene;
 
@@ -123,7 +123,8 @@ fn main() {
     let scheduler = Arc::new(Mutex::new(Scheduler::new()));
 
     // Initialize the layout
-    let mut multiplexer = Multiplexer::new(window.inner_size(), window.scale_factor(), device.clone());
+    let mut multiplexer =
+        Multiplexer::new(window.inner_size(), window.scale_factor(), device.clone());
 
     // Initialize the scenes
     let mut encoder =
@@ -138,8 +139,14 @@ fn main() {
         &mut encoder,
     )));
     queue.submit(Some(encoder.finish()));
-    mediator.lock().unwrap().add_application(scene.clone(), ElementType::Scene);
-    scheduler.lock().unwrap().add_application(scene.clone(), ElementType::Scene);
+    mediator
+        .lock()
+        .unwrap()
+        .add_application(scene.clone(), ElementType::Scene);
+    scheduler
+        .lock()
+        .unwrap()
+        .add_application(scene.clone(), ElementType::Scene);
 
     let flat_scene = Arc::new(Mutex::new(FlatScene::new(
         device.clone(),
@@ -147,8 +154,14 @@ fn main() {
         window.inner_size(),
         scene_area,
     )));
-    mediator.lock().unwrap().add_application(flat_scene.clone(), ElementType::FlatScene);
-    scheduler.lock().unwrap().add_application(flat_scene.clone(), ElementType::FlatScene);
+    mediator
+        .lock()
+        .unwrap()
+        .add_application(flat_scene.clone(), ElementType::FlatScene);
+    scheduler
+        .lock()
+        .unwrap()
+        .add_application(flat_scene.clone(), ElementType::FlatScene);
 
     // Add a design to the scene if one was given as a command line arguement
     if let Some(ref path) = path {
@@ -178,7 +191,9 @@ fn main() {
     );
 
     // Left panel
-    let left_panel_area = multiplexer.get_element_area(ElementType::LeftPanel).unwrap();
+    let left_panel_area = multiplexer
+        .get_element_area(ElementType::LeftPanel)
+        .unwrap();
     let left_panel = LeftPanel::new(
         requests.clone(),
         left_panel_area.size.to_logical(window.scale_factor()),
@@ -257,7 +272,11 @@ fn main() {
                             }
                             _ => {
                                 let cursor_position = multiplexer.get_cursor_position();
-                                scheduler.lock().unwrap().forward_event(&event, area, cursor_position)
+                                scheduler.lock().unwrap().forward_event(
+                                    &event,
+                                    area,
+                                    cursor_position,
+                                )
                             }
                         }
                     }
@@ -318,7 +337,10 @@ fn main() {
 
                         if let Some(value) = requests.toggle_scene {
                             multiplexer.change_split(value);
-                            scheduler.lock().unwrap().forward_new_size(window.inner_size(), &multiplexer);
+                            scheduler
+                                .lock()
+                                .unwrap()
+                                .forward_new_size(window.inner_size(), &multiplexer);
                             redraw_left_panel = true;
                             redraw_top_bar = true;
                             requests.toggle_scene = None;
@@ -332,7 +354,8 @@ fn main() {
                 }
 
                 // Treat eventual event that happenend in the gui left panel.
-                let overlay_change = overlay_manager.fetch_change(&multiplexer, &window, &mut renderer);
+                let overlay_change =
+                    overlay_manager.fetch_change(&multiplexer, &window, &mut renderer);
                 let left_panel_cursor =
                     if multiplexer.foccused_element() == Some(ElementType::LeftPanel) {
                         multiplexer.get_cursor_position()
@@ -340,7 +363,7 @@ fn main() {
                         PhysicalPosition::new(-1., -1.)
                     };
                 if !left_panel_state.is_queue_empty() || overlay_change {
-                    redraw_left_panel|= !left_panel_state.is_queue_empty();
+                    redraw_left_panel |= !left_panel_state.is_queue_empty();
                     let _ = left_panel_state.update(
                         convert_size(window.inner_size()),
                         conversion::cursor_position(left_panel_cursor, window.scale_factor()),
@@ -351,7 +374,10 @@ fn main() {
                     {
                         let mut requests = requests.lock().unwrap();
                         if let Some(selection_mode) = requests.selection_mode {
-                            mediator.lock().unwrap().change_selection_mode(selection_mode);
+                            mediator
+                                .lock()
+                                .unwrap()
+                                .change_selection_mode(selection_mode);
                             requests.selection_mode = None;
                         }
 
@@ -410,7 +436,10 @@ fn main() {
                         PhysicalPosition::new(-1., -1.)
                     };
                 if resized {
-                    scheduler.lock().unwrap().forward_new_size(window.inner_size(), &multiplexer);
+                    scheduler
+                        .lock()
+                        .unwrap()
+                        .forward_new_size(window.inner_size(), &multiplexer);
                     let window_size = window.inner_size();
                     /*
                     let scene_area = multiplexer.get_element_area(ElementType::Scene);
@@ -437,7 +466,9 @@ fn main() {
                         top_bar_area.size.to_logical(window.scale_factor()),
                     ));
 
-                    let left_panel_area = multiplexer.get_element_area(ElementType::LeftPanel).unwrap();
+                    let left_panel_area = multiplexer
+                        .get_element_area(ElementType::LeftPanel)
+                        .unwrap();
                     left_panel_state.queue_message(gui::left_panel::Message::Resized(
                         left_panel_area.size.to_logical(window.scale_factor()),
                         left_panel_area.position.to_logical(window.scale_factor()),
@@ -479,19 +510,29 @@ fn main() {
                 // We draw the applications first
                 let now = std::time::Instant::now();
                 let dt = now - last_render_time;
-                scheduler.lock().unwrap().draw_apps(&mut encoder, &multiplexer, dt);
+                scheduler
+                    .lock()
+                    .unwrap()
+                    .draw_apps(&mut encoder, &multiplexer, dt);
                 last_render_time = now;
 
                 if redraw_left_panel {
                     let viewport_left_panel = Viewport::with_physical_size(
-                        convert_size_u32(multiplexer.get_element_area(ElementType::LeftPanel).unwrap().size),
+                        convert_size_u32(
+                            multiplexer
+                                .get_element_area(ElementType::LeftPanel)
+                                .unwrap()
+                                .size,
+                        ),
                         window.scale_factor(),
                     );
                     let _left_panel_interaction = renderer.backend_mut().draw(
                         &device,
                         &mut staging_belt,
                         &mut encoder,
-                        multiplexer.get_texture_view(ElementType::LeftPanel).unwrap(),
+                        multiplexer
+                            .get_texture_view(ElementType::LeftPanel)
+                            .unwrap(),
                         &viewport_left_panel,
                         left_panel_state.primitive(),
                         &left_panel_debug.overlay(),
@@ -501,7 +542,12 @@ fn main() {
 
                 if redraw_top_bar {
                     let viewport_top_bar = Viewport::with_physical_size(
-                        convert_size_u32(multiplexer.get_element_area(ElementType::TopBar).unwrap().size),
+                        convert_size_u32(
+                            multiplexer
+                                .get_element_area(ElementType::TopBar)
+                                .unwrap()
+                                .size,
+                        ),
                         window.scale_factor(),
                     );
                     mouse_interaction = renderer.backend_mut().draw(
@@ -570,7 +616,6 @@ impl IcedMessages {
     }
 }
 
-
 pub struct OverlayManager {
     color_state: iced_native::program::State<ColorOverlay>,
     color_debug: Debug,
@@ -581,8 +626,9 @@ pub struct OverlayManager {
 impl OverlayManager {
     pub fn new(requests: Arc<Mutex<Requests>>, window: &Window, renderer: &mut Renderer) -> Self {
         let color = ColorOverlay::new(
-        requests.clone(),
-        PhysicalSize::new(250., 250.).to_logical(window.scale_factor()));
+            requests.clone(),
+            PhysicalSize::new(250., 250.).to_logical(window.scale_factor()),
+        );
         let mut color_debug = Debug::new();
         let color_state = program::State::new(
             color,
@@ -604,30 +650,32 @@ impl OverlayManager {
             None => {
                 println!("recieve event from non existing overlay");
                 unreachable!();
-            },
-            Some(OverlayType::Color) => {
-                self.color_state.queue_event(event)
             }
+            Some(OverlayType::Color) => self.color_state.queue_event(event),
         }
-
     }
 
     fn add_overlay(&mut self, overlay_type: OverlayType, multiplexer: &mut Multiplexer) {
         match overlay_type {
-            OverlayType::Color => {
-                self.overlays.push(Overlay{
-                    position: PhysicalPosition::new(500, 500),
-                    size: PhysicalSize::new(250, 250),
-                })
-            }
+            OverlayType::Color => self.overlays.push(Overlay {
+                position: PhysicalPosition::new(500, 500),
+                size: PhysicalSize::new(250, 250),
+            }),
         }
         self.overlay_types.push(overlay_type);
         self.update_multiplexer(multiplexer);
     }
 
-    fn process_event(&mut self, renderer: &mut Renderer, resized: bool, multiplexer: &Multiplexer, window: &Window) {
+    fn process_event(
+        &mut self,
+        renderer: &mut Renderer,
+        resized: bool,
+        multiplexer: &Multiplexer,
+        window: &Window,
+    ) {
         for (n, overlay) in self.overlay_types.iter().enumerate() {
-            let cursor_position = if multiplexer.foccused_element() == Some(ElementType::Overlay(n)) {
+            let cursor_position = if multiplexer.foccused_element() == Some(ElementType::Overlay(n))
+            {
                 multiplexer.get_cursor_position()
             } else {
                 PhysicalPosition::new(-1., -1.)
@@ -649,7 +697,16 @@ impl OverlayManager {
     }
 
     #[allow(dead_code)]
-    fn render(&self, device: &wgpu::Device, staging_belt: &mut wgpu::util::StagingBelt, encoder: &mut wgpu::CommandEncoder, target: &wgpu::TextureView, multiplexer: &Multiplexer, window: &Window, renderer: &mut Renderer) {
+    fn render(
+        &self,
+        device: &wgpu::Device,
+        staging_belt: &mut wgpu::util::StagingBelt,
+        encoder: &mut wgpu::CommandEncoder,
+        target: &wgpu::TextureView,
+        multiplexer: &Multiplexer,
+        window: &Window,
+        renderer: &mut Renderer,
+    ) {
         for overlay_type in self.overlay_types.iter() {
             match overlay_type {
                 OverlayType::Color => {
@@ -696,10 +753,16 @@ impl OverlayManager {
         }
     }
 
-    fn fetch_change(&mut self, multiplexer: &Multiplexer, window: &Window, renderer: &mut Renderer) -> bool {
+    fn fetch_change(
+        &mut self,
+        multiplexer: &Multiplexer,
+        window: &Window,
+        renderer: &mut Renderer,
+    ) -> bool {
         let mut ret = false;
         for (n, overlay) in self.overlay_types.iter().enumerate() {
-            let cursor_position = if multiplexer.foccused_element() == Some(ElementType::Overlay(n)) {
+            let cursor_position = if multiplexer.foccused_element() == Some(ElementType::Overlay(n))
+            {
                 multiplexer.get_cursor_position()
             } else {
                 PhysicalPosition::new(-1., -1.)

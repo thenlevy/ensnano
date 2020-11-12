@@ -32,7 +32,10 @@ impl ColorPicker {
     pub fn new_view(&mut self) -> Row<ColorMessage> {
         let color_picker = Row::new()
             .spacing(5)
-            .push(HueColumn::new(&mut self.hue_state, ColorMessage::HueChanged))
+            .push(HueColumn::new(
+                &mut self.hue_state,
+                ColorMessage::HueChanged,
+            ))
             .spacing(10)
             .push(LightSatSquare::new(
                 self.hue as f64,
@@ -46,7 +49,7 @@ impl ColorPicker {
 mod hue_column {
     use iced_graphics::{
         triangle::{Mesh2D, Vertex2D},
-        Backend, Defaults, Primitive, Renderer, Rectangle,
+        Backend, Defaults, Primitive, Rectangle, Renderer,
     };
     use iced_native::{
         layout, mouse, Clipboard, Element, Event, Hasher, Layout, Length, Point, Size, Vector,
@@ -225,7 +228,7 @@ mod light_sat_square {
     use super::Color;
     use iced_graphics::{
         triangle::{Mesh2D, Vertex2D},
-        Backend, Defaults, Primitive, Renderer, Rectangle
+        Backend, Defaults, Primitive, Rectangle, Renderer,
     };
     use iced_native::{
         layout, mouse, Clipboard, Element, Event, Hasher, Layout, Length, Point, Size, Vector,

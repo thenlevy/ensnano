@@ -11,12 +11,12 @@ use wgpu::{Device, Queue, RenderPipeline};
 mod helix_view;
 use helix_view::{HelixView, StrandView};
 mod background;
-use background::Background;
 use crate::utils::{chars2d as chars, circles2d as circles};
-use circles::CircleDrawer;
-pub use circles::CircleInstance;
+use background::Background;
 use chars::CharDrawer;
 pub use chars::CharInstance;
+use circles::CircleDrawer;
+pub use circles::CircleInstance;
 
 use crate::consts::SAMPLE_COUNT;
 

@@ -70,7 +70,7 @@ pub struct Letter {
     pub vertex_buffer: wgpu::Buffer,
     pub index_buffer: wgpu::Buffer,
     pub bind_group_layout: BindGroupLayout,
-    pub char_size: [f32 ; 2],
+    pub char_size: [f32; 2],
 }
 
 const MIP_LEVEL_COUNT: u32 = 6;
@@ -199,12 +199,16 @@ impl Letter {
                 },
                 wgpu::BindGroupEntry {
                     binding: 2,
-                    resource: wgpu::BindingResource::Buffer(device.create_buffer_init(&wgpu::util::BufferInitDescriptor{
-                        usage: wgpu::BufferUsage::UNIFORM,
-                        contents: bytemuck::cast_slice(&char_size),
-                        label: None,
-                    }).slice(..))
-                }
+                    resource: wgpu::BindingResource::Buffer(
+                        device
+                            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                                usage: wgpu::BufferUsage::UNIFORM,
+                                contents: bytemuck::cast_slice(&char_size),
+                                label: None,
+                            })
+                            .slice(..),
+                    ),
+                },
             ],
             label: Some("diffuse_bind_group"),
         });

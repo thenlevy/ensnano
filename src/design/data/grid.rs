@@ -32,7 +32,7 @@ impl GridType {
     pub fn helix_position(&self, x: isize, y: isize) -> Vec2 {
         match self {
             GridType::Square => SquareGrid::origin_helix(&Parameters::default(), x, y),
-            GridType::Honeycomb => HoneyComb::origin_helix(&Parameters::default(), x, y)
+            GridType::Honeycomb => HoneyComb::origin_helix(&Parameters::default(), x, y),
         }
     }
 }
@@ -150,7 +150,9 @@ impl GridDivision for SquareGrid {
         )
     }
 
-    fn grid_type() -> GridType { GridType::Square }
+    fn grid_type() -> GridType {
+        GridType::Square
+    }
 }
 
 pub struct HoneyComb;
@@ -195,7 +197,9 @@ impl GridDivision for HoneyComb {
         ret
     }
 
-    fn grid_type() -> GridType { GridType::Honeycomb }
+    fn grid_type() -> GridType {
+        GridType::Honeycomb
+    }
 }
 
 #[derive(Clone, Serialize, Deserialize, Copy)]
@@ -575,7 +579,8 @@ impl Grid2D {
     pub fn update(&mut self, design: &Design) {
         for (h_id, h) in design.helices.iter() {
             if let Some(grid_position) = h.grid_position.filter(|gp| gp.grid == self.id) {
-                self.helices.insert((grid_position.x, grid_position.y), *h_id);
+                self.helices
+                    .insert((grid_position.x, grid_position.y), *h_id);
             }
         }
     }
