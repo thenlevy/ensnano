@@ -46,6 +46,20 @@ impl ElementType {
             _ => false,
         }
     }
+
+    pub fn is_gui(&self) -> bool {
+        match self {
+            ElementType::TopBar | ElementType::LeftPanel => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_scene(&self) -> bool {
+        match self {
+            ElementType::Scene | ElementType::FlatScene => true,
+            _ => false,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]

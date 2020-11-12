@@ -175,42 +175,9 @@ fn main() {
     // Initialize the UI
     let requests = Arc::new(Mutex::new(Requests::new()));
 
-    // Top bar
-    let top_bar_area = multiplexer.get_element_area(ElementType::TopBar).unwrap();
-    let top_bar = TopBar::new(
-        requests.clone(),
-        top_bar_area.size.to_logical(window.scale_factor()),
-    );
-    let mut top_bar_debug = Debug::new();
-    let mut top_bar_state = program::State::new(
-        top_bar,
-        convert_size(top_bar_area.size),
-        conversion::cursor_position(cursor_position, window.scale_factor()),
-        &mut renderer,
-        &mut top_bar_debug,
-    );
-
-    // Left panel
-    let left_panel_area = multiplexer
-        .get_element_area(ElementType::LeftPanel)
-        .unwrap();
-    let left_panel = LeftPanel::new(
-        requests.clone(),
-        left_panel_area.size.to_logical(window.scale_factor()),
-        left_panel_area.position.to_logical(window.scale_factor()),
-    );
-    let mut left_panel_debug = Debug::new();
-    let mut left_panel_state = program::State::new(
-        left_panel,
-        convert_size(left_panel_area.size),
-        conversion::cursor_position(cursor_position, window.scale_factor()),
-        &mut renderer,
-        &mut left_panel_debug,
-    );
+    let mut gui = gui::Gui::new(device.clone(), &window, &multiplexer, requests.clone());
 
     let mut overlay_manager = OverlayManager::new(requests.clone(), &window, &mut renderer);
-    let mut redraw_top_bar = true;
-    let mut redraw_left_panel = true;
 
     // Run event loop
     let mut last_render_time = std::time::Instant::now();
@@ -228,8 +195,6 @@ fn main() {
                 //let modifiers = multiplexer.modifiers();
                 if let WindowEvent::Resized(_) = event {
                     resized = true;
-                    redraw_top_bar = true;
-                    redraw_left_panel = true;
                 }
                 if let Some(event) = event.to_static() {
                     // Feed the event to the multiplexer
@@ -238,15 +203,14 @@ fn main() {
                     if let Some((event, area)) = event {
                         // pass the event to the area on which it happenened
                         match area {
-                            ElementType::TopBar => {
+                            area if area.is_gui() => {
                                 let event = iced_winit::conversion::window_event(
                                     &event,
                                     window.scale_factor(),
                                     modifiers,
                                 );
                                 if let Some(event) = event {
-                                    top_bar_state.queue_event(event);
-                                    redraw_top_bar = true;
+                                    gui.forward_event(area, event);
                                 }
                             }
                             ElementType::Overlay(n) => {
@@ -259,18 +223,7 @@ fn main() {
                                     overlay_manager.forward_event(event, n);
                                 }
                             }
-                            ElementType::LeftPanel => {
-                                let event = iced_winit::conversion::window_event(
-                                    &event,
-                                    window.scale_factor(),
-                                    modifiers,
-                                );
-                                if let Some(event) = event {
-                                    left_panel_state.queue_event(event);
-                                    redraw_left_panel = true;
-                                }
-                            }
-                            _ => {
+                            area if area.is_scene() => {
                                 let cursor_position = multiplexer.get_cursor_position();
                                 scheduler.lock().unwrap().forward_event(
                                     &event,
@@ -278,143 +231,100 @@ fn main() {
                                     cursor_position,
                                 )
                             }
+                            _ => unreachable!(),
                         }
                     }
                 }
             }
             Event::MainEventsCleared => {
+                gui.fetch_change(&window, &multiplexer);
                 // When there is no more event to deal with
-                let top_bar_area = multiplexer.get_element_area(ElementType::TopBar).unwrap();
-
-                // Treat eventual event that happenened in the gui top bar
-                let top_bar_cursor = if multiplexer.foccused_element() == Some(ElementType::TopBar)
                 {
-                    multiplexer.get_cursor_position()
-                } else {
-                    PhysicalPosition::new(-1., -1.)
-                };
-                if !top_bar_state.is_queue_empty() {
-                    // We update iced
-                    redraw_top_bar = true;
-                    let _ = top_bar_state.update(
-                        convert_size(top_bar_area.size),
-                        conversion::cursor_position(top_bar_cursor, window.scale_factor()),
-                        None,
-                        &mut renderer,
-                        &mut top_bar_debug,
-                    );
-                    {
-                        let mut requests = requests.lock().expect("requests");
-                        if requests.fitting {
-                            mediator.lock().unwrap().request_fits();
-                            requests.fitting = false;
-                        }
+                    let mut requests = requests.lock().expect("requests");
+                    if requests.fitting {
+                        mediator.lock().unwrap().request_fits();
+                        requests.fitting = false;
+                    }
 
-                        if let Some(ref path) = requests.file_add {
-                            let d_id = mediator.lock().unwrap().nb_design();
-                            let design = Design::new_with_path(d_id, path);
-                            if let Some(design) = design {
-                                let design = Arc::new(Mutex::new(design));
-                                mediator.lock().unwrap().add_design(design);
-                            }
-                            requests.file_add = None;
+                    if let Some(ref path) = requests.file_add {
+                        let d_id = mediator.lock().unwrap().nb_design();
+                        let design = Design::new_with_path(d_id, path);
+                        if let Some(design) = design {
+                            let design = Arc::new(Mutex::new(design));
+                            mediator.lock().unwrap().add_design(design);
                         }
+                        requests.file_add = None;
+                    }
 
-                        if requests.file_clear {
-                            mediator.lock().unwrap().clear_designs();
-                            requests.file_clear = false;
-                        }
+                    if requests.file_clear {
+                        mediator.lock().unwrap().clear_designs();
+                        requests.file_clear = false;
+                    }
 
-                        if let Some(ref path) = requests.file_save {
-                            mediator.lock().unwrap().save_design(path);
-                            requests.file_save = None;
-                        }
+                    if let Some(ref path) = requests.file_save {
+                        mediator.lock().unwrap().save_design(path);
+                        requests.file_save = None;
+                    }
 
-                        if let Some(value) = requests.toggle_text {
-                            mediator.lock().unwrap().toggle_text(value);
-                            requests.toggle_text = None;
-                        }
+                    if let Some(value) = requests.toggle_text {
+                        mediator.lock().unwrap().toggle_text(value);
+                        requests.toggle_text = None;
+                    }
 
-                        if let Some(value) = requests.toggle_scene {
-                            multiplexer.change_split(value);
-                            scheduler
-                                .lock()
-                                .unwrap()
-                                .forward_new_size(window.inner_size(), &multiplexer);
-                            redraw_left_panel = true;
-                            redraw_top_bar = true;
-                            requests.toggle_scene = None;
-                        }
+                    if let Some(value) = requests.toggle_scene {
+                        multiplexer.change_split(value);
+                        scheduler
+                            .lock()
+                            .unwrap()
+                            .forward_new_size(window.inner_size(), &multiplexer);
+                        gui.resize(&multiplexer, &window);
+                        requests.toggle_scene = None;
+                    }
 
-                        if requests.make_grids {
-                            mediator.lock().unwrap().make_grids();
-                            requests.make_grids = false
-                        }
+                    if requests.make_grids {
+                        mediator.lock().unwrap().make_grids();
+                        requests.make_grids = false
+                    }
+                    if let Some(selection_mode) = requests.selection_mode {
+                        mediator
+                            .lock()
+                            .unwrap()
+                            .change_selection_mode(selection_mode);
+                        requests.selection_mode = None;
+                    }
+
+                    if let Some(action_mode) = requests.action_mode {
+                        mediator.lock().unwrap().change_action_mode(action_mode);
+                        requests.action_mode = None;
+                    }
+
+                    if let Some(sequence) = requests.sequence_change.take() {
+                        mediator.lock().unwrap().change_sequence(sequence);
+                    }
+                    if let Some(color) = requests.strand_color_change {
+                        mediator.lock().unwrap().change_strand_color(color);
+                        requests.strand_color_change = None;
+                    }
+                    if let Some(sensitivity) = requests.scroll_sensitivity.take() {
+                        mediator.lock().unwrap().change_sensitivity(sensitivity);
+                        //flat_scene.lock().unwrap().change_sensitivity(sensitivity);
+                    }
+
+                    if let Some(overlay_type) = requests.overlay_closed.take() {
+                        overlay_manager.rm_overlay(overlay_type, &mut multiplexer);
+                    }
+
+                    if let Some(overlay_type) = requests.overlay_opened.take() {
+                        overlay_manager.add_overlay(overlay_type, &mut multiplexer);
                     }
                 }
 
                 // Treat eventual event that happenend in the gui left panel.
                 let overlay_change =
                     overlay_manager.fetch_change(&multiplexer, &window, &mut renderer);
-                let left_panel_cursor =
-                    if multiplexer.foccused_element() == Some(ElementType::LeftPanel) {
-                        multiplexer.get_cursor_position()
-                    } else {
-                        PhysicalPosition::new(-1., -1.)
-                    };
-                if !left_panel_state.is_queue_empty() || overlay_change {
-                    redraw_left_panel |= !left_panel_state.is_queue_empty();
-                    let _ = left_panel_state.update(
-                        convert_size(window.inner_size()),
-                        conversion::cursor_position(left_panel_cursor, window.scale_factor()),
-                        None,
-                        &mut renderer,
-                        &mut top_bar_debug,
-                    );
-                    {
-                        let mut requests = requests.lock().unwrap();
-                        if let Some(selection_mode) = requests.selection_mode {
-                            mediator
-                                .lock()
-                                .unwrap()
-                                .change_selection_mode(selection_mode);
-                            requests.selection_mode = None;
-                        }
-
-                        if let Some(action_mode) = requests.action_mode {
-                            mediator.lock().unwrap().change_action_mode(action_mode);
-                            requests.action_mode = None;
-                        }
-
-                        if let Some(sequence) = requests.sequence_change.take() {
-                            mediator.lock().unwrap().change_sequence(sequence);
-                        }
-                        if let Some(color) = requests.strand_color_change {
-                            mediator.lock().unwrap().change_strand_color(color);
-                            requests.strand_color_change = None;
-                        }
-                        if let Some(sensitivity) = requests.scroll_sensitivity.take() {
-                            mediator.lock().unwrap().change_sensitivity(sensitivity);
-                            //flat_scene.lock().unwrap().change_sensitivity(sensitivity);
-                        }
-
-                        if let Some(overlay_type) = requests.overlay_closed.take() {
-                            overlay_manager.rm_overlay(overlay_type, &mut multiplexer);
-                        }
-
-                        if let Some(overlay_type) = requests.overlay_opened.take() {
-                            overlay_manager.add_overlay(overlay_type, &mut multiplexer);
-                        }
-                    }
-                }
                 {
                     let mut messages = messages.lock().unwrap();
-                    for m in messages.left_panel.drain(..) {
-                        left_panel_state.queue_message(m);
-                    }
-                    for m in messages.top_bar.drain(..) {
-                        top_bar_state.queue_message(m);
-                    }
+                    gui.forward_messages(&mut messages);
                     overlay_manager.forward_messages(&mut messages);
                 }
 
@@ -422,33 +332,12 @@ fn main() {
                 window.request_redraw();
             }
             Event::RedrawRequested(_) => {
-                let top_bar_area = multiplexer.get_element_area(ElementType::TopBar).unwrap();
-                let top_bar_cursor = if multiplexer.foccused_element() == Some(ElementType::TopBar)
-                {
-                    multiplexer.get_cursor_position()
-                } else {
-                    PhysicalPosition::new(-1., -1.)
-                };
-                let left_panel_cursor =
-                    if multiplexer.foccused_element() == Some(ElementType::LeftPanel) {
-                        multiplexer.get_cursor_position()
-                    } else {
-                        PhysicalPosition::new(-1., -1.)
-                    };
                 if resized {
                     scheduler
                         .lock()
                         .unwrap()
                         .forward_new_size(window.inner_size(), &multiplexer);
                     let window_size = window.inner_size();
-                    /*
-                    let scene_area = multiplexer.get_element_area(ElementType::Scene);
-                    scene
-                        .lock()
-                        .unwrap()
-                        .notify(SceneNotification::NewSize(window_size, scene_area));
-                    flat_scene.lock().unwrap().resize(window_size, scene_area);
-                    */
 
                     swap_chain = device.create_swap_chain(
                         &surface,
@@ -461,42 +350,12 @@ fn main() {
                         },
                     );
 
-                    let top_bar_area = multiplexer.get_element_area(ElementType::TopBar).unwrap();
-                    top_bar_state.queue_message(gui::top_bar::Message::Resize(
-                        top_bar_area.size.to_logical(window.scale_factor()),
-                    ));
-
-                    let left_panel_area = multiplexer
-                        .get_element_area(ElementType::LeftPanel)
-                        .unwrap();
-                    left_panel_state.queue_message(gui::left_panel::Message::Resized(
-                        left_panel_area.size.to_logical(window.scale_factor()),
-                        left_panel_area.position.to_logical(window.scale_factor()),
-                    ));
+                    gui.resize(&multiplexer, &window);
                 }
                 // Get viewports from the partition
 
                 // If there are events pending
-                if !top_bar_state.is_queue_empty() || resized {
-                    // We update iced
-                    let _ = top_bar_state.update(
-                        convert_size(top_bar_area.size),
-                        conversion::cursor_position(top_bar_cursor, window.scale_factor()),
-                        None,
-                        &mut renderer,
-                        &mut top_bar_debug,
-                    );
-                }
-
-                if !left_panel_state.is_queue_empty() || resized {
-                    let _ = left_panel_state.update(
-                        convert_size(window.inner_size()),
-                        conversion::cursor_position(left_panel_cursor, window.scale_factor()),
-                        None,
-                        &mut renderer,
-                        &mut left_panel_debug,
-                    );
-                }
+                gui.update(&multiplexer, &window);
 
                 overlay_manager.process_event(&mut renderer, resized, &multiplexer, &window);
 
@@ -516,51 +375,13 @@ fn main() {
                     .draw_apps(&mut encoder, &multiplexer, dt);
                 last_render_time = now;
 
-                if redraw_left_panel {
-                    let viewport_left_panel = Viewport::with_physical_size(
-                        convert_size_u32(
-                            multiplexer
-                                .get_element_area(ElementType::LeftPanel)
-                                .unwrap()
-                                .size,
-                        ),
-                        window.scale_factor(),
-                    );
-                    let _left_panel_interaction = renderer.backend_mut().draw(
-                        &device,
-                        &mut staging_belt,
-                        &mut encoder,
-                        multiplexer
-                            .get_texture_view(ElementType::LeftPanel)
-                            .unwrap(),
-                        &viewport_left_panel,
-                        left_panel_state.primitive(),
-                        &left_panel_debug.overlay(),
-                    );
-                    redraw_left_panel = false;
-                }
-
-                if redraw_top_bar {
-                    let viewport_top_bar = Viewport::with_physical_size(
-                        convert_size_u32(
-                            multiplexer
-                                .get_element_area(ElementType::TopBar)
-                                .unwrap()
-                                .size,
-                        ),
-                        window.scale_factor(),
-                    );
-                    mouse_interaction = renderer.backend_mut().draw(
-                        &device,
-                        &mut staging_belt,
-                        &mut encoder,
-                        multiplexer.get_texture_view(ElementType::TopBar).unwrap(),
-                        &viewport_top_bar,
-                        top_bar_state.primitive(),
-                        &top_bar_debug.overlay(),
-                    );
-                    redraw_top_bar = false;
-                }
+                gui.render(
+                    &mut encoder,
+                    &window,
+                    &multiplexer,
+                    &mut staging_belt,
+                    &mut mouse_interaction,
+                );
 
                 multiplexer.draw(&mut encoder, &frame.output.view);
                 //overlay_manager.render(&device, &mut staging_belt, &mut encoder, &frame.output.view, &multiplexer, &window, &mut renderer);
