@@ -8,8 +8,10 @@ pub use left_panel::{ColorOverlay, LeftPanel};
 use crate::mediator::{ActionMode, SelectionMode};
 use crate::SplitMode;
 use crate::{DrawArea, ElementType, IcedMessages, Multiplexer};
+use iced_native::Event;
 use iced_wgpu::{wgpu, Backend, Renderer, Settings, Viewport};
 use iced_winit::{conversion, futures, program, winit, Debug, Size};
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
@@ -75,26 +77,125 @@ pub enum OverlayType {
     Color,
 }
 
-pub struct Gui {
-    top_bar_state: iced_winit::program::State<TopBar>,
-    top_bar_debug: Debug,
-    redraw_top_bar: bool,
-    left_panel_state: iced_winit::program::State<LeftPanel>,
-    left_panel_debug: Debug,
-    redraw_left_panel: bool,
-    renderer: iced_wgpu::Renderer,
-    device: Rc<Device>,
-    resized: bool,
+enum GuiState {
+    TopBar(iced_winit::program::State<TopBar>),
+    LeftPanel(iced_winit::program::State<LeftPanel>),
 }
 
-impl Gui {
-    pub fn new(
-        device: Rc<Device>,
+impl GuiState {
+    fn queue_event(&mut self, event: Event) {
+        match self {
+            GuiState::TopBar(state) => state.queue_event(event),
+            GuiState::LeftPanel(state) => state.queue_event(event),
+        }
+    }
+
+    fn queue_top_bar_message(&mut self, message: top_bar::Message) {
+        if let GuiState::TopBar(ref mut state) = self {
+            state.queue_message(message)
+        } else {
+            panic!("wrong message type")
+        }
+    }
+
+    fn queue_left_panel_message(&mut self, message: left_panel::Message) {
+        if let GuiState::LeftPanel(ref mut state) = self {
+            state.queue_message(message)
+        } else {
+            panic!("wrong message type")
+        }
+    }
+
+    fn resize(&mut self, area: DrawArea, window: &Window) {
+        match self {
+            GuiState::TopBar(ref mut state) => state.queue_message(top_bar::Message::Resize(
+                area.size.to_logical(window.scale_factor()),
+            )),
+            GuiState::LeftPanel(ref mut state) => {
+                state.queue_message(left_panel::Message::Resized(
+                    area.size.to_logical(window.scale_factor()),
+                    area.position.to_logical(window.scale_factor()),
+                ))
+            }
+        }
+    }
+
+    fn is_queue_empty(&self) -> bool {
+        match self {
+            GuiState::TopBar(state) => state.is_queue_empty(),
+            GuiState::LeftPanel(state) => state.is_queue_empty(),
+        }
+    }
+
+    fn update(
+        &mut self,
+        size: iced::Size,
+        cursor_position: iced::Point,
+        renderer: &mut Renderer,
+        debug: &mut Debug,
+    ) {
+        match self {
+            GuiState::TopBar(state) => {
+                state.update(size, cursor_position, None, renderer, debug);
+            }
+            GuiState::LeftPanel(state) => {
+                state.update(size, cursor_position, None, renderer, debug);
+            }
+        }
+    }
+
+    fn render(
+        &mut self,
+        renderer: &mut Renderer,
+        device: &Device,
+        staging_belt: &mut wgpu::util::StagingBelt,
+        encoder: &mut wgpu::CommandEncoder,
+        target: &wgpu::TextureView,
+        viewport: &iced_graphics::Viewport,
+        debug: &Debug,
+        mouse_interaction: &mut iced::mouse::Interaction,
+    ) {
+        match self {
+            GuiState::TopBar(ref state) => {
+                *mouse_interaction = renderer.backend_mut().draw(
+                    device,
+                    staging_belt,
+                    encoder,
+                    target,
+                    viewport,
+                    state.primitive(),
+                    &debug.overlay(),
+                );
+            }
+            GuiState::LeftPanel(ref state) => {
+                renderer.backend_mut().draw(
+                    device,
+                    staging_belt,
+                    encoder,
+                    target,
+                    viewport,
+                    state.primitive(),
+                    &debug.overlay(),
+                );
+            }
+        }
+    }
+}
+
+struct GuiElement {
+    state: GuiState,
+    debug: Debug,
+    redraw: bool,
+    element_type: ElementType,
+}
+
+impl GuiElement {
+    fn top_bar(
+        renderer: &mut Renderer,
         window: &Window,
         multiplexer: &Multiplexer,
         requests: Arc<Mutex<Requests>>,
     ) -> Self {
-        let mut renderer = Renderer::new(Backend::new(device.as_ref(), Settings::default()));
         let cursor_position = PhysicalPosition::new(-1., -1.);
         let top_bar_area = multiplexer.get_element_area(ElementType::TopBar).unwrap();
         let top_bar = TopBar::new(
@@ -106,11 +207,24 @@ impl Gui {
             top_bar,
             convert_size(top_bar_area.size),
             conversion::cursor_position(cursor_position, window.scale_factor()),
-            &mut renderer,
+            renderer,
             &mut top_bar_debug,
         );
+        Self {
+            state: GuiState::TopBar(top_bar_state),
+            debug: top_bar_debug,
+            redraw: true,
+            element_type: ElementType::TopBar,
+        }
+    }
 
-        // Left panel
+    fn left_panel(
+        renderer: &mut Renderer,
+        window: &Window,
+        multiplexer: &Multiplexer,
+        requests: Arc<Mutex<Requests>>,
+    ) -> Self {
+        let cursor_position = PhysicalPosition::new(-1., -1.);
         let left_panel_area = multiplexer
             .get_element_area(ElementType::LeftPanel)
             .unwrap();
@@ -124,17 +238,119 @@ impl Gui {
             left_panel,
             convert_size(left_panel_area.size),
             conversion::cursor_position(cursor_position, window.scale_factor()),
-            &mut renderer,
+            renderer,
             &mut left_panel_debug,
+        );
+        Self {
+            state: GuiState::LeftPanel(left_panel_state),
+            debug: left_panel_debug,
+            redraw: true,
+            element_type: ElementType::LeftPanel,
+        }
+    }
+
+    fn forward_event(&mut self, event: Event) {
+        self.state.queue_event(event)
+    }
+
+    fn get_state(&mut self) -> &mut GuiState {
+        &mut self.state
+    }
+
+    fn resize(&mut self, window: &Window, multiplexer: &Multiplexer) {
+        let area = multiplexer.get_draw_area(self.element_type).unwrap();
+        self.state.resize(area, window);
+        self.redraw = true;
+    }
+
+    fn fetch_change(
+        &mut self,
+        window: &Window,
+        multiplexer: &Multiplexer,
+        renderer: &mut Renderer,
+        resized: bool,
+    ) {
+        let area = multiplexer.get_element_area(self.element_type).unwrap();
+        let cursor = if multiplexer.foccused_element() == Some(self.element_type) {
+            multiplexer.get_cursor_position()
+        } else {
+            PhysicalPosition::new(-1., -1.)
+        };
+        if !self.state.is_queue_empty() || resized {
+            // We update iced
+            self.redraw = true;
+            let _ = self.state.update(
+                convert_size(area.size),
+                conversion::cursor_position(cursor, window.scale_factor()),
+                renderer,
+                &mut self.debug,
+            );
+        }
+    }
+
+    pub fn render(
+        &mut self,
+        renderer: &mut Renderer,
+        encoder: &mut wgpu::CommandEncoder,
+        device: &Device,
+        window: &Window,
+        multiplexer: &Multiplexer,
+        staging_belt: &mut wgpu::util::StagingBelt,
+        mouse_interaction: &mut iced::mouse::Interaction,
+    ) {
+        if self.redraw {
+            let viewport = Viewport::with_physical_size(
+                convert_size_u32(
+                    multiplexer
+                        .get_element_area(self.element_type)
+                        .unwrap()
+                        .size,
+                ),
+                window.scale_factor(),
+            );
+            let target = multiplexer.get_texture_view(self.element_type).unwrap();
+            self.state.render(
+                renderer,
+                device,
+                staging_belt,
+                encoder,
+                target,
+                &viewport,
+                &self.debug,
+                mouse_interaction,
+            );
+            self.redraw = false;
+        }
+    }
+}
+
+pub struct Gui {
+    elements: HashMap<ElementType, GuiElement>,
+    renderer: iced_wgpu::Renderer,
+    device: Rc<Device>,
+    resized: bool,
+}
+
+impl Gui {
+    pub fn new(
+        device: Rc<Device>,
+        window: &Window,
+        multiplexer: &Multiplexer,
+        requests: Arc<Mutex<Requests>>,
+    ) -> Self {
+        let mut renderer = Renderer::new(Backend::new(device.as_ref(), Settings::default()));
+        let mut elements = HashMap::new();
+        elements.insert(
+            ElementType::TopBar,
+            GuiElement::top_bar(&mut renderer, window, multiplexer, requests.clone()),
+        );
+        elements.insert(
+            ElementType::LeftPanel,
+            GuiElement::left_panel(&mut renderer, window, multiplexer, requests.clone()),
         );
 
         Self {
-            top_bar_state,
-            top_bar_debug,
-            redraw_top_bar: true,
-            left_panel_state,
-            left_panel_debug,
-            redraw_left_panel: true,
+            elements,
             renderer,
             device,
             resized: true,
@@ -142,110 +358,44 @@ impl Gui {
     }
 
     pub fn forward_event(&mut self, area: ElementType, event: iced_native::Event) {
-        match area {
-            ElementType::TopBar => self.top_bar_state.queue_event(event),
-            ElementType::LeftPanel => self.left_panel_state.queue_event(event),
-            _ => unreachable!(),
-        }
+        self.elements.get_mut(&area).unwrap().forward_event(event);
     }
 
     pub fn forward_messages(&mut self, messages: &mut IcedMessages) {
         for m in messages.top_bar.drain(..) {
-            self.top_bar_state.queue_message(m);
+            self.elements
+                .get_mut(&ElementType::TopBar)
+                .unwrap()
+                .get_state()
+                .queue_top_bar_message(m);
         }
         for m in messages.left_panel.drain(..) {
-            self.left_panel_state.queue_message(m);
+            self.elements
+                .get_mut(&ElementType::LeftPanel)
+                .unwrap()
+                .get_state()
+                .queue_left_panel_message(m);
         }
     }
 
     pub fn resize(&mut self, multiplexer: &Multiplexer, window: &Window) {
+        for element in self.elements.values_mut() {
+            element.resize(window, multiplexer)
+        }
         let top_bar_area = multiplexer.get_element_area(ElementType::TopBar).unwrap();
-        self.top_bar_state.queue_message(top_bar::Message::Resize(
-            top_bar_area.size.to_logical(window.scale_factor()),
-        ));
-
-        let left_panel_area = multiplexer
-            .get_element_area(ElementType::LeftPanel)
-            .unwrap();
-        self.left_panel_state
-            .queue_message(left_panel::Message::Resized(
-                left_panel_area.size.to_logical(window.scale_factor()),
-                left_panel_area.position.to_logical(window.scale_factor()),
-            ));
         self.resized = true;
-        self.redraw_top_bar = true;
-        self.redraw_left_panel = true;
     }
 
     pub fn fetch_change(&mut self, window: &Window, multiplexer: &Multiplexer) {
-        let top_bar_area = multiplexer.get_element_area(ElementType::TopBar).unwrap();
-        let top_bar_cursor = if multiplexer.foccused_element() == Some(ElementType::TopBar) {
-            multiplexer.get_cursor_position()
-        } else {
-            PhysicalPosition::new(-1., -1.)
-        };
-        if !self.top_bar_state.is_queue_empty() {
-            // We update iced
-            self.redraw_top_bar = true;
-            let _ = self.top_bar_state.update(
-                convert_size(top_bar_area.size),
-                conversion::cursor_position(top_bar_cursor, window.scale_factor()),
-                None,
-                &mut self.renderer,
-                &mut self.top_bar_debug,
-            );
-        }
-
-        let left_panel_cursor = if multiplexer.foccused_element() == Some(ElementType::LeftPanel) {
-            multiplexer.get_cursor_position()
-        } else {
-            PhysicalPosition::new(-1., -1.)
-        };
-        if !self.left_panel_state.is_queue_empty() {
-            self.redraw_left_panel = true;
-            let _ = self.left_panel_state.update(
-                convert_size(window.inner_size()),
-                conversion::cursor_position(left_panel_cursor, window.scale_factor()),
-                None,
-                &mut self.renderer,
-                &mut self.top_bar_debug,
-            );
+        for elements in self.elements.values_mut() {
+            elements.fetch_change(window, multiplexer, &mut self.renderer, false)
         }
     }
 
     pub fn update(&mut self, multiplexer: &Multiplexer, window: &Window) {
-        let top_bar_area = multiplexer.get_element_area(ElementType::TopBar).unwrap();
-        let top_bar_cursor = if multiplexer.foccused_element() == Some(ElementType::TopBar) {
-            multiplexer.get_cursor_position()
-        } else {
-            PhysicalPosition::new(-1., -1.)
-        };
-        let left_panel_cursor = if multiplexer.foccused_element() == Some(ElementType::LeftPanel) {
-            multiplexer.get_cursor_position()
-        } else {
-            PhysicalPosition::new(-1., -1.)
-        };
-        if !self.top_bar_state.is_queue_empty() || self.resized {
-            // We update iced
-            let _ = self.top_bar_state.update(
-                convert_size(top_bar_area.size),
-                conversion::cursor_position(top_bar_cursor, window.scale_factor()),
-                None,
-                &mut self.renderer,
-                &mut self.top_bar_debug,
-            );
+        for elements in self.elements.values_mut() {
+            elements.fetch_change(window, multiplexer, &mut self.renderer, self.resized)
         }
-
-        if !self.left_panel_state.is_queue_empty() || self.resized {
-            let _ = self.left_panel_state.update(
-                convert_size(window.inner_size()),
-                conversion::cursor_position(left_panel_cursor, window.scale_factor()),
-                None,
-                &mut self.renderer,
-                &mut self.left_panel_debug,
-            );
-        }
-
         self.resized = false;
     }
 
@@ -257,50 +407,16 @@ impl Gui {
         staging_belt: &mut wgpu::util::StagingBelt,
         mouse_interaction: &mut iced::mouse::Interaction,
     ) {
-        if self.redraw_left_panel {
-            let viewport_left_panel = Viewport::with_physical_size(
-                convert_size_u32(
-                    multiplexer
-                        .get_element_area(ElementType::LeftPanel)
-                        .unwrap()
-                        .size,
-                ),
-                window.scale_factor(),
-            );
-            let _left_panel_interaction = self.renderer.backend_mut().draw(
-                self.device.as_ref(),
-                staging_belt,
+        for element in self.elements.values_mut() {
+            element.render(
+                &mut self.renderer,
                 encoder,
-                multiplexer
-                    .get_texture_view(ElementType::LeftPanel)
-                    .unwrap(),
-                &viewport_left_panel,
-                self.left_panel_state.primitive(),
-                &self.left_panel_debug.overlay(),
-            );
-            self.redraw_left_panel = false;
-        }
-
-        if self.redraw_top_bar {
-            let viewport_top_bar = Viewport::with_physical_size(
-                convert_size_u32(
-                    multiplexer
-                        .get_element_area(ElementType::TopBar)
-                        .unwrap()
-                        .size,
-                ),
-                window.scale_factor(),
-            );
-            *mouse_interaction = self.renderer.backend_mut().draw(
                 self.device.as_ref(),
+                window,
+                multiplexer,
                 staging_belt,
-                encoder,
-                multiplexer.get_texture_view(ElementType::TopBar).unwrap(),
-                &viewport_top_bar,
-                self.top_bar_state.primitive(),
-                &self.top_bar_debug.overlay(),
-            );
-            self.redraw_top_bar = false;
+                mouse_interaction,
+            )
         }
     }
 }

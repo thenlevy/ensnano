@@ -32,6 +32,8 @@ pub enum ElementType {
     FlatScene,
     /// The Left Panel
     LeftPanel,
+    /// The status bar
+    StatusBar,
     GridPanel,
     /// An overlay area
     Overlay(usize),
@@ -49,7 +51,7 @@ impl ElementType {
 
     pub fn is_gui(&self) -> bool {
         match self {
-            ElementType::TopBar | ElementType::LeftPanel => true,
+            ElementType::TopBar | ElementType::LeftPanel | ElementType::StatusBar => true,
             _ => false,
         }
     }
@@ -97,6 +99,7 @@ pub struct Multiplexer {
     /// The texture on wich the grid is rendered
     grid_panel_texture: Option<SampledTexture>,
     /// The texutre on which the flat scene is rendered,
+    status_bar_texture: Option<SampledTexture>,
     flat_scene_texture: Option<SampledTexture>,
     device: Rc<Device>,
     pipeline: Option<wgpu::RenderPipeline>,
@@ -109,9 +112,11 @@ impl Multiplexer {
         let mut layout_manager = LayoutTree::new();
         let (top_bar, scene) = layout_manager.vsplit(0, 0.05);
         let (left_pannel, scene) = layout_manager.hsplit(scene, 0.2);
+        //let (scene, status_bar) = layout_manager.vsplit(scene, 0.1);
         //let (scene, grid_panel) = layout_manager.hsplit(scene, 0.8);
         layout_manager.attribute_element(top_bar, ElementType::TopBar);
         layout_manager.attribute_element(scene, ElementType::Scene);
+        //layout_manager.attribute_element(status_bar, ElementType::StatusBar);
         layout_manager.attribute_element(left_pannel, ElementType::LeftPanel);
         //layout_manager.attribute_element(grid_panel, ElementType::GridPanel);
         let mut ret = Self {
@@ -126,6 +131,7 @@ impl Multiplexer {
             top_bar_texture: None,
             left_pannel_texture: None,
             grid_panel_texture: None,
+            status_bar_texture: None,
             overlays: Vec::new(),
             overlays_textures: Vec::new(),
             device,
@@ -145,6 +151,7 @@ impl Multiplexer {
             ElementType::Overlay(n) => Some(&self.overlays_textures[n].view),
             ElementType::GridPanel => self.grid_panel_texture.as_ref().map(|t| &t.view),
             ElementType::FlatScene => self.flat_scene_texture.as_ref().map(|t| &t.view),
+            ElementType::StatusBar => self.status_bar_texture.as_ref().map(|t| &t.view),
             ElementType::Unattributed => unreachable!(),
         }
     }
@@ -226,6 +233,7 @@ impl Multiplexer {
             ElementType::FlatScene => &self.flat_scene_texture.as_ref().unwrap().bind_group,
             ElementType::GridPanel => &self.grid_panel_texture.as_ref().unwrap().bind_group,
             ElementType::Overlay(n) => &self.overlays_textures[*n].bind_group,
+            ElementType::StatusBar => &self.status_bar_texture.as_ref().unwrap().bind_group,
             ElementType::Unattributed => unreachable!(),
         }
     }
@@ -365,6 +373,7 @@ impl Multiplexer {
         self.left_pannel_texture = self.texture(ElementType::LeftPanel);
         self.grid_panel_texture = self.texture(ElementType::GridPanel);
         self.flat_scene_texture = self.texture(ElementType::FlatScene);
+        self.status_bar_texture = self.texture(ElementType::StatusBar);
 
         self.overlays_textures.clear();
         for overlay in self.overlays.iter() {

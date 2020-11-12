@@ -122,8 +122,6 @@ impl LayoutTree {
     }
 
     pub fn merge(&mut self, old_leaf: ElementType, new_leaf: ElementType) {
-        println!("before parent {:?}", self.parent);
-        println!("before element {:?}", self.element_type);
         let area_id = *self
             .area_identifer
             .get(&old_leaf)
@@ -134,8 +132,6 @@ impl LayoutTree {
         self.area_identifer.remove(&old_leaf);
         self.area_identifer.remove(&old_brother);
         self.attribute_element(parent_id, new_leaf);
-        println!("after parent {:?}", self.parent);
-        println!("after element {:?}", self.element_type);
     }
 
     /// Get the Element owning the pixel `(x, y)`
@@ -163,8 +159,6 @@ impl LayoutTree {
         self.area_identifer.remove(&old_element);
         self.element_type[area] = element_type;
         self.area_identifer.insert(element_type, area);
-        println!("after attribution {:?}", self.element_type);
-        println!("after attribution {:?}", self.area_identifer);
     }
 }
 
