@@ -4,6 +4,8 @@ pub use top_bar::TopBar;
 /// Draw the left pannel of the GUI
 pub mod left_panel;
 pub use left_panel::{ColorOverlay, LeftPanel};
+mod status_bar;
+use status_bar::StatusBar;
 
 use crate::mediator::{ActionMode, SelectionMode};
 use crate::SplitMode;
@@ -80,6 +82,7 @@ pub enum OverlayType {
 enum GuiState {
     TopBar(iced_winit::program::State<TopBar>),
     LeftPanel(iced_winit::program::State<LeftPanel>),
+    StatusBar(iced_winit::program::State<StatusBar>),
 }
 
 impl GuiState {
@@ -87,6 +90,7 @@ impl GuiState {
         match self {
             GuiState::TopBar(state) => state.queue_event(event),
             GuiState::LeftPanel(state) => state.queue_event(event),
+            GuiState::StatusBar(state) => state.queue_event(event),
         }
     }
 
@@ -117,6 +121,7 @@ impl GuiState {
                     area.position.to_logical(window.scale_factor()),
                 ))
             }
+            GuiState::StatusBar(ref mut state) => { }
         }
     }
 
@@ -124,6 +129,7 @@ impl GuiState {
         match self {
             GuiState::TopBar(state) => state.is_queue_empty(),
             GuiState::LeftPanel(state) => state.is_queue_empty(),
+            GuiState::StatusBar(state) => state.is_queue_empty(),
         }
     }
 
@@ -139,6 +145,9 @@ impl GuiState {
                 state.update(size, cursor_position, None, renderer, debug);
             }
             GuiState::LeftPanel(state) => {
+                state.update(size, cursor_position, None, renderer, debug);
+            }
+            GuiState::StatusBar(state) => {
                 state.update(size, cursor_position, None, renderer, debug);
             }
         }
@@ -168,6 +177,17 @@ impl GuiState {
                 );
             }
             GuiState::LeftPanel(ref state) => {
+                renderer.backend_mut().draw(
+                    device,
+                    staging_belt,
+                    encoder,
+                    target,
+                    viewport,
+                    state.primitive(),
+                    &debug.overlay(),
+                );
+            }
+            GuiState::StatusBar(ref state) => {
                 renderer.backend_mut().draw(
                     device,
                     staging_belt,
@@ -246,6 +266,31 @@ impl GuiElement {
             debug: left_panel_debug,
             redraw: true,
             element_type: ElementType::LeftPanel,
+        }
+    }
+
+    fn status_bar(
+        renderer: &mut Renderer,
+        window: &Window,
+        multiplexer: &Multiplexer,
+        requests: Arc<Mutex<Requests>>,
+    ) -> Self {
+        let cursor_position = PhysicalPosition::new(-1., -1.);
+        let status_bar_area = multiplexer.get_element_area(ElementType::StatusBar).unwrap();
+        let status_bar = StatusBar::new();
+        let mut status_bar_debug = Debug::new();
+        let status_bar_state = program::State::new(
+            status_bar,
+            convert_size(status_bar_area.size),
+            conversion::cursor_position(cursor_position, window.scale_factor()),
+            renderer,
+            &mut status_bar_debug,
+        );
+        Self {
+            state: GuiState::StatusBar(status_bar_state),
+            debug: status_bar_debug,
+            redraw: true,
+            element_type: ElementType::StatusBar,
         }
     }
 
@@ -347,6 +392,10 @@ impl Gui {
         elements.insert(
             ElementType::LeftPanel,
             GuiElement::left_panel(&mut renderer, window, multiplexer, requests.clone()),
+        );
+        elements.insert(
+            ElementType::StatusBar,
+            GuiElement::status_bar(&mut renderer, window, multiplexer, requests.clone())
         );
 
         Self {

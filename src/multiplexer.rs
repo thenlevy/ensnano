@@ -112,11 +112,11 @@ impl Multiplexer {
         let mut layout_manager = LayoutTree::new();
         let (top_bar, scene) = layout_manager.vsplit(0, 0.05);
         let (left_pannel, scene) = layout_manager.hsplit(scene, 0.2);
-        //let (scene, status_bar) = layout_manager.vsplit(scene, 0.1);
+        let (scene, status_bar) = layout_manager.vsplit(scene, 0.90);
         //let (scene, grid_panel) = layout_manager.hsplit(scene, 0.8);
         layout_manager.attribute_element(top_bar, ElementType::TopBar);
         layout_manager.attribute_element(scene, ElementType::Scene);
-        //layout_manager.attribute_element(status_bar, ElementType::StatusBar);
+        layout_manager.attribute_element(status_bar, ElementType::StatusBar);
         layout_manager.attribute_element(left_pannel, ElementType::LeftPanel);
         //layout_manager.attribute_element(grid_panel, ElementType::GridPanel);
         let mut ret = Self {
@@ -199,6 +199,7 @@ impl Multiplexer {
             ElementType::GridPanel,
             ElementType::Scene,
             ElementType::FlatScene,
+            ElementType::StatusBar,
         ]
         .iter()
         {
