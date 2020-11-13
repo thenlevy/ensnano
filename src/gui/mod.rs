@@ -7,7 +7,7 @@ pub use left_panel::{ColorOverlay, LeftPanel};
 pub mod status_bar;
 use status_bar::StatusBar;
 
-use crate::mediator::{ActionMode, SelectionMode};
+use crate::mediator::{ActionMode, SelectionMode, Operation};
 use crate::SplitMode;
 use crate::{DrawArea, ElementType, IcedMessages, Multiplexer};
 use iced_native::Event;
@@ -50,6 +50,7 @@ pub struct Requests {
     pub make_grids: bool,
     pub overlay_closed: Option<OverlayType>,
     pub overlay_opened: Option<OverlayType>,
+    pub operation_update: Option<Arc<dyn Operation>>,
 }
 
 impl Requests {
@@ -70,6 +71,7 @@ impl Requests {
             make_grids: false,
             overlay_closed: None,
             overlay_opened: None,
+            operation_update: None,
         }
     }
 }
@@ -285,7 +287,7 @@ impl GuiElement {
     ) -> Self {
         let cursor_position = PhysicalPosition::new(-1., -1.);
         let status_bar_area = multiplexer.get_element_area(ElementType::StatusBar).unwrap();
-        let status_bar = StatusBar::new();
+        let status_bar = StatusBar::new(requests);
         let mut status_bar_debug = Debug::new();
         let status_bar_state = program::State::new(
             status_bar,

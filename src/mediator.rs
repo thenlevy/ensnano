@@ -273,7 +273,7 @@ impl Mediator {
         self.selection.get_design()
     }
 
-    pub fn update_opperation(&mut self, operation: Arc<dyn Operation>) {
+    pub fn update_opperation(&mut self, operation: Arc<dyn Operation>, from_app: bool) {
         let target = {
             let mut set = HashSet::new();
             set.insert(operation.target() as u32);
@@ -289,7 +289,9 @@ impl Mediator {
             };
             self.notify_designs(&target, rev_op.effect());
         }
-        self.messages.lock().unwrap().push_op(operation);
+        if from_app {
+            self.messages.lock().unwrap().push_op(operation);
+        }
         self.notify_designs(&target, effect)
     }
 }

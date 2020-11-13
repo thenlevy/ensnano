@@ -11,7 +11,7 @@ use crate::{design, mediator, utils};
 use crate::{DrawArea, PhySize, WindowEvent};
 use instance::Instance;
 use mediator::{
-    ActionMode, AppNotification, Application, MediatorPtr, Notification, SelectionMode, Operation, HelixRotation,
+    ActionMode, AppNotification, Application, MediatorPtr, Notification, SelectionMode, Operation, HelixRotation, DesignViewRotation,
 };
 use utils::instance;
 use wgpu::{Device, Queue};
@@ -234,41 +234,36 @@ impl Scene {
     }
 
     fn rotate_selected_desgin(&mut self, rotation: Rotor3, origin: Vec3) {
-        if SelectionMode::Helix == self.data.borrow().selection_mode {
-            self.rotate_selected_helix(rotation, origin);
-        } else {
-            let target = match self.data.borrow().selection_mode {
-                SelectionMode::Helix => IsometryTarget::Helix(self.data.borrow().get_selected_group()),
-                _ => IsometryTarget::Design,
-            };
-            let rotation = DesignRotation {
-                rotation,
-                origin,
-                target,
-            };
-            self.mediator.lock().unwrap().notify_designs(
-                &self.data.borrow().get_selected_designs(),
-                AppNotification::Rotation(rotation),
-            );
-        }
-    }
-
-    fn rotate_selected_helix(&mut self, rotation: Rotor3, origin: Vec3) {
         let target = match self.data.borrow().selection_mode {
-            SelectionMode::Helix => self.data.borrow().get_selected_group(),
-            _ => unreachable!(),
+            SelectionMode::Helix => IsometryTarget::Helix(self.data.borrow().get_selected_group()),
+            _ => IsometryTarget::Design,
         };
+        let design_id = *self.get_selected_designs().iter().next().unwrap() as usize;
         let (angle, plane) = rotation.into_angle_plane();
-        let rotation = HelixRotation {
-            helix_id: target as usize,
-            angle,
-            plane,
-            origin,
-            design_id: *self.get_selected_designs().iter().next().unwrap() as usize,
+        let rotation: Arc<dyn Operation> = match self.data.borrow().selection_mode {
+            SelectionMode::Helix => {
+                let helix_id = self.data.borrow().get_selected_group() as usize;
+                Arc::new(HelixRotation {
+                    helix_id,
+                    angle,
+                    plane,
+                    origin,
+                    design_id, 
+                })
+            }
+            _ => {
+                Arc::new(DesignViewRotation {
+                    angle,
+                    plane,
+                    origin,
+                    design_id
+                })
+            }
         };
 
         self.mediator.lock().unwrap().update_opperation(
-            Arc::new(rotation)
+            rotation,
+            true
         );
     }
 

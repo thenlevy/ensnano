@@ -317,6 +317,10 @@ fn main() {
                     if let Some(overlay_type) = requests.overlay_opened.take() {
                         overlay_manager.add_overlay(overlay_type, &mut multiplexer);
                     }
+
+                    if let Some(op) = requests.operation_update.take() {
+                        mediator.lock().unwrap().update_opperation(op, false)
+                    }
                 }
 
                 // Treat eventual event that happenend in the gui left panel.

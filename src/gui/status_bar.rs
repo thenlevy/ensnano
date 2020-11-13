@@ -1,7 +1,8 @@
 use iced_winit::{Text, Command, Element, Program, Row};
 use iced_native::{text_input, TextInput, pick_list, PickList};
 use crate::mediator::{ParameterField, Operation};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
+use super::Requests;
 
 enum StatusParameter {
     Value(text_input::State),
@@ -36,14 +37,18 @@ impl StatusParameter {
 
 pub struct StatusBar {
     parameters: Vec<StatusParameter>,
+    values: Vec<String>,
     operation: Option<Arc<dyn Operation>>,
+    requests: Arc<Mutex<Requests>>,
 }
 
 impl StatusBar {
-    pub fn new() -> Self {
+    pub fn new(requests: Arc<Mutex<Requests>>) -> Self {
         Self { 
             parameters: Vec::new(),
+            values: Vec::new(),
             operation: None,
+            requests,
         }
     }
 
@@ -60,6 +65,7 @@ impl StatusBar {
                 }
             }
         }
+        self.values = operation.values().clone();
         self.parameters = new_param;
     }
 }
@@ -80,7 +86,14 @@ impl Program for StatusBar {
                 self.operation = Some(op.clone());
                 self.update_op(op.clone());
             }
-            _ => ()
+            Message::ValueChanged(n, s) => {
+                self.values[n] = s.clone();
+                let new_op = self.operation.as_ref().and_then(|op| op.with_new_value(n, s));
+                if let Some(ref op) = new_op {
+                    self.operation = Some(op.clone());
+                }
+                self.requests.lock().unwrap().operation_update = new_op;
+            }
         }
         Command::none()
     }
@@ -89,14 +102,14 @@ impl Program for StatusBar {
         let mut row = Row::new();
         if let Some(ref op) = self.operation {
             row = row.push(Text::new(op.description()));
-            let values = op.values();
+            let values = &self.values;
             for (i, p) in self.parameters.iter_mut().enumerate() {
                 let param = &op.parameters()[i];
                 match param.field {
                     ParameterField::Value => {
                         row = row
                             .push(Text::new(param.name.clone()))
-                            .push(TextInput::new(p.get_value(), values[i].as_str(), "", move |s| Message::ValueChanged(i, s)))
+                            .push(TextInput::new(p.get_value(), "", values[i].as_str(),  move |s| Message::ValueChanged(i, s)))
                     }
                     ParameterField::Choice(_) => unimplemented!()
                 }
