@@ -19,6 +19,9 @@ use crate::design;
 
 use design::{Design, DesignNotification, DesignRotation};
 
+mod operation;
+pub use operation::*;
+
 pub type MediatorPtr = Arc<Mutex<Mediator>>;
 
 pub struct Mediator {
@@ -26,6 +29,7 @@ pub struct Mediator {
     designs: Vec<Arc<Mutex<Design>>>,
     selection: Selection,
     messages: Arc<Mutex<IcedMessages>>,
+    current_operation: Option<Arc<dyn Operation>>,
 }
 
 pub struct Scheduler {
@@ -82,11 +86,11 @@ impl Scheduler {
 
 #[derive(Clone)]
 /// A notification that must be send to the application
-pub enum Notification<'a> {
+pub enum Notification {
     /// A design has been modified
     DesignNotification(DesignNotification),
     #[allow(dead_code)]
-    AppNotification(AppNotification<'a>),
+    AppNotification(AppNotification),
     /// A new design has been added
     NewDesign(Arc<Mutex<Design>>),
     /// The application must show/hide the sequences
@@ -125,6 +129,7 @@ impl Mediator {
             designs: Vec::new(),
             selection: Selection::Nothing,
             messages,
+            current_operation: None,
         }
     }
 
@@ -267,13 +272,33 @@ impl Mediator {
     fn selected_design(&self) -> Option<u32> {
         self.selection.get_design()
     }
+
+    pub fn update_opperation(&mut self, operation: Arc<dyn Operation>) {
+        let target = {
+            let mut set = HashSet::new();
+            set.insert(operation.target() as u32);
+            set
+        };
+        let effect = operation.effect();
+        if let Some(current_op) = self.current_operation.replace(operation.clone()) {
+            let rev_op = current_op.reverse();
+            let target = {
+                let mut set = HashSet::new();
+                set.insert(current_op.target() as u32);
+                set
+            };
+            self.notify_designs(&target, rev_op.effect());
+        }
+        self.messages.lock().unwrap().push_op(operation);
+        self.notify_designs(&target, effect)
+    }
 }
 
 #[derive(Clone)]
-pub enum AppNotification<'a> {
+pub enum AppNotification {
     MovementEnded,
-    Rotation(&'a DesignRotation),
-    Translation(&'a ultraviolet::Vec3),
+    Rotation(DesignRotation),
+    Translation(ultraviolet::Vec3),
     MakeGrids,
 }
 

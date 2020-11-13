@@ -34,7 +34,7 @@ mod mediator;
 mod multiplexer;
 /// 3D scene drawing
 mod scene;
-use mediator::{Mediator, Scheduler};
+use mediator::{Operation, Mediator, Scheduler};
 mod flatscene;
 mod text;
 mod utils;
@@ -411,6 +411,7 @@ pub struct IcedMessages {
     #[allow(dead_code)]
     top_bar: VecDeque<gui::top_bar::Message>,
     color_overlay: VecDeque<gui::left_panel::ColorMessage>,
+    status_bar: VecDeque<gui::status_bar::Message>,
 }
 
 impl IcedMessages {
@@ -420,6 +421,7 @@ impl IcedMessages {
             left_panel: VecDeque::new(),
             top_bar: VecDeque::new(),
             color_overlay: VecDeque::new(),
+            status_bar: VecDeque::new(),
         }
     }
 
@@ -434,6 +436,10 @@ impl IcedMessages {
     pub fn push_sequence(&mut self, sequence: String) {
         self.left_panel
             .push_front(gui::left_panel::Message::SequenceChanged(sequence));
+    }
+
+    pub fn push_op(&mut self, operation: Arc<dyn Operation>) {
+        self.status_bar.push_front(gui::status_bar::Message::Operation(operation));
     }
 }
 

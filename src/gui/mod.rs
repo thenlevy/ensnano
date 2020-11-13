@@ -4,7 +4,7 @@ pub use top_bar::TopBar;
 /// Draw the left pannel of the GUI
 pub mod left_panel;
 pub use left_panel::{ColorOverlay, LeftPanel};
-mod status_bar;
+pub mod status_bar;
 use status_bar::StatusBar;
 
 use crate::mediator::{ActionMode, SelectionMode};
@@ -104,6 +104,14 @@ impl GuiState {
 
     fn queue_left_panel_message(&mut self, message: left_panel::Message) {
         if let GuiState::LeftPanel(ref mut state) = self {
+            state.queue_message(message)
+        } else {
+            panic!("wrong message type")
+        }
+    }
+
+    fn queue_status_bar_message(&mut self, message: status_bar::Message) {
+        if let GuiState::StatusBar(ref mut state) = self {
             state.queue_message(message)
         } else {
             panic!("wrong message type")
@@ -424,6 +432,13 @@ impl Gui {
                 .unwrap()
                 .get_state()
                 .queue_left_panel_message(m);
+        }
+        for m in messages.status_bar.drain(..) {
+            self.elements
+                .get_mut(&ElementType::StatusBar)
+                .unwrap()
+                .get_state()
+                .queue_status_bar_message(m);
         }
     }
 
