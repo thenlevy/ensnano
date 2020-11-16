@@ -34,7 +34,7 @@ mod mediator;
 mod multiplexer;
 /// 3D scene drawing
 mod scene;
-use mediator::{Operation, Mediator, Scheduler};
+use mediator::{Mediator, Operation, Scheduler};
 mod flatscene;
 mod text;
 mod utils;
@@ -443,7 +443,13 @@ impl IcedMessages {
     }
 
     pub fn push_op(&mut self, operation: Arc<dyn Operation>) {
-        self.status_bar.push_front(gui::status_bar::Message::Operation(operation));
+        self.status_bar
+            .push_front(gui::status_bar::Message::Operation(operation));
+    }
+
+    pub fn clear_op(&mut self) {
+        self.status_bar
+            .push_front(gui::status_bar::Message::ClearOp);
     }
 }
 

@@ -453,7 +453,12 @@ impl View {
 
     /// Compute the rotation that needs to be applied to the objects affected by the rotation
     /// widget.
-    pub fn compute_rotation(&self, x: f32, y: f32, mode: RotationMode) -> Option<(Rotor3, Vec3)> {
+    pub fn compute_rotation(
+        &self,
+        x: f32,
+        y: f32,
+        mode: RotationMode,
+    ) -> Option<(Rotor3, Vec3, bool)> {
         self.rotation_widget.compute_rotation(
             x,
             y,

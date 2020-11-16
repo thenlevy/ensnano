@@ -11,7 +11,8 @@ use crate::{design, mediator, utils};
 use crate::{DrawArea, PhySize, WindowEvent};
 use instance::Instance;
 use mediator::{
-    ActionMode, AppNotification, Application, MediatorPtr, Notification, SelectionMode, Operation, HelixRotation, DesignViewRotation,
+    ActionMode, AppNotification, Application, DesignViewRotation, DesignViewTranslation,
+    HelixRotation, MediatorPtr, Notification, Operation, SelectionMode,
 };
 use utils::instance;
 use wgpu::{Device, Queue};
@@ -144,10 +145,6 @@ impl Scene {
                 }
             }
             Consequence::MovementEnded => {
-                self.mediator
-                    .lock()
-                    .unwrap()
-                    .notify_all_designs(AppNotification::MovementEnded);
                 self.data.borrow_mut().end_movement();
                 self.update_handle();
             }
@@ -162,8 +159,8 @@ impl Scene {
                     .view
                     .borrow()
                     .compute_rotation(x as f32, y as f32, mode);
-                if let Some((rotation, origin)) = rotation {
-                    self.rotate_selected_desgin(rotation, origin)
+                if let Some((rotation, origin, positive)) = rotation {
+                    self.rotate_selected_desgin(rotation, origin, positive)
                 } else {
                     println!("Warning rotiation was None")
                 }
@@ -181,10 +178,13 @@ impl Scene {
             Consequence::BuildEnded(d_id, id) => {
                 self.select(Some(SceneElement::DesignElement(d_id, id)))
             }
+            Consequence::Undo => self.mediator.lock().unwrap().undo(),
+            Consequence::Redo => self.mediator.lock().unwrap().redo(),
         };
     }
 
     fn click_on(&mut self, clicked_pixel: PhysicalPosition<f64>) {
+        self.mediator.lock().unwrap().finish_op();
         let element = self.element_selector.set_selected_id(clicked_pixel);
         self.select(element);
     }
@@ -226,20 +226,35 @@ impl Scene {
     }
 
     fn translate_selected_design(&mut self, translation: Vec3) {
+        let design_id = *self.get_selected_designs().iter().next().unwrap() as usize;
+        let rotor = self.data.borrow().get_widget_basis();
         self.view.borrow_mut().translate_widgets(translation);
-        self.mediator.lock().unwrap().notify_designs(
-            &self.get_selected_designs(),
-            AppNotification::Translation(translation),
-        );
+        let right = Vec3::unit_x().rotated_by(rotor);
+        let top = Vec3::unit_y().rotated_by(rotor);
+        let dir = Vec3::unit_z().rotated_by(rotor);
+        let translation_op = DesignViewTranslation {
+            design_id,
+            right: Vec3::unit_x().rotated_by(rotor),
+            top: Vec3::unit_y().rotated_by(rotor),
+            dir: Vec3::unit_z().rotated_by(rotor),
+            x: translation.dot(right),
+            y: translation.dot(top),
+            z: translation.dot(dir),
+        };
+
+        self.mediator
+            .lock()
+            .unwrap()
+            .update_opperation(Arc::new(translation_op), true);
     }
 
-    fn rotate_selected_desgin(&mut self, rotation: Rotor3, origin: Vec3) {
-        let target = match self.data.borrow().selection_mode {
-            SelectionMode::Helix => IsometryTarget::Helix(self.data.borrow().get_selected_group()),
-            _ => IsometryTarget::Design,
-        };
+    fn rotate_selected_desgin(&mut self, rotation: Rotor3, origin: Vec3, positive: bool) {
         let design_id = *self.get_selected_designs().iter().next().unwrap() as usize;
-        let (angle, plane) = rotation.into_angle_plane();
+        let (mut angle, mut plane) = rotation.into_angle_plane();
+        if !positive {
+            angle *= -1.;
+            plane *= -1.;
+        }
         let rotation: Arc<dyn Operation> = match self.data.borrow().selection_mode {
             SelectionMode::Helix => {
                 let helix_id = self.data.borrow().get_selected_group() as usize;
@@ -248,23 +263,21 @@ impl Scene {
                     angle,
                     plane,
                     origin,
-                    design_id, 
+                    design_id,
                 })
             }
-            _ => {
-                Arc::new(DesignViewRotation {
-                    angle,
-                    plane,
-                    origin,
-                    design_id
-                })
-            }
+            _ => Arc::new(DesignViewRotation {
+                angle,
+                plane,
+                origin,
+                design_id,
+            }),
         };
 
-        self.mediator.lock().unwrap().update_opperation(
-            rotation,
-            true
-        );
+        self.mediator
+            .lock()
+            .unwrap()
+            .update_opperation(rotation, true);
     }
 
     /// Adapt the camera, position, orientation and pivot point to a design so that the design fits

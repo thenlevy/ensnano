@@ -82,6 +82,8 @@ pub enum Consequence {
     CursorMoved(PhysicalPosition<f64>),
     ToggleWidget,
     BuildEnded(u32, u32),
+    Undo,
+    Redo,
 }
 
 impl Controller {
@@ -148,6 +150,16 @@ impl Controller {
                 VirtualKeyCode::L if self.current_modifiers.shift() => {
                     self.data.borrow_mut().select_3prime();
                     Consequence::Nothing
+                }
+                VirtualKeyCode::Z
+                    if self.current_modifiers.ctrl() && *state == ElementState::Pressed =>
+                {
+                    Consequence::Undo
+                }
+                VirtualKeyCode::R
+                    if self.current_modifiers.ctrl() && *state == ElementState::Pressed =>
+                {
+                    Consequence::Redo
                 }
                 _ => {
                     if self.camera_controller.process_keyboard(*key, *state) {

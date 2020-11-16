@@ -146,7 +146,7 @@ impl RotationWidget {
         camera: CameraPtr,
         projection: ProjectionPtr,
         mode: RotationMode,
-    ) -> Option<(Rotor3, Vec3)> {
+    ) -> Option<(Rotor3, Vec3, bool)> {
         let (x_init, y_init) = self.rotation_origin?;
         let circles = &self.circles?;
         let (origin, normal) = match mode {
@@ -164,13 +164,15 @@ impl RotationWidget {
         )?;
         let point_moved =
             maths::unproject_point_on_plane(origin, normal, camera, projection, x, y)?;
-        Some((
-            Rotor3::from_rotation_between(
-                (point_clicked - origin).normalized(),
-                (point_moved - origin).normalized(),
-            ),
-            origin,
-        ))
+        let rotation = Rotor3::from_rotation_between(
+            (point_clicked - origin).normalized(),
+            (point_moved - origin).normalized(),
+        );
+        let axis = {
+            let plane = rotation.bv.normalized();
+            Vec3::new(plane.yz, plane.xz, plane.xy)
+        };
+        Some((rotation, origin, normal.dot(axis) >= 0.))
     }
 
     pub fn translate(&mut self, translation: Vec3) {

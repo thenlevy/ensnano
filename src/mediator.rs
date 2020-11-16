@@ -30,6 +30,8 @@ pub struct Mediator {
     selection: Selection,
     messages: Arc<Mutex<IcedMessages>>,
     current_operation: Option<Arc<dyn Operation>>,
+    undo_stack: Vec<Arc<dyn Operation>>,
+    redo_stack: Vec<Arc<dyn Operation>>,
 }
 
 pub struct Scheduler {
@@ -130,6 +132,8 @@ impl Mediator {
             selection: Selection::Nothing,
             messages,
             current_operation: None,
+            undo_stack: Vec::new(),
+            redo_stack: Vec::new(),
         }
     }
 
@@ -281,18 +285,59 @@ impl Mediator {
         };
         let effect = operation.effect();
         if let Some(current_op) = self.current_operation.replace(operation.clone()) {
-            let rev_op = current_op.reverse();
-            let target = {
-                let mut set = HashSet::new();
-                set.insert(current_op.target() as u32);
-                set
-            };
-            self.notify_designs(&target, rev_op.effect());
+            if current_op.descr() == operation.descr() {
+                let rev_op = current_op.reverse();
+                let target = {
+                    let mut set = HashSet::new();
+                    set.insert(current_op.target() as u32);
+                    set
+                };
+                self.notify_designs(&target, rev_op.effect());
+            } else {
+                self.finish_op();
+            }
         }
         if from_app {
             self.messages.lock().unwrap().push_op(operation);
         }
         self.notify_designs(&target, effect)
+    }
+
+    pub fn finish_op(&mut self) {
+        if let Some(op) = self.current_operation.take() {
+            self.messages.lock().unwrap().clear_op();
+            self.notify_all_designs(AppNotification::MovementEnded);
+            self.undo_stack.push(op);
+            self.redo_stack.clear();
+        }
+    }
+
+    pub fn undo(&mut self) {
+        if let Some(op) = self.undo_stack.pop() {
+            let rev_op = op.reverse();
+            let target = {
+                let mut set = HashSet::new();
+                set.insert(rev_op.target() as u32);
+                set
+            };
+            self.notify_designs(&target, rev_op.effect());
+            self.notify_all_designs(AppNotification::MovementEnded);
+            self.redo_stack.push(rev_op);
+        }
+    }
+
+    pub fn redo(&mut self) {
+        if let Some(op) = self.redo_stack.pop() {
+            let rev_op = op.reverse();
+            let target = {
+                let mut set = HashSet::new();
+                set.insert(rev_op.target() as u32);
+                set
+            };
+            self.notify_designs(&target, rev_op.effect());
+            self.notify_all_designs(AppNotification::MovementEnded);
+            self.undo_stack.push(rev_op);
+        }
     }
 }
 

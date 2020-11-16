@@ -7,7 +7,7 @@ pub use left_panel::{ColorOverlay, LeftPanel};
 pub mod status_bar;
 use status_bar::StatusBar;
 
-use crate::mediator::{ActionMode, SelectionMode, Operation};
+use crate::mediator::{ActionMode, Operation, SelectionMode};
 use crate::SplitMode;
 use crate::{DrawArea, ElementType, IcedMessages, Multiplexer};
 use iced_native::Event;
@@ -131,7 +131,7 @@ impl GuiState {
                     area.position.to_logical(window.scale_factor()),
                 ))
             }
-            GuiState::StatusBar(ref mut state) => { }
+            GuiState::StatusBar(ref mut state) => {}
         }
     }
 
@@ -286,7 +286,9 @@ impl GuiElement {
         requests: Arc<Mutex<Requests>>,
     ) -> Self {
         let cursor_position = PhysicalPosition::new(-1., -1.);
-        let status_bar_area = multiplexer.get_element_area(ElementType::StatusBar).unwrap();
+        let status_bar_area = multiplexer
+            .get_element_area(ElementType::StatusBar)
+            .unwrap();
         let status_bar = StatusBar::new(requests);
         let mut status_bar_debug = Debug::new();
         let status_bar_state = program::State::new(
@@ -405,7 +407,7 @@ impl Gui {
         );
         elements.insert(
             ElementType::StatusBar,
-            GuiElement::status_bar(&mut renderer, window, multiplexer, requests.clone())
+            GuiElement::status_bar(&mut renderer, window, multiplexer, requests.clone()),
         );
 
         Self {
