@@ -145,6 +145,7 @@ impl Scene {
                 }
             }
             Consequence::MovementEnded => {
+                self.mediator.lock().unwrap().suspend_op();
                 self.data.borrow_mut().end_movement();
                 self.update_handle();
             }
@@ -245,7 +246,7 @@ impl Scene {
         self.mediator
             .lock()
             .unwrap()
-            .update_opperation(Arc::new(translation_op), true);
+            .update_opperation(Arc::new(translation_op));
     }
 
     fn rotate_selected_desgin(&mut self, rotation: Rotor3, origin: Vec3, positive: bool) {
@@ -274,10 +275,7 @@ impl Scene {
             }),
         };
 
-        self.mediator
-            .lock()
-            .unwrap()
-            .update_opperation(rotation, true);
+        self.mediator.lock().unwrap().update_opperation(rotation);
     }
 
     /// Adapt the camera, position, orientation and pivot point to a design so that the design fits

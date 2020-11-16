@@ -319,7 +319,7 @@ fn main() {
                     }
 
                     if let Some(op) = requests.operation_update.take() {
-                        mediator.lock().unwrap().update_opperation(op, false)
+                        mediator.lock().unwrap().update_pending(op)
                     }
                 }
 

@@ -22,6 +22,7 @@ pub trait Operation: std::fmt::Debug + Sync + Send {
     fn target(&self) -> usize;
     fn with_new_value(&self, n: usize, val: String) -> Option<Arc<dyn Operation>>;
     fn descr(&self) -> OperationDescriptor;
+    fn compose(&self, other: &dyn Operation) -> Option<Arc<dyn Operation>>;
 }
 
 #[derive(Clone, Debug)]
@@ -37,6 +38,19 @@ impl Operation for HelixRotation {
     fn descr(&self) -> OperationDescriptor {
         OperationDescriptor::HelixRotation(self.design_id, self.helix_id, self.plane)
     }
+
+    fn compose(&self, other: &dyn Operation) -> Option<Arc<dyn Operation>> {
+        if self.descr() == other.descr() {
+            let angle = other.values()[0].parse::<f32>().unwrap().to_radians();
+            Some(Arc::new(Self {
+                angle: self.angle + angle,
+                ..*self
+            }))
+        } else {
+            None
+        }
+    }
+
     fn parameters(&self) -> Vec<Parameter> {
         vec![Parameter {
             field: ParameterField::Value,
@@ -100,6 +114,19 @@ impl Operation for DesignViewRotation {
     fn descr(&self) -> OperationDescriptor {
         OperationDescriptor::DesignRotation(self.design_id, self.plane)
     }
+
+    fn compose(&self, other: &dyn Operation) -> Option<Arc<dyn Operation>> {
+        if self.descr() == other.descr() {
+            let angle = other.values()[0].parse::<f32>().unwrap().to_radians();
+            Some(Arc::new(Self {
+                angle: self.angle + angle,
+                ..*self
+            }))
+        } else {
+            None
+        }
+    }
+
     fn parameters(&self) -> Vec<Parameter> {
         vec![Parameter {
             field: ParameterField::Value,
@@ -162,6 +189,22 @@ pub struct DesignViewTranslation {
 impl Operation for DesignViewTranslation {
     fn descr(&self) -> OperationDescriptor {
         OperationDescriptor::DesignTranslation(self.design_id)
+    }
+
+    fn compose(&self, other: &dyn Operation) -> Option<Arc<dyn Operation>> {
+        if self.descr() == other.descr() {
+            let x = other.values()[0].parse::<f32>().unwrap();
+            let y = other.values()[1].parse::<f32>().unwrap();
+            let z = other.values()[2].parse::<f32>().unwrap();
+            Some(Arc::new(Self {
+                x: self.x + x,
+                y: self.y + y,
+                z: self.z + z,
+                ..*self
+            }))
+        } else {
+            None
+        }
     }
 
     fn parameters(&self) -> Vec<Parameter> {

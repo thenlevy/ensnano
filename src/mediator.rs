@@ -29,11 +29,15 @@ pub struct Mediator {
     designs: Vec<Arc<Mutex<Design>>>,
     selection: Selection,
     messages: Arc<Mutex<IcedMessages>>,
+    /// The operation that is beign modified by the current drag and drop
     current_operation: Option<Arc<dyn Operation>>,
+    /// The operation that can currently be eddited via the status bar or in the scene
+    last_op: Option<Arc<dyn Operation>>,
     undo_stack: Vec<Arc<dyn Operation>>,
     redo_stack: Vec<Arc<dyn Operation>>,
 }
 
+/// The scheduler is responsible for running the different applications
 pub struct Scheduler {
     applications: HashMap<ElementType, Arc<Mutex<dyn Application>>>,
 }
@@ -132,6 +136,7 @@ impl Mediator {
             selection: Selection::Nothing,
             messages,
             current_operation: None,
+            last_op: None,
             undo_stack: Vec::new(),
             redo_stack: Vec::new(),
         }
@@ -277,14 +282,33 @@ impl Mediator {
         self.selection.get_design()
     }
 
-    pub fn update_opperation(&mut self, operation: Arc<dyn Operation>, from_app: bool) {
+    /// Update the current operation.
+    ///
+    /// This method is called when an operation is performed in the scene. If the operation is
+    /// compatible with the last operation it is treated as an eddition of the last operation.
+    /// Otherwise the last operation is considered finished.
+    pub fn update_opperation(&mut self, operation: Arc<dyn Operation>) {
+        // If the operation is compatible with the last operation, the last operation is eddited.
+        let operation = if let Some(op) = self
+            .last_op
+            .as_ref()
+            .and_then(|op| operation.compose(op.as_ref()))
+        {
+            op
+        } else {
+            // Otherwise, the last operation is saved on the undo stack.
+            self.finish_pending();
+            operation
+        };
         let target = {
             let mut set = HashSet::new();
             set.insert(operation.target() as u32);
             set
         };
         let effect = operation.effect();
-        if let Some(current_op) = self.current_operation.replace(operation.clone()) {
+        if let Some(current_op) = self.current_operation.as_ref() {
+            // If there already is a current operation. We test if the current operation is being
+            // eddited.
             if current_op.descr() == operation.descr() {
                 let rev_op = current_op.reverse();
                 let target = {
@@ -297,18 +321,71 @@ impl Mediator {
                 self.finish_op();
             }
         }
-        if from_app {
-            self.messages.lock().unwrap().push_op(operation);
-        }
+        self.messages.lock().unwrap().push_op(operation.clone());
+        self.current_operation = Some(operation);
         self.notify_designs(&target, effect)
     }
 
+    /// Update the pending operation.
+    ///
+    /// This method is called when a parameter of the pending operation is modified in the status
+    /// bar.
+    pub fn update_pending(&mut self, operation: Arc<dyn Operation>) {
+        let target = {
+            let mut set = HashSet::new();
+            set.insert(operation.target() as u32);
+            set
+        };
+        let effect = operation.effect();
+        if let Some(current_op) = self.last_op.as_ref() {
+            if current_op.descr() == operation.descr() {
+                let rev_op = current_op.reverse();
+                let target = {
+                    let mut set = HashSet::new();
+                    set.insert(current_op.target() as u32);
+                    set
+                };
+                self.notify_designs(&target, rev_op.effect());
+            } else {
+                self.finish_op();
+            }
+        }
+        self.last_op = Some(operation.clone());
+        self.notify_designs(&target, effect)
+    }
+
+    /// Save the last operation and the pending operation on the undo stack.
     pub fn finish_op(&mut self) {
+        if let Some(op) = self.last_op.take() {
+            self.messages.lock().unwrap().clear_op();
+            self.notify_all_designs(AppNotification::MovementEnded);
+            self.undo_stack.push(op);
+            self.redo_stack.clear();
+        }
         if let Some(op) = self.current_operation.take() {
             self.messages.lock().unwrap().clear_op();
             self.notify_all_designs(AppNotification::MovementEnded);
             self.undo_stack.push(op);
             self.redo_stack.clear();
+        }
+    }
+
+    /// Save the pending operation on the undo stack.
+    fn finish_pending(&mut self) {
+        if let Some(op) = self.last_op.take() {
+            self.notify_all_designs(AppNotification::MovementEnded);
+            self.undo_stack.push(op);
+            self.redo_stack.clear();
+        }
+    }
+
+    /// Suspend the current operation.
+    ///
+    /// This means that the current drag and drop movement is finished, but the current operation
+    /// can still be modified in the satus bar or by initiating a combatible new operation.
+    pub fn suspend_op(&mut self) {
+        if let Some(op) = self.current_operation.take() {
+            self.last_op = Some(op)
         }
     }
 
