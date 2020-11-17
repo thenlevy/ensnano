@@ -49,12 +49,29 @@ impl GridInstance {
             let y_dir = Vec3::unit_y().rotated_by(self.grid.orientation);
             (vec.dot(x_dir), vec.dot(y_dir))
         };
-        println!("x {}, y {}", x, y);
-        if x >= self.min_x as f32 && x <= self.max_x as f32 && y >= self.min_y as f32 && y <= self.max_y as f32 {
+        if self.contains_point(x, y) {
             Some(ret)
         } else {
             None
         }
+    }
+
+    fn convert_coord(&self, x: f32, y: f32) -> (f32, f32) {
+        match self.grid.grid_type {
+            GridType::Square(_) => {
+                let r = self.grid.parameters.helix_radius * 2. + self.grid.parameters.inter_helix_gap;
+                (x / r, y / r)
+            }
+            GridType::Honeycomb(_) => {
+                let r = self.grid.parameters.helix_radius * 2. + self.grid.parameters.inter_helix_gap;
+                (x * 2. / (3f32.sqrt() * r), (y - r / 2.) * 2. / (3. * r))
+            }
+        }
+    }
+
+    fn contains_point(&self, x: f32, y: f32) -> bool {
+        let (x, y) = self.convert_coord(x, y);
+        x >= self.min_x as f32 - 0.025 && x <= self.max_x as f32 + 0.025 && y >= self.min_y as f32 - 0.025 && y <= self.max_y as f32 + 0.025
     }
 }
 

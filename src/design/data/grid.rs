@@ -11,7 +11,7 @@ use crate::scene::GridInstance;
 pub struct Grid {
     pub position: Vec3,
     pub orientation: Rotor3,
-    parameters: Parameters,
+    pub parameters: Parameters,
     pub grid_type: GridType,
 }
 
@@ -111,7 +111,7 @@ impl Grid {
 
     pub fn ray_intersection(&self, origin: Vec3, direction: Vec3) -> Option<f32> {
         let normal = Vec3::unit_x().rotated_by(self.orientation);
-        let denom = direction.normalized().dot(normal);
+        let denom = direction.dot(normal);
         if denom.abs() < 1e-3 {
             None
         } else {
