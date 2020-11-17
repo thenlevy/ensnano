@@ -8,16 +8,14 @@ use super::{
     CameraPtr, ProjectionPtr, Uniforms,
 };
 use crate::consts::*;
-pub use crate::design::{GridType, Parameters, GridTypeDescr};
+pub use crate::design::{Grid, GridType, Parameters, GridTypeDescr};
 use crate::utils::texture::Texture;
 
 mod texture;
 
 #[derive(Debug, Clone)]
 pub struct GridInstance {
-    pub position: Vec3,
-    pub orientation: Rotor3,
-    pub grid_type: GridType,
+    pub grid: Grid,
     pub min_x: i32,
     pub max_x: i32,
     pub min_y: i32,
@@ -27,14 +25,35 @@ pub struct GridInstance {
 impl GridInstance {
     fn to_raw(&self) -> GridInstanceRaw {
         GridInstanceRaw {
-            model: Mat4::from_translation(self.position)
-                * self.orientation.into_matrix().into_homogeneous(),
+            model: Mat4::from_translation(self.grid.position)
+                * self.grid.orientation.into_matrix().into_homogeneous(),
             min_x: self.min_x as f32,
             max_x: self.max_x as f32,
             min_y: self.min_y as f32,
             max_y: self.max_y as f32,
-            grid_type: self.grid_type.descr() as u32,
+            grid_type: self.grid.grid_type.descr() as u32,
             _padding: Vec3::zero(),
+        }
+    }
+
+    /// Return x >= 0 so that orgin + x axis is on the grid, or None if such an x does not exist.
+    fn ray_intersection(&self, origin: Vec3, axis: Vec3) -> Option<f32> {
+        let ret = self.grid.ray_intersection(origin, axis)?;
+        if ret < 0. {
+            return None;
+        }
+        let (x, y) = {
+            let intersection = origin + ret * axis;
+            let vec = intersection - self.grid.position;
+            let x_dir = Vec3::unit_z().rotated_by(self.grid.orientation);
+            let y_dir = Vec3::unit_y().rotated_by(self.grid.orientation);
+            (vec.dot(x_dir), vec.dot(y_dir))
+        };
+        println!("x {}, y {}", x, y);
+        if x >= self.min_x as f32 && x <= self.max_x as f32 && y >= self.min_y as f32 && y <= self.max_y as f32 {
+            Some(ret)
+        } else {
+            None
         }
     }
 }
@@ -99,6 +118,7 @@ pub struct GridDrawer {
     pipeline: Option<RenderPipeline>,
     texture_bind_group: wgpu::BindGroup,
     texture_bind_group_layout: wgpu::BindGroupLayout,
+    instances: Rc<Vec<GridInstance>>,
 }
 
 impl GridDrawer {
@@ -191,25 +211,16 @@ impl GridDrawer {
             label: Some("diffuse_bind_group"),
         });
 
-        let new_instances = vec![GridInstance {
-            position: Vec3::zero(),
-            orientation: Rotor3::from_rotation_xz(-std::f32::consts::FRAC_PI_2),
-            min_x: 0,
-            max_x: 1,
-            min_y: 0,
-            max_y: 1,
-            grid_type: GridType::square(),
-        }];
-
         Self {
             device,
-            new_instances: Some(Rc::new(new_instances)),
+            new_instances: Some(Rc::new(vec![])),
             number_instances: 0,
             new_viewer_data: None,
             bind_groups,
             pipeline: None,
             texture_bind_group,
             texture_bind_group_layout,
+            instances: Rc::new(vec![]),
         }
     }
 
@@ -229,6 +240,7 @@ impl GridDrawer {
     /// this function, perform the most recent update.
     fn update_instances(&mut self) {
         if let Some(ref instances) = self.new_instances {
+            self.instances = instances.clone();
             self.number_instances = instances.len();
             let instances_data: Vec<_> = instances.iter().map(|i| i.to_raw()).collect();
             self.bind_groups.update_instances(instances_data.as_slice());
@@ -342,6 +354,21 @@ impl GridDrawer {
             alpha_to_coverage_enabled: true,
             label: Some("render pipeline"),
         })
+    }
+
+    pub fn intersect(&self, origin: Vec3, direction: Vec3) -> Option<usize> {
+        let mut ret = None;
+        let mut depth = std::f32::INFINITY;
+        for (n, g) in self.instances.iter().enumerate() {
+            println!("{:?}", n);
+            if let Some(x) = g.ray_intersection(origin, direction) {
+                if x < depth {
+                    ret = Some(n);
+                    depth = x;
+                }
+            }
+        }
+        ret
     }
 }
 

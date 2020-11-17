@@ -485,6 +485,11 @@ impl View {
         let sign = (p1 - axis.origin).dot(axis.direction).signum();
         Some(((p1 - axis.origin).mag() * sign / axis.direction.mag()).round() as isize)
     }
+
+    pub fn grid_intersection(&self, x_ndc: f32, y_ndc: f32) -> Option<usize> {
+        let ray = maths::cast_ray(x_ndc, y_ndc, self.camera.clone(), self.projection.clone());
+        self.grid_drawer.intersect(ray.0, ray.1)
+    }
 }
 
 /// An notification to be given to the view

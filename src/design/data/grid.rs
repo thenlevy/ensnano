@@ -7,11 +7,12 @@ use ultraviolet::{Rotor3, Vec2, Vec3};
 
 use crate::scene::GridInstance;
 
+#[derive(Clone, Debug)]
 pub struct Grid {
     pub position: Vec3,
     pub orientation: Rotor3,
     parameters: Parameters,
-    grid_type: GridType,
+    pub grid_type: GridType,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Copy)]
@@ -103,14 +104,19 @@ impl Grid {
     }
 
     fn real_intersection(&self, origin: Vec3, direction: Vec3) -> Option<Vec3> {
+        let d = self.ray_intersection(origin, direction)?;
+        let intersection = origin + d * direction;
+        Some(intersection)
+    }
+
+    pub fn ray_intersection(&self, origin: Vec3, direction: Vec3) -> Option<f32> {
         let normal = Vec3::unit_x().rotated_by(self.orientation);
         let denom = direction.normalized().dot(normal);
-        if denom < 1e-3 {
+        if denom.abs() < 1e-3 {
             None
         } else {
             let d = (self.position - origin).dot(normal) / denom;
-            let intersection = origin + d * direction;
-            Some(intersection)
+            Some(d)
         }
     }
 
@@ -306,13 +312,11 @@ impl GridManager {
         for g in self.grids.iter() {
             let grid = 
                 GridInstance {
-                    position: g.position,
-                    orientation: g.orientation,
+                    grid: g.clone(),
                     min_x: -2,
                     max_x: 2,
                     min_y: -2,
                     max_y: 2,
-                    grid_type: g.grid_type.clone(),
                 };
             ret.push(grid);
         }

@@ -186,6 +186,7 @@ impl Scene {
 
     fn click_on(&mut self, clicked_pixel: PhysicalPosition<f64>) {
         self.mediator.lock().unwrap().finish_op();
+        println!("{:?}", self.view.borrow().grid_intersection(clicked_pixel.x as f32 / self.area.size.width as f32, clicked_pixel.y as f32 / self.area.size.height as f32));
         let element = self.element_selector.set_selected_id(clicked_pixel);
         self.select(element);
     }

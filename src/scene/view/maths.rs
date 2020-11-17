@@ -70,6 +70,7 @@ pub fn unproject_point_on_plane(
     }
 }
 
+/// Convert a point on the screen into a point in the world. Usefull for casting rays
 fn ndc_to_world(x_ndc: f32, y_ndc: f32, camera: CameraPtr, projection: ProjectionPtr) -> Vec3 {
     let x_screen = 2. * x_ndc - 1.;
     let y_screen = 1. - 2. * y_ndc;
@@ -83,4 +84,10 @@ fn ndc_to_world(x_ndc: f32, y_ndc: f32, camera: CameraPtr, projection: Projectio
         p1 + right * x_screen * projection.borrow().get_ratio() + up * y_screen + direction
     };
     p2
+}
+
+
+pub fn cast_ray(x_ndc: f32, y_ndc: f32, camera: CameraPtr, projection:ProjectionPtr) -> (Vec3, Vec3) {
+    let target = ndc_to_world(x_ndc, y_ndc, camera.clone(), projection);
+    (camera.borrow().position, target - camera.borrow().position)
 }
