@@ -502,7 +502,7 @@ impl Data {
             }
             letters = design.get_letter_instances();
             for grid in design.get_grid().iter() {
-                grids.push(*grid)
+                grids.push(grid.clone())
             }
         }
         self.view

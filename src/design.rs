@@ -16,7 +16,7 @@ use crate::scene::GridInstance;
 use controller::Controller;
 pub use controller::{DesignRotation, IsometryTarget};
 use data::Data;
-pub use data::{Axis, Grid2D, Nucl, ObjectType, Parameters, StrandBuilder};
+pub use data::*;
 use view::View;
 
 pub struct Design {

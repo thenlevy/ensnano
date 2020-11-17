@@ -8,18 +8,12 @@ use super::{
     CameraPtr, ProjectionPtr, Uniforms,
 };
 use crate::consts::*;
-use crate::design::Parameters;
+pub use crate::design::{GridType, Parameters, GridTypeDescr};
 use crate::utils::texture::Texture;
 
 mod texture;
 
-#[derive(Debug, Clone, Copy)]
-pub enum GridType {
-    Square = 0,
-    Honeycomb = 1,
-}
-
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct GridInstance {
     pub position: Vec3,
     pub orientation: Rotor3,
@@ -39,7 +33,7 @@ impl GridInstance {
             max_x: self.max_x as f32,
             min_y: self.min_y as f32,
             max_y: self.max_y as f32,
-            grid_type: self.grid_type as u32,
+            grid_type: self.grid_type.descr() as u32,
             _padding: Vec3::zero(),
         }
     }
@@ -204,7 +198,7 @@ impl GridDrawer {
             max_x: 1,
             min_y: 0,
             max_y: 1,
-            grid_type: GridType::Square,
+            grid_type: GridType::square(),
         }];
 
         Self {

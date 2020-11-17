@@ -21,7 +21,7 @@ mod grid;
 mod icednano;
 mod strand_builder;
 use crate::scene::GridInstance;
-pub use grid::Grid2D;
+pub use grid::*;
 use grid::GridManager;
 pub use icednano::Nucl;
 pub use icednano::{Axis, Design, Parameters};
@@ -70,7 +70,7 @@ impl Data {
     #[allow(dead_code)]
     pub fn new() -> Self {
         let design = icednano::Design::new();
-        let grid_manager = GridManager::new();
+        let grid_manager = GridManager::new(Parameters::default());
         Self {
             design,
             object_type: HashMap::new(),

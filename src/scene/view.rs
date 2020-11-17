@@ -34,7 +34,7 @@ mod rotation_widget;
 use bindgroup_manager::UniformBindGroup;
 use drawable::{Drawable, Drawer, Vertex};
 use grid::GridDrawer;
-pub use grid::{GridInstance, GridType};
+pub use grid::{GridInstance, GridTypeDescr};
 use handle_drawer::HandlesDrawer;
 pub use handle_drawer::{HandleDir, HandleOrientation, HandlesDescriptor};
 use letter::LetterDrawer;
@@ -335,12 +335,6 @@ impl View {
         for pipeline_handler in handlers.iter_mut() {
             pipeline_handler.draw(&mut render_pass);
         }
-
-        /*
-         * TODO: plane drawer needs better implementation
-         * if !fake_color {
-            self.plane_drawer.draw(&mut render_pass, &viewer_bind_group)
-        }*/
 
         if draw_type.wants_widget() {
             if action_mode.wants_handle() {
