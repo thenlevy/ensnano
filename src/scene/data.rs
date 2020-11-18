@@ -1,7 +1,7 @@
 //! This modules handles internal informations about the scene, such as the selected objects etc..
 //! It also communicates with the desgings to get the position of the objects to draw on the scene.
 
-use super::{LetterInstance, SceneElement, View, ViewUpdate};
+use super::{LetterInstance, SceneElement, View, ViewUpdate, GridIntersection};
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
@@ -684,6 +684,20 @@ impl Data {
             self.designs[design as usize].get_builder(selected)
         }
     }
+
+    pub fn build_helix(&mut self, intersection: Option<GridIntersection>) {
+        if let Some(GridIntersection {
+            grid_id,
+            x,
+            y,
+            ..
+        }) = intersection {
+            if self.action_mode == ActionMode::Build && self.selection_mode == SelectionMode::Grid && grid_id as u32 == self.get_selected_group() {
+                println!("Building on {} {}", x, y);
+            }
+        }
+    }
+
 }
 
 impl ActionMode {

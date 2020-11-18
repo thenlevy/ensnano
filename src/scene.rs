@@ -26,7 +26,7 @@ mod view;
 use view::{
     DrawType, HandleDir, HandleOrientation, HandlesDescriptor, LetterInstance,
     RotationMode as WidgetRotationMode, RotationWidgetDescriptor, RotationWidgetOrientation, View,
-    ViewUpdate,
+    ViewUpdate, GridIntersection
 };
 pub use view::{GridInstance, GridTypeDescr};
 /// Handling of inputs and notifications
@@ -187,18 +187,32 @@ impl Scene {
 
     fn click_on(&mut self, clicked_pixel: PhysicalPosition<f64>) {
         self.mediator.lock().unwrap().finish_op();
-        let element = if self.data.borrow().selection_mode == SelectionMode::Grid {
-            self.view
+        if self.data.borrow().get_action_mode() == ActionMode::Build {
+            self.build_helix(clicked_pixel)
+        } else {
+            let element = if self.data.borrow().selection_mode == SelectionMode::Grid {
+                self.view
+                    .borrow()
+                    .grid_intersection(
+                        clicked_pixel.x as f32 / self.area.size.width as f32,
+                        clicked_pixel.y as f32 / self.area.size.height as f32,
+                    )
+                    .map(|g| SceneElement::Grid(g.design_id as u32, g.grid_id as u32))
+            } else {
+                self.element_selector.set_selected_id(clicked_pixel)
+            };
+            self.select(element);
+        }
+    }
+
+    fn build_helix(&mut self, clicked_pixel: PhysicalPosition<f64>) {
+        let intersection = self.view
                 .borrow()
                 .grid_intersection(
                     clicked_pixel.x as f32 / self.area.size.width as f32,
                     clicked_pixel.y as f32 / self.area.size.height as f32,
-                )
-                .map(|(d_id, g_id)| SceneElement::Grid(d_id as u32, g_id as u32))
-        } else {
-            self.element_selector.set_selected_id(clicked_pixel)
-        };
-        self.select(element);
+                );
+        self.data.borrow_mut().build_helix(intersection)
     }
 
     fn select(&mut self, element: Option<SceneElement>) {
@@ -226,7 +240,7 @@ impl Scene {
                     clicked_pixel.x as f32 / self.area.size.width as f32,
                     clicked_pixel.y as f32 / self.area.size.height as f32,
                 )
-                .map(|(d_id, g_id)| SceneElement::Grid(d_id as u32, g_id as u32));
+                .map(|g| SceneElement::Grid(g.design_id as u32, g.grid_id as u32));
             widget.or(grid)
         } else {
             self.element_selector.set_selected_id(clicked_pixel)

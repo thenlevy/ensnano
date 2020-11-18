@@ -8,7 +8,7 @@ use super::{
     CameraPtr, ProjectionPtr, Uniforms,
 };
 use crate::consts::*;
-pub use crate::design::{Grid, GridType, GridTypeDescr, Parameters};
+pub use crate::design::{Grid, GridType, GridTypeDescr, Parameters, GridDivision};
 use crate::utils::texture::Texture;
 
 mod texture;
@@ -41,7 +41,7 @@ impl GridInstance {
     }
 
     /// Return x >= 0 so that orgin + x axis is on the grid, or None if such an x does not exist.
-    fn ray_intersection(&self, origin: Vec3, axis: Vec3) -> Option<f32> {
+    fn ray_intersection(&self, origin: Vec3, axis: Vec3) -> Option<GridIntersection> {
         let ret = self.grid.ray_intersection(origin, axis)?;
         if ret < 0. {
             return None;
@@ -54,7 +54,15 @@ impl GridInstance {
             (vec.dot(x_dir), vec.dot(y_dir))
         };
         if self.contains_point(x, y) {
-            Some(ret)
+            let (x, y) = self.grid.grid_type.interpolate(&self.grid.parameters, x, y);
+
+            Some(GridIntersection {
+                depth: ret,
+                grid_id: self.id,
+                design_id: self.design,
+                x, 
+                y
+            })
         } else {
             None
         }
@@ -387,14 +395,14 @@ impl GridDrawer {
         })
     }
 
-    pub fn intersect(&self, origin: Vec3, direction: Vec3) -> Option<(usize, usize)> {
+    pub fn intersect(&self, origin: Vec3, direction: Vec3) -> Option<GridIntersection> {
         let mut ret = None;
         let mut depth = std::f32::INFINITY;
         for (n, g) in self.instances.iter().enumerate() {
-            if let Some(x) = g.ray_intersection(origin, direction) {
-                if x < depth {
-                    ret = Some((g.design, n));
-                    depth = x;
+            if let Some(intersection) = g.ray_intersection(origin, direction) {
+                if intersection.depth < depth {
+                    ret = Some(intersection.clone());
+                    depth = intersection.depth;
                 }
             }
         }
@@ -443,4 +451,13 @@ impl BindGroups {
     pub fn update_parameters<U: bytemuck::Pod>(&mut self, parameters_data: &U) {
         self.parameters.update(parameters_data);
     }
+}
+
+#[derive(Clone)]
+pub struct GridIntersection {
+    pub depth: f32,
+    pub design_id: usize,
+    pub grid_id: usize,
+    pub x: isize,
+    pub y: isize,
 }

@@ -803,6 +803,7 @@ impl Data {
             .get(g_id as usize)
             .map(|g| g.position)
     }
+
 }
 
 fn compl(c: Option<char>) -> Option<char> {
