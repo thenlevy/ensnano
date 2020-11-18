@@ -35,12 +35,16 @@ impl Controller {
     /// Translate the whole view of the design
     pub fn translate(&mut self, translation: &DesignTranslation) {
         match translation.target {
-            IsometryTarget::Design => {
-                self.view
-                    .borrow_mut()
-                    .set_matrix(self.old_matrix.translated(&translation.translation))
-            }
-            _ => unimplemented!()
+            IsometryTarget::Design => self
+                .view
+                .borrow_mut()
+                .set_matrix(self.old_matrix.translated(&translation.translation)),
+            IsometryTarget::Grid(g_id) => self
+                .data
+                .lock()
+                .unwrap()
+                .translate_grid(g_id as usize, translation.translation),
+            _ => unimplemented!(),
         }
     }
 

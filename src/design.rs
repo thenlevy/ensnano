@@ -15,7 +15,7 @@ mod data;
 mod view;
 use crate::scene::GridInstance;
 use controller::Controller;
-pub use controller::{DesignRotation, IsometryTarget, DesignTranslation};
+pub use controller::{DesignRotation, DesignTranslation, IsometryTarget};
 use data::Data;
 pub use data::*;
 use view::View;

@@ -12,7 +12,8 @@ use crate::{DrawArea, PhySize, WindowEvent};
 use instance::Instance;
 use mediator::{
     ActionMode, AppNotification, Application, DesignViewRotation, DesignViewTranslation,
-    HelixRotation, MediatorPtr, Notification, Operation, SelectionMode, GridRotation,
+    GridRotation, GridTranslation, HelixRotation, MediatorPtr, Notification, Operation,
+    SelectionMode,
 };
 use utils::instance;
 use wgpu::{Device, Queue};
@@ -214,7 +215,10 @@ impl Scene {
 
     fn check_on(&mut self, clicked_pixel: PhysicalPosition<f64>) {
         let element = if self.data.borrow().selection_mode == SelectionMode::Grid {
-            let widget = self.element_selector.set_selected_id(clicked_pixel).filter(SceneElement::is_widget);
+            let widget = self
+                .element_selector
+                .set_selected_id(clicked_pixel)
+                .filter(SceneElement::is_widget);
             let grid = self
                 .view
                 .borrow()
@@ -256,20 +260,34 @@ impl Scene {
         let right = Vec3::unit_x().rotated_by(rotor);
         let top = Vec3::unit_y().rotated_by(rotor);
         let dir = Vec3::unit_z().rotated_by(rotor);
-        let translation_op = DesignViewTranslation {
-            design_id,
-            right: Vec3::unit_x().rotated_by(rotor),
-            top: Vec3::unit_y().rotated_by(rotor),
-            dir: Vec3::unit_z().rotated_by(rotor),
-            x: translation.dot(right),
-            y: translation.dot(top),
-            z: translation.dot(dir),
+        let selection_mode = self.data.borrow().selection_mode;
+
+        let translation_op: Arc<dyn Operation> = match selection_mode {
+            SelectionMode::Grid => Arc::new(GridTranslation {
+                design_id,
+                grid_id: self.data.borrow().get_selected_group() as usize,
+                right: Vec3::unit_x().rotated_by(rotor),
+                top: Vec3::unit_y().rotated_by(rotor),
+                dir: Vec3::unit_z().rotated_by(rotor),
+                x: translation.dot(right),
+                y: translation.dot(top),
+                z: translation.dot(dir),
+            }),
+            _ => Arc::new(DesignViewTranslation {
+                design_id,
+                right: Vec3::unit_x().rotated_by(rotor),
+                top: Vec3::unit_y().rotated_by(rotor),
+                dir: Vec3::unit_z().rotated_by(rotor),
+                x: translation.dot(right),
+                y: translation.dot(top),
+                z: translation.dot(dir),
+            }),
         };
 
         self.mediator
             .lock()
             .unwrap()
-            .update_opperation(Arc::new(translation_op));
+            .update_opperation(translation_op);
     }
 
     fn rotate_selected_desgin(&mut self, rotation: Rotor3, origin: Vec3, positive: bool) {

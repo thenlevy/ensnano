@@ -1,4 +1,4 @@
-use super::{DesignTranslation, AppNotification, DesignRotation};
+use super::{AppNotification, DesignRotation, DesignTranslation};
 use crate::design::IsometryTarget;
 use std::sync::Arc;
 use ultraviolet::{Bivec3, Rotor3, Vec3};
@@ -79,10 +79,7 @@ impl Operation for GridRotation {
     }
 
     fn description(&self) -> String {
-        format!(
-            "Rotate grid {} of design {}",
-            self.grid_id, self.design_id
-        )
+        format!("Rotate grid {} of design {}", self.grid_id, self.design_id)
     }
 
     fn target(&self) -> usize {
@@ -318,7 +315,7 @@ impl Operation for DesignViewTranslation {
         let translation = self.x * self.right + self.y * self.top + self.z * self.dir;
         AppNotification::Translation(DesignTranslation {
             translation,
-            target: IsometryTarget::Design
+            target: IsometryTarget::Design,
         })
     }
 
@@ -414,14 +411,17 @@ impl Operation for GridTranslation {
 
     fn effect(&self) -> AppNotification {
         let translation = self.x * self.right + self.y * self.top + self.z * self.dir;
-        AppNotification::Translation(DesignTranslation{
+        AppNotification::Translation(DesignTranslation {
             translation,
-            target: IsometryTarget::Grid(self.grid_id as u32)
+            target: IsometryTarget::Grid(self.grid_id as u32),
         })
     }
 
     fn description(&self) -> String {
-        format!("Translate grid {} of design {}", self.grid_id, self.design_id)
+        format!(
+            "Translate grid {} of design {}",
+            self.grid_id, self.design_id
+        )
     }
 
     fn target(&self) -> usize {
@@ -445,7 +445,6 @@ impl Operation for GridTranslation {
             _ => None,
         }
     }
-
 }
 
 #[derive(Debug)]
@@ -480,4 +479,3 @@ impl PartialEq<Self> for OperationDescriptor {
         !self.eq(rhs)
     }
 }
-

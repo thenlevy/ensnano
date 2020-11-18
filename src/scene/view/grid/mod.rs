@@ -411,9 +411,9 @@ impl GridDrawer {
 
     fn update_colors(&mut self) {
         for instance in self.instances.iter_mut() {
-             if self.selected == Some((instance.design, instance.id)) {
+            if self.selected == Some((instance.design, instance.id)) {
                 instance.color = 0xFF_00_00
-             } else if self.candidate == Some((instance.design, instance.id)) {
+            } else if self.candidate == Some((instance.design, instance.id)) {
                 instance.color = 0x00_FF_00
             } else {
                 instance.color = 0x00_00_FF

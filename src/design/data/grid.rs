@@ -185,6 +185,11 @@ impl Grid {
         self.position = rotation * self.position;
     }
 
+    pub fn translate(&mut self, translation: Vec3) {
+        self.position = self.old_position;
+        self.append_translation(translation)
+    }
+
     pub fn rotate_arround(&mut self, rotation: Rotor3, origin: Vec3) {
         self.orientation = self.old_orientation;
         self.position = self.old_position;
@@ -197,7 +202,6 @@ impl Grid {
         self.old_position = self.position;
         self.old_orientation = self.orientation;
     }
-
 }
 
 pub trait GridDivision {
@@ -348,7 +352,7 @@ impl GridManager {
                 max_y: 2,
                 color: 0x00_00_FF,
                 design: design_id,
-                id: n
+                id: n,
             };
             ret.push(grid);
         }
@@ -531,12 +535,15 @@ impl GridManager {
         self.grids[g_id].rotate_arround(rotation, origin)
     }
 
+    pub fn translate_grid(&mut self, g_id: usize, translation: Vec3) {
+        self.grids[g_id].translate(translation)
+    }
+
     pub fn terminate_movement(&mut self) {
         for g in self.grids.iter_mut() {
             g.end_movement()
         }
     }
-
 }
 
 impl Data {

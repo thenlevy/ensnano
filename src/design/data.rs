@@ -410,6 +410,13 @@ impl Data {
         })
     }
 
+    pub fn translate_grid(&mut self, g_id: usize, translation: Vec3) {
+        self.grid_manager.translate_grid(g_id, translation);
+        self.grid_manager.update(&mut self.design);
+        self.hash_maps_update = true;
+        self.update_status = true;
+    }
+
     /// Apply `rotation` on helix `h_id` arround `origin`. `rotation` and `origin` must be
     /// expressed in the model coordinates
     pub fn rotate_helix_arround(
@@ -433,7 +440,8 @@ impl Data {
         rotation: ultraviolet::Rotor3,
         origin: Vec3,
     ) {
-        self.grid_manager.rotate_grid_arround(g_id, rotation, origin);
+        self.grid_manager
+            .rotate_grid_arround(g_id, rotation, origin);
         self.grid_manager.update(&mut self.design);
         self.hash_maps_update = true;
         self.update_status = true;

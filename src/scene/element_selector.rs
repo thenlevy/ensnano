@@ -220,7 +220,7 @@ impl SceneElement {
     pub fn is_widget(&self) -> bool {
         match self {
             SceneElement::WidgetElement(_) => true,
-            _ => false
+            _ => false,
         }
     }
 }
