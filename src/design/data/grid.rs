@@ -13,6 +13,8 @@ pub struct Grid {
     pub orientation: Rotor3,
     pub parameters: Parameters,
     pub grid_type: GridType,
+    old_position: Vec3,
+    old_orientation: Rotor3,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Copy)]
@@ -86,6 +88,8 @@ impl Grid {
             orientation,
             parameters,
             grid_type,
+            old_position: position,
+            old_orientation: orientation,
         }
     }
 
@@ -171,6 +175,29 @@ impl Grid {
             grid_type: self.grid_type.descr(),
         }
     }
+
+    fn append_translation(&mut self, translation: Vec3) {
+        self.position += translation;
+    }
+
+    fn append_rotation(&mut self, rotation: Rotor3) {
+        self.orientation = rotation * self.orientation;
+        self.position = rotation * self.position;
+    }
+
+    pub fn rotate_arround(&mut self, rotation: Rotor3, origin: Vec3) {
+        self.orientation = self.old_orientation;
+        self.position = self.old_position;
+        self.append_translation(-origin);
+        self.append_rotation(rotation);
+        self.append_translation(origin);
+    }
+
+    pub fn end_movement(&mut self) {
+        self.old_position = self.position;
+        self.old_orientation = self.orientation;
+    }
+
 }
 
 pub trait GridDivision {
@@ -393,6 +420,7 @@ impl GridManager {
                 self.helix_to_pos.insert(*h_id, grid_position);
                 let grid = &self.grids[grid_position.grid];
                 h.position = grid.position_helix(grid_position.x, grid_position.y);
+                h.orientation = grid.orientation;
             }
         }
         design.grids.clear();
@@ -498,6 +526,17 @@ impl GridManager {
         }
         ret
     }
+
+    pub fn rotate_grid_arround(&mut self, g_id: usize, rotation: Rotor3, origin: Vec3) {
+        self.grids[g_id].rotate_arround(rotation, origin)
+    }
+
+    pub fn terminate_movement(&mut self) {
+        for g in self.grids.iter_mut() {
+            g.end_movement()
+        }
+    }
+
 }
 
 impl Data {

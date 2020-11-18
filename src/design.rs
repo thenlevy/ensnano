@@ -15,7 +15,7 @@ mod data;
 mod view;
 use crate::scene::GridInstance;
 use controller::Controller;
-pub use controller::{DesignRotation, IsometryTarget};
+pub use controller::{DesignRotation, IsometryTarget, DesignTranslation};
 use data::Data;
 pub use data::*;
 use view::View;
@@ -87,7 +87,7 @@ impl Design {
     }
 
     /// Translate the representation of self
-    pub fn apply_translation(&mut self, translation: &Vec3) {
+    pub fn apply_translation(&mut self, translation: &DesignTranslation) {
         self.controller.translate(translation);
     }
 

@@ -427,11 +427,24 @@ impl Data {
         self.update_status = true;
     }
 
+    pub fn rotate_grid_arround(
+        &mut self,
+        g_id: usize,
+        rotation: ultraviolet::Rotor3,
+        origin: Vec3,
+    ) {
+        self.grid_manager.rotate_grid_arround(g_id, rotation, origin);
+        self.grid_manager.update(&mut self.design);
+        self.hash_maps_update = true;
+        self.update_status = true;
+    }
+
     /// End current movement. This means that the old_matrices take the value of the current ones.
     pub fn terminate_movement(&mut self) {
         for helix in self.design.helices.values_mut() {
             helix.end_movement();
         }
+        self.grid_manager.terminate_movement();
     }
 
     /// Return the orientation of an helix. (`None` if the helix id does not exists)

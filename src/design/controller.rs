@@ -33,10 +33,15 @@ impl Controller {
     }
 
     /// Translate the whole view of the design
-    pub fn translate(&mut self, translation: &Vec3) {
-        self.view
-            .borrow_mut()
-            .set_matrix(self.old_matrix.translated(translation))
+    pub fn translate(&mut self, translation: &DesignTranslation) {
+        match translation.target {
+            IsometryTarget::Design => {
+                self.view
+                    .borrow_mut()
+                    .set_matrix(self.old_matrix.translated(&translation.translation))
+            }
+            _ => unimplemented!()
+        }
     }
 
     /// Apply a DesignRotation to the view of the design
@@ -69,6 +74,20 @@ impl Controller {
                     origin,
                 )
             }
+            IsometryTarget::Grid(n) => {
+                let origin = self.old_matrix.inversed().transform_point3(rotation.origin);
+                let basis = ultraviolet::Mat3::new(
+                    self.old_matrix.transform_vec3(Vec3::unit_x()),
+                    self.old_matrix.transform_vec3(Vec3::unit_y()),
+                    self.old_matrix.transform_vec3(Vec3::unit_z()),
+                )
+                .into_rotor3();
+                self.data.lock().unwrap().rotate_grid_arround(
+                    n as usize,
+                    rotation.rotation.rotated_by(basis.reversed()),
+                    origin,
+                )
+            }
         }
     }
 
@@ -88,6 +107,13 @@ pub struct DesignRotation {
     pub target: IsometryTarget,
 }
 
+/// A translation of an element of a design
+#[derive(Clone)]
+pub struct DesignTranslation {
+    pub translation: Vec3,
+    pub target: IsometryTarget,
+}
+
 /// A element on which an isometry must be applied
 #[derive(Clone)]
 pub enum IsometryTarget {
@@ -95,4 +121,6 @@ pub enum IsometryTarget {
     Design,
     /// An helix of the design
     Helix(u32),
+    /// A grid of the desgin
+    Grid(u32),
 }

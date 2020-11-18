@@ -17,7 +17,7 @@ use native_dialog::{Dialog, MessageAlert};
 
 use crate::design;
 
-use design::{Design, DesignNotification, DesignRotation};
+use design::{Design, DesignNotification, DesignRotation, DesignTranslation};
 
 mod operation;
 pub use operation::*;
@@ -422,7 +422,7 @@ impl Mediator {
 pub enum AppNotification {
     MovementEnded,
     Rotation(DesignRotation),
-    Translation(ultraviolet::Vec3),
+    Translation(DesignTranslation),
     MakeGrids,
 }
 

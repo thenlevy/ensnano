@@ -111,6 +111,7 @@ impl Data {
         match element {
             SceneElement::DesignElement(d_id, _) => *d_id,
             SceneElement::PhantomElement(phantom_element) => phantom_element.design_id,
+            SceneElement::Grid(d_id, _) => *d_id,
             _ => unreachable!(),
         }
     }
@@ -272,6 +273,7 @@ impl Data {
                 self.get_group_identifier(*design_id, *element_id)
             }
             Some(SceneElement::PhantomElement(phantom_element)) => phantom_element.helix_id,
+            Some(SceneElement::Grid(_, g_id)) => *g_id,
             _ => unreachable!(),
         }
     }

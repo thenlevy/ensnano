@@ -216,6 +216,13 @@ impl SceneElement {
             SceneElement::Grid(d, _) => Some(*d),
         }
     }
+
+    pub fn is_widget(&self) -> bool {
+        match self {
+            SceneElement::WidgetElement(_) => true,
+            _ => false
+        }
+    }
 }
 
 struct SceneReader {

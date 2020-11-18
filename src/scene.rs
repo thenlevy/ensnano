@@ -12,7 +12,7 @@ use crate::{DrawArea, PhySize, WindowEvent};
 use instance::Instance;
 use mediator::{
     ActionMode, AppNotification, Application, DesignViewRotation, DesignViewTranslation,
-    HelixRotation, MediatorPtr, Notification, Operation, SelectionMode,
+    HelixRotation, MediatorPtr, Notification, Operation, SelectionMode, GridRotation,
 };
 use utils::instance;
 use wgpu::{Device, Queue};
@@ -214,13 +214,16 @@ impl Scene {
 
     fn check_on(&mut self, clicked_pixel: PhysicalPosition<f64>) {
         let element = if self.data.borrow().selection_mode == SelectionMode::Grid {
-            self.view
+            let widget = self.element_selector.set_selected_id(clicked_pixel).filter(SceneElement::is_widget);
+            let grid = self
+                .view
                 .borrow()
                 .grid_intersection(
                     clicked_pixel.x as f32 / self.area.size.width as f32,
                     clicked_pixel.y as f32 / self.area.size.height as f32,
                 )
-                .map(|(d_id, g_id)| SceneElement::Grid(d_id as u32, g_id as u32))
+                .map(|(d_id, g_id)| SceneElement::Grid(d_id as u32, g_id as u32));
+            widget.or(grid)
         } else {
             self.element_selector.set_selected_id(clicked_pixel)
         };
@@ -281,6 +284,16 @@ impl Scene {
                 let helix_id = self.data.borrow().get_selected_group() as usize;
                 Arc::new(HelixRotation {
                     helix_id,
+                    angle,
+                    plane,
+                    origin,
+                    design_id,
+                })
+            }
+            SelectionMode::Grid => {
+                let grid_id = self.data.borrow().get_selected_group() as usize;
+                Arc::new(GridRotation {
+                    grid_id,
                     angle,
                     plane,
                     origin,
