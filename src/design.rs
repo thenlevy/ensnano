@@ -1,6 +1,7 @@
 //! This modules defines the type [`Design`](Design) which offers an interface to a DNA nanostructure design.
 use native_dialog::{Dialog, MessageAlert};
 use std::cell::RefCell;
+use std::collections::HashSet;
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex, RwLock};
@@ -326,11 +327,23 @@ impl Design {
     }
 
     pub fn get_grid_instance(&self) -> Vec<GridInstance> {
-        self.data.lock().unwrap().get_grid_instances()
+        self.data.lock().unwrap().get_grid_instances(self.id)
     }
 
     pub fn get_grid2d(&self, id: usize) -> Option<Arc<RwLock<Grid2D>>> {
         self.data.lock().unwrap().get_grid(id)
+    }
+
+    pub fn get_grid_basis(&self, g_id: u32) -> Option<ultraviolet::Rotor3> {
+        self.data.lock().unwrap().get_grid_basis(g_id)
+    }
+
+    pub fn get_helices_grid(&self, g_id: u32) -> Option<HashSet<u32>> {
+        self.data.lock().unwrap().get_helices_grid(g_id)
+    }
+
+    pub fn get_grid_position(&self, g_id: u32) -> Option<ultraviolet::Vec3> {
+        self.data.lock().unwrap().get_grid_position(g_id)
     }
 }
 

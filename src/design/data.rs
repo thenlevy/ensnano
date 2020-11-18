@@ -9,7 +9,7 @@
 //! about the element such as its position, color etc...
 //!
 use native_dialog::{Dialog, MessageAlert};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::io::Write;
 use std::path::PathBuf;
 use ultraviolet::Vec3;
@@ -21,8 +21,8 @@ mod grid;
 mod icednano;
 mod strand_builder;
 use crate::scene::GridInstance;
-pub use grid::*;
 use grid::GridManager;
+pub use grid::*;
 pub use icednano::Nucl;
 pub use icednano::{Axis, Design, Parameters};
 use std::sync::{Arc, RwLock};
@@ -724,8 +724,8 @@ impl Data {
         self.design.strands.keys().cloned().collect()
     }
 
-    pub fn get_grid_instances(&self) -> Vec<GridInstance> {
-        self.grid_manager.grid_instances()
+    pub fn get_grid_instances(&self, design_id: usize) -> Vec<GridInstance> {
+        self.grid_manager.grid_instances(design_id)
     }
 
     pub fn create_grids(&mut self) {
@@ -747,6 +747,32 @@ impl Data {
 
     pub fn get_grid(&self, id: usize) -> Option<Arc<RwLock<Grid2D>>> {
         self.grids.get(id).cloned()
+    }
+
+    pub fn get_helices_grid(&self, g_id: u32) -> Option<HashSet<u32>> {
+        self.grids.get(g_id as usize).map(|g| {
+            g.read()
+                .unwrap()
+                .helices()
+                .values()
+                .cloned()
+                .map(|x| x as u32)
+                .collect()
+        })
+    }
+
+    pub fn get_grid_basis(&self, g_id: u32) -> Option<ultraviolet::Rotor3> {
+        self.grid_manager
+            .grids
+            .get(g_id as usize)
+            .map(|g| g.orientation)
+    }
+
+    pub fn get_grid_position(&self, g_id: u32) -> Option<Vec3> {
+        self.grid_manager
+            .grids
+            .get(g_id as usize)
+            .map(|g| g.position)
     }
 }
 

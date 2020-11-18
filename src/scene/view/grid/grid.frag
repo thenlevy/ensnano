@@ -4,6 +4,7 @@
 layout(location=0) flat in uint v_grid_type;
 layout(location=1) in vec2 v_tex_honey_coords;
 layout(location=2) in vec2 v_tex_square_coords;
+layout(location=3) in vec3 v_color;
 
 layout(location=0) out vec4 f_color;
 
@@ -26,5 +27,5 @@ void main() {
     discard;
     }
 
-    f_color = color;
+    f_color = color * vec4(v_color, 1.);
 }

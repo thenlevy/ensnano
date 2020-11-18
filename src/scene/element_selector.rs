@@ -204,6 +204,7 @@ pub enum SceneElement {
     DesignElement(u32, u32),
     WidgetElement(u32),
     PhantomElement(utils::PhantomElement),
+    Grid(u32, u32),
 }
 
 impl SceneElement {
@@ -212,6 +213,7 @@ impl SceneElement {
             SceneElement::DesignElement(d, _) => Some(*d),
             SceneElement::WidgetElement(_) => None,
             SceneElement::PhantomElement(p) => Some(p.design_id),
+            SceneElement::Grid(d, _) => Some(*d),
         }
     }
 }

@@ -239,6 +239,7 @@ impl Design3D {
             SceneElement::PhantomElement(phantom) => {
                 self.get_phantom_element_position(phantom, referential, false)
             }
+            SceneElement::Grid(_, g_id) => self.design.lock().unwrap().get_grid_position(*g_id),
             _ => None,
         }
     }
@@ -255,7 +256,7 @@ impl Design3D {
             SceneElement::PhantomElement(phantom) => {
                 self.get_phantom_element_position(phantom, referential, true)
             }
-            SceneElement::WidgetElement(_) => None,
+            SceneElement::WidgetElement(_) | SceneElement::Grid(_, _) => None,
         }
     }
 
@@ -474,6 +475,14 @@ impl Design3D {
 
     pub fn get_grid(&self) -> Vec<GridInstance> {
         self.design.lock().unwrap().get_grid_instance()
+    }
+
+    pub fn get_helices_grid(&self, g_id: u32) -> Option<HashSet<u32>> {
+        self.design.lock().unwrap().get_helices_grid(g_id)
+    }
+
+    pub fn get_grid_basis(&self, g_id: u32) -> Option<Rotor3> {
+        self.design.lock().unwrap().get_grid_basis(g_id)
     }
 }
 

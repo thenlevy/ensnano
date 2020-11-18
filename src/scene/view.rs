@@ -486,9 +486,17 @@ impl View {
         Some(((p1 - axis.origin).mag() * sign / axis.direction.mag()).round() as isize)
     }
 
-    pub fn grid_intersection(&self, x_ndc: f32, y_ndc: f32) -> Option<usize> {
+    pub fn grid_intersection(&self, x_ndc: f32, y_ndc: f32) -> Option<(usize, usize)> {
         let ray = maths::cast_ray(x_ndc, y_ndc, self.camera.clone(), self.projection.clone());
         self.grid_drawer.intersect(ray.0, ray.1)
+    }
+
+    pub fn set_candidate_grid(&mut self, grid: Option<(u32, u32)>) {
+        self.grid_drawer.set_candidate_grid(grid)
+    }
+
+    pub fn set_selected_grid(&mut self, grid: Option<(u32, u32)>) {
+        self.grid_drawer.set_selected_grid(grid)
     }
 }
 

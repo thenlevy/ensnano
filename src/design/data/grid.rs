@@ -25,7 +25,7 @@ pub struct GridDescriptor {
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum GridTypeDescr {
     Square,
-    Honeycomb
+    Honeycomb,
 }
 
 #[derive(Clone, Debug)]
@@ -55,7 +55,6 @@ impl GridDivision for GridType {
             GridType::Honeycomb(grid) => grid.interpolate(parameters, x, y),
         }
     }
-
 }
 
 impl GridType {
@@ -76,7 +75,12 @@ impl GridType {
 }
 
 impl Grid {
-    pub fn new(position: Vec3, orientation: Rotor3, parameters: Parameters, grid_type: GridType) -> Self {
+    pub fn new(
+        position: Vec3,
+        orientation: Rotor3,
+        parameters: Parameters,
+        grid_type: GridType,
+    ) -> Self {
         Self {
             position,
             orientation,
@@ -133,11 +137,10 @@ impl Grid {
 
     pub fn interpolate_helix(&self, origin: Vec3, axis: Vec3) -> Option<(isize, isize)> {
         let intersection = self.line_intersection(origin, axis)?;
-        Some(self.grid_type.interpolate(
-            &self.parameters,
-            intersection.x,
-            intersection.y,
-        ))
+        Some(
+            self.grid_type
+                .interpolate(&self.parameters, intersection.x, intersection.y),
+        )
     }
 
     fn error_group(&self, group: &Vec<usize>, design: &Design) -> f32 {
@@ -255,7 +258,7 @@ pub struct GridPosition {
 }
 
 pub(super) struct GridManager {
-    grids: Vec<Grid>,
+    pub grids: Vec<Grid>,
     helix_to_pos: HashMap<usize, GridPosition>,
     parameters: Parameters,
 }
@@ -307,17 +310,19 @@ impl GridManager {
         }
     }
 
-    pub fn grid_instances(&self) -> Vec<GridInstance> {
+    pub fn grid_instances(&self, design_id: usize) -> Vec<GridInstance> {
         let mut ret = Vec::new();
-        for g in self.grids.iter() {
-            let grid = 
-                GridInstance {
-                    grid: g.clone(),
-                    min_x: -2,
-                    max_x: 2,
-                    min_y: -2,
-                    max_y: 2,
-                };
+        for (n, g) in self.grids.iter().enumerate() {
+            let grid = GridInstance {
+                grid: g.clone(),
+                min_x: -2,
+                max_x: 2,
+                min_y: -2,
+                max_y: 2,
+                color: 0x00_00_FF,
+                design: design_id,
+                id: n
+            };
             ret.push(grid);
         }
         for grid_position in self.helix_to_pos.values() {
@@ -485,7 +490,11 @@ impl GridManager {
     pub fn grids2d(&self) -> Vec<Arc<RwLock<Grid2D>>> {
         let mut ret = Vec::new();
         for (n, g) in self.grids.iter().enumerate() {
-            ret.push(Arc::new(RwLock::new(Grid2D::new(n, g.grid_type.clone(), self.parameters))));
+            ret.push(Arc::new(RwLock::new(Grid2D::new(
+                n,
+                g.grid_type.clone(),
+                self.parameters,
+            ))));
         }
         ret
     }

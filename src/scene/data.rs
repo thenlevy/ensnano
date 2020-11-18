@@ -283,6 +283,7 @@ impl Data {
             SelectionMode::Design => design_id,
             SelectionMode::Strand => self.designs[design_id as usize].get_strand(element_id),
             SelectionMode::Helix => self.designs[design_id as usize].get_helix(element_id),
+            SelectionMode::Grid => element_id,
         }
     }
 
@@ -297,6 +298,7 @@ impl Data {
             SelectionMode::Design => self.designs[design_id as usize].get_all_elements(),
             SelectionMode::Strand => self.designs[design_id as usize].get_strand_elements(group_id),
             SelectionMode::Helix => self.designs[design_id as usize].get_helix_elements(group_id),
+            SelectionMode::Grid => vec![group_id].into_iter().collect(),
         }
     }
 
@@ -310,9 +312,10 @@ impl Data {
         let design = self.designs.get(design_id as usize)?;
         match self.selection_mode {
             SelectionMode::Helix => design.get_element_axis_position(element, referential),
-            SelectionMode::Nucleotide | SelectionMode::Strand | SelectionMode::Design => {
-                design.get_element_position(element, referential)
-            }
+            SelectionMode::Nucleotide
+            | SelectionMode::Strand
+            | SelectionMode::Design
+            | SelectionMode::Grid => design.get_element_position(element, referential),
         }
     }
 
@@ -348,6 +351,7 @@ impl Data {
                         SelectionMode::Strand => Selection::Strand(design_id, group_id),
                         SelectionMode::Nucleotide => Selection::Nucleotide(design_id, group_id),
                         SelectionMode::Helix => Selection::Helix(design_id, group_id),
+                        SelectionMode::Grid => Selection::Grid(design_id, group_id),
                     }
                 }
                 _ => Selection::Nothing,
@@ -392,6 +396,12 @@ impl Data {
         self.view
             .borrow_mut()
             .update(ViewUpdate::PhantomInstances(sphere, vec));
+        let grid = if let Some(SceneElement::Grid(d_id, g_id)) = self.selected.get(0) {
+            Some((*d_id, *g_id))
+        } else {
+            None
+        };
+        self.view.borrow_mut().set_selected_grid(grid);
     }
 
     /// Return the sets of elements of the phantom helix
@@ -419,6 +429,8 @@ impl Data {
         }
     }
 
+    /// Return a hashmap, mapping designs identifier to the set of helices whose phantom must be
+    /// drawn.
     fn get_phantom_helices_set(&self) -> HashMap<u32, HashSet<u32>> {
         let mut ret = HashMap::new();
         for element in self.selected.iter() {
@@ -432,6 +444,15 @@ impl Data {
                         .entry(phantom_element.design_id)
                         .or_insert_with(HashSet::new);
                     set.insert(phantom_element.helix_id);
+                }
+                SceneElement::Grid(d_id, g_id) => {
+                    let new_helices = self.designs[*d_id as usize]
+                        .get_helices_grid(*g_id)
+                        .unwrap_or_default();
+                    let set = ret.entry(*d_id).or_insert_with(HashSet::new);
+                    for h_id in new_helices.iter() {
+                        set.insert(*h_id);
+                    }
                 }
                 SceneElement::WidgetElement(_) => unreachable!(),
             }
@@ -461,7 +482,7 @@ impl Data {
         } else {
             Vec::new()
         };
-        self.candidate_update |= self.candidates == future_candidate;
+        self.candidate_update |= self.candidates != future_candidate;
         self.candidates = future_candidate;
     }
 
@@ -479,6 +500,12 @@ impl Data {
         self.view
             .borrow_mut()
             .update(ViewUpdate::CandidateSpheres(self.get_candidate_spheres()));
+        let grid = if let Some(SceneElement::Grid(d_id, g_id)) = self.candidates.get(0) {
+            Some((*d_id, *g_id))
+        } else {
+            None
+        };
+        self.view.borrow_mut().set_candidate_grid(grid);
     }
 
     /// This function must be called when the designs have been modified
@@ -557,7 +584,8 @@ impl Data {
             SelectionMode::Nucleotide => SelectionMode::Design,
             SelectionMode::Design => SelectionMode::Strand,
             SelectionMode::Strand => SelectionMode::Helix,
-            SelectionMode::Helix => SelectionMode::Nucleotide,
+            SelectionMode::Helix => SelectionMode::Grid,
+            SelectionMode::Grid => SelectionMode::Nucleotide,
         }
     }
 
@@ -590,9 +618,10 @@ impl Data {
     fn get_selected_basis(&self) -> Option<Rotor3> {
         match self.selected.get(0) {
             Some(SceneElement::DesignElement(d_id, _)) => match self.selection_mode {
-                SelectionMode::Nucleotide | SelectionMode::Design | SelectionMode::Strand => {
-                    Some(self.designs[*d_id as usize].get_basis())
-                }
+                SelectionMode::Nucleotide
+                | SelectionMode::Design
+                | SelectionMode::Strand
+                | SelectionMode::Grid => Some(self.designs[*d_id as usize].get_basis()),
                 SelectionMode::Helix => {
                     let h_id = self.get_selected_group();
                     self.designs[*d_id as usize].get_helix_basis(h_id)
@@ -601,14 +630,18 @@ impl Data {
             Some(SceneElement::PhantomElement(phantom_element)) => {
                 let d_id = phantom_element.design_id;
                 match self.selection_mode {
-                    SelectionMode::Nucleotide | SelectionMode::Design | SelectionMode::Strand => {
-                        Some(self.designs[d_id as usize].get_basis())
-                    }
+                    SelectionMode::Nucleotide
+                    | SelectionMode::Design
+                    | SelectionMode::Strand
+                    | SelectionMode::Grid => Some(self.designs[d_id as usize].get_basis()),
                     SelectionMode::Helix => {
                         let h_id = phantom_element.helix_id;
                         self.designs[d_id as usize].get_helix_basis(h_id)
                     }
                 }
+            }
+            Some(SceneElement::Grid(d_id, g_id)) => {
+                self.designs[*d_id as usize].get_grid_basis(*g_id)
             }
             _ => None,
         }

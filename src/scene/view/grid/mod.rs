@@ -8,7 +8,7 @@ use super::{
     CameraPtr, ProjectionPtr, Uniforms,
 };
 use crate::consts::*;
-pub use crate::design::{Grid, GridType, Parameters, GridTypeDescr};
+pub use crate::design::{Grid, GridType, GridTypeDescr, Parameters};
 use crate::utils::texture::Texture;
 
 mod texture;
@@ -20,10 +20,14 @@ pub struct GridInstance {
     pub max_x: i32,
     pub min_y: i32,
     pub max_y: i32,
+    pub color: u32,
+    pub design: usize,
+    pub id: usize,
 }
 
 impl GridInstance {
     fn to_raw(&self) -> GridInstanceRaw {
+        use crate::utils::instance::Instance;
         GridInstanceRaw {
             model: Mat4::from_translation(self.grid.position)
                 * self.grid.orientation.into_matrix().into_homogeneous(),
@@ -32,7 +36,7 @@ impl GridInstance {
             min_y: self.min_y as f32,
             max_y: self.max_y as f32,
             grid_type: self.grid.grid_type.descr() as u32,
-            _padding: Vec3::zero(),
+            color: Instance::color_from_u32(self.color).truncated(),
         }
     }
 
@@ -59,11 +63,13 @@ impl GridInstance {
     fn convert_coord(&self, x: f32, y: f32) -> (f32, f32) {
         match self.grid.grid_type {
             GridType::Square(_) => {
-                let r = self.grid.parameters.helix_radius * 2. + self.grid.parameters.inter_helix_gap;
+                let r =
+                    self.grid.parameters.helix_radius * 2. + self.grid.parameters.inter_helix_gap;
                 (x / r, y / r)
             }
             GridType::Honeycomb(_) => {
-                let r = self.grid.parameters.helix_radius * 2. + self.grid.parameters.inter_helix_gap;
+                let r =
+                    self.grid.parameters.helix_radius * 2. + self.grid.parameters.inter_helix_gap;
                 (x * 2. / (3f32.sqrt() * r), (y - r / 2.) * 2. / (3. * r))
             }
         }
@@ -71,7 +77,10 @@ impl GridInstance {
 
     fn contains_point(&self, x: f32, y: f32) -> bool {
         let (x, y) = self.convert_coord(x, y);
-        x >= self.min_x as f32 - 0.025 && x <= self.max_x as f32 + 0.025 && y >= self.min_y as f32 - 0.025 && y <= self.max_y as f32 + 0.025
+        x >= self.min_x as f32 - 0.025
+            && x <= self.max_x as f32 + 0.025
+            && y >= self.min_y as f32 - 0.025
+            && y <= self.max_y as f32 + 0.025
     }
 }
 
@@ -83,8 +92,8 @@ struct GridInstanceRaw {
     pub max_x: f32,     // padding 2
     pub min_y: f32,     // padding 3
     pub max_y: f32,     // padding 0
-    pub grid_type: u32, // padding 1
-    pub _padding: Vec3,
+    pub color: Vec3,    // padding 3
+    pub grid_type: u32, // padding 0
 }
 
 unsafe impl bytemuck::Zeroable for GridInstanceRaw {}
@@ -135,7 +144,9 @@ pub struct GridDrawer {
     pipeline: Option<RenderPipeline>,
     texture_bind_group: wgpu::BindGroup,
     texture_bind_group_layout: wgpu::BindGroupLayout,
-    instances: Rc<Vec<GridInstance>>,
+    instances: Vec<GridInstance>,
+    selected: Option<(usize, usize)>,
+    candidate: Option<(usize, usize)>,
 }
 
 impl GridDrawer {
@@ -237,7 +248,9 @@ impl GridDrawer {
             pipeline: None,
             texture_bind_group,
             texture_bind_group_layout,
-            instances: Rc::new(vec![]),
+            instances: vec![],
+            selected: None,
+            candidate: None,
         }
     }
 
@@ -256,8 +269,8 @@ impl GridDrawer {
     /// If one or several update of the set of instances were requested before the last call of
     /// this function, perform the most recent update.
     fn update_instances(&mut self) {
-        if let Some(ref instances) = self.new_instances {
-            self.instances = instances.clone();
+        if let Some(instances) = self.new_instances.take() {
+            self.instances = (*instances).clone();
             self.number_instances = instances.len();
             let instances_data: Vec<_> = instances.iter().map(|i| i.to_raw()).collect();
             self.bind_groups.update_instances(instances_data.as_slice());
@@ -279,6 +292,7 @@ impl GridDrawer {
         }
         self.update_viewer();
         self.update_instances();
+        self.update_colors();
         render_pass.set_pipeline(self.pipeline.as_ref().unwrap());
         render_pass.set_bind_group(
             VIEWER_BINDING_ID,
@@ -373,19 +387,40 @@ impl GridDrawer {
         })
     }
 
-    pub fn intersect(&self, origin: Vec3, direction: Vec3) -> Option<usize> {
+    pub fn intersect(&self, origin: Vec3, direction: Vec3) -> Option<(usize, usize)> {
         let mut ret = None;
         let mut depth = std::f32::INFINITY;
         for (n, g) in self.instances.iter().enumerate() {
-            println!("{:?}", n);
             if let Some(x) = g.ray_intersection(origin, direction) {
                 if x < depth {
-                    ret = Some(n);
+                    ret = Some((g.design, n));
                     depth = x;
                 }
             }
         }
         ret
+    }
+
+    pub fn set_candidate_grid(&mut self, grid: Option<(u32, u32)>) {
+        self.candidate = grid.map(|(a, b)| (a as usize, b as usize))
+    }
+
+    pub fn set_selected_grid(&mut self, grid: Option<(u32, u32)>) {
+        self.selected = grid.map(|(a, b)| (a as usize, b as usize))
+    }
+
+    fn update_colors(&mut self) {
+        for instance in self.instances.iter_mut() {
+             if self.selected == Some((instance.design, instance.id)) {
+                instance.color = 0xFF_00_00
+             } else if self.candidate == Some((instance.design, instance.id)) {
+                instance.color = 0x00_FF_00
+            } else {
+                instance.color = 0x00_00_FF
+            }
+        }
+        let instances_data: Vec<_> = self.instances.iter().map(|i| i.to_raw()).collect();
+        self.bind_groups.update_instances(instances_data.as_slice());
     }
 }
 

@@ -3,6 +3,7 @@
 layout(location=0) out uint v_grid_type;
 layout(location=1) out vec2 v_tex_honney_coords;
 layout(location=2) out vec2 v_tex_square_coords;
+layout(location=3) out vec3 v_color;
 
 
 layout(set=0, binding=0)
@@ -18,6 +19,7 @@ struct Instances {
     float max_x;
     float min_y;
     float max_y;
+    vec3 color;
     uint grid_type;
 };
 
@@ -34,6 +36,7 @@ uniform Parameters {
 
 void main() {
     v_grid_type = instances[gl_InstanceIndex].grid_type;
+    v_color = instances[gl_InstanceIndex].color;
     float r = u_helix_radius + u_inter_helix_gap / 2.;
 
     float min_x = instances[gl_InstanceIndex].min_x - 0.025;

@@ -432,6 +432,7 @@ pub enum Selection {
     Design(u32),
     Strand(u32, u32),
     Helix(u32, u32),
+    Grid(u32, u32),
     Nothing,
 }
 
@@ -449,6 +450,7 @@ impl Selection {
             Selection::Strand(d, _) => Some(*d),
             Selection::Helix(d, _) => Some(*d),
             Selection::Nucleotide(d, _) => Some(*d),
+            Selection::Grid(d, _) => Some(*d),
             Selection::Nothing => None,
         }
     }
@@ -456,6 +458,7 @@ impl Selection {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SelectionMode {
+    Grid,
     Nucleotide,
     Design,
     Strand,
@@ -474,6 +477,7 @@ impl std::fmt::Display for SelectionMode {
             f,
             "{}",
             match self {
+                SelectionMode::Grid => "Grid",
                 SelectionMode::Design => "Design",
                 SelectionMode::Nucleotide => "Nucleotide",
                 SelectionMode::Strand => "Strand",
@@ -484,11 +488,12 @@ impl std::fmt::Display for SelectionMode {
 }
 
 impl SelectionMode {
-    pub const ALL: [SelectionMode; 4] = [
+    pub const ALL: [SelectionMode; 5] = [
         SelectionMode::Nucleotide,
         SelectionMode::Design,
         SelectionMode::Strand,
         SelectionMode::Helix,
+        SelectionMode::Grid,
     ];
 }
 

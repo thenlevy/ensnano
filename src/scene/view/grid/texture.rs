@@ -100,8 +100,8 @@ fn fill_square_texture(target: &TextureView, device: &Device, encoder: &mut wgpu
         usage: wgpu::BufferUsage::INDEX,
     });
     let clear_color = wgpu::Color {
-        r: 0.,
-        g: 0.,
+        r: 1.,
+        g: 1.,
         b: 1.,
         a: 0.4, // this will be usefull to discard fragments that are not on the grid
     };
