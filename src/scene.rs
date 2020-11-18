@@ -13,7 +13,7 @@ use instance::Instance;
 use mediator::{
     ActionMode, AppNotification, Application, DesignViewRotation, DesignViewTranslation,
     GridRotation, GridTranslation, HelixRotation, MediatorPtr, Notification, Operation,
-    SelectionMode,
+    SelectionMode, HelixTranslation,
 };
 use utils::instance;
 use wgpu::{Device, Queue};
@@ -266,6 +266,16 @@ impl Scene {
             SelectionMode::Grid => Arc::new(GridTranslation {
                 design_id,
                 grid_id: self.data.borrow().get_selected_group() as usize,
+                right: Vec3::unit_x().rotated_by(rotor),
+                top: Vec3::unit_y().rotated_by(rotor),
+                dir: Vec3::unit_z().rotated_by(rotor),
+                x: translation.dot(right),
+                y: translation.dot(top),
+                z: translation.dot(dir),
+            }),
+            SelectionMode::Helix => Arc::new(HelixTranslation {
+                design_id,
+                helix_id: self.data.borrow().get_selected_group() as usize,
                 right: Vec3::unit_x().rotated_by(rotor),
                 top: Vec3::unit_y().rotated_by(rotor),
                 dir: Vec3::unit_z().rotated_by(rotor),

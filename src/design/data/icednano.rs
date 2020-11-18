@@ -494,6 +494,11 @@ impl Helix {
         self.append_translation(origin);
     }
 
+    pub fn translate(&mut self, translation: Vec3) {
+        self.position = self.old_position;
+        self.append_translation(translation);
+    }
+
     pub fn end_movement(&mut self) {
         self.old_position = self.position;
         self.old_orientation = self.orientation;

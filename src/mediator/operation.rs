@@ -347,6 +347,107 @@ impl Operation for DesignViewTranslation {
 }
 
 #[derive(Debug, Clone)]
+pub struct HelixTranslation {
+    pub design_id: usize,
+    pub helix_id: usize,
+    pub right: Vec3,
+    pub top: Vec3,
+    pub dir: Vec3,
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
+}
+
+impl Operation for HelixTranslation {
+    fn descr(&self) -> OperationDescriptor {
+        OperationDescriptor::HelixTranslation(self.design_id, self.helix_id)
+    }
+
+    fn compose(&self, other: &dyn Operation) -> Option<Arc<dyn Operation>> {
+        if self.descr() == other.descr() {
+            let x = other.values()[0].parse::<f32>().unwrap();
+            let y = other.values()[1].parse::<f32>().unwrap();
+            let z = other.values()[2].parse::<f32>().unwrap();
+            Some(Arc::new(Self {
+                x: self.x + x,
+                y: self.y + y,
+                z: self.z + z,
+                ..*self
+            }))
+        } else {
+            None
+        }
+    }
+
+    fn parameters(&self) -> Vec<Parameter> {
+        vec![
+            Parameter {
+                field: ParameterField::Value,
+                name: String::from("x"),
+            },
+            Parameter {
+                field: ParameterField::Value,
+                name: String::from("y"),
+            },
+            Parameter {
+                field: ParameterField::Value,
+                name: String::from("z"),
+            },
+        ]
+    }
+
+    fn values(&self) -> Vec<String> {
+        vec![self.x.to_string(), self.y.to_string(), self.z.to_string()]
+    }
+
+    fn reverse(&self) -> Arc<dyn Operation> {
+        Arc::new(Self {
+            x: -self.x,
+            y: -self.y,
+            z: -self.z,
+            ..*self
+        })
+    }
+
+    fn effect(&self) -> AppNotification {
+        let translation = self.x * self.right + self.y * self.top + self.z * self.dir;
+        AppNotification::Translation(DesignTranslation {
+            translation,
+            target: IsometryTarget::Helix(self.helix_id as u32),
+        })
+    }
+
+    fn description(&self) -> String {
+        format!(
+            "Translate helix {} of design {}",
+            self.helix_id, self.design_id
+        )
+    }
+
+    fn target(&self) -> usize {
+        self.design_id
+    }
+
+    fn with_new_value(&self, n: usize, val: String) -> Option<Arc<dyn Operation>> {
+        match n {
+            0 => {
+                let new_x: f32 = val.parse().ok()?;
+                Some(Arc::new(Self { x: new_x, ..*self }))
+            }
+            1 => {
+                let new_y: f32 = val.parse().ok()?;
+                Some(Arc::new(Self { y: new_y, ..*self }))
+            }
+            2 => {
+                let new_z: f32 = val.parse().ok()?;
+                Some(Arc::new(Self { z: new_z, ..*self }))
+            }
+            _ => None,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct GridTranslation {
     pub design_id: usize,
     pub grid_id: usize,
@@ -452,6 +553,7 @@ pub enum OperationDescriptor {
     DesignTranslation(usize),
     DesignRotation(usize, Bivec3),
     HelixRotation(usize, usize, Bivec3),
+    HelixTranslation(usize, usize),
     GridRotation(usize, usize, Bivec3),
     GridTranslation(usize, usize),
 }
@@ -466,6 +568,9 @@ impl PartialEq<Self> for OperationDescriptor {
             }
             (HelixRotation(d1, h1, bv1), HelixRotation(d2, h2, bv2)) => {
                 d1 == d2 && h1 == h2 && (*bv1 - *bv2).mag() < 1e-3
+            }
+            (HelixTranslation(d1, h1), HelixTranslation(d2, h2)) => {
+                d1 == d2 && h1 == h2
             }
             (GridTranslation(d1, g1), GridTranslation(d2, g2)) => d1 == d2 && g1 == g2,
             (GridRotation(d1, g1, bv1), GridRotation(d2, g2, bv2)) => {

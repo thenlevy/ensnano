@@ -433,6 +433,21 @@ impl GridManager {
         }
     }
 
+    pub fn reattach_helix(&mut self, h_id: usize, design: &mut Design) {
+        let h = design.helices.get_mut(&h_id).unwrap();
+        let axis = h.get_axis(&self.parameters);
+        if let Some(grid_position) = h.grid_position {
+            let g = &self.grids[grid_position.grid];
+            if let Some((x, y)) = g.interpolate_helix(axis.origin, axis.direction){
+                h.grid_position = Some(GridPosition{
+                    grid: grid_position.grid,
+                    x,
+                    y
+                })
+            }
+        }
+    }
+
     fn attach_existing(&self, origin: Vec3, direction: Vec3) -> Option<GridPosition> {
         let mut ret = None;
         let mut best_err = f32::INFINITY;

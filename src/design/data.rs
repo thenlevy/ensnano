@@ -434,6 +434,14 @@ impl Data {
         self.update_status = true;
     }
 
+    pub fn translate_helix(&mut self, h_id: usize, translation: Vec3) {
+        self.design.helices.get_mut(&h_id).map(|h| h.translate(translation));
+        self.grid_manager.reattach_helix(h_id, &mut self.design);
+        self.grid_manager.update(&mut self.design);
+        self.hash_maps_update = true;
+        self.update_status = true;
+    }
+
     pub fn rotate_grid_arround(
         &mut self,
         g_id: usize,
