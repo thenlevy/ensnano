@@ -13,7 +13,7 @@ use instance::Instance;
 use mediator::{
     ActionMode, AppNotification, Application, DesignViewRotation, DesignViewTranslation,
     GridRotation, GridTranslation, HelixRotation, MediatorPtr, Notification, Operation,
-    SelectionMode, HelixTranslation,
+    SelectionMode, HelixTranslation, GridHelixCreation,
 };
 use utils::instance;
 use wgpu::{Device, Queue};
@@ -186,10 +186,10 @@ impl Scene {
     }
 
     fn click_on(&mut self, clicked_pixel: PhysicalPosition<f64>) {
-        self.mediator.lock().unwrap().finish_op();
         if self.data.borrow().get_action_mode() == ActionMode::Build {
             self.build_helix(clicked_pixel)
         } else {
+            self.mediator.lock().unwrap().finish_op();
             let element = if self.data.borrow().selection_mode == SelectionMode::Grid {
                 self.view
                     .borrow()
@@ -212,7 +212,18 @@ impl Scene {
                     clicked_pixel.x as f32 / self.area.size.width as f32,
                     clicked_pixel.y as f32 / self.area.size.height as f32,
                 );
-        self.data.borrow_mut().build_helix(intersection)
+        if self.data.borrow_mut().build_helix(&intersection) {
+            let intersection = intersection.unwrap();
+            self.mediator.lock().unwrap().update_opperation(Arc::new(GridHelixCreation {
+                grid_id: intersection.grid_id,
+                design_id: intersection.design_id,
+                x: intersection.x,
+                y: intersection.y,
+            }));
+        } else {
+            self.mediator.lock().unwrap().finish_op();
+        }
+
     }
 
     fn select(&mut self, element: Option<SceneElement>) {

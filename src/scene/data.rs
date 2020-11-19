@@ -545,6 +545,9 @@ impl Data {
         self.view
             .borrow_mut()
             .update(ViewUpdate::Grids(Rc::new(grids)));
+        if self.must_draw_phantom() {
+            self.selection_update = true
+        }
     }
 
     /// This fuction must be called when the model matrices have been modfied
@@ -686,22 +689,24 @@ impl Data {
         }
     }
 
-    pub fn build_helix(&mut self, intersection: Option<GridIntersection>) {
+    pub fn build_helix(&mut self, intersection: &Option<GridIntersection>) -> bool {
         if let Some(GridIntersection {
             grid_id,
-            x,
-            y,
             design_id,
             ..
         }) = intersection {
-            if self.action_mode == ActionMode::Build && self.selection_mode == SelectionMode::Grid && self.selected.len() > 0 && grid_id as u32 == self.get_selected_group() {
-                self.designs[design_id].build_helix_grid(grid_id, x, y);
-                self.update_selection();
+            if self.action_mode == ActionMode::Build && self.selection_mode == SelectionMode::Grid && self.selected.len() > 0 && *grid_id as u32 == self.get_selected_group() {
+                self.selection_update = true;
+                true
             } else if self.action_mode == ActionMode::Build && self.selection_mode == SelectionMode::Grid {
-                self.set_selection(Some(SceneElement::Grid(design_id as u32, grid_id as u32)));
+                self.set_selection(Some(SceneElement::Grid(*design_id as u32, *grid_id as u32)));
+                false
+            } else {
+                false
             }
         } else {
             self.set_selection(None);
+            false
         }
     }
 }

@@ -816,6 +816,17 @@ impl Data {
         }
     }
 
+    pub fn rm_helix_grid(&mut self, g_id: usize, x: isize, y: isize) {
+        if let Some(h_id) = self.grid_manager.get_helix_at_pos(g_id, x, y) {
+            self.design.helices.remove(&h_id);
+            self.grid_manager.remove_helix(h_id);
+            self.update_status = true;
+            self.hash_maps_update = true;
+            self.grid_manager.update(&mut self.design);
+            self.update_grids();
+        }
+    }
+
 }
 
 fn compl(c: Option<char>) -> Option<char> {

@@ -87,8 +87,8 @@ impl GridInstance {
         let (x, y) = self.convert_coord(x, y);
         x >= self.min_x as f32 - 0.025
             && x <= self.max_x as f32 + 0.025
-            && y >= self.min_y as f32 - 0.025
-            && y <= self.max_y as f32 + 0.025
+            && y >= -self.max_y as f32 - 0.025
+            && y <= -self.min_y as f32 + 0.025
     }
 }
 

@@ -1,4 +1,4 @@
-use super::{AppNotification, DesignRotation, DesignTranslation};
+use super::{AppNotification, DesignRotation, DesignTranslation, GridHelixDescriptor};
 use crate::design::IsometryTarget;
 use std::sync::Arc;
 use ultraviolet::{Bivec3, Rotor3, Vec3};
@@ -548,6 +548,163 @@ impl Operation for GridTranslation {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct GridHelixCreation {
+    pub design_id: usize,
+    pub grid_id: usize,
+    pub x: isize,
+    pub y: isize,
+}
+
+impl Operation for GridHelixCreation {
+    fn descr(&self) -> OperationDescriptor {
+        OperationDescriptor::GridHelixCreation(self.design_id, self.grid_id)
+    }
+
+    fn compose(&self, _other: &dyn Operation) -> Option<Arc<dyn Operation>> {
+        None
+    }
+
+    fn parameters(&self) -> Vec<Parameter> {
+        vec![
+            Parameter {
+                field: ParameterField::Value,
+                name: String::from("x"),
+            },
+            Parameter {
+                field: ParameterField::Value,
+                name: String::from("y"),
+            },
+        ]
+    }
+
+    fn values(&self) -> Vec<String> {
+        vec![self.x.to_string(), self.y.to_string()]
+    }
+
+    fn reverse(&self) -> Arc<dyn Operation> {
+        Arc::new(GridHelixDeletion {
+            x: self.x,
+            y: self.y,
+            design_id: self.design_id,
+            grid_id: self.grid_id,
+        })
+    }
+
+    fn effect(&self) -> AppNotification {
+        AppNotification::AddGridHelix(GridHelixDescriptor {
+            grid_id: self.grid_id,
+            x: self.x,
+            y: self.y,
+        })
+    }
+
+    fn description(&self) -> String {
+        format!(
+            "Create helix on grid {} of design {}",
+            self.grid_id, self.design_id
+        )
+    }
+
+    fn target(&self) -> usize {
+        self.design_id
+    }
+
+    fn with_new_value(&self, n: usize, val: String) -> Option<Arc<dyn Operation>> {
+        match n {
+            0 => {
+                let new_x: f32 = val.parse().ok()?;
+                Some(Arc::new(Self { x: new_x as isize, ..*self }))
+            }
+            1 => {
+                let new_y: f32 = val.parse().ok()?;
+                Some(Arc::new(Self { y: new_y as isize, ..*self }))
+            }
+            _ => None,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct GridHelixDeletion {
+    design_id: usize,
+    grid_id: usize,
+    x: isize,
+    y: isize,
+}
+
+impl Operation for GridHelixDeletion {
+    fn descr(&self) -> OperationDescriptor {
+        OperationDescriptor::GridHelixCreation(self.design_id, self.grid_id)
+    }
+
+    fn compose(&self, _other: &dyn Operation) -> Option<Arc<dyn Operation>> {
+        None
+    }
+
+    fn parameters(&self) -> Vec<Parameter> {
+        vec![
+            Parameter {
+                field: ParameterField::Value,
+                name: String::from("x"),
+            },
+            Parameter {
+                field: ParameterField::Value,
+                name: String::from("y"),
+            },
+        ]
+    }
+
+    fn values(&self) -> Vec<String> {
+        vec![self.x.to_string(), self.y.to_string()]
+    }
+
+    fn reverse(&self) -> Arc<dyn Operation> {
+        Arc::new(GridHelixCreation {
+            x: self.x,
+            y: self.y,
+            design_id: self.design_id,
+            grid_id: self.grid_id,
+        })
+    }
+
+    fn effect(&self) -> AppNotification {
+        AppNotification::RmGridHelix(GridHelixDescriptor {
+            grid_id: self.grid_id,
+            x: self.x,
+            y: self.y
+        })
+    }
+
+    fn description(&self) -> String {
+        format!(
+            "Create helix on grid {} of design {}",
+            self.grid_id, self.design_id
+        )
+    }
+
+    fn target(&self) -> usize {
+        self.design_id
+    }
+
+    fn with_new_value(&self, n: usize, val: String) -> Option<Arc<dyn Operation>> {
+        match n {
+            0 => {
+                let new_x: f32 = val.parse().ok()?;
+                Some(Arc::new(Self { x: new_x as isize, ..*self }))
+            }
+            1 => {
+                let new_y: f32 = val.parse().ok()?;
+                Some(Arc::new(Self { y: new_y as isize, ..*self }))
+            }
+            _ => None,
+        }
+    }
+
+}
+
+
+
 #[derive(Debug)]
 pub enum OperationDescriptor {
     DesignTranslation(usize),
@@ -556,6 +713,8 @@ pub enum OperationDescriptor {
     HelixTranslation(usize, usize),
     GridRotation(usize, usize, Bivec3),
     GridTranslation(usize, usize),
+    GridHelixCreation(usize, usize),
+    GridHelixDeletion(usize, usize),
 }
 
 impl PartialEq<Self> for OperationDescriptor {
@@ -576,6 +735,8 @@ impl PartialEq<Self> for OperationDescriptor {
             (GridRotation(d1, g1, bv1), GridRotation(d2, g2, bv2)) => {
                 d1 == d2 && g1 == g2 && (*bv1 - *bv2).mag() < 1e-3
             }
+            (GridHelixCreation(d1, g1), GridHelixCreation(d2, g2)) => d1 == d2 && g1 == g2,
+            (GridHelixDeletion(d1, g1), GridHelixDeletion(d2, g2)) => d1 == d2 && g1 == g2,
             _ => false,
         }
     }

@@ -174,6 +174,16 @@ impl Design {
             AppNotification::Rotation(rotation) => self.apply_rotation(&rotation),
             AppNotification::Translation(translation) => self.apply_translation(&translation),
             AppNotification::MakeGrids => self.data.lock().unwrap().create_grids(),
+            AppNotification::AddGridHelix(GridHelixDescriptor {
+                grid_id,
+                x,
+                y
+            }) => self.data.lock().unwrap().build_helix_grid(grid_id, x, y),
+            AppNotification::RmGridHelix(GridHelixDescriptor {
+                grid_id,
+                x,
+                y
+            }) => self.data.lock().unwrap().rm_helix_grid(grid_id, x, y),
         }
     }
 
@@ -380,4 +390,12 @@ impl Referential {
             _ => false,
         }
     }
+}
+
+/// A stucture that defines an helix on a grid
+#[derive(Clone, Debug)]
+pub struct GridHelixDescriptor {
+    pub grid_id: usize,
+    pub x: isize,
+    pub y: isize,
 }

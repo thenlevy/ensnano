@@ -281,7 +281,7 @@ impl GridDivision for HoneyComb {
     }
 }
 
-#[derive(Clone, Serialize, Deserialize, Copy)]
+#[derive(Clone, Serialize, Deserialize, Copy, PartialEq)]
 pub struct GridPosition {
     pub grid: usize,
     pub x: isize,
@@ -301,6 +301,24 @@ impl GridManager {
             helix_to_pos: HashMap::new(),
             parameters,
         }
+    }
+
+    pub fn get_helix_at_pos(&self, grid: usize, x: isize, y: isize) -> Option<usize> {
+        let pos = GridPosition {
+            grid,
+            x,
+            y
+        };
+        for (h, g) in self.helix_to_pos.iter() {
+            if *g == pos {
+                return Some(*h)
+            }
+        }
+        return None
+    }
+
+    pub fn remove_helix(&mut self, h_id: usize) {
+        self.helix_to_pos.remove(&h_id);
     }
 
     pub fn new_from_design(design: &Design) -> Self {

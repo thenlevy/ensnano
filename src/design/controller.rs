@@ -103,7 +103,7 @@ impl Controller {
 }
 
 /// A rotation on an element of a design.
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct DesignRotation {
     pub origin: Vec3,
     pub rotation: Rotor3,
@@ -112,14 +112,14 @@ pub struct DesignRotation {
 }
 
 /// A translation of an element of a design
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct DesignTranslation {
     pub translation: Vec3,
     pub target: IsometryTarget,
 }
 
 /// A element on which an isometry must be applied
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum IsometryTarget {
     /// The view of the whole design
     Design,
