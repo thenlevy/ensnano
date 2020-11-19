@@ -51,6 +51,7 @@ impl Design2d {
             }
             self.strands.push(Strand::new(color, strand, *strand_id));
         }
+        self.fetch_empty_helices();
     }
 
     fn read_nucl(&mut self, nucl: &Nucl) {
@@ -66,6 +67,23 @@ impl Design2d {
                 left: nucl.position,
                 right: nucl.position,
             });
+        }
+    }
+
+    fn fetch_empty_helices(&mut self) {
+        let mut i = 0;
+        while let Some(grid) = self.design.lock().unwrap().get_grid2d(i) {
+            for h_id in grid.read().unwrap().helices().values() {
+                if !self.id_map.contains_key(h_id) {
+                    self.id_map.insert(*h_id, self.helices.len());
+                    self.helices.push(Helix2d {
+                        id: *h_id,
+                        left: -1,
+                        right: 1,
+                    });
+                }
+            }
+            i += 1;
         }
     }
 
