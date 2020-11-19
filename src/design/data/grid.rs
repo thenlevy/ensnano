@@ -30,6 +30,15 @@ pub enum GridTypeDescr {
     Honeycomb,
 }
 
+impl GridTypeDescr {
+    pub fn to_string(&self) -> String {
+        match self {
+            GridTypeDescr::Square => String::from("Square"),
+            GridTypeDescr::Honeycomb => String::from("Honeycomb"),
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub enum GridType {
     Square(SquareGrid),
@@ -577,6 +586,33 @@ impl GridManager {
     pub fn terminate_movement(&mut self) {
         for g in self.grids.iter_mut() {
             g.end_movement()
+        }
+    }
+
+    pub fn delete_last_grid(&mut self) {
+        self.grids.pop();
+    }
+
+    pub fn add_grid(&mut self, desc: GridDescriptor) {
+        match desc.grid_type {
+            GridTypeDescr::Square => {
+                let grid: Grid = Grid::new(
+                    desc.position,
+                    desc.orientation,
+                    self.parameters,
+                    GridType::square(),
+                );
+                self.grids.push(grid);
+            }
+            GridTypeDescr::Honeycomb => {
+                let grid: Grid = Grid::new(
+                    desc.position,
+                    desc.orientation,
+                    self.parameters,
+                    GridType::honneycomb(),
+                );
+                self.grids.push(grid);
+            }
         }
     }
 }

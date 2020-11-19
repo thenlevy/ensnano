@@ -135,7 +135,7 @@ impl Strand {
             domains,
             sequence: None,
             cyclic: false,
-            color: 0xFF_FF_FF,
+            color: 0x33_44_FF,
         }
     }
 

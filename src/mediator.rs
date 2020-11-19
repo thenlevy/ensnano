@@ -17,7 +17,7 @@ use native_dialog::{Dialog, MessageAlert};
 
 use crate::design;
 
-use design::{Design, DesignNotification, DesignRotation, DesignTranslation, GridHelixDescriptor};
+use design::{Design, DesignNotification, DesignRotation, DesignTranslation, GridHelixDescriptor, GridDescriptor};
 
 mod operation;
 pub use operation::*;
@@ -391,7 +391,18 @@ impl Mediator {
     }
 
     pub fn undo(&mut self) {
-        if let Some(op) = self.current_operation.take() {
+        if let Some(op) = self.last_op.take() {
+            let rev_op = op.reverse();
+            let target = {
+                let mut set = HashSet::new();
+                set.insert(rev_op.target() as u32);
+                set
+            };
+            self.notify_designs(&target, rev_op.effect());
+            self.notify_all_designs(AppNotification::MovementEnded);
+            self.redo_stack.push(rev_op);
+        }
+        else if let Some(op) = self.current_operation.take() {
             let rev_op = op.reverse();
             let target = {
                 let mut set = HashSet::new();
@@ -437,6 +448,8 @@ pub enum AppNotification {
     AddGridHelix(GridHelixDescriptor),
     RmGridHelix(GridHelixDescriptor),
     MakeGrids,
+    AddGrid(GridDescriptor),
+    RmGrid,
 }
 
 #[derive(Clone, Copy)]

@@ -13,7 +13,7 @@ use instance::Instance;
 use mediator::{
     ActionMode, AppNotification, Application, DesignViewRotation, DesignViewTranslation,
     GridRotation, GridTranslation, HelixRotation, MediatorPtr, Notification, Operation,
-    SelectionMode, HelixTranslation, GridHelixCreation,
+    SelectionMode, HelixTranslation, GridHelixCreation, CreateGrid,
 };
 use utils::instance;
 use wgpu::{Device, Queue};
@@ -182,6 +182,17 @@ impl Scene {
             }
             Consequence::Undo => self.mediator.lock().unwrap().undo(),
             Consequence::Redo => self.mediator.lock().unwrap().redo(),
+            Consequence::NewGrid => {
+                self.mediator.lock().unwrap().update_opperation(Arc::new(CreateGrid {
+                design_id: 0,
+                position: Vec3::zero(),
+                orientation: Rotor3::from_rotation_xz(-std::f32::consts::FRAC_PI_2),
+                grid_type: GridTypeDescr::Square,
+                delete: false,
+            }));
+                self.data.borrow_mut().notify_instance_update();
+                self.mediator.lock().unwrap().suspend_op();
+            }
         };
     }
 

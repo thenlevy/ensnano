@@ -1,5 +1,5 @@
-use super::{AppNotification, DesignRotation, DesignTranslation, GridHelixDescriptor};
-use crate::design::IsometryTarget;
+use super::{AppNotification, DesignRotation, DesignTranslation, GridHelixDescriptor, GridDescriptor};
+use crate::design::{GridTypeDescr, IsometryTarget};
 use std::sync::Arc;
 use ultraviolet::{Bivec3, Rotor3, Vec3};
 
@@ -703,6 +703,89 @@ impl Operation for GridHelixDeletion {
 
 }
 
+#[derive(Clone, Debug)]
+pub struct CreateGrid {
+    pub position: Vec3,
+    pub orientation: Rotor3,
+    pub grid_type: GridTypeDescr,
+    pub delete: bool,
+    pub design_id: usize,
+}
+
+impl Operation for CreateGrid {
+    fn descr(&self) -> OperationDescriptor {
+        OperationDescriptor::CreateGrid
+    }
+
+    fn compose(&self, _other: &dyn Operation) -> Option<Arc<dyn Operation>> {
+        None
+    }
+
+    fn parameters(&self) -> Vec<Parameter> {
+        vec![
+            Parameter {
+                field: ParameterField::Choice(vec![String::from("Square"), String::from("Honeycomb")]),
+                name: String::from("Grid type"),
+            },
+        ]
+    }
+
+    fn values(&self) -> Vec<String> {
+        vec![self.grid_type.to_string()]
+    }
+
+    fn reverse(&self) -> Arc<dyn Operation> {
+        Arc::new(CreateGrid {
+            delete: !self.delete,
+            ..*self
+        })
+    }
+
+    fn effect(&self) -> AppNotification {
+        if self.delete {
+            AppNotification::RmGrid
+        } else {
+            AppNotification::AddGrid(GridDescriptor {
+                position: self.position,
+                orientation: self.orientation,
+                grid_type: self.grid_type,
+            })
+        }
+    }
+
+    fn description(&self) -> String {
+        if self.delete {
+        format!("Delete grid")
+        } else {
+            format!("Create grid")
+        }
+    }
+
+    fn target(&self) -> usize {
+        self.design_id
+    }
+
+    fn with_new_value(&self, n: usize, val: String) -> Option<Arc<dyn Operation>> {
+        match n {
+            0 => {
+                match val.as_str() {
+                    "Square" => Some(Arc::new(Self{
+                        grid_type: GridTypeDescr::Square,
+                        ..*self
+                    })),
+                    "Honeycomb" => Some(Arc::new(Self {
+                        grid_type: GridTypeDescr::Honeycomb,
+                        ..*self
+                    })),
+                    _ => None
+                }
+            }
+            _ => None,
+        }
+    }
+
+}
+
 
 
 #[derive(Debug)]
@@ -715,6 +798,7 @@ pub enum OperationDescriptor {
     GridTranslation(usize, usize),
     GridHelixCreation(usize, usize),
     GridHelixDeletion(usize, usize),
+    CreateGrid,
 }
 
 impl PartialEq<Self> for OperationDescriptor {
@@ -737,6 +821,7 @@ impl PartialEq<Self> for OperationDescriptor {
             }
             (GridHelixCreation(d1, g1), GridHelixCreation(d2, g2)) => d1 == d2 && g1 == g2,
             (GridHelixDeletion(d1, g1), GridHelixDeletion(d2, g2)) => d1 == d2 && g1 == g2,
+            (CreateGrid, CreateGrid) => true,
             _ => false,
         }
     }

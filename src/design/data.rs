@@ -827,6 +827,26 @@ impl Data {
         }
     }
 
+    /// Delete the last grid that was added to the grid manager. This can only be done 
+    /// if the last grid is empty. 
+    ///
+    /// At the moment this method is only called when the user undo the creation of a grid.
+    pub fn delete_last_grid(&mut self) {
+        self.grid_manager.delete_last_grid();
+        self.update_status = true;
+        self.hash_maps_update = true;
+        self.grid_manager.update(&mut self.design);
+        self.update_grids();
+
+    }
+
+    pub fn add_grid(&mut self, desc: GridDescriptor) {
+        self.grid_manager.add_grid(desc);
+        self.update_status = true;
+        self.hash_maps_update = true;
+        self.grid_manager.update(&mut self.design);
+        self.update_grids();
+    }
 }
 
 fn compl(c: Option<char>) -> Option<char> {

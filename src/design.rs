@@ -184,6 +184,8 @@ impl Design {
                 x,
                 y
             }) => self.data.lock().unwrap().rm_helix_grid(grid_id, x, y),
+            AppNotification::RmGrid => self.data.lock().unwrap().delete_last_grid(),
+            AppNotification::AddGrid(grid_descriptor) => self.data.lock().unwrap().add_grid(grid_descriptor),
         }
     }
 

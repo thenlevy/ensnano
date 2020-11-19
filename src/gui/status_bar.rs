@@ -124,7 +124,16 @@ impl Program for StatusBar {
                                 .width(Length::Units(40)),
                             )
                     }
-                    ParameterField::Choice(_) => unimplemented!(),
+                    ParameterField::Choice(ref v) => {
+                        row = row
+                            .spacing(20)
+                            .push(PickList::new(
+                                    p.get_choice(),
+                                    v.clone(),
+                                    Some(values[i].clone()),
+                                    move |s| Message::ValueChanged(i, s),
+                            ))
+                    }
                 }
             }
         }
