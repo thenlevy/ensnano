@@ -181,8 +181,9 @@ impl Design3D {
     pub fn make_phantom_helix_instances(
         &self,
         helix_ids: &HashSet<u32>,
+        short: bool,
     ) -> (Rc<Vec<Instance>>, Rc<Vec<Instance>>) {
-        let range_phantom = PHANTOM_RANGE;
+        let range_phantom = if short { PHANTOM_RANGE / 10 } else { PHANTOM_RANGE };
         let mut spheres = Vec::new();
         let mut tubes = Vec::new();
         for helix_id in helix_ids.iter() {
@@ -483,6 +484,10 @@ impl Design3D {
 
     pub fn get_grid_basis(&self, g_id: u32) -> Option<Rotor3> {
         self.design.lock().unwrap().get_grid_basis(g_id)
+    }
+
+    pub fn build_helix_grid(&self, g_id: usize, x: isize, y: isize) {
+        self.design.lock().unwrap().build_helix_grid(g_id, x, y)
     }
 }
 

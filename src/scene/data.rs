@@ -268,6 +268,7 @@ impl Data {
 
     /// Return the identifier of the first selected group
     pub fn get_selected_group(&self) -> u32 {
+        println!("{:?}", self.selected.get(0));
         match self.selected.get(0) {
             Some(SceneElement::DesignElement(design_id, element_id)) => {
                 self.get_group_identifier(*design_id, *element_id)
@@ -417,7 +418,7 @@ impl Data {
             let mut ret_tube = Vec::new();
             for (d_id, set) in phantom_map.iter() {
                 let (spheres, tubes) =
-                    self.designs[*d_id as usize].make_phantom_helix_instances(set);
+                    self.designs[*d_id as usize].make_phantom_helix_instances(set, self.selection_mode == SelectionMode::Grid);
                 for sphere in spheres.iter().cloned() {
                     ret_sphere.push(sphere);
                 }
@@ -690,14 +691,19 @@ impl Data {
             grid_id,
             x,
             y,
+            design_id,
             ..
         }) = intersection {
-            if self.action_mode == ActionMode::Build && self.selection_mode == SelectionMode::Grid && grid_id as u32 == self.get_selected_group() {
-                println!("Building on {} {}", x, y);
+            if self.action_mode == ActionMode::Build && self.selection_mode == SelectionMode::Grid && self.selected.len() > 0 && grid_id as u32 == self.get_selected_group() {
+                self.designs[design_id].build_helix_grid(grid_id, x, y);
+                self.update_selection();
+            } else if self.action_mode == ActionMode::Build && self.selection_mode == SelectionMode::Grid {
+                self.set_selection(Some(SceneElement::Grid(design_id as u32, grid_id as u32)));
             }
+        } else {
+            self.set_selection(None);
         }
     }
-
 }
 
 impl ActionMode {

@@ -345,6 +345,10 @@ impl Design {
     pub fn get_grid_position(&self, g_id: u32) -> Option<ultraviolet::Vec3> {
         self.data.lock().unwrap().get_grid_position(g_id)
     }
+
+    pub fn build_helix_grid(&mut self, g_id: usize, x: isize, y: isize) {
+        self.data.lock().unwrap().build_helix_grid(g_id, x, y)
+    }
 }
 
 #[derive(Clone)]

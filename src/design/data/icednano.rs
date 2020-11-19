@@ -8,7 +8,7 @@ use std::f32::consts::PI;
 use ultraviolet::{Mat4, Rotor3, Vec3};
 
 use super::codenano;
-use super::grid::{GridDescriptor, GridPosition};
+use super::grid::{Grid, GridDescriptor, GridPosition};
 use super::strand_builder::{DomainIdentifier, NeighbourDescriptor};
 
 /// The `icednano` Design structure.
@@ -438,6 +438,21 @@ impl Helix {
 }
 
 impl Helix {
+    pub fn new_on_grid(grid: &Grid, x: isize, y:isize, g_id: usize) -> Self {
+        let position = grid.position_helix(x, y);
+        Self {
+            position,
+            orientation: grid.orientation,
+            old_orientation: grid.orientation,
+            old_position: position,
+            grid_position: Some(GridPosition {
+                grid: g_id,
+                x,
+                y
+            })
+        }
+    }
+
     /// Angle of base number `n` around this helix.
     pub fn theta(&self, n: isize, forward: bool, cst: &Parameters) -> f32 {
         let shift = if forward { cst.groove_angle } else { 0. };

@@ -283,9 +283,9 @@ impl GridDivision for HoneyComb {
 
 #[derive(Clone, Serialize, Deserialize, Copy)]
 pub struct GridPosition {
-    grid: usize,
-    x: isize,
-    y: isize,
+    pub grid: usize,
+    pub x: isize,
+    pub y: isize,
 }
 
 pub(super) struct GridManager {
