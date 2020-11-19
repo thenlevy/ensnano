@@ -129,7 +129,7 @@ impl Grid {
     }
 
     pub fn axis_helix(&self) -> Vec3 {
-        Vec3::unit_z().rotated_by(self.orientation)
+        Vec3::unit_x().rotated_by(self.orientation)
     }
 
     pub fn position_helix(&self, x: isize, y: isize) -> Vec3 {
@@ -424,7 +424,9 @@ impl GridManager {
                 self.helix_to_pos.insert(*h_id, grid_position);
                 let grid = &self.grids[grid_position.grid];
                 h.position = grid.position_helix(grid_position.x, grid_position.y);
-                h.orientation = grid.orientation;
+                if grid.axis_helix().dot(Vec3::unit_x().rotated_by(h.orientation)).abs() < 0.999 {
+                    h.orientation = Rotor3::from_rotation_between(grid.axis_helix(), Vec3::unit_x().rotated_by(h.orientation)) * h.orientation
+                }
             }
         }
         design.grids.clear();
