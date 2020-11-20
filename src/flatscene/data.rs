@@ -10,6 +10,7 @@ pub use strand::{FreeEnd, Nucl, Strand, StrandVertex};
 mod design;
 use crate::consts::*;
 use design::{Design2d, Helix2d};
+use crate::utils::camera2d::FitRectangle;
 
 pub struct Data {
     view: ViewPtr,
@@ -58,7 +59,7 @@ impl Data {
             self.helices.push(Helix::new(
                 h.left,
                 h.right,
-                (9. * (delta + nb_helix) as f32) * Vec2::unit_y(),
+                (5. * (delta + nb_helix) as f32 - 1.) * Vec2::unit_y(),
                 (delta + nb_helix) as u32,
             ))
         }
@@ -235,5 +236,21 @@ impl Data {
             helix: real_helix,
             ..nucl
         }
+    }
+
+    pub fn get_fit_rectangle(&self) -> FitRectangle {
+        let mut ret = FitRectangle {
+            min_x: -5.,
+            max_x: 15.,
+            min_y: -30.,
+            max_y: 5.,
+        };
+        for h in self.helices.iter() {
+            let left = h.get_pivot(h.get_left());
+            ret.add_point(Vec2::new(left.x, -left.y));
+            let right = h.get_pivot(h.get_right());
+            ret.add_point(Vec2::new(right.x, -right.y));
+        }
+        ret
     }
 }

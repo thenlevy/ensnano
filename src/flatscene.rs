@@ -61,8 +61,8 @@ impl FlatScene {
     fn add_design(&mut self, design: Arc<Mutex<Design>>) {
         let globals = Globals {
             resolution: [self.area.size.width as f32, self.area.size.height as f32],
-            scroll_offset: [0., 0.],
-            zoom: 100.,
+            scroll_offset: [-1., -1.],
+            zoom: 80.,
             _padding: 0.,
         };
         let camera = Rc::new(RefCell::new(Camera::new(globals)));
@@ -161,6 +161,7 @@ impl Application for FlatScene {
             Notification::DesignNotification(_) => {
                 self.data[self.selected_design].borrow_mut().notify_update()
             }
+            Notification::FitRequest => self.controller[self.selected_design].fit(),
             _ => (),
         }
     }

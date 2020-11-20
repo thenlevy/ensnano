@@ -63,6 +63,11 @@ impl Controller {
             .resize(area_size.width as f32, area_size.height as f32);
     }
 
+    pub fn fit(&mut self) {
+        let rectangle = self.data.borrow().get_fit_rectangle();
+        self.camera.borrow_mut().fit(rectangle);
+    }
+
     pub fn input(&mut self, event: &WindowEvent, position: PhysicalPosition<f64>) -> Consequence {
         let transition = self.state.borrow_mut().input(event, position, self);
         if let Some(state) = transition.new_state {

@@ -33,6 +33,7 @@ impl Camera {
     pub fn update(&mut self) -> Option<&Globals> {
         if self.was_updated {
             self.was_updated = false;
+            println!("{:?}", self.globals);
             Some(&self.globals)
         } else {
             None
@@ -92,6 +93,26 @@ impl Camera {
                 + self.globals.scroll_offset[1],
         )
     }
+
+    pub fn fit(&mut self, rectangle: FitRectangle) {
+        let FitRectangle {
+            min_x,
+            max_x,
+            min_y,
+            max_y
+        } = rectangle;
+        let zoom_x = self.globals.resolution[0] / (max_x - min_x);
+        let zoom_y = self.globals.resolution[1] / (max_y - min_y);
+        if zoom_x < zoom_y {
+            self.globals.zoom = zoom_x;
+        } else {
+            self.globals.zoom = zoom_y;
+        }
+        self.globals.scroll_offset[0] = self.globals.resolution[0] / 2. / self.globals.zoom + min_x;
+        self.globals.scroll_offset[1] = self.globals.resolution[1] / 2. / self.globals.zoom + min_x;
+        self.was_updated = true;
+        self.end_movement();
+    }
 }
 
 #[repr(C)]
@@ -105,3 +126,20 @@ pub struct Globals {
 
 unsafe impl bytemuck::Zeroable for Globals {}
 unsafe impl bytemuck::Pod for Globals {}
+
+#[derive(Debug, Clone, Copy)]
+pub struct FitRectangle {
+    pub min_x: f32,
+    pub max_x: f32,
+    pub min_y: f32,
+    pub max_y: f32,
+}
+
+impl FitRectangle {
+    pub fn add_point(&mut self, point: ultraviolet::Vec2) {
+        self.min_x = self.min_x.min(point.x);
+        self.max_x = self.max_x.max(point.x);
+        self.min_y = self.min_y.min(point.y);
+        self.max_y = self.max_y.max(point.y);
+    }
+}
