@@ -226,6 +226,10 @@ impl Data {
     /// This function is meant to be called by the mediator that will notify all the obeservers
     /// that a update took place.
     pub fn was_updated(&mut self) -> bool {
+        if self.hash_maps_update {
+            self.make_hash_maps();
+            self.hash_maps_update = false;
+        }
         let ret = self.update_status;
         self.update_status = false;
         ret
@@ -251,10 +255,6 @@ impl Data {
     /// If the element is a bound, return the middle of the segment between the two nucleotides
     /// involved in the bound.
     pub fn get_element_position(&mut self, id: u32) -> Option<Vec3> {
-        if self.hash_maps_update {
-            self.make_hash_maps();
-            self.hash_maps_update = false;
-        }
         if let Some(object_type) = self.object_type.get(&id) {
             match object_type {
                 ObjectType::Nucleotide(id) => self.space_position.get(&id).map(|x| x.into()),
@@ -272,10 +272,6 @@ impl Data {
 
     /// Get the position of an element, projected on the Helix on which it lies.
     pub fn get_element_axis_position(&mut self, id: u32) -> Option<Vec3> {
-        if self.hash_maps_update {
-            self.make_hash_maps();
-            self.hash_maps_update = false;
-        }
         if let Some(object_type) = self.object_type.get(&id) {
             match object_type {
                 ObjectType::Nucleotide(id) => {
@@ -334,7 +330,7 @@ impl Data {
     }
 
     /// Return an iterator over all the identifier of elements that are nucleotides
-    pub fn get_all_nucl_ids<'a>(&'a self) -> impl Iterator<Item = u32> + 'a {
+    pub fn get_all_nucl_ids<'a>(&'a mut self) -> impl Iterator<Item = u32> + 'a {
         self.nucleotide.keys().copied()
     }
 
