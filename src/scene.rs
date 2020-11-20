@@ -383,6 +383,7 @@ impl Scene {
             .borrow()
             .get_fitting_camera(self.get_ratio(), self.get_fovy());
         if let Some((position, rotor)) = camera {
+            println!("{:?}, {:?}", position, rotor);
             let pivot_point = self.data.borrow().get_middle_point(0);
             self.controller.set_pivot_point(pivot_point);
             self.notify(SceneNotification::NewCamera(position, rotor));

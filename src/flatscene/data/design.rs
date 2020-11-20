@@ -58,14 +58,14 @@ impl Design2d {
         let helix = nucl.helix;
         if let Some(pos) = self.id_map.get(&helix) {
             let helix2d = &mut self.helices[*pos];
-            helix2d.left = helix2d.left.min(nucl.position);
-            helix2d.right = helix2d.right.max(nucl.position);
+            helix2d.left = helix2d.left.min(nucl.position - 1);
+            helix2d.right = helix2d.right.max(nucl.position + 1);
         } else {
             self.id_map.insert(helix, self.helices.len());
             self.helices.push(Helix2d {
                 id: helix,
-                left: nucl.position,
-                right: nucl.position,
+                left: nucl.position - 1,
+                right: nucl.position + 1,
             });
         }
     }

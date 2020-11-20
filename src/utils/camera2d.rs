@@ -33,7 +33,6 @@ impl Camera {
     pub fn update(&mut self) -> Option<&Globals> {
         if self.was_updated {
             self.was_updated = false;
-            println!("{:?}", self.globals);
             Some(&self.globals)
         } else {
             None

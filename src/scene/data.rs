@@ -569,7 +569,7 @@ impl Data {
     /// Return a position and rotation of the camera that fits the first design
     pub fn get_fitting_camera(&self, ratio: f32, fovy: f32) -> Option<(Vec3, Rotor3)> {
         let design = self.designs.get(0)?;
-        Some(design.get_fitting_camera(ratio, fovy))
+        Some(design.get_fitting_camera(ratio, fovy)).filter(|(v, _)| !v.x.is_nan() && !v.y.is_nan() && !v.z.is_nan())
     }
 
     /// Return the point in the middle of the selected design
