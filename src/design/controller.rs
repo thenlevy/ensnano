@@ -44,7 +44,11 @@ impl Controller {
                 .lock()
                 .unwrap()
                 .translate_grid(g_id as usize, translation.translation),
-            IsometryTarget::Helix(h_id) => self.data.lock().unwrap().translate_helix(h_id as usize, translation.translation)
+            IsometryTarget::Helix(h_id) => self
+                .data
+                .lock()
+                .unwrap()
+                .translate_helix(h_id as usize, translation.translation),
         }
     }
 

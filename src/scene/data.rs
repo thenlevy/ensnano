@@ -1,7 +1,7 @@
 //! This modules handles internal informations about the scene, such as the selected objects etc..
 //! It also communicates with the desgings to get the position of the objects to draw on the scene.
 
-use super::{LetterInstance, SceneElement, View, ViewUpdate, GridIntersection};
+use super::{GridIntersection, LetterInstance, SceneElement, View, ViewUpdate};
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
@@ -417,8 +417,8 @@ impl Data {
             let mut ret_sphere = Vec::new();
             let mut ret_tube = Vec::new();
             for (d_id, set) in phantom_map.iter() {
-                let (spheres, tubes) =
-                    self.designs[*d_id as usize].make_phantom_helix_instances(set, self.selection_mode == SelectionMode::Grid);
+                let (spheres, tubes) = self.designs[*d_id as usize]
+                    .make_phantom_helix_instances(set, self.selection_mode == SelectionMode::Grid);
                 for sphere in spheres.iter().cloned() {
                     ret_sphere.push(sphere);
                 }
@@ -569,7 +569,8 @@ impl Data {
     /// Return a position and rotation of the camera that fits the first design
     pub fn get_fitting_camera(&self, ratio: f32, fovy: f32) -> Option<(Vec3, Rotor3)> {
         let design = self.designs.get(0)?;
-        Some(design.get_fitting_camera(ratio, fovy)).filter(|(v, _)| !v.x.is_nan() && !v.y.is_nan() && !v.z.is_nan())
+        Some(design.get_fitting_camera(ratio, fovy))
+            .filter(|(v, _)| !v.x.is_nan() && !v.y.is_nan() && !v.z.is_nan())
     }
 
     /// Return the point in the middle of the selected design
@@ -691,14 +692,19 @@ impl Data {
 
     pub fn build_helix(&mut self, intersection: &Option<GridIntersection>) -> bool {
         if let Some(GridIntersection {
-            grid_id,
-            design_id,
-            ..
-        }) = intersection {
-            if self.action_mode == ActionMode::Build && self.selection_mode == SelectionMode::Grid && self.selected.len() > 0 && *grid_id as u32 == self.get_selected_group() {
+            grid_id, design_id, ..
+        }) = intersection
+        {
+            if self.action_mode == ActionMode::Build
+                && self.selection_mode == SelectionMode::Grid
+                && self.selected.len() > 0
+                && *grid_id as u32 == self.get_selected_group()
+            {
                 self.selection_update = true;
                 true
-            } else if self.action_mode == ActionMode::Build && self.selection_mode == SelectionMode::Grid {
+            } else if self.action_mode == ActionMode::Build
+                && self.selection_mode == SelectionMode::Grid
+            {
                 self.set_selection(Some(SceneElement::Grid(*design_id as u32, *grid_id as u32)));
                 false
             } else {

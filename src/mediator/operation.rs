@@ -1,4 +1,6 @@
-use super::{AppNotification, DesignRotation, DesignTranslation, GridHelixDescriptor, GridDescriptor};
+use super::{
+    AppNotification, DesignRotation, DesignTranslation, GridDescriptor, GridHelixDescriptor,
+};
 use crate::design::{GridTypeDescr, IsometryTarget};
 use std::sync::Arc;
 use ultraviolet::{Bivec3, Rotor3, Vec3};
@@ -614,11 +616,17 @@ impl Operation for GridHelixCreation {
         match n {
             0 => {
                 let new_x: f32 = val.parse().ok()?;
-                Some(Arc::new(Self { x: new_x as isize, ..*self }))
+                Some(Arc::new(Self {
+                    x: new_x as isize,
+                    ..*self
+                }))
             }
             1 => {
                 let new_y: f32 = val.parse().ok()?;
-                Some(Arc::new(Self { y: new_y as isize, ..*self }))
+                Some(Arc::new(Self {
+                    y: new_y as isize,
+                    ..*self
+                }))
             }
             _ => None,
         }
@@ -672,7 +680,7 @@ impl Operation for GridHelixDeletion {
         AppNotification::RmGridHelix(GridHelixDescriptor {
             grid_id: self.grid_id,
             x: self.x,
-            y: self.y
+            y: self.y,
         })
     }
 
@@ -691,16 +699,21 @@ impl Operation for GridHelixDeletion {
         match n {
             0 => {
                 let new_x: f32 = val.parse().ok()?;
-                Some(Arc::new(Self { x: new_x as isize, ..*self }))
+                Some(Arc::new(Self {
+                    x: new_x as isize,
+                    ..*self
+                }))
             }
             1 => {
                 let new_y: f32 = val.parse().ok()?;
-                Some(Arc::new(Self { y: new_y as isize, ..*self }))
+                Some(Arc::new(Self {
+                    y: new_y as isize,
+                    ..*self
+                }))
             }
             _ => None,
         }
     }
-
 }
 
 #[derive(Clone, Debug)]
@@ -722,12 +735,10 @@ impl Operation for CreateGrid {
     }
 
     fn parameters(&self) -> Vec<Parameter> {
-        vec![
-            Parameter {
-                field: ParameterField::Choice(vec![String::from("Square"), String::from("Honeycomb")]),
-                name: String::from("Grid type"),
-            },
-        ]
+        vec![Parameter {
+            field: ParameterField::Choice(vec![String::from("Square"), String::from("Honeycomb")]),
+            name: String::from("Grid type"),
+        }]
     }
 
     fn values(&self) -> Vec<String> {
@@ -755,7 +766,7 @@ impl Operation for CreateGrid {
 
     fn description(&self) -> String {
         if self.delete {
-        format!("Delete grid")
+            format!("Delete grid")
         } else {
             format!("Create grid")
         }
@@ -767,26 +778,21 @@ impl Operation for CreateGrid {
 
     fn with_new_value(&self, n: usize, val: String) -> Option<Arc<dyn Operation>> {
         match n {
-            0 => {
-                match val.as_str() {
-                    "Square" => Some(Arc::new(Self{
-                        grid_type: GridTypeDescr::Square,
-                        ..*self
-                    })),
-                    "Honeycomb" => Some(Arc::new(Self {
-                        grid_type: GridTypeDescr::Honeycomb,
-                        ..*self
-                    })),
-                    _ => None
-                }
-            }
+            0 => match val.as_str() {
+                "Square" => Some(Arc::new(Self {
+                    grid_type: GridTypeDescr::Square,
+                    ..*self
+                })),
+                "Honeycomb" => Some(Arc::new(Self {
+                    grid_type: GridTypeDescr::Honeycomb,
+                    ..*self
+                })),
+                _ => None,
+            },
             _ => None,
         }
     }
-
 }
-
-
 
 #[derive(Debug)]
 pub enum OperationDescriptor {
@@ -812,9 +818,7 @@ impl PartialEq<Self> for OperationDescriptor {
             (HelixRotation(d1, h1, bv1), HelixRotation(d2, h2, bv2)) => {
                 d1 == d2 && h1 == h2 && (*bv1 - *bv2).mag() < 1e-3
             }
-            (HelixTranslation(d1, h1), HelixTranslation(d2, h2)) => {
-                d1 == d2 && h1 == h2
-            }
+            (HelixTranslation(d1, h1), HelixTranslation(d2, h2)) => d1 == d2 && h1 == h2,
             (GridTranslation(d1, g1), GridTranslation(d2, g2)) => d1 == d2 && g1 == g2,
             (GridRotation(d1, g1, bv1), GridRotation(d2, g2, bv2)) => {
                 d1 == d2 && g1 == g2 && (*bv1 - *bv2).mag() < 1e-3

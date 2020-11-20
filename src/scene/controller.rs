@@ -162,9 +162,7 @@ impl Controller {
                 {
                     Consequence::Redo
                 }
-                VirtualKeyCode::G if *state == ElementState::Pressed => {
-                    Consequence::NewGrid
-                },
+                VirtualKeyCode::G if *state == ElementState::Pressed => Consequence::NewGrid,
                 _ => {
                     if self.camera_controller.process_keyboard(*key, *state) {
                         Consequence::CameraMoved

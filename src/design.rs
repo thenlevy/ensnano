@@ -174,18 +174,16 @@ impl Design {
             AppNotification::Rotation(rotation) => self.apply_rotation(&rotation),
             AppNotification::Translation(translation) => self.apply_translation(&translation),
             AppNotification::MakeGrids => self.data.lock().unwrap().create_grids(),
-            AppNotification::AddGridHelix(GridHelixDescriptor {
-                grid_id,
-                x,
-                y
-            }) => self.data.lock().unwrap().build_helix_grid(grid_id, x, y),
-            AppNotification::RmGridHelix(GridHelixDescriptor {
-                grid_id,
-                x,
-                y
-            }) => self.data.lock().unwrap().rm_helix_grid(grid_id, x, y),
+            AppNotification::AddGridHelix(GridHelixDescriptor { grid_id, x, y }) => {
+                self.data.lock().unwrap().build_helix_grid(grid_id, x, y)
+            }
+            AppNotification::RmGridHelix(GridHelixDescriptor { grid_id, x, y }) => {
+                self.data.lock().unwrap().rm_helix_grid(grid_id, x, y)
+            }
             AppNotification::RmGrid => self.data.lock().unwrap().delete_last_grid(),
-            AppNotification::AddGrid(grid_descriptor) => self.data.lock().unwrap().add_grid(grid_descriptor),
+            AppNotification::AddGrid(grid_descriptor) => {
+                self.data.lock().unwrap().add_grid(grid_descriptor)
+            }
         }
     }
 

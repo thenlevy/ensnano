@@ -11,9 +11,9 @@ use crate::{design, mediator, utils};
 use crate::{DrawArea, PhySize, WindowEvent};
 use instance::Instance;
 use mediator::{
-    ActionMode, AppNotification, Application, DesignViewRotation, DesignViewTranslation,
-    GridRotation, GridTranslation, HelixRotation, MediatorPtr, Notification, Operation,
-    SelectionMode, HelixTranslation, GridHelixCreation, CreateGrid,
+    ActionMode, AppNotification, Application, CreateGrid, DesignViewRotation,
+    DesignViewTranslation, GridHelixCreation, GridRotation, GridTranslation, HelixRotation,
+    HelixTranslation, MediatorPtr, Notification, Operation, SelectionMode,
 };
 use utils::instance;
 use wgpu::{Device, Queue};
@@ -24,9 +24,9 @@ mod camera;
 /// Display of the scene
 mod view;
 use view::{
-    DrawType, HandleDir, HandleOrientation, HandlesDescriptor, LetterInstance,
+    DrawType, GridIntersection, HandleDir, HandleOrientation, HandlesDescriptor, LetterInstance,
     RotationMode as WidgetRotationMode, RotationWidgetDescriptor, RotationWidgetOrientation, View,
-    ViewUpdate, GridIntersection
+    ViewUpdate,
 };
 pub use view::{GridInstance, GridTypeDescr};
 /// Handling of inputs and notifications
@@ -183,13 +183,16 @@ impl Scene {
             Consequence::Undo => self.mediator.lock().unwrap().undo(),
             Consequence::Redo => self.mediator.lock().unwrap().redo(),
             Consequence::NewGrid => {
-                self.mediator.lock().unwrap().update_opperation(Arc::new(CreateGrid {
-                design_id: 0,
-                position: Vec3::zero(),
-                orientation: Rotor3::from_rotation_xz(-std::f32::consts::FRAC_PI_2),
-                grid_type: GridTypeDescr::Square,
-                delete: false,
-            }));
+                self.mediator
+                    .lock()
+                    .unwrap()
+                    .update_opperation(Arc::new(CreateGrid {
+                        design_id: 0,
+                        position: Vec3::zero(),
+                        orientation: Rotor3::from_rotation_xz(-std::f32::consts::FRAC_PI_2),
+                        grid_type: GridTypeDescr::Square,
+                        delete: false,
+                    }));
                 self.data.borrow_mut().notify_instance_update();
                 self.mediator.lock().unwrap().suspend_op();
             }
@@ -217,24 +220,24 @@ impl Scene {
     }
 
     fn build_helix(&mut self, clicked_pixel: PhysicalPosition<f64>) {
-        let intersection = self.view
-                .borrow()
-                .grid_intersection(
-                    clicked_pixel.x as f32 / self.area.size.width as f32,
-                    clicked_pixel.y as f32 / self.area.size.height as f32,
-                );
+        let intersection = self.view.borrow().grid_intersection(
+            clicked_pixel.x as f32 / self.area.size.width as f32,
+            clicked_pixel.y as f32 / self.area.size.height as f32,
+        );
         if self.data.borrow_mut().build_helix(&intersection) {
             let intersection = intersection.unwrap();
-            self.mediator.lock().unwrap().update_opperation(Arc::new(GridHelixCreation {
-                grid_id: intersection.grid_id,
-                design_id: intersection.design_id,
-                x: intersection.x,
-                y: intersection.y,
-            }));
+            self.mediator
+                .lock()
+                .unwrap()
+                .update_opperation(Arc::new(GridHelixCreation {
+                    grid_id: intersection.grid_id,
+                    design_id: intersection.design_id,
+                    x: intersection.x,
+                    y: intersection.y,
+                }));
         } else {
             self.mediator.lock().unwrap().finish_op();
         }
-
     }
 
     fn select(&mut self, element: Option<SceneElement>) {

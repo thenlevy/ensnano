@@ -17,7 +17,10 @@ use native_dialog::{Dialog, MessageAlert};
 
 use crate::design;
 
-use design::{Design, DesignNotification, DesignRotation, DesignTranslation, GridHelixDescriptor, GridDescriptor};
+use design::{
+    Design, DesignNotification, DesignRotation, DesignTranslation, GridDescriptor,
+    GridHelixDescriptor,
+};
 
 mod operation;
 pub use operation::*;
@@ -250,7 +253,6 @@ impl Mediator {
     }
 
     pub fn notify_designs(&mut self, designs: &HashSet<u32>, notification: AppNotification) {
-        println!("{:?}", notification);
         for design_id in designs.iter() {
             self.designs.clone()[*design_id as usize]
                 .lock()
@@ -401,8 +403,7 @@ impl Mediator {
             self.notify_designs(&target, rev_op.effect());
             self.notify_all_designs(AppNotification::MovementEnded);
             self.redo_stack.push(rev_op);
-        }
-        else if let Some(op) = self.current_operation.take() {
+        } else if let Some(op) = self.current_operation.take() {
             let rev_op = op.reverse();
             let target = {
                 let mut set = HashSet::new();

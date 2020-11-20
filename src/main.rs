@@ -166,10 +166,16 @@ fn main() {
     // Add a design to the scene if one was given as a command line arguement
     if let Some(ref path) = path {
         let design = Design::new_with_path(0, path).unwrap_or_else(|| Design::new(0));
-        mediator.lock().unwrap().add_design(Arc::new(Mutex::new(design)));
+        mediator
+            .lock()
+            .unwrap()
+            .add_design(Arc::new(Mutex::new(design)));
     } else {
         let design = Design::new(0);
-        mediator.lock().unwrap().add_design(Arc::new(Mutex::new(design)));
+        mediator
+            .lock()
+            .unwrap()
+            .add_design(Arc::new(Mutex::new(design)));
     }
 
     // Initialize the UI

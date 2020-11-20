@@ -98,7 +98,7 @@ impl Camera {
             min_x,
             max_x,
             min_y,
-            max_y
+            max_y,
         } = rectangle;
         let zoom_x = self.globals.resolution[0] / (max_x - min_x);
         let zoom_y = self.globals.resolution[1] / (max_y - min_y);

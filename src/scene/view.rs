@@ -34,7 +34,7 @@ mod rotation_widget;
 use bindgroup_manager::UniformBindGroup;
 use drawable::{Drawable, Drawer, Vertex};
 use grid::GridDrawer;
-pub use grid::{GridIntersection, GridInstance, GridTypeDescr};
+pub use grid::{GridInstance, GridIntersection, GridTypeDescr};
 use handle_drawer::HandlesDrawer;
 pub use handle_drawer::{HandleDir, HandleOrientation, HandlesDescriptor};
 use letter::LetterDrawer;

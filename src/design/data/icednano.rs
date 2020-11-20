@@ -438,18 +438,14 @@ impl Helix {
 }
 
 impl Helix {
-    pub fn new_on_grid(grid: &Grid, x: isize, y:isize, g_id: usize) -> Self {
+    pub fn new_on_grid(grid: &Grid, x: isize, y: isize, g_id: usize) -> Self {
         let position = grid.position_helix(x, y);
         Self {
             position,
             orientation: grid.orientation,
             old_orientation: grid.orientation,
             old_position: position,
-            grid_position: Some(GridPosition {
-                grid: g_id,
-                x,
-                y
-            })
+            grid_position: Some(GridPosition { grid: g_id, x, y }),
         }
     }
 

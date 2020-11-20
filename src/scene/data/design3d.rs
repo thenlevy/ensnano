@@ -183,7 +183,11 @@ impl Design3D {
         helix_ids: &HashSet<u32>,
         short: bool,
     ) -> (Rc<Vec<Instance>>, Rc<Vec<Instance>>) {
-        let range_phantom = if short { PHANTOM_RANGE / 10 } else { PHANTOM_RANGE };
+        let range_phantom = if short {
+            PHANTOM_RANGE / 10
+        } else {
+            PHANTOM_RANGE
+        };
         let mut spheres = Vec::new();
         let mut tubes = Vec::new();
         for helix_id in helix_ids.iter() {

@@ -431,7 +431,10 @@ impl Data {
     }
 
     pub fn translate_helix(&mut self, h_id: usize, translation: Vec3) {
-        self.design.helices.get_mut(&h_id).map(|h| h.translate(translation));
+        self.design
+            .helices
+            .get_mut(&h_id)
+            .map(|h| h.translate(translation));
         self.grid_manager.reattach_helix(h_id, &mut self.design);
         self.grid_manager.update(&mut self.design);
         self.hash_maps_update = true;
@@ -823,8 +826,8 @@ impl Data {
         }
     }
 
-    /// Delete the last grid that was added to the grid manager. This can only be done 
-    /// if the last grid is empty. 
+    /// Delete the last grid that was added to the grid manager. This can only be done
+    /// if the last grid is empty.
     ///
     /// At the moment this method is only called when the user undo the creation of a grid.
     pub fn delete_last_grid(&mut self) {
@@ -833,7 +836,6 @@ impl Data {
         self.hash_maps_update = true;
         self.grid_manager.update(&mut self.design);
         self.update_grids();
-
     }
 
     pub fn add_grid(&mut self, desc: GridDescriptor) {

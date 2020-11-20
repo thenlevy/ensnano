@@ -9,8 +9,8 @@ mod strand;
 pub use strand::{FreeEnd, Nucl, Strand, StrandVertex};
 mod design;
 use crate::consts::*;
-use design::{Design2d, Helix2d};
 use crate::utils::camera2d::FitRectangle;
+use design::{Design2d, Helix2d};
 
 pub struct Data {
     view: ViewPtr,

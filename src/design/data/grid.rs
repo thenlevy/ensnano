@@ -313,17 +313,13 @@ impl GridManager {
     }
 
     pub fn get_helix_at_pos(&self, grid: usize, x: isize, y: isize) -> Option<usize> {
-        let pos = GridPosition {
-            grid,
-            x,
-            y
-        };
+        let pos = GridPosition { grid, x, y };
         for (h, g) in self.helix_to_pos.iter() {
             if *g == pos {
-                return Some(*h)
+                return Some(*h);
             }
         }
-        return None
+        return None;
     }
 
     pub fn remove_helix(&mut self, h_id: usize) {
@@ -451,8 +447,16 @@ impl GridManager {
                 self.helix_to_pos.insert(*h_id, grid_position);
                 let grid = &self.grids[grid_position.grid];
                 h.position = grid.position_helix(grid_position.x, grid_position.y);
-                if grid.axis_helix().dot(Vec3::unit_x().rotated_by(h.orientation)).abs() < 0.999 {
-                    h.orientation = Rotor3::from_rotation_between(grid.axis_helix(), Vec3::unit_x().rotated_by(h.orientation)) * h.orientation
+                if grid
+                    .axis_helix()
+                    .dot(Vec3::unit_x().rotated_by(h.orientation))
+                    .abs()
+                    < 0.999
+                {
+                    h.orientation = Rotor3::from_rotation_between(
+                        grid.axis_helix(),
+                        Vec3::unit_x().rotated_by(h.orientation),
+                    ) * h.orientation
                 }
             }
         }
@@ -467,11 +471,11 @@ impl GridManager {
         let axis = h.get_axis(&self.parameters);
         if let Some(grid_position) = h.grid_position {
             let g = &self.grids[grid_position.grid];
-            if let Some((x, y)) = g.interpolate_helix(axis.origin, axis.direction){
-                h.grid_position = Some(GridPosition{
+            if let Some((x, y)) = g.interpolate_helix(axis.origin, axis.direction) {
+                h.grid_position = Some(GridPosition {
                     grid: grid_position.grid,
                     x,
-                    y
+                    y,
                 })
             }
         }

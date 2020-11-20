@@ -8,7 +8,7 @@ use super::{
     CameraPtr, ProjectionPtr, Uniforms,
 };
 use crate::consts::*;
-pub use crate::design::{Grid, GridType, GridTypeDescr, Parameters, GridDivision};
+pub use crate::design::{Grid, GridDivision, GridType, GridTypeDescr, Parameters};
 use crate::utils::texture::Texture;
 
 mod texture;
@@ -60,8 +60,8 @@ impl GridInstance {
                 depth: ret,
                 grid_id: self.id,
                 design_id: self.design,
-                x, 
-                y
+                x,
+                y,
             })
         } else {
             None
