@@ -1,3 +1,4 @@
+//! This module provides utilities for drawing text in the applications
 use ab_glyph::{point, Font, FontRef, Glyph};
 use iced_wgpu::wgpu;
 use std::rc::Rc;

@@ -364,7 +364,7 @@ impl Helix {
                             * (1. / nb_chars as f32)
                             * Vec2::unit_x(),
                     rotation: self.isometry.rotation.into_matrix(),
-                    size: 0.7 / nb_chars as f32,
+                    size: 1. / nb_chars as f32,
                     z_index: -1,
                 })
             }
@@ -378,7 +378,7 @@ impl Helix {
                     center: self.num_position_top(pos)
                         + (c_idx as f32 - (nb_chars - 1) as f32 / 2.) * 0.2 * Vec2::unit_x(),
                     rotation: self.isometry.rotation.into_matrix(),
-                    size: 0.2,
+                    size: 0.6,
                     z_index: -1,
                 })
             }

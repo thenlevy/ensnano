@@ -1,3 +1,15 @@
+//! This modules handles the separation of the window into different regions.
+//!
+//! The layout manager split the window into different regions and attribute each region to an
+//! an application or a gui component.
+//! 
+//! In addition, the multiplexer holds a Vec of overlays which are floating regions.
+//!
+//! When an event is recieved by the window, the multiplexer is in charge of forwarding it to the
+//! appropriate application, gui component or overlay.
+//!
+//!
+//! The multiplexer is also in charge of drawing to the frame. 
 use crate::utils::texture::SampledTexture;
 use crate::PhySize;
 use iced_wgpu::wgpu;
@@ -42,13 +54,6 @@ pub enum ElementType {
 }
 
 impl ElementType {
-    pub fn need_shift(&self) -> bool {
-        match self {
-            ElementType::Scene | ElementType::GridPanel | ElementType::Overlay(_) => true,
-            _ => false,
-        }
-    }
-
     pub fn is_gui(&self) -> bool {
         match self {
             ElementType::TopBar | ElementType::LeftPanel | ElementType::StatusBar => true,

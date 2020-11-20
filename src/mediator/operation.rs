@@ -1,3 +1,9 @@
+//! This modules defines the `Operation` trait and several struct that implement it.
+//!
+//! An structure that implements `Operation` can produce an `AppNotification` that will have an
+//! effect on the design. 
+//!
+//! Moreover, these operations are meant to be modifiable via GUI component or user interaction.
 use super::{
     AppNotification, DesignRotation, DesignTranslation, GridDescriptor, GridHelixDescriptor,
 };
@@ -16,14 +22,23 @@ pub struct Parameter {
 }
 
 pub trait Operation: std::fmt::Debug + Sync + Send {
+    /// The set of parameters that can be modified via a GUI component
     fn parameters(&self) -> Vec<Parameter>;
+    /// The values associated to the parameters.
     fn values(&self) -> Vec<String>;
+    /// Return an opperation whose effect cancels the effect of `self`.
     fn reverse(&self) -> Arc<dyn Operation>;
+    /// The effect of self that must be sent as a notifications to the targeted designs
     fn effect(&self) -> AppNotification;
+    /// A description of self of display in the GUI
     fn description(&self) -> String;
+    /// The targeted designs of self.
     fn target(&self) -> usize;
+    /// Produce an new opperation by setting the value of the `n`-th parameter to `val`.
     fn with_new_value(&self, n: usize, val: String) -> Option<Arc<dyn Operation>>;
     fn descr(&self) -> OperationDescriptor;
+    /// If `other` is compatible with `self` return the operation whose effect is equivalent to
+    /// applying the effects of `other` and then `self`.
     fn compose(&self, other: &dyn Operation) -> Option<Arc<dyn Operation>>;
 }
 
@@ -795,6 +810,8 @@ impl Operation for CreateGrid {
 }
 
 #[derive(Debug)]
+/// A description of an operation. Two opperations whose `descr` is equal are considered to be the
+/// same operation with different parameters.
 pub enum OperationDescriptor {
     DesignTranslation(usize),
     DesignRotation(usize, Bivec3),

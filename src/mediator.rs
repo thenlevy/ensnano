@@ -60,6 +60,7 @@ impl Scheduler {
         self.applications.insert(element_type, application);
     }
 
+    /// Forwards an event to the appropriate application
     pub fn forward_event(
         &mut self,
         event: &WindowEvent,
@@ -71,6 +72,7 @@ impl Scheduler {
         }
     }
 
+    /// Request an application to draw on a texture
     pub fn draw_apps(
         &mut self,
         encoder: &mut wgpu::CommandEncoder,
@@ -84,6 +86,7 @@ impl Scheduler {
         }
     }
 
+    /// Notify all applications that the size of the window has been modified
     pub fn forward_new_size(&mut self, window_size: PhysicalSize<u32>, multiplexer: &Multiplexer) {
         for (area, app) in self.applications.iter_mut() {
             if let Some(draw_area) = multiplexer.get_draw_area(*area) {
@@ -266,6 +269,7 @@ impl Mediator {
         self.notify_all_designs(AppNotification::MakeGrids)
     }
 
+    /// Querry designs for modifcations that must be notified to the applications
     pub fn observe_designs(&mut self) {
         let mut notifications = Vec::new();
         for design_wrapper in self.designs.clone() {
