@@ -268,7 +268,6 @@ impl Data {
 
     /// Return the identifier of the first selected group
     pub fn get_selected_group(&self) -> u32 {
-        println!("{:?}", self.selected.get(0));
         match self.selected.get(0) {
             Some(SceneElement::DesignElement(design_id, element_id)) => {
                 self.get_group_identifier(*design_id, *element_id)
