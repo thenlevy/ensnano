@@ -25,20 +25,21 @@ impl Strand {
         let color = [color.x, color.y, color.z, color.w];
         let mut stroke_tess = lyon::tessellation::StrokeTessellator::new();
 
-        let mut builder = Path::builder_with_attributes(1);
+        let mut builder = Path::builder_with_attributes(2);
         let mut last_nucl: Option<Nucl> = None;
         let mut last_point = None;
         let mut last_depth = None;
+        let mut sign = 1.;
         for (i, nucl) in self.points.iter().enumerate() {
             let position = helices[nucl.helix].get_nucl_position(nucl, false);
             let depth = helices[nucl.helix].get_depth();
             let point = Point::new(position.x, position.y);
             if i == 0 {
-                builder.begin(point, &[depth]);
+                builder.begin(point, &[depth, sign]);
             } else if last_point.is_some() && nucl.helix != last_nucl.unwrap().helix {
                 if let Some(nucl) = last_nucl {
                     let point = helices[nucl.helix].get_nucl_position(&nucl, true);
-                    builder.line_to(Point::new(point.x, point.y), &[last_depth.unwrap()]);
+                    builder.line_to(Point::new(point.x, point.y), &[last_depth.unwrap(), sign]);
                 }
                 let last_pos = last_point.unwrap();
                 let normal = {
@@ -47,9 +48,10 @@ impl Strand {
                 };
                 let control = (last_pos + position) / 2. + normal / 3.;
                 let depth = depth.min(last_depth.unwrap());
-                builder.quadratic_bezier_to(Point::new(control.x, control.y), point, &[depth]);
+                sign *= -1.;
+                builder.quadratic_bezier_to(Point::new(control.x, control.y), point, &[depth, sign]);
             } else {
-                builder.line_to(point, &[depth]);
+                builder.line_to(point, &[depth, sign]);
             }
             last_point = Some(position);
             last_nucl = Some(*nucl);
@@ -57,7 +59,7 @@ impl Strand {
         }
         if let Some(nucl) = last_nucl {
             let point = helices[nucl.helix].get_nucl_position(&nucl, true);
-            builder.line_to(Point::new(point.x, point.y), &[last_depth.unwrap()]);
+            builder.line_to(Point::new(point.x, point.y), &[last_depth.unwrap(), sign]);
         }
         match free_end {
             Some(FreeEnd {
@@ -72,14 +74,15 @@ impl Strand {
                 };
                 let control = (last_pos + *position) / 2. + normal / 3.;
                 let depth = 1e-6;
-                builder.quadratic_bezier_to(Point::new(control.x, control.y), point, &[depth]);
+                sign *= -1.;
+                builder.quadratic_bezier_to(Point::new(control.x, control.y), point, &[depth, sign]);
             }
             _ => {
                 // Draw the tick of the 3' end if the strand is not empty
                 if let Some(nucl) = last_nucl {
                     let position = helices[nucl.helix].get_arrow_end(&nucl);
                     let point = Point::new(position.x, position.y);
-                    builder.line_to(point, &[last_depth.unwrap()]);
+                    builder.line_to(point, &[last_depth.unwrap(), sign]);
                 }
             }
         }
@@ -107,6 +110,7 @@ pub struct StrandVertex {
     normal: [f32; 2],
     color: [f32; 4],
     depth: f32,
+    width: f32,
 }
 unsafe impl bytemuck::Pod for StrandVertex {}
 unsafe impl bytemuck::Zeroable for StrandVertex {}
@@ -120,6 +124,7 @@ impl StrokeVertexConstructor<StrandVertex> for WithColor {
             normal: vertex.normal().to_array(),
             color: self.0,
             depth: vertex.interpolated_attributes()[0],
+            width: vertex.interpolated_attributes()[1].powi(2).max(0.3),
         }
     }
 }
