@@ -556,7 +556,7 @@ struct Building {
     mouse_position: PhysicalPosition<f64>,
     builder: StrandBuilder,
     nucl: Nucl,
-    end: bool,
+    end: Option<bool>,
 }
 
 impl ControllerState for Building {
@@ -621,13 +621,14 @@ impl ControllerState for Building {
                                 from: self.nucl,
                                 to: nucl,
                                 builder: self.builder.clone(),
+                                from3prime: self.end.expect("from3prime"),
                             })),
                             consequences: Consequence::FreeEnd(
-                                Some(FreeEnd {
+                                self.end.map(|b| FreeEnd {
                                     strand_id: self.builder.get_strand_id(),
                                     point: Vec2::new(x, y),
+                                    prime3: b,
                                 })
-                                .filter(|_| self.end),
                             ),
                         }
                     }
@@ -635,11 +636,11 @@ impl ControllerState for Building {
                         self.builder.reset();
                         controller.data.borrow_mut().notify_update();
                         Transition::consequence(Consequence::FreeEnd(
-                            Some(FreeEnd {
-                                strand_id: self.builder.get_strand_id(),
-                                point: Vec2::new(x, y),
-                            })
-                            .filter(|_| self.end),
+                                self.end.map(|b| FreeEnd {
+                                    strand_id: self.builder.get_strand_id(),
+                                    point: Vec2::new(x, y),
+                                    prime3: b,
+                                })
                         ))
                     }
                 }
@@ -658,6 +659,7 @@ pub struct Crossing {
     from: Nucl,
     to: Nucl,
     builder: StrandBuilder,
+    from3prime: bool,
 }
 
 impl ControllerState for Crossing {
@@ -709,7 +711,7 @@ impl ControllerState for Crossing {
                             mouse_position: self.mouse_position,
                             builder: self.builder.clone(),
                             nucl: self.from,
-                            end: true,
+                            end: Some(self.from3prime),
                         })),
                         consequences: Consequence::Nothing,
                     }
@@ -717,6 +719,7 @@ impl ControllerState for Crossing {
                     Transition::consequence(Consequence::FreeEnd(Some(FreeEnd {
                         strand_id: self.builder.get_strand_id(),
                         point: Vec2::new(x, y),
+                        prime3: self.from3prime,
                     })))
                 }
             }

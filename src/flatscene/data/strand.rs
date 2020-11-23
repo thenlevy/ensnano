@@ -27,19 +27,31 @@ impl Strand {
 
         let mut builder = Path::builder_with_attributes(2);
         let mut last_nucl: Option<Nucl> = None;
-        let mut last_point = None;
+        let mut last_point = match free_end {
+            Some(FreeEnd {
+                point,
+                strand_id,
+                prime3}) if *strand_id == self.id && !prime3 => Some(*point),
+                _ => None
+        };
+
         let mut last_depth = None;
         let mut sign = 1.;
         for (i, nucl) in self.points.iter().enumerate() {
             let position = helices[nucl.helix].get_nucl_position(nucl, false);
             let depth = helices[nucl.helix].get_depth();
             let point = Point::new(position.x, position.y);
-            if i == 0 {
+            if i == 0 && last_point.is_none() {
                 builder.begin(point, &[depth, sign]);
-            } else if last_point.is_some() && nucl.helix != last_nucl.unwrap().helix {
+            } else if last_point.is_some() && Some(nucl.helix) != last_nucl.map(|n| n.helix) {
                 if let Some(nucl) = last_nucl {
+                    // We are drawing a xover
                     let point = helices[nucl.helix].get_nucl_position(&nucl, true);
                     builder.line_to(Point::new(point.x, point.y), &[last_depth.unwrap(), sign]);
+                } else {
+                    // We are drawing the free end
+                    let position = last_point.unwrap();
+                    builder.begin(Point::new(position.x, position.y), &[depth, sign]);
                 }
                 let last_pos = last_point.unwrap();
                 let normal = {
@@ -47,7 +59,7 @@ impl Strand {
                     Vec2::new(diff.y, diff.x)
                 };
                 let control = (last_pos + position) / 2. + normal / 3.;
-                let depth = depth.min(last_depth.unwrap());
+                let depth = depth.min(last_depth.unwrap_or(depth));
                 sign *= -1.;
                 builder.quadratic_bezier_to(Point::new(control.x, control.y), point, &[depth, sign]);
             } else {
@@ -65,7 +77,8 @@ impl Strand {
             Some(FreeEnd {
                 strand_id,
                 point: position,
-            }) if *strand_id == self.id => {
+                prime3,
+            }) if *strand_id == self.id && *prime3 => {
                 let last_pos = last_point.unwrap();
                 let point = Point::new(position.x, position.y);
                 let normal = {
@@ -132,4 +145,5 @@ impl StrokeVertexConstructor<StrandVertex> for WithColor {
 pub struct FreeEnd {
     pub strand_id: usize,
     pub point: Vec2,
+    pub prime3: bool,
 }
