@@ -34,7 +34,7 @@ void main() {
     // The conversion to [0, 1] x [0, 1] is done in the fragment shader
     v_tex_coords = position[gl_VertexIndex] * vec2(1., -1.);
 
-    vec2 local_pos = instances[gl_InstanceIndex].center + position[gl_VertexIndex];
+    vec2 local_pos = instances[gl_InstanceIndex].center + position[gl_VertexIndex] * vec2(1.5, -1.5);
     vec2 world_pos = local_pos - u_scroll_offset; 
     vec2 zoom_factor = u_zoom / (vec2(0.5, 0.5) * u_resolution);
     vec2 transformed_pos = world_pos * zoom_factor * vec2(1., -1);

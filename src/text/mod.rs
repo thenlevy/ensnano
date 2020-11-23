@@ -80,7 +80,11 @@ impl Letter {
             label: Some("diffuse_texture"),
         });
 
-        let font: &[u8] = include_bytes!("../../font/MonospaceBold.ttf");
+        let font: &[u8] = if character.is_ascii_alphabetic() {
+            include_bytes!("../../font/DejaVuSansMono.ttf")
+        } else {
+            include_bytes!("../../font/MonospaceBold.ttf")
+        };
         let font = Font::from_bytes(font, fontdue::FontSettings::default()).unwrap();
         let (metrics, _) = font.rasterize(character, size.height as f32);
 

@@ -38,16 +38,7 @@ void main() {
     //mat4 model_matrix = model_matrix2[model_idx] * instances[gl_InstanceIndex].model;
     mat4 rotation = mat4(mat3(inverse(u_view)));
     mat4 model_matrix = model_matrix2[model_idx] * instances[gl_InstanceIndex].model * rotation;
-    mat3 normal_matrix = mat3(transpose(inverse(model_matrix)));
 
-    /*Note: I'm currently doing things in world space .
-    Doing things in view-space also known as eye-space, is more standard as objects can have
-    lighting issues when they are further away from the origin. 
-    If we wanted to use view-space, we would use something along the lines
-    of mat3(transpose(inverse(view_matrix * model_matrix))).
-    Currently we are combining the view matrix and projection matrix before we draw,
-    so we'd have to pass those in separately. We'd also have to transform our 
-    light's position using something like view_matrix * model_matrix * */
-    vec4 model_space = model_matrix * vec4(vec3(a_position, 0.0), 1.0); 
+    vec4 model_space = model_matrix * vec4(vec3(a_position * vec2(0.5, -0.5), 0.0), 1.0); 
     gl_Position = u_proj * (u_view * model_space + vec4(0., 0., 0.25, 0.));
 }

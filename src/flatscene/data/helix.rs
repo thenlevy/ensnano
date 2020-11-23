@@ -321,8 +321,8 @@ impl Helix {
         ) || in_screen(to_screen(self.x_position(self.left)));
 
         if visible {
-            let left_candidate = self.x_position(self.left - 1);
-            let right_candidate = self.x_position(self.right + 2);
+            let left_candidate = self.x_position(self.left - 2);
+            let right_candidate = self.x_position(self.right + 3);
 
             if in_screen(to_screen(left_candidate)) {
                 Some(CircleInstance {
@@ -346,7 +346,7 @@ impl Helix {
                     Some(CircleInstance { center: candidate })
                 } else {
                     Some(CircleInstance {
-                        center: self.x_position(self.left - 1)
+                        center: self.x_position(self.left - 2)
                             + t * (rightmost_position - leftmost_position),
                     })
                 }
@@ -362,7 +362,7 @@ impl Helix {
                     Some(CircleInstance { center: candidate })
                 } else {
                     Some(CircleInstance {
-                        center: self.x_position(self.left - 1)
+                        center: self.x_position(self.left - 2)
                             + t * (rightmost_position - leftmost_position),
                     })
                 }
@@ -380,8 +380,8 @@ impl Helix {
         char_map: &mut HashMap<char, Vec<CharInstance>>,
         char_drawers: &HashMap<char, crate::utils::chars2d::CharDrawer>,
     ) {
-        let size_id = 2.;
-        let size_pos = 0.8;
+        let size_id = 3.;
+        let size_pos = 1.4;
         let circle = self.get_circle(camera);
         if let Some(circle) = circle {
             let nb_chars = self.id.to_string().len(); // ok to use len because digits are ascii
