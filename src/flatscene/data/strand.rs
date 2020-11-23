@@ -26,19 +26,21 @@ impl Strand {
         let mut stroke_tess = lyon::tessellation::StrokeTessellator::new();
 
         let mut builder = Path::builder_with_attributes(1);
-        // TODO use builder with attribute to put z_coordinates
-        let mut last_pos = None;
-        let mut last_helix = None;
-        let mut last_forward = None;
+        let mut last_nucl: Option<Nucl> = None;
+        let mut last_point = None;
         let mut last_depth = None;
         for (i, nucl) in self.points.iter().enumerate() {
-            let position = helices[nucl.helix].get_nucl_position(nucl);
+            let position = helices[nucl.helix].get_nucl_position(nucl, false);
             let depth = helices[nucl.helix].get_depth();
             let point = Point::new(position.x, position.y);
             if i == 0 {
                 builder.begin(point, &[depth]);
-            } else if Some(nucl.helix) != last_helix && last_pos.is_some() {
-                let last_pos = last_pos.unwrap();
+            } else if last_point.is_some() && nucl.helix != last_nucl.unwrap().helix {
+                if let Some(nucl) = last_nucl {
+                    let point = helices[nucl.helix].get_nucl_position(&nucl, true);
+                    builder.line_to(Point::new(point.x, point.y), &[last_depth.unwrap()]);
+                }
+                let last_pos = last_point.unwrap();
                 let normal = {
                     let diff = (position - last_pos).normalized();
                     Vec2::new(diff.y, diff.x)
@@ -49,17 +51,20 @@ impl Strand {
             } else {
                 builder.line_to(point, &[depth]);
             }
-            last_helix = Some(nucl.helix);
-            last_pos = Some(position);
-            last_forward = Some(nucl.forward);
+            last_point = Some(position);
+            last_nucl = Some(*nucl);
             last_depth = Some(depth);
+        }
+        if let Some(nucl) = last_nucl {
+            let point = helices[nucl.helix].get_nucl_position(&nucl, true);
+            builder.line_to(Point::new(point.x, point.y), &[last_depth.unwrap()]);
         }
         match free_end {
             Some(FreeEnd {
                 strand_id,
                 point: position,
             }) if *strand_id == self.id => {
-                let last_pos = last_pos.unwrap();
+                let last_pos = last_point.unwrap();
                 let point = Point::new(position.x, position.y);
                 let normal = {
                     let diff = (*position - last_pos).normalized();
@@ -71,18 +76,10 @@ impl Strand {
             }
             _ => {
                 // Draw the tick of the 3' end if the strand is not empty
-                if last_forward == Some(true) {
-                    let depth = last_depth.expect("last depth");
-                    let up = last_pos.unwrap() + 0.075 * Vec2::unit_y();
-                    let arrow_end = up + Vec2::new(-0.25, 0.25);
-                    builder.line_to(Point::new(up.x, up.y), &[depth]);
-                    builder.line_to(Point::new(arrow_end.x, arrow_end.y), &[depth]);
-                } else if last_forward == Some(false) {
-                    let depth = last_depth.expect("last depth");
-                    let down = last_pos.unwrap() - 0.075 * Vec2::unit_y();
-                    let arrow_end = down + Vec2::new(0.25, -0.25);
-                    builder.line_to(Point::new(down.x, down.y), &[depth]);
-                    builder.line_to(Point::new(arrow_end.x, arrow_end.y), &[depth]);
+                if let Some(nucl) = last_nucl {
+                    let position = helices[nucl.helix].get_arrow_end(&nucl);
+                    let point = Point::new(position.x, position.y);
+                    builder.line_to(point, &[last_depth.unwrap()]);
                 }
             }
         }
@@ -91,7 +88,11 @@ impl Strand {
         stroke_tess
             .tessellate_path(
                 &path,
-                &tessellation::StrokeOptions::tolerance(0.01),
+                &tessellation::StrokeOptions::tolerance(0.01)
+                    .with_line_cap(tessellation::LineCap::Round)
+                    .with_end_cap(tessellation::LineCap::Round)
+                    .with_start_cap(tessellation::LineCap::Round)
+                    .with_line_join(tessellation::LineJoin::Round),
                 &mut tessellation::BuffersBuilder::new(&mut vertices, WithColor(color)),
             )
             .expect("Error durring tessellation");

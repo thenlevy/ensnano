@@ -145,13 +145,39 @@ impl Helix {
         }
     }
 
-    pub fn get_nucl_position(&self, nucl: &Nucl) -> Vec2 {
+    /// Return the position of the nucleotide in the 2d drawing
+    pub fn get_nucl_position(&self, nucl: &Nucl, last: bool) -> Vec2 {
         let local_position = nucl.position as f32 * Vec2::unit_x()
-            + Vec2::new(0.5, 0.5)
-            + if nucl.forward {
-                Vec2::zero()
+            + if last {
+                if nucl.forward {
+                    // on the right and below the center
+                    Vec2::new(0.7, 0.6)
+                } else {
+                    // on the left and above the center
+                    Vec2::new(0.3, 1.4)
+                }
             } else {
-                Vec2::unit_y()
+                if nucl.forward {
+                    // on the left and below the center
+                    Vec2::new(0.3, 0.6)
+                } else {
+                    // on the right and above the center
+                    Vec2::new(0.7, 1.4)
+                }
+            };
+
+        self.isometry
+            .into_homogeneous_matrix()
+            .transform_point2(self.scale * local_position)
+    }
+
+    /// Return the position at which the 3' tick should end
+    pub fn get_arrow_end(&self, nucl: &Nucl) -> Vec2 {
+        let local_position = nucl.position as f32 * Vec2::unit_x()
+            + if nucl.forward {
+                Vec2::new(0.2, 0.3)
+            } else {
+                Vec2::new(0.8, 1.7)
             };
 
         self.isometry
@@ -366,7 +392,8 @@ impl Helix {
             for (c_idx, c) in self.id.to_string().chars().enumerate() {
                 let instances = char_map.get_mut(&c).unwrap();
                 instances.push(CharInstance {
-                    center: circle.center + (x_shift + advances[c_idx] * scale) * Vec2::unit_x() - scale * height / 2. * Vec2::unit_y(),
+                    center: circle.center + (x_shift + advances[c_idx] * scale) * Vec2::unit_x()
+                        - scale * height / 2. * Vec2::unit_y(),
                     rotation: self.isometry.rotation.into_matrix(),
                     size: scale,
                     z_index: -1,
@@ -383,7 +410,9 @@ impl Helix {
             for (c_idx, c) in pos.to_string().chars().enumerate() {
                 let instances = char_map.get_mut(&c).unwrap();
                 instances.push(CharInstance {
-                    center: self.num_position_top(pos) + (x_shift + advances[c_idx] * scale) * Vec2::unit_x() - scale * height * Vec2::unit_y(),
+                    center: self.num_position_top(pos)
+                        + (x_shift + advances[c_idx] * scale) * Vec2::unit_x()
+                        - scale * height * Vec2::unit_y(),
                     rotation: self.isometry.rotation.into_matrix(),
                     size: scale,
                     z_index: -1,
