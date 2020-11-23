@@ -352,19 +352,23 @@ impl Helix {
         &self,
         camera: &CameraPtr,
         char_map: &mut HashMap<char, Vec<CharInstance>>,
+        char_drawers: &HashMap<char, crate::utils::chars2d::CharDrawer>,
     ) {
+        let size_id = 2.;
+        let size_pos = 0.8;
         let circle = self.get_circle(camera);
         if let Some(circle) = circle {
             let nb_chars = self.id.to_string().len(); // ok to use len because digits are ascii
+            let scale = size_id / nb_chars as f32;
+            let advances = crate::utils::chars2d::char_positions(self.id.to_string(), char_drawers);
+            let height = crate::utils::chars2d::height(self.id.to_string(), char_drawers);
+            let x_shift = -advances[nb_chars] / 2. * scale;
             for (c_idx, c) in self.id.to_string().chars().enumerate() {
                 let instances = char_map.get_mut(&c).unwrap();
                 instances.push(CharInstance {
-                    center: circle.center
-                        + (c_idx as f32 - (nb_chars - 1) as f32 / 2.)
-                            * (1. / nb_chars as f32)
-                            * Vec2::unit_x(),
+                    center: circle.center + (x_shift + advances[c_idx] * scale) * Vec2::unit_x() - scale * height / 2. * Vec2::unit_y(),
                     rotation: self.isometry.rotation.into_matrix(),
-                    size: 1. / nb_chars as f32,
+                    size: scale,
                     z_index: -1,
                 })
             }
@@ -372,13 +376,16 @@ impl Helix {
         let mut pos = self.left;
         while pos <= self.right {
             let nb_chars = pos.to_string().len(); // ok to use len because digits are ascii
+            let scale = size_pos;
+            let advances = crate::utils::chars2d::char_positions(pos.to_string(), char_drawers);
+            let height = crate::utils::chars2d::height(pos.to_string(), char_drawers);
+            let x_shift = -advances[nb_chars] / 2. * scale;
             for (c_idx, c) in pos.to_string().chars().enumerate() {
                 let instances = char_map.get_mut(&c).unwrap();
                 instances.push(CharInstance {
-                    center: self.num_position_top(pos)
-                        + (c_idx as f32 - (nb_chars - 1) as f32 / 2.) * 0.2 * Vec2::unit_x(),
+                    center: self.num_position_top(pos) + (x_shift + advances[c_idx] * scale) * Vec2::unit_x() - scale * height * Vec2::unit_y(),
                     rotation: self.isometry.rotation.into_matrix(),
-                    size: 0.6,
+                    size: scale,
                     z_index: -1,
                 })
             }

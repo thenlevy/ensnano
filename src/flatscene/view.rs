@@ -302,7 +302,7 @@ impl View {
         }
 
         for h in self.helices.iter() {
-            h.add_char_instances(&self.camera, &mut self.char_map)
+            h.add_char_instances(&self.camera, &mut self.char_map, &self.char_drawers)
         }
 
         for (c, v) in self.char_map.iter() {

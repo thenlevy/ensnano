@@ -1,7 +1,7 @@
 //! This modules defines the `Operation` trait and several struct that implement it.
 //!
 //! An structure that implements `Operation` can produce an `AppNotification` that will have an
-//! effect on the design. 
+//! effect on the design.
 //!
 //! Moreover, these operations are meant to be modifiable via GUI component or user interaction.
 use super::{

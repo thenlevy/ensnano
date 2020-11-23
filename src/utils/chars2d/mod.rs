@@ -1,10 +1,11 @@
 use iced_wgpu::wgpu;
+use std::collections::HashMap;
 use std::rc::Rc;
 use ultraviolet::{Mat2, Vec2};
 use wgpu::{include_spirv, BindGroupLayout, Device, Queue, RenderPass, RenderPipeline};
 
 use crate::consts::*;
-use crate::text::Letter;
+use crate::text::{Letter, Vertex as CharVertex};
 use crate::utils::bindgroup_manager::{DynamicBindGroup, UniformBindGroup};
 use crate::utils::texture::Texture;
 
@@ -31,8 +32,7 @@ pub struct CharDrawer {
     instances_bg: DynamicBindGroup,
     /// The pipeline created by `self`
     pipeline: Option<RenderPipeline>,
-    texture_bind_group: wgpu::BindGroup,
-    texture_bind_group_layout: wgpu::BindGroupLayout,
+    letter: Rc<Letter>,
 }
 
 impl CharDrawer {
@@ -43,10 +43,7 @@ impl CharDrawer {
         character: char,
     ) -> Self {
         let instances_bg = DynamicBindGroup::new(device.clone(), queue.clone());
-        let char_texture = Letter::new(character, device.clone(), queue.clone());
-        let texture_bind_group_layout = char_texture.bind_group_layout;
-
-        let texture_bind_group = char_texture.bind_group;
+        let char_texture = Rc::new(Letter::new(character, device.clone(), queue.clone()));
 
         let new_instances = vec![CharInstance {
             center: Vec2::zero(),
@@ -59,9 +56,8 @@ impl CharDrawer {
             new_instances: Some(Rc::new(new_instances)),
             number_instances: 0,
             pipeline: None,
-            texture_bind_group,
-            texture_bind_group_layout,
             instances_bg,
+            letter: char_texture.clone(),
         };
         let pipeline = ret.create_pipeline(globals_layout);
         ret.pipeline = Some(pipeline);
@@ -72,7 +68,8 @@ impl CharDrawer {
         self.update_instances();
         render_pass.set_pipeline(self.pipeline.as_ref().unwrap());
         render_pass.set_bind_group(1, self.instances_bg.get_bindgroup(), &[]);
-        render_pass.set_bind_group(TEXTURE_BINDING_ID, &self.texture_bind_group, &[]);
+        render_pass.set_bind_group(TEXTURE_BINDING_ID, &self.letter.bind_group, &[]);
+        render_pass.set_vertex_buffer(0, self.letter.vertex_buffer.slice(..));
         render_pass.draw(0..4, 0..self.number_instances as u32);
     }
 
@@ -86,6 +83,10 @@ impl CharDrawer {
             let instances_data: Vec<_> = instances.iter().cloned().collect();
             self.instances_bg.update(instances_data.as_slice());
         }
+    }
+
+    pub fn advancement_x(&self) -> f32 {
+        self.letter.advance
     }
 
     /// Create a render pipepline. This function is meant to be called once, before drawing for the
@@ -103,7 +104,7 @@ impl CharDrawer {
                     bind_group_layouts: &[
                         globals_layout,
                         &self.instances_bg.get_layout(),
-                        &self.texture_bind_group_layout,
+                        &self.letter.bind_group_layout,
                     ],
                     push_constant_ranges: &[],
                     label: Some("render_pipeline_layout"),
@@ -162,7 +163,7 @@ impl CharDrawer {
                 }),
                 vertex_state: wgpu::VertexStateDescriptor {
                     index_format: wgpu::IndexFormat::Uint16,
-                    vertex_buffers: &[],
+                    vertex_buffers: &[CharVertex::desc()],
                 },
                 sample_count: SAMPLE_COUNT,
                 sample_mask: !0,
@@ -170,4 +171,22 @@ impl CharDrawer {
                 label: Some("render pipeline"),
             })
     }
+}
+
+pub fn char_positions(string: String, drawers: &HashMap<char, CharDrawer>) -> Vec<f32> {
+    let mut ret = vec![0f32];
+    let mut x = 0f32;
+    for c in string.chars() {
+        x += drawers.get(&c).unwrap().advancement_x();
+        ret.push(x);
+    }
+    ret
+}
+
+pub fn height(string: String, drawers: &HashMap<char, CharDrawer>) -> f32 {
+    let mut ret = 0f32;
+    for c in string.chars() {
+        ret = ret.max(drawers.get(&c).unwrap().letter.height)
+    }
+    ret
 }
