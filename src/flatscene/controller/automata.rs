@@ -623,25 +623,21 @@ impl ControllerState for Building {
                                 builder: self.builder.clone(),
                                 from3prime: self.end.expect("from3prime"),
                             })),
-                            consequences: Consequence::FreeEnd(
-                                self.end.map(|b| FreeEnd {
-                                    strand_id: self.builder.get_strand_id(),
-                                    point: Vec2::new(x, y),
-                                    prime3: b,
-                                })
-                            ),
+                            consequences: Consequence::FreeEnd(self.end.map(|b| FreeEnd {
+                                strand_id: self.builder.get_strand_id(),
+                                point: Vec2::new(x, y),
+                                prime3: b,
+                            })),
                         }
                     }
                     _ => {
                         self.builder.reset();
                         controller.data.borrow_mut().notify_update();
-                        Transition::consequence(Consequence::FreeEnd(
-                                self.end.map(|b| FreeEnd {
-                                    strand_id: self.builder.get_strand_id(),
-                                    point: Vec2::new(x, y),
-                                    prime3: b,
-                                })
-                        ))
+                        Transition::consequence(Consequence::FreeEnd(self.end.map(|b| FreeEnd {
+                            strand_id: self.builder.get_strand_id(),
+                            point: Vec2::new(x, y),
+                            prime3: b,
+                        })))
                     }
                 }
             }

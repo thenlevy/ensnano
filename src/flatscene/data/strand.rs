@@ -31,8 +31,9 @@ impl Strand {
             Some(FreeEnd {
                 point,
                 strand_id,
-                prime3}) if *strand_id == self.id && !prime3 => Some(*point),
-                _ => None
+                prime3,
+            }) if *strand_id == self.id && !prime3 => Some(*point),
+            _ => None,
         };
 
         let mut last_depth = None;
@@ -61,7 +62,11 @@ impl Strand {
                 let control = (last_pos + position) / 2. + normal / 3.;
                 let depth = depth.min(last_depth.unwrap_or(depth));
                 sign *= -1.;
-                builder.quadratic_bezier_to(Point::new(control.x, control.y), point, &[depth, sign]);
+                builder.quadratic_bezier_to(
+                    Point::new(control.x, control.y),
+                    point,
+                    &[depth, sign],
+                );
             } else {
                 builder.line_to(point, &[depth, sign]);
             }
@@ -88,7 +93,11 @@ impl Strand {
                 let control = (last_pos + *position) / 2. + normal / 3.;
                 let depth = 1e-6;
                 sign *= -1.;
-                builder.quadratic_bezier_to(Point::new(control.x, control.y), point, &[depth, sign]);
+                builder.quadratic_bezier_to(
+                    Point::new(control.x, control.y),
+                    point,
+                    &[depth, sign],
+                );
             }
             _ => {
                 // Draw the tick of the 3' end if the strand is not empty

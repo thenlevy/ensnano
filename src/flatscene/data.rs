@@ -198,7 +198,8 @@ impl Data {
     pub fn is_strand_end(&self, nucl: Nucl) -> Option<bool> {
         let nucl = self.to_real(nucl);
         self.design
-            .prime3_of(nucl).map(|_| true)
+            .prime3_of(nucl)
+            .map(|_| true)
             .or(self.design.prime5_of(nucl).map(|_| false))
     }
 
