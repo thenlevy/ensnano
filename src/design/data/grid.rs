@@ -185,6 +185,7 @@ impl Grid {
                 - axis_intersection as f32 * 2. * std::f32::consts::PI
                     / self.parameters.bases_per_turn
         };
+        let roll = (roll + std::f32::consts::PI).rem_euclid(2. * std::f32::consts::PI) - std::f32::consts::PI;
         Some(GridPosition {
             grid: g_id,
             x,
@@ -479,11 +480,10 @@ impl GridManager {
                 }
             }
         }
-        for (h_id, h) in design.helices.iter_mut() {
+        for h in design.helices.values_mut() {
             if h.grid_position.is_some() {
                 continue;
             }
-            let axis = h.get_axis(&design.parameters.unwrap_or_default());
             if let Some(position) = self.attach_existing(h) {
                 h.grid_position = Some(position)
             }
@@ -496,10 +496,12 @@ impl GridManager {
                 self.helix_to_pos.insert(*h_id, grid_position);
                 let grid = &self.grids[grid_position.grid];
                 h.position = grid.position_helix(grid_position.x, grid_position.y);
-                h.orientation = Rotor3::from_angle_plane(
-                    grid_position.roll,
-                    Bivec3::from_normalized_axis(Vec3::unit_x().rotated_by(grid.orientation)),
-                ) * grid.orientation;
+                h.orientation = {
+                    let normal = -self.parameters.helix_radius * Vec3::unit_y().rotated_by(grid.orientation);
+                    let actual = -self.parameters.helix_radius * Vec3::unit_y().rotated_by(grid.orientation) * grid_position.roll.cos() - self.parameters.helix_radius * Vec3::unit_z().rotated_by(grid.orientation) * grid_position.roll.sin();
+                    let roll = Rotor3::from_rotation_between(normal, actual);
+                    (roll * grid.orientation).normalized()
+                };
                 h.position +=
                     grid_position.axis_pos as f32 * h.get_axis(&self.parameters).direction;
             }
@@ -515,7 +517,7 @@ impl GridManager {
         let axis = h.get_axis(&self.parameters);
         if let Some(grid_position) = h.grid_position {
             let g = &self.grids[grid_position.grid];
-            if let Some((x, y)) = g.interpolate_helix(axis.origin, axis.direction) {
+            if let Some(_) = g.interpolate_helix(axis.origin, axis.direction) {
                 h.grid_position = g.find_helix_position(h, grid_position.grid)
             }
         }
@@ -528,7 +530,6 @@ impl GridManager {
         for (g_id, g) in self.grids.iter().enumerate() {
             let err = g.error_helix(origin, direction);
             if err < best_err {
-                let (x, y) = g.interpolate_helix(origin, direction).unwrap();
                 best_err = err;
                 ret = g.find_helix_position(helix, g_id)
             }
