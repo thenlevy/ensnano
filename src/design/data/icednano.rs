@@ -123,7 +123,7 @@ impl Strand {
         }
     }
 
-    pub fn init(helix: usize, position: isize, forward: bool) -> Self {
+    pub fn init(helix: usize, position: isize, forward: bool, color: u32) -> Self {
         let domains = vec![Domain::HelixDomain(HelixInterval {
             sequence: None,
             start: position,
@@ -135,7 +135,7 @@ impl Strand {
             domains,
             sequence: None,
             cyclic: false,
-            color: 0x33_44_FF,
+            color,
         }
     }
 
