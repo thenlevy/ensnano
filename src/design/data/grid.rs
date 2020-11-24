@@ -3,7 +3,7 @@ use super::{icednano, Data};
 use std::collections::HashMap;
 use std::f32::consts::FRAC_PI_2;
 use std::sync::{Arc, RwLock};
-use ultraviolet::{Rotor3, Vec2, Vec3};
+use ultraviolet::{Bivec3, Rotor3, Vec2, Vec3};
 
 use crate::scene::GridInstance;
 
@@ -141,6 +141,11 @@ impl Grid {
         Vec3::unit_x().rotated_by(self.orientation)
     }
 
+    fn project_point(&self, point: Vec3) -> Vec3 {
+        let normal = Vec3::unit_x().rotated_by(self.orientation);
+        point + (self.position - point).dot(normal) * normal
+    }
+
     pub fn position_helix(&self, x: isize, y: isize) -> Vec3 {
         let origin = self.grid_type.origin_helix(&self.parameters, x, y);
         let z_vec = Vec3::unit_z().rotated_by(self.orientation);
@@ -154,6 +159,39 @@ impl Grid {
             self.grid_type
                 .interpolate(&self.parameters, intersection.x, intersection.y),
         )
+    }
+
+    pub fn find_helix_position(
+        &self,
+        helix: &super::icednano::Helix,
+        g_id: usize,
+    ) -> Option<GridPosition> {
+        let super::icednano::Axis { origin, direction } = helix.get_axis(&self.parameters);
+        let (x, y) = self.interpolate_helix(origin, direction)?;
+        let intersection = self.position_helix(x, y);
+        // direction is the vector from the origin of the helix to its first axis position
+        let axis_intersection = (intersection - origin).dot(direction).round() as isize;
+        let nucl_intersection = helix.space_pos(&self.parameters, axis_intersection, false);
+        let projection_nucl = self.project_point(nucl_intersection);
+        let roll = {
+            let x = (projection_nucl - intersection)
+                .dot(Vec3::unit_z().rotated_by(self.orientation))
+                / -self.parameters.helix_radius;
+            let y = (projection_nucl - intersection)
+                .dot(Vec3::unit_y().rotated_by(self.orientation))
+                / -self.parameters.helix_radius;
+            x.atan2(y)
+                - std::f32::consts::PI
+                - axis_intersection as f32 * 2. * std::f32::consts::PI
+                    / self.parameters.bases_per_turn
+        };
+        Some(GridPosition {
+            grid: g_id,
+            x,
+            y,
+            axis_pos: axis_intersection,
+            roll,
+        })
     }
 
     fn error_group(&self, group: &Vec<usize>, design: &Design) -> f32 {
@@ -292,9 +330,16 @@ impl GridDivision for HoneyComb {
 
 #[derive(Clone, Serialize, Deserialize, Copy, PartialEq)]
 pub struct GridPosition {
+    /// Identifier of the grid
     pub grid: usize,
+    /// x coordinate on the grid
     pub x: isize,
+    /// y coordinate on the grid
     pub y: isize,
+    /// Position of the axis that intersect the grid
+    pub axis_pos: isize,
+    /// Roll of the helix with respect to the grid
+    pub roll: f32,
 }
 
 pub(super) struct GridManager {
@@ -312,15 +357,19 @@ impl GridManager {
         }
     }
 
+    /*
     pub fn get_helix_at_pos(&self, grid: usize, x: isize, y: isize) -> Option<usize> {
-        let pos = GridPosition { grid, x, y };
         for (h, g) in self.helix_to_pos.iter() {
-            if *g == pos {
+            if let GridPosition {
+                grid,
+                x,
+                y,
+                ..} = *g {
                 return Some(*h);
             }
         }
         return None;
-    }
+    }*/
 
     pub fn remove_helix(&mut self, h_id: usize) {
         self.helix_to_pos.remove(&h_id);
@@ -397,7 +446,7 @@ impl GridManager {
                 continue;
             }
             let axis = h.get_axis(&parameters);
-            if let Some(position) = self.attach_existing(axis.origin, axis.direction) {
+            if let Some(position) = self.attach_existing(h) {
                 h.grid_position = Some(position)
             }
         }
@@ -435,7 +484,7 @@ impl GridManager {
                 continue;
             }
             let axis = h.get_axis(&design.parameters.unwrap_or_default());
-            if let Some(position) = self.attach_existing(axis.origin, axis.direction) {
+            if let Some(position) = self.attach_existing(h) {
                 h.grid_position = Some(position)
             }
         }
@@ -447,17 +496,12 @@ impl GridManager {
                 self.helix_to_pos.insert(*h_id, grid_position);
                 let grid = &self.grids[grid_position.grid];
                 h.position = grid.position_helix(grid_position.x, grid_position.y);
-                if grid
-                    .axis_helix()
-                    .dot(Vec3::unit_x().rotated_by(h.orientation))
-                    .abs()
-                    < 0.999
-                {
-                    h.orientation = Rotor3::from_rotation_between(
-                        grid.axis_helix(),
-                        Vec3::unit_x().rotated_by(h.orientation),
-                    ) * h.orientation
-                }
+                h.orientation = Rotor3::from_angle_plane(
+                    grid_position.roll,
+                    Bivec3::from_normalized_axis(Vec3::unit_x().rotated_by(grid.orientation)),
+                ) * grid.orientation;
+                h.position +=
+                    grid_position.axis_pos as f32 * h.get_axis(&self.parameters).direction;
             }
         }
         design.grids.clear();
@@ -472,24 +516,21 @@ impl GridManager {
         if let Some(grid_position) = h.grid_position {
             let g = &self.grids[grid_position.grid];
             if let Some((x, y)) = g.interpolate_helix(axis.origin, axis.direction) {
-                h.grid_position = Some(GridPosition {
-                    grid: grid_position.grid,
-                    x,
-                    y,
-                })
+                h.grid_position = g.find_helix_position(h, grid_position.grid)
             }
         }
     }
 
-    fn attach_existing(&self, origin: Vec3, direction: Vec3) -> Option<GridPosition> {
+    fn attach_existing(&self, helix: &icednano::Helix) -> Option<GridPosition> {
         let mut ret = None;
         let mut best_err = f32::INFINITY;
+        let icednano::Axis { origin, direction } = helix.get_axis(&self.parameters);
         for (g_id, g) in self.grids.iter().enumerate() {
             let err = g.error_helix(origin, direction);
             if err < best_err {
                 let (x, y) = g.interpolate_helix(origin, direction).unwrap();
                 best_err = err;
-                ret = Some(GridPosition { grid: g_id, x, y })
+                ret = g.find_helix_position(helix, g_id)
             }
         }
         ret

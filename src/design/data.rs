@@ -816,7 +816,13 @@ impl Data {
     }
 
     pub fn rm_helix_grid(&mut self, g_id: usize, x: isize, y: isize) {
-        if let Some(h_id) = self.grid_manager.get_helix_at_pos(g_id, x, y) {
+        let h = self.grids[g_id]
+            .read()
+            .unwrap()
+            .helices()
+            .get(&(x, y))
+            .cloned();
+        if let Some(h_id) = h {
             self.design.helices.remove(&h_id);
             self.grid_manager.remove_helix(h_id);
             self.update_status = true;

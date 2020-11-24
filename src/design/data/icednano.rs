@@ -445,7 +445,13 @@ impl Helix {
             orientation: grid.orientation,
             old_orientation: grid.orientation,
             old_position: position,
-            grid_position: Some(GridPosition { grid: g_id, x, y }),
+            grid_position: Some(GridPosition {
+                grid: g_id,
+                x,
+                y,
+                axis_pos: 0,
+                roll: 0f32,
+            }),
         }
     }
 
