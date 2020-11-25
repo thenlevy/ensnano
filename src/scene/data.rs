@@ -591,9 +591,7 @@ impl Data {
         self.view
             .borrow_mut()
             .update(ViewUpdate::Grids(Rc::new(grids)));
-        if self.must_draw_phantom() {
-            self.selection_update = true
-        }
+        self.selection_update = true
     }
 
     /// This fuction must be called when the model matrices have been modfied
