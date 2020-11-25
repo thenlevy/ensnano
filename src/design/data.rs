@@ -869,6 +869,18 @@ impl Data {
         self.grid_manager.update(&mut self.design);
         self.update_grids();
     }
+
+    pub fn get_persistent_phantom_helices(&self) -> HashSet<u32> {
+        let mut ret = HashSet::new();
+        for g in self.grids.iter() {
+            if g.read().unwrap().persistent_phantom {
+                for x in g.read().unwrap().helices().values() {
+                    ret.insert(*x as u32);
+                }
+            }
+        }
+        ret
+    }
 }
 
 fn compl(c: Option<char>) -> Option<char> {

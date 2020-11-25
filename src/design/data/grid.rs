@@ -753,6 +753,7 @@ pub struct Grid2D {
     grid_type: GridType,
     parameters: Parameters,
     id: usize,
+    pub persistent_phantom: bool,
 }
 
 impl Grid2D {
@@ -762,6 +763,7 @@ impl Grid2D {
             grid_type,
             parameters,
             id,
+            persistent_phantom: true,
         }
     }
 

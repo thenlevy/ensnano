@@ -444,55 +444,59 @@ impl Data {
 
     /// Return the sets of elements of the phantom helix
     pub fn get_phantom_instances(&self) -> (Rc<Vec<Instance>>, Rc<Vec<Instance>>) {
-        if self.selected.is_empty() {
-            return (Rc::new(Vec::new()), Rc::new(Vec::new()));
-        }
-        if self.must_draw_phantom() {
-            let phantom_map = self.get_phantom_helices_set();
-            let mut ret_sphere = Vec::new();
-            let mut ret_tube = Vec::new();
-            for (d_id, set) in phantom_map.iter() {
-                let (spheres, tubes) = self.designs[*d_id as usize]
-                    .make_phantom_helix_instances(set, self.selection_mode == SelectionMode::Grid);
-                for sphere in spheres.iter().cloned() {
-                    ret_sphere.push(sphere);
-                }
-                for tube in tubes.iter().cloned() {
-                    ret_tube.push(tube);
-                }
+        let phantom_map = self.get_phantom_helices_set();
+        let mut ret_sphere = Vec::new();
+        let mut ret_tube = Vec::new();
+        for (d_id, set) in phantom_map.iter() {
+            let (spheres, tubes) = self.designs[*d_id as usize]
+                .make_phantom_helix_instances(set);
+            for sphere in spheres.iter().cloned() {
+                ret_sphere.push(sphere);
             }
-            (Rc::new(ret_sphere), Rc::new(ret_tube))
-        } else {
-            (Rc::new(Vec::new()), Rc::new(Vec::new()))
+            for tube in tubes.iter().cloned() {
+                ret_tube.push(tube);
+            }
         }
+        (Rc::new(ret_sphere), Rc::new(ret_tube))
     }
 
     /// Return a hashmap, mapping designs identifier to the set of helices whose phantom must be
     /// drawn.
-    fn get_phantom_helices_set(&self) -> HashMap<u32, HashSet<u32>> {
+    fn get_phantom_helices_set(&self) -> HashMap<u32, HashMap<u32, bool>> {
         let mut ret = HashMap::new();
-        for element in self.selected.iter() {
-            match element {
-                SceneElement::DesignElement(d_id, elt_id) => {
-                    let set = ret.entry(*d_id).or_insert_with(HashSet::new);
-                    set.insert(self.get_helix_identifier(*d_id, *elt_id));
-                }
-                SceneElement::PhantomElement(phantom_element) => {
-                    let set = ret
-                        .entry(phantom_element.design_id)
-                        .or_insert_with(HashSet::new);
-                    set.insert(phantom_element.helix_id);
-                }
-                SceneElement::Grid(d_id, g_id) => {
-                    let new_helices = self.designs[*d_id as usize]
-                        .get_helices_grid(*g_id)
-                        .unwrap_or_default();
-                    let set = ret.entry(*d_id).or_insert_with(HashSet::new);
-                    for h_id in new_helices.iter() {
-                        set.insert(*h_id);
+
+        for (d_id, design) in self.designs.iter().enumerate() {
+            let new_helices = design
+                .get_persistent_phantom_helices();
+                let set = ret.entry(d_id as u32).or_insert_with(HashMap::new);
+            for h_id in new_helices.iter() {
+                set.insert(*h_id, true);
+            }
+        }
+        if self.must_draw_phantom() {
+            for element in self.selected.iter() {
+                match element {
+                    SceneElement::DesignElement(d_id, elt_id) => {
+                        let set = ret.entry(*d_id).or_insert_with(HashMap::new);
+                        set.insert(self.get_helix_identifier(*d_id, *elt_id), false);
                     }
+                    SceneElement::PhantomElement(phantom_element) => {
+                        let set = ret
+                            .entry(phantom_element.design_id)
+                            .or_insert_with(HashMap::new);
+                        set.insert(phantom_element.helix_id, false);
+                    }
+                    SceneElement::Grid(d_id, g_id) => {
+                        let new_helices = self.designs[*d_id as usize]
+                            .get_helices_grid(*g_id)
+                            .unwrap_or_default();
+                        let set = ret.entry(*d_id).or_insert_with(HashMap::new);
+                        for h_id in new_helices.iter() {
+                            set.insert(*h_id, false);
+                        }
+                    }
+                    SceneElement::WidgetElement(_) => unreachable!(),
                 }
-                SceneElement::WidgetElement(_) => unreachable!(),
             }
         }
         ret
@@ -633,6 +637,7 @@ impl Data {
 
     pub fn change_selection_mode(&mut self, selection_mode: SelectionMode) {
         self.selection_mode = selection_mode;
+        self.instance_update = true;
     }
 
     pub fn get_action_mode(&self) -> ActionMode {
@@ -641,6 +646,7 @@ impl Data {
 
     pub fn change_action_mode(&mut self, action_mode: ActionMode) {
         self.action_mode = action_mode;
+        self.instance_update = true;
         self.update_matrices();
     }
 

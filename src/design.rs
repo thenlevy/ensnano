@@ -363,6 +363,10 @@ impl Design {
     pub fn build_helix_grid(&mut self, g_id: usize, x: isize, y: isize) {
         self.data.lock().unwrap().build_helix_grid(g_id, x, y)
     }
+
+    pub fn get_persistent_phantom_helices(&self) -> HashSet<u32> {
+        self.data.lock().unwrap().get_persistent_phantom_helices()
+    }
 }
 
 #[derive(Clone)]
