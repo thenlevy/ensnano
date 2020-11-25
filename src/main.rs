@@ -1,3 +1,43 @@
+//! `icednano` is a software for designing 3D DNA nanostructures.
+//!
+//! # Organization of the software
+//!
+//! ![Organization
+//! chart](https://perso.ens-lyon.fr/nicolas.levy/doc_icednano/img/main_chart.jpg)
+//!
+//! The [main](main) function owns the event_loop and the framebuffer. It recieves window events
+//! and handles the framebuffer.
+//!
+//! ## Drawing process
+//!
+//! On each redraw request, the [main](main) funtion generates a new frame, and ask the
+//! [Multiplexer](multiplexer) to draw on a view of that texture.
+//!
+//! The [Multiplexer](multiplexer) knows how the window is devided into several regions. For each
+//! of these region it knows what application or gui component should draw on it.
+//! For each region the [Multiplexer](multiplexer) holds a texture, and at each draw request, it
+//! will request the corresponding app or gui element to possibly update the texture. 
+//!
+//!  Applications are notified when the design that they display have been modified and may request
+//!  from the [Design](design) the data that they need to display it.
+//!
+//!  ## Handling of events
+//!
+//!  Window events are recieved by the `main` function that forwards them to the
+//!  [Multiplexer](multiplexer). The [Multiplexer](multiplexer) then forwards the event to the last
+//!  active region (the region under the cursor). Special events like resizing of the window are
+//!  handled by the multiplexer.
+//!
+//!  When applications and GUI component handle an event. This event might have consequences that
+//!  must be known by the other components of the software.
+//!
+//!  In the case of an application, the
+//!  consequences is transmitted to the [Mediator](mediator). The [Mediator](mediator) may then
+//!  request appropriate modifications of the [Designs](design) or forward messages for the GUI
+//!  components.
+//!
+//!  In the case of a GUI component, consequences are transmitted to the [main](main) function that
+//!  will consequently send the appropriate request to the [Mediator](mediator).
 use std::collections::VecDeque;
 use std::env;
 use std::path::PathBuf;
@@ -53,6 +93,33 @@ fn convert_size_u32(size: PhySize) -> Size<u32> {
     Size::new(size.width, size.height)
 }
 
+/// Main function. Runs the event loop and holds the framebuffer.
+/// 
+/// # Intialization
+///
+/// Before running the event loop, the main fuction do the following 
+///
+/// * It request a connection to the GPU and crates a framebuffer
+/// * It initializes a multiplexer.
+/// * It initializes applications and GUI component, and associate region of the screen to these
+/// components
+/// * It initialized the [Mediator](mediator), the [Scheduler](mediator::Scheduler) and the [Gui
+/// manager](gui::Gui)
+///
+/// # EventLoop 
+///
+/// * The event loop wait for an event. If no event is recieved during 33ms, a new redraw is
+/// requested.
+/// * When a event is recieved, it is forwareded to the multiplexer. The Multiplexer may then
+/// convert this event into a event for a specific screen region.
+/// * When all window event have been handled, the main function reads messages that it recieved
+/// from the [Gui Manager](gui::Gui).  The consequence of these messages are forwarded to the
+/// applications.
+/// * The main loops then reads the messages that it recieved from the [Mediator](mediator) and
+/// forwards their consequences to the Gui components.
+/// * Finally, a redraw is requested.
+///
+///
 fn main() {
     // parse arugments, if an argument was given it is treated as a file to open
     let args: Vec<String> = env::args().collect();

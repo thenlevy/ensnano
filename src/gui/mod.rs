@@ -1,3 +1,11 @@
+//! The [Gui Manager](gui::Gui) handles redraw request on textures that corresponds to regions
+//! attributed to GUI components and events happening on these regions.
+//!
+//! When a message is emmitted by a Gui component that have consequences that must be forwarded to
+//! other components of the program it is forwarded to the [main](main) function via the
+//! [Request](Requests) data structure.
+
+
 /// Draw the top bar of the GUI
 pub mod top_bar;
 pub use top_bar::TopBar;
@@ -212,6 +220,7 @@ impl GuiState {
     }
 }
 
+/// A Gui component. 
 struct GuiElement {
     state: GuiState,
     debug: Debug,
@@ -220,6 +229,7 @@ struct GuiElement {
 }
 
 impl GuiElement {
+    /// Initialize the top bar gui component
     fn top_bar(
         renderer: &mut Renderer,
         window: &Window,
@@ -248,6 +258,7 @@ impl GuiElement {
         }
     }
 
+    /// Initialize the left panel gui component
     fn left_panel(
         renderer: &mut Renderer,
         window: &Window,
@@ -320,6 +331,7 @@ impl GuiElement {
         self.redraw = true;
     }
 
+
     fn fetch_change(
         &mut self,
         window: &Window,
@@ -381,7 +393,9 @@ impl GuiElement {
     }
 }
 
+/// The Gui manager. 
 pub struct Gui {
+    /// HashMap mapping [ElementType](ElementType) to a GuiElement
     elements: HashMap<ElementType, GuiElement>,
     renderer: iced_wgpu::Renderer,
     device: Rc<Device>,
@@ -418,10 +432,12 @@ impl Gui {
         }
     }
 
+    /// Forward an event to the appropriate gui component
     pub fn forward_event(&mut self, area: ElementType, event: iced_native::Event) {
         self.elements.get_mut(&area).unwrap().forward_event(event);
     }
 
+    /// Forward a message to the appropriate gui component
     pub fn forward_messages(&mut self, messages: &mut IcedMessages) {
         for m in messages.top_bar.drain(..) {
             self.elements
@@ -446,6 +462,7 @@ impl Gui {
         }
     }
 
+    /// Get the new size of each gui component from the multiplexer and forwards them.
     pub fn resize(&mut self, multiplexer: &Multiplexer, window: &Window) {
         for element in self.elements.values_mut() {
             element.resize(window, multiplexer)
@@ -454,12 +471,14 @@ impl Gui {
         self.resized = true;
     }
 
+    /// Ask the gui component to process the event that they have recieved
     pub fn fetch_change(&mut self, window: &Window, multiplexer: &Multiplexer) {
         for elements in self.elements.values_mut() {
             elements.fetch_change(window, multiplexer, &mut self.renderer, false)
         }
     }
 
+    /// Ask the gui component to process the event and messages that they that they have recieved.
     pub fn update(&mut self, multiplexer: &Multiplexer, window: &Window) {
         for elements in self.elements.values_mut() {
             elements.fetch_change(window, multiplexer, &mut self.renderer, self.resized)
