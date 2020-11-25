@@ -172,6 +172,10 @@ impl Strand {
         }
         None
     }
+
+    pub fn length(&self) -> usize {
+        self.domains.iter().map(|d| d.length()).sum()
+    }
 }
 
 fn is_false(x: &bool) -> bool {
