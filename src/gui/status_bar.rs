@@ -41,6 +41,7 @@ pub struct StatusBar {
     parameters: Vec<StatusParameter>,
     values: Vec<String>,
     operation: Option<Arc<dyn Operation>>,
+    info: Option<String>,
     requests: Arc<Mutex<Requests>>,
 }
 
@@ -50,6 +51,7 @@ impl StatusBar {
             parameters: Vec::new(),
             values: Vec::new(),
             operation: None,
+            info: None,
             requests,
         }
     }
@@ -71,6 +73,7 @@ impl StatusBar {
 #[derive(Clone, Debug)]
 pub enum Message {
     Operation(Arc<dyn Operation>),
+    Info(String),
     ValueChanged(usize, String),
     ClearOp,
 }
@@ -95,6 +98,10 @@ impl Program for StatusBar {
                     self.operation = Some(op.clone());
                 }
                 self.requests.lock().unwrap().operation_update = new_op;
+            }
+            Message::Info(s) => {
+                self.operation = None;
+                self.info = Some(s)
             }
             Message::ClearOp => self.operation = None,
         }
@@ -137,6 +144,8 @@ impl Program for StatusBar {
                     }
                 }
             }
+        } else if let Some(ref info) = self.info {
+            row = row.push(Text::new(info).size(STATUS_FONT_SIZE))
         }
         let column = Column::new()
             .push(Space::new(Length::Fill, Length::Units(3)))

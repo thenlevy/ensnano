@@ -20,7 +20,7 @@ use crate::design;
 
 use design::{
     Design, DesignNotification, DesignRotation, DesignTranslation, GridDescriptor,
-    GridHelixDescriptor,
+    GridHelixDescriptor, Nucl
 };
 
 mod operation;
@@ -238,6 +238,7 @@ impl Mediator {
                 }
             }
         }
+        self.messages.lock().unwrap().push_info(selection.info());
     }
 
     pub fn toggle_text(&mut self, value: bool) {
@@ -469,9 +470,9 @@ pub enum AppNotification {
     RmGrid,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub enum Selection {
-    Nucleotide(u32, u32),
+    Nucleotide(u32, Nucl),
     Design(u32),
     Strand(u32, u32),
     Helix(u32, u32),
@@ -496,6 +497,10 @@ impl Selection {
             Selection::Grid(d, _) => Some(*d),
             Selection::Nothing => None,
         }
+    }
+
+    pub fn info(&self) -> String {
+        format!("{:?}", self)
     }
 }
 

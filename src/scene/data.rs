@@ -387,7 +387,14 @@ impl Data {
                     match self.selection_mode {
                         SelectionMode::Design => Selection::Design(design_id),
                         SelectionMode::Strand => Selection::Strand(design_id, group_id),
-                        SelectionMode::Nucleotide => Selection::Nucleotide(design_id, group_id),
+                        SelectionMode::Nucleotide => {
+                            let nucl = self.designs[design_id as usize].get_nucl(group_id);
+                            if let Some(nucl) = nucl {
+                                Selection::Nucleotide(design_id, nucl)
+                            } else {
+                                Selection::Nothing
+                            }
+                        }
                         SelectionMode::Helix => Selection::Helix(design_id, group_id),
                         SelectionMode::Grid => Selection::Grid(design_id, group_id),
                     }

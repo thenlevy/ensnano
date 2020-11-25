@@ -521,6 +521,10 @@ impl IcedMessages {
             .push_front(gui::status_bar::Message::Operation(operation));
     }
 
+    pub fn push_info(&mut self, info: String) {
+        self.status_bar.push_front(gui::status_bar::Message::Info(info))
+    }
+
     pub fn clear_op(&mut self) {
         self.status_bar
             .push_front(gui::status_bar::Message::ClearOp);

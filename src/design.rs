@@ -367,6 +367,10 @@ impl Design {
     pub fn get_persistent_phantom_helices(&self) -> HashSet<u32> {
         self.data.lock().unwrap().get_persistent_phantom_helices()
     }
+
+    pub fn get_nucl(&self, e_id: u32) -> Option<Nucl> {
+        self.data.lock().unwrap().get_nucl(e_id)
+    }
 }
 
 #[derive(Clone)]
