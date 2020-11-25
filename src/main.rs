@@ -521,8 +521,8 @@ impl IcedMessages {
             .push_front(gui::status_bar::Message::Operation(operation));
     }
 
-    pub fn push_info(&mut self, info: String) {
-        self.status_bar.push_front(gui::status_bar::Message::Info(info))
+    pub fn push_selection(&mut self, selection: mediator::Selection) {
+        self.status_bar.push_front(gui::status_bar::Message::Selection(selection))
     }
 
     pub fn clear_op(&mut self) {

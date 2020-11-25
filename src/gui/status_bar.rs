@@ -1,9 +1,10 @@
 use super::Requests;
-use crate::mediator::{Operation, ParameterField};
+use crate::mediator::{Operation, ParameterField, Selection};
 use iced::{container, Background, Container, Length};
-use iced_native::{pick_list, text_input, Color, PickList, TextInput};
+use iced_native::{pick_list, text_input, Color, PickList, TextInput, Checkbox};
 use iced_winit::{Column, Command, Element, Program, Row, Space, Text};
 use std::sync::{Arc, Mutex};
+use std::str::FromStr;
 
 const STATUS_FONT_SIZE: u16 = 14;
 
@@ -11,6 +12,7 @@ const STATUS_FONT_SIZE: u16 = 14;
 enum StatusParameter {
     Value(text_input::State),
     Choice(pick_list::State<String>),
+    CheckBox(bool),
 }
 
 impl StatusParameter {
@@ -28,6 +30,13 @@ impl StatusParameter {
         }
     }
 
+    fn is_checked(&self) -> bool {
+        match self {
+            StatusParameter::CheckBox(b) => *b,
+            _ => panic!("wrong status parameter variant"),
+        }
+    }
+
     fn value() -> Self {
         Self::Value(Default::default())
     }
@@ -35,14 +44,18 @@ impl StatusParameter {
     fn choice() -> Self {
         Self::Choice(Default::default())
     }
+
+    fn checkbox() -> Self {
+        Self::CheckBox(false)
+    }
 }
 
 pub struct StatusBar {
     parameters: Vec<StatusParameter>,
     values: Vec<String>,
     operation: Option<Arc<dyn Operation>>,
-    info: Option<String>,
     requests: Arc<Mutex<Requests>>,
+    selection: Selection,
 }
 
 impl StatusBar {
@@ -51,8 +64,8 @@ impl StatusBar {
             parameters: Vec::new(),
             values: Vec::new(),
             operation: None,
-            info: None,
             requests,
+            selection: Selection::Nothing,
         }
     }
 
@@ -68,13 +81,83 @@ impl StatusBar {
         self.values = operation.values().clone();
         self.parameters = new_param;
     }
+
+    fn view_op(&mut self) -> Element<Message, iced_wgpu::Renderer> {
+        let mut row = Row::new();
+        let op = self.operation.as_ref().unwrap(); // the function view op is only called when op is some.
+        row = row.push(Text::new(op.description()).size(STATUS_FONT_SIZE));
+        let values = &self.values;
+        for (i, p) in self.parameters.iter_mut().enumerate() {
+            let param = &op.parameters()[i];
+            match param.field {
+                ParameterField::Value => {
+                    row = row
+                        .spacing(20)
+                        .push(Text::new(param.name.clone()).size(STATUS_FONT_SIZE))
+                        .push(
+                            TextInput::new(
+                                p.get_value(),
+                                "",
+                                &format!("{0:.4}", values[i]),
+                                move |s| Message::ValueChanged(i, s),
+                            )
+                            .size(STATUS_FONT_SIZE)
+                            .width(Length::Units(40)),
+                        )
+                }
+                ParameterField::Choice(ref v) => {
+                    row = row.spacing(20).push(
+                        PickList::new(
+                            p.get_choice(),
+                            v.clone(),
+                            Some(values[i].clone()),
+                            move |s| Message::ValueChanged(i, s),
+                        )
+                        .text_size(STATUS_FONT_SIZE - 4),
+                    )
+                }
+            }
+        }
+
+        let column = Column::new()
+            .push(Space::new(Length::Fill, Length::Units(3)))
+            .push(row);
+        Container::new(column)
+            .style(StatusBarStyle)
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .into()
+    }
+
+    fn view_selection(&mut self) -> Element<Message, iced_wgpu::Renderer> {
+        let mut row = Row::new();
+        let selection = &self.selection;
+        row = row.push(Text::new(selection.info()).size(STATUS_FONT_SIZE));
+
+        match selection {
+            Selection::Grid(_, _) => {
+                row = row.push(Checkbox::new(bool::from_str(&self.values[0]).unwrap(), "Persistent phantoms", |b| Message::ValueChanged(0, bool_to_string(b))));
+            }
+            _ => ()
+        }
+
+        let column = Column::new()
+            .push(Space::new(Length::Fill, Length::Units(3)))
+            .push(row);
+        Container::new(column)
+            .style(StatusBarStyle)
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .into()
+    }
 }
 
 #[derive(Clone, Debug)]
 pub enum Message {
     Operation(Arc<dyn Operation>),
-    Info(String),
+    Selection(Selection, Vec<String>),
     ValueChanged(usize, String),
+    SelectionValueChanged(usize, String),
     ClearOp,
 }
 
@@ -99,9 +182,14 @@ impl Program for StatusBar {
                 }
                 self.requests.lock().unwrap().operation_update = new_op;
             }
-            Message::Info(s) => {
+            Message::SelectionValueChanged(n, s) => {
+                self.values[n] = s.clone();
+                unimplemented!();
+            }
+            Message::Selection(s, v) => {
                 self.operation = None;
-                self.info = Some(s)
+                self.selection = s;
+                self.values = v;
             }
             Message::ClearOp => self.operation = None,
         }
@@ -109,52 +197,21 @@ impl Program for StatusBar {
     }
 
     fn view(&mut self) -> Element<Message, iced_wgpu::Renderer> {
-        let mut row = Row::new();
-        if let Some(ref op) = self.operation {
-            row = row.push(Text::new(op.description()).size(STATUS_FONT_SIZE));
-            let values = &self.values;
-            for (i, p) in self.parameters.iter_mut().enumerate() {
-                let param = &op.parameters()[i];
-                match param.field {
-                    ParameterField::Value => {
-                        row = row
-                            .spacing(20)
-                            .push(Text::new(param.name.clone()).size(STATUS_FONT_SIZE))
-                            .push(
-                                TextInput::new(
-                                    p.get_value(),
-                                    "",
-                                    &format!("{0:.4}", values[i]),
-                                    move |s| Message::ValueChanged(i, s),
-                                )
-                                .size(STATUS_FONT_SIZE)
-                                .width(Length::Units(40)),
-                            )
-                    }
-                    ParameterField::Choice(ref v) => {
-                        row = row.spacing(20).push(
-                            PickList::new(
-                                p.get_choice(),
-                                v.clone(),
-                                Some(values[i].clone()),
-                                move |s| Message::ValueChanged(i, s),
-                            )
-                            .text_size(STATUS_FONT_SIZE - 4),
-                        )
-                    }
-                }
-            }
-        } else if let Some(ref info) = self.info {
-            row = row.push(Text::new(info).size(STATUS_FONT_SIZE))
+        if self.operation.is_some() {
+            self.view_op()
+        } else {
+            self.view_selection()
         }
-        let column = Column::new()
-            .push(Space::new(Length::Fill, Length::Units(3)))
-            .push(row);
-        Container::new(column)
-            .style(StatusBarStyle)
-            .width(Length::Fill)
-            .height(Length::Fill)
-            .into()
+    }
+
+}
+
+impl Selection {
+    fn parameters(&self) -> Vec<StatusParameter> {
+        match self {
+            Selection::Grid(_, _) => vec![StatusParameter::checkbox()],
+            _ => Vec::new()
+        }
     }
 }
 
@@ -174,3 +231,12 @@ pub const BACKGROUND: Color = Color::from_rgb(
     0x39 as f32 / 255.0,
     0x3F as f32 / 255.0,
 );
+
+
+fn bool_to_string(b: bool) -> String {
+    if b {
+        String::from("true")
+    } else {
+        String::from("false")
+    }
+}
