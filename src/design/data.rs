@@ -557,13 +557,27 @@ impl Data {
             .map(|h| h.get_axis(&self.design.parameters.unwrap()))?;
         if self.identifier_nucl.contains_key(&nucl) {
             if let Some(desc) = self.design.get_neighbour_nucl(nucl) {
-                Some(StrandBuilder::init_existing(
-                    desc.identifier,
-                    nucl,
-                    axis,
-                    desc.fixed_end,
-                    left.or(right),
-                ))
+                let strand_id = desc.identifier.strand;
+                match self.design.strands.get(&strand_id).map(|s| s.length()) {
+                    Some(n) if n > 1 => {
+                        Some(StrandBuilder::init_existing(
+                                desc.identifier,
+                                nucl,
+                                axis,
+                                desc.fixed_end,
+                                left.or(right),
+                        ))
+                    },
+                    _ => Some(StrandBuilder::init_empty(
+                            DomainIdentifier {
+                                strand: strand_id,
+                                domain: 0
+                    },
+                            nucl,
+                            axis,
+                            left.or(right)
+                    ))
+                }
             } else {
                 None
             }
