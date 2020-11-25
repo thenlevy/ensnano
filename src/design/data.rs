@@ -821,13 +821,15 @@ impl Data {
 
     pub fn build_helix_grid(&mut self, g_id: usize, x: isize, y: isize) {
         if let Some(grid) = self.grid_manager.grids.get(g_id) {
-            let helix = icednano::Helix::new_on_grid(grid, x, y, g_id);
-            let helix_id = self.design.helices.keys().last().unwrap_or(&0) + 1;
-            self.design.helices.insert(helix_id, helix);
-            self.update_status = true;
-            self.hash_maps_update = true;
-            self.grid_manager.update(&mut self.design);
-            self.update_grids();
+            if !self.grids[g_id].read().unwrap().helices().contains_key(&(x, y)) {
+                let helix = icednano::Helix::new_on_grid(grid, x, y, g_id);
+                let helix_id = self.design.helices.keys().last().unwrap_or(&0) + 1;
+                self.design.helices.insert(helix_id, helix);
+                self.update_status = true;
+                self.hash_maps_update = true;
+                self.grid_manager.update(&mut self.design);
+                self.update_grids();
+            }
         }
     }
 
