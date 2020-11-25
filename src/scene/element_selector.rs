@@ -28,8 +28,8 @@ impl ElementSelector {
     ) -> Self {
         let readers = vec![
             SceneReader::new(DrawType::Widget),
-            SceneReader::new(DrawType::Phantom),
             SceneReader::new(DrawType::Design),
+            SceneReader::new(DrawType::Phantom),
         ];
         Self {
             device,
