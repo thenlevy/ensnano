@@ -5,7 +5,7 @@ use crate::mediator;
 use crate::{DrawArea, Duration, PhySize, WindowEvent};
 use iced_wgpu::wgpu;
 use iced_winit::winit;
-use mediator::{ActionMode, Application, Notification};
+use mediator::{ActionMode, Application, Mediator, Notification};
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
@@ -13,6 +13,7 @@ use wgpu::{Device, Queue};
 use winit::dpi::PhysicalPosition;
 
 use crate::utils::camera2d as camera;
+use crate::utils::PhantomElement;
 mod controller;
 mod data;
 mod view;
@@ -41,10 +42,17 @@ pub struct FlatScene {
     selected_design: usize,
     device: Rc<Device>,
     queue: Rc<Queue>,
+    mediator: Arc<Mutex<Mediator>>,
 }
 
 impl FlatScene {
-    pub fn new(device: Rc<Device>, queue: Rc<Queue>, window_size: PhySize, area: DrawArea) -> Self {
+    pub fn new(
+        device: Rc<Device>,
+        queue: Rc<Queue>,
+        window_size: PhySize,
+        area: DrawArea,
+        mediator: Arc<Mutex<Mediator>>,
+    ) -> Self {
         Self {
             view: Vec::new(),
             data: Vec::new(),
@@ -54,6 +62,7 @@ impl FlatScene {
             selected_design: 0,
             device,
             queue,
+            mediator,
         }
     }
 
@@ -134,6 +143,18 @@ impl FlatScene {
                 Consequence::FreeEnd(free_end) => self.data[self.selected_design]
                     .borrow_mut()
                     .set_free_end(free_end),
+                Consequence::NewCandidate(candidate) => {
+                    let phantom = candidate.map(|n| PhantomElement {
+                        position: n.position as i32,
+                        helix_id: self.data[self.selected_design]
+                            .borrow()
+                            .helix_id_design(n.helix) as u32,
+                        forward: n.forward,
+                        bound: false,
+                        design_id: self.selected_design as u32,
+                    });
+                    self.mediator.lock().unwrap().set_candidate(phantom)
+                }
                 _ => (),
             }
         }

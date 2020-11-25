@@ -165,6 +165,10 @@ impl Data {
         }
     }
 
+    pub fn helix_id_design(&self, id: usize) -> usize {
+        self.design.get_helices()[id].id
+    }
+
     pub fn get_builder(&self, nucl: Nucl) -> Option<StrandBuilder> {
         let real_helix = self.design.get_helices()[nucl.helix].id;
         self.design.get_builder(Nucl {

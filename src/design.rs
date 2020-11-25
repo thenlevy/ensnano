@@ -316,6 +316,10 @@ impl Design {
         self.data.lock().unwrap().get_strand_points(s_id)
     }
 
+    pub fn get_identifier_nucl(&self, nucl: Nucl) -> Option<u32> {
+        self.data.lock().unwrap().get_identifier_nucl(nucl)
+    }
+
     pub fn merge_strands(&mut self, prime5: usize, prime3: usize) {
         self.data.lock().unwrap().merge_strands(prime5, prime3)
     }

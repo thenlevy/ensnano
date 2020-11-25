@@ -6,6 +6,7 @@
 //! mediator.
 //!
 //! The mediator also holds data that is common to all applications.
+use crate::utils::PhantomElement;
 use crate::{DrawArea, Duration, ElementType, IcedMessages, Multiplexer, WindowEvent};
 use iced_wgpu::wgpu;
 use iced_winit::winit::dpi::{PhysicalPosition, PhysicalSize};
@@ -31,6 +32,7 @@ pub struct Mediator {
     applications: HashMap<ElementType, Arc<Mutex<dyn Application>>>,
     designs: Vec<Arc<Mutex<Design>>>,
     selection: Selection,
+    candidate: Option<Option<PhantomElement>>,
     messages: Arc<Mutex<IcedMessages>>,
     /// The operation that is beign modified by the current drag and drop
     current_operation: Option<Arc<dyn Operation>>,
@@ -116,6 +118,8 @@ pub enum Notification {
     FitRequest,
     /// The designs have been deleted
     ClearDesigns,
+    /// A new element of the design must be highlighted
+    NewCandidate(Option<PhantomElement>),
 }
 
 pub trait Application {
@@ -145,6 +149,7 @@ impl Mediator {
             last_op: None,
             undo_stack: Vec::new(),
             redo_stack: Vec::new(),
+            candidate: None,
         }
     }
 
@@ -282,6 +287,9 @@ impl Mediator {
         }
         for notification in notifications {
             self.notify_apps(notification)
+        }
+        if let Some(candidate) = self.candidate.take() {
+            self.notify_apps(Notification::NewCandidate(candidate))
         }
     }
 
@@ -442,6 +450,10 @@ impl Mediator {
             self.notify_all_designs(AppNotification::MovementEnded);
             self.undo_stack.push(rev_op);
         }
+    }
+
+    pub fn set_candidate(&mut self, candidate: Option<PhantomElement>) {
+        self.candidate = Some(candidate)
     }
 }
 

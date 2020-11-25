@@ -32,6 +32,7 @@ pub enum Consequence {
     Xover(Nucl, Nucl),
     Cut(Nucl),
     FreeEnd(Option<FreeEnd>),
+    NewCandidate(Option<Nucl>),
 }
 
 impl Controller {

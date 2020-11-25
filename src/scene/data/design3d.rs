@@ -461,6 +461,10 @@ impl Design3D {
         Some(SceneElement::DesignElement(self.id, id))
     }
 
+    pub fn get_identifier_nucl(&self, nucl: Nucl) -> Option<u32> {
+        self.design.lock().unwrap().get_identifier_nucl(nucl)
+    }
+
     pub fn get_builder(&self, element: &SceneElement) -> Option<StrandBuilder> {
         match element {
             SceneElement::DesignElement(_, e_id) => {

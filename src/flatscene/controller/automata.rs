@@ -121,7 +121,12 @@ impl ControllerState for NormalState {
             }
             WindowEvent::CursorMoved { .. } => {
                 self.mouse_position = position;
-                Transition::nothing()
+                let (x, y) = controller
+                    .camera
+                    .borrow()
+                    .screen_to_world(self.mouse_position.x as f32, self.mouse_position.y as f32);
+                let pivot_opt = controller.data.borrow().get_click(x, y);
+                Transition::consequence(Consequence::NewCandidate(pivot_opt))
             }
             WindowEvent::KeyboardInput { .. } => {
                 controller.process_keyboard(event);

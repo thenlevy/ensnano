@@ -185,7 +185,8 @@ impl Grid {
                 - axis_intersection as f32 * 2. * std::f32::consts::PI
                     / self.parameters.bases_per_turn
         };
-        let roll = (roll + std::f32::consts::PI).rem_euclid(2. * std::f32::consts::PI) - std::f32::consts::PI;
+        let roll = (roll + std::f32::consts::PI).rem_euclid(2. * std::f32::consts::PI)
+            - std::f32::consts::PI;
         Some(GridPosition {
             grid: g_id,
             x,
@@ -497,8 +498,14 @@ impl GridManager {
                 let grid = &self.grids[grid_position.grid];
                 h.position = grid.position_helix(grid_position.x, grid_position.y);
                 h.orientation = {
-                    let normal = -self.parameters.helix_radius * Vec3::unit_y().rotated_by(grid.orientation);
-                    let actual = -self.parameters.helix_radius * Vec3::unit_y().rotated_by(grid.orientation) * grid_position.roll.cos() - self.parameters.helix_radius * Vec3::unit_z().rotated_by(grid.orientation) * grid_position.roll.sin();
+                    let normal =
+                        -self.parameters.helix_radius * Vec3::unit_y().rotated_by(grid.orientation);
+                    let actual = -self.parameters.helix_radius
+                        * Vec3::unit_y().rotated_by(grid.orientation)
+                        * grid_position.roll.cos()
+                        - self.parameters.helix_radius
+                            * Vec3::unit_z().rotated_by(grid.orientation)
+                            * grid_position.roll.sin();
                     let roll = Rotor3::from_rotation_between(normal, actual);
                     (roll * grid.orientation).normalized()
                 };

@@ -9,9 +9,10 @@ use std::sync::{Arc, Mutex};
 
 use ultraviolet::{Rotor3, Vec3};
 
-use crate::design::{Design, ObjectType, Referential, StrandBuilder};
+use crate::design::{Design, Nucl, ObjectType, Referential, StrandBuilder};
 use crate::mediator::{ActionMode, Selection, SelectionMode};
 use crate::utils::instance::Instance;
+use crate::utils::PhantomElement;
 
 type ViewPtr = Rc<RefCell<View>>;
 
@@ -158,6 +159,19 @@ impl Data {
                     }
                 }
             } else if let SceneElement::PhantomElement(phantom_element) = element {
+                if let Some(group_id) = self.get_group_identifier_phantom(*phantom_element) {
+                    let d_id = phantom_element.design_id;
+                    let group = self.get_group_member(d_id, group_id);
+                    for elt in group.iter() {
+                        if self.designs[d_id as usize]
+                            .get_element_type(*elt)
+                            .unwrap()
+                            .same_type(object_type)
+                        {
+                            ret.push(SceneElement::DesignElement(d_id, *elt));
+                        }
+                    }
+                }
                 if phantom_element.bound == object_type.is_bound() {
                     ret.push(SceneElement::PhantomElement(*phantom_element));
                 }
@@ -286,6 +300,28 @@ impl Data {
             SelectionMode::Strand => self.designs[design_id as usize].get_strand(element_id),
             SelectionMode::Helix => self.designs[design_id as usize].get_helix(element_id),
             SelectionMode::Grid => element_id,
+        }
+    }
+
+    /// Return the group to which a phantom element belongs. The group depends on self.selection_mode.
+    fn get_group_identifier_phantom(&self, phantom_element: PhantomElement) -> Option<u32> {
+        let nucl = Nucl {
+            helix: phantom_element.helix_id as usize,
+            forward: phantom_element.forward,
+            position: phantom_element.position as isize,
+        };
+
+        let design_id = phantom_element.design_id;
+        let element_id = self.designs[design_id as usize].get_identifier_nucl(nucl);
+
+        match self.selection_mode {
+            SelectionMode::Nucleotide => element_id,
+            SelectionMode::Design => Some(design_id),
+            SelectionMode::Strand => {
+                element_id.map(|e| self.designs[design_id as usize].get_strand(e))
+            }
+            SelectionMode::Helix => Some(phantom_element.helix_id),
+            SelectionMode::Grid => None,
         }
     }
 

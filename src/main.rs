@@ -153,6 +153,7 @@ fn main() {
         queue.clone(),
         window.inner_size(),
         scene_area,
+        mediator.clone(),
     )));
     mediator
         .lock()
