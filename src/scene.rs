@@ -162,7 +162,9 @@ impl Scene {
                     .borrow()
                     .compute_rotation(x as f32, y as f32, mode);
                 if let Some((rotation, origin, positive)) = rotation {
-                    self.rotate_selected_desgin(rotation, origin, positive)
+                    if rotation.bv.mag() > 1e-3 {
+                        self.rotate_selected_desgin(rotation, origin, positive)
+                    }
                 } else {
                     println!("Warning rotiation was None")
                 }
