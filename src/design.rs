@@ -286,8 +286,8 @@ impl Design {
 
     /// Return a `StrandBuilder` with moving end `nucl` if possibile (see
     /// [`Data::get_strand_builder`](data::Data::get_strand_builder)).
-    pub fn get_builder(&mut self, nucl: Nucl) -> Option<StrandBuilder> {
-        self.data.lock().unwrap().get_strand_builder(nucl).map(|b| {
+    pub fn get_builder(&mut self, nucl: Nucl, stick: bool) -> Option<StrandBuilder> {
+        self.data.lock().unwrap().get_strand_builder(nucl, stick).map(|b| {
             b.transformed(&self.view.borrow().get_model_matrix())
                 .given_data(self.data.clone(), self.id as u32)
         })
@@ -295,9 +295,9 @@ impl Design {
 
     /// Return a `StrandBuilder` whose moving end is given by an element, if possible ( see
     /// [`Data::get_strand_builder`](data::Data::get_strand_builder) )
-    pub fn get_builder_element(&mut self, element_id: u32) -> Option<StrandBuilder> {
+    pub fn get_builder_element(&mut self, element_id: u32, stick: bool) -> Option<StrandBuilder> {
         let nucl = self.data.lock().unwrap().get_nucl(element_id)?;
-        self.get_builder(nucl)
+        self.get_builder(nucl, stick)
     }
 
     /// If element_id is the identifier of a nucleotide, return the position on which the

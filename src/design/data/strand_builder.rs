@@ -124,6 +124,7 @@ impl StrandBuilder {
         axis: Axis,
         other_end: isize,
         neighbour: Option<NeighbourDescriptor>,
+        stick: bool,
     ) -> Self {
         let mut min_pos = None;
         let mut max_pos = None;
@@ -137,7 +138,13 @@ impl StrandBuilder {
         let neighbour_direction;
         if let Some(desc) = neighbour {
             neighbour_strand = Some(desc);
-            neighbour_direction = Some(EditDirection::Both);
+            neighbour_direction = if stick {
+                Some(EditDirection::Both) 
+            } else if desc.moving_end > initial_position {
+                Some(EditDirection::Positive)
+            } else {
+                Some(EditDirection::Negative)
+            };
             if desc.initial_moving_end > initial_position {
                 max_pos = Some(desc.fixed_end - 1)
             } else {

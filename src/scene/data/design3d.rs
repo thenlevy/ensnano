@@ -464,10 +464,10 @@ impl Design3D {
         self.design.lock().unwrap().get_identifier_nucl(nucl)
     }
 
-    pub fn get_builder(&self, element: &SceneElement) -> Option<StrandBuilder> {
+    pub fn get_builder(&self, element: &SceneElement, stick: bool) -> Option<StrandBuilder> {
         match element {
             SceneElement::DesignElement(_, e_id) => {
-                self.design.lock().unwrap().get_builder_element(*e_id)
+                self.design.lock().unwrap().get_builder_element(*e_id, stick)
             }
             SceneElement::PhantomElement(phantom_element) => {
                 let nucl = Nucl {
@@ -475,7 +475,7 @@ impl Design3D {
                     position: phantom_element.position as isize,
                     forward: phantom_element.forward,
                 };
-                self.design.lock().unwrap().get_builder(nucl)
+                self.design.lock().unwrap().get_builder(nucl, stick)
             }
             _ => None,
         }

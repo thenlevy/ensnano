@@ -541,7 +541,7 @@ impl Data {
     /// will be eddited by the returned `StrandBuilder`.
     ///
     /// If it not possible to create a `StrandBuilder`, `None` is returned.
-    pub fn get_strand_builder(&mut self, nucl: Nucl) -> Option<StrandBuilder> {
+    pub fn get_strand_builder(&mut self, nucl: Nucl, stick: bool) -> Option<StrandBuilder> {
         let helix = nucl.helix;
         let position = nucl.position;
         let forward = nucl.forward;
@@ -568,6 +568,7 @@ impl Data {
                         axis,
                         desc.fixed_end,
                         neighbour_desc,
+                        stick,
                     )),
                     _ => Some(StrandBuilder::init_empty(
                         DomainIdentifier {

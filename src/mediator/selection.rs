@@ -99,8 +99,9 @@ pub enum ActionMode {
     Translate,
     /// User can rotate objects and move the camera
     Rotate,
-    /// User can elongate/shorten strands
-    Build,
+    /// User can elongate/shorten strands. The boolean attribute indicates if neighbour strands
+    /// should "stick"
+    Build(bool),
     /// Use can cut strands
     Cut,
 }
@@ -120,9 +121,18 @@ impl std::fmt::Display for ActionMode {
                 ActionMode::Normal => "Normal",
                 ActionMode::Translate => "Translate",
                 ActionMode::Rotate => "Rotate",
-                ActionMode::Build => "Build",
+                ActionMode::Build(_) => "Build",
                 ActionMode::Cut => "Cut",
             }
         )
+    }
+}
+
+impl ActionMode {
+    pub fn is_build(&self) -> bool {
+        match self {
+            Self::Build(_) => true,
+            _ => false
+        }
     }
 }

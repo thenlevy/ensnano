@@ -513,7 +513,7 @@ impl Data {
 
     fn must_draw_phantom(&self) -> bool {
         let ret =
-            self.selection_mode == SelectionMode::Helix || self.action_mode == ActionMode::Build;
+            self.selection_mode == SelectionMode::Helix || self.action_mode.is_build();
         if ret {
             true
         } else {
@@ -729,12 +729,12 @@ impl Data {
     }
 
     pub fn get_strand_builder(&mut self) -> Option<StrandBuilder> {
-        if self.action_mode != ActionMode::Build {
-            None
-        } else {
+        if let ActionMode::Build(b) = self.action_mode {
             let selected = self.candidates.get(0)?;
             let design = selected.get_design()?;
-            self.designs[design as usize].get_builder(selected)
+            self.designs[design as usize].get_builder(selected, b)
+        } else {
+            None
         }
     }
 
@@ -743,14 +743,14 @@ impl Data {
             grid_id, design_id, ..
         }) = intersection
         {
-            if self.action_mode == ActionMode::Build
+            if self.action_mode.is_build()
                 && self.selection_mode == SelectionMode::Grid
                 && self.selected.len() > 0
                 && *grid_id as u32 == self.get_selected_group()
             {
                 self.selection_update = true;
                 true
-            } else if self.action_mode == ActionMode::Build
+            } else if self.action_mode.is_build()
                 && self.selection_mode == SelectionMode::Grid
             {
                 self.set_selection(Some(SceneElement::Grid(*design_id as u32, *grid_id as u32)));
@@ -770,7 +770,7 @@ impl ActionMode {
         ActionMode::Normal,
         ActionMode::Translate,
         ActionMode::Rotate,
-        ActionMode::Build,
+        ActionMode::Build(false),
         ActionMode::Cut,
     ];
 

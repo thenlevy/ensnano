@@ -202,7 +202,7 @@ impl Scene {
     }
 
     fn click_on(&mut self, clicked_pixel: PhysicalPosition<f64>) {
-        if self.data.borrow().get_action_mode() == ActionMode::Build {
+        if self.data.borrow().get_action_mode().is_build() {
             self.build_helix(clicked_pixel)
         } else {
             self.mediator.lock().unwrap().finish_op();

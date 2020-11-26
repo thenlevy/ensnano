@@ -95,8 +95,8 @@ impl Design2d {
         &self.strands
     }
 
-    pub fn get_builder(&self, nucl: Nucl) -> Option<StrandBuilder> {
-        self.design.lock().unwrap().get_builder(nucl)
+    pub fn get_builder(&self, nucl: Nucl, stick: bool) -> Option<StrandBuilder> {
+        self.design.lock().unwrap().get_builder(nucl, stick)
     }
 
     pub fn merge_strand(&mut self, prime5: usize, prime3: usize) {

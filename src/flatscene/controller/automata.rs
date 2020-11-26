@@ -69,8 +69,8 @@ impl ControllerState for NormalState {
                     .screen_to_world(self.mouse_position.x as f32, self.mouse_position.y as f32);
                 let pivot_opt = controller.data.borrow().get_click(x, y);
                 if let Some(pivot_nucl) = pivot_opt {
-                    if controller.action_mode == ActionMode::Build {
-                        if let Some(builder) = controller.data.borrow().get_builder(pivot_nucl) {
+                    if let ActionMode::Build(stick) = controller.action_mode {
+                        if let Some(builder) = controller.data.borrow().get_builder(pivot_nucl, stick) {
                             Transition {
                                 new_state: Some(Box::new(Building {
                                     mouse_position: self.mouse_position,
