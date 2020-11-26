@@ -400,6 +400,9 @@ impl Data {
                     }
                 }
                 SceneElement::Grid(d_id, g_id) => Selection::Grid(d_id, g_id),
+                SceneElement::PhantomElement(phantom) => {
+                    Selection::Nucleotide(phantom.design_id, phantom.to_nucl())
+                }
                 _ => Selection::Nothing,
             }
         } else {

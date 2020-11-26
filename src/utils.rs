@@ -100,3 +100,13 @@ pub struct PhantomElement {
     pub bound: bool,
     pub forward: bool,
 }
+
+impl PhantomElement {
+    pub fn to_nucl(&self) -> crate::design::Nucl {
+        crate::design::Nucl {
+            helix: self.helix_id as usize,
+            position: self.position as isize,
+            forward: self.forward,
+        }
+    }
+}
