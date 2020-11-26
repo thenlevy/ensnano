@@ -60,7 +60,7 @@ impl Camera {
         let scroll = match delta {
             MouseScrollDelta::LineDelta(_, scroll) => *scroll,
             MouseScrollDelta::PixelDelta(PhysicalPosition { y: scroll, .. }) => (*scroll as f32) / 100.,
-        };
+        }.min(1.).max(-1.);
         let mult_const = 1.25_f32.powf(scroll);
         println!("{}", mult_const);
         let fixed_point = Vec2::from(self.screen_to_world(cursor_position.x as f32, cursor_position.y as f32));
