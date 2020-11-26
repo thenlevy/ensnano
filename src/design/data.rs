@@ -779,7 +779,7 @@ impl Data {
         let id_3prime = id_5prime + 1;
         if strand_5prime.domains.len() > 0 {
             self.design.strands.insert(id_5prime, strand_5prime);
-        } 
+        }
         if strand_3prime.domains.len() > 0 {
             self.design.strands.insert(id_3prime, strand_3prime);
         }

@@ -22,7 +22,7 @@ impl Strand {
     pub fn to_vertices(&self, helices: &[Helix], free_end: &Option<FreeEnd>) -> Vertices {
         let mut vertices = Vertices::new();
         if self.points.len() == 0 {
-            return vertices
+            return vertices;
         }
         let color = crate::utils::instance::Instance::color_from_u32(self.color);
         let color = [color.x, color.y, color.z, color.w];
