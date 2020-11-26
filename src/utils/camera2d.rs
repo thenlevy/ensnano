@@ -5,13 +5,12 @@
 //! coordinate conversion.
 
 use iced_winit::winit;
-use winit::{event::MouseScrollDelta, dpi::PhysicalPosition};
-use ultraviolet::Vec2; 
+use ultraviolet::Vec2;
+use winit::{dpi::PhysicalPosition, event::MouseScrollDelta};
 pub struct Camera {
     globals: Globals,
     was_updated: bool,
     old_globals: Globals,
-    sensitivity: f32
 }
 
 impl Camera {
@@ -20,7 +19,6 @@ impl Camera {
             old_globals: globals,
             globals,
             was_updated: true,
-            sensitivity: crate::consts::BASE_SCROLL_SENSITIVITY,
         }
     }
 
@@ -55,17 +53,25 @@ impl Camera {
     }
 
     /// Perform a zoom so that the point under the cursor stays at the same position on display
-    pub fn process_scroll(&mut self, delta: &MouseScrollDelta, cursor_position: PhysicalPosition<f64>) {
-        println!("{:?}", delta);
+    pub fn process_scroll(
+        &mut self,
+        delta: &MouseScrollDelta,
+        cursor_position: PhysicalPosition<f64>,
+    ) {
         let scroll = match delta {
             MouseScrollDelta::LineDelta(_, scroll) => *scroll,
-            MouseScrollDelta::PixelDelta(PhysicalPosition { y: scroll, .. }) => (*scroll as f32) / 100.,
-        }.min(1.).max(-1.);
+            MouseScrollDelta::PixelDelta(PhysicalPosition { y: scroll, .. }) => {
+                (*scroll as f32) / 100.
+            }
+        }
+        .min(1.)
+        .max(-1.);
         let mult_const = 1.25_f32.powf(scroll);
-        println!("{}", mult_const);
-        let fixed_point = Vec2::from(self.screen_to_world(cursor_position.x as f32, cursor_position.y as f32));
+        let fixed_point =
+            Vec2::from(self.screen_to_world(cursor_position.x as f32, cursor_position.y as f32));
         self.globals.zoom *= mult_const;
-        let delta = fixed_point - Vec2::from(self.screen_to_world(cursor_position.x as f32, cursor_position.y as f32));
+        let delta = fixed_point
+            - Vec2::from(self.screen_to_world(cursor_position.x as f32, cursor_position.y as f32));
         self.globals.scroll_offset[0] += delta.x;
         self.globals.scroll_offset[1] += delta.y;
         self.end_movement();

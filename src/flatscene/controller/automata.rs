@@ -129,7 +129,10 @@ impl ControllerState for NormalState {
                 Transition::consequence(Consequence::NewCandidate(pivot_opt))
             }
             WindowEvent::MouseWheel { delta, .. } => {
-                controller.camera.borrow_mut().process_scroll(delta, self.mouse_position);
+                controller
+                    .camera
+                    .borrow_mut()
+                    .process_scroll(delta, self.mouse_position);
                 Transition::nothing()
             }
             WindowEvent::KeyboardInput { .. } => {
