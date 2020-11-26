@@ -82,10 +82,10 @@ impl ControllerState for NormalState {
                             }
                         } else {
                             Transition {
-                                new_state: Some(Box::new(Translating {
+                                new_state: Some(Box::new(MovingCamera {
                                     mouse_position: self.mouse_position,
-                                    clicked_position_world: Vec2::new(x, y),
-                                    pivot_nucl,
+                                    clicked_position_screen: self.mouse_position,
+                                    pivot_nucl: None,
                                 })),
                                 consequences: Consequence::Nothing,
                             }

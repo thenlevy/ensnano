@@ -547,9 +547,6 @@ impl Data {
         let forward = nucl.forward;
         let left = self.design.get_neighbour_nucl(nucl.left());
         let right = self.design.get_neighbour_nucl(nucl.right());
-        if left.is_some() && right.is_some() {
-            return None;
-        }
         let axis = self
             .design
             .helices
@@ -558,13 +555,19 @@ impl Data {
         if self.identifier_nucl.contains_key(&nucl) {
             if let Some(desc) = self.design.get_neighbour_nucl(nucl) {
                 let strand_id = desc.identifier.strand;
+                let filter = |d: &NeighbourDescriptor| d.identifier != desc.identifier;
+                let neighbour_desc = left.filter(filter).or(right.filter(filter));
+                if left.filter(filter).and(right.filter(filter)).is_some() {
+                    // TODO maybe we should do something else ?
+                    return None;
+                }
                 match self.design.strands.get(&strand_id).map(|s| s.length()) {
                     Some(n) if n > 1 => Some(StrandBuilder::init_existing(
                         desc.identifier,
                         nucl,
                         axis,
                         desc.fixed_end,
-                        left.or(right),
+                        neighbour_desc,
                     )),
                     _ => Some(StrandBuilder::init_empty(
                         DomainIdentifier {
@@ -573,13 +576,16 @@ impl Data {
                         },
                         nucl,
                         axis,
-                        left.or(right),
+                        neighbour_desc,
                     )),
                 }
             } else {
                 None
             }
         } else {
+            if left.is_some() && right.is_some() {
+                return None;
+            }
             let mut new_key = 0usize;
             while self.design.strands.contains_key(&new_key) {
                 new_key += 1;
