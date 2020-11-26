@@ -185,7 +185,7 @@ impl StrandBuilder {
         if self.identifier == descriptor.identifier || self.neighbour_strand.is_some() || descriptor.moving_end > self.max_pos.unwrap_or(descriptor.moving_end) || descriptor.moving_end < self.min_pos.unwrap_or(descriptor.moving_end) {
             return false;
         }
-        self.neighbour_direction = if descriptor.fixed_end > descriptor.initial_moving_end {
+        self.neighbour_direction = if self.moving_end.position < descriptor.initial_moving_end {
             Some(EditDirection::Positive)
         } else {
             Some(EditDirection::Negative)
