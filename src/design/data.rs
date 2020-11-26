@@ -895,6 +895,15 @@ impl Data {
         }
         ret
     }
+
+    pub fn has_persistent_phantom(&self, g_id: &u32) -> bool {
+        self.grids[*g_id as usize].read().unwrap().persistent_phantom
+    }
+
+    pub fn set_persistent_phantom(&mut self, g_id: &u32, persistent: bool) {
+        self.grids[*g_id as usize].write().unwrap().persistent_phantom = persistent;
+        self.update_status = true;
+    }
 }
 
 fn compl(c: Option<char>) -> Option<char> {

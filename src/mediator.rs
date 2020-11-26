@@ -206,6 +206,13 @@ impl Mediator {
         }
     }
 
+    pub fn set_persistent_phantom(&mut self, persistent: bool) {
+        match self.selection {
+            Selection::Grid(d_id, g_id) => self.designs[d_id as usize].lock().unwrap().set_persistent_phantom(&g_id, persistent),
+            _ => panic!("Selection is not a grid")
+        }
+    }
+
     pub fn save_design(&mut self, path: &PathBuf) {
         if let Some(d_id) = self.selected_design() {
             self.designs[d_id as usize].lock().unwrap().save_to(path)
@@ -240,7 +247,10 @@ impl Mediator {
                 }
             }
         }
-        self.messages.lock().unwrap().push_selection(selection);
+        if let Some(d_id) = selection.get_design() {
+            let values = selection.fetch_values(self.designs[d_id as usize].clone());
+            self.messages.lock().unwrap().push_selection(selection, values);
+        }
     }
 
     pub fn toggle_text(&mut self, value: bool) {

@@ -399,6 +399,7 @@ impl Data {
                         SelectionMode::Grid => Selection::Grid(design_id, group_id),
                     }
                 }
+                SceneElement::Grid(d_id, g_id) => Selection::Grid(d_id, g_id),
                 _ => Selection::Nothing,
             }
         } else {

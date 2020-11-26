@@ -395,6 +395,10 @@ fn main() {
                     if let Some(op) = requests.operation_update.take() {
                         mediator.lock().unwrap().update_pending(op)
                     }
+
+                    if let Some(b) = requests.toggle_persistent_helices.take() {
+                        mediator.lock().unwrap().set_persistent_phantom(b)
+                    }
                 }
 
                 // Treat eventual event that happenend in the gui left panel.
@@ -521,8 +525,8 @@ impl IcedMessages {
             .push_front(gui::status_bar::Message::Operation(operation));
     }
 
-    pub fn push_selection(&mut self, selection: mediator::Selection) {
-        self.status_bar.push_front(gui::status_bar::Message::Selection(selection))
+    pub fn push_selection(&mut self, selection: mediator::Selection, values: Vec<String>) {
+        self.status_bar.push_front(gui::status_bar::Message::Selection(selection, values))
     }
 
     pub fn clear_op(&mut self) {

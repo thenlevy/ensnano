@@ -136,7 +136,7 @@ impl StatusBar {
 
         match selection {
             Selection::Grid(_, _) => {
-                row = row.push(Checkbox::new(bool::from_str(&self.values[0]).unwrap(), "Persistent phantoms", |b| Message::ValueChanged(0, bool_to_string(b))));
+                row = row.push(Checkbox::new(bool::from_str(&self.values[0]).unwrap(), "Persistent phantoms", |b| Message::SelectionValueChanged(0, bool_to_string(b))).size(STATUS_FONT_SIZE).text_size(STATUS_FONT_SIZE));
             }
             _ => ()
         }
@@ -184,7 +184,7 @@ impl Program for StatusBar {
             }
             Message::SelectionValueChanged(n, s) => {
                 self.values[n] = s.clone();
-                unimplemented!();
+                self.requests.lock().unwrap().toggle_persistent_helices = bool::from_str(&s).ok();
             }
             Message::Selection(s, v) => {
                 self.operation = None;

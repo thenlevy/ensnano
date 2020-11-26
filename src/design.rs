@@ -371,6 +371,14 @@ impl Design {
     pub fn get_nucl(&self, e_id: u32) -> Option<Nucl> {
         self.data.lock().unwrap().get_nucl(e_id)
     }
+
+    pub fn has_persistent_phantom(&self, g_id: &u32) -> bool {
+        self.data.lock().unwrap().has_persistent_phantom(g_id)
+    }
+
+    pub fn set_persistent_phantom(&self, g_id: &u32, persistent: bool) {
+        self.data.lock().unwrap().set_persistent_phantom(g_id, persistent);
+    }
 }
 
 #[derive(Clone)]

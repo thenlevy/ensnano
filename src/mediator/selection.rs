@@ -1,4 +1,5 @@
-use crate::design::Nucl;
+use std::sync::{Arc, Mutex};
+use crate::design::{Design, Nucl};
 
 #[derive(Debug, Clone, Copy)]
 pub enum Selection {
@@ -31,6 +32,21 @@ impl Selection {
 
     pub fn info(&self) -> String {
         format!("{:?}", self)
+    }
+
+    pub fn fetch_values(&self, design: Arc<Mutex<Design>>) -> Vec<String> {
+        match self {
+            Selection::Grid(_, g_id) => {
+                let b = design.lock().unwrap().has_persistent_phantom(g_id);
+                if b {
+                    vec![String::from("true")]
+                } else {
+                    vec![String::from("false")]
+                }
+            }
+            _ => Vec::new()
+        }
+
     }
 }
 
