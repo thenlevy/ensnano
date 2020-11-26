@@ -559,24 +559,22 @@ impl Data {
             if let Some(desc) = self.design.get_neighbour_nucl(nucl) {
                 let strand_id = desc.identifier.strand;
                 match self.design.strands.get(&strand_id).map(|s| s.length()) {
-                    Some(n) if n > 1 => {
-                        Some(StrandBuilder::init_existing(
-                                desc.identifier,
-                                nucl,
-                                axis,
-                                desc.fixed_end,
-                                left.or(right),
-                        ))
-                    },
+                    Some(n) if n > 1 => Some(StrandBuilder::init_existing(
+                        desc.identifier,
+                        nucl,
+                        axis,
+                        desc.fixed_end,
+                        left.or(right),
+                    )),
                     _ => Some(StrandBuilder::init_empty(
-                            DomainIdentifier {
-                                strand: strand_id,
-                                domain: 0
-                    },
-                            nucl,
-                            axis,
-                            left.or(right)
-                    ))
+                        DomainIdentifier {
+                            strand: strand_id,
+                            domain: 0,
+                        },
+                        nucl,
+                        axis,
+                        left.or(right),
+                    )),
                 }
             } else {
                 None
@@ -835,7 +833,12 @@ impl Data {
 
     pub fn build_helix_grid(&mut self, g_id: usize, x: isize, y: isize) {
         if let Some(grid) = self.grid_manager.grids.get(g_id) {
-            if !self.grids[g_id].read().unwrap().helices().contains_key(&(x, y)) {
+            if !self.grids[g_id]
+                .read()
+                .unwrap()
+                .helices()
+                .contains_key(&(x, y))
+            {
                 let helix = icednano::Helix::new_on_grid(grid, x, y, g_id);
                 let helix_id = self.design.helices.keys().last().unwrap_or(&0) + 1;
                 self.design.helices.insert(helix_id, helix);
@@ -897,11 +900,17 @@ impl Data {
     }
 
     pub fn has_persistent_phantom(&self, g_id: &u32) -> bool {
-        self.grids[*g_id as usize].read().unwrap().persistent_phantom
+        self.grids[*g_id as usize]
+            .read()
+            .unwrap()
+            .persistent_phantom
     }
 
     pub fn set_persistent_phantom(&mut self, g_id: &u32, persistent: bool) {
-        self.grids[*g_id as usize].write().unwrap().persistent_phantom = persistent;
+        self.grids[*g_id as usize]
+            .write()
+            .unwrap()
+            .persistent_phantom = persistent;
         self.update_status = true;
     }
 }

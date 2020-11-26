@@ -16,7 +16,7 @@
 //! The [Multiplexer](multiplexer) knows how the window is devided into several regions. For each
 //! of these region it knows what application or gui component should draw on it.
 //! For each region the [Multiplexer](multiplexer) holds a texture, and at each draw request, it
-//! will request the corresponding app or gui element to possibly update the texture. 
+//! will request the corresponding app or gui element to possibly update the texture.
 //!
 //!  Applications are notified when the design that they display have been modified and may request
 //!  from the [Design](design) the data that they need to display it.
@@ -94,10 +94,10 @@ fn convert_size_u32(size: PhySize) -> Size<u32> {
 }
 
 /// Main function. Runs the event loop and holds the framebuffer.
-/// 
+///
 /// # Intialization
 ///
-/// Before running the event loop, the main fuction do the following 
+/// Before running the event loop, the main fuction do the following
 ///
 /// * It request a connection to the GPU and crates a framebuffer
 /// * It initializes a multiplexer.
@@ -106,7 +106,7 @@ fn convert_size_u32(size: PhySize) -> Size<u32> {
 /// * It initialized the [Mediator](mediator), the [Scheduler](mediator::Scheduler) and the [Gui
 /// manager](gui::Gui)
 ///
-/// # EventLoop 
+/// # EventLoop
 ///
 /// * The event loop wait for an event. If no event is recieved during 33ms, a new redraw is
 /// requested.
@@ -526,7 +526,8 @@ impl IcedMessages {
     }
 
     pub fn push_selection(&mut self, selection: mediator::Selection, values: Vec<String>) {
-        self.status_bar.push_front(gui::status_bar::Message::Selection(selection, values))
+        self.status_bar
+            .push_front(gui::status_bar::Message::Selection(selection, values))
     }
 
     pub fn clear_op(&mut self) {

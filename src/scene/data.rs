@@ -456,8 +456,7 @@ impl Data {
         let mut ret_sphere = Vec::new();
         let mut ret_tube = Vec::new();
         for (d_id, set) in phantom_map.iter() {
-            let (spheres, tubes) = self.designs[*d_id as usize]
-                .make_phantom_helix_instances(set);
+            let (spheres, tubes) = self.designs[*d_id as usize].make_phantom_helix_instances(set);
             for sphere in spheres.iter().cloned() {
                 ret_sphere.push(sphere);
             }
@@ -474,9 +473,8 @@ impl Data {
         let mut ret = HashMap::new();
 
         for (d_id, design) in self.designs.iter().enumerate() {
-            let new_helices = design
-                .get_persistent_phantom_helices();
-                let set = ret.entry(d_id as u32).or_insert_with(HashMap::new);
+            let new_helices = design.get_persistent_phantom_helices();
+            let set = ret.entry(d_id as u32).or_insert_with(HashMap::new);
             for h_id in new_helices.iter() {
                 set.insert(*h_id, true);
             }

@@ -377,7 +377,10 @@ impl Design {
     }
 
     pub fn set_persistent_phantom(&self, g_id: &u32, persistent: bool) {
-        self.data.lock().unwrap().set_persistent_phantom(g_id, persistent);
+        self.data
+            .lock()
+            .unwrap()
+            .set_persistent_phantom(g_id, persistent);
     }
 }
 

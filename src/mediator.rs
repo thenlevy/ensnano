@@ -20,7 +20,7 @@ use crate::design;
 
 use design::{
     Design, DesignNotification, DesignRotation, DesignTranslation, GridDescriptor,
-    GridHelixDescriptor
+    GridHelixDescriptor,
 };
 
 mod operation;
@@ -208,8 +208,11 @@ impl Mediator {
 
     pub fn set_persistent_phantom(&mut self, persistent: bool) {
         match self.selection {
-            Selection::Grid(d_id, g_id) => self.designs[d_id as usize].lock().unwrap().set_persistent_phantom(&g_id, persistent),
-            _ => panic!("Selection is not a grid")
+            Selection::Grid(d_id, g_id) => self.designs[d_id as usize]
+                .lock()
+                .unwrap()
+                .set_persistent_phantom(&g_id, persistent),
+            _ => panic!("Selection is not a grid"),
         }
     }
 
@@ -249,7 +252,10 @@ impl Mediator {
         }
         if let Some(d_id) = selection.get_design() {
             let values = selection.fetch_values(self.designs[d_id as usize].clone());
-            self.messages.lock().unwrap().push_selection(selection, values);
+            self.messages
+                .lock()
+                .unwrap()
+                .push_selection(selection, values);
         }
     }
 
@@ -481,4 +487,3 @@ pub enum AppNotification {
     AddGrid(GridDescriptor),
     RmGrid,
 }
-

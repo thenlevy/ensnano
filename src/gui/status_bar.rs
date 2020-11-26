@@ -1,10 +1,10 @@
 use super::Requests;
 use crate::mediator::{Operation, ParameterField, Selection};
 use iced::{container, Background, Container, Length};
-use iced_native::{pick_list, text_input, Color, PickList, TextInput, Checkbox};
+use iced_native::{pick_list, text_input, Checkbox, Color, PickList, TextInput};
 use iced_winit::{Column, Command, Element, Program, Row, Space, Text};
-use std::sync::{Arc, Mutex};
 use std::str::FromStr;
+use std::sync::{Arc, Mutex};
 
 const STATUS_FONT_SIZE: u16 = 14;
 
@@ -12,7 +12,6 @@ const STATUS_FONT_SIZE: u16 = 14;
 enum StatusParameter {
     Value(text_input::State),
     Choice(pick_list::State<String>),
-    CheckBox(bool),
 }
 
 impl StatusParameter {
@@ -30,23 +29,12 @@ impl StatusParameter {
         }
     }
 
-    fn is_checked(&self) -> bool {
-        match self {
-            StatusParameter::CheckBox(b) => *b,
-            _ => panic!("wrong status parameter variant"),
-        }
-    }
-
     fn value() -> Self {
         Self::Value(Default::default())
     }
 
     fn choice() -> Self {
         Self::Choice(Default::default())
-    }
-
-    fn checkbox() -> Self {
-        Self::CheckBox(false)
     }
 }
 
@@ -136,9 +124,17 @@ impl StatusBar {
 
         match selection {
             Selection::Grid(_, _) => {
-                row = row.push(Checkbox::new(bool::from_str(&self.values[0]).unwrap(), "Persistent phantoms", |b| Message::SelectionValueChanged(0, bool_to_string(b))).size(STATUS_FONT_SIZE).text_size(STATUS_FONT_SIZE));
+                row = row.push(
+                    Checkbox::new(
+                        bool::from_str(&self.values[0]).unwrap(),
+                        "Persistent phantoms",
+                        |b| Message::SelectionValueChanged(0, bool_to_string(b)),
+                    )
+                    .size(STATUS_FONT_SIZE)
+                    .text_size(STATUS_FONT_SIZE),
+                );
             }
-            _ => ()
+            _ => (),
         }
 
         let column = Column::new()
@@ -203,16 +199,6 @@ impl Program for StatusBar {
             self.view_selection()
         }
     }
-
-}
-
-impl Selection {
-    fn parameters(&self) -> Vec<StatusParameter> {
-        match self {
-            Selection::Grid(_, _) => vec![StatusParameter::checkbox()],
-            _ => Vec::new()
-        }
-    }
 }
 
 struct StatusBarStyle;
@@ -231,7 +217,6 @@ pub const BACKGROUND: Color = Color::from_rgb(
     0x39 as f32 / 255.0,
     0x3F as f32 / 255.0,
 );
-
 
 fn bool_to_string(b: bool) -> String {
     if b {

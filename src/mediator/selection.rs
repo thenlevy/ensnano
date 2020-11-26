@@ -1,5 +1,5 @@
-use std::sync::{Arc, Mutex};
 use crate::design::{Design, Nucl};
+use std::sync::{Arc, Mutex};
 
 #[derive(Debug, Clone, Copy)]
 pub enum Selection {
@@ -44,9 +44,8 @@ impl Selection {
                     vec![String::from("false")]
                 }
             }
-            _ => Vec::new()
+            _ => Vec::new(),
         }
-
     }
 }
 

@@ -5,7 +5,6 @@
 //! other components of the program it is forwarded to the [main](main) function via the
 //! [Request](Requests) data structure.
 
-
 /// Draw the top bar of the GUI
 pub mod top_bar;
 pub use top_bar::TopBar;
@@ -222,7 +221,7 @@ impl GuiState {
     }
 }
 
-/// A Gui component. 
+/// A Gui component.
 struct GuiElement {
     state: GuiState,
     debug: Debug,
@@ -333,7 +332,6 @@ impl GuiElement {
         self.redraw = true;
     }
 
-
     fn fetch_change(
         &mut self,
         window: &Window,
@@ -395,7 +393,7 @@ impl GuiElement {
     }
 }
 
-/// The Gui manager. 
+/// The Gui manager.
 pub struct Gui {
     /// HashMap mapping [ElementType](ElementType) to a GuiElement
     elements: HashMap<ElementType, GuiElement>,
