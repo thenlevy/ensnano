@@ -1,11 +1,11 @@
 use std::sync::{Arc, Mutex};
 
-use iced::{container, Background, Container};
+use iced::{container, Background, Container, Image};
 use iced_wgpu::Renderer;
 use iced_winit::winit::dpi::{LogicalPosition, LogicalSize};
 use iced_winit::{
-    button, pick_list, scrollable, slider, Button, Checkbox, Color, Column, Command, Element,
-    Length, PickList, Program, Scrollable, Slider, Space, Text,
+    button, scrollable, slider, Button, Checkbox, Color, Column, Command, Element,
+    Length, Program, Scrollable, Slider, Text, Row,
 };
 use native_dialog::Dialog;
 
@@ -19,11 +19,9 @@ use color_picker::ColorPicker;
 mod sequence_input;
 use sequence_input::SequenceInput;
 
+const BUTTON_SIZE: u16 = 40;
+
 pub struct LeftPanel {
-    pick_selection_mode: pick_list::State<SelectionMode>,
-    pick_action_mode: pick_list::State<ActionMode>,
-    scroll_selection_mode: scrollable::State,
-    scroll_action_mode: scrollable::State,
     scroll_sensitivity_slider: slider::State,
     selection_mode: SelectionMode,
     action_mode: ActionMode,
@@ -34,6 +32,8 @@ pub struct LeftPanel {
     open_color: button::State,
     sequence_input: SequenceInput,
     requests: Arc<Mutex<Requests>>,
+    action_mode_state: ActionModeState,
+    selection_mode_state: SelectionModeState,
 }
 
 #[derive(Debug, Clone)]
@@ -54,12 +54,8 @@ impl LeftPanel {
         logical_position: LogicalPosition<f64>,
     ) -> Self {
         Self {
-            pick_selection_mode: Default::default(),
-            scroll_action_mode: Default::default(),
-            scroll_selection_mode: Default::default(),
             selection_mode: Default::default(),
             scroll_sensitivity_slider: Default::default(),
-            pick_action_mode: Default::default(),
             action_mode: Default::default(),
             global_scroll: Default::default(),
             logical_size,
@@ -68,6 +64,8 @@ impl LeftPanel {
             open_color: Default::default(),
             sequence_input: SequenceInput::new(),
             requests,
+            action_mode_state: Default::default(),
+            selection_mode_state: Default::default(),
         }
     }
 
@@ -128,24 +126,6 @@ impl Program for LeftPanel {
 
     fn view(&mut self) -> Element<Message, Renderer> {
         let width = self.logical_size.cast::<u16>().width;
-        let position_top = self.logical_position.cast::<u16>().y;
-        let selection_mode_list = PickList::new(
-            &mut self.pick_selection_mode,
-            &SelectionMode::ALL[..],
-            Some(self.selection_mode),
-            Message::SelectionModeChanged,
-        );
-
-        let selection_mode_scroll = Scrollable::new(&mut self.scroll_selection_mode)
-            .push(Text::new("Selection mode"))
-            .push(selection_mode_list);
-
-        let action_mode_list = PickList::new(
-            &mut self.pick_action_mode,
-            &ActionMode::ALL[..],
-            Some(self.action_mode),
-            Message::ActionModeChanged,
-        );
 
         let slider = Slider::new(
             &mut self.scroll_sensitivity_slider,
@@ -154,21 +134,91 @@ impl Program for LeftPanel {
             Message::ScrollSensitivityChanged,
         );
 
-        let action_mode_scroll = Scrollable::new(&mut self.scroll_action_mode)
-            .push(Text::new("Action mode"))
-            .push(action_mode_list);
-
-        let global_scroll = Scrollable::new(&mut self.global_scroll)
+        let mut global_scroll = Scrollable::new(&mut self.global_scroll)
             .width(Length::Units(width))
             .push(Text::new("Scroll sensitivity"))
-            .push(slider)
-            .push(selection_mode_scroll)
-            .push(action_mode_scroll);
+            .push(slider);
 
-        let empty_space = Space::new(Length::Units(width), Length::Units(position_top));
+        let mut selection_buttons = vec![
+            Button::new(&mut self.selection_mode_state.grid, if self.selection_mode == SelectionMode::Grid {
+                Image::new("icons/icons/Grid-on.png")
+            } else {
+                Image::new("icons/icons/Grid-off.png")
+            }).on_press(Message::SelectionModeChanged(SelectionMode::Grid)).width(Length::Units(BUTTON_SIZE)),
+            Button::new(&mut self.selection_mode_state.helix, if self.selection_mode == SelectionMode::Helix {
+                Image::new("icons/icons/Helix-on.png")
+            } else {
+                Image::new("icons/icons/Helix-off.png")
+            }).on_press(Message::SelectionModeChanged(SelectionMode::Helix)).width(Length::Units(BUTTON_SIZE)),
+            Button::new(&mut self.selection_mode_state.strand, if self.selection_mode == SelectionMode::Strand {
+                Image::new("icons/icons/Strand-on.png")
+            } else {
+                Image::new("icons/icons/Strand-off.png")
+            }).on_press(Message::SelectionModeChanged(SelectionMode::Strand)).width(Length::Units(BUTTON_SIZE)),
+            Button::new(&mut self.selection_mode_state.nucleotide, if self.selection_mode == SelectionMode::Nucleotide {
+                Image::new("icons/icons/Nucleotide-on.png")
+            } else {
+                Image::new("icons/icons/Nucleotide-off.png")
+            }).on_press(Message::SelectionModeChanged(SelectionMode::Nucleotide)).width(Length::Units(BUTTON_SIZE))
+        ];
+
+        global_scroll = global_scroll.spacing(5).push(Text::new("SelectionMode"));
+        while selection_buttons.len() > 0 {
+            let mut row = Row::new();
+            row = row.push(selection_buttons.pop().unwrap()).spacing(5);
+            let mut space = BUTTON_SIZE + 5;
+            while space + BUTTON_SIZE < width  && selection_buttons.len() > 0{
+                row = row.push(selection_buttons.pop().unwrap()).spacing(5);
+                space += BUTTON_SIZE;
+            }
+            global_scroll = global_scroll.spacing(5).push(row)
+        }
+
+        let mut action_buttons = vec![
+            Button::new(&mut self.action_mode_state.select, if self.action_mode == ActionMode::Normal {
+                Image::new("icons/icons/Select-on.png")
+            } else {
+                Image::new("icons/icons/Select-off.png")
+            }
+            ).on_press(Message::ActionModeChanged(ActionMode::Normal)).width(Length::Units(40)),
+            Button::new(&mut self.action_mode_state.translate, if self.action_mode == ActionMode::Translate {
+                Image::new("icons/icons/Move-on.png")
+            } else {
+                Image::new("icons/icons/Move-off.png")
+            }
+            ).on_press(Message::ActionModeChanged(ActionMode::Translate)).width(Length::Units(40)),
+            Button::new(&mut self.action_mode_state.rotate, if self.action_mode == ActionMode::Rotate {
+                Image::new("icons/icons/Rotate-on.png")
+            } else {
+                Image::new("icons/icons/Rotate-off.png")
+            }
+            ).on_press(Message::ActionModeChanged(ActionMode::Rotate)).width(Length::Units(40)),
+            Button::new(&mut self.action_mode_state.build, if self.action_mode.is_build() {
+                Image::new("icons/icons/Build-on.png")
+            } else {
+                Image::new("icons/icons/Build-off.png")
+            }
+            ).on_press(Message::ActionModeChanged(ActionMode::Build(false))).width(Length::Units(40)),
+            Button::new(&mut self.action_mode_state.cut, if self.action_mode == ActionMode::Cut {
+                Image::new("icons/icons/Cut-on.png")
+            } else {
+                Image::new("icons/icons/Cut-off.png")
+            }
+            ).on_press(Message::ActionModeChanged(ActionMode::Cut)).width(Length::Units(40))];
+
+        global_scroll = global_scroll.spacing(5).push(Text::new("Action Mode"));
+        while action_buttons.len() > 0 {
+            let mut row = Row::new();
+            row = row.push(action_buttons.remove(0)).spacing(5);
+            let mut space = BUTTON_SIZE + 5;
+            while space + BUTTON_SIZE < width  && action_buttons.len() > 0{
+                row = row.push(action_buttons.remove(0)).spacing(5);
+                space += BUTTON_SIZE;
+            }
+            global_scroll = global_scroll.spacing(5).push(row)
+        }
 
         let mut widget = Column::new()
-            .push(empty_space)
             .push(global_scroll)
             .width(Length::Units(width))
             .height(Length::Fill);
@@ -307,4 +357,21 @@ impl container::StyleSheet for FloatingStyle {
             ..container::Style::default()
         }
     }
+}
+
+#[derive(Default, Debug, Clone)]
+struct SelectionModeState {
+    pub nucleotide: button::State,
+    pub strand: button::State,
+    pub helix: button::State,
+    pub grid: button::State,
+}
+
+#[derive(Default, Debug, Clone)]
+struct ActionModeState {
+   pub select: button::State,
+   pub translate: button::State,
+   pub rotate: button::State,
+   pub build: button::State,
+   pub cut: button::State,
 }
