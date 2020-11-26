@@ -777,8 +777,12 @@ impl Data {
         };
         let id_5prime = *self.design.strands.keys().max().unwrap_or(&0) + 1;
         let id_3prime = id_5prime + 1;
-        self.design.strands.insert(id_5prime, strand_5prime);
-        self.design.strands.insert(id_3prime, strand_3prime);
+        if strand_5prime.domains.len() > 0 {
+            self.design.strands.insert(id_5prime, strand_5prime);
+        } 
+        if strand_3prime.domains.len() > 0 {
+            self.design.strands.insert(id_3prime, strand_3prime);
+        }
         self.update_status = true;
         self.hash_maps_update = true;
     }
