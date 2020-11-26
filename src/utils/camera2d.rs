@@ -3,10 +3,15 @@
 //! The `Globals` struct contains the value that must be send to the GPU to compute the view
 //! matrix. The `Camera` struct modifies a `Globals` attribute and perform some view <-> world
 //! coordinate conversion.
+
+use iced_winit::winit;
+use winit::{event::MouseScrollDelta, dpi::PhysicalPosition};
+use ultraviolet::Vec2; 
 pub struct Camera {
     globals: Globals,
     was_updated: bool,
     old_globals: Globals,
+    sensitivity: f32
 }
 
 impl Camera {
@@ -15,6 +20,7 @@ impl Camera {
             old_globals: globals,
             globals,
             was_updated: true,
+            sensitivity: crate::consts::BASE_SCROLL_SENSITIVITY,
         }
     }
 
@@ -45,6 +51,24 @@ impl Camera {
         let (x, y) = self.transform_vec(delta_x, delta_y);
         self.globals.scroll_offset[0] = self.old_globals.scroll_offset[0] - x;
         self.globals.scroll_offset[1] = self.old_globals.scroll_offset[1] - y;
+        self.was_updated = true;
+    }
+
+    /// Perform a zoom so that the point under the cursor stays at the same position on display
+    pub fn process_scroll(&mut self, delta: &MouseScrollDelta, cursor_position: PhysicalPosition<f64>) {
+        println!("{:?}", delta);
+        let scroll = -match delta {
+            MouseScrollDelta::LineDelta(_, scroll) => *scroll,
+            MouseScrollDelta::PixelDelta(PhysicalPosition { y: scroll, .. }) => (*scroll as f32) / 100.,
+        };
+        let mult_const = 1.25_f32.powf(scroll);
+        println!("{}", mult_const);
+        let fixed_point = Vec2::from(self.screen_to_world(cursor_position.x as f32, cursor_position.y as f32));
+        self.globals.zoom *= mult_const;
+        let delta = fixed_point - Vec2::from(self.screen_to_world(cursor_position.x as f32, cursor_position.y as f32));
+        self.globals.scroll_offset[0] += delta.x;
+        self.globals.scroll_offset[1] += delta.y;
+        self.end_movement();
         self.was_updated = true;
     }
 

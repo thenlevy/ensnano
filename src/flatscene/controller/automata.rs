@@ -128,6 +128,10 @@ impl ControllerState for NormalState {
                 let pivot_opt = controller.data.borrow().get_click(x, y);
                 Transition::consequence(Consequence::NewCandidate(pivot_opt))
             }
+            WindowEvent::MouseWheel { delta, .. } => {
+                controller.camera.borrow_mut().process_scroll(delta, self.mouse_position);
+                Transition::nothing()
+            }
             WindowEvent::KeyboardInput { .. } => {
                 controller.process_keyboard(event);
                 Transition::nothing()
