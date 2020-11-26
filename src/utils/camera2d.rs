@@ -57,7 +57,7 @@ impl Camera {
     /// Perform a zoom so that the point under the cursor stays at the same position on display
     pub fn process_scroll(&mut self, delta: &MouseScrollDelta, cursor_position: PhysicalPosition<f64>) {
         println!("{:?}", delta);
-        let scroll = -match delta {
+        let scroll = match delta {
             MouseScrollDelta::LineDelta(_, scroll) => *scroll,
             MouseScrollDelta::PixelDelta(PhysicalPosition { y: scroll, .. }) => (*scroll as f32) / 100.,
         };
