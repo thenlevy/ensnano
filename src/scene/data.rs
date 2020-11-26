@@ -512,8 +512,7 @@ impl Data {
     }
 
     fn must_draw_phantom(&self) -> bool {
-        let ret =
-            self.selection_mode == SelectionMode::Helix || self.action_mode.is_build();
+        let ret = self.selection_mode == SelectionMode::Helix || self.action_mode.is_build();
         if ret {
             true
         } else {
@@ -750,9 +749,7 @@ impl Data {
             {
                 self.selection_update = true;
                 true
-            } else if self.action_mode.is_build()
-                && self.selection_mode == SelectionMode::Grid
-            {
+            } else if self.action_mode.is_build() && self.selection_mode == SelectionMode::Grid {
                 self.set_selection(Some(SceneElement::Grid(*design_id as u32, *grid_id as u32)));
                 false
             } else {

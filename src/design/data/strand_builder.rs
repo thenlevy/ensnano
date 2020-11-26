@@ -139,7 +139,7 @@ impl StrandBuilder {
         if let Some(desc) = neighbour {
             neighbour_strand = Some(desc);
             neighbour_direction = if stick {
-                Some(EditDirection::Both) 
+                Some(EditDirection::Both)
             } else if desc.moving_end > initial_position {
                 Some(EditDirection::Positive)
             } else {
@@ -182,7 +182,11 @@ impl StrandBuilder {
     fn attach_neighbour(&mut self, descriptor: &NeighbourDescriptor) -> bool {
         // To prevent attaching to self or attaching to the same neighbour or attaching to a
         // neighbour in the wrong direction
-        if self.identifier == descriptor.identifier || self.neighbour_strand.is_some() || descriptor.moving_end > self.max_pos.unwrap_or(descriptor.moving_end) || descriptor.moving_end < self.min_pos.unwrap_or(descriptor.moving_end) {
+        if self.identifier == descriptor.identifier
+            || self.neighbour_strand.is_some()
+            || descriptor.moving_end > self.max_pos.unwrap_or(descriptor.moving_end)
+            || descriptor.moving_end < self.min_pos.unwrap_or(descriptor.moving_end)
+        {
             return false;
         }
         self.neighbour_direction = if self.moving_end.position < descriptor.initial_moving_end {

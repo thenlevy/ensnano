@@ -4,8 +4,8 @@ use iced::{container, Background, Container};
 use iced_wgpu::Renderer;
 use iced_winit::winit::dpi::{LogicalPosition, LogicalSize};
 use iced_winit::{
-    button, pick_list, scrollable, slider, Button, Color, Column, Command, Element, Length,
-    PickList, Program, Scrollable, Slider, Space, Text,
+    button, pick_list, scrollable, slider, Button, Checkbox, Color, Column, Command, Element,
+    Length, PickList, Program, Scrollable, Slider, Space, Text,
 };
 use native_dialog::Dialog;
 
@@ -182,6 +182,12 @@ impl Program for LeftPanel {
                 )
                 .spacing(5)
                 .push(self.sequence_input.view());
+        }
+
+        if let ActionMode::Build(b) = self.action_mode {
+            widget = widget.spacing(5).push(Checkbox::new(b, "Stick", |b| {
+                Message::ActionModeChanged(ActionMode::Build(b))
+            }))
         }
 
         Container::new(widget)

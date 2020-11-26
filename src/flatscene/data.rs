@@ -171,11 +171,13 @@ impl Data {
 
     pub fn get_builder(&self, nucl: Nucl, stick: bool) -> Option<StrandBuilder> {
         let real_helix = self.design.get_helices()[nucl.helix].id;
-        self.design.get_builder(Nucl {
-            helix: real_helix,
-            ..nucl
-        },
-        stick)
+        self.design.get_builder(
+            Nucl {
+                helix: real_helix,
+                ..nucl
+            },
+            stick,
+        )
     }
 
     pub fn notify_update(&mut self) {

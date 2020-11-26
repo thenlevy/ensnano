@@ -132,7 +132,7 @@ impl ActionMode {
     pub fn is_build(&self) -> bool {
         match self {
             Self::Build(_) => true,
-            _ => false
+            _ => false,
         }
     }
 }

@@ -466,9 +466,11 @@ impl Design3D {
 
     pub fn get_builder(&self, element: &SceneElement, stick: bool) -> Option<StrandBuilder> {
         match element {
-            SceneElement::DesignElement(_, e_id) => {
-                self.design.lock().unwrap().get_builder_element(*e_id, stick)
-            }
+            SceneElement::DesignElement(_, e_id) => self
+                .design
+                .lock()
+                .unwrap()
+                .get_builder_element(*e_id, stick),
             SceneElement::PhantomElement(phantom_element) => {
                 let nucl = Nucl {
                     helix: phantom_element.helix_id as usize,

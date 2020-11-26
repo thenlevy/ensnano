@@ -70,7 +70,9 @@ impl ControllerState for NormalState {
                 let pivot_opt = controller.data.borrow().get_click(x, y);
                 if let Some(pivot_nucl) = pivot_opt {
                     if let ActionMode::Build(stick) = controller.action_mode {
-                        if let Some(builder) = controller.data.borrow().get_builder(pivot_nucl, stick) {
+                        if let Some(builder) =
+                            controller.data.borrow().get_builder(pivot_nucl, stick)
+                        {
                             Transition {
                                 new_state: Some(Box::new(Building {
                                     mouse_position: self.mouse_position,
