@@ -146,9 +146,9 @@ impl StrandBuilder {
                 Some(EditDirection::Negative)
             };
             if desc.initial_moving_end > initial_position {
-                max_pos = Some(desc.fixed_end - 1)
+                max_pos = max_pos.or(Some(desc.fixed_end - 1))
             } else {
-                min_pos = Some(desc.fixed_end + 1)
+                min_pos = min_pos.or(Some(desc.fixed_end + 1))
             }
         } else {
             neighbour_strand = None;
@@ -180,8 +180,9 @@ impl StrandBuilder {
     /// Attach a new neighbour. This function must be called when the moving end goes to a position
     /// where it is next to an existing domain
     fn attach_neighbour(&mut self, descriptor: &NeighbourDescriptor) -> bool {
-        // To prevent attaching to self or attaching to the same neighbour
-        if self.identifier == descriptor.identifier || self.neighbour_strand.is_some() {
+        // To prevent attaching to self or attaching to the same neighbour or attaching to a
+        // neighbour in the wrong direction
+        if self.identifier == descriptor.identifier || self.neighbour_strand.is_some() || descriptor.moving_end > self.max_pos.unwrap_or(descriptor.moving_end) || descriptor.moving_end < self.min_pos.unwrap_or(descriptor.moving_end) {
             return false;
         }
         self.neighbour_direction = if descriptor.fixed_end > descriptor.initial_moving_end {
@@ -215,7 +216,7 @@ impl StrandBuilder {
             .get_neighbour_nucl(self.moving_end.right());
         if let Some(ref desc) = desc {
             if self.attach_neighbour(desc) {
-                self.max_pos = Some(desc.fixed_end - 1);
+                self.max_pos = self.max_pos.or(Some(desc.fixed_end - 1));
             }
         }
     }
@@ -242,7 +243,7 @@ impl StrandBuilder {
             .get_neighbour_nucl(self.moving_end.left());
         if let Some(ref desc) = desc {
             if self.attach_neighbour(desc) {
-                self.min_pos = Some(desc.fixed_end + 1);
+                self.min_pos = self.min_pos.or(Some(desc.fixed_end + 1));
             }
         }
     }
