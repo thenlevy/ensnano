@@ -29,6 +29,22 @@ impl ColorPicker {
         self.hue = hue
     }
 
+    pub fn view(&mut self) -> Row<Message> {
+        let color_picker = Row::new()
+            .spacing(5)
+            .push(HueColumn::new(
+                &mut self.hue_state,
+                Message::HueChanged,
+            ))
+            .spacing(10)
+            .push(LightSatSquare::new(
+                self.hue as f64,
+                &mut self.light_sat_square_state,
+                Message::StrandColorChanged,
+            ));
+        color_picker
+    }
+
     pub fn new_view(&mut self) -> Row<ColorMessage> {
         let color_picker = Row::new()
             .spacing(5)

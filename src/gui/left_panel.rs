@@ -34,6 +34,7 @@ pub struct LeftPanel {
     requests: Arc<Mutex<Requests>>,
     action_mode_state: ActionModeState,
     selection_mode_state: SelectionModeState,
+    color_picker: ColorPicker,
 }
 
 #[derive(Debug, Clone)]
@@ -45,6 +46,8 @@ pub enum Message {
     SequenceChanged(String),
     SequenceFileRequested,
     ScrollSensitivityChanged(f32),
+    StrandColorChanged(Color),
+    HueChanged(f32),
 }
 
 impl LeftPanel {
@@ -66,6 +69,7 @@ impl LeftPanel {
             requests,
             action_mode_state: Default::default(),
             selection_mode_state: Default::default(),
+            color_picker: ColorPicker::new(),
         }
     }
 
@@ -119,6 +123,22 @@ impl Program for LeftPanel {
             Message::OpenColor => {
                 self.requests.lock().unwrap().overlay_opened = Some(OverlayType::Color)
             }
+            Message::StrandColorChanged(color) => {
+                let red = ((color.r * 255.) as u32) << 16;
+                let green = ((color.g * 255.) as u32) << 8;
+                let blue = (color.b * 255.) as u32;
+                self.color_picker.update_color(color);
+                let hue = Hsv::from(Rgb::new(
+                    color.r as f64 * 255.,
+                    color.g as f64 * 255.,
+                    color.b as f64 * 255.,
+                ))
+                .h;
+                self.color_picker.change_hue(hue as f32);
+                let color = red + green + blue;
+                self.requests.lock().unwrap().strand_color_change = Some(color);
+            }
+            Message::HueChanged(x) => self.color_picker.change_hue(x),
             Message::Resized(size, position) => self.resize(size, position),
         };
         Command::none()
@@ -218,6 +238,12 @@ impl Program for LeftPanel {
             global_scroll = global_scroll.spacing(5).push(row)
         }
 
+        if let ActionMode::Build(b) = self.action_mode {
+            global_scroll = global_scroll.spacing(5).push(Checkbox::new(b, "Stick", |b| {
+                Message::ActionModeChanged(ActionMode::Build(b))
+            }).size(12).text_size(12))
+        }
+
         let mut widget = Column::new()
             .push(global_scroll)
             .width(Length::Units(width))
@@ -227,18 +253,12 @@ impl Program for LeftPanel {
             widget = widget
                 .spacing(5)
                 .push(
-                    Button::new(&mut self.open_color, Text::new("Change color"))
-                        .on_press(Message::OpenColor),
+                    self.color_picker.view()
                 )
                 .spacing(5)
                 .push(self.sequence_input.view());
         }
 
-        if let ActionMode::Build(b) = self.action_mode {
-            widget = widget.spacing(5).push(Checkbox::new(b, "Stick", |b| {
-                Message::ActionModeChanged(ActionMode::Build(b))
-            }))
-        }
 
         Container::new(widget)
             .style(TopBarStyle)
