@@ -362,11 +362,16 @@ impl Program for LeftPanel {
             .width(Length::Units(width))
             .height(Length::Fill);
 
+        let color_square = self.color_picker.color_square();
         if self.selection_mode == SelectionMode::Strand {
             widget = widget
                 .spacing(5)
                 .push(self.color_picker.view())
-                .spacing(5)
+                .push(
+                    Row::new()
+                        .push(color_square)
+                        .push(iced::Space::new(Length::FillPortion(4), Length::Shrink)),
+                )
                 .push(self.sequence_input.view());
         }
 

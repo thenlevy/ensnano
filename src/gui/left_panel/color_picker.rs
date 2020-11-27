@@ -8,6 +8,7 @@ pub struct ColorPicker {
     hue: f32,
 }
 
+pub use color_square::ColorSquare;
 use hue_column::HueColumn;
 use light_sat_square::LightSatSquare;
 
@@ -40,6 +41,10 @@ impl ColorPicker {
                 Message::StrandColorChanged,
             ));
         color_picker
+    }
+
+    pub fn color_square<Message>(&self) -> ColorSquare<Message> {
+        ColorSquare::new(self.color)
     }
 
     pub fn new_view(&mut self) -> Row<ColorMessage> {
@@ -436,6 +441,121 @@ mod light_sat_square {
     }
 
     impl<'a, Message, B> Into<Element<'a, Message, Renderer<B>>> for LightSatSquare<'a, Message>
+    where
+        B: Backend,
+        Message: 'a + Clone,
+    {
+        fn into(self) -> Element<'a, Message, Renderer<B>> {
+            Element::new(self)
+        }
+    }
+}
+
+mod color_square {
+    use super::Color;
+    use iced_graphics::{
+        triangle::{Mesh2D, Vertex2D},
+        Backend, Defaults, Primitive, Rectangle, Renderer,
+    };
+    use iced_native::{
+        layout, mouse, Clipboard, Element, Event, Hasher, Layout, Length, Point, Size, Vector,
+        Widget,
+    };
+    use std::marker::PhantomData;
+
+    pub struct ColorSquare<Message> {
+        color: Color,
+        _phantom: PhantomData<Message>,
+    }
+
+    impl<Message> ColorSquare<Message> {
+        pub fn new(color: Color) -> Self {
+            Self {
+                color,
+                _phantom: PhantomData,
+            }
+        }
+    }
+
+    impl<Message, B> Widget<Message, Renderer<B>> for ColorSquare<Message>
+    where
+        B: Backend,
+    {
+        fn width(&self) -> Length {
+            Length::FillPortion(1)
+        }
+
+        fn height(&self) -> Length {
+            Length::FillPortion(1)
+        }
+
+        fn layout(&self, _renderer: &Renderer<B>, limits: &layout::Limits) -> layout::Node {
+            let size = limits
+                .width(Length::Fill)
+                .height(Length::Fill)
+                .resolve(Size::ZERO);
+
+            layout::Node::new(Size::new(size.width, size.width))
+        }
+
+        fn hash_layout(&self, _state: &mut Hasher) {}
+
+        fn draw(
+            &self,
+            _renderer: &mut Renderer<B>,
+            _defaults: &Defaults,
+            layout: Layout<'_>,
+            _cursor_position: Point,
+            _viewport: &Rectangle,
+        ) -> (Primitive, mouse::Interaction) {
+            let b = layout.bounds();
+            let x_max = b.width;
+            let y_max = b.height;
+            let vertices = vec![
+                Vertex2D {
+                    position: [0., 0.],
+                    color: self.color.into_linear(),
+                },
+                Vertex2D {
+                    position: [0., y_max],
+                    color: self.color.into_linear(),
+                },
+                Vertex2D {
+                    position: [x_max, 0.],
+                    color: self.color.into_linear(),
+                },
+                Vertex2D {
+                    position: [x_max, y_max],
+                    color: self.color.into_linear(),
+                },
+            ];
+            let indices = vec![0, 1, 2, 1, 2, 3];
+            (
+                Primitive::Translate {
+                    translation: Vector::new(b.x, b.y),
+                    content: Box::new(Primitive::Mesh2D {
+                        size: b.size(),
+                        buffers: Mesh2D { vertices, indices },
+                    }),
+                },
+                mouse::Interaction::default(),
+            )
+        }
+
+        fn on_event(
+            &mut self,
+            _event: Event,
+            _layout: Layout<'_>,
+            _cursor_position: Point,
+            _messages: &mut Vec<Message>,
+            _renderer: &Renderer<B>,
+            _clipboard: Option<&dyn Clipboard>,
+        ) -> iced_native::event::Status {
+            iced_native::event::Status::Ignored
+        }
+    }
+
+    impl<'a, Message, B> Into<Element<'a, Message, Renderer<B>>> for ColorSquare<Message>
     where
         B: Backend,
         Message: 'a + Clone,
