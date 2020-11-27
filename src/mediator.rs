@@ -168,10 +168,12 @@ impl Mediator {
     }
 
     pub fn change_action_mode(&mut self, action_mode: ActionMode) {
+        self.messages.lock().unwrap().push_action_mode(action_mode);
         self.notify_apps(Notification::NewActionMode(action_mode))
     }
 
     pub fn change_selection_mode(&mut self, selection_mode: SelectionMode) {
+        self.messages.lock().unwrap().push_selection_mode(selection_mode);
         self.notify_apps(Notification::NewSelectionMode(selection_mode))
     }
 

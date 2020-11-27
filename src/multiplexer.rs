@@ -6,20 +6,27 @@
 //! In addition, the multiplexer holds a Vec of overlays which are floating regions.
 //!
 //! When an event is recieved by the window, the multiplexer is in charge of forwarding it to the
-//! appropriate application, gui component or overlay.
+//! appropriate application, gui component or overlay. The multiplexer also handles some events
+//! like resizing events of keyboard input that should be handled independently of the foccussed
+//! region.
+//!
 //!
 //!
 //! The multiplexer is also in charge of drawing to the frame.
 use crate::utils::texture::SampledTexture;
+use crate::gui::Requests;
 use crate::PhySize;
 use iced_wgpu::wgpu;
 use iced_winit::winit;
 use std::rc::Rc;
+use std::sync::{Arc, Mutex};
 use wgpu::Device;
 use winit::{
     dpi::{PhysicalPosition, PhysicalSize},
     event::{ElementState, MouseButton, WindowEvent},
 };
+use iced_winit::winit::event::*;
+use crate::mediator::{ActionMode, SelectionMode};
 
 mod layout_manager;
 use layout_manager::LayoutTree;
@@ -109,11 +116,12 @@ pub struct Multiplexer {
     device: Rc<Device>,
     pipeline: Option<wgpu::RenderPipeline>,
     split_mode: SplitMode,
+    requests: Arc<Mutex<Requests>>,
 }
 
 impl Multiplexer {
     /// Create a new multiplexer for a window with size `window_size`.
-    pub fn new(window_size: PhySize, scale_factor: f64, device: Rc<Device>) -> Self {
+    pub fn new(window_size: PhySize, scale_factor: f64, device: Rc<Device>, requests: Arc<Mutex<Requests>>) -> Self {
         let mut layout_manager = LayoutTree::new();
         let (top_bar, scene) = layout_manager.vsplit(0, 0.05);
         let (left_pannel, scene) = layout_manager.hsplit(scene, 0.2);
@@ -142,6 +150,7 @@ impl Multiplexer {
             device,
             pipeline: None,
             split_mode: SplitMode::Scene3D,
+            requests,
         };
         ret.generate_textures();
         ret
@@ -271,6 +280,7 @@ impl Multiplexer {
     ) -> Option<(WindowEvent<'static>, ElementType)> {
         let mut focus_changed = false;
         let mut device_id_msg = None;
+        let mut captured = false;
         match &event {
             WindowEvent::CursorMoved {
                 position,
@@ -310,10 +320,34 @@ impl Multiplexer {
                 ElementState::Pressed => self.mouse_clicked = true,
                 ElementState::Released => self.mouse_clicked = false,
             },
+            WindowEvent::KeyboardInput {
+                input:
+                    KeyboardInput {
+                        virtual_keycode: Some(key),
+                        state: ElementState::Pressed,
+                        ..
+                    },
+                    ..
+            } => {
+                captured = true;
+                match *key {
+                    VirtualKeyCode::Escape => self.requests.lock().unwrap().action_mode = Some(ActionMode::Normal),
+                    VirtualKeyCode::A => self.requests.lock().unwrap().action_mode = Some(ActionMode::Build(false)),
+                    VirtualKeyCode::R => self.requests.lock().unwrap().action_mode = Some(ActionMode::Rotate),
+                    VirtualKeyCode::T => self.requests.lock().unwrap().action_mode = Some(ActionMode::Translate),
+                    VirtualKeyCode::X => self.requests.lock().unwrap().action_mode = Some(ActionMode::Cut),
+                    VirtualKeyCode::N => self.requests.lock().unwrap().selection_mode = Some(SelectionMode::Nucleotide),
+                    VirtualKeyCode::H => self.requests.lock().unwrap().selection_mode = Some(SelectionMode::Helix),
+                    VirtualKeyCode::S => self.requests.lock().unwrap().selection_mode = Some(SelectionMode::Strand),
+                    VirtualKeyCode::G => self.requests.lock().unwrap().selection_mode = Some(SelectionMode::Grid),
+                    _ => captured = false,
+                }
+
+            }
             _ => {}
         }
 
-        if let Some(focus) = self.focus {
+        if let Some(focus) = self.focus.filter(|_| !captured) {
             if focus_changed {
                 Some((
                     WindowEvent::CursorLeft {

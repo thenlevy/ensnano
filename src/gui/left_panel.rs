@@ -163,9 +163,9 @@ impl Program for LeftPanel {
             Button::new(
                 &mut self.selection_mode_state.grid,
                 if self.selection_mode == SelectionMode::Grid {
-                    Image::new("icons/icons/Grid-on.png")
+                    Image::new(format!("{}/icons/icons/Grid-on.png", env!("CARGO_MANIFEST_DIR")))
                 } else {
-                    Image::new("icons/icons/Grid-off.png")
+                    Image::new(format!("{}/icons/icons/Grid-off.png", env!("CARGO_MANIFEST_DIR")))
                 },
             )
             .on_press(Message::SelectionModeChanged(SelectionMode::Grid))
@@ -173,9 +173,9 @@ impl Program for LeftPanel {
             Button::new(
                 &mut self.selection_mode_state.helix,
                 if self.selection_mode == SelectionMode::Helix {
-                    Image::new("icons/icons/Helix-on.png")
+                    Image::new(format!("{}/icons/icons/Helix-on.png", env!("CARGO_MANIFEST_DIR")))
                 } else {
-                    Image::new("icons/icons/Helix-off.png")
+                    Image::new(format!("{}/icons/icons/Helix-off.png", env!("CARGO_MANIFEST_DIR")))
                 },
             )
             .on_press(Message::SelectionModeChanged(SelectionMode::Helix))
@@ -183,9 +183,9 @@ impl Program for LeftPanel {
             Button::new(
                 &mut self.selection_mode_state.strand,
                 if self.selection_mode == SelectionMode::Strand {
-                    Image::new("icons/icons/Strand-on.png")
+                    Image::new(format!("{}/icons/icons/Strand-on.png", env!("CARGO_MANIFEST_DIR")))
                 } else {
-                    Image::new("icons/icons/Strand-off.png")
+                    Image::new(format!("{}/icons/icons/Strand-off.png", env!("CARGO_MANIFEST_DIR")))
                 },
             )
             .on_press(Message::SelectionModeChanged(SelectionMode::Strand))
@@ -193,9 +193,9 @@ impl Program for LeftPanel {
             Button::new(
                 &mut self.selection_mode_state.nucleotide,
                 if self.selection_mode == SelectionMode::Nucleotide {
-                    Image::new("icons/icons/Nucleotide-on.png")
+                    Image::new(format!("{}/icons/icons/Nucleotide-on.png", env!("CARGO_MANIFEST_DIR")))
                 } else {
-                    Image::new("icons/icons/Nucleotide-off.png")
+                    Image::new(format!("{}/icons/icons/Nucleotide-off.png", env!("CARGO_MANIFEST_DIR")))
                 },
             )
             .on_press(Message::SelectionModeChanged(SelectionMode::Nucleotide))
@@ -218,9 +218,9 @@ impl Program for LeftPanel {
             Button::new(
                 &mut self.action_mode_state.select,
                 if self.action_mode == ActionMode::Normal {
-                    Image::new("icons/icons/Select-on.png")
+                    Image::new(format!("{}/icons/icons/Select-on.png", env!("CARGO_MANIFEST_DIR")))
                 } else {
-                    Image::new("icons/icons/Select-off.png")
+                    Image::new(format!("{}/icons/icons/Select-off.png", env!("CARGO_MANIFEST_DIR")))
                 },
             )
             .on_press(Message::ActionModeChanged(ActionMode::Normal))
@@ -228,9 +228,9 @@ impl Program for LeftPanel {
             Button::new(
                 &mut self.action_mode_state.translate,
                 if self.action_mode == ActionMode::Translate {
-                    Image::new("icons/icons/Move-on.png")
+                    Image::new(format!("{}/icons/icons/Move-on.png", env!("CARGO_MANIFEST_DIR")))
                 } else {
-                    Image::new("icons/icons/Move-off.png")
+                    Image::new(format!("{}/icons/icons/Move-off.png", env!("CARGO_MANIFEST_DIR")))
                 },
             )
             .on_press(Message::ActionModeChanged(ActionMode::Translate))
@@ -238,9 +238,9 @@ impl Program for LeftPanel {
             Button::new(
                 &mut self.action_mode_state.rotate,
                 if self.action_mode == ActionMode::Rotate {
-                    Image::new("icons/icons/Rotate-on.png")
+                    Image::new(format!("{}/icons/icons/Rotate-on.png", env!("CARGO_MANIFEST_DIR")))
                 } else {
-                    Image::new("icons/icons/Rotate-off.png")
+                    Image::new(format!("{}/icons/icons/Rotate-off.png", env!("CARGO_MANIFEST_DIR")))
                 },
             )
             .on_press(Message::ActionModeChanged(ActionMode::Rotate))
@@ -248,9 +248,9 @@ impl Program for LeftPanel {
             Button::new(
                 &mut self.action_mode_state.build,
                 if self.action_mode.is_build() {
-                    Image::new("icons/icons/Build-on.png")
+                    Image::new(format!("{}/icons/icons/Build-on.png", env!("CARGO_MANIFEST_DIR")))
                 } else {
-                    Image::new("icons/icons/Build-off.png")
+                    Image::new(format!("{}/icons/icons/Build-off.png", env!("CARGO_MANIFEST_DIR")))
                 },
             )
             .on_press(Message::ActionModeChanged(ActionMode::Build(false)))
@@ -258,9 +258,9 @@ impl Program for LeftPanel {
             Button::new(
                 &mut self.action_mode_state.cut,
                 if self.action_mode == ActionMode::Cut {
-                    Image::new("icons/icons/Cut-on.png")
+                    Image::new(format!("{}/icons/icons/Cut-on.png", env!("CARGO_MANIFEST_DIR"))).width(Length::Units(BUTTON_SIZE))
                 } else {
-                    Image::new("icons/icons/Cut-off.png")
+                    Image::new(format!("{}/icons/icons/Cut-off.png", env!("CARGO_MANIFEST_DIR"))).width(Length::Units(BUTTON_SIZE))
                 },
             )
             .on_press(Message::ActionModeChanged(ActionMode::Cut))
