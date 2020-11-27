@@ -165,9 +165,15 @@ impl Program for LeftPanel {
             Button::new(
                 &mut self.selection_mode_state.grid,
                 if self.selection_mode == SelectionMode::Grid {
-                    Image::new(format!("{}/icons/icons/Grid-on.png", env!("CARGO_MANIFEST_DIR")))
+                    Image::new(format!(
+                        "{}/icons/icons/Grid-on.png",
+                        env!("CARGO_MANIFEST_DIR")
+                    ))
                 } else {
-                    Image::new(format!("{}/icons/icons/Grid-off.png", env!("CARGO_MANIFEST_DIR")))
+                    Image::new(format!(
+                        "{}/icons/icons/Grid-off.png",
+                        env!("CARGO_MANIFEST_DIR")
+                    ))
                 },
             )
             .on_press(Message::SelectionModeChanged(SelectionMode::Grid))
@@ -175,9 +181,15 @@ impl Program for LeftPanel {
             Button::new(
                 &mut self.selection_mode_state.helix,
                 if self.selection_mode == SelectionMode::Helix {
-                    Image::new(format!("{}/icons/icons/Helix-on.png", env!("CARGO_MANIFEST_DIR")))
+                    Image::new(format!(
+                        "{}/icons/icons/Helix-on.png",
+                        env!("CARGO_MANIFEST_DIR")
+                    ))
                 } else {
-                    Image::new(format!("{}/icons/icons/Helix-off.png", env!("CARGO_MANIFEST_DIR")))
+                    Image::new(format!(
+                        "{}/icons/icons/Helix-off.png",
+                        env!("CARGO_MANIFEST_DIR")
+                    ))
                 },
             )
             .on_press(Message::SelectionModeChanged(SelectionMode::Helix))
@@ -185,9 +197,15 @@ impl Program for LeftPanel {
             Button::new(
                 &mut self.selection_mode_state.strand,
                 if self.selection_mode == SelectionMode::Strand {
-                    Image::new(format!("{}/icons/icons/Strand-on.png", env!("CARGO_MANIFEST_DIR")))
+                    Image::new(format!(
+                        "{}/icons/icons/Strand-on.png",
+                        env!("CARGO_MANIFEST_DIR")
+                    ))
                 } else {
-                    Image::new(format!("{}/icons/icons/Strand-off.png", env!("CARGO_MANIFEST_DIR")))
+                    Image::new(format!(
+                        "{}/icons/icons/Strand-off.png",
+                        env!("CARGO_MANIFEST_DIR")
+                    ))
                 },
             )
             .on_press(Message::SelectionModeChanged(SelectionMode::Strand))
@@ -195,9 +213,15 @@ impl Program for LeftPanel {
             Button::new(
                 &mut self.selection_mode_state.nucleotide,
                 if self.selection_mode == SelectionMode::Nucleotide {
-                    Image::new(format!("{}/icons/icons/Nucleotide-on.png", env!("CARGO_MANIFEST_DIR")))
+                    Image::new(format!(
+                        "{}/icons/icons/Nucleotide-on.png",
+                        env!("CARGO_MANIFEST_DIR")
+                    ))
                 } else {
-                    Image::new(format!("{}/icons/icons/Nucleotide-off.png", env!("CARGO_MANIFEST_DIR")))
+                    Image::new(format!(
+                        "{}/icons/icons/Nucleotide-off.png",
+                        env!("CARGO_MANIFEST_DIR")
+                    ))
                 },
             )
             .on_press(Message::SelectionModeChanged(SelectionMode::Nucleotide))
@@ -220,9 +244,15 @@ impl Program for LeftPanel {
             Button::new(
                 &mut self.action_mode_state.select,
                 if self.action_mode == ActionMode::Normal {
-                    Image::new(format!("{}/icons/icons/Select-on.png", env!("CARGO_MANIFEST_DIR")))
+                    Image::new(format!(
+                        "{}/icons/icons/Select-on.png",
+                        env!("CARGO_MANIFEST_DIR")
+                    ))
                 } else {
-                    Image::new(format!("{}/icons/icons/Select-off.png", env!("CARGO_MANIFEST_DIR")))
+                    Image::new(format!(
+                        "{}/icons/icons/Select-off.png",
+                        env!("CARGO_MANIFEST_DIR")
+                    ))
                 },
             )
             .on_press(Message::ActionModeChanged(ActionMode::Normal))
@@ -230,9 +260,15 @@ impl Program for LeftPanel {
             Button::new(
                 &mut self.action_mode_state.translate,
                 if self.action_mode == ActionMode::Translate {
-                    Image::new(format!("{}/icons/icons/Move-on.png", env!("CARGO_MANIFEST_DIR")))
+                    Image::new(format!(
+                        "{}/icons/icons/Move-on.png",
+                        env!("CARGO_MANIFEST_DIR")
+                    ))
                 } else {
-                    Image::new(format!("{}/icons/icons/Move-off.png", env!("CARGO_MANIFEST_DIR")))
+                    Image::new(format!(
+                        "{}/icons/icons/Move-off.png",
+                        env!("CARGO_MANIFEST_DIR")
+                    ))
                 },
             )
             .on_press(Message::ActionModeChanged(ActionMode::Translate))
@@ -240,9 +276,15 @@ impl Program for LeftPanel {
             Button::new(
                 &mut self.action_mode_state.rotate,
                 if self.action_mode == ActionMode::Rotate {
-                    Image::new(format!("{}/icons/icons/Rotate-on.png", env!("CARGO_MANIFEST_DIR")))
+                    Image::new(format!(
+                        "{}/icons/icons/Rotate-on.png",
+                        env!("CARGO_MANIFEST_DIR")
+                    ))
                 } else {
-                    Image::new(format!("{}/icons/icons/Rotate-off.png", env!("CARGO_MANIFEST_DIR")))
+                    Image::new(format!(
+                        "{}/icons/icons/Rotate-off.png",
+                        env!("CARGO_MANIFEST_DIR")
+                    ))
                 },
             )
             .on_press(Message::ActionModeChanged(ActionMode::Rotate))
@@ -250,9 +292,15 @@ impl Program for LeftPanel {
             Button::new(
                 &mut self.action_mode_state.build,
                 if self.action_mode.is_build() {
-                    Image::new(format!("{}/icons/icons/Build-on.png", env!("CARGO_MANIFEST_DIR")))
+                    Image::new(format!(
+                        "{}/icons/icons/Build-on.png",
+                        env!("CARGO_MANIFEST_DIR")
+                    ))
                 } else {
-                    Image::new(format!("{}/icons/icons/Build-off.png", env!("CARGO_MANIFEST_DIR")))
+                    Image::new(format!(
+                        "{}/icons/icons/Build-off.png",
+                        env!("CARGO_MANIFEST_DIR")
+                    ))
                 },
             )
             .on_press(Message::ActionModeChanged(ActionMode::Build(false)))
@@ -260,17 +308,31 @@ impl Program for LeftPanel {
             Button::new(
                 &mut self.action_mode_state.cut,
                 if self.action_mode == ActionMode::Cut {
-                    Image::new(format!("{}/icons/icons/Cut-on.png", env!("CARGO_MANIFEST_DIR"))).width(Length::Units(BUTTON_SIZE))
+                    Image::new(format!(
+                        "{}/icons/icons/Cut-on.png",
+                        env!("CARGO_MANIFEST_DIR")
+                    ))
+                    .width(Length::Units(BUTTON_SIZE))
                 } else {
-                    Image::new(format!("{}/icons/icons/Cut-off.png", env!("CARGO_MANIFEST_DIR"))).width(Length::Units(BUTTON_SIZE))
+                    Image::new(format!(
+                        "{}/icons/icons/Cut-off.png",
+                        env!("CARGO_MANIFEST_DIR")
+                    ))
+                    .width(Length::Units(BUTTON_SIZE))
                 },
             )
             .on_press(Message::ActionModeChanged(ActionMode::Cut))
             .width(Length::Units(40)),
             Button::new(
                 &mut self.action_mode_state.add_grid,
-                Image::new(format!("{}/icons/icons/NewGrid-on.png", env!("CARGO_MANIFEST_DIR"))).width(Length::Units(BUTTON_SIZE))
-            ).on_press(Message::NewGrid).width(Length::Units(40))
+                Image::new(format!(
+                    "{}/icons/icons/NewGrid-on.png",
+                    env!("CARGO_MANIFEST_DIR")
+                ))
+                .width(Length::Units(BUTTON_SIZE)),
+            )
+            .on_press(Message::NewGrid)
+            .width(Length::Units(40)),
         ];
 
         global_scroll = global_scroll.spacing(5).push(Text::new("Action Mode"));

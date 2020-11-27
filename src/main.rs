@@ -177,10 +177,13 @@ fn main() {
             },
         )
     };
-    let mut renderer = Renderer::new(Backend::new(&device, Settings {
-        antialiasing: Some(iced_graphics::Antialiasing::MSAAx4),
-        ..Default::default()
-    }));
+    let mut renderer = Renderer::new(Backend::new(
+        &device,
+        Settings {
+            antialiasing: Some(iced_graphics::Antialiasing::MSAAx4),
+            ..Default::default()
+        },
+    ));
     let device = Rc::new(device);
     let queue = Rc::new(queue);
     let mut resized = false;
@@ -194,8 +197,12 @@ fn main() {
     let scheduler = Arc::new(Mutex::new(Scheduler::new()));
 
     // Initialize the layout
-    let mut multiplexer =
-        Multiplexer::new(window.inner_size(), window.scale_factor(), device.clone(), requests.clone());
+    let mut multiplexer = Multiplexer::new(
+        window.inner_size(),
+        window.scale_factor(),
+        device.clone(),
+        requests.clone(),
+    );
 
     // Initialize the scenes
     let mut encoder =
@@ -545,11 +552,15 @@ impl IcedMessages {
     }
 
     pub fn push_action_mode(&mut self, action_mode: mediator::ActionMode) {
-        self.left_panel.push_front(gui::left_panel::Message::ActionModeChanged(action_mode))
+        self.left_panel
+            .push_front(gui::left_panel::Message::ActionModeChanged(action_mode))
     }
 
     pub fn push_selection_mode(&mut self, selection_mode: mediator::SelectionMode) {
-        self.left_panel.push_front(gui::left_panel::Message::SelectionModeChanged(selection_mode))
+        self.left_panel
+            .push_front(gui::left_panel::Message::SelectionModeChanged(
+                selection_mode,
+            ))
     }
 }
 

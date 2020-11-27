@@ -173,7 +173,10 @@ impl Mediator {
     }
 
     pub fn change_selection_mode(&mut self, selection_mode: SelectionMode) {
-        self.messages.lock().unwrap().push_selection_mode(selection_mode);
+        self.messages
+            .lock()
+            .unwrap()
+            .push_selection_mode(selection_mode);
         self.notify_apps(Notification::NewSelectionMode(selection_mode))
     }
 
@@ -259,7 +262,10 @@ impl Mediator {
                 .unwrap()
                 .push_selection(selection, values);
         } else {
-            self.messages.lock().unwrap().push_selection(Selection::Nothing, vec![])
+            self.messages
+                .lock()
+                .unwrap()
+                .push_selection(Selection::Nothing, vec![])
         }
     }
 

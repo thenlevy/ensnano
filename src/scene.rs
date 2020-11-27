@@ -188,18 +188,18 @@ impl Scene {
     }
 
     pub fn make_new_grid(&self) {
-                self.mediator
-                    .lock()
-                    .unwrap()
-                    .update_opperation(Arc::new(CreateGrid {
-                        design_id: 0,
-                        position: Vec3::zero(),
-                        orientation: Rotor3::from_rotation_xz(-std::f32::consts::FRAC_PI_2),
-                        grid_type: GridTypeDescr::Square,
-                        delete: false,
-                    }));
-                self.data.borrow_mut().notify_instance_update();
-                self.mediator.lock().unwrap().suspend_op();
+        self.mediator
+            .lock()
+            .unwrap()
+            .update_opperation(Arc::new(CreateGrid {
+                design_id: 0,
+                position: Vec3::zero(),
+                orientation: Rotor3::from_rotation_xz(-std::f32::consts::FRAC_PI_2),
+                grid_type: GridTypeDescr::Square,
+                delete: false,
+            }));
+        self.data.borrow_mut().notify_instance_update();
+        self.mediator.lock().unwrap().suspend_op();
     }
 
     fn click_on(&mut self, clicked_pixel: PhysicalPosition<f64>) {
