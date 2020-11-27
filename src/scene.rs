@@ -36,9 +36,7 @@ use controller::{Consequence, Controller};
 mod data;
 pub use controller::ClickMode;
 use data::Data;
-use design::{
-    Design, DesignNotification, DesignNotificationContent, DesignRotation, IsometryTarget,
-};
+use design::{Design, DesignNotification, DesignNotificationContent};
 mod element_selector;
 use element_selector::{ElementSelector, SceneElement};
 
@@ -188,13 +186,17 @@ impl Scene {
     }
 
     pub fn make_new_grid(&self) {
+        let camera = self.view.borrow().get_camera();
+        let position = camera.borrow().position + 10_f32 * camera.borrow().direction();
+        let orientation = camera.borrow().rotor.reversed()
+            * Rotor3::from_rotation_xz(std::f32::consts::FRAC_PI_2);
         self.mediator
             .lock()
             .unwrap()
             .update_opperation(Arc::new(CreateGrid {
                 design_id: 0,
-                position: Vec3::zero(),
-                orientation: Rotor3::from_rotation_xz(-std::f32::consts::FRAC_PI_2),
+                position,
+                orientation,
                 grid_type: GridTypeDescr::Square,
                 delete: false,
             }));
@@ -280,18 +282,6 @@ impl Scene {
         } else {
             None
         };
-        /*
-        if let Some(element) = element {
-            match element {
-                SceneElement::DesignElement(design_id, element_id) =>
-                    self.data.borrow_mut().set_candidate(design_id, element_id),
-                SceneElement::WidgetElement(widget_id) =>
-                    widget = Some(widget_id),
-                _ => ()
-            }
-        } else {
-            self.data.borrow_mut().reset_candidate();
-        }*/
         self.view.borrow_mut().set_widget_candidate(widget);
     }
 
