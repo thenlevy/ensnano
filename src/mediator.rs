@@ -258,6 +258,8 @@ impl Mediator {
                 .lock()
                 .unwrap()
                 .push_selection(selection, values);
+        } else {
+            self.messages.lock().unwrap().push_selection(Selection::Nothing, vec![])
         }
     }
 
