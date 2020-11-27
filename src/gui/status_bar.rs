@@ -40,7 +40,8 @@ impl StatusParameter {
 
 pub struct StatusBar {
     parameters: Vec<StatusParameter>,
-    values: Vec<String>,
+    info_values: Vec<String>,
+    operation_values: Vec<String>,
     operation: Option<Arc<dyn Operation>>,
     requests: Arc<Mutex<Requests>>,
     selection: Selection,
@@ -50,7 +51,8 @@ impl StatusBar {
     pub fn new(requests: Arc<Mutex<Requests>>) -> Self {
         Self {
             parameters: Vec::new(),
-            values: Vec::new(),
+            info_values: Vec::new(),
+            operation_values: Vec::new(),
             operation: None,
             requests,
             selection: Selection::Nothing,
@@ -66,7 +68,7 @@ impl StatusBar {
                 ParameterField::Value => new_param.push(StatusParameter::value()),
             }
         }
-        self.values = operation.values().clone();
+        self.operation_values = operation.values().clone();
         self.parameters = new_param;
     }
 
@@ -74,7 +76,7 @@ impl StatusBar {
         let mut row = Row::new();
         let op = self.operation.as_ref().unwrap(); // the function view op is only called when op is some.
         row = row.push(Text::new(op.description()).size(STATUS_FONT_SIZE));
-        let values = &self.values;
+        let values = &self.operation_values;
         for (i, p) in self.parameters.iter_mut().enumerate() {
             let param = &op.parameters()[i];
             match param.field {
@@ -126,7 +128,7 @@ impl StatusBar {
             Selection::Grid(_, _) => {
                 row = row.push(
                     Checkbox::new(
-                        bool::from_str(&self.values[0]).unwrap(),
+                        bool::from_str(&self.info_values[0]).unwrap(),
                         "Persistent phantoms",
                         |b| Message::SelectionValueChanged(0, bool_to_string(b)),
                     )
@@ -168,7 +170,7 @@ impl Program for StatusBar {
                 self.update_op(op.clone());
             }
             Message::ValueChanged(n, s) => {
-                self.values[n] = s.clone();
+                self.operation_values[n] = s.clone();
                 let new_op = self
                     .operation
                     .as_ref()
@@ -179,13 +181,13 @@ impl Program for StatusBar {
                 self.requests.lock().unwrap().operation_update = new_op;
             }
             Message::SelectionValueChanged(n, s) => {
-                self.values[n] = s.clone();
+                self.info_values[n] = s.clone();
                 self.requests.lock().unwrap().toggle_persistent_helices = bool::from_str(&s).ok();
             }
             Message::Selection(s, v) => {
                 self.operation = None;
                 self.selection = s;
-                self.values = v;
+                self.info_values = v;
             }
             Message::ClearOp => self.operation = None,
         }
