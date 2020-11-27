@@ -32,10 +32,7 @@ impl ColorPicker {
     pub fn view(&mut self) -> Row<Message> {
         let color_picker = Row::new()
             .spacing(5)
-            .push(HueColumn::new(
-                &mut self.hue_state,
-                Message::HueChanged,
-            ))
+            .push(HueColumn::new(&mut self.hue_state, Message::HueChanged))
             .spacing(10)
             .push(LightSatSquare::new(
                 self.hue as f64,
@@ -191,7 +188,7 @@ mod hue_column {
             messages: &mut Vec<Message>,
             _renderer: &Renderer<B>,
             _clipboard: Option<&dyn Clipboard>,
-        ) {
+        ) -> iced_native::event::Status {
             let mut change = || {
                 let bounds = layout.bounds();
                 if cursor_position.y <= bounds.y {
@@ -212,19 +209,26 @@ mod hue_column {
                             change();
                             self.state.is_dragging = true;
                         }
+                        iced_native::event::Status::Captured
                     }
                     mouse::Event::ButtonReleased(mouse::Button::Left) => {
                         if self.state.is_dragging {
                             self.state.is_dragging = false;
                         }
+                        iced_native::event::Status::Captured
                     }
                     mouse::Event::CursorMoved { .. } => {
                         if self.state.is_dragging {
                             change();
+                            iced_native::event::Status::Captured
+                        } else {
+                            iced_native::event::Status::Ignored
                         }
                     }
-                    _ => {}
+                    _ => iced_native::event::Status::Ignored,
                 }
+            } else {
+                iced_native::event::Status::Ignored
             }
         }
     }
@@ -372,7 +376,7 @@ mod light_sat_square {
             messages: &mut Vec<Message>,
             _renderer: &Renderer<B>,
             _clipboard: Option<&dyn Clipboard>,
-        ) {
+        ) -> iced_native::event::Status {
             let mut change = || {
                 let bounds = layout.bounds();
                 let percent_x = if cursor_position.x <= bounds.x {
@@ -406,20 +410,27 @@ mod light_sat_square {
                         if layout.bounds().contains(cursor_position) {
                             change();
                             self.state.is_dragging = true;
+                            iced_native::event::Status::Captured
+                        } else {
+                            iced_native::event::Status::Ignored
                         }
                     }
                     mouse::Event::ButtonReleased(mouse::Button::Left) => {
                         if self.state.is_dragging {
                             self.state.is_dragging = false;
                         }
+                        iced_native::event::Status::Captured
                     }
                     mouse::Event::CursorMoved { .. } => {
                         if self.state.is_dragging {
                             change();
                         }
+                        iced_native::event::Status::Captured
                     }
-                    _ => {}
+                    _ => iced_native::event::Status::Ignored,
                 }
+            } else {
+                iced_native::event::Status::Ignored
             }
         }
     }

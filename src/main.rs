@@ -630,9 +630,8 @@ impl OverlayManager {
         for overlay_type in self.overlay_types.iter() {
             match overlay_type {
                 OverlayType::Color => {
-                    let color_viewport = Viewport::with_physical_size_and_position(
+                    let color_viewport = Viewport::with_physical_size(
                         convert_size_u32(multiplexer.window_size),
-                        (500, 500),
                         window.scale_factor(),
                     );
                     let _color_interaction = renderer.backend_mut().draw(

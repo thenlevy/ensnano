@@ -4,8 +4,8 @@ use iced::{container, Background, Container, Image};
 use iced_wgpu::Renderer;
 use iced_winit::winit::dpi::{LogicalPosition, LogicalSize};
 use iced_winit::{
-    button, scrollable, slider, Button, Checkbox, Color, Column, Command, Element,
-    Length, Program, Scrollable, Slider, Text, Row,
+    button, scrollable, slider, Button, Checkbox, Color, Column, Command, Element, Length, Program,
+    Row, Scrollable, Slider, Text,
 };
 use native_dialog::Dialog;
 
@@ -160,26 +160,46 @@ impl Program for LeftPanel {
             .push(slider);
 
         let mut selection_buttons = vec![
-            Button::new(&mut self.selection_mode_state.grid, if self.selection_mode == SelectionMode::Grid {
-                Image::new("icons/icons/Grid-on.png")
-            } else {
-                Image::new("icons/icons/Grid-off.png")
-            }).on_press(Message::SelectionModeChanged(SelectionMode::Grid)).width(Length::Units(BUTTON_SIZE)),
-            Button::new(&mut self.selection_mode_state.helix, if self.selection_mode == SelectionMode::Helix {
-                Image::new("icons/icons/Helix-on.png")
-            } else {
-                Image::new("icons/icons/Helix-off.png")
-            }).on_press(Message::SelectionModeChanged(SelectionMode::Helix)).width(Length::Units(BUTTON_SIZE)),
-            Button::new(&mut self.selection_mode_state.strand, if self.selection_mode == SelectionMode::Strand {
-                Image::new("icons/icons/Strand-on.png")
-            } else {
-                Image::new("icons/icons/Strand-off.png")
-            }).on_press(Message::SelectionModeChanged(SelectionMode::Strand)).width(Length::Units(BUTTON_SIZE)),
-            Button::new(&mut self.selection_mode_state.nucleotide, if self.selection_mode == SelectionMode::Nucleotide {
-                Image::new("icons/icons/Nucleotide-on.png")
-            } else {
-                Image::new("icons/icons/Nucleotide-off.png")
-            }).on_press(Message::SelectionModeChanged(SelectionMode::Nucleotide)).width(Length::Units(BUTTON_SIZE))
+            Button::new(
+                &mut self.selection_mode_state.grid,
+                if self.selection_mode == SelectionMode::Grid {
+                    Image::new("icons/icons/Grid-on.png")
+                } else {
+                    Image::new("icons/icons/Grid-off.png")
+                },
+            )
+            .on_press(Message::SelectionModeChanged(SelectionMode::Grid))
+            .width(Length::Units(BUTTON_SIZE)),
+            Button::new(
+                &mut self.selection_mode_state.helix,
+                if self.selection_mode == SelectionMode::Helix {
+                    Image::new("icons/icons/Helix-on.png")
+                } else {
+                    Image::new("icons/icons/Helix-off.png")
+                },
+            )
+            .on_press(Message::SelectionModeChanged(SelectionMode::Helix))
+            .width(Length::Units(BUTTON_SIZE)),
+            Button::new(
+                &mut self.selection_mode_state.strand,
+                if self.selection_mode == SelectionMode::Strand {
+                    Image::new("icons/icons/Strand-on.png")
+                } else {
+                    Image::new("icons/icons/Strand-off.png")
+                },
+            )
+            .on_press(Message::SelectionModeChanged(SelectionMode::Strand))
+            .width(Length::Units(BUTTON_SIZE)),
+            Button::new(
+                &mut self.selection_mode_state.nucleotide,
+                if self.selection_mode == SelectionMode::Nucleotide {
+                    Image::new("icons/icons/Nucleotide-on.png")
+                } else {
+                    Image::new("icons/icons/Nucleotide-off.png")
+                },
+            )
+            .on_press(Message::SelectionModeChanged(SelectionMode::Nucleotide))
+            .width(Length::Units(BUTTON_SIZE)),
         ];
 
         global_scroll = global_scroll.spacing(5).push(Text::new("SelectionMode"));
@@ -187,7 +207,7 @@ impl Program for LeftPanel {
             let mut row = Row::new();
             row = row.push(selection_buttons.pop().unwrap()).spacing(5);
             let mut space = BUTTON_SIZE + 5;
-            while space + BUTTON_SIZE < width  && selection_buttons.len() > 0{
+            while space + BUTTON_SIZE < width && selection_buttons.len() > 0 {
                 row = row.push(selection_buttons.pop().unwrap()).spacing(5);
                 space += BUTTON_SIZE;
             }
@@ -195,43 +215,64 @@ impl Program for LeftPanel {
         }
 
         let mut action_buttons = vec![
-            Button::new(&mut self.action_mode_state.select, if self.action_mode == ActionMode::Normal {
-                Image::new("icons/icons/Select-on.png")
-            } else {
-                Image::new("icons/icons/Select-off.png")
-            }
-            ).on_press(Message::ActionModeChanged(ActionMode::Normal)).width(Length::Units(40)),
-            Button::new(&mut self.action_mode_state.translate, if self.action_mode == ActionMode::Translate {
-                Image::new("icons/icons/Move-on.png")
-            } else {
-                Image::new("icons/icons/Move-off.png")
-            }
-            ).on_press(Message::ActionModeChanged(ActionMode::Translate)).width(Length::Units(40)),
-            Button::new(&mut self.action_mode_state.rotate, if self.action_mode == ActionMode::Rotate {
-                Image::new("icons/icons/Rotate-on.png")
-            } else {
-                Image::new("icons/icons/Rotate-off.png")
-            }
-            ).on_press(Message::ActionModeChanged(ActionMode::Rotate)).width(Length::Units(40)),
-            Button::new(&mut self.action_mode_state.build, if self.action_mode.is_build() {
-                Image::new("icons/icons/Build-on.png")
-            } else {
-                Image::new("icons/icons/Build-off.png")
-            }
-            ).on_press(Message::ActionModeChanged(ActionMode::Build(false))).width(Length::Units(40)),
-            Button::new(&mut self.action_mode_state.cut, if self.action_mode == ActionMode::Cut {
-                Image::new("icons/icons/Cut-on.png")
-            } else {
-                Image::new("icons/icons/Cut-off.png")
-            }
-            ).on_press(Message::ActionModeChanged(ActionMode::Cut)).width(Length::Units(40))];
+            Button::new(
+                &mut self.action_mode_state.select,
+                if self.action_mode == ActionMode::Normal {
+                    Image::new("icons/icons/Select-on.png")
+                } else {
+                    Image::new("icons/icons/Select-off.png")
+                },
+            )
+            .on_press(Message::ActionModeChanged(ActionMode::Normal))
+            .width(Length::Units(40)),
+            Button::new(
+                &mut self.action_mode_state.translate,
+                if self.action_mode == ActionMode::Translate {
+                    Image::new("icons/icons/Move-on.png")
+                } else {
+                    Image::new("icons/icons/Move-off.png")
+                },
+            )
+            .on_press(Message::ActionModeChanged(ActionMode::Translate))
+            .width(Length::Units(40)),
+            Button::new(
+                &mut self.action_mode_state.rotate,
+                if self.action_mode == ActionMode::Rotate {
+                    Image::new("icons/icons/Rotate-on.png")
+                } else {
+                    Image::new("icons/icons/Rotate-off.png")
+                },
+            )
+            .on_press(Message::ActionModeChanged(ActionMode::Rotate))
+            .width(Length::Units(40)),
+            Button::new(
+                &mut self.action_mode_state.build,
+                if self.action_mode.is_build() {
+                    Image::new("icons/icons/Build-on.png")
+                } else {
+                    Image::new("icons/icons/Build-off.png")
+                },
+            )
+            .on_press(Message::ActionModeChanged(ActionMode::Build(false)))
+            .width(Length::Units(40)),
+            Button::new(
+                &mut self.action_mode_state.cut,
+                if self.action_mode == ActionMode::Cut {
+                    Image::new("icons/icons/Cut-on.png")
+                } else {
+                    Image::new("icons/icons/Cut-off.png")
+                },
+            )
+            .on_press(Message::ActionModeChanged(ActionMode::Cut))
+            .width(Length::Units(40)),
+        ];
 
         global_scroll = global_scroll.spacing(5).push(Text::new("Action Mode"));
         while action_buttons.len() > 0 {
             let mut row = Row::new();
             row = row.push(action_buttons.remove(0)).spacing(5);
             let mut space = BUTTON_SIZE + 5;
-            while space + BUTTON_SIZE < width  && action_buttons.len() > 0{
+            while space + BUTTON_SIZE < width && action_buttons.len() > 0 {
                 row = row.push(action_buttons.remove(0)).spacing(5);
                 space += BUTTON_SIZE;
             }
@@ -239,9 +280,13 @@ impl Program for LeftPanel {
         }
 
         if let ActionMode::Build(b) = self.action_mode {
-            global_scroll = global_scroll.spacing(5).push(Checkbox::new(b, "Stick", |b| {
-                Message::ActionModeChanged(ActionMode::Build(b))
-            }).size(12).text_size(12))
+            global_scroll = global_scroll.spacing(5).push(
+                Checkbox::new(b, "Stick", |b| {
+                    Message::ActionModeChanged(ActionMode::Build(b))
+                })
+                .size(12)
+                .text_size(12),
+            )
         }
 
         let mut widget = Column::new()
@@ -252,13 +297,10 @@ impl Program for LeftPanel {
         if self.selection_mode == SelectionMode::Strand {
             widget = widget
                 .spacing(5)
-                .push(
-                    self.color_picker.view()
-                )
+                .push(self.color_picker.view())
                 .spacing(5)
                 .push(self.sequence_input.view());
         }
-
 
         Container::new(widget)
             .style(TopBarStyle)
@@ -371,8 +413,8 @@ impl container::StyleSheet for FloatingStyle {
         container::Style {
             background: Some(Background::Color(BACKGROUND)),
             text_color: Some(Color::WHITE),
-            border_width: 3,
-            border_radius: 3,
+            border_width: 3_f32,
+            border_radius: 3_f32,
             border_color: Color::BLACK,
             ..container::Style::default()
         }
@@ -389,9 +431,9 @@ struct SelectionModeState {
 
 #[derive(Default, Debug, Clone)]
 struct ActionModeState {
-   pub select: button::State,
-   pub translate: button::State,
-   pub rotate: button::State,
-   pub build: button::State,
-   pub cut: button::State,
+    pub select: button::State,
+    pub translate: button::State,
+    pub rotate: button::State,
+    pub build: button::State,
+    pub cut: button::State,
 }
