@@ -362,6 +362,12 @@ fn main() {
                         mediator.lock().unwrap().make_grids();
                         requests.make_grids = false
                     }
+
+                    if requests.new_grid {
+                        scene.lock().unwrap().make_new_grid();
+                        requests.new_grid = false;
+                    }
+
                     if let Some(selection_mode) = requests.selection_mode {
                         mediator
                             .lock()

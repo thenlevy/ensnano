@@ -59,6 +59,7 @@ pub struct Requests {
     pub overlay_opened: Option<OverlayType>,
     pub operation_update: Option<Arc<dyn Operation>>,
     pub toggle_persistent_helices: Option<bool>,
+    pub new_grid: bool,
 }
 
 impl Requests {
@@ -81,6 +82,7 @@ impl Requests {
             overlay_opened: None,
             operation_update: None,
             toggle_persistent_helices: None,
+            new_grid: false,
         }
     }
 }

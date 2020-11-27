@@ -84,7 +84,6 @@ pub enum Consequence {
     BuildEnded(u32, u32),
     Undo,
     Redo,
-    NewGrid,
 }
 
 impl Controller {
@@ -162,7 +161,6 @@ impl Controller {
                 {
                     Consequence::Redo
                 }
-                VirtualKeyCode::G if *state == ElementState::Pressed => Consequence::NewGrid,
                 _ => {
                     if self.camera_controller.process_keyboard(*key, *state) {
                         Consequence::CameraMoved

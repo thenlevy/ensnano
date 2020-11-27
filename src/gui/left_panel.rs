@@ -48,6 +48,7 @@ pub enum Message {
     ScrollSensitivityChanged(f32),
     StrandColorChanged(Color),
     HueChanged(f32),
+    NewGrid,
 }
 
 impl LeftPanel {
@@ -140,6 +141,7 @@ impl Program for LeftPanel {
             }
             Message::HueChanged(x) => self.color_picker.change_hue(x),
             Message::Resized(size, position) => self.resize(size, position),
+            Message::NewGrid => self.requests.lock().unwrap().new_grid = true,
         };
         Command::none()
     }
@@ -265,6 +267,10 @@ impl Program for LeftPanel {
             )
             .on_press(Message::ActionModeChanged(ActionMode::Cut))
             .width(Length::Units(40)),
+            Button::new(
+                &mut self.action_mode_state.add_grid,
+                Image::new(format!("{}/icons/icons/NewGrid-on.png", env!("CARGO_MANIFEST_DIR"))).width(Length::Units(BUTTON_SIZE))
+            ).on_press(Message::NewGrid).width(Length::Units(40))
         ];
 
         global_scroll = global_scroll.spacing(5).push(Text::new("Action Mode"));
@@ -436,4 +442,5 @@ struct ActionModeState {
     pub rotate: button::State,
     pub build: button::State,
     pub cut: button::State,
+    pub add_grid: button::State,
 }

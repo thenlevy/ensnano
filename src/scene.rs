@@ -184,7 +184,10 @@ impl Scene {
             }
             Consequence::Undo => self.mediator.lock().unwrap().undo(),
             Consequence::Redo => self.mediator.lock().unwrap().redo(),
-            Consequence::NewGrid => {
+        };
+    }
+
+    pub fn make_new_grid(&self) {
                 self.mediator
                     .lock()
                     .unwrap()
@@ -197,8 +200,6 @@ impl Scene {
                     }));
                 self.data.borrow_mut().notify_instance_update();
                 self.mediator.lock().unwrap().suspend_op();
-            }
-        };
     }
 
     fn click_on(&mut self, clicked_pixel: PhysicalPosition<f64>) {
