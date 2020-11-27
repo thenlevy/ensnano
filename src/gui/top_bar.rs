@@ -18,6 +18,7 @@ pub struct TopBar {
     button_2d: button::State,
     button_split: button::State,
     button_make_grid: button::State,
+    button_help: button::State,
     toggle_text_value: bool,
     requests: Arc<Mutex<Requests>>,
     logical_size: LogicalSize<f64>,
@@ -33,6 +34,7 @@ pub enum Message {
     ToggleText(bool),
     ToggleView(SplitMode),
     MakeGrids,
+    HelpRequested,
 }
 
 impl TopBar {
@@ -46,6 +48,7 @@ impl TopBar {
             button_3d: Default::default(),
             button_split: Default::default(),
             button_make_grid: Default::default(),
+            button_help: Default::default(),
             toggle_text_value: false,
             requests,
             logical_size,
@@ -112,6 +115,25 @@ impl Program for TopBar {
             }
             Message::MakeGrids => self.requests.lock().unwrap().make_grids = true,
             Message::ToggleView(b) => self.requests.lock().unwrap().toggle_scene = Some(b),
+            Message::HelpRequested => {
+                let dialog = native_dialog::MessageAlert {
+                    title: "Keyboard shortcuts help",
+                    text: "Change action mode: \n 
+                        Normal: Escape\n
+                        Translate: T\n
+                        Rotate: R\n
+                        Build: A\n
+                        Cut: X\n
+                        \n
+                        Change selection mode: \n
+                        Nucleotide: N\n
+                        Strand: S\n
+                        Helix: H\n
+                        Grid: G\n",
+                    typ: native_dialog::MessageType::Info,
+                };
+                let result = dialog.show().unwrap();
+            }
         };
         Command::none()
     }
@@ -163,7 +185,11 @@ impl Program for TopBar {
             .push(button_2d)
             .push(button_3d)
             .push(button_split)
-            .push(button_make_grid);
+            .push(button_make_grid)
+            .push(
+                Button::new(&mut self.button_help, iced::Text::new("Help"))
+                    .on_press(Message::HelpRequested),
+            );
 
         Container::new(buttons)
             .width(Length::Fill)
