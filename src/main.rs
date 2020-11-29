@@ -529,7 +529,8 @@ impl IcedMessages {
         let color = iced::Color::from_rgb8(bytes[1], bytes[2], bytes[3]);
         self.color_overlay
             .push_front(gui::left_panel::ColorMessage::StrandColorChanged(color));
-        self.left_panel.push_front(gui::left_panel::Message::StrandColorChanged(color));
+        self.left_panel
+            .push_front(gui::left_panel::Message::StrandColorChanged(color));
     }
 
     pub fn push_sequence(&mut self, sequence: String) {

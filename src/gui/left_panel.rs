@@ -177,6 +177,7 @@ impl Program for LeftPanel {
                 },
             )
             .on_press(Message::SelectionModeChanged(SelectionMode::Grid))
+            .style(ButtonStyle(self.selection_mode == SelectionMode::Grid))
             .width(Length::Units(BUTTON_SIZE)),
             Button::new(
                 &mut self.selection_mode_state.helix,
@@ -193,6 +194,7 @@ impl Program for LeftPanel {
                 },
             )
             .on_press(Message::SelectionModeChanged(SelectionMode::Helix))
+            .style(ButtonStyle(self.selection_mode == SelectionMode::Helix))
             .width(Length::Units(BUTTON_SIZE)),
             Button::new(
                 &mut self.selection_mode_state.strand,
@@ -209,6 +211,7 @@ impl Program for LeftPanel {
                 },
             )
             .on_press(Message::SelectionModeChanged(SelectionMode::Strand))
+            .style(ButtonStyle(self.selection_mode == SelectionMode::Strand))
             .width(Length::Units(BUTTON_SIZE)),
             Button::new(
                 &mut self.selection_mode_state.nucleotide,
@@ -225,6 +228,9 @@ impl Program for LeftPanel {
                 },
             )
             .on_press(Message::SelectionModeChanged(SelectionMode::Nucleotide))
+            .style(ButtonStyle(
+                self.selection_mode == SelectionMode::Nucleotide,
+            ))
             .width(Length::Units(BUTTON_SIZE)),
         ];
 
@@ -235,7 +241,7 @@ impl Program for LeftPanel {
             let mut space = BUTTON_SIZE + 5;
             while space + BUTTON_SIZE < width && selection_buttons.len() > 0 {
                 row = row.push(selection_buttons.pop().unwrap()).spacing(5);
-                space += BUTTON_SIZE;
+                space += BUTTON_SIZE + 5;
             }
             global_scroll = global_scroll.spacing(5).push(row)
         }
@@ -256,6 +262,7 @@ impl Program for LeftPanel {
                 },
             )
             .on_press(Message::ActionModeChanged(ActionMode::Normal))
+            .style(ButtonStyle(self.action_mode == ActionMode::Normal))
             .width(Length::Units(40)),
             Button::new(
                 &mut self.action_mode_state.translate,
@@ -272,6 +279,7 @@ impl Program for LeftPanel {
                 },
             )
             .on_press(Message::ActionModeChanged(ActionMode::Translate))
+            .style(ButtonStyle(self.action_mode == ActionMode::Translate))
             .width(Length::Units(40)),
             Button::new(
                 &mut self.action_mode_state.rotate,
@@ -288,6 +296,7 @@ impl Program for LeftPanel {
                 },
             )
             .on_press(Message::ActionModeChanged(ActionMode::Rotate))
+            .style(ButtonStyle(self.action_mode == ActionMode::Rotate))
             .width(Length::Units(40)),
             Button::new(
                 &mut self.action_mode_state.build,
@@ -304,6 +313,7 @@ impl Program for LeftPanel {
                 },
             )
             .on_press(Message::ActionModeChanged(ActionMode::Build(false)))
+            .style(ButtonStyle(self.action_mode.is_build()))
             .width(Length::Units(40)),
             Button::new(
                 &mut self.action_mode_state.cut,
@@ -322,7 +332,8 @@ impl Program for LeftPanel {
                 },
             )
             .on_press(Message::ActionModeChanged(ActionMode::Cut))
-            .width(Length::Units(40)),
+            .width(Length::Units(40))
+            .style(ButtonStyle(self.action_mode == ActionMode::Cut)),
             Button::new(
                 &mut self.action_mode_state.add_grid,
                 Image::new(format!(
@@ -342,7 +353,7 @@ impl Program for LeftPanel {
             let mut space = BUTTON_SIZE + 5;
             while space + BUTTON_SIZE < width && action_buttons.len() > 0 {
                 row = row.push(action_buttons.remove(0)).spacing(5);
-                space += BUTTON_SIZE;
+                space += BUTTON_SIZE + 5;
             }
             global_scroll = global_scroll.spacing(5).push(row)
         }
@@ -490,6 +501,25 @@ impl container::StyleSheet for FloatingStyle {
             border_radius: 3_f32,
             border_color: Color::BLACK,
             ..container::Style::default()
+        }
+    }
+}
+
+struct ButtonStyle(bool);
+
+impl iced_wgpu::button::StyleSheet for ButtonStyle {
+    fn active(&self) -> iced_wgpu::button::Style {
+        iced_wgpu::button::Style {
+            border_width: if self.0 { 3_f32 } else { 1_f32 },
+            border_radius: if self.0 { 3_f32 } else { 2_f32 },
+            border_color: if self.0 {
+                Color::BLACK
+            } else {
+                [0.7, 0.7, 0.7].into()
+            },
+            background: Some(Background::Color([0.87, 0.87, 0.87].into())),
+            //background: Some(Background::Color(BACKGROUND)),
+            ..Default::default()
         }
     }
 }
