@@ -57,7 +57,7 @@ pub struct Letter {
 }
 
 const MAX_SIZE: u32 = 9;
-const MIN_SIZE: u32 = 3;
+const MIN_SIZE: u32 = 1;
 const MIP_LEVEL_COUNT: u32 = MAX_SIZE - MIN_SIZE + 1;
 
 impl Letter {
@@ -118,6 +118,7 @@ impl Letter {
 
         let advance = metrics.advance_width / size.width as f32;
         let height = metrics.height as f32 / size.height as f32;
+        let mut last_pixels = None;
 
         for mip_level in 0..MIP_LEVEL_COUNT {
             let size = Extent3d {
@@ -127,14 +128,27 @@ impl Letter {
             };
             let mut pixels = vec![0u8; (size.width * size.height * 4) as usize];
 
-            let (metrics, bitmap) = font.rasterize(character, size.height as f32);
+            if let Some(ref previous) = last_pixels {
+                for x in 0..size.width as usize {
+                    for y in 0..size.height as usize {
+                        // We use 4 bytes per pixel because we use BgraUnormSrgb format
+                        let coverage = get_average_pixel_value(previous, x, y, 2 * size.width as usize);
+                        for i in 0..4 {
+                            pixels[4 * (y * size.width as usize + x) + i] = coverage
+                        }
+                    }
+                }
 
-            for x in 0..metrics.width {
-                for y in 0..metrics.height {
-                    // We use 4 bytes per pixel because we use BgraUnormSrgb format
-                    for i in 0..4 {
-                        pixels[4 * (y * size.width as usize + x) + i] =
-                            bitmap[y * metrics.width + x];
+            } else {
+                let (metrics, bitmap) = font.rasterize(character, size.height as f32);
+
+                for x in 0..metrics.width {
+                    for y in 0..metrics.height {
+                        // We use 4 bytes per pixel because we use BgraUnormSrgb format
+                        for i in 0..4 {
+                            pixels[4 * (y * size.width as usize + x) + i] =
+                                bitmap[y * metrics.width + x];
+                        }
                     }
                 }
             }
@@ -155,6 +169,8 @@ impl Letter {
                 },
                 size,
             );
+            
+            last_pixels = Some(pixels);
         }
 
         let diffuse_texture_view =
@@ -229,4 +245,10 @@ impl Letter {
             height,
         }
     }
+}
+
+fn get_average_pixel_value(pixels: &Vec<u8>, x: usize, y: usize, width: usize) -> u8 {
+    let get = |x, y| pixels[4 * (y * width + x)] as u16;
+    let sum = get(2 * x, 2 * y) + get(2 * x + 1, 2 * y) + get(2 * x + 1, 2 * y) + get(2 * x + 1, 2 * y + 1);
+    (sum / 4) as u8
 }
