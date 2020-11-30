@@ -5,6 +5,7 @@ use super::drawable::Vertex;
 use super::instances_drawer::Instanciable;
 use ultraviolet::{Mat4, Rotor3, Vec3, Vec4};
 
+#[derive(Debug, Clone)]
 pub struct GridDisc {
     position: Vec3,
     orientation: Rotor3,

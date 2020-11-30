@@ -42,8 +42,6 @@ impl<D: Instanciable> InstanceDrawer<D> {
     pub fn new(
         device: Rc<Device>,
         queue: Rc<Queue>,
-        vertex_module: &str,
-        fragment_module: &str,
         viewer_desc: BindGroupLayoutDescriptor<'static>,
         models_desc: BindGroupLayoutDescriptor<'static>,
     ) -> Self {
@@ -55,7 +53,7 @@ impl<D: Instanciable> InstanceDrawer<D> {
         let vertex_buffer = create_buffer_with_data(
             device.as_ref(),
             bytemuck::cast_slice(D::raw_vertices().as_slice()),
-            wgpu::BufferUsage::INDEX,
+            wgpu::BufferUsage::VERTEX,
         );
 
         let pipeline = Self::create_pipeline(
@@ -119,11 +117,11 @@ impl<D: Instanciable> InstanceDrawer<D> {
             label: None,
             entries: &[wgpu::BindGroupLayoutEntry {
                 binding: 0,
-                visibility: wgpu::ShaderStage::VERTEX | wgpu::ShaderStage::FRAGMENT,
+                visibility: wgpu::ShaderStage::VERTEX,
                 ty: wgpu::BindingType::StorageBuffer {
                     dynamic: false,
                     min_binding_size: None,
-                    readonly: false,
+                    readonly: true,
                 },
                 count: None,
             }],

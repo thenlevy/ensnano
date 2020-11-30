@@ -33,12 +33,14 @@ mod maths;
 /// A RotationWidget draws the widget for rotating objects
 mod rotation_widget;
 
-use bindgroup_manager::UniformBindGroup;
+use bindgroup_manager::{DynamicBindGroup, UniformBindGroup};
 use drawable::{Drawable, Drawer, Vertex};
 use grid::GridDrawer;
 pub use grid::{GridInstance, GridIntersection, GridTypeDescr};
+pub use grid_disc::GridDisc;
 use handle_drawer::HandlesDrawer;
 pub use handle_drawer::{HandleDir, HandleOrientation, HandlesDescriptor};
+use instances_drawer::InstanceDrawer;
 use letter::LetterDrawer;
 pub use letter::LetterInstance;
 use maths::unproject_point_on_line;
@@ -46,6 +48,17 @@ use rotation_widget::RotationWidget;
 pub use rotation_widget::{RotationMode, RotationWidgetDescriptor, RotationWidgetOrientation};
 //use plane_drawer::PlaneDrawer;
 //pub use plane_drawer::Plane;
+
+static MODEL_BG_ENTRY: &'static [wgpu::BindGroupLayoutEntry] = &[wgpu::BindGroupLayoutEntry {
+    binding: 0,
+    visibility: wgpu::ShaderStage::from_bits_truncate(wgpu::ShaderStage::VERTEX.bits()),
+    ty: wgpu::BindingType::StorageBuffer {
+        dynamic: false,
+        min_binding_size: None,
+        readonly: true,
+    },
+    count: None,
+}];
 
 /// An object that handles the communication with the GPU to draw the scene.
 pub struct View {
@@ -72,13 +85,15 @@ pub struct View {
     /// A bind group associated to the uniform buffer containing the view and projection matrices.
     //TODO this is currently only passed to the widgets, it could be passed to the mesh pipeline as
     //well.
-    viewer: Rc<RefCell<UniformBindGroup>>,
+    viewer: UniformBindGroup,
+    models: DynamicBindGroup,
     redraw_twice: bool,
     need_redraw: bool,
     need_redraw_fake: bool,
     draw_letter: bool,
     msaa_texture: Option<wgpu::TextureView>,
     grid_drawer: GridDrawer,
+    disc_drawer: InstanceDrawer<GridDisc>,
 }
 
 impl View {
@@ -110,11 +125,11 @@ impl View {
             texture::Texture::create_depth_texture(device.as_ref(), &area_size, SAMPLE_COUNT);
         let fake_depth_texture =
             texture::Texture::create_depth_texture(device.as_ref(), &window_size, 1);
-        let viewer = Rc::new(RefCell::new(UniformBindGroup::new(
+        let viewer = UniformBindGroup::new(
             device.clone(),
             queue.clone(),
             &Uniforms::from_view_proj(camera.clone(), projection.clone()),
-        )));
+        );
         let msaa_texture = if SAMPLE_COUNT > 1 {
             Some(crate::utils::texture::Texture::create_msaa_texture(
                 device.clone().as_ref(),
@@ -125,6 +140,7 @@ impl View {
         } else {
             None
         };
+        let models = DynamicBindGroup::new(device.clone(), queue.clone());
 
         let grid_drawer = GridDrawer::new(
             device.clone(),
@@ -133,6 +149,17 @@ impl View {
             &projection,
             encoder,
             None,
+        );
+
+        let model_bg_desc = wgpu::BindGroupLayoutDescriptor {
+            entries: MODEL_BG_ENTRY,
+            label: None,
+        };
+        let disc_drawer = InstanceDrawer::new(
+            device.clone(),
+            queue.clone(),
+            viewer.get_layout_desc(),
+            model_bg_desc,
         );
 
         Self {
@@ -144,6 +171,7 @@ impl View {
             new_size: None,
             device: device.clone(),
             viewer,
+            models,
             handle_drawers: HandlesDrawer::new(device.clone()),
             rotation_widget: RotationWidget::new(device),
             letter_drawer,
@@ -153,6 +181,7 @@ impl View {
             draw_letter: false,
             msaa_texture,
             grid_drawer,
+            disc_drawer,
         }
     }
 
@@ -168,7 +197,7 @@ impl View {
             ViewUpdate::Camera => {
                 self.pipeline_handlers
                     .new_viewer(self.camera.clone(), self.projection.clone());
-                self.viewer.borrow_mut().update(&Uniforms::from_view_proj(
+                self.viewer.update(&Uniforms::from_view_proj(
                     self.camera.clone(),
                     self.projection.clone(),
                 ));
@@ -202,6 +231,7 @@ impl View {
                 for i in 0..NB_BASIS_SYMBOLS {
                     self.letter_drawer[i].new_model_matrices(Rc::new(matrices.clone()));
                 }
+                self.models.update(matrices.clone().as_slice());
                 self.pipeline_handlers.update(view_update);
             }
             ViewUpdate::Letter(letter) => {
@@ -210,6 +240,7 @@ impl View {
                 }
             }
             ViewUpdate::Grids(grid) => self.grid_drawer.new_instances(grid),
+            ViewUpdate::GridDiscs(instances) => self.disc_drawer.new_instances(instances),
             _ => {
                 self.need_redraw_fake |= self.pipeline_handlers.update(view_update);
             }
@@ -270,7 +301,7 @@ impl View {
             DrawType::Phantom => self.pipeline_handlers.fake_phantoms(),
             _ => Vec::new(),
         };
-        let viewer = self.viewer.borrow();
+        let viewer = &self.viewer;
         let viewer_bind_group = viewer.get_bindgroup();
         let viewer_bind_group_layout = viewer.get_layout();
 
@@ -365,7 +396,12 @@ impl View {
         }
 
         if !fake_color {
-            self.grid_drawer.draw(&mut render_pass)
+            self.grid_drawer.draw(&mut render_pass);
+            self.disc_drawer.draw(
+                &mut render_pass,
+                viewer_bind_group,
+                &self.models.get_bindgroup(),
+            );
         }
 
         if fake_color {
@@ -529,6 +565,7 @@ pub enum ViewUpdate {
     RotationWidget(Option<RotationWidgetDescriptor>),
     Letter(Vec<Rc<Vec<LetterInstance>>>),
     Grids(Rc<Vec<GridInstance>>),
+    GridDiscs(Vec<GridDisc>),
 }
 
 /// The structure gathers all the pipepline that are used to draw meshes on the scene
@@ -788,7 +825,8 @@ impl PipelineHandlers {
             | ViewUpdate::Handles(_)
             | ViewUpdate::RotationWidget(_)
             | ViewUpdate::Letter(_)
-            | ViewUpdate::Grids(_) => {
+            | ViewUpdate::Grids(_)
+            | ViewUpdate::GridDiscs(_) => {
                 unreachable!();
             }
         }

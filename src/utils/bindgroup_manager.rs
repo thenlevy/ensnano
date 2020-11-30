@@ -119,6 +119,18 @@ pub struct UniformBindGroup {
     queue: Rc<Queue>,
 }
 
+static UNIFORM_BG_ENTRY: &'static [wgpu::BindGroupLayoutEntry] = &[wgpu::BindGroupLayoutEntry {
+    binding: 0,
+    visibility: wgpu::ShaderStage::from_bits_truncate(
+        wgpu::ShaderStage::VERTEX.bits() | wgpu::ShaderStage::FRAGMENT.bits(),
+    ),
+    ty: wgpu::BindingType::UniformBuffer {
+        dynamic: false,
+        min_binding_size: None,
+    },
+    count: None,
+}];
+
 impl UniformBindGroup {
     pub fn new<I: bytemuck::Pod>(device: Rc<Device>, queue: Rc<Queue>, viewer_data: &I) -> Self {
         let buffer = create_buffer_with_data(
@@ -127,18 +139,7 @@ impl UniformBindGroup {
             wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
         );
         let layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            entries: &[
-                // perspective and view
-                wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStage::VERTEX | wgpu::ShaderStage::FRAGMENT,
-                    ty: wgpu::BindingType::UniformBuffer {
-                        dynamic: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                },
-            ],
+            entries: UNIFORM_BG_ENTRY,
             label: Some("uniform_bind_group_layout"),
         });
 
@@ -173,5 +174,12 @@ impl UniformBindGroup {
 
     pub fn get_layout(&self) -> &BindGroupLayout {
         &self.layout
+    }
+
+    pub fn get_layout_desc(&self) -> wgpu::BindGroupLayoutDescriptor<'static> {
+        wgpu::BindGroupLayoutDescriptor {
+            entries: UNIFORM_BG_ENTRY,
+            label: Some("uniform_bind_group"),
+        }
     }
 }
