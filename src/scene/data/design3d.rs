@@ -260,7 +260,9 @@ impl Design3D {
             SceneElement::PhantomElement(phantom) => {
                 self.get_phantom_element_position(phantom, referential, true)
             }
-            SceneElement::WidgetElement(_) | SceneElement::Grid(_, _) => None,
+            SceneElement::WidgetElement(_)
+            | SceneElement::Grid(_, _)
+            | SceneElement::GridCircle(_, _, _, _) => None,
         }
     }
 
@@ -489,6 +491,18 @@ impl Design3D {
 
     pub fn get_helices_grid(&self, g_id: u32) -> Option<HashSet<u32>> {
         self.design.lock().unwrap().get_helices_grid(g_id)
+    }
+
+    pub fn get_helices_grid_coord(&self, g_id: usize) -> Vec<(isize, isize)> {
+        self.design
+            .lock()
+            .unwrap()
+            .get_helices_grid_coord(g_id)
+            .unwrap_or(Vec::new())
+    }
+
+    pub fn get_helix_grid(&self, g_id: u32, x: isize, y: isize) -> Option<u32> {
+        self.design.lock().unwrap().get_helix_grid(g_id, x, y)
     }
 
     pub fn get_persistent_phantom_helices(&self) -> HashSet<u32> {

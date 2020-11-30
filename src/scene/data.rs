@@ -504,6 +504,14 @@ impl Data {
                             set.insert(*h_id, false);
                         }
                     }
+                    SceneElement::GridCircle(d_id, g_id, x, y) => {
+                        if let Some(h_id) =
+                            self.designs[*d_id as usize].get_helix_grid(*g_id, *x, *y)
+                        {
+                            let set = ret.entry(*d_id).or_insert_with(HashMap::new);
+                            set.insert(h_id, false);
+                        }
+                    }
                     SceneElement::WidgetElement(_) => unreachable!(),
                 }
             }
@@ -581,9 +589,11 @@ impl Data {
             letters = design.get_letter_instances();
             for grid in design.get_grid().iter() {
                 grids.push(grid.clone());
-                let (d1, d2) = grid.disc(0, 0, d_id as u32);
-                discs.push(d1);
-                discs.push(d2);
+                for (x, y) in design.get_helices_grid_coord(grid.id) {
+                    let (d1, d2) = grid.disc(x, y, d_id as u32);
+                    discs.push(d1);
+                    discs.push(d2);
+                }
             }
         }
         self.view

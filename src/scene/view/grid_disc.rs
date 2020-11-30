@@ -21,6 +21,7 @@ pub struct GridDiscRaw {
     color: Vec4,
     radius: f32,
     model_id: u32,
+    _padding: [u32; 2],
 }
 
 unsafe impl bytemuck::Zeroable for GridDiscRaw {}
@@ -80,6 +81,7 @@ impl Instanciable for GridDisc {
             color: crate::utils::instance::Instance::color_from_au32(self.color),
             radius: self.radius,
             model_id: self.model_id,
+            _padding: [0, 0],
         }
     }
 }

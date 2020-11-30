@@ -828,6 +828,18 @@ impl Data {
         })
     }
 
+    pub fn get_helices_grid_coord(&self, g_id: usize) -> Option<Vec<(isize, isize)>> {
+        self.grids
+            .get(g_id)
+            .map(|g| g.read().unwrap().helices().keys().cloned().collect())
+    }
+
+    pub fn get_helix_grid(&self, g_id: u32, x: isize, y: isize) -> Option<u32> {
+        self.grids
+            .get(g_id as usize)
+            .and_then(|g| g.read().unwrap().helices().get(&(x, y)).map(|x| *x as u32))
+    }
+
     pub fn get_grid_basis(&self, g_id: u32) -> Option<ultraviolet::Rotor3> {
         self.grid_manager
             .grids
