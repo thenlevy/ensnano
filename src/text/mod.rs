@@ -132,13 +132,13 @@ impl Letter {
                 for x in 0..size.width as usize {
                     for y in 0..size.height as usize {
                         // We use 4 bytes per pixel because we use BgraUnormSrgb format
-                        let coverage = get_average_pixel_value(previous, x, y, 2 * size.width as usize);
+                        let coverage =
+                            get_average_pixel_value(previous, x, y, 2 * size.width as usize);
                         for i in 0..4 {
                             pixels[4 * (y * size.width as usize + x) + i] = coverage
                         }
                     }
                 }
-
             } else {
                 let (metrics, bitmap) = font.rasterize(character, size.height as f32);
 
@@ -169,7 +169,7 @@ impl Letter {
                 },
                 size,
             );
-            
+
             last_pixels = Some(pixels);
         }
 
@@ -249,6 +249,9 @@ impl Letter {
 
 fn get_average_pixel_value(pixels: &Vec<u8>, x: usize, y: usize, width: usize) -> u8 {
     let get = |x, y| pixels[4 * (y * width + x)] as u16;
-    let sum = get(2 * x, 2 * y) + get(2 * x + 1, 2 * y) + get(2 * x + 1, 2 * y) + get(2 * x + 1, 2 * y + 1);
+    let sum = get(2 * x, 2 * y)
+        + get(2 * x + 1, 2 * y)
+        + get(2 * x + 1, 2 * y)
+        + get(2 * x + 1, 2 * y + 1);
     (sum / 4) as u8
 }
