@@ -21,16 +21,17 @@ pub trait Drawable {
         device: Rc<Device>,
         fake: bool,
     ) {
-        let raw_vertices = self
-            .vertices(fake)
-            .iter()
-            .map(|v| v.to_raw(Self::use_alpha()))
-            .collect::<Vec<_>>();
         *vertex_buffer = Some(create_buffer_with_data(
             device.as_ref(),
-            bytemuck::cast_slice(raw_vertices.as_slice()),
+            bytemuck::cast_slice(self.raw_vertices(fake).as_slice()),
             wgpu::BufferUsage::VERTEX,
         ));
+    }
+    fn raw_vertices(&self, fake: bool) -> Vec<VertexRaw> {
+        self.vertices(fake)
+            .iter()
+            .map(|v| v.to_raw(Self::use_alpha()))
+            .collect::<Vec<_>>()
     }
 }
 
@@ -219,7 +220,7 @@ impl<D: Drawable> Drawer<D> {
 }
 
 #[derive(Debug, Clone, Copy)]
-struct VertexRaw {
+pub struct VertexRaw {
     pub position: [f32; 3],
     pub color: [f32; 4],
 }
@@ -249,13 +250,13 @@ impl VertexRaw {
 }
 
 pub struct Vertex {
-    position: Vec3,
-    color: u32,
-    fake: bool,
+    pub position: Vec3,
+    pub color: u32,
+    pub fake: bool,
 }
 
 impl Vertex {
-    fn to_raw(&self, use_alpha: bool) -> VertexRaw {
+    pub fn to_raw(&self, use_alpha: bool) -> VertexRaw {
         let alpha = if use_alpha || self.fake {
             ((self.color & 0xFF000000) >> 24) as f32 / 255.
         } else {

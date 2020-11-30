@@ -504,6 +504,14 @@ impl Data {
                             set.insert(*h_id, false);
                         }
                     }
+                    SceneElement::GridCircle(d_id, g_id, x, y) => {
+                        if let Some(h_id) =
+                            self.designs[*d_id as usize].get_helix_grid(*g_id, *x, *y)
+                        {
+                            let set = ret.entry(*d_id).or_insert_with(HashMap::new);
+                            set.insert(h_id, false);
+                        }
+                    }
                     SceneElement::WidgetElement(_) => unreachable!(),
                 }
             }
@@ -570,7 +578,8 @@ impl Data {
 
         let mut letters = Vec::new();
         let mut grids = Vec::new();
-        for design in self.designs.iter() {
+        let mut discs = Vec::new();
+        for (d_id, design) in self.designs.iter().enumerate() {
             for sphere in design.get_spheres().iter() {
                 spheres.push(*sphere);
             }
@@ -579,7 +588,12 @@ impl Data {
             }
             letters = design.get_letter_instances();
             for grid in design.get_grid().iter() {
-                grids.push(grid.clone())
+                grids.push(grid.clone());
+                for (x, y) in design.get_helices_grid_coord(grid.id) {
+                    let (d1, d2) = grid.disc(x, y, d_id as u32);
+                    discs.push(d1);
+                    discs.push(d2);
+                }
             }
         }
         self.view
@@ -592,6 +606,7 @@ impl Data {
         self.view
             .borrow_mut()
             .update(ViewUpdate::Grids(Rc::new(grids)));
+        self.view.borrow_mut().update(ViewUpdate::GridDiscs(discs));
         self.selection_update = true
     }
 

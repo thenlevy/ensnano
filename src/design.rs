@@ -360,6 +360,14 @@ impl Design {
         self.data.lock().unwrap().get_helices_grid(g_id)
     }
 
+    pub fn get_helices_grid_coord(&self, g_id: usize) -> Option<Vec<(isize, isize)>> {
+        self.data.lock().unwrap().get_helices_grid_coord(g_id)
+    }
+
+    pub fn get_helix_grid(&self, g_id: u32, x: isize, y: isize) -> Option<u32> {
+        self.data.lock().unwrap().get_helix_grid(g_id, x, y)
+    }
+
     pub fn get_grid_position(&self, g_id: u32) -> Option<ultraviolet::Vec3> {
         self.data.lock().unwrap().get_grid_position(g_id)
     }

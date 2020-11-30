@@ -205,6 +205,7 @@ pub enum SceneElement {
     WidgetElement(u32),
     PhantomElement(utils::PhantomElement),
     Grid(u32, u32),
+    GridCircle(u32, u32, isize, isize),
 }
 
 impl SceneElement {
@@ -214,6 +215,7 @@ impl SceneElement {
             SceneElement::WidgetElement(_) => None,
             SceneElement::PhantomElement(p) => Some(p.design_id),
             SceneElement::Grid(d, _) => Some(*d),
+            SceneElement::GridCircle(d, _, _, _) => Some(*d),
         }
     }
 

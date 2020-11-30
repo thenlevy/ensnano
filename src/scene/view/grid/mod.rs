@@ -5,6 +5,7 @@ use wgpu::{include_spirv, Device, Queue, RenderPass, RenderPipeline};
 
 use super::{
     bindgroup_manager::{DynamicBindGroup, UniformBindGroup},
+    grid_disc::GridDisc,
     CameraPtr, ProjectionPtr, Uniforms,
 };
 use crate::consts::*;
@@ -26,6 +27,28 @@ pub struct GridInstance {
 }
 
 impl GridInstance {
+    pub fn disc(&self, x: isize, y: isize, model_id: u32) -> (GridDisc, GridDisc) {
+        let position = self.grid.position_helix(x, y);
+        let orientation = self.grid.orientation;
+        let gd = GridDisc {
+            position,
+            orientation,
+            model_id,
+            radius: 1.1 * self.grid.parameters.helix_radius,
+            color: 0xAA_88_88_88,
+        };
+        (
+            GridDisc {
+                position: gd.position + 0.001 * self.grid.axis_helix(),
+                ..gd
+            },
+            GridDisc {
+                position: gd.position - 0.001 * self.grid.axis_helix(),
+                ..gd
+            },
+        )
+    }
+
     fn to_raw(&self) -> GridInstanceRaw {
         use crate::utils::instance::Instance;
         GridInstanceRaw {
