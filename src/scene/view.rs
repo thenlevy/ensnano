@@ -24,8 +24,10 @@ use uniforms::Uniforms;
 /// This modules defines a trait for drawing widget made of several meshes.
 mod drawable;
 mod grid;
+mod grid_disc;
 /// A HandleDrawer draws the widget for translating objects
 mod handle_drawer;
+mod instances_drawer;
 mod letter;
 mod maths;
 /// A RotationWidget draws the widget for rotating objects
