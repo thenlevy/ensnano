@@ -1,21 +1,25 @@
 use iced_wgpu::wgpu;
-use wgpu::{BindGroupLayoutDescriptor, Device, PrimitiveTopology};
+use wgpu::{include_spirv, Device, PrimitiveTopology};
 
 use super::drawable::Vertex;
 use super::instances_drawer::Instanciable;
-use ultraviolet::{Mat3, Rotor3, Vec3, Vec4};
+use ultraviolet::{Mat4, Rotor3, Vec3, Vec4};
 
 pub struct GridDisc {
     position: Vec3,
     orientation: Rotor3,
     color: u32,
+    model_id: u32,
+    radius: f32,
 }
 
+#[repr(C)]
 #[derive(Debug, Clone, Copy)]
 pub struct GridDiscRaw {
-    position: Vec3,
-    orientation: Mat3,
+    model_matrix: Mat4,
     color: Vec4,
+    radius: f32,
+    model_id: u32,
 }
 
 unsafe impl bytemuck::Zeroable for GridDiscRaw {}
@@ -61,18 +65,20 @@ impl Instanciable for GridDisc {
     }
 
     fn vertex_module(device: &Device) -> wgpu::ShaderModule {
-        unimplemented!()
+        device.create_shader_module(include_spirv!("grid_disc.vert.spv"))
     }
 
     fn fragment_module(device: &Device) -> wgpu::ShaderModule {
-        unimplemented!()
+        device.create_shader_module(include_spirv!("grid_disc.frag.spv"))
     }
 
     fn to_instance(&self) -> GridDiscRaw {
         GridDiscRaw {
-            position: self.position,
-            orientation: self.orientation.into_matrix(),
+            model_matrix: Mat4::from_translation(self.position)
+                * self.orientation.into_matrix().into_homogeneous(),
             color: crate::utils::instance::Instance::color_from_au32(self.color),
+            radius: self.radius,
+            model_id: self.model_id,
         }
     }
 }

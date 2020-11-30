@@ -123,7 +123,7 @@ impl<D: Instanciable> InstanceDrawer<D> {
                 ty: wgpu::BindingType::StorageBuffer {
                     dynamic: false,
                     min_binding_size: None,
-                    readonly: true,
+                    readonly: false,
                 },
                 count: None,
             }],
