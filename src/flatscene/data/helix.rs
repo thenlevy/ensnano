@@ -276,7 +276,8 @@ impl Helix {
     }
 
     fn num_position_top(&self, x: isize) -> Vec2 {
-        let local_position = x as f32 * Vec2::unit_x() - 0.1 * Vec2::unit_y();
+        let local_position =
+            x as f32 * Vec2::unit_x() + 0.5 * Vec2::unit_x() - 0.1 * Vec2::unit_y();
 
         self.isometry
             .into_homogeneous_matrix()
@@ -400,13 +401,17 @@ impl Helix {
                 })
             }
         }
-        let mut pos = self.left;
-        while pos <= self.right {
+
+        let mut print_pos = |pos: isize| {
             let nb_chars = pos.to_string().len(); // ok to use len because digits are ascii
             let scale = size_pos;
             let advances = crate::utils::chars2d::char_positions(pos.to_string(), char_drawers);
             let height = crate::utils::chars2d::height(pos.to_string(), char_drawers);
-            let x_shift = -advances[nb_chars] / 2. * scale;
+            let x_shift = if pos >= 0 {
+                -advances[nb_chars] / 2. * scale
+            } else {
+                (advances[1] - advances[nb_chars] / 2.) * scale
+            };
             for (c_idx, c) in pos.to_string().chars().enumerate() {
                 let instances = char_map.get_mut(&c).unwrap();
                 instances.push(CharInstance {
@@ -418,7 +423,17 @@ impl Helix {
                     z_index: -1,
                 })
             }
+        };
+
+        let mut pos = 0;
+        while pos <= self.right {
+            print_pos(pos);
             pos += 5;
+        }
+        pos = -5;
+        while pos >= self.left {
+            print_pos(pos);
+            pos -= 5;
         }
     }
 
