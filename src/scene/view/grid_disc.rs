@@ -7,11 +7,11 @@ use ultraviolet::{Mat4, Rotor3, Vec3, Vec4};
 
 #[derive(Debug, Clone)]
 pub struct GridDisc {
-    position: Vec3,
-    orientation: Rotor3,
-    color: u32,
-    model_id: u32,
-    radius: f32,
+    pub position: Vec3,
+    pub orientation: Rotor3,
+    pub color: u32,
+    pub model_id: u32,
+    pub radius: f32,
 }
 
 #[repr(C)]

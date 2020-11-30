@@ -196,7 +196,7 @@ impl<D: Instanciable> InstanceDrawer<D> {
             },
             sample_count,
             sample_mask: !0,
-            alpha_to_coverage_enabled: false,
+            alpha_to_coverage_enabled: true,
             label: Some("render pipeline"),
         })
     }
