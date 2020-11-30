@@ -373,6 +373,14 @@ fn main() {
                     if requests.new_grid {
                         scene.lock().unwrap().make_new_grid();
                         requests.new_grid = false;
+                        messages
+                            .lock()
+                            .unwrap()
+                            .push_action_mode(mediator::ActionMode::Build(false));
+                        messages
+                            .lock()
+                            .unwrap()
+                            .push_selection_mode(mediator::SelectionMode::Grid);
                     }
 
                     if let Some(selection_mode) = requests.selection_mode {
