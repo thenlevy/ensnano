@@ -205,10 +205,7 @@ impl Data {
         let to = self.to_real(to);
         let prim5 = self.design.prime5_of(from).or(self.design.prime5_of(to));
         let prim3 = self.design.prime3_of(from).or(self.design.prime3_of(to));
-        match prim3.zip(prim5) {
-            Some((a, b)) if a != b => true,
-            _ => false,
-        }
+        prim3.zip(prim5).is_some()
     }
 
     /// Return Some(true) if nucl is a 3' end, Some(false) if nucl is a 5' end and None otherwise

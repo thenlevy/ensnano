@@ -203,6 +203,22 @@ impl Data {
                     strand_position += n;
                 }
             }
+            if strand.cyclic {
+                let nucl = strand.get_5prime().unwrap();
+                let prime5_id = identifier_nucl.get(&nucl).unwrap();
+                let bound_id = id;
+                id += 1;
+                let bound = (old_nucl.unwrap(), nucl);
+                object_type.insert(
+                    bound_id,
+                    ObjectType::Bound(old_nucl_id.unwrap(), *prime5_id),
+                );
+                identifier_bound.insert(bound, bound_id);
+                nucleotides_involved.insert(bound_id, bound);
+                color_map.insert(bound_id, color);
+                strand_map.insert(bound_id, *s_id);
+                helix_map.insert(bound_id, nucl.helix);
+            }
             old_nucl = None;
             old_nucl_id = None;
         }
@@ -658,11 +674,15 @@ impl Data {
     pub fn prime5_of(&self, nucl: &Nucl) -> Option<usize> {
         let id = self.identifier_nucl.get(nucl)?;
         let strand_id = self.strand_map.get(id)?;
-        let real_prime5 = self.get_5prime(*strand_id)?;
-        if *id == real_prime5 {
-            Some(*strand_id)
-        } else {
+        if self.design.strands[strand_id].cyclic {
             None
+        } else {
+            let real_prime5 = self.get_5prime(*strand_id)?;
+            if *id == real_prime5 {
+                Some(*strand_id)
+            } else {
+                None
+            }
         }
     }
 
@@ -671,49 +691,65 @@ impl Data {
     pub fn prime3_of(&self, nucl: &Nucl) -> Option<usize> {
         let id = self.identifier_nucl.get(nucl)?;
         let strand_id = self.strand_map.get(id)?;
-        let real_prime3 = self.get_3prime(*strand_id)?;
-        if *id == real_prime3 {
-            Some(*strand_id)
-        } else {
+        if self.design.strands[strand_id].cyclic {
             None
+        } else {
+            let real_prime3 = self.get_3prime(*strand_id)?;
+            if *id == real_prime3 {
+                Some(*strand_id)
+            } else {
+                None
+            }
         }
     }
 
     pub fn merge_strands(&mut self, prime5: usize, prime3: usize) {
         // We panic, if we can't find the strand, because this means that the program has a bug
-        let strand5prime = self.design.strands.remove(&prime5).expect("strand 5 prime");
-        let strand3prime = self.design.strands.remove(&prime3).expect("strand 3 prime");
-        let len = strand5prime.domains.len() + strand3prime.domains.len();
-        let mut domains = Vec::with_capacity(len);
-        for domain in strand5prime.domains.iter() {
-            domains.push(domain.clone());
-        }
-        for domain in strand3prime.domains.iter() {
-            domains.push(domain.clone());
-        }
-        let sequence = if let Some((seq5, seq3)) = strand5prime
-            .sequence
-            .clone()
-            .zip(strand3prime.sequence.clone())
-        {
-            let new_seq = seq5.into_owned() + &seq3.into_owned();
-            Some(Cow::Owned(new_seq))
-        } else if let Some(ref seq5) = strand5prime.sequence {
-            Some(seq5.clone())
-        } else if let Some(ref seq3) = strand3prime.sequence {
-            Some(seq3.clone())
+        if prime5 != prime3 {
+            let strand5prime = self.design.strands.remove(&prime5).expect("strand 5 prime");
+            let strand3prime = self.design.strands.remove(&prime3).expect("strand 3 prime");
+            let len = strand5prime.domains.len() + strand3prime.domains.len();
+            let mut domains = Vec::with_capacity(len);
+            for domain in strand5prime.domains.iter() {
+                domains.push(domain.clone());
+            }
+            for domain in strand3prime.domains.iter() {
+                domains.push(domain.clone());
+            }
+            let sequence = if let Some((seq5, seq3)) = strand5prime
+                .sequence
+                .clone()
+                .zip(strand3prime.sequence.clone())
+            {
+                let new_seq = seq5.into_owned() + &seq3.into_owned();
+                Some(Cow::Owned(new_seq))
+            } else if let Some(ref seq5) = strand5prime.sequence {
+                Some(seq5.clone())
+            } else if let Some(ref seq3) = strand3prime.sequence {
+                Some(seq3.clone())
+            } else {
+                None
+            };
+            let new_strand = icednano::Strand {
+                domains,
+                color: strand5prime.color,
+                sequence,
+                cyclic: false,
+            };
+            self.design.strands.insert(prime5, new_strand);
+            self.hash_maps_update = true;
+            self.update_status = true;
         } else {
-            None
-        };
-        let new_strand = icednano::Strand {
-            domains,
-            color: strand5prime.color,
-            sequence,
-            cyclic: false,
-        };
-        self.design.strands.insert(prime5, new_strand);
-        self.hash_maps_update = true;
-        self.update_status = true;
+            println!("cycling");
+            self.design
+                .strands
+                .get_mut(&prime5)
+                .as_mut()
+                .unwrap()
+                .cyclic = true;
+            self.hash_maps_update = true;
+            self.update_status = true;
+        }
     }
 
     pub fn split_strand(&mut self, nucl: &Nucl) {
