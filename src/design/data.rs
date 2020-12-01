@@ -666,6 +666,9 @@ impl Data {
                 }
             }
         }
+        if strand.cyclic {
+            ret.push(ret[0])
+        }
         Some(ret)
     }
 
