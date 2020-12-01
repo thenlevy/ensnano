@@ -574,14 +574,11 @@ impl Application for Scene {
 
 impl Scene {
     fn handle_design_notification(&mut self, notification: DesignNotification) {
-        let design_id = notification.design_id;
+        let _design_id = notification.design_id;
         match notification.content {
-            DesignNotificationContent::ModelChanged(matrix) => {
+            DesignNotificationContent::ModelChanged(_) => {
                 self.update.need_update = true;
                 self.data.borrow_mut().notify_matrices_update();
-                self.view
-                    .borrow_mut()
-                    .update_model_matrix(design_id, matrix)
             }
             DesignNotificationContent::InstanceChanged => {
                 self.data.borrow_mut().notify_instance_update()

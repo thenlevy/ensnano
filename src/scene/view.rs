@@ -115,8 +115,17 @@ impl View {
             0.1,
             1000.0,
         )));
+        let viewer = UniformBindGroup::new(
+            device.clone(),
+            queue.clone(),
+            &Uniforms::from_view_proj(camera.clone(), projection.clone()),
+        );
+        let model_bg_desc = wgpu::BindGroupLayoutDescriptor {
+            entries: MODEL_BG_ENTRY,
+            label: None,
+        };
         let pipeline_handlers =
-            PipelineHandlers::init(device.clone(), queue.clone(), &camera, &projection);
+            PipelineHandlers::init(device.clone(), queue.clone(), &viewer.get_layout_desc(), &model_bg_desc);
         let letter_drawer = BASIS_SYMBOLS
             .iter()
             .map(|c| LetterDrawer::new(device.clone(), queue.clone(), *c, &camera, &projection))
@@ -125,11 +134,6 @@ impl View {
             texture::Texture::create_depth_texture(device.as_ref(), &area_size, SAMPLE_COUNT);
         let fake_depth_texture =
             texture::Texture::create_depth_texture(device.as_ref(), &window_size, 1);
-        let viewer = UniformBindGroup::new(
-            device.clone(),
-            queue.clone(),
-            &Uniforms::from_view_proj(camera.clone(), projection.clone()),
-        );
         let msaa_texture = if SAMPLE_COUNT > 1 {
             Some(crate::utils::texture::Texture::create_msaa_texture(
                 device.clone().as_ref(),
@@ -151,10 +155,6 @@ impl View {
             None,
         );
 
-        let model_bg_desc = wgpu::BindGroupLayoutDescriptor {
-            entries: MODEL_BG_ENTRY,
-            label: None,
-        };
         let disc_drawer = InstanceDrawer::new(
             device.clone(),
             queue.clone(),
@@ -195,8 +195,6 @@ impl View {
                 self.need_redraw_fake = true;
             }
             ViewUpdate::Camera => {
-                self.pipeline_handlers
-                    .new_viewer(self.camera.clone(), self.projection.clone());
                 self.viewer.update(&Uniforms::from_view_proj(
                     self.camera.clone(),
                     self.projection.clone(),
@@ -366,7 +364,7 @@ impl View {
         }
 
         for pipeline_handler in handlers.iter_mut() {
-            pipeline_handler.draw(&mut render_pass);
+            pipeline_handler.draw(&mut render_pass, self.viewer.get_bindgroup(), self.models.get_bindgroup());
         }
 
         if draw_type.wants_widget() {
@@ -412,13 +410,6 @@ impl View {
         } else {
             self.need_redraw = false;
         }
-    }
-
-    /// Update the model matrix associated to a given desgin.
-    pub fn update_model_matrix(&mut self, design_id: usize, matrix: Mat4) {
-        self.need_redraw = true;
-        self.pipeline_handlers
-            .update_model_matrix(design_id, matrix)
     }
 
     /// Get a pointer to the camera
@@ -598,8 +589,8 @@ impl PipelineHandlers {
     fn init(
         device: Rc<Device>,
         queue: Rc<Queue>,
-        camera: &CameraPtr,
-        projection: &ProjectionPtr,
+        viewer_desc: &wgpu::BindGroupLayoutDescriptor<'static>,
+        model_desc: &wgpu::BindGroupLayoutDescriptor<'static>,
     ) -> Self {
         let sphere_mesh = mesh::Mesh::sphere(device.as_ref(), false);
         let tube_mesh = mesh::Mesh::tube(device.as_ref(), false);
@@ -618,8 +609,8 @@ impl PipelineHandlers {
             device.clone(),
             queue.clone(),
             sphere_mesh,
-            camera,
-            projection,
+            viewer_desc,
+            model_desc,
             PrimitiveTopology::TriangleList,
             pipeline_handler::Flavour::Real,
         );
@@ -627,8 +618,8 @@ impl PipelineHandlers {
             device.clone(),
             queue.clone(),
             tube_mesh,
-            camera,
-            projection,
+            viewer_desc,
+            model_desc,
             PrimitiveTopology::TriangleStrip,
             pipeline_handler::Flavour::Real,
         );
@@ -636,8 +627,8 @@ impl PipelineHandlers {
             device.clone(),
             queue.clone(),
             fake_tube_mesh,
-            camera,
-            projection,
+            viewer_desc,
+            model_desc,
             PrimitiveTopology::TriangleStrip,
             pipeline_handler::Flavour::Fake,
         );
@@ -645,8 +636,8 @@ impl PipelineHandlers {
             device.clone(),
             queue.clone(),
             fake_sphere_mesh,
-            camera,
-            projection,
+            viewer_desc,
+            model_desc,
             PrimitiveTopology::TriangleStrip,
             pipeline_handler::Flavour::Fake,
         );
@@ -654,8 +645,8 @@ impl PipelineHandlers {
             device.clone(),
             queue.clone(),
             selected_sphere_mesh,
-            camera,
-            projection,
+            viewer_desc,
+            model_desc,
             PrimitiveTopology::TriangleStrip,
             pipeline_handler::Flavour::Selected,
         );
@@ -663,8 +654,8 @@ impl PipelineHandlers {
             device.clone(),
             queue.clone(),
             selected_tube_mesh,
-            camera,
-            projection,
+            viewer_desc,
+            model_desc,
             PrimitiveTopology::TriangleStrip,
             pipeline_handler::Flavour::Selected,
         );
@@ -672,8 +663,8 @@ impl PipelineHandlers {
             device.clone(),
             queue.clone(),
             candidate_sphere_mesh,
-            camera,
-            projection,
+            viewer_desc,
+            model_desc,
             PrimitiveTopology::TriangleStrip,
             pipeline_handler::Flavour::Candidate,
         );
@@ -681,8 +672,8 @@ impl PipelineHandlers {
             device.clone(),
             queue.clone(),
             candidate_tube_mesh,
-            camera,
-            projection,
+            viewer_desc,
+            model_desc,
             PrimitiveTopology::TriangleStrip,
             pipeline_handler::Flavour::Candidate,
         );
@@ -690,8 +681,8 @@ impl PipelineHandlers {
             device.clone(),
             queue.clone(),
             phantom_sphere_mesh,
-            camera,
-            projection,
+            viewer_desc,
+            model_desc,
             PrimitiveTopology::TriangleStrip,
             pipeline_handler::Flavour::Phantom,
         );
@@ -699,8 +690,8 @@ impl PipelineHandlers {
             device.clone(),
             queue.clone(),
             phantom_tube_mesh,
-            camera,
-            projection,
+            viewer_desc,
+            model_desc,
             PrimitiveTopology::TriangleStrip,
             pipeline_handler::Flavour::Phantom,
         );
@@ -708,8 +699,8 @@ impl PipelineHandlers {
             device.clone(),
             queue.clone(),
             fake_phantom_sphere_mesh,
-            camera,
-            projection,
+            viewer_desc,
+            model_desc,
             PrimitiveTopology::TriangleStrip,
             pipeline_handler::Flavour::Fake,
         );
@@ -717,8 +708,8 @@ impl PipelineHandlers {
             device,
             queue,
             fake_phantom_tube_mesh,
-            camera,
-            projection,
+            viewer_desc,
+            model_desc,
             PrimitiveTopology::TriangleStrip,
             pipeline_handler::Flavour::Fake,
         );
@@ -798,11 +789,7 @@ impl PipelineHandlers {
                 self.selected_sphere.new_instances(instances);
                 false
             }
-            ViewUpdate::ModelMatrices(matrices) => {
-                let matrices = Rc::new(matrices);
-                for pipeline in self.all().iter_mut() {
-                    pipeline.new_model_matrices(matrices.clone());
-                }
+            ViewUpdate::ModelMatrices(_) => {
                 true
             }
             ViewUpdate::CandidateSpheres(instances) => {
@@ -832,19 +819,6 @@ impl PipelineHandlers {
         }
     }
 
-    /// Request an update of the projection and view matrices of all the pipeplines
-    fn new_viewer(&mut self, camera: CameraPtr, projection: ProjectionPtr) {
-        for pipeline in self.all() {
-            pipeline.new_viewer(camera.clone(), projection.clone())
-        }
-    }
-
-    /// Request an update the model matrices of all the pipelines
-    pub fn update_model_matrix(&mut self, design_id: usize, matrix: Mat4) {
-        for pipeline in self.all() {
-            pipeline.update_model_matrix(design_id, matrix)
-        }
-    }
 }
 
 #[derive(Debug, PartialEq, Copy, Clone)]

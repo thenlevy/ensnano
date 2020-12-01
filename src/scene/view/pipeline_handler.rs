@@ -8,14 +8,14 @@ use mesh::{DrawModel, Mesh, Vertex};
 use std::rc::Rc;
 use texture::Texture;
 use ultraviolet::Mat4;
-use utils::bindgroup_manager::{DynamicBindGroup, UniformBindGroup};
+use utils::bindgroup_manager::DynamicBindGroup;
 use utils::{instance, light, mesh, texture};
 use wgpu::{
     include_spirv, BindGroup, BindGroupLayout, Device, Queue, RenderPass, RenderPipeline,
     StencilStateDescriptor,
 };
 
-use super::{CameraPtr, ProjectionPtr, Uniforms, SAMPLE_COUNT};
+use super::{Uniforms, SAMPLE_COUNT};
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
@@ -76,27 +76,19 @@ impl PipelineHandler {
         device: Rc<Device>,
         queue: Rc<Queue>,
         mesh: Mesh,
-        camera: &CameraPtr,
-        projection: &ProjectionPtr,
+        viewer_desc: &wgpu::BindGroupLayoutDescriptor<'static>,
+        model_desc: &wgpu::BindGroupLayoutDescriptor<'static>,
         primitive_topology: wgpu::PrimitiveTopology,
         flavour: Flavour,
     ) -> Self {
         let instances = DynamicBindGroup::new(device.clone(), queue.clone());
 
-        let mut viewer_data = Uniforms::new();
-        viewer_data.update_view_proj(camera.clone(), projection.clone());
-        let viewer = UniformBindGroup::new(device.clone(), queue.clone(), &viewer_data);
-
-        let model_matrices = DynamicBindGroup::new(device.clone(), queue);
-
         let (light, light_layout) = create_light(device.as_ref());
 
         let bind_groups = BindGroups {
             instances,
-            viewer,
             light,
             light_layout,
-            model_matrices,
         };
 
         let vertex_module = device.create_shader_module(include_spirv!("vert.spv"));
@@ -108,8 +100,8 @@ impl PipelineHandler {
             Flavour::Candidate => device.create_shader_module(include_spirv!("candidate.spv")),
         };
 
-        Self {
-            device,
+        let mut ret = Self {
+            device: device.clone(),
             mesh,
             new_instances: None,
             number_instances: 0,
@@ -121,29 +113,14 @@ impl PipelineHandler {
             primitive_topology,
             flavour,
             pipeline: None,
-        }
-    }
-
-    /// Request an update of the view and projection matrices. This matrices are provided by the camera and
-    /// projection objects.
-    /// These new matrices are used on the next frame
-    pub fn new_viewer(&mut self, camera: CameraPtr, projection: ProjectionPtr) {
-        self.new_viewer_data = Some(Uniforms::from_view_proj(camera, projection));
+        };
+        ret.pipeline = Some(ret.create_pipeline(&device, viewer_desc, model_desc));
+        ret
     }
 
     /// Request an update of the set of instances to draw. This update take effects on the next frame
     pub fn new_instances(&mut self, instances: Rc<Vec<Instance>>) {
         self.new_instances = Some(instances)
-    }
-
-    /// Request an update all the model matrices
-    pub fn new_model_matrices(&mut self, matrices: Rc<Vec<Mat4>>) {
-        self.new_model_matrices = Some(matrices)
-    }
-
-    /// Request an update of a single model matrix
-    pub fn update_model_matrix(&mut self, design_id: usize, matrix: Mat4) {
-        self.bind_groups.update_model_matrix(design_id, matrix)
     }
 
     /// If one or several update of the set of instances were requested before the last call of
@@ -156,54 +133,33 @@ impl PipelineHandler {
         }
     }
 
-    /// If one or several update of the view and projection matrices were requested before the last call of
-    /// this function, perform the most recent update.
-    fn update_viewer(&mut self) {
-        if let Some(viewer_data) = self.new_viewer_data.take() {
-            self.bind_groups.update_viewer(&viewer_data)
-        }
-    }
-
-    /// If one or several update of the model matrices were requested before the last call of
-    /// this function, perform the most recent update.
-    fn update_model_matrices(&mut self) {
-        if let Some(matrices) = self.new_model_matrices.take() {
-            let byte_matrices: Vec<_> = matrices.iter().map(|m| ByteMat4(*m)).collect();
-            self.bind_groups
-                .update_model_matrices(byte_matrices.as_slice())
-        }
-    }
-
     /// Draw the instances of the mesh on the render pass
-    pub fn draw<'a>(&'a mut self, render_pass: &mut RenderPass<'a>) {
-        if self.pipeline.is_none() {
-            self.pipeline = Some(self.create_pipeline(self.device.as_ref()));
-        }
+    pub fn draw<'a>(&'a mut self, render_pass: &mut RenderPass<'a>, viewer_bg: &'a wgpu::BindGroup, model_bg: &'a wgpu::BindGroup) {
         self.update_instances();
-        self.update_viewer();
-        self.update_model_matrices();
         render_pass.set_pipeline(self.pipeline.as_ref().unwrap());
 
         render_pass.draw_mesh_instanced(
             &self.mesh,
             0..self.number_instances as u32,
-            self.bind_groups.viewer.get_bindgroup(),
+            viewer_bg,
             &self.bind_groups.instances.get_bindgroup(),
             &self.bind_groups.light,
-            &self.bind_groups.model_matrices.get_bindgroup(),
+            model_bg,
         );
     }
 
     /// Create a render pipepline. This function is meant to be called once, before drawing for the
     /// first time.
-    fn create_pipeline(&self, device: &Device) -> RenderPipeline {
+    fn create_pipeline(&self, device: &Device, viewer_desc: &wgpu::BindGroupLayoutDescriptor<'static>, model_desc: &wgpu::BindGroupLayoutDescriptor<'static>) -> RenderPipeline {
+        let viewer_layout = device.create_bind_group_layout(viewer_desc);
+        let model_layout = device.create_bind_group_layout(model_desc);
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 bind_group_layouts: &[
-                    &self.bind_groups.viewer.get_layout(),
+                    &viewer_layout,
                     &self.bind_groups.instances.get_layout(),
                     &self.bind_groups.light_layout,
-                    &self.bind_groups.model_matrices.get_layout(),
+                    &model_layout,
                 ],
                 push_constant_ranges: &[],
                 label: Some("render_pipeline_layout"),
@@ -294,29 +250,12 @@ impl PipelineHandler {
 /// Handles the bindgroups and bindgroup layouts of a piepline.
 struct BindGroups {
     instances: DynamicBindGroup,
-    viewer: UniformBindGroup,
     light: BindGroup,
     light_layout: BindGroupLayout,
-    model_matrices: DynamicBindGroup,
 }
 
 impl BindGroups {
-    fn update_model_matrices<M: bytemuck::Pod>(&mut self, matrices: &[M]) {
-        self.model_matrices.update(matrices);
-    }
-
-    fn update_model_matrix(&mut self, design_id: usize, matrix: Mat4) {
-        let byte_mat = ByteMat4(matrix);
-        let matrix_bytes = bytemuck::bytes_of(&byte_mat);
-        let offset = design_id * matrix_bytes.len();
-        self.model_matrices.update_offset(offset, matrix_bytes)
-    }
-
     fn update_instances<I: bytemuck::Pod>(&mut self, instances_data: &[I]) {
         self.instances.update(instances_data);
-    }
-
-    pub fn update_viewer<U: bytemuck::Pod>(&mut self, viewer_data: &U) {
-        self.viewer.update(viewer_data);
     }
 }
