@@ -124,8 +124,12 @@ impl View {
             entries: MODEL_BG_ENTRY,
             label: None,
         };
-        let pipeline_handlers =
-            PipelineHandlers::init(device.clone(), queue.clone(), &viewer.get_layout_desc(), &model_bg_desc);
+        let pipeline_handlers = PipelineHandlers::init(
+            device.clone(),
+            queue.clone(),
+            &viewer.get_layout_desc(),
+            &model_bg_desc,
+        );
         let letter_drawer = BASIS_SYMBOLS
             .iter()
             .map(|c| LetterDrawer::new(device.clone(), queue.clone(), *c, &camera, &projection))
@@ -364,7 +368,11 @@ impl View {
         }
 
         for pipeline_handler in handlers.iter_mut() {
-            pipeline_handler.draw(&mut render_pass, self.viewer.get_bindgroup(), self.models.get_bindgroup());
+            pipeline_handler.draw(
+                &mut render_pass,
+                self.viewer.get_bindgroup(),
+                self.models.get_bindgroup(),
+            );
         }
 
         if draw_type.wants_widget() {
@@ -789,9 +797,7 @@ impl PipelineHandlers {
                 self.selected_sphere.new_instances(instances);
                 false
             }
-            ViewUpdate::ModelMatrices(_) => {
-                true
-            }
+            ViewUpdate::ModelMatrices(_) => true,
             ViewUpdate::CandidateSpheres(instances) => {
                 self.candidate_sphere.new_instances(instances);
                 false
@@ -818,7 +824,6 @@ impl PipelineHandlers {
             }
         }
     }
-
 }
 
 #[derive(Debug, PartialEq, Copy, Clone)]

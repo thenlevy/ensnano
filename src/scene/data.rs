@@ -80,6 +80,9 @@ impl Data {
 
     /// Forwards all needed update to the view
     pub fn update_view(&mut self) {
+        if self.instance_update || self.selection_update || self.candidate_update {
+            self.update_discs();
+        }
         if self.instance_update {
             self.update_instances();
             self.instance_update = false;
@@ -578,8 +581,7 @@ impl Data {
 
         let mut letters = Vec::new();
         let mut grids = Vec::new();
-        let mut discs = Vec::new();
-        for (d_id, design) in self.designs.iter().enumerate() {
+        for design in self.designs.iter() {
             for sphere in design.get_spheres().iter() {
                 spheres.push(*sphere);
             }
@@ -589,11 +591,6 @@ impl Data {
             letters = design.get_letter_instances();
             for grid in design.get_grid().iter() {
                 grids.push(grid.clone());
-                for (x, y) in design.get_helices_grid_coord(grid.id) {
-                    let (d1, d2) = grid.disc(x, y, d_id as u32);
-                    discs.push(d1);
-                    discs.push(d2);
-                }
             }
         }
         self.view
@@ -606,10 +603,37 @@ impl Data {
         self.view
             .borrow_mut()
             .update(ViewUpdate::Grids(Rc::new(grids)));
-        self.view.borrow_mut().update(ViewUpdate::GridDiscs(discs));
         self.selection_update = true
     }
 
+    fn update_discs(&mut self) {
+        let mut discs = Vec::new();
+        for (d_id, design) in self.designs.iter().enumerate() {
+            for grid in design.get_grid().iter() {
+                for (x, y) in design.get_helices_grid_coord(grid.id) {
+                    let element = Some(SceneElement::GridCircle(d_id as u32, grid.id as u32, x, y));
+                    if self.selected.get(0) != element.as_ref() && self.candidates.get(0) != element.as_ref() {
+                        let (d1, d2) = grid.disc(x, y, 0xAA_FF_FF_FF, d_id as u32);
+                        discs.push(d1);
+                        discs.push(d2);
+                    }
+                }
+            }
+        }
+        if let Some(SceneElement::GridCircle(d_id, g_id, x, y)) = self.selected.get(0) {
+            let grid = &self.designs[*d_id as usize].get_grid()[*g_id as usize];
+            let (d1, d2) = grid.disc(*x, *y, 0xAA_FF_00_00, *d_id as u32);
+            discs.push(d1);
+            discs.push(d2);
+        }
+        if let Some(SceneElement::GridCircle(d_id, g_id, x, y)) = self.candidates.get(0) {
+            let grid = &self.designs[*d_id as usize].get_grid()[*g_id as usize];
+            let (d1, d2) = grid.disc(*x, *y, 0xAA_00_FF_00, *d_id as u32);
+            discs.push(d1);
+            discs.push(d2);
+        }
+        self.view.borrow_mut().update(ViewUpdate::GridDiscs(discs));
+    }
     /// This fuction must be called when the model matrices have been modfied
     pub fn notify_matrices_update(&mut self) {
         self.matrices_update = true;
@@ -759,14 +783,10 @@ impl Data {
         {
             if self.action_mode.is_build()
                 && self.selection_mode == SelectionMode::Grid
-                && self.selected.len() > 0
-                && *grid_id as u32 == self.get_selected_group()
             {
+                self.set_selection(Some(SceneElement::Grid(*design_id as u32, *grid_id as u32)));
                 self.selection_update = true;
                 true
-            } else if self.action_mode.is_build() && self.selection_mode == SelectionMode::Grid {
-                self.set_selection(Some(SceneElement::Grid(*design_id as u32, *grid_id as u32)));
-                false
             } else {
                 false
             }

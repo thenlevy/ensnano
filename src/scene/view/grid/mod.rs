@@ -27,7 +27,7 @@ pub struct GridInstance {
 }
 
 impl GridInstance {
-    pub fn disc(&self, x: isize, y: isize, model_id: u32) -> (GridDisc, GridDisc) {
+    pub fn disc(&self, x: isize, y: isize, color: u32, model_id: u32) -> (GridDisc, GridDisc) {
         let position = self.grid.position_helix(x, y);
         let orientation = self.grid.orientation;
         let gd = GridDisc {
@@ -35,7 +35,7 @@ impl GridInstance {
             orientation,
             model_id,
             radius: 1.1 * self.grid.parameters.helix_radius,
-            color: 0xAA_88_88_88,
+            color,
         };
         (
             GridDisc {

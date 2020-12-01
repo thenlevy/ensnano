@@ -134,7 +134,12 @@ impl PipelineHandler {
     }
 
     /// Draw the instances of the mesh on the render pass
-    pub fn draw<'a>(&'a mut self, render_pass: &mut RenderPass<'a>, viewer_bg: &'a wgpu::BindGroup, model_bg: &'a wgpu::BindGroup) {
+    pub fn draw<'a>(
+        &'a mut self,
+        render_pass: &mut RenderPass<'a>,
+        viewer_bg: &'a wgpu::BindGroup,
+        model_bg: &'a wgpu::BindGroup,
+    ) {
         self.update_instances();
         render_pass.set_pipeline(self.pipeline.as_ref().unwrap());
 
@@ -150,7 +155,12 @@ impl PipelineHandler {
 
     /// Create a render pipepline. This function is meant to be called once, before drawing for the
     /// first time.
-    fn create_pipeline(&self, device: &Device, viewer_desc: &wgpu::BindGroupLayoutDescriptor<'static>, model_desc: &wgpu::BindGroupLayoutDescriptor<'static>) -> RenderPipeline {
+    fn create_pipeline(
+        &self,
+        device: &Device,
+        viewer_desc: &wgpu::BindGroupLayoutDescriptor<'static>,
+        model_desc: &wgpu::BindGroupLayoutDescriptor<'static>,
+    ) -> RenderPipeline {
         let viewer_layout = device.create_bind_group_layout(viewer_desc);
         let model_layout = device.create_bind_group_layout(model_desc);
         let render_pipeline_layout =

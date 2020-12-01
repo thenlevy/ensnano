@@ -205,7 +205,7 @@ impl Scene {
     }
 
     fn click_on(&mut self, clicked_pixel: PhysicalPosition<f64>) {
-        if self.data.borrow().get_action_mode().is_build() {
+        if self.data.borrow().get_action_mode().is_build() && self.data.borrow().selection_mode == SelectionMode::Grid {
             self.build_helix(clicked_pixel)
         } else {
             self.mediator.lock().unwrap().finish_op();
@@ -270,7 +270,13 @@ impl Scene {
                     clicked_pixel.x as f32 / self.area.size.width as f32,
                     clicked_pixel.y as f32 / self.area.size.height as f32,
                 )
-                .map(|g| SceneElement::Grid(g.design_id as u32, g.grid_id as u32));
+                .map(|g| {
+                    if self.data.borrow().get_action_mode().is_build() {
+                        SceneElement::GridCircle(g.design_id as u32, g.grid_id as u32, g.x, g.y)
+                    } else {
+                        SceneElement::Grid(g.design_id as u32, g.grid_id as u32)
+                    }
+                });
             widget.or(grid)
         } else {
             self.element_selector.set_selected_id(clicked_pixel)
