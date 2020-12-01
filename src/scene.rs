@@ -205,7 +205,9 @@ impl Scene {
     }
 
     fn click_on(&mut self, clicked_pixel: PhysicalPosition<f64>) {
-        if self.data.borrow().get_action_mode().is_build() && self.data.borrow().selection_mode == SelectionMode::Grid {
+        if self.data.borrow().get_action_mode().is_build()
+            && self.data.borrow().selection_mode == SelectionMode::Grid
+        {
             self.build_helix(clicked_pixel)
         } else {
             self.mediator.lock().unwrap().finish_op();

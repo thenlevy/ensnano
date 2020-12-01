@@ -200,6 +200,13 @@ impl Helix {
 
     /// Return the nucleotide displayed at position (x, y) or None if (x, y) is outside the helix
     pub fn get_click(&self, x: f32, y: f32) -> Option<(isize, bool)> {
+        let ret = self.get_click_unbounded(x, y);
+        ret.filter(|(position, _)| *position >= self.left && *position <= self.right)
+    }
+
+    /// Return the nucleotide displayed at position (x, y) or None if (x, y) is outside the helix.
+    /// Do not take the left and right bound into account.
+    pub fn get_click_unbounded(&self, x: f32, y: f32) -> Option<(isize, bool)> {
         let click = {
             let ret = Vec2::new(x, y);
             let iso = self.isometry.inversed().into_homogeneous_matrix();
@@ -213,11 +220,7 @@ impl Helix {
             None
         }?;
         let position = click.x.floor() as isize;
-        if position >= self.left && position <= self.right {
-            Some((position, forward))
-        } else {
-            None
-        }
+        Some((position, forward))
     }
 
     pub fn translate(&mut self, translation: Vec2) {

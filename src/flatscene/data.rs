@@ -79,6 +79,16 @@ impl Data {
         None
     }
 
+    pub fn get_click_unbounded_helix(&self, x: f32, y: f32, h_id: usize) -> Option<Nucl> {
+        self.helices[h_id]
+            .get_click_unbounded(x, y)
+            .map(|(position, forward)| Nucl {
+                helix: h_id,
+                position,
+                forward,
+            })
+    }
+
     pub fn get_click_design(&self, x: f32, y: f32) -> Option<Nucl> {
         for (h_id, h) in self.helices.iter().enumerate() {
             let ret = h.get_click(x, y).map(|(position, forward)| Nucl {

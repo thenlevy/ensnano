@@ -74,7 +74,7 @@ impl ControllerState for NormalState {
                             controller.data.borrow().get_builder(pivot_nucl, stick)
                         {
                             Transition {
-                                new_state: Some(Box::new(Building {
+                                new_state: Some(Box::new(InitBuilding {
                                     mouse_position: self.mouse_position,
                                     nucl: pivot_nucl,
                                     builder,
@@ -566,11 +566,213 @@ impl ControllerState for Rotating {
     }
 }
 
-struct Building {
+struct InitBuilding {
     mouse_position: PhysicalPosition<f64>,
     builder: StrandBuilder,
     nucl: Nucl,
     end: Option<bool>,
+}
+
+impl ControllerState for InitBuilding {
+    fn transition_from(&self, _controller: &Controller) {
+        ()
+    }
+
+    fn transition_to(&self, _controller: &Controller) {
+        ()
+    }
+
+    fn display(&self) -> String {
+        String::from("Init Building")
+    }
+
+    fn input(
+        &mut self,
+        event: &WindowEvent,
+        position: PhysicalPosition<f64>,
+        controller: &Controller,
+    ) -> Transition {
+        match event {
+            WindowEvent::MouseInput {
+                button: MouseButton::Left,
+                state,
+                ..
+            } => {
+                assert!(
+                    *state == ElementState::Released,
+                    "Pressed mouse button in Init Building state"
+                );
+                Transition {
+                    new_state: Some(Box::new(NormalState {
+                        mouse_position: self.mouse_position,
+                    })),
+                    consequences: Consequence::Nothing,
+                }
+            }
+            WindowEvent::CursorMoved { .. } => {
+                self.mouse_position = position;
+                let (x, y) = controller
+                    .camera
+                    .borrow()
+                    .screen_to_world(self.mouse_position.x as f32, self.mouse_position.y as f32);
+                let nucl = controller.data.borrow().get_click(x, y);
+                match nucl {
+                    Some(Nucl {
+                        helix,
+                        position,
+                        forward,
+                    }) if helix == self.nucl.helix && forward == self.nucl.forward => {
+                        if position != self.nucl.position {
+                            self.builder.move_to(position);
+                            controller.data.borrow_mut().notify_update();
+                            Transition {
+                                new_state: Some(Box::new(Building {
+                                    mouse_position: self.mouse_position,
+                                    builder: self.builder.clone(),
+                                    nucl: self.nucl,
+                                })),
+                                consequences: Consequence::Nothing,
+                            }
+                        } else {
+                            Transition::nothing()
+                        }
+                    }
+                    Some(nucl) if controller.data.borrow().can_cross_to(self.nucl, nucl) => {
+                        self.builder.reset();
+                        controller.data.borrow_mut().notify_update();
+                        Transition {
+                            new_state: Some(Box::new(Crossing {
+                                mouse_position: self.mouse_position,
+                                from: self.nucl,
+                                to: nucl,
+                                strand_id: self.builder.get_strand_id(),
+                                from3prime: self.end.expect("from3prime"),
+                            })),
+                            consequences: Consequence::FreeEnd(self.end.map(|b| FreeEnd {
+                                strand_id: self.builder.get_strand_id(),
+                                point: Vec2::new(x, y),
+                                prime3: b,
+                            })),
+                        }
+                    }
+                    _ => {
+                        if let Some(prime3) = self.end {
+                            Transition {
+                                new_state: Some(Box::new(MovingFreeEnd {
+                                    mouse_position: self.mouse_position,
+                                    from: self.nucl,
+                                    prime3,
+                                    strand_id: self.builder.get_strand_id(),
+                                })),
+                                consequences: Consequence::FreeEnd(Some(FreeEnd {
+                                    strand_id: self.builder.get_strand_id(),
+                                    point: Vec2::new(x, y),
+                                    prime3,
+                                })),
+                            }
+                        } else {
+                            Transition::nothing()
+                        }
+                    }
+                }
+            }
+            WindowEvent::KeyboardInput { .. } => {
+                controller.process_keyboard(event);
+                Transition::nothing()
+            }
+            _ => Transition::nothing(),
+        }
+    }
+}
+
+struct MovingFreeEnd {
+    mouse_position: PhysicalPosition<f64>,
+    from: Nucl,
+    strand_id: usize,
+    prime3: bool,
+}
+
+impl ControllerState for MovingFreeEnd {
+    fn transition_from(&self, _controller: &Controller) {
+        ()
+    }
+
+    fn transition_to(&self, _controller: &Controller) {
+        ()
+    }
+
+    fn display(&self) -> String {
+        String::from("Init Building")
+    }
+
+    fn input(
+        &mut self,
+        event: &WindowEvent,
+        position: PhysicalPosition<f64>,
+        controller: &Controller,
+    ) -> Transition {
+        match event {
+            WindowEvent::MouseInput {
+                button: MouseButton::Left,
+                state,
+                ..
+            } => {
+                assert!(
+                    *state == ElementState::Released,
+                    "Pressed mouse button in Moving Free End state"
+                );
+                Transition {
+                    new_state: Some(Box::new(NormalState {
+                        mouse_position: self.mouse_position,
+                    })),
+                    consequences: Consequence::FreeEnd(None),
+                }
+            }
+            WindowEvent::CursorMoved { .. } => {
+                self.mouse_position = position;
+                let (x, y) = controller
+                    .camera
+                    .borrow()
+                    .screen_to_world(self.mouse_position.x as f32, self.mouse_position.y as f32);
+                let nucl = controller.data.borrow().get_click(x, y);
+                match nucl {
+                    Some(nucl) if controller.data.borrow().can_cross_to(self.from, nucl) => {
+                        controller.data.borrow_mut().notify_update();
+                        Transition {
+                            new_state: Some(Box::new(Crossing {
+                                mouse_position: self.mouse_position,
+                                from: self.from,
+                                to: nucl,
+                                from3prime: self.prime3,
+                                strand_id: self.strand_id,
+                            })),
+                            consequences: Consequence::FreeEnd(Some(FreeEnd {
+                                strand_id: self.strand_id,
+                                point: Vec2::new(x, y),
+                                prime3: self.prime3,
+                            })),
+                        }
+                    }
+                    _ => Transition::consequence(Consequence::FreeEnd(Some(FreeEnd {
+                        strand_id: self.strand_id,
+                        point: Vec2::new(x, y),
+                        prime3: self.prime3,
+                    }))),
+                }
+            }
+            WindowEvent::KeyboardInput { .. } => {
+                controller.process_keyboard(event);
+                Transition::nothing()
+            }
+            _ => Transition::nothing(),
+        }
+    }
+}
+
+struct Building {
+    mouse_position: PhysicalPosition<f64>,
+    builder: StrandBuilder,
+    nucl: Nucl,
 }
 
 impl ControllerState for Building {
@@ -615,7 +817,11 @@ impl ControllerState for Building {
                     .camera
                     .borrow()
                     .screen_to_world(self.mouse_position.x as f32, self.mouse_position.y as f32);
-                let nucl = controller.data.borrow().get_click(x, y);
+                let nucl =
+                    controller
+                        .data
+                        .borrow()
+                        .get_click_unbounded_helix(x, y, self.nucl.helix);
                 match nucl {
                     Some(Nucl {
                         helix,
@@ -626,33 +832,7 @@ impl ControllerState for Building {
                         controller.data.borrow_mut().notify_update();
                         Transition::consequence(Consequence::FreeEnd(None))
                     }
-                    Some(nucl) if controller.data.borrow().can_cross_to(self.nucl, nucl) => {
-                        self.builder.reset();
-                        controller.data.borrow_mut().notify_update();
-                        Transition {
-                            new_state: Some(Box::new(Crossing {
-                                mouse_position: self.mouse_position,
-                                from: self.nucl,
-                                to: nucl,
-                                builder: self.builder.clone(),
-                                from3prime: self.end.expect("from3prime"),
-                            })),
-                            consequences: Consequence::FreeEnd(self.end.map(|b| FreeEnd {
-                                strand_id: self.builder.get_strand_id(),
-                                point: Vec2::new(x, y),
-                                prime3: b,
-                            })),
-                        }
-                    }
-                    _ => {
-                        self.builder.reset();
-                        controller.data.borrow_mut().notify_update();
-                        Transition::consequence(Consequence::FreeEnd(self.end.map(|b| FreeEnd {
-                            strand_id: self.builder.get_strand_id(),
-                            point: Vec2::new(x, y),
-                            prime3: b,
-                        })))
-                    }
+                    _ => Transition::nothing(),
                 }
             }
             WindowEvent::KeyboardInput { .. } => {
@@ -668,8 +848,8 @@ pub struct Crossing {
     mouse_position: PhysicalPosition<f64>,
     from: Nucl,
     to: Nucl,
-    builder: StrandBuilder,
     from3prime: bool,
+    strand_id: usize,
 }
 
 impl ControllerState for Crossing {
@@ -717,17 +897,17 @@ impl ControllerState for Crossing {
                 let nucl = controller.data.borrow().get_click(x, y);
                 if nucl != Some(self.to) {
                     Transition {
-                        new_state: Some(Box::new(Building {
+                        new_state: Some(Box::new(MovingFreeEnd {
                             mouse_position: self.mouse_position,
-                            builder: self.builder.clone(),
-                            nucl: self.from,
-                            end: Some(self.from3prime),
+                            from: self.from,
+                            prime3: self.from3prime,
+                            strand_id: self.strand_id,
                         })),
                         consequences: Consequence::Nothing,
                     }
                 } else {
                     Transition::consequence(Consequence::FreeEnd(Some(FreeEnd {
-                        strand_id: self.builder.get_strand_id(),
+                        strand_id: self.strand_id,
                         point: Vec2::new(x, y),
                         prime3: self.from3prime,
                     })))

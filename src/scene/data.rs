@@ -612,7 +612,9 @@ impl Data {
             for grid in design.get_grid().iter() {
                 for (x, y) in design.get_helices_grid_coord(grid.id) {
                     let element = Some(SceneElement::GridCircle(d_id as u32, grid.id as u32, x, y));
-                    if self.selected.get(0) != element.as_ref() && self.candidates.get(0) != element.as_ref() {
+                    if self.selected.get(0) != element.as_ref()
+                        && self.candidates.get(0) != element.as_ref()
+                    {
                         let (d1, d2) = grid.disc(x, y, 0xAA_FF_FF_FF, d_id as u32);
                         discs.push(d1);
                         discs.push(d2);
@@ -781,9 +783,7 @@ impl Data {
             grid_id, design_id, ..
         }) = intersection
         {
-            if self.action_mode.is_build()
-                && self.selection_mode == SelectionMode::Grid
-            {
+            if self.action_mode.is_build() && self.selection_mode == SelectionMode::Grid {
                 self.set_selection(Some(SceneElement::Grid(*design_id as u32, *grid_id as u32)));
                 self.selection_update = true;
                 true
