@@ -289,6 +289,81 @@ impl Domain {
             }
         }
     }
+
+    pub fn has_nucl(&self, nucl: &Nucl) -> Option<usize> {
+        match self {
+            Self::Insertion(_) => None,
+            Self::HelixDomain(HelixInterval {
+                forward,
+                start,
+                end,
+                helix,
+                ..
+            }) => {
+                if *helix == nucl.helix && *forward == nucl.forward {
+                    if nucl.position >= *start && nucl.position <= *end - 1 {
+                        if *forward {
+                            Some((nucl.position - *start) as usize)
+                        } else {
+                            Some((*end - 1 - nucl.position) as usize)
+                        }
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            }
+        }
+    }
+    
+    pub fn split(&self, n: usize) -> Option<(Self, Self)> {
+        match self {
+            Self::Insertion(_) => None,
+            Self::HelixDomain(HelixInterval {
+                forward,
+                start,
+                end,
+                helix,
+                sequence,
+            }) => {
+                if (*end - 1 - *start) as usize >= n {
+                    let seq_prim5;
+                    let seq_prim3;
+                    if let Some(seq) = sequence {
+                        let seq = seq.clone().into_owned();
+                        let chars = seq.chars();
+                        seq_prim5 = Some(Cow::Owned(chars.clone().take(n).collect()));
+                        seq_prim3 = Some(Cow::Owned(chars.clone().skip(n).collect()));
+                    } else {
+                        seq_prim3 = None;
+                        seq_prim5 = None;
+                    }
+                    let dom_left = Self::HelixDomain(HelixInterval {
+                        forward: *forward,
+                        start: *start,
+                        end: *start + n as isize + 1,
+                        helix: *helix,
+                        sequence: seq_prim5,
+                    });
+                    let dom_right = Self::HelixDomain(HelixInterval {
+                        forward: *forward,
+                        start: *start + n as isize + 1,
+                        end: *end,
+                        helix: *helix,
+                        sequence: seq_prim3,
+                    });
+                    if *forward {
+                        Some((dom_left, dom_right))
+                    } else {
+                        Some((dom_right, dom_left))
+                    }
+                } else {
+                    None
+                }
+            }
+        }
+    }
 }
 
 impl HelixInterval {

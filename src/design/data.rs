@@ -770,6 +770,7 @@ impl Data {
         let mut i = strand.domains.len();
         let mut prim5_domains = Vec::new();
         let mut len_prim5 = 0;
+        let mut domains = None;
         for (d_id, domain) in strand.domains.iter().enumerate() {
             if domain.prime5_end() == Some(*nucl) {
                 i = d_id;
@@ -779,12 +780,22 @@ impl Data {
                 prim5_domains.push(domain.clone());
                 len_prim5 += domain.length();
                 break;
-            } else {
+            } else if let Some(n) = domain.has_nucl(nucl) {
+                i = d_id;
+                len_prim5 += n;
+                domains = domain.split(n);
+                break;
+            }else {
                 len_prim5 += domain.length();
                 prim5_domains.push(domain.clone());
             }
         }
         let mut prim3_domains = Vec::new();
+        if let Some(ref domains) = domains {
+            prim5_domains.push(domains.0.clone());
+            prim3_domains.push(domains.1.clone());
+            i += 1;
+        }
 
         for domain in strand.domains.iter().skip(i) {
             prim3_domains.push(domain.clone());
