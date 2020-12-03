@@ -785,7 +785,7 @@ impl Data {
                 len_prim5 += n;
                 domains = domain.split(n);
                 break;
-            }else {
+            } else {
                 len_prim5 += domain.length();
                 prim5_domains.push(domain.clone());
             }

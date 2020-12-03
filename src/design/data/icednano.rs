@@ -316,7 +316,7 @@ impl Domain {
             }
         }
     }
-    
+
     pub fn split(&self, n: usize) -> Option<(Self, Self)> {
         match self {
             Self::Insertion(_) => None,
