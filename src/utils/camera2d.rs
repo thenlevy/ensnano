@@ -111,8 +111,10 @@ impl Camera {
         )
     }
 
-    /// Convert a *point* in screen coordinate to a point in world coordiantes.
+    /// Convert a *point* in screen ([0, x_res] * [0, y_res]) coordinate to a point in world coordiantes.
     pub fn screen_to_world(&self, x_screen: f32, y_screen: f32) -> (f32, f32) {
+        // The screen coordinates have the y axis pointed down, and so does the 2d world
+        // coordinates. So we do not flip the y axis.
         let x_ndc = 2. * x_screen / self.globals.resolution[0] - 1.;
         let y_ndc = 2. * y_screen / self.globals.resolution[1] - 1.;
         (
@@ -121,6 +123,21 @@ impl Camera {
             y_ndc * self.globals.resolution[1] / (2. * self.globals.zoom)
                 + self.globals.scroll_offset[1],
         )
+    }
+
+    /// Convert a *point* in world coordinates to a point in normalized screen ([0, 1] * [0, 1]) coordinates
+    pub fn world_to_norm_screen(&self, x_world: f32, y_world: f32) -> (f32, f32) {
+        // The screen coordinates have the y axis pointed down, and so does the 2d world
+        // coordinates. So we do not flip the y axis.
+        let temp = (
+            x_world - self.globals.scroll_offset[0],
+            y_world - self.globals.scroll_offset[1],
+        );
+        let coord_ndc = (
+            temp.0 * 2. * self.globals.zoom / self.globals.resolution[0],
+            temp.1 * 2. * self.globals.zoom / self.globals.resolution[1],
+        );
+        ((coord_ndc.0 + 1.) / 2., (coord_ndc.1 + 1.) / 2.)
     }
 
     pub fn fit(&mut self, rectangle: FitRectangle) {

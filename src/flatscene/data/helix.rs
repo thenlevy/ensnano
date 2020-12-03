@@ -15,6 +15,8 @@ use ultraviolet::{Isometry2, Mat2, Rotor2, Vec2, Vec4};
 
 type Vertices = lyon::tessellation::VertexBuffers<GpuVertex, u16>;
 
+const CIRCLE_WIDGET_RADIUS: f32 = 1.5;
+
 #[derive(Clone)]
 pub struct Helix {
     /// The first drawn nucleotide
@@ -223,6 +225,15 @@ impl Helix {
         Some((position, forward))
     }
 
+    /// Return true if (x, y) is on the circle representing self
+    pub fn click_on_circle(&self, x: f32, y: f32, camera: &CameraPtr) -> bool {
+        if let Some(center) = self.get_circle(camera) {
+            (center.center - Vec2::new(x, y)).mag() < CIRCLE_WIDGET_RADIUS
+        } else {
+            false
+        }
+    }
+
     pub fn translate(&mut self, translation: Vec2) {
         self.isometry.translation = self.old_isometry.translation + translation
     }
@@ -270,8 +281,8 @@ impl Helix {
         self.z_index += 1;
     }
 
-    fn x_position(&self, x: isize) -> Vec2 {
-        let local_position = x as f32 * Vec2::unit_x() + Vec2::unit_y();
+    fn x_position(&self, x: f32) -> Vec2 {
+        let local_position = x * Vec2::unit_x() + Vec2::unit_y();
 
         self.isometry
             .into_homogeneous_matrix()
@@ -287,95 +298,47 @@ impl Helix {
             .transform_point2(self.scale * local_position)
     }
 
+    /// Return the center of the helix's circle widget.
+    ///
+    /// If the helix is invisible return None.
+    ///
+    /// If the helix is visible, the circle widget is displayed, by order of priority:
+    /// * On the left of the helix,
+    /// * On the right of the helix,
+    /// * On the leftmost visible position of the helix
     pub fn get_circle(&self, camera: &CameraPtr) -> Option<CircleInstance> {
-        let globals = camera.borrow().get_globals().clone();
-        let leftmost_position = self.x_position(self.left);
-        let rightmost_position = self.x_position(self.right);
-        let to_screen = |vec: Vec2| {
-            let temp = vec - Vec2::new(globals.scroll_offset[0], globals.scroll_offset[1]);
-            Vec2::new(
-                temp.x * 2. * globals.zoom / globals.resolution[0],
-                -temp.y * 2. * globals.zoom / globals.resolution[1],
-            )
-        };
-        let in_screen = |vec: Vec2| vec.x <= 1. && vec.y <= 1. && vec.x >= -1. && vec.y >= -1.;
-
-        let left_screen = to_screen(leftmost_position);
-        let right_screen = to_screen(rightmost_position);
-        let visible = segment_intersect(
-            left_screen,
-            right_screen,
-            Vec2::new(-1., -1.),
-            Vec2::new(1., -1.),
-        ) || segment_intersect(
-            left_screen,
-            right_screen,
-            Vec2::new(-1., -1.),
-            Vec2::new(-1., 1.),
-        ) || segment_intersect(
-            left_screen,
-            right_screen,
-            Vec2::new(-1., 1.),
-            Vec2::new(1., 1.),
-        ) || segment_intersect(
-            left_screen,
-            right_screen,
-            Vec2::new(1., -1.),
-            Vec2::new(1., 1.),
-        ) || in_screen(to_screen(self.x_position(self.left)));
-
-        if visible {
-            let left_candidate = self.x_position(self.left - 2);
-            let right_candidate = self.x_position(self.right + 3);
-
-            if in_screen(to_screen(left_candidate)) {
-                Some(CircleInstance {
-                    center: left_candidate,
-                })
-            } else if in_screen(to_screen(right_candidate)) {
-                Some(CircleInstance {
-                    center: right_candidate,
-                })
-            } else if let Some((_, t)) = line_intersect(
-                left_screen,
-                right_screen,
-                Vec2::new(-1., -1.),
-                Vec2::new(-1., 1.),
-            )
-            .filter(|(s, _)| *s >= 0. && *s <= 1.)
-            {
-                let candidate =
-                    self.x_position(self.left + 1) + t * (rightmost_position - leftmost_position);
-                if in_screen(to_screen(candidate)) {
-                    Some(CircleInstance { center: candidate })
-                } else {
-                    Some(CircleInstance {
-                        center: self.x_position(self.left - 2)
-                            + t * (rightmost_position - leftmost_position),
-                    })
-                }
-            } else if let Some((_, t)) = line_intersect(
-                left_screen,
-                right_screen,
-                Vec2::new(-1., 1.),
-                Vec2::new(1., 1.),
-            ) {
-                let candidate =
-                    self.x_position(self.left + 1) + t * (rightmost_position - leftmost_position);
-                if in_screen(to_screen(candidate)) {
-                    Some(CircleInstance { center: candidate })
-                } else {
-                    Some(CircleInstance {
-                        center: self.x_position(self.left - 2)
-                            + t * (rightmost_position - leftmost_position),
-                    })
-                }
-            } else {
-                None
-            }
-        } else {
+        let (left, right) = self.screen_intersection(camera)?;
+        let center = if self.left as f32 > right || (self.right as f32) < left {
+            // the helix is invisible
             None
+        } else if self.left as f32 - 1. - 2. * CIRCLE_WIDGET_RADIUS > left {
+            // There is room on the left of the helix
+            Some(self.x_position(self.left as f32 - 1. - CIRCLE_WIDGET_RADIUS))
+        } else if self.right as f32 + 2. + 2. * CIRCLE_WIDGET_RADIUS < right {
+            // There is room on the right of the helix
+            Some(self.x_position(self.right as f32 + 2. + CIRCLE_WIDGET_RADIUS))
+        } else {
+            Some(self.x_position(left + CIRCLE_WIDGET_RADIUS))
+        };
+        center.map(|c| CircleInstance::new(c, CIRCLE_WIDGET_RADIUS))
+    }
+
+    /// Return the center of the visible portion of the helix. Return None if the helix is
+    /// invisible (out of screen)
+    pub fn visible_center(&self, camera: &CameraPtr) -> Option<Vec2> {
+        let (left, right) = self.screen_intersection(camera)?;
+        if self.left as f32 > right || (self.right as f32) < left {
+            return None;
         }
+        let left = left.max(self.left as f32);
+        let right = right.min((self.right + 1) as f32);
+        let local_position = (left + right) / 2. * Vec2::unit_x() + Vec2::unit_y();
+
+        Some(
+            self.isometry
+                .into_homogeneous_matrix()
+                .transform_point2(self.scale * local_position),
+        )
     }
 
     pub fn add_char_instances(
@@ -447,6 +410,67 @@ impl Helix {
     pub fn get_right(&self) -> isize {
         self.right
     }
+
+    /// Return the coordinates at which self's axis intersect the screen bounds.
+    fn screen_intersection(&self, camera: &CameraPtr) -> Option<(f32, f32)> {
+        let mut ret = Vec::new();
+        let x0_screen = {
+            let world = self.x_position(0_f32);
+            camera.borrow().world_to_norm_screen(world.x, world.y)
+        };
+        let x1_screen = {
+            let world = self.x_position(1_f32);
+            camera.borrow().world_to_norm_screen(world.x, world.y)
+        };
+        let on_segment = |(_, t): &(f32, f32)| *t >= 0. && *t <= 1.;
+        if let Some((s, _)) = line_intersect(
+            x0_screen.into(),
+            x1_screen.into(),
+            (0., 0.).into(),
+            (0., 1.).into(),
+        )
+        .filter(on_segment)
+        {
+            ret.push(s);
+        }
+        // By computing the intersection in this order we avoid any issues that we might have with
+        // the diagonals and anti-diagonals
+        if let Some((s, _)) = line_intersect(
+            x0_screen.into(),
+            x1_screen.into(),
+            (1., 0.).into(),
+            (1., 1.).into(),
+        )
+        .filter(on_segment)
+        {
+            ret.push(s);
+        }
+        if let Some((s, _)) = line_intersect(
+            x0_screen.into(),
+            x1_screen.into(),
+            (0., 0.).into(),
+            (1., 0.).into(),
+        )
+        .filter(on_segment)
+        {
+            ret.push(s);
+        }
+        if let Some((s, _)) = line_intersect(
+            x0_screen.into(),
+            x1_screen.into(),
+            (0., 1.).into(),
+            (1., 1.).into(),
+        )
+        .filter(on_segment)
+        {
+            ret.push(s);
+        }
+        if ret.len() < 2 {
+            None
+        } else {
+            Some((ret[0].min(ret[1]), ret[0].max(ret[1])))
+        }
+    }
 }
 
 #[repr(C)]
@@ -499,6 +523,7 @@ fn segment_intersect(u0: Vec2, v0: Vec2, u1: Vec2, v1: Vec2) -> bool {
     }
 }
 
+/// Return (s, t) so that u0 + s(v0 - u0) = u1 + t(v1 - u1).
 fn line_intersect(u0: Vec2, v0: Vec2, u1: Vec2, v1: Vec2) -> Option<(f32, f32)> {
     let v0 = v0 - u0;
     let v1 = v1 - u1;
@@ -514,7 +539,7 @@ fn line_intersect(u0: Vec2, v0: Vec2, u1: Vec2, v1: Vec2) -> Option<(f32, f32)> 
     if d.abs() > 1e-5 {
         let s = (1. / d) * ((x00 - x10) * y01 - (y00 - y10) * x01);
         let t = (1. / d) * -(-(x00 - x10) * y11 + (y00 - y10) * x11);
-        Some((s, t))
+        Some((t, s))
     } else {
         None
     }

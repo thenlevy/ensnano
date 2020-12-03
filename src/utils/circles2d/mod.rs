@@ -4,7 +4,7 @@ use ultraviolet::Vec2;
 use wgpu::{include_spirv, BindGroupLayout, Device, Queue, RenderPass, RenderPipeline};
 
 use crate::consts::*;
-use crate::utils::bindgroup_manager::{DynamicBindGroup, UniformBindGroup};
+use crate::utils::bindgroup_manager::DynamicBindGroup;
 use crate::utils::texture::Texture;
 mod textures;
 
@@ -12,6 +12,18 @@ mod textures;
 #[derive(Clone, Copy)]
 pub struct CircleInstance {
     pub center: Vec2,
+    pub radius: f32,
+    _padding: u32,
+}
+
+impl CircleInstance {
+    pub fn new(center: Vec2, radius: f32) -> Self {
+        Self {
+            center,
+            radius,
+            _padding: 0,
+        }
+    }
 }
 
 unsafe impl bytemuck::Zeroable for CircleInstance {}
@@ -79,13 +91,9 @@ impl CircleDrawer {
             label: Some("diffuse_bind_group"),
         });
 
-        let new_instances = vec![CircleInstance {
-            center: Vec2::zero(),
-        }];
-
         let mut ret = Self {
             device,
-            new_instances: Some(Rc::new(new_instances)),
+            new_instances: None,
             number_instances: 0,
             pipeline: None,
             texture_bind_group,
