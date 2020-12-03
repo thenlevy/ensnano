@@ -15,8 +15,8 @@ use crate::utils::{chars2d as chars, circles2d as circles};
 use background::Background;
 use chars::CharDrawer;
 pub use chars::CharInstance;
-use circles::CircleDrawer;
 pub use circles::CircleInstance;
+use circles::{CircleDrawer, CircleKind};
 
 use crate::consts::SAMPLE_COUNT;
 
@@ -39,6 +39,7 @@ pub struct View {
     free_end: Option<FreeEnd>,
     background: Background,
     circle_drawer: CircleDrawer,
+    rotation_widget: CircleDrawer,
     char_drawers: HashMap<char, CharDrawer>,
     char_map: HashMap<char, Vec<CharInstance>>,
 }
@@ -49,7 +50,6 @@ impl View {
         queue: Rc<Queue>,
         area: DrawArea,
         camera: CameraPtr,
-        encoder: &mut wgpu::CommandEncoder,
     ) -> Self {
         let depth_texture =
             Texture::create_depth_texture(device.as_ref(), &area.size, SAMPLE_COUNT);
@@ -79,8 +79,18 @@ impl View {
             strand_pipeline_descr(&device, globals.get_layout(), depth_stencil_state.clone());
 
         let background = Background::new(&device, globals.get_layout(), &depth_stencil_state);
-        let circle_drawer =
-            CircleDrawer::new(device.clone(), queue.clone(), encoder, globals.get_layout());
+        let circle_drawer = CircleDrawer::new(
+            device.clone(),
+            queue.clone(),
+            globals.get_layout(),
+            CircleKind::FullCircle,
+        );
+        let rotation_widget = CircleDrawer::new(
+            device.clone(),
+            queue.clone(),
+            globals.get_layout(),
+            CircleKind::RotationWidget,
+        );
         let chars = [
             'A', 'T', 'G', 'C', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '-',
         ];
@@ -113,6 +123,7 @@ impl View {
             free_end: None,
             background,
             circle_drawer,
+            rotation_widget,
             char_drawers,
             char_map,
         }
@@ -197,7 +208,7 @@ impl View {
         &mut self,
         encoder: &mut wgpu::CommandEncoder,
         target: &wgpu::TextureView,
-        area: DrawArea,
+        _area: DrawArea,
     ) {
         let mut need_new_circles = false;
         if let Some(globals) = self.camera.borrow_mut().update() {
@@ -280,6 +291,7 @@ impl View {
         }
 
         self.circle_drawer.draw(&mut render_pass);
+        self.rotation_widget.draw(&mut render_pass);
         for drawer in self.char_drawers.values_mut() {
             drawer.draw(&mut render_pass);
         }
@@ -310,6 +322,15 @@ impl View {
                 .get_mut(c)
                 .unwrap()
                 .new_instances(Rc::new(v.clone()))
+        }
+    }
+
+    pub fn set_wheel(&mut self, wheel: Option<CircleInstance>) {
+        self.was_updated = true;
+        if let Some(wheel) = wheel {
+            self.rotation_widget.new_instances(Rc::new(vec![wheel]));
+        } else {
+            self.rotation_widget.new_instances(Rc::new(Vec::new()));
         }
     }
 }

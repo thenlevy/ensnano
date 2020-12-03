@@ -1,22 +1,18 @@
 // shader.frag
 #version 450
 
-layout(location=0) in vec2 v_tex_coords;
+layout(location=0) in vec2 v_coords;
+layout(location=1) in float v_angle;
 
 layout(location=0) out vec4 f_color;
 
-layout(set = 2, binding = 0) uniform texture2D t_circle;
-layout(set = 2, binding = 1) uniform sampler s_circle;
-
 
 void main() {
-    vec4 color;
 
-    color = texture(sampler2D(t_circle, s_circle), v_tex_coords / 2. + 0.5);
+    float dist = length(v_coords);
+    float delta = fwidth(dist);
+    float alpha = smoothstep(1. - delta, 1., dist);
 
-    if (color.w < 0.01) {
-    discard;
-    }
-
+    vec4 color = vec4(0.0129, 0.4129, 0.5742, 1. - alpha);
     f_color = color;
 }

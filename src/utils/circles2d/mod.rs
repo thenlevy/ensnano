@@ -13,7 +13,7 @@ mod textures;
 pub struct CircleInstance {
     pub center: Vec2,
     pub radius: f32,
-    _padding: u32,
+    pub angle: f32,
 }
 
 impl CircleInstance {
@@ -21,8 +21,12 @@ impl CircleInstance {
         Self {
             center,
             radius,
-            _padding: 0,
+            angle: 0.,
         }
+    }
+
+    pub fn angle(self, angle: f32) -> Self {
+        Self { angle, ..self }
     }
 }
 
@@ -40,67 +44,30 @@ pub struct CircleDrawer {
     instances_bg: DynamicBindGroup,
     /// The pipeline created by `self`
     pipeline: Option<RenderPipeline>,
-    texture_bind_group: wgpu::BindGroup,
-    texture_bind_group_layout: wgpu::BindGroupLayout,
+}
+
+pub enum CircleKind {
+    FullCircle,
+    RotationWidget,
 }
 
 impl CircleDrawer {
     pub fn new(
         device: Rc<Device>,
         queue: Rc<Queue>,
-        encoder: &mut wgpu::CommandEncoder,
         globals_layout: &BindGroupLayout,
+        circle_kind: CircleKind,
     ) -> Self {
         let instances_bg = DynamicBindGroup::new(device.clone(), queue.clone());
-        let circle_texture = textures::CircleTexture::new(device.clone().as_ref(), encoder);
-        let texture_bind_group_layout =
-            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                entries: &[
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 0,
-                        visibility: wgpu::ShaderStage::FRAGMENT,
-                        ty: wgpu::BindingType::SampledTexture {
-                            multisampled: true,
-                            dimension: wgpu::TextureViewDimension::D2,
-                            component_type: wgpu::TextureComponentType::Uint,
-                        },
-                        count: None,
-                    },
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 1,
-                        visibility: wgpu::ShaderStage::FRAGMENT,
-                        ty: wgpu::BindingType::Sampler { comparison: false },
-                        count: None,
-                    },
-                ],
-                label: Some("texture_bind_group_layout"),
-            });
-
-        let texture_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &texture_bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&circle_texture.view),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::Sampler(&circle_texture.sampler),
-                },
-            ],
-            label: Some("diffuse_bind_group"),
-        });
 
         let mut ret = Self {
             device,
             new_instances: None,
             number_instances: 0,
             pipeline: None,
-            texture_bind_group,
-            texture_bind_group_layout,
             instances_bg,
         };
-        let pipeline = ret.create_pipeline(globals_layout);
+        let pipeline = ret.create_pipeline(globals_layout, circle_kind);
         ret.pipeline = Some(pipeline);
         ret
     }
@@ -109,7 +76,6 @@ impl CircleDrawer {
         self.update_instances();
         render_pass.set_pipeline(self.pipeline.as_ref().unwrap());
         render_pass.set_bind_group(1, self.instances_bg.get_bindgroup(), &[]);
-        render_pass.set_bind_group(TEXTURE_BINDING_ID, &self.texture_bind_group, &[]);
         render_pass.draw(0..4, 0..self.number_instances as u32);
     }
 
@@ -127,21 +93,28 @@ impl CircleDrawer {
 
     /// Create a render pipepline. This function is meant to be called once, before drawing for the
     /// first time.
-    fn create_pipeline(&self, globals_layout: &BindGroupLayout) -> RenderPipeline {
+    fn create_pipeline(
+        &self,
+        globals_layout: &BindGroupLayout,
+        circle_kind: CircleKind,
+    ) -> RenderPipeline {
         let vertex_module = self
             .device
             .create_shader_module(include_spirv!("circle.vert.spv"));
-        let fragment_module = self
-            .device
-            .create_shader_module(include_spirv!("circle.frag.spv"));
+
+        let fragment_module = match circle_kind {
+            CircleKind::FullCircle => self
+                .device
+                .create_shader_module(include_spirv!("circle.frag.spv")),
+            CircleKind::RotationWidget => self
+                .device
+                .create_shader_module(include_spirv!("rotation_widget.frag.spv")),
+        };
+
         let render_pipeline_layout =
             self.device
                 .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                    bind_group_layouts: &[
-                        globals_layout,
-                        &self.instances_bg.get_layout(),
-                        &self.texture_bind_group_layout,
-                    ],
+                    bind_group_layouts: &[globals_layout, &self.instances_bg.get_layout()],
                     push_constant_ranges: &[],
                     label: Some("render_pipeline_layout"),
                 });

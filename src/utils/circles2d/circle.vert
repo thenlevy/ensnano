@@ -1,6 +1,7 @@
 #version 450
 
-layout(location=0) out vec2 v_tex_coords;
+layout(location=0) out vec2 v_coords;
+layout(location=1) out float v_angle;
 
 layout(set = 0, binding = 0)
 uniform Globals {
@@ -12,6 +13,7 @@ uniform Globals {
 struct Instances {
     vec2 center;
     float radius;
+    float angle;
 };
 
 layout(std430, set=1, binding=0) 
@@ -32,8 +34,8 @@ void main() {
         vec2(max_x, max_y)
     );
 
-    // The conversion to [0, 1] x [0, 1] is done in the fragment shader
-    v_tex_coords = position[gl_VertexIndex] * vec2(1., -1.);
+    v_angle = instances[gl_InstanceIndex].angle;
+    v_coords = position[gl_VertexIndex] * vec2(1, -1);
 
     float radius = instances[gl_InstanceIndex].radius;
     vec2 local_pos = instances[gl_InstanceIndex].center + position[gl_VertexIndex] * radius;

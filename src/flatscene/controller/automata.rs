@@ -1,6 +1,9 @@
 use super::super::data::ClickResult;
+use super::super::view::CircleInstance;
 use super::*;
 use crate::design::StrandBuilder;
+
+const WHEEL_RADIUS: f32 = 1.5;
 
 pub struct Transition {
     pub new_state: Option<Box<dyn ControllerState>>,
@@ -351,10 +354,14 @@ impl ControllerState for ReleasedPivot {
             .data
             .borrow_mut()
             .set_selected_helix(Some(self.translation_pivot.helix));
+        controller
+            .view
+            .borrow_mut()
+            .set_wheel(Some(CircleInstance::new(self.rotation_pivot, WHEEL_RADIUS)));
     }
 
-    fn transition_from(&self, _controller: &Controller) {
-        ()
+    fn transition_from(&self, controller: &Controller) {
+        controller.view.borrow_mut().set_wheel(None);
     }
 
     fn display(&self) -> String {
@@ -496,12 +503,15 @@ pub struct LeavingPivot {
 }
 
 impl ControllerState for LeavingPivot {
-    fn transition_to(&self, _controller: &Controller) {
-        ()
+    fn transition_to(&self, controller: &Controller) {
+        controller
+            .view
+            .borrow_mut()
+            .set_wheel(Some(CircleInstance::new(self.rotation_pivot, WHEEL_RADIUS)));
     }
 
-    fn transition_from(&self, _controller: &Controller) {
-        ()
+    fn transition_from(&self, controller: &Controller) {
+        controller.view.borrow_mut().set_wheel(None);
     }
 
     fn display(&self) -> String {
@@ -588,11 +598,16 @@ impl ControllerState for Rotating {
         controller
             .data
             .borrow_mut()
-            .set_selected_helix(Some(self.translation_pivot.helix))
+            .set_selected_helix(Some(self.translation_pivot.helix));
+        controller
+            .view
+            .borrow_mut()
+            .set_wheel(Some(CircleInstance::new(self.rotation_pivot, WHEEL_RADIUS)));
     }
 
     fn transition_from(&self, controller: &Controller) {
-        controller.data.borrow_mut().end_movement()
+        controller.data.borrow_mut().end_movement();
+        controller.view.borrow_mut().set_wheel(None);
     }
 
     fn display(&self) -> String {
@@ -637,6 +652,10 @@ impl ControllerState for Rotating {
                     .data
                     .borrow_mut()
                     .rotate_helix(self.rotation_pivot, angle);
+                controller
+                    .view
+                    .borrow_mut()
+                    .set_wheel(Some(CircleInstance::new(self.rotation_pivot, WHEEL_RADIUS)));
                 Transition::nothing()
             }
             WindowEvent::KeyboardInput { .. } => {
