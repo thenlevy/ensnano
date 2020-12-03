@@ -8,6 +8,7 @@ pub use helix::{GpuVertex, Helix, HelixModel};
 mod strand;
 pub use strand::{FreeEnd, Nucl, Strand, StrandVertex};
 mod design;
+use super::CameraPtr;
 use crate::consts::*;
 use crate::utils::camera2d::FitRectangle;
 use design::{Design2d, Helix2d};
@@ -65,18 +66,28 @@ impl Data {
         }
     }
 
-    pub fn get_click(&self, x: f32, y: f32) -> Option<Nucl> {
+    pub fn get_click(&self, x: f32, y: f32, camera: &CameraPtr) -> ClickResult {
+        for (h_id, h) in self.helices.iter().enumerate() {
+            if h.click_on_circle(x, y, camera) {
+                let translation_pivot = h.get_circle_pivot(camera).unwrap();
+                let rotation_pivot = h.visible_center(camera).unwrap();
+                return ClickResult::CircleWidget {
+                    translation_pivot,
+                    rotation_pivot,
+                };
+            }
+        }
         for (h_id, h) in self.helices.iter().enumerate() {
             let ret = h.get_click(x, y).map(|(position, forward)| Nucl {
                 helix: h_id,
                 position,
                 forward,
             });
-            if ret.is_some() {
-                return ret;
+            if let Some(ret) = ret {
+                return ClickResult::Nucl(ret);
             }
         }
-        None
+        ClickResult::Nothing
     }
 
     pub fn get_click_unbounded_helix(&self, x: f32, y: f32, h_id: usize) -> Option<Nucl> {
@@ -109,18 +120,6 @@ impl Data {
 
     pub fn get_pivot_position(&self, helix: usize, position: isize) -> Option<Vec2> {
         self.helices.get(helix).map(|h| h.get_pivot(position))
-    }
-
-    /// If (x, y) is on a nucleotide, select, the corresponding helix, and return a pivot on the
-    /// corresponding nucleotide. Otherwise, clear the selection and return `None`.
-    pub fn request_pivot(&mut self, x: f32, y: f32) -> Option<Vec2> {
-        if let Some(nucl) = self.get_click(x, y) {
-            self.set_selected_helix(Some(nucl.helix));
-            self.get_pivot_position(nucl.helix, nucl.position)
-        } else {
-            self.set_selected_helix(None);
-            None
-        }
     }
 
     pub fn set_selected_helix(&mut self, helix: Option<usize>) {
@@ -268,4 +267,14 @@ impl Data {
         }
         ret
     }
+}
+
+#[derive(Debug, PartialEq)]
+pub enum ClickResult {
+    Nucl(Nucl),
+    CircleWidget {
+        translation_pivot: Nucl,
+        rotation_pivot: Vec2,
+    },
+    Nothing,
 }

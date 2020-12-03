@@ -323,6 +323,35 @@ impl Helix {
         center.map(|c| CircleInstance::new(c, CIRCLE_WIDGET_RADIUS))
     }
 
+    /// Return the pivot under the center of the helix's circle widget.
+    /// See [get_circle](get_circle).
+    pub fn get_circle_pivot(&self, camera: &CameraPtr) -> Option<Nucl> {
+        let (left, right) = self.screen_intersection(camera)?;
+        if self.left as f32 > right || (self.right as f32) < left {
+            // the helix is invisible
+            None
+        } else if self.left as f32 - 1. - 2. * CIRCLE_WIDGET_RADIUS > left {
+            // There is room on the left of the helix
+            Some(Nucl {
+                position: self.left - 3,
+                helix: self.id as usize,
+                forward: true,
+            })
+        } else if self.right as f32 + 2. + 2. * CIRCLE_WIDGET_RADIUS < right {
+            Some(Nucl {
+                position: self.left - 3,
+                helix: self.id as usize,
+                forward: true,
+            })
+        } else {
+            Some(Nucl {
+                position: self.left,
+                helix: self.id as usize,
+                forward: true,
+            })
+        }
+    }
+
     /// Return the center of the visible portion of the helix. Return None if the helix is
     /// invisible (out of screen)
     pub fn visible_center(&self, camera: &CameraPtr) -> Option<Vec2> {
