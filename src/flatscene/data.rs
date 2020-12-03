@@ -70,11 +70,7 @@ impl Data {
         for (h_id, h) in self.helices.iter().enumerate() {
             if h.click_on_circle(x, y, camera) {
                 let translation_pivot = h.get_circle_pivot(camera).unwrap();
-                let rotation_pivot = h.visible_center(camera).unwrap();
-                return ClickResult::CircleWidget {
-                    translation_pivot,
-                    rotation_pivot,
-                };
+                return ClickResult::CircleWidget { translation_pivot };
             }
         }
         for (h_id, h) in self.helices.iter().enumerate() {
@@ -88,6 +84,12 @@ impl Data {
             }
         }
         ClickResult::Nothing
+    }
+
+    pub fn get_rotation_pivot(&self, h_id: usize, camera: &CameraPtr) -> Option<Vec2> {
+        self.helices
+            .get(h_id)
+            .and_then(|h| h.visible_center(camera))
     }
 
     pub fn get_click_unbounded_helix(&self, x: f32, y: f32, h_id: usize) -> Option<Nucl> {
@@ -272,9 +274,6 @@ impl Data {
 #[derive(Debug, PartialEq)]
 pub enum ClickResult {
     Nucl(Nucl),
-    CircleWidget {
-        translation_pivot: Nucl,
-        rotation_pivot: Vec2,
-    },
+    CircleWidget { translation_pivot: Nucl },
     Nothing,
 }

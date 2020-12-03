@@ -109,10 +109,7 @@ impl ControllerState for NormalState {
                             }
                         }
                     }
-                    ClickResult::CircleWidget {
-                        translation_pivot,
-                        rotation_pivot,
-                    } => {
+                    ClickResult::CircleWidget { translation_pivot } => {
                         let original_pivot_position = controller
                             .data
                             .borrow()
@@ -128,7 +125,6 @@ impl ControllerState for NormalState {
                                 mouse_position: self.mouse_position,
                                 world_delta,
                                 translation_pivot,
-                                rotation_pivot,
                             })),
                             consequences: Consequence::Nothing,
                         }
@@ -188,7 +184,6 @@ pub struct Translating {
     mouse_position: PhysicalPosition<f64>,
     world_delta: Vec2,
     translation_pivot: Nucl,
-    rotation_pivot: Vec2,
 }
 
 impl ControllerState for Translating {
@@ -212,13 +207,26 @@ impl ControllerState for Translating {
                     "Pressed mouse button in translating mode"
                 );
                 controller.data.borrow_mut().end_movement();
-                Transition {
-                    new_state: Some(Box::new(ReleasedPivot {
-                        mouse_position: self.mouse_position,
-                        translation_pivot: self.translation_pivot,
-                        rotation_pivot: self.rotation_pivot,
-                    })),
-                    consequences: Consequence::Nothing,
+                if let Some(rotation_pivot) = controller
+                    .data
+                    .borrow()
+                    .get_rotation_pivot(self.translation_pivot.helix, &controller.camera)
+                {
+                    Transition {
+                        new_state: Some(Box::new(ReleasedPivot {
+                            mouse_position: self.mouse_position,
+                            translation_pivot: self.translation_pivot,
+                            rotation_pivot,
+                        })),
+                        consequences: Consequence::Nothing,
+                    }
+                } else {
+                    Transition {
+                        new_state: Some(Box::new(NormalState {
+                            mouse_position: self.mouse_position,
+                        })),
+                        consequences: Consequence::Nothing,
+                    }
                 }
             }
             WindowEvent::CursorMoved { .. } => {
@@ -413,10 +421,7 @@ impl ControllerState for ReleasedPivot {
                             }
                         }
                     }
-                    ClickResult::CircleWidget {
-                        translation_pivot,
-                        rotation_pivot,
-                    } => {
+                    ClickResult::CircleWidget { translation_pivot } => {
                         let original_pivot_position = controller
                             .data
                             .borrow()
@@ -430,7 +435,6 @@ impl ControllerState for ReleasedPivot {
                         Transition {
                             new_state: Some(Box::new(Translating {
                                 translation_pivot,
-                                rotation_pivot,
                                 world_delta,
                                 mouse_position: self.mouse_position,
                             })),
