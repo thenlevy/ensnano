@@ -92,14 +92,13 @@ impl Data {
             .and_then(|h| h.visible_center(camera))
     }
 
-    pub fn get_click_unbounded_helix(&self, x: f32, y: f32, h_id: usize) -> Option<Nucl> {
-        self.helices[h_id]
-            .get_click_unbounded(x, y)
-            .map(|(position, forward)| Nucl {
-                helix: h_id,
-                position,
-                forward,
-            })
+    pub fn get_click_unbounded_helix(&self, x: f32, y: f32, h_id: usize) -> Nucl {
+        let (position, forward) = self.helices[h_id].get_click_unbounded(x, y);
+        Nucl {
+            position,
+            forward,
+            helix: h_id,
+        }
     }
 
     pub fn get_pivot_position(&self, helix: usize, position: isize) -> Option<Vec2> {

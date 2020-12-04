@@ -928,11 +928,11 @@ impl ControllerState for Building {
                         .borrow()
                         .get_click_unbounded_helix(x, y, self.nucl.helix);
                 match nucl {
-                    Some(Nucl {
+                    Nucl {
                         helix,
                         position,
                         forward,
-                    }) if helix == self.nucl.helix && forward == self.nucl.forward => {
+                    } if helix == self.nucl.helix && forward == self.nucl.forward => {
                         self.builder.move_to(position);
                         controller.data.borrow_mut().notify_update();
                         Transition::consequence(Consequence::FreeEnd(None))
