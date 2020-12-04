@@ -25,12 +25,28 @@ pub trait Vertexable {
     fn to_raw(&self) -> Self::RawType;
 }
 
+/// A type that provides additional ressources needed to draw a mesh
+pub trait RessourceProvider {
+    /// Descritpion of the additional ressources (eg textures) needed to draw the mesh.
+    fn ressources_layout() -> &'static [wgpu::BindGroupLayoutEntry] {
+        &[]
+    }
+    /// Descritpion of the additional ressources (eg textures) needed to draw the mesh.
+    fn ressources(&self) -> &[wgpu::BindGroupEntry] {
+        &[]
+    }
+}
+
+impl RessourceProvider for () {}
+
 /// A type that represents a mesh
 pub trait Instanciable {
     /// The type that represents the vertices of the mesh
     type Vertex: Vertexable;
     /// The type that will represents the instance data
     type RawInstance: bytemuck::Pod + bytemuck::Zeroable;
+    /// The type that will provide additional ressources needed to draw the mesh
+    type Ressource: RessourceProvider;
     /// The vertices of the mesh
     fn vertices() -> Vec<Self::Vertex>;
     /// The indices used to draw the mesh
@@ -51,16 +67,6 @@ pub trait Instanciable {
             .map(Vertexable::to_raw)
             .collect::<Vec<_>>()
     }
-
-    /// Descritpion of the additional ressources (eg textures) needed to draw self.
-    fn additional_ressources_layout() -> &'static [wgpu::BindGroupLayoutEntry] {
-        &[]
-    }
-
-    /// Additional ressources (eg textures) needed to draw self
-    fn additional_ressources(&self) -> &[wgpu::BindGroupEntry] {
-        &[]
-    }
 }
 
 /// An object that draws an instanced mesh
@@ -73,9 +79,11 @@ pub struct InstanceDrawer<D: Instanciable> {
     index_buffer: wgpu::Buffer,
     /// The bind group containing the instances data
     instances: DynamicBindGroup,
+    /// The bind group containing the additional ressources need to draw the mesh
+    additional_bind_group: wgpu::BindGroup,
     /// The number of instances
     nb_instances: u32,
-    _phantom: PhantomData<D>,
+    _phantom_data: PhantomData<D>,
 }
 
 impl<D: Instanciable> InstanceDrawer<D> {
@@ -84,6 +92,7 @@ impl<D: Instanciable> InstanceDrawer<D> {
         queue: Rc<Queue>,
         viewer_desc: BindGroupLayoutDescriptor<'static>,
         models_desc: BindGroupLayoutDescriptor<'static>,
+        ressource: D::Ressource,
     ) -> Self {
         let index_buffer = create_buffer_with_data(
             device.as_ref(),
@@ -105,13 +114,27 @@ impl<D: Instanciable> InstanceDrawer<D> {
             D::primitive_topology(),
         );
         let instances = DynamicBindGroup::new(device.clone(), queue);
+
+        let additional_bind_group_layout =
+            device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+                label: None,
+                entries: D::Ressource::ressources_layout(),
+            });
+
+        let additional_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: None,
+            layout: &additional_bind_group_layout,
+            entries: ressource.ressources(),
+        });
+
         Self {
             vertex_buffer,
             index_buffer,
             pipeline,
             instances,
             nb_instances: 0,
-            _phantom: PhantomData,
+            additional_bind_group,
+            _phantom_data: PhantomData,
         }
     }
 
@@ -135,6 +158,7 @@ impl<D: Instanciable> InstanceDrawer<D> {
         render_pass.set_bind_group(0, viewer_bind_group, &[]);
         render_pass.set_bind_group(1, model_bind_group, &[]);
         render_pass.set_bind_group(2, self.instances.get_bindgroup(), &[]);
+        render_pass.set_bind_group(3, &self.additional_bind_group, &[]);
 
         let nb_index = D::indices().len() as u32;
         render_pass.draw_indexed(0..nb_index, 0, 0..self.nb_instances);
@@ -153,27 +177,36 @@ impl<D: Instanciable> InstanceDrawer<D> {
         let models_bind_group_layout =
             device.create_bind_group_layout(&models_bind_group_layout_desc);
 
+        // gather the ressources, [instance, additional ressources]
+        let instance_entry = wgpu::BindGroupLayoutEntry {
+            binding: 0,
+            visibility: wgpu::ShaderStage::VERTEX,
+            ty: wgpu::BindingType::StorageBuffer {
+                dynamic: false,
+                min_binding_size: None,
+                readonly: true,
+            },
+            count: None,
+        };
+
         let instance_bind_group_layout_desc = BindGroupLayoutDescriptor {
             label: None,
-            entries: &[wgpu::BindGroupLayoutEntry {
-                binding: 0,
-                visibility: wgpu::ShaderStage::VERTEX,
-                ty: wgpu::BindingType::StorageBuffer {
-                    dynamic: false,
-                    min_binding_size: None,
-                    readonly: true,
-                },
-                count: None,
-            }],
+            entries: &[instance_entry],
         };
         let instance_bind_group_layout =
             device.create_bind_group_layout(&instance_bind_group_layout_desc);
+        let additional_bind_group_layout =
+            device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+                label: None,
+                entries: D::Ressource::ressources_layout(),
+            });
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 bind_group_layouts: &[
                     &viewer_bind_group_layout,
                     &models_bind_group_layout,
                     &instance_bind_group_layout,
+                    &additional_bind_group_layout,
                 ],
                 push_constant_ranges: &[],
                 label: Some("render_pipeline_layout"),

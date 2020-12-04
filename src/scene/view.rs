@@ -164,6 +164,7 @@ impl View {
             queue.clone(),
             viewer.get_layout_desc(),
             model_bg_desc,
+            (),
         );
 
         Self {

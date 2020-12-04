@@ -78,6 +78,7 @@ impl super::instances_drawer::Vertexable for GridDiscVertex {
 impl Instanciable for GridDisc {
     type Vertex = GridDiscVertex;
     type RawInstance = GridDiscRaw;
+    type Ressource = ();
     fn vertices() -> Vec<GridDiscVertex> {
         let color = 0xFF_FF_FF_FF; // we will multiply by the instance's color in the fragment shader
         let mut ret = vec![GridDiscVertex {
