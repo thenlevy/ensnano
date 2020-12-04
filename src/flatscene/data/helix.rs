@@ -544,14 +544,6 @@ impl FillVertexConstructor<GpuVertex> for WithAttribute {
     }
 }
 
-fn segment_intersect(u0: Vec2, v0: Vec2, u1: Vec2, v1: Vec2) -> bool {
-    if let Some((s, t)) = line_intersect(u0, v0, u1, v1) {
-        s >= 0. && s <= 1. && t >= 0. && t <= 1.
-    } else {
-        false
-    }
-}
-
 /// Return (s, t) so that u0 + s(v0 - u0) = u1 + t(v1 - u1).
 fn line_intersect(u0: Vec2, v0: Vec2, u1: Vec2, v1: Vec2) -> Option<(f32, f32)> {
     let v0 = v0 - u0;

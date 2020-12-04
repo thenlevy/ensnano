@@ -11,9 +11,9 @@ use crate::{design, mediator, utils};
 use crate::{DrawArea, PhySize, WindowEvent};
 use instance::Instance;
 use mediator::{
-    ActionMode, AppNotification, Application, CreateGrid, DesignViewRotation,
-    DesignViewTranslation, GridHelixCreation, GridRotation, GridTranslation, HelixRotation,
-    HelixTranslation, MediatorPtr, Notification, Operation, SelectionMode,
+    ActionMode, Application, CreateGrid, DesignViewRotation, DesignViewTranslation,
+    GridHelixCreation, GridRotation, GridTranslation, HelixRotation, HelixTranslation, MediatorPtr,
+    Notification, Operation, SelectionMode,
 };
 use utils::instance;
 use wgpu::{Device, Queue};

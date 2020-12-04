@@ -7,12 +7,11 @@ pub struct HelixView {
     vertex_buffer: DynamicBuffer,
     index_buffer: DynamicBuffer,
     num_instance: u32,
-    id: u32,
     background: bool,
 }
 
 impl HelixView {
-    pub fn new(device: Rc<Device>, queue: Rc<Queue>, id: u32, background: bool) -> Self {
+    pub fn new(device: Rc<Device>, queue: Rc<Queue>, background: bool) -> Self {
         Self {
             vertex_buffer: DynamicBuffer::new(
                 device.clone(),
@@ -21,7 +20,6 @@ impl HelixView {
             ),
             index_buffer: DynamicBuffer::new(device, queue, wgpu::BufferUsage::INDEX),
             num_instance: 0,
-            id,
             background,
         }
     }

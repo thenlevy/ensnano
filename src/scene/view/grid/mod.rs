@@ -1,6 +1,6 @@
 use iced_wgpu::wgpu;
 use std::rc::Rc;
-use ultraviolet::{Mat4, Rotor3, Vec3, Vec4};
+use ultraviolet::{Mat4, Vec3};
 use wgpu::{include_spirv, Device, Queue, RenderPass, RenderPipeline};
 
 use super::{
@@ -421,7 +421,7 @@ impl GridDrawer {
     pub fn intersect(&self, origin: Vec3, direction: Vec3) -> Option<GridIntersection> {
         let mut ret = None;
         let mut depth = std::f32::INFINITY;
-        for (n, g) in self.instances.iter().enumerate() {
+        for g in self.instances.iter() {
             if let Some(intersection) = g.ray_intersection(origin, direction) {
                 if intersection.depth < depth {
                     ret = Some(intersection.clone());
@@ -471,6 +471,7 @@ impl BindGroups {
         self.viewer.update(viewer_data);
     }
 
+    #[allow(dead_code)]
     pub fn update_parameters<U: bytemuck::Pod>(&mut self, parameters_data: &U) {
         self.parameters.update(parameters_data);
     }

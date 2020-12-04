@@ -185,7 +185,7 @@ impl LayoutNode {
     ) -> (LayoutNodePtr, LayoutNodePtr) {
         assert!(top_proportion >= 0. && top_proportion <= 1.);
         match self {
-            LayoutNode::Area(left, top, right, bottom, idx) => {
+            LayoutNode::Area(left, top, right, bottom, _) => {
                 let separation = top_proportion * (*top + *bottom);
                 let top_area = Rc::new(RefCell::new(LayoutNode::Area(
                     *left, *top, *right, separation, top_idx,
@@ -225,7 +225,7 @@ impl LayoutNode {
     ) -> (LayoutNodePtr, LayoutNodePtr) {
         assert!(left_proportion >= 0. && left_proportion <= 1.);
         match self {
-            LayoutNode::Area(left, top, right, bottom, idx) => {
+            LayoutNode::Area(left, top, right, bottom, _) => {
                 let separation = left_proportion * (*left + *right);
                 let left_area = Rc::new(RefCell::new(LayoutNode::Area(
                     *left, *top, separation, *bottom, left_idx,
@@ -244,7 +244,7 @@ impl LayoutNode {
 
     /// Merge the two children of self. These children must be leaves
     pub fn merge(&mut self, idx: usize) -> (usize, usize) {
-        let mut ret = (0, 0);
+        let ret;
         let new_self = match self {
             LayoutNode::VSplit(_, top, bottom) => {
                 match (top.borrow().clone(), bottom.borrow().clone()) {

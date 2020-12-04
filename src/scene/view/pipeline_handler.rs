@@ -15,7 +15,7 @@ use wgpu::{
     StencilStateDescriptor,
 };
 
-use super::{Uniforms, SAMPLE_COUNT};
+use super::SAMPLE_COUNT;
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
@@ -27,20 +27,13 @@ unsafe impl bytemuck::Pod for ByteMat4 {}
 /// A structure that can create a pipeline which will draw several instances of the same
 /// mesh.
 pub struct PipelineHandler {
-    device: Rc<Device>,
     /// The mesh to be drawn
     mesh: Mesh,
     /// A possible updates to the instances to be drawn. Must be taken into account before drawing
     /// next frame
     new_instances: Option<Rc<Vec<Instance>>>,
-    /// A possible updates to the model matrices. Must be taken into account before drawing
-    /// next frame
-    new_model_matrices: Option<Rc<Vec<Mat4>>>,
     /// The number of instance to draw.
     number_instances: usize,
-    /// A possible update to the projection and view matrices. Must be taken into acccount before
-    /// drawing next frame
-    new_viewer_data: Option<Uniforms>,
     /// The data sent the the GPU
     bind_groups: BindGroups,
     /// The compiled vertex shader
@@ -101,12 +94,9 @@ impl PipelineHandler {
         };
 
         let mut ret = Self {
-            device: device.clone(),
             mesh,
             new_instances: None,
             number_instances: 0,
-            new_viewer_data: None,
-            new_model_matrices: None,
             bind_groups,
             vertex_module,
             fragment_module,

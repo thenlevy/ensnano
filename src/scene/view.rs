@@ -738,6 +738,7 @@ impl PipelineHandlers {
         }
     }
 
+    #[allow(dead_code)]
     fn all(&mut self) -> Vec<&mut PipelineHandler> {
         vec![
             &mut self.sphere,

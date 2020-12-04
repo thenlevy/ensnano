@@ -513,10 +513,6 @@ impl Design3D {
         self.design.lock().unwrap().get_grid_basis(g_id)
     }
 
-    pub fn build_helix_grid(&self, g_id: usize, x: isize, y: isize) {
-        self.design.lock().unwrap().build_helix_grid(g_id, x, y)
-    }
-
     pub fn get_nucl(&self, e_id: u32) -> Option<Nucl> {
         self.design.lock().unwrap().get_nucl(e_id)
     }

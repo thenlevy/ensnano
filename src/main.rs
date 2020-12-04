@@ -81,7 +81,7 @@ mod utils;
 // mod grid_panel; We don't use the grid panel atm
 
 use flatscene::FlatScene;
-use gui::{ColorOverlay, LeftPanel, OverlayType, Requests, TopBar};
+use gui::{ColorOverlay, OverlayType, Requests};
 use multiplexer::{DrawArea, ElementType, Multiplexer, Overlay, SplitMode};
 use scene::Scene;
 
@@ -133,7 +133,6 @@ fn main() {
     let event_loop = EventLoop::new();
     let window = winit::window::Window::new(&event_loop).unwrap();
 
-    let cursor_position = PhysicalPosition::new(-1.0, -1.0);
     let modifiers = ModifiersState::default();
 
     let instance = wgpu::Instance::new(wgpu::BackendBit::PRIMARY);
@@ -426,7 +425,7 @@ fn main() {
                 }
 
                 // Treat eventual event that happenend in the gui left panel.
-                let overlay_change =
+                let _overlay_change =
                     overlay_manager.fetch_change(&multiplexer, &window, &mut renderer);
                 {
                     let mut messages = messages.lock().unwrap();

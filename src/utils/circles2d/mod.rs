@@ -6,7 +6,6 @@ use wgpu::{include_spirv, BindGroupLayout, Device, Queue, RenderPass, RenderPipe
 use crate::consts::*;
 use crate::utils::bindgroup_manager::DynamicBindGroup;
 use crate::utils::texture::Texture;
-mod textures;
 
 #[repr(C)]
 #[derive(Clone, Copy)]
@@ -25,6 +24,7 @@ impl CircleInstance {
         }
     }
 
+    #[allow(dead_code)]
     pub fn angle(self, angle: f32) -> Self {
         Self { angle, ..self }
     }

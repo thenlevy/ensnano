@@ -7,8 +7,6 @@ use wgpu::{
     TextureView,
 };
 
-use crate::consts::SAMPLE_COUNT;
-
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
 pub struct Vertex {

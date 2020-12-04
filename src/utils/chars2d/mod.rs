@@ -6,7 +6,7 @@ use wgpu::{include_spirv, BindGroupLayout, Device, Queue, RenderPass, RenderPipe
 
 use crate::consts::*;
 use crate::text::{Letter, Vertex as CharVertex};
-use crate::utils::bindgroup_manager::{DynamicBindGroup, UniformBindGroup};
+use crate::utils::bindgroup_manager::DynamicBindGroup;
 use crate::utils::texture::Texture;
 
 #[repr(C)]

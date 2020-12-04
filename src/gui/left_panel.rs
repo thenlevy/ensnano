@@ -29,6 +29,7 @@ pub struct LeftPanel {
     logical_size: LogicalSize<f64>,
     logical_position: LogicalPosition<f64>,
     scroll_sensitivity: f32,
+    #[allow(dead_code)]
     open_color: button::State,
     sequence_input: SequenceInput,
     requests: Arc<Mutex<Requests>>,
@@ -41,6 +42,7 @@ pub struct LeftPanel {
 pub enum Message {
     SelectionModeChanged(SelectionMode),
     Resized(LogicalSize<f64>, LogicalPosition<f64>),
+    #[allow(dead_code)]
     OpenColor,
     ActionModeChanged(ActionMode),
     SequenceChanged(String),
@@ -436,6 +438,7 @@ impl ColorOverlay {
 pub enum ColorMessage {
     StrandColorChanged(Color),
     HueChanged(f32),
+    #[allow(dead_code)]
     Resized(LogicalSize<f64>),
     Closed,
 }

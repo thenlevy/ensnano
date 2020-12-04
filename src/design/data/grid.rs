@@ -3,7 +3,7 @@ use super::{icednano, Data};
 use std::collections::HashMap;
 use std::f32::consts::FRAC_PI_2;
 use std::sync::{Arc, RwLock};
-use ultraviolet::{Bivec3, Rotor3, Vec2, Vec3};
+use ultraviolet::{Rotor3, Vec2, Vec3};
 
 use crate::scene::GridInstance;
 
@@ -438,20 +438,6 @@ impl GridManager {
             ret[grid].max_y = ret[grid].max_y.max(grid_position.y as i32 + 2);
         }
         ret
-    }
-
-    pub fn create_grids(&mut self, design: &mut Design) {
-        let parameters = design.parameters.unwrap_or_default();
-        //let new_square_grids = Vec::new();
-        for (h_id, h) in design.helices.iter_mut() {
-            if h.grid_position.is_some() {
-                continue;
-            }
-            let axis = h.get_axis(&parameters);
-            if let Some(position) = self.attach_existing(h) {
-                h.grid_position = Some(position)
-            }
-        }
     }
 
     pub fn guess_grids(&mut self, design: &mut Design, groups: &HashMap<usize, Vec<usize>>) {

@@ -132,7 +132,7 @@ impl Program for TopBar {
                         Grid: G\n",
                     typ: native_dialog::MessageType::Info,
                 };
-                let result = dialog.show().unwrap();
+                dialog.show().unwrap();
             }
         };
         Command::none()

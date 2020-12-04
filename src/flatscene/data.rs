@@ -67,7 +67,7 @@ impl Data {
     }
 
     pub fn get_click(&self, x: f32, y: f32, camera: &CameraPtr) -> ClickResult {
-        for (h_id, h) in self.helices.iter().enumerate() {
+        for h in self.helices.iter() {
             if h.click_on_circle(x, y, camera) {
                 let translation_pivot = h.get_circle_pivot(camera).unwrap();
                 return ClickResult::CircleWidget { translation_pivot };
@@ -102,24 +102,6 @@ impl Data {
             })
     }
 
-    pub fn get_click_design(&self, x: f32, y: f32) -> Option<Nucl> {
-        for (h_id, h) in self.helices.iter().enumerate() {
-            let ret = h.get_click(x, y).map(|(position, forward)| Nucl {
-                helix: h_id,
-                position,
-                forward,
-            });
-            if let Some(ret) = ret {
-                let real_helix = self.design.get_helices()[ret.helix].id;
-                return Some(Nucl {
-                    helix: real_helix,
-                    ..ret
-                });
-            }
-        }
-        None
-    }
-
     pub fn get_pivot_position(&self, helix: usize, position: isize) -> Option<Vec2> {
         self.helices.get(helix).map(|h| h.get_pivot(position))
     }
@@ -133,13 +115,6 @@ impl Data {
             self.helices[h].set_color(0xFF_BF_1E_28);
         }
         self.instance_update = true;
-    }
-
-    pub fn translate_helix(&mut self, translation: Vec2) {
-        if let Some(h) = self.selected_helix {
-            self.helices[h].translate(translation);
-            self.instance_update = true;
-        }
     }
 
     pub fn snap_helix(&mut self, pivot: Nucl, destination: Vec2) {

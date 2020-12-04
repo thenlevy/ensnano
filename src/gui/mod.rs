@@ -19,7 +19,7 @@ use crate::SplitMode;
 use crate::{DrawArea, ElementType, IcedMessages, Multiplexer};
 use iced_native::Event;
 use iced_wgpu::{wgpu, Backend, Renderer, Settings, Viewport};
-use iced_winit::{conversion, futures, program, winit, Debug, Size};
+use iced_winit::{conversion, program, winit, Debug, Size};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -142,7 +142,7 @@ impl GuiState {
                     area.position.to_logical(window.scale_factor()),
                 ))
             }
-            GuiState::StatusBar(ref mut state) => {}
+            GuiState::StatusBar(_) => {}
         }
     }
 
@@ -469,7 +469,6 @@ impl Gui {
         for element in self.elements.values_mut() {
             element.resize(window, multiplexer)
         }
-        let top_bar_area = multiplexer.get_element_area(ElementType::TopBar).unwrap();
         self.resized = true;
     }
 

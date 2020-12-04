@@ -29,7 +29,6 @@ pub trait Instanciable {
 }
 
 pub struct InstanceDrawer<D: Instanciable> {
-    device: Rc<Device>,
     pipeline: RenderPipeline,
     vertex_buffer: wgpu::Buffer,
     index_buffer: wgpu::Buffer,
@@ -66,7 +65,6 @@ impl<D: Instanciable> InstanceDrawer<D> {
         );
         let instances = DynamicBindGroup::new(device.clone(), queue);
         Self {
-            device,
             vertex_buffer,
             index_buffer,
             pipeline,

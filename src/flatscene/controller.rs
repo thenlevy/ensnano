@@ -113,9 +113,3 @@ impl Controller {
         }
     }
 }
-
-enum State {
-    Normal,
-    Translating,
-    Rotating(Vec2),
-}
