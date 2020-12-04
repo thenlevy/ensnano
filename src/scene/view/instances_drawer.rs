@@ -1,4 +1,8 @@
-use super::drawable::{Vertex, VertexRaw};
+//! This modules defines the [Instanciable](Instanciable) trait. Types that implement the
+//! `Instanciable` trait can be turned into instances that can be drawn by an
+//! [InstanceDrawer](InstanceDrawer).
+
+use super::drawable::VertexRaw;
 use crate::consts::*;
 use crate::utils::bindgroup_manager::DynamicBindGroup;
 use crate::utils::create_buffer_with_data;
@@ -11,28 +15,65 @@ use wgpu::{
     ShaderModule,
 };
 
-pub trait Instanciable {
+/// A type that represents a vertex
+pub trait Vertexable {
+    /// The raw type that is sent to the shaders
     type RawType: bytemuck::Pod + bytemuck::Zeroable;
-    fn vertices() -> Vec<Vertex>;
-    fn indices() -> Vec<u16>;
-    fn primitive_topology() -> PrimitiveTopology;
-    fn vertex_module(device: &Device) -> ShaderModule;
-    fn fragment_module(device: &Device) -> ShaderModule;
-    fn to_instance(&self) -> Self::RawType;
+    /// The vertex state decriptor used to create the pipeline
+    fn desc<'a>() -> wgpu::VertexBufferDescriptor<'a>;
+    /// Convert self into a raw vertex.
+    fn to_raw(&self) -> Self::RawType;
+}
 
-    fn raw_vertices() -> Vec<VertexRaw> {
+/// A type that represents a mesh
+pub trait Instanciable {
+    /// The type that represents the vertices of the mesh
+    type Vertex: Vertexable;
+    /// The type that will represents the instance data
+    type RawInstance: bytemuck::Pod + bytemuck::Zeroable;
+    /// The vertices of the mesh
+    fn vertices() -> Vec<Self::Vertex>;
+    /// The indices used to draw the mesh
+    fn indices() -> Vec<u16>;
+    /// The primitive topology used to draw the mesh
+    fn primitive_topology() -> PrimitiveTopology;
+    /// The vertex shader used to draw the mesh
+    fn vertex_module(device: &Device) -> ShaderModule;
+    /// The fragment shader used to draw the mesh
+    fn fragment_module(device: &Device) -> ShaderModule;
+    /// Return the data that will represent self in the shader
+    fn to_raw_instance(&self) -> Self::RawInstance;
+
+    /// Return the content of the vertex buffer
+    fn raw_vertices() -> Vec<<Self::Vertex as Vertexable>::RawType> {
         Self::vertices()
             .iter()
-            .map(|v| v.to_raw(true))
+            .map(Vertexable::to_raw)
             .collect::<Vec<_>>()
+    }
+
+    /// Descritpion of the additional ressources (eg textures) needed to draw self.
+    fn additional_ressources_layout() -> &'static [wgpu::BindGroupLayoutEntry] {
+        &[]
+    }
+
+    /// Additional ressources (eg textures) needed to draw self
+    fn additional_ressources(&self) -> &[wgpu::BindGroupEntry] {
+        &[]
     }
 }
 
+/// An object that draws an instanced mesh
 pub struct InstanceDrawer<D: Instanciable> {
+    /// The pipeline that will render the mesh
     pipeline: RenderPipeline,
+    /// The vertex buffer used to draw the mesh
     vertex_buffer: wgpu::Buffer,
+    /// The index buffer used to draw the mesh
     index_buffer: wgpu::Buffer,
+    /// The bind group containing the instances data
     instances: DynamicBindGroup,
+    /// The number of instances
     nb_instances: u32,
     _phantom: PhantomData<D>,
 }
@@ -75,7 +116,8 @@ impl<D: Instanciable> InstanceDrawer<D> {
     }
 
     pub fn new_instances(&mut self, instances: Vec<D>) {
-        let raw_instances: Vec<D::RawType> = instances.iter().map(|d| d.to_instance()).collect();
+        let raw_instances: Vec<D::RawInstance> =
+            instances.iter().map(|d| d.to_raw_instance()).collect();
         self.instances.update(raw_instances.as_slice());
         self.nb_instances = instances.len() as u32;
     }

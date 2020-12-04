@@ -1,7 +1,6 @@
 use iced_wgpu::wgpu;
 use wgpu::{include_spirv, Device, PrimitiveTopology};
 
-use super::drawable::Vertex;
 use super::instances_drawer::Instanciable;
 use ultraviolet::{Mat4, Rotor3, Vec3, Vec4};
 
@@ -29,25 +28,67 @@ unsafe impl bytemuck::Pod for GridDiscRaw {}
 
 const NB_EDGE: usize = 50;
 
+#[repr(C)]
+#[derive(Copy, Clone, Debug)]
+pub struct GridDiscVertex {
+    position: Vec3,
+    color: u32,
+}
+
+#[repr(C)]
+#[derive(Copy, Clone, Debug)]
+pub struct GridDiscVertexRaw {
+    position: Vec3,
+    color: Vec4,
+}
+
+unsafe impl bytemuck::Zeroable for GridDiscVertexRaw {}
+unsafe impl bytemuck::Pod for GridDiscVertexRaw {}
+
+impl super::instances_drawer::Vertexable for GridDiscVertex {
+    type RawType = GridDiscVertexRaw;
+
+    fn to_raw(&self) -> GridDiscVertexRaw {
+        GridDiscVertexRaw {
+            position: self.position,
+            color: crate::utils::instance::Instance::color_from_au32(self.color),
+        }
+    }
+
+    fn desc<'a>() -> wgpu::VertexBufferDescriptor<'a> {
+        wgpu::VertexBufferDescriptor {
+            stride: std::mem::size_of::<GridDiscVertex>() as wgpu::BufferAddress,
+            step_mode: wgpu::InputStepMode::Vertex,
+            attributes: &[
+                wgpu::VertexAttributeDescriptor {
+                    offset: 0,
+                    shader_location: 0,
+                    format: wgpu::VertexFormat::Float3,
+                },
+                wgpu::VertexAttributeDescriptor {
+                    offset: std::mem::size_of::<[f32; 3]>() as wgpu::BufferAddress,
+                    shader_location: 1,
+                    format: wgpu::VertexFormat::Float4,
+                },
+            ],
+        }
+    }
+}
+
 impl Instanciable for GridDisc {
-    type RawType = GridDiscRaw;
-    fn vertices() -> Vec<Vertex> {
+    type Vertex = GridDiscVertex;
+    type RawInstance = GridDiscRaw;
+    fn vertices() -> Vec<GridDiscVertex> {
         let color = 0xFF_FF_FF_FF; // we will multiply by the instance's color in the fragment shader
-        let fake = false;
-        let mut ret = vec![Vertex {
+        let mut ret = vec![GridDiscVertex {
             position: Vec3::zero(),
             color,
-            fake,
         }];
         ret.reserve(NB_EDGE);
         for i in 0..(NB_EDGE + 1) {
             let theta = i as f32 / NB_EDGE as f32 * 2. * std::f32::consts::PI;
             let position = Vec3::new(0., theta.cos(), theta.sin());
-            ret.push(Vertex {
-                position,
-                color,
-                fake,
-            });
+            ret.push(GridDiscVertex { position, color });
         }
         ret
     }
@@ -74,7 +115,7 @@ impl Instanciable for GridDisc {
         device.create_shader_module(include_spirv!("grid_disc.frag.spv"))
     }
 
-    fn to_instance(&self) -> GridDiscRaw {
+    fn to_raw_instance(&self) -> GridDiscRaw {
         GridDiscRaw {
             model_matrix: Mat4::from_translation(self.position)
                 * self.orientation.into_matrix().into_homogeneous(),
