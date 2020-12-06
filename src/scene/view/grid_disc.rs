@@ -57,7 +57,7 @@ impl super::instances_drawer::Vertexable for GridDiscVertex {
 
     fn desc<'a>() -> wgpu::VertexBufferDescriptor<'a> {
         wgpu::VertexBufferDescriptor {
-            stride: std::mem::size_of::<GridDiscVertex>() as wgpu::BufferAddress,
+            stride: std::mem::size_of::<GridDiscVertexRaw>() as wgpu::BufferAddress,
             step_mode: wgpu::InputStepMode::Vertex,
             attributes: &[
                 wgpu::VertexAttributeDescriptor {

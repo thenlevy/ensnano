@@ -8,10 +8,10 @@ layout(location=3) in vec3 v_color;
 
 layout(location=0) out vec4 f_color;
 
-layout(set = 2, binding = 0) uniform texture2D t_square;
-layout(set = 2, binding = 1) uniform sampler s_square;
-layout(set = 2, binding = 2) uniform texture2D t_honney;
-layout(set = 2, binding = 3) uniform sampler s_honney;
+layout(set = 3, binding = 0) uniform texture2D t_square;
+layout(set = 3, binding = 1) uniform sampler s_square;
+layout(set = 3, binding = 2) uniform texture2D t_honney;
+layout(set = 3, binding = 3) uniform sampler s_honney;
 
 
 void main() {

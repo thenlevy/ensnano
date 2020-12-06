@@ -35,8 +35,8 @@ mod rotation_widget;
 
 use bindgroup_manager::{DynamicBindGroup, UniformBindGroup};
 use drawable::{Drawable, Drawer, Vertex};
-use grid::GridDrawer;
 pub use grid::{GridInstance, GridIntersection, GridTypeDescr};
+use grid::{GridManager, GridTextures};
 pub use grid_disc::GridDisc;
 use handle_drawer::HandlesDrawer;
 pub use handle_drawer::{HandleDir, HandleOrientation, HandlesDescriptor};
@@ -92,7 +92,7 @@ pub struct View {
     need_redraw_fake: bool,
     draw_letter: bool,
     msaa_texture: Option<wgpu::TextureView>,
-    grid_drawer: GridDrawer,
+    grid_manager: GridManager,
     disc_drawer: InstanceDrawer<GridDisc>,
 }
 
@@ -150,14 +150,15 @@ impl View {
         };
         let models = DynamicBindGroup::new(device.clone(), queue.clone());
 
-        let grid_drawer = GridDrawer::new(
+        let grid_textures = GridTextures::new(device.as_ref(), encoder);
+        let grid_drawer = InstanceDrawer::new(
             device.clone(),
             queue.clone(),
-            &camera,
-            &projection,
-            encoder,
-            None,
+            viewer.get_layout_desc(),
+            model_bg_desc.clone(),
+            grid_textures,
         );
+        let grid_manager = GridManager::new(grid_drawer);
 
         let disc_drawer = InstanceDrawer::new(
             device.clone(),
@@ -185,7 +186,7 @@ impl View {
             need_redraw_fake: true,
             draw_letter: false,
             msaa_texture,
-            grid_drawer,
+            grid_manager,
             disc_drawer,
         }
     }
@@ -209,8 +210,6 @@ impl View {
                 for i in 0..NB_BASIS_SYMBOLS {
                     self.letter_drawer[i].new_viewer(self.camera.clone(), self.projection.clone());
                 }
-                self.grid_drawer
-                    .new_viewer(self.camera.clone(), self.projection.clone());
                 self.need_redraw_fake = true;
             }
             ViewUpdate::Handles(descr) => {
@@ -242,7 +241,7 @@ impl View {
                     self.letter_drawer[i].new_instances(instance.clone());
                 }
             }
-            ViewUpdate::Grids(grid) => self.grid_drawer.new_instances(grid),
+            ViewUpdate::Grids(grid) => self.grid_manager.new_instances(grid),
             ViewUpdate::GridDiscs(instances) => self.disc_drawer.new_instances(instances),
             _ => {
                 self.need_redraw_fake |= self.pipeline_handlers.update(view_update);
@@ -403,11 +402,15 @@ impl View {
         }
 
         if !fake_color {
-            self.grid_drawer.draw(&mut render_pass);
+            self.grid_manager.draw(
+                &mut render_pass,
+                viewer_bind_group,
+                self.models.get_bindgroup(),
+            );
             self.disc_drawer.draw(
                 &mut render_pass,
                 viewer_bind_group,
-                &self.models.get_bindgroup(),
+                self.models.get_bindgroup(),
             );
         }
 
@@ -526,15 +529,15 @@ impl View {
 
     pub fn grid_intersection(&self, x_ndc: f32, y_ndc: f32) -> Option<GridIntersection> {
         let ray = maths::cast_ray(x_ndc, y_ndc, self.camera.clone(), self.projection.clone());
-        self.grid_drawer.intersect(ray.0, ray.1)
+        self.grid_manager.intersect(ray.0, ray.1)
     }
 
     pub fn set_candidate_grid(&mut self, grid: Option<(u32, u32)>) {
-        self.grid_drawer.set_candidate_grid(grid)
+        self.grid_manager.set_candidate_grid(grid)
     }
 
     pub fn set_selected_grid(&mut self, grid: Option<(u32, u32)>) {
-        self.grid_drawer.set_selected_grid(grid)
+        self.grid_manager.set_selected_grid(grid)
     }
 }
 

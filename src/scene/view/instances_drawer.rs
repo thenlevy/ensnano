@@ -2,7 +2,6 @@
 //! `Instanciable` trait can be turned into instances that can be drawn by an
 //! [InstanceDrawer](InstanceDrawer).
 
-use super::drawable::VertexRaw;
 use crate::consts::*;
 use crate::utils::bindgroup_manager::DynamicBindGroup;
 use crate::utils::create_buffer_with_data;
@@ -32,8 +31,8 @@ pub trait RessourceProvider {
         &[]
     }
     /// Descritpion of the additional ressources (eg textures) needed to draw the mesh.
-    fn ressources(&self) -> &[wgpu::BindGroupEntry] {
-        &[]
+    fn ressources(&self) -> Vec<wgpu::BindGroupEntry> {
+        Vec::new()
     }
 }
 
@@ -47,9 +46,19 @@ pub trait Instanciable {
     type RawInstance: bytemuck::Pod + bytemuck::Zeroable;
     /// The type that will provide additional ressources needed to draw the mesh
     type Ressource: RessourceProvider;
-    /// The vertices of the mesh
+    /// The vertices of the mesh.
+    ///
+    /// The vertices must be the same for all the instances drawn by an
+    /// `Instanciable`. However, vertices can depend on the particular instantiation of the type
+    /// that implements `Instanciable`. In that case, the implementation of `Instanciable` must
+    /// overwrite the [`custom_vertices`](`custom_vertices`) method.
     fn vertices() -> Vec<Self::Vertex>;
-    /// The indices used to draw the mesh
+    /// The indices used to draw the mesh.
+    ///
+    /// The indices must be the same for all the instances drawn by an
+    /// `Instanciable`. However, indices can depend on the particular instantiation of the type
+    /// that implements `Instanciable`. In that case, the implementation of `Instanciable` must
+    /// overwrite the [`custom_indices`](`custom_indices`) method.
     fn indices() -> Vec<u16>;
     /// The primitive topology used to draw the mesh
     fn primitive_topology() -> PrimitiveTopology;
@@ -67,6 +76,22 @@ pub trait Instanciable {
             .map(Vertexable::to_raw)
             .collect::<Vec<_>>()
     }
+
+    /// Return the vertices of the mesh, if they depends on `self`.
+    fn custom_vertices(&self) -> Option<Vec<Self::Vertex>> {
+        None
+    }
+
+    /// Return the vertices of the mesh, if they depends on `self`.
+    fn custom_indices(&self) -> Option<Vec<u16>> {
+        None
+    }
+
+    /// Return the content of the vertex buffer, or `None` if `custom_vertex` is not overwriten
+    fn custom_raw_vertices(&self) -> Option<Vec<<Self::Vertex as Vertexable>::RawType>> {
+        self.custom_vertices()
+            .map(|v| v.iter().map(Vertexable::to_raw).collect())
+    }
 }
 
 /// An object that draws an instanced mesh
@@ -83,7 +108,10 @@ pub struct InstanceDrawer<D: Instanciable> {
     additional_bind_group: wgpu::BindGroup,
     /// The number of instances
     nb_instances: u32,
+    /// The number of vertex indices
+    nb_indices: u32,
     _phantom_data: PhantomData<D>,
+    device: Rc<Device>,
 }
 
 impl<D: Instanciable> InstanceDrawer<D> {
@@ -124,7 +152,7 @@ impl<D: Instanciable> InstanceDrawer<D> {
         let additional_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: None,
             layout: &additional_bind_group_layout,
-            entries: ressource.ressources(),
+            entries: ressource.ressources().as_slice(),
         });
 
         Self {
@@ -133,8 +161,10 @@ impl<D: Instanciable> InstanceDrawer<D> {
             pipeline,
             instances,
             nb_instances: 0,
+            nb_indices: D::indices().len() as u32,
             additional_bind_group,
             _phantom_data: PhantomData,
+            device,
         }
     }
 
@@ -143,6 +173,21 @@ impl<D: Instanciable> InstanceDrawer<D> {
             instances.iter().map(|d| d.to_raw_instance()).collect();
         self.instances.update(raw_instances.as_slice());
         self.nb_instances = instances.len() as u32;
+        if let Some(indices) = instances.get(0).and_then(D::custom_indices) {
+            self.nb_indices = indices.len() as u32;
+            self.index_buffer = create_buffer_with_data(
+                self.device.as_ref(),
+                bytemuck::cast_slice(indices.as_slice()),
+                wgpu::BufferUsage::INDEX,
+            );
+        }
+        if let Some(vertices) = instances.get(0).and_then(D::custom_raw_vertices) {
+            self.vertex_buffer = create_buffer_with_data(
+                self.device.as_ref(),
+                bytemuck::cast_slice(vertices.as_slice()),
+                wgpu::BufferUsage::VERTEX,
+            );
+        }
     }
 
     pub fn draw<'a>(
@@ -160,8 +205,7 @@ impl<D: Instanciable> InstanceDrawer<D> {
         render_pass.set_bind_group(2, self.instances.get_bindgroup(), &[]);
         render_pass.set_bind_group(3, &self.additional_bind_group, &[]);
 
-        let nb_index = D::indices().len() as u32;
-        render_pass.draw_indexed(0..nb_index, 0, 0..self.nb_instances);
+        render_pass.draw_indexed(0..self.nb_indices, 0, 0..self.nb_instances);
     }
 
     fn create_pipeline(
@@ -265,7 +309,7 @@ impl<D: Instanciable> InstanceDrawer<D> {
             }),
             vertex_state: wgpu::VertexStateDescriptor {
                 index_format: wgpu::IndexFormat::Uint16,
-                vertex_buffers: &[VertexRaw::buffer_desc()],
+                vertex_buffers: &[D::Vertex::desc()],
             },
             sample_count,
             sample_mask: !0,
