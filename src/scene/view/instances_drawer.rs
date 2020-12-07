@@ -126,7 +126,7 @@ pub trait Instanciable {
 }
 
 /// An object that draws an instanced mesh
-pub struct InstanceDrawer<D: Instanciable> {
+pub struct InstanceDrawer<D: Instanciable + ?Sized> {
     /// The pipeline that will render the mesh
     pipeline: RenderPipeline,
     /// The vertex buffer used to draw the mesh
@@ -149,8 +149,8 @@ impl<D: Instanciable> InstanceDrawer<D> {
     pub fn new(
         device: Rc<Device>,
         queue: Rc<Queue>,
-        viewer_desc: BindGroupLayoutDescriptor<'static>,
-        models_desc: BindGroupLayoutDescriptor<'static>,
+        viewer_desc: &BindGroupLayoutDescriptor<'static>,
+        models_desc: &BindGroupLayoutDescriptor<'static>,
         ressource: D::Ressource,
         fake: bool,
     ) -> Self {
@@ -260,8 +260,8 @@ impl<D: Instanciable> InstanceDrawer<D> {
 
     fn create_pipeline(
         device: &Device,
-        viewer_bind_group_layout_desc: wgpu::BindGroupLayoutDescriptor<'static>,
-        models_bind_group_layout_desc: wgpu::BindGroupLayoutDescriptor<'static>,
+        viewer_bind_group_layout_desc: &wgpu::BindGroupLayoutDescriptor<'static>,
+        models_bind_group_layout_desc: &wgpu::BindGroupLayoutDescriptor<'static>,
         vertex_module: ShaderModule,
         fragment_module: ShaderModule,
         primitive_topology: PrimitiveTopology,

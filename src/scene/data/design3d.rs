@@ -1,4 +1,4 @@
-use super::super::view::{DnaVertex, Instanciable, RawDnaInstance, SphereInstance, TubeInstance};
+use super::super::view::{DnaObject, Instanciable, RawDnaInstance, SphereInstance, TubeInstance};
 use super::super::GridInstance;
 use super::{LetterInstance, SceneElement, StrandBuilder};
 use crate::consts::*;
@@ -597,11 +597,7 @@ impl Instantiable {
         }
     }
 
-    pub fn to_dna_instance(
-        &self,
-        use_alpha: bool,
-    ) -> Box<dyn Instanciable<RawInstance = RawDnaInstance, Vertex = DnaVertex, Ressource = ()>>
-    {
+    pub fn to_dna_instance(&self, use_alpha: bool) -> Box<dyn DnaObject> {
         let color = if use_alpha {
             Instance::color_from_au32(self.color)
         } else {

@@ -17,6 +17,11 @@ pub struct DnaVertex {
 unsafe impl bytemuck::Pod for DnaVertex {}
 unsafe impl bytemuck::Zeroable for DnaVertex {}
 
+pub trait DnaObject:
+    Instanciable<Ressource = (), Vertex = DnaVertex, RawInstance = RawDnaInstance>
+{
+}
+
 impl Vertexable for DnaVertex {
     type RawType = DnaVertex;
     fn to_raw(&self) -> DnaVertex {
@@ -152,6 +157,8 @@ impl Instanciable for SphereInstance {
     }
 }
 
+impl DnaObject for SphereInstance {}
+
 pub struct TubeInstance {
     pub position: Vec3,
     pub rotor: Rotor3,
@@ -218,3 +225,5 @@ impl Instanciable for TubeInstance {
         }
     }
 }
+
+impl DnaObject for TubeInstance {}

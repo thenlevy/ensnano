@@ -10,6 +10,7 @@ use camera::{Camera, CameraPtr, Projection, ProjectionPtr};
 use iced_wgpu::wgpu;
 use instance::Instance;
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::rc::Rc;
 use texture::Texture;
 use ultraviolet::{Mat4, Rotor3, Vec3};
@@ -35,7 +36,7 @@ mod maths;
 mod rotation_widget;
 
 use bindgroup_manager::{DynamicBindGroup, UniformBindGroup};
-pub use dna_obj::{DnaVertex, RawDnaInstance, SphereInstance, TubeInstance};
+pub use dna_obj::{DnaObject, RawDnaInstance, SphereInstance, TubeInstance};
 use drawable::{Drawable, Drawer, Vertex};
 pub use grid::{GridInstance, GridIntersection, GridTypeDescr};
 use grid::{GridManager, GridTextures};
@@ -159,8 +160,8 @@ impl View {
         let grid_drawer = InstanceDrawer::new(
             device.clone(),
             queue.clone(),
-            viewer.get_layout_desc(),
-            model_bg_desc.clone(),
+            &viewer.get_layout_desc(),
+            &model_bg_desc,
             grid_textures,
             false,
         );
@@ -169,8 +170,8 @@ impl View {
         let disc_drawer = InstanceDrawer::new(
             device.clone(),
             queue.clone(),
-            viewer.get_layout_desc(),
-            model_bg_desc.clone(),
+            &viewer.get_layout_desc(),
+            &model_bg_desc,
             (),
             false,
         );
@@ -178,8 +179,8 @@ impl View {
         let sphere_drawer = InstanceDrawer::new(
             device.clone(),
             queue.clone(),
-            viewer.get_layout_desc(),
-            model_bg_desc.clone(),
+            &viewer.get_layout_desc(),
+            &model_bg_desc,
             (),
             false,
         );
@@ -187,8 +188,8 @@ impl View {
         let fake_sphere_drawer = InstanceDrawer::new(
             device.clone(),
             queue.clone(),
-            viewer.get_layout_desc(),
-            model_bg_desc,
+            &viewer.get_layout_desc(),
+            &model_bg_desc,
             (),
             true,
         );
@@ -615,6 +616,189 @@ pub enum ViewUpdate {
     Letter(Vec<Rc<Vec<LetterInstance>>>),
     Grids(Rc<Vec<GridInstance>>),
     GridDiscs(Vec<GridDisc>),
+}
+
+#[derive(Eq, PartialEq, Debug, Copy, Clone, Hash)]
+pub enum Mesh {
+    Sphere,
+    Tube,
+    FakeSphere,
+    FakeTube,
+    CandidateSphere,
+    CandidateTube,
+    SelectedSphere,
+    SelectedTube,
+    PhantomSphere,
+    PhantomTube,
+    FakePhantomTube,
+    FakePhantomSphere,
+}
+
+impl Mesh {
+    fn all() -> Vec<Self> {
+        use Mesh::*;
+        vec![
+            Sphere,
+            Tube,
+            FakeSphere,
+            FakeTube,
+            CandidateSphere,
+            CandidateTube,
+            SelectedSphere,
+            SelectedTube,
+            PhantomSphere,
+            PhantomTube,
+            FakePhantomTube,
+            FakePhantomSphere,
+        ]
+    }
+
+    fn real() -> Vec<Self> {
+        use Mesh::*;
+        vec![
+            Sphere,
+            Tube,
+            CandidateSphere,
+            CandidateTube,
+            SelectedSphere,
+            SelectedTube,
+            PhantomSphere,
+            PhantomTube,
+        ]
+    }
+
+    fn fake_phantoms() -> Vec<Self> {
+        use Mesh::*;
+        vec![FakePhantomSphere, FakePhantomTube]
+    }
+
+    fn fake() -> Vec<Self> {
+        use Mesh::*;
+        vec![FakeSphere, FakeTube]
+    }
+}
+
+struct DnaDrawers {
+    sphere: InstanceDrawer<SphereInstance>,
+    tube: InstanceDrawer<TubeInstance>,
+    candidate_sphere: InstanceDrawer<SphereInstance>,
+    candidate_tube: InstanceDrawer<TubeInstance>,
+    selected_sphere: InstanceDrawer<SphereInstance>,
+    selected_tube: InstanceDrawer<TubeInstance>,
+    fake_sphere: InstanceDrawer<SphereInstance>,
+    fake_tube: InstanceDrawer<SphereInstance>,
+    phantom_sphere: InstanceDrawer<SphereInstance>,
+    phantom_tube: InstanceDrawer<TubeInstance>,
+    fake_phantom_sphere: InstanceDrawer<SphereInstance>,
+    fake_phantom_tube: InstanceDrawer<TubeInstance>,
+}
+
+impl DnaDrawers {
+    pub fn new(
+        device: Rc<Device>,
+        queue: Rc<Queue>,
+        viewer_desc: &wgpu::BindGroupLayoutDescriptor<'static>,
+        model_desc: &wgpu::BindGroupLayoutDescriptor<'static>,
+    ) -> Self {
+        Self {
+            sphere: InstanceDrawer::new(
+                device.clone(),
+                queue.clone(),
+                viewer_desc,
+                model_desc,
+                (),
+                false,
+            ),
+            tube: InstanceDrawer::new(
+                device.clone(),
+                queue.clone(),
+                viewer_desc,
+                model_desc,
+                (),
+                false,
+            ),
+            candidate_sphere: InstanceDrawer::new(
+                device.clone(),
+                queue.clone(),
+                viewer_desc,
+                model_desc,
+                (),
+                false,
+            ),
+            candidate_tube: InstanceDrawer::new(
+                device.clone(),
+                queue.clone(),
+                viewer_desc,
+                model_desc,
+                (),
+                false,
+            ),
+            selected_sphere: InstanceDrawer::new(
+                device.clone(),
+                queue.clone(),
+                viewer_desc,
+                model_desc,
+                (),
+                false,
+            ),
+            selected_tube: InstanceDrawer::new(
+                device.clone(),
+                queue.clone(),
+                viewer_desc,
+                model_desc,
+                (),
+                false,
+            ),
+            phantom_sphere: InstanceDrawer::new(
+                device.clone(),
+                queue.clone(),
+                viewer_desc,
+                model_desc,
+                (),
+                false,
+            ),
+            phantom_tube: InstanceDrawer::new(
+                device.clone(),
+                queue.clone(),
+                viewer_desc,
+                model_desc,
+                (),
+                false,
+            ),
+            fake_sphere: InstanceDrawer::new(
+                device.clone(),
+                queue.clone(),
+                viewer_desc,
+                model_desc,
+                (),
+                true,
+            ),
+            fake_tube: InstanceDrawer::new(
+                device.clone(),
+                queue.clone(),
+                viewer_desc,
+                model_desc,
+                (),
+                true,
+            ),
+            fake_phantom_sphere: InstanceDrawer::new(
+                device.clone(),
+                queue.clone(),
+                viewer_desc,
+                model_desc,
+                (),
+                true,
+            ),
+            fake_phantom_tube: InstanceDrawer::new(
+                device.clone(),
+                queue.clone(),
+                viewer_desc,
+                model_desc,
+                (),
+                true,
+            ),
+        }
+    }
 }
 
 /// The structure gathers all the pipepline that are used to draw meshes on the scene
