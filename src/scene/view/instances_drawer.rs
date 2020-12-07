@@ -52,25 +52,38 @@ pub trait Instanciable {
     /// `Instanciable`. However, vertices can depend on the particular instantiation of the type
     /// that implements `Instanciable`. In that case, the implementation of `Instanciable` must
     /// overwrite the [`custom_vertices`](`custom_vertices`) method.
-    fn vertices() -> Vec<Self::Vertex>;
+    fn vertices() -> Vec<Self::Vertex>
+    where
+        Self: Sized;
     /// The indices used to draw the mesh.
     ///
     /// The indices must be the same for all the instances drawn by an
     /// `Instanciable`. However, indices can depend on the particular instantiation of the type
     /// that implements `Instanciable`. In that case, the implementation of `Instanciable` must
     /// overwrite the [`custom_indices`](`custom_indices`) method.
-    fn indices() -> Vec<u16>;
+    fn indices() -> Vec<u16>
+    where
+        Self: Sized;
     /// The primitive topology used to draw the mesh
-    fn primitive_topology() -> PrimitiveTopology;
+    fn primitive_topology() -> PrimitiveTopology
+    where
+        Self: Sized;
     /// The vertex shader used to draw the mesh
-    fn vertex_module(device: &Device) -> ShaderModule;
+    fn vertex_module(device: &Device) -> ShaderModule
+    where
+        Self: Sized;
     /// The fragment shader used to draw the mesh
-    fn fragment_module(device: &Device) -> ShaderModule;
+    fn fragment_module(device: &Device) -> ShaderModule
+    where
+        Self: Sized;
     /// Return the data that will represent self in the shader
     fn to_raw_instance(&self) -> Self::RawInstance;
 
     /// Return the content of the vertex buffer
-    fn raw_vertices() -> Vec<<Self::Vertex as Vertexable>::RawType> {
+    fn raw_vertices() -> Vec<<Self::Vertex as Vertexable>::RawType>
+    where
+        Self: Sized,
+    {
         Self::vertices()
             .iter()
             .map(Vertexable::to_raw)
@@ -91,6 +104,24 @@ pub trait Instanciable {
     fn custom_raw_vertices(&self) -> Option<Vec<<Self::Vertex as Vertexable>::RawType>> {
         self.custom_vertices()
             .map(|v| v.iter().map(Vertexable::to_raw).collect())
+    }
+
+    /// The vertex shader used to draw the mesh on fake texture. If this returns `None`, an
+    /// `InstanceDrawer` drawing on a fake texture will use `self::vertex_module` instead.
+    fn fake_vertex_module(_device: &Device) -> Option<ShaderModule>
+    where
+        Self: Sized,
+    {
+        None
+    }
+
+    /// The fragment shader used to draw the mesh on fake texture. If this returns `None`, an
+    /// `InstanceDrawer` drawing on a fake texture will use `self::fragment_module` instead.
+    fn fake_fragment_module(_device: &Device) -> Option<ShaderModule>
+    where
+        Self: Sized,
+    {
+        None
     }
 }
 
@@ -121,6 +152,7 @@ impl<D: Instanciable> InstanceDrawer<D> {
         viewer_desc: BindGroupLayoutDescriptor<'static>,
         models_desc: BindGroupLayoutDescriptor<'static>,
         ressource: D::Ressource,
+        fake: bool,
     ) -> Self {
         let index_buffer = create_buffer_with_data(
             device.as_ref(),
@@ -133,13 +165,26 @@ impl<D: Instanciable> InstanceDrawer<D> {
             wgpu::BufferUsage::VERTEX,
         );
 
+        let vertex_module = if fake {
+            D::fake_vertex_module(&device).unwrap_or_else(|| D::vertex_module(&device))
+        } else {
+            D::vertex_module(&device)
+        };
+
+        let fragment_module = if fake {
+            D::fake_fragment_module(&device).unwrap_or_else(|| D::fragment_module(&device))
+        } else {
+            D::fragment_module(&device)
+        };
+
         let pipeline = Self::create_pipeline(
             &device,
             viewer_desc,
             models_desc,
-            D::vertex_module(&device),
-            D::fragment_module(&device),
+            vertex_module,
+            fragment_module,
             D::primitive_topology(),
+            fake,
         );
         let instances = DynamicBindGroup::new(device.clone(), queue);
 
@@ -190,6 +235,11 @@ impl<D: Instanciable> InstanceDrawer<D> {
         }
     }
 
+    pub fn new_instances_raw(&mut self, instances_raw: &Vec<D::RawInstance>) {
+        self.nb_instances = instances_raw.len() as u32;
+        self.instances.update(instances_raw.as_slice());
+    }
+
     pub fn draw<'a>(
         &'a mut self,
         render_pass: &mut RenderPass<'a>,
@@ -215,6 +265,7 @@ impl<D: Instanciable> InstanceDrawer<D> {
         vertex_module: ShaderModule,
         fragment_module: ShaderModule,
         primitive_topology: PrimitiveTopology,
+        fake: bool,
     ) -> RenderPipeline {
         let viewer_bind_group_layout =
             device.create_bind_group_layout(&viewer_bind_group_layout_desc);
@@ -232,6 +283,38 @@ impl<D: Instanciable> InstanceDrawer<D> {
             },
             count: None,
         };
+
+        // texture displayed on the frame requires to use srgb, texture used for object
+        // identification must be in linear format
+        let format = if fake {
+            wgpu::TextureFormat::Bgra8Unorm
+        } else {
+            wgpu::TextureFormat::Bgra8UnormSrgb
+        };
+
+        // We use alpha blending on texture displayed on the frame. For fake texture we simply rely
+        // on depth.
+        let color_blend = if !fake {
+            wgpu::BlendDescriptor {
+                src_factor: wgpu::BlendFactor::SrcAlpha,
+                dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+                operation: wgpu::BlendOperation::Add,
+            }
+        } else {
+            wgpu::BlendDescriptor::REPLACE
+        };
+
+        let alpha_blend = if !fake {
+            wgpu::BlendDescriptor {
+                src_factor: wgpu::BlendFactor::One,
+                dst_factor: wgpu::BlendFactor::One,
+                operation: wgpu::BlendOperation::Add,
+            }
+        } else {
+            wgpu::BlendDescriptor::REPLACE
+        };
+
+        let sample_count = if fake { 1 } else { SAMPLE_COUNT };
 
         let instance_bind_group_layout_desc = BindGroupLayoutDescriptor {
             label: None,
@@ -255,21 +338,6 @@ impl<D: Instanciable> InstanceDrawer<D> {
                 push_constant_ranges: &[],
                 label: Some("render_pipeline_layout"),
             });
-
-        let format = wgpu::TextureFormat::Bgra8UnormSrgb;
-
-        let color_blend = wgpu::BlendDescriptor {
-            src_factor: wgpu::BlendFactor::SrcAlpha,
-            dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
-            operation: wgpu::BlendOperation::Add,
-        };
-        let alpha_blend = wgpu::BlendDescriptor {
-            src_factor: wgpu::BlendFactor::One,
-            dst_factor: wgpu::BlendFactor::One,
-            operation: wgpu::BlendOperation::Add,
-        };
-
-        let sample_count = SAMPLE_COUNT;
 
         device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             layout: Some(&render_pipeline_layout),
@@ -313,7 +381,7 @@ impl<D: Instanciable> InstanceDrawer<D> {
             },
             sample_count,
             sample_mask: !0,
-            alpha_to_coverage_enabled: true,
+            alpha_to_coverage_enabled: !fake,
             label: Some("render pipeline"),
         })
     }

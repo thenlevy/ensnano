@@ -1,3 +1,4 @@
+use super::super::view::{DnaVertex, Instanciable, RawDnaInstance, SphereInstance, TubeInstance};
 use super::super::GridInstance;
 use super::{LetterInstance, SceneElement, StrandBuilder};
 use crate::consts::*;
@@ -43,10 +44,27 @@ impl Design3D {
         ret
     }
 
+    /// Convert a list of ids into a list of instances
+    pub fn id_to_raw_instances(&self, ids: Vec<u32>) -> Vec<RawDnaInstance> {
+        let mut ret = Vec::new();
+        for id in ids.iter() {
+            if let Some(instance) = self.make_raw_instance(*id) {
+                ret.push(instance)
+            }
+        }
+        ret
+    }
+
     /// Return the list of sphere instances to be displayed to represent the design
     pub fn get_spheres(&self) -> Rc<Vec<Instance>> {
         let ids = self.design.lock().unwrap().get_all_nucl_ids();
         Rc::new(self.id_to_instances(ids))
+    }
+
+    /// Return the list of raw sphere instances to be displayed to represent the design
+    pub fn get_spheres_raw(&self) -> Rc<Vec<RawDnaInstance>> {
+        let ids = self.design.lock().unwrap().get_all_nucl_ids();
+        Rc::new(self.id_to_raw_instances(ids))
     }
 
     pub fn get_letter_instances(&self) -> Vec<Rc<Vec<LetterInstance>>> {
@@ -103,6 +121,38 @@ impl Design3D {
             }
         };
         Some(instanciable.to_instance(false))
+    }
+
+    /// Convert return an instance representing the object with identifier `id`
+    /// This function will panic if `id` does not represent an object of the design
+    pub fn make_raw_instance(&self, id: u32) -> Option<RawDnaInstance> {
+        let kind = self.get_object_type(id)?;
+        let referential = Referential::Model;
+        let raw_instance = match kind {
+            ObjectType::Bound(id1, id2) => {
+                let pos1 = self.get_design_element_position(id1, referential)?;
+                let pos2 = self.get_design_element_position(id2, referential)?;
+                let color = self.get_color(id).unwrap_or(0);
+                let id = id | self.id << 24;
+                let tube = create_dna_bound(pos1, pos2, color, id, false);
+                tube.to_raw_instance()
+            }
+            ObjectType::Nucleotide(id) => {
+                let position = self.get_design_element_position(id, referential)?;
+                let color = self.get_color(id)?;
+                let color = Instance::color_from_u32(color);
+                let id = id | self.id << 24;
+                let sphere = SphereInstance {
+                    position,
+                    rotor: Rotor3::identity(),
+                    color,
+                    id,
+                    radius: 1.,
+                };
+                sphere.to_raw_instance()
+            }
+        };
+        Some(raw_instance)
     }
 
     pub fn make_instance_phantom(
@@ -546,6 +596,30 @@ impl Instantiable {
             },
         }
     }
+
+    pub fn to_dna_instance(
+        &self,
+        use_alpha: bool,
+    ) -> Box<dyn Instanciable<RawInstance = RawDnaInstance, Vertex = DnaVertex, Ressource = ()>>
+    {
+        let color = if use_alpha {
+            Instance::color_from_au32(self.color)
+        } else {
+            Instance::color_from_u32(self.color)
+        };
+        match self.repr {
+            ObjectRepr::Tube(a, b) => {
+                Box::new(create_dna_bound(a, b, self.color, self.id, use_alpha))
+            }
+            ObjectRepr::Sphere(x) => Box::new(SphereInstance {
+                position: x,
+                rotor: Rotor3::identity(),
+                color,
+                id: self.id,
+                radius: 1.,
+            }),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -572,5 +646,31 @@ fn create_bound(source: Vec3, dest: Vec3, color: u32, id: u32, use_alpha: bool) 
         rotor,
         id,
         scale,
+    }
+}
+
+fn create_dna_bound(
+    source: Vec3,
+    dest: Vec3,
+    color: u32,
+    id: u32,
+    use_alpha: bool,
+) -> TubeInstance {
+    let color = if use_alpha {
+        Instance::color_from_au32(color)
+    } else {
+        Instance::color_from_u32(color)
+    };
+    let rotor = Rotor3::from_rotation_between(Vec3::unit_x(), (dest - source).normalized());
+    let position = (dest + source) / 2.;
+    let length = (dest - source).mag();
+
+    TubeInstance {
+        position,
+        color,
+        rotor,
+        id,
+        radius: 1.,
+        length,
     }
 }

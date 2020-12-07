@@ -21,6 +21,7 @@ use pipeline_handler::PipelineHandler;
 /// A `Uniform` is a structure that manages view and projection matrices.
 mod uniforms;
 use uniforms::Uniforms;
+mod dna_obj;
 /// This modules defines a trait for drawing widget made of several meshes.
 mod drawable;
 mod grid;
@@ -34,6 +35,7 @@ mod maths;
 mod rotation_widget;
 
 use bindgroup_manager::{DynamicBindGroup, UniformBindGroup};
+pub use dna_obj::{DnaVertex, RawDnaInstance, SphereInstance, TubeInstance};
 use drawable::{Drawable, Drawer, Vertex};
 pub use grid::{GridInstance, GridIntersection, GridTypeDescr};
 use grid::{GridManager, GridTextures};
@@ -41,6 +43,7 @@ pub use grid_disc::GridDisc;
 use handle_drawer::HandlesDrawer;
 pub use handle_drawer::{HandleDir, HandleOrientation, HandlesDescriptor};
 use instances_drawer::InstanceDrawer;
+pub use instances_drawer::Instanciable;
 use letter::LetterDrawer;
 pub use letter::LetterInstance;
 use maths::unproject_point_on_line;
@@ -94,6 +97,8 @@ pub struct View {
     msaa_texture: Option<wgpu::TextureView>,
     grid_manager: GridManager,
     disc_drawer: InstanceDrawer<GridDisc>,
+    sphere_drawer: InstanceDrawer<SphereInstance>,
+    fake_sphere_drawer: InstanceDrawer<SphereInstance>,
 }
 
 impl View {
@@ -157,6 +162,7 @@ impl View {
             viewer.get_layout_desc(),
             model_bg_desc.clone(),
             grid_textures,
+            false,
         );
         let grid_manager = GridManager::new(grid_drawer);
 
@@ -164,8 +170,27 @@ impl View {
             device.clone(),
             queue.clone(),
             viewer.get_layout_desc(),
+            model_bg_desc.clone(),
+            (),
+            false,
+        );
+
+        let sphere_drawer = InstanceDrawer::new(
+            device.clone(),
+            queue.clone(),
+            viewer.get_layout_desc(),
+            model_bg_desc.clone(),
+            (),
+            false,
+        );
+
+        let fake_sphere_drawer = InstanceDrawer::new(
+            device.clone(),
+            queue.clone(),
+            viewer.get_layout_desc(),
             model_bg_desc,
             (),
+            true,
         );
 
         Self {
@@ -188,6 +213,8 @@ impl View {
             msaa_texture,
             grid_manager,
             disc_drawer,
+            sphere_drawer,
+            fake_sphere_drawer,
         }
     }
 
@@ -211,6 +238,11 @@ impl View {
                     self.letter_drawer[i].new_viewer(self.camera.clone(), self.projection.clone());
                 }
                 self.need_redraw_fake = true;
+            }
+            ViewUpdate::Spheres(instances) => {
+                self.sphere_drawer.new_instances_raw(instances.as_ref());
+                self.fake_sphere_drawer
+                    .new_instances_raw(instances.as_ref());
             }
             ViewUpdate::Handles(descr) => {
                 self.handle_drawers.update_decriptor(
@@ -364,6 +396,20 @@ impl View {
                 area.position.y,
                 area.size.width,
                 area.size.height,
+            );
+        }
+
+        if draw_type == DrawType::Design {
+            self.fake_sphere_drawer.draw(
+                &mut render_pass,
+                self.viewer.get_bindgroup(),
+                self.models.get_bindgroup(),
+            );
+        } else if draw_type == DrawType::Scene {
+            self.sphere_drawer.draw(
+                &mut render_pass,
+                self.viewer.get_bindgroup(),
+                self.models.get_bindgroup(),
             );
         }
 
@@ -547,7 +593,7 @@ pub enum ViewUpdate {
     /// The camera has moved and the view and projection matrix must be updated.
     Camera,
     /// The set of spheres have been modified
-    Spheres(Rc<Vec<Instance>>),
+    Spheres(Rc<Vec<RawDnaInstance>>),
     /// The set of tubes have been modified
     Tubes(Rc<Vec<Instance>>),
     /// The set of selected spheres has been modified
@@ -784,10 +830,13 @@ impl PipelineHandlers {
     /// Forwards an update to the relevant piplines. Return true if the fake view must be redrawn
     fn update(&mut self, update: ViewUpdate) -> bool {
         match update {
-            ViewUpdate::Spheres(instances) => {
+            ViewUpdate::Spheres(_instances) => {
+                /*
                 self.sphere.new_instances(instances.clone());
                 self.fake_sphere.new_instances(instances);
                 true
+                */
+                unreachable!()
             }
             ViewUpdate::Tubes(instances) => {
                 self.tube.new_instances(instances.clone());

@@ -582,7 +582,7 @@ impl Data {
         let mut letters = Vec::new();
         let mut grids = Vec::new();
         for design in self.designs.iter() {
-            for sphere in design.get_spheres().iter() {
+            for sphere in design.get_spheres_raw().iter() {
                 spheres.push(*sphere);
             }
             for tube in design.get_tubes().iter() {
