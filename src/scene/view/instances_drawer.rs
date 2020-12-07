@@ -235,29 +235,6 @@ impl<D: Instanciable> InstanceDrawer<D> {
         }
     }
 
-    pub fn new_instances_raw(&mut self, instances_raw: &Vec<D::RawInstance>) {
-        self.nb_instances = instances_raw.len() as u32;
-        self.instances.update(instances_raw.as_slice());
-    }
-
-    pub fn draw<'a>(
-        &'a mut self,
-        render_pass: &mut RenderPass<'a>,
-        viewer_bind_group: &'a wgpu::BindGroup,
-        model_bind_group: &'a wgpu::BindGroup,
-    ) {
-        let pipeline = &self.pipeline;
-        render_pass.set_pipeline(pipeline);
-        render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-        render_pass.set_index_buffer(self.index_buffer.slice(..));
-        render_pass.set_bind_group(0, viewer_bind_group, &[]);
-        render_pass.set_bind_group(1, model_bind_group, &[]);
-        render_pass.set_bind_group(2, self.instances.get_bindgroup(), &[]);
-        render_pass.set_bind_group(3, &self.additional_bind_group, &[]);
-
-        render_pass.draw_indexed(0..self.nb_indices, 0, 0..self.nb_instances);
-    }
-
     fn create_pipeline(
         device: &Device,
         viewer_bind_group_layout_desc: &wgpu::BindGroupLayoutDescriptor<'static>,
@@ -385,4 +362,45 @@ impl<D: Instanciable> InstanceDrawer<D> {
             label: Some("render pipeline"),
         })
     }
+}
+
+pub trait RawDrawer {
+    type RawInstance;
+
+    fn draw<'a>(
+        &'a mut self,
+        render_pass: &mut RenderPass<'a>,
+        viewer_bind_group: &'a wgpu::BindGroup,
+        model_bind_group: &'a wgpu::BindGroup,
+    );
+
+    fn new_instances_raw(&mut self, instances_raw: &Vec<Self::RawInstance>);
+}
+
+impl<D: Instanciable> RawDrawer for InstanceDrawer<D> {
+    type RawInstance = <D as Instanciable>::RawInstance;
+
+    fn new_instances_raw(&mut self, instances_raw: &Vec<D::RawInstance>) {
+        self.nb_instances = instances_raw.len() as u32;
+        self.instances.update(instances_raw.as_slice());
+    }
+
+    fn draw<'a>(
+        &'a mut self,
+        render_pass: &mut RenderPass<'a>,
+        viewer_bind_group: &'a wgpu::BindGroup,
+        model_bind_group: &'a wgpu::BindGroup,
+    ) {
+        let pipeline = &self.pipeline;
+        render_pass.set_pipeline(pipeline);
+        render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+        render_pass.set_index_buffer(self.index_buffer.slice(..));
+        render_pass.set_bind_group(0, viewer_bind_group, &[]);
+        render_pass.set_bind_group(1, model_bind_group, &[]);
+        render_pass.set_bind_group(2, self.instances.get_bindgroup(), &[]);
+        render_pass.set_bind_group(3, &self.additional_bind_group, &[]);
+
+        render_pass.draw_indexed(0..self.nb_indices, 0, 0..self.nb_instances);
+    }
+
 }

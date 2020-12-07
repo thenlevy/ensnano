@@ -43,7 +43,7 @@ use grid::{GridManager, GridTextures};
 pub use grid_disc::GridDisc;
 use handle_drawer::HandlesDrawer;
 pub use handle_drawer::{HandleDir, HandleOrientation, HandlesDescriptor};
-use instances_drawer::InstanceDrawer;
+use instances_drawer::{RawDrawer, InstanceDrawer};
 pub use instances_drawer::Instanciable;
 use letter::LetterDrawer;
 pub use letter::LetterInstance;
@@ -694,6 +694,13 @@ struct DnaDrawers {
 }
 
 impl DnaDrawers {
+    pub fn get_mut(&mut self, key: Mesh) -> &mut dyn RawDrawer<RawInstance = RawDnaInstance> {
+        match key {
+            Mesh::Tube => &mut self.tube,
+            _ => unimplemented!(),
+        }
+    }
+
     pub fn new(
         device: Rc<Device>,
         queue: Rc<Queue>,
