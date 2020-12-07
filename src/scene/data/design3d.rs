@@ -96,6 +96,12 @@ impl Design3D {
         Rc::new(self.id_to_instances(ids))
     }
 
+    /// Return the list of tube instances to be displayed to represent the design
+    pub fn get_tubes_raw(&self) -> Rc<Vec<RawDnaInstance>> {
+        let ids = self.design.lock().unwrap().get_all_bound_ids();
+        Rc::new(self.id_to_raw_instances(ids))
+    }
+
     pub fn get_model_matrix(&self) -> Mat4 {
         self.design.lock().unwrap().get_model_matrix()
     }

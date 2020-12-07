@@ -9,6 +9,7 @@ use std::sync::{Arc, Mutex};
 
 use ultraviolet::{Rotor3, Vec3};
 
+use super::view::Mesh;
 use crate::design::{Design, Nucl, ObjectType, Referential, StrandBuilder};
 use crate::mediator::{ActionMode, Selection, SelectionMode};
 use crate::utils::instance::Instance;
@@ -585,7 +586,7 @@ impl Data {
             for sphere in design.get_spheres_raw().iter() {
                 spheres.push(*sphere);
             }
-            for tube in design.get_tubes().iter() {
+            for tube in design.get_tubes_raw().iter() {
                 tubes.push(*tube);
             }
             letters = design.get_letter_instances();
@@ -595,10 +596,10 @@ impl Data {
         }
         self.view
             .borrow_mut()
-            .update(ViewUpdate::Tubes(Rc::new(tubes)));
+            .update(ViewUpdate::RawDna(Mesh::Tube, Rc::new(tubes)));
         self.view
             .borrow_mut()
-            .update(ViewUpdate::Spheres(Rc::new(spheres)));
+            .update(ViewUpdate::RawDna(Mesh::Sphere, Rc::new(spheres)));
         self.view.borrow_mut().update(ViewUpdate::Letter(letters));
         self.view
             .borrow_mut()

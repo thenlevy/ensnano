@@ -402,5 +402,4 @@ impl<D: Instanciable> RawDrawer for InstanceDrawer<D> {
 
         render_pass.draw_indexed(0..self.nb_indices, 0, 0..self.nb_instances);
     }
-
 }

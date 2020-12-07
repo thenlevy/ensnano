@@ -43,8 +43,8 @@ use grid::{GridManager, GridTextures};
 pub use grid_disc::GridDisc;
 use handle_drawer::HandlesDrawer;
 pub use handle_drawer::{HandleDir, HandleOrientation, HandlesDescriptor};
-use instances_drawer::{RawDrawer, InstanceDrawer};
 pub use instances_drawer::Instanciable;
+use instances_drawer::{InstanceDrawer, RawDrawer};
 use letter::LetterDrawer;
 pub use letter::LetterInstance;
 use maths::unproject_point_on_line;
@@ -100,6 +100,7 @@ pub struct View {
     disc_drawer: InstanceDrawer<GridDisc>,
     sphere_drawer: InstanceDrawer<SphereInstance>,
     fake_sphere_drawer: InstanceDrawer<SphereInstance>,
+    dna_drawers: DnaDrawers,
 }
 
 impl View {
@@ -194,6 +195,13 @@ impl View {
             true,
         );
 
+        let dna_drawers = DnaDrawers::new(
+            device.clone(),
+            queue.clone(),
+            &viewer.get_layout_desc(),
+            &model_bg_desc,
+        );
+
         Self {
             camera,
             projection,
@@ -216,6 +224,7 @@ impl View {
             disc_drawer,
             sphere_drawer,
             fake_sphere_drawer,
+            dna_drawers,
         }
     }
 
@@ -276,6 +285,10 @@ impl View {
             }
             ViewUpdate::Grids(grid) => self.grid_manager.new_instances(grid),
             ViewUpdate::GridDiscs(instances) => self.disc_drawer.new_instances(instances),
+            ViewUpdate::RawDna(mesh, instances) => self
+                .dna_drawers
+                .get_mut(mesh)
+                .new_instances_raw(instances.as_ref()),
             _ => {
                 self.need_redraw_fake |= self.pipeline_handlers.update(view_update);
             }
@@ -401,17 +414,21 @@ impl View {
         }
 
         if draw_type == DrawType::Design {
-            self.fake_sphere_drawer.draw(
-                &mut render_pass,
-                self.viewer.get_bindgroup(),
-                self.models.get_bindgroup(),
-            );
+            for drawer in self.dna_drawers.fakes() {
+                drawer.draw(
+                    &mut render_pass,
+                    self.viewer.get_bindgroup(),
+                    self.models.get_bindgroup(),
+                )
+            }
         } else if draw_type == DrawType::Scene {
-            self.sphere_drawer.draw(
-                &mut render_pass,
-                self.viewer.get_bindgroup(),
-                self.models.get_bindgroup(),
-            );
+            for drawer in self.dna_drawers.reals() {
+                drawer.draw(
+                    &mut render_pass,
+                    self.viewer.get_bindgroup(),
+                    self.models.get_bindgroup(),
+                )
+            }
         }
 
         for pipeline_handler in handlers.iter_mut() {
@@ -616,6 +633,7 @@ pub enum ViewUpdate {
     Letter(Vec<Rc<Vec<LetterInstance>>>),
     Grids(Rc<Vec<GridInstance>>),
     GridDiscs(Vec<GridDisc>),
+    RawDna(Mesh, Rc<Vec<RawDnaInstance>>),
 }
 
 #[derive(Eq, PartialEq, Debug, Copy, Clone, Hash)]
@@ -696,9 +714,34 @@ struct DnaDrawers {
 impl DnaDrawers {
     pub fn get_mut(&mut self, key: Mesh) -> &mut dyn RawDrawer<RawInstance = RawDnaInstance> {
         match key {
+            Mesh::Sphere => &mut self.sphere,
             Mesh::Tube => &mut self.tube,
-            _ => unimplemented!(),
+            Mesh::CandidateSphere => &mut self.candidate_sphere,
+            Mesh::CandidateTube => &mut self.candidate_tube,
+            Mesh::SelectedSphere => &mut self.selected_sphere,
+            Mesh::SelectedTube => &mut self.selected_tube,
+            Mesh::PhantomSphere => &mut self.phantom_sphere,
+            Mesh::PhantomTube => &mut self.phantom_tube,
+            Mesh::FakeSphere => &mut self.fake_sphere,
+            Mesh::FakeTube => &mut self.fake_tube,
+            Mesh::FakePhantomSphere => &mut self.fake_phantom_sphere,
+            Mesh::FakePhantomTube => &mut self.fake_phantom_tube,
         }
+    }
+
+    pub fn reals(&mut self) -> Vec<&mut dyn RawDrawer<RawInstance = RawDnaInstance>> {
+        vec![
+            &mut self.sphere,
+            &mut self.tube,
+            &mut self.candidate_sphere,
+            &mut self.candidate_tube,
+            &mut self.selected_sphere,
+            &mut self.selected_tube,
+        ]
+    }
+
+    pub fn fakes(&mut self) -> Vec<&mut dyn RawDrawer<RawInstance = RawDnaInstance>> {
+        vec![&mut self.fake_sphere, &mut self.fake_tube]
     }
 
     pub fn new(
@@ -1064,7 +1107,8 @@ impl PipelineHandlers {
             | ViewUpdate::RotationWidget(_)
             | ViewUpdate::Letter(_)
             | ViewUpdate::Grids(_)
-            | ViewUpdate::GridDiscs(_) => {
+            | ViewUpdate::GridDiscs(_)
+            | ViewUpdate::RawDna(_, _) => {
                 unreachable!();
             }
         }
