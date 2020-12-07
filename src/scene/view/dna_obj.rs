@@ -168,6 +168,12 @@ pub struct TubeInstance {
     pub length: f32,
 }
 
+impl TubeInstance {
+    pub fn with_radius(self, radius: f32) -> Self {
+        Self { radius, ..self }
+    }
+}
+
 impl Instanciable for TubeInstance {
     type Vertex = DnaVertex;
     type RawInstance = RawDnaInstance;

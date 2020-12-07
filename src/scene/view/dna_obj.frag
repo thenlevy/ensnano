@@ -15,7 +15,9 @@ layout(set=0, binding=0) uniform Uniform {
 
 void main() {
     vec3 normal = normalize(v_normal);
-    vec3 light_dir = normalize(u_camera_position - v_position);
+    vec3 light_position = v_color.w == 1. ? u_camera_position : vec3(0., 0., 1000.);
+    vec3 light_dir = normalize(light_position - v_position);
+
 
     vec3 light_color = vec3(1., 1., 1.);
 
@@ -32,5 +34,6 @@ void main() {
 
     vec3 result = (ambient_color + diffuse_color + specular_color) * v_color.xyz;
 
-    f_color = vec4(result, 1.);
+    f_color = vec4(result, v_color.w);
+
 }

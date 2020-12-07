@@ -283,6 +283,62 @@ impl Design3D {
         (Rc::new(spheres), Rc::new(tubes))
     }
 
+    pub fn make_phantom_helix_instances_raw(
+        &self,
+        helix_ids: &HashMap<u32, bool>,
+    ) -> (Rc<Vec<RawDnaInstance>>, Rc<Vec<RawDnaInstance>>) {
+        let mut spheres = Vec::new();
+        let mut tubes = Vec::new();
+        for (helix_id, short) in helix_ids.iter() {
+            let range_phantom = if *short {
+                PHANTOM_RANGE / 10
+            } else {
+                PHANTOM_RANGE
+            };
+            for forward in [false, true].iter() {
+                let mut previous_nucl = None;
+                for i in -range_phantom..=range_phantom {
+                    let nucl_coord = self.design.lock().unwrap().get_helix_nucl(
+                        Nucl {
+                            helix: *helix_id as usize,
+                            position: i as isize,
+                            forward: *forward,
+                        },
+                        Referential::Model,
+                        false,
+                    );
+                    let color = 0xA0D0D0D0;
+                    if nucl_coord.is_none() {
+                        continue;
+                    }
+                    let nucl_coord = nucl_coord.unwrap();
+                    let id = utils::phantom_helix_encoder_nucl(self.id, *helix_id, i, *forward);
+                    spheres.push(
+                        SphereInstance {
+                            position: nucl_coord,
+                            color: Instance::color_from_au32(color),
+                            id,
+                            rotor: Rotor3::identity(),
+                            radius: 0.95,
+                        }
+                        .to_raw_instance(),
+                    );
+                    if let Some(coord) = previous_nucl {
+                        let id =
+                            utils::phantom_helix_encoder_bound(self.id, *helix_id, i, *forward);
+                        tubes.push(
+                            create_dna_bound(nucl_coord, coord, color, id, true)
+                                .with_radius(0.95)
+                                .to_raw_instance(),
+                        );
+                    }
+                    previous_nucl = Some(nucl_coord);
+                }
+            }
+        }
+        (Rc::new(spheres), Rc::new(tubes))
+    }
+
     fn get_object_type(&self, id: u32) -> Option<ObjectType> {
         self.design.lock().unwrap().get_object_type(id)
     }

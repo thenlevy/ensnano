@@ -1,6 +1,7 @@
 //! This modules handles internal informations about the scene, such as the selected objects etc..
 //! It also communicates with the desgings to get the position of the objects to draw on the scene.
 
+use super::view::RawDnaInstance;
 use super::{GridIntersection, LetterInstance, SceneElement, View, ViewUpdate};
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
@@ -448,7 +449,10 @@ impl Data {
         let (sphere, vec) = self.get_phantom_instances();
         self.view
             .borrow_mut()
-            .update(ViewUpdate::PhantomInstances(sphere, vec));
+            .update(ViewUpdate::RawDna(Mesh::PhantomSphere, sphere));
+        self.view
+            .borrow_mut()
+            .update(ViewUpdate::RawDna(Mesh::PhantomTube, vec));
         let grid = if let Some(SceneElement::Grid(d_id, g_id)) = self.selected.get(0) {
             Some((*d_id, *g_id))
         } else {
@@ -458,12 +462,13 @@ impl Data {
     }
 
     /// Return the sets of elements of the phantom helix
-    pub fn get_phantom_instances(&self) -> (Rc<Vec<Instance>>, Rc<Vec<Instance>>) {
+    pub fn get_phantom_instances(&self) -> (Rc<Vec<RawDnaInstance>>, Rc<Vec<RawDnaInstance>>) {
         let phantom_map = self.get_phantom_helices_set();
         let mut ret_sphere = Vec::new();
         let mut ret_tube = Vec::new();
         for (d_id, set) in phantom_map.iter() {
-            let (spheres, tubes) = self.designs[*d_id as usize].make_phantom_helix_instances(set);
+            let (spheres, tubes) =
+                self.designs[*d_id as usize].make_phantom_helix_instances_raw(set);
             for sphere in spheres.iter().cloned() {
                 ret_sphere.push(sphere);
             }

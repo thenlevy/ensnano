@@ -285,10 +285,16 @@ impl View {
             }
             ViewUpdate::Grids(grid) => self.grid_manager.new_instances(grid),
             ViewUpdate::GridDiscs(instances) => self.disc_drawer.new_instances(instances),
-            ViewUpdate::RawDna(mesh, instances) => self
-                .dna_drawers
-                .get_mut(mesh)
-                .new_instances_raw(instances.as_ref()),
+            ViewUpdate::RawDna(mesh, instances) => {
+                self.dna_drawers
+                    .get_mut(mesh)
+                    .new_instances_raw(instances.as_ref());
+                if let Some(mesh) = mesh.to_fake() {
+                    self.dna_drawers
+                        .get_mut(mesh)
+                        .new_instances_raw(instances.as_ref());
+                }
+            }
             _ => {
                 self.need_redraw_fake |= self.pipeline_handlers.update(view_update);
             }
@@ -423,6 +429,14 @@ impl View {
             }
         } else if draw_type == DrawType::Scene {
             for drawer in self.dna_drawers.reals() {
+                drawer.draw(
+                    &mut render_pass,
+                    self.viewer.get_bindgroup(),
+                    self.models.get_bindgroup(),
+                )
+            }
+        } else if draw_type == DrawType::Phantom {
+            for drawer in self.dna_drawers.phantoms() {
                 drawer.draw(
                     &mut render_pass,
                     self.viewer.get_bindgroup(),
@@ -671,28 +685,14 @@ impl Mesh {
         ]
     }
 
-    fn real() -> Vec<Self> {
-        use Mesh::*;
-        vec![
-            Sphere,
-            Tube,
-            CandidateSphere,
-            CandidateTube,
-            SelectedSphere,
-            SelectedTube,
-            PhantomSphere,
-            PhantomTube,
-        ]
-    }
-
-    fn fake_phantoms() -> Vec<Self> {
-        use Mesh::*;
-        vec![FakePhantomSphere, FakePhantomTube]
-    }
-
-    fn fake() -> Vec<Self> {
-        use Mesh::*;
-        vec![FakeSphere, FakeTube]
+    fn to_fake(&self) -> Option<Self> {
+        match self {
+            Self::Sphere => Some(Self::FakeSphere),
+            Self::Tube => Some(Self::FakeTube),
+            Self::PhantomSphere => Some(Self::FakePhantomSphere),
+            Self::PhantomTube => Some(Self::FakePhantomTube),
+            _ => None,
+        }
     }
 }
 
@@ -737,11 +737,17 @@ impl DnaDrawers {
             &mut self.candidate_tube,
             &mut self.selected_sphere,
             &mut self.selected_tube,
+            &mut self.phantom_tube,
+            &mut self.phantom_sphere,
         ]
     }
 
     pub fn fakes(&mut self) -> Vec<&mut dyn RawDrawer<RawInstance = RawDnaInstance>> {
         vec![&mut self.fake_sphere, &mut self.fake_tube]
+    }
+
+    pub fn phantoms(&mut self) -> Vec<&mut dyn RawDrawer<RawInstance = RawDnaInstance>> {
+        vec![&mut self.fake_phantom_sphere, &mut self.fake_phantom_tube]
     }
 
     pub fn new(
