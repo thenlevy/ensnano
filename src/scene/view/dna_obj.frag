@@ -15,7 +15,7 @@ layout(set=0, binding=0) uniform Uniform {
 
 void main() {
     vec3 normal = normalize(v_normal);
-    vec3 light_position = v_color.w == 1. ? u_camera_position : vec3(0., 0., 1000.);
+    vec3 light_position = abs(v_color.w - 1.) < 1e-3 ? u_camera_position : vec3(0., 0., 1000.);
     vec3 light_dir = normalize(light_position - v_position);
 
     if (v_color.w < 0.8 && v_color.w > 0.7) {
