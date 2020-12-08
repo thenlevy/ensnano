@@ -37,3 +37,6 @@ pub const BASE_SCROLL_SENSITIVITY: f32 = 0.04;
 pub const SAMPLE_COUNT: u32 = 4;
 
 pub const HELIX_BORDER_COLOR: u32 = 0xFF_101010;
+
+pub const CANDIDATE_COLOR: u32 = 0xBF_00_FF_00;
+pub const SELECTED_COLOR: u32 = 0xBF_FF_00_00;

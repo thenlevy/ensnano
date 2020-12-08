@@ -33,6 +33,7 @@ impl Design3D {
         }
     }
 
+    /*
     /// Convert a list of ids into a list of instances
     pub fn id_to_instances(&self, ids: Vec<u32>) -> Vec<Instance> {
         let mut ret = Vec::new();
@@ -42,7 +43,7 @@ impl Design3D {
             }
         }
         ret
-    }
+    }*/
 
     /// Convert a list of ids into a list of instances
     pub fn id_to_raw_instances(&self, ids: Vec<u32>) -> Vec<RawDnaInstance> {
@@ -55,11 +56,13 @@ impl Design3D {
         ret
     }
 
+    /*
     /// Return the list of sphere instances to be displayed to represent the design
     pub fn get_spheres(&self) -> Rc<Vec<Instance>> {
         let ids = self.design.lock().unwrap().get_all_nucl_ids();
         Rc::new(self.id_to_instances(ids))
     }
+    */
 
     /// Return the list of raw sphere instances to be displayed to represent the design
     pub fn get_spheres_raw(&self) -> Rc<Vec<RawDnaInstance>> {
@@ -90,11 +93,13 @@ impl Design3D {
         ret
     }
 
+    /*
     /// Return the list of tube instances to be displayed to represent the design
     pub fn get_tubes(&self) -> Rc<Vec<Instance>> {
         let ids = self.design.lock().unwrap().get_all_bound_ids();
         Rc::new(self.id_to_instances(ids))
     }
+    */
 
     /// Return the list of tube instances to be displayed to represent the design
     pub fn get_tubes_raw(&self) -> Rc<Vec<RawDnaInstance>> {
@@ -106,31 +111,37 @@ impl Design3D {
         self.design.lock().unwrap().get_model_matrix()
     }
 
-    /// Convert return an instance representing the object with identifier `id`
-    /// This function will panic if `id` does not represent an object of the design
-    pub fn make_instance(&self, id: u32) -> Option<Instance> {
+    /// Convert return an instance representing the object with identifier `id` and custom
+    /// color and radius.
+    pub fn make_instance(&self, id: u32, color: u32, radius: f32) -> Option<RawDnaInstance> {
         let kind = self.get_object_type(id)?;
         let referential = Referential::Model;
         let instanciable = match kind {
             ObjectType::Bound(id1, id2) => {
                 let pos1 = self.get_design_element_position(id1, referential)?;
                 let pos2 = self.get_design_element_position(id2, referential)?;
-                let color = self.get_color(id).unwrap_or(0);
                 let id = id | self.id << 24;
-                Instantiable::new(ObjectRepr::Tube(pos1, pos2), color, id)
+                create_dna_bound(pos1, pos2, color, id, true)
+                    .with_radius(radius)
+                    .to_raw_instance()
             }
             ObjectType::Nucleotide(id) => {
                 let position = self.get_design_element_position(id, referential)?;
-                let color = self.get_color(id)?;
                 let id = id | self.id << 24;
-                Instantiable::new(ObjectRepr::Sphere(position), color, id)
+                let color = Instance::color_from_au32(color);
+                SphereInstance {
+                    position,
+                    radius,
+                    color,
+                    id,
+                }
+                .to_raw_instance()
             }
         };
-        Some(instanciable.to_instance(false))
+        Some(instanciable)
     }
 
     /// Convert return an instance representing the object with identifier `id`
-    /// This function will panic if `id` does not represent an object of the design
     pub fn make_raw_instance(&self, id: u32) -> Option<RawDnaInstance> {
         let kind = self.get_object_type(id)?;
         let referential = Referential::Model;
@@ -150,7 +161,6 @@ impl Design3D {
                 let id = id | self.id << 24;
                 let sphere = SphereInstance {
                     position,
-                    rotor: Rotor3::identity(),
                     color,
                     id,
                     radius: 1.,
@@ -161,10 +171,13 @@ impl Design3D {
         Some(raw_instance)
     }
 
+    /// Make a instance with the same postion and orientation as a phantom element.
     pub fn make_instance_phantom(
         &self,
         phantom_element: &utils::PhantomElement,
-    ) -> Option<Instance> {
+        color: u32,
+        radius: f32,
+    ) -> Option<RawDnaInstance> {
         let nucl = Nucl {
             helix: phantom_element.helix_id as usize,
             position: phantom_element.position as isize,
@@ -173,7 +186,6 @@ impl Design3D {
         let helix_id = phantom_element.helix_id;
         let i = phantom_element.position;
         let forward = phantom_element.forward;
-        let color = 0xA0D0D0D0;
         if phantom_element.bound {
             let nucl_1 =
                 self.design
@@ -186,7 +198,7 @@ impl Design3D {
                 false,
             )?;
             let id = utils::phantom_helix_encoder_bound(self.id, helix_id, i, forward);
-            Some(Instantiable::new(ObjectRepr::Tube(nucl_1, nucl_2), color, id).to_instance(true))
+            Some(create_dna_bound(nucl_1, nucl_2, color, id, true).to_raw_instance())
         } else {
             let nucl_coord =
                 self.design
@@ -194,7 +206,14 @@ impl Design3D {
                     .unwrap()
                     .get_helix_nucl(nucl, Referential::Model, false)?;
             let id = utils::phantom_helix_encoder_nucl(self.id, helix_id, i, forward);
-            Some(Instantiable::new(ObjectRepr::Sphere(nucl_coord), color, id).to_instance(true))
+            let instance = SphereInstance {
+                color: Instance::color_from_au32(color),
+                position: nucl_coord,
+                id,
+                radius,
+            }
+            .to_raw_instance();
+            Some(instance)
         }
     }
 
@@ -318,7 +337,6 @@ impl Design3D {
                             position: nucl_coord,
                             color: Instance::color_from_au32(color),
                             id,
-                            rotor: Rotor3::identity(),
                             radius: 0.95,
                         }
                         .to_raw_instance(),
@@ -671,7 +689,6 @@ impl Instantiable {
             }
             ObjectRepr::Sphere(x) => Box::new(SphereInstance {
                 position: x,
-                rotor: Rotor3::identity(),
                 color,
                 id: self.id,
                 radius: 1.,

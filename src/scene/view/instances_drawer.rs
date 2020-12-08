@@ -123,6 +123,13 @@ pub trait Instanciable {
     {
         None
     }
+
+    fn alpha_to_coverage_enabled() -> bool
+    where
+        Self: Sized,
+    {
+        false
+    }
 }
 
 /// An object that draws an instanced mesh

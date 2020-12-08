@@ -11,6 +11,7 @@ use std::sync::{Arc, Mutex};
 use ultraviolet::{Rotor3, Vec3};
 
 use super::view::Mesh;
+use crate::consts::*;
 use crate::design::{Design, Nucl, ObjectType, Referential, StrandBuilder};
 use crate::mediator::{ActionMode, Selection, SelectionMode};
 use crate::utils::instance::Instance;
@@ -186,12 +187,16 @@ impl Data {
     }
 
     /// Return the instances of selected spheres
-    pub fn get_selected_spheres(&self) -> Rc<Vec<Instance>> {
+    pub fn get_selected_spheres(&self) -> Rc<Vec<RawDnaInstance>> {
         let mut ret = Vec::with_capacity(self.selected.len());
         for element in self.expand_selection(ObjectType::Nucleotide(0)).iter() {
             match element {
                 SceneElement::DesignElement(d_id, id) => {
-                    if let Some(instance) = self.designs[*d_id as usize].make_instance(*id) {
+                    if let Some(instance) = self.designs[*d_id as usize].make_instance(
+                        *id,
+                        SELECTED_COLOR,
+                        SELECT_SCALE_FACTOR,
+                    ) {
                         ret.push(instance)
                     }
                 }
@@ -199,7 +204,13 @@ impl Data {
                     if let Some(instance) = self
                         .designs
                         .get(phantom_element.design_id as usize)
-                        .and_then(|d| d.make_instance_phantom(phantom_element))
+                        .and_then(|d| {
+                            d.make_instance_phantom(
+                                phantom_element,
+                                SELECTED_COLOR,
+                                SELECT_SCALE_FACTOR,
+                            )
+                        })
                     {
                         ret.push(instance);
                     }
@@ -211,12 +222,16 @@ impl Data {
     }
 
     /// Return the instances of selected tubes
-    pub fn get_selected_tubes(&self) -> Rc<Vec<Instance>> {
+    pub fn get_selected_tubes(&self) -> Rc<Vec<RawDnaInstance>> {
         let mut ret = Vec::with_capacity(self.selected.len());
         for element in self.expand_selection(ObjectType::Bound(0, 0)).iter() {
             match element {
                 SceneElement::DesignElement(d_id, id) => {
-                    if let Some(instance) = self.designs[*d_id as usize].make_instance(*id) {
+                    if let Some(instance) = self.designs[*d_id as usize].make_instance(
+                        *id,
+                        SELECTED_COLOR,
+                        SELECT_SCALE_FACTOR,
+                    ) {
                         ret.push(instance)
                     }
                 }
@@ -224,7 +239,13 @@ impl Data {
                     if let Some(instance) = self
                         .designs
                         .get(phantom_element.design_id as usize)
-                        .and_then(|d| d.make_instance_phantom(phantom_element))
+                        .and_then(|d| {
+                            d.make_instance_phantom(
+                                phantom_element,
+                                SELECTED_COLOR,
+                                SELECT_SCALE_FACTOR,
+                            )
+                        })
                     {
                         ret.push(instance);
                     }
@@ -236,12 +257,16 @@ impl Data {
     }
 
     /// Return the instances of candidate spheres
-    pub fn get_candidate_spheres(&self) -> Rc<Vec<Instance>> {
+    pub fn get_candidate_spheres(&self) -> Rc<Vec<RawDnaInstance>> {
         let mut ret = Vec::with_capacity(self.selected.len());
         for element in self.expand_candidate(ObjectType::Nucleotide(0)).iter() {
             match element {
                 SceneElement::DesignElement(d_id, id) => {
-                    if let Some(instance) = self.designs[*d_id as usize].make_instance(*id) {
+                    if let Some(instance) = self.designs[*d_id as usize].make_instance(
+                        *id,
+                        CANDIDATE_COLOR,
+                        SELECT_SCALE_FACTOR,
+                    ) {
                         ret.push(instance)
                     }
                 }
@@ -249,7 +274,13 @@ impl Data {
                     if let Some(instance) = self
                         .designs
                         .get(phantom_element.design_id as usize)
-                        .and_then(|d| d.make_instance_phantom(phantom_element))
+                        .and_then(|d| {
+                            d.make_instance_phantom(
+                                phantom_element,
+                                CANDIDATE_COLOR,
+                                SELECT_SCALE_FACTOR,
+                            )
+                        })
                     {
                         ret.push(instance);
                     }
@@ -261,12 +292,16 @@ impl Data {
     }
 
     /// Return the instances of candidate tubes
-    pub fn get_candidate_tubes(&self) -> Rc<Vec<Instance>> {
+    pub fn get_candidate_tubes(&self) -> Rc<Vec<RawDnaInstance>> {
         let mut ret = Vec::with_capacity(self.selected.len());
         for element in self.expand_candidate(ObjectType::Bound(0, 0)).iter() {
             match element {
                 SceneElement::DesignElement(d_id, id) => {
-                    if let Some(instance) = self.designs[*d_id as usize].make_instance(*id) {
+                    if let Some(instance) = self.designs[*d_id as usize].make_instance(
+                        *id,
+                        CANDIDATE_COLOR,
+                        SELECT_SCALE_FACTOR,
+                    ) {
                         ret.push(instance)
                     }
                 }
@@ -274,7 +309,13 @@ impl Data {
                     if let Some(instance) = self
                         .designs
                         .get(phantom_element.design_id as usize)
-                        .and_then(|d| d.make_instance_phantom(phantom_element))
+                        .and_then(|d| {
+                            d.make_instance_phantom(
+                                phantom_element,
+                                CANDIDATE_COLOR,
+                                SELECT_SCALE_FACTOR,
+                            )
+                        })
                     {
                         ret.push(instance);
                     }
@@ -440,12 +481,14 @@ impl Data {
 
     /// Notify the view that the selected elements have been modified
     fn update_selection(&mut self) {
-        self.view
-            .borrow_mut()
-            .update(ViewUpdate::SelectedTubes(self.get_selected_tubes()));
-        self.view
-            .borrow_mut()
-            .update(ViewUpdate::SelectedSpheres(self.get_selected_spheres()));
+        self.view.borrow_mut().update(ViewUpdate::RawDna(
+            Mesh::SelectedTube,
+            self.get_selected_tubes(),
+        ));
+        self.view.borrow_mut().update(ViewUpdate::RawDna(
+            Mesh::SelectedSphere,
+            self.get_selected_spheres(),
+        ));
         let (sphere, vec) = self.get_phantom_instances();
         self.view
             .borrow_mut()
@@ -561,12 +604,14 @@ impl Data {
 
     /// Notify the view that the instances of candidates have changed
     fn update_candidate(&mut self) {
-        self.view
-            .borrow_mut()
-            .update(ViewUpdate::CandidateTubes(self.get_candidate_tubes()));
-        self.view
-            .borrow_mut()
-            .update(ViewUpdate::CandidateSpheres(self.get_candidate_spheres()));
+        self.view.borrow_mut().update(ViewUpdate::RawDna(
+            Mesh::CandidateTube,
+            self.get_candidate_tubes(),
+        ));
+        self.view.borrow_mut().update(ViewUpdate::RawDna(
+            Mesh::CandidateSphere,
+            self.get_candidate_spheres(),
+        ));
         let grid = if let Some(SceneElement::Grid(d_id, g_id)) = self.candidates.get(0) {
             Some((*d_id, *g_id))
         } else {
@@ -671,11 +716,11 @@ impl Data {
     }
 
     fn get_number_spheres(&self) -> usize {
-        self.designs.iter().map(|d| d.get_spheres().len()).sum()
+        self.designs.iter().map(|d| d.get_spheres_raw().len()).sum()
     }
 
     fn get_number_tubes(&self) -> usize {
-        self.designs.iter().map(|d| d.get_tubes().len()).sum()
+        self.designs.iter().map(|d| d.get_tubes_raw().len()).sum()
     }
 
     pub fn toggle_selection_mode(&mut self) {

@@ -379,4 +379,8 @@ impl Instanciable for GridInstance {
     fn fragment_module(device: &Device) -> wgpu::ShaderModule {
         device.create_shader_module(include_spirv!("grid.frag.spv"))
     }
+
+    fn alpha_to_coverage_enabled() -> bool {
+        true
+    }
 }

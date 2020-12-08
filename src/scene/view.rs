@@ -445,14 +445,6 @@ impl View {
             }
         }
 
-        for pipeline_handler in handlers.iter_mut() {
-            pipeline_handler.draw(
-                &mut render_pass,
-                self.viewer.get_bindgroup(),
-                self.models.get_bindgroup(),
-            );
-        }
-
         if draw_type.wants_widget() {
             if action_mode.wants_handle() {
                 self.handle_drawers.draw(

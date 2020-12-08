@@ -66,8 +66,6 @@ unsafe impl bytemuck::Pod for RawDnaInstance {}
 pub struct SphereInstance {
     /// The position in space
     pub position: Vec3,
-    /// The rotation of the instance
-    pub rotor: Rotor3,
     pub color: Vec4,
     pub id: u32,
     pub radius: f32,
@@ -136,8 +134,7 @@ impl Instanciable for SphereInstance {
 
     fn to_raw_instance(&self) -> RawDnaInstance {
         RawDnaInstance {
-            model: Mat4::from_translation(self.position)
-                * self.rotor.into_matrix().into_homogeneous(),
+            model: Mat4::from_translation(self.position),
             color: self.color,
             scale: Vec3::new(self.radius, self.radius, self.radius),
             id: self.id,
