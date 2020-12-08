@@ -70,7 +70,7 @@ impl Design3D {
         Rc::new(self.id_to_raw_instances(ids))
     }
 
-    pub fn get_letter_instances(&self) -> Vec<Rc<Vec<LetterInstance>>> {
+    pub fn get_letter_instances(&self) -> Vec<Vec<LetterInstance>> {
         let ids = self.design.lock().unwrap().get_all_nucl_ids();
         let mut vecs = vec![Vec::new(); NB_BASIS_SYMBOLS];
         for id in ids {
@@ -81,16 +81,13 @@ impl Design3D {
                     let instance = LetterInstance {
                         position: pos,
                         color: ultraviolet::Vec4::new(0., 0., 0., 1.),
+                        design_id: self.id,
                     };
                     vecs[*id].push(instance);
                 }
             }
         }
-        let mut ret = Vec::new();
-        for vec in vecs.iter().take(NB_BASIS_SYMBOLS) {
-            ret.push(Rc::new(vec.clone()));
-        }
-        ret
+        vecs
     }
 
     /*

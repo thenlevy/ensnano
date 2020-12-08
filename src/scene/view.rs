@@ -30,6 +30,7 @@ mod maths;
 /// A RotationWidget draws the widget for rotating objects
 mod rotation_widget;
 
+use crate::text::Letter;
 use bindgroup_manager::{DynamicBindGroup, UniformBindGroup};
 pub use dna_obj::{DnaObject, RawDnaInstance, SphereInstance, TubeInstance};
 use drawable::{Drawable, Drawer, Vertex};
@@ -40,7 +41,6 @@ use handle_drawer::HandlesDrawer;
 pub use handle_drawer::{HandleDir, HandleOrientation, HandlesDescriptor};
 pub use instances_drawer::Instanciable;
 use instances_drawer::{InstanceDrawer, RawDrawer};
-use letter::LetterDrawer;
 pub use letter::LetterInstance;
 use maths::unproject_point_on_line;
 use rotation_widget::RotationWidget;
@@ -77,7 +77,7 @@ pub struct View {
     /// drawing the next frame
     new_size: Option<PhySize>,
     /// The pipilines that draw the basis symbols
-    letter_drawer: Vec<LetterDrawer>,
+    letter_drawer: Vec<InstanceDrawer<LetterInstance>>,
     device: Rc<Device>,
     /// A bind group associated to the uniform buffer containing the view and projection matrices.
     //TODO this is currently only passed to the widgets, it could be passed to the mesh pipeline as
@@ -124,7 +124,17 @@ impl View {
         };
         let letter_drawer = BASIS_SYMBOLS
             .iter()
-            .map(|c| LetterDrawer::new(device.clone(), queue.clone(), *c, &camera, &projection))
+            .map(|c| {
+                let letter = Letter::new(*c, device.clone(), queue.clone());
+                InstanceDrawer::new(
+                    device.clone(),
+                    queue.clone(),
+                    &viewer.get_layout_desc(),
+                    &model_bg_desc,
+                    letter,
+                    false,
+                )
+            })
             .collect();
         let depth_texture =
             texture::Texture::create_depth_texture(device.as_ref(), &area_size, SAMPLE_COUNT);
@@ -208,9 +218,6 @@ impl View {
                 ));
                 self.handle_drawers
                     .update_camera(self.camera.clone(), self.projection.clone());
-                for i in 0..NB_BASIS_SYMBOLS {
-                    self.letter_drawer[i].new_viewer(self.camera.clone(), self.projection.clone());
-                }
                 self.need_redraw_fake = true;
             }
             ViewUpdate::Handles(descr) => {
@@ -231,14 +238,11 @@ impl View {
                 self.need_redraw_fake = true;
             }
             ViewUpdate::ModelMatrices(ref matrices) => {
-                for i in 0..NB_BASIS_SYMBOLS {
-                    self.letter_drawer[i].new_model_matrices(Rc::new(matrices.clone()));
-                }
                 self.models.update(matrices.clone().as_slice());
             }
             ViewUpdate::Letter(letter) => {
-                for (i, instance) in letter.iter().enumerate() {
-                    self.letter_drawer[i].new_instances(instance.clone());
+                for (i, instance) in letter.into_iter().enumerate() {
+                    self.letter_drawer[i].new_instances(instance);
                 }
             }
             ViewUpdate::Grids(grid) => self.grid_manager.new_instances(grid),
@@ -416,7 +420,11 @@ impl View {
 
         if !fake_color && self.draw_letter {
             for drawer in self.letter_drawer.iter_mut() {
-                drawer.draw(&mut render_pass)
+                drawer.draw(
+                    &mut render_pass,
+                    viewer_bind_group,
+                    self.models.get_bindgroup(),
+                )
             }
         }
 
@@ -572,7 +580,7 @@ pub enum ViewUpdate {
     /// The set of phantom instances has been modified
     Handles(Option<HandlesDescriptor>),
     RotationWidget(Option<RotationWidgetDescriptor>),
-    Letter(Vec<Rc<Vec<LetterInstance>>>),
+    Letter(Vec<Vec<LetterInstance>>),
     Grids(Rc<Vec<GridInstance>>),
     GridDiscs(Vec<GridDisc>),
     RawDna(Mesh, Rc<Vec<RawDnaInstance>>),

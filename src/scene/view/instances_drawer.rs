@@ -34,6 +34,27 @@ pub trait RessourceProvider {
     fn ressources(&self) -> Vec<wgpu::BindGroupEntry> {
         Vec::new()
     }
+
+    /// This methods allows the ressource tho provide the vertex buffer. If the return value is
+    /// Some, it takes priority over the Instanciable's vertices.
+    fn vertex_buffer_desc() -> Option<wgpu::VertexBufferDescriptor<'static>>
+    where
+        Self: Sized,
+    {
+        None
+    }
+
+    /// This methods allows the ressource tho provide the vertex buffer. If the return value is
+    /// Some, it takes priority over the Instanciable's vertices.
+    fn vertex_buffer(&self) -> Option<&wgpu::Buffer> {
+        None
+    }
+
+    /// This methods allows the ressource tho provide the index buffer. If the return value is
+    /// Some, it takes priority over the Instanciable's indices.
+    fn index_buffer(&self) -> Option<&wgpu::Buffer> {
+        None
+    }
 }
 
 impl RessourceProvider for () {}
@@ -148,7 +169,7 @@ pub struct InstanceDrawer<D: Instanciable + ?Sized> {
     nb_instances: u32,
     /// The number of vertex indices
     nb_indices: u32,
-    _phantom_data: PhantomData<D>,
+    ressource: D::Ressource,
     device: Rc<Device>,
 }
 
@@ -220,7 +241,7 @@ impl<D: Instanciable> InstanceDrawer<D> {
             nb_instances: 0,
             nb_indices: D::indices().len() as u32,
             additional_bind_group,
-            _phantom_data: PhantomData,
+            ressource,
             device,
         }
     }
@@ -377,7 +398,9 @@ impl<D: Instanciable> InstanceDrawer<D> {
             }),
             vertex_state: wgpu::VertexStateDescriptor {
                 index_format: wgpu::IndexFormat::Uint16,
-                vertex_buffers: &[D::Vertex::desc()],
+                vertex_buffers: &[
+                    D::Ressource::vertex_buffer_desc().unwrap_or_else(D::Vertex::desc)
+                ],
             },
             sample_count,
             sample_mask: !0,
@@ -416,8 +439,18 @@ impl<D: Instanciable> RawDrawer for InstanceDrawer<D> {
     ) {
         let pipeline = &self.pipeline;
         render_pass.set_pipeline(pipeline);
-        render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-        render_pass.set_index_buffer(self.index_buffer.slice(..));
+        let vbo = if let Some(ref vbo) = self.ressource.vertex_buffer() {
+            vbo.slice(..)
+        } else {
+            self.vertex_buffer.slice(..)
+        };
+        render_pass.set_vertex_buffer(0, vbo);
+        let ibo = if let Some(ref ibo) = self.ressource.index_buffer() {
+            ibo.slice(..)
+        } else {
+            self.index_buffer.slice(..)
+        };
+        render_pass.set_index_buffer(ibo);
         render_pass.set_bind_group(0, viewer_bind_group, &[]);
         render_pass.set_bind_group(1, model_bind_group, &[]);
         render_pass.set_bind_group(2, self.instances.get_bindgroup(), &[]);
