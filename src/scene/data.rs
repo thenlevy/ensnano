@@ -14,7 +14,6 @@ use super::view::Mesh;
 use crate::consts::*;
 use crate::design::{Design, Nucl, ObjectType, Referential, StrandBuilder};
 use crate::mediator::{ActionMode, Selection, SelectionMode};
-use crate::utils::instance::Instance;
 use crate::utils::PhantomElement;
 
 type ViewPtr = Rc<RefCell<View>>;

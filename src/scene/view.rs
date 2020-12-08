@@ -4,21 +4,16 @@
 use super::{camera, ActionMode};
 use crate::consts::*;
 use crate::design::Axis;
-use crate::utils::{bindgroup_manager, instance, mesh, texture};
+use crate::utils::{bindgroup_manager, texture};
 use crate::{DrawArea, PhySize};
 use camera::{Camera, CameraPtr, Projection, ProjectionPtr};
 use iced_wgpu::wgpu;
-use instance::Instance;
 use std::cell::RefCell;
-use std::collections::HashMap;
 use std::rc::Rc;
 use texture::Texture;
 use ultraviolet::{Mat4, Rotor3, Vec3};
-use wgpu::{Device, PrimitiveTopology, Queue};
+use wgpu::{Device, Queue};
 
-/// A `PipelineHandler` is a structure that is responsible for drawing a mesh
-mod pipeline_handler;
-use pipeline_handler::PipelineHandler;
 /// A `Uniform` is a structure that manages view and projection matrices.
 mod uniforms;
 use uniforms::Uniforms;
@@ -69,8 +64,6 @@ pub struct View {
     /// The camera, that is in charge of producing the view and projection matrices.
     camera: CameraPtr,
     projection: ProjectionPtr,
-    /// The pipeline handler contains the pipepline that draw meshes
-    pipeline_handlers: PipelineHandlers,
     /// The depth texture is updated every time the size of the drawing area is modified
     depth_texture: Texture,
     /// The fake depth texture is updated every time the size of the drawing area is modified and
@@ -98,8 +91,6 @@ pub struct View {
     msaa_texture: Option<wgpu::TextureView>,
     grid_manager: GridManager,
     disc_drawer: InstanceDrawer<GridDisc>,
-    sphere_drawer: InstanceDrawer<SphereInstance>,
-    fake_sphere_drawer: InstanceDrawer<SphereInstance>,
     dna_drawers: DnaDrawers,
 }
 
@@ -131,12 +122,6 @@ impl View {
             entries: MODEL_BG_ENTRY,
             label: None,
         };
-        let pipeline_handlers = PipelineHandlers::init(
-            device.clone(),
-            queue.clone(),
-            &viewer.get_layout_desc(),
-            &model_bg_desc,
-        );
         let letter_drawer = BASIS_SYMBOLS
             .iter()
             .map(|c| LetterDrawer::new(device.clone(), queue.clone(), *c, &camera, &projection))
@@ -177,24 +162,6 @@ impl View {
             false,
         );
 
-        let sphere_drawer = InstanceDrawer::new(
-            device.clone(),
-            queue.clone(),
-            &viewer.get_layout_desc(),
-            &model_bg_desc,
-            (),
-            false,
-        );
-
-        let fake_sphere_drawer = InstanceDrawer::new(
-            device.clone(),
-            queue.clone(),
-            &viewer.get_layout_desc(),
-            &model_bg_desc,
-            (),
-            true,
-        );
-
         let dna_drawers = DnaDrawers::new(
             device.clone(),
             queue.clone(),
@@ -205,7 +172,6 @@ impl View {
         Self {
             camera,
             projection,
-            pipeline_handlers,
             depth_texture,
             fake_depth_texture,
             new_size: None,
@@ -222,8 +188,6 @@ impl View {
             msaa_texture,
             grid_manager,
             disc_drawer,
-            sphere_drawer,
-            fake_sphere_drawer,
             dna_drawers,
         }
     }
@@ -249,11 +213,6 @@ impl View {
                 }
                 self.need_redraw_fake = true;
             }
-            ViewUpdate::Spheres(instances) => {
-                self.sphere_drawer.new_instances_raw(instances.as_ref());
-                self.fake_sphere_drawer
-                    .new_instances_raw(instances.as_ref());
-            }
             ViewUpdate::Handles(descr) => {
                 self.handle_drawers.update_decriptor(
                     descr,
@@ -276,7 +235,6 @@ impl View {
                     self.letter_drawer[i].new_model_matrices(Rc::new(matrices.clone()));
                 }
                 self.models.update(matrices.clone().as_slice());
-                self.pipeline_handlers.update(view_update);
             }
             ViewUpdate::Letter(letter) => {
                 for (i, instance) in letter.iter().enumerate() {
@@ -294,9 +252,6 @@ impl View {
                         .get_mut(mesh)
                         .new_instances_raw(instances.as_ref());
                 }
-            }
-            _ => {
-                self.need_redraw_fake |= self.pipeline_handlers.update(view_update);
             }
         }
     }
@@ -348,12 +303,6 @@ impl View {
                 b: 0.8,
                 a: 1.,
             }
-        };
-        let mut handlers = match draw_type {
-            DrawType::Design => self.pipeline_handlers.fake(),
-            DrawType::Scene => self.pipeline_handlers.real(),
-            DrawType::Phantom => self.pipeline_handlers.fake_phantoms(),
-            _ => Vec::new(),
         };
         let viewer = &self.viewer;
         let viewer_bind_group = viewer.get_bindgroup();
@@ -616,24 +565,11 @@ impl View {
 pub enum ViewUpdate {
     /// The camera has moved and the view and projection matrix must be updated.
     Camera,
-    /// The set of spheres have been modified
-    Spheres(Rc<Vec<RawDnaInstance>>),
-    /// The set of tubes have been modified
-    Tubes(Rc<Vec<Instance>>),
-    /// The set of selected spheres has been modified
-    SelectedSpheres(Rc<Vec<Instance>>),
-    /// The set of selected tubes has been modified
-    SelectedTubes(Rc<Vec<Instance>>),
-    /// The set of candidate spheres has been modified
-    CandidateSpheres(Rc<Vec<Instance>>),
-    /// The set of candidate tubes has been modified
-    CandidateTubes(Rc<Vec<Instance>>),
     /// The size of the drawing area has been modified
     Size(PhySize),
     /// The set of model matrices has been modified
     ModelMatrices(Vec<Mat4>),
     /// The set of phantom instances has been modified
-    PhantomInstances(Rc<Vec<Instance>>, Rc<Vec<Instance>>),
     Handles(Option<HandlesDescriptor>),
     RotationWidget(Option<RotationWidgetDescriptor>),
     Letter(Vec<Rc<Vec<LetterInstance>>>),
@@ -659,24 +595,6 @@ pub enum Mesh {
 }
 
 impl Mesh {
-    fn all() -> Vec<Self> {
-        use Mesh::*;
-        vec![
-            Sphere,
-            Tube,
-            FakeSphere,
-            FakeTube,
-            CandidateSphere,
-            CandidateTube,
-            SelectedSphere,
-            SelectedTube,
-            PhantomSphere,
-            PhantomTube,
-            FakePhantomTube,
-            FakePhantomSphere,
-        ]
-    }
-
     fn to_fake(&self) -> Option<Self> {
         match self {
             Self::Sphere => Some(Self::FakeSphere),
@@ -845,270 +763,6 @@ impl DnaDrawers {
                 (),
                 true,
             ),
-        }
-    }
-}
-
-/// The structure gathers all the pipepline that are used to draw meshes on the scene
-struct PipelineHandlers {
-    /// The nucleotides
-    sphere: PipelineHandler,
-    /// The bounds
-    tube: PipelineHandler,
-    /// The pipepline used to draw nucleotides on the fake texture
-    fake_sphere: PipelineHandler,
-    /// The pipepline used to draw bounds on the fake texture
-    fake_tube: PipelineHandler,
-    /// The selected nucleotides
-    selected_sphere: PipelineHandler,
-    /// The selected bounds
-    selected_tube: PipelineHandler,
-    /// The candidate nucleotides
-    candidate_sphere: PipelineHandler,
-    /// The candidate tube
-    candidate_tube: PipelineHandler,
-    /// The nucleotides of the phantom helix
-    phantom_sphere: PipelineHandler,
-    /// The bounds of the phantom helix
-    phantom_tube: PipelineHandler,
-    fake_phantom_sphere: PipelineHandler,
-    fake_phantom_tube: PipelineHandler,
-}
-
-impl PipelineHandlers {
-    fn init(
-        device: Rc<Device>,
-        queue: Rc<Queue>,
-        viewer_desc: &wgpu::BindGroupLayoutDescriptor<'static>,
-        model_desc: &wgpu::BindGroupLayoutDescriptor<'static>,
-    ) -> Self {
-        let sphere_mesh = mesh::Mesh::sphere(device.as_ref(), false);
-        let tube_mesh = mesh::Mesh::tube(device.as_ref(), false);
-        let fake_sphere_mesh = mesh::Mesh::sphere(device.as_ref(), false);
-        let fake_tube_mesh = mesh::Mesh::tube(device.as_ref(), false);
-        let selected_sphere_mesh = mesh::Mesh::sphere(device.as_ref(), true);
-        let selected_tube_mesh = mesh::Mesh::tube(device.as_ref(), true);
-        let candidate_sphere_mesh = mesh::Mesh::sphere(device.as_ref(), true);
-        let candidate_tube_mesh = mesh::Mesh::tube(device.as_ref(), true);
-        let phantom_tube_mesh = mesh::Mesh::tube(device.as_ref(), false);
-        let phantom_sphere_mesh = mesh::Mesh::sphere(device.as_ref(), false);
-        let fake_phantom_sphere_mesh = mesh::Mesh::sphere(device.as_ref(), false);
-        let fake_phantom_tube_mesh = mesh::Mesh::tube(device.as_ref(), false);
-
-        let sphere_pipeline_handler = PipelineHandler::new(
-            device.clone(),
-            queue.clone(),
-            sphere_mesh,
-            viewer_desc,
-            model_desc,
-            PrimitiveTopology::TriangleList,
-            pipeline_handler::Flavour::Real,
-        );
-        let tube_pipeline_handler = PipelineHandler::new(
-            device.clone(),
-            queue.clone(),
-            tube_mesh,
-            viewer_desc,
-            model_desc,
-            PrimitiveTopology::TriangleStrip,
-            pipeline_handler::Flavour::Real,
-        );
-        let fake_tube_pipeline_handler = PipelineHandler::new(
-            device.clone(),
-            queue.clone(),
-            fake_tube_mesh,
-            viewer_desc,
-            model_desc,
-            PrimitiveTopology::TriangleStrip,
-            pipeline_handler::Flavour::Fake,
-        );
-        let fake_sphere_pipeline_handler = PipelineHandler::new(
-            device.clone(),
-            queue.clone(),
-            fake_sphere_mesh,
-            viewer_desc,
-            model_desc,
-            PrimitiveTopology::TriangleStrip,
-            pipeline_handler::Flavour::Fake,
-        );
-        let selected_sphere_pipeline_handler = PipelineHandler::new(
-            device.clone(),
-            queue.clone(),
-            selected_sphere_mesh,
-            viewer_desc,
-            model_desc,
-            PrimitiveTopology::TriangleStrip,
-            pipeline_handler::Flavour::Selected,
-        );
-        let selected_tube_pipeline_handler = PipelineHandler::new(
-            device.clone(),
-            queue.clone(),
-            selected_tube_mesh,
-            viewer_desc,
-            model_desc,
-            PrimitiveTopology::TriangleStrip,
-            pipeline_handler::Flavour::Selected,
-        );
-        let candidate_sphere = PipelineHandler::new(
-            device.clone(),
-            queue.clone(),
-            candidate_sphere_mesh,
-            viewer_desc,
-            model_desc,
-            PrimitiveTopology::TriangleStrip,
-            pipeline_handler::Flavour::Candidate,
-        );
-        let candidate_tube = PipelineHandler::new(
-            device.clone(),
-            queue.clone(),
-            candidate_tube_mesh,
-            viewer_desc,
-            model_desc,
-            PrimitiveTopology::TriangleStrip,
-            pipeline_handler::Flavour::Candidate,
-        );
-        let phantom_sphere = PipelineHandler::new(
-            device.clone(),
-            queue.clone(),
-            phantom_sphere_mesh,
-            viewer_desc,
-            model_desc,
-            PrimitiveTopology::TriangleStrip,
-            pipeline_handler::Flavour::Phantom,
-        );
-        let phantom_tube = PipelineHandler::new(
-            device.clone(),
-            queue.clone(),
-            phantom_tube_mesh,
-            viewer_desc,
-            model_desc,
-            PrimitiveTopology::TriangleStrip,
-            pipeline_handler::Flavour::Phantom,
-        );
-        let fake_phantom_sphere = PipelineHandler::new(
-            device.clone(),
-            queue.clone(),
-            fake_phantom_sphere_mesh,
-            viewer_desc,
-            model_desc,
-            PrimitiveTopology::TriangleStrip,
-            pipeline_handler::Flavour::Fake,
-        );
-        let fake_phantom_tube = PipelineHandler::new(
-            device,
-            queue,
-            fake_phantom_tube_mesh,
-            viewer_desc,
-            model_desc,
-            PrimitiveTopology::TriangleStrip,
-            pipeline_handler::Flavour::Fake,
-        );
-
-        Self {
-            sphere: sphere_pipeline_handler,
-            tube: tube_pipeline_handler,
-            fake_sphere: fake_sphere_pipeline_handler,
-            fake_tube: fake_tube_pipeline_handler,
-            selected_sphere: selected_sphere_pipeline_handler,
-            selected_tube: selected_tube_pipeline_handler,
-            candidate_sphere,
-            candidate_tube,
-            phantom_sphere,
-            phantom_tube,
-            fake_phantom_sphere,
-            fake_phantom_tube,
-        }
-    }
-
-    #[allow(dead_code)]
-    fn all(&mut self) -> Vec<&mut PipelineHandler> {
-        vec![
-            &mut self.sphere,
-            &mut self.tube,
-            &mut self.fake_sphere,
-            &mut self.fake_tube,
-            &mut self.selected_tube,
-            &mut self.selected_sphere,
-            &mut self.candidate_tube,
-            &mut self.candidate_sphere,
-            &mut self.phantom_tube,
-            &mut self.phantom_sphere,
-            &mut self.fake_phantom_tube,
-            &mut self.fake_phantom_sphere,
-        ]
-    }
-
-    fn real(&mut self) -> Vec<&mut PipelineHandler> {
-        vec![
-            &mut self.sphere,
-            &mut self.tube,
-            &mut self.selected_sphere,
-            &mut self.selected_tube,
-            &mut self.candidate_tube,
-            &mut self.candidate_sphere,
-            &mut self.phantom_tube,
-            &mut self.phantom_sphere,
-        ]
-    }
-
-    fn fake_phantoms(&mut self) -> Vec<&mut PipelineHandler> {
-        vec![&mut self.fake_phantom_sphere, &mut self.fake_phantom_tube]
-    }
-
-    fn fake(&mut self) -> Vec<&mut PipelineHandler> {
-        vec![&mut self.fake_sphere, &mut self.fake_tube]
-    }
-
-    /// Forwards an update to the relevant piplines. Return true if the fake view must be redrawn
-    fn update(&mut self, update: ViewUpdate) -> bool {
-        match update {
-            ViewUpdate::Spheres(_instances) => {
-                /*
-                self.sphere.new_instances(instances.clone());
-                self.fake_sphere.new_instances(instances);
-                true
-                */
-                unreachable!()
-            }
-            ViewUpdate::Tubes(instances) => {
-                self.tube.new_instances(instances.clone());
-                self.fake_tube.new_instances(instances);
-                true
-            }
-            ViewUpdate::SelectedTubes(instances) => {
-                self.selected_tube.new_instances(instances);
-                false
-            }
-            ViewUpdate::SelectedSpheres(instances) => {
-                self.selected_sphere.new_instances(instances);
-                false
-            }
-            ViewUpdate::ModelMatrices(_) => true,
-            ViewUpdate::CandidateSpheres(instances) => {
-                self.candidate_sphere.new_instances(instances);
-                false
-            }
-            ViewUpdate::CandidateTubes(instances) => {
-                self.candidate_tube.new_instances(instances);
-                false
-            }
-            ViewUpdate::PhantomInstances(sphere, tube) => {
-                self.phantom_sphere.new_instances(sphere.clone());
-                self.phantom_tube.new_instances(tube.clone());
-                self.fake_phantom_sphere.new_instances(sphere);
-                self.fake_phantom_tube.new_instances(tube);
-                false
-            }
-            ViewUpdate::Camera
-            | ViewUpdate::Size(_)
-            | ViewUpdate::Handles(_)
-            | ViewUpdate::RotationWidget(_)
-            | ViewUpdate::Letter(_)
-            | ViewUpdate::Grids(_)
-            | ViewUpdate::GridDiscs(_)
-            | ViewUpdate::RawDna(_, _) => {
-                unreachable!();
-            }
         }
     }
 }

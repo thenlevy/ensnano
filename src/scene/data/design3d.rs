@@ -1,4 +1,4 @@
-use super::super::view::{DnaObject, Instanciable, RawDnaInstance, SphereInstance, TubeInstance};
+use super::super::view::{Instanciable, RawDnaInstance, SphereInstance, TubeInstance};
 use super::super::GridInstance;
 use super::{LetterInstance, SceneElement, StrandBuilder};
 use crate::consts::*;
@@ -251,55 +251,6 @@ impl Design3D {
                 .get_helix_nucl(nucl, referential, on_axis);
             nucl_coord
         }
-    }
-
-    pub fn make_phantom_helix_instances(
-        &self,
-        helix_ids: &HashMap<u32, bool>,
-    ) -> (Rc<Vec<Instance>>, Rc<Vec<Instance>>) {
-        let mut spheres = Vec::new();
-        let mut tubes = Vec::new();
-        for (helix_id, short) in helix_ids.iter() {
-            let range_phantom = if *short {
-                PHANTOM_RANGE / 10
-            } else {
-                PHANTOM_RANGE
-            };
-            for forward in [false, true].iter() {
-                let mut previous_nucl = None;
-                for i in -range_phantom..=range_phantom {
-                    let nucl_coord = self.design.lock().unwrap().get_helix_nucl(
-                        Nucl {
-                            helix: *helix_id as usize,
-                            position: i as isize,
-                            forward: *forward,
-                        },
-                        Referential::Model,
-                        false,
-                    );
-                    let color = 0xA0D0D0D0;
-                    if nucl_coord.is_none() {
-                        continue;
-                    }
-                    let nucl_coord = nucl_coord.unwrap();
-                    let id = utils::phantom_helix_encoder_nucl(self.id, *helix_id, i, *forward);
-                    spheres.push(
-                        Instantiable::new(ObjectRepr::Sphere(nucl_coord), color, id)
-                            .to_instance(true),
-                    );
-                    if let Some(coord) = previous_nucl {
-                        let id =
-                            utils::phantom_helix_encoder_bound(self.id, *helix_id, i, *forward);
-                        tubes.push(
-                            Instantiable::new(ObjectRepr::Tube(nucl_coord, coord), color, id)
-                                .to_instance(true),
-                        );
-                    }
-                    previous_nucl = Some(nucl_coord);
-                }
-            }
-        }
-        (Rc::new(spheres), Rc::new(tubes))
     }
 
     pub fn make_phantom_helix_instances_raw(
@@ -645,82 +596,6 @@ impl Design3D {
 
     pub fn get_nucl(&self, e_id: u32) -> Option<Nucl> {
         self.design.lock().unwrap().get_nucl(e_id)
-    }
-}
-
-pub struct Instantiable {
-    repr: ObjectRepr,
-    color: u32,
-    id: u32,
-}
-
-impl Instantiable {
-    pub fn new(repr: ObjectRepr, color: u32, id: u32) -> Self {
-        Self { repr, color, id }
-    }
-
-    pub fn to_instance(&self, use_alpha: bool) -> Instance {
-        let color = if use_alpha {
-            Instance::color_from_au32(self.color)
-        } else {
-            Instance::color_from_u32(self.color)
-        };
-        match self.repr {
-            ObjectRepr::Tube(a, b) => create_bound(a, b, self.color, self.id, use_alpha),
-            ObjectRepr::Sphere(x) => Instance {
-                position: x,
-                rotor: Rotor3::identity(),
-                color,
-                id: self.id,
-                scale: 1.,
-            },
-        }
-    }
-
-    pub fn to_dna_instance(&self, use_alpha: bool) -> Box<dyn DnaObject> {
-        let color = if use_alpha {
-            Instance::color_from_au32(self.color)
-        } else {
-            Instance::color_from_u32(self.color)
-        };
-        match self.repr {
-            ObjectRepr::Tube(a, b) => {
-                Box::new(create_dna_bound(a, b, self.color, self.id, use_alpha))
-            }
-            ObjectRepr::Sphere(x) => Box::new(SphereInstance {
-                position: x,
-                color,
-                id: self.id,
-                radius: 1.,
-            }),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
-pub enum ObjectRepr {
-    /// A sphere given by its center
-    Sphere(Vec3),
-    /// A tube given by its two coordinates
-    Tube(Vec3, Vec3),
-}
-
-fn create_bound(source: Vec3, dest: Vec3, color: u32, id: u32, use_alpha: bool) -> Instance {
-    let color = if use_alpha {
-        Instance::color_from_au32(color)
-    } else {
-        Instance::color_from_u32(color)
-    };
-    let rotor = Rotor3::from_rotation_between(Vec3::unit_x(), (dest - source).normalized());
-    let position = (dest + source) / 2.;
-    let scale = (dest - source).mag();
-
-    Instance {
-        position,
-        color,
-        rotor,
-        id,
-        scale,
     }
 }
 

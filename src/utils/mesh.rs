@@ -1,9 +1,6 @@
 use crate::consts::*;
-use crate::utils::create_buffer_with_data;
 use iced_wgpu::wgpu;
-use std::f32::consts::PI;
 use std::ops::Range;
-use wgpu::Device;
 
 pub trait Vertex {
     fn desc<'a>() -> wgpu::VertexBufferDescriptor<'a>;
@@ -47,117 +44,6 @@ pub struct Mesh {
     pub vertex_buffer: wgpu::Buffer,
     pub index_buffer: wgpu::Buffer,
     pub num_elements: u32,
-}
-
-impl Mesh {
-    /// Represents a tube with radius of BOUND_RADIUS, height of BOUND_LENGTH, and centered at
-    /// (0, 0, 0) pointing to (1, 0, 0).
-    pub fn tube(device: &Device, bigger: bool) -> Self {
-        let scale = if bigger { SELECT_SCALE_FACTOR } else { 1. };
-        let radius = scale * BOUND_RADIUS;
-        let vertices = (0..(2 * NB_RAY_TUBE))
-            .map(|i| {
-                let point = i / 2;
-                let side = if i % 2 == 0 { -1. } else { 1. };
-                let theta = (point as f32) * 2. * PI / NB_RAY_TUBE as f32;
-                let position = [
-                    side * BOUND_LENGTH / 2.,
-                    theta.sin() * radius,
-                    theta.cos() * radius,
-                ];
-
-                let normal = [0., theta.sin(), theta.cos()];
-                MeshVertex { position, normal }
-            })
-            .collect::<Vec<_>>();
-        let vertex_buffer = create_buffer_with_data(
-            device,
-            bytemuck::cast_slice(vertices.as_slice()),
-            wgpu::BufferUsage::VERTEX,
-        );
-
-        let mut indices: Vec<_> = (0u16..(2 * NB_RAY_TUBE as u16)).collect();
-        indices.push(0);
-        indices.push(1);
-        let index_buffer = create_buffer_with_data(
-            device,
-            bytemuck::cast_slice(indices.as_slice()),
-            wgpu::BufferUsage::INDEX,
-        );
-
-        let num_elements = indices.len() as u32;
-        Self {
-            vertex_buffer,
-            index_buffer,
-            num_elements,
-        }
-    }
-
-    pub fn sphere(device: &Device, bigger: bool) -> Self {
-        let scale = if bigger { SELECT_SCALE_FACTOR } else { 1. };
-        let mut vertices = Vec::new();
-
-        let stack_step = PI / NB_STACK_SPHERE as f32;
-        let sector_step = 2. * PI / NB_SECTOR_SPHERE as f32;
-        for i in 0..=NB_STACK_SPHERE {
-            // 0..=x means that x is included
-            let stack_angle = PI / 2. - (i as f32) * stack_step;
-            let radius = SPHERE_RADIUS * scale;
-            let xy = radius * stack_angle.cos();
-            let z = radius * stack_angle.sin();
-
-            for j in 0..=NB_SECTOR_SPHERE {
-                let sector_angle = j as f32 * sector_step;
-
-                let x = xy * sector_angle.cos();
-                let y = xy * sector_angle.sin();
-                let position = [x, y, z];
-                let normal = [x, y, z];
-
-                vertices.push(MeshVertex { position, normal })
-            }
-        }
-        let vertex_buffer = create_buffer_with_data(
-            device,
-            bytemuck::cast_slice(vertices.as_slice()),
-            wgpu::BufferUsage::VERTEX,
-        );
-
-        let mut indices = Vec::new();
-
-        for i in 0..NB_STACK_SPHERE {
-            let mut k1: u16 = i * (NB_SECTOR_SPHERE + 1); // begining of ith stack
-            let mut k2: u16 = k1 + NB_SECTOR_SPHERE + 1; // begining of (i + 1)th stack
-
-            for _ in 0..NB_SECTOR_SPHERE {
-                if i > 0 {
-                    indices.push(k1);
-                    indices.push(k2);
-                    indices.push(k1 + 1);
-                }
-
-                if i < NB_STACK_SPHERE - 1 {
-                    indices.push(k1 + 1);
-                    indices.push(k2);
-                    indices.push(k2 + 1);
-                }
-                k1 += 1;
-                k2 += 1;
-            }
-        }
-        let index_buffer = create_buffer_with_data(
-            device,
-            bytemuck::cast_slice(indices.as_slice()),
-            wgpu::BufferUsage::INDEX,
-        );
-
-        let num_elements = indices.len() as u32;
-        Self {
-            vertex_buffer,
-            index_buffer,
-            num_elements,
-        }
-    }
 }
 
 pub trait DrawModel<'a, 'b>

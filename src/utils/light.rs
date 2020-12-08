@@ -13,6 +13,7 @@ pub struct Light {
 }
 
 impl Light {
+    #[allow(dead_code)]
     pub fn new(position: [f32; 3], color: [f32; 3]) -> Self {
         Self {
             position: position.into(),
@@ -22,6 +23,7 @@ impl Light {
     }
 }
 
+#[allow(dead_code)]
 pub fn create_light(device: &Device) -> (BindGroup, BindGroupLayout) {
     let light = Light::new([0.0, 0.0, 1000.0], [1.0, 1.0, 1.0]);
 
