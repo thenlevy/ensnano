@@ -89,9 +89,15 @@ impl FlatScene {
             self.area.size,
             camera,
         );
-        self.view.push(view);
-        self.data.push(data);
-        self.controller.push(controller);
+        if self.view.len() > 0 {
+            self.view[0] = view;
+            self.data[0] = data;
+            self.controller[0] = controller;
+        } else {
+            self.view.push(view);
+            self.data.push(data);
+            self.controller.push(controller);
+        }
     }
 
     /// Draw the view of the currently selected design

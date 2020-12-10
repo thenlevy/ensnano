@@ -102,6 +102,7 @@ impl Data {
         for g in grids.iter_mut() {
             g.write().unwrap().update(&design);
         }
+        let color_idx = design.strands.keys().len();
         let mut ret = Self {
             design,
             object_type: HashMap::new(),
@@ -119,7 +120,7 @@ impl Data {
             basis_map: HashMap::new(),
             grid_manager,
             grids,
-            color_idx: 0,
+            color_idx,
         };
         ret.make_hash_maps();
         ret.terminate_movement();
