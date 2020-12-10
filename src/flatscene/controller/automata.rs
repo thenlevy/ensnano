@@ -258,6 +258,13 @@ impl ControllerState for Translating {
                 controller.process_keyboard(event);
                 Transition::nothing()
             }
+            WindowEvent::MouseWheel { delta, .. } => {
+                controller
+                    .camera
+                    .borrow_mut()
+                    .process_scroll(delta, self.mouse_position);
+                Transition::nothing()
+            }
             _ => Transition::nothing(),
         }
     }
@@ -336,6 +343,13 @@ impl ControllerState for MovingCamera {
             }
             WindowEvent::KeyboardInput { .. } => {
                 controller.process_keyboard(event);
+                Transition::nothing()
+            }
+            WindowEvent::MouseWheel { delta, .. } => {
+                controller
+                    .camera
+                    .borrow_mut()
+                    .process_scroll(delta, self.mouse_position);
                 Transition::nothing()
             }
             _ => Transition::nothing(),
@@ -502,6 +516,13 @@ impl ControllerState for ReleasedPivot {
                 controller.process_keyboard(event);
                 Transition::nothing()
             }
+            WindowEvent::MouseWheel { delta, .. } => {
+                controller
+                    .camera
+                    .borrow_mut()
+                    .process_scroll(delta, self.mouse_position);
+                Transition::nothing()
+            }
             _ => Transition::nothing(),
         }
     }
@@ -602,6 +623,13 @@ impl ControllerState for LeavingPivot {
                 controller.process_keyboard(event);
                 Transition::nothing()
             }
+            WindowEvent::MouseWheel { delta, .. } => {
+                controller
+                    .camera
+                    .borrow_mut()
+                    .process_scroll(delta, self.mouse_position);
+                Transition::nothing()
+            }
             _ => Transition::nothing(),
         }
     }
@@ -685,6 +713,13 @@ impl ControllerState for Rotating {
             }
             WindowEvent::KeyboardInput { .. } => {
                 controller.process_keyboard(event);
+                Transition::nothing()
+            }
+            WindowEvent::MouseWheel { delta, .. } => {
+                controller
+                    .camera
+                    .borrow_mut()
+                    .process_scroll(delta, self.mouse_position);
                 Transition::nothing()
             }
             _ => Transition::nothing(),
@@ -811,6 +846,13 @@ impl ControllerState for InitBuilding {
                 controller.process_keyboard(event);
                 Transition::nothing()
             }
+            WindowEvent::MouseWheel { delta, .. } => {
+                controller
+                    .camera
+                    .borrow_mut()
+                    .process_scroll(delta, self.mouse_position);
+                Transition::nothing()
+            }
             _ => Transition::nothing(),
         }
     }
@@ -900,6 +942,13 @@ impl ControllerState for MovingFreeEnd {
                 controller.process_keyboard(event);
                 Transition::nothing()
             }
+            WindowEvent::MouseWheel { delta, .. } => {
+                controller
+                    .camera
+                    .borrow_mut()
+                    .process_scroll(delta, self.mouse_position);
+                Transition::nothing()
+            }
             _ => Transition::nothing(),
         }
     }
@@ -976,6 +1025,13 @@ impl ControllerState for Building {
             }
             WindowEvent::KeyboardInput { .. } => {
                 controller.process_keyboard(event);
+                Transition::nothing()
+            }
+            WindowEvent::MouseWheel { delta, .. } => {
+                controller
+                    .camera
+                    .borrow_mut()
+                    .process_scroll(delta, self.mouse_position);
                 Transition::nothing()
             }
             _ => Transition::nothing(),
@@ -1059,6 +1115,13 @@ impl ControllerState for Crossing {
                 controller.process_keyboard(event);
                 Transition::nothing()
             }
+            WindowEvent::MouseWheel { delta, .. } => {
+                controller
+                    .camera
+                    .borrow_mut()
+                    .process_scroll(delta, self.mouse_position);
+                Transition::nothing()
+            }
             _ => Transition::nothing(),
         }
     }
@@ -1124,6 +1187,13 @@ impl ControllerState for Cutting {
             }
             WindowEvent::KeyboardInput { .. } => {
                 controller.process_keyboard(event);
+                Transition::nothing()
+            }
+            WindowEvent::MouseWheel { delta, .. } => {
+                controller
+                    .camera
+                    .borrow_mut()
+                    .process_scroll(delta, self.mouse_position);
                 Transition::nothing()
             }
             _ => Transition::nothing(),
