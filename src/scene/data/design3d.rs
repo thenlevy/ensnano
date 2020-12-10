@@ -429,6 +429,36 @@ impl Design3D {
                 max_z = coord[2];
             }
         }
+        for grid in self.get_grid().iter() {
+            let coords: [[f32; 3]; 2] = [
+                grid.grid
+                    .position_helix(grid.min_x as isize, grid.min_y as isize)
+                    .into(),
+                grid.grid
+                    .position_helix(grid.max_x as isize, grid.max_y as isize)
+                    .into(),
+            ];
+            for coord in coords.iter() {
+                if coord[0] < min_x {
+                    min_x = coord[0];
+                }
+                if coord[0] > max_x {
+                    max_x = coord[0];
+                }
+                if coord[1] < min_y {
+                    min_y = coord[1];
+                }
+                if coord[1] > max_y {
+                    max_y = coord[1];
+                }
+                if coord[2] < min_z {
+                    min_z = coord[2];
+                }
+                if coord[2] > max_z {
+                    max_z = coord[2];
+                }
+            }
+        }
         [min_x, max_x, min_y, max_y, min_z, max_z]
     }
 
