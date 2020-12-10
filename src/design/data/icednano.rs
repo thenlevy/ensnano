@@ -339,20 +339,39 @@ impl Domain {
                         seq_prim3 = None;
                         seq_prim5 = None;
                     }
-                    let dom_left = Self::HelixDomain(HelixInterval {
-                        forward: *forward,
-                        start: *start,
-                        end: *start + n as isize + 1,
-                        helix: *helix,
-                        sequence: seq_prim5,
-                    });
-                    let dom_right = Self::HelixDomain(HelixInterval {
-                        forward: *forward,
-                        start: *start + n as isize + 1,
-                        end: *end,
-                        helix: *helix,
-                        sequence: seq_prim3,
-                    });
+                    let dom_left;
+                    let dom_right;
+                    if *forward {
+                        dom_left = Self::HelixDomain(HelixInterval {
+                            forward: *forward,
+                            start: *start,
+                            end: *start + n as isize + 1,
+                            helix: *helix,
+                            sequence: seq_prim5,
+                        });
+                        dom_right = Self::HelixDomain(HelixInterval {
+                            forward: *forward,
+                            start: *start + n as isize + 1,
+                            end: *end,
+                            helix: *helix,
+                            sequence: seq_prim3,
+                        });
+                    } else {
+                        dom_right = Self::HelixDomain(HelixInterval {
+                            forward: *forward,
+                            start: *end - 1 - n as isize,
+                            end: *end,
+                            helix: *helix,
+                            sequence: seq_prim3,
+                        });
+                        dom_left = Self::HelixDomain(HelixInterval {
+                            forward: *forward,
+                            start: *start,
+                            end: *end - 1 - n as isize,
+                            helix: *helix,
+                            sequence: seq_prim5,
+                        });
+                    }
                     if *forward {
                         Some((dom_left, dom_right))
                     } else {

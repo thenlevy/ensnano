@@ -767,11 +767,16 @@ impl Data {
         let id = self
             .identifier_nucl
             .get(nucl)
-            .and_then(|id| self.strand_map.get(id))
-            .expect("nucl")
-            .clone();
+            .and_then(|id| self.strand_map.get(id));
+
+        if id.is_none() {
+            return;
+        }
+        let id = *id.unwrap();
+
         let strand = self.design.strands.remove(&id).expect("strand");
         if strand.cyclic {
+            self.design.strands.insert(id, strand);
             println!("Cutting cyclic strand is not implemented yet");
             return;
         }
