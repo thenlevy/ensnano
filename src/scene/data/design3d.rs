@@ -597,6 +597,14 @@ impl Design3D {
     pub fn get_nucl(&self, e_id: u32) -> Option<Nucl> {
         self.design.lock().unwrap().get_nucl(e_id)
     }
+
+    pub fn helix_is_on_grid(&self, h_id: u32) -> bool {
+        self.design
+            .lock()
+            .unwrap()
+            .get_grid_pos_helix(h_id)
+            .is_some()
+    }
 }
 
 fn create_dna_bound(

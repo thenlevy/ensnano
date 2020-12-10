@@ -793,6 +793,36 @@ impl Data {
         }
     }
 
+    pub fn selection_can_rotate_freely(&self) -> bool {
+        match self.selected.get(0) {
+            Some(SceneElement::DesignElement(d_id, _)) => match self.selection_mode {
+                SelectionMode::Nucleotide
+                | SelectionMode::Design
+                | SelectionMode::Strand
+                | SelectionMode::Grid => true,
+                SelectionMode::Helix => {
+                    let h_id = self.get_selected_group();
+                    !self.designs[*d_id as usize].helix_is_on_grid(h_id)
+                }
+            },
+            Some(SceneElement::PhantomElement(phantom_element)) => {
+                let d_id = phantom_element.design_id;
+                match self.selection_mode {
+                    SelectionMode::Nucleotide
+                    | SelectionMode::Design
+                    | SelectionMode::Strand
+                    | SelectionMode::Grid => true,
+                    SelectionMode::Helix => {
+                        let h_id = phantom_element.helix_id;
+                        !self.designs[d_id as usize].helix_is_on_grid(h_id)
+                    }
+                }
+            }
+            Some(SceneElement::Grid(d_id, g_id)) => true,
+            _ => true,
+        }
+    }
+
     pub fn select_5prime(&mut self) {
         let selected = self.selected.get(0);
         if let Some(SceneElement::DesignElement(d_id, e_id)) = selected {

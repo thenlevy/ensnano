@@ -994,6 +994,13 @@ impl Data {
             .persistent_phantom = persistent;
         self.update_status = true;
     }
+
+    pub fn get_grid_pos_helix(&self, h_id: u32) -> Option<GridPosition> {
+        self.design
+            .helices
+            .get(&(h_id as usize))
+            .and_then(|h| h.grid_position)
+    }
 }
 
 fn compl(c: Option<char>) -> Option<char> {

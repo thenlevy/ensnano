@@ -372,6 +372,10 @@ impl Design {
         self.data.lock().unwrap().get_grid_position(g_id)
     }
 
+    pub fn get_grid_pos_helix(&self, h_id: u32) -> Option<GridPosition> {
+        self.data.lock().unwrap().get_grid_pos_helix(h_id)
+    }
+
     pub fn build_helix_grid(&mut self, g_id: usize, x: isize, y: isize) {
         self.data.lock().unwrap().build_helix_grid(g_id, x, y)
     }

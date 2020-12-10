@@ -426,10 +426,12 @@ impl Scene {
             size: 0.25,
         });
         self.view.borrow_mut().update(ViewUpdate::Handles(descr));
+        let only_right = !self.data.borrow().selection_can_rotate_freely();
         let descr = origin.map(|origin| RotationWidgetDescriptor {
             origin,
             orientation: RotationWidgetOrientation::Rotor(self.data.borrow().get_widget_basis()),
             size: 0.2,
+            only_right,
         });
         self.view
             .borrow_mut()

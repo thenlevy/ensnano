@@ -193,6 +193,7 @@ pub struct RotationWidgetDescriptor {
     pub origin: Vec3,
     pub orientation: RotationWidgetOrientation,
     pub size: f32,
+    pub only_right: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -205,12 +206,20 @@ impl RotationWidgetDescriptor {
         let dist = (camera.borrow().position - self.origin).mag();
         let (right, up, dir) = self.make_axis();
         let length = self.size * dist * (projection.borrow().get_fovy() / 2.).tan() * 1.1;
+        let filter = if self.only_right { 0f32 } else { 1f32 };
         [
             Circle::new(self.origin, length, up, dir, 0xFF_00_00, RIGHT_CIRCLE_ID),
-            Circle::new(self.origin, length, right, dir, 0xFF_00, UP_CIRCLE_ID),
             Circle::new(
                 self.origin,
-                length * 1.1,
+                length * filter,
+                right,
+                dir,
+                0xFF_00,
+                UP_CIRCLE_ID,
+            ),
+            Circle::new(
+                self.origin,
+                length * 1.1 * filter,
                 right,
                 up,
                 0xFF_FF_00,
