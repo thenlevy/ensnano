@@ -114,6 +114,10 @@ impl Design2d {
     pub fn split_strand(&self, nucl: Nucl) {
         self.design.lock().unwrap().split_strand(nucl)
     }
+
+    pub fn rm_strand(&self, nucl: Nucl) {
+        self.design.lock().unwrap().rm_strand(nucl)
+    }
 }
 
 /// Store the informations needed to represent an helix from the design

@@ -157,6 +157,9 @@ impl FlatScene {
                     });
                     self.mediator.lock().unwrap().set_candidate(phantom)
                 }
+                Consequence::RmStrand(nucl) => {
+                    self.data[self.selected_design].borrow_mut().rm_strand(nucl)
+                }
                 _ => (),
             }
         }

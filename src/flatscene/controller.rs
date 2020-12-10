@@ -33,6 +33,7 @@ pub enum Consequence {
     Cut(Nucl),
     FreeEnd(Option<FreeEnd>),
     NewCandidate(Option<Nucl>),
+    RmStrand(Nucl),
 }
 
 impl Controller {

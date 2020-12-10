@@ -344,6 +344,10 @@ impl Design {
         self.data.lock().unwrap().split_strand(&nucl)
     }
 
+    pub fn rm_strand(&self, nucl: Nucl) {
+        self.data.lock().unwrap().rm_strand(&nucl)
+    }
+
     pub fn get_grid_instance(&self) -> Vec<GridInstance> {
         self.data.lock().unwrap().get_grid_instances(self.id)
     }

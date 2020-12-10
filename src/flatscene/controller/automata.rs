@@ -61,6 +61,7 @@ impl ControllerState for NormalState {
             WindowEvent::MouseInput {
                 button: MouseButton::Left,
                 state,
+                modifiers,
                 ..
             } => {
                 /*assert!(
@@ -82,6 +83,7 @@ impl ControllerState for NormalState {
                                 new_state: Some(Box::new(Cutting {
                                     nucl,
                                     mouse_position: self.mouse_position,
+                                    whole_strand: modifiers.shift(),
                                 })),
                                 consequences: Consequence::Nothing,
                             }
@@ -411,6 +413,7 @@ impl ControllerState for ReleasedPivot {
             WindowEvent::MouseInput {
                 button: MouseButton::Left,
                 state,
+                modifiers,
                 ..
             } => {
                 /*assert!(
@@ -432,6 +435,7 @@ impl ControllerState for ReleasedPivot {
                                 new_state: Some(Box::new(Cutting {
                                     nucl,
                                     mouse_position: self.mouse_position,
+                                    whole_strand: modifiers.shift(),
                                 })),
                                 consequences: Consequence::Nothing,
                             }
@@ -1139,6 +1143,7 @@ impl ControllerState for Crossing {
 struct Cutting {
     mouse_position: PhysicalPosition<f64>,
     nucl: Nucl,
+    whole_strand: bool,
 }
 
 impl ControllerState for Cutting {
@@ -1179,7 +1184,11 @@ impl ControllerState for Cutting {
                     .screen_to_world(self.mouse_position.x as f32, self.mouse_position.y as f32);
                 let nucl = controller.data.borrow().get_click(x, y, &controller.camera);
                 let consequences = if nucl == ClickResult::Nucl(self.nucl) {
-                    Consequence::Cut(self.nucl)
+                    if self.whole_strand {
+                        Consequence::RmStrand(self.nucl)
+                    } else {
+                        Consequence::Cut(self.nucl)
+                    }
                 } else {
                     Consequence::Nothing
                 };

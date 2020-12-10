@@ -221,6 +221,12 @@ impl Data {
         self.design.split_strand(nucl);
     }
 
+    pub fn rm_strand(&mut self, nucl: Nucl) {
+        let nucl = self.to_real(nucl);
+        self.instance_reset = true;
+        self.design.rm_strand(nucl);
+    }
+
     fn to_real(&self, nucl: Nucl) -> Nucl {
         let real_helix = self.design.get_helices()[nucl.helix].id;
         Nucl {

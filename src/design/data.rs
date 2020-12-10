@@ -764,6 +764,8 @@ impl Data {
     }
 
     pub fn split_strand(&mut self, nucl: &Nucl) {
+        self.update_status = true;
+        self.hash_maps_update = true;
         let id = self
             .identifier_nucl
             .get(nucl)
@@ -852,6 +854,22 @@ impl Data {
         }
         self.update_status = true;
         self.hash_maps_update = true;
+    }
+
+    pub fn rm_strand(&mut self, nucl: &Nucl) {
+        self.update_status = true;
+        self.hash_maps_update = true;
+        let id = self
+            .identifier_nucl
+            .get(nucl)
+            .and_then(|id| self.strand_map.get(id));
+
+        if id.is_none() {
+            return;
+        }
+        let id = *id.unwrap();
+
+        self.design.strands.remove(&id).expect("strand");
     }
 
     pub fn get_all_strand_ids(&self) -> Vec<usize> {
