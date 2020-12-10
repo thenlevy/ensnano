@@ -330,9 +330,9 @@ fn main() {
                     }
 
                     if let Some(ref path) = requests.file_add {
-                        let d_id = mediator.lock().unwrap().nb_design();
-                        let design = Design::new_with_path(d_id, path);
+                        let design = Design::new_with_path(0, path);
                         if let Some(design) = design {
+                            mediator.lock().unwrap().clear_designs();
                             let design = Arc::new(Mutex::new(design));
                             mediator.lock().unwrap().add_design(design);
                         }
