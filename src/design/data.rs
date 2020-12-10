@@ -445,6 +445,9 @@ impl Data {
             .get_mut(&h_id)
             .map(|h| h.rotate_arround(rotation, origin))
             .unwrap_or_default();
+        self.grid_manager
+            .reattach_helix(h_id, &mut self.design, false);
+        self.grid_manager.update(&mut self.design);
         self.hash_maps_update = true;
         self.update_status = true;
     }
@@ -454,8 +457,10 @@ impl Data {
             .helices
             .get_mut(&h_id)
             .map(|h| h.translate(translation));
-        self.grid_manager.reattach_helix(h_id, &mut self.design);
+        self.grid_manager
+            .reattach_helix(h_id, &mut self.design, true);
         self.grid_manager.update(&mut self.design);
+        self.update_grids();
         self.hash_maps_update = true;
         self.update_status = true;
     }
@@ -483,11 +488,13 @@ impl Data {
 
     /// Return the orientation of an helix. (`None` if the helix id does not exists)
     pub fn get_helix_basis(&self, h_id: usize) -> Option<ultraviolet::Rotor3> {
-        self.design
-            .helices
-            .get(&h_id)
-            .as_ref()
-            .map(|h| h.orientation)
+        self.design.helices.get(&h_id).map(|h| {
+            if let Some(grid_pos) = h.grid_position {
+                self.get_grid_basis(grid_pos.grid as u32).unwrap()
+            } else {
+                h.orientation
+            }
+        })
     }
 
     /// Return the identifier of the 5' nucleotide of a strand.

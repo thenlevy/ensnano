@@ -56,7 +56,8 @@ impl GridInstance {
             color: Instance::color_from_u32(self.color).truncated(),
             inter_helix_gap: self.grid.parameters.inter_helix_gap,
             helix_radius: self.grid.parameters.helix_radius,
-            _padding: [0., 0.],
+            design_id: self.design as u32,
+            _padding: 0,
         }
     }
 
@@ -122,9 +123,10 @@ pub struct GridInstanceRaw {
     pub max_y: f32,           // padding 0
     pub color: Vec3,          // padding 3
     pub grid_type: u32,       // padding 0
-    pub helix_radius: f32,    // padding 2,
-    pub inter_helix_gap: f32, // padding 1,
-    pub _padding: [f32; 2],
+    pub helix_radius: f32,    // padding 1,
+    pub inter_helix_gap: f32, // padding 2,
+    pub design_id: u32,       // padding 3,
+    pub _padding: u32,
 }
 
 unsafe impl bytemuck::Zeroable for GridInstanceRaw {}

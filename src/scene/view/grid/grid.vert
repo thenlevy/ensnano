@@ -29,6 +29,7 @@ struct Instances {
     uint grid_type;
     float helix_radius;
     float inter_helix_gap;
+    uint design_id;
 };
 
 layout(set=2, binding=0) 
@@ -55,7 +56,9 @@ void main() {
     v_tex_honney_coords = position * vec2(1., -1.);
     v_tex_square_coords = position;
 
-    mat4 model_matrix = instances[gl_InstanceIndex].model;
+    mat4 design_matrix = model_matrix2[instances[gl_InstanceIndex].design_id];
+
+    mat4 model_matrix = design_matrix * instances[gl_InstanceIndex].model;
     
     vec2 coeff = v_grid_type == 0 ? vec2(2. * r, 2. * r) : vec2(sqrt(3) * r,  3 * r);
 

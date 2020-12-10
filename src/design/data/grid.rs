@@ -170,7 +170,8 @@ impl Grid {
         let (x, y) = self.interpolate_helix(origin, direction)?;
         let intersection = self.position_helix(x, y);
         // direction is the vector from the origin of the helix to its first axis position
-        let axis_intersection = (intersection - origin).dot(direction).round() as isize;
+        let axis_intersection =
+            ((intersection - origin).dot(direction) / direction.mag_sq()).round() as isize;
         let nucl_intersection = helix.space_pos(&self.parameters, axis_intersection, false);
         let projection_nucl = self.project_point(nucl_intersection);
         let roll = {
@@ -344,6 +345,16 @@ pub struct GridPosition {
     pub roll: f32,
 }
 
+impl GridPosition {
+    pub fn with_roll(self, roll: Option<f32>) -> Self {
+        if let Some(roll) = roll {
+            Self { roll, ..self }
+        } else {
+            self
+        }
+    }
+}
+
 pub(super) struct GridManager {
     pub grids: Vec<Grid>,
     helix_to_pos: HashMap<usize, GridPosition>,
@@ -495,7 +506,7 @@ impl GridManager {
                     let roll = Rotor3::from_rotation_between(normal, actual);
                     (roll * grid.orientation).normalized()
                 };
-                h.position +=
+                h.position -=
                     grid_position.axis_pos as f32 * h.get_axis(&self.parameters).direction;
             }
         }
@@ -505,13 +516,16 @@ impl GridManager {
         }
     }
 
-    pub fn reattach_helix(&mut self, h_id: usize, design: &mut Design) {
+    pub fn reattach_helix(&mut self, h_id: usize, design: &mut Design, preserve_roll: bool) {
         let h = design.helices.get_mut(&h_id).unwrap();
         let axis = h.get_axis(&self.parameters);
         if let Some(grid_position) = h.grid_position {
             let g = &self.grids[grid_position.grid];
             if let Some(_) = g.interpolate_helix(axis.origin, axis.direction) {
-                h.grid_position = g.find_helix_position(h, grid_position.grid)
+                let old_roll = h.grid_position.map(|gp| gp.roll).filter(|_| preserve_roll);
+                h.grid_position = g
+                    .find_helix_position(h, grid_position.grid)
+                    .map(|g| g.with_roll(old_roll));
             }
         }
     }

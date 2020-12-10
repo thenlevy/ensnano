@@ -755,7 +755,8 @@ impl Data {
 
     pub fn get_widget_basis(&self) -> Rotor3 {
         match self.widget_basis.as_ref().expect("widget basis") {
-            WidgetBasis::World => Rotor3::identity(),
+            //WidgetBasis::World => Rotor3::identity(),
+            WidgetBasis::World => self.get_selected_basis().unwrap(),
             WidgetBasis::Object => self.get_selected_basis().unwrap(),
         }
     }
