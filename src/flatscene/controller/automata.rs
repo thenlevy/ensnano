@@ -800,7 +800,7 @@ impl ControllerState for InitBuilding {
                     new_state: Some(Box::new(NormalState {
                         mouse_position: self.mouse_position,
                     })),
-                    consequences: Consequence::Nothing,
+                    consequences: Consequence::Cut(self.nucl),
                 }
             }
             WindowEvent::CursorMoved { .. } => {
