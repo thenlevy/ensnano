@@ -40,3 +40,5 @@ pub const HELIX_BORDER_COLOR: u32 = 0xFF_101010;
 
 pub const CANDIDATE_COLOR: u32 = 0xBF_00_FF_00;
 pub const SELECTED_COLOR: u32 = 0xBF_FF_00_00;
+
+pub const MAX_ZOOM_2D: f32 = 50.0;

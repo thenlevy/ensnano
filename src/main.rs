@@ -202,6 +202,7 @@ fn main() {
         device.clone(),
         requests.clone(),
     );
+    multiplexer.change_split(SplitMode::Both);
 
     // Initialize the scenes
     let mut encoder =
@@ -265,7 +266,6 @@ fn main() {
     // Run event loop
     let mut last_render_time = std::time::Instant::now();
     let mut mouse_interaction = iced::mouse::Interaction::Pointer;
-    multiplexer.change_split(SplitMode::Both);
     event_loop.run(move |event, _, control_flow| {
         // Wait for event or redraw a frame every 33 ms (30 frame per seconds)
         *control_flow = ControlFlow::WaitUntil(Instant::now() + Duration::from_millis(33));

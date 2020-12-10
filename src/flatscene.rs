@@ -82,13 +82,14 @@ impl FlatScene {
             camera.clone(),
         )));
         let data = Rc::new(RefCell::new(Data::new(view.clone(), design)));
-        let controller = Controller::new(
+        let mut controller = Controller::new(
             view.clone(),
             data.clone(),
             self.window_size,
             self.area.size,
             camera,
         );
+        controller.fit();
         if self.view.len() > 0 {
             self.view[0] = view;
             self.data[0] = data;

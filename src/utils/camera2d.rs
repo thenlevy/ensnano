@@ -4,6 +4,7 @@
 //! matrix. The `Camera` struct modifies a `Globals` attribute and perform some view <-> world
 //! coordinate conversion.
 
+use crate::consts::*;
 use iced_winit::winit;
 use ultraviolet::Vec2;
 use winit::{dpi::PhysicalPosition, event::MouseScrollDelta};
@@ -70,6 +71,7 @@ impl Camera {
         let fixed_point =
             Vec2::from(self.screen_to_world(cursor_position.x as f32, cursor_position.y as f32));
         self.globals.zoom *= mult_const;
+        self.globals.zoom = self.globals.zoom.min(MAX_ZOOM_2D);
         let delta = fixed_point
             - Vec2::from(self.screen_to_world(cursor_position.x as f32, cursor_position.y as f32));
         self.globals.scroll_offset[0] += delta.x;

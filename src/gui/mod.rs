@@ -75,7 +75,7 @@ impl Requests {
             strand_color_change: None,
             sequence_change: None,
             toggle_text: None,
-            toggle_scene: None,
+            toggle_scene: Some(SplitMode::Both),
             scroll_sensitivity: None,
             make_grids: false,
             overlay_closed: None,
