@@ -215,8 +215,9 @@ impl Data {
         self.merge_strand(prim3, prim5)
     }
 
-    pub fn split_strand(&self, nucl: Nucl) {
+    pub fn split_strand(&mut self, nucl: Nucl) {
         let nucl = self.to_real(nucl);
+        self.instance_reset = true;
         self.design.split_strand(nucl);
     }
 

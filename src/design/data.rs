@@ -780,6 +780,10 @@ impl Data {
             println!("Cutting cyclic strand is not implemented yet");
             return;
         }
+        if strand.length() <= 1 {
+            // return without putting the strand back
+            return;
+        }
         let mut i = strand.domains.len();
         let mut prim5_domains = Vec::new();
         let mut len_prim5 = 0;
