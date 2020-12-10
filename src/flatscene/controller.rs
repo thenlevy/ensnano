@@ -34,6 +34,7 @@ pub enum Consequence {
     FreeEnd(Option<FreeEnd>),
     NewCandidate(Option<Nucl>),
     RmStrand(Nucl),
+    RmHelix(usize),
 }
 
 impl Controller {

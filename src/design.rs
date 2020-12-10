@@ -348,6 +348,10 @@ impl Design {
         self.data.lock().unwrap().rm_strand(&nucl)
     }
 
+    pub fn rm_helix(&self, helix: usize) {
+        self.data.lock().unwrap().remove_helix(helix)
+    }
+
     pub fn get_grid_instance(&self) -> Vec<GridInstance> {
         self.data.lock().unwrap().get_grid_instances(self.id)
     }
@@ -401,6 +405,10 @@ impl Design {
             .lock()
             .unwrap()
             .set_persistent_phantom(g_id, persistent);
+    }
+
+    pub fn helix_is_empty(&self, helix: usize) -> bool {
+        self.data.lock().unwrap().helix_is_empty(helix)
     }
 }
 

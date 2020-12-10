@@ -179,6 +179,8 @@ impl View {
     }
 
     pub fn reset(&mut self) {
+        self.helices.clear();
+        self.helices_model.clear();
         self.helices_view.clear();
         self.strands.clear();
         self.helices_background.clear();

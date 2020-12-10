@@ -17,7 +17,7 @@ type Vertices = lyon::tessellation::VertexBuffers<GpuVertex, u16>;
 
 const CIRCLE_WIDGET_RADIUS: f32 = 1.5;
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Helix {
     /// The first drawn nucleotide
     left: isize,
@@ -29,7 +29,8 @@ pub struct Helix {
     color: u32,
     z_index: i32,
     stroke_width: f32,
-    id: u32,
+    /// The position of self in the Helix vector of the design
+    pub id: u32,
 }
 
 #[repr(C)]

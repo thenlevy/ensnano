@@ -118,9 +118,29 @@ impl Design2d {
     pub fn rm_strand(&self, nucl: Nucl) {
         self.design.lock().unwrap().rm_strand(nucl)
     }
+
+    pub fn rm_helix(&mut self, helix: usize) {
+        let real_helix = self.helices[helix].id;
+        self.design.lock().unwrap().rm_helix(real_helix);
+        self.helices.remove(helix);
+        self.remake_id_map();
+    }
+
+    pub fn can_delete_helix(&self, helix: usize) -> bool {
+        let real_helix = self.helices[helix].id;
+        self.design.lock().unwrap().helix_is_empty(real_helix)
+    }
+
+    fn remake_id_map(&mut self) {
+        self.id_map.clear();
+        for (i, h) in self.helices.iter().enumerate() {
+            self.id_map.insert(h.id, i);
+        }
+    }
 }
 
 /// Store the informations needed to represent an helix from the design
+#[derive(Debug)]
 pub struct Helix2d {
     /// The id of the helix within the design
     pub id: usize,

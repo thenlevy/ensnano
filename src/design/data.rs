@@ -975,6 +975,34 @@ impl Data {
         }
     }
 
+    pub fn remove_helix(&mut self, h_id: usize) {
+        self.update_status = true;
+        self.hash_maps_update = true;
+        if !self.helix_is_empty(h_id) {
+            return;
+        }
+        if let Some(h) = self.design.helices.get(&h_id) {
+            if let Some(grid_position) = h.grid_position {
+                self.rm_helix_grid(grid_position.grid, grid_position.x, grid_position.y);
+                return;
+            }
+        }
+        self.design.helices.remove(&h_id);
+    }
+
+    pub fn helix_is_empty(&self, h_id: usize) -> bool {
+        for strand in self.design.strands.values() {
+            for domain in strand.domains.iter() {
+                if let icednano::Domain::HelixDomain(domain) = domain {
+                    if domain.helix == h_id && domain.start < domain.end {
+                        return false;
+                    }
+                }
+            }
+        }
+        true
+    }
+
     /// Delete the last grid that was added to the grid manager. This can only be done
     /// if the last grid is empty.
     ///

@@ -20,6 +20,7 @@ pub struct Data {
     instance_reset: bool,
     helices: Vec<Helix>,
     selected_helix: Option<usize>,
+    nb_helices_created: usize,
 }
 
 impl Data {
@@ -31,6 +32,7 @@ impl Data {
             instance_reset: false,
             helices: Vec::new(),
             selected_helix: None,
+            nb_helices_created: 0,
         }
     }
 
@@ -55,14 +57,16 @@ impl Data {
         let new_helices = self.design.get_helices();
         for (i, helix) in self.helices.iter_mut().enumerate() {
             helix.update(&new_helices[i]);
+            helix.id = i as u32;
         }
         for (delta, h) in new_helices[nb_helix..].iter().enumerate() {
             self.helices.push(Helix::new(
                 h.left,
                 h.right,
-                (5. * (delta + nb_helix) as f32 - 1.) * Vec2::unit_y(),
+                (5. * self.nb_helices_created as f32 - 1.) * Vec2::unit_y(),
                 (delta + nb_helix) as u32,
-            ))
+            ));
+            self.nb_helices_created += 1;
         }
     }
 
@@ -225,6 +229,14 @@ impl Data {
         let nucl = self.to_real(nucl);
         self.instance_reset = true;
         self.design.rm_strand(nucl);
+    }
+
+    pub fn rm_helix(&mut self, helix: usize) {
+        if self.design.can_delete_helix(helix) {
+            self.instance_reset = true;
+            self.helices.remove(helix);
+            self.design.rm_helix(helix);
+        }
     }
 
     fn to_real(&self, nucl: Nucl) -> Nucl {

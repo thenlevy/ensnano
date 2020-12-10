@@ -160,6 +160,9 @@ impl FlatScene {
                 Consequence::RmStrand(nucl) => {
                     self.data[self.selected_design].borrow_mut().rm_strand(nucl)
                 }
+                Consequence::RmHelix(helix) => {
+                    self.data[self.selected_design].borrow_mut().rm_helix(helix)
+                }
                 _ => (),
             }
         }
