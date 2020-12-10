@@ -12,6 +12,7 @@ use super::{Requests, SplitMode};
 pub struct TopBar {
     button_fit: button::State,
     button_add_file: button::State,
+    #[allow(dead_code)]
     button_replace_file: button::State,
     button_save: button::State,
     button_3d: button::State,
@@ -28,6 +29,7 @@ pub struct TopBar {
 pub enum Message {
     SceneFitRequested,
     FileAddRequested,
+    #[allow(dead_code)]
     FileReplaceRequested,
     FileSaveRequested,
     Resize(LogicalSize<f64>),
@@ -149,12 +151,12 @@ impl Program for TopBar {
         )
         .on_press(Message::FileAddRequested)
         .height(Length::Units(height));
-        let button_replace_file = Button::new(
+        /*let button_replace_file = Button::new(
             &mut self.button_replace_file,
             Image::new("icons/delete.png"),
         )
         .on_press(Message::FileReplaceRequested)
-        .height(Length::Units(height));
+        .height(Length::Units(height));*/
         let button_save = Button::new(&mut self.button_save, Image::new("icons/save.png"))
             .on_press(Message::FileSaveRequested)
             .height(Length::Units(height));
@@ -166,7 +168,7 @@ impl Program for TopBar {
         let button_split = Button::new(&mut self.button_split, iced::Text::new("Split"))
             .on_press(Message::ToggleView(SplitMode::Both));
 
-        let button_make_grid =
+        let _button_make_grid =
             Button::new(&mut self.button_make_grid, iced::Text::new("Make grids"))
                 .on_press(Message::MakeGrids);
 
@@ -175,7 +177,7 @@ impl Program for TopBar {
             .height(Length::Units(height))
             .push(button_fit)
             .push(button_add_file)
-            .push(button_replace_file)
+            //.push(button_replace_file)
             .push(button_save)
             .push(Checkbox::new(
                 self.toggle_text_value,
@@ -185,7 +187,7 @@ impl Program for TopBar {
             .push(button_2d)
             .push(button_3d)
             .push(button_split)
-            .push(button_make_grid)
+            //.push(button_make_grid)
             .push(
                 Button::new(&mut self.button_help, iced::Text::new("Help"))
                     .on_press(Message::HelpRequested),
