@@ -63,10 +63,13 @@ impl ControllerState for NormalState {
                 state,
                 ..
             } => {
-                assert!(
+                /*assert!(
                     *state == ElementState::Pressed,
                     "Released mouse button in normal mode"
-                );
+                );*/
+                if *state == ElementState::Released {
+                    return Transition::nothing();
+                }
                 let (x, y) = controller
                     .camera
                     .borrow()
@@ -209,6 +212,9 @@ impl ControllerState for Translating {
                     *state == ElementState::Released,
                     "Pressed mouse button in translating mode"
                 );
+                if *state == ElementState::Pressed {
+                    return Transition::nothing();
+                }
                 controller.data.borrow_mut().end_movement();
                 if let Some(rotation_pivot) = controller
                     .data
@@ -291,10 +297,13 @@ impl ControllerState for MovingCamera {
                 state,
                 ..
             } => {
-                assert!(
+                /*assert!(
                     *state == ElementState::Released,
                     "Pressed mouse button in translating mode"
-                );
+                );*/
+                if *state == ElementState::Pressed {
+                    return Transition::nothing();
+                }
                 if let Some(translation_pivot) = self.translation_pivot {
                     Transition {
                         new_state: Some(Box::new(ReleasedPivot {
@@ -379,10 +388,13 @@ impl ControllerState for ReleasedPivot {
                 state,
                 ..
             } => {
-                assert!(
+                /*assert!(
                     *state == ElementState::Pressed,
                     "Released mouse button in ReleasedPivot state"
-                );
+                );*/
+                if *state == ElementState::Released {
+                    return Transition::nothing();
+                }
                 let (x, y) = controller
                     .camera
                     .borrow()
@@ -464,10 +476,13 @@ impl ControllerState for ReleasedPivot {
                 state,
                 ..
             } => {
-                assert!(
+                /*assert!(
                     *state == ElementState::Pressed,
                     "Released right mouse button in ReleasedPivot state"
-                );
+                );*/
+                if *state == ElementState::Released {
+                    return Transition::nothing();
+                }
                 Transition {
                     new_state: Some(Box::new(Rotating {
                         translation_pivot: self.translation_pivot,
@@ -529,10 +544,14 @@ impl ControllerState for LeavingPivot {
                 state,
                 ..
             } => {
+                /*
                 assert!(
                     *state == ElementState::Released,
                     "Pressed mouse button in LeavingPivot state"
-                );
+                );*/
+                if *state == ElementState::Pressed {
+                    return Transition::nothing();
+                }
                 Transition {
                     new_state: Some(Box::new(NormalState {
                         mouse_position: self.mouse_position,
@@ -545,10 +564,13 @@ impl ControllerState for LeavingPivot {
                 state,
                 ..
             } => {
-                assert!(
+                /*assert!(
                     *state == ElementState::Pressed,
                     "Released right mouse button in ReleasedPivot state"
-                );
+                );*/
+                if *state == ElementState::Released {
+                    return Transition::nothing();
+                }
                 Transition {
                     new_state: Some(Box::new(Rotating {
                         translation_pivot: self.translation_pivot,
@@ -621,10 +643,13 @@ impl ControllerState for Rotating {
     ) -> Transition {
         match event {
             WindowEvent::MouseInput { button, state, .. } if *button == self.button => {
-                assert!(
+                /*assert!(
                     *state == ElementState::Released,
                     "Pressed mouse button in Rotating state"
-                );
+                );*/
+                if *state == ElementState::Pressed {
+                    return Transition::nothing();
+                }
                 Transition {
                     new_state: Some(Box::new(ReleasedPivot {
                         translation_pivot: self.translation_pivot,
@@ -699,10 +724,13 @@ impl ControllerState for InitBuilding {
                 state,
                 ..
             } => {
-                assert!(
+                /*assert!(
                     *state == ElementState::Released,
                     "Pressed mouse button in Init Building state"
-                );
+                );*/
+                if *state == ElementState::Pressed {
+                    return Transition::nothing();
+                }
                 Transition {
                     new_state: Some(Box::new(NormalState {
                         mouse_position: self.mouse_position,
@@ -820,10 +848,13 @@ impl ControllerState for MovingFreeEnd {
                 state,
                 ..
             } => {
-                assert!(
+                /*assert!(
                     *state == ElementState::Released,
                     "Pressed mouse button in Moving Free End state"
-                );
+                );*/
+                if *state == ElementState::Pressed {
+                    return Transition::nothing();
+                }
                 Transition {
                     new_state: Some(Box::new(NormalState {
                         mouse_position: self.mouse_position,
@@ -905,10 +936,13 @@ impl ControllerState for Building {
                 state,
                 ..
             } => {
-                assert!(
+                /*assert!(
                     *state == ElementState::Released,
                     "Pressed mouse button in Building state"
-                );
+                );*/
+                if *state == ElementState::Pressed {
+                    return Transition::nothing();
+                }
                 Transition {
                     new_state: Some(Box::new(NormalState {
                         mouse_position: self.mouse_position,
@@ -982,10 +1016,13 @@ impl ControllerState for Crossing {
                 state,
                 ..
             } => {
-                assert!(
+                /*assert!(
                     *state == ElementState::Released,
                     "Pressed mouse button in Crossing state"
-                );
+                );*/
+                if *state == ElementState::Pressed {
+                    return Transition::nothing();
+                }
                 Transition {
                     new_state: Some(Box::new(NormalState {
                         mouse_position: self.mouse_position,
@@ -1057,10 +1094,13 @@ impl ControllerState for Cutting {
                 state,
                 ..
             } => {
-                assert!(
+                /*assert!(
                     *state == ElementState::Released,
                     "Pressed mouse button in Cutting state"
-                );
+                );*/
+                if *state == ElementState::Pressed {
+                    return Transition::nothing();
+                }
                 let (x, y) = controller
                     .camera
                     .borrow()
