@@ -335,6 +335,11 @@ impl StrandBuilder {
     pub fn reset(&mut self) {
         self.move_to(self.initial_position)
     }
+
+    /// Return false if self is modifying an existing strand and true otherwise
+    pub fn created_de_novo(&self) -> bool {
+        self.fixed_end.is_none()
+    }
 }
 
 /// The direction in which a moving end can go

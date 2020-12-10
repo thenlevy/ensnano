@@ -93,14 +93,25 @@ impl ControllerState for NormalState {
                             };
                             if let Some(builder) = controller.data.borrow().get_builder(nucl, stick)
                             {
-                                Transition {
-                                    new_state: Some(Box::new(InitBuilding {
-                                        mouse_position: self.mouse_position,
-                                        nucl,
-                                        builder,
-                                        end: controller.data.borrow().is_strand_end(nucl),
-                                    })),
-                                    consequences: Consequence::Nothing,
+                                if builder.created_de_novo() {
+                                    Transition {
+                                        new_state: Some(Box::new(Building {
+                                            mouse_position: self.mouse_position,
+                                            nucl,
+                                            builder,
+                                        })),
+                                        consequences: Consequence::Nothing,
+                                    }
+                                } else {
+                                    Transition {
+                                        new_state: Some(Box::new(InitBuilding {
+                                            mouse_position: self.mouse_position,
+                                            nucl,
+                                            builder,
+                                            end: controller.data.borrow().is_strand_end(nucl),
+                                        })),
+                                        consequences: Consequence::Nothing,
+                                    }
                                 }
                             } else {
                                 Transition {
