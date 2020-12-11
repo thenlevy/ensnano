@@ -225,14 +225,17 @@ impl Mediator {
         if let Some(d_id) = self.selected_design() {
             self.designs[d_id as usize].lock().unwrap().save_to(path)
         } else {
-            let error_msg = MessageAlert {
-                title: "Error",
-                text: "No design selected",
-                typ: native_dialog::MessageType::Error,
-            };
-            std::thread::spawn(|| {
-                error_msg.show().unwrap_or(());
-            });
+            self.designs[0].lock().unwrap().save_to(path);
+            if self.designs.len() > 1 {
+                let error_msg = MessageAlert {
+                    title: "Warning",
+                    text: "No design selected, saved design 0",
+                    typ: native_dialog::MessageType::Error,
+                };
+                std::thread::spawn(|| {
+                    error_msg.show().unwrap_or(());
+                });
+            }
         }
     }
 
