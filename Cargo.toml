@@ -24,3 +24,4 @@ serde_derive = "1.0.116"
 color_space = "0.5.2"
 fontdue = "0.4.0"
 lyon = { git = "https://github.com/nical/lyon", rev = "ea6d904c6c9ec0445c5653c119a48c43ea76cee9" }
+nfd2 = "0.2.3"

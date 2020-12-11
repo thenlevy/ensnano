@@ -1,4 +1,5 @@
 use native_dialog::Dialog;
+use nfd2::Response;
 use std::sync::{Arc, Mutex};
 use std::thread;
 
@@ -75,15 +76,16 @@ impl Program for TopBar {
             Message::FileAddRequested => {
                 let requests = self.requests.clone();
                 thread::spawn(move || {
-                    let dialog = native_dialog::OpenSingleFile {
-                        dir: None,
-                        filter: None,
-                    };
-                    let result = dialog.show();
-                    if let Ok(result) = result {
-                        if let Some(path) = result {
-                            requests.lock().expect("file_opening_request").file_add = Some(path);
+                    let result = match nfd2::open_file_dialog(None, None).expect("oh no") {
+                        Response::Okay(file_path) => Some(file_path),
+                        Response::OkayMultiple(files) => {
+                            println!("Please open only one file");
+                            None
                         }
+                        Response::Cancel => None,
+                    };
+                    if let Some(path) = result {
+                        requests.lock().expect("file_opening_request").file_add = Some(path);
                     }
                 });
             }
@@ -96,6 +98,7 @@ impl Program for TopBar {
             Message::FileSaveRequested => {
                 let requests = self.requests.clone();
                 thread::spawn(move || {
+                    /*
                     let dialog = native_dialog::OpenSingleDir { dir: None };
                     let result = dialog.show();
                     if let Ok(result) = result {
@@ -111,6 +114,17 @@ impl Program for TopBar {
                             }
                             requests.lock().expect("file_opening_request").file_save = Some(path);
                         }
+                    }*/
+                    let result = match nfd2::open_save_dialog(None, None).expect("oh no") {
+                        Response::Okay(file_path) => Some(file_path),
+                        Response::OkayMultiple(files) => {
+                            println!("Please open only one file");
+                            None
+                        }
+                        Response::Cancel => None,
+                    };
+                    if let Some(path) = result {
+                        requests.lock().expect("file_opening_request").file_save = Some(path);
                     }
                 });
             }
@@ -122,9 +136,10 @@ impl Program for TopBar {
             Message::MakeGrids => self.requests.lock().unwrap().make_grids = true,
             Message::ToggleView(b) => self.requests.lock().unwrap().toggle_scene = Some(b),
             Message::HelpRequested => {
-                let dialog = native_dialog::MessageAlert {
-                    title: "Keyboard shortcuts help",
-                    text: "Change action mode: \n 
+                thread::spawn(|| {
+                    let dialog = native_dialog::MessageAlert {
+                        title: "Keyboard shortcuts help",
+                        text: "Change action mode: \n 
                         Normal: Escape\n
                         Translate: T\n
                         Rotate: R\n
@@ -136,9 +151,10 @@ impl Program for TopBar {
                         Strand: S\n
                         Helix: H\n
                         Grid: G\n",
-                    typ: native_dialog::MessageType::Info,
-                };
-                dialog.show().unwrap();
+                        typ: native_dialog::MessageType::Info,
+                    };
+                    dialog.show().unwrap();
+                });
             }
         };
         Command::none()
