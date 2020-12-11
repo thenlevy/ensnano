@@ -386,7 +386,12 @@ impl Helix {
         if let Some(circle) = circle {
             let nb_chars = self.id.to_string().len(); // ok to use len because digits are ascii
             let scale = size_id / nb_chars as f32;
-            let advances = crate::utils::chars2d::char_positions(self.id.to_string(), char_drawers);
+            let mut advances = crate::utils::chars2d::char_positions(self.id.to_string(), char_drawers);
+            if camera.borrow().get_globals().zoom < 7. {
+                for x in advances.iter_mut() {
+                    *x *= 2.;
+                }
+            }
             let height = crate::utils::chars2d::height(self.id.to_string(), char_drawers);
             let x_shift = -advances[nb_chars] / 2. * scale;
             for (c_idx, c) in self.id.to_string().chars().enumerate() {
@@ -404,7 +409,12 @@ impl Helix {
         let mut print_pos = |pos: isize| {
             let nb_chars = pos.to_string().len(); // ok to use len because digits are ascii
             let scale = size_pos;
-            let advances = crate::utils::chars2d::char_positions(pos.to_string(), char_drawers);
+            let mut advances = crate::utils::chars2d::char_positions(pos.to_string(), char_drawers);
+            if camera.borrow().get_globals().zoom < 7. {
+                for x in advances.iter_mut() {
+                    *x *= 2.;
+                }
+            }
             let height = crate::utils::chars2d::height(pos.to_string(), char_drawers);
             let x_shift = if pos >= 0 {
                 -advances[nb_chars] / 2. * scale

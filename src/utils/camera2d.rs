@@ -78,7 +78,6 @@ impl Camera {
         self.globals.scroll_offset[1] += delta.y;
         self.end_movement();
         self.was_updated = true;
-        println!("zoom {}", self.globals.zoom);
     }
 
     /// Descrete zoom on the scene

@@ -32,7 +32,7 @@ void main() {
         grid_scale = 4.;
     }
 
-    if (v_zoom > 5.) {
+    if (v_zoom > 7.) {
 
         vec2 pos = px_position + v_scroll_offset * v_zoom;
 

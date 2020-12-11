@@ -32,6 +32,10 @@ void main() {
 
     float size = instances[gl_InstanceIndex].size;
 
+    if (u_zoom < 7.) {
+       size *= 2.;
+    }
+
     vec2 local_pos = instances[gl_InstanceIndex].center + ( a_position * size);
     vec2 world_pos = local_pos - u_scroll_offset; 
     vec2 zoom_factor = u_zoom / (vec2(0.5, 0.5) * u_resolution);
