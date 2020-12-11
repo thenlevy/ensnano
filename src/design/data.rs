@@ -790,9 +790,11 @@ impl Data {
         let mut prim5_domains = Vec::new();
         let mut len_prim5 = 0;
         let mut domains = None;
+        let mut on_3prime = false;
         for (d_id, domain) in strand.domains.iter().enumerate() {
             if domain.prime5_end() == Some(*nucl) {
                 i = d_id;
+                on_3prime = true;
                 break;
             } else if domain.prime3_end() == Some(*nucl) {
                 i = d_id + 1;
@@ -844,8 +846,12 @@ impl Data {
             cyclic: false,
             sequence: seq_prim3,
         };
-        let id_5prime = *self.design.strands.keys().max().unwrap_or(&0) + 1;
-        let id_3prime = id_5prime + 1;
+        let new_id = (*self.design.strands.keys().max().unwrap_or(&0)).max(id) + 1;
+        let (id_5prime, id_3prime) = if !on_3prime {
+            (id, new_id)
+        } else {
+            (new_id, id)
+        };
         if strand_5prime.domains.len() > 0 {
             self.design.strands.insert(id_5prime, strand_5prime);
         }
