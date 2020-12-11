@@ -1,5 +1,6 @@
 use native_dialog::Dialog;
 use std::sync::{Arc, Mutex};
+use std::thread;
 
 use iced::Image;
 use iced::{container, Background, Container};
@@ -72,16 +73,19 @@ impl Program for TopBar {
                 self.requests.lock().expect("fitting_requested").fitting = true;
             }
             Message::FileAddRequested => {
-                let dialog = native_dialog::OpenSingleFile {
-                    dir: None,
-                    filter: None,
-                };
-                let result = dialog.show();
-                if let Ok(result) = result {
-                    if let Some(path) = result {
-                        self.requests.lock().expect("file_opening_request").file_add = Some(path);
+                let requests = self.requests.clone();
+                thread::spawn(move || {
+                    let dialog = native_dialog::OpenSingleFile {
+                        dir: None,
+                        filter: None,
+                    };
+                    let result = dialog.show();
+                    if let Ok(result) = result {
+                        if let Some(path) = result {
+                            requests.lock().expect("file_opening_request").file_add = Some(path);
+                        }
                     }
-                }
+                });
             }
             Message::FileReplaceRequested => {
                 self.requests
@@ -90,25 +94,25 @@ impl Program for TopBar {
                     .file_clear = false;
             }
             Message::FileSaveRequested => {
-                let dialog = native_dialog::OpenSingleDir { dir: None };
-                let result = dialog.show();
-                if let Ok(result) = result {
-                    if let Some(mut path) = result {
-                        path.push("icednano.json");
-                        if path.exists() {
-                            let mut addon = 1;
-                            while path.exists() {
-                                path.pop();
-                                path.push(format!("icednano{}.json", addon));
-                                addon += 1;
+                let requests = self.requests.clone();
+                thread::spawn(move || {
+                    let dialog = native_dialog::OpenSingleDir { dir: None };
+                    let result = dialog.show();
+                    if let Ok(result) = result {
+                        if let Some(mut path) = result {
+                            path.push("icednano.json");
+                            if path.exists() {
+                                let mut addon = 1;
+                                while path.exists() {
+                                    path.pop();
+                                    path.push(format!("icednano{}.json", addon));
+                                    addon += 1;
+                                }
                             }
+                            requests.lock().expect("file_opening_request").file_save = Some(path);
                         }
-                        self.requests
-                            .lock()
-                            .expect("file_opening_request")
-                            .file_save = Some(path);
                     }
-                }
+                });
             }
             Message::Resize(size) => self.resize(size),
             Message::ToggleText(b) => {
