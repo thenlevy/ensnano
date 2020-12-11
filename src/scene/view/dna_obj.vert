@@ -32,8 +32,11 @@ buffer InstancesBlock {
     Instances instances[];
 };
 
+const float DIST_NUCL = 0.67;
+const float TOLERANCE = 1.3;
+const float CRITICAL_DIST = DIST_NUCL * TOLERANCE;
+
 void main() {
-    v_color = instances[gl_InstanceIndex].color;
     int model_idx = int(instances[gl_InstanceIndex].id >> 24);
 
     //mat4 model_matrix = model_matrix2[model_idx] * instances[gl_InstanceIndex].model;
@@ -50,6 +53,13 @@ void main() {
     light's position using something like view_matrix * model_matrix * */
     v_normal = normal_matrix * a_normal;
     vec3 scale = instances[gl_InstanceIndex].scale;
+    if (scale.x > CRITICAL_DIST && abs(scale.x - scale.y) > 1e-5) {
+       scale.y *= 1.3;
+       scale.z *= 1.3;
+       v_color = vec4(0., 0., 0., 1.);
+    } else {
+        v_color = instances[gl_InstanceIndex].color;
+    }
     vec4 model_space = model_matrix * vec4(a_position * scale, 1.0); 
     v_position = model_space.xyz;
     uint id = instances[gl_InstanceIndex].id;
