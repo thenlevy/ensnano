@@ -34,6 +34,27 @@ pub trait RessourceProvider {
     fn ressources(&self) -> Vec<wgpu::BindGroupEntry> {
         Vec::new()
     }
+
+    /// This methods allows the ressource tho provide the vertex buffer. If the return value is
+    /// Some, it takes priority over the Instanciable's vertices.
+    fn vertex_buffer_desc() -> Option<wgpu::VertexBufferDescriptor<'static>>
+    where
+        Self: Sized,
+    {
+        None
+    }
+
+    /// This methods allows the ressource tho provide the vertex buffer. If the return value is
+    /// Some, it takes priority over the Instanciable's vertices.
+    fn vertex_buffer(&self) -> Option<&wgpu::Buffer> {
+        None
+    }
+
+    /// This methods allows the ressource tho provide the index buffer. If the return value is
+    /// Some, it takes priority over the Instanciable's indices.
+    fn index_buffer(&self) -> Option<&wgpu::Buffer> {
+        None
+    }
 }
 
 impl RessourceProvider for () {}
@@ -143,12 +164,12 @@ pub struct InstanceDrawer<D: Instanciable + ?Sized> {
     /// The bind group containing the instances data
     instances: DynamicBindGroup,
     /// The bind group containing the additional ressources need to draw the mesh
-    additional_bind_group: wgpu::BindGroup,
+    additional_bind_group: Option<wgpu::BindGroup>,
     /// The number of instances
     nb_instances: u32,
     /// The number of vertex indices
     nb_indices: u32,
-    _phantom_data: PhantomData<D>,
+    ressource: D::Ressource,
     device: Rc<Device>,
 }
 
@@ -195,17 +216,22 @@ impl<D: Instanciable> InstanceDrawer<D> {
         );
         let instances = DynamicBindGroup::new(device.clone(), queue);
 
-        let additional_bind_group_layout =
-            device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-                label: None,
-                entries: D::Ressource::ressources_layout(),
-            });
+        let additional_ressources_layout = D::Ressource::ressources_layout();
+        let additional_bind_group = if additional_ressources_layout.len() > 0 {
+            let additional_bind_group_layout =
+                device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+                    label: None,
+                    entries: D::Ressource::ressources_layout(),
+                });
 
-        let additional_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: None,
-            layout: &additional_bind_group_layout,
-            entries: ressource.ressources().as_slice(),
-        });
+            Some(device.create_bind_group(&wgpu::BindGroupDescriptor {
+                label: None,
+                layout: &additional_bind_group_layout,
+                entries: ressource.ressources().as_slice(),
+            }))
+        } else {
+            None
+        };
 
         Self {
             vertex_buffer,
@@ -215,7 +241,7 @@ impl<D: Instanciable> InstanceDrawer<D> {
             nb_instances: 0,
             nb_indices: D::indices().len() as u32,
             additional_bind_group,
-            _phantom_data: PhantomData,
+            ressource,
             device,
         }
     }
@@ -311,7 +337,7 @@ impl<D: Instanciable> InstanceDrawer<D> {
                 label: None,
                 entries: D::Ressource::ressources_layout(),
             });
-        let render_pipeline_layout =
+        let render_pipeline_layout = if D::Ressource::ressources_layout().len() > 0 {
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 bind_group_layouts: &[
                     &viewer_bind_group_layout,
@@ -321,7 +347,18 @@ impl<D: Instanciable> InstanceDrawer<D> {
                 ],
                 push_constant_ranges: &[],
                 label: Some("render_pipeline_layout"),
-            });
+            })
+        } else {
+            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                bind_group_layouts: &[
+                    &viewer_bind_group_layout,
+                    &models_bind_group_layout,
+                    &instance_bind_group_layout,
+                ],
+                push_constant_ranges: &[],
+                label: Some("render_pipeline_layout"),
+            })
+        };
 
         device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             layout: Some(&render_pipeline_layout),
@@ -361,7 +398,9 @@ impl<D: Instanciable> InstanceDrawer<D> {
             }),
             vertex_state: wgpu::VertexStateDescriptor {
                 index_format: wgpu::IndexFormat::Uint16,
-                vertex_buffers: &[D::Vertex::desc()],
+                vertex_buffers: &[
+                    D::Ressource::vertex_buffer_desc().unwrap_or_else(D::Vertex::desc)
+                ],
             },
             sample_count,
             sample_mask: !0,
@@ -400,12 +439,24 @@ impl<D: Instanciable> RawDrawer for InstanceDrawer<D> {
     ) {
         let pipeline = &self.pipeline;
         render_pass.set_pipeline(pipeline);
-        render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-        render_pass.set_index_buffer(self.index_buffer.slice(..));
+        let vbo = if let Some(ref vbo) = self.ressource.vertex_buffer() {
+            vbo.slice(..)
+        } else {
+            self.vertex_buffer.slice(..)
+        };
+        render_pass.set_vertex_buffer(0, vbo);
+        let ibo = if let Some(ref ibo) = self.ressource.index_buffer() {
+            ibo.slice(..)
+        } else {
+            self.index_buffer.slice(..)
+        };
+        render_pass.set_index_buffer(ibo);
         render_pass.set_bind_group(0, viewer_bind_group, &[]);
         render_pass.set_bind_group(1, model_bind_group, &[]);
         render_pass.set_bind_group(2, self.instances.get_bindgroup(), &[]);
-        render_pass.set_bind_group(3, &self.additional_bind_group, &[]);
+        if let Some(ref additional_bind_group) = self.additional_bind_group {
+            render_pass.set_bind_group(3, additional_bind_group, &[]);
+        }
 
         render_pass.draw_indexed(0..self.nb_indices, 0, 0..self.nb_instances);
     }

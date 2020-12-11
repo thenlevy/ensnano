@@ -1,284 +1,153 @@
 use iced_wgpu::wgpu;
-use std::rc::Rc;
-use ultraviolet::{Mat4, Vec3, Vec4};
-use wgpu::{include_spirv, Device, Queue, RenderPass, RenderPipeline};
+use ultraviolet::{Vec2, Vec3, Vec4};
+use wgpu::{include_spirv, Device};
 
-use super::{
-    bindgroup_manager::{DynamicBindGroup, UniformBindGroup},
-    CameraPtr, ProjectionPtr, Uniforms,
-};
-use crate::consts::*;
-use crate::text::{Letter, Vertex};
-use crate::utils::{instance::InstanceRaw, texture::Texture};
+use super::instances_drawer::{Instanciable, RessourceProvider, Vertexable};
+use crate::text::Letter;
 
 #[derive(Debug, Clone)]
 pub struct LetterInstance {
     pub position: Vec3,
     pub color: Vec4,
+    pub design_id: u32,
 }
 
-impl LetterInstance {
-    pub fn to_raw(&self) -> InstanceRaw {
-        InstanceRaw {
-            model: Mat4::from_translation(self.position),
-            color: self.color,
-            // We do not draw the letters on fake textures
-            id: Vec4::zero(),
-        }
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+pub struct RawLetter {
+    pub position: Vec3,
+    pub design_id: u32,
+    pub color: Vec4,
+}
+
+unsafe impl bytemuck::Zeroable for RawLetter {}
+unsafe impl bytemuck::Pod for RawLetter {}
+
+impl RessourceProvider for Letter {
+    fn ressources_layout() -> &'static [wgpu::BindGroupLayoutEntry] {
+        &[
+            wgpu::BindGroupLayoutEntry {
+                binding: 0,
+                visibility: wgpu::ShaderStage::FRAGMENT,
+                ty: wgpu::BindingType::SampledTexture {
+                    multisampled: true,
+                    dimension: wgpu::TextureViewDimension::D2,
+                    component_type: wgpu::TextureComponentType::Uint,
+                },
+                count: None,
+            },
+            wgpu::BindGroupLayoutEntry {
+                binding: 1,
+                visibility: wgpu::ShaderStage::FRAGMENT,
+                ty: wgpu::BindingType::Sampler { comparison: false },
+                count: None,
+            },
+        ]
+    }
+
+    /// This methods allows the ressource tho provide the vertex buffer. If the return value is
+    /// Some, it takes priority over the Instanciable's vertices.
+    fn vertex_buffer_desc() -> Option<wgpu::VertexBufferDescriptor<'static>>
+    where
+        Self: Sized,
+    {
+        Some(crate::text::Vertex::desc())
+    }
+
+    fn ressources(&self) -> Vec<wgpu::BindGroupEntry> {
+        vec![
+            wgpu::BindGroupEntry {
+                binding: 0,
+                resource: wgpu::BindingResource::TextureView(&self.texture_view),
+            },
+            wgpu::BindGroupEntry {
+                binding: 1,
+                resource: wgpu::BindingResource::Sampler(&self.sampler),
+            },
+        ]
+    }
+
+    fn vertex_buffer(&self) -> Option<&wgpu::Buffer> {
+        Some(&self.vertex_buffer)
+    }
+
+    fn index_buffer(&self) -> Option<&wgpu::Buffer> {
+        Some(&self.index_buffer)
     }
 }
 
 #[repr(C)]
-#[derive(Copy, Clone, Debug)]
-struct ByteMat4(Mat4);
-
-unsafe impl bytemuck::Zeroable for ByteMat4 {}
-unsafe impl bytemuck::Pod for ByteMat4 {}
-
-/// A structure that can create a pipeline which will draw several instances of the same
-/// letter.
-pub struct LetterDrawer {
-    device: Rc<Device>,
-    /// The letter to be drawn
-    letter: Letter,
-    /// A possible updates to the instances to be drawn. Must be taken into account before drawing
-    /// next frame
-    new_instances: Option<Rc<Vec<LetterInstance>>>,
-    /// A possible updates to the model matrices. Must be taken into account before drawing
-    /// next frame
-    new_model_matrices: Option<Rc<Vec<Mat4>>>,
-    /// The number of instance to draw.
-    number_instances: usize,
-    /// A possible update to the projection and view matrices. Must be taken into acccount before
-    /// drawing next frame
-    new_viewer_data: Option<Uniforms>,
-    /// The data sent the the GPU
-    bind_groups: BindGroups,
-    /// The pipeline created by `self`
-    pipeline: Option<RenderPipeline>,
+#[derive(Clone, Debug, Copy)]
+pub struct LetterVertex {
+    pub position: Vec2,
 }
 
-impl LetterDrawer {
-    pub fn new(
-        device: Rc<Device>,
-        queue: Rc<Queue>,
-        character: char,
-        camera: &CameraPtr,
-        projection: &ProjectionPtr,
-    ) -> Self {
-        let letter = Letter::new(character, device.clone(), queue.clone());
-        let instances = DynamicBindGroup::new(device.clone(), queue.clone());
+unsafe impl bytemuck::Zeroable for LetterVertex {}
+unsafe impl bytemuck::Pod for LetterVertex {}
 
-        let mut viewer_data = Uniforms::new();
-        viewer_data.update_view_proj(camera.clone(), projection.clone());
-        let viewer = UniformBindGroup::new(device.clone(), queue.clone(), &viewer_data);
+impl Vertexable for LetterVertex {
+    type RawType = LetterVertex;
 
-        let model_matrices = DynamicBindGroup::new(device.clone(), queue);
+    fn to_raw(&self) -> Self {
+        *self
+    }
 
-        let bind_groups = BindGroups {
-            instances,
-            viewer,
-            model_matrices,
-        };
+    fn desc<'a>() -> wgpu::VertexBufferDescriptor<'a> {
+        wgpu::VertexBufferDescriptor {
+            stride: std::mem::size_of::<LetterVertex>() as wgpu::BufferAddress,
+            step_mode: wgpu::InputStepMode::Vertex,
+            attributes: &wgpu::vertex_attr_array![0 => Float2],
+        }
+    }
+}
 
-        Self {
-            device,
-            letter,
-            new_instances: None,
-            number_instances: 0,
-            new_viewer_data: None,
-            new_model_matrices: None,
-            bind_groups,
-            pipeline: None,
+impl Instanciable for LetterInstance {
+    type Ressource = Letter;
+    type Vertex = LetterVertex;
+    type RawInstance = RawLetter;
+
+    fn to_raw_instance(&self) -> RawLetter {
+        RawLetter {
+            position: self.position,
+            color: self.color,
+            design_id: self.design_id,
         }
     }
 
-    /// Request an update of the view and projection matrices. This matrices are provided by the camera and
-    /// projection objects.
-    /// These new matrices are used on the next frame
-    pub fn new_viewer(&mut self, camera: CameraPtr, projection: ProjectionPtr) {
-        self.new_viewer_data = Some(Uniforms::from_view_proj(camera, projection));
-    }
-
-    /// Request an update of the set of instances to draw. This update take effects on the next frame
-    pub fn new_instances(&mut self, instances: Rc<Vec<LetterInstance>>) {
-        self.new_instances = Some(instances)
-    }
-
-    /// Request an update all the model matrices
-    pub fn new_model_matrices(&mut self, matrices: Rc<Vec<Mat4>>) {
-        self.new_model_matrices = Some(matrices)
-    }
-
-    /// Request an update of a single model matrix
-    #[allow(dead_code)] // Might be usefull if we want to optimize
-    pub fn update_model_matrix(&mut self, design_id: usize, matrix: Mat4) {
-        self.bind_groups.update_model_matrix(design_id, matrix)
-    }
-
-    /// If one or several update of the set of instances were requested before the last call of
-    /// this function, perform the most recent update.
-    fn update_instances(&mut self) {
-        if let Some(ref instances) = self.new_instances {
-            self.number_instances = instances.len();
-            let instances_data: Vec<_> = instances.iter().map(|i| i.to_raw()).collect();
-            self.bind_groups.update_instances(instances_data.as_slice());
-        }
-    }
-
-    /// If one or several update of the view and projection matrices were requested before the last call of
-    /// this function, perform the most recent update.
-    fn update_viewer(&mut self) {
-        if let Some(viewer_data) = self.new_viewer_data.take() {
-            self.bind_groups.update_viewer(&viewer_data)
-        }
-    }
-
-    /// If one or several update of the model matrices were requested before the last call of
-    /// this function, perform the most recent update.
-    fn update_model_matrices(&mut self) {
-        if let Some(matrices) = self.new_model_matrices.take() {
-            let byte_matrices: Vec<_> = matrices.iter().map(|m| ByteMat4(*m)).collect();
-            self.bind_groups
-                .update_model_matrices(byte_matrices.as_slice())
-        }
-    }
-
-    /// Draw the instances of the mesh on the render pass
-    pub fn draw<'a>(&'a mut self, render_pass: &mut RenderPass<'a>) {
-        if self.pipeline.is_none() {
-            self.pipeline = Some(self.create_pipeline(self.device.as_ref()));
-        }
-        self.update_viewer();
-        self.update_instances();
-        self.update_model_matrices();
-        render_pass.set_pipeline(self.pipeline.as_ref().unwrap());
-        render_pass.set_bind_group(
-            VIEWER_BINDING_ID,
-            self.bind_groups.viewer.get_bindgroup(),
-            &[],
-        );
-        render_pass.set_bind_group(
-            INSTANCES_BINDING_ID,
-            self.bind_groups.instances.get_bindgroup(),
-            &[],
-        );
-        render_pass.set_bind_group(TEXTURE_BINDING_ID, &self.letter.bind_group, &[]);
-        render_pass.set_bind_group(
-            MODEL_BINDING_ID,
-            self.bind_groups.model_matrices.get_bindgroup(),
-            &[],
-        );
-        render_pass.set_vertex_buffer(0, self.letter.vertex_buffer.slice(..));
-        render_pass.set_index_buffer(self.letter.index_buffer.slice(..));
-
-        render_pass.draw_indexed(0..4, 0, 0..self.number_instances as u32);
-    }
-
-    /// Create a render pipepline. This function is meant to be called once, before drawing for the
-    /// first time.
-    fn create_pipeline(&self, device: &Device) -> RenderPipeline {
-        let vertex_module = device.create_shader_module(include_spirv!("letter.vert.spv"));
-        let fragment_module = device.create_shader_module(include_spirv!("letter.frag.spv"));
-        let render_pipeline_layout =
-            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                bind_group_layouts: &[
-                    &self.bind_groups.viewer.get_layout(),
-                    &self.bind_groups.instances.get_layout(),
-                    &self.letter.bind_group_layout,
-                    &self.bind_groups.model_matrices.get_layout(),
-                ],
-                push_constant_ranges: &[],
-                label: Some("render_pipeline_layout"),
-            });
-
-        let format = wgpu::TextureFormat::Bgra8UnormSrgb;
-
-        let color_blend = wgpu::BlendDescriptor {
-            src_factor: wgpu::BlendFactor::SrcAlpha,
-            dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
-            operation: wgpu::BlendOperation::Add,
-        };
-
-        let alpha_blend = wgpu::BlendDescriptor {
-            src_factor: wgpu::BlendFactor::One,
-            dst_factor: wgpu::BlendFactor::One,
-            operation: wgpu::BlendOperation::Add,
-        };
-
-        device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            layout: Some(&render_pipeline_layout),
-            vertex_stage: wgpu::ProgrammableStageDescriptor {
-                module: &vertex_module,
-                entry_point: "main",
+    fn vertices() -> Vec<LetterVertex> {
+        vec![
+            LetterVertex {
+                position: Vec2::new(0f32, 0f32),
             },
-            fragment_stage: Some(wgpu::ProgrammableStageDescriptor {
-                module: &fragment_module,
-                entry_point: "main",
-            }),
-            rasterization_state: Some(wgpu::RasterizationStateDescriptor {
-                front_face: wgpu::FrontFace::Ccw,
-                cull_mode: wgpu::CullMode::None,
-                depth_bias: 0,
-                depth_bias_slope_scale: 0.0,
-                depth_bias_clamp: 0.0,
-                clamp_depth: false,
-            }),
-            primitive_topology: wgpu::PrimitiveTopology::TriangleStrip,
-            color_states: &[wgpu::ColorStateDescriptor {
-                format,
-                color_blend,
-                alpha_blend,
-                write_mask: wgpu::ColorWrite::ALL,
-            }],
-            depth_stencil_state: Some(wgpu::DepthStencilStateDescriptor {
-                format: Texture::DEPTH_FORMAT,
-                depth_write_enabled: true,
-                depth_compare: wgpu::CompareFunction::Less,
-                stencil: wgpu::StencilStateDescriptor {
-                    front: wgpu::StencilStateFaceDescriptor::IGNORE,
-                    back: wgpu::StencilStateFaceDescriptor::IGNORE,
-                    read_mask: 0,
-                    write_mask: 0,
-                },
-            }),
-            vertex_state: wgpu::VertexStateDescriptor {
-                index_format: wgpu::IndexFormat::Uint16,
-                vertex_buffers: &[Vertex::desc()],
+            LetterVertex {
+                position: Vec2::new(0f32, 1f32),
             },
-            sample_count: SAMPLE_COUNT,
-            sample_mask: !0,
-            alpha_to_coverage_enabled: false,
-            label: Some("render pipeline"),
-        })
-    }
-}
-
-/// Handles the bindgroups and bindgroup layouts of a piepline.
-struct BindGroups {
-    instances: DynamicBindGroup,
-    viewer: UniformBindGroup,
-    model_matrices: DynamicBindGroup,
-}
-
-impl BindGroups {
-    fn update_model_matrices<M: bytemuck::Pod>(&mut self, matrices: &[M]) {
-        self.model_matrices.update(matrices);
+            LetterVertex {
+                position: Vec2::new(1f32, 0f32),
+            },
+            LetterVertex {
+                position: Vec2::new(1f32, 1f32),
+            },
+        ]
     }
 
-    #[allow(dead_code)] // might be usefull if we want to optimize
-    fn update_model_matrix(&mut self, design_id: usize, matrix: Mat4) {
-        let byte_mat = ByteMat4(matrix);
-        let matrix_bytes = bytemuck::bytes_of(&byte_mat);
-        let offset = design_id * matrix_bytes.len();
-        self.model_matrices.update_offset(offset, matrix_bytes)
+    fn indices() -> Vec<u16> {
+        vec![0, 1, 2, 3]
     }
 
-    fn update_instances<I: bytemuck::Pod>(&mut self, instances_data: &[I]) {
-        self.instances.update(instances_data);
+    fn primitive_topology() -> wgpu::PrimitiveTopology {
+        wgpu::PrimitiveTopology::TriangleStrip
     }
 
-    pub fn update_viewer<U: bytemuck::Pod>(&mut self, viewer_data: &U) {
-        self.viewer.update(viewer_data);
+    fn vertex_module(device: &Device) -> wgpu::ShaderModule {
+        device.create_shader_module(include_spirv!("letter.vert.spv"))
+    }
+
+    fn fragment_module(device: &Device) -> wgpu::ShaderModule {
+        device.create_shader_module(include_spirv!("letter.frag.spv"))
+    }
+
+    fn alpha_to_coverage_enabled() -> bool {
+        true
     }
 }
