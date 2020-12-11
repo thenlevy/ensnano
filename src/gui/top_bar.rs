@@ -1,3 +1,4 @@
+use chrono::{DateTime, Utc};
 use native_dialog::Dialog;
 use nfd2::Response;
 use std::sync::{Arc, Mutex};
@@ -76,17 +77,17 @@ impl Program for TopBar {
             Message::FileAddRequested => {
                 let requests = self.requests.clone();
                 if cfg!(target_os = "macos") {
-                    // mac os crashes if a window is oppenend in an other thread
-                    let result = match nfd2::dialog().open().expect("oh no") {
-                        Response::Okay(file_path) => Some(file_path),
-                        Response::OkayMultiple(_) => {
-                            println!("Please open only one file");
-                            None
-                        }
-                        Response::Cancel => None,
+                    // nfd2 freezes on macos
+                    let dialog = native_dialog::OpenSingleFile {
+                        dir: None,
+                        filter: None,
                     };
-                    if let Some(path) = result {
-                        requests.lock().expect("file_opening_request").file_add = Some(path);
+                    let result = dialog.show();
+                    if let Ok(result) = result {
+                        if let Some(path) = result {
+                            self.requests.lock().expect("file_opening_request").file_add =
+                                Some(path);
+                        }
                     }
                 } else {
                     thread::spawn(move || {
@@ -112,17 +113,21 @@ impl Program for TopBar {
             }
             Message::FileSaveRequested => {
                 let requests = self.requests.clone();
+                let dt = Utc::now();
+                let date = dt.format("%Y-%m-%d_%H-%M-%S").to_string();
+                println!("icednano{}", date);
                 if cfg!(target_os = "macos") {
-                    let result = match nfd2::open_save_dialog(None, None).expect("oh no") {
-                        Response::Okay(file_path) => Some(file_path),
-                        Response::OkayMultiple(_) => {
-                            println!("Please open only one file");
-                            None
+                    // nfd2 freezes on macos
+                    let dialog = native_dialog::OpenSingleDir { dir: None };
+                    let result = dialog.show();
+                    if let Ok(result) = result {
+                        if let Some(mut path) = result {
+                            path.push(format!("icednano{}.json", date));
+                            self.requests
+                                .lock()
+                                .expect("file_opening_request")
+                                .file_save = Some(path);
                         }
-                        Response::Cancel => None,
-                    };
-                    if let Some(path) = result {
-                        requests.lock().expect("file_opening_request").file_save = Some(path);
                     }
                 } else {
                     thread::spawn(move || {
