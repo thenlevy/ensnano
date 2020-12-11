@@ -77,7 +77,7 @@ impl Program for TopBar {
                 let requests = self.requests.clone();
                 if cfg!(target_os = "macos") {
                     // mac os crashes if a window is oppenend in an other thread
-                    let result = match nfd2::open_file_dialog(None, None).expect("oh no") {
+                    let result = match nfd2::dialog().open().expect("oh no") {
                         Response::Okay(file_path) => Some(file_path),
                         Response::OkayMultiple(_) => {
                             println!("Please open only one file");
