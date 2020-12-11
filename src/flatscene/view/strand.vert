@@ -19,7 +19,10 @@ layout(location = 0) out vec4 v_color;
 void main() {
     vec2 invert_y = vec2(1.0, -1.0);
 
-    vec2 local_pos = a_position + a_normal * 0.1125 * a_width;
+    float nb_pixel = 5.;
+    float cst = max(0.1125, nb_pixel / ( a_width * 4. * u_zoom));
+
+    vec2 local_pos = a_position + a_normal * cst * a_width;
     vec2 world_pos = local_pos - u_scroll_offset;
     vec2 transformed_pos = world_pos * u_zoom / (vec2(0.5, 0.5) * u_resolution) * invert_y;
 
