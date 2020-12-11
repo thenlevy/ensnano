@@ -47,7 +47,7 @@ impl Data {
             self.view.borrow_mut().update_helices(&self.helices);
             self.view
                 .borrow_mut()
-                .update_strands(&self.design.get_strands(), &self.helices);
+                .update_strands(&self.design.get_strands(), &self.helices, self.design.id_map());
         }
         self.instance_update = false;
     }
@@ -200,7 +200,7 @@ impl Data {
         self.view.borrow_mut().set_free_end(free_end);
         self.view
             .borrow_mut()
-            .update_strands(&self.design.get_strands(), &self.helices);
+            .update_strands(&self.design.get_strands(), &self.helices, self.design.id_map());
     }
 
     pub fn xover(&mut self, from: Nucl, to: Nucl) {

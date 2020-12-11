@@ -30,10 +30,11 @@ impl Design2d {
         // At the moment we rebuild the strands from scratch. If needed, this might be an optimisation
         // target
         self.strands = Vec::new();
+        self.fetch_empty_helices();
         let strand_ids = self.design.lock().unwrap().get_all_strand_ids();
         for strand_id in strand_ids.iter() {
             let strand_opt = self.design.lock().unwrap().get_strand_points(*strand_id);
-            let mut strand = strand_opt.unwrap();
+            let strand = strand_opt.unwrap();
             let color = self
                 .design
                 .lock()
@@ -46,12 +47,8 @@ impl Design2d {
             for nucl in strand.iter() {
                 self.read_nucl(nucl)
             }
-            for nucl in strand.iter_mut() {
-                nucl.helix = self.id_map[&nucl.helix]
-            }
             self.strands.push(Strand::new(color, strand, *strand_id));
         }
-        self.fetch_empty_helices();
     }
 
     fn read_nucl(&mut self, nucl: &Nucl) {
@@ -136,6 +133,10 @@ impl Design2d {
         for (i, h) in self.helices.iter().enumerate() {
             self.id_map.insert(h.id, i);
         }
+    }
+
+    pub fn id_map(&self) -> &HashMap<usize, usize> {
+        &self.id_map
     }
 }
 

@@ -1,6 +1,6 @@
 use super::icednano::{Design, Parameters};
 use super::{icednano, Data};
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::f32::consts::FRAC_PI_2;
 use std::sync::{Arc, RwLock};
 use ultraviolet::{Rotor3, Vec2, Vec3};
@@ -749,7 +749,7 @@ impl GroupMerger {
 }
 
 pub struct Grid2D {
-    helices: HashMap<(isize, isize), usize>,
+    helices: BTreeMap<(isize, isize), usize>,
     grid_type: GridType,
     parameters: Parameters,
     id: usize,
@@ -759,7 +759,7 @@ pub struct Grid2D {
 impl Grid2D {
     pub fn new(id: usize, grid_type: GridType, parameters: Parameters) -> Self {
         Self {
-            helices: HashMap::new(),
+            helices: BTreeMap::new(),
             grid_type,
             parameters,
             id,
@@ -776,7 +776,7 @@ impl Grid2D {
         }
     }
 
-    pub fn helices(&self) -> &HashMap<(isize, isize), usize> {
+    pub fn helices(&self) -> &BTreeMap<(isize, isize), usize> {
         &self.helices
     }
 

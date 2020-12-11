@@ -168,14 +168,14 @@ impl View {
         self.was_updated = true;
     }
 
-    pub fn add_strand(&mut self, strand: &Strand, helices: &[Helix]) {
+    pub fn add_strand(&mut self, strand: &Strand, helices: &[Helix], id_map: &HashMap<usize, usize>) {
         self.strands
             .push(StrandView::new(self.device.clone(), self.queue.clone()));
         self.strands
             .iter_mut()
             .last()
             .unwrap()
-            .update(&strand, helices, &self.free_end);
+            .update(&strand, helices, &self.free_end, id_map);
     }
 
     pub fn reset(&mut self) {
@@ -186,12 +186,12 @@ impl View {
         self.helices_background.clear();
     }
 
-    pub fn update_strands(&mut self, strands: &[Strand], helices: &[Helix]) {
+    pub fn update_strands(&mut self, strands: &[Strand], helices: &[Helix], id_map: &HashMap<usize, usize>) {
         for (i, s) in self.strands.iter_mut().enumerate() {
-            s.update(&strands[i], helices, &self.free_end);
+            s.update(&strands[i], helices, &self.free_end, id_map);
         }
         for strand in strands.iter().skip(self.strands.len()) {
-            self.add_strand(strand, helices)
+            self.add_strand(strand, helices, id_map)
         }
         self.was_updated = true;
     }

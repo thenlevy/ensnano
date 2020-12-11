@@ -5,6 +5,7 @@ use lyon::path::Path;
 use lyon::tessellation;
 use lyon::tessellation::{StrokeVertex, StrokeVertexConstructor};
 use ultraviolet::Vec2;
+use std::collections::HashMap;
 
 type Vertices = lyon::tessellation::VertexBuffers<StrandVertex, u16>;
 
@@ -19,7 +20,7 @@ impl Strand {
         Self { color, points, id }
     }
 
-    pub fn to_vertices(&self, helices: &[Helix], free_end: &Option<FreeEnd>) -> Vertices {
+    pub fn to_vertices(&self, helices: &[Helix], free_end: &Option<FreeEnd>, id_map: &HashMap<usize, usize>) -> Vertices {
         let mut vertices = Vertices::new();
         if self.points.len() == 0 {
             return vertices;
@@ -42,7 +43,11 @@ impl Strand {
         let mut last_depth = None;
         let mut sign = 1.;
         for (i, nucl) in self.points.iter().enumerate() {
-            let position = helices[nucl.helix].get_nucl_position(nucl, false);
+            let nucl = Nucl {
+                helix: id_map[&nucl.helix],
+                ..*nucl
+            };
+            let position = helices[nucl.helix].get_nucl_position(&nucl, false);
             let depth = helices[nucl.helix].get_depth();
             let point = Point::new(position.x, position.y);
             if i == 0 && last_point.is_none() {
@@ -74,7 +79,7 @@ impl Strand {
                 builder.line_to(point, &[depth, sign]);
             }
             last_point = Some(position);
-            last_nucl = Some(*nucl);
+            last_nucl = Some(nucl);
             last_depth = Some(depth);
         }
         if let Some(nucl) = last_nucl {
