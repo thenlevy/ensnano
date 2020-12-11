@@ -4,8 +4,8 @@ use lyon::math::Point;
 use lyon::path::Path;
 use lyon::tessellation;
 use lyon::tessellation::{StrokeVertex, StrokeVertexConstructor};
-use ultraviolet::Vec2;
 use std::collections::HashMap;
+use ultraviolet::Vec2;
 
 type Vertices = lyon::tessellation::VertexBuffers<StrandVertex, u16>;
 
@@ -20,7 +20,12 @@ impl Strand {
         Self { color, points, id }
     }
 
-    pub fn to_vertices(&self, helices: &[Helix], free_end: &Option<FreeEnd>, id_map: &HashMap<usize, usize>) -> Vertices {
+    pub fn to_vertices(
+        &self,
+        helices: &[Helix],
+        free_end: &Option<FreeEnd>,
+        id_map: &HashMap<usize, usize>,
+    ) -> Vertices {
         let mut vertices = Vertices::new();
         if self.points.len() == 0 {
             return vertices;

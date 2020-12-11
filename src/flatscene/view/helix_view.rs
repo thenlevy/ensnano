@@ -1,8 +1,8 @@
 use super::{FreeEnd, Helix, Strand};
 use iced_wgpu::wgpu;
+use std::collections::HashMap;
 use std::rc::Rc;
 use wgpu::{Buffer, Device, Queue, RenderPass};
-use std::collections::HashMap;
 
 pub struct HelixView {
     vertex_buffer: DynamicBuffer,
@@ -62,7 +62,13 @@ impl StrandView {
         }
     }
 
-    pub fn update(&mut self, strand: &Strand, helices: &[Helix], free_end: &Option<FreeEnd>, id_map: &HashMap<usize, usize>) {
+    pub fn update(
+        &mut self,
+        strand: &Strand,
+        helices: &[Helix],
+        free_end: &Option<FreeEnd>,
+        id_map: &HashMap<usize, usize>,
+    ) {
         let vertices = strand.to_vertices(helices, free_end, id_map);
         self.vertex_buffer.update(vertices.vertices.as_slice());
         self.index_buffer.update(vertices.indices.as_slice());

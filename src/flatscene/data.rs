@@ -45,9 +45,11 @@ impl Data {
             self.design.update();
             self.fetch_helices();
             self.view.borrow_mut().update_helices(&self.helices);
-            self.view
-                .borrow_mut()
-                .update_strands(&self.design.get_strands(), &self.helices, self.design.id_map());
+            self.view.borrow_mut().update_strands(
+                &self.design.get_strands(),
+                &self.helices,
+                self.design.id_map(),
+            );
         }
         self.instance_update = false;
     }
@@ -198,9 +200,11 @@ impl Data {
 
     pub fn set_free_end(&mut self, free_end: Option<FreeEnd>) {
         self.view.borrow_mut().set_free_end(free_end);
-        self.view
-            .borrow_mut()
-            .update_strands(&self.design.get_strands(), &self.helices, self.design.id_map());
+        self.view.borrow_mut().update_strands(
+            &self.design.get_strands(),
+            &self.helices,
+            self.design.id_map(),
+        );
     }
 
     pub fn xover(&mut self, from: Nucl, to: Nucl) {
