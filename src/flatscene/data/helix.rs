@@ -450,7 +450,7 @@ impl Helix {
             }
         };
 
-        let mut pos = 0;
+        let mut pos = 0.max(self.left);
         while pos <= self.right {
             print_pos(pos);
             pos += 5;
