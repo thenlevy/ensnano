@@ -1062,6 +1062,17 @@ impl Data {
             .get(&(h_id as usize))
             .and_then(|h| h.grid_position)
     }
+
+    pub fn get_isometry_2d(&self, h_id: usize) -> Option<ultraviolet::Isometry2> {
+        self.design.helices.get(&h_id).and_then(|h| h.isometry2d)
+    }
+
+    pub fn set_isometry_2d(&mut self, h_id: usize, isometry2d: ultraviolet::Isometry2) {
+        self.design
+            .helices
+            .get_mut(&h_id)
+            .map(|h| h.isometry2d = Some(isometry2d));
+    }
 }
 
 fn compl(c: Option<char>) -> Option<char> {

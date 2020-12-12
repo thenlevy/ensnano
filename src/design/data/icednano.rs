@@ -5,7 +5,7 @@ use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::f32::consts::PI;
 
-use ultraviolet::{Mat4, Rotor3, Vec3};
+use ultraviolet::{Isometry2, Mat4, Rotor3, Vec3};
 
 use super::codenano;
 use super::grid::{Grid, GridDescriptor, GridPosition};
@@ -498,6 +498,10 @@ pub struct Helix {
     old_position: Vec3,
     #[serde(default, skip_serializing)]
     old_orientation: Rotor3,
+
+    /// Representation of the helix in 2d
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub isometry2d: Option<Isometry2>,
 }
 
 impl Helix {
@@ -531,6 +535,7 @@ impl Helix {
             old_position: position,
             old_orientation: orientation,
             grid_position: None,
+            isometry2d: None,
         }
     }
 }
@@ -543,6 +548,7 @@ impl Helix {
             orientation: grid.orientation,
             old_orientation: grid.orientation,
             old_position: position,
+            isometry2d: None,
             grid_position: Some(GridPosition {
                 grid: g_id,
                 x,

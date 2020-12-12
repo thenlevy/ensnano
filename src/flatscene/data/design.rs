@@ -3,6 +3,7 @@ use std::sync::{Arc, Mutex};
 
 use super::{Nucl, Strand};
 use crate::design::{Design, StrandBuilder};
+use ultraviolet::{Isometry2, Rotor2, Vec2};
 
 pub(super) struct Design2d {
     /// The 2d helices
@@ -59,28 +60,54 @@ impl Design2d {
             helix2d.right = helix2d.right.max(nucl.position + 1);
         } else {
             self.id_map.insert(helix, self.helices.len());
+            let iso_opt = self.design.lock().unwrap().get_isometry(helix);
+            let isometry = if let Some(iso) = iso_opt {
+                iso
+            } else {
+                let iso = Isometry2::new(
+                    (5. * helix as f32 - 1.) * Vec2::unit_y(),
+                    Rotor2::identity(),
+                );
+                self.design.lock().unwrap().set_isometry(helix, iso);
+                iso
+            };
             self.helices.push(Helix2d {
                 id: helix,
                 left: nucl.position - 1,
                 right: nucl.position + 1,
+                isometry,
             });
         }
     }
 
     fn fetch_empty_helices(&mut self) {
         let mut i = 0;
-        while let Some(grid) = self.design.lock().unwrap().get_grid2d(i) {
+        let mut grid2d = self.design.lock().unwrap().get_grid2d(i).clone();
+        while let Some(grid) = grid2d {
             for h_id in grid.read().unwrap().helices().values() {
                 if !self.id_map.contains_key(h_id) {
+                    let iso_opt = self.design.lock().unwrap().get_isometry(*h_id);
+                    let isometry = if let Some(iso) = iso_opt {
+                        iso
+                    } else {
+                        let iso = Isometry2::new(
+                            (5. * *h_id as f32 - 1.) * Vec2::unit_y(),
+                            Rotor2::identity(),
+                        );
+                        self.design.lock().unwrap().set_isometry(*h_id, iso);
+                        iso
+                    };
                     self.id_map.insert(*h_id, self.helices.len());
                     self.helices.push(Helix2d {
                         id: *h_id,
                         left: -1,
                         right: 1,
+                        isometry,
                     });
                 }
             }
             i += 1;
+            grid2d = self.design.lock().unwrap().get_grid2d(i).clone();
         }
     }
 
@@ -90,6 +117,11 @@ impl Design2d {
 
     pub fn get_strands(&self) -> &Vec<Strand> {
         &self.strands
+    }
+
+    pub fn set_isometry(&self, h_id: usize, isometry: Isometry2) {
+        let helix = self.helices[h_id].id;
+        self.design.lock().unwrap().set_isometry(helix, isometry);
     }
 
     pub fn get_builder(&self, nucl: Nucl, stick: bool) -> Option<StrandBuilder> {
@@ -149,4 +181,5 @@ pub struct Helix2d {
     pub left: isize,
     /// The largest position of a nucleotide of the the helix
     pub right: isize,
+    pub isometry: Isometry2,
 }

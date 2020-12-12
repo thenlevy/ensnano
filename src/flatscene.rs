@@ -202,6 +202,7 @@ impl Application for FlatScene {
                     .borrow_mut()
                     .center_selection(id_map);
             }
+            Notification::Save(d_id) => self.data[d_id].borrow_mut().save_isometry(),
             _ => (),
         }
     }

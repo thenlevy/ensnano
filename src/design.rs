@@ -410,6 +410,14 @@ impl Design {
     pub fn helix_is_empty(&self, helix: usize) -> bool {
         self.data.lock().unwrap().helix_is_empty(helix)
     }
+
+    pub fn get_isometry(&self, h_id: usize) -> Option<ultraviolet::Isometry2> {
+        self.data.lock().unwrap().get_isometry_2d(h_id)
+    }
+
+    pub fn set_isometry(&self, h_id: usize, isometry: ultraviolet::Isometry2) {
+        self.data.lock().unwrap().set_isometry_2d(h_id, isometry)
+    }
 }
 
 #[derive(Clone)]

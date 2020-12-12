@@ -125,6 +125,7 @@ pub enum Notification {
     NewCandidate(Option<PhantomElement>),
     /// An element has been selected in the 3d view
     Selection3D(Selection),
+    Save(usize),
 }
 
 pub trait Application {
@@ -227,8 +228,10 @@ impl Mediator {
 
     pub fn save_design(&mut self, path: &PathBuf) {
         if let Some(d_id) = self.selected_design() {
+            self.notify_apps(Notification::Save(d_id as usize));
             self.designs[d_id as usize].lock().unwrap().save_to(path)
         } else {
+            self.notify_apps(Notification::Save(0));
             self.designs[0].lock().unwrap().save_to(path);
             if self.designs.len() > 1 {
                 let error_msg = MessageAlert {

@@ -12,7 +12,7 @@ iced_wgpu = { git = "https://github.com/hecrj/iced", rev = "d16b9cf7cd98a3d65ea5
 iced_graphics = { git = "https://github.com/hecrj/iced", rev = "d16b9cf7cd98a3d65ea5408ac9b72298cb267e85" }
 iced_winit = { git = "https://github.com/hecrj/iced", rev = "d16b9cf7cd98a3d65ea5408ac9b72298cb267e85" }
 iced_native = { git = "https://github.com/hecrj/iced", rev = "d16b9cf7cd98a3d65ea5408ac9b72298cb267e85" }
-ultraviolet = { git = "https://github.com/thenlevy/ultraviolet", rev = "c6af1c4" , features = ["bytemuck", "f64", "serde"] }
+ultraviolet = { git = "https://github.com/thenlevy/ultraviolet", rev = "0fe34fe" , features = ["bytemuck", "f64", "serde"] }
 bytemuck = "1.2.0"
 failure = "0.1.8"
 env_logger = "0.7"

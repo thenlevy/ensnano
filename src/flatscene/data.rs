@@ -70,7 +70,7 @@ impl Data {
             self.helices.push(Helix::new(
                 h.left,
                 h.right,
-                (5. * self.nb_helices_created as f32 - 1.) * Vec2::unit_y(),
+                h.isometry,
                 (delta + nb_helix) as u32,
             ));
             self.nb_helices_created += 1;
@@ -270,6 +270,12 @@ impl Data {
             ret.add_point(Vec2::new(right.x, -right.y));
         }
         ret
+    }
+
+    pub fn save_isometry(&mut self) {
+        for (h_id, h) in self.helices.iter().enumerate() {
+            self.design.set_isometry(h_id, h.isometry);
+        }
     }
 }
 

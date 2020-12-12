@@ -121,7 +121,7 @@ impl Strand {
                     Vec2::new(diff.y, diff.x)
                 };
                 let control = (last_pos + *position) / 2. + normal / 3.;
-                let depth = 1e-6;
+                let depth = 1e-4;
                 sign *= -1.;
                 builder.quadratic_bezier_to(
                     Point::new(control.x, control.y),

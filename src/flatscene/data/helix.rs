@@ -11,7 +11,7 @@ use lyon::tessellation::{
     FillVertex, FillVertexConstructor, StrokeVertex, StrokeVertexConstructor,
 };
 use std::collections::HashMap;
-use ultraviolet::{Isometry2, Mat2, Rotor2, Vec2, Vec4};
+use ultraviolet::{Isometry2, Mat2, Vec2, Vec4};
 
 type Vertices = lyon::tessellation::VertexBuffers<GpuVertex, u16>;
 
@@ -23,7 +23,7 @@ pub struct Helix {
     left: isize,
     /// The first nucleotide that is not drawn
     right: isize,
-    isometry: Isometry2,
+    pub isometry: Isometry2,
     old_isometry: Isometry2,
     scale: f32,
     color: u32,
@@ -47,12 +47,12 @@ unsafe impl bytemuck::Zeroable for HelixModel {}
 unsafe impl bytemuck::Pod for HelixModel {}
 
 impl Helix {
-    pub fn new(left: isize, right: isize, position: Vec2, id: u32) -> Self {
+    pub fn new(left: isize, right: isize, isometry: Isometry2, id: u32) -> Self {
         Self {
             left,
             right,
-            isometry: Isometry2::new(position, Rotor2::identity()),
-            old_isometry: Isometry2::new(position, Rotor2::identity()),
+            isometry,
+            old_isometry: isometry,
             scale: 1f32,
             color: HELIX_BORDER_COLOR,
             z_index: 500,
