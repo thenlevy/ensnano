@@ -293,13 +293,19 @@ impl Helix {
             .transform_point2(self.scale * local_position)
     }
 
-    fn num_position_top(&self, x: isize) -> Vec2 {
-        let local_position =
-            x as f32 * Vec2::unit_x() + 0.5 * Vec2::unit_x() - 0.1 * Vec2::unit_y();
+    fn num_position_top(&self, x: isize, width: f32, height: f32) -> Vec2 {
+        let center_nucl = (x as f32 + 0.5) * Vec2::unit_x();
 
-        self.isometry
+        let center_text = center_nucl - height / 2. * Vec2::unit_y();
+
+        let real_center = self
+            .isometry
             .into_homogeneous_matrix()
-            .transform_point2(self.scale * local_position)
+            .transform_point2(center_text);
+
+        let angle_sin = Vec2::unit_y().dot(Vec2::unit_x().rotated_by(self.isometry.rotation));
+
+        real_center + ((angle_sin - width) / 2.) * Vec2::unit_x() - height / 2. * Vec2::unit_y()
     }
 
     /// Return the center of the helix's circle widget.
@@ -386,13 +392,15 @@ impl Helix {
         if let Some(circle) = circle {
             let nb_chars = self.id.to_string().len(); // ok to use len because digits are ascii
             let scale = size_id / nb_chars as f32;
-            let mut advances = crate::utils::chars2d::char_positions(self.id.to_string(), char_drawers);
+            let mut advances =
+                crate::utils::chars2d::char_positions(self.id.to_string(), char_drawers);
+            let mut height = crate::utils::chars2d::height(self.id.to_string(), char_drawers);
             if camera.borrow().get_globals().zoom < 7. {
+                height *= 2.;
                 for x in advances.iter_mut() {
                     *x *= 2.;
                 }
             }
-            let height = crate::utils::chars2d::height(self.id.to_string(), char_drawers);
             let x_shift = -advances[nb_chars] / 2. * scale;
             for (c_idx, c) in self.id.to_string().chars().enumerate() {
                 let instances = char_map.get_mut(&c).unwrap();
@@ -410,23 +418,19 @@ impl Helix {
             let nb_chars = pos.to_string().len(); // ok to use len because digits are ascii
             let scale = size_pos;
             let mut advances = crate::utils::chars2d::char_positions(pos.to_string(), char_drawers);
+            let mut height = crate::utils::chars2d::height(pos.to_string(), char_drawers);
             if camera.borrow().get_globals().zoom < 7. {
+                height *= 2.;
                 for x in advances.iter_mut() {
                     *x *= 2.;
                 }
             }
-            let height = crate::utils::chars2d::height(pos.to_string(), char_drawers);
-            let x_shift = if pos >= 0 {
-                -advances[nb_chars] / 2. * scale
-            } else {
-                (advances[1] - advances[nb_chars] / 2.) * scale
-            };
+            let x_shift = if pos >= 0 { 0. } else { advances[1] };
             for (c_idx, c) in pos.to_string().chars().enumerate() {
                 let instances = char_map.get_mut(&c).unwrap();
+                let center = self.num_position_top(pos, advances[nb_chars] * scale, height * scale);
                 instances.push(CharInstance {
-                    center: self.num_position_top(pos)
-                        + (x_shift + advances[c_idx] * scale) * Vec2::unit_x()
-                        - scale * height * Vec2::unit_y(),
+                    center: center + (x_shift + advances[c_idx] * scale) * Vec2::unit_x(),
                     rotation: self.isometry.rotation.into_matrix(),
                     size: scale,
                     z_index: -1,
