@@ -49,10 +49,10 @@ impl Strand {
 
         let mut last_depth = None;
         let mut sign = 1.;
-        for (i, nucl) in self.points.iter().enumerate() {
+        for (i, nucl_design) in self.points.iter().enumerate() {
             let nucl = Nucl {
-                helix: id_map[&nucl.helix],
-                ..*nucl
+                helix: id_map[&nucl_design.helix],
+                ..*nucl_design
             };
             let position = helices[nucl.helix].get_nucl_position(&nucl, false);
             let depth = helices[nucl.helix].get_depth();
@@ -61,9 +61,7 @@ impl Strand {
                 builder.begin(point, &[depth, sign, 1.]);
             } else if last_point.is_some() && Some(nucl.helix) != last_nucl.map(|n| n.helix) {
                 let cst = if let Selection::Bound(_, n1, n2) = *selection {
-                    if (n1 == nucl && n2 == last_nucl.unwrap())
-                        || (n2 == nucl && n1 == last_nucl.unwrap())
-                    {
+                    if n1 == *nucl_design || n2 == *nucl_design {
                         5.
                     } else {
                         1.
@@ -177,16 +175,23 @@ impl StrokeVertexConstructor<StrandVertex> for WithColor {
         if width < 1. {
             width *= vertex.interpolated_attributes()[2];
         }
-        let color = if width > 1.01 {
+        let color = if width > 1.00001 {
             [1., 0., 0., 1.]
         } else {
             self.0
         };
+
+        let depth = if vertex.interpolated_attributes()[1] > 1.00001 {
+            1e-7
+        } else {
+            vertex.interpolated_attributes()[0]
+        };
+
         StrandVertex {
             position: vertex.position_on_path().to_array(),
             normal: vertex.normal().to_array(),
             color,
-            depth: vertex.interpolated_attributes()[0],
+            depth,
             width,
         }
     }
