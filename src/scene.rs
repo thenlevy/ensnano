@@ -559,6 +559,7 @@ impl Application for Scene {
                 .data
                 .borrow_mut()
                 .set_candidate(candidate.map(|c| SceneElement::PhantomElement(c))),
+            Notification::Selection3D(_) => (), // nothing to do since the scene is at the origin of this notification
         }
     }
 

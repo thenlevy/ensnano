@@ -5,7 +5,7 @@ use crate::mediator;
 use crate::{DrawArea, Duration, PhySize, WindowEvent};
 use iced_wgpu::wgpu;
 use iced_winit::winit;
-use mediator::{ActionMode, Application, Mediator, Notification};
+use mediator::{ActionMode, Application, Mediator, Notification, Selection};
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
@@ -191,6 +191,7 @@ impl Application for FlatScene {
                 self.data[self.selected_design].borrow_mut().notify_update()
             }
             Notification::FitRequest => self.controller[self.selected_design].fit(),
+            Notification::Selection3D(selection) => self.view[self.selected_design].borrow_mut().set_selection(selection),
             _ => (),
         }
     }

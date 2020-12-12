@@ -122,6 +122,8 @@ pub enum Notification {
     ClearDesigns,
     /// A new element of the design must be highlighted
     NewCandidate(Option<PhantomElement>),
+    /// An element has been selected in the 3d view
+    Selection3D(Selection),
 }
 
 pub trait Application {
@@ -246,6 +248,7 @@ impl Mediator {
 
     pub fn notify_selection(&mut self, selection: Selection) {
         self.selection = selection;
+        println!("selection {:?}", selection);
         if selection.is_strand() {
             let mut messages = self.messages.lock().unwrap();
             if let Selection::Strand(d_id, s_id) = selection {
@@ -323,6 +326,7 @@ impl Mediator {
         if let Some(candidate) = self.candidate.take() {
             self.notify_apps(Notification::NewCandidate(candidate))
         }
+        self.notify_apps(Notification::Selection3D(self.selection))
     }
 
     fn selected_design(&self) -> Option<u32> {

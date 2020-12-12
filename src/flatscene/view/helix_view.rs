@@ -3,6 +3,7 @@ use iced_wgpu::wgpu;
 use std::collections::HashMap;
 use std::rc::Rc;
 use wgpu::{Buffer, Device, Queue, RenderPass};
+use super::Selection;
 
 pub struct HelixView {
     vertex_buffer: DynamicBuffer,
@@ -68,8 +69,9 @@ impl StrandView {
         helices: &[Helix],
         free_end: &Option<FreeEnd>,
         id_map: &HashMap<usize, usize>,
+        selection: &Selection,
     ) {
-        let vertices = strand.to_vertices(helices, free_end, id_map);
+        let vertices = strand.to_vertices(helices, free_end, id_map, selection);
         self.vertex_buffer.update(vertices.vertices.as_slice());
         self.index_buffer.update(vertices.indices.as_slice());
         self.num_instance = vertices.indices.len() as u32;

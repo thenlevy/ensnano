@@ -309,6 +309,14 @@ impl Design3D {
         self.design.lock().unwrap().get_object_type(id)
     }
 
+    pub fn get_bound(&self, id: u32) -> Option<(Nucl, Nucl)> {
+        if let Some(ObjectType::Bound(n1, n2)) = self.get_object_type(id) {
+            self.get_nucl(n1).zip(self.get_nucl(n2))
+        } else {
+            None
+        }
+    }
+
     pub fn get_element_position(
         &self,
         element: &SceneElement,

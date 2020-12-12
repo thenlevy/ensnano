@@ -4,6 +4,7 @@ use std::sync::{Arc, Mutex};
 #[derive(Debug, Clone, Copy)]
 pub enum Selection {
     Nucleotide(u32, Nucl),
+    Bound(u32, Nucl, Nucl),
     Design(u32),
     Strand(u32, u32),
     Helix(u32, u32),
@@ -22,6 +23,7 @@ impl Selection {
     pub fn get_design(&self) -> Option<u32> {
         match self {
             Selection::Design(d) => Some(*d),
+            Selection::Bound(d, _, _) => Some(*d),
             Selection::Strand(d, _) => Some(*d),
             Selection::Helix(d, _) => Some(*d),
             Selection::Nucleotide(d, _) => Some(*d),

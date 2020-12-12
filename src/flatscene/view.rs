@@ -17,6 +17,7 @@ use chars::CharDrawer;
 pub use chars::CharInstance;
 pub use circles::CircleInstance;
 use circles::{CircleDrawer, CircleKind};
+use super::Selection;
 
 use crate::consts::SAMPLE_COUNT;
 
@@ -42,6 +43,7 @@ pub struct View {
     rotation_widget: CircleDrawer,
     char_drawers: HashMap<char, CharDrawer>,
     char_map: HashMap<char, Vec<CharInstance>>,
+    selection: Selection,
 }
 
 impl View {
@@ -126,6 +128,7 @@ impl View {
             rotation_widget,
             char_drawers,
             char_map,
+            selection: Selection::Nothing,
         }
     }
 
@@ -180,7 +183,7 @@ impl View {
             .iter_mut()
             .last()
             .unwrap()
-            .update(&strand, helices, &self.free_end, id_map);
+            .update(&strand, helices, &self.free_end, id_map, &self.selection);
     }
 
     pub fn reset(&mut self) {
@@ -198,7 +201,7 @@ impl View {
         id_map: &HashMap<usize, usize>,
     ) {
         for (i, s) in self.strands.iter_mut().enumerate() {
-            s.update(&strands[i], helices, &self.free_end, id_map);
+            s.update(&strands[i], helices, &self.free_end, id_map, &self.selection);
         }
         for strand in strands.iter().skip(self.strands.len()) {
             self.add_strand(strand, helices, id_map)
@@ -212,6 +215,10 @@ impl View {
 
     pub fn needs_redraw(&self) -> bool {
         self.camera.borrow().was_updated() | self.was_updated
+    }
+
+    pub fn set_selection(&mut self, selection: Selection) {
+        self.selection = selection
     }
 
     pub fn draw(

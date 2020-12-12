@@ -434,9 +434,12 @@ impl Data {
                         SelectionMode::Strand => Selection::Strand(design_id, group_id),
                         SelectionMode::Nucleotide => {
                             let nucl = self.designs[design_id as usize].get_nucl(group_id);
+                            let bound = self.designs[design_id as usize].get_bound(group_id);
                             if let Some(nucl) = nucl {
                                 Selection::Nucleotide(design_id, nucl)
-                            } else {
+                            } else if let Some((n1, n2)) = bound {
+                                Selection::Bound(design_id, n1, n2)
+                            }else {
                                 Selection::Nothing
                             }
                         }
@@ -818,7 +821,7 @@ impl Data {
                     }
                 }
             }
-            Some(SceneElement::Grid(d_id, g_id)) => true,
+            Some(SceneElement::Grid(_, _)) => true,
             _ => true,
         }
     }

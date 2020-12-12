@@ -151,6 +151,7 @@ impl Design {
         self.data.lock().unwrap().get_object_type(id)
     }
 
+
     /// Return the color of an element
     pub fn get_color(&self, id: u32) -> Option<u32> {
         self.data.lock().unwrap().get_color(id)
