@@ -51,16 +51,17 @@ void main() {
     so we'd have to pass those in separately. We'd also have to transform our 
     light's position using something like view_matrix * model_matrix * */
     v_normal = normal_matrix * a_normal;
+    v_color = instances[gl_InstanceIndex].color;
     vec3 scale = instances[gl_InstanceIndex].scale;
     if (scale.x > LOW_CRIT && abs(scale.x - scale.y) > 1e-5) {
        scale.y *= 1.3;
        scale.z *= 1.3;
        float shade = smoothstep(LOW_CRIT, HIGH_CRIT, scale.x);
        float grey = 0.25 - 0.25 * shade;
-       v_color = vec4(grey, grey, grey, 1.);
-    } else {
-        v_color = instances[gl_InstanceIndex].color;
-    }
+       if (v_color.w > 0.99) {
+           v_color = vec4(grey, grey, grey, 1.);
+       }
+    } 
     vec4 model_space = model_matrix * vec4(a_position * scale, 1.0); 
     v_position = model_space.xyz;
     uint id = instances[gl_InstanceIndex].id;
