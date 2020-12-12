@@ -11,13 +11,14 @@ use wgpu::{Device, Queue, RenderPipeline};
 mod helix_view;
 use helix_view::{HelixView, StrandView};
 mod background;
+use super::data::Nucl;
+use super::Selection;
 use crate::utils::{chars2d as chars, circles2d as circles};
 use background::Background;
 use chars::CharDrawer;
 pub use chars::CharInstance;
 pub use circles::CircleInstance;
 use circles::{CircleDrawer, CircleKind};
-use super::Selection;
 
 use crate::consts::SAMPLE_COUNT;
 
@@ -179,11 +180,13 @@ impl View {
     ) {
         self.strands
             .push(StrandView::new(self.device.clone(), self.queue.clone()));
-        self.strands
-            .iter_mut()
-            .last()
-            .unwrap()
-            .update(&strand, helices, &self.free_end, id_map, &self.selection);
+        self.strands.iter_mut().last().unwrap().update(
+            &strand,
+            helices,
+            &self.free_end,
+            id_map,
+            &self.selection,
+        );
     }
 
     pub fn reset(&mut self) {
@@ -201,7 +204,13 @@ impl View {
         id_map: &HashMap<usize, usize>,
     ) {
         for (i, s) in self.strands.iter_mut().enumerate() {
-            s.update(&strands[i], helices, &self.free_end, id_map, &self.selection);
+            s.update(
+                &strands[i],
+                helices,
+                &self.free_end,
+                id_map,
+                &self.selection,
+            );
         }
         for strand in strands.iter().skip(self.strands.len()) {
             self.add_strand(strand, helices, id_map)
@@ -218,7 +227,23 @@ impl View {
     }
 
     pub fn set_selection(&mut self, selection: Selection) {
-        self.selection = selection
+        self.selection = selection;
+    }
+
+    pub fn center_selection(&mut self, id_map: &HashMap<usize, usize>) {
+        match self.selection {
+            Selection::Bound(
+                _,
+                Nucl {
+                    helix, position, ..
+                },
+                _,
+            ) => {
+                let helix = id_map[&helix];
+                self.helices[helix].make_visible(position, self.camera.clone());
+            }
+            _ => (),
+        }
     }
 
     pub fn draw(

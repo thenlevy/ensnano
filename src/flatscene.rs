@@ -191,7 +191,17 @@ impl Application for FlatScene {
                 self.data[self.selected_design].borrow_mut().notify_update()
             }
             Notification::FitRequest => self.controller[self.selected_design].fit(),
-            Notification::Selection3D(selection) => self.view[self.selected_design].borrow_mut().set_selection(selection),
+            Notification::Selection3D(selection) => {
+                self.view[self.selected_design]
+                    .borrow_mut()
+                    .set_selection(selection);
+                self.data[self.selected_design].borrow_mut().notify_update();
+                let data = self.data[self.selected_design].borrow();
+                let id_map = data.id_map();
+                self.view[self.selected_design]
+                    .borrow_mut()
+                    .center_selection(id_map);
+            }
             _ => (),
         }
     }

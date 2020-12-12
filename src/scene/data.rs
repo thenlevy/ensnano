@@ -439,7 +439,7 @@ impl Data {
                                 Selection::Nucleotide(design_id, nucl)
                             } else if let Some((n1, n2)) = bound {
                                 Selection::Bound(design_id, n1, n2)
-                            }else {
+                            } else {
                                 Selection::Nothing
                             }
                         }

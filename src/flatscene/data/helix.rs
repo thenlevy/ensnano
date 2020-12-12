@@ -380,6 +380,18 @@ impl Helix {
         )
     }
 
+    pub fn make_visible(&self, position: isize, camera: CameraPtr) {
+        let intersection = self.screen_intersection(&camera);
+        let need_center = if let Some((left, right)) = intersection {
+            left.floor() as isize > position || (right.ceil() as isize) < position
+        } else {
+            true
+        };
+        if need_center {
+            camera.borrow_mut().set_center(self.get_pivot(position))
+        }
+    }
+
     pub fn add_char_instances(
         &self,
         camera: &CameraPtr,

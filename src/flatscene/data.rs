@@ -12,6 +12,7 @@ use super::CameraPtr;
 use crate::consts::*;
 use crate::utils::camera2d::FitRectangle;
 use design::{Design2d, Helix2d};
+use std::collections::HashMap;
 
 pub struct Data {
     view: ViewPtr,
@@ -52,6 +53,10 @@ impl Data {
             );
         }
         self.instance_update = false;
+    }
+
+    pub fn id_map(&self) -> &HashMap<usize, usize> {
+        self.design.id_map()
     }
 
     fn fetch_helices(&mut self) {

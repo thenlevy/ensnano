@@ -1,9 +1,9 @@
+use super::Selection;
 use super::{FreeEnd, Helix, Strand};
 use iced_wgpu::wgpu;
 use std::collections::HashMap;
 use std::rc::Rc;
 use wgpu::{Buffer, Device, Queue, RenderPass};
-use super::Selection;
 
 pub struct HelixView {
     vertex_buffer: DynamicBuffer,

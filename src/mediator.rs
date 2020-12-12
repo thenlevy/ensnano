@@ -35,6 +35,7 @@ pub struct Mediator {
     designs: Vec<Arc<Mutex<Design>>>,
     selection: Selection,
     candidate: Option<Option<PhantomElement>>,
+    last_selection: Option<Selection>,
     messages: Arc<Mutex<IcedMessages>>,
     /// The operation that is beign modified by the current drag and drop
     current_operation: Option<Arc<dyn Operation>>,
@@ -154,6 +155,7 @@ impl Mediator {
             undo_stack: Vec::new(),
             redo_stack: Vec::new(),
             candidate: None,
+            last_selection: None,
         }
     }
 
@@ -248,7 +250,7 @@ impl Mediator {
 
     pub fn notify_selection(&mut self, selection: Selection) {
         self.selection = selection;
-        println!("selection {:?}", selection);
+        self.last_selection = Some(selection);
         if selection.is_strand() {
             let mut messages = self.messages.lock().unwrap();
             if let Selection::Strand(d_id, s_id) = selection {
@@ -326,7 +328,9 @@ impl Mediator {
         if let Some(candidate) = self.candidate.take() {
             self.notify_apps(Notification::NewCandidate(candidate))
         }
-        self.notify_apps(Notification::Selection3D(self.selection))
+        if let Some(selection) = self.last_selection.take() {
+            self.notify_apps(Notification::Selection3D(selection))
+        }
     }
 
     fn selected_design(&self) -> Option<u32> {

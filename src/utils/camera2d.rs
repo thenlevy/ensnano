@@ -104,6 +104,11 @@ impl Camera {
         self.was_updated = true;
     }
 
+    pub fn set_center(&mut self, center: Vec2) {
+        self.globals.scroll_offset = center.into();
+        self.was_updated = true;
+    }
+
     /// Convert a *vector* in screen coordinate to a vector in world coordinate. (Does not apply
     /// the translation)
     fn transform_vec(&self, x: f32, y: f32) -> (f32, f32) {

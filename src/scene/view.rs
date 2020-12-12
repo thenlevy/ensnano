@@ -622,7 +622,7 @@ struct DnaDrawers {
     selected_sphere: InstanceDrawer<SphereInstance>,
     selected_tube: InstanceDrawer<TubeInstance>,
     fake_sphere: InstanceDrawer<SphereInstance>,
-    fake_tube: InstanceDrawer<SphereInstance>,
+    fake_tube: InstanceDrawer<TubeInstance>,
     phantom_sphere: InstanceDrawer<SphereInstance>,
     phantom_tube: InstanceDrawer<TubeInstance>,
     fake_phantom_sphere: InstanceDrawer<SphereInstance>,
