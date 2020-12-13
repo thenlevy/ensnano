@@ -12,6 +12,10 @@ void main() {
     float dist = length(v_coords);
     float delta = fwidth(dist);
     float alpha = smoothstep(1. - delta, 1., dist);
+    
+    if (alpha > 0.5) {
+        discard;
+    }
 
     vec4 color = vec4(0.0129, 0.4129, 0.5742, 1. - alpha);
     f_color = color;

@@ -13,14 +13,18 @@ pub struct CircleInstance {
     pub center: Vec2,
     pub radius: f32,
     pub angle: f32,
+    pub z_index: i32,
+    _padding: u32,
 }
 
 impl CircleInstance {
-    pub fn new(center: Vec2, radius: f32) -> Self {
+    pub fn new(center: Vec2, radius: f32, z_index: i32) -> Self {
         Self {
             center,
             radius,
             angle: 0.,
+            z_index,
+            _padding: 0,
         }
     }
 

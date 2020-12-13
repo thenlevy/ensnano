@@ -408,7 +408,11 @@ impl ControllerState for ReleasedPivot {
         controller
             .view
             .borrow_mut()
-            .set_wheel(Some(CircleInstance::new(self.rotation_pivot, WHEEL_RADIUS)));
+            .set_wheel(Some(CircleInstance::new(
+                self.rotation_pivot,
+                WHEEL_RADIUS,
+                -1,
+            )));
     }
 
     fn transition_from(&self, controller: &Controller) {
@@ -573,7 +577,11 @@ impl ControllerState for LeavingPivot {
         controller
             .view
             .borrow_mut()
-            .set_wheel(Some(CircleInstance::new(self.rotation_pivot, WHEEL_RADIUS)));
+            .set_wheel(Some(CircleInstance::new(
+                self.rotation_pivot,
+                WHEEL_RADIUS,
+                -1,
+            )));
     }
 
     fn transition_from(&self, controller: &Controller) {
@@ -682,7 +690,11 @@ impl ControllerState for Rotating {
         controller
             .view
             .borrow_mut()
-            .set_wheel(Some(CircleInstance::new(self.rotation_pivot, WHEEL_RADIUS)));
+            .set_wheel(Some(CircleInstance::new(
+                self.rotation_pivot,
+                WHEEL_RADIUS,
+                -1,
+            )));
     }
 
     fn transition_from(&self, controller: &Controller) {
@@ -738,7 +750,11 @@ impl ControllerState for Rotating {
                 controller
                     .view
                     .borrow_mut()
-                    .set_wheel(Some(CircleInstance::new(self.rotation_pivot, WHEEL_RADIUS)));
+                    .set_wheel(Some(CircleInstance::new(
+                        self.rotation_pivot,
+                        WHEEL_RADIUS,
+                        -1,
+                    )));
                 Transition::nothing()
             }
             WindowEvent::KeyboardInput { .. } => {

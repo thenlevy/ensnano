@@ -330,7 +330,7 @@ impl Helix {
         } else {
             Some(self.x_position(left + CIRCLE_WIDGET_RADIUS))
         };
-        center.map(|c| CircleInstance::new(c, CIRCLE_WIDGET_RADIUS))
+        center.map(|c| CircleInstance::new(c, CIRCLE_WIDGET_RADIUS, self.id as i32))
     }
 
     /// Return the pivot under the center of the helix's circle widget.
@@ -421,7 +421,7 @@ impl Helix {
                         - scale * height / 2. * Vec2::unit_y(),
                     rotation: self.isometry.rotation.into_matrix(),
                     size: scale,
-                    z_index: -1,
+                    z_index: self.id as i32,
                 })
             }
         }
@@ -445,7 +445,7 @@ impl Helix {
                     center: center + (x_shift + advances[c_idx] * scale) * Vec2::unit_x(),
                     rotation: self.isometry.rotation.into_matrix(),
                     size: scale,
-                    z_index: -1,
+                    z_index: self.id as i32,
                 })
             }
         };

@@ -41,6 +41,6 @@ void main() {
     vec2 zoom_factor = u_zoom / (vec2(0.5, 0.5) * u_resolution);
     vec2 transformed_pos = world_pos * zoom_factor * vec2(1., -1.);
     float z_index = float(instances[gl_InstanceIndex].z_index);
-    float z = z_index >= 0 ? z_index / 1000. : 1e-7;
+    float z = z_index >= 0 ? z_index / 10000. : 1e-7;
     gl_Position = vec4(transformed_pos, z, 1.0);
 }
