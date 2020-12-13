@@ -182,7 +182,15 @@ impl<D: Instanciable> InstanceDrawer<D> {
         ressource: D::Ressource,
         fake: bool,
     ) -> Self {
-        Self::init(device, queue, viewer_desc, models_desc, ressource, fake, false)
+        Self::init(
+            device,
+            queue,
+            viewer_desc,
+            models_desc,
+            ressource,
+            fake,
+            false,
+        )
     }
 
     pub fn new_wireframe(
@@ -193,7 +201,15 @@ impl<D: Instanciable> InstanceDrawer<D> {
         ressource: D::Ressource,
         fake: bool,
     ) -> Self {
-        Self::init(device, queue, viewer_desc, models_desc, ressource, fake, true)
+        Self::init(
+            device,
+            queue,
+            viewer_desc,
+            models_desc,
+            ressource,
+            fake,
+            true,
+        )
     }
 
     fn init(
@@ -232,7 +248,7 @@ impl<D: Instanciable> InstanceDrawer<D> {
             match D::primitive_topology() {
                 PrimitiveTopology::TriangleList => PrimitiveTopology::LineList,
                 PrimitiveTopology::TriangleStrip => PrimitiveTopology::LineStrip,
-                pt => pt
+                pt => pt,
             }
         } else {
             D::primitive_topology()

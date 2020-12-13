@@ -63,6 +63,17 @@ void main() {
        }
     } 
     vec4 model_space = model_matrix * vec4(a_position * scale, 1.0); 
+
+    if (scale.y < 0.8) {
+        float dist = length(u_camera_position - model_space.xyz);
+        if (abs(scale.x - scale.y) > 1e-5) {
+            scale.yz /= max(1., (dist / 10.));
+        } else {
+          scale /= max(1., (dist / 10.));
+        }
+        model_space = model_matrix * vec4(a_position * scale, 1.0); 
+    }
+
     v_position = model_space.xyz;
     uint id = instances[gl_InstanceIndex].id;
     v_id = vec4(
