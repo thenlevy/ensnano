@@ -69,13 +69,11 @@ impl Strand {
                 } else {
                     1.
                 };
+                let depth = depth.min(last_depth.unwrap_or(depth));
                 if let Some(nucl) = last_nucl {
                     // We are drawing a xover
                     let point = helices[nucl.helix].get_nucl_position(&nucl, true);
-                    builder.line_to(
-                        Point::new(point.x, point.y),
-                        &[last_depth.unwrap(), sign, cst],
-                    );
+                    builder.line_to(Point::new(point.x, point.y), &[depth, sign, cst]);
                 } else {
                     // We are drawing the free end
                     let position = last_point.unwrap();
@@ -87,7 +85,6 @@ impl Strand {
                     Vec2::new(diff.y, diff.x)
                 };
                 let control = (last_pos + position) / 2. + normal / 3.;
-                let depth = depth.min(last_depth.unwrap_or(depth));
                 sign *= -1.;
                 builder.quadratic_bezier_to(
                     Point::new(control.x, control.y),
