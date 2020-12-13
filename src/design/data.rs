@@ -380,6 +380,10 @@ impl Data {
         ret
     }
 
+    pub fn get_strand_length(&self, s_id: usize) -> Option<usize> {
+        self.design.strands.get(&s_id).map(|s| s.length())
+    }
+
     /// Return all the elements that lie on an helix
     pub fn get_helix_elements(&self, h_id: usize) -> Vec<u32> {
         let mut ret = Vec::new();

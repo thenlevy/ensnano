@@ -207,6 +207,10 @@ impl Design {
         self.data.lock().unwrap().get_strand_elements(strand_id)
     }
 
+    pub fn get_strand_length(&self, strand_id: usize) -> Option<usize> {
+        self.data.lock().unwrap().get_strand_length(strand_id)
+    }
+
     /// Return all the identifier of the elements that lie on an helix
     pub fn get_helix_elements(&self, helix_id: usize) -> Vec<u32> {
         self.data.lock().unwrap().get_helix_elements(helix_id)

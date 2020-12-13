@@ -46,6 +46,14 @@ impl Selection {
                     vec![String::from("false")]
                 }
             }
+            Selection::Strand(d_id, s_id) => vec![format!(
+                "{:?}",
+                design
+                    .lock()
+                    .unwrap()
+                    .get_strand_length(*s_id as usize)
+                    .unwrap_or(0)
+            )],
             _ => Vec::new(),
         }
     }

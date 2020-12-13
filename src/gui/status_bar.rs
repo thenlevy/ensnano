@@ -136,6 +136,11 @@ impl StatusBar {
                     .text_size(STATUS_FONT_SIZE),
                 );
             }
+            Selection::Strand(_, _) => {
+                row = row.push(
+                    Text::new(format!("length {}", &self.info_values[0])).size(STATUS_FONT_SIZE),
+                );
+            }
             _ => (),
         }
 
