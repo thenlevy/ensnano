@@ -182,6 +182,29 @@ impl<D: Instanciable> InstanceDrawer<D> {
         ressource: D::Ressource,
         fake: bool,
     ) -> Self {
+        Self::init(device, queue, viewer_desc, models_desc, ressource, fake, false)
+    }
+
+    pub fn new_wireframe(
+        device: Rc<Device>,
+        queue: Rc<Queue>,
+        viewer_desc: &BindGroupLayoutDescriptor<'static>,
+        models_desc: &BindGroupLayoutDescriptor<'static>,
+        ressource: D::Ressource,
+        fake: bool,
+    ) -> Self {
+        Self::init(device, queue, viewer_desc, models_desc, ressource, fake, true)
+    }
+
+    fn init(
+        device: Rc<Device>,
+        queue: Rc<Queue>,
+        viewer_desc: &BindGroupLayoutDescriptor<'static>,
+        models_desc: &BindGroupLayoutDescriptor<'static>,
+        ressource: D::Ressource,
+        fake: bool,
+        wireframe: bool,
+    ) -> Self {
         let index_buffer = create_buffer_with_data(
             device.as_ref(),
             bytemuck::cast_slice(D::indices().as_slice()),
@@ -205,13 +228,23 @@ impl<D: Instanciable> InstanceDrawer<D> {
             D::fragment_module(&device)
         };
 
+        let primitive_topology = if wireframe {
+            match D::primitive_topology() {
+                PrimitiveTopology::TriangleList => PrimitiveTopology::LineList,
+                PrimitiveTopology::TriangleStrip => PrimitiveTopology::LineStrip,
+                pt => pt
+            }
+        } else {
+            D::primitive_topology()
+        };
+
         let pipeline = Self::create_pipeline(
             &device,
             viewer_desc,
             models_desc,
             vertex_module,
             fragment_module,
-            D::primitive_topology(),
+            primitive_topology,
             fake,
         );
         let instances = DynamicBindGroup::new(device.clone(), queue);

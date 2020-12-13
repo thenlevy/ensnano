@@ -274,7 +274,7 @@ impl Design3D {
                         Referential::Model,
                         false,
                     );
-                    let color = 0xA0D0D0D0;
+                    let color = 0xFFD0D0D0;
                     if nucl_coord.is_none() {
                         continue;
                     }
@@ -285,7 +285,7 @@ impl Design3D {
                             position: nucl_coord,
                             color: Instance::color_from_au32(color),
                             id,
-                            radius: 0.95,
+                            radius: 0.6,
                         }
                         .to_raw_instance(),
                     );
@@ -294,7 +294,7 @@ impl Design3D {
                             utils::phantom_helix_encoder_bound(self.id, *helix_id, i, *forward);
                         tubes.push(
                             create_dna_bound(nucl_coord, coord, color, id, true)
-                                .with_radius(0.95)
+                                .with_radius(0.6)
                                 .to_raw_instance(),
                         );
                     }

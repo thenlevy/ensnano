@@ -723,7 +723,7 @@ impl DnaDrawers {
                 (),
                 false,
             ),
-            phantom_sphere: InstanceDrawer::new(
+            phantom_sphere: InstanceDrawer::new_wireframe(
                 device.clone(),
                 queue.clone(),
                 viewer_desc,
@@ -731,7 +731,7 @@ impl DnaDrawers {
                 (),
                 false,
             ),
-            phantom_tube: InstanceDrawer::new(
+            phantom_tube: InstanceDrawer::new_wireframe(
                 device.clone(),
                 queue.clone(),
                 viewer_desc,
