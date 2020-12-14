@@ -4,7 +4,7 @@ use std::cell::RefCell;
 use std::f32::consts::{FRAC_PI_2, PI};
 use std::rc::Rc;
 use std::time::Duration;
-use ultraviolet::{Mat4, Rotor3, Vec3};
+use ultraviolet::{Mat3, Mat4, Rotor3, Vec3};
 use winit::dpi::PhysicalPosition;
 use winit::event::*;
 
@@ -362,33 +362,11 @@ impl CameraController {
     /// Modify the camera's rotor so that the camera looks at `point`.
     /// `point` is given in the world's coordinates
     pub fn look_at_point(&mut self, point: Vec3, up: Vec3) {
-        // We express the rotation of the camera in the camera's coordinates
-        // The current camera's direction is the opposite of it's z axis
-        //
-        // The future camera's direction is the vector from it to the point, to express it in the
-        // camera's coordinates, the camera's rotor is applied to it.
         let new_direction = (point - self.camera.borrow().position).normalized();
-        let x = new_direction.dot(self.camera.borrow().right_vec());
-        let dir = new_direction.dot(self.camera.borrow().direction());
-        let angle_xz = dir.atan2(x) - FRAC_PI_2;
-        let rotation = Rotor3::from_rotation_xz(angle_xz);
-        let new_rotor = rotation * self.camera.borrow().rotor;
-        self.camera.borrow_mut().rotor = new_rotor;
-
-        let y = new_direction.dot(self.camera.borrow().up_vec());
-        let dir = new_direction.dot(self.camera.borrow().direction());
-        let angle_yz = dir.atan2(y) - FRAC_PI_2;
-        let rotation = Rotor3::from_rotation_yz(angle_yz);
-        let new_rotor = rotation * self.camera.borrow().rotor;
-        self.camera.borrow_mut().rotor = new_rotor;
-
-        let y = up.dot(self.camera.borrow().up_vec());
-        let x = up.dot(self.camera.borrow().right_vec());
-
-        let angle_xy = y.atan2(x) - FRAC_PI_2;
-        let rotation = Rotor3::from_rotation_xy(angle_xy);
-        let new_rotor = rotation * self.camera.borrow().rotor;
-        self.camera.borrow_mut().rotor = new_rotor;
+        let right = new_direction.cross(up);
+        let matrix = Mat3::new(right, up, -new_direction);
+        let rotor = matrix.into_rotor3();
+        self.camera.borrow_mut().rotor = rotor;
     }
 
     /// Modify the camera's rotor so that the camera looks at `self.position + point`.
