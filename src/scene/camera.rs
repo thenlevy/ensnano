@@ -361,7 +361,7 @@ impl CameraController {
 
     /// Modify the camera's rotor so that the camera looks at `point`.
     /// `point` is given in the world's coordinates
-    pub fn look_at_point(&mut self, point: Vec3) {
+    pub fn look_at_point(&mut self, point: Vec3, up: Vec3) {
         // We express the rotation of the camera in the camera's coordinates
         // The current camera's direction is the opposite of it's z axis
         //
@@ -381,22 +381,48 @@ impl CameraController {
         let rotation = Rotor3::from_rotation_yz(angle_yz);
         let new_rotor = rotation * self.camera.borrow().rotor;
         self.camera.borrow_mut().rotor = new_rotor;
+
+        let y = up.dot(self.camera.borrow().up_vec());
+        let x = up.dot(self.camera.borrow().right_vec());
+
+        let angle_xy = y.atan2(x) - FRAC_PI_2;
+        let rotation = Rotor3::from_rotation_xy(angle_xy);
+        let new_rotor = rotation * self.camera.borrow().rotor;
+        self.camera.borrow_mut().rotor = new_rotor;
     }
 
     /// Modify the camera's rotor so that the camera looks at `self.position + point`.
     /// `point` is given in the world's coordinates
-    pub fn look_at_orientation(&mut self, point: Vec3) {
+    pub fn look_at_orientation(&mut self, point: Vec3, up: Vec3, pivot: Option<Vec3>) {
+        let dist = pivot.map(|p| (self.camera.borrow().position - p).mag());
         let point = self.camera.borrow().position + point;
-        self.look_at_point(point);
+        self.look_at_point(point, up);
+        if let Some(dist) = dist {
+            let new_pos = pivot.unwrap() - dist * self.camera.borrow().direction();
+            self.camera.borrow_mut().position = new_pos;
+            self.cam0.position = new_pos;
+        }
         self.cam0.rotor = self.camera.borrow().rotor;
     }
 
-    pub fn rotate_camera(&mut self, angle_xz: f32, angle_yz: f32) {
+    pub fn rotate_camera(&mut self, angle_xz: f32, angle_yz: f32, pivot: Option<Vec3>) {
+        let dist = pivot.map(|p| (self.camera.borrow().position - p).mag());
         let rotation = Rotor3::from_rotation_yz(angle_yz) * Rotor3::from_rotation_xz(angle_xz);
 
         // and we apply this rotation to the camera
         let new_rotor = rotation * self.camera.borrow().rotor;
         self.camera.borrow_mut().rotor = new_rotor;
         self.cam0.rotor = self.camera.borrow().rotor;
+        if let Some(dist) = dist {
+            let new_pos = pivot.unwrap() - dist * self.camera.borrow().direction();
+            self.camera.borrow_mut().position = new_pos;
+            self.cam0.position = new_pos;
+        }
+    }
+
+    pub fn shift(&mut self) {
+        let vec = 0.01 * self.camera.borrow().right_vec() + 0.01 * self.camera.borrow().up_vec();
+        self.camera.borrow_mut().position += vec;
+        self.cam0.position = self.camera.borrow().position;
     }
 }

@@ -62,7 +62,7 @@ pub struct Requests {
     pub toggle_persistent_helices: Option<bool>,
     pub new_grid: bool,
     pub camera_rotation: Option<(f32, f32)>,
-    pub camera_target: Option<Vec3>,
+    pub camera_target: Option<(Vec3, Vec3)>,
 }
 
 impl Requests {

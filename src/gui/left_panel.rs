@@ -56,7 +56,7 @@ pub enum Message {
     StrandColorChanged(Color),
     HueChanged(f32),
     NewGrid,
-    FixPoint(Vec3),
+    FixPoint(Vec3, Vec3),
     RotateCam(f32, f32),
 }
 
@@ -160,8 +160,8 @@ impl Program for LeftPanel {
                 self.yz = yz as isize;
                 self.requests.lock().unwrap().camera_rotation = Some((xz, yz));
             }
-            Message::FixPoint(point) => {
-                self.requests.lock().unwrap().camera_target = Some(point);
+            Message::FixPoint(point, up) => {
+                self.requests.lock().unwrap().camera_target = Some((point, up));
                 self.xz = 0;
                 self.yz = 0;
             }
@@ -613,12 +613,12 @@ struct ActionModeState {
 
 fn target_message(i: usize) -> Message {
     match i {
-        0 => Message::FixPoint(Vec3::unit_x()),
-        1 => Message::FixPoint(-Vec3::unit_x()),
-        2 => Message::FixPoint(Vec3::unit_y()),
-        3 => Message::FixPoint(-Vec3::unit_y()),
-        4 => Message::FixPoint(Vec3::unit_z()),
-        _ => Message::FixPoint(-Vec3::unit_z()),
+        0 => Message::FixPoint(Vec3::unit_x(), Vec3::unit_y()),
+        1 => Message::FixPoint(-Vec3::unit_x(), Vec3::unit_y()),
+        2 => Message::FixPoint(Vec3::unit_y(), Vec3::unit_z()),
+        3 => Message::FixPoint(-Vec3::unit_y(), Vec3::unit_z()),
+        4 => Message::FixPoint(Vec3::unit_z(), Vec3::unit_y()),
+        _ => Message::FixPoint(-Vec3::unit_z(), Vec3::unit_y()),
     }
 }
 

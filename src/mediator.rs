@@ -127,7 +127,7 @@ pub enum Notification {
     /// An element has been selected in the 3d view
     Selection3D(Selection),
     Save(usize),
-    CameraTarget(Vec3),
+    CameraTarget((Vec3, Vec3)),
     CameraRotation(f32, f32),
 }
 
@@ -506,7 +506,7 @@ impl Mediator {
         self.notify_apps(Notification::CameraRotation(rotation.0, rotation.1))
     }
 
-    pub fn set_camera_target(&mut self, target: Vec3) {
+    pub fn set_camera_target(&mut self, target: (Vec3, Vec3)) {
         self.notify_apps(Notification::CameraTarget(target))
     }
 }

@@ -406,12 +406,19 @@ impl Controller {
         self.camera_controller.sensitivity = 10f32.powf(sensitivity / 10.) * BASE_SCROLL_SENSITIVITY
     }
 
-    pub fn set_camera_target(&mut self, target: Vec3) {
-        self.camera_controller.look_at_orientation(target);
+    pub fn set_camera_target(&mut self, target: Vec3, up: Vec3, pivot: Option<Vec3>) {
+        self.camera_controller
+            .look_at_orientation(target, up, pivot);
+        self.shift_cam();
     }
 
-    pub fn rotate_camera(&mut self, xz: f32, yz: f32) {
-        self.camera_controller.rotate_camera(xz, yz);
+    pub fn rotate_camera(&mut self, xz: f32, yz: f32, pivot: Option<Vec3>) {
+        self.camera_controller.rotate_camera(xz, yz, pivot);
+        self.shift_cam();
+    }
+
+    fn shift_cam(&mut self) {
+        self.camera_controller.shift()
     }
 }
 

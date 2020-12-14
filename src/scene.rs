@@ -226,6 +226,20 @@ impl Scene {
         }
     }
 
+    fn element_center(&mut self) -> Option<SceneElement> {
+        let clicked_pixel = PhysicalPosition::new(
+            self.area.size.width as f64 / 2.,
+            self.area.size.height as f64 / 2.,
+        );
+        let grid = self
+            .view
+            .borrow()
+            .grid_intersection(0.5, 0.5)
+            .map(|g| SceneElement::Grid(g.design_id as u32, g.grid_id as u32));
+
+        grid.or_else(move || self.element_selector.set_selected_id(clicked_pixel))
+    }
+
     fn build_helix(&mut self, clicked_pixel: PhysicalPosition<f64>) {
         let intersection = self.view.borrow().grid_intersection(
             clicked_pixel.x as f32 / self.area.size.width as f32,
@@ -469,6 +483,26 @@ impl Scene {
     fn change_sensitivity(&mut self, sensitivity: f32) {
         self.controller.change_sensitivity(sensitivity)
     }
+
+    fn set_camera_target(&mut self, target: Vec3, up: Vec3) {
+        let pivot = self.data.borrow().get_selected_position();
+        let pivot = pivot.or_else(|| {
+            let element_center = self.element_center();
+            self.data.borrow_mut().set_selection(element_center);
+            self.data.borrow().get_selected_position()
+        });
+        self.controller.set_camera_target(target, up, pivot);
+    }
+
+    fn request_camera_rotation(&mut self, xz: f32, yz: f32) {
+        let pivot = self.data.borrow().get_selected_position();
+        let pivot = pivot.or_else(|| {
+            let element_center = self.element_center();
+            self.data.borrow_mut().set_selection(element_center);
+            self.data.borrow().get_selected_position()
+        });
+        self.controller.rotate_camera(xz, yz, pivot);
+    }
 }
 
 /// A structure that stores the element that needs to be updated in a scene
@@ -561,12 +595,12 @@ impl Application for Scene {
                 .set_candidate(candidate.map(|c| SceneElement::PhantomElement(c))),
             Notification::Selection3D(_) => (), // nothing to do since the scene is at the origin of this notification
             Notification::Save(_) => (),
-            Notification::CameraTarget(target) => {
-                self.controller.set_camera_target(target);
+            Notification::CameraTarget((target, up)) => {
+                self.set_camera_target(target, up);
                 self.notify(SceneNotification::CameraMoved);
             }
             Notification::CameraRotation(xz, yz) => {
-                self.controller.rotate_camera(xz, yz);
+                self.request_camera_rotation(xz, yz);
                 self.notify(SceneNotification::CameraMoved);
             }
         }
