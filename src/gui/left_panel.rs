@@ -8,6 +8,7 @@ use iced_winit::{
     Row, Scrollable, Slider, Text,
 };
 use native_dialog::Dialog;
+use ultraviolet::Vec3;
 
 use color_space::{Hsv, Rgb};
 
@@ -36,6 +37,10 @@ pub struct LeftPanel {
     action_mode_state: ActionModeState,
     selection_mode_state: SelectionModeState,
     color_picker: ColorPicker,
+    camera_target_buttons: [button::State; 6],
+    camera_rotation_buttons: [button::State; 4],
+    xz: isize,
+    yz: isize,
 }
 
 #[derive(Debug, Clone)]
@@ -51,6 +56,8 @@ pub enum Message {
     StrandColorChanged(Color),
     HueChanged(f32),
     NewGrid,
+    FixPoint(Vec3),
+    RotateCam(f32, f32),
 }
 
 impl LeftPanel {
@@ -73,6 +80,10 @@ impl LeftPanel {
             action_mode_state: Default::default(),
             selection_mode_state: Default::default(),
             color_picker: ColorPicker::new(),
+            camera_rotation_buttons: Default::default(),
+            camera_target_buttons: Default::default(),
+            xz: 0,
+            yz: 0,
         }
     }
 
@@ -144,6 +155,16 @@ impl Program for LeftPanel {
             Message::HueChanged(x) => self.color_picker.change_hue(x),
             Message::Resized(size, position) => self.resize(size, position),
             Message::NewGrid => self.requests.lock().unwrap().new_grid = true,
+            Message::RotateCam(xz, yz) => {
+                self.xz = xz as isize;
+                self.yz = yz as isize;
+                self.requests.lock().unwrap().camera_rotation = Some((xz, yz));
+            }
+            Message::FixPoint(point) => {
+                self.requests.lock().unwrap().camera_target = Some(point);
+                self.xz = 0;
+                self.yz = 0;
+            }
         };
         Command::none()
     }
@@ -360,6 +381,51 @@ impl Program for LeftPanel {
             global_scroll = global_scroll.spacing(5).push(row)
         }
 
+        let mut target_buttons: Vec<_> = self
+            .camera_target_buttons
+            .iter_mut()
+            .enumerate()
+            .map(|(i, s)| {
+                Button::new(s, Text::new(target_text(i)).size(10))
+                    .on_press(target_message(i))
+                    .width(Length::Units(30))
+            })
+            .collect();
+        global_scroll = global_scroll.spacing(5).push(Text::new("Camera Target"));
+        while target_buttons.len() > 0 {
+            let mut row = Row::new();
+            row = row.push(target_buttons.remove(0)).spacing(5);
+            let mut space = 30 + 5;
+            while space + 30 < width && target_buttons.len() > 0 {
+                row = row.push(target_buttons.remove(0)).spacing(5);
+                space += 30 + 5;
+            }
+            global_scroll = global_scroll.spacing(5).push(row)
+        }
+
+        let xz = self.xz;
+        let yz = self.yz;
+        let mut rotate_buttons: Vec<_> = self
+            .camera_rotation_buttons
+            .iter_mut()
+            .enumerate()
+            .map(|(i, s)| {
+                Button::new(s, Text::new(rotation_text(i))).on_press(rotation_message(i, xz, yz))
+            })
+            .collect();
+
+        global_scroll = global_scroll.spacing(5).push(Text::new("Rotate Camera"));
+        while rotate_buttons.len() > 0 {
+            let mut row = Row::new();
+            row = row.push(rotate_buttons.remove(0)).spacing(5);
+            let mut space = 30 + 5;
+            while space + 30 < width && rotate_buttons.len() > 0 {
+                row = row.push(rotate_buttons.remove(0)).spacing(5);
+                space += 30 + 5;
+            }
+            global_scroll = global_scroll.spacing(5).push(row)
+        }
+
         if let ActionMode::Build(b) = self.action_mode {
             global_scroll = global_scroll.spacing(5).push(
                 Checkbox::new(b, "Stick", |b| {
@@ -543,4 +609,73 @@ struct ActionModeState {
     pub build: button::State,
     pub cut: button::State,
     pub add_grid: button::State,
+}
+
+fn target_message(i: usize) -> Message {
+    match i {
+        0 => Message::FixPoint(Vec3::unit_x()),
+        1 => Message::FixPoint(-Vec3::unit_x()),
+        2 => Message::FixPoint(Vec3::unit_y()),
+        3 => Message::FixPoint(-Vec3::unit_y()),
+        4 => Message::FixPoint(Vec3::unit_z()),
+        _ => Message::FixPoint(-Vec3::unit_z()),
+    }
+}
+
+fn rotation_message(i: usize, xz: isize, yz: isize) -> Message {
+    let angle_xz = match i {
+        0 => {
+            if xz % 90 == 30 || xz % 90 == 45 {
+                15f32.to_radians()
+            } else {
+                30f32.to_radians()
+            }
+        }
+        1 => {
+            if xz % 90 == 60 || xz % 90 == 45 {
+                -15f32.to_radians()
+            } else {
+                -30f32.to_radians()
+            }
+        }
+        _ => 0f32,
+    };
+    let angle_yz = match i {
+        2 => {
+            if yz % 90 == 30 || yz % 90 == 45 {
+                -15f32.to_radians()
+            } else {
+                -30f32.to_radians()
+            }
+        }
+        3 => {
+            if yz % 90 == 60 || yz % 90 == 45 {
+                15f32.to_radians()
+            } else {
+                30f32.to_radians()
+            }
+        }
+        _ => 0f32,
+    };
+    Message::RotateCam(angle_xz, angle_yz)
+}
+
+fn rotation_text(i: usize) -> String {
+    match i {
+        0 => "←".to_string(),
+        1 => "→".to_string(),
+        2 => "↑".to_string(),
+        _ => "↓".to_string(),
+    }
+}
+
+fn target_text(i: usize) -> String {
+    match i {
+        0 => "X+".to_string(),
+        1 => "X-".to_string(),
+        2 => "Y+".to_string(),
+        3 => "Y-".to_string(),
+        4 => "Z+".to_string(),
+        _ => "Z-".to_string(),
+    }
 }

@@ -423,6 +423,14 @@ fn main() {
                     if let Some(b) = requests.toggle_persistent_helices.take() {
                         mediator.lock().unwrap().set_persistent_phantom(b)
                     }
+
+                    if let Some(point) = requests.camera_target.take() {
+                        mediator.lock().unwrap().set_camera_target(point)
+                    }
+
+                    if let Some(rotation) = requests.camera_rotation.take() {
+                        mediator.lock().unwrap().request_camera_rotation(rotation)
+                    }
                 }
 
                 // Treat eventual event that happenend in the gui left panel.

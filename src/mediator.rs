@@ -13,6 +13,7 @@ use iced_winit::winit::dpi::{PhysicalPosition, PhysicalSize};
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
+use ultraviolet::Vec3;
 
 use native_dialog::{Dialog, MessageAlert};
 
@@ -126,6 +127,8 @@ pub enum Notification {
     /// An element has been selected in the 3d view
     Selection3D(Selection),
     Save(usize),
+    CameraTarget(Vec3),
+    CameraRotation(f32, f32),
 }
 
 pub trait Application {
@@ -497,6 +500,14 @@ impl Mediator {
 
     pub fn set_candidate(&mut self, candidate: Option<PhantomElement>) {
         self.candidate = Some(candidate)
+    }
+
+    pub fn request_camera_rotation(&mut self, rotation: (f32, f32)) {
+        self.notify_apps(Notification::CameraRotation(rotation.0, rotation.1))
+    }
+
+    pub fn set_camera_target(&mut self, target: Vec3) {
+        self.notify_apps(Notification::CameraTarget(target))
     }
 }
 

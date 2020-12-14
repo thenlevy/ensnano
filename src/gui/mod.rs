@@ -24,6 +24,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
+use ultraviolet::Vec3;
 use wgpu::Device;
 use winit::{
     dpi::{PhysicalPosition, PhysicalSize},
@@ -60,6 +61,8 @@ pub struct Requests {
     pub operation_update: Option<Arc<dyn Operation>>,
     pub toggle_persistent_helices: Option<bool>,
     pub new_grid: bool,
+    pub camera_rotation: Option<(f32, f32)>,
+    pub camera_target: Option<Vec3>,
 }
 
 impl Requests {
@@ -83,6 +86,8 @@ impl Requests {
             operation_update: None,
             toggle_persistent_helices: None,
             new_grid: false,
+            camera_target: None,
+            camera_rotation: None,
         }
     }
 }

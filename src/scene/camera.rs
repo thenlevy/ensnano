@@ -227,7 +227,7 @@ impl CameraController {
 
     /// Rotate the head of the camera on its yz plane and xz plane according to the values of
     /// self.mouse_horizontal and self.mouse_vertical
-    fn rotate_camera(&mut self) {
+    fn process_angles(&mut self) {
         let xz_angle = self.mouse_horizontal * FRAC_PI_2;
         let yz_angle = self.mouse_vertical * FRAC_PI_2;
 
@@ -300,7 +300,7 @@ impl CameraController {
     pub fn update_camera(&mut self, dt: Duration, click_mode: ClickMode) {
         if self.processed_move {
             match click_mode {
-                ClickMode::RotateCam => self.rotate_camera(),
+                ClickMode::RotateCam => self.process_angles(),
                 ClickMode::TranslateCam => self.translate_camera(),
             }
         }
@@ -361,22 +361,42 @@ impl CameraController {
 
     /// Modify the camera's rotor so that the camera looks at `point`.
     /// `point` is given in the world's coordinates
-    #[allow(dead_code)] //  dead code allowed because maybe it could be usefull
     pub fn look_at_point(&mut self, point: Vec3) {
         // We express the rotation of the camera in the camera's coordinates
         // The current camera's direction is the opposite of it's z axis
         //
         // The future camera's direction is the vector from it to the point, to express it in the
         // camera's coordinates, the camera's rotor is applied to it.
-        let new_direction = (point - self.camera.borrow().position)
-            .normalized()
-            .rotated_by(self.camera.borrow().rotor);
-        let angle_xz = -new_direction.dot(Vec3::unit_x()).asin();
-        let angle_yz = -new_direction.dot(Vec3::unit_y()).asin();
+        let new_direction = (point - self.camera.borrow().position).normalized();
+        let x = new_direction.dot(self.camera.borrow().right_vec());
+        let dir = new_direction.dot(self.camera.borrow().direction());
+        let angle_xz = dir.atan2(x) - FRAC_PI_2;
+        let rotation = Rotor3::from_rotation_xz(angle_xz);
+        let new_rotor = rotation * self.camera.borrow().rotor;
+        self.camera.borrow_mut().rotor = new_rotor;
+
+        let y = new_direction.dot(self.camera.borrow().up_vec());
+        let dir = new_direction.dot(self.camera.borrow().direction());
+        let angle_yz = dir.atan2(y) - FRAC_PI_2;
+        let rotation = Rotor3::from_rotation_yz(angle_yz);
+        let new_rotor = rotation * self.camera.borrow().rotor;
+        self.camera.borrow_mut().rotor = new_rotor;
+    }
+
+    /// Modify the camera's rotor so that the camera looks at `self.position + point`.
+    /// `point` is given in the world's coordinates
+    pub fn look_at_orientation(&mut self, point: Vec3) {
+        let point = self.camera.borrow().position + point;
+        self.look_at_point(point);
+        self.cam0.rotor = self.camera.borrow().rotor;
+    }
+
+    pub fn rotate_camera(&mut self, angle_xz: f32, angle_yz: f32) {
         let rotation = Rotor3::from_rotation_yz(angle_yz) * Rotor3::from_rotation_xz(angle_xz);
 
         // and we apply this rotation to the camera
         let new_rotor = rotation * self.camera.borrow().rotor;
         self.camera.borrow_mut().rotor = new_rotor;
+        self.cam0.rotor = self.camera.borrow().rotor;
     }
 }

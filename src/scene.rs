@@ -561,6 +561,14 @@ impl Application for Scene {
                 .set_candidate(candidate.map(|c| SceneElement::PhantomElement(c))),
             Notification::Selection3D(_) => (), // nothing to do since the scene is at the origin of this notification
             Notification::Save(_) => (),
+            Notification::CameraTarget(target) => {
+                self.controller.set_camera_target(target);
+                self.notify(SceneNotification::CameraMoved);
+            }
+            Notification::CameraRotation(xz, yz) => {
+                self.controller.rotate_camera(xz, yz);
+                self.notify(SceneNotification::CameraMoved);
+            }
         }
     }
 
