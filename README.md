@@ -13,7 +13,7 @@ You need the GTK3 development packages to build the dependency `nfd2`.
 * Fedora: `dnf install gtk3-devel`
 * Arch: `pacman -S gtk3`
 
-You also need to have your graphic gards driver installed. The installation methods depends on your distribution and graphic card,
+You also need to have the **Vulkan** driver for your graphic card installed. The installation methods depends on your distribution and graphic card,
 but there should be a tutorial on the internet for any combination of those.
 
 
