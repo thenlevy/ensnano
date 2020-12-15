@@ -718,6 +718,26 @@ impl Data {
         }
     }
 
+    /// Return Some(true) if nucl is the 3' end of a xover, Some(false) if nucl is the 5' end of a
+    /// xover and None in the other cases
+    pub fn is_xover_end(&self, nucl: &Nucl) -> Option<bool> {
+        let id = self.identifier_nucl.get(nucl)?;
+        let strand_id = self.strand_map.get(id)?;
+        let strand = self.design.strands.get(strand_id).expect("strand");
+        let mut prev_helix = None;
+        for domain in strand.domains.iter() {
+            if domain.prime5_end() == Some(*nucl) && prev_helix != domain.helix() {
+                return Some(false);
+            } else if domain.prime3_end() == Some(*nucl) {
+                return Some(true);
+            } else if let Some(_) = domain.has_nucl(nucl) {
+                return None;
+            }
+            prev_helix = domain.helix();
+        }
+        return None;
+    }
+
     pub fn merge_strands(&mut self, prime5: usize, prime3: usize) {
         // We panic, if we can't find the strand, because this means that the program has a bug
         if prime5 != prime3 {
@@ -728,7 +748,20 @@ impl Data {
             for domain in strand5prime.domains.iter() {
                 domains.push(domain.clone());
             }
-            for domain in strand3prime.domains.iter() {
+            let skip;
+            let last_helix = domains.last().and_then(|d| d.helix());
+            let next_helix = strand3prime.domains.iter().next().and_then(|d| d.helix());
+            if last_helix == next_helix && last_helix.is_some() {
+                skip = 1;
+                domains
+                    .last_mut()
+                    .as_mut()
+                    .unwrap()
+                    .merge(strand3prime.domains.iter().next().unwrap());
+            } else {
+                skip = 0;
+            }
+            for domain in strand3prime.domains.iter().skip(skip) {
                 domains.push(domain.clone());
             }
             let sequence = if let Some((seq5, seq3)) = strand5prime
@@ -795,8 +828,9 @@ impl Data {
         let mut len_prim5 = 0;
         let mut domains = None;
         let mut on_3prime = false;
+        let mut prev_helix = None;
         for (d_id, domain) in strand.domains.iter().enumerate() {
-            if domain.prime5_end() == Some(*nucl) {
+            if domain.prime5_end() == Some(*nucl) && prev_helix != domain.helix() {
                 i = d_id;
                 on_3prime = true;
                 break;
@@ -814,6 +848,7 @@ impl Data {
                 len_prim5 += domain.length();
                 prim5_domains.push(domain.clone());
             }
+            prev_helix = domain.helix();
         }
         let mut prim3_domains = Vec::new();
         if let Some(ref domains) = domains {
@@ -863,7 +898,7 @@ impl Data {
             self.design.strands.insert(id_3prime, strand_3prime);
         }
         self.update_status = true;
-        self.hash_maps_update = true;
+        self.make_hash_maps();
     }
 
     pub fn rm_strand(&mut self, nucl: &Nucl) {
@@ -1076,6 +1111,12 @@ impl Data {
             .helices
             .get_mut(&h_id)
             .map(|h| h.isometry2d = Some(isometry2d));
+    }
+
+    pub fn get_strand_nucl(&self, nucl: &Nucl) -> Option<usize> {
+        self.identifier_nucl
+            .get(nucl)
+            .and_then(|id| self.strand_map.get(id).cloned())
     }
 }
 

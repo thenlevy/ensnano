@@ -383,6 +383,29 @@ impl Domain {
             }
         }
     }
+
+    pub fn helix(&self) -> Option<usize> {
+        match self {
+            Domain::HelixDomain(domain) => Some(domain.helix),
+            Domain::Insertion(_) => None,
+        }
+    }
+
+    pub fn merge(&mut self, other: &Domain) {
+        let old_self = self.clone();
+        match (self, other) {
+            (Domain::HelixDomain(dom1), Domain::HelixDomain(dom2)) if dom1.helix == dom2.helix => {
+                let start = dom1.start.min(dom2.start);
+                let end = dom1.end.max(dom2.end);
+                dom1.start = start;
+                dom1.end = end;
+            }
+            _ => println!(
+                "Warning attempt to merge unmergeable domains {:?}, {:?}",
+                old_self, other
+            ),
+        }
+    }
 }
 
 impl HelixInterval {
@@ -657,6 +680,28 @@ impl Nucl {
     pub fn right(&self) -> Self {
         Self {
             position: self.position + 1,
+            ..*self
+        }
+    }
+
+    pub fn prime3(&self) -> Self {
+        Self {
+            position: if self.forward {
+                self.position + 1
+            } else {
+                self.position - 1
+            },
+            ..*self
+        }
+    }
+
+    pub fn prime5(&self) -> Self {
+        Self {
+            position: if self.forward {
+                self.position - 1
+            } else {
+                self.position + 1
+            },
             ..*self
         }
     }

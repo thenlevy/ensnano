@@ -624,6 +624,7 @@ impl Data {
 
     /// This function must be called when the designs have been modified
     pub fn notify_instance_update(&mut self) {
+        self.candidates = vec![];
         self.instance_update = true;
     }
 

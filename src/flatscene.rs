@@ -145,6 +145,19 @@ impl FlatScene {
                 Consequence::FreeEnd(free_end) => self.data[self.selected_design]
                     .borrow_mut()
                     .set_free_end(free_end),
+                Consequence::CutFreeEnd(nucl, free_end) => {
+                    self.data[self.selected_design]
+                        .borrow_mut()
+                        .split_strand(nucl);
+                    self.data[self.selected_design]
+                        .borrow_mut()
+                        .set_free_end(free_end);
+                }
+                Consequence::CutCross(from, to) => {
+                    self.data[self.selected_design]
+                        .borrow_mut()
+                        .cut_cross(from, to);
+                }
                 Consequence::NewCandidate(candidate) => {
                     let phantom = candidate.map(|n| PhantomElement {
                         position: n.position as i32,

@@ -194,6 +194,35 @@ impl Data {
         prim3.zip(prim5).is_some()
     }
 
+    pub fn can_cut_cross_to(&self, from: Nucl, to: Nucl) -> bool {
+        let can_merge = match self.is_strand_end(from) {
+            Some(true) => {
+                self.is_xover_end(&to) != Some(true) && self.is_xover_end(&to.prime5()).is_none()
+            }
+            Some(false) => self.is_xover_end(&to) != Some(false),
+            _ => false,
+        };
+        can_merge && self.design.has_nucl(self.to_real(to))
+    }
+
+    pub fn has_nucl(&self, nucl: Nucl) -> bool {
+        self.design.has_nucl(self.to_real(nucl))
+    }
+
+    pub fn get_strand_id(&self, nucl: Nucl) -> Option<usize> {
+        let nucl = self.to_real(nucl);
+        self.design.get_strand_id(nucl)
+    }
+
+    pub fn cut_cross(&mut self, from: Nucl, to: Nucl) {
+        if self.is_strand_end(from) == Some(true) {
+            self.split_strand(to.prime5());
+        } else {
+            self.split_strand(to);
+        }
+        self.xover(from, to);
+    }
+
     /// Return Some(true) if nucl is a 3' end, Some(false) if nucl is a 5' end and None otherwise
     pub fn is_strand_end(&self, nucl: Nucl) -> Option<bool> {
         let nucl = self.to_real(nucl);
@@ -218,14 +247,16 @@ impl Data {
         let prim5 = self
             .design
             .prime5_of(nucl1)
-            .or(self.design.prime5_of(nucl2))
-            .unwrap();
+            .or(self.design.prime5_of(nucl2));
         let prim3 = self
             .design
             .prime3_of(nucl1)
-            .or(self.design.prime3_of(nucl2))
-            .unwrap();
-        self.merge_strand(prim3, prim5)
+            .or(self.design.prime3_of(nucl2));
+        if prim5.is_none() || prim3.is_none() {
+            println!("Problem during cross-over attempt. If you are not trying to break a cyclic strand please repport a bug");
+            return;
+        }
+        self.merge_strand(prim3.unwrap(), prim5.unwrap())
     }
 
     pub fn split_strand(&mut self, nucl: Nucl) {
@@ -276,6 +307,10 @@ impl Data {
         for (h_id, h) in self.helices.iter().enumerate() {
             self.design.set_isometry(h_id, h.isometry);
         }
+    }
+
+    pub fn is_xover_end(&self, nucl: &Nucl) -> Option<bool> {
+        self.design.is_xover_end(nucl)
     }
 }
 

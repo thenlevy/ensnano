@@ -422,6 +422,14 @@ impl Design {
     pub fn set_isometry(&self, h_id: usize, isometry: ultraviolet::Isometry2) {
         self.data.lock().unwrap().set_isometry_2d(h_id, isometry)
     }
+
+    pub fn is_xover_end(&self, nucl: &Nucl) -> Option<bool> {
+        self.data.lock().unwrap().is_xover_end(nucl)
+    }
+
+    pub fn get_strand_nucl(&self, nucl: &Nucl) -> Option<usize> {
+        self.data.lock().unwrap().get_strand_nucl(nucl)
+    }
 }
 
 #[derive(Clone)]

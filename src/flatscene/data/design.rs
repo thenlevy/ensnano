@@ -170,6 +170,22 @@ impl Design2d {
     pub fn id_map(&self) -> &HashMap<usize, usize> {
         &self.id_map
     }
+
+    pub fn is_xover_end(&self, nucl: &Nucl) -> Option<bool> {
+        self.design.lock().unwrap().is_xover_end(nucl)
+    }
+
+    pub fn has_nucl(&self, nucl: Nucl) -> bool {
+        self.design
+            .lock()
+            .unwrap()
+            .get_identifier_nucl(nucl)
+            .is_some()
+    }
+
+    pub fn get_strand_id(&self, nucl: Nucl) -> Option<usize> {
+        self.design.lock().unwrap().get_strand_nucl(&nucl)
+    }
 }
 
 /// Store the informations needed to represent an helix from the design

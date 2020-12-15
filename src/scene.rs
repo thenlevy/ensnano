@@ -180,7 +180,8 @@ impl Scene {
             Consequence::BuildEnded(d_id, id) => {
                 self.select(Some(SceneElement::DesignElement(d_id, id)))
             }
-            Consequence::Undo => self.mediator.lock().unwrap().undo(),
+            //Consequence::Undo => self.mediator.lock().unwrap().undo(),
+            Consequence::Undo => (),
             Consequence::Redo => self.mediator.lock().unwrap().redo(),
         };
     }

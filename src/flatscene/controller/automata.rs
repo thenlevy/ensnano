@@ -115,6 +115,16 @@ impl ControllerState for NormalState {
                                         consequences: Consequence::Nothing,
                                     }
                                 }
+                            } else if controller.data.borrow().has_nucl(nucl)
+                                && controller.data.borrow().is_xover_end(&nucl).is_none()
+                            {
+                                Transition {
+                                    new_state: Some(Box::new(InitCutting {
+                                        mouse_position: self.mouse_position,
+                                        nucl,
+                                    })),
+                                    consequences: Consequence::Nothing,
+                                }
                             } else {
                                 Transition {
                                     new_state: Some(Box::new(MovingCamera {
@@ -773,6 +783,96 @@ impl ControllerState for Rotating {
     }
 }
 
+struct InitCutting {
+    mouse_position: PhysicalPosition<f64>,
+    nucl: Nucl,
+}
+
+impl ControllerState for InitCutting {
+    fn transition_from(&self, _controller: &Controller) {
+        ()
+    }
+
+    fn transition_to(&self, _controller: &Controller) {
+        ()
+    }
+
+    fn display(&self) -> String {
+        String::from("Init Cutting")
+    }
+
+    fn input(
+        &mut self,
+        event: &WindowEvent,
+        position: PhysicalPosition<f64>,
+        controller: &Controller,
+    ) -> Transition {
+        match event {
+            WindowEvent::MouseInput {
+                button: MouseButton::Left,
+                state,
+                ..
+            } => {
+                /*assert!(
+                    *state == ElementState::Released,
+                    "Pressed mouse button in Init Building state"
+                );*/
+                if *state == ElementState::Pressed {
+                    return Transition::nothing();
+                }
+                Transition {
+                    new_state: Some(Box::new(NormalState {
+                        mouse_position: self.mouse_position,
+                    })),
+                    consequences: Consequence::Cut(self.nucl),
+                }
+            }
+            WindowEvent::CursorMoved { .. } => {
+                self.mouse_position = position;
+                let (x, y) = controller
+                    .camera
+                    .borrow()
+                    .screen_to_world(self.mouse_position.x as f32, self.mouse_position.y as f32);
+                let click_result = controller.data.borrow().get_click(x, y, &controller.camera);
+                match click_result {
+                    ClickResult::Nucl(nucl2) if nucl2 == self.nucl => Transition::nothing(),
+                    _ => {
+                        let strand_id = controller.data.borrow().get_strand_id(self.nucl).unwrap();
+                        Transition {
+                            new_state: Some(Box::new(MovingFreeEnd {
+                                mouse_position: self.mouse_position,
+                                from: self.nucl,
+                                prime3: true,
+                                strand_id,
+                            })),
+                            consequences: Consequence::CutFreeEnd(
+                                self.nucl,
+                                Some(FreeEnd {
+                                    strand_id,
+                                    point: Vec2::new(x, y),
+                                    prime3: true,
+                                }),
+                            ),
+                        }
+                    }
+                }
+            }
+            WindowEvent::KeyboardInput { .. } => {
+                controller.process_keyboard(event);
+                Transition::nothing()
+            }
+            WindowEvent::MouseWheel { delta, .. } => {
+                controller
+                    .camera
+                    .borrow_mut()
+                    .process_scroll(delta, self.mouse_position);
+                Transition::nothing()
+            }
+            _ => Transition::nothing(),
+        }
+    }
+}
+
 struct InitBuilding {
     mouse_position: PhysicalPosition<f64>,
     builder: StrandBuilder,
@@ -859,6 +959,7 @@ impl ControllerState for InitBuilding {
                                 to: nucl,
                                 strand_id: self.builder.get_strand_id(),
                                 from3prime: self.end.expect("from3prime"),
+                                cut: false,
                             })),
                             consequences: Consequence::FreeEnd(self.end.map(|b| FreeEnd {
                                 strand_id: self.builder.get_strand_id(),
@@ -883,7 +984,27 @@ impl ControllerState for InitBuilding {
                                 })),
                             }
                         } else {
-                            Transition::nothing()
+                            let prime3 = controller
+                                .data
+                                .borrow()
+                                .is_xover_end(&self.nucl)
+                                .expect("prime 3");
+                            Transition {
+                                new_state: Some(Box::new(MovingFreeEnd {
+                                    mouse_position: self.mouse_position,
+                                    from: self.nucl,
+                                    prime3,
+                                    strand_id: self.builder.get_strand_id(),
+                                })),
+                                consequences: Consequence::CutFreeEnd(
+                                    self.nucl,
+                                    Some(FreeEnd {
+                                        strand_id: self.builder.get_strand_id(),
+                                        point: Vec2::new(x, y),
+                                        prime3,
+                                    }),
+                                ),
+                            }
                         }
                     }
                 }
@@ -969,6 +1090,27 @@ impl ControllerState for MovingFreeEnd {
                                 to: nucl,
                                 from3prime: self.prime3,
                                 strand_id: self.strand_id,
+                                cut: false,
+                            })),
+                            consequences: Consequence::FreeEnd(Some(FreeEnd {
+                                strand_id: self.strand_id,
+                                point: Vec2::new(x, y),
+                                prime3: self.prime3,
+                            })),
+                        }
+                    }
+                    ClickResult::Nucl(nucl)
+                        if controller.data.borrow().can_cut_cross_to(self.from, nucl) =>
+                    {
+                        controller.data.borrow_mut().notify_update();
+                        Transition {
+                            new_state: Some(Box::new(Crossing {
+                                mouse_position: self.mouse_position,
+                                from: self.from,
+                                to: nucl,
+                                from3prime: self.prime3,
+                                strand_id: self.strand_id,
+                                cut: true,
                             })),
                             consequences: Consequence::FreeEnd(Some(FreeEnd {
                                 strand_id: self.strand_id,
@@ -1089,6 +1231,7 @@ pub struct Crossing {
     to: Nucl,
     from3prime: bool,
     strand_id: usize,
+    cut: bool,
 }
 
 impl ControllerState for Crossing {
@@ -1127,7 +1270,11 @@ impl ControllerState for Crossing {
                     new_state: Some(Box::new(NormalState {
                         mouse_position: self.mouse_position,
                     })),
-                    consequences: Consequence::Xover(self.from, self.to),
+                    consequences: if self.cut {
+                        Consequence::CutCross(self.from, self.to)
+                    } else {
+                        Consequence::Xover(self.from, self.to)
+                    },
                 }
             }
             WindowEvent::CursorMoved { .. } => {
