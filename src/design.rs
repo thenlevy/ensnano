@@ -345,7 +345,11 @@ impl Design {
     }
 
     pub fn split_strand(&self, nucl: Nucl) {
-        self.data.lock().unwrap().split_strand(&nucl)
+        self.data.lock().unwrap().split_strand(&nucl, None)
+    }
+
+    pub fn split_strand_forced_end(&self, nucl: Nucl, forced_end: Option<bool>) {
+        self.data.lock().unwrap().split_strand(&nucl, forced_end)
     }
 
     pub fn rm_strand(&self, nucl: Nucl) {

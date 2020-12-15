@@ -726,14 +726,14 @@ impl Data {
         let strand = self.design.strands.get(strand_id).expect("strand");
         let mut prev_helix = None;
         for domain in strand.domains.iter() {
-            if domain.prime5_end() == Some(*nucl) && prev_helix != domain.helix() {
+            if domain.prime5_end() == Some(*nucl) && prev_helix != domain.half_helix() {
                 return Some(false);
             } else if domain.prime3_end() == Some(*nucl) {
                 return Some(true);
             } else if let Some(_) = domain.has_nucl(nucl) {
                 return None;
             }
-            prev_helix = domain.helix();
+            prev_helix = domain.half_helix();
         }
         return None;
     }
@@ -749,8 +749,12 @@ impl Data {
                 domains.push(domain.clone());
             }
             let skip;
-            let last_helix = domains.last().and_then(|d| d.helix());
-            let next_helix = strand3prime.domains.iter().next().and_then(|d| d.helix());
+            let last_helix = domains.last().and_then(|d| d.half_helix());
+            let next_helix = strand3prime
+                .domains
+                .iter()
+                .next()
+                .and_then(|d| d.half_helix());
             if last_helix == next_helix && last_helix.is_some() {
                 skip = 1;
                 domains
@@ -789,6 +793,7 @@ impl Data {
             self.update_status = true;
         } else {
             println!("cycling");
+            /*
             self.design
                 .strands
                 .get_mut(&prime5)
@@ -797,10 +802,11 @@ impl Data {
                 .cyclic = true;
             self.hash_maps_update = true;
             self.update_status = true;
+            */
         }
     }
 
-    pub fn split_strand(&mut self, nucl: &Nucl) {
+    pub fn split_strand(&mut self, nucl: &Nucl, force_end: Option<bool>) {
         self.update_status = true;
         self.hash_maps_update = true;
         let id = self
@@ -827,19 +833,23 @@ impl Data {
         let mut prim5_domains = Vec::new();
         let mut len_prim5 = 0;
         let mut domains = None;
-        let mut on_3prime = false;
+        let mut on_3prime = force_end.unwrap_or(false);
         let mut prev_helix = None;
         for (d_id, domain) in strand.domains.iter().enumerate() {
-            if domain.prime5_end() == Some(*nucl) && prev_helix != domain.helix() {
+            if domain.prime5_end() == Some(*nucl)
+                && prev_helix != domain.helix()
+                && force_end != Some(true)
+            {
                 i = d_id;
                 on_3prime = true;
                 break;
-            } else if domain.prime3_end() == Some(*nucl) {
+            } else if domain.prime3_end() == Some(*nucl) && force_end != Some(false) {
                 i = d_id + 1;
                 prim5_domains.push(domain.clone());
                 len_prim5 += domain.length();
                 break;
             } else if let Some(n) = domain.has_nucl(nucl) {
+                let n = if force_end == Some(false) { n - 1 } else { n };
                 i = d_id;
                 len_prim5 += n;
                 domains = domain.split(n);

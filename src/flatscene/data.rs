@@ -196,9 +196,7 @@ impl Data {
 
     pub fn can_cut_cross_to(&self, from: Nucl, to: Nucl) -> bool {
         let can_merge = match self.is_strand_end(from) {
-            Some(true) => {
-                self.is_xover_end(&to) != Some(true) && self.is_xover_end(&to.prime5()).is_none()
-            }
+            Some(true) => self.is_xover_end(&to) != Some(true),
             Some(false) => self.is_xover_end(&to) != Some(false),
             _ => false,
         };
@@ -216,9 +214,11 @@ impl Data {
 
     pub fn cut_cross(&mut self, from: Nucl, to: Nucl) {
         if self.is_strand_end(from) == Some(true) {
-            self.split_strand(to.prime5());
+            let to = self.to_real(to);
+            self.design.split_strand_forced_end(to, Some(false));
         } else {
-            self.split_strand(to);
+            let to = self.to_real(to);
+            self.design.split_strand_forced_end(to, Some(true));
         }
         self.xover(from, to);
     }
@@ -310,7 +310,8 @@ impl Data {
     }
 
     pub fn is_xover_end(&self, nucl: &Nucl) -> Option<bool> {
-        self.design.is_xover_end(nucl)
+        let nucl = self.to_real(*nucl);
+        self.design.is_xover_end(&nucl)
     }
 }
 

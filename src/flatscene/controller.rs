@@ -76,6 +76,7 @@ impl Controller {
     pub fn input(&mut self, event: &WindowEvent, position: PhysicalPosition<f64>) -> Consequence {
         let transition = self.state.borrow_mut().input(event, position, self);
         if let Some(state) = transition.new_state {
+            println!("{}", state.display());
             self.state.borrow().transition_from(&self);
             self.state = RefCell::new(state);
             self.state.borrow().transition_to(&self);

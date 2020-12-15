@@ -1079,6 +1079,7 @@ impl ControllerState for MovingFreeEnd {
                     .screen_to_world(self.mouse_position.x as f32, self.mouse_position.y as f32);
                 let click_result = controller.data.borrow().get_click(x, y, &controller.camera);
                 match click_result {
+                    ClickResult::Nucl(nucl) if nucl == self.from => Transition::nothing(),
                     ClickResult::Nucl(nucl)
                         if controller.data.borrow().can_cross_to(self.from, nucl) =>
                     {

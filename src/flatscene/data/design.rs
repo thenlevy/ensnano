@@ -144,6 +144,13 @@ impl Design2d {
         self.design.lock().unwrap().split_strand(nucl)
     }
 
+    pub fn split_strand_forced_end(&self, nucl: Nucl, forced_end: Option<bool>) {
+        self.design
+            .lock()
+            .unwrap()
+            .split_strand_forced_end(nucl, forced_end)
+    }
+
     pub fn rm_strand(&self, nucl: Nucl) {
         self.design.lock().unwrap().rm_strand(nucl)
     }

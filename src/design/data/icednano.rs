@@ -384,9 +384,17 @@ impl Domain {
         }
     }
 
+    #[allow(dead_code)]
     pub fn helix(&self) -> Option<usize> {
         match self {
             Domain::HelixDomain(domain) => Some(domain.helix),
+            Domain::Insertion(_) => None,
+        }
+    }
+
+    pub fn half_helix(&self) -> Option<(usize, bool)> {
+        match self {
+            Domain::HelixDomain(domain) => Some((domain.helix, domain.forward)),
             Domain::Insertion(_) => None,
         }
     }
