@@ -151,6 +151,14 @@ pub trait Instanciable {
     {
         false
     }
+
+    /// The method can be overwritten to disable depth test
+    fn depth_test() -> bool
+    where
+        Self: Sized,
+    {
+        true
+    }
 }
 
 /// An object that draws an instanced mesh
@@ -409,6 +417,12 @@ impl<D: Instanciable> InstanceDrawer<D> {
             })
         };
 
+        let depth_compare = if D::depth_test() {
+            wgpu::CompareFunction::Less
+        } else {
+            wgpu::CompareFunction::Always
+        };
+
         device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             layout: Some(&render_pipeline_layout),
             vertex_stage: wgpu::ProgrammableStageDescriptor {
@@ -437,7 +451,7 @@ impl<D: Instanciable> InstanceDrawer<D> {
             depth_stencil_state: Some(wgpu::DepthStencilStateDescriptor {
                 format: Texture::DEPTH_FORMAT,
                 depth_write_enabled: true,
-                depth_compare: wgpu::CompareFunction::Less,
+                depth_compare,
                 stencil: wgpu::StencilStateDescriptor {
                     front: wgpu::StencilStateFaceDescriptor::IGNORE,
                     back: wgpu::StencilStateFaceDescriptor::IGNORE,

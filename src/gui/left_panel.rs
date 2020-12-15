@@ -616,7 +616,7 @@ fn target_message(i: usize) -> Message {
         0 => Message::FixPoint(Vec3::unit_x(), Vec3::unit_y()),
         1 => Message::FixPoint(-Vec3::unit_x(), Vec3::unit_y()),
         2 => Message::FixPoint(Vec3::unit_y(), Vec3::unit_z()),
-        3 => Message::FixPoint(-Vec3::unit_y(), Vec3::unit_z()),
+        3 => Message::FixPoint(-Vec3::unit_y(), -Vec3::unit_z()),
         4 => Message::FixPoint(Vec3::unit_z(), Vec3::unit_y()),
         _ => Message::FixPoint(-Vec3::unit_z(), Vec3::unit_y()),
     }

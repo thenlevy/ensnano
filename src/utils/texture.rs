@@ -1,10 +1,12 @@
 use crate::PhySize;
 use iced_wgpu::wgpu;
+use std::rc::Rc;
 
 pub struct Texture {
     pub texture: wgpu::Texture,
     pub view: wgpu::TextureView,
     pub sampler: wgpu::Sampler,
+    pub size: wgpu::Extent3d,
 }
 
 pub struct SampledTexture {
@@ -68,8 +70,29 @@ impl Texture {
             texture,
             view,
             sampler,
+            size,
         }
     }
+
+    /*
+    pub fn clear(&mut self, queue: Rc<wgpu::Queue>) {
+        let clear = vec![ 1f32; (self.size.width * self.size.height) as usize];
+
+        queue.write_texture(
+            wgpu::TextureCopyView {
+                texture: &self.texture,
+                mip_level: 0,
+                origin: wgpu::Origin3d::ZERO,
+            },
+            bytemuck::cast_slice(clear.as_slice()),
+            wgpu::TextureDataLayout {
+                offset: 0,
+                bytes_per_row: 4 * self.size.width,
+                rows_per_image: self.size.height,
+            },
+            self.size,
+        );
+    }*/
 
     pub fn create_msaa_texture(
         device: &wgpu::Device,

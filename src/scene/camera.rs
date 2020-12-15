@@ -95,6 +95,10 @@ impl Projection {
     pub fn get_ratio(&self) -> f32 {
         self.aspect
     }
+
+    pub fn cube_dist(&self) -> f32 {
+        2f32.sqrt() / (self.fovy / 2.).tan() * 1f32.max(1. / self.aspect)
+    }
 }
 
 pub struct CameraController {

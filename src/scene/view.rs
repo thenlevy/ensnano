@@ -17,6 +17,7 @@ use wgpu::{Device, Queue};
 /// A `Uniform` is a structure that manages view and projection matrices.
 mod uniforms;
 use uniforms::Uniforms;
+mod direction_cube;
 mod dna_obj;
 /// This modules defines a trait for drawing widget made of several meshes.
 mod drawable;
@@ -32,6 +33,7 @@ mod rotation_widget;
 
 use crate::text::Letter;
 use bindgroup_manager::{DynamicBindGroup, UniformBindGroup};
+use direction_cube::*;
 pub use dna_obj::{DnaObject, RawDnaInstance, SphereInstance, TubeInstance};
 use drawable::{Drawable, Drawer, Vertex};
 pub use grid::{GridInstance, GridIntersection, GridTypeDescr};
@@ -92,6 +94,7 @@ pub struct View {
     grid_manager: GridManager,
     disc_drawer: InstanceDrawer<GridDisc>,
     dna_drawers: DnaDrawers,
+    direction_cube: InstanceDrawer<DirectionCube>,
 }
 
 impl View {
@@ -179,6 +182,17 @@ impl View {
             &model_bg_desc,
         );
 
+        let direction_texture = DirectionTexture::new(device.clone(), queue.clone());
+        let mut direction_cube = InstanceDrawer::new(
+            device.clone(),
+            queue.clone(),
+            &viewer.get_layout_desc(),
+            &model_bg_desc,
+            direction_texture,
+            false,
+        );
+        direction_cube.new_instances(vec![Default::default()]);
+
         Self {
             camera,
             projection,
@@ -199,6 +213,7 @@ impl View {
             grid_manager,
             disc_drawer,
             dna_drawers,
+            direction_cube,
         }
     }
 
@@ -219,6 +234,9 @@ impl View {
                 self.handle_drawers
                     .update_camera(self.camera.clone(), self.projection.clone());
                 self.need_redraw_fake = true;
+                let dist = self.projection.borrow().cube_dist();
+                self.direction_cube
+                    .new_instances(vec![DirectionCube::new(dist)]);
             }
             ViewUpdate::Handles(descr) => {
                 self.handle_drawers.update_decriptor(
@@ -334,120 +352,162 @@ impl View {
             &self.fake_depth_texture
         };
 
-        let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-            color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
-                attachment,
-                resolve_target,
-                ops: wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(clear_color),
-                    store: true,
-                },
-            }],
-            depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachmentDescriptor {
-                attachment: &depth_attachement.view,
-                depth_ops: Some(wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(1.),
-                    store: true,
+        {
+            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
+                    attachment,
+                    resolve_target,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(clear_color),
+                        store: true,
+                    },
+                }],
+                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachmentDescriptor {
+                    attachment: &depth_attachement.view,
+                    depth_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(1.),
+                        store: true,
+                    }),
+                    stencil_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(0),
+                        store: true,
+                    }),
                 }),
-                stencil_ops: Some(wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(0),
-                    store: true,
+            });
+            if fake_color {
+                render_pass.set_viewport(
+                    area.position.x as f32,
+                    area.position.y as f32,
+                    area.size.width as f32,
+                    area.size.height as f32,
+                    0.0,
+                    1.0,
+                );
+                render_pass.set_scissor_rect(
+                    area.position.x,
+                    area.position.y,
+                    area.size.width,
+                    area.size.height,
+                );
+            }
+
+            if draw_type == DrawType::Design {
+                for drawer in self.dna_drawers.fakes() {
+                    drawer.draw(
+                        &mut render_pass,
+                        self.viewer.get_bindgroup(),
+                        self.models.get_bindgroup(),
+                    )
+                }
+            } else if draw_type == DrawType::Scene {
+                for drawer in self.dna_drawers.reals() {
+                    drawer.draw(
+                        &mut render_pass,
+                        self.viewer.get_bindgroup(),
+                        self.models.get_bindgroup(),
+                    )
+                }
+            } else if draw_type == DrawType::Phantom {
+                for drawer in self.dna_drawers.phantoms() {
+                    drawer.draw(
+                        &mut render_pass,
+                        self.viewer.get_bindgroup(),
+                        self.models.get_bindgroup(),
+                    )
+                }
+            }
+
+            if draw_type.wants_widget() {
+                if action_mode.wants_handle() {
+                    self.handle_drawers.draw(
+                        &mut render_pass,
+                        viewer_bind_group,
+                        viewer_bind_group_layout,
+                        fake_color,
+                    );
+                }
+
+                if action_mode.wants_rotation() {
+                    self.rotation_widget.draw(
+                        &mut render_pass,
+                        viewer_bind_group,
+                        viewer_bind_group_layout,
+                        fake_color,
+                    );
+                }
+            }
+
+            if !fake_color && self.draw_letter {
+                for drawer in self.letter_drawer.iter_mut() {
+                    drawer.draw(
+                        &mut render_pass,
+                        viewer_bind_group,
+                        self.models.get_bindgroup(),
+                    )
+                }
+            }
+
+            if !fake_color {
+                self.grid_manager.draw(
+                    &mut render_pass,
+                    viewer_bind_group,
+                    self.models.get_bindgroup(),
+                );
+                self.disc_drawer.draw(
+                    &mut render_pass,
+                    viewer_bind_group,
+                    self.models.get_bindgroup(),
+                );
+            }
+
+            if fake_color {
+                self.need_redraw_fake = false;
+            } else if self.redraw_twice {
+                self.redraw_twice = false;
+                self.need_redraw = true;
+            } else {
+                self.need_redraw = false;
+            }
+        }
+        if !fake_color {
+            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
+                    attachment,
+                    resolve_target,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Load,
+                        store: true,
+                    },
+                }],
+                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachmentDescriptor {
+                    attachment: &depth_attachement.view,
+                    depth_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(1.),
+                        store: true,
+                    }),
+                    stencil_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(0),
+                        store: true,
+                    }),
                 }),
-            }),
-        });
-        if fake_color {
+            });
             render_pass.set_viewport(
-                area.position.x as f32,
-                area.position.y as f32,
-                area.size.width as f32,
-                area.size.height as f32,
+                area.size.width as f32 / 20.,
+                0.,
+                (area.size.width as f32 / 10. * 1.5)
+                    .max(100.)
+                    .min(area.size.width as f32),
+                (area.size.height as f32 / 10. * 1.5)
+                    .max((100 * area.size.height / area.size.width) as f32)
+                    .min(area.size.height as f32),
                 0.0,
                 1.0,
             );
-            render_pass.set_scissor_rect(
-                area.position.x,
-                area.position.y,
-                area.size.width,
-                area.size.height,
-            );
-        }
-
-        if draw_type == DrawType::Design {
-            for drawer in self.dna_drawers.fakes() {
-                drawer.draw(
-                    &mut render_pass,
-                    self.viewer.get_bindgroup(),
-                    self.models.get_bindgroup(),
-                )
-            }
-        } else if draw_type == DrawType::Scene {
-            for drawer in self.dna_drawers.reals() {
-                drawer.draw(
-                    &mut render_pass,
-                    self.viewer.get_bindgroup(),
-                    self.models.get_bindgroup(),
-                )
-            }
-        } else if draw_type == DrawType::Phantom {
-            for drawer in self.dna_drawers.phantoms() {
-                drawer.draw(
-                    &mut render_pass,
-                    self.viewer.get_bindgroup(),
-                    self.models.get_bindgroup(),
-                )
-            }
-        }
-
-        if draw_type.wants_widget() {
-            if action_mode.wants_handle() {
-                self.handle_drawers.draw(
-                    &mut render_pass,
-                    viewer_bind_group,
-                    viewer_bind_group_layout,
-                    fake_color,
-                );
-            }
-
-            if action_mode.wants_rotation() {
-                self.rotation_widget.draw(
-                    &mut render_pass,
-                    viewer_bind_group,
-                    viewer_bind_group_layout,
-                    fake_color,
-                );
-            }
-        }
-
-        if !fake_color && self.draw_letter {
-            for drawer in self.letter_drawer.iter_mut() {
-                drawer.draw(
-                    &mut render_pass,
-                    viewer_bind_group,
-                    self.models.get_bindgroup(),
-                )
-            }
-        }
-
-        if !fake_color {
-            self.grid_manager.draw(
+            self.direction_cube.draw(
                 &mut render_pass,
                 viewer_bind_group,
                 self.models.get_bindgroup(),
-            );
-            self.disc_drawer.draw(
-                &mut render_pass,
-                viewer_bind_group,
-                self.models.get_bindgroup(),
-            );
-        }
-
-        if fake_color {
-            self.need_redraw_fake = false;
-        } else if self.redraw_twice {
-            self.redraw_twice = false;
-            self.need_redraw = true;
-        } else {
-            self.need_redraw = false;
+            )
         }
     }
 
