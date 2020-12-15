@@ -213,6 +213,9 @@ impl Data {
     }
 
     pub fn cut_cross(&mut self, from: Nucl, to: Nucl) {
+        if self.get_strand_id(from) == self.get_strand_id(to) {
+            return;
+        }
         if self.is_strand_end(from) == Some(true) {
             let to = self.to_real(to);
             self.design.split_strand_forced_end(to, Some(false));
