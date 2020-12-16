@@ -498,7 +498,7 @@ impl View {
                     .max(100.)
                     .min(area.size.width as f32),
                 (area.size.height as f32 / 10. * 1.5)
-                    .max((100 * area.size.height / area.size.width) as f32)
+                    .max((100. * area.size.height as f32 / area.size.width as f32) as f32)
                     .min(area.size.height as f32),
                 0.0,
                 1.0,
