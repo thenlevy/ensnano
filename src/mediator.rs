@@ -94,9 +94,11 @@ impl Scheduler {
 
     /// Notify all applications that the size of the window has been modified
     pub fn forward_new_size(&mut self, window_size: PhysicalSize<u32>, multiplexer: &Multiplexer) {
-        for (area, app) in self.applications.iter_mut() {
-            if let Some(draw_area) = multiplexer.get_draw_area(*area) {
-                app.lock().unwrap().on_resize(window_size, draw_area);
+        if window_size.height > 0 && window_size.width > 0 {
+            for (area, app) in self.applications.iter_mut() {
+                if let Some(draw_area) = multiplexer.get_draw_area(*area) {
+                    app.lock().unwrap().on_resize(window_size, draw_area);
+                }
             }
         }
     }
