@@ -555,7 +555,7 @@ impl Data {
                             .unwrap_or_default();
                         let set = ret.entry(*d_id).or_insert_with(HashMap::new);
                         for h_id in new_helices.iter() {
-                            set.insert(*h_id, false);
+                            set.insert(*h_id, true);
                         }
                     }
                     SceneElement::GridCircle(d_id, g_id, x, y) => {
