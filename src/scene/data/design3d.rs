@@ -66,7 +66,7 @@ impl Design3D {
 
     /// Return the list of raw sphere instances to be displayed to represent the design
     pub fn get_spheres_raw(&self) -> Rc<Vec<RawDnaInstance>> {
-        let ids = self.design.lock().unwrap().get_all_nucl_ids();
+        let ids = self.design.lock().unwrap().get_all_visible_nucl_ids();
         Rc::new(self.id_to_raw_instances(ids))
     }
 
@@ -100,7 +100,7 @@ impl Design3D {
 
     /// Return the list of tube instances to be displayed to represent the design
     pub fn get_tubes_raw(&self) -> Rc<Vec<RawDnaInstance>> {
-        let ids = self.design.lock().unwrap().get_all_bound_ids();
+        let ids = self.design.lock().unwrap().get_all_visible_bound_ids();
         Rc::new(self.id_to_raw_instances(ids))
     }
 

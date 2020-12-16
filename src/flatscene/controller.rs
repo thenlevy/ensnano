@@ -37,6 +37,7 @@ pub enum Consequence {
     NewCandidate(Option<Nucl>),
     RmStrand(Nucl),
     RmHelix(usize),
+    FlipVisibility(usize, bool),
 }
 
 impl Controller {

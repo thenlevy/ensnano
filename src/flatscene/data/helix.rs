@@ -31,6 +31,8 @@ pub struct Helix {
     stroke_width: f32,
     /// The position of self in the Helix vector of the design
     pub id: u32,
+    pub real_id: usize,
+    pub visible: bool,
 }
 
 #[repr(C)]
@@ -47,7 +49,14 @@ unsafe impl bytemuck::Zeroable for HelixModel {}
 unsafe impl bytemuck::Pod for HelixModel {}
 
 impl Helix {
-    pub fn new(left: isize, right: isize, isometry: Isometry2, id: u32) -> Self {
+    pub fn new(
+        left: isize,
+        right: isize,
+        isometry: Isometry2,
+        id: u32,
+        real_id: usize,
+        visible: bool,
+    ) -> Self {
         Self {
             left,
             right,
@@ -58,12 +67,16 @@ impl Helix {
             z_index: 500,
             stroke_width: 0.01,
             id,
+            real_id,
+            visible,
         }
     }
 
     pub fn update(&mut self, helix2d: &Helix2d) {
         self.left = self.left.min(helix2d.left);
         self.right = self.right.max(helix2d.right);
+        self.visible = helix2d.visible;
+        self.real_id = helix2d.id;
     }
 
     pub fn background_vertices(&self) -> Vertices {
@@ -330,7 +343,7 @@ impl Helix {
         } else {
             Some(self.x_position(left + CIRCLE_WIDGET_RADIUS))
         };
-        center.map(|c| CircleInstance::new(c, CIRCLE_WIDGET_RADIUS, self.id as i32))
+        center.map(|c| CircleInstance::new(c, CIRCLE_WIDGET_RADIUS, self.id as i32, self.visible))
     }
 
     /// Return the pivot under the center of the helix's circle widget.
@@ -402,11 +415,11 @@ impl Helix {
         let size_pos = 1.4;
         let circle = self.get_circle(camera);
         if let Some(circle) = circle {
-            let nb_chars = self.id.to_string().len(); // ok to use len because digits are ascii
+            let nb_chars = self.real_id.to_string().len(); // ok to use len because digits are ascii
             let scale = size_id / nb_chars as f32;
             let mut advances =
-                crate::utils::chars2d::char_positions(self.id.to_string(), char_drawers);
-            let mut height = crate::utils::chars2d::height(self.id.to_string(), char_drawers);
+                crate::utils::chars2d::char_positions(self.real_id.to_string(), char_drawers);
+            let mut height = crate::utils::chars2d::height(self.real_id.to_string(), char_drawers);
             if camera.borrow().get_globals().zoom < 7. {
                 height *= 2.;
                 for x in advances.iter_mut() {
@@ -414,7 +427,7 @@ impl Helix {
                 }
             }
             let x_shift = -advances[nb_chars] / 2. * scale;
-            for (c_idx, c) in self.id.to_string().chars().enumerate() {
+            for (c_idx, c) in self.real_id.to_string().chars().enumerate() {
                 let instances = char_map.get_mut(&c).unwrap();
                 instances.push(CharInstance {
                     center: circle.center + (x_shift + advances[c_idx] * scale) * Vec2::unit_x()

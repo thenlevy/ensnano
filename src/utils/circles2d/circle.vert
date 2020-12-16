@@ -2,6 +2,7 @@
 
 layout(location=0) out vec2 v_coords;
 layout(location=1) out float v_angle;
+layout(location=2) out float v_visible;
 
 layout(set = 0, binding = 0)
 uniform Globals {
@@ -15,6 +16,7 @@ struct Instances {
     float radius;
     float angle;
     int z_index;
+    uint visible;
 };
 
 layout(std430, set=1, binding=0) 
@@ -36,6 +38,7 @@ void main() {
     );
 
     v_angle = instances[gl_InstanceIndex].angle;
+    v_visible = float(instances[gl_InstanceIndex].visible);
     v_coords = position[gl_VertexIndex] * vec2(1, -1);
 
     float radius = instances[gl_InstanceIndex].radius;

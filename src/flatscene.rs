@@ -176,6 +176,10 @@ impl FlatScene {
                 Consequence::RmHelix(helix) => {
                     self.data[self.selected_design].borrow_mut().rm_helix(helix)
                 }
+                Consequence::FlipVisibility(helix, apply_to_other) => self.data
+                    [self.selected_design]
+                    .borrow_mut()
+                    .flip_visibility(helix, apply_to_other),
                 _ => (),
             }
         }

@@ -14,6 +14,7 @@ pub(super) struct Design2d {
     strands: Vec<Strand>,
     /// A pointer to the design
     design: Arc<Mutex<Design>>,
+    last_flip_other: Option<usize>,
 }
 
 impl Design2d {
@@ -23,6 +24,7 @@ impl Design2d {
             helices: Vec::new(),
             id_map: HashMap::new(),
             strands: Vec::new(),
+            last_flip_other: None,
         }
     }
 
@@ -50,6 +52,10 @@ impl Design2d {
             }
             self.strands.push(Strand::new(color, strand, *strand_id));
         }
+        for (h_id, h) in self.id_map.iter() {
+            let visibility = self.design.lock().unwrap().get_visibility_helix(*h_id);
+            self.helices[*h].visible = visibility.unwrap_or(false);
+        }
     }
 
     fn read_nucl(&mut self, nucl: &Nucl) {
@@ -76,6 +82,12 @@ impl Design2d {
                 left: nucl.position - 1,
                 right: nucl.position + 1,
                 isometry,
+                visible: self
+                    .design
+                    .lock()
+                    .unwrap()
+                    .get_visibility_helix(helix)
+                    .unwrap_or(false),
             });
         }
     }
@@ -103,6 +115,12 @@ impl Design2d {
                         left: -1,
                         right: 1,
                         isometry,
+                        visible: self
+                            .design
+                            .lock()
+                            .unwrap()
+                            .get_visibility_helix(*h_id)
+                            .unwrap_or(false),
                     });
                 }
             }
@@ -122,6 +140,30 @@ impl Design2d {
     pub fn set_isometry(&self, h_id: usize, isometry: Isometry2) {
         let helix = self.helices[h_id].id;
         self.design.lock().unwrap().set_isometry(helix, isometry);
+    }
+
+    pub fn flip_visibility(&mut self, h_id: usize, apply_to_other: bool) {
+        let helix = self.helices[h_id].id;
+        if apply_to_other {
+            let visibility = if self.last_flip_other == Some(h_id) {
+                self.last_flip_other = None;
+                self.helices[h_id].visible
+            } else {
+                self.last_flip_other = Some(h_id);
+                !self.helices[h_id].visible
+            };
+            for helix in self.id_map.keys().filter(|h| **h != helix) {
+                self.design
+                    .lock()
+                    .unwrap()
+                    .set_visibility_helix(*helix, visibility)
+            }
+        } else {
+            self.design
+                .lock()
+                .unwrap()
+                .set_visibility_helix(helix, !self.helices[h_id].visible)
+        }
     }
 
     pub fn get_builder(&self, nucl: Nucl, stick: bool) -> Option<StrandBuilder> {
@@ -205,4 +247,5 @@ pub struct Helix2d {
     /// The largest position of a nucleotide of the the helix
     pub right: isize,
     pub isometry: Isometry2,
+    pub visible: bool,
 }

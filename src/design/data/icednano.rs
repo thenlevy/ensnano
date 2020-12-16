@@ -522,6 +522,9 @@ pub struct Helix {
     /// Orientation of the helix
     pub orientation: Rotor3,
 
+    #[serde(default = "default_visibility")]
+    pub visible: bool,
+
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub grid_position: Option<GridPosition>,
 
@@ -533,6 +536,10 @@ pub struct Helix {
     /// Representation of the helix in 2d
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub isometry2d: Option<Isometry2>,
+}
+
+fn default_visibility() -> bool {
+    true
 }
 
 impl Helix {
@@ -567,6 +574,7 @@ impl Helix {
             old_orientation: orientation,
             grid_position: None,
             isometry2d: None,
+            visible: true,
         }
     }
 }
@@ -587,6 +595,7 @@ impl Helix {
                 axis_pos: 0,
                 roll: 0f32,
             }),
+            visible: true,
         }
     }
 

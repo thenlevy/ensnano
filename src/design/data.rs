@@ -354,9 +354,40 @@ impl Data {
         self.nucleotide.keys().copied()
     }
 
+    /// Return an iterator over all the identifier of elements that are nucleotides on a visible
+    /// helix
+    pub fn get_all_visible_nucl_ids(&self) -> Vec<u32> {
+        self.nucleotide
+            .iter()
+            .filter(|(_, n)| self.get_visibility_helix(n.helix).unwrap_or(false))
+            .map(|(k, _)| *k)
+            .collect()
+    }
+
+    fn get_visibility_nucl(&self, n_id: u32) -> bool {
+        if let Some(Nucl { helix, .. }) = self.nucleotide.get(&n_id) {
+            self.get_visibility_helix(*helix).expect("helix")
+        } else {
+            false
+        }
+    }
+
     /// Return an iterator over all the identifier of elements that are bounds
     pub fn get_all_bound_ids<'a>(&'a self) -> impl Iterator<Item = u32> + 'a {
         self.nucleotides_involved.keys().copied()
+    }
+
+    /// Return a vector of all the identifier of elements that are bounds between two
+    /// nucleotides among who at least one is visible
+    pub fn get_all_visible_bound_ids(&self) -> Vec<u32> {
+        self.nucleotides_involved
+            .iter()
+            .filter(|(_, b)| {
+                self.get_visibility_helix(b.0.helix).unwrap_or(false)
+                    || self.get_visibility_helix(b.1.helix).unwrap_or(false)
+            })
+            .map(|(k, _)| *k)
+            .collect()
     }
 
     /// Return the identifier of the strand on which an element lies
@@ -1148,6 +1179,18 @@ impl Data {
         self.identifier_nucl
             .get(nucl)
             .and_then(|id| self.strand_map.get(id).cloned())
+    }
+
+    pub fn get_visibility_helix(&self, h_id: usize) -> Option<bool> {
+        self.design.helices.get(&h_id).map(|h| h.visible)
+    }
+
+    pub fn set_visibility_helix(&mut self, h_id: usize, visibility: bool) {
+        self.design
+            .helices
+            .get_mut(&h_id)
+            .map(|h| h.visible = visibility);
+        self.update_status = true;
     }
 }
 

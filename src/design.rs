@@ -161,6 +161,25 @@ impl Design {
         self.data.lock().unwrap().get_all_nucl_ids().collect()
     }
 
+    pub fn get_all_visible_nucl_ids(&self) -> Vec<u32> {
+        self.data.lock().unwrap().get_all_visible_nucl_ids()
+    }
+
+    pub fn get_all_visible_bound_ids(&self) -> Vec<u32> {
+        self.data.lock().unwrap().get_all_visible_bound_ids()
+    }
+
+    pub fn get_visibility_helix(&self, h_id: usize) -> Option<bool> {
+        self.data.lock().unwrap().get_visibility_helix(h_id)
+    }
+
+    pub fn set_visibility_helix(&mut self, h_id: usize, visibility: bool) {
+        self.data
+            .lock()
+            .unwrap()
+            .set_visibility_helix(h_id, visibility)
+    }
+
     /// Return all identifer of bounds
     pub fn get_all_bound_ids(&self) -> Vec<u32> {
         self.data.lock().unwrap().get_all_bound_ids().collect()

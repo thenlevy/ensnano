@@ -72,6 +72,8 @@ impl Data {
                 h.right,
                 h.isometry,
                 (delta + nb_helix) as u32,
+                h.id,
+                h.visible,
             ));
             self.nb_helices_created += 1;
         }
@@ -315,6 +317,10 @@ impl Data {
     pub fn is_xover_end(&self, nucl: &Nucl) -> Option<bool> {
         let nucl = self.to_real(*nucl);
         self.design.is_xover_end(&nucl)
+    }
+
+    pub fn flip_visibility(&mut self, h_id: usize, apply_to_other: bool) {
+        self.design.flip_visibility(h_id, apply_to_other)
     }
 }
 
