@@ -313,11 +313,15 @@ impl Multiplexer {
             }
             WindowEvent::Resized(new_size) => {
                 self.window_size = *new_size;
-                self.generate_textures();
+                if self.window_size.width > 0 && self.window_size.height > 0 {
+                    self.generate_textures();
+                }
             }
             WindowEvent::ScaleFactorChanged { scale_factor, .. } => {
                 self.scale_factor = *scale_factor;
-                self.generate_textures();
+                if self.window_size.width > 0 && self.window_size.height > 0 {
+                    self.generate_textures();
+                }
             }
             WindowEvent::MouseInput {
                 button: MouseButton::Left,
