@@ -516,7 +516,7 @@ pub enum AppNotification {
     MovementEnded,
     Rotation(DesignRotation),
     Translation(DesignTranslation),
-    AddGridHelix(GridHelixDescriptor),
+    AddGridHelix(GridHelixDescriptor, isize, usize),
     RmGridHelix(GridHelixDescriptor),
     MakeGrids,
     AddGrid(GridDescriptor),

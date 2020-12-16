@@ -615,28 +615,7 @@ impl Data {
             if left.is_some() && right.is_some() {
                 return None;
             }
-            let mut new_key = 0usize;
-            while self.design.strands.contains_key(&new_key) {
-                new_key += 1;
-            }
-            let color = {
-                let hue = (self.color_idx as f64 * (1. + 5f64.sqrt()) / 2.).fract() * 360.;
-                let saturation =
-                    (self.color_idx as f64 * 7. * (1. + 5f64.sqrt() / 2.)).fract() * 0.4 + 0.6;
-                let value =
-                    (self.color_idx as f64 * 11. * (1. + 5f64.sqrt() / 2.)).fract() * 0.7 + 0.3;
-                let hsv = color_space::Hsv::new(hue, saturation, value);
-                let rgb = color_space::Rgb::from(hsv);
-                (0xFF << 24) | ((rgb.r as u32) << 16) | ((rgb.g as u32) << 8) | (rgb.b as u32)
-            };
-            self.color_idx += 1;
-
-            self.design.strands.insert(
-                new_key,
-                icednano::Strand::init(helix, position, forward, color),
-            );
-            self.hash_maps_update = true;
-            self.update_status = true;
+            let new_key = self.add_strand(helix, position, forward);
             Some(StrandBuilder::init_empty(
                 DomainIdentifier {
                     strand: new_key,
@@ -647,6 +626,31 @@ impl Data {
                 left.or(right),
             ))
         }
+    }
+
+    fn add_strand(&mut self, helix: usize, position: isize, forward: bool) -> usize {
+        let mut new_key = 0usize;
+        while self.design.strands.contains_key(&new_key) {
+            new_key += 1;
+        }
+        let color = {
+            let hue = (self.color_idx as f64 * (1. + 5f64.sqrt()) / 2.).fract() * 360.;
+            let saturation =
+                (self.color_idx as f64 * 7. * (1. + 5f64.sqrt() / 2.)).fract() * 0.4 + 0.6;
+            let value = (self.color_idx as f64 * 11. * (1. + 5f64.sqrt() / 2.)).fract() * 0.7 + 0.3;
+            let hsv = color_space::Hsv::new(hue, saturation, value);
+            let rgb = color_space::Rgb::from(hsv);
+            (0xFF << 24) | ((rgb.r as u32) << 16) | ((rgb.g as u32) << 8) | (rgb.b as u32)
+        };
+        self.color_idx += 1;
+
+        self.design.strands.insert(
+            new_key,
+            icednano::Strand::init(helix, position, forward, color),
+        );
+        self.hash_maps_update = true;
+        self.update_status = true;
+        new_key
     }
 
     pub fn get_symbol(&self, e_id: u32) -> Option<char> {
@@ -994,7 +998,14 @@ impl Data {
             .map(|g| g.position)
     }
 
-    pub fn build_helix_grid(&mut self, g_id: usize, x: isize, y: isize) {
+    pub fn build_helix_grid(
+        &mut self,
+        g_id: usize,
+        x: isize,
+        y: isize,
+        position: isize,
+        length: usize,
+    ) {
         if let Some(grid) = self.grid_manager.grids.get(g_id) {
             if !self.grids[g_id]
                 .read()
@@ -1005,6 +1016,16 @@ impl Data {
                 let helix = icednano::Helix::new_on_grid(grid, x, y, g_id);
                 let helix_id = self.design.helices.keys().last().unwrap_or(&0) + 1;
                 self.design.helices.insert(helix_id, helix);
+                if length > 0 {
+                    for b in [false, true].iter() {
+                        let new_key = self.add_strand(helix_id, position, *b);
+                        if let icednano::Domain::HelixDomain(ref mut dom) =
+                            self.design.strands.get_mut(&new_key).unwrap().domains[0]
+                        {
+                            dom.end = dom.start + length as isize;
+                        }
+                    }
+                }
                 self.update_status = true;
                 self.hash_maps_update = true;
                 self.grid_manager.update(&mut self.design);

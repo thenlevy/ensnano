@@ -112,6 +112,10 @@ pub enum ActionMode {
     /// User can elongate/shorten strands. The boolean attribute indicates if neighbour strands
     /// should "stick"
     Build(bool),
+    /// User is creating helices with two strands starting at a given position and with a given
+    /// length.
+    BuildHelix { position: isize, length: usize },
+    /// should "stick"
     /// Use can cut strands
     Cut,
 }
@@ -132,6 +136,7 @@ impl std::fmt::Display for ActionMode {
                 ActionMode::Translate => "Translate",
                 ActionMode::Rotate => "Rotate",
                 ActionMode::Build(_) => "Build",
+                ActionMode::BuildHelix { .. } => "BuildHelix",
                 ActionMode::Cut => "Cut",
             }
         )
@@ -142,6 +147,7 @@ impl ActionMode {
     pub fn is_build(&self) -> bool {
         match self {
             Self::Build(_) => true,
+            Self::BuildHelix { .. } => true,
             _ => false,
         }
     }

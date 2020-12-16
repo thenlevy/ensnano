@@ -571,6 +571,8 @@ pub struct GridHelixCreation {
     pub grid_id: usize,
     pub x: isize,
     pub y: isize,
+    pub position: isize,
+    pub length: usize,
 }
 
 impl Operation for GridHelixCreation {
@@ -609,11 +611,15 @@ impl Operation for GridHelixCreation {
     }
 
     fn effect(&self) -> AppNotification {
-        AppNotification::AddGridHelix(GridHelixDescriptor {
-            grid_id: self.grid_id,
-            x: self.x,
-            y: self.y,
-        })
+        AppNotification::AddGridHelix(
+            GridHelixDescriptor {
+                grid_id: self.grid_id,
+                x: self.x,
+                y: self.y,
+            },
+            self.position,
+            self.length,
+        )
     }
 
     fn description(&self) -> String {
@@ -688,6 +694,8 @@ impl Operation for GridHelixDeletion {
             y: self.y,
             design_id: self.design_id,
             grid_id: self.grid_id,
+            position: 0,
+            length: 0,
         })
     }
 

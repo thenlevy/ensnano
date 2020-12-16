@@ -206,10 +206,9 @@ impl Scene {
     }
 
     fn click_on(&mut self, clicked_pixel: PhysicalPosition<f64>) {
-        if self.data.borrow().get_action_mode().is_build()
-            && self.data.borrow().selection_mode == SelectionMode::Grid
-        {
-            self.build_helix(clicked_pixel)
+        let action_mode = self.data.borrow().get_action_mode();
+        if let ActionMode::BuildHelix { position, length } = action_mode {
+            self.build_helix(clicked_pixel, position, length)
         } else {
             self.mediator.lock().unwrap().finish_op();
             let element = if self.data.borrow().selection_mode == SelectionMode::Grid {
@@ -241,7 +240,12 @@ impl Scene {
         grid.or_else(move || self.element_selector.set_selected_id(clicked_pixel))
     }
 
-    fn build_helix(&mut self, clicked_pixel: PhysicalPosition<f64>) {
+    fn build_helix(
+        &mut self,
+        clicked_pixel: PhysicalPosition<f64>,
+        position: isize,
+        length: usize,
+    ) {
         let intersection = self.view.borrow().grid_intersection(
             clicked_pixel.x as f32 / self.area.size.width as f32,
             clicked_pixel.y as f32 / self.area.size.height as f32,
@@ -256,6 +260,8 @@ impl Scene {
                     design_id: intersection.design_id,
                     x: intersection.x,
                     y: intersection.y,
+                    length,
+                    position,
                 }));
         } else {
             self.mediator.lock().unwrap().finish_op();

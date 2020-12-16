@@ -4,8 +4,8 @@ use iced::{container, Background, Container, Image};
 use iced_wgpu::Renderer;
 use iced_winit::winit::dpi::{LogicalPosition, LogicalSize};
 use iced_winit::{
-    button, scrollable, slider, Button, Checkbox, Color, Column, Command, Element, Length, Program,
-    Row, Scrollable, Slider, Text,
+    button, scrollable, slider, text_input, Button, Checkbox, Color, Column, Command, Element,
+    Length, Program, Row, Scrollable, Slider, Text, TextInput,
 };
 use native_dialog::Dialog;
 use ultraviolet::Vec3;
@@ -19,6 +19,7 @@ mod color_picker;
 use color_picker::ColorPicker;
 mod sequence_input;
 use sequence_input::SequenceInput;
+use text_input_style::BadValue;
 
 const BUTTON_SIZE: u16 = 40;
 
@@ -41,6 +42,11 @@ pub struct LeftPanel {
     camera_rotation_buttons: [button::State; 4],
     xz: isize,
     yz: isize,
+    length_helices: usize,
+    position_helices: isize,
+    length_str: String,
+    position_str: String,
+    builder_input: [text_input::State; 2],
 }
 
 #[derive(Debug, Clone)]
@@ -58,6 +64,8 @@ pub enum Message {
     NewGrid,
     FixPoint(Vec3, Vec3),
     RotateCam(f32, f32),
+    PositionHelicesChanged(String),
+    LengthHelicesChanged(String),
 }
 
 impl LeftPanel {
@@ -84,6 +92,11 @@ impl LeftPanel {
             camera_target_buttons: Default::default(),
             xz: 0,
             yz: 0,
+            builder_input: Default::default(),
+            length_helices: 0,
+            position_helices: 0,
+            length_str: "0".to_string(),
+            position_str: "0".to_string(),
         }
     }
 
@@ -108,8 +121,21 @@ impl Program for LeftPanel {
                 self.requests.lock().unwrap().selection_mode = Some(selection_mode);
             }
             Message::ActionModeChanged(action_mode) => {
-                self.action_mode = action_mode;
-                self.requests.lock().unwrap().action_mode = Some(action_mode)
+                let action_mode = if action_mode.is_build() {
+                    match self.selection_mode {
+                        SelectionMode::Grid => ActionMode::BuildHelix {
+                            position: self.position_helices,
+                            length: self.length_helices,
+                        },
+                        _ => action_mode,
+                    }
+                } else {
+                    action_mode
+                };
+                if self.action_mode != action_mode {
+                    self.action_mode = action_mode;
+                    self.requests.lock().unwrap().action_mode = Some(action_mode)
+                }
             }
             Message::SequenceChanged(s) => {
                 self.requests.lock().unwrap().sequence_change = Some(s.clone());
@@ -164,6 +190,34 @@ impl Program for LeftPanel {
                 self.requests.lock().unwrap().camera_target = Some((point, up));
                 self.xz = 0;
                 self.yz = 0;
+            }
+            Message::LengthHelicesChanged(length_str) => {
+                if let Ok(length) = length_str.parse::<usize>() {
+                    self.length_helices = length
+                }
+                self.length_str = length_str;
+                let action_mode = ActionMode::BuildHelix {
+                    position: self.position_helices,
+                    length: self.length_helices,
+                };
+                if self.action_mode != action_mode {
+                    self.action_mode = action_mode;
+                    self.requests.lock().unwrap().action_mode = Some(action_mode)
+                }
+            }
+            Message::PositionHelicesChanged(position_str) => {
+                if let Ok(position) = position_str.parse::<isize>() {
+                    self.position_helices = position
+                }
+                self.position_str = position_str;
+                let action_mode = ActionMode::BuildHelix {
+                    position: self.position_helices,
+                    length: self.length_helices,
+                };
+                if self.action_mode != action_mode {
+                    self.action_mode = action_mode;
+                    self.requests.lock().unwrap().action_mode = Some(action_mode)
+                }
             }
         };
         Command::none()
@@ -369,6 +423,26 @@ impl Program for LeftPanel {
             .width(Length::Units(40)),
         ];
 
+        let mut inputs = self.builder_input.iter_mut();
+
+        let position_input = TextInput::new(
+            inputs.next().unwrap(),
+            "Position",
+            &self.position_str,
+            Message::PositionHelicesChanged,
+        )
+        .style(BadValue(
+            self.position_str == self.position_helices.to_string(),
+        ));
+
+        let length_input = TextInput::new(
+            inputs.next().unwrap(),
+            "Length",
+            &self.length_str,
+            Message::LengthHelicesChanged,
+        )
+        .style(BadValue(self.length_str == self.length_helices.to_string()));
+
         global_scroll = global_scroll.spacing(5).push(Text::new("Action Mode"));
         while action_buttons.len() > 0 {
             let mut row = Row::new();
@@ -379,6 +453,30 @@ impl Program for LeftPanel {
                 space += BUTTON_SIZE + 5;
             }
             global_scroll = global_scroll.spacing(5).push(row)
+        }
+
+        if let ActionMode::Build(b) = self.action_mode {
+            global_scroll = global_scroll.spacing(5).push(
+                Checkbox::new(b, "Stick", |b| {
+                    Message::ActionModeChanged(ActionMode::Build(b))
+                })
+                .size(12)
+                .text_size(12),
+            )
+        } else if let ActionMode::BuildHelix { .. } = self.action_mode {
+            let row = Row::new()
+                .push(
+                    Column::new()
+                        .push(Text::new("Position strand").size(14).color(Color::BLACK))
+                        .push(position_input)
+                        .width(Length::Units(width / 2)),
+                )
+                .push(
+                    Column::new()
+                        .push(Text::new("Length strands").size(14).color(Color::BLACK))
+                        .push(length_input),
+                );
+            global_scroll = global_scroll.push(row);
         }
 
         let mut target_buttons: Vec<_> = self
@@ -424,16 +522,6 @@ impl Program for LeftPanel {
                 space += 30 + 5;
             }
             global_scroll = global_scroll.spacing(5).push(row)
-        }
-
-        if let ActionMode::Build(b) = self.action_mode {
-            global_scroll = global_scroll.spacing(5).push(
-                Checkbox::new(b, "Stick", |b| {
-                    Message::ActionModeChanged(ActionMode::Build(b))
-                })
-                .size(12)
-                .text_size(12),
-            )
         }
 
         let mut widget = Column::new()
@@ -677,5 +765,44 @@ fn target_text(i: usize) -> String {
         3 => "Y-".to_string(),
         4 => "Z+".to_string(),
         _ => "Z-".to_string(),
+    }
+}
+
+mod text_input_style {
+    use iced::{Background, Color};
+    use iced_wgpu::text_input::*;
+    pub struct BadValue(pub bool);
+    impl iced_wgpu::text_input::StyleSheet for BadValue {
+        fn active(&self) -> Style {
+            Style {
+                background: Background::Color(Color::WHITE),
+                border_radius: 5.0,
+                border_width: 1.0,
+                border_color: Color::from_rgb(0.7, 0.7, 0.7),
+            }
+        }
+
+        fn focused(&self) -> Style {
+            Style {
+                border_color: Color::from_rgb(0.5, 0.5, 0.5),
+                ..self.active()
+            }
+        }
+
+        fn placeholder_color(&self) -> Color {
+            Color::from_rgb(0.7, 0.7, 0.7)
+        }
+
+        fn value_color(&self) -> Color {
+            if self.0 {
+                Color::from_rgb(0.3, 0.3, 0.3)
+            } else {
+                Color::from_rgb(1., 0.3, 0.3)
+            }
+        }
+
+        fn selection_color(&self) -> Color {
+            Color::from_rgb(0.8, 0.8, 1.0)
+        }
     }
 }
