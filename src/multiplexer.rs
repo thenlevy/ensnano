@@ -221,29 +221,29 @@ impl Multiplexer {
                 ElementType::FlatScene,
                 ElementType::StatusBar,
             ]
-                .iter()
-                {
-                    if let Some(area) = self.get_draw_area(*element) {
-                        render_pass.set_bind_group(0, self.get_bind_group(element), &[]);
+            .iter()
+            {
+                if let Some(area) = self.get_draw_area(*element) {
+                    render_pass.set_bind_group(0, self.get_bind_group(element), &[]);
 
-                        render_pass.set_viewport(
-                            area.position.x as f32,
-                            area.position.y as f32,
-                            area.size.width as f32,
-                            area.size.height as f32,
-                            0.0,
-                            1.0,
-                        );
-                        render_pass.set_scissor_rect(
-                            area.position.x,
-                            area.position.y,
-                            area.size.width,
-                            area.size.height,
-                        );
-                        render_pass.set_pipeline(self.pipeline.as_ref().unwrap());
-                        render_pass.draw(0..4, 0..1);
-                    }
+                    render_pass.set_viewport(
+                        area.position.x as f32,
+                        area.position.y as f32,
+                        area.size.width as f32,
+                        area.size.height as f32,
+                        0.0,
+                        1.0,
+                    );
+                    render_pass.set_scissor_rect(
+                        area.position.x,
+                        area.position.y,
+                        area.size.width,
+                        area.size.height,
+                    );
+                    render_pass.set_pipeline(self.pipeline.as_ref().unwrap());
+                    render_pass.draw(0..4, 0..1);
                 }
+            }
         }
     }
 

@@ -447,7 +447,9 @@ fn main() {
                 mediator.lock().unwrap().observe_designs();
                 window.request_redraw();
             }
-            Event::RedrawRequested(_) => {
+            Event::RedrawRequested(_)
+                if window.inner_size().width > 0 && window.inner_size().height > 0 =>
+            {
                 if resized {
                     scheduler
                         .lock()
