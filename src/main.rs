@@ -182,6 +182,7 @@ fn main() {
         &device,
         Settings {
             antialiasing: Some(iced_graphics::Antialiasing::MSAAx4),
+            default_text_size: 14,
             ..Default::default()
         },
     ));
@@ -393,9 +394,9 @@ fn main() {
                         requests.selection_mode = None;
                     }
 
-                    if let Some(action_mode) = requests.action_mode {
+                    if let Some(action_mode) = requests.action_mode.take() {
+                        println!("action mode {:?}", action_mode);
                         mediator.lock().unwrap().change_action_mode(action_mode);
-                        requests.action_mode = None;
                     }
 
                     if let Some(sequence) = requests.sequence_change.take() {

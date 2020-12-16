@@ -174,9 +174,15 @@ impl Design {
             AppNotification::Rotation(rotation) => self.apply_rotation(&rotation),
             AppNotification::Translation(translation) => self.apply_translation(&translation),
             AppNotification::MakeGrids => self.data.lock().unwrap().create_grids(),
-            AppNotification::AddGridHelix(GridHelixDescriptor { grid_id, x, y }) => {
-                self.data.lock().unwrap().build_helix_grid(grid_id, x, y)
-            }
+            AppNotification::AddGridHelix(
+                GridHelixDescriptor { grid_id, x, y },
+                position,
+                length,
+            ) => self
+                .data
+                .lock()
+                .unwrap()
+                .build_helix_grid(grid_id, x, y, position, length),
             AppNotification::RmGridHelix(GridHelixDescriptor { grid_id, x, y }) => {
                 self.data.lock().unwrap().rm_helix_grid(grid_id, x, y)
             }
@@ -392,8 +398,18 @@ impl Design {
         self.data.lock().unwrap().get_grid_pos_helix(h_id)
     }
 
-    pub fn build_helix_grid(&mut self, g_id: usize, x: isize, y: isize) {
-        self.data.lock().unwrap().build_helix_grid(g_id, x, y)
+    pub fn build_helix_grid(
+        &mut self,
+        g_id: usize,
+        x: isize,
+        y: isize,
+        position: isize,
+        length: usize,
+    ) {
+        self.data
+            .lock()
+            .unwrap()
+            .build_helix_grid(g_id, x, y, position, length)
     }
 
     pub fn get_persistent_phantom_helices(&self) -> HashSet<u32> {
