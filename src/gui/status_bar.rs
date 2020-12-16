@@ -204,7 +204,14 @@ impl Program for StatusBar {
                 self.selection = s;
                 self.info_values = v;
             }
-            Message::SetSmallSpheres(b) => self.requests.lock().unwrap().small_spheres = Some(b),
+            Message::SetSmallSpheres(b) => {
+                self.info_values[1] = if b {
+                    "true".to_string()
+                } else {
+                    "false".to_string()
+                };
+                self.requests.lock().unwrap().small_spheres = Some(b);
+            }
             Message::ClearOp => self.operation = None,
         }
         Command::none()
