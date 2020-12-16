@@ -22,6 +22,8 @@ struct Instances {
     vec3 position;
     uint id;
     vec4 color;
+    vec3 shift;
+    float scale;
 };
 
 layout(std430, set=2, binding=0) 
@@ -42,6 +44,8 @@ void main() {
     mat4 rotation = mat4(mat3(inverse(u_view)));
     mat4 model_matrix = model_matrix2[model_idx] * model * rotation;
 
-    vec4 model_space = model_matrix * vec4(vec3(a_position * vec2(0.5, -0.5), 0.0), 1.0); 
+    float scale = instances[gl_InstanceIndex].scale;
+    vec3 shift = instances[gl_InstanceIndex].shift;
+    vec4 model_space = model_matrix * vec4(vec3((a_position + vec2(shift)) * scale * vec2(0.5, -0.5), 0.0), 1.0); 
     gl_Position = u_proj * (u_view * model_space + vec4(0., 0., 0.25, 0.));
 }

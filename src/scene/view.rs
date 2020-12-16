@@ -80,6 +80,7 @@ pub struct View {
     new_size: Option<PhySize>,
     /// The pipilines that draw the basis symbols
     letter_drawer: Vec<InstanceDrawer<LetterInstance>>,
+    helix_letter_drawer: Vec<InstanceDrawer<LetterInstance>>,
     device: Rc<Device>,
     /// A bind group associated to the uniform buffer containing the view and projection matrices.
     //TODO this is currently only passed to the widgets, it could be passed to the mesh pipeline as
@@ -139,6 +140,21 @@ impl View {
                 )
             })
             .collect();
+        let helix_letter_drawer = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
+            .iter()
+            .map(|c| {
+                let letter = Letter::new(*c, device.clone(), queue.clone());
+                InstanceDrawer::new(
+                    device.clone(),
+                    queue.clone(),
+                    &viewer.get_layout_desc(),
+                    &model_bg_desc,
+                    letter,
+                    false,
+                )
+            })
+            .collect();
+
         let depth_texture =
             texture::Texture::create_depth_texture(device.as_ref(), &area_size, SAMPLE_COUNT);
         let fake_depth_texture =
@@ -205,6 +221,7 @@ impl View {
             handle_drawers: HandlesDrawer::new(device.clone()),
             rotation_widget: RotationWidget::new(device),
             letter_drawer,
+            helix_letter_drawer,
             redraw_twice: false,
             need_redraw: true,
             need_redraw_fake: true,
@@ -261,6 +278,11 @@ impl View {
             ViewUpdate::Letter(letter) => {
                 for (i, instance) in letter.into_iter().enumerate() {
                     self.letter_drawer[i].new_instances(instance);
+                }
+            }
+            ViewUpdate::GridLetter(letter) => {
+                for (i, instance) in letter.into_iter().enumerate() {
+                    self.helix_letter_drawer[i].new_instances(instance);
                 }
             }
             ViewUpdate::Grids(grid) => self.grid_manager.new_instances(grid),
@@ -458,6 +480,13 @@ impl View {
                     viewer_bind_group,
                     self.models.get_bindgroup(),
                 );
+                for drawer in self.helix_letter_drawer.iter_mut() {
+                    drawer.draw(
+                        &mut render_pass,
+                        viewer_bind_group,
+                        self.models.get_bindgroup(),
+                    )
+                }
             }
 
             if fake_color {
@@ -641,6 +670,7 @@ pub enum ViewUpdate {
     Handles(Option<HandlesDescriptor>),
     RotationWidget(Option<RotationWidgetDescriptor>),
     Letter(Vec<Vec<LetterInstance>>),
+    GridLetter(Vec<Vec<LetterInstance>>),
     Grids(Rc<Vec<GridInstance>>),
     GridDiscs(Vec<GridDisc>),
     RawDna(Mesh, Rc<Vec<RawDnaInstance>>),

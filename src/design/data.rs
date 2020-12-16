@@ -1009,6 +1009,17 @@ impl Data {
             .map(|g| g.read().unwrap().helices().keys().cloned().collect())
     }
 
+    pub fn get_helices_grid_key_coord(&self, g_id: usize) -> Option<Vec<((isize, isize), usize)>> {
+        self.grids.get(g_id).map(|g| {
+            g.read()
+                .unwrap()
+                .helices()
+                .iter()
+                .map(|(a, b)| (*a, *b))
+                .collect()
+        })
+    }
+
     pub fn get_helix_grid(&self, g_id: u32, x: isize, y: isize) -> Option<u32> {
         self.grids
             .get(g_id as usize)

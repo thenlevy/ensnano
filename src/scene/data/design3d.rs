@@ -82,6 +82,8 @@ impl Design3D {
                         position: pos,
                         color: ultraviolet::Vec4::new(0., 0., 0., 1.),
                         design_id: self.id,
+                        scale: 1.,
+                        shift: Vec3::zero(),
                     };
                     vecs[*id].push(instance);
                 }
@@ -614,6 +616,14 @@ impl Design3D {
             .lock()
             .unwrap()
             .get_helices_grid_coord(g_id)
+            .unwrap_or(Vec::new())
+    }
+
+    pub fn get_helices_grid_key_coord(&self, g_id: usize) -> Vec<((isize, isize), usize)> {
+        self.design
+            .lock()
+            .unwrap()
+            .get_helices_grid_key_coord(g_id)
             .unwrap_or(Vec::new())
     }
 

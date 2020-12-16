@@ -662,6 +662,9 @@ impl Data {
 
     fn update_discs(&mut self) {
         let mut discs = Vec::new();
+        let mut letters: Vec<Vec<LetterInstance>> = vec![vec![]; 10];
+        let right = self.view.borrow().get_camera().borrow().right_vec();
+        let up = self.view.borrow().get_camera().borrow().up_vec();
         for (d_id, design) in self.designs.iter().enumerate() {
             for grid in design.get_grid().iter() {
                 for (x, y) in design.get_helices_grid_coord(grid.id) {
@@ -673,6 +676,9 @@ impl Data {
                         discs.push(d1);
                         discs.push(d2);
                     }
+                }
+                for ((x, y), h_id) in design.get_helices_grid_key_coord(grid.id) {
+                    grid.letter_instance(x, y, h_id, &mut letters, right, up);
                 }
             }
         }
@@ -689,6 +695,9 @@ impl Data {
             discs.push(d2);
         }
         self.view.borrow_mut().update(ViewUpdate::GridDiscs(discs));
+        self.view
+            .borrow_mut()
+            .update(ViewUpdate::GridLetter(letters));
     }
     /// This fuction must be called when the model matrices have been modfied
     pub fn notify_matrices_update(&mut self) {

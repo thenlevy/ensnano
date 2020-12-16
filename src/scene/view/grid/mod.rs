@@ -3,7 +3,7 @@ use std::rc::Rc;
 use ultraviolet::{Mat4, Vec2, Vec3};
 use wgpu::{include_spirv, Device, RenderPass};
 
-use super::{grid_disc::GridDisc, instances_drawer::*};
+use super::{grid_disc::GridDisc, instances_drawer::*, LetterInstance};
 pub use crate::design::{Grid, GridDivision, GridType, GridTypeDescr, Parameters};
 
 mod texture;
@@ -41,6 +41,30 @@ impl GridInstance {
                 ..gd
             },
         )
+    }
+
+    pub fn letter_instance(
+        &self,
+        x: isize,
+        y: isize,
+        h_id: usize,
+        instances: &mut Vec<Vec<LetterInstance>>,
+        right: Vec3,
+        up: Vec3,
+    ) {
+        let position = self.grid.position_helix(x, y);
+        for (c_idx, c) in h_id.to_string().chars().enumerate() {
+            let shift = 0.5 * up - 0.35 * h_id.to_string().len() as f32 * right;
+            let instance = LetterInstance {
+                position: position + 0.7 * c_idx as f32 * right + shift,
+                color: ultraviolet::Vec4::new(0., 0., 0., 1.),
+                design_id: self.design as u32,
+                scale: 3.,
+                shift: Vec3::zero(),
+            };
+            let idx = c.to_digit(10).unwrap();
+            instances[idx as usize].push(instance);
+        }
     }
 
     fn to_raw(&self) -> GridInstanceRaw {

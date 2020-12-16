@@ -10,6 +10,8 @@ pub struct LetterInstance {
     pub position: Vec3,
     pub color: Vec4,
     pub design_id: u32,
+    pub scale: f32,
+    pub shift: Vec3,
 }
 
 #[repr(C)]
@@ -18,6 +20,8 @@ pub struct RawLetter {
     pub position: Vec3,
     pub design_id: u32,
     pub color: Vec4,
+    pub shift: Vec3,
+    pub scale: f32,
 }
 
 unsafe impl bytemuck::Zeroable for RawLetter {}
@@ -111,6 +115,8 @@ impl Instanciable for LetterInstance {
             position: self.position,
             color: self.color,
             design_id: self.design_id,
+            scale: self.scale,
+            shift: self.shift,
         }
     }
 

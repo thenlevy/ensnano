@@ -16,5 +16,5 @@ void main() {
     discard;
     }
 
-    f_color =  vec4(1., 1., 1., color.w);
+    f_color =  vec4(v_color.xyz, color.w);
 }
