@@ -39,12 +39,18 @@ impl Selection {
     pub fn fetch_values(&self, design: Arc<Mutex<Design>>) -> Vec<String> {
         match self {
             Selection::Grid(_, g_id) => {
-                let b = design.lock().unwrap().has_persistent_phantom(g_id);
-                if b {
-                    vec![String::from("true")]
-                } else {
-                    vec![String::from("false")]
-                }
+                let b1 = design.lock().unwrap().has_persistent_phantom(g_id);
+                let b2 = design.lock().unwrap().has_small_spheres(g_id);
+                vec![b1, b2]
+                    .iter()
+                    .map(|b| {
+                        if *b {
+                            "true".to_string()
+                        } else {
+                            "false".to_string()
+                        }
+                    })
+                    .collect()
             }
             Selection::Strand(d_id, s_id) => vec![format!(
                 "{:?}",

@@ -454,6 +454,27 @@ impl Design {
             .set_persistent_phantom(g_id, persistent);
     }
 
+    pub fn set_small_spheres(&self, g_id: &u32, small: bool) {
+        println!("setting small {} {}", *g_id, small);
+        self.data.lock().unwrap().set_small_spheres(g_id, small);
+    }
+
+    pub fn has_small_spheres_nucl_id(&mut self, n_id: u32) -> bool {
+        let helix = self.get_nucl(n_id).map(|n| n.helix);
+        helix
+            .as_ref()
+            .map(|h_id| self.helix_has_small_spheres(h_id))
+            .unwrap_or(false)
+    }
+
+    pub fn helix_has_small_spheres(&mut self, h_id: &usize) -> bool {
+        self.data.lock().unwrap().helix_has_small_spheres(h_id)
+    }
+
+    pub fn has_small_spheres(&mut self, g_id: &u32) -> bool {
+        self.data.lock().unwrap().has_small_spheres(g_id)
+    }
+
     pub fn helix_is_empty(&self, helix: usize) -> bool {
         self.data.lock().unwrap().helix_is_empty(helix)
     }

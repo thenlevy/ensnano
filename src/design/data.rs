@@ -364,14 +364,6 @@ impl Data {
             .collect()
     }
 
-    fn get_visibility_nucl(&self, n_id: u32) -> bool {
-        if let Some(Nucl { helix, .. }) = self.nucleotide.get(&n_id) {
-            self.get_visibility_helix(*helix).expect("helix")
-        } else {
-            false
-        }
-    }
-
     /// Return an iterator over all the identifier of elements that are bounds
     pub fn get_all_bound_ids<'a>(&'a self) -> impl Iterator<Item = u32> + 'a {
         self.nucleotides_involved.keys().copied()
@@ -1165,6 +1157,25 @@ impl Data {
             .write()
             .unwrap()
             .persistent_phantom = persistent;
+        self.update_status = true;
+    }
+
+    pub fn helix_has_small_spheres(&mut self, h_id: &usize) -> bool {
+        let helix = self.design.helices.get(h_id);
+        if let Some(gp) = helix.and_then(|h| h.grid_position) {
+            self.grids[gp.grid].read().unwrap().small_spheres
+        } else {
+            false
+        }
+    }
+
+    pub fn has_small_spheres(&mut self, g_id: &u32) -> bool {
+        self.grids[*g_id as usize].read().unwrap().small_spheres
+    }
+
+    pub fn set_small_spheres(&mut self, g_id: &u32, small: bool) {
+        println!("setting small {} {}", *g_id, small);
+        self.grids[*g_id as usize].write().unwrap().small_spheres = small;
         self.update_status = true;
     }
 

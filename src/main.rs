@@ -427,6 +427,11 @@ fn main() {
                         mediator.lock().unwrap().set_persistent_phantom(b)
                     }
 
+                    if let Some(b) = requests.small_spheres.take() {
+                        println!("requested small spheres");
+                        mediator.lock().unwrap().set_small_spheres(b)
+                    }
+
                     if let Some(point) = requests.camera_target.take() {
                         mediator.lock().unwrap().set_camera_target(point)
                     }

@@ -754,6 +754,7 @@ pub struct Grid2D {
     parameters: Parameters,
     id: usize,
     pub persistent_phantom: bool,
+    pub small_spheres: bool,
 }
 
 impl Grid2D {
@@ -764,6 +765,7 @@ impl Grid2D {
             parameters,
             id,
             persistent_phantom: true,
+            small_spheres: false,
         }
     }
 

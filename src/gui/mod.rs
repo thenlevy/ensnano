@@ -63,6 +63,7 @@ pub struct Requests {
     pub new_grid: bool,
     pub camera_rotation: Option<(f32, f32)>,
     pub camera_target: Option<(Vec3, Vec3)>,
+    pub small_spheres: Option<bool>,
 }
 
 impl Requests {
@@ -88,6 +89,7 @@ impl Requests {
             new_grid: false,
             camera_target: None,
             camera_rotation: None,
+            small_spheres: None,
         }
     }
 }

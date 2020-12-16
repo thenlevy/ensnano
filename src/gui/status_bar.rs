@@ -135,6 +135,15 @@ impl StatusBar {
                     .size(STATUS_FONT_SIZE)
                     .text_size(STATUS_FONT_SIZE),
                 );
+                row = row.push(
+                    Checkbox::new(
+                        bool::from_str(&self.info_values[1]).unwrap(),
+                        "Small spheres",
+                        |b| Message::SetSmallSpheres(b),
+                    )
+                    .size(STATUS_FONT_SIZE)
+                    .text_size(STATUS_FONT_SIZE),
+                );
             }
             Selection::Strand(_, _) => {
                 row = row.push(
@@ -161,6 +170,7 @@ pub enum Message {
     Selection(Selection, Vec<String>),
     ValueChanged(usize, String),
     SelectionValueChanged(usize, String),
+    SetSmallSpheres(bool),
     ClearOp,
 }
 
@@ -194,6 +204,7 @@ impl Program for StatusBar {
                 self.selection = s;
                 self.info_values = v;
             }
+            Message::SetSmallSpheres(b) => self.requests.lock().unwrap().small_spheres = Some(b),
             Message::ClearOp => self.operation = None,
         }
         Command::none()

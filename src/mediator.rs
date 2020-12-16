@@ -227,7 +227,17 @@ impl Mediator {
                 .lock()
                 .unwrap()
                 .set_persistent_phantom(&g_id, persistent),
-            _ => panic!("Selection is not a grid"),
+            _ => println!("Selection is not a grid"),
+        }
+    }
+
+    pub fn set_small_spheres(&mut self, small: bool) {
+        match self.selection {
+            Selection::Grid(d_id, g_id) => self.designs[d_id as usize]
+                .lock()
+                .unwrap()
+                .set_small_spheres(&g_id, small),
+            _ => println!("Selection is not a grid"),
         }
     }
 
