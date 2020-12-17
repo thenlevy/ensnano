@@ -44,11 +44,11 @@ impl Controller {
                 .lock()
                 .unwrap()
                 .translate_grid(g_id as usize, translation.translation),
-            IsometryTarget::Helix(h_id) => self
+            IsometryTarget::Helix(h_id, b) => self
                 .data
                 .lock()
                 .unwrap()
-                .translate_helix(h_id as usize, translation.translation),
+                .translate_helix(h_id as usize, translation.translation, b),
         }
     }
 
@@ -67,7 +67,7 @@ impl Controller {
                     * self.old_matrix;
                 self.view.borrow_mut().set_matrix(new_matrix);
             }
-            IsometryTarget::Helix(n) => {
+            IsometryTarget::Helix(n, _) => {
                 // Helices are rotated in the model coordinates.
                 let origin = self.old_matrix.inversed().transform_point3(rotation.origin);
                 let basis = ultraviolet::Mat3::new(
@@ -128,7 +128,7 @@ pub enum IsometryTarget {
     /// The view of the whole design
     Design,
     /// An helix of the design
-    Helix(u32),
+    Helix(u32, bool),
     /// A grid of the desgin
     Grid(u32),
 }

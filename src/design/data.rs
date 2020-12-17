@@ -474,19 +474,21 @@ impl Data {
             .map(|h| h.rotate_arround(rotation, origin))
             .unwrap_or_default();
         self.grid_manager
-            .reattach_helix(h_id, &mut self.design, false);
+            .reattach_helix(h_id, &mut self.design, false, &self.grids);
         self.grid_manager.update(&mut self.design);
         self.hash_maps_update = true;
         self.update_status = true;
     }
 
-    pub fn translate_helix(&mut self, h_id: usize, translation: Vec3) {
+    pub fn translate_helix(&mut self, h_id: usize, translation: Vec3, snap_grid: bool) {
         self.design
             .helices
             .get_mut(&h_id)
             .map(|h| h.translate(translation));
-        self.grid_manager
-            .reattach_helix(h_id, &mut self.design, true);
+        if snap_grid {
+            self.grid_manager
+                .reattach_helix(h_id, &mut self.design, true, &self.grids);
+        }
         self.grid_manager.update(&mut self.design);
         self.update_grids();
         self.hash_maps_update = true;
