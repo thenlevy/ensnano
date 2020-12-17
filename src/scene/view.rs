@@ -648,11 +648,11 @@ impl View {
         self.grid_manager.intersect(ray.0, ray.1)
     }
 
-    pub fn set_candidate_grid(&mut self, grid: Option<(u32, u32)>) {
+    pub fn set_candidate_grid(&mut self, grid: Option<(u32, usize)>) {
         self.grid_manager.set_candidate_grid(grid)
     }
 
-    pub fn set_selected_grid(&mut self, grid: Option<(u32, u32)>) {
+    pub fn set_selected_grid(&mut self, grid: Option<(u32, usize)>) {
         self.grid_manager.set_selected_grid(grid)
     }
 }

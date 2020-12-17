@@ -204,8 +204,8 @@ pub enum SceneElement {
     DesignElement(u32, u32),
     WidgetElement(u32),
     PhantomElement(utils::PhantomElement),
-    Grid(u32, u32),
-    GridCircle(u32, u32, isize, isize),
+    Grid(u32, usize),
+    GridCircle(u32, usize, isize, isize),
 }
 
 impl SceneElement {

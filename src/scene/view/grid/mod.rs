@@ -229,14 +229,14 @@ impl GridManager {
         ret
     }
 
-    pub fn set_candidate_grid(&mut self, grid: Option<(u32, u32)>) {
+    pub fn set_candidate_grid(&mut self, grid: Option<(u32, usize)>) {
         self.need_new_colors = true;
-        self.candidate = grid.map(|(a, b)| (a as usize, b as usize))
+        self.candidate = grid.map(|(a, b)| (a as usize, b))
     }
 
-    pub fn set_selected_grid(&mut self, grid: Option<(u32, u32)>) {
+    pub fn set_selected_grid(&mut self, grid: Option<(u32, usize)>) {
         self.need_new_colors = true;
-        self.selected = grid.map(|(a, b)| (a as usize, b as usize))
+        self.selected = grid.map(|(a, b)| (a as usize, b))
     }
 
     fn update_colors(&mut self) {

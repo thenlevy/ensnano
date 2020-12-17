@@ -8,7 +8,7 @@ pub enum Selection {
     Design(u32),
     Strand(u32, u32),
     Helix(u32, u32),
-    Grid(u32, u32),
+    Grid(u32, usize),
     Nothing,
 }
 

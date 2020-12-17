@@ -611,7 +611,7 @@ impl Design3D {
         self.design.lock().unwrap().get_grid_instance()
     }
 
-    pub fn get_helices_grid(&self, g_id: u32) -> Option<HashSet<u32>> {
+    pub fn get_helices_grid(&self, g_id: usize) -> Option<HashSet<usize>> {
         self.design.lock().unwrap().get_helices_grid(g_id)
     }
 
@@ -631,7 +631,7 @@ impl Design3D {
             .unwrap_or(Vec::new())
     }
 
-    pub fn get_helix_grid(&self, g_id: u32, x: isize, y: isize) -> Option<u32> {
+    pub fn get_helix_grid(&self, g_id: usize, x: isize, y: isize) -> Option<u32> {
         self.design.lock().unwrap().get_helix_grid(g_id, x, y)
     }
 
@@ -639,7 +639,7 @@ impl Design3D {
         self.design.lock().unwrap().get_persistent_phantom_helices()
     }
 
-    pub fn get_grid_basis(&self, g_id: u32) -> Option<Rotor3> {
+    pub fn get_grid_basis(&self, g_id: usize) -> Option<Rotor3> {
         self.design.lock().unwrap().get_grid_basis(g_id)
     }
 

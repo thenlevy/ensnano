@@ -393,11 +393,11 @@ impl Design {
         self.data.lock().unwrap().get_grid(id)
     }
 
-    pub fn get_grid_basis(&self, g_id: u32) -> Option<ultraviolet::Rotor3> {
+    pub fn get_grid_basis(&self, g_id: usize) -> Option<ultraviolet::Rotor3> {
         self.data.lock().unwrap().get_grid_basis(g_id)
     }
 
-    pub fn get_helices_grid(&self, g_id: u32) -> Option<HashSet<u32>> {
+    pub fn get_helices_grid(&self, g_id: usize) -> Option<HashSet<usize>> {
         self.data.lock().unwrap().get_helices_grid(g_id)
     }
 
@@ -409,11 +409,11 @@ impl Design {
         self.data.lock().unwrap().get_helices_grid_key_coord(g_id)
     }
 
-    pub fn get_helix_grid(&self, g_id: u32, x: isize, y: isize) -> Option<u32> {
+    pub fn get_helix_grid(&self, g_id: usize, x: isize, y: isize) -> Option<u32> {
         self.data.lock().unwrap().get_helix_grid(g_id, x, y)
     }
 
-    pub fn get_grid_position(&self, g_id: u32) -> Option<ultraviolet::Vec3> {
+    pub fn get_grid_position(&self, g_id: usize) -> Option<ultraviolet::Vec3> {
         self.data.lock().unwrap().get_grid_position(g_id)
     }
 
@@ -443,18 +443,18 @@ impl Design {
         self.data.lock().unwrap().get_nucl(e_id)
     }
 
-    pub fn has_persistent_phantom(&self, g_id: &u32) -> bool {
+    pub fn has_persistent_phantom(&self, g_id: &usize) -> bool {
         self.data.lock().unwrap().has_persistent_phantom(g_id)
     }
 
-    pub fn set_persistent_phantom(&self, g_id: &u32, persistent: bool) {
+    pub fn set_persistent_phantom(&self, g_id: &usize, persistent: bool) {
         self.data
             .lock()
             .unwrap()
             .set_persistent_phantom(g_id, persistent);
     }
 
-    pub fn set_small_spheres(&self, g_id: &u32, small: bool) {
+    pub fn set_small_spheres(&self, g_id: &usize, small: bool) {
         println!("setting small {} {}", *g_id, small);
         self.data.lock().unwrap().set_small_spheres(g_id, small);
     }
@@ -471,7 +471,7 @@ impl Design {
         self.data.lock().unwrap().helix_has_small_spheres(h_id)
     }
 
-    pub fn has_small_spheres(&mut self, g_id: &u32) -> bool {
+    pub fn has_small_spheres(&mut self, g_id: &usize) -> bool {
         self.data.lock().unwrap().has_small_spheres(g_id)
     }
 

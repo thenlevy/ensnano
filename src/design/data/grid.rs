@@ -1,6 +1,6 @@
 use super::icednano::{Design, Parameters};
 use super::{icednano, Data};
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::f32::consts::FRAC_PI_2;
 use std::sync::{Arc, RwLock};
 use ultraviolet::{Rotor3, Vec2, Vec3};
@@ -359,6 +359,8 @@ pub(super) struct GridManager {
     pub grids: Vec<Grid>,
     helix_to_pos: HashMap<usize, GridPosition>,
     parameters: Parameters,
+    pub no_phantoms: HashSet<usize>,
+    pub small_spheres: HashSet<usize>,
 }
 
 impl GridManager {
@@ -367,6 +369,8 @@ impl GridManager {
             grids: Vec::new(),
             helix_to_pos: HashMap::new(),
             parameters,
+            no_phantoms: HashSet::new(),
+            small_spheres: HashSet::new(),
         }
     }
 
@@ -423,6 +427,8 @@ impl GridManager {
             grids,
             helix_to_pos,
             parameters: design.parameters.unwrap_or_default(),
+            no_phantoms: HashSet::new(),
+            small_spheres: HashSet::new(),
         }
     }
 
@@ -623,6 +629,8 @@ impl GridManager {
                 n,
                 g.grid_type.clone(),
                 self.parameters,
+                !self.no_phantoms.contains(&n),
+                self.small_spheres.contains(&n),
             ))));
         }
         ret
@@ -758,14 +766,20 @@ pub struct Grid2D {
 }
 
 impl Grid2D {
-    pub fn new(id: usize, grid_type: GridType, parameters: Parameters) -> Self {
+    pub fn new(
+        id: usize,
+        grid_type: GridType,
+        parameters: Parameters,
+        persistent_phantom: bool,
+        small_spheres: bool,
+    ) -> Self {
         Self {
             helices: BTreeMap::new(),
             grid_type,
             parameters,
             id,
-            persistent_phantom: true,
-            small_spheres: false,
+            persistent_phantom,
+            small_spheres,
         }
     }
 

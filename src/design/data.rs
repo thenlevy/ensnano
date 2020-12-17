@@ -518,7 +518,7 @@ impl Data {
     pub fn get_helix_basis(&self, h_id: usize) -> Option<ultraviolet::Rotor3> {
         self.design.helices.get(&h_id).map(|h| {
             if let Some(grid_pos) = h.grid_position {
-                self.get_grid_basis(grid_pos.grid as u32).unwrap()
+                self.get_grid_basis(grid_pos.grid).unwrap()
             } else {
                 h.orientation
             }
@@ -983,14 +983,14 @@ impl Data {
         self.grids.get(id).cloned()
     }
 
-    pub fn get_helices_grid(&self, g_id: u32) -> Option<HashSet<u32>> {
-        self.grids.get(g_id as usize).map(|g| {
+    pub fn get_helices_grid(&self, g_id: usize) -> Option<HashSet<usize>> {
+        self.grids.get(g_id).map(|g| {
             g.read()
                 .unwrap()
                 .helices()
                 .values()
                 .cloned()
-                .map(|x| x as u32)
+                .map(|x| x)
                 .collect()
         })
     }
@@ -1012,24 +1012,21 @@ impl Data {
         })
     }
 
-    pub fn get_helix_grid(&self, g_id: u32, x: isize, y: isize) -> Option<u32> {
+    pub fn get_helix_grid(&self, g_id: usize, x: isize, y: isize) -> Option<u32> {
         self.grids
-            .get(g_id as usize)
+            .get(g_id)
             .and_then(|g| g.read().unwrap().helices().get(&(x, y)).map(|x| *x as u32))
     }
 
-    pub fn get_grid_basis(&self, g_id: u32) -> Option<ultraviolet::Rotor3> {
+    pub fn get_grid_basis(&self, g_id: usize) -> Option<ultraviolet::Rotor3> {
         self.grid_manager
             .grids
             .get(g_id as usize)
             .map(|g| g.orientation)
     }
 
-    pub fn get_grid_position(&self, g_id: u32) -> Option<Vec3> {
-        self.grid_manager
-            .grids
-            .get(g_id as usize)
-            .map(|g| g.position)
+    pub fn get_grid_position(&self, g_id: usize) -> Option<Vec3> {
+        self.grid_manager.grids.get(g_id).map(|g| g.position)
     }
 
     pub fn build_helix_grid(
@@ -1145,18 +1142,17 @@ impl Data {
         ret
     }
 
-    pub fn has_persistent_phantom(&self, g_id: &u32) -> bool {
-        self.grids[*g_id as usize]
-            .read()
-            .unwrap()
-            .persistent_phantom
+    pub fn has_persistent_phantom(&self, g_id: &usize) -> bool {
+        !self.grid_manager.no_phantoms.contains(g_id)
     }
 
-    pub fn set_persistent_phantom(&mut self, g_id: &u32, persistent: bool) {
-        self.grids[*g_id as usize]
-            .write()
-            .unwrap()
-            .persistent_phantom = persistent;
+    pub fn set_persistent_phantom(&mut self, g_id: &usize, persistent: bool) {
+        if persistent {
+            self.grid_manager.no_phantoms.remove(g_id);
+        } else {
+            self.grid_manager.no_phantoms.insert(*g_id);
+        }
+        self.update_grids();
         self.update_status = true;
     }
 
@@ -1169,13 +1165,18 @@ impl Data {
         }
     }
 
-    pub fn has_small_spheres(&mut self, g_id: &u32) -> bool {
-        self.grids[*g_id as usize].read().unwrap().small_spheres
+    pub fn has_small_spheres(&mut self, g_id: &usize) -> bool {
+        self.grid_manager.small_spheres.contains(g_id)
     }
 
-    pub fn set_small_spheres(&mut self, g_id: &u32, small: bool) {
-        println!("setting small {} {}", *g_id, small);
+    pub fn set_small_spheres(&mut self, g_id: &usize, small: bool) {
+        if small {
+            self.grid_manager.small_spheres.insert(*g_id);
+        } else {
+            self.grid_manager.small_spheres.remove(g_id);
+        }
         self.grids[*g_id as usize].write().unwrap().small_spheres = small;
+        self.update_grids();
         self.update_status = true;
     }
 

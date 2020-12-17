@@ -332,7 +332,7 @@ impl Data {
                 self.get_group_identifier(*design_id, *element_id)
             }
             Some(SceneElement::PhantomElement(phantom_element)) => phantom_element.helix_id,
-            Some(SceneElement::Grid(_, g_id)) => *g_id,
+            Some(SceneElement::Grid(_, g_id)) => *g_id as u32,
             _ => unreachable!(),
         }
     }
@@ -444,7 +444,7 @@ impl Data {
                             }
                         }
                         SelectionMode::Helix => Selection::Helix(design_id, group_id),
-                        SelectionMode::Grid => Selection::Grid(design_id, group_id),
+                        SelectionMode::Grid => Selection::Grid(design_id, group_id as usize),
                     }
                 }
                 SceneElement::Grid(d_id, g_id) => Selection::Grid(d_id, g_id),
@@ -555,7 +555,7 @@ impl Data {
                             .unwrap_or_default();
                         let set = ret.entry(*d_id).or_insert_with(HashMap::new);
                         for h_id in new_helices.iter() {
-                            set.insert(*h_id, true);
+                            set.insert(*h_id as u32, true);
                         }
                     }
                     SceneElement::GridCircle(d_id, g_id, x, y) => {
@@ -574,7 +574,8 @@ impl Data {
     }
 
     fn must_draw_phantom(&self) -> bool {
-        let ret = self.selection_mode == SelectionMode::Helix || self.action_mode.is_build();
+        let ret = self.selection_mode == SelectionMode::Helix
+            || (self.action_mode.is_build() && self.selection_mode != SelectionMode::Grid);
         if ret {
             true
         } else {
@@ -668,7 +669,7 @@ impl Data {
         for (d_id, design) in self.designs.iter().enumerate() {
             for grid in design.get_grid().iter() {
                 for (x, y) in design.get_helices_grid_coord(grid.id) {
-                    let element = Some(SceneElement::GridCircle(d_id as u32, grid.id as u32, x, y));
+                    let element = Some(SceneElement::GridCircle(d_id as u32, grid.id, x, y));
                     if self.selected.get(0) != element.as_ref()
                         && self.candidates.get(0) != element.as_ref()
                     {
@@ -878,7 +879,7 @@ impl Data {
         }) = intersection
         {
             if self.action_mode.is_build() && self.selection_mode == SelectionMode::Grid {
-                self.set_selection(Some(SceneElement::Grid(*design_id as u32, *grid_id as u32)));
+                self.set_selection(Some(SceneElement::Grid(*design_id as u32, *grid_id)));
                 self.selection_update = true;
                 true
             } else {

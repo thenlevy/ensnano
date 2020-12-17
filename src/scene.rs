@@ -218,7 +218,7 @@ impl Scene {
                         clicked_pixel.x as f32 / self.area.size.width as f32,
                         clicked_pixel.y as f32 / self.area.size.height as f32,
                     )
-                    .map(|g| SceneElement::Grid(g.design_id as u32, g.grid_id as u32))
+                    .map(|g| SceneElement::Grid(g.design_id as u32, g.grid_id))
             } else {
                 self.element_selector.set_selected_id(clicked_pixel)
             };
@@ -235,7 +235,7 @@ impl Scene {
             .view
             .borrow()
             .grid_intersection(0.5, 0.5)
-            .map(|g| SceneElement::Grid(g.design_id as u32, g.grid_id as u32));
+            .map(|g| SceneElement::Grid(g.design_id as u32, g.grid_id));
 
         grid.or_else(move || self.element_selector.set_selected_id(clicked_pixel))
     }
@@ -295,9 +295,9 @@ impl Scene {
                 )
                 .map(|g| {
                     if self.data.borrow().get_action_mode().is_build() {
-                        SceneElement::GridCircle(g.design_id as u32, g.grid_id as u32, g.x, g.y)
+                        SceneElement::GridCircle(g.design_id as u32, g.grid_id, g.x, g.y)
                     } else {
-                        SceneElement::Grid(g.design_id as u32, g.grid_id as u32)
+                        SceneElement::Grid(g.design_id as u32, g.grid_id)
                     }
                 });
             widget.or(grid)
