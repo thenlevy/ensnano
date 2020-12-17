@@ -60,6 +60,11 @@ impl Data {
     }
 
     fn fetch_helices(&mut self) {
+        let removed_helices = self.design.get_removed_helices();
+        for h in removed_helices.iter().rev() {
+            self.helices.remove(*h);
+        }
+        self.view.borrow_mut().rm_helices(removed_helices);
         let nb_helix = self.helices.len();
         let new_helices = self.design.get_helices();
         for (i, helix) in self.helices.iter_mut().enumerate() {

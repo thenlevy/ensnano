@@ -1217,6 +1217,10 @@ impl Data {
             .map(|h| h.visible = visibility);
         self.update_status = true;
     }
+
+    pub fn has_helix(&self, h_id: usize) -> bool {
+        self.design.helices.contains_key(&h_id)
+    }
 }
 
 fn compl(c: Option<char>) -> Option<char> {

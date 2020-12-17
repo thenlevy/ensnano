@@ -494,6 +494,10 @@ impl Design {
     pub fn get_strand_nucl(&self, nucl: &Nucl) -> Option<usize> {
         self.data.lock().unwrap().get_strand_nucl(nucl)
     }
+
+    pub fn has_helix(&self, h_id: usize) -> bool {
+        self.data.lock().unwrap().has_helix(h_id)
+    }
 }
 
 #[derive(Clone)]

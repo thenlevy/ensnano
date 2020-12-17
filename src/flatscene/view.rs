@@ -4,7 +4,7 @@ use crate::utils::bindgroup_manager::{DynamicBindGroup, UniformBindGroup};
 use crate::utils::texture::Texture;
 use crate::{DrawArea, PhySize};
 use iced_wgpu::wgpu;
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 use std::rc::Rc;
 use wgpu::{Device, Queue, RenderPipeline};
 
@@ -156,6 +156,15 @@ impl View {
         self.helices_background[id_helix as usize].update(&helix);
         self.helices_model.push(helix.model());
         self.models.update(self.helices_model.as_slice());
+    }
+
+    pub fn rm_helices(&mut self, helices: BTreeSet<usize>) {
+        for h in helices.iter().rev() {
+            self.helices.remove(*h);
+            self.helices_background.remove(*h);
+            self.helices_view.remove(*h);
+            self.helices_model.remove(*h);
+        }
     }
 
     pub fn update_helices(&mut self, helices: &[Helix]) {

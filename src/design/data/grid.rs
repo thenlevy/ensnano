@@ -522,16 +522,28 @@ impl GridManager {
         }
     }
 
-    pub fn reattach_helix(&mut self, h_id: usize, design: &mut Design, preserve_roll: bool, grid2ds: &Vec<Arc<RwLock<Grid2D>>>) {
+    pub fn reattach_helix(
+        &mut self,
+        h_id: usize,
+        design: &mut Design,
+        preserve_roll: bool,
+        grid2ds: &Vec<Arc<RwLock<Grid2D>>>,
+    ) {
         let h = design.helices.get_mut(&h_id).unwrap();
         let axis = h.get_axis(&self.parameters);
         if let Some(grid_position) = h.grid_position {
             let g = &self.grids[grid_position.grid];
             if let Some(_) = g.interpolate_helix(axis.origin, axis.direction) {
                 let old_roll = h.grid_position.map(|gp| gp.roll).filter(|_| preserve_roll);
-                let candidate_position = g.find_helix_position(h, grid_position.grid).map(|g| g.with_roll(old_roll));
+                let candidate_position = g
+                    .find_helix_position(h, grid_position.grid)
+                    .map(|g| g.with_roll(old_roll));
                 if let Some(grid_pos) = candidate_position {
-                    if let Some(helix) = grid2ds[grid_pos.grid].read().unwrap().helices.get(&(grid_pos.x, grid_pos.y))
+                    if let Some(helix) = grid2ds[grid_pos.grid]
+                        .read()
+                        .unwrap()
+                        .helices
+                        .get(&(grid_pos.x, grid_pos.y))
                     {
                         if *helix == h_id {
                             h.grid_position = candidate_position;

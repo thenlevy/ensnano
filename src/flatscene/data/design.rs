@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 use std::sync::{Arc, Mutex};
 
 use super::{Nucl, Strand};
@@ -15,6 +15,7 @@ pub(super) struct Design2d {
     /// A pointer to the design
     design: Arc<Mutex<Design>>,
     last_flip_other: Option<usize>,
+    removed: BTreeSet<usize>,
 }
 
 impl Design2d {
@@ -25,6 +26,7 @@ impl Design2d {
             id_map: HashMap::new(),
             strands: Vec::new(),
             last_flip_other: None,
+            removed: BTreeSet::new(),
         }
     }
 
@@ -52,10 +54,32 @@ impl Design2d {
             }
             self.strands.push(Strand::new(color, strand, *strand_id));
         }
+        self.rm_deleted_helices();
         for (h_id, h) in self.id_map.iter() {
             let visibility = self.design.lock().unwrap().get_visibility_helix(*h_id);
             self.helices[*h].visible = visibility.unwrap_or(false);
         }
+    }
+
+    fn rm_deleted_helices(&mut self) {
+        let mut to_remove = Vec::new();
+        for (h_id, h) in self.id_map.iter() {
+            if !self.design.lock().unwrap().has_helix(*h_id) {
+                to_remove.push(*h);
+                self.removed.insert(*h);
+            }
+        }
+        to_remove.sort();
+        if to_remove.len() > 0 {
+            for h in to_remove.iter().rev() {
+                self.helices.remove(*h);
+            }
+            self.remake_id_map();
+        }
+    }
+
+    pub fn get_removed_helices(&mut self) -> BTreeSet<usize> {
+        std::mem::replace(&mut self.removed, BTreeSet::new())
     }
 
     fn read_nucl(&mut self, nucl: &Nucl) {
