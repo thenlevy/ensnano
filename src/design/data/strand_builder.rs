@@ -24,7 +24,7 @@ use std::cmp::Ordering;
 use std::sync::{Arc, Mutex};
 use ultraviolet::Mat4;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct StrandBuilder {
     /// The data to modify when applying updates
     data: Option<Arc<Mutex<Data>>>,
@@ -277,7 +277,7 @@ impl StrandBuilder {
     }
 
     /// Apply the modification on the data
-    fn update(&mut self) {
+    pub fn update(&mut self) {
         let mut data = self.data.as_mut().unwrap().lock().unwrap();
         data.update_strand(
             self.identifier,
@@ -333,12 +333,20 @@ impl StrandBuilder {
     }
 
     pub fn reset(&mut self) {
-        self.move_to(self.initial_position)
+        self.move_to(self.initial_position);
     }
 
     /// Return false if self is modifying an existing strand and true otherwise
     pub fn created_de_novo(&self) -> bool {
         self.fixed_end.is_none()
+    }
+
+    pub fn get_moving_end_position(&self) -> isize {
+        self.moving_end.position
+    }
+
+    pub fn get_domain_identifier(&self) -> DomainIdentifier {
+        self.identifier
     }
 }
 

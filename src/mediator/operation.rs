@@ -7,8 +7,9 @@
 use super::{
     AppNotification, DesignRotation, DesignTranslation, GridDescriptor, GridHelixDescriptor,
 };
-use crate::design::{GridTypeDescr, IsometryTarget};
+use crate::design::{GridTypeDescr, IsometryTarget, StrandBuilder, DomainIdentifier};
 use std::sync::Arc;
+use std::borrow::Borrow;
 use ultraviolet::{Bivec3, Rotor3, Vec3};
 
 pub enum ParameterField {
@@ -40,6 +41,10 @@ pub trait Operation: std::fmt::Debug + Sync + Send {
     /// If `other` is compatible with `self` return the operation whose effect is equivalent to
     /// applying the effects of `other` and then `self`.
     fn compose(&self, other: &dyn Operation) -> Option<Arc<dyn Operation>>;
+
+    fn must_reverse(&self) -> bool {
+        true
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -820,6 +825,62 @@ impl Operation for CreateGrid {
 }
 
 #[derive(Debug)]
+pub struct StrandConstruction {
+    pub builder: Box<StrandBuilder>,
+    pub move_to: Option<isize>,
+}
+
+impl Operation for StrandConstruction {
+    fn descr(&self) -> OperationDescriptor {
+        OperationDescriptor::BuildStrand(self.builder.get_design_id(), self.builder.get_domain_identifier())
+    }
+
+    fn compose(&self, _other: &dyn Operation) -> Option<Arc<dyn Operation>> {
+        None
+    }
+
+    fn parameters(&self) -> Vec<Parameter> {
+        vec![]
+    }
+
+    fn values(&self) -> Vec<String> {
+        vec![]
+    }
+
+    fn reverse(&self) -> Arc<dyn Operation> {
+        let move_to = self.move_to.xor(Some(self.builder.get_moving_end_position()));
+        Arc::new(StrandConstruction {
+            builder: self.builder.clone(),
+            move_to,
+        })
+    }
+
+    fn effect(&self) -> AppNotification {
+        if let Some(position) = self.move_to {
+            AppNotification::MoveBuilder(self.builder.clone(), position)
+        } else {
+            AppNotification::ResetBuilder(self.builder.clone())
+        }
+    }
+
+    fn description(&self) -> String {
+        "Building strand".to_string()
+    }
+
+    fn target(&self) -> usize {
+        self.builder.get_design_id() as usize
+    }
+
+    fn with_new_value(&self, _n: usize, _val: String) -> Option<Arc<dyn Operation>> {
+        None
+    }
+
+    fn must_reverse(&self) -> bool {
+        false
+    }
+}
+
+#[derive(Debug)]
 /// A description of an operation. Two opperations whose `descr` is equal are considered to be the
 /// same operation with different parameters.
 pub enum OperationDescriptor {
@@ -831,6 +892,7 @@ pub enum OperationDescriptor {
     GridTranslation(usize, usize),
     GridHelixCreation(usize, usize),
     GridHelixDeletion(usize, usize),
+    BuildStrand(u32, DomainIdentifier),
     CreateGrid,
 }
 
@@ -853,6 +915,7 @@ impl PartialEq<Self> for OperationDescriptor {
             (GridHelixCreation(d1, g1), GridHelixCreation(d2, g2)) => d1 == d2 && g1 == g2,
             (GridHelixDeletion(d1, g1), GridHelixDeletion(d2, g2)) => d1 == d2 && g1 == g2,
             (CreateGrid, CreateGrid) => true,
+            (BuildStrand(design1, d1), BuildStrand(design2, d2)) => design1 == design2 && d1 == d2,
             _ => false,
         }
     }

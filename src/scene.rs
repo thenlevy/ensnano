@@ -13,7 +13,7 @@ use instance::Instance;
 use mediator::{
     ActionMode, Application, CreateGrid, DesignViewRotation, DesignViewTranslation,
     GridHelixCreation, GridRotation, GridTranslation, HelixRotation, HelixTranslation, MediatorPtr,
-    Notification, Operation, SelectionMode,
+    Notification, Operation, SelectionMode, StrandConstruction,
 };
 use utils::instance;
 use wgpu::{Device, Queue};
@@ -182,6 +182,10 @@ impl Scene {
             }
             Consequence::Undo => self.mediator.lock().unwrap().undo(),
             Consequence::Redo => self.mediator.lock().unwrap().redo(),
+            Consequence::Building(builder, position) => self.mediator.lock().unwrap().update_opperation(Arc::new(StrandConstruction{
+                builder,
+                move_to: Some(position),
+            })),
         };
     }
 

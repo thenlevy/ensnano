@@ -209,6 +209,14 @@ impl Design {
             AppNotification::AddGrid(grid_descriptor) => {
                 self.data.lock().unwrap().add_grid(grid_descriptor)
             }
+            AppNotification::ResetBuilder(builder) => {
+                let mut builder = builder.clone();
+                builder.reset();
+            },
+            AppNotification::MoveBuilder(builder, _position) => {
+                let mut builder = builder.clone();
+                builder.update();
+            },
         }
     }
 

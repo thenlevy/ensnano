@@ -15,6 +15,7 @@ use std::path::PathBuf;
 use ultraviolet::Vec3;
 
 use std::borrow::Cow;
+use std::fmt;
 
 mod codenano;
 mod grid;
@@ -26,8 +27,8 @@ pub use grid::*;
 pub use icednano::Nucl;
 pub use icednano::{Axis, Design, Parameters};
 use std::sync::{Arc, RwLock};
-pub use strand_builder::StrandBuilder;
-use strand_builder::{DomainIdentifier, NeighbourDescriptor};
+pub use strand_builder::{DomainIdentifier, StrandBuilder};
+use strand_builder::NeighbourDescriptor;
 
 /// In addition to its `design` field, the `Data` struct has several hashmaps that are usefull to
 /// quickly access information about the design. These hasmaps must be updated when the design is
@@ -65,6 +66,13 @@ pub struct Data {
     grid_manager: GridManager,
     grids: Vec<Arc<RwLock<Grid2D>>>,
     color_idx: usize,
+}
+
+impl fmt::Debug for Data {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Data")
+         .finish()
+    }
 }
 
 impl Data {

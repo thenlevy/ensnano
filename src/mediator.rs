@@ -21,7 +21,7 @@ use crate::design;
 
 use design::{
     Design, DesignNotification, DesignRotation, DesignTranslation, GridDescriptor,
-    GridHelixDescriptor,
+    GridHelixDescriptor, StrandBuilder
 };
 
 mod operation;
@@ -382,7 +382,7 @@ impl Mediator {
         if let Some(current_op) = self.current_operation.as_ref() {
             // If there already is a current operation. We test if the current operation is being
             // eddited.
-            if current_op.descr() == operation.descr() {
+            if current_op.descr() == operation.descr() && current_op.must_reverse() {
                 let rev_op = current_op.reverse();
                 let target = {
                     let mut set = HashSet::new();
@@ -463,6 +463,7 @@ impl Mediator {
     }
 
     pub fn undo(&mut self) {
+        /*
         if let Some(op) = self.last_op.take() {
             let rev_op = op.reverse();
             let target = {
@@ -483,7 +484,10 @@ impl Mediator {
             self.notify_designs(&target, rev_op.effect());
             self.notify_all_designs(AppNotification::MovementEnded);
             self.redo_stack.push(rev_op);
-        } else if let Some(op) = self.undo_stack.pop() {
+        } else         */
+        self.suspend_op();
+        self.finish_pending();
+        if let Some(op) = self.undo_stack.pop() {
             let rev_op = op.reverse();
             let target = {
                 let mut set = HashSet::new();
@@ -499,6 +503,7 @@ impl Mediator {
     pub fn redo(&mut self) {
         if let Some(op) = self.redo_stack.pop() {
             let rev_op = op.reverse();
+            println!("{:?}", rev_op);
             let target = {
                 let mut set = HashSet::new();
                 set.insert(rev_op.target() as u32);
@@ -532,5 +537,7 @@ pub enum AppNotification {
     RmGridHelix(GridHelixDescriptor),
     MakeGrids,
     AddGrid(GridDescriptor),
+    MoveBuilder(Box<StrandBuilder>, isize),
+    ResetBuilder(Box<StrandBuilder>),
     RmGrid,
 }

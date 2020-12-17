@@ -82,6 +82,7 @@ pub enum Consequence {
     CursorMoved(PhysicalPosition<f64>),
     ToggleWidget,
     BuildEnded(u32, u32),
+    Building(Box<StrandBuilder>, isize),
     Undo,
     Redo,
 }
@@ -295,8 +296,10 @@ impl Controller {
                                 self.data.borrow_mut().reset_selection();
                                 self.data.borrow_mut().reset_candidate();
                                 builder.move_to(position);
+                                Consequence::Building(builder.clone(), position)
+                            } else {
+                                Consequence::Nothing
                             }
-                            Consequence::Nothing
                         }
                     }
                 } else if let Some(clicked_position) = self.last_right_clicked_position {

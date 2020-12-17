@@ -289,6 +289,7 @@ impl View {
             ViewUpdate::Grids(grid) => self.grid_manager.new_instances(grid),
             ViewUpdate::GridDiscs(instances) => self.disc_drawer.new_instances(instances),
             ViewUpdate::RawDna(mesh, instances) => {
+                self.need_redraw_fake = true;
                 self.dna_drawers
                     .get_mut(mesh)
                     .new_instances_raw(instances.as_ref());

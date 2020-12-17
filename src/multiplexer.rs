@@ -336,6 +336,7 @@ impl Multiplexer {
                     KeyboardInput {
                         virtual_keycode: Some(key),
                         state: ElementState::Pressed,
+                        modifiers,
                         ..
                     },
                 ..
@@ -348,7 +349,7 @@ impl Multiplexer {
                     VirtualKeyCode::A => {
                         self.requests.lock().unwrap().action_mode = Some(ActionMode::Build(false))
                     }
-                    VirtualKeyCode::R => {
+                    VirtualKeyCode::R if !modifiers.ctrl() => {
                         self.requests.lock().unwrap().action_mode = Some(ActionMode::Rotate)
                     }
                     VirtualKeyCode::T => {

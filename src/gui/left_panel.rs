@@ -117,8 +117,31 @@ impl Program for LeftPanel {
     fn update(&mut self, message: Message) -> Command<Message> {
         match message {
             Message::SelectionModeChanged(selection_mode) => {
-                self.selection_mode = selection_mode;
-                self.requests.lock().unwrap().selection_mode = Some(selection_mode);
+                if selection_mode != self.selection_mode {
+                    let action_mode = if self.action_mode.is_build() {
+                        match selection_mode {
+                            SelectionMode::Grid => Some(ActionMode::BuildHelix {
+                                position: self.position_helices,
+                                length: self.length_helices,
+                            }),
+                            _ => {
+                                if let ActionMode::BuildHelix{ .. } = self.action_mode {
+                                    Some(ActionMode::Build(false))
+                                } else {
+                                    None
+                                }
+                            }
+                        }
+                    } else {
+                        None
+                    };
+                    self.selection_mode = selection_mode;
+                    if let Some(action_mode) = action_mode {
+                        self.action_mode = action_mode.clone();
+                        self.requests.lock().unwrap().action_mode = Some(action_mode);
+                    }
+                    self.requests.lock().unwrap().selection_mode = Some(selection_mode);
+                }
             }
             Message::ActionModeChanged(action_mode) => {
                 let action_mode = if action_mode.is_build() {
