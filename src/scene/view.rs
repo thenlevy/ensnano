@@ -274,6 +274,7 @@ impl View {
             }
             ViewUpdate::ModelMatrices(ref matrices) => {
                 self.models.update(matrices.clone().as_slice());
+                self.need_redraw_fake = true;
             }
             ViewUpdate::Letter(letter) => {
                 for (i, instance) in letter.into_iter().enumerate() {

@@ -748,6 +748,7 @@ impl Data {
 
     pub fn change_selection_mode(&mut self, selection_mode: SelectionMode) {
         self.selection_mode = selection_mode;
+        self.set_selection(self.selected.get(0).cloned());
         self.instance_update = true;
     }
 

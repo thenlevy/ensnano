@@ -480,11 +480,13 @@ impl Scene {
     }
 
     fn change_selection_mode(&mut self, selection_mode: SelectionMode) {
-        self.data.borrow_mut().change_selection_mode(selection_mode)
+        self.data.borrow_mut().change_selection_mode(selection_mode);
+        self.update_handle();
     }
 
     fn change_action_mode(&mut self, action_mode: ActionMode) {
-        self.data.borrow_mut().change_action_mode(action_mode)
+        self.data.borrow_mut().change_action_mode(action_mode);
+        self.update_handle();
     }
 
     fn change_sensitivity(&mut self, sensitivity: f32) {
