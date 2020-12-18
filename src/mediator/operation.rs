@@ -613,6 +613,8 @@ impl Operation for GridHelixCreation {
             y: self.y,
             design_id: self.design_id,
             grid_id: self.grid_id,
+            position: self.position,
+            length: self.length,
         })
     }
 
@@ -666,6 +668,8 @@ pub struct GridHelixDeletion {
     grid_id: usize,
     x: isize,
     y: isize,
+    position: isize,
+    length: usize,
 }
 
 impl Operation for GridHelixDeletion {
@@ -700,8 +704,8 @@ impl Operation for GridHelixDeletion {
             y: self.y,
             design_id: self.design_id,
             grid_id: self.grid_id,
-            position: 0,
-            length: 0,
+            position: self.position,
+            length: self.length,
         })
     }
 
@@ -710,7 +714,7 @@ impl Operation for GridHelixDeletion {
             grid_id: self.grid_id,
             x: self.x,
             y: self.y,
-        })
+        }, self.position, self.length)
     }
 
     fn description(&self) -> String {

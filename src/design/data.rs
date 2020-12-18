@@ -1093,6 +1093,26 @@ impl Data {
             }
         }
     }
+    
+    pub fn rm_full_helix_grid(&mut self, g_id: usize, x: isize, y: isize, position: isize) {
+        let h = self.grids[g_id]
+            .read()
+            .unwrap()
+            .helices()
+            .get(&(x, y))
+            .cloned();
+        if let Some(h_id) = h {
+            self.rm_strand(&Nucl { helix: h_id, position, forward: true});
+            self.rm_strand(&Nucl { helix: h_id, position, forward:false});
+            self.design.helices.remove(&h_id);
+            self.grid_manager.remove_helix(h_id);
+            self.update_status = true;
+            self.hash_maps_update = true;
+            self.grid_manager.update(&mut self.design);
+            self.update_grids();
+            self.view_need_reset = true;
+        }
+    }
 
     pub fn rm_helix_grid(&mut self, g_id: usize, x: isize, y: isize) {
         let h = self.grids[g_id]

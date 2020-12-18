@@ -543,7 +543,7 @@ pub enum AppNotification {
     Rotation(DesignRotation),
     Translation(DesignTranslation),
     AddGridHelix(GridHelixDescriptor, isize, usize),
-    RmGridHelix(GridHelixDescriptor),
+    RmGridHelix(GridHelixDescriptor, isize, usize),
     MakeGrids,
     AddGrid(GridDescriptor),
     MoveBuilder(Box<StrandBuilder>, Option<(usize, u32)>),
