@@ -153,6 +153,7 @@ impl FlatScene {
                     .borrow_mut()
                     .set_free_end(free_end),
                 Consequence::CutFreeEnd(nucl, free_end) => {
+                    self.mediator.lock().unwrap().drop_undo_stack();
                     self.data[self.selected_design]
                         .borrow_mut()
                         .split_strand(nucl);
@@ -161,6 +162,7 @@ impl FlatScene {
                         .set_free_end(free_end);
                 }
                 Consequence::CutCross(from, to) => {
+                    self.mediator.lock().unwrap().drop_undo_stack();
                     self.data[self.selected_design]
                         .borrow_mut()
                         .cut_cross(from, to);
