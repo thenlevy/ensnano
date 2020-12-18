@@ -208,9 +208,16 @@ impl Design {
                 .lock()
                 .unwrap()
                 .build_helix_grid(grid_id, x, y, position, length),
-            AppNotification::RmGridHelix(GridHelixDescriptor { grid_id, x, y }, position, length) => {
+            AppNotification::RmGridHelix(
+                GridHelixDescriptor { grid_id, x, y },
+                position,
+                length,
+            ) => {
                 if length > 0 {
-                    self.data.lock().unwrap().rm_full_helix_grid(grid_id, x, y, position)
+                    self.data
+                        .lock()
+                        .unwrap()
+                        .rm_full_helix_grid(grid_id, x, y, position)
                 }
                 self.data.lock().unwrap().rm_helix_grid(grid_id, x, y)
             }

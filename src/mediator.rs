@@ -166,6 +166,8 @@ impl Mediator {
     }
 
     pub fn drop_undo_stack(&mut self) {
+        self.suspend_op();
+        self.finish_pending();
         if self.undo_stack.len() > 0 {
             println!("Warning: dropping undo stack!");
         }

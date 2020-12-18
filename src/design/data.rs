@@ -1093,7 +1093,7 @@ impl Data {
             }
         }
     }
-    
+
     pub fn rm_full_helix_grid(&mut self, g_id: usize, x: isize, y: isize, position: isize) {
         let h = self.grids[g_id]
             .read()
@@ -1102,8 +1102,16 @@ impl Data {
             .get(&(x, y))
             .cloned();
         if let Some(h_id) = h {
-            self.rm_strand(&Nucl { helix: h_id, position, forward: true});
-            self.rm_strand(&Nucl { helix: h_id, position, forward:false});
+            self.rm_strand(&Nucl {
+                helix: h_id,
+                position,
+                forward: true,
+            });
+            self.rm_strand(&Nucl {
+                helix: h_id,
+                position,
+                forward: false,
+            });
             self.design.helices.remove(&h_id);
             self.grid_manager.remove_helix(h_id);
             self.update_status = true;

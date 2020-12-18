@@ -710,11 +710,15 @@ impl Operation for GridHelixDeletion {
     }
 
     fn effect(&self) -> AppNotification {
-        AppNotification::RmGridHelix(GridHelixDescriptor {
-            grid_id: self.grid_id,
-            x: self.x,
-            y: self.y,
-        }, self.position, self.length)
+        AppNotification::RmGridHelix(
+            GridHelixDescriptor {
+                grid_id: self.grid_id,
+                x: self.x,
+                y: self.y,
+            },
+            self.position,
+            self.length,
+        )
     }
 
     fn description(&self) -> String {
