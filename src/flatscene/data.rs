@@ -187,6 +187,10 @@ impl Data {
         self.instance_update = true;
     }
 
+    pub fn notify_reset(&mut self) {
+        self.instance_reset = true;
+    }
+
     pub fn merge_strand(&mut self, prime5: usize, prime3: usize) {
         self.instance_reset = true;
         self.instance_update = true;

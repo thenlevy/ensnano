@@ -54,6 +54,9 @@ pub struct StrandBuilder {
     detached_neighbour: Option<NeighbourDescriptor>,
     /// The id of the design being eddited
     design_id: u32,
+    /// A timestamp used to distinguish between strand building operation initiated at different
+    /// moment
+    timestamp: std::time::SystemTime,
 }
 
 impl StrandBuilder {
@@ -102,6 +105,7 @@ impl StrandBuilder {
             max_pos,
             detached_neighbour: None,
             design_id: 0,
+            timestamp: std::time::SystemTime::now(),
         }
     }
 
@@ -167,6 +171,7 @@ impl StrandBuilder {
             min_pos,
             detached_neighbour: None,
             design_id: 0,
+            timestamp: std::time::SystemTime::now(),
         }
     }
 
@@ -332,6 +337,16 @@ impl StrandBuilder {
         self.identifier.strand
     }
 
+    pub fn get_strand_color(&self) -> u32 {
+        self.data
+            .as_ref()
+            .unwrap()
+            .lock()
+            .unwrap()
+            .get_strand_color(self.identifier.strand)
+            .unwrap_or(0)
+    }
+
     pub fn reset(&mut self) {
         self.move_to(self.initial_position);
     }
@@ -345,8 +360,23 @@ impl StrandBuilder {
         self.moving_end.position
     }
 
+    pub fn get_moving_end_nucl(&self) -> Nucl {
+        self.moving_end
+    }
+
+    pub fn get_initial_nucl(&self) -> Nucl {
+        Nucl {
+            position: self.initial_position,
+            ..self.moving_end
+        }
+    }
+
     pub fn get_domain_identifier(&self) -> DomainIdentifier {
         self.identifier
+    }
+
+    pub fn get_timestamp(&self) -> std::time::SystemTime {
+        self.timestamp
     }
 }
 

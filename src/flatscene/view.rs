@@ -159,6 +159,10 @@ impl View {
     }
 
     pub fn rm_helices(&mut self, helices: BTreeSet<usize>) {
+        if self.helices.len() == 0 {
+            // self was already reseted
+            return;
+        }
         for h in helices.iter().rev() {
             self.helices.remove(*h);
             self.helices_background.remove(*h);

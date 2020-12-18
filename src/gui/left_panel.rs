@@ -125,7 +125,7 @@ impl Program for LeftPanel {
                                 length: self.length_helices,
                             }),
                             _ => {
-                                if let ActionMode::BuildHelix{ .. } = self.action_mode {
+                                if let ActionMode::BuildHelix { .. } = self.action_mode {
                                     Some(ActionMode::Build(false))
                                 } else {
                                     None

@@ -21,7 +21,7 @@ use crate::design;
 
 use design::{
     Design, DesignNotification, DesignRotation, DesignTranslation, GridDescriptor,
-    GridHelixDescriptor, StrandBuilder
+    GridHelixDescriptor, StrandBuilder,
 };
 
 mod operation;
@@ -390,7 +390,7 @@ impl Mediator {
                     set
                 };
                 self.notify_designs(&target, rev_op.effect());
-            } else {
+            } else if current_op.descr() != operation.descr() {
                 self.finish_op();
             }
         }
@@ -494,6 +494,7 @@ impl Mediator {
                 set.insert(rev_op.target() as u32);
                 set
             };
+            println!("effet {:?}", rev_op.effect());
             self.notify_designs(&target, rev_op.effect());
             self.notify_all_designs(AppNotification::MovementEnded);
             self.redo_stack.push(rev_op);
@@ -537,7 +538,7 @@ pub enum AppNotification {
     RmGridHelix(GridHelixDescriptor),
     MakeGrids,
     AddGrid(GridDescriptor),
-    MoveBuilder(Box<StrandBuilder>, isize),
+    MoveBuilder(Box<StrandBuilder>, Option<(usize, u32)>),
     ResetBuilder(Box<StrandBuilder>),
     RmGrid,
 }

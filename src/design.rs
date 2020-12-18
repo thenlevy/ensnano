@@ -70,7 +70,13 @@ impl Design {
 
     /// Return a notification to send to the observer if the data was changed.
     pub fn data_was_updated(&mut self) -> Option<DesignNotification> {
-        if self.data.lock().unwrap().was_updated() {
+        if self.data.lock().unwrap().view_need_reset() {
+            let notification = DesignNotification {
+                content: DesignNotificationContent::ViewNeedReset,
+                design_id: self.id as usize,
+            };
+            Some(notification)
+        } else if self.data.lock().unwrap().was_updated() {
             let notification = DesignNotification {
                 content: DesignNotificationContent::InstanceChanged,
                 design_id: self.id as usize,
@@ -212,11 +218,19 @@ impl Design {
             AppNotification::ResetBuilder(builder) => {
                 let mut builder = builder.clone();
                 builder.reset();
-            },
-            AppNotification::MoveBuilder(builder, _position) => {
+                if builder.created_de_novo() {
+                    let nucl = builder.get_moving_end_nucl();
+                    self.data.lock().unwrap().rm_strand(&nucl);
+                }
+            }
+            AppNotification::MoveBuilder(builder, remake) => {
                 let mut builder = builder.clone();
+                if let Some((s_id, color)) = remake {
+                    let nucl = builder.get_initial_nucl();
+                    self.data.lock().unwrap().remake_strand(nucl, s_id, color);
+                }
                 builder.update();
-            },
+            }
         }
     }
 
@@ -506,6 +520,10 @@ impl Design {
     pub fn has_helix(&self, h_id: usize) -> bool {
         self.data.lock().unwrap().has_helix(h_id)
     }
+
+    pub fn view_need_reset(&self) -> bool {
+        self.data.lock().unwrap().view_need_reset()
+    }
 }
 
 #[derive(Clone)]
@@ -521,6 +539,7 @@ pub enum DesignNotificationContent {
     ModelChanged(Mat4),
     /// The design was modified
     InstanceChanged,
+    ViewNeedReset,
 }
 
 /// The referential in which one wants to get an element's coordinates

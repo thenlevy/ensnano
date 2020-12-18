@@ -1,6 +1,6 @@
 //! This module handles the 2D view
 
-use crate::design::Design;
+use crate::design::{Design, DesignNotification, DesignNotificationContent};
 use crate::mediator;
 use crate::{DrawArea, Duration, PhySize, WindowEvent};
 use iced_wgpu::wgpu;
@@ -204,8 +204,11 @@ impl Application for FlatScene {
         match notification {
             Notification::NewDesign(design) => self.add_design(design),
             Notification::NewActionMode(am) => self.change_action_mode(am),
-            Notification::DesignNotification(_) => {
-                self.data[self.selected_design].borrow_mut().notify_update()
+            Notification::DesignNotification(DesignNotification { design_id, content }) => {
+                self.data[design_id].borrow_mut().notify_update();
+                if let DesignNotificationContent::ViewNeedReset = content {
+                    self.data[design_id].borrow_mut().notify_reset();
+                }
             }
             Notification::FitRequest => self.controller[self.selected_design].fit(),
             Notification::Selection3D(selection) => {

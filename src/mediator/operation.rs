@@ -7,9 +7,8 @@
 use super::{
     AppNotification, DesignRotation, DesignTranslation, GridDescriptor, GridHelixDescriptor,
 };
-use crate::design::{GridTypeDescr, IsometryTarget, StrandBuilder, DomainIdentifier};
+use crate::design::{GridTypeDescr, IsometryTarget, StrandBuilder};
 use std::sync::Arc;
-use std::borrow::Borrow;
 use ultraviolet::{Bivec3, Rotor3, Vec3};
 
 pub enum ParameterField {
@@ -827,12 +826,13 @@ impl Operation for CreateGrid {
 #[derive(Debug)]
 pub struct StrandConstruction {
     pub builder: Box<StrandBuilder>,
-    pub move_to: Option<isize>,
+    pub redo: Option<u32>,
+    pub color: u32,
 }
 
 impl Operation for StrandConstruction {
     fn descr(&self) -> OperationDescriptor {
-        OperationDescriptor::BuildStrand(self.builder.get_design_id(), self.builder.get_domain_identifier())
+        OperationDescriptor::BuildStrand(self.builder.get_timestamp())
     }
 
     fn compose(&self, _other: &dyn Operation) -> Option<Arc<dyn Operation>> {
@@ -848,16 +848,22 @@ impl Operation for StrandConstruction {
     }
 
     fn reverse(&self) -> Arc<dyn Operation> {
-        let move_to = self.move_to.xor(Some(self.builder.get_moving_end_position()));
+        let redo = self.redo.xor(Some(self.color));
         Arc::new(StrandConstruction {
             builder: self.builder.clone(),
-            move_to,
+            redo,
+            color: self.color,
         })
     }
 
     fn effect(&self) -> AppNotification {
-        if let Some(position) = self.move_to {
-            AppNotification::MoveBuilder(self.builder.clone(), position)
+        if let Some(color) = self.redo {
+            let remake = if self.builder.created_de_novo() {
+                Some((self.builder.get_strand_id(), color))
+            } else {
+                None
+            };
+            AppNotification::MoveBuilder(self.builder.clone(), remake)
         } else {
             AppNotification::ResetBuilder(self.builder.clone())
         }
@@ -892,7 +898,7 @@ pub enum OperationDescriptor {
     GridTranslation(usize, usize),
     GridHelixCreation(usize, usize),
     GridHelixDeletion(usize, usize),
-    BuildStrand(u32, DomainIdentifier),
+    BuildStrand(std::time::SystemTime),
     CreateGrid,
 }
 
@@ -915,7 +921,7 @@ impl PartialEq<Self> for OperationDescriptor {
             (GridHelixCreation(d1, g1), GridHelixCreation(d2, g2)) => d1 == d2 && g1 == g2,
             (GridHelixDeletion(d1, g1), GridHelixDeletion(d2, g2)) => d1 == d2 && g1 == g2,
             (CreateGrid, CreateGrid) => true,
-            (BuildStrand(design1, d1), BuildStrand(design2, d2)) => design1 == design2 && d1 == d2,
+            (BuildStrand(ts1), BuildStrand(ts2)) => ts1 == ts2,
             _ => false,
         }
     }

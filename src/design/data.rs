@@ -27,8 +27,8 @@ pub use grid::*;
 pub use icednano::Nucl;
 pub use icednano::{Axis, Design, Parameters};
 use std::sync::{Arc, RwLock};
-pub use strand_builder::{DomainIdentifier, StrandBuilder};
 use strand_builder::NeighbourDescriptor;
+pub use strand_builder::{DomainIdentifier, StrandBuilder};
 
 /// In addition to its `design` field, the `Data` struct has several hashmaps that are usefull to
 /// quickly access information about the design. These hasmaps must be updated when the design is
@@ -66,12 +66,12 @@ pub struct Data {
     grid_manager: GridManager,
     grids: Vec<Arc<RwLock<Grid2D>>>,
     color_idx: usize,
+    view_need_reset: bool,
 }
 
 impl fmt::Debug for Data {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("Data")
-         .finish()
+        f.debug_struct("Data").finish()
     }
 }
 
@@ -97,6 +97,7 @@ impl Data {
             grid_manager,
             grids: Vec::new(),
             color_idx: 0,
+            view_need_reset: false,
         }
     }
 
@@ -129,6 +130,7 @@ impl Data {
             grid_manager,
             grids,
             color_idx,
+            view_need_reset: false,
         };
         ret.make_hash_maps();
         ret.terminate_movement();
@@ -261,6 +263,10 @@ impl Data {
         let ret = self.update_status;
         self.update_status = false;
         ret
+    }
+
+    pub fn view_need_reset(&mut self) -> bool {
+        std::mem::replace(&mut self.view_need_reset, false)
     }
 
     /// Return the position of a nucleotide, this function is only used internally. The
@@ -428,12 +434,12 @@ impl Data {
 
     /// Change the color of a strand
     pub fn change_strand_color(&mut self, s_id: usize, color: u32) {
-        self.design
-            .strands
-            .get_mut(&s_id)
-            .expect("wrong s_id in change_strand_color")
-            .color = color;
-        self.color.insert(s_id as u32, color);
+        if let Some(strand) = self.design.strands.get_mut(&s_id) {
+            self.color.insert(s_id as u32, color);
+            strand.color = color;
+        } else {
+            println!("Warning tried to change color of removed strand");
+        }
         self.update_status = true;
     }
 
@@ -662,10 +668,11 @@ impl Data {
     }
 
     fn add_strand(&mut self, helix: usize, position: isize, forward: bool) -> usize {
-        let mut new_key = 0usize;
-        while self.design.strands.contains_key(&new_key) {
-            new_key += 1;
-        }
+        let new_key = if let Some(k) = self.design.strands.keys().max() {
+            *k + 1
+        } else {
+            0
+        };
         let color = {
             let hue = (self.color_idx as f64 * (1. + 5f64.sqrt()) / 2.).fract() * 360.;
             let saturation =
@@ -684,6 +691,15 @@ impl Data {
         self.hash_maps_update = true;
         self.update_status = true;
         new_key
+    }
+
+    pub fn remake_strand(&mut self, nucl: Nucl, strand_id: usize, color: u32) {
+        self.design.strands.insert(
+            strand_id,
+            icednano::Strand::init(nucl.helix, nucl.position, nucl.forward, color),
+        );
+        self.hash_maps_update = true;
+        self.update_status = true;
     }
 
     pub fn get_symbol(&self, e_id: u32) -> Option<char> {
@@ -841,6 +857,7 @@ impl Data {
             self.update_status = true;
             */
         }
+        self.view_need_reset = true;
     }
 
     pub fn split_strand(&mut self, nucl: &Nucl, force_end: Option<bool>) {
@@ -946,6 +963,7 @@ impl Data {
         }
         self.update_status = true;
         self.make_hash_maps();
+        self.view_need_reset = true;
     }
 
     pub fn rm_strand(&mut self, nucl: &Nucl) {
@@ -962,6 +980,7 @@ impl Data {
         let id = *id.unwrap();
 
         self.design.strands.remove(&id).expect("strand");
+        self.view_need_reset = true;
     }
 
     pub fn get_all_strand_ids(&self) -> Vec<usize> {
@@ -1089,6 +1108,7 @@ impl Data {
             self.hash_maps_update = true;
             self.grid_manager.update(&mut self.design);
             self.update_grids();
+            self.view_need_reset = true;
         }
     }
 
@@ -1105,6 +1125,7 @@ impl Data {
             }
         }
         self.design.helices.remove(&h_id);
+        self.view_need_reset = true;
     }
 
     pub fn helix_is_empty(&self, h_id: usize) -> bool {

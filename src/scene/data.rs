@@ -132,7 +132,8 @@ impl Data {
                 for elt in group.iter() {
                     if self.designs[*d_id as usize]
                         .get_element_type(*elt)
-                        .map(|elt| elt.same_type(object_type)).unwrap_or(false)
+                        .map(|elt| elt.same_type(object_type))
+                        .unwrap_or(false)
                     {
                         ret.push(SceneElement::DesignElement(*d_id, *elt));
                     }
@@ -156,7 +157,8 @@ impl Data {
                 for elt in group.iter() {
                     if self.designs[*d_id as usize]
                         .get_element_type(*elt)
-                        .map(|elt| elt.same_type(object_type)).unwrap_or(false)
+                        .map(|elt| elt.same_type(object_type))
+                        .unwrap_or(false)
                     {
                         ret.push(SceneElement::DesignElement(*d_id, *elt));
                     }

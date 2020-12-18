@@ -182,10 +182,17 @@ impl Scene {
             }
             Consequence::Undo => self.mediator.lock().unwrap().undo(),
             Consequence::Redo => self.mediator.lock().unwrap().redo(),
-            Consequence::Building(builder, position) => self.mediator.lock().unwrap().update_opperation(Arc::new(StrandConstruction{
-                builder,
-                move_to: Some(position),
-            })),
+            Consequence::Building(builder, _) => {
+                let color = builder.get_strand_color();
+                self.mediator
+                    .lock()
+                    .unwrap()
+                    .update_opperation(Arc::new(StrandConstruction {
+                        redo: Some(color),
+                        color,
+                        builder,
+                    }));
+            }
         };
     }
 
@@ -649,6 +656,10 @@ impl Scene {
             }
             DesignNotificationContent::InstanceChanged => {
                 self.data.borrow_mut().notify_instance_update()
+            }
+            DesignNotificationContent::ViewNeedReset => {
+                self.data.borrow_mut().notify_instance_update();
+                self.data.borrow_mut().set_selection(None);
             }
         }
     }
