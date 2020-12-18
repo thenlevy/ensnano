@@ -5,7 +5,7 @@ use crate::mediator;
 use crate::{DrawArea, Duration, PhySize, WindowEvent};
 use iced_wgpu::wgpu;
 use iced_winit::winit;
-use mediator::{ActionMode, Application, Mediator, Notification, Selection};
+use mediator::{ActionMode, Application, Mediator, Notification, Selection, StrandConstruction};
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
@@ -88,6 +88,7 @@ impl FlatScene {
             self.window_size,
             self.area.size,
             camera,
+            self.mediator.clone(),
         );
         controller.fit();
         if self.view.len() > 0 {
@@ -136,12 +137,18 @@ impl FlatScene {
             let consequence = controller.input(event, cursor_position);
             use controller::Consequence;
             match consequence {
-                Consequence::Xover(nucl1, nucl2) => self.data[self.selected_design]
-                    .borrow_mut()
-                    .xover(nucl1, nucl2),
-                Consequence::Cut(nucl) => self.data[self.selected_design]
-                    .borrow_mut()
-                    .split_strand(nucl),
+                Consequence::Xover(nucl1, nucl2) => {
+                    self.mediator.lock().unwrap().drop_undo_stack();
+                    self.data[self.selected_design]
+                        .borrow_mut()
+                        .xover(nucl1, nucl2);
+                }
+                Consequence::Cut(nucl) => {
+                    self.mediator.lock().unwrap().drop_undo_stack();
+                    self.data[self.selected_design]
+                        .borrow_mut()
+                        .split_strand(nucl);
+                }
                 Consequence::FreeEnd(free_end) => self.data[self.selected_design]
                     .borrow_mut()
                     .set_free_end(free_end),
@@ -171,10 +178,23 @@ impl FlatScene {
                     self.mediator.lock().unwrap().set_candidate(phantom)
                 }
                 Consequence::RmStrand(nucl) => {
+                    self.mediator.lock().unwrap().drop_undo_stack();
                     self.data[self.selected_design].borrow_mut().rm_strand(nucl)
                 }
                 Consequence::RmHelix(helix) => {
+                    self.mediator.lock().unwrap().drop_undo_stack();
                     self.data[self.selected_design].borrow_mut().rm_helix(helix)
+                }
+                Consequence::Built(builder) => {
+                    let color = builder.get_strand_color();
+                    self.mediator
+                        .lock()
+                        .unwrap()
+                        .update_opperation(Arc::new(StrandConstruction {
+                            redo: Some(color),
+                            color,
+                            builder,
+                        }));
                 }
                 Consequence::FlipVisibility(helix, apply_to_other) => self.data
                     [self.selected_design]

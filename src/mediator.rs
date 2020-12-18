@@ -165,6 +165,14 @@ impl Mediator {
         }
     }
 
+    pub fn drop_undo_stack(&mut self) {
+        if self.undo_stack.len() > 0 {
+            println!("Warning: dropping undo stack!");
+        }
+        self.undo_stack.clear();
+        self.redo_stack.clear();
+    }
+
     pub fn add_application(
         &mut self,
         application: Arc<Mutex<dyn Application>>,

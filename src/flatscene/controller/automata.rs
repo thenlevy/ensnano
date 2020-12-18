@@ -1220,7 +1220,7 @@ impl ControllerState for Building {
                     new_state: Some(Box::new(NormalState {
                         mouse_position: self.mouse_position,
                     })),
-                    consequences: Consequence::Nothing,
+                    consequences: Consequence::Built(Box::new(self.builder.clone())),
                 }
             }
             WindowEvent::CursorMoved { .. } => {

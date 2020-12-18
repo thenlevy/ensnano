@@ -5,7 +5,11 @@
 //! scene, that describes the consequences that the input must have on the view or the data held by
 //! the scene.
 use super::data::{FreeEnd, Nucl};
-use super::{ActionMode, CameraPtr, DataPtr, PhySize, PhysicalPosition, ViewPtr, WindowEvent};
+use super::{
+    ActionMode, Arc, CameraPtr, DataPtr, Mediator, Mutex, PhySize, PhysicalPosition, ViewPtr,
+    WindowEvent,
+};
+use crate::design::StrandBuilder;
 use iced_winit::winit::event::*;
 use std::cell::RefCell;
 use ultraviolet::Vec2;
@@ -23,6 +27,7 @@ pub struct Controller {
     camera: CameraPtr,
     state: RefCell<Box<dyn ControllerState>>,
     action_mode: ActionMode,
+    mediator: Arc<Mutex<Mediator>>,
 }
 
 pub enum Consequence {
@@ -38,6 +43,7 @@ pub enum Consequence {
     RmStrand(Nucl),
     RmHelix(usize),
     FlipVisibility(usize, bool),
+    Built(Box<StrandBuilder>),
 }
 
 impl Controller {
@@ -47,6 +53,7 @@ impl Controller {
         window_size: PhySize,
         area_size: PhySize,
         camera: CameraPtr,
+        mediator: Arc<Mutex<Mediator>>,
     ) -> Self {
         Self {
             view,
@@ -58,6 +65,7 @@ impl Controller {
                 mouse_position: PhysicalPosition::new(-1., -1.),
             })),
             action_mode: ActionMode::Normal,
+            mediator,
         }
     }
 
@@ -94,6 +102,7 @@ impl Controller {
                 KeyboardInput {
                     virtual_keycode: Some(key),
                     state: ElementState::Pressed,
+                    modifiers,
                     ..
                 },
             ..
@@ -112,6 +121,8 @@ impl Controller {
                 VirtualKeyCode::K => {
                     self.data.borrow_mut().move_helix_forward();
                 }
+                VirtualKeyCode::Z if modifiers.ctrl() => self.mediator.lock().unwrap().undo(),
+                VirtualKeyCode::R if modifiers.ctrl() => self.mediator.lock().unwrap().redo(),
                 _ => (),
             }
         }
