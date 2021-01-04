@@ -2,7 +2,7 @@ use std::collections::{BTreeSet, HashMap};
 use std::sync::{Arc, Mutex};
 
 use super::{Nucl, Strand};
-use crate::design::{Design, Helix as DesignHelix, StrandBuilder};
+use crate::design::{Design, Helix as DesignHelix, Strand as StrandDesign, StrandBuilder};
 use ultraviolet::{Isometry2, Rotor2, Vec2};
 
 pub(super) struct Design2d {
@@ -228,6 +228,10 @@ impl Design2d {
 
     pub fn get_raw_helix(&self, h_id: usize) -> Option<DesignHelix> {
         self.design.lock().unwrap().get_raw_helix(h_id)
+    }
+
+    pub fn get_strand(&self, s_id: usize) -> Option<StrandDesign> {
+        self.design.lock().unwrap().get_raw_strand(s_id)
     }
 
     fn remake_id_map(&mut self) {

@@ -252,6 +252,18 @@ impl Design {
                     self.data.lock().unwrap().add_helix(&helix, h_id)
                 }
             }
+            AppNotification::Cut {
+                nucl,
+                strand,
+                undo,
+                s_id,
+            } => {
+                if undo {
+                    self.data.lock().unwrap().undo_split(strand, s_id)
+                } else {
+                    self.data.lock().unwrap().split_strand(&nucl, None)
+                }
+            }
         }
     }
 
@@ -548,6 +560,10 @@ impl Design {
 
     pub fn get_raw_helix(&self, h_id: usize) -> Option<Helix> {
         self.data.lock().unwrap().get_helix(h_id)
+    }
+
+    pub fn get_raw_strand(&self, s_id: usize) -> Option<Strand> {
+        self.data.lock().unwrap().get_strand(s_id)
     }
 }
 

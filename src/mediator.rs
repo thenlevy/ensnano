@@ -21,7 +21,7 @@ use crate::design;
 
 use design::{
     Design, DesignNotification, DesignRotation, DesignTranslation, GridDescriptor,
-    GridHelixDescriptor, Helix, StrandBuilder,
+    GridHelixDescriptor, Helix, Nucl, Strand, StrandBuilder,
 };
 
 mod operation;
@@ -550,6 +550,12 @@ pub enum AppNotification {
         helix: Helix,
         delete: bool,
         h_id: usize,
+    },
+    Cut {
+        strand: Strand,
+        nucl: Nucl,
+        undo: bool,
+        s_id: usize,
     },
     MakeGrids,
     AddGrid(GridDescriptor),

@@ -6,7 +6,7 @@ use crate::{DrawArea, Duration, PhySize, WindowEvent};
 use iced_wgpu::wgpu;
 use iced_winit::winit;
 use mediator::{
-    ActionMode, Application, Mediator, Notification, RawHelixCreation, Selection,
+    ActionMode, Application, Cut, Mediator, Notification, RawHelixCreation, Selection,
     StrandConstruction,
 };
 use std::cell::RefCell;
@@ -147,10 +147,31 @@ impl FlatScene {
                         .xover(nucl1, nucl2);
                 }
                 Consequence::Cut(nucl) => {
+                    /*
                     self.mediator.lock().unwrap().drop_undo_stack();
                     self.data[self.selected_design]
                         .borrow_mut()
                         .split_strand(nucl);
+                    */
+                    let strand_id = self.data[self.selected_design].borrow().get_strand_id(nucl);
+                    if let Some(strand_id) = strand_id {
+                        println!("cutting");
+                        let strand = self.data[self.selected_design]
+                            .borrow()
+                            .get_strand(strand_id)
+                            .unwrap();
+                        let nucl = self.data[self.selected_design].borrow().to_real(nucl);
+                        self.mediator
+                            .lock()
+                            .unwrap()
+                            .update_opperation(Arc::new(Cut {
+                                nucl,
+                                strand_id,
+                                strand,
+                                undo: false,
+                                design_id: self.selected_design,
+                            }))
+                    }
                 }
                 Consequence::FreeEnd(free_end) => self.data[self.selected_design]
                     .borrow_mut()

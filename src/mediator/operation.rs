@@ -7,7 +7,7 @@
 use super::{
     AppNotification, DesignRotation, DesignTranslation, GridDescriptor, GridHelixDescriptor,
 };
-use crate::design::{GridTypeDescr, Helix, IsometryTarget, StrandBuilder};
+use crate::design::{GridTypeDescr, Helix, IsometryTarget, Nucl, Strand, StrandBuilder};
 use std::sync::Arc;
 use ultraviolet::{Bivec3, Rotor3, Vec3};
 
@@ -793,6 +793,65 @@ impl Operation for RawHelixCreation {
 }
 
 #[derive(Clone, Debug)]
+pub struct Cut {
+    pub strand: Strand,
+    pub nucl: Nucl,
+    pub strand_id: usize,
+    pub undo: bool,
+    pub design_id: usize,
+}
+
+impl Operation for Cut {
+    fn descr(&self) -> OperationDescriptor {
+        OperationDescriptor::Cut
+    }
+
+    fn compose(&self, _other: &dyn Operation) -> Option<Arc<dyn Operation>> {
+        None
+    }
+
+    fn parameters(&self) -> Vec<Parameter> {
+        vec![]
+    }
+
+    fn values(&self) -> Vec<String> {
+        vec![]
+    }
+
+    fn reverse(&self) -> Arc<dyn Operation> {
+        Arc::new(Cut {
+            undo: !self.undo,
+            ..self.clone()
+        })
+    }
+
+    fn effect(&self) -> AppNotification {
+        AppNotification::Cut {
+            nucl: self.nucl,
+            strand: self.strand.clone(),
+            s_id: self.strand_id,
+            undo: self.undo,
+        }
+    }
+
+    fn description(&self) -> String {
+        if self.undo {
+            format!("Undo Cut")
+        } else {
+            format!("Do Cut")
+        }
+    }
+
+    fn target(&self) -> usize {
+        self.design_id
+    }
+
+    fn with_new_value(&self, _n: usize, _val: String) -> Option<Arc<dyn Operation>> {
+        None
+    }
+}
+
+#[derive(Clone, Debug)]
 pub struct CreateGrid {
     pub position: Vec3,
     pub orientation: Rotor3,
@@ -946,6 +1005,7 @@ pub enum OperationDescriptor {
     GridHelixCreation(usize, usize),
     GridHelixDeletion(usize, usize),
     RawHelixCreation,
+    Cut,
     BuildStrand(std::time::SystemTime),
     CreateGrid,
 }

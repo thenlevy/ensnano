@@ -25,7 +25,7 @@ use crate::scene::GridInstance;
 use grid::GridManager;
 pub use grid::*;
 pub use icednano::Nucl;
-pub use icednano::{Axis, Design, Helix, Parameters};
+pub use icednano::{Axis, Design, Helix, Parameters, Strand};
 use std::sync::{Arc, RwLock};
 use strand_builder::NeighbourDescriptor;
 pub use strand_builder::{DomainIdentifier, StrandBuilder};
@@ -860,6 +860,29 @@ impl Data {
         self.view_need_reset = true;
     }
 
+    /// Undo a strand split.
+    ///
+    /// This methods assumes that the strand with highest id was created during the split that is
+    /// undone.
+    pub fn undo_split(&mut self, strand: Strand, s_id: usize) {
+        self.update_status = true;
+        self.view_need_reset = true;
+        self.design
+            .strands
+            .remove(&s_id)
+            .expect("Removing unexisting strand");
+        let other_strand_id = self
+            .design
+            .strands
+            .keys()
+            .max()
+            .expect("other strand id")
+            .clone();
+        self.design.strands.remove(&other_strand_id).unwrap();
+        self.design.strands.insert(s_id, strand);
+        self.make_hash_maps();
+    }
+
     pub fn split_strand(&mut self, nucl: &Nucl, force_end: Option<bool>) {
         self.update_status = true;
         self.hash_maps_update = true;
@@ -1108,6 +1131,10 @@ impl Data {
 
     pub fn get_helix(&self, h_id: usize) -> Option<Helix> {
         self.design.helices.get(&h_id).cloned()
+    }
+
+    pub fn get_strand(&self, s_id: usize) -> Option<Strand> {
+        self.design.strands.get(&s_id).cloned()
     }
 
     /// Remove an helix containing only two filling strands.
