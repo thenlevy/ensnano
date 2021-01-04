@@ -7,7 +7,7 @@
 use super::{
     AppNotification, DesignRotation, DesignTranslation, GridDescriptor, GridHelixDescriptor,
 };
-use crate::design::{GridTypeDescr, IsometryTarget, StrandBuilder};
+use crate::design::{GridTypeDescr, Helix, IsometryTarget, StrandBuilder};
 use std::sync::Arc;
 use ultraviolet::{Bivec3, Rotor3, Vec3};
 
@@ -591,16 +591,7 @@ impl Operation for GridHelixCreation {
     }
 
     fn parameters(&self) -> Vec<Parameter> {
-        vec![
-            Parameter {
-                field: ParameterField::Value,
-                name: String::from("x"),
-            },
-            Parameter {
-                field: ParameterField::Value,
-                name: String::from("y"),
-            },
-        ]
+        vec![]
     }
 
     fn values(&self) -> Vec<String> {
@@ -682,16 +673,7 @@ impl Operation for GridHelixDeletion {
     }
 
     fn parameters(&self) -> Vec<Parameter> {
-        vec![
-            Parameter {
-                field: ParameterField::Value,
-                name: String::from("x"),
-            },
-            Parameter {
-                field: ParameterField::Value,
-                name: String::from("y"),
-            },
-        ]
+        vec![]
     }
 
     fn values(&self) -> Vec<String> {
@@ -750,6 +732,63 @@ impl Operation for GridHelixDeletion {
             }
             _ => None,
         }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct RawHelixCreation {
+    pub helix: Helix,
+    pub helix_id: usize,
+    pub delete: bool,
+    pub design_id: usize,
+}
+
+impl Operation for RawHelixCreation {
+    fn descr(&self) -> OperationDescriptor {
+        OperationDescriptor::RawHelixCreation
+    }
+
+    fn compose(&self, _other: &dyn Operation) -> Option<Arc<dyn Operation>> {
+        None
+    }
+
+    fn parameters(&self) -> Vec<Parameter> {
+        vec![]
+    }
+
+    fn values(&self) -> Vec<String> {
+        vec![]
+    }
+
+    fn reverse(&self) -> Arc<dyn Operation> {
+        Arc::new(RawHelixCreation {
+            delete: !self.delete,
+            ..self.clone()
+        })
+    }
+
+    fn effect(&self) -> AppNotification {
+        AppNotification::RawHelixCreation {
+            helix: self.helix.clone(),
+            h_id: self.helix_id,
+            delete: self.delete,
+        }
+    }
+
+    fn description(&self) -> String {
+        if self.delete {
+            format!("Delete grid")
+        } else {
+            format!("Create grid")
+        }
+    }
+
+    fn target(&self) -> usize {
+        self.design_id
+    }
+
+    fn with_new_value(&self, _n: usize, _val: String) -> Option<Arc<dyn Operation>> {
+        None
     }
 }
 
@@ -906,6 +945,7 @@ pub enum OperationDescriptor {
     GridTranslation(usize, usize),
     GridHelixCreation(usize, usize),
     GridHelixDeletion(usize, usize),
+    RawHelixCreation,
     BuildStrand(std::time::SystemTime),
     CreateGrid,
 }

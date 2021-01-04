@@ -25,7 +25,7 @@ use crate::scene::GridInstance;
 use grid::GridManager;
 pub use grid::*;
 pub use icednano::Nucl;
-pub use icednano::{Axis, Design, Parameters};
+pub use icednano::{Axis, Design, Helix, Parameters};
 use std::sync::{Arc, RwLock};
 use strand_builder::NeighbourDescriptor;
 pub use strand_builder::{DomainIdentifier, StrandBuilder};
@@ -397,12 +397,12 @@ impl Data {
     }
 
     /// Return the identifier of the strand on which an element lies
-    pub fn get_strand(&self, id: u32) -> Option<usize> {
+    pub fn get_strand_of_element(&self, id: u32) -> Option<usize> {
         self.strand_map.get(&id).cloned()
     }
 
     /// Return the identifier of the helix on which an element lies
-    pub fn get_helix(&self, id: u32) -> Option<usize> {
+    pub fn get_helix_of_element(&self, id: u32) -> Option<usize> {
         self.helix_map.get(&id).cloned()
     }
 
@@ -1094,6 +1094,23 @@ impl Data {
         }
     }
 
+    /// Add an helix to the design.
+    pub fn add_helix(&mut self, helix: &Helix, h_id: usize) {
+        if self.design.helices.contains_key(&h_id) {
+            println!("WARNING: helix key already exists {}", h_id);
+        }
+        self.design.helices.insert(h_id, helix.clone());
+        self.update_status = true;
+        self.hash_maps_update = true;
+        self.grid_manager.update(&mut self.design);
+        self.update_grids();
+    }
+
+    pub fn get_helix(&self, h_id: usize) -> Option<Helix> {
+        self.design.helices.get(&h_id).cloned()
+    }
+
+    /// Remove an helix containing only two filling strands.
     pub fn rm_full_helix_grid(&mut self, g_id: usize, x: isize, y: isize, position: isize) {
         let h = self.grids[g_id]
             .read()
@@ -1144,7 +1161,7 @@ impl Data {
         self.update_status = true;
         self.hash_maps_update = true;
         if !self.helix_is_empty(h_id) {
-            return;
+            println!("WARNING REMOVING HELIX THAT IS NOT EMPTY");
         }
         if let Some(h) = self.design.helices.get(&h_id) {
             if let Some(grid_position) = h.grid_position {
@@ -1156,6 +1173,8 @@ impl Data {
         self.view_need_reset = true;
     }
 
+    /// Return false if there exists at least one strand with a domain on helix `h_id`, and false
+    /// otherwise.
     pub fn helix_is_empty(&self, h_id: usize) -> bool {
         for strand in self.design.strands.values() {
             for domain in strand.domains.iter() {
@@ -1166,7 +1185,7 @@ impl Data {
                 }
             }
         }
-        true
+        self.design.helices.contains_key(&h_id)
     }
 
     /// Delete the last grid that was added to the grid manager. This can only be done

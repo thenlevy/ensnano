@@ -5,7 +5,10 @@ use crate::mediator;
 use crate::{DrawArea, Duration, PhySize, WindowEvent};
 use iced_wgpu::wgpu;
 use iced_winit::winit;
-use mediator::{ActionMode, Application, Mediator, Notification, Selection, StrandConstruction};
+use mediator::{
+    ActionMode, Application, Mediator, Notification, RawHelixCreation, Selection,
+    StrandConstruction,
+};
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
@@ -183,9 +186,20 @@ impl FlatScene {
                     self.mediator.lock().unwrap().drop_undo_stack();
                     self.data[self.selected_design].borrow_mut().rm_strand(nucl)
                 }
-                Consequence::RmHelix(helix) => {
-                    self.mediator.lock().unwrap().drop_undo_stack();
-                    self.data[self.selected_design].borrow_mut().rm_helix(helix)
+                Consequence::RmHelix(h_id) => {
+                    let helix = self.data[self.selected_design]
+                        .borrow_mut()
+                        .can_delete_helix(h_id);
+                    if let Some((helix, helix_id)) = helix {
+                        self.mediator.lock().unwrap().update_opperation(Arc::new(
+                            RawHelixCreation {
+                                helix,
+                                helix_id,
+                                design_id: self.selected_design,
+                                delete: true,
+                            },
+                        ))
+                    }
                 }
                 Consequence::Built(builder) => {
                     let color = builder.get_strand_color();

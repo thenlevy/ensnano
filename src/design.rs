@@ -241,6 +241,17 @@ impl Design {
                 }
                 builder.update();
             }
+            AppNotification::RawHelixCreation {
+                helix,
+                h_id,
+                delete,
+            } => {
+                if delete {
+                    self.data.lock().unwrap().remove_helix(h_id)
+                } else {
+                    self.data.lock().unwrap().add_helix(&helix, h_id)
+                }
+            }
         }
     }
 
@@ -251,12 +262,12 @@ impl Design {
 
     /// Return the identifier of the strand on which an element lies
     pub fn get_strand(&self, element_id: u32) -> Option<usize> {
-        self.data.lock().unwrap().get_strand(element_id)
+        self.data.lock().unwrap().get_strand_of_element(element_id)
     }
 
     /// Return the identifier of the helix on which an element lies
     pub fn get_helix(&self, element_id: u32) -> Option<usize> {
-        self.data.lock().unwrap().get_helix(element_id)
+        self.data.lock().unwrap().get_helix_of_element(element_id)
     }
 
     /// Return all the identifier of the elements that lie on a strand
@@ -533,6 +544,10 @@ impl Design {
 
     pub fn view_need_reset(&self) -> bool {
         self.data.lock().unwrap().view_need_reset()
+    }
+
+    pub fn get_raw_helix(&self, h_id: usize) -> Option<Helix> {
+        self.data.lock().unwrap().get_helix(h_id)
     }
 }
 

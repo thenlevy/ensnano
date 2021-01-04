@@ -514,7 +514,7 @@ impl std::default::Default for Parameters {
 /// The three angles are illustrated in the following image, from [the NASA website](https://www.grc.nasa.gov/www/k-12/airplane/rotations.html):
 /// Angles are applied in the order yaw -> pitch -> roll
 /// ![Aircraft angles](https://www.grc.nasa.gov/www/k-12/airplane/Images/rotations.gif)
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Helix {
     /// Position of the origin of the helix axis.
     pub position: Vec3,

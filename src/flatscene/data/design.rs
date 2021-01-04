@@ -2,7 +2,7 @@ use std::collections::{BTreeSet, HashMap};
 use std::sync::{Arc, Mutex};
 
 use super::{Nucl, Strand};
-use crate::design::{Design, StrandBuilder};
+use crate::design::{Design, Helix as DesignHelix, StrandBuilder};
 use ultraviolet::{Isometry2, Rotor2, Vec2};
 
 pub(super) struct Design2d {
@@ -221,16 +221,13 @@ impl Design2d {
         self.design.lock().unwrap().rm_strand(nucl)
     }
 
-    pub fn rm_helix(&mut self, helix: usize) {
-        let real_helix = self.helices[helix].id;
-        self.design.lock().unwrap().rm_helix(real_helix);
-        self.helices.remove(helix);
-        self.remake_id_map();
-    }
-
     pub fn can_delete_helix(&self, helix: usize) -> bool {
         let real_helix = self.helices[helix].id;
         self.design.lock().unwrap().helix_is_empty(real_helix)
+    }
+
+    pub fn get_raw_helix(&self, h_id: usize) -> Option<DesignHelix> {
+        self.design.lock().unwrap().get_raw_helix(h_id)
     }
 
     fn remake_id_map(&mut self) {

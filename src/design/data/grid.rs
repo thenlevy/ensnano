@@ -331,7 +331,7 @@ impl GridDivision for HoneyComb {
     }
 }
 
-#[derive(Clone, Serialize, Deserialize, Copy, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, Copy, PartialEq)]
 pub struct GridPosition {
     /// Identifier of the grid
     pub grid: usize,
@@ -390,6 +390,8 @@ impl GridManager {
 
     pub fn remove_helix(&mut self, h_id: usize) {
         self.helix_to_pos.remove(&h_id);
+        self.small_spheres.remove(&h_id);
+        self.no_phantoms.remove(&h_id);
     }
 
     pub fn new_from_design(design: &Design) -> Self {

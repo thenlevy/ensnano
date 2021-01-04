@@ -10,6 +10,7 @@ pub use strand::{FreeEnd, Nucl, Strand, StrandVertex};
 mod design;
 use super::CameraPtr;
 use crate::consts::*;
+use crate::design::Helix as DesignHelix;
 use crate::utils::camera2d::FitRectangle;
 use design::{Design2d, Helix2d};
 use std::collections::HashMap;
@@ -285,11 +286,15 @@ impl Data {
         self.design.rm_strand(nucl);
     }
 
-    pub fn rm_helix(&mut self, helix: usize) {
-        if self.design.can_delete_helix(helix) {
-            self.instance_reset = true;
-            self.helices.remove(helix);
-            self.design.rm_helix(helix);
+    pub fn can_delete_helix(&mut self, h_id: usize) -> Option<(DesignHelix, usize)> {
+        let real_helix = self.design.get_helices()[h_id].id;
+        println!("can delete {} / {} ?", h_id, real_helix);
+        if self.design.can_delete_helix(h_id) {
+            self.design
+                .get_raw_helix(real_helix as usize)
+                .zip(Some(real_helix as usize))
+        } else {
+            None
         }
     }
 
