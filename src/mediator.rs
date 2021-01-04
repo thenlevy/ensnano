@@ -557,6 +557,13 @@ pub enum AppNotification {
         undo: bool,
         s_id: usize,
     },
+    Xover {
+        strand_5prime: Strand,
+        strand_3prime: Strand,
+        undo: bool,
+        prime5_id: usize,
+        prime3_id: usize,
+    },
     MakeGrids,
     AddGrid(GridDescriptor),
     MoveBuilder(Box<StrandBuilder>, Option<(usize, u32)>),

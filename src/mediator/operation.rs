@@ -852,6 +852,67 @@ impl Operation for Cut {
 }
 
 #[derive(Clone, Debug)]
+pub struct Xover {
+    pub strand_5prime: Strand,
+    pub strand_3prime: Strand,
+    pub prime5_id: usize,
+    pub prime3_id: usize,
+    pub undo: bool,
+    pub design_id: usize,
+}
+
+impl Operation for Xover {
+    fn descr(&self) -> OperationDescriptor {
+        OperationDescriptor::Xover
+    }
+
+    fn compose(&self, _other: &dyn Operation) -> Option<Arc<dyn Operation>> {
+        None
+    }
+
+    fn parameters(&self) -> Vec<Parameter> {
+        vec![]
+    }
+
+    fn values(&self) -> Vec<String> {
+        vec![]
+    }
+
+    fn reverse(&self) -> Arc<dyn Operation> {
+        Arc::new(Xover {
+            undo: !self.undo,
+            ..self.clone()
+        })
+    }
+
+    fn effect(&self) -> AppNotification {
+        AppNotification::Xover {
+            strand_5prime: self.strand_5prime.clone(),
+            strand_3prime: self.strand_3prime.clone(),
+            prime5_id: self.prime5_id,
+            prime3_id: self.prime3_id,
+            undo: self.undo,
+        }
+    }
+
+    fn description(&self) -> String {
+        if self.undo {
+            format!("Undo Cut")
+        } else {
+            format!("Do Cut")
+        }
+    }
+
+    fn target(&self) -> usize {
+        self.design_id
+    }
+
+    fn with_new_value(&self, _n: usize, _val: String) -> Option<Arc<dyn Operation>> {
+        None
+    }
+}
+
+#[derive(Clone, Debug)]
 pub struct CreateGrid {
     pub position: Vec3,
     pub orientation: Rotor3,
@@ -1006,6 +1067,7 @@ pub enum OperationDescriptor {
     GridHelixDeletion(usize, usize),
     RawHelixCreation,
     Cut,
+    Xover,
     BuildStrand(std::time::SystemTime),
     CreateGrid,
 }

@@ -264,6 +264,27 @@ impl Design {
                     self.data.lock().unwrap().split_strand(&nucl, None)
                 }
             }
+            AppNotification::Xover {
+                strand_5prime,
+                strand_3prime,
+                prime5_id,
+                prime3_id,
+                undo,
+            } => {
+                if undo {
+                    self.data.lock().unwrap().undo_merge(
+                        strand_5prime,
+                        strand_3prime,
+                        prime5_id,
+                        prime3_id,
+                    )
+                } else {
+                    self.data
+                        .lock()
+                        .unwrap()
+                        .merge_strands(prime5_id, prime3_id)
+                }
+            }
         }
     }
 

@@ -256,22 +256,26 @@ impl Data {
         );
     }
 
-    pub fn xover(&mut self, from: Nucl, to: Nucl) {
+    pub fn xover(&self, from: Nucl, to: Nucl) -> (usize, usize) {
         let nucl1 = self.to_real(from);
         let nucl2 = self.to_real(to);
-        let prim5 = self
+
+        // The 3 prime strand is the strand whose **5prime** end is in the xover
+        let strand_3prime = self
             .design
             .prime5_of(nucl1)
             .or(self.design.prime5_of(nucl2));
-        let prim3 = self
+
+        // The 5 prime strand is the strand whose **3prime** end is in the xover
+        let strand_5prime = self
             .design
             .prime3_of(nucl1)
             .or(self.design.prime3_of(nucl2));
-        if prim5.is_none() || prim3.is_none() {
+
+        if strand_3prime.is_none() || strand_5prime.is_none() {
             println!("Problem during cross-over attempt. If you are not trying to break a cyclic strand please repport a bug");
-            return;
         }
-        self.merge_strand(prim3.unwrap(), prim5.unwrap())
+        (strand_5prime.unwrap(), strand_3prime.unwrap())
     }
 
     pub fn split_strand(&mut self, nucl: Nucl) {

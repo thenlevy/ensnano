@@ -7,7 +7,7 @@ use iced_wgpu::wgpu;
 use iced_winit::winit;
 use mediator::{
     ActionMode, Application, Cut, Mediator, Notification, RawHelixCreation, Selection,
-    StrandConstruction,
+    StrandConstruction, Xover,
 };
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -141,18 +141,29 @@ impl FlatScene {
             use controller::Consequence;
             match consequence {
                 Consequence::Xover(nucl1, nucl2) => {
-                    self.mediator.lock().unwrap().drop_undo_stack();
-                    self.data[self.selected_design]
-                        .borrow_mut()
-                        .xover(nucl1, nucl2);
+                    let (prime5_id, prime3_id) =
+                        self.data[self.selected_design].borrow().xover(nucl1, nucl2);
+                    let strand_5prime = self.data[self.selected_design]
+                        .borrow()
+                        .get_strand(prime5_id)
+                        .unwrap();
+                    let strand_3prime = self.data[self.selected_design]
+                        .borrow()
+                        .get_strand(prime3_id)
+                        .unwrap();
+                    self.mediator
+                        .lock()
+                        .unwrap()
+                        .update_opperation(Arc::new(Xover {
+                            strand_3prime,
+                            strand_5prime,
+                            prime3_id,
+                            prime5_id,
+                            undo: false,
+                            design_id: self.selected_design,
+                        }))
                 }
                 Consequence::Cut(nucl) => {
-                    /*
-                    self.mediator.lock().unwrap().drop_undo_stack();
-                    self.data[self.selected_design]
-                        .borrow_mut()
-                        .split_strand(nucl);
-                    */
                     let strand_id = self.data[self.selected_design].borrow().get_strand_id(nucl);
                     if let Some(strand_id) = strand_id {
                         println!("cutting");
@@ -177,10 +188,25 @@ impl FlatScene {
                     .borrow_mut()
                     .set_free_end(free_end),
                 Consequence::CutFreeEnd(nucl, free_end) => {
-                    self.mediator.lock().unwrap().drop_undo_stack();
-                    self.data[self.selected_design]
-                        .borrow_mut()
-                        .split_strand(nucl);
+                    let strand_id = self.data[self.selected_design].borrow().get_strand_id(nucl);
+                    if let Some(strand_id) = strand_id {
+                        println!("cutting");
+                        let strand = self.data[self.selected_design]
+                            .borrow()
+                            .get_strand(strand_id)
+                            .unwrap();
+                        let nucl = self.data[self.selected_design].borrow().to_real(nucl);
+                        self.mediator
+                            .lock()
+                            .unwrap()
+                            .update_opperation(Arc::new(Cut {
+                                nucl,
+                                strand_id,
+                                strand,
+                                undo: false,
+                                design_id: self.selected_design,
+                            }))
+                    }
                     self.data[self.selected_design]
                         .borrow_mut()
                         .set_free_end(free_end);

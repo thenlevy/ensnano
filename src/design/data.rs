@@ -791,6 +791,8 @@ impl Data {
         return None;
     }
 
+    /// Merge two strands with identifier prime5 and prime3. The resulting strand will have
+    /// identifier prime5.
     pub fn merge_strands(&mut self, prime5: usize, prime3: usize) {
         // We panic, if we can't find the strand, because this means that the program has a bug
         if prime5 != prime3 {
@@ -858,6 +860,25 @@ impl Data {
             */
         }
         self.view_need_reset = true;
+    }
+
+    /// Undo a strand merge
+    ///
+    /// This methods assumes that the given strand id are those of the strands that were merged
+    /// during the operation being undone
+    pub fn undo_merge(
+        &mut self,
+        strand_5prime: Strand,
+        strand_3prime: Strand,
+        prime5: usize,
+        prime3: usize,
+    ) {
+        self.design.strands.remove(&prime5).expect("undo merge");
+        self.design.strands.insert(prime5, strand_5prime);
+        self.design.strands.insert(prime3, strand_3prime);
+        self.update_status = true;
+        self.view_need_reset = true;
+        self.hash_maps_update = true;
     }
 
     /// Undo a strand split.
