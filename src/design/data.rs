@@ -881,6 +881,18 @@ impl Data {
         self.hash_maps_update = true;
     }
 
+    /// Make a strand cyclic by linking the 3' and the 5' end, or undo this operation.
+    pub fn make_cycle(&mut self, strand_id: usize, cyclic: bool) {
+        self.design
+            .strands
+            .get_mut(&strand_id)
+            .expect("Attempt to make non existing strand cyclic")
+            .cyclic = cyclic;
+        self.update_status = true;
+        self.view_need_reset = true;
+        self.make_hash_maps();
+    }
+
     /// Undo a strand split.
     ///
     /// This methods assumes that the strand with highest id was created during the split that is
@@ -892,14 +904,16 @@ impl Data {
             .strands
             .remove(&s_id)
             .expect("Removing unexisting strand");
-        let other_strand_id = self
-            .design
-            .strands
-            .keys()
-            .max()
-            .expect("other strand id")
-            .clone();
-        self.design.strands.remove(&other_strand_id).unwrap();
+        if !strand.cyclic {
+            let other_strand_id = self
+                .design
+                .strands
+                .keys()
+                .max()
+                .expect("other strand id")
+                .clone();
+            self.design.strands.remove(&other_strand_id).unwrap();
+        }
         self.design.strands.insert(s_id, strand);
         self.make_hash_maps();
     }
@@ -917,6 +931,7 @@ impl Data {
     pub fn split_strand(&mut self, nucl: &Nucl, force_end: Option<bool>) {
         self.update_status = true;
         self.hash_maps_update = true;
+        self.view_need_reset = true;
         let id = self
             .identifier_nucl
             .get(nucl)
@@ -929,8 +944,9 @@ impl Data {
 
         let strand = self.design.strands.remove(&id).expect("strand");
         if strand.cyclic {
-            self.design.strands.insert(id, strand);
-            println!("Cutting cyclic strand is not implemented yet");
+            let new_strand = self.break_cycle(strand.clone(), *nucl, force_end);
+            self.design.strands.insert(id, new_strand);
+            println!("Cutting cyclic strand");
             return;
         }
         if strand.length() <= 1 {
@@ -1027,6 +1043,59 @@ impl Data {
         self.view_need_reset = true;
     }
 
+    /// Split a cyclic strand at nucl
+    ///
+    /// If `force_end` is `Some(true)`, nucl will be the new 5' end of the strand.
+    /// If `force_end` is `Some(false)` nucl will be the new 3' end of the strand.
+    /// If `force_end` is `None`, nucl will be the new 3' end of the strand unless nucl is the 3'
+    /// prime extremity of a crossover, in which case nucl will be the new 5' end of the strand
+    fn break_cycle(&self, mut strand: Strand, nucl: Nucl, force_end: Option<bool>) -> Strand {
+        let mut last_dom = None;
+        let mut replace_last_dom = None;
+        let mut prev_helix = None;
+
+        for (i, domain) in strand.domains.iter().enumerate() {
+            if domain.prime5_end() == Some(nucl)
+                && prev_helix != domain.helix()
+                && force_end != Some(false)
+            {
+                last_dom = if i != 0 {
+                    Some(i - 1)
+                } else {
+                    Some(strand.domains.len() - 1)
+                };
+                break;
+            } else if domain.prime3_end() == Some(nucl) && force_end != Some(true) {
+                last_dom = Some(i);
+                break;
+            } else if let Some(n) = domain.has_nucl(&nucl) {
+                let n = if force_end == Some(true) { n - 1 } else { n };
+                last_dom = Some(i);
+                replace_last_dom = domain.split(n);
+            }
+            prev_helix = domain.helix();
+        }
+        let last_dom = last_dom.expect("Could not find nucl in strand");
+        let mut new_domains = Vec::new();
+        if let Some((_, ref d2)) = replace_last_dom {
+            new_domains.push(d2.clone())
+        }
+        for d in strand.domains.iter().skip(last_dom + 1) {
+            new_domains.push(d.clone());
+        }
+        for d in strand.domains.iter().take(last_dom) {
+            new_domains.push(d.clone())
+        }
+        if let Some((ref d1, _)) = replace_last_dom {
+            new_domains.push(d1.clone())
+        } else {
+            new_domains.push(strand.domains[last_dom].clone())
+        }
+        strand.domains = new_domains;
+        strand.cyclic = false;
+        strand
+    }
+
     /// Cut the target strand at nucl and the make a cross over from the source strand to the part
     /// that contains nucl
     pub fn cross_cut(
@@ -1041,22 +1110,30 @@ impl Data {
         self.split_strand(&nucl, Some(target_3prime));
         println!("splitted");
 
-        if target_3prime {
-            // swap the position of the two half of the target strands so that the merged part is the
-            // new id
-            let half0 = self.design.strands.remove(&target_strand).unwrap();
-            let half1 = self.design.strands.remove(&new_id).unwrap();
-            self.design.strands.insert(new_id, half0);
-            self.design.strands.insert(target_strand, half1);
-            self.merge_strands(source_strand, new_id);
+        if self.design.strands.get(&target_strand).unwrap().cyclic {
+            if target_3prime {
+                // swap the position of the two half of the target strands so that the merged part is the
+                // new id
+                let half0 = self.design.strands.remove(&target_strand).unwrap();
+                let half1 = self.design.strands.remove(&new_id).unwrap();
+                self.design.strands.insert(new_id, half0);
+                self.design.strands.insert(target_strand, half1);
+                self.merge_strands(source_strand, new_id);
+            } else {
+                // if the target strand is the 5' end of the merge, we give the new id to the source
+                // strand because it is the one that is lost in the merge.
+                let half0 = self.design.strands.remove(&source_strand).unwrap();
+                let half1 = self.design.strands.remove(&new_id).unwrap();
+                self.design.strands.insert(new_id, half0);
+                self.design.strands.insert(source_strand, half1);
+                self.merge_strands(target_strand, new_id);
+            }
         } else {
-            // if the target strand is the 5' end of the merge, we give the new id to the source
-            // strand because it is the one that is lost in the merge.
-            let half0 = self.design.strands.remove(&source_strand).unwrap();
-            let half1 = self.design.strands.remove(&new_id).unwrap();
-            self.design.strands.insert(new_id, half0);
-            self.design.strands.insert(source_strand, half1);
-            self.merge_strands(target_strand, new_id);
+            if target_3prime {
+                self.merge_strands(source_strand, target_strand);
+            } else {
+                self.merge_strands(target_strand, source_strand);
+            }
         }
     }
 

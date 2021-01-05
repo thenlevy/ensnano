@@ -271,18 +271,22 @@ impl Design {
                 prime3_id,
                 undo,
             } => {
-                if undo {
-                    self.data.lock().unwrap().undo_merge(
-                        strand_5prime,
-                        strand_3prime,
-                        prime5_id,
-                        prime3_id,
-                    )
+                if prime5_id == prime3_id {
+                    self.data.lock().unwrap().make_cycle(prime5_id, !undo)
                 } else {
-                    self.data
-                        .lock()
-                        .unwrap()
-                        .merge_strands(prime5_id, prime3_id)
+                    if undo {
+                        self.data.lock().unwrap().undo_merge(
+                            strand_5prime,
+                            strand_3prime,
+                            prime5_id,
+                            prime3_id,
+                        )
+                    } else {
+                        self.data
+                            .lock()
+                            .unwrap()
+                            .merge_strands(prime5_id, prime3_id)
+                    }
                 }
             }
             AppNotification::CrossCut {
