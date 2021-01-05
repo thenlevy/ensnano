@@ -904,6 +904,16 @@ impl Data {
         self.make_hash_maps();
     }
 
+    /// Split a strand at nucl.
+    ///
+    /// The part of the strand that contains nucl is given the original
+    /// strand's id, the other part is given a new id.
+    ///
+    /// If `force_end` is `Some(true)`, nucl will be on the 3 prime half of the split.
+    /// If `force_end` is `Some(false)` nucl will be on the 5 prime half of the split.
+    /// If `force_end` is `None`, nucl will be on the 5 prime half of the split unless nucl is the 3
+    /// prime extremity of a crossover, in which case nucl will be on the 3 prime half of the
+    /// split.
     pub fn split_strand(&mut self, nucl: &Nucl, force_end: Option<bool>) {
         self.update_status = true;
         self.hash_maps_update = true;
@@ -936,18 +946,24 @@ impl Data {
         for (d_id, domain) in strand.domains.iter().enumerate() {
             if domain.prime5_end() == Some(*nucl)
                 && prev_helix != domain.helix()
-                && force_end != Some(true)
+                && force_end != Some(false)
             {
-                i = d_id;
+                // nucl is the 5' end of the next domain so it is the on the 3' end of a xover.
+                // nucl is not required to be on the 5' half of the split, so we put it on the 3'
+                // half
                 on_3prime = true;
+                i = d_id;
                 break;
-            } else if domain.prime3_end() == Some(*nucl) && force_end != Some(false) {
+            } else if domain.prime3_end() == Some(*nucl) && force_end != Some(true) {
+                // nucl is the 3' end of the current domain so it is the on the 5' end of a xover.
+                // nucl is not required to be on the 3' half of the split, so we put it on the 5'
+                // half
                 i = d_id + 1;
                 prim5_domains.push(domain.clone());
                 len_prim5 += domain.length();
                 break;
             } else if let Some(n) = domain.has_nucl(nucl) {
-                let n = if force_end == Some(false) { n - 1 } else { n };
+                let n = if force_end == Some(true) { n - 1 } else { n };
                 i = d_id;
                 len_prim5 += n;
                 domains = domain.split(n);
@@ -994,6 +1010,7 @@ impl Data {
             sequence: seq_prim3,
         };
         let new_id = (*self.design.strands.keys().max().unwrap_or(&0)).max(id) + 1;
+        println!("new id {}, ; id {}", new_id, id);
         let (id_5prime, id_3prime) = if !on_3prime {
             (id, new_id)
         } else {
@@ -1006,6 +1023,54 @@ impl Data {
             self.design.strands.insert(id_3prime, strand_3prime);
         }
         self.update_status = true;
+        self.make_hash_maps();
+        self.view_need_reset = true;
+    }
+
+    /// Cut the target strand at nucl and the make a cross over from the source strand to the part
+    /// that contains nucl
+    pub fn cross_cut(
+        &mut self,
+        source_strand: usize,
+        target_strand: usize,
+        nucl: Nucl,
+        target_3prime: bool,
+    ) {
+        let new_id = self.design.strands.keys().max().unwrap() + 1;
+        println!("half1 {}, ; half0 {}", new_id, target_strand);
+        self.split_strand(&nucl, Some(target_3prime));
+        println!("splitted");
+
+        if target_3prime {
+            // swap the position of the two half of the target strands so that the merged part is the
+            // new id
+            let half0 = self.design.strands.remove(&target_strand).unwrap();
+            let half1 = self.design.strands.remove(&new_id).unwrap();
+            self.design.strands.insert(new_id, half0);
+            self.design.strands.insert(target_strand, half1);
+            self.merge_strands(source_strand, new_id);
+        } else {
+            // if the target strand is the 5' end of the merge, we give the new id to the source
+            // strand because it is the one that is lost in the merge.
+            let half0 = self.design.strands.remove(&source_strand).unwrap();
+            let half1 = self.design.strands.remove(&new_id).unwrap();
+            self.design.strands.insert(new_id, half0);
+            self.design.strands.insert(source_strand, half1);
+            self.merge_strands(target_strand, new_id);
+        }
+    }
+
+    /// Undo a cross cut by replacing the strand with id source_id and target id by the original
+    /// values
+    pub fn undo_cross_cut(
+        &mut self,
+        source: Strand,
+        target: Strand,
+        source_id: usize,
+        target_id: usize,
+    ) {
+        self.design.strands.insert(source_id, source);
+        self.design.strands.insert(target_id, target);
         self.make_hash_maps();
         self.view_need_reset = true;
     }

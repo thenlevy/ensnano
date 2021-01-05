@@ -285,6 +285,29 @@ impl Design {
                         .merge_strands(prime5_id, prime3_id)
                 }
             }
+            AppNotification::CrossCut {
+                source_strand,
+                target_strand,
+                source_id,
+                target_id,
+                target_3prime,
+                nucl,
+                undo,
+            } => {
+                if undo {
+                    self.data.lock().unwrap().undo_cross_cut(
+                        source_strand,
+                        target_strand,
+                        source_id,
+                        target_id,
+                    )
+                } else {
+                    self.data
+                        .lock()
+                        .unwrap()
+                        .cross_cut(source_id, target_id, nucl, target_3prime)
+                }
+            }
         }
     }
 

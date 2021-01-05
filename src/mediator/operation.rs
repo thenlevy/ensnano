@@ -912,6 +912,73 @@ impl Operation for Xover {
     }
 }
 
+/// Cut the target strand at nucl, and make a cross over from the source strand.
+#[derive(Clone, Debug)]
+pub struct CrossCut {
+    pub source_strand: Strand,
+    pub target_strand: Strand,
+    pub source_id: usize,
+    pub target_id: usize,
+    pub nucl: Nucl,
+    /// True if the target strand will be the 3 prime part of the merged strand
+    pub target_3prime: bool,
+    pub undo: bool,
+    pub design_id: usize,
+}
+
+impl Operation for CrossCut {
+    fn descr(&self) -> OperationDescriptor {
+        OperationDescriptor::CrossCut
+    }
+
+    fn compose(&self, _other: &dyn Operation) -> Option<Arc<dyn Operation>> {
+        None
+    }
+
+    fn parameters(&self) -> Vec<Parameter> {
+        vec![]
+    }
+
+    fn values(&self) -> Vec<String> {
+        vec![]
+    }
+
+    fn reverse(&self) -> Arc<dyn Operation> {
+        Arc::new(CrossCut {
+            undo: !self.undo,
+            ..self.clone()
+        })
+    }
+
+    fn effect(&self) -> AppNotification {
+        AppNotification::CrossCut {
+            source_strand: self.source_strand.clone(),
+            target_strand: self.target_strand.clone(),
+            source_id: self.source_id,
+            target_id: self.target_id,
+            target_3prime: self.target_3prime,
+            nucl: self.nucl,
+            undo: self.undo,
+        }
+    }
+
+    fn description(&self) -> String {
+        if self.undo {
+            format!("Undo Cut")
+        } else {
+            format!("Do Cut")
+        }
+    }
+
+    fn target(&self) -> usize {
+        self.design_id
+    }
+
+    fn with_new_value(&self, _n: usize, _val: String) -> Option<Arc<dyn Operation>> {
+        None
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct CreateGrid {
     pub position: Vec3,
@@ -1067,6 +1134,7 @@ pub enum OperationDescriptor {
     GridHelixDeletion(usize, usize),
     RawHelixCreation,
     Cut,
+    CrossCut,
     Xover,
     BuildStrand(std::time::SystemTime),
     CreateGrid,

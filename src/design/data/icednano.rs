@@ -317,6 +317,7 @@ impl Domain {
         }
     }
 
+    /// Split self at position `n`, putting `n` on the 5' prime half of the split
     pub fn split(&self, n: usize) -> Option<(Self, Self)> {
         match self {
             Self::Insertion(_) => None,

@@ -224,18 +224,18 @@ impl Data {
         self.design.get_strand_id(nucl)
     }
 
-    pub fn cut_cross(&mut self, from: Nucl, to: Nucl) {
+    /// Return the strand ids and the value of target_3prime to construct a CrossCut operation
+    pub fn cut_cross(&self, from: Nucl, to: Nucl) -> Option<(usize, usize, bool)> {
         if self.get_strand_id(from) == self.get_strand_id(to) {
-            return;
-        }
-        if self.is_strand_end(from) == Some(true) {
-            let to = self.to_real(to);
-            self.design.split_strand_forced_end(to, Some(false));
+            None
         } else {
-            let to = self.to_real(to);
-            self.design.split_strand_forced_end(to, Some(true));
+            // After the cut, the target will be the 3' end of the merge iff the source nucl is the
+            // 3' end of the source strand
+            let target_3prime = self.is_strand_end(from) == Some(true);
+            let from = self.get_strand_id(from)?;
+            let to = self.get_strand_id(to)?;
+            Some((from, to, target_3prime))
         }
-        self.xover(from, to);
     }
 
     /// Return Some(true) if nucl is a 3' end, Some(false) if nucl is a 5' end and None otherwise
