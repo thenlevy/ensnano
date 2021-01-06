@@ -62,7 +62,7 @@ pub struct Data {
     /// performed
     hash_maps_update: bool,
     /// Maps nucleotides to basis characters
-    basis_map: HashMap<Nucl, char>,
+    basis_map: Arc<RwLock<HashMap<Nucl, char>>>,
     grid_manager: GridManager,
     grids: Vec<Arc<RwLock<Grid2D>>>,
     color_idx: usize,
@@ -93,7 +93,7 @@ impl Data {
             color: HashMap::new(),
             update_status: false,
             hash_maps_update: false,
-            basis_map: HashMap::new(),
+            basis_map: Arc::new(RwLock::new(HashMap::new())),
             grid_manager,
             grids: Vec::new(),
             color_idx: 0,
@@ -126,7 +126,7 @@ impl Data {
             update_status: false,
             // false because we call make_hash_maps here
             hash_maps_update: false,
-            basis_map: HashMap::new(),
+            basis_map: Default::default(),
             grid_manager,
             grids,
             color_idx,
@@ -242,7 +242,7 @@ impl Data {
         self.space_position = space_position;
         self.color = color_map;
         self.helix_map = helix_map;
-        self.basis_map = basis_map;
+        *self.basis_map.write().unwrap() = basis_map;
     }
 
     /// Save the design to a file in the `icednano` format
@@ -705,9 +705,11 @@ impl Data {
     pub fn get_symbol(&self, e_id: u32) -> Option<char> {
         self.nucleotide.get(&e_id).and_then(|nucl| {
             self.basis_map
+                .read()
+                .unwrap()
                 .get(nucl)
                 .cloned()
-                .or_else(|| compl(self.basis_map.get(&nucl.compl()).cloned()))
+                .or_else(|| compl(self.basis_map.read().unwrap().get(&nucl.compl()).cloned()))
         })
     }
 
@@ -1486,6 +1488,10 @@ impl Data {
 
     pub fn has_helix(&self, h_id: usize) -> bool {
         self.design.helices.contains_key(&h_id)
+    }
+
+    pub fn get_basis_map(&self) -> Arc<RwLock<HashMap<Nucl, char>>> {
+        self.basis_map.clone()
     }
 }
 

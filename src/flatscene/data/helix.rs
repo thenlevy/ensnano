@@ -11,6 +11,7 @@ use lyon::tessellation::{
     FillVertex, FillVertexConstructor, StrokeVertex, StrokeVertexConstructor,
 };
 use std::collections::HashMap;
+use std::sync::{Arc, RwLock};
 use ultraviolet::{Isometry2, Mat2, Vec2, Vec4};
 
 type Vertices = lyon::tessellation::VertexBuffers<GpuVertex, u16>;
@@ -33,6 +34,7 @@ pub struct Helix {
     pub id: u32,
     pub real_id: usize,
     pub visible: bool,
+    basis_map: Arc<RwLock<HashMap<Nucl, char>>>,
 }
 
 #[repr(C)]
@@ -56,6 +58,7 @@ impl Helix {
         id: u32,
         real_id: usize,
         visible: bool,
+        basis_map: Arc<RwLock<HashMap<Nucl, char>>>,
     ) -> Self {
         Self {
             left,
@@ -69,6 +72,7 @@ impl Helix {
             id,
             real_id,
             visible,
+            basis_map,
         }
     }
 
@@ -321,6 +325,36 @@ impl Helix {
         real_center + ((angle_sin - width) / 2.) * Vec2::unit_x() - height / 2. * Vec2::unit_y()
     }
 
+    fn char_position_top(&self, x: isize, width: f32, height: f32) -> Vec2 {
+        let center_nucl = (x as f32 + 0.5) * Vec2::unit_x();
+
+        let center_text = center_nucl - height / 2. * Vec2::unit_y();
+
+        let real_center = self
+            .isometry
+            .into_homogeneous_matrix()
+            .transform_point2(center_text);
+
+        let angle_sin = Vec2::unit_y().dot(Vec2::unit_x().rotated_by(self.isometry.rotation));
+
+        real_center + ((angle_sin - width) / 2.) * Vec2::unit_x() - height / 2. * Vec2::unit_y()
+    }
+
+    fn char_position_bottom(&self, x: isize, width: f32, height: f32) -> Vec2 {
+        let center_nucl = (x as f32 + 0.5) * Vec2::unit_x();
+
+        let center_text = center_nucl + (2. + height / 2.) * Vec2::unit_y();
+
+        let real_center = self
+            .isometry
+            .into_homogeneous_matrix()
+            .transform_point2(center_text);
+
+        let angle_sin = Vec2::unit_y().dot(Vec2::unit_x().rotated_by(self.isometry.rotation));
+
+        real_center + ((angle_sin - width) / 2.) * Vec2::unit_x() - height / 2. * Vec2::unit_y()
+    }
+
     /// Return the center of the helix's circle widget.
     ///
     /// If the helix is invisible return None.
@@ -463,6 +497,8 @@ impl Helix {
             }
         };
 
+        let basis_map = self.basis_map.read().unwrap();
+
         let mut pos = 0.max(self.left);
         while pos <= self.right {
             print_pos(pos);
@@ -472,6 +508,36 @@ impl Helix {
         while pos >= self.left {
             print_pos(pos);
             pos -= 5;
+        }
+
+        let mut print_basis = |position: isize, forward: bool| {
+            let scale = size_pos;
+            let nucl = Nucl {
+                helix: self.real_id,
+                position,
+                forward,
+            };
+            if let Some(c) = basis_map.get(&nucl) {
+                let advances = crate::utils::chars2d::char_positions(pos.to_string(), char_drawers);
+                let height = crate::utils::chars2d::height(c.to_string(), char_drawers);
+                let center = if forward {
+                    self.char_position_top(position, advances[1] * scale, height * scale)
+                } else {
+                    self.char_position_bottom(position, advances[1] * scale, height * scale)
+                };
+                let instances = char_map.get_mut(&c).unwrap();
+                instances.push(CharInstance {
+                    center,
+                    rotation: self.isometry.rotation.into_matrix(),
+                    size: scale,
+                    z_index: self.id as i32,
+                })
+            }
+        };
+
+        for pos in self.left..=self.right {
+            print_basis(pos, true);
+            print_basis(pos, false);
         }
     }
 

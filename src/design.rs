@@ -1,7 +1,7 @@
 //! This modules defines the type [`Design`](Design) which offers an interface to a DNA nanostructure design.
 use native_dialog::{Dialog, MessageAlert};
 use std::cell::RefCell;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex, RwLock};
@@ -612,6 +612,10 @@ impl Design {
 
     pub fn get_raw_strand(&self, s_id: usize) -> Option<Strand> {
         self.data.lock().unwrap().get_strand(s_id)
+    }
+
+    pub fn get_basis_map(&self) -> Arc<RwLock<HashMap<Nucl, char>>> {
+        self.data.lock().unwrap().get_basis_map()
     }
 }
 
