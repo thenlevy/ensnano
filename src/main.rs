@@ -439,6 +439,10 @@ fn main() {
                     if let Some(rotation) = requests.camera_rotation.take() {
                         mediator.lock().unwrap().request_camera_rotation(rotation)
                     }
+
+                    if let Some(scaffold_id) = requests.set_scaffold_id.take() {
+                        mediator.lock().unwrap().set_scaffold(scaffold_id)
+                    }
                 }
 
                 // Treat eventual event that happenend in the gui left panel.

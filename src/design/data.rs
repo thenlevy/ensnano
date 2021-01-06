@@ -284,9 +284,10 @@ impl Data {
     }
 
     /// Set the strand that is the scaffold
-    pub fn set_scaffold_id(&mut self, scaffold_id: usize) {
-        self.design.scaffold_id = Some(scaffold_id);
+    pub fn set_scaffold_id(&mut self, scaffold_id: Option<usize>) {
+        self.design.scaffold_id = scaffold_id;
         self.hash_maps_update = true;
+        self.update_status = true;
     }
 
     /// Set the sequence of the scaffold
@@ -1542,6 +1543,10 @@ impl Data {
 
     pub fn get_basis_map(&self) -> Arc<RwLock<HashMap<Nucl, char>>> {
         self.basis_map.clone()
+    }
+
+    pub fn is_scaffold(&self, s_id: usize) -> bool {
+        self.design.scaffold_id == Some(s_id)
     }
 }
 

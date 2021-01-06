@@ -146,9 +146,15 @@ impl StatusBar {
                 );
             }
             Selection::Strand(_, _) => {
+                let s_id = self.info_values[2].parse::<usize>().unwrap();
                 row = row.push(
                     Text::new(format!("length {}", &self.info_values[0])).size(STATUS_FONT_SIZE),
                 );
+                row = row.push(Checkbox::new(
+                    bool::from_str(&self.info_values[1]).unwrap(),
+                    "Scaffold",
+                    move |b| Message::ScaffoldIdSet(s_id, b),
+                ))
             }
             _ => (),
         }
@@ -171,6 +177,7 @@ pub enum Message {
     ValueChanged(usize, String),
     SelectionValueChanged(usize, String),
     SetSmallSpheres(bool),
+    ScaffoldIdSet(usize, bool),
     ClearOp,
 }
 
@@ -213,6 +220,18 @@ impl Program for StatusBar {
                 self.requests.lock().unwrap().small_spheres = Some(b);
             }
             Message::ClearOp => self.operation = None,
+            Message::ScaffoldIdSet(n, b) => {
+                self.info_values[1] = if b {
+                    "true".to_string()
+                } else {
+                    "false".to_string()
+                };
+                if b {
+                    self.requests.lock().unwrap().set_scaffold_id = Some(Some(n))
+                } else {
+                    self.requests.lock().unwrap().set_scaffold_id = Some(None)
+                }
+            }
         }
         Command::none()
     }

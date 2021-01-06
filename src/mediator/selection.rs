@@ -52,14 +52,18 @@ impl Selection {
                     })
                     .collect()
             }
-            Selection::Strand(d_id, s_id) => vec![format!(
-                "{:?}",
-                design
-                    .lock()
-                    .unwrap()
-                    .get_strand_length(*s_id as usize)
-                    .unwrap_or(0)
-            )],
+            Selection::Strand(d_id, s_id) => vec![
+                format!(
+                    "{:?}",
+                    design
+                        .lock()
+                        .unwrap()
+                        .get_strand_length(*s_id as usize)
+                        .unwrap_or(0)
+                ),
+                format!("{:?}", design.lock().unwrap().is_scaffold(*s_id as usize)),
+                s_id.to_string(),
+            ],
             _ => Vec::new(),
         }
     }

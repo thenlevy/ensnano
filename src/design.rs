@@ -617,6 +617,14 @@ impl Design {
     pub fn get_basis_map(&self) -> Arc<RwLock<HashMap<Nucl, char>>> {
         self.data.lock().unwrap().get_basis_map()
     }
+
+    pub fn is_scaffold(&self, s_id: usize) -> bool {
+        self.data.lock().unwrap().is_scaffold(s_id)
+    }
+
+    pub fn set_scaffold_id(&mut self, scaffold_id: Option<usize>) {
+        self.data.lock().unwrap().set_scaffold_id(scaffold_id)
+    }
 }
 
 #[derive(Clone)]
