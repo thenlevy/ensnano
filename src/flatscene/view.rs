@@ -45,6 +45,7 @@ pub struct View {
     char_drawers: HashMap<char, CharDrawer>,
     char_map: HashMap<char, Vec<CharInstance>>,
     selection: Selection,
+    show_sec: bool,
 }
 
 impl View {
@@ -130,7 +131,13 @@ impl View {
             char_drawers,
             char_map,
             selection: Selection::Nothing,
+            show_sec: false,
         }
+    }
+
+    pub fn set_show_sec(&mut self, show_sec: bool) {
+        self.show_sec = show_sec;
+        self.was_updated = true;
     }
 
     pub fn resize(&mut self, area: DrawArea) {
@@ -369,7 +376,12 @@ impl View {
         }
 
         for h in self.helices.iter() {
-            h.add_char_instances(&self.camera, &mut self.char_map, &self.char_drawers)
+            h.add_char_instances(
+                &self.camera,
+                &mut self.char_map,
+                &self.char_drawers,
+                self.show_sec,
+            )
         }
 
         for (c, v) in self.char_map.iter() {

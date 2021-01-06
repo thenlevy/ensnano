@@ -310,10 +310,14 @@ impl Helix {
             .transform_point2(self.scale * local_position)
     }
 
-    fn num_position_top(&self, x: isize, width: f32, height: f32) -> Vec2 {
+    fn num_position_top(&self, x: isize, width: f32, height: f32, show_seq: bool) -> Vec2 {
         let center_nucl = (x as f32 + 0.5) * Vec2::unit_x();
 
-        let center_text = center_nucl - height / 2. * Vec2::unit_y();
+        let center_text = if show_seq {
+            center_nucl - 3. * height / 2. * Vec2::unit_y()
+        } else {
+            center_nucl - height / 2. * Vec2::unit_y()
+        };
 
         let real_center = self
             .isometry
@@ -444,7 +448,9 @@ impl Helix {
         camera: &CameraPtr,
         char_map: &mut HashMap<char, Vec<CharInstance>>,
         char_drawers: &HashMap<char, crate::utils::chars2d::CharDrawer>,
+        show_seq: bool,
     ) {
+        let show_seq = show_seq && camera.borrow().get_globals().zoom >= 7.;
         let size_id = 3.;
         let size_pos = 1.4;
         let circle = self.get_circle(camera);
@@ -487,7 +493,12 @@ impl Helix {
             let x_shift = if pos >= 0 { 0. } else { advances[1] };
             for (c_idx, c) in pos.to_string().chars().enumerate() {
                 let instances = char_map.get_mut(&c).unwrap();
-                let center = self.num_position_top(pos, advances[nb_chars] * scale, height * scale);
+                let center = self.num_position_top(
+                    pos,
+                    advances[nb_chars] * scale,
+                    height * scale,
+                    show_seq,
+                );
                 instances.push(CharInstance {
                     center: center + (x_shift + advances[c_idx] * scale) * Vec2::unit_x(),
                     rotation: self.isometry.rotation.into_matrix(),
@@ -535,9 +546,11 @@ impl Helix {
             }
         };
 
-        for pos in self.left..=self.right {
-            print_basis(pos, true);
-            print_basis(pos, false);
+        if show_seq {
+            for pos in self.left..=self.right {
+                print_basis(pos, true);
+                print_basis(pos, false);
+            }
         }
     }
 
