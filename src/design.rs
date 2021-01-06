@@ -1,5 +1,5 @@
 //! This modules defines the type [`Design`](Design) which offers an interface to a DNA nanostructure design.
-use native_dialog::{Dialog, MessageAlert};
+use native_dialog::{MessageDialog, MessageType};
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
@@ -349,14 +349,11 @@ impl Design {
         let result = self.data.lock().unwrap().save_file(path);
         if result.is_err() {
             let text = format!("Could not save_file {:?}", result);
-            std::thread::spawn(move || {
-                let error_msg = MessageAlert {
-                    title: "Error",
-                    text: &text,
-                    typ: native_dialog::MessageType::Error,
-                };
-                error_msg.show().unwrap_or(());
-            });
+            MessageDialog::new()
+                .set_type(MessageType::Error)
+                .set_text(&text)
+                .show_alert()
+                .unwrap();
         }
     }
 
@@ -628,6 +625,30 @@ impl Design {
 
     pub fn set_scaffold_sequence(&mut self, sequence: String) {
         self.data.lock().unwrap().set_scaffold_sequence(sequence)
+    }
+
+    pub fn scaffold_is_set(&self) -> bool {
+        self.data.lock().unwrap().scaffold_is_set()
+    }
+
+    pub fn scaffold_sequence_set(&self) -> bool {
+        self.data.lock().unwrap().scaffold_sequence_set()
+    }
+
+    pub fn get_stapple_mismatch(&self) -> Option<Nucl> {
+        self.data.lock().unwrap().get_stapple_mismatch()
+    }
+
+    pub fn get_scaffold_sequence_len(&self) -> Option<usize> {
+        self.data.lock().unwrap().get_scaffold_sequence_len()
+    }
+
+    pub fn get_scaffold_len(&self) -> Option<usize> {
+        self.data.lock().unwrap().get_scaffold_len()
+    }
+
+    pub fn get_stapples(&self) -> Vec<Stapple> {
+        self.data.lock().unwrap().get_stapples()
     }
 }
 

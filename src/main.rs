@@ -447,6 +447,11 @@ fn main() {
                     if let Some(sequence) = requests.scaffold_sequence.take() {
                         mediator.lock().unwrap().set_scaffold_sequence(sequence)
                     }
+
+                    if requests.stapples_request {
+                        requests.stapples_request = false;
+                        mediator.lock().unwrap().download_stapples()
+                    }
                 }
 
                 // Treat eventual event that happenend in the gui left panel.

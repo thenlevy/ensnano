@@ -7,7 +7,7 @@ use iced_winit::{
     button, scrollable, slider, text_input, Button, Checkbox, Color, Column, Command, Element,
     Length, Program, Row, Scrollable, Slider, Text, TextInput,
 };
-use native_dialog::Dialog;
+use native_dialog::{FileDialog, MessageDialog, MessageType};
 use ultraviolet::Vec3;
 
 use color_space::{Hsv, Rgb};
@@ -169,11 +169,7 @@ impl Program for LeftPanel {
                 self.scroll_sensitivity = x;
             }
             Message::SequenceFileRequested => {
-                let dialog = native_dialog::OpenSingleFile {
-                    dir: None,
-                    filter: None,
-                };
-                let result = dialog.show();
+                let result = FileDialog::new().show_open_single_file();
                 if let Ok(result) = result {
                     if let Some(path) = result {
                         let content = std::fs::read_to_string(path);

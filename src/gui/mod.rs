@@ -66,6 +66,7 @@ pub struct Requests {
     pub small_spheres: Option<bool>,
     pub set_scaffold_id: Option<Option<usize>>,
     pub scaffold_sequence: Option<String>,
+    pub stapples_request: bool,
 }
 
 impl Requests {
@@ -94,6 +95,7 @@ impl Requests {
             small_spheres: None,
             set_scaffold_id: None,
             scaffold_sequence: None,
+            stapples_request: false,
         }
     }
 }

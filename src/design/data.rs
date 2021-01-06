@@ -8,7 +8,7 @@
 //! The `Data` objects can convert these identifier into `Nucl` position or retrieve information
 //! about the element such as its position, color etc...
 //!
-use native_dialog::{Dialog, MessageAlert};
+use native_dialog::{MessageDialog, MessageType};
 use std::collections::{HashMap, HashSet};
 use std::io::Write;
 use std::path::PathBuf;
@@ -1548,6 +1548,93 @@ impl Data {
     pub fn is_scaffold(&self, s_id: usize) -> bool {
         self.design.scaffold_id == Some(s_id)
     }
+
+    pub fn scaffold_is_set(&self) -> bool {
+        self.design.scaffold_id.is_some()
+    }
+
+    pub fn scaffold_sequence_set(&self) -> bool {
+        self.design.scaffold_sequence.is_some()
+    }
+
+    pub fn get_stapple_mismatch(&self) -> Option<Nucl> {
+        let basis_map = self.basis_map.read().unwrap();
+        for strand in self.design.strands.values() {
+            for domain in &strand.domains {
+                if let icednano::Domain::HelixDomain(dom) = domain {
+                    for position in dom.iter() {
+                        let nucl = Nucl {
+                            position,
+                            forward: dom.forward,
+                            helix: dom.helix,
+                        };
+                        if !basis_map.contains_key(&nucl) {
+                            return Some(nucl);
+                        }
+                    }
+                }
+            }
+        }
+        None
+    }
+
+    pub fn get_scaffold_sequence_len(&self) -> Option<usize> {
+        self.design.scaffold_sequence.as_ref().map(|s| s.len())
+    }
+
+    pub fn get_scaffold_len(&self) -> Option<usize> {
+        self.design
+            .scaffold_id
+            .as_ref()
+            .and_then(|s_id| self.design.strands.get(s_id))
+            .map(|s| s.length())
+    }
+
+    /// Return a vector of all the stapples.
+    /// This function will panic if all the sapples are not matched.
+    pub fn get_stapples(&self) -> Vec<Stapple> {
+        let mut ret = Vec::new();
+        let basis_map = self.basis_map.read().unwrap();
+        for (n, (s_id, strand)) in self.design.strands.iter().enumerate() {
+            if strand.length() == 0 || self.design.scaffold_id == Some(*s_id) {
+                continue;
+            }
+            let mut sequence = String::new();
+            for domain in &strand.domains {
+                if let icednano::Domain::HelixDomain(dom) = domain {
+                    for position in dom.iter() {
+                        let nucl = Nucl {
+                            position,
+                            forward: dom.forward,
+                            helix: dom.helix,
+                        };
+                        sequence.push(*basis_map.get(&nucl).unwrap());
+                    }
+                }
+                sequence.push(' ');
+            }
+            let plate = n / 96 + 1;
+            let row = (n % 96) % 12 + 1;
+            let column = match (n % 96) / 12 {
+                0 => 'A',
+                1 => 'B',
+                2 => 'C',
+                3 => 'D',
+                4 => 'E',
+                5 => 'F',
+                6 => 'G',
+                7 => 'H',
+                _ => unreachable!(),
+            };
+            ret.push(Stapple {
+                plate,
+                well: format!("{}{}", column, row.to_string()),
+                sequence,
+                name: format!("Stapple {}", n),
+            });
+        }
+        ret
+    }
 }
 
 fn compl(c: Option<char>) -> Option<char> {
@@ -1578,14 +1665,11 @@ fn read_file(path: &PathBuf) -> Option<icednano::Design> {
             Some(icednano::Design::from_codenano(&design))
         } else {
             // The file is not in any supported format
-            let error_msg = MessageAlert {
-                title: "Error",
-                text: "Unrecognized file format",
-                typ: native_dialog::MessageType::Error,
-            };
-            std::thread::spawn(|| {
-                error_msg.show().unwrap_or(());
-            });
+            MessageDialog::new()
+                .set_type(MessageType::Error)
+                .set_text("Unrecognized file format")
+                .show_alert()
+                .unwrap();
             None
         }
     }
@@ -1617,4 +1701,12 @@ impl ObjectType {
     pub fn same_type(&self, other: Self) -> bool {
         self.is_nucl() == other.is_nucl()
     }
+}
+
+#[derive(Debug)]
+pub struct Stapple {
+    pub well: String,
+    pub name: String,
+    pub sequence: String,
+    pub plate: usize,
 }
