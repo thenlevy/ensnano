@@ -625,6 +625,10 @@ impl Design {
     pub fn set_scaffold_id(&mut self, scaffold_id: Option<usize>) {
         self.data.lock().unwrap().set_scaffold_id(scaffold_id)
     }
+
+    pub fn set_scaffold_sequence(&mut self, sequence: String) {
+        self.data.lock().unwrap().set_scaffold_sequence(sequence)
+    }
 }
 
 #[derive(Clone)]

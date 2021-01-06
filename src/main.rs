@@ -443,6 +443,10 @@ fn main() {
                     if let Some(scaffold_id) = requests.set_scaffold_id.take() {
                         mediator.lock().unwrap().set_scaffold(scaffold_id)
                     }
+
+                    if let Some(sequence) = requests.scaffold_sequence.take() {
+                        mediator.lock().unwrap().set_scaffold_sequence(sequence)
+                    }
                 }
 
                 // Treat eventual event that happenend in the gui left panel.

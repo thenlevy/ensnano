@@ -1,5 +1,5 @@
 use chrono::{DateTime, Utc};
-use native_dialog::Dialog;
+use native_dialog::{Dialog, MessageAlert, MessageType};
 use nfd2::Response;
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -21,6 +21,7 @@ pub struct TopBar {
     button_3d: button::State,
     button_2d: button::State,
     button_split: button::State,
+    button_scaffold: button::State,
     button_make_grid: button::State,
     button_help: button::State,
     toggle_text_value: bool,
@@ -40,6 +41,7 @@ pub enum Message {
     ToggleView(SplitMode),
     MakeGrids,
     HelpRequested,
+    ScaffoldSequenceFile,
 }
 
 impl TopBar {
@@ -52,6 +54,7 @@ impl TopBar {
             button_2d: Default::default(),
             button_3d: Default::default(),
             button_split: Default::default(),
+            button_scaffold: Default::default(),
             button_make_grid: Default::default(),
             button_help: Default::default(),
             toggle_text_value: false,
@@ -110,6 +113,35 @@ impl Program for TopBar {
                     .lock()
                     .expect("file_opening_request")
                     .file_clear = false;
+            }
+            Message::ScaffoldSequenceFile => {
+                let dialog = native_dialog::OpenSingleFile {
+                    dir: None,
+                    filter: None,
+                };
+                let result = dialog.show();
+                if let Ok(result) = result {
+                    if let Some(path) = result {
+                        let mut content = std::fs::read_to_string(path).unwrap();
+                        content.make_ascii_uppercase();
+                        if let Some(n) =
+                            content.find(|c| c != 'A' && c != 'T' && c != 'G' && c != 'C')
+                        {
+                            let error_msg = MessageAlert {
+                                title: "Error",
+                                text: &format!(
+                                    "This text file does not contain a valid DNA sequence.\n
+                                        First invalid char at position {}",
+                                    n
+                                ),
+                                typ: native_dialog::MessageType::Error,
+                            };
+                            error_msg.show().unwrap();
+                        } else {
+                            self.requests.lock().unwrap().scaffold_sequence = Some(content)
+                        }
+                    }
+                }
             }
             Message::FileSaveRequested => {
                 let requests = self.requests.clone();
@@ -205,6 +237,10 @@ impl Program for TopBar {
         let button_split = Button::new(&mut self.button_split, iced::Text::new("Split"))
             .on_press(Message::ToggleView(SplitMode::Both));
 
+        let button_scaffold =
+            Button::new(&mut self.button_scaffold, iced::Text::new("Load Scaffold"))
+                .on_press(Message::ScaffoldSequenceFile);
+
         let _button_make_grid =
             Button::new(&mut self.button_make_grid, iced::Text::new("Make grids"))
                 .on_press(Message::MakeGrids);
@@ -224,6 +260,7 @@ impl Program for TopBar {
             .push(button_2d)
             .push(button_3d)
             .push(button_split)
+            .push(button_scaffold)
             //.push(button_make_grid)
             .push(
                 Button::new(&mut self.button_help, iced::Text::new("Help"))

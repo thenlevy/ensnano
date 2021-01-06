@@ -233,7 +233,7 @@ impl Mediator {
 
     pub fn set_scaffold(&mut self, scaffold_id: Option<usize>) {
         let d_id = if let Some(d_id) = self.selected_design() {
-            d_id
+            d_id as usize
         } else {
             if self.designs.len() > 1 {
                 let error_msg = MessageAlert {
@@ -247,7 +247,32 @@ impl Mediator {
             }
             0
         };
-        self.designs[0].lock().unwrap().set_scaffold_id(scaffold_id)
+        self.designs[d_id]
+            .lock()
+            .unwrap()
+            .set_scaffold_id(scaffold_id)
+    }
+
+    pub fn set_scaffold_sequence(&mut self, sequence: String) {
+        let d_id = if let Some(d_id) = self.selected_design() {
+            d_id as usize
+        } else {
+            if self.designs.len() > 1 {
+                let error_msg = MessageAlert {
+                    title: "Warning",
+                    text: "No design selected, set scaffold sequence for design 0",
+                    typ: native_dialog::MessageType::Error,
+                };
+                std::thread::spawn(|| {
+                    error_msg.show().unwrap_or(());
+                });
+            }
+            0
+        };
+        self.designs[d_id]
+            .lock()
+            .unwrap()
+            .set_scaffold_sequence(sequence)
     }
 
     pub fn set_persistent_phantom(&mut self, persistent: bool) {
