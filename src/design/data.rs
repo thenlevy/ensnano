@@ -243,6 +243,56 @@ impl Data {
         self.color = color_map;
         self.helix_map = helix_map;
         *self.basis_map.write().unwrap() = basis_map;
+        self.read_scaffold_seq();
+    }
+
+    fn read_scaffold_seq(&mut self) {
+        if let Some(mut sequence) = self.design.scaffold_sequence.as_ref().map(|s| s.chars()) {
+            let mut basis_map = self.basis_map.read().unwrap().clone();
+            if let Some(strand) = self
+                .design
+                .scaffold_id
+                .as_ref()
+                .and_then(|s_id| self.design.strands.get(s_id))
+            {
+                for domain in &strand.domains {
+                    if let icednano::Domain::HelixDomain(dom) = domain {
+                        for nucl_position in dom.iter() {
+                            let nucl = Nucl {
+                                helix: dom.helix,
+                                position: nucl_position,
+                                forward: dom.forward,
+                            };
+                            let basis = sequence.next();
+                            let basis_compl = compl(basis);
+                            if let Some((basis, basis_compl)) = basis.zip(basis_compl) {
+                                basis_map.insert(nucl, basis);
+                                if self.identifier_nucl.contains_key(&nucl.compl()) {
+                                    basis_map.insert(nucl.compl(), basis_compl);
+                                }
+                            }
+                        }
+                    } else if let icednano::Domain::Insertion(n) = domain {
+                        for _ in 0..*n {
+                            sequence.next();
+                        }
+                    }
+                }
+            }
+            *self.basis_map.write().unwrap() = basis_map;
+        }
+    }
+
+    /// Set the strand that is the scaffold
+    pub fn set_scaffold_id(&mut self, scaffold_id: usize) {
+        self.design.scaffold_id = Some(scaffold_id);
+        self.hash_maps_update = true;
+    }
+
+    /// Set the sequence of the scaffold
+    pub fn set_scaffold_sequence(&mut self, sequence: String) {
+        self.design.scaffold_sequence = Some(sequence);
+        self.hash_maps_update = true;
     }
 
     /// Save the design to a file in the `icednano` format

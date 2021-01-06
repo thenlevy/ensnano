@@ -25,6 +25,14 @@ pub struct Design {
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub parameters: Option<Parameters>,
 
+    /// The strand that is the scaffold if the design is an origami
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub scaffold_id: Option<usize>,
+
+    /// The sequence of the scaffold if the design is an origami
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub scaffold_sequence: Option<String>,
+
     #[serde(default)]
     pub grids: Vec<GridDescriptor>,
 }
@@ -51,6 +59,8 @@ impl Design {
             strands,
             parameters: Some(parameters),
             grids: Vec::new(),
+            scaffold_id: None,
+            scaffold_sequence: None,
         }
     }
 
@@ -60,6 +70,8 @@ impl Design {
             strands: BTreeMap::new(),
             parameters: Some(Parameters::DEFAULT),
             grids: Vec::new(),
+            scaffold_id: None,
+            scaffold_sequence: None,
         }
     }
 
