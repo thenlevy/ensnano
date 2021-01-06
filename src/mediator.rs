@@ -10,6 +10,7 @@ use crate::utils::PhantomElement;
 use crate::{DrawArea, Duration, ElementType, IcedMessages, Multiplexer, WindowEvent};
 use iced_wgpu::wgpu;
 use iced_winit::winit::dpi::{PhysicalPosition, PhysicalSize};
+use simple_excel_writer::{row, Column, Row, Workbook};
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
@@ -21,7 +22,7 @@ use crate::design;
 
 use design::{
     Design, DesignNotification, DesignRotation, DesignTranslation, GridDescriptor,
-    GridHelixDescriptor, Helix, Nucl, Strand, StrandBuilder,
+    GridHelixDescriptor, Helix, Nucl, Stapple, Strand, StrandBuilder,
 };
 
 mod operation;
@@ -352,6 +353,12 @@ impl Mediator {
             }
         }
         let stapples = self.designs[d_id].lock().unwrap().get_stapples();
+        let xls_file = FileDialog::new()
+            .add_filter("Excel file", &["xls", "xlsx"])
+            .show_save_single_file();
+        if let Ok(Some(path)) = xls_file {
+            write_stapples(stapples, path);
+        }
     }
 
     pub fn set_persistent_phantom(&mut self, persistent: bool) {
@@ -699,4 +706,29 @@ pub enum AppNotification {
     MoveBuilder(Box<StrandBuilder>, Option<(usize, u32)>),
     ResetBuilder(Box<StrandBuilder>),
     RmGrid,
+}
+
+fn write_stapples(stapples: Vec<Stapple>, path: PathBuf) {
+    use std::collections::BTreeMap;
+    let mut wb = Workbook::create(path.to_str().unwrap());
+    let mut sheets = BTreeMap::new();
+
+    for stapple in stapples.iter() {
+        let sheet = sheets
+            .entry(stapple.plate)
+            .or_insert_with(|| vec![vec!["Well Position", "Name", "Sequence"]]);
+        sheet.push(vec![&stapple.well, &stapple.name, &stapple.sequence]);
+    }
+
+    for (sheet_id, rows) in sheets.iter() {
+        let mut sheet = wb.create_sheet(&format!("Plate {}", sheet_id));
+        wb.write_sheet(&mut sheet, |sw| {
+            for row in rows {
+                sw.append_row(row![row[0], row[1], row[2]])?;
+            }
+            Ok(())
+        })
+        .expect("write excel error!");
+    }
+    wb.close().expect("close excel error!");
 }
