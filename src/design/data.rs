@@ -243,11 +243,16 @@ impl Data {
         self.color = color_map;
         self.helix_map = helix_map;
         *self.basis_map.write().unwrap() = basis_map;
-        self.read_scaffold_seq();
+        self.read_scaffold_seq(self.design.scaffold_shift.unwrap_or(0));
     }
 
-    fn read_scaffold_seq(&mut self) {
-        if let Some(mut sequence) = self.design.scaffold_sequence.as_ref().map(|s| s.chars()) {
+    fn read_scaffold_seq(&mut self, shift: usize) {
+        if let Some(mut sequence) = self
+            .design
+            .scaffold_sequence
+            .as_ref()
+            .map(|s| s.chars().cycle().skip(shift))
+        {
             let mut basis_map = self.basis_map.read().unwrap().clone();
             if let Some(strand) = self
                 .design
@@ -293,6 +298,7 @@ impl Data {
     /// Set the sequence of the scaffold
     pub fn set_scaffold_sequence(&mut self, sequence: String) {
         self.design.scaffold_sequence = Some(sequence);
+        self.design.scaffold_shift = Some(0);
         self.hash_maps_update = true;
     }
 
@@ -1632,6 +1638,62 @@ impl Data {
                 sequence,
                 name: format!("Stapple {}", n),
             });
+        }
+        ret
+    }
+
+    /// Shift the scaffold at an optimized poisition and return the corresponding score
+    pub fn optimize_shift(&mut self) -> usize {
+        let mut best_score = 10000;
+        let mut best_shfit = 0;
+        let len = self
+            .design
+            .scaffold_sequence
+            .as_ref()
+            .map(|s| s.len())
+            .unwrap_or(0);
+        for shift in 0..len {
+            println!("reading {}", shift);
+            self.read_scaffold_seq(shift);
+            let score = self.evaluate_shift();
+            if score < best_score {
+                best_score = score;
+                best_shfit = shift;
+            }
+            if score == 0 {
+                break;
+            }
+        }
+        self.design.scaffold_shift = Some(best_shfit);
+        best_score
+    }
+
+    fn evaluate_shift(&self) -> usize {
+        let basis_map = self.basis_map.read().unwrap();
+        let mut ret = 0;
+        let re = regex::Regex::new(r"G{4,}|C{4,}|[AT]{7,}").unwrap();
+        for (s_id, strand) in self.design.strands.iter() {
+            if strand.length() == 0 || self.design.scaffold_id == Some(*s_id) {
+                continue;
+            }
+            let mut sequence = String::new();
+            for domain in &strand.domains {
+                if let icednano::Domain::HelixDomain(dom) = domain {
+                    for position in dom.iter() {
+                        let nucl = Nucl {
+                            position,
+                            forward: dom.forward,
+                            helix: dom.helix,
+                        };
+                        sequence.push(*basis_map.get(&nucl).unwrap());
+                    }
+                }
+                sequence.push(' ');
+            }
+            let mut matches = re.find_iter(&sequence);
+            while matches.next().is_some() {
+                ret += 1;
+            }
         }
         ret
     }

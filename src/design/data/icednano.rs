@@ -33,6 +33,10 @@ pub struct Design {
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub scaffold_sequence: Option<String>,
 
+    /// The shifting of the scaffold if the design is an origami. This is used to reduce the number
+    /// of anti-patern in the stapples sequences
+    pub scaffold_shift: Option<usize>,
+
     #[serde(default)]
     pub grids: Vec<GridDescriptor>,
 }
@@ -61,6 +65,7 @@ impl Design {
             grids: Vec::new(),
             scaffold_id: None,
             scaffold_sequence: None,
+            scaffold_shift: None,
         }
     }
 
@@ -72,6 +77,7 @@ impl Design {
             grids: Vec::new(),
             scaffold_id: None,
             scaffold_sequence: None,
+            scaffold_shift: None,
         }
     }
 

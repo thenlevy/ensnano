@@ -650,6 +650,10 @@ impl Design {
     pub fn get_stapples(&self) -> Vec<Stapple> {
         self.data.lock().unwrap().get_stapples()
     }
+
+    pub fn optimize_shift(&self) -> usize {
+        self.data.lock().unwrap().optimize_shift()
+    }
 }
 
 #[derive(Clone)]

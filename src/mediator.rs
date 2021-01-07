@@ -10,7 +10,7 @@ use crate::utils::PhantomElement;
 use crate::{DrawArea, Duration, ElementType, IcedMessages, Multiplexer, WindowEvent};
 use iced_wgpu::wgpu;
 use iced_winit::winit::dpi::{PhysicalPosition, PhysicalSize};
-use simple_excel_writer::{row, Column, Row, Workbook};
+use simple_excel_writer::{row, Row, Workbook};
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
@@ -269,7 +269,23 @@ impl Mediator {
         self.designs[d_id]
             .lock()
             .unwrap()
-            .set_scaffold_sequence(sequence)
+            .set_scaffold_sequence(sequence);
+        if self.designs[d_id].lock().unwrap().scaffold_is_set() {
+            let choice = MessageDialog::new()
+                .set_type(MessageType::Info)
+                .set_text("Optimize the scaffold position ?\n
+            If you chose \"Yes\", icednano will position the scaffold in a way that minimizes the number of anti-patern (G^4, C^4 (A|T)^7) in the stapples sequence. If you chose \"No\", the scaffold sequence will begin at position 0")
+                .show_confirm()
+                .unwrap();
+            if choice {
+                let score = self.designs[d_id].lock().unwrap().optimize_shift();
+                MessageDialog::new()
+                    .set_type(MessageType::Info)
+                    .set_text(&format!("Number of anti-patern: {}", score))
+                    .show_alert()
+                    .unwrap();
+            }
+        }
     }
 
     pub fn download_stapples(&self) {
