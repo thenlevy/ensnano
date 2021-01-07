@@ -114,25 +114,57 @@ impl Program for TopBar {
                     .file_clear = false;
             }
             Message::ScaffoldSequenceFile => {
-                let result = FileDialog::new().show_open_single_file();
-                if let Ok(result) = result {
-                    if let Some(path) = result {
-                        let mut content = std::fs::read_to_string(path).unwrap();
-                        content.make_ascii_uppercase();
-                        if let Some(n) =
-                            content.find(|c| c != 'A' && c != 'T' && c != 'G' && c != 'C')
-                        {
-                            MessageDialog::new()
-                                .set_type(MessageType::Error)
-                                .set_text(&format!(
-                                    "This text file does not contain a valid DNA sequence.\n
+                if cfg!(target_os = "windows") {
+                        let result = match nfd2::open_file_dialog(None, None).expect("oh no") {
+                            Response::Okay(file_path) => Some(file_path),
+                            Response::OkayMultiple(_) => {
+                                println!("Please open only one file");
+                                None
+                            }
+                            Response::Cancel => None,
+                        };
+                        if let Some(path) = result {
+                            let mut content = std::fs::read_to_string(path).unwrap();
+                            content.make_ascii_uppercase();
+                            if let Some(n) =
+                                content.find(|c| c != 'A' && c != 'T' && c != 'G' && c != 'C')
+                            {
+                                std::thread::spawn(move || {
+                                MessageDialog::new()
+                                    .set_type(MessageType::Error)
+                                    .set_text(&format!(
+                                            "This text file does not contain a valid DNA sequence.\n
                                         First invalid char at position {}",
-                                    n
-                                ))
-                                .show_alert()
-                                .unwrap();
-                        } else {
-                            self.requests.lock().unwrap().scaffold_sequence = Some(content)
+                                        n
+                                    ))
+                                    .show_alert()
+                                    .unwrap();});
+                                } else {
+                                    self.requests.lock().unwrap().scaffold_sequence = Some(content)
+                            }
+                        }
+
+                } else {
+                    let result = FileDialog::new().show_open_single_file();
+                    if let Ok(result) = result {
+                        if let Some(path) = result {
+                            let mut content = std::fs::read_to_string(path).unwrap();
+                            content.make_ascii_uppercase();
+                            if let Some(n) =
+                                content.find(|c| c != 'A' && c != 'T' && c != 'G' && c != 'C')
+                            {
+                                MessageDialog::new()
+                                    .set_type(MessageType::Error)
+                                    .set_text(&format!(
+                                            "This text file does not contain a valid DNA sequence.\n
+                                        First invalid char at position {}",
+                                        n
+                                    ))
+                                    .show_alert()
+                                    .unwrap();
+                                } else {
+                                    self.requests.lock().unwrap().scaffold_sequence = Some(content)
+                            }
                         }
                     }
                 }
