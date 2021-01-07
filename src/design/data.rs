@@ -294,12 +294,13 @@ impl Data {
         self.design.scaffold_id = scaffold_id;
         self.hash_maps_update = true;
         self.update_status = true;
+        self.design.scaffold_shift = None;
     }
 
     /// Set the sequence of the scaffold
     pub fn set_scaffold_sequence(&mut self, sequence: String) {
         self.design.scaffold_sequence = Some(sequence);
-        self.design.scaffold_shift = Some(0);
+        self.design.scaffold_shift = None;
         self.hash_maps_update = true;
     }
 
@@ -1669,6 +1670,7 @@ impl Data {
             }
         }
         self.design.scaffold_shift = Some(best_shfit);
+        self.read_scaffold_seq(best_shfit);
         best_score
     }
 
