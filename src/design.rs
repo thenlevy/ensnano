@@ -21,7 +21,7 @@ pub use data::*;
 use view::View;
 
 pub struct Design {
-    view: Rc<RefCell<View>>,
+    view: Arc<Mutex<View>>,
     #[allow(dead_code)]
     controller: Controller,
     data: Arc<Mutex<Data>>,
@@ -31,7 +31,7 @@ pub struct Design {
 impl Design {
     #[allow(dead_code)]
     pub fn new(id: usize) -> Self {
-        let view = Rc::new(RefCell::new(View::new()));
+        let view = Arc::new(Mutex::new(View::new()));
         let data = Arc::new(Mutex::new(Data::new()));
         let controller = Controller::new(view.clone(), data.clone());
         Self {
@@ -44,7 +44,7 @@ impl Design {
 
     /// Create a new design by reading a file. At the moment only codenano format is supported
     pub fn new_with_path(id: usize, path: &PathBuf) -> Option<Self> {
-        let view = Rc::new(RefCell::new(View::new()));
+        let view = Arc::new(Mutex::new(View::new()));
         let data = Arc::new(Mutex::new(Data::new_with_path(path)?));
         let controller = Controller::new(view.clone(), data.clone());
         Some(Self {
@@ -57,7 +57,7 @@ impl Design {
 
     /// `true` if the view has been updated since the last time this function was called
     pub fn view_was_updated(&mut self) -> Option<DesignNotification> {
-        if self.view.borrow_mut().was_updated() {
+        if self.view.lock().unwrap().was_updated() {
             let notification = DesignNotification {
                 content: DesignNotificationContent::ModelChanged(self.get_model_matrix()),
                 design_id: self.id as usize,
@@ -89,7 +89,7 @@ impl Design {
 
     /// Return the model matrix used to display the design
     pub fn get_model_matrix(&self) -> Mat4 {
-        self.view.borrow().get_model_matrix()
+        self.view.lock().unwrap().get_model_matrix()
     }
 
     /// Translate the representation of self
@@ -114,7 +114,7 @@ impl Design {
                 .lock()
                 .unwrap()
                 .get_element_position(id)
-                .map(|x| self.view.borrow().model_matrix.transform_point3(x))
+                .map(|x| self.view.lock().unwrap().model_matrix.transform_point3(x))
         } else {
             self.data.lock().unwrap().get_element_position(id)
         }
@@ -127,7 +127,7 @@ impl Design {
                 .lock()
                 .unwrap()
                 .get_element_axis_position(id)
-                .map(|x| self.view.borrow().model_matrix.transform_point3(x))
+                .map(|x| self.view.lock().unwrap().model_matrix.transform_point3(x))
         } else {
             self.data.lock().unwrap().get_element_axis_position(id)
         }
@@ -146,7 +146,7 @@ impl Design {
                 .lock()
                 .unwrap()
                 .get_helix_nucl(nucl, on_axis)
-                .map(|x| self.view.borrow().model_matrix.transform_point3(x))
+                .map(|x| self.view.lock().unwrap().model_matrix.transform_point3(x))
         } else {
             self.data.lock().unwrap().get_helix_nucl(nucl, on_axis)
         }
@@ -383,7 +383,7 @@ impl Design {
 
     /// Get the basis of the model in the world's coordinates
     pub fn get_basis(&self) -> ultraviolet::Rotor3 {
-        let mat4 = self.view.borrow().get_model_matrix();
+        let mat4 = self.view.lock().unwrap().get_model_matrix();
         let mat3 = ultraviolet::Mat3::new(
             mat4.transform_vec3(Vec3::unit_x()),
             mat4.transform_vec3(Vec3::unit_y()),
@@ -421,7 +421,7 @@ impl Design {
             .unwrap()
             .get_strand_builder(nucl, stick)
             .map(|b| {
-                b.transformed(&self.view.borrow().get_model_matrix())
+                b.transformed(&self.view.lock().unwrap().get_model_matrix())
                     .given_data(self.data.clone(), self.id as u32)
             })
     }
@@ -651,8 +651,8 @@ impl Design {
         self.data.lock().unwrap().get_stapples()
     }
 
-    pub fn optimize_shift(&self) -> usize {
-        self.data.lock().unwrap().optimize_shift()
+    pub fn optimize_shift(&self, channel: std::sync::mpsc::Sender<f32>) -> usize {
+        self.data.lock().unwrap().optimize_shift(channel)
     }
 }
 

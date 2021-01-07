@@ -45,6 +45,7 @@ pub struct Mediator {
     last_op: Option<Arc<dyn Operation>>,
     undo_stack: Vec<Arc<dyn Operation>>,
     redo_stack: Vec<Arc<dyn Operation>>,
+    computing: Arc<Mutex<bool>>,
 }
 
 /// The scheduler is responsible for running the different applications
@@ -151,7 +152,7 @@ pub trait Application {
 }
 
 impl Mediator {
-    pub fn new(messages: Arc<Mutex<IcedMessages>>) -> Self {
+    pub fn new(messages: Arc<Mutex<IcedMessages>>, computing: Arc<Mutex<bool>>) -> Self {
         Self {
             applications: HashMap::new(),
             designs: Vec::new(),
@@ -163,6 +164,7 @@ impl Mediator {
             redo_stack: Vec::new(),
             candidate: None,
             last_selection: None,
+            computing,
         }
     }
 
@@ -278,12 +280,29 @@ impl Mediator {
                 .show_confirm()
                 .unwrap();
             if choice {
-                let score = self.designs[d_id].lock().unwrap().optimize_shift();
-                MessageDialog::new()
-                    .set_type(MessageType::Info)
-                    .set_text(&format!("Number of anti-patern: {}", score))
-                    .show_alert()
-                    .unwrap();
+                let computing = self.computing.clone();
+                let design = self.designs[d_id].clone();
+                let messages = self.messages.clone();
+                std::thread::spawn(move || {
+                    let (send, rcv) = std::sync::mpsc::channel::<f32>();
+                    std::thread::spawn(move || {
+                        *computing.lock().unwrap() = true;
+                        let score = design.lock().unwrap().optimize_shift(send);
+                        MessageDialog::new()
+                            .set_type(MessageType::Info)
+                            .set_text(&format!("Number of anti-patern: {}", score))
+                            .show_alert()
+                            .unwrap();
+                        *computing.lock().unwrap() = false;
+                    });
+                    while let Ok(progress) = rcv.recv() {
+                        messages
+                            .lock()
+                            .unwrap()
+                            .push_progress("Optimizing position".to_string(), progress)
+                    }
+                    messages.lock().unwrap().finish_progess();
+                });
             }
         }
     }

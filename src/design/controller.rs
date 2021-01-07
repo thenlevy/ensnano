@@ -6,12 +6,10 @@
 //! the current state. When the
 //! opperation is terminated. The old state of the data is also updated.
 use super::{Data, View};
-use std::cell::RefCell;
-use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 use ultraviolet::{Mat4, Rotor3, Vec3};
 
-type ViewPtr = Rc<RefCell<View>>;
+type ViewPtr = Arc<Mutex<View>>;
 type DataPtr = Arc<Mutex<Data>>;
 
 pub struct Controller {
@@ -37,7 +35,8 @@ impl Controller {
         match translation.target {
             IsometryTarget::Design => self
                 .view
-                .borrow_mut()
+                .lock()
+                .unwrap()
                 .set_matrix(self.old_matrix.translated(&translation.translation)),
             IsometryTarget::Grid(g_id) => self
                 .data
@@ -66,7 +65,7 @@ impl Controller {
                     * rotor
                     * Mat4::from_translation(-origin)
                     * self.old_matrix;
-                self.view.borrow_mut().set_matrix(new_matrix);
+                self.view.lock().unwrap().set_matrix(new_matrix);
             }
             IsometryTarget::Helix(n, _) => {
                 // Helices are rotated in the model coordinates.
@@ -102,7 +101,7 @@ impl Controller {
 
     /// Terminate the movement computed by self
     pub fn terminate_movement(&mut self) {
-        self.old_matrix = self.view.borrow().model_matrix;
+        self.old_matrix = self.view.lock().unwrap().model_matrix;
         self.data.lock().unwrap().terminate_movement();
     }
 }

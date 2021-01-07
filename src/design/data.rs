@@ -1643,7 +1643,7 @@ impl Data {
     }
 
     /// Shift the scaffold at an optimized poisition and return the corresponding score
-    pub fn optimize_shift(&mut self) -> usize {
+    pub fn optimize_shift(&mut self, channel: std::sync::mpsc::Sender<f32>) -> usize {
         let mut best_score = 10000;
         let mut best_shfit = 0;
         let len = self
@@ -1653,10 +1653,13 @@ impl Data {
             .map(|s| s.len())
             .unwrap_or(0);
         for shift in 0..len {
-            println!("reading {}", shift);
+            if shift % 10 == 0 {
+                channel.send(shift as f32 / len as f32).unwrap();
+            }
             self.read_scaffold_seq(shift);
             let score = self.evaluate_shift();
             if score < best_score {
+                println!("shift {} score {}", shift, score);
                 best_score = score;
                 best_shfit = shift;
             }
@@ -1671,6 +1674,7 @@ impl Data {
     fn evaluate_shift(&self) -> usize {
         let basis_map = self.basis_map.read().unwrap();
         let mut ret = 0;
+        let mut shown = false;
         let re = regex::Regex::new(r"G{4,}|C{4,}|[AT]{7,}").unwrap();
         for (s_id, strand) in self.design.strands.iter() {
             if strand.length() == 0 || self.design.scaffold_id == Some(*s_id) {
@@ -1692,6 +1696,9 @@ impl Data {
             }
             let mut matches = re.find_iter(&sequence);
             while matches.next().is_some() {
+                if !shown {
+                    shown = true;
+                }
                 ret += 1;
             }
         }

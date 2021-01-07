@@ -45,6 +45,7 @@ pub struct StatusBar {
     operation: Option<Arc<dyn Operation>>,
     requests: Arc<Mutex<Requests>>,
     selection: Selection,
+    progress: Option<(String, f32)>,
 }
 
 impl StatusBar {
@@ -56,6 +57,7 @@ impl StatusBar {
             operation: None,
             requests,
             selection: Selection::Nothing,
+            progress: None,
         }
     }
 
@@ -168,6 +170,23 @@ impl StatusBar {
             .height(Length::Fill)
             .into()
     }
+
+    fn view_progress(&mut self) -> Element<Message, iced_wgpu::Renderer> {
+        let mut row = Row::new();
+        let progress = self.progress.as_ref().unwrap();
+        row = row.push(
+            Text::new(format!("{}, {:.1}%", progress.0, progress.1 * 100.)).size(STATUS_FONT_SIZE),
+        );
+
+        let column = Column::new()
+            .push(Space::new(Length::Fill, Length::Units(3)))
+            .push(row);
+        Container::new(column)
+            .style(StatusBarStyle)
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .into()
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -178,6 +197,7 @@ pub enum Message {
     SelectionValueChanged(usize, String),
     SetSmallSpheres(bool),
     ScaffoldIdSet(usize, bool),
+    Progress(Option<(String, f32)>),
     ClearOp,
 }
 
@@ -202,6 +222,7 @@ impl Program for StatusBar {
                 }
                 self.requests.lock().unwrap().operation_update = new_op;
             }
+            Message::Progress(progress) => self.progress = progress,
             Message::SelectionValueChanged(n, s) => {
                 self.info_values[n] = s.clone();
                 self.requests.lock().unwrap().toggle_persistent_helices = bool::from_str(&s).ok();
@@ -239,6 +260,8 @@ impl Program for StatusBar {
     fn view(&mut self) -> Element<Message, iced_wgpu::Renderer> {
         if self.operation.is_some() {
             self.view_op()
+        } else if self.progress.is_some() {
+            self.view_progress()
         } else {
             self.view_selection()
         }
