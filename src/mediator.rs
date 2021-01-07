@@ -425,10 +425,22 @@ impl Mediator {
             }
         }
         let stapples = self.designs[d_id].lock().unwrap().get_stapples();
-        let xls_file = FileDialog::new()
-            .add_filter("Excel file", &["xls", "xlsx"])
-            .show_save_single_file();
-        if let Ok(Some(path)) = xls_file {
+        let path = if cfg!(target_os = "windows") {
+            let (snd, rcv) = std::sync::mpsc::channel();
+            std::thread::spawn(move || {
+                let xls_file = FileDialog::new()
+                    .add_filter("Excel file", &["xls", "xlsx"])
+                    .show_save_single_file();
+                snd.send(xls_file.ok().and_then(|x| x)).unwrap()
+            });
+            rcv.recv().unwrap()
+        } else {
+            let xls_file = FileDialog::new()
+                .add_filter("Excel file", &["xls", "xlsx"])
+                .show_save_single_file();
+            xls_file.ok().and_then(|x| x)
+        };
+        if let Some(path) = path {
             write_stapples(stapples, path);
         }
     }
