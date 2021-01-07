@@ -6,7 +6,7 @@
 //! mediator.
 //!
 //! The mediator also holds data that is common to all applications.
-use crate::utils::PhantomElement;
+use crate::utils::{message, PhantomElement};
 use crate::{DrawArea, Duration, ElementType, IcedMessages, Multiplexer, WindowEvent};
 use iced_wgpu::wgpu;
 use iced_winit::winit::dpi::{PhysicalPosition, PhysicalSize};
@@ -239,12 +239,12 @@ impl Mediator {
             d_id as usize
         } else {
             if self.designs.len() > 1 {
-                MessageDialog::new()
-                    .set_type(MessageType::Warning)
-                    .set_title("Warning")
-                    .set_text("No design selected, setting scaffold for design 0")
-                    .show_alert()
-                    .unwrap();
+                message(
+                    MessageDialog::new()
+                        .set_type(MessageType::Warning)
+                        .set_title("Warning")
+                        .set_text("No design selected, setting scaffold for design 0"),
+                );
             }
             0
         };
@@ -259,12 +259,12 @@ impl Mediator {
             d_id as usize
         } else {
             if self.designs.len() > 1 {
-                MessageDialog::new()
-                    .set_type(MessageType::Warning)
-                    .set_title("Warning")
-                    .set_text("No design selected, setting sequence for design 0")
-                    .show_alert()
-                    .unwrap();
+                message(
+                    MessageDialog::new()
+                        .set_type(MessageType::Warning)
+                        .set_title("Warning")
+                        .set_text("No design selected, setting sequence for design 0"),
+                );
             }
             0
         };
@@ -316,51 +316,64 @@ impl Mediator {
             d_id as usize
         } else {
             if self.designs.len() > 1 {
-                MessageDialog::new()
-                    .set_type(MessageType::Warning)
-                    .set_title("Warning")
-                    .set_text("No design selected, Downloading stapples design 0")
-                    .show_alert()
-                    .unwrap();
+                message(
+                    MessageDialog::new()
+                        .set_type(MessageType::Warning)
+                        .set_title("Warning")
+                        .set_text("No design selected, Downloading stapples design 0"),
+                );
             }
             0
         };
         if !self.designs[d_id].lock().unwrap().scaffold_is_set() {
-            MessageDialog::new()
-                .set_type(MessageType::Error)
-                .set_title("Warning")
-                .set_text(
-                    "No scaffold set. \n
+            message(
+                MessageDialog::new()
+                    .set_type(MessageType::Error)
+                    .set_title("Warning")
+                    .set_text(
+                        "No scaffold set. \n
                     Chose a strand and set it as the scaffold by checking the scaffold checkbox\
                     in the status bar",
-                )
-                .show_alert()
-                .unwrap();
+                    ),
+            );
             return;
         }
         if !self.designs[d_id].lock().unwrap().scaffold_sequence_set() {
-            MessageDialog::new()
-                .set_type(MessageType::Error)
-                .set_title("Error")
-                .set_text(
-                    "No sequence uploaded for scaffold. \n
+            message(
+                MessageDialog::new()
+                    .set_type(MessageType::Error)
+                    .set_title("Error")
+                    .set_text(
+                        "No sequence uploaded for scaffold. \n
                 Upload a sequence for the scaffold by pressing the \"Load scaffold\" button",
-                )
-                .show_alert()
-                .unwrap();
+                    ),
+            );
             return;
         }
         if let Some(nucl) = self.designs[d_id].lock().unwrap().get_stapple_mismatch() {
-            MessageDialog::new()
-                .set_type(MessageType::Error)
-                .set_title("Error")
-                .set_text(&format!(
-                    "All stapples are not paired \n
+            if cfg!(target_os = "windows") {
+                MessageDialog::new()
+                    .set_type(MessageType::Error)
+                    .set_title("Error")
+                    .set_text(&format!(
+                        "All stapples are not paired \n
                 first unpaired nucleotide {:?}",
-                    nucl
-                ))
-                .show_alert()
-                .unwrap();
+                        nucl
+                    ))
+                    .show_alert()
+                    .unwrap();
+            } else {
+                MessageDialog::new()
+                    .set_type(MessageType::Error)
+                    .set_title("Error")
+                    .set_text(&format!(
+                        "All stapples are not paired \n
+                first unpaired nucleotide {:?}",
+                        nucl
+                    ))
+                    .show_alert()
+                    .unwrap();
+            }
             return;
         }
 
@@ -375,18 +388,38 @@ impl Mediator {
             .get_scaffold_sequence_len()
             .unwrap();
         if scaf_len != scaf_seq_len {
-            let proceed = MessageDialog::new()
-                .set_type(MessageType::Warning)
-                .set_title("Warning")
-                .set_text(&format!(
-                    "The scaffod length does not match its sequence\n
+            let proceed = if cfg!(target_os = "windows") {
+                let (snd, rcv) = std::sync::mpsc::channel();
+                std::thread::spawn(move || {
+                    let ret = MessageDialog::new()
+                        .set_type(MessageType::Warning)
+                        .set_title("Warning")
+                        .set_text(&format!(
+                            "The scaffod length does not match its sequence\n
                 Length of the scaffold {}\n
                 Length of the sequence {}\n
                 Proceed anyway ?",
-                    scaf_len, scaf_seq_len
-                ))
-                .show_confirm()
-                .unwrap_or(false);
+                            scaf_len, scaf_seq_len
+                        ))
+                        .show_confirm()
+                        .unwrap_or(false);
+                    snd.send(ret).unwrap();
+                });
+                rcv.recv().unwrap()
+            } else {
+                MessageDialog::new()
+                    .set_type(MessageType::Warning)
+                    .set_title("Warning")
+                    .set_text(&format!(
+                        "The scaffod length does not match its sequence\n
+                Length of the scaffold {}\n
+                Length of the sequence {}\n
+                Proceed anyway ?",
+                        scaf_len, scaf_seq_len
+                    ))
+                    .show_confirm()
+                    .unwrap_or(false)
+            };
             if !proceed {
                 return;
             }
@@ -428,12 +461,12 @@ impl Mediator {
             self.notify_apps(Notification::Save(0));
             self.designs[0].lock().unwrap().save_to(path);
             if self.designs.len() > 1 {
-                MessageDialog::new()
-                    .set_type(MessageType::Warning)
-                    .set_title("Warning")
-                    .set_text("No design selected, saved design 0")
-                    .show_alert()
-                    .unwrap();
+                message(
+                    MessageDialog::new()
+                        .set_type(MessageType::Warning)
+                        .set_title("Warning")
+                        .set_text("No design selected, saved design 0"),
+                );
             }
         }
     }

@@ -1,4 +1,3 @@
-use chrono::{DateTime, Utc};
 use native_dialog::{FileDialog, MessageDialog, MessageType};
 use nfd2::Response;
 use std::sync::{Arc, Mutex};
@@ -134,15 +133,14 @@ impl Program for TopBar {
                                 MessageDialog::new()
                                     .set_type(MessageType::Error)
                                     .set_text(&format!(
-                                            "This text file does not contain a valid DNA sequence.\n
+                                        "This text file does not contain a valid DNA sequence.\n
                                         First invalid char at position {}",
                                         n
                                     ))
                                     .show_alert()
                                     .unwrap();
-                            } 
-                            else {
-                                    requests.lock().unwrap().scaffold_sequence = Some(content)
+                            } else {
+                                requests.lock().unwrap().scaffold_sequence = Some(content)
                             }
                         }
                     });
@@ -158,14 +156,14 @@ impl Program for TopBar {
                                 MessageDialog::new()
                                     .set_type(MessageType::Error)
                                     .set_text(&format!(
-                                            "This text file does not contain a valid DNA sequence.\n
+                                        "This text file does not contain a valid DNA sequence.\n
                                         First invalid char at position {}",
                                         n
                                     ))
                                     .show_alert()
                                     .unwrap();
-                                } else {
-                                    self.requests.lock().unwrap().scaffold_sequence = Some(content)
+                            } else {
+                                self.requests.lock().unwrap().scaffold_sequence = Some(content)
                             }
                         }
                     }
@@ -174,9 +172,6 @@ impl Program for TopBar {
             Message::StapplesRequested => self.requests.lock().unwrap().stapples_request = true,
             Message::FileSaveRequested => {
                 let requests = self.requests.clone();
-                let dt = Utc::now();
-                let date = dt.format("%Y-%m-%d_%H-%M-%S").to_string();
-                println!("icednano{}", date);
                 if cfg!(target_os = "macos") {
                     // nfd2 freezes on macos
                     let result = FileDialog::new().show_save_single_file();

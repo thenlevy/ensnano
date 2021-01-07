@@ -22,6 +22,7 @@ mod grid;
 mod icednano;
 mod strand_builder;
 use crate::scene::GridInstance;
+use crate::utils::message;
 use grid::GridManager;
 pub use grid::*;
 pub use icednano::Nucl;
@@ -1734,11 +1735,11 @@ fn read_file(path: &PathBuf) -> Option<icednano::Design> {
             Some(icednano::Design::from_codenano(&design))
         } else {
             // The file is not in any supported format
-            MessageDialog::new()
-                .set_type(MessageType::Error)
-                .set_text("Unrecognized file format")
-                .show_alert()
-                .unwrap();
+            message(
+                MessageDialog::new()
+                    .set_type(MessageType::Error)
+                    .set_text("Unrecognized file format"),
+            );
             None
         }
     }

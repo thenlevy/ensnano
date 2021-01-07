@@ -1,5 +1,6 @@
 use crate::consts::*;
 use iced_wgpu::wgpu;
+use native_dialog::MessageDialog;
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
 
 pub mod bindgroup_manager;
@@ -108,5 +109,15 @@ impl PhantomElement {
             position: self.position as isize,
             forward: self.forward,
         }
+    }
+}
+
+pub fn message(message: MessageDialog<'static>) {
+    if cfg!(target_os = "windows") {
+        std::thread::spawn(move || {
+            message.show_alert().unwrap();
+        });
+    } else {
+        message.show_alert().unwrap();
     }
 }
