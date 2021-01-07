@@ -115,6 +115,8 @@ impl Program for TopBar {
             }
             Message::ScaffoldSequenceFile => {
                 if cfg!(target_os = "windows") {
+                    let requests = self.requests.clone();
+                    std::thread::spawn(move || {
                         let result = match nfd2::open_file_dialog(None, None).expect("oh no") {
                             Response::Okay(file_path) => Some(file_path),
                             Response::OkayMultiple(_) => {
@@ -129,7 +131,6 @@ impl Program for TopBar {
                             if let Some(n) =
                                 content.find(|c| c != 'A' && c != 'T' && c != 'G' && c != 'C')
                             {
-                                std::thread::spawn(move || {
                                 MessageDialog::new()
                                     .set_type(MessageType::Error)
                                     .set_text(&format!(
@@ -138,12 +139,13 @@ impl Program for TopBar {
                                         n
                                     ))
                                     .show_alert()
-                                    .unwrap();});
-                                } else {
-                                    self.requests.lock().unwrap().scaffold_sequence = Some(content)
+                                    .unwrap();
+                            } 
+                            else {
+                                    requests.lock().unwrap().scaffold_sequence = Some(content)
                             }
                         }
-
+                    });
                 } else {
                     let result = FileDialog::new().show_open_single_file();
                     if let Ok(result) = result {
