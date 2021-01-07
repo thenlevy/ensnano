@@ -273,13 +273,17 @@ impl Mediator {
             .unwrap()
             .set_scaffold_sequence(sequence);
         if self.designs[d_id].lock().unwrap().scaffold_is_set() {
-            let choice = MessageDialog::new()
-                .set_type(MessageType::Info)
-                .set_text("Optimize the scaffold position ?\n
+            let (choice_snd, choice_rcv) = std::sync::mpsc::channel::<bool>();
+            std::thread::spawn(move || {
+                let choice = MessageDialog::new()
+                    .set_type(MessageType::Info)
+                    .set_text("Optimize the scaffold position ?\n
             If you chose \"Yes\", icednano will position the scaffold in a way that minimizes the number of anti-patern (G^4, C^4 (A|T)^7) in the stapples sequence. If you chose \"No\", the scaffold sequence will begin at position 0")
-                .show_confirm()
-                .unwrap();
-            if choice {
+                    .show_confirm()
+                    .unwrap();
+                choice_snd.send(choice).unwrap();
+            });
+            if choice_rcv.recv() == Ok(true) {
                 let computing = self.computing.clone();
                 let design = self.designs[d_id].clone();
                 let messages = self.messages.clone();
