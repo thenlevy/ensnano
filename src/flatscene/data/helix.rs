@@ -13,6 +13,7 @@ use lyon::tessellation::{
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 use ultraviolet::{Isometry2, Mat2, Vec2, Vec4};
+use ahash::{AHasher, RandomState};
 
 type Vertices = lyon::tessellation::VertexBuffers<GpuVertex, u16>;
 
@@ -34,7 +35,7 @@ pub struct Helix {
     pub id: u32,
     pub real_id: usize,
     pub visible: bool,
-    basis_map: Arc<RwLock<HashMap<Nucl, char>>>,
+    basis_map: Arc<RwLock<HashMap<Nucl, char, RandomState>>>,
 }
 
 #[repr(C)]
@@ -58,7 +59,7 @@ impl Helix {
         id: u32,
         real_id: usize,
         visible: bool,
-        basis_map: Arc<RwLock<HashMap<Nucl, char>>>,
+        basis_map: Arc<RwLock<HashMap<Nucl, char, RandomState>>>,
     ) -> Self {
         Self {
             left,

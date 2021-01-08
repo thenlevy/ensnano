@@ -13,6 +13,7 @@ use std::collections::{HashMap, HashSet};
 use std::io::Write;
 use std::path::PathBuf;
 use ultraviolet::Vec3;
+use ahash::{AHasher, RandomState};
 
 use std::borrow::Cow;
 use std::fmt;
@@ -39,23 +40,23 @@ pub use strand_builder::{DomainIdentifier, StrandBuilder};
 /// the future this might be optimised.
 pub struct Data {
     design: icednano::Design,
-    object_type: HashMap<u32, ObjectType>,
+    object_type: HashMap<u32, ObjectType, RandomState>,
     /// Maps identifier of nucleotide to Nucleotide objects
-    nucleotide: HashMap<u32, Nucl>,
+    nucleotide: HashMap<u32, Nucl, RandomState>,
     /// Maps identifier of bounds to the pair of nucleotides involved in the bound
-    nucleotides_involved: HashMap<u32, (Nucl, Nucl)>,
+    nucleotides_involved: HashMap<u32, (Nucl, Nucl), RandomState>,
     /// Maps identifier of element to their position in the Model's coordinates
-    space_position: HashMap<u32, [f32; 3]>,
+    space_position: HashMap<u32, [f32; 3], RandomState>,
     /// Maps a Nucl object to its identifier
-    identifier_nucl: HashMap<Nucl, u32>,
+    identifier_nucl: HashMap<Nucl, u32, RandomState>,
     /// Maps a pair of nucleotide forming a bound to the identifier of the bound
-    identifier_bound: HashMap<(Nucl, Nucl), u32>,
+    identifier_bound: HashMap<(Nucl, Nucl), u32, RandomState>,
     /// Maps the identifier of a element to the identifier of the strands to which it belongs
-    strand_map: HashMap<u32, usize>,
+    strand_map: HashMap<u32, usize, RandomState>,
     /// Maps the identifier of a element to the identifier of the helix to which it belongs
-    helix_map: HashMap<u32, usize>,
+    helix_map: HashMap<u32, usize, RandomState>,
     /// Maps the identifier of an element to its color
-    color: HashMap<u32, u32>,
+    color: HashMap<u32, u32, RandomState>,
     /// Must be set to true when the design is modified, so that its obeservers get notified of the
     /// modification
     update_status: bool,
@@ -63,7 +64,7 @@ pub struct Data {
     /// performed
     hash_maps_update: bool,
     /// Maps nucleotides to basis characters
-    basis_map: Arc<RwLock<HashMap<Nucl, char>>>,
+    basis_map: Arc<RwLock<HashMap<Nucl, char, RandomState>>>,
     grid_manager: GridManager,
     grids: Vec<Arc<RwLock<Grid2D>>>,
     color_idx: usize,
@@ -83,18 +84,18 @@ impl Data {
         let grid_manager = GridManager::new(Parameters::default());
         Self {
             design,
-            object_type: HashMap::new(),
-            space_position: HashMap::new(),
-            identifier_nucl: HashMap::new(),
-            identifier_bound: HashMap::new(),
-            nucleotides_involved: HashMap::new(),
-            nucleotide: HashMap::new(),
-            strand_map: HashMap::new(),
-            helix_map: HashMap::new(),
-            color: HashMap::new(),
+            object_type: HashMap::default(),
+            space_position: HashMap::default(),
+            identifier_nucl: HashMap::default(),
+            identifier_bound: HashMap::default(),
+            nucleotides_involved: HashMap::default(),
+            nucleotide: HashMap::default(),
+            strand_map: HashMap::default(),
+            helix_map: HashMap::default(),
+            color: HashMap::default(),
             update_status: false,
             hash_maps_update: false,
-            basis_map: Arc::new(RwLock::new(HashMap::new())),
+            basis_map: Arc::new(RwLock::new(HashMap::default())),
             grid_manager,
             grids: Vec::new(),
             color_idx: 0,
@@ -115,15 +116,15 @@ impl Data {
         let color_idx = design.strands.keys().len();
         let mut ret = Self {
             design,
-            object_type: HashMap::new(),
-            space_position: HashMap::new(),
-            identifier_nucl: HashMap::new(),
-            identifier_bound: HashMap::new(),
-            nucleotides_involved: HashMap::new(),
-            nucleotide: HashMap::new(),
-            strand_map: HashMap::new(),
-            helix_map: HashMap::new(),
-            color: HashMap::new(),
+            object_type: HashMap::default(),
+            space_position: HashMap::default(),
+            identifier_nucl: HashMap::default(),
+            identifier_bound: HashMap::default(),
+            nucleotides_involved: HashMap::default(),
+            nucleotide: HashMap::default(),
+            strand_map: HashMap::default(),
+            helix_map: HashMap::default(),
+            color: HashMap::default(),
             update_status: false,
             // false because we call make_hash_maps here
             hash_maps_update: false,
@@ -140,16 +141,16 @@ impl Data {
 
     /// Update all the hash maps
     fn make_hash_maps(&mut self) {
-        let mut object_type = HashMap::new();
-        let mut space_position = HashMap::new();
-        let mut identifier_nucl = HashMap::new();
-        let mut identifier_bound = HashMap::new();
-        let mut nucleotides_involved = HashMap::new();
-        let mut nucleotide = HashMap::new();
-        let mut strand_map = HashMap::new();
-        let mut color_map = HashMap::new();
-        let mut helix_map = HashMap::new();
-        let mut basis_map = HashMap::new();
+        let mut object_type = HashMap::default();
+        let mut space_position = HashMap::default();
+        let mut identifier_nucl = HashMap::default();
+        let mut identifier_bound = HashMap::default();
+        let mut nucleotides_involved = HashMap::default();
+        let mut nucleotide = HashMap::default();
+        let mut strand_map = HashMap::default();
+        let mut color_map = HashMap::default();
+        let mut helix_map = HashMap::default();
+        let mut basis_map = HashMap::default();
         let mut id = 0u32;
         let mut nucl_id;
         let mut old_nucl = None;
@@ -1549,7 +1550,7 @@ impl Data {
         self.design.helices.contains_key(&h_id)
     }
 
-    pub fn get_basis_map(&self) -> Arc<RwLock<HashMap<Nucl, char>>> {
+    pub fn get_basis_map(&self) -> Arc<RwLock<HashMap<Nucl, char, RandomState>>> {
         self.basis_map.clone()
     }
 

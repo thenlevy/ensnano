@@ -14,6 +14,7 @@ use crate::design::{Helix as DesignHelix, Strand as DesignStrand};
 use crate::utils::camera2d::FitRectangle;
 use design::{Design2d, Helix2d};
 use std::collections::HashMap;
+use ahash::{AHasher, RandomState};
 
 pub struct Data {
     view: ViewPtr,
@@ -23,7 +24,7 @@ pub struct Data {
     helices: Vec<Helix>,
     selected_helix: Option<usize>,
     nb_helices_created: usize,
-    basis_map: Arc<RwLock<HashMap<Nucl, char>>>,
+    basis_map: Arc<RwLock<HashMap<Nucl, char, RandomState>>>,
 }
 
 impl Data {
