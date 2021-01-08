@@ -429,16 +429,22 @@ impl Mediator {
             let (snd, rcv) = std::sync::mpsc::channel();
             std::thread::spawn(move || {
                 let xls_file = FileDialog::new()
-                    .add_filter("Excel file", &["xls", "xlsx"])
+                    .add_filter("Excel file", &["xlsx"])
                     .show_save_single_file();
                 snd.send(xls_file.ok().and_then(|x| x)).unwrap()
             });
             rcv.recv().unwrap()
         } else {
-            let xls_file = FileDialog::new()
-                .add_filter("Excel file", &["xls", "xlsx"])
-                .show_save_single_file();
-            xls_file.ok().and_then(|x| x)
+            use nfd2::Response;
+            let result = match nfd2::open_save_dialog(Some("xlsx"), None).expect("oh no") {
+                Response::Okay(file_path) => Some(file_path),
+                Response::OkayMultiple(_) => {
+                    println!("Please open only one file");
+                    None
+                }
+                Response::Cancel => None,
+            };
+            result
         };
         if let Some(path) = path {
             write_stapples(stapples, path);

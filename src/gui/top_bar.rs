@@ -82,13 +82,17 @@ impl Program for TopBar {
             Message::FileAddRequested => {
                 let requests = self.requests.clone();
                 if cfg!(target_os = "macos") {
-                    // nfd2 freezes on macos
-                    let result = FileDialog::new().show_open_single_file();
-                    if let Ok(result) = result {
-                        if let Some(path) = result {
-                            self.requests.lock().expect("file_opening_request").file_add =
-                                Some(path);
+                    // do not spawn a new thread on macos
+                    let result = match nfd2::open_file_dialog(None, None).expect("oh no") {
+                        Response::Okay(file_path) => Some(file_path),
+                        Response::OkayMultiple(_) => {
+                            println!("Please open only one file");
+                            None
                         }
+                        Response::Cancel => None,
+                    };
+                    if let Some(path) = result {
+                        requests.lock().expect("file_opening_request").file_add = Some(path);
                     }
                 } else {
                     thread::spawn(move || {
@@ -145,26 +149,31 @@ impl Program for TopBar {
                         }
                     });
                 } else {
-                    let result = FileDialog::new().show_open_single_file();
-                    if let Ok(result) = result {
-                        if let Some(path) = result {
-                            let mut content = std::fs::read_to_string(path).unwrap();
-                            content.make_ascii_uppercase();
-                            if let Some(n) =
-                                content.find(|c| c != 'A' && c != 'T' && c != 'G' && c != 'C')
-                            {
-                                MessageDialog::new()
-                                    .set_type(MessageType::Error)
-                                    .set_text(&format!(
+                    let result = match nfd2::open_file_dialog(None, None).expect("oh no") {
+                        Response::Okay(file_path) => Some(file_path),
+                        Response::OkayMultiple(_) => {
+                            println!("Please open only one file");
+                            None
+                        }
+                        Response::Cancel => None,
+                    };
+                    if let Some(path) = result {
+                        let mut content = std::fs::read_to_string(path).unwrap();
+                        content.make_ascii_uppercase();
+                        if let Some(n) =
+                            content.find(|c| c != 'A' && c != 'T' && c != 'G' && c != 'C')
+                        {
+                            MessageDialog::new()
+                                .set_type(MessageType::Error)
+                                .set_text(&format!(
                                         "This text file does not contain a valid DNA sequence.\n
                                         First invalid char at position {}",
                                         n
-                                    ))
-                                    .show_alert()
-                                    .unwrap();
+                                ))
+                                .show_alert()
+                                .unwrap();
                             } else {
                                 self.requests.lock().unwrap().scaffold_sequence = Some(content)
-                            }
                         }
                     }
                 }
@@ -173,13 +182,17 @@ impl Program for TopBar {
             Message::FileSaveRequested => {
                 let requests = self.requests.clone();
                 if cfg!(target_os = "macos") {
-                    // nfd2 freezes on macos
-                    let result = FileDialog::new().show_save_single_file();
-                    if let Ok(Some(path)) = result {
-                        self.requests
-                            .lock()
-                            .expect("file_opening_request")
-                            .file_save = Some(path);
+                    // do not spawn a new thread for macos
+                    let result = match nfd2::open_save_dialog(None, None).expect("oh no") {
+                        Response::Okay(file_path) => Some(file_path),
+                        Response::OkayMultiple(_) => {
+                            println!("Please open only one file");
+                            None
+                        }
+                        Response::Cancel => None,
+                    };
+                    if let Some(path) = result {
+                        requests.lock().expect("file_opening_request").file_save = Some(path);
                     }
                 } else {
                     thread::spawn(move || {
