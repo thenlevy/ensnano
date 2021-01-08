@@ -912,6 +912,64 @@ impl Operation for Xover {
     }
 }
 
+/// Delete a strand
+#[derive(Clone, Debug)]
+pub struct RmStrand {
+    pub strand: Strand,
+    pub strand_id: usize,
+    pub undo: bool,
+    pub design_id: usize,
+}
+
+impl Operation for RmStrand {
+    fn descr(&self) -> OperationDescriptor {
+        OperationDescriptor::CrossCut
+    }
+
+    fn compose(&self, _other: &dyn Operation) -> Option<Arc<dyn Operation>> {
+        None
+    }
+
+    fn parameters(&self) -> Vec<Parameter> {
+        vec![]
+    }
+
+    fn values(&self) -> Vec<String> {
+        vec![]
+    }
+
+    fn reverse(&self) -> Arc<dyn Operation> {
+        Arc::new(RmStrand {
+            undo: !self.undo,
+            ..self.clone()
+        })
+    }
+
+    fn effect(&self) -> AppNotification {
+        AppNotification::RmStrand {
+            strand: self.strand.clone(),
+            strand_id: self.strand_id,
+            undo: self.undo,
+        }
+    }
+
+    fn description(&self) -> String {
+        if self.undo {
+            format!("Undo Cut")
+        } else {
+            format!("Do Cut")
+        }
+    }
+
+    fn target(&self) -> usize {
+        self.design_id
+    }
+
+    fn with_new_value(&self, _n: usize, _val: String) -> Option<Arc<dyn Operation>> {
+        None
+    }
+}
+
 /// Cut the target strand at nucl, and make a cross over from the source strand.
 #[derive(Clone, Debug)]
 pub struct CrossCut {
@@ -1136,6 +1194,7 @@ pub enum OperationDescriptor {
     Cut,
     CrossCut,
     Xover,
+    RmStrand,
     BuildStrand(std::time::SystemTime),
     CreateGrid,
 }

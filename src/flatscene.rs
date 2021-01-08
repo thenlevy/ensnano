@@ -6,8 +6,8 @@ use crate::{DrawArea, Duration, PhySize, WindowEvent};
 use iced_wgpu::wgpu;
 use iced_winit::winit;
 use mediator::{
-    ActionMode, Application, CrossCut, Cut, Mediator, Notification, RawHelixCreation, Selection,
-    StrandConstruction, Xover,
+    ActionMode, Application, CrossCut, Cut, Mediator, Notification, RawHelixCreation, RmStrand,
+    Selection, StrandConstruction, Xover,
 };
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -250,8 +250,23 @@ impl FlatScene {
                     self.mediator.lock().unwrap().set_candidate(phantom)
                 }
                 Consequence::RmStrand(nucl) => {
-                    self.mediator.lock().unwrap().drop_undo_stack();
-                    self.data[self.selected_design].borrow_mut().rm_strand(nucl)
+                    let strand_id = self.data[self.selected_design].borrow().get_strand_id(nucl);
+                    if let Some(strand_id) = strand_id {
+                        println!("removing strand");
+                        let strand = self.data[self.selected_design]
+                            .borrow()
+                            .get_strand(strand_id)
+                            .unwrap();
+                        self.mediator
+                            .lock()
+                            .unwrap()
+                            .update_opperation(Arc::new(RmStrand {
+                                strand,
+                                strand_id,
+                                undo: false,
+                                design_id: self.selected_design,
+                            }))
+                    }
                 }
                 Consequence::RmHelix(h_id) => {
                     let helix = self.data[self.selected_design]

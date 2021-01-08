@@ -221,6 +221,15 @@ impl Design {
                 }
                 self.data.lock().unwrap().rm_helix_grid(grid_id, x, y)
             }
+            AppNotification::RmStrand {
+                strand,
+                strand_id,
+                undo,
+            } => self
+                .data
+                .lock()
+                .unwrap()
+                .undoable_rm_strand(strand, strand_id, undo),
             AppNotification::RmGrid => self.data.lock().unwrap().delete_last_grid(),
             AppNotification::AddGrid(grid_descriptor) => {
                 self.data.lock().unwrap().add_grid(grid_descriptor)

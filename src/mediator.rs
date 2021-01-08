@@ -573,6 +573,11 @@ pub enum AppNotification {
         nucl: Nucl,
         undo: bool,
     },
+    RmStrand {
+        strand: Strand,
+        strand_id: usize,
+        undo: bool,
+    },
     MakeGrids,
     AddGrid(GridDescriptor),
     MoveBuilder(Box<StrandBuilder>, Option<(usize, u32)>),

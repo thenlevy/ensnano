@@ -1131,8 +1131,7 @@ impl Data {
             }
         } else if source_strand == target_strand {
             self.make_cycle(source_strand, true)
-        }
-        else {
+        } else {
             if target_3prime {
                 self.merge_strands(source_strand, target_strand);
             } else {
@@ -1159,6 +1158,18 @@ impl Data {
             self.design.strands.remove(&new_id);
         }
         self.make_hash_maps();
+        self.view_need_reset = true;
+    }
+
+    pub fn undoable_rm_strand(&mut self, strand: Strand, strand_id: usize, undo: bool) {
+        self.update_status = true;
+        self.hash_maps_update = true;
+
+        if undo {
+            self.design.strands.insert(strand_id, strand);
+        } else {
+            self.design.strands.remove(&strand_id).expect("strand");
+        }
         self.view_need_reset = true;
     }
 
