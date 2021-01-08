@@ -72,6 +72,7 @@ const NO_POS: PhysicalPosition<f64> = PhysicalPosition::new(f64::NAN, f64::NAN);
 pub enum Consequence {
     CameraMoved,
     PixelSelected(PhysicalPosition<f64>),
+    XoverAtempt(PhysicalPosition<f64>),
     Translation(HandleDir, f64, f64),
     MovementEnded,
     Rotation(RotationMode, f64, f64),
@@ -188,6 +189,7 @@ impl Controller {
             WindowEvent::MouseInput {
                 button: MouseButton::Left,
                 state,
+                modifiers,
                 ..
             } => {
                 let builder = if *state == ElementState::Pressed {
@@ -202,7 +204,7 @@ impl Controller {
                             self.last_left_clicked_position = Some(self.mouse_position);
                             Consequence::Nothing
                         } else {
-                            self.left_click_camera(state)
+                            self.left_click_camera(state, modifiers.ctrl())
                         }
                     }
                     State::Rotate(_) => {
@@ -372,7 +374,7 @@ impl Controller {
         }
     }
 
-    fn left_click_camera(&mut self, state: &ElementState) -> Consequence {
+    fn left_click_camera(&mut self, state: &ElementState, ctrl: bool) -> Consequence {
         self.camera_controller.process_click(state);
         let mut released = false;
         if *state == ElementState::Pressed {
@@ -384,7 +386,12 @@ impl Controller {
         ) < 5.
         {
             // self.last_left_clicked_position = None; TODO determine if I should uncomment this???
-            return Consequence::PixelSelected(self.last_left_clicked_position.take().unwrap());
+            if ctrl {
+                return Consequence::XoverAtempt(self.last_left_clicked_position.take().unwrap())
+            }
+            else {
+                return Consequence::PixelSelected(self.last_left_clicked_position.take().unwrap());
+            }
         } else {
             released = true;
         }

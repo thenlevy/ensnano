@@ -133,6 +133,7 @@ impl Scene {
             Consequence::Nothing => (),
             Consequence::CameraMoved => self.notify(SceneNotification::CameraMoved),
             Consequence::PixelSelected(clicked) => self.click_on(clicked),
+            Consequence::XoverAtempt(clicked) => self.attempt_xover(clicked),
             Consequence::Translation(dir, x_coord, y_coord) => {
                 let translation = self.view.borrow().compute_translation_handle(
                     x_coord as f32,
@@ -234,6 +235,10 @@ impl Scene {
             };
             self.select(element);
         }
+    }
+
+    fn attempt_xover(&mut self, clicked_pixel: PhysicalPosition<f64>) {
+
     }
 
     fn element_center(&mut self) -> Option<SceneElement> {
