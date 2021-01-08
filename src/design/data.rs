@@ -1684,7 +1684,7 @@ impl Data {
             if strand.length() == 0 || self.design.scaffold_id == Some(*s_id) {
                 continue;
             }
-            let mut sequence = String::new();
+            let mut sequence = String::with_capacity(10000);
             for domain in &strand.domains {
                 if let icednano::Domain::HelixDomain(dom) = domain {
                     for position in dom.iter() {
