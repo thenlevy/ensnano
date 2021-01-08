@@ -195,7 +195,11 @@ fn main() {
     // Initialize the mediator
     let requests = Arc::new(Mutex::new(Requests::new()));
     let messages = Arc::new(Mutex::new(IcedMessages::new()));
-    let mediator = Arc::new(Mutex::new(Mediator::new(messages.clone())));
+    let computing = Arc::new(Mutex::new(false));
+    let mediator = Arc::new(Mutex::new(Mediator::new(
+        messages.clone(),
+        computing.clone(),
+    )));
     let scheduler = Arc::new(Mutex::new(Scheduler::new()));
 
     // Initialize the layout
@@ -283,7 +287,7 @@ fn main() {
                 if let WindowEvent::Resized(_) = event {
                     resized = true;
                 }
-                if let Some(event) = event.to_static() {
+                if let Some(event) = event.to_static().filter(|_| !*computing.lock().unwrap()) {
                     // Feed the event to the multiplexer
                     let event = multiplexer.event(event);
 
@@ -439,6 +443,20 @@ fn main() {
                     if let Some(rotation) = requests.camera_rotation.take() {
                         mediator.lock().unwrap().request_camera_rotation(rotation)
                     }
+
+                    if let Some(scaffold_id) = requests.set_scaffold_id.take() {
+                        mediator.lock().unwrap().set_scaffold(scaffold_id)
+                    }
+
+                    if let Some(sequence) = requests.scaffold_sequence.take() {
+                        mediator.lock().unwrap().set_scaffold_sequence(sequence);
+                        println!("lock released");
+                    }
+
+                    if requests.stapples_request {
+                        requests.stapples_request = false;
+                        mediator.lock().unwrap().download_stapples()
+                    }
                 }
 
                 // Treat eventual event that happenend in the gui left panel.
@@ -450,7 +468,10 @@ fn main() {
                     overlay_manager.forward_messages(&mut messages);
                 }
 
-                mediator.lock().unwrap().observe_designs();
+                if !*computing.lock().unwrap() {
+                    mediator.lock().unwrap().observe_designs();
+                }
+
                 window.request_redraw();
             }
             Event::RedrawRequested(_)
@@ -554,41 +575,53 @@ impl IcedMessages {
         // bytes is [A, R, G, B]
         let color = iced::Color::from_rgb8(bytes[1], bytes[2], bytes[3]);
         self.color_overlay
-            .push_front(gui::left_panel::ColorMessage::StrandColorChanged(color));
+            .push_back(gui::left_panel::ColorMessage::StrandColorChanged(color));
         self.left_panel
-            .push_front(gui::left_panel::Message::StrandColorChanged(color));
+            .push_back(gui::left_panel::Message::StrandColorChanged(color));
     }
 
     pub fn push_sequence(&mut self, sequence: String) {
         self.left_panel
-            .push_front(gui::left_panel::Message::SequenceChanged(sequence));
+            .push_back(gui::left_panel::Message::SequenceChanged(sequence));
     }
 
     pub fn push_op(&mut self, operation: Arc<dyn Operation>) {
         self.status_bar
-            .push_front(gui::status_bar::Message::Operation(operation));
+            .push_back(gui::status_bar::Message::Operation(operation));
     }
 
     pub fn push_selection(&mut self, selection: mediator::Selection, values: Vec<String>) {
         self.status_bar
-            .push_front(gui::status_bar::Message::Selection(selection, values))
+            .push_back(gui::status_bar::Message::Selection(selection, values))
     }
 
     pub fn clear_op(&mut self) {
-        self.status_bar
-            .push_front(gui::status_bar::Message::ClearOp);
+        self.status_bar.push_back(gui::status_bar::Message::ClearOp);
     }
 
     pub fn push_action_mode(&mut self, action_mode: mediator::ActionMode) {
         self.left_panel
-            .push_front(gui::left_panel::Message::ActionModeChanged(action_mode))
+            .push_back(gui::left_panel::Message::ActionModeChanged(action_mode))
     }
 
     pub fn push_selection_mode(&mut self, selection_mode: mediator::SelectionMode) {
         self.left_panel
-            .push_front(gui::left_panel::Message::SelectionModeChanged(
+            .push_back(gui::left_panel::Message::SelectionModeChanged(
                 selection_mode,
             ))
+    }
+
+    pub fn push_progress(&mut self, progress_name: String, progress: f32) {
+        self.status_bar
+            .push_back(gui::status_bar::Message::Progress(Some((
+                progress_name,
+                progress,
+            ))))
+    }
+
+    pub fn finish_progess(&mut self) {
+        self.status_bar
+            .push_back(gui::status_bar::Message::Progress(None))
     }
 }
 

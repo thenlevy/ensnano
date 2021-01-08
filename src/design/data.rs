@@ -8,11 +8,12 @@
 //! The `Data` objects can convert these identifier into `Nucl` position or retrieve information
 //! about the element such as its position, color etc...
 //!
-use native_dialog::{Dialog, MessageAlert};
+use native_dialog::{MessageDialog, MessageType};
 use std::collections::{HashMap, HashSet};
 use std::io::Write;
 use std::path::PathBuf;
 use ultraviolet::Vec3;
+use ahash::{AHasher, RandomState};
 
 use std::borrow::Cow;
 use std::fmt;
@@ -22,6 +23,7 @@ mod grid;
 mod icednano;
 mod strand_builder;
 use crate::scene::GridInstance;
+use crate::utils::message;
 use grid::GridManager;
 pub use grid::*;
 pub use icednano::Nucl;
@@ -38,23 +40,23 @@ pub use strand_builder::{DomainIdentifier, StrandBuilder};
 /// the future this might be optimised.
 pub struct Data {
     design: icednano::Design,
-    object_type: HashMap<u32, ObjectType>,
+    object_type: HashMap<u32, ObjectType, RandomState>,
     /// Maps identifier of nucleotide to Nucleotide objects
-    nucleotide: HashMap<u32, Nucl>,
+    nucleotide: HashMap<u32, Nucl, RandomState>,
     /// Maps identifier of bounds to the pair of nucleotides involved in the bound
-    nucleotides_involved: HashMap<u32, (Nucl, Nucl)>,
+    nucleotides_involved: HashMap<u32, (Nucl, Nucl), RandomState>,
     /// Maps identifier of element to their position in the Model's coordinates
-    space_position: HashMap<u32, [f32; 3]>,
+    space_position: HashMap<u32, [f32; 3], RandomState>,
     /// Maps a Nucl object to its identifier
-    identifier_nucl: HashMap<Nucl, u32>,
+    identifier_nucl: HashMap<Nucl, u32, RandomState>,
     /// Maps a pair of nucleotide forming a bound to the identifier of the bound
-    identifier_bound: HashMap<(Nucl, Nucl), u32>,
+    identifier_bound: HashMap<(Nucl, Nucl), u32, RandomState>,
     /// Maps the identifier of a element to the identifier of the strands to which it belongs
-    strand_map: HashMap<u32, usize>,
+    strand_map: HashMap<u32, usize, RandomState>,
     /// Maps the identifier of a element to the identifier of the helix to which it belongs
-    helix_map: HashMap<u32, usize>,
+    helix_map: HashMap<u32, usize, RandomState>,
     /// Maps the identifier of an element to its color
-    color: HashMap<u32, u32>,
+    color: HashMap<u32, u32, RandomState>,
     /// Must be set to true when the design is modified, so that its obeservers get notified of the
     /// modification
     update_status: bool,
@@ -62,7 +64,7 @@ pub struct Data {
     /// performed
     hash_maps_update: bool,
     /// Maps nucleotides to basis characters
-    basis_map: HashMap<Nucl, char>,
+    basis_map: Arc<RwLock<HashMap<Nucl, char, RandomState>>>,
     grid_manager: GridManager,
     grids: Vec<Arc<RwLock<Grid2D>>>,
     color_idx: usize,
@@ -82,18 +84,18 @@ impl Data {
         let grid_manager = GridManager::new(Parameters::default());
         Self {
             design,
-            object_type: HashMap::new(),
-            space_position: HashMap::new(),
-            identifier_nucl: HashMap::new(),
-            identifier_bound: HashMap::new(),
-            nucleotides_involved: HashMap::new(),
-            nucleotide: HashMap::new(),
-            strand_map: HashMap::new(),
-            helix_map: HashMap::new(),
-            color: HashMap::new(),
+            object_type: HashMap::default(),
+            space_position: HashMap::default(),
+            identifier_nucl: HashMap::default(),
+            identifier_bound: HashMap::default(),
+            nucleotides_involved: HashMap::default(),
+            nucleotide: HashMap::default(),
+            strand_map: HashMap::default(),
+            helix_map: HashMap::default(),
+            color: HashMap::default(),
             update_status: false,
             hash_maps_update: false,
-            basis_map: HashMap::new(),
+            basis_map: Arc::new(RwLock::new(HashMap::default())),
             grid_manager,
             grids: Vec::new(),
             color_idx: 0,
@@ -114,19 +116,19 @@ impl Data {
         let color_idx = design.strands.keys().len();
         let mut ret = Self {
             design,
-            object_type: HashMap::new(),
-            space_position: HashMap::new(),
-            identifier_nucl: HashMap::new(),
-            identifier_bound: HashMap::new(),
-            nucleotides_involved: HashMap::new(),
-            nucleotide: HashMap::new(),
-            strand_map: HashMap::new(),
-            helix_map: HashMap::new(),
-            color: HashMap::new(),
+            object_type: HashMap::default(),
+            space_position: HashMap::default(),
+            identifier_nucl: HashMap::default(),
+            identifier_bound: HashMap::default(),
+            nucleotides_involved: HashMap::default(),
+            nucleotide: HashMap::default(),
+            strand_map: HashMap::default(),
+            helix_map: HashMap::default(),
+            color: HashMap::default(),
             update_status: false,
             // false because we call make_hash_maps here
             hash_maps_update: false,
-            basis_map: HashMap::new(),
+            basis_map: Default::default(),
             grid_manager,
             grids,
             color_idx,
@@ -139,16 +141,16 @@ impl Data {
 
     /// Update all the hash maps
     fn make_hash_maps(&mut self) {
-        let mut object_type = HashMap::new();
-        let mut space_position = HashMap::new();
-        let mut identifier_nucl = HashMap::new();
-        let mut identifier_bound = HashMap::new();
-        let mut nucleotides_involved = HashMap::new();
-        let mut nucleotide = HashMap::new();
-        let mut strand_map = HashMap::new();
-        let mut color_map = HashMap::new();
-        let mut helix_map = HashMap::new();
-        let mut basis_map = HashMap::new();
+        let mut object_type = HashMap::default();
+        let mut space_position = HashMap::default();
+        let mut identifier_nucl = HashMap::default();
+        let mut identifier_bound = HashMap::default();
+        let mut nucleotides_involved = HashMap::default();
+        let mut nucleotide = HashMap::default();
+        let mut strand_map = HashMap::default();
+        let mut color_map = HashMap::default();
+        let mut helix_map = HashMap::default();
+        let mut basis_map = HashMap::default();
         let mut id = 0u32;
         let mut nucl_id;
         let mut old_nucl = None;
@@ -242,7 +244,65 @@ impl Data {
         self.space_position = space_position;
         self.color = color_map;
         self.helix_map = helix_map;
-        self.basis_map = basis_map;
+        *self.basis_map.write().unwrap() = basis_map;
+        self.read_scaffold_seq(self.design.scaffold_shift.unwrap_or(0));
+    }
+
+    fn read_scaffold_seq(&mut self, shift: usize) {
+        if let Some(mut sequence) = self
+            .design
+            .scaffold_sequence
+            .as_ref()
+            .map(|s| s.chars().cycle().skip(shift))
+        {
+            let mut basis_map = self.basis_map.read().unwrap().clone();
+            if let Some(strand) = self
+                .design
+                .scaffold_id
+                .as_ref()
+                .and_then(|s_id| self.design.strands.get(s_id))
+            {
+                for domain in &strand.domains {
+                    if let icednano::Domain::HelixDomain(dom) = domain {
+                        for nucl_position in dom.iter() {
+                            let nucl = Nucl {
+                                helix: dom.helix,
+                                position: nucl_position,
+                                forward: dom.forward,
+                            };
+                            let basis = sequence.next();
+                            let basis_compl = compl(basis);
+                            if let Some((basis, basis_compl)) = basis.zip(basis_compl) {
+                                basis_map.insert(nucl, basis);
+                                if self.identifier_nucl.contains_key(&nucl.compl()) {
+                                    basis_map.insert(nucl.compl(), basis_compl);
+                                }
+                            }
+                        }
+                    } else if let icednano::Domain::Insertion(n) = domain {
+                        for _ in 0..*n {
+                            sequence.next();
+                        }
+                    }
+                }
+            }
+            *self.basis_map.write().unwrap() = basis_map;
+        }
+    }
+
+    /// Set the strand that is the scaffold
+    pub fn set_scaffold_id(&mut self, scaffold_id: Option<usize>) {
+        self.design.scaffold_id = scaffold_id;
+        self.hash_maps_update = true;
+        self.update_status = true;
+        self.design.scaffold_shift = None;
+    }
+
+    /// Set the sequence of the scaffold
+    pub fn set_scaffold_sequence(&mut self, sequence: String) {
+        self.design.scaffold_sequence = Some(sequence);
+        self.design.scaffold_shift = None;
+        self.hash_maps_update = true;
     }
 
     /// Save the design to a file in the `icednano` format
@@ -705,9 +765,11 @@ impl Data {
     pub fn get_symbol(&self, e_id: u32) -> Option<char> {
         self.nucleotide.get(&e_id).and_then(|nucl| {
             self.basis_map
+                .read()
+                .unwrap()
                 .get(nucl)
                 .cloned()
-                .or_else(|| compl(self.basis_map.get(&nucl.compl()).cloned()))
+                .or_else(|| compl(self.basis_map.read().unwrap().get(&nucl.compl()).cloned()))
         })
     }
 
@@ -1508,6 +1570,165 @@ impl Data {
     pub fn has_helix(&self, h_id: usize) -> bool {
         self.design.helices.contains_key(&h_id)
     }
+
+    pub fn get_basis_map(&self) -> Arc<RwLock<HashMap<Nucl, char, RandomState>>> {
+        self.basis_map.clone()
+    }
+
+    pub fn is_scaffold(&self, s_id: usize) -> bool {
+        self.design.scaffold_id == Some(s_id)
+    }
+
+    pub fn scaffold_is_set(&self) -> bool {
+        self.design.scaffold_id.is_some()
+    }
+
+    pub fn scaffold_sequence_set(&self) -> bool {
+        self.design.scaffold_sequence.is_some()
+    }
+
+    pub fn get_stapple_mismatch(&self) -> Option<Nucl> {
+        let basis_map = self.basis_map.read().unwrap();
+        for strand in self.design.strands.values() {
+            for domain in &strand.domains {
+                if let icednano::Domain::HelixDomain(dom) = domain {
+                    for position in dom.iter() {
+                        let nucl = Nucl {
+                            position,
+                            forward: dom.forward,
+                            helix: dom.helix,
+                        };
+                        if !basis_map.contains_key(&nucl) {
+                            return Some(nucl);
+                        }
+                    }
+                }
+            }
+        }
+        None
+    }
+
+    pub fn get_scaffold_sequence_len(&self) -> Option<usize> {
+        self.design.scaffold_sequence.as_ref().map(|s| s.len())
+    }
+
+    pub fn get_scaffold_len(&self) -> Option<usize> {
+        self.design
+            .scaffold_id
+            .as_ref()
+            .and_then(|s_id| self.design.strands.get(s_id))
+            .map(|s| s.length())
+    }
+
+    /// Return a vector of all the stapples.
+    /// This function will panic if all the sapples are not matched.
+    pub fn get_stapples(&self) -> Vec<Stapple> {
+        let mut ret = Vec::new();
+        let basis_map = self.basis_map.read().unwrap();
+        for (n, (s_id, strand)) in self.design.strands.iter().enumerate() {
+            if strand.length() == 0 || self.design.scaffold_id == Some(*s_id) {
+                continue;
+            }
+            let mut sequence = String::new();
+            for domain in &strand.domains {
+                if let icednano::Domain::HelixDomain(dom) = domain {
+                    for position in dom.iter() {
+                        let nucl = Nucl {
+                            position,
+                            forward: dom.forward,
+                            helix: dom.helix,
+                        };
+                        sequence.push(*basis_map.get(&nucl).unwrap());
+                    }
+                }
+                sequence.push(' ');
+            }
+            let plate = n / 96 + 1;
+            let row = (n % 96) % 12 + 1;
+            let column = match (n % 96) / 12 {
+                0 => 'A',
+                1 => 'B',
+                2 => 'C',
+                3 => 'D',
+                4 => 'E',
+                5 => 'F',
+                6 => 'G',
+                7 => 'H',
+                _ => unreachable!(),
+            };
+            ret.push(Stapple {
+                plate,
+                well: format!("{}{}", column, row.to_string()),
+                sequence,
+                name: format!("Stapple {}", n),
+            });
+        }
+        ret
+    }
+
+    /// Shift the scaffold at an optimized poisition and return the corresponding score
+    pub fn optimize_shift(&mut self, channel: std::sync::mpsc::Sender<f32>) -> usize {
+        let mut best_score = 10000;
+        let mut best_shfit = 0;
+        let len = self
+            .design
+            .scaffold_sequence
+            .as_ref()
+            .map(|s| s.len())
+            .unwrap_or(0);
+        for shift in 0..len {
+            if shift % 10 == 0 {
+                channel.send(shift as f32 / len as f32).unwrap();
+            }
+            self.read_scaffold_seq(shift);
+            let score = self.evaluate_shift();
+            if score < best_score {
+                println!("shift {} score {}", shift, score);
+                best_score = score;
+                best_shfit = shift;
+            }
+            if score == 0 {
+                break;
+            }
+        }
+        self.design.scaffold_shift = Some(best_shfit);
+        self.read_scaffold_seq(best_shfit);
+        best_score
+    }
+
+    fn evaluate_shift(&self) -> usize {
+        let basis_map = self.basis_map.read().unwrap();
+        let mut ret = 0;
+        let mut shown = false;
+        let re = regex::Regex::new(r"(?x)G{4,}?|C{4,}?|[AT]{7,}?").unwrap();
+        for (s_id, strand) in self.design.strands.iter() {
+            if strand.length() == 0 || self.design.scaffold_id == Some(*s_id) {
+                continue;
+            }
+            let mut sequence = String::with_capacity(10000);
+            for domain in &strand.domains {
+                if let icednano::Domain::HelixDomain(dom) = domain {
+                    for position in dom.iter() {
+                        let nucl = Nucl {
+                            position,
+                            forward: dom.forward,
+                            helix: dom.helix,
+                        };
+                        sequence.push(*basis_map.get(&nucl).unwrap());
+                    }
+                }
+                sequence.push(' ');
+            }
+            let mut matches = re.find_iter(&sequence);
+            while matches.next().is_some() {
+                if !shown {
+                    shown = true;
+                }
+                ret += 1;
+            }
+        }
+        ret
+    }
 }
 
 fn compl(c: Option<char>) -> Option<char> {
@@ -1538,14 +1759,11 @@ fn read_file(path: &PathBuf) -> Option<icednano::Design> {
             Some(icednano::Design::from_codenano(&design))
         } else {
             // The file is not in any supported format
-            let error_msg = MessageAlert {
-                title: "Error",
-                text: "Unrecognized file format",
-                typ: native_dialog::MessageType::Error,
-            };
-            std::thread::spawn(|| {
-                error_msg.show().unwrap_or(());
-            });
+            message(
+                MessageDialog::new()
+                    .set_type(MessageType::Error)
+                    .set_text("Unrecognized file format"),
+            );
             None
         }
     }
@@ -1577,4 +1795,12 @@ impl ObjectType {
     pub fn same_type(&self, other: Self) -> bool {
         self.is_nucl() == other.is_nucl()
     }
+}
+
+#[derive(Debug)]
+pub struct Stapple {
+    pub well: String,
+    pub name: String,
+    pub sequence: String,
+    pub plate: usize,
 }

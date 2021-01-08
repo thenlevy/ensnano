@@ -64,6 +64,9 @@ pub struct Requests {
     pub camera_rotation: Option<(f32, f32)>,
     pub camera_target: Option<(Vec3, Vec3)>,
     pub small_spheres: Option<bool>,
+    pub set_scaffold_id: Option<Option<usize>>,
+    pub scaffold_sequence: Option<String>,
+    pub stapples_request: bool,
 }
 
 impl Requests {
@@ -90,6 +93,9 @@ impl Requests {
             camera_target: None,
             camera_rotation: None,
             small_spheres: None,
+            set_scaffold_id: None,
+            scaffold_sequence: None,
+            stapples_request: false,
         }
     }
 }

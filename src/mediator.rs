@@ -6,22 +6,23 @@
 //! mediator.
 //!
 //! The mediator also holds data that is common to all applications.
-use crate::utils::PhantomElement;
+use crate::utils::{message, PhantomElement};
 use crate::{DrawArea, Duration, ElementType, IcedMessages, Multiplexer, WindowEvent};
 use iced_wgpu::wgpu;
 use iced_winit::winit::dpi::{PhysicalPosition, PhysicalSize};
+use simple_excel_writer::{row, Row, Workbook};
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use ultraviolet::Vec3;
 
-use native_dialog::{Dialog, MessageAlert};
+use native_dialog::{FileDialog, MessageDialog, MessageType};
 
 use crate::design;
 
 use design::{
     Design, DesignNotification, DesignRotation, DesignTranslation, GridDescriptor,
-    GridHelixDescriptor, Helix, Nucl, Strand, StrandBuilder,
+    GridHelixDescriptor, Helix, Nucl, Stapple, Strand, StrandBuilder,
 };
 
 mod operation;
@@ -44,6 +45,7 @@ pub struct Mediator {
     last_op: Option<Arc<dyn Operation>>,
     undo_stack: Vec<Arc<dyn Operation>>,
     redo_stack: Vec<Arc<dyn Operation>>,
+    computing: Arc<Mutex<bool>>,
 }
 
 /// The scheduler is responsible for running the different applications
@@ -150,7 +152,7 @@ pub trait Application {
 }
 
 impl Mediator {
-    pub fn new(messages: Arc<Mutex<IcedMessages>>) -> Self {
+    pub fn new(messages: Arc<Mutex<IcedMessages>>, computing: Arc<Mutex<bool>>) -> Self {
         Self {
             applications: HashMap::new(),
             designs: Vec::new(),
@@ -162,6 +164,7 @@ impl Mediator {
             redo_stack: Vec::new(),
             candidate: None,
             last_selection: None,
+            computing,
         }
     }
 
@@ -231,6 +234,223 @@ impl Mediator {
         }
     }
 
+    pub fn set_scaffold(&mut self, scaffold_id: Option<usize>) {
+        let d_id = if let Some(d_id) = self.selected_design() {
+            d_id as usize
+        } else {
+            if self.designs.len() > 1 {
+                message(
+                    MessageDialog::new()
+                        .set_type(MessageType::Warning)
+                        .set_title("Warning")
+                        .set_text("No design selected, setting scaffold for design 0"),
+                );
+            }
+            0
+        };
+        self.designs[d_id]
+            .lock()
+            .unwrap()
+            .set_scaffold_id(scaffold_id)
+    }
+
+    pub fn set_scaffold_sequence(&mut self, sequence: String) {
+        let d_id = if let Some(d_id) = self.selected_design() {
+            d_id as usize
+        } else {
+            if self.designs.len() > 1 {
+                message(
+                    MessageDialog::new()
+                        .set_type(MessageType::Warning)
+                        .set_title("Warning")
+                        .set_text("No design selected, setting sequence for design 0"),
+                );
+            }
+            0
+        };
+        self.designs[d_id]
+            .lock()
+            .unwrap()
+            .set_scaffold_sequence(sequence);
+        if self.designs[d_id].lock().unwrap().scaffold_is_set() {
+            let (choice_snd, choice_rcv) = std::sync::mpsc::channel::<bool>();
+            std::thread::spawn(move || {
+                let choice = MessageDialog::new()
+                    .set_type(MessageType::Info)
+                    .set_text("Optimize the scaffold position ?\n
+            If you chose \"Yes\", icednano will position the scaffold in a way that minimizes the number of anti-patern (G^4, C^4 (A|T)^7) in the stapples sequence. If you chose \"No\", the scaffold sequence will begin at position 0")
+                    .show_confirm()
+                    .unwrap();
+                choice_snd.send(choice).unwrap();
+            });
+            if choice_rcv.recv() == Ok(true) {
+                let computing = self.computing.clone();
+                let design = self.designs[d_id].clone();
+                let messages = self.messages.clone();
+                std::thread::spawn(move || {
+                    let (send, rcv) = std::sync::mpsc::channel::<f32>();
+                    std::thread::spawn(move || {
+                        *computing.lock().unwrap() = true;
+                        let score = design.lock().unwrap().optimize_shift(send);
+                        MessageDialog::new()
+                            .set_type(MessageType::Info)
+                            .set_text(&format!("Number of anti-patern: {}", score))
+                            .show_alert()
+                            .unwrap();
+                        *computing.lock().unwrap() = false;
+                    });
+                    while let Ok(progress) = rcv.recv() {
+                        messages
+                            .lock()
+                            .unwrap()
+                            .push_progress("Optimizing position".to_string(), progress)
+                    }
+                    messages.lock().unwrap().finish_progess();
+                });
+            }
+        }
+    }
+
+    pub fn download_stapples(&self) {
+        let d_id = if let Some(d_id) = self.selected_design() {
+            d_id as usize
+        } else {
+            if self.designs.len() > 1 {
+                message(
+                    MessageDialog::new()
+                        .set_type(MessageType::Warning)
+                        .set_title("Warning")
+                        .set_text("No design selected, Downloading stapples design 0"),
+                );
+            }
+            0
+        };
+        if !self.designs[d_id].lock().unwrap().scaffold_is_set() {
+            message(
+                MessageDialog::new()
+                    .set_type(MessageType::Error)
+                    .set_title("Warning")
+                    .set_text(
+                        "No scaffold set. \n
+                    Chose a strand and set it as the scaffold by checking the scaffold checkbox\
+                    in the status bar",
+                    ),
+            );
+            return;
+        }
+        if !self.designs[d_id].lock().unwrap().scaffold_sequence_set() {
+            message(
+                MessageDialog::new()
+                    .set_type(MessageType::Error)
+                    .set_title("Error")
+                    .set_text(
+                        "No sequence uploaded for scaffold. \n
+                Upload a sequence for the scaffold by pressing the \"Load scaffold\" button",
+                    ),
+            );
+            return;
+        }
+        if let Some(nucl) = self.designs[d_id].lock().unwrap().get_stapple_mismatch() {
+            if cfg!(target_os = "windows") {
+                MessageDialog::new()
+                    .set_type(MessageType::Error)
+                    .set_title("Error")
+                    .set_text(&format!(
+                        "All stapples are not paired \n
+                first unpaired nucleotide {:?}",
+                        nucl
+                    ))
+                    .show_alert()
+                    .unwrap();
+            } else {
+                MessageDialog::new()
+                    .set_type(MessageType::Error)
+                    .set_title("Error")
+                    .set_text(&format!(
+                        "All stapples are not paired \n
+                first unpaired nucleotide {:?}",
+                        nucl
+                    ))
+                    .show_alert()
+                    .unwrap();
+            }
+            return;
+        }
+
+        let scaf_len = self.designs[d_id]
+            .lock()
+            .unwrap()
+            .get_scaffold_len()
+            .unwrap();
+        let scaf_seq_len = self.designs[d_id]
+            .lock()
+            .unwrap()
+            .get_scaffold_sequence_len()
+            .unwrap();
+        if scaf_len != scaf_seq_len {
+            let proceed = if cfg!(target_os = "windows") {
+                let (snd, rcv) = std::sync::mpsc::channel();
+                std::thread::spawn(move || {
+                    let ret = MessageDialog::new()
+                        .set_type(MessageType::Warning)
+                        .set_title("Warning")
+                        .set_text(&format!(
+                            "The scaffod length does not match its sequence\n
+                Length of the scaffold {}\n
+                Length of the sequence {}\n
+                Proceed anyway ?",
+                            scaf_len, scaf_seq_len
+                        ))
+                        .show_confirm()
+                        .unwrap_or(false);
+                    snd.send(ret).unwrap();
+                });
+                rcv.recv().unwrap()
+            } else {
+                MessageDialog::new()
+                    .set_type(MessageType::Warning)
+                    .set_title("Warning")
+                    .set_text(&format!(
+                        "The scaffod length does not match its sequence\n
+                Length of the scaffold {}\n
+                Length of the sequence {}\n
+                Proceed anyway ?",
+                        scaf_len, scaf_seq_len
+                    ))
+                    .show_confirm()
+                    .unwrap_or(false)
+            };
+            if !proceed {
+                return;
+            }
+        }
+        let stapples = self.designs[d_id].lock().unwrap().get_stapples();
+        let path = if cfg!(target_os = "windows") {
+            let (snd, rcv) = std::sync::mpsc::channel();
+            std::thread::spawn(move || {
+                let xls_file = FileDialog::new()
+                    .add_filter("Excel file", &["xlsx"])
+                    .show_save_single_file();
+                snd.send(xls_file.ok().and_then(|x| x)).unwrap()
+            });
+            rcv.recv().unwrap()
+        } else {
+            use nfd2::Response;
+            let result = match nfd2::open_save_dialog(Some("xlsx"), None).expect("oh no") {
+                Response::Okay(file_path) => Some(file_path),
+                Response::OkayMultiple(_) => {
+                    println!("Please open only one file");
+                    None
+                }
+                Response::Cancel => None,
+            };
+            result
+        };
+        if let Some(path) = path {
+            write_stapples(stapples, path);
+        }
+    }
+
     pub fn set_persistent_phantom(&mut self, persistent: bool) {
         match self.selection {
             Selection::Grid(d_id, g_id) => self.designs[d_id as usize]
@@ -259,14 +479,12 @@ impl Mediator {
             self.notify_apps(Notification::Save(0));
             self.designs[0].lock().unwrap().save_to(path);
             if self.designs.len() > 1 {
-                let error_msg = MessageAlert {
-                    title: "Warning",
-                    text: "No design selected, saved design 0",
-                    typ: native_dialog::MessageType::Error,
-                };
-                std::thread::spawn(|| {
-                    error_msg.show().unwrap_or(());
-                });
+                message(
+                    MessageDialog::new()
+                        .set_type(MessageType::Warning)
+                        .set_title("Warning")
+                        .set_text("No design selected, saved design 0"),
+                );
             }
         }
     }
@@ -583,4 +801,29 @@ pub enum AppNotification {
     MoveBuilder(Box<StrandBuilder>, Option<(usize, u32)>),
     ResetBuilder(Box<StrandBuilder>),
     RmGrid,
+}
+
+fn write_stapples(stapples: Vec<Stapple>, path: PathBuf) {
+    use std::collections::BTreeMap;
+    let mut wb = Workbook::create(path.to_str().unwrap());
+    let mut sheets = BTreeMap::new();
+
+    for stapple in stapples.iter() {
+        let sheet = sheets
+            .entry(stapple.plate)
+            .or_insert_with(|| vec![vec!["Well Position", "Name", "Sequence"]]);
+        sheet.push(vec![&stapple.well, &stapple.name, &stapple.sequence]);
+    }
+
+    for (sheet_id, rows) in sheets.iter() {
+        let mut sheet = wb.create_sheet(&format!("Plate {}", sheet_id));
+        wb.write_sheet(&mut sheet, |sw| {
+            for row in rows {
+                sw.append_row(row![row[0], row[1], row[2]])?;
+            }
+            Ok(())
+        })
+        .expect("write excel error!");
+    }
+    wb.close().expect("close excel error!");
 }

@@ -1,11 +1,10 @@
 //! This modules defines the type [`Design`](Design) which offers an interface to a DNA nanostructure design.
-use native_dialog::{Dialog, MessageAlert};
-use std::cell::RefCell;
-use std::collections::HashSet;
+use native_dialog::{MessageDialog, MessageType};
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
-use std::rc::Rc;
 use std::sync::{Arc, Mutex, RwLock};
 use ultraviolet::{Mat4, Vec3};
+use ahash::{RandomState, AHasher};
 
 use crate::mediator;
 use mediator::AppNotification;
@@ -21,7 +20,7 @@ pub use data::*;
 use view::View;
 
 pub struct Design {
-    view: Rc<RefCell<View>>,
+    view: Arc<Mutex<View>>,
     #[allow(dead_code)]
     controller: Controller,
     data: Arc<Mutex<Data>>,
@@ -31,7 +30,7 @@ pub struct Design {
 impl Design {
     #[allow(dead_code)]
     pub fn new(id: usize) -> Self {
-        let view = Rc::new(RefCell::new(View::new()));
+        let view = Arc::new(Mutex::new(View::new()));
         let data = Arc::new(Mutex::new(Data::new()));
         let controller = Controller::new(view.clone(), data.clone());
         Self {
@@ -44,7 +43,7 @@ impl Design {
 
     /// Create a new design by reading a file. At the moment only codenano format is supported
     pub fn new_with_path(id: usize, path: &PathBuf) -> Option<Self> {
-        let view = Rc::new(RefCell::new(View::new()));
+        let view = Arc::new(Mutex::new(View::new()));
         let data = Arc::new(Mutex::new(Data::new_with_path(path)?));
         let controller = Controller::new(view.clone(), data.clone());
         Some(Self {
@@ -57,7 +56,7 @@ impl Design {
 
     /// `true` if the view has been updated since the last time this function was called
     pub fn view_was_updated(&mut self) -> Option<DesignNotification> {
-        if self.view.borrow_mut().was_updated() {
+        if self.view.lock().unwrap().was_updated() {
             let notification = DesignNotification {
                 content: DesignNotificationContent::ModelChanged(self.get_model_matrix()),
                 design_id: self.id as usize,
@@ -89,7 +88,7 @@ impl Design {
 
     /// Return the model matrix used to display the design
     pub fn get_model_matrix(&self) -> Mat4 {
-        self.view.borrow().get_model_matrix()
+        self.view.lock().unwrap().get_model_matrix()
     }
 
     /// Translate the representation of self
@@ -114,7 +113,7 @@ impl Design {
                 .lock()
                 .unwrap()
                 .get_element_position(id)
-                .map(|x| self.view.borrow().model_matrix.transform_point3(x))
+                .map(|x| self.view.lock().unwrap().model_matrix.transform_point3(x))
         } else {
             self.data.lock().unwrap().get_element_position(id)
         }
@@ -127,7 +126,7 @@ impl Design {
                 .lock()
                 .unwrap()
                 .get_element_axis_position(id)
-                .map(|x| self.view.borrow().model_matrix.transform_point3(x))
+                .map(|x| self.view.lock().unwrap().model_matrix.transform_point3(x))
         } else {
             self.data.lock().unwrap().get_element_axis_position(id)
         }
@@ -146,7 +145,7 @@ impl Design {
                 .lock()
                 .unwrap()
                 .get_helix_nucl(nucl, on_axis)
-                .map(|x| self.view.borrow().model_matrix.transform_point3(x))
+                .map(|x| self.view.lock().unwrap().model_matrix.transform_point3(x))
         } else {
             self.data.lock().unwrap().get_helix_nucl(nucl, on_axis)
         }
@@ -359,14 +358,11 @@ impl Design {
         let result = self.data.lock().unwrap().save_file(path);
         if result.is_err() {
             let text = format!("Could not save_file {:?}", result);
-            std::thread::spawn(move || {
-                let error_msg = MessageAlert {
-                    title: "Error",
-                    text: &text,
-                    typ: native_dialog::MessageType::Error,
-                };
-                error_msg.show().unwrap_or(());
-            });
+            MessageDialog::new()
+                .set_type(MessageType::Error)
+                .set_text(&text)
+                .show_alert()
+                .unwrap();
         }
     }
 
@@ -396,7 +392,7 @@ impl Design {
 
     /// Get the basis of the model in the world's coordinates
     pub fn get_basis(&self) -> ultraviolet::Rotor3 {
-        let mat4 = self.view.borrow().get_model_matrix();
+        let mat4 = self.view.lock().unwrap().get_model_matrix();
         let mat3 = ultraviolet::Mat3::new(
             mat4.transform_vec3(Vec3::unit_x()),
             mat4.transform_vec3(Vec3::unit_y()),
@@ -434,7 +430,7 @@ impl Design {
             .unwrap()
             .get_strand_builder(nucl, stick)
             .map(|b| {
-                b.transformed(&self.view.borrow().get_model_matrix())
+                b.transformed(&self.view.lock().unwrap().get_model_matrix())
                     .given_data(self.data.clone(), self.id as u32)
             })
     }
@@ -622,6 +618,50 @@ impl Design {
 
     pub fn get_raw_strand(&self, s_id: usize) -> Option<Strand> {
         self.data.lock().unwrap().get_strand(s_id)
+    }
+
+    pub fn get_basis_map(&self) -> Arc<RwLock<HashMap<Nucl, char, RandomState>>> {
+        self.data.lock().unwrap().get_basis_map()
+    }
+
+    pub fn is_scaffold(&self, s_id: usize) -> bool {
+        self.data.lock().unwrap().is_scaffold(s_id)
+    }
+
+    pub fn set_scaffold_id(&mut self, scaffold_id: Option<usize>) {
+        self.data.lock().unwrap().set_scaffold_id(scaffold_id)
+    }
+
+    pub fn set_scaffold_sequence(&mut self, sequence: String) {
+        self.data.lock().unwrap().set_scaffold_sequence(sequence)
+    }
+
+    pub fn scaffold_is_set(&self) -> bool {
+        self.data.lock().unwrap().scaffold_is_set()
+    }
+
+    pub fn scaffold_sequence_set(&self) -> bool {
+        self.data.lock().unwrap().scaffold_sequence_set()
+    }
+
+    pub fn get_stapple_mismatch(&self) -> Option<Nucl> {
+        self.data.lock().unwrap().get_stapple_mismatch()
+    }
+
+    pub fn get_scaffold_sequence_len(&self) -> Option<usize> {
+        self.data.lock().unwrap().get_scaffold_sequence_len()
+    }
+
+    pub fn get_scaffold_len(&self) -> Option<usize> {
+        self.data.lock().unwrap().get_scaffold_len()
+    }
+
+    pub fn get_stapples(&self) -> Vec<Stapple> {
+        self.data.lock().unwrap().get_stapples()
+    }
+
+    pub fn optimize_shift(&self, channel: std::sync::mpsc::Sender<f32>) -> usize {
+        self.data.lock().unwrap().optimize_shift(channel)
     }
 }
 

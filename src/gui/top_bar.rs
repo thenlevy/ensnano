@@ -1,5 +1,4 @@
-use chrono::{DateTime, Utc};
-use native_dialog::Dialog;
+use native_dialog::{FileDialog, MessageDialog, MessageType};
 use nfd2::Response;
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -21,6 +20,8 @@ pub struct TopBar {
     button_3d: button::State,
     button_2d: button::State,
     button_split: button::State,
+    button_scaffold: button::State,
+    button_stapples: button::State,
     button_make_grid: button::State,
     button_help: button::State,
     toggle_text_value: bool,
@@ -40,6 +41,8 @@ pub enum Message {
     ToggleView(SplitMode),
     MakeGrids,
     HelpRequested,
+    ScaffoldSequenceFile,
+    StapplesRequested,
 }
 
 impl TopBar {
@@ -52,6 +55,8 @@ impl TopBar {
             button_2d: Default::default(),
             button_3d: Default::default(),
             button_split: Default::default(),
+            button_scaffold: Default::default(),
+            button_stapples: Default::default(),
             button_make_grid: Default::default(),
             button_help: Default::default(),
             toggle_text_value: false,
@@ -77,17 +82,17 @@ impl Program for TopBar {
             Message::FileAddRequested => {
                 let requests = self.requests.clone();
                 if cfg!(target_os = "macos") {
-                    // nfd2 freezes on macos
-                    let dialog = native_dialog::OpenSingleFile {
-                        dir: None,
-                        filter: None,
-                    };
-                    let result = dialog.show();
-                    if let Ok(result) = result {
-                        if let Some(path) = result {
-                            self.requests.lock().expect("file_opening_request").file_add =
-                                Some(path);
+                    // do not spawn a new thread on macos
+                    let result = match nfd2::open_file_dialog(None, None).expect("oh no") {
+                        Response::Okay(file_path) => Some(file_path),
+                        Response::OkayMultiple(_) => {
+                            println!("Please open only one file");
+                            None
                         }
+                        Response::Cancel => None,
+                    };
+                    if let Some(path) = result {
+                        requests.lock().expect("file_opening_request").file_add = Some(path);
                     }
                 } else {
                     thread::spawn(move || {
@@ -111,23 +116,83 @@ impl Program for TopBar {
                     .expect("file_opening_request")
                     .file_clear = false;
             }
+            Message::ScaffoldSequenceFile => {
+                if cfg!(target_os = "windows") {
+                    let requests = self.requests.clone();
+                    std::thread::spawn(move || {
+                        let result = match nfd2::open_file_dialog(None, None).expect("oh no") {
+                            Response::Okay(file_path) => Some(file_path),
+                            Response::OkayMultiple(_) => {
+                                println!("Please open only one file");
+                                None
+                            }
+                            Response::Cancel => None,
+                        };
+                        if let Some(path) = result {
+                            let mut content = std::fs::read_to_string(path).unwrap();
+                            content.make_ascii_uppercase();
+                            if let Some(n) =
+                                content.find(|c| c != 'A' && c != 'T' && c != 'G' && c != 'C')
+                            {
+                                MessageDialog::new()
+                                    .set_type(MessageType::Error)
+                                    .set_text(&format!(
+                                        "This text file does not contain a valid DNA sequence.\n
+                                        First invalid char at position {}",
+                                        n
+                                    ))
+                                    .show_alert()
+                                    .unwrap();
+                            } else {
+                                requests.lock().unwrap().scaffold_sequence = Some(content)
+                            }
+                        }
+                    });
+                } else {
+                    let result = match nfd2::open_file_dialog(None, None).expect("oh no") {
+                        Response::Okay(file_path) => Some(file_path),
+                        Response::OkayMultiple(_) => {
+                            println!("Please open only one file");
+                            None
+                        }
+                        Response::Cancel => None,
+                    };
+                    if let Some(path) = result {
+                        let mut content = std::fs::read_to_string(path).unwrap();
+                        content.make_ascii_uppercase();
+                        if let Some(n) =
+                            content.find(|c| c != 'A' && c != 'T' && c != 'G' && c != 'C')
+                        {
+                            MessageDialog::new()
+                                .set_type(MessageType::Error)
+                                .set_text(&format!(
+                                        "This text file does not contain a valid DNA sequence.\n
+                                        First invalid char at position {}",
+                                        n
+                                ))
+                                .show_alert()
+                                .unwrap();
+                            } else {
+                                self.requests.lock().unwrap().scaffold_sequence = Some(content)
+                        }
+                    }
+                }
+            }
+            Message::StapplesRequested => self.requests.lock().unwrap().stapples_request = true,
             Message::FileSaveRequested => {
                 let requests = self.requests.clone();
-                let dt = Utc::now();
-                let date = dt.format("%Y-%m-%d_%H-%M-%S").to_string();
-                println!("icednano{}", date);
                 if cfg!(target_os = "macos") {
-                    // nfd2 freezes on macos
-                    let dialog = native_dialog::OpenSingleDir { dir: None };
-                    let result = dialog.show();
-                    if let Ok(result) = result {
-                        if let Some(mut path) = result {
-                            path.push(format!("icednano{}.json", date));
-                            self.requests
-                                .lock()
-                                .expect("file_opening_request")
-                                .file_save = Some(path);
+                    // do not spawn a new thread for macos
+                    let result = match nfd2::open_save_dialog(None, None).expect("oh no") {
+                        Response::Okay(file_path) => Some(file_path),
+                        Response::OkayMultiple(_) => {
+                            println!("Please open only one file");
+                            None
                         }
+                        Response::Cancel => None,
+                    };
+                    if let Some(path) = result {
+                        requests.lock().expect("file_opening_request").file_save = Some(path);
                     }
                 } else {
                     thread::spawn(move || {
@@ -153,10 +218,10 @@ impl Program for TopBar {
             Message::MakeGrids => self.requests.lock().unwrap().make_grids = true,
             Message::ToggleView(b) => self.requests.lock().unwrap().toggle_scene = Some(b),
             Message::HelpRequested => {
-                thread::spawn(|| {
-                    let dialog = native_dialog::MessageAlert {
-                        title: "Keyboard shortcuts help",
-                        text: "Change action mode: \n 
+                MessageDialog::new()
+                    .set_type(MessageType::Info)
+                    .set_text(
+                        "Change action mode: \n 
                         Normal: Escape\n
                         Translate: T\n
                         Rotate: R\n
@@ -168,10 +233,9 @@ impl Program for TopBar {
                         Strand: S\n
                         Helix: H\n
                         Grid: G\n",
-                        typ: native_dialog::MessageType::Info,
-                    };
-                    dialog.show().unwrap();
-                });
+                    )
+                    .show_alert()
+                    .unwrap();
             }
         };
         Command::none()
@@ -205,6 +269,12 @@ impl Program for TopBar {
         let button_split = Button::new(&mut self.button_split, iced::Text::new("Split"))
             .on_press(Message::ToggleView(SplitMode::Both));
 
+        let button_scaffold = Button::new(&mut self.button_scaffold, iced::Text::new("Scaffold"))
+            .on_press(Message::ScaffoldSequenceFile);
+
+        let button_stapples = Button::new(&mut self.button_stapples, iced::Text::new("Stapples"))
+            .on_press(Message::StapplesRequested);
+
         let _button_make_grid =
             Button::new(&mut self.button_make_grid, iced::Text::new("Make grids"))
                 .on_press(Message::MakeGrids);
@@ -224,6 +294,8 @@ impl Program for TopBar {
             .push(button_2d)
             .push(button_3d)
             .push(button_split)
+            .push(button_scaffold)
+            .push(button_stapples)
             //.push(button_make_grid)
             .push(
                 Button::new(&mut self.button_help, iced::Text::new("Help"))

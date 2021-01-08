@@ -11,7 +11,9 @@ use lyon::tessellation::{
     FillVertex, FillVertexConstructor, StrokeVertex, StrokeVertexConstructor,
 };
 use std::collections::HashMap;
+use std::sync::{Arc, RwLock};
 use ultraviolet::{Isometry2, Mat2, Vec2, Vec4};
+use ahash::{AHasher, RandomState};
 
 type Vertices = lyon::tessellation::VertexBuffers<GpuVertex, u16>;
 
@@ -33,6 +35,7 @@ pub struct Helix {
     pub id: u32,
     pub real_id: usize,
     pub visible: bool,
+    basis_map: Arc<RwLock<HashMap<Nucl, char, RandomState>>>,
 }
 
 #[repr(C)]
@@ -56,6 +59,7 @@ impl Helix {
         id: u32,
         real_id: usize,
         visible: bool,
+        basis_map: Arc<RwLock<HashMap<Nucl, char, RandomState>>>,
     ) -> Self {
         Self {
             left,
@@ -69,6 +73,7 @@ impl Helix {
             id,
             real_id,
             visible,
+            basis_map,
         }
     }
 
@@ -306,10 +311,44 @@ impl Helix {
             .transform_point2(self.scale * local_position)
     }
 
-    fn num_position_top(&self, x: isize, width: f32, height: f32) -> Vec2 {
+    fn num_position_top(&self, x: isize, width: f32, height: f32, show_seq: bool) -> Vec2 {
+        let center_nucl = (x as f32 + 0.5) * Vec2::unit_x();
+
+        let center_text = if show_seq {
+            center_nucl - 3. * height / 2. * Vec2::unit_y()
+        } else {
+            center_nucl - height / 2. * Vec2::unit_y()
+        };
+
+        let real_center = self
+            .isometry
+            .into_homogeneous_matrix()
+            .transform_point2(center_text);
+
+        let angle_sin = Vec2::unit_y().dot(Vec2::unit_x().rotated_by(self.isometry.rotation));
+
+        real_center + ((angle_sin - width) / 2.) * Vec2::unit_x() - height / 2. * Vec2::unit_y()
+    }
+
+    fn char_position_top(&self, x: isize, width: f32, height: f32) -> Vec2 {
         let center_nucl = (x as f32 + 0.5) * Vec2::unit_x();
 
         let center_text = center_nucl - height / 2. * Vec2::unit_y();
+
+        let real_center = self
+            .isometry
+            .into_homogeneous_matrix()
+            .transform_point2(center_text);
+
+        let angle_sin = Vec2::unit_y().dot(Vec2::unit_x().rotated_by(self.isometry.rotation));
+
+        real_center + ((angle_sin - width) / 2.) * Vec2::unit_x() - height / 2. * Vec2::unit_y()
+    }
+
+    fn char_position_bottom(&self, x: isize, width: f32, height: f32) -> Vec2 {
+        let center_nucl = (x as f32 + 0.5) * Vec2::unit_x();
+
+        let center_text = center_nucl + (2. + height / 2.) * Vec2::unit_y();
 
         let real_center = self
             .isometry
@@ -410,7 +449,9 @@ impl Helix {
         camera: &CameraPtr,
         char_map: &mut HashMap<char, Vec<CharInstance>>,
         char_drawers: &HashMap<char, crate::utils::chars2d::CharDrawer>,
+        show_seq: bool,
     ) {
+        let show_seq = show_seq && camera.borrow().get_globals().zoom >= 7.;
         let size_id = 3.;
         let size_pos = 1.4;
         let circle = self.get_circle(camera);
@@ -453,7 +494,12 @@ impl Helix {
             let x_shift = if pos >= 0 { 0. } else { advances[1] };
             for (c_idx, c) in pos.to_string().chars().enumerate() {
                 let instances = char_map.get_mut(&c).unwrap();
-                let center = self.num_position_top(pos, advances[nb_chars] * scale, height * scale);
+                let center = self.num_position_top(
+                    pos,
+                    advances[nb_chars] * scale,
+                    height * scale,
+                    show_seq,
+                );
                 instances.push(CharInstance {
                     center: center + (x_shift + advances[c_idx] * scale) * Vec2::unit_x(),
                     rotation: self.isometry.rotation.into_matrix(),
@@ -462,6 +508,8 @@ impl Helix {
                 })
             }
         };
+
+        let basis_map = self.basis_map.read().unwrap();
 
         let mut pos = 0.max(self.left);
         while pos <= self.right {
@@ -472,6 +520,38 @@ impl Helix {
         while pos >= self.left {
             print_pos(pos);
             pos -= 5;
+        }
+
+        let mut print_basis = |position: isize, forward: bool| {
+            let scale = size_pos;
+            let nucl = Nucl {
+                helix: self.real_id,
+                position,
+                forward,
+            };
+            if let Some(c) = basis_map.get(&nucl) {
+                let advances = crate::utils::chars2d::char_positions(pos.to_string(), char_drawers);
+                let height = crate::utils::chars2d::height(c.to_string(), char_drawers);
+                let center = if forward {
+                    self.char_position_top(position, advances[1] * scale, height * scale)
+                } else {
+                    self.char_position_bottom(position, advances[1] * scale, height * scale)
+                };
+                let instances = char_map.get_mut(&c).unwrap();
+                instances.push(CharInstance {
+                    center,
+                    rotation: self.isometry.rotation.into_matrix(),
+                    size: scale,
+                    z_index: self.id as i32,
+                })
+            }
+        };
+
+        if show_seq {
+            for pos in self.left..=self.right {
+                print_basis(pos, true);
+                print_basis(pos, false);
+            }
         }
     }
 

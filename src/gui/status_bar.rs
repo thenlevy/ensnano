@@ -45,6 +45,7 @@ pub struct StatusBar {
     operation: Option<Arc<dyn Operation>>,
     requests: Arc<Mutex<Requests>>,
     selection: Selection,
+    progress: Option<(String, f32)>,
 }
 
 impl StatusBar {
@@ -56,6 +57,7 @@ impl StatusBar {
             operation: None,
             requests,
             selection: Selection::Nothing,
+            progress: None,
         }
     }
 
@@ -146,12 +148,35 @@ impl StatusBar {
                 );
             }
             Selection::Strand(_, _) => {
+                let s_id = self.info_values[2].parse::<usize>().unwrap();
                 row = row.push(
                     Text::new(format!("length {}", &self.info_values[0])).size(STATUS_FONT_SIZE),
                 );
+                row = row.push(Checkbox::new(
+                    bool::from_str(&self.info_values[1]).unwrap(),
+                    "Scaffold",
+                    move |b| Message::ScaffoldIdSet(s_id, b),
+                ))
             }
             _ => (),
         }
+
+        let column = Column::new()
+            .push(Space::new(Length::Fill, Length::Units(3)))
+            .push(row);
+        Container::new(column)
+            .style(StatusBarStyle)
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .into()
+    }
+
+    fn view_progress(&mut self) -> Element<Message, iced_wgpu::Renderer> {
+        let mut row = Row::new();
+        let progress = self.progress.as_ref().unwrap();
+        row = row.push(
+            Text::new(format!("{}, {:.1}%", progress.0, progress.1 * 100.)).size(STATUS_FONT_SIZE),
+        );
 
         let column = Column::new()
             .push(Space::new(Length::Fill, Length::Units(3)))
@@ -171,6 +196,8 @@ pub enum Message {
     ValueChanged(usize, String),
     SelectionValueChanged(usize, String),
     SetSmallSpheres(bool),
+    ScaffoldIdSet(usize, bool),
+    Progress(Option<(String, f32)>),
     ClearOp,
 }
 
@@ -195,6 +222,7 @@ impl Program for StatusBar {
                 }
                 self.requests.lock().unwrap().operation_update = new_op;
             }
+            Message::Progress(progress) => self.progress = progress,
             Message::SelectionValueChanged(n, s) => {
                 self.info_values[n] = s.clone();
                 self.requests.lock().unwrap().toggle_persistent_helices = bool::from_str(&s).ok();
@@ -213,12 +241,27 @@ impl Program for StatusBar {
                 self.requests.lock().unwrap().small_spheres = Some(b);
             }
             Message::ClearOp => self.operation = None,
+            Message::ScaffoldIdSet(n, b) => {
+                self.info_values[1] = if b {
+                    "true".to_string()
+                } else {
+                    "false".to_string()
+                };
+                if b {
+                    self.requests.lock().unwrap().set_scaffold_id = Some(Some(n))
+                } else {
+                    self.requests.lock().unwrap().set_scaffold_id = Some(None)
+                }
+            }
         }
         Command::none()
     }
 
     fn view(&mut self) -> Element<Message, iced_wgpu::Renderer> {
-        if self.operation.is_some() {
+        if self.progress.is_some() {
+            self.view_progress()
+        }
+        else if self.operation.is_some() {
             self.view_op()
         } else {
             self.view_selection()

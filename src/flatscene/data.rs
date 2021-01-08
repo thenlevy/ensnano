@@ -1,6 +1,6 @@
 use super::ViewPtr;
 use crate::design::{Design, StrandBuilder};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 use ultraviolet::Vec2;
 
 mod helix;
@@ -14,6 +14,7 @@ use crate::design::{Helix as DesignHelix, Strand as DesignStrand};
 use crate::utils::camera2d::FitRectangle;
 use design::{Design2d, Helix2d};
 use std::collections::HashMap;
+use ahash::{AHasher, RandomState};
 
 pub struct Data {
     view: ViewPtr,
@@ -23,10 +24,12 @@ pub struct Data {
     helices: Vec<Helix>,
     selected_helix: Option<usize>,
     nb_helices_created: usize,
+    basis_map: Arc<RwLock<HashMap<Nucl, char, RandomState>>>,
 }
 
 impl Data {
     pub fn new(view: ViewPtr, design: Arc<Mutex<Design>>) -> Self {
+        let basis_map = design.lock().unwrap().get_basis_map();
         Self {
             view,
             design: Design2d::new(design),
@@ -35,6 +38,7 @@ impl Data {
             helices: Vec::new(),
             selected_helix: None,
             nb_helices_created: 0,
+            basis_map,
         }
     }
 
@@ -80,6 +84,7 @@ impl Data {
                 (delta + nb_helix) as u32,
                 h.id,
                 h.visible,
+                self.basis_map.clone(),
             ));
             self.nb_helices_created += 1;
         }
@@ -192,12 +197,6 @@ impl Data {
         self.instance_reset = true;
     }
 
-    pub fn merge_strand(&mut self, prime5: usize, prime3: usize) {
-        self.instance_reset = true;
-        self.instance_update = true;
-        self.design.merge_strand(prime5, prime3)
-    }
-
     pub fn can_cross_to(&self, from: Nucl, to: Nucl) -> bool {
         let from = self.to_real(from);
         let to = self.to_real(to);
@@ -272,12 +271,6 @@ impl Data {
             println!("Problem during cross-over attempt. If you are not trying to break a cyclic strand please repport a bug");
         }
         (strand_5prime.unwrap(), strand_3prime.unwrap())
-    }
-
-    pub fn split_strand(&mut self, nucl: Nucl) {
-        let nucl = self.to_real(nucl);
-        self.instance_reset = true;
-        self.design.split_strand(nucl);
     }
 
     pub fn rm_strand(&mut self, nucl: Nucl) {

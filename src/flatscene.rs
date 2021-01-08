@@ -341,6 +341,9 @@ impl Application for FlatScene {
                     .center_selection(id_map);
             }
             Notification::Save(d_id) => self.data[d_id].borrow_mut().save_isometry(),
+            Notification::ToggleText(b) => {
+                self.view[self.selected_design].borrow_mut().set_show_sec(b)
+            }
             _ => (),
         }
     }
