@@ -12,9 +12,9 @@ use super::CameraPtr;
 use crate::consts::*;
 use crate::design::{Helix as DesignHelix, Strand as DesignStrand};
 use crate::utils::camera2d::FitRectangle;
+use ahash::{AHasher, RandomState};
 use design::{Design2d, Helix2d};
 use std::collections::HashMap;
-use ahash::{AHasher, RandomState};
 
 pub struct Data {
     view: ViewPtr,

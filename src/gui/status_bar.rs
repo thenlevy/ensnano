@@ -260,8 +260,7 @@ impl Program for StatusBar {
     fn view(&mut self) -> Element<Message, iced_wgpu::Renderer> {
         if self.progress.is_some() {
             self.view_progress()
-        }
-        else if self.operation.is_some() {
+        } else if self.operation.is_some() {
             self.view_op()
         } else {
             self.view_selection()

@@ -1,10 +1,10 @@
 //! This modules defines the type [`Design`](Design) which offers an interface to a DNA nanostructure design.
+use ahash::{AHasher, RandomState};
 use native_dialog::{MessageDialog, MessageType};
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex, RwLock};
 use ultraviolet::{Mat4, Vec3};
-use ahash::{RandomState, AHasher};
 
 use crate::mediator;
 use mediator::AppNotification;
@@ -550,6 +550,11 @@ impl Design {
 
     pub fn get_nucl(&self, e_id: u32) -> Option<Nucl> {
         self.data.lock().unwrap().get_nucl(e_id)
+    }
+
+    pub fn get_nucl_relax(&self, e_id: u32) -> Option<Nucl> {
+        let data = self.data.lock().unwrap();
+        data.get_nucl(e_id).or(data.get_bound_5prime(e_id))
     }
 
     pub fn has_persistent_phantom(&self, g_id: &usize) -> bool {

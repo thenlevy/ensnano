@@ -12,7 +12,7 @@ use ultraviolet::{Rotor3, Vec3};
 
 use super::view::Mesh;
 use crate::consts::*;
-use crate::design::{Design, Nucl, ObjectType, Referential, StrandBuilder};
+use crate::design::{Design, Nucl, ObjectType, Referential, Strand, StrandBuilder};
 use crate::mediator::{ActionMode, Selection, SelectionMode};
 use crate::utils::PhantomElement;
 
@@ -462,6 +462,47 @@ impl Data {
     /// This function must be called when the current movement ends.
     pub fn end_movement(&mut self) {
         self.update_selected_position()
+    }
+
+    pub fn get_selected_nucl_relax(&self) -> Option<Nucl> {
+        if let Some(SceneElement::DesignElement(d_id, e_id)) = self.selected.get(0) {
+            self.designs[*d_id as usize].get_nucl_relax(*e_id)
+        } else {
+            None
+        }
+    }
+
+    pub fn get_strand_raw(&self, s_id: usize, d_id: usize) -> Option<Strand> {
+        self.designs[d_id].get_strand_raw(s_id)
+    }
+
+    pub(super) fn attempt_xover(&self, target: Option<SceneElement>) -> Option<Xover> {
+        let mut design_id = 0;
+        let source_nucl = self.get_selected_nucl_relax()?;
+        let target_nucl = if let Some(SceneElement::DesignElement(d_id, e_id)) = target {
+            design_id = d_id as usize;
+            self.designs[design_id].get_nucl_relax(e_id)
+        } else {
+            None
+        }?;
+        let source_id = self.designs[design_id].get_strand_id_from_nucl(source_nucl)?;
+        let target_id = self.designs[design_id].get_strand_id_from_nucl(target_nucl)?;
+        let source = self.designs[design_id].get_strand_raw(source_id)?;
+        let target = self.designs[design_id].get_strand_raw(target_id)?;
+        let target_end = self.designs[design_id].is_xover_end(&target_nucl);
+        let source_end = self.designs[design_id].is_xover_end(&source_nucl);
+
+        Some(Xover {
+            source,
+            target,
+            source_id,
+            target_id,
+            source_nucl,
+            target_nucl,
+            design_id,
+            target_end,
+            source_end,
+        })
     }
 
     fn update_selected_position(&mut self) {
@@ -930,4 +971,17 @@ impl WidgetBasis {
             WidgetBasis::Object => *self = WidgetBasis::World,
         }
     }
+}
+
+#[derive(Debug)]
+pub(super) struct Xover {
+    pub source: Strand,
+    pub target: Strand,
+    pub source_id: usize,
+    pub target_id: usize,
+    pub source_nucl: Nucl,
+    pub target_nucl: Nucl,
+    pub design_id: usize,
+    pub target_end: Option<bool>,
+    pub source_end: Option<bool>,
 }

@@ -387,9 +387,8 @@ impl Controller {
         {
             // self.last_left_clicked_position = None; TODO determine if I should uncomment this???
             if ctrl {
-                return Consequence::XoverAtempt(self.last_left_clicked_position.take().unwrap())
-            }
-            else {
+                return Consequence::XoverAtempt(self.last_left_clicked_position.take().unwrap());
+            } else {
                 return Consequence::PixelSelected(self.last_left_clicked_position.take().unwrap());
             }
         } else {

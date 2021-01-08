@@ -166,14 +166,14 @@ impl Program for TopBar {
                             MessageDialog::new()
                                 .set_type(MessageType::Error)
                                 .set_text(&format!(
-                                        "This text file does not contain a valid DNA sequence.\n
+                                    "This text file does not contain a valid DNA sequence.\n
                                         First invalid char at position {}",
-                                        n
+                                    n
                                 ))
                                 .show_alert()
                                 .unwrap();
-                            } else {
-                                self.requests.lock().unwrap().scaffold_sequence = Some(content)
+                        } else {
+                            self.requests.lock().unwrap().scaffold_sequence = Some(content)
                         }
                     }
                 }

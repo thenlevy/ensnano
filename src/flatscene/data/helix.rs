@@ -3,6 +3,7 @@ use super::super::CameraPtr;
 use super::{Helix2d, Nucl};
 use crate::consts::*;
 use crate::utils::instance::Instance;
+use ahash::{AHasher, RandomState};
 use lyon::math::{rect, Point};
 use lyon::path::builder::{BorderRadii, PathBuilder};
 use lyon::path::Path;
@@ -13,7 +14,6 @@ use lyon::tessellation::{
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 use ultraviolet::{Isometry2, Mat2, Vec2, Vec4};
-use ahash::{AHasher, RandomState};
 
 type Vertices = lyon::tessellation::VertexBuffers<GpuVertex, u16>;
 

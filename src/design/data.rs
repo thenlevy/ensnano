@@ -8,12 +8,12 @@
 //! The `Data` objects can convert these identifier into `Nucl` position or retrieve information
 //! about the element such as its position, color etc...
 //!
+use ahash::{AHasher, RandomState};
 use native_dialog::{MessageDialog, MessageType};
 use std::collections::{HashMap, HashSet};
 use std::io::Write;
 use std::path::PathBuf;
 use ultraviolet::Vec3;
-use ahash::{AHasher, RandomState};
 
 use std::borrow::Cow;
 use std::fmt;
@@ -394,6 +394,10 @@ impl Data {
     /// Get the nucleotide corresponding to an identifier
     pub fn get_nucl(&self, e_id: u32) -> Option<Nucl> {
         self.nucleotide.get(&e_id).cloned()
+    }
+
+    pub fn get_bound_5prime(&self, e_id: u32) -> Option<Nucl> {
+        self.nucleotides_involved.get(&e_id).map(|b| b.0)
     }
 
     /// Get the position of a nucleotide, eventually projected on the axis of the helix that
