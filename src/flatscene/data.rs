@@ -226,16 +226,12 @@ impl Data {
 
     /// Return the strand ids and the value of target_3prime to construct a CrossCut operation
     pub fn cut_cross(&self, from: Nucl, to: Nucl) -> Option<(usize, usize, bool)> {
-        if self.get_strand_id(from) == self.get_strand_id(to) {
-            None
-        } else {
             // After the cut, the target will be the 3' end of the merge iff the source nucl is the
             // 3' end of the source strand
             let target_3prime = self.is_strand_end(from) == Some(true);
             let from = self.get_strand_id(from)?;
             let to = self.get_strand_id(to)?;
             Some((from, to, target_3prime))
-        }
     }
 
     /// Return Some(true) if nucl is a 3' end, Some(false) if nucl is a 5' end and None otherwise

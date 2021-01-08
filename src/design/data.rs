@@ -1106,11 +1106,12 @@ impl Data {
         target_3prime: bool,
     ) {
         let new_id = self.design.strands.keys().max().unwrap() + 1;
+        let was_cyclic = self.design.strands.get(&target_strand).unwrap().cyclic;
         println!("half1 {}, ; half0 {}", new_id, target_strand);
         self.split_strand(&nucl, Some(target_3prime));
         println!("splitted");
 
-        if self.design.strands.get(&target_strand).unwrap().cyclic {
+        if !was_cyclic && source_strand != target_strand {
             if target_3prime {
                 // swap the position of the two half of the target strands so that the merged part is the
                 // new id
@@ -1128,7 +1129,10 @@ impl Data {
                 self.design.strands.insert(source_strand, half1);
                 self.merge_strands(target_strand, new_id);
             }
-        } else {
+        } else if source_strand == target_strand {
+            self.make_cycle(source_strand, true)
+        }
+        else {
             if target_3prime {
                 self.merge_strands(source_strand, target_strand);
             } else {
@@ -1146,8 +1150,14 @@ impl Data {
         source_id: usize,
         target_id: usize,
     ) {
-        self.design.strands.insert(source_id, source);
-        self.design.strands.insert(target_id, target);
+        let new_id = self.design.strands.keys().max().unwrap().clone();
+        if source_id != target_id {
+            self.design.strands.insert(source_id, source);
+            self.design.strands.insert(target_id, target);
+        } else {
+            self.design.strands.insert(source_id, source);
+            self.design.strands.remove(&new_id);
+        }
         self.make_hash_maps();
         self.view_need_reset = true;
     }

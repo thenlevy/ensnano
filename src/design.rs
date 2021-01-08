@@ -298,6 +298,7 @@ impl Design {
                 nucl,
                 undo,
             } => {
+                println!("Cross cut {} {}", source_id, target_id);
                 if undo {
                     self.data.lock().unwrap().undo_cross_cut(
                         source_strand,
