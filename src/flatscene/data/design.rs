@@ -190,6 +190,11 @@ impl Design2d {
         }
     }
 
+    pub fn flip_group(&mut self, h_id: usize) {
+        let helix = self.helices[h_id].id;
+        self.design.lock().unwrap().flip_group(helix)
+    }
+
     pub fn get_builder(&self, nucl: Nucl, stick: bool) -> Option<StrandBuilder> {
         self.design.lock().unwrap().get_builder(nucl, stick)
     }

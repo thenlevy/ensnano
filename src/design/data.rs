@@ -10,7 +10,7 @@
 //!
 use ahash::{AHasher, RandomState};
 use native_dialog::{MessageDialog, MessageType};
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::io::Write;
 use std::path::PathBuf;
 use ultraviolet::Vec3;
@@ -69,6 +69,7 @@ pub struct Data {
     grids: Vec<Arc<RwLock<Grid2D>>>,
     color_idx: usize,
     view_need_reset: bool,
+    groups: Arc<RwLock<BTreeMap<usize, bool>>>,
 }
 
 impl fmt::Debug for Data {
@@ -100,6 +101,7 @@ impl Data {
             grids: Vec::new(),
             color_idx: 0,
             view_need_reset: false,
+            groups: Default::default(),
         }
     }
 
@@ -114,6 +116,7 @@ impl Data {
             g.write().unwrap().update(&design);
         }
         let color_idx = design.strands.keys().len();
+        let groups = design.groups.clone();
         let mut ret = Self {
             design,
             object_type: HashMap::default(),
@@ -133,6 +136,7 @@ impl Data {
             grids,
             color_idx,
             view_need_reset: false,
+            groups: Arc::new(RwLock::new(groups)),
         };
         ret.make_hash_maps();
         ret.terminate_movement();
@@ -306,7 +310,8 @@ impl Data {
     }
 
     /// Save the design to a file in the `icednano` format
-    pub fn save_file(&self, path: &PathBuf) -> std::io::Result<()> {
+    pub fn save_file(&mut self, path: &PathBuf) -> std::io::Result<()> {
+        self.design.groups = self.groups.read().unwrap().clone();
         let json_content = serde_json::to_string_pretty(&self.design);
         let mut f = std::fs::File::create(path)?;
         f.write_all(json_content.expect("serde_json failed").as_bytes())
@@ -1732,6 +1737,23 @@ impl Data {
             }
         }
         ret
+    }
+
+    pub fn get_groups(&self) -> Arc<RwLock<BTreeMap<usize, bool>>> {
+        self.groups.clone()
+    }
+
+    pub fn flip_group(&mut self, h_id: usize) {
+        let new_group = match self.groups.read().unwrap().get(&h_id) {
+            None => Some(true),
+            Some(true) => Some(false),
+            Some(false) => None,
+        };
+        if let Some(b) = new_group {
+            self.groups.write().unwrap().insert(h_id, b);
+        } else {
+            self.groups.write().unwrap().remove(&h_id);
+        }
     }
 }
 

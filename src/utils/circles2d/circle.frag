@@ -3,7 +3,7 @@
 
 layout(location=0) in vec2 v_coords;
 layout(location=1) in float v_angle;
-layout(location=2) in float v_visible;
+layout(location=2) in vec4 v_color;
 
 layout(location=0) out vec4 f_color;
 
@@ -18,6 +18,6 @@ void main() {
         discard;
     }
 
-    vec4 color = v_visible > 0. ?  vec4(0.0129, 0.4129, 0.5742, 1. - alpha) : vec4(0.3, 0.3, 0.3, 1. - alpha);
+    vec4 color = vec4(v_color.xyz, (1. - alpha) * v_color.w);
     f_color = color;
 }

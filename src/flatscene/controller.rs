@@ -44,6 +44,7 @@ pub enum Consequence {
     RmHelix(usize),
     FlipVisibility(usize, bool),
     Built(Box<StrandBuilder>),
+    FlipGroup(usize),
 }
 
 impl Controller {

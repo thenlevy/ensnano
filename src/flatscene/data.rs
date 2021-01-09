@@ -14,7 +14,7 @@ use crate::design::{Helix as DesignHelix, Strand as DesignStrand};
 use crate::utils::camera2d::FitRectangle;
 use ahash::{AHasher, RandomState};
 use design::{Design2d, Helix2d};
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 pub struct Data {
     view: ViewPtr,
@@ -25,11 +25,13 @@ pub struct Data {
     selected_helix: Option<usize>,
     nb_helices_created: usize,
     basis_map: Arc<RwLock<HashMap<Nucl, char, RandomState>>>,
+    groups: Arc<RwLock<BTreeMap<usize, bool>>>,
 }
 
 impl Data {
     pub fn new(view: ViewPtr, design: Arc<Mutex<Design>>) -> Self {
         let basis_map = design.lock().unwrap().get_basis_map();
+        let groups = design.lock().unwrap().get_groups();
         Self {
             view,
             design: Design2d::new(design),
@@ -39,6 +41,7 @@ impl Data {
             selected_helix: None,
             nb_helices_created: 0,
             basis_map,
+            groups,
         }
     }
 
@@ -85,6 +88,7 @@ impl Data {
                 h.id,
                 h.visible,
                 self.basis_map.clone(),
+                self.groups.clone(),
             ));
             self.nb_helices_created += 1;
         }
@@ -332,6 +336,10 @@ impl Data {
 
     pub fn flip_visibility(&mut self, h_id: usize, apply_to_other: bool) {
         self.design.flip_visibility(h_id, apply_to_other)
+    }
+
+    pub fn flip_group(&mut self, h_id: usize) {
+        self.design.flip_group(h_id)
     }
 }
 

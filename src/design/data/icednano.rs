@@ -39,6 +39,10 @@ pub struct Design {
 
     #[serde(default)]
     pub grids: Vec<GridDescriptor>,
+
+    /// The groups in which the helices are.
+    #[serde(skip_serializing_if = "BTreeMap::is_empty", default)]
+    pub groups: BTreeMap<usize, bool>,
 }
 
 impl Design {
@@ -66,6 +70,7 @@ impl Design {
             scaffold_id: None,
             scaffold_sequence: None,
             scaffold_shift: None,
+            groups: Default::default(),
         }
     }
 
@@ -78,6 +83,7 @@ impl Design {
             scaffold_id: None,
             scaffold_sequence: None,
             scaffold_shift: None,
+            groups: Default::default(),
         }
     }
 

@@ -11,7 +11,7 @@ use lyon::tessellation;
 use lyon::tessellation::{
     FillVertex, FillVertexConstructor, StrokeVertex, StrokeVertexConstructor,
 };
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::sync::{Arc, RwLock};
 use ultraviolet::{Isometry2, Mat2, Vec2, Vec4};
 
@@ -36,6 +36,7 @@ pub struct Helix {
     pub real_id: usize,
     pub visible: bool,
     basis_map: Arc<RwLock<HashMap<Nucl, char, RandomState>>>,
+    groups: Arc<RwLock<BTreeMap<usize, bool>>>,
 }
 
 #[repr(C)]
@@ -60,6 +61,7 @@ impl Helix {
         real_id: usize,
         visible: bool,
         basis_map: Arc<RwLock<HashMap<Nucl, char, RandomState>>>,
+        groups: Arc<RwLock<BTreeMap<usize, bool>>>,
     ) -> Self {
         Self {
             left,
@@ -74,6 +76,7 @@ impl Helix {
             real_id,
             visible,
             basis_map,
+            groups,
         }
     }
 
@@ -382,7 +385,16 @@ impl Helix {
         } else {
             Some(self.x_position(left + CIRCLE_WIDGET_RADIUS))
         };
-        center.map(|c| CircleInstance::new(c, CIRCLE_WIDGET_RADIUS, self.id as i32, self.visible))
+        let color = if !self.visible {
+            CIRCLE2D_GREY
+        } else {
+            match self.groups.read().unwrap().get(&self.real_id) {
+                None => CIRCLE2D_BLUE,
+                Some(true) => CIRCLE2D_RED,
+                Some(false) => CIRCLE2D_GREEN,
+            }
+        };
+        center.map(|c| CircleInstance::new(c, CIRCLE_WIDGET_RADIUS, self.id as i32, color))
     }
 
     /// Return the pivot under the center of the helix's circle widget.

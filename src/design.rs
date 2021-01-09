@@ -1,7 +1,7 @@
 //! This modules defines the type [`Design`](Design) which offers an interface to a DNA nanostructure design.
 use ahash::{AHasher, RandomState};
 use native_dialog::{MessageDialog, MessageType};
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex, RwLock};
 use ultraviolet::{Mat4, Vec3};
@@ -667,6 +667,14 @@ impl Design {
 
     pub fn optimize_shift(&self, channel: std::sync::mpsc::Sender<f32>) -> usize {
         self.data.lock().unwrap().optimize_shift(channel)
+    }
+
+    pub fn get_groups(&self) -> Arc<RwLock<BTreeMap<usize, bool>>> {
+        self.data.lock().unwrap().get_groups()
+    }
+
+    pub fn flip_group(&mut self, h_id: usize) {
+        self.data.lock().unwrap().flip_group(h_id)
     }
 }
 

@@ -4,6 +4,7 @@ use super::*;
 use crate::design::StrandBuilder;
 
 const WHEEL_RADIUS: f32 = 1.5;
+use crate::consts::*;
 
 pub struct Transition {
     pub new_state: Option<Box<dyn ControllerState>>,
@@ -144,6 +145,15 @@ impl ControllerState for NormalState {
                                 mouse_position: self.mouse_position,
                                 helix: translation_pivot.helix,
                                 apply_to_other: modifiers.alt(),
+                            })),
+                            consequences: Consequence::Nothing,
+                        }
+                    }
+                    ClickResult::CircleWidget { translation_pivot } if modifiers.alt() => {
+                        Transition {
+                            new_state: Some(Box::new(FlipGroup {
+                                mouse_position: self.mouse_position,
+                                helix: translation_pivot.helix,
                             })),
                             consequences: Consequence::Nothing,
                         }
@@ -432,7 +442,7 @@ impl ControllerState for ReleasedPivot {
                 self.rotation_pivot,
                 WHEEL_RADIUS,
                 -1,
-                true,
+                CIRCLE2D_GREY,
             )));
     }
 
@@ -623,7 +633,7 @@ impl ControllerState for LeavingPivot {
                 self.rotation_pivot,
                 WHEEL_RADIUS,
                 -1,
-                true,
+                CIRCLE2D_GREY,
             )));
     }
 
@@ -737,7 +747,7 @@ impl ControllerState for Rotating {
                 self.rotation_pivot,
                 WHEEL_RADIUS,
                 -1,
-                true,
+                CIRCLE2D_GREY,
             )));
     }
 
@@ -798,7 +808,7 @@ impl ControllerState for Rotating {
                         self.rotation_pivot,
                         WHEEL_RADIUS,
                         -1,
-                        true,
+                        CIRCLE2D_GREY,
                     )));
                 Transition::nothing()
             }
@@ -1478,6 +1488,84 @@ impl ControllerState for RmHelix {
                 let consequences = if let ClickResult::CircleWidget { translation_pivot } = nucl {
                     if translation_pivot.helix == self.helix {
                         Consequence::RmHelix(self.helix)
+                    } else {
+                        Consequence::Nothing
+                    }
+                } else {
+                    Consequence::Nothing
+                };
+                Transition {
+                    new_state: Some(Box::new(NormalState {
+                        mouse_position: self.mouse_position,
+                    })),
+                    consequences,
+                }
+            }
+            WindowEvent::CursorMoved { .. } => {
+                self.mouse_position = position;
+                Transition::nothing()
+            }
+            WindowEvent::KeyboardInput { .. } => {
+                controller.process_keyboard(event);
+                Transition::nothing()
+            }
+            WindowEvent::MouseWheel { delta, .. } => {
+                controller
+                    .camera
+                    .borrow_mut()
+                    .process_scroll(delta, self.mouse_position);
+                Transition::nothing()
+            }
+            _ => Transition::nothing(),
+        }
+    }
+}
+
+struct FlipGroup {
+    mouse_position: PhysicalPosition<f64>,
+    helix: usize,
+}
+
+impl ControllerState for FlipGroup {
+    fn transition_from(&self, _controller: &Controller) {
+        ()
+    }
+
+    fn transition_to(&self, _controller: &Controller) {
+        ()
+    }
+
+    fn display(&self) -> String {
+        String::from("FlipGroup")
+    }
+
+    fn input(
+        &mut self,
+        event: &WindowEvent,
+        position: PhysicalPosition<f64>,
+        controller: &Controller,
+    ) -> Transition {
+        match event {
+            WindowEvent::MouseInput {
+                button: MouseButton::Left,
+                state,
+                ..
+            } => {
+                /*assert!(
+                    *state == ElementState::Released,
+                    "Pressed mouse button in Cutting state"
+                );*/
+                if *state == ElementState::Pressed {
+                    return Transition::nothing();
+                }
+                let (x, y) = controller
+                    .camera
+                    .borrow()
+                    .screen_to_world(self.mouse_position.x as f32, self.mouse_position.y as f32);
+                let nucl = controller.data.borrow().get_click(x, y, &controller.camera);
+                let consequences = if let ClickResult::CircleWidget { translation_pivot } = nucl {
+                    if translation_pivot.helix == self.helix {
+                        Consequence::FlipGroup(self.helix)
                     } else {
                         Consequence::Nothing
                     }
