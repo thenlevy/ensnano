@@ -1834,6 +1834,8 @@ impl Data {
                                     .sum::<f32>()
                                     .sqrt();
                                 if dist < len_crit
+                                    && self.get_strand_nucl(nucl) != self.design.scaffold_id
+                                    && self.get_strand_nucl(red_nucl) != self.design.scaffold_id
                                     && self.get_strand_nucl(nucl) != self.get_strand_nucl(red_nucl)
                                 {
                                     ret.push((*red_nucl, dist));
