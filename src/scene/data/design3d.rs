@@ -174,6 +174,67 @@ impl Design3D {
         Some(raw_instance)
     }
 
+    pub fn get_suggested_spheres(&self) -> Vec<RawDnaInstance> {
+        let suggestion = self.design.lock().unwrap().get_suggestions();
+        let mut ret = vec![];
+        for (n1, n2) in suggestion {
+            let nucl_1 = self
+                .design
+                .lock()
+                .unwrap()
+                .get_helix_nucl(n1, Referential::Model, false);
+            let nucl_2 = self
+                .design
+                .lock()
+                .unwrap()
+                .get_helix_nucl(n2, Referential::Model, false);
+            if let Some(position) = nucl_1 {
+                let instance = SphereInstance {
+                    color: Instance::color_from_au32(SUGGESTION_COLOR),
+                    position,
+                    id: 0,
+                    radius: SELECT_SCALE_FACTOR,
+                }
+                .to_raw_instance();
+                ret.push(instance);
+            }
+            if let Some(position) = nucl_2 {
+                let instance = SphereInstance {
+                    color: Instance::color_from_au32(SUGGESTION_COLOR),
+                    position,
+                    id: 0,
+                    radius: SELECT_SCALE_FACTOR,
+                }
+                .to_raw_instance();
+                ret.push(instance);
+            }
+        }
+        ret
+    }
+
+    pub fn get_suggested_tubes(&self) -> Vec<RawDnaInstance> {
+        let suggestion = self.design.lock().unwrap().get_suggestions();
+        let mut ret = vec![];
+        for (n1, n2) in suggestion {
+            let nucl_1 = self
+                .design
+                .lock()
+                .unwrap()
+                .get_helix_nucl(n1, Referential::Model, false);
+            let nucl_2 = self
+                .design
+                .lock()
+                .unwrap()
+                .get_helix_nucl(n2, Referential::Model, false);
+            if let Some((position1, position2)) = nucl_1.zip(nucl_2) {
+                let instance = create_dna_bound(position1, position2, SUGGESTION_COLOR, 0, true)
+                    .to_raw_instance();
+                ret.push(instance);
+            }
+        }
+        ret
+    }
+
     /// Make a instance with the same postion and orientation as a phantom element.
     pub fn make_instance_phantom(
         &self,
