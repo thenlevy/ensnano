@@ -45,6 +45,7 @@ pub enum Consequence {
     FlipVisibility(usize, bool),
     Built(Box<StrandBuilder>),
     FlipGroup(usize),
+    FollowingSuggestion(Nucl, bool),
 }
 
 impl Controller {

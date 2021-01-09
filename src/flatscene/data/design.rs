@@ -274,6 +274,21 @@ impl Design2d {
     pub fn get_strand_id(&self, nucl: Nucl) -> Option<usize> {
         self.design.lock().unwrap().get_strand_nucl(&nucl)
     }
+
+    pub fn get_dist(&self, nucl1: Nucl, nucl2: Nucl) -> Option<f32> {
+        use crate::design::Referential;
+        let pos1 = self
+            .design
+            .lock()
+            .unwrap()
+            .get_helix_nucl(nucl1, Referential::Model, false)?;
+        let pos2 = self
+            .design
+            .lock()
+            .unwrap()
+            .get_helix_nucl(nucl2, Referential::Model, false)?;
+        Some((pos1 - pos2).mag())
+    }
 }
 
 /// Store the informations needed to represent an helix from the design

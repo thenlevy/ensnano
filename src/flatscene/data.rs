@@ -14,7 +14,7 @@ use crate::design::{Helix as DesignHelix, Strand as DesignStrand};
 use crate::utils::camera2d::FitRectangle;
 use ahash::{AHasher, RandomState};
 use design::{Design2d, Helix2d};
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 pub struct Data {
     view: ViewPtr,
@@ -26,6 +26,7 @@ pub struct Data {
     nb_helices_created: usize,
     basis_map: Arc<RwLock<HashMap<Nucl, char, RandomState>>>,
     groups: Arc<RwLock<BTreeMap<usize, bool>>>,
+    suggestions: HashMap<Nucl, HashSet<Nucl, RandomState>, RandomState>,
 }
 
 impl Data {
@@ -42,6 +43,7 @@ impl Data {
             nb_helices_created: 0,
             basis_map,
             groups,
+            suggestions: Default::default(),
         }
     }
 
@@ -92,9 +94,18 @@ impl Data {
             ));
             self.nb_helices_created += 1;
         }
+        let suggestions = self.design.suggestions();
+        self.update_suggestion(&suggestions);
         self.view
             .borrow_mut()
             .set_suggestions(self.design.suggestions());
+    }
+
+    fn update_suggestion(&mut self, suggestion: &[(Nucl, Nucl)]) {
+        for (n1, n2) in suggestion.iter() {
+            self.suggestions.entry(*n1).or_default().insert(*n2);
+            self.suggestions.entry(*n2).or_default().insert(*n1);
+        }
     }
 
     pub fn get_click(&self, x: f32, y: f32, camera: &CameraPtr) -> ClickResult {
@@ -115,6 +126,10 @@ impl Data {
             }
         }
         ClickResult::Nothing
+    }
+
+    pub fn is_suggested(&self, nucl: &Nucl) -> bool {
+        self.suggestions.contains_key(nucl)
     }
 
     pub fn get_rotation_pivot(&self, h_id: usize, camera: &CameraPtr) -> Option<Vec2> {
@@ -344,6 +359,48 @@ impl Data {
     pub fn flip_group(&mut self, h_id: usize) {
         self.design.flip_group(h_id)
     }
+
+    pub fn get_best_suggestion(&self, nucl: Nucl) -> Option<Nucl> {
+        let nucl = self.to_real(nucl);
+        let mut ret = None;
+        let mut best_dist = std::f32::INFINITY;
+        if let Some(set) = self.suggestions.get(&nucl) {
+            for nucl2 in set {
+                let nucl2_real = self.to_real(*nucl2);
+                let dist = self
+                    .design
+                    .get_dist(nucl, nucl2_real)
+                    .unwrap_or(std::f32::INFINITY);
+                if dist < best_dist {
+                    ret = Some(*nucl2);
+                    best_dist = dist;
+                }
+            }
+        }
+        ret
+    }
+
+    pub(super) fn attempt_xover(&self, source_nucl: Nucl, target_nucl: Nucl) -> Option<Xover> {
+        let design_id = 0;
+        let source_id = self.get_strand_id(source_nucl)?;
+        let target_id = self.get_strand_id(target_nucl)?;
+        let source = self.get_strand(source_id)?;
+        let target = self.get_strand(target_id)?;
+        let target_end = self.is_xover_end(&target_nucl);
+        let source_end = self.is_xover_end(&source_nucl);
+
+        Some(Xover {
+            source,
+            target,
+            source_id,
+            target_id,
+            source_nucl,
+            target_nucl,
+            design_id,
+            target_end,
+            source_end,
+        })
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -351,4 +408,17 @@ pub enum ClickResult {
     Nucl(Nucl),
     CircleWidget { translation_pivot: Nucl },
     Nothing,
+}
+
+#[derive(Debug)]
+pub(super) struct Xover {
+    pub source: DesignStrand,
+    pub target: DesignStrand,
+    pub source_id: usize,
+    pub target_id: usize,
+    pub source_nucl: Nucl,
+    pub target_nucl: Nucl,
+    pub design_id: usize,
+    pub target_end: Option<bool>,
+    pub source_end: Option<bool>,
 }

@@ -1819,7 +1819,9 @@ impl Data {
                                     .map(|(x, y)| (x - y) * (x - y))
                                     .sum::<f32>()
                                     .sqrt();
-                                if dist < len_crit {
+                                if dist < len_crit
+                                    && self.get_strand_nucl(nucl) != self.get_strand_nucl(red_nucl)
+                                {
                                     ret.push(*red_nucl);
                                 }
                             }

@@ -1,6 +1,6 @@
 //! This module handles the 2D view
 
-use crate::design::{Design, DesignNotification, DesignNotificationContent};
+use crate::design::{Design, DesignNotification, DesignNotificationContent, Nucl};
 use crate::mediator;
 use crate::{DrawArea, Duration, PhySize, WindowEvent};
 use iced_wgpu::wgpu;
@@ -301,7 +301,130 @@ impl FlatScene {
                 Consequence::FlipGroup(helix) => self.data[self.selected_design]
                     .borrow_mut()
                     .flip_group(helix),
+                Consequence::FollowingSuggestion(nucl, double) => {
+                    let nucl2 = self.data[self.selected_design]
+                        .borrow()
+                        .get_best_suggestion(nucl);
+                    if let Some(nucl2) = nucl2 {
+                        self.attempt_xover(nucl, nucl2);
+                        if double {
+                            self.attempt_xover(nucl.prime3(), nucl2.prime5());
+                        }
+                    }
+                }
                 _ => (),
+            }
+        }
+    }
+
+    fn attempt_xover(&self, nucl1: Nucl, nucl2: Nucl) {
+        let xover = self.data[self.selected_design]
+            .borrow()
+            .attempt_xover(nucl1, nucl2);
+        if let Some(xover) = xover {
+            match (xover.source_end, xover.target_end) {
+                (Some(true), Some(true)) | (Some(false), Some(false)) => (), // xover can't be done,
+                (Some(true), Some(false)) => {
+                    // We can xover directly
+                    self.mediator
+                        .lock()
+                        .unwrap()
+                        .update_opperation(Arc::new(Xover {
+                            strand_5prime: xover.source,
+                            strand_3prime: xover.target,
+                            prime5_id: xover.source_id,
+                            prime3_id: xover.target_id,
+                            undo: false,
+                            design_id: xover.design_id,
+                        }));
+                }
+                (Some(false), Some(true)) => {
+                    // We can xover directly but we must reverse the xover
+                    self.mediator
+                        .lock()
+                        .unwrap()
+                        .update_opperation(Arc::new(Xover {
+                            strand_5prime: xover.target,
+                            strand_3prime: xover.source,
+                            prime5_id: xover.target_id,
+                            prime3_id: xover.source_id,
+                            undo: false,
+                            design_id: xover.design_id,
+                        }));
+                }
+                (Some(b), None) => {
+                    // We can cut cross directly
+                    let target_3prime = b;
+                    self.mediator
+                        .lock()
+                        .unwrap()
+                        .update_opperation(Arc::new(CrossCut {
+                            target_3prime,
+                            target_strand: xover.target,
+                            source_strand: xover.source,
+                            nucl: self.data[self.selected_design]
+                                .borrow()
+                                .to_real(xover.target_nucl),
+                            design_id: xover.design_id,
+                            target_id: xover.target_id,
+                            source_id: xover.source_id,
+                            undo: false,
+                        }));
+                }
+                (None, Some(b)) => {
+                    // We can cut cross directly but we need to reverse the xover
+                    let target_3prime = b;
+                    self.mediator
+                        .lock()
+                        .unwrap()
+                        .update_opperation(Arc::new(CrossCut {
+                            target_3prime,
+                            target_strand: xover.source,
+                            source_strand: xover.target,
+                            nucl: self.data[self.selected_design]
+                                .borrow()
+                                .to_real(xover.source_nucl),
+                            design_id: xover.design_id,
+                            target_id: xover.source_id,
+                            source_id: xover.target_id,
+                            undo: false,
+                        }));
+                }
+                (None, None) => {
+                    // We must cut the source strand first
+                    self.mediator
+                        .lock()
+                        .unwrap()
+                        .update_opperation(Arc::new(Cut {
+                            nucl: self.data[self.selected_design]
+                                .borrow()
+                                .to_real(xover.source_nucl),
+                            strand_id: xover.source_id,
+                            strand: xover.source,
+                            undo: false,
+                            design_id: xover.design_id,
+                        }));
+                    // And we must get back the resulting strand
+                    let source_strand = self.data[self.selected_design]
+                        .borrow()
+                        .get_strand(xover.source_id)
+                        .unwrap();
+                    self.mediator
+                        .lock()
+                        .unwrap()
+                        .update_opperation(Arc::new(CrossCut {
+                            target_3prime: true,
+                            target_strand: xover.target,
+                            source_strand,
+                            nucl: self.data[self.selected_design]
+                                .borrow()
+                                .to_real(xover.target_nucl),
+                            design_id: xover.design_id,
+                            target_id: xover.target_id,
+                            source_id: xover.source_id,
+                            undo: false,
+                        }));
+                }
             }
         }
     }

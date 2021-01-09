@@ -22,6 +22,8 @@ use circles::{CircleDrawer, CircleKind};
 
 use crate::consts::SAMPLE_COUNT;
 
+const SHOW_SUGGESTION: bool = false;
+
 pub struct View {
     device: Rc<Device>,
     queue: Rc<Queue>,
@@ -287,7 +289,9 @@ impl View {
         }
         if need_new_circles || self.was_updated {
             let instances = self.generate_circle_instances();
-            self.view_suggestion();
+            if SHOW_SUGGESTION {
+                self.view_suggestion();
+            }
             self.circle_drawer.new_instances(Rc::new(instances));
             self.generate_char_instances();
         }
@@ -360,8 +364,10 @@ impl View {
         for strand in self.strands.iter() {
             strand.draw(&mut render_pass);
         }
-        for suggestion in self.suggestions_view.iter() {
-            suggestion.draw(&mut render_pass);
+        if SHOW_SUGGESTION {
+            for suggestion in self.suggestions_view.iter() {
+                suggestion.draw(&mut render_pass);
+            }
         }
 
         self.circle_drawer.draw(&mut render_pass);
