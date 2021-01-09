@@ -1793,14 +1793,28 @@ impl Data {
         let mut ret = vec![];
         for blue_nucl in self.blue_nucl.iter() {
             let neighbour = self.get_possible_cross_over(blue_nucl);
-            for red_nucl in neighbour {
-                ret.push((*blue_nucl, red_nucl))
+            for (red_nucl, dist) in neighbour {
+                ret.push((*blue_nucl, red_nucl, dist))
+            }
+        }
+        ret.sort_by(|a, b| a.2.partial_cmp(&b.2).unwrap());
+        self.trimm_suggestion(&ret)
+    }
+
+    pub fn trimm_suggestion(&self, suggestion: &Vec<(Nucl, Nucl, f32)>) -> Vec<(Nucl, Nucl)> {
+        let mut used = HashSet::new();
+        let mut ret = vec![];
+        for (a, b, _) in suggestion {
+            if !used.contains(a) && !used.contains(b) {
+                ret.push((*a, *b));
+                used.insert(a);
+                used.insert(b);
             }
         }
         ret
     }
 
-    pub fn get_possible_cross_over(&self, nucl: &Nucl) -> Vec<Nucl> {
+    pub fn get_possible_cross_over(&self, nucl: &Nucl) -> Vec<(Nucl, f32)> {
         let mut ret = Vec::new();
         let positions = self.get_space_pos(nucl).unwrap();
         let cube0 = space_to_cube(positions[0], positions[1], positions[2]);
@@ -1822,7 +1836,7 @@ impl Data {
                                 if dist < len_crit
                                     && self.get_strand_nucl(nucl) != self.get_strand_nucl(red_nucl)
                                 {
-                                    ret.push(*red_nucl);
+                                    ret.push((*red_nucl, dist));
                                 }
                             }
                         }
