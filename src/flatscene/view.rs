@@ -276,6 +276,12 @@ impl View {
         }
     }
 
+    pub fn center_nucl(&mut self, nucl: Nucl) {
+        let helix = nucl.helix;
+        let position = self.helices[helix].get_pivot(nucl.position);
+        self.camera.borrow_mut().set_center(position);
+    }
+
     pub fn draw(
         &mut self,
         encoder: &mut wgpu::CommandEncoder,

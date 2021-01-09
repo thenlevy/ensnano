@@ -312,6 +312,16 @@ impl FlatScene {
                         }
                     }
                 }
+                Consequence::Centering(nucl) => {
+                    let nucl2 = self.data[self.selected_design]
+                        .borrow()
+                        .get_best_suggestion(nucl);
+                    if let Some(nucl2) = nucl2 {
+                        self.view[self.selected_design]
+                            .borrow_mut()
+                            .center_nucl(nucl2)
+                    }
+                }
                 _ => (),
             }
         }

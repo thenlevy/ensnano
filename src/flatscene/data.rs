@@ -102,6 +102,7 @@ impl Data {
     }
 
     fn update_suggestion(&mut self, suggestion: &[(Nucl, Nucl)]) {
+        self.suggestions.clear();
         for (n1, n2) in suggestion.iter() {
             self.suggestions.entry(*n1).or_default().insert(*n2);
             self.suggestions.entry(*n2).or_default().insert(*n1);
@@ -361,7 +362,7 @@ impl Data {
     }
 
     pub fn get_best_suggestion(&self, nucl: Nucl) -> Option<Nucl> {
-        let nucl = self.to_real(nucl);
+        let real_nucl = self.to_real(nucl);
         let mut ret = None;
         let mut best_dist = std::f32::INFINITY;
         if let Some(set) = self.suggestions.get(&nucl) {
@@ -369,7 +370,7 @@ impl Data {
                 let nucl2_real = self.to_real(*nucl2);
                 let dist = self
                     .design
-                    .get_dist(nucl, nucl2_real)
+                    .get_dist(real_nucl, nucl2_real)
                     .unwrap_or(std::f32::INFINITY);
                 if dist < best_dist {
                     ret = Some(*nucl2);

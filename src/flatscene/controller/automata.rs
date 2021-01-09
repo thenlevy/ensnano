@@ -214,6 +214,37 @@ impl ControllerState for NormalState {
                     },
                 }
             }
+            WindowEvent::MouseInput {
+                button: MouseButton::Right,
+                state,
+                modifiers,
+                ..
+            } => {
+                /*assert!(
+                    *state == ElementState::Pressed,
+                    "Released mouse button in normal mode"
+                );*/
+                if *state == ElementState::Released {
+                    return Transition::nothing();
+                }
+                let (x, y) = controller
+                    .camera
+                    .borrow()
+                    .screen_to_world(self.mouse_position.x as f32, self.mouse_position.y as f32);
+                let click_result = controller.data.borrow().get_click(x, y, &controller.camera);
+                match click_result {
+                    ClickResult::Nucl(nucl) if controller.data.borrow().is_suggested(&nucl) => {
+                        Transition {
+                            new_state: Some(Box::new(CenteringSuggestion {
+                                nucl,
+                                mouse_position: self.mouse_position,
+                            })),
+                            consequences: Consequence::Nothing,
+                        }
+                    }
+                    _ => Transition::nothing(),
+                }
+            }
             WindowEvent::CursorMoved { .. } => {
                 self.mouse_position = position;
                 let (x, y) = controller
@@ -1734,6 +1765,84 @@ impl ControllerState for FollowingSuggestion {
                 let consequences = if let ClickResult::Nucl(nucl) = nucl {
                     if nucl == self.nucl {
                         Consequence::FollowingSuggestion(self.nucl, self.double)
+                    } else {
+                        Consequence::Nothing
+                    }
+                } else {
+                    Consequence::Nothing
+                };
+                Transition {
+                    new_state: Some(Box::new(NormalState {
+                        mouse_position: self.mouse_position,
+                    })),
+                    consequences,
+                }
+            }
+            WindowEvent::CursorMoved { .. } => {
+                self.mouse_position = position;
+                Transition::nothing()
+            }
+            WindowEvent::KeyboardInput { .. } => {
+                controller.process_keyboard(event);
+                Transition::nothing()
+            }
+            WindowEvent::MouseWheel { delta, .. } => {
+                controller
+                    .camera
+                    .borrow_mut()
+                    .process_scroll(delta, self.mouse_position);
+                Transition::nothing()
+            }
+            _ => Transition::nothing(),
+        }
+    }
+}
+
+struct CenteringSuggestion {
+    mouse_position: PhysicalPosition<f64>,
+    nucl: Nucl,
+}
+
+impl ControllerState for CenteringSuggestion {
+    fn transition_from(&self, _controller: &Controller) {
+        ()
+    }
+
+    fn transition_to(&self, _controller: &Controller) {
+        ()
+    }
+
+    fn display(&self) -> String {
+        String::from("RmHelix")
+    }
+
+    fn input(
+        &mut self,
+        event: &WindowEvent,
+        position: PhysicalPosition<f64>,
+        controller: &Controller,
+    ) -> Transition {
+        match event {
+            WindowEvent::MouseInput {
+                button: MouseButton::Right,
+                state,
+                ..
+            } => {
+                /*assert!(
+                    *state == ElementState::Released,
+                    "Pressed mouse button in Cutting state"
+                );*/
+                if *state == ElementState::Pressed {
+                    return Transition::nothing();
+                }
+                let (x, y) = controller
+                    .camera
+                    .borrow()
+                    .screen_to_world(self.mouse_position.x as f32, self.mouse_position.y as f32);
+                let nucl = controller.data.borrow().get_click(x, y, &controller.camera);
+                let consequences = if let ClickResult::Nucl(nucl) = nucl {
+                    if nucl == self.nucl {
+                        Consequence::Centering(self.nucl)
                     } else {
                         Consequence::Nothing
                     }

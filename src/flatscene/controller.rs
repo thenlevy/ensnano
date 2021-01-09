@@ -46,6 +46,7 @@ pub enum Consequence {
     Built(Box<StrandBuilder>),
     FlipGroup(usize),
     FollowingSuggestion(Nucl, bool),
+    Centering(Nucl),
 }
 
 impl Controller {
