@@ -139,7 +139,7 @@ impl ControllerState for NormalState {
                             }
                         }
                     }
-                    ClickResult::CircleWidget { translation_pivot } if modifiers.ctrl() => {
+                    ClickResult::CircleWidget { translation_pivot } if ctrl(modifiers) => {
                         Transition {
                             new_state: Some(Box::new(FlipVisibility {
                                 mouse_position: self.mouse_position,
@@ -479,7 +479,7 @@ impl ControllerState for ReleasedPivot {
                     .screen_to_world(self.mouse_position.x as f32, self.mouse_position.y as f32);
                 let click_result = controller.data.borrow().get_click(x, y, &controller.camera);
                 match click_result {
-                    ClickResult::CircleWidget { translation_pivot } if modifiers.ctrl() => {
+                    ClickResult::CircleWidget { translation_pivot } if ctrl(modifiers) => {
                         Transition {
                             new_state: Some(Box::new(FlipVisibility {
                                 mouse_position: self.mouse_position,
@@ -1680,4 +1680,12 @@ impl ControllerState for FlipVisibility {
 
 fn position_difference(a: PhysicalPosition<f64>, b: PhysicalPosition<f64>) -> f64 {
     (a.x - b.x).abs().max((a.y - b.y).abs())
+}
+
+fn ctrl(modifiers: &ModifiersState) -> bool {
+    if cfg!(target_os = "macos") {
+        modifiers.logo()
+    } else {
+        modifiers.ctrl()
+    }
 }
