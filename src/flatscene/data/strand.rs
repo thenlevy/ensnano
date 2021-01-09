@@ -150,6 +150,33 @@ impl Strand {
             .expect("Error durring tessellation");
         vertices
     }
+
+    pub fn indication(nucl1: Nucl, nucl2: Nucl, helices: &[Helix]) -> Vertices {
+        let mut vertices = Vertices::new();
+        let mut builder = Path::builder_with_attributes(3);
+        let color = [0.541, 0.113, 0.647, 0.5];
+        let start = helices[nucl1.helix].get_nucl_position(&nucl1, false);
+        let end = helices[nucl2.helix].get_nucl_position(&nucl2, true);
+
+        builder.begin(Point::new(start.x, start.y), &[1e-4, 1., 1.]);
+        builder.line_to(Point::new(end.x, end.y), &[1e-4, 1., 1.]);
+        let mut stroke_tess = lyon::tessellation::StrokeTessellator::new();
+
+        builder.end(false);
+        let path = builder.build();
+        stroke_tess
+            .tessellate_path(
+                &path,
+                &tessellation::StrokeOptions::tolerance(0.01)
+                    .with_line_cap(tessellation::LineCap::Round)
+                    .with_end_cap(tessellation::LineCap::Round)
+                    .with_start_cap(tessellation::LineCap::Round)
+                    .with_line_join(tessellation::LineJoin::Round),
+                &mut tessellation::BuffersBuilder::new(&mut vertices, WithColor(color)),
+            )
+            .expect("Error durring tessellation");
+        vertices
+    }
 }
 
 #[repr(C)]

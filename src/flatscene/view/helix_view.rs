@@ -1,5 +1,5 @@
 use super::Selection;
-use super::{FreeEnd, Helix, Strand};
+use super::{FreeEnd, Helix, Nucl, Strand};
 use iced_wgpu::wgpu;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -72,6 +72,13 @@ impl StrandView {
         selection: &Selection,
     ) {
         let vertices = strand.to_vertices(helices, free_end, id_map, selection);
+        self.vertex_buffer.update(vertices.vertices.as_slice());
+        self.index_buffer.update(vertices.indices.as_slice());
+        self.num_instance = vertices.indices.len() as u32;
+    }
+
+    pub fn set_indication(&mut self, nucl1: Nucl, nucl2: Nucl, helices: &[Helix]) {
+        let vertices = Strand::indication(nucl1, nucl2, helices);
         self.vertex_buffer.update(vertices.vertices.as_slice());
         self.index_buffer.update(vertices.indices.as_slice());
         self.num_instance = vertices.indices.len() as u32;

@@ -47,6 +47,7 @@ pub struct View {
     selection: Selection,
     show_sec: bool,
     suggestions: Vec<(Nucl, Nucl)>,
+    suggestions_view: Vec<StrandView>,
 }
 
 impl View {
@@ -134,6 +135,7 @@ impl View {
             selection: Selection::Nothing,
             show_sec: false,
             suggestions: vec![],
+            suggestions_view: vec![],
         }
     }
 
@@ -285,6 +287,7 @@ impl View {
         }
         if need_new_circles || self.was_updated {
             let instances = self.generate_circle_instances();
+            self.view_suggestion();
             self.circle_drawer.new_instances(Rc::new(instances));
             self.generate_char_instances();
         }
@@ -357,6 +360,9 @@ impl View {
         for strand in self.strands.iter() {
             strand.draw(&mut render_pass);
         }
+        for suggestion in self.suggestions_view.iter() {
+            suggestion.draw(&mut render_pass);
+        }
 
         self.circle_drawer.draw(&mut render_pass);
         self.rotation_widget.draw(&mut render_pass);
@@ -394,6 +400,15 @@ impl View {
             ret.push(h2.get_circle_nucl(n2.position, n2.forward, color));
         }
         ret
+    }
+
+    fn view_suggestion(&mut self) {
+        self.suggestions_view.clear();
+        for (n1, n2) in self.suggestions.iter() {
+            let mut view = StrandView::new(self.device.clone(), self.queue.clone());
+            view.set_indication(*n1, *n2, &self.helices);
+            self.suggestions_view.push(view);
+        }
     }
 
     fn generate_char_instances(&mut self) {
@@ -513,8 +528,16 @@ fn strand_pipeline_descr(
         primitive_topology: wgpu::PrimitiveTopology::TriangleList,
         color_states: &[wgpu::ColorStateDescriptor {
             format: wgpu::TextureFormat::Bgra8UnormSrgb,
-            color_blend: wgpu::BlendDescriptor::REPLACE,
-            alpha_blend: wgpu::BlendDescriptor::REPLACE,
+            color_blend: wgpu::BlendDescriptor {
+                src_factor: wgpu::BlendFactor::SrcAlpha,
+                dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+                operation: wgpu::BlendOperation::Add,
+            },
+            alpha_blend: wgpu::BlendDescriptor {
+                src_factor: wgpu::BlendFactor::One,
+                dst_factor: wgpu::BlendFactor::One,
+                operation: wgpu::BlendOperation::Add,
+            },
             write_mask: wgpu::ColorWrite::ALL,
         }],
         depth_stencil_state,
