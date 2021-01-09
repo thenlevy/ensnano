@@ -92,6 +92,9 @@ impl Data {
             ));
             self.nb_helices_created += 1;
         }
+        self.view
+            .borrow_mut()
+            .set_suggestions(self.design.suggestions());
     }
 
     pub fn get_click(&self, x: f32, y: f32, camera: &CameraPtr) -> ClickResult {

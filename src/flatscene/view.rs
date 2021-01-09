@@ -46,6 +46,7 @@ pub struct View {
     char_map: HashMap<char, Vec<CharInstance>>,
     selection: Selection,
     show_sec: bool,
+    suggestions: Vec<(Nucl, Nucl)>,
 }
 
 impl View {
@@ -132,6 +133,7 @@ impl View {
             char_map,
             selection: Selection::Nothing,
             show_sec: false,
+            suggestions: vec![],
         }
     }
 
@@ -176,6 +178,10 @@ impl View {
             self.helices_view.remove(*h);
             self.helices_model.remove(*h);
         }
+    }
+
+    pub fn set_suggestions(&mut self, suggestions: Vec<(Nucl, Nucl)>) {
+        self.suggestions = suggestions;
     }
 
     pub fn update_helices(&mut self, helices: &[Helix]) {
@@ -366,6 +372,26 @@ impl View {
             if let Some(circle) = h.get_circle(&self.camera) {
                 ret.push(circle);
             }
+        }
+        let mut last_blue = None;
+        let mut k = 1000;
+        for (n1, n2) in self.suggestions.iter() {
+            if last_blue != Some(n1) {
+                k += 1;
+                last_blue = Some(n1);
+            }
+            let color = {
+                let hue = (k as f64 * (1. + 5f64.sqrt()) / 2.).fract() * 360.;
+                let saturation = (k as f64 * 7. * (1. + 5f64.sqrt() / 2.)).fract() * 0.4 + 0.6;
+                let value = (k as f64 * 11. * (1. + 5f64.sqrt() / 2.)).fract() * 0.7 + 0.3;
+                let hsv = color_space::Hsv::new(hue, saturation, value);
+                let rgb = color_space::Rgb::from(hsv);
+                (0xFF << 24) | ((rgb.r as u32) << 16) | ((rgb.g as u32) << 8) | (rgb.b as u32)
+            };
+            let h1 = &self.helices[n1.helix];
+            let h2 = &self.helices[n2.helix];
+            ret.push(h1.get_circle_nucl(n1.position, n1.forward, color));
+            ret.push(h2.get_circle_nucl(n2.position, n2.forward, color));
         }
         ret
     }

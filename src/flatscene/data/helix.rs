@@ -397,6 +397,18 @@ impl Helix {
         center.map(|c| CircleInstance::new(c, CIRCLE_WIDGET_RADIUS, self.id as i32, color))
     }
 
+    pub fn get_circle_nucl(&self, position: isize, forward: bool, color: u32) -> CircleInstance {
+        let center = self.get_nucl_position(
+            &Nucl {
+                helix: self.real_id,
+                position,
+                forward,
+            },
+            false,
+        );
+        CircleInstance::new(center, 0.4, self.id as i32, color)
+    }
+
     /// Return the pivot under the center of the helix's circle widget.
     /// See [get_circle](get_circle).
     pub fn get_circle_pivot(&self, camera: &CameraPtr) -> Option<Nucl> {

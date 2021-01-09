@@ -70,6 +70,10 @@ pub struct Data {
     color_idx: usize,
     view_need_reset: bool,
     groups: Arc<RwLock<BTreeMap<usize, bool>>>,
+    red_cubes: HashMap<(isize, isize, isize), Vec<Nucl>, RandomState>,
+    blue_cubes: HashMap<(isize, isize, isize), Vec<Nucl>, RandomState>,
+    blue_nucl: Vec<Nucl>,
+    red_nucl: Vec<Nucl>,
 }
 
 impl fmt::Debug for Data {
@@ -102,6 +106,10 @@ impl Data {
             color_idx: 0,
             view_need_reset: false,
             groups: Default::default(),
+            red_cubes: HashMap::default(),
+            blue_cubes: HashMap::default(),
+            blue_nucl: vec![],
+            red_nucl: vec![],
         }
     }
 
@@ -137,6 +145,10 @@ impl Data {
             color_idx,
             view_need_reset: false,
             groups: Arc::new(RwLock::new(groups)),
+            red_cubes: HashMap::default(),
+            blue_cubes: HashMap::default(),
+            blue_nucl: vec![],
+            red_nucl: vec![],
         };
         ret.make_hash_maps();
         ret.terminate_movement();
@@ -159,6 +171,10 @@ impl Data {
         let mut nucl_id;
         let mut old_nucl = None;
         let mut old_nucl_id = None;
+        let mut blue_cubes = HashMap::default();
+        let mut red_cubes = HashMap::default();
+        self.blue_nucl.clear();
+        let groups = self.groups.read().unwrap();
         for (s_id, strand) in self.design.strands.iter() {
             let mut strand_position = 0;
             let strand_seq = strand.sequence.as_ref().filter(|s| s.is_ascii());
@@ -199,6 +215,18 @@ impl Data {
                             basis_map.remove(&nucl);
                         }
                         strand_position += 1;
+                        match groups.get(&nucl.helix) {
+                            Some(true) => {
+                                let cube = space_to_cube(position.x, position.y, position.z);
+                                blue_cubes.entry(cube).or_insert(vec![]).push(nucl.clone());
+                                self.blue_nucl.push(nucl);
+                            }
+                            Some(false) => {
+                                let cube = space_to_cube(position.x, position.y, position.z);
+                                red_cubes.entry(cube).or_insert(vec![]).push(nucl.clone());
+                            }
+                            None => (),
+                        }
                         let position = [position[0] as f32, position[1] as f32, position[2] as f32];
                         space_position.insert(nucl_id, position);
                         if let Some(old_nucl) = old_nucl.take() {
@@ -249,6 +277,9 @@ impl Data {
         self.color = color_map;
         self.helix_map = helix_map;
         *self.basis_map.write().unwrap() = basis_map;
+        self.red_cubes = red_cubes;
+        self.blue_cubes = blue_cubes;
+        drop(groups);
         self.read_scaffold_seq(self.design.scaffold_shift.unwrap_or(0));
     }
 
@@ -1754,6 +1785,50 @@ impl Data {
         } else {
             self.groups.write().unwrap().remove(&h_id);
         }
+        self.hash_maps_update = true;
+        self.update_status = true;
+    }
+
+    pub fn get_suggestions(&self) -> Vec<(Nucl, Nucl)> {
+        let mut ret = vec![];
+        for blue_nucl in self.blue_nucl.iter() {
+            let neighbour = self.get_possible_cross_over(blue_nucl);
+            for red_nucl in neighbour {
+                ret.push((*blue_nucl, red_nucl))
+            }
+        }
+        ret
+    }
+
+    pub fn get_possible_cross_over(&self, nucl: &Nucl) -> Vec<Nucl> {
+        let mut ret = Vec::new();
+        let positions = self.get_space_pos(nucl).unwrap();
+        let cube0 = space_to_cube(positions[0], positions[1], positions[2]);
+
+        let len_crit = 1.2;
+        for i in vec![-1, 0, 1].iter() {
+            for j in vec![-1, 0, 1].iter() {
+                for k in vec![-1, 0, 1].iter() {
+                    let cube = (cube0.0 + i, cube0.1 + j, cube0.2 + k);
+                    if let Some(v) = self.red_cubes.get(&cube) {
+                        for red_nucl in v {
+                            if red_nucl.helix != nucl.helix {
+                                let red_position = self.get_space_pos(&red_nucl).unwrap();
+                                let dist = (0..3)
+                                    .map(|i| (positions[i], red_position[i]))
+                                    .map(|(x, y)| (x - y) * (x - y))
+                                    .sum::<f32>()
+                                    .sqrt();
+                                if dist < len_crit {
+                                    ret.push(*red_nucl);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        ret
     }
 }
 
@@ -1829,4 +1904,13 @@ pub struct Stapple {
     pub name: String,
     pub sequence: String,
     pub plate: usize,
+}
+
+fn space_to_cube(x: f32, y: f32, z: f32) -> (isize, isize, isize) {
+    let cube_len = 1.2;
+    (
+        x.div_euclid(cube_len) as isize,
+        y.div_euclid(cube_len) as isize,
+        z.div_euclid(cube_len) as isize,
+    )
 }

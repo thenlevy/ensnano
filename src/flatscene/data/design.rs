@@ -61,6 +61,15 @@ impl Design2d {
         }
     }
 
+    pub fn suggestions(&self) -> Vec<(Nucl, Nucl)> {
+        let mut suggestions = self.design.lock().unwrap().get_suggestions();
+        for (n1, n2) in suggestions.iter_mut() {
+            n1.helix = *self.id_map.get(&n1.helix).unwrap();
+            n2.helix = *self.id_map.get(&n2.helix).unwrap();
+        }
+        suggestions
+    }
+
     fn rm_deleted_helices(&mut self) {
         let mut to_remove = Vec::new();
         for (h_id, h) in self.id_map.iter() {

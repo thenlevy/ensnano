@@ -676,6 +676,10 @@ impl Design {
     pub fn flip_group(&mut self, h_id: usize) {
         self.data.lock().unwrap().flip_group(h_id)
     }
+
+    pub fn get_suggestions(&self) -> Vec<(Nucl, Nucl)> {
+        self.data.lock().unwrap().get_suggestions()
+    }
 }
 
 #[derive(Clone)]
