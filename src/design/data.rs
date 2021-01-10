@@ -1864,6 +1864,27 @@ impl Data {
         }
         ret
     }
+
+    pub fn recolor_stapples(&mut self) {
+        self.hash_maps_update = true;
+        self.update_status = true;
+        for (s_id, strand) in self.design.strands.iter_mut() {
+            if Some(*s_id) != self.design.scaffold_id {
+                let color = {
+                    let hue = (self.color_idx as f64 * (1. + 5f64.sqrt()) / 2.).fract() * 360.;
+                    let saturation =
+                        (self.color_idx as f64 * 7. * (1. + 5f64.sqrt() / 2.)).fract() * 0.4 + 0.4;
+                    let value =
+                        (self.color_idx as f64 * 11. * (1. + 5f64.sqrt() / 2.)).fract() * 0.7 + 0.1;
+                    let hsv = color_space::Hsv::new(hue, saturation, value);
+                    let rgb = color_space::Rgb::from(hsv);
+                    (0xFF << 24) | ((rgb.r as u32) << 16) | ((rgb.g as u32) << 8) | (rgb.b as u32)
+                };
+                self.color_idx += 1;
+                strand.color = color;
+            }
+        }
+    }
 }
 
 fn compl(c: Option<char>) -> Option<char> {

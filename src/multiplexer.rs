@@ -371,6 +371,9 @@ impl Multiplexer {
                     VirtualKeyCode::G => {
                         self.requests.lock().unwrap().selection_mode = Some(SelectionMode::Grid)
                     }
+                    VirtualKeyCode::K => {
+                        self.requests.lock().unwrap().recolor_stapples = true;
+                    }
                     _ => captured = false,
                 }
             }

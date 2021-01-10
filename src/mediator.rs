@@ -808,6 +808,12 @@ impl Mediator {
     pub fn set_camera_target(&mut self, target: (Vec3, Vec3)) {
         self.notify_apps(Notification::CameraTarget(target))
     }
+
+    pub fn recolor_stapples(&mut self) {
+        for d in self.designs.iter() {
+            d.lock().unwrap().recolor_stapples();
+        }
+    }
 }
 
 #[derive(Debug, Clone)]

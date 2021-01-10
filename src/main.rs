@@ -459,6 +459,11 @@ fn main() {
                         requests.stapples_request = false;
                         mediator.lock().unwrap().download_stapples()
                     }
+
+                    if requests.recolor_stapples {
+                        requests.recolor_stapples = false;
+                        mediator.lock().unwrap().recolor_stapples();
+                    }
                 }
 
                 // Treat eventual event that happenend in the gui left panel.

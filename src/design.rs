@@ -684,6 +684,10 @@ impl Design {
     pub fn decompose_length(&self, s_id: usize) -> String {
         self.data.lock().unwrap().decompose_length(s_id)
     }
+
+    pub fn recolor_stapples(&mut self) {
+        self.data.lock().unwrap().recolor_stapples()
+    }
 }
 
 #[derive(Clone)]
