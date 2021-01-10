@@ -593,6 +593,26 @@ impl Mediator {
         }
         if let Some(candidate) = self.candidate.take() {
             ret = true;
+            if let Some(pe) = candidate {
+                let design_id = pe.design_id as usize;
+                let nucl = Nucl {
+                    helix: pe.helix_id as usize,
+                    position: pe.position as isize,
+                    forward: pe.forward,
+                };
+                let strand_opt = self.designs[design_id]
+                    .lock()
+                    .unwrap()
+                    .get_strand_nucl(&nucl);
+                if let Some(strand) = strand_opt {
+                    let selection = Selection::Strand(design_id as u32, strand as u32);
+                    let values = selection.fetch_values(self.designs[design_id].clone());
+                    self.messages
+                        .lock()
+                        .unwrap()
+                        .push_selection(selection, values);
+                }
+            }
             self.notify_apps(Notification::NewCandidate(candidate))
         }
         if let Some(selection) = self.last_selection.take() {
