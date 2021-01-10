@@ -489,7 +489,7 @@ impl Gui {
     }
 
     /// Ask the gui component to process the event that they have recieved
-    pub fn fetch_change(&mut self, window: &Window, multiplexer: &Multiplexer) -> bool{
+    pub fn fetch_change(&mut self, window: &Window, multiplexer: &Multiplexer) -> bool {
         let mut ret = false;
         for elements in self.elements.values_mut() {
             ret |= elements.fetch_change(window, multiplexer, &mut self.renderer, false);

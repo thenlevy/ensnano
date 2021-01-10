@@ -733,7 +733,10 @@ impl Design3D {
     }
 
     pub fn get_nucl_position(&self, nucl: Nucl) -> Option<Vec3> {
-        self.design.lock().unwrap().get_helix_nucl(nucl, Referential::World, false)
+        self.design
+            .lock()
+            .unwrap()
+            .get_helix_nucl(nucl, Referential::World, false)
     }
 }
 

@@ -61,7 +61,6 @@ impl Scheduler {
             applications: HashMap::new(),
             needs_redraw: Vec::new(),
         }
-
     }
 
     pub fn add_application(

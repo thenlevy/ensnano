@@ -247,8 +247,14 @@ impl FlatScene {
                         bound: false,
                         design_id: self.selected_design as u32,
                     });
-                    let other = candidate.and_then(|candidate| self.data[self.selected_design].borrow().get_best_suggestion(candidate));
-                    self.view[self.selected_design].borrow_mut().set_candidate(candidate, other);
+                    let other = candidate.and_then(|candidate| {
+                        self.data[self.selected_design]
+                            .borrow()
+                            .get_best_suggestion(candidate)
+                    });
+                    self.view[self.selected_design]
+                        .borrow_mut()
+                        .set_candidate(candidate, other);
                     self.mediator.lock().unwrap().set_candidate(phantom)
                 }
                 Consequence::RmStrand(nucl) => {
@@ -316,7 +322,10 @@ impl FlatScene {
                 }
                 Consequence::Centering(nucl) => {
                     let nucl = self.data[self.selected_design].borrow().to_real(nucl);
-                    self.mediator.lock().unwrap().request_centering(nucl, self.selected_design)
+                    self.mediator
+                        .lock()
+                        .unwrap()
+                        .request_centering(nucl, self.selected_design)
                 }
                 _ => (),
             }
@@ -494,10 +503,8 @@ impl Application for FlatScene {
         target: &wgpu::TextureView,
         _dt: Duration,
     ) {
-        if self.needs_redraw_() {
-            println!("draw flatscene");
-            self.draw_view(encoder, target)
-        }
+        //println!("draw flatscene");
+        self.draw_view(encoder, target)
     }
 
     fn needs_redraw(&mut self, _: Duration) -> bool {

@@ -750,12 +750,11 @@ impl Application for Scene {
         &mut self,
         encoder: &mut wgpu::CommandEncoder,
         target: &wgpu::TextureView,
-        dt: Duration,
+        _dt: Duration,
     ) {
-        println!("draw scene");
         self.draw_view(encoder, target)
     }
-    
+
     fn needs_redraw(&mut self, dt: Duration) -> bool {
         self.need_redraw(dt)
     }

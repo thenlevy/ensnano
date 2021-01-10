@@ -414,4 +414,3 @@ impl CameraController {
         self.teleport_camera(new_position, orientation);
     }
 }
-
