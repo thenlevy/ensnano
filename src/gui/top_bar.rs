@@ -117,9 +117,43 @@ impl Program for TopBar {
                     .file_clear = false;
             }
             Message::ScaffoldSequenceFile => {
-                if cfg!(target_os = "windows") {
-                    let requests = self.requests.clone();
-                    std::thread::spawn(move || {
+                let use_default = use_default_scaffold();
+                if use_default {
+                    let sequence = include_str!("p7249-Tilibit.txt");
+                    self.requests.lock().unwrap().scaffold_sequence = Some(sequence.to_string())
+                } else {
+                    if cfg!(target_os = "windows") {
+                        let requests = self.requests.clone();
+                        std::thread::spawn(move || {
+                            let result = match nfd2::open_file_dialog(None, None).expect("oh no") {
+                                Response::Okay(file_path) => Some(file_path),
+                                Response::OkayMultiple(_) => {
+                                    println!("Please open only one file");
+                                    None
+                                }
+                                Response::Cancel => None,
+                            };
+                            if let Some(path) = result {
+                                let mut content = std::fs::read_to_string(path).unwrap();
+                                content.make_ascii_uppercase();
+                                if let Some(n) =
+                                    content.find(|c| c != 'A' && c != 'T' && c != 'G' && c != 'C')
+                                {
+                                    MessageDialog::new()
+                                        .set_type(MessageType::Error)
+                                        .set_text(&format!(
+                                                "This text file does not contain a valid DNA sequence.\n
+                                        First invalid char at position {}",
+                                        n
+                                        ))
+                                        .show_alert()
+                                        .unwrap();
+                                    } else {
+                                        requests.lock().unwrap().scaffold_sequence = Some(content)
+                                }
+                            }
+                        });
+                    } else {
                         let result = match nfd2::open_file_dialog(None, None).expect("oh no") {
                             Response::Okay(file_path) => Some(file_path),
                             Response::OkayMultiple(_) => {
@@ -137,43 +171,15 @@ impl Program for TopBar {
                                 MessageDialog::new()
                                     .set_type(MessageType::Error)
                                     .set_text(&format!(
-                                        "This text file does not contain a valid DNA sequence.\n
+                                            "This text file does not contain a valid DNA sequence.\n
                                         First invalid char at position {}",
                                         n
                                     ))
                                     .show_alert()
                                     .unwrap();
-                            } else {
-                                requests.lock().unwrap().scaffold_sequence = Some(content)
+                                } else {
+                                    self.requests.lock().unwrap().scaffold_sequence = Some(content)
                             }
-                        }
-                    });
-                } else {
-                    let result = match nfd2::open_file_dialog(None, None).expect("oh no") {
-                        Response::Okay(file_path) => Some(file_path),
-                        Response::OkayMultiple(_) => {
-                            println!("Please open only one file");
-                            None
-                        }
-                        Response::Cancel => None,
-                    };
-                    if let Some(path) = result {
-                        let mut content = std::fs::read_to_string(path).unwrap();
-                        content.make_ascii_uppercase();
-                        if let Some(n) =
-                            content.find(|c| c != 'A' && c != 'T' && c != 'G' && c != 'C')
-                        {
-                            MessageDialog::new()
-                                .set_type(MessageType::Error)
-                                .set_text(&format!(
-                                    "This text file does not contain a valid DNA sequence.\n
-                                        First invalid char at position {}",
-                                    n
-                                ))
-                                .show_alert()
-                                .unwrap();
-                        } else {
-                            self.requests.lock().unwrap().scaffold_sequence = Some(content)
                         }
                     }
                 }
@@ -325,3 +331,18 @@ pub const BACKGROUND: Color = Color::from_rgb(
     0x39 as f32 / 255.0,
     0x3F as f32 / 255.0,
 );
+
+fn use_default_scaffold() -> bool {
+    if cfg!(target_os = "macos") {
+        MessageDialog::new().set_text("use default m13 sequence ?").show_confirm().unwrap()
+
+    } else {
+        let (choice_snd, choice_rcv) = std::sync::mpsc::channel::<bool>();
+        std::thread::spawn(move || {
+            let choice = MessageDialog::new().set_text("use default m13 sequence ?").show_confirm().unwrap();
+            choice_snd.send(choice);
+        });
+        choice_rcv.recv().unwrap()
+    }
+
+}
