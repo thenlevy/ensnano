@@ -1702,7 +1702,7 @@ impl Data {
                 plate,
                 well: format!("{}{}", column, row.to_string()),
                 sequence,
-                name: format!("Stapple {}", n),
+                name: format!("Stapple {}", *s_id),
             });
         }
         ret

@@ -418,9 +418,8 @@ impl Mediator {
                 });
                 rcv.recv().unwrap()
             } else {
+                println!("attempt to show warning");
                 MessageDialog::new()
-                    .set_type(MessageType::Warning)
-                    .set_title("Warning")
                     .set_text(&format!(
                         "The scaffod length does not match its sequence\n
                 Length of the scaffold {}\n

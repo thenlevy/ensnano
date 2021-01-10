@@ -124,11 +124,7 @@ pub fn message(message: MessageDialog<'static>) {
 
 pub fn yes_no(text: &'static str) -> bool {
     if cfg!(target_os = "macos") {
-        MessageDialog::new()
-            .set_type(MessageType::Info)
-            .set_text(text)
-            .show_confirm()
-            .unwrap()
+        MessageDialog::new().set_text(text).show_confirm().unwrap()
     } else {
         let (choice_snd, choice_rcv) = std::sync::mpsc::channel::<bool>();
         std::thread::spawn(move || {
