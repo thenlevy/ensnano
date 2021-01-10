@@ -46,18 +46,22 @@ pub struct Mediator {
     undo_stack: Vec<Arc<dyn Operation>>,
     redo_stack: Vec<Arc<dyn Operation>>,
     computing: Arc<Mutex<bool>>,
+    centring: Option<(Nucl, usize)>,
 }
 
 /// The scheduler is responsible for running the different applications
 pub struct Scheduler {
     applications: HashMap<ElementType, Arc<Mutex<dyn Application>>>,
+    needs_redraw: Vec<ElementType>,
 }
 
 impl Scheduler {
     pub fn new() -> Self {
         Self {
             applications: HashMap::new(),
+            needs_redraw: Vec::new(),
         }
+
     }
 
     pub fn add_application(
@@ -80,6 +84,16 @@ impl Scheduler {
         }
     }
 
+    pub fn check_redraw(&mut self, dt: Duration) -> bool {
+        self.needs_redraw.clear();
+        for (area, app) in self.applications.iter_mut() {
+            if app.lock().unwrap().needs_redraw(dt) {
+                self.needs_redraw.push(*area)
+            }
+        }
+        self.needs_redraw.len() > 0
+    }
+
     /// Request an application to draw on a texture
     pub fn draw_apps(
         &mut self,
@@ -87,7 +101,8 @@ impl Scheduler {
         multiplexer: &Multiplexer,
         dt: Duration,
     ) {
-        for (area, app) in self.applications.iter_mut() {
+        for area in self.needs_redraw.iter() {
+            let app = self.applications.get_mut(area).unwrap();
             if let Some(target) = multiplexer.get_texture_view(*area) {
                 app.lock().unwrap().on_redraw_request(encoder, target, dt);
             }
@@ -133,6 +148,7 @@ pub enum Notification {
     Save(usize),
     CameraTarget((Vec3, Vec3)),
     CameraRotation(f32, f32),
+    Centering(Nucl, usize),
 }
 
 pub trait Application {
@@ -149,6 +165,7 @@ pub trait Application {
         target: &wgpu::TextureView,
         dt: Duration,
     );
+    fn needs_redraw(&mut self, dt: Duration) -> bool;
 }
 
 impl Mediator {
@@ -165,6 +182,7 @@ impl Mediator {
             candidate: None,
             last_selection: None,
             computing,
+            centring: None,
         }
     }
 
@@ -558,13 +576,16 @@ impl Mediator {
     }
 
     /// Querry designs for modifcations that must be notified to the applications
-    pub fn observe_designs(&mut self) {
+    pub fn observe_designs(&mut self) -> bool {
+        let mut ret = false;
         let mut notifications = Vec::new();
         for design_wrapper in self.designs.clone() {
             if let Some(notification) = design_wrapper.lock().unwrap().view_was_updated() {
+                ret = true;
                 notifications.push(Notification::DesignNotification(notification))
             }
             if let Some(notification) = design_wrapper.lock().unwrap().data_was_updated() {
+                ret = true;
                 notifications.push(Notification::DesignNotification(notification))
             }
         }
@@ -572,11 +593,19 @@ impl Mediator {
             self.notify_apps(notification)
         }
         if let Some(candidate) = self.candidate.take() {
+            ret = true;
             self.notify_apps(Notification::NewCandidate(candidate))
         }
         if let Some(selection) = self.last_selection.take() {
+            ret = true;
             self.notify_apps(Notification::Selection3D(selection))
         }
+
+        if let Some(centring) = self.centring.take() {
+            ret = true;
+            self.notify_apps(Notification::Centering(centring.0, centring.1))
+        }
+        ret
     }
 
     fn selected_design(&self) -> Option<u32> {
@@ -746,6 +775,10 @@ impl Mediator {
 
     pub fn set_candidate(&mut self, candidate: Option<PhantomElement>) {
         self.candidate = Some(candidate)
+    }
+
+    pub fn request_centering(&mut self, nucl: Nucl, design_id: usize) {
+        self.centring = Some((nucl, design_id))
     }
 
     pub fn request_camera_rotation(&mut self, rotation: (f32, f32)) {

@@ -353,7 +353,7 @@ impl GuiElement {
         multiplexer: &Multiplexer,
         renderer: &mut Renderer,
         resized: bool,
-    ) {
+    ) -> bool {
         let area = multiplexer.get_element_area(self.element_type).unwrap();
         let cursor = if multiplexer.foccused_element() == Some(self.element_type) {
             multiplexer.get_cursor_position()
@@ -369,6 +369,9 @@ impl GuiElement {
                 renderer,
                 &mut self.debug,
             );
+            true
+        } else {
+            false
         }
     }
 
@@ -486,16 +489,18 @@ impl Gui {
     }
 
     /// Ask the gui component to process the event that they have recieved
-    pub fn fetch_change(&mut self, window: &Window, multiplexer: &Multiplexer) {
+    pub fn fetch_change(&mut self, window: &Window, multiplexer: &Multiplexer) -> bool{
+        let mut ret = false;
         for elements in self.elements.values_mut() {
-            elements.fetch_change(window, multiplexer, &mut self.renderer, false)
+            ret |= elements.fetch_change(window, multiplexer, &mut self.renderer, false);
         }
+        ret
     }
 
     /// Ask the gui component to process the event and messages that they that they have recieved.
     pub fn update(&mut self, multiplexer: &Multiplexer, window: &Window) {
         for elements in self.elements.values_mut() {
-            elements.fetch_change(window, multiplexer, &mut self.renderer, self.resized)
+            elements.fetch_change(window, multiplexer, &mut self.renderer, self.resized);
         }
         self.resized = false;
     }

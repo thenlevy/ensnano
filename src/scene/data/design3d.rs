@@ -731,6 +731,10 @@ impl Design3D {
     pub fn is_xover_end(&self, nucl: &Nucl) -> Option<bool> {
         self.design.lock().unwrap().is_xover_end(&nucl)
     }
+
+    pub fn get_nucl_position(&self, nucl: Nucl) -> Option<Vec3> {
+        self.design.lock().unwrap().get_helix_nucl(nucl, Referential::World, false)
+    }
 }
 
 fn create_dna_bound(

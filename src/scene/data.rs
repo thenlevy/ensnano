@@ -948,6 +948,12 @@ impl Data {
             false
         }
     }
+
+    pub fn get_nucl_position(&self, nucl: Nucl, design_id: usize) -> Option<Vec3> {
+        let design = self.designs.get(design_id)?;
+        design.get_nucl_position(nucl)
+
+    }
 }
 
 impl ActionMode {

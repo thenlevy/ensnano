@@ -276,6 +276,7 @@ fn main() {
     event_loop.run(move |event, _, control_flow| {
         // Wait for event or redraw a frame every 33 ms (30 frame per seconds)
         *control_flow = ControlFlow::WaitUntil(Instant::now() + Duration::from_millis(33));
+        //*control_flow = ControlFlow::Wait;
 
         match event {
             Event::WindowEvent {
@@ -328,7 +329,8 @@ fn main() {
                 }
             }
             Event::MainEventsCleared => {
-                gui.fetch_change(&window, &multiplexer);
+                let mut redraw = false;
+                redraw |= gui.fetch_change(&window, &multiplexer);
                 // When there is no more event to deal with
                 {
                     let mut requests = requests.lock().expect("requests");
@@ -471,8 +473,14 @@ fn main() {
                 if !*computing.lock().unwrap() {
                     mediator.lock().unwrap().observe_designs();
                 }
+                let now = std::time::Instant::now();
+                let dt = now - last_render_time;
+                redraw |= scheduler.lock().unwrap().check_redraw(dt);
+                last_render_time = now;
 
-                window.request_redraw();
+                if redraw {
+                    window.request_redraw();
+                }
             }
             Event::RedrawRequested(_)
                 if window.inner_size().width > 0 && window.inner_size().height > 0 =>
@@ -518,7 +526,6 @@ fn main() {
                     .lock()
                     .unwrap()
                     .draw_apps(&mut encoder, &multiplexer, dt);
-                last_render_time = now;
 
                 gui.render(
                     &mut encoder,

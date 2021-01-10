@@ -295,7 +295,7 @@ impl CameraController {
         };
         {
             let mut camera = self.camera.borrow_mut();
-            camera.position += scrollward * self.scroll * self.speed * self.sensitivity * dt;
+            camera.position += scrollward * self.scroll * self.speed * self.sensitivity * 33e-3;
         }
         self.cam0 = self.camera.borrow().clone();
         self.scroll = 0.;
@@ -407,4 +407,11 @@ impl CameraController {
         self.camera.borrow_mut().position += vec;
         self.cam0.position = self.camera.borrow().position;
     }
+
+    pub fn center_camera(&mut self, center: Vec3) {
+        let new_position = center - 5. * self.camera.borrow().direction();
+        let orientation = self.camera.borrow().rotor;
+        self.teleport_camera(new_position, orientation);
+    }
 }
+

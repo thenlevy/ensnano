@@ -729,6 +729,12 @@ impl Application for Scene {
                 self.request_camera_rotation(xz, yz);
                 self.notify(SceneNotification::CameraMoved);
             }
+            Notification::Centering(nucl, design_id) => {
+                if let Some(position) = self.data.borrow().get_nucl_position(nucl, design_id) {
+                    self.controller.center_camera(position)
+                }
+                self.notify(SceneNotification::CameraMoved);
+            }
         }
     }
 
@@ -746,9 +752,12 @@ impl Application for Scene {
         target: &wgpu::TextureView,
         dt: Duration,
     ) {
-        if self.need_redraw(dt) {
-            self.draw_view(encoder, target)
-        }
+        println!("draw scene");
+        self.draw_view(encoder, target)
+    }
+    
+    fn needs_redraw(&mut self, dt: Duration) -> bool {
+        self.need_redraw(dt)
     }
 }
 

@@ -50,6 +50,7 @@ pub struct View {
     show_sec: bool,
     suggestions: Vec<(Nucl, Nucl)>,
     suggestions_view: Vec<StrandView>,
+    suggestion_candidate: Option<(Nucl, Nucl)>,
 }
 
 impl View {
@@ -138,6 +139,7 @@ impl View {
             show_sec: false,
             suggestions: vec![],
             suggestions_view: vec![],
+            suggestion_candidate: None,
         }
     }
 
@@ -370,10 +372,8 @@ impl View {
         for strand in self.strands.iter() {
             strand.draw(&mut render_pass);
         }
-        if SHOW_SUGGESTION {
-            for suggestion in self.suggestions_view.iter() {
-                suggestion.draw(&mut render_pass);
-            }
+        for suggestion in self.suggestions_view.iter() {
+            suggestion.draw(&mut render_pass);
         }
 
         self.circle_drawer.draw(&mut render_pass);
@@ -421,6 +421,17 @@ impl View {
             view.set_indication(*n1, *n2, &self.helices);
             self.suggestions_view.push(view);
         }
+    }
+
+    pub fn set_candidate(&mut self, candidate: Option<Nucl>, other: Option<Nucl>) {
+        self.suggestions_view.clear();
+        self.was_updated |= self.suggestion_candidate != candidate.zip(other);
+        if let Some((n1, n2)) = candidate.zip(other) {
+            let mut view = StrandView::new(self.device.clone(), self.queue.clone());
+            view.set_indication(n1, n2, &self.helices);
+            self.suggestions_view.push(view);
+        }
+        self.suggestion_candidate = candidate.zip(other);
     }
 
     fn generate_char_instances(&mut self) {

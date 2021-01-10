@@ -120,6 +120,11 @@ impl Controller {
         self.camera_controller.teleport_camera(position, rotation)
     }
 
+    /// Keep the camera orientation and make it face a given point.
+    pub fn center_camera(&mut self, center: Vec3) {
+        self.camera_controller.center_camera(center)
+    }
+
     /// Handles input
     /// # Argument
     ///
