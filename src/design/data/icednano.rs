@@ -2,7 +2,7 @@
 /// All other format supported by icednano are converted into this format and run-time manipulation
 /// of designs are performed on an `icednano::Design` structure
 use std::borrow::Cow;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 use std::f32::consts::PI;
 
 use ultraviolet::{Isometry2, Mat4, Rotor3, Vec3};
@@ -43,6 +43,12 @@ pub struct Design {
     /// The groups in which the helices are.
     #[serde(skip_serializing_if = "BTreeMap::is_empty", default)]
     pub groups: BTreeMap<usize, bool>,
+
+    #[serde(skip_serializing_if = "HashSet::is_empty", default)]
+    pub no_phantoms: HashSet<usize>,
+
+    #[serde(skip_serializing_if = "HashSet::is_empty", default)]
+    pub small_shperes: HashSet<usize>,
 }
 
 impl Design {
@@ -71,6 +77,8 @@ impl Design {
             scaffold_sequence: None,
             scaffold_shift: None,
             groups: Default::default(),
+            small_shperes: Default::default(),
+            no_phantoms: Default::default(),
         }
     }
 
@@ -84,6 +92,8 @@ impl Design {
             scaffold_sequence: None,
             scaffold_shift: None,
             groups: Default::default(),
+            small_shperes: Default::default(),
+            no_phantoms: Default::default(),
         }
     }
 

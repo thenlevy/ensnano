@@ -429,8 +429,8 @@ impl GridManager {
             grids,
             helix_to_pos,
             parameters: design.parameters.unwrap_or_default(),
-            no_phantoms: HashSet::new(),
-            small_spheres: HashSet::new(),
+            no_phantoms: design.no_phantoms.clone(),
+            small_spheres: design.no_phantoms.clone(),
         }
     }
 
