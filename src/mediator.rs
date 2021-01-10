@@ -602,6 +602,7 @@ impl Mediator {
 
         if let Some(centring) = self.centring.take() {
             ret = true;
+            self.notify_apps(Notification::NewSelectionMode(SelectionMode::Nucleotide));
             self.notify_apps(Notification::Centering(centring.0, centring.1))
         }
         ret

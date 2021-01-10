@@ -154,7 +154,7 @@ impl Strand {
     pub fn indication(nucl1: Nucl, nucl2: Nucl, helices: &[Helix]) -> Vertices {
         let mut vertices = Vertices::new();
         let mut builder = Path::builder_with_attributes(3);
-        let color = [0.541, 0.113, 0.647, 0.5];
+        let color = [0.823, 0.525, 0.058, 0.75];
         let start = helices[nucl1.helix].get_nucl_position(&nucl1, false);
         let end = helices[nucl2.helix].get_nucl_position(&nucl2, true);
 

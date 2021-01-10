@@ -953,6 +953,13 @@ impl Data {
         let design = self.designs.get(design_id)?;
         design.get_nucl_position(nucl)
     }
+
+    pub fn select_nucl(&mut self, nucl: Nucl, design_id: usize) {
+        let e_id = self.designs[design_id].get_identifier_nucl(nucl);
+        if let Some(id) = e_id {
+            self.set_selection(Some(SceneElement::DesignElement(design_id as u32, id)));
+        }
+    }
 }
 
 impl ActionMode {

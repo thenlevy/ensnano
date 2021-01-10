@@ -730,8 +730,13 @@ impl Application for Scene {
                 self.notify(SceneNotification::CameraMoved);
             }
             Notification::Centering(nucl, design_id) => {
+                let mut selected = false;
                 if let Some(position) = self.data.borrow().get_nucl_position(nucl, design_id) {
-                    self.controller.center_camera(position)
+                    self.controller.center_camera(position);
+                    selected = true;
+                }
+                if selected {
+                    self.data.borrow_mut().select_nucl(nucl, design_id);
                 }
                 self.notify(SceneNotification::CameraMoved);
             }
