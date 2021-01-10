@@ -156,7 +156,8 @@ impl StatusBar {
                     bool::from_str(&self.info_values[1]).unwrap(),
                     "Scaffold",
                     move |b| Message::ScaffoldIdSet(s_id, b),
-                ))
+                ));
+                row = row.push(Text::new(self.info_values[3].clone()).size(STATUS_FONT_SIZE - 2));
             }
             _ => (),
         }

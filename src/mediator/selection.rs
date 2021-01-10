@@ -63,6 +63,7 @@ impl Selection {
                 ),
                 format!("{:?}", design.lock().unwrap().is_scaffold(*s_id as usize)),
                 s_id.to_string(),
+                design.lock().unwrap().decompose_length(*s_id as usize),
             ],
             _ => Vec::new(),
         }

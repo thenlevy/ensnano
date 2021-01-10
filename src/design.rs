@@ -680,6 +680,10 @@ impl Design {
     pub fn get_suggestions(&self) -> Vec<(Nucl, Nucl)> {
         self.data.lock().unwrap().get_suggestions()
     }
+
+    pub fn decompose_length(&self, s_id: usize) -> String {
+        self.data.lock().unwrap().decompose_length(s_id)
+    }
 }
 
 #[derive(Clone)]

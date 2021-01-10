@@ -1850,6 +1850,20 @@ impl Data {
         }
         ret
     }
+
+    pub fn decompose_length(&self, s_id: usize) -> String {
+        let mut ret = String::new();
+        if let Some(strand) = self.design.strands.get(&s_id) {
+            ret.push_str(&strand.length().to_string());
+            let mut first = true;
+            for d in strand.domains.iter() {
+                let sign = if first { '=' } else { '+' };
+                ret.push_str(&format!(" {} {}", sign, d.length()));
+                first = false;
+            }
+        }
+        ret
+    }
 }
 
 fn compl(c: Option<char>) -> Option<char> {
