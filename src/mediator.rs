@@ -6,7 +6,7 @@
 //! mediator.
 //!
 //! The mediator also holds data that is common to all applications.
-use crate::utils::{message, PhantomElement};
+use crate::utils::{message, yes_no, PhantomElement};
 use crate::{DrawArea, Duration, ElementType, IcedMessages, Multiplexer, WindowEvent};
 use iced_wgpu::wgpu;
 use iced_winit::winit::dpi::{PhysicalPosition, PhysicalSize};
@@ -290,17 +290,9 @@ impl Mediator {
             .unwrap()
             .set_scaffold_sequence(sequence);
         if self.designs[d_id].lock().unwrap().scaffold_is_set() {
-            let (choice_snd, choice_rcv) = std::sync::mpsc::channel::<bool>();
-            std::thread::spawn(move || {
-                let choice = MessageDialog::new()
-                    .set_type(MessageType::Info)
-                    .set_text("Optimize the scaffold position ?\n
-            If you chose \"Yes\", icednano will position the scaffold in a way that minimizes the number of anti-patern (G^4, C^4 (A|T)^7) in the stapples sequence. If you chose \"No\", the scaffold sequence will begin at position 0")
-                    .show_confirm()
-                    .unwrap();
-                choice_snd.send(choice).unwrap();
-            });
-            if choice_rcv.recv() == Ok(true) {
+            let choice = yes_no("Optimize the scaffold position ?\n
+            If you chose \"Yes\", icednano will position the scaffold in a way that minimizes the number of anti-patern (G^4, C^4 (A|T)^7) in the stapples sequence. If you chose \"No\", the scaffold sequence will begin at position 0");
+            if choice {
                 let computing = self.computing.clone();
                 let design = self.designs[d_id].clone();
                 let messages = self.messages.clone();
@@ -309,11 +301,13 @@ impl Mediator {
                     std::thread::spawn(move || {
                         *computing.lock().unwrap() = true;
                         let score = design.lock().unwrap().optimize_shift(send);
-                        MessageDialog::new()
-                            .set_type(MessageType::Info)
-                            .set_text(&format!("Number of anti-patern: {}", score))
-                            .show_alert()
-                            .unwrap();
+                        if !cfg!(target_os = "macos") {
+                            MessageDialog::new()
+                                .set_type(MessageType::Info)
+                                .set_text(&format!("Number of anti-patern: {}", score))
+                                .show_alert()
+                                .unwrap();
+                        }
                         *computing.lock().unwrap() = false;
                     });
                     while let Ok(progress) = rcv.recv() {

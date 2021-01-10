@@ -148,8 +148,8 @@ impl Program for TopBar {
                                         ))
                                         .show_alert()
                                         .unwrap();
-                                    } else {
-                                        requests.lock().unwrap().scaffold_sequence = Some(content)
+                                } else {
+                                    requests.lock().unwrap().scaffold_sequence = Some(content)
                                 }
                             }
                         });
@@ -171,14 +171,14 @@ impl Program for TopBar {
                                 MessageDialog::new()
                                     .set_type(MessageType::Error)
                                     .set_text(&format!(
-                                            "This text file does not contain a valid DNA sequence.\n
+                                        "This text file does not contain a valid DNA sequence.\n
                                         First invalid char at position {}",
                                         n
                                     ))
                                     .show_alert()
                                     .unwrap();
-                                } else {
-                                    self.requests.lock().unwrap().scaffold_sequence = Some(content)
+                            } else {
+                                self.requests.lock().unwrap().scaffold_sequence = Some(content)
                             }
                         }
                     }
@@ -334,15 +334,19 @@ pub const BACKGROUND: Color = Color::from_rgb(
 
 fn use_default_scaffold() -> bool {
     if cfg!(target_os = "macos") {
-        MessageDialog::new().set_text("use default m13 sequence ?").show_confirm().unwrap()
-
+        MessageDialog::new()
+            .set_text("use default m13 sequence ?")
+            .show_confirm()
+            .unwrap()
     } else {
         let (choice_snd, choice_rcv) = std::sync::mpsc::channel::<bool>();
         std::thread::spawn(move || {
-            let choice = MessageDialog::new().set_text("use default m13 sequence ?").show_confirm().unwrap();
+            let choice = MessageDialog::new()
+                .set_text("use default m13 sequence ?")
+                .show_confirm()
+                .unwrap();
             choice_snd.send(choice);
         });
         choice_rcv.recv().unwrap()
     }
-
 }

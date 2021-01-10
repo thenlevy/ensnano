@@ -1,6 +1,6 @@
 use crate::consts::*;
 use iced_wgpu::wgpu;
-use native_dialog::MessageDialog;
+use native_dialog::{MessageDialog, MessageType};
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
 
 pub mod bindgroup_manager;
@@ -119,5 +119,26 @@ pub fn message(message: MessageDialog<'static>) {
         });
     } else {
         message.show_alert().unwrap();
+    }
+}
+
+pub fn yes_no(text: &'static str) -> bool {
+    if cfg!(target_os = "macos") {
+        MessageDialog::new()
+            .set_type(MessageType::Info)
+            .set_text(text)
+            .show_confirm()
+            .unwrap()
+    } else {
+        let (choice_snd, choice_rcv) = std::sync::mpsc::channel::<bool>();
+        std::thread::spawn(move || {
+            let choice = MessageDialog::new()
+                .set_type(MessageType::Info)
+                .set_text(text)
+                .show_confirm()
+                .unwrap();
+            choice_snd.send(choice).unwrap();
+        });
+        choice_rcv.recv().unwrap()
     }
 }
