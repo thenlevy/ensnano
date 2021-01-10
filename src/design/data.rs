@@ -1698,13 +1698,19 @@ impl Data {
                 7 => 'H',
                 _ => unreachable!(),
             };
+            let prim3 = if let Some(nucl) = strand.get_3prime() {
+                format!("h:{}, nt:{}", nucl.helix, nucl.position)
+            } else {
+                String::new()
+            };
             ret.push(Stapple {
                 plate,
                 well: format!("{}{}", column, row.to_string()),
                 sequence,
-                name: format!("Stapple {}", *s_id),
+                name: format!("Stapple 3' {}", prim3),
             });
         }
+        ret.sort_by_key(|s| s.name.clone());
         ret
     }
 
@@ -1742,7 +1748,9 @@ impl Data {
         let basis_map = self.basis_map.read().unwrap();
         let mut ret = 0;
         let mut shown = false;
-        let re = regex::Regex::new(r"(?x)G{4,}?|C{4,}?|[AT]{7,}?").unwrap();
+        let bad = regex::Regex::new(r"(?x)G{4,}?|C{4,}?|[AT]{7,}?").unwrap();
+        let verybad = regex::Regex::new(r"(?x)G{4,}?|C{4,}?").unwrap();
+        let ultimatelybad = regex::Regex::new(r"(?x)G{6,}?|C{6,}?").unwrap();
         for (s_id, strand) in self.design.strands.iter() {
             if strand.length() == 0 || self.design.scaffold_id == Some(*s_id) {
                 continue;
@@ -1761,12 +1769,26 @@ impl Data {
                 }
                 sequence.push(' ');
             }
-            let mut matches = re.find_iter(&sequence);
+            let mut matches = bad.find_iter(&sequence);
             while matches.next().is_some() {
                 if !shown {
                     shown = true;
                 }
                 ret += 1;
+            }
+            let mut matches = verybad.find_iter(&sequence);
+            while matches.next().is_some() {
+                if !shown {
+                    shown = true;
+                }
+                ret += 10;
+            }
+            let mut matches = ultimatelybad.find_iter(&sequence);
+            while matches.next().is_some() {
+                if !shown {
+                    shown = true;
+                }
+                ret += 1000;
             }
         }
         ret
