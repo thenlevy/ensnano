@@ -22,6 +22,7 @@ mod codenano;
 mod grid;
 mod icednano;
 mod strand_builder;
+mod roller;
 use crate::scene::GridInstance;
 use crate::utils::message;
 use grid::GridManager;
