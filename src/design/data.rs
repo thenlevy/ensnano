@@ -30,7 +30,7 @@ use grid::GridManager;
 pub use grid::*;
 pub use icednano::Nucl;
 pub use icednano::{Axis, Design, Helix, Parameters, Strand};
-use roller::RollSystem;
+use roller::PhysicalSystem;
 use std::sync::{mpsc::Sender, Arc, Mutex, RwLock};
 use strand_builder::NeighbourDescriptor;
 pub use strand_builder::{DomainIdentifier, StrandBuilder};
@@ -399,14 +399,16 @@ impl Data {
         let xovers = self.design.get_xovers();
         let helices: Vec<Helix> = self.design.helices.values().cloned().collect();
         let keys: Vec<usize> = self.design.helices.keys().cloned().collect();
-        let roller = RollSystem::from_design(
+        let intervals = self.design.get_intervals();
+        let physical_system = PhysicalSystem::from_design(
             keys,
             helices,
             xovers,
             self.design.parameters.unwrap_or_default().clone(),
+            intervals,
         );
         let date = Instant::now();
-        let (stop, snd) = roller.run();
+        let (stop, snd) = physical_system.run();
         self.roller_ptrs = Some((stop, snd, date));
     }
 

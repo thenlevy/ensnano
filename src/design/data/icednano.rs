@@ -125,6 +125,22 @@ impl Design {
         }
         ret
     }
+
+    pub fn get_intervals(&self) -> BTreeMap<usize, (isize, isize)> {
+        let mut ret = BTreeMap::new();
+        for s in self.strands.values() {
+            for d in s.domains.iter() {
+                if let Domain::HelixDomain(dom) = d {
+                    let left = dom.start;
+                    let right = dom.end - 1;
+                    let interval = ret.entry(dom.helix).or_insert((left, right));
+                    interval.0 = interval.0.min(left);
+                    interval.1 = interval.1.max(right);
+                }
+            }
+        }
+        ret
+    }
 }
 
 /// A DNA strand. Strands are represented as sequences of `Domains`.
