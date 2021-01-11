@@ -17,19 +17,21 @@ use ultraviolet::Vec3;
 
 use std::borrow::Cow;
 use std::fmt;
+use std::time::Instant;
 
 mod codenano;
 mod grid;
 mod icednano;
-mod strand_builder;
 mod roller;
+mod strand_builder;
 use crate::scene::GridInstance;
 use crate::utils::message;
 use grid::GridManager;
 pub use grid::*;
 pub use icednano::Nucl;
 pub use icednano::{Axis, Design, Helix, Parameters, Strand};
-use std::sync::{Arc, RwLock};
+use roller::RollSystem;
+use std::sync::{mpsc::Sender, Arc, Mutex, RwLock};
 use strand_builder::NeighbourDescriptor;
 pub use strand_builder::{DomainIdentifier, StrandBuilder};
 
@@ -75,6 +77,11 @@ pub struct Data {
     blue_cubes: HashMap<(isize, isize, isize), Vec<Nucl>, RandomState>,
     blue_nucl: Vec<Nucl>,
     red_nucl: Vec<Nucl>,
+    roller_ptrs: Option<(
+        Arc<Mutex<bool>>,
+        Arc<Mutex<Option<Sender<Vec<Helix>>>>>,
+        Instant,
+    )>,
 }
 
 impl fmt::Debug for Data {
@@ -111,6 +118,7 @@ impl Data {
             blue_cubes: HashMap::default(),
             blue_nucl: vec![],
             red_nucl: vec![],
+            roller_ptrs: None,
         }
     }
 
@@ -150,6 +158,7 @@ impl Data {
             blue_cubes: HashMap::default(),
             blue_nucl: vec![],
             red_nucl: vec![],
+            roller_ptrs: None,
         };
         ret.make_hash_maps();
         ret.terminate_movement();
@@ -355,6 +364,20 @@ impl Data {
     /// This function is meant to be called by the mediator that will notify all the obeservers
     /// that a update took place.
     pub fn was_updated(&mut self) -> bool {
+        if let Some((_, snd_ptr, date)) = self.roller_ptrs.as_mut() {
+            let now = Instant::now();
+            if (now - *date).as_millis() > 30 {
+                let (snd, rcv) = std::sync::mpsc::channel();
+                *snd_ptr.lock().unwrap() = Some(snd);
+                let helices = rcv.recv().unwrap();
+                for (n, h) in self.design.helices.values_mut().enumerate() {
+                    *h = helices[n].clone();
+                }
+                *date = now;
+                self.hash_maps_update = true;
+                self.update_status = true;
+            }
+        }
         if self.hash_maps_update {
             self.make_hash_maps();
             self.hash_maps_update = false;
@@ -362,6 +385,38 @@ impl Data {
         let ret = self.update_status;
         self.update_status = false;
         ret
+    }
+
+    pub fn roll_request(&mut self) {
+        if let Some((stop, _, _)) = self.roller_ptrs.as_mut() {
+            self.stop_rolling()
+        } else {
+            self.start_rolling()
+        }
+    }
+
+    fn start_rolling(&mut self) {
+        let xovers = self.design.get_xovers();
+        let helices: Vec<Helix> = self.design.helices.values().cloned().collect();
+        let keys: Vec<usize> = self.design.helices.keys().cloned().collect();
+        let roller = RollSystem::from_design(
+            keys,
+            helices,
+            xovers,
+            self.design.parameters.unwrap_or_default().clone(),
+        );
+        let date = Instant::now();
+        let (stop, snd) = roller.run();
+        self.roller_ptrs = Some((stop, snd, date));
+    }
+
+    fn stop_rolling(&mut self) {
+        if let Some((stop, _, _)) = self.roller_ptrs.as_mut() {
+            *stop.lock().unwrap() = true;
+        } else {
+            println!("Waring, design was not rolling");
+        }
+        self.roller_ptrs = None;
     }
 
     pub fn view_need_reset(&mut self) -> bool {

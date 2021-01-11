@@ -1,11 +1,13 @@
+use super::{Helix, Nucl, Parameters};
 use std::collections::HashMap;
-use super::{Nucl, Helix, Parameters};
 
 const MASS_HELIX: f32 = 2.;
-const K_SPRING: f32 = 100.;
+const K_SPRING: f32 = 1000.;
 const FRICTION: f32 = 100.;
 
 use std::f32::consts::{PI, SQRT_2};
+use std::sync::mpsc::Sender;
+use std::sync::{Arc, Mutex};
 
 fn angle_aoc2(p: &Parameters) -> f32 {
     2. * PI / p.bases_per_turn
@@ -56,16 +58,27 @@ pub struct RollSystem {
     acceleration: Vec<f32>,
     time_scale: f32,
     helices: Vec<Helix>,
+    helix_map: HashMap<usize, usize>,
     xovers: Vec<(Nucl, Nucl)>,
     parameters: Parameters,
+    stop: Arc<Mutex<bool>>,
+    sender: Arc<Mutex<Option<Sender<Vec<Helix>>>>>,
 }
-
 
 impl RollSystem {
     /// Create a system from a design, the system will adjust the helices of the design.
-    pub fn from_design(helices: Vec<Helix>, xovers: Vec<(Nucl, Nucl)>, parameters: Parameters) -> Self {
+    pub fn from_design(
+        keys: Vec<usize>,
+        helices: Vec<Helix>,
+        xovers: Vec<(Nucl, Nucl)>,
+        parameters: Parameters,
+    ) -> Self {
         let speed = vec![0.; helices.len()];
         let acceleration = vec![0.; helices.len()];
+        let mut helix_map = HashMap::new();
+        for (n, k) in keys.iter().enumerate() {
+            helix_map.insert(*k, n);
+        }
         RollSystem {
             speed,
             acceleration,
@@ -73,6 +86,9 @@ impl RollSystem {
             xovers,
             parameters,
             helices,
+            helix_map,
+            stop: Arc::new(Mutex::new(false)),
+            sender: Default::default(),
         }
     }
 
@@ -85,12 +101,21 @@ impl RollSystem {
             /*if h1 >= h2 {
                 continue;
             }*/
-            let me = &self.helices[n1.helix];
-            let other = &self.helices[n2.helix];
-            let (delta_1, delta_2) =
-                cross_over_force(me, other, &self.parameters, n1.position, n1.forward, n2.position, n2.forward);
-            self.acceleration[n1.helix] += delta_1 / MASS_HELIX;
-            self.acceleration[n2.helix] += delta_2 / MASS_HELIX;
+            let h1 = self.helix_map.get(&n1.helix).unwrap();
+            let h2 = self.helix_map.get(&n2.helix).unwrap();
+            let me = &self.helices[*h1];
+            let other = &self.helices[*h2];
+            let (delta_1, delta_2) = cross_over_force(
+                me,
+                other,
+                &self.parameters,
+                n1.position,
+                n1.forward,
+                n2.position,
+                n2.forward,
+            );
+            self.acceleration[*h1] += delta_1 / MASS_HELIX;
+            self.acceleration[*h2] += delta_2 / MASS_HELIX;
         }
     }
 
@@ -100,9 +125,9 @@ impl RollSystem {
         }
     }
 
-    fn update_rolls(&self, dt: f32) {
+    fn update_rolls(&mut self, dt: f32) {
         for i in 0..self.speed.len() {
-            self.helices[i].roll += self.speed[i] * dt;
+            self.helices[i].roll(self.speed[i] * dt);
         }
     }
 
@@ -111,24 +136,37 @@ impl RollSystem {
         let mut nb_step = 0;
         let mut done = false;
         while !done && nb_step < 10000 {
-            self.update_rolls(design, dt);
+            self.update_rolls(dt);
             self.update_speed(dt);
-            self.update_acceleration(design);
+            self.update_acceleration();
             println!("acceleration {:?}", self.acceleration);
-            done = self.acceleration.iter().map(|x| x.abs()).sum::<f64>() < 1e-8;
+            done = self.acceleration.iter().map(|x| x.abs()).sum::<f32>() < 1e-8;
             nb_step += 1;
         }
     }
 
     /// Do one step of simulation with time step dt
-    pub fn solve_one_step(&mut self, design: &mut Design, lr: f64) -> f64 {
+    pub fn solve_one_step(&mut self, lr: f32) -> f32 {
         self.time_scale = 1.;
-        self.update_acceleration(design);
-        let grad = self.acceleration.iter().map(|x| x.abs()).sum::<f64>();
+        self.update_acceleration();
+        let grad = self.acceleration.iter().map(|x| x.abs()).sum();
         let dt = lr * self.time_scale;
         self.update_speed(dt);
-        self.update_rolls(design, dt);
+        self.update_rolls(dt);
         grad
     }
-}
 
+    pub fn run(mut self) -> (Arc<Mutex<bool>>, Arc<Mutex<Option<Sender<Vec<Helix>>>>>) {
+        let stop = self.stop.clone();
+        let sender = self.sender.clone();
+        std::thread::spawn(move || {
+            while !*self.stop.lock().unwrap() {
+                if let Some(snd) = self.sender.lock().unwrap().take() {
+                    snd.send(self.helices.clone()).unwrap();
+                }
+                self.solve_one_step(1e-5);
+            }
+        });
+        (stop, sender)
+    }
+}

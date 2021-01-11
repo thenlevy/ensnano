@@ -23,6 +23,7 @@ pub struct TopBar {
     button_scaffold: button::State,
     button_stapples: button::State,
     button_make_grid: button::State,
+    button_roll: button::State,
     button_help: button::State,
     button_clean: button::State,
     toggle_text_value: bool,
@@ -45,6 +46,7 @@ pub enum Message {
     ScaffoldSequenceFile,
     StapplesRequested,
     CleanRequested,
+    RollRequested,
 }
 
 impl TopBar {
@@ -62,6 +64,7 @@ impl TopBar {
             button_make_grid: Default::default(),
             button_help: Default::default(),
             button_clean: Default::default(),
+            button_roll: Default::default(),
             toggle_text_value: false,
             requests,
             logical_size,
@@ -119,6 +122,7 @@ impl Program for TopBar {
                     .expect("file_opening_request")
                     .file_clear = false;
             }
+            Message::RollRequested => self.requests.lock().unwrap().roll_request = true,
             Message::ScaffoldSequenceFile => {
                 let use_default = use_default_scaffold();
                 if use_default {
@@ -288,6 +292,9 @@ impl Program for TopBar {
         let button_clean = Button::new(&mut self.button_clean, iced::Text::new("Clean"))
             .on_press(Message::CleanRequested);
 
+        let button_roll = Button::new(&mut self.button_roll, iced::Text::new("Roll"))
+            .on_press(Message::RollRequested);
+
         let _button_make_grid =
             Button::new(&mut self.button_make_grid, iced::Text::new("Make grids"))
                 .on_press(Message::MakeGrids);
@@ -310,6 +317,7 @@ impl Program for TopBar {
             .push(button_scaffold)
             .push(button_stapples)
             .push(button_clean)
+            .push(button_roll)
             //.push(button_make_grid)
             .push(
                 Button::new(&mut self.button_help, iced::Text::new("Help"))

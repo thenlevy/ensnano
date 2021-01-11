@@ -692,6 +692,10 @@ impl Design {
     pub fn clean_up_domains(&mut self) {
         self.data.lock().unwrap().clean_up_domains()
     }
+
+    pub fn roll_request(&mut self) {
+        self.data.lock().unwrap().roll_request();
+    }
 }
 
 #[derive(Clone)]

@@ -469,6 +469,11 @@ fn main() {
                         requests.clean_requests = false;
                         mediator.lock().unwrap().clean_designs();
                     }
+
+                    if requests.roll_request {
+                        requests.roll_request = false;
+                        mediator.lock().unwrap().roll_request();
+                    }
                 }
 
                 // Treat eventual event that happenend in the gui left panel.
