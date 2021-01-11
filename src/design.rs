@@ -688,6 +688,10 @@ impl Design {
     pub fn recolor_stapples(&mut self) {
         self.data.lock().unwrap().recolor_stapples()
     }
+
+    pub fn clean_up_domains(&mut self) {
+        self.data.lock().unwrap().clean_up_domains()
+    }
 }
 
 #[derive(Clone)]

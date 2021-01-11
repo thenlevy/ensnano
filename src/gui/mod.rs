@@ -68,6 +68,7 @@ pub struct Requests {
     pub scaffold_sequence: Option<String>,
     pub stapples_request: bool,
     pub recolor_stapples: bool,
+    pub clean_requests: bool,
 }
 
 impl Requests {
@@ -98,6 +99,7 @@ impl Requests {
             scaffold_sequence: None,
             stapples_request: false,
             recolor_stapples: false,
+            clean_requests: false,
         }
     }
 }

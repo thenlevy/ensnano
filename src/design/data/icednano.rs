@@ -210,6 +210,23 @@ impl Strand {
     pub fn length(&self) -> usize {
         self.domains.iter().map(|d| d.length()).sum()
     }
+
+    /// Merge all consecutive domains that are on the same helix
+    pub fn merge_consecutive_domains(&mut self) {
+        let mut to_merge = vec![];
+        for n in 0..self.domains.len() - 1 {
+            let dom1 = &self.domains[n];
+            let dom2 = &self.domains[n + 1];
+            if dom1.can_merge(dom2) {
+                to_merge.push(n)
+            }
+        }
+        while let Some(n) = to_merge.pop() {
+            let dom2 = self.domains[n + 1].clone();
+            self.domains.get_mut(n).unwrap().merge(&dom2);
+            self.domains.remove(n + 1);
+        }
+    }
 }
 
 fn is_false(x: &bool) -> bool {
@@ -447,6 +464,17 @@ impl Domain {
                 "Warning attempt to merge unmergeable domains {:?}, {:?}",
                 old_self, other
             ),
+        }
+    }
+
+    pub fn can_merge(&self, other: &Domain) -> bool {
+        match (self, other) {
+            (Domain::HelixDomain(dom1), Domain::HelixDomain(dom2)) => {
+                dom1.helix == dom2.helix
+                    && (dom1.end == dom2.start || dom1.start == dom2.end)
+                    && dom1.forward == dom2.forward
+            }
+            _ => false,
         }
     }
 }

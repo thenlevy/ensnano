@@ -464,6 +464,11 @@ fn main() {
                         requests.recolor_stapples = false;
                         mediator.lock().unwrap().recolor_stapples();
                     }
+
+                    if requests.clean_requests {
+                        requests.clean_requests = false;
+                        mediator.lock().unwrap().clean_designs();
+                    }
                 }
 
                 // Treat eventual event that happenend in the gui left panel.

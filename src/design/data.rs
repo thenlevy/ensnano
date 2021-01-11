@@ -1915,6 +1915,15 @@ impl Data {
             }
         }
     }
+
+    pub fn clean_up_domains(&mut self) {
+        for strand in self.design.strands.values_mut() {
+            strand.merge_consecutive_domains();
+        }
+        self.update_status = true;
+        self.hash_maps_update = true;
+        self.view_need_reset = true;
+    }
 }
 
 fn compl(c: Option<char>) -> Option<char> {

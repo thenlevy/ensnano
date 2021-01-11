@@ -24,6 +24,7 @@ pub struct TopBar {
     button_stapples: button::State,
     button_make_grid: button::State,
     button_help: button::State,
+    button_clean: button::State,
     toggle_text_value: bool,
     requests: Arc<Mutex<Requests>>,
     logical_size: LogicalSize<f64>,
@@ -43,6 +44,7 @@ pub enum Message {
     HelpRequested,
     ScaffoldSequenceFile,
     StapplesRequested,
+    CleanRequested,
 }
 
 impl TopBar {
@@ -59,6 +61,7 @@ impl TopBar {
             button_stapples: Default::default(),
             button_make_grid: Default::default(),
             button_help: Default::default(),
+            button_clean: Default::default(),
             toggle_text_value: false,
             requests,
             logical_size,
@@ -216,6 +219,7 @@ impl Program for TopBar {
                     });
                 }
             }
+            Message::CleanRequested => self.requests.lock().unwrap().clean_requests = true,
             Message::Resize(size) => self.resize(size),
             Message::ToggleText(b) => {
                 self.requests.lock().unwrap().toggle_text = Some(b);
@@ -281,6 +285,9 @@ impl Program for TopBar {
         let button_stapples = Button::new(&mut self.button_stapples, iced::Text::new("Stapples"))
             .on_press(Message::StapplesRequested);
 
+        let button_clean = Button::new(&mut self.button_clean, iced::Text::new("Clean"))
+            .on_press(Message::CleanRequested);
+
         let _button_make_grid =
             Button::new(&mut self.button_make_grid, iced::Text::new("Make grids"))
                 .on_press(Message::MakeGrids);
@@ -302,6 +309,7 @@ impl Program for TopBar {
             .push(button_split)
             .push(button_scaffold)
             .push(button_stapples)
+            .push(button_clean)
             //.push(button_make_grid)
             .push(
                 Button::new(&mut self.button_help, iced::Text::new("Help"))

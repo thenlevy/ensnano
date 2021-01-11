@@ -807,6 +807,12 @@ impl Mediator {
             d.lock().unwrap().recolor_stapples();
         }
     }
+
+    pub fn clean_designs(&mut self) {
+        for d in self.designs.iter() {
+            d.lock().unwrap().clean_up_domains()
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
