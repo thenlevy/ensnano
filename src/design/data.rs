@@ -1666,8 +1666,9 @@ impl Data {
     /// This function will panic if all the sapples are not matched.
     pub fn get_stapples(&self) -> Vec<Stapple> {
         let mut ret = Vec::new();
+        let mut n = 0;
         let basis_map = self.basis_map.read().unwrap();
-        for (n, (s_id, strand)) in self.design.strands.iter().enumerate() {
+        for (s_id, strand) in self.design.strands.iter() {
             if strand.length() == 0 || self.design.scaffold_id == Some(*s_id) {
                 continue;
             }
@@ -1686,8 +1687,8 @@ impl Data {
                 sequence.push(' ');
             }
             let plate = n / 96 + 1;
-            let row = (n % 96) % 12 + 1;
-            let column = match (n % 96) / 12 {
+            let row = (n % 96) / 8 + 1;
+            let column = match (n % 96) % 8 {
                 0 => 'A',
                 1 => 'B',
                 2 => 'C',
@@ -1709,6 +1710,7 @@ impl Data {
                 sequence,
                 name: format!("Stapple 3' {}", prim3),
             });
+            n += 1;
         }
         ret.sort_by_key(|s| s.name.clone());
         ret
