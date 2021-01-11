@@ -1666,14 +1666,19 @@ impl Data {
     /// This function will panic if all the sapples are not matched.
     pub fn get_stapples(&self) -> Vec<Stapple> {
         let mut ret = Vec::new();
-        let mut n = 0;
+        let mut sequences: BTreeMap<(usize, isize, usize, isize), String> = Default::default();
         let basis_map = self.basis_map.read().unwrap();
         for (s_id, strand) in self.design.strands.iter() {
             if strand.length() == 0 || self.design.scaffold_id == Some(*s_id) {
                 continue;
             }
             let mut sequence = String::new();
+            let mut first = true;
             for domain in &strand.domains {
+                if !first {
+                    sequence.push(' ');
+                }
+                first = false;
                 if let icednano::Domain::HelixDomain(dom) = domain {
                     for position in dom.iter() {
                         let nucl = Nucl {
@@ -1684,8 +1689,16 @@ impl Data {
                         sequence.push(*basis_map.get(&nucl).unwrap());
                     }
                 }
-                sequence.push(' ');
             }
+            let key = if let Some((prim5, prim3)) = strand.get_5prime().zip(strand.get_3prime()) {
+                (prim5.helix, prim5.position, prim3.helix, prim5.position)
+            } else {
+                println!("WARNING, STAPPLE WITH NO KEY !!!");
+                (0, 0, 0, 0)
+            };
+            sequences.insert(key, sequence);
+        }
+        for (n, ((h5, nt5, h3, nt3), sequence)) in sequences.iter().enumerate() {
             let plate = n / 96 + 1;
             let row = (n % 96) / 8 + 1;
             let column = match (n % 96) % 8 {
@@ -1699,20 +1712,13 @@ impl Data {
                 7 => 'H',
                 _ => unreachable!(),
             };
-            let prim3 = if let Some(nucl) = strand.get_3prime() {
-                format!("h:{}, nt:{}", nucl.helix, nucl.position)
-            } else {
-                String::new()
-            };
             ret.push(Stapple {
                 plate,
                 well: format!("{}{}", column, row.to_string()),
-                sequence,
-                name: format!("Stapple 3' {}", prim3),
+                sequence: sequence.clone(),
+                name: format!("Stapple 5':h{}:nt{}>3':h{}:nt{}", *h5, *nt5, *h3, *nt3),
             });
-            n += 1;
         }
-        ret.sort_by_key(|s| s.name.clone());
         ret
     }
 
