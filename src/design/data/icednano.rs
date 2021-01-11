@@ -115,6 +115,16 @@ impl Design {
         }
         None
     }
+
+    pub fn get_xovers(&self) -> Vec<(Nucl, Nucl)> {
+        let mut ret = vec![];
+        for s in self.strands.values() {
+            for x in s.xovers() {
+                ret.push(x)
+            }
+        }
+        ret
+    }
 }
 
 /// A DNA strand. Strands are represented as sequences of `Domains`.
@@ -226,6 +236,23 @@ impl Strand {
             self.domains.get_mut(n).unwrap().merge(&dom2);
             self.domains.remove(n + 1);
         }
+    }
+
+    pub fn xovers(&self) -> Vec<(Nucl, Nucl)> {
+        let mut ret = vec![];
+        for n in 0..self.domains.len() - 1 {
+            let dom1 = &self.domains[n];
+            let dom2 = &self.domains[n + 1];
+            match (dom1, dom2) {
+                (Domain::HelixDomain(int1), Domain::HelixDomain(int2))
+                    if int1.helix != int2.helix =>
+                {
+                    ret.push((dom1.prime3_end().unwrap(), dom2.prime5_end().unwrap()));
+                }
+                _ => (),
+            }
+        }
+        ret
     }
 }
 
@@ -599,6 +626,9 @@ pub struct Helix {
     /// Representation of the helix in 2d
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub isometry2d: Option<Isometry2>,
+
+    #[serde(default)]
+    pub roll: f32,
 }
 
 fn default_visibility() -> bool {
@@ -638,6 +668,7 @@ impl Helix {
             grid_position: None,
             isometry2d: None,
             visible: true,
+            roll: 0f32,
         }
     }
 }
@@ -659,13 +690,14 @@ impl Helix {
                 roll: 0f32,
             }),
             visible: true,
+            roll: 0f32,
         }
     }
 
     /// Angle of base number `n` around this helix.
     pub fn theta(&self, n: isize, forward: bool, cst: &Parameters) -> f32 {
         let shift = if forward { cst.groove_angle } else { 0. };
-        n as f32 * 2. * PI / cst.bases_per_turn + shift + PI
+        n as f32 * 2. * PI / cst.bases_per_turn + shift + PI + self.roll
     }
 
     /// 3D position of a nucleotide on this helix. `n` is the position along the axis, and `forward` is true iff the 5' to 3' direction of the strand containing that nucleotide runs in the same direction as the axis of the helix.
@@ -730,7 +762,7 @@ impl Helix {
 
     #[allow(dead_code)]
     pub fn roll(&mut self, roll: f32) {
-        self.orientation = self.orientation * Rotor3::from_rotation_xy(roll)
+        self.roll -= roll
     }
 }
 

@@ -69,6 +69,7 @@ pub struct Requests {
     pub stapples_request: bool,
     pub recolor_stapples: bool,
     pub clean_requests: bool,
+    pub roll_request: bool,
 }
 
 impl Requests {
@@ -100,6 +101,7 @@ impl Requests {
             stapples_request: false,
             recolor_stapples: false,
             clean_requests: false,
+            roll_request: false,
         }
     }
 }

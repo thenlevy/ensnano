@@ -813,6 +813,12 @@ impl Mediator {
             d.lock().unwrap().clean_up_domains()
         }
     }
+
+    pub fn roll_request(&mut self) {
+        for d in self.designs.iter() {
+            d.lock().unwrap().roll_request();
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
