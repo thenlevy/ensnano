@@ -793,6 +793,11 @@ impl Operation for RawHelixCreation {
 }
 
 #[derive(Clone, Debug)]
+/// Cut a strand at a given nucleotide.
+///
+/// If the nucleotide is the 3' end of a cross-over, it will be the 5' end of the 3' half of the
+/// split.
+/// In all other cases, it will be the 3' end of the 5' end of the split.
 pub struct Cut {
     pub strand: Strand,
     pub nucl: Nucl,

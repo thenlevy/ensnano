@@ -260,7 +260,7 @@ impl Design2d {
     }
 
     pub fn is_xover_end(&self, nucl: &Nucl) -> Option<bool> {
-        self.design.lock().unwrap().is_xover_end(nucl)
+        self.design.lock().unwrap().is_xover_end(nucl).to_opt()
     }
 
     pub fn has_nucl(&self, nucl: Nucl) -> bool {

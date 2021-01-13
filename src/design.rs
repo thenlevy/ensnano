@@ -11,12 +11,15 @@ use mediator::AppNotification;
 
 mod controller;
 mod data;
+mod operation;
+pub mod utils;
 mod view;
 use crate::scene::GridInstance;
 use controller::Controller;
 pub use controller::{DesignRotation, DesignTranslation, IsometryTarget};
 use data::Data;
 pub use data::*;
+pub use utils::*;
 use view::View;
 
 pub struct Design {
@@ -601,8 +604,12 @@ impl Design {
         self.data.lock().unwrap().set_isometry_2d(h_id, isometry)
     }
 
-    pub fn is_xover_end(&self, nucl: &Nucl) -> Option<bool> {
+    pub fn is_xover_end(&self, nucl: &Nucl) -> Extremity {
         self.data.lock().unwrap().is_xover_end(nucl)
+    }
+
+    pub fn is_strand_end(&self, nucl: &Nucl) -> Extremity {
+        self.data.lock().unwrap().is_strand_end(nucl)
     }
 
     pub fn get_strand_nucl(&self, nucl: &Nucl) -> Option<usize> {
@@ -695,6 +702,10 @@ impl Design {
 
     pub fn roll_request(&mut self) {
         self.data.lock().unwrap().roll_request();
+    }
+
+    pub fn get_xover_info(&self, source: Nucl, target: Nucl) -> Option<XoverInfo> {
+        self.data.lock().unwrap().get_xover_info(source, target)
     }
 }
 

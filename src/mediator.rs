@@ -819,6 +819,16 @@ impl Mediator {
             d.lock().unwrap().roll_request();
         }
     }
+
+    pub fn xover_request(&mut self, source: Nucl, target: Nucl, design_id: usize) {
+        let operations = self.designs[design_id]
+            .lock()
+            .unwrap()
+            .general_cross_over(source, target);
+        for op in operations.into_iter() {
+            self.update_opperation(op);
+        }
+    }
 }
 
 #[derive(Debug, Clone)]

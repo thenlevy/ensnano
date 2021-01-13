@@ -241,104 +241,11 @@ impl Scene {
         let element = self.element_selector.set_selected_id(clicked_pixel);
         let xover = self.data.borrow().attempt_xover(element);
         println!("{:?}", xover);
-        if let Some(xover) = xover {
-            match (xover.source_end, xover.target_end) {
-                (Some(true), Some(true)) | (Some(false), Some(false)) => (), // xover can't be done,
-                (Some(true), Some(false)) => {
-                    // We can xover directly
-                    self.mediator
-                        .lock()
-                        .unwrap()
-                        .update_opperation(Arc::new(Xover {
-                            strand_5prime: xover.source,
-                            strand_3prime: xover.target,
-                            prime5_id: xover.source_id,
-                            prime3_id: xover.target_id,
-                            undo: false,
-                            design_id: xover.design_id,
-                        }));
-                }
-                (Some(false), Some(true)) => {
-                    // We can xover directly but we must reverse the xover
-                    self.mediator
-                        .lock()
-                        .unwrap()
-                        .update_opperation(Arc::new(Xover {
-                            strand_5prime: xover.target,
-                            strand_3prime: xover.source,
-                            prime5_id: xover.target_id,
-                            prime3_id: xover.source_id,
-                            undo: false,
-                            design_id: xover.design_id,
-                        }));
-                }
-                (Some(b), None) => {
-                    // We can cut cross directly
-                    let target_3prime = b;
-                    self.mediator
-                        .lock()
-                        .unwrap()
-                        .update_opperation(Arc::new(CrossCut {
-                            target_3prime,
-                            target_strand: xover.target,
-                            source_strand: xover.source,
-                            nucl: xover.target_nucl,
-                            design_id: xover.design_id,
-                            target_id: xover.target_id,
-                            source_id: xover.source_id,
-                            undo: false,
-                        }));
-                }
-                (None, Some(b)) => {
-                    // We can cut cross directly but we need to reverse the xover
-                    let target_3prime = b;
-                    self.mediator
-                        .lock()
-                        .unwrap()
-                        .update_opperation(Arc::new(CrossCut {
-                            target_3prime,
-                            target_strand: xover.source,
-                            source_strand: xover.target,
-                            nucl: xover.source_nucl,
-                            design_id: xover.design_id,
-                            target_id: xover.source_id,
-                            source_id: xover.target_id,
-                            undo: false,
-                        }));
-                }
-                (None, None) => {
-                    // We must cut the source strand first
-                    self.mediator
-                        .lock()
-                        .unwrap()
-                        .update_opperation(Arc::new(Cut {
-                            nucl: xover.source_nucl,
-                            strand_id: xover.source_id,
-                            strand: xover.source,
-                            undo: false,
-                            design_id: xover.design_id,
-                        }));
-                    // And we must get back the resulting strand
-                    let source_strand = self
-                        .data
-                        .borrow()
-                        .get_strand_raw(xover.source_id, xover.design_id)
-                        .unwrap();
-                    self.mediator
-                        .lock()
-                        .unwrap()
-                        .update_opperation(Arc::new(CrossCut {
-                            target_3prime: true,
-                            target_strand: xover.target,
-                            source_strand,
-                            nucl: xover.target_nucl,
-                            design_id: xover.design_id,
-                            target_id: xover.target_id,
-                            source_id: xover.source_id,
-                            undo: false,
-                        }));
-                }
-            }
+        if let Some((source, target, design_id)) = xover {
+            self.mediator
+                .lock()
+                .unwrap()
+                .xover_request(source, target, design_id)
         }
     }
 

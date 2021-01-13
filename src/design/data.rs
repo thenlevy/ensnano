@@ -24,6 +24,7 @@ mod grid;
 mod icednano;
 mod roller;
 mod strand_builder;
+use super::utils::*;
 use crate::scene::GridInstance;
 use crate::utils::message;
 use grid::GridManager;
@@ -933,24 +934,58 @@ impl Data {
         }
     }
 
-    /// Return Some(true) if nucl is the 3' end of a xover, Some(false) if nucl is the 5' end of a
-    /// xover and None in the other cases
-    pub fn is_xover_end(&self, nucl: &Nucl) -> Option<bool> {
-        let id = self.identifier_nucl.get(nucl)?;
-        let strand_id = self.strand_map.get(id)?;
+    /// Return the xover extremity status of nucl.
+    pub fn is_xover_end(&self, nucl: &Nucl) -> Extremity {
+        let id = if let Some(id) = self.identifier_nucl.get(nucl) {
+            id
+        } else {
+            return Extremity::No;
+        };
+
+        let strand_id = if let Some(id) = self.strand_map.get(id) {
+            id
+        } else {
+            return Extremity::No;
+        };
+
         let strand = self.design.strands.get(strand_id).expect("strand");
         let mut prev_helix = None;
         for domain in strand.domains.iter() {
             if domain.prime5_end() == Some(*nucl) && prev_helix != domain.half_helix() {
-                return Some(false);
+                return Extremity::Prime5;
             } else if domain.prime3_end() == Some(*nucl) {
-                return Some(true);
+                return Extremity::Prime3;
             } else if let Some(_) = domain.has_nucl(nucl) {
-                return None;
+                return Extremity::No;
             }
             prev_helix = domain.half_helix();
         }
-        return None;
+        return Extremity::No;
+    }
+
+    /// Return the strand end status of nucl
+    pub fn is_strand_end(&self, nucl: &Nucl) -> Extremity {
+        let id = if let Some(id) = self.identifier_nucl.get(nucl) {
+            id
+        } else {
+            return Extremity::No;
+        };
+
+        let strand_id = if let Some(id) = self.strand_map.get(id) {
+            id
+        } else {
+            return Extremity::No;
+        };
+        let strand = self.design.strands.get(strand_id).expect("strand");
+        if strand.cyclic {
+            Extremity::No
+        } else if strand.get_3prime() == Some(*nucl) {
+            Extremity::Prime3
+        } else if strand.get_5prime() == Some(*nucl) {
+            Extremity::Prime5
+        } else {
+            Extremity::No
+        }
     }
 
     /// Merge two strands with identifier prime5 and prime3. The resulting strand will have
@@ -1988,6 +2023,35 @@ impl Data {
         self.update_status = true;
         self.hash_maps_update = true;
         self.view_need_reset = true;
+    }
+
+    /// Return the infomation necessary to make a crossover from source_nucl to target_nucl
+    pub fn get_xover_info(&self, source_nucl: Nucl, target_nucl: Nucl) -> Option<XoverInfo> {
+        let mut design_id = 0;
+
+        let source_id = self.get_strand_nucl(&source_nucl)?;
+        let target_id = self.get_strand_nucl(&target_nucl)?;
+
+        let source = self.design.strands.get(&source_id).cloned()?;
+        let target = self.design.strands.get(&target_id).cloned()?;
+
+        let source_xover_end = self.is_xover_end(&source_nucl);
+        let target_xover_end = self.is_xover_end(&target_nucl);
+
+        let source_strand_end = self.is_strand_end(&source_nucl);
+        let target_strand_end = self.is_strand_end(&target_nucl);
+
+        Some(XoverInfo {
+            source,
+            target,
+            source_id,
+            target_id,
+            source_nucl,
+            target_nucl,
+            design_id,
+            target_strand_end,
+            source_strand_end,
+        })
     }
 }
 
