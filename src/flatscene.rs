@@ -212,29 +212,31 @@ impl FlatScene {
                         .set_free_end(free_end);
                 }
                 Consequence::CutCross(from, to) => {
-                    let op_var = self.data[self.selected_design].borrow().cut_cross(from, to);
-                    if let Some((source_id, target_id, target_3prime)) = op_var {
-                        let source_strand = self.data[self.selected_design]
-                            .borrow()
-                            .get_strand(source_id)
-                            .unwrap();
-                        let target_strand = self.data[self.selected_design]
-                            .borrow()
-                            .get_strand(target_id)
-                            .unwrap();
-                        self.mediator
-                            .lock()
-                            .unwrap()
-                            .update_opperation(Arc::new(CrossCut {
-                                source_strand,
-                                target_strand,
-                                source_id,
-                                target_id,
-                                target_3prime,
-                                nucl: self.data[self.selected_design].borrow().to_real(to),
-                                undo: false,
-                                design_id: self.selected_design,
-                            }))
+                    if from.helix != to.helix {
+                        let op_var = self.data[self.selected_design].borrow().cut_cross(from, to);
+                        if let Some((source_id, target_id, target_3prime)) = op_var {
+                            let source_strand = self.data[self.selected_design]
+                                .borrow()
+                                .get_strand(source_id)
+                                .unwrap();
+                            let target_strand = self.data[self.selected_design]
+                                .borrow()
+                                .get_strand(target_id)
+                                .unwrap();
+                            self.mediator
+                                .lock()
+                                .unwrap()
+                                .update_opperation(Arc::new(CrossCut {
+                                    source_strand,
+                                    target_strand,
+                                    source_id,
+                                    target_id,
+                                    target_3prime,
+                                    nucl: self.data[self.selected_design].borrow().to_real(to),
+                                    undo: false,
+                                    design_id: self.selected_design,
+                                }))
+                        }
                     }
                 }
                 Consequence::NewCandidate(candidate) => {

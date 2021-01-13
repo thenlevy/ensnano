@@ -48,34 +48,46 @@ impl Design {
                     })]
                 }
                 (Some(b), None) => {
-                    // We can cut cross directly
+                    // We can cut cross directly, but only if the target and source's helices are
+                    // different
                     let target_3prime = b;
-                    vec![Arc::new(CrossCut {
-                        target_3prime,
-                        target_strand: xover.target,
-                        source_strand: xover.source,
-                        nucl: xover.target_nucl,
-                        design_id: xover.design_id,
-                        target_id: xover.target_id,
-                        source_id: xover.source_id,
-                        undo: false,
-                    })]
+                    if xover.source_nucl.helix != xover.target_nucl.helix {
+                        vec![Arc::new(CrossCut {
+                            target_3prime,
+                            target_strand: xover.target,
+                            source_strand: xover.source,
+                            nucl: xover.target_nucl,
+                            design_id: xover.design_id,
+                            target_id: xover.target_id,
+                            source_id: xover.source_id,
+                            undo: false,
+                        })]
+                    } else {
+                        vec![]
+                    }
                 }
                 (None, Some(b)) => {
                     // We can cut cross directly but we need to reverse the xover
                     let target_3prime = b;
-                    vec![Arc::new(CrossCut {
-                        target_3prime,
-                        target_strand: xover.source,
-                        source_strand: xover.target,
-                        nucl: xover.source_nucl,
-                        design_id: xover.design_id,
-                        target_id: xover.source_id,
-                        source_id: xover.target_id,
-                        undo: false,
-                    })]
+                    if xover.source_nucl.helix != xover.target_nucl.helix {
+                        vec![Arc::new(CrossCut {
+                            target_3prime,
+                            target_strand: xover.source,
+                            source_strand: xover.target,
+                            nucl: xover.source_nucl,
+                            design_id: xover.design_id,
+                            target_id: xover.source_id,
+                            source_id: xover.target_id,
+                            undo: false,
+                        })]
+                    } else {
+                        vec![]
+                    }
                 }
                 (None, None) => {
+                    if xover.source_nucl.helix == xover.target_nucl.helix {
+                        return vec![];
+                    }
                     let mut ret: Vec<Arc<dyn Operation>> = Vec::new();
                     // We must cut the source strand first
                     ret.push(Arc::new(Cut {
