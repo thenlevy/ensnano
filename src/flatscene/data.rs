@@ -99,6 +99,9 @@ impl Data {
         self.view
             .borrow_mut()
             .set_suggestions(self.design.suggestions());
+        self.view
+            .borrow_mut()
+            .set_torsions(self.design.get_torsions());
     }
 
     fn update_suggestion(&mut self, suggestion: &[(Nucl, Nucl)]) {

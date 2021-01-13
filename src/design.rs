@@ -707,6 +707,10 @@ impl Design {
     pub fn get_xover_info(&self, source: Nucl, target: Nucl) -> Option<XoverInfo> {
         self.data.lock().unwrap().get_xover_info(source, target)
     }
+
+    pub fn get_torsions(&self) -> HashMap<(Nucl, Nucl), Torsion> {
+        self.data.lock().unwrap().get_torsions()
+    }
 }
 
 #[derive(Clone)]

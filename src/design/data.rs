@@ -24,6 +24,7 @@ mod grid;
 mod icednano;
 mod roller;
 mod strand_builder;
+mod torsion;
 use super::utils::*;
 use crate::scene::GridInstance;
 use crate::utils::message;
@@ -35,6 +36,7 @@ use roller::PhysicalSystem;
 use std::sync::{mpsc::Sender, Arc, Mutex, RwLock};
 use strand_builder::NeighbourDescriptor;
 pub use strand_builder::{DomainIdentifier, StrandBuilder};
+pub use torsion::Torsion;
 
 /// In addition to its `design` field, the `Data` struct has several hashmaps that are usefull to
 /// quickly access information about the design. These hasmaps must be updated when the design is

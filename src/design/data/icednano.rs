@@ -840,6 +840,18 @@ impl Nucl {
             ..*self
         }
     }
+
+    pub fn is_neighbour(&self, other: &Nucl) -> bool {
+        self.helix == other.helix
+            && self.forward == other.forward
+            && (self.position - other.position).abs() == 1
+    }
+}
+
+impl std::fmt::Display for Nucl {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "({}, {}, {})", self.helix, self.position, self.forward)
+    }
 }
 
 /// Represents the axis of an helix. At the moment it is a line. In the future it might also be a

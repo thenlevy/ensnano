@@ -1,5 +1,6 @@
 use super::data::{FreeEnd, GpuVertex, Helix, HelixModel, Strand, StrandVertex};
 use super::CameraPtr;
+use crate::design::Torsion;
 use crate::utils::bindgroup_manager::{DynamicBindGroup, UniformBindGroup};
 use crate::utils::texture::Texture;
 use crate::{DrawArea, PhySize};
@@ -51,6 +52,7 @@ pub struct View {
     suggestions: Vec<(Nucl, Nucl)>,
     suggestions_view: Vec<StrandView>,
     suggestion_candidate: Option<(Nucl, Nucl)>,
+    torsions: HashMap<(Nucl, Nucl), Torsion>,
 }
 
 impl View {
@@ -140,6 +142,7 @@ impl View {
             suggestions: vec![],
             suggestions_view: vec![],
             suggestion_candidate: None,
+            torsions: HashMap::new(),
         }
     }
 
@@ -188,6 +191,10 @@ impl View {
 
     pub fn set_suggestions(&mut self, suggestions: Vec<(Nucl, Nucl)>) {
         self.suggestions = suggestions;
+    }
+
+    pub fn set_torsions(&mut self, torsions: HashMap<(Nucl, Nucl), Torsion>) {
+        self.torsions = torsions
     }
 
     pub fn update_helices(&mut self, helices: &[Helix]) {
@@ -411,6 +418,25 @@ impl View {
             ret.push(h1.get_circle_nucl(n1.position, n1.forward, color));
             ret.push(h2.get_circle_nucl(n2.position, n2.forward, color));
         }
+        for ((n0, n1), torsion) in self.torsions.iter() {
+            let color = torsion_color(torsion.strength_0 - torsion.strength_1);
+            let h0 = &self.helices[n0.helix];
+            let mut circle = h0.get_circle_nucl(n0.position, n0.forward, color);
+            circle.radius *= 1.2;
+            if let Some(friend) = torsion.friend {
+                let circle2 = h0.get_circle_nucl(friend.0.position, n0.forward, color);
+                circle.center = (circle.center + circle2.center) / 2.;
+            }
+            ret.push(circle);
+            let h1 = &self.helices[n1.helix];
+            let mut circle = h1.get_circle_nucl(n1.position, n1.forward, color);
+            circle.radius *= 1.2;
+            if let Some(friend) = torsion.friend {
+                let circle2 = h1.get_circle_nucl(friend.1.position, n1.forward, color);
+                circle.center = (circle.center + circle2.center) / 2.;
+            }
+            ret.push(circle);
+        }
         ret
     }
 
@@ -579,4 +605,17 @@ fn strand_pipeline_descr(
     };
 
     device.create_render_pipeline(&desc)
+}
+
+fn torsion_color(strength: f32) -> u32 {
+    const RED_HUE: f32 = 0.;
+    const BLUE_HUE: f32 = 240.;
+    const MAX_STRENGTH: f32 = 200.;
+    let hue = if strength > 0. { RED_HUE } else { BLUE_HUE };
+    //println!("strength {}", strength);
+    let sat = (strength / MAX_STRENGTH).min(1.).max(-1.);
+    let val = (strength / MAX_STRENGTH).min(1.).max(-1.);
+    let hsv = color_space::Hsv::new(hue as f64, sat.abs() as f64, val.abs() as f64);
+    let rgb = color_space::Rgb::from(hsv);
+    (0xFF << 24) | ((rgb.r as u32) << 16) | ((rgb.g as u32) << 8) | (rgb.b as u32)
 }

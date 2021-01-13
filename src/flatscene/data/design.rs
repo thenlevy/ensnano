@@ -2,7 +2,7 @@ use std::collections::{BTreeSet, HashMap};
 use std::sync::{Arc, Mutex};
 
 use super::{Nucl, Strand};
-use crate::design::{Design, Helix as DesignHelix, Strand as StrandDesign, StrandBuilder};
+use crate::design::{Design, Helix as DesignHelix, Strand as StrandDesign, StrandBuilder, Torsion};
 use ultraviolet::{Isometry2, Rotor2, Vec2};
 
 pub(super) struct Design2d {
@@ -288,6 +288,23 @@ impl Design2d {
             .unwrap()
             .get_helix_nucl(nucl2, Referential::Model, false)?;
         Some((pos1 - pos2).mag())
+    }
+
+    pub fn get_torsions(&self) -> HashMap<(Nucl, Nucl), Torsion> {
+        let torsions = self.design.lock().unwrap().get_torsions();
+        let mut ret = HashMap::new();
+        for (xover, torsion) in torsions.into_iter() {
+            let mut xover = xover.clone();
+            let mut torsion = torsion;
+            xover.0.helix = self.id_map[&xover.0.helix];
+            xover.1.helix = self.id_map[&xover.1.helix];
+            if let Some(friend) = torsion.friend.as_mut() {
+                friend.0.helix = self.id_map[&friend.0.helix];
+                friend.1.helix = self.id_map[&friend.1.helix];
+            }
+            ret.insert(xover, torsion);
+        }
+        ret
     }
 }
 

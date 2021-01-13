@@ -79,7 +79,7 @@ fn dist_ac2(p: &Parameters) -> f32 {
     SQRT_2 * (1. - angle_aoc2(p).cos()).sqrt() * p.helix_radius
 }
 
-fn cross_over_force(
+pub(super) fn cross_over_force(
     me: &Helix,
     other: &Helix,
     parameters: &Parameters,
