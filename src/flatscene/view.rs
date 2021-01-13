@@ -427,10 +427,14 @@ impl View {
         }
         if self.show_torsion {
             for ((n0, n1), torsion) in self.torsions.iter() {
+                let multiplier = ((torsion.strength_0 - torsion.strength_1).abs() / 200.)
+                    .max(0.20)
+                    .min(1.)
+                    * 2.5;
                 let color = torsion_color(torsion.strength_0 - torsion.strength_1);
                 let h0 = &self.helices[n0.helix];
                 let mut circle = h0.get_circle_nucl(n0.position, n0.forward, color);
-                circle.radius *= 1.2;
+                circle.radius *= multiplier;
                 if let Some(friend) = torsion.friend {
                     let circle2 = h0.get_circle_nucl(friend.0.position, n0.forward, color);
                     circle.center = (circle.center + circle2.center) / 2.;
@@ -438,7 +442,7 @@ impl View {
                 ret.push(circle);
                 let h1 = &self.helices[n1.helix];
                 let mut circle = h1.get_circle_nucl(n1.position, n1.forward, color);
-                circle.radius *= 1.2;
+                circle.radius *= multiplier;
                 if let Some(friend) = torsion.friend {
                     let circle2 = h1.get_circle_nucl(friend.1.position, n1.forward, color);
                     circle.center = (circle.center + circle2.center) / 2.;

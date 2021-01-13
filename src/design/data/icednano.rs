@@ -268,6 +268,18 @@ impl Strand {
                 _ => (),
             }
         }
+        if self.cyclic && self.domains.len() > 1 {
+            let dom1 = &self.domains[self.domains.len() - 1];
+            let dom2 = &self.domains[0];
+            match (dom1, dom2) {
+                (Domain::HelixDomain(int1), Domain::HelixDomain(int2))
+                    if int1.helix != int2.helix =>
+                {
+                    ret.push((dom1.prime3_end().unwrap(), dom2.prime5_end().unwrap()));
+                }
+                _ => (),
+            }
+        }
         ret
     }
 }
