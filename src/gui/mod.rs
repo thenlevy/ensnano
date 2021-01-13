@@ -70,6 +70,7 @@ pub struct Requests {
     pub recolor_stapples: bool,
     pub clean_requests: bool,
     pub roll_request: bool,
+    pub show_torsion_request: Option<bool>,
 }
 
 impl Requests {
@@ -102,6 +103,7 @@ impl Requests {
             recolor_stapples: false,
             clean_requests: false,
             roll_request: false,
+            show_torsion_request: None,
         }
     }
 }

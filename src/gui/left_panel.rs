@@ -47,6 +47,7 @@ pub struct LeftPanel {
     length_str: String,
     position_str: String,
     builder_input: [text_input::State; 2],
+    show_torsion: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -66,6 +67,7 @@ pub enum Message {
     RotateCam(f32, f32),
     PositionHelicesChanged(String),
     LengthHelicesChanged(String),
+    ShowTorsion(bool),
 }
 
 impl LeftPanel {
@@ -97,6 +99,7 @@ impl LeftPanel {
             position_helices: 0,
             length_str: "0".to_string(),
             position_str: "0".to_string(),
+            show_torsion: false,
         }
     }
 
@@ -237,6 +240,10 @@ impl Program for LeftPanel {
                     self.action_mode = action_mode;
                     self.requests.lock().unwrap().action_mode = Some(action_mode)
                 }
+            }
+            Message::ShowTorsion(b) => {
+                self.requests.lock().unwrap().show_torsion_request = Some(b);
+                self.show_torsion = b;
             }
         };
         Command::none()
@@ -545,6 +552,11 @@ impl Program for LeftPanel {
 
         let mut widget = Column::new()
             .push(global_scroll)
+            .push(Checkbox::new(
+                self.show_torsion,
+                "Show Torsion",
+                Message::ShowTorsion,
+            ))
             .width(Length::Units(width))
             .height(Length::Fill);
 

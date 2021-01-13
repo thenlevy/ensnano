@@ -474,6 +474,10 @@ fn main() {
                         requests.roll_request = false;
                         mediator.lock().unwrap().roll_request();
                     }
+
+                    if let Some(b) = requests.show_torsion_request.take() {
+                        mediator.lock().unwrap().show_torsion_request(b)
+                    }
                 }
 
                 // Treat eventual event that happenend in the gui left panel.

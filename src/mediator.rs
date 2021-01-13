@@ -148,6 +148,7 @@ pub enum Notification {
     CameraTarget((Vec3, Vec3)),
     CameraRotation(f32, f32),
     Centering(Nucl, usize),
+    ShowTorsion(bool),
 }
 
 pub trait Application {
@@ -828,6 +829,10 @@ impl Mediator {
         for op in operations.into_iter() {
             self.update_opperation(op);
         }
+    }
+
+    pub fn show_torsion_request(&mut self, show: bool) {
+        self.notify_apps(Notification::ShowTorsion(show))
     }
 }
 

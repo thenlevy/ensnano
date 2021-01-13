@@ -53,6 +53,7 @@ pub struct View {
     suggestions_view: Vec<StrandView>,
     suggestion_candidate: Option<(Nucl, Nucl)>,
     torsions: HashMap<(Nucl, Nucl), Torsion>,
+    show_torsion: bool,
 }
 
 impl View {
@@ -143,11 +144,17 @@ impl View {
             suggestions_view: vec![],
             suggestion_candidate: None,
             torsions: HashMap::new(),
+            show_torsion: false,
         }
     }
 
     pub fn set_show_sec(&mut self, show_sec: bool) {
         self.show_sec = show_sec;
+        self.was_updated = true;
+    }
+
+    pub fn set_show_torsion(&mut self, show: bool) {
+        self.show_torsion = show;
         self.was_updated = true;
     }
 
@@ -418,24 +425,26 @@ impl View {
             ret.push(h1.get_circle_nucl(n1.position, n1.forward, color));
             ret.push(h2.get_circle_nucl(n2.position, n2.forward, color));
         }
-        for ((n0, n1), torsion) in self.torsions.iter() {
-            let color = torsion_color(torsion.strength_0 - torsion.strength_1);
-            let h0 = &self.helices[n0.helix];
-            let mut circle = h0.get_circle_nucl(n0.position, n0.forward, color);
-            circle.radius *= 1.2;
-            if let Some(friend) = torsion.friend {
-                let circle2 = h0.get_circle_nucl(friend.0.position, n0.forward, color);
-                circle.center = (circle.center + circle2.center) / 2.;
+        if self.show_torsion {
+            for ((n0, n1), torsion) in self.torsions.iter() {
+                let color = torsion_color(torsion.strength_0 - torsion.strength_1);
+                let h0 = &self.helices[n0.helix];
+                let mut circle = h0.get_circle_nucl(n0.position, n0.forward, color);
+                circle.radius *= 1.2;
+                if let Some(friend) = torsion.friend {
+                    let circle2 = h0.get_circle_nucl(friend.0.position, n0.forward, color);
+                    circle.center = (circle.center + circle2.center) / 2.;
+                }
+                ret.push(circle);
+                let h1 = &self.helices[n1.helix];
+                let mut circle = h1.get_circle_nucl(n1.position, n1.forward, color);
+                circle.radius *= 1.2;
+                if let Some(friend) = torsion.friend {
+                    let circle2 = h1.get_circle_nucl(friend.1.position, n1.forward, color);
+                    circle.center = (circle.center + circle2.center) / 2.;
+                }
+                ret.push(circle);
             }
-            ret.push(circle);
-            let h1 = &self.helices[n1.helix];
-            let mut circle = h1.get_circle_nucl(n1.position, n1.forward, color);
-            circle.radius *= 1.2;
-            if let Some(friend) = torsion.friend {
-                let circle2 = h1.get_circle_nucl(friend.1.position, n1.forward, color);
-                circle.center = (circle.center + circle2.center) / 2.;
-            }
-            ret.push(circle);
         }
         ret
     }

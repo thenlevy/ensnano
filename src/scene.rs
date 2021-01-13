@@ -647,6 +647,7 @@ impl Application for Scene {
                 }
                 self.notify(SceneNotification::CameraMoved);
             }
+            Notification::ShowTorsion(_) => (),
         }
     }
 

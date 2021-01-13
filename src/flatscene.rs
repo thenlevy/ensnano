@@ -382,6 +382,11 @@ impl Application for FlatScene {
             Notification::ToggleText(b) => {
                 self.view[self.selected_design].borrow_mut().set_show_sec(b)
             }
+            Notification::ShowTorsion(b) => {
+                for v in self.view.iter() {
+                    v.borrow_mut().set_show_torsion(b);
+                }
+            }
             _ => (),
         }
     }
