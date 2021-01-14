@@ -1,4 +1,4 @@
-use super::{Flat, ViewPtr};
+use super::{Flat, HelixVec, ViewPtr};
 use crate::design::{Design, Nucl, StrandBuilder};
 use std::sync::{Arc, Mutex, RwLock};
 use ultraviolet::Vec2;
@@ -391,52 +391,4 @@ pub(super) struct Xover {
     pub design_id: usize,
     pub target_end: Option<bool>,
     pub source_end: Option<bool>,
-}
-
-pub struct HelixVec<T: Flat>(Vec<T>);
-
-impl<T: Flat> std::ops::Index<FlatIdx> for HelixVec<T> {
-    type Output = T;
-
-    fn index(&self, idx: FlatIdx) -> &T {
-        &self.0[idx.0]
-    }
-}
-
-impl<T: Flat> std::ops::IndexMut<FlatIdx> for HelixVec<T> {
-    fn index_mut(&mut self, idx: FlatIdx) -> &mut Self::Output {
-        &mut self.0[idx.0]
-    }
-}
-
-impl<T: Flat> std::ops::Deref for HelixVec<T> {
-    type Target = [T];
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl<T: Flat> std::ops::DerefMut for HelixVec<T> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
-
-impl<T: Flat> HelixVec<T> {
-    pub fn new() -> Self {
-        Self(Vec::new())
-    }
-
-    pub fn remove(&mut self, idx: FlatIdx) -> T {
-        self.0.remove(idx.0)
-    }
-
-    pub fn push(&mut self, value: T) {
-        self.0.push(value)
-    }
-
-    pub fn get(&self, idx: FlatIdx) -> Option<&T> {
-        self.0.get(idx.0)
-    }
 }

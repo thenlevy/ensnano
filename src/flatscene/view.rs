@@ -1,7 +1,5 @@
-use super::data::{
-    FlatTorsion, FreeEnd, GpuVertex, Helix, HelixModel, HelixVec, Strand, StrandVertex,
-};
-use super::{CameraPtr, Flat, FlatHelix, FlatIdx, FlatNucl};
+use super::data::{FlatTorsion, FreeEnd, GpuVertex, Helix, HelixModel, Strand, StrandVertex};
+use super::{CameraPtr, Flat, FlatHelix, FlatIdx, FlatNucl, HelixVec};
 use crate::utils::bindgroup_manager::{DynamicBindGroup, UniformBindGroup};
 use crate::utils::texture::Texture;
 use crate::{DrawArea, PhySize};
