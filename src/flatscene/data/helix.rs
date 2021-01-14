@@ -1,7 +1,8 @@
 use super::super::view::{CharInstance, CircleInstance};
-use super::super::CameraPtr;
-use super::{Helix2d, Nucl};
+use super::super::{CameraPtr, Flat, FlatHelix, FlatIdx};
+use super::{FlatNucl, Helix2d};
 use crate::consts::*;
+use crate::design::Nucl;
 use crate::utils::instance::Instance;
 use ahash::{AHasher, RandomState};
 use lyon::math::{rect, Point};
@@ -32,12 +33,14 @@ pub struct Helix {
     z_index: i32,
     stroke_width: f32,
     /// The position of self in the Helix vector of the design
-    pub id: u32,
+    pub flat_id: FlatHelix,
     pub real_id: usize,
     pub visible: bool,
     basis_map: Arc<RwLock<HashMap<Nucl, char, RandomState>>>,
     groups: Arc<RwLock<BTreeMap<usize, bool>>>,
 }
+
+impl Flat for Helix {}
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
@@ -57,7 +60,7 @@ impl Helix {
         left: isize,
         right: isize,
         isometry: Isometry2,
-        id: u32,
+        flat_id: FlatHelix,
         real_id: usize,
         visible: bool,
         basis_map: Arc<RwLock<HashMap<Nucl, char, RandomState>>>,
@@ -72,7 +75,7 @@ impl Helix {
             color: HELIX_BORDER_COLOR,
             z_index: 500,
             stroke_width: 0.01,
-            id,
+            flat_id,
             real_id,
             visible,
             basis_map,
@@ -80,11 +83,12 @@ impl Helix {
         }
     }
 
-    pub fn update(&mut self, helix2d: &Helix2d) {
+    pub fn update(&mut self, helix2d: &Helix2d, id_map: &HashMap<usize, FlatIdx>) {
         self.left = self.left.min(helix2d.left);
         self.right = self.right.max(helix2d.right);
         self.visible = helix2d.visible;
         self.real_id = helix2d.id;
+        self.flat_id = FlatHelix::from_real(self.real_id, id_map);
     }
 
     pub fn background_vertices(&self) -> Vertices {
@@ -109,7 +113,7 @@ impl Helix {
                 &mut tessellation::BuffersBuilder::new(
                     &mut vertices,
                     WithAttribute(VertexAttribute {
-                        id: self.id,
+                        id: self.flat_id.flat.0 as u32,
                         background: true,
                     }),
                 ),
@@ -150,7 +154,7 @@ impl Helix {
                 &mut tessellation::BuffersBuilder::new(
                     &mut vertices,
                     WithAttribute(VertexAttribute {
-                        id: self.id,
+                        id: self.flat_id.flat.0 as u32,
                         background: false,
                     }),
                 ),
@@ -170,7 +174,7 @@ impl Helix {
     }
 
     /// Return the position of the nucleotide in the 2d drawing
-    pub fn get_nucl_position(&self, nucl: &Nucl, shift: Shift) -> Vec2 {
+    pub fn get_nucl_position(&self, nucl: &FlatNucl, shift: Shift) -> Vec2 {
         let local_position = nucl.position as f32 * Vec2::unit_x()
             + match shift {
                 Shift::Prime3 => {
@@ -205,7 +209,7 @@ impl Helix {
     }
 
     /// Return the position at which the 3' tick should end
-    pub fn get_arrow_end(&self, nucl: &Nucl) -> Vec2 {
+    pub fn get_arrow_end(&self, nucl: &FlatNucl) -> Vec2 {
         let local_position = nucl.position as f32 * Vec2::unit_x()
             + if nucl.forward {
                 Vec2::new(0.2, 0.3)
@@ -218,7 +222,7 @@ impl Helix {
             .transform_point2(self.scale * local_position)
     }
 
-    fn get_old_pivot_position(&self, nucl: &Nucl) -> Vec2 {
+    fn get_old_pivot_position(&self, nucl: &FlatNucl) -> Vec2 {
         let local_position = nucl.position as f32 * Vec2::unit_x()
             + if nucl.forward {
                 Vec2::zero()
@@ -273,7 +277,7 @@ impl Helix {
     }
 
     /// Translate self so that the pivot ends up on position.
-    pub fn snap(&mut self, pivot: Nucl, position: Vec2) {
+    pub fn snap(&mut self, pivot: FlatNucl, position: Vec2) {
         let position = Vec2::new(position.x.round(), position.y.round());
         let old_pos = self.get_old_pivot_position(&pivot);
         self.translate(position - old_pos)
@@ -304,7 +308,7 @@ impl Helix {
     }
 
     pub fn get_depth(&self) -> f32 {
-        self.z_index as f32 + self.id as f32 / 1000.
+        self.z_index as f32 + self.flat_id.flat.0 as f32 / 1000.
     }
 
     pub fn move_forward(&mut self) {
@@ -403,45 +407,47 @@ impl Helix {
                 Some(false) => CIRCLE2D_GREEN,
             }
         };
-        center.map(|c| CircleInstance::new(c, CIRCLE_WIDGET_RADIUS, self.id as i32, color))
+        center.map(|c| {
+            CircleInstance::new(c, CIRCLE_WIDGET_RADIUS, self.flat_id.flat.0 as i32, color)
+        })
     }
 
     pub fn get_circle_nucl(&self, position: isize, forward: bool, color: u32) -> CircleInstance {
         let center = self.get_nucl_position(
-            &Nucl {
-                helix: self.real_id,
+            &FlatNucl {
+                helix: self.flat_id,
                 position,
                 forward,
             },
             Shift::No,
         );
-        CircleInstance::new(center, 0.4, self.id as i32, color)
+        CircleInstance::new(center, 0.4, self.flat_id.flat.0 as i32, color)
     }
 
     /// Return the pivot under the center of the helix's circle widget.
     /// See [get_circle](get_circle).
-    pub fn get_circle_pivot(&self, camera: &CameraPtr) -> Option<Nucl> {
+    pub fn get_circle_pivot(&self, camera: &CameraPtr) -> Option<FlatNucl> {
         let (left, right) = self.screen_intersection(camera)?;
         if self.left as f32 > right || (self.right as f32) < left {
             // the helix is invisible
             None
         } else if self.left as f32 - 1. - 2. * CIRCLE_WIDGET_RADIUS > left {
             // There is room on the left of the helix
-            Some(Nucl {
+            Some(FlatNucl {
                 position: self.left - 3,
-                helix: self.id as usize,
+                helix: self.flat_id,
                 forward: true,
             })
         } else if self.right as f32 + 2. + 2. * CIRCLE_WIDGET_RADIUS < right {
-            Some(Nucl {
+            Some(FlatNucl {
                 position: self.left - 3,
-                helix: self.id as usize,
+                helix: self.flat_id,
                 forward: true,
             })
         } else {
-            Some(Nucl {
+            Some(FlatNucl {
                 position: self.left,
-                helix: self.id as usize,
+                helix: self.flat_id,
                 forward: true,
             })
         }
@@ -508,7 +514,7 @@ impl Helix {
                         - scale * height / 2. * Vec2::unit_y(),
                     rotation: self.isometry.rotation.into_matrix(),
                     size: scale,
-                    z_index: self.id as i32,
+                    z_index: self.flat_id.flat.0 as i32,
                 })
             }
         }
@@ -537,7 +543,7 @@ impl Helix {
                     center: center + (x_shift + advances[c_idx] * scale) * Vec2::unit_x(),
                     rotation: self.isometry.rotation.into_matrix(),
                     size: scale,
-                    z_index: self.id as i32,
+                    z_index: self.flat_id.flat.0 as i32,
                 })
             }
         };
@@ -575,7 +581,7 @@ impl Helix {
                     center,
                     rotation: self.isometry.rotation.into_matrix(),
                     size: scale,
-                    z_index: self.id as i32,
+                    z_index: self.flat_id.flat.0 as i32,
                 })
             }
         };

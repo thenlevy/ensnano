@@ -4,10 +4,10 @@
 //! happens. In addition to the transistion in the automat, a `Consequence` is returned to the
 //! scene, that describes the consequences that the input must have on the view or the data held by
 //! the scene.
-use super::data::{FreeEnd, Nucl};
+use super::data::FreeEnd;
 use super::{
-    ActionMode, Arc, CameraPtr, DataPtr, Mediator, Mutex, PhySize, PhysicalPosition, ViewPtr,
-    WindowEvent,
+    ActionMode, Arc, CameraPtr, DataPtr, FlatHelix, FlatNucl, Mediator, Mutex, PhySize,
+    PhysicalPosition, ViewPtr, WindowEvent,
 };
 use crate::design::StrandBuilder;
 use iced_winit::winit::event::*;
@@ -34,19 +34,19 @@ pub enum Consequence {
     #[allow(dead_code)]
     GlobalsChanged,
     Nothing,
-    Xover(Nucl, Nucl),
-    Cut(Nucl),
-    CutCross(Nucl, Nucl),
+    Xover(FlatNucl, FlatNucl),
+    Cut(FlatNucl),
+    CutCross(FlatNucl, FlatNucl),
     FreeEnd(Option<FreeEnd>),
-    CutFreeEnd(Nucl, Option<FreeEnd>),
-    NewCandidate(Option<Nucl>),
-    RmStrand(Nucl),
-    RmHelix(usize),
-    FlipVisibility(usize, bool),
+    CutFreeEnd(FlatNucl, Option<FreeEnd>),
+    NewCandidate(Option<FlatNucl>),
+    RmStrand(FlatNucl),
+    RmHelix(FlatHelix),
+    FlipVisibility(FlatHelix, bool),
     Built(Box<StrandBuilder>),
-    FlipGroup(usize),
-    FollowingSuggestion(Nucl, bool),
-    Centering(Nucl),
+    FlipGroup(FlatHelix),
+    FollowingSuggestion(FlatNucl, bool),
+    Centering(FlatNucl),
 }
 
 impl Controller {

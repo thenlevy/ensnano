@@ -1,5 +1,6 @@
 use super::super::data::ClickResult;
 use super::super::view::CircleInstance;
+use super::super::{FlatHelix, FlatIdx, FlatNucl};
 use super::*;
 use crate::design::StrandBuilder;
 
@@ -182,7 +183,7 @@ impl ControllerState for NormalState {
                                 .data
                                 .borrow()
                                 .get_pivot_position(
-                                    translation_pivot.helix,
+                                    translation_pivot.helix.flat,
                                     translation_pivot.position,
                                 )
                                 .unwrap();
@@ -288,7 +289,7 @@ impl ControllerState for NormalState {
 pub struct Translating {
     mouse_position: PhysicalPosition<f64>,
     world_delta: Vec2,
-    translation_pivot: Nucl,
+    translation_pivot: FlatNucl,
 }
 
 impl ControllerState for Translating {
@@ -318,7 +319,7 @@ impl ControllerState for Translating {
                 if let Some(rotation_pivot) = controller
                     .data
                     .borrow()
-                    .get_rotation_pivot(self.translation_pivot.helix, &controller.camera)
+                    .get_rotation_pivot(self.translation_pivot.helix.flat, &controller.camera)
                 {
                     Transition {
                         new_state: Some(Box::new(ReleasedPivot {
@@ -376,14 +377,14 @@ impl ControllerState for Translating {
         controller
             .data
             .borrow_mut()
-            .set_selected_helix(Some(self.translation_pivot.helix))
+            .set_selected_helix(Some(self.translation_pivot.helix.flat))
     }
 }
 
 pub struct MovingCamera {
     mouse_position: PhysicalPosition<f64>,
     clicked_position_screen: PhysicalPosition<f64>,
-    translation_pivot: Option<Nucl>,
+    translation_pivot: Option<FlatNucl>,
     rotation_pivot: Option<Vec2>,
 }
 
@@ -466,7 +467,7 @@ impl ControllerState for MovingCamera {
 
 pub struct ReleasedPivot {
     mouse_position: PhysicalPosition<f64>,
-    translation_pivot: Nucl,
+    translation_pivot: FlatNucl,
     rotation_pivot: Vec2,
 }
 
@@ -475,7 +476,7 @@ impl ControllerState for ReleasedPivot {
         controller
             .data
             .borrow_mut()
-            .set_selected_helix(Some(self.translation_pivot.helix));
+            .set_selected_helix(Some(self.translation_pivot.helix.flat));
         controller
             .view
             .borrow_mut()
@@ -574,7 +575,10 @@ impl ControllerState for ReleasedPivot {
                         let original_pivot_position = controller
                             .data
                             .borrow()
-                            .get_pivot_position(translation_pivot.helix, translation_pivot.position)
+                            .get_pivot_position(
+                                translation_pivot.helix.flat,
+                                translation_pivot.position,
+                            )
                             .unwrap();
                         let (clicked_x, clicked_y) = controller.camera.borrow().screen_to_world(
                             self.mouse_position.x as f32,
@@ -659,7 +663,7 @@ impl ControllerState for ReleasedPivot {
 /// their mouse, go in moving camera mode without unselecting the helix. If the user release their
 /// click without moving their mouse, clear selection
 pub struct LeavingPivot {
-    translation_pivot: Nucl,
+    translation_pivot: FlatNucl,
     rotation_pivot: Vec2,
     clicked_position_screen: PhysicalPosition<f64>,
     mouse_position: PhysicalPosition<f64>,
@@ -768,7 +772,7 @@ impl ControllerState for LeavingPivot {
 }
 
 pub struct Rotating {
-    translation_pivot: Nucl,
+    translation_pivot: FlatNucl,
     rotation_pivot: Vec2,
     clicked_position_screen: PhysicalPosition<f64>,
     button: MouseButton,
@@ -780,7 +784,7 @@ impl ControllerState for Rotating {
         controller
             .data
             .borrow_mut()
-            .set_selected_helix(Some(self.translation_pivot.helix));
+            .set_selected_helix(Some(self.translation_pivot.helix.flat));
         controller
             .view
             .borrow_mut()
@@ -871,7 +875,7 @@ impl ControllerState for Rotating {
 
 struct InitCutting {
     mouse_position: PhysicalPosition<f64>,
-    nucl: Nucl,
+    nucl: FlatNucl,
 }
 
 impl ControllerState for InitCutting {
@@ -962,7 +966,7 @@ impl ControllerState for InitCutting {
 struct InitBuilding {
     mouse_position: PhysicalPosition<f64>,
     builder: StrandBuilder,
-    nucl: Nucl,
+    nucl: FlatNucl,
     end: Option<bool>,
 }
 
@@ -1013,7 +1017,7 @@ impl ControllerState for InitBuilding {
                     .screen_to_world(self.mouse_position.x as f32, self.mouse_position.y as f32);
                 let click_result = controller.data.borrow().get_click(x, y, &controller.camera);
                 match click_result {
-                    ClickResult::Nucl(Nucl {
+                    ClickResult::Nucl(FlatNucl {
                         helix,
                         position,
                         forward,
@@ -1113,7 +1117,7 @@ impl ControllerState for InitBuilding {
 
 struct MovingFreeEnd {
     mouse_position: PhysicalPosition<f64>,
-    from: Nucl,
+    from: FlatNucl,
     strand_id: usize,
     prime3: bool,
 }
@@ -1232,7 +1236,7 @@ impl ControllerState for MovingFreeEnd {
 struct Building {
     mouse_position: PhysicalPosition<f64>,
     builder: StrandBuilder,
-    nucl: Nucl,
+    nucl: FlatNucl,
 }
 
 impl ControllerState for Building {
@@ -1286,7 +1290,7 @@ impl ControllerState for Building {
                         .borrow()
                         .get_click_unbounded_helix(x, y, self.nucl.helix);
                 match nucl {
-                    Nucl {
+                    FlatNucl {
                         helix, position, ..
                     } if helix == self.nucl.helix => {
                         self.builder.move_to(position);
@@ -1314,8 +1318,8 @@ impl ControllerState for Building {
 
 pub struct Crossing {
     mouse_position: PhysicalPosition<f64>,
-    from: Nucl,
-    to: Nucl,
+    from: FlatNucl,
+    to: FlatNucl,
     from3prime: bool,
     strand_id: usize,
     cut: bool,
@@ -1407,7 +1411,7 @@ impl ControllerState for Crossing {
 
 struct Cutting {
     mouse_position: PhysicalPosition<f64>,
-    nucl: Nucl,
+    nucl: FlatNucl,
     whole_strand: bool,
 }
 
@@ -1486,7 +1490,7 @@ impl ControllerState for Cutting {
 
 struct RmHelix {
     mouse_position: PhysicalPosition<f64>,
-    helix: usize,
+    helix: FlatHelix,
 }
 
 impl ControllerState for RmHelix {
@@ -1564,7 +1568,7 @@ impl ControllerState for RmHelix {
 
 struct FlipGroup {
     mouse_position: PhysicalPosition<f64>,
-    helix: usize,
+    helix: FlatHelix,
 }
 
 impl ControllerState for FlipGroup {
@@ -1642,7 +1646,7 @@ impl ControllerState for FlipGroup {
 
 struct FlipVisibility {
     mouse_position: PhysicalPosition<f64>,
-    helix: usize,
+    helix: FlatHelix,
     apply_to_other: bool,
 }
 
@@ -1721,7 +1725,7 @@ impl ControllerState for FlipVisibility {
 
 struct FollowingSuggestion {
     mouse_position: PhysicalPosition<f64>,
-    nucl: Nucl,
+    nucl: FlatNucl,
     double: bool,
 }
 
@@ -1800,7 +1804,7 @@ impl ControllerState for FollowingSuggestion {
 
 struct CenteringSuggestion {
     mouse_position: PhysicalPosition<f64>,
-    nucl: Nucl,
+    nucl: FlatNucl,
 }
 
 impl ControllerState for CenteringSuggestion {

@@ -1,6 +1,7 @@
-use super::data::{FreeEnd, GpuVertex, Helix, HelixModel, Strand, StrandVertex};
-use super::CameraPtr;
-use crate::design::Torsion;
+use super::data::{
+    FlatTorsion, FreeEnd, GpuVertex, Helix, HelixModel, HelixVec, Strand, StrandVertex,
+};
+use super::{CameraPtr, Flat, FlatHelix, FlatIdx, FlatNucl};
 use crate::utils::bindgroup_manager::{DynamicBindGroup, UniformBindGroup};
 use crate::utils::texture::Texture;
 use crate::{DrawArea, PhySize};
@@ -12,8 +13,7 @@ use wgpu::{Device, Queue, RenderPipeline};
 mod helix_view;
 use helix_view::{HelixView, StrandView};
 mod background;
-use super::data::Nucl;
-use super::Selection;
+use super::FlatSelection;
 use crate::utils::{chars2d as chars, circles2d as circles};
 use background::Background;
 use chars::CharDrawer;
@@ -47,12 +47,12 @@ pub struct View {
     rotation_widget: CircleDrawer,
     char_drawers: HashMap<char, CharDrawer>,
     char_map: HashMap<char, Vec<CharInstance>>,
-    selection: Selection,
+    selection: FlatSelection,
     show_sec: bool,
-    suggestions: Vec<(Nucl, Nucl)>,
+    suggestions: Vec<(FlatNucl, FlatNucl)>,
     suggestions_view: Vec<StrandView>,
-    suggestion_candidate: Option<(Nucl, Nucl)>,
-    torsions: HashMap<(Nucl, Nucl), Torsion>,
+    suggestion_candidate: Option<(FlatNucl, FlatNucl)>,
+    torsions: HashMap<(FlatNucl, FlatNucl), FlatTorsion>,
     show_torsion: bool,
 }
 
@@ -138,7 +138,7 @@ impl View {
             rotation_widget,
             char_drawers,
             char_map,
-            selection: Selection::Nothing,
+            selection: FlatSelection::Nothing,
             show_sec: false,
             suggestions: vec![],
             suggestions_view: vec![],
@@ -183,24 +183,24 @@ impl View {
         self.models.update(self.helices_model.as_slice());
     }
 
-    pub fn rm_helices(&mut self, helices: BTreeSet<usize>) {
+    pub fn rm_helices(&mut self, helices: BTreeSet<FlatIdx>) {
         if self.helices.len() == 0 {
             // self was already reseted
             return;
         }
         for h in helices.iter().rev() {
-            self.helices.remove(*h);
-            self.helices_background.remove(*h);
-            self.helices_view.remove(*h);
-            self.helices_model.remove(*h);
+            self.helices.remove(h.0);
+            self.helices_background.remove(h.0);
+            self.helices_view.remove(h.0);
+            self.helices_model.remove(h.0);
         }
     }
 
-    pub fn set_suggestions(&mut self, suggestions: Vec<(Nucl, Nucl)>) {
+    pub fn set_suggestions(&mut self, suggestions: Vec<(FlatNucl, FlatNucl)>) {
         self.suggestions = suggestions;
     }
 
-    pub fn set_torsions(&mut self, torsions: HashMap<(Nucl, Nucl), Torsion>) {
+    pub fn set_torsions(&mut self, torsions: HashMap<(FlatNucl, FlatNucl), FlatTorsion>) {
         self.torsions = torsions
     }
 
@@ -218,19 +218,13 @@ impl View {
         self.was_updated = true;
     }
 
-    pub fn add_strand(
-        &mut self,
-        strand: &Strand,
-        helices: &[Helix],
-        id_map: &HashMap<usize, usize>,
-    ) {
+    pub fn add_strand(&mut self, strand: &Strand, helices: &[Helix]) {
         self.strands
             .push(StrandView::new(self.device.clone(), self.queue.clone()));
         self.strands.iter_mut().last().unwrap().update(
             &strand,
             helices,
             &self.free_end,
-            id_map,
             &self.selection,
         );
     }
@@ -247,19 +241,13 @@ impl View {
         &mut self,
         strands: &[Strand],
         helices: &[Helix],
-        id_map: &HashMap<usize, usize>,
+        id_map: &HashMap<usize, FlatIdx>,
     ) {
         for (i, s) in self.strands.iter_mut().enumerate() {
-            s.update(
-                &strands[i],
-                helices,
-                &self.free_end,
-                id_map,
-                &self.selection,
-            );
+            s.update(&strands[i], helices, &self.free_end, &self.selection);
         }
         for strand in strands.iter().skip(self.strands.len()) {
-            self.add_strand(strand, helices, id_map)
+            self.add_strand(strand, helices)
         }
         self.was_updated = true;
     }
@@ -272,27 +260,26 @@ impl View {
         self.camera.borrow().was_updated() | self.was_updated
     }
 
-    pub fn set_selection(&mut self, selection: Selection) {
+    pub fn set_selection(&mut self, selection: FlatSelection) {
         self.selection = selection;
     }
 
-    pub fn center_selection(&mut self, id_map: &HashMap<usize, usize>) {
+    pub fn center_selection(&mut self) {
         match self.selection {
-            Selection::Bound(
+            FlatSelection::Bound(
                 _,
-                Nucl {
+                FlatNucl {
                     helix, position, ..
                 },
                 _,
             ) => {
-                let helix = id_map[&helix];
                 self.helices[helix].make_visible(position, self.camera.clone());
             }
             _ => (),
         }
     }
 
-    pub fn center_nucl(&mut self, nucl: Nucl) {
+    pub fn center_nucl(&mut self, nucl: FlatNucl) {
         let helix = nucl.helix;
         let position = self.helices[helix].get_pivot(nucl.position);
         self.camera.borrow_mut().set_center(position);
@@ -461,7 +448,7 @@ impl View {
         }
     }
 
-    pub fn set_candidate(&mut self, candidate: Option<Nucl>, other: Option<Nucl>) {
+    pub fn set_candidate(&mut self, candidate: Option<FlatNucl>, other: Option<FlatNucl>) {
         self.suggestions_view.clear();
         self.was_updated |= self.suggestion_candidate != candidate.zip(other);
         if let Some((n1, n2)) = candidate.zip(other) {

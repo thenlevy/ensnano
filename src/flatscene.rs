@@ -10,6 +10,7 @@ use mediator::{
     Selection, StrandConstruction, Xover,
 };
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 use wgpu::{Device, Queue};
@@ -171,7 +172,7 @@ impl FlatScene {
                             .borrow()
                             .get_strand(strand_id)
                             .unwrap();
-                        let nucl = self.data[self.selected_design].borrow().to_real(nucl);
+                        let nucl = nucl.to_real();
                         self.mediator
                             .lock()
                             .unwrap()
@@ -195,7 +196,7 @@ impl FlatScene {
                             .borrow()
                             .get_strand(strand_id)
                             .unwrap();
-                        let nucl = self.data[self.selected_design].borrow().to_real(nucl);
+                        let nucl = nucl.to_real();
                         self.mediator
                             .lock()
                             .unwrap()
@@ -232,7 +233,7 @@ impl FlatScene {
                                     source_id,
                                     target_id,
                                     target_3prime,
-                                    nucl: self.data[self.selected_design].borrow().to_real(to),
+                                    nucl: to.to_real(),
                                     undo: false,
                                     design_id: self.selected_design,
                                 }))
@@ -242,9 +243,7 @@ impl FlatScene {
                 Consequence::NewCandidate(candidate) => {
                     let phantom = candidate.map(|n| PhantomElement {
                         position: n.position as i32,
-                        helix_id: self.data[self.selected_design]
-                            .borrow()
-                            .helix_id_design(n.helix) as u32,
+                        helix_id: n.helix.real as u32,
                         forward: n.forward,
                         bound: false,
                         design_id: self.selected_design as u32,
@@ -323,7 +322,7 @@ impl FlatScene {
                     }
                 }
                 Consequence::Centering(nucl) => {
-                    let nucl = self.data[self.selected_design].borrow().to_real(nucl);
+                    let nucl = nucl.to_real();
                     self.mediator
                         .lock()
                         .unwrap()
@@ -334,9 +333,9 @@ impl FlatScene {
         }
     }
 
-    fn attempt_xover(&self, nucl1: Nucl, nucl2: Nucl) {
-        let source = self.data[self.selected_design].borrow().to_real(nucl1);
-        let target = self.data[self.selected_design].borrow().to_real(nucl2);
+    fn attempt_xover(&self, nucl1: FlatNucl, nucl2: FlatNucl) {
+        let source = nucl1.to_real();
+        let target = nucl2.to_real();
         self.mediator
             .lock()
             .unwrap()
@@ -370,15 +369,16 @@ impl Application for FlatScene {
             }
             Notification::FitRequest => self.controller[self.selected_design].fit(),
             Notification::Selection3D(selection) => {
-                self.view[self.selected_design]
-                    .borrow_mut()
-                    .set_selection(selection);
-                self.data[self.selected_design].borrow_mut().notify_update();
                 let data = self.data[self.selected_design].borrow();
                 let id_map = data.id_map();
                 self.view[self.selected_design]
                     .borrow_mut()
-                    .center_selection(id_map);
+                    .set_selection(FlatSelection::from_real(&selection, id_map));
+                drop(data);
+                self.data[self.selected_design].borrow_mut().notify_update();
+                self.view[self.selected_design]
+                    .borrow_mut()
+                    .center_selection();
             }
             Notification::Save(d_id) => self.data[d_id].borrow_mut().save_isometry(),
             Notification::ToggleText(b) => {
@@ -413,5 +413,157 @@ impl Application for FlatScene {
 
     fn needs_redraw(&mut self, _: Duration) -> bool {
         self.needs_redraw_()
+    }
+}
+
+/// An helix identifier in the flatscene data structures.
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Ord, Eq, Hash)]
+pub struct FlatIdx(usize);
+
+#[derive(Debug, Clone, Copy, Hash)]
+pub struct FlatHelix {
+    /// The identifier of the helix in the flatscene data strucutres.
+    pub flat: FlatIdx,
+    /// The identifier of the helix in the designs data strucutres.
+    pub real: usize,
+}
+
+impl std::cmp::PartialEq for FlatHelix {
+    fn eq(&self, other: &Self) -> bool {
+        self.flat == other.flat
+    }
+}
+
+impl Eq for FlatHelix {}
+
+impl std::cmp::PartialOrd for FlatHelix {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.flat.partial_cmp(&other.flat)
+    }
+}
+
+impl std::cmp::Ord for FlatHelix {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.flat.cmp(&other.flat)
+    }
+}
+
+impl FlatHelix {
+    pub fn from_real(real: usize, helix_map: &HashMap<usize, FlatIdx>) -> Self {
+        Self {
+            flat: helix_map[&real],
+            real,
+        }
+    }
+}
+
+/// This trait is a marker, incating that if T:Flat, then [T] can be indexed by a FlatHelix.
+pub trait Flat {}
+
+impl<T: Flat> std::ops::Index<FlatHelix> for [T] {
+    type Output = T;
+    fn index(&self, idx: FlatHelix) -> &Self::Output {
+        &self[idx.flat.0]
+    }
+}
+
+impl<T: Flat> std::ops::Index<FlatHelix> for Vec<T> {
+    type Output = T;
+    fn index(&self, idx: FlatHelix) -> &Self::Output {
+        &self[idx.flat.0]
+    }
+}
+
+impl<T: Flat> std::ops::Index<FlatIdx> for [T] {
+    type Output = T;
+    fn index(&self, idx: FlatIdx) -> &Self::Output {
+        &self[idx.0]
+    }
+}
+
+impl<T: Flat> std::ops::Index<FlatIdx> for Vec<T> {
+    type Output = T;
+    fn index(&self, idx: FlatIdx) -> &Self::Output {
+        &self[idx.0]
+    }
+}
+
+/// The nucleotide type manipulated by the flatscene
+#[derive(Debug, Clone, Copy, PartialOrd, PartialEq, Eq, Ord, Hash)]
+pub struct FlatNucl {
+    helix: FlatHelix,
+    position: isize,
+    forward: bool,
+}
+
+impl FlatNucl {
+    pub fn to_real(&self) -> Nucl {
+        Nucl {
+            helix: self.helix.real,
+            position: self.position,
+            forward: self.forward,
+        }
+    }
+
+    pub fn from_real(real: &Nucl, id_map: &HashMap<usize, FlatIdx>) -> Self {
+        Self {
+            helix: FlatHelix::from_real(real.helix, id_map),
+            position: real.position,
+            forward: real.forward,
+        }
+    }
+
+    pub fn prime3(&self) -> Self {
+        Self {
+            position: if self.forward {
+                self.position + 1
+            } else {
+                self.position - 1
+            },
+            ..*self
+        }
+    }
+
+    pub fn prime5(&self) -> Self {
+        Self {
+            position: if self.forward {
+                self.position - 1
+            } else {
+                self.position + 1
+            },
+            ..*self
+        }
+    }
+}
+
+pub enum FlatSelection {
+    Nucleotide(usize, FlatNucl),
+    Bound(usize, FlatNucl, FlatNucl),
+    Design(usize),
+    Strand(usize, usize),
+    Helix(usize, FlatHelix),
+    Grid(usize, usize),
+    Nothing,
+}
+
+impl FlatSelection {
+    pub fn from_real(selection: &Selection, id_map: &HashMap<usize, FlatIdx>) -> FlatSelection {
+        match selection {
+            Selection::Nucleotide(d, nucl) => {
+                Self::Nucleotide(*d as usize, FlatNucl::from_real(nucl, id_map))
+            }
+            Selection::Bound(d, n1, n2) => {
+                let n1 = FlatNucl::from_real(n1, id_map);
+                let n2 = FlatNucl::from_real(n2, id_map);
+                Self::Bound(*d as usize, n1, n2)
+            }
+            Selection::Design(d) => Self::Design(*d as usize),
+            Selection::Strand(d, s_id) => Self::Strand(*d as usize, *s_id as usize),
+            Selection::Helix(d, h_id) => {
+                Self::Helix(*d as usize, FlatHelix::from_real(*h_id as usize, id_map))
+            }
+            Selection::Grid(d, g_id) => Self::Grid(*d as usize, *g_id),
+            Selection::Nothing => Self::Nothing,
+        }
     }
 }

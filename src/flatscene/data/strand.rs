@@ -1,6 +1,6 @@
-use super::super::Selection;
+use super::super::FlatSelection;
 use super::helix::{Helix, Shift};
-pub use crate::design::Nucl;
+use super::{FlatHelix, FlatIdx, FlatNucl};
 use lyon::math::Point;
 use lyon::path::Path;
 use lyon::tessellation;
@@ -12,12 +12,12 @@ type Vertices = lyon::tessellation::VertexBuffers<StrandVertex, u16>;
 
 pub struct Strand {
     pub color: u32,
-    pub points: Vec<Nucl>,
+    pub points: Vec<FlatNucl>,
     pub id: usize,
 }
 
 impl Strand {
-    pub fn new(color: u32, points: Vec<Nucl>, id: usize) -> Self {
+    pub fn new(color: u32, points: Vec<FlatNucl>, id: usize) -> Self {
         Self { color, points, id }
     }
 
@@ -25,8 +25,7 @@ impl Strand {
         &self,
         helices: &[Helix],
         free_end: &Option<FreeEnd>,
-        id_map: &HashMap<usize, usize>,
-        selection: &Selection,
+        selection: &FlatSelection,
     ) -> Vertices {
         let mut vertices = Vertices::new();
         if self.points.len() == 0 {
@@ -37,7 +36,7 @@ impl Strand {
         let mut stroke_tess = lyon::tessellation::StrokeTessellator::new();
 
         let mut builder = Path::builder_with_attributes(3);
-        let mut last_nucl: Option<Nucl> = None;
+        let mut last_nucl: Option<FlatNucl> = None;
         let mut last_point = match free_end {
             Some(FreeEnd {
                 point,
@@ -49,19 +48,15 @@ impl Strand {
 
         let mut last_depth = None;
         let mut sign = 1.;
-        for (i, nucl_design) in self.points.iter().enumerate() {
-            let nucl = Nucl {
-                helix: id_map[&nucl_design.helix],
-                ..*nucl_design
-            };
+        for (i, nucl) in self.points.iter().enumerate() {
             let position = helices[nucl.helix].get_nucl_position(&nucl, Shift::Prime5);
             let depth = helices[nucl.helix].get_depth();
             let point = Point::new(position.x, position.y);
             if i == 0 && last_point.is_none() {
                 builder.begin(point, &[depth, sign, 1.]);
             } else if last_point.is_some() && Some(nucl.helix) != last_nucl.map(|n| n.helix) {
-                let cst = if let Selection::Bound(_, n1, n2) = *selection {
-                    if n1 == *nucl_design || n2 == *nucl_design {
+                let cst = if let FlatSelection::Bound(_, n1, n2) = *selection {
+                    if n1 == *nucl || n2 == *nucl {
                         5.
                     } else {
                         1.
@@ -95,7 +90,7 @@ impl Strand {
                 builder.line_to(point, &[depth, sign, 1.]);
             }
             last_point = Some(position);
-            last_nucl = Some(nucl);
+            last_nucl = Some(*nucl);
             last_depth = Some(depth);
         }
         if let Some(nucl) = last_nucl {
@@ -151,7 +146,7 @@ impl Strand {
         vertices
     }
 
-    pub fn indication(nucl1: Nucl, nucl2: Nucl, helices: &[Helix]) -> Vertices {
+    pub fn indication(nucl1: FlatNucl, nucl2: FlatNucl, helices: &[Helix]) -> Vertices {
         let mut vertices = Vertices::new();
         let mut builder = Path::builder_with_attributes(3);
         let color = [0.823, 0.525, 0.058, 0.75];

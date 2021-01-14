@@ -1,28 +1,29 @@
 use std::collections::{BTreeSet, HashMap};
 use std::sync::{Arc, Mutex};
 
-use super::{Nucl, Strand};
+use super::super::{FlatHelix, FlatIdx, FlatNucl};
+use super::{Flat, HelixVec, Nucl, Strand};
 use crate::design::{Design, Helix as DesignHelix, Strand as StrandDesign, StrandBuilder, Torsion};
 use ultraviolet::{Isometry2, Rotor2, Vec2};
 
 pub(super) struct Design2d {
     /// The 2d helices
-    helices: Vec<Helix2d>,
+    helices: HelixVec<Helix2d>,
     /// Maps id of helices in design to location in self.helices
-    id_map: HashMap<usize, usize>,
+    id_map: HashMap<usize, FlatIdx>,
     /// the 2d strands
     strands: Vec<Strand>,
     /// A pointer to the design
     design: Arc<Mutex<Design>>,
-    last_flip_other: Option<usize>,
-    removed: BTreeSet<usize>,
+    last_flip_other: Option<FlatHelix>,
+    removed: BTreeSet<FlatIdx>,
 }
 
 impl Design2d {
     pub fn new(design: Arc<Mutex<Design>>) -> Self {
         Self {
             design,
-            helices: Vec::new(),
+            helices: HelixVec::new(),
             id_map: HashMap::new(),
             strands: Vec::new(),
             last_flip_other: None,
@@ -52,53 +53,73 @@ impl Design2d {
             for nucl in strand.iter() {
                 self.read_nucl(nucl)
             }
-            self.strands.push(Strand::new(color, strand, *strand_id));
+            let flat_strand = strand
+                .iter()
+                .map(|n| FlatNucl::from_real(n, self.id_map()))
+                .collect();
+            self.strands
+                .push(Strand::new(color, flat_strand, *strand_id));
         }
         self.rm_deleted_helices();
         for (h_id, h) in self.id_map.iter() {
             let visibility = self.design.lock().unwrap().get_visibility_helix(*h_id);
-            self.helices[*h].visible = visibility.unwrap_or(false);
+            let flat_helix = FlatHelix::from_real(*h_id, &self.id_map);
+            self.helices[flat_helix.flat].visible = visibility.unwrap_or(false);
         }
     }
 
-    pub fn suggestions(&self) -> Vec<(Nucl, Nucl)> {
-        let mut suggestions = self.design.lock().unwrap().get_suggestions();
-        for (n1, n2) in suggestions.iter_mut() {
-            n1.helix = *self.id_map.get(&n1.helix).unwrap();
-            n2.helix = *self.id_map.get(&n2.helix).unwrap();
-        }
+    pub fn suggestions(&self) -> Vec<(FlatNucl, FlatNucl)> {
+        let suggestions = self.design.lock().unwrap().get_suggestions();
         suggestions
+            .iter()
+            .map(|(n1, n2)| {
+                (
+                    FlatNucl::from_real(n1, &self.id_map),
+                    FlatNucl::from_real(n2, &self.id_map),
+                )
+            })
+            .collect()
     }
 
     fn rm_deleted_helices(&mut self) {
         let mut to_remove = Vec::new();
         for (h_id, h) in self.id_map.iter() {
             if !self.design.lock().unwrap().has_helix(*h_id) {
-                to_remove.push(*h);
+                let flat_helix = FlatHelix {
+                    flat: *h,
+                    real: *h_id,
+                };
+                to_remove.push(flat_helix);
                 self.removed.insert(*h);
             }
         }
         to_remove.sort();
         if to_remove.len() > 0 {
             for h in to_remove.iter().rev() {
-                self.helices.remove(*h);
+                self.helices.remove(h.flat);
             }
             self.remake_id_map();
         }
     }
 
-    pub fn get_removed_helices(&mut self) -> BTreeSet<usize> {
+    pub fn get_removed_helices(&mut self) -> BTreeSet<FlatIdx> {
         std::mem::replace(&mut self.removed, BTreeSet::new())
     }
 
+    /// Add a nucleotide to self.
+    /// If the nucleotides lies on an helix that is not known from self, create a new helix.
     fn read_nucl(&mut self, nucl: &Nucl) {
         let helix = nucl.helix;
-        if let Some(pos) = self.id_map.get(&helix) {
-            let helix2d = &mut self.helices[*pos];
+        if let Some(flat) = self.id_map.get(&helix) {
+            let flat_helix = FlatHelix {
+                real: helix,
+                flat: *flat,
+            };
+            let helix2d = &mut self.helices[flat_helix.flat];
             helix2d.left = helix2d.left.min(nucl.position - 1);
             helix2d.right = helix2d.right.max(nucl.position + 1);
         } else {
-            self.id_map.insert(helix, self.helices.len());
+            self.id_map.insert(helix, FlatIdx(self.helices.len()));
             let iso_opt = self.design.lock().unwrap().get_isometry(helix);
             let isometry = if let Some(iso) = iso_opt {
                 iso
@@ -142,7 +163,7 @@ impl Design2d {
                         self.design.lock().unwrap().set_isometry(*h_id, iso);
                         iso
                     };
-                    self.id_map.insert(*h_id, self.helices.len());
+                    self.id_map.insert(*h_id, FlatIdx(self.helices.len()));
                     self.helices.push(Helix2d {
                         id: *h_id,
                         left: -1,
@@ -162,30 +183,31 @@ impl Design2d {
         }
     }
 
-    pub fn get_helices(&self) -> &Vec<Helix2d> {
+    pub fn get_helices(&self) -> &[Helix2d] {
         &self.helices
     }
 
-    pub fn get_strands(&self) -> &Vec<Strand> {
+    pub fn get_strands(&self) -> &[Strand] {
         &self.strands
     }
 
-    pub fn set_isometry(&self, h_id: usize, isometry: Isometry2) {
-        let helix = self.helices[h_id].id;
-        self.design.lock().unwrap().set_isometry(helix, isometry);
+    pub fn set_isometry(&self, helix: FlatHelix, isometry: Isometry2) {
+        self.design
+            .lock()
+            .unwrap()
+            .set_isometry(helix.real, isometry);
     }
 
-    pub fn flip_visibility(&mut self, h_id: usize, apply_to_other: bool) {
-        let helix = self.helices[h_id].id;
+    pub fn flip_visibility(&mut self, flat_helix: FlatHelix, apply_to_other: bool) {
         if apply_to_other {
-            let visibility = if self.last_flip_other == Some(h_id) {
+            let visibility = if self.last_flip_other == Some(flat_helix) {
                 self.last_flip_other = None;
-                self.helices[h_id].visible
+                self.helices[flat_helix.flat].visible
             } else {
-                self.last_flip_other = Some(h_id);
-                !self.helices[h_id].visible
+                self.last_flip_other = Some(flat_helix);
+                !self.helices[flat_helix.flat].visible
             };
-            for helix in self.id_map.keys().filter(|h| **h != helix) {
+            for helix in self.id_map.keys().filter(|h| **h != flat_helix.real) {
                 self.design
                     .lock()
                     .unwrap()
@@ -195,13 +217,12 @@ impl Design2d {
             self.design
                 .lock()
                 .unwrap()
-                .set_visibility_helix(helix, !self.helices[h_id].visible)
+                .set_visibility_helix(flat_helix.real, !self.helices[flat_helix.flat].visible)
         }
     }
 
-    pub fn flip_group(&mut self, h_id: usize) {
-        let helix = self.helices[h_id].id;
-        self.design.lock().unwrap().flip_group(helix)
+    pub fn flip_group(&mut self, helix: FlatHelix) {
+        self.design.lock().unwrap().flip_group(helix.real)
     }
 
     pub fn get_builder(&self, nucl: Nucl, stick: bool) -> Option<StrandBuilder> {
@@ -235,13 +256,12 @@ impl Design2d {
         self.design.lock().unwrap().rm_strand(nucl)
     }
 
-    pub fn can_delete_helix(&self, helix: usize) -> bool {
-        let real_helix = self.helices[helix].id;
-        self.design.lock().unwrap().helix_is_empty(real_helix)
+    pub fn can_delete_helix(&self, helix: FlatHelix) -> bool {
+        self.design.lock().unwrap().helix_is_empty(helix.real)
     }
 
-    pub fn get_raw_helix(&self, h_id: usize) -> Option<DesignHelix> {
-        self.design.lock().unwrap().get_raw_helix(h_id)
+    pub fn get_raw_helix(&self, helix: FlatHelix) -> Option<DesignHelix> {
+        self.design.lock().unwrap().get_raw_helix(helix.real)
     }
 
     pub fn get_strand(&self, s_id: usize) -> Option<StrandDesign> {
@@ -251,11 +271,11 @@ impl Design2d {
     fn remake_id_map(&mut self) {
         self.id_map.clear();
         for (i, h) in self.helices.iter().enumerate() {
-            self.id_map.insert(h.id, i);
+            self.id_map.insert(h.id, FlatIdx(i));
         }
     }
 
-    pub fn id_map(&self) -> &HashMap<usize, usize> {
+    pub fn id_map(&self) -> &HashMap<usize, FlatIdx> {
         &self.id_map
     }
 
@@ -290,21 +310,15 @@ impl Design2d {
         Some((pos1 - pos2).mag())
     }
 
-    pub fn get_torsions(&self) -> HashMap<(Nucl, Nucl), Torsion> {
+    pub fn get_torsions(&self) -> HashMap<(FlatNucl, FlatNucl), FlatTorsion> {
         let torsions = self.design.lock().unwrap().get_torsions();
-        let mut ret = HashMap::new();
-        for (xover, torsion) in torsions.into_iter() {
-            let mut xover = xover.clone();
-            let mut torsion = torsion;
-            xover.0.helix = self.id_map[&xover.0.helix];
-            xover.1.helix = self.id_map[&xover.1.helix];
-            if let Some(friend) = torsion.friend.as_mut() {
-                friend.0.helix = self.id_map[&friend.0.helix];
-                friend.1.helix = self.id_map[&friend.1.helix];
-            }
-            ret.insert(xover, torsion);
-        }
-        ret
+        let conversion = |((n1, n2), k): (&(Nucl, Nucl), &Torsion)| {
+            let flat_1 = FlatNucl::from_real(n1, &self.id_map);
+            let flat_2 = FlatNucl::from_real(n2, &self.id_map);
+            let torsion = FlatTorsion::from_real(k, &self.id_map);
+            ((flat_1, flat_2), torsion)
+        };
+        torsions.iter().map(conversion).collect()
     }
 }
 
@@ -319,4 +333,27 @@ pub struct Helix2d {
     pub right: isize,
     pub isometry: Isometry2,
     pub visible: bool,
+}
+
+impl Flat for Helix2d {}
+
+pub struct FlatTorsion {
+    pub strength_0: f32,
+    pub strength_1: f32,
+    pub friend: Option<(FlatNucl, FlatNucl)>,
+}
+
+impl FlatTorsion {
+    pub fn from_real(real: &Torsion, id_map: &HashMap<usize, FlatIdx>) -> Self {
+        Self {
+            strength_0: real.strength_0,
+            strength_1: real.strength_1,
+            friend: real.friend.map(|(n1, n2)| {
+                (
+                    FlatNucl::from_real(&n1, id_map),
+                    FlatNucl::from_real(&n2, id_map),
+                )
+            }),
+        }
+    }
 }
