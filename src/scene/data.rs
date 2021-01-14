@@ -12,7 +12,7 @@ use ultraviolet::{Rotor3, Vec3};
 
 use super::view::Mesh;
 use crate::consts::*;
-use crate::design::{utils::*, Design, Nucl, ObjectType, Referential, Strand, StrandBuilder};
+use crate::design::{Design, Nucl, ObjectType, Referential, StrandBuilder};
 use crate::mediator::{ActionMode, Selection, SelectionMode};
 use crate::utils::PhantomElement;
 
@@ -470,10 +470,6 @@ impl Data {
         } else {
             None
         }
-    }
-
-    pub fn get_strand_raw(&self, s_id: usize, d_id: usize) -> Option<Strand> {
-        self.designs[d_id].get_strand_raw(s_id)
     }
 
     pub fn attempt_xover(&self, target: Option<SceneElement>) -> Option<(Nucl, Nucl, usize)> {

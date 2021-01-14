@@ -1,5 +1,5 @@
 use super::data::{FlatTorsion, FreeEnd, GpuVertex, Helix, HelixModel, Strand, StrandVertex};
-use super::{CameraPtr, Flat, FlatHelix, FlatIdx, FlatNucl, HelixVec};
+use super::{CameraPtr, FlatIdx, FlatNucl};
 use crate::utils::bindgroup_manager::{DynamicBindGroup, UniformBindGroup};
 use crate::utils::texture::Texture;
 use crate::{DrawArea, PhySize};
@@ -235,12 +235,7 @@ impl View {
         self.helices_background.clear();
     }
 
-    pub fn update_strands(
-        &mut self,
-        strands: &[Strand],
-        helices: &[Helix],
-        id_map: &HashMap<usize, FlatIdx>,
-    ) {
+    pub fn update_strands(&mut self, strands: &[Strand], helices: &[Helix]) {
         for (i, s) in self.strands.iter_mut().enumerate() {
             s.update(&strands[i], helices, &self.free_end, &self.selection);
         }
@@ -277,6 +272,8 @@ impl View {
         }
     }
 
+    /// Center the camera on a nucleotide
+    #[allow(dead_code)] // not used for now but might be useful in the future
     pub fn center_nucl(&mut self, nucl: FlatNucl) {
         let helix = nucl.helix;
         let position = self.helices[helix].get_pivot(nucl.position);

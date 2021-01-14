@@ -1,6 +1,5 @@
 use crate::PhySize;
 use iced_wgpu::wgpu;
-use std::rc::Rc;
 
 pub struct Texture {
     pub texture: wgpu::Texture,

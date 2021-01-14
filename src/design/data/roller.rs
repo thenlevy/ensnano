@@ -169,6 +169,7 @@ impl RollSystem {
     }
 
     /// Adjuste the helices of the design, do not show intermediate steps
+    #[allow(dead_code)]
     pub fn solve(&mut self, data: &mut DesignData, dt: f32) {
         let mut nb_step = 0;
         let mut done = false;
@@ -310,6 +311,7 @@ impl SpringSystem {
     }
 
     /// Adjuste the helices of the design, do not show intermediate steps
+    #[allow(dead_code)]
     pub fn solve(&mut self, data: &mut DesignData, dt: f32) {
         let mut nb_step = 0;
         let mut done = false;

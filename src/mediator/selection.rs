@@ -52,7 +52,7 @@ impl Selection {
                     })
                     .collect()
             }
-            Selection::Strand(d_id, s_id) => vec![
+            Selection::Strand(_, s_id) => vec![
                 format!(
                     "{:?}",
                     design

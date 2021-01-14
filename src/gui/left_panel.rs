@@ -7,7 +7,7 @@ use iced_winit::{
     button, scrollable, slider, text_input, Button, Checkbox, Color, Column, Command, Element,
     Length, Program, Row, Scrollable, Slider, Text, TextInput,
 };
-use native_dialog::{FileDialog, MessageDialog, MessageType};
+use native_dialog::FileDialog;
 use ultraviolet::Vec3;
 
 use color_space::{Hsv, Rgb};

@@ -1,5 +1,5 @@
 //! This modules defines the type [`Design`](Design) which offers an interface to a DNA nanostructure design.
-use ahash::{AHasher, RandomState};
+use ahash::RandomState;
 use native_dialog::{MessageDialog, MessageType};
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::PathBuf;
@@ -705,7 +705,10 @@ impl Design {
     }
 
     pub fn get_xover_info(&self, source: Nucl, target: Nucl) -> Option<XoverInfo> {
-        self.data.lock().unwrap().get_xover_info(source, target)
+        self.data
+            .lock()
+            .unwrap()
+            .get_xover_info(source, target, self.id)
     }
 
     pub fn get_torsions(&self) -> HashMap<(Nucl, Nucl), Torsion> {

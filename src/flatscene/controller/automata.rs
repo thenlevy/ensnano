@@ -1,6 +1,6 @@
 use super::super::data::ClickResult;
 use super::super::view::CircleInstance;
-use super::super::{FlatHelix, FlatIdx, FlatNucl};
+use super::super::{FlatHelix, FlatNucl};
 use super::*;
 use crate::design::StrandBuilder;
 
@@ -218,7 +218,6 @@ impl ControllerState for NormalState {
             WindowEvent::MouseInput {
                 button: MouseButton::Right,
                 state,
-                modifiers,
                 ..
             } => {
                 /*assert!(

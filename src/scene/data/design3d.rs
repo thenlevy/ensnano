@@ -2,7 +2,7 @@ use super::super::view::{Instanciable, RawDnaInstance, SphereInstance, TubeInsta
 use super::super::GridInstance;
 use super::{LetterInstance, SceneElement, StrandBuilder};
 use crate::consts::*;
-use crate::design::{utils::*, Design, Nucl, ObjectType, Referential, Strand};
+use crate::design::{Design, Nucl, ObjectType, Referential};
 use crate::utils;
 use crate::utils::instance::Instance;
 use std::collections::{HashMap, HashSet};
@@ -720,27 +720,11 @@ impl Design3D {
             .is_some()
     }
 
-    pub fn get_strand_raw(&self, s_id: usize) -> Option<Strand> {
-        self.design.lock().unwrap().get_raw_strand(s_id)
-    }
-
-    pub fn get_strand_id_from_nucl(&self, nucl: Nucl) -> Option<usize> {
-        self.design.lock().unwrap().get_strand_nucl(&nucl)
-    }
-
-    pub fn is_xover_end(&self, nucl: &Nucl) -> Extremity {
-        self.design.lock().unwrap().is_xover_end(&nucl)
-    }
-
     pub fn get_nucl_position(&self, nucl: Nucl) -> Option<Vec3> {
         self.design
             .lock()
             .unwrap()
             .get_helix_nucl(nucl, Referential::World, false)
-    }
-
-    pub fn get_xover_info(&self, source: Nucl, target: Nucl) -> Option<XoverInfo> {
-        self.design.lock().unwrap().get_xover_info(source, target)
     }
 }
 

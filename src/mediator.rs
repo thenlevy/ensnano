@@ -186,16 +186,6 @@ impl Mediator {
         }
     }
 
-    pub fn drop_undo_stack(&mut self) {
-        self.suspend_op();
-        self.finish_pending();
-        if self.undo_stack.len() > 0 {
-            println!("Warning: dropping undo stack!");
-        }
-        self.undo_stack.clear();
-        self.redo_stack.clear();
-    }
-
     pub fn add_application(
         &mut self,
         application: Arc<Mutex<dyn Application>>,
@@ -223,10 +213,6 @@ impl Mediator {
 
     pub fn request_fits(&mut self) {
         self.notify_apps(Notification::FitRequest)
-    }
-
-    pub fn nb_design(&self) -> usize {
-        self.designs.len()
     }
 
     pub fn add_design(&mut self, design: Arc<Mutex<Design>>) {

@@ -1,11 +1,10 @@
 use super::super::FlatSelection;
 use super::helix::{Helix, Shift};
-use super::{FlatHelix, FlatIdx, FlatNucl};
+use super::FlatNucl;
 use lyon::math::Point;
 use lyon::path::Path;
 use lyon::tessellation;
 use lyon::tessellation::{StrokeVertex, StrokeVertexConstructor};
-use std::collections::HashMap;
 use ultraviolet::Vec2;
 
 type Vertices = lyon::tessellation::VertexBuffers<StrandVertex, u16>;

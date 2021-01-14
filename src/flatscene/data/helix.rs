@@ -4,7 +4,7 @@ use super::{FlatNucl, Helix2d};
 use crate::consts::*;
 use crate::design::Nucl;
 use crate::utils::instance::Instance;
-use ahash::{AHasher, RandomState};
+use ahash::RandomState;
 use lyon::math::{rect, Point};
 use lyon::path::builder::{BorderRadii, PathBuilder};
 use lyon::path::Path;

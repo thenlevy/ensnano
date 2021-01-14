@@ -1,7 +1,6 @@
-use super::{FlatIdx, FlatSelection};
+use super::FlatSelection;
 use super::{FlatNucl, FreeEnd, Helix, Strand};
 use iced_wgpu::wgpu;
-use std::collections::HashMap;
 use std::rc::Rc;
 use wgpu::{Buffer, Device, Queue, RenderPass};
 

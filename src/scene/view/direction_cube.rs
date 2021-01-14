@@ -1,7 +1,7 @@
 use super::instances_drawer::{Instanciable, RessourceProvider, Vertexable};
 use iced_wgpu::wgpu;
 use std::rc::Rc;
-use ultraviolet::{Vec2, Vec3, Vec4};
+use ultraviolet::{Vec2, Vec3};
 use wgpu::{Device, Queue};
 
 #[repr(C)]

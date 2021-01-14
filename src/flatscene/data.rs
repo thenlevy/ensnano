@@ -12,7 +12,7 @@ use super::{CameraPtr, FlatHelix, FlatIdx, FlatNucl};
 use crate::consts::*;
 use crate::design::{Helix as DesignHelix, Strand as DesignStrand};
 use crate::utils::camera2d::FitRectangle;
-use ahash::{AHasher, RandomState};
+use ahash::RandomState;
 pub use design::FlatTorsion;
 use design::{Design2d, Helix2d};
 use std::collections::{BTreeMap, HashMap, HashSet};
@@ -57,11 +57,9 @@ impl Data {
             self.design.update();
             self.fetch_helices();
             self.view.borrow_mut().update_helices(&self.helices);
-            self.view.borrow_mut().update_strands(
-                &self.design.get_strands(),
-                &self.helices,
-                self.design.id_map(),
-            );
+            self.view
+                .borrow_mut()
+                .update_strands(&self.design.get_strands(), &self.helices);
         }
         self.instance_update = false;
     }
@@ -82,7 +80,7 @@ impl Data {
         for (i, helix) in self.helices.iter_mut().enumerate() {
             helix.update(&new_helices[i], id_map);
         }
-        for (delta, h) in new_helices[nb_helix..].iter().enumerate() {
+        for h in new_helices[nb_helix..].iter() {
             let flat_helix = FlatHelix::from_real(h.id, id_map);
             self.helices.push(Helix::new(
                 h.left,
@@ -202,10 +200,6 @@ impl Data {
         }
     }
 
-    pub fn helix_id_design(&self, id: usize) -> usize {
-        self.design.get_helices()[id].id
-    }
-
     pub fn get_builder(&self, nucl: FlatNucl, stick: bool) -> Option<StrandBuilder> {
         self.design.get_builder(nucl.to_real(), stick)
     }
@@ -265,11 +259,9 @@ impl Data {
 
     pub fn set_free_end(&mut self, free_end: Option<FreeEnd>) {
         self.view.borrow_mut().set_free_end(free_end);
-        self.view.borrow_mut().update_strands(
-            &self.design.get_strands(),
-            &self.helices,
-            self.design.id_map(),
-        );
+        self.view
+            .borrow_mut()
+            .update_strands(&self.design.get_strands(), &self.helices);
     }
 
     pub fn xover(&self, from: FlatNucl, to: FlatNucl) -> (usize, usize) {
@@ -294,12 +286,6 @@ impl Data {
         (strand_5prime.unwrap(), strand_3prime.unwrap())
     }
 
-    pub fn rm_strand(&mut self, nucl: Nucl) {
-        let nucl = self.to_real(nucl);
-        self.instance_reset = true;
-        self.design.rm_strand(nucl);
-    }
-
     pub fn get_strand(&self, strand_id: usize) -> Option<DesignStrand> {
         self.design.get_strand(strand_id)
     }
@@ -309,14 +295,6 @@ impl Data {
             self.design.get_raw_helix(helix).zip(Some(helix.real))
         } else {
             None
-        }
-    }
-
-    pub fn to_real(&self, nucl: Nucl) -> Nucl {
-        let real_helix = self.design.get_helices()[nucl.helix].id;
-        Nucl {
-            helix: real_helix,
-            ..nucl
         }
     }
 

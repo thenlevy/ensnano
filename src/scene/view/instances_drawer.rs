@@ -7,7 +7,6 @@ use crate::utils::bindgroup_manager::DynamicBindGroup;
 use crate::utils::create_buffer_with_data;
 use crate::utils::texture::Texture;
 use iced_wgpu::wgpu;
-use std::marker::PhantomData;
 use std::rc::Rc;
 use wgpu::{
     BindGroupLayoutDescriptor, Device, PrimitiveTopology, Queue, RenderPass, RenderPipeline,

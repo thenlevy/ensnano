@@ -1,4 +1,4 @@
-use native_dialog::{FileDialog, MessageDialog, MessageType};
+use native_dialog::{MessageDialog, MessageType};
 use nfd2::Response;
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -361,7 +361,7 @@ fn use_default_scaffold() -> bool {
                 .set_text("use default m13 sequence ?")
                 .show_confirm()
                 .unwrap();
-            choice_snd.send(choice);
+            choice_snd.send(choice).unwrap();
         });
         choice_rcv.recv().unwrap()
     }

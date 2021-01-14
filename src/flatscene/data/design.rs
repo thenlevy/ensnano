@@ -61,7 +61,7 @@ impl Design2d {
                 .push(Strand::new(color, flat_strand, *strand_id));
         }
         self.rm_deleted_helices();
-        for (h_id, h) in self.id_map.iter() {
+        for h_id in self.id_map.keys() {
             let visibility = self.design.lock().unwrap().get_visibility_helix(*h_id);
             let flat_helix = FlatHelix::from_real(*h_id, &self.id_map);
             self.helices[flat_helix.flat].visible = visibility.unwrap_or(false);
@@ -229,31 +229,12 @@ impl Design2d {
         self.design.lock().unwrap().get_builder(nucl, stick)
     }
 
-    pub fn merge_strand(&mut self, prime5: usize, prime3: usize) {
-        self.design.lock().unwrap().merge_strands(prime5, prime3)
-    }
-
     pub fn prime3_of(&self, nucl: Nucl) -> Option<usize> {
         self.design.lock().unwrap().prime3_of(nucl)
     }
 
     pub fn prime5_of(&self, nucl: Nucl) -> Option<usize> {
         self.design.lock().unwrap().prime5_of(nucl)
-    }
-
-    pub fn split_strand(&self, nucl: Nucl) {
-        self.design.lock().unwrap().split_strand(nucl)
-    }
-
-    pub fn split_strand_forced_end(&self, nucl: Nucl, forced_end: Option<bool>) {
-        self.design
-            .lock()
-            .unwrap()
-            .split_strand_forced_end(nucl, forced_end)
-    }
-
-    pub fn rm_strand(&self, nucl: Nucl) {
-        self.design.lock().unwrap().rm_strand(nucl)
     }
 
     pub fn can_delete_helix(&self, helix: FlatHelix) -> bool {

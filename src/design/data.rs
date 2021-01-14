@@ -8,7 +8,7 @@
 //! The `Data` objects can convert these identifier into `Nucl` position or retrieve information
 //! about the element such as its position, color etc...
 //!
-use ahash::{AHasher, RandomState};
+use ahash::RandomState;
 use native_dialog::{MessageDialog, MessageType};
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::io::Write;
@@ -79,7 +79,6 @@ pub struct Data {
     red_cubes: HashMap<(isize, isize, isize), Vec<Nucl>, RandomState>,
     blue_cubes: HashMap<(isize, isize, isize), Vec<Nucl>, RandomState>,
     blue_nucl: Vec<Nucl>,
-    red_nucl: Vec<Nucl>,
     roller_ptrs: Option<(
         Arc<Mutex<bool>>,
         Arc<Mutex<Option<Sender<Vec<Helix>>>>>,
@@ -120,7 +119,6 @@ impl Data {
             red_cubes: HashMap::default(),
             blue_cubes: HashMap::default(),
             blue_nucl: vec![],
-            red_nucl: vec![],
             roller_ptrs: None,
         }
     }
@@ -160,7 +158,6 @@ impl Data {
             red_cubes: HashMap::default(),
             blue_cubes: HashMap::default(),
             blue_nucl: vec![],
-            red_nucl: vec![],
             roller_ptrs: None,
         };
         ret.make_hash_maps();
@@ -391,7 +388,7 @@ impl Data {
     }
 
     pub fn roll_request(&mut self) {
-        if let Some((stop, _, _)) = self.roller_ptrs.as_mut() {
+        if self.roller_ptrs.is_some() {
             self.stop_rolling()
         } else {
             self.start_rolling()
@@ -2028,17 +2025,17 @@ impl Data {
     }
 
     /// Return the infomation necessary to make a crossover from source_nucl to target_nucl
-    pub fn get_xover_info(&self, source_nucl: Nucl, target_nucl: Nucl) -> Option<XoverInfo> {
-        let mut design_id = 0;
-
+    pub fn get_xover_info(
+        &self,
+        source_nucl: Nucl,
+        target_nucl: Nucl,
+        design_id: usize,
+    ) -> Option<XoverInfo> {
         let source_id = self.get_strand_nucl(&source_nucl)?;
         let target_id = self.get_strand_nucl(&target_nucl)?;
 
         let source = self.design.strands.get(&source_id).cloned()?;
         let target = self.design.strands.get(&target_id).cloned()?;
-
-        let source_xover_end = self.is_xover_end(&source_nucl);
-        let target_xover_end = self.is_xover_end(&target_nucl);
 
         let source_strand_end = self.is_strand_end(&source_nucl);
         let target_strand_end = self.is_strand_end(&target_nucl);
