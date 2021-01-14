@@ -170,26 +170,35 @@ impl Helix {
     }
 
     /// Return the position of the nucleotide in the 2d drawing
-    pub fn get_nucl_position(&self, nucl: &Nucl, last: bool) -> Vec2 {
+    pub fn get_nucl_position(&self, nucl: &Nucl, shift: Shift) -> Vec2 {
         let local_position = nucl.position as f32 * Vec2::unit_x()
-            + if last {
-                if nucl.forward {
-                    // on the right and below the center
-                    Vec2::new(0.7, 0.6)
-                } else {
-                    // on the left and above the center
-                    Vec2::new(0.3, 1.4)
+            + match shift {
+                Shift::Prime3 => {
+                    if nucl.forward {
+                        // on the right and below the center
+                        Vec2::new(0.7, 0.6)
+                    } else {
+                        // on the left and above the center
+                        Vec2::new(0.3, 1.4)
+                    }
                 }
-            } else {
-                if nucl.forward {
-                    // on the left and below the center
-                    Vec2::new(0.3, 0.6)
-                } else {
-                    // on the right and above the center
-                    Vec2::new(0.7, 1.4)
+                Shift::Prime5 => {
+                    if nucl.forward {
+                        // on the left and below the center
+                        Vec2::new(0.3, 0.6)
+                    } else {
+                        // on the right and above the center
+                        Vec2::new(0.7, 1.4)
+                    }
+                }
+                Shift::No => {
+                    if nucl.forward {
+                        Vec2::new(0.5, 0.5)
+                    } else {
+                        Vec2::new(0.5, 1.5)
+                    }
                 }
             };
-
         self.isometry
             .into_homogeneous_matrix()
             .transform_point2(self.scale * local_position)
@@ -404,7 +413,7 @@ impl Helix {
                 position,
                 forward,
             },
-            false,
+            Shift::No,
         );
         CircleInstance::new(center, 0.4, self.id as i32, color)
     }
@@ -711,4 +720,14 @@ fn line_intersect(u0: Vec2, v0: Vec2, u1: Vec2, v1: Vec2) -> Option<(f32, f32)> 
     } else {
         None
     }
+}
+
+/// Represent a slight shift from the center of the square representing nucleotide
+pub enum Shift {
+    /// No shift, the returned point will be on the center of the nucleotide
+    No,
+    /// The returned point will be slightly shifted in the 5' direction
+    Prime5,
+    /// The returned point will be slightly shifted in the 3' direction
+    Prime3,
 }

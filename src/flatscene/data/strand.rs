@@ -1,5 +1,5 @@
 use super::super::Selection;
-use super::helix::Helix;
+use super::helix::{Helix, Shift};
 pub use crate::design::Nucl;
 use lyon::math::Point;
 use lyon::path::Path;
@@ -54,7 +54,7 @@ impl Strand {
                 helix: id_map[&nucl_design.helix],
                 ..*nucl_design
             };
-            let position = helices[nucl.helix].get_nucl_position(&nucl, false);
+            let position = helices[nucl.helix].get_nucl_position(&nucl, Shift::Prime5);
             let depth = helices[nucl.helix].get_depth();
             let point = Point::new(position.x, position.y);
             if i == 0 && last_point.is_none() {
@@ -72,7 +72,7 @@ impl Strand {
                 let depth = depth.min(last_depth.unwrap_or(depth));
                 if let Some(nucl) = last_nucl {
                     // We are drawing a xover
-                    let point = helices[nucl.helix].get_nucl_position(&nucl, true);
+                    let point = helices[nucl.helix].get_nucl_position(&nucl, Shift::Prime3);
                     builder.line_to(Point::new(point.x, point.y), &[depth, sign, cst]);
                 } else {
                     // We are drawing the free end
@@ -99,7 +99,7 @@ impl Strand {
             last_depth = Some(depth);
         }
         if let Some(nucl) = last_nucl {
-            let point = helices[nucl.helix].get_nucl_position(&nucl, true);
+            let point = helices[nucl.helix].get_nucl_position(&nucl, Shift::Prime3);
             builder.line_to(
                 Point::new(point.x, point.y),
                 &[last_depth.unwrap(), sign, 1.],
@@ -155,8 +155,8 @@ impl Strand {
         let mut vertices = Vertices::new();
         let mut builder = Path::builder_with_attributes(3);
         let color = [0.823, 0.525, 0.058, 0.75];
-        let start = helices[nucl1.helix].get_nucl_position(&nucl1, false);
-        let end = helices[nucl2.helix].get_nucl_position(&nucl2, true);
+        let start = helices[nucl1.helix].get_nucl_position(&nucl1, Shift::No);
+        let end = helices[nucl2.helix].get_nucl_position(&nucl2, Shift::No);
 
         builder.begin(Point::new(start.x, start.y), &[1e-4, 1., 1.]);
         builder.line_to(Point::new(end.x, end.y), &[1e-4, 1., 1.]);
