@@ -944,6 +944,7 @@ impl Data {
         design.get_nucl_position(nucl)
     }
 
+    /// Set the selection to a given nucleotide if it exists in the design.
     pub fn select_nucl(&mut self, nucl: Nucl, design_id: usize) {
         let e_id = self.designs[design_id].get_identifier_nucl(nucl);
         if let Some(id) = e_id {

@@ -676,10 +676,13 @@ impl Design {
         self.data.lock().unwrap().optimize_shift(channel)
     }
 
+    /// Return the map whose keys are the id of strands that are in a group and the values are the
+    /// corresponding group.
     pub fn get_groups(&self) -> Arc<RwLock<BTreeMap<usize, bool>>> {
         self.data.lock().unwrap().get_groups()
     }
 
+    /// Change the group to which a strand belong
     pub fn flip_group(&mut self, h_id: usize) {
         self.data.lock().unwrap().flip_group(h_id)
     }
@@ -688,18 +691,23 @@ impl Design {
         self.data.lock().unwrap().get_suggestions()
     }
 
+    /// Return a string describing the decomposition of the length of the strand `s_id` into the
+    /// sum of the length of its domains
     pub fn decompose_length(&self, s_id: usize) -> String {
         self.data.lock().unwrap().decompose_length(s_id)
     }
 
+    /// Change the color of all the strands in the design, except the scaffold.
     pub fn recolor_stapples(&mut self) {
         self.data.lock().unwrap().recolor_stapples()
     }
 
+    /// Merge all the consecutives domains in the design
     pub fn clean_up_domains(&mut self) {
         self.data.lock().unwrap().clean_up_domains()
     }
 
+    /// Start or stop a physicall simulation
     pub fn roll_request(&mut self) {
         self.data.lock().unwrap().roll_request();
     }
@@ -711,6 +719,8 @@ impl Design {
             .get_xover_info(source, target, self.id)
     }
 
+    /// Get the torsion map of the design.
+    /// See `Data::get_torsions`
     pub fn get_torsions(&self) -> HashMap<(Nucl, Nucl), Torsion> {
         self.data.lock().unwrap().get_torsions()
     }

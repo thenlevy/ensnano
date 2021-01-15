@@ -144,7 +144,9 @@ pub enum Notification {
     NewCandidate(Option<PhantomElement>),
     /// An element has been selected in the 3d view
     Selection3D(Selection),
+    /// A save request has been filled
     Save(usize),
+    /// The 3d camera must face a given target
     CameraTarget((Vec3, Vec3)),
     CameraRotation(f32, f32),
     Centering(Nucl, usize),
@@ -520,6 +522,7 @@ impl Mediator {
         }
     }
 
+    /// Show/Hide the DNA sequences
     pub fn toggle_text(&mut self, value: bool) {
         self.notify_apps(Notification::ToggleText(value));
     }

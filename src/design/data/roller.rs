@@ -1,3 +1,8 @@
+//! This modules defines the `PhysicalSystem` struct that performs a simulation of a physical
+//! system on the design.
+//! The system consists of linear springs that moves the helices and torsion springs that rotates
+//! them. These springs aim at minimizing the difference between the cross-over length and the
+//! normal distance between two consectives nucleotides.
 use super::{Helix, Nucl, Parameters};
 use std::collections::{BTreeMap, HashMap};
 
@@ -10,11 +15,18 @@ use std::sync::mpsc::Sender;
 use std::sync::{Arc, Mutex};
 use ultraviolet::Vec3;
 
+/// A structure performing physical simulation on a design.
 pub struct PhysicalSystem {
+    /// The data representing the design on which the simulation is performed
     data: DesignData,
+    /// The structure that handles the simulation of the rotation springs.
     roller: RollSystem,
+    /// The structure that handles the simulation of the linear springs
     springer: SpringSystem,
+    /// When the wrapped boolean is set to true, stop the simulation perfomed by self.
     stop: Arc<Mutex<bool>>,
+    /// When the wrapped option takes the value of some channel, the thread that performs the
+    /// simulation sends the position of the helices through the channel.
     sender: Arc<Mutex<Option<Sender<Vec<Helix>>>>>,
 }
 
@@ -51,6 +63,8 @@ impl PhysicalSystem {
         }
     }
 
+    /// Spawn a thread to run the physical simulation. Return a pair of pointers. One to request the
+    /// termination of the simulation and one to fetch the current state of the helices.
     pub fn run(mut self) -> (Arc<Mutex<bool>>, Arc<Mutex<Option<Sender<Vec<Helix>>>>>) {
         let stop = self.stop.clone();
         let sender = self.sender.clone();
@@ -344,6 +358,7 @@ pub struct DesignData {
     pub intervals: Vec<Option<(isize, isize)>>,
 }
 
+/// Return the length of the shortes line between a point of [a, b] and a poin of [c, d]
 fn distance_segment(a: Vec3, b: Vec3, c: Vec3, d: Vec3) -> (f32, Vec3) {
     let u = b - a;
     let v = d - c;

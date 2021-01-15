@@ -1844,6 +1844,8 @@ impl Data {
         best_score
     }
 
+    /// Evaluate a scaffold position. The score of the position is given by
+    /// score = nb((A|T)^7) + 10 nb(G^4 | C ^4) + 100 nb (G^5 | C^5) + 1000 nb (G^6 | C^6)
     fn evaluate_shift(&self) -> usize {
         let basis_map = self.basis_map.read().unwrap();
         let mut ret = 0;
@@ -1980,6 +1982,8 @@ impl Data {
         ret
     }
 
+    /// Return a string describing the decomposition of the length of the strand `s_id` into the
+    /// sum of the length of its domains
     pub fn decompose_length(&self, s_id: usize) -> String {
         let mut ret = String::new();
         if let Some(strand) = self.design.strands.get(&s_id) {
