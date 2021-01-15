@@ -216,6 +216,7 @@ impl FlatScene {
                 }
                 Consequence::CutCross(from, to) => {
                     if from.helix != to.helix {
+                        // CrossCut with source and target on the same helix are forbidden
                         let op_var = self.data[self.selected_design].borrow().cut_cross(from, to);
                         if let Some((source_id, target_id, target_3prime)) = op_var {
                             let source_strand = self.data[self.selected_design]

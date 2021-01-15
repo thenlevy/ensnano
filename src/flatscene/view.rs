@@ -380,16 +380,38 @@ impl View {
         self.was_updated = false;
     }
 
+    /// Return all the circles that must be displayed to represent the flatscene.
+    ///
+    /// Currently these circles are:
+    ///  * Helices circles
+    ///  * Cross-over suggestions
+    ///  * Torsion indications
     fn generate_circle_instances(&self) -> Vec<CircleInstance> {
         let mut ret = Vec::new();
+        self.collect_helices_circles(&mut ret);
+        self.collect_suggestions(&mut ret);
+        if self.show_torsion {
+            self.collect_torsion_indications(&mut ret);
+        }
+        ret
+    }
+
+    /// Add the helices circles to the list of circle instances
+    fn collect_helices_circles(&self, circles: &mut Vec<CircleInstance>) {
         for h in self.helices.iter() {
             if let Some(circle) = h.get_circle(&self.camera) {
-                ret.push(circle);
+                circles.push(circle);
             }
         }
+    }
+
+    /// Collect the cross-over suggestions
+    fn collect_suggestions(&self, circles: &mut Vec<CircleInstance>) {
         let mut last_blue = None;
         let mut k = 1000;
         for (n1, n2) in self.suggestions.iter() {
+            // Don't change the color if the value of n1 hasn't change, so that all suggested
+            // cross-overs for n1 appears with the same color
             if last_blue != Some(n1) {
                 k += 1;
                 last_blue = Some(n1);
@@ -404,34 +426,38 @@ impl View {
             };
             let h1 = &self.helices[n1.helix];
             let h2 = &self.helices[n2.helix];
-            ret.push(h1.get_circle_nucl(n1.position, n1.forward, color));
-            ret.push(h2.get_circle_nucl(n2.position, n2.forward, color));
+            circles.push(h1.get_circle_nucl(n1.position, n1.forward, color));
+            circles.push(h2.get_circle_nucl(n2.position, n2.forward, color));
         }
-        if self.show_torsion {
-            for ((n0, n1), torsion) in self.torsions.iter() {
-                let multiplier = ((torsion.strength_0 - torsion.strength_1).abs() / 200.)
-                    .max(0.08)
-                    .min(1.);
-                let color = torsion_color(torsion.strength_0 - torsion.strength_1);
-                let h0 = &self.helices[n0.helix];
-                let mut circle = h0.get_circle_nucl(n0.position, n0.forward, color);
-                circle.radius *= multiplier;
-                if let Some(friend) = torsion.friend {
-                    let circle2 = h0.get_circle_nucl(friend.0.position, n0.forward, color);
-                    circle.center = (circle.center + circle2.center) / 2.;
-                }
-                ret.push(circle);
-                let h1 = &self.helices[n1.helix];
-                let mut circle = h1.get_circle_nucl(n1.position, n1.forward, color);
-                circle.radius *= multiplier;
-                if let Some(friend) = torsion.friend {
-                    let circle2 = h1.get_circle_nucl(friend.1.position, n1.forward, color);
-                    circle.center = (circle.center + circle2.center) / 2.;
-                }
-                ret.push(circle);
+    }
+
+    /// Collect the torsion indications.
+    /// The radius and color of the circles depends on the strangth amplitude.
+    fn collect_torsion_indications(&self, circles: &mut Vec<CircleInstance>) {
+        for ((n0, n1), torsion) in self.torsions.iter() {
+            let multiplier = ((torsion.strength_0 - torsion.strength_1).abs() / 200.)
+                .max(0.08)
+                .min(1.);
+            let color = torsion_color(torsion.strength_0 - torsion.strength_1);
+            let h0 = &self.helices[n0.helix];
+            let mut circle = h0.get_circle_nucl(n0.position, n0.forward, color);
+            circle.radius *= multiplier;
+            if let Some(friend) = torsion.friend {
+                // The circle center should be placed between the two friend cross-overs
+                let circle2 = h0.get_circle_nucl(friend.0.position, n0.forward, color);
+                circle.center = (circle.center + circle2.center) / 2.;
             }
+            circles.push(circle);
+            let h1 = &self.helices[n1.helix];
+            let mut circle = h1.get_circle_nucl(n1.position, n1.forward, color);
+            circle.radius *= multiplier;
+            if let Some(friend) = torsion.friend {
+                // The circle center should be placed between the two friend cross-overs
+                let circle2 = h1.get_circle_nucl(friend.1.position, n1.forward, color);
+                circle.center = (circle.center + circle2.center) / 2.;
+            }
+            circles.push(circle);
         }
-        ret
     }
 
     fn view_suggestion(&mut self) {

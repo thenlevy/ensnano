@@ -237,6 +237,8 @@ impl Scene {
         }
     }
 
+    /// If a nucleotide is selected, and the clicked_pixel corresponds to an other nucleotide,
+    /// request a cross-over between the two nucleotides.
     fn attempt_xover(&mut self, clicked_pixel: PhysicalPosition<f64>) {
         let element = self.element_selector.set_selected_id(clicked_pixel);
         let xover = self.data.borrow().attempt_xover(element);

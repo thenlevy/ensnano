@@ -807,6 +807,9 @@ impl Mediator {
         }
     }
 
+    /// Request a cross-over between source and nucl.
+    /// The design chose to accept the request depending on the rules defined in
+    /// `design::operation::general_cross_over`
     pub fn xover_request(&mut self, source: Nucl, target: Nucl, design_id: usize) {
         let operations = self.designs[design_id]
             .lock()

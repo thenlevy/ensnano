@@ -472,16 +472,27 @@ impl Data {
         }
     }
 
+    /// If self.selected[0] is some nucleotide, target is some nucleotide and both nucleotides are
+    /// on the same design, return the pair of nucleotides. Otherwise return None
     pub fn attempt_xover(&self, target: Option<SceneElement>) -> Option<(Nucl, Nucl, usize)> {
-        let mut design_id = 0;
-        let source_nucl = self.get_selected_nucl_relax();
+        let design_id;
+        let source_nucl =
+            if let Some(SceneElement::DesignElement(d_id, e_id)) = self.selected.get(0) {
+                design_id = *d_id;
+                self.designs[*d_id as usize].get_nucl_relax(*e_id)
+            } else {
+                design_id = 0;
+                None
+            }?;
         let target_nucl = if let Some(SceneElement::DesignElement(d_id, e_id)) = target {
-            design_id = d_id as usize;
-            self.designs[design_id].get_nucl_relax(e_id)
+            if design_id != d_id {
+                return None;
+            }
+            self.designs[design_id as usize].get_nucl_relax(e_id)
         } else {
             None
-        };
-        source_nucl.zip(target_nucl).map(|(a, b)| (a, b, design_id))
+        }?;
+        Some((source_nucl, target_nucl, design_id as usize))
     }
 
     fn update_selected_position(&mut self) {
