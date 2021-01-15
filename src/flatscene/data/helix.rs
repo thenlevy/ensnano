@@ -19,6 +19,7 @@ use ultraviolet::{Isometry2, Mat2, Vec2, Vec4};
 type Vertices = lyon::tessellation::VertexBuffers<GpuVertex, u16>;
 
 const CIRCLE_WIDGET_RADIUS: f32 = 1.5;
+const ZOOM_THRESHOLD: f32 = 7.0;
 
 #[derive(Debug, Clone)]
 pub struct Helix {
@@ -266,7 +267,7 @@ impl Helix {
     /// Return true if (x, y) is on the circle representing self
     pub fn click_on_circle(&self, x: f32, y: f32, camera: &CameraPtr) -> bool {
         if let Some(center) = self.get_circle(camera) {
-            (center.center - Vec2::new(x, y)).mag() < CIRCLE_WIDGET_RADIUS
+            (center.center - Vec2::new(x, y)).mag() < center.radius
         } else {
             false
         }
@@ -407,9 +408,12 @@ impl Helix {
                 Some(false) => CIRCLE2D_GREEN,
             }
         };
-        center.map(|c| {
-            CircleInstance::new(c, CIRCLE_WIDGET_RADIUS, self.flat_id.flat.0 as i32, color)
-        })
+        let radius = if camera.borrow().get_globals().zoom < ZOOM_THRESHOLD {
+            CIRCLE_WIDGET_RADIUS * 2.
+        } else {
+            CIRCLE_WIDGET_RADIUS
+        };
+        center.map(|c| CircleInstance::new(c, radius, self.flat_id.flat.0 as i32, color))
     }
 
     pub fn get_circle_nucl(&self, position: isize, forward: bool, color: u32) -> CircleInstance {
@@ -490,7 +494,7 @@ impl Helix {
         char_drawers: &HashMap<char, crate::utils::chars2d::CharDrawer>,
         show_seq: bool,
     ) {
-        let show_seq = show_seq && camera.borrow().get_globals().zoom >= 7.;
+        let show_seq = show_seq && camera.borrow().get_globals().zoom >= ZOOM_THRESHOLD;
         let size_id = 3.;
         let size_pos = 1.4;
         let circle = self.get_circle(camera);
@@ -500,7 +504,7 @@ impl Helix {
             let mut advances =
                 crate::utils::chars2d::char_positions(self.real_id.to_string(), char_drawers);
             let mut height = crate::utils::chars2d::height(self.real_id.to_string(), char_drawers);
-            if camera.borrow().get_globals().zoom < 7. {
+            if camera.borrow().get_globals().zoom < ZOOM_THRESHOLD {
                 height *= 2.;
                 for x in advances.iter_mut() {
                     *x *= 2.;
@@ -524,7 +528,7 @@ impl Helix {
             let scale = size_pos;
             let mut advances = crate::utils::chars2d::char_positions(pos.to_string(), char_drawers);
             let mut height = crate::utils::chars2d::height(pos.to_string(), char_drawers);
-            if camera.borrow().get_globals().zoom < 7. {
+            if camera.borrow().get_globals().zoom < ZOOM_THRESHOLD {
                 height *= 2.;
                 for x in advances.iter_mut() {
                     *x *= 2.;

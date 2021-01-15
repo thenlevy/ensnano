@@ -47,9 +47,6 @@ void main() {
     v_coords = position[gl_VertexIndex] * vec2(1, -1);
 
     float radius = instances[gl_InstanceIndex].radius;
-    if (u_zoom < 7.) {
-       radius *= 2.;
-       }
     vec2 local_pos = instances[gl_InstanceIndex].center + position[gl_VertexIndex] * radius;
     vec2 world_pos = local_pos - u_scroll_offset; 
     vec2 zoom_factor = u_zoom / (vec2(0.5, 0.5) * u_resolution);
