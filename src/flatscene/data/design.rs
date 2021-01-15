@@ -37,6 +37,7 @@ impl Design2d {
         // target
         self.strands = Vec::new();
         self.fetch_empty_helices();
+        self.rm_deleted_helices();
         let strand_ids = self.design.lock().unwrap().get_all_strand_ids();
         for strand_id in strand_ids.iter() {
             let strand_opt = self.design.lock().unwrap().get_strand_points(*strand_id);
@@ -60,7 +61,6 @@ impl Design2d {
             self.strands
                 .push(Strand::new(color, flat_strand, *strand_id));
         }
-        self.rm_deleted_helices();
         for h_id in self.id_map.keys() {
             let visibility = self.design.lock().unwrap().get_visibility_helix(*h_id);
             let flat_helix = FlatHelix::from_real(*h_id, &self.id_map);
@@ -249,7 +249,7 @@ impl Design2d {
         self.design.lock().unwrap().get_raw_strand(s_id)
     }
 
-    fn remake_id_map(&mut self) {
+    pub fn remake_id_map(&mut self) {
         self.id_map.clear();
         for (i, h) in self.helices.iter().enumerate() {
             self.id_map.insert(h.id, FlatIdx(i));

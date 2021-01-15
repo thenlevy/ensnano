@@ -209,6 +209,7 @@ impl Data {
     }
 
     pub fn notify_reset(&mut self) {
+        println!("notified need reset");
         self.instance_reset = true;
     }
 
