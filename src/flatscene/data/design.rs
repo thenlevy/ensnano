@@ -319,16 +319,16 @@ pub struct Helix2d {
 impl Flat for Helix2d {}
 
 pub struct FlatTorsion {
-    pub strength_0: f32,
-    pub strength_1: f32,
+    pub strength_prime5: f32,
+    pub strength_prime3: f32,
     pub friend: Option<(FlatNucl, FlatNucl)>,
 }
 
 impl FlatTorsion {
     pub fn from_real(real: &Torsion, id_map: &HashMap<usize, FlatIdx>) -> Self {
         Self {
-            strength_0: real.strength_0,
-            strength_1: real.strength_1,
+            strength_prime5: real.strength_prime5,
+            strength_prime3: real.strength_prime3,
             friend: real.friend.map(|(n1, n2)| {
                 (
                     FlatNucl::from_real(&n1, id_map),

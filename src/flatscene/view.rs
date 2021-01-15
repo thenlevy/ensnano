@@ -435,10 +435,10 @@ impl View {
     /// The radius and color of the circles depends on the strangth amplitude.
     fn collect_torsion_indications(&self, circles: &mut Vec<CircleInstance>) {
         for ((n0, n1), torsion) in self.torsions.iter() {
-            let multiplier = ((torsion.strength_0 - torsion.strength_1).abs() / 200.)
+            let multiplier = ((torsion.strength_prime5 - torsion.strength_prime3).abs() / 200.)
                 .max(0.08)
                 .min(1.);
-            let color = torsion_color(torsion.strength_0 - torsion.strength_1);
+            let color = torsion_color(torsion.strength_prime5 - torsion.strength_prime3);
             let h0 = &self.helices[n0.helix];
             let mut circle = h0.get_circle_nucl(n0.position, n0.forward, color);
             circle.radius *= multiplier;
