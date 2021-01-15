@@ -27,7 +27,7 @@ mod strand_builder;
 mod torsion;
 use super::utils::*;
 use crate::scene::GridInstance;
-use crate::utils::message;
+use crate::utils::{message, new_color};
 use grid::GridManager;
 pub use grid::*;
 pub use icednano::Nucl;
@@ -335,9 +335,23 @@ impl Data {
         }
     }
 
-    /// Set the strand that is the scaffold
+    /// Set the strand that is the scaffold. If the scaffold has changed, the color of the strand
+    /// that previously was the scaffold is modified.
+    /// The new scaffold's color is set to blue
     pub fn set_scaffold_id(&mut self, scaffold_id: Option<usize>) {
+        if let Some(s_id) = self.design.scaffold_id {
+            if let Some(strand) = self.design.strands.get_mut(&s_id) {
+                let color = new_color(&mut self.color_idx);
+                strand.color = color;
+            }
+        }
         self.design.scaffold_id = scaffold_id;
+        if let Some(strand) = scaffold_id
+            .as_ref()
+            .and_then(|s_id| self.design.strands.get_mut(s_id))
+        {
+            strand.color = crate::consts::SCAFFOLD_COLOR;
+        }
         self.hash_maps_update = true;
         self.update_status = true;
         self.design.scaffold_shift = None;

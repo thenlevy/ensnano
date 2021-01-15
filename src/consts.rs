@@ -48,3 +48,5 @@ pub const CIRCLE2D_GREY: u32 = 0xFF_4D4D4D;
 pub const CIRCLE2D_BLUE: u32 = 0xFF_036992;
 pub const CIRCLE2D_RED: u32 = 0xFF_920303;
 pub const CIRCLE2D_GREEN: u32 = 0xFF_0C9203;
+
+pub const SCAFFOLD_COLOR: u32 = 0xFF_3498DB;
