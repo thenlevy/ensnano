@@ -180,7 +180,7 @@ impl Controller {
                 self.camera_controller.process_scroll(delta);
                 Consequence::CameraMoved
             }
-            WindowEvent::CursorLeft { .. } => {
+            WindowEvent::Focused(false) => {
                 if self.last_left_clicked_position.is_some() {
                     self.last_left_clicked_position = None;
                     Consequence::MovementEnded

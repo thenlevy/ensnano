@@ -315,7 +315,6 @@ impl Multiplexer {
                     position.y /= self.window_size.height as f64;
                     *resized = true;
                     self.layout_manager.resize_click(*region, &position);
-                    self.generate_textures();
                     icon = Some(CursorIcon::EwResize);
                     captured = true;
                 }
@@ -507,7 +506,7 @@ impl Multiplexer {
             .map(|a| SampledTexture::create_target_texture(self.device.as_ref(), &a.size))
     }
 
-    fn generate_textures(&mut self) {
+    pub fn generate_textures(&mut self) {
         self.scene_texture = self.texture(ElementType::Scene);
         self.top_bar_texture = self.texture(ElementType::TopBar);
         self.left_pannel_texture = self.texture(ElementType::LeftPanel);

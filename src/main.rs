@@ -505,6 +505,7 @@ fn main() {
                 if window.inner_size().width > 0 && window.inner_size().height > 0 =>
             {
                 if resized {
+                    multiplexer.generate_textures();
                     scheduler
                         .lock()
                         .unwrap()

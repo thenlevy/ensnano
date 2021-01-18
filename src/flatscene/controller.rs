@@ -15,7 +15,7 @@ use std::cell::RefCell;
 use ultraviolet::Vec2;
 
 mod automata;
-use automata::{ControllerState, NormalState};
+use automata::{ControllerState, NormalState, Transition};
 
 pub struct Controller {
     #[allow(dead_code)]
@@ -86,7 +86,17 @@ impl Controller {
     }
 
     pub fn input(&mut self, event: &WindowEvent, position: PhysicalPosition<f64>) -> Consequence {
-        let transition = self.state.borrow_mut().input(event, position, self);
+        let transition = if let WindowEvent::Focused(false) = event {
+            Transition {
+                new_state: Some(Box::new(NormalState {
+                    mouse_position: PhysicalPosition::new(-1., -1.),
+                })),
+                consequences: Consequence::Nothing,
+            }
+        } else {
+            self.state.borrow_mut().input(event, position, self)
+        };
+
         if let Some(state) = transition.new_state {
             self.state.borrow().transition_from(&self);
             self.state = RefCell::new(state);
