@@ -113,6 +113,8 @@ pub struct Multiplexer {
     /// The texutre on which the flat scene is rendered,
     status_bar_texture: Option<SampledTexture>,
     flat_scene_texture: Option<SampledTexture>,
+    /// The pointer the node that separate the left pannel from the scene
+    left_pannel_split: usize,
     device: Rc<Device>,
     pipeline: Option<wgpu::RenderPipeline>,
     split_mode: SplitMode,
@@ -128,9 +130,11 @@ impl Multiplexer {
         requests: Arc<Mutex<Requests>>,
     ) -> Self {
         let mut layout_manager = LayoutTree::new();
-        let (top_bar, scene) = layout_manager.vsplit(0, 0.05);
-        let (left_pannel, scene) = layout_manager.hsplit(scene, 0.2);
-        let (scene, status_bar) = layout_manager.vsplit(scene, 0.90);
+        let (top_bar, scene) = layout_manager.hsplit(0, 0.05);
+        let left_pannel_split = scene;
+        let left_pannel_prop = proportion(0.2, 200., window_size.width as f64);
+        let (left_pannel, scene) = layout_manager.vsplit(scene, left_pannel_prop);
+        let (scene, status_bar) = layout_manager.hsplit(scene, 0.90);
         //let (scene, grid_panel) = layout_manager.hsplit(scene, 0.8);
         layout_manager.attribute_element(top_bar, ElementType::TopBar);
         layout_manager.attribute_element(scene, ElementType::Scene);
@@ -156,6 +160,7 @@ impl Multiplexer {
             pipeline: None,
             split_mode: SplitMode::Scene3D,
             requests,
+            left_pannel_split,
         };
         ret.generate_textures();
         ret
@@ -313,6 +318,7 @@ impl Multiplexer {
             }
             WindowEvent::Resized(new_size) => {
                 self.window_size = *new_size;
+                self.resize(*new_size);
                 if self.window_size.width > 0 && self.window_size.height > 0 {
                     self.generate_textures();
                 }
@@ -415,7 +421,7 @@ impl Multiplexer {
                         .unwrap();
                     match split_mode {
                         SplitMode::Both => {
-                            let (scene, flat_scene) = self.layout_manager.hsplit(id, 0.5);
+                            let (scene, flat_scene) = self.layout_manager.vsplit(id, 0.5);
                             self.layout_manager
                                 .attribute_element(scene, ElementType::Scene);
                             self.layout_manager
@@ -433,6 +439,12 @@ impl Multiplexer {
         }
         self.split_mode = split_mode;
         self.generate_textures();
+    }
+
+    fn resize(&mut self, window_size: PhySize) {
+        let left_pannel_prop = proportion(0.2, 200., window_size.width as f64);
+        self.layout_manager
+            .resize(self.left_pannel_split, left_pannel_prop);
     }
 
     fn texture(&mut self, element_type: ElementType) -> Option<SampledTexture> {
@@ -560,4 +572,9 @@ fn create_pipeline(device: &Device, bg_layout: &wgpu::BindGroupLayout) -> wgpu::
     };
 
     device.create_render_pipeline(&desc)
+}
+
+fn proportion(min_prop: f64, max_size: f64, length: f64) -> f64 {
+    let max_prop = max_size / length;
+    max_prop.min(min_prop)
 }
