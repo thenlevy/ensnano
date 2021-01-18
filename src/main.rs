@@ -286,12 +286,9 @@ fn main() {
             } => *control_flow = ControlFlow::Exit,
             Event::WindowEvent { event, .. } => {
                 //let modifiers = multiplexer.modifiers();
-                if let WindowEvent::Resized(_) = event {
-                    resized = true;
-                }
                 if let Some(event) = event.to_static().filter(|_| !*computing.lock().unwrap()) {
                     // Feed the event to the multiplexer
-                    let event = multiplexer.event(event);
+                    let event = multiplexer.event(event, &mut resized);
 
                     if let Some((event, area)) = event {
                         // pass the event to the area on which it happenened

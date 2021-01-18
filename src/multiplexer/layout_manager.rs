@@ -1,3 +1,4 @@
+use super::PhysicalPosition;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -27,6 +28,7 @@ enum LayoutNode {
         left_proportion: f64,
         l_child: Rc<RefCell<LayoutNode>>,
         r_child: Rc<RefCell<LayoutNode>>,
+        resizable: Option<usize>,
     },
 
     /// A Node representing a horizontal splitting of an area.
@@ -38,6 +40,7 @@ enum LayoutNode {
         top_proportion: f64,
         t_child: Rc<RefCell<LayoutNode>>,
         b_child: Rc<RefCell<LayoutNode>>,
+        resizable: Option<usize>,
     },
 }
 
@@ -91,12 +94,17 @@ impl LayoutTree {
     ///
     /// A pair `(l, r)` where `l` is the identifier of the top area and `r` the identifier of the
     /// bottom area
-    pub fn vsplit(&mut self, parent_idx: usize, left_proportion: f64) -> (usize, usize) {
+    pub fn vsplit(
+        &mut self,
+        parent_idx: usize,
+        left_proportion: f64,
+        resizable: bool,
+    ) -> (usize, usize) {
         let left_idx = self.area.len();
         let right_idx = self.area.len() + 1;
         let (left, right) = {
             let mut area = self.area[parent_idx].borrow_mut();
-            area.vsplit(left_proportion, left_idx, right_idx)
+            area.vsplit(left_proportion, left_idx, right_idx, resizable)
         };
         self.area.push(left);
         self.area.push(right);
@@ -123,12 +131,17 @@ impl LayoutTree {
     /// A pair `(t, b)` where `t` is the identifier of the left area and `b` the identifier of the
     /// right area
     #[allow(dead_code)]
-    pub fn hsplit(&mut self, parent_idx: usize, top_proportion: f64) -> (usize, usize) {
+    pub fn hsplit(
+        &mut self,
+        parent_idx: usize,
+        top_proportion: f64,
+        resizable: bool,
+    ) -> (usize, usize) {
         let top_idx = self.area.len();
         let bottom_idx = self.area.len() + 1;
         let (top, bottom) = {
             let mut area = self.area[parent_idx].borrow_mut();
-            area.hsplit(top_proportion, top_idx, bottom_idx)
+            area.hsplit(top_proportion, top_idx, bottom_idx, resizable)
         };
         self.area.push(top);
         self.area.push(bottom);
@@ -158,9 +171,13 @@ impl LayoutTree {
     }
 
     /// Get the Element owning the pixel `(x, y)`
-    pub fn get_area_pixel(&self, x: f64, y: f64) -> ElementType {
+    pub(super) fn get_area_pixel(&self, x: f64, y: f64) -> PixelRegion {
         let identifier = self.root.borrow().get_area_pixel(x, y);
-        self.element_type[identifier]
+        if let PixelRegion::Area(identifier) = identifier {
+            PixelRegion::Element(self.element_type[identifier])
+        } else {
+            identifier
+        }
     }
 
     /// Return the boundaries of the area attributed to an element
@@ -193,6 +210,10 @@ impl LayoutTree {
     pub fn resize(&mut self, node_id: usize, new_prop: f64) {
         self.area[node_id].borrow_mut().resize(new_prop)
     }
+
+    pub fn resize_click(&mut self, node_id: usize, position: &PhysicalPosition<f64>) {
+        self.area[node_id].borrow_mut().resize_click(position)
+    }
 }
 
 impl LayoutNode {
@@ -215,6 +236,7 @@ impl LayoutNode {
         top_proportion: f64,
         top_idx: usize,
         bottom_idx: usize,
+        resizable: bool,
     ) -> (LayoutNodePtr, LayoutNodePtr) {
         assert!(top_proportion >= 0. && top_proportion <= 1.);
         match self {
@@ -223,6 +245,7 @@ impl LayoutNode {
                 top,
                 right,
                 bottom,
+                identifier,
                 ..
             } => {
                 let separation = top_proportion * (*top + *bottom);
@@ -248,6 +271,7 @@ impl LayoutNode {
                     top_proportion,
                     t_child: top_area.clone(),
                     b_child: bottom_area.clone(),
+                    resizable: Some(*identifier).filter(|_| resizable),
                 };
                 (top_area, bottom_area)
             }
@@ -277,6 +301,7 @@ impl LayoutNode {
         left_proportion: f64,
         left_idx: usize,
         right_idx: usize,
+        resizable: bool,
     ) -> (LayoutNodePtr, LayoutNodePtr) {
         assert!(left_proportion >= 0. && left_proportion <= 1.);
         match self {
@@ -285,6 +310,7 @@ impl LayoutNode {
                 top,
                 right,
                 bottom,
+                identifier,
                 ..
             } => {
                 let separation = left_proportion * (*left + *right);
@@ -310,6 +336,7 @@ impl LayoutNode {
                     left_proportion,
                     l_child: left_area.clone(),
                     r_child: right_area.clone(),
+                    resizable: Some(*identifier).filter(|_| resizable),
                 };
                 (left_area, right_area)
             }
@@ -387,22 +414,29 @@ impl LayoutNode {
     }
 
     /// Return the identifier of the leaf owning pixel `(x, y)`
-    pub fn get_area_pixel(&self, x: f64, y: f64) -> usize {
+    pub fn get_area_pixel(&self, x: f64, y: f64) -> PixelRegion {
         match self {
-            LayoutNode::Area { identifier, .. } => *identifier,
+            LayoutNode::Area { identifier, .. } => PixelRegion::Area(*identifier),
             LayoutNode::VSplit {
                 left,
                 right,
                 left_proportion,
                 l_child,
                 r_child,
+                resizable,
                 ..
             } => {
                 let separation = *left + *left_proportion * (*right - *left);
-                if x <= separation {
-                    l_child.borrow().get_area_pixel(x, y)
+                if let Some(id) =
+                    resizable.filter(|_| x >= separation - 0.02 && x <= separation + 0.02)
+                {
+                    PixelRegion::Resize(id)
                 } else {
-                    r_child.borrow().get_area_pixel(x, y)
+                    if x <= separation {
+                        l_child.borrow().get_area_pixel(x, y)
+                    } else {
+                        r_child.borrow().get_area_pixel(x, y)
+                    }
                 }
             }
             LayoutNode::HSplit {
@@ -411,14 +445,39 @@ impl LayoutNode {
                 top_proportion,
                 t_child,
                 b_child,
+                resizable,
                 ..
             } => {
                 let separation = *top + *top_proportion * (*bottom - *top);
-                if y <= separation {
-                    t_child.borrow().get_area_pixel(x, y)
+                if let Some(id) =
+                    resizable.filter(|_| y >= separation - 0.02 && y <= separation + 0.02)
+                {
+                    PixelRegion::Resize(id)
                 } else {
-                    b_child.borrow().get_area_pixel(x, y)
+                    if y <= separation {
+                        t_child.borrow().get_area_pixel(x, y)
+                    } else {
+                        b_child.borrow().get_area_pixel(x, y)
+                    }
                 }
+            }
+        }
+    }
+
+    pub fn resize_click(&mut self, position: &PhysicalPosition<f64>) {
+        match self {
+            LayoutNode::VSplit { left, right, .. } => {
+                let new_prop = ((position.x - *left) / (*right - *left))
+                    .min(0.95)
+                    .max(0.05);
+                self.resize(new_prop);
+            }
+            LayoutNode::HSplit { top, bottom, .. } => {
+                let new_prop = ((position.y - *top) / (*bottom - *top)).min(0.95).max(0.05);
+                self.resize(new_prop);
+            }
+            LayoutNode::Area { .. } => {
+                println!("WARNING, RESIZING AREA, THIS IS A BUG");
             }
         }
     }
@@ -526,4 +585,15 @@ impl LayoutNode {
             }
         }
     }
+}
+
+/// The region in which a pixel lies
+#[derive(Debug)]
+pub(super) enum PixelRegion {
+    /// The pixel is on a region attributed to a certain element
+    Element(ElementType),
+    /// The pixel is on a region where clicking must resize a pannel
+    Resize(usize),
+    /// The pixel is on a given area
+    Area(usize),
 }

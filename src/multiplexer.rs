@@ -29,7 +29,7 @@ use winit::{
 };
 
 mod layout_manager;
-use layout_manager::LayoutTree;
+use layout_manager::{LayoutTree, PixelRegion};
 
 /// A structure that represents an area on which an element can be drawn
 #[derive(Clone, Copy, Debug)]
@@ -119,7 +119,10 @@ pub struct Multiplexer {
     pipeline: Option<wgpu::RenderPipeline>,
     split_mode: SplitMode,
     requests: Arc<Mutex<Requests>>,
+    state: State,
 }
+
+const MAX_LEFT_PANNEL_WIDTH: f64 = 200.;
 
 impl Multiplexer {
     /// Create a new multiplexer for a window with size `window_size`.
@@ -130,11 +133,11 @@ impl Multiplexer {
         requests: Arc<Mutex<Requests>>,
     ) -> Self {
         let mut layout_manager = LayoutTree::new();
-        let (top_bar, scene) = layout_manager.hsplit(0, 0.05);
+        let (top_bar, scene) = layout_manager.hsplit(0, 0.05, false);
         let left_pannel_split = scene;
-        let left_pannel_prop = proportion(0.2, 200., window_size.width as f64);
-        let (left_pannel, scene) = layout_manager.vsplit(scene, left_pannel_prop);
-        let (scene, status_bar) = layout_manager.hsplit(scene, 0.90);
+        let left_pannel_prop = proportion(0.2, MAX_LEFT_PANNEL_WIDTH, window_size.width as f64);
+        let (left_pannel, scene) = layout_manager.vsplit(scene, left_pannel_prop, false);
+        let (scene, status_bar) = layout_manager.hsplit(scene, 0.90, false);
         //let (scene, grid_panel) = layout_manager.hsplit(scene, 0.8);
         layout_manager.attribute_element(top_bar, ElementType::TopBar);
         layout_manager.attribute_element(scene, ElementType::Scene);
@@ -161,6 +164,9 @@ impl Multiplexer {
             split_mode: SplitMode::Scene3D,
             requests,
             left_pannel_split,
+            state: State::Normal {
+                mouse_position: PhysicalPosition::new(-1., -1.),
+            },
         };
         ret.generate_textures();
         ret
@@ -289,6 +295,7 @@ impl Multiplexer {
     pub fn event(
         &mut self,
         event: WindowEvent<'static>,
+        resized: &mut bool,
     ) -> Option<(WindowEvent<'static>, ElementType)> {
         let mut focus_changed = false;
         let mut device_id_msg = None;
@@ -298,27 +305,47 @@ impl Multiplexer {
                 position,
                 device_id,
                 ..
-            } => {
-                let &PhysicalPosition { x, y } = position;
-                if x > 0.0 || y > 0.0 {
-                    let element = self.pixel_to_element(*position);
-                    let area = self
-                        .get_draw_area(element)
-                        .expect(&format!("Element does not exsist {:?}", element));
-
-                    if !self.mouse_clicked {
-                        self.focus = Some(element);
-                    } else if self.focus != Some(element) {
-                        focus_changed = true;
-                        device_id_msg = Some(*device_id);
-                    }
-                    self.cursor_position.x = position.x - area.position.cast::<f64>().x;
-                    self.cursor_position.y = position.y - area.position.cast::<f64>().y;
+            } => match &mut self.state {
+                State::Resizing {
+                    region,
+                    mouse_position,
+                } => {
+                    *mouse_position = *position;
+                    let mut position = position.clone();
+                    position.x /= self.window_size.width as f64;
+                    position.y /= self.window_size.height as f64;
+                    *resized = true;
+                    self.layout_manager.resize_click(*region, &position);
+                    self.generate_textures();
                 }
-            }
+
+                State::Normal { mouse_position, .. }
+                | State::Interacting { mouse_position, .. } => {
+                    *mouse_position = *position;
+                    let &PhysicalPosition { x, y } = position;
+                    if x > 0.0 || y > 0.0 {
+                        let element = self.pixel_to_element(*position);
+                        let area = match element {
+                            PixelRegion::Resize(_) => None,
+                            PixelRegion::Element(element) => {
+                                self.focus = Some(element);
+                                self.get_draw_area(element)
+                            }
+                            PixelRegion::Area(_) => unreachable!(),
+                        }
+                        .or(self.focus.and_then(|e| self.get_draw_area(e)));
+
+                        if let Some(area) = area {
+                            self.cursor_position.x = position.x - area.position.cast::<f64>().x;
+                            self.cursor_position.y = position.y - area.position.cast::<f64>().y;
+                        }
+                    }
+                }
+            },
             WindowEvent::Resized(new_size) => {
                 self.window_size = *new_size;
                 self.resize(*new_size);
+                *resized = true;
                 if self.window_size.width > 0 && self.window_size.height > 0 {
                     self.generate_textures();
                 }
@@ -333,10 +360,25 @@ impl Multiplexer {
                 button: MouseButton::Left,
                 state,
                 ..
-            } => match state {
-                ElementState::Pressed => self.mouse_clicked = true,
-                ElementState::Released => self.mouse_clicked = false,
-            },
+            } => {
+                let element = self.pixel_to_element(self.state.mouse_position());
+                let mouse_position = self.state.mouse_position();
+                match element {
+                    PixelRegion::Resize(n) if *state == ElementState::Pressed => {
+                        self.state = State::Resizing {
+                            mouse_position,
+                            region: n,
+                        };
+                    }
+                    _ => match state {
+                        ElementState::Pressed => self.mouse_clicked = true,
+                        ElementState::Released => {
+                            self.state = State::Normal { mouse_position };
+                            self.mouse_clicked = false;
+                        }
+                    },
+                }
+            }
             WindowEvent::KeyboardInput {
                 input:
                     KeyboardInput {
@@ -421,7 +463,7 @@ impl Multiplexer {
                         .unwrap();
                     match split_mode {
                         SplitMode::Both => {
-                            let (scene, flat_scene) = self.layout_manager.vsplit(id, 0.5);
+                            let (scene, flat_scene) = self.layout_manager.vsplit(id, 0.5, true);
                             self.layout_manager
                                 .attribute_element(scene, ElementType::Scene);
                             self.layout_manager
@@ -442,7 +484,7 @@ impl Multiplexer {
     }
 
     fn resize(&mut self, window_size: PhySize) {
-        let left_pannel_prop = proportion(0.2, 200., window_size.width as f64);
+        let left_pannel_prop = proportion(0.2, MAX_LEFT_PANNEL_WIDTH, window_size.width as f64);
         self.layout_manager
             .resize(self.left_pannel_split, left_pannel_prop);
     }
@@ -472,11 +514,11 @@ impl Multiplexer {
     }
 
     /// Maps *physical* pixels to an element
-    fn pixel_to_element(&self, pixel: PhysicalPosition<f64>) -> ElementType {
+    fn pixel_to_element(&self, pixel: PhysicalPosition<f64>) -> PixelRegion {
         let pixel_u32 = pixel.cast::<u32>();
         for (n, overlay) in self.overlays.iter().enumerate() {
             if overlay.contains_pixel(pixel_u32) {
-                return ElementType::Overlay(n);
+                return PixelRegion::Element(ElementType::Overlay(n));
             }
         }
         self.layout_manager.get_area_pixel(
@@ -577,4 +619,28 @@ fn create_pipeline(device: &Device, bg_layout: &wgpu::BindGroupLayout) -> wgpu::
 fn proportion(min_prop: f64, max_size: f64, length: f64) -> f64 {
     let max_prop = max_size / length;
     max_prop.min(min_prop)
+}
+
+enum State {
+    Resizing {
+        mouse_position: PhysicalPosition<f64>,
+        region: usize,
+    },
+    Normal {
+        mouse_position: PhysicalPosition<f64>,
+    },
+    Interacting {
+        mouse_position: PhysicalPosition<f64>,
+        region: usize,
+    },
+}
+
+impl State {
+    fn mouse_position(&self) -> PhysicalPosition<f64> {
+        match self {
+            Self::Resizing { mouse_position, .. }
+            | Self::Normal { mouse_position }
+            | Self::Interacting { mouse_position, .. } => *mouse_position,
+        }
+    }
 }

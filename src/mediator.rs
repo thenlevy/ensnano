@@ -114,6 +114,7 @@ impl Scheduler {
             for (area, app) in self.applications.iter_mut() {
                 if let Some(draw_area) = multiplexer.get_draw_area(*area) {
                     app.lock().unwrap().on_resize(window_size, draw_area);
+                    self.needs_redraw.push(*area);
                 }
             }
         }
