@@ -274,6 +274,7 @@ fn main() {
     // Run event loop
     let mut last_render_time = std::time::Instant::now();
     let mut mouse_interaction = iced::mouse::Interaction::Pointer;
+    let mut icon = None;
     event_loop.run(move |event, _, control_flow| {
         // Wait for event or redraw a frame every 33 ms (30 frame per seconds)
         *control_flow = ControlFlow::WaitUntil(Instant::now() + Duration::from_millis(33));
@@ -288,7 +289,8 @@ fn main() {
                 //let modifiers = multiplexer.modifiers();
                 if let Some(event) = event.to_static().filter(|_| !*computing.lock().unwrap()) {
                     // Feed the event to the multiplexer
-                    let event = multiplexer.event(event, &mut resized);
+                    let (event, icon_opt) = multiplexer.event(event, &mut resized);
+                    icon = icon.or(icon_opt);
 
                     if let Some((event, area)) = event {
                         // pass the event to the area on which it happenened
@@ -327,7 +329,7 @@ fn main() {
                 }
             }
             Event::MainEventsCleared => {
-                let mut redraw = false;
+                let mut redraw = resized | icon.is_some();
                 redraw |= gui.fetch_change(&window, &multiplexer);
                 // When there is no more event to deal with
                 {
@@ -562,6 +564,9 @@ fn main() {
                 // And update the mouse cursor
                 window
                     .set_cursor_icon(iced_winit::conversion::mouse_interaction(mouse_interaction));
+                if let Some(icon) = icon.take() {
+                    window.set_cursor_icon(icon);
+                }
                 local_pool
                     .spawner()
                     .spawn(staging_belt.recall())

@@ -25,7 +25,8 @@ use std::sync::{Arc, Mutex};
 use wgpu::Device;
 use winit::{
     dpi::{PhysicalPosition, PhysicalSize},
-    event::{ElementState, MouseButton, WindowEvent},
+    event::{ElementState, WindowEvent},
+    window::CursorIcon,
 };
 
 mod layout_manager;
@@ -296,16 +297,14 @@ impl Multiplexer {
         &mut self,
         event: WindowEvent<'static>,
         resized: &mut bool,
-    ) -> Option<(WindowEvent<'static>, ElementType)> {
-        let mut focus_changed = false;
-        let mut device_id_msg = None;
+    ) -> (
+        Option<(WindowEvent<'static>, ElementType)>,
+        Option<CursorIcon>,
+    ) {
+        let mut icon = None;
         let mut captured = false;
         match &event {
-            WindowEvent::CursorMoved {
-                position,
-                device_id,
-                ..
-            } => match &mut self.state {
+            WindowEvent::CursorMoved { position, .. } => match &mut self.state {
                 State::Resizing {
                     region,
                     mouse_position,
@@ -317,17 +316,22 @@ impl Multiplexer {
                     *resized = true;
                     self.layout_manager.resize_click(*region, &position);
                     self.generate_textures();
+                    icon = Some(CursorIcon::EwResize);
+                    captured = true;
                 }
 
-                State::Normal { mouse_position, .. }
-                | State::Interacting { mouse_position, .. } => {
+                State::Normal { mouse_position, .. } => {
                     *mouse_position = *position;
                     let &PhysicalPosition { x, y } = position;
                     if x > 0.0 || y > 0.0 {
                         let element = self.pixel_to_element(*position);
                         let area = match element {
-                            PixelRegion::Resize(_) => None,
+                            PixelRegion::Resize(_) => {
+                                icon = Some(CursorIcon::EwResize);
+                                None
+                            }
                             PixelRegion::Element(element) => {
+                                icon = Some(CursorIcon::Arrow);
                                 self.focus = Some(element);
                                 self.get_draw_area(element)
                             }
@@ -339,6 +343,18 @@ impl Multiplexer {
                             self.cursor_position.x = position.x - area.position.cast::<f64>().x;
                             self.cursor_position.y = position.y - area.position.cast::<f64>().y;
                         }
+                    }
+                }
+                State::Interacting {
+                    mouse_position,
+                    element,
+                } => {
+                    *mouse_position = *position;
+                    let element = element.clone();
+                    let area = self.get_draw_area(element);
+                    if let Some(area) = area {
+                        self.cursor_position.x = position.x - area.position.cast::<f64>().x;
+                        self.cursor_position.y = position.y - area.position.cast::<f64>().y;
                     }
                 }
             },
@@ -356,11 +372,7 @@ impl Multiplexer {
                     self.generate_textures();
                 }
             }
-            WindowEvent::MouseInput {
-                button: MouseButton::Left,
-                state,
-                ..
-            } => {
+            WindowEvent::MouseInput { state, .. } => {
                 let element = self.pixel_to_element(self.state.mouse_position());
                 let mouse_position = self.state.mouse_position();
                 match element {
@@ -370,13 +382,23 @@ impl Multiplexer {
                             region: n,
                         };
                     }
-                    _ => match state {
-                        ElementState::Pressed => self.mouse_clicked = true,
+                    PixelRegion::Resize(_) => {
+                        self.state = State::Normal { mouse_position };
+                    }
+                    PixelRegion::Element(element) => match state {
+                        ElementState::Pressed => {
+                            self.state = State::Interacting {
+                                mouse_position,
+                                element,
+                            };
+                            self.mouse_clicked = true;
+                        }
                         ElementState::Released => {
                             self.state = State::Normal { mouse_position };
                             self.mouse_clicked = false;
                         }
                     },
+                    _ => unreachable!(),
                 }
             }
             WindowEvent::KeyboardInput {
@@ -429,18 +451,9 @@ impl Multiplexer {
         }
 
         if let Some(focus) = self.focus.filter(|_| !captured) {
-            if focus_changed {
-                Some((
-                    WindowEvent::CursorLeft {
-                        device_id: device_id_msg.unwrap(),
-                    },
-                    focus,
-                ))
-            } else {
-                Some((event, focus))
-            }
+            (Some((event, focus)), icon)
         } else {
-            None
+            (None, icon)
         }
     }
 
@@ -631,7 +644,7 @@ enum State {
     },
     Interacting {
         mouse_position: PhysicalPosition<f64>,
-        region: usize,
+        element: ElementType,
     },
 }
 
