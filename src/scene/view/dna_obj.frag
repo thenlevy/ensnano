@@ -23,6 +23,7 @@ const vec3 BG_COLOR = vec3(GREY_VAL, GREY_VAL, GREY_VAL);
 
 const vec3 SKY_COLOR = vec3(0.207, 0.321, 0.494);
 const vec3 SAND_COLOR = vec3(0.368, 0.360, 0.219);
+const vec3 HORIZON = vec3(0.917, 0.917, 0.917);
 
 void main() {
     vec3 normal = normalize(v_normal);
@@ -56,9 +57,30 @@ void main() {
     float dist = length(u_camera_position - v_position);
     float visibility = u_make_fog == 0 ? 1. : 1. - smoothstep(u_fog_length, u_fog_length + u_fog_radius, dist);
 
+    float y;
+    if (abs(view_dir.y) > abs(view_dir.x) && abs(view_dir.y) > abs(view_dir.z)) {
+       y = view_dir.y > 0 ? 1. : 0.;
+    } else if abs(view_dir.x) > abs(view_dir.z) {
+       y = (view_dir.y/abs(view_dir.x) + 1.) / 2.;
+    } else {
+       y = (view_dir.y/abs(view_dir.z) + 1.) / 2.;
+    }
 
-    vec3 fog_color = mix(SKY_COLOR, SAND_COLOR, sqrt((1. + view_dir.y) / 2.));
-
+    vec3 fog_color;
+    if (y < 0.33 ) {
+     fog_color = SKY_COLOR;
+    }
+     else if (y < 0.5) {
+      float delta = (y - 0.33) / 0.17;
+      fog_color = mix(SKY_COLOR, HORIZON, pow(delta, 3.));
+    }
+      else if (y < 0.66) {
+      float delta = 1. - (y - 0.5) / 0.16;
+      fog_color = mix(SAND_COLOR, HORIZON, pow(delta, 3.));
+    }
+    else {
+      fog_color = SAND_COLOR;
+    }
 
     f_color = mix(vec4(fog_color, 1.0), f_color, visibility);
 
