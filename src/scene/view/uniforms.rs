@@ -9,6 +9,9 @@ pub struct Uniforms {
     pub camera_position: Vec4,
     pub view: Mat4,
     pub proj: Mat4,
+    pub fog_radius: f32,
+    pub fog_length: f32,
+    pub make_fog: u32,
 }
 
 unsafe impl bytemuck::Pod for Uniforms {}
@@ -20,6 +23,41 @@ impl Uniforms {
             camera_position: camera.borrow().position.into_homogeneous_point(),
             view: camera.borrow().calc_matrix(),
             proj: projection.borrow().calc_matrix(),
+            fog_radius: 0.,
+            fog_length: 0.,
+            make_fog: false as u32,
+        }
+    }
+
+    pub fn from_view_proj_fog(
+        camera: CameraPtr,
+        projection: ProjectionPtr,
+        fog: &FogParameters,
+    ) -> Self {
+        Self {
+            camera_position: camera.borrow().position.into_homogeneous_point(),
+            view: camera.borrow().calc_matrix(),
+            proj: projection.borrow().calc_matrix(),
+            fog_length: fog.length,
+            fog_radius: fog.radius,
+            make_fog: fog.active as u32,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct FogParameters {
+    pub radius: f32,
+    pub length: f32,
+    pub active: bool,
+}
+
+impl FogParameters {
+    pub fn new() -> Self {
+        Self {
+            radius: 10.,
+            length: 10.,
+            active: false,
         }
     }
 }

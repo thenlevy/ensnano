@@ -11,6 +11,10 @@ layout(set=0, binding=0) uniform Uniform {
     uniform vec3 u_camera_position;
     mat4 u_view;
     mat4 u_proj;
+    float u_fog_radius;
+    float u_fog_length;
+    uint u_make_fog;
+
 };
 
 const float HALF_LIFE = 10.;
@@ -50,8 +54,8 @@ void main() {
     }
 
     float dist = length(u_camera_position - v_position);
-    float lambda = log(2.) / HALF_LIFE;
-    float visibility = exp(-lambda * dist);
+    float visibility = u_make_fog == 0 ? 1. : 1. - smoothstep(u_fog_length, u_fog_length + u_fog_radius, dist);
+
 
     vec3 fog_color = mix(SKY_COLOR, SAND_COLOR, sqrt((1. + view_dir.y) / 2.));
 

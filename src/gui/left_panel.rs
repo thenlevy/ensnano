@@ -1,11 +1,11 @@
 use std::sync::{Arc, Mutex};
 
-use iced::{container, Background, Container, Image};
+use iced::{container, Background, Column, Container, Image};
 use iced_wgpu::Renderer;
 use iced_winit::winit::dpi::{LogicalPosition, LogicalSize};
 use iced_winit::{
-    button, scrollable, slider, text_input, Button, Checkbox, Color, Column, Command, Element,
-    Length, Program, Row, Scrollable, Slider, Text, TextInput,
+    button, scrollable, slider, text_input, Button, Checkbox, Color, Command, Element, Length,
+    Program, Row, Scrollable, Slider, Text, TextInput,
 };
 use native_dialog::FileDialog;
 use ultraviolet::Vec3;
@@ -14,7 +14,7 @@ use color_space::{Hsv, Rgb};
 
 use crate::mediator::{ActionMode, SelectionMode};
 
-use super::{OverlayType, Requests};
+use super::{FogParameters as Fog, OverlayType, Requests};
 mod color_picker;
 use color_picker::ColorPicker;
 mod sequence_input;
@@ -48,6 +48,7 @@ pub struct LeftPanel {
     position_str: String,
     builder_input: [text_input::State; 2],
     show_torsion: bool,
+    fog: FogParameters,
 }
 
 #[derive(Debug, Clone)]
@@ -68,6 +69,9 @@ pub enum Message {
     PositionHelicesChanged(String),
     LengthHelicesChanged(String),
     ShowTorsion(bool),
+    FogVisibility(bool),
+    FogRadius(f32),
+    FogLength(f32),
 }
 
 impl LeftPanel {
@@ -100,6 +104,7 @@ impl LeftPanel {
             length_str: "0".to_string(),
             position_str: "0".to_string(),
             show_torsion: false,
+            fog: Default::default(),
         }
     }
 
@@ -244,6 +249,18 @@ impl Program for LeftPanel {
             Message::ShowTorsion(b) => {
                 self.requests.lock().unwrap().show_torsion_request = Some(b);
                 self.show_torsion = b;
+            }
+            Message::FogVisibility(b) => {
+                self.fog.visible = b;
+                self.requests.lock().unwrap().fog = Some(self.fog.request());
+            }
+            Message::FogLength(length) => {
+                self.fog.length = length;
+                self.requests.lock().unwrap().fog = Some(self.fog.request());
+            }
+            Message::FogRadius(radius) => {
+                self.fog.radius = radius;
+                self.requests.lock().unwrap().fog = Some(self.fog.request());
             }
         };
         Command::none()
@@ -572,6 +589,7 @@ impl Program for LeftPanel {
                 )
                 .push(self.sequence_input.view());
         }
+        widget = widget.push(self.fog.view());
 
         Container::new(widget)
             .style(TopBarStyle)
@@ -834,6 +852,63 @@ mod text_input_style {
 
         fn selection_color(&self) -> Color {
             Color::from_rgb(0.8, 0.8, 1.0)
+        }
+    }
+}
+
+struct FogParameters {
+    visible: bool,
+    radius: f32,
+    radius_slider: slider::State,
+    length: f32,
+    length_slider: slider::State,
+}
+
+impl FogParameters {
+    fn view(&mut self) -> Column<Message> {
+        let mut column = Column::new().push(Text::new("Fog")).push(Checkbox::new(
+            self.visible,
+            "Visible",
+            Message::FogVisibility,
+        ));
+
+        if self.visible {
+            column = column
+                .push(Text::new("Radius"))
+                .push(Slider::new(
+                    &mut self.radius_slider,
+                    0f32..=100f32,
+                    self.radius,
+                    Message::FogRadius,
+                ))
+                .push(Text::new("Length"))
+                .push(Slider::new(
+                    &mut self.length_slider,
+                    0f32..=100f32,
+                    self.length,
+                    Message::FogLength,
+                ));
+        }
+        column
+    }
+
+    fn request(&self) -> Fog {
+        Fog {
+            radius: self.radius,
+            active: self.visible,
+            length: self.length,
+        }
+    }
+}
+
+impl Default for FogParameters {
+    fn default() -> Self {
+        Self {
+            visible: false,
+            length: 10.,
+            radius: 10.,
+            length_slider: Default::default(),
+            radius_slider: Default::default(),
         }
     }
 }

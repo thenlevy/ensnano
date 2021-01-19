@@ -478,6 +478,10 @@ fn main() {
                     if let Some(b) = requests.show_torsion_request.take() {
                         mediator.lock().unwrap().show_torsion_request(b)
                     }
+
+                    if let Some(fog) = requests.fog.take() {
+                        scene.lock().unwrap().fog_request(fog)
+                    }
                 }
 
                 // Treat eventual event that happenend in the gui left panel.

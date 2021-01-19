@@ -28,7 +28,7 @@ use view::{
     RotationMode as WidgetRotationMode, RotationWidgetDescriptor, RotationWidgetOrientation, View,
     ViewUpdate,
 };
-pub use view::{GridInstance, GridTypeDescr};
+pub use view::{FogParameters, GridInstance, GridTypeDescr};
 /// Handling of inputs and notifications
 mod controller;
 use controller::{Consequence, Controller};
@@ -607,6 +607,10 @@ impl Scene {
         self.update.camera_update = true;
         self.element_selector
             .resize(self.controller.get_window_size(), self.area);
+    }
+
+    pub fn fog_request(&mut self, fog: FogParameters) {
+        self.view.borrow_mut().update(ViewUpdate::Fog(fog))
     }
 }
 

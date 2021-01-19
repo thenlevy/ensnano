@@ -16,6 +16,7 @@ use wgpu::{Device, Queue};
 
 /// A `Uniform` is a structure that manages view and projection matrices.
 mod uniforms;
+pub use uniforms::FogParameters;
 use uniforms::Uniforms;
 mod direction_cube;
 mod dna_obj;
@@ -97,6 +98,7 @@ pub struct View {
     dna_drawers: DnaDrawers,
     direction_cube: InstanceDrawer<DirectionCube>,
     skybox_cube: InstanceDrawer<SkyBox>,
+    fog_parameters: FogParameters,
 }
 
 impl View {
@@ -243,6 +245,7 @@ impl View {
             dna_drawers,
             direction_cube,
             skybox_cube,
+            fog_parameters: FogParameters::new(),
         }
     }
 
@@ -256,9 +259,10 @@ impl View {
                 self.need_redraw_fake = true;
             }
             ViewUpdate::Camera => {
-                self.viewer.update(&Uniforms::from_view_proj(
+                self.viewer.update(&Uniforms::from_view_proj_fog(
                     self.camera.clone(),
                     self.projection.clone(),
+                    &self.fog_parameters,
                 ));
                 self.handle_drawers
                     .update_camera(self.camera.clone(), self.projection.clone());
@@ -266,6 +270,14 @@ impl View {
                 let dist = self.projection.borrow().cube_dist();
                 self.direction_cube
                     .new_instances(vec![DirectionCube::new(dist)]);
+            }
+            ViewUpdate::Fog(fog) => {
+                self.fog_parameters = fog;
+                self.viewer.update(&Uniforms::from_view_proj_fog(
+                    self.camera.clone(),
+                    self.projection.clone(),
+                    &self.fog_parameters,
+                ));
             }
             ViewUpdate::Handles(descr) => {
                 self.handle_drawers.update_decriptor(
@@ -693,6 +705,7 @@ pub enum ViewUpdate {
     Grids(Rc<Vec<GridInstance>>),
     GridDiscs(Vec<GridDisc>),
     RawDna(Mesh, Rc<Vec<RawDnaInstance>>),
+    Fog(FogParameters),
 }
 
 #[derive(Eq, PartialEq, Debug, Copy, Clone, Hash)]

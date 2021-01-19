@@ -1077,7 +1077,7 @@ impl ControllerState for InitBuilding {
                                 .data
                                 .borrow()
                                 .is_xover_end(&self.nucl)
-                                .expect("prime 3");
+                                .unwrap_or(true);
                             Transition {
                                 new_state: Some(Box::new(MovingFreeEnd {
                                     mouse_position: self.mouse_position,

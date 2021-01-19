@@ -15,6 +15,7 @@ pub mod status_bar;
 use status_bar::StatusBar;
 
 use crate::mediator::{ActionMode, Operation, SelectionMode};
+use crate::scene::FogParameters;
 use crate::SplitMode;
 use crate::{DrawArea, ElementType, IcedMessages, Multiplexer};
 use iced_native::Event;
@@ -71,6 +72,7 @@ pub struct Requests {
     pub clean_requests: bool,
     pub roll_request: bool,
     pub show_torsion_request: Option<bool>,
+    pub fog: Option<FogParameters>,
 }
 
 impl Requests {
@@ -104,6 +106,7 @@ impl Requests {
             clean_requests: false,
             roll_request: false,
             show_torsion_request: None,
+            fog: None,
         }
     }
 }
