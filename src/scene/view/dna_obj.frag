@@ -13,10 +13,20 @@ layout(set=0, binding=0) uniform Uniform {
     mat4 u_proj;
 };
 
+const float HALF_LIFE = 10.;
+const float GREY_VAL = pow(0.8, 2.2);
+const vec3 BG_COLOR = vec3(GREY_VAL, GREY_VAL, GREY_VAL);
+
+const vec3 SKY_COLOR = vec3(0.207, 0.321, 0.494);
+const vec3 SAND_COLOR = vec3(0.368, 0.360, 0.219);
+
 void main() {
     vec3 normal = normalize(v_normal);
     vec3 light_position = abs(v_color.w - 1.) < 1e-3 ? u_camera_position : vec3(0., 0., 1000.);
     vec3 light_dir = normalize(light_position - v_position);
+
+
+    vec3 view_dir = normalize(u_camera_position - v_position);
 
     if (v_color.w < 0.8 && v_color.w > 0.7) {
         f_color = v_color;
@@ -30,7 +40,6 @@ void main() {
         float diffuse_strength = max(dot(normal, light_dir), 0.0);
         vec3 diffuse_color = light_color * diffuse_strength;
 
-        vec3 view_dir = normalize(u_camera_position - v_position);
         vec3 reflect_dir = reflect(-light_dir, normal);
         float specular_strength = pow(max(dot(view_dir, reflect_dir), 0.0), 32);
         vec3 specular_color = specular_strength * light_color;
@@ -39,5 +48,14 @@ void main() {
 
         f_color = vec4(result, v_color.w);
     }
+
+    float dist = length(u_camera_position - v_position);
+    float lambda = log(2.) / HALF_LIFE;
+    float visibility = exp(-lambda * dist);
+
+    vec3 fog_color = mix(SKY_COLOR, SAND_COLOR, sqrt((1. + view_dir.y) / 2.));
+
+
+    f_color = mix(vec4(fog_color, 1.0), f_color, visibility);
 
 }

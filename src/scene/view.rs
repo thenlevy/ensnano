@@ -96,6 +96,7 @@ pub struct View {
     disc_drawer: InstanceDrawer<GridDisc>,
     dna_drawers: DnaDrawers,
     direction_cube: InstanceDrawer<DirectionCube>,
+    skybox_cube: InstanceDrawer<SkyBox>,
 }
 
 impl View {
@@ -209,6 +210,16 @@ impl View {
         );
         direction_cube.new_instances(vec![Default::default()]);
 
+        let mut skybox_cube = InstanceDrawer::new(
+            device.clone(),
+            queue.clone(),
+            &viewer.get_layout_desc(),
+            &model_bg_desc,
+            (),
+            false,
+        );
+        skybox_cube.new_instances(vec![SkyBox::new(500.)]);
+
         Self {
             camera,
             projection,
@@ -231,6 +242,7 @@ impl View {
             disc_drawer,
             dna_drawers,
             direction_cube,
+            skybox_cube,
         }
     }
 
@@ -424,6 +436,11 @@ impl View {
                     )
                 }
             } else if draw_type == DrawType::Scene {
+                self.skybox_cube.draw(
+                    &mut render_pass,
+                    self.viewer.get_bindgroup(),
+                    self.models.get_bindgroup(),
+                );
                 for drawer in self.dna_drawers.reals() {
                     drawer.draw(
                         &mut render_pass,

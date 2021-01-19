@@ -5,6 +5,50 @@ use ultraviolet::{Vec2, Vec3};
 use wgpu::{Device, Queue};
 
 #[repr(C)]
+#[derive(Debug, Clone, Copy)]
+pub struct SkyBox {
+    size: f32,
+}
+impl SkyBox {
+    pub fn new(size: f32) -> Self {
+        Self { size }
+    }
+}
+
+unsafe impl bytemuck::Zeroable for SkyBox {}
+unsafe impl bytemuck::Pod for SkyBox {}
+
+impl Instanciable for SkyBox {
+    type RawInstance = SkyBox;
+    type Ressource = ();
+    type Vertex = CubeVertex;
+
+    fn to_raw_instance(&self) -> SkyBox {
+        *self
+    }
+
+    fn vertices() -> Vec<CubeVertex> {
+        DirectionCube::vertices()
+    }
+
+    fn indices() -> Vec<u16> {
+        DirectionCube::indices()
+    }
+
+    fn primitive_topology() -> wgpu::PrimitiveTopology {
+        wgpu::PrimitiveTopology::TriangleList
+    }
+
+    fn vertex_module(device: &Device) -> wgpu::ShaderModule {
+        device.create_shader_module(wgpu::include_spirv!("skybox.vert.spv"))
+    }
+
+    fn fragment_module(device: &Device) -> wgpu::ShaderModule {
+        device.create_shader_module(wgpu::include_spirv!("skybox.frag.spv"))
+    }
+}
+
+#[repr(C)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct DirectionCube {
     dist: f32,
