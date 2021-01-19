@@ -27,7 +27,7 @@ mod grid_disc;
 mod handle_drawer;
 mod instances_drawer;
 mod letter;
-mod maths;
+pub mod maths;
 /// A RotationWidget draws the widget for rotating objects
 mod rotation_widget;
 

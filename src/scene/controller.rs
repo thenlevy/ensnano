@@ -177,7 +177,11 @@ impl Controller {
                 }
             },
             WindowEvent::MouseWheel { delta, .. } => {
-                self.camera_controller.process_scroll(delta);
+                let position = self.mouse_position;
+                let mouse_x = position.x / self.area_size.width as f64;
+                let mouse_y = position.y / self.area_size.height as f64;
+                self.camera_controller
+                    .process_scroll(delta, mouse_x as f32, mouse_y as f32);
                 Consequence::CameraMoved
             }
             WindowEvent::Focused(false) => {
@@ -330,7 +334,7 @@ impl Controller {
     }
 
     /// Set the pivot point of the camera
-    pub fn set_pivot_point(&mut self, point: Vec3) {
+    pub fn set_pivot_point(&mut self, point: Option<Vec3>) {
         self.camera_controller.set_pivot_point(point)
     }
 
