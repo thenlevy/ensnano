@@ -557,12 +557,12 @@ impl Helix {
         let mut pos = 0.max(self.left);
         while pos <= self.right {
             print_pos(pos);
-            pos += 5;
+            pos += 8;
         }
-        pos = -5;
+        pos = -8;
         while pos >= self.left {
             print_pos(pos);
-            pos -= 5;
+            pos -= 8;
         }
 
         let mut print_basis = |position: isize, forward: bool| {

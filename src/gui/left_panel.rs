@@ -1,11 +1,11 @@
 use std::sync::{Arc, Mutex};
 
-use iced::{container, Background, Column, Container, Image};
+use iced::{container, Background, Column, Container, Image, Row};
 use iced_wgpu::Renderer;
 use iced_winit::winit::dpi::{LogicalPosition, LogicalSize};
 use iced_winit::{
     button, scrollable, slider, text_input, Button, Checkbox, Color, Command, Element, Length,
-    Program, Row, Scrollable, Slider, Text, TextInput,
+    Program, Scrollable, Slider, Text, TextInput,
 };
 use native_dialog::FileDialog;
 use ultraviolet::Vec3;
@@ -49,6 +49,7 @@ pub struct LeftPanel {
     builder_input: [text_input::State; 2],
     show_torsion: bool,
     fog: FogParameters,
+    physical_simulation: PhysicalSimulation,
 }
 
 #[derive(Debug, Clone)]
@@ -72,6 +73,10 @@ pub enum Message {
     FogVisibility(bool),
     FogRadius(f32),
     FogLength(f32),
+    SimRoll(bool),
+    SimSprings(bool),
+    SimRequest,
+    NewDesign,
 }
 
 impl LeftPanel {
@@ -105,6 +110,7 @@ impl LeftPanel {
             position_str: "0".to_string(),
             show_torsion: false,
             fog: Default::default(),
+            physical_simulation: Default::default(),
         }
     }
 
@@ -261,6 +267,21 @@ impl Program for LeftPanel {
             Message::FogRadius(radius) => {
                 self.fog.radius = radius;
                 self.requests.lock().unwrap().fog = Some(self.fog.request());
+            }
+            Message::NewDesign => {
+                self.show_torsion = false;
+                self.physical_simulation.running = false;
+            }
+            Message::SimRoll(b) => {
+                self.physical_simulation.roll = b;
+            }
+            Message::SimSprings(b) => {
+                self.physical_simulation.springs = b;
+            }
+            Message::SimRequest => {
+                self.physical_simulation.running ^= true;
+                self.requests.lock().unwrap().roll_request =
+                    Some(self.physical_simulation.request());
             }
         };
         Command::none()
@@ -566,16 +587,17 @@ impl Program for LeftPanel {
             }
             global_scroll = global_scroll.spacing(5).push(row)
         }
+        global_scroll = global_scroll
+            .push(self.physical_simulation.view())
+            .max_height(self.logical_size.height as u32);
 
-        let mut widget = Column::new()
-            .push(global_scroll)
+        let mut widget = global_scroll
             .push(Checkbox::new(
                 self.show_torsion,
                 "Show Torsion",
                 Message::ShowTorsion,
             ))
-            .width(Length::Units(width))
-            .height(Length::Fill);
+            .width(Length::Units(width));
 
         let color_square = self.color_picker.color_square();
         if self.selection_mode == SelectionMode::Strand {
@@ -911,4 +933,39 @@ impl Default for FogParameters {
             radius_slider: Default::default(),
         }
     }
+}
+
+#[derive(Default)]
+struct PhysicalSimulation {
+    go_stop_button: button::State,
+    pub running: bool,
+    pub roll: bool,
+    pub springs: bool,
+}
+
+impl PhysicalSimulation {
+    fn view(&mut self) -> Row<Message> {
+        let left_column = Column::new()
+            .push(Checkbox::new(self.roll, "Roll", Message::SimRoll))
+            .push(Checkbox::new(self.springs, "Spring", Message::SimSprings));
+        let button_str = if self.running { "Stop" } else { "Go" };
+        let right_column = Column::new().push(
+            Button::new(&mut self.go_stop_button, Text::new(button_str))
+                .on_press(Message::SimRequest),
+        );
+        Row::new().push(left_column).push(right_column)
+    }
+
+    fn request(&self) -> SimulationRequest {
+        SimulationRequest {
+            roll: self.roll,
+            springs: self.springs,
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct SimulationRequest {
+    pub roll: bool,
+    pub springs: bool,
 }

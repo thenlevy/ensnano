@@ -1,4 +1,5 @@
 //! This modules defines the type [`Design`](Design) which offers an interface to a DNA nanostructure design.
+use crate::gui::SimulationRequest;
 use ahash::RandomState;
 use native_dialog::{MessageDialog, MessageType};
 use std::collections::{BTreeMap, HashMap, HashSet};
@@ -708,8 +709,8 @@ impl Design {
     }
 
     /// Start or stop a physicall simulation
-    pub fn roll_request(&mut self) {
-        self.data.lock().unwrap().roll_request();
+    pub fn roll_request(&mut self, request: SimulationRequest) {
+        self.data.lock().unwrap().roll_request(request);
     }
 
     pub fn get_xover_info(&self, source: Nucl, target: Nucl) -> Option<XoverInfo> {
@@ -723,6 +724,10 @@ impl Design {
     /// See `Data::get_torsions`
     pub fn get_torsions(&self) -> HashMap<(Nucl, Nucl), Torsion> {
         self.data.lock().unwrap().get_torsions()
+    }
+
+    pub fn notify_death(&self) {
+        self.data.lock().unwrap().notify_death()
     }
 }
 

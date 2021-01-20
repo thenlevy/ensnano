@@ -342,6 +342,7 @@ fn main() {
                     if let Some(ref path) = requests.file_add {
                         let design = Design::new_with_path(0, path);
                         if let Some(design) = design {
+                            messages.lock().unwrap().notify_new_design();
                             mediator.lock().unwrap().clear_designs();
                             let design = Arc::new(Mutex::new(design));
                             mediator.lock().unwrap().add_design(design);
@@ -470,9 +471,8 @@ fn main() {
                         mediator.lock().unwrap().clean_designs();
                     }
 
-                    if requests.roll_request {
-                        requests.roll_request = false;
-                        mediator.lock().unwrap().roll_request();
+                    if let Some(roll_request) = requests.roll_request.take() {
+                        mediator.lock().unwrap().roll_request(roll_request);
                     }
 
                     if let Some(b) = requests.show_torsion_request.take() {
@@ -656,6 +656,11 @@ impl IcedMessages {
     pub fn finish_progess(&mut self) {
         self.status_bar
             .push_back(gui::status_bar::Message::Progress(None))
+    }
+
+    pub fn notify_new_design(&mut self) {
+        self.left_panel
+            .push_back(gui::left_panel::Message::NewDesign)
     }
 }
 

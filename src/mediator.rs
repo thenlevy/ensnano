@@ -6,6 +6,7 @@
 //! mediator.
 //!
 //! The mediator also holds data that is common to all applications.
+use crate::gui::SimulationRequest;
 use crate::utils::{message, yes_no, PhantomElement};
 use crate::{DrawArea, Duration, ElementType, IcedMessages, Multiplexer, WindowEvent};
 use iced_wgpu::wgpu;
@@ -490,6 +491,9 @@ impl Mediator {
     }
 
     pub fn clear_designs(&mut self) {
+        for d in self.designs.iter() {
+            d.lock().unwrap().notify_death()
+        }
         self.designs = vec![];
         self.notify_apps(Notification::ClearDesigns)
     }
@@ -805,9 +809,9 @@ impl Mediator {
         }
     }
 
-    pub fn roll_request(&mut self) {
+    pub fn roll_request(&mut self, request: SimulationRequest) {
         for d in self.designs.iter() {
-            d.lock().unwrap().roll_request();
+            d.lock().unwrap().roll_request(request.clone());
         }
     }
 

@@ -10,7 +10,7 @@ pub mod top_bar;
 pub use top_bar::TopBar;
 /// Draw the left pannel of the GUI
 pub mod left_panel;
-pub use left_panel::{ColorOverlay, LeftPanel};
+pub use left_panel::{ColorOverlay, LeftPanel, SimulationRequest};
 pub mod status_bar;
 use status_bar::StatusBar;
 
@@ -70,7 +70,7 @@ pub struct Requests {
     pub stapples_request: bool,
     pub recolor_stapples: bool,
     pub clean_requests: bool,
-    pub roll_request: bool,
+    pub roll_request: Option<SimulationRequest>,
     pub show_torsion_request: Option<bool>,
     pub fog: Option<FogParameters>,
 }
@@ -104,7 +104,7 @@ impl Requests {
             stapples_request: false,
             recolor_stapples: false,
             clean_requests: false,
-            roll_request: false,
+            roll_request: None,
             show_torsion_request: None,
             fog: None,
         }

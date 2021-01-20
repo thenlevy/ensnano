@@ -8,6 +8,7 @@
 //! The `Data` objects can convert these identifier into `Nucl` position or retrieve information
 //! about the element such as its position, color etc...
 //!
+use crate::gui::SimulationRequest;
 use ahash::RandomState;
 use native_dialog::{MessageDialog, MessageType};
 use std::collections::{BTreeMap, HashMap, HashSet};
@@ -401,15 +402,15 @@ impl Data {
         ret
     }
 
-    pub fn roll_request(&mut self) {
+    pub fn roll_request(&mut self, request: SimulationRequest) {
         if self.roller_ptrs.is_some() {
             self.stop_rolling()
         } else {
-            self.start_rolling()
+            self.start_rolling(request)
         }
     }
 
-    fn start_rolling(&mut self) {
+    fn start_rolling(&mut self, request: SimulationRequest) {
         let xovers = self.design.get_xovers();
         let helices: Vec<Helix> = self.design.helices.values().cloned().collect();
         let keys: Vec<usize> = self.design.helices.keys().cloned().collect();
@@ -420,6 +421,8 @@ impl Data {
             xovers,
             self.design.parameters.unwrap_or_default().clone(),
             intervals,
+            request.roll,
+            request.springs,
         );
         let date = Instant::now();
         let (stop, snd) = physical_system.run();
@@ -430,7 +433,7 @@ impl Data {
         if let Some((stop, _, _)) = self.roller_ptrs.as_mut() {
             *stop.lock().unwrap() = true;
         } else {
-            println!("Waring, design was not rolling");
+            println!("design was not rolling");
         }
         self.roller_ptrs = None;
     }
@@ -2069,6 +2072,10 @@ impl Data {
             target_strand_end,
             source_strand_end,
         })
+    }
+
+    pub fn notify_death(&mut self) {
+        self.stop_rolling()
     }
 }
 

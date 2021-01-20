@@ -28,6 +28,10 @@ pub struct PhysicalSystem {
     /// When the wrapped option takes the value of some channel, the thread that performs the
     /// simulation sends the position of the helices through the channel.
     sender: Arc<Mutex<Option<Sender<Vec<Helix>>>>>,
+    /// Indicate weither the roll system must be simulated
+    roll: bool,
+    /// Indicate weither the springs system must be simulated
+    springs: bool,
 }
 
 impl PhysicalSystem {
@@ -37,6 +41,8 @@ impl PhysicalSystem {
         xovers: Vec<(Nucl, Nucl)>,
         parameters: Parameters,
         intervals_map: BTreeMap<usize, (isize, isize)>,
+        roll: bool,
+        springs: bool,
     ) -> Self {
         let mut helix_map = HashMap::new();
         let mut intervals = Vec::with_capacity(helices.len());
@@ -60,6 +66,8 @@ impl PhysicalSystem {
             sender: Default::default(),
             springer,
             roller,
+            roll,
+            springs,
         }
     }
 
@@ -73,8 +81,12 @@ impl PhysicalSystem {
                 if let Some(snd) = self.sender.lock().unwrap().take() {
                     snd.send(self.data.helices.clone()).unwrap();
                 }
-                self.roller.solve_one_step(&mut self.data, 1e-3);
-                self.springer.solve_one_step(&mut self.data, 1e-3);
+                if self.roll {
+                    self.roller.solve_one_step(&mut self.data, 1e-3);
+                }
+                if self.springs {
+                    self.springer.solve_one_step(&mut self.data, 1e-3);
+                }
             }
         });
         (stop, sender)
@@ -112,8 +124,8 @@ pub(super) fn cross_over_force(
     let theta_self = me.theta(n_self, b_self, parameters);
     let theta_other = other.theta(n_other, b_other, parameters);
 
-    let vec_self = me.rotate_point([0., -theta_self.sin(), theta_self.cos()].into());
-    let vec_other = other.rotate_point([0., -theta_other.sin(), theta_other.cos()].into());
+    let vec_self = me.rotate_point([0., theta_self.sin(), -theta_self.cos()].into());
+    let vec_other = other.rotate_point([0., theta_other.sin(), -theta_other.cos()].into());
 
     (
         (0..3)

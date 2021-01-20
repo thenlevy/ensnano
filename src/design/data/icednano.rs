@@ -790,7 +790,7 @@ impl Helix {
 
     #[allow(dead_code)]
     pub fn roll(&mut self, roll: f32) {
-        self.roll -= roll
+        self.roll += roll
     }
 }
 
