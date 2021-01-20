@@ -1,3 +1,4 @@
+use super::view::maths;
 use super::{ClickMode, PhySize};
 use iced_winit::winit;
 use std::cell::RefCell;
@@ -117,6 +118,9 @@ pub struct CameraController {
     cam0: Camera,
     projection: ProjectionPtr,
     pivot_point: Option<Vec3>,
+    zoom_plane: Option<Plane>,
+    x_scroll: f32,
+    y_scroll: f32,
 }
 
 impl CameraController {
@@ -137,6 +141,9 @@ impl CameraController {
             cam0: camera.borrow().clone(), // clone the camera not the pointer !
             projection,
             pivot_point: None,
+            zoom_plane: None,
+            x_scroll: 0.,
+            y_scroll: 0.,
         }
     }
 
@@ -211,8 +218,14 @@ impl CameraController {
             || self.scroll.abs() > 0.
     }
 
-    pub fn set_pivot_point(&mut self, point: Vec3) {
-        self.pivot_point = Some(point)
+    pub fn set_pivot_point(&mut self, point: Option<Vec3>) {
+        if point.is_none() && self.pivot_point.is_some() {
+            self.zoom_plane = Some(Plane {
+                origin: self.pivot_point.unwrap(),
+                normal: (self.camera.borrow().position - self.pivot_point.unwrap()),
+            });
+        }
+        self.pivot_point = point
     }
 
     pub fn process_mouse(&mut self, mouse_dx: f64, mouse_dy: f64) {
@@ -221,7 +234,9 @@ impl CameraController {
         self.processed_move = true;
     }
 
-    pub fn process_scroll(&mut self, delta: &MouseScrollDelta) {
+    pub fn process_scroll(&mut self, delta: &MouseScrollDelta, x_cursor: f32, y_cursor: f32) {
+        self.x_scroll = x_cursor;
+        self.y_scroll = y_cursor;
         self.scroll = -match delta {
             // I'm assuming a line is about 100 pixels
             MouseScrollDelta::LineDelta(_, scroll) => scroll.min(1.).max(-1.) * 10.,
@@ -255,6 +270,8 @@ impl CameraController {
 
         let scale = if let Some(pivot) = self.pivot_point {
             (pivot - self.camera.borrow().position).dot(self.camera.borrow().direction())
+        } else if let Some(origin) = self.zoom_plane.as_ref().map(|plane| plane.origin) {
+            (origin - self.camera.borrow().position).dot(self.camera.borrow().direction())
         } else {
             10.
         };
@@ -284,12 +301,46 @@ impl CameraController {
             camera.position += up_vec * (self.amount_up - self.amount_down) * self.speed * dt;
         }
 
+        let pivot = self
+            .pivot_point
+            .or(self.zoom_plane.as_ref().and_then(|plane| {
+                if self
+                    .camera
+                    .borrow()
+                    .direction()
+                    .normalized()
+                    .dot(-plane.normal.normalized())
+                    > 0.9
+                {
+                    maths::unproject_point_on_plane(
+                        plane.origin,
+                        plane.normal,
+                        self.camera.clone(),
+                        self.projection.clone(),
+                        self.x_scroll,
+                        self.y_scroll,
+                    )
+                } else {
+                    None
+                }
+            }));
+
         // Move in/out (aka. "zoom")
         // Note: this isn't an actual zoom. The camera's position
         // changes when zooming. I've added this to make it easier
         // to get closer to an object you want to focus on.
-        let scrollward = if let Some(pivot) = self.pivot_point {
-            pivot - self.camera.borrow().position
+        let scrollward = if let Some(pivot) = pivot {
+            let to_pivot = pivot - self.camera.borrow().position;
+            let score = to_pivot
+                .normalized()
+                .dot(self.camera.borrow().direction().normalized());
+            if score < 0. {
+                self.camera.borrow().direction()
+            } else if (pivot - self.camera.borrow().position).mag() > 0.1 {
+                to_pivot
+            } else {
+                self.camera.borrow().direction()
+            }
         } else {
             10. * self.camera.borrow().direction()
         };
@@ -413,4 +464,10 @@ impl CameraController {
         let orientation = self.camera.borrow().rotor;
         self.teleport_camera(new_position, orientation);
     }
+}
+
+/// A plane in space defined by an origin and a normal
+struct Plane {
+    origin: Vec3,
+    normal: Vec3,
 }
