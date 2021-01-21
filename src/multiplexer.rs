@@ -566,6 +566,19 @@ impl Multiplexer {
                 ));
         }
     }
+
+    pub fn is_showing(&self, area: &ElementType) -> bool {
+        match area {
+            ElementType::LeftPanel | ElementType::TopBar | ElementType::StatusBar => true,
+            ElementType::Scene => {
+                self.split_mode == SplitMode::Scene3D || self.split_mode == SplitMode::Both
+            }
+            ElementType::FlatScene => {
+                self.split_mode == SplitMode::Flat || self.split_mode == SplitMode::Both
+            }
+            _ => false,
+        }
+    }
 }
 
 #[derive(Clone)]

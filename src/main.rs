@@ -498,7 +498,7 @@ fn main() {
                 }
                 let now = std::time::Instant::now();
                 let dt = now - last_render_time;
-                redraw |= scheduler.lock().unwrap().check_redraw(dt);
+                redraw |= scheduler.lock().unwrap().check_redraw(&multiplexer, dt);
                 last_render_time = now;
 
                 if redraw {

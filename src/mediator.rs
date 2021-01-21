@@ -84,10 +84,10 @@ impl Scheduler {
         }
     }
 
-    pub fn check_redraw(&mut self, dt: Duration) -> bool {
+    pub fn check_redraw(&mut self, multiplexer: &Multiplexer, dt: Duration) -> bool {
         self.needs_redraw.clear();
         for (area, app) in self.applications.iter_mut() {
-            if app.lock().unwrap().needs_redraw(dt) {
+            if multiplexer.is_showing(area) && app.lock().unwrap().needs_redraw(dt) {
                 self.needs_redraw.push(*area)
             }
         }
