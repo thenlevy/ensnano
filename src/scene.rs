@@ -299,6 +299,7 @@ impl Scene {
             self.mediator.lock().unwrap().notify_selection(selection);
         }
         let pivot = self.data.borrow().get_selected_position();
+        self.view.borrow_mut().update(ViewUpdate::FogCenter(pivot));
         self.controller.set_pivot_point(pivot);
         self.update_handle();
     }

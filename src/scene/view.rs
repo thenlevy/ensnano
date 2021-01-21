@@ -272,7 +272,9 @@ impl View {
                     .new_instances(vec![DirectionCube::new(dist)]);
             }
             ViewUpdate::Fog(fog) => {
+                let fog_center = self.fog_parameters.alt_fog_center.clone();
                 self.fog_parameters = fog;
+                self.fog_parameters.alt_fog_center = fog_center;
                 self.viewer.update(&Uniforms::from_view_proj_fog(
                     self.camera.clone(),
                     self.projection.clone(),
@@ -322,6 +324,14 @@ impl View {
                         .get_mut(mesh)
                         .new_instances_raw(instances.as_ref());
                 }
+            }
+            ViewUpdate::FogCenter(center) => {
+                self.fog_parameters.alt_fog_center = center;
+                self.viewer.update(&Uniforms::from_view_proj_fog(
+                    self.camera.clone(),
+                    self.projection.clone(),
+                    &self.fog_parameters,
+                ));
             }
         }
     }
@@ -706,6 +716,7 @@ pub enum ViewUpdate {
     GridDiscs(Vec<GridDisc>),
     RawDna(Mesh, Rc<Vec<RawDnaInstance>>),
     Fog(FogParameters),
+    FogCenter(Option<Vec3>),
 }
 
 #[derive(Eq, PartialEq, Debug, Copy, Clone, Hash)]

@@ -14,7 +14,8 @@ layout(set=0, binding=0) uniform Uniform {
     float u_fog_radius;
     float u_fog_length;
     uint u_make_fog;
-
+    uint u_fog_from_cam;
+    vec3 u_fog_center;
 };
 
 const float HALF_LIFE = 10.;
@@ -54,13 +55,28 @@ void main() {
         f_color = vec4(result, v_color.w);
     }
 
-    float dist = length(u_camera_position - v_position);
-    float visibility = u_make_fog == 0 ? 1. : 1. - smoothstep(u_fog_length, u_fog_length + u_fog_radius, dist);
+
+    float visibility;
+    if (u_make_fog > 0) {
+        float dist;
+        if (u_fog_from_cam > 0) {
+           dist = length(u_camera_position - v_position);
+        } else {
+          dist = length(u_fog_center - v_position);
+        }
+        visibility =  1. - smoothstep(u_fog_length, u_fog_length + u_fog_radius, dist);
+    } else {
+        visibility = 1.;
+    }
+
+    if (visibility < 0.1) {
+     discard;
+    }
 
     float y;
     if (abs(view_dir.y) > abs(view_dir.x) && abs(view_dir.y) > abs(view_dir.z)) {
        y = view_dir.y > 0 ? 1. : 0.;
-    } else if abs(view_dir.x) > abs(view_dir.z) {
+    } else if (abs(view_dir.x) > abs(view_dir.z)) {
        y = (view_dir.y/abs(view_dir.x) + 1.) / 2.;
     } else {
        y = (view_dir.y/abs(view_dir.z) + 1.) / 2.;

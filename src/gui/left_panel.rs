@@ -73,6 +73,7 @@ pub enum Message {
     FogVisibility(bool),
     FogRadius(f32),
     FogLength(f32),
+    FogCamera(bool),
     SimRoll(bool),
     SimSprings(bool),
     SimRequest,
@@ -271,6 +272,7 @@ impl Program for LeftPanel {
             Message::NewDesign => {
                 self.show_torsion = false;
                 self.physical_simulation.running = false;
+                self.fog = Default::default();
             }
             Message::SimRoll(b) => {
                 self.physical_simulation.roll = b;
@@ -282,6 +284,10 @@ impl Program for LeftPanel {
                 self.physical_simulation.running ^= true;
                 self.requests.lock().unwrap().roll_request =
                     Some(self.physical_simulation.request());
+            }
+            Message::FogCamera(b) => {
+                self.fog.from_camera = b;
+                self.requests.lock().unwrap().fog = Some(self.fog.request());
             }
         };
         Command::none()
@@ -880,6 +886,7 @@ mod text_input_style {
 
 struct FogParameters {
     visible: bool,
+    from_camera: bool,
     radius: f32,
     radius_slider: slider::State,
     length: f32,
@@ -888,11 +895,18 @@ struct FogParameters {
 
 impl FogParameters {
     fn view(&mut self) -> Column<Message> {
-        let mut column = Column::new().push(Text::new("Fog")).push(Checkbox::new(
-            self.visible,
-            "Visible",
-            Message::FogVisibility,
-        ));
+        let mut column = Column::new()
+            .push(Text::new("Fog"))
+            .push(Checkbox::new(
+                self.visible,
+                "Visible",
+                Message::FogVisibility,
+            ))
+            .push(Checkbox::new(
+                self.from_camera,
+                "From Camera",
+                Message::FogCamera,
+            ));
 
         if self.visible {
             column = column
@@ -919,6 +933,8 @@ impl FogParameters {
             radius: self.radius,
             active: self.visible,
             length: self.length,
+            from_camera: self.from_camera,
+            alt_fog_center: None,
         }
     }
 }
@@ -931,6 +947,7 @@ impl Default for FogParameters {
             radius: 10.,
             length_slider: Default::default(),
             radius_slider: Default::default(),
+            from_camera: false,
         }
     }
 }
