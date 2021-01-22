@@ -402,15 +402,15 @@ impl Data {
         ret
     }
 
-    pub fn roll_request(&mut self, request: SimulationRequest) {
+    pub fn roll_request(&mut self, request: SimulationRequest, computing: Arc<Mutex<bool>>) {
         if self.roller_ptrs.is_some() {
             self.stop_rolling()
         } else {
-            self.start_rolling(request)
+            self.start_rolling(request, computing)
         }
     }
 
-    fn start_rolling(&mut self, request: SimulationRequest) {
+    fn start_rolling(&mut self, request: SimulationRequest, computing: Arc<Mutex<bool>>) {
         let xovers = self.design.get_xovers();
         let helices: Vec<Helix> = self.design.helices.values().cloned().collect();
         let keys: Vec<usize> = self.design.helices.keys().cloned().collect();
@@ -425,7 +425,7 @@ impl Data {
             request.springs,
         );
         let date = Instant::now();
-        let (stop, snd) = physical_system.run();
+        let (stop, snd) = physical_system.run(computing);
         self.roller_ptrs = Some((stop, snd, date));
     }
 
@@ -757,6 +757,9 @@ impl Data {
         position: isize,
         fixed_position: isize,
     ) {
+        if self.roller_ptrs.is_some() {
+            return;
+        }
         let start = position.min(fixed_position);
         let end = position.max(fixed_position) + 1;
         let domain = &mut self

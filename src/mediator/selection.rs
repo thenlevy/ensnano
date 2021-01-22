@@ -1,5 +1,5 @@
 use crate::design::{Design, Nucl};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, RwLock};
 
 #[derive(Debug, Clone, Copy)]
 pub enum Selection {
@@ -36,11 +36,11 @@ impl Selection {
         format!("{:?}", self)
     }
 
-    pub fn fetch_values(&self, design: Arc<Mutex<Design>>) -> Vec<String> {
+    pub fn fetch_values(&self, design: Arc<RwLock<Design>>) -> Vec<String> {
         match self {
             Selection::Grid(_, g_id) => {
-                let b1 = design.lock().unwrap().has_persistent_phantom(g_id);
-                let b2 = design.lock().unwrap().has_small_spheres(g_id);
+                let b1 = design.read().unwrap().has_persistent_phantom(g_id);
+                let b2 = design.read().unwrap().has_small_spheres(g_id);
                 vec![b1, b2]
                     .iter()
                     .map(|b| {
@@ -56,14 +56,14 @@ impl Selection {
                 format!(
                     "{:?}",
                     design
-                        .lock()
+                        .read()
                         .unwrap()
                         .get_strand_length(*s_id as usize)
                         .unwrap_or(0)
                 ),
-                format!("{:?}", design.lock().unwrap().is_scaffold(*s_id as usize)),
+                format!("{:?}", design.read().unwrap().is_scaffold(*s_id as usize)),
                 s_id.to_string(),
-                design.lock().unwrap().decompose_length(*s_id as usize),
+                design.read().unwrap().decompose_length(*s_id as usize),
             ],
             _ => Vec::new(),
         }

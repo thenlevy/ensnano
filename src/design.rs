@@ -59,7 +59,7 @@ impl Design {
     }
 
     /// `true` if the view has been updated since the last time this function was called
-    pub fn view_was_updated(&mut self) -> Option<DesignNotification> {
+    pub fn view_was_updated(&self) -> Option<DesignNotification> {
         if self.view.lock().unwrap().was_updated() {
             let notification = DesignNotification {
                 content: DesignNotificationContent::ModelChanged(self.get_model_matrix()),
@@ -72,7 +72,7 @@ impl Design {
     }
 
     /// Return a notification to send to the observer if the data was changed.
-    pub fn data_was_updated(&mut self) -> Option<DesignNotification> {
+    pub fn data_was_updated(&self) -> Option<DesignNotification> {
         if self.data.lock().unwrap().view_need_reset() {
             let notification = DesignNotification {
                 content: DesignNotificationContent::ViewNeedReset,
@@ -428,7 +428,7 @@ impl Design {
 
     /// Return a `StrandBuilder` with moving end `nucl` if possibile (see
     /// [`Data::get_strand_builder`](data::Data::get_strand_builder)).
-    pub fn get_builder(&mut self, nucl: Nucl, stick: bool) -> Option<StrandBuilder> {
+    pub fn get_builder(&self, nucl: Nucl, stick: bool) -> Option<StrandBuilder> {
         self.data
             .lock()
             .unwrap()
@@ -577,7 +577,7 @@ impl Design {
         self.data.lock().unwrap().set_small_spheres(g_id, small);
     }
 
-    pub fn has_small_spheres_nucl_id(&mut self, n_id: u32) -> bool {
+    pub fn has_small_spheres_nucl_id(&self, n_id: u32) -> bool {
         let helix = self.get_nucl(n_id).map(|n| n.helix);
         helix
             .as_ref()
@@ -585,11 +585,11 @@ impl Design {
             .unwrap_or(false)
     }
 
-    pub fn helix_has_small_spheres(&mut self, h_id: &usize) -> bool {
+    pub fn helix_has_small_spheres(&self, h_id: &usize) -> bool {
         self.data.lock().unwrap().helix_has_small_spheres(h_id)
     }
 
-    pub fn has_small_spheres(&mut self, g_id: &usize) -> bool {
+    pub fn has_small_spheres(&self, g_id: &usize) -> bool {
         self.data.lock().unwrap().has_small_spheres(g_id)
     }
 
@@ -709,8 +709,8 @@ impl Design {
     }
 
     /// Start or stop a physicall simulation
-    pub fn roll_request(&mut self, request: SimulationRequest) {
-        self.data.lock().unwrap().roll_request(request);
+    pub fn roll_request(&mut self, request: SimulationRequest, computing: Arc<Mutex<bool>>) {
+        self.data.lock().unwrap().roll_request(request, computing);
     }
 
     pub fn get_xover_info(&self, source: Nucl, target: Nucl) -> Option<XoverInfo> {

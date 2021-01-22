@@ -1,6 +1,6 @@
 use super::{Flat, HelixVec, ViewPtr};
 use crate::design::{Design, Nucl, StrandBuilder};
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Arc, RwLock};
 use ultraviolet::Vec2;
 
 mod helix;
@@ -31,9 +31,9 @@ pub struct Data {
 }
 
 impl Data {
-    pub fn new(view: ViewPtr, design: Arc<Mutex<Design>>) -> Self {
-        let basis_map = design.lock().unwrap().get_basis_map();
-        let groups = design.lock().unwrap().get_groups();
+    pub fn new(view: ViewPtr, design: Arc<RwLock<Design>>) -> Self {
+        let basis_map = design.read().unwrap().get_basis_map();
+        let groups = design.read().unwrap().get_groups();
         Self {
             view,
             design: Design2d::new(design),

@@ -14,7 +14,7 @@ use iced_winit::winit::dpi::{PhysicalPosition, PhysicalSize};
 use simple_excel_writer::{row, Row, Workbook};
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 use ultraviolet::Vec3;
 
 use native_dialog::{FileDialog, MessageDialog, MessageType};
@@ -35,7 +35,7 @@ pub type MediatorPtr = Arc<Mutex<Mediator>>;
 
 pub struct Mediator {
     applications: HashMap<ElementType, Arc<Mutex<dyn Application>>>,
-    designs: Vec<Arc<Mutex<Design>>>,
+    designs: Vec<Arc<RwLock<Design>>>,
     selection: Selection,
     candidate: Option<Option<PhantomElement>>,
     last_selection: Option<Selection>,
@@ -130,7 +130,7 @@ pub enum Notification {
     #[allow(dead_code)]
     AppNotification(AppNotification),
     /// A new design has been added
-    NewDesign(Arc<Mutex<Design>>),
+    NewDesign(Arc<RwLock<Design>>),
     /// The application must show/hide the sequences
     ToggleText(bool),
     /// The scroll sensitivity has been modified
@@ -219,7 +219,7 @@ impl Mediator {
         self.notify_apps(Notification::FitRequest)
     }
 
-    pub fn add_design(&mut self, design: Arc<Mutex<Design>>) {
+    pub fn add_design(&mut self, design: Arc<RwLock<Design>>) {
         self.designs.push(design.clone());
         self.notify_apps(Notification::NewDesign(design));
     }
@@ -227,7 +227,7 @@ impl Mediator {
     pub fn change_strand_color(&mut self, color: u32) {
         if let Selection::Strand(design_id, strand_id) = self.selection {
             self.designs[design_id as usize]
-                .lock()
+                .write()
                 .unwrap()
                 .change_strand_color(strand_id as usize, color)
         }
@@ -236,7 +236,7 @@ impl Mediator {
     pub fn change_sequence(&mut self, sequence: String) {
         if let Selection::Strand(design_id, strand_id) = self.selection {
             self.designs[design_id as usize]
-                .lock()
+                .write()
                 .unwrap()
                 .change_strand_sequence(strand_id as usize, sequence)
         }
@@ -257,7 +257,7 @@ impl Mediator {
             0
         };
         self.designs[d_id]
-            .lock()
+            .write()
             .unwrap()
             .set_scaffold_id(scaffold_id)
     }
@@ -277,10 +277,10 @@ impl Mediator {
             0
         };
         self.designs[d_id]
-            .lock()
+            .write()
             .unwrap()
             .set_scaffold_sequence(sequence);
-        if self.designs[d_id].lock().unwrap().scaffold_is_set() {
+        if self.designs[d_id].read().unwrap().scaffold_is_set() {
             let choice = yes_no("Optimize the scaffold position ?\n
             If you chose \"Yes\", icednano will position the scaffold in a way that minimizes the number of anti-patern (G^4, C^4 (A|T)^7) in the stapples sequence. If you chose \"No\", the scaffold sequence will begin at position 0");
             if choice {
@@ -291,7 +291,7 @@ impl Mediator {
                     let (send, rcv) = std::sync::mpsc::channel::<f32>();
                     std::thread::spawn(move || {
                         *computing.lock().unwrap() = true;
-                        let score = design.lock().unwrap().optimize_shift(send);
+                        let score = design.read().unwrap().optimize_shift(send);
                         if !cfg!(target_os = "macos") {
                             MessageDialog::new()
                                 .set_type(MessageType::Info)
@@ -327,7 +327,7 @@ impl Mediator {
             }
             0
         };
-        if !self.designs[d_id].lock().unwrap().scaffold_is_set() {
+        if !self.designs[d_id].read().unwrap().scaffold_is_set() {
             message(
                 MessageDialog::new()
                     .set_type(MessageType::Error)
@@ -340,7 +340,7 @@ impl Mediator {
             );
             return;
         }
-        if !self.designs[d_id].lock().unwrap().scaffold_sequence_set() {
+        if !self.designs[d_id].read().unwrap().scaffold_sequence_set() {
             message(
                 MessageDialog::new()
                     .set_type(MessageType::Error)
@@ -352,7 +352,7 @@ impl Mediator {
             );
             return;
         }
-        if let Some(nucl) = self.designs[d_id].lock().unwrap().get_stapple_mismatch() {
+        if let Some(nucl) = self.designs[d_id].read().unwrap().get_stapple_mismatch() {
             if cfg!(target_os = "windows") {
                 MessageDialog::new()
                     .set_type(MessageType::Error)
@@ -380,12 +380,12 @@ impl Mediator {
         }
 
         let scaf_len = self.designs[d_id]
-            .lock()
+            .read()
             .unwrap()
             .get_scaffold_len()
             .unwrap();
         let scaf_seq_len = self.designs[d_id]
-            .lock()
+            .read()
             .unwrap()
             .get_scaffold_sequence_len()
             .unwrap();
@@ -425,7 +425,7 @@ impl Mediator {
                 return;
             }
         }
-        let stapples = self.designs[d_id].lock().unwrap().get_stapples();
+        let stapples = self.designs[d_id].read().unwrap().get_stapples();
         let path = if cfg!(target_os = "windows") {
             let (snd, rcv) = std::sync::mpsc::channel();
             std::thread::spawn(move || {
@@ -455,7 +455,7 @@ impl Mediator {
     pub fn set_persistent_phantom(&mut self, persistent: bool) {
         match self.selection {
             Selection::Grid(d_id, g_id) => self.designs[d_id as usize]
-                .lock()
+                .read()
                 .unwrap()
                 .set_persistent_phantom(&g_id, persistent),
             _ => println!("Selection is not a grid"),
@@ -465,7 +465,7 @@ impl Mediator {
     pub fn set_small_spheres(&mut self, small: bool) {
         match self.selection {
             Selection::Grid(d_id, g_id) => self.designs[d_id as usize]
-                .lock()
+                .read()
                 .unwrap()
                 .set_small_spheres(&g_id, small),
             _ => println!("Selection is not a grid"),
@@ -475,10 +475,10 @@ impl Mediator {
     pub fn save_design(&mut self, path: &PathBuf) {
         if let Some(d_id) = self.selected_design() {
             self.notify_apps(Notification::Save(d_id as usize));
-            self.designs[d_id as usize].lock().unwrap().save_to(path)
+            self.designs[d_id as usize].read().unwrap().save_to(path)
         } else {
             self.notify_apps(Notification::Save(0));
-            self.designs[0].lock().unwrap().save_to(path);
+            self.designs[0].read().unwrap().save_to(path);
             if self.designs.len() > 1 {
                 message(
                     MessageDialog::new()
@@ -492,7 +492,7 @@ impl Mediator {
 
     pub fn clear_designs(&mut self) {
         for d in self.designs.iter() {
-            d.lock().unwrap().notify_death()
+            d.read().unwrap().notify_death()
         }
         self.designs = vec![];
         self.notify_apps(Notification::ClearDesigns)
@@ -504,7 +504,7 @@ impl Mediator {
         if selection.is_strand() {
             let mut messages = self.messages.lock().unwrap();
             if let Selection::Strand(d_id, s_id) = selection {
-                let design = self.designs[d_id as usize].lock().unwrap();
+                let design = self.designs[d_id as usize].read().unwrap();
                 if let Some(color) = design.get_strand_color(s_id as usize) {
                     messages.push_color(color);
                 }
@@ -539,19 +539,19 @@ impl Mediator {
         }
     }
 
-    pub fn notify_all_designs(&mut self, notification: AppNotification) {
+    fn notify_all_designs(&mut self, notification: AppNotification) {
         for design_wrapper in self.designs.clone() {
             design_wrapper
-                .lock()
+                .write()
                 .unwrap()
                 .on_notify(notification.clone())
         }
     }
 
-    pub fn notify_designs(&mut self, designs: &HashSet<u32>, notification: AppNotification) {
+    fn notify_designs(&mut self, designs: &HashSet<u32>, notification: AppNotification) {
         for design_id in designs.iter() {
             self.designs.clone()[*design_id as usize]
-                .lock()
+                .write()
                 .unwrap()
                 .on_notify(notification.clone());
             //design.on_notify(notification.clone(), self);
@@ -567,11 +567,11 @@ impl Mediator {
         let mut ret = false;
         let mut notifications = Vec::new();
         for design_wrapper in self.designs.clone() {
-            if let Some(notification) = design_wrapper.lock().unwrap().view_was_updated() {
+            if let Some(notification) = design_wrapper.read().unwrap().view_was_updated() {
                 ret = true;
                 notifications.push(Notification::DesignNotification(notification))
             }
-            if let Some(notification) = design_wrapper.lock().unwrap().data_was_updated() {
+            if let Some(notification) = design_wrapper.read().unwrap().data_was_updated() {
                 ret = true;
                 notifications.push(Notification::DesignNotification(notification))
             }
@@ -589,7 +589,7 @@ impl Mediator {
                     forward: pe.forward,
                 };
                 let strand_opt = self.designs[design_id]
-                    .lock()
+                    .read()
                     .unwrap()
                     .get_strand_nucl(&nucl);
                 if let Some(strand) = strand_opt {
@@ -627,6 +627,9 @@ impl Mediator {
     /// Otherwise the last operation is considered finished.
     pub fn update_opperation(&mut self, operation: Arc<dyn Operation>) {
         // If the operation is compatible with the last operation, the last operation is eddited.
+        if *self.computing.lock().unwrap() {
+            return;
+        }
         let operation = if let Some(op) = self
             .last_op
             .as_ref()
@@ -669,6 +672,9 @@ impl Mediator {
     /// This method is called when a parameter of the pending operation is modified in the status
     /// bar.
     pub fn update_pending(&mut self, operation: Arc<dyn Operation>) {
+        if *self.computing.lock().unwrap() {
+            return;
+        }
         let target = {
             let mut set = HashSet::new();
             set.insert(operation.target() as u32);
@@ -694,6 +700,9 @@ impl Mediator {
 
     /// Save the last operation and the pending operation on the undo stack.
     pub fn finish_op(&mut self) {
+        if *self.computing.lock().unwrap() {
+            return;
+        }
         if let Some(op) = self.last_op.take() {
             self.messages.lock().unwrap().clear_op();
             self.notify_all_designs(AppNotification::MovementEnded);
@@ -799,19 +808,23 @@ impl Mediator {
 
     pub fn recolor_stapples(&mut self) {
         for d in self.designs.iter() {
-            d.lock().unwrap().recolor_stapples();
+            d.write().unwrap().recolor_stapples();
         }
     }
 
     pub fn clean_designs(&mut self) {
-        for d in self.designs.iter() {
-            d.lock().unwrap().clean_up_domains()
+        if !*self.computing.lock().unwrap() {
+            for d in self.designs.iter() {
+                d.write().unwrap().clean_up_domains()
+            }
         }
     }
 
     pub fn roll_request(&mut self, request: SimulationRequest) {
         for d in self.designs.iter() {
-            d.lock().unwrap().roll_request(request.clone());
+            d.write()
+                .unwrap()
+                .roll_request(request.clone(), self.computing.clone());
         }
     }
 
@@ -820,7 +833,7 @@ impl Mediator {
     /// `design::operation::general_cross_over`
     pub fn xover_request(&mut self, source: Nucl, target: Nucl, design_id: usize) {
         let operations = self.designs[design_id]
-            .lock()
+            .read()
             .unwrap()
             .general_cross_over(source, target);
         for op in operations.into_iter() {

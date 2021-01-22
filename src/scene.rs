@@ -3,7 +3,7 @@ use iced_winit::winit;
 use std::cell::RefCell;
 use std::collections::HashSet;
 use std::rc::Rc;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, RwLock};
 use std::time::Duration;
 use ultraviolet::{Mat4, Rotor3, Vec3};
 
@@ -111,7 +111,7 @@ impl Scene {
     }
 
     /// Add a design to be rendered.
-    fn add_design(&mut self, design: Arc<Mutex<Design>>) {
+    fn add_design(&mut self, design: Arc<RwLock<Design>>) {
         self.data.borrow_mut().add_design(design)
     }
 

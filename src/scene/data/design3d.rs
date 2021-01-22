@@ -7,12 +7,12 @@ use crate::utils;
 use crate::utils::instance::Instance;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, RwLock};
 use ultraviolet::{Mat4, Rotor3, Vec3};
 
 /// An object that handles the 3d graphcial representation of a `Design`
 pub struct Design3D {
-    design: Arc<Mutex<Design>>,
+    design: Arc<RwLock<Design>>,
     id: u32,
     symbol_map: HashMap<char, usize>,
 }
@@ -20,8 +20,8 @@ pub struct Design3D {
 type Basis = (f32, f32, f32, [f32; 3], u32);
 
 impl Design3D {
-    pub fn new(design: Arc<Mutex<Design>>) -> Self {
-        let id = design.lock().unwrap().get_id() as u32;
+    pub fn new(design: Arc<RwLock<Design>>) -> Self {
+        let id = design.read().unwrap().get_id() as u32;
         let mut symbol_map = HashMap::new();
         for (s_id, s) in BASIS_SYMBOLS.iter().enumerate() {
             symbol_map.insert(*s, s_id);
@@ -66,16 +66,16 @@ impl Design3D {
 
     /// Return the list of raw sphere instances to be displayed to represent the design
     pub fn get_spheres_raw(&self) -> Rc<Vec<RawDnaInstance>> {
-        let ids = self.design.lock().unwrap().get_all_visible_nucl_ids();
+        let ids = self.design.read().unwrap().get_all_visible_nucl_ids();
         Rc::new(self.id_to_raw_instances(ids))
     }
 
     pub fn get_letter_instances(&self) -> Vec<Vec<LetterInstance>> {
-        let ids = self.design.lock().unwrap().get_all_nucl_ids();
+        let ids = self.design.read().unwrap().get_all_nucl_ids();
         let mut vecs = vec![Vec::new(); NB_BASIS_SYMBOLS];
         for id in ids {
-            let pos = self.design.lock().unwrap().get_symbol_position(id);
-            let symbol = self.design.lock().unwrap().get_symbol(id);
+            let pos = self.design.read().unwrap().get_symbol_position(id);
+            let symbol = self.design.read().unwrap().get_symbol(id);
             if let Some((pos, symbol)) = pos.zip(symbol) {
                 if let Some(id) = self.symbol_map.get(&symbol) {
                     let instance = LetterInstance {
@@ -95,19 +95,19 @@ impl Design3D {
     /*
     /// Return the list of tube instances to be displayed to represent the design
     pub fn get_tubes(&self) -> Rc<Vec<Instance>> {
-        let ids = self.design.lock().unwrap().get_all_bound_ids();
+        let ids = self.design.read().unwrap().get_all_bound_ids();
         Rc::new(self.id_to_instances(ids))
     }
     */
 
     /// Return the list of tube instances to be displayed to represent the design
     pub fn get_tubes_raw(&self) -> Rc<Vec<RawDnaInstance>> {
-        let ids = self.design.lock().unwrap().get_all_visible_bound_ids();
+        let ids = self.design.read().unwrap().get_all_visible_bound_ids();
         Rc::new(self.id_to_raw_instances(ids))
     }
 
     pub fn get_model_matrix(&self) -> Mat4 {
-        self.design.lock().unwrap().get_model_matrix()
+        self.design.read().unwrap().get_model_matrix()
     }
 
     /// Convert return an instance representing the object with identifier `id` and custom
@@ -128,7 +128,7 @@ impl Design3D {
                 let position = self.get_design_element_position(id, referential)?;
                 let id = id | self.id << 24;
                 let color = Instance::color_from_au32(color);
-                let small = self.design.lock().unwrap().has_small_spheres_nucl_id(id);
+                let small = self.design.read().unwrap().has_small_spheres_nucl_id(id);
                 let radius = if small { radius / 4. } else { radius };
                 SphereInstance {
                     position,
@@ -160,7 +160,7 @@ impl Design3D {
                 let color = self.get_color(id)?;
                 let color = Instance::color_from_u32(color);
                 let id = id | self.id << 24;
-                let small = self.design.lock().unwrap().has_small_spheres_nucl_id(id);
+                let small = self.design.read().unwrap().has_small_spheres_nucl_id(id);
                 let radius = if small { 1. / 4. } else { 1. };
                 let sphere = SphereInstance {
                     position,
@@ -175,17 +175,17 @@ impl Design3D {
     }
 
     pub fn get_suggested_spheres(&self) -> Vec<RawDnaInstance> {
-        let suggestion = self.design.lock().unwrap().get_suggestions();
+        let suggestion = self.design.read().unwrap().get_suggestions();
         let mut ret = vec![];
         for (n1, n2) in suggestion {
             let nucl_1 = self
                 .design
-                .lock()
+                .read()
                 .unwrap()
                 .get_helix_nucl(n1, Referential::Model, false);
             let nucl_2 = self
                 .design
-                .lock()
+                .read()
                 .unwrap()
                 .get_helix_nucl(n2, Referential::Model, false);
             if let Some(position) = nucl_1 {
@@ -213,17 +213,17 @@ impl Design3D {
     }
 
     pub fn get_suggested_tubes(&self) -> Vec<RawDnaInstance> {
-        let suggestion = self.design.lock().unwrap().get_suggestions();
+        let suggestion = self.design.read().unwrap().get_suggestions();
         let mut ret = vec![];
         for (n1, n2) in suggestion {
             let nucl_1 = self
                 .design
-                .lock()
+                .read()
                 .unwrap()
                 .get_helix_nucl(n1, Referential::Model, false);
             let nucl_2 = self
                 .design
-                .lock()
+                .read()
                 .unwrap()
                 .get_helix_nucl(n2, Referential::Model, false);
             if let Some((position1, position2)) = nucl_1.zip(nucl_2) {
@@ -253,10 +253,10 @@ impl Design3D {
         if phantom_element.bound {
             let nucl_1 =
                 self.design
-                    .lock()
+                    .read()
                     .unwrap()
                     .get_helix_nucl(nucl, Referential::Model, false)?;
-            let nucl_2 = self.design.lock().unwrap().get_helix_nucl(
+            let nucl_2 = self.design.read().unwrap().get_helix_nucl(
                 nucl.left(),
                 Referential::Model,
                 false,
@@ -266,7 +266,7 @@ impl Design3D {
         } else {
             let nucl_coord =
                 self.design
-                    .lock()
+                    .read()
                     .unwrap()
                     .get_helix_nucl(nucl, Referential::Model, false)?;
             let id = utils::phantom_helix_encoder_nucl(self.id, helix_id, i, forward);
@@ -298,19 +298,19 @@ impl Design3D {
         if phantom_element.bound {
             let nucl_1 = self
                 .design
-                .lock()
+                .read()
                 .unwrap()
                 .get_helix_nucl(nucl, referential, on_axis)?;
             let nucl_2 =
                 self.design
-                    .lock()
+                    .read()
                     .unwrap()
                     .get_helix_nucl(nucl.left(), referential, on_axis)?;
             Some((nucl_1 + nucl_2) / 2.)
         } else {
             let nucl_coord = self
                 .design
-                .lock()
+                .read()
                 .unwrap()
                 .get_helix_nucl(nucl, referential, on_axis);
             nucl_coord
@@ -332,7 +332,7 @@ impl Design3D {
             for forward in [false, true].iter() {
                 let mut previous_nucl = None;
                 for i in -range_phantom..=range_phantom {
-                    let nucl_coord = self.design.lock().unwrap().get_helix_nucl(
+                    let nucl_coord = self.design.read().unwrap().get_helix_nucl(
                         Nucl {
                             helix: *helix_id as usize,
                             position: i as isize,
@@ -373,7 +373,7 @@ impl Design3D {
     }
 
     fn get_object_type(&self, id: u32) -> Option<ObjectType> {
-        self.design.lock().unwrap().get_object_type(id)
+        self.design.read().unwrap().get_object_type(id)
     }
 
     pub fn get_bound(&self, id: u32) -> Option<(Nucl, Nucl)> {
@@ -396,7 +396,7 @@ impl Design3D {
             SceneElement::PhantomElement(phantom) => {
                 self.get_phantom_element_position(phantom, referential, false)
             }
-            SceneElement::Grid(_, g_id) => self.design.lock().unwrap().get_grid_position(*g_id),
+            SceneElement::Grid(_, g_id) => self.design.read().unwrap().get_grid_position(*g_id),
             _ => None,
         }
     }
@@ -421,7 +421,7 @@ impl Design3D {
 
     pub fn get_design_element_position(&self, id: u32, referential: Referential) -> Option<Vec3> {
         self.design
-            .lock()
+            .read()
             .unwrap()
             .get_element_position(id, referential)
     }
@@ -432,13 +432,13 @@ impl Design3D {
         referential: Referential,
     ) -> Option<Vec3> {
         self.design
-            .lock()
+            .read()
             .unwrap()
             .get_element_axis_position(id, referential)
     }
 
     fn get_color(&self, id: u32) -> Option<u32> {
-        self.design.lock().unwrap().get_color(id)
+        self.design.read().unwrap().get_color(id)
     }
 
     /// Return a camera position and orientation so that self fits in the scene.
@@ -459,7 +459,7 @@ impl Design3D {
             (boundaries[4] + boundaries[5]) as f32 / 2.,
         );
         self.design
-            .lock()
+            .read()
             .unwrap()
             .get_model_matrix()
             .transform_vec3(middle)
@@ -473,11 +473,11 @@ impl Design3D {
         let mut max_y = std::f32::NEG_INFINITY;
         let mut max_z = std::f32::NEG_INFINITY;
 
-        let ids = self.design.lock().unwrap().get_all_nucl_ids();
+        let ids = self.design.read().unwrap().get_all_nucl_ids();
         for id in ids {
             let coord: [f32; 3] = self
                 .design
-                .lock()
+                .read()
                 .unwrap()
                 .get_element_position(id, Referential::World)
                 .unwrap()
@@ -588,26 +588,26 @@ impl Design3D {
 
     pub fn get_all_elements(&self) -> HashSet<u32> {
         let mut ret = HashSet::new();
-        for x in self.design.lock().unwrap().get_all_nucl_ids().iter() {
+        for x in self.design.read().unwrap().get_all_nucl_ids().iter() {
             ret.insert(*x);
         }
-        for x in self.design.lock().unwrap().get_all_bound_ids().iter() {
+        for x in self.design.read().unwrap().get_all_bound_ids().iter() {
             ret.insert(*x);
         }
         ret
     }
 
     pub fn get_strand(&self, element_id: u32) -> u32 {
-        self.design.lock().unwrap().get_strand(element_id).unwrap() as u32
+        self.design.read().unwrap().get_strand(element_id).unwrap() as u32
     }
 
     pub fn get_helix(&self, element_id: u32) -> u32 {
-        self.design.lock().unwrap().get_helix(element_id).unwrap() as u32
+        self.design.read().unwrap().get_helix(element_id).unwrap() as u32
     }
 
     pub fn get_strand_elements(&self, strand_id: u32) -> HashSet<u32> {
         self.design
-            .lock()
+            .read()
             .unwrap()
             .get_strand_elements(strand_id as usize)
             .into_iter()
@@ -615,12 +615,12 @@ impl Design3D {
     }
 
     pub fn get_element_type(&self, e_id: u32) -> Option<ObjectType> {
-        self.design.lock().unwrap().get_object_type(e_id)
+        self.design.read().unwrap().get_object_type(e_id)
     }
 
     pub fn get_helix_elements(&self, helix_id: u32) -> HashSet<u32> {
         self.design
-            .lock()
+            .read()
             .unwrap()
             .get_helix_elements(helix_id as usize)
             .into_iter()
@@ -628,32 +628,32 @@ impl Design3D {
     }
 
     pub fn get_helix_basis(&self, h_id: u32) -> Option<Rotor3> {
-        self.design.lock().unwrap().get_helix_basis(h_id)
+        self.design.read().unwrap().get_helix_basis(h_id)
     }
 
     pub fn get_basis(&self) -> Rotor3 {
-        self.design.lock().unwrap().get_basis()
+        self.design.read().unwrap().get_basis()
     }
 
     pub fn get_element_5prime(&self, element_id: u32) -> Option<SceneElement> {
-        let id = self.design.lock().unwrap().get_element_5prime(element_id)?;
+        let id = self.design.read().unwrap().get_element_5prime(element_id)?;
         Some(SceneElement::DesignElement(self.id, id))
     }
 
     pub fn get_element_3prime(&self, element_id: u32) -> Option<SceneElement> {
-        let id = self.design.lock().unwrap().get_element_3prime(element_id)?;
+        let id = self.design.read().unwrap().get_element_3prime(element_id)?;
         Some(SceneElement::DesignElement(self.id, id))
     }
 
     pub fn get_identifier_nucl(&self, nucl: Nucl) -> Option<u32> {
-        self.design.lock().unwrap().get_identifier_nucl(nucl)
+        self.design.read().unwrap().get_identifier_nucl(nucl)
     }
 
     pub fn get_builder(&self, element: &SceneElement, stick: bool) -> Option<StrandBuilder> {
         match element {
             SceneElement::DesignElement(_, e_id) => self
                 .design
-                .lock()
+                .write()
                 .unwrap()
                 .get_builder_element(*e_id, stick),
             SceneElement::PhantomElement(phantom_element) => {
@@ -662,23 +662,23 @@ impl Design3D {
                     position: phantom_element.position as isize,
                     forward: phantom_element.forward,
                 };
-                self.design.lock().unwrap().get_builder(nucl, stick)
+                self.design.read().unwrap().get_builder(nucl, stick)
             }
             _ => None,
         }
     }
 
     pub fn get_grid(&self) -> Vec<GridInstance> {
-        self.design.lock().unwrap().get_grid_instance()
+        self.design.read().unwrap().get_grid_instance()
     }
 
     pub fn get_helices_grid(&self, g_id: usize) -> Option<HashSet<usize>> {
-        self.design.lock().unwrap().get_helices_grid(g_id)
+        self.design.read().unwrap().get_helices_grid(g_id)
     }
 
     pub fn get_helices_grid_coord(&self, g_id: usize) -> Vec<(isize, isize)> {
         self.design
-            .lock()
+            .read()
             .unwrap()
             .get_helices_grid_coord(g_id)
             .unwrap_or(Vec::new())
@@ -686,35 +686,35 @@ impl Design3D {
 
     pub fn get_helices_grid_key_coord(&self, g_id: usize) -> Vec<((isize, isize), usize)> {
         self.design
-            .lock()
+            .read()
             .unwrap()
             .get_helices_grid_key_coord(g_id)
             .unwrap_or(Vec::new())
     }
 
     pub fn get_helix_grid(&self, g_id: usize, x: isize, y: isize) -> Option<u32> {
-        self.design.lock().unwrap().get_helix_grid(g_id, x, y)
+        self.design.read().unwrap().get_helix_grid(g_id, x, y)
     }
 
     pub fn get_persistent_phantom_helices(&self) -> HashSet<u32> {
-        self.design.lock().unwrap().get_persistent_phantom_helices()
+        self.design.read().unwrap().get_persistent_phantom_helices()
     }
 
     pub fn get_grid_basis(&self, g_id: usize) -> Option<Rotor3> {
-        self.design.lock().unwrap().get_grid_basis(g_id)
+        self.design.read().unwrap().get_grid_basis(g_id)
     }
 
     pub fn get_nucl(&self, e_id: u32) -> Option<Nucl> {
-        self.design.lock().unwrap().get_nucl(e_id)
+        self.design.read().unwrap().get_nucl(e_id)
     }
 
     pub fn get_nucl_relax(&self, e_id: u32) -> Option<Nucl> {
-        self.design.lock().unwrap().get_nucl_relax(e_id)
+        self.design.read().unwrap().get_nucl_relax(e_id)
     }
 
     pub fn helix_is_on_grid(&self, h_id: u32) -> bool {
         self.design
-            .lock()
+            .read()
             .unwrap()
             .get_grid_pos_helix(h_id)
             .is_some()
@@ -722,7 +722,7 @@ impl Design3D {
 
     pub fn get_nucl_position(&self, nucl: Nucl) -> Option<Vec3> {
         self.design
-            .lock()
+            .read()
             .unwrap()
             .get_helix_nucl(nucl, Referential::World, false)
     }

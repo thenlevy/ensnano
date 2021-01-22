@@ -260,7 +260,7 @@ impl StrandBuilder {
     /// Move the moving end to an objective position. If this position cannot be reached by the
     /// moving end, it will go as far as possible.
     pub fn move_to(&mut self, objective: isize) {
-        let mut need_update = false;
+        let mut need_update = true;
         match objective.cmp(&self.moving_end.position) {
             Ordering::Greater => {
                 while self.moving_end.position < objective.min(self.max_pos.unwrap_or(objective)) {

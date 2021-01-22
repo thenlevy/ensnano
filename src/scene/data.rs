@@ -6,7 +6,7 @@ use super::{GridIntersection, LetterInstance, SceneElement, View, ViewUpdate};
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, RwLock};
 
 use ultraviolet::{Rotor3, Vec3};
 
@@ -63,7 +63,7 @@ impl Data {
     }
 
     /// Add a new design to be drawn
-    pub fn add_design(&mut self, design: Arc<Mutex<Design>>) {
+    pub fn add_design(&mut self, design: Arc<RwLock<Design>>) {
         self.designs.push(Design3D::new(design));
         self.notify_instance_update();
         self.notify_matrices_update();

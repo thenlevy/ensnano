@@ -831,11 +831,19 @@ impl Operation for Cut {
     }
 
     fn effect(&self) -> AppNotification {
-        AppNotification::Cut {
-            nucl: self.nucl,
-            strand: self.strand.clone(),
-            s_id: self.strand_id,
-            undo: self.undo,
+        if self.strand.length() < 2 {
+            AppNotification::RmStrand {
+                strand: self.strand.clone(),
+                strand_id: self.strand_id,
+                undo: self.undo,
+            }
+        } else {
+            AppNotification::Cut {
+                nucl: self.nucl,
+                strand: self.strand.clone(),
+                s_id: self.strand_id,
+                undo: self.undo,
+            }
         }
     }
 

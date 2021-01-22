@@ -42,7 +42,7 @@ use std::collections::VecDeque;
 use std::env;
 use std::path::PathBuf;
 use std::rc::Rc;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 use std::time::{Duration, Instant};
 pub type PhySize = iced_winit::winit::dpi::PhysicalSize<u32>;
 
@@ -256,13 +256,13 @@ fn main() {
         mediator
             .lock()
             .unwrap()
-            .add_design(Arc::new(Mutex::new(design)));
+            .add_design(Arc::new(RwLock::new(design)));
     } else {
         let design = Design::new(0);
         mediator
             .lock()
             .unwrap()
-            .add_design(Arc::new(Mutex::new(design)));
+            .add_design(Arc::new(RwLock::new(design)));
     }
 
     // Initialize the UI
@@ -287,7 +287,7 @@ fn main() {
             } => *control_flow = ControlFlow::Exit,
             Event::WindowEvent { event, .. } => {
                 //let modifiers = multiplexer.modifiers();
-                if let Some(event) = event.to_static().filter(|_| !*computing.lock().unwrap()) {
+                if let Some(event) = event.to_static() {
                     // Feed the event to the multiplexer
                     let (event, icon_opt) = multiplexer.event(event, &mut resized);
                     icon = icon.or(icon_opt);
@@ -344,7 +344,7 @@ fn main() {
                         if let Some(design) = design {
                             messages.lock().unwrap().notify_new_design();
                             mediator.lock().unwrap().clear_designs();
-                            let design = Arc::new(Mutex::new(design));
+                            let design = Arc::new(RwLock::new(design));
                             mediator.lock().unwrap().add_design(design);
                         }
                         requests.file_add = None;
@@ -493,9 +493,7 @@ fn main() {
                     overlay_manager.forward_messages(&mut messages);
                 }
 
-                if !*computing.lock().unwrap() {
-                    mediator.lock().unwrap().observe_designs();
-                }
+                mediator.lock().unwrap().observe_designs();
                 let now = std::time::Instant::now();
                 let dt = now - last_render_time;
                 redraw |= scheduler.lock().unwrap().check_redraw(&multiplexer, dt);

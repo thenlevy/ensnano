@@ -12,7 +12,7 @@ use mediator::{
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 use wgpu::{Device, Queue};
 use winit::dpi::PhysicalPosition;
 
@@ -73,7 +73,7 @@ impl FlatScene {
     }
 
     /// Add a design to the scene. This creates a new `View`, a new `Data` and a new `Controller`
-    fn add_design(&mut self, design: Arc<Mutex<Design>>) {
+    fn add_design(&mut self, design: Arc<RwLock<Design>>) {
         let globals = Globals {
             resolution: [self.area.size.width as f32, self.area.size.height as f32],
             scroll_offset: [-1., -1.],

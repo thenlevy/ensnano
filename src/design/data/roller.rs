@@ -73,9 +73,13 @@ impl PhysicalSystem {
 
     /// Spawn a thread to run the physical simulation. Return a pair of pointers. One to request the
     /// termination of the simulation and one to fetch the current state of the helices.
-    pub fn run(mut self) -> (Arc<Mutex<bool>>, Arc<Mutex<Option<Sender<Vec<Helix>>>>>) {
+    pub fn run(
+        mut self,
+        computing: Arc<Mutex<bool>>,
+    ) -> (Arc<Mutex<bool>>, Arc<Mutex<Option<Sender<Vec<Helix>>>>>) {
         let stop = self.stop.clone();
         let sender = self.sender.clone();
+        *computing.lock().unwrap() = true;
         std::thread::spawn(move || {
             while !*self.stop.lock().unwrap() {
                 if let Some(snd) = self.sender.lock().unwrap().take() {
@@ -88,6 +92,7 @@ impl PhysicalSystem {
                     self.springer.solve_one_step(&mut self.data, 1e-3);
                 }
             }
+            *computing.lock().unwrap() = false;
         });
         (stop, sender)
     }
