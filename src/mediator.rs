@@ -6,7 +6,7 @@
 //! mediator.
 //!
 //! The mediator also holds data that is common to all applications.
-use crate::gui::SimulationRequest;
+use crate::gui::{HyperboloidRequest, SimulationRequest};
 use crate::utils::{message, yes_no, PhantomElement};
 use crate::{DrawArea, Duration, ElementType, IcedMessages, Multiplexer, WindowEvent};
 use iced_wgpu::wgpu;
@@ -825,6 +825,16 @@ impl Mediator {
             d.write()
                 .unwrap()
                 .roll_request(request.clone(), self.computing.clone());
+        }
+    }
+
+    pub fn hyperboloid_request(&mut self, request: HyperboloidRequest) {
+        if let Some(design) = self.designs.get(0) {
+            design.write().unwrap().update_hyperboloid(
+                request.radius,
+                request.shift,
+                request.length,
+            );
         }
     }
 

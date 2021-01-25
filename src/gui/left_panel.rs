@@ -50,6 +50,7 @@ pub struct LeftPanel {
     show_torsion: bool,
     fog: FogParameters,
     physical_simulation: PhysicalSimulation,
+    hyperboloid: Hyperboloid,
 }
 
 #[derive(Debug, Clone)]
@@ -78,6 +79,9 @@ pub enum Message {
     SimSprings(bool),
     SimRequest,
     NewDesign,
+    HyperboloidShift(f32),
+    HyperboloidLength(f32),
+    HyperboloidRadius(f32),
 }
 
 impl LeftPanel {
@@ -112,6 +116,7 @@ impl LeftPanel {
             show_torsion: false,
             fog: Default::default(),
             physical_simulation: Default::default(),
+            hyperboloid: Default::default(),
         }
     }
 
@@ -288,6 +293,18 @@ impl Program for LeftPanel {
             Message::FogCamera(b) => {
                 self.fog.from_camera = b;
                 self.requests.lock().unwrap().fog = Some(self.fog.request());
+            }
+            Message::HyperboloidShift(shift) => {
+                self.hyperboloid.shift = shift;
+                self.requests.lock().unwrap().hyperboloid = Some(self.hyperboloid.make_request());
+            }
+            Message::HyperboloidRadius(radius) => {
+                self.hyperboloid.radius = radius;
+                self.requests.lock().unwrap().hyperboloid = Some(self.hyperboloid.make_request());
+            }
+            Message::HyperboloidLength(length) => {
+                self.hyperboloid.length = length;
+                self.requests.lock().unwrap().hyperboloid = Some(self.hyperboloid.make_request());
             }
         };
         Command::none()
@@ -618,6 +635,7 @@ impl Program for LeftPanel {
                 .push(self.sequence_input.view());
         }
         widget = widget.push(self.fog.view());
+        widget = widget.push(self.hyperboloid.view());
 
         Container::new(widget)
             .style(TopBarStyle)
@@ -985,4 +1003,139 @@ impl PhysicalSimulation {
 pub struct SimulationRequest {
     pub roll: bool,
     pub springs: bool,
+}
+
+struct Hyperboloid {
+    pub radius: f32,
+    pub length: f32,
+    pub shift: f32,
+    radius_slider: slider::State,
+    incr_radius: button::State,
+    decr_radius: button::State,
+    length_slider: slider::State,
+    incr_length: button::State,
+    decr_length: button::State,
+    shift_slider: slider::State,
+    incr_shift: button::State,
+    decr_shift: button::State,
+}
+
+impl Default for Hyperboloid {
+    fn default() -> Self {
+        Self {
+            length: 100.,
+            radius: 10.,
+            shift: 0f32,
+            decr_shift: Default::default(),
+            incr_shift: Default::default(),
+            decr_length: Default::default(),
+            incr_length: Default::default(),
+            decr_radius: Default::default(),
+            incr_radius: Default::default(),
+            shift_slider: Default::default(),
+            radius_slider: Default::default(),
+            length_slider: Default::default(),
+        }
+    }
+}
+
+impl Hyperboloid {
+    fn view(&mut self) -> Column<Message> {
+        use std::f32::consts::PI;
+        let incr_radius = if self.radius < 29.9 {
+            Button::new(&mut self.incr_radius, Text::new("+"))
+                .on_press(Message::HyperboloidRadius(self.radius + 1.))
+        } else {
+            Button::new(&mut self.incr_radius, Text::new("+"))
+        };
+        let decr_radius = if self.radius > 3.1 {
+            Button::new(&mut self.decr_radius, Text::new("-"))
+                .on_press(Message::HyperboloidRadius(self.radius - 1.))
+        } else {
+            Button::new(&mut self.decr_radius, Text::new("-"))
+        };
+
+        let incr_length = if self.length < 199.9 {
+            Button::new(&mut self.incr_length, Text::new("+"))
+                .on_press(Message::HyperboloidLength(self.length + 1.))
+        } else {
+            Button::new(&mut self.incr_length, Text::new("+"))
+        };
+        let decr_length = if self.length > 1.1 {
+            Button::new(&mut self.decr_length, Text::new("-"))
+                .on_press(Message::HyperboloidLength(self.length - 1.))
+        } else {
+            Button::new(&mut self.decr_length, Text::new("-"))
+        };
+
+        let incr_shift = if self.shift < PI - 1.1f32.to_radians() {
+            Button::new(&mut self.incr_shift, Text::new("+"))
+                .on_press(Message::HyperboloidShift(self.shift + 1f32.to_radians()))
+        } else {
+            Button::new(&mut self.incr_shift, Text::new("+"))
+        };
+        let decr_shift = if self.length > -PI + 1.1f32.to_radians() {
+            Button::new(&mut self.decr_shift, Text::new("-"))
+                .on_press(Message::HyperboloidShift(self.shift - 1f32.to_radians()))
+        } else {
+            Button::new(&mut self.decr_shift, Text::new("-"))
+        };
+
+        Column::new()
+            .push(Text::new("Hyperboloid"))
+            .push(
+                Row::new()
+                    .push(Text::new("Nb helices"))
+                    .push(decr_radius)
+                    .push(incr_radius),
+            )
+            .push(Slider::new(
+                &mut self.radius_slider,
+                3f32..=30f32,
+                self.radius,
+                Message::HyperboloidRadius,
+            ))
+            .push(
+                Row::new()
+                    .push(Text::new("Length"))
+                    .push(decr_length)
+                    .push(incr_length),
+            )
+            .push(Slider::new(
+                &mut self.length_slider,
+                1f32..=200f32,
+                self.length,
+                Message::HyperboloidLength,
+            ))
+            .push(
+                Row::new()
+                    .push(Text::new("Shift"))
+                    .push(decr_shift)
+                    .push(incr_shift),
+            )
+            .push(
+                Slider::new(
+                    &mut self.shift_slider,
+                    -PI..=PI,
+                    self.shift,
+                    Message::HyperboloidShift,
+                )
+                .step(1f32.to_radians()),
+            )
+    }
+
+    pub fn make_request(&self) -> HyperboloidRequest {
+        HyperboloidRequest {
+            radius: self.radius.round() as usize,
+            length: self.length,
+            shift: self.shift,
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct HyperboloidRequest {
+    pub radius: usize,
+    pub length: f32,
+    pub shift: f32,
 }

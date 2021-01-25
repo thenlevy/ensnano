@@ -10,7 +10,7 @@ pub mod top_bar;
 pub use top_bar::TopBar;
 /// Draw the left pannel of the GUI
 pub mod left_panel;
-pub use left_panel::{ColorOverlay, LeftPanel, SimulationRequest};
+pub use left_panel::{ColorOverlay, HyperboloidRequest, LeftPanel, SimulationRequest};
 pub mod status_bar;
 use status_bar::StatusBar;
 
@@ -73,6 +73,7 @@ pub struct Requests {
     pub roll_request: Option<SimulationRequest>,
     pub show_torsion_request: Option<bool>,
     pub fog: Option<FogParameters>,
+    pub hyperboloid: Option<HyperboloidRequest>,
 }
 
 impl Requests {
@@ -107,6 +108,7 @@ impl Requests {
             roll_request: None,
             show_torsion_request: None,
             fog: None,
+            hyperboloid: None,
         }
     }
 }

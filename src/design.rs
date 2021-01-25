@@ -729,6 +729,20 @@ impl Design {
     pub fn notify_death(&self) {
         self.data.lock().unwrap().notify_death()
     }
+
+    pub fn add_hyperboloid(&mut self, nb_helix: usize, shift: f32, length: f32) {
+        self.data
+            .lock()
+            .unwrap()
+            .add_hyperboloid(nb_helix, shift, length)
+    }
+
+    pub fn update_hyperboloid(&mut self, nb_helix: usize, shift: f32, length: f32) {
+        self.data
+            .lock()
+            .unwrap()
+            .update_hyperboloid(nb_helix, shift, length)
+    }
 }
 
 #[derive(Clone)]

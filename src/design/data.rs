@@ -22,6 +22,7 @@ use std::time::Instant;
 
 mod codenano;
 mod grid;
+mod hyperboloid;
 mod icednano;
 mod roller;
 mod strand_builder;
@@ -85,6 +86,7 @@ pub struct Data {
         Arc<Mutex<Option<Sender<Vec<Helix>>>>>,
         Instant,
     )>,
+    hyperboloid_helices: Vec<usize>,
 }
 
 impl fmt::Debug for Data {
@@ -121,7 +123,56 @@ impl Data {
             blue_cubes: HashMap::default(),
             blue_nucl: vec![],
             roller_ptrs: None,
+            hyperboloid_helices: vec![],
         }
+    }
+
+    pub fn add_hyperboloid(&mut self, nb_helix: usize, shift: f32, length: f32) {
+        let hyperboloid = hyperboloid::Hyperboloid {
+            parameters: self.design.parameters.unwrap_or_default(),
+            radius: nb_helix,
+            shift,
+            length,
+        };
+        let (helices, nb_nucl) = hyperboloid.make_helices();
+        let mut key = self.design.helices.keys().max().map(|m| m + 1).unwrap_or(0);
+        for h in helices {
+            self.design.helices.insert(key, h);
+            for b in [true, false].iter() {
+                let new_key = self.add_strand(key, 0, *b);
+                if let icednano::Domain::HelixDomain(ref mut dom) =
+                    self.design.strands.get_mut(&new_key).unwrap().domains[0]
+                {
+                    dom.end = dom.start + nb_nucl as isize;
+                }
+            }
+            self.hyperboloid_helices.push(key);
+            key += 1;
+        }
+        self.make_hash_maps();
+    }
+
+    pub fn update_hyperboloid(&mut self, nb_helix: usize, shift: f32, length: f32) {
+        let old_hyperboloids =
+            std::mem::replace(&mut self.hyperboloid_helices, Vec::with_capacity(nb_helix));
+        for h_id in old_hyperboloids.iter() {
+            self.rm_strand(&Nucl {
+                helix: *h_id,
+                position: 0,
+                forward: true,
+            });
+            self.rm_strand(&Nucl {
+                helix: *h_id,
+                position: 0,
+                forward: false,
+            });
+            self.design.helices.remove(&h_id);
+            self.update_status = true;
+            self.hash_maps_update = true;
+            self.view_need_reset = true;
+        }
+        self.hyperboloid_helices.clear();
+        self.add_hyperboloid(nb_helix, shift, length);
     }
 
     /// Create a new data by reading a file. At the moment, the supported format are
@@ -160,6 +211,7 @@ impl Data {
             blue_cubes: HashMap::default(),
             blue_nucl: vec![],
             roller_ptrs: None,
+            hyperboloid_helices: vec![],
         };
         ret.make_hash_maps();
         ret.terminate_movement();

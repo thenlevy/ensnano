@@ -702,6 +702,19 @@ impl Helix {
 }
 
 impl Helix {
+    pub fn new(origin: Vec3, orientation: Rotor3) -> Self {
+        Self {
+            position: origin,
+            orientation,
+            old_orientation: orientation,
+            old_position: origin,
+            isometry2d: None,
+            grid_position: None,
+            visible: true,
+            roll: 0f32,
+        }
+    }
+
     pub fn new_on_grid(grid: &Grid, x: isize, y: isize, g_id: usize) -> Self {
         let position = grid.position_helix(x, y);
         Self {

@@ -258,7 +258,8 @@ fn main() {
             .unwrap()
             .add_design(Arc::new(RwLock::new(design)));
     } else {
-        let design = Design::new(0);
+        let mut design = Design::new(0);
+        design.add_hyperboloid(10, std::f32::consts::FRAC_PI_4, 30.);
         mediator
             .lock()
             .unwrap()
@@ -481,6 +482,10 @@ fn main() {
 
                     if let Some(fog) = requests.fog.take() {
                         scene.lock().unwrap().fog_request(fog)
+                    }
+
+                    if let Some(hyperboloid) = requests.hyperboloid.take() {
+                        mediator.lock().unwrap().hyperboloid_request(hyperboloid)
                     }
                 }
 
