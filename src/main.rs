@@ -259,7 +259,7 @@ fn main() {
             .add_design(Arc::new(RwLock::new(design)));
     } else {
         let mut design = Design::new(0);
-        design.add_hyperboloid(10, std::f32::consts::FRAC_PI_4, 30.);
+        design.add_hyperboloid(10, 0f32, 100.);
         mediator
             .lock()
             .unwrap()
