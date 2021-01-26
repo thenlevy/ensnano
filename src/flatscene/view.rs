@@ -11,6 +11,7 @@ use wgpu::{Device, Queue, RenderPipeline};
 mod helix_view;
 use helix_view::{HelixView, StrandView};
 mod background;
+mod rectangle;
 use super::FlatSelection;
 use crate::utils::{chars2d as chars, circles2d as circles};
 use background::Background;

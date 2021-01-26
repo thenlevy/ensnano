@@ -47,6 +47,8 @@ pub enum Consequence {
     FlipGroup(FlatHelix),
     FollowingSuggestion(FlatNucl, bool),
     Centering(FlatNucl),
+    DrawingSelection(PhysicalPosition<f64>, PhysicalPosition<f64>),
+    ReleasedSelection(PhysicalPosition<f64>, PhysicalPosition<f64>),
 }
 
 impl Controller {

@@ -139,11 +139,9 @@ impl ControllerState for NormalState {
                                 }
                             } else {
                                 Transition {
-                                    new_state: Some(Box::new(MovingCamera {
+                                    new_state: Some(Box::new(DraggingSelection {
                                         mouse_position: self.mouse_position,
-                                        clicked_position_screen: self.mouse_position,
-                                        translation_pivot: None,
-                                        rotation_pivot: None,
+                                        fixed_corner: self.mouse_position,
                                     })),
                                     consequences: Consequence::Nothing,
                                 }
@@ -204,7 +202,14 @@ impl ControllerState for NormalState {
                             }
                         }
                     }
-                    ClickResult::Nothing => Transition {
+                    ClickResult::Nothing => Transition::nothing()
+                }
+            }
+            WindowEvent::MouseInput {
+                button: MouseButton::Middle,
+                state: ElementState::Pressed,
+                ..
+            } => Transition {
                         new_state: Some(Box::new(MovingCamera {
                             mouse_position: self.mouse_position,
                             clicked_position_screen: self.mouse_position,
@@ -213,8 +218,6 @@ impl ControllerState for NormalState {
                         })),
                         consequences: Consequence::Nothing,
                     },
-                }
-            }
             WindowEvent::MouseInput {
                 button: MouseButton::Right,
                 state,
@@ -399,7 +402,7 @@ impl ControllerState for MovingCamera {
     ) -> Transition {
         match event {
             WindowEvent::MouseInput {
-                button: MouseButton::Left,
+                button: MouseButton::Middle,
                 state,
                 ..
             } => {
@@ -559,11 +562,9 @@ impl ControllerState for ReleasedPivot {
                                 }
                             } else {
                                 Transition {
-                                    new_state: Some(Box::new(MovingCamera {
+                                    new_state: Some(Box::new(DraggingSelection {
                                         mouse_position: self.mouse_position,
-                                        clicked_position_screen: self.mouse_position,
-                                        translation_pivot: None,
-                                        rotation_pivot: None,
+                                        fixed_corner: self.mouse_position,
                                     })),
                                     consequences: Consequence::Nothing,
                                 }
@@ -742,11 +743,9 @@ impl ControllerState for LeavingPivot {
                 self.mouse_position = position;
                 if position_difference(self.clicked_position_screen, self.mouse_position) > 5. {
                     Transition {
-                        new_state: Some(Box::new(MovingCamera {
-                            translation_pivot: Some(self.translation_pivot),
-                            rotation_pivot: Some(self.rotation_pivot),
+                        new_state: Some(Box::new(DraggingSelection {
                             mouse_position: self.mouse_position,
-                            clicked_position_screen: self.clicked_position_screen,
+                            fixed_corner: self.clicked_position_screen,
                         })),
                         consequences: Consequence::Nothing,
                     }
@@ -1878,6 +1877,66 @@ impl ControllerState for CenteringSuggestion {
         }
     }
 }
+
+/// The user is drawing a selection
+struct DraggingSelection {
+    pub mouse_position: PhysicalPosition<f64>,
+    pub fixed_corner: PhysicalPosition<f64>,
+}
+
+impl ControllerState for DraggingSelection {
+    fn display(&self) -> String {
+        String::from("Dragging Selection")
+    }
+    fn input(
+        &mut self,
+        event: &WindowEvent,
+        position: PhysicalPosition<f64>,
+        controller: &Controller,
+    ) -> Transition {
+        match event {
+            WindowEvent::MouseInput {
+                button: MouseButton::Left,
+                state: ElementState::Released,
+                ..
+            } => {
+                Transition {
+                    new_state: Some(Box::new(NormalState {
+                        mouse_position: self.mouse_position,
+                    })),
+                    consequences: Consequence::ReleasedSelection(self.fixed_corner, self.mouse_position),
+                }
+            }
+            WindowEvent::CursorMoved { .. } => {
+                if position.x < controller.area_size.width as f64 && position.x >= 0. && position.y <= controller.area_size.height as f64 && position.y >= 0. {
+                self.mouse_position = position;
+                }
+                Transition::consequence(Consequence::DrawingSelection(self.fixed_corner, self.mouse_position))
+            }
+            WindowEvent::KeyboardInput { .. } => {
+                controller.process_keyboard(event);
+                Transition::nothing()
+            }
+            WindowEvent::MouseWheel { delta, .. } => {
+                controller
+                    .camera
+                    .borrow_mut()
+                    .process_scroll(delta, self.mouse_position);
+                Transition::nothing()
+            }
+            _ => Transition::nothing(),
+        }
+    }
+
+    fn transition_from(&self, controller: &Controller) {
+        controller.camera.borrow_mut().end_movement();
+    }
+
+    fn transition_to(&self, _controller: &Controller) {
+        ()
+    }
+}
+
 
 fn position_difference(a: PhysicalPosition<f64>, b: PhysicalPosition<f64>) -> f64 {
     (a.x - b.x).abs().max((a.y - b.y).abs())
