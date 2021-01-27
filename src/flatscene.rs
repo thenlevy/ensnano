@@ -331,6 +331,13 @@ impl FlatScene {
                         .unwrap()
                         .request_centering(nucl, self.selected_design)
                 }
+                Consequence::DrawingSelection(c1, c2) => {
+                    self.view[self.selected_design].borrow_mut().update_rectangle(c1, c2)
+                }
+                Consequence::ReleasedSelection(_, _) => {
+                    self.view[self.selected_design].borrow_mut().clear_rectangle();
+                    //self.data[self.selected_design].borrow().get_helices_in_rect(c1, c2, camera);
+                }
                 _ => (),
             }
         }

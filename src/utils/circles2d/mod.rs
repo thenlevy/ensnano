@@ -32,6 +32,20 @@ impl CircleInstance {
     pub fn angle(self, angle: f32) -> Self {
         Self { angle, ..self }
     }
+
+    pub fn in_rectangle(&self, c1: &Vec2, c2: &Vec2) -> bool {
+        let min_x = c1.x.min(c2.x);
+        let max_x = c1.x.max(c2.x);
+        let min_y = c1.y.min(c2.y);
+        let max_y = c1.y.max(c2.y);
+
+        (self.center.x >= min_x && self.center.x <= max_x && self.center.y >= min_y && self.center.y <= max_y)
+            || (self.center - Vec2::new(min_x, min_y)).mag() <= self.radius
+            || (self.center - Vec2::new(min_x, max_y)).mag() <= self.radius
+            || (self.center - Vec2::new(max_x, min_y)).mag() <= self.radius
+            || (self.center - Vec2::new(max_x, max_y)).mag() <= self.radius
+
+    }
 }
 
 unsafe impl bytemuck::Zeroable for CircleInstance {}

@@ -177,32 +177,28 @@ impl ControllerState for NormalState {
                                 consequences: Consequence::Nothing,
                             }
                         } else {
-                            let original_pivot_position = controller
-                                .data
-                                .borrow()
-                                .get_pivot_position(
-                                    translation_pivot.helix.flat,
-                                    translation_pivot.position,
-                                )
-                                .unwrap();
-                            let (clicked_x, clicked_y) =
+                            let clicked =
                                 controller.camera.borrow().screen_to_world(
                                     self.mouse_position.x as f32,
                                     self.mouse_position.y as f32,
                                 );
-                            let world_delta =
-                                Vec2::new(clicked_x, clicked_y) - original_pivot_position;
                             Transition {
                                 new_state: Some(Box::new(Translating {
                                     mouse_position: self.mouse_position,
-                                    world_delta,
-                                    translation_pivot,
+                                    world_clicked: clicked.into(),
+                                    translation_pivots: vec![translation_pivot],
                                 })),
                                 consequences: Consequence::Nothing,
                             }
                         }
                     }
-                    ClickResult::Nothing => Transition::nothing()
+                    ClickResult::Nothing => Transition {
+                                    new_state: Some(Box::new(DraggingSelection {
+                                        mouse_position: self.mouse_position,
+                                        fixed_corner: self.mouse_position,
+                                    })),
+                                    consequences: Consequence::Nothing,
+                                }
                 }
             }
             WindowEvent::MouseInput {
@@ -213,8 +209,8 @@ impl ControllerState for NormalState {
                         new_state: Some(Box::new(MovingCamera {
                             mouse_position: self.mouse_position,
                             clicked_position_screen: self.mouse_position,
-                            translation_pivot: None,
-                            rotation_pivot: None,
+                            translation_pivots: vec![],
+                            rotation_pivots: vec![],
                         })),
                         consequences: Consequence::Nothing,
                     },
@@ -279,7 +275,7 @@ impl ControllerState for NormalState {
     }
 
     fn transition_to(&self, controller: &Controller) {
-        controller.data.borrow_mut().set_selected_helix(None);
+        controller.data.borrow_mut().set_selected_helices(vec![]);
         controller.data.borrow_mut().set_free_end(None);
     }
 
@@ -290,8 +286,8 @@ impl ControllerState for NormalState {
 
 pub struct Translating {
     mouse_position: PhysicalPosition<f64>,
-    world_delta: Vec2,
-    translation_pivot: FlatNucl,
+    world_clicked: Vec2,
+    translation_pivots: Vec<FlatNucl>,
 }
 
 impl ControllerState for Translating {
@@ -318,16 +314,27 @@ impl ControllerState for Translating {
                     return Transition::nothing();
                 }
                 controller.data.borrow_mut().end_movement();
-                if let Some(rotation_pivot) = controller
-                    .data
-                    .borrow()
-                    .get_rotation_pivot(self.translation_pivot.helix.flat, &controller.camera)
+                let mut translation_pivots = vec![];
+                let mut rotation_pivots = vec![];
+                for pivot in self.translation_pivots.iter() {
+                    if let Some(rotation_pivot) = controller
+                        .data
+                            .borrow()
+                            .get_rotation_pivot(pivot.helix.flat, &controller.camera)
+                    {
+                        translation_pivots.push(pivot.clone());
+                        rotation_pivots.push(rotation_pivot);
+                    }
+                }
+
+
+                if rotation_pivots.len() > 0
                 {
                     Transition {
                         new_state: Some(Box::new(ReleasedPivot {
                             mouse_position: self.mouse_position,
-                            translation_pivot: self.translation_pivot,
-                            rotation_pivot,
+                            translation_pivots,
+                            rotation_pivots,
                         })),
                         consequences: Consequence::Nothing,
                     }
@@ -350,10 +357,12 @@ impl ControllerState for Translating {
                 .data
                 .borrow_mut()
                 .translate_helix(Vec2::new(mouse_dx, mouse_dy));*/
-                controller
-                    .data
-                    .borrow_mut()
-                    .snap_helix(self.translation_pivot, Vec2::new(x, y) - self.world_delta);
+                for pivot in self.translation_pivots.iter() {
+                    controller
+                        .data
+                        .borrow_mut()
+                        .snap_helix(*pivot, Vec2::new(x, y) - self.world_clicked);
+                }
                 Transition::nothing()
             }
             WindowEvent::KeyboardInput { .. } => {
@@ -376,18 +385,19 @@ impl ControllerState for Translating {
     }
 
     fn transition_to(&self, controller: &Controller) {
+        let helices = self.translation_pivots.iter().map(|p| p.helix).collect();
         controller
             .data
             .borrow_mut()
-            .set_selected_helix(Some(self.translation_pivot.helix.flat))
+            .set_selected_helices(helices)
     }
 }
 
 pub struct MovingCamera {
     mouse_position: PhysicalPosition<f64>,
     clicked_position_screen: PhysicalPosition<f64>,
-    translation_pivot: Option<FlatNucl>,
-    rotation_pivot: Option<Vec2>,
+    translation_pivots: Vec<FlatNucl>,
+    rotation_pivots: Vec<Vec2>,
 }
 
 impl ControllerState for MovingCamera {
@@ -413,12 +423,12 @@ impl ControllerState for MovingCamera {
                 if *state == ElementState::Pressed {
                     return Transition::nothing();
                 }
-                if let Some(translation_pivot) = self.translation_pivot {
+                if self.rotation_pivots.len() > 0 {
                     Transition {
                         new_state: Some(Box::new(ReleasedPivot {
                             mouse_position: self.mouse_position,
-                            translation_pivot,
-                            rotation_pivot: self.rotation_pivot.unwrap(),
+                            translation_pivots: self.translation_pivots.clone(),
+                            rotation_pivots: self.rotation_pivots.clone(),
                         })),
                         consequences: Consequence::Nothing,
                     }
@@ -447,13 +457,6 @@ impl ControllerState for MovingCamera {
                 controller.process_keyboard(event);
                 Transition::nothing()
             }
-            WindowEvent::MouseWheel { delta, .. } => {
-                controller
-                    .camera
-                    .borrow_mut()
-                    .process_scroll(delta, self.mouse_position);
-                Transition::nothing()
-            }
             _ => Transition::nothing(),
         }
     }
@@ -469,29 +472,27 @@ impl ControllerState for MovingCamera {
 
 pub struct ReleasedPivot {
     mouse_position: PhysicalPosition<f64>,
-    translation_pivot: FlatNucl,
-    rotation_pivot: Vec2,
+    translation_pivots: Vec<FlatNucl>,
+    rotation_pivots: Vec<Vec2>,
 }
 
 impl ControllerState for ReleasedPivot {
     fn transition_to(&self, controller: &Controller) {
+        let helices = self.translation_pivots.iter().map(|p| p.helix).collect();
         controller
             .data
             .borrow_mut()
-            .set_selected_helix(Some(self.translation_pivot.helix.flat));
+            .set_selected_helices(helices);
+
+        let wheels = self.rotation_pivots.iter().map(|p| CircleInstance::new(*p, WHEEL_RADIUS, -1, CIRCLE2D_GREY)).collect();
         controller
             .view
             .borrow_mut()
-            .set_wheel(Some(CircleInstance::new(
-                self.rotation_pivot,
-                WHEEL_RADIUS,
-                -1,
-                CIRCLE2D_GREY,
-            )));
+            .set_wheels(wheels);
     }
 
     fn transition_from(&self, controller: &Controller) {
-        controller.view.borrow_mut().set_wheel(None);
+        controller.view.borrow_mut().set_wheels(vec![]);
     }
 
     fn display(&self) -> String {
@@ -571,24 +572,29 @@ impl ControllerState for ReleasedPivot {
                             }
                         }
                     }
-                    ClickResult::CircleWidget { translation_pivot } => {
-                        let original_pivot_position = controller
-                            .data
-                            .borrow()
-                            .get_pivot_position(
-                                translation_pivot.helix.flat,
-                                translation_pivot.position,
-                            )
-                            .unwrap();
-                        let (clicked_x, clicked_y) = controller.camera.borrow().screen_to_world(
+                    ClickResult::CircleWidget { translation_pivot } if self.translation_pivots.contains(&translation_pivot) => {
+                        let clicked = controller.camera.borrow().screen_to_world(
                             self.mouse_position.x as f32,
                             self.mouse_position.y as f32,
                         );
-                        let world_delta = Vec2::new(clicked_x, clicked_y) - original_pivot_position;
                         Transition {
                             new_state: Some(Box::new(Translating {
-                                translation_pivot,
-                                world_delta,
+                                translation_pivots: self.translation_pivots.clone(),
+                                world_clicked: clicked.into(),
+                                mouse_position: self.mouse_position,
+                            })),
+                            consequences: Consequence::Nothing
+                        }
+                    }
+                    ClickResult::CircleWidget { translation_pivot } => { // Clicked on an other circle
+                        let clicked = controller.camera.borrow().screen_to_world(
+                            self.mouse_position.x as f32,
+                            self.mouse_position.y as f32,
+                        );
+                        Transition {
+                            new_state: Some(Box::new(Translating {
+                                translation_pivots: vec![translation_pivot],
+                                world_clicked: clicked.into(),
                                 mouse_position: self.mouse_position,
                             })),
                             consequences: Consequence::Nothing,
@@ -598,8 +604,8 @@ impl ControllerState for ReleasedPivot {
                         new_state: Some(Box::new(LeavingPivot {
                             clicked_position_screen: self.mouse_position,
                             mouse_position: self.mouse_position,
-                            translation_pivot: self.translation_pivot,
-                            rotation_pivot: self.rotation_pivot,
+                            translation_pivots: self.translation_pivots.clone(),
+                            rotation_pivots: self.rotation_pivots.clone(),
                         })),
                         consequences: Consequence::Nothing,
                     },
@@ -618,12 +624,29 @@ impl ControllerState for ReleasedPivot {
                     return Transition::nothing();
                 }
                 Transition {
-                    new_state: Some(Box::new(Rotating {
-                        translation_pivot: self.translation_pivot,
-                        rotation_pivot: self.rotation_pivot,
-                        clicked_position_screen: self.mouse_position,
+                    new_state: Some(Box::new(Rotating::new(
+                        self.translation_pivots.clone(),
+                        self.rotation_pivots.clone(),
+                        self.mouse_position,
+                        self.mouse_position,
+                               ))),
+                    consequences: Consequence::Nothing,
+                }
+            }
+            WindowEvent::MouseInput {
+                button: MouseButton::Middle,
+                state,
+                ..
+            } => {
+                if *state == ElementState::Released {
+                    return Transition::nothing();
+                }
+                Transition {
+                    new_state: Some(Box::new(MovingCamera {
                         mouse_position: self.mouse_position,
-                        button: MouseButton::Right,
+                        clicked_position_screen: self.mouse_position,
+                        translation_pivots: self.translation_pivots.clone(),
+                        rotation_pivots: self.rotation_pivots.clone(),
                     })),
                     consequences: Consequence::Nothing,
                 }
@@ -663,27 +686,23 @@ impl ControllerState for ReleasedPivot {
 /// their mouse, go in moving camera mode without unselecting the helix. If the user release their
 /// click without moving their mouse, clear selection
 pub struct LeavingPivot {
-    translation_pivot: FlatNucl,
-    rotation_pivot: Vec2,
+    translation_pivots: Vec<FlatNucl>,
+    rotation_pivots: Vec<Vec2>,
     clicked_position_screen: PhysicalPosition<f64>,
     mouse_position: PhysicalPosition<f64>,
 }
 
 impl ControllerState for LeavingPivot {
     fn transition_to(&self, controller: &Controller) {
+        let wheels = self.rotation_pivots.iter().map(|p| CircleInstance::new(*p, WHEEL_RADIUS, -1, CIRCLE2D_GREY)).collect();
         controller
             .view
             .borrow_mut()
-            .set_wheel(Some(CircleInstance::new(
-                self.rotation_pivot,
-                WHEEL_RADIUS,
-                -1,
-                CIRCLE2D_GREY,
-            )));
+            .set_wheels(wheels);
     }
 
     fn transition_from(&self, controller: &Controller) {
-        controller.view.borrow_mut().set_wheel(None);
+        controller.view.borrow_mut().set_wheels(vec![]);
     }
 
     fn display(&self) -> String {
@@ -729,13 +748,12 @@ impl ControllerState for LeavingPivot {
                     return Transition::nothing();
                 }
                 Transition {
-                    new_state: Some(Box::new(Rotating {
-                        translation_pivot: self.translation_pivot,
-                        rotation_pivot: self.rotation_pivot,
-                        clicked_position_screen: self.mouse_position,
-                        mouse_position: self.mouse_position,
-                        button: MouseButton::Right,
-                    })),
+                    new_state: Some(Box::new(Rotating::new( 
+                        self.translation_pivots.clone(),
+                        self.rotation_pivots.clone(),
+                        self.mouse_position,
+                        self.mouse_position,
+                    ))),
                     consequences: Consequence::Nothing,
                 }
             }
@@ -770,33 +788,53 @@ impl ControllerState for LeavingPivot {
 }
 
 pub struct Rotating {
-    translation_pivot: FlatNucl,
-    rotation_pivot: Vec2,
+    translation_pivots: Vec<FlatNucl>,
+    rotation_pivots: Vec<Vec2>,
     clicked_position_screen: PhysicalPosition<f64>,
-    button: MouseButton,
     mouse_position: PhysicalPosition<f64>,
+    pivot_center: Vec2,
+}
+
+impl Rotating {
+    pub fn new(translation_pivots: Vec<FlatNucl>, rotation_pivots: Vec<Vec2>, clicked_position_screen: PhysicalPosition<f64>, mouse_position: PhysicalPosition<f64>) -> Self {
+        let mut min_x = rotation_pivots[0].x;
+        let mut max_x = rotation_pivots[0].x;
+        let mut min_y = rotation_pivots[0].y;
+        let mut max_y = rotation_pivots[0].y;
+        for p in rotation_pivots.iter() {
+            min_x = min_x.min(p.x);
+            max_x = max_x.max(p.x);
+            min_y = min_y.min(p.y);
+            max_y = max_y.max(p.y);
+        }
+        Self {
+            translation_pivots,
+            rotation_pivots,
+            clicked_position_screen,
+            mouse_position,
+            pivot_center: Vec2::new((min_x + max_x) / 2., (min_y + max_y) / 2.)
+        }
+    }
 }
 
 impl ControllerState for Rotating {
     fn transition_to(&self, controller: &Controller) {
+        let helices = self.translation_pivots.iter().map(|p| p.helix).collect();
         controller
             .data
             .borrow_mut()
-            .set_selected_helix(Some(self.translation_pivot.helix.flat));
+            .set_selected_helices(helices);
+
+        let wheels = self.rotation_pivots.iter().map(|p| CircleInstance::new(*p, WHEEL_RADIUS, -1, CIRCLE2D_GREY)).collect();
         controller
             .view
             .borrow_mut()
-            .set_wheel(Some(CircleInstance::new(
-                self.rotation_pivot,
-                WHEEL_RADIUS,
-                -1,
-                CIRCLE2D_GREY,
-            )));
+            .set_wheels(wheels);
     }
 
     fn transition_from(&self, controller: &Controller) {
         controller.data.borrow_mut().end_movement();
-        controller.view.borrow_mut().set_wheel(None);
+        controller.view.borrow_mut().set_wheels(vec![]);
     }
 
     fn display(&self) -> String {
@@ -809,7 +847,7 @@ impl ControllerState for Rotating {
         controller: &Controller,
     ) -> Transition {
         match event {
-            WindowEvent::MouseInput { button, state, .. } if *button == self.button => {
+            WindowEvent::MouseInput { button: MouseButton::Right, state, .. } => {
                 /*assert!(
                     *state == ElementState::Released,
                     "Pressed mouse button in Rotating state"
@@ -819,8 +857,8 @@ impl ControllerState for Rotating {
                 }
                 Transition {
                     new_state: Some(Box::new(ReleasedPivot {
-                        translation_pivot: self.translation_pivot,
-                        rotation_pivot: self.rotation_pivot,
+                        translation_pivots: self.translation_pivots.clone(),
+                        rotation_pivots: self.rotation_pivots.clone(),
                         mouse_position: self.mouse_position,
                     })),
                     consequences: Consequence::Nothing,
@@ -837,22 +875,15 @@ impl ControllerState for Rotating {
                         self.clicked_position_screen.x as f32,
                         self.clicked_position_screen.y as f32,
                     );
-                    (y - self.rotation_pivot.y).atan2(x - self.rotation_pivot.x)
-                        - (old_y - self.rotation_pivot.y).atan2(old_x - self.rotation_pivot.x)
+                    (y - self.pivot_center.y).atan2(x - self.pivot_center.x)
+                        - (old_y - self.pivot_center.y).atan2(old_x - self.pivot_center.x)
                 };
-                controller
-                    .data
-                    .borrow_mut()
-                    .rotate_helix(self.rotation_pivot, angle);
-                controller
-                    .view
-                    .borrow_mut()
-                    .set_wheel(Some(CircleInstance::new(
-                        self.rotation_pivot,
-                        WHEEL_RADIUS,
-                        -1,
-                        CIRCLE2D_GREY,
-                    )));
+                for i in 0..self.rotation_pivots.len() {
+                    controller
+                        .data
+                        .borrow_mut()
+                        .rotate_helix(self.translation_pivots[i].helix, self.pivot_center, angle);
+                }
                 Transition::nothing()
             }
             WindowEvent::KeyboardInput { .. } => {
@@ -1900,11 +1931,26 @@ impl ControllerState for DraggingSelection {
                 state: ElementState::Released,
                 ..
             } => {
-                Transition {
-                    new_state: Some(Box::new(NormalState {
-                        mouse_position: self.mouse_position,
-                    })),
-                    consequences: Consequence::ReleasedSelection(self.fixed_corner, self.mouse_position),
+                let corner1_world = controller.camera.borrow().screen_to_world(self.fixed_corner.x as f32, self.fixed_corner.y as f32);
+                let corner2_world = controller.camera.borrow().screen_to_world(self.mouse_position.x as f32, self.mouse_position.y as f32);
+                let (translation_pivots, rotation_pivots) = controller.data.borrow_mut().select_rectangle(corner1_world.into(), corner2_world.into(), &controller.camera);
+                if translation_pivots.len() > 0 {
+                    Transition {
+                        new_state: Some(Box::new(ReleasedPivot {
+                            translation_pivots,
+                            rotation_pivots,
+                            mouse_position: self.mouse_position,
+                        })),
+                        consequences: Consequence::ReleasedSelection(corner1_world.into(), corner2_world.into())
+                    }
+
+                } else {
+                    Transition {
+                        new_state: Some(Box::new(NormalState {
+                            mouse_position: self.mouse_position,
+                        })),
+                        consequences: Consequence::ReleasedSelection(corner1_world.into(), corner2_world.into())
+                    }
                 }
             }
             WindowEvent::CursorMoved { .. } => {
@@ -1936,7 +1982,6 @@ impl ControllerState for DraggingSelection {
         ()
     }
 }
-
 
 fn position_difference(a: PhysicalPosition<f64>, b: PhysicalPosition<f64>) -> f64 {
     (a.x - b.x).abs().max((a.y - b.y).abs())
