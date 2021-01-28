@@ -372,6 +372,7 @@ impl Application for FlatScene {
             }
             Notification::FitRequest => self.controller[self.selected_design].fit(),
             Notification::Selection3D(selection) => {
+                self.needs_redraw(Duration::from_nanos(1));
                 let data = self.data[self.selected_design].borrow();
                 let id_map = data.id_map();
                 self.view[self.selected_design]
