@@ -82,6 +82,7 @@ pub enum Message {
     HyperboloidShift(f32),
     HyperboloidLength(f32),
     HyperboloidRadius(f32),
+    HyperboloidRaidiusShift(f32),
 }
 
 impl LeftPanel {
@@ -304,6 +305,10 @@ impl Program for LeftPanel {
             }
             Message::HyperboloidLength(length) => {
                 self.hyperboloid.length = length;
+                self.requests.lock().unwrap().hyperboloid = Some(self.hyperboloid.make_request());
+            }
+            Message::HyperboloidRaidiusShift(radius_shift) => {
+                self.hyperboloid.radius_shift = radius_shift;
                 self.requests.lock().unwrap().hyperboloid = Some(self.hyperboloid.make_request());
             }
         };
@@ -1009,6 +1014,7 @@ struct Hyperboloid {
     pub radius: f32,
     pub length: f32,
     pub shift: f32,
+    pub radius_shift: f32,
     radius_slider: slider::State,
     incr_radius: button::State,
     decr_radius: button::State,
@@ -1018,6 +1024,9 @@ struct Hyperboloid {
     shift_slider: slider::State,
     incr_shift: button::State,
     decr_shift: button::State,
+    radius_shift_slider: slider::State,
+    incr_radius_shift: button::State,
+    decr_radius_shift: button::State,
 }
 
 impl Default for Hyperboloid {
@@ -1026,6 +1035,7 @@ impl Default for Hyperboloid {
             length: 100.,
             radius: 10.,
             shift: 0f32,
+            radius_shift: 1.,
             decr_shift: Default::default(),
             incr_shift: Default::default(),
             decr_length: Default::default(),
@@ -1035,6 +1045,9 @@ impl Default for Hyperboloid {
             shift_slider: Default::default(),
             radius_slider: Default::default(),
             length_slider: Default::default(),
+            radius_shift_slider: Default::default(),
+            incr_radius_shift: Default::default(),
+            decr_radius_shift: Default::default(),
         }
     }
 }
@@ -1068,18 +1081,33 @@ impl Hyperboloid {
             Button::new(&mut self.decr_length, Text::new("-"))
         };
 
-        let incr_shift = if self.shift < PI - 1.1f32.to_radians() {
+        let incr_shift = if self.shift < PI - 2.1f32.to_radians() {
             Button::new(&mut self.incr_shift, Text::new("+"))
                 .on_press(Message::HyperboloidShift(self.shift + 1f32.to_radians()))
         } else {
             Button::new(&mut self.incr_shift, Text::new("+"))
         };
-        let decr_shift = if self.length > -PI + 1.1f32.to_radians() {
+        let decr_shift = if self.length > -PI + 2.1f32.to_radians() {
             Button::new(&mut self.decr_shift, Text::new("-"))
                 .on_press(Message::HyperboloidShift(self.shift - 1f32.to_radians()))
         } else {
             Button::new(&mut self.decr_shift, Text::new("-"))
         };
+
+        let incr_radius_shift = if self.radius_shift < 0.99 {
+            Button::new(&mut self.incr_radius_shift, Text::new("+"))
+                .on_press(Message::HyperboloidRaidiusShift(self.radius_shift + 0.01))
+        } else {
+            Button::new(&mut self.incr_radius_shift, Text::new("+"))
+        };
+        let decr_radius_shift = if self.radius_shift > 0.01 {
+            Button::new(&mut self.decr_radius_shift, Text::new("-"))
+                .on_press(Message::HyperboloidRaidiusShift(self.radius_shift - 0.01))
+        } else {
+            Button::new(&mut self.decr_radius_shift, Text::new("-"))
+        };
+
+        let angle_limit = PI - 1f32.to_radians();
 
         Column::new()
             .push(Text::new("Hyperboloid"))
@@ -1116,11 +1144,26 @@ impl Hyperboloid {
             .push(
                 Slider::new(
                     &mut self.shift_slider,
-                    -PI..=PI,
+                    -angle_limit..=angle_limit,
                     self.shift,
                     Message::HyperboloidShift,
                 )
                 .step(1f32.to_radians()),
+            )
+            .push(
+                Row::new()
+                    .push(Text::new("Size"))
+                    .push(decr_radius_shift)
+                    .push(incr_radius_shift),
+            )
+            .push(
+                Slider::new(
+                    &mut self.radius_shift_slider,
+                    0f32..=1f32,
+                    self.radius_shift,
+                    Message::HyperboloidRaidiusShift,
+                )
+                .step(0.01),
             )
     }
 
@@ -1129,6 +1172,7 @@ impl Hyperboloid {
             radius: self.radius.round() as usize,
             length: self.length,
             shift: self.shift,
+            radius_shift: self.radius_shift,
         }
     }
 }
@@ -1138,4 +1182,5 @@ pub struct HyperboloidRequest {
     pub radius: usize,
     pub length: f32,
     pub shift: f32,
+    pub radius_shift: f32,
 }

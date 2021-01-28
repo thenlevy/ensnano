@@ -11,6 +11,9 @@ pub struct Hyperboloid {
     /// The distance between the planes.
     pub length: f32,
     pub parameters: Parameters,
+    /// The difference between the actual sheet radius and the radius needed for the helices to
+    /// fit perfectly at the tightest point of the hyperboloid
+    pub radius_shift: f32,
 }
 
 impl Hyperboloid {
@@ -18,8 +21,8 @@ impl Hyperboloid {
         let mut ret = Vec::with_capacity(self.radius);
         use std::f32::consts::PI;
         let angle = PI / self.radius as f32;
-        let grid_radius =
-            (self.parameters.helix_radius + self.parameters.inter_helix_gap / 2.) / angle.sin();
+        let (small_r, big_r) = self.sheet_radii();
+        let grid_radius = (1. - self.radius_shift) * big_r + self.radius_shift * small_r;
         let mut nb_nucl = 0;
         for i in 0..self.radius {
             let theta = 2. * i as f32 * angle;
@@ -38,5 +41,26 @@ impl Hyperboloid {
             ret.push(helix);
         }
         (ret, nb_nucl)
+    }
+
+    /// Return the radii of the sheet so that the helices respectively fits perfectly at the center of the
+    /// hyperboloid or at the extremity of the hyperboloid
+    fn sheet_radii(&self) -> (f32, f32) {
+        // First determine the radius in the center of the hyperboloid.
+        use std::f32::consts::PI;
+        let angle = PI / self.radius as f32;
+        let center_radius =
+            (self.parameters.helix_radius + self.parameters.inter_helix_gap / 2.) / angle.sin();
+
+        // Let R be the radius on the sheets, delta be self.shift and r be the radius of at the
+        // center. Then for a point at R( cos(theta), sin(theta), 0) joining a point at R(cos(theta
+        // + delta), sin(theta + delta), h), the radius in the center is
+        // r =  R * (((cos(theta) + cos(theta + delta)/ 2)^2 + (sin(theta) + sin(theta+delta))/2)^2)
+        // this is a constant to we can take theta = 0 which gives
+        // r = R * 1/4 (2 + 2cos(delta))
+        (
+            4. * center_radius / (2. + 2. * self.shift.cos()),
+            center_radius,
+        )
     }
 }

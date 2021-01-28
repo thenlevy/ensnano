@@ -730,18 +730,24 @@ impl Design {
         self.data.lock().unwrap().notify_death()
     }
 
-    pub fn add_hyperboloid(&mut self, nb_helix: usize, shift: f32, length: f32) {
+    pub fn add_hyperboloid(&mut self, nb_helix: usize, shift: f32, length: f32, radius_shift: f32) {
         self.data
             .lock()
             .unwrap()
-            .add_hyperboloid(nb_helix, shift, length)
+            .add_hyperboloid(nb_helix, shift, length, radius_shift)
     }
 
-    pub fn update_hyperboloid(&mut self, nb_helix: usize, shift: f32, length: f32) {
+    pub fn update_hyperboloid(
+        &mut self,
+        nb_helix: usize,
+        shift: f32,
+        length: f32,
+        radius_shift: f32,
+    ) {
         self.data
             .lock()
             .unwrap()
-            .update_hyperboloid(nb_helix, shift, length)
+            .update_hyperboloid(nb_helix, shift, length, radius_shift)
     }
 }
 

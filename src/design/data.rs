@@ -127,12 +127,13 @@ impl Data {
         }
     }
 
-    pub fn add_hyperboloid(&mut self, nb_helix: usize, shift: f32, length: f32) {
+    pub fn add_hyperboloid(&mut self, nb_helix: usize, shift: f32, length: f32, radius_shift: f32) {
         let hyperboloid = hyperboloid::Hyperboloid {
             parameters: self.design.parameters.unwrap_or_default(),
             radius: nb_helix,
             shift,
             length,
+            radius_shift,
         };
         let (helices, nb_nucl) = hyperboloid.make_helices();
         let mut key = self.design.helices.keys().max().map(|m| m + 1).unwrap_or(0);
@@ -149,10 +150,17 @@ impl Data {
             self.hyperboloid_helices.push(key);
             key += 1;
         }
+        self.view_need_reset = true;
         self.make_hash_maps();
     }
 
-    pub fn update_hyperboloid(&mut self, nb_helix: usize, shift: f32, length: f32) {
+    pub fn update_hyperboloid(
+        &mut self,
+        nb_helix: usize,
+        shift: f32,
+        length: f32,
+        radius_shift: f32,
+    ) {
         let old_hyperboloids =
             std::mem::replace(&mut self.hyperboloid_helices, Vec::with_capacity(nb_helix));
         for h_id in old_hyperboloids.iter() {
@@ -172,7 +180,7 @@ impl Data {
             self.view_need_reset = true;
         }
         self.hyperboloid_helices.clear();
-        self.add_hyperboloid(nb_helix, shift, length);
+        self.add_hyperboloid(nb_helix, shift, length, radius_shift);
     }
 
     /// Create a new data by reading a file. At the moment, the supported format are
