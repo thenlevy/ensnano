@@ -308,13 +308,20 @@ impl Multiplexer {
                 State::Resizing {
                     region,
                     mouse_position,
+                    clicked_position,
+                    old_proportion,
                 } => {
                     *mouse_position = *position;
                     let mut position = position.clone();
                     position.x /= self.window_size.width as f64;
                     position.y /= self.window_size.height as f64;
                     *resized = true;
-                    self.layout_manager.resize_click(*region, &position);
+                    self.layout_manager.resize_click(
+                        *region,
+                        &position,
+                        &clicked_position,
+                        *old_proportion,
+                    );
                     icon = Some(CursorIcon::EwResize);
                     captured = true;
                 }
@@ -376,9 +383,15 @@ impl Multiplexer {
                 let mouse_position = self.state.mouse_position();
                 match element {
                     PixelRegion::Resize(n) if *state == ElementState::Pressed => {
+                        let mut clicked_position = mouse_position.clone();
+                        clicked_position.x /= self.window_size.width as f64;
+                        clicked_position.y /= self.window_size.height as f64;
+                        let old_proportion = self.layout_manager.get_proportion(n).unwrap();
                         self.state = State::Resizing {
                             mouse_position,
+                            clicked_position,
                             region: n,
+                            old_proportion,
                         };
                     }
                     PixelRegion::Resize(_) => {
@@ -649,7 +662,9 @@ fn proportion(min_prop: f64, max_size: f64, length: f64) -> f64 {
 enum State {
     Resizing {
         mouse_position: PhysicalPosition<f64>,
+        clicked_position: PhysicalPosition<f64>,
         region: usize,
+        old_proportion: f64,
     },
     Normal {
         mouse_position: PhysicalPosition<f64>,

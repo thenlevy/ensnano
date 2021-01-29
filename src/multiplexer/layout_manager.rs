@@ -211,8 +211,20 @@ impl LayoutTree {
         self.area[node_id].borrow_mut().resize(new_prop)
     }
 
-    pub fn resize_click(&mut self, node_id: usize, position: &PhysicalPosition<f64>) {
-        self.area[node_id].borrow_mut().resize_click(position)
+    pub fn resize_click(
+        &mut self,
+        node_id: usize,
+        position: &PhysicalPosition<f64>,
+        clicked_position: &PhysicalPosition<f64>,
+        old_proportion: f64,
+    ) {
+        self.area[node_id]
+            .borrow_mut()
+            .resize_click(position, clicked_position, old_proportion)
+    }
+
+    pub fn get_proportion(&self, region: usize) -> Option<f64> {
+        self.area.get(region).and_then(|a| a.borrow().proportion())
     }
 }
 
@@ -428,7 +440,7 @@ impl LayoutNode {
             } => {
                 let separation = *left + *left_proportion * (*right - *left);
                 if let Some(id) =
-                    resizable.filter(|_| x >= separation - 0.02 && x <= separation + 0.02)
+                    resizable.filter(|_| x >= separation - 0.005 && x <= separation + 0.005)
                 {
                     PixelRegion::Resize(id)
                 } else {
@@ -464,16 +476,23 @@ impl LayoutNode {
         }
     }
 
-    pub fn resize_click(&mut self, position: &PhysicalPosition<f64>) {
+    pub fn resize_click(
+        &mut self,
+        position: &PhysicalPosition<f64>,
+        clicked_position: &PhysicalPosition<f64>,
+        old_proportion: f64,
+    ) {
         match self {
             LayoutNode::VSplit { left, right, .. } => {
-                let new_prop = ((position.x - *left) / (*right - *left))
-                    .min(0.95)
-                    .max(0.05);
+                let delta = position.x - clicked_position.x;
+                let delta_prop = delta / (*right - *left);
+                let new_prop = (old_proportion + delta_prop).min(0.95).max(0.05);
                 self.resize(new_prop);
             }
             LayoutNode::HSplit { top, bottom, .. } => {
-                let new_prop = ((position.y - *top) / (*bottom - *top)).min(0.95).max(0.05);
+                let delta = position.y - clicked_position.y;
+                let delta_prop = delta / (*bottom - *top);
+                let new_prop = (old_proportion + delta_prop).min(0.95).max(0.05);
                 self.resize(new_prop);
             }
             LayoutNode::Area { .. } => {
@@ -583,6 +602,16 @@ impl LayoutNode {
                 *right = new_right;
                 *bottom = new_bottom;
             }
+        }
+    }
+
+    pub fn proportion(&self) -> Option<f64> {
+        match self {
+            LayoutNode::VSplit {
+                left_proportion, ..
+            } => Some(left_proportion.clone()),
+            LayoutNode::HSplit { top_proportion, .. } => Some(top_proportion.clone()),
+            LayoutNode::Area { .. } => None,
         }
     }
 }
