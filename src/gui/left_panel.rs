@@ -54,6 +54,7 @@ pub struct LeftPanel {
     fog: FogParameters,
     physical_simulation: PhysicalSimulation,
     scroll_sensitivity_factory: RequestFactory<ScrollSentivity>,
+    helix_roll_factory: RequestFactory<HelixRoll>,
 }
 
 #[derive(Debug, Clone)]
@@ -87,6 +88,7 @@ pub enum Message {
         value_id: ValueId,
         value: f32,
     },
+    HelixRoll(f32),
 }
 
 impl LeftPanel {
@@ -122,6 +124,7 @@ impl LeftPanel {
             fog: Default::default(),
             physical_simulation: Default::default(),
             scroll_sensitivity_factory: RequestFactory::new(0, ScrollSentivity {}),
+            helix_roll_factory: RequestFactory::new(1, HelixRoll {}),
         }
     }
 
@@ -309,8 +312,16 @@ impl Program for LeftPanel {
                     self.scroll_sensitivity_factory
                         .update_request(value_id, value, request);
                 }
+                1 => {
+                    let request = &mut self.requests.lock().unwrap().helix_roll;
+                    self.helix_roll_factory
+                        .update_request(value_id, value, request);
+                }
                 _ => unreachable!(),
             },
+            Message::HelixRoll(roll) => {
+                self.helix_roll_factory.update_roll(roll);
+            }
         };
         Command::none()
     }
@@ -569,6 +580,12 @@ impl Program for LeftPanel {
                         .push(length_input),
                 );
             global_scroll = global_scroll.push(row);
+        }
+
+        if self.selection_mode == SelectionMode::Helix {
+            for view in self.helix_roll_factory.view().into_iter() {
+                global_scroll = global_scroll.push(view);
+            }
         }
 
         let mut target_buttons: Vec<_> = self
@@ -1012,7 +1029,7 @@ pub struct SimulationRequest {
     pub springs: bool,
 }
 
-pub struct ScrollSentivity {}
+struct ScrollSentivity {}
 
 impl Requestable for ScrollSentivity {
     type Request = f32;
@@ -1055,6 +1072,50 @@ impl Requestable for ScrollSentivity {
             String::from("ScrollSentivity")
         } else {
             unreachable!()
+        }
+    }
+}
+
+struct HelixRoll {}
+
+impl Requestable for HelixRoll {
+    type Request = f32;
+    fn request_from_values(&self, values: &[f32]) -> f32 {
+        values[0]
+    }
+    fn nb_values(&self) -> usize {
+        1
+    }
+    fn initial_value(&self, n: usize) -> f32 {
+        match n {
+            0 => 0f32,
+            _ => unreachable!(),
+        }
+    }
+    fn min_val(&self, n: usize) -> f32 {
+        use std::f32::consts::PI;
+        match n {
+            0 => -PI,
+            _ => unreachable!(),
+        }
+    }
+    fn max_val(&self, n: usize) -> f32 {
+        use std::f32::consts::PI;
+        match n {
+            0 => PI,
+            _ => unreachable!(),
+        }
+    }
+    fn step_val(&self, n: usize) -> f32 {
+        match n {
+            0 => 1f32.to_radians(),
+            _ => unreachable!(),
+        }
+    }
+    fn name_val(&self, n: usize) -> String {
+        match n {
+            0 => String::from("Roll helix"),
+            _ => unreachable!(),
         }
     }
 }

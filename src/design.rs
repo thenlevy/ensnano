@@ -729,6 +729,14 @@ impl Design {
     pub fn notify_death(&self) {
         self.data.lock().unwrap().notify_death()
     }
+
+    pub fn roll_helix(&mut self, h_id: usize, roll: f32) {
+        self.data.lock().unwrap().roll_helix(h_id, roll)
+    }
+
+    pub fn get_roll_helix(&self, h_id: usize) -> Option<f32> {
+        self.data.lock().unwrap().get_roll_helix(h_id)
+    }
 }
 
 #[derive(Clone)]

@@ -482,6 +482,10 @@ fn main() {
                     if let Some(fog) = requests.fog.take() {
                         scene.lock().unwrap().fog_request(fog)
                     }
+
+                    if let Some(roll) = requests.helix_roll.take() {
+                        mediator.lock().unwrap().roll_helix(roll)
+                    }
                 }
 
                 // Treat eventual event that happenend in the gui left panel.
@@ -659,6 +663,11 @@ impl IcedMessages {
     pub fn notify_new_design(&mut self) {
         self.left_panel
             .push_back(gui::left_panel::Message::NewDesign)
+    }
+
+    pub fn push_roll(&mut self, roll: f32) {
+        self.left_panel
+            .push_back(gui::left_panel::Message::HelixRoll(roll))
     }
 }
 

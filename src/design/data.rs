@@ -2080,6 +2080,16 @@ impl Data {
     pub fn notify_death(&mut self) {
         self.stop_rolling()
     }
+
+    pub fn roll_helix(&mut self, h_id: usize, roll: f32) {
+        self.design.helices.get_mut(&h_id).map(|h| h.set_roll(roll));
+        self.hash_maps_update = true;
+        self.update_status = true;
+    }
+
+    pub fn get_roll_helix(&self, h_id: usize) -> Option<f32> {
+        self.design.helices.get(&h_id).map(|h| h.roll)
+    }
 }
 
 fn compl(c: Option<char>) -> Option<char> {

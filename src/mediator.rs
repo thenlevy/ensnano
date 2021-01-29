@@ -513,6 +513,15 @@ impl Mediator {
                 }
             }
         }
+        if let Selection::Helix(d_id, h_id) = selection {
+            let roll = self.designs[d_id as usize]
+                .read()
+                .unwrap()
+                .get_roll_helix(h_id as usize);
+            if let Some(roll) = roll {
+                self.messages.lock().unwrap().push_roll(roll)
+            }
+        }
         if let Some(d_id) = selection.get_design() {
             let values = selection.fetch_values(self.designs[d_id as usize].clone());
             self.messages
@@ -825,6 +834,15 @@ impl Mediator {
             d.write()
                 .unwrap()
                 .roll_request(request.clone(), self.computing.clone());
+        }
+    }
+
+    pub fn roll_helix(&mut self, roll: f32) {
+        if let Selection::Helix(d_id, h_id) = self.selection {
+            self.designs[d_id as usize]
+                .write()
+                .unwrap()
+                .roll_helix(h_id as usize, roll);
         }
     }
 

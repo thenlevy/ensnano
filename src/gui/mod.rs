@@ -73,6 +73,7 @@ pub struct Requests {
     pub roll_request: Option<SimulationRequest>,
     pub show_torsion_request: Option<bool>,
     pub fog: Option<FogParameters>,
+    pub helix_roll: Option<f32>,
 }
 
 impl Requests {
@@ -107,6 +108,7 @@ impl Requests {
             roll_request: None,
             show_torsion_request: None,
             fog: None,
+            helix_roll: None,
         }
     }
 }
