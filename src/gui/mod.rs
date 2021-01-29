@@ -74,6 +74,7 @@ pub struct Requests {
     pub show_torsion_request: Option<bool>,
     pub fog: Option<FogParameters>,
     pub hyperboloid: Option<HyperboloidRequest>,
+    pub helix_roll: Option<f32>,
 }
 
 impl Requests {
@@ -109,6 +110,7 @@ impl Requests {
             show_torsion_request: None,
             fog: None,
             hyperboloid: None,
+            helix_roll: None,
         }
     }
 }

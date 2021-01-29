@@ -805,6 +805,10 @@ impl Helix {
     pub fn roll(&mut self, roll: f32) {
         self.roll += roll
     }
+
+    pub fn set_roll(&mut self, roll: f32) {
+        self.roll = roll
+    }
 }
 
 #[derive(Clone, Copy, Eq, PartialEq, Hash, Debug)]

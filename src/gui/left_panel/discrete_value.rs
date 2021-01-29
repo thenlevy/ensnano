@@ -1,10 +1,10 @@
-use super::{button, slider, Button, Column, Row, Slider, Text};
+use super::{button, slider, Button, Column, HelixRoll, Row, Slider, Text};
 
 use super::Message;
 use std::collections::BTreeMap;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub struct ValueId(usize);
+pub struct ValueId(pub usize);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct FactoryId(pub usize);
 
@@ -141,16 +141,19 @@ impl DiscreteValue {
             .push(incr_button);
         let factory_id = self.owner_id.clone();
         let value_id = self.value_id.clone();
-        Column::new().push(first_row).push(Slider::new(
-            &mut self.slider,
-            self.min_val..=self.max_val,
-            self.value,
-            move |value| Message::DescreteValue {
-                factory_id,
-                value_id,
-                value,
-            },
-        ))
+        Column::new().push(first_row).push(
+            Slider::new(
+                &mut self.slider,
+                self.min_val..=self.max_val,
+                self.value,
+                move |value| Message::DescreteValue {
+                    factory_id,
+                    value_id,
+                    value,
+                },
+            )
+            .step(self.step),
+        )
     }
 
     fn get_value(&self) -> f32 {
@@ -159,5 +162,11 @@ impl DiscreteValue {
 
     fn update_value(&mut self, new_val: f32) {
         self.value = new_val
+    }
+}
+
+impl RequestFactory<HelixRoll> {
+    pub fn update_roll(&mut self, roll: f32) {
+        self.values.get_mut(&ValueId(0)).unwrap().update_value(roll);
     }
 }

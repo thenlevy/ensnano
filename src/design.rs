@@ -749,6 +749,14 @@ impl Design {
             .unwrap()
             .update_hyperboloid(nb_helix, shift, length, radius_shift)
     }
+
+    pub fn roll_helix(&mut self, h_id: usize, roll: f32) {
+        self.data.lock().unwrap().roll_helix(h_id, roll)
+    }
+
+    pub fn get_roll_helix(&self, h_id: usize) -> Option<f32> {
+        self.data.lock().unwrap().get_roll_helix(h_id)
+    }
 }
 
 #[derive(Clone)]
