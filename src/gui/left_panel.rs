@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
 
 use iced::{container, Background, Column, Container, Image, Row};
@@ -20,6 +21,8 @@ use color_picker::ColorPicker;
 mod sequence_input;
 use sequence_input::SequenceInput;
 use text_input_style::BadValue;
+mod discrete_value;
+use discrete_value::{FactoryId, RequestFactory, Requestable, ValueId};
 
 const BUTTON_SIZE: u16 = 40;
 
@@ -50,6 +53,7 @@ pub struct LeftPanel {
     show_torsion: bool,
     fog: FogParameters,
     physical_simulation: PhysicalSimulation,
+    scroll_sensitivity_factory: RequestFactory<ScrollSentivity>,
 }
 
 #[derive(Debug, Clone)]
@@ -78,6 +82,11 @@ pub enum Message {
     SimSprings(bool),
     SimRequest,
     NewDesign,
+    DescreteValue {
+        factory_id: FactoryId,
+        value_id: ValueId,
+        value: f32,
+    },
 }
 
 impl LeftPanel {
@@ -112,6 +121,7 @@ impl LeftPanel {
             show_torsion: false,
             fog: Default::default(),
             physical_simulation: Default::default(),
+            scroll_sensitivity_factory: RequestFactory::new(0, ScrollSentivity {}),
         }
     }
 
@@ -289,6 +299,18 @@ impl Program for LeftPanel {
                 self.fog.from_camera = b;
                 self.requests.lock().unwrap().fog = Some(self.fog.request());
             }
+            Message::DescreteValue {
+                factory_id,
+                value_id,
+                value,
+            } => match factory_id.0 {
+                0 => {
+                    let request = &mut self.requests.lock().unwrap().scroll_sensitivity;
+                    self.scroll_sensitivity_factory
+                        .update_request(value_id, value, request);
+                }
+                _ => unreachable!(),
+            },
         };
         Command::none()
     }
@@ -618,6 +640,9 @@ impl Program for LeftPanel {
                 .push(self.sequence_input.view());
         }
         widget = widget.push(self.fog.view());
+        for view in self.scroll_sensitivity_factory.view().into_iter() {
+            widget = widget.push(view);
+        }
 
         Container::new(widget)
             .style(TopBarStyle)
@@ -985,4 +1010,51 @@ impl PhysicalSimulation {
 pub struct SimulationRequest {
     pub roll: bool,
     pub springs: bool,
+}
+
+pub struct ScrollSentivity {}
+
+impl Requestable for ScrollSentivity {
+    type Request = f32;
+    fn request_from_values(&self, values: &[f32]) -> f32 {
+        values[0]
+    }
+    fn nb_values(&self) -> usize {
+        1
+    }
+    fn initial_value(&self, n: usize) -> f32 {
+        if n == 0 {
+            0f32
+        } else {
+            unreachable!()
+        }
+    }
+    fn min_val(&self, n: usize) -> f32 {
+        if n == 0 {
+            -20f32
+        } else {
+            unreachable!()
+        }
+    }
+    fn max_val(&self, n: usize) -> f32 {
+        if n == 0 {
+            20f32
+        } else {
+            unreachable!()
+        }
+    }
+    fn step_val(&self, n: usize) -> f32 {
+        if n == 0 {
+            1f32
+        } else {
+            unreachable!()
+        }
+    }
+    fn name_val(&self, n: usize) -> String {
+        if n == 0 {
+            String::from("ScrollSentivity")
+        } else {
+            unreachable!()
+        }
+    }
 }
