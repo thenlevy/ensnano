@@ -47,6 +47,7 @@ pub enum Consequence {
     FlipGroup(FlatHelix),
     FollowingSuggestion(FlatNucl, bool),
     Centering(FlatNucl),
+    Select(FlatNucl),
 }
 
 impl Controller {

@@ -428,6 +428,12 @@ impl Multiplexer {
                     VirtualKeyCode::Escape => {
                         self.requests.lock().unwrap().action_mode = Some(ActionMode::Normal)
                     }
+                    VirtualKeyCode::C if ctrl(modifiers) => {
+                        self.requests.lock().unwrap().copy = true;
+                    }
+                    VirtualKeyCode::V if ctrl(modifiers) => {
+                        self.requests.lock().unwrap().paste = true;
+                    }
                     VirtualKeyCode::A => {
                         self.requests.lock().unwrap().action_mode = Some(ActionMode::Build(false))
                     }
@@ -682,5 +688,13 @@ impl State {
             | Self::Normal { mouse_position }
             | Self::Interacting { mouse_position, .. } => *mouse_position,
         }
+    }
+}
+
+fn ctrl(modifiers: &ModifiersState) -> bool {
+    if cfg!(target_os = "macos") {
+        modifiers.logo()
+    } else {
+        modifiers.ctrl()
     }
 }

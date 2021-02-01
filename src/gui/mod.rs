@@ -74,6 +74,8 @@ pub struct Requests {
     pub show_torsion_request: Option<bool>,
     pub fog: Option<FogParameters>,
     pub helix_roll: Option<f32>,
+    pub copy: bool,
+    pub paste: bool,
 }
 
 impl Requests {
@@ -109,6 +111,8 @@ impl Requests {
             show_torsion_request: None,
             fog: None,
             helix_roll: None,
+            copy: false,
+            paste: false,
         }
     }
 }

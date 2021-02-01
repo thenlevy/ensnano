@@ -862,6 +862,24 @@ impl Mediator {
     pub fn show_torsion_request(&mut self, show: bool) {
         self.notify_apps(Notification::ShowTorsion(show))
     }
+
+    pub fn request_copy(&self) {
+        if let Selection::Nucleotide(d_id, nucl) = self.selection {
+            self.designs[d_id as usize]
+                .write()
+                .unwrap()
+                .request_copy(nucl);
+        }
+    }
+
+    pub fn request_paste(&self) {
+        if let Selection::Nucleotide(d_id, nucl) = self.selection {
+            self.designs[d_id as usize]
+                .write()
+                .unwrap()
+                .request_paste(nucl);
+        }
+    }
 }
 
 #[derive(Debug, Clone)]

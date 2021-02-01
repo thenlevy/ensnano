@@ -331,6 +331,12 @@ impl FlatScene {
                         .unwrap()
                         .request_centering(nucl, self.selected_design)
                 }
+                Consequence::Select(nucl) => {
+                    let selection = self.data[self.selected_design]
+                        .borrow()
+                        .get_selection(nucl, self.selected_design as u32);
+                    self.mediator.lock().unwrap().notify_selection(selection);
+                }
                 _ => (),
             }
         }

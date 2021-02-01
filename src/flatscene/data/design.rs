@@ -61,6 +61,18 @@ impl Design2d {
             self.strands
                 .push(Strand::new(color, flat_strand, *strand_id));
         }
+        let nucls_opt = self.design.read().unwrap().get_copy_points();
+        if let Some(nucls) = nucls_opt {
+            let color = 0xCC_30_30_30;
+            for nucl in nucls.iter() {
+                self.read_nucl(nucl)
+            }
+            let flat_strand = nucls
+                .iter()
+                .map(|n| FlatNucl::from_real(n, self.id_map()))
+                .collect();
+            self.strands.push(Strand::new(color, flat_strand, 0));
+        }
         for h_id in self.id_map.keys() {
             let visibility = self.design.read().unwrap().get_visibility_helix(*h_id);
             let flat_helix = FlatHelix::from_real(*h_id, &self.id_map);

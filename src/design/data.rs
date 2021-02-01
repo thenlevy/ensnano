@@ -25,6 +25,7 @@ mod grid;
 mod icednano;
 mod roller;
 mod strand_builder;
+mod strand_patron;
 mod torsion;
 use super::utils::*;
 use crate::scene::GridInstance;
@@ -37,6 +38,7 @@ use roller::PhysicalSystem;
 use std::sync::{mpsc::Sender, Arc, Mutex, RwLock};
 use strand_builder::NeighbourDescriptor;
 pub use strand_builder::{DomainIdentifier, StrandBuilder};
+use strand_patron::StrandPatron;
 pub use torsion::Torsion;
 
 /// In addition to its `design` field, the `Data` struct has several hashmaps that are usefull to
@@ -85,6 +87,8 @@ pub struct Data {
         Arc<Mutex<Option<Sender<Vec<Helix>>>>>,
         Instant,
     )>,
+    patron: Option<StrandPatron>,
+    copy: Option<Vec<icednano::Domain>>,
 }
 
 impl fmt::Debug for Data {
@@ -121,6 +125,8 @@ impl Data {
             blue_cubes: HashMap::default(),
             blue_nucl: vec![],
             roller_ptrs: None,
+            patron: None,
+            copy: None,
         }
     }
 
@@ -160,6 +166,8 @@ impl Data {
             blue_cubes: HashMap::default(),
             blue_nucl: vec![],
             roller_ptrs: None,
+            patron: None,
+            copy: None,
         };
         ret.make_hash_maps();
         ret.terminate_movement();
@@ -915,6 +923,23 @@ impl Data {
         }
         if strand.cyclic {
             ret.push(ret[0])
+        }
+        Some(ret)
+    }
+
+    pub fn get_copy_points(&self) -> Option<Vec<Nucl>> {
+        let domains = self.copy.as_ref()?;
+        let mut ret = Vec::new();
+        for domain in domains.iter() {
+            if let icednano::Domain::HelixDomain(domain) = domain {
+                if domain.forward {
+                    ret.push(Nucl::new(domain.helix, domain.start, domain.forward));
+                    ret.push(Nucl::new(domain.helix, domain.end - 1, domain.forward));
+                } else {
+                    ret.push(Nucl::new(domain.helix, domain.end - 1, domain.forward));
+                    ret.push(Nucl::new(domain.helix, domain.start, domain.forward));
+                }
+            }
         }
         Some(ret)
     }
@@ -2089,6 +2114,34 @@ impl Data {
 
     pub fn get_roll_helix(&self, h_id: usize) -> Option<f32> {
         self.design.helices.get(&h_id).map(|h| h.roll)
+    }
+
+    pub fn set_patron(&mut self, s_id: usize) {
+        self.patron = self
+            .design
+            .strands
+            .get(&s_id)
+            .and_then(|s| self.strand_to_patron(s));
+        if self.patron.is_some() {
+            println!("successful copy");
+            println!("{:?}", self.patron);
+        } else {
+            println!("failed to copy");
+        }
+    }
+
+    pub fn set_copy(&mut self, nucl: Nucl) {
+        if let Some(ref patron) = self.patron {
+            self.copy = self.patron_to_domains(patron, nucl);
+            self.hash_maps_update = true;
+            self.update_status = true;
+            if self.copy.is_some() {
+                println!("successful paste");
+                println!("{:?}", self.copy);
+            } else {
+                println!("failed to paste");
+            }
+        }
     }
 }
 

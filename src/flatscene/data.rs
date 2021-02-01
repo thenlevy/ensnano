@@ -1,5 +1,6 @@
 use super::{Flat, HelixVec, ViewPtr};
 use crate::design::{Design, Nucl, StrandBuilder};
+use crate::mediator::Selection;
 use std::sync::{Arc, RwLock};
 use ultraviolet::Vec2;
 
@@ -349,6 +350,11 @@ impl Data {
             }
         }
         ret
+    }
+
+    pub fn get_selection(&self, nucl: FlatNucl, d_id: u32) -> Selection {
+        let nucl = nucl.to_real();
+        Selection::Nucleotide(d_id, nucl)
     }
 }
 

@@ -1,0 +1,132 @@
+use super::grid::Edge;
+use super::GridPosition;
+use super::{icednano::Domain, icednano::HelixInterval, Data, Nucl, Strand};
+
+#[derive(Debug, Clone)]
+pub struct StrandPatron {
+    origin: PatronOrigin,
+    domains: Vec<DomainPatron>,
+    edges: Vec<Edge>,
+}
+
+#[derive(Debug, Clone)]
+struct PatronOrigin {
+    helix: GridPosition,
+    start: isize,
+    forward: bool,
+}
+
+#[derive(Debug, Clone)]
+pub enum DomainPatron {
+    Insertion(usize),
+    HelixInterval {
+        start: isize,
+        end: isize,
+        forward: bool,
+    },
+}
+
+impl Data {
+    pub fn strand_to_patron(&self, strand: &Strand) -> Option<StrandPatron> {
+        let mut origin: Option<PatronOrigin> = None;
+        let mut domains = Vec::with_capacity(strand.domains.len());
+        let mut edges = Vec::with_capacity(strand.domains.len());
+        let mut previous_position = None;
+        for domain in strand.domains.iter() {
+            match domain {
+                Domain::Insertion(n) => domains.push(DomainPatron::Insertion(*n)),
+                Domain::HelixDomain(dom) => {
+                    if let Some(ref pos1) = previous_position {
+                        let helix = self.design.helices.get(&dom.helix)?;
+                        let pos2 = helix.grid_position?;
+                        let edge = self.grid_manager.get_edge(pos1, &pos2)?;
+                        edges.push(edge);
+                        previous_position = Some(pos2);
+                        let shift = origin.as_ref().unwrap().start;
+                        domains.push(DomainPatron::HelixInterval {
+                            start: dom.start - shift,
+                            end: dom.end - shift,
+                            forward: dom.forward,
+                        });
+                    } else {
+                        let helix = self.design.helices.get(&dom.helix)?;
+                        let grid_position = helix.grid_position?;
+                        origin = Some(PatronOrigin {
+                            helix: grid_position,
+                            start: dom.start,
+                            forward: dom.forward,
+                        });
+                        previous_position = Some(grid_position);
+                        domains.push(DomainPatron::HelixInterval {
+                            start: 0,
+                            end: dom.end - dom.start,
+                            forward: dom.forward,
+                        });
+                    }
+                }
+            }
+        }
+        origin.map(|origin| StrandPatron {
+            origin,
+            domains,
+            edges,
+        })
+    }
+
+    pub fn patron_to_domains(
+        &self,
+        patron: &StrandPatron,
+        start_nucl: Nucl,
+    ) -> Option<Vec<Domain>> {
+        let mut ret = Vec::with_capacity(patron.domains.len());
+        let mut edge_iter = patron.edges.iter();
+        let mut previous_position: Option<GridPosition> = None;
+        let shift = start_nucl.position - patron.origin.start;
+        for domain in patron.domains.iter() {
+            match domain {
+                DomainPatron::Insertion(n) => ret.push(Domain::Insertion(*n)),
+                DomainPatron::HelixInterval {
+                    start,
+                    end,
+                    forward,
+                } => {
+                    if let Some(ref pos1) = previous_position {
+                        let edge = edge_iter.next()?;
+                        let pos2 = self.grid_manager.translate_by_edge(pos1, edge)?;
+                        let helix = self.grid_manager.pos_to_helix(pos2.grid, pos2.x, pos2.y)?;
+                        ret.push(Domain::HelixDomain(HelixInterval {
+                            helix,
+                            start: start + shift,
+                            end: end + shift,
+                            forward: *forward,
+                            sequence: None,
+                        }));
+                        previous_position = Some(pos2);
+                    } else {
+                        let position = patron.origin.helix;
+                        let pos2 = self
+                            .design
+                            .helices
+                            .get(&start_nucl.helix)
+                            .and_then(|h| h.grid_position)?;
+
+                        if self.grid_manager.get_edge(&position, &pos2).is_none() {
+                            return None;
+                        }
+                        let helix = self.grid_manager.pos_to_helix(pos2.grid, pos2.x, pos2.y)?;
+
+                        ret.push(Domain::HelixDomain(HelixInterval {
+                            helix,
+                            start: start + shift,
+                            end: end + shift,
+                            forward: patron.origin.forward,
+                            sequence: None,
+                        }));
+                        previous_position = Some(pos2);
+                    }
+                }
+            }
+        }
+        Some(ret)
+    }
+}
