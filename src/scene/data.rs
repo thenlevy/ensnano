@@ -666,6 +666,8 @@ impl Data {
         let mut tubes = Vec::with_capacity(self.get_number_tubes());
         let mut suggested_spheres = Vec::with_capacity(1000);
         let mut suggested_tubes = Vec::with_capacity(1000);
+        let mut pasted_spheres = Vec::with_capacity(1000);
+        let mut pasted_tubes = Vec::with_capacity(1000);
 
         let mut letters = Vec::new();
         let mut grids = Vec::new();
@@ -686,6 +688,13 @@ impl Data {
             for tube in design.get_suggested_tubes() {
                 suggested_tubes.push(tube)
             }
+            let (spheres, tubes) = design.get_pasted_strand();
+            for sphere in spheres {
+                pasted_spheres.push(sphere);
+            }
+            for tube in tubes {
+                pasted_tubes.push(tube);
+            }
         }
         self.view
             .borrow_mut()
@@ -701,6 +710,13 @@ impl Data {
             Mesh::SuggestionTube,
             Rc::new(suggested_tubes),
         ));
+        self.view.borrow_mut().update(ViewUpdate::RawDna(
+            Mesh::PastedSphere,
+            Rc::new(pasted_spheres),
+        ));
+        self.view
+            .borrow_mut()
+            .update(ViewUpdate::RawDna(Mesh::PastedTube, Rc::new(pasted_tubes)));
         self.view.borrow_mut().update(ViewUpdate::Letter(letters));
         self.view
             .borrow_mut()

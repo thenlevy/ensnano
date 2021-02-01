@@ -1,6 +1,7 @@
 use super::grid::Edge;
 use super::GridPosition;
 use super::{icednano::Domain, icednano::HelixInterval, Data, Nucl, Strand};
+use ultraviolet::Vec3;
 
 #[derive(Debug, Clone)]
 pub struct StrandPatron {
@@ -24,6 +25,11 @@ pub enum DomainPatron {
         end: isize,
         forward: bool,
     },
+}
+
+pub struct PastedStrand {
+    pub domains: Vec<Domain>,
+    pub nucl_position: Vec<Vec3>,
 }
 
 impl Data {
@@ -128,5 +134,26 @@ impl Data {
             }
         }
         Some(ret)
+    }
+
+    pub(super) fn update_pasted_strand(&mut self, domains: Option<Vec<Domain>>) {
+        if let Some(domains) = domains {
+            let mut nucl_position = Vec::with_capacity(domains.len() * 15);
+            for dom in domains.iter() {
+                if let Domain::HelixDomain(dom) = dom {
+                    let helix = self.design.helices.get(&dom.helix).unwrap();
+                    let parameters = self.design.parameters.unwrap_or_default();
+                    for position in dom.iter() {
+                        nucl_position.push(helix.space_pos(&parameters, position, dom.forward));
+                    }
+                }
+            }
+            self.pasted_strand = Some(PastedStrand {
+                domains,
+                nucl_position,
+            });
+        } else {
+            self.pasted_strand = None
+        }
     }
 }

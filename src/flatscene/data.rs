@@ -61,6 +61,9 @@ impl Data {
             self.view
                 .borrow_mut()
                 .update_strands(&self.design.get_strands(), &self.helices);
+            self.view
+                .borrow_mut()
+                .update_pasted_strand(self.design.get_pasted_strand(), &self.helices);
         }
         self.instance_update = false;
     }

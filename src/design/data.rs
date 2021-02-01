@@ -38,7 +38,7 @@ use roller::PhysicalSystem;
 use std::sync::{mpsc::Sender, Arc, Mutex, RwLock};
 use strand_builder::NeighbourDescriptor;
 pub use strand_builder::{DomainIdentifier, StrandBuilder};
-use strand_patron::StrandPatron;
+use strand_patron::{PastedStrand, StrandPatron};
 pub use torsion::Torsion;
 
 /// In addition to its `design` field, the `Data` struct has several hashmaps that are usefull to
@@ -88,7 +88,7 @@ pub struct Data {
         Instant,
     )>,
     patron: Option<StrandPatron>,
-    copy: Option<Vec<icednano::Domain>>,
+    pasted_strand: Option<PastedStrand>,
 }
 
 impl fmt::Debug for Data {
@@ -126,7 +126,7 @@ impl Data {
             blue_nucl: vec![],
             roller_ptrs: None,
             patron: None,
-            copy: None,
+            pasted_strand: None,
         }
     }
 
@@ -167,7 +167,7 @@ impl Data {
             blue_nucl: vec![],
             roller_ptrs: None,
             patron: None,
-            copy: None,
+            pasted_strand: None,
         };
         ret.make_hash_maps();
         ret.terminate_movement();
@@ -928,20 +928,29 @@ impl Data {
     }
 
     pub fn get_copy_points(&self) -> Option<Vec<Nucl>> {
-        let domains = self.copy.as_ref()?;
         let mut ret = Vec::new();
-        for domain in domains.iter() {
-            if let icednano::Domain::HelixDomain(domain) = domain {
-                if domain.forward {
-                    ret.push(Nucl::new(domain.helix, domain.start, domain.forward));
-                    ret.push(Nucl::new(domain.helix, domain.end - 1, domain.forward));
-                } else {
-                    ret.push(Nucl::new(domain.helix, domain.end - 1, domain.forward));
-                    ret.push(Nucl::new(domain.helix, domain.start, domain.forward));
+        if let Some(ref strand) = self.pasted_strand {
+            for domain in strand.domains.iter() {
+                if let icednano::Domain::HelixDomain(domain) = domain {
+                    if domain.forward {
+                        ret.push(Nucl::new(domain.helix, domain.start, domain.forward));
+                        ret.push(Nucl::new(domain.helix, domain.end - 1, domain.forward));
+                    } else {
+                        ret.push(Nucl::new(domain.helix, domain.end - 1, domain.forward));
+                        ret.push(Nucl::new(domain.helix, domain.start, domain.forward));
+                    }
                 }
             }
         }
         Some(ret)
+    }
+
+    pub fn get_pasted_positions(&self) -> Option<Vec<Vec3>> {
+        if let Some(ref strand) = self.pasted_strand {
+            Some(strand.nucl_position.clone())
+        } else {
+            None
+        }
     }
 
     /// Return the identifier of the strand whose nucl is the 5' end of, or `None` if nucl is not
@@ -2132,12 +2141,12 @@ impl Data {
 
     pub fn set_copy(&mut self, nucl: Nucl) {
         if let Some(ref patron) = self.patron {
-            self.copy = self.patron_to_domains(patron, nucl);
+            let domains = self.patron_to_domains(patron, nucl);
+            self.update_pasted_strand(domains);
             self.hash_maps_update = true;
             self.update_status = true;
-            if self.copy.is_some() {
+            if self.pasted_strand.is_some() {
                 println!("successful paste");
-                println!("{:?}", self.copy);
             } else {
                 println!("failed to paste");
             }

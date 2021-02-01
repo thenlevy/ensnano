@@ -735,6 +735,8 @@ pub enum Mesh {
     FakePhantomSphere,
     SuggestionSphere,
     SuggestionTube,
+    PastedSphere,
+    PastedTube,
 }
 
 impl Mesh {
@@ -764,6 +766,8 @@ struct DnaDrawers {
     fake_phantom_tube: InstanceDrawer<TubeInstance>,
     suggestion_sphere: InstanceDrawer<SphereInstance>,
     suggestion_tube: InstanceDrawer<TubeInstance>,
+    pasted_sphere: InstanceDrawer<SphereInstance>,
+    pasted_tube: InstanceDrawer<TubeInstance>,
 }
 
 impl DnaDrawers {
@@ -783,6 +787,8 @@ impl DnaDrawers {
             Mesh::FakePhantomTube => &mut self.fake_phantom_tube,
             Mesh::SuggestionTube => &mut self.suggestion_tube,
             Mesh::SuggestionSphere => &mut self.suggestion_sphere,
+            Mesh::PastedSphere => &mut self.pasted_sphere,
+            Mesh::PastedTube => &mut self.pasted_tube,
         }
     }
 
@@ -798,6 +804,8 @@ impl DnaDrawers {
             &mut self.phantom_sphere,
             &mut self.suggestion_sphere,
             &mut self.suggestion_tube,
+            &mut self.pasted_tube,
+            &mut self.pasted_sphere,
         ]
     }
 
@@ -857,6 +865,22 @@ impl DnaDrawers {
                 false,
             ),
             suggestion_tube: InstanceDrawer::new(
+                device.clone(),
+                queue.clone(),
+                viewer_desc,
+                model_desc,
+                (),
+                false,
+            ),
+            pasted_sphere: InstanceDrawer::new(
+                device.clone(),
+                queue.clone(),
+                viewer_desc,
+                model_desc,
+                (),
+                false,
+            ),
+            pasted_tube: InstanceDrawer::new(
                 device.clone(),
                 queue.clone(),
                 viewer_desc,

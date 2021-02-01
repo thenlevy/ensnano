@@ -751,6 +751,10 @@ impl Design {
     pub fn request_paste(&mut self, nucl: Nucl) {
         self.data.lock().unwrap().set_copy(nucl)
     }
+
+    pub fn get_pasted_position(&self) -> Option<Vec<Vec3>> {
+        self.data.lock().unwrap().get_pasted_positions()
+    }
 }
 
 #[derive(Clone)]
