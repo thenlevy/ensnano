@@ -3,22 +3,29 @@ use super::GridPosition;
 use super::{icednano::Domain, icednano::HelixInterval, Data, Nucl, Strand};
 use ultraviolet::Vec3;
 
+/// A template describing the relation between the domains of a strand. Can be used for copy-paste
+/// of strands.
 #[derive(Debug, Clone)]
-pub struct StrandPatron {
-    origin: PatronOrigin,
-    domains: Vec<DomainPatron>,
+pub struct StrandTemplate {
+    origin: TemplateOrigin,
+    domains: Vec<DomainTemplate>,
     edges: Vec<Edge>,
 }
 
 #[derive(Debug, Clone)]
-struct PatronOrigin {
+/// The starting point of a template. Used to determine weither a nucleotide is a correct starting
+/// point for a copy of the strand.
+struct TemplateOrigin {
     helix: GridPosition,
     start: isize,
     forward: bool,
 }
 
 #[derive(Debug, Clone)]
-pub enum DomainPatron {
+/// A domain of a template.
+/// The HelixInterval variant does not have an helix attribute because helices are determined by
+/// a path in the grid's graph when instanciating the template.
+pub enum DomainTemplate {
     Insertion(usize),
     HelixInterval {
         start: isize,
@@ -30,17 +37,18 @@ pub enum DomainPatron {
 pub struct PastedStrand {
     pub domains: Vec<Domain>,
     pub nucl_position: Vec<Vec3>,
+    pub pastable: bool,
 }
 
 impl Data {
-    pub fn strand_to_patron(&self, strand: &Strand) -> Option<StrandPatron> {
-        let mut origin: Option<PatronOrigin> = None;
+    pub fn strand_to_template(&self, strand: &Strand) -> Option<StrandTemplate> {
+        let mut origin: Option<TemplateOrigin> = None;
         let mut domains = Vec::with_capacity(strand.domains.len());
         let mut edges = Vec::with_capacity(strand.domains.len());
         let mut previous_position = None;
         for domain in strand.domains.iter() {
             match domain {
-                Domain::Insertion(n) => domains.push(DomainPatron::Insertion(*n)),
+                Domain::Insertion(n) => domains.push(DomainTemplate::Insertion(*n)),
                 Domain::HelixDomain(dom) => {
                     if let Some(ref pos1) = previous_position {
                         let helix = self.design.helices.get(&dom.helix)?;
@@ -48,50 +56,54 @@ impl Data {
                         let edge = self.grid_manager.get_edge(pos1, &pos2)?;
                         edges.push(edge);
                         previous_position = Some(pos2);
-                        let shift = origin.as_ref().unwrap().start;
-                        domains.push(DomainPatron::HelixInterval {
-                            start: dom.start - shift,
-                            end: dom.end - shift,
+                        domains.push(DomainTemplate::HelixInterval {
+                            start: dom.start,
+                            end: dom.end,
                             forward: dom.forward,
                         });
                     } else {
                         let helix = self.design.helices.get(&dom.helix)?;
                         let grid_position = helix.grid_position?;
-                        origin = Some(PatronOrigin {
+                        let start = if dom.forward { dom.start } else { dom.end };
+                        origin = Some(TemplateOrigin {
                             helix: grid_position,
-                            start: dom.start,
+                            start: start,
                             forward: dom.forward,
                         });
                         previous_position = Some(grid_position);
-                        domains.push(DomainPatron::HelixInterval {
-                            start: 0,
-                            end: dom.end - dom.start,
+                        domains.push(DomainTemplate::HelixInterval {
+                            start: dom.start,
+                            end: dom.end,
                             forward: dom.forward,
                         });
                     }
                 }
             }
         }
-        origin.map(|origin| StrandPatron {
+        origin.map(|origin| StrandTemplate {
             origin,
             domains,
             edges,
         })
     }
 
-    pub fn patron_to_domains(
+    pub fn template_to_domains(
         &self,
-        patron: &StrandPatron,
+        template: &StrandTemplate,
         start_nucl: Nucl,
     ) -> Option<Vec<Domain>> {
-        let mut ret = Vec::with_capacity(patron.domains.len());
-        let mut edge_iter = patron.edges.iter();
+        let mut ret = Vec::with_capacity(template.domains.len());
+        let mut edge_iter = template.edges.iter();
         let mut previous_position: Option<GridPosition> = None;
-        let shift = start_nucl.position - patron.origin.start;
-        for domain in patron.domains.iter() {
+        let shift = if start_nucl.forward {
+            start_nucl.position - template.origin.start
+        } else {
+            start_nucl.position - template.origin.start + 1
+        };
+        for domain in template.domains.iter() {
             match domain {
-                DomainPatron::Insertion(n) => ret.push(Domain::Insertion(*n)),
-                DomainPatron::HelixInterval {
+                DomainTemplate::Insertion(n) => ret.push(Domain::Insertion(*n)),
+                DomainTemplate::HelixInterval {
                     start,
                     end,
                     forward,
@@ -109,7 +121,7 @@ impl Data {
                         }));
                         previous_position = Some(pos2);
                     } else {
-                        let position = patron.origin.helix;
+                        let position = template.origin.helix;
                         let pos2 = self
                             .design
                             .helices
@@ -125,7 +137,7 @@ impl Data {
                             helix,
                             start: start + shift,
                             end: end + shift,
-                            forward: patron.origin.forward,
+                            forward: template.origin.forward,
                             sequence: None,
                         }));
                         previous_position = Some(pos2);
@@ -148,9 +160,11 @@ impl Data {
                     }
                 }
             }
+            let pastable = self.can_add_domains(&domains);
             self.pasted_strand = Some(PastedStrand {
                 domains,
                 nucl_position,
+                pastable,
             });
         } else {
             self.pasted_strand = None

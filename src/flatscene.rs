@@ -344,6 +344,9 @@ impl FlatScene {
                     self.view[self.selected_design].borrow_mut().clear_rectangle();
                     //self.data[self.selected_design].borrow().get_helices_in_rect(c1, c2, camera);
                 }
+                Consequence::PasteRequest(nucl) => {
+                    self.mediator.lock().unwrap().attempt_paste(nucl.to_real());
+                }
                 _ => (),
             }
         }
@@ -404,6 +407,11 @@ impl Application for FlatScene {
             Notification::ShowTorsion(b) => {
                 for v in self.view.iter() {
                     v.borrow_mut().set_show_torsion(b);
+                }
+            }
+            Notification::Pasting(b) => {
+                for c in self.controller.iter_mut() {
+                    c.set_pasting(b)
                 }
             }
             _ => (),

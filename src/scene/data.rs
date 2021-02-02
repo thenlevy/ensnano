@@ -967,6 +967,17 @@ impl Data {
             self.set_selection(Some(SceneElement::DesignElement(design_id as u32, id)));
         }
     }
+
+    pub fn get_candidate_nucl(&self) -> Option<Nucl> {
+        match self.candidates.get(0) {
+            None => None,
+            Some(SceneElement::DesignElement(d_id, n_id)) => {
+                self.designs[*d_id as usize].get_nucl(*n_id)
+            }
+            Some(SceneElement::PhantomElement(pe)) => Some(pe.to_nucl()),
+            _ => None,
+        }
+    }
 }
 
 impl ActionMode {

@@ -744,15 +744,24 @@ impl Design {
 
     pub fn request_copy(&mut self, nucl: Nucl) {
         if let Some(s_id) = self.get_strand_nucl(&nucl) {
-            self.data.lock().unwrap().set_patron(s_id)
+            self.data.lock().unwrap().set_template(s_id)
         }
     }
 
-    pub fn request_paste(&mut self, nucl: Nucl) {
+    pub fn request_paste_candidate(&mut self, nucl: Option<Nucl>) {
         self.data.lock().unwrap().set_copy(nucl)
     }
 
-    pub fn get_pasted_position(&self) -> Option<Vec<Vec3>> {
+    pub fn paste(&mut self, nucl: Nucl) -> bool {
+        self.data.lock().unwrap().set_copy(Some(nucl));
+        self.data.lock().unwrap().apply_copy()
+    }
+
+    pub fn has_template(&self) -> bool {
+        self.data.lock().unwrap().has_template()
+    }
+
+    pub fn get_pasted_position(&self) -> Option<(Vec<Vec3>, bool)> {
         self.data.lock().unwrap().get_pasted_positions()
     }
 }

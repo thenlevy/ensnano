@@ -282,6 +282,17 @@ impl Strand {
         }
         ret
     }
+
+    pub fn intersect_domains(&self, domains: &[Domain]) -> bool {
+        for d in self.domains.iter() {
+            for other in domains.iter() {
+                if d.intersect(other) {
+                    return true;
+                }
+            }
+        }
+        false
+    }
 }
 
 fn is_false(x: &bool) -> bool {
@@ -527,6 +538,18 @@ impl Domain {
             (Domain::HelixDomain(dom1), Domain::HelixDomain(dom2)) => {
                 dom1.helix == dom2.helix
                     && (dom1.end == dom2.start || dom1.start == dom2.end)
+                    && dom1.forward == dom2.forward
+            }
+            _ => false,
+        }
+    }
+
+    pub fn intersect(&self, other: &Domain) -> bool {
+        match (self, other) {
+            (Domain::HelixDomain(dom1), Domain::HelixDomain(dom2)) => {
+                dom1.helix == dom2.helix
+                    && dom1.start < dom2.end
+                    && dom2.start < dom1.end
                     && dom1.forward == dom2.forward
             }
             _ => false,

@@ -28,6 +28,7 @@ pub struct Controller {
     state: RefCell<Box<dyn ControllerState>>,
     action_mode: ActionMode,
     mediator: Arc<Mutex<Mediator>>,
+    pasting: bool,
 }
 
 pub enum Consequence {
@@ -50,6 +51,7 @@ pub enum Consequence {
     Select(FlatNucl),
     DrawingSelection(PhysicalPosition<f64>, PhysicalPosition<f64>),
     ReleasedSelection(Vec2, Vec2),
+    PasteRequest(FlatNucl),
 }
 
 impl Controller {
@@ -69,9 +71,11 @@ impl Controller {
             camera,
             state: RefCell::new(Box::new(NormalState {
                 mouse_position: PhysicalPosition::new(-1., -1.),
+                pasting: false,
             })),
             action_mode: ActionMode::Normal,
             mediator,
+            pasting: false,
         }
     }
 
@@ -93,6 +97,7 @@ impl Controller {
             Transition {
                 new_state: Some(Box::new(NormalState {
                     mouse_position: PhysicalPosition::new(-1., -1.),
+                    pasting: self.pasting,
                 })),
                 consequences: Consequence::Nothing,
             }
@@ -106,6 +111,20 @@ impl Controller {
             self.state.borrow().transition_to(&self);
         }
         transition.consequences
+    }
+
+    pub fn set_pasting(&mut self, pasting: bool) {
+        self.pasting = pasting;
+        let transition = Transition {
+            new_state: Some(Box::new(NormalState {
+                mouse_position: PhysicalPosition::new(-1., -1.),
+                pasting: self.pasting,
+            })),
+            consequences: Consequence::Nothing,
+        };
+        self.state.borrow().transition_from(&self);
+        self.state = RefCell::new(transition.new_state.unwrap());
+        self.state.borrow().transition_to(&self);
     }
 
     pub fn set_action_mode(&mut self, action_mode: ActionMode) {

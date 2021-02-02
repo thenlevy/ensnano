@@ -25,7 +25,7 @@ mod grid;
 mod icednano;
 mod roller;
 mod strand_builder;
-mod strand_patron;
+mod strand_template;
 mod torsion;
 use super::utils::*;
 use crate::scene::GridInstance;
@@ -38,7 +38,7 @@ use roller::PhysicalSystem;
 use std::sync::{mpsc::Sender, Arc, Mutex, RwLock};
 use strand_builder::NeighbourDescriptor;
 pub use strand_builder::{DomainIdentifier, StrandBuilder};
-use strand_patron::{PastedStrand, StrandPatron};
+use strand_template::{PastedStrand, StrandTemplate};
 pub use torsion::Torsion;
 
 /// In addition to its `design` field, the `Data` struct has several hashmaps that are usefull to
@@ -87,7 +87,7 @@ pub struct Data {
         Arc<Mutex<Option<Sender<Vec<Helix>>>>>,
         Instant,
     )>,
-    patron: Option<StrandPatron>,
+    template: Option<StrandTemplate>,
     pasted_strand: Option<PastedStrand>,
 }
 
@@ -125,7 +125,7 @@ impl Data {
             blue_cubes: HashMap::default(),
             blue_nucl: vec![],
             roller_ptrs: None,
-            patron: None,
+            template: None,
             pasted_strand: None,
         }
     }
@@ -166,7 +166,7 @@ impl Data {
             blue_cubes: HashMap::default(),
             blue_nucl: vec![],
             roller_ptrs: None,
-            patron: None,
+            template: None,
             pasted_strand: None,
         };
         ret.make_hash_maps();
@@ -945,9 +945,9 @@ impl Data {
         Some(ret)
     }
 
-    pub fn get_pasted_positions(&self) -> Option<Vec<Vec3>> {
+    pub fn get_pasted_positions(&self) -> Option<(Vec<Vec3>, bool)> {
         if let Some(ref strand) = self.pasted_strand {
-            Some(strand.nucl_position.clone())
+            Some((strand.nucl_position.clone(), strand.pastable))
         } else {
             None
         }
@@ -2125,32 +2125,59 @@ impl Data {
         self.design.helices.get(&h_id).map(|h| h.roll)
     }
 
-    pub fn set_patron(&mut self, s_id: usize) {
-        self.patron = self
+    pub fn set_template(&mut self, s_id: usize) {
+        self.template = self
             .design
             .strands
             .get(&s_id)
-            .and_then(|s| self.strand_to_patron(s));
-        if self.patron.is_some() {
-            println!("successful copy");
-            println!("{:?}", self.patron);
-        } else {
-            println!("failed to copy");
-        }
+            .and_then(|s| self.strand_to_template(s));
     }
 
-    pub fn set_copy(&mut self, nucl: Nucl) {
-        if let Some(ref patron) = self.patron {
-            let domains = self.patron_to_domains(patron, nucl);
+    pub fn set_copy(&mut self, nucl: Option<Nucl>) {
+        if let Some(ref template) = self.template {
+            let domains = nucl.and_then(|n| self.template_to_domains(template, n));
             self.update_pasted_strand(domains);
             self.hash_maps_update = true;
             self.update_status = true;
-            if self.pasted_strand.is_some() {
-                println!("successful paste");
+        }
+    }
+
+    pub fn apply_copy(&mut self) -> bool {
+        if let Some(pasted_strand) = self.pasted_strand.take() {
+            let color = new_color(&mut self.color_idx);
+            if self.can_add_domains(&pasted_strand.domains) {
+                let strand = icednano::Strand {
+                    domains: pasted_strand.domains,
+                    color,
+                    sequence: None,
+                    cyclic: false,
+                };
+                let strand_id = if let Some(n) = self.design.strands.keys().max() {
+                    n + 1
+                } else {
+                    0
+                };
+                self.design.strands.insert(strand_id, strand);
+                true
             } else {
-                println!("failed to paste");
+                false
+            }
+        } else {
+            false
+        }
+    }
+
+    pub fn has_template(&self) -> bool {
+        self.template.is_some()
+    }
+
+    fn can_add_domains(&self, domains: &[icednano::Domain]) -> bool {
+        for s in self.design.strands.values() {
+            if s.intersect_domains(domains) {
+                return false;
             }
         }
+        true
     }
 }
 
