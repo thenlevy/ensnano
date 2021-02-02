@@ -360,7 +360,7 @@ impl GridDivision for HoneyComb {
     }
 
     fn translation_to_edge(&self, x1: isize, y1: isize, x2: isize, y2: isize) -> Edge {
-        let partity = x1 % 2 == y1 % 2;
+        let partity = x1.abs() % 2 == y1.abs() % 2;
         Edge::Honney {
             x: x2 - x1,
             y: y2 - y1,
@@ -370,7 +370,7 @@ impl GridDivision for HoneyComb {
 
     fn translate_by_edge(&self, x1: isize, y1: isize, edge: Edge) -> Option<(isize, isize)> {
         if let Edge::Honney { x, y, start_parity } = edge {
-            let partity = x1 % 2 == y1 % 2;
+            let partity = x1.abs() % 2 == y1.abs() % 2;
             if partity == start_parity {
                 Some((x1 + x, y1 + y))
             } else {
