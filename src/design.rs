@@ -761,7 +761,7 @@ impl Design {
         self.data.lock().unwrap().has_patron()
     }
 
-    pub fn get_pasted_position(&self) -> Option<Vec<Vec3>> {
+    pub fn get_pasted_position(&self) -> Option<(Vec<Vec3>, bool)> {
         self.data.lock().unwrap().get_pasted_positions()
     }
 }

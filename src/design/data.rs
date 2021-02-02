@@ -945,9 +945,9 @@ impl Data {
         Some(ret)
     }
 
-    pub fn get_pasted_positions(&self) -> Option<Vec<Vec3>> {
+    pub fn get_pasted_positions(&self) -> Option<(Vec<Vec3>, bool)> {
         if let Some(ref strand) = self.pasted_strand {
-            Some(strand.nucl_position.clone())
+            Some((strand.nucl_position.clone(), strand.pastable))
         } else {
             None
         }
@@ -2131,12 +2131,6 @@ impl Data {
             .strands
             .get(&s_id)
             .and_then(|s| self.strand_to_patron(s));
-        if self.patron.is_some() {
-            println!("successful copy");
-            println!("{:?}", self.patron);
-        } else {
-            println!("failed to copy");
-        }
     }
 
     pub fn set_copy(&mut self, nucl: Option<Nucl>) {
@@ -2145,11 +2139,6 @@ impl Data {
             self.update_pasted_strand(domains);
             self.hash_maps_update = true;
             self.update_status = true;
-            if self.pasted_strand.is_some() {
-                println!("successful paste");
-            } else {
-                println!("failed to paste");
-            }
         }
     }
 

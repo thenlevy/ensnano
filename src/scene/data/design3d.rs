@@ -75,9 +75,13 @@ impl Design3D {
         let mut tubes = Vec::new();
         let positions = self.design.read().unwrap().get_pasted_position();
         let mut previous_postion = None;
-        let color = 0xCC_505050;
-        let color_vec4 = Instance::color_from_au32(color);
-        if let Some(positions) = positions {
+        if let Some((positions, pastable)) = positions {
+            let color = if pastable {
+                CANDIDATE_COLOR
+            } else {
+                SELECTED_COLOR
+            };
+            let color_vec4 = Instance::color_from_au32(color);
             for position in positions.iter() {
                 let sphere = SphereInstance {
                     position: *position,

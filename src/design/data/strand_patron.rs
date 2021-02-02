@@ -30,6 +30,7 @@ pub enum DomainPatron {
 pub struct PastedStrand {
     pub domains: Vec<Domain>,
     pub nucl_position: Vec<Vec3>,
+    pub pastable: bool,
 }
 
 impl Data {
@@ -48,24 +49,24 @@ impl Data {
                         let edge = self.grid_manager.get_edge(pos1, &pos2)?;
                         edges.push(edge);
                         previous_position = Some(pos2);
-                        let shift = origin.as_ref().unwrap().start;
                         domains.push(DomainPatron::HelixInterval {
-                            start: dom.start - shift,
-                            end: dom.end - shift,
+                            start: dom.start,
+                            end: dom.end,
                             forward: dom.forward,
                         });
                     } else {
                         let helix = self.design.helices.get(&dom.helix)?;
                         let grid_position = helix.grid_position?;
+                        let start = if dom.forward { dom.start } else { dom.end };
                         origin = Some(PatronOrigin {
                             helix: grid_position,
-                            start: dom.start,
+                            start: start,
                             forward: dom.forward,
                         });
                         previous_position = Some(grid_position);
                         domains.push(DomainPatron::HelixInterval {
-                            start: 0,
-                            end: dom.end - dom.start,
+                            start: dom.start,
+                            end: dom.end,
                             forward: dom.forward,
                         });
                     }
@@ -87,7 +88,11 @@ impl Data {
         let mut ret = Vec::with_capacity(patron.domains.len());
         let mut edge_iter = patron.edges.iter();
         let mut previous_position: Option<GridPosition> = None;
-        let shift = start_nucl.position - patron.origin.start;
+        let shift = if start_nucl.forward {
+            start_nucl.position - patron.origin.start
+        } else {
+            start_nucl.position - patron.origin.start + 1
+        };
         for domain in patron.domains.iter() {
             match domain {
                 DomainPatron::Insertion(n) => ret.push(Domain::Insertion(*n)),
@@ -148,9 +153,11 @@ impl Data {
                     }
                 }
             }
+            let pastable = self.can_add_domains(&domains);
             self.pasted_strand = Some(PastedStrand {
                 domains,
                 nucl_position,
+                pastable,
             });
         } else {
             self.pasted_strand = None

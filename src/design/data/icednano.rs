@@ -548,8 +548,8 @@ impl Domain {
         match (self, other) {
             (Domain::HelixDomain(dom1), Domain::HelixDomain(dom2)) => {
                 dom1.helix == dom2.helix
-                    && dom1.start <= dom2.end
-                    && dom2.start <= dom1.end
+                    && dom1.start < dom2.end
+                    && dom2.start < dom1.end
                     && dom1.forward == dom2.forward
             }
             _ => false,
