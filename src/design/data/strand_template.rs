@@ -3,6 +3,8 @@ use super::GridPosition;
 use super::{icednano::Domain, icednano::HelixInterval, Data, Nucl, Strand};
 use ultraviolet::Vec3;
 
+/// A template describing the relation between the domains of a strand. Can be used for copy-paste
+/// of strands.
 #[derive(Debug, Clone)]
 pub struct StrandTemplate {
     origin: TemplateOrigin,
@@ -11,6 +13,8 @@ pub struct StrandTemplate {
 }
 
 #[derive(Debug, Clone)]
+/// The starting point of a template. Used to determine weither a nucleotide is a correct starting
+/// point for a copy of the strand.
 struct TemplateOrigin {
     helix: GridPosition,
     start: isize,
@@ -18,6 +22,9 @@ struct TemplateOrigin {
 }
 
 #[derive(Debug, Clone)]
+/// A domain of a template.
+/// The HelixInterval variant does not have an helix attribute because helices are determined by
+/// a path in the grid's graph when instanciating the template.
 pub enum DomainTemplate {
     Insertion(usize),
     HelixInterval {
