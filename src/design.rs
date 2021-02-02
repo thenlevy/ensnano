@@ -748,8 +748,17 @@ impl Design {
         }
     }
 
-    pub fn request_paste(&mut self, nucl: Nucl) {
+    pub fn request_paste_candidate(&mut self, nucl: Option<Nucl>) {
         self.data.lock().unwrap().set_copy(nucl)
+    }
+
+    pub fn paste(&mut self, nucl: Nucl) -> bool {
+        self.data.lock().unwrap().set_copy(Some(nucl));
+        self.data.lock().unwrap().apply_copy()
+    }
+
+    pub fn has_patron(&self) -> bool {
+        self.data.lock().unwrap().has_patron()
     }
 
     pub fn get_pasted_position(&self) -> Option<Vec<Vec3>> {

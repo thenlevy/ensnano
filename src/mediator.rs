@@ -48,6 +48,9 @@ pub struct Mediator {
     redo_stack: Vec<Arc<dyn Operation>>,
     computing: Arc<Mutex<bool>>,
     centring: Option<(Nucl, usize)>,
+    pasting: bool,
+    last_selected_design: usize,
+    pasting_attempt: Option<Nucl>,
 }
 
 /// The scheduler is responsible for running the different applications
@@ -152,6 +155,7 @@ pub enum Notification {
     CameraTarget((Vec3, Vec3)),
     CameraRotation(f32, f32),
     Centering(Nucl, usize),
+    Pasting(bool),
     ShowTorsion(bool),
 }
 
@@ -187,6 +191,9 @@ impl Mediator {
             last_selection: None,
             computing,
             centring: None,
+            pasting: false,
+            last_selected_design: 0,
+            pasting_attempt: None,
         }
     }
 
@@ -524,6 +531,7 @@ impl Mediator {
         }
         if let Some(d_id) = selection.get_design() {
             let values = selection.fetch_values(self.designs[d_id as usize].clone());
+            self.last_selected_design = d_id as usize;
             self.messages
                 .lock()
                 .unwrap()
@@ -611,6 +619,16 @@ impl Mediator {
                 }
             }
             self.notify_apps(Notification::NewCandidate(candidate))
+        }
+        if let Some(nucl) = self.pasting_attempt.take() {
+            if self.designs[self.last_selected_design]
+                .write()
+                .unwrap()
+                .paste(nucl)
+            {
+                self.pasting = false;
+                self.notify_apps(Notification::Pasting(false));
+            }
         }
         if let Some(selection) = self.last_selection.take() {
             ret = true;
@@ -800,7 +818,23 @@ impl Mediator {
     }
 
     pub fn set_candidate(&mut self, candidate: Option<PhantomElement>) {
+        let nucl = candidate.map(|c| c.to_nucl());
+        if self.pasting {
+            self.designs[self.last_selected_design]
+                .write()
+                .unwrap()
+                .request_paste_candidate(nucl)
+        }
         self.candidate = Some(candidate)
+    }
+
+    pub fn set_paste_candidate(&mut self, candidate: Option<Nucl>) {
+        if self.pasting {
+            self.designs[self.last_selected_design]
+                .write()
+                .unwrap()
+                .request_paste_candidate(candidate)
+        }
     }
 
     pub fn request_centering(&mut self, nucl: Nucl, design_id: usize) {
@@ -872,12 +906,20 @@ impl Mediator {
         }
     }
 
-    pub fn request_paste(&self) {
-        if let Selection::Nucleotide(d_id, nucl) = self.selection {
-            self.designs[d_id as usize]
-                .write()
-                .unwrap()
-                .request_paste(nucl);
+    pub fn request_pasting_mode(&mut self) {
+        self.pasting = self.designs[self.last_selected_design]
+            .read()
+            .unwrap()
+            .has_patron();
+        if self.pasting {
+            self.change_selection_mode(SelectionMode::Nucleotide);
+        }
+        self.notify_apps(Notification::Pasting(self.pasting));
+    }
+
+    pub fn attempt_paste(&mut self, nucl: Nucl) {
+        if self.pasting {
+            self.pasting_attempt = Some(nucl);
         }
     }
 }

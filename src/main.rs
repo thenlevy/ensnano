@@ -493,7 +493,7 @@ fn main() {
                     }
 
                     if requests.paste {
-                        mediator.lock().unwrap().request_paste();
+                        mediator.lock().unwrap().request_pasting_mode();
                         requests.paste = false;
                     }
                 }

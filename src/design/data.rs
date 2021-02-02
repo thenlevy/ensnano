@@ -2139,9 +2139,9 @@ impl Data {
         }
     }
 
-    pub fn set_copy(&mut self, nucl: Nucl) {
+    pub fn set_copy(&mut self, nucl: Option<Nucl>) {
         if let Some(ref patron) = self.patron {
-            let domains = self.patron_to_domains(patron, nucl);
+            let domains = nucl.and_then(|n| self.patron_to_domains(patron, n));
             self.update_pasted_strand(domains);
             self.hash_maps_update = true;
             self.update_status = true;
@@ -2151,6 +2151,31 @@ impl Data {
                 println!("failed to paste");
             }
         }
+    }
+
+    pub fn apply_copy(&mut self) -> bool {
+        if let Some(pasted_strand) = self.pasted_strand.take() {
+            let color = new_color(&mut self.color_idx);
+            let strand = icednano::Strand {
+                domains: pasted_strand.domains,
+                color,
+                sequence: None,
+                cyclic: false,
+            };
+            let strand_id = if let Some(n) = self.design.strands.keys().max() {
+                n + 1
+            } else {
+                0
+            };
+            self.design.strands.insert(strand_id, strand);
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn has_patron(&self) -> bool {
+        self.patron.is_some()
     }
 }
 

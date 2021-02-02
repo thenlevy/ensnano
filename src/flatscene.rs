@@ -337,6 +337,9 @@ impl FlatScene {
                         .get_selection(nucl, self.selected_design as u32);
                     self.mediator.lock().unwrap().notify_selection(selection);
                 }
+                Consequence::PasteRequest(nucl) => {
+                    self.mediator.lock().unwrap().attempt_paste(nucl.to_real());
+                }
                 _ => (),
             }
         }
@@ -397,6 +400,11 @@ impl Application for FlatScene {
             Notification::ShowTorsion(b) => {
                 for v in self.view.iter() {
                     v.borrow_mut().set_show_torsion(b);
+                }
+            }
+            Notification::Pasting(b) => {
+                for c in self.controller.iter_mut() {
+                    c.set_pasting(b)
                 }
             }
             _ => (),
