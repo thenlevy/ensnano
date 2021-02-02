@@ -2156,19 +2156,23 @@ impl Data {
     pub fn apply_copy(&mut self) -> bool {
         if let Some(pasted_strand) = self.pasted_strand.take() {
             let color = new_color(&mut self.color_idx);
-            let strand = icednano::Strand {
-                domains: pasted_strand.domains,
-                color,
-                sequence: None,
-                cyclic: false,
-            };
-            let strand_id = if let Some(n) = self.design.strands.keys().max() {
-                n + 1
+            if self.can_add_domains(&pasted_strand.domains) {
+                let strand = icednano::Strand {
+                    domains: pasted_strand.domains,
+                    color,
+                    sequence: None,
+                    cyclic: false,
+                };
+                let strand_id = if let Some(n) = self.design.strands.keys().max() {
+                    n + 1
+                } else {
+                    0
+                };
+                self.design.strands.insert(strand_id, strand);
+                true
             } else {
-                0
-            };
-            self.design.strands.insert(strand_id, strand);
-            true
+                false
+            }
         } else {
             false
         }
@@ -2176,6 +2180,15 @@ impl Data {
 
     pub fn has_patron(&self) -> bool {
         self.patron.is_some()
+    }
+
+    fn can_add_domains(&self, domains: &[icednano::Domain]) -> bool {
+        for s in self.design.strands.values() {
+            if s.intersect_domains(domains) {
+                return false;
+            }
+        }
+        true
     }
 }
 
