@@ -24,7 +24,7 @@ pub struct Controller {
     data: DataPtr,
     window_size: PhySize,
     area_size: PhySize,
-    camera: CameraPtr,
+    pub camera: CameraPtr,
     state: RefCell<Box<dyn ControllerState>>,
     action_mode: ActionMode,
     mediator: Arc<Mutex<Mediator>>,
@@ -48,6 +48,8 @@ pub enum Consequence {
     FollowingSuggestion(FlatNucl, bool),
     Centering(FlatNucl),
     Select(FlatNucl),
+    DrawingSelection(PhysicalPosition<f64>, PhysicalPosition<f64>),
+    ReleasedSelection(Vec2, Vec2),
 }
 
 impl Controller {

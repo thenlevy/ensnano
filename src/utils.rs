@@ -2,6 +2,7 @@ use crate::consts::*;
 use iced_wgpu::wgpu;
 use native_dialog::{MessageDialog, MessageType};
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
+use iced_winit::winit::dpi::{PhysicalSize, PhysicalPosition, Pixel};
 
 pub mod bindgroup_manager;
 pub mod camera2d;
@@ -150,4 +151,25 @@ pub fn new_color(color_idx: &mut usize) -> u32 {
     };
     *color_idx += 1;
     color
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+pub struct Ndc {
+    pub x: f32,
+    pub y: f32,
+}
+
+unsafe impl bytemuck::Zeroable for Ndc { }
+unsafe impl bytemuck::Pod for Ndc { }
+
+impl Ndc {
+    pub fn from_physical<S:Pixel, T: Pixel>(position: PhysicalPosition<S>, window_size: PhysicalSize<T>) -> Self {
+        let position = position.cast::<f32>();
+        let size = window_size.cast::<f32>(); 
+        Self {
+            x: position.x / size.width * 2. - 1.,
+            y: position.y / size.height * -2. + 1.,
+        }
+    }
 }

@@ -2,6 +2,7 @@ use super::data::{FlatTorsion, FreeEnd, GpuVertex, Helix, HelixModel, Strand, St
 use super::{CameraPtr, FlatIdx, FlatNucl};
 use crate::utils::bindgroup_manager::{DynamicBindGroup, UniformBindGroup};
 use crate::utils::texture::Texture;
+use crate::utils::Ndc;
 use crate::{DrawArea, PhySize};
 use iced_wgpu::wgpu;
 use std::collections::{BTreeSet, HashMap};
@@ -11,6 +12,7 @@ use wgpu::{Device, Queue, RenderPipeline};
 mod helix_view;
 use helix_view::{HelixView, StrandView};
 mod background;
+mod rectangle;
 use super::FlatSelection;
 use crate::utils::{chars2d as chars, circles2d as circles};
 use background::Background;
@@ -18,8 +20,10 @@ use chars::CharDrawer;
 pub use chars::CharInstance;
 pub use circles::CircleInstance;
 use circles::{CircleDrawer, CircleKind};
+use rectangle::Rectangle;
 
 use crate::consts::SAMPLE_COUNT;
+use iced_winit::winit::dpi::{PhysicalPosition, PhysicalSize};
 
 const SHOW_SUGGESTION: bool = false;
 
@@ -53,6 +57,7 @@ pub struct View {
     suggestion_candidate: Option<(FlatNucl, FlatNucl)>,
     torsions: HashMap<(FlatNucl, FlatNucl), FlatTorsion>,
     show_torsion: bool,
+    rectangle: Rectangle,
 }
 
 impl View {
@@ -102,6 +107,7 @@ impl View {
             globals.get_layout(),
             CircleKind::RotationWidget,
         );
+        let rectangle = Rectangle::new(&device, queue.clone());
         let chars = [
             'A', 'T', 'G', 'C', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '-',
         ];
@@ -145,6 +151,7 @@ impl View {
             suggestion_candidate: None,
             torsions: HashMap::new(),
             show_torsion: false,
+            rectangle,
         }
     }
 
@@ -290,6 +297,16 @@ impl View {
         self.camera.borrow_mut().set_center(position);
     }
 
+    pub fn update_rectangle(&mut self, c1: PhysicalPosition<f64>, c2: PhysicalPosition<f64>) {
+        self.rectangle.update_corners(Some([Ndc::from_physical(c1, self.area_size), Ndc::from_physical(c2, self.area_size)]));
+        self.was_updated = true;
+    }
+
+    pub fn clear_rectangle(&mut self) {
+        self.rectangle.update_corners(None);
+        self.was_updated = true;
+    }
+
     pub fn draw(
         &mut self,
         encoder: &mut wgpu::CommandEncoder,
@@ -390,6 +407,29 @@ impl View {
         for drawer in self.char_drawers.values_mut() {
             drawer.draw(&mut render_pass);
         }
+        drop(render_pass);
+        let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
+                attachment,
+                resolve_target,
+                ops: wgpu::Operations {
+                    load: wgpu::LoadOp::Load,
+                    store: true,
+                },
+            }],
+            depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachmentDescriptor {
+                attachment: &self.depth_texture.view,
+                depth_ops: Some(wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(1.),
+                    store: true,
+                }),
+                stencil_ops: Some(wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(0),
+                    store: true,
+                }),
+            }),
+        });
+        self.rectangle.draw(&mut render_pass);
         self.was_updated = false;
     }
 
@@ -515,13 +555,9 @@ impl View {
         }
     }
 
-    pub fn set_wheel(&mut self, wheel: Option<CircleInstance>) {
+    pub fn set_wheels(&mut self, wheels: Vec<CircleInstance>) {
         self.was_updated = true;
-        if let Some(wheel) = wheel {
-            self.rotation_widget.new_instances(Rc::new(vec![wheel]));
-        } else {
-            self.rotation_widget.new_instances(Rc::new(Vec::new()));
-        }
+        self.rotation_widget.new_instances(Rc::new(wheels));
     }
 }
 
