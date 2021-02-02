@@ -910,7 +910,7 @@ impl Mediator {
         self.pasting = self.designs[self.last_selected_design]
             .read()
             .unwrap()
-            .has_patron();
+            .has_template();
         if self.pasting {
             self.change_selection_mode(SelectionMode::Nucleotide);
         }

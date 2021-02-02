@@ -4,21 +4,21 @@ use super::{icednano::Domain, icednano::HelixInterval, Data, Nucl, Strand};
 use ultraviolet::Vec3;
 
 #[derive(Debug, Clone)]
-pub struct StrandPatron {
-    origin: PatronOrigin,
-    domains: Vec<DomainPatron>,
+pub struct StrandTemplate {
+    origin: TemplateOrigin,
+    domains: Vec<DomainTemplate>,
     edges: Vec<Edge>,
 }
 
 #[derive(Debug, Clone)]
-struct PatronOrigin {
+struct TemplateOrigin {
     helix: GridPosition,
     start: isize,
     forward: bool,
 }
 
 #[derive(Debug, Clone)]
-pub enum DomainPatron {
+pub enum DomainTemplate {
     Insertion(usize),
     HelixInterval {
         start: isize,
@@ -34,14 +34,14 @@ pub struct PastedStrand {
 }
 
 impl Data {
-    pub fn strand_to_patron(&self, strand: &Strand) -> Option<StrandPatron> {
-        let mut origin: Option<PatronOrigin> = None;
+    pub fn strand_to_template(&self, strand: &Strand) -> Option<StrandTemplate> {
+        let mut origin: Option<TemplateOrigin> = None;
         let mut domains = Vec::with_capacity(strand.domains.len());
         let mut edges = Vec::with_capacity(strand.domains.len());
         let mut previous_position = None;
         for domain in strand.domains.iter() {
             match domain {
-                Domain::Insertion(n) => domains.push(DomainPatron::Insertion(*n)),
+                Domain::Insertion(n) => domains.push(DomainTemplate::Insertion(*n)),
                 Domain::HelixDomain(dom) => {
                     if let Some(ref pos1) = previous_position {
                         let helix = self.design.helices.get(&dom.helix)?;
@@ -49,7 +49,7 @@ impl Data {
                         let edge = self.grid_manager.get_edge(pos1, &pos2)?;
                         edges.push(edge);
                         previous_position = Some(pos2);
-                        domains.push(DomainPatron::HelixInterval {
+                        domains.push(DomainTemplate::HelixInterval {
                             start: dom.start,
                             end: dom.end,
                             forward: dom.forward,
@@ -58,13 +58,13 @@ impl Data {
                         let helix = self.design.helices.get(&dom.helix)?;
                         let grid_position = helix.grid_position?;
                         let start = if dom.forward { dom.start } else { dom.end };
-                        origin = Some(PatronOrigin {
+                        origin = Some(TemplateOrigin {
                             helix: grid_position,
                             start: start,
                             forward: dom.forward,
                         });
                         previous_position = Some(grid_position);
-                        domains.push(DomainPatron::HelixInterval {
+                        domains.push(DomainTemplate::HelixInterval {
                             start: dom.start,
                             end: dom.end,
                             forward: dom.forward,
@@ -73,30 +73,30 @@ impl Data {
                 }
             }
         }
-        origin.map(|origin| StrandPatron {
+        origin.map(|origin| StrandTemplate {
             origin,
             domains,
             edges,
         })
     }
 
-    pub fn patron_to_domains(
+    pub fn template_to_domains(
         &self,
-        patron: &StrandPatron,
+        template: &StrandTemplate,
         start_nucl: Nucl,
     ) -> Option<Vec<Domain>> {
-        let mut ret = Vec::with_capacity(patron.domains.len());
-        let mut edge_iter = patron.edges.iter();
+        let mut ret = Vec::with_capacity(template.domains.len());
+        let mut edge_iter = template.edges.iter();
         let mut previous_position: Option<GridPosition> = None;
         let shift = if start_nucl.forward {
-            start_nucl.position - patron.origin.start
+            start_nucl.position - template.origin.start
         } else {
-            start_nucl.position - patron.origin.start + 1
+            start_nucl.position - template.origin.start + 1
         };
-        for domain in patron.domains.iter() {
+        for domain in template.domains.iter() {
             match domain {
-                DomainPatron::Insertion(n) => ret.push(Domain::Insertion(*n)),
-                DomainPatron::HelixInterval {
+                DomainTemplate::Insertion(n) => ret.push(Domain::Insertion(*n)),
+                DomainTemplate::HelixInterval {
                     start,
                     end,
                     forward,
@@ -114,7 +114,7 @@ impl Data {
                         }));
                         previous_position = Some(pos2);
                     } else {
-                        let position = patron.origin.helix;
+                        let position = template.origin.helix;
                         let pos2 = self
                             .design
                             .helices
@@ -130,7 +130,7 @@ impl Data {
                             helix,
                             start: start + shift,
                             end: end + shift,
-                            forward: patron.origin.forward,
+                            forward: template.origin.forward,
                             sequence: None,
                         }));
                         previous_position = Some(pos2);

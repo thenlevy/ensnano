@@ -744,7 +744,7 @@ impl Design {
 
     pub fn request_copy(&mut self, nucl: Nucl) {
         if let Some(s_id) = self.get_strand_nucl(&nucl) {
-            self.data.lock().unwrap().set_patron(s_id)
+            self.data.lock().unwrap().set_template(s_id)
         }
     }
 
@@ -757,8 +757,8 @@ impl Design {
         self.data.lock().unwrap().apply_copy()
     }
 
-    pub fn has_patron(&self) -> bool {
-        self.data.lock().unwrap().has_patron()
+    pub fn has_template(&self) -> bool {
+        self.data.lock().unwrap().has_template()
     }
 
     pub fn get_pasted_position(&self) -> Option<(Vec<Vec3>, bool)> {

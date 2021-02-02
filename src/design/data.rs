@@ -25,7 +25,7 @@ mod grid;
 mod icednano;
 mod roller;
 mod strand_builder;
-mod strand_patron;
+mod strand_template;
 mod torsion;
 use super::utils::*;
 use crate::scene::GridInstance;
@@ -38,7 +38,7 @@ use roller::PhysicalSystem;
 use std::sync::{mpsc::Sender, Arc, Mutex, RwLock};
 use strand_builder::NeighbourDescriptor;
 pub use strand_builder::{DomainIdentifier, StrandBuilder};
-use strand_patron::{PastedStrand, StrandPatron};
+use strand_template::{PastedStrand, StrandTemplate};
 pub use torsion::Torsion;
 
 /// In addition to its `design` field, the `Data` struct has several hashmaps that are usefull to
@@ -87,7 +87,7 @@ pub struct Data {
         Arc<Mutex<Option<Sender<Vec<Helix>>>>>,
         Instant,
     )>,
-    patron: Option<StrandPatron>,
+    template: Option<StrandTemplate>,
     pasted_strand: Option<PastedStrand>,
 }
 
@@ -125,7 +125,7 @@ impl Data {
             blue_cubes: HashMap::default(),
             blue_nucl: vec![],
             roller_ptrs: None,
-            patron: None,
+            template: None,
             pasted_strand: None,
         }
     }
@@ -166,7 +166,7 @@ impl Data {
             blue_cubes: HashMap::default(),
             blue_nucl: vec![],
             roller_ptrs: None,
-            patron: None,
+            template: None,
             pasted_strand: None,
         };
         ret.make_hash_maps();
@@ -2125,17 +2125,17 @@ impl Data {
         self.design.helices.get(&h_id).map(|h| h.roll)
     }
 
-    pub fn set_patron(&mut self, s_id: usize) {
-        self.patron = self
+    pub fn set_template(&mut self, s_id: usize) {
+        self.template = self
             .design
             .strands
             .get(&s_id)
-            .and_then(|s| self.strand_to_patron(s));
+            .and_then(|s| self.strand_to_template(s));
     }
 
     pub fn set_copy(&mut self, nucl: Option<Nucl>) {
-        if let Some(ref patron) = self.patron {
-            let domains = nucl.and_then(|n| self.patron_to_domains(patron, n));
+        if let Some(ref template) = self.template {
+            let domains = nucl.and_then(|n| self.template_to_domains(template, n));
             self.update_pasted_strand(domains);
             self.hash_maps_update = true;
             self.update_status = true;
@@ -2167,8 +2167,8 @@ impl Data {
         }
     }
 
-    pub fn has_patron(&self) -> bool {
-        self.patron.is_some()
+    pub fn has_template(&self) -> bool {
+        self.template.is_some()
     }
 
     fn can_add_domains(&self, domains: &[icednano::Domain]) -> bool {
