@@ -491,6 +491,16 @@ fn main() {
                     if let Some(roll) = requests.helix_roll.take() {
                         mediator.lock().unwrap().roll_helix(roll)
                     }
+
+                    if requests.copy {
+                        mediator.lock().unwrap().request_copy();
+                        requests.copy = false;
+                    }
+
+                    if requests.paste {
+                        mediator.lock().unwrap().request_pasting_mode();
+                        requests.paste = false;
+                    }
                 }
 
                 // Treat eventual event that happenend in the gui left panel.

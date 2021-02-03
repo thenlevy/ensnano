@@ -15,6 +15,8 @@ pub(super) struct Design2d {
     strands: Vec<Strand>,
     /// A pointer to the design
     design: Arc<RwLock<Design>>,
+    /// The strand being pasted,
+    pasted_strand: Option<Strand>,
     last_flip_other: Option<FlatHelix>,
     removed: BTreeSet<FlatIdx>,
 }
@@ -26,6 +28,7 @@ impl Design2d {
             helices: HelixVec::new(),
             id_map: HashMap::new(),
             strands: Vec::new(),
+            pasted_strand: None,
             last_flip_other: None,
             removed: BTreeSet::new(),
         }
@@ -61,6 +64,20 @@ impl Design2d {
             self.strands
                 .push(Strand::new(color, flat_strand, *strand_id));
         }
+        let nucls_opt = self.design.read().unwrap().get_copy_points();
+
+        self.pasted_strand = nucls_opt.map(|nucls| {
+            let color = 0xCC_30_30_30;
+            for nucl in nucls.iter() {
+                self.read_nucl(nucl)
+            }
+            let flat_strand = nucls
+                .iter()
+                .map(|n| FlatNucl::from_real(n, self.id_map()))
+                .collect();
+            Strand::new(color, flat_strand, 0)
+        });
+
         for h_id in self.id_map.keys() {
             let visibility = self.design.read().unwrap().get_visibility_helix(*h_id);
             let flat_helix = FlatHelix::from_real(*h_id, &self.id_map);
@@ -189,6 +206,10 @@ impl Design2d {
 
     pub fn get_strands(&self) -> &[Strand] {
         &self.strands
+    }
+
+    pub fn get_pasted_strand(&self) -> Option<&Strand> {
+        self.pasted_strand.as_ref()
     }
 
     pub fn set_isometry(&self, helix: FlatHelix, isometry: Isometry2) {

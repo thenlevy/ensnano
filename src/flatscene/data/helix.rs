@@ -278,9 +278,10 @@ impl Helix {
     }
 
     /// Translate self so that the pivot ends up on position.
-    pub fn snap(&mut self, pivot: FlatNucl, position: Vec2) {
-        let position = Vec2::new(position.x.round(), position.y.round());
+    pub fn snap(&mut self, pivot: FlatNucl, translation: Vec2) {
         let old_pos = self.get_old_pivot_position(&pivot);
+        let position = old_pos + translation;
+        let position = Vec2::new(position.x.round(), position.y.round());
         self.translate(position - old_pos)
     }
 
@@ -473,6 +474,15 @@ impl Helix {
                 .into_homogeneous_matrix()
                 .transform_point2(self.scale * local_position),
         )
+    }
+
+    pub fn center(&self) -> Vec2 {
+        let left = self.left as f32;
+        let right = (self.right + 1) as f32;
+        let local_position = (left + right) / 2. * Vec2::unit_x() + Vec2::unit_y();
+        self.isometry
+            .into_homogeneous_matrix()
+            .transform_point2(self.scale * local_position)
     }
 
     pub fn make_visible(&self, position: isize, camera: CameraPtr) {

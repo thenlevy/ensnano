@@ -66,6 +66,20 @@ impl GridDivision for GridType {
             GridType::Honeycomb(grid) => grid.interpolate(parameters, x, y),
         }
     }
+
+    fn translation_to_edge(&self, x1: isize, y1: isize, x2: isize, y2: isize) -> Edge {
+        match self {
+            GridType::Square(grid) => grid.translation_to_edge(x1, y1, x2, y2),
+            GridType::Honeycomb(grid) => grid.translation_to_edge(x1, y1, x2, y2),
+        }
+    }
+
+    fn translate_by_edge(&self, x1: isize, y1: isize, edge: Edge) -> Option<(isize, isize)> {
+        match self {
+            GridType::Square(grid) => grid.translate_by_edge(x1, y1, edge),
+            GridType::Honeycomb(grid) => grid.translate_by_edge(x1, y1, edge),
+        }
+    }
 }
 
 impl GridType {
@@ -255,9 +269,13 @@ impl Grid {
 }
 
 pub trait GridDivision {
+    /// Maps a vertex of the grid to a coordinate in the plane.
     fn origin_helix(&self, parameters: &Parameters, x: isize, y: isize) -> Vec2;
+    /// Find the vertex in the grid that is the closest to a point in the plane.
     fn interpolate(&self, parameters: &Parameters, x: f32, y: f32) -> (isize, isize);
     fn grid_type(&self) -> GridType;
+    fn translation_to_edge(&self, x1: isize, y1: isize, x2: isize, y2: isize) -> Edge;
+    fn translate_by_edge(&self, x1: isize, y1: isize, edge: Edge) -> Option<(isize, isize)>;
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -276,6 +294,21 @@ impl GridDivision for SquareGrid {
             (x / (parameters.helix_radius * 2. + parameters.inter_helix_gap)).round() as isize,
             (y / -(parameters.helix_radius * 2. + parameters.inter_helix_gap)).round() as isize,
         )
+    }
+
+    fn translation_to_edge(&self, x1: isize, y1: isize, x2: isize, y2: isize) -> Edge {
+        Edge::Square {
+            x: x2 - x1,
+            y: y2 - y1,
+        }
+    }
+
+    fn translate_by_edge(&self, x1: isize, y1: isize, edge: Edge) -> Option<(isize, isize)> {
+        if let Edge::Square { x, y } = edge {
+            Some((x1 + x, y1 + y))
+        } else {
+            None
+        }
     }
 
     fn grid_type(&self) -> GridType {
@@ -326,6 +359,28 @@ impl GridDivision for HoneyComb {
         ret
     }
 
+    fn translation_to_edge(&self, x1: isize, y1: isize, x2: isize, y2: isize) -> Edge {
+        let partity = x1.abs() % 2 == y1.abs() % 2;
+        Edge::Honney {
+            x: x2 - x1,
+            y: y2 - y1,
+            start_parity: partity,
+        }
+    }
+
+    fn translate_by_edge(&self, x1: isize, y1: isize, edge: Edge) -> Option<(isize, isize)> {
+        if let Edge::Honney { x, y, start_parity } = edge {
+            let partity = x1.abs() % 2 == y1.abs() % 2;
+            if partity == start_parity {
+                Some((x1 + x, y1 + y))
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
+
     fn grid_type(&self) -> GridType {
         GridType::Honeycomb(HoneyComb)
     }
@@ -358,6 +413,7 @@ impl GridPosition {
 pub(super) struct GridManager {
     pub grids: Vec<Grid>,
     helix_to_pos: HashMap<usize, GridPosition>,
+    pos_to_helix: HashMap<(usize, isize, isize), usize>,
     parameters: Parameters,
     pub no_phantoms: HashSet<usize>,
     pub small_spheres: HashSet<usize>,
@@ -368,6 +424,7 @@ impl GridManager {
         Self {
             grids: Vec::new(),
             helix_to_pos: HashMap::new(),
+            pos_to_helix: HashMap::new(),
             parameters,
             no_phantoms: HashSet::new(),
             small_spheres: HashSet::new(),
@@ -389,7 +446,10 @@ impl GridManager {
     }*/
 
     pub fn remove_helix(&mut self, h_id: usize) {
-        self.helix_to_pos.remove(&h_id);
+        let pos = self.helix_to_pos.remove(&h_id);
+        if let Some(pos) = pos {
+            self.pos_to_helix.remove(&(pos.grid, pos.x, pos.y));
+        }
         self.small_spheres.remove(&h_id);
         self.no_phantoms.remove(&h_id);
     }
@@ -397,6 +457,7 @@ impl GridManager {
     pub fn new_from_design(design: &Design) -> Self {
         let mut grids = Vec::new();
         let mut helix_to_pos = HashMap::new();
+        let mut pos_to_helix = HashMap::new();
         for desc in design.grids.iter() {
             match desc.grid_type {
                 GridTypeDescr::Square => {
@@ -422,12 +483,17 @@ impl GridManager {
         for (h_id, h) in design.helices.iter() {
             if let Some(grid_position) = h.grid_position {
                 helix_to_pos.insert(*h_id, grid_position);
+                pos_to_helix.insert(
+                    (grid_position.grid, grid_position.x, grid_position.y),
+                    *h_id,
+                );
             }
         }
 
         Self {
             grids,
             helix_to_pos,
+            pos_to_helix,
             parameters: design.parameters.unwrap_or_default(),
             no_phantoms: design.no_phantoms.clone(),
             small_spheres: design.no_phantoms.clone(),
@@ -500,6 +566,10 @@ impl GridManager {
         for (h_id, h) in design.helices.iter_mut() {
             if let Some(grid_position) = h.grid_position {
                 self.helix_to_pos.insert(*h_id, grid_position);
+                self.pos_to_helix.insert(
+                    (grid_position.grid, grid_position.x, grid_position.y),
+                    *h_id,
+                );
                 let grid = &self.grids[grid_position.grid];
                 h.position = grid.position_helix(grid_position.x, grid_position.y);
                 h.orientation = {
@@ -698,6 +768,37 @@ impl GridManager {
             }
         }
     }
+
+    /// Retrun the edge between two grid position. Return None if the position are not in the same
+    /// grid.
+    pub fn get_edge(&self, pos1: &GridPosition, pos2: &GridPosition) -> Option<Edge> {
+        if pos1.grid == pos2.grid {
+            self.grids.get(pos1.grid).map(|g| {
+                g.grid_type
+                    .translation_to_edge(pos1.x, pos1.y, pos2.x, pos2.y)
+            })
+        } else {
+            None
+        }
+    }
+
+    pub fn translate_by_edge(&self, pos1: &GridPosition, edge: &Edge) -> Option<GridPosition> {
+        let position = self
+            .grids
+            .get(pos1.grid)
+            .and_then(|g| g.grid_type.translate_by_edge(pos1.x, pos1.y, *edge))?;
+        Some(GridPosition {
+            grid: pos1.grid,
+            x: position.0,
+            y: position.1,
+            roll: 0f32,
+            axis_pos: 0,
+        })
+    }
+
+    pub fn pos_to_helix(&self, grid: usize, x: isize, y: isize) -> Option<usize> {
+        self.pos_to_helix.get(&(grid, x, y)).cloned()
+    }
 }
 
 impl Data {
@@ -821,4 +922,17 @@ impl Grid2D {
     pub fn helix_position(&self, x: isize, y: isize) -> Vec2 {
         self.grid_type.origin_helix(&self.parameters, x, y)
     }
+}
+
+#[derive(Clone, Debug, Copy)]
+pub enum Edge {
+    Square {
+        x: isize,
+        y: isize,
+    },
+    Honney {
+        x: isize,
+        y: isize,
+        start_parity: bool,
+    },
 }

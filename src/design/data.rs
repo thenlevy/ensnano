@@ -26,6 +26,7 @@ mod hyperboloid;
 mod icednano;
 mod roller;
 mod strand_builder;
+mod strand_template;
 mod torsion;
 use super::utils::*;
 use crate::scene::GridInstance;
@@ -38,6 +39,7 @@ use roller::PhysicalSystem;
 use std::sync::{mpsc::Sender, Arc, Mutex, RwLock};
 use strand_builder::NeighbourDescriptor;
 pub use strand_builder::{DomainIdentifier, StrandBuilder};
+use strand_template::{PastedStrand, StrandTemplate};
 pub use torsion::Torsion;
 
 /// In addition to its `design` field, the `Data` struct has several hashmaps that are usefull to
@@ -87,6 +89,8 @@ pub struct Data {
         Instant,
     )>,
     hyperboloid_helices: Vec<usize>,
+    template: Option<StrandTemplate>,
+    pasted_strand: Option<PastedStrand>,
 }
 
 impl fmt::Debug for Data {
@@ -124,6 +128,8 @@ impl Data {
             blue_nucl: vec![],
             roller_ptrs: None,
             hyperboloid_helices: vec![],
+            template: None,
+            pasted_strand: None,
         }
     }
 
@@ -220,6 +226,8 @@ impl Data {
             blue_nucl: vec![],
             roller_ptrs: None,
             hyperboloid_helices: vec![],
+            template: None,
+            pasted_strand: None,
         };
         ret.make_hash_maps();
         ret.terminate_movement();
@@ -977,6 +985,32 @@ impl Data {
             ret.push(ret[0])
         }
         Some(ret)
+    }
+
+    pub fn get_copy_points(&self) -> Option<Vec<Nucl>> {
+        let mut ret = Vec::new();
+        if let Some(ref strand) = self.pasted_strand {
+            for domain in strand.domains.iter() {
+                if let icednano::Domain::HelixDomain(domain) = domain {
+                    if domain.forward {
+                        ret.push(Nucl::new(domain.helix, domain.start, domain.forward));
+                        ret.push(Nucl::new(domain.helix, domain.end - 1, domain.forward));
+                    } else {
+                        ret.push(Nucl::new(domain.helix, domain.end - 1, domain.forward));
+                        ret.push(Nucl::new(domain.helix, domain.start, domain.forward));
+                    }
+                }
+            }
+        }
+        Some(ret)
+    }
+
+    pub fn get_pasted_positions(&self) -> Option<(Vec<Vec3>, bool)> {
+        if let Some(ref strand) = self.pasted_strand {
+            Some((strand.nucl_position.clone(), strand.pastable))
+        } else {
+            None
+        }
     }
 
     /// Return the identifier of the strand whose nucl is the 5' end of, or `None` if nucl is not
@@ -2149,6 +2183,61 @@ impl Data {
 
     pub fn get_roll_helix(&self, h_id: usize) -> Option<f32> {
         self.design.helices.get(&h_id).map(|h| h.roll)
+    }
+
+    pub fn set_template(&mut self, s_id: usize) {
+        self.template = self
+            .design
+            .strands
+            .get(&s_id)
+            .and_then(|s| self.strand_to_template(s));
+    }
+
+    pub fn set_copy(&mut self, nucl: Option<Nucl>) {
+        if let Some(ref template) = self.template {
+            let domains = nucl.and_then(|n| self.template_to_domains(template, n));
+            self.update_pasted_strand(domains);
+            self.hash_maps_update = true;
+            self.update_status = true;
+        }
+    }
+
+    pub fn apply_copy(&mut self) -> bool {
+        if let Some(pasted_strand) = self.pasted_strand.take() {
+            let color = new_color(&mut self.color_idx);
+            if self.can_add_domains(&pasted_strand.domains) {
+                let strand = icednano::Strand {
+                    domains: pasted_strand.domains,
+                    color,
+                    sequence: None,
+                    cyclic: false,
+                };
+                let strand_id = if let Some(n) = self.design.strands.keys().max() {
+                    n + 1
+                } else {
+                    0
+                };
+                self.design.strands.insert(strand_id, strand);
+                true
+            } else {
+                false
+            }
+        } else {
+            false
+        }
+    }
+
+    pub fn has_template(&self) -> bool {
+        self.template.is_some()
+    }
+
+    fn can_add_domains(&self, domains: &[icednano::Domain]) -> bool {
+        for s in self.design.strands.values() {
+            if s.intersect_domains(domains) {
+                return false;
+            }
+        }
+        true
     }
 }
 

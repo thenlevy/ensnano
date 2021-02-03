@@ -331,6 +331,22 @@ impl FlatScene {
                         .unwrap()
                         .request_centering(nucl, self.selected_design)
                 }
+                Consequence::Select(nucl) => {
+                    let selection = self.data[self.selected_design]
+                        .borrow()
+                        .get_selection(nucl, self.selected_design as u32);
+                    self.mediator.lock().unwrap().notify_selection(selection);
+                }
+                Consequence::DrawingSelection(c1, c2) => {
+                    self.view[self.selected_design].borrow_mut().update_rectangle(c1, c2)
+                }
+                Consequence::ReleasedSelection(_, _) => {
+                    self.view[self.selected_design].borrow_mut().clear_rectangle();
+                    //self.data[self.selected_design].borrow().get_helices_in_rect(c1, c2, camera);
+                }
+                Consequence::PasteRequest(nucl) => {
+                    self.mediator.lock().unwrap().attempt_paste(nucl.to_real());
+                }
                 _ => (),
             }
         }
@@ -391,6 +407,11 @@ impl Application for FlatScene {
             Notification::ShowTorsion(b) => {
                 for v in self.view.iter() {
                     v.borrow_mut().set_show_torsion(b);
+                }
+            }
+            Notification::Pasting(b) => {
+                for c in self.controller.iter_mut() {
+                    c.set_pasting(b)
                 }
             }
             _ => (),

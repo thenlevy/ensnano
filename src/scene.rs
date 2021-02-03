@@ -58,6 +58,7 @@ pub struct Scene {
     pixel_to_check: Option<PhysicalPosition<f64>>,
     mediator: MediatorPtr,
     element_selector: ElementSelector,
+    pasting: bool,
 }
 
 impl Scene {
@@ -107,6 +108,7 @@ impl Scene {
             pixel_to_check: None,
             mediator,
             element_selector,
+            pasting: false,
         }
     }
 
@@ -294,6 +296,12 @@ impl Scene {
     }
 
     fn select(&mut self, element: Option<SceneElement>) {
+        if self.pasting {
+            self.data.borrow_mut().set_candidate(element);
+            if let Some(nucl) = self.data.borrow().get_candidate_nucl() {
+                self.mediator.lock().unwrap().attempt_paste(nucl)
+            }
+        }
         let selection = self.data.borrow_mut().set_selection(element);
         if let Some(selection) = selection {
             self.mediator.lock().unwrap().notify_selection(selection);
@@ -330,6 +338,13 @@ impl Scene {
         };
         self.controller.notify(element);
         self.data.borrow_mut().set_candidate(element);
+        if self.pasting {
+            let candidate_nucl = self.data.borrow().get_candidate_nucl();
+            self.mediator
+                .lock()
+                .unwrap()
+                .set_paste_candidate(candidate_nucl);
+        }
         let widget = if let Some(SceneElement::WidgetElement(widget_id)) = element {
             Some(widget_id)
         } else {
@@ -654,6 +669,7 @@ impl Application for Scene {
                 self.notify(SceneNotification::CameraMoved);
             }
             Notification::ShowTorsion(_) => (),
+            Notification::Pasting(b) => self.pasting = b,
         }
     }
 

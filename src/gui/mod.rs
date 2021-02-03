@@ -75,6 +75,8 @@ pub struct Requests {
     pub fog: Option<FogParameters>,
     pub hyperboloid: Option<HyperboloidRequest>,
     pub helix_roll: Option<f32>,
+    pub copy: bool,
+    pub paste: bool,
 }
 
 impl Requests {
@@ -111,6 +113,8 @@ impl Requests {
             fog: None,
             hyperboloid: None,
             helix_roll: None,
+            copy: false,
+            paste: false,
         }
     }
 }

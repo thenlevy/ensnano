@@ -70,6 +70,39 @@ impl Design3D {
         Rc::new(self.id_to_raw_instances(ids))
     }
 
+    pub fn get_pasted_strand(&self) -> (Vec<RawDnaInstance>, Vec<RawDnaInstance>) {
+        let mut spheres = Vec::new();
+        let mut tubes = Vec::new();
+        let positions = self.design.read().unwrap().get_pasted_position();
+        let mut previous_postion = None;
+        if let Some((positions, pastable)) = positions {
+            let color = if pastable {
+                CANDIDATE_COLOR
+            } else {
+                SELECTED_COLOR
+            };
+            let color_vec4 = Instance::color_from_au32(color);
+            for position in positions.iter() {
+                let sphere = SphereInstance {
+                    position: *position,
+                    color: color_vec4,
+                    id: 0,
+                    radius: 1.,
+                }
+                .to_raw_instance();
+                spheres.push(sphere);
+                if let Some(prev) = previous_postion {
+                    let tube = create_dna_bound(prev, *position, color, 0, true);
+                    tubes.push(tube.to_raw_instance());
+                }
+                previous_postion = Some(*position);
+            }
+            (spheres, tubes)
+        } else {
+            (vec![], vec![])
+        }
+    }
+
     pub fn get_letter_instances(&self) -> Vec<Vec<LetterInstance>> {
         let ids = self.design.read().unwrap().get_all_nucl_ids();
         let mut vecs = vec![Vec::new(); NB_BASIS_SYMBOLS];

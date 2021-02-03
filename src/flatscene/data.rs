@@ -1,5 +1,6 @@
 use super::{Flat, HelixVec, ViewPtr};
 use crate::design::{Design, Nucl, StrandBuilder};
+use crate::mediator::Selection;
 use std::sync::{Arc, RwLock};
 use ultraviolet::Vec2;
 
@@ -60,6 +61,9 @@ impl Data {
             self.view
                 .borrow_mut()
                 .update_strands(&self.design.get_strands(), &self.helices);
+            self.view
+                .borrow_mut()
+                .update_pasted_strand(self.design.get_pasted_strand(), &self.helices);
         }
         self.instance_update = false;
     }
@@ -139,7 +143,7 @@ impl Data {
     pub fn get_rotation_pivot(&self, h_id: FlatIdx, camera: &CameraPtr) -> Option<Vec2> {
         self.helices
             .get(h_id)
-            .and_then(|h| h.visible_center(camera))
+            .map(|h| h.visible_center(camera).unwrap_or_else(|| h.center()))
     }
 
     pub fn get_click_unbounded_helix(&self, x: f32, y: f32, helix: FlatHelix) -> FlatNucl {
@@ -155,29 +159,24 @@ impl Data {
         self.helices.get(helix).map(|h| h.get_pivot(position))
     }
 
-    pub fn set_selected_helix(&mut self, helix: Option<FlatIdx>) {
-        if let Some(h) = self.selected_helix {
-            self.helices[h].set_color(HELIX_BORDER_COLOR);
+    pub fn set_selected_helices(&mut self, helices: Vec<FlatHelix>) {
+        for h in self.helices.iter_mut() {
+            h.set_color(HELIX_BORDER_COLOR);
         }
-        self.selected_helix = helix;
-        if let Some(h) = helix {
-            self.helices[h].set_color(0xFF_BF_1E_28);
+        for h in helices {
+            self.helices[h.flat].set_color(SELECTED_HELIX2D_COLOR);
         }
         self.instance_update = true;
     }
 
-    pub fn snap_helix(&mut self, pivot: FlatNucl, destination: Vec2) {
-        if let Some(h) = self.selected_helix {
-            self.helices[h].snap(pivot, destination);
-            self.instance_update = true;
-        }
+    pub fn snap_helix(&mut self, pivot: FlatNucl, translation: Vec2) {
+        self.helices[pivot.helix.flat].snap(pivot, translation);
+        self.instance_update = true;
     }
 
-    pub fn rotate_helix(&mut self, pivot: Vec2, angle: f32) {
-        if let Some(h) = self.selected_helix {
-            self.helices[h].rotate(pivot, angle);
-            self.instance_update = true;
-        }
+    pub fn rotate_helix(&mut self, helix: FlatHelix, pivot: Vec2, angle: f32) {
+        self.helices[helix.flat].rotate(pivot, angle);
+        self.instance_update = true;
     }
 
     pub fn end_movement(&mut self) {
@@ -349,6 +348,27 @@ impl Data {
             }
         }
         ret
+    }
+
+    pub fn get_selection(&self, nucl: FlatNucl, d_id: u32) -> Selection {
+        let nucl = nucl.to_real();
+        Selection::Nucleotide(d_id, nucl)
+    }
+
+    pub fn select_rectangle(&mut self, c1: Vec2, c2: Vec2, camera: &CameraPtr) -> (Vec<FlatNucl>, Vec<Vec2>) {
+        let mut translation_pivots = vec![];
+        let mut rotation_pivots = vec![];
+        for h in self.helices.iter_mut() {
+            let c = h.get_circle(camera);
+            if c.map(|c| c.in_rectangle(&c1, &c2)).unwrap_or(false) {
+                let translation_pivot = h.get_circle_pivot(camera).unwrap();
+                let rotation_pivot = h.visible_center(camera).unwrap_or_else(|| h.center());
+                h.set_color(SELECTED_HELIX2D_COLOR);
+                translation_pivots.push(translation_pivot);
+                rotation_pivots.push(rotation_pivot);
+            }
+        }
+        (translation_pivots, rotation_pivots)
     }
 }
 
