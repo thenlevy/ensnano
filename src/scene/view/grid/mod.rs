@@ -69,14 +69,26 @@ impl GridInstance {
 
     fn to_raw(&self) -> GridInstanceRaw {
         use crate::utils::instance::Instance;
+        let (min_x, min_y, max_x, max_y);
+        if let GridType::Hyperboloid(ref h) = self.grid.grid_type {
+            min_x = -h.grid_radius(&self.grid.parameters);
+            max_x = h.grid_radius(&self.grid.parameters);
+            min_y = -h.grid_radius(&self.grid.parameters);
+            max_y = h.grid_radius(&self.grid.parameters);
+        } else {
+            min_x = self.min_x as f32;
+            max_x = self.max_x as f32;
+            min_y = self.min_y as f32;
+            max_y = self.max_y as f32;
+        }
         GridInstanceRaw {
             model: Mat4::from_translation(self.grid.position)
                 * self.grid.orientation.into_matrix().into_homogeneous(),
-            min_x: self.min_x as f32,
-            max_x: self.max_x as f32,
-            min_y: self.min_y as f32,
-            max_y: self.max_y as f32,
-            grid_type: self.grid.grid_type.descr() as u32,
+            min_x,
+            max_x,
+            min_y,
+            max_y,
+            grid_type: self.grid.grid_type.descr().to_u32(),
             color: Instance::color_from_u32(self.color).truncated(),
             inter_helix_gap: self.grid.parameters.inter_helix_gap,
             helix_radius: self.grid.parameters.helix_radius,
@@ -125,15 +137,20 @@ impl GridInstance {
                     self.grid.parameters.helix_radius * 2. + self.grid.parameters.inter_helix_gap;
                 (x * 2. / (3f32.sqrt() * r), (y - r / 2.) * 2. / (3. * r))
             }
+            GridType::Hyperboloid(_) => unreachable!(),
         }
     }
 
     fn contains_point(&self, x: f32, y: f32) -> bool {
-        let (x, y) = self.convert_coord(x, y);
-        x >= self.min_x as f32 - 0.025
-            && x <= self.max_x as f32 + 0.025
-            && y >= -self.max_y as f32 - 0.025
-            && y <= -self.min_y as f32 + 0.025
+        if let GridType::Hyperboloid(ref h) = self.grid.grid_type {
+            h.contains_point(&self.grid.parameters, x, y)
+        } else {
+            let (x, y) = self.convert_coord(x, y);
+            x >= self.min_x as f32 - 0.025
+                && x <= self.max_x as f32 + 0.025
+                && y >= -self.max_y as f32 - 0.025
+                && y <= -self.min_y as f32 + 0.025
+        }
     }
 }
 

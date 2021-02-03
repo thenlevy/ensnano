@@ -311,8 +311,9 @@ impl Program for LeftPanel {
                         .update_request(value_id, value, request);
                 }
                 2 => {
-                   let request = &mut self.requests.lock().unwrap().hyperboloid;
-                   self.hyperboloid_factory.update_request(value_id, value, request);
+                    let request = &mut self.requests.lock().unwrap().hyperboloid;
+                    self.hyperboloid_factory
+                        .update_request(value_id, value, request);
                 }
                 _ => unreachable!(),
             },
@@ -399,7 +400,9 @@ impl Program for LeftPanel {
             .width(Length::Units(BUTTON_SIZE)),
         ];
 
-        let mut global_scroll = Scrollable::new(&mut self.global_scroll).spacing(5).push(Text::new("SelectionMode"));
+        let mut global_scroll = Scrollable::new(&mut self.global_scroll)
+            .spacing(5)
+            .push(Text::new("SelectionMode"));
         while selection_buttons.len() > 0 {
             let mut row = Row::new();
             row = row.push(selection_buttons.pop().unwrap()).spacing(5);
@@ -1025,7 +1028,7 @@ pub struct HyperboloidRequest {
     pub radius_shift: f32,
 }
 
-pub struct Hyperboloid_ { }
+pub struct Hyperboloid_ {}
 
 impl Requestable for Hyperboloid_ {
     type Request = HyperboloidRequest;
@@ -1072,11 +1075,11 @@ impl Requestable for Hyperboloid_ {
     }
     fn step_val(&self, n: usize) -> f32 {
         match n {
-             0 => 1f32,
-             1 => 1f32,
-             2 => 1f32.to_radians(),
-             3 => 0.01, 
-             _ => unreachable!(),
+            0 => 1f32,
+            1 => 1f32,
+            2 => 1f32.to_radians(),
+            3 => 0.01,
+            _ => unreachable!(),
         }
     }
     fn name_val(&self, n: usize) -> String {

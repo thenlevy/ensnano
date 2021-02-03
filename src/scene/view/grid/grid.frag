@@ -19,8 +19,10 @@ void main() {
 
     if (v_grid_type == 0) {
        color = texture(sampler2D(t_square, s_square), v_tex_square_coords);
-    } else {
+    } else if (v_grid_type == 1) {
        color = texture(sampler2D(t_honney, s_honney), v_tex_honey_coords);
+    } else {
+       color = vec4(1., 1., 1., 0.4);
     }
 
     if (color.w < 0.01) {

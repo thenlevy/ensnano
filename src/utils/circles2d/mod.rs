@@ -39,12 +39,14 @@ impl CircleInstance {
         let min_y = c1.y.min(c2.y);
         let max_y = c1.y.max(c2.y);
 
-        (self.center.x >= min_x && self.center.x <= max_x && self.center.y >= min_y && self.center.y <= max_y)
+        (self.center.x >= min_x
+            && self.center.x <= max_x
+            && self.center.y >= min_y
+            && self.center.y <= max_y)
             || (self.center - Vec2::new(min_x, min_y)).mag() <= self.radius
             || (self.center - Vec2::new(min_x, max_y)).mag() <= self.radius
             || (self.center - Vec2::new(max_x, min_y)).mag() <= self.radius
             || (self.center - Vec2::new(max_x, max_y)).mag() <= self.radius
-
     }
 }
 

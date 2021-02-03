@@ -1,14 +1,14 @@
 use super::wgpu;
-use crate::utils::Ndc;
 use super::Rc;
+use crate::utils::Ndc;
 
-use wgpu::{RenderPipeline, Device, Queue};
 use wgpu::util::DeviceExt;
+use wgpu::{Device, Queue, RenderPipeline};
 
-const SELECT_COLOR: [f32; 4] = [0.26,0.64,0.85, 0.6];
+const SELECT_COLOR: [f32; 4] = [0.26, 0.64, 0.85, 0.6];
 
 pub struct Rectangle {
-    corner: Option<Option<[Ndc ; 2]>>,
+    corner: Option<Option<[Ndc; 2]>>,
     pipeline: RenderPipeline,
     vbo: wgpu::Buffer,
     ibo: wgpu::Buffer,
@@ -36,39 +36,34 @@ impl Vertex {
                     offset: std::mem::size_of::<[f32; 2]>() as wgpu::BufferAddress,
                     shader_location: 1,
                     format: wgpu::VertexFormat::Float4,
-                }
-            ]
+                },
+            ],
         }
     }
 }
 
-unsafe impl bytemuck::Zeroable for Vertex { }
-unsafe impl bytemuck::Pod for Vertex { }
+unsafe impl bytemuck::Zeroable for Vertex {}
+unsafe impl bytemuck::Pod for Vertex {}
 
 impl Rectangle {
     pub fn new(device: &Device, queue: Rc<Queue>) -> Self {
-
         let vs_module = device.create_shader_module(wgpu::include_spirv!("rectangle.vert.spv"));
         let fs_module = device.create_shader_module(wgpu::include_spirv!("rectangle.frag.spv"));
 
-        let vertices = [Vertex::default() ; 4];
-        let vertex_buffer = device.create_buffer_init(
-            &wgpu::util::BufferInitDescriptor {
-                label: Some("Vertex Buffer"),
-                contents: bytemuck::cast_slice(&vertices),
-                usage: wgpu::BufferUsage::VERTEX | wgpu::BufferUsage::COPY_DST,
-            }
-        );
+        let vertices = [Vertex::default(); 4];
+        let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Vertex Buffer"),
+            contents: bytemuck::cast_slice(&vertices),
+            usage: wgpu::BufferUsage::VERTEX | wgpu::BufferUsage::COPY_DST,
+        });
 
         let indices = [0u16, 1, 2, 3];
 
-        let index_buffer = device.create_buffer_init(
-            &wgpu::util::BufferInitDescriptor {
-                label: Some("Index Buffer"),
-                contents: bytemuck::cast_slice(&indices),
-                usage: wgpu::BufferUsage::INDEX,
-            }
-        );
+        let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Index Buffer"),
+            contents: bytemuck::cast_slice(&indices),
+            usage: wgpu::BufferUsage::INDEX,
+        });
 
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -142,7 +137,7 @@ impl Rectangle {
         }
     }
 
-    pub fn update_corners(&mut self, corner: Option<[Ndc ; 2]>) {
+    pub fn update_corners(&mut self, corner: Option<[Ndc; 2]>) {
         self.corner = Some(corner)
     }
 
@@ -178,11 +173,12 @@ impl Rectangle {
                 Vertex {
                     position: [max_x, max_y],
                     color: SELECT_COLOR,
-                }
+                },
             ]
         } else {
-            [Vertex::default() ; 4]
+            [Vertex::default(); 4]
         };
-        self.queue.write_buffer(&self.vbo, 0, bytemuck::cast_slice(&vertices));
+        self.queue
+            .write_buffer(&self.vbo, 0, bytemuck::cast_slice(&vertices));
     }
 }

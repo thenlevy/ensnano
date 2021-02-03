@@ -298,7 +298,10 @@ impl View {
     }
 
     pub fn update_rectangle(&mut self, c1: PhysicalPosition<f64>, c2: PhysicalPosition<f64>) {
-        self.rectangle.update_corners(Some([Ndc::from_physical(c1, self.area_size), Ndc::from_physical(c2, self.area_size)]));
+        self.rectangle.update_corners(Some([
+            Ndc::from_physical(c1, self.area_size),
+            Ndc::from_physical(c2, self.area_size),
+        ]));
         self.was_updated = true;
     }
 

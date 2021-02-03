@@ -22,7 +22,6 @@ use std::time::Instant;
 
 mod codenano;
 mod grid;
-mod hyperboloid;
 mod icednano;
 mod roller;
 mod strand_builder;
@@ -134,14 +133,14 @@ impl Data {
     }
 
     pub fn add_hyperboloid(&mut self, nb_helix: usize, shift: f32, length: f32, radius_shift: f32) {
-        let hyperboloid = hyperboloid::Hyperboloid {
-            parameters: self.design.parameters.unwrap_or_default(),
+        let hyperboloid = grid::Hyperboloid {
             radius: nb_helix,
             shift,
             length,
             radius_shift,
         };
-        let (helices, nb_nucl) = hyperboloid.make_helices();
+        let parameters = self.design.parameters.unwrap_or_default();
+        let (helices, nb_nucl) = hyperboloid.make_helices(&parameters);
         let mut key = self.design.helices.keys().max().map(|m| m + 1).unwrap_or(0);
         for h in helices {
             self.design.helices.insert(key, h);
@@ -157,6 +156,16 @@ impl Data {
             key += 1;
         }
         self.view_need_reset = true;
+        self.add_grid(GridDescriptor {
+            position: Vec3::zero(),
+            orientation: ultraviolet::Rotor3::identity(),
+            grid_type: GridTypeDescr::Hyperboloid {
+                radius: nb_helix,
+                shift,
+                length,
+                radius_shift,
+            },
+        });
         self.make_hash_maps();
     }
 

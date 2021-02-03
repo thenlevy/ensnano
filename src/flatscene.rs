@@ -337,11 +337,13 @@ impl FlatScene {
                         .get_selection(nucl, self.selected_design as u32);
                     self.mediator.lock().unwrap().notify_selection(selection);
                 }
-                Consequence::DrawingSelection(c1, c2) => {
-                    self.view[self.selected_design].borrow_mut().update_rectangle(c1, c2)
-                }
+                Consequence::DrawingSelection(c1, c2) => self.view[self.selected_design]
+                    .borrow_mut()
+                    .update_rectangle(c1, c2),
                 Consequence::ReleasedSelection(_, _) => {
-                    self.view[self.selected_design].borrow_mut().clear_rectangle();
+                    self.view[self.selected_design]
+                        .borrow_mut()
+                        .clear_rectangle();
                     //self.data[self.selected_design].borrow().get_helices_in_rect(c1, c2, camera);
                 }
                 Consequence::PasteRequest(nucl) => {

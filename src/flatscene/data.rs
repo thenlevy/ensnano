@@ -355,7 +355,12 @@ impl Data {
         Selection::Nucleotide(d_id, nucl)
     }
 
-    pub fn select_rectangle(&mut self, c1: Vec2, c2: Vec2, camera: &CameraPtr) -> (Vec<FlatNucl>, Vec<Vec2>) {
+    pub fn select_rectangle(
+        &mut self,
+        c1: Vec2,
+        c2: Vec2,
+        camera: &CameraPtr,
+    ) -> (Vec<FlatNucl>, Vec<Vec2>) {
         let mut translation_pivots = vec![];
         let mut rotation_pivots = vec![];
         for h in self.helices.iter_mut() {

@@ -1,3 +1,6 @@
+mod hyperboloid;
+pub use hyperboloid::*;
+
 use super::icednano::{Design, Parameters};
 use super::{icednano, Data};
 use std::collections::{BTreeMap, HashMap, HashSet};
@@ -28,6 +31,12 @@ pub struct GridDescriptor {
 pub enum GridTypeDescr {
     Square,
     Honeycomb,
+    Hyperboloid {
+        radius: usize,
+        shift: f32,
+        length: f32,
+        radius_shift: f32,
+    },
 }
 
 impl GridTypeDescr {
@@ -35,6 +44,15 @@ impl GridTypeDescr {
         match self {
             GridTypeDescr::Square => String::from("Square"),
             GridTypeDescr::Honeycomb => String::from("Honeycomb"),
+            GridTypeDescr::Hyperboloid { .. } => String::from("Hyperboloid"),
+        }
+    }
+
+    pub fn to_u32(&self) -> u32 {
+        match self {
+            GridTypeDescr::Square => 0u32,
+            GridTypeDescr::Honeycomb => 1u32,
+            GridTypeDescr::Hyperboloid { .. } => 2u32,
         }
     }
 }
@@ -43,6 +61,7 @@ impl GridTypeDescr {
 pub enum GridType {
     Square(SquareGrid),
     Honeycomb(HoneyComb),
+    Hyperboloid(Hyperboloid),
 }
 
 impl GridDivision for GridType {
@@ -50,6 +69,7 @@ impl GridDivision for GridType {
         match self {
             GridType::Square(SquareGrid) => GridType::Square(SquareGrid),
             GridType::Honeycomb(HoneyComb) => GridType::Honeycomb(HoneyComb),
+            GridType::Hyperboloid(hyperboloid) => GridType::Hyperboloid(hyperboloid.clone()),
         }
     }
 
@@ -57,6 +77,7 @@ impl GridDivision for GridType {
         match self {
             GridType::Square(grid) => grid.origin_helix(parameters, x, y),
             GridType::Honeycomb(grid) => grid.origin_helix(parameters, x, y),
+            GridType::Hyperboloid(grid) => grid.origin_helix(parameters, x, y),
         }
     }
 
@@ -64,6 +85,7 @@ impl GridDivision for GridType {
         match self {
             GridType::Square(grid) => grid.interpolate(parameters, x, y),
             GridType::Honeycomb(grid) => grid.interpolate(parameters, x, y),
+            GridType::Hyperboloid(grid) => grid.interpolate(parameters, x, y),
         }
     }
 
@@ -71,6 +93,7 @@ impl GridDivision for GridType {
         match self {
             GridType::Square(grid) => grid.translation_to_edge(x1, y1, x2, y2),
             GridType::Honeycomb(grid) => grid.translation_to_edge(x1, y1, x2, y2),
+            GridType::Hyperboloid(grid) => grid.translation_to_edge(x1, y1, x2, y2),
         }
     }
 
@@ -78,6 +101,7 @@ impl GridDivision for GridType {
         match self {
             GridType::Square(grid) => grid.translate_by_edge(x1, y1, edge),
             GridType::Honeycomb(grid) => grid.translate_by_edge(x1, y1, edge),
+            GridType::Hyperboloid(grid) => grid.translate_by_edge(x1, y1, edge),
         }
     }
 }
@@ -91,10 +115,20 @@ impl GridType {
         Self::Honeycomb(HoneyComb)
     }
 
+    pub fn hyperboloid(h: Hyperboloid) -> Self {
+        Self::Hyperboloid(h)
+    }
+
     pub fn descr(&self) -> GridTypeDescr {
         match self {
             GridType::Square(_) => GridTypeDescr::Square,
             GridType::Honeycomb(_) => GridTypeDescr::Honeycomb,
+            GridType::Hyperboloid(h) => GridTypeDescr::Hyperboloid {
+                radius: h.radius,
+                shift: h.shift,
+                length: h.length,
+                radius_shift: h.radius_shift,
+            },
         }
     }
 }
@@ -478,6 +512,25 @@ impl GridManager {
                     );
                     grids.push(grid);
                 }
+                GridTypeDescr::Hyperboloid {
+                    radius,
+                    radius_shift,
+                    length,
+                    shift,
+                } => {
+                    let grid = Grid::new(
+                        desc.position,
+                        desc.orientation,
+                        design.parameters.unwrap_or_default(),
+                        GridType::Hyperboloid(Hyperboloid {
+                            radius,
+                            shift,
+                            length,
+                            radius_shift,
+                        }),
+                    );
+                    grids.push(grid);
+                }
             }
         }
         for (h_id, h) in design.helices.iter() {
@@ -547,6 +600,25 @@ impl GridManager {
                         desc.orientation,
                         design.parameters.unwrap_or_default(),
                         GridType::honneycomb(),
+                    );
+                    self.grids.push(grid);
+                }
+                GridTypeDescr::Hyperboloid {
+                    radius,
+                    shift,
+                    length,
+                    radius_shift,
+                } => {
+                    let grid = Grid::new(
+                        desc.position,
+                        desc.orientation,
+                        design.parameters.unwrap_or_default(),
+                        GridType::hyperboloid(Hyperboloid {
+                            radius,
+                            radius_shift,
+                            length,
+                            shift,
+                        }),
                     );
                     self.grids.push(grid);
                 }
@@ -766,6 +838,25 @@ impl GridManager {
                 );
                 self.grids.push(grid);
             }
+            GridTypeDescr::Hyperboloid {
+                radius,
+                shift,
+                length,
+                radius_shift,
+            } => {
+                let grid = Grid::new(
+                    desc.position,
+                    desc.orientation,
+                    self.parameters,
+                    GridType::hyperboloid(Hyperboloid {
+                        radius,
+                        shift,
+                        length,
+                        radius_shift,
+                    }),
+                );
+                self.grids.push(grid)
+            }
         }
     }
 
@@ -935,4 +1026,5 @@ pub enum Edge {
         y: isize,
         start_parity: bool,
     },
+    Circle(isize),
 }
