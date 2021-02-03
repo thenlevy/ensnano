@@ -23,7 +23,7 @@ use crate::design;
 
 use design::{
     Design, DesignNotification, DesignRotation, DesignTranslation, GridDescriptor,
-    GridHelixDescriptor, Helix, Nucl, Stapple, Strand, StrandBuilder,
+    GridHelixDescriptor, Helix, Hyperboloid, Nucl, Stapple, Strand, StrandBuilder,
 };
 
 mod operation;
@@ -871,7 +871,7 @@ impl Mediator {
         }
     }
 
-    pub fn hyperboloid_request(&mut self, request: HyperboloidRequest) {
+    pub fn hyperboloid_update(&mut self, request: HyperboloidRequest) {
         if let Some(design) = self.designs.get(0) {
             design.write().unwrap().update_hyperboloid(
                 request.radius,
@@ -879,6 +879,12 @@ impl Mediator {
                 request.length,
                 request.radius_shift,
             );
+        }
+    }
+
+    pub fn finalize_hyperboloid(&mut self) {
+        if let Some(design) = self.designs.get(0) {
+            design.write().unwrap().finalize_hyperboloid()
         }
     }
 
@@ -979,6 +985,12 @@ pub enum AppNotification {
     MoveBuilder(Box<StrandBuilder>, Option<(usize, u32)>),
     ResetBuilder(Box<StrandBuilder>),
     RmGrid,
+    NewHyperboloid {
+        position: Vec3,
+        orientation: ultraviolet::Rotor3,
+        hyperboloid: Hyperboloid,
+    },
+    ClearHyperboloid,
 }
 
 fn write_stapples(stapples: Vec<Stapple>, path: PathBuf) {

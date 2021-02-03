@@ -88,6 +88,7 @@ pub struct Data {
         Instant,
     )>,
     hyperboloid_helices: Vec<usize>,
+    hyperboloid_draft: Option<GridDescriptor>,
     template: Option<StrandTemplate>,
     pasted_strand: Option<PastedStrand>,
 }
@@ -129,44 +130,27 @@ impl Data {
             hyperboloid_helices: vec![],
             template: None,
             pasted_strand: None,
+            hyperboloid_draft: None,
         }
     }
 
-    pub fn add_hyperboloid(&mut self, nb_helix: usize, shift: f32, length: f32, radius_shift: f32) {
-        let hyperboloid = grid::Hyperboloid {
-            radius: nb_helix,
-            shift,
-            length,
-            radius_shift,
-        };
-        let parameters = self.design.parameters.unwrap_or_default();
-        let (helices, nb_nucl) = hyperboloid.make_helices(&parameters);
-        let mut key = self.design.helices.keys().max().map(|m| m + 1).unwrap_or(0);
-        for h in helices {
-            self.design.helices.insert(key, h);
-            for b in [true, false].iter() {
-                let new_key = self.add_strand(key, 0, *b);
-                if let icednano::Domain::HelixDomain(ref mut dom) =
-                    self.design.strands.get_mut(&new_key).unwrap().domains[0]
-                {
-                    dom.end = dom.start + nb_nucl as isize;
-                }
-            }
-            self.hyperboloid_helices.push(key);
-            key += 1;
-        }
-        self.view_need_reset = true;
-        self.add_grid(GridDescriptor {
-            position: Vec3::zero(),
-            orientation: ultraviolet::Rotor3::identity(),
+    pub fn add_hyperboloid(
+        &mut self,
+        position: Vec3,
+        orientation: ultraviolet::Rotor3,
+        hyperboloid: Hyperboloid,
+    ) {
+        self.hyperboloid_draft = Some(GridDescriptor {
+            position,
+            orientation,
             grid_type: GridTypeDescr::Hyperboloid {
-                radius: nb_helix,
-                shift,
-                length,
-                radius_shift,
+                radius: hyperboloid.radius,
+                shift: hyperboloid.shift,
+                length: hyperboloid.length,
+                radius_shift: hyperboloid.radius_shift,
             },
         });
-        self.make_hash_maps();
+        self.make_hyperboloid_helices();
     }
 
     pub fn update_hyperboloid(
@@ -195,7 +179,98 @@ impl Data {
             self.view_need_reset = true;
         }
         self.hyperboloid_helices.clear();
-        self.add_hyperboloid(nb_helix, shift, length, radius_shift);
+        if let Some(descr) = self.hyperboloid_draft.as_mut().map(|d| &mut d.grid_type) {
+            *descr = GridTypeDescr::Hyperboloid {
+                radius: nb_helix,
+                shift,
+                length,
+                radius_shift,
+            };
+        }
+        self.make_hyperboloid_helices();
+    }
+
+    fn make_hyperboloid_helices(&mut self) {
+        if let Some(GridTypeDescr::Hyperboloid {
+            radius,
+            length,
+            shift,
+            radius_shift,
+        }) = self.hyperboloid_draft.map(|h| h.grid_type)
+        {
+            let hyperboloid = Hyperboloid {
+                radius,
+                length,
+                shift,
+                radius_shift,
+            };
+            println!("Making {:?}", hyperboloid);
+            let parameters = self.design.parameters.unwrap_or_default();
+            let (helices, nb_nucl) = hyperboloid.make_helices(&parameters);
+            let mut key = self.design.helices.keys().max().map(|m| m + 1).unwrap_or(0);
+            for h in helices {
+                self.design.helices.insert(key, h);
+                for b in [true, false].iter() {
+                    let new_key = self.add_strand(key, 0, *b);
+                    if let icednano::Domain::HelixDomain(ref mut dom) =
+                        self.design.strands.get_mut(&new_key).unwrap().domains[0]
+                    {
+                        dom.end = dom.start + nb_nucl as isize;
+                    }
+                }
+                self.hyperboloid_helices.push(key);
+                key += 1;
+            }
+        }
+
+        self.update_status = true;
+        self.make_hash_maps();
+    }
+
+    pub fn clear_hyperboloid(&mut self) {
+        let nb_helix = self.hyperboloid_helices.len();
+        let old_hyperboloids =
+            std::mem::replace(&mut self.hyperboloid_helices, Vec::with_capacity(nb_helix));
+        for h_id in old_hyperboloids.iter() {
+            self.rm_strand(&Nucl {
+                helix: *h_id,
+                position: 0,
+                forward: true,
+            });
+            self.rm_strand(&Nucl {
+                helix: *h_id,
+                position: 0,
+                forward: false,
+            });
+            self.design.helices.remove(&h_id);
+            self.update_status = true;
+            self.hash_maps_update = true;
+            self.view_need_reset = true;
+        }
+        self.view_need_reset = true;
+    }
+
+    pub fn finalize_hyperboloid(&mut self) {
+        if let Some(draft) = self.hyperboloid_draft.take() {
+            let g_id = self.add_grid(draft);
+            for (i, h_id) in self.hyperboloid_helices.iter().enumerate() {
+                if let Some(h) = self.design.helices.get_mut(h_id) {
+                    h.grid_position = Some(GridPosition {
+                        grid: g_id,
+                        x: i as isize,
+                        y: 0,
+                        axis_pos: 0,
+                        roll: 0f32,
+                    })
+                }
+            }
+        }
+        self.hyperboloid_helices.clear();
+        self.update_grids();
+        self.grid_manager.update(&mut self.design);
+        self.hash_maps_update = true;
+        self.view_need_reset = true;
+        self.update_status = true;
     }
 
     /// Create a new data by reading a file. At the moment, the supported format are
@@ -237,6 +312,7 @@ impl Data {
             hyperboloid_helices: vec![],
             template: None,
             pasted_strand: None,
+            hyperboloid_draft: None,
         };
         ret.make_hash_maps();
         ret.terminate_movement();
@@ -1730,12 +1806,13 @@ impl Data {
         self.update_grids();
     }
 
-    pub fn add_grid(&mut self, desc: GridDescriptor) {
-        self.grid_manager.add_grid(desc);
+    pub fn add_grid(&mut self, desc: GridDescriptor) -> usize {
+        let n = self.grid_manager.add_grid(desc);
         self.update_status = true;
         self.hash_maps_update = true;
         self.grid_manager.update(&mut self.design);
         self.update_grids();
+        n
     }
 
     pub fn get_persistent_phantom_helices(&self) -> HashSet<u32> {

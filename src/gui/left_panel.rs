@@ -1,4 +1,3 @@
-use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
 
 use iced::{container, Background, Column, Container, Image, Row};
@@ -54,6 +53,8 @@ pub struct LeftPanel {
     scroll_sensitivity_factory: RequestFactory<ScrollSentivity>,
     hyperboloid_factory: RequestFactory<Hyperboloid_>,
     helix_roll_factory: RequestFactory<HelixRoll>,
+    building_hyperboloid: bool,
+    finalize_hyperboloid: button::State,
 }
 
 #[derive(Debug, Clone)]
@@ -87,6 +88,8 @@ pub enum Message {
         value: f32,
     },
     HelixRoll(f32),
+    NewHyperboloid,
+    FinalizeHyperboloid,
 }
 
 impl LeftPanel {
@@ -122,6 +125,8 @@ impl LeftPanel {
             scroll_sensitivity_factory: RequestFactory::new(0, ScrollSentivity {}),
             helix_roll_factory: RequestFactory::new(1, HelixRoll {}),
             hyperboloid_factory: RequestFactory::new(2, Hyperboloid_ {}),
+            building_hyperboloid: false,
+            finalize_hyperboloid: Default::default(),
         }
     }
 
@@ -311,7 +316,7 @@ impl Program for LeftPanel {
                         .update_request(value_id, value, request);
                 }
                 2 => {
-                    let request = &mut self.requests.lock().unwrap().hyperboloid;
+                    let request = &mut self.requests.lock().unwrap().hyperboloid_update;
                     self.hyperboloid_factory
                         .update_request(value_id, value, request);
                 }
@@ -319,6 +324,16 @@ impl Program for LeftPanel {
             },
             Message::HelixRoll(roll) => {
                 self.helix_roll_factory.update_roll(roll);
+            }
+            Message::NewHyperboloid => {
+                let request = &mut self.requests.lock().unwrap().new_hyperboloid;
+                self.hyperboloid_factory = RequestFactory::new(2, Hyperboloid_ {});
+                self.hyperboloid_factory.make_request(request);
+                self.building_hyperboloid = true;
+            }
+            Message::FinalizeHyperboloid => {
+                self.requests.lock().unwrap().finalize_hyperboloid = true;
+                self.building_hyperboloid = false;
             }
         };
         Command::none()
@@ -512,6 +527,9 @@ impl Program for LeftPanel {
             )
             .on_press(Message::NewGrid)
             .width(Length::Units(40)),
+            Button::new(&mut self.action_mode_state.add_hyperboloid, Text::new("H"))
+                .on_press(Message::NewHyperboloid)
+                .width(Length::Units(BUTTON_SIZE)),
         ];
 
         let mut inputs = self.builder_input.iter_mut();
@@ -568,6 +586,15 @@ impl Program for LeftPanel {
                         .push(length_input),
                 );
             global_scroll = global_scroll.push(row);
+        }
+        if self.building_hyperboloid {
+            for view in self.hyperboloid_factory.view().into_iter() {
+                global_scroll = global_scroll.push(view);
+            }
+            global_scroll = global_scroll.push(
+                Button::new(&mut self.finalize_hyperboloid, Text::new("Finish"))
+                    .on_press(Message::FinalizeHyperboloid),
+            );
         }
 
         if self.selection_mode == SelectionMode::Helix {
@@ -646,9 +673,6 @@ impl Program for LeftPanel {
         }
         widget = widget.push(self.fog.view());
         for view in self.scroll_sensitivity_factory.view().into_iter() {
-            widget = widget.push(view);
-        }
-        for view in self.hyperboloid_factory.view().into_iter() {
             widget = widget.push(view);
         }
 
@@ -807,6 +831,7 @@ struct ActionModeState {
     pub build: button::State,
     pub cut: button::State,
     pub add_grid: button::State,
+    pub add_hyperboloid: button::State,
 }
 
 fn target_message(i: usize) -> Message {

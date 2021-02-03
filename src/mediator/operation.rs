@@ -7,7 +7,9 @@
 use super::{
     AppNotification, DesignRotation, DesignTranslation, GridDescriptor, GridHelixDescriptor,
 };
-use crate::design::{GridTypeDescr, Helix, IsometryTarget, Nucl, Strand, StrandBuilder};
+use crate::design::{
+    GridTypeDescr, Helix, Hyperboloid, IsometryTarget, Nucl, Strand, StrandBuilder,
+};
 use std::sync::Arc;
 use ultraviolet::{Bivec3, Rotor3, Vec3};
 
@@ -1125,6 +1127,68 @@ impl Operation for CreateGrid {
             },
             _ => None,
         }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct NewHyperboloid {
+    pub position: Vec3,
+    pub orientation: Rotor3,
+    pub hyperboloid: Hyperboloid,
+    pub delete: bool,
+    pub design_id: usize,
+}
+
+impl Operation for NewHyperboloid {
+    fn descr(&self) -> OperationDescriptor {
+        OperationDescriptor::CreateGrid
+    }
+
+    fn compose(&self, _other: &dyn Operation) -> Option<Arc<dyn Operation>> {
+        None
+    }
+
+    fn parameters(&self) -> Vec<Parameter> {
+        vec![]
+    }
+
+    fn values(&self) -> Vec<String> {
+        vec![]
+    }
+
+    fn reverse(&self) -> Arc<dyn Operation> {
+        Arc::new(NewHyperboloid {
+            delete: !self.delete,
+            ..self.clone()
+        })
+    }
+
+    fn effect(&self) -> AppNotification {
+        if self.delete {
+            AppNotification::ClearHyperboloid
+        } else {
+            AppNotification::NewHyperboloid {
+                position: self.position,
+                orientation: self.orientation,
+                hyperboloid: self.hyperboloid.clone(),
+            }
+        }
+    }
+
+    fn description(&self) -> String {
+        if self.delete {
+            format!("Delete nanotube")
+        } else {
+            format!("Create nanotube")
+        }
+    }
+
+    fn target(&self) -> usize {
+        self.design_id
+    }
+
+    fn with_new_value(&self, n: usize, val: String) -> Option<Arc<dyn Operation>> {
+        None
     }
 }
 

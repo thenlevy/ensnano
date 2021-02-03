@@ -76,6 +76,11 @@ impl<R: Requestable> RequestFactory<R> {
         let values: Vec<f32> = self.values.values().map(|v| v.get_value()).collect();
         self.requestable.make_request(&values, request)
     }
+
+    pub fn make_request(&self, request: &mut Option<R::Request>) {
+        let values: Vec<f32> = self.values.values().map(|v| v.get_value()).collect();
+        self.requestable.make_request(&values, request)
+    }
 }
 
 struct DiscreteValue {

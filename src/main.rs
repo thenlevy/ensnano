@@ -259,7 +259,6 @@ fn main() {
             .add_design(Arc::new(RwLock::new(design)));
     } else {
         let mut design = Design::new(0);
-        design.add_hyperboloid(10, 0f32, 100., 1.);
         mediator
             .lock()
             .unwrap()
@@ -484,8 +483,24 @@ fn main() {
                         scene.lock().unwrap().fog_request(fog)
                     }
 
-                    if let Some(hyperboloid) = requests.hyperboloid.take() {
-                        mediator.lock().unwrap().hyperboloid_request(hyperboloid)
+                    if let Some(hyperboloid) = requests.new_hyperboloid.take() {
+                        use crate::design::Hyperboloid;
+                        let h = Hyperboloid {
+                            radius: hyperboloid.radius,
+                            length: hyperboloid.length,
+                            shift: hyperboloid.shift,
+                            radius_shift: hyperboloid.radius_shift,
+                        };
+                        scene.lock().unwrap().make_hyperboloid(h)
+                    }
+
+                    if let Some(hyperboloid) = requests.hyperboloid_update.take() {
+                        mediator.lock().unwrap().hyperboloid_update(hyperboloid)
+                    }
+
+                    if requests.finalize_hyperboloid {
+                        requests.finalize_hyperboloid = false;
+                        mediator.lock().unwrap().finalize_hyperboloid();
                     }
 
                     if let Some(roll) = requests.helix_roll.take() {

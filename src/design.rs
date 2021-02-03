@@ -235,7 +235,7 @@ impl Design {
                 .undoable_rm_strand(strand, strand_id, undo),
             AppNotification::RmGrid => self.data.lock().unwrap().delete_last_grid(),
             AppNotification::AddGrid(grid_descriptor) => {
-                self.data.lock().unwrap().add_grid(grid_descriptor)
+                self.data.lock().unwrap().add_grid(grid_descriptor);
             }
             AppNotification::ResetBuilder(builder) => {
                 let mut builder = builder.clone();
@@ -325,6 +325,17 @@ impl Design {
                         .cross_cut(source_id, target_id, nucl, target_3prime)
                 }
             }
+            AppNotification::NewHyperboloid {
+                position,
+                orientation,
+                hyperboloid,
+            } => {
+                self.data
+                    .lock()
+                    .unwrap()
+                    .add_hyperboloid(position, orientation, hyperboloid);
+            }
+            AppNotification::ClearHyperboloid => self.data.lock().unwrap().clear_hyperboloid(),
         }
     }
 
@@ -734,13 +745,6 @@ impl Design {
         self.data.lock().unwrap().notify_death()
     }
 
-    pub fn add_hyperboloid(&mut self, nb_helix: usize, shift: f32, length: f32, radius_shift: f32) {
-        self.data
-            .lock()
-            .unwrap()
-            .add_hyperboloid(nb_helix, shift, length, radius_shift)
-    }
-
     pub fn update_hyperboloid(
         &mut self,
         nb_helix: usize,
@@ -783,6 +787,10 @@ impl Design {
 
     pub fn get_pasted_position(&self) -> Option<(Vec<Vec3>, bool)> {
         self.data.lock().unwrap().get_pasted_positions()
+    }
+
+    pub fn finalize_hyperboloid(&mut self) {
+        self.data.lock().unwrap().finalize_hyperboloid()
     }
 }
 

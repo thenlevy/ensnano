@@ -818,7 +818,7 @@ impl GridManager {
         self.grids.pop();
     }
 
-    pub fn add_grid(&mut self, desc: GridDescriptor) {
+    pub fn add_grid(&mut self, desc: GridDescriptor) -> usize {
         match desc.grid_type {
             GridTypeDescr::Square => {
                 let grid: Grid = Grid::new(
@@ -858,6 +858,7 @@ impl GridManager {
                 self.grids.push(grid)
             }
         }
+        self.grids.len() - 1
     }
 
     /// Retrun the edge between two grid position. Return None if the position are not in the same

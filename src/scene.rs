@@ -9,11 +9,12 @@ use ultraviolet::{Mat4, Rotor3, Vec3};
 
 use crate::{design, mediator, utils};
 use crate::{DrawArea, PhySize, WindowEvent};
+use design::Hyperboloid;
 use instance::Instance;
 use mediator::{
     ActionMode, Application, CreateGrid, DesignViewRotation, DesignViewTranslation,
     GridHelixCreation, GridRotation, GridTranslation, HelixRotation, HelixTranslation, MediatorPtr,
-    Notification, Operation, SelectionMode, StrandConstruction,
+    NewHyperboloid, Notification, Operation, SelectionMode, StrandConstruction,
 };
 use utils::instance;
 use wgpu::{Device, Queue};
@@ -212,6 +213,25 @@ impl Scene {
                 position,
                 orientation,
                 grid_type: GridTypeDescr::Square,
+                delete: false,
+            }));
+        self.data.borrow_mut().notify_instance_update();
+        self.mediator.lock().unwrap().suspend_op();
+    }
+
+    pub fn make_hyperboloid(&self, hyperboloid: Hyperboloid) {
+        let camera = self.view.borrow().get_camera();
+        let position = camera.borrow().position + 10_f32 * camera.borrow().direction();
+        let orientation = camera.borrow().rotor.reversed()
+            * Rotor3::from_rotation_xz(std::f32::consts::FRAC_PI_2);
+        self.mediator
+            .lock()
+            .unwrap()
+            .update_opperation(Arc::new(NewHyperboloid {
+                design_id: 0,
+                position,
+                orientation,
+                hyperboloid,
                 delete: false,
             }));
         self.data.borrow_mut().notify_instance_update();
