@@ -776,9 +776,13 @@ impl Design {
         self.data.lock().unwrap().set_copy(nucl)
     }
 
-    pub fn paste(&mut self, nucl: Nucl) -> bool {
+    pub fn paste(&mut self, nucl: Nucl) -> Option<(Strand, usize)> {
         self.data.lock().unwrap().set_copy(Some(nucl));
         self.data.lock().unwrap().apply_copy()
+    }
+
+    pub fn apply_duplication(&mut self) -> Option<(Strand, usize)> {
+        self.data.lock().unwrap().apply_duplication()
     }
 
     pub fn has_template(&self) -> bool {

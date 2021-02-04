@@ -79,6 +79,7 @@ pub struct Requests {
     pub helix_roll: Option<f32>,
     pub copy: bool,
     pub paste: bool,
+    pub duplication: bool,
 }
 
 impl Requests {
@@ -119,6 +120,7 @@ impl Requests {
             helix_roll: None,
             copy: false,
             paste: false,
+            duplication: false,
         }
     }
 }

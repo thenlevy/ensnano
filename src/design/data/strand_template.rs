@@ -91,10 +91,12 @@ impl Data {
         &self,
         template: &StrandTemplate,
         start_nucl: Nucl,
+        duplication_info: &mut Option<(Edge, isize)>,
     ) -> Option<Vec<Domain>> {
         let mut ret = Vec::with_capacity(template.domains.len());
         let mut edge_iter = template.edges.iter();
         let mut previous_position: Option<GridPosition> = None;
+        let mut edge_opt = None;
         let shift = if start_nucl.forward {
             start_nucl.position - template.origin.start
         } else {
@@ -128,9 +130,63 @@ impl Data {
                             .get(&start_nucl.helix)
                             .and_then(|h| h.grid_position)?;
 
+                        edge_opt = self.grid_manager.get_edge(&position, &pos2);
                         if self.grid_manager.get_edge(&position, &pos2).is_none() {
                             return None;
                         }
+                        let helix = self.grid_manager.pos_to_helix(pos2.grid, pos2.x, pos2.y)?;
+
+                        ret.push(Domain::HelixDomain(HelixInterval {
+                            helix,
+                            start: start + shift,
+                            end: end + shift,
+                            forward: template.origin.forward,
+                            sequence: None,
+                        }));
+                        previous_position = Some(pos2);
+                    }
+                }
+            }
+        }
+        *duplication_info = edge_opt.zip(Some(shift));
+        Some(ret)
+    }
+
+    pub fn duplicate_template(
+        &self,
+        template: &StrandTemplate,
+        first_edge: Edge,
+        shift: isize,
+    ) -> Option<Vec<Domain>> {
+        let mut ret = Vec::with_capacity(template.domains.len());
+        let mut edge_iter = template.edges.iter();
+        let mut previous_position: Option<GridPosition> = None;
+        for domain in template.domains.iter() {
+            match domain {
+                DomainTemplate::Insertion(n) => ret.push(Domain::Insertion(*n)),
+                DomainTemplate::HelixInterval {
+                    start,
+                    end,
+                    forward,
+                } => {
+                    if let Some(ref pos1) = previous_position {
+                        let edge = edge_iter.next()?;
+                        let pos2 = self.grid_manager.translate_by_edge(pos1, edge)?;
+                        let helix = self.grid_manager.pos_to_helix(pos2.grid, pos2.x, pos2.y)?;
+                        ret.push(Domain::HelixDomain(HelixInterval {
+                            helix,
+                            start: start + shift,
+                            end: end + shift,
+                            forward: *forward,
+                            sequence: None,
+                        }));
+                        previous_position = Some(pos2);
+                    } else {
+                        let position = template.origin.helix;
+                        let pos2 = self
+                            .grid_manager
+                            .translate_by_edge(&position, &first_edge)?;
+
                         let helix = self.grid_manager.pos_to_helix(pos2.grid, pos2.x, pos2.y)?;
 
                         ret.push(Domain::HelixDomain(HelixInterval {

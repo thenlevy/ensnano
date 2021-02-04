@@ -54,12 +54,12 @@ impl GridDivision for Hyperboloid {
     }
 
     fn translation_to_edge(&self, x1: isize, _y1: isize, x2: isize, _y2: isize) -> Edge {
-        Edge::Circle((x2 - x1) % (self.radius as isize))
+        Edge::Circle((x2 - x1).rem_euclid(self.radius as isize))
     }
 
     fn translate_by_edge(&self, x1: isize, y1: isize, edge: Edge) -> Option<(isize, isize)> {
         match edge {
-            Edge::Circle(x) => Some((x1 + x, y1)),
+            Edge::Circle(x) => Some(((x1 + x).rem_euclid(self.radius as isize), y1)),
             _ => None,
         }
     }

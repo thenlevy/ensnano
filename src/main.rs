@@ -515,6 +515,10 @@ fn main() {
                     if requests.paste {
                         mediator.lock().unwrap().request_pasting_mode();
                         requests.paste = false;
+                        requests.duplication = false;
+                    } else if requests.duplication {
+                        mediator.lock().unwrap().request_duplication();
+                        requests.duplication = false;
                     }
                 }
 

@@ -91,6 +91,7 @@ pub struct Data {
     hyperboloid_draft: Option<GridDescriptor>,
     template: Option<StrandTemplate>,
     pasted_strand: Option<PastedStrand>,
+    duplication_edge: Option<(Edge, isize)>,
 }
 
 impl fmt::Debug for Data {
@@ -131,6 +132,7 @@ impl Data {
             template: None,
             pasted_strand: None,
             hyperboloid_draft: None,
+            duplication_edge: None,
         }
     }
 
@@ -321,6 +323,7 @@ impl Data {
             template: None,
             pasted_strand: None,
             hyperboloid_draft: None,
+            duplication_edge: None,
         };
         ret.make_hash_maps();
         ret.terminate_movement();
@@ -2289,14 +2292,17 @@ impl Data {
 
     pub fn set_copy(&mut self, nucl: Option<Nucl>) {
         if let Some(ref template) = self.template {
-            let domains = nucl.and_then(|n| self.template_to_domains(template, n));
+            let mut duplication_edge = None;
+            let domains =
+                nucl.and_then(|n| self.template_to_domains(template, n, &mut duplication_edge));
+            self.duplication_edge = duplication_edge;
             self.update_pasted_strand(domains);
             self.hash_maps_update = true;
             self.update_status = true;
         }
     }
 
-    pub fn apply_copy(&mut self) -> bool {
+    pub fn apply_copy(&mut self) -> Option<(Strand, usize)> {
         if let Some(pasted_strand) = self.pasted_strand.take() {
             let color = new_color(&mut self.color_idx);
             if self.can_add_domains(&pasted_strand.domains) {
@@ -2311,14 +2317,27 @@ impl Data {
                 } else {
                     0
                 };
-                self.design.strands.insert(strand_id, strand);
-                true
+                self.design.strands.insert(strand_id, strand.clone());
+                self.set_template(strand_id);
+                Some((strand, strand_id))
             } else {
-                false
+                None
             }
         } else {
-            false
+            None
         }
+    }
+
+    pub fn apply_duplication(&mut self) -> Option<(Strand, usize)> {
+        let domains = self.duplication_edge.and_then(|(edge, shift)| {
+            self.template
+                .as_ref()
+                .and_then(|t| self.duplicate_template(t, edge, shift))
+        });
+        self.update_pasted_strand(domains);
+        self.hash_maps_update = true;
+        self.update_status = true;
+        self.apply_copy()
     }
 
     pub fn has_template(&self) -> bool {

@@ -48,9 +48,10 @@ pub struct Mediator {
     redo_stack: Vec<Arc<dyn Operation>>,
     computing: Arc<Mutex<bool>>,
     centring: Option<(Nucl, usize)>,
-    pasting: bool,
+    pasting: PastingMode,
     last_selected_design: usize,
     pasting_attempt: Option<Nucl>,
+    duplication_attempt: bool,
 }
 
 /// The scheduler is responsible for running the different applications
@@ -191,9 +192,10 @@ impl Mediator {
             last_selection: None,
             computing,
             centring: None,
-            pasting: false,
+            pasting: PastingMode::Nothing,
             last_selected_design: 0,
             pasting_attempt: None,
+            duplication_attempt: false,
         }
     }
 
@@ -621,14 +623,40 @@ impl Mediator {
             self.notify_apps(Notification::NewCandidate(candidate))
         }
         if let Some(nucl) = self.pasting_attempt.take() {
-            if self.designs[self.last_selected_design]
+            let paste_result = self.designs[self.last_selected_design]
                 .write()
                 .unwrap()
-                .paste(nucl)
-            {
-                self.pasting = false;
-                self.notify_apps(Notification::Pasting(false));
+                .paste(nucl);
+            if let Some((strand, s_id)) = paste_result {
+                self.finish_op();
+                self.undo_stack.push(Arc::new(RmStrand {
+                    strand,
+                    strand_id: s_id,
+                    design_id: self.last_selected_design,
+                    undo: true,
+                }));
+                self.pasting.place_paste();
+                self.notify_apps(Notification::Pasting(self.pasting.is_placing_paste()));
             }
+        }
+        if self.duplication_attempt {
+            let paste_result = self.designs[self.last_selected_design]
+                .write()
+                .unwrap()
+                .apply_duplication();
+            if let Some((strand, s_id)) = paste_result {
+                self.finish_op();
+                self.undo_stack.push(Arc::new(RmStrand {
+                    strand,
+                    strand_id: s_id,
+                    design_id: self.last_selected_design,
+                    undo: true,
+                }))
+            } else {
+                self.pasting = PastingMode::FirstDulplication;
+            }
+            self.notify_apps(Notification::Pasting(self.pasting.is_placing_paste()));
+            self.duplication_attempt = false;
         }
         if let Some(selection) = self.last_selection.take() {
             ret = true;
@@ -819,7 +847,7 @@ impl Mediator {
 
     pub fn set_candidate(&mut self, candidate: Option<PhantomElement>) {
         let nucl = candidate.map(|c| c.to_nucl());
-        if self.pasting {
+        if self.pasting.is_placing_paste() {
             self.designs[self.last_selected_design]
                 .write()
                 .unwrap()
@@ -829,7 +857,7 @@ impl Mediator {
     }
 
     pub fn set_paste_candidate(&mut self, candidate: Option<Nucl>) {
-        if self.pasting {
+        if self.pasting.is_placing_paste() {
             self.designs[self.last_selected_design]
                 .write()
                 .unwrap()
@@ -924,18 +952,46 @@ impl Mediator {
     }
 
     pub fn request_pasting_mode(&mut self) {
-        self.pasting = self.designs[self.last_selected_design]
+        if self.designs[self.last_selected_design]
             .read()
             .unwrap()
-            .has_template();
-        if self.pasting {
+            .has_template()
+        {
+            self.pasting = PastingMode::Pasting;
+        }
+        if self.pasting.is_placing_paste() {
             self.change_selection_mode(SelectionMode::Nucleotide);
         }
-        self.notify_apps(Notification::Pasting(self.pasting));
+        self.notify_apps(Notification::Pasting(self.pasting.is_placing_paste()));
+    }
+
+    pub fn request_duplication(&mut self) {
+        match self.pasting {
+            PastingMode::Nothing => {
+                if self.designs[self.last_selected_design]
+                    .read()
+                    .unwrap()
+                    .has_template()
+                {
+                    self.pasting = PastingMode::FirstDulplication;
+                }
+            }
+            PastingMode::Pasting => {
+                self.pasting = PastingMode::FirstDulplication;
+            }
+            PastingMode::Duplicating => {
+                self.duplication_attempt = true;
+            }
+            PastingMode::FirstDulplication => (),
+        }
+        if self.pasting.is_placing_paste() {
+            self.change_selection_mode(SelectionMode::Nucleotide);
+        }
+        self.notify_apps(Notification::Pasting(self.pasting.is_placing_paste()));
     }
 
     pub fn attempt_paste(&mut self, nucl: Nucl) {
-        if self.pasting {
+        if self.pasting.is_placing_paste() {
             self.pasting_attempt = Some(nucl);
         }
     }
@@ -1016,4 +1072,33 @@ fn write_stapples(stapples: Vec<Stapple>, path: PathBuf) {
         .expect("write excel error!");
     }
     wb.close().expect("close excel error!");
+}
+
+#[derive(Debug)]
+enum PastingMode {
+    /// No pasting beeing made
+    Nothing,
+    /// First duplication, being positioned by the mouse
+    FirstDulplication,
+    /// Repeating last duplication
+    Duplicating,
+    /// One time duplication
+    Pasting,
+}
+
+impl PastingMode {
+    fn is_placing_paste(&self) -> bool {
+        match self {
+            Self::FirstDulplication | Self::Pasting => true,
+            Self::Nothing | Self::Duplicating => false,
+        }
+    }
+
+    fn place_paste(&mut self) {
+        match self {
+            Self::FirstDulplication => *self = Self::Duplicating,
+            Self::Pasting => *self = Self::Nothing,
+            _ => unreachable!(),
+        }
+    }
 }
