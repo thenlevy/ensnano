@@ -81,6 +81,14 @@ impl GridDivision for GridType {
         }
     }
 
+    fn orientation_helix(&self, parameters: &Parameters, x: isize, y: isize) -> Rotor3 {
+        match self {
+            GridType::Square(grid) => grid.orientation_helix(parameters, x, y),
+            GridType::Honeycomb(grid) => grid.orientation_helix(parameters, x, y),
+            GridType::Hyperboloid(grid) => grid.orientation_helix(parameters, x, y),
+        }
+    }
+
     fn interpolate(&self, parameters: &Parameters, x: f32, y: f32) -> (isize, isize) {
         match self {
             GridType::Square(grid) => grid.interpolate(parameters, x, y),
@@ -201,6 +209,10 @@ impl Grid {
         self.position + origin.x * z_vec + origin.y * y_vec
     }
 
+    pub fn orientation_helix(&self, x: isize, y: isize) -> Rotor3 {
+        self.orientation * self.grid_type.orientation_helix(&self.parameters, x, y)
+    }
+
     pub fn interpolate_helix(&self, origin: Vec3, axis: Vec3) -> Option<(isize, isize)> {
         let intersection = self.line_intersection(origin, axis)?;
         Some(
@@ -310,6 +322,10 @@ pub trait GridDivision {
     fn grid_type(&self) -> GridType;
     fn translation_to_edge(&self, x1: isize, y1: isize, x2: isize, y2: isize) -> Edge;
     fn translate_by_edge(&self, x1: isize, y1: isize, edge: Edge) -> Option<(isize, isize)>;
+
+    fn orientation_helix(&self, _parameters: &Parameters, _x: isize, _y: isize) -> Rotor3 {
+        Rotor3::identity()
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -645,16 +661,17 @@ impl GridManager {
                 let grid = &self.grids[grid_position.grid];
                 h.position = grid.position_helix(grid_position.x, grid_position.y);
                 h.orientation = {
+                    let orientation = grid.orientation_helix(grid_position.x, grid_position.y);
                     let normal =
-                        -self.parameters.helix_radius * Vec3::unit_y().rotated_by(grid.orientation);
+                        -self.parameters.helix_radius * Vec3::unit_y().rotated_by(orientation);
                     let actual = -self.parameters.helix_radius
-                        * Vec3::unit_y().rotated_by(grid.orientation)
+                        * Vec3::unit_y().rotated_by(orientation)
                         * grid_position.roll.cos()
                         - self.parameters.helix_radius
-                            * Vec3::unit_z().rotated_by(grid.orientation)
+                            * Vec3::unit_z().rotated_by(orientation)
                             * grid_position.roll.sin();
                     let roll = Rotor3::from_rotation_between(normal, actual);
-                    (roll * grid.orientation).normalized()
+                    (roll * grid.orientation_helix(grid_position.x, grid_position.y)).normalized()
                 };
                 h.position -=
                     grid_position.axis_pos as f32 * h.get_axis(&self.parameters).direction;

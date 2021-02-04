@@ -464,14 +464,6 @@ impl Data {
         self.update_selected_position()
     }
 
-    pub fn get_selected_nucl_relax(&self) -> Option<Nucl> {
-        if let Some(SceneElement::DesignElement(d_id, e_id)) = self.selected.get(0) {
-            self.designs[*d_id as usize].get_nucl_relax(*e_id)
-        } else {
-            None
-        }
-    }
-
     /// If self.selected[0] is some nucleotide, target is some nucleotide and both nucleotides are
     /// on the same design, return the pair of nucleotides. Otherwise return None
     pub fn attempt_xover(&self, target: Option<SceneElement>) -> Option<(Nucl, Nucl, usize)> {

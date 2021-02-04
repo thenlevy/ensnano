@@ -155,6 +155,7 @@ impl Data {
         }
     }
 
+    #[allow(dead_code)]
     pub fn get_pivot_position(&self, helix: FlatIdx, position: isize) -> Option<Vec2> {
         self.helices.get(helix).map(|h| h.get_pivot(position))
     }
@@ -208,7 +209,6 @@ impl Data {
     }
 
     pub fn notify_reset(&mut self) {
-        println!("notified need reset");
         self.instance_reset = true;
     }
 

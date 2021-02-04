@@ -204,7 +204,6 @@ impl Data {
                 shift,
                 radius_shift,
             };
-            println!("Making {:?}", hyperboloid);
             let parameters = self.design.parameters.unwrap_or_default();
             let (helices, nb_nucl) = hyperboloid.make_helices(&parameters);
             let mut key = self.design.helices.keys().max().map(|m| m + 1).unwrap_or(0);

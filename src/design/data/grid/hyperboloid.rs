@@ -28,6 +28,23 @@ impl GridDivision for Hyperboloid {
         Vec2::new(grid_radius * theta.cos(), grid_radius * theta.sin())
     }
 
+    fn orientation_helix(&self, parameters: &Parameters, x: isize, _y: isize) -> Rotor3 {
+        use std::f32::consts::PI;
+        let angle = PI / self.radius as f32;
+        let (small_r, big_r) = self.sheet_radii(parameters);
+        let grid_radius = (1. - self.radius_shift) * big_r + self.radius_shift * small_r;
+        let i = x % (self.radius as isize);
+        let theta = 2. * i as f32 * angle;
+        let origin = Vec3::new(0., grid_radius * theta.sin(), grid_radius * theta.cos());
+        let theta_ = theta + self.shift;
+        let dest = Vec3::new(
+            self.length,
+            grid_radius * theta_.sin(),
+            grid_radius * theta_.cos(),
+        );
+        Rotor3::from_rotation_between(Vec3::unit_x(), (dest - origin).normalized())
+    }
+
     fn interpolate(&self, _parameters: &Parameters, x: f32, y: f32) -> (isize, isize) {
         use std::f32::consts::PI;
         let angle = PI / self.radius as f32;
