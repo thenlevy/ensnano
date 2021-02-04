@@ -361,6 +361,7 @@ impl Data {
         c2: Vec2,
         camera: &CameraPtr,
     ) -> (Vec<FlatNucl>, Vec<Vec2>) {
+        println!("{:?} {:?}", c1, c2);
         let mut translation_pivots = vec![];
         let mut rotation_pivots = vec![];
         for h in self.helices.iter_mut() {
@@ -371,6 +372,21 @@ impl Data {
                 h.set_color(SELECTED_HELIX2D_COLOR);
                 translation_pivots.push(translation_pivot);
                 rotation_pivots.push(rotation_pivot);
+            }
+        }
+        let (x1, y1) = camera.borrow().world_to_norm_screen(c1.x, c1.y);
+        let (x2, y2) = camera.borrow().world_to_norm_screen(c2.x, c2.y);
+        let left = x1.min(x2);
+        let right = x1.max(x2);
+        let top = y1.min(y2);
+        let bottom = y1.max(y2);
+        println!("{}, {}, {}, {}", left, top, right, bottom);
+        for (s_id, s) in self.design.get_strands().iter().enumerate() {
+            for n in s.points.iter() {
+                let h = &self.helices[n.helix.flat];
+                if h.rectangle_has_nucl(*n, left, top, right, bottom, camera) {
+                    println!("{:?}", n);
+                }
             }
         }
         (translation_pivots, rotation_pivots)

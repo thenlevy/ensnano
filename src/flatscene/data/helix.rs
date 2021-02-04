@@ -321,8 +321,8 @@ impl Helix {
         self.z_index += 1;
     }
 
-    fn x_position(&self, x: f32) -> Vec2 {
-        let local_position = x * Vec2::unit_x() + Vec2::unit_y();
+    fn x_position(&self, x: f32, line: HelixLine) -> Vec2 {
+        let local_position = x * Vec2::unit_x() + line.adjustment();
 
         self.isometry
             .into_homogeneous_matrix()
@@ -393,12 +393,18 @@ impl Helix {
             None
         } else if self.left as f32 - 1. - 2. * CIRCLE_WIDGET_RADIUS > left {
             // There is room on the left of the helix
-            Some(self.x_position(self.left as f32 - 1. - CIRCLE_WIDGET_RADIUS))
+            Some(self.x_position(
+                self.left as f32 - 1. - CIRCLE_WIDGET_RADIUS,
+                HelixLine::Middle,
+            ))
         } else if self.right as f32 + 2. + 2. * CIRCLE_WIDGET_RADIUS < right {
             // There is room on the right of the helix
-            Some(self.x_position(self.right as f32 + 2. + CIRCLE_WIDGET_RADIUS))
+            Some(self.x_position(
+                self.right as f32 + 2. + CIRCLE_WIDGET_RADIUS,
+                HelixLine::Middle,
+            ))
         } else {
-            Some(self.x_position(left + CIRCLE_WIDGET_RADIUS))
+            Some(self.x_position(left + CIRCLE_WIDGET_RADIUS, HelixLine::Middle))
         };
         let color = if !self.visible {
             CIRCLE2D_GREY
@@ -616,23 +622,77 @@ impl Helix {
         self.right
     }
 
+    pub fn rectangle_has_nucl(
+        &self,
+        nucl: FlatNucl,
+        left: f32,
+        top: f32,
+        right: f32,
+        bottom: f32,
+        camera: &CameraPtr,
+    ) -> bool {
+        if let Some((x0, x1)) =
+            self.screen_rectangle_intersection(camera, left, top, right, bottom, HelixLine::Middle)
+        {
+            if nucl.position >= x0.floor() as isize && nucl.position <= x1.ceil() as isize {
+                return true;
+            }
+        }
+        if nucl.forward {
+            if let Some((x0, x1)) =
+                self.screen_rectangle_intersection(camera, left, top, right, bottom, HelixLine::Top)
+            {
+                if nucl.position >= x0.floor() as isize && nucl.position <= x1.ceil() as isize {
+                    return true;
+                }
+            }
+        } else {
+            if let Some((x0, x1)) = self.screen_rectangle_intersection(
+                camera,
+                left,
+                top,
+                right,
+                bottom,
+                HelixLine::Bottom,
+            ) {
+                if nucl.position >= x0.floor() as isize && nucl.position <= x1.ceil() as isize {
+                    return true;
+                }
+            }
+        }
+        false
+    }
+
     /// Return the coordinates at which self's axis intersect the screen bounds.
     fn screen_intersection(&self, camera: &CameraPtr) -> Option<(f32, f32)> {
+        self.screen_rectangle_intersection(camera, 0., 0., 1., 1., HelixLine::Middle)
+    }
+
+    /// Return the coordinates at which self's axis intersect a rectangle on the screen
+    fn screen_rectangle_intersection(
+        &self,
+        camera: &CameraPtr,
+        left: f32,
+        top: f32,
+        right: f32,
+        bottom: f32,
+        line: HelixLine,
+    ) -> Option<(f32, f32)> {
         let mut ret = Vec::new();
         let x0_screen = {
-            let world = self.x_position(0_f32);
+            let world = self.x_position(0_f32, line);
             camera.borrow().world_to_norm_screen(world.x, world.y)
         };
         let x1_screen = {
-            let world = self.x_position(1_f32);
+            let world = self.x_position(1_f32, line);
             camera.borrow().world_to_norm_screen(world.x, world.y)
         };
         let on_segment = |(_, t): &(f32, f32)| *t >= 0. && *t <= 1.;
         if let Some((s, _)) = line_intersect(
             x0_screen.into(),
             x1_screen.into(),
-            (0., 0.).into(),
-            (0., 1.).into(),
+            (left, top).into(),
+            (left, bottom).into(),
         )
         .filter(on_segment)
         {
@@ -643,8 +703,8 @@ impl Helix {
         if let Some((s, _)) = line_intersect(
             x0_screen.into(),
             x1_screen.into(),
-            (1., 0.).into(),
-            (1., 1.).into(),
+            (right, top).into(),
+            (right, bottom).into(),
         )
         .filter(on_segment)
         {
@@ -653,8 +713,8 @@ impl Helix {
         if let Some((s, _)) = line_intersect(
             x0_screen.into(),
             x1_screen.into(),
-            (0., 0.).into(),
-            (1., 0.).into(),
+            (left, top).into(),
+            (right, top).into(),
         )
         .filter(on_segment)
         {
@@ -663,8 +723,8 @@ impl Helix {
         if let Some((s, _)) = line_intersect(
             x0_screen.into(),
             x1_screen.into(),
-            (0., 1.).into(),
-            (1., 1.).into(),
+            (left, bottom).into(),
+            (right, bottom).into(),
         )
         .filter(on_segment)
         {
@@ -750,4 +810,21 @@ pub enum Shift {
     Prime5,
     /// The returned point will be slightly shifted in the 3' direction
     Prime3,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum HelixLine {
+    Top,
+    Middle,
+    Bottom,
+}
+
+impl HelixLine {
+    fn adjustment(&self) -> Vec2 {
+        match self {
+            Self::Top => Vec2::zero(),
+            Self::Middle => Vec2::unit_y(),
+            Self::Bottom => 2. * Vec2::unit_y(),
+        }
+    }
 }
