@@ -207,7 +207,16 @@ impl Data {
             let parameters = self.design.parameters.unwrap_or_default();
             let (helices, nb_nucl) = hyperboloid.make_helices(&parameters);
             let mut key = self.design.helices.keys().max().map(|m| m + 1).unwrap_or(0);
-            for h in helices {
+            let orientation = self.hyperboloid_draft.as_ref().unwrap().orientation;
+            for (i, mut h) in helices.into_iter().enumerate() {
+                let origin = hyperboloid.origin_helix(&parameters, i as isize, 0);
+                let z_vec = Vec3::unit_z().rotated_by(orientation);
+                let y_vec = Vec3::unit_y().rotated_by(orientation);
+                h.position = self.hyperboloid_draft.as_ref().unwrap().position
+                    + origin.x * z_vec
+                    + origin.y * y_vec;
+                h.orientation = self.hyperboloid_draft.as_ref().unwrap().orientation
+                    * hyperboloid.orientation_helix(&parameters, i as isize, 0);
                 self.design.helices.insert(key, h);
                 for b in [true, false].iter() {
                     let new_key = self.add_strand(key, 0, *b);
