@@ -34,10 +34,32 @@ pub enum DomainTemplate {
     },
 }
 
+#[derive(Debug)]
 pub struct PastedStrand {
     pub domains: Vec<Domain>,
     pub nucl_position: Vec<Vec3>,
     pub pastable: bool,
+}
+
+#[derive(Default, Debug)]
+pub struct TemplateManager {
+    pub templates: Vec<StrandTemplate>,
+    pub template_edges: Vec<(Edge, isize)>,
+    pub pasted_strands: Vec<PastedStrand>,
+    pub duplication_edge: Option<(Edge, isize)>,
+}
+
+impl TemplateManager {
+    pub fn update_templates(&mut self, templates: Vec<StrandTemplate>, edges: Vec<(Edge, isize)>) {
+        self.templates = templates;
+        self.template_edges = edges;
+    }
+
+    pub fn update_chief_template(&mut self, template: StrandTemplate) {
+        if let Some(t) = self.templates.get_mut(0) {
+            *t = template
+        }
+    }
 }
 
 impl Data {
@@ -204,8 +226,9 @@ impl Data {
         Some(ret)
     }
 
-    pub(super) fn update_pasted_strand(&mut self, domains: Option<Vec<Domain>>) {
-        if let Some(domains) = domains {
+    pub(super) fn update_pasted_strand(&mut self, domains_vec: Vec<Vec<Domain>>) {
+        let mut pasted_strands = vec![];
+        for domains in domains_vec.into_iter() {
             let mut nucl_position = Vec::with_capacity(domains.len() * 15);
             for dom in domains.iter() {
                 if let Domain::HelixDomain(dom) = dom {
@@ -217,13 +240,195 @@ impl Data {
                 }
             }
             let pastable = self.can_add_domains(&domains);
-            self.pasted_strand = Some(PastedStrand {
+            pasted_strands.push(PastedStrand {
                 domains,
                 nucl_position,
                 pastable,
             });
-        } else {
-            self.pasted_strand = None
         }
+        self.template_manager.pasted_strands = pasted_strands;
+    }
+
+    pub fn set_templates(&mut self, strand_ids: Vec<usize>) {
+        let templates: Option<Vec<StrandTemplate>> = strand_ids
+            .iter()
+            .map(|id| {
+                self.design
+                    .strands
+                    .get(&id)
+                    .and_then(|s| self.strand_to_template(s))
+            })
+            .collect();
+        let templates = templates.unwrap_or(vec![]);
+        let mut edges = vec![];
+        if templates.len() == 0 {
+            self.template_manager.update_templates(vec![], vec![])
+        } else {
+            if let Some(s_id1) = strand_ids.get(0) {
+                for s_id2 in strand_ids.iter().skip(1) {
+                    edges.push(self.edge_between_strands(*s_id1, *s_id2));
+                }
+            }
+            let edges = edges.into_iter().collect::<Option<Vec<(Edge, isize)>>>();
+            if let Some(edges) = edges {
+                self.template_manager.update_templates(templates, edges);
+            } else {
+                self.template_manager.update_templates(vec![], vec![]);
+            }
+        }
+    }
+
+    pub fn set_copy(&mut self, nucl: Option<Nucl>) {
+        let mut duplication_edge = None;
+        let domains_0 = nucl.and_then(|n| {
+            self.template_manager
+                .templates
+                .get(0)
+                .and_then(|t| self.template_to_domains(t, n, &mut duplication_edge))
+        });
+        if let Some(domains) = domains_0 {
+            self.template_manager.duplication_edge = duplication_edge;
+            let mut domains_vec = vec![domains];
+            for n in 1..self.template_manager.templates.len() {
+                let t = self.updated_template(n);
+                let domains = t.as_ref().and_then(|t| {
+                    nucl.as_ref().and_then(|n| {
+                        duplication_edge
+                            .and_then(|(e, s)| self.translate_nucl_by_edge(n, e, s))
+                            .and_then(|n2| self.template_to_domains(t, n2, &mut None))
+                    })
+                });
+                if let Some(domains) = domains {
+                    domains_vec.push(domains);
+                }
+            }
+            self.update_pasted_strand(domains_vec);
+        } else {
+            self.update_pasted_strand(vec![]);
+        }
+        self.hash_maps_update = true;
+        self.update_status = true;
+    }
+
+    pub fn apply_copy(&mut self) -> Vec<(Strand, usize)> {
+        let mut ret = Vec::with_capacity(self.template_manager.pasted_strands.len());
+        let mut first = true;
+        let mut chief_id = None;
+        for pasted_strand in self.template_manager.pasted_strands.iter() {
+            let color = super::new_color(&mut self.color_idx);
+            if self.can_add_domains(&pasted_strand.domains) {
+                let strand = super::icednano::Strand {
+                    domains: pasted_strand.domains.clone(),
+                    color,
+                    sequence: None,
+                    cyclic: false,
+                };
+                let strand_id = if let Some(n) = self.design.strands.keys().max() {
+                    n + 1
+                } else {
+                    0
+                };
+                self.design.strands.insert(strand_id, strand.clone());
+                if first {
+                    chief_id = Some(strand_id);
+                    first = false;
+                }
+                ret.push((strand, strand_id))
+            }
+        }
+        if let Some(s_id) = chief_id {
+            self.update_chief_template(s_id)
+        }
+        ret
+    }
+
+    pub fn apply_duplication(&mut self) -> Vec<(Strand, usize)> {
+        let mut domains_vec = Vec::with_capacity(self.template_manager.templates.len());
+        for n in 0..self.template_manager.templates.len() {
+            let template = self.updated_template(n);
+            let domains = self
+                .template_manager
+                .duplication_edge
+                .and_then(|(edge, shift)| {
+                    template
+                        .as_ref()
+                        .and_then(|t| self.duplicate_template(t, edge, shift))
+                });
+            if let Some(domains) = domains {
+                domains_vec.push(domains)
+            }
+        }
+        self.update_pasted_strand(domains_vec);
+        self.hash_maps_update = true;
+        self.update_status = true;
+        self.apply_copy()
+    }
+
+    fn update_chief_template(&mut self, s_id: usize) {
+        let template = self
+            .design
+            .strands
+            .get(&s_id)
+            .and_then(|s| self.strand_to_template(s))
+            .expect("update chief template");
+        self.template_manager.update_chief_template(template);
+    }
+
+    fn updated_template(&self, n: usize) -> Option<StrandTemplate> {
+        let chief = self.template_manager.templates.get(0).cloned()?;
+        let chief_origin = chief.origin.clone();
+        if n == 0 {
+            Some(chief)
+        } else {
+            let (edge, shift) = self.template_manager.template_edges.get(n - 1)?;
+            let mut ret = self.template_manager.templates.get(n).cloned()?;
+            let pos2 = self
+                .grid_manager
+                .translate_by_edge(&chief_origin.helix, edge)?;
+            let new_origin = TemplateOrigin {
+                helix: pos2,
+                start: chief_origin.start + shift,
+                forward: ret.origin.forward,
+            };
+            ret.origin = new_origin;
+            Some(ret)
+        }
+    }
+
+    fn edge_between_strands(&self, s_id1: usize, s_id2: usize) -> Option<(Edge, isize)> {
+        let strand1 = self.design.strands.get(&s_id1)?;
+        let strand2 = self.design.strands.get(&s_id2)?;
+        let nucl1 = strand1.get_5prime()?;
+        let nucl2 = strand2.get_5prime()?;
+        let pos1 = self
+            .design
+            .helices
+            .get(&nucl1.helix)
+            .and_then(|h| h.grid_position)?;
+        let pos2 = self
+            .design
+            .helices
+            .get(&nucl2.helix)
+            .and_then(|h| h.grid_position)?;
+        self.grid_manager
+            .get_edge(&pos1, &pos2)
+            .zip(Some(nucl2.position - nucl1.position))
+    }
+
+    fn translate_nucl_by_edge(&self, nucl1: &Nucl, edge: Edge, shift: isize) -> Option<Nucl> {
+        let pos1 = self
+            .design
+            .helices
+            .get(&nucl1.helix)
+            .and_then(|h| h.grid_position)?;
+        let h2 = self
+            .grid_manager
+            .translate_by_edge(&pos1, &edge)
+            .and_then(|pos2| self.grid_manager.pos_to_helix(pos2.grid, pos2.x, pos2.y))?;
+        Some(Nucl {
+            helix: h2,
+            position: nucl1.position + shift,
+            forward: nucl1.forward,
+        })
     }
 }

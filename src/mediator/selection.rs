@@ -73,7 +73,7 @@ impl Selection {
 
 pub(super) fn list_of_strands(
     selection: &[Selection],
-    design: Arc<RwLock<Design>>,
+    designs: Vec<Arc<RwLock<Design>>>,
 ) -> Option<(usize, Vec<usize>)> {
     let design_id = selection.get(0).and_then(Selection::get_design)?;
     let mut strands = BTreeSet::new();
@@ -83,7 +83,10 @@ pub(super) fn list_of_strands(
                 if *d_id != design_id {
                     return None;
                 }
-                let s_id = design.read().unwrap().get_strand_nucl(n)?;
+                let s_id = designs[design_id as usize]
+                    .read()
+                    .unwrap()
+                    .get_strand_nucl(n)?;
                 strands.insert(s_id);
             }
             Selection::Strand(d_id, s_id) => {

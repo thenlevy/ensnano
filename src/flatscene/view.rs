@@ -35,7 +35,7 @@ pub struct View {
     helices_view: Vec<HelixView>,
     helices_background: Vec<HelixView>,
     strands: Vec<StrandView>,
-    pasted_strand: Option<StrandView>,
+    pasted_strands: Vec<StrandView>,
     helices_model: Vec<HelixModel>,
     models: DynamicBindGroup,
     globals: UniformBindGroup,
@@ -128,7 +128,7 @@ impl View {
             helices: Vec::new(),
             helices_view: Vec::new(),
             strands: Vec::new(),
-            pasted_strand: None,
+            pasted_strands: Vec::new(),
             helices_model: Vec::new(),
             helices_background: Vec::new(),
             models,
@@ -254,12 +254,15 @@ impl View {
         self.was_updated = true;
     }
 
-    pub fn update_pasted_strand(&mut self, strand: Option<&Strand>, helices: &[Helix]) {
-        self.pasted_strand = strand.map(|strand| {
-            let mut pasted_strand = StrandView::new(self.device.clone(), self.queue.clone());
-            pasted_strand.update(strand, helices, &None, &self.selection);
-            pasted_strand
-        });
+    pub fn update_pasted_strand(&mut self, strand: &[Strand], helices: &[Helix]) {
+        self.pasted_strands = strand
+            .iter()
+            .map(|strand| {
+                let mut pasted_strand = StrandView::new(self.device.clone(), self.queue.clone());
+                pasted_strand.update(strand, helices, &None, &self.selection);
+                pasted_strand
+            })
+            .collect();
     }
 
     pub fn set_free_end(&mut self, free_end: Option<FreeEnd>) {
@@ -398,7 +401,7 @@ impl View {
         for strand in self.strands.iter() {
             strand.draw(&mut render_pass);
         }
-        if let Some(strand) = self.pasted_strand.as_ref() {
+        for strand in self.pasted_strands.iter() {
             strand.draw(&mut render_pass);
         }
         for suggestion in self.suggestions_view.iter() {

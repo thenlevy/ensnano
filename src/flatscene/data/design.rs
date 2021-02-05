@@ -16,7 +16,7 @@ pub(super) struct Design2d {
     /// A pointer to the design
     design: Arc<RwLock<Design>>,
     /// The strand being pasted,
-    pasted_strand: Option<Strand>,
+    pasted_strands: Vec<Strand>,
     last_flip_other: Option<FlatHelix>,
     removed: BTreeSet<FlatIdx>,
 }
@@ -28,7 +28,7 @@ impl Design2d {
             helices: HelixVec::new(),
             id_map: HashMap::new(),
             strands: Vec::new(),
-            pasted_strand: None,
+            pasted_strands: Vec::new(),
             last_flip_other: None,
             removed: BTreeSet::new(),
         }
@@ -66,17 +66,20 @@ impl Design2d {
         }
         let nucls_opt = self.design.read().unwrap().get_copy_points();
 
-        self.pasted_strand = nucls_opt.map(|nucls| {
-            let color = 0xCC_30_30_30;
-            for nucl in nucls.iter() {
-                self.read_nucl(nucl)
-            }
-            let flat_strand = nucls
-                .iter()
-                .map(|n| FlatNucl::from_real(n, self.id_map()))
-                .collect();
-            Strand::new(color, flat_strand, 0)
-        });
+        self.pasted_strands = nucls_opt
+            .iter()
+            .map(|nucls| {
+                let color = 0xCC_30_30_30;
+                for nucl in nucls.iter() {
+                    self.read_nucl(nucl)
+                }
+                let flat_strand = nucls
+                    .iter()
+                    .map(|n| FlatNucl::from_real(n, self.id_map()))
+                    .collect();
+                Strand::new(color, flat_strand, 0)
+            })
+            .collect();
 
         for h_id in self.id_map.keys() {
             let visibility = self.design.read().unwrap().get_visibility_helix(*h_id);
@@ -208,8 +211,8 @@ impl Design2d {
         &self.strands
     }
 
-    pub fn get_pasted_strand(&self) -> Option<&Strand> {
-        self.pasted_strand.as_ref()
+    pub fn get_pasted_strand(&self) -> &[Strand] {
+        &self.pasted_strands
     }
 
     pub fn set_isometry(&self, helix: FlatHelix, isometry: Isometry2) {

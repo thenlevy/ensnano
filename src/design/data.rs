@@ -38,7 +38,7 @@ use roller::PhysicalSystem;
 use std::sync::{mpsc::Sender, Arc, Mutex, RwLock};
 use strand_builder::NeighbourDescriptor;
 pub use strand_builder::{DomainIdentifier, StrandBuilder};
-use strand_template::{PastedStrand, StrandTemplate};
+use strand_template::{PastedStrand, StrandTemplate, TemplateManager};
 pub use torsion::Torsion;
 
 /// In addition to its `design` field, the `Data` struct has several hashmaps that are usefull to
@@ -89,9 +89,7 @@ pub struct Data {
     )>,
     hyperboloid_helices: Vec<usize>,
     hyperboloid_draft: Option<GridDescriptor>,
-    template: Option<StrandTemplate>,
-    pasted_strand: Option<PastedStrand>,
-    duplication_edge: Option<(Edge, isize)>,
+    template_manager: TemplateManager,
 }
 
 impl fmt::Debug for Data {
@@ -129,10 +127,8 @@ impl Data {
             blue_nucl: vec![],
             roller_ptrs: None,
             hyperboloid_helices: vec![],
-            template: None,
-            pasted_strand: None,
             hyperboloid_draft: None,
-            duplication_edge: None,
+            template_manager: Default::default(),
         }
     }
 
@@ -320,10 +316,8 @@ impl Data {
             blue_nucl: vec![],
             roller_ptrs: None,
             hyperboloid_helices: vec![],
-            template: None,
-            pasted_strand: None,
             hyperboloid_draft: None,
-            duplication_edge: None,
+            template_manager: Default::default(),
         };
         ret.make_hash_maps();
         ret.terminate_movement();
@@ -1083,30 +1077,32 @@ impl Data {
         Some(ret)
     }
 
-    pub fn get_copy_points(&self) -> Option<Vec<Nucl>> {
+    pub fn get_copy_points(&self) -> Vec<Vec<Nucl>> {
         let mut ret = Vec::new();
-        if let Some(ref strand) = self.pasted_strand {
+        for strand in self.template_manager.pasted_strands.iter() {
+            let mut points = Vec::new();
             for domain in strand.domains.iter() {
                 if let icednano::Domain::HelixDomain(domain) = domain {
                     if domain.forward {
-                        ret.push(Nucl::new(domain.helix, domain.start, domain.forward));
-                        ret.push(Nucl::new(domain.helix, domain.end - 1, domain.forward));
+                        points.push(Nucl::new(domain.helix, domain.start, domain.forward));
+                        points.push(Nucl::new(domain.helix, domain.end - 1, domain.forward));
                     } else {
-                        ret.push(Nucl::new(domain.helix, domain.end - 1, domain.forward));
-                        ret.push(Nucl::new(domain.helix, domain.start, domain.forward));
+                        points.push(Nucl::new(domain.helix, domain.end - 1, domain.forward));
+                        points.push(Nucl::new(domain.helix, domain.start, domain.forward));
                     }
                 }
             }
+            ret.push(points)
         }
-        Some(ret)
+        ret
     }
 
-    pub fn get_pasted_positions(&self) -> Option<(Vec<Vec3>, bool)> {
-        if let Some(ref strand) = self.pasted_strand {
-            Some((strand.nucl_position.clone(), strand.pastable))
-        } else {
-            None
-        }
+    pub fn get_pasted_positions(&self) -> Vec<(Vec<Vec3>, bool)> {
+        self.template_manager
+            .pasted_strands
+            .iter()
+            .map(|strand| (strand.nucl_position.clone(), strand.pastable))
+            .collect()
     }
 
     /// Return the identifier of the strand whose nucl is the 5' end of, or `None` if nucl is not
@@ -2282,66 +2278,8 @@ impl Data {
         self.design.helices.get(&h_id).map(|h| h.roll)
     }
 
-    pub fn set_template(&mut self, s_id: usize) {
-        self.template = self
-            .design
-            .strands
-            .get(&s_id)
-            .and_then(|s| self.strand_to_template(s));
-    }
-
-    pub fn set_copy(&mut self, nucl: Option<Nucl>) {
-        if let Some(ref template) = self.template {
-            let mut duplication_edge = None;
-            let domains =
-                nucl.and_then(|n| self.template_to_domains(template, n, &mut duplication_edge));
-            self.duplication_edge = duplication_edge;
-            self.update_pasted_strand(domains);
-            self.hash_maps_update = true;
-            self.update_status = true;
-        }
-    }
-
-    pub fn apply_copy(&mut self) -> Option<(Strand, usize)> {
-        if let Some(pasted_strand) = self.pasted_strand.take() {
-            let color = new_color(&mut self.color_idx);
-            if self.can_add_domains(&pasted_strand.domains) {
-                let strand = icednano::Strand {
-                    domains: pasted_strand.domains,
-                    color,
-                    sequence: None,
-                    cyclic: false,
-                };
-                let strand_id = if let Some(n) = self.design.strands.keys().max() {
-                    n + 1
-                } else {
-                    0
-                };
-                self.design.strands.insert(strand_id, strand.clone());
-                self.set_template(strand_id);
-                Some((strand, strand_id))
-            } else {
-                None
-            }
-        } else {
-            None
-        }
-    }
-
-    pub fn apply_duplication(&mut self) -> Option<(Strand, usize)> {
-        let domains = self.duplication_edge.and_then(|(edge, shift)| {
-            self.template
-                .as_ref()
-                .and_then(|t| self.duplicate_template(t, edge, shift))
-        });
-        self.update_pasted_strand(domains);
-        self.hash_maps_update = true;
-        self.update_status = true;
-        self.apply_copy()
-    }
-
     pub fn has_template(&self) -> bool {
-        self.template.is_some()
+        self.template_manager.templates.len() > 0
     }
 
     fn can_add_domains(&self, domains: &[icednano::Domain]) -> bool {

@@ -74,8 +74,8 @@ impl Design3D {
         let mut spheres = Vec::new();
         let mut tubes = Vec::new();
         let positions = self.design.read().unwrap().get_pasted_position();
-        let mut previous_postion = None;
-        if let Some((positions, pastable)) = positions {
+        for (positions, pastable) in positions {
+            let mut previous_postion = None;
             let color = if pastable {
                 CANDIDATE_COLOR
             } else {
@@ -97,10 +97,8 @@ impl Design3D {
                 }
                 previous_postion = Some(*position);
             }
-            (spheres, tubes)
-        } else {
-            (vec![], vec![])
         }
+        (spheres, tubes)
     }
 
     pub fn get_letter_instances(&self) -> Vec<Vec<LetterInstance>> {

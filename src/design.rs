@@ -473,7 +473,7 @@ impl Design {
         self.data.lock().unwrap().get_strand_points(s_id)
     }
 
-    pub fn get_copy_points(&self) -> Option<Vec<Nucl>> {
+    pub fn get_copy_points(&self) -> Vec<Vec<Nucl>> {
         self.data.lock().unwrap().get_copy_points()
     }
 
@@ -768,20 +768,24 @@ impl Design {
 
     pub fn request_copy(&mut self, nucl: Nucl) {
         if let Some(s_id) = self.get_strand_nucl(&nucl) {
-            self.data.lock().unwrap().set_template(s_id)
+            self.data.lock().unwrap().set_templates(vec![s_id])
         }
+    }
+
+    pub fn request_copy_strands(&mut self, s_ids: Vec<usize>) {
+        self.data.lock().unwrap().set_templates(s_ids)
     }
 
     pub fn request_paste_candidate(&mut self, nucl: Option<Nucl>) {
         self.data.lock().unwrap().set_copy(nucl)
     }
 
-    pub fn paste(&mut self, nucl: Nucl) -> Option<(Strand, usize)> {
+    pub fn paste(&mut self, nucl: Nucl) -> Vec<(Strand, usize)> {
         self.data.lock().unwrap().set_copy(Some(nucl));
         self.data.lock().unwrap().apply_copy()
     }
 
-    pub fn apply_duplication(&mut self) -> Option<(Strand, usize)> {
+    pub fn apply_duplication(&mut self) -> Vec<(Strand, usize)> {
         self.data.lock().unwrap().apply_duplication()
     }
 
@@ -789,7 +793,7 @@ impl Design {
         self.data.lock().unwrap().has_template()
     }
 
-    pub fn get_pasted_position(&self) -> Option<(Vec<Vec3>, bool)> {
+    pub fn get_pasted_position(&self) -> Vec<(Vec<Vec3>, bool)> {
         self.data.lock().unwrap().get_pasted_positions()
     }
 

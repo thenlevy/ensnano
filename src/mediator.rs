@@ -250,7 +250,7 @@ impl Mediator {
                 self.designs[*design_id as usize]
                     .write()
                     .unwrap()
-                    .change_strand_sequence(*strand_id as usize, sequence)
+                    .change_strand_sequence(*strand_id as usize, sequence.clone())
             }
         }
     }
@@ -631,7 +631,7 @@ impl Mediator {
                 .write()
                 .unwrap()
                 .paste(nucl);
-            if let Some((strand, s_id)) = paste_result {
+            for (strand, s_id) in paste_result {
                 self.finish_op();
                 self.undo_stack.push(Arc::new(RmStrand {
                     strand,
@@ -648,15 +648,16 @@ impl Mediator {
                 .write()
                 .unwrap()
                 .apply_duplication();
-            if let Some((strand, s_id)) = paste_result {
+            for (strand, s_id) in paste_result.iter() {
                 self.finish_op();
                 self.undo_stack.push(Arc::new(RmStrand {
-                    strand,
-                    strand_id: s_id,
+                    strand: strand.clone(),
+                    strand_id: *s_id,
                     design_id: self.last_selected_design,
                     undo: true,
                 }))
-            } else {
+            }
+            if paste_result.len() == 0 {
                 self.pasting = PastingMode::FirstDulplication;
             }
             self.notify_apps(Notification::Pasting(self.pasting.is_placing_paste()));
@@ -949,11 +950,11 @@ impl Mediator {
     }
 
     pub fn request_copy(&self) {
-        if let Selection::Nucleotide(d_id, nucl) = self.selection {
+        if let Some((d_id, s_ids)) = list_of_strands(&self.selection, self.designs.clone()) {
             self.designs[d_id as usize]
                 .write()
                 .unwrap()
-                .request_copy(nucl);
+                .request_copy_strands(s_ids);
         }
     }
 
