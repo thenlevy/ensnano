@@ -324,7 +324,10 @@ impl Scene {
         }
         let selection = self.data.borrow_mut().set_selection(element);
         if let Some(selection) = selection {
-            self.mediator.lock().unwrap().notify_selection(selection);
+            self.mediator
+                .lock()
+                .unwrap()
+                .notify_unique_selection(selection);
         }
         let pivot = self.data.borrow().get_selected_position();
         self.view.borrow_mut().update(ViewUpdate::FogCenter(pivot));

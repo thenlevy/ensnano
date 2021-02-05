@@ -87,7 +87,8 @@ impl FlatScene {
             self.area,
             camera.clone(),
         )));
-        let data = Rc::new(RefCell::new(Data::new(view.clone(), design)));
+        let d_id = self.data.len() as u32;
+        let data = Rc::new(RefCell::new(Data::new(view.clone(), design, d_id)));
         let mut controller = Controller::new(
             view.clone(),
             data.clone(),
@@ -335,7 +336,10 @@ impl FlatScene {
                     let selection = self.data[self.selected_design]
                         .borrow()
                         .get_selection(nucl, self.selected_design as u32);
-                    self.mediator.lock().unwrap().notify_selection(selection);
+                    self.mediator
+                        .lock()
+                        .unwrap()
+                        .notify_unique_selection(selection);
                 }
                 Consequence::DrawingSelection(c1, c2) => self.view[self.selected_design]
                     .borrow_mut()
@@ -395,7 +399,7 @@ impl Application for FlatScene {
                 let id_map = data.id_map();
                 self.view[self.selected_design]
                     .borrow_mut()
-                    .set_selection(FlatSelection::from_real(&selection, id_map));
+                    .set_selection(FlatSelection::from_real(selection.get(0), id_map));
                 drop(data);
                 self.data[self.selected_design].borrow_mut().notify_update();
                 self.view[self.selected_design]
@@ -416,7 +420,18 @@ impl Application for FlatScene {
                     c.set_pasting(b)
                 }
             }
-            _ => (),
+            Notification::CameraTarget(_) => (),
+            Notification::NewSelectionMode(selection_mode) => {
+                for data in self.data.iter() {
+                    data.borrow_mut().change_selection_mode(selection_mode);
+                }
+            }
+            Notification::AppNotification(_) => (),
+            Notification::NewSensitivity(_) => (),
+            Notification::ClearDesigns => (),
+            Notification::NewCandidate(_) => (), //TODO this can prove usefull in the future
+            Notification::Centering(_, _) => (),
+            Notification::CameraRotation(_, _) => (),
         }
     }
 

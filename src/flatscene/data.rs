@@ -1,6 +1,6 @@
 use super::{Flat, HelixVec, ViewPtr};
 use crate::design::{Design, Nucl, StrandBuilder};
-use crate::mediator::Selection;
+use crate::mediator::{Selection, SelectionMode};
 use std::sync::{Arc, RwLock};
 use ultraviolet::Vec2;
 
@@ -16,7 +16,7 @@ use crate::utils::camera2d::FitRectangle;
 use ahash::RandomState;
 pub use design::FlatTorsion;
 use design::{Design2d, Helix2d};
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
 pub struct Data {
     view: ViewPtr,
@@ -29,10 +29,13 @@ pub struct Data {
     basis_map: Arc<RwLock<HashMap<Nucl, char, RandomState>>>,
     groups: Arc<RwLock<BTreeMap<usize, bool>>>,
     suggestions: HashMap<FlatNucl, HashSet<FlatNucl, RandomState>, RandomState>,
+    selection_mode: SelectionMode,
+    selection: Vec<Selection>,
+    id: u32,
 }
 
 impl Data {
-    pub fn new(view: ViewPtr, design: Arc<RwLock<Design>>) -> Self {
+    pub fn new(view: ViewPtr, design: Arc<RwLock<Design>>, id: u32) -> Self {
         let basis_map = design.read().unwrap().get_basis_map();
         let groups = design.read().unwrap().get_groups();
         Self {
@@ -46,7 +49,14 @@ impl Data {
             basis_map,
             groups,
             suggestions: Default::default(),
+            selection_mode: SelectionMode::default(),
+            selection: vec![],
+            id,
         }
+    }
+
+    pub fn change_selection_mode(&mut self, selection_mode: SelectionMode) {
+        self.selection_mode = selection_mode
     }
 
     pub fn perform_update(&mut self) {
@@ -361,9 +371,14 @@ impl Data {
         c2: Vec2,
         camera: &CameraPtr,
     ) -> (Vec<FlatNucl>, Vec<Vec2>) {
+        if self.selection_mode == SelectionMode::Strand {
+            self.select_strands_rectangle(camera, c1, c2);
+            return (vec![], vec![]);
+        }
         println!("{:?} {:?}", c1, c2);
         let mut translation_pivots = vec![];
         let mut rotation_pivots = vec![];
+        let mut selection = Vec::new();
         for h in self.helices.iter_mut() {
             let c = h.get_circle(camera);
             if c.map(|c| c.in_rectangle(&c1, &c2)).unwrap_or(false) {
@@ -372,8 +387,14 @@ impl Data {
                 h.set_color(SELECTED_HELIX2D_COLOR);
                 translation_pivots.push(translation_pivot);
                 rotation_pivots.push(rotation_pivot);
+                selection.push(Selection::Helix(self.id, h.real_id as u32));
             }
         }
+        self.selection = selection;
+        (translation_pivots, rotation_pivots)
+    }
+
+    fn select_strands_rectangle(&mut self, camera: &CameraPtr, c1: Vec2, c2: Vec2) {
         let (x1, y1) = camera.borrow().world_to_norm_screen(c1.x, c1.y);
         let (x2, y2) = camera.borrow().world_to_norm_screen(c2.x, c2.y);
         let left = x1.min(x2);
@@ -381,15 +402,21 @@ impl Data {
         let top = y1.min(y2);
         let bottom = y1.max(y2);
         println!("{}, {}, {}, {}", left, top, right, bottom);
+        let mut selection = BTreeSet::new();
         for (s_id, s) in self.design.get_strands().iter().enumerate() {
             for n in s.points.iter() {
                 let h = &self.helices[n.helix.flat];
                 if h.rectangle_has_nucl(*n, left, top, right, bottom, camera) {
-                    println!("{:?}", n);
+                    selection.insert(s_id);
+                    break;
                 }
             }
         }
-        (translation_pivots, rotation_pivots)
+        let selection: Vec<Selection> = selection
+            .iter()
+            .map(|s_id| Selection::Strand(self.id, *s_id as u32))
+            .collect();
+        self.selection = selection;
     }
 }
 

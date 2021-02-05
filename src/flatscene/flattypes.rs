@@ -138,23 +138,30 @@ pub enum FlatSelection {
 }
 
 impl FlatSelection {
-    pub fn from_real(selection: &Selection, id_map: &HashMap<usize, FlatIdx>) -> FlatSelection {
-        match selection {
-            Selection::Nucleotide(d, nucl) => {
-                Self::Nucleotide(*d as usize, FlatNucl::from_real(nucl, id_map))
+    pub fn from_real(
+        selection: Option<&Selection>,
+        id_map: &HashMap<usize, FlatIdx>,
+    ) -> FlatSelection {
+        if let Some(selection) = selection {
+            match selection {
+                Selection::Nucleotide(d, nucl) => {
+                    Self::Nucleotide(*d as usize, FlatNucl::from_real(nucl, id_map))
+                }
+                Selection::Bound(d, n1, n2) => {
+                    let n1 = FlatNucl::from_real(n1, id_map);
+                    let n2 = FlatNucl::from_real(n2, id_map);
+                    Self::Bound(*d as usize, n1, n2)
+                }
+                Selection::Design(d) => Self::Design(*d as usize),
+                Selection::Strand(d, s_id) => Self::Strand(*d as usize, *s_id as usize),
+                Selection::Helix(d, h_id) => {
+                    Self::Helix(*d as usize, FlatHelix::from_real(*h_id as usize, id_map))
+                }
+                Selection::Grid(d, g_id) => Self::Grid(*d as usize, *g_id),
+                Selection::Nothing => Self::Nothing,
             }
-            Selection::Bound(d, n1, n2) => {
-                let n1 = FlatNucl::from_real(n1, id_map);
-                let n2 = FlatNucl::from_real(n2, id_map);
-                Self::Bound(*d as usize, n1, n2)
-            }
-            Selection::Design(d) => Self::Design(*d as usize),
-            Selection::Strand(d, s_id) => Self::Strand(*d as usize, *s_id as usize),
-            Selection::Helix(d, h_id) => {
-                Self::Helix(*d as usize, FlatHelix::from_real(*h_id as usize, id_map))
-            }
-            Selection::Grid(d, g_id) => Self::Grid(*d as usize, *g_id),
-            Selection::Nothing => Self::Nothing,
+        } else {
+            Self::Nothing
         }
     }
 }

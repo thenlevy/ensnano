@@ -1,4 +1,5 @@
 use crate::design::{Design, Nucl};
+use std::collections::BTreeSet;
 use std::sync::{Arc, RwLock};
 
 #[derive(Debug, Clone, Copy)]
@@ -68,6 +69,34 @@ impl Selection {
             _ => Vec::new(),
         }
     }
+}
+
+pub(super) fn list_of_strands(
+    selection: &[Selection],
+    design: Arc<RwLock<Design>>,
+) -> Option<(usize, Vec<usize>)> {
+    let design_id = selection.get(0).and_then(Selection::get_design)?;
+    let mut strands = BTreeSet::new();
+    for s in selection.iter() {
+        match s {
+            Selection::Nucleotide(d_id, n) => {
+                if *d_id != design_id {
+                    return None;
+                }
+                let s_id = design.read().unwrap().get_strand_nucl(n)?;
+                strands.insert(s_id);
+            }
+            Selection::Strand(d_id, s_id) => {
+                if *d_id != design_id {
+                    return None;
+                }
+                strands.insert(*s_id as usize);
+            }
+            _ => return None,
+        }
+    }
+    let strands: Vec<usize> = strands.into_iter().collect();
+    Some((design_id as usize, strands))
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

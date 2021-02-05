@@ -36,9 +36,9 @@ pub type MediatorPtr = Arc<Mutex<Mediator>>;
 pub struct Mediator {
     applications: HashMap<ElementType, Arc<Mutex<dyn Application>>>,
     designs: Vec<Arc<RwLock<Design>>>,
-    selection: Selection,
+    selection: Vec<Selection>,
     candidate: Option<Option<PhantomElement>>,
-    last_selection: Option<Selection>,
+    last_selection: Option<Vec<Selection>>,
     messages: Arc<Mutex<IcedMessages>>,
     /// The operation that is beign modified by the current drag and drop
     current_operation: Option<Arc<dyn Operation>>,
@@ -149,7 +149,7 @@ pub enum Notification {
     /// A new element of the design must be highlighted
     NewCandidate(Option<PhantomElement>),
     /// An element has been selected in the 3d view
-    Selection3D(Selection),
+    Selection3D(Vec<Selection>),
     /// A save request has been filled
     Save(usize),
     /// The 3d camera must face a given target
@@ -182,7 +182,7 @@ impl Mediator {
         Self {
             applications: HashMap::new(),
             designs: Vec::new(),
-            selection: Selection::Nothing,
+            selection: vec![],
             messages,
             current_operation: None,
             last_op: None,
@@ -234,20 +234,24 @@ impl Mediator {
     }
 
     pub fn change_strand_color(&mut self, color: u32) {
-        if let Selection::Strand(design_id, strand_id) = self.selection {
-            self.designs[design_id as usize]
-                .write()
-                .unwrap()
-                .change_strand_color(strand_id as usize, color)
+        for s in self.selection.iter() {
+            if let Selection::Strand(design_id, strand_id) = s {
+                self.designs[*design_id as usize]
+                    .write()
+                    .unwrap()
+                    .change_strand_color(*strand_id as usize, color)
+            }
         }
     }
 
     pub fn change_sequence(&mut self, sequence: String) {
-        if let Selection::Strand(design_id, strand_id) = self.selection {
-            self.designs[design_id as usize]
-                .write()
-                .unwrap()
-                .change_strand_sequence(strand_id as usize, sequence)
+        for s in self.selection.iter() {
+            if let Selection::Strand(design_id, strand_id) = s {
+                self.designs[*design_id as usize]
+                    .write()
+                    .unwrap()
+                    .change_strand_sequence(*strand_id as usize, sequence)
+            }
         }
     }
 
@@ -462,8 +466,8 @@ impl Mediator {
     }
 
     pub fn set_persistent_phantom(&mut self, persistent: bool) {
-        match self.selection {
-            Selection::Grid(d_id, g_id) => self.designs[d_id as usize]
+        match self.selection.get(0) {
+            Some(Selection::Grid(d_id, g_id)) => self.designs[*d_id as usize]
                 .read()
                 .unwrap()
                 .set_persistent_phantom(&g_id, persistent),
@@ -472,8 +476,8 @@ impl Mediator {
     }
 
     pub fn set_small_spheres(&mut self, small: bool) {
-        match self.selection {
-            Selection::Grid(d_id, g_id) => self.designs[d_id as usize]
+        match self.selection.get(0) {
+            Some(Selection::Grid(d_id, g_id)) => self.designs[*d_id as usize]
                 .read()
                 .unwrap()
                 .set_small_spheres(&g_id, small),
@@ -507,9 +511,9 @@ impl Mediator {
         self.notify_apps(Notification::ClearDesigns)
     }
 
-    pub fn notify_selection(&mut self, selection: Selection) {
-        self.selection = selection;
-        self.last_selection = Some(selection);
+    pub fn notify_unique_selection(&mut self, selection: Selection) {
+        self.selection = vec![selection];
+        self.last_selection = Some(vec![selection]);
         if selection.is_strand() {
             let mut messages = self.messages.lock().unwrap();
             if let Selection::Strand(d_id, s_id) = selection {
@@ -672,7 +676,7 @@ impl Mediator {
     }
 
     fn selected_design(&self) -> Option<u32> {
-        self.selection.get_design()
+        self.selection.get(0).and_then(Selection::get_design)
     }
 
     /// Update the current operation.
@@ -917,11 +921,13 @@ impl Mediator {
     }
 
     pub fn roll_helix(&mut self, roll: f32) {
-        if let Selection::Helix(d_id, h_id) = self.selection {
-            self.designs[d_id as usize]
-                .write()
-                .unwrap()
-                .roll_helix(h_id as usize, roll);
+        for h in self.selection.iter() {
+            if let Selection::Helix(d_id, h_id) = h {
+                self.designs[*d_id as usize]
+                    .write()
+                    .unwrap()
+                    .roll_helix(*h_id as usize, roll);
+            }
         }
     }
 
