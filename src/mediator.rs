@@ -511,6 +511,11 @@ impl Mediator {
         self.notify_apps(Notification::ClearDesigns)
     }
 
+    pub fn notify_multiple_selection(&mut self, selection: Vec<Selection>) {
+        self.selection = selection.clone();
+        self.last_selection = Some(selection);
+    }
+
     pub fn notify_unique_selection(&mut self, selection: Selection) {
         self.selection = vec![selection];
         self.last_selection = Some(vec![selection]);
@@ -631,17 +636,20 @@ impl Mediator {
                 .write()
                 .unwrap()
                 .paste(nucl);
-            for (strand, s_id) in paste_result {
+            for (strand, s_id) in paste_result.iter() {
                 self.finish_op();
                 self.undo_stack.push(Arc::new(RmStrand {
-                    strand,
-                    strand_id: s_id,
+                    strand: strand.clone(),
+                    strand_id: *s_id,
                     design_id: self.last_selected_design,
                     undo: true,
                 }));
+            }
+            if paste_result.len() > 0 {
                 self.pasting.place_paste();
                 self.notify_apps(Notification::Pasting(self.pasting.is_placing_paste()));
             }
+
         }
         if self.duplication_attempt {
             let paste_result = self.designs[self.last_selected_design]
@@ -949,13 +957,14 @@ impl Mediator {
         self.notify_apps(Notification::ShowTorsion(show))
     }
 
-    pub fn request_copy(&self) {
+    pub fn request_copy(&mut self) {
         if let Some((d_id, s_ids)) = list_of_strands(&self.selection, self.designs.clone()) {
             self.designs[d_id as usize]
                 .write()
                 .unwrap()
                 .request_copy_strands(s_ids);
         }
+        self.pasting = PastingMode::Nothing;
     }
 
     pub fn request_pasting_mode(&mut self) {

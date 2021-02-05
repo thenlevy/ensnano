@@ -30,7 +30,7 @@ pub struct Data {
     groups: Arc<RwLock<BTreeMap<usize, bool>>>,
     suggestions: HashMap<FlatNucl, HashSet<FlatNucl, RandomState>, RandomState>,
     selection_mode: SelectionMode,
-    selection: Vec<Selection>,
+    pub selection: Vec<Selection>,
     id: u32,
 }
 

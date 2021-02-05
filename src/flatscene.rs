@@ -349,6 +349,7 @@ impl FlatScene {
                         .borrow_mut()
                         .clear_rectangle();
                     //self.data[self.selected_design].borrow().get_helices_in_rect(c1, c2, camera);
+                    self.mediator.lock().unwrap().notify_multiple_selection(self.data[self.selected_design].borrow().selection.clone());
                 }
                 Consequence::PasteRequest(nucl) => {
                     self.mediator.lock().unwrap().attempt_paste(nucl.to_real());

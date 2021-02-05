@@ -47,10 +47,12 @@ pub struct TemplateManager {
     pub template_edges: Vec<(Edge, isize)>,
     pub pasted_strands: Vec<PastedStrand>,
     pub duplication_edge: Option<(Edge, isize)>,
+    pub starting_nucl: Option<Nucl>,
 }
 
 impl TemplateManager {
     pub fn update_templates(&mut self, templates: Vec<StrandTemplate>, edges: Vec<(Edge, isize)>) {
+        println!("edges {:?}", edges);
         self.templates = templates;
         self.template_edges = edges;
     }
@@ -179,6 +181,7 @@ impl Data {
         template: &StrandTemplate,
         first_edge: Edge,
         shift: isize,
+        additional_edge: Option<(Edge, isize)>,
     ) -> Option<Vec<Domain>> {
         let mut ret = Vec::with_capacity(template.domains.len());
         let mut edge_iter = template.edges.iter();
@@ -205,15 +208,25 @@ impl Data {
                         previous_position = Some(pos2);
                     } else {
                         let position = template.origin.helix;
-                        let pos2 = self
+                        let mut pos2 = self
                             .grid_manager
                             .translate_by_edge(&position, &first_edge)?;
+
+                        println!("pos2 {:?}", pos2);
+                        let start = if let Some((edge2, shift2)) = additional_edge {
+                            println!("additional edge");
+                            pos2 = self.grid_manager.translate_by_edge(&pos2, &edge2)?;
+                            start + shift + shift2
+                        } else {
+                            start + shift
+                        };
+                        println!("pos2 => {:?}", pos2);
 
                         let helix = self.grid_manager.pos_to_helix(pos2.grid, pos2.x, pos2.y)?;
 
                         ret.push(Domain::HelixDomain(HelixInterval {
                             helix,
-                            start: start + shift,
+                            start,
                             end: end + shift,
                             forward: template.origin.forward,
                             sequence: None,
@@ -288,13 +301,15 @@ impl Data {
         });
         if let Some(domains) = domains_0 {
             self.template_manager.duplication_edge = duplication_edge;
+            self.template_manager.starting_nucl = nucl;
             let mut domains_vec = vec![domains];
             for n in 1..self.template_manager.templates.len() {
-                let t = self.updated_template(n);
+                let t = self.template_manager.templates.get(n);
+                println!("updated template {:?}", t);
                 let domains = t.as_ref().and_then(|t| {
-                    nucl.as_ref().and_then(|n| {
-                        duplication_edge
-                            .and_then(|(e, s)| self.translate_nucl_by_edge(n, e, s))
+                    nucl.as_ref().and_then(|nucl| {
+                        self.template_manager.template_edges.get(n-1)
+                            .and_then(|(e, s)| self.translate_nucl_by_edge(nucl, *e, *s))
                             .and_then(|n2| self.template_to_domains(t, n2, &mut None))
                     })
                 });
@@ -344,18 +359,32 @@ impl Data {
 
     pub fn apply_duplication(&mut self) -> Vec<(Strand, usize)> {
         let mut domains_vec = Vec::with_capacity(self.template_manager.templates.len());
+        let starting_nucl = self.template_manager.starting_nucl.and_then(|n| self.template_manager.duplication_edge.and_then(|d| self.translate_nucl_by_edge(&n, d.0, d.1)));
+        println!("starting nucl {:?}", starting_nucl);
+        self.template_manager.starting_nucl = starting_nucl;
         for n in 0..self.template_manager.templates.len() {
-            let template = self.updated_template(n);
-            let domains = self
-                .template_manager
-                .duplication_edge
-                .and_then(|(edge, shift)| {
-                    template
-                        .as_ref()
-                        .and_then(|t| self.duplicate_template(t, edge, shift))
-                });
+            let template = self.template_manager.templates.get(n);
+            let domains = if n > 0 {
+                template.as_ref().and_then(|t| {
+                    starting_nucl.as_ref().and_then(|nucl| {
+                        self.template_manager.template_edges.get(n-1)
+                            .and_then(|(e, s)| self.translate_nucl_by_edge(nucl, *e, *s))
+                            .and_then(|n2| {
+                                println!("n2 {:?}", n2);
+                                self.template_to_domains(t, n2, &mut None)})
+                    })
+                })
+            } else {
+                template.as_ref().and_then(|t| {
+                starting_nucl.as_ref().and_then(|n2| {
+                            println!("n2 {:?}", n2);
+                            self.template_to_domains(t, *n2, &mut None)})
+                })
+            };
             if let Some(domains) = domains {
-                domains_vec.push(domains)
+                domains_vec.push(domains);
+            } else if n == 0 {
+                return vec![]
             }
         }
         self.update_pasted_strand(domains_vec);
@@ -382,6 +411,8 @@ impl Data {
         } else {
             let (edge, shift) = self.template_manager.template_edges.get(n - 1)?;
             let mut ret = self.template_manager.templates.get(n).cloned()?;
+            println!("chief origin {:?}", chief_origin);
+            println!("edge {:?}, shift {:?}", edge, shift);
             let pos2 = self
                 .grid_manager
                 .translate_by_edge(&chief_origin.helix, edge)?;
@@ -391,6 +422,7 @@ impl Data {
                 forward: ret.origin.forward,
             };
             ret.origin = new_origin;
+            println!("ret {:?}", ret);
             Some(ret)
         }
     }
