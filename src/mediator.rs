@@ -633,22 +633,36 @@ impl Mediator {
             self.notify_apps(Notification::NewCandidate(candidate))
         }
         if let Some(nucl) = self.pasting_attempt.take() {
-            let paste_result = self.designs[self.last_selected_design]
-                .write()
-                .unwrap()
-                .paste(nucl);
-            for (strand, s_id) in paste_result.iter() {
-                self.finish_op();
-                self.undo_stack.push(Arc::new(RmStrand {
-                    strand: strand.clone(),
-                    strand_id: *s_id,
-                    design_id: self.last_selected_design,
-                    undo: true,
-                }));
-            }
-            if paste_result.len() > 0 {
-                self.pasting.place_paste();
-                self.notify_apps(Notification::Pasting(self.pasting.is_placing_paste()));
+            match self.pasting {
+                PastingMode::Pasting | PastingMode::FirstDulplication => {
+                    let paste_result = self.designs[self.last_selected_design]
+                        .write()
+                        .unwrap()
+                        .paste(nucl);
+                    for (strand, s_id) in paste_result.iter() {
+                        self.finish_op();
+                        self.undo_stack.push(Arc::new(RmStrand {
+                            strand: strand.clone(),
+                            strand_id: *s_id,
+                            design_id: self.last_selected_design,
+                            undo: true,
+                        }));
+                    }
+                    if paste_result.len() > 0 {
+                        self.pasting.place_paste();
+                        self.notify_apps(Notification::Pasting(self.pasting.is_placing_paste()));
+                    }
+                }
+                _ => {
+                    let result = self.designs[self.last_selected_design]
+                        .write()
+                        .unwrap()
+                        .paste_xover(nucl);
+                    if result {
+                        self.pasting.place_paste();
+                        self.notify_apps(Notification::Pasting(self.pasting.is_placing_paste()));
+                    }
+                }
             }
         }
         if self.duplication_attempt {
@@ -861,20 +875,34 @@ impl Mediator {
     pub fn set_candidate(&mut self, candidate: Option<PhantomElement>) {
         let nucl = candidate.map(|c| c.to_nucl());
         if self.pasting.is_placing_paste() {
-            self.designs[self.last_selected_design]
-                .write()
-                .unwrap()
-                .request_paste_candidate(nucl)
+            if self.pasting.strand() {
+                self.designs[self.last_selected_design]
+                    .write()
+                    .unwrap()
+                    .request_paste_candidate(nucl)
+            } else if self.pasting.xover() {
+                self.designs[self.last_selected_design]
+                    .write()
+                    .unwrap()
+                    .request_paste_candidate_xover(nucl);
+            }
         }
         self.candidate = Some(candidate)
     }
 
     pub fn set_paste_candidate(&mut self, candidate: Option<Nucl>) {
         if self.pasting.is_placing_paste() {
-            self.designs[self.last_selected_design]
-                .write()
-                .unwrap()
-                .request_paste_candidate(candidate)
+            if self.pasting.strand() {
+                self.designs[self.last_selected_design]
+                    .write()
+                    .unwrap()
+                    .request_paste_candidate(candidate)
+            } else if self.pasting.xover() {
+                self.designs[self.last_selected_design]
+                    .write()
+                    .unwrap()
+                    .request_paste_candidate_xover(candidate);
+            }
         }
     }
 
@@ -958,6 +986,7 @@ impl Mediator {
     }
 
     pub fn request_copy(&mut self) {
+        println!("selection : {:?}", self.selection);
         if let Some((d_id, s_ids)) = list_of_strands(&self.selection, self.designs.clone()) {
             self.designs[d_id as usize]
                 .write()
@@ -978,10 +1007,16 @@ impl Mediator {
             .read()
             .unwrap()
             .has_template()
-            || true
         {
             self.pasting = PastingMode::Pasting;
+        } else if self.designs[self.last_selected_design]
+            .read()
+            .unwrap()
+            .has_xovers_copy()
+        {
+            self.pasting = PastingMode::PastingXover
         }
+        println!("{:?}", self.pasting);
         if self.pasting.is_placing_paste() {
             self.change_selection_mode(SelectionMode::Nucleotide);
         }
@@ -997,6 +1032,12 @@ impl Mediator {
                     .has_template()
                 {
                     self.pasting = PastingMode::FirstDulplication;
+                } else if self.designs[self.last_selected_design]
+                    .read()
+                    .unwrap()
+                    .has_xovers_copy()
+                {
+                    self.pasting = PastingMode::FirstDulplicationXover;
                 }
             }
             PastingMode::Pasting => {
@@ -1005,6 +1046,13 @@ impl Mediator {
             PastingMode::Duplicating => {
                 self.duplication_attempt = true;
             }
+            PastingMode::PastingXover => {
+                self.pasting = PastingMode::FirstDulplicationXover;
+            }
+            PastingMode::DuplicatingXover => {
+                self.duplication_attempt = true;
+            }
+            PastingMode::FirstDulplicationXover => (),
             PastingMode::FirstDulplication => (),
         }
         if self.pasting.is_placing_paste() {
@@ -1107,13 +1155,19 @@ enum PastingMode {
     Duplicating,
     /// One time duplication
     Pasting,
+    PastingXover,
+    FirstDulplicationXover,
+    DuplicatingXover,
 }
 
 impl PastingMode {
     fn is_placing_paste(&self) -> bool {
         match self {
-            Self::FirstDulplication | Self::Pasting => true,
-            Self::Nothing | Self::Duplicating => false,
+            Self::FirstDulplication
+            | Self::Pasting
+            | Self::FirstDulplicationXover
+            | Self::PastingXover => true,
+            Self::Nothing | Self::Duplicating | Self::DuplicatingXover => false,
         }
     }
 
@@ -1121,7 +1175,25 @@ impl PastingMode {
         match self {
             Self::FirstDulplication => *self = Self::Duplicating,
             Self::Pasting => *self = Self::Nothing,
+            Self::FirstDulplicationXover => *self = Self::DuplicatingXover,
+            Self::PastingXover => *self = Self::Nothing,
             _ => unreachable!(),
+        }
+    }
+
+    fn xover(&self) -> bool {
+        match self {
+            Self::FirstDulplicationXover | Self::FirstDulplicationXover | Self::PastingXover => {
+                true
+            }
+            _ => false,
+        }
+    }
+
+    fn strand(&self) -> bool {
+        match self {
+            Self::Duplicating | Self::Pasting | Self::FirstDulplication => true,
+            _ => false,
         }
     }
 }

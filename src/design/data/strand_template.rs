@@ -285,6 +285,7 @@ impl Data {
             let edges = edges.into_iter().collect::<Option<Vec<(Edge, isize)>>>();
             if let Some(edges) = edges {
                 self.template_manager.update_templates(templates, edges);
+                self.copy_xovers(vec![]);
             } else {
                 self.template_manager.update_templates(vec![], vec![]);
             }
@@ -509,6 +510,9 @@ impl Data {
                 return false;
             }
         }
+        if xovers.len() > 0 {
+            self.set_templates(vec![]);
+        }
         self.xover_copy_manager.initial_strands_state = Some(self.design.strands.clone());
         self.xover_copy_manager.xovers = xovers;
         true
@@ -531,12 +535,15 @@ impl Data {
                 if *applied_nucl != nucl {
                     self.unapply_xover_paste();
                 } else {
+                    println!("returning");
                     return;
                 }
             }
             self.xover_copy_manager.initial_strands_state = Some(self.design.strands.clone());
+            println!("xovers {:?}", self.xover_copy_manager.xovers);
             if let Some((ref n01, ref n02)) = self.xover_copy_manager.xovers.get(0) {
                 let edge_copy = self.edge_beteen_nucls(n01, &nucl);
+                println!("edge {:?}", edge_copy);
                 if let Some((ref edge, shift)) = edge_copy {
                     self.xover_copy_manager.applied = Some(nucl);
                     let xovers = self.xover_copy_manager.xovers.clone();
@@ -557,5 +564,15 @@ impl Data {
                 self.unapply_xover_paste()
             }
         }
+    }
+
+    pub fn has_xovers_copy(&self) -> bool {
+        self.xover_copy_manager.xovers.len() > 0
+    }
+
+    pub fn apply_copy_xovers(&mut self) -> bool {
+        self.xover_copy_manager.initial_strands_state = None;
+        self.xover_copy_manager.applied = None;
+        true
     }
 }

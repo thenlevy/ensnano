@@ -781,7 +781,10 @@ impl Design {
     }
 
     pub fn request_paste_candidate(&mut self, nucl: Option<Nucl>) {
-        //self.data.lock().unwrap().set_copy(nucl)
+        self.data.lock().unwrap().set_copy(nucl)
+    }
+
+    pub fn request_paste_candidate_xover(&mut self, nucl: Option<Nucl>) {
         self.data.lock().unwrap().paste_xovers(nucl);
     }
 
@@ -790,12 +793,21 @@ impl Design {
         self.data.lock().unwrap().apply_copy()
     }
 
+    pub fn paste_xover(&mut self, nucl: Nucl) -> bool {
+        self.data.lock().unwrap().paste_xovers(Some(nucl));
+        self.data.lock().unwrap().apply_copy_xovers()
+    }
+
     pub fn apply_duplication(&mut self) -> Vec<(Strand, usize)> {
         self.data.lock().unwrap().apply_duplication()
     }
 
     pub fn has_template(&self) -> bool {
         self.data.lock().unwrap().has_template()
+    }
+
+    pub fn has_xovers_copy(&self) -> bool {
+        self.data.lock().unwrap().has_xovers_copy()
     }
 
     pub fn get_pasted_position(&self) -> Vec<(Vec<Vec3>, bool)> {
