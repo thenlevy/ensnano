@@ -325,6 +325,18 @@ impl Design2d {
         };
         torsions.iter().map(conversion).collect()
     }
+
+    pub fn get_xovers_list(&self) -> Vec<(FlatNucl, FlatNucl)> {
+        let xovers = self.design.read().unwrap().get_xovers_list();
+        xovers
+            .iter()
+            .map(|(n1, n2)| {
+                let flat_1 = FlatNucl::from_real(n1, &self.id_map);
+                let flat_2 = FlatNucl::from_real(n2, &self.id_map);
+                (flat_1, flat_2)
+            })
+            .collect()
+    }
 }
 
 /// Store the informations needed to represent an helix from the design

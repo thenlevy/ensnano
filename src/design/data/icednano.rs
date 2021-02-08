@@ -834,10 +834,10 @@ impl Helix {
     }
 }
 
-#[derive(Clone, Copy, Eq, PartialEq, Hash, Debug)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash, Debug, PartialOrd, Ord)]
 pub struct Nucl {
-    pub position: isize,
     pub helix: usize,
+    pub position: isize,
     pub forward: bool,
 }
 

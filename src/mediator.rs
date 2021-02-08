@@ -512,6 +512,7 @@ impl Mediator {
     }
 
     pub fn notify_multiple_selection(&mut self, selection: Vec<Selection>) {
+        println!("selection {:?}", selection);
         self.selection = selection.clone();
         self.last_selection = Some(selection);
     }
@@ -649,7 +650,6 @@ impl Mediator {
                 self.pasting.place_paste();
                 self.notify_apps(Notification::Pasting(self.pasting.is_placing_paste()));
             }
-
         }
         if self.duplication_attempt {
             let paste_result = self.designs[self.last_selected_design]
@@ -963,6 +963,12 @@ impl Mediator {
                 .write()
                 .unwrap()
                 .request_copy_strands(s_ids);
+        } else if let Some((d_id, bounds)) = list_of_xovers(&self.selection) {
+            let copy = self.designs[d_id as usize]
+                .write()
+                .unwrap()
+                .request_copy_xovers(bounds);
+            println!("copy success: {}", copy);
         }
         self.pasting = PastingMode::Nothing;
     }
@@ -972,6 +978,7 @@ impl Mediator {
             .read()
             .unwrap()
             .has_template()
+            || true
         {
             self.pasting = PastingMode::Pasting;
         }

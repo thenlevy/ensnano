@@ -1,6 +1,6 @@
 use super::grid::Edge;
 use super::GridPosition;
-use super::{icednano::Domain, icednano::HelixInterval, Data, Nucl, Strand};
+use super::{icednano::Domain, icednano::HelixInterval, BTreeMap, Data, Nucl, Strand};
 use ultraviolet::Vec3;
 
 /// A template describing the relation between the domains of a strand. Can be used for copy-paste
@@ -308,8 +308,10 @@ impl Data {
                 println!("updated template {:?}", t);
                 let domains = t.as_ref().and_then(|t| {
                     nucl.as_ref().and_then(|nucl| {
-                        self.template_manager.template_edges.get(n-1)
-                            .and_then(|(e, s)| self.translate_nucl_by_edge(nucl, *e, *s))
+                        self.template_manager
+                            .template_edges
+                            .get(n - 1)
+                            .and_then(|(e, s)| self.translate_nucl_by_edge(nucl, e, *s))
                             .and_then(|n2| self.template_to_domains(t, n2, &mut None))
                     })
                 });
@@ -359,7 +361,11 @@ impl Data {
 
     pub fn apply_duplication(&mut self) -> Vec<(Strand, usize)> {
         let mut domains_vec = Vec::with_capacity(self.template_manager.templates.len());
-        let starting_nucl = self.template_manager.starting_nucl.and_then(|n| self.template_manager.duplication_edge.and_then(|d| self.translate_nucl_by_edge(&n, d.0, d.1)));
+        let starting_nucl = self.template_manager.starting_nucl.and_then(|n| {
+            self.template_manager
+                .duplication_edge
+                .and_then(|d| self.translate_nucl_by_edge(&n, &d.0, d.1))
+        });
         println!("starting nucl {:?}", starting_nucl);
         self.template_manager.starting_nucl = starting_nucl;
         for n in 0..self.template_manager.templates.len() {
@@ -367,24 +373,28 @@ impl Data {
             let domains = if n > 0 {
                 template.as_ref().and_then(|t| {
                     starting_nucl.as_ref().and_then(|nucl| {
-                        self.template_manager.template_edges.get(n-1)
-                            .and_then(|(e, s)| self.translate_nucl_by_edge(nucl, *e, *s))
+                        self.template_manager
+                            .template_edges
+                            .get(n - 1)
+                            .and_then(|(e, s)| self.translate_nucl_by_edge(nucl, e, *s))
                             .and_then(|n2| {
                                 println!("n2 {:?}", n2);
-                                self.template_to_domains(t, n2, &mut None)})
+                                self.template_to_domains(t, n2, &mut None)
+                            })
                     })
                 })
             } else {
                 template.as_ref().and_then(|t| {
-                starting_nucl.as_ref().and_then(|n2| {
-                            println!("n2 {:?}", n2);
-                            self.template_to_domains(t, *n2, &mut None)})
+                    starting_nucl.as_ref().and_then(|n2| {
+                        println!("n2 {:?}", n2);
+                        self.template_to_domains(t, *n2, &mut None)
+                    })
                 })
             };
             if let Some(domains) = domains {
                 domains_vec.push(domains);
             } else if n == 0 {
-                return vec![]
+                return vec![];
             }
         }
         self.update_pasted_strand(domains_vec);
@@ -447,7 +457,23 @@ impl Data {
             .zip(Some(nucl2.position - nucl1.position))
     }
 
-    fn translate_nucl_by_edge(&self, nucl1: &Nucl, edge: Edge, shift: isize) -> Option<Nucl> {
+    fn edge_beteen_nucls(&self, n1: &Nucl, n2: &Nucl) -> Option<(Edge, isize)> {
+        let pos1 = self
+            .design
+            .helices
+            .get(&n1.helix)
+            .and_then(|h| h.grid_position)?;
+        let pos2 = self
+            .design
+            .helices
+            .get(&n2.helix)
+            .and_then(|h| h.grid_position)?;
+        self.grid_manager
+            .get_edge(&pos1, &pos2)
+            .zip(Some(n2.position - n1.position))
+    }
+
+    fn translate_nucl_by_edge(&self, nucl1: &Nucl, edge: &Edge, shift: isize) -> Option<Nucl> {
         let pos1 = self
             .design
             .helices
@@ -455,12 +481,81 @@ impl Data {
             .and_then(|h| h.grid_position)?;
         let h2 = self
             .grid_manager
-            .translate_by_edge(&pos1, &edge)
+            .translate_by_edge(&pos1, edge)
             .and_then(|pos2| self.grid_manager.pos_to_helix(pos2.grid, pos2.x, pos2.y))?;
         Some(Nucl {
             helix: h2,
             position: nucl1.position + shift,
             forward: nucl1.forward,
         })
+    }
+}
+
+#[derive(Default)]
+pub struct XoverCopyManager {
+    xovers: Vec<(Nucl, Nucl)>,
+    initial_strands_state: Option<BTreeMap<usize, Strand>>,
+    applied: Option<Nucl>,
+}
+
+impl Data {
+    pub fn copy_xovers(&mut self, xovers: Vec<(Nucl, Nucl)>) -> bool {
+        // Check that the cross overs a corrects
+        for xover in xovers.iter() {
+            if !self.identifier_bound.contains_key(xover) {
+                return false;
+            }
+            if xover.0.helix == xover.1.helix && xover.0.forward == xover.1.forward {
+                return false;
+            }
+        }
+        self.xover_copy_manager.initial_strands_state = Some(self.design.strands.clone());
+        self.xover_copy_manager.xovers = xovers;
+        true
+    }
+
+    pub fn unapply_xover_paste(&mut self) {
+        if let Some(strands) = self.xover_copy_manager.initial_strands_state.take() {
+            self.design.strands = strands;
+            self.make_hash_maps();
+            self.update_status = true;
+            self.view_need_reset = true;
+        }
+        self.xover_copy_manager.applied = None;
+    }
+
+    pub fn paste_xovers(&mut self, nucl: Option<Nucl>) {
+        println!("pasting {:?}", nucl);
+        if let Some(nucl) = nucl {
+            if let Some(ref applied_nucl) = self.xover_copy_manager.applied {
+                if *applied_nucl != nucl {
+                    self.unapply_xover_paste();
+                } else {
+                    return;
+                }
+            }
+            self.xover_copy_manager.initial_strands_state = Some(self.design.strands.clone());
+            if let Some((ref n01, ref n02)) = self.xover_copy_manager.xovers.get(0) {
+                let edge_copy = self.edge_beteen_nucls(n01, &nucl);
+                if let Some((ref edge, shift)) = edge_copy {
+                    self.xover_copy_manager.applied = Some(nucl);
+                    let xovers = self.xover_copy_manager.xovers.clone();
+                    for (n1, n2) in xovers.iter() {
+                        let copy_1 = self.translate_nucl_by_edge(n1, edge, shift);
+                        let copy_2 = self.translate_nucl_by_edge(n2, edge, shift);
+                        if let Some((copy_1, copy_2)) = copy_1.zip(copy_2) {
+                            println!("crossing {:?}, {:?}", copy_1, copy_2);
+                            self.general_cross_over(copy_1, copy_2);
+                            self.make_hash_maps();
+                            self.update_status = true;
+                        }
+                    }
+                }
+            }
+        } else {
+            if self.xover_copy_manager.applied.is_some() {
+                self.unapply_xover_paste()
+            }
+        }
     }
 }

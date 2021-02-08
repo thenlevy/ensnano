@@ -776,8 +776,13 @@ impl Design {
         self.data.lock().unwrap().set_templates(s_ids)
     }
 
+    pub fn request_copy_xovers(&mut self, xovers: Vec<(Nucl, Nucl)>) -> bool {
+        self.data.lock().unwrap().copy_xovers(xovers)
+    }
+
     pub fn request_paste_candidate(&mut self, nucl: Option<Nucl>) {
-        self.data.lock().unwrap().set_copy(nucl)
+        //self.data.lock().unwrap().set_copy(nucl)
+        self.data.lock().unwrap().paste_xovers(nucl);
     }
 
     pub fn paste(&mut self, nucl: Nucl) -> Vec<(Strand, usize)> {
@@ -799,6 +804,10 @@ impl Design {
 
     pub fn finalize_hyperboloid(&mut self) {
         self.data.lock().unwrap().finalize_hyperboloid()
+    }
+
+    pub fn get_xovers_list(&self) -> Vec<(Nucl, Nucl)> {
+        self.data.lock().unwrap().get_xovers_list()
     }
 }
 

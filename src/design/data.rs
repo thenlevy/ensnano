@@ -38,7 +38,7 @@ use roller::PhysicalSystem;
 use std::sync::{mpsc::Sender, Arc, Mutex, RwLock};
 use strand_builder::NeighbourDescriptor;
 pub use strand_builder::{DomainIdentifier, StrandBuilder};
-use strand_template::{PastedStrand, StrandTemplate, TemplateManager};
+use strand_template::{TemplateManager, XoverCopyManager};
 pub use torsion::Torsion;
 
 /// In addition to its `design` field, the `Data` struct has several hashmaps that are usefull to
@@ -90,6 +90,7 @@ pub struct Data {
     hyperboloid_helices: Vec<usize>,
     hyperboloid_draft: Option<GridDescriptor>,
     template_manager: TemplateManager,
+    xover_copy_manager: XoverCopyManager,
 }
 
 impl fmt::Debug for Data {
@@ -129,6 +130,7 @@ impl Data {
             hyperboloid_helices: vec![],
             hyperboloid_draft: None,
             template_manager: Default::default(),
+            xover_copy_manager: Default::default(),
         }
     }
 
@@ -318,6 +320,7 @@ impl Data {
             hyperboloid_helices: vec![],
             hyperboloid_draft: None,
             template_manager: Default::default(),
+            xover_copy_manager: Default::default(),
         };
         ret.make_hash_maps();
         ret.terminate_movement();
@@ -566,6 +569,10 @@ impl Data {
         } else {
             self.start_rolling(request, computing)
         }
+    }
+
+    pub fn get_xovers_list(&self) -> Vec<(Nucl, Nucl)> {
+        self.design.get_xovers()
     }
 
     fn start_rolling(&mut self, request: SimulationRequest, computing: Arc<Mutex<bool>>) {
@@ -2289,6 +2296,65 @@ impl Data {
             }
         }
         true
+    }
+
+    pub fn general_cross_over(&mut self, source_nucl: Nucl, target_nucl: Nucl) {
+        let source_id = self.get_strand_nucl(&source_nucl);
+        let target_id = self.get_strand_nucl(&target_nucl);
+
+        let source = source_id
+            .as_ref()
+            .and_then(|source_id| self.design.strands.get(source_id).cloned());
+        let target = target_id
+            .as_ref()
+            .and_then(|target_id| self.design.strands.get(target_id).cloned());
+
+        let source_strand_end = self.is_strand_end(&source_nucl);
+        let target_strand_end = self.is_strand_end(&target_nucl);
+        if let (Some(source_id), Some(target_id), Some(source), Some(target)) =
+            (source_id, target_id, source, target)
+        {
+            match (source_strand_end.to_opt(), target_strand_end.to_opt()) {
+                (Some(true), Some(true)) | (Some(false), Some(false)) => (), // xover can't be done,
+                (Some(true), Some(false)) => {
+                    // We can xover directly
+                    if source_id == target_id {
+                        self.make_cycle(source_id, true);
+                    } else {
+                        self.merge_strands(source_id, target_id);
+                    }
+                }
+                (Some(false), Some(true)) => {
+                    // We can xover directly but we must reverse the xover
+                    if source_id == target_id {
+                        self.make_cycle(target_id, true);
+                    } else {
+                        self.merge_strands(target_id, source_id);
+                    }
+                }
+                (Some(b), None) => {
+                    // We can cut cross directly, but only if the target and source's helices are
+                    // different
+                    let target_3prime = b;
+                    if source_nucl.helix != target_nucl.helix {
+                        self.cross_cut(source_id, target_id, target_nucl, target_3prime);
+                    }
+                }
+                (None, Some(b)) => {
+                    // We can cut cross directly but we need to reverse the xover
+                    let target_3prime = b;
+                    if source_nucl.helix != target_nucl.helix {
+                        self.cross_cut(target_id, source_id, source_nucl, target_3prime);
+                    }
+                }
+                (None, None) => {
+                    if source_nucl.helix != target_nucl.helix {
+                        self.split_strand(&source_nucl, None);
+                        self.cross_cut(source_id, target_id, target_nucl, true);
+                    }
+                }
+            }
+        }
     }
 }
 

@@ -102,6 +102,23 @@ pub(super) fn list_of_strands(
     Some((design_id as usize, strands))
 }
 
+pub(super) fn list_of_xovers(selection: &[Selection]) -> Option<(usize, Vec<(Nucl, Nucl)>)> {
+    let design_id = selection.get(0).and_then(Selection::get_design)?;
+    let mut xovers = BTreeSet::new();
+    for s in selection.iter() {
+        match s {
+            Selection::Bound(d_id, n1, n2) => {
+                if *d_id != design_id {
+                    return None;
+                }
+                xovers.insert((*n1, *n2));
+            }
+            _ => return None,
+        }
+    }
+    Some((design_id as usize, xovers.into_iter().collect()))
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SelectionMode {
     Grid,

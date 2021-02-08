@@ -374,6 +374,9 @@ impl Data {
         if self.selection_mode == SelectionMode::Strand {
             self.select_strands_rectangle(camera, c1, c2);
             return (vec![], vec![]);
+        } else if self.selection_mode == SelectionMode::Nucleotide {
+            self.select_xovers_rectangle(camera, c1, c2);
+            return (vec![], vec![]);
         }
         println!("{:?} {:?}", c1, c2);
         let mut translation_pivots = vec![];
@@ -392,6 +395,34 @@ impl Data {
         }
         self.selection = selection;
         (translation_pivots, rotation_pivots)
+    }
+
+    fn select_xovers_rectangle(&mut self, camera: &CameraPtr, c1: Vec2, c2: Vec2) {
+        let (x1, y1) = camera.borrow().world_to_norm_screen(c1.x, c1.y);
+        let (x2, y2) = camera.borrow().world_to_norm_screen(c2.x, c2.y);
+        let left = x1.min(x2);
+        let right = x1.max(x2);
+        let top = y1.min(y2);
+        let bottom = y1.max(y2);
+        println!("{}, {}, {}, {}", left, top, right, bottom);
+        let mut selection = BTreeSet::new();
+        for (flat_1, flat_2) in self.design.get_xovers_list() {
+            let h1 = &self.helices[flat_1.helix.flat];
+            let h2 = &self.helices[flat_2.helix.flat];
+            if h1.rectangle_has_nucl(flat_1, left, top, right, bottom, camera)
+                && h2.rectangle_has_nucl(flat_2, left, top, right, bottom, camera)
+            {
+                let n1 = flat_1.to_real();
+                let n2 = flat_2.to_real();
+                selection.insert((n1, n2));
+            }
+        }
+        let selection: Vec<Selection> = selection
+            .iter()
+            .map(|(n1, n2)| Selection::Bound(self.id, *n1, *n2))
+            .collect();
+        self.selection = selection;
+        println!("selection {:?}", self.selection);
     }
 
     fn select_strands_rectangle(&mut self, camera: &CameraPtr, c1: Vec2, c2: Vec2) {
