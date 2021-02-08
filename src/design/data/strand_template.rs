@@ -497,6 +497,8 @@ pub struct XoverCopyManager {
     xovers: Vec<(Nucl, Nucl)>,
     initial_strands_state: Option<BTreeMap<usize, Strand>>,
     applied: Option<Nucl>,
+    duplication_edge: Option<(Edge, isize)>,
+    duplication_origin: Option<Nucl>,
 }
 
 impl Data {
@@ -528,13 +530,13 @@ impl Data {
         self.xover_copy_manager.applied = None;
     }
 
-    pub fn paste_xovers(&mut self, nucl: Option<Nucl>) {
+    pub fn paste_xovers(&mut self, nucl: Option<Nucl>, duplicate: bool) {
         println!("pasting {:?}", nucl);
         if let Some(nucl) = nucl {
             if let Some(ref applied_nucl) = self.xover_copy_manager.applied {
-                if *applied_nucl != nucl {
+                if *applied_nucl != nucl && !duplicate {
                     self.unapply_xover_paste();
-                } else {
+                } else if !duplicate {
                     println!("returning");
                     return;
                 }
@@ -544,6 +546,10 @@ impl Data {
             if let Some((ref n01, ref n02)) = self.xover_copy_manager.xovers.get(0) {
                 let edge_copy = self.edge_beteen_nucls(n01, &nucl);
                 println!("edge {:?}", edge_copy);
+                if !duplicate {
+                    self.xover_copy_manager.duplication_edge = edge_copy;
+                }
+                self.xover_copy_manager.duplication_origin = Some(nucl.clone());
                 if let Some((ref edge, shift)) = edge_copy {
                     self.xover_copy_manager.applied = Some(nucl);
                     let xovers = self.xover_copy_manager.xovers.clone();
@@ -574,5 +580,23 @@ impl Data {
         self.xover_copy_manager.initial_strands_state = None;
         self.xover_copy_manager.applied = None;
         true
+    }
+
+    pub fn duplicate_xovers(&mut self) -> bool {
+        if let Some(((edge, shift), nucl)) = self
+            .xover_copy_manager
+            .duplication_edge
+            .zip(self.xover_copy_manager.duplication_origin)
+        {
+            let new_origin = self.translate_nucl_by_edge(&nucl, &edge, shift);
+            if let Some(origin) = new_origin {
+                self.paste_xovers(Some(origin), true);
+                true
+            } else {
+                false
+            }
+        } else {
+            false
+        }
     }
 }

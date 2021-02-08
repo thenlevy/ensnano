@@ -785,7 +785,7 @@ impl Design {
     }
 
     pub fn request_paste_candidate_xover(&mut self, nucl: Option<Nucl>) {
-        self.data.lock().unwrap().paste_xovers(nucl);
+        self.data.lock().unwrap().paste_xovers(nucl, false);
     }
 
     pub fn paste(&mut self, nucl: Nucl) -> Vec<(Strand, usize)> {
@@ -794,12 +794,16 @@ impl Design {
     }
 
     pub fn paste_xover(&mut self, nucl: Nucl) -> bool {
-        self.data.lock().unwrap().paste_xovers(Some(nucl));
+        self.data.lock().unwrap().paste_xovers(Some(nucl), false);
         self.data.lock().unwrap().apply_copy_xovers()
     }
 
     pub fn apply_duplication(&mut self) -> Vec<(Strand, usize)> {
         self.data.lock().unwrap().apply_duplication()
+    }
+
+    pub fn apply_duplication_xover(&mut self) -> bool {
+        self.data.lock().unwrap().duplicate_xovers()
     }
 
     pub fn has_template(&self) -> bool {

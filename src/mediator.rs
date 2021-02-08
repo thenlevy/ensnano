@@ -666,21 +666,31 @@ impl Mediator {
             }
         }
         if self.duplication_attempt {
-            let paste_result = self.designs[self.last_selected_design]
-                .write()
-                .unwrap()
-                .apply_duplication();
-            for (strand, s_id) in paste_result.iter() {
-                self.finish_op();
-                self.undo_stack.push(Arc::new(RmStrand {
-                    strand: strand.clone(),
-                    strand_id: *s_id,
-                    design_id: self.last_selected_design,
-                    undo: true,
-                }))
-            }
-            if paste_result.len() == 0 {
-                self.pasting = PastingMode::FirstDulplication;
+            if self.pasting.strand() {
+                let paste_result = self.designs[self.last_selected_design]
+                    .write()
+                    .unwrap()
+                    .apply_duplication();
+                for (strand, s_id) in paste_result.iter() {
+                    self.finish_op();
+                    self.undo_stack.push(Arc::new(RmStrand {
+                        strand: strand.clone(),
+                        strand_id: *s_id,
+                        design_id: self.last_selected_design,
+                        undo: true,
+                    }))
+                }
+                if paste_result.len() == 0 {
+                    self.pasting = PastingMode::FirstDulplication;
+                }
+            } else if self.pasting.xover() {
+                let result = self.designs[self.last_selected_design]
+                    .write()
+                    .unwrap()
+                    .apply_duplication_xover();
+                if !result {
+                    self.pasting = PastingMode::FirstDulplicationXover;
+                }
             }
             self.notify_apps(Notification::Pasting(self.pasting.is_placing_paste()));
             self.duplication_attempt = false;
@@ -1183,9 +1193,7 @@ impl PastingMode {
 
     fn xover(&self) -> bool {
         match self {
-            Self::FirstDulplicationXover | Self::FirstDulplicationXover | Self::PastingXover => {
-                true
-            }
+            Self::FirstDulplicationXover | Self::DuplicatingXover | Self::PastingXover => true,
             _ => false,
         }
     }
