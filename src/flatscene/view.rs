@@ -246,7 +246,9 @@ impl View {
 
     pub fn update_strands(&mut self, strands: &[Strand], helices: &[Helix]) {
         for (i, s) in self.strands.iter_mut().enumerate() {
-            s.update(&strands[i], helices, &self.free_end, &self.selection);
+            if i < strands.len() {
+                s.update(&strands[i], helices, &self.free_end, &self.selection);
+            }
         }
         for strand in strands.iter().skip(self.strands.len()) {
             self.add_strand(strand, helices)

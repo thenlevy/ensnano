@@ -1177,27 +1177,14 @@ impl Data {
 
     /// Return the strand end status of nucl
     pub fn is_strand_end(&self, nucl: &Nucl) -> Extremity {
-        let id = if let Some(id) = self.identifier_nucl.get(nucl) {
-            id
-        } else {
-            return Extremity::No;
-        };
-
-        let strand_id = if let Some(id) = self.strand_map.get(id) {
-            id
-        } else {
-            return Extremity::No;
-        };
-        let strand = self.design.strands.get(strand_id).expect("strand");
-        if strand.cyclic {
-            Extremity::No
-        } else if strand.get_3prime() == Some(*nucl) {
-            Extremity::Prime3
-        } else if strand.get_5prime() == Some(*nucl) {
-            Extremity::Prime5
-        } else {
-            Extremity::No
+        for s in self.design.strands.values() {
+            if !s.cyclic && s.get_5prime() == Some(*nucl) {
+                return Extremity::Prime5;
+            } else if !s.cyclic && s.get_3prime() == Some(*nucl) {
+                return Extremity::Prime3;
+            }
         }
+        return Extremity::No;
     }
 
     /// Merge two strands with identifier prime5 and prime3. The resulting strand will have
@@ -1299,7 +1286,8 @@ impl Data {
             .cyclic = cyclic;
         self.update_status = true;
         self.view_need_reset = true;
-        self.make_hash_maps();
+        //self.make_hash_maps();
+        self.hash_maps_update = true;
     }
 
     /// Undo a strand split.
@@ -1341,21 +1329,18 @@ impl Data {
         self.update_status = true;
         self.hash_maps_update = true;
         self.view_need_reset = true;
-        let id = self
-            .identifier_nucl
-            .get(nucl)
-            .and_then(|id| self.strand_map.get(id));
+        let id = self.get_strand_nucl(nucl);
 
         if id.is_none() {
             return;
         }
-        let id = *id.unwrap();
+        let id = id.unwrap();
 
         let strand = self.design.strands.remove(&id).expect("strand");
         if strand.cyclic {
             let new_strand = self.break_cycle(strand.clone(), *nucl, force_end);
             self.design.strands.insert(id, new_strand);
-            println!("Cutting cyclic strand");
+            //println!("Cutting cyclic strand");
             return;
         }
         if strand.length() <= 1 {
@@ -1448,7 +1433,8 @@ impl Data {
             self.design.strands.insert(id_3prime, strand_3prime);
         }
         self.update_status = true;
-        self.make_hash_maps();
+        //self.make_hash_maps();
+        self.hash_maps_update = true;
         self.view_need_reset = true;
     }
 
@@ -1516,9 +1502,9 @@ impl Data {
     ) {
         let new_id = self.design.strands.keys().max().unwrap() + 1;
         let was_cyclic = self.design.strands.get(&target_strand).unwrap().cyclic;
-        println!("half1 {}, ; half0 {}", new_id, target_strand);
+        //println!("half1 {}, ; half0 {}", new_id, target_strand);
         self.split_strand(&nucl, Some(target_3prime));
-        println!("splitted");
+        //println!("splitted");
 
         if !was_cyclic && source_strand != target_strand {
             if target_3prime {
@@ -1898,9 +1884,7 @@ impl Data {
     }
 
     pub fn get_strand_nucl(&self, nucl: &Nucl) -> Option<usize> {
-        self.identifier_nucl
-            .get(nucl)
-            .and_then(|id| self.strand_map.get(id).cloned())
+        self.design.get_strand_nucl(nucl)
     }
 
     pub fn get_visibility_helix(&self, h_id: usize) -> Option<bool> {

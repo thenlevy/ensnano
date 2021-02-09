@@ -523,7 +523,8 @@ impl Data {
     pub fn unapply_xover_paste(&mut self) {
         if let Some(strands) = self.xover_copy_manager.initial_strands_state.take() {
             self.design.strands = strands;
-            self.make_hash_maps();
+            //self.make_hash_maps();
+            self.hash_maps_update = true;
             self.update_status = true;
             self.view_need_reset = true;
         }
@@ -545,7 +546,6 @@ impl Data {
             println!("xovers {:?}", self.xover_copy_manager.xovers);
             if let Some((ref n01, ref n02)) = self.xover_copy_manager.xovers.get(0) {
                 let edge_copy = self.edge_beteen_nucls(n01, &nucl);
-                println!("edge {:?}", edge_copy);
                 if !duplicate {
                     self.xover_copy_manager.duplication_edge = edge_copy;
                 }
@@ -557,10 +557,9 @@ impl Data {
                         let copy_1 = self.translate_nucl_by_edge(n1, edge, shift);
                         let copy_2 = self.translate_nucl_by_edge(n2, edge, shift);
                         if let Some((copy_1, copy_2)) = copy_1.zip(copy_2) {
-                            println!("crossing {:?}, {:?}", copy_1, copy_2);
                             self.general_cross_over(copy_1, copy_2);
-                            self.make_hash_maps();
                             self.update_status = true;
+                            self.view_need_reset = true;
                         }
                     }
                 }

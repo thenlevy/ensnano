@@ -141,6 +141,15 @@ impl Design {
         }
         ret
     }
+
+    pub fn get_strand_nucl(&self, nucl: &Nucl) -> Option<usize> {
+        for (s_id, s) in self.strands.iter() {
+            if s.has_nucl(nucl) {
+                return Some(*s_id);
+            }
+        }
+        None
+    }
 }
 
 /// A DNA strand. Strands are represented as sequences of `Domains`.
@@ -289,6 +298,15 @@ impl Strand {
                 if d.intersect(other) {
                     return true;
                 }
+            }
+        }
+        false
+    }
+
+    pub fn has_nucl(&self, nucl: &Nucl) -> bool {
+        for d in self.domains.iter() {
+            if d.has_nucl(nucl).is_some() {
+                return true;
             }
         }
         false
