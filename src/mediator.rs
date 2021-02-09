@@ -23,7 +23,7 @@ use crate::design;
 
 use design::{
     Design, DesignNotification, DesignRotation, DesignTranslation, GridDescriptor,
-    GridHelixDescriptor, Helix, Hyperboloid, Nucl, Stapple, Strand, StrandBuilder,
+    GridHelixDescriptor, Helix, Hyperboloid, Nucl, Stapple, Strand, StrandBuilder, StrandState,
 };
 
 mod operation;
@@ -635,20 +635,19 @@ impl Mediator {
         if let Some(nucl) = self.pasting_attempt.take() {
             match self.pasting {
                 PastingMode::Pasting | PastingMode::FirstDulplication => {
-                    let paste_result = self.designs[self.last_selected_design]
+                    let result = self.designs[self.last_selected_design]
                         .write()
                         .unwrap()
                         .paste(nucl);
-                    for (strand, s_id) in paste_result.iter() {
+
+                    if let Some((initial_state, final_state)) = result {
                         self.finish_op();
-                        self.undo_stack.push(Arc::new(RmStrand {
-                            strand: strand.clone(),
-                            strand_id: *s_id,
+                        self.undo_stack.push(Arc::new(BigStrandModification {
+                            initial_state,
+                            final_state,
+                            reverse: false,
                             design_id: self.last_selected_design,
-                            undo: true,
                         }));
-                    }
-                    if paste_result.len() > 0 {
                         self.pasting.place_paste();
                         self.notify_apps(Notification::Pasting(self.pasting.is_placing_paste()));
                     }
@@ -658,7 +657,14 @@ impl Mediator {
                         .write()
                         .unwrap()
                         .paste_xover(nucl);
-                    if result {
+                    if let Some((initial_state, final_state)) = result {
+                        self.finish_op();
+                        self.undo_stack.push(Arc::new(BigStrandModification {
+                            initial_state,
+                            final_state,
+                            reverse: false,
+                            design_id: self.last_selected_design,
+                        }));
                         self.pasting.place_paste();
                         self.notify_apps(Notification::Pasting(self.pasting.is_placing_paste()));
                     }
@@ -671,16 +677,15 @@ impl Mediator {
                     .write()
                     .unwrap()
                     .apply_duplication();
-                for (strand, s_id) in paste_result.iter() {
+                if let Some((initial_state, final_state)) = paste_result {
                     self.finish_op();
-                    self.undo_stack.push(Arc::new(RmStrand {
-                        strand: strand.clone(),
-                        strand_id: *s_id,
+                    self.undo_stack.push(Arc::new(BigStrandModification {
+                        initial_state,
+                        final_state,
+                        reverse: false,
                         design_id: self.last_selected_design,
-                        undo: true,
-                    }))
-                }
-                if paste_result.len() == 0 {
+                    }));
+                } else {
                     self.pasting = PastingMode::FirstDulplication;
                 }
             } else if self.pasting.xover() {
@@ -688,7 +693,15 @@ impl Mediator {
                     .write()
                     .unwrap()
                     .apply_duplication_xover();
-                if !result {
+                if let Some((initial_state, final_state)) = result {
+                    self.finish_op();
+                    self.undo_stack.push(Arc::new(BigStrandModification {
+                        initial_state,
+                        final_state,
+                        reverse: false,
+                        design_id: self.last_selected_design,
+                    }));
+                } else {
                     self.pasting = PastingMode::FirstDulplicationXover;
                 }
             }
@@ -1128,6 +1141,7 @@ pub enum AppNotification {
         hyperboloid: Hyperboloid,
     },
     ClearHyperboloid,
+    NewStrandState(StrandState),
 }
 
 fn write_stapples(stapples: Vec<Stapple>, path: PathBuf) {

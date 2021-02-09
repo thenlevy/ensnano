@@ -1,5 +1,6 @@
 use super::grid::Edge;
 use super::GridPosition;
+use super::StrandState;
 use super::{icednano::Domain, icednano::HelixInterval, BTreeMap, Data, Nucl, Strand};
 use ultraviolet::Vec3;
 
@@ -328,8 +329,9 @@ impl Data {
         self.update_status = true;
     }
 
-    pub fn apply_copy(&mut self) -> Vec<(Strand, usize)> {
-        let mut ret = Vec::with_capacity(self.template_manager.pasted_strands.len());
+    pub fn apply_copy(&mut self) -> Option<(StrandState, StrandState)> {
+        let initial_state = self.design.strands.clone();
+        let mut ret = false;
         let mut first = true;
         let mut chief_id = None;
         for pasted_strand in self.template_manager.pasted_strands.iter() {
@@ -351,16 +353,21 @@ impl Data {
                     chief_id = Some(strand_id);
                     first = false;
                 }
-                ret.push((strand, strand_id))
+                ret = true;
             }
         }
         if let Some(s_id) = chief_id {
             self.update_chief_template(s_id)
         }
-        ret
+        if ret {
+            let final_state = self.design.strands.clone();
+            Some((initial_state, final_state))
+        } else {
+            None
+        }
     }
 
-    pub fn apply_duplication(&mut self) -> Vec<(Strand, usize)> {
+    pub fn apply_duplication(&mut self) -> Option<(StrandState, StrandState)> {
         let mut domains_vec = Vec::with_capacity(self.template_manager.templates.len());
         let starting_nucl = self.template_manager.starting_nucl.and_then(|n| {
             self.template_manager
@@ -395,7 +402,7 @@ impl Data {
             if let Some(domains) = domains {
                 domains_vec.push(domains);
             } else if n == 0 {
-                return vec![];
+                return None;
             }
         }
         self.update_pasted_strand(domains_vec);
@@ -532,6 +539,10 @@ impl Data {
     }
 
     pub fn paste_xovers(&mut self, nucl: Option<Nucl>, duplicate: bool) {
+        println!(
+            "mem {}",
+            std::mem::size_of_val(&self.xover_copy_manager.initial_strands_state)
+        );
         println!("pasting {:?}", nucl);
         if let Some(nucl) = nucl {
             if let Some(ref applied_nucl) = self.xover_copy_manager.applied {
@@ -575,13 +586,14 @@ impl Data {
         self.xover_copy_manager.xovers.len() > 0
     }
 
-    pub fn apply_copy_xovers(&mut self) -> bool {
-        self.xover_copy_manager.initial_strands_state = None;
+    pub fn apply_copy_xovers(&mut self) -> Option<(StrandState, StrandState)> {
+        let initial_strands_state =
+            std::mem::replace(&mut self.xover_copy_manager.initial_strands_state, None);
         self.xover_copy_manager.applied = None;
-        true
+        initial_strands_state.zip(Some(self.design.strands.clone()))
     }
 
-    pub fn duplicate_xovers(&mut self) -> bool {
+    pub fn duplicate_xovers(&mut self) -> Option<(StrandState, StrandState)> {
         if let Some(((edge, shift), nucl)) = self
             .xover_copy_manager
             .duplication_edge
@@ -589,13 +601,15 @@ impl Data {
         {
             let new_origin = self.translate_nucl_by_edge(&nucl, &edge, shift);
             if let Some(origin) = new_origin {
+                let initial_state = self.design.strands.clone();
                 self.paste_xovers(Some(origin), true);
-                true
+                let final_state = self.design.strands.clone();
+                Some((initial_state, final_state))
             } else {
-                false
+                None
             }
         } else {
-            false
+            None
         }
     }
 }

@@ -336,6 +336,9 @@ impl Design {
                     .add_hyperboloid(position, orientation, hyperboloid);
             }
             AppNotification::ClearHyperboloid => self.data.lock().unwrap().clear_hyperboloid(),
+            AppNotification::NewStrandState(state) => {
+                self.data.lock().unwrap().new_strand_state(state)
+            }
         }
     }
 
@@ -788,21 +791,21 @@ impl Design {
         self.data.lock().unwrap().paste_xovers(nucl, false);
     }
 
-    pub fn paste(&mut self, nucl: Nucl) -> Vec<(Strand, usize)> {
+    pub fn paste(&mut self, nucl: Nucl) -> Option<(StrandState, StrandState)> {
         self.data.lock().unwrap().set_copy(Some(nucl));
         self.data.lock().unwrap().apply_copy()
     }
 
-    pub fn paste_xover(&mut self, nucl: Nucl) -> bool {
+    pub fn paste_xover(&mut self, nucl: Nucl) -> Option<(StrandState, StrandState)> {
         self.data.lock().unwrap().paste_xovers(Some(nucl), false);
         self.data.lock().unwrap().apply_copy_xovers()
     }
 
-    pub fn apply_duplication(&mut self) -> Vec<(Strand, usize)> {
+    pub fn apply_duplication(&mut self) -> Option<(StrandState, StrandState)> {
         self.data.lock().unwrap().apply_duplication()
     }
 
-    pub fn apply_duplication_xover(&mut self) -> bool {
+    pub fn apply_duplication_xover(&mut self) -> Option<(StrandState, StrandState)> {
         self.data.lock().unwrap().duplicate_xovers()
     }
 

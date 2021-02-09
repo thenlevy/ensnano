@@ -41,6 +41,8 @@ pub use strand_builder::{DomainIdentifier, StrandBuilder};
 use strand_template::{TemplateManager, XoverCopyManager};
 pub use torsion::Torsion;
 
+pub type StrandState = BTreeMap<usize, Strand>;
+
 /// In addition to its `design` field, the `Data` struct has several hashmaps that are usefull to
 /// quickly access information about the design. These hasmaps must be updated when the design is
 /// modified.
@@ -2339,6 +2341,13 @@ impl Data {
                 }
             }
         }
+    }
+
+    pub fn new_strand_state(&mut self, state: StrandState) {
+        self.design.strands = state;
+        self.update_status = true;
+        self.hash_maps_update = true;
+        self.view_need_reset = true;
     }
 }
 

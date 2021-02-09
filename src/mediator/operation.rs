@@ -8,7 +8,7 @@ use super::{
     AppNotification, DesignRotation, DesignTranslation, GridDescriptor, GridHelixDescriptor,
 };
 use crate::design::{
-    GridTypeDescr, Helix, Hyperboloid, IsometryTarget, Nucl, Strand, StrandBuilder,
+    GridTypeDescr, Helix, Hyperboloid, IsometryTarget, Nucl, Strand, StrandBuilder, StrandState,
 };
 use std::sync::Arc;
 use ultraviolet::{Bivec3, Rotor3, Vec3};
@@ -1130,6 +1130,71 @@ impl Operation for CreateGrid {
     }
 }
 
+#[derive(Clone)]
+pub struct BigStrandModification {
+    pub initial_state: StrandState,
+    pub final_state: StrandState,
+    pub reverse: bool,
+    pub design_id: usize,
+}
+
+impl std::fmt::Debug for BigStrandModification {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("BigStrandModification")
+            .field("reverse", &self.reverse)
+            .finish()
+    }
+}
+
+impl Operation for BigStrandModification {
+    fn descr(&self) -> OperationDescriptor {
+        OperationDescriptor::BigStrandModification
+    }
+
+    fn compose(&self, _other: &dyn Operation) -> Option<Arc<dyn Operation>> {
+        None
+    }
+
+    fn parameters(&self) -> Vec<Parameter> {
+        vec![]
+    }
+
+    fn values(&self) -> Vec<String> {
+        vec![]
+    }
+
+    fn reverse(&self) -> Arc<dyn Operation> {
+        Arc::new(BigStrandModification {
+            reverse: !self.reverse,
+            ..self.clone()
+        })
+    }
+
+    fn effect(&self) -> AppNotification {
+        if self.reverse {
+            AppNotification::NewStrandState(self.initial_state.clone())
+        } else {
+            AppNotification::NewStrandState(self.final_state.clone())
+        }
+    }
+
+    fn description(&self) -> String {
+        if self.reverse {
+            format!("Reverse Big Change")
+        } else {
+            format!("Redo Big Change")
+        }
+    }
+
+    fn target(&self) -> usize {
+        self.design_id
+    }
+
+    fn with_new_value(&self, n: usize, val: String) -> Option<Arc<dyn Operation>> {
+        None
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct NewHyperboloid {
     pub position: Vec3,
@@ -1274,6 +1339,7 @@ pub enum OperationDescriptor {
     RmStrand,
     BuildStrand(std::time::SystemTime),
     CreateGrid,
+    BigStrandModification,
 }
 
 impl PartialEq<Self> for OperationDescriptor {
