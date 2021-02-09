@@ -54,6 +54,7 @@ pub struct View {
     show_sec: bool,
     suggestions: Vec<(FlatNucl, FlatNucl)>,
     suggestions_view: Vec<StrandView>,
+    highlighted_strands: Vec<StrandView>,
     suggestion_candidate: Option<(FlatNucl, FlatNucl)>,
     torsions: HashMap<(FlatNucl, FlatNucl), FlatTorsion>,
     show_torsion: bool,
@@ -148,6 +149,7 @@ impl View {
             show_sec: false,
             suggestions: vec![],
             suggestions_view: vec![],
+            highlighted_strands: vec![],
             suggestion_candidate: None,
             torsions: HashMap::new(),
             show_torsion: false,
@@ -252,6 +254,16 @@ impl View {
         }
         for strand in strands.iter().skip(self.strands.len()) {
             self.add_strand(strand, helices)
+        }
+        self.was_updated = true;
+    }
+
+    pub fn update_highlight(&mut self, strands: &[Strand], helices: &[Helix]) {
+        self.highlighted_strands.clear();
+        for s in strands.iter() {
+            let mut strand_view = StrandView::new(self.device.clone(), self.queue.clone());
+            strand_view.update(s, helices, &None, &FlatSelection::Nothing);
+            self.highlighted_strands.push(strand_view);
         }
         self.was_updated = true;
     }
@@ -408,6 +420,9 @@ impl View {
         }
         for suggestion in self.suggestions_view.iter() {
             suggestion.draw(&mut render_pass);
+        }
+        for highlight in self.highlighted_strands.iter() {
+            highlight.draw(&mut render_pass);
         }
 
         self.circle_drawer.draw(&mut render_pass);

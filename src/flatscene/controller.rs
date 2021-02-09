@@ -106,6 +106,7 @@ impl Controller {
         };
 
         if let Some(state) = transition.new_state {
+            println!("{}", state.display());
             self.state.borrow().transition_from(&self);
             self.state = RefCell::new(state);
             self.state.borrow().transition_to(&self);

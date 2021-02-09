@@ -63,6 +63,28 @@ impl ControllerState for NormalState {
         match event {
             WindowEvent::MouseInput {
                 button: MouseButton::Left,
+                state: ElementState::Pressed,
+                modifiers,
+                ..
+            } if controller.action_mode != ActionMode::Cut && modifiers.shift() => {
+                let (x, y) = controller
+                    .camera
+                    .borrow()
+                    .screen_to_world(self.mouse_position.x as f32, self.mouse_position.y as f32);
+                let click_result = controller.data.borrow().get_click(x, y, &controller.camera);
+                match click_result {
+                    _ => Transition {
+                        new_state: Some(Box::new(DraggingSelection {
+                            mouse_position: self.mouse_position,
+                            fixed_corner: self.mouse_position,
+                            adding: true,
+                        })),
+                        consequences: Consequence::Nothing,
+                    },
+                }
+            }
+            WindowEvent::MouseInput {
+                button: MouseButton::Left,
                 state,
                 modifiers,
                 ..
@@ -150,6 +172,7 @@ impl ControllerState for NormalState {
                                     new_state: Some(Box::new(DraggingSelection {
                                         mouse_position: self.mouse_position,
                                         fixed_corner: self.mouse_position,
+                                        adding: false,
                                     })),
                                     consequences: Consequence::Nothing,
                                 }
@@ -203,6 +226,7 @@ impl ControllerState for NormalState {
                         new_state: Some(Box::new(DraggingSelection {
                             mouse_position: self.mouse_position,
                             fixed_corner: self.mouse_position,
+                            adding: false,
                         })),
                         consequences: Consequence::Nothing,
                     },
@@ -569,6 +593,7 @@ impl ControllerState for ReleasedPivot {
                                     new_state: Some(Box::new(DraggingSelection {
                                         mouse_position: self.mouse_position,
                                         fixed_corner: self.mouse_position,
+                                        adding: modifiers.shift(),
                                     })),
                                     consequences: Consequence::Nothing,
                                 }
@@ -612,6 +637,7 @@ impl ControllerState for ReleasedPivot {
                             mouse_position: self.mouse_position,
                             translation_pivots: self.translation_pivots.clone(),
                             rotation_pivots: self.rotation_pivots.clone(),
+                            shift: modifiers.shift(),
                         })),
                         consequences: Consequence::Nothing,
                     },
@@ -696,6 +722,7 @@ pub struct LeavingPivot {
     rotation_pivots: Vec<Vec2>,
     clicked_position_screen: PhysicalPosition<f64>,
     mouse_position: PhysicalPosition<f64>,
+    shift: bool,
 }
 
 impl ControllerState for LeavingPivot {
@@ -772,6 +799,7 @@ impl ControllerState for LeavingPivot {
                         new_state: Some(Box::new(DraggingSelection {
                             mouse_position: self.mouse_position,
                             fixed_corner: self.clicked_position_screen,
+                            adding: self.shift,
                         })),
                         consequences: Consequence::Nothing,
                     }
@@ -2011,11 +2039,12 @@ impl ControllerState for Pasting {
 struct DraggingSelection {
     pub mouse_position: PhysicalPosition<f64>,
     pub fixed_corner: PhysicalPosition<f64>,
+    pub adding: bool,
 }
 
 impl ControllerState for DraggingSelection {
     fn display(&self) -> String {
-        String::from("Dragging Selection")
+        format!("Dragging Selection {}", self.adding)
     }
     fn input(
         &mut self,
@@ -2042,6 +2071,7 @@ impl ControllerState for DraggingSelection {
                         corner1_world.into(),
                         corner2_world.into(),
                         &controller.camera,
+                        self.adding,
                     );
                 if translation_pivots.len() > 0 {
                     Transition {

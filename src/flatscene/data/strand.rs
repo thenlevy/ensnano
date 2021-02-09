@@ -13,11 +13,17 @@ pub struct Strand {
     pub color: u32,
     pub points: Vec<FlatNucl>,
     pub id: usize,
+    pub highlight: bool,
 }
 
 impl Strand {
-    pub fn new(color: u32, points: Vec<FlatNucl>, id: usize) -> Self {
-        Self { color, points, id }
+    pub fn new(color: u32, points: Vec<FlatNucl>, id: usize, highlight: bool) -> Self {
+        Self {
+            color,
+            points,
+            id,
+            highlight,
+        }
     }
 
     pub fn to_vertices(
@@ -30,11 +36,15 @@ impl Strand {
         if self.points.len() == 0 {
             return vertices;
         }
-        let color = crate::utils::instance::Instance::color_from_u32(self.color);
+        let color = if self.highlight {
+            crate::utils::instance::Instance::color_from_au32(self.color)
+        } else {
+            crate::utils::instance::Instance::color_from_u32(self.color)
+        };
         let color = [color.x, color.y, color.z, color.w];
         let mut stroke_tess = lyon::tessellation::StrokeTessellator::new();
 
-        let mut builder = Path::builder_with_attributes(3);
+        let mut builder = Path::builder_with_attributes(2);
         let mut last_nucl: Option<FlatNucl> = None;
         let mut last_point = match free_end {
             Some(FreeEnd {
@@ -52,7 +62,7 @@ impl Strand {
             let depth = helices[nucl.helix].get_depth();
             let point = Point::new(position.x, position.y);
             if i == 0 && last_point.is_none() {
-                builder.begin(point, &[depth, sign, 1.]);
+                builder.begin(point, &[depth, sign]);
             } else if last_point.is_some() && Some(nucl.helix) != last_nucl.map(|n| n.helix) {
                 let cst = if let FlatSelection::Bound(_, n1, n2) = *selection {
                     if n1 == *nucl || n2 == *nucl {
@@ -67,11 +77,11 @@ impl Strand {
                 if let Some(nucl) = last_nucl {
                     // We are drawing a xover
                     let point = helices[nucl.helix].get_nucl_position(&nucl, Shift::Prime3);
-                    builder.line_to(Point::new(point.x, point.y), &[depth, sign, cst]);
+                    builder.line_to(Point::new(point.x, point.y), &[depth, sign]);
                 } else {
                     // We are drawing the free end
                     let position = last_point.unwrap();
-                    builder.begin(Point::new(position.x, position.y), &[depth, sign, cst]);
+                    builder.begin(Point::new(position.x, position.y), &[depth, sign]);
                 }
                 let last_pos = last_point.unwrap();
                 let normal = {
@@ -83,10 +93,10 @@ impl Strand {
                 builder.quadratic_bezier_to(
                     Point::new(control.x, control.y),
                     point,
-                    &[depth, sign, cst],
+                    &[depth, sign],
                 );
             } else {
-                builder.line_to(point, &[depth, sign, 1.]);
+                builder.line_to(point, &[depth, sign]);
             }
             last_point = Some(position);
             last_nucl = Some(*nucl);
@@ -94,10 +104,7 @@ impl Strand {
         }
         if let Some(nucl) = last_nucl {
             let point = helices[nucl.helix].get_nucl_position(&nucl, Shift::Prime3);
-            builder.line_to(
-                Point::new(point.x, point.y),
-                &[last_depth.unwrap(), sign, 1.],
-            );
+            builder.line_to(Point::new(point.x, point.y), &[last_depth.unwrap(), sign]);
         }
         match free_end {
             Some(FreeEnd {
@@ -117,7 +124,7 @@ impl Strand {
                 builder.quadratic_bezier_to(
                     Point::new(control.x, control.y),
                     point,
-                    &[depth, sign, 1.],
+                    &[depth, sign],
                 );
             }
             _ => {
@@ -125,7 +132,7 @@ impl Strand {
                 if let Some(nucl) = last_nucl {
                     let position = helices[nucl.helix].get_arrow_end(&nucl);
                     let point = Point::new(position.x, position.y);
-                    builder.line_to(point, &[last_depth.unwrap(), sign, 1.]);
+                    builder.line_to(point, &[last_depth.unwrap(), sign]);
                 }
             }
         }
@@ -139,7 +146,13 @@ impl Strand {
                     .with_end_cap(tessellation::LineCap::Round)
                     .with_start_cap(tessellation::LineCap::Round)
                     .with_line_join(tessellation::LineJoin::Round),
-                &mut tessellation::BuffersBuilder::new(&mut vertices, WithColor(color)),
+                &mut tessellation::BuffersBuilder::new(
+                    &mut vertices,
+                    WithAttributes {
+                        color,
+                        highlight: self.highlight,
+                    },
+                ),
             )
             .expect("Error durring tessellation");
         vertices
@@ -147,13 +160,13 @@ impl Strand {
 
     pub fn indication(nucl1: FlatNucl, nucl2: FlatNucl, helices: &[Helix]) -> Vertices {
         let mut vertices = Vertices::new();
-        let mut builder = Path::builder_with_attributes(3);
+        let mut builder = Path::builder_with_attributes(2);
         let color = [0.823, 0.525, 0.058, 0.75];
         let start = helices[nucl1.helix].get_nucl_position(&nucl1, Shift::No);
         let end = helices[nucl2.helix].get_nucl_position(&nucl2, Shift::No);
 
-        builder.begin(Point::new(start.x, start.y), &[1e-4, 1., 1.]);
-        builder.line_to(Point::new(end.x, end.y), &[1e-4, 1., 1.]);
+        builder.begin(Point::new(start.x, start.y), &[1e-4, 1.]);
+        builder.line_to(Point::new(end.x, end.y), &[1e-4, 1.]);
         let mut stroke_tess = lyon::tessellation::StrokeTessellator::new();
 
         builder.end(false);
@@ -166,10 +179,25 @@ impl Strand {
                     .with_end_cap(tessellation::LineCap::Round)
                     .with_start_cap(tessellation::LineCap::Round)
                     .with_line_join(tessellation::LineJoin::Round),
-                &mut tessellation::BuffersBuilder::new(&mut vertices, WithColor(color)),
+                &mut tessellation::BuffersBuilder::new(
+                    &mut vertices,
+                    WithAttributes {
+                        color,
+                        highlight: false,
+                    },
+                ),
             )
             .expect("Error durring tessellation");
         vertices
+    }
+
+    pub fn highlighted(&self, color: u32) -> Self {
+        Self {
+            color,
+            highlight: true,
+            points: self.points.clone(),
+            ..*self.clone()
+        }
     }
 }
 
@@ -185,25 +213,27 @@ pub struct StrandVertex {
 unsafe impl bytemuck::Pod for StrandVertex {}
 unsafe impl bytemuck::Zeroable for StrandVertex {}
 
-pub struct WithColor([f32; 4]);
+pub struct WithAttributes {
+    color: [f32; 4],
+    highlight: bool,
+}
 
-impl StrokeVertexConstructor<StrandVertex> for WithColor {
+impl StrokeVertexConstructor<StrandVertex> for WithAttributes {
     fn new_vertex(&mut self, mut vertex: StrokeVertex) -> StrandVertex {
         let mut width = vertex.interpolated_attributes()[1].powi(2).max(0.3);
-        if width < 1. {
-            width *= vertex.interpolated_attributes()[2];
+        if self.highlight {
+            width *= 1.3;
         }
-        let color = if width > 1.00001 {
-            [1., 0., 0., 1.]
-        } else {
-            self.0
-        };
+        let color = self.color;
 
-        let depth = if vertex.interpolated_attributes()[1] > 1.00001 {
+        let mut depth = if vertex.interpolated_attributes()[1] > 1.00001 {
             1e-7
         } else {
             vertex.interpolated_attributes()[0]
         };
+        if self.highlight {
+            depth *= 0.99;
+        }
 
         StrandVertex {
             position: vertex.position_on_path().to_array(),

@@ -62,7 +62,7 @@ impl Design2d {
                 .map(|n| FlatNucl::from_real(n, self.id_map()))
                 .collect();
             self.strands
-                .push(Strand::new(color, flat_strand, *strand_id));
+                .push(Strand::new(color, flat_strand, *strand_id, false));
         }
         let nucls_opt = self.design.read().unwrap().get_copy_points();
 
@@ -77,7 +77,7 @@ impl Design2d {
                     .iter()
                     .map(|n| FlatNucl::from_real(n, self.id_map()))
                     .collect();
-                Strand::new(color, flat_strand, 0)
+                Strand::new(color, flat_strand, 0, false)
             })
             .collect();
 

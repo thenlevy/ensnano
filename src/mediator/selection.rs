@@ -2,7 +2,7 @@ use crate::design::{Design, Nucl};
 use std::collections::BTreeSet;
 use std::sync::{Arc, RwLock};
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Selection {
     Nucleotide(u32, Nucl),
     Bound(u32, Nucl, Nucl),

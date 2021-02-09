@@ -32,6 +32,7 @@ pub struct Data {
     selection_mode: SelectionMode,
     pub selection: Vec<Selection>,
     id: u32,
+    selection_updated: bool,
 }
 
 impl Data {
@@ -51,6 +52,7 @@ impl Data {
             suggestions: Default::default(),
             selection_mode: SelectionMode::default(),
             selection: vec![],
+            selection_updated: false,
             id,
         }
     }
@@ -74,12 +76,37 @@ impl Data {
             self.view
                 .borrow_mut()
                 .update_pasted_strand(self.design.get_pasted_strand(), &self.helices);
+            self.update_highlight();
+        } else if self.selection_updated {
+            self.update_highlight();
         }
         self.instance_update = false;
     }
 
     pub fn id_map(&self) -> &HashMap<usize, FlatIdx> {
         self.design.id_map()
+    }
+
+    pub fn update_highlight(&mut self) {
+        let mut selected_strands = HashSet::new();
+        for s in self.selection.iter() {
+            match s {
+                Selection::Strand(_, s_id) => {
+                    selected_strands.insert(*s_id as usize);
+                }
+                _ => (),
+            }
+        }
+        let mut highlighted_strands = Vec::new();
+        for s in self.design.get_strands().iter() {
+            if selected_strands.contains(&s.id) {
+                highlighted_strands.push(s.highlighted(SELECTED_COLOR));
+            }
+        }
+        self.view
+            .borrow_mut()
+            .update_highlight(&highlighted_strands, &self.helices);
+        self.selection_updated = false;
     }
 
     fn fetch_helices(&mut self) {
@@ -370,12 +397,14 @@ impl Data {
         c1: Vec2,
         c2: Vec2,
         camera: &CameraPtr,
+        adding: bool,
     ) -> (Vec<FlatNucl>, Vec<Vec2>) {
+        self.selection_updated = true;
         if self.selection_mode == SelectionMode::Strand {
-            self.select_strands_rectangle(camera, c1, c2);
+            self.select_strands_rectangle(camera, c1, c2, adding);
             return (vec![], vec![]);
         } else if self.selection_mode == SelectionMode::Nucleotide {
-            self.select_xovers_rectangle(camera, c1, c2);
+            self.select_xovers_rectangle(camera, c1, c2, adding);
             return (vec![], vec![]);
         }
         println!("{:?} {:?}", c1, c2);
@@ -393,11 +422,19 @@ impl Data {
                 selection.push(Selection::Helix(self.id, h.real_id as u32));
             }
         }
-        self.selection = selection;
+        if adding {
+            for s in selection.iter() {
+                if !self.selection.contains(s) {
+                    self.selection.push(*s);
+                }
+            }
+        } else {
+            self.selection = selection;
+        }
         (translation_pivots, rotation_pivots)
     }
 
-    fn select_xovers_rectangle(&mut self, camera: &CameraPtr, c1: Vec2, c2: Vec2) {
+    fn select_xovers_rectangle(&mut self, camera: &CameraPtr, c1: Vec2, c2: Vec2, adding: bool) {
         let (x1, y1) = camera.borrow().world_to_norm_screen(c1.x, c1.y);
         let (x2, y2) = camera.borrow().world_to_norm_screen(c2.x, c2.y);
         let left = x1.min(x2);
@@ -421,11 +458,19 @@ impl Data {
             .iter()
             .map(|(n1, n2)| Selection::Bound(self.id, *n1, *n2))
             .collect();
-        self.selection = selection;
+        if adding {
+            for s in selection.iter() {
+                if !self.selection.contains(s) {
+                    self.selection.push(*s);
+                }
+            }
+        } else {
+            self.selection = selection;
+        }
         println!("selection {:?}", self.selection);
     }
 
-    fn select_strands_rectangle(&mut self, camera: &CameraPtr, c1: Vec2, c2: Vec2) {
+    fn select_strands_rectangle(&mut self, camera: &CameraPtr, c1: Vec2, c2: Vec2, adding: bool) {
         let (x1, y1) = camera.borrow().world_to_norm_screen(c1.x, c1.y);
         let (x2, y2) = camera.borrow().world_to_norm_screen(c2.x, c2.y);
         let left = x1.min(x2);
@@ -434,11 +479,11 @@ impl Data {
         let bottom = y1.max(y2);
         println!("{}, {}, {}, {}", left, top, right, bottom);
         let mut selection = BTreeSet::new();
-        for (s_id, s) in self.design.get_strands().iter().enumerate() {
+        for s in self.design.get_strands().iter() {
             for n in s.points.iter() {
                 let h = &self.helices[n.helix.flat];
                 if h.rectangle_has_nucl(*n, left, top, right, bottom, camera) {
-                    selection.insert(s_id);
+                    selection.insert(s.id);
                     break;
                 }
             }
@@ -447,7 +492,15 @@ impl Data {
             .iter()
             .map(|s_id| Selection::Strand(self.id, *s_id as u32))
             .collect();
-        self.selection = selection;
+        if adding {
+            for s in selection.iter() {
+                if !self.selection.contains(s) {
+                    self.selection.push(*s);
+                }
+            }
+        } else {
+            self.selection = selection;
+        }
     }
 }
 
