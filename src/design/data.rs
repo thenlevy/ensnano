@@ -1150,19 +1150,13 @@ impl Data {
 
     /// Return the xover extremity status of nucl.
     pub fn is_xover_end(&self, nucl: &Nucl) -> Extremity {
-        let id = if let Some(id) = self.identifier_nucl.get(nucl) {
+        let strand_id = if let Some(id) = self.get_strand_nucl(nucl) {
             id
         } else {
             return Extremity::No;
         };
 
-        let strand_id = if let Some(id) = self.strand_map.get(id) {
-            id
-        } else {
-            return Extremity::No;
-        };
-
-        let strand = self.design.strands.get(strand_id).expect("strand");
+        let strand = self.design.strands.get(&strand_id).expect("strand");
         let mut prev_helix = None;
         for domain in strand.domains.iter() {
             if domain.prime5_end() == Some(*nucl) && prev_helix != domain.half_helix() {
@@ -1175,6 +1169,10 @@ impl Data {
             prev_helix = domain.half_helix();
         }
         return Extremity::No;
+    }
+
+    fn is_middle_xover(&self, nucl: &Nucl) -> bool {
+        self.is_xover_end(nucl).to_opt().is_some() && self.is_strand_end(nucl).to_opt().is_none()
     }
 
     /// Return the strand end status of nucl
@@ -1317,7 +1315,7 @@ impl Data {
         self.make_hash_maps();
     }
 
-    /// Split a strand at nucl.
+    /// Split a strand at nucl, and return the id of the newly created strand
     ///
     /// The part of the strand that contains nucl is given the original
     /// strand's id, the other part is given a new id.
@@ -1327,14 +1325,14 @@ impl Data {
     /// If `force_end` is `None`, nucl will be on the 5 prime half of the split unless nucl is the 3
     /// prime extremity of a crossover, in which case nucl will be on the 3 prime half of the
     /// split.
-    pub fn split_strand(&mut self, nucl: &Nucl, force_end: Option<bool>) {
+    pub fn split_strand(&mut self, nucl: &Nucl, force_end: Option<bool>) -> Option<usize> {
         self.update_status = true;
         self.hash_maps_update = true;
         self.view_need_reset = true;
         let id = self.get_strand_nucl(nucl);
 
         if id.is_none() {
-            return;
+            return None;
         }
         let id = id.unwrap();
 
@@ -1343,11 +1341,11 @@ impl Data {
             let new_strand = self.break_cycle(strand.clone(), *nucl, force_end);
             self.design.strands.insert(id, new_strand);
             //println!("Cutting cyclic strand");
-            return;
+            return Some(id);
         }
         if strand.length() <= 1 {
             // return without putting the strand back
-            return;
+            return None;
         }
         let mut i = strand.domains.len();
         let mut prim5_domains = Vec::new();
@@ -1438,6 +1436,7 @@ impl Data {
         //self.make_hash_maps();
         self.hash_maps_update = true;
         self.view_need_reset = true;
+        Some(new_id)
     }
 
     /// Split a cyclic strand at nucl
@@ -2285,6 +2284,7 @@ impl Data {
     }
 
     pub fn general_cross_over(&mut self, source_nucl: Nucl, target_nucl: Nucl) {
+        println!("cross over between {:?} and {:?}", source_nucl, target_nucl);
         let source_id = self.get_strand_nucl(&source_nucl);
         let target_id = self.get_strand_nucl(&target_nucl);
 
@@ -2297,6 +2297,10 @@ impl Data {
 
         let source_strand_end = self.is_strand_end(&source_nucl);
         let target_strand_end = self.is_strand_end(&target_nucl);
+        println!(
+            "source strand {:?}, target strand {:?}",
+            source_id, target_id
+        );
         if let (Some(source_id), Some(target_id), Some(source), Some(target)) =
             (source_id, target_id, source, target)
         {
@@ -2321,6 +2325,7 @@ impl Data {
                 (Some(b), None) => {
                     // We can cut cross directly, but only if the target and source's helices are
                     // different
+                    println!("2324");
                     let target_3prime = b;
                     if source_nucl.helix != target_nucl.helix {
                         self.cross_cut(source_id, target_id, target_nucl, target_3prime);
@@ -2328,6 +2333,7 @@ impl Data {
                 }
                 (None, Some(b)) => {
                     // We can cut cross directly but we need to reverse the xover
+                    println!("2331");
                     let target_3prime = b;
                     if source_nucl.helix != target_nucl.helix {
                         self.cross_cut(target_id, source_id, source_nucl, target_3prime);
@@ -2335,8 +2341,36 @@ impl Data {
                 }
                 (None, None) => {
                     if source_nucl.helix != target_nucl.helix {
-                        self.split_strand(&source_nucl, None);
-                        self.cross_cut(source_id, target_id, target_nucl, true);
+                        if source_id != target_id {
+                            self.split_strand(&source_nucl, None);
+                            self.cross_cut(source_id, target_id, target_nucl, true);
+                        } else if source.cyclic {
+                            self.split_strand(&source_nucl, Some(false));
+                            self.cross_cut(source_id, target_id, target_nucl, true);
+                        } else {
+                            // if the two nucleotides are on the same strand care must be taken
+                            // because one of them might be on the newly crated strand after the
+                            // split
+                            let pos1 = source.find_nucl(&source_nucl);
+                            let pos2 = source.find_nucl(&target_nucl);
+                            if let Some((pos1, pos2)) = pos1.zip(pos2) {
+                                if pos1 > pos2 {
+                                    // the source nucl will be on the 5' end of the split and the
+                                    // target nucl as well
+                                    self.split_strand(&source_nucl, Some(false));
+                                    self.cross_cut(source_id, target_id, target_nucl, true);
+                                } else {
+                                    let new_id = self.split_strand(&source_nucl, Some(false));
+                                    if let Some(new_id) = new_id {
+                                        self.cross_cut(source_id, new_id, target_nucl, true);
+                                    } else {
+                                        println!("WARNING COULD NOT FIND NEWID");
+                                    }
+                                }
+                            } else {
+                                println!("WARNING COULD NOT FIND NUCLS");
+                            }
+                        }
                     }
                 }
             }

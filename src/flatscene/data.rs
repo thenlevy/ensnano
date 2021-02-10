@@ -89,10 +89,14 @@ impl Data {
 
     pub fn update_highlight(&mut self) {
         let mut selected_strands = HashSet::new();
+        let mut selected_xovers = HashSet::new();
         for s in self.selection.iter() {
             match s {
                 Selection::Strand(_, s_id) => {
                     selected_strands.insert(*s_id as usize);
+                }
+                Selection::Bound(_, n1, n2) => {
+                    selected_xovers.insert((*n1, *n2));
                 }
                 _ => (),
             }
@@ -102,6 +106,9 @@ impl Data {
             if selected_strands.contains(&s.id) {
                 highlighted_strands.push(s.highlighted(SELECTED_COLOR));
             }
+        }
+        for xover in selected_xovers.iter() {
+            highlighted_strands.push(self.design.strand_from_xover(xover));
         }
         self.view
             .borrow_mut()

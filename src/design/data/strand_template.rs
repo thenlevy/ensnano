@@ -547,6 +547,7 @@ impl Data {
         if let Some(nucl) = nucl {
             if let Some(ref applied_nucl) = self.xover_copy_manager.applied {
                 if *applied_nucl != nucl && !duplicate {
+                    println!("reverting");
                     self.unapply_xover_paste();
                 } else if !duplicate {
                     println!("returning");
@@ -568,9 +569,11 @@ impl Data {
                         let copy_1 = self.translate_nucl_by_edge(n1, edge, shift);
                         let copy_2 = self.translate_nucl_by_edge(n2, edge, shift);
                         if let Some((copy_1, copy_2)) = copy_1.zip(copy_2) {
-                            self.general_cross_over(copy_1, copy_2);
-                            self.update_status = true;
-                            self.view_need_reset = true;
+                            if !self.is_middle_xover(&copy_1) && !self.is_middle_xover(&copy_2) {
+                                self.general_cross_over(copy_1, copy_2);
+                                self.update_status = true;
+                                self.view_need_reset = true;
+                            }
                         }
                     }
                 }
@@ -611,5 +614,11 @@ impl Data {
         } else {
             None
         }
+    }
+
+    pub fn reset_copy_paste(&mut self) {
+        self.template_manager = Default::default();
+        self.xover_copy_manager = Default::default();
+        self.update_status = true;
     }
 }

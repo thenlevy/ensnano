@@ -311,6 +311,17 @@ impl Strand {
         }
         false
     }
+
+    pub fn find_nucl(&self, nucl: &Nucl) -> Option<usize> {
+        let mut ret = 0;
+        for d in self.domains.iter() {
+            if let Some(n) = d.has_nucl(nucl) {
+                return Some(ret + n);
+            }
+            ret += d.length()
+        }
+        None
+    }
 }
 
 fn is_false(x: &bool) -> bool {

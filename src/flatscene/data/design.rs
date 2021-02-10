@@ -337,6 +337,14 @@ impl Design2d {
             })
             .collect()
     }
+
+    pub fn strand_from_xover(&self, xover: &(Nucl, Nucl)) -> Strand {
+        let flat_nucls = [xover.0, xover.1]
+            .iter()
+            .map(|n| FlatNucl::from_real(n, self.id_map()))
+            .collect();
+        Strand::new(0, flat_nucls, 0, false).highlighted(crate::consts::CANDIDATE_COLOR)
+    }
 }
 
 /// Store the informations needed to represent an helix from the design

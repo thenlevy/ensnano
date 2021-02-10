@@ -273,7 +273,7 @@ impl Design {
                 if undo {
                     self.data.lock().unwrap().undo_split(strand, s_id)
                 } else {
-                    self.data.lock().unwrap().split_strand(&nucl, None)
+                    self.data.lock().unwrap().split_strand(&nucl, None);
                 }
             }
             AppNotification::Xover {
@@ -339,6 +339,7 @@ impl Design {
             AppNotification::NewStrandState(state) => {
                 self.data.lock().unwrap().new_strand_state(state)
             }
+            AppNotification::ResetCopyPaste => self.data.lock().unwrap().reset_copy_paste(),
         }
     }
 
@@ -501,11 +502,11 @@ impl Design {
     }
 
     pub fn split_strand(&self, nucl: Nucl) {
-        self.data.lock().unwrap().split_strand(&nucl, None)
+        self.data.lock().unwrap().split_strand(&nucl, None);
     }
 
     pub fn split_strand_forced_end(&self, nucl: Nucl, forced_end: Option<bool>) {
-        self.data.lock().unwrap().split_strand(&nucl, forced_end)
+        self.data.lock().unwrap().split_strand(&nucl, forced_end);
     }
 
     pub fn rm_strand(&self, nucl: Nucl) {

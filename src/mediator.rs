@@ -515,9 +515,13 @@ impl Mediator {
         println!("selection {:?}", selection);
         self.selection = selection.clone();
         self.last_selection = Some(selection);
+        self.pasting = PastingMode::Nothing;
+        self.notify_all_designs(AppNotification::ResetCopyPaste);
     }
 
     pub fn notify_unique_selection(&mut self, selection: Selection) {
+        self.pasting = PastingMode::Nothing;
+        self.notify_all_designs(AppNotification::ResetCopyPaste);
         self.selection = vec![selection];
         self.last_selection = Some(vec![selection]);
         if selection.is_strand() {
@@ -1009,6 +1013,8 @@ impl Mediator {
     }
 
     pub fn request_copy(&mut self) {
+        self.pasting = PastingMode::Nothing;
+        self.notify_all_designs(AppNotification::ResetCopyPaste);
         println!("selection : {:?}", self.selection);
         if let Some((d_id, s_ids)) = list_of_strands(&self.selection, self.designs.clone()) {
             self.designs[d_id as usize]
@@ -1022,7 +1028,6 @@ impl Mediator {
                 .request_copy_xovers(bounds);
             println!("copy success: {}", copy);
         }
-        self.pasting = PastingMode::Nothing;
     }
 
     pub fn request_pasting_mode(&mut self) {
@@ -1142,6 +1147,7 @@ pub enum AppNotification {
     },
     ClearHyperboloid,
     NewStrandState(StrandState),
+    ResetCopyPaste,
 }
 
 fn write_stapples(stapples: Vec<Stapple>, path: PathBuf) {
