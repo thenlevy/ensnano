@@ -73,11 +73,18 @@ impl ControllerState for NormalState {
                     .screen_to_world(self.mouse_position.x as f32, self.mouse_position.y as f32);
                 let click_result = controller.data.borrow().get_click(x, y, &controller.camera);
                 match click_result {
-                    _ => Transition {
+                    ClickResult::Nothing => Transition {
                         new_state: Some(Box::new(DraggingSelection {
                             mouse_position: self.mouse_position,
                             fixed_corner: self.mouse_position,
                             adding: true,
+                        })),
+                        consequences: Consequence::Nothing,
+                    },
+                    click_result => Transition {
+                        new_state: Some(Box::new(AddClick {
+                            mouse_position: self.mouse_position,
+                            click_result,
                         })),
                         consequences: Consequence::Nothing,
                     },
@@ -2132,6 +2139,81 @@ impl ControllerState for DraggingSelection {
 
     fn transition_to(&self, _controller: &Controller) {
         ()
+    }
+}
+
+struct AddClick {
+    mouse_position: PhysicalPosition<f64>,
+    click_result: ClickResult,
+}
+
+impl ControllerState for AddClick {
+    fn transition_from(&self, _controller: &Controller) {
+        ()
+    }
+
+    fn transition_to(&self, _controller: &Controller) {
+        ()
+    }
+
+    fn display(&self) -> String {
+        String::from("AddClick")
+    }
+
+    fn input(
+        &mut self,
+        event: &WindowEvent,
+        position: PhysicalPosition<f64>,
+        controller: &Controller,
+    ) -> Transition {
+        match event {
+            WindowEvent::MouseInput {
+                button: MouseButton::Left,
+                state,
+                ..
+            } => {
+                /*assert!(
+                    *state == ElementState::Released,
+                    "Pressed mouse button in Cutting state"
+                );*/
+                if *state == ElementState::Pressed {
+                    return Transition::nothing();
+                }
+                let (x, y) = controller
+                    .camera
+                    .borrow()
+                    .screen_to_world(self.mouse_position.x as f32, self.mouse_position.y as f32);
+                let click = controller.data.borrow().get_click(x, y, &controller.camera);
+                let consequences = if click == self.click_result {
+                    Consequence::AddClick(click)
+                } else {
+                    Consequence::Nothing
+                };
+                Transition {
+                    new_state: Some(Box::new(NormalState {
+                        mouse_position: self.mouse_position,
+                        pasting: controller.pasting,
+                    })),
+                    consequences,
+                }
+            }
+            WindowEvent::CursorMoved { .. } => {
+                self.mouse_position = position;
+                Transition::nothing()
+            }
+            WindowEvent::KeyboardInput { .. } => {
+                controller.process_keyboard(event);
+                Transition::nothing()
+            }
+            WindowEvent::MouseWheel { delta, .. } => {
+                controller
+                    .camera
+                    .borrow_mut()
+                    .process_scroll(delta, self.mouse_position);
+                Transition::nothing()
+            }
+            _ => Transition::nothing(),
+        }
     }
 }
 

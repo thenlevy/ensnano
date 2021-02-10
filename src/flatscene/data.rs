@@ -502,6 +502,58 @@ impl Data {
             self.selection = selection;
         }
     }
+
+    pub fn add_selection(&mut self, click_result: ClickResult) {
+        match click_result {
+            ClickResult::CircleWidget { translation_pivot } => {
+                if self.selection_mode == SelectionMode::Helix {
+                    let selection = Selection::Helix(self.id, translation_pivot.helix.real as u32);
+                    if let Some(pos) = self.selection.iter().position(|x| *x == selection) {
+                        self.selection.remove(pos);
+                    } else {
+                        self.selection.push(selection);
+                    }
+                }
+            }
+            ClickResult::Nucl(nucl) => match self.selection_mode {
+                SelectionMode::Strand => {
+                    if let Some(s_id) = self.design.get_strand_id(nucl.to_real()) {
+                        let selection = Selection::Strand(self.id, s_id as u32);
+                        if let Some(pos) = self.selection.iter().position(|x| *x == selection) {
+                            self.selection.remove(pos);
+                        } else {
+                            self.selection.push(selection);
+                        }
+                    }
+                }
+                _ => {
+                    if let Some(xover) = self.xover_containing_nucl(&nucl) {
+                        let selection =
+                            Selection::Bound(self.id, xover.0.to_real(), xover.1.to_real());
+                        if let Some(pos) = self.selection.iter().position(|x| *x == selection) {
+                            self.selection.remove(pos);
+                        } else {
+                            self.selection.push(selection);
+                        }
+                    }
+                }
+            },
+            ClickResult::Nothing => (),
+        }
+    }
+
+    fn xover_containing_nucl(&self, nucl: &FlatNucl) -> Option<(FlatNucl, FlatNucl)> {
+        let xovers_list = self.design.get_xovers_list();
+        xovers_list.iter().find_map(|(n1, n2)| {
+            if *n1 == *nucl {
+                Some((*n1, *n2))
+            } else if *n2 == *nucl {
+                Some((*n1, *n2))
+            } else {
+                None
+            }
+        })
+    }
 }
 
 #[derive(Debug, PartialEq)]

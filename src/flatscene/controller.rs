@@ -4,7 +4,7 @@
 //! happens. In addition to the transistion in the automat, a `Consequence` is returned to the
 //! scene, that describes the consequences that the input must have on the view or the data held by
 //! the scene.
-use super::data::FreeEnd;
+use super::data::{ClickResult, FreeEnd};
 use super::{
     ActionMode, Arc, CameraPtr, DataPtr, FlatHelix, FlatNucl, Mediator, Mutex, PhySize,
     PhysicalPosition, ViewPtr, WindowEvent,
@@ -52,6 +52,7 @@ pub enum Consequence {
     DrawingSelection(PhysicalPosition<f64>, PhysicalPosition<f64>),
     ReleasedSelection(Vec2, Vec2),
     PasteRequest(FlatNucl),
+    AddClick(ClickResult),
 }
 
 impl Controller {
