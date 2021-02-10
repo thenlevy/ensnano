@@ -9,6 +9,7 @@ use ultraviolet::{Isometry2, Mat4, Rotor3, Vec3};
 
 use super::codenano;
 use super::grid::{Grid, GridDescriptor, GridPosition};
+use super::scadnano::*;
 use super::strand_builder::{DomainIdentifier, NeighbourDescriptor};
 
 /// The `icednano` Design structure.
@@ -152,6 +153,46 @@ impl Design {
     }
 }
 
+impl Design {
+    pub fn from_scadnano(scad: &ScadnanoDesign) -> Option<Self> {
+        let mut grids = Vec::new();
+        let mut group_map = BTreeMap::new();
+        let default_grid = scad.default_grid_descriptor()?;
+        group_map.insert(String::from("default_group"), 0usize);
+        grids.push(default_grid);
+        if let Some(ref scad_groups) = scad.groups {
+            for (name, g) in scad_groups.iter() {
+                let group = g.to_grid_desc()?;
+                group_map.insert(name.clone(), grids.len());
+                grids.push(group);
+            }
+        }
+        let mut helices = BTreeMap::new();
+        for (i, h) in scad.helices.iter().enumerate() {
+            let helix = Helix::from_scadnano(h, &group_map)?;
+            helices.insert(i, helix);
+        }
+        let mut strands = BTreeMap::new();
+        for (i, s) in scad.strands.iter().enumerate() {
+            let strand = Strand::from_scadnano(s)?;
+            strands.insert(i, strand);
+        }
+        println!("grids {:?}", grids);
+        Some(Self {
+            grids,
+            helices,
+            strands,
+            small_shperes: Default::default(),
+            scaffold_id: None, //TODO determine this value
+            scaffold_sequence: None,
+            scaffold_shift: None,
+            groups: Default::default(),
+            no_phantoms: Default::default(),
+            parameters: Some(Parameters::DEFAULT),
+        })
+    }
+}
+
 /// A DNA strand. Strands are represented as sequences of `Domains`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Strand {
@@ -190,6 +231,26 @@ impl Strand {
                 .unwrap_or_else(|| codenano_strand.default_color())
                 .as_int(),
         }
+    }
+
+    pub fn from_scadnano(scad: &ScadnanoStrand) -> Option<Self> {
+        let color = scad.color()?;
+        let domains: Vec<Domain> = scad
+            .domains
+            .iter()
+            .map(|s| Domain::from_scadnano(s))
+            .collect();
+        let sequence = if let Some(ref seq) = scad.sequence {
+            Some(Cow::Owned(seq.clone()))
+        } else {
+            None
+        };
+        Some(Self {
+            domains,
+            color,
+            cyclic: false, // TODO: determine this value
+            sequence,
+        })
     }
 
     pub fn init(helix: usize, position: isize, forward: bool, color: u32) -> Self {
@@ -372,6 +433,25 @@ impl Domain {
             sequence: codenano_domain.sequence.clone(),
         };
         Self::HelixDomain(interval)
+    }
+
+    pub fn from_scadnano(scad: &ScadnanoDomain) -> Self {
+        match scad {
+            ScadnanoDomain::HelixDomain {
+                helix,
+                start,
+                end,
+                forward,
+                ..// TODO read insertion and deletion
+            } => Self::HelixDomain(HelixInterval {
+                helix: *helix,
+                start: *start,
+                end: *end,
+                forward: *forward,
+                sequence: None,
+            }),
+            ScadnanoDomain::Loopout{ loopout: n } => Self::Insertion(*n)
+        }
     }
 
     pub fn length(&self) -> usize {
@@ -750,6 +830,32 @@ impl Helix {
             visible: true,
             roll: 0f32,
         }
+    }
+
+    pub fn from_scadnano(
+        scad: &ScadnanoHelix,
+        group_map: &BTreeMap<String, usize>,
+    ) -> Option<Self> {
+        let group_id = scad.group.clone().unwrap_or(String::from("default_group"));
+        let grid_id = group_map.get(&group_id)?;
+        let x = scad.grid_position.get(0).cloned()?;
+        let y = scad.grid_position.get(1).cloned()?;
+        Some(Self {
+            position: Vec3::zero(),
+            orientation: Rotor3::identity(),
+            old_position: Vec3::zero(),
+            old_orientation: Rotor3::identity(),
+            grid_position: Some(GridPosition {
+                grid: *grid_id,
+                x,
+                y,
+                axis_pos: 0,
+                roll: 0f32,
+            }),
+            visible: true,
+            roll: 0f32,
+            isometry2d: None,
+        })
     }
 }
 

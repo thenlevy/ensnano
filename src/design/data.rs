@@ -24,6 +24,7 @@ mod codenano;
 mod grid;
 mod icednano;
 mod roller;
+mod scadnano;
 mod strand_builder;
 mod strand_template;
 mod torsion;
@@ -287,12 +288,13 @@ impl Data {
     /// * codenano
     /// * icednano
     pub fn new_with_path(json_path: &PathBuf) -> Option<Self> {
-        let design = read_file(json_path)?;
-        let grid_manager = GridManager::new_from_design(&design);
+        let mut design = read_file(json_path)?;
+        let mut grid_manager = GridManager::new_from_design(&design);
         let mut grids = grid_manager.grids2d();
         for g in grids.iter_mut() {
             g.write().unwrap().update(&design);
         }
+        grid_manager.update(&mut design);
         let color_idx = design.strands.keys().len();
         let groups = design.groups.clone();
         let mut ret = Self {
@@ -2403,13 +2405,20 @@ fn read_file(path: &PathBuf) -> Option<icednano::Design> {
     let design: Result<icednano::Design, _> = serde_json::from_str(&json_str);
     // First try to read icednano format
     if let Ok(design) = design {
+        println!("ok icednano");
         Some(design)
     } else {
         // If the file is not in icednano format, try the other supported format
         let cdn_design: Result<codenano::Design<(), ()>, _> = serde_json::from_str(&json_str);
 
+        let scadnano_design: Result<scadnano::ScadnanoDesign, _> = serde_json::from_str(&json_str);
+
         // Try codenano format
-        if let Ok(design) = cdn_design {
+        if let Ok(scadnano) = scadnano_design {
+            icednano::Design::from_scadnano(&scadnano)
+        } else if let Ok(design) = cdn_design {
+            println!("{:?}", scadnano_design.err());
+            println!("ok codenano");
             Some(icednano::Design::from_codenano(&design))
         } else {
             // The file is not in any supported format
