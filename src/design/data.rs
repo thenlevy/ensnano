@@ -23,6 +23,7 @@ use std::time::Instant;
 mod codenano;
 mod grid;
 mod icednano;
+mod rigid_body;
 mod roller;
 mod scadnano;
 mod strand_builder;

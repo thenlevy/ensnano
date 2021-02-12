@@ -829,6 +829,10 @@ impl Design {
     pub fn get_xovers_list(&self) -> Vec<(Nucl, Nucl)> {
         self.data.lock().unwrap().get_xovers_list()
     }
+
+    pub fn grid_simulation(&mut self, time_span: (f32, f32)) {
+        self.data.lock().unwrap().grid_simulation(time_span)
+    }
 }
 
 #[derive(Clone)]
