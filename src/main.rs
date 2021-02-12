@@ -462,7 +462,7 @@ fn main() {
                     }
 
                     if requests.recolor_stapples {
-                        requests.recolor_stapples = false;
+                        //requests.recolor_stapples = false;
                         mediator.lock().unwrap().recolor_stapples();
                     }
 

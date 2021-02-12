@@ -19,7 +19,7 @@ impl GridsSystem {
         let mut torques = vec![Vec3::zero(); self.grids.len()];
 
         const L0: f32 = 0.7;
-        const K_SPRING: f32 = 10.;
+        const K_SPRING: f32 = 1.;
 
         let point_conversion = |application_point: &ApplicationPoint| {
             let g_id = application_point.grid_id;
@@ -76,7 +76,7 @@ impl ExplicitODE<f32> for GridsSystem {
             ret.push(d_rotation.bv.xz);
             ret.push(d_rotation.bv.yz);
 
-            let d_linear_momentum = forces[i] / self.grids[i].mass;
+            let d_linear_momentum = forces[i];
 
             ret.push(d_linear_momentum.x);
             ret.push(d_linear_momentum.y);
@@ -164,11 +164,13 @@ impl GridsSystem {
     }
 }
 
+#[derive(Debug)]
 struct ApplicationPoint {
     grid_id: usize,
     position_on_grid: Vec3,
 }
 
+#[derive(Debug)]
 struct RigidHelix {
     pub y_pos: f32,
     pub z_pos: f32,
@@ -177,15 +179,16 @@ struct RigidHelix {
 }
 
 impl RigidHelix {
-    fn center_of_mass(&self) -> Vec3 {
-        Vec3::new((self.x_min + self.x_max) / 2., self.y_pos, self.z_pos)
+    fn center_of_mass(&self, parameters: &Parameters) -> Vec3 {
+        Vec3::new((self.x_min + self.x_max) * parameters.z_step / 2., self.y_pos, self.z_pos)
     }
 
-    fn height(&self) -> f32 {
-        self.x_max - self.x_min
+    fn height(&self, parameters: &Parameters) -> f32 {
+        (self.x_max - self.x_min) * parameters.z_step
     }
 }
 
+#[derive(Debug)]
 struct RigidGrid {
     center_of_mass: Vec3,
     center_of_mass_from_grid: Vec3,
@@ -201,14 +204,16 @@ impl RigidGrid {
         helices: Vec<RigidHelix>,
         position_grid: Vec3,
         orientation: Rotor3,
+        parameters: &Parameters,
     ) -> Self {
         // Center of mass in the grid coordinates.
-        let center_of_mass = center_of_mass_helices(&helices);
+        println!("helices {:?}", helices);
+        let center_of_mass = center_of_mass_helices(&helices, parameters);
 
         // Inertia matrix when the orientation is the identity
-        let inertia_matrix = inertia_helices(&helices, center_of_mass);
+        let inertia_matrix = inertia_helices(&helices, center_of_mass, parameters);
         let inertia_inverse = inertia_matrix.inversed();
-        let mass = helices.iter().map(|h| h.height()).sum();
+        let mass = helices.iter().map(|h| h.height(parameters)).sum();
         Self {
             center_of_mass: center_of_mass.rotated_by(orientation) + position_grid,
             center_of_mass_from_grid: center_of_mass,
@@ -230,12 +235,12 @@ fn inertia_helix(h: f32, r: f32) -> Mat3 {
     Mat3::new(c * Vec3::unit_x(), a * Vec3::unit_y(), a * Vec3::unit_z())
 }
 
-fn center_of_mass_helices(helices: &[RigidHelix]) -> Vec3 {
+fn center_of_mass_helices(helices: &[RigidHelix], parameters: &Parameters) -> Vec3 {
     let mut total_mass = 0f32;
     let mut ret = Vec3::zero();
     for h in helices.iter() {
-        ret += h.center_of_mass() * h.height();
-        total_mass += h.height();
+        ret += h.center_of_mass(parameters) * h.height(parameters);
+        total_mass += h.height(parameters);
     }
     ret / total_mass
 }
@@ -261,13 +266,13 @@ fn inertia_point(point: Vec3) -> Mat3 {
     )
 }
 
-fn inertia_helices(helices: &[RigidHelix], center_of_mass: Vec3) -> Mat3 {
+fn inertia_helices(helices: &[RigidHelix], center_of_mass: Vec3, parameters: &Parameters) -> Mat3 {
     const HELIX_RADIUS: f32 = 1.;
     let mut ret = Mat3::from_scale(0f32);
     for h in helices.iter() {
-        let helix_center = h.center_of_mass();
-        let inertia = inertia_helix(h.height(), HELIX_RADIUS);
-        ret += inertia_point(helix_center - center_of_mass) * h.height() + inertia;
+        let helix_center = h.center_of_mass(parameters);
+        let inertia = inertia_helix(h.height(parameters), HELIX_RADIUS);
+        ret += inertia_point(helix_center - center_of_mass) * h.height(parameters) + inertia;
     }
     ret
 }
@@ -275,20 +280,21 @@ fn inertia_helices(helices: &[RigidHelix], center_of_mass: Vec3) -> Mat3 {
 impl Data {
     pub fn grid_simulation(&mut self, time_span: (f32, f32)) {
         if let Some(grid_system) = self.make_grid_system(time_span) {
-            let solver = Kutta3::new(1e-3f32);
+            let solver = Kutta3::new(1e-4f32);
             println!("launching simulation");
             if let Ok((t, y)) = solver.solve(&grid_system) {
                 let last_state = y.last().unwrap();
                 let (positions, rotations, _, _) = grid_system.read_state(last_state);
                 for (i, rigid_grid) in grid_system.grids.iter().enumerate() {
                     let position = positions[i];
-                    let orientation = rotations[i];
+                    let orientation = rotations[i].normalized();
                     self.grid_manager.grids[rigid_grid.id].position =
                         position - rigid_grid.center_of_mass_from_grid.rotated_by(orientation);
                     self.grid_manager.grids[rigid_grid.id].orientation = orientation;
                 }
                 self.grid_manager.update(&mut self.design);
                 self.hash_maps_update = true;
+                self.update_status = true;
             } else {
                 println!("error while solving");
             }
@@ -302,8 +308,9 @@ impl Data {
         let mut selected_grids = HashMap::with_capacity(self.grid_manager.grids.len());
         let mut rigid_grids = Vec::with_capacity(self.grid_manager.grids.len());
         for g_id in 0..self.grid_manager.grids.len() {
-            if let Some(rigid_grid) = self.make_rigid_grid(g_id, &intervals) {
+            if let Some(rigid_grid) = self.make_rigid_grid(g_id, &intervals, &parameters) {
                 selected_grids.insert(g_id, rigid_grids.len());
+                println!("{:?}", rigid_grid);
                 rigid_grids.push(rigid_grid);
             }
         }
@@ -340,6 +347,7 @@ impl Data {
                                 - rigid_grids[rigid_id2].center_of_mass_from_grid,
                             grid_id: rigid_id2,
                         };
+                        println!("spring {:?}, {:?}", application_point1, application_point2);
                         springs.push((application_point1, application_point2));
                     }
                 }
@@ -356,6 +364,7 @@ impl Data {
         &self,
         g_id: usize,
         intervals: &BTreeMap<usize, (isize, isize)>,
+        parameters: &Parameters,
     ) -> Option<RigidGrid> {
         let helices: Vec<usize> = self.grids[g_id]
             .read()
@@ -377,6 +386,7 @@ impl Data {
                 rigid_helices,
                 grid.position,
                 grid.orientation,
+                parameters
             ))
         } else {
             None
@@ -393,12 +403,11 @@ impl Data {
         let grid_position = helix.grid_position?;
         let grid = self.grid_manager.grids.get(grid_position.grid)?;
         let position = grid.position_helix(grid_position.x, grid_position.y) - grid.position;
-        let parameters = self.design.parameters.unwrap_or_default();
         Some(RigidHelix {
             z_pos: position.x,
             y_pos: position.y,
-            x_min: parameters.z_step * *x_min as f32,
-            x_max: parameters.z_step * *x_max as f32,
+            x_min: *x_min as f32,
+            x_max: *x_max as f32,
         })
     }
 }

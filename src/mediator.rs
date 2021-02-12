@@ -946,9 +946,10 @@ impl Mediator {
     }
 
     pub fn recolor_stapples(&mut self) {
-        for d in self.designs.iter() {
+        /*for d in self.designs.iter() {
             d.write().unwrap().recolor_stapples();
-        }
+        }*/
+        self.designs[0].write().unwrap().grid_simulation((0., 1.));
     }
 
     pub fn clean_designs(&mut self) {
