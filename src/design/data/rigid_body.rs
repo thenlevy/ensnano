@@ -15,6 +15,7 @@ impl GridsSystem {
         &self,
         positions: &[Vec3],
         orientations: &[Rotor3],
+        volume_exclusion: f32,
     ) -> (Vec<Vec3>, Vec<Vec3>) {
         let mut forces = vec![Vec3::zero(); self.grids.len()];
         let mut torques = vec![Vec3::zero(); self.grids.len()];
@@ -47,6 +48,35 @@ impl GridsSystem {
             torques[spring.0.grid_id] += torque0;
             torques[spring.1.grid_id] += torque1;
         }
+        for i in 0..self.grids.len() {
+            for j in (i + 1)..self.grids.len() {
+                let grid_1 = &self.grids[i];
+                let grid_2 = &self.grids[j];
+                for h1 in grid_1.helices.iter() {
+                    let a = Vec3::new(h1.x_min, h1.y_pos, h1.z_pos);
+                    let a = a.rotated_by(orientations[i]) + positions[i];
+                    let b = Vec3::new(h1.x_max, h1.y_pos, h1.z_pos);
+                    let b = b.rotated_by(orientations[i]) + positions[i];
+                    for h2 in grid_2.helices.iter() {
+                        let c = Vec3::new(h2.x_min, h2.y_pos, h2.z_pos);
+                        let c = c.rotated_by(orientations[j]) + positions[j];
+                        let d = Vec3::new(h2.x_max, h2.y_pos, h2.z_pos);
+                        let d = d.rotated_by(orientations[j]) + positions[j];
+                        let r = 2.665;
+                        let (dist, vec, point_a, point_c) = distance_segment(a, b, c, d);
+                        if dist < r {
+                            let norm = ((dist - r) / dist).powi(2) / 1. * 1000.;
+                            forces[i] += norm * vec;
+                            forces[j] += -norm * vec;
+                            let torque0 = (point_a - positions[i]).rotated_by(orientations[i].reversed()).cross(norm * vec);
+                            let torque1 = (point_c - positions[j]).rotated_by(orientations[j].reversed()).cross(-norm * vec);
+                            torques[i] += torque0;
+                            torques[j] += torque1;
+                        }
+                    }
+                }
+            }
+        }
 
         (forces, torques)
     }
@@ -61,7 +91,8 @@ impl ExplicitODE<f32> for GridsSystem {
 
     fn func(&self, _t: &f32, x: &Vector<f32>) -> Vector<f32> {
         let (positions, rotations, linear_momentums, angular_momentums) = self.read_state(x);
-        let (forces, torques) = self.forces_and_torques(&positions, &rotations);
+        let volume_exclusion = 1.;
+        let (forces, torques) = self.forces_and_torques(&positions, &rotations, volume_exclusion);
 
         let mut ret = Vec::with_capacity(13 * self.grids.len());
         for i in 0..self.grids.len() {
@@ -77,13 +108,13 @@ impl ExplicitODE<f32> for GridsSystem {
             ret.push(d_rotation.bv.xz);
             ret.push(d_rotation.bv.yz);
 
-            let d_linear_momentum = forces[i] - linear_momentums[i] * 10. / self.grids[i].mass;
+            let d_linear_momentum = forces[i] - linear_momentums[i] * 100. / self.grids[i].mass;
 
             ret.push(d_linear_momentum.x);
             ret.push(d_linear_momentum.y);
             ret.push(d_linear_momentum.z);
 
-            let d_angular_momentum = torques[i] - angular_momentums[i] * 10. / self.grids[i].mass;
+            let d_angular_momentum = torques[i] - angular_momentums[i] * 100. / self.grids[i].mass;
             ret.push(d_angular_momentum.x);
             ret.push(d_angular_momentum.y);
             ret.push(d_angular_momentum.z);
@@ -202,6 +233,7 @@ struct RigidGrid {
     inertia_inverse: Mat3,
     mass: f32,
     id: usize,
+    helices: Vec<RigidHelix>,
 }
 
 impl RigidGrid {
@@ -226,6 +258,7 @@ impl RigidGrid {
             orientation,
             mass,
             id,
+            helices,
         }
     }
 }
@@ -546,5 +579,151 @@ impl Data {
             println!("design was not performing rigid body simulation");
         }
         self.rigid_body_ptr = None;
+    }
+}
+
+/// Return the length of the shortes line between a point of [a, b] and a poin of [c, d]
+fn distance_segment(a: Vec3, b: Vec3, c: Vec3, d: Vec3) -> (f32, Vec3, Vec3, Vec3) {
+    let u = b - a;
+    let v = d - c;
+    let n = u.cross(v);
+
+    if n.mag() < 1e-5 {
+        // the segment are almost parallel
+        return ((a - c).mag(), (a - c), (a + b) / 2., (c + d) / 2.);
+    }
+
+    // lambda u.norm2() - mu u.dot(v) + ((a - c).dot(u)) = 0
+    // mu v.norm2() - lambda u.dot(v) + ((c - a).dot(v)) = 0
+    let normalise = u.dot(v) / u.mag_sq();
+
+    // mu (v.norm2() - normalise * u.dot(v)) = (-(c - a).dot(v)) - normalise * ((a - c).dot(u))
+    let mut mu =
+        (-((c - a).dot(v)) - normalise * ((a - c).dot(u))) / (v.mag_sq() - normalise * u.dot(v));
+
+    let mut lambda = (-((a - c).dot(u)) + mu * u.dot(v)) / (u.mag_sq());
+
+    if 0f32 <= mu && mu <= 1f32 && 0f32 <= lambda && lambda <= 1f32 {
+        let vec = (a + u * lambda) - (c + v * mu);
+        (vec.mag(), vec, a + u * lambda, c + v * mu)
+    } else {
+        let mut min_dist = std::f32::INFINITY;
+        let mut min_vec = Vec3::zero();
+        let mut min_point_a = a;
+        let mut min_point_c = c;
+        lambda = 0f32;
+        mu = -((c - a).dot(v)) / v.mag_sq();
+        if 0f32 <= mu && mu <= 1f32 {
+            let vec = (a + u * lambda) - (c + v * mu);
+            if min_dist > vec.mag() {
+                min_dist = vec.mag();
+                min_vec = vec.clone();
+                min_point_a = a + u * lambda;
+                min_point_c = c + v * mu;
+            }
+        } else {
+            mu = 0f32;
+            let vec = (a + u * lambda) - (c + v * mu);
+            if min_dist > vec.mag() {
+                min_dist = vec.mag();
+                min_vec = vec.clone();
+                min_point_a = a + u * lambda;
+                min_point_c = c + v * mu;
+            }
+            mu = 1f32;
+            let vec = (a + u * lambda) - (c + v * mu);
+            if min_dist > vec.mag() {
+                min_dist = vec.mag();
+                min_vec = vec.clone();
+                min_point_a = a + u * lambda;
+                min_point_c = c + v * mu;
+            }
+        }
+        lambda = 1f32;
+        mu = (-(c - a).dot(v) + u.dot(v)) / v.mag_sq();
+        if 0f32 <= mu && mu <= 1f32 {
+            min_dist = min_dist.min(((a + u * lambda) - (c + v * mu)).mag());
+            let vec = (a + u * lambda) - (c + v * mu);
+            if min_dist > vec.mag() {
+                min_dist = vec.mag();
+                min_vec = vec.clone();
+                min_point_a = a + u * lambda;
+                min_point_c = c + v * mu;
+            }
+        } else {
+            mu = 0f32;
+            let vec = (a + u * lambda) - (c + v * mu);
+            if min_dist > vec.mag() {
+                min_dist = vec.mag();
+                min_vec = vec.clone();
+                min_point_a = a + u * lambda;
+                min_point_c = c + v * mu;
+            }
+            mu = 1f32;
+            let vec = (a + u * lambda) - (c + v * mu);
+            if min_dist > vec.mag() {
+                min_dist = vec.mag();
+                min_vec = vec.clone();
+                min_point_a = a + u * lambda;
+                min_point_c = c + v * mu;
+            }
+        }
+        mu = 0f32;
+        lambda = (-((a - c).dot(u)) + mu * u.dot(v)) / (u.mag_sq());
+        if 0f32 <= lambda && 1f32 >= lambda {
+            let vec = (a + u * lambda) - (c + v * mu);
+            if min_dist > vec.mag() {
+                min_dist = vec.mag();
+                min_vec = vec.clone();
+                min_point_a = a + u * lambda;
+                min_point_c = c + v * mu;
+            }
+        } else {
+            lambda = 0f32;
+            let vec = (a + u * lambda) - (c + v * mu);
+            if min_dist > vec.mag() {
+                min_dist = vec.mag();
+                min_vec = vec.clone();
+                min_point_a = a + u * lambda;
+                min_point_c = c + v * mu;
+            }
+            lambda = 1f32;
+            let vec = (a + u * lambda) - (c + v * mu);
+            if min_dist > vec.mag() {
+                min_dist = vec.mag();
+                min_vec = vec.clone();
+                min_point_a = a + u * lambda;
+                min_point_c = c + v * mu;
+            }
+        }
+        mu = 1f32;
+        lambda = (-((a - c).dot(u)) + mu * u.dot(v)) / (u.mag_sq());
+        if 0f32 <= lambda && 1f32 >= lambda {
+            let vec = (a + u * lambda) - (c + v * mu);
+            if min_dist > vec.mag() {
+                min_dist = vec.mag();
+                min_vec = vec.clone();
+                min_point_a = a + u * lambda;
+                min_point_c = c + v * mu;
+            }
+        } else {
+            lambda = 0f32;
+            let vec = (a + u * lambda) - (c + v * mu);
+            if min_dist > vec.mag() {
+                min_dist = vec.mag();
+                min_vec = vec.clone();
+                min_point_a = a + u * lambda;
+                min_point_c = c + v * mu;
+            }
+            lambda = 1f32;
+            let vec = (a + u * lambda) - (c + v * mu);
+            if min_dist > vec.mag() {
+                min_dist = vec.mag();
+                min_vec = vec.clone();
+                min_point_a = a + u * lambda;
+                min_point_c = c + v * mu;
+            }
+        }
+        (min_dist, min_vec, min_point_a, min_point_c)
     }
 }
