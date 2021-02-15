@@ -91,6 +91,7 @@ pub struct Data {
         Arc<Mutex<Option<Sender<Vec<Helix>>>>>,
         Instant,
     )>,
+    rigid_body_ptr: Option<rigid_body::RigidBodyPtr>,
     hyperboloid_helices: Vec<usize>,
     hyperboloid_draft: Option<GridDescriptor>,
     template_manager: TemplateManager,
@@ -135,6 +136,7 @@ impl Data {
             hyperboloid_draft: None,
             template_manager: Default::default(),
             xover_copy_manager: Default::default(),
+            rigid_body_ptr: None,
         }
     }
 
@@ -326,6 +328,7 @@ impl Data {
             hyperboloid_draft: None,
             template_manager: Default::default(),
             xover_copy_manager: Default::default(),
+            rigid_body_ptr: None,
         };
         ret.make_hash_maps();
         ret.terminate_movement();
@@ -545,6 +548,7 @@ impl Data {
     /// This function is meant to be called by the mediator that will notify all the obeservers
     /// that a update took place.
     pub fn was_updated(&mut self) -> bool {
+        self.check_rigid_body();
         if let Some((_, snd_ptr, date)) = self.roller_ptrs.as_mut() {
             let now = Instant::now();
             if (now - *date).as_millis() > 30 {

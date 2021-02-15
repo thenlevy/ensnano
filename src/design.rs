@@ -830,8 +830,11 @@ impl Design {
         self.data.lock().unwrap().get_xovers_list()
     }
 
-    pub fn grid_simulation(&mut self, time_span: (f32, f32)) {
-        self.data.lock().unwrap().grid_simulation(time_span)
+    pub fn grid_simulation(&mut self, time_span: (f32, f32), computing: Arc<Mutex<bool>>) {
+        self.data
+            .lock()
+            .unwrap()
+            .rigid_body_request(time_span, computing)
     }
 }
 
