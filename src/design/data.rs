@@ -92,6 +92,7 @@ pub struct Data {
         Instant,
     )>,
     rigid_body_ptr: Option<rigid_body::RigidBodyPtr>,
+    helix_simulation_ptr: Option<rigid_body::RigidHelixPtr>,
     hyperboloid_helices: Vec<usize>,
     hyperboloid_draft: Option<GridDescriptor>,
     template_manager: TemplateManager,
@@ -137,6 +138,7 @@ impl Data {
             template_manager: Default::default(),
             xover_copy_manager: Default::default(),
             rigid_body_ptr: None,
+            helix_simulation_ptr: None,
         }
     }
 
@@ -329,6 +331,7 @@ impl Data {
             template_manager: Default::default(),
             xover_copy_manager: Default::default(),
             rigid_body_ptr: None,
+            helix_simulation_ptr: None,
         };
         ret.make_hash_maps();
         ret.terminate_movement();
@@ -549,6 +552,7 @@ impl Data {
     /// that a update took place.
     pub fn was_updated(&mut self) -> bool {
         self.check_rigid_body();
+        self.check_rigid_helices();
         if let Some((_, snd_ptr, date)) = self.roller_ptrs.as_mut() {
             let now = Instant::now();
             if (now - *date).as_millis() > 30 {

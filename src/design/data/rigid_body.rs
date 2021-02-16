@@ -3,6 +3,196 @@ use mathru::algebra::linear::vector::vector::Vector;
 use mathru::analysis::differential_equation::ordinary::{ExplicitODE, Kutta3};
 use ultraviolet::{Bivec3, Mat3, Rotor3, Vec3};
 
+#[derive(Debug)]
+struct HelixSystem {
+    springs: Vec<(RigidNucl, RigidNucl)>,
+    helices: Vec<RigidHelix>,
+    time_span: (f32, f32),
+    last_state: Option<Vector<f32>>,
+    parameters: Parameters,
+}
+
+#[derive(Debug)]
+struct RigidNucl {
+    helix: usize,
+    position: isize,
+    forward: bool,
+}
+
+impl HelixSystem {
+    fn forces_and_torques(
+        &self,
+        positions: &[Vec3],
+        orientations: &[Rotor3],
+    ) -> (Vec<Vec3>, Vec<Vec3>) {
+        let mut forces = vec![Vec3::zero(); self.helices.len()];
+        let mut torques = vec![Vec3::zero(); self.helices.len()];
+
+        const L0: f32 = 0.7;
+        const K_SPRING: f32 = 1.;
+
+        let point_conversion = |nucl: &RigidNucl| {
+            let position = positions[nucl.helix]
+                + self.helices[nucl.helix]
+                    .center_to_origin
+                    .rotated_by(orientations[nucl.helix]);
+            let mut helix = Helix::new(position, orientations[nucl.helix]);
+            helix.roll(self.helices[nucl.helix].roll);
+            helix.space_pos(&self.parameters, nucl.position, nucl.forward)
+        };
+
+        for spring in self.springs.iter() {
+            let point_0 = point_conversion(&spring.0);
+            let point_1 = point_conversion(&spring.1);
+            let len = (point_1 - point_0).mag();
+            if !len.is_nan() {
+                //println!("spring {:?}, len {}", spring, len);
+            }
+            let norm = len - L0;
+
+            // The force applied on point 0
+            let force = if len > 1e-5 {
+                K_SPRING * norm * (point_1 - point_0) / len
+            } else {
+                Vec3::zero()
+            };
+
+            forces[spring.0.helix] += force;
+            forces[spring.1.helix] -= force;
+
+            let torque0 = (point_0 - positions[spring.0.helix]).cross(force);
+            let torque1 = (point_1 - positions[spring.1.helix]).cross(-force);
+
+            torques[spring.0.helix] += torque0;
+            torques[spring.1.helix] += torque1;
+        }
+
+        (forces, torques)
+    }
+}
+
+impl HelixSystem {
+    fn read_state(&self, x: &Vector<f32>) -> (Vec<Vec3>, Vec<Rotor3>, Vec<Vec3>, Vec<Vec3>) {
+        let mut positions = Vec::with_capacity(self.helices.len());
+        let mut rotations = Vec::with_capacity(self.helices.len());
+        let mut linear_momentums = Vec::with_capacity(self.helices.len());
+        let mut angular_momentums = Vec::with_capacity(self.helices.len());
+        let mut iterator = x.iter();
+        for _ in 0..self.helices.len() {
+            let position = Vec3::new(
+                *iterator.next().unwrap(),
+                *iterator.next().unwrap(),
+                *iterator.next().unwrap(),
+            );
+            let rotation = Rotor3::new(
+                *iterator.next().unwrap(),
+                Bivec3::new(
+                    *iterator.next().unwrap(),
+                    *iterator.next().unwrap(),
+                    *iterator.next().unwrap(),
+                ),
+            )
+            .normalized();
+            let linear_momentum = Vec3::new(
+                *iterator.next().unwrap(),
+                *iterator.next().unwrap(),
+                *iterator.next().unwrap(),
+            );
+            let angular_momentum = Vec3::new(
+                *iterator.next().unwrap(),
+                *iterator.next().unwrap(),
+                *iterator.next().unwrap(),
+            );
+            positions.push(position);
+            rotations.push(rotation);
+            linear_momentums.push(linear_momentum);
+            angular_momentums.push(angular_momentum);
+        }
+        (positions, rotations, linear_momentums, angular_momentums)
+    }
+}
+
+impl ExplicitODE<f32> for HelixSystem {
+    // We read the sytem in the following format. For each grid, we read
+    // * 3 f32 for position
+    // * 4 f32 for rotation
+    // * 3 f32 for linear momentum
+    // * 3 f32 for angular momentum
+
+    fn func(&self, _t: &f32, x: &Vector<f32>) -> Vector<f32> {
+        let (positions, rotations, linear_momentums, angular_momentums) = self.read_state(x);
+        let (forces, torques) = self.forces_and_torques(&positions, &rotations);
+
+        let mut ret = Vec::with_capacity(13 * self.helices.len());
+        for i in 0..self.helices.len() {
+            let d_position = linear_momentums[i] / self.helices[i].height();
+            ret.push(d_position.x);
+            ret.push(d_position.y);
+            ret.push(d_position.z);
+            let omega = self.helices[i].inertia_inverse * angular_momentums[i];
+            let d_rotation = 0.5
+                * Rotor3::from_quaternion_array([omega.x, omega.y, omega.z, 0f32])
+                * rotations[i];
+
+            ret.push(d_rotation.s);
+            ret.push(d_rotation.bv.xy);
+            ret.push(d_rotation.bv.xz);
+            ret.push(d_rotation.bv.yz);
+
+            let d_linear_momentum =
+                forces[i] - linear_momentums[i] * 100. / self.helices[i].height();
+
+            ret.push(d_linear_momentum.x);
+            ret.push(d_linear_momentum.y);
+            ret.push(d_linear_momentum.z);
+
+            let d_angular_momentum =
+                torques[i] - angular_momentums[i] * 100. / self.helices[i].height();
+            ret.push(d_angular_momentum.x);
+            ret.push(d_angular_momentum.y);
+            ret.push(d_angular_momentum.z);
+        }
+
+        Vector::new_row(ret.len(), ret)
+    }
+
+    fn time_span(&self) -> (f32, f32) {
+        self.time_span
+    }
+
+    fn init_cond(&self) -> Vector<f32> {
+        if let Some(state) = self.last_state.clone() {
+            state
+        } else {
+            let mut ret = Vec::with_capacity(13 * self.helices.len());
+            for i in 0..self.helices.len() {
+                let position = self.helices[i].center_of_mass();
+                ret.push(position.x);
+                ret.push(position.y);
+                ret.push(position.z);
+                let rotation = self.helices[i].orientation;
+
+                ret.push(rotation.s);
+                ret.push(rotation.bv.xy);
+                ret.push(rotation.bv.xz);
+                ret.push(rotation.bv.yz);
+
+                let linear_momentum = Vec3::zero();
+
+                ret.push(linear_momentum.x);
+                ret.push(linear_momentum.y);
+                ret.push(linear_momentum.z);
+
+                let angular_momentum = Vec3::zero();
+                ret.push(angular_momentum.x);
+                ret.push(angular_momentum.y);
+                ret.push(angular_momentum.z);
+            }
+            Vector::new_row(ret.len(), ret)
+        }
+    }
+}
+
 struct GridsSystem {
     springs: Vec<(ApplicationPoint, ApplicationPoint)>,
     grids: Vec<RigidGrid>,
@@ -49,6 +239,7 @@ impl GridsSystem {
             torques[spring.0.grid_id] += torque0;
             torques[spring.1.grid_id] += torque1;
         }
+        /*
         for i in 0..self.grids.len() {
             for j in (i + 1)..self.grids.len() {
                 let grid_1 = &self.grids[i];
@@ -77,7 +268,7 @@ impl GridsSystem {
                     }
                 }
             }
-        }
+        }*/
 
         (forces, torques)
     }
@@ -212,19 +403,63 @@ struct ApplicationPoint {
 
 #[derive(Debug)]
 struct RigidHelix {
-    pub y_pos: f32,
-    pub z_pos: f32,
-    pub x_min: f32,
-    pub x_max: f32,
+    pub roll: f32,
+    pub orientation: Rotor3,
+    pub inertia_inverse: Mat3,
+    pub center_of_mass: Vec3,
+    pub center_to_origin: Vec3,
+    pub mass: f32,
+    pub id: usize,
 }
 
 impl RigidHelix {
+    fn new_from_grid(
+        y_pos: f32,
+        z_pos: f32,
+        x_min: f32,
+        x_max: f32,
+        roll: f32,
+        orientation: Rotor3,
+    ) -> RigidHelix {
+        Self {
+            roll,
+            orientation,
+            center_of_mass: Vec3::new((x_min + x_max) / 2., y_pos, z_pos),
+            center_to_origin: -(x_min + x_max) / 2. * Vec3::unit_x(),
+            mass: x_max - x_min,
+            inertia_inverse: inertia_helix(x_max - x_min, 1.).inversed(),
+            // at the moment we do not care for the id when creating a rigid helix for a grid
+            id: 0,
+        }
+    }
+
+    fn new_from_world(
+        y_pos: f32,
+        z_pos: f32,
+        x_pos: f32,
+        delta: Vec3,
+        mass: f32,
+        roll: f32,
+        orientation: Rotor3,
+        id: usize,
+    ) -> RigidHelix {
+        Self {
+            roll,
+            orientation,
+            center_of_mass: Vec3::new(x_pos, y_pos, z_pos),
+            center_to_origin: delta,
+            mass,
+            inertia_inverse: inertia_helix(mass, 1.).inversed(),
+            id,
+        }
+    }
+
     fn center_of_mass(&self) -> Vec3 {
-        Vec3::new((self.x_min + self.x_max) / 2., self.y_pos, self.z_pos)
+        self.center_of_mass
     }
 
     fn height(&self) -> f32 {
-        self.x_max - self.x_min
+        self.mass
     }
 }
 
@@ -385,6 +620,71 @@ impl GridsSystemThread {
     }
 }
 
+struct HelixSystemThread {
+    helix_system: HelixSystem,
+    /// When the wrapped boolean is set to true, stop the simulation perfomed by self.
+    stop: Arc<Mutex<bool>>,
+    /// When the wrapped option takes the value of some channel, the thread that performs the
+    /// simulation sends the last computed state of the system
+    sender: Arc<Mutex<Option<Sender<RigidHelixState>>>>,
+}
+
+impl HelixSystemThread {
+    fn new(helix_system: HelixSystem) -> Self {
+        println!("{:?}", helix_system);
+        Self {
+            helix_system,
+            stop: Default::default(),
+            sender: Default::default(),
+        }
+    }
+
+    /// Spawn a thread to run the physical simulation. Return a pair of pointers. One to request the
+    /// termination of the simulation and one to fetch the current state of the helices.
+    fn run(
+        mut self,
+        computing: Arc<Mutex<bool>>,
+    ) -> (
+        Arc<Mutex<bool>>,
+        Arc<Mutex<Option<Sender<RigidHelixState>>>>,
+    ) {
+        let stop = self.stop.clone();
+        let sender = self.sender.clone();
+        *computing.lock().unwrap() = true;
+        std::thread::spawn(move || {
+            while !*self.stop.lock().unwrap() {
+                if let Some(snd) = self.sender.lock().unwrap().take() {
+                    snd.send(self.get_state()).unwrap();
+                }
+                let solver = Kutta3::new(1e-4f32);
+                if let Ok((_, y)) = solver.solve(&self.helix_system) {
+                    self.helix_system.last_state = y.last().cloned();
+                }
+            }
+            *computing.lock().unwrap() = false;
+        });
+        (stop, sender)
+    }
+
+    fn get_state(&self) -> RigidHelixState {
+        let state = self.helix_system.init_cond();
+        let (positions, orientations, _, _) = self.helix_system.read_state(&state);
+        let ids = self.helix_system.helices.iter().map(|g| g.id).collect();
+        let center_of_mass_from_helix = self
+            .helix_system
+            .helices
+            .iter()
+            .map(|h| h.center_to_origin)
+            .collect();
+        RigidHelixState {
+            positions,
+            orientations,
+            center_of_mass_from_helix,
+            ids,
+        }
+    }
+}
+
 #[derive(Clone)]
 struct GridSystemState {
     positions: Vec<Vec3>,
@@ -397,6 +697,20 @@ pub(super) struct RigidBodyPtr {
     stop: Arc<Mutex<bool>>,
     state: Arc<Mutex<Option<Sender<GridSystemState>>>>,
     instant: Instant,
+}
+
+pub(super) struct RigidHelixPtr {
+    stop: Arc<Mutex<bool>>,
+    state: Arc<Mutex<Option<Sender<RigidHelixState>>>>,
+    instant: Instant,
+}
+
+#[derive(Debug, Clone)]
+struct RigidHelixState {
+    positions: Vec<Vec3>,
+    orientations: Vec<Rotor3>,
+    center_of_mass_from_helix: Vec<Vec3>,
+    ids: Vec<usize>,
 }
 
 impl Data {
@@ -423,6 +737,75 @@ impl Data {
         } else {
             println!("could not make grid system");
         }
+    }
+
+    pub fn helices_simulation(&mut self, time_span: (f32, f32)) {
+        if let Some(helix_system) = self.make_helices_system(time_span) {
+            println!("{:?}", helix_system);
+            let solver = Kutta3::new(1e-4f32);
+            println!("launching simulation");
+            if let Ok((_, y)) = solver.solve(&helix_system) {
+                let last_state = y.last().unwrap();
+                let (positions, rotations, _, _) = helix_system.read_state(last_state);
+                for (i, rigid_helix) in helix_system.helices.iter().enumerate() {
+                    let position = positions[i];
+                    let orientation = rotations[i].normalized();
+                    self.design
+                        .helices
+                        .get_mut(&rigid_helix.id)
+                        .unwrap()
+                        .position = position - rigid_helix.center_of_mass;
+                    self.design
+                        .helices
+                        .get_mut(&rigid_helix.id)
+                        .unwrap()
+                        .orientation = orientation;
+                }
+                self.hash_maps_update = true;
+                self.update_status = true;
+            } else {
+                println!("error while solving");
+            }
+        } else {
+            println!("could not make grid system");
+        }
+    }
+
+    fn make_helices_system(&self, time_span: (f32, f32)) -> Option<HelixSystem> {
+        let intervals = self.design.get_intervals();
+        let parameters = self.design.parameters.unwrap_or_default();
+        let mut helix_map = HashMap::with_capacity(self.design.helices.len());
+        let mut rigid_helices = Vec::with_capacity(self.design.helices.len());
+        for h_id in self.design.helices.keys() {
+            if let Some(rigid_helix) =
+                self.make_rigid_helix_world_pov(*h_id, &intervals, &parameters)
+            {
+                helix_map.insert(h_id, rigid_helices.len());
+                rigid_helices.push(rigid_helix);
+            }
+        }
+        let xovers = self.get_xovers_list();
+        let mut springs = Vec::with_capacity(xovers.len());
+        for (n1, n2) in xovers {
+            let rigid_1 = RigidNucl {
+                helix: helix_map[&n1.helix],
+                position: n1.position,
+                forward: n1.forward,
+            };
+            let rigid_2 = RigidNucl {
+                helix: helix_map[&n2.helix],
+                position: n2.position,
+                forward: n2.forward,
+            };
+            springs.push((rigid_1, rigid_2));
+        }
+        Some(HelixSystem {
+            helices: rigid_helices,
+            springs,
+            last_state: None,
+            time_span,
+            parameters,
+        })
     }
 
     fn make_grid_system(&self, time_span: (f32, f32)) -> Option<GridsSystem> {
@@ -496,7 +879,7 @@ impl Data {
         let grid = self.grid_manager.grids.get(g_id)?;
         let mut rigid_helices = Vec::with_capacity(helices.len());
         for h in helices {
-            if let Some(rigid_helix) = self.make_rigid_helix(h, intervals, parameters) {
+            if let Some(rigid_helix) = self.make_rigid_helix_grid_pov(h, intervals, parameters) {
                 rigid_helices.push(rigid_helix)
             }
         }
@@ -512,7 +895,7 @@ impl Data {
         }
     }
 
-    fn make_rigid_helix(
+    fn make_rigid_helix_grid_pov(
         &self,
         h_id: usize,
         intervals: &BTreeMap<usize, (isize, isize)>,
@@ -523,12 +906,41 @@ impl Data {
         let grid_position = helix.grid_position?;
         let grid = self.grid_manager.grids.get(grid_position.grid)?;
         let position = grid.position_helix(grid_position.x, grid_position.y) - grid.position;
-        Some(RigidHelix {
-            z_pos: position.x,
-            y_pos: position.y,
-            x_min: *x_min as f32 * parameters.z_step,
-            x_max: *x_max as f32 * parameters.z_step,
-        })
+        Some(RigidHelix::new_from_grid(
+            position.y,
+            position.z,
+            *x_min as f32 * parameters.z_step,
+            *x_max as f32 * parameters.z_step,
+            helix.roll,
+            helix.orientation,
+        ))
+    }
+
+    fn make_rigid_helix_world_pov(
+        &self,
+        h_id: usize,
+        intervals: &BTreeMap<usize, (isize, isize)>,
+        parameters: &Parameters,
+    ) -> Option<RigidHelix> {
+        let (x_min, x_max) = intervals.get(&h_id)?;
+        let helix = self.design.helices.get(&h_id)?;
+        let left = helix.axis_position(parameters, *x_min);
+        let right = helix.axis_position(parameters, *x_max);
+        let position = (left + right) / 2.;
+        println!("position {:?}", position);
+        let position_delta =
+            -(*x_max as f32 * parameters.z_step + *x_min as f32 * parameters.z_step) / 2.
+                * Vec3::unit_x();
+        Some(RigidHelix::new_from_world(
+            position.y,
+            position.z,
+            position.x,
+            position_delta,
+            (right - left).mag(),
+            helix.roll,
+            helix.orientation,
+            h_id,
+        ))
     }
 
     pub(super) fn check_rigid_body(&mut self) {
@@ -555,11 +967,46 @@ impl Data {
         }
     }
 
+    pub(super) fn check_rigid_helices(&mut self) {
+        if let Some(ptrs) = self.helix_simulation_ptr.as_mut() {
+            let now = Instant::now();
+            if (now - ptrs.instant).as_millis() > 30 {
+                let (snd, rcv) = std::sync::mpsc::channel();
+                *ptrs.state.lock().unwrap() = Some(snd);
+                let state = rcv.recv().unwrap();
+                for i in 0..state.ids.len() {
+                    let position = state.positions[i];
+                    let orientation = state.orientations[i].normalized();
+                    self.design.helices.get_mut(&state.ids[i]).unwrap().position =
+                        position + state.center_of_mass_from_helix[i].rotated_by(orientation);
+                    self.design
+                        .helices
+                        .get_mut(&state.ids[i])
+                        .unwrap()
+                        .orientation = orientation;
+                }
+                self.hash_maps_update = true;
+                self.update_status = true;
+                ptrs.instant = now;
+                self.hash_maps_update = true;
+                self.update_status = true;
+            }
+        }
+    }
+
     pub fn rigid_body_request(&mut self, request: (f32, f32), computing: Arc<Mutex<bool>>) {
         if self.rigid_body_ptr.is_some() {
             self.stop_rigid_body()
         } else {
             self.start_rigid_body(request, computing)
+        }
+    }
+
+    pub fn helix_simulation_request(&mut self, request: (f32, f32), computing: Arc<Mutex<bool>>) {
+        if self.helix_simulation_ptr.is_some() {
+            self.stop_helix_simulation()
+        } else {
+            self.start_helix_simulation(request, computing)
         }
     }
 
@@ -583,6 +1030,28 @@ impl Data {
             println!("design was not performing rigid body simulation");
         }
         self.rigid_body_ptr = None;
+    }
+
+    fn start_helix_simulation(&mut self, request: (f32, f32), computing: Arc<Mutex<bool>>) {
+        if let Some(helix_system) = self.make_helices_system(request) {
+            let grid_system_thread = HelixSystemThread::new(helix_system);
+            let date = Instant::now();
+            let (stop, snd) = grid_system_thread.run(computing);
+            self.helix_simulation_ptr = Some(RigidHelixPtr {
+                instant: date,
+                stop,
+                state: snd,
+            });
+        }
+    }
+
+    fn stop_helix_simulation(&mut self) {
+        if let Some(helix_simulation_ptr) = self.helix_simulation_ptr.as_mut() {
+            *helix_simulation_ptr.stop.lock().unwrap() = true;
+        } else {
+            println!("design was not performing rigid body simulation");
+        }
+        self.helix_simulation_ptr = None;
     }
 }
 

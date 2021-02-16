@@ -831,10 +831,14 @@ impl Design {
     }
 
     pub fn grid_simulation(&mut self, time_span: (f32, f32), computing: Arc<Mutex<bool>>) {
+        /*self.data
+        .lock()
+        .unwrap()
+        .rigid_body_request(time_span, computing)*/
         self.data
             .lock()
             .unwrap()
-            .rigid_body_request(time_span, computing)
+            .helix_simulation_request(time_span, computing);
     }
 }
 
