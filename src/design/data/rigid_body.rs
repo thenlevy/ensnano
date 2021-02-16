@@ -34,6 +34,7 @@ impl GridsSystem {
             let point_0 = point_conversion(&spring.0);
             let point_1 = point_conversion(&spring.1);
             let len = (point_1 - point_0).mag();
+            //println!("len {}", len);
             let norm = len - L0;
 
             // The force applied on point 0
@@ -42,8 +43,8 @@ impl GridsSystem {
             forces[spring.0.grid_id] += force;
             forces[spring.1.grid_id] -= force;
 
-            let torque0 = spring.0.position_on_grid.cross(force);
-            let torque1 = spring.1.position_on_grid.cross(-force);
+            let torque0 = (point_0 - positions[spring.0.grid_id]).cross(force);
+            let torque1 = (point_1 - positions[spring.1.grid_id]).cross(-force);
 
             torques[spring.0.grid_id] += torque0;
             torques[spring.1.grid_id] += torque1;
@@ -62,14 +63,14 @@ impl GridsSystem {
                         let c = c.rotated_by(orientations[j]) + positions[j];
                         let d = Vec3::new(h2.x_max, h2.y_pos, h2.z_pos);
                         let d = d.rotated_by(orientations[j]) + positions[j];
-                        let r = 2.665;
+                        let r = 2.;
                         let (dist, vec, point_a, point_c) = distance_segment(a, b, c, d);
                         if dist < r {
                             let norm = ((dist - r) / dist).powi(2) / 1. * 1000.;
                             forces[i] += norm * vec;
                             forces[j] += -norm * vec;
-                            let torque0 = (point_a - positions[i]).rotated_by(orientations[i].reversed()).cross(norm * vec);
-                            let torque1 = (point_c - positions[j]).rotated_by(orientations[j].reversed()).cross(-norm * vec);
+                            let torque0 = (point_a - positions[i]).cross(norm * vec);
+                            let torque1 = (point_c - positions[j]).cross(-norm * vec);
                             torques[i] += torque0;
                             torques[j] += torque1;
                         }
@@ -101,7 +102,9 @@ impl ExplicitODE<f32> for GridsSystem {
             ret.push(d_position.y);
             ret.push(d_position.z);
             let omega = self.grids[i].inertia_inverse * angular_momentums[i];
-            let d_rotation = 0.5 * Rotor3::from_quaternion_array([omega.x, omega.y, omega.z, 0f32]);
+            let d_rotation = 0.5
+                * Rotor3::from_quaternion_array([omega.x, omega.y, omega.z, 0f32])
+                * rotations[i];
 
             ret.push(d_rotation.s);
             ret.push(d_rotation.bv.xy);
@@ -227,8 +230,11 @@ impl RigidHelix {
 
 #[derive(Debug)]
 struct RigidGrid {
+    /// Center of mass of of the grid in world coordinates
     center_of_mass: Vec3,
+    /// Center of mass of the grid in the grid coordinates
     center_of_mass_from_grid: Vec3,
+    /// Orientation of the grid in the world coordinates
     orientation: Rotor3,
     inertia_inverse: Mat3,
     mass: f32,
@@ -448,19 +454,17 @@ impl Data {
                         let grid1 = &self.grid_manager.grids[g_id1];
                         let grid2 = &self.grid_manager.grids[g_id2];
                         let pos1 = (h1.space_pos(&parameters, n1.position, n1.forward)
-                            - grid1.position)
+                            - rigid_grids[rigid_id1].center_of_mass)
                             .rotated_by(grid1.orientation.reversed());
                         let pos2 = (h2.space_pos(&parameters, n2.position, n2.forward)
-                            - grid2.position)
+                            - rigid_grids[rigid_id2].center_of_mass)
                             .rotated_by(grid2.orientation.reversed());
                         let application_point1 = ApplicationPoint {
-                            position_on_grid: pos1
-                                - rigid_grids[rigid_id1].center_of_mass_from_grid,
+                            position_on_grid: pos1,
                             grid_id: rigid_id1,
                         };
                         let application_point2 = ApplicationPoint {
-                            position_on_grid: pos2
-                                - rigid_grids[rigid_id2].center_of_mass_from_grid,
+                            position_on_grid: pos2,
                             grid_id: rigid_id2,
                         };
                         springs.push((application_point1, application_point2));
