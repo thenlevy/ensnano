@@ -38,11 +38,11 @@ impl ScadnanoDesign {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize, Default)]
 pub struct ScadnanoGroup {
-    position: Vec3,
+    pub position: Vec3,
     #[serde(skip_serializing_if = "Option::is_none", default)]
-    pitch: Option<f32>,
+    pub pitch: Option<f32>,
     #[serde(skip_serializing_if = "Option::is_none", default)]
     yaw: Option<f32>,
     #[serde(skip_serializing_if = "Option::is_none", default)]

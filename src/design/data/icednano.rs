@@ -160,16 +160,20 @@ impl Design {
         let default_grid = scad.default_grid_descriptor()?;
         group_map.insert(String::from("default_group"), 0usize);
         grids.push(default_grid);
+        let mut helices_per_group = vec![0];
+        let mut groups: Vec<ScadnanoGroup> = vec![Default::default()];
         if let Some(ref scad_groups) = scad.groups {
             for (name, g) in scad_groups.iter() {
                 let group = g.to_grid_desc()?;
+                groups.push(g.clone());
                 group_map.insert(name.clone(), grids.len());
                 grids.push(group);
+                helices_per_group.push(0);
             }
         }
         let mut helices = BTreeMap::new();
         for (i, h) in scad.helices.iter().enumerate() {
-            let helix = Helix::from_scadnano(h, &group_map)?;
+            let helix = Helix::from_scadnano(h, &group_map, &groups, &mut helices_per_group)?;
             helices.insert(i, helix);
         }
         let mut strands = BTreeMap::new();
@@ -835,11 +839,28 @@ impl Helix {
     pub fn from_scadnano(
         scad: &ScadnanoHelix,
         group_map: &BTreeMap<String, usize>,
+        groups: &Vec<ScadnanoGroup>,
+        helix_per_group: &mut Vec<usize>,
     ) -> Option<Self> {
         let group_id = scad.group.clone().unwrap_or(String::from("default_group"));
         let grid_id = group_map.get(&group_id)?;
         let x = scad.grid_position.get(0).cloned()?;
         let y = scad.grid_position.get(1).cloned()?;
+        let group = groups.get(*grid_id)?;
+
+        println!("helices per group {:?}", group_map);
+        println!("helices per group {:?}", helix_per_group);
+        let nb_helices = helix_per_group.get_mut(*grid_id)?;
+        let rotation =
+            ultraviolet::Rotor2::from_angle(group.pitch.unwrap_or_default().to_radians());
+        let isometry2d = Isometry2 {
+            translation: (5. * *nb_helices as f32 - 1.)
+                * ultraviolet::Vec2::unit_y().rotated_by(rotation)
+                + 5. * ultraviolet::Vec2::new(group.position.x, group.position.y),
+            rotation,
+        };
+        *nb_helices += 1;
+
         Some(Self {
             position: Vec3::zero(),
             orientation: Rotor3::identity(),
@@ -854,7 +875,7 @@ impl Helix {
             }),
             visible: true,
             roll: 0f32,
-            isometry2d: None,
+            isometry2d: Some(isometry2d),
         })
     }
 }
