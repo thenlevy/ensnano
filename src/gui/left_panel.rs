@@ -55,6 +55,8 @@ pub struct LeftPanel {
     helix_roll_factory: RequestFactory<HelixRoll>,
     building_hyperboloid: bool,
     finalize_hyperboloid: button::State,
+    rigid_grid_button: GoStop,
+    rigid_helices_button: GoStop,
 }
 
 #[derive(Debug, Clone)]
@@ -90,6 +92,8 @@ pub enum Message {
     HelixRoll(f32),
     NewHyperboloid,
     FinalizeHyperboloid,
+    RigidGridSimulation(bool),
+    RigidHelicesSimulation(bool),
 }
 
 impl LeftPanel {
@@ -127,6 +131,14 @@ impl LeftPanel {
             hyperboloid_factory: RequestFactory::new(2, Hyperboloid_ {}),
             building_hyperboloid: false,
             finalize_hyperboloid: Default::default(),
+            rigid_helices_button: GoStop::new(
+                String::from("Rigid Helices"),
+                Message::RigidHelicesSimulation,
+            ),
+            rigid_grid_button: GoStop::new(
+                String::from("Rigid Grids"),
+                Message::RigidGridSimulation,
+            ),
         }
     }
 
@@ -334,6 +346,14 @@ impl Program for LeftPanel {
             Message::FinalizeHyperboloid => {
                 self.requests.lock().unwrap().finalize_hyperboloid = true;
                 self.building_hyperboloid = false;
+            }
+            Message::RigidGridSimulation(b) => {
+                self.rigid_grid_button.running = b;
+                self.requests.lock().unwrap().rigid_grid_simulation = Some(b);
+            }
+            Message::RigidHelicesSimulation(b) => {
+                self.rigid_helices_button.running = b;
+                self.requests.lock().unwrap().rigid_helices_simulation = Some(b);
             }
         };
         Command::none()
@@ -675,6 +695,9 @@ impl Program for LeftPanel {
         for view in self.scroll_sensitivity_factory.view().into_iter() {
             widget = widget.push(view);
         }
+        widget = widget
+            .push(self.rigid_grid_button.view())
+            .push(self.rigid_helices_button.view());
 
         Container::new(widget)
             .style(TopBarStyle)
@@ -1036,6 +1059,37 @@ impl PhysicalSimulation {
             roll: self.roll,
             springs: self.springs,
         }
+    }
+}
+
+struct GoStop {
+    go_stop_button: button::State,
+    pub running: bool,
+    pub name: String,
+    on_press: Box<dyn Fn(bool) -> Message>,
+}
+
+impl GoStop {
+    fn new<F>(name: String, on_press: F) -> Self
+    where
+        F: 'static + Fn(bool) -> Message,
+    {
+        Self {
+            go_stop_button: Default::default(),
+            running: false,
+            name,
+            on_press: Box::new(on_press),
+        }
+    }
+
+    fn view(&mut self) -> Row<Message> {
+        let left_column = Column::new().push(Text::new(self.name.to_string()));
+        let button_str = if self.running { "Stop" } else { "Go" };
+        let right_column = Column::new().push(
+            Button::new(&mut self.go_stop_button, Text::new(button_str))
+                .on_press((self.on_press)(!self.running)),
+        );
+        Row::new().push(left_column).push(right_column)
     }
 }
 

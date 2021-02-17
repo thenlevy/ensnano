@@ -80,6 +80,8 @@ pub struct Requests {
     pub copy: bool,
     pub paste: bool,
     pub duplication: bool,
+    pub rigid_grid_simulation: Option<bool>,
+    pub rigid_helices_simulation: Option<bool>,
 }
 
 impl Requests {
@@ -121,6 +123,8 @@ impl Requests {
             copy: false,
             paste: false,
             duplication: false,
+            rigid_helices_simulation: None,
+            rigid_grid_simulation: None,
         }
     }
 }

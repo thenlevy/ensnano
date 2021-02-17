@@ -258,7 +258,7 @@ fn main() {
             .unwrap()
             .add_design(Arc::new(RwLock::new(design)));
     } else {
-        let mut design = Design::new(0);
+        let design = Design::new(0);
         mediator
             .lock()
             .unwrap()
@@ -519,6 +519,14 @@ fn main() {
                     } else if requests.duplication {
                         mediator.lock().unwrap().request_duplication();
                         requests.duplication = false;
+                    }
+
+                    if let Some(b) = requests.rigid_grid_simulation.take() {
+                        mediator.lock().unwrap().rigid_grid_request(b);
+                    }
+
+                    if let Some(b) = requests.rigid_helices_simulation.take() {
+                        mediator.lock().unwrap().rigid_helices_request(b);
                     }
                 }
 

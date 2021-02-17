@@ -963,8 +963,23 @@ impl Mediator {
         for d in self.designs.iter() {
             d.write()
                 .unwrap()
-                //.roll_request(request.clone(), self.computing.clone());
-                .grid_simulation((0., 0.1), self.computing.clone());
+                .roll_request(request.clone(), self.computing.clone());
+        }
+    }
+
+    pub fn rigid_grid_request(&mut self, request: bool) {
+        for d in self.designs.iter() {
+            d.write()
+                .unwrap()
+                .grid_simulation((0., 1.), self.computing.clone());
+        }
+    }
+
+    pub fn rigid_helices_request(&mut self, request: bool) {
+        for d in self.designs.iter() {
+            d.write()
+                .unwrap()
+                .rigid_helices_simulation((0., 0.1), self.computing.clone());
         }
     }
 
