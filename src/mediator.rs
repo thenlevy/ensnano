@@ -964,7 +964,7 @@ impl Mediator {
             d.write()
                 .unwrap()
                 //.roll_request(request.clone(), self.computing.clone());
-                .grid_simulation((0., 1.), self.computing.clone());
+                .grid_simulation((0., 0.1), self.computing.clone());
         }
     }
 

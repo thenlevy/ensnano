@@ -57,8 +57,8 @@ impl HelixSystem {
                 Vec3::zero()
             };
 
-            forces[spring.0.helix] += force;
-            forces[spring.1.helix] -= force;
+            forces[spring.0.helix] += 10. * force;
+            forces[spring.1.helix] -= 10. * force;
 
             let torque0 = (point_0 - positions[spring.0.helix]).cross(force);
             let torque1 = (point_1 - positions[spring.1.helix]).cross(-force);
@@ -631,7 +631,6 @@ struct HelixSystemThread {
 
 impl HelixSystemThread {
     fn new(helix_system: HelixSystem) -> Self {
-        println!("{:?}", helix_system);
         Self {
             helix_system,
             stop: Default::default(),
@@ -717,7 +716,6 @@ impl Data {
     pub fn grid_simulation(&mut self, time_span: (f32, f32)) {
         if let Some(grid_system) = self.make_grid_system(time_span) {
             let solver = Kutta3::new(1e-4f32);
-            println!("launching simulation");
             if let Ok((_, y)) = solver.solve(&grid_system) {
                 let last_state = y.last().unwrap();
                 let (positions, rotations, _, _) = grid_system.read_state(last_state);
@@ -741,9 +739,7 @@ impl Data {
 
     pub fn helices_simulation(&mut self, time_span: (f32, f32)) {
         if let Some(helix_system) = self.make_helices_system(time_span) {
-            println!("{:?}", helix_system);
             let solver = Kutta3::new(1e-4f32);
-            println!("launching simulation");
             if let Ok((_, y)) = solver.solve(&helix_system) {
                 let last_state = y.last().unwrap();
                 let (positions, rotations, _, _) = helix_system.read_state(last_state);
@@ -927,7 +923,6 @@ impl Data {
         let left = helix.axis_position(parameters, *x_min);
         let right = helix.axis_position(parameters, *x_max);
         let position = (left + right) / 2.;
-        println!("position {:?}", position);
         let position_delta =
             -(*x_max as f32 * parameters.z_step + *x_min as f32 * parameters.z_step) / 2.
                 * Vec3::unit_x();
