@@ -308,7 +308,7 @@ impl ExplicitODE<f32> for GridsSystem {
             ret.push(d_linear_momentum.y);
             ret.push(d_linear_momentum.z);
 
-            let d_angular_momentum = torques[i] - angular_momentums[i] * 100. / self.grids[i].mass;
+            let d_angular_momentum = torques[i] - angular_momentums[i];
             ret.push(d_angular_momentum.x);
             ret.push(d_angular_momentum.y);
             ret.push(d_angular_momentum.z);
