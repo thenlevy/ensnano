@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use super::grid::{GridDescriptor, GridTypeDescr};
 use ultraviolet::{Rotor3, Vec3};
@@ -112,6 +112,12 @@ impl ScadnanoStrand {
         }
         ret
     }
+
+    pub fn read_deletions(&self, deletions: &mut BTreeMap<usize, BTreeSet<isize>>) {
+        for d in self.domains.iter() {
+            d.read_deletions(deletions)
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize)]
@@ -130,6 +136,24 @@ pub enum ScadnanoDomain {
         #[serde(skip_serializing_if = "Option::is_none", default)]
         deletions: Option<Vec<isize>>,
     },
+}
+
+impl ScadnanoDomain {
+    fn read_deletions(&self, deletions_map: &mut BTreeMap<usize, BTreeSet<isize>>) {
+        match self {
+            Self::Loopout { .. } => (),
+            Self::HelixDomain {
+                deletions, helix, ..
+            } => {
+                if let Some(vec) = deletions {
+                    let entry = deletions_map.entry(*helix).or_insert(BTreeSet::new());
+                    for d in vec.iter() {
+                        entry.insert(*d);
+                    }
+                }
+            }
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize)]

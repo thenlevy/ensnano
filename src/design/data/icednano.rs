@@ -2,7 +2,7 @@
 /// All other format supported by icednano are converted into this format and run-time manipulation
 /// of designs are performed on an `icednano::Design` structure
 use std::borrow::Cow;
-use std::collections::{BTreeMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashSet};
 use std::f32::consts::PI;
 
 use ultraviolet::{Isometry2, Mat4, Rotor3, Vec3};
@@ -158,6 +158,7 @@ impl Design {
         let mut grids = Vec::new();
         let mut group_map = BTreeMap::new();
         let default_grid = scad.default_grid_descriptor()?;
+        let mut deletions = BTreeMap::new();
         group_map.insert(String::from("default_group"), 0usize);
         grids.push(default_grid);
         let mut helices_per_group = vec![0];
@@ -171,6 +172,9 @@ impl Design {
                 helices_per_group.push(0);
             }
         }
+        for s in scad.strands.iter() {
+            s.read_deletions(&mut deletions);
+        }
         let mut helices = BTreeMap::new();
         for (i, h) in scad.helices.iter().enumerate() {
             let helix = Helix::from_scadnano(h, &group_map, &groups, &mut helices_per_group)?;
@@ -178,7 +182,7 @@ impl Design {
         }
         let mut strands = BTreeMap::new();
         for (i, s) in scad.strands.iter().enumerate() {
-            let strand = Strand::from_scadnano(s)?;
+            let strand = Strand::from_scadnano(s, &deletions)?;
             strands.insert(i, strand);
         }
         println!("grids {:?}", grids);
@@ -237,12 +241,15 @@ impl Strand {
         }
     }
 
-    pub fn from_scadnano(scad: &ScadnanoStrand) -> Option<Self> {
+    pub fn from_scadnano(
+        scad: &ScadnanoStrand,
+        deletions: &BTreeMap<usize, BTreeSet<isize>>,
+    ) -> Option<Self> {
         let color = scad.color()?;
         let domains: Vec<Domain> = scad
             .domains
             .iter()
-            .map(|s| Domain::from_scadnano(s))
+            .map(|s| Domain::from_scadnano(s, deletions))
             .collect();
         let sequence = if let Some(ref seq) = scad.sequence {
             Some(Cow::Owned(seq.clone()))
@@ -439,7 +446,10 @@ impl Domain {
         Self::HelixDomain(interval)
     }
 
-    pub fn from_scadnano(scad: &ScadnanoDomain) -> Self {
+    pub fn from_scadnano(
+        scad: &ScadnanoDomain,
+        deletions: &BTreeMap<usize, BTreeSet<isize>>,
+    ) -> Self {
         match scad {
             ScadnanoDomain::HelixDomain {
                 helix,
@@ -447,13 +457,17 @@ impl Domain {
                 end,
                 forward,
                 ..// TODO read insertion and deletion
-            } => Self::HelixDomain(HelixInterval {
+            } => {
+                let start = *start - deletions.get(helix).map(|s| count_leq(s, *start)).unwrap_or(0);
+                let end = *end - deletions.get(helix).map(|s| count_leq(s, *end)).unwrap_or(0);
+
+                Self::HelixDomain(HelixInterval {
                 helix: *helix,
-                start: *start,
-                end: *end,
+                start,
+                end,
                 forward: *forward,
                 sequence: None,
-            }),
+            }) }
             ScadnanoDomain::Loopout{ loopout: n } => Self::Insertion(*n)
         }
     }
@@ -1076,4 +1090,12 @@ impl Axis {
         let direction = model_matrix.transform_vec3(self.direction);
         Self { origin, direction }
     }
+}
+
+fn count_leq(set: &BTreeSet<isize>, x: isize) -> isize {
+    let mut ret = 0;
+    for _ in set.iter().take_while(|y| **y <= x) {
+        ret += 1
+    }
+    ret
 }
