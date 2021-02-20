@@ -57,13 +57,27 @@ impl Strand {
 
         let mut last_depth = None;
         let mut sign = 1.;
+        let mut nb_point_helix = 0;
+
         for (i, nucl) in self.points.iter().enumerate() {
             let position = helices[nucl.helix].get_nucl_position(&nucl, Shift::Prime5);
             let depth = helices[nucl.helix].get_depth();
             let point = Point::new(position.x, position.y);
+            let xover = if last_point.is_some() {
+                if Some(nucl.helix) == last_nucl.map(|n| n.helix) {
+                    nb_point_helix += 1;
+                    nb_point_helix % 2 == 0
+                } else {
+                    nb_point_helix = 0;
+                    true
+                }
+            } else {
+                false
+            };
             if i == 0 && last_point.is_none() {
                 builder.begin(point, &[depth, sign]);
-            } else if last_point.is_some() && Some(nucl.helix) != last_nucl.map(|n| n.helix) {
+            //} else if last_point.is_some() && Some(nucl.helix) != last_nucl.map(|n| n.helix) {
+            } else if xover {
                 let cst = if let FlatSelection::Bound(_, n1, n2) = *selection {
                     if n1 == *nucl || n2 == *nucl {
                         5.

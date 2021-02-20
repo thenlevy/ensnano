@@ -250,6 +250,7 @@ impl Strand {
             .domains
             .iter()
             .map(|s| Domain::from_scadnano(s, deletions))
+            .flatten()
             .collect();
         let sequence = if let Some(ref seq) = scad.sequence {
             Some(Cow::Owned(seq.clone()))
@@ -449,26 +450,84 @@ impl Domain {
     pub fn from_scadnano(
         scad: &ScadnanoDomain,
         deletions: &BTreeMap<usize, BTreeSet<isize>>,
-    ) -> Self {
+    ) -> Vec<Self> {
         match scad {
             ScadnanoDomain::HelixDomain {
                 helix,
                 start,
                 end,
                 forward,
+                insertions,
                 ..// TODO read insertion and deletion
             } => {
-                let start = *start - deletions.get(helix).map(|s| count_leq(s, *start)).unwrap_or(0);
-                let end = *end - deletions.get(helix).map(|s| count_leq(s, *end)).unwrap_or(0);
+                let adjust = |n| n - deletions.get(helix).map(|s| count_leq(s, n)).unwrap_or(0);
 
-                Self::HelixDomain(HelixInterval {
-                helix: *helix,
-                start,
-                end,
-                forward: *forward,
-                sequence: None,
-            }) }
-            ScadnanoDomain::Loopout{ loopout: n } => Self::Insertion(*n)
+                if let Some(insertions) = insertions {
+                    let mut ret = Vec::new();
+                    if *forward {
+                        let mut ends = insertions.iter();
+                        let mut left = *start;
+                        let mut right;
+                        while let Some(insertion) = ends.next() {
+                            right = insertion[0] + 1;
+                            let nb_insertion = insertion[1];
+                            ret.push(Self::HelixDomain(HelixInterval {
+                                helix: *helix,
+                                start: adjust(left),
+                                end: adjust(right),
+                                forward: *forward,
+                                sequence: None,
+                            }));
+                            ret.push(Self::Insertion(nb_insertion as usize));
+                            left = right;
+                        }
+                        ret.push(Self::HelixDomain(HelixInterval {
+                            helix: *helix,
+                            start: adjust(left),
+                            end: adjust(*end),
+                            forward: *forward,
+                            sequence: None,
+                        }));
+                    } else {
+                        let mut ends = insertions.iter().rev();
+                        let mut right = *end;
+                        let mut left;
+                        while let Some(insertion) = ends.next() {
+                            left = insertion[0];
+                            let nb_insertion = insertion[1];
+                            ret.push(Self::HelixDomain(HelixInterval {
+                                helix: *helix,
+                                start: adjust(left),
+                                end: adjust(right),
+                                forward: *forward,
+                                sequence: None,
+                            }));
+                            ret.push(Self::Insertion(nb_insertion as usize));
+                            right = left;
+                        }
+                        ret.push(Self::HelixDomain(HelixInterval {
+                            helix: *helix,
+                            start: adjust(*start),
+                            end: adjust(right),
+                            forward: *forward,
+                            sequence: None,
+                        }));
+                    }
+                    ret
+                } else {
+                    let start = adjust(*start);
+                    let end = adjust(*end);
+
+                    vec![Self::HelixDomain(HelixInterval {
+                        helix: *helix,
+                        start,
+                        end,
+                        forward: *forward,
+                        sequence: None,
+                    })]
+                }
+            }
+            ScadnanoDomain::Loopout{ loopout: n } => vec![Self::Insertion(*n)]
         }
     }
 
