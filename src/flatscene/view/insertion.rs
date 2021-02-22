@@ -5,13 +5,75 @@ use lyon::path::Path;
 use lyon::tessellation;
 use lyon::tessellation::{StrokeVertex, StrokeVertexConstructor};
 use ultraviolet::{Mat2, Vec2};
-use wgpu::RenderPipeline;
+use wgpu::{DepthStencilStateDescriptor, BindGroupLayout, RenderPipeline, RenderPass, Buffer};
+use wgpu::util::DeviceExt;
 
 pub struct InsertionDrawer {
     new_instances: Option<Vec<InsertionInstance>>,
-    vertices: Vertices,
+    vertex_buffer: Buffer,
+    index_buffer: Buffer,
     instances: DynamicBindGroup,
     pipeline: RenderPipeline,
+    number_indices: usize,
+    number_instances: usize,
+}
+
+impl InsertionDrawer {
+    pub fn new(device: Rc<Device>, queue: Rc<Queue>, globals: &BindGroupLayout, depth_stencil_state: Option<DepthStencilStateDescriptor>) -> Self {
+        let instances = DynamicBindGroup::new(device.clone(), queue.clone());
+        let pipeline = insertion_pipeline(device.as_ref(), globals, instances.get_layout(), depth_stencil_state);
+        let vertices = make_vertices();
+        let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: None,
+            contents: bytemuck::cast_slice(&vertices.vertices),
+            usage: wgpu::BufferUsage::VERTEX,
+        });
+
+        let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: None,
+            contents: bytemuck::cast_slice(&vertices.indices),
+            usage: wgpu::BufferUsage::INDEX,
+        });
+        let number_indices = vertices.indices.len();
+
+        let new_instances = Some(vec![InsertionInstance{
+        position: Vec2::zero(),
+        orientation: Mat2::identity(),
+        _pading: 0,
+        depth: 500.,
+        color: [0., 0., 0., 1.],
+        }]);
+        Self {
+            new_instances,
+            instances,
+            index_buffer,
+            vertex_buffer,
+            pipeline,
+            number_indices,
+            number_instances: 0,
+        }
+    }
+
+    pub fn draw<'a>(&'a mut self, render_pass: &mut RenderPass<'a>) {
+        self.update_instances();
+        render_pass.set_pipeline(&self.pipeline);
+        render_pass.set_bind_group(1, self.instances.get_bindgroup(), &[]);
+        render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+        render_pass.set_index_buffer(self.index_buffer.slice(..));
+        render_pass.draw_indexed(0..self.number_indices as u32, 0, 0..self.number_instances as u32);
+    }
+
+    pub fn new_instances(&mut self, instances: Vec<InsertionInstance>) {
+        self.new_instances = Some(instances)
+    }
+
+    fn update_instances(&mut self) {
+        if let Some(ref instances) = self.new_instances {
+            self.number_instances = instances.len();
+            let instances_data: Vec<_> = instances.iter().cloned().collect();
+            self.instances.update(instances_data.as_slice());
+        }
+    }
 }
 
 #[repr(C)]
@@ -21,14 +83,21 @@ pub struct InsertionVertex {
     pub normal: [f32; 2],
 }
 
+unsafe impl bytemuck::Zeroable for InsertionVertex { }
+unsafe impl bytemuck::Pod for InsertionVertex { }
+
 #[repr(C)]
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Default)]
 pub struct InsertionInstance {
     pub position: Vec2,
     pub depth: f32,
+    pub _pading: u32,
     pub orientation: Mat2,
     pub color: [f32; 4],
 }
+
+unsafe impl bytemuck::Zeroable for InsertionInstance { }
+unsafe impl bytemuck::Pod for InsertionInstance { }
 
 type Vertices = lyon::tessellation::VertexBuffers<InsertionVertex, u16>;
 

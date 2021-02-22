@@ -10,6 +10,7 @@ uniform Globals {
 struct Instances {
     vec2 position;
     float depth;
+    int padd;
     mat2 rotation;
     vec4 color;
 };

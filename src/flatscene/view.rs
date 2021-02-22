@@ -22,6 +22,7 @@ pub use chars::CharInstance;
 pub use circles::CircleInstance;
 use circles::{CircleDrawer, CircleKind};
 use rectangle::Rectangle;
+use insertion::InsertionDrawer;
 
 use crate::consts::SAMPLE_COUNT;
 use iced_winit::winit::dpi::{PhysicalPosition, PhysicalSize};
@@ -49,6 +50,7 @@ pub struct View {
     background: Background,
     circle_drawer: CircleDrawer,
     rotation_widget: CircleDrawer,
+    insertion_drawer: InsertionDrawer,
     char_drawers: HashMap<char, CharDrawer>,
     char_map: HashMap<char, Vec<CharInstance>>,
     selection: FlatSelection,
@@ -122,6 +124,8 @@ impl View {
             );
             char_map.insert(*c, Vec::new());
         }
+        
+        let insertion_drawer = InsertionDrawer::new(device.clone(), queue.clone(), globals.get_layout(), depth_stencil_state.clone());
 
         Self {
             device,
@@ -155,6 +159,7 @@ impl View {
             torsions: HashMap::new(),
             show_torsion: false,
             rectangle,
+            insertion_drawer,
         }
     }
 
@@ -431,6 +436,7 @@ impl View {
         for drawer in self.char_drawers.values_mut() {
             drawer.draw(&mut render_pass);
         }
+        self.insertion_drawer.draw(&mut render_pass);
         drop(render_pass);
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
