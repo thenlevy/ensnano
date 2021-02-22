@@ -746,16 +746,10 @@ impl Data {
                 for (i, rigid_helix) in helix_system.helices.iter().enumerate() {
                     let position = positions[i];
                     let orientation = rotations[i].normalized();
-                    self.design
-                        .helices
-                        .get_mut(&rigid_helix.id)
-                        .unwrap()
-                        .position = position - rigid_helix.center_of_mass;
-                    self.design
-                        .helices
-                        .get_mut(&rigid_helix.id)
-                        .unwrap()
-                        .orientation = orientation;
+                    let helix = self.design.helices.get_mut(&rigid_helix.id).unwrap();
+                    helix.position = position - rigid_helix.center_of_mass;
+                    helix.orientation = orientation;
+                    helix.end_movement();
                 }
                 self.hash_maps_update = true;
                 self.update_status = true;
@@ -948,9 +942,11 @@ impl Data {
                 for i in 0..state.ids.len() {
                     let position = state.positions[i];
                     let orientation = state.orientations[i].normalized();
-                    self.grid_manager.grids[state.ids[i]].position =
+                    let grid = &mut self.grid_manager.grids[state.ids[i]];
+                    grid.position =
                         position - state.center_of_mass_from_grid[i].rotated_by(orientation);
-                    self.grid_manager.grids[state.ids[i]].orientation = orientation;
+                    grid.orientation = orientation;
+                    grid.end_movement();
                 }
                 self.grid_manager.update(&mut self.design);
                 self.hash_maps_update = true;
