@@ -23,6 +23,7 @@ pub use circles::CircleInstance;
 use circles::{CircleDrawer, CircleKind};
 use rectangle::Rectangle;
 use insertion::InsertionDrawer;
+pub use insertion::InsertionInstance;
 
 use crate::consts::SAMPLE_COUNT;
 use iced_winit::winit::dpi::{PhysicalPosition, PhysicalSize};

@@ -99,6 +99,18 @@ pub struct InsertionInstance {
 unsafe impl bytemuck::Zeroable for InsertionInstance { }
 unsafe impl bytemuck::Pod for InsertionInstance { }
 
+impl InsertionInstance {
+    pub fn new(position: Vec2, depth: f32, orientation: ultraviolet::Rotor2, color: u32) -> Self {
+        Self {
+            position,
+            depth,
+            _pading: 0,
+            orientation: orientation.into_matrix(),
+            color: crate::utils::instance::Instance::color_from_au32(color).into(),
+        }
+    }
+}
+
 type Vertices = lyon::tessellation::VertexBuffers<InsertionVertex, u16>;
 
 fn make_vertices() -> Vertices {

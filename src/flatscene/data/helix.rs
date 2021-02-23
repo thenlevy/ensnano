@@ -1,4 +1,4 @@
-use super::super::view::{CharInstance, CircleInstance};
+use super::super::view::{CharInstance, CircleInstance, InsertionInstance};
 use super::super::{CameraPtr, Flat, FlatHelix, FlatIdx};
 use super::{FlatNucl, Helix2d};
 use crate::consts::*;
