@@ -2,6 +2,7 @@ use crate::consts::*;
 use iced_wgpu::wgpu;
 use iced_winit::winit::dpi::{PhysicalPosition, PhysicalSize, Pixel};
 use native_dialog::{MessageDialog, MessageType};
+use std::sync::Mutex;
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
 
 pub mod bindgroup_manager;
@@ -113,13 +114,17 @@ impl PhantomElement {
     }
 }
 
+struct UnsafeMessage(MessageDialog<'static>);
+unsafe impl Send for UnsafeMessage {}
+
 pub fn message(message: MessageDialog<'static>) {
+    let message = UnsafeMessage(message);
     if cfg!(target_os = "windows") {
         std::thread::spawn(move || {
-            message.show_alert().unwrap();
+            message.0.show_alert().unwrap();
         });
     } else {
-        message.show_alert().unwrap();
+        message.0.show_alert().unwrap();
     }
 }
 
