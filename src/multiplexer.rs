@@ -437,6 +437,9 @@ impl Multiplexer {
                     VirtualKeyCode::J if ctrl(modifiers) => {
                         self.requests.lock().unwrap().duplication = true;
                     }
+                    VirtualKeyCode::L if ctrl(modifiers) => {
+                        self.requests.lock().unwrap().anchor = true;
+                    }
                     VirtualKeyCode::A => {
                         self.requests.lock().unwrap().action_mode = Some(ActionMode::Build(false))
                     }

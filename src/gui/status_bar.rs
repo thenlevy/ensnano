@@ -159,6 +159,10 @@ impl StatusBar {
                 ));
                 row = row.push(Text::new(self.info_values[3].clone()).size(STATUS_FONT_SIZE - 2));
             }
+            Selection::Nucleotide(_, _) => {
+                let anchor = self.info_values[0].clone();
+                row = row.push(Text::new(format!("Anchor {}", anchor)));
+            }
             _ => (),
         }
 

@@ -847,6 +847,14 @@ impl Design {
     pub fn get_insertions(&self, s_id: usize) -> Option<Vec<Nucl>> {
         self.data.lock().unwrap().get_insertions(s_id)
     }
+
+    pub fn add_anchor(&mut self, nucl: Nucl) {
+        self.data.lock().unwrap().add_anchor(nucl);
+    }
+
+    pub fn is_anchor(&self, nucl: Nucl) -> bool {
+        self.data.lock().unwrap().is_anchor(nucl)
+    }
 }
 
 #[derive(Clone)]

@@ -82,6 +82,7 @@ pub struct Requests {
     pub duplication: bool,
     pub rigid_grid_simulation: Option<bool>,
     pub rigid_helices_simulation: Option<bool>,
+    pub anchor: bool,
 }
 
 impl Requests {
@@ -125,6 +126,7 @@ impl Requests {
             duplication: false,
             rigid_helices_simulation: None,
             rigid_grid_simulation: None,
+            anchor: false,
         }
     }
 }

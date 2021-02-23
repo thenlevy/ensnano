@@ -528,6 +528,11 @@ fn main() {
                     if let Some(b) = requests.rigid_helices_simulation.take() {
                         mediator.lock().unwrap().rigid_helices_request(b);
                     }
+
+                    if requests.anchor {
+                        mediator.lock().unwrap().request_anchor();
+                        requests.anchor = false;
+                    }
                 }
 
                 // Treat eventual event that happenend in the gui left panel.

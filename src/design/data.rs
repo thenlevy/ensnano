@@ -97,6 +97,7 @@ pub struct Data {
     hyperboloid_draft: Option<GridDescriptor>,
     template_manager: TemplateManager,
     xover_copy_manager: XoverCopyManager,
+    anchors: HashSet<Nucl>,
 }
 
 impl fmt::Debug for Data {
@@ -139,6 +140,7 @@ impl Data {
             xover_copy_manager: Default::default(),
             rigid_body_ptr: None,
             helix_simulation_ptr: None,
+            anchors: HashSet::new(),
         }
     }
 
@@ -332,6 +334,7 @@ impl Data {
             xover_copy_manager: Default::default(),
             rigid_body_ptr: None,
             helix_simulation_ptr: None,
+            anchors: HashSet::new(),
         };
         ret.make_hash_maps();
         ret.terminate_movement();
@@ -2397,6 +2400,18 @@ impl Data {
 
     pub fn get_insertions(&mut self, s_id: usize) -> Option<Vec<Nucl>> {
         self.design.strands.get(&s_id).map(|s| s.get_insertions())
+    }
+
+    pub fn add_anchor(&mut self, anchor: Nucl) {
+        if self.anchors.contains(&anchor) {
+            self.anchors.remove(&anchor);
+        } else {
+            self.anchors.insert(anchor);
+        }
+    }
+
+    pub fn is_anchor(&self, anchor: Nucl) -> bool {
+        self.anchors.contains(&anchor)
     }
 }
 

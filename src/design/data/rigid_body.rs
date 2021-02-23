@@ -10,6 +10,7 @@ struct HelixSystem {
     time_span: (f32, f32),
     last_state: Option<Vector<f32>>,
     parameters: Parameters,
+    anchors: Vec<(RigidNucl, Vec3)>,
 }
 
 #[derive(Debug)]
@@ -30,6 +31,7 @@ impl HelixSystem {
 
         const L0: f32 = 0.7;
         const K_SPRING: f32 = 1.;
+        const K_ANCHOR: f32 = 1000.;
 
         let point_conversion = |nucl: &RigidNucl| {
             let position = positions[nucl.helix]
@@ -65,6 +67,26 @@ impl HelixSystem {
 
             torques[spring.0.helix] += torque0;
             torques[spring.1.helix] += torque1;
+        }
+
+        for (nucl, position) in self.anchors.iter() {
+            let point_0 = point_conversion(&nucl);
+            let len = (point_0 - *position).mag();
+            if len < 100. {
+                println!("point_0: {:?}", point_0);
+                println!("position: {:?}", *position);
+            }
+            let force = if len > 1e-5 {
+                K_SPRING * K_ANCHOR * -(point_0 - *position)
+            } else {
+                Vec3::zero()
+            };
+
+            forces[nucl.helix] += 10. * force;
+
+            let torque0 = (point_0 - positions[nucl.helix]).cross(force);
+
+            torques[nucl.helix] += torque0;
         }
 
         (forces, torques)
@@ -198,6 +220,7 @@ struct GridsSystem {
     grids: Vec<RigidGrid>,
     time_span: (f32, f32),
     last_state: Option<Vector<f32>>,
+    anchors: Vec<(ApplicationPoint, Vec3)>,
 }
 
 impl GridsSystem {
@@ -789,12 +812,32 @@ impl Data {
             };
             springs.push((rigid_1, rigid_2));
         }
+        let nucl_0 = Nucl {
+            helix: 1,
+            position: 0,
+            forward: true,
+        };
+        let mut anchors = vec![];
+        for anchor in self.anchors.iter() {
+            if let Some(n_id) = self.identifier_nucl.get(anchor) {
+                if let Some(rigid_helix) = helix_map.get(&anchor.helix) {
+                    let rigid_nucl = RigidNucl {
+                        helix: *rigid_helix,
+                        position: anchor.position,
+                        forward: anchor.forward,
+                    };
+                    let position: Vec3 = self.space_position[n_id].into();
+                    anchors.push((rigid_nucl, position));
+                }
+            }
+        }
         Some(HelixSystem {
             helices: rigid_helices,
             springs,
             last_state: None,
             time_span,
             parameters,
+            anchors,
         })
     }
 
@@ -850,6 +893,7 @@ impl Data {
             grids: rigid_grids,
             time_span,
             last_state: None,
+            anchors: vec![],
         })
     }
 

@@ -66,6 +66,9 @@ impl Selection {
                 s_id.to_string(),
                 design.read().unwrap().decompose_length(*s_id as usize),
             ],
+            Selection::Nucleotide(_, nucl) => {
+                vec![format!("{}", design.read().unwrap().is_anchor(*nucl))]
+            }
             _ => Vec::new(),
         }
     }

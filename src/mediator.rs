@@ -1110,6 +1110,17 @@ impl Mediator {
             self.pasting_attempt = Some(nucl);
         }
     }
+
+    pub fn request_anchor(&mut self) {
+        let selection = self.selection.get(0).cloned();
+        if let Some(Selection::Nucleotide(d_id, nucl)) = selection {
+            self.designs[d_id as usize]
+                .write()
+                .unwrap()
+                .add_anchor(nucl);
+            self.notify_unique_selection(selection.unwrap());
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
