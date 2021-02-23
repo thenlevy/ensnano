@@ -395,6 +395,25 @@ impl Strand {
         }
         None
     }
+
+    pub fn get_insertions(&self) -> Vec<Nucl> {
+        let mut last_nucl = None;
+        let mut ret = Vec::with_capacity(self.domains.len());
+        for d in self.domains.iter() {
+            match d {
+                Domain::Insertion(n) if *n > 0 => {
+                    if let Some(nucl) = last_nucl {
+                        ret.push(nucl);
+                    }
+                }
+                Domain::Insertion(_) => (),
+                Domain::HelixDomain(_) => {
+                    last_nucl = d.prime3_end();
+                }
+            }
+        }
+        ret
+    }
 }
 
 fn is_false(x: &bool) -> bool {

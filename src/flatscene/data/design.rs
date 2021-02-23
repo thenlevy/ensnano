@@ -61,8 +61,23 @@ impl Design2d {
                 .iter()
                 .map(|n| FlatNucl::from_real(n, self.id_map()))
                 .collect();
-            self.strands
-                .push(Strand::new(color, flat_strand, *strand_id, false));
+            let insertions = self
+                .design
+                .read()
+                .unwrap()
+                .get_insertions(*strand_id)
+                .unwrap_or_default();
+            let insertions = insertions
+                .iter()
+                .map(|n| FlatNucl::from_real(n, self.id_map()))
+                .collect::<Vec<_>>();
+            self.strands.push(Strand::new(
+                color,
+                flat_strand,
+                insertions,
+                *strand_id,
+                false,
+            ));
         }
         let nucls_opt = self.design.read().unwrap().get_copy_points();
 
@@ -77,7 +92,7 @@ impl Design2d {
                     .iter()
                     .map(|n| FlatNucl::from_real(n, self.id_map()))
                     .collect();
-                Strand::new(color, flat_strand, 0, false)
+                Strand::new(color, flat_strand, vec![], 0, false)
             })
             .collect();
 
@@ -343,7 +358,7 @@ impl Design2d {
             .iter()
             .map(|n| FlatNucl::from_real(n, self.id_map()))
             .collect();
-        Strand::new(0, flat_nucls, 0, false).highlighted(crate::consts::CANDIDATE_COLOR)
+        Strand::new(0, flat_nucls, vec![], 0, false).highlighted(crate::consts::CANDIDATE_COLOR)
     }
 }
 

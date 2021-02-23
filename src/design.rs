@@ -843,6 +843,10 @@ impl Design {
             .unwrap()
             .helix_simulation_request(time_span, computing);
     }
+
+    pub fn get_insertions(&self, s_id: usize) -> Option<Vec<Nucl>> {
+        self.data.lock().unwrap().get_insertions(s_id)
+    }
 }
 
 #[derive(Clone)]

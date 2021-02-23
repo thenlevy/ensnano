@@ -14,7 +14,7 @@ use lyon::tessellation::{
 };
 use std::collections::{BTreeMap, HashMap};
 use std::sync::{Arc, RwLock};
-use ultraviolet::{Isometry2, Mat2, Vec2, Vec4};
+use ultraviolet::{Isometry2, Mat2, Rotor2, Vec2, Vec4};
 
 type Vertices = lyon::tessellation::VertexBuffers<GpuVertex, u16>;
 
@@ -501,6 +501,15 @@ impl Helix {
         if need_center {
             camera.borrow_mut().set_center(self.get_pivot(position))
         }
+    }
+
+    pub fn insertion_instance(&self, nucl: &FlatNucl, color: u32) -> InsertionInstance {
+        let position = self.get_nucl_position(nucl, Shift::Prime3);
+        let mut orientation = self.isometry.rotation;
+        if !nucl.forward {
+            orientation = Rotor2::from_angle(std::f32::consts::PI) * orientation;
+        }
+        InsertionInstance::new(position, self.get_depth(), orientation, color)
     }
 
     pub fn add_char_instances(

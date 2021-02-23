@@ -5,8 +5,8 @@ use lyon::path::Path;
 use lyon::tessellation;
 use lyon::tessellation::{StrokeVertex, StrokeVertexConstructor};
 use ultraviolet::{Mat2, Vec2};
-use wgpu::{DepthStencilStateDescriptor, BindGroupLayout, RenderPipeline, RenderPass, Buffer};
 use wgpu::util::DeviceExt;
+use wgpu::{BindGroupLayout, Buffer, DepthStencilStateDescriptor, RenderPass, RenderPipeline};
 
 pub struct InsertionDrawer {
     new_instances: Option<Vec<InsertionInstance>>,
@@ -19,9 +19,19 @@ pub struct InsertionDrawer {
 }
 
 impl InsertionDrawer {
-    pub fn new(device: Rc<Device>, queue: Rc<Queue>, globals: &BindGroupLayout, depth_stencil_state: Option<DepthStencilStateDescriptor>) -> Self {
+    pub fn new(
+        device: Rc<Device>,
+        queue: Rc<Queue>,
+        globals: &BindGroupLayout,
+        depth_stencil_state: Option<DepthStencilStateDescriptor>,
+    ) -> Self {
         let instances = DynamicBindGroup::new(device.clone(), queue.clone());
-        let pipeline = insertion_pipeline(device.as_ref(), globals, instances.get_layout(), depth_stencil_state);
+        let pipeline = insertion_pipeline(
+            device.as_ref(),
+            globals,
+            instances.get_layout(),
+            depth_stencil_state,
+        );
         let vertices = make_vertices();
         let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: None,
@@ -36,12 +46,12 @@ impl InsertionDrawer {
         });
         let number_indices = vertices.indices.len();
 
-        let new_instances = Some(vec![InsertionInstance{
-        position: Vec2::zero(),
-        orientation: Mat2::identity(),
-        _pading: 0,
-        depth: 500.,
-        color: [0., 0., 0., 1.],
+        let new_instances = Some(vec![InsertionInstance {
+            position: Vec2::zero(),
+            orientation: Mat2::identity(),
+            _pading: 0,
+            depth: 500.,
+            color: [0., 0., 0., 1.],
         }]);
         Self {
             new_instances,
@@ -60,7 +70,11 @@ impl InsertionDrawer {
         render_pass.set_bind_group(1, self.instances.get_bindgroup(), &[]);
         render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
         render_pass.set_index_buffer(self.index_buffer.slice(..));
-        render_pass.draw_indexed(0..self.number_indices as u32, 0, 0..self.number_instances as u32);
+        render_pass.draw_indexed(
+            0..self.number_indices as u32,
+            0,
+            0..self.number_instances as u32,
+        );
     }
 
     pub fn new_instances(&mut self, instances: Vec<InsertionInstance>) {
@@ -83,8 +97,8 @@ pub struct InsertionVertex {
     pub normal: [f32; 2],
 }
 
-unsafe impl bytemuck::Zeroable for InsertionVertex { }
-unsafe impl bytemuck::Pod for InsertionVertex { }
+unsafe impl bytemuck::Zeroable for InsertionVertex {}
+unsafe impl bytemuck::Pod for InsertionVertex {}
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Default)]
@@ -96,8 +110,8 @@ pub struct InsertionInstance {
     pub color: [f32; 4],
 }
 
-unsafe impl bytemuck::Zeroable for InsertionInstance { }
-unsafe impl bytemuck::Pod for InsertionInstance { }
+unsafe impl bytemuck::Zeroable for InsertionInstance {}
+unsafe impl bytemuck::Pod for InsertionInstance {}
 
 impl InsertionInstance {
     pub fn new(position: Vec2, depth: f32, orientation: ultraviolet::Rotor2, color: u32) -> Self {
@@ -106,7 +120,7 @@ impl InsertionInstance {
             depth,
             _pading: 0,
             orientation: orientation.into_matrix(),
-            color: crate::utils::instance::Instance::color_from_au32(color).into(),
+            color: crate::utils::instance::Instance::color_from_u32(color).into(),
         }
     }
 }

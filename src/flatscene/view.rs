@@ -21,9 +21,9 @@ use chars::CharDrawer;
 pub use chars::CharInstance;
 pub use circles::CircleInstance;
 use circles::{CircleDrawer, CircleKind};
-use rectangle::Rectangle;
 use insertion::InsertionDrawer;
 pub use insertion::InsertionInstance;
+use rectangle::Rectangle;
 
 use crate::consts::SAMPLE_COUNT;
 use iced_winit::winit::dpi::{PhysicalPosition, PhysicalSize};
@@ -125,8 +125,13 @@ impl View {
             );
             char_map.insert(*c, Vec::new());
         }
-        
-        let insertion_drawer = InsertionDrawer::new(device.clone(), queue.clone(), globals.get_layout(), depth_stencil_state.clone());
+
+        let insertion_drawer = InsertionDrawer::new(
+            device.clone(),
+            queue.clone(),
+            globals.get_layout(),
+            depth_stencil_state.clone(),
+        );
 
         Self {
             device,
@@ -262,6 +267,13 @@ impl View {
         for strand in strands.iter().skip(self.strands.len()) {
             self.add_strand(strand, helices)
         }
+        let mut insertions = Vec::new();
+        for s in strands.iter() {
+            for i in s.get_insertions(helices) {
+                insertions.push(i);
+            }
+        }
+        self.insertion_drawer.new_instances(insertions);
         self.was_updated = true;
     }
 

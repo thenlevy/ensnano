@@ -1,3 +1,4 @@
+use super::super::view::InsertionInstance;
 use super::super::FlatSelection;
 use super::helix::{Helix, Shift};
 use super::FlatNucl;
@@ -12,16 +13,24 @@ type Vertices = lyon::tessellation::VertexBuffers<StrandVertex, u16>;
 pub struct Strand {
     pub color: u32,
     pub points: Vec<FlatNucl>,
+    pub insertions: Vec<FlatNucl>,
     pub id: usize,
     pub highlight: bool,
 }
 
 impl Strand {
-    pub fn new(color: u32, points: Vec<FlatNucl>, id: usize, highlight: bool) -> Self {
+    pub fn new(
+        color: u32,
+        points: Vec<FlatNucl>,
+        insertions: Vec<FlatNucl>,
+        id: usize,
+        highlight: bool,
+    ) -> Self {
         Self {
             color,
             points,
             id,
+            insertions,
             highlight,
         }
     }
@@ -172,6 +181,14 @@ impl Strand {
         vertices
     }
 
+    pub fn get_insertions(&self, helices: &[Helix]) -> Vec<InsertionInstance> {
+        let mut ret = Vec::with_capacity(self.insertions.len());
+        for i in self.insertions.iter() {
+            ret.push(helices[i.helix].insertion_instance(i, self.color));
+        }
+        ret
+    }
+
     pub fn indication(nucl1: FlatNucl, nucl2: FlatNucl, helices: &[Helix]) -> Vertices {
         let mut vertices = Vertices::new();
         let mut builder = Path::builder_with_attributes(2);
@@ -210,6 +227,7 @@ impl Strand {
             color,
             highlight: true,
             points: self.points.clone(),
+            insertions: self.insertions.clone(),
             ..*self.clone()
         }
     }

@@ -2394,6 +2394,10 @@ impl Data {
         self.hash_maps_update = true;
         self.view_need_reset = true;
     }
+
+    pub fn get_insertions(&mut self, s_id: usize) -> Option<Vec<Nucl>> {
+        self.design.strands.get(&s_id).map(|s| s.get_insertions())
+    }
 }
 
 fn compl(c: Option<char>) -> Option<char> {
