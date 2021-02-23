@@ -380,6 +380,10 @@ impl Scene {
         let design_id = *self.get_selected_designs().iter().next().unwrap() as usize;
         let rotor = self.data.borrow().get_widget_basis();
         self.view.borrow_mut().translate_widgets(translation);
+        if rotor.is_none() {
+            return;
+        }
+        let rotor = rotor.unwrap();
         let right = Vec3::unit_x().rotated_by(rotor);
         let top = Vec3::unit_y().rotated_by(rotor);
         let dir = Vec3::unit_z().rotated_by(rotor);
@@ -505,19 +509,26 @@ impl Scene {
 
     fn update_handle(&mut self) {
         let origin = self.data.borrow().get_selected_position();
-        let descr = origin.clone().map(|origin| HandlesDescriptor {
-            origin,
-            orientation: HandleOrientation::Rotor(self.data.borrow().get_widget_basis()),
-            size: 0.25,
-        });
+        let orientation = self.data.borrow().get_widget_basis();
+        let descr = origin
+            .clone()
+            .zip(orientation.clone())
+            .map(|(origin, orientation)| HandlesDescriptor {
+                origin,
+                orientation: HandleOrientation::Rotor(orientation),
+                size: 0.25,
+            });
         self.view.borrow_mut().update(ViewUpdate::Handles(descr));
         let only_right = !self.data.borrow().selection_can_rotate_freely();
-        let descr = origin.map(|origin| RotationWidgetDescriptor {
-            origin,
-            orientation: RotationWidgetOrientation::Rotor(self.data.borrow().get_widget_basis()),
-            size: 0.2,
-            only_right,
-        });
+        let descr = origin
+            .clone()
+            .zip(orientation.clone())
+            .map(|(origin, orientation)| RotationWidgetDescriptor {
+                origin,
+                orientation: RotationWidgetOrientation::Rotor(orientation),
+                size: 0.2,
+                only_right,
+            });
         self.view
             .borrow_mut()
             .update(ViewUpdate::RotationWidget(descr));

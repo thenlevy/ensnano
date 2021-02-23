@@ -823,12 +823,12 @@ impl Data {
         }
     }
 
-    pub fn get_widget_basis(&self) -> Rotor3 {
-        match self.widget_basis.as_ref().expect("widget basis") {
+    pub fn get_widget_basis(&self) -> Option<Rotor3> {
+        self.widget_basis.as_ref().and_then(|basis| match basis {
             //WidgetBasis::World => Rotor3::identity(),
-            WidgetBasis::World => self.get_selected_basis().unwrap(),
-            WidgetBasis::Object => self.get_selected_basis().unwrap(),
-        }
+            WidgetBasis::World => self.get_selected_basis(),
+            WidgetBasis::Object => self.get_selected_basis(),
+        })
     }
 
     fn get_selected_basis(&self) -> Option<Rotor3> {
