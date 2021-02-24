@@ -6,6 +6,9 @@ use ultraviolet::{Bivec3, Mat3, Rotor3, Vec3};
 #[derive(Debug)]
 struct HelixSystem {
     springs: Vec<(RigidNucl, RigidNucl)>,
+    free_springs: Vec<(usize, usize)>,
+    mixed_springs: Vec<(RigidNucl, usize)>,
+    free_nucls: Vec<FreeNucl>,
     helices: Vec<RigidHelix>,
     time_span: (f32, f32),
     last_state: Option<Vector<f32>>,
@@ -18,6 +21,23 @@ struct RigidNucl {
     helix: usize,
     position: isize,
     forward: bool,
+}
+
+#[derive(Debug)]
+struct FreeNucl {
+    helix: Option<usize>,
+    position: isize,
+    forward: bool,
+}
+
+impl FreeNucl {
+    fn with_helix(nucl: &Nucl, helix: Option<usize>) -> Self {
+        Self {
+            helix,
+            position: nucl.position,
+            forward: nucl.forward,
+        }
+    }
 }
 
 impl HelixSystem {
@@ -735,6 +755,56 @@ struct RigidHelixState {
     ids: Vec<usize>,
 }
 
+struct RigidHelixSimulator {
+    nucl_maps: HashMap<Nucl, FreeNucl>,
+    simulation_ptr: RigidHelixPtr,
+    state_update: Option<RigidHelixState>,
+}
+
+/*
+impl RigidHelixSimulator {
+    fn start_simulation(helix_system: HelixSystem, computing: Arc<Mutex<bool>>) -> Self {
+        let rigid_helix_to_real = helix_system.helices.iter().map(|h| h.id).collect::<Vec<_>>();
+        let free_nucls = helix_system.free_nucls.iter().map(|n| n.to_real()).collect::<Vec<_>>();
+        let grid_system_thread = HelixSystemThread::new(helix_system);
+
+        let date = Instant::now();
+        let (stop, snd) = grid_system_thread.run(computing);
+        let simulation_ptr = RigidHelixPtr {
+            instant: date,
+            stop,
+            state: snd,
+        };
+        Self {
+            free_nucls,
+            rigid_helix_to_real,
+            simulation_ptr,
+            state_update: None,
+        }
+    }
+
+    fn check_simulation(&mut self) {
+        let now = Instant::now();
+        if (now - self.simulation_ptr.instant).as_millis() > 30 {
+            let (snd, rcv) = std::sync::mpsc::channel();
+            self.simulation_ptr.state.lock().unwrap = Some(snd);
+            self.state_update = rcv.recv().ok();
+            for i in 0..state.ids.len() {
+                let position = state.positions[i];
+                let orientation = state.orientations[i].normalized();
+                self.design.helices.get_mut(&state.ids[i]).unwrap().position =
+                    position + state.center_of_mass_from_helix[i].rotated_by(orientation);
+                self.design
+                    .helices
+                    .get_mut(&state.ids[i])
+                    .unwrap()
+                    .orientation = orientation;
+                }
+            self.simulation_ptr.instant = now;
+        }
+    }
+}*/
+
 impl Data {
     pub fn grid_simulation(&mut self, time_span: (f32, f32)) {
         if let Some(grid_system) = self.make_grid_system(time_span) {
@@ -834,6 +904,9 @@ impl Data {
         Some(HelixSystem {
             helices: rigid_helices,
             springs,
+            mixed_springs: vec![],
+            free_springs: vec![],
+            free_nucls: vec![],
             last_state: None,
             time_span,
             parameters,
@@ -1029,6 +1102,8 @@ impl Data {
         }
     }
 
+    fn read_rigid_helix_update(&mut self) {}
+
     pub fn rigid_body_request(&mut self, request: (f32, f32), computing: Arc<Mutex<bool>>) {
         if self.rigid_body_ptr.is_some() {
             self.stop_rigid_body()
@@ -1088,6 +1163,125 @@ impl Data {
         }
         self.helix_simulation_ptr = None;
     }
+
+    pub fn read_intervals(&self) -> IntervalResult {
+        // TODO remove pub after testing
+        let mut nucl_map = HashMap::new();
+        let mut current_helix = None;
+        let mut helix_map = Vec::new();
+        for s in self.design.strands.values() {
+            for d in s.domains.iter() {
+                println!("New dom");
+                if let Some(nucl) = d.prime5_end() {
+                    if !nucl_map.contains_key(&nucl) || !nucl.forward {
+                        let starting_doubled = self.identifier_nucl.contains_key(&nucl.compl());
+                        let starting_nucl = nucl.clone();
+                        let mut prev_doubled = false;
+                        let mut moving_nucl = starting_nucl;
+                        let mut starting_helix = if starting_doubled {
+                            Some(current_helix.clone())
+                        } else {
+                            None
+                        };
+                        while self.identifier_nucl.contains_key(&moving_nucl) {
+                            println!("nucl {:?}", moving_nucl);
+                            let doubled = self.identifier_nucl.contains_key(&moving_nucl.compl());
+                            if doubled && nucl.forward {
+                                println!("has compl");
+                                let helix = if prev_doubled {
+                                    current_helix.unwrap()
+                                } else {
+                                    helix_map.push(nucl.helix);
+                                    if let Some(n) = current_helix.as_mut() {
+                                        *n += 1;
+                                        *n
+                                    } else {
+                                        current_helix = Some(0);
+                                        0
+                                    }
+                                };
+                                println!("helix {}", helix);
+                                nucl_map.insert(
+                                    moving_nucl,
+                                    FreeNucl::with_helix(&moving_nucl, Some(helix)),
+                                );
+                                nucl_map.insert(
+                                    moving_nucl.compl(),
+                                    FreeNucl::with_helix(&moving_nucl.compl(), Some(helix)),
+                                );
+                            } else if !doubled {
+                                println!("has not compl");
+                                nucl_map
+                                    .insert(moving_nucl, FreeNucl::with_helix(&moving_nucl, None));
+                            }
+                            prev_doubled = doubled;
+                            moving_nucl = moving_nucl.left();
+                        }
+                        prev_doubled = starting_doubled;
+                        moving_nucl = starting_nucl.right();
+                        while self.identifier_nucl.contains_key(&moving_nucl) {
+                            println!("nucl {:?}", moving_nucl);
+                            let doubled = self.identifier_nucl.contains_key(&moving_nucl.compl());
+                            if doubled && nucl.forward {
+                                println!("has compl");
+                                let helix = if prev_doubled {
+                                    current_helix.unwrap()
+                                } else {
+                                    if let Some(helix) = starting_helix.take() {
+                                        if let Some(n) = helix {
+                                            n + 1
+                                        } else {
+                                            0
+                                        }
+                                    } else {
+                                        helix_map.push(nucl.helix);
+                                        if let Some(n) = current_helix.as_mut() {
+                                            *n += 1;
+                                            *n
+                                        } else {
+                                            current_helix = Some(0);
+                                            0
+                                        }
+                                    }
+                                };
+                                println!("helix {}", helix);
+                                nucl_map.insert(
+                                    moving_nucl,
+                                    FreeNucl::with_helix(&moving_nucl, Some(helix)),
+                                );
+                                nucl_map.insert(
+                                    moving_nucl.compl(),
+                                    FreeNucl::with_helix(&moving_nucl.compl(), Some(helix)),
+                                );
+                            } else if !doubled {
+                                println!("has not compl");
+                                nucl_map
+                                    .insert(moving_nucl, FreeNucl::with_helix(&moving_nucl, None));
+                            }
+                            prev_doubled = doubled;
+                            moving_nucl = moving_nucl.right();
+                        }
+                        // left
+                    }
+                }
+            }
+        }
+        for k in self.identifier_nucl.keys() {
+            if !nucl_map.contains_key(k) {
+                println!("HO NO :( {:?}", k);
+            }
+        }
+        IntervalResult {
+            nucl_map,
+            helix_map,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct IntervalResult {
+    nucl_map: HashMap<Nucl, FreeNucl>,
+    helix_map: Vec<usize>,
 }
 
 /// Return the length of the shortes line between a point of [a, b] and a poin of [c, d]

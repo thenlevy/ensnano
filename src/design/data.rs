@@ -10,6 +10,7 @@
 //!
 use crate::gui::SimulationRequest;
 use ahash::RandomState;
+use mathru::algebra::linear::vector::vector::Vector;
 use native_dialog::{MessageDialog, MessageType};
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::io::Write;
@@ -98,6 +99,7 @@ pub struct Data {
     template_manager: TemplateManager,
     xover_copy_manager: XoverCopyManager,
     anchors: HashSet<Nucl>,
+    rigid_helix_update: Option<Vector<f32>>,
 }
 
 impl fmt::Debug for Data {
@@ -141,6 +143,7 @@ impl Data {
             rigid_body_ptr: None,
             helix_simulation_ptr: None,
             anchors: HashSet::new(),
+            rigid_helix_update: None,
         }
     }
 
@@ -335,9 +338,11 @@ impl Data {
             rigid_body_ptr: None,
             helix_simulation_ptr: None,
             anchors: HashSet::new(),
+            rigid_helix_update: None,
         };
         ret.make_hash_maps();
         ret.terminate_movement();
+        ret.read_intervals();
         Some(ret)
     }
 
