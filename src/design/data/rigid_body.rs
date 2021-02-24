@@ -23,7 +23,7 @@ struct RigidNucl {
     forward: bool,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Hash, Eq, PartialEq, Clone, Copy)]
 struct FreeNucl {
     helix: Option<usize>,
     position: isize,
@@ -854,6 +854,81 @@ impl Data {
         }
     }
 
+    fn make_flexible_helices_system(&self, time_span: (f32, f32)) -> Option<HelixSystem> {
+        let interval_results = self.read_intervals();
+        let parameters = self.design.parameters.unwrap_or_default();
+        let mut rigid_helices = Vec::with_capacity(interval_results.helix_map.len());
+        for i in 0..interval_results.helix_map.len() {
+            let h_id = interval_results.helix_map[i];
+            let interval = interval_results.intervals[i];
+            let rigid_helix = self.make_rigid_helix_world_pov_interval(h_id, interval, &parameters);
+            rigid_helices.push(rigid_helix);
+        }
+        let xovers = self.get_xovers_list();
+        let mut springs = Vec::with_capacity(xovers.len());
+        let mut mixed_springs = Vec::with_capacity(xovers.len());
+        let mut free_springs = Vec::with_capacity(xovers.len());
+        for (n1, n2) in xovers {
+            let free_nucl1 = interval_results.nucl_map[&n1];
+            let free_nucl2 = interval_results.nucl_map[&n2];
+            if let Some((h1, h2)) = free_nucl1.helix.zip(free_nucl2.helix) {
+                let rigid_1 = RigidNucl {
+                    helix: h1,
+                    position: n1.position,
+                    forward: n1.forward,
+                };
+                let rigid_2 = RigidNucl {
+                    helix: h2,
+                    position: n2.position,
+                    forward: n2.forward,
+                };
+                springs.push((rigid_1, rigid_2));
+            } else if let Some(h1) = free_nucl1.helix {
+                let rigid_1 = RigidNucl {
+                    helix: h1,
+                    position: n1.position,
+                    forward: n1.forward
+                };
+                let free_id = interval_results.free_nucl_ids[&free_nucl2];
+                mixed_springs.push((rigid_1, free_id));
+            } else if let Some(h2) = free_nucl2.helix {
+                let rigid_2 = RigidNucl {
+                    helix: h2,
+                    position: n2.position,
+                    forward: n2.forward
+                };
+                let free_id = interval_results.free_nucl_ids[&free_nucl1];
+                mixed_springs.push((rigid_2, free_id));
+            }
+        }
+        let mut anchors = vec![];
+        for anchor in self.anchors.iter() {
+            if let Some(n_id) = self.identifier_nucl.get(anchor) {
+                if let Some(rigid_helix) = interval_results.helix_map.get(anchor.helix) {
+                    let rigid_nucl = RigidNucl {
+                        helix: *rigid_helix,
+                        position: anchor.position,
+                        forward: anchor.forward,
+                    };
+                    let position: Vec3 = self.space_position[n_id].into();
+                    anchors.push((rigid_nucl, position));
+                }
+            }
+        }
+        Some(HelixSystem {
+            helices: rigid_helices,
+            springs,
+            mixed_springs,
+            free_springs,
+            free_nucls: interval_results.free_nucls.clone(),
+            last_state: None,
+            time_span,
+            parameters,
+            anchors,
+        })
+    }
+
+    /// Make an helix system without making flexible single_stranded part.
     fn make_helices_system(&self, time_span: (f32, f32)) -> Option<HelixSystem> {
         let intervals = self.design.get_intervals();
         let parameters = self.design.parameters.unwrap_or_default();
@@ -1049,6 +1124,32 @@ impl Data {
         ))
     }
 
+    fn make_rigid_helix_world_pov_interval(
+        &self,
+        h_id: usize,
+        interval: (isize, isize),
+        parameters: &Parameters,
+    ) -> RigidHelix {
+        let (x_min, x_max) = &interval;
+        let helix = self.design.helices.get(&h_id).expect("helix");
+        let left = helix.axis_position(parameters, *x_min);
+        let right = helix.axis_position(parameters, *x_max);
+        let position = (left + right) / 2.;
+        let position_delta =
+            -(*x_max as f32 * parameters.z_step + *x_min as f32 * parameters.z_step) / 2.
+                * Vec3::unit_x();
+        RigidHelix::new_from_world(
+            position.y,
+            position.z,
+            position.x,
+            position_delta,
+            (right - left).mag(),
+            helix.roll,
+            helix.orientation,
+            h_id,
+        )
+    }
+
     pub(super) fn check_rigid_body(&mut self) {
         if let Some(ptrs) = self.rigid_body_ptr.as_mut() {
             let now = Instant::now();
@@ -1143,7 +1244,7 @@ impl Data {
     }
 
     fn start_helix_simulation(&mut self, request: (f32, f32), computing: Arc<Mutex<bool>>) {
-        if let Some(helix_system) = self.make_helices_system(request) {
+        if let Some(helix_system) = self.make_flexible_helices_system(request) {
             let grid_system_thread = HelixSystemThread::new(helix_system);
             let date = Instant::now();
             let (stop, snd) = grid_system_thread.run(computing);
@@ -1169,6 +1270,9 @@ impl Data {
         let mut nucl_map = HashMap::new();
         let mut current_helix = None;
         let mut helix_map = Vec::new();
+        let mut free_nucls = Vec::new();
+        let mut free_nucl_ids = HashMap::new();
+        let mut intervals = Vec::new();
         for s in self.design.strands.values() {
             for d in s.domains.iter() {
                 println!("New dom");
@@ -1192,6 +1296,7 @@ impl Data {
                                     current_helix.unwrap()
                                 } else {
                                     helix_map.push(nucl.helix);
+                                    intervals.push((moving_nucl.position, moving_nucl.position));
                                     if let Some(n) = current_helix.as_mut() {
                                         *n += 1;
                                         *n
@@ -1209,10 +1314,14 @@ impl Data {
                                     moving_nucl.compl(),
                                     FreeNucl::with_helix(&moving_nucl.compl(), Some(helix)),
                                 );
+                                intervals[helix].0 = intervals[helix].0.min(moving_nucl.position);
+                                intervals[helix].1 = intervals[helix].1.max(moving_nucl.position);
                             } else if !doubled {
                                 println!("has not compl");
                                 nucl_map
                                     .insert(moving_nucl, FreeNucl::with_helix(&moving_nucl, None));
+                                free_nucl_ids.insert(FreeNucl::with_helix(&moving_nucl, None), free_nucls.len());
+                                free_nucls.push(FreeNucl::with_helix(&moving_nucl, None));
                             }
                             prev_doubled = doubled;
                             moving_nucl = moving_nucl.left();
@@ -1235,6 +1344,7 @@ impl Data {
                                         }
                                     } else {
                                         helix_map.push(nucl.helix);
+                                        intervals.push((moving_nucl.position, moving_nucl.position));
                                         if let Some(n) = current_helix.as_mut() {
                                             *n += 1;
                                             *n
@@ -1245,6 +1355,8 @@ impl Data {
                                     }
                                 };
                                 println!("helix {}", helix);
+                                intervals[helix].0 = intervals[helix].0.min(moving_nucl.position);
+                                intervals[helix].1 = intervals[helix].1.max(moving_nucl.position);
                                 nucl_map.insert(
                                     moving_nucl,
                                     FreeNucl::with_helix(&moving_nucl, Some(helix)),
@@ -1257,11 +1369,12 @@ impl Data {
                                 println!("has not compl");
                                 nucl_map
                                     .insert(moving_nucl, FreeNucl::with_helix(&moving_nucl, None));
+                                free_nucl_ids.insert(FreeNucl::with_helix(&moving_nucl, None), free_nucls.len());
+                                free_nucls.push(FreeNucl::with_helix(&moving_nucl, None));
                             }
                             prev_doubled = doubled;
                             moving_nucl = moving_nucl.right();
                         }
-                        // left
                     }
                 }
             }
@@ -1271,9 +1384,13 @@ impl Data {
                 println!("HO NO :( {:?}", k);
             }
         }
+        println!("{:?}", intervals);
         IntervalResult {
             nucl_map,
             helix_map,
+            free_nucl_ids,
+            free_nucls,
+            intervals,
         }
     }
 }
@@ -1282,6 +1399,9 @@ impl Data {
 pub struct IntervalResult {
     nucl_map: HashMap<Nucl, FreeNucl>,
     helix_map: Vec<usize>,
+    free_nucls: Vec<FreeNucl>,
+    free_nucl_ids: HashMap<FreeNucl, usize>,
+    intervals: Vec<(isize, isize)>,
 }
 
 /// Return the length of the shortes line between a point of [a, b] and a poin of [c, d]
