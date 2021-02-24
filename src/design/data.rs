@@ -100,6 +100,7 @@ pub struct Data {
     xover_copy_manager: XoverCopyManager,
     anchors: HashSet<Nucl>,
     rigid_helix_update: Option<Vector<f32>>,
+    rigid_helix_simulator: Option<rigid_body::RigidHelixSimulator>,
 }
 
 impl fmt::Debug for Data {
@@ -144,6 +145,7 @@ impl Data {
             helix_simulation_ptr: None,
             anchors: HashSet::new(),
             rigid_helix_update: None,
+            rigid_helix_simulator: None,
         }
     }
 
@@ -339,6 +341,7 @@ impl Data {
             helix_simulation_ptr: None,
             anchors: HashSet::new(),
             rigid_helix_update: None,
+            rigid_helix_simulator: None,
         };
         ret.make_hash_maps();
         ret.terminate_movement();
@@ -559,25 +562,29 @@ impl Data {
     /// This function is meant to be called by the mediator that will notify all the obeservers
     /// that a update took place.
     pub fn was_updated(&mut self) -> bool {
-        self.check_rigid_body();
-        self.check_rigid_helices();
-        if let Some((_, snd_ptr, date)) = self.roller_ptrs.as_mut() {
-            let now = Instant::now();
-            if (now - *date).as_millis() > 30 {
-                let (snd, rcv) = std::sync::mpsc::channel();
-                *snd_ptr.lock().unwrap() = Some(snd);
-                let helices = rcv.recv().unwrap();
-                for (n, h) in self.design.helices.values_mut().enumerate() {
-                    *h = helices[n].clone();
+        if !self.read_rigid_helix_update() {
+            self.check_rigid_body();
+            self.check_rigid_helices();
+            if let Some((_, snd_ptr, date)) = self.roller_ptrs.as_mut() {
+                let now = Instant::now();
+                if (now - *date).as_millis() > 30 {
+                    let (snd, rcv) = std::sync::mpsc::channel();
+                    *snd_ptr.lock().unwrap() = Some(snd);
+                    let helices = rcv.recv().unwrap();
+                    for (n, h) in self.design.helices.values_mut().enumerate() {
+                        *h = helices[n].clone();
+                    }
+                    *date = now;
+                    self.hash_maps_update = true;
+                    self.update_status = true;
                 }
-                *date = now;
-                self.hash_maps_update = true;
-                self.update_status = true;
             }
-        }
-        if self.hash_maps_update {
-            self.make_hash_maps();
-            self.hash_maps_update = false;
+            if self.hash_maps_update {
+                self.make_hash_maps();
+                self.hash_maps_update = false;
+            }
+        } else {
+            self.update_status = true;
         }
         let ret = self.update_status;
         self.update_status = false;
