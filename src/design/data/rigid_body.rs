@@ -158,6 +158,45 @@ impl HelixSystem {
 
             torques[nucl.helix] += torque0;
         }
+        let segments: Vec<(Vec3, Vec3)> = (0..self.helices.len())
+            .map(|n| {
+                let position =
+                    positions[n] + self.helices[n].center_to_origin.rotated_by(orientations[n]);
+                let helix = Helix::new(position, orientations[n]);
+                (
+                    helix.axis_position(&self.parameters, self.helices[n].interval.0),
+                    helix.axis_position(&self.parameters, self.helices[n].interval.1),
+                )
+            })
+            .collect();
+        for i in 0..self.helices.len() {
+            let (a, b) = segments[i];
+            for j in (i + 1)..self.helices.len() {
+                let (c, d) = segments[j];
+                let r = 2.;
+                let (dist, vec, point_a, point_c) = distance_segment(a, b, c, d);
+                if dist < r {
+                    let norm = ((dist - r) / dist).powi(4) * 1000.;
+                    let norm = norm.min(1e4);
+                    forces[i] += norm * vec;
+                    forces[j] += -norm * vec;
+                    let torque0 = (point_a - positions[i]).cross(norm * vec);
+                    let torque1 = (point_c - positions[j]).cross(-norm * vec);
+                    torques[i] += torque0 / 100.;
+                    torques[j] += torque1 / 100.;
+                }
+            }
+            for nucl_id in 0..self.free_nucls.len() {
+                let point = free_nucl_pos(&nucl_id);
+                let (dist, vec, _, _) = distance_segment(a, b, point, point);
+                let r = 1.35;
+                if dist < r {
+                    let norm = ((dist - r) / dist).powi(4) * 1000.;
+                    let norm = norm.min(1e4);
+                    forces[self.helices.len() + nucl_id] -= norm * vec;
+                }
+            }
+        }
 
         (forces, torques)
     }
@@ -580,6 +619,7 @@ struct RigidHelix {
     pub center_to_origin: Vec3,
     pub mass: f32,
     pub id: usize,
+    interval: (isize, isize),
 }
 
 impl RigidHelix {
@@ -590,6 +630,7 @@ impl RigidHelix {
         x_max: f32,
         roll: f32,
         orientation: Rotor3,
+        interval: (isize, isize),
     ) -> RigidHelix {
         Self {
             roll,
@@ -600,6 +641,7 @@ impl RigidHelix {
             inertia_inverse: inertia_helix(x_max - x_min, 1.).inversed(),
             // at the moment we do not care for the id when creating a rigid helix for a grid
             id: 0,
+            interval,
         }
     }
 
@@ -612,6 +654,7 @@ impl RigidHelix {
         roll: f32,
         orientation: Rotor3,
         id: usize,
+        interval: (isize, isize),
     ) -> RigidHelix {
         Self {
             roll,
@@ -621,6 +664,7 @@ impl RigidHelix {
             mass,
             inertia_inverse: inertia_helix(mass, 1.).inversed(),
             id,
+            interval,
         }
     }
 
@@ -1310,6 +1354,7 @@ impl Data {
             *x_max as f32 * parameters.z_step,
             helix.roll,
             helix.orientation,
+            (*x_min, *x_max),
         ))
     }
 
@@ -1336,6 +1381,7 @@ impl Data {
             helix.roll,
             helix.orientation,
             h_id,
+            (*x_min, *x_max),
         ))
     }
 
@@ -1362,6 +1408,7 @@ impl Data {
             helix.roll,
             helix.orientation,
             h_id,
+            interval,
         )
     }
 
