@@ -10,7 +10,9 @@ pub mod top_bar;
 pub use top_bar::TopBar;
 /// Draw the left pannel of the GUI
 pub mod left_panel;
-pub use left_panel::{ColorOverlay, HyperboloidRequest, LeftPanel, SimulationRequest};
+pub use left_panel::{
+    ColorOverlay, HyperboloidRequest, LeftPanel, RigidBodyParametersRequest, SimulationRequest,
+};
 pub mod status_bar;
 use status_bar::StatusBar;
 
@@ -83,6 +85,7 @@ pub struct Requests {
     pub rigid_grid_simulation: Option<bool>,
     pub rigid_helices_simulation: Option<bool>,
     pub anchor: bool,
+    pub rigid_body_parameters: Option<RigidBodyParametersRequest>,
 }
 
 impl Requests {
@@ -127,6 +130,7 @@ impl Requests {
             rigid_helices_simulation: None,
             rigid_grid_simulation: None,
             anchor: false,
+            rigid_body_parameters: None,
         }
     }
 }

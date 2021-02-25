@@ -53,6 +53,7 @@ pub struct LeftPanel {
     scroll_sensitivity_factory: RequestFactory<ScrollSentivity>,
     hyperboloid_factory: RequestFactory<Hyperboloid_>,
     helix_roll_factory: RequestFactory<HelixRoll>,
+    rigid_body_factory: RequestFactory<RigidBodyFactory>,
     building_hyperboloid: bool,
     finalize_hyperboloid: button::State,
     rigid_grid_button: GoStop,
@@ -129,6 +130,7 @@ impl LeftPanel {
             scroll_sensitivity_factory: RequestFactory::new(0, ScrollSentivity {}),
             helix_roll_factory: RequestFactory::new(1, HelixRoll {}),
             hyperboloid_factory: RequestFactory::new(2, Hyperboloid_ {}),
+            rigid_body_factory: RequestFactory::new(3, RigidBodyFactory {}),
             building_hyperboloid: false,
             finalize_hyperboloid: Default::default(),
             rigid_helices_button: GoStop::new(
@@ -331,6 +333,11 @@ impl Program for LeftPanel {
                     let request = &mut self.requests.lock().unwrap().hyperboloid_update;
                     self.hyperboloid_factory
                         .update_request(value_id, value, request);
+                }
+                3 => {
+                    let request = &mut self.requests.lock().unwrap().rigid_body_parameters;
+                    self.rigid_body_factory
+                        .update_request(value_id, value, request)
                 }
                 _ => unreachable!(),
             },
@@ -698,6 +705,10 @@ impl Program for LeftPanel {
         widget = widget
             .push(self.rigid_grid_button.view())
             .push(self.rigid_helices_button.view());
+
+        for view in self.rigid_body_factory.view().into_iter() {
+            widget = widget.push(view);
+        }
 
         Container::new(widget)
             .style(TopBarStyle)
@@ -1258,6 +1269,72 @@ impl Requestable for HelixRoll {
     fn name_val(&self, n: usize) -> String {
         match n {
             0 => String::from("Roll helix"),
+            _ => unreachable!(),
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct RigidBodyParametersRequest {
+    pub k_springs: f32,
+    pub k_friction: f32,
+    pub mass_factor: f32,
+}
+
+struct RigidBodyFactory {}
+
+impl Requestable for RigidBodyFactory {
+    type Request = RigidBodyParametersRequest;
+    fn request_from_values(&self, values: &[f32]) -> RigidBodyParametersRequest {
+        RigidBodyParametersRequest {
+            k_springs: values[0],
+            k_friction: values[1],
+            mass_factor: values[2],
+        }
+    }
+    fn nb_values(&self) -> usize {
+        3
+    }
+    fn initial_value(&self, n: usize) -> f32 {
+        match n {
+            0 => 0f32,
+            1 => 0f32,
+            2 => 0f32,
+            _ => unreachable!(),
+        }
+    }
+    fn min_val(&self, n: usize) -> f32 {
+        match n {
+            0 => -4.,
+            1 => -4.,
+            2 => -4.,
+            3 => -4.,
+            _ => unreachable!(),
+        }
+    }
+    fn max_val(&self, n: usize) -> f32 {
+        match n {
+            0 => 4.,
+            1 => 4.,
+            2 => 4.,
+            3 => 4.,
+            _ => unreachable!(),
+        }
+    }
+    fn step_val(&self, n: usize) -> f32 {
+        match n {
+            0 => 0.1f32,
+            1 => 0.1f32,
+            2 => 0.1f32,
+            3 => 0.1f32,
+            _ => unreachable!(),
+        }
+    }
+    fn name_val(&self, n: usize) -> String {
+        match n {
+            0 => String::from("K spring"),
+            1 => String::from("K friction"),
+            2 => String::from("mass helix"),
             _ => unreachable!(),
         }
     }
