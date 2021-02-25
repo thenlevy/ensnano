@@ -7,6 +7,7 @@ use mathru::analysis::differential_equation::ordinary::{
 use ordered_float::OrderedFloat;
 use rand::{rngs::ThreadRng, Rng};
 use rand_distr::{Distribution, Exp, StandardNormal};
+use std::collections::BinaryHeap;
 use ultraviolet::{Bivec3, Mat3, Rotor3, Vec3};
 
 const NUCL_MASS: f32 = 0.5;
@@ -25,7 +26,7 @@ struct HelixSystem {
     anchors: Vec<(RigidNucl, Vec3)>,
     current_time: f32,
     next_time: f32,
-    brownian_heap: BTreeMap<OrderedFloat<f32>, usize>,
+    brownian_heap: BinaryHeap<(OrderedFloat<f32>, usize)>,
     /// Parameters of the exponential law for brownian jump times
     lambda_brownian: f32,
     /// Radius of the brownian motion
@@ -205,19 +206,16 @@ impl HelixSystem {
 
     fn next_time(&mut self) {
         self.current_time = self.next_time;
-        if let Some(t) = self.brownian_heap.keys().next() {
-            self.next_time = t.into_inner();
+        if let Some((t, _)) = self.brownian_heap.peek() {
+            self.next_time = -t.into_inner();
         } else {
             self.next_time = self.current_time + 1.;
         }
     }
 
     fn brownian_jump(&mut self) {
-        let t_opt = self.brownian_heap.keys().next().cloned();
         let mut rnd = rand::thread_rng();
-        if let Some(t) = t_opt {
-            let nucl_id = self.brownian_heap.remove(&t).unwrap();
-            println!("jumping {}", nucl_id);
+        if let Some((_, nucl_id)) = self.brownian_heap.pop() {
             let gx: f32 = rnd.sample(StandardNormal);
             let gy: f32 = rnd.sample(StandardNormal);
             let gz: f32 = rnd.sample(StandardNormal);
@@ -229,8 +227,8 @@ impl HelixSystem {
             }
 
             let exp_law = Exp::new(self.lambda_brownian).unwrap();
-            let new_date = rnd.sample(exp_law) + self.current_time;
-            self.brownian_heap.insert(new_date.into(), nucl_id);
+            let new_date = -(rnd.sample(exp_law) + self.current_time);
+            self.brownian_heap.push((new_date.into(), nucl_id));
         }
     }
 }
@@ -1112,13 +1110,13 @@ impl Data {
             }
         }
         let mut rnd = rand::thread_rng();
-        let mut brownian_heap = BTreeMap::new();
+        let mut brownian_heap = BinaryHeap::new();
         let epsilon_borwnian = 0.08f32;
         let lambda_brownian = 0.5f32;
         let exp_law = Exp::new(lambda_brownian).unwrap();
         for i in 0..interval_results.free_nucls.len() {
             let t = rnd.sample(exp_law);
-            brownian_heap.insert(t.into(), i);
+            brownian_heap.push((t.into(), i));
         }
         Some(HelixSystem {
             helices: rigid_helices,
