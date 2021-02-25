@@ -1,7 +1,9 @@
 use super::*;
 use ahash::RandomState;
 use mathru::algebra::linear::vector::vector::Vector;
-use mathru::analysis::differential_equation::ordinary::{ExplicitODE, Kutta3};
+use mathru::analysis::differential_equation::ordinary::{
+    ExplicitEuler, ExplicitODE, Kutta3, Midpoint,
+};
 use ultraviolet::{Bivec3, Mat3, Rotor3, Vec3};
 
 const NUCL_MASS: f32 = 0.5;
@@ -67,14 +69,12 @@ impl HelixSystem {
             helix.roll(self.helices[nucl.helix].roll);
             helix.space_pos(&self.parameters, nucl.position, nucl.forward)
         };
+        let free_nucl_pos = |n: &usize| positions[*n + self.helices.len()];
 
         for spring in self.springs.iter() {
             let point_0 = point_conversion(&spring.0);
             let point_1 = point_conversion(&spring.1);
             let len = (point_1 - point_0).mag();
-            if !len.is_nan() {
-                //println!("spring {:?}, len {}", spring, len);
-            }
             let norm = len - L0;
 
             // The force applied on point 0
@@ -92,6 +92,40 @@ impl HelixSystem {
 
             torques[spring.0.helix] += torque0;
             torques[spring.1.helix] += torque1;
+        }
+        for (nucl, free_nucl_id) in self.mixed_springs.iter() {
+            let point_0 = point_conversion(nucl);
+            let point_1 = free_nucl_pos(free_nucl_id);
+            let len = (point_1 - point_0).mag();
+            let norm = len - L0;
+
+            // The force applied on point 0
+            let force = if len > 1e-5 {
+                K_SPRING * norm * (point_1 - point_0) / len
+            } else {
+                Vec3::zero()
+            };
+            forces[nucl.helix] += 10. * force;
+            forces[self.helices.len() + *free_nucl_id] -= 10. * force;
+
+            let torque0 = (point_0 - positions[nucl.helix]).cross(force);
+
+            torques[nucl.helix] += torque0;
+        }
+        for (id_0, id_1) in self.free_springs.iter() {
+            let point_0 = free_nucl_pos(id_0);
+            let point_1 = free_nucl_pos(id_1);
+            let len = (point_1 - point_0).mag();
+            let norm = len - L0;
+
+            // The force applied on point 0
+            let force = if len > 1e-5 {
+                K_SPRING * norm * (point_1 - point_0) / len
+            } else {
+                Vec3::zero()
+            };
+            forces[self.helices.len() + *id_0] += 10. * force;
+            forces[self.helices.len() + *id_1] -= 10. * force;
         }
 
         for (nucl, position) in self.anchors.iter() {
@@ -752,7 +786,7 @@ impl HelixSystemThread {
                 if let Some(snd) = self.sender.lock().unwrap().take() {
                     snd.send(self.get_state()).unwrap();
                 }
-                let solver = Kutta3::new(1e-4f32);
+                let solver = ExplicitEuler::new(1e-4f32);
                 if let Ok((_, y)) = solver.solve(&self.helix_system) {
                     self.helix_system.last_state = y.last().cloned();
                 }
@@ -988,6 +1022,14 @@ impl Data {
                     forward: n2.forward,
                 };
                 springs.push((rigid_1, rigid_2));
+            }
+        }
+        for (n1, n2) in self.nucleotides_involved.values() {
+            let free_nucl1 = interval_results.nucl_map[&n1];
+            let free_nucl2 = interval_results.nucl_map[&n2];
+            if let Some((_, _)) = free_nucl1.helix.zip(free_nucl2.helix) {
+                // Do nothing, this case has either been handled in the xover loop
+                // or this bound is rigid
             } else if let Some(h1) = free_nucl1.helix {
                 let rigid_1 = RigidNucl {
                     helix: h1,
@@ -1004,19 +1046,25 @@ impl Data {
                 };
                 let free_id = interval_results.free_nucl_ids[&free_nucl1];
                 mixed_springs.push((rigid_2, free_id));
+            } else {
+                let free_id_1 = interval_results.free_nucl_ids[&free_nucl1];
+                let free_id_2 = interval_results.free_nucl_ids[&free_nucl2];
+                free_springs.push((free_id_1, free_id_2));
             }
         }
         let mut anchors = vec![];
         for anchor in self.anchors.iter() {
-            if let Some(n_id) = self.identifier_nucl.get(anchor) {
-                if let Some(rigid_helix) = interval_results.helix_map.get(anchor.helix) {
-                    let rigid_nucl = RigidNucl {
-                        helix: *rigid_helix,
-                        position: anchor.position,
-                        forward: anchor.forward,
-                    };
-                    let position: Vec3 = self.space_position[n_id].into();
-                    anchors.push((rigid_nucl, position));
+            if let Some(free_nucl) = interval_results.nucl_map.get(anchor) {
+                if let Some(n_id) = self.identifier_nucl.get(anchor) {
+                    if let Some(rigid_helix) = free_nucl.helix {
+                        let rigid_nucl = RigidNucl {
+                            helix: rigid_helix,
+                            position: anchor.position,
+                            forward: anchor.forward,
+                        };
+                        let position: Vec3 = self.space_position[n_id].into();
+                        anchors.push((rigid_nucl, position));
+                    }
                 }
             }
         }
