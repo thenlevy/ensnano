@@ -981,6 +981,7 @@ impl Mediator {
                 .unwrap()
                 .rigid_helices_simulation((0., 0.1), self.computing.clone());
         }
+        println!("self.computing {:?}", self.computing);
     }
 
     pub fn hyperboloid_update(&mut self, request: HyperboloidRequest) {

@@ -950,7 +950,10 @@ impl Data {
         position: isize,
         fixed_position: isize,
     ) {
-        if self.roller_ptrs.is_some() {
+        if self.roller_ptrs.is_some()
+            || self.rigid_helix_simulator.is_some()
+            || self.rigid_body_ptr.is_some()
+        {
             return;
         }
         let start = position.min(fixed_position);
@@ -982,6 +985,12 @@ impl Data {
     ///
     /// If it not possible to create a `StrandBuilder`, `None` is returned.
     pub fn get_strand_builder(&mut self, nucl: Nucl, stick: bool) -> Option<StrandBuilder> {
+        if self.roller_ptrs.is_some()
+            || self.rigid_helix_simulator.is_some()
+            || self.rigid_body_ptr.is_some()
+        {
+            return None;
+        }
         let helix = nucl.helix;
         let position = nucl.position;
         let forward = nucl.forward;
