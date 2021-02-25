@@ -4,6 +4,9 @@ use mathru::algebra::linear::vector::vector::Vector;
 use mathru::analysis::differential_equation::ordinary::{
     ExplicitEuler, ExplicitODE, Kutta3, Midpoint,
 };
+use ordered_float::OrderedFloat;
+use rand::{rngs::ThreadRng, Rng};
+use rand_distr::{Distribution, Exp, StandardNormal};
 use ultraviolet::{Bivec3, Mat3, Rotor3, Vec3};
 
 const NUCL_MASS: f32 = 0.5;
@@ -20,6 +23,13 @@ struct HelixSystem {
     last_state: Option<Vector<f32>>,
     parameters: Parameters,
     anchors: Vec<(RigidNucl, Vec3)>,
+    current_time: f32,
+    next_time: f32,
+    brownian_heap: BTreeMap<OrderedFloat<f32>, usize>,
+    /// Parameters of the exponential law for brownian jump times
+    lambda_brownian: f32,
+    /// Radius of the brownian motion
+    epsilon_borwnian: f32,
 }
 
 #[derive(Debug)]
@@ -191,6 +201,36 @@ impl HelixSystem {
             angular_momentums.push(angular_momentum);
         }
         (positions, rotations, linear_momentums, angular_momentums)
+    }
+
+    fn next_time(&mut self) {
+        self.current_time = self.next_time;
+        if let Some(t) = self.brownian_heap.keys().next() {
+            self.next_time = t.into_inner();
+        } else {
+            self.next_time = self.current_time + 1.;
+        }
+    }
+
+    fn brownian_jump(&mut self) {
+        let t_opt = self.brownian_heap.keys().next().cloned();
+        let mut rnd = rand::thread_rng();
+        if let Some(t) = t_opt {
+            let nucl_id = self.brownian_heap.remove(&t).unwrap();
+            let gx: f32 = rnd.sample(StandardNormal);
+            let gy: f32 = rnd.sample(StandardNormal);
+            let gz: f32 = rnd.sample(StandardNormal);
+            if let Some(state) = self.last_state.as_mut() {
+                let entry = 13 * (self.helices.len() + nucl_id);
+                *state.get_mut(entry) += self.epsilon_borwnian * gx;
+                *state.get_mut(entry + 1) += self.epsilon_borwnian * gx;
+                *state.get_mut(entry + 2) += self.epsilon_borwnian * gx;
+            }
+
+            let exp_law = Exp::new(self.lambda_brownian).unwrap();
+            let new_date = rnd.sample(exp_law) + self.current_time;
+            self.brownian_heap.insert(new_date.into(), nucl_id);
+        }
     }
 }
 
@@ -786,7 +826,9 @@ impl HelixSystemThread {
                 if let Some(snd) = self.sender.lock().unwrap().take() {
                     snd.send(self.get_state()).unwrap();
                 }
+                self.helix_system.next_time();
                 let solver = ExplicitEuler::new(1e-4f32);
+                self.helix_system.brownian_jump();
                 if let Ok((_, y)) = solver.solve(&self.helix_system) {
                     self.helix_system.last_state = y.last().cloned();
                 }
@@ -1068,6 +1110,15 @@ impl Data {
                 }
             }
         }
+        let mut rnd = rand::thread_rng();
+        let mut brownian_heap = BTreeMap::new();
+        let epsilon_borwnian = 0.08f32;
+        let lambda_brownian = 0.5f32;
+        let exp_law = Exp::new(lambda_brownian).unwrap();
+        for i in 0..interval_results.free_nucls.len() {
+            let t = rnd.sample(exp_law);
+            brownian_heap.insert(t.into(), i);
+        }
         Some(HelixSystem {
             helices: rigid_helices,
             springs,
@@ -1079,6 +1130,11 @@ impl Data {
             time_span,
             parameters,
             anchors,
+            brownian_heap,
+            epsilon_borwnian,
+            lambda_brownian,
+            current_time: 0.,
+            next_time: 0.,
         })
     }
 
@@ -1141,6 +1197,11 @@ impl Data {
             time_span,
             parameters,
             anchors,
+            current_time: 0f32,
+            next_time: 1.,
+            lambda_brownian: 1.,
+            epsilon_borwnian: 0.,
+            brownian_heap: Default::default(),
         })
     }
 

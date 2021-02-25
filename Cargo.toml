@@ -31,6 +31,9 @@ simple_excel_writer = "0.1.7"
 regex = "1.4.2"
 ahash = "0.6.2"
 mathru = "0.8.4"
+rand = "0.8.3"
+rand_distr = "0.4.0"
+ordered-float = "2.0"
 
 [patch.crates-io]
 winit = { git = "https://github.com/PolyMeilex/winit", rev = "69a6129" }
