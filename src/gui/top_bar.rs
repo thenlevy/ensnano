@@ -28,6 +28,7 @@ pub struct TopBar {
     toggle_text_value: bool,
     requests: Arc<Mutex<Requests>>,
     logical_size: LogicalSize<f64>,
+    dialoging: Arc<Mutex<bool>>,
 }
 
 #[derive(Debug, Clone)]
@@ -65,6 +66,7 @@ impl TopBar {
             toggle_text_value: false,
             requests,
             logical_size,
+            dialoging: Default::default(),
         }
     }
 
@@ -83,22 +85,11 @@ impl Program for TopBar {
                 self.requests.lock().expect("fitting_requested").fitting = true;
             }
             Message::FileAddRequested => {
-                let requests = self.requests.clone();
-                if cfg!(target_os = "macos") {
-                    // do not spawn a new thread on macos
-                    let result = match nfd2::open_file_dialog(None, None).expect("oh no") {
-                        Response::Okay(file_path) => Some(file_path),
-                        Response::OkayMultiple(_) => {
-                            println!("Please open only one file");
-                            None
-                        }
-                        Response::Cancel => None,
-                    };
-                    if let Some(path) = result {
-                        requests.lock().expect("file_opening_request").file_add = Some(path);
-                    }
-                } else {
-                    thread::spawn(move || {
+                if !*self.dialoging.lock().unwrap() {
+                    *self.dialoging.lock().unwrap() = true;
+                    let requests = self.requests.clone();
+                    if cfg!(target_os = "macos") {
+                        // do not spawn a new thread on macos
                         let result = match nfd2::open_file_dialog(None, None).expect("oh no") {
                             Response::Okay(file_path) => Some(file_path),
                             Response::OkayMultiple(_) => {
@@ -107,10 +98,28 @@ impl Program for TopBar {
                             }
                             Response::Cancel => None,
                         };
+                        *self.dialoging.lock().unwrap() = false;
                         if let Some(path) = result {
                             requests.lock().expect("file_opening_request").file_add = Some(path);
                         }
-                    });
+                    } else {
+                        let dialoging = self.dialoging.clone();
+                        thread::spawn(move || {
+                            let result = match nfd2::open_file_dialog(None, None).expect("oh no") {
+                                Response::Okay(file_path) => Some(file_path),
+                                Response::OkayMultiple(_) => {
+                                    println!("Please open only one file");
+                                    None
+                                }
+                                Response::Cancel => None,
+                            };
+                            *dialoging.lock().unwrap() = false;
+                            if let Some(path) = result {
+                                requests.lock().expect("file_opening_request").file_add =
+                                    Some(path);
+                            }
+                        });
+                    }
                 }
             }
             Message::FileReplaceRequested => {
@@ -189,22 +198,11 @@ impl Program for TopBar {
             }
             Message::StapplesRequested => self.requests.lock().unwrap().stapples_request = true,
             Message::FileSaveRequested => {
-                let requests = self.requests.clone();
-                if cfg!(target_os = "macos") {
-                    // do not spawn a new thread for macos
-                    let result = match nfd2::open_save_dialog(None, None).expect("oh no") {
-                        Response::Okay(file_path) => Some(file_path),
-                        Response::OkayMultiple(_) => {
-                            println!("Please open only one file");
-                            None
-                        }
-                        Response::Cancel => None,
-                    };
-                    if let Some(path) = result {
-                        requests.lock().expect("file_opening_request").file_save = Some(path);
-                    }
-                } else {
-                    thread::spawn(move || {
+                if !*self.dialoging.lock().unwrap() {
+                    *self.dialoging.lock().unwrap() = true;
+                    let requests = self.requests.clone();
+                    if cfg!(target_os = "macos") {
+                        // do not spawn a new thread for macos
                         let result = match nfd2::open_save_dialog(None, None).expect("oh no") {
                             Response::Okay(file_path) => Some(file_path),
                             Response::OkayMultiple(_) => {
@@ -213,10 +211,28 @@ impl Program for TopBar {
                             }
                             Response::Cancel => None,
                         };
+                        *self.dialoging.lock().unwrap() = false;
                         if let Some(path) = result {
                             requests.lock().expect("file_opening_request").file_save = Some(path);
                         }
-                    });
+                    } else {
+                        let dialoging = self.dialoging.clone();
+                        thread::spawn(move || {
+                            let result = match nfd2::open_save_dialog(None, None).expect("oh no") {
+                                Response::Okay(file_path) => Some(file_path),
+                                Response::OkayMultiple(_) => {
+                                    println!("Please open only one file");
+                                    None
+                                }
+                                Response::Cancel => None,
+                            };
+                            *dialoging.lock().unwrap() = false;
+                            if let Some(path) = result {
+                                requests.lock().expect("file_opening_request").file_save =
+                                    Some(path);
+                            }
+                        });
+                    }
                 }
             }
             Message::CleanRequested => self.requests.lock().unwrap().clean_requests = true,
