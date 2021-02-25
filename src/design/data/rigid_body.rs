@@ -217,14 +217,15 @@ impl HelixSystem {
         let mut rnd = rand::thread_rng();
         if let Some(t) = t_opt {
             let nucl_id = self.brownian_heap.remove(&t).unwrap();
+            println!("jumping {}", nucl_id);
             let gx: f32 = rnd.sample(StandardNormal);
             let gy: f32 = rnd.sample(StandardNormal);
             let gz: f32 = rnd.sample(StandardNormal);
             if let Some(state) = self.last_state.as_mut() {
                 let entry = 13 * (self.helices.len() + nucl_id);
                 *state.get_mut(entry) += self.epsilon_borwnian * gx;
-                *state.get_mut(entry + 1) += self.epsilon_borwnian * gx;
-                *state.get_mut(entry + 2) += self.epsilon_borwnian * gx;
+                *state.get_mut(entry + 1) += self.epsilon_borwnian * gy;
+                *state.get_mut(entry + 2) += self.epsilon_borwnian * gz;
             }
 
             let exp_law = Exp::new(self.lambda_brownian).unwrap();
