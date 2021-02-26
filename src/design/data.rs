@@ -55,6 +55,7 @@ pub type StrandState = BTreeMap<usize, Strand>;
 /// the future this might be optimised.
 pub struct Data {
     design: icednano::Design,
+    file_name: PathBuf,
     object_type: HashMap<u32, ObjectType, RandomState>,
     /// Maps identifier of nucleotide to Nucleotide objects
     nucleotide: HashMap<u32, Nucl, RandomState>,
@@ -115,8 +116,11 @@ impl Data {
     pub fn new() -> Self {
         let design = icednano::Design::new();
         let grid_manager = GridManager::new(Parameters::default());
+        let mut file_name = std::env::current_exe().unwrap();
+        file_name.set_file_name("unamed_design.json");
         Self {
             design,
+            file_name,
             object_type: HashMap::default(),
             space_position: HashMap::default(),
             identifier_nucl: HashMap::default(),
@@ -311,8 +315,26 @@ impl Data {
         let color_idx = design.strands.keys().len();
         let groups = design.groups.clone();
         let anchors = design.anchors.clone();
+        let mut file_name = json_path.clone();
+        let stem = file_name
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("unamed_design");
+        let real_stem = if let Some(prefix) = stem.strip_suffix("_backup") {
+            if prefix.len() > 0 {
+                prefix
+            } else {
+                "unamed_design"
+            }
+        } else {
+            stem
+        };
+        file_name.set_file_name(format!("{}.json", real_stem));
+        println!("file name {:?}", file_name);
+
         let mut ret = Self {
             design,
+            file_name,
             object_type: HashMap::default(),
             space_position: HashMap::default(),
             identifier_nucl: HashMap::default(),
@@ -347,7 +369,6 @@ impl Data {
         };
         ret.make_hash_maps();
         ret.terminate_movement();
-        ret.read_intervals();
         Some(ret)
     }
 

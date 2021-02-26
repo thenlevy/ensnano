@@ -76,6 +76,7 @@ impl HelixSystem {
         let mut torques = vec![Vec3::zero(); nb_element];
 
         const L0: f32 = 0.7;
+        const C_VOLUME: f32 = 2f32;
         let k_anchor = 1000. * self.rigid_parameters.k_spring;
 
         let point_conversion = |nucl: &RigidNucl| {
@@ -176,25 +177,25 @@ impl HelixSystem {
             let (a, b) = segments[i];
             for j in (i + 1)..self.helices.len() {
                 let (c, d) = segments[j];
-                let r = 2.;
+                let r = 1.;
                 let (dist, vec, point_a, point_c) = distance_segment(a, b, c, d);
-                if dist < r {
-                    let norm = ((dist - r) / dist).powi(4) * 1000.;
-                    let norm = norm.min(1e4);
+                if dist < 2. * r {
+                    // VOLUME EXCLUSION
+                    let norm = C_VOLUME * self.rigid_parameters.k_spring * (2. * r - dist).powi(2);
                     forces[i] += norm * vec;
                     forces[j] += -norm * vec;
                     let torque0 = (point_a - positions[i]).cross(norm * vec);
                     let torque1 = (point_c - positions[j]).cross(-norm * vec);
-                    torques[i] += torque0 / 100.;
-                    torques[j] += torque1 / 100.;
+                    torques[i] += torque0;
+                    torques[j] += torque1;
                 }
             }
             for nucl_id in 0..self.free_nucls.len() {
                 let point = free_nucl_pos(&nucl_id);
                 let (dist, vec, _, _) = distance_segment(a, b, point, point);
-                let r = 1.35;
-                if dist < r {
-                    let norm = ((dist - r) / dist).powi(4) * 1000.;
+                let r = 1.35 / 2.;
+                if dist < 2. * r {
+                    let norm = C_VOLUME * self.rigid_parameters.k_spring * (2. * r - dist).powi(2);
                     let norm = norm.min(1e4);
                     forces[self.helices.len() + nucl_id] -= norm * vec;
                 }
@@ -299,7 +300,8 @@ impl ExplicitODE<f32> for HelixSystem {
                 ret.push(d_position.x);
                 ret.push(d_position.y);
                 ret.push(d_position.z);
-                let omega = self.helices[i].inertia_inverse * angular_momentums[i];
+                let omega = self.helices[i].inertia_inverse * angular_momentums[i]
+                    / self.rigid_parameters.mass;
                 let d_rotation = 0.5
                     * Rotor3::from_quaternion_array([omega.x, omega.y, omega.z, 0f32])
                     * rotations[i];
@@ -318,7 +320,7 @@ impl ExplicitODE<f32> for HelixSystem {
                 ret.push(d_linear_momentum.z);
 
                 let d_angular_momentum = torques[i]
-                    - angular_momentums[i] * 100.
+                    - angular_momentums[i] * self.rigid_parameters.k_friction
                         / (self.helices[i].height() * self.rigid_parameters.mass);
                 ret.push(d_angular_momentum.x);
                 ret.push(d_angular_momentum.y);
