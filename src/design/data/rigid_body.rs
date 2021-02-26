@@ -326,7 +326,7 @@ impl ExplicitODE<f32> for HelixSystem {
                 ret.push(d_angular_momentum.y);
                 ret.push(d_angular_momentum.z);
             } else {
-                let d_position = linear_momentums[i] / NUCL_MASS;
+                let d_position = linear_momentums[i] / (self.rigid_parameters.mass / 2.);
                 ret.push(d_position.x);
                 ret.push(d_position.y);
                 ret.push(d_position.z);
@@ -338,14 +338,14 @@ impl ExplicitODE<f32> for HelixSystem {
                 ret.push(d_rotation.bv.yz);
 
                 let d_linear_momentum =
-                    forces[i] - linear_momentums[i] * 100. / (self.rigid_parameters.mass / 2.);
+                    forces[i] - linear_momentums[i] * self.rigid_parameters.k_friction / (self.rigid_parameters.mass / 2.);
 
                 ret.push(d_linear_momentum.x);
                 ret.push(d_linear_momentum.y);
                 ret.push(d_linear_momentum.z);
 
                 let d_angular_momentum =
-                    torques[i] - angular_momentums[i] * 100. / (self.rigid_parameters.mass / 2.);
+                    torques[i] - angular_momentums[i] * self.rigid_parameters.k_friction / (self.rigid_parameters.mass / 2.);
                 ret.push(d_angular_momentum.x);
                 ret.push(d_angular_momentum.y);
                 ret.push(d_angular_momentum.z);
@@ -881,11 +881,17 @@ impl HelixSystemThread {
         let sender = self.sender.clone();
         *computing.lock().unwrap() = true;
         std::thread::spawn(move || {
+            let mut date = Instant::now();
+            let mut prev_time = 0f32;
             while !*self.stop.lock().unwrap() {
                 if let Some(parameters) = self.parameters_update.lock().unwrap().take() {
                     self.helix_system.update_parameters(parameters)
                 }
                 if let Some(snd) = self.sender.lock().unwrap().take() {
+                    let time_delta = 1. / ((Instant::now() - date).as_secs_f32() / (self.helix_system.next_time - prev_time));
+                    println!("time delta {}", time_delta);
+                    date = Instant::now();
+                    prev_time = self.helix_system.next_time;
                     snd.send(self.get_state()).unwrap();
                 }
                 self.helix_system.next_time();

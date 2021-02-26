@@ -1272,9 +1272,11 @@ impl PastingMode {
 }
 
 fn rigid_parameters(parameters: RigidBodyParametersRequest) -> RigidBodyConstants {
-    RigidBodyConstants {
+    let ret = RigidBodyConstants {
         k_spring: 10f32.powf(parameters.k_springs),
         k_friction: 10f32.powf(parameters.k_friction),
         mass: 10f32.powf(parameters.mass_factor),
-    }
+    };
+    println!("{:?}", ret);
+    ret
 }
