@@ -342,6 +342,9 @@ fn main() {
                     if let Some(ref path) = requests.file_add {
                         let design = Design::new_with_path(0, path);
                         if let Some(design) = design {
+                            if let Some(stem) = path.file_stem().and_then(|s| s.to_str()) {
+                                window.set_title(&format!("icednano {}", stem))
+                            }
                             messages.lock().unwrap().notify_new_design();
                             mediator.lock().unwrap().clear_designs();
                             let design = Arc::new(RwLock::new(design));
@@ -356,6 +359,9 @@ fn main() {
                     }
 
                     if let Some(ref path) = requests.file_save {
+                        if let Some(stem) = path.file_stem().and_then(|s| s.to_str()) {
+                            window.set_title(&format!("icednano {}", stem))
+                        }
                         mediator.lock().unwrap().save_design(path);
                         requests.file_save = None;
                     }
