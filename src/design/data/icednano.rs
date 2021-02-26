@@ -50,6 +50,9 @@ pub struct Design {
 
     #[serde(skip_serializing_if = "HashSet::is_empty", default)]
     pub small_shperes: HashSet<usize>,
+
+    #[serde(skip_serializing_if = "HashSet::is_empty", default)]
+    pub anchors: HashSet<Nucl>,
 }
 
 impl Design {
@@ -80,6 +83,7 @@ impl Design {
             groups: Default::default(),
             small_shperes: Default::default(),
             no_phantoms: Default::default(),
+            anchors: Default::default(),
         }
     }
 
@@ -95,6 +99,7 @@ impl Design {
             groups: Default::default(),
             small_shperes: Default::default(),
             no_phantoms: Default::default(),
+            anchors: Default::default(),
         }
     }
 
@@ -197,6 +202,7 @@ impl Design {
             groups: Default::default(),
             no_phantoms: Default::default(),
             parameters: Some(Parameters::DEFAULT),
+            anchors: Default::default(),
         })
     }
 }
@@ -1082,7 +1088,7 @@ impl Helix {
     }
 }
 
-#[derive(Clone, Copy, Eq, PartialEq, Hash, Debug, PartialOrd, Ord)]
+#[derive(Serialize, Deserialize, Clone, Copy, Eq, PartialEq, Hash, Debug, PartialOrd, Ord)]
 pub struct Nucl {
     pub helix: usize,
     pub position: isize,

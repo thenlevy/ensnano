@@ -310,6 +310,7 @@ impl Data {
         grid_manager.update(&mut design);
         let color_idx = design.strands.keys().len();
         let groups = design.groups.clone();
+        let anchors = design.anchors.clone();
         let mut ret = Self {
             design,
             object_type: HashMap::default(),
@@ -340,9 +341,9 @@ impl Data {
             xover_copy_manager: Default::default(),
             rigid_body_ptr: None,
             helix_simulation_ptr: None,
-            anchors: HashSet::new(),
             rigid_helix_update: None,
             rigid_helix_simulator: None,
+            anchors,
         };
         ret.make_hash_maps();
         ret.terminate_movement();
@@ -551,6 +552,7 @@ impl Data {
 
     /// Save the design to a file in the `icednano` format
     pub fn save_file(&mut self, path: &PathBuf) -> std::io::Result<()> {
+        self.design.anchors = self.anchors.clone();
         self.design.groups = self.groups.read().unwrap().clone();
         self.design.no_phantoms = self.grid_manager.no_phantoms.clone();
         self.design.small_shperes = self.grid_manager.small_spheres.clone();

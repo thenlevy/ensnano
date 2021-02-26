@@ -853,6 +853,28 @@ impl iced_wgpu::button::StyleSheet for ButtonStyle {
     }
 }
 
+struct ButtonColor(iced::Color);
+
+impl ButtonColor {
+    fn red_green(active: bool) -> Self {
+        if active {
+            Self(iced::Color::from_rgb(1., 0., 0.))
+        } else {
+            Self(iced::Color::from_rgb(0., 1., 0.))
+        }
+    }
+}
+
+impl iced_wgpu::button::StyleSheet for ButtonColor {
+    fn active(&self) -> iced_wgpu::button::Style {
+        iced_wgpu::button::Style {
+            background: Some(Background::Color(self.0)),
+            //background: Some(Background::Color(BACKGROUND)),
+            ..Default::default()
+        }
+    }
+}
+
 #[derive(Default, Debug, Clone)]
 struct SelectionModeState {
     pub nucleotide: button::State,
@@ -1102,7 +1124,8 @@ impl GoStop {
         let button_str = if self.running { "Stop" } else { "Go" };
         let right_column = Column::new().push(
             Button::new(&mut self.go_stop_button, Text::new(button_str))
-                .on_press((self.on_press)(!self.running)),
+                .on_press((self.on_press)(!self.running))
+                .style(ButtonColor::red_green(self.running)),
         );
         Row::new().push(left_column).push(right_column)
     }
