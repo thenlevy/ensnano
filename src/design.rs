@@ -374,7 +374,7 @@ impl Design {
 
     /// Save the design in icednano format
     pub fn save_to(&self, path: &PathBuf) {
-        let result = self.data.lock().unwrap().save_file(path);
+        let result = self.data.lock().unwrap().request_save(path);
         if result.is_err() {
             let text = format!("Could not save_file {:?}", result);
             MessageDialog::new()

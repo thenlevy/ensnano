@@ -56,6 +56,7 @@ pub type StrandState = BTreeMap<usize, Strand>;
 pub struct Data {
     design: icednano::Design,
     file_name: PathBuf,
+    last_backup_time: Option<Instant>,
     object_type: HashMap<u32, ObjectType, RandomState>,
     /// Maps identifier of nucleotide to Nucleotide objects
     nucleotide: HashMap<u32, Nucl, RandomState>,
@@ -121,6 +122,7 @@ impl Data {
         Self {
             design,
             file_name,
+            last_backup_time: None,
             object_type: HashMap::default(),
             space_position: HashMap::default(),
             identifier_nucl: HashMap::default(),
@@ -315,26 +317,12 @@ impl Data {
         let color_idx = design.strands.keys().len();
         let groups = design.groups.clone();
         let anchors = design.anchors.clone();
-        let mut file_name = json_path.clone();
-        let stem = file_name
-            .file_stem()
-            .and_then(|s| s.to_str())
-            .unwrap_or("unamed_design");
-        let real_stem = if let Some(prefix) = stem.strip_suffix("_backup") {
-            if prefix.len() > 0 {
-                prefix
-            } else {
-                "unamed_design"
-            }
-        } else {
-            stem
-        };
-        file_name.set_file_name(format!("{}.json", real_stem));
-        println!("file name {:?}", file_name);
+        let file_name = real_name(json_path);
 
         let mut ret = Self {
             design,
             file_name,
+            last_backup_time: None,
             object_type: HashMap::default(),
             space_position: HashMap::default(),
             identifier_nucl: HashMap::default(),
@@ -571,6 +559,18 @@ impl Data {
         self.hash_maps_update = true;
     }
 
+    pub fn request_save(&mut self, path: &PathBuf) -> std::io::Result<()> {
+        self.file_name = real_name(path);
+        self.save_file(path)
+    }
+
+    fn backup_save(&mut self) {
+        let name = backup_name(&self.file_name);
+        if self.save_file(&name).is_err() {
+            println!("could not save backup");
+        }
+    }
+
     /// Save the design to a file in the `icednano` format
     pub fn save_file(&mut self, path: &PathBuf) -> std::io::Result<()> {
         self.design.anchors = self.anchors.clone();
@@ -612,6 +612,14 @@ impl Data {
         }
         let ret = self.update_status;
         self.update_status = false;
+        if let Some(time) = self.last_backup_time {
+            if (Instant::now() - time).as_secs() > 30 {
+                self.last_backup_time = None;
+                self.backup_save();
+            }
+        } else if ret {
+            self.last_backup_time = Some(Instant::now());
+        }
         ret
     }
 
@@ -2554,4 +2562,36 @@ fn space_to_cube(x: f32, y: f32, z: f32) -> (isize, isize, isize) {
         y.div_euclid(cube_len) as isize,
         z.div_euclid(cube_len) as isize,
     )
+}
+
+fn real_name(path: &PathBuf) -> PathBuf {
+    let mut file_name = path.clone();
+    let stem = path
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("unamed_design");
+    let real_stem = if let Some(prefix) = stem.strip_suffix("_recovry") {
+        if prefix.len() > 0 {
+            prefix
+        } else {
+            "unamed_design"
+        }
+    } else {
+        stem
+    };
+    file_name.set_file_name(format!("{}.json", real_stem));
+    println!("file name {:?}", file_name);
+    file_name
+}
+
+fn backup_name(path: &PathBuf) -> PathBuf {
+    let mut file_name = path.clone();
+    let stem = path
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .map(|s| format!("{}_recovry", s))
+        .unwrap_or(String::from("unamed_design_recovry"));
+    file_name.set_file_name(format!("{}.json", stem));
+    println!("backup name {:?}", file_name);
+    file_name
 }
