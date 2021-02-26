@@ -6,6 +6,7 @@
 //! mediator.
 //!
 //! The mediator also holds data that is common to all applications.
+use crate::gui::RigidBodyParametersRequest;
 use crate::gui::{HyperboloidRequest, SimulationRequest};
 use crate::utils::{message, yes_no, PhantomElement};
 use crate::{DrawArea, Duration, ElementType, IcedMessages, Multiplexer, WindowEvent};
@@ -23,7 +24,8 @@ use crate::design;
 
 use design::{
     Design, DesignNotification, DesignRotation, DesignTranslation, GridDescriptor,
-    GridHelixDescriptor, Helix, Hyperboloid, Nucl, Stapple, Strand, StrandBuilder, StrandState,
+    GridHelixDescriptor, Helix, Hyperboloid, Nucl, RigidBodyConstants, Stapple, Strand,
+    StrandBuilder, StrandState,
 };
 
 mod operation;
@@ -967,21 +969,36 @@ impl Mediator {
         }
     }
 
-    pub fn rigid_grid_request(&mut self, request: bool) {
+    pub fn rigid_grid_request(&mut self, request: RigidBodyParametersRequest) {
+        let parameters = rigid_parameters(request);
         for d in self.designs.iter() {
-            d.write()
-                .unwrap()
-                .grid_simulation((0., 1.), self.computing.clone());
+            d.write().unwrap().grid_simulation(
+                (0., 1.),
+                self.computing.clone(),
+                parameters.clone(),
+            );
         }
     }
 
-    pub fn rigid_helices_request(&mut self, request: bool) {
+    pub fn rigid_helices_request(&mut self, request: RigidBodyParametersRequest) {
+        let parameters = rigid_parameters(request);
+        for d in self.designs.iter() {
+            d.write().unwrap().rigid_helices_simulation(
+                (0., 0.1),
+                self.computing.clone(),
+                parameters.clone(),
+            );
+        }
+        println!("self.computing {:?}", self.computing);
+    }
+
+    pub fn rigid_parameters_request(&mut self, request: RigidBodyParametersRequest) {
+        let parameters = rigid_parameters(request);
         for d in self.designs.iter() {
             d.write()
                 .unwrap()
-                .rigid_helices_simulation((0., 0.1), self.computing.clone());
+                .rigid_body_parameters_update(parameters.clone());
         }
-        println!("self.computing {:?}", self.computing);
     }
 
     pub fn hyperboloid_update(&mut self, request: HyperboloidRequest) {
@@ -1251,5 +1268,13 @@ impl PastingMode {
             Self::Duplicating | Self::Pasting | Self::FirstDulplication => true,
             _ => false,
         }
+    }
+}
+
+fn rigid_parameters(parameters: RigidBodyParametersRequest) -> RigidBodyConstants {
+    RigidBodyConstants {
+        k_spring: 10f32.powf(parameters.k_springs),
+        k_friction: 10f32.powf(parameters.k_friction),
+        mass: 10f32.powf(parameters.mass_factor),
     }
 }

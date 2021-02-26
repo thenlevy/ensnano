@@ -830,18 +830,35 @@ impl Design {
         self.data.lock().unwrap().get_xovers_list()
     }
 
-    pub fn grid_simulation(&mut self, time_span: (f32, f32), computing: Arc<Mutex<bool>>) {
+    pub fn grid_simulation(
+        &mut self,
+        time_span: (f32, f32),
+        computing: Arc<Mutex<bool>>,
+        parameters: RigidBodyConstants,
+    ) {
         self.data
             .lock()
             .unwrap()
-            .rigid_body_request(time_span, computing)
+            .rigid_body_request(time_span, computing, parameters)
     }
 
-    pub fn rigid_helices_simulation(&mut self, time_span: (f32, f32), computing: Arc<Mutex<bool>>) {
+    pub fn rigid_helices_simulation(
+        &mut self,
+        time_span: (f32, f32),
+        computing: Arc<Mutex<bool>>,
+        parameters: RigidBodyConstants,
+    ) {
         self.data
             .lock()
             .unwrap()
-            .helix_simulation_request(time_span, computing);
+            .helix_simulation_request(time_span, computing, parameters);
+    }
+
+    pub fn rigid_body_parameters_update(&mut self, parameters: RigidBodyConstants) {
+        self.data
+            .lock()
+            .unwrap()
+            .rigid_parameters_update(parameters);
     }
 
     pub fn get_insertions(&self, s_id: usize) -> Option<Vec<Nucl>> {

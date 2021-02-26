@@ -82,8 +82,8 @@ pub struct Requests {
     pub copy: bool,
     pub paste: bool,
     pub duplication: bool,
-    pub rigid_grid_simulation: Option<bool>,
-    pub rigid_helices_simulation: Option<bool>,
+    pub rigid_grid_simulation: Option<RigidBodyParametersRequest>,
+    pub rigid_helices_simulation: Option<RigidBodyParametersRequest>,
     pub anchor: bool,
     pub rigid_body_parameters: Option<RigidBodyParametersRequest>,
 }

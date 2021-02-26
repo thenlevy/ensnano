@@ -529,6 +529,10 @@ fn main() {
                         mediator.lock().unwrap().rigid_helices_request(b);
                     }
 
+                    if let Some(p) = requests.rigid_body_parameters.take() {
+                        mediator.lock().unwrap().rigid_parameters_request(p);
+                    }
+
                     if requests.anchor {
                         mediator.lock().unwrap().request_anchor();
                         requests.anchor = false;

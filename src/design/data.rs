@@ -37,6 +37,7 @@ use grid::GridManager;
 pub use grid::*;
 pub use icednano::Nucl;
 pub use icednano::{Axis, Design, Helix, Parameters, Strand};
+pub use rigid_body::RigidBodyConstants;
 use roller::PhysicalSystem;
 use std::sync::{mpsc::Sender, Arc, Mutex, RwLock};
 use strand_builder::NeighbourDescriptor;
@@ -2433,6 +2434,12 @@ impl Data {
 
     pub fn is_anchor(&self, anchor: Nucl) -> bool {
         self.anchors.contains(&anchor)
+    }
+
+    pub fn rigid_parameters_update(&mut self, parameters: RigidBodyConstants) {
+        if let Some(simulator) = self.rigid_helix_simulator.as_mut() {
+            simulator.update_parameters(parameters)
+        }
     }
 }
 

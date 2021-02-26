@@ -31,6 +31,14 @@ struct HelixSystem {
     lambda_brownian: f32,
     /// Radius of the brownian motion
     epsilon_borwnian: f32,
+    rigid_parameters: RigidBodyConstants,
+}
+
+#[derive(Clone, Debug)]
+pub struct RigidBodyConstants {
+    pub k_spring: f32,
+    pub k_friction: f32,
+    pub mass: f32,
 }
 
 #[derive(Debug)]
@@ -68,8 +76,7 @@ impl HelixSystem {
         let mut torques = vec![Vec3::zero(); nb_element];
 
         const L0: f32 = 0.7;
-        const K_SPRING: f32 = 1.;
-        const K_ANCHOR: f32 = 1000.;
+        let k_anchor = 1000. * self.rigid_parameters.k_spring;
 
         let point_conversion = |nucl: &RigidNucl| {
             let position = positions[nucl.helix]
@@ -90,7 +97,7 @@ impl HelixSystem {
 
             // The force applied on point 0
             let force = if len > 1e-5 {
-                K_SPRING * norm * (point_1 - point_0) / len
+                self.rigid_parameters.k_spring * norm * (point_1 - point_0) / len
             } else {
                 Vec3::zero()
             };
@@ -112,7 +119,7 @@ impl HelixSystem {
 
             // The force applied on point 0
             let force = if len > 1e-5 {
-                K_SPRING * norm * (point_1 - point_0) / len
+                self.rigid_parameters.k_spring * norm * (point_1 - point_0) / len
             } else {
                 Vec3::zero()
             };
@@ -131,7 +138,7 @@ impl HelixSystem {
 
             // The force applied on point 0
             let force = if len > 1e-5 {
-                K_SPRING * norm * (point_1 - point_0) / len
+                self.rigid_parameters.k_spring * norm * (point_1 - point_0) / len
             } else {
                 Vec3::zero()
             };
@@ -142,12 +149,8 @@ impl HelixSystem {
         for (nucl, position) in self.anchors.iter() {
             let point_0 = point_conversion(&nucl);
             let len = (point_0 - *position).mag();
-            if len < 100. {
-                println!("point_0: {:?}", point_0);
-                println!("position: {:?}", *position);
-            }
             let force = if len > 1e-5 {
-                K_SPRING * K_ANCHOR * -(point_0 - *position)
+                self.rigid_parameters.k_spring * k_anchor * -(point_0 - *position)
             } else {
                 Vec3::zero()
             };
@@ -270,6 +273,10 @@ impl HelixSystem {
             self.brownian_heap.push((new_date.into(), nucl_id));
         }
     }
+
+    fn update_parameters(&mut self, parameters: RigidBodyConstants) {
+        self.rigid_parameters = parameters;
+    }
 }
 
 impl ExplicitODE<f32> for HelixSystem {
@@ -287,7 +294,8 @@ impl ExplicitODE<f32> for HelixSystem {
         let mut ret = Vec::with_capacity(13 * nb_element);
         for i in 0..nb_element {
             if i < self.helices.len() {
-                let d_position = linear_momentums[i] / self.helices[i].height();
+                let d_position =
+                    linear_momentums[i] / (self.helices[i].height() * self.rigid_parameters.mass);
                 ret.push(d_position.x);
                 ret.push(d_position.y);
                 ret.push(d_position.z);
@@ -301,15 +309,17 @@ impl ExplicitODE<f32> for HelixSystem {
                 ret.push(d_rotation.bv.xz);
                 ret.push(d_rotation.bv.yz);
 
-                let d_linear_momentum =
-                    forces[i] - linear_momentums[i] * 100. / self.helices[i].height();
+                let d_linear_momentum = forces[i]
+                    - linear_momentums[i] * self.rigid_parameters.k_friction
+                        / (self.helices[i].height() * self.rigid_parameters.mass);
 
                 ret.push(d_linear_momentum.x);
                 ret.push(d_linear_momentum.y);
                 ret.push(d_linear_momentum.z);
 
-                let d_angular_momentum =
-                    torques[i] - angular_momentums[i] * 100. / self.helices[i].height();
+                let d_angular_momentum = torques[i]
+                    - angular_momentums[i] * 100.
+                        / (self.helices[i].height() * self.rigid_parameters.mass);
                 ret.push(d_angular_momentum.x);
                 ret.push(d_angular_momentum.y);
                 ret.push(d_angular_momentum.z);
@@ -325,13 +335,15 @@ impl ExplicitODE<f32> for HelixSystem {
                 ret.push(d_rotation.bv.xz);
                 ret.push(d_rotation.bv.yz);
 
-                let d_linear_momentum = forces[i] - linear_momentums[i] * 100. / NUCL_MASS;
+                let d_linear_momentum =
+                    forces[i] - linear_momentums[i] * 100. / (self.rigid_parameters.mass / 2.);
 
                 ret.push(d_linear_momentum.x);
                 ret.push(d_linear_momentum.y);
                 ret.push(d_linear_momentum.z);
 
-                let d_angular_momentum = torques[i] - angular_momentums[i] * 100. / NUCL_MASS;
+                let d_angular_momentum =
+                    torques[i] - angular_momentums[i] * 100. / (self.rigid_parameters.mass / 2.);
                 ret.push(d_angular_momentum.x);
                 ret.push(d_angular_momentum.y);
                 ret.push(d_angular_momentum.z);
@@ -841,6 +853,7 @@ struct HelixSystemThread {
     /// When the wrapped option takes the value of some channel, the thread that performs the
     /// simulation sends the last computed state of the system
     sender: Arc<Mutex<Option<Sender<RigidHelixState>>>>,
+    parameters_update: Arc<Mutex<Option<RigidBodyConstants>>>,
 }
 
 impl HelixSystemThread {
@@ -849,6 +862,7 @@ impl HelixSystemThread {
             helix_system,
             stop: Default::default(),
             sender: Default::default(),
+            parameters_update: Default::default(),
         }
     }
 
@@ -866,6 +880,9 @@ impl HelixSystemThread {
         *computing.lock().unwrap() = true;
         std::thread::spawn(move || {
             while !*self.stop.lock().unwrap() {
+                if let Some(parameters) = self.parameters_update.lock().unwrap().take() {
+                    self.helix_system.update_parameters(parameters)
+                }
                 if let Some(snd) = self.sender.lock().unwrap().take() {
                     snd.send(self.get_state()).unwrap();
                 }
@@ -879,6 +896,10 @@ impl HelixSystemThread {
             *computing.lock().unwrap() = false;
         });
         (stop, sender)
+    }
+
+    fn get_param_ptr(&self) -> Arc<Mutex<Option<RigidBodyConstants>>> {
+        self.parameters_update.clone()
     }
 
     fn get_state(&self) -> RigidHelixState {
@@ -936,6 +957,7 @@ pub(super) struct RigidHelixSimulator {
     simulation_ptr: RigidHelixPtr,
     state_update: Option<RigidHelixState>,
     parameters: Parameters,
+    rigid_parameters: Arc<Mutex<Option<RigidBodyConstants>>>,
 }
 
 impl RigidHelixSimulator {
@@ -947,6 +969,7 @@ impl RigidHelixSimulator {
         let roll = helix_system.helices.iter().map(|h| h.roll).collect();
         let parameters = helix_system.parameters.clone();
         let grid_system_thread = HelixSystemThread::new(helix_system);
+        let rigid_parameters = grid_system_thread.get_param_ptr();
 
         let date = Instant::now();
         let (stop, snd) = grid_system_thread.run(computing);
@@ -963,7 +986,12 @@ impl RigidHelixSimulator {
             nb_helices: interval_results.intervals.len(),
             simulation_ptr,
             state_update: None,
+            rigid_parameters,
         }
+    }
+
+    pub(super) fn update_parameters(&mut self, rigid_parameters: RigidBodyConstants) {
+        *self.rigid_parameters.lock().unwrap() = Some(rigid_parameters);
     }
 
     fn check_simulation(&mut self) {
@@ -1027,6 +1055,7 @@ impl RigidHelixSimulator {
 }
 
 impl Data {
+    /*
     pub fn grid_simulation(&mut self, time_span: (f32, f32)) {
         if let Some(grid_system) = self.make_grid_system(time_span) {
             let solver = Kutta3::new(1e-4f32);
@@ -1050,7 +1079,9 @@ impl Data {
             println!("could not make grid system");
         }
     }
+    */
 
+    /*
     pub fn helices_simulation(&mut self, time_span: (f32, f32)) {
         if let Some(helix_system) = self.make_helices_system(time_span) {
             let solver = Kutta3::new(1e-4f32);
@@ -1073,12 +1104,13 @@ impl Data {
         } else {
             println!("could not make grid system");
         }
-    }
+    }*/
 
     fn make_flexible_helices_system(
         &self,
         time_span: (f32, f32),
         interval_results: &IntervalResult,
+        rigid_parameters: RigidBodyConstants,
     ) -> Option<HelixSystem> {
         let parameters = self.design.parameters.unwrap_or_default();
         let mut rigid_helices = Vec::with_capacity(interval_results.helix_map.len());
@@ -1178,11 +1210,16 @@ impl Data {
             lambda_brownian,
             current_time: 0.,
             next_time: 0.,
+            rigid_parameters,
         })
     }
 
     /// Make an helix system without making flexible single_stranded part.
-    fn make_helices_system(&self, time_span: (f32, f32)) -> Option<HelixSystem> {
+    fn make_helices_system(
+        &self,
+        time_span: (f32, f32),
+        rigid_parameters: RigidBodyConstants,
+    ) -> Option<HelixSystem> {
         let intervals = self.design.get_intervals();
         let parameters = self.design.parameters.unwrap_or_default();
         let mut helix_map = HashMap::with_capacity(self.design.helices.len());
@@ -1245,10 +1282,15 @@ impl Data {
             lambda_brownian: 1.,
             epsilon_borwnian: 0.,
             brownian_heap: Default::default(),
+            rigid_parameters: rigid_parameters,
         })
     }
 
-    fn make_grid_system(&self, time_span: (f32, f32)) -> Option<GridsSystem> {
+    fn make_grid_system(
+        &self,
+        time_span: (f32, f32),
+        _paramaters: RigidBodyConstants,
+    ) -> Option<GridsSystem> {
         let intervals = self.design.get_intervals();
         let parameters = self.design.parameters.unwrap_or_default();
         let mut selected_grids = HashMap::with_capacity(self.grid_manager.grids.len());
@@ -1474,15 +1516,25 @@ impl Data {
         }
     }
 
-    pub fn rigid_body_request(&mut self, request: (f32, f32), computing: Arc<Mutex<bool>>) {
+    pub fn rigid_body_request(
+        &mut self,
+        request: (f32, f32),
+        computing: Arc<Mutex<bool>>,
+        parameters: RigidBodyConstants,
+    ) {
         if self.rigid_body_ptr.is_some() {
             self.stop_rigid_body()
         } else {
-            self.start_rigid_body(request, computing)
+            self.start_rigid_body(request, computing, parameters)
         }
     }
 
-    pub fn helix_simulation_request(&mut self, request: (f32, f32), computing: Arc<Mutex<bool>>) {
+    pub fn helix_simulation_request(
+        &mut self,
+        request: (f32, f32),
+        computing: Arc<Mutex<bool>>,
+        parameters: RigidBodyConstants,
+    ) {
         /*
         if self.helix_simulation_ptr.is_some() {
             self.stop_helix_simulation()
@@ -1493,12 +1545,17 @@ impl Data {
         if self.rigid_helix_simulator.is_some() {
             self.stop_free_helix_simulation();
         } else {
-            self.start_free_helix_simulation(request, computing);
+            self.start_free_helix_simulation(request, computing, parameters);
         }
     }
 
-    fn start_rigid_body(&mut self, request: (f32, f32), computing: Arc<Mutex<bool>>) {
-        if let Some(grid_system) = self.make_grid_system(request) {
+    fn start_rigid_body(
+        &mut self,
+        request: (f32, f32),
+        computing: Arc<Mutex<bool>>,
+        parameters: RigidBodyConstants,
+    ) {
+        if let Some(grid_system) = self.make_grid_system(request, parameters) {
             let grid_system_thread = GridsSystemThread::new(grid_system);
             let date = Instant::now();
             let (stop, snd) = grid_system_thread.run(computing);
@@ -1519,9 +1576,10 @@ impl Data {
         self.rigid_body_ptr = None;
     }
 
+    /*
     fn start_helix_simulation(&mut self, request: (f32, f32), computing: Arc<Mutex<bool>>) {
         let interval_results = self.read_intervals();
-        let helix_system_opt = self.make_flexible_helices_system(request, &interval_results);
+        let helix_system_opt = self.make_flexible_helices_system(request, &interval_results, parameters);
         if let Some(helix_system) = helix_system_opt {
             let grid_system_thread = HelixSystemThread::new(helix_system);
             let date = Instant::now();
@@ -1532,11 +1590,17 @@ impl Data {
                 state: snd,
             });
         }
-    }
+    }*/
 
-    fn start_free_helix_simulation(&mut self, request: (f32, f32), computing: Arc<Mutex<bool>>) {
+    fn start_free_helix_simulation(
+        &mut self,
+        request: (f32, f32),
+        computing: Arc<Mutex<bool>>,
+        parameters: RigidBodyConstants,
+    ) {
         let interval_results = self.read_intervals();
-        let helix_system_opt = self.make_flexible_helices_system(request, &interval_results);
+        let helix_system_opt =
+            self.make_flexible_helices_system(request, &interval_results, parameters);
         if let Some(helix_system) = helix_system_opt {
             let helix_simulator =
                 RigidHelixSimulator::start_simulation(helix_system, computing, interval_results);

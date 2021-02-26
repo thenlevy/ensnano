@@ -298,6 +298,8 @@ impl Program for LeftPanel {
                 self.show_torsion = false;
                 self.physical_simulation.running = false;
                 self.fog = Default::default();
+                self.rigid_grid_button.running = false;
+                self.rigid_helices_button.running = false;
             }
             Message::SimRoll(b) => {
                 self.physical_simulation.roll = b;
@@ -355,12 +357,14 @@ impl Program for LeftPanel {
                 self.building_hyperboloid = false;
             }
             Message::RigidGridSimulation(b) => {
+                let request = &mut self.requests.lock().unwrap().rigid_grid_simulation;
                 self.rigid_grid_button.running = b;
-                self.requests.lock().unwrap().rigid_grid_simulation = Some(b);
+                self.rigid_body_factory.make_request(request);
             }
             Message::RigidHelicesSimulation(b) => {
+                let request = &mut self.requests.lock().unwrap().rigid_helices_simulation;
                 self.rigid_helices_button.running = b;
-                self.requests.lock().unwrap().rigid_helices_simulation = Some(b);
+                self.rigid_body_factory.make_request(request);
             }
         };
         Command::none()
