@@ -39,6 +39,7 @@ pub struct RigidBodyConstants {
     pub k_spring: f32,
     pub k_friction: f32,
     pub mass: f32,
+    pub volume_exclusion: bool,
 }
 
 #[derive(Debug)]
@@ -173,31 +174,35 @@ impl HelixSystem {
                 )
             })
             .collect();
-        for i in 0..self.helices.len() {
-            let (a, b) = segments[i];
-            for j in (i + 1)..self.helices.len() {
-                let (c, d) = segments[j];
-                let r = 1.;
-                let (dist, vec, point_a, point_c) = distance_segment(a, b, c, d);
-                if dist < 2. * r {
-                    // VOLUME EXCLUSION
-                    let norm = C_VOLUME * self.rigid_parameters.k_spring * (2. * r - dist).powi(2);
-                    forces[i] += norm * vec;
-                    forces[j] += -norm * vec;
-                    let torque0 = (point_a - positions[i]).cross(norm * vec);
-                    let torque1 = (point_c - positions[j]).cross(-norm * vec);
-                    torques[i] += torque0;
-                    torques[j] += torque1;
+        if self.rigid_parameters.volume_exclusion {
+            for i in 0..self.helices.len() {
+                let (a, b) = segments[i];
+                for j in (i + 1)..self.helices.len() {
+                    let (c, d) = segments[j];
+                    let r = 1.;
+                    let (dist, vec, point_a, point_c) = distance_segment(a, b, c, d);
+                    if dist < 2. * r {
+                        // VOLUME EXCLUSION
+                        let norm =
+                            C_VOLUME * self.rigid_parameters.k_spring * (2. * r - dist).powi(2);
+                        forces[i] += norm * vec;
+                        forces[j] += -norm * vec;
+                        let torque0 = (point_a - positions[i]).cross(norm * vec);
+                        let torque1 = (point_c - positions[j]).cross(-norm * vec);
+                        torques[i] += torque0;
+                        torques[j] += torque1;
+                    }
                 }
-            }
-            for nucl_id in 0..self.free_nucls.len() {
-                let point = free_nucl_pos(&nucl_id);
-                let (dist, vec, _, _) = distance_segment(a, b, point, point);
-                let r = 1.35 / 2.;
-                if dist < 2. * r {
-                    let norm = C_VOLUME * self.rigid_parameters.k_spring * (2. * r - dist).powi(2);
-                    let norm = norm.min(1e4);
-                    forces[self.helices.len() + nucl_id] -= norm * vec;
+                for nucl_id in 0..self.free_nucls.len() {
+                    let point = free_nucl_pos(&nucl_id);
+                    let (dist, vec, _, _) = distance_segment(a, b, point, point);
+                    let r = 1.35 / 2.;
+                    if dist < 2. * r {
+                        let norm =
+                            C_VOLUME * self.rigid_parameters.k_spring * (2. * r - dist).powi(2);
+                        let norm = norm.min(1e4);
+                        forces[self.helices.len() + nucl_id] -= norm * vec;
+                    }
                 }
             }
         }
@@ -1295,7 +1300,7 @@ impl Data {
             lambda_brownian: 1.,
             epsilon_borwnian: 0.,
             brownian_heap: Default::default(),
-            rigid_parameters: rigid_parameters,
+            rigid_parameters,
         })
     }
 

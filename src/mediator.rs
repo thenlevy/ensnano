@@ -1276,6 +1276,7 @@ fn rigid_parameters(parameters: RigidBodyParametersRequest) -> RigidBodyConstant
         k_spring: 10f32.powf(parameters.k_springs),
         k_friction: 10f32.powf(parameters.k_friction),
         mass: 10f32.powf(parameters.mass_factor),
+        volume_exclusion: parameters.volume_exclusion,
     };
     println!("{:?}", ret);
     ret
