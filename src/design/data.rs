@@ -308,6 +308,7 @@ impl Data {
     /// * icednano
     pub fn new_with_path(json_path: &PathBuf) -> Option<Self> {
         let mut design = read_file(json_path)?;
+        design.remove_empty_domains();
         let mut grid_manager = GridManager::new_from_design(&design);
         let mut grids = grid_manager.grids2d();
         for g in grids.iter_mut() {

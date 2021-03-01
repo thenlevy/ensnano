@@ -337,15 +337,17 @@ impl ExplicitODE<f32> for HelixSystem {
                 ret.push(d_rotation.bv.xz);
                 ret.push(d_rotation.bv.yz);
 
-                let d_linear_momentum =
-                    forces[i] - linear_momentums[i] * self.rigid_parameters.k_friction / (self.rigid_parameters.mass / 2.);
+                let d_linear_momentum = forces[i]
+                    - linear_momentums[i] * self.rigid_parameters.k_friction
+                        / (self.rigid_parameters.mass / 2.);
 
                 ret.push(d_linear_momentum.x);
                 ret.push(d_linear_momentum.y);
                 ret.push(d_linear_momentum.z);
 
-                let d_angular_momentum =
-                    torques[i] - angular_momentums[i] * self.rigid_parameters.k_friction / (self.rigid_parameters.mass / 2.);
+                let d_angular_momentum = torques[i]
+                    - angular_momentums[i] * self.rigid_parameters.k_friction
+                        / (self.rigid_parameters.mass / 2.);
                 ret.push(d_angular_momentum.x);
                 ret.push(d_angular_momentum.y);
                 ret.push(d_angular_momentum.z);
@@ -888,7 +890,9 @@ impl HelixSystemThread {
                     self.helix_system.update_parameters(parameters)
                 }
                 if let Some(snd) = self.sender.lock().unwrap().take() {
-                    let time_delta = 1. / ((Instant::now() - date).as_secs_f32() / (self.helix_system.next_time - prev_time));
+                    let time_delta = 1.
+                        / ((Instant::now() - date).as_secs_f32()
+                            / (self.helix_system.next_time - prev_time));
                     println!("time delta {}", time_delta);
                     date = Instant::now();
                     prev_time = self.helix_system.next_time;
@@ -1133,6 +1137,7 @@ impl Data {
         let mut mixed_springs = Vec::with_capacity(xovers.len());
         let mut free_springs = Vec::with_capacity(xovers.len());
         for (n1, n2) in xovers {
+            println!("{:?}", (n1, n2));
             let free_nucl1 = interval_results.nucl_map[&n1];
             let free_nucl2 = interval_results.nucl_map[&n2];
             if let Some((h1, h2)) = free_nucl1.helix.zip(free_nucl2.helix) {
