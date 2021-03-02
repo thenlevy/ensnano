@@ -6,7 +6,7 @@ use lyon::tessellation;
 use lyon::tessellation::{StrokeVertex, StrokeVertexConstructor};
 use ultraviolet::{Mat2, Vec2};
 use wgpu::util::DeviceExt;
-use wgpu::{BindGroupLayout, Buffer, DepthStencilStateDescriptor, RenderPass, RenderPipeline};
+use wgpu::{BindGroupLayout, Buffer, DepthStencilState, RenderPass, RenderPipeline};
 
 pub struct InsertionDrawer {
     new_instances: Option<Vec<InsertionInstance>>,
@@ -23,7 +23,7 @@ impl InsertionDrawer {
         device: Rc<Device>,
         queue: Rc<Queue>,
         globals: &BindGroupLayout,
-        depth_stencil_state: Option<DepthStencilStateDescriptor>,
+        depth_stencil_state: Option<DepthStencilState>,
     ) -> Self {
         let instances = DynamicBindGroup::new(device.clone(), queue.clone());
         let pipeline = insertion_pipeline(
@@ -69,7 +69,7 @@ impl InsertionDrawer {
         render_pass.set_pipeline(&self.pipeline);
         render_pass.set_bind_group(1, self.instances.get_bindgroup(), &[]);
         render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-        render_pass.set_index_buffer(self.index_buffer.slice(..));
+        render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
         render_pass.draw_indexed(
             0..self.number_indices as u32,
             0,
@@ -158,59 +158,61 @@ fn insertion_pipeline(
     device: &Device,
     globals: &wgpu::BindGroupLayout,
     insertions: &wgpu::BindGroupLayout,
-    depth_stencil_state: Option<wgpu::DepthStencilStateDescriptor>,
+    depth_stencil: Option<wgpu::DepthStencilState>,
 ) -> wgpu::RenderPipeline {
-    let vs_module = &device.create_shader_module(wgpu::include_spirv!("insertion.vert.spv"));
-    let fs_module = &device.create_shader_module(wgpu::include_spirv!("strand.frag.spv"));
+    let vs_module = &device.create_shader_module(&wgpu::include_spirv!("insertion.vert.spv"));
+    let fs_module = &device.create_shader_module(&wgpu::include_spirv!("strand.frag.spv"));
 
     let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
         bind_group_layouts: &[globals, insertions],
         push_constant_ranges: &[],
         label: None,
     });
+    let targets = &[wgpu::ColorTargetState {
+        format: wgpu::TextureFormat::Bgra8UnormSrgb,
+        color_blend: wgpu::BlendState {
+            src_factor: wgpu::BlendFactor::SrcAlpha,
+            dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+            operation: wgpu::BlendOperation::Add,
+        },
+        alpha_blend: wgpu::BlendState {
+            src_factor: wgpu::BlendFactor::One,
+            dst_factor: wgpu::BlendFactor::One,
+            operation: wgpu::BlendOperation::Add,
+        },
+        write_mask: wgpu::ColorWrite::ALL,
+    }];
+
+    let primitive = wgpu::PrimitiveState {
+        topology: wgpu::PrimitiveTopology::TriangleList,
+        front_face: wgpu::FrontFace::Ccw,
+        cull_mode: wgpu::CullMode::None,
+        ..Default::default()
+    };
 
     let desc = wgpu::RenderPipelineDescriptor {
         layout: Some(&pipeline_layout),
-        vertex_stage: wgpu::ProgrammableStageDescriptor {
+        vertex: wgpu::VertexState {
             module: &vs_module,
             entry_point: "main",
-        },
-        fragment_stage: Some(wgpu::ProgrammableStageDescriptor {
-            module: &fs_module,
-            entry_point: "main",
-        }),
-        rasterization_state: Some(wgpu::RasterizationStateDescriptor {
-            front_face: wgpu::FrontFace::Ccw,
-            cull_mode: wgpu::CullMode::None,
-            ..Default::default()
-        }),
-        primitive_topology: wgpu::PrimitiveTopology::TriangleList,
-        color_states: &[wgpu::ColorStateDescriptor {
-            format: wgpu::TextureFormat::Bgra8UnormSrgb,
-            color_blend: wgpu::BlendDescriptor {
-                src_factor: wgpu::BlendFactor::SrcAlpha,
-                dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
-                operation: wgpu::BlendOperation::Add,
-            },
-            alpha_blend: wgpu::BlendDescriptor {
-                src_factor: wgpu::BlendFactor::One,
-                dst_factor: wgpu::BlendFactor::One,
-                operation: wgpu::BlendOperation::Add,
-            },
-            write_mask: wgpu::ColorWrite::ALL,
-        }],
-        depth_stencil_state,
-        vertex_state: wgpu::VertexStateDescriptor {
-            index_format: wgpu::IndexFormat::Uint16,
-            vertex_buffers: &[wgpu::VertexBufferDescriptor {
-                stride: std::mem::size_of::<InsertionVertex>() as u64,
+            buffers: &[wgpu::VertexBufferLayout {
+                array_stride: std::mem::size_of::<InsertionVertex>() as u64,
                 step_mode: wgpu::InputStepMode::Vertex,
                 attributes: &wgpu::vertex_attr_array![0 => Float2, 1 => Float2],
             }],
         },
-        sample_count: SAMPLE_COUNT,
-        sample_mask: !0,
-        alpha_to_coverage_enabled: false,
+        fragment: Some(wgpu::FragmentState {
+            module: &fs_module,
+            entry_point: "main",
+            targets,
+        }),
+        primitive,
+        depth_stencil,
+        multisample: wgpu::MultisampleState {
+            count: SAMPLE_COUNT,
+            mask: !0,
+            alpha_to_coverage_enabled: false,
+        },
         label: None,
     };
 
