@@ -872,6 +872,10 @@ impl Design {
     pub fn is_anchor(&self, nucl: Nucl) -> bool {
         self.data.lock().unwrap().is_anchor(nucl)
     }
+
+    pub fn shake_nucl(&self, nucl: Nucl) {
+        self.data.lock().unwrap().shake_nucl(nucl)
+    }
 }
 
 #[derive(Clone)]

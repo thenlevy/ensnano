@@ -546,6 +546,11 @@ impl Mediator {
             if let Some(roll) = roll {
                 self.messages.lock().unwrap().push_roll(roll)
             }
+        } else if let Selection::Nucleotide(d_id, nucl) = selection {
+            self.designs[d_id as usize]
+                .write()
+                .unwrap()
+                .shake_nucl(nucl)
         }
         if let Some(d_id) = selection.get_design() {
             let values = selection.fetch_values(self.designs[d_id as usize].clone());

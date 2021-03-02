@@ -283,6 +283,22 @@ impl HelixSystem {
     fn update_parameters(&mut self, parameters: RigidBodyConstants) {
         self.rigid_parameters = parameters;
     }
+
+    fn shake_nucl(&mut self, nucl: ShakeTarget) {
+        let mut rnd = rand::thread_rng();
+        let gx: f32 = rnd.sample(StandardNormal);
+        let gy: f32 = rnd.sample(StandardNormal);
+        let gz: f32 = rnd.sample(StandardNormal);
+        let entry = match nucl {
+            ShakeTarget::Helix(h_id) => 13 * h_id,
+            ShakeTarget::FreeNucl(n) => 13 * (self.helices.len() + n),
+        };
+        if let Some(state) = self.last_state.as_mut() {
+            *state.get_mut(entry) += 10. * self.epsilon_borwnian * gx;
+            *state.get_mut(entry + 1) += 10. * self.epsilon_borwnian * gy;
+            *state.get_mut(entry + 2) += 10. * self.epsilon_borwnian * gz;
+        }
+    }
 }
 
 impl ExplicitODE<f32> for HelixSystem {
@@ -862,6 +878,8 @@ struct HelixSystemThread {
     /// When the wrapped option takes the value of some channel, the thread that performs the
     /// simulation sends the last computed state of the system
     sender: Arc<Mutex<Option<Sender<RigidHelixState>>>>,
+    /// A nucleotide to be shaken
+    nucl_shake: Arc<Mutex<Option<ShakeTarget>>>,
     parameters_update: Arc<Mutex<Option<RigidBodyConstants>>>,
 }
 
@@ -871,6 +889,7 @@ impl HelixSystemThread {
             helix_system,
             stop: Default::default(),
             sender: Default::default(),
+            nucl_shake: Default::default(),
             parameters_update: Default::default(),
         }
     }
@@ -888,24 +907,19 @@ impl HelixSystemThread {
         let sender = self.sender.clone();
         *computing.lock().unwrap() = true;
         std::thread::spawn(move || {
-            let mut date = Instant::now();
-            let mut prev_time = 0f32;
             while !*self.stop.lock().unwrap() {
                 if let Some(parameters) = self.parameters_update.lock().unwrap().take() {
                     self.helix_system.update_parameters(parameters)
                 }
                 if let Some(snd) = self.sender.lock().unwrap().take() {
-                    let time_delta = 1.
-                        / ((Instant::now() - date).as_secs_f32()
-                            / (self.helix_system.next_time - prev_time));
-                    println!("time delta {}", time_delta);
-                    date = Instant::now();
-                    prev_time = self.helix_system.next_time;
                     snd.send(self.get_state()).unwrap();
                 }
                 self.helix_system.next_time();
                 let solver = ExplicitEuler::new(1e-4f32);
                 self.helix_system.brownian_jump();
+                if let Some(nucl) = self.nucl_shake.lock().unwrap().take() {
+                    self.helix_system.shake_nucl(nucl)
+                }
                 if let Ok((_, y)) = solver.solve(&self.helix_system) {
                     self.helix_system.last_state = y.last().cloned();
                 }
@@ -917,6 +931,10 @@ impl HelixSystemThread {
 
     fn get_param_ptr(&self) -> Arc<Mutex<Option<RigidBodyConstants>>> {
         self.parameters_update.clone()
+    }
+
+    fn get_nucl_ptr(&self) -> Arc<Mutex<Option<ShakeTarget>>> {
+        self.nucl_shake.clone()
     }
 
     fn get_state(&self) -> RigidHelixState {
@@ -955,6 +973,7 @@ pub(super) struct RigidBodyPtr {
 pub(super) struct RigidHelixPtr {
     stop: Arc<Mutex<bool>>,
     state: Arc<Mutex<Option<Sender<RigidHelixState>>>>,
+    shake_nucl: Arc<Mutex<Option<ShakeTarget>>>,
     instant: Instant,
 }
 
@@ -985,14 +1004,16 @@ impl RigidHelixSimulator {
     ) -> Self {
         let roll = helix_system.helices.iter().map(|h| h.roll).collect();
         let parameters = helix_system.parameters.clone();
-        let grid_system_thread = HelixSystemThread::new(helix_system);
-        let rigid_parameters = grid_system_thread.get_param_ptr();
+        let helix_system_thread = HelixSystemThread::new(helix_system);
+        let rigid_parameters = helix_system_thread.get_param_ptr();
+        let shake_nucl = helix_system_thread.get_nucl_ptr();
 
         let date = Instant::now();
-        let (stop, snd) = grid_system_thread.run(computing);
+        let (stop, snd) = helix_system_thread.run(computing);
         let simulation_ptr = RigidHelixPtr {
             instant: date,
             stop,
+            shake_nucl,
             state: snd,
         };
         Self {
@@ -1009,6 +1030,19 @@ impl RigidHelixSimulator {
 
     pub(super) fn update_parameters(&mut self, rigid_parameters: RigidBodyConstants) {
         *self.rigid_parameters.lock().unwrap() = Some(rigid_parameters);
+    }
+
+    pub(super) fn shake_nucl(&mut self, nucl: Nucl) {
+        if let Some(free_nucl) = self.nucl_maps.get(&nucl) {
+            let shake_target = if let Some(helix) = free_nucl.helix {
+                Some(ShakeTarget::Helix(helix))
+            } else {
+                self.free_nucls_ids
+                    .get(free_nucl)
+                    .map(|id| ShakeTarget::FreeNucl(*id))
+            };
+            *self.simulation_ptr.shake_nucl.lock().unwrap() = shake_target
+        }
     }
 
     fn check_simulation(&mut self) {
@@ -1795,6 +1829,11 @@ pub struct IntervalResult {
     free_nucl_ids: HashMap<FreeNucl, usize>,
     free_nucl_position: Vec<Vec3>,
     intervals: Vec<(isize, isize)>,
+}
+
+enum ShakeTarget {
+    FreeNucl(usize),
+    Helix(usize),
 }
 
 /// Return the length of the shortes line between a point of [a, b] and a poin of [c, d]

@@ -2473,6 +2473,12 @@ impl Data {
             simulator.update_parameters(parameters)
         }
     }
+
+    pub fn shake_nucl(&mut self, nucl: Nucl) {
+        if let Some(simulator) = self.rigid_helix_simulator.as_mut() {
+            simulator.shake_nucl(nucl)
+        }
+    }
 }
 
 fn compl(c: Option<char>) -> Option<char> {
