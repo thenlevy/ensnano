@@ -214,6 +214,7 @@ impl Multiplexer {
         };
 
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: None,
             color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
                 attachment,
                 resolve_target,
@@ -622,44 +623,50 @@ impl Overlay {
 }
 
 fn create_pipeline(device: &Device, bg_layout: &wgpu::BindGroupLayout) -> wgpu::RenderPipeline {
-    let vs_module = &device.create_shader_module(wgpu::include_spirv!("multiplexer/draw.vert.spv"));
-    let fs_module = &device.create_shader_module(wgpu::include_spirv!("multiplexer/draw.frag.spv"));
+    let vs_module =
+        &device.create_shader_module(&wgpu::include_spirv!("multiplexer/draw.vert.spv"));
+    let fs_module =
+        &device.create_shader_module(&wgpu::include_spirv!("multiplexer/draw.frag.spv"));
     let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
         bind_group_layouts: &[bg_layout],
         push_constant_ranges: &[],
         label: None,
     });
 
+    let targets = &[wgpu::ColorTargetState {
+        format: wgpu::TextureFormat::Bgra8UnormSrgb,
+        color_blend: wgpu::BlendState::REPLACE,
+        alpha_blend: wgpu::BlendState::REPLACE,
+        write_mask: wgpu::ColorWrite::ALL,
+    }];
+
+    let primitive = wgpu::PrimitiveState {
+        topology: wgpu::PrimitiveTopology::TriangleStrip,
+        strip_index_format: Some(wgpu::IndexFormat::Uint16),
+        front_face: wgpu::FrontFace::Ccw,
+        cull_mode: wgpu::CullMode::None,
+        ..Default::default()
+    };
+
     let desc = wgpu::RenderPipelineDescriptor {
         layout: Some(&pipeline_layout),
-        vertex_stage: wgpu::ProgrammableStageDescriptor {
+        vertex: wgpu::VertexState {
             module: &vs_module,
             entry_point: "main",
+            buffers: &[],
         },
-        fragment_stage: Some(wgpu::ProgrammableStageDescriptor {
+        fragment: Some(wgpu::FragmentState {
             module: &fs_module,
             entry_point: "main",
+            targets,
         }),
-        rasterization_state: Some(wgpu::RasterizationStateDescriptor {
-            front_face: wgpu::FrontFace::Ccw,
-            cull_mode: wgpu::CullMode::None,
-            ..Default::default()
-        }),
-        primitive_topology: wgpu::PrimitiveTopology::TriangleStrip,
-        color_states: &[wgpu::ColorStateDescriptor {
-            format: wgpu::TextureFormat::Bgra8UnormSrgb,
-            color_blend: wgpu::BlendDescriptor::REPLACE,
-            alpha_blend: wgpu::BlendDescriptor::REPLACE,
-            write_mask: wgpu::ColorWrite::ALL,
-        }],
-        depth_stencil_state: None,
-        vertex_state: wgpu::VertexStateDescriptor {
-            index_format: wgpu::IndexFormat::Uint16,
-            vertex_buffers: &[],
+        primitive,
+        depth_stencil: None,
+        multisample: wgpu::MultisampleState {
+            count: 1,
+            mask: !0,
+            alpha_to_coverage_enabled: false,
         },
-        sample_count: 1,
-        sample_mask: !0,
-        alpha_to_coverage_enabled: false,
         label: None,
     };
 

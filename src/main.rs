@@ -142,7 +142,7 @@ fn main() {
     let (device, queue) = futures::executor::block_on(async {
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions {
-                power_preference: wgpu::PowerPreference::Default,
+                power_preference: wgpu::PowerPreference::LowPower,
                 compatible_surface: Some(&surface),
             })
             .await
@@ -155,7 +155,7 @@ fn main() {
                 &wgpu::DeviceDescriptor {
                     features: wgpu::Features::empty(),
                     limits: wgpu::Limits::default(),
-                    shader_validation: false,
+                    label: None,
                 },
                 None,
             )
@@ -171,7 +171,7 @@ fn main() {
         device.create_swap_chain(
             &surface,
             &wgpu::SwapChainDescriptor {
-                usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
+                usage: wgpu::TextureUsage::RENDER_ATTACHMENT,
                 format,
                 width: size.width,
                 height: size.height,
@@ -578,7 +578,7 @@ fn main() {
                     swap_chain = device.create_swap_chain(
                         &surface,
                         &wgpu::SwapChainDescriptor {
-                            usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
+                            usage: wgpu::TextureUsage::RENDER_ATTACHMENT,
                             format,
                             width: window_size.width,
                             height: window_size.height,
