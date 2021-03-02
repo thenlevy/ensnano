@@ -18,7 +18,7 @@ pub trait Vertexable {
     /// The raw type that is sent to the shaders
     type RawType: bytemuck::Pod + bytemuck::Zeroable;
     /// The vertex state decriptor used to create the pipeline
-    fn desc<'a>() -> wgpu::VertexBufferDescriptor<'a>;
+    fn desc<'a>() -> wgpu::VertexBufferLayout<'a>;
     /// Convert self into a raw vertex.
     fn to_raw(&self) -> Self::RawType;
 }
@@ -36,7 +36,7 @@ pub trait RessourceProvider {
 
     /// This methods allows the ressource tho provide the vertex buffer. If the return value is
     /// Some, it takes priority over the Instanciable's vertices.
-    fn vertex_buffer_desc() -> Option<wgpu::VertexBufferDescriptor<'static>>
+    fn vertex_buffer_desc() -> Option<wgpu::VertexBufferLayout<'static>>
     where
         Self: Sized,
     {
@@ -342,10 +342,10 @@ impl<D: Instanciable> InstanceDrawer<D> {
         let instance_entry = wgpu::BindGroupLayoutEntry {
             binding: 0,
             visibility: wgpu::ShaderStage::VERTEX,
-            ty: wgpu::BindingType::StorageBuffer {
-                dynamic: false,
+            ty: wgpu::BindingType::Buffer {
+                ty: wgpu::BufferBindingType::Storage { read_only: true },
+                has_dynamic_offset: false,
                 min_binding_size: None,
-                readonly: true,
             },
             count: None,
         };
@@ -361,23 +361,23 @@ impl<D: Instanciable> InstanceDrawer<D> {
         // We use alpha blending on texture displayed on the frame. For fake texture we simply rely
         // on depth.
         let color_blend = if !fake {
-            wgpu::BlendDescriptor {
+            wgpu::BlendState {
                 src_factor: wgpu::BlendFactor::SrcAlpha,
                 dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
                 operation: wgpu::BlendOperation::Add,
             }
         } else {
-            wgpu::BlendDescriptor::REPLACE
+            wgpu::BlendState::REPLACE
         };
 
         let alpha_blend = if !fake {
-            wgpu::BlendDescriptor {
+            wgpu::BlendState {
                 src_factor: wgpu::BlendFactor::One,
                 dst_factor: wgpu::BlendFactor::One,
                 operation: wgpu::BlendOperation::Add,
             }
         } else {
-            wgpu::BlendDescriptor::REPLACE
+            wgpu::BlendState::REPLACE
         };
 
         let sample_count = if fake { 1 } else { SAMPLE_COUNT };
@@ -421,52 +421,51 @@ impl<D: Instanciable> InstanceDrawer<D> {
         } else {
             wgpu::CompareFunction::Always
         };
+        let targets = &[wgpu::ColorTargetState {
+            format,
+            color_blend,
+            alpha_blend,
+            write_mask: wgpu::ColorWrite::ALL,
+        }];
+        let strip_index_format = match primitive_topology {
+            PrimitiveTopology::LineStrip | PrimitiveTopology::TriangleStrip => {
+                Some(wgpu::IndexFormat::Uint16)
+            }
+            _ => None,
+        };
+
+        let primitive = wgpu::PrimitiveState {
+            topology: primitive_topology,
+            strip_index_format,
+            ..Default::default()
+        };
 
         device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             layout: Some(&render_pipeline_layout),
-            vertex_stage: wgpu::ProgrammableStageDescriptor {
+            vertex: wgpu::VertexState {
                 module: &vertex_module,
                 entry_point: "main",
+                buffers: &[D::Ressource::vertex_buffer_desc().unwrap_or_else(D::Vertex::desc)],
             },
-            fragment_stage: Some(wgpu::ProgrammableStageDescriptor {
+            fragment: Some(wgpu::FragmentState {
                 module: &fragment_module,
                 entry_point: "main",
+                targets,
             }),
-            rasterization_state: Some(wgpu::RasterizationStateDescriptor {
-                front_face: wgpu::FrontFace::Ccw,
-                cull_mode: wgpu::CullMode::None,
-                depth_bias: 0,
-                depth_bias_slope_scale: 0.0,
-                depth_bias_clamp: 0.0,
-                clamp_depth: false,
-            }),
-            primitive_topology,
-            color_states: &[wgpu::ColorStateDescriptor {
-                format,
-                color_blend,
-                alpha_blend,
-                write_mask: wgpu::ColorWrite::ALL,
-            }],
-            depth_stencil_state: Some(wgpu::DepthStencilStateDescriptor {
+            primitive,
+            depth_stencil: Some(wgpu::DepthStencilState {
                 format: Texture::DEPTH_FORMAT,
                 depth_write_enabled: true,
                 depth_compare,
-                stencil: wgpu::StencilStateDescriptor {
-                    front: wgpu::StencilStateFaceDescriptor::IGNORE,
-                    back: wgpu::StencilStateFaceDescriptor::IGNORE,
-                    read_mask: 0,
-                    write_mask: 0,
-                },
+                stencil: Default::default(),
+                clamp_depth: false,
+                bias: Default::default(),
             }),
-            vertex_state: wgpu::VertexStateDescriptor {
-                index_format: wgpu::IndexFormat::Uint16,
-                vertex_buffers: &[
-                    D::Ressource::vertex_buffer_desc().unwrap_or_else(D::Vertex::desc)
-                ],
+            multisample: wgpu::MultisampleState {
+                count: sample_count,
+                mask: !0,
+                alpha_to_coverage_enabled: !fake,
             },
-            sample_count,
-            sample_mask: !0,
-            alpha_to_coverage_enabled: !fake,
             label: Some("render pipeline"),
         })
     }
@@ -512,7 +511,7 @@ impl<D: Instanciable> RawDrawer for InstanceDrawer<D> {
         } else {
             self.index_buffer.slice(..)
         };
-        render_pass.set_index_buffer(ibo);
+        render_pass.set_index_buffer(ibo, wgpu::IndexFormat::Uint16);
         render_pass.set_bind_group(0, viewer_bind_group, &[]);
         render_pass.set_bind_group(1, model_bind_group, &[]);
         render_pass.set_bind_group(2, self.instances.get_bindgroup(), &[]);
