@@ -40,11 +40,11 @@ impl Instanciable for SkyBox {
     }
 
     fn vertex_module(device: &Device) -> wgpu::ShaderModule {
-        device.create_shader_module(wgpu::include_spirv!("skybox.vert.spv"))
+        device.create_shader_module(&wgpu::include_spirv!("skybox.vert.spv"))
     }
 
     fn fragment_module(device: &Device) -> wgpu::ShaderModule {
-        device.create_shader_module(wgpu::include_spirv!("skybox.frag.spv"))
+        device.create_shader_module(&wgpu::include_spirv!("skybox.frag.spv"))
     }
 }
 
@@ -191,11 +191,11 @@ impl Instanciable for DirectionCube {
     }
 
     fn vertex_module(device: &Device) -> wgpu::ShaderModule {
-        device.create_shader_module(wgpu::include_spirv!("direction_cube.vert.spv"))
+        device.create_shader_module(&wgpu::include_spirv!("direction_cube.vert.spv"))
     }
 
     fn fragment_module(device: &Device) -> wgpu::ShaderModule {
-        device.create_shader_module(wgpu::include_spirv!("direction_cube.frag.spv"))
+        device.create_shader_module(&wgpu::include_spirv!("direction_cube.frag.spv"))
     }
 }
 
@@ -216,25 +216,12 @@ impl Vertexable for CubeVertex {
         *self
     }
 
-    fn desc<'a>() -> wgpu::VertexBufferDescriptor<'a> {
+    fn desc<'a>() -> wgpu::VertexBufferLayout<'a> {
         use std::mem;
-        wgpu::VertexBufferDescriptor {
-            stride: mem::size_of::<CubeVertex>() as wgpu::BufferAddress,
+        wgpu::VertexBufferLayout {
+            array_stride: mem::size_of::<CubeVertex>() as wgpu::BufferAddress,
             step_mode: wgpu::InputStepMode::Vertex,
-            attributes: &[
-                // Position
-                wgpu::VertexAttributeDescriptor {
-                    offset: 0,
-                    shader_location: 0,
-                    format: wgpu::VertexFormat::Float3,
-                },
-                // Texture
-                wgpu::VertexAttributeDescriptor {
-                    offset: mem::size_of::<[f32; 3]>() as wgpu::BufferAddress,
-                    shader_location: 1,
-                    format: wgpu::VertexFormat::Float2,
-                },
-            ],
+            attributes: &wgpu::vertex_attr_array![0 => Float3, 1 => Float2],
         }
     }
 }
@@ -251,17 +238,20 @@ impl RessourceProvider for DirectionTexture {
             wgpu::BindGroupLayoutEntry {
                 binding: 0,
                 visibility: wgpu::ShaderStage::FRAGMENT,
-                ty: wgpu::BindingType::SampledTexture {
+                ty: wgpu::BindingType::Texture {
                     multisampled: true,
-                    dimension: wgpu::TextureViewDimension::D2,
-                    component_type: wgpu::TextureComponentType::Uint,
+                    view_dimension: wgpu::TextureViewDimension::D2,
+                    sample_type: wgpu::TextureSampleType::Uint,
                 },
                 count: None,
             },
             wgpu::BindGroupLayoutEntry {
                 binding: 1,
                 visibility: wgpu::ShaderStage::FRAGMENT,
-                ty: wgpu::BindingType::Sampler { comparison: false },
+                ty: wgpu::BindingType::Sampler {
+                    comparison: false,
+                    filtering: false,
+                },
                 count: None,
             },
         ]

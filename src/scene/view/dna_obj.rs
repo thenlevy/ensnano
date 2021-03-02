@@ -28,25 +28,12 @@ impl Vertexable for DnaVertex {
         *self
     }
 
-    fn desc<'a>() -> wgpu::VertexBufferDescriptor<'a> {
+    fn desc<'a>() -> wgpu::VertexBufferLayout<'a> {
         use std::mem;
-        wgpu::VertexBufferDescriptor {
-            stride: mem::size_of::<DnaVertex>() as wgpu::BufferAddress,
+        wgpu::VertexBufferLayout {
+            array_stride: mem::size_of::<DnaVertex>() as wgpu::BufferAddress,
             step_mode: wgpu::InputStepMode::Vertex,
-            attributes: &[
-                // Position
-                wgpu::VertexAttributeDescriptor {
-                    offset: 0,
-                    shader_location: 0,
-                    format: wgpu::VertexFormat::Float3,
-                },
-                // Normal
-                wgpu::VertexAttributeDescriptor {
-                    offset: mem::size_of::<[f32; 3]>() as wgpu::BufferAddress,
-                    shader_location: 1,
-                    format: wgpu::VertexFormat::Float3,
-                },
-            ],
+            attributes: &wgpu::vertex_attr_array![0 => Float3, 1 => Float3],
         }
     }
 }
@@ -142,15 +129,15 @@ impl Instanciable for SphereInstance {
     }
 
     fn vertex_module(device: &wgpu::Device) -> wgpu::ShaderModule {
-        device.create_shader_module(wgpu::include_spirv!("dna_obj.vert.spv"))
+        device.create_shader_module(&wgpu::include_spirv!("dna_obj.vert.spv"))
     }
 
     fn fragment_module(device: &wgpu::Device) -> wgpu::ShaderModule {
-        device.create_shader_module(wgpu::include_spirv!("dna_obj.frag.spv"))
+        device.create_shader_module(&wgpu::include_spirv!("dna_obj.frag.spv"))
     }
 
     fn fake_fragment_module(device: &wgpu::Device) -> Option<wgpu::ShaderModule> {
-        Some(device.create_shader_module(wgpu::include_spirv!("dna_obj_fake.frag.spv")))
+        Some(device.create_shader_module(&wgpu::include_spirv!("dna_obj_fake.frag.spv")))
     }
 }
 
@@ -203,15 +190,15 @@ impl Instanciable for TubeInstance {
     }
 
     fn vertex_module(device: &wgpu::Device) -> wgpu::ShaderModule {
-        device.create_shader_module(wgpu::include_spirv!("dna_obj.vert.spv"))
+        device.create_shader_module(&wgpu::include_spirv!("dna_obj.vert.spv"))
     }
 
     fn fragment_module(device: &wgpu::Device) -> wgpu::ShaderModule {
-        device.create_shader_module(wgpu::include_spirv!("dna_obj.frag.spv"))
+        device.create_shader_module(&wgpu::include_spirv!("dna_obj.frag.spv"))
     }
 
     fn fake_fragment_module(device: &wgpu::Device) -> Option<wgpu::ShaderModule> {
-        Some(device.create_shader_module(wgpu::include_spirv!("dna_obj_fake.frag.spv")))
+        Some(device.create_shader_module(&wgpu::include_spirv!("dna_obj_fake.frag.spv")))
     }
 
     fn primitive_topology() -> wgpu::PrimitiveTopology {
