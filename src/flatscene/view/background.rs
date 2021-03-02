@@ -20,7 +20,7 @@ impl Background {
     pub fn new(
         device: &Device,
         globals_layout: &wgpu::BindGroupLayout,
-        depth_stencil_state: &Option<wgpu::DepthStencilStateDescriptor>,
+        depth_stencil: &Option<wgpu::DepthStencilState>,
     ) -> Self {
         let mut bg_geometry: VertexBuffers<BgPoint, u16> = VertexBuffers::new();
         let mut fill_tess = FillTessellator::new();
@@ -46,9 +46,9 @@ impl Background {
         });
 
         let bg_vs_module =
-            &device.create_shader_module(wgpu::include_spirv!("background.vert.spv"));
+            &device.create_shader_module(&wgpu::include_spirv!("background.vert.spv"));
         let bg_fs_module =
-            &device.create_shader_module(wgpu::include_spirv!("background.frag.spv"));
+            &device.create_shader_module(&wgpu::include_spirv!("background.frag.spv"));
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             bind_group_layouts: &[globals_layout],
@@ -56,44 +56,43 @@ impl Background {
             label: None,
         });
 
+        let targets = &[wgpu::ColorTargetState {
+            format: wgpu::TextureFormat::Bgra8UnormSrgb,
+            color_blend: wgpu::BlendState::REPLACE,
+            alpha_blend: wgpu::BlendState::REPLACE,
+            write_mask: wgpu::ColorWrite::ALL,
+        }];
+
+        let primitive = wgpu::PrimitiveState {
+            topology: wgpu::PrimitiveTopology::TriangleList,
+            front_face: wgpu::FrontFace::Ccw,
+            cull_mode: wgpu::CullMode::None,
+            ..Default::default()
+        };
+
         let bg_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             layout: Some(&pipeline_layout),
-            vertex_stage: wgpu::ProgrammableStageDescriptor {
+            vertex: wgpu::VertexState {
                 module: &bg_vs_module,
                 entry_point: "main",
-            },
-            fragment_stage: Some(wgpu::ProgrammableStageDescriptor {
-                module: &bg_fs_module,
-                entry_point: "main",
-            }),
-            rasterization_state: Some(wgpu::RasterizationStateDescriptor {
-                front_face: wgpu::FrontFace::Ccw,
-                cull_mode: wgpu::CullMode::None,
-                ..Default::default()
-            }),
-            primitive_topology: wgpu::PrimitiveTopology::TriangleList,
-            color_states: &[wgpu::ColorStateDescriptor {
-                format: wgpu::TextureFormat::Bgra8UnormSrgb,
-                color_blend: wgpu::BlendDescriptor::REPLACE,
-                alpha_blend: wgpu::BlendDescriptor::REPLACE,
-                write_mask: wgpu::ColorWrite::ALL,
-            }],
-            depth_stencil_state: depth_stencil_state.clone(),
-            vertex_state: wgpu::VertexStateDescriptor {
-                index_format: wgpu::IndexFormat::Uint16,
-                vertex_buffers: &[wgpu::VertexBufferDescriptor {
-                    stride: std::mem::size_of::<BgPoint>() as u64,
+                buffers: &[wgpu::VertexBufferLayout {
+                    array_stride: std::mem::size_of::<BgPoint>() as u64,
                     step_mode: wgpu::InputStepMode::Vertex,
-                    attributes: &[wgpu::VertexAttributeDescriptor {
-                        offset: 0,
-                        format: wgpu::VertexFormat::Float2,
-                        shader_location: 0,
-                    }],
+                    attributes: &wgpu::vertex_attr_array![0 => Float2],
                 }],
             },
-            sample_count: SAMPLE_COUNT,
-            sample_mask: !0,
-            alpha_to_coverage_enabled: false,
+            fragment: Some(wgpu::FragmentState {
+                module: &bg_fs_module,
+                entry_point: "main",
+                targets,
+            }),
+            depth_stencil: depth_stencil.clone(),
+            primitive,
+            multisample: wgpu::MultisampleState {
+                count: SAMPLE_COUNT,
+                mask: !0,
+                alpha_to_coverage_enabled: false,
+            },
             label: None,
         });
 
@@ -106,7 +105,7 @@ impl Background {
 
     pub fn draw<'a>(&'a self, render_pass: &mut wgpu::RenderPass<'a>) {
         render_pass.set_pipeline(&self.pipeline);
-        render_pass.set_index_buffer(self.ibo.slice(..));
+        render_pass.set_index_buffer(self.ibo.slice(..), wgpu::IndexFormat::Uint16);
         render_pass.set_vertex_buffer(0, self.vbo.slice(..));
         render_pass.draw_indexed(0..6, 0, 0..1);
     }
