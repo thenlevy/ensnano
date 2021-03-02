@@ -94,10 +94,10 @@ impl CharDrawer {
     fn create_pipeline(&self, globals_layout: &BindGroupLayout) -> RenderPipeline {
         let vertex_module = self
             .device
-            .create_shader_module(include_spirv!("chars.vert.spv"));
+            .create_shader_module(&include_spirv!("chars.vert.spv"));
         let fragment_module = self
             .device
-            .create_shader_module(include_spirv!("chars.frag.spv"));
+            .create_shader_module(&include_spirv!("chars.frag.spv"));
         let render_pipeline_layout =
             self.device
                 .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -112,62 +112,59 @@ impl CharDrawer {
 
         let format = wgpu::TextureFormat::Bgra8UnormSrgb;
 
-        let color_blend = wgpu::BlendDescriptor {
+        let color_blend = wgpu::BlendState {
             src_factor: wgpu::BlendFactor::SrcAlpha,
             dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
             operation: wgpu::BlendOperation::Add,
         };
 
-        let alpha_blend = wgpu::BlendDescriptor {
+        let alpha_blend = wgpu::BlendState {
             src_factor: wgpu::BlendFactor::One,
             dst_factor: wgpu::BlendFactor::One,
             operation: wgpu::BlendOperation::Add,
+        };
+        let targets = &[wgpu::ColorTargetState {
+            format,
+            color_blend,
+            alpha_blend,
+            write_mask: wgpu::ColorWrite::ALL,
+        }];
+
+        let primitive = wgpu::PrimitiveState {
+            topology: wgpu::PrimitiveTopology::TriangleStrip,
+            strip_index_format: Some(wgpu::IndexFormat::Uint16),
+            front_face: wgpu::FrontFace::Ccw,
+            cull_mode: wgpu::CullMode::None,
+            ..Default::default()
         };
 
         self.device
             .create_render_pipeline(&wgpu::RenderPipelineDescriptor {
                 layout: Some(&render_pipeline_layout),
-                vertex_stage: wgpu::ProgrammableStageDescriptor {
+                vertex: wgpu::VertexState {
                     module: &vertex_module,
                     entry_point: "main",
+                    buffers: &[CharVertex::desc()],
                 },
-                fragment_stage: Some(wgpu::ProgrammableStageDescriptor {
+                fragment: Some(wgpu::FragmentState {
                     module: &fragment_module,
                     entry_point: "main",
+                    targets,
                 }),
-                rasterization_state: Some(wgpu::RasterizationStateDescriptor {
-                    front_face: wgpu::FrontFace::Ccw,
-                    cull_mode: wgpu::CullMode::None,
-                    depth_bias: 0,
-                    depth_bias_slope_scale: 0.0,
-                    depth_bias_clamp: 0.0,
-                    clamp_depth: false,
-                }),
-                primitive_topology: wgpu::PrimitiveTopology::TriangleStrip,
-                color_states: &[wgpu::ColorStateDescriptor {
-                    format,
-                    color_blend,
-                    alpha_blend,
-                    write_mask: wgpu::ColorWrite::ALL,
-                }],
-                depth_stencil_state: Some(wgpu::DepthStencilStateDescriptor {
+                primitive,
+                depth_stencil: Some(wgpu::DepthStencilState {
                     format: Texture::DEPTH_FORMAT,
                     depth_write_enabled: true,
                     depth_compare: wgpu::CompareFunction::Less,
-                    stencil: wgpu::StencilStateDescriptor {
-                        front: wgpu::StencilStateFaceDescriptor::IGNORE,
-                        back: wgpu::StencilStateFaceDescriptor::IGNORE,
-                        read_mask: 0,
-                        write_mask: 0,
-                    },
+                    stencil: Default::default(),
+                    bias: Default::default(),
+                    clamp_depth: Default::default(),
                 }),
-                vertex_state: wgpu::VertexStateDescriptor {
-                    index_format: wgpu::IndexFormat::Uint16,
-                    vertex_buffers: &[CharVertex::desc()],
+                multisample: wgpu::MultisampleState {
+                    count: SAMPLE_COUNT,
+                    mask: !0,
+                    alpha_to_coverage_enabled: false,
                 },
-                sample_count: SAMPLE_COUNT,
-                sample_mask: !0,
-                alpha_to_coverage_enabled: false,
                 label: Some("render pipeline"),
             })
     }

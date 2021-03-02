@@ -18,23 +18,12 @@ unsafe impl bytemuck::Pod for Vertex {}
 unsafe impl bytemuck::Zeroable for Vertex {}
 
 impl Vertex {
-    pub fn desc<'a>() -> wgpu::VertexBufferDescriptor<'a> {
+    pub fn desc<'a>() -> wgpu::VertexBufferLayout<'a> {
         use std::mem;
-        wgpu::VertexBufferDescriptor {
-            stride: mem::size_of::<Vertex>() as wgpu::BufferAddress,
+        wgpu::VertexBufferLayout {
+            array_stride: mem::size_of::<Vertex>() as wgpu::BufferAddress,
             step_mode: wgpu::InputStepMode::Vertex,
-            attributes: &[
-                wgpu::VertexAttributeDescriptor {
-                    offset: 0,
-                    shader_location: 0,
-                    format: wgpu::VertexFormat::Float2,
-                },
-                wgpu::VertexAttributeDescriptor {
-                    offset: mem::size_of::<[f32; 2]>() as wgpu::BufferAddress,
-                    shader_location: 1,
-                    format: wgpu::VertexFormat::Float2,
-                },
-            ],
+            attributes: &wgpu::vertex_attr_array![0 => Float2, 1 => Float2],
         }
     }
 }
@@ -189,17 +178,20 @@ impl Letter {
                     wgpu::BindGroupLayoutEntry {
                         binding: 0,
                         visibility: wgpu::ShaderStage::FRAGMENT,
-                        ty: wgpu::BindingType::SampledTexture {
+                        ty: wgpu::BindingType::Texture {
                             multisampled: true,
-                            dimension: wgpu::TextureViewDimension::D2,
-                            component_type: wgpu::TextureComponentType::Uint,
+                            view_dimension: wgpu::TextureViewDimension::D2,
+                            sample_type: wgpu::TextureSampleType::Uint,
                         },
                         count: None,
                     },
                     wgpu::BindGroupLayoutEntry {
                         binding: 1,
                         visibility: wgpu::ShaderStage::FRAGMENT,
-                        ty: wgpu::BindingType::Sampler { comparison: false },
+                        ty: wgpu::BindingType::Sampler {
+                            comparison: false,
+                            filtering: false,
+                        },
                         count: None,
                     },
                 ],
