@@ -31,7 +31,7 @@ impl Texture {
             sample_count,
             dimension: wgpu::TextureDimension::D2,
             format: Self::DEPTH_FORMAT,
-            usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT
+            usage: wgpu::TextureUsage::RENDER_ATTACHMENT
                 | wgpu::TextureUsage::SAMPLED
                 | wgpu::TextureUsage::COPY_SRC,
             label: Some("desc"),
@@ -63,6 +63,7 @@ impl Texture {
             lod_max_clamp: 100.0,
             compare: Some(wgpu::CompareFunction::LessEqual), // 5.
             anisotropy_clamp: None,
+            border_color: None,
         });
 
         Self {
@@ -110,7 +111,7 @@ impl Texture {
             sample_count,
             dimension: wgpu::TextureDimension::D2,
             format,
-            usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
+            usage: wgpu::TextureUsage::RENDER_ATTACHMENT,
         };
 
         device
@@ -132,7 +133,7 @@ impl SampledTexture {
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
             format: wgpu::TextureFormat::Bgra8UnormSrgb,
-            usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT | wgpu::TextureUsage::SAMPLED,
+            usage: wgpu::TextureUsage::RENDER_ATTACHMENT | wgpu::TextureUsage::SAMPLED,
         };
 
         let texture = device.create_texture(texture_descriptor);
@@ -143,17 +144,20 @@ impl SampledTexture {
                 wgpu::BindGroupLayoutEntry {
                     binding: 0,
                     visibility: wgpu::ShaderStage::FRAGMENT,
-                    ty: wgpu::BindingType::SampledTexture {
+                    ty: wgpu::BindingType::Texture {
                         multisampled: true,
-                        dimension: wgpu::TextureViewDimension::D2,
-                        component_type: wgpu::TextureComponentType::Uint,
+                        view_dimension: wgpu::TextureViewDimension::D2,
+                        sample_type: wgpu::TextureSampleType::Uint,
                     },
                     count: None,
                 },
                 wgpu::BindGroupLayoutEntry {
                     binding: 1,
                     visibility: wgpu::ShaderStage::FRAGMENT,
-                    ty: wgpu::BindingType::Sampler { comparison: false },
+                    ty: wgpu::BindingType::Sampler {
+                        filtering: false,
+                        comparison: false,
+                    },
                     count: None,
                 },
             ],

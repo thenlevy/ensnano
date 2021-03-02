@@ -54,10 +54,10 @@ pub use rotation_widget::{RotationMode, RotationWidgetDescriptor, RotationWidget
 static MODEL_BG_ENTRY: &'static [wgpu::BindGroupLayoutEntry] = &[wgpu::BindGroupLayoutEntry {
     binding: 0,
     visibility: wgpu::ShaderStage::from_bits_truncate(wgpu::ShaderStage::VERTEX.bits()),
-    ty: wgpu::BindingType::StorageBuffer {
-        dynamic: false,
+    ty: wgpu::BindingType::Buffer {
+        has_dynamic_offset: false,
         min_binding_size: None,
-        readonly: true,
+        ty: wgpu::BufferBindingType::Storage { read_only: true },
     },
     count: None,
 }];
@@ -412,6 +412,7 @@ impl View {
 
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: None,
                 color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
                     attachment,
                     resolve_target,
@@ -541,6 +542,7 @@ impl View {
         }
         if !fake_color {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: None,
                 color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
                     attachment,
                     resolve_target,
