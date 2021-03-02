@@ -2,7 +2,7 @@
 
 layout(location=0) in vec2 a_position;
 
-layout(location=0) out uint v_grid_type;
+layout(location=0) out flat uint v_grid_type;
 layout(location=1) out vec2 v_tex_honney_coords;
 layout(location=2) out vec2 v_tex_square_coords;
 layout(location=3) out vec3 v_color;

@@ -20,11 +20,11 @@ impl DynamicBindGroup {
     pub fn new(device: Rc<Device>, queue: Rc<Queue>) -> Self {
         let buffer = device.create_buffer(&BufferDescriptor {
             label: None,
-            size: 0,
+            size: 1,
             usage: wgpu::BufferUsage::STORAGE | wgpu::BufferUsage::COPY_DST,
             mapped_at_creation: false,
         });
-        let capacity = 0;
+        let capacity = 1;
         let length = 0;
 
         let layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
