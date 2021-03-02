@@ -55,22 +55,11 @@ impl super::instances_drawer::Vertexable for GridDiscVertex {
         }
     }
 
-    fn desc<'a>() -> wgpu::VertexBufferDescriptor<'a> {
-        wgpu::VertexBufferDescriptor {
-            stride: std::mem::size_of::<GridDiscVertexRaw>() as wgpu::BufferAddress,
+    fn desc<'a>() -> wgpu::VertexBufferLayout<'a> {
+        wgpu::VertexBufferLayout {
+            array_stride: std::mem::size_of::<GridDiscVertexRaw>() as wgpu::BufferAddress,
             step_mode: wgpu::InputStepMode::Vertex,
-            attributes: &[
-                wgpu::VertexAttributeDescriptor {
-                    offset: 0,
-                    shader_location: 0,
-                    format: wgpu::VertexFormat::Float3,
-                },
-                wgpu::VertexAttributeDescriptor {
-                    offset: std::mem::size_of::<[f32; 3]>() as wgpu::BufferAddress,
-                    shader_location: 1,
-                    format: wgpu::VertexFormat::Float4,
-                },
-            ],
+            attributes: &wgpu::vertex_attr_array![0 => Float3, 1 => Float4],
         }
     }
 }
@@ -109,11 +98,11 @@ impl Instanciable for GridDisc {
     }
 
     fn vertex_module(device: &Device) -> wgpu::ShaderModule {
-        device.create_shader_module(include_spirv!("grid_disc.vert.spv"))
+        device.create_shader_module(&include_spirv!("grid_disc.vert.spv"))
     }
 
     fn fragment_module(device: &Device) -> wgpu::ShaderModule {
-        device.create_shader_module(include_spirv!("grid_disc.frag.spv"))
+        device.create_shader_module(&include_spirv!("grid_disc.frag.spv"))
     }
 
     fn to_raw_instance(&self) -> GridDiscRaw {

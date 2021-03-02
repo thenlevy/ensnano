@@ -41,7 +41,7 @@ impl SquareTexture {
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
             format: wgpu::TextureFormat::Rgba8UnormSrgb,
-            usage: wgpu::TextureUsage::SAMPLED | wgpu::TextureUsage::OUTPUT_ATTACHMENT,
+            usage: wgpu::TextureUsage::SAMPLED | wgpu::TextureUsage::RENDER_ATTACHMENT,
             label: Some("square texture"),
         });
 
@@ -114,6 +114,7 @@ fn fill_square_texture(target: &TextureView, device: &Device, encoder: &mut wgpu
         None
     };
     let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+        label: None,
         color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
             attachment,
             resolve_target,
@@ -136,7 +137,7 @@ fn fill_square_texture(target: &TextureView, device: &Device, encoder: &mut wgpu
 
     render_pass.set_pipeline(&pipeline);
 
-    render_pass.set_index_buffer(ibo.slice(..));
+    render_pass.set_index_buffer(ibo.slice(..), wgpu::IndexFormat::Uint16);
     render_pass.set_vertex_buffer(0, vbo.slice(..));
     render_pass.draw_indexed(0..vertices.indices.len() as u32, 0, 0..1);
 }
@@ -182,7 +183,7 @@ impl HonneyTexture {
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
             format: wgpu::TextureFormat::Rgba8UnormSrgb,
-            usage: wgpu::TextureUsage::SAMPLED | wgpu::TextureUsage::OUTPUT_ATTACHMENT,
+            usage: wgpu::TextureUsage::SAMPLED | wgpu::TextureUsage::RENDER_ATTACHMENT,
             label: Some("honneycomb texture"),
         });
 
@@ -259,6 +260,7 @@ fn fill_honneycomb_texture(
         None
     };
     let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+        label: None,
         color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
             attachment,
             resolve_target,
@@ -281,7 +283,7 @@ fn fill_honneycomb_texture(
 
     render_pass.set_pipeline(&pipeline);
 
-    render_pass.set_index_buffer(ibo.slice(..));
+    render_pass.set_index_buffer(ibo.slice(..), wgpu::IndexFormat::Uint16);
     render_pass.set_vertex_buffer(0, vbo.slice(..));
     render_pass.draw_indexed(0..vertices.indices.len() as u32, 0, 0..1);
 }
@@ -321,48 +323,50 @@ impl StrokeVertexConstructor<Vertex> for Custom {
 }
 
 fn pipeline(device: &Device) -> wgpu::RenderPipeline {
-    let vs_module = &device.create_shader_module(wgpu::include_spirv!("texture.vert.spv"));
-    let fs_module = &device.create_shader_module(wgpu::include_spirv!("texture.frag.spv"));
+    let vs_module = &device.create_shader_module(&wgpu::include_spirv!("texture.vert.spv"));
+    let fs_module = &device.create_shader_module(&wgpu::include_spirv!("texture.frag.spv"));
     let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
         bind_group_layouts: &[],
         push_constant_ranges: &[],
         label: None,
     });
+    let targets = &[wgpu::ColorTargetState {
+        format: wgpu::TextureFormat::Bgra8UnormSrgb,
+        color_blend: wgpu::BlendState::REPLACE,
+        alpha_blend: wgpu::BlendState::REPLACE,
+        write_mask: wgpu::ColorWrite::ALL,
+    }];
+
+    let primitive = wgpu::PrimitiveState {
+        topology: wgpu::PrimitiveTopology::TriangleList,
+        front_face: wgpu::FrontFace::Ccw,
+        cull_mode: wgpu::CullMode::None,
+        ..Default::default()
+    };
 
     let desc = wgpu::RenderPipelineDescriptor {
         layout: Some(&pipeline_layout),
-        vertex_stage: wgpu::ProgrammableStageDescriptor {
+        vertex: wgpu::VertexState {
             module: &vs_module,
             entry_point: "main",
-        },
-        fragment_stage: Some(wgpu::ProgrammableStageDescriptor {
-            module: &fs_module,
-            entry_point: "main",
-        }),
-        rasterization_state: Some(wgpu::RasterizationStateDescriptor {
-            front_face: wgpu::FrontFace::Ccw,
-            cull_mode: wgpu::CullMode::None,
-            ..Default::default()
-        }),
-        primitive_topology: wgpu::PrimitiveTopology::TriangleList,
-        color_states: &[wgpu::ColorStateDescriptor {
-            format: wgpu::TextureFormat::Bgra8UnormSrgb,
-            color_blend: wgpu::BlendDescriptor::REPLACE,
-            alpha_blend: wgpu::BlendDescriptor::REPLACE,
-            write_mask: wgpu::ColorWrite::ALL,
-        }],
-        depth_stencil_state: None,
-        vertex_state: wgpu::VertexStateDescriptor {
-            index_format: wgpu::IndexFormat::Uint16,
-            vertex_buffers: &[wgpu::VertexBufferDescriptor {
-                stride: std::mem::size_of::<Vertex>() as u64,
+            buffers: &[wgpu::VertexBufferLayout {
+                array_stride: std::mem::size_of::<Vertex>() as u64,
                 step_mode: wgpu::InputStepMode::Vertex,
                 attributes: &wgpu::vertex_attr_array![0 => Float2, 1 => Float2],
             }],
         },
-        sample_count: SAMPLE_COUNT,
-        sample_mask: !0,
-        alpha_to_coverage_enabled: false,
+        fragment: Some(wgpu::FragmentState {
+            module: &fs_module,
+            entry_point: "main",
+            targets,
+        }),
+        primitive,
+        depth_stencil: None,
+        multisample: wgpu::MultisampleState {
+            count: SAMPLE_COUNT,
+            mask: !0,
+            alpha_to_coverage_enabled: false,
+        },
         label: None,
     };
 
