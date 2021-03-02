@@ -437,6 +437,8 @@ impl<D: Instanciable> InstanceDrawer<D> {
         let primitive = wgpu::PrimitiveState {
             topology: primitive_topology,
             strip_index_format,
+            front_face: wgpu::FrontFace::Ccw,
+            cull_mode: wgpu::CullMode::None,
             ..Default::default()
         };
 

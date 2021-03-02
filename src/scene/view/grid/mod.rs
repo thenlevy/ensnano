@@ -296,9 +296,9 @@ impl Vertexable for GridVertex {
         *self
     }
 
-    fn desc<'a>() -> wgpu::VertexBufferDescriptor<'a> {
-        wgpu::VertexBufferDescriptor {
-            stride: std::mem::size_of::<GridVertex>() as wgpu::BufferAddress,
+    fn desc<'a>() -> wgpu::VertexBufferLayout<'a> {
+        wgpu::VertexBufferLayout {
+            array_stride: std::mem::size_of::<GridVertex>() as wgpu::BufferAddress,
             step_mode: wgpu::InputStepMode::Vertex,
             attributes: &wgpu::vertex_attr_array![0 => Float2],
         }
@@ -327,33 +327,39 @@ impl RessourceProvider for GridTextures {
             wgpu::BindGroupLayoutEntry {
                 binding: 0,
                 visibility: wgpu::ShaderStage::FRAGMENT,
-                ty: wgpu::BindingType::SampledTexture {
+                ty: wgpu::BindingType::Texture {
                     multisampled: true,
-                    dimension: wgpu::TextureViewDimension::D2,
-                    component_type: wgpu::TextureComponentType::Uint,
+                    view_dimension: wgpu::TextureViewDimension::D2,
+                    sample_type: wgpu::TextureSampleType::Uint,
                 },
                 count: None,
             },
             wgpu::BindGroupLayoutEntry {
                 binding: 1,
                 visibility: wgpu::ShaderStage::FRAGMENT,
-                ty: wgpu::BindingType::Sampler { comparison: false },
+                ty: wgpu::BindingType::Sampler {
+                    comparison: false,
+                    filtering: false,
+                },
                 count: None,
             },
             wgpu::BindGroupLayoutEntry {
                 binding: 2,
                 visibility: wgpu::ShaderStage::FRAGMENT,
-                ty: wgpu::BindingType::SampledTexture {
+                ty: wgpu::BindingType::Texture {
                     multisampled: true,
-                    dimension: wgpu::TextureViewDimension::D2,
-                    component_type: wgpu::TextureComponentType::Uint,
+                    view_dimension: wgpu::TextureViewDimension::D2,
+                    sample_type: wgpu::TextureSampleType::Uint,
                 },
                 count: None,
             },
             wgpu::BindGroupLayoutEntry {
                 binding: 3,
                 visibility: wgpu::ShaderStage::FRAGMENT,
-                ty: wgpu::BindingType::Sampler { comparison: false },
+                ty: wgpu::BindingType::Sampler {
+                    comparison: false,
+                    filtering: false,
+                },
                 count: None,
             },
         ]
@@ -416,11 +422,11 @@ impl Instanciable for GridInstance {
     }
 
     fn vertex_module(device: &Device) -> wgpu::ShaderModule {
-        device.create_shader_module(include_spirv!("grid.vert.spv"))
+        device.create_shader_module(&include_spirv!("grid.vert.spv"))
     }
 
     fn fragment_module(device: &Device) -> wgpu::ShaderModule {
-        device.create_shader_module(include_spirv!("grid.frag.spv"))
+        device.create_shader_module(&include_spirv!("grid.frag.spv"))
     }
 
     fn alpha_to_coverage_enabled() -> bool {
