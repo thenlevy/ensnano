@@ -38,8 +38,9 @@ pub fn create_light(device: &Device) -> (BindGroup, BindGroupLayout) {
             entries: &[wgpu::BindGroupLayoutEntry {
                 binding: 0,
                 visibility: wgpu::ShaderStage::VERTEX | wgpu::ShaderStage::FRAGMENT,
-                ty: wgpu::BindingType::UniformBuffer {
-                    dynamic: false,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Uniform,
+                    has_dynamic_offset: false,
                     min_binding_size: None,
                 },
                 count: None,
@@ -51,7 +52,11 @@ pub fn create_light(device: &Device) -> (BindGroup, BindGroupLayout) {
         layout: &light_bind_group_layout,
         entries: &[wgpu::BindGroupEntry {
             binding: 0,
-            resource: wgpu::BindingResource::Buffer(light_buffer.slice(..)),
+            resource: wgpu::BindingResource::Buffer {
+                buffer: &light_buffer,
+                offset: 0,
+                size: None,
+            },
         }],
         label: Some("light bind group"),
     });
