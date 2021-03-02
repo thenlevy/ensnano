@@ -232,12 +232,14 @@ pub struct VertexRaw {
 unsafe impl bytemuck::Zeroable for VertexRaw {}
 unsafe impl bytemuck::Pod for VertexRaw {}
 
+const VERTEX_ATTR_ARRAY: [wgpu::VertexAttribute; 2] =
+    wgpu::vertex_attr_array![0 => Float3, 1 => Float4];
 impl VertexRaw {
     pub fn buffer_desc<'a>() -> wgpu::VertexBufferLayout<'a> {
         wgpu::VertexBufferLayout {
             array_stride: std::mem::size_of::<VertexRaw>() as wgpu::BufferAddress,
             step_mode: wgpu::InputStepMode::Vertex,
-            attributes: &wgpu::vertex_attr_array![0 => Float3, 1 => Float4],
+            attributes: &VERTEX_ATTR_ARRAY,
         }
     }
 }

@@ -21,12 +21,14 @@ struct Vertex {
     pub color: [f32; 4],
 }
 
+const VERTEX_ATTR_ARRAY: [wgpu::VertexAttribute; 2] =
+    wgpu::vertex_attr_array![0 => Float2, 1 => Float4];
 impl Vertex {
     fn desc<'a>() -> wgpu::VertexBufferLayout<'a> {
         wgpu::VertexBufferLayout {
             array_stride: std::mem::size_of::<Vertex>() as wgpu::BufferAddress,
             step_mode: wgpu::InputStepMode::Vertex,
-            attributes: &wgpu::vertex_attr_array![0 => Float2, 1 => Float4],
+            attributes: &VERTEX_ATTR_ARRAY,
         }
     }
 }

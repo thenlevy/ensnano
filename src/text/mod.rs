@@ -17,13 +17,15 @@ pub struct Vertex {
 unsafe impl bytemuck::Pod for Vertex {}
 unsafe impl bytemuck::Zeroable for Vertex {}
 
+const VERTEX_ATTR_ARRAY: [wgpu::VertexAttribute; 2] =
+    wgpu::vertex_attr_array![0 => Float2, 1 => Float2];
 impl Vertex {
     pub fn desc<'a>() -> wgpu::VertexBufferLayout<'a> {
         use std::mem;
         wgpu::VertexBufferLayout {
             array_stride: mem::size_of::<Vertex>() as wgpu::BufferAddress,
             step_mode: wgpu::InputStepMode::Vertex,
-            attributes: &wgpu::vertex_attr_array![0 => Float2, 1 => Float2],
+            attributes: &VERTEX_ATTR_ARRAY,
         }
     }
 }
