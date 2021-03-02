@@ -37,7 +37,7 @@ impl HelixView {
     }
 
     pub fn draw<'a>(&'a self, render_pass: &mut RenderPass<'a>) {
-        render_pass.set_index_buffer(self.index_buffer.get_slice());
+        render_pass.set_index_buffer(self.index_buffer.get_slice(), wgpu::IndexFormat::Uint16);
         render_pass.set_vertex_buffer(0, self.vertex_buffer.get_slice());
         render_pass.draw_indexed(0..self.num_instance, 0, 0..1);
     }
@@ -83,7 +83,7 @@ impl StrandView {
     }
 
     pub fn draw<'a>(&'a self, render_pass: &mut RenderPass<'a>) {
-        render_pass.set_index_buffer(self.index_buffer.get_slice());
+        render_pass.set_index_buffer(self.index_buffer.get_slice(), wgpu::IndexFormat::Uint16);
         render_pass.set_vertex_buffer(0, self.vertex_buffer.get_slice());
         render_pass.draw_indexed(0..self.num_instance, 0, 0..1);
     }

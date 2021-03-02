@@ -33,17 +33,20 @@ impl RessourceProvider for Letter {
             wgpu::BindGroupLayoutEntry {
                 binding: 0,
                 visibility: wgpu::ShaderStage::FRAGMENT,
-                ty: wgpu::BindingType::SampledTexture {
+                ty: wgpu::BindingType::Texture {
                     multisampled: true,
-                    dimension: wgpu::TextureViewDimension::D2,
-                    component_type: wgpu::TextureComponentType::Uint,
+                    view_dimension: wgpu::TextureViewDimension::D2,
+                    sample_type: wgpu::TextureSampleType::Uint,
                 },
                 count: None,
             },
             wgpu::BindGroupLayoutEntry {
                 binding: 1,
                 visibility: wgpu::ShaderStage::FRAGMENT,
-                ty: wgpu::BindingType::Sampler { comparison: false },
+                ty: wgpu::BindingType::Sampler {
+                    comparison: false,
+                    filtering: false,
+                },
                 count: None,
             },
         ]
@@ -51,7 +54,7 @@ impl RessourceProvider for Letter {
 
     /// This methods allows the ressource tho provide the vertex buffer. If the return value is
     /// Some, it takes priority over the Instanciable's vertices.
-    fn vertex_buffer_desc() -> Option<wgpu::VertexBufferDescriptor<'static>>
+    fn vertex_buffer_desc() -> Option<wgpu::VertexBufferLayout<'static>>
     where
         Self: Sized,
     {
@@ -96,9 +99,9 @@ impl Vertexable for LetterVertex {
         *self
     }
 
-    fn desc<'a>() -> wgpu::VertexBufferDescriptor<'a> {
-        wgpu::VertexBufferDescriptor {
-            stride: std::mem::size_of::<LetterVertex>() as wgpu::BufferAddress,
+    fn desc<'a>() -> wgpu::VertexBufferLayout<'a> {
+        wgpu::VertexBufferLayout {
+            array_stride: std::mem::size_of::<LetterVertex>() as wgpu::BufferAddress,
             step_mode: wgpu::InputStepMode::Vertex,
             attributes: &wgpu::vertex_attr_array![0 => Float2],
         }
@@ -146,11 +149,11 @@ impl Instanciable for LetterInstance {
     }
 
     fn vertex_module(device: &Device) -> wgpu::ShaderModule {
-        device.create_shader_module(include_spirv!("letter.vert.spv"))
+        device.create_shader_module(&include_spirv!("letter.vert.spv"))
     }
 
     fn fragment_module(device: &Device) -> wgpu::ShaderModule {
-        device.create_shader_module(include_spirv!("letter.frag.spv"))
+        device.create_shader_module(&include_spirv!("letter.frag.spv"))
     }
 
     fn alpha_to_coverage_enabled() -> bool {
