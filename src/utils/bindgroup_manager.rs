@@ -31,11 +31,11 @@ impl DynamicBindGroup {
             entries: &[wgpu::BindGroupLayoutEntry {
                 binding: 0,
                 visibility: wgpu::ShaderStage::VERTEX,
-                ty: wgpu::BindingType::StorageBuffer {
+                ty: wgpu::BindingType::Buffer {
                     // We don't plan on changing the size of this buffer
-                    dynamic: false,
+                    has_dynamic_offset: false,
                     // The shader is not allowed to modify it's contents
-                    readonly: true,
+                    ty: wgpu::BufferBindingType::Storage { read_only: true },
                     min_binding_size: None,
                 },
                 count: None,
@@ -47,7 +47,11 @@ impl DynamicBindGroup {
             layout: &layout,
             entries: &[wgpu::BindGroupEntry {
                 binding: 0,
-                resource: wgpu::BindingResource::Buffer(buffer.slice(..)),
+                resource: wgpu::BindingResource::Buffer {
+                    buffer: &buffer,
+                    size: None,
+                    offset: 0,
+                },
             }],
             label: Some("instance_bind_group"),
         });
@@ -79,7 +83,11 @@ impl DynamicBindGroup {
                 layout: &self.layout,
                 entries: &[wgpu::BindGroupEntry {
                     binding: 0,
-                    resource: wgpu::BindingResource::Buffer(self.buffer.slice(..self.length)),
+                    resource: wgpu::BindingResource::Buffer {
+                        buffer: &self.buffer,
+                        size: wgpu::BufferSize::new(self.length),
+                        offset: 0,
+                    },
                 }],
                 label: None,
             });
@@ -89,7 +97,11 @@ impl DynamicBindGroup {
                 layout: &self.layout,
                 entries: &[wgpu::BindGroupEntry {
                     binding: 0,
-                    resource: wgpu::BindingResource::Buffer(self.buffer.slice(..self.length)),
+                    resource: wgpu::BindingResource::Buffer {
+                        buffer: &self.buffer,
+                        size: wgpu::BufferSize::new(self.length),
+                        offset: 0,
+                    },
                 }],
                 label: None,
             });
@@ -126,8 +138,9 @@ static UNIFORM_BG_ENTRY: &'static [wgpu::BindGroupLayoutEntry] = &[wgpu::BindGro
     visibility: wgpu::ShaderStage::from_bits_truncate(
         wgpu::ShaderStage::VERTEX.bits() | wgpu::ShaderStage::FRAGMENT.bits(),
     ),
-    ty: wgpu::BindingType::UniformBuffer {
-        dynamic: false,
+    ty: wgpu::BindingType::Buffer {
+        ty: wgpu::BufferBindingType::Uniform,
+        has_dynamic_offset: false,
         min_binding_size: None,
     },
     count: None,
@@ -151,7 +164,11 @@ impl UniformBindGroup {
                 // perspective and view
                 wgpu::BindGroupEntry {
                     binding: 0,
-                    resource: wgpu::BindingResource::Buffer(buffer.slice(..)),
+                    resource: wgpu::BindingResource::Buffer {
+                        buffer: &buffer,
+                        size: None,
+                        offset: 0,
+                    },
                 },
             ],
             label: Some("uniform_bind_group"),
