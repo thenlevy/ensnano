@@ -297,6 +297,26 @@ impl HelixSystem {
             *state.get_mut(entry) += 10. * self.epsilon_borwnian * gx;
             *state.get_mut(entry + 1) += 10. * self.epsilon_borwnian * gy;
             *state.get_mut(entry + 2) += 10. * self.epsilon_borwnian * gz;
+            if let ShakeTarget::Helix(h_id) = nucl {
+                let delta_roll =
+                    rnd.gen::<f32>() * 2. * std::f32::consts::PI - std::f32::consts::PI;
+                let mut iterator = state.iter().skip(entry + 3);
+                let rotation = Rotor3::new(
+                    *iterator.next().unwrap(),
+                    Bivec3::new(
+                        *iterator.next().unwrap(),
+                        *iterator.next().unwrap(),
+                        *iterator.next().unwrap(),
+                    ),
+                )
+                .normalized();
+                let rotation = rotation * Rotor3::from_rotation_yz(delta_roll);
+                let mut iterator = state.iter_mut().skip(entry + 3);
+                *iterator.next().unwrap() = rotation.s;
+                *iterator.next().unwrap() = rotation.bv.xy;
+                *iterator.next().unwrap() = rotation.bv.xz;
+                *iterator.next().unwrap() = rotation.bv.yz;
+            }
         }
     }
 }
