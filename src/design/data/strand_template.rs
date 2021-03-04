@@ -361,6 +361,7 @@ impl Data {
         }
         if ret {
             let final_state = self.design.strands.clone();
+            self.update_pasted_strand(vec![]);
             Some((initial_state, final_state))
         } else {
             None
