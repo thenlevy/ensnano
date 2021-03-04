@@ -35,12 +35,7 @@ impl Strand {
         }
     }
 
-    pub fn to_vertices(
-        &self,
-        helices: &[Helix],
-        free_end: &Option<FreeEnd>,
-        selection: &FlatSelection,
-    ) -> Vertices {
+    pub fn to_vertices(&self, helices: &[Helix], free_end: &Option<FreeEnd>) -> Vertices {
         let mut vertices = Vertices::new();
         if self.points.len() == 0 {
             return vertices;
@@ -87,15 +82,6 @@ impl Strand {
                 builder.begin(point, &[depth, sign]);
             //} else if last_point.is_some() && Some(nucl.helix) != last_nucl.map(|n| n.helix) {
             } else if xover {
-                let cst = if let FlatSelection::Bound(_, n1, n2) = *selection {
-                    if n1 == *nucl || n2 == *nucl {
-                        5.
-                    } else {
-                        1.
-                    }
-                } else {
-                    1.
-                };
                 let depth = depth.min(last_depth.unwrap_or(depth));
                 if let Some(nucl) = last_nucl {
                     // We are drawing a xover
