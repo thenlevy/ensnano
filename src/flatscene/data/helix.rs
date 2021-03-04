@@ -643,7 +643,7 @@ impl Helix {
         if let Some((x0, x1)) =
             self.screen_rectangle_intersection(camera, left, top, right, bottom, HelixLine::Middle)
         {
-            if nucl.position >= x0.floor() as isize && nucl.position <= x1.ceil() as isize {
+            if nucl.position >= x0.floor() as isize && nucl.position < x1.ceil() as isize {
                 return true;
             }
         }
@@ -651,7 +651,7 @@ impl Helix {
             if let Some((x0, x1)) =
                 self.screen_rectangle_intersection(camera, left, top, right, bottom, HelixLine::Top)
             {
-                if nucl.position >= x0.floor() as isize && nucl.position <= x1.ceil() as isize {
+                if nucl.position >= x0.floor() as isize && nucl.position < x1.ceil() as isize {
                     return true;
                 }
             }
@@ -664,7 +664,7 @@ impl Helix {
                 bottom,
                 HelixLine::Bottom,
             ) {
-                if nucl.position >= x0.floor() as isize && nucl.position <= x1.ceil() as isize {
+                if nucl.position >= x0.floor() as isize && nucl.position < x1.ceil() as isize {
                     return true;
                 }
             }
