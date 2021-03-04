@@ -2325,7 +2325,8 @@ impl Data {
     }
 
     pub fn notify_death(&mut self) {
-        self.stop_rolling()
+        self.stop_rolling();
+        self.stop_simulations();
     }
 
     pub fn roll_helix(&mut self, h_id: usize, roll: f32) {

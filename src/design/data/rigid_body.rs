@@ -1698,6 +1698,11 @@ impl Data {
         self.helix_simulation_ptr = None;
     }
 
+    pub(super) fn stop_simulations(&mut self) {
+        self.stop_free_helix_simulation();
+        self.stop_rigid_body();
+    }
+
     pub fn read_intervals(&self) -> IntervalResult {
         // TODO remove pub after testing
         let mut nucl_map = HashMap::new();
