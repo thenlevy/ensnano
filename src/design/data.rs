@@ -228,6 +228,7 @@ impl Data {
             };
             let parameters = self.design.parameters.unwrap_or_default();
             let (helices, nb_nucl) = hyperboloid.make_helices(&parameters);
+            let nb_nucl = nb_nucl.min(5000);
             let mut key = self.design.helices.keys().max().map(|m| m + 1).unwrap_or(0);
             let orientation = self.hyperboloid_draft.as_ref().unwrap().orientation;
             for (i, mut h) in helices.into_iter().enumerate() {
