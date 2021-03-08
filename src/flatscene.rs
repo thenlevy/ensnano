@@ -405,13 +405,15 @@ impl Application for FlatScene {
             Notification::FitRequest => self.controller[self.selected_design].fit(),
             Notification::Selection3D(selection) => {
                 self.needs_redraw(Duration::from_nanos(1));
-                self.data[self.selected_design]
-                    .borrow_mut()
-                    .set_selection(*selection.get(0).unwrap_or(&Selection::Nothing));
-                self.data[self.selected_design].borrow_mut().notify_update();
-                self.view[self.selected_design]
-                    .borrow_mut()
-                    .center_selection();
+                if selection.len() <= 1 {
+                    self.data[self.selected_design]
+                        .borrow_mut()
+                        .set_selection(*selection.get(0).unwrap_or(&Selection::Nothing));
+                    self.data[self.selected_design].borrow_mut().notify_update();
+                    self.view[self.selected_design]
+                        .borrow_mut()
+                        .center_selection();
+                }
             }
             Notification::Save(d_id) => self.data[d_id].borrow_mut().save_isometry(),
             Notification::ToggleText(b) => {

@@ -24,6 +24,7 @@ struct HelixSystem {
     last_state: Option<Vector<f32>>,
     parameters: Parameters,
     anchors: Vec<(RigidNucl, Vec3)>,
+    free_anchors: Vec<(usize, Vec3)>,
     current_time: f32,
     next_time: f32,
     brownian_heap: BinaryHeap<(OrderedFloat<f32>, usize)>,
@@ -162,6 +163,17 @@ impl HelixSystem {
             let torque0 = (point_0 - positions[nucl.helix]).cross(force);
 
             torques[nucl.helix] += torque0;
+        }
+        for (id, position) in self.free_anchors.iter() {
+            let point_0 = free_nucl_pos(id);
+            let len = (point_0 - *position).mag();
+            let force = if len > 1e-5 {
+                self.rigid_parameters.k_spring * k_anchor * -(point_0 - *position)
+            } else {
+                Vec3::zero()
+            };
+
+            forces[self.helices.len() + *id] += 10. * force;
         }
         let segments: Vec<(Vec3, Vec3)> = (0..self.helices.len())
             .map(|n| {
@@ -1242,17 +1254,20 @@ impl Data {
             }
         }
         let mut anchors = vec![];
+        let mut free_anchors = vec![];
         for anchor in self.anchors.iter() {
-            if let Some(free_nucl) = interval_results.nucl_map.get(anchor) {
-                if let Some(n_id) = self.identifier_nucl.get(anchor) {
+            if let Some(n_id) = self.identifier_nucl.get(anchor) {
+                let position: Vec3 = self.space_position[n_id].into();
+                if let Some(free_nucl) = interval_results.nucl_map.get(anchor) {
                     if let Some(rigid_helix) = free_nucl.helix {
                         let rigid_nucl = RigidNucl {
                             helix: rigid_helix,
                             position: anchor.position,
                             forward: anchor.forward,
                         };
-                        let position: Vec3 = self.space_position[n_id].into();
                         anchors.push((rigid_nucl, position));
+                    } else if let Some(id) = interval_results.free_nucl_ids.get(free_nucl) {
+                        free_anchors.push((*id, position));
                     }
                 }
             }
@@ -1263,8 +1278,10 @@ impl Data {
         let lambda_brownian = 0.5f32;
         let exp_law = Exp::new(lambda_brownian).unwrap();
         for i in 0..interval_results.free_nucls.len() {
-            let t = rnd.sample(exp_law);
-            brownian_heap.push((t.into(), i));
+            if !free_anchors.iter().any(|(x, _)| *x == i) {
+                let t = rnd.sample(exp_law);
+                brownian_heap.push((t.into(), i));
+            }
         }
         Some(HelixSystem {
             helices: rigid_helices,
@@ -1277,6 +1294,7 @@ impl Data {
             time_span,
             parameters,
             anchors,
+            free_anchors,
             brownian_heap,
             epsilon_borwnian,
             lambda_brownian,
@@ -1349,6 +1367,7 @@ impl Data {
             time_span,
             parameters,
             anchors,
+            free_anchors: vec![],
             current_time: 0f32,
             next_time: 1.,
             lambda_brownian: 1.,
