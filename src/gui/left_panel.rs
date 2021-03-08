@@ -1200,7 +1200,7 @@ impl Requestable for Hyperboloid_ {
     fn max_val(&self, n: usize) -> f32 {
         use std::f32::consts::PI;
         match n {
-            0 => 30f32,
+            0 => 60f32,
             1 => 200f32,
             2 => PI - 1f32.to_radians(),
             3 => 1f32,
@@ -1253,7 +1253,7 @@ impl Requestable for ScrollSentivity {
     }
     fn max_val(&self, n: usize) -> f32 {
         if n == 0 {
-            60f32
+            20f32
         } else {
             unreachable!()
         }
