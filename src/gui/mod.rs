@@ -86,6 +86,7 @@ pub struct Requests {
     pub rigid_helices_simulation: Option<RigidBodyParametersRequest>,
     pub anchor: bool,
     pub rigid_body_parameters: Option<RigidBodyParametersRequest>,
+    pub new_shift_hyperboloid: Option<f32>,
 }
 
 impl Requests {
@@ -131,6 +132,7 @@ impl Requests {
             rigid_grid_simulation: None,
             anchor: false,
             rigid_body_parameters: None,
+            new_shift_hyperboloid: None,
         }
     }
 }

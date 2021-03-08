@@ -139,6 +139,22 @@ impl GridType {
             },
         }
     }
+
+    pub fn get_shift(&self) -> Option<f32> {
+        match self {
+            GridType::Square(_) => None,
+            GridType::Honeycomb(_) => None,
+            GridType::Hyperboloid(h) => Some(h.shift),
+        }
+    }
+
+    pub fn set_shift(&mut self, shift: f32) {
+        match self {
+            GridType::Square(_) => println!("WARNING changing shif of non hyperboloid grid"),
+            GridType::Honeycomb(_) => println!("WARNING changing shif of non hyperboloid grid"),
+            GridType::Hyperboloid(h) => h.shift = shift,
+        }
+    }
 }
 
 impl Grid {

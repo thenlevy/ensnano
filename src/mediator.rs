@@ -1144,6 +1144,15 @@ impl Mediator {
             self.notify_unique_selection(selection.unwrap());
         }
     }
+
+    pub fn new_shift_hyperboloid(&mut self, shift: f32) {
+        if let Some(Selection::Grid(d_id, g_id)) = self.selection.get(0) {
+            self.designs[*d_id as usize]
+                .write()
+                .unwrap()
+                .set_new_shift(*g_id, shift)
+        }
+    }
 }
 
 #[derive(Debug, Clone)]

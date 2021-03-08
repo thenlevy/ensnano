@@ -42,7 +42,7 @@ impl Selection {
             Selection::Grid(_, g_id) => {
                 let b1 = design.read().unwrap().has_persistent_phantom(g_id);
                 let b2 = design.read().unwrap().has_small_spheres(g_id);
-                vec![b1, b2]
+                let mut ret: Vec<String> = vec![b1, b2]
                     .iter()
                     .map(|b| {
                         if *b {
@@ -51,7 +51,11 @@ impl Selection {
                             "false".to_string()
                         }
                     })
-                    .collect()
+                    .collect();
+                if let Some(f) = design.read().unwrap().get_shift(*g_id) {
+                    ret.push(f.to_string());
+                }
+                ret
             }
             Selection::Strand(_, s_id) => vec![
                 format!(

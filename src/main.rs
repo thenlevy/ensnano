@@ -543,6 +543,10 @@ fn main() {
                         mediator.lock().unwrap().request_anchor();
                         requests.anchor = false;
                     }
+
+                    if let Some(f) = requests.new_shift_hyperboloid.take() {
+                        mediator.lock().unwrap().new_shift_hyperboloid(f);
+                    }
                 }
 
                 // Treat eventual event that happenend in the gui left panel.

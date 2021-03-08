@@ -876,6 +876,14 @@ impl Design {
     pub fn shake_nucl(&self, nucl: Nucl) {
         self.data.lock().unwrap().shake_nucl(nucl)
     }
+
+    pub fn set_new_shift(&mut self, g_id: usize, shift: f32) {
+        self.data.lock().unwrap().set_new_shift(g_id, shift)
+    }
+
+    pub fn get_shift(&self, g_id: usize) -> Option<f32> {
+        self.data.lock().unwrap().get_shift(g_id)
+    }
 }
 
 #[derive(Clone)]

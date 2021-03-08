@@ -2469,6 +2469,26 @@ impl Data {
             simulator.shake_nucl(nucl)
         }
     }
+
+    /// Set the shift a the hyperboloid grid g_id.
+    pub fn set_new_shift(&mut self, g_id: usize, shift: f32) {
+        if let Some(grid) = self.grid_manager.grids.get_mut(g_id) {
+            grid.grid_type.set_shift(shift)
+        }
+        self.update_grids();
+        self.grid_manager.update(&mut self.design);
+        self.hash_maps_update = true;
+        self.view_need_reset = true;
+        self.update_status = true;
+    }
+
+    /// Return the shift a the hyperboloid grid g_id.
+    pub fn get_shift(&self, g_id: usize) -> Option<f32> {
+        self.grid_manager
+            .grids
+            .get(g_id)
+            .and_then(|g| g.grid_type.get_shift())
+    }
 }
 
 fn compl(c: Option<char>) -> Option<char> {
