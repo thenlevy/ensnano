@@ -25,7 +25,15 @@ impl GridDivision for Hyperboloid {
         let grid_radius = (1. - self.radius_shift) * big_r + self.radius_shift * small_r;
         let i = x % (self.radius as isize);
         let theta = 2. * i as f32 * angle;
-        Vec2::new(grid_radius * theta.cos(), grid_radius * theta.sin())
+        let theta_ = theta + self.shift;
+        let left_helix = Vec3::new(0., grid_radius * theta.sin(), grid_radius * theta.cos());
+        let right_helix = Vec3::new(
+            self.length,
+            grid_radius * theta_.sin(),
+            grid_radius * theta_.cos(),
+        );
+        let origin = (right_helix + left_helix) / 2.;
+        Vec2::new(origin.z, origin.y)
     }
 
     fn orientation_helix(&self, parameters: &Parameters, x: isize, _y: isize) -> Rotor3 {
@@ -79,17 +87,21 @@ impl Hyperboloid {
         let mut nb_nucl = 0;
         for i in 0..self.radius {
             let theta = 2. * i as f32 * angle;
-            let origin = Vec3::new(0., grid_radius * theta.sin(), grid_radius * theta.cos());
             let theta_ = theta + self.shift;
-            let dest = Vec3::new(
+            let left_helix = Vec3::new(0., grid_radius * theta.sin(), grid_radius * theta.cos());
+            let right_helix = Vec3::new(
                 self.length,
                 grid_radius * theta_.sin(),
                 grid_radius * theta_.cos(),
             );
-            let real_length = (dest - origin).mag();
+            let origin = (left_helix + right_helix) / 2.;
+            println!("origin {:?}", origin);
+            let real_length = (right_helix - left_helix).mag();
             nb_nucl = (real_length / parameters.z_step).round() as usize;
-            let orientation =
-                Rotor3::from_rotation_between(Vec3::unit_x(), (dest - origin).normalized());
+            let orientation = Rotor3::from_rotation_between(
+                Vec3::unit_x(),
+                (right_helix - left_helix).normalized(),
+            );
             let helix = Helix::new(origin, orientation);
             ret.push(helix);
         }

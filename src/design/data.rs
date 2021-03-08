@@ -242,7 +242,7 @@ impl Data {
                     * hyperboloid.orientation_helix(&parameters, i as isize, 0);
                 self.design.helices.insert(key, h);
                 for b in [true, false].iter() {
-                    let new_key = self.add_strand(key, 0, *b);
+                    let new_key = self.add_strand(key, -(nb_nucl as isize) / 2, *b);
                     if let icednano::Domain::HelixDomain(ref mut dom) =
                         self.design.strands.get_mut(&new_key).unwrap().domains[0]
                     {
