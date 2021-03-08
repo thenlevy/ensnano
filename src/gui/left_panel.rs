@@ -1253,7 +1253,7 @@ impl Requestable for ScrollSentivity {
     }
     fn max_val(&self, n: usize) -> f32 {
         if n == 0 {
-            20f32
+            60f32
         } else {
             unreachable!()
         }

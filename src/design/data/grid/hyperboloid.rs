@@ -110,21 +110,9 @@ impl Hyperboloid {
 
     pub fn modify_shift(&mut self, new_shift: f32, parameters: &Parameters) {
         let grid_radius = self.radius(parameters);
-        let theta = 0f32;
-        let theta_ = theta + self.shift;
-        let left_helix = Vec3::new(0., grid_radius * theta.sin(), grid_radius * theta.cos());
-        let right_helix = Vec3::new(
-            self.length,
-            grid_radius * theta_.sin(),
-            grid_radius * theta_.cos(),
-        );
-        let origin = (left_helix + right_helix) / 2.;
-        let center_radius = self
-            .forced_radius
-            .unwrap_or(Vec2::new(origin.y, origin.z).mag());
         self.shift = new_shift;
         if self.forced_radius.is_none() {
-            self.forced_radius = Some(center_radius);
+            self.forced_radius = Some(grid_radius);
         }
     }
 
@@ -156,8 +144,8 @@ impl Hyperboloid {
     }
 
     fn radius(&self, parameters: &Parameters) -> f32 {
-        if let Some(center_radius) = self.forced_radius {
-            2. * center_radius / (2. + 2. * self.shift.cos()).sqrt()
+        if let Some(radius) = self.forced_radius {
+            radius
         } else {
             let (small_r, big_r) = self.sheet_radii(parameters);
             (1. - self.radius_shift) * big_r + self.radius_shift * small_r
