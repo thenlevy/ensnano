@@ -496,6 +496,7 @@ fn main() {
                             length: hyperboloid.length,
                             shift: hyperboloid.shift,
                             radius_shift: hyperboloid.radius_shift,
+                            forced_radius: None,
                         };
                         scene.lock().unwrap().make_hyperboloid(h)
                     }

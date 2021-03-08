@@ -170,6 +170,7 @@ impl Data {
                 shift: hyperboloid.shift,
                 length: hyperboloid.length,
                 radius_shift: hyperboloid.radius_shift,
+                forced_radius: None,
             },
         });
         self.make_hyperboloid_helices();
@@ -207,6 +208,7 @@ impl Data {
                 shift,
                 length,
                 radius_shift,
+                forced_radius: None,
             };
         }
         self.make_hyperboloid_helices();
@@ -218,6 +220,7 @@ impl Data {
             length,
             shift,
             radius_shift,
+            forced_radius,
         }) = self.hyperboloid_draft.map(|h| h.grid_type)
         {
             let hyperboloid = Hyperboloid {
@@ -225,6 +228,7 @@ impl Data {
                 length,
                 shift,
                 radius_shift,
+                forced_radius,
             };
             let parameters = self.design.parameters.unwrap_or_default();
             let (helices, nb_nucl) = hyperboloid.make_helices(&parameters);
@@ -2472,8 +2476,9 @@ impl Data {
 
     /// Set the shift a the hyperboloid grid g_id.
     pub fn set_new_shift(&mut self, g_id: usize, shift: f32) {
+        let parameters = self.design.parameters.unwrap_or_default();
         if let Some(grid) = self.grid_manager.grids.get_mut(g_id) {
-            grid.grid_type.set_shift(shift)
+            grid.grid_type.set_shift(shift, &parameters)
         }
         self.update_grids();
         self.grid_manager.update(&mut self.design);
