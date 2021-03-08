@@ -248,7 +248,7 @@ impl Multiplexer {
                         1.0,
                     );
                     let width = area.size.width.min(self.window_size.width - area.position.x);
-                    let height = area.size.height.min(self.window_size.height - area.position.x);
+                    let height = area.size.height.min(self.window_size.height - area.position.y);
                     render_pass.set_scissor_rect(
                         area.position.x,
                         area.position.y,
