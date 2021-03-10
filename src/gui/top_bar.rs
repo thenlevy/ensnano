@@ -201,6 +201,20 @@ impl Program for TopBar {
                 if !*self.dialoging.lock().unwrap() {
                     *self.dialoging.lock().unwrap() = true;
                     let requests = self.requests.clone();
+                    let dialog = rfd::AsyncFileDialog::new().save_file();
+                    let dialoging = self.dialoging.clone();
+                    thread::spawn(move || {
+                        let save_op = async move {
+                            let file = dialog.await;
+                            if let Some(handle) = file {
+                                requests.lock().unwrap().file_save =
+                                    Some(handle.path().clone().into());
+                            }
+                            *dialoging.lock().unwrap() = false;
+                        };
+                        futures::executor::block_on(save_op);
+                    });
+                    /*
                     if cfg!(target_os = "macos") {
                         // do not spawn a new thread for macos
                         let result = match nfd2::open_save_dialog(None, None).expect("oh no") {
@@ -233,6 +247,7 @@ impl Program for TopBar {
                             }
                         });
                     }
+                    */
                 }
             }
             Message::CleanRequested => self.requests.lock().unwrap().clean_requests = true,
