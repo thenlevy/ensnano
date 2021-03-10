@@ -36,6 +36,8 @@ pub enum GridTypeDescr {
         shift: f32,
         length: f32,
         radius_shift: f32,
+        #[serde(skip_serializing_if = "Option::is_none", default)]
+        forced_radius: Option<f32>,
     },
 }
 
@@ -136,7 +138,24 @@ impl GridType {
                 shift: h.shift,
                 length: h.length,
                 radius_shift: h.radius_shift,
+                forced_radius: h.forced_radius,
             },
+        }
+    }
+
+    pub fn get_shift(&self) -> Option<f32> {
+        match self {
+            GridType::Square(_) => None,
+            GridType::Honeycomb(_) => None,
+            GridType::Hyperboloid(h) => Some(h.shift),
+        }
+    }
+
+    pub fn set_shift(&mut self, shift: f32, parameters: &Parameters) {
+        match self {
+            GridType::Square(_) => println!("WARNING changing shif of non hyperboloid grid"),
+            GridType::Honeycomb(_) => println!("WARNING changing shif of non hyperboloid grid"),
+            GridType::Hyperboloid(h) => h.modify_shift(shift, parameters),
         }
     }
 }
@@ -533,6 +552,7 @@ impl GridManager {
                     radius_shift,
                     length,
                     shift,
+                    forced_radius,
                 } => {
                     let grid = Grid::new(
                         desc.position,
@@ -543,6 +563,7 @@ impl GridManager {
                             shift,
                             length,
                             radius_shift,
+                            forced_radius,
                         }),
                     );
                     grids.push(grid);
@@ -624,6 +645,7 @@ impl GridManager {
                     shift,
                     length,
                     radius_shift,
+                    forced_radius,
                 } => {
                     let grid = Grid::new(
                         desc.position,
@@ -634,6 +656,7 @@ impl GridManager {
                             radius_shift,
                             length,
                             shift,
+                            forced_radius,
                         }),
                     );
                     self.grids.push(grid);
@@ -860,6 +883,7 @@ impl GridManager {
                 shift,
                 length,
                 radius_shift,
+                forced_radius,
             } => {
                 let grid = Grid::new(
                     desc.position,
@@ -870,6 +894,7 @@ impl GridManager {
                         shift,
                         length,
                         radius_shift,
+                        forced_radius,
                     }),
                 );
                 self.grids.push(grid)

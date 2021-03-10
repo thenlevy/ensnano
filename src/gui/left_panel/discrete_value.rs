@@ -26,7 +26,7 @@ pub trait Requestable {
 pub struct RequestFactory<R: Requestable> {
     id: FactoryId,
     values: BTreeMap<ValueId, DiscreteValue>,
-    requestable: R,
+    pub requestable: R,
 }
 
 impl<R: Requestable> RequestFactory<R> {

@@ -156,6 +156,12 @@ impl Design {
         }
         None
     }
+
+    pub fn remove_empty_domains(&mut self) {
+        for s in self.strands.values_mut() {
+            s.remove_empty_domains()
+        }
+    }
 }
 
 impl Design {
@@ -419,6 +425,17 @@ impl Strand {
             }
         }
         ret
+    }
+
+    fn remove_empty_domains(&mut self) {
+        self.domains.retain(|d| {
+            if d.length() > 0 {
+                true
+            } else {
+                println!("Warning, removing empty domain {:?}", d);
+                false
+            }
+        })
     }
 }
 

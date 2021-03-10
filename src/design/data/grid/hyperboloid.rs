@@ -15,24 +15,34 @@ pub struct Hyperboloid {
     /// The difference between the actual sheet radius and the radius needed for the helices to
     /// fit perfectly at the tightest point of the hyperboloid
     pub radius_shift: f32,
+
+    /// A forced grid radius, for when user modifies the shift but still wants the radius in the
+    /// center to be constant.
+    pub forced_radius: Option<f32>,
 }
 
 impl GridDivision for Hyperboloid {
     fn origin_helix(&self, parameters: &Parameters, x: isize, _y: isize) -> Vec2 {
         use std::f32::consts::PI;
         let angle = PI / self.radius as f32;
-        let (small_r, big_r) = self.sheet_radii(parameters);
-        let grid_radius = (1. - self.radius_shift) * big_r + self.radius_shift * small_r;
+        let grid_radius = self.radius(parameters);
         let i = x % (self.radius as isize);
         let theta = 2. * i as f32 * angle;
-        Vec2::new(grid_radius * theta.cos(), grid_radius * theta.sin())
+        let theta_ = theta + self.shift;
+        let left_helix = Vec3::new(0., grid_radius * theta.sin(), grid_radius * theta.cos());
+        let right_helix = Vec3::new(
+            self.length,
+            grid_radius * theta_.sin(),
+            grid_radius * theta_.cos(),
+        );
+        let origin = (right_helix + left_helix) / 2.;
+        Vec2::new(origin.z, origin.y)
     }
 
     fn orientation_helix(&self, parameters: &Parameters, x: isize, _y: isize) -> Rotor3 {
         use std::f32::consts::PI;
         let angle = PI / self.radius as f32;
-        let (small_r, big_r) = self.sheet_radii(parameters);
-        let grid_radius = (1. - self.radius_shift) * big_r + self.radius_shift * small_r;
+        let grid_radius = self.radius(parameters);
         let i = x % (self.radius as isize);
         let theta = 2. * i as f32 * angle;
         let origin = Vec3::new(0., grid_radius * theta.sin(), grid_radius * theta.cos());
@@ -74,26 +84,36 @@ impl Hyperboloid {
         let mut ret = Vec::with_capacity(self.radius);
         use std::f32::consts::PI;
         let angle = PI / self.radius as f32;
-        let (small_r, big_r) = self.sheet_radii(parameters);
-        let grid_radius = (1. - self.radius_shift) * big_r + self.radius_shift * small_r;
+        let grid_radius = self.radius(parameters);
         let mut nb_nucl = 0;
         for i in 0..self.radius {
             let theta = 2. * i as f32 * angle;
-            let origin = Vec3::new(0., grid_radius * theta.sin(), grid_radius * theta.cos());
             let theta_ = theta + self.shift;
-            let dest = Vec3::new(
+            let left_helix = Vec3::new(0., grid_radius * theta.sin(), grid_radius * theta.cos());
+            let right_helix = Vec3::new(
                 self.length,
                 grid_radius * theta_.sin(),
                 grid_radius * theta_.cos(),
             );
-            let real_length = (dest - origin).mag();
+            let origin = (left_helix + right_helix) / 2.;
+            let real_length = (right_helix - left_helix).mag();
             nb_nucl = (real_length / parameters.z_step).round() as usize;
-            let orientation =
-                Rotor3::from_rotation_between(Vec3::unit_x(), (dest - origin).normalized());
+            let orientation = Rotor3::from_rotation_between(
+                Vec3::unit_x(),
+                (right_helix - left_helix).normalized(),
+            );
             let helix = Helix::new(origin, orientation);
             ret.push(helix);
         }
         (ret, nb_nucl)
+    }
+
+    pub fn modify_shift(&mut self, new_shift: f32, parameters: &Parameters) {
+        let grid_radius = self.radius(parameters);
+        self.shift = new_shift;
+        if self.forced_radius.is_none() {
+            self.forced_radius = Some(grid_radius);
+        }
     }
 
     /// Return the radii of the sheet so that the helices respectively fits perfectly at the center of the
@@ -112,7 +132,7 @@ impl Hyperboloid {
         // this is a constant to we can take theta = 0 which gives
         // r = R * 1/4 (2 + 2cos(delta))
         (
-            4. * center_radius / (2. + 2. * self.shift.cos()),
+            (2. * center_radius / (2. + 2. * self.shift.cos()).sqrt()),
             center_radius,
         )
     }
@@ -123,10 +143,18 @@ impl Hyperboloid {
         x.abs() <= r && y.abs() <= r
     }
 
+    fn radius(&self, parameters: &Parameters) -> f32 {
+        if let Some(radius) = self.forced_radius {
+            radius
+        } else {
+            let (small_r, big_r) = self.sheet_radii(parameters);
+            (1. - self.radius_shift) * 0.75 * big_r + self.radius_shift * 5.0 * big_r
+        }
+    }
+
     pub fn grid_radius(&self, parameters: &Parameters) -> f32 {
-        let (small_r, big_r) = self.sheet_radii(parameters);
-        let grid_radius = (1. - self.radius_shift) * big_r + self.radius_shift * small_r;
-        let r = grid_radius + parameters.helix_radius + parameters.inter_helix_gap / 2.;
-        r
+        let grid_radius = self.radius(parameters);
+        let r = grid_radius / 2. * (2. + 2. * self.shift.cos()).sqrt();
+        self.forced_radius.unwrap_or(r) + parameters.helix_radius + parameters.inter_helix_gap / 2.
     }
 }

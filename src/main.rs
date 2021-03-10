@@ -502,6 +502,7 @@ fn main() {
                             length: hyperboloid.length,
                             shift: hyperboloid.shift,
                             radius_shift: hyperboloid.radius_shift,
+                            forced_radius: None,
                         };
                         scene.lock().unwrap().make_hyperboloid(h)
                     }
@@ -549,7 +550,6 @@ fn main() {
                         mediator.lock().unwrap().request_anchor();
                         requests.anchor = false;
                     }
-
                     if let Some(proceed) = requests.keep_proceed.take() {
                         match proceed {
                             KeepProceed::CustomScaffold => {
@@ -573,6 +573,10 @@ fn main() {
 
                     if let Some(content) = requests.sequence_input.take() {
                         messages.lock().unwrap().push_sequence(content);
+                    }
+
+                    if let Some(f) = requests.new_shift_hyperboloid.take() {
+                        mediator.lock().unwrap().new_shift_hyperboloid(f);
                     }
                 }
 

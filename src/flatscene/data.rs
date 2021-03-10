@@ -549,6 +549,16 @@ impl Data {
         }
     }
 
+    pub fn set_selection(&mut self, selection: Selection) {
+        self.selection = vec![selection];
+        self.view
+            .borrow_mut()
+            .set_selection(super::FlatSelection::from_real(
+                Some(&selection),
+                self.id_map(),
+            ));
+    }
+
     fn xover_containing_nucl(&self, nucl: &FlatNucl) -> Option<(FlatNucl, FlatNucl)> {
         let xovers_list = self.design.get_xovers_list();
         xovers_list.iter().find_map(|(n1, n2)| {

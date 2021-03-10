@@ -89,6 +89,7 @@ pub struct Requests {
     pub stapples_file: Option<(usize, PathBuf)>,
     pub keep_proceed: Option<KeepProceed>,
     pub sequence_input: Option<String>,
+    pub new_shift_hyperboloid: Option<f32>,
 }
 
 pub enum KeepProceed {
@@ -145,6 +146,7 @@ impl Requests {
             keep_proceed: None,
             stapples_file: None,
             sequence_input: None,
+            new_shift_hyperboloid: None,
         }
     }
 }

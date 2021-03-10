@@ -244,12 +244,11 @@ impl View {
     pub fn add_strand(&mut self, strand: &Strand, helices: &[Helix]) {
         self.strands
             .push(StrandView::new(self.device.clone(), self.queue.clone()));
-        self.strands.iter_mut().last().unwrap().update(
-            &strand,
-            helices,
-            &self.free_end,
-            &self.selection,
-        );
+        self.strands
+            .iter_mut()
+            .last()
+            .unwrap()
+            .update(&strand, helices, &self.free_end);
     }
 
     pub fn reset(&mut self) {
@@ -263,7 +262,7 @@ impl View {
     pub fn update_strands(&mut self, strands: &[Strand], helices: &[Helix]) {
         for (i, s) in self.strands.iter_mut().enumerate() {
             if i < strands.len() {
-                s.update(&strands[i], helices, &self.free_end, &self.selection);
+                s.update(&strands[i], helices, &self.free_end);
             }
         }
         for strand in strands.iter().skip(self.strands.len()) {
@@ -283,7 +282,7 @@ impl View {
         self.highlighted_strands.clear();
         for s in strands.iter() {
             let mut strand_view = StrandView::new(self.device.clone(), self.queue.clone());
-            strand_view.update(s, helices, &None, &FlatSelection::Nothing);
+            strand_view.update(s, helices, &None);
             self.highlighted_strands.push(strand_view);
         }
         self.was_updated = true;
@@ -294,7 +293,7 @@ impl View {
             .iter()
             .map(|strand| {
                 let mut pasted_strand = StrandView::new(self.device.clone(), self.queue.clone());
-                pasted_strand.update(strand, helices, &None, &self.selection);
+                pasted_strand.update(strand, helices, &None);
                 pasted_strand
             })
             .collect();

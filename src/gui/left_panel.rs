@@ -94,6 +94,7 @@ pub enum Message {
     FinalizeHyperboloid,
     RigidGridSimulation(bool),
     RigidHelicesSimulation(bool),
+    VolumeExclusion(bool),
 }
 
 impl LeftPanel {
@@ -129,7 +130,12 @@ impl LeftPanel {
             scroll_sensitivity_factory: RequestFactory::new(0, ScrollSentivity {}),
             helix_roll_factory: RequestFactory::new(1, HelixRoll {}),
             hyperboloid_factory: RequestFactory::new(2, Hyperboloid_ {}),
-            rigid_body_factory: RequestFactory::new(3, RigidBodyFactory {}),
+            rigid_body_factory: RequestFactory::new(
+                3,
+                RigidBodyFactory {
+                    volume_exclusion: false,
+                },
+            ),
             building_hyperboloid: false,
             finalize_hyperboloid: Default::default(),
             rigid_helices_button: GoStop::new(
@@ -347,6 +353,11 @@ impl Program for LeftPanel {
                 }
                 _ => unreachable!(),
             },
+            Message::VolumeExclusion(b) => {
+                self.rigid_body_factory.requestable.volume_exclusion = b;
+                let request = &mut self.requests.lock().unwrap().rigid_body_parameters;
+                self.rigid_body_factory.make_request(request);
+            }
             Message::HelixRoll(roll) => {
                 self.helix_roll_factory.update_roll(roll);
             }
@@ -714,9 +725,15 @@ impl Program for LeftPanel {
             .push(self.rigid_grid_button.view())
             .push(self.rigid_helices_button.view());
 
+        let volume_exclusion = self.rigid_body_factory.requestable.volume_exclusion;
         for view in self.rigid_body_factory.view().into_iter() {
             widget = widget.push(view);
         }
+        widget = widget.push(Checkbox::new(
+            volume_exclusion,
+            "Volume exclusion",
+            Message::VolumeExclusion,
+        ));
 
         Container::new(widget)
             .style(TopBarStyle)
@@ -1187,7 +1204,7 @@ impl Requestable for Hyperboloid_ {
     fn max_val(&self, n: usize) -> f32 {
         use std::f32::consts::PI;
         match n {
-            0 => 30f32,
+            0 => 60f32,
             1 => 200f32,
             2 => PI - 1f32.to_radians(),
             3 => 1f32,
@@ -1310,9 +1327,12 @@ pub struct RigidBodyParametersRequest {
     pub k_springs: f32,
     pub k_friction: f32,
     pub mass_factor: f32,
+    pub volume_exclusion: bool,
 }
 
-struct RigidBodyFactory {}
+struct RigidBodyFactory {
+    pub volume_exclusion: bool,
+}
 
 impl Requestable for RigidBodyFactory {
     type Request = RigidBodyParametersRequest;
@@ -1321,6 +1341,7 @@ impl Requestable for RigidBodyFactory {
             k_springs: values[0],
             k_friction: values[1],
             mass_factor: values[2],
+            volume_exclusion: self.volume_exclusion,
         }
     }
     fn nb_values(&self) -> usize {

@@ -24,6 +24,7 @@ struct HelixSystem {
     last_state: Option<Vector<f32>>,
     parameters: Parameters,
     anchors: Vec<(RigidNucl, Vec3)>,
+    free_anchors: Vec<(usize, Vec3)>,
     current_time: f32,
     next_time: f32,
     brownian_heap: BinaryHeap<(OrderedFloat<f32>, usize)>,
@@ -39,6 +40,7 @@ pub struct RigidBodyConstants {
     pub k_spring: f32,
     pub k_friction: f32,
     pub mass: f32,
+    pub volume_exclusion: bool,
 }
 
 #[derive(Debug)]
@@ -162,6 +164,17 @@ impl HelixSystem {
 
             torques[nucl.helix] += torque0;
         }
+        for (id, position) in self.free_anchors.iter() {
+            let point_0 = free_nucl_pos(id);
+            let len = (point_0 - *position).mag();
+            let force = if len > 1e-5 {
+                self.rigid_parameters.k_spring * k_anchor * -(point_0 - *position)
+            } else {
+                Vec3::zero()
+            };
+
+            forces[self.helices.len() + *id] += 10. * force;
+        }
         let segments: Vec<(Vec3, Vec3)> = (0..self.helices.len())
             .map(|n| {
                 let position =
@@ -173,31 +186,35 @@ impl HelixSystem {
                 )
             })
             .collect();
-        for i in 0..self.helices.len() {
-            let (a, b) = segments[i];
-            for j in (i + 1)..self.helices.len() {
-                let (c, d) = segments[j];
-                let r = 1.;
-                let (dist, vec, point_a, point_c) = distance_segment(a, b, c, d);
-                if dist < 2. * r {
-                    // VOLUME EXCLUSION
-                    let norm = C_VOLUME * self.rigid_parameters.k_spring * (2. * r - dist).powi(2);
-                    forces[i] += norm * vec;
-                    forces[j] += -norm * vec;
-                    let torque0 = (point_a - positions[i]).cross(norm * vec);
-                    let torque1 = (point_c - positions[j]).cross(-norm * vec);
-                    torques[i] += torque0;
-                    torques[j] += torque1;
+        if self.rigid_parameters.volume_exclusion {
+            for i in 0..self.helices.len() {
+                let (a, b) = segments[i];
+                for j in (i + 1)..self.helices.len() {
+                    let (c, d) = segments[j];
+                    let r = 1.;
+                    let (dist, vec, point_a, point_c) = distance_segment(a, b, c, d);
+                    if dist < 2. * r {
+                        // VOLUME EXCLUSION
+                        let norm =
+                            C_VOLUME * self.rigid_parameters.k_spring * (2. * r - dist).powi(2);
+                        forces[i] += norm * vec;
+                        forces[j] += -norm * vec;
+                        let torque0 = (point_a - positions[i]).cross(norm * vec);
+                        let torque1 = (point_c - positions[j]).cross(-norm * vec);
+                        torques[i] += torque0;
+                        torques[j] += torque1;
+                    }
                 }
-            }
-            for nucl_id in 0..self.free_nucls.len() {
-                let point = free_nucl_pos(&nucl_id);
-                let (dist, vec, _, _) = distance_segment(a, b, point, point);
-                let r = 1.35 / 2.;
-                if dist < 2. * r {
-                    let norm = C_VOLUME * self.rigid_parameters.k_spring * (2. * r - dist).powi(2);
-                    let norm = norm.min(1e4);
-                    forces[self.helices.len() + nucl_id] -= norm * vec;
+                for nucl_id in 0..self.free_nucls.len() {
+                    let point = free_nucl_pos(&nucl_id);
+                    let (dist, vec, _, _) = distance_segment(a, b, point, point);
+                    let r = 1.35 / 2.;
+                    if dist < 2. * r {
+                        let norm =
+                            C_VOLUME * self.rigid_parameters.k_spring * (2. * r - dist).powi(2);
+                        let norm = norm.min(1e4);
+                        forces[self.helices.len() + nucl_id] -= norm * vec;
+                    }
                 }
             }
         }
@@ -278,6 +295,42 @@ impl HelixSystem {
     fn update_parameters(&mut self, parameters: RigidBodyConstants) {
         self.rigid_parameters = parameters;
     }
+
+    fn shake_nucl(&mut self, nucl: ShakeTarget) {
+        let mut rnd = rand::thread_rng();
+        let gx: f32 = rnd.sample(StandardNormal);
+        let gy: f32 = rnd.sample(StandardNormal);
+        let gz: f32 = rnd.sample(StandardNormal);
+        let entry = match nucl {
+            ShakeTarget::Helix(h_id) => 13 * h_id,
+            ShakeTarget::FreeNucl(n) => 13 * (self.helices.len() + n),
+        };
+        if let Some(state) = self.last_state.as_mut() {
+            *state.get_mut(entry) += 10. * self.epsilon_borwnian * gx;
+            *state.get_mut(entry + 1) += 10. * self.epsilon_borwnian * gy;
+            *state.get_mut(entry + 2) += 10. * self.epsilon_borwnian * gz;
+            if let ShakeTarget::Helix(h_id) = nucl {
+                let delta_roll =
+                    rnd.gen::<f32>() * 2. * std::f32::consts::PI - std::f32::consts::PI;
+                let mut iterator = state.iter().skip(entry + 3);
+                let rotation = Rotor3::new(
+                    *iterator.next().unwrap(),
+                    Bivec3::new(
+                        *iterator.next().unwrap(),
+                        *iterator.next().unwrap(),
+                        *iterator.next().unwrap(),
+                    ),
+                )
+                .normalized();
+                let rotation = rotation * Rotor3::from_rotation_yz(delta_roll);
+                let mut iterator = state.iter_mut().skip(entry + 3);
+                *iterator.next().unwrap() = rotation.s;
+                *iterator.next().unwrap() = rotation.bv.xy;
+                *iterator.next().unwrap() = rotation.bv.xz;
+                *iterator.next().unwrap() = rotation.bv.yz;
+            }
+        }
+    }
 }
 
 impl ExplicitODE<f32> for HelixSystem {
@@ -326,7 +379,7 @@ impl ExplicitODE<f32> for HelixSystem {
                 ret.push(d_angular_momentum.y);
                 ret.push(d_angular_momentum.z);
             } else {
-                let d_position = linear_momentums[i] / NUCL_MASS;
+                let d_position = linear_momentums[i] / (self.rigid_parameters.mass / 2.);
                 ret.push(d_position.x);
                 ret.push(d_position.y);
                 ret.push(d_position.z);
@@ -337,15 +390,17 @@ impl ExplicitODE<f32> for HelixSystem {
                 ret.push(d_rotation.bv.xz);
                 ret.push(d_rotation.bv.yz);
 
-                let d_linear_momentum =
-                    forces[i] - linear_momentums[i] * 100. / (self.rigid_parameters.mass / 2.);
+                let d_linear_momentum = forces[i]
+                    - linear_momentums[i] * self.rigid_parameters.k_friction
+                        / (self.rigid_parameters.mass / 2.);
 
                 ret.push(d_linear_momentum.x);
                 ret.push(d_linear_momentum.y);
                 ret.push(d_linear_momentum.z);
 
-                let d_angular_momentum =
-                    torques[i] - angular_momentums[i] * 100. / (self.rigid_parameters.mass / 2.);
+                let d_angular_momentum = torques[i]
+                    - angular_momentums[i] * self.rigid_parameters.k_friction
+                        / (self.rigid_parameters.mass / 2.);
                 ret.push(d_angular_momentum.x);
                 ret.push(d_angular_momentum.y);
                 ret.push(d_angular_momentum.z);
@@ -855,6 +910,8 @@ struct HelixSystemThread {
     /// When the wrapped option takes the value of some channel, the thread that performs the
     /// simulation sends the last computed state of the system
     sender: Arc<Mutex<Option<Sender<RigidHelixState>>>>,
+    /// A nucleotide to be shaken
+    nucl_shake: Arc<Mutex<Option<ShakeTarget>>>,
     parameters_update: Arc<Mutex<Option<RigidBodyConstants>>>,
 }
 
@@ -864,6 +921,7 @@ impl HelixSystemThread {
             helix_system,
             stop: Default::default(),
             sender: Default::default(),
+            nucl_shake: Default::default(),
             parameters_update: Default::default(),
         }
     }
@@ -891,6 +949,9 @@ impl HelixSystemThread {
                 self.helix_system.next_time();
                 let solver = ExplicitEuler::new(1e-4f32);
                 self.helix_system.brownian_jump();
+                if let Some(nucl) = self.nucl_shake.lock().unwrap().take() {
+                    self.helix_system.shake_nucl(nucl)
+                }
                 if let Ok((_, y)) = solver.solve(&self.helix_system) {
                     self.helix_system.last_state = y.last().cloned();
                 }
@@ -902,6 +963,10 @@ impl HelixSystemThread {
 
     fn get_param_ptr(&self) -> Arc<Mutex<Option<RigidBodyConstants>>> {
         self.parameters_update.clone()
+    }
+
+    fn get_nucl_ptr(&self) -> Arc<Mutex<Option<ShakeTarget>>> {
+        self.nucl_shake.clone()
     }
 
     fn get_state(&self) -> RigidHelixState {
@@ -940,6 +1005,7 @@ pub(super) struct RigidBodyPtr {
 pub(super) struct RigidHelixPtr {
     stop: Arc<Mutex<bool>>,
     state: Arc<Mutex<Option<Sender<RigidHelixState>>>>,
+    shake_nucl: Arc<Mutex<Option<ShakeTarget>>>,
     instant: Instant,
 }
 
@@ -970,14 +1036,16 @@ impl RigidHelixSimulator {
     ) -> Self {
         let roll = helix_system.helices.iter().map(|h| h.roll).collect();
         let parameters = helix_system.parameters.clone();
-        let grid_system_thread = HelixSystemThread::new(helix_system);
-        let rigid_parameters = grid_system_thread.get_param_ptr();
+        let helix_system_thread = HelixSystemThread::new(helix_system);
+        let rigid_parameters = helix_system_thread.get_param_ptr();
+        let shake_nucl = helix_system_thread.get_nucl_ptr();
 
         let date = Instant::now();
-        let (stop, snd) = grid_system_thread.run(computing);
+        let (stop, snd) = helix_system_thread.run(computing);
         let simulation_ptr = RigidHelixPtr {
             instant: date,
             stop,
+            shake_nucl,
             state: snd,
         };
         Self {
@@ -994,6 +1062,19 @@ impl RigidHelixSimulator {
 
     pub(super) fn update_parameters(&mut self, rigid_parameters: RigidBodyConstants) {
         *self.rigid_parameters.lock().unwrap() = Some(rigid_parameters);
+    }
+
+    pub(super) fn shake_nucl(&mut self, nucl: Nucl) {
+        if let Some(free_nucl) = self.nucl_maps.get(&nucl) {
+            let shake_target = if let Some(helix) = free_nucl.helix {
+                Some(ShakeTarget::Helix(helix))
+            } else {
+                self.free_nucls_ids
+                    .get(free_nucl)
+                    .map(|id| ShakeTarget::FreeNucl(*id))
+            };
+            *self.simulation_ptr.shake_nucl.lock().unwrap() = shake_target
+        }
     }
 
     fn check_simulation(&mut self) {
@@ -1127,6 +1208,7 @@ impl Data {
         let mut mixed_springs = Vec::with_capacity(xovers.len());
         let mut free_springs = Vec::with_capacity(xovers.len());
         for (n1, n2) in xovers {
+            println!("{:?}", (n1, n2));
             let free_nucl1 = interval_results.nucl_map[&n1];
             let free_nucl2 = interval_results.nucl_map[&n2];
             if let Some((h1, h2)) = free_nucl1.helix.zip(free_nucl2.helix) {
@@ -1172,17 +1254,20 @@ impl Data {
             }
         }
         let mut anchors = vec![];
+        let mut free_anchors = vec![];
         for anchor in self.anchors.iter() {
-            if let Some(free_nucl) = interval_results.nucl_map.get(anchor) {
-                if let Some(n_id) = self.identifier_nucl.get(anchor) {
+            if let Some(n_id) = self.identifier_nucl.get(anchor) {
+                let position: Vec3 = self.space_position[n_id].into();
+                if let Some(free_nucl) = interval_results.nucl_map.get(anchor) {
                     if let Some(rigid_helix) = free_nucl.helix {
                         let rigid_nucl = RigidNucl {
                             helix: rigid_helix,
                             position: anchor.position,
                             forward: anchor.forward,
                         };
-                        let position: Vec3 = self.space_position[n_id].into();
                         anchors.push((rigid_nucl, position));
+                    } else if let Some(id) = interval_results.free_nucl_ids.get(free_nucl) {
+                        free_anchors.push((*id, position));
                     }
                 }
             }
@@ -1193,8 +1278,10 @@ impl Data {
         let lambda_brownian = 0.5f32;
         let exp_law = Exp::new(lambda_brownian).unwrap();
         for i in 0..interval_results.free_nucls.len() {
-            let t = rnd.sample(exp_law);
-            brownian_heap.push((t.into(), i));
+            if !free_anchors.iter().any(|(x, _)| *x == i) {
+                let t = rnd.sample(exp_law);
+                brownian_heap.push((t.into(), i));
+            }
         }
         Some(HelixSystem {
             helices: rigid_helices,
@@ -1207,6 +1294,7 @@ impl Data {
             time_span,
             parameters,
             anchors,
+            free_anchors,
             brownian_heap,
             epsilon_borwnian,
             lambda_brownian,
@@ -1279,12 +1367,13 @@ impl Data {
             time_span,
             parameters,
             anchors,
+            free_anchors: vec![],
             current_time: 0f32,
             next_time: 1.,
             lambda_brownian: 1.,
             epsilon_borwnian: 0.,
             brownian_heap: Default::default(),
-            rigid_parameters: rigid_parameters,
+            rigid_parameters,
         })
     }
 
@@ -1628,6 +1717,11 @@ impl Data {
         self.helix_simulation_ptr = None;
     }
 
+    pub(super) fn stop_simulations(&mut self) {
+        self.stop_free_helix_simulation();
+        self.stop_rigid_body();
+    }
+
     pub fn read_intervals(&self) -> IntervalResult {
         // TODO remove pub after testing
         let mut nucl_map = HashMap::new();
@@ -1779,6 +1873,11 @@ pub struct IntervalResult {
     free_nucl_ids: HashMap<FreeNucl, usize>,
     free_nucl_position: Vec<Vec3>,
     intervals: Vec<(isize, isize)>,
+}
+
+enum ShakeTarget {
+    FreeNucl(usize),
+    Helix(usize),
 }
 
 /// Return the length of the shortes line between a point of [a, b] and a poin of [c, d]

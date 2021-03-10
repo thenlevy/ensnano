@@ -169,6 +169,7 @@ impl Data {
                 shift: hyperboloid.shift,
                 length: hyperboloid.length,
                 radius_shift: hyperboloid.radius_shift,
+                forced_radius: None,
             },
         });
         self.make_hyperboloid_helices();
@@ -206,6 +207,7 @@ impl Data {
                 shift,
                 length,
                 radius_shift,
+                forced_radius: None,
             };
         }
         self.make_hyperboloid_helices();
@@ -217,6 +219,7 @@ impl Data {
             length,
             shift,
             radius_shift,
+            forced_radius,
         }) = self.hyperboloid_draft.map(|h| h.grid_type)
         {
             let hyperboloid = Hyperboloid {
@@ -224,9 +227,11 @@ impl Data {
                 length,
                 shift,
                 radius_shift,
+                forced_radius,
             };
             let parameters = self.design.parameters.unwrap_or_default();
             let (helices, nb_nucl) = hyperboloid.make_helices(&parameters);
+            let nb_nucl = nb_nucl.min(5000);
             let mut key = self.design.helices.keys().max().map(|m| m + 1).unwrap_or(0);
             let orientation = self.hyperboloid_draft.as_ref().unwrap().orientation;
             for (i, mut h) in helices.into_iter().enumerate() {
@@ -240,7 +245,7 @@ impl Data {
                     * hyperboloid.orientation_helix(&parameters, i as isize, 0);
                 self.design.helices.insert(key, h);
                 for b in [true, false].iter() {
-                    let new_key = self.add_strand(key, 0, *b);
+                    let new_key = self.add_strand(key, -(nb_nucl as isize) / 2, *b);
                     if let icednano::Domain::HelixDomain(ref mut dom) =
                         self.design.strands.get_mut(&new_key).unwrap().domains[0]
                     {
@@ -307,6 +312,7 @@ impl Data {
     /// * icednano
     pub fn new_with_path(json_path: &PathBuf) -> Option<Self> {
         let mut design = read_file(json_path)?;
+        design.remove_empty_domains();
         let mut grid_manager = GridManager::new_from_design(&design);
         let mut grids = grid_manager.grids2d();
         for g in grids.iter_mut() {
@@ -1183,35 +1189,23 @@ impl Data {
     /// Return the identifier of the strand whose nucl is the 5' end of, or `None` if nucl is not
     /// the 5' end of any strand.
     pub fn prime5_of(&self, nucl: &Nucl) -> Option<usize> {
-        let id = self.identifier_nucl.get(nucl)?;
-        let strand_id = self.strand_map.get(id)?;
-        if self.design.strands[strand_id].cyclic {
-            None
-        } else {
-            let real_prime5 = self.get_5prime(*strand_id)?;
-            if *id == real_prime5 {
-                Some(*strand_id)
-            } else {
-                None
+        for (s_id, s) in self.design.strands.iter() {
+            if !s.cyclic && s.get_5prime() == Some(*nucl) {
+                return Some(*s_id);
             }
         }
+        None
     }
 
     /// Return the identifier of the strand whose nucl is the 3' end of, or `None` if nucl is not
     /// the 3' end of any strand.
     pub fn prime3_of(&self, nucl: &Nucl) -> Option<usize> {
-        let id = self.identifier_nucl.get(nucl)?;
-        let strand_id = self.strand_map.get(id)?;
-        if self.design.strands[strand_id].cyclic {
-            None
-        } else {
-            let real_prime3 = self.get_3prime(*strand_id)?;
-            if *id == real_prime3 {
-                Some(*strand_id)
-            } else {
-                None
+        for (s_id, s) in self.design.strands.iter() {
+            if !s.cyclic && s.get_3prime() == Some(*nucl) {
+                return Some(*s_id);
             }
         }
+        None
     }
 
     /// Return the xover extremity status of nucl.
@@ -2132,7 +2126,7 @@ impl Data {
                             forward: dom.forward,
                             helix: dom.helix,
                         };
-                        sequence.push(*basis_map.get(&nucl).unwrap());
+                        sequence.push(*basis_map.get(&nucl).unwrap_or(&'?'));
                     }
                 }
             }
@@ -2323,7 +2317,8 @@ impl Data {
     }
 
     pub fn notify_death(&mut self) {
-        self.stop_rolling()
+        self.stop_rolling();
+        self.stop_simulations();
     }
 
     pub fn roll_helix(&mut self, h_id: usize, roll: f32) {
@@ -2470,6 +2465,33 @@ impl Data {
         if let Some(simulator) = self.rigid_helix_simulator.as_mut() {
             simulator.update_parameters(parameters)
         }
+    }
+
+    pub fn shake_nucl(&mut self, nucl: Nucl) {
+        if let Some(simulator) = self.rigid_helix_simulator.as_mut() {
+            simulator.shake_nucl(nucl)
+        }
+    }
+
+    /// Set the shift a the hyperboloid grid g_id.
+    pub fn set_new_shift(&mut self, g_id: usize, shift: f32) {
+        let parameters = self.design.parameters.unwrap_or_default();
+        if let Some(grid) = self.grid_manager.grids.get_mut(g_id) {
+            grid.grid_type.set_shift(shift, &parameters)
+        }
+        self.update_grids();
+        self.grid_manager.update(&mut self.design);
+        self.hash_maps_update = true;
+        self.view_need_reset = true;
+        self.update_status = true;
+    }
+
+    /// Return the shift a the hyperboloid grid g_id.
+    pub fn get_shift(&self, g_id: usize) -> Option<f32> {
+        self.grid_manager
+            .grids
+            .get(g_id)
+            .and_then(|g| g.grid_type.get_shift())
     }
 }
 

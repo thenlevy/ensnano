@@ -505,6 +505,11 @@ impl Mediator {
             if let Some(roll) = roll {
                 self.messages.lock().unwrap().push_roll(roll)
             }
+        } else if let Selection::Nucleotide(d_id, nucl) = selection {
+            self.designs[d_id as usize]
+                .write()
+                .unwrap()
+                .shake_nucl(nucl)
         }
         if let Some(d_id) = selection.get_design() {
             let values = selection.fetch_values(self.designs[d_id as usize].clone());
@@ -1098,6 +1103,15 @@ impl Mediator {
             self.notify_unique_selection(selection.unwrap());
         }
     }
+
+    pub fn new_shift_hyperboloid(&mut self, shift: f32) {
+        if let Some(Selection::Grid(d_id, g_id)) = self.selection.get(0) {
+            self.designs[*d_id as usize]
+                .write()
+                .unwrap()
+                .set_new_shift(*g_id, shift)
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -1231,9 +1245,12 @@ impl PastingMode {
 }
 
 fn rigid_parameters(parameters: RigidBodyParametersRequest) -> RigidBodyConstants {
-    RigidBodyConstants {
+    let ret = RigidBodyConstants {
         k_spring: 10f32.powf(parameters.k_springs),
         k_friction: 10f32.powf(parameters.k_friction),
         mass: 10f32.powf(parameters.mass_factor),
-    }
+        volume_exclusion: parameters.volume_exclusion,
+    };
+    println!("{:?}", ret);
+    ret
 }

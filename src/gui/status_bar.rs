@@ -1,6 +1,6 @@
 use super::Requests;
 use crate::mediator::{Operation, ParameterField, Selection};
-use iced::{container, Background, Container, Length};
+use iced::{container, slider, Background, Container, Length, Slider};
 use iced_native::{pick_list, text_input, Checkbox, Color, PickList, TextInput};
 use iced_winit::{Column, Command, Element, Program, Row, Space, Text};
 use std::str::FromStr;
@@ -46,6 +46,7 @@ pub struct StatusBar {
     requests: Arc<Mutex<Requests>>,
     selection: Selection,
     progress: Option<(String, f32)>,
+    slider_state: slider::State,
 }
 
 impl StatusBar {
@@ -58,6 +59,7 @@ impl StatusBar {
             requests,
             selection: Selection::Nothing,
             progress: None,
+            slider_state: Default::default(),
         }
     }
 
@@ -146,6 +148,23 @@ impl StatusBar {
                     .size(STATUS_FONT_SIZE)
                     .text_size(STATUS_FONT_SIZE),
                 );
+                if let Some(current_angle) =
+                    self.info_values.get(2).and_then(|s| s.parse::<f32>().ok())
+                {
+                    let min_angle = -std::f32::consts::PI + 1f32.to_radians();
+                    let max_angle = std::f32::consts::PI - 1f32.to_radians();
+
+                    row = row.push(Text::new("angle shift")).push(
+                        Slider::new(
+                            &mut self.slider_state,
+                            min_angle..=max_angle,
+                            current_angle,
+                            Message::SetShift,
+                        )
+                        .step(1f32.to_radians())
+                        .width(Length::Units(150)),
+                    )
+                }
             }
             Selection::Strand(_, _) => {
                 let s_id = self.info_values[2].parse::<usize>().unwrap();
@@ -203,6 +222,7 @@ pub enum Message {
     SetSmallSpheres(bool),
     ScaffoldIdSet(usize, bool),
     Progress(Option<(String, f32)>),
+    SetShift(f32),
     ClearOp,
 }
 
@@ -257,6 +277,10 @@ impl Program for StatusBar {
                 } else {
                     self.requests.lock().unwrap().set_scaffold_id = Some(None)
                 }
+            }
+            Message::SetShift(f) => {
+                self.info_values[2] = f.to_string();
+                self.requests.lock().unwrap().new_shift_hyperboloid = Some(f);
             }
         }
         Command::none()

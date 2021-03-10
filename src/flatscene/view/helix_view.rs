@@ -62,14 +62,8 @@ impl StrandView {
         }
     }
 
-    pub fn update(
-        &mut self,
-        strand: &Strand,
-        helices: &[Helix],
-        free_end: &Option<FreeEnd>,
-        selection: &FlatSelection,
-    ) {
-        let vertices = strand.to_vertices(helices, free_end, selection);
+    pub fn update(&mut self, strand: &Strand, helices: &[Helix], free_end: &Option<FreeEnd>) {
+        let vertices = strand.to_vertices(helices, free_end);
         self.vertex_buffer.update(vertices.vertices.as_slice());
         self.index_buffer.update(vertices.indices.as_slice());
         self.num_instance = vertices.indices.len() as u32;

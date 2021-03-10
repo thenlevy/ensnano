@@ -122,7 +122,7 @@ impl Data {
         let mut edge_iter = template.edges.iter();
         let mut previous_position: Option<GridPosition> = None;
         let mut edge_opt = None;
-        let shift = if start_nucl.forward {
+        let shift = if template.origin.forward {
             start_nucl.position - template.origin.start
         } else {
             start_nucl.position - template.origin.start + 1
@@ -361,6 +361,7 @@ impl Data {
         }
         if ret {
             let final_state = self.design.strands.clone();
+            self.update_pasted_strand(vec![]);
             Some((initial_state, final_state))
         } else {
             None
