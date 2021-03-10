@@ -187,11 +187,12 @@ pub fn yes_no_dialog(message: &str) -> bool {
     let (choice_snd, choice_rcv) = std::sync::mpsc::channel::<bool>();
     std::thread::spawn(move || {
         let choice = async move {
+            println!("thread spawned");
             let ret = msg.await;
-            ret
+            println!("about to send");
+            choice_snd.send(ret).unwrap();
         };
-        let choice = futures::executor::block_on(choice);
-        choice_snd.send(choice).unwrap();
+        futures::executor::block_on(choice);
     });
 
     choice_rcv.recv().unwrap()
