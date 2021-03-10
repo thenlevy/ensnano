@@ -200,7 +200,6 @@ fn main() {
     let mediator = Arc::new(Mutex::new(Mediator::new(
         messages.clone(),
         computing.clone(),
-        requests.clone(),
     )));
     let scheduler = Arc::new(Mutex::new(Scheduler::new()));
 
@@ -336,10 +335,11 @@ fn main() {
                 // getting the file into which downloading the stapples must be done separatly
                 // because the requests lock must first be dropped.
                 let mut download_stapples = None;
+                let mut set_scaffold = None;
+                let mut stapples = None;
 
                 // When there is no more event to deal with
-                {
-                    let mut requests = requests.lock().expect("requests");
+                if let Ok(mut requests) = requests.try_lock() {
                     if requests.fitting {
                         mediator.lock().unwrap().request_fits();
                         requests.fitting = false;
@@ -464,13 +464,12 @@ fn main() {
                     }
 
                     if let Some(sequence) = requests.scaffold_sequence.take() {
-                        mediator.lock().unwrap().set_scaffold_sequence(sequence);
-                        println!("lock released");
+                        set_scaffold = Some(sequence);
                     }
 
                     if requests.stapples_request {
                         requests.stapples_request = false;
-                        mediator.lock().unwrap().download_stapples()
+                        stapples = Some(());
                     }
 
                     if requests.recolor_stapples {
@@ -594,6 +593,17 @@ fn main() {
                         };
                         futures::executor::block_on(save_op);
                     });
+                }
+
+                if let Some(sequence) = set_scaffold.take() {
+                    mediator
+                        .lock()
+                        .unwrap()
+                        .set_scaffold_sequence(sequence, requests.clone());
+                }
+
+                if stapples.take().is_some() {
+                    mediator.lock().unwrap().download_stapples(requests.clone())
                 }
 
                 // Treat eventual event that happenend in the gui left panel.

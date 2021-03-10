@@ -47,7 +47,6 @@ pub struct Mediator {
     undo_stack: Vec<Arc<dyn Operation>>,
     redo_stack: Vec<Arc<dyn Operation>>,
     computing: Arc<Mutex<bool>>,
-    requests: Arc<Mutex<Requests>>,
     centring: Option<(Nucl, usize)>,
     pasting: PastingMode,
     last_selected_design: usize,
@@ -179,11 +178,7 @@ pub trait Application {
 }
 
 impl Mediator {
-    pub fn new(
-        messages: Arc<Mutex<IcedMessages>>,
-        computing: Arc<Mutex<bool>>,
-        requests: Arc<Mutex<Requests>>,
-    ) -> Self {
+    pub fn new(messages: Arc<Mutex<IcedMessages>>, computing: Arc<Mutex<bool>>) -> Self {
         Self {
             applications: HashMap::new(),
             designs: Vec::new(),
@@ -201,7 +196,6 @@ impl Mediator {
             last_selected_design: 0,
             pasting_attempt: None,
             duplication_attempt: false,
-            requests,
         }
     }
 
@@ -279,7 +273,7 @@ impl Mediator {
             .set_scaffold_id(scaffold_id)
     }
 
-    pub fn set_scaffold_sequence(&mut self, sequence: String) {
+    pub fn set_scaffold_sequence(&mut self, sequence: String, requests: Arc<Mutex<Requests>>) {
         let d_id = if let Some(d_id) = self.selected_design() {
             d_id as usize
         } else {
@@ -300,7 +294,7 @@ impl Mediator {
             If you chose \"Yes\", icednano will position the scaffold in a way that minimizes the number of anti-patern (G^4, C^4 (A|T)^7) in the stapples sequence. If you chose \"No\", the scaffold sequence will begin at position 0";
             yes_no_dialog(
                 message.into(),
-                self.requests.clone(),
+                requests.clone(),
                 KeepProceed::OptimizeShift(d_id as usize),
                 None,
             )
@@ -330,7 +324,7 @@ impl Mediator {
         });
     }
 
-    pub fn download_stapples(&self) {
+    pub fn download_stapples(&self, requests: Arc<Mutex<Requests>>) {
         let d_id = if let Some(d_id) = self.selected_design() {
             d_id as usize
         } else {
@@ -392,12 +386,12 @@ impl Mediator {
 
             yes_no_dialog(
                 msg.into(),
-                self.requests.clone(),
+                requests.clone(),
                 KeepProceed::Stapples(d_id),
                 None,
             );
         } else {
-            self.requests.lock().unwrap().keep_proceed = Some(KeepProceed::Stapples(d_id))
+            requests.lock().unwrap().keep_proceed = Some(KeepProceed::Stapples(d_id))
         }
     }
 
