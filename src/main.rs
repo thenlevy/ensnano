@@ -200,6 +200,7 @@ fn main() {
     let mediator = Arc::new(Mutex::new(Mediator::new(
         messages.clone(),
         computing.clone(),
+        requests.clone(),
     )));
     let scheduler = Arc::new(Mutex::new(Scheduler::new()));
 
@@ -331,6 +332,11 @@ fn main() {
             Event::MainEventsCleared => {
                 let mut redraw = resized | icon.is_some();
                 redraw |= gui.fetch_change(&window, &multiplexer);
+
+                // getting the file into which downloading the stapples must be done separatly
+                // because the requests lock must first be dropped.
+                let mut download_stapples = None;
+
                 // When there is no more event to deal with
                 {
                     let mut requests = requests.lock().expect("requests");
@@ -552,9 +558,38 @@ fn main() {
                             KeepProceed::DefaultScaffold => {
                                 messages.lock().unwrap().push_default_scaffold()
                             }
+                            KeepProceed::OptimizeShift(d_id) => {
+                                mediator.lock().unwrap().optimize_shift(d_id);
+                            }
+                            KeepProceed::Stapples(d_id) => {
+                                download_stapples = Some(d_id);
+                            }
                             _ => (),
                         }
                     }
+                    if let Some((d_id, path)) = requests.stapples_file.take() {
+                        mediator.lock().unwrap().proceed_stapples(d_id, path);
+                    }
+
+                    if let Some(content) = requests.sequence_input.take() {
+                        messages.lock().unwrap().push_sequence(content);
+                    }
+                }
+
+                if let Some(d_id) = download_stapples {
+                    let requests = requests.clone();
+                    let dialog = rfd::AsyncFileDialog::new().save_file();
+                    std::thread::spawn(move || {
+                        let save_op = async move {
+                            let file = dialog.await;
+                            if let Some(handle) = file {
+                                let mut path_buf: std::path::PathBuf = handle.path().clone().into();
+                                path_buf.set_extension("xlsx");
+                                requests.lock().unwrap().stapples_file = Some((d_id, path_buf));
+                            }
+                        };
+                        futures::executor::block_on(save_op);
+                    });
                 }
 
                 // Treat eventual event that happenend in the gui left panel.

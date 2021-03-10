@@ -1,5 +1,3 @@
-use native_dialog::{MessageDialog, MessageType};
-use nfd2::Response;
 use std::sync::{Arc, Mutex};
 use std::thread;
 
@@ -90,7 +88,7 @@ impl Program for TopBar {
                 if !*self.dialoging.lock().unwrap() {
                     *self.dialoging.lock().unwrap() = true;
                     let requests = self.requests.clone();
-                    let dialog = rfd::AsyncFileDialog::new().save_file();
+                    let dialog = rfd::AsyncFileDialog::new().pick_file();
                     let dialoging = self.dialoging.clone();
                     thread::spawn(move || {
                         let load_op = async move {
@@ -162,15 +160,12 @@ impl Program for TopBar {
                             if let Some(n) =
                                 content.find(|c| c != 'A' && c != 'T' && c != 'G' && c != 'C')
                             {
-                                MessageDialog::new()
-                                    .set_type(MessageType::Error)
-                                    .set_text(&format!(
-                                        "This text file does not contain a valid DNA sequence.\n
+                                let msg = format!(
+                                    "This text file does not contain a valid DNA sequence.\n
                                         First invalid char at position {}",
-                                        n
-                                    ))
-                                    .show_alert()
-                                    .unwrap();
+                                    n
+                                );
+                                crate::utils::message(msg.into(), rfd::MessageLevel::Error);
                             } else {
                                 requests.lock().unwrap().scaffold_sequence = Some(content)
                             }
@@ -247,10 +242,7 @@ impl Program for TopBar {
             Message::MakeGrids => self.requests.lock().unwrap().make_grids = true,
             Message::ToggleView(b) => self.requests.lock().unwrap().toggle_scene = Some(b),
             Message::HelpRequested => {
-                MessageDialog::new()
-                    .set_type(MessageType::Info)
-                    .set_text(
-                        "Change action mode: \n 
+                let msg = "Change action mode: \n 
                         Normal: Escape\n
                         Translate: T\n
                         Rotate: R\n
@@ -261,10 +253,8 @@ impl Program for TopBar {
                         Nucleotide: N\n
                         Strand: S\n
                         Helix: H\n
-                        Grid: G\n",
-                    )
-                    .show_alert()
-                    .unwrap();
+                        Grid: G\n";
+                crate::utils::message(msg.into(), rfd::MessageLevel::Info);
             }
         };
         Command::none()

@@ -7,7 +7,7 @@
 //!
 //! The mediator also holds data that is common to all applications.
 use crate::gui::RigidBodyParametersRequest;
-use crate::gui::{HyperboloidRequest, SimulationRequest};
+use crate::gui::{HyperboloidRequest, KeepProceed, Requests, SimulationRequest};
 use crate::utils::{message, yes_no_dialog, PhantomElement};
 use crate::{DrawArea, Duration, ElementType, IcedMessages, Multiplexer, WindowEvent};
 use iced_wgpu::wgpu;
@@ -17,8 +17,6 @@ use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex, RwLock};
 use ultraviolet::Vec3;
-
-use native_dialog::{FileDialog, MessageDialog, MessageType};
 
 use crate::design;
 
@@ -49,6 +47,7 @@ pub struct Mediator {
     undo_stack: Vec<Arc<dyn Operation>>,
     redo_stack: Vec<Arc<dyn Operation>>,
     computing: Arc<Mutex<bool>>,
+    requests: Arc<Mutex<Requests>>,
     centring: Option<(Nucl, usize)>,
     pasting: PastingMode,
     last_selected_design: usize,
@@ -180,7 +179,11 @@ pub trait Application {
 }
 
 impl Mediator {
-    pub fn new(messages: Arc<Mutex<IcedMessages>>, computing: Arc<Mutex<bool>>) -> Self {
+    pub fn new(
+        messages: Arc<Mutex<IcedMessages>>,
+        computing: Arc<Mutex<bool>>,
+        requests: Arc<Mutex<Requests>>,
+    ) -> Self {
         Self {
             applications: HashMap::new(),
             designs: Vec::new(),
@@ -198,6 +201,7 @@ impl Mediator {
             last_selected_design: 0,
             pasting_attempt: None,
             duplication_attempt: false,
+            requests,
         }
     }
 
@@ -263,10 +267,8 @@ impl Mediator {
         } else {
             if self.designs.len() > 1 {
                 message(
-                    MessageDialog::new()
-                        .set_type(MessageType::Warning)
-                        .set_title("Warning")
-                        .set_text("No design selected, setting scaffold for design 0"),
+                    "No design selected, setting scaffold for design 0".into(),
+                    rfd::MessageLevel::Warning,
                 );
             }
             0
@@ -278,16 +280,13 @@ impl Mediator {
     }
 
     pub fn set_scaffold_sequence(&mut self, sequence: String) {
-        /*
         let d_id = if let Some(d_id) = self.selected_design() {
             d_id as usize
         } else {
             if self.designs.len() > 1 {
                 message(
-                    MessageDialog::new()
-                        .set_type(MessageType::Warning)
-                        .set_title("Warning")
-                        .set_text("No design selected, setting sequence for design 0"),
+                    "No design selected, setting sequence for design 0".into(),
+                    rfd::MessageLevel::Warning,
                 );
             }
             0
@@ -297,103 +296,78 @@ impl Mediator {
             .unwrap()
             .set_scaffold_sequence(sequence);
         if self.designs[d_id].read().unwrap().scaffold_is_set() {
-            let choice = yes_no_dialog("Optimize the scaffold position ?\n
-            If you chose \"Yes\", icednano will position the scaffold in a way that minimizes the number of anti-patern (G^4, C^4 (A|T)^7) in the stapples sequence. If you chose \"No\", the scaffold sequence will begin at position 0".into());
-            if choice {
-                let computing = self.computing.clone();
-                let design = self.designs[d_id].clone();
-                let messages = self.messages.clone();
-                std::thread::spawn(move || {
-                    let (send, rcv) = std::sync::mpsc::channel::<f32>();
-                    std::thread::spawn(move || {
-                        *computing.lock().unwrap() = true;
-                        let score = design.read().unwrap().optimize_shift(send);
-                        if !cfg!(target_os = "macos") {
-                            MessageDialog::new()
-                                .set_type(MessageType::Info)
-                                .set_text(&format!("Number of anti-patern: {}", score))
-                                .show_alert()
-                                .unwrap();
-                        }
-                        *computing.lock().unwrap() = false;
-                    });
-                    while let Ok(progress) = rcv.recv() {
-                        messages
-                            .lock()
-                            .unwrap()
-                            .push_progress("Optimizing position".to_string(), progress)
-                    }
-                    messages.lock().unwrap().finish_progess();
-                });
-            }
+            let message = "Optimize the scaffold position ?\n
+            If you chose \"Yes\", icednano will position the scaffold in a way that minimizes the number of anti-patern (G^4, C^4 (A|T)^7) in the stapples sequence. If you chose \"No\", the scaffold sequence will begin at position 0";
+            yes_no_dialog(
+                message.into(),
+                self.requests.clone(),
+                KeepProceed::OptimizeShift(d_id as usize),
+                None,
+            )
         }
-        */
+    }
+
+    pub fn optimize_shift(&mut self, d_id: usize) {
+        let computing = self.computing.clone();
+        let design = self.designs[d_id].clone();
+        let messages = self.messages.clone();
+        std::thread::spawn(move || {
+            let (send, rcv) = std::sync::mpsc::channel::<f32>();
+            std::thread::spawn(move || {
+                *computing.lock().unwrap() = true;
+                let score = design.read().unwrap().optimize_shift(send);
+                let msg = format!("Number of anti-patern: {}", score);
+                message(msg.into(), rfd::MessageLevel::Info);
+                *computing.lock().unwrap() = false;
+            });
+            while let Ok(progress) = rcv.recv() {
+                messages
+                    .lock()
+                    .unwrap()
+                    .push_progress("Optimizing position".to_string(), progress)
+            }
+            messages.lock().unwrap().finish_progess();
+        });
     }
 
     pub fn download_stapples(&self) {
-        /*
         let d_id = if let Some(d_id) = self.selected_design() {
             d_id as usize
         } else {
             if self.designs.len() > 1 {
                 message(
-                    MessageDialog::new()
-                        .set_type(MessageType::Warning)
-                        .set_title("Warning")
-                        .set_text("No design selected, Downloading stapples design 0"),
+                    "No design selected, Downloading stapples design 0".into(),
+                    rfd::MessageLevel::Warning,
                 );
             }
             0
         };
         if !self.designs[d_id].read().unwrap().scaffold_is_set() {
             message(
-                MessageDialog::new()
-                    .set_type(MessageType::Error)
-                    .set_title("Warning")
-                    .set_text(
-                        "No scaffold set. \n
+                "No scaffold set. \n
                     Chose a strand and set it as the scaffold by checking the scaffold checkbox\
-                    in the status bar",
-                    ),
+                    in the status bar"
+                    .into(),
+                rfd::MessageLevel::Error,
             );
             return;
         }
         if !self.designs[d_id].read().unwrap().scaffold_sequence_set() {
             message(
-                MessageDialog::new()
-                    .set_type(MessageType::Error)
-                    .set_title("Error")
-                    .set_text(
-                        "No sequence uploaded for scaffold. \n
-                Upload a sequence for the scaffold by pressing the \"Load scaffold\" button",
-                    ),
+                "No sequence uploaded for scaffold. \n
+                Upload a sequence for the scaffold by pressing the \"Load scaffold\" button"
+                    .into(),
+                rfd::MessageLevel::Error,
             );
             return;
         }
         if let Some(nucl) = self.designs[d_id].read().unwrap().get_stapple_mismatch() {
-            if cfg!(target_os = "windows") {
-                MessageDialog::new()
-                    .set_type(MessageType::Error)
-                    .set_title("Error")
-                    .set_text(&format!(
-                        "All stapples are not paired \n
+            let msg = format!(
+                "All stapples are not paired \n
                 first unpaired nucleotide {:?}",
-                        nucl
-                    ))
-                    .show_alert()
-                    .unwrap();
-            } else {
-                MessageDialog::new()
-                    .set_type(MessageType::Error)
-                    .set_title("Error")
-                    .set_text(&format!(
-                        "All stapples are not paired \n
-                first unpaired nucleotide {:?}",
-                        nucl
-                    ))
-                    .show_alert()
-                    .unwrap();
-            }
+                nucl
+            );
+            message(msg.into(), rfd::MessageLevel::Error);
             return;
         }
 
@@ -409,51 +383,27 @@ impl Mediator {
             .unwrap();
         if scaf_len != scaf_seq_len {
             let msg = format!(
-                            "The scaffod length does not match its sequence\n
+                "The scaffod length does not match its sequence\n
                 Length of the scaffold {}\n
                 Length of the sequence {}\n
                 Proceed anyway ?",
-                            scaf_len, scaf_seq_len);
+                scaf_len, scaf_seq_len
+            );
 
-            let proceed = yes_no_dialog(msg.into());
-            /*
-            let proceed = if cfg!(target_os = "windows") {
-                let (snd, rcv) = std::sync::mpsc::channel();
-                std::thread::spawn(move || {
-                    let ret = MessageDialog::new()
-                        .set_type(MessageType::Warning)
-                        .set_title("Warning")
-                        .set_text(&format!(
-                            "The scaffod length does not match its sequence\n
-                Length of the scaffold {}\n
-                Length of the sequence {}\n
-                Proceed anyway ?",
-                            scaf_len, scaf_seq_len
-                        ))
-                        .show_confirm()
-                        .unwrap_or(false);
-                    snd.send(ret).unwrap();
-                });
-                rcv.recv().unwrap()
-            } else {
-                println!("attempt to show warning");
-                MessageDialog::new()
-                    .set_text(&format!(
-                        "The scaffod length does not match its sequence\n
-                Length of the scaffold {}\n
-                Length of the sequence {}\n
-                Proceed anyway ?",
-                        scaf_len, scaf_seq_len
-                    ))
-                    .show_confirm()
-                    .unwrap_or(false)
-            };
-            */
-            if !proceed {
-                return;
-            }
+            yes_no_dialog(
+                msg.into(),
+                self.requests.clone(),
+                KeepProceed::Stapples(d_id),
+                None,
+            );
+        } else {
+            self.requests.lock().unwrap().keep_proceed = Some(KeepProceed::Stapples(d_id))
         }
-        let stapples = self.designs[d_id].read().unwrap().get_stapples();
+    }
+
+    pub fn proceed_stapples(&mut self, design_id: usize, path: PathBuf) {
+        let stapples = self.designs[design_id].read().unwrap().get_stapples();
+        /*
         let path = if cfg!(target_os = "windows") {
             let (snd, rcv) = std::sync::mpsc::channel();
             std::thread::spawn(move || {
@@ -474,11 +424,8 @@ impl Mediator {
                 Response::Cancel => None,
             };
             result
-        };
-        if let Some(path) = path {
-            write_stapples(stapples, path);
-        }
-        */
+        };*/
+        write_stapples(stapples, path);
     }
 
     pub fn set_persistent_phantom(&mut self, persistent: bool) {
@@ -510,10 +457,8 @@ impl Mediator {
             self.designs[0].read().unwrap().save_to(path);
             if self.designs.len() > 1 {
                 message(
-                    MessageDialog::new()
-                        .set_type(MessageType::Warning)
-                        .set_title("Warning")
-                        .set_text("No design selected, saved design 0"),
+                    "No design selected, saved design 0".into(),
+                    rfd::MessageLevel::Warning,
                 );
             }
         }

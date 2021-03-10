@@ -1,7 +1,6 @@
 use crate::consts::*;
 use iced_wgpu::wgpu;
 use iced_winit::winit::dpi::{PhysicalPosition, PhysicalSize, Pixel};
-use native_dialog::{MessageDialog, MessageType};
 use std::sync::{Arc, Mutex};
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
 
@@ -114,35 +113,12 @@ impl PhantomElement {
     }
 }
 
-struct UnsafeMessage(MessageDialog<'static>);
-unsafe impl Send for UnsafeMessage {}
-
-pub fn message(message: MessageDialog<'static>) {
-    let message = UnsafeMessage(message);
-    if cfg!(target_os = "windows") {
-        std::thread::spawn(move || {
-            message.0.show_alert().unwrap();
-        });
-    } else {
-        message.0.show_alert().unwrap();
-    }
-}
-
-pub fn yes_no(text: &'static str) -> bool {
-    if cfg!(target_os = "macos") {
-        MessageDialog::new().set_text(text).show_confirm().unwrap()
-    } else {
-        let (choice_snd, choice_rcv) = std::sync::mpsc::channel::<bool>();
-        std::thread::spawn(move || {
-            let choice = MessageDialog::new()
-                .set_type(MessageType::Info)
-                .set_text(text)
-                .show_confirm()
-                .unwrap();
-            choice_snd.send(choice).unwrap();
-        });
-        choice_rcv.recv().unwrap()
-    }
+pub fn message(message: Cow<'static, str>, level: rfd::MessageLevel) {
+    let msg = rfd::AsyncMessageDialog::new()
+        .set_level(level)
+        .set_description(message.as_ref())
+        .show();
+    std::thread::spawn(move || futures::executor::block_on(msg));
 }
 
 pub fn new_color(color_idx: &mut usize) -> u32 {

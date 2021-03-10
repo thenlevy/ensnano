@@ -1,7 +1,6 @@
 //! This modules defines the type [`Design`](Design) which offers an interface to a DNA nanostructure design.
 use crate::gui::SimulationRequest;
 use ahash::RandomState;
-use native_dialog::{MessageDialog, MessageType};
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex, RwLock};
@@ -377,11 +376,7 @@ impl Design {
         let result = self.data.lock().unwrap().request_save(path);
         if result.is_err() {
             let text = format!("Could not save_file {:?}", result);
-            MessageDialog::new()
-                .set_type(MessageType::Error)
-                .set_text(&text)
-                .show_alert()
-                .unwrap();
+            crate::utils::message(text.into(), rfd::MessageLevel::Error);
         }
     }
 

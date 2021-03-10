@@ -86,12 +86,16 @@ pub struct Requests {
     pub rigid_helices_simulation: Option<RigidBodyParametersRequest>,
     pub anchor: bool,
     pub rigid_body_parameters: Option<RigidBodyParametersRequest>,
+    pub stapples_file: Option<(usize, PathBuf)>,
     pub keep_proceed: Option<KeepProceed>,
+    pub sequence_input: Option<String>,
 }
 
 pub enum KeepProceed {
     DefaultScaffold,
     CustomScaffold,
+    OptimizeShift(usize),
+    Stapples(usize),
     Other,
 }
 
@@ -139,6 +143,8 @@ impl Requests {
             anchor: false,
             rigid_body_parameters: None,
             keep_proceed: None,
+            stapples_file: None,
+            sequence_input: None,
         }
     }
 }

@@ -11,7 +11,6 @@
 use crate::gui::SimulationRequest;
 use ahash::RandomState;
 use mathru::algebra::linear::vector::vector::Vector;
-use native_dialog::{MessageDialog, MessageType};
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::io::Write;
 use std::path::PathBuf;
@@ -2509,11 +2508,7 @@ fn read_file(path: &PathBuf) -> Option<icednano::Design> {
             Some(icednano::Design::from_codenano(&design))
         } else {
             // The file is not in any supported format
-            message(
-                MessageDialog::new()
-                    .set_type(MessageType::Error)
-                    .set_text("Unrecognized file format"),
-            );
+            message("Unrecognized file format".into(), rfd::MessageLevel::Error);
             None
         }
     }

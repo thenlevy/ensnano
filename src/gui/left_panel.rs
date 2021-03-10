@@ -7,7 +7,6 @@ use iced_winit::{
     button, scrollable, slider, text_input, Button, Checkbox, Color, Command, Element, Length,
     Program, Scrollable, Slider, Text, TextInput,
 };
-use native_dialog::FileDialog;
 use ultraviolet::Vec3;
 
 use color_space::{Hsv, Rgb};
@@ -209,15 +208,20 @@ impl Program for LeftPanel {
                 self.sequence_input.update_sequence(s);
             }
             Message::SequenceFileRequested => {
-                let result = FileDialog::new().show_open_single_file();
-                if let Ok(result) = result {
-                    if let Some(path) = result {
-                        let content = std::fs::read_to_string(path);
-                        if let Ok(content) = content {
-                            self.update(Message::SequenceChanged(content));
+                let dialog = rfd::AsyncFileDialog::new().pick_file();
+                let requests = self.requests.clone();
+                std::thread::spawn(move || {
+                    let save_op = async move {
+                        let file = dialog.await;
+                        if let Some(handle) = file {
+                            let content = std::fs::read_to_string(handle.path());
+                            if let Ok(content) = content {
+                                requests.lock().unwrap().sequence_input = Some(content);
+                            }
                         }
-                    }
-                }
+                    };
+                    futures::executor::block_on(save_op);
+                });
             }
             Message::OpenColor => {
                 self.requests.lock().unwrap().overlay_opened = Some(OverlayType::Color)
