@@ -407,20 +407,5 @@ pub const BACKGROUND: Color = Color::from_rgb(
 );
 
 fn use_default_scaffold() -> bool {
-    if cfg!(target_os = "macos") {
-        MessageDialog::new()
-            .set_text("use default m13 sequence ?")
-            .show_confirm()
-            .unwrap()
-    } else {
-        let (choice_snd, choice_rcv) = std::sync::mpsc::channel::<bool>();
-        std::thread::spawn(move || {
-            let choice = MessageDialog::new()
-                .set_text("use default m13 sequence ?")
-                .show_confirm()
-                .unwrap();
-            choice_snd.send(choice).unwrap();
-        });
-        choice_rcv.recv().unwrap()
-    }
+    crate::utils::yes_no_dialog("Use default m13 sequence")
 }

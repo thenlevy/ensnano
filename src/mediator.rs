@@ -8,7 +8,7 @@
 //! The mediator also holds data that is common to all applications.
 use crate::gui::RigidBodyParametersRequest;
 use crate::gui::{HyperboloidRequest, SimulationRequest};
-use crate::utils::{message, yes_no, PhantomElement};
+use crate::utils::{message, yes_no_dialog, PhantomElement};
 use crate::{DrawArea, Duration, ElementType, IcedMessages, Multiplexer, WindowEvent};
 use iced_wgpu::wgpu;
 use iced_winit::winit::dpi::{PhysicalPosition, PhysicalSize};
@@ -296,7 +296,7 @@ impl Mediator {
             .unwrap()
             .set_scaffold_sequence(sequence);
         if self.designs[d_id].read().unwrap().scaffold_is_set() {
-            let choice = yes_no("Optimize the scaffold position ?\n
+            let choice = yes_no_dialog("Optimize the scaffold position ?\n
             If you chose \"Yes\", icednano will position the scaffold in a way that minimizes the number of anti-patern (G^4, C^4 (A|T)^7) in the stapples sequence. If you chose \"No\", the scaffold sequence will begin at position 0");
             if choice {
                 let computing = self.computing.clone();

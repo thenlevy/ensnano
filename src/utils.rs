@@ -181,3 +181,18 @@ impl Ndc {
         }
     }
 }
+
+pub fn yes_no_dialog(message: &str) -> bool {
+    let msg = rfd::AsyncMessageDialog::new().set_description(message).set_buttons(rfd::MessageButtons::YesNo).show();
+    let (choice_snd, choice_rcv) = std::sync::mpsc::channel::<bool>();
+    std::thread::spawn(move || {
+        let choice = async move {
+            let ret = msg.await;
+            ret
+        };
+        let choice = futures::executor::block_on(choice);
+        choice_snd.send(choice).unwrap();
+    });
+
+    choice_rcv.recv().unwrap()
+}
