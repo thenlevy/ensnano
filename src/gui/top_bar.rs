@@ -129,43 +129,49 @@ impl Program for TopBar {
                     .file_clear = false;
             }
             Message::ScaffoldSequenceFile => {
-                let use_default = use_default_scaffold();
-                if use_default {
-                    let sequence = include_str!("p7249-Tilibit.txt");
-                    self.requests.lock().unwrap().scaffold_sequence = Some(sequence.to_string())
-                } else {
-                    if cfg!(target_os = "windows") {
+                if !*self.dialoging.lock().unwrap() {
+                    let use_default = use_default_scaffold();
+                    if use_default {
+                        let sequence = include_str!("p7249-Tilibit.txt");
+                        self.requests.lock().unwrap().scaffold_sequence = Some(sequence.to_string())
+                    } else {
+                        *self.dialoging.lock().unwrap() = true;
                         let requests = self.requests.clone();
-                        std::thread::spawn(move || {
-                            let result = match nfd2::open_file_dialog(None, None).expect("oh no") {
-                                Response::Okay(file_path) => Some(file_path),
-                                Response::OkayMultiple(_) => {
-                                    println!("Please open only one file");
-                                    None
-                                }
-                                Response::Cancel => None,
-                            };
-                            if let Some(path) = result {
-                                let mut content = std::fs::read_to_string(path).unwrap();
-                                content.make_ascii_uppercase();
-                                if let Some(n) =
-                                    content.find(|c| c != 'A' && c != 'T' && c != 'G' && c != 'C')
-                                {
-                                    MessageDialog::new()
-                                        .set_type(MessageType::Error)
-                                        .set_text(&format!(
-                                                "This text file does not contain a valid DNA sequence.\n
+                        let dialog = rfd::AsyncFileDialog::new().pick_file();
+                        let dialoging = self.dialoging.clone();
+                        thread::spawn(move || {
+                            let save_op = async move {
+                                let file = dialog.await;
+                                if let Some(handle) = file {
+                                    let mut content =
+                                        std::fs::read_to_string(handle.path()).unwrap();
+                                    content.make_ascii_uppercase();
+                                    if let Some(n) = content
+                                        .find(|c| c != 'A' && c != 'T' && c != 'G' && c != 'C')
+                                    {
+                                        MessageDialog::new()
+                                            .set_type(MessageType::Error)
+                                            .set_text(&format!(
+                                                    "This text file does not contain a valid DNA sequence.\n
                                         First invalid char at position {}",
                                         n
-                                        ))
-                                        .show_alert()
-                                        .unwrap();
-                                } else {
-                                    requests.lock().unwrap().scaffold_sequence = Some(content)
+                                            ))
+                                            .show_alert()
+                                            .unwrap();
+                                    } else {
+                                        requests.lock().unwrap().scaffold_sequence = Some(content)
+                                    }
                                 }
-                            }
+                                *dialoging.lock().unwrap() = false;
+                            };
+                            futures::executor::block_on(save_op);
                         });
-                    } else {
+                    }
+                }
+                /*
+                if cfg!(target_os = "windows") {
+                    let requests = self.requests.clone();
+                    std::thread::spawn(move || {
                         let result = match nfd2::open_file_dialog(None, None).expect("oh no") {
                             Response::Okay(file_path) => Some(file_path),
                             Response::OkayMultiple(_) => {
@@ -183,18 +189,46 @@ impl Program for TopBar {
                                 MessageDialog::new()
                                     .set_type(MessageType::Error)
                                     .set_text(&format!(
-                                        "This text file does not contain a valid DNA sequence.\n
-                                        First invalid char at position {}",
-                                        n
+                                            "This text file does not contain a valid DNA sequence.\n
+                                    First invalid char at position {}",
+                                    n
                                     ))
                                     .show_alert()
                                     .unwrap();
                             } else {
-                                self.requests.lock().unwrap().scaffold_sequence = Some(content)
+                                requests.lock().unwrap().scaffold_sequence = Some(content)
                             }
                         }
+                    });
+                } else {
+                    let result = match nfd2::open_file_dialog(None, None).expect("oh no") {
+                        Response::Okay(file_path) => Some(file_path),
+                        Response::OkayMultiple(_) => {
+                            println!("Please open only one file");
+                            None
+                        }
+                        Response::Cancel => None,
+                    };
+                    if let Some(path) = result {
+                        let mut content = std::fs::read_to_string(path).unwrap();
+                        content.make_ascii_uppercase();
+                        if let Some(n) =
+                            content.find(|c| c != 'A' && c != 'T' && c != 'G' && c != 'C')
+                        {
+                            MessageDialog::new()
+                                .set_type(MessageType::Error)
+                                .set_text(&format!(
+                                    "This text file does not contain a valid DNA sequence.\n
+                                    First invalid char at position {}",
+                                    n
+                                ))
+                                .show_alert()
+                                .unwrap();
+                        } else {
+                            self.requests.lock().unwrap().scaffold_sequence = Some(content)
+                        }
                     }
-                }
+                }*/
             }
             Message::StapplesRequested => self.requests.lock().unwrap().stapples_request = true,
             Message::FileSaveRequested => {
@@ -207,8 +241,9 @@ impl Program for TopBar {
                         let save_op = async move {
                             let file = dialog.await;
                             if let Some(handle) = file {
-                                requests.lock().unwrap().file_save =
-                                    Some(handle.path().clone().into());
+                                let mut path_buf: std::path::PathBuf = handle.path().clone().into();
+                                path_buf.set_extension("json");
+                                requests.lock().unwrap().file_save = Some(path_buf);
                             }
                             *dialoging.lock().unwrap() = false;
                         };
