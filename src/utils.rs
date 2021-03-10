@@ -2,7 +2,7 @@ use crate::consts::*;
 use iced_wgpu::wgpu;
 use iced_winit::winit::dpi::{PhysicalPosition, PhysicalSize, Pixel};
 use native_dialog::{MessageDialog, MessageType};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
 
 pub mod bindgroup_manager;
@@ -182,18 +182,29 @@ impl Ndc {
     }
 }
 
-pub fn yes_no_dialog(message: &str) -> bool {
-    let msg = rfd::AsyncMessageDialog::new().set_description(message).set_buttons(rfd::MessageButtons::YesNo).show();
-    let (choice_snd, choice_rcv) = std::sync::mpsc::channel::<bool>();
+use crate::gui::{KeepProceed, Requests};
+use std::borrow::Cow;
+pub fn yes_no_dialog(
+    message: Cow<'static, str>,
+    request: Arc<Mutex<Requests>>,
+    yes: KeepProceed,
+    no: Option<KeepProceed>,
+) {
+    let msg = rfd::AsyncMessageDialog::new()
+        .set_description(message.as_ref())
+        .set_buttons(rfd::MessageButtons::YesNo)
+        .show();
     std::thread::spawn(move || {
         let choice = async move {
             println!("thread spawned");
             let ret = msg.await;
             println!("about to send");
-            choice_snd.send(ret).unwrap();
+            if ret {
+                request.lock().unwrap().keep_proceed = Some(yes);
+            } else {
+                request.lock().unwrap().keep_proceed = no;
+            }
         };
         futures::executor::block_on(choice);
     });
-
-    choice_rcv.recv().unwrap()
 }

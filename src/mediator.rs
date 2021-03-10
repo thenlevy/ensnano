@@ -278,6 +278,7 @@ impl Mediator {
     }
 
     pub fn set_scaffold_sequence(&mut self, sequence: String) {
+        /*
         let d_id = if let Some(d_id) = self.selected_design() {
             d_id as usize
         } else {
@@ -297,7 +298,7 @@ impl Mediator {
             .set_scaffold_sequence(sequence);
         if self.designs[d_id].read().unwrap().scaffold_is_set() {
             let choice = yes_no_dialog("Optimize the scaffold position ?\n
-            If you chose \"Yes\", icednano will position the scaffold in a way that minimizes the number of anti-patern (G^4, C^4 (A|T)^7) in the stapples sequence. If you chose \"No\", the scaffold sequence will begin at position 0");
+            If you chose \"Yes\", icednano will position the scaffold in a way that minimizes the number of anti-patern (G^4, C^4 (A|T)^7) in the stapples sequence. If you chose \"No\", the scaffold sequence will begin at position 0".into());
             if choice {
                 let computing = self.computing.clone();
                 let design = self.designs[d_id].clone();
@@ -326,9 +327,11 @@ impl Mediator {
                 });
             }
         }
+        */
     }
 
     pub fn download_stapples(&self) {
+        /*
         let d_id = if let Some(d_id) = self.selected_design() {
             d_id as usize
         } else {
@@ -405,6 +408,15 @@ impl Mediator {
             .get_scaffold_sequence_len()
             .unwrap();
         if scaf_len != scaf_seq_len {
+            let msg = format!(
+                            "The scaffod length does not match its sequence\n
+                Length of the scaffold {}\n
+                Length of the sequence {}\n
+                Proceed anyway ?",
+                            scaf_len, scaf_seq_len);
+
+            let proceed = yes_no_dialog(msg.into());
+            /*
             let proceed = if cfg!(target_os = "windows") {
                 let (snd, rcv) = std::sync::mpsc::channel();
                 std::thread::spawn(move || {
@@ -436,6 +448,7 @@ impl Mediator {
                     .show_confirm()
                     .unwrap_or(false)
             };
+            */
             if !proceed {
                 return;
             }
@@ -465,6 +478,7 @@ impl Mediator {
         if let Some(path) = path {
             write_stapples(stapples, path);
         }
+        */
     }
 
     pub fn set_persistent_phantom(&mut self, persistent: bool) {

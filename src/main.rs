@@ -81,7 +81,7 @@ mod utils;
 // mod grid_panel; We don't use the grid panel atm
 
 use flatscene::FlatScene;
-use gui::{ColorOverlay, OverlayType, Requests};
+use gui::{ColorOverlay, KeepProceed, OverlayType, Requests};
 use multiplexer::{DrawArea, ElementType, Multiplexer, Overlay, SplitMode};
 use scene::Scene;
 
@@ -543,6 +543,18 @@ fn main() {
                         mediator.lock().unwrap().request_anchor();
                         requests.anchor = false;
                     }
+
+                    if let Some(proceed) = requests.keep_proceed.take() {
+                        match proceed {
+                            KeepProceed::CustomScaffold => {
+                                messages.lock().unwrap().push_custom_scaffold()
+                            }
+                            KeepProceed::DefaultScaffold => {
+                                messages.lock().unwrap().push_default_scaffold()
+                            }
+                            _ => (),
+                        }
+                    }
                 }
 
                 // Treat eventual event that happenend in the gui left panel.
@@ -661,6 +673,16 @@ impl IcedMessages {
             color_overlay: VecDeque::new(),
             status_bar: VecDeque::new(),
         }
+    }
+
+    pub fn push_custom_scaffold(&mut self) {
+        self.top_bar
+            .push_back(gui::top_bar::Message::CustomScaffoldRequested);
+    }
+
+    pub fn push_default_scaffold(&mut self) {
+        self.top_bar
+            .push_back(gui::top_bar::Message::DeffaultScaffoldRequested);
     }
 
     pub fn push_color(&mut self, color: u32) {
