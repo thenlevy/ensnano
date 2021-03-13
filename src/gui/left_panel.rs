@@ -38,6 +38,9 @@ fn icon(icon: MaterialIcon) -> iced::Text {
         .size(ICONSIZE)
 }
 
+const CHECKBOXSPACING: u16 = 5;
+const CHECKBOXSIZE: u16 = 15;
+
 pub struct LeftPanel {
     selection_mode: SelectionMode,
     action_mode: ActionMode,
@@ -626,8 +629,8 @@ impl Program for LeftPanel {
                 Checkbox::new(b, "Stick", |b| {
                     Message::ActionModeChanged(ActionMode::Build(b))
                 })
-                .size(12)
-                .text_size(12),
+                .size(CHECKBOXSIZE)
+                .spacing(CHECKBOXSPACING),
             )
         } else if let ActionMode::BuildHelix { .. } = self.action_mode {
             let row = Row::new()
@@ -707,11 +710,11 @@ impl Program for LeftPanel {
             .max_height(self.logical_size.height as u32);
 
         let mut widget = global_scroll
-            .push(Checkbox::new(
-                self.show_torsion,
-                "Show Torsion",
-                Message::ShowTorsion,
-            ))
+            .push(
+                Checkbox::new(self.show_torsion, "Show Torsion", Message::ShowTorsion)
+                    .size(CHECKBOXSIZE)
+                    .spacing(CHECKBOXSPACING),
+            )
             .width(Length::Units(width));
 
         let color_square = self.color_picker.color_square();
@@ -738,11 +741,15 @@ impl Program for LeftPanel {
         for view in self.rigid_body_factory.view().into_iter() {
             widget = widget.push(view);
         }
-        widget = widget.push(Checkbox::new(
-            volume_exclusion,
-            "Volume exclusion",
-            Message::VolumeExclusion,
-        ));
+        widget = widget.push(
+            Checkbox::new(
+                volume_exclusion,
+                "Volume exclusion",
+                Message::VolumeExclusion,
+            )
+            .spacing(CHECKBOXSPACING)
+            .size(CHECKBOXSIZE),
+        );
 
         Container::new(widget)
             .style(TopBarStyle)
@@ -1045,16 +1052,16 @@ impl FogParameters {
     fn view(&mut self) -> Column<Message> {
         let mut column = Column::new()
             .push(Text::new("Fog"))
-            .push(Checkbox::new(
-                self.visible,
-                "Visible",
-                Message::FogVisibility,
-            ))
-            .push(Checkbox::new(
-                self.from_camera,
-                "From Camera",
-                Message::FogCamera,
-            ));
+            .push(
+                Checkbox::new(self.visible, "Visible", Message::FogVisibility)
+                    .size(CHECKBOXSIZE)
+                    .spacing(CHECKBOXSPACING),
+            )
+            .push(
+                Checkbox::new(self.from_camera, "From Camera", Message::FogCamera)
+                    .size(CHECKBOXSIZE)
+                    .spacing(CHECKBOXSPACING),
+            );
 
         if self.visible {
             column = column
@@ -1111,8 +1118,16 @@ struct PhysicalSimulation {
 impl PhysicalSimulation {
     fn view(&mut self) -> Row<Message> {
         let left_column = Column::new()
-            .push(Checkbox::new(self.roll, "Roll", Message::SimRoll))
-            .push(Checkbox::new(self.springs, "Spring", Message::SimSprings));
+            .push(
+                Checkbox::new(self.roll, "Roll", Message::SimRoll)
+                    .size(CHECKBOXSIZE)
+                    .spacing(CHECKBOXSPACING),
+            )
+            .push(
+                Checkbox::new(self.springs, "Spring", Message::SimSprings)
+                    .size(CHECKBOXSIZE)
+                    .spacing(CHECKBOXSPACING),
+            );
         let button_str = if self.running { "Stop" } else { "Go" };
         let right_column = Column::new().push(
             Button::new(&mut self.go_stop_button, Text::new(button_str))

@@ -21,6 +21,9 @@ fn icon(icon: MaterialIcon) -> iced::Text {
         .size(ICONSIZE)
 }
 
+const CHECKBOXSPACING: u16 = 5;
+const CHECKBOXSIZE: u16 = 15;
+
 use super::{Requests, SplitMode};
 
 pub struct TopBar {
@@ -320,11 +323,15 @@ impl Program for TopBar {
             .push(button_add_file)
             //.push(button_replace_file)
             .push(button_save)
-            .push(Checkbox::new(
-                self.toggle_text_value,
-                "Show Sequences",
-                Message::ToggleText,
-            ))
+            .push(
+                Checkbox::new(
+                    self.toggle_text_value,
+                    "Show Sequences",
+                    Message::ToggleText,
+                )
+                .spacing(CHECKBOXSPACING)
+                .size(CHECKBOXSIZE),
+            )
             .push(button_2d)
             .push(button_3d)
             .push(button_split)
