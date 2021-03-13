@@ -125,6 +125,7 @@ pub struct Multiplexer {
 
 const MAX_LEFT_PANNEL_WIDTH: f64 = 200.;
 const MAX_TOP_BAR_HEIGHT: f64 = 35.;
+const MAX_STATUS_BAR_HEIGHT: f64 = 50.;
 
 impl Multiplexer {
     /// Create a new multiplexer for a window with size `window_size`.
@@ -140,7 +141,9 @@ impl Multiplexer {
         let left_pannel_split = scene;
         let left_pannel_prop = proportion(0.2, MAX_LEFT_PANNEL_WIDTH, window_size.width as f64);
         let (left_pannel, scene) = layout_manager.vsplit(scene, left_pannel_prop, false);
-        let (scene, status_bar) = layout_manager.hsplit(scene, 0.90, false);
+        let scene_height = (1. - top_pannel_prop) * window_size.height as f64;
+        let status_bar_prop = proportion(0.1, MAX_STATUS_BAR_HEIGHT, scene_height);
+        let (scene, status_bar) = layout_manager.hsplit(scene, 1. - status_bar_prop, false);
         //let (scene, grid_panel) = layout_manager.hsplit(scene, 0.8);
         layout_manager.attribute_element(top_bar, ElementType::TopBar);
         layout_manager.attribute_element(scene, ElementType::Scene);
