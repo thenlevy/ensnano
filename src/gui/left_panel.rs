@@ -691,17 +691,17 @@ impl Program for LeftPanel {
             .camera_rotation_buttons
             .iter_mut()
             .enumerate()
-            .map(|(i, s)| Button::new(s, rotation_text(i)).on_press(rotation_message(i, xz, yz)))
+            .map(|(i, s)| Button::new(s, rotation_text(i)).on_press(rotation_message(i, xz, yz)).width(Length::Units(BUTTON_SIZE)))
             .collect();
 
         global_scroll = global_scroll.spacing(5).push(Text::new("Rotate Camera"));
         while rotate_buttons.len() > 0 {
             let mut row = Row::new();
             row = row.push(rotate_buttons.remove(0)).spacing(5);
-            let mut space = 30 + 5;
-            while space + 30 < width && rotate_buttons.len() > 0 {
+            let mut space = BUTTON_SIZE + 5;
+            while space + BUTTON_SIZE < width && rotate_buttons.len() > 0 {
                 row = row.push(rotate_buttons.remove(0)).spacing(5);
-                space += 30 + 5;
+                space += BUTTON_SIZE + 5;
             }
             global_scroll = global_scroll.spacing(5).push(row)
         }
