@@ -24,6 +24,20 @@ use discrete_value::{FactoryId, RequestFactory, Requestable, ValueId};
 
 const BUTTON_SIZE: u16 = 25;
 
+use material_icons::{icon_to_char, Icon as MaterialIcon, FONT as MATERIALFONT};
+
+const ICONFONT: iced::Font = iced::Font::External {
+    name: "IconFont",
+    bytes: MATERIALFONT,
+};
+const ICONSIZE: u16 = 14;
+
+fn icon(icon: MaterialIcon) -> iced::Text {
+    iced::Text::new(format!("{}", icon_to_char(icon)))
+        .font(ICONFONT)
+        .size(ICONSIZE)
+}
+
 pub struct LeftPanel {
     selection_mode: SelectionMode,
     action_mode: ActionMode,
@@ -674,9 +688,7 @@ impl Program for LeftPanel {
             .camera_rotation_buttons
             .iter_mut()
             .enumerate()
-            .map(|(i, s)| {
-                Button::new(s, Text::new(rotation_text(i))).on_press(rotation_message(i, xz, yz))
-            })
+            .map(|(i, s)| Button::new(s, rotation_text(i)).on_press(rotation_message(i, xz, yz)))
             .collect();
 
         global_scroll = global_scroll.spacing(5).push(Text::new("Rotate Camera"));
@@ -961,12 +973,12 @@ fn rotation_message(i: usize, xz: isize, yz: isize) -> Message {
     Message::RotateCam(angle_xz, angle_yz)
 }
 
-fn rotation_text(i: usize) -> String {
+fn rotation_text(i: usize) -> Text<iced_wgpu::Renderer> {
     match i {
-        0 => "←".to_string(),
-        1 => "→".to_string(),
-        2 => "↑".to_string(),
-        _ => "↓".to_string(),
+        0 => icon(MaterialIcon::ArrowBack),
+        1 => icon(MaterialIcon::ArrowForward),
+        2 => icon(MaterialIcon::ArrowUpward),
+        _ => icon(MaterialIcon::ArrowDownward),
     }
 }
 
