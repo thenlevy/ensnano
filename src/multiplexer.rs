@@ -124,6 +124,7 @@ pub struct Multiplexer {
 }
 
 const MAX_LEFT_PANNEL_WIDTH: f64 = 200.;
+const MAX_TOP_BAR_HEIGHT: f64 = 30.;
 
 impl Multiplexer {
     /// Create a new multiplexer for a window with size `window_size`.

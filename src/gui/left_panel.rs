@@ -22,7 +22,7 @@ use text_input_style::BadValue;
 mod discrete_value;
 use discrete_value::{FactoryId, RequestFactory, Requestable, ValueId};
 
-const BUTTON_SIZE: u16 = 40;
+const BUTTON_SIZE: u16 = 25;
 
 pub struct LeftPanel {
     selection_mode: SelectionMode,
@@ -393,12 +393,12 @@ impl Program for LeftPanel {
                 &mut self.selection_mode_state.grid,
                 if self.selection_mode == SelectionMode::Grid {
                     Image::new(format!(
-                        "{}/icons/icons/Grid-on.png",
+                        "{}/icons/icons/Grid-on32.png",
                         env!("CARGO_MANIFEST_DIR")
                     ))
                 } else {
                     Image::new(format!(
-                        "{}/icons/icons/Grid-off.png",
+                        "{}/icons/icons/Grid-off32.png",
                         env!("CARGO_MANIFEST_DIR")
                     ))
                 },
@@ -410,12 +410,12 @@ impl Program for LeftPanel {
                 &mut self.selection_mode_state.helix,
                 if self.selection_mode == SelectionMode::Helix {
                     Image::new(format!(
-                        "{}/icons/icons/Helix-on.png",
+                        "{}/icons/icons/Helix-on32.png",
                         env!("CARGO_MANIFEST_DIR")
                     ))
                 } else {
                     Image::new(format!(
-                        "{}/icons/icons/Helix-off.png",
+                        "{}/icons/icons/Helix-off32.png",
                         env!("CARGO_MANIFEST_DIR")
                     ))
                 },
@@ -427,12 +427,12 @@ impl Program for LeftPanel {
                 &mut self.selection_mode_state.strand,
                 if self.selection_mode == SelectionMode::Strand {
                     Image::new(format!(
-                        "{}/icons/icons/Strand-on.png",
+                        "{}/icons/icons/Strand-on32.png",
                         env!("CARGO_MANIFEST_DIR")
                     ))
                 } else {
                     Image::new(format!(
-                        "{}/icons/icons/Strand-off.png",
+                        "{}/icons/icons/Strand-off32.png",
                         env!("CARGO_MANIFEST_DIR")
                     ))
                 },
@@ -444,12 +444,12 @@ impl Program for LeftPanel {
                 &mut self.selection_mode_state.nucleotide,
                 if self.selection_mode == SelectionMode::Nucleotide {
                     Image::new(format!(
-                        "{}/icons/icons/Nucleotide-on.png",
+                        "{}/icons/icons/Nucleotide-on32.png",
                         env!("CARGO_MANIFEST_DIR")
                     ))
                 } else {
                     Image::new(format!(
-                        "{}/icons/icons/Nucleotide-off.png",
+                        "{}/icons/icons/Nucleotide-off32.png",
                         env!("CARGO_MANIFEST_DIR")
                     ))
                 },
@@ -480,99 +480,96 @@ impl Program for LeftPanel {
                 &mut self.action_mode_state.select,
                 if self.action_mode == ActionMode::Normal {
                     Image::new(format!(
-                        "{}/icons/icons/Select-on.png",
+                        "{}/icons/icons/Select-on32.png",
                         env!("CARGO_MANIFEST_DIR")
                     ))
                 } else {
                     Image::new(format!(
-                        "{}/icons/icons/Select-off.png",
+                        "{}/icons/icons/Select-off32.png",
                         env!("CARGO_MANIFEST_DIR")
                     ))
                 },
             )
             .on_press(Message::ActionModeChanged(ActionMode::Normal))
             .style(ButtonStyle(self.action_mode == ActionMode::Normal))
-            .width(Length::Units(40)),
+            .width(Length::Units(BUTTON_SIZE)),
             Button::new(
                 &mut self.action_mode_state.translate,
                 if self.action_mode == ActionMode::Translate {
                     Image::new(format!(
-                        "{}/icons/icons/Move-on.png",
+                        "{}/icons/icons/Move-on32.png",
                         env!("CARGO_MANIFEST_DIR")
                     ))
                 } else {
                     Image::new(format!(
-                        "{}/icons/icons/Move-off.png",
+                        "{}/icons/icons/Move-off32.png",
                         env!("CARGO_MANIFEST_DIR")
                     ))
                 },
             )
             .on_press(Message::ActionModeChanged(ActionMode::Translate))
             .style(ButtonStyle(self.action_mode == ActionMode::Translate))
-            .width(Length::Units(40)),
+            .width(Length::Units(BUTTON_SIZE)),
             Button::new(
                 &mut self.action_mode_state.rotate,
                 if self.action_mode == ActionMode::Rotate {
                     Image::new(format!(
-                        "{}/icons/icons/Rotate-on.png",
+                        "{}/icons/icons/Rotate-on32.png",
                         env!("CARGO_MANIFEST_DIR")
                     ))
                 } else {
                     Image::new(format!(
-                        "{}/icons/icons/Rotate-off.png",
+                        "{}/icons/icons/Rotate-off32.png",
                         env!("CARGO_MANIFEST_DIR")
                     ))
                 },
             )
             .on_press(Message::ActionModeChanged(ActionMode::Rotate))
             .style(ButtonStyle(self.action_mode == ActionMode::Rotate))
-            .width(Length::Units(40)),
+            .width(Length::Units(BUTTON_SIZE)),
             Button::new(
                 &mut self.action_mode_state.build,
                 if self.action_mode.is_build() {
                     Image::new(format!(
-                        "{}/icons/icons/Build-on.png",
+                        "{}/icons/icons/Build-on32.png",
                         env!("CARGO_MANIFEST_DIR")
                     ))
                 } else {
                     Image::new(format!(
-                        "{}/icons/icons/Build-off.png",
+                        "{}/icons/icons/Build-off32.png",
                         env!("CARGO_MANIFEST_DIR")
                     ))
                 },
             )
             .on_press(Message::ActionModeChanged(ActionMode::Build(false)))
             .style(ButtonStyle(self.action_mode.is_build()))
-            .width(Length::Units(40)),
+            .width(Length::Units(BUTTON_SIZE)),
             Button::new(
                 &mut self.action_mode_state.cut,
                 if self.action_mode == ActionMode::Cut {
                     Image::new(format!(
-                        "{}/icons/icons/Cut-on.png",
+                        "{}/icons/icons/Cut-on32.png",
                         env!("CARGO_MANIFEST_DIR")
                     ))
-                    .width(Length::Units(BUTTON_SIZE))
                 } else {
                     Image::new(format!(
-                        "{}/icons/icons/Cut-off.png",
+                        "{}/icons/icons/Cut-off32.png",
                         env!("CARGO_MANIFEST_DIR")
                     ))
-                    .width(Length::Units(BUTTON_SIZE))
                 },
             )
             .on_press(Message::ActionModeChanged(ActionMode::Cut))
-            .width(Length::Units(40))
+            .width(Length::Units(BUTTON_SIZE))
             .style(ButtonStyle(self.action_mode == ActionMode::Cut)),
             Button::new(
                 &mut self.action_mode_state.add_grid,
                 Image::new(format!(
-                    "{}/icons/icons/NewGrid-on.png",
+                    "{}/icons/icons/NewGrid-on32.png",
                     env!("CARGO_MANIFEST_DIR")
-                ))
-                .width(Length::Units(BUTTON_SIZE)),
+                )),
             )
             .on_press(Message::NewGrid)
-            .width(Length::Units(40)),
+            .width(Length::Units(BUTTON_SIZE)),
             Button::new(&mut self.action_mode_state.add_hyperboloid, Text::new("H"))
                 .on_press(Message::NewHyperboloid)
                 .width(Length::Units(BUTTON_SIZE)),

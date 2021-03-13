@@ -7,6 +7,20 @@ use iced_wgpu::Renderer;
 use iced_winit::winit::dpi::LogicalSize;
 use iced_winit::{button, Button, Checkbox, Color, Command, Element, Length, Program, Row};
 
+use material_icons::{icon_to_char, Icon as MaterialIcon, FONT as MATERIALFONT};
+
+const ICONFONT: iced::Font = iced::Font::External {
+    name: "IconFont",
+    bytes: MATERIALFONT,
+};
+const ICONSIZE: u16 = 14;
+
+fn icon(icon: MaterialIcon) -> iced::Text {
+    iced::Text::new(format!("{}", icon_to_char(icon)))
+        .font(ICONFONT)
+        .size(ICONSIZE)
+}
+
 use super::{Requests, SplitMode};
 
 pub struct TopBar {
@@ -262,22 +276,20 @@ impl Program for TopBar {
 
     fn view(&mut self) -> Element<Message, Renderer> {
         let height = self.logical_size.cast::<u16>().height;
-        let button_fit = Button::new(&mut self.button_fit, Image::new("icons/adjust_page.png"))
+        let button_fit = Button::new(&mut self.button_fit, icon(MaterialIcon::CenterFocusStrong))
             .on_press(Message::SceneFitRequested)
             .height(Length::Units(height));
-        let button_add_file = Button::new(
-            &mut self.button_add_file,
-            Image::new("icons/add_file.png").height(Length::Units(height)),
-        )
-        .on_press(Message::FileAddRequested)
-        .height(Length::Units(height));
+        let button_add_file =
+            Button::new(&mut self.button_add_file, icon(MaterialIcon::FolderOpen))
+                .on_press(Message::FileAddRequested)
+                .height(Length::Units(height));
         /*let button_replace_file = Button::new(
             &mut self.button_replace_file,
             Image::new("icons/delete.png"),
         )
         .on_press(Message::FileReplaceRequested)
         .height(Length::Units(height));*/
-        let button_save = Button::new(&mut self.button_save, Image::new("icons/save.png"))
+        let button_save = Button::new(&mut self.button_save, icon(MaterialIcon::Save))
             .on_press(Message::FileSaveRequested)
             .height(Length::Units(height));
 

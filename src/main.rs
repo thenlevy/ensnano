@@ -179,14 +179,13 @@ fn main() {
             },
         )
     };
-    let mut renderer = Renderer::new(Backend::new(
-        &device,
-        Settings {
-            antialiasing: Some(iced_graphics::Antialiasing::MSAAx4),
-            default_text_size: 14,
-            ..Default::default()
-        },
-    ));
+    let settings = Settings {
+        antialiasing: Some(iced_graphics::Antialiasing::MSAAx4),
+        default_text_size: 11,
+        default_font: Some(include_bytes!("../font/Lato-Light.ttf")),
+        ..Default::default()
+    };
+    let mut renderer = Renderer::new(Backend::new(&device, settings.clone()));
     let device = Rc::new(device);
     let queue = Rc::new(queue);
     let mut resized = false;
@@ -267,7 +266,13 @@ fn main() {
 
     // Initialize the UI
 
-    let mut gui = gui::Gui::new(device.clone(), &window, &multiplexer, requests.clone());
+    let mut gui = gui::Gui::new(
+        device.clone(),
+        &window,
+        &multiplexer,
+        requests.clone(),
+        settings,
+    );
 
     let mut overlay_manager = OverlayManager::new(requests.clone(), &window, &mut renderer);
 

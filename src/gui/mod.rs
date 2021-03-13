@@ -477,8 +477,9 @@ impl Gui {
         window: &Window,
         multiplexer: &Multiplexer,
         requests: Arc<Mutex<Requests>>,
+        settings: Settings,
     ) -> Self {
-        let mut renderer = Renderer::new(Backend::new(device.as_ref(), Settings::default()));
+        let mut renderer = Renderer::new(Backend::new(device.as_ref(), settings));
         let mut elements = HashMap::new();
         elements.insert(
             ElementType::TopBar,
