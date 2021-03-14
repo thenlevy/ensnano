@@ -309,9 +309,9 @@ impl container::StyleSheet for StatusBarStyle {
 }
 
 pub const BACKGROUND: Color = Color::from_rgb(
-    0x36 as f32 / 255.0,
-    0x39 as f32 / 255.0,
-    0x3F as f32 / 255.0,
+    0x12 as f32 / 255.0,
+    0x12 as f32 / 255.0,
+    0x30 as f32 / 255.0,
 );
 
 fn bool_to_string(b: bool) -> String {

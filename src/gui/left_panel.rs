@@ -770,9 +770,9 @@ impl container::StyleSheet for TopBarStyle {
 }
 
 pub const BACKGROUND: Color = Color::from_rgb(
-    0xA4 as f32 / 255.0,
-    0xD4 as f32 / 255.0,
-    0xFF as f32 / 255.0,
+    0x23 as f32 / 255.0,
+    0x27 as f32 / 255.0,
+    0x2A as f32 / 255.0,
 );
 
 pub struct ColorOverlay {
