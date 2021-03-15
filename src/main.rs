@@ -182,7 +182,7 @@ fn main() {
     let settings = Settings {
         antialiasing: Some(iced_graphics::Antialiasing::MSAAx4),
         default_text_size: 11,
-        default_font: Some(include_bytes!("../font/Lato-Light.ttf")),
+        default_font: Some(include_bytes!("../font/Inter/Inter-Regular.otf")),
         ..Default::default()
     };
     let mut renderer = Renderer::new(Backend::new(&device, settings.clone()));
@@ -354,7 +354,7 @@ fn main() {
                         let design = Design::new_with_path(0, path);
                         if let Some(design) = design {
                             if let Some(stem) = path.file_stem().and_then(|s| s.to_str()) {
-                                window.set_title(&format!("icednano {}", stem))
+                                window.set_title(&format!("ENSnano {}", stem))
                             }
                             messages.lock().unwrap().notify_new_design();
                             mediator.lock().unwrap().clear_designs();
@@ -371,7 +371,7 @@ fn main() {
 
                     if let Some(ref path) = requests.file_save {
                         if let Some(stem) = path.file_stem().and_then(|s| s.to_str()) {
-                            window.set_title(&format!("icednano {}", stem))
+                            window.set_title(&format!("ENSnano {}", stem))
                         }
                         mediator.lock().unwrap().save_design(path);
                         requests.file_save = None;

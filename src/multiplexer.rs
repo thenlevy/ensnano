@@ -116,6 +116,10 @@ pub struct Multiplexer {
     flat_scene_texture: Option<SampledTexture>,
     /// The pointer the node that separate the left pannel from the scene
     left_pannel_split: usize,
+    /// The pointer to the node that separate the top bar from the scene
+    top_bar_split: usize,
+    /// The pointer to the node that separtate the status bar from the scene
+    status_bar_split: usize,
     device: Rc<Device>,
     pipeline: Option<wgpu::RenderPipeline>,
     split_mode: SplitMode,
@@ -137,12 +141,14 @@ impl Multiplexer {
     ) -> Self {
         let mut layout_manager = LayoutTree::new();
         let top_pannel_prop = proportion(0.05, MAX_TOP_BAR_HEIGHT, window_size.height as f64);
+        let top_bar_split = 0;
         let (top_bar, scene) = layout_manager.hsplit(0, top_pannel_prop, false);
         let left_pannel_split = scene;
         let left_pannel_prop = proportion(0.2, MAX_LEFT_PANNEL_WIDTH, window_size.width as f64);
         let (left_pannel, scene) = layout_manager.vsplit(scene, left_pannel_prop, false);
         let scene_height = (1. - top_pannel_prop) * window_size.height as f64;
         let status_bar_prop = proportion(0.1, MAX_STATUS_BAR_HEIGHT, scene_height);
+        let status_bar_split = scene;
         let (scene, status_bar) = layout_manager.hsplit(scene, 1. - status_bar_prop, false);
         //let (scene, grid_panel) = layout_manager.hsplit(scene, 0.8);
         layout_manager.attribute_element(top_bar, ElementType::TopBar);
@@ -170,6 +176,8 @@ impl Multiplexer {
             split_mode: SplitMode::Scene3D,
             requests,
             left_pannel_split,
+            status_bar_split,
+            top_bar_split,
             state: State::Normal {
                 mouse_position: PhysicalPosition::new(-1., -1.),
             },
@@ -530,9 +538,14 @@ impl Multiplexer {
     }
 
     fn resize(&mut self, window_size: PhySize) {
+        let top_pannel_prop = proportion(0.05, MAX_TOP_BAR_HEIGHT, window_size.height as f64);
         let left_pannel_prop = proportion(0.2, MAX_LEFT_PANNEL_WIDTH, window_size.width as f64);
+        let scene_height = (1. - top_pannel_prop) * window_size.height as f64;
+        let status_bar_prop = proportion(0.1, MAX_STATUS_BAR_HEIGHT, scene_height);
         self.layout_manager
             .resize(self.left_pannel_split, left_pannel_prop);
+        self.layout_manager.resize(self.top_bar_split, top_pannel_prop);
+        self.layout_manager.resize(self.status_bar_split, 1. - status_bar_prop);
     }
 
     fn texture(&mut self, element_type: ElementType) -> Option<SampledTexture> {
