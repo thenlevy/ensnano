@@ -319,7 +319,8 @@ impl Scene {
         if self.pasting {
             self.data.borrow_mut().set_candidate(element);
             if let Some(nucl) = self.data.borrow().get_candidate_nucl() {
-                self.mediator.lock().unwrap().attempt_paste(nucl)
+                self.mediator.lock().unwrap().attempt_paste(nucl);
+                return;
             }
         }
         let selection = self.data.borrow_mut().set_selection(element);

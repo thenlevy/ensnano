@@ -467,7 +467,6 @@ impl Mediator {
     }
 
     pub fn notify_multiple_selection(&mut self, selection: Vec<Selection>) {
-        println!("selection {:?}", selection);
         self.selection = selection.clone();
         self.last_selection = Some(selection);
         self.pasting = PastingMode::Nothing;
@@ -1089,6 +1088,7 @@ impl Mediator {
     }
 
     pub fn attempt_paste(&mut self, nucl: Nucl) {
+        println!("Attempt paste {:?}", nucl);
         if self.pasting.is_placing_paste() {
             self.pasting_attempt = Some(nucl);
         }
