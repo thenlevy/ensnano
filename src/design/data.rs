@@ -2344,7 +2344,12 @@ impl Data {
         true
     }
 
-    pub fn general_cross_over(&mut self, source_nucl: Nucl, target_nucl: Nucl) {
+    pub fn general_cross_over(
+        &mut self,
+        source_nucl: Nucl,
+        target_nucl: Nucl,
+    ) -> Option<(StrandState, StrandState)> {
+        let init = self.design.strands.clone();
         println!("cross over between {:?} and {:?}", source_nucl, target_nucl);
         let source_id = self.get_strand_nucl(&source_nucl);
         let target_id = self.get_strand_nucl(&target_nucl);
@@ -2366,7 +2371,7 @@ impl Data {
             (source_id, target_id, source, target)
         {
             match (source_strand_end.to_opt(), target_strand_end.to_opt()) {
-                (Some(true), Some(true)) | (Some(false), Some(false)) => (), // xover can't be done,
+                (Some(true), Some(true)) | (Some(false), Some(false)) => return None, // xover can't be done,
                 (Some(true), Some(false)) => {
                     // We can xover directly
                     if source_id == target_id {
@@ -2435,6 +2440,10 @@ impl Data {
                     }
                 }
             }
+            let final_state = self.design.strands.clone();
+            Some((init, final_state))
+        } else {
+            None
         }
     }
 

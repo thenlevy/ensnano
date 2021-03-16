@@ -467,7 +467,6 @@ impl Mediator {
     }
 
     pub fn notify_multiple_selection(&mut self, selection: Vec<Selection>) {
-        println!("selection {:?}", selection);
         self.selection = selection.clone();
         self.last_selection = Some(selection);
         self.pasting = PastingMode::Nothing;
@@ -991,12 +990,19 @@ impl Mediator {
     /// The design chose to accept the request depending on the rules defined in
     /// `design::operation::general_cross_over`
     pub fn xover_request(&mut self, source: Nucl, target: Nucl, design_id: usize) {
-        let operations = self.designs[design_id]
+        let states = self.designs[design_id]
             .read()
             .unwrap()
             .general_cross_over(source, target);
-        for op in operations.into_iter() {
-            self.update_opperation(op);
+
+        if let Some((initial_state, final_state)) = states {
+            self.finish_op();
+            self.undo_stack.push(Arc::new(BigStrandModification {
+                initial_state,
+                final_state,
+                reverse: false,
+                design_id: self.last_selected_design,
+            }));
         }
     }
 
@@ -1082,6 +1088,7 @@ impl Mediator {
     }
 
     pub fn attempt_paste(&mut self, nucl: Nucl) {
+        println!("Attempt paste {:?}", nucl);
         if self.pasting.is_placing_paste() {
             self.pasting_attempt = Some(nucl);
         }
