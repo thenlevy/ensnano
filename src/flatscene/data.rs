@@ -261,7 +261,13 @@ impl Data {
         let to = to.to_real();
         let prim5 = self.design.prime5_of(from).or(self.design.prime5_of(to));
         let prim3 = self.design.prime3_of(from).or(self.design.prime3_of(to));
-        prim3.zip(prim5).is_some() && prim3 != prim5
+        if prim3 != prim5 {
+            prim3.zip(prim5).is_some()
+        } else {
+            let from_end = self.design.prime5_of(from).or(self.design.prime3_of(from));
+            let to_end = self.design.prime3_of(to).or(self.design.prime5_of(to));
+            from_end.is_some() && to_end.is_some()
+        }
     }
 
     pub fn can_cut_cross_to(&self, from: FlatNucl, to: FlatNucl) -> bool {
