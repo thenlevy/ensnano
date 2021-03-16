@@ -663,46 +663,50 @@ fn main() {
 
                 resized = false;
 
-                let frame = swap_chain.get_current_frame().expect("Next frame");
+                if let Ok(frame) = swap_chain.get_current_frame() {
+                    let mut encoder = device
+                        .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
 
-                let mut encoder =
-                    device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+                    // We draw the applications first
+                    let now = std::time::Instant::now();
+                    let dt = now - last_render_time;
+                    scheduler
+                        .lock()
+                        .unwrap()
+                        .draw_apps(&mut encoder, &multiplexer, dt);
 
-                // We draw the applications first
-                let now = std::time::Instant::now();
-                let dt = now - last_render_time;
-                scheduler
-                    .lock()
-                    .unwrap()
-                    .draw_apps(&mut encoder, &multiplexer, dt);
+                    gui.render(
+                        &mut encoder,
+                        &window,
+                        &multiplexer,
+                        &mut staging_belt,
+                        &mut mouse_interaction,
+                    );
 
-                gui.render(
-                    &mut encoder,
-                    &window,
-                    &multiplexer,
-                    &mut staging_belt,
-                    &mut mouse_interaction,
-                );
+                    multiplexer.draw(&mut encoder, &frame.output.view);
+                    //overlay_manager.render(&device, &mut staging_belt, &mut encoder, &frame.output.view, &multiplexer, &window, &mut renderer);
 
-                multiplexer.draw(&mut encoder, &frame.output.view);
-                //overlay_manager.render(&device, &mut staging_belt, &mut encoder, &frame.output.view, &multiplexer, &window, &mut renderer);
+                    // Then we submit the work
+                    staging_belt.finish();
+                    queue.submit(Some(encoder.finish()));
 
-                // Then we submit the work
-                staging_belt.finish();
-                queue.submit(Some(encoder.finish()));
+                    // And update the mouse cursor
+                    window.set_cursor_icon(iced_winit::conversion::mouse_interaction(
+                        mouse_interaction,
+                    ));
+                    if let Some(icon) = icon.take() {
+                        window.set_cursor_icon(icon);
+                    }
+                    local_pool
+                        .spawner()
+                        .spawn(staging_belt.recall())
+                        .expect("Recall staging buffers");
 
-                // And update the mouse cursor
-                window
-                    .set_cursor_icon(iced_winit::conversion::mouse_interaction(mouse_interaction));
-                if let Some(icon) = icon.take() {
-                    window.set_cursor_icon(icon);
+                    local_pool.run_until_stalled();
+                } else {
+                    println!("Error getting next frame, attempt to recreate swap chain");
+                    resized = true;
                 }
-                local_pool
-                    .spawner()
-                    .spawn(staging_belt.recall())
-                    .expect("Recall staging buffers");
-
-                local_pool.run_until_stalled();
             }
             _ => {}
         }
