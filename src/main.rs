@@ -132,7 +132,8 @@ fn main() {
     // Initialize winit
     let event_loop = EventLoop::new();
     let window = winit::window::Window::new(&event_loop).unwrap();
-    window.set_title("Icednano");
+    window.set_title("ENSnano");
+    window.set_max_inner_size(Some(PhySize::new(100, 100)));
 
     let modifiers = ModifiersState::default();
 

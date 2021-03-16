@@ -140,14 +140,14 @@ impl Multiplexer {
         requests: Arc<Mutex<Requests>>,
     ) -> Self {
         let mut layout_manager = LayoutTree::new();
-        let top_pannel_prop = proportion(0.05, MAX_TOP_BAR_HEIGHT, window_size.height as f64);
+        let top_pannel_prop = exact_proportion(MAX_TOP_BAR_HEIGHT, window_size.height as f64);
         let top_bar_split = 0;
         let (top_bar, scene) = layout_manager.hsplit(0, top_pannel_prop, false);
         let left_pannel_split = scene;
         let left_pannel_prop = proportion(0.2, MAX_LEFT_PANNEL_WIDTH, window_size.width as f64);
         let (left_pannel, scene) = layout_manager.vsplit(scene, left_pannel_prop, false);
         let scene_height = (1. - top_pannel_prop) * window_size.height as f64;
-        let status_bar_prop = proportion(0.1, MAX_STATUS_BAR_HEIGHT, scene_height);
+        let status_bar_prop = exact_proportion(MAX_STATUS_BAR_HEIGHT, scene_height);
         let status_bar_split = scene;
         let (scene, status_bar) = layout_manager.hsplit(scene, 1. - status_bar_prop, false);
         //let (scene, grid_panel) = layout_manager.hsplit(scene, 0.8);
@@ -538,10 +538,10 @@ impl Multiplexer {
     }
 
     fn resize(&mut self, window_size: PhySize) {
-        let top_pannel_prop = proportion(0.05, MAX_TOP_BAR_HEIGHT, window_size.height as f64);
+        let top_pannel_prop = exact_proportion(MAX_TOP_BAR_HEIGHT, window_size.height as f64);
         let left_pannel_prop = proportion(0.2, MAX_LEFT_PANNEL_WIDTH, window_size.width as f64);
         let scene_height = (1. - top_pannel_prop) * window_size.height as f64;
-        let status_bar_prop = proportion(0.1, MAX_STATUS_BAR_HEIGHT, scene_height);
+        let status_bar_prop = exact_proportion(MAX_STATUS_BAR_HEIGHT, scene_height);
         self.layout_manager
             .resize(self.left_pannel_split, left_pannel_prop);
         self.layout_manager.resize(self.top_bar_split, top_pannel_prop);
@@ -697,6 +697,10 @@ fn create_pipeline(device: &Device, bg_layout: &wgpu::BindGroupLayout) -> wgpu::
 fn proportion(min_prop: f64, max_size: f64, length: f64) -> f64 {
     let max_prop = max_size / length;
     max_prop.min(min_prop)
+}
+
+fn exact_proportion(size: f64, length: f64) -> f64 {
+    size / length
 }
 
 enum State {
