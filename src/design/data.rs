@@ -21,6 +21,7 @@ use std::fmt;
 use std::time::Instant;
 
 mod codenano;
+mod elements;
 mod grid;
 mod icednano;
 mod rigid_body;
@@ -32,6 +33,7 @@ mod torsion;
 use super::utils::*;
 use crate::scene::GridInstance;
 use crate::utils::{message, new_color};
+pub use elements::*;
 use grid::GridManager;
 pub use grid::*;
 pub use icednano::Nucl;
@@ -103,6 +105,7 @@ pub struct Data {
     anchors: HashSet<Nucl>,
     rigid_helix_update: Option<Vector<f32>>,
     rigid_helix_simulator: Option<rigid_body::RigidHelixSimulator>,
+    elements_update: Option<Vec<DnaElement>>,
 }
 
 impl fmt::Debug for Data {
@@ -152,6 +155,7 @@ impl Data {
             anchors: HashSet::new(),
             rigid_helix_update: None,
             rigid_helix_simulator: None,
+            elements_update: None,
         }
     }
 
@@ -359,6 +363,7 @@ impl Data {
             rigid_helix_update: None,
             rigid_helix_simulator: None,
             anchors,
+            elements_update: None,
         };
         ret.make_hash_maps();
         ret.terminate_movement();

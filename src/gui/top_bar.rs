@@ -1,8 +1,10 @@
 use std::sync::{Arc, Mutex};
 use std::thread;
 
+use iced::Clipboard;
 use iced::Image;
 use iced::{container, Background, Container};
+use iced_native::clipboard::Null as NullClipBoard;
 use iced_wgpu::Renderer;
 use iced_winit::winit::dpi::LogicalSize;
 use iced_winit::{button, Button, Checkbox, Color, Command, Element, Length, Program, Row};
@@ -95,8 +97,9 @@ impl TopBar {
 impl Program for TopBar {
     type Renderer = Renderer;
     type Message = Message;
+    type Clipboard = NullClipBoard;
 
-    fn update(&mut self, message: Message) -> Command<Message> {
+    fn update(&mut self, message: Message, _cb: &mut NullClipBoard) -> Command<Message> {
         match message {
             Message::SceneFitRequested => {
                 self.requests.lock().expect("fitting_requested").fitting = true;

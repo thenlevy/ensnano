@@ -1,12 +1,14 @@
 use std::sync::{Arc, Mutex};
 
-use iced::{container, Background, Column, Container, Image, Row};
-use iced_wgpu::Renderer;
-use iced_winit::winit::dpi::{LogicalPosition, LogicalSize};
-use iced_winit::{
+use iced::{
     button, scrollable, slider, text_input, Button, Checkbox, Color, Command, Element, Length,
-    Program, Scrollable, Slider, Text, TextInput,
+    Scrollable, Slider, Text, TextInput,
 };
+use iced::{container, Background, Column, Container, Image, Row};
+use iced_aw::{TabLabel, Tabs};
+use iced_native::{clipboard::Null as NullClipboard, Program};
+use iced_wgpu::{Backend, Renderer};
+use iced_winit::winit::dpi::{LogicalPosition, LogicalSize};
 use ultraviolet::Vec3;
 
 use color_space::{Hsv, Rgb};
@@ -74,6 +76,7 @@ pub struct LeftPanel {
     finalize_hyperboloid: button::State,
     rigid_grid_button: GoStop,
     rigid_helices_button: GoStop,
+    selected_tab: usize,
 }
 
 #[derive(Debug, Clone)]
@@ -112,6 +115,7 @@ pub enum Message {
     RigidGridSimulation(bool),
     RigidHelicesSimulation(bool),
     VolumeExclusion(bool),
+    TabSelected(usize),
 }
 
 impl LeftPanel {
@@ -163,6 +167,7 @@ impl LeftPanel {
                 String::from("Rigid Grids"),
                 Message::RigidGridSimulation,
             ),
+            selected_tab: 0,
         }
     }
 
@@ -179,8 +184,9 @@ impl LeftPanel {
 impl Program for LeftPanel {
     type Renderer = Renderer;
     type Message = Message;
+    type Clipboard = NullClipboard;
 
-    fn update(&mut self, message: Message) -> Command<Message> {
+    fn update(&mut self, message: Message, _cb: &mut NullClipboard) -> Command<Message> {
         match message {
             Message::SelectionModeChanged(selection_mode) => {
                 if selection_mode != self.selection_mode {
@@ -398,11 +404,12 @@ impl Program for LeftPanel {
                 self.rigid_helices_button.running = b;
                 self.rigid_body_factory.make_request(request);
             }
+            Message::TabSelected(n) => self.selected_tab = n,
         };
         Command::none()
     }
 
-    fn view(&mut self) -> Element<Message, Renderer> {
+    fn view(&mut self) -> Element<Message> {
         let width = self.logical_size.cast::<u16>().width;
 
         let mut selection_buttons = vec![
@@ -691,7 +698,11 @@ impl Program for LeftPanel {
             .camera_rotation_buttons
             .iter_mut()
             .enumerate()
-            .map(|(i, s)| Button::new(s, rotation_text(i)).on_press(rotation_message(i, xz, yz)).width(Length::Units(BUTTON_SIZE)))
+            .map(|(i, s)| {
+                Button::new(s, rotation_text(i))
+                    .on_press(rotation_message(i, xz, yz))
+                    .width(Length::Units(BUTTON_SIZE))
+            })
             .collect();
 
         global_scroll = global_scroll.spacing(5).push(Text::new("Rotate Camera"));
@@ -751,9 +762,14 @@ impl Program for LeftPanel {
             .size(CHECKBOXSIZE),
         );
 
-        Container::new(widget)
+        let tabs: Tabs<Message, Backend> = Tabs::new(self.selected_tab, Message::TabSelected)
+            .push(TabLabel::Text("Menu".to_owned()), widget)
+            .push(TabLabel::Text("Organizer".to_owned()), Text::new("Soon !"));
+
+        Container::new(tabs)
             .style(TopBarStyle)
             .height(Length::Fill)
+            .width(Length::Fill)
             .into()
     }
 }
@@ -809,8 +825,9 @@ pub enum ColorMessage {
 impl Program for ColorOverlay {
     type Renderer = Renderer;
     type Message = ColorMessage;
+    type Clipboard = NullClipboard;
 
-    fn update(&mut self, message: ColorMessage) -> Command<ColorMessage> {
+    fn update(&mut self, message: ColorMessage, _cb: &mut NullClipboard) -> Command<ColorMessage> {
         match message {
             ColorMessage::StrandColorChanged(color) => {
                 let red = ((color.r * 255.) as u32) << 16;
@@ -836,7 +853,7 @@ impl Program for ColorOverlay {
         Command::none()
     }
 
-    fn view(&mut self) -> Element<ColorMessage, Renderer> {
+    fn view(&mut self) -> Element<ColorMessage> {
         let width = self.logical_size.cast::<u16>().width;
 
         let widget = Column::new()
@@ -980,7 +997,7 @@ fn rotation_message(i: usize, xz: isize, yz: isize) -> Message {
     Message::RotateCam(angle_xz, angle_yz)
 }
 
-fn rotation_text(i: usize) -> Text<iced_wgpu::Renderer> {
+fn rotation_text(i: usize) -> Text {
     match i {
         0 => icon(MaterialIcon::ArrowBack),
         1 => icon(MaterialIcon::ArrowForward),
