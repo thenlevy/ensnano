@@ -1,3 +1,4 @@
+use ensnano_organizer::{Organizer, OrganizerMessage};
 use std::sync::{Arc, Mutex};
 
 use iced::{
@@ -13,6 +14,7 @@ use ultraviolet::Vec3;
 
 use color_space::{Hsv, Rgb};
 
+use crate::design::DnaElement;
 use crate::mediator::{ActionMode, SelectionMode};
 
 use super::{FogParameters as Fog, OverlayType, Requests};
@@ -77,6 +79,7 @@ pub struct LeftPanel {
     rigid_grid_button: GoStop,
     rigid_helices_button: GoStop,
     selected_tab: usize,
+    organizer: Organizer<DnaElement>,
 }
 
 #[derive(Debug, Clone)]
@@ -116,6 +119,8 @@ pub enum Message {
     RigidHelicesSimulation(bool),
     VolumeExclusion(bool),
     TabSelected(usize),
+    NewDnaElement(Vec<DnaElement>),
+    OrganizerMessage(OrganizerMessage<DnaElement>),
 }
 
 impl LeftPanel {
@@ -168,6 +173,7 @@ impl LeftPanel {
                 Message::RigidGridSimulation,
             ),
             selected_tab: 0,
+            organizer: Organizer::new(),
         }
     }
 
@@ -178,6 +184,21 @@ impl LeftPanel {
     ) {
         self.logical_size = logical_size;
         self.logical_position = logical_position;
+    }
+
+    fn organizer_message(&mut self, m: &OrganizerMessage<DnaElement>) -> Option<Message> {
+        match m {
+            OrganizerMessage::InternalMessage(m) => {
+                return self
+                    .organizer
+                    .message(m)
+                    .map(|m_| Message::OrganizerMessage(m_))
+            }
+            OrganizerMessage::Selection(s) => println!("New selection seen from owner {:?}", s),
+            OrganizerMessage::NewAttribute(a, keys) => (),
+            _ => (),
+        }
+        None
     }
 }
 
@@ -405,6 +426,13 @@ impl Program for LeftPanel {
                 self.rigid_body_factory.make_request(request);
             }
             Message::TabSelected(n) => self.selected_tab = n,
+            Message::NewDnaElement(elements) => self.organizer.update_elements(elements),
+            Message::OrganizerMessage(m) => {
+                let next_message = self.organizer_message(&m);
+                if let Some(message) = next_message {
+                    self.update(message, _cb);
+                }
+            }
         };
         Command::none()
     }
@@ -764,7 +792,11 @@ impl Program for LeftPanel {
 
         let tabs: Tabs<Message, Backend> = Tabs::new(self.selected_tab, Message::TabSelected)
             .push(TabLabel::Text("Menu".to_owned()), widget)
-            .push(TabLabel::Text("Organizer".to_owned()), Text::new("Soon !"));
+            .push(
+                TabLabel::Text("Organizer".to_owned()),
+                self.organizer.view().map(|m| Message::OrganizerMessage(m)),
+            )
+            .width(Length::Units(width));
 
         Container::new(tabs)
             .style(TopBarStyle)

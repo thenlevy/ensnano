@@ -807,6 +807,11 @@ impl IcedMessages {
         self.left_panel
             .push_back(gui::left_panel::Message::HelixRoll(roll))
     }
+
+    pub fn push_dna_elements(&mut self, elements: Vec<crate::design::DnaElement>) {
+        self.left_panel
+            .push_back(gui::left_panel::Message::NewDnaElement(elements))
+    }
 }
 
 pub struct OverlayManager {

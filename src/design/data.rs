@@ -384,13 +384,15 @@ impl Data {
         let mut basis_map = HashMap::default();
         let mut id = 0u32;
         let mut nucl_id;
-        let mut old_nucl = None;
+        let mut old_nucl: Option<Nucl> = None;
         let mut old_nucl_id = None;
         let mut blue_cubes = HashMap::default();
         let mut red_cubes = HashMap::default();
+        let mut elements = Vec::new();
         self.blue_nucl.clear();
         let groups = self.groups.read().unwrap();
         for (s_id, strand) in self.design.strands.iter() {
+            elements.push(elements::DnaElement::Strand { id: *s_id });
             let mut strand_position = 0;
             let strand_seq = strand.sequence.as_ref().filter(|s| s.is_ascii());
             let color = strand.color;
@@ -408,6 +410,11 @@ impl Data {
                             forward: domain.forward,
                             helix: domain.helix,
                         };
+                        elements.push(DnaElement::Nucleotide {
+                            helix: nucl.helix,
+                            position: nucl.position,
+                            forward: nucl.forward,
+                        });
                         nucl_id = id;
                         id += 1;
                         object_type.insert(nucl_id, ObjectType::Nucleotide(nucl_id));
@@ -445,6 +452,16 @@ impl Data {
                         let position = [position[0] as f32, position[1] as f32, position[2] as f32];
                         space_position.insert(nucl_id, position);
                         if let Some(old_nucl) = old_nucl.take() {
+                            if old_nucl.helix != nucl.helix {
+                                elements.push(DnaElement::CrossOver {
+                                    helix5prime: old_nucl.helix,
+                                    position5prime: old_nucl.position,
+                                    forward5prime: old_nucl.forward,
+                                    helix3prime: nucl.helix,
+                                    position3prime: nucl.position,
+                                    forward3prime: nucl.forward,
+                                });
+                            }
                             let bound_id = id;
                             id += 1;
                             let bound = (old_nucl, nucl);
@@ -496,6 +513,14 @@ impl Data {
         self.blue_cubes = blue_cubes;
         drop(groups);
         self.read_scaffold_seq(self.design.scaffold_shift.unwrap_or(0));
+        for (h_id, h) in self.design.helices.iter() {
+            elements.push(DnaElement::Helix {
+                id: *h_id,
+                group: self.design.groups.get(h_id).cloned(),
+                visible: h.visible,
+            });
+        }
+        self.elements_update = Some(elements);
     }
 
     fn read_scaffold_seq(&mut self, shift: usize) {
@@ -2506,6 +2531,10 @@ impl Data {
             .grids
             .get(g_id)
             .and_then(|g| g.grid_type.get_shift())
+    }
+
+    pub fn get_new_elements(&mut self) -> Option<Vec<DnaElement>> {
+        self.elements_update.take()
     }
 }
 

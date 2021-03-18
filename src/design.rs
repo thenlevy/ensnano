@@ -879,6 +879,10 @@ impl Design {
     pub fn get_shift(&self, g_id: usize) -> Option<f32> {
         self.data.lock().unwrap().get_shift(g_id)
     }
+
+    pub fn get_new_elements(&self) -> Option<Vec<DnaElement>> {
+        self.data.lock().unwrap().get_new_elements()
+    }
 }
 
 #[derive(Clone)]

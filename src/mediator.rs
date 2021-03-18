@@ -568,6 +568,13 @@ impl Mediator {
                 notifications.push(Notification::DesignNotification(notification))
             }
         }
+        if let Some(elements) = self
+            .designs
+            .get(0)
+            .and_then(|d| d.read().unwrap().get_new_elements())
+        {
+            self.messages.lock().unwrap().push_dna_elements(elements);
+        }
         for notification in notifications {
             self.notify_apps(notification)
         }
