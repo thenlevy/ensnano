@@ -873,14 +873,15 @@ impl OverlayManager {
             } else {
                 PhysicalPosition::new(-1., -1.)
             };
+            let mut clipboard = iced_native::clipboard::Null;
             match overlay {
                 OverlayType::Color => {
                     if !self.color_state.is_queue_empty() || resized {
                         let _ = self.color_state.update(
                             convert_size(PhysicalSize::new(250, 250)),
                             conversion::cursor_position(cursor_position, window.scale_factor()),
-                            None,
                             renderer,
+                            &mut clipboard,
                             &mut self.color_debug,
                         );
                     }
@@ -959,6 +960,7 @@ impl OverlayManager {
             } else {
                 PhysicalPosition::new(-1., -1.)
             };
+            let mut clipboard = iced_native::clipboard::Null;
             match overlay {
                 OverlayType::Color => {
                     if !self.color_state.is_queue_empty() {
@@ -966,8 +968,8 @@ impl OverlayManager {
                         let _ = self.color_state.update(
                             convert_size(PhysicalSize::new(250, 250)),
                             conversion::cursor_position(cursor_position, window.scale_factor()),
-                            None,
                             renderer,
+                            &mut clipboard,
                             &mut self.color_debug,
                         );
                     }

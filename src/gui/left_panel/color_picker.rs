@@ -190,9 +190,9 @@ mod hue_column {
             event: Event,
             layout: Layout<'_>,
             cursor_position: Point,
-            messages: &mut Vec<Message>,
             _renderer: &Renderer<B>,
-            _clipboard: Option<&dyn Clipboard>,
+            _clipboard: &mut dyn Clipboard,
+            messages: &mut Vec<Message>,
         ) -> iced_native::event::Status {
             let mut change = || {
                 let bounds = layout.bounds();
@@ -378,9 +378,9 @@ mod light_sat_square {
             event: Event,
             layout: Layout<'_>,
             cursor_position: Point,
-            messages: &mut Vec<Message>,
             _renderer: &Renderer<B>,
-            _clipboard: Option<&dyn Clipboard>,
+            _clipboard: &mut dyn Clipboard,
+            messages: &mut Vec<Message>,
         ) -> iced_native::event::Status {
             let mut change = || {
                 let bounds = layout.bounds();
@@ -547,9 +547,9 @@ mod color_square {
             _event: Event,
             _layout: Layout<'_>,
             _cursor_position: Point,
-            _messages: &mut Vec<Message>,
             _renderer: &Renderer<B>,
-            _clipboard: Option<&dyn Clipboard>,
+            _clipboard: &mut dyn Clipboard,
+            _messages: &mut Vec<Message>,
         ) -> iced_native::event::Status {
             iced_native::event::Status::Ignored
         }

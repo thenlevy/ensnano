@@ -225,15 +225,16 @@ impl GuiState {
         renderer: &mut Renderer,
         debug: &mut Debug,
     ) {
+        let mut clipboard = iced_native::clipboard::Null;
         match self {
             GuiState::TopBar(state) => {
-                state.update(size, cursor_position, None, renderer, debug);
+                state.update(size, cursor_position, renderer, &mut clipboard, debug);
             }
             GuiState::LeftPanel(state) => {
-                state.update(size, cursor_position, None, renderer, debug);
+                state.update(size, cursor_position, renderer, &mut clipboard, debug);
             }
             GuiState::StatusBar(state) => {
-                state.update(size, cursor_position, None, renderer, debug);
+                state.update(size, cursor_position, renderer, &mut clipboard, debug);
             }
         }
     }
