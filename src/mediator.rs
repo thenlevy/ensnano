@@ -37,7 +37,7 @@ pub struct Mediator {
     applications: HashMap<ElementType, Arc<Mutex<dyn Application>>>,
     designs: Vec<Arc<RwLock<Design>>>,
     selection: Vec<Selection>,
-    candidate: Option<Option<PhantomElement>>,
+    candidate: Option<Option<Selection>>,
     last_selection: Option<Vec<Selection>>,
     messages: Arc<Mutex<IcedMessages>>,
     /// The operation that is beign modified by the current drag and drop
@@ -147,7 +147,7 @@ pub enum Notification {
     /// The designs have been deleted
     ClearDesigns,
     /// A new element of the design must be highlighted
-    NewCandidate(Option<PhantomElement>),
+    NewCandidate(Option<Selection>),
     /// An element has been selected in the 3d view
     Selection3D(Vec<Selection>),
     /// A save request has been filled
@@ -580,25 +580,31 @@ impl Mediator {
         }
         if let Some(candidate) = self.candidate.take() {
             ret = true;
-            if let Some(pe) = candidate {
-                let design_id = pe.design_id as usize;
-                let nucl = Nucl {
-                    helix: pe.helix_id as usize,
-                    position: pe.position as isize,
-                    forward: pe.forward,
-                };
-                let strand_opt = self.designs[design_id]
-                    .read()
-                    .unwrap()
-                    .get_strand_nucl(&nucl);
-                if let Some(strand) = strand_opt {
-                    let selection = Selection::Strand(design_id as u32, strand as u32);
-                    let values = selection.fetch_values(self.designs[design_id].clone());
+            match candidate {
+                Some(Selection::Strand(d_id, _)) => {
+                    let values = candidate
+                        .unwrap()
+                        .fetch_values(self.designs[d_id as usize].clone());
                     self.messages
                         .lock()
                         .unwrap()
-                        .push_selection(selection, values);
+                        .push_selection(candidate.unwrap(), values);
                 }
+                Some(Selection::Nucleotide(d_id, nucl)) => {
+                    let strand_opt = self.designs[d_id as usize]
+                        .read()
+                        .unwrap()
+                        .get_strand_nucl(&nucl);
+                    if let Some(strand) = strand_opt {
+                        let selection = Selection::Strand(d_id, strand as u32);
+                        let values = selection.fetch_values(self.designs[d_id as usize].clone());
+                        self.messages
+                            .lock()
+                            .unwrap()
+                            .push_selection(selection, values);
+                    }
+                }
+                _ => (),
             }
             self.notify_apps(Notification::NewCandidate(candidate))
         }
@@ -865,7 +871,11 @@ impl Mediator {
         }
     }
 
-    pub fn set_candidate(&mut self, candidate: Option<PhantomElement>) {
+    pub fn set_candidate(
+        &mut self,
+        candidate: Option<PhantomElement>,
+        selection: Option<Selection>,
+    ) {
         let nucl = candidate.map(|c| c.to_nucl());
         if self.pasting.is_placing_paste() {
             if self.pasting.strand() {
@@ -880,7 +890,7 @@ impl Mediator {
                     .request_paste_candidate_xover(nucl);
             }
         }
-        self.candidate = Some(candidate)
+        self.candidate = Some(selection)
     }
 
     pub fn set_paste_candidate(&mut self, candidate: Option<Nucl>) {

@@ -258,8 +258,20 @@ impl FlatScene {
                     });
                     self.view[self.selected_design]
                         .borrow_mut()
-                        .set_candidate(candidate, other);
-                    self.mediator.lock().unwrap().set_candidate(phantom)
+                        .set_candidate_suggestion(candidate, other);
+                    let candidate = if let Some(selection) = phantom.and_then(|p| {
+                        self.data[self.selected_design]
+                            .borrow()
+                            .phantom_to_selection(p)
+                    }) {
+                        Some(selection)
+                    } else {
+                        phantom.map(|p| Selection::Phantom(p))
+                    };
+                    self.mediator
+                        .lock()
+                        .unwrap()
+                        .set_candidate(phantom, candidate)
                 }
                 Consequence::RmStrand(nucl) => {
                     let strand_id = self.data[self.selected_design].borrow().get_strand_id(nucl);

@@ -678,10 +678,9 @@ impl Application for Scene {
             Notification::NewActionMode(am) => self.change_action_mode(am),
             Notification::NewSelectionMode(sm) => self.change_selection_mode(sm),
             Notification::NewSensitivity(x) => self.change_sensitivity(x),
-            Notification::NewCandidate(candidate) => self
-                .data
-                .borrow_mut()
-                .set_candidate(candidate.map(|c| SceneElement::PhantomElement(c))),
+            Notification::NewCandidate(candidate) => {
+                self.data.borrow_mut().notify_candidate(candidate)
+            }
             Notification::Selection3D(_) => (), // nothing to do since the scene is at the origin of this notification
             Notification::Save(_) => (),
             Notification::CameraTarget((target, up)) => {

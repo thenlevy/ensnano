@@ -94,7 +94,7 @@ pub fn phantom_helix_decoder(id: u32) -> PhantomElement {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PhantomElement {
     pub design_id: u32,
     pub helix_id: u32,

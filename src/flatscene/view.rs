@@ -568,7 +568,11 @@ impl View {
         }
     }
 
-    pub fn set_candidate(&mut self, candidate: Option<FlatNucl>, other: Option<FlatNucl>) {
+    pub fn set_candidate_suggestion(
+        &mut self,
+        candidate: Option<FlatNucl>,
+        other: Option<FlatNucl>,
+    ) {
         self.suggestions_view.clear();
         self.was_updated |= self.suggestion_candidate != candidate.zip(other);
         if let Some((n1, n2)) = candidate.zip(other) {

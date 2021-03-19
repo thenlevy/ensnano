@@ -1,4 +1,4 @@
-use super::{Flat, HelixVec, ViewPtr};
+use super::{Flat, HelixVec, PhantomElement, ViewPtr};
 use crate::design::{Design, Nucl, StrandBuilder};
 use crate::mediator::{Selection, SelectionMode};
 use std::sync::{Arc, RwLock};
@@ -576,6 +576,28 @@ impl Data {
                 None
             }
         })
+    }
+
+    pub fn phantom_to_selection(&self, phantom: PhantomElement) -> Option<Selection> {
+        if let Some(n_id) = self.design.get_nucl_id(phantom.to_nucl()) {
+            match self.selection_mode {
+                SelectionMode::Grid => None,
+                SelectionMode::Helix => self
+                    .design
+                    .get_helix_from_eid(n_id)
+                    .map(|h| Selection::Helix(phantom.design_id, h as u32)),
+                SelectionMode::Strand => self
+                    .design
+                    .get_strand_from_eid(n_id)
+                    .map(|s| Selection::Strand(phantom.design_id, s as u32)),
+                SelectionMode::Design => None,
+                SelectionMode::Nucleotide => {
+                    Some(Selection::Nucleotide(phantom.design_id, phantom.to_nucl()))
+                }
+            }
+        } else {
+            None
+        }
     }
 }
 

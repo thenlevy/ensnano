@@ -142,23 +142,31 @@ impl Data {
         let mut ret = Vec::new();
         if let Selection::Nucleotide(d_id, nucl) = selection {
             if !object_type.is_bound() {
-                ret.push(SceneElement::PhantomElement(PhantomElement {
-                    design_id: *d_id,
-                    helix_id: nucl.helix as u32,
-                    position: nucl.position as i32,
-                    forward: nucl.forward,
-                    bound: false,
-                }));
+                if let Some(n_id) = self.designs[*d_id as usize].get_identifier_nucl(nucl) {
+                    ret.push(SceneElement::DesignElement(*d_id, n_id))
+                } else {
+                    ret.push(SceneElement::PhantomElement(PhantomElement {
+                        design_id: *d_id,
+                        helix_id: nucl.helix as u32,
+                        position: nucl.position as i32,
+                        forward: nucl.forward,
+                        bound: false,
+                    }));
+                }
             }
         } else if let Selection::Bound(d_id, n1, n2) = selection {
             if object_type.is_bound() {
-                ret.push(SceneElement::PhantomElement(PhantomElement {
-                    design_id: *d_id,
-                    helix_id: n1.helix as u32,
-                    position: n1.position as i32,
-                    forward: n1.forward,
-                    bound: true,
-                }));
+                if let Some(b_id) = self.designs[*d_id as usize].get_identifier_bound(n1, n2) {
+                    ret.push(SceneElement::DesignElement(*d_id, b_id))
+                } else {
+                    ret.push(SceneElement::PhantomElement(PhantomElement {
+                        design_id: *d_id,
+                        helix_id: n1.helix as u32,
+                        position: n1.position as i32,
+                        forward: n1.forward,
+                        bound: true,
+                    }));
+                }
             }
         } else {
             let group = self.get_group_member(selection);
@@ -440,7 +448,8 @@ impl Data {
             Selection::Strand(d_id, s_id) => {
                 self.designs[*d_id as usize].get_strand_elements(*s_id)
             }
-            Selection::Grid(d_id, g_id) => HashSet::new(), // A grid is not made of atomic elements
+            Selection::Grid(_, _) => HashSet::new(), // A grid is not made of atomic elements
+            Selection::Phantom(_) => HashSet::new(),
             Selection::Nothing => HashSet::new(),
             Selection::Design(d_id) => self.designs[*d_id as usize].get_all_elements(),
         }
@@ -482,7 +491,7 @@ impl Data {
         self.selected_element = future_selection;
         self.update_selected_position();
         let selection = if let Some(element) = element.as_ref() {
-            self.element_to_section(element)
+            self.element_to_selection(element)
         } else {
             Selection::Nothing
         };
@@ -650,7 +659,7 @@ impl Data {
         }
     }
 
-    pub fn element_to_section(&self, element: &SceneElement) -> Selection {
+    pub fn element_to_selection(&self, element: &SceneElement) -> Selection {
         match element {
             SceneElement::DesignElement(design_id, element_id) => {
                 let group_id = self.get_group_identifier(*design_id, *element_id);
@@ -673,6 +682,11 @@ impl Data {
                 }
             }
             SceneElement::Grid(d_id, g_id) => Selection::Grid(*d_id, *g_id),
+            SceneElement::PhantomElement(phantom) if phantom.bound => Selection::Bound(
+                phantom.design_id,
+                phantom.to_nucl(),
+                phantom.to_nucl().left(),
+            ),
             SceneElement::PhantomElement(phantom) => {
                 Selection::Nucleotide(phantom.design_id, phantom.to_nucl())
             }
@@ -683,7 +697,7 @@ impl Data {
     /// Set the set of candidates to a given nucleotide
     pub fn set_candidate(&mut self, element: Option<SceneElement>) {
         let future_candidates = if let Some(element) = element.as_ref() {
-            let selection = self.element_to_section(element);
+            let selection = self.element_to_selection(element);
             if selection != Selection::Nothing {
                 vec![selection]
             } else {
@@ -696,6 +710,20 @@ impl Data {
         self.candidate_update |= self.candidates != future_candidates;
         self.candidates = future_candidates;
         self.candidate_element = element;
+    }
+
+    pub fn notify_candidate(&mut self, candidate: Option<Selection>) {
+        let future_candidates = if let Some(selection) = candidate {
+            if selection != Selection::Nothing {
+                vec![selection]
+            } else {
+                vec![]
+            }
+        } else {
+            vec![]
+        };
+        self.candidate_update |= self.candidates != future_candidates;
+        self.candidates = future_candidates;
     }
 
     /// Clear the set of candidates to a given nucleotide

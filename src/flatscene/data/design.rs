@@ -360,6 +360,18 @@ impl Design2d {
             .collect();
         Strand::new(0, flat_nucls, vec![], 0, false).highlighted(crate::consts::CANDIDATE_COLOR)
     }
+
+    pub fn get_nucl_id(&self, nucl: Nucl) -> Option<u32> {
+        self.design.read().unwrap().get_identifier_nucl(&nucl)
+    }
+
+    pub fn get_strand_from_eid(&self, element_id: u32) -> Option<usize> {
+        self.design.read().unwrap().get_strand(element_id)
+    }
+
+    pub fn get_helix_from_eid(&self, element_id: u32) -> Option<usize> {
+        self.design.read().unwrap().get_helix(element_id)
+    }
 }
 
 /// Store the informations needed to represent an helix from the design
