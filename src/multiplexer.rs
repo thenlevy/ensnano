@@ -550,6 +550,7 @@ impl Multiplexer {
 
     fn texture(&mut self, element_type: ElementType) -> Option<SampledTexture> {
         self.get_draw_area(element_type)
+            .filter(|a| a.size.height > 0 && a.size.width > 0)
             .map(|a| SampledTexture::create_target_texture(self.device.as_ref(), &a.size))
     }
 
