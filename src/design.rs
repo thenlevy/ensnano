@@ -476,8 +476,12 @@ impl Design {
         self.data.lock().unwrap().get_copy_points()
     }
 
-    pub fn get_identifier_nucl(&self, nucl: Nucl) -> Option<u32> {
+    pub fn get_identifier_nucl(&self, nucl: &Nucl) -> Option<u32> {
         self.data.lock().unwrap().get_identifier_nucl(nucl)
+    }
+
+    pub fn get_identifier_bound(&self, n1: &Nucl, n2: &Nucl) -> Option<u32> {
+        self.data.lock().unwrap().get_identifier_bound(n1, n2)
     }
 
     pub fn merge_strands(&mut self, prime5: usize, prime3: usize) {

@@ -307,7 +307,7 @@ impl Design2d {
         self.design
             .read()
             .unwrap()
-            .get_identifier_nucl(nucl)
+            .get_identifier_nucl(&nucl)
             .is_some()
     }
 

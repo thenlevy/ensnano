@@ -1,6 +1,7 @@
 use std::rc::Rc;
 
 use super::{DataPtr, Device, DrawArea, DrawType, Queue, ViewPtr};
+use crate::mediator::Selection;
 use crate::utils;
 use futures::executor;
 use iced_wgpu::wgpu;

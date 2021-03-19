@@ -676,8 +676,12 @@ impl Design3D {
         Some(SceneElement::DesignElement(self.id, id))
     }
 
-    pub fn get_identifier_nucl(&self, nucl: Nucl) -> Option<u32> {
+    pub fn get_identifier_nucl(&self, nucl: &Nucl) -> Option<u32> {
         self.design.read().unwrap().get_identifier_nucl(nucl)
+    }
+
+    pub fn get_identifier_bound(&self, n1: &Nucl, n2: &Nucl) -> Option<u32> {
+        self.design.read().unwrap().get_identifier_bound(n1, n2)
     }
 
     pub fn get_builder(&self, element: &SceneElement, stick: bool) -> Option<StrandBuilder> {

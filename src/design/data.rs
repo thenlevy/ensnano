@@ -999,8 +999,12 @@ impl Data {
     }
 
     /// Return the identifier of a nucleotide
-    pub fn get_identifier_nucl(&self, nucl: Nucl) -> Option<u32> {
-        self.identifier_nucl.get(&nucl).cloned()
+    pub fn get_identifier_nucl(&self, nucl: &Nucl) -> Option<u32> {
+        self.identifier_nucl.get(nucl).cloned()
+    }
+
+    pub fn get_identifier_bound(&self, n1: &Nucl, n2: &Nucl) -> Option<u32> {
+        self.identifier_bound.get(&(*n1, *n2)).cloned()
     }
 
     /// Return a NeighbourDescriptor describing the domain on which a nucleotide lies ; or `None`
