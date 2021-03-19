@@ -712,18 +712,24 @@ impl Data {
         self.candidate_element = element;
     }
 
-    pub fn notify_candidate(&mut self, candidate: Option<Selection>) {
-        let future_candidates = if let Some(selection) = candidate {
-            if selection != Selection::Nothing {
-                vec![selection]
-            } else {
-                vec![]
-            }
-        } else {
-            vec![]
-        };
+    pub fn notify_candidate(&mut self, candidate: Vec<Selection>) {
+        let future_candidates = candidate
+            .iter()
+            .filter(|c| c.get_design().is_some())
+            .cloned()
+            .collect();
         self.candidate_update |= self.candidates != future_candidates;
         self.candidates = future_candidates;
+    }
+
+    pub fn notify_selection(&mut self, selection: Vec<Selection>) {
+        let future_selection = selection
+            .iter()
+            .filter(|s| s.get_design().is_some())
+            .cloned()
+            .collect();
+        self.selection_update |= self.selection != future_selection;
+        self.selection = future_selection;
     }
 
     /// Clear the set of candidates to a given nucleotide

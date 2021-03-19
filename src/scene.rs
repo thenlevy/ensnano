@@ -12,7 +12,7 @@ use crate::{DrawArea, PhySize, WindowEvent};
 use design::Hyperboloid;
 use instance::Instance;
 use mediator::{
-    ActionMode, Application, CreateGrid, DesignViewRotation, DesignViewTranslation,
+    ActionMode, AppId, Application, CreateGrid, DesignViewRotation, DesignViewTranslation,
     GridHelixCreation, GridRotation, GridTranslation, HelixRotation, HelixTranslation, MediatorPtr,
     NewHyperboloid, Notification, Operation, SelectionMode, StrandConstruction,
 };
@@ -328,7 +328,7 @@ impl Scene {
             self.mediator
                 .lock()
                 .unwrap()
-                .notify_unique_selection(selection);
+                .notify_unique_selection(selection, AppId::Scene);
         }
         let pivot = self.data.borrow().get_selected_position();
         self.view.borrow_mut().update(ViewUpdate::FogCenter(pivot));
@@ -678,10 +678,20 @@ impl Application for Scene {
             Notification::NewActionMode(am) => self.change_action_mode(am),
             Notification::NewSelectionMode(sm) => self.change_selection_mode(sm),
             Notification::NewSensitivity(x) => self.change_sensitivity(x),
-            Notification::NewCandidate(candidate) => {
-                self.data.borrow_mut().notify_candidate(candidate)
+            Notification::NewCandidate(candidate, app_id) => {
+                if let AppId::Scene = app_id {
+                    ()
+                } else {
+                    self.data.borrow_mut().notify_candidate(candidate)
+                }
             }
-            Notification::Selection3D(_) => (), // nothing to do since the scene is at the origin of this notification
+            Notification::Selection3D(selection, app_id) => {
+                if let AppId::Scene = app_id {
+                    ()
+                } else {
+                    self.data.borrow_mut().notify_selection(selection)
+                }
+            }
             Notification::Save(_) => (),
             Notification::CameraTarget((target, up)) => {
                 self.set_camera_target(target, up);

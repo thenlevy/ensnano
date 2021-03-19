@@ -31,14 +31,21 @@ mod selection;
 pub use operation::*;
 pub use selection::*;
 
+#[derive(Debug, Clone, Copy)]
+pub enum AppId {
+    FlatScene,
+    Scene,
+    Organizer,
+}
+
 pub type MediatorPtr = Arc<Mutex<Mediator>>;
 
 pub struct Mediator {
     applications: HashMap<ElementType, Arc<Mutex<dyn Application>>>,
     designs: Vec<Arc<RwLock<Design>>>,
     selection: Vec<Selection>,
-    candidate: Option<Option<Selection>>,
-    last_selection: Option<Vec<Selection>>,
+    candidate: Option<(Vec<Selection>, AppId)>,
+    last_selection: Option<(Vec<Selection>, AppId)>,
     messages: Arc<Mutex<IcedMessages>>,
     /// The operation that is beign modified by the current drag and drop
     current_operation: Option<Arc<dyn Operation>>,
@@ -147,9 +154,9 @@ pub enum Notification {
     /// The designs have been deleted
     ClearDesigns,
     /// A new element of the design must be highlighted
-    NewCandidate(Option<Selection>),
+    NewCandidate(Vec<Selection>, AppId),
     /// An element has been selected in the 3d view
-    Selection3D(Vec<Selection>),
+    Selection3D(Vec<Selection>, AppId),
     /// A save request has been filled
     Save(usize),
     /// The 3d camera must face a given target
@@ -466,18 +473,18 @@ impl Mediator {
         self.notify_apps(Notification::ClearDesigns)
     }
 
-    pub fn notify_multiple_selection(&mut self, selection: Vec<Selection>) {
+    pub fn notify_multiple_selection(&mut self, selection: Vec<Selection>, app_id: AppId) {
         self.selection = selection.clone();
-        self.last_selection = Some(selection);
+        self.last_selection = Some((selection, app_id));
         self.pasting = PastingMode::Nothing;
         self.notify_all_designs(AppNotification::ResetCopyPaste);
     }
 
-    pub fn notify_unique_selection(&mut self, selection: Selection) {
+    pub fn notify_unique_selection(&mut self, selection: Selection, app_id: AppId) {
         self.pasting = PastingMode::Nothing;
         self.notify_all_designs(AppNotification::ResetCopyPaste);
         self.selection = vec![selection];
-        self.last_selection = Some(vec![selection]);
+        self.last_selection = Some((vec![selection], app_id));
         if selection.is_strand() {
             let mut messages = self.messages.lock().unwrap();
             if let Selection::Strand(d_id, s_id) = selection {
@@ -578,35 +585,36 @@ impl Mediator {
         for notification in notifications {
             self.notify_apps(notification)
         }
-        if let Some(candidate) = self.candidate.take() {
+        if let Some((candidate, app_id)) = self.candidate.take() {
             ret = true;
-            match candidate {
-                Some(Selection::Strand(d_id, _)) => {
-                    let values = candidate
-                        .unwrap()
-                        .fetch_values(self.designs[d_id as usize].clone());
-                    self.messages
-                        .lock()
-                        .unwrap()
-                        .push_selection(candidate.unwrap(), values);
-                }
-                Some(Selection::Nucleotide(d_id, nucl)) => {
-                    let strand_opt = self.designs[d_id as usize]
-                        .read()
-                        .unwrap()
-                        .get_strand_nucl(&nucl);
-                    if let Some(strand) = strand_opt {
-                        let selection = Selection::Strand(d_id, strand as u32);
-                        let values = selection.fetch_values(self.designs[d_id as usize].clone());
+            if candidate.len() == 1 {
+                match candidate[0] {
+                    Selection::Strand(d_id, _) => {
+                        let values = candidate[0].fetch_values(self.designs[d_id as usize].clone());
                         self.messages
                             .lock()
                             .unwrap()
-                            .push_selection(selection, values);
+                            .push_selection(candidate[0], values);
                     }
+                    Selection::Nucleotide(d_id, nucl) => {
+                        let strand_opt = self.designs[d_id as usize]
+                            .read()
+                            .unwrap()
+                            .get_strand_nucl(&nucl);
+                        if let Some(strand) = strand_opt {
+                            let selection = Selection::Strand(d_id, strand as u32);
+                            let values =
+                                selection.fetch_values(self.designs[d_id as usize].clone());
+                            self.messages
+                                .lock()
+                                .unwrap()
+                                .push_selection(selection, values);
+                        }
+                    }
+                    _ => (),
                 }
-                _ => (),
             }
-            self.notify_apps(Notification::NewCandidate(candidate))
+            self.notify_apps(Notification::NewCandidate(candidate, app_id))
         }
         if let Some(nucl) = self.pasting_attempt.take() {
             match self.pasting {
@@ -684,9 +692,9 @@ impl Mediator {
             self.notify_apps(Notification::Pasting(self.pasting.is_placing_paste()));
             self.duplication_attempt = false;
         }
-        if let Some(selection) = self.last_selection.take() {
+        if let Some((selection, app_id)) = self.last_selection.take() {
             ret = true;
-            self.notify_apps(Notification::Selection3D(selection))
+            self.notify_apps(Notification::Selection3D(selection, app_id))
         }
 
         if let Some(centring) = self.centring.take() {
@@ -874,7 +882,8 @@ impl Mediator {
     pub fn set_candidate(
         &mut self,
         candidate: Option<PhantomElement>,
-        selection: Option<Selection>,
+        selection: Vec<Selection>,
+        app_id: AppId,
     ) {
         let nucl = candidate.map(|c| c.to_nucl());
         if self.pasting.is_placing_paste() {
@@ -890,7 +899,7 @@ impl Mediator {
                     .request_paste_candidate_xover(nucl);
             }
         }
-        self.candidate = Some(selection)
+        self.candidate = Some((selection, app_id))
     }
 
     pub fn set_paste_candidate(&mut self, candidate: Option<Nucl>) {
@@ -1118,7 +1127,7 @@ impl Mediator {
                 .write()
                 .unwrap()
                 .add_anchor(nucl);
-            self.notify_unique_selection(selection.unwrap());
+            //self.notify_unique_selection(selection.unwrap());
         }
     }
 
