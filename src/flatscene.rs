@@ -459,6 +459,11 @@ impl Application for FlatScene {
             Notification::NewCandidate(_, _) => (), //TODO this can prove usefull in the future
             Notification::Centering(_, _) => (),
             Notification::CameraRotation(_, _) => (),
+            Notification::ModifersChanged(modifiers) => {
+                for c in self.controller.iter_mut() {
+                    c.update_modifiers(modifiers.clone())
+                }
+            }
         }
     }
 

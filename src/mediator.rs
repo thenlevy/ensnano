@@ -11,7 +11,10 @@ use crate::gui::{HyperboloidRequest, KeepProceed, Requests, SimulationRequest};
 use crate::utils::{message, yes_no_dialog, PhantomElement};
 use crate::{DrawArea, Duration, ElementType, IcedMessages, Multiplexer, WindowEvent};
 use iced_wgpu::wgpu;
-use iced_winit::winit::dpi::{PhysicalPosition, PhysicalSize};
+use iced_winit::winit::{
+    dpi::{PhysicalPosition, PhysicalSize},
+    event::ModifiersState,
+};
 use simple_excel_writer::{row, Row, Workbook};
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
@@ -165,6 +168,7 @@ pub enum Notification {
     Centering(Nucl, usize),
     Pasting(bool),
     ShowTorsion(bool),
+    ModifersChanged(ModifiersState),
 }
 
 pub trait Application {
@@ -204,6 +208,10 @@ impl Mediator {
             pasting_attempt: None,
             duplication_attempt: false,
         }
+    }
+
+    pub fn update_modifiers(&mut self, modifers: ModifiersState) {
+        self.notify_apps(Notification::ModifersChanged(modifers))
     }
 
     pub fn add_application(

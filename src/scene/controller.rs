@@ -115,6 +115,10 @@ impl Controller {
         }
     }
 
+    pub fn update_modifiers(&mut self, modifiers: ModifiersState) {
+        self.current_modifiers = modifiers;
+    }
+
     /// Replace the camera by a new one.
     pub fn teleport_camera(&mut self, position: Vec3, rotation: Rotor3) {
         self.camera_controller.teleport_camera(position, rotation)
@@ -198,7 +202,6 @@ impl Controller {
             WindowEvent::MouseInput {
                 button: MouseButton::Left,
                 state,
-                modifiers,
                 ..
             } => {
                 let builder = if *state == ElementState::Pressed {
@@ -213,7 +216,7 @@ impl Controller {
                             self.last_left_clicked_position = Some(self.mouse_position);
                             Consequence::Nothing
                         } else {
-                            self.left_click_camera(state, modifiers.ctrl())
+                            self.left_click_camera(state, self.current_modifiers.ctrl())
                         }
                     }
                     State::Rotate(_) => {

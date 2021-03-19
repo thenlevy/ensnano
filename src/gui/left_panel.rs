@@ -9,7 +9,10 @@ use iced::{container, Background, Column, Container, Image, Row};
 use iced_aw::{TabLabel, Tabs};
 use iced_native::{clipboard::Null as NullClipboard, Program};
 use iced_wgpu::{Backend, Renderer};
-use iced_winit::winit::dpi::{LogicalPosition, LogicalSize};
+use iced_winit::winit::{
+    dpi::{LogicalPosition, LogicalSize},
+    event::ModifiersState,
+};
 use ultraviolet::Vec3;
 
 use color_space::{Hsv, Rgb};
@@ -121,6 +124,7 @@ pub enum Message {
     TabSelected(usize),
     NewDnaElement(Vec<DnaElement>),
     OrganizerMessage(OrganizerMessage<DnaElement>),
+    ModifiersChanged(ModifiersState),
 }
 
 impl LeftPanel {
@@ -433,6 +437,9 @@ impl Program for LeftPanel {
                     self.update(message, _cb);
                 }
             }
+            Message::ModifiersChanged(modifiers) => self
+                .organizer
+                .new_modifiers(iced_winit::conversion::modifiers(modifiers)),
         };
         Command::none()
     }

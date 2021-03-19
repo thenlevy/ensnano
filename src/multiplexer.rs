@@ -125,6 +125,7 @@ pub struct Multiplexer {
     split_mode: SplitMode,
     requests: Arc<Mutex<Requests>>,
     state: State,
+    modifiers: ModifiersState,
 }
 
 const MAX_LEFT_PANNEL_WIDTH: f64 = 200.;
@@ -181,6 +182,7 @@ impl Multiplexer {
             state: State::Normal {
                 mouse_position: PhysicalPosition::new(-1., -1.),
             },
+            modifiers: ModifiersState::empty(),
         };
         ret.generate_textures();
         ret
@@ -198,6 +200,10 @@ impl Multiplexer {
             ElementType::StatusBar => self.status_bar_texture.as_ref().map(|t| &t.view),
             ElementType::Unattributed => unreachable!(),
         }
+    }
+
+    pub fn update_modifiers(&mut self, modifiers: ModifiersState) {
+        self.modifiers = modifiers
     }
 
     pub fn draw(&mut self, encoder: &mut wgpu::CommandEncoder, target: &wgpu::TextureView) {
@@ -435,7 +441,6 @@ impl Multiplexer {
                     KeyboardInput {
                         virtual_keycode: Some(key),
                         state: ElementState::Pressed,
-                        modifiers,
                         ..
                     },
                 ..
@@ -445,22 +450,22 @@ impl Multiplexer {
                     VirtualKeyCode::Escape => {
                         self.requests.lock().unwrap().action_mode = Some(ActionMode::Normal)
                     }
-                    VirtualKeyCode::C if ctrl(modifiers) => {
+                    VirtualKeyCode::C if ctrl(&self.modifiers) => {
                         self.requests.lock().unwrap().copy = true;
                     }
-                    VirtualKeyCode::V if ctrl(modifiers) => {
+                    VirtualKeyCode::V if ctrl(&self.modifiers) => {
                         self.requests.lock().unwrap().paste = true;
                     }
-                    VirtualKeyCode::J if ctrl(modifiers) => {
+                    VirtualKeyCode::J if ctrl(&self.modifiers) => {
                         self.requests.lock().unwrap().duplication = true;
                     }
-                    VirtualKeyCode::L if ctrl(modifiers) => {
+                    VirtualKeyCode::L if ctrl(&self.modifiers) => {
                         self.requests.lock().unwrap().anchor = true;
                     }
                     VirtualKeyCode::A => {
                         self.requests.lock().unwrap().action_mode = Some(ActionMode::Build(false))
                     }
-                    VirtualKeyCode::R if !modifiers.ctrl() => {
+                    VirtualKeyCode::R if !&self.modifiers.ctrl() => {
                         self.requests.lock().unwrap().action_mode = Some(ActionMode::Rotate)
                     }
                     VirtualKeyCode::T => {

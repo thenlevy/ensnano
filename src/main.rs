@@ -291,6 +291,14 @@ fn main() {
                 event: WindowEvent::CloseRequested,
                 ..
             } => *control_flow = ControlFlow::Exit,
+            Event::WindowEvent {
+                event: WindowEvent::ModifiersChanged(modifiers),
+                ..
+            } => {
+                multiplexer.update_modifiers(modifiers.clone());
+                mediator.lock().unwrap().update_modifiers(modifiers.clone());
+                messages.lock().unwrap().update_modifiers(modifiers.clone());
+            }
             Event::WindowEvent { event, .. } => {
                 //let modifiers = multiplexer.modifiers();
                 if let Some(event) = event.to_static() {
@@ -811,6 +819,11 @@ impl IcedMessages {
     pub fn push_dna_elements(&mut self, elements: Vec<crate::design::DnaElement>) {
         self.left_panel
             .push_back(gui::left_panel::Message::NewDnaElement(elements))
+    }
+
+    pub fn update_modifiers(&mut self, modifiers: ModifiersState) {
+        self.left_panel
+            .push_back(gui::left_panel::Message::ModifiersChanged(modifiers))
     }
 }
 
