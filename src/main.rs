@@ -595,6 +595,10 @@ fn main() {
                     if let Some(s) = requests.organizer_selection.take() {
                         mediator.lock().unwrap().organizer_selection(s);
                     }
+
+                    if let Some((a, elts)) = requests.new_attribute.take() {
+                        mediator.lock().unwrap().update_attribute(a, elts);
+                    }
                 }
 
                 if let Some(d_id) = download_stapples {

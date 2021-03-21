@@ -511,15 +511,15 @@ impl Data {
         *self.basis_map.write().unwrap() = basis_map;
         self.red_cubes = red_cubes;
         self.blue_cubes = blue_cubes;
-        drop(groups);
-        self.read_scaffold_seq(self.design.scaffold_shift.unwrap_or(0));
         for (h_id, h) in self.design.helices.iter() {
             elements.push(DnaElement::Helix {
                 id: *h_id,
-                group: self.design.groups.get(h_id).cloned(),
+                group: groups.get(h_id).cloned(),
                 visible: h.visible,
             });
         }
+        drop(groups);
+        self.read_scaffold_seq(self.design.scaffold_shift.unwrap_or(0));
         self.elements_update = Some(elements);
     }
 
@@ -1992,6 +1992,7 @@ impl Data {
             .get_mut(&h_id)
             .map(|h| h.visible = visibility);
         self.update_status = true;
+        self.hash_maps_update = true;
     }
 
     pub fn has_helix(&self, h_id: usize) -> bool {
@@ -2206,6 +2207,16 @@ impl Data {
             Some(true) => Some(false),
             Some(false) => None,
         };
+        if let Some(b) = new_group {
+            self.groups.write().unwrap().insert(h_id, b);
+        } else {
+            self.groups.write().unwrap().remove(&h_id);
+        }
+        self.hash_maps_update = true;
+        self.update_status = true;
+    }
+
+    pub fn set_group(&mut self, h_id: usize, new_group: Option<bool>) {
         if let Some(b) = new_group {
             self.groups.write().unwrap().insert(h_id, b);
         } else {

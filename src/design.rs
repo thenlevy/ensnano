@@ -887,6 +887,22 @@ impl Design {
     pub fn get_new_elements(&self) -> Option<Vec<DnaElement>> {
         self.data.lock().unwrap().get_new_elements()
     }
+
+    pub fn update_attribute(&mut self, attribute: DnaAttribute, elements: Vec<DnaElementKey>) {
+        let mut data = self.data.lock().unwrap();
+        for elt in elements.iter() {
+            match attribute {
+                DnaAttribute::Visible(b) => match elt {
+                    DnaElementKey::Helix(h) => data.set_visibility_helix(*h, b),
+                    _ => (),
+                },
+                DnaAttribute::XoverGroup(g) => match elt {
+                    DnaElementKey::Helix(h) => data.set_group(*h, g),
+                    _ => (),
+                },
+            }
+        }
+    }
 }
 
 #[derive(Clone)]

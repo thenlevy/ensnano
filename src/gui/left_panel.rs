@@ -202,7 +202,9 @@ impl LeftPanel {
             OrganizerMessage::Selection(s) => {
                 self.requests.lock().unwrap().organizer_selection = Some(s)
             }
-            OrganizerMessage::NewAttribute(a, keys) => (),
+            OrganizerMessage::NewAttribute(a, keys) => {
+                self.requests.lock().unwrap().new_attribute = Some((a, keys.into_iter().collect()))
+            }
             _ => (),
         }
         None
