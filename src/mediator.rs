@@ -34,7 +34,7 @@ mod selection;
 pub use operation::*;
 pub use selection::*;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(PartialEq, Debug, Clone, Copy)]
 pub enum AppId {
     FlatScene,
     Scene,
@@ -702,6 +702,16 @@ impl Mediator {
         }
         if let Some((selection, app_id)) = self.last_selection.take() {
             ret = true;
+            if app_id != AppId::Organizer {
+                let organizer_selection: Vec<DnaElementKey> = selection
+                    .iter()
+                    .filter_map(|s| DnaElementKey::from_selection(s, 0))
+                    .collect();
+                self.messages
+                    .lock()
+                    .unwrap()
+                    .push_organizer_selection(organizer_selection);
+            }
             self.notify_apps(Notification::Selection3D(selection, app_id))
         }
 

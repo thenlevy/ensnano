@@ -17,7 +17,7 @@ use ultraviolet::Vec3;
 
 use color_space::{Hsv, Rgb};
 
-use crate::design::DnaElement;
+use crate::design::{DnaElement, DnaElementKey};
 use crate::mediator::{ActionMode, SelectionMode};
 
 use super::{FogParameters as Fog, OverlayType, Requests};
@@ -123,6 +123,7 @@ pub enum Message {
     VolumeExclusion(bool),
     TabSelected(usize),
     NewDnaElement(Vec<DnaElement>),
+    NewSelection(Vec<DnaElementKey>),
     OrganizerMessage(OrganizerMessage<DnaElement>),
     ModifiersChanged(ModifiersState),
 }
@@ -442,6 +443,9 @@ impl Program for LeftPanel {
             Message::ModifiersChanged(modifiers) => self
                 .organizer
                 .new_modifiers(iced_winit::conversion::modifiers(modifiers)),
+            Message::NewSelection(keys) => {
+                self.organizer.notify_selection(keys);
+            }
         };
         Command::none()
     }

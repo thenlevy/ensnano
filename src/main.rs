@@ -781,6 +781,11 @@ impl IcedMessages {
             .push_back(gui::status_bar::Message::Selection(selection, values))
     }
 
+    pub fn push_organizer_selection(&mut self, selection: Vec<crate::design::DnaElementKey>) {
+        self.left_panel
+            .push_back(gui::left_panel::Message::NewSelection(selection))
+    }
+
     pub fn clear_op(&mut self) {
         self.status_bar.push_back(gui::status_bar::Message::ClearOp);
     }
