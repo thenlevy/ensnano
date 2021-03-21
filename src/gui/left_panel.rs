@@ -190,15 +190,17 @@ impl LeftPanel {
         self.logical_position = logical_position;
     }
 
-    fn organizer_message(&mut self, m: &OrganizerMessage<DnaElement>) -> Option<Message> {
+    fn organizer_message(&mut self, m: OrganizerMessage<DnaElement>) -> Option<Message> {
         match m {
             OrganizerMessage::InternalMessage(m) => {
                 return self
                     .organizer
-                    .message(m)
+                    .message(&m)
                     .map(|m_| Message::OrganizerMessage(m_))
             }
-            OrganizerMessage::Selection(s) => println!("New selection seen from owner {:?}", s),
+            OrganizerMessage::Selection(s) => {
+                self.requests.lock().unwrap().organizer_selection = Some(s)
+            }
             OrganizerMessage::NewAttribute(a, keys) => (),
             _ => (),
         }
@@ -432,7 +434,7 @@ impl Program for LeftPanel {
             Message::TabSelected(n) => self.selected_tab = n,
             Message::NewDnaElement(elements) => self.organizer.update_elements(elements),
             Message::OrganizerMessage(m) => {
-                let next_message = self.organizer_message(&m);
+                let next_message = self.organizer_message(m);
                 if let Some(message) = next_message {
                     self.update(message, _cb);
                 }

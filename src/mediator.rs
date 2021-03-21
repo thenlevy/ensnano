@@ -24,7 +24,7 @@ use ultraviolet::Vec3;
 use crate::design;
 
 use design::{
-    Design, DesignNotification, DesignRotation, DesignTranslation, GridDescriptor,
+    Design, DesignNotification, DesignRotation, DesignTranslation, DnaElementKey, GridDescriptor,
     GridHelixDescriptor, Helix, Hyperboloid, Nucl, RigidBodyConstants, Stapple, Strand,
     StrandBuilder, StrandState,
 };
@@ -1146,6 +1146,11 @@ impl Mediator {
                 .unwrap()
                 .set_new_shift(*g_id, shift)
         }
+    }
+
+    pub fn organizer_selection(&mut self, selection: Vec<DnaElementKey>) {
+        let selection: Vec<Selection> = selection.iter().map(|k| k.to_selection(0)).collect();
+        self.notify_multiple_selection(selection, AppId::Organizer);
     }
 }
 

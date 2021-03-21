@@ -591,6 +591,10 @@ fn main() {
                     if let Some(f) = requests.new_shift_hyperboloid.take() {
                         mediator.lock().unwrap().new_shift_hyperboloid(f);
                     }
+
+                    if let Some(s) = requests.organizer_selection.take() {
+                        mediator.lock().unwrap().organizer_selection(s);
+                    }
                 }
 
                 if let Some(d_id) = download_stapples {

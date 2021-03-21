@@ -234,3 +234,92 @@ impl std::fmt::Display for DnaAttribute {
         )
     }
 }
+
+use super::Nucl;
+use crate::mediator::Selection;
+
+impl DnaElementKey {
+    pub fn from_selection(selection: &Selection, d_id: u32) -> Option<Self> {
+        if selection.get_design() == Some(d_id) {
+            match selection {
+                Selection::Grid(_, _) => None,
+                Selection::Design(_) => None,
+                Selection::Helix(_, h_id) => Some(Self::Helix(*h_id as usize)),
+                Selection::Strand(_, s_id) => Some(Self::Strand(*s_id as usize)),
+                Selection::Nucleotide(_, nucl) => Some(Self::Nucleotide {
+                    helix: nucl.helix,
+                    position: nucl.position,
+                    forward: nucl.forward,
+                }),
+                Selection::Bound(_, n1, n2) => {
+                    if n1.helix != n2.helix {
+                        Some(Self::CrossOver {
+                            helix5prime: n1.helix,
+                            position5prime: n1.position,
+                            forward5prime: n1.forward,
+                            helix3prime: n2.helix,
+                            position3prime: n2.position,
+                            forward3prime: n2.forward,
+                        })
+                    } else {
+                        None
+                    }
+                }
+                Selection::Phantom(pe) => {
+                    if pe.bound {
+                        None
+                    } else {
+                        let nucl = pe.to_nucl();
+                        Some(Self::Nucleotide {
+                            helix: nucl.helix,
+                            position: nucl.position,
+                            forward: nucl.forward,
+                        })
+                    }
+                }
+                Selection::Nothing => None,
+            }
+        } else {
+            None
+        }
+    }
+
+    pub fn to_selection(&self, d_id: u32) -> Selection {
+        match self {
+            Self::Nucleotide {
+                helix,
+                position,
+                forward,
+            } => Selection::Nucleotide(
+                d_id,
+                Nucl {
+                    helix: *helix,
+                    position: *position,
+                    forward: *forward,
+                },
+            ),
+            Self::CrossOver {
+                helix5prime,
+                position5prime,
+                forward5prime,
+                helix3prime,
+                position3prime,
+                forward3prime,
+            } => {
+                let nucl5prime = Nucl {
+                    helix: *helix5prime,
+                    position: *position5prime,
+                    forward: *forward5prime,
+                };
+                let nucl3prime = Nucl {
+                    helix: *helix3prime,
+                    position: *position3prime,
+                    forward: *forward3prime,
+                };
+                Selection::Bound(d_id, nucl5prime, nucl3prime)
+            }
+            Self::Helix(h_id) => Selection::Helix(d_id, *h_id as u32),
+            Self::Strand(s_id) => Selection::Strand(d_id, *s_id as u32),
+        }
+    }
+}
