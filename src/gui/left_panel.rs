@@ -1,4 +1,4 @@
-use ensnano_organizer::{Organizer, OrganizerMessage};
+use ensnano_organizer::{Organizer, OrganizerMessage, OrganizerTree};
 use std::sync::{Arc, Mutex};
 
 use iced::{
@@ -126,6 +126,7 @@ pub enum Message {
     NewSelection(Vec<DnaElementKey>),
     OrganizerMessage(OrganizerMessage<DnaElement>),
     ModifiersChanged(ModifiersState),
+    NewTreeApp(OrganizerTree<DnaElementKey>),
 }
 
 impl LeftPanel {
@@ -205,6 +206,7 @@ impl LeftPanel {
             OrganizerMessage::NewAttribute(a, keys) => {
                 self.requests.lock().unwrap().new_attribute = Some((a, keys.into_iter().collect()))
             }
+            OrganizerMessage::NewTree(tree) => self.requests.lock().unwrap().new_tree = Some(tree),
             _ => (),
         }
         None
@@ -448,6 +450,7 @@ impl Program for LeftPanel {
             Message::NewSelection(keys) => {
                 self.organizer.notify_selection(keys);
             }
+            Message::NewTreeApp(tree) => self.organizer.read_tree(tree),
         };
         Command::none()
     }

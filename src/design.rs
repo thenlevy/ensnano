@@ -19,6 +19,7 @@ use controller::Controller;
 pub use controller::{DesignRotation, DesignTranslation, IsometryTarget};
 use data::Data;
 pub use data::*;
+use ensnano_organizer::OrganizerTree;
 pub use utils::*;
 use view::View;
 
@@ -902,6 +903,14 @@ impl Design {
                 },
             }
         }
+    }
+
+    pub fn update_organizer_tree(&mut self, tree: OrganizerTree<DnaElementKey>) {
+        self.data.lock().unwrap().update_organizer_tree(tree)
+    }
+
+    pub fn get_organizer_tree(&self) -> Option<OrganizerTree<DnaElementKey>> {
+        self.data.lock().unwrap().get_organizer_tree()
     }
 }
 

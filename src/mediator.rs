@@ -28,6 +28,7 @@ use design::{
     GridDescriptor, GridHelixDescriptor, Helix, Hyperboloid, Nucl, RigidBodyConstants, Stapple,
     Strand, StrandBuilder, StrandState,
 };
+use ensnano_organizer::OrganizerTree;
 
 mod operation;
 mod selection;
@@ -1166,6 +1167,12 @@ impl Mediator {
     pub fn update_attribute(&mut self, attribute: DnaAttribute, elements: Vec<DnaElementKey>) {
         if let Some(d) = self.designs.get_mut(0) {
             d.write().unwrap().update_attribute(attribute, elements)
+        }
+    }
+
+    pub fn update_tree(&mut self, tree: OrganizerTree<DnaElementKey>) {
+        if let Some(d) = self.designs.get_mut(0) {
+            d.write().unwrap().update_organizer_tree(tree)
         }
     }
 }

@@ -34,6 +34,7 @@ use super::utils::*;
 use crate::scene::GridInstance;
 use crate::utils::{message, new_color};
 pub use elements::*;
+use ensnano_organizer::OrganizerTree;
 use grid::GridManager;
 pub use grid::*;
 pub use icednano::Nucl;
@@ -2550,6 +2551,14 @@ impl Data {
 
     pub fn get_new_elements(&mut self) -> Option<Vec<DnaElement>> {
         self.elements_update.take()
+    }
+
+    pub fn get_organizer_tree(&self) -> Option<OrganizerTree<DnaElementKey>> {
+        self.design.organizer_tree.clone()
+    }
+
+    pub fn update_organizer_tree(&mut self, tree: OrganizerTree<DnaElementKey>) {
+        self.design.organizer_tree = Some(tree)
     }
 }
 

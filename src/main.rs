@@ -253,6 +253,9 @@ fn main() {
     // Add a design to the scene if one was given as a command line arguement
     if let Some(ref path) = path {
         let design = Design::new_with_path(0, path).unwrap_or_else(|| Design::new(0));
+        if let Some(tree) = design.get_organizer_tree() {
+            messages.lock().unwrap().push_new_tree(tree)
+        }
         mediator
             .lock()
             .unwrap()
@@ -364,6 +367,9 @@ fn main() {
                         if let Some(design) = design {
                             if let Some(stem) = path.file_stem().and_then(|s| s.to_str()) {
                                 window.set_title(&format!("ENSnano {}", stem))
+                            }
+                            if let Some(tree) = design.get_organizer_tree() {
+                                messages.lock().unwrap().push_new_tree(tree)
                             }
                             messages.lock().unwrap().notify_new_design();
                             mediator.lock().unwrap().clear_designs();
@@ -598,6 +604,10 @@ fn main() {
 
                     if let Some((a, elts)) = requests.new_attribute.take() {
                         mediator.lock().unwrap().update_attribute(a, elts);
+                    }
+
+                    if let Some(tree) = requests.new_tree.take() {
+                        mediator.lock().unwrap().update_tree(tree);
                     }
                 }
 
@@ -837,6 +847,14 @@ impl IcedMessages {
     pub fn update_modifiers(&mut self, modifiers: ModifiersState) {
         self.left_panel
             .push_back(gui::left_panel::Message::ModifiersChanged(modifiers))
+    }
+
+    pub fn push_new_tree(
+        &mut self,
+        tree: ensnano_organizer::OrganizerTree<crate::design::DnaElementKey>,
+    ) {
+        self.left_panel
+            .push_back(gui::left_panel::Message::NewTreeApp(tree))
     }
 }
 

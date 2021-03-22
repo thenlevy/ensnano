@@ -103,7 +103,7 @@ impl OrganizerElement for DnaElement {
     }
 }
 
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Debug)]
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Debug, Serialize, Deserialize)]
 pub enum DnaElementKey {
     Strand(usize),
     Helix(usize),

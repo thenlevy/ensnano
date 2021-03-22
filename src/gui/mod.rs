@@ -20,6 +20,7 @@ use crate::mediator::{ActionMode, Operation, SelectionMode};
 use crate::scene::FogParameters;
 use crate::SplitMode;
 use crate::{DrawArea, ElementType, IcedMessages, Multiplexer};
+use ensnano_organizer::OrganizerTree;
 use iced_native::Event;
 use iced_wgpu::{wgpu, Backend, Renderer, Settings, Viewport};
 use iced_winit::{conversion, program, winit, Debug, Size};
@@ -95,6 +96,7 @@ pub struct Requests {
         crate::design::DnaAttribute,
         Vec<crate::design::DnaElementKey>,
     )>,
+    pub new_tree: Option<OrganizerTree<crate::design::DnaElementKey>>,
 }
 
 pub enum KeepProceed {
@@ -154,6 +156,7 @@ impl Requests {
             new_shift_hyperboloid: None,
             organizer_selection: None,
             new_attribute: None,
+            new_tree: None,
         }
     }
 }
