@@ -1164,6 +1164,11 @@ impl Mediator {
         self.notify_multiple_selection(selection, AppId::Organizer);
     }
 
+    pub fn organizer_candidates(&mut self, candidates: Vec<DnaElementKey>) {
+        let candidates: Vec<Selection> = candidates.iter().map(|k| k.to_selection(0)).collect();
+        self.candidate = Some((candidates, AppId::Organizer));
+    }
+
     pub fn update_attribute(&mut self, attribute: DnaAttribute, elements: Vec<DnaElementKey>) {
         if let Some(d) = self.designs.get_mut(0) {
             d.write().unwrap().update_attribute(attribute, elements)

@@ -602,6 +602,10 @@ fn main() {
                         mediator.lock().unwrap().organizer_selection(s);
                     }
 
+                    if let Some(c) = requests.organizer_candidates.take() {
+                        mediator.lock().unwrap().organizer_candidates(c);
+                    }
+
                     if let Some((a, elts)) = requests.new_attribute.take() {
                         mediator.lock().unwrap().update_attribute(a, elts);
                     }

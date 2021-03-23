@@ -207,6 +207,9 @@ impl LeftPanel {
                 self.requests.lock().unwrap().new_attribute = Some((a, keys.into_iter().collect()))
             }
             OrganizerMessage::NewTree(tree) => self.requests.lock().unwrap().new_tree = Some(tree),
+            OrganizerMessage::Candidates(candidates) => {
+                self.requests.lock().unwrap().organizer_candidates = Some(candidates)
+            }
             _ => (),
         }
         None

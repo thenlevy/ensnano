@@ -92,6 +92,7 @@ pub struct Requests {
     pub sequence_input: Option<String>,
     pub new_shift_hyperboloid: Option<f32>,
     pub organizer_selection: Option<Vec<crate::design::DnaElementKey>>,
+    pub organizer_candidates: Option<Vec<crate::design::DnaElementKey>>,
     pub new_attribute: Option<(
         crate::design::DnaAttribute,
         Vec<crate::design::DnaElementKey>,
@@ -155,6 +156,7 @@ impl Requests {
             sequence_input: None,
             new_shift_hyperboloid: None,
             organizer_selection: None,
+            organizer_candidates: None,
             new_attribute: None,
             new_tree: None,
         }
