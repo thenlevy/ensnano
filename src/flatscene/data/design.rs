@@ -353,12 +353,12 @@ impl Design2d {
             .collect()
     }
 
-    pub fn strand_from_xover(&self, xover: &(Nucl, Nucl)) -> Strand {
+    pub fn strand_from_xover(&self, xover: &(Nucl, Nucl), color: u32) -> Strand {
         let flat_nucls = [xover.0, xover.1]
             .iter()
             .map(|n| FlatNucl::from_real(n, self.id_map()))
             .collect();
-        Strand::new(0, flat_nucls, vec![], 0, false).highlighted(crate::consts::CANDIDATE_COLOR)
+        Strand::new(0, flat_nucls, vec![], 0, false).highlighted(color)
     }
 
     pub fn get_nucl_id(&self, nucl: Nucl) -> Option<u32> {

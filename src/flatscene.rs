@@ -422,15 +422,13 @@ impl Application for FlatScene {
                 AppId::FlatScene => (),
                 _ => {
                     self.needs_redraw(Duration::from_nanos(1));
-                    if selection.len() <= 1 {
-                        self.data[self.selected_design]
-                            .borrow_mut()
-                            .set_selection(*selection.get(0).unwrap_or(&Selection::Nothing));
-                        self.data[self.selected_design].borrow_mut().notify_update();
-                        self.view[self.selected_design]
-                            .borrow_mut()
-                            .center_selection();
-                    }
+                    self.data[self.selected_design]
+                        .borrow_mut()
+                        .set_selection(selection);
+                    self.data[self.selected_design].borrow_mut().notify_update();
+                    self.view[self.selected_design]
+                        .borrow_mut()
+                        .center_selection();
                 }
             },
             Notification::Save(d_id) => self.data[d_id].borrow_mut().save_isometry(),
@@ -456,7 +454,12 @@ impl Application for FlatScene {
             Notification::AppNotification(_) => (),
             Notification::NewSensitivity(_) => (),
             Notification::ClearDesigns => (),
-            Notification::NewCandidate(_, _) => (), //TODO this can prove usefull in the future
+            Notification::NewCandidate(candidates, app_id) => match app_id {
+                AppId::FlatScene => (),
+                _ => self.data[self.selected_design]
+                    .borrow_mut()
+                    .set_candidate(candidates),
+            },
             Notification::Centering(_, _) => (),
             Notification::CameraRotation(_, _) => (),
             Notification::ModifersChanged(modifiers) => {

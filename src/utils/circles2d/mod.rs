@@ -28,6 +28,14 @@ impl CircleInstance {
         }
     }
 
+    pub fn set_radius(&mut self, radius: f32) {
+        self.radius = radius;
+    }
+
+    pub fn set_color(&mut self, color: u32) {
+        self.color = color
+    }
+
     #[allow(dead_code)]
     pub fn angle(self, angle: f32) -> Self {
         Self { angle, ..self }
