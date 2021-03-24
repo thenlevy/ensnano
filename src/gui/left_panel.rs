@@ -692,13 +692,13 @@ impl Program for LeftPanel {
             let row = Row::new()
                 .push(
                     Column::new()
-                        .push(Text::new("Position strand").size(14).color(Color::BLACK))
+                        .push(Text::new("Position strand").color(Color::WHITE))
                         .push(position_input)
                         .width(Length::Units(width / 2)),
                 )
                 .push(
                     Column::new()
-                        .push(Text::new("Length strands").size(14).color(Color::BLACK))
+                        .push(Text::new("Length strands").color(Color::WHITE))
                         .push(length_input),
                 );
             global_scroll = global_scroll.push(row);
