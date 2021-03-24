@@ -135,6 +135,8 @@ fn main() {
     window.set_title("ENSnano");
     window.set_min_inner_size(Some(PhySize::new(100, 100)));
 
+    println!("scale factor {}", window.scale_factor());
+
     let modifiers = ModifiersState::default();
 
     let instance = wgpu::Instance::new(wgpu::BackendBit::PRIMARY);
