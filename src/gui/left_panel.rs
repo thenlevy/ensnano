@@ -2,8 +2,8 @@ use ensnano_organizer::{Organizer, OrganizerMessage, OrganizerTree};
 use std::sync::{Arc, Mutex};
 
 use iced::{
-    button, scrollable, slider, text_input, Button, Checkbox, Color, Command, Element, Length,
-    Scrollable, Slider, Text, TextInput,
+    button, pick_list, scrollable, slider, text_input, Button, Checkbox, Color, Command, Element,
+    Length, PickList, Scrollable, Slider, Text, TextInput,
 };
 use iced::{container, Background, Column, Container, Image, Row};
 use iced_aw::{TabLabel, Tabs};
@@ -20,7 +20,7 @@ use color_space::{Hsv, Rgb};
 use crate::design::{DnaElement, DnaElementKey};
 use crate::mediator::{ActionMode, SelectionMode};
 
-use super::{FogParameters as Fog, OverlayType, Requests};
+use super::{FogParameters as Fog, OverlayType, Requests, UiSize};
 mod color_picker;
 use color_picker::ColorPicker;
 mod sequence_input;
@@ -29,24 +29,20 @@ use text_input_style::BadValue;
 mod discrete_value;
 use discrete_value::{FactoryId, RequestFactory, Requestable, ValueId};
 
-const BUTTON_SIZE: u16 = 25;
-
 use material_icons::{icon_to_char, Icon as MaterialIcon, FONT as MATERIALFONT};
 
 const ICONFONT: iced::Font = iced::Font::External {
     name: "IconFont",
     bytes: MATERIALFONT,
 };
-const ICONSIZE: u16 = 14;
 
-fn icon(icon: MaterialIcon) -> iced::Text {
+fn icon(icon: MaterialIcon, ui_size: &UiSize) -> iced::Text {
     iced::Text::new(format!("{}", icon_to_char(icon)))
         .font(ICONFONT)
-        .size(ICONSIZE)
+        .size(ui_size.icon())
 }
 
 const CHECKBOXSPACING: u16 = 5;
-const CHECKBOXSIZE: u16 = 15;
 
 pub struct LeftPanel {
     selection_mode: SelectionMode,
@@ -83,6 +79,8 @@ pub struct LeftPanel {
     rigid_helices_button: GoStop,
     selected_tab: usize,
     organizer: Organizer<DnaElement>,
+    ui_size: UiSize,
+    size_pick_list: pick_list::State<UiSize>,
 }
 
 #[derive(Debug, Clone)]
@@ -127,6 +125,7 @@ pub enum Message {
     OrganizerMessage(OrganizerMessage<DnaElement>),
     ModifiersChanged(ModifiersState),
     NewTreeApp(OrganizerTree<DnaElementKey>),
+    UiSizeChanged(UiSize),
 }
 
 impl LeftPanel {
@@ -180,6 +179,8 @@ impl LeftPanel {
             ),
             selected_tab: 0,
             organizer: Organizer::new(),
+            ui_size: UiSize::Small,
+            size_pick_list: Default::default(),
         }
     }
 
@@ -454,12 +455,14 @@ impl Program for LeftPanel {
                 self.organizer.notify_selection(keys);
             }
             Message::NewTreeApp(tree) => self.organizer.read_tree(tree),
+            Message::UiSizeChanged(ui_size) => self.ui_size = ui_size,
         };
         Command::none()
     }
 
     fn view(&mut self) -> Element<Message> {
         let width = self.logical_size.cast::<u16>().width;
+        let ui_size = self.ui_size.clone();
 
         let mut selection_buttons = vec![
             Button::new(
@@ -478,7 +481,7 @@ impl Program for LeftPanel {
             )
             .on_press(Message::SelectionModeChanged(SelectionMode::Grid))
             .style(ButtonStyle(self.selection_mode == SelectionMode::Grid))
-            .width(Length::Units(BUTTON_SIZE)),
+            .width(Length::Units(ui_size.button())),
             Button::new(
                 &mut self.selection_mode_state.helix,
                 if self.selection_mode == SelectionMode::Helix {
@@ -495,7 +498,7 @@ impl Program for LeftPanel {
             )
             .on_press(Message::SelectionModeChanged(SelectionMode::Helix))
             .style(ButtonStyle(self.selection_mode == SelectionMode::Helix))
-            .width(Length::Units(BUTTON_SIZE)),
+            .width(Length::Units(self.ui_size.button())),
             Button::new(
                 &mut self.selection_mode_state.strand,
                 if self.selection_mode == SelectionMode::Strand {
@@ -512,7 +515,7 @@ impl Program for LeftPanel {
             )
             .on_press(Message::SelectionModeChanged(SelectionMode::Strand))
             .style(ButtonStyle(self.selection_mode == SelectionMode::Strand))
-            .width(Length::Units(BUTTON_SIZE)),
+            .width(Length::Units(self.ui_size.button())),
             Button::new(
                 &mut self.selection_mode_state.nucleotide,
                 if self.selection_mode == SelectionMode::Nucleotide {
@@ -531,7 +534,7 @@ impl Program for LeftPanel {
             .style(ButtonStyle(
                 self.selection_mode == SelectionMode::Nucleotide,
             ))
-            .width(Length::Units(BUTTON_SIZE)),
+            .width(Length::Units(self.ui_size.button())),
         ];
 
         let mut global_scroll = Scrollable::new(&mut self.global_scroll)
@@ -540,10 +543,10 @@ impl Program for LeftPanel {
         while selection_buttons.len() > 0 {
             let mut row = Row::new();
             row = row.push(selection_buttons.pop().unwrap()).spacing(5);
-            let mut space = BUTTON_SIZE + 5;
-            while space + BUTTON_SIZE < width && selection_buttons.len() > 0 {
+            let mut space = self.ui_size.button() + 5;
+            while space + self.ui_size.button() < width && selection_buttons.len() > 0 {
                 row = row.push(selection_buttons.pop().unwrap()).spacing(5);
-                space += BUTTON_SIZE + 5;
+                space += self.ui_size.button() + 5;
             }
             global_scroll = global_scroll.spacing(5).push(row)
         }
@@ -565,7 +568,7 @@ impl Program for LeftPanel {
             )
             .on_press(Message::ActionModeChanged(ActionMode::Normal))
             .style(ButtonStyle(self.action_mode == ActionMode::Normal))
-            .width(Length::Units(BUTTON_SIZE)),
+            .width(Length::Units(self.ui_size.button())),
             Button::new(
                 &mut self.action_mode_state.translate,
                 if self.action_mode == ActionMode::Translate {
@@ -582,7 +585,7 @@ impl Program for LeftPanel {
             )
             .on_press(Message::ActionModeChanged(ActionMode::Translate))
             .style(ButtonStyle(self.action_mode == ActionMode::Translate))
-            .width(Length::Units(BUTTON_SIZE)),
+            .width(Length::Units(self.ui_size.button())),
             Button::new(
                 &mut self.action_mode_state.rotate,
                 if self.action_mode == ActionMode::Rotate {
@@ -599,7 +602,7 @@ impl Program for LeftPanel {
             )
             .on_press(Message::ActionModeChanged(ActionMode::Rotate))
             .style(ButtonStyle(self.action_mode == ActionMode::Rotate))
-            .width(Length::Units(BUTTON_SIZE)),
+            .width(Length::Units(self.ui_size.button())),
             Button::new(
                 &mut self.action_mode_state.build,
                 if self.action_mode.is_build() {
@@ -616,7 +619,7 @@ impl Program for LeftPanel {
             )
             .on_press(Message::ActionModeChanged(ActionMode::Build(false)))
             .style(ButtonStyle(self.action_mode.is_build()))
-            .width(Length::Units(BUTTON_SIZE)),
+            .width(Length::Units(self.ui_size.button())),
             Button::new(
                 &mut self.action_mode_state.cut,
                 if self.action_mode == ActionMode::Cut {
@@ -632,7 +635,7 @@ impl Program for LeftPanel {
                 },
             )
             .on_press(Message::ActionModeChanged(ActionMode::Cut))
-            .width(Length::Units(BUTTON_SIZE))
+            .width(Length::Units(self.ui_size.button()))
             .style(ButtonStyle(self.action_mode == ActionMode::Cut)),
             Button::new(
                 &mut self.action_mode_state.add_grid,
@@ -642,10 +645,10 @@ impl Program for LeftPanel {
                 )),
             )
             .on_press(Message::NewGrid)
-            .width(Length::Units(BUTTON_SIZE)),
+            .width(Length::Units(self.ui_size.button())),
             Button::new(&mut self.action_mode_state.add_hyperboloid, Text::new("H"))
                 .on_press(Message::NewHyperboloid)
-                .width(Length::Units(BUTTON_SIZE)),
+                .width(Length::Units(self.ui_size.button())),
         ];
 
         let mut inputs = self.builder_input.iter_mut();
@@ -672,10 +675,10 @@ impl Program for LeftPanel {
         while action_buttons.len() > 0 {
             let mut row = Row::new();
             row = row.push(action_buttons.remove(0)).spacing(5);
-            let mut space = BUTTON_SIZE + 5;
-            while space + BUTTON_SIZE < width && action_buttons.len() > 0 {
+            let mut space = self.ui_size.button() + 5;
+            while space + self.ui_size.button() < width && action_buttons.len() > 0 {
                 row = row.push(action_buttons.remove(0)).spacing(5);
-                space += BUTTON_SIZE + 5;
+                space += self.ui_size.button() + 5;
             }
             global_scroll = global_scroll.spacing(5).push(row)
         }
@@ -685,7 +688,7 @@ impl Program for LeftPanel {
                 Checkbox::new(b, "Stick", |b| {
                     Message::ActionModeChanged(ActionMode::Build(b))
                 })
-                .size(CHECKBOXSIZE)
+                .size(self.ui_size.checkbox())
                 .spacing(CHECKBOXSPACING),
             )
         } else if let ActionMode::BuildHelix { .. } = self.action_mode {
@@ -726,31 +729,32 @@ impl Program for LeftPanel {
             .map(|(i, s)| {
                 Button::new(s, Text::new(target_text(i)).size(10))
                     .on_press(target_message(i))
-                    .width(Length::Units(30))
+                    .width(Length::Units(ui_size.button()))
             })
             .collect();
         global_scroll = global_scroll.spacing(5).push(Text::new("Camera Target"));
         while target_buttons.len() > 0 {
             let mut row = Row::new();
             row = row.push(target_buttons.remove(0)).spacing(5);
-            let mut space = 30 + 5;
-            while space + 30 < width && target_buttons.len() > 0 {
+            let mut space = self.ui_size.button() + 5;
+            while space + self.ui_size.button() < width && target_buttons.len() > 0 {
                 row = row.push(target_buttons.remove(0)).spacing(5);
-                space += 30 + 5;
+                space += self.ui_size.button() + 5;
             }
             global_scroll = global_scroll.spacing(5).push(row)
         }
 
         let xz = self.xz;
         let yz = self.yz;
+
         let mut rotate_buttons: Vec<_> = self
             .camera_rotation_buttons
             .iter_mut()
             .enumerate()
             .map(|(i, s)| {
-                Button::new(s, rotation_text(i))
+                Button::new(s, rotation_text(i, ui_size.clone()))
                     .on_press(rotation_message(i, xz, yz))
-                    .width(Length::Units(BUTTON_SIZE))
+                    .width(Length::Units(ui_size.button()))
             })
             .collect();
 
@@ -758,21 +762,21 @@ impl Program for LeftPanel {
         while rotate_buttons.len() > 0 {
             let mut row = Row::new();
             row = row.push(rotate_buttons.remove(0)).spacing(5);
-            let mut space = BUTTON_SIZE + 5;
-            while space + BUTTON_SIZE < width && rotate_buttons.len() > 0 {
+            let mut space = self.ui_size.button() + 5;
+            while space + self.ui_size.button() < width && rotate_buttons.len() > 0 {
                 row = row.push(rotate_buttons.remove(0)).spacing(5);
-                space += BUTTON_SIZE + 5;
+                space += self.ui_size.button() + 5;
             }
             global_scroll = global_scroll.spacing(5).push(row)
         }
         global_scroll = global_scroll
-            .push(self.physical_simulation.view())
+            .push(self.physical_simulation.view(&self.ui_size))
             .max_height(self.logical_size.height as u32);
 
         let mut widget = global_scroll
             .push(
                 Checkbox::new(self.show_torsion, "Show Torsion", Message::ShowTorsion)
-                    .size(CHECKBOXSIZE)
+                    .size(self.ui_size.icon())
                     .spacing(CHECKBOXSPACING),
             )
             .width(Length::Units(width));
@@ -789,7 +793,7 @@ impl Program for LeftPanel {
                 )
                 .push(self.sequence_input.view());
         }
-        widget = widget.push(self.fog.view());
+        widget = widget.push(self.fog.view(&self.ui_size));
         for view in self.scroll_sensitivity_factory.view().into_iter() {
             widget = widget.push(view);
         }
@@ -808,8 +812,15 @@ impl Program for LeftPanel {
                 Message::VolumeExclusion,
             )
             .spacing(CHECKBOXSPACING)
-            .size(CHECKBOXSIZE),
+            .size(self.ui_size.icon()),
         );
+
+        widget = widget.push(PickList::new(
+            &mut self.size_pick_list,
+            &super::ALL_UI_SIZE[..],
+            Some(self.ui_size.clone()),
+            Message::UiSizeChanged,
+        ));
 
         let tabs: Tabs<Message, Backend> = Tabs::new(self.selected_tab, Message::TabSelected)
             .push(TabLabel::Text("Menu".to_owned()), widget)
@@ -817,7 +828,8 @@ impl Program for LeftPanel {
                 TabLabel::Text("Organizer".to_owned()),
                 self.organizer.view().map(|m| Message::OrganizerMessage(m)),
             )
-            .width(Length::Units(width));
+            .width(Length::Units(width))
+            .height(Length::Units(self.logical_size.height as u16 - 20));
 
         Container::new(tabs)
             .style(TopBarStyle)
@@ -1050,12 +1062,12 @@ fn rotation_message(i: usize, xz: isize, yz: isize) -> Message {
     Message::RotateCam(angle_xz, angle_yz)
 }
 
-fn rotation_text(i: usize) -> Text {
+fn rotation_text(i: usize, ui_size: UiSize) -> Text {
     match i {
-        0 => icon(MaterialIcon::ArrowBack),
-        1 => icon(MaterialIcon::ArrowForward),
-        2 => icon(MaterialIcon::ArrowUpward),
-        _ => icon(MaterialIcon::ArrowDownward),
+        0 => icon(MaterialIcon::ArrowBack, &ui_size),
+        1 => icon(MaterialIcon::ArrowForward, &ui_size),
+        2 => icon(MaterialIcon::ArrowUpward, &ui_size),
+        _ => icon(MaterialIcon::ArrowDownward, &ui_size),
     }
 }
 
@@ -1119,17 +1131,17 @@ struct FogParameters {
 }
 
 impl FogParameters {
-    fn view(&mut self) -> Column<Message> {
+    fn view(&mut self, ui_size: &UiSize) -> Column<Message> {
         let mut column = Column::new()
             .push(Text::new("Fog"))
             .push(
                 Checkbox::new(self.visible, "Visible", Message::FogVisibility)
-                    .size(CHECKBOXSIZE)
+                    .size(ui_size.checkbox())
                     .spacing(CHECKBOXSPACING),
             )
             .push(
                 Checkbox::new(self.from_camera, "From Camera", Message::FogCamera)
-                    .size(CHECKBOXSIZE)
+                    .size(ui_size.checkbox())
                     .spacing(CHECKBOXSPACING),
             );
 
@@ -1186,16 +1198,16 @@ struct PhysicalSimulation {
 }
 
 impl PhysicalSimulation {
-    fn view(&mut self) -> Row<Message> {
+    fn view(&mut self, ui_size: &UiSize) -> Row<Message> {
         let left_column = Column::new()
             .push(
                 Checkbox::new(self.roll, "Roll", Message::SimRoll)
-                    .size(CHECKBOXSIZE)
+                    .size(ui_size.checkbox())
                     .spacing(CHECKBOXSPACING),
             )
             .push(
                 Checkbox::new(self.springs, "Spring", Message::SimSprings)
-                    .size(CHECKBOXSIZE)
+                    .size(ui_size.checkbox())
                     .spacing(CHECKBOXSPACING),
             );
         let button_str = if self.running { "Stop" } else { "Go" };

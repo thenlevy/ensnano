@@ -14,6 +14,9 @@ pub use left_panel::{
     ColorOverlay, HyperboloidRequest, LeftPanel, RigidBodyParametersRequest, SimulationRequest,
 };
 pub mod status_bar;
+mod ui_size;
+pub use ui_size::*;
+
 use status_bar::StatusBar;
 
 use crate::mediator::{ActionMode, Operation, SelectionMode};
