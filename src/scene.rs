@@ -173,11 +173,9 @@ impl Scene {
             }
             Consequence::Swing(x, y) => {
                 let pivot = self.data.borrow().get_selected_position();
-                if let Some(pivot) = pivot {
-                    self.controller.set_pivot_point(Some(pivot));
-                    self.controller.swing(-x, -y);
-                    self.notify(SceneNotification::CameraMoved);
-                }
+                self.controller.set_pivot_point(pivot);
+                self.controller.swing(-x, -y);
+                self.notify(SceneNotification::CameraMoved);
             }
             Consequence::CursorMoved(clicked) => self.pixel_to_check = Some(clicked),
             Consequence::ToggleWidget => self.data.borrow_mut().toggle_widget_basis(),

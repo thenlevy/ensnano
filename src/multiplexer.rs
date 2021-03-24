@@ -544,8 +544,10 @@ impl Multiplexer {
         let status_bar_prop = exact_proportion(MAX_STATUS_BAR_HEIGHT, scene_height);
         self.layout_manager
             .resize(self.left_pannel_split, left_pannel_prop);
-        self.layout_manager.resize(self.top_bar_split, top_pannel_prop);
-        self.layout_manager.resize(self.status_bar_split, 1. - status_bar_prop);
+        self.layout_manager
+            .resize(self.top_bar_split, top_pannel_prop);
+        self.layout_manager
+            .resize(self.status_bar_split, 1. - status_bar_prop);
     }
 
     fn texture(&mut self, element_type: ElementType) -> Option<SampledTexture> {

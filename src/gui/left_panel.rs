@@ -691,7 +691,11 @@ impl Program for LeftPanel {
             .camera_rotation_buttons
             .iter_mut()
             .enumerate()
-            .map(|(i, s)| Button::new(s, rotation_text(i)).on_press(rotation_message(i, xz, yz)).width(Length::Units(BUTTON_SIZE)))
+            .map(|(i, s)| {
+                Button::new(s, rotation_text(i))
+                    .on_press(rotation_message(i, xz, yz))
+                    .width(Length::Units(BUTTON_SIZE))
+            })
             .collect();
 
         global_scroll = global_scroll.spacing(5).push(Text::new("Rotate Camera"));

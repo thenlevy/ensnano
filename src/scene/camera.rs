@@ -389,12 +389,21 @@ impl CameraController {
         self.projection.borrow_mut().resize(size.width, size.height)
     }
 
+    fn default_pivot(&self) -> Vec3 {
+        self.camera.borrow().position + 5. * self.camera.borrow().direction()
+    }
+
     /// Swing the camera arrond `self.pivot_point`. Assumes that the pivot_point is where the
     /// camera points at.
     pub fn swing(&mut self, x: f64, y: f64) {
+        let default_pivot = self.default_pivot();
         let angle_yz = -(y.min(1.).max(-1.)) as f32 * PI;
         let angle_xz = x.min(1.).max(-1.) as f32 * PI;
-        self.rotate_camera_around(angle_xz, angle_yz, self.pivot_point.unwrap());
+        self.rotate_camera_around(
+            angle_xz,
+            angle_yz,
+            self.pivot_point.unwrap_or(default_pivot),
+        );
     }
 
     /// Rotate the camera arround a point.
