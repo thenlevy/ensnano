@@ -615,6 +615,11 @@ fn main() {
                     if let Some(tree) = requests.new_tree.take() {
                         mediator.lock().unwrap().update_tree(tree);
                     }
+
+                    if let Some(ui_size) = requests.new_ui_size.take() {
+                        gui.new_ui_size(ui_size.clone());
+                        messages.lock().unwrap().new_ui_size(ui_size);
+                    }
                 }
 
                 if let Some(d_id) = download_stapples {
@@ -861,6 +866,11 @@ impl IcedMessages {
     ) {
         self.left_panel
             .push_back(gui::left_panel::Message::NewTreeApp(tree))
+    }
+
+    pub fn new_ui_size(&mut self, ui_size: gui::UiSize) {
+        self.left_panel.push_back(gui::left_panel::Message::UiSizeChanged(ui_size.clone()));
+
     }
 }
 

@@ -126,6 +126,7 @@ pub enum Message {
     ModifiersChanged(ModifiersState),
     NewTreeApp(OrganizerTree<DnaElementKey>),
     UiSizeChanged(UiSize),
+    UiSizePicked(UiSize),
 }
 
 impl LeftPanel {
@@ -455,6 +456,7 @@ impl Program for LeftPanel {
                 self.organizer.notify_selection(keys);
             }
             Message::NewTreeApp(tree) => self.organizer.read_tree(tree),
+            Message::UiSizePicked(ui_size) => self.requests.lock().unwrap().new_ui_size = Some(ui_size),
             Message::UiSizeChanged(ui_size) => self.ui_size = ui_size,
         };
         Command::none()
@@ -776,7 +778,7 @@ impl Program for LeftPanel {
         let mut widget = global_scroll
             .push(
                 Checkbox::new(self.show_torsion, "Show Torsion", Message::ShowTorsion)
-                    .size(self.ui_size.icon())
+                    .size(self.ui_size.checkbox())
                     .spacing(CHECKBOXSPACING),
             )
             .width(Length::Units(width));
@@ -812,14 +814,14 @@ impl Program for LeftPanel {
                 Message::VolumeExclusion,
             )
             .spacing(CHECKBOXSPACING)
-            .size(self.ui_size.icon()),
+            .size(self.ui_size.checkbox()),
         );
 
         widget = widget.push(PickList::new(
             &mut self.size_pick_list,
             &super::ALL_UI_SIZE[..],
             Some(self.ui_size.clone()),
-            Message::UiSizeChanged,
+            Message::UiSizePicked,
         ));
 
         let tabs: Tabs<Message, Backend> = Tabs::new(self.selected_tab, Message::TabSelected)

@@ -141,14 +141,14 @@ impl Multiplexer {
         requests: Arc<Mutex<Requests>>,
     ) -> Self {
         let mut layout_manager = LayoutTree::new();
-        let top_pannel_prop = exact_proportion(MAX_TOP_BAR_HEIGHT, window_size.height as f64);
+        let top_pannel_prop = exact_proportion(MAX_TOP_BAR_HEIGHT * scale_factor, window_size.height as f64);
         let top_bar_split = 0;
         let (top_bar, scene) = layout_manager.hsplit(0, top_pannel_prop, false);
         let left_pannel_split = scene;
-        let left_pannel_prop = proportion(0.2, MAX_LEFT_PANNEL_WIDTH, window_size.width as f64);
+        let left_pannel_prop = proportion(0.2, MAX_LEFT_PANNEL_WIDTH * scale_factor, window_size.width as f64);
         let (left_pannel, scene) = layout_manager.vsplit(scene, left_pannel_prop, true);
         let scene_height = (1. - top_pannel_prop) * window_size.height as f64;
-        let status_bar_prop = exact_proportion(MAX_STATUS_BAR_HEIGHT, scene_height);
+        let status_bar_prop = exact_proportion(MAX_STATUS_BAR_HEIGHT * scale_factor, scene_height);
         let status_bar_split = scene;
         let (scene, status_bar) = layout_manager.hsplit(scene, 1. - status_bar_prop, false);
         //let (scene, grid_panel) = layout_manager.hsplit(scene, 0.8);
@@ -389,7 +389,7 @@ impl Multiplexer {
             },
             WindowEvent::Resized(new_size) => {
                 self.window_size = *new_size;
-                self.resize(*new_size);
+                self.resize(*new_size, self.scale_factor);
                 *resized = true;
                 if self.window_size.width > 0 && self.window_size.height > 0 {
                     self.generate_textures();
@@ -397,6 +397,8 @@ impl Multiplexer {
             }
             WindowEvent::ScaleFactorChanged { scale_factor, .. } => {
                 self.scale_factor = *scale_factor;
+                self.resize(self.window_size, self.scale_factor);
+                *resized = true;
                 if self.window_size.width > 0 && self.window_size.height > 0 {
                     self.generate_textures();
                 }
@@ -542,11 +544,11 @@ impl Multiplexer {
         self.generate_textures();
     }
 
-    fn resize(&mut self, window_size: PhySize) {
-        let top_pannel_prop = exact_proportion(MAX_TOP_BAR_HEIGHT, window_size.height as f64);
-        let left_pannel_prop = proportion(0.2, MAX_LEFT_PANNEL_WIDTH, window_size.width as f64);
+    fn resize(&mut self, window_size: PhySize, scale_factor: f64) {
+        let top_pannel_prop = exact_proportion(MAX_TOP_BAR_HEIGHT * scale_factor, window_size.height as f64);
+        let left_pannel_prop = proportion(0.2, MAX_LEFT_PANNEL_WIDTH * scale_factor, window_size.width as f64);
         let scene_height = (1. - top_pannel_prop) * window_size.height as f64;
-        let status_bar_prop = exact_proportion(MAX_STATUS_BAR_HEIGHT, scene_height);
+        let status_bar_prop = exact_proportion(MAX_STATUS_BAR_HEIGHT * scale_factor, scene_height);
         self.layout_manager
             .resize(self.left_pannel_split, left_pannel_prop);
         self.layout_manager

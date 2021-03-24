@@ -8,6 +8,7 @@ use iced_native::clipboard::Null as NullClipBoard;
 use iced_wgpu::Renderer;
 use iced_winit::winit::dpi::LogicalSize;
 use iced_winit::{button, Button, Checkbox, Color, Command, Element, Length, Program, Row};
+use super::UiSize;
 
 use material_icons::{icon_to_char, Icon as MaterialIcon, FONT as MATERIALFONT};
 
@@ -15,16 +16,14 @@ const ICONFONT: iced::Font = iced::Font::External {
     name: "IconFont",
     bytes: MATERIALFONT,
 };
-const ICONSIZE: u16 = 14;
 
-fn icon(icon: MaterialIcon) -> iced::Text {
+fn icon(icon: MaterialIcon, ui_size: UiSize) -> iced::Text {
     iced::Text::new(format!("{}", icon_to_char(icon)))
         .font(ICONFONT)
-        .size(ICONSIZE)
+        .size(ui_size.icon())
 }
 
 const CHECKBOXSPACING: u16 = 5;
-const CHECKBOXSIZE: u16 = 15;
 
 use super::{Requests, SplitMode};
 
@@ -46,6 +45,7 @@ pub struct TopBar {
     requests: Arc<Mutex<Requests>>,
     logical_size: LogicalSize<f64>,
     dialoging: Arc<Mutex<bool>>,
+    ui_size: UiSize,
 }
 
 #[derive(Debug, Clone)]
@@ -86,6 +86,7 @@ impl TopBar {
             requests,
             logical_size,
             dialoging: Default::default(),
+            ui_size: UiSize::Small,
         }
     }
 
@@ -282,11 +283,11 @@ impl Program for TopBar {
 
     fn view(&mut self) -> Element<Message, Renderer> {
         let height = self.logical_size.cast::<u16>().height;
-        let button_fit = Button::new(&mut self.button_fit, icon(MaterialIcon::CenterFocusStrong))
+        let button_fit = Button::new(&mut self.button_fit, icon(MaterialIcon::CenterFocusStrong, self.ui_size.clone()))
             .on_press(Message::SceneFitRequested)
             .height(Length::Units(height));
         let button_add_file =
-            Button::new(&mut self.button_add_file, icon(MaterialIcon::FolderOpen))
+            Button::new(&mut self.button_add_file, icon(MaterialIcon::FolderOpen, self.ui_size.clone()))
                 .on_press(Message::FileAddRequested)
                 .height(Length::Units(height));
         /*let button_replace_file = Button::new(
@@ -295,29 +296,36 @@ impl Program for TopBar {
         )
         .on_press(Message::FileReplaceRequested)
         .height(Length::Units(height));*/
-        let button_save = Button::new(&mut self.button_save, icon(MaterialIcon::Save))
+        let button_save = Button::new(&mut self.button_save, icon(MaterialIcon::Save, self.ui_size.clone()))
             .on_press(Message::FileSaveRequested)
             .height(Length::Units(height));
 
         let button_2d = Button::new(&mut self.button_2d, iced::Text::new("2D"))
+            .height(Length::Units(self.ui_size.button()))
             .on_press(Message::ToggleView(SplitMode::Flat));
         let button_3d = Button::new(&mut self.button_3d, iced::Text::new("3D"))
+            .height(Length::Units(self.ui_size.button()))
             .on_press(Message::ToggleView(SplitMode::Scene3D));
         let button_split = Button::new(&mut self.button_split, iced::Text::new("Split"))
+            .height(Length::Units(self.ui_size.button()))
             .on_press(Message::ToggleView(SplitMode::Both));
 
         let button_scaffold = Button::new(&mut self.button_scaffold, iced::Text::new("Scaffold"))
+            .height(Length::Units(self.ui_size.button()))
             .on_press(Message::ScaffoldSequenceFile);
 
         let button_stapples = Button::new(&mut self.button_stapples, iced::Text::new("Stapples"))
+            .height(Length::Units(self.ui_size.button()))
             .on_press(Message::StapplesRequested);
 
         let button_clean = Button::new(&mut self.button_clean, iced::Text::new("Clean"))
+            .height(Length::Units(self.ui_size.button()))
             .on_press(Message::CleanRequested);
 
         let _button_make_grid =
             Button::new(&mut self.button_make_grid, iced::Text::new("Make grids"))
-                .on_press(Message::MakeGrids);
+                .on_press(Message::MakeGrids)
+                .height(Length::Units(self.ui_size.button()));
 
         let buttons = Row::new()
             .width(Length::Fill)
@@ -333,7 +341,7 @@ impl Program for TopBar {
                     Message::ToggleText,
                 )
                 .spacing(CHECKBOXSPACING)
-                .size(CHECKBOXSIZE),
+                .size(self.ui_size.checkbox()),
             )
             .push(button_2d)
             .push(button_3d)

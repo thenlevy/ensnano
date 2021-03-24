@@ -101,6 +101,7 @@ pub struct Requests {
         Vec<crate::design::DnaElementKey>,
     )>,
     pub new_tree: Option<OrganizerTree<crate::design::DnaElementKey>>,
+    pub new_ui_size: Option<UiSize>,
 }
 
 pub enum KeepProceed {
@@ -162,6 +163,7 @@ impl Requests {
             organizer_candidates: None,
             new_attribute: None,
             new_tree: None,
+            new_ui_size: None,
         }
     }
 }
@@ -483,6 +485,7 @@ pub struct Gui {
     /// HashMap mapping [ElementType](ElementType) to a GuiElement
     elements: HashMap<ElementType, GuiElement>,
     renderer: iced_wgpu::Renderer,
+    settings: Settings,
     device: Rc<Device>,
     resized: bool,
 }
@@ -495,7 +498,7 @@ impl Gui {
         requests: Arc<Mutex<Requests>>,
         settings: Settings,
     ) -> Self {
-        let mut renderer = Renderer::new(Backend::new(device.as_ref(), settings));
+        let mut renderer = Renderer::new(Backend::new(device.as_ref(), settings.clone()));
         let mut elements = HashMap::new();
         elements.insert(
             ElementType::TopBar,
@@ -511,6 +514,7 @@ impl Gui {
         );
 
         Self {
+            settings,
             elements,
             renderer,
             device,
@@ -571,6 +575,20 @@ impl Gui {
             elements.fetch_change(window, multiplexer, &mut self.renderer, self.resized);
         }
         self.resized = false;
+    }
+
+    pub fn new_ui_size(&mut self, ui_size: UiSize) {
+        self.set_text_size(ui_size.main_text())
+    }
+
+    fn set_text_size(&mut self, text_size: u16) {
+        let settings = Settings {
+            default_text_size: text_size,
+            ..self.settings.clone()
+        };
+        let renderer = Renderer::new(Backend::new(self.device.as_ref(), settings.clone()));
+        self.settings = settings;
+        self.renderer = renderer;
     }
 
     pub fn render(
