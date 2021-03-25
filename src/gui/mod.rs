@@ -14,12 +14,16 @@ pub use left_panel::{
     ColorOverlay, HyperboloidRequest, LeftPanel, RigidBodyParametersRequest, SimulationRequest,
 };
 pub mod status_bar;
+mod ui_size;
+pub use ui_size::*;
+
 use status_bar::StatusBar;
 
 use crate::mediator::{ActionMode, Operation, SelectionMode};
 use crate::scene::FogParameters;
 use crate::SplitMode;
 use crate::{DrawArea, ElementType, IcedMessages, Multiplexer};
+use ensnano_organizer::OrganizerTree;
 use iced_native::Event;
 use iced_wgpu::{wgpu, Backend, Renderer, Settings, Viewport};
 use iced_winit::{conversion, program, winit, Debug, Size};
@@ -90,6 +94,14 @@ pub struct Requests {
     pub keep_proceed: Option<KeepProceed>,
     pub sequence_input: Option<String>,
     pub new_shift_hyperboloid: Option<f32>,
+    pub organizer_selection: Option<Vec<crate::design::DnaElementKey>>,
+    pub organizer_candidates: Option<Vec<crate::design::DnaElementKey>>,
+    pub new_attribute: Option<(
+        crate::design::DnaAttribute,
+        Vec<crate::design::DnaElementKey>,
+    )>,
+    pub new_tree: Option<OrganizerTree<crate::design::DnaElementKey>>,
+    pub new_ui_size: Option<UiSize>,
 }
 
 pub enum KeepProceed {
@@ -147,6 +159,11 @@ impl Requests {
             stapples_file: None,
             sequence_input: None,
             new_shift_hyperboloid: None,
+            organizer_selection: None,
+            organizer_candidates: None,
+            new_attribute: None,
+            new_tree: None,
+            new_ui_size: None,
         }
     }
 }
@@ -225,15 +242,16 @@ impl GuiState {
         renderer: &mut Renderer,
         debug: &mut Debug,
     ) {
+        let mut clipboard = iced_native::clipboard::Null;
         match self {
             GuiState::TopBar(state) => {
-                state.update(size, cursor_position, None, renderer, debug);
+                state.update(size, cursor_position, renderer, &mut clipboard, debug);
             }
             GuiState::LeftPanel(state) => {
-                state.update(size, cursor_position, None, renderer, debug);
+                state.update(size, cursor_position, renderer, &mut clipboard, debug);
             }
             GuiState::StatusBar(state) => {
-                state.update(size, cursor_position, None, renderer, debug);
+                state.update(size, cursor_position, renderer, &mut clipboard, debug);
             }
         }
     }
@@ -467,8 +485,10 @@ pub struct Gui {
     /// HashMap mapping [ElementType](ElementType) to a GuiElement
     elements: HashMap<ElementType, GuiElement>,
     renderer: iced_wgpu::Renderer,
+    settings: Settings,
     device: Rc<Device>,
     resized: bool,
+    requests: Arc<Mutex<Requests>>,
 }
 
 impl Gui {
@@ -479,7 +499,7 @@ impl Gui {
         requests: Arc<Mutex<Requests>>,
         settings: Settings,
     ) -> Self {
-        let mut renderer = Renderer::new(Backend::new(device.as_ref(), settings));
+        let mut renderer = Renderer::new(Backend::new(device.as_ref(), settings.clone()));
         let mut elements = HashMap::new();
         elements.insert(
             ElementType::TopBar,
@@ -495,6 +515,8 @@ impl Gui {
         );
 
         Self {
+            settings,
+            requests,
             elements,
             renderer,
             device,
@@ -555,6 +577,48 @@ impl Gui {
             elements.fetch_change(window, multiplexer, &mut self.renderer, self.resized);
         }
         self.resized = false;
+    }
+
+    pub fn new_ui_size(&mut self, ui_size: UiSize, window: &Window, multiplexer: &Multiplexer) {
+        self.set_text_size(ui_size.main_text());
+
+        self.elements.insert(
+            ElementType::TopBar,
+            GuiElement::top_bar(
+                &mut self.renderer,
+                window,
+                multiplexer,
+                self.requests.clone(),
+            ),
+        );
+        self.elements.insert(
+            ElementType::LeftPanel,
+            GuiElement::left_panel(
+                &mut self.renderer,
+                window,
+                multiplexer,
+                self.requests.clone(),
+            ),
+        );
+        self.elements.insert(
+            ElementType::StatusBar,
+            GuiElement::status_bar(
+                &mut self.renderer,
+                window,
+                multiplexer,
+                self.requests.clone(),
+            ),
+        );
+    }
+
+    fn set_text_size(&mut self, text_size: u16) {
+        let settings = Settings {
+            default_text_size: text_size,
+            ..self.settings.clone()
+        };
+        let renderer = Renderer::new(Backend::new(self.device.as_ref(), settings.clone()));
+        self.settings = settings;
+        self.renderer = renderer;
     }
 
     pub fn render(

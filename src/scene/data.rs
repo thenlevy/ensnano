@@ -27,9 +27,11 @@ pub struct Data {
     /// A `Design3D` is associated to each design.
     designs: Vec<Design3D>,
     /// The set of selected elements
-    selected: Vec<SceneElement>,
+    selected_element: Option<SceneElement>,
     /// The set of candidates elements
-    candidates: Vec<SceneElement>,
+    candidate_element: Option<SceneElement>,
+    selection: Vec<Selection>,
+    candidates: Vec<Selection>,
     /// The kind of selection being perfomed on the scene.
     pub selection_mode: SelectionMode,
     /// The kind of action being performed on the scene
@@ -49,7 +51,9 @@ impl Data {
         Self {
             view,
             designs: Vec::new(),
-            selected: Vec::new(),
+            selected_element: None,
+            candidate_element: None,
+            selection: Vec::new(),
             candidates: Vec::new(),
             selection_mode: SelectionMode::default(),
             action_mode: Default::default(),
@@ -72,7 +76,9 @@ impl Data {
     /// Remove all designs to be drawn
     pub fn clear_designs(&mut self) {
         self.designs = Vec::new();
-        self.selected = Vec::new();
+        self.selected_element = None;
+        self.candidate_element = None;
+        self.selection = Vec::new();
         self.candidates = Vec::new();
         self.reset_selection();
         self.reset_candidate();
@@ -107,9 +113,9 @@ impl Data {
 
     /// Return the sets of selected designs
     pub fn get_selected_designs(&self) -> HashSet<u32> {
-        self.selected
+        self.selection
             .iter()
-            .map(|x| self.get_element_design(x))
+            .filter_map(|s| s.get_design())
             .collect()
     }
 
@@ -122,31 +128,62 @@ impl Data {
         }
     }
 
-    /// Convert `self.selection` into a set of elements according to `self.selection_mode`
-    fn expand_selection(&self, object_type: ObjectType) -> Vec<SceneElement> {
+    /// Convert a selection into a set of elements
+    fn expand_selection(
+        &self,
+        object_type: ObjectType,
+        selection: &Selection,
+    ) -> Vec<SceneElement> {
+        let d_id = selection.get_design();
+        if d_id.is_none() {
+            return vec![];
+        }
+        let d_id = d_id.unwrap() as usize;
         let mut ret = Vec::new();
-        for element in &self.selected {
-            if let SceneElement::DesignElement(d_id, elt_id) = element {
-                let group_id = self.get_group_identifier(*d_id, *elt_id);
-                let group = self.get_group_member(*d_id, group_id);
-                for elt in group.iter() {
-                    if self.designs[*d_id as usize]
-                        .get_element_type(*elt)
-                        .map(|elt| elt.same_type(object_type))
-                        .unwrap_or(false)
-                    {
-                        ret.push(SceneElement::DesignElement(*d_id, *elt));
-                    }
+        if let Selection::Nucleotide(d_id, nucl) = selection {
+            if !object_type.is_bound() {
+                if let Some(n_id) = self.designs[*d_id as usize].get_identifier_nucl(nucl) {
+                    ret.push(SceneElement::DesignElement(*d_id, n_id))
+                } else {
+                    ret.push(SceneElement::PhantomElement(PhantomElement {
+                        design_id: *d_id,
+                        helix_id: nucl.helix as u32,
+                        position: nucl.position as i32,
+                        forward: nucl.forward,
+                        bound: false,
+                    }));
                 }
-            } else if let SceneElement::PhantomElement(phantom_element) = element {
-                if phantom_element.bound == object_type.is_bound() {
-                    ret.push(SceneElement::PhantomElement(*phantom_element));
+            }
+        } else if let Selection::Bound(d_id, n1, n2) = selection {
+            if object_type.is_bound() {
+                if let Some(b_id) = self.designs[*d_id as usize].get_identifier_bound(n1, n2) {
+                    ret.push(SceneElement::DesignElement(*d_id, b_id))
+                } else {
+                    ret.push(SceneElement::PhantomElement(PhantomElement {
+                        design_id: *d_id,
+                        helix_id: n1.helix as u32,
+                        position: n1.position as i32,
+                        forward: n1.forward,
+                        bound: true,
+                    }));
+                }
+            }
+        } else {
+            let group = self.get_group_member(selection);
+            for elt in group.iter() {
+                if self.designs[d_id]
+                    .get_element_type(*elt)
+                    .map(|elt| elt.same_type(object_type))
+                    .unwrap_or(false)
+                {
+                    ret.push(SceneElement::DesignElement(d_id as u32, *elt));
                 }
             }
         }
         ret
     }
 
+    /*
     /// Convert `self.candidates` into a set of elements according to `self.selection_mode`
     fn expand_candidate(&self, object_type: ObjectType) -> Vec<SceneElement> {
         let mut ret = Vec::new();
@@ -183,38 +220,43 @@ impl Data {
             }
         }
         ret
-    }
+    }*/
 
     /// Return the instances of selected spheres
     pub fn get_selected_spheres(&self) -> Rc<Vec<RawDnaInstance>> {
-        let mut ret = Vec::with_capacity(self.selected.len());
-        for element in self.expand_selection(ObjectType::Nucleotide(0)).iter() {
-            match element {
-                SceneElement::DesignElement(d_id, id) => {
-                    if let Some(instance) = self.designs[*d_id as usize].make_instance(
-                        *id,
-                        SELECTED_COLOR,
-                        SELECT_SCALE_FACTOR,
-                    ) {
-                        ret.push(instance)
+        let mut ret = Vec::new();
+        for selection in self.selection.iter() {
+            for element in self
+                .expand_selection(ObjectType::Nucleotide(0), selection)
+                .iter()
+            {
+                match element {
+                    SceneElement::DesignElement(d_id, id) => {
+                        if let Some(instance) = self.designs[*d_id as usize].make_instance(
+                            *id,
+                            SELECTED_COLOR,
+                            SELECT_SCALE_FACTOR,
+                        ) {
+                            ret.push(instance)
+                        }
                     }
-                }
-                SceneElement::PhantomElement(phantom_element) => {
-                    if let Some(instance) = self
-                        .designs
-                        .get(phantom_element.design_id as usize)
-                        .and_then(|d| {
-                            d.make_instance_phantom(
-                                phantom_element,
-                                SELECTED_COLOR,
-                                SELECT_SCALE_FACTOR,
-                            )
-                        })
-                    {
-                        ret.push(instance);
+                    SceneElement::PhantomElement(phantom_element) => {
+                        if let Some(instance) = self
+                            .designs
+                            .get(phantom_element.design_id as usize)
+                            .and_then(|d| {
+                                d.make_instance_phantom(
+                                    phantom_element,
+                                    SELECTED_COLOR,
+                                    SELECT_SCALE_FACTOR,
+                                )
+                            })
+                        {
+                            ret.push(instance);
+                        }
                     }
+                    _ => unreachable!(),
                 }
-                _ => unreachable!(),
             }
         }
         Rc::new(ret)
@@ -222,34 +264,39 @@ impl Data {
 
     /// Return the instances of selected tubes
     pub fn get_selected_tubes(&self) -> Rc<Vec<RawDnaInstance>> {
-        let mut ret = Vec::with_capacity(self.selected.len());
-        for element in self.expand_selection(ObjectType::Bound(0, 0)).iter() {
-            match element {
-                SceneElement::DesignElement(d_id, id) => {
-                    if let Some(instance) = self.designs[*d_id as usize].make_instance(
-                        *id,
-                        SELECTED_COLOR,
-                        SELECT_SCALE_FACTOR,
-                    ) {
-                        ret.push(instance)
+        let mut ret = Vec::new();
+        for selection in self.selection.iter() {
+            for element in self
+                .expand_selection(ObjectType::Bound(0, 0), selection)
+                .iter()
+            {
+                match element {
+                    SceneElement::DesignElement(d_id, id) => {
+                        if let Some(instance) = self.designs[*d_id as usize].make_instance(
+                            *id,
+                            SELECTED_COLOR,
+                            SELECT_SCALE_FACTOR,
+                        ) {
+                            ret.push(instance)
+                        }
                     }
-                }
-                SceneElement::PhantomElement(phantom_element) => {
-                    if let Some(instance) = self
-                        .designs
-                        .get(phantom_element.design_id as usize)
-                        .and_then(|d| {
-                            d.make_instance_phantom(
-                                phantom_element,
-                                SELECTED_COLOR,
-                                SELECT_SCALE_FACTOR,
-                            )
-                        })
-                    {
-                        ret.push(instance);
+                    SceneElement::PhantomElement(phantom_element) => {
+                        if let Some(instance) = self
+                            .designs
+                            .get(phantom_element.design_id as usize)
+                            .and_then(|d| {
+                                d.make_instance_phantom(
+                                    phantom_element,
+                                    SELECTED_COLOR,
+                                    SELECT_SCALE_FACTOR,
+                                )
+                            })
+                        {
+                            ret.push(instance);
+                        }
                     }
+                    _ => unreachable!(),
                 }
-                _ => unreachable!(),
             }
         }
         Rc::new(ret)
@@ -257,34 +304,39 @@ impl Data {
 
     /// Return the instances of candidate spheres
     pub fn get_candidate_spheres(&self) -> Rc<Vec<RawDnaInstance>> {
-        let mut ret = Vec::with_capacity(self.selected.len());
-        for element in self.expand_candidate(ObjectType::Nucleotide(0)).iter() {
-            match element {
-                SceneElement::DesignElement(d_id, id) => {
-                    if let Some(instance) = self.designs[*d_id as usize].make_instance(
-                        *id,
-                        CANDIDATE_COLOR,
-                        SELECT_SCALE_FACTOR,
-                    ) {
-                        ret.push(instance)
+        let mut ret = Vec::new();
+        for candidate in self.candidates.iter() {
+            for element in self
+                .expand_selection(ObjectType::Nucleotide(0), candidate)
+                .iter()
+            {
+                match element {
+                    SceneElement::DesignElement(d_id, id) => {
+                        if let Some(instance) = self.designs[*d_id as usize].make_instance(
+                            *id,
+                            CANDIDATE_COLOR,
+                            SELECT_SCALE_FACTOR,
+                        ) {
+                            ret.push(instance)
+                        }
                     }
-                }
-                SceneElement::PhantomElement(phantom_element) => {
-                    if let Some(instance) = self
-                        .designs
-                        .get(phantom_element.design_id as usize)
-                        .and_then(|d| {
-                            d.make_instance_phantom(
-                                phantom_element,
-                                CANDIDATE_COLOR,
-                                SELECT_SCALE_FACTOR,
-                            )
-                        })
-                    {
-                        ret.push(instance);
+                    SceneElement::PhantomElement(phantom_element) => {
+                        if let Some(instance) = self
+                            .designs
+                            .get(phantom_element.design_id as usize)
+                            .and_then(|d| {
+                                d.make_instance_phantom(
+                                    phantom_element,
+                                    CANDIDATE_COLOR,
+                                    SELECT_SCALE_FACTOR,
+                                )
+                            })
+                        {
+                            ret.push(instance);
+                        }
                     }
+                    _ => unreachable!(),
                 }
-                _ => unreachable!(),
             }
         }
         Rc::new(ret)
@@ -292,42 +344,47 @@ impl Data {
 
     /// Return the instances of candidate tubes
     pub fn get_candidate_tubes(&self) -> Rc<Vec<RawDnaInstance>> {
-        let mut ret = Vec::with_capacity(self.selected.len());
-        for element in self.expand_candidate(ObjectType::Bound(0, 0)).iter() {
-            match element {
-                SceneElement::DesignElement(d_id, id) => {
-                    if let Some(instance) = self.designs[*d_id as usize].make_instance(
-                        *id,
-                        CANDIDATE_COLOR,
-                        SELECT_SCALE_FACTOR,
-                    ) {
-                        ret.push(instance)
+        let mut ret = Vec::new();
+        for candidate in self.candidates.iter() {
+            for element in self
+                .expand_selection(ObjectType::Bound(0, 0), candidate)
+                .iter()
+            {
+                match element {
+                    SceneElement::DesignElement(d_id, id) => {
+                        if let Some(instance) = self.designs[*d_id as usize].make_instance(
+                            *id,
+                            CANDIDATE_COLOR,
+                            SELECT_SCALE_FACTOR,
+                        ) {
+                            ret.push(instance)
+                        }
                     }
-                }
-                SceneElement::PhantomElement(phantom_element) => {
-                    if let Some(instance) = self
-                        .designs
-                        .get(phantom_element.design_id as usize)
-                        .and_then(|d| {
-                            d.make_instance_phantom(
-                                phantom_element,
-                                CANDIDATE_COLOR,
-                                SELECT_SCALE_FACTOR,
-                            )
-                        })
-                    {
-                        ret.push(instance);
+                    SceneElement::PhantomElement(phantom_element) => {
+                        if let Some(instance) = self
+                            .designs
+                            .get(phantom_element.design_id as usize)
+                            .and_then(|d| {
+                                d.make_instance_phantom(
+                                    phantom_element,
+                                    CANDIDATE_COLOR,
+                                    SELECT_SCALE_FACTOR,
+                                )
+                            })
+                        {
+                            ret.push(instance);
+                        }
                     }
+                    _ => unreachable!(),
                 }
-                _ => unreachable!(),
             }
         }
         Rc::new(ret)
     }
 
-    /// Return the identifier of the first selected group
+    /// Return the identifier of the group of the selected element
     pub fn get_selected_group(&self) -> u32 {
-        match self.selected.get(0) {
+        match self.selected_element.as_ref() {
             Some(SceneElement::DesignElement(design_id, element_id)) => {
                 self.get_group_identifier(*design_id, *element_id)
             }
@@ -357,7 +414,7 @@ impl Data {
         };
 
         let design_id = phantom_element.design_id;
-        let element_id = self.designs[design_id as usize].get_identifier_nucl(nucl);
+        let element_id = self.designs[design_id as usize].get_identifier_nucl(&nucl);
 
         match self.selection_mode {
             SelectionMode::Nucleotide => element_id,
@@ -375,13 +432,26 @@ impl Data {
     }
 
     /// Return the set of elements in a given group
-    fn get_group_member(&self, design_id: u32, group_id: u32) -> HashSet<u32> {
-        match self.selection_mode {
-            SelectionMode::Nucleotide => vec![group_id].into_iter().collect(),
-            SelectionMode::Design => self.designs[design_id as usize].get_all_elements(),
-            SelectionMode::Strand => self.designs[design_id as usize].get_strand_elements(group_id),
-            SelectionMode::Helix => self.designs[design_id as usize].get_helix_elements(group_id),
-            SelectionMode::Grid => vec![group_id].into_iter().collect(),
+    fn get_group_member(&self, element: &Selection) -> HashSet<u32> {
+        match element {
+            Selection::Nucleotide(d_id, nucl) => self.designs[*d_id as usize]
+                .get_identifier_nucl(nucl)
+                .iter()
+                .cloned()
+                .collect(),
+            Selection::Bound(d_id, n1, n2) => self.designs[*d_id as usize]
+                .get_identifier_bound(n1, n2)
+                .iter()
+                .cloned()
+                .collect(),
+            Selection::Helix(d_id, h_id) => self.designs[*d_id as usize].get_helix_elements(*h_id),
+            Selection::Strand(d_id, s_id) => {
+                self.designs[*d_id as usize].get_strand_elements(*s_id)
+            }
+            Selection::Grid(_, _) => HashSet::new(), // A grid is not made of atomic elements
+            Selection::Phantom(_) => HashSet::new(),
+            Selection::Nothing => HashSet::new(),
+            Selection::Design(d_id) => self.designs[*d_id as usize].get_all_elements(),
         }
     }
 
@@ -412,50 +482,28 @@ impl Data {
         if let Some(SceneElement::WidgetElement(_)) = element {
             return None;
         }
-        let future_selection = if let Some(element) = element {
-            vec![element]
-        } else {
-            Vec::new()
-        };
-        if self.selected == future_selection {
+        let future_selection = element;
+        if self.selected_element == future_selection {
             self.toggle_widget_basis()
         } else {
             self.widget_basis = Some(WidgetBasis::World);
-            self.selection_update = true;
         }
-        self.selected = future_selection;
+        self.selected_element = future_selection;
         self.update_selected_position();
-        let selection = if let Some(element) = element {
-            match element {
-                SceneElement::DesignElement(design_id, element_id) => {
-                    let group_id = self.get_group_identifier(design_id, element_id);
-                    match self.selection_mode {
-                        SelectionMode::Design => Selection::Design(design_id),
-                        SelectionMode::Strand => Selection::Strand(design_id, group_id),
-                        SelectionMode::Nucleotide => {
-                            let nucl = self.designs[design_id as usize].get_nucl(group_id);
-                            let bound = self.designs[design_id as usize].get_bound(group_id);
-                            if let Some(nucl) = nucl {
-                                Selection::Nucleotide(design_id, nucl)
-                            } else if let Some((n1, n2)) = bound {
-                                Selection::Bound(design_id, n1, n2)
-                            } else {
-                                Selection::Nothing
-                            }
-                        }
-                        SelectionMode::Helix => Selection::Helix(design_id, group_id),
-                        SelectionMode::Grid => Selection::Grid(design_id, group_id as usize),
-                    }
-                }
-                SceneElement::Grid(d_id, g_id) => Selection::Grid(d_id, g_id),
-                SceneElement::PhantomElement(phantom) => {
-                    Selection::Nucleotide(phantom.design_id, phantom.to_nucl())
-                }
-                _ => Selection::Nothing,
-            }
+        let selection = if let Some(element) = element.as_ref() {
+            self.element_to_selection(element)
         } else {
             Selection::Nothing
         };
+        let future_selection = if selection != Selection::Nothing {
+            vec![selection]
+        } else {
+            vec![]
+        };
+        self.selection_update |= self.selected_element != element;
+        self.selection_update |= self.selection != future_selection;
+        self.selection = future_selection;
+
         Some(selection)
     }
 
@@ -469,7 +517,7 @@ impl Data {
     pub fn attempt_xover(&self, target: Option<SceneElement>) -> Option<(Nucl, Nucl, usize)> {
         let design_id;
         let source_nucl =
-            if let Some(SceneElement::DesignElement(d_id, e_id)) = self.selected.get(0) {
+            if let Some(SceneElement::DesignElement(d_id, e_id)) = self.selected_element.as_ref() {
                 design_id = *d_id;
                 self.designs[*d_id as usize].get_nucl_relax(*e_id)
             } else {
@@ -489,7 +537,7 @@ impl Data {
 
     fn update_selected_position(&mut self) {
         self.selected_position = {
-            if let Some(element) = self.selected.get(0) {
+            if let Some(element) = self.selected_element.as_ref() {
                 self.get_element_position(element, Referential::World)
             } else {
                 None
@@ -499,9 +547,9 @@ impl Data {
 
     /// Clear self.selected
     pub fn reset_selection(&mut self) {
-        self.selection_update |= !self.selected.is_empty();
+        self.selection_update |= self.selected_element.is_some();
         self.selected_position = None;
-        self.selected = Vec::new();
+        self.selected_element = None;
     }
 
     /// Notify the view that the selected elements have been modified
@@ -521,7 +569,7 @@ impl Data {
         self.view
             .borrow_mut()
             .update(ViewUpdate::RawDna(Mesh::PhantomTube, vec));
-        let grid = if let Some(SceneElement::Grid(d_id, g_id)) = self.selected.get(0) {
+        let grid = if let Some(SceneElement::Grid(d_id, g_id)) = self.selected_element.as_ref() {
             Some((*d_id, *g_id))
         } else {
             None
@@ -560,7 +608,7 @@ impl Data {
             }
         }
         if self.must_draw_phantom() {
-            for element in self.selected.iter() {
+            for element in self.selected_element.iter() {
                 match element {
                     SceneElement::DesignElement(d_id, elt_id) => {
                         let set = ret.entry(*d_id).or_insert_with(HashMap::new);
@@ -602,7 +650,7 @@ impl Data {
         if ret {
             true
         } else {
-            for element in self.selected.iter() {
+            for element in self.selected_element.iter() {
                 if let SceneElement::PhantomElement(_) = element {
                     return true;
                 }
@@ -611,21 +659,84 @@ impl Data {
         }
     }
 
+    pub fn element_to_selection(&self, element: &SceneElement) -> Selection {
+        match element {
+            SceneElement::DesignElement(design_id, element_id) => {
+                let group_id = self.get_group_identifier(*design_id, *element_id);
+                match self.selection_mode {
+                    SelectionMode::Design => Selection::Design(*design_id),
+                    SelectionMode::Strand => Selection::Strand(*design_id, group_id),
+                    SelectionMode::Nucleotide => {
+                        let nucl = self.designs[*design_id as usize].get_nucl(group_id);
+                        let bound = self.designs[*design_id as usize].get_bound(group_id);
+                        if let Some(nucl) = nucl {
+                            Selection::Nucleotide(*design_id, nucl)
+                        } else if let Some((n1, n2)) = bound {
+                            Selection::Bound(*design_id, n1, n2)
+                        } else {
+                            Selection::Nothing
+                        }
+                    }
+                    SelectionMode::Helix => Selection::Helix(*design_id, group_id),
+                    SelectionMode::Grid => Selection::Grid(*design_id, group_id as usize),
+                }
+            }
+            SceneElement::Grid(d_id, g_id) => Selection::Grid(*d_id, *g_id),
+            SceneElement::PhantomElement(phantom) if phantom.bound => Selection::Bound(
+                phantom.design_id,
+                phantom.to_nucl(),
+                phantom.to_nucl().left(),
+            ),
+            SceneElement::PhantomElement(phantom) => {
+                Selection::Nucleotide(phantom.design_id, phantom.to_nucl())
+            }
+            _ => Selection::Nothing,
+        }
+    }
+
     /// Set the set of candidates to a given nucleotide
     pub fn set_candidate(&mut self, element: Option<SceneElement>) {
-        let future_candidate = if let Some(element) = element {
-            vec![element]
+        let future_candidates = if let Some(element) = element.as_ref() {
+            let selection = self.element_to_selection(element);
+            if selection != Selection::Nothing {
+                vec![selection]
+            } else {
+                vec![]
+            }
         } else {
-            Vec::new()
+            vec![]
         };
-        self.candidate_update |= self.candidates != future_candidate;
-        self.candidates = future_candidate;
+        self.candidate_update |= self.candidate_element != element;
+        self.candidate_update |= self.candidates != future_candidates;
+        self.candidates = future_candidates;
+        self.candidate_element = element;
+    }
+
+    pub fn notify_candidate(&mut self, candidate: Vec<Selection>) {
+        let future_candidates = candidate
+            .iter()
+            .filter(|c| c.get_design().is_some())
+            .cloned()
+            .collect();
+        self.candidate_update |= self.candidates != future_candidates;
+        self.candidates = future_candidates;
+    }
+
+    pub fn notify_selection(&mut self, selection: Vec<Selection>) {
+        let future_selection = selection
+            .iter()
+            .filter(|s| s.get_design().is_some())
+            .cloned()
+            .collect();
+        self.selection_update |= self.selection != future_selection;
+        self.selection = future_selection;
     }
 
     /// Clear the set of candidates to a given nucleotide
     pub fn reset_candidate(&mut self) {
         self.candidate_update |= !self.candidates.is_empty();
         self.candidates = Vec::new();
+        self.candidate_element = None;
     }
 
     /// Notify the view that the instances of candidates have changed
@@ -638,7 +749,7 @@ impl Data {
             Mesh::CandidateSphere,
             self.get_candidate_spheres(),
         ));
-        let grid = if let Some(SceneElement::Grid(d_id, g_id)) = self.candidates.get(0) {
+        let grid = if let Some(SceneElement::Grid(d_id, g_id)) = self.candidate_element.as_ref() {
             Some((*d_id, *g_id))
         } else {
             None
@@ -725,8 +836,8 @@ impl Data {
             for grid in design.get_grid().iter() {
                 for (x, y) in design.get_helices_grid_coord(grid.id) {
                     let element = Some(SceneElement::GridCircle(d_id as u32, grid.id, x, y));
-                    if self.selected.get(0) != element.as_ref()
-                        && self.candidates.get(0) != element.as_ref()
+                    if self.selected_element.as_ref() != element.as_ref()
+                        && self.candidate_element.as_ref() != element.as_ref()
                     {
                         let (d1, d2) = grid.disc(x, y, 0xAA_FF_FF_FF, d_id as u32);
                         discs.push(d1);
@@ -738,13 +849,13 @@ impl Data {
                 }
             }
         }
-        if let Some(SceneElement::GridCircle(d_id, g_id, x, y)) = self.selected.get(0) {
+        if let Some(SceneElement::GridCircle(d_id, g_id, x, y)) = self.selected_element.as_ref() {
             let grid = &self.designs[*d_id as usize].get_grid()[*g_id as usize];
             let (d1, d2) = grid.disc(*x, *y, 0xAA_FF_00_00, *d_id as u32);
             discs.push(d1);
             discs.push(d2);
         }
-        if let Some(SceneElement::GridCircle(d_id, g_id, x, y)) = self.candidates.get(0) {
+        if let Some(SceneElement::GridCircle(d_id, g_id, x, y)) = self.candidate_element.as_ref() {
             let grid = &self.designs[*d_id as usize].get_grid()[*g_id as usize];
             let (d1, d2) = grid.disc(*x, *y, 0xAA_00_FF_00, *d_id as u32);
             discs.push(d1);
@@ -803,8 +914,6 @@ impl Data {
 
     pub fn change_selection_mode(&mut self, selection_mode: SelectionMode) {
         self.selection_mode = selection_mode;
-        self.set_selection(self.selected.get(0).cloned());
-        self.instance_update = true;
     }
 
     pub fn get_action_mode(&self) -> ActionMode {
@@ -832,7 +941,7 @@ impl Data {
     }
 
     fn get_selected_basis(&self) -> Option<Rotor3> {
-        match self.selected.get(0) {
+        match self.selected_element.as_ref() {
             Some(SceneElement::DesignElement(d_id, _)) => match self.selection_mode {
                 SelectionMode::Nucleotide
                 | SelectionMode::Design
@@ -864,7 +973,7 @@ impl Data {
     }
 
     pub fn selection_can_rotate_freely(&self) -> bool {
-        match self.selected.get(0) {
+        match self.selected_element.as_ref() {
             Some(SceneElement::DesignElement(d_id, _)) => match self.selection_mode {
                 SelectionMode::Nucleotide
                 | SelectionMode::Design
@@ -894,7 +1003,7 @@ impl Data {
     }
 
     pub fn select_5prime(&mut self) {
-        let selected = self.selected.get(0);
+        let selected = self.selected_element.as_ref();
         if let Some(SceneElement::DesignElement(d_id, e_id)) = selected {
             let new_selection = self
                 .designs
@@ -907,7 +1016,7 @@ impl Data {
     }
 
     pub fn select_3prime(&mut self) {
-        let selected = self.selected.get(0);
+        let selected = self.selected_element.as_ref();
         if let Some(SceneElement::DesignElement(d_id, e_id)) = selected {
             let new_selection = self
                 .designs
@@ -921,7 +1030,7 @@ impl Data {
 
     pub fn get_strand_builder(&mut self) -> Option<StrandBuilder> {
         if let ActionMode::Build(b) = self.action_mode {
-            let selected = self.candidates.get(0)?;
+            let selected = self.candidate_element.as_ref()?;
             let design = selected.get_design()?;
             self.designs[design as usize].get_builder(selected, b)
         } else {
@@ -954,14 +1063,14 @@ impl Data {
 
     /// Set the selection to a given nucleotide if it exists in the design.
     pub fn select_nucl(&mut self, nucl: Nucl, design_id: usize) {
-        let e_id = self.designs[design_id].get_identifier_nucl(nucl);
+        let e_id = self.designs[design_id].get_identifier_nucl(&nucl);
         if let Some(id) = e_id {
             self.set_selection(Some(SceneElement::DesignElement(design_id as u32, id)));
         }
     }
 
     pub fn get_candidate_nucl(&self) -> Option<Nucl> {
-        match self.candidates.get(0) {
+        match self.candidate_element.as_ref() {
             None => None,
             Some(SceneElement::DesignElement(d_id, n_id)) => {
                 self.designs[*d_id as usize].get_nucl(*n_id)

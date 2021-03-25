@@ -1,4 +1,5 @@
 use crate::design::{Design, Nucl};
+use crate::utils::PhantomElement;
 use std::collections::BTreeSet;
 use std::sync::{Arc, RwLock};
 
@@ -10,6 +11,7 @@ pub enum Selection {
     Strand(u32, u32),
     Helix(u32, u32),
     Grid(u32, usize),
+    Phantom(PhantomElement),
     Nothing,
 }
 
@@ -29,6 +31,7 @@ impl Selection {
             Selection::Helix(d, _) => Some(*d),
             Selection::Nucleotide(d, _) => Some(*d),
             Selection::Grid(d, _) => Some(*d),
+            Selection::Phantom(pe) => Some(pe.design_id),
             Selection::Nothing => None,
         }
     }

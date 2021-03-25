@@ -135,6 +135,8 @@ fn main() {
     window.set_title("ENSnano");
     window.set_min_inner_size(Some(PhySize::new(100, 100)));
 
+    println!("scale factor {}", window.scale_factor());
+
     let modifiers = ModifiersState::default();
 
     let instance = wgpu::Instance::new(wgpu::BackendBit::PRIMARY);
@@ -182,7 +184,7 @@ fn main() {
     };
     let settings = Settings {
         antialiasing: Some(iced_graphics::Antialiasing::MSAAx4),
-        default_text_size: 11,
+        default_text_size: 12,
         default_font: Some(include_bytes!("../font/Inter/Inter-Regular.otf")),
         ..Default::default()
     };
@@ -253,6 +255,9 @@ fn main() {
     // Add a design to the scene if one was given as a command line arguement
     if let Some(ref path) = path {
         let design = Design::new_with_path(0, path).unwrap_or_else(|| Design::new(0));
+        if let Some(tree) = design.get_organizer_tree() {
+            messages.lock().unwrap().push_new_tree(tree)
+        }
         mediator
             .lock()
             .unwrap()
@@ -291,6 +296,14 @@ fn main() {
                 event: WindowEvent::CloseRequested,
                 ..
             } => *control_flow = ControlFlow::Exit,
+            Event::WindowEvent {
+                event: WindowEvent::ModifiersChanged(modifiers),
+                ..
+            } => {
+                multiplexer.update_modifiers(modifiers.clone());
+                mediator.lock().unwrap().update_modifiers(modifiers.clone());
+                messages.lock().unwrap().update_modifiers(modifiers.clone());
+            }
             Event::WindowEvent { event, .. } => {
                 //let modifiers = multiplexer.modifiers();
                 if let Some(event) = event.to_static() {
@@ -356,6 +369,9 @@ fn main() {
                         if let Some(design) = design {
                             if let Some(stem) = path.file_stem().and_then(|s| s.to_str()) {
                                 window.set_title(&format!("ENSnano {}", stem))
+                            }
+                            if let Some(tree) = design.get_organizer_tree() {
+                                messages.lock().unwrap().push_new_tree(tree)
                             }
                             messages.lock().unwrap().notify_new_design();
                             mediator.lock().unwrap().clear_designs();
@@ -583,6 +599,29 @@ fn main() {
                     if let Some(f) = requests.new_shift_hyperboloid.take() {
                         mediator.lock().unwrap().new_shift_hyperboloid(f);
                     }
+
+                    if let Some(s) = requests.organizer_selection.take() {
+                        mediator.lock().unwrap().organizer_selection(s);
+                    }
+
+                    if let Some(c) = requests.organizer_candidates.take() {
+                        mediator.lock().unwrap().organizer_candidates(c);
+                    }
+
+                    if let Some((a, elts)) = requests.new_attribute.take() {
+                        mediator.lock().unwrap().update_attribute(a, elts);
+                    }
+
+                    if let Some(tree) = requests.new_tree.take() {
+                        mediator.lock().unwrap().update_tree(tree);
+                    }
+
+                    if let Some(ui_size) = requests.new_ui_size.take() {
+                        gui.new_ui_size(ui_size.clone(), &window, &multiplexer);
+                        multiplexer.change_ui_size(ui_size.clone(), &window);
+                        messages.lock().unwrap().new_ui_size(ui_size);
+                        resized = true;
+                    }
                 }
 
                 if let Some(d_id) = download_stapples {
@@ -769,6 +808,11 @@ impl IcedMessages {
             .push_back(gui::status_bar::Message::Selection(selection, values))
     }
 
+    pub fn push_organizer_selection(&mut self, selection: Vec<crate::design::DnaElementKey>) {
+        self.left_panel
+            .push_back(gui::left_panel::Message::NewSelection(selection))
+    }
+
     pub fn clear_op(&mut self) {
         self.status_bar.push_back(gui::status_bar::Message::ClearOp);
     }
@@ -806,6 +850,31 @@ impl IcedMessages {
     pub fn push_roll(&mut self, roll: f32) {
         self.left_panel
             .push_back(gui::left_panel::Message::HelixRoll(roll))
+    }
+
+    pub fn push_dna_elements(&mut self, elements: Vec<crate::design::DnaElement>) {
+        self.left_panel
+            .push_back(gui::left_panel::Message::NewDnaElement(elements))
+    }
+
+    pub fn update_modifiers(&mut self, modifiers: ModifiersState) {
+        self.left_panel
+            .push_back(gui::left_panel::Message::ModifiersChanged(modifiers))
+    }
+
+    pub fn push_new_tree(
+        &mut self,
+        tree: ensnano_organizer::OrganizerTree<crate::design::DnaElementKey>,
+    ) {
+        self.left_panel
+            .push_back(gui::left_panel::Message::NewTreeApp(tree))
+    }
+
+    pub fn new_ui_size(&mut self, ui_size: gui::UiSize) {
+        self.left_panel
+            .push_back(gui::left_panel::Message::UiSizeChanged(ui_size.clone()));
+        self.top_bar
+            .push_back(gui::top_bar::Message::UiSizeChanged(ui_size.clone()));
     }
 }
 
@@ -873,14 +942,15 @@ impl OverlayManager {
             } else {
                 PhysicalPosition::new(-1., -1.)
             };
+            let mut clipboard = iced_native::clipboard::Null;
             match overlay {
                 OverlayType::Color => {
                     if !self.color_state.is_queue_empty() || resized {
                         let _ = self.color_state.update(
                             convert_size(PhysicalSize::new(250, 250)),
                             conversion::cursor_position(cursor_position, window.scale_factor()),
-                            None,
                             renderer,
+                            &mut clipboard,
                             &mut self.color_debug,
                         );
                     }
@@ -959,6 +1029,7 @@ impl OverlayManager {
             } else {
                 PhysicalPosition::new(-1., -1.)
             };
+            let mut clipboard = iced_native::clipboard::Null;
             match overlay {
                 OverlayType::Color => {
                     if !self.color_state.is_queue_empty() {
@@ -966,8 +1037,8 @@ impl OverlayManager {
                         let _ = self.color_state.update(
                             convert_size(PhysicalSize::new(250, 250)),
                             conversion::cursor_position(cursor_position, window.scale_factor()),
-                            None,
                             renderer,
+                            &mut clipboard,
                             &mut self.color_debug,
                         );
                     }

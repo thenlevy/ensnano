@@ -19,6 +19,7 @@ use controller::Controller;
 pub use controller::{DesignRotation, DesignTranslation, IsometryTarget};
 use data::Data;
 pub use data::*;
+use ensnano_organizer::OrganizerTree;
 pub use utils::*;
 use view::View;
 
@@ -476,8 +477,12 @@ impl Design {
         self.data.lock().unwrap().get_copy_points()
     }
 
-    pub fn get_identifier_nucl(&self, nucl: Nucl) -> Option<u32> {
+    pub fn get_identifier_nucl(&self, nucl: &Nucl) -> Option<u32> {
         self.data.lock().unwrap().get_identifier_nucl(nucl)
+    }
+
+    pub fn get_identifier_bound(&self, n1: &Nucl, n2: &Nucl) -> Option<u32> {
+        self.data.lock().unwrap().get_identifier_bound(n1, n2)
     }
 
     pub fn merge_strands(&mut self, prime5: usize, prime3: usize) {
@@ -878,6 +883,34 @@ impl Design {
 
     pub fn get_shift(&self, g_id: usize) -> Option<f32> {
         self.data.lock().unwrap().get_shift(g_id)
+    }
+
+    pub fn get_new_elements(&self) -> Option<Vec<DnaElement>> {
+        self.data.lock().unwrap().get_new_elements()
+    }
+
+    pub fn update_attribute(&mut self, attribute: DnaAttribute, elements: Vec<DnaElementKey>) {
+        let mut data = self.data.lock().unwrap();
+        for elt in elements.iter() {
+            match attribute {
+                DnaAttribute::Visible(b) => match elt {
+                    DnaElementKey::Helix(h) => data.set_visibility_helix(*h, b),
+                    _ => (),
+                },
+                DnaAttribute::XoverGroup(g) => match elt {
+                    DnaElementKey::Helix(h) => data.set_group(*h, g),
+                    _ => (),
+                },
+            }
+        }
+    }
+
+    pub fn update_organizer_tree(&mut self, tree: OrganizerTree<DnaElementKey>) {
+        self.data.lock().unwrap().update_organizer_tree(tree)
+    }
+
+    pub fn get_organizer_tree(&self) -> Option<OrganizerTree<DnaElementKey>> {
+        self.data.lock().unwrap().get_organizer_tree()
     }
 }
 

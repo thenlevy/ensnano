@@ -11,7 +11,10 @@ use crate::gui::{HyperboloidRequest, KeepProceed, Requests, SimulationRequest};
 use crate::utils::{message, yes_no_dialog, PhantomElement};
 use crate::{DrawArea, Duration, ElementType, IcedMessages, Multiplexer, WindowEvent};
 use iced_wgpu::wgpu;
-use iced_winit::winit::dpi::{PhysicalPosition, PhysicalSize};
+use iced_winit::winit::{
+    dpi::{PhysicalPosition, PhysicalSize},
+    event::ModifiersState,
+};
 use simple_excel_writer::{row, Row, Workbook};
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
@@ -21,15 +24,23 @@ use ultraviolet::Vec3;
 use crate::design;
 
 use design::{
-    Design, DesignNotification, DesignRotation, DesignTranslation, GridDescriptor,
-    GridHelixDescriptor, Helix, Hyperboloid, Nucl, RigidBodyConstants, Stapple, Strand,
-    StrandBuilder, StrandState,
+    Design, DesignNotification, DesignRotation, DesignTranslation, DnaAttribute, DnaElementKey,
+    GridDescriptor, GridHelixDescriptor, Helix, Hyperboloid, Nucl, RigidBodyConstants, Stapple,
+    Strand, StrandBuilder, StrandState,
 };
+use ensnano_organizer::OrganizerTree;
 
 mod operation;
 mod selection;
 pub use operation::*;
 pub use selection::*;
+
+#[derive(PartialEq, Debug, Clone, Copy)]
+pub enum AppId {
+    FlatScene,
+    Scene,
+    Organizer,
+}
 
 pub type MediatorPtr = Arc<Mutex<Mediator>>;
 
@@ -37,8 +48,8 @@ pub struct Mediator {
     applications: HashMap<ElementType, Arc<Mutex<dyn Application>>>,
     designs: Vec<Arc<RwLock<Design>>>,
     selection: Vec<Selection>,
-    candidate: Option<Option<PhantomElement>>,
-    last_selection: Option<Vec<Selection>>,
+    candidate: Option<(Vec<Selection>, AppId)>,
+    last_selection: Option<(Vec<Selection>, AppId)>,
     messages: Arc<Mutex<IcedMessages>>,
     /// The operation that is beign modified by the current drag and drop
     current_operation: Option<Arc<dyn Operation>>,
@@ -147,9 +158,9 @@ pub enum Notification {
     /// The designs have been deleted
     ClearDesigns,
     /// A new element of the design must be highlighted
-    NewCandidate(Option<PhantomElement>),
+    NewCandidate(Vec<Selection>, AppId),
     /// An element has been selected in the 3d view
-    Selection3D(Vec<Selection>),
+    Selection3D(Vec<Selection>, AppId),
     /// A save request has been filled
     Save(usize),
     /// The 3d camera must face a given target
@@ -158,6 +169,7 @@ pub enum Notification {
     Centering(Nucl, usize),
     Pasting(bool),
     ShowTorsion(bool),
+    ModifersChanged(ModifiersState),
 }
 
 pub trait Application {
@@ -197,6 +209,10 @@ impl Mediator {
             pasting_attempt: None,
             duplication_attempt: false,
         }
+    }
+
+    pub fn update_modifiers(&mut self, modifers: ModifiersState) {
+        self.notify_apps(Notification::ModifersChanged(modifers))
     }
 
     pub fn add_application(
@@ -466,18 +482,18 @@ impl Mediator {
         self.notify_apps(Notification::ClearDesigns)
     }
 
-    pub fn notify_multiple_selection(&mut self, selection: Vec<Selection>) {
+    pub fn notify_multiple_selection(&mut self, selection: Vec<Selection>, app_id: AppId) {
         self.selection = selection.clone();
-        self.last_selection = Some(selection);
+        self.last_selection = Some((selection, app_id));
         self.pasting = PastingMode::Nothing;
         self.notify_all_designs(AppNotification::ResetCopyPaste);
     }
 
-    pub fn notify_unique_selection(&mut self, selection: Selection) {
+    pub fn notify_unique_selection(&mut self, selection: Selection, app_id: AppId) {
         self.pasting = PastingMode::Nothing;
         self.notify_all_designs(AppNotification::ResetCopyPaste);
         self.selection = vec![selection];
-        self.last_selection = Some(vec![selection]);
+        self.last_selection = Some((vec![selection], app_id));
         if selection.is_strand() {
             let mut messages = self.messages.lock().unwrap();
             if let Selection::Strand(d_id, s_id) = selection {
@@ -568,32 +584,46 @@ impl Mediator {
                 notifications.push(Notification::DesignNotification(notification))
             }
         }
+        if let Some(elements) = self
+            .designs
+            .get(0)
+            .and_then(|d| d.read().unwrap().get_new_elements())
+        {
+            self.messages.lock().unwrap().push_dna_elements(elements);
+        }
         for notification in notifications {
             self.notify_apps(notification)
         }
-        if let Some(candidate) = self.candidate.take() {
+        if let Some((candidate, app_id)) = self.candidate.take() {
             ret = true;
-            if let Some(pe) = candidate {
-                let design_id = pe.design_id as usize;
-                let nucl = Nucl {
-                    helix: pe.helix_id as usize,
-                    position: pe.position as isize,
-                    forward: pe.forward,
-                };
-                let strand_opt = self.designs[design_id]
-                    .read()
-                    .unwrap()
-                    .get_strand_nucl(&nucl);
-                if let Some(strand) = strand_opt {
-                    let selection = Selection::Strand(design_id as u32, strand as u32);
-                    let values = selection.fetch_values(self.designs[design_id].clone());
-                    self.messages
-                        .lock()
-                        .unwrap()
-                        .push_selection(selection, values);
+            if candidate.len() == 1 {
+                match candidate[0] {
+                    Selection::Strand(d_id, _) => {
+                        let values = candidate[0].fetch_values(self.designs[d_id as usize].clone());
+                        self.messages
+                            .lock()
+                            .unwrap()
+                            .push_selection(candidate[0], values);
+                    }
+                    Selection::Nucleotide(d_id, nucl) => {
+                        let strand_opt = self.designs[d_id as usize]
+                            .read()
+                            .unwrap()
+                            .get_strand_nucl(&nucl);
+                        if let Some(strand) = strand_opt {
+                            let selection = Selection::Strand(d_id, strand as u32);
+                            let values =
+                                selection.fetch_values(self.designs[d_id as usize].clone());
+                            self.messages
+                                .lock()
+                                .unwrap()
+                                .push_selection(selection, values);
+                        }
+                    }
+                    _ => (),
                 }
             }
-            self.notify_apps(Notification::NewCandidate(candidate))
+            self.notify_apps(Notification::NewCandidate(candidate, app_id))
         }
         if let Some(nucl) = self.pasting_attempt.take() {
             match self.pasting {
@@ -671,9 +701,19 @@ impl Mediator {
             self.notify_apps(Notification::Pasting(self.pasting.is_placing_paste()));
             self.duplication_attempt = false;
         }
-        if let Some(selection) = self.last_selection.take() {
+        if let Some((selection, app_id)) = self.last_selection.take() {
             ret = true;
-            self.notify_apps(Notification::Selection3D(selection))
+            if app_id != AppId::Organizer {
+                let organizer_selection: Vec<DnaElementKey> = selection
+                    .iter()
+                    .filter_map(|s| DnaElementKey::from_selection(s, 0))
+                    .collect();
+                self.messages
+                    .lock()
+                    .unwrap()
+                    .push_organizer_selection(organizer_selection);
+            }
+            self.notify_apps(Notification::Selection3D(selection, app_id))
         }
 
         if let Some(centring) = self.centring.take() {
@@ -858,7 +898,12 @@ impl Mediator {
         }
     }
 
-    pub fn set_candidate(&mut self, candidate: Option<PhantomElement>) {
+    pub fn set_candidate(
+        &mut self,
+        candidate: Option<PhantomElement>,
+        selection: Vec<Selection>,
+        app_id: AppId,
+    ) {
         let nucl = candidate.map(|c| c.to_nucl());
         if self.pasting.is_placing_paste() {
             if self.pasting.strand() {
@@ -873,7 +918,7 @@ impl Mediator {
                     .request_paste_candidate_xover(nucl);
             }
         }
-        self.candidate = Some(candidate)
+        self.candidate = Some((selection, app_id))
     }
 
     pub fn set_paste_candidate(&mut self, candidate: Option<Nucl>) {
@@ -1101,7 +1146,7 @@ impl Mediator {
                 .write()
                 .unwrap()
                 .add_anchor(nucl);
-            self.notify_unique_selection(selection.unwrap());
+            //self.notify_unique_selection(selection.unwrap());
         }
     }
 
@@ -1111,6 +1156,28 @@ impl Mediator {
                 .write()
                 .unwrap()
                 .set_new_shift(*g_id, shift)
+        }
+    }
+
+    pub fn organizer_selection(&mut self, selection: Vec<DnaElementKey>) {
+        let selection: Vec<Selection> = selection.iter().map(|k| k.to_selection(0)).collect();
+        self.notify_multiple_selection(selection, AppId::Organizer);
+    }
+
+    pub fn organizer_candidates(&mut self, candidates: Vec<DnaElementKey>) {
+        let candidates: Vec<Selection> = candidates.iter().map(|k| k.to_selection(0)).collect();
+        self.candidate = Some((candidates, AppId::Organizer));
+    }
+
+    pub fn update_attribute(&mut self, attribute: DnaAttribute, elements: Vec<DnaElementKey>) {
+        if let Some(d) = self.designs.get_mut(0) {
+            d.write().unwrap().update_attribute(attribute, elements)
+        }
+    }
+
+    pub fn update_tree(&mut self, tree: OrganizerTree<DnaElementKey>) {
+        if let Some(d) = self.designs.get_mut(0) {
+            d.write().unwrap().update_organizer_tree(tree)
         }
     }
 }

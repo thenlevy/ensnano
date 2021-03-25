@@ -229,8 +229,13 @@ pub enum Message {
 impl Program for StatusBar {
     type Message = Message;
     type Renderer = iced_wgpu::Renderer;
+    type Clipboard = iced_native::clipboard::Null;
 
-    fn update(&mut self, message: Message) -> Command<Message> {
+    fn update(
+        &mut self,
+        message: Message,
+        _cb: &mut iced_native::clipboard::Null,
+    ) -> Command<Message> {
         match message {
             Message::Operation(ref op) => {
                 self.operation = Some(op.clone());

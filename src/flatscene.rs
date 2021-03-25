@@ -6,8 +6,8 @@ use crate::{DrawArea, Duration, PhySize, WindowEvent};
 use iced_wgpu::wgpu;
 use iced_winit::winit;
 use mediator::{
-    ActionMode, Application, CrossCut, Cut, Mediator, Notification, RawHelixCreation, RmStrand,
-    Selection, StrandConstruction, Xover,
+    ActionMode, AppId, Application, CrossCut, Cut, Mediator, Notification, RawHelixCreation,
+    RmStrand, Selection, StrandConstruction, Xover,
 };
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -258,8 +258,21 @@ impl FlatScene {
                     });
                     self.view[self.selected_design]
                         .borrow_mut()
-                        .set_candidate(candidate, other);
-                    self.mediator.lock().unwrap().set_candidate(phantom)
+                        .set_candidate_suggestion(candidate, other);
+                    let candidate = if let Some(selection) = phantom.and_then(|p| {
+                        self.data[self.selected_design]
+                            .borrow()
+                            .phantom_to_selection(p)
+                    }) {
+                        Some(selection)
+                    } else {
+                        phantom.map(|p| Selection::Phantom(p))
+                    };
+                    self.mediator.lock().unwrap().set_candidate(
+                        phantom,
+                        candidate.iter().cloned().collect(),
+                        AppId::FlatScene,
+                    )
                 }
                 Consequence::RmStrand(nucl) => {
                     let strand_id = self.data[self.selected_design].borrow().get_strand_id(nucl);
@@ -338,7 +351,7 @@ impl FlatScene {
                     self.mediator
                         .lock()
                         .unwrap()
-                        .notify_unique_selection(selection);
+                        .notify_unique_selection(selection, AppId::FlatScene);
                 }
                 Consequence::DrawingSelection(c1, c2) => self.view[self.selected_design]
                     .borrow_mut()
@@ -350,6 +363,7 @@ impl FlatScene {
                     //self.data[self.selected_design].borrow().get_helices_in_rect(c1, c2, camera);
                     self.mediator.lock().unwrap().notify_multiple_selection(
                         self.data[self.selected_design].borrow().selection.clone(),
+                        AppId::FlatScene,
                     );
                 }
                 Consequence::PasteRequest(nucl) => {
@@ -361,6 +375,7 @@ impl FlatScene {
                         .add_selection(click);
                     self.mediator.lock().unwrap().notify_multiple_selection(
                         self.data[self.selected_design].borrow().selection.clone(),
+                        AppId::FlatScene,
                     );
                 }
                 _ => (),
@@ -403,18 +418,19 @@ impl Application for FlatScene {
                 }
             }
             Notification::FitRequest => self.controller[self.selected_design].fit(),
-            Notification::Selection3D(selection) => {
-                self.needs_redraw(Duration::from_nanos(1));
-                if selection.len() <= 1 {
+            Notification::Selection3D(selection, app_id) => match app_id {
+                AppId::FlatScene => (),
+                _ => {
+                    self.needs_redraw(Duration::from_nanos(1));
                     self.data[self.selected_design]
                         .borrow_mut()
-                        .set_selection(*selection.get(0).unwrap_or(&Selection::Nothing));
+                        .set_selection(selection);
                     self.data[self.selected_design].borrow_mut().notify_update();
                     self.view[self.selected_design]
                         .borrow_mut()
                         .center_selection();
                 }
-            }
+            },
             Notification::Save(d_id) => self.data[d_id].borrow_mut().save_isometry(),
             Notification::ToggleText(b) => {
                 self.view[self.selected_design].borrow_mut().set_show_sec(b)
@@ -438,9 +454,19 @@ impl Application for FlatScene {
             Notification::AppNotification(_) => (),
             Notification::NewSensitivity(_) => (),
             Notification::ClearDesigns => (),
-            Notification::NewCandidate(_) => (), //TODO this can prove usefull in the future
+            Notification::NewCandidate(candidates, app_id) => match app_id {
+                AppId::FlatScene => (),
+                _ => self.data[self.selected_design]
+                    .borrow_mut()
+                    .set_candidate(candidates),
+            },
             Notification::Centering(_, _) => (),
             Notification::CameraRotation(_, _) => (),
+            Notification::ModifersChanged(modifiers) => {
+                for c in self.controller.iter_mut() {
+                    c.update_modifiers(modifiers.clone())
+                }
+            }
         }
     }
 

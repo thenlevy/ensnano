@@ -6,6 +6,7 @@
 //! reduces the confusion, since erros will be detected by the typechecker.
 
 use super::{HashMap, Nucl, Selection};
+use crate::utils::PhantomElement;
 
 /// An helix identifier in the flatscene data structures.
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Ord, Eq, Hash)]
@@ -134,6 +135,7 @@ pub enum FlatSelection {
     Strand(usize, usize),
     Helix(usize, FlatHelix),
     Grid(usize, usize),
+    Phantom(PhantomElement),
     Nothing,
 }
 
@@ -158,6 +160,7 @@ impl FlatSelection {
                     Self::Helix(*d as usize, FlatHelix::from_real(*h_id as usize, id_map))
                 }
                 Selection::Grid(d, g_id) => Self::Grid(*d as usize, *g_id),
+                Selection::Phantom(pe) => Self::Phantom(pe.clone()),
                 Selection::Nothing => Self::Nothing,
             }
         } else {

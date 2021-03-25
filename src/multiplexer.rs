@@ -13,7 +13,7 @@
 //!
 //!
 //! The multiplexer is also in charge of drawing to the frame.
-use crate::gui::Requests;
+use crate::gui::{Requests, UiSize};
 use crate::mediator::{ActionMode, SelectionMode};
 use crate::utils::texture::SampledTexture;
 use crate::PhySize;
@@ -125,10 +125,11 @@ pub struct Multiplexer {
     split_mode: SplitMode,
     requests: Arc<Mutex<Requests>>,
     state: State,
+    modifiers: ModifiersState,
+    ui_size: UiSize,
 }
 
 const MAX_LEFT_PANNEL_WIDTH: f64 = 200.;
-const MAX_TOP_BAR_HEIGHT: f64 = 35.;
 const MAX_STATUS_BAR_HEIGHT: f64 = 50.;
 
 impl Multiplexer {
@@ -139,15 +140,21 @@ impl Multiplexer {
         device: Rc<Device>,
         requests: Arc<Mutex<Requests>>,
     ) -> Self {
+        let ui_size = UiSize::Small;
         let mut layout_manager = LayoutTree::new();
-        let top_pannel_prop = exact_proportion(MAX_TOP_BAR_HEIGHT, window_size.height as f64);
+        let top_pannel_prop =
+            exact_proportion(ui_size.top_bar() * scale_factor, window_size.height as f64);
         let top_bar_split = 0;
         let (top_bar, scene) = layout_manager.hsplit(0, top_pannel_prop, false);
         let left_pannel_split = scene;
-        let left_pannel_prop = proportion(0.2, MAX_LEFT_PANNEL_WIDTH, window_size.width as f64);
-        let (left_pannel, scene) = layout_manager.vsplit(scene, left_pannel_prop, false);
+        let left_pannel_prop = proportion(
+            0.2,
+            MAX_LEFT_PANNEL_WIDTH * scale_factor,
+            window_size.width as f64,
+        );
+        let (left_pannel, scene) = layout_manager.vsplit(scene, left_pannel_prop, true);
         let scene_height = (1. - top_pannel_prop) * window_size.height as f64;
-        let status_bar_prop = exact_proportion(MAX_STATUS_BAR_HEIGHT, scene_height);
+        let status_bar_prop = exact_proportion(MAX_STATUS_BAR_HEIGHT * scale_factor, scene_height);
         let status_bar_split = scene;
         let (scene, status_bar) = layout_manager.hsplit(scene, 1. - status_bar_prop, false);
         //let (scene, grid_panel) = layout_manager.hsplit(scene, 0.8);
@@ -181,6 +188,8 @@ impl Multiplexer {
             state: State::Normal {
                 mouse_position: PhysicalPosition::new(-1., -1.),
             },
+            modifiers: ModifiersState::empty(),
+            ui_size,
         };
         ret.generate_textures();
         ret
@@ -198,6 +207,10 @@ impl Multiplexer {
             ElementType::StatusBar => self.status_bar_texture.as_ref().map(|t| &t.view),
             ElementType::Unattributed => unreachable!(),
         }
+    }
+
+    pub fn update_modifiers(&mut self, modifiers: ModifiersState) {
+        self.modifiers = modifiers
     }
 
     pub fn draw(&mut self, encoder: &mut wgpu::CommandEncoder, target: &wgpu::TextureView) {
@@ -383,7 +396,7 @@ impl Multiplexer {
             },
             WindowEvent::Resized(new_size) => {
                 self.window_size = *new_size;
-                self.resize(*new_size);
+                self.resize(*new_size, self.scale_factor);
                 *resized = true;
                 if self.window_size.width > 0 && self.window_size.height > 0 {
                     self.generate_textures();
@@ -391,6 +404,8 @@ impl Multiplexer {
             }
             WindowEvent::ScaleFactorChanged { scale_factor, .. } => {
                 self.scale_factor = *scale_factor;
+                self.resize(self.window_size, self.scale_factor);
+                *resized = true;
                 if self.window_size.width > 0 && self.window_size.height > 0 {
                     self.generate_textures();
                 }
@@ -435,7 +450,6 @@ impl Multiplexer {
                     KeyboardInput {
                         virtual_keycode: Some(key),
                         state: ElementState::Pressed,
-                        modifiers,
                         ..
                     },
                 ..
@@ -445,22 +459,22 @@ impl Multiplexer {
                     VirtualKeyCode::Escape => {
                         self.requests.lock().unwrap().action_mode = Some(ActionMode::Normal)
                     }
-                    VirtualKeyCode::C if ctrl(modifiers) => {
+                    VirtualKeyCode::C if ctrl(&self.modifiers) => {
                         self.requests.lock().unwrap().copy = true;
                     }
-                    VirtualKeyCode::V if ctrl(modifiers) => {
+                    VirtualKeyCode::V if ctrl(&self.modifiers) => {
                         self.requests.lock().unwrap().paste = true;
                     }
-                    VirtualKeyCode::J if ctrl(modifiers) => {
+                    VirtualKeyCode::J if ctrl(&self.modifiers) => {
                         self.requests.lock().unwrap().duplication = true;
                     }
-                    VirtualKeyCode::L if ctrl(modifiers) => {
+                    VirtualKeyCode::L if ctrl(&self.modifiers) => {
                         self.requests.lock().unwrap().anchor = true;
                     }
                     VirtualKeyCode::A => {
                         self.requests.lock().unwrap().action_mode = Some(ActionMode::Build(false))
                     }
-                    VirtualKeyCode::R if !modifiers.ctrl() => {
+                    VirtualKeyCode::R if !&self.modifiers.ctrl() => {
                         self.requests.lock().unwrap().action_mode = Some(ActionMode::Rotate)
                     }
                     VirtualKeyCode::T => {
@@ -496,6 +510,12 @@ impl Multiplexer {
         } else {
             (None, icon)
         }
+    }
+
+    pub fn change_ui_size(&mut self, ui_size: UiSize, window: &iced_winit::winit::window::Window) {
+        self.ui_size = ui_size;
+        self.resize(window.inner_size(), window.scale_factor());
+        self.generate_textures();
     }
 
     pub fn change_split(&mut self, split_mode: SplitMode) {
@@ -537,11 +557,18 @@ impl Multiplexer {
         self.generate_textures();
     }
 
-    fn resize(&mut self, window_size: PhySize) {
-        let top_pannel_prop = exact_proportion(MAX_TOP_BAR_HEIGHT, window_size.height as f64);
-        let left_pannel_prop = proportion(0.2, MAX_LEFT_PANNEL_WIDTH, window_size.width as f64);
+    fn resize(&mut self, window_size: PhySize, scale_factor: f64) {
+        let top_pannel_prop = exact_proportion(
+            self.ui_size.top_bar() * scale_factor,
+            window_size.height as f64,
+        );
+        let left_pannel_prop = proportion(
+            0.2,
+            MAX_LEFT_PANNEL_WIDTH * scale_factor,
+            window_size.width as f64,
+        );
         let scene_height = (1. - top_pannel_prop) * window_size.height as f64;
-        let status_bar_prop = exact_proportion(MAX_STATUS_BAR_HEIGHT, scene_height);
+        let status_bar_prop = exact_proportion(MAX_STATUS_BAR_HEIGHT * scale_factor, scene_height);
         self.layout_manager
             .resize(self.left_pannel_split, left_pannel_prop);
         self.layout_manager

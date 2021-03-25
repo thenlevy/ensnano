@@ -11,6 +11,8 @@ use super::codenano;
 use super::grid::{Grid, GridDescriptor, GridPosition};
 use super::scadnano::*;
 use super::strand_builder::{DomainIdentifier, NeighbourDescriptor};
+use super::DnaElementKey;
+use ensnano_organizer::OrganizerTree;
 
 /// The `icednano` Design structure.
 #[derive(Serialize, Deserialize, Clone)]
@@ -36,6 +38,7 @@ pub struct Design {
 
     /// The shifting of the scaffold if the design is an origami. This is used to reduce the number
     /// of anti-patern in the stapples sequences
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub scaffold_shift: Option<usize>,
 
     #[serde(default)]
@@ -53,6 +56,9 @@ pub struct Design {
 
     #[serde(skip_serializing_if = "HashSet::is_empty", default)]
     pub anchors: HashSet<Nucl>,
+
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub organizer_tree: Option<OrganizerTree<DnaElementKey>>,
 }
 
 impl Design {
@@ -84,6 +90,7 @@ impl Design {
             small_shperes: Default::default(),
             no_phantoms: Default::default(),
             anchors: Default::default(),
+            organizer_tree: None,
         }
     }
 
@@ -100,6 +107,7 @@ impl Design {
             small_shperes: Default::default(),
             no_phantoms: Default::default(),
             anchors: Default::default(),
+            organizer_tree: None,
         }
     }
 
@@ -209,6 +217,7 @@ impl Design {
             no_phantoms: Default::default(),
             parameters: Some(Parameters::DEFAULT),
             anchors: Default::default(),
+            organizer_tree: None,
         })
     }
 }

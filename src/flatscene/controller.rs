@@ -29,6 +29,7 @@ pub struct Controller {
     action_mode: ActionMode,
     mediator: Arc<Mutex<Mediator>>,
     pasting: bool,
+    modifiers: ModifiersState,
 }
 
 pub enum Consequence {
@@ -77,7 +78,12 @@ impl Controller {
             action_mode: ActionMode::Normal,
             mediator,
             pasting: false,
+            modifiers: ModifiersState::empty(),
         }
+    }
+
+    pub fn update_modifiers(&mut self, modifiers: ModifiersState) {
+        self.modifiers = modifiers;
     }
 
     pub fn resize(&mut self, window_size: PhySize, area_size: PhySize) {
@@ -139,7 +145,6 @@ impl Controller {
                 KeyboardInput {
                     virtual_keycode: Some(key),
                     state: ElementState::Pressed,
-                    modifiers,
                     ..
                 },
             ..
@@ -158,10 +163,18 @@ impl Controller {
                 VirtualKeyCode::K => {
                     self.data.borrow_mut().move_helix_forward();
                 }
-                VirtualKeyCode::Z if modifiers.ctrl() => self.mediator.lock().unwrap().undo(),
-                VirtualKeyCode::R if modifiers.ctrl() => self.mediator.lock().unwrap().redo(),
+                VirtualKeyCode::Z if ctrl(&self.modifiers) => self.mediator.lock().unwrap().undo(),
+                VirtualKeyCode::R if ctrl(&self.modifiers) => self.mediator.lock().unwrap().redo(),
                 _ => (),
             }
         }
+    }
+}
+
+fn ctrl(modifiers: &ModifiersState) -> bool {
+    if cfg!(target_os = "macos") {
+        modifiers.logo()
+    } else {
+        modifiers.ctrl()
     }
 }

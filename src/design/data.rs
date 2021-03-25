@@ -21,6 +21,7 @@ use std::fmt;
 use std::time::Instant;
 
 mod codenano;
+mod elements;
 mod grid;
 mod icednano;
 mod rigid_body;
@@ -32,6 +33,8 @@ mod torsion;
 use super::utils::*;
 use crate::scene::GridInstance;
 use crate::utils::{message, new_color};
+pub use elements::*;
+use ensnano_organizer::OrganizerTree;
 use grid::GridManager;
 pub use grid::*;
 pub use icednano::Nucl;
@@ -103,6 +106,7 @@ pub struct Data {
     anchors: HashSet<Nucl>,
     rigid_helix_update: Option<Vector<f32>>,
     rigid_helix_simulator: Option<rigid_body::RigidHelixSimulator>,
+    elements_update: Option<Vec<DnaElement>>,
 }
 
 impl fmt::Debug for Data {
@@ -152,6 +156,7 @@ impl Data {
             anchors: HashSet::new(),
             rigid_helix_update: None,
             rigid_helix_simulator: None,
+            elements_update: None,
         }
     }
 
@@ -359,6 +364,7 @@ impl Data {
             rigid_helix_update: None,
             rigid_helix_simulator: None,
             anchors,
+            elements_update: None,
         };
         ret.make_hash_maps();
         ret.terminate_movement();
@@ -379,13 +385,15 @@ impl Data {
         let mut basis_map = HashMap::default();
         let mut id = 0u32;
         let mut nucl_id;
-        let mut old_nucl = None;
+        let mut old_nucl: Option<Nucl> = None;
         let mut old_nucl_id = None;
         let mut blue_cubes = HashMap::default();
         let mut red_cubes = HashMap::default();
+        let mut elements = Vec::new();
         self.blue_nucl.clear();
         let groups = self.groups.read().unwrap();
         for (s_id, strand) in self.design.strands.iter() {
+            elements.push(elements::DnaElement::Strand { id: *s_id });
             let mut strand_position = 0;
             let strand_seq = strand.sequence.as_ref().filter(|s| s.is_ascii());
             let color = strand.color;
@@ -403,6 +411,11 @@ impl Data {
                             forward: domain.forward,
                             helix: domain.helix,
                         };
+                        elements.push(DnaElement::Nucleotide {
+                            helix: nucl.helix,
+                            position: nucl.position,
+                            forward: nucl.forward,
+                        });
                         nucl_id = id;
                         id += 1;
                         object_type.insert(nucl_id, ObjectType::Nucleotide(nucl_id));
@@ -440,6 +453,16 @@ impl Data {
                         let position = [position[0] as f32, position[1] as f32, position[2] as f32];
                         space_position.insert(nucl_id, position);
                         if let Some(old_nucl) = old_nucl.take() {
+                            if old_nucl.helix != nucl.helix {
+                                elements.push(DnaElement::CrossOver {
+                                    helix5prime: old_nucl.helix,
+                                    position5prime: old_nucl.position,
+                                    forward5prime: old_nucl.forward,
+                                    helix3prime: nucl.helix,
+                                    position3prime: nucl.position,
+                                    forward3prime: nucl.forward,
+                                });
+                            }
                             let bound_id = id;
                             id += 1;
                             let bound = (old_nucl, nucl);
@@ -489,8 +512,16 @@ impl Data {
         *self.basis_map.write().unwrap() = basis_map;
         self.red_cubes = red_cubes;
         self.blue_cubes = blue_cubes;
+        for (h_id, h) in self.design.helices.iter() {
+            elements.push(DnaElement::Helix {
+                id: *h_id,
+                group: groups.get(h_id).cloned(),
+                visible: h.visible,
+            });
+        }
         drop(groups);
         self.read_scaffold_seq(self.design.scaffold_shift.unwrap_or(0));
+        self.elements_update = Some(elements);
     }
 
     fn read_scaffold_seq(&mut self, shift: usize) {
@@ -969,8 +1000,12 @@ impl Data {
     }
 
     /// Return the identifier of a nucleotide
-    pub fn get_identifier_nucl(&self, nucl: Nucl) -> Option<u32> {
-        self.identifier_nucl.get(&nucl).cloned()
+    pub fn get_identifier_nucl(&self, nucl: &Nucl) -> Option<u32> {
+        self.identifier_nucl.get(nucl).cloned()
+    }
+
+    pub fn get_identifier_bound(&self, n1: &Nucl, n2: &Nucl) -> Option<u32> {
+        self.identifier_bound.get(&(*n1, *n2)).cloned()
     }
 
     /// Return a NeighbourDescriptor describing the domain on which a nucleotide lies ; or `None`
@@ -1958,6 +1993,7 @@ impl Data {
             .get_mut(&h_id)
             .map(|h| h.visible = visibility);
         self.update_status = true;
+        self.hash_maps_update = true;
     }
 
     pub fn has_helix(&self, h_id: usize) -> bool {
@@ -2172,6 +2208,16 @@ impl Data {
             Some(true) => Some(false),
             Some(false) => None,
         };
+        if let Some(b) = new_group {
+            self.groups.write().unwrap().insert(h_id, b);
+        } else {
+            self.groups.write().unwrap().remove(&h_id);
+        }
+        self.hash_maps_update = true;
+        self.update_status = true;
+    }
+
+    pub fn set_group(&mut self, h_id: usize, new_group: Option<bool>) {
         if let Some(b) = new_group {
             self.groups.write().unwrap().insert(h_id, b);
         } else {
@@ -2501,6 +2547,18 @@ impl Data {
             .grids
             .get(g_id)
             .and_then(|g| g.grid_type.get_shift())
+    }
+
+    pub fn get_new_elements(&mut self) -> Option<Vec<DnaElement>> {
+        self.elements_update.take()
+    }
+
+    pub fn get_organizer_tree(&self) -> Option<OrganizerTree<DnaElementKey>> {
+        self.design.organizer_tree.clone()
+    }
+
+    pub fn update_organizer_tree(&mut self, tree: OrganizerTree<DnaElementKey>) {
+        self.design.organizer_tree = Some(tree)
     }
 }
 

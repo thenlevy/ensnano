@@ -1,4 +1,4 @@
-use super::{Flat, HelixVec, ViewPtr};
+use super::{Flat, HelixVec, PhantomElement, ViewPtr};
 use crate::design::{Design, Nucl, StrandBuilder};
 use crate::mediator::{Selection, SelectionMode};
 use std::sync::{Arc, RwLock};
@@ -31,6 +31,7 @@ pub struct Data {
     suggestions: HashMap<FlatNucl, HashSet<FlatNucl, RandomState>, RandomState>,
     selection_mode: SelectionMode,
     pub selection: Vec<Selection>,
+    pub candidates: Vec<Selection>,
     id: u32,
     selection_updated: bool,
 }
@@ -52,6 +53,7 @@ impl Data {
             suggestions: Default::default(),
             selection_mode: SelectionMode::default(),
             selection: vec![],
+            candidates: vec![],
             selection_updated: false,
             id,
         }
@@ -89,7 +91,11 @@ impl Data {
 
     pub fn update_highlight(&mut self) {
         let mut selected_strands = HashSet::new();
+        let mut candidate_strands = HashSet::new();
         let mut selected_xovers = HashSet::new();
+        let mut candidate_xovers = HashSet::new();
+        let mut selected_helices = Vec::new();
+        let mut candidate_helices = Vec::new();
         for s in self.selection.iter() {
             match s {
                 Selection::Strand(_, s_id) => {
@@ -98,21 +104,54 @@ impl Data {
                 Selection::Bound(_, n1, n2) => {
                     selected_xovers.insert((*n1, *n2));
                 }
+                Selection::Helix(_, h) => {
+                    selected_helices.push(*h as usize);
+                }
                 _ => (),
             }
         }
-        let mut highlighted_strands = Vec::new();
+        for c in self.candidates.iter() {
+            match c {
+                Selection::Strand(_, s_id) => {
+                    candidate_strands.insert(*s_id as usize);
+                }
+                Selection::Bound(_, n1, n2) => {
+                    candidate_xovers.insert((*n1, *n2));
+                }
+                Selection::Helix(_, h) => {
+                    candidate_helices.push(*h as usize);
+                }
+                _ => (),
+            }
+        }
+        let mut selection_highlight = Vec::new();
+        let mut candidate_highlight = Vec::new();
         for s in self.design.get_strands().iter() {
             if selected_strands.contains(&s.id) {
-                highlighted_strands.push(s.highlighted(SELECTED_COLOR));
+                selection_highlight.push(s.highlighted(SELECTED_COLOR));
+            }
+            if candidate_strands.contains(&s.id) {
+                candidate_highlight.push(s.highlighted(CANDIDATE_COLOR));
             }
         }
         for xover in selected_xovers.iter() {
-            highlighted_strands.push(self.design.strand_from_xover(xover));
+            selection_highlight.push(self.design.strand_from_xover(xover, SELECTED_COLOR));
+        }
+        for xover in candidate_xovers.iter() {
+            candidate_highlight.push(self.design.strand_from_xover(xover, CANDIDATE_COLOR));
         }
         self.view
             .borrow_mut()
-            .update_highlight(&highlighted_strands, &self.helices);
+            .update_selection(&selection_highlight, &self.helices);
+        self.view
+            .borrow_mut()
+            .update_candidate(&candidate_highlight, &self.helices);
+        self.view
+            .borrow_mut()
+            .set_selected_helices(selected_helices);
+        self.view
+            .borrow_mut()
+            .set_candidate_helices(candidate_helices);
         self.selection_updated = false;
     }
 
@@ -555,14 +594,22 @@ impl Data {
         }
     }
 
-    pub fn set_selection(&mut self, selection: Selection) {
-        self.selection = vec![selection];
-        self.view
-            .borrow_mut()
-            .set_selection(super::FlatSelection::from_real(
-                Some(&selection),
-                self.id_map(),
-            ));
+    pub fn set_selection(&mut self, selection: Vec<Selection>) {
+        if selection.len() == 1 {
+            self.view
+                .borrow_mut()
+                .set_selection(super::FlatSelection::from_real(
+                    selection.get(0),
+                    self.id_map(),
+                ));
+        }
+        self.selection = selection;
+        self.selection_updated = true;
+    }
+
+    pub fn set_candidate(&mut self, candidates: Vec<Selection>) {
+        self.candidates = candidates;
+        self.selection_updated = true;
     }
 
     fn xover_containing_nucl(&self, nucl: &FlatNucl) -> Option<(FlatNucl, FlatNucl)> {
@@ -576,6 +623,28 @@ impl Data {
                 None
             }
         })
+    }
+
+    pub fn phantom_to_selection(&self, phantom: PhantomElement) -> Option<Selection> {
+        if let Some(n_id) = self.design.get_nucl_id(phantom.to_nucl()) {
+            match self.selection_mode {
+                SelectionMode::Grid => None,
+                SelectionMode::Helix => self
+                    .design
+                    .get_helix_from_eid(n_id)
+                    .map(|h| Selection::Helix(phantom.design_id, h as u32)),
+                SelectionMode::Strand => self
+                    .design
+                    .get_strand_from_eid(n_id)
+                    .map(|s| Selection::Strand(phantom.design_id, s as u32)),
+                SelectionMode::Design => None,
+                SelectionMode::Nucleotide => {
+                    Some(Selection::Nucleotide(phantom.design_id, phantom.to_nucl()))
+                }
+            }
+        } else {
+            None
+        }
     }
 }
 

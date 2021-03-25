@@ -58,7 +58,10 @@ pub struct View {
     show_sec: bool,
     suggestions: Vec<(FlatNucl, FlatNucl)>,
     suggestions_view: Vec<StrandView>,
-    highlighted_strands: Vec<StrandView>,
+    selected_strands: Vec<StrandView>,
+    candidate_strands: Vec<StrandView>,
+    selected_helices: Vec<usize>,
+    candidate_helices: Vec<usize>,
     suggestion_candidate: Option<(FlatNucl, FlatNucl)>,
     torsions: HashMap<(FlatNucl, FlatNucl), FlatTorsion>,
     show_torsion: bool,
@@ -162,7 +165,10 @@ impl View {
             show_sec: false,
             suggestions: vec![],
             suggestions_view: vec![],
-            highlighted_strands: vec![],
+            selected_strands: vec![],
+            candidate_strands: vec![],
+            selected_helices: vec![],
+            candidate_helices: vec![],
             suggestion_candidate: None,
             torsions: HashMap::new(),
             show_torsion: false,
@@ -278,12 +284,22 @@ impl View {
         self.was_updated = true;
     }
 
-    pub fn update_highlight(&mut self, strands: &[Strand], helices: &[Helix]) {
-        self.highlighted_strands.clear();
+    pub fn update_selection(&mut self, strands: &[Strand], helices: &[Helix]) {
+        self.selected_strands.clear();
         for s in strands.iter() {
             let mut strand_view = StrandView::new(self.device.clone(), self.queue.clone());
             strand_view.update(s, helices, &None);
-            self.highlighted_strands.push(strand_view);
+            self.selected_strands.push(strand_view);
+        }
+        self.was_updated = true;
+    }
+
+    pub fn update_candidate(&mut self, strands: &[Strand], helices: &[Helix]) {
+        self.candidate_strands.clear();
+        for s in strands.iter() {
+            let mut strand_view = StrandView::new(self.device.clone(), self.queue.clone());
+            strand_view.update(s, helices, &None);
+            self.candidate_strands.push(strand_view);
         }
         self.was_updated = true;
     }
@@ -309,6 +325,14 @@ impl View {
 
     pub fn set_selection(&mut self, selection: FlatSelection) {
         self.selection = selection;
+    }
+
+    pub fn set_selected_helices(&mut self, selection: Vec<usize>) {
+        self.selected_helices = selection;
+    }
+
+    pub fn set_candidate_helices(&mut self, selection: Vec<usize>) {
+        self.candidate_helices = selection;
     }
 
     pub fn center_selection(&mut self) {
@@ -442,7 +466,10 @@ impl View {
         for suggestion in self.suggestions_view.iter() {
             suggestion.draw(&mut render_pass);
         }
-        for highlight in self.highlighted_strands.iter() {
+        for highlight in self.selected_strands.iter() {
+            highlight.draw(&mut render_pass);
+        }
+        for highlight in self.candidate_strands.iter() {
             highlight.draw(&mut render_pass);
         }
 
@@ -499,6 +526,29 @@ impl View {
     fn collect_helices_circles(&self, circles: &mut Vec<CircleInstance>) {
         for h in self.helices.iter() {
             if let Some(circle) = h.get_circle(&self.camera) {
+                circles.push(circle);
+            }
+        }
+        for h_id in self.selected_helices.iter() {
+            if let Some(mut circle) = self
+                .helices
+                .get(*h_id)
+                .and_then(|h| h.get_circle(&self.camera))
+            {
+                circle.set_radius(circle.radius * 1.2);
+                circle.set_color(0xFF_000000);
+                circles.push(circle);
+            }
+        }
+
+        for h_id in self.candidate_helices.iter() {
+            if let Some(mut circle) = self
+                .helices
+                .get(*h_id)
+                .and_then(|h| h.get_circle(&self.camera))
+            {
+                circle.set_radius(circle.radius * 1.2);
+                circle.set_color(0xFF_999999);
                 circles.push(circle);
             }
         }
@@ -568,7 +618,11 @@ impl View {
         }
     }
 
-    pub fn set_candidate(&mut self, candidate: Option<FlatNucl>, other: Option<FlatNucl>) {
+    pub fn set_candidate_suggestion(
+        &mut self,
+        candidate: Option<FlatNucl>,
+        other: Option<FlatNucl>,
+    ) {
         self.suggestions_view.clear();
         self.was_updated |= self.suggestion_candidate != candidate.zip(other);
         if let Some((n1, n2)) = candidate.zip(other) {

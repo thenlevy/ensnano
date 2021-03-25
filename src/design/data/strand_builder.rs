@@ -325,7 +325,7 @@ impl StrandBuilder {
             .unwrap()
             .lock()
             .unwrap()
-            .get_identifier_nucl(self.moving_end)
+            .get_identifier_nucl(&self.moving_end)
     }
 
     /// Return the identifier of the design being eddited
