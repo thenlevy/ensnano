@@ -617,7 +617,7 @@ fn main() {
                     }
 
                     if let Some(ui_size) = requests.new_ui_size.take() {
-                        gui.new_ui_size(ui_size.clone());
+                        gui.new_ui_size(ui_size.clone(), &window, &multiplexer);
                         messages.lock().unwrap().new_ui_size(ui_size);
                     }
                 }
@@ -869,8 +869,10 @@ impl IcedMessages {
     }
 
     pub fn new_ui_size(&mut self, ui_size: gui::UiSize) {
-        self.left_panel.push_back(gui::left_panel::Message::UiSizeChanged(ui_size.clone()));
-
+        self.left_panel
+            .push_back(gui::left_panel::Message::UiSizeChanged(ui_size.clone()));
+        self.top_bar
+            .push_back(gui::top_bar::Message::UiSizeChanged(ui_size.clone()));
     }
 }
 

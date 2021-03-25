@@ -488,6 +488,7 @@ pub struct Gui {
     settings: Settings,
     device: Rc<Device>,
     resized: bool,
+    requests: Arc<Mutex<Requests>>,
 }
 
 impl Gui {
@@ -515,6 +516,7 @@ impl Gui {
 
         Self {
             settings,
+            requests,
             elements,
             renderer,
             device,
@@ -577,8 +579,36 @@ impl Gui {
         self.resized = false;
     }
 
-    pub fn new_ui_size(&mut self, ui_size: UiSize) {
-        self.set_text_size(ui_size.main_text())
+    pub fn new_ui_size(&mut self, ui_size: UiSize, window: &Window, multiplexer: &Multiplexer) {
+        self.set_text_size(ui_size.main_text());
+
+        self.elements.insert(
+            ElementType::TopBar,
+            GuiElement::top_bar(
+                &mut self.renderer,
+                window,
+                multiplexer,
+                self.requests.clone(),
+            ),
+        );
+        self.elements.insert(
+            ElementType::LeftPanel,
+            GuiElement::left_panel(
+                &mut self.renderer,
+                window,
+                multiplexer,
+                self.requests.clone(),
+            ),
+        );
+        self.elements.insert(
+            ElementType::StatusBar,
+            GuiElement::status_bar(
+                &mut self.renderer,
+                window,
+                multiplexer,
+                self.requests.clone(),
+            ),
+        );
     }
 
     fn set_text_size(&mut self, text_size: u16) {

@@ -1,6 +1,7 @@
 use std::sync::{Arc, Mutex};
 use std::thread;
 
+use super::UiSize;
 use iced::Clipboard;
 use iced::Image;
 use iced::{container, Background, Container};
@@ -8,7 +9,6 @@ use iced_native::clipboard::Null as NullClipBoard;
 use iced_wgpu::Renderer;
 use iced_winit::winit::dpi::LogicalSize;
 use iced_winit::{button, Button, Checkbox, Color, Command, Element, Length, Program, Row};
-use super::UiSize;
 
 use material_icons::{icon_to_char, Icon as MaterialIcon, FONT as MATERIALFONT};
 
@@ -65,6 +65,7 @@ pub enum Message {
     CleanRequested,
     CustomScaffoldRequested,
     DeffaultScaffoldRequested,
+    UiSizeChanged(UiSize),
 }
 
 impl TopBar {
@@ -277,28 +278,37 @@ impl Program for TopBar {
                         Grid: G\n";
                 crate::utils::message(msg.into(), rfd::MessageLevel::Info);
             }
+            Message::UiSizeChanged(ui_size) => self.ui_size = ui_size,
         };
         Command::none()
     }
 
     fn view(&mut self) -> Element<Message, Renderer> {
         let height = self.logical_size.cast::<u16>().height;
-        let button_fit = Button::new(&mut self.button_fit, icon(MaterialIcon::CenterFocusStrong, self.ui_size.clone()))
-            .on_press(Message::SceneFitRequested)
-            .height(Length::Units(height));
-        let button_add_file =
-            Button::new(&mut self.button_add_file, icon(MaterialIcon::FolderOpen, self.ui_size.clone()))
-                .on_press(Message::FileAddRequested)
-                .height(Length::Units(height));
+        let button_fit = Button::new(
+            &mut self.button_fit,
+            icon(MaterialIcon::CenterFocusStrong, self.ui_size.clone()),
+        )
+        .on_press(Message::SceneFitRequested)
+        .height(Length::Units(height));
+        let button_add_file = Button::new(
+            &mut self.button_add_file,
+            icon(MaterialIcon::FolderOpen, self.ui_size.clone()),
+        )
+        .on_press(Message::FileAddRequested)
+        .height(Length::Units(height));
         /*let button_replace_file = Button::new(
             &mut self.button_replace_file,
             Image::new("icons/delete.png"),
         )
         .on_press(Message::FileReplaceRequested)
         .height(Length::Units(height));*/
-        let button_save = Button::new(&mut self.button_save, icon(MaterialIcon::Save, self.ui_size.clone()))
-            .on_press(Message::FileSaveRequested)
-            .height(Length::Units(height));
+        let button_save = Button::new(
+            &mut self.button_save,
+            icon(MaterialIcon::Save, self.ui_size.clone()),
+        )
+        .on_press(Message::FileSaveRequested)
+        .height(Length::Units(height));
 
         let button_2d = Button::new(&mut self.button_2d, iced::Text::new("2D"))
             .height(Length::Units(self.ui_size.button()))

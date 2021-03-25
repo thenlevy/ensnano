@@ -456,7 +456,9 @@ impl Program for LeftPanel {
                 self.organizer.notify_selection(keys);
             }
             Message::NewTreeApp(tree) => self.organizer.read_tree(tree),
-            Message::UiSizePicked(ui_size) => self.requests.lock().unwrap().new_ui_size = Some(ui_size),
+            Message::UiSizePicked(ui_size) => {
+                self.requests.lock().unwrap().new_ui_size = Some(ui_size)
+            }
             Message::UiSizeChanged(ui_size) => self.ui_size = ui_size,
         };
         Command::none()
