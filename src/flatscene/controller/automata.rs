@@ -64,9 +64,8 @@ impl ControllerState for NormalState {
             WindowEvent::MouseInput {
                 button: MouseButton::Left,
                 state: ElementState::Pressed,
-                modifiers,
                 ..
-            } if controller.action_mode != ActionMode::Cut && modifiers.shift() => {
+            } if controller.action_mode != ActionMode::Cut && controller.modifiers.shift() => {
                 let (x, y) = controller
                     .camera
                     .borrow()
@@ -93,7 +92,6 @@ impl ControllerState for NormalState {
             WindowEvent::MouseInput {
                 button: MouseButton::Left,
                 state,
-                modifiers,
                 ..
             } => {
                 /*assert!(
@@ -121,7 +119,7 @@ impl ControllerState for NormalState {
                             new_state: Some(Box::new(FollowingSuggestion {
                                 nucl,
                                 mouse_position: self.mouse_position,
-                                double: modifiers.shift(),
+                                double: controller.modifiers.shift(),
                             })),
                             consequences: Consequence::Nothing,
                         }
@@ -132,7 +130,7 @@ impl ControllerState for NormalState {
                                 new_state: Some(Box::new(Cutting {
                                     nucl,
                                     mouse_position: self.mouse_position,
-                                    whole_strand: modifiers.shift(),
+                                    whole_strand: controller.modifiers.shift(),
                                 })),
                                 consequences: Consequence::Nothing,
                             }
@@ -186,17 +184,21 @@ impl ControllerState for NormalState {
                             }
                         }
                     }
-                    ClickResult::CircleWidget { translation_pivot } if ctrl(modifiers) => {
+                    ClickResult::CircleWidget { translation_pivot }
+                        if ctrl(&controller.modifiers) =>
+                    {
                         Transition {
                             new_state: Some(Box::new(FlipVisibility {
                                 mouse_position: self.mouse_position,
                                 helix: translation_pivot.helix,
-                                apply_to_other: modifiers.alt(),
+                                apply_to_other: controller.modifiers.alt(),
                             })),
                             consequences: Consequence::Nothing,
                         }
                     }
-                    ClickResult::CircleWidget { translation_pivot } if modifiers.alt() => {
+                    ClickResult::CircleWidget { translation_pivot }
+                        if controller.modifiers.alt() =>
+                    {
                         Transition {
                             new_state: Some(Box::new(FlipGroup {
                                 mouse_position: self.mouse_position,
@@ -542,7 +544,6 @@ impl ControllerState for ReleasedPivot {
             WindowEvent::MouseInput {
                 button: MouseButton::Left,
                 state,
-                modifiers,
                 ..
             } => {
                 /*assert!(
@@ -558,12 +559,14 @@ impl ControllerState for ReleasedPivot {
                     .screen_to_world(self.mouse_position.x as f32, self.mouse_position.y as f32);
                 let click_result = controller.data.borrow().get_click(x, y, &controller.camera);
                 match click_result {
-                    ClickResult::CircleWidget { translation_pivot } if ctrl(modifiers) => {
+                    ClickResult::CircleWidget { translation_pivot }
+                        if ctrl(&controller.modifiers) =>
+                    {
                         Transition {
                             new_state: Some(Box::new(FlipVisibility {
                                 mouse_position: self.mouse_position,
                                 helix: translation_pivot.helix,
-                                apply_to_other: modifiers.alt(),
+                                apply_to_other: controller.modifiers.alt(),
                             })),
                             consequences: Consequence::Nothing,
                         }
@@ -574,7 +577,7 @@ impl ControllerState for ReleasedPivot {
                                 new_state: Some(Box::new(Cutting {
                                     nucl,
                                     mouse_position: self.mouse_position,
-                                    whole_strand: modifiers.shift(),
+                                    whole_strand: controller.modifiers.shift(),
                                 })),
                                 consequences: Consequence::Nothing,
                             }
@@ -600,7 +603,7 @@ impl ControllerState for ReleasedPivot {
                                     new_state: Some(Box::new(DraggingSelection {
                                         mouse_position: self.mouse_position,
                                         fixed_corner: self.mouse_position,
-                                        adding: modifiers.shift(),
+                                        adding: controller.modifiers.shift(),
                                     })),
                                     consequences: Consequence::Nothing,
                                 }
@@ -644,7 +647,7 @@ impl ControllerState for ReleasedPivot {
                             mouse_position: self.mouse_position,
                             translation_pivots: self.translation_pivots.clone(),
                             rotation_pivots: self.rotation_pivots.clone(),
-                            shift: modifiers.shift(),
+                            shift: controller.modifiers.shift(),
                         })),
                         consequences: Consequence::Nothing,
                     },
