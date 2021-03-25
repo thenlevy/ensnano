@@ -148,6 +148,7 @@ impl ControllerState for NormalState {
                                             mouse_position: self.mouse_position,
                                             nucl,
                                             builder,
+                                            can_attach: false,
                                         })),
                                         consequences: Consequence::Nothing,
                                     }
@@ -161,6 +162,17 @@ impl ControllerState for NormalState {
                                         })),
                                         consequences: Consequence::Nothing,
                                     }
+                                }
+                            } else if let Some(attachement) =
+                                controller.data.borrow().attachable_neighbour(nucl)
+                            {
+                                Transition {
+                                    new_state: Some(Box::new(InitAttachement {
+                                        mouse_position: self.mouse_position,
+                                        from: nucl,
+                                        to: attachement,
+                                    })),
+                                    consequences: Consequence::Nothing,
                                 }
                             } else if controller.data.borrow().has_nucl(nucl)
                                 && controller.data.borrow().is_xover_end(&nucl).is_none()
@@ -1047,6 +1059,92 @@ impl ControllerState for InitCutting {
     }
 }
 
+struct InitAttachement {
+    mouse_position: PhysicalPosition<f64>,
+    from: FlatNucl,
+    to: FlatNucl,
+}
+
+impl ControllerState for InitAttachement {
+    fn transition_from(&self, _controller: &Controller) {
+        ()
+    }
+
+    fn transition_to(&self, _controller: &Controller) {
+        ()
+    }
+
+    fn display(&self) -> String {
+        String::from("Init Attachement")
+    }
+
+    fn input(
+        &mut self,
+        event: &WindowEvent,
+        position: PhysicalPosition<f64>,
+        controller: &Controller,
+    ) -> Transition {
+        match event {
+            WindowEvent::MouseInput {
+                button: MouseButton::Left,
+                state,
+                ..
+            } => {
+                /*assert!(
+                    *state == ElementState::Released,
+                    "Pressed mouse button in Init Building state"
+                );*/
+                if *state == ElementState::Pressed {
+                    return Transition::nothing();
+                }
+                println!("from {:?} to {:?}", self.from, self.to);
+                Transition {
+                    new_state: Some(Box::new(NormalState {
+                        mouse_position: self.mouse_position,
+                        pasting: controller.pasting,
+                    })),
+                    consequences: Consequence::Xover(self.from, self.to),
+                }
+            }
+            WindowEvent::CursorMoved { .. } => {
+                self.mouse_position = position;
+                let (x, y) = controller
+                    .camera
+                    .borrow()
+                    .screen_to_world(self.mouse_position.x as f32, self.mouse_position.y as f32);
+                let click_result = controller.data.borrow().get_click(x, y, &controller.camera);
+                match click_result {
+                    ClickResult::Nucl(nucl2) if nucl2 == self.from => Transition::nothing(),
+                    _ => {
+                        let strand_id = controller.data.borrow().get_strand_id(self.from).unwrap();
+                        Transition {
+                            new_state: Some(Box::new(MovingFreeEnd {
+                                mouse_position: self.mouse_position,
+                                from: self.from,
+                                prime3: controller.data.borrow().is_strand_end(self.from).unwrap(),
+                                strand_id,
+                            })),
+                            consequences: Consequence::Nothing,
+                        }
+                    }
+                }
+            }
+            WindowEvent::KeyboardInput { .. } => {
+                controller.process_keyboard(event);
+                Transition::nothing()
+            }
+            WindowEvent::MouseWheel { delta, .. } => {
+                controller
+                    .camera
+                    .borrow_mut()
+                    .process_scroll(delta, self.mouse_position);
+                Transition::nothing()
+            }
+            _ => Transition::nothing(),
+        }
+    }
+}
+
 struct InitBuilding {
     mouse_position: PhysicalPosition<f64>,
     builder: StrandBuilder,
@@ -1086,12 +1184,23 @@ impl ControllerState for InitBuilding {
                 if *state == ElementState::Pressed {
                     return Transition::nothing();
                 }
-                Transition {
-                    new_state: Some(Box::new(NormalState {
-                        mouse_position: self.mouse_position,
-                        pasting: controller.pasting,
-                    })),
-                    consequences: Consequence::Cut(self.nucl),
+                if let Some(attachement) = controller.data.borrow().attachable_neighbour(self.nucl)
+                {
+                    Transition {
+                        new_state: Some(Box::new(NormalState {
+                            mouse_position: self.mouse_position,
+                            pasting: controller.pasting,
+                        })),
+                        consequences: Consequence::Xover(self.nucl, attachement),
+                    }
+                } else {
+                    Transition {
+                        new_state: Some(Box::new(NormalState {
+                            mouse_position: self.mouse_position,
+                            pasting: controller.pasting,
+                        })),
+                        consequences: Consequence::Cut(self.nucl),
+                    }
                 }
             }
             WindowEvent::CursorMoved { .. } => {
@@ -1115,6 +1224,7 @@ impl ControllerState for InitBuilding {
                                     mouse_position: self.mouse_position,
                                     builder: self.builder.clone(),
                                     nucl: self.nucl,
+                                    can_attach: true,
                                 })),
                                 consequences: Consequence::Nothing,
                             }
@@ -1323,6 +1433,7 @@ struct Building {
     mouse_position: PhysicalPosition<f64>,
     builder: StrandBuilder,
     nucl: FlatNucl,
+    can_attach: bool,
 }
 
 impl ControllerState for Building {
@@ -1357,6 +1468,19 @@ impl ControllerState for Building {
                 if *state == ElementState::Pressed {
                     return Transition::nothing();
                 }
+                if self.can_attach {
+                    if let Some(attachement) =
+                        controller.data.borrow().attachable_neighbour(self.nucl)
+                    {
+                        return Transition {
+                            new_state: Some(Box::new(NormalState {
+                                mouse_position: self.mouse_position,
+                                pasting: controller.pasting,
+                            })),
+                            consequences: Consequence::Xover(self.nucl, attachement),
+                        };
+                    }
+                }
                 Transition {
                     new_state: Some(Box::new(NormalState {
                         mouse_position: self.mouse_position,
@@ -1376,6 +1500,9 @@ impl ControllerState for Building {
                         .data
                         .borrow()
                         .get_click_unbounded_helix(x, y, self.nucl.helix);
+                if nucl != self.nucl {
+                    self.can_attach = false;
+                }
                 match nucl {
                     FlatNucl {
                         helix, position, ..

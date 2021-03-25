@@ -126,6 +126,22 @@ impl FlatNucl {
             ..*self
         }
     }
+
+    #[allow(dead_code)]
+    pub fn left(&self) -> Self {
+        Self {
+            position: self.position - 1,
+            ..*self
+        }
+    }
+
+    #[allow(dead_code)]
+    pub fn right(&self) -> Self {
+        Self {
+            position: self.position + 1,
+            ..*self
+        }
+    }
 }
 
 pub enum FlatSelection {

@@ -57,6 +57,7 @@ pub struct StrandBuilder {
     /// A timestamp used to distinguish between strand building operation initiated at different
     /// moment
     timestamp: std::time::SystemTime,
+    de_novo: bool,
 }
 
 impl StrandBuilder {
@@ -76,6 +77,7 @@ impl StrandBuilder {
         nucl: Nucl,
         axis: Axis,
         neighbour: Option<NeighbourDescriptor>,
+        de_novo: bool,
     ) -> Self {
         let mut neighbour_strand = None;
         let mut neighbour_direction = None;
@@ -106,6 +108,7 @@ impl StrandBuilder {
             detached_neighbour: None,
             design_id: 0,
             timestamp: std::time::SystemTime::now(),
+            de_novo,
         }
     }
 
@@ -172,6 +175,7 @@ impl StrandBuilder {
             detached_neighbour: None,
             design_id: 0,
             timestamp: std::time::SystemTime::now(),
+            de_novo: false,
         }
     }
 
@@ -353,7 +357,7 @@ impl StrandBuilder {
 
     /// Return false if self is modifying an existing strand and true otherwise
     pub fn created_de_novo(&self) -> bool {
-        self.fixed_end.is_none()
+        self.de_novo
     }
 
     pub fn get_moving_end_position(&self) -> isize {

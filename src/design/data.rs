@@ -1099,6 +1099,7 @@ impl Data {
                         nucl,
                         axis,
                         neighbour_desc,
+                        false,
                     )),
                 }
             } else {
@@ -1117,6 +1118,7 @@ impl Data {
                 nucl,
                 axis,
                 left.or(right),
+                true,
             ))
         }
     }

@@ -309,6 +309,27 @@ impl Data {
         }
     }
 
+    pub fn attachable_neighbour(&self, nucl: FlatNucl) -> Option<FlatNucl> {
+        if self.can_cross_to(nucl, nucl.prime5()) {
+            if !(self.design.prime5_of(nucl.to_real())
+                == self.design.prime3_of(nucl.prime5().to_real()))
+            {
+                return Some(nucl.prime5());
+            }
+        }
+        if self.can_cross_to(nucl, nucl.prime3()) {
+            if self.design.prime3_of(nucl.to_real())
+                == self.design.prime5_of(nucl.prime3().to_real())
+            {
+                None
+            } else {
+                Some(nucl.prime3())
+            }
+        } else {
+            None
+        }
+    }
+
     pub fn can_cut_cross_to(&self, from: FlatNucl, to: FlatNucl) -> bool {
         let can_merge = match self.is_strand_end(from) {
             Some(true) => self.is_xover_end(&to) != Some(true),
@@ -356,6 +377,19 @@ impl Data {
     pub fn xover(&self, from: FlatNucl, to: FlatNucl) -> (usize, usize) {
         let nucl1 = from.to_real();
         let nucl2 = to.to_real();
+
+        //Handle case where nucl1 is the only nucleotide of the strand
+        if let Some(s1) = self
+            .design
+            .prime5_of(nucl1)
+            .and(self.design.prime3_of(nucl1))
+        {
+            if let Some(s2) = self.design.prime5_of(nucl2) {
+                return (s1, s2);
+            } else {
+                return (self.design.prime3_of(nucl2).unwrap(), s1);
+            }
+        }
 
         // The 3 prime strand is the strand whose **5prime** end is in the xover
         let strand_3prime = self

@@ -850,16 +850,18 @@ impl Data {
             }
         }
         if let Some(SceneElement::GridCircle(d_id, g_id, x, y)) = self.selected_element.as_ref() {
-            let grid = &self.designs[*d_id as usize].get_grid()[*g_id as usize];
-            let (d1, d2) = grid.disc(*x, *y, 0xAA_FF_00_00, *d_id as u32);
-            discs.push(d1);
-            discs.push(d2);
+            if let Some(grid) = self.designs[*d_id as usize].get_grid().get(*g_id as usize) {
+                let (d1, d2) = grid.disc(*x, *y, 0xAA_FF_00_00, *d_id as u32);
+                discs.push(d1);
+                discs.push(d2);
+            }
         }
         if let Some(SceneElement::GridCircle(d_id, g_id, x, y)) = self.candidate_element.as_ref() {
-            let grid = &self.designs[*d_id as usize].get_grid()[*g_id as usize];
-            let (d1, d2) = grid.disc(*x, *y, 0xAA_00_FF_00, *d_id as u32);
-            discs.push(d1);
-            discs.push(d2);
+            if let Some(grid) = self.designs[*d_id as usize].get_grid().get(*g_id as usize) {
+                let (d1, d2) = grid.disc(*x, *y, 0xAA_00_FF_00, *d_id as u32);
+                discs.push(d1);
+                discs.push(d2);
+            }
         }
         self.view.borrow_mut().update(ViewUpdate::GridDiscs(discs));
         self.view
