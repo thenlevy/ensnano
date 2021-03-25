@@ -389,21 +389,16 @@ impl CameraController {
         self.projection.borrow_mut().resize(size.width, size.height)
     }
 
-    fn default_pivot(&self) -> Vec3 {
-        self.camera.borrow().position + 5. * self.camera.borrow().direction()
-    }
-
     /// Swing the camera arrond `self.pivot_point`. Assumes that the pivot_point is where the
     /// camera points at.
     pub fn swing(&mut self, x: f64, y: f64) {
-        let default_pivot = self.default_pivot();
         let angle_yz = -(y.min(1.).max(-1.)) as f32 * PI;
         let angle_xz = x.min(1.).max(-1.) as f32 * PI;
-        self.rotate_camera_around(
-            angle_xz,
-            angle_yz,
-            self.pivot_point.unwrap_or(default_pivot),
-        );
+        if let Some(pivot) = self.pivot_point {
+            self.rotate_camera_around(angle_xz, angle_yz, pivot);
+        } else {
+            self.rotate_camera(angle_xz, angle_yz, None);
+        }
     }
 
     /// Rotate the camera arround a point.
@@ -452,10 +447,10 @@ impl CameraController {
         let rotation = Rotor3::from_rotation_yz(angle_yz) * Rotor3::from_rotation_xz(angle_xz);
 
         // and we apply this rotation to the camera
-        let new_rotor = rotation * self.camera.borrow().rotor;
+        let new_rotor = rotation * self.cam0.rotor;
         self.camera.borrow_mut().rotor = new_rotor;
-        self.cam0.rotor = self.camera.borrow().rotor;
         if let Some(dist) = dist {
+            self.cam0.rotor = self.camera.borrow().rotor;
             let new_pos = pivot.unwrap() - dist * self.camera.borrow().direction();
             self.camera.borrow_mut().position = new_pos;
             self.cam0.position = new_pos;
@@ -466,6 +461,7 @@ impl CameraController {
         let vec = 0.01 * self.camera.borrow().right_vec() + 0.01 * self.camera.borrow().up_vec();
         self.camera.borrow_mut().position += vec;
         self.cam0.position = self.camera.borrow().position;
+        self.cam0.rotor = self.camera.borrow().rotor;
     }
 
     pub fn center_camera(&mut self, center: Vec3) {
