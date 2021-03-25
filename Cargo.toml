@@ -38,4 +38,5 @@ ensnano_organizer = { git = "https://gitlab.aliens-lyon.fr/nlevy/icednano_organi
 #ensnano_organizer = { path = "../icednano_organizer" }
 iced_aw = { git = "https://github.com/thenlevy/iced_aw", rev = "87ad7599" , features = ["tab_bar"]}
 num_enum = "0.5.1"
+cadnano-format = "0.1.0"
 

@@ -30,6 +30,7 @@ mod scadnano;
 mod strand_builder;
 mod strand_template;
 mod torsion;
+mod cadnano;
 use super::utils::*;
 use crate::scene::GridInstance;
 use crate::utils::{message, new_color};
