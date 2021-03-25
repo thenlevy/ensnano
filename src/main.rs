@@ -618,7 +618,9 @@ fn main() {
 
                     if let Some(ui_size) = requests.new_ui_size.take() {
                         gui.new_ui_size(ui_size.clone(), &window, &multiplexer);
+                        multiplexer.change_ui_size(ui_size.clone(), &window);
                         messages.lock().unwrap().new_ui_size(ui_size);
+                        resized = true;
                     }
                 }
 

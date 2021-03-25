@@ -33,15 +33,11 @@ impl UiSize {
     }
 
     pub fn button(&self) -> u16 {
-        match self {
-            Self::Small => 25,
-            Self::Medium => 35,
-            Self::Large => 45,
-        }
+        self.icon() + 8
     }
 
-    pub fn top_bar(&self) -> u16 {
-        self.button()
+    pub fn top_bar(&self) -> f64 {
+        self.button() as f64
     }
 }
 

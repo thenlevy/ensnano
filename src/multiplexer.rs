@@ -13,7 +13,7 @@
 //!
 //!
 //! The multiplexer is also in charge of drawing to the frame.
-use crate::gui::Requests;
+use crate::gui::{Requests, UiSize};
 use crate::mediator::{ActionMode, SelectionMode};
 use crate::utils::texture::SampledTexture;
 use crate::PhySize;
@@ -126,10 +126,10 @@ pub struct Multiplexer {
     requests: Arc<Mutex<Requests>>,
     state: State,
     modifiers: ModifiersState,
+    ui_size: UiSize,
 }
 
 const MAX_LEFT_PANNEL_WIDTH: f64 = 200.;
-const MAX_TOP_BAR_HEIGHT: f64 = 35.;
 const MAX_STATUS_BAR_HEIGHT: f64 = 50.;
 
 impl Multiplexer {
@@ -140,9 +140,10 @@ impl Multiplexer {
         device: Rc<Device>,
         requests: Arc<Mutex<Requests>>,
     ) -> Self {
+        let ui_size = UiSize::Small;
         let mut layout_manager = LayoutTree::new();
         let top_pannel_prop =
-            exact_proportion(MAX_TOP_BAR_HEIGHT * scale_factor, window_size.height as f64);
+            exact_proportion(ui_size.top_bar() * scale_factor, window_size.height as f64);
         let top_bar_split = 0;
         let (top_bar, scene) = layout_manager.hsplit(0, top_pannel_prop, false);
         let left_pannel_split = scene;
@@ -188,6 +189,7 @@ impl Multiplexer {
                 mouse_position: PhysicalPosition::new(-1., -1.),
             },
             modifiers: ModifiersState::empty(),
+            ui_size,
         };
         ret.generate_textures();
         ret
@@ -510,6 +512,12 @@ impl Multiplexer {
         }
     }
 
+    pub fn change_ui_size(&mut self, ui_size: UiSize, window: &iced_winit::winit::window::Window) {
+        self.ui_size = ui_size;
+        self.resize(window.inner_size(), window.scale_factor());
+        self.generate_textures();
+    }
+
     pub fn change_split(&mut self, split_mode: SplitMode) {
         if split_mode != self.split_mode {
             match self.split_mode {
@@ -550,8 +558,10 @@ impl Multiplexer {
     }
 
     fn resize(&mut self, window_size: PhySize, scale_factor: f64) {
-        let top_pannel_prop =
-            exact_proportion(MAX_TOP_BAR_HEIGHT * scale_factor, window_size.height as f64);
+        let top_pannel_prop = exact_proportion(
+            self.ui_size.top_bar() * scale_factor,
+            window_size.height as f64,
+        );
         let left_pannel_prop = proportion(
             0.2,
             MAX_LEFT_PANNEL_WIDTH * scale_factor,
