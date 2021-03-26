@@ -26,6 +26,7 @@ mod codenano;
 mod elements;
 mod grid;
 mod icednano;
+mod oxdna;
 mod rigid_body;
 mod roller;
 mod scadnano;
