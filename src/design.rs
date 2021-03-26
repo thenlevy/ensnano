@@ -719,7 +719,8 @@ impl Design {
 
     /// Change the color of all the strands in the design, except the scaffold.
     pub fn recolor_stapples(&mut self) {
-        self.data.lock().unwrap().recolor_stapples()
+        self.data.lock().unwrap().recolor_stapples();
+        self.data.lock().unwrap().oxdna_export();
     }
 
     /// Merge all the consecutives domains in the design

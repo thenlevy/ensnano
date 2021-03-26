@@ -1,5 +1,7 @@
 use super::icednano::{Domain, Helix};
 use super::{Data, Nucl, Parameters};
+use std::io::Write;
+use std::path::Path;
 use ultraviolet::Vec3;
 
 struct OxDnaNucl {
@@ -18,10 +20,64 @@ struct OxDnaConfig {
     nucls: Vec<OxDnaNucl>,
 }
 
+impl OxDnaConfig {
+    pub fn write<P: AsRef<Path>>(&self, path: P) -> Result<(), std::io::Error> {
+        let mut file = std::fs::File::create(path)?;
+        writeln!(&mut file, "t = {}", self.time)?;
+        writeln!(
+            &mut file,
+            "b = {} {} {}",
+            self.boudaries[0], self.boudaries[1], self.boudaries[2]
+        )?;
+        writeln!(
+            &mut file,
+            "E = {} {} {}",
+            self.kinetic_energies[0], self.kinetic_energies[1], self.kinetic_energies[2]
+        )?;
+        for n in self.nucls.iter() {
+            writeln!(
+                &mut file,
+                "{} {} {} {} {} {} {} {} {} {} {} {} {} {} {}",
+                n.position.x,
+                n.position.y,
+                n.position.z,
+                n.backbone_base.x,
+                n.backbone_base.y,
+                n.backbone_base.z,
+                n.normal.x,
+                n.normal.y,
+                n.normal.z,
+                n.velocity.x,
+                n.velocity.y,
+                n.velocity.z,
+                n.angular_velocity.x,
+                n.angular_velocity.y,
+                n.angular_velocity.z,
+            )?;
+        }
+        Ok(())
+    }
+}
+
 struct OxDnaTopology {
     nb_nucl: usize,
     nb_strand: usize,
     bounds: Vec<OxDnaBound>,
+}
+
+impl OxDnaTopology {
+    pub fn write<P: AsRef<Path>>(&self, path: P) -> Result<(), std::io::Error> {
+        let mut file = std::fs::File::create(path)?;
+        writeln!(&mut file, "{} {}", self.nb_nucl, self.nb_strand)?;
+        for bound in self.bounds.iter() {
+            writeln!(
+                &mut file,
+                "{} {} {} {}",
+                bound.strand_id, bound.base, bound.prime5, bound.prime3
+            )?;
+        }
+        Ok(())
+    }
 }
 
 struct OxDnaBound {
@@ -122,6 +178,20 @@ impl Data {
             nucls,
         };
         (config, topo)
+    }
+
+    pub fn oxdna_export(&self) {
+        let mut config_name = self.file_name.clone();
+        config_name.set_extension("oxdna");
+        let mut topology_name = self.file_name.clone();
+        topology_name.set_extension("top");
+        let (config, topo) = self.to_oxdna();
+        if config.write(config_name).is_err() {
+            println!("Could not write config");
+        }
+        if topo.write(topology_name).is_err() {
+            println!("Could not write topo");
+        }
     }
 }
 
