@@ -201,5 +201,8 @@ fn substract_skips(nucl: usize, helix: usize, vstrands: &Vec<VStrand>) -> isize 
     let skips: isize = (0..(nucl + 1))
         .map(|n| vstrands[helix].skip[n as usize])
         .sum();
-    nucl as isize + skips
+    let insertions: isize = (0..(nucl + 1))
+        .map(|n| vstrands[helix].loop_[n as usize])
+        .sum();
+    nucl as isize + skips + insertions
 }
