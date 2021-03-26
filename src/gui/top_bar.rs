@@ -359,7 +359,7 @@ impl Program for TopBar {
             .push(button_scaffold)
             .push(button_stapples)
             .push(button_clean)
-            //.push(button_make_grid)
+            .push(_button_make_grid)
             .push(
                 Button::new(&mut self.button_help, iced::Text::new("Help"))
                     .on_press(Message::HelpRequested),

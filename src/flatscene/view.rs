@@ -60,8 +60,8 @@ pub struct View {
     suggestions_view: Vec<StrandView>,
     selected_strands: Vec<StrandView>,
     candidate_strands: Vec<StrandView>,
-    selected_helices: Vec<usize>,
-    candidate_helices: Vec<usize>,
+    selected_helices: Vec<FlatIdx>,
+    candidate_helices: Vec<FlatIdx>,
     suggestion_candidate: Option<(FlatNucl, FlatNucl)>,
     torsions: HashMap<(FlatNucl, FlatNucl), FlatTorsion>,
     show_torsion: bool,
@@ -327,11 +327,11 @@ impl View {
         self.selection = selection;
     }
 
-    pub fn set_selected_helices(&mut self, selection: Vec<usize>) {
+    pub fn set_selected_helices(&mut self, selection: Vec<FlatIdx>) {
         self.selected_helices = selection;
     }
 
-    pub fn set_candidate_helices(&mut self, selection: Vec<usize>) {
+    pub fn set_candidate_helices(&mut self, selection: Vec<FlatIdx>) {
         self.candidate_helices = selection;
     }
 
@@ -532,7 +532,7 @@ impl View {
         for h_id in self.selected_helices.iter() {
             if let Some(mut circle) = self
                 .helices
-                .get(*h_id)
+                .get(h_id.0)
                 .and_then(|h| h.get_circle(&self.camera))
             {
                 circle.set_radius(circle.radius * 1.2);
@@ -544,7 +544,7 @@ impl View {
         for h_id in self.candidate_helices.iter() {
             if let Some(mut circle) = self
                 .helices
-                .get(*h_id)
+                .get(h_id.0)
                 .and_then(|h| h.get_circle(&self.camera))
             {
                 circle.set_radius(circle.radius * 1.2);

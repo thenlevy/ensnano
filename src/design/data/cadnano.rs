@@ -1,28 +1,46 @@
+use super::icednano::{Design, Domain, Helix, HelixInterval, Strand};
+use super::{Grid, GridType};
 use cadnano_format::{Cadnano, VStrand};
-use std::collections::{HashSet, HashMap};
-use std::path::Path;
-use super::icednano::{Design, Strand, Domain, HelixInterval};
+use std::collections::{BTreeMap, HashMap, HashSet};
+use ultraviolet::{Rotor3, Vec3};
 
 const NO_HELIX: usize = std::usize::MAX;
 
 impl Design {
     /// Create a design from a cadnano file
-    pub fn from_cadnano<P: AsRef<Path>>(file: P) -> Self {
-        let nano = Cadnano::from_file(file).unwrap();
+    pub fn from_cadnano(nano: Cadnano) -> Self {
         let vstrands = nano.vstrands;
         let mut seen: HashSet<(usize, usize, bool)> = HashSet::new();
         let mut design = Design::new();
         let mut nb_strand = 0;
+        let mut colors = BTreeMap::new();
 
         let mut num_to_helix: HashMap<isize, usize> = HashMap::new();
 
+        let mut helices = BTreeMap::new();
         let honneycomb = vstrands[0].scaf.len() % 21 == 0;
+        let grid = if honneycomb {
+            Grid::new(
+                Vec3::zero(),
+                Rotor3::identity(),
+                Default::default(),
+                GridType::honneycomb(),
+            )
+        } else {
+            Grid::new(
+                Vec3::zero(),
+                Rotor3::identity(),
+                Default::default(),
+                GridType::square(),
+            )
+        };
         for (i, v) in vstrands.iter().enumerate() {
             num_to_helix.insert(v.num, i);
-            if honneycomb {
-                design.add_honneycomb_helix(v.row, v.col);
-            } else {
-                design.add_adjusted_grid_helix(v.row, v.col);
+            let position = grid.position_helix(v.col, v.row);
+            let helix = Helix::new(position, Rotor3::identity());
+            helices.insert(i, helix);
+            for (j, color) in v.stap_colors.iter() {
+                colors.insert((i, *j as usize), *color as usize);
             }
         }
         num_to_helix.insert(-1, NO_HELIX);
@@ -36,13 +54,16 @@ impl Design {
                         println!("{}, {}, {}", scaf, i, j);
                         let end_5 = find_5_end(i, j, &vstrands, &num_to_helix, scaf);
                         println!("end: {:?}", end_5);
-                        let strand = make_strand(end_5, &vstrands, &num_to_helix, &mut seen, scaf);
+                        let strand =
+                            make_strand(end_5, &vstrands, &num_to_helix, &mut seen, scaf, &colors);
                         design.strands.insert(nb_strand, strand);
                         nb_strand += 1;
                     }
                 }
             }
         }
+        println!("color {:?}", colors);
+        design.helices = helices;
         design
     }
 }
@@ -81,6 +102,7 @@ fn make_strand(
     num_to_helix: &HashMap<isize, usize>,
     seen: &mut HashSet<(usize, usize, bool)>,
     scaf: bool,
+    colors: &BTreeMap<(usize, usize), usize>,
 ) -> Strand {
     println!("making strand {:?}", end_5);
     let cyclic = end_5.2;
@@ -89,7 +111,7 @@ fn make_strand(
         domains: Vec::new(),
         sequence: None,
         cyclic,
-        color: 0,
+        color: crate::consts::SCAFFOLD_COLOR,
     };
 
     let mut curent_dom = 0;
@@ -102,6 +124,9 @@ fn make_strand(
             once = true;
             curent_3 = j;
             println!("nucl {}, {}", i, j);
+            if let Some(color) = colors.get(&(i, j)).filter(|_| !scaf) {
+                ret.color = *color as u32;
+            }
             seen.insert((i, j, scaf));
             let result = if scaf {
                 vstrands[i].scaf[j]
@@ -139,7 +164,7 @@ fn make_strand(
         curent_dom += 1;
     }
     if cyclic {
-        if let Domain::HelixDomain(dom0) = &ret.domains[0] { 
+        if let Domain::HelixDomain(dom0) = &ret.domains[0] {
             if let Domain::HelixDomain(last_dom) = &ret.domains[ret.domains.len() - 1] {
                 if last_dom.helix != dom0.helix {
                     let helix = dom0.helix;
@@ -158,7 +183,7 @@ fn make_strand(
                     let forward = dom0.forward;
                     let start = dom0.start;
                     let end = dom0.end;
-                    if let Domain::HelixDomain(mut last_dom) = &mut ret.domains[len - 1] {
+                    if let Domain::HelixDomain(last_dom) = &mut ret.domains[len - 1] {
                         if forward {
                             last_dom.end = start + 1;
                         } else {

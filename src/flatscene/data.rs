@@ -96,6 +96,7 @@ impl Data {
         let mut candidate_xovers = HashSet::new();
         let mut selected_helices = Vec::new();
         let mut candidate_helices = Vec::new();
+        let id_map = self.design.id_map();
         for s in self.selection.iter() {
             match s {
                 Selection::Strand(_, s_id) => {
@@ -105,7 +106,8 @@ impl Data {
                     selected_xovers.insert((*n1, *n2));
                 }
                 Selection::Helix(_, h) => {
-                    selected_helices.push(*h as usize);
+                    let flat_helix = FlatHelix::from_real(*h as usize, id_map);
+                    selected_helices.push(flat_helix.flat);
                 }
                 _ => (),
             }
@@ -119,7 +121,8 @@ impl Data {
                     candidate_xovers.insert((*n1, *n2));
                 }
                 Selection::Helix(_, h) => {
-                    candidate_helices.push(*h as usize);
+                    let flat_helix = FlatHelix::from_real(*h as usize, id_map);
+                    candidate_helices.push(flat_helix.flat);
                 }
                 _ => (),
             }

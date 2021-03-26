@@ -10,6 +10,7 @@
 //!
 use crate::gui::SimulationRequest;
 use ahash::RandomState;
+use cadnano_format::Cadnano;
 use mathru::algebra::linear::vector::vector::Vector;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::io::Write;
@@ -20,6 +21,7 @@ use std::borrow::Cow;
 use std::fmt;
 use std::time::Instant;
 
+mod cadnano;
 mod codenano;
 mod elements;
 mod grid;
@@ -30,7 +32,6 @@ mod scadnano;
 mod strand_builder;
 mod strand_template;
 mod torsion;
-mod cadnano;
 use super::utils::*;
 use crate::scene::GridInstance;
 use crate::utils::{message, new_color};
@@ -2598,6 +2599,9 @@ fn read_file(path: &PathBuf) -> Option<icednano::Design> {
             println!("{:?}", scadnano_design.err());
             println!("ok codenano");
             Some(icednano::Design::from_codenano(&design))
+        } else if let Ok(cadnano) = Cadnano::from_file(path) {
+            println!("ok cadnano");
+            Some(icednano::Design::from_cadnano(cadnano))
         } else {
             // The file is not in any supported format
             message("Unrecognized file format".into(), rfd::MessageLevel::Error);
