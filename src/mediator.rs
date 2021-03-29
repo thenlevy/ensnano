@@ -567,7 +567,11 @@ impl Mediator {
     }
 
     pub fn make_grids(&mut self) {
-        self.notify_all_designs(AppNotification::MakeGrids)
+        if let Some((d_id, h)) = list_of_helices(&self.selection) {
+            let designs: HashSet<u32> = [d_id as u32].iter().cloned().collect();
+            self.notify_designs(&designs, AppNotification::MakeGrids(h));
+        }
+        //self.notify_all_designs(AppNotification::MakeAllGrids)
     }
 
     /// Querry designs for modifcations that must be notified to the applications
@@ -1227,7 +1231,8 @@ pub enum AppNotification {
         strand_id: usize,
         undo: bool,
     },
-    MakeGrids,
+    MakeAllGrids,
+    MakeGrids(Vec<usize>),
     AddGrid(GridDescriptor),
     MoveBuilder(Box<StrandBuilder>, Option<(usize, u32)>),
     ResetBuilder(Box<StrandBuilder>),

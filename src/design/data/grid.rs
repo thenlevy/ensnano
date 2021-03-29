@@ -276,7 +276,7 @@ impl Grid {
         })
     }
 
-    fn error_group(&self, group: &Vec<usize>, design: &Design) -> f32 {
+    fn error_group(&self, group: &[usize], design: &Design) -> f32 {
         let mut ret = 0f32;
         for h_id in group.iter() {
             let helix = design.helices.get(h_id).unwrap();
@@ -673,6 +673,64 @@ impl GridManager {
         }
     }
 
+    pub fn make_grid_from_helices(&mut self, design: &mut Design, helices: &[usize]) {
+        if helices.len() < 4 {
+            return;
+        }
+        let desc = self.find_grid_for_group(helices, design);
+        match desc.grid_type {
+            GridTypeDescr::Square => {
+                let grid: Grid = Grid::new(
+                    desc.position,
+                    desc.orientation,
+                    design.parameters.unwrap_or_default(),
+                    GridType::square(),
+                );
+                self.grids.push(grid);
+            }
+            GridTypeDescr::Honeycomb => {
+                let grid: Grid = Grid::new(
+                    desc.position,
+                    desc.orientation,
+                    design.parameters.unwrap_or_default(),
+                    GridType::honneycomb(),
+                );
+                self.grids.push(grid);
+            }
+            GridTypeDescr::Hyperboloid {
+                radius,
+                shift,
+                length,
+                radius_shift,
+                forced_radius,
+            } => {
+                let grid = Grid::new(
+                    desc.position,
+                    desc.orientation,
+                    design.parameters.unwrap_or_default(),
+                    GridType::hyperboloid(Hyperboloid {
+                        radius,
+                        radius_shift,
+                        length,
+                        shift,
+                        forced_radius,
+                    }),
+                );
+                self.grids.push(grid);
+            }
+        }
+        for h_id in helices.iter() {
+            if let Some(h) = design.helices.get_mut(h_id) {
+                if h.grid_position.is_some() {
+                    continue;
+                }
+                if let Some(position) = self.attach_to(h, self.grids.len() - 1) {
+                    h.grid_position = Some(position)
+                }
+            }
+        }
+    }
+
     pub fn update(&mut self, design: &mut Design) {
         for (h_id, h) in design.helices.iter_mut() {
             if let Some(grid_position) = h.grid_position {
@@ -754,7 +812,15 @@ impl GridManager {
         ret
     }
 
-    fn find_grid_for_group(&self, group: &Vec<usize>, design: &Design) -> GridDescriptor {
+    fn attach_to(&self, helix: &icednano::Helix, g_id: usize) -> Option<GridPosition> {
+        let mut ret = None;
+        if let Some(g) = self.grids.get(g_id) {
+            ret = g.find_helix_position(helix, g_id)
+        }
+        ret
+    }
+
+    fn find_grid_for_group(&self, group: &[usize], design: &Design) -> GridDescriptor {
         let parameters = design.parameters.unwrap_or_default();
         let leader = design.helices.get(&group[0]).unwrap();
         let orientation = Rotor3::from_rotation_between(

@@ -201,7 +201,10 @@ impl Design {
             AppNotification::MovementEnded => self.terminate_movement(),
             AppNotification::Rotation(rotation) => self.apply_rotation(&rotation),
             AppNotification::Translation(translation) => self.apply_translation(&translation),
-            AppNotification::MakeGrids => self.data.lock().unwrap().create_grids(),
+            AppNotification::MakeAllGrids => self.data.lock().unwrap().create_grids(),
+            AppNotification::MakeGrids(h_ids) => {
+                self.data.lock().unwrap().make_grid_from_helices(&h_ids)
+            }
             AppNotification::AddGridHelix(
                 GridHelixDescriptor { grid_id, x, y },
                 position,

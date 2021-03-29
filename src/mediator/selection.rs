@@ -129,6 +129,24 @@ pub(super) fn list_of_xovers(selection: &[Selection]) -> Option<(usize, Vec<(Nuc
     Some((design_id as usize, xovers.into_iter().collect()))
 }
 
+pub(super) fn list_of_helices(selection: &[Selection]) -> Option<(usize, Vec<usize>)> {
+    let design_id = selection.get(0).and_then(Selection::get_design)?;
+    let mut helices = BTreeSet::new();
+    for s in selection.iter() {
+        match s {
+            Selection::Helix(d_id, h_id) => {
+                if *d_id != design_id {
+                    return None;
+                }
+                helices.insert(*h_id as usize);
+            }
+            s if s.get_design() == Some(design_id) => (),
+            _ => return None,
+        }
+    }
+    Some((design_id as usize, helices.into_iter().collect()))
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SelectionMode {
     Grid,

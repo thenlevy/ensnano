@@ -1696,7 +1696,19 @@ impl Data {
 
     pub fn create_grids(&mut self) {
         let groups = self.find_parallel_helices();
-        self.grid_manager.guess_grids(&mut self.design, &groups);
+        for g in groups.values() {
+            self.grid_manager
+                .make_grid_from_helices(&mut self.design, g);
+        }
+        self.grid_manager.update(&mut self.design);
+        self.update_grids();
+        self.update_status = true;
+        self.hash_maps_update = true;
+    }
+
+    pub fn make_grid_from_helices(&mut self, group: &[usize]) {
+        self.grid_manager
+            .make_grid_from_helices(&mut self.design, group);
         self.grid_manager.update(&mut self.design);
         self.update_grids();
         self.update_status = true;
