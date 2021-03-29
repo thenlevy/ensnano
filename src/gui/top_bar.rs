@@ -2,8 +2,6 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 
 use super::UiSize;
-use iced::Clipboard;
-use iced::Image;
 use iced::{container, Background, Container};
 use iced_native::clipboard::Null as NullClipBoard;
 use iced_wgpu::Renderer;
@@ -41,6 +39,7 @@ pub struct TopBar {
     button_make_grid: button::State,
     button_help: button::State,
     button_clean: button::State,
+    button_oxdna: button::State,
     toggle_text_value: bool,
     requests: Arc<Mutex<Requests>>,
     logical_size: LogicalSize<f64>,
@@ -66,6 +65,7 @@ pub enum Message {
     CustomScaffoldRequested,
     DeffaultScaffoldRequested,
     UiSizeChanged(UiSize),
+    OxDNARequested,
 }
 
 impl TopBar {
@@ -83,6 +83,7 @@ impl TopBar {
             button_make_grid: Default::default(),
             button_help: Default::default(),
             button_clean: Default::default(),
+            button_oxdna: Default::default(),
             toggle_text_value: false,
             requests,
             logical_size,
@@ -279,6 +280,7 @@ impl Program for TopBar {
                 crate::utils::message(msg.into(), rfd::MessageLevel::Info);
             }
             Message::UiSizeChanged(ui_size) => self.ui_size = ui_size,
+            Message::OxDNARequested => self.requests.lock().unwrap().oxdna = true,
         };
         Command::none()
     }
@@ -332,6 +334,10 @@ impl Program for TopBar {
             .height(Length::Units(self.ui_size.button()))
             .on_press(Message::CleanRequested);
 
+        let button_oxdna = Button::new(&mut self.button_oxdna, iced::Text::new("To OxDNA"))
+            .height(Length::Units(self.ui_size.button()))
+            .on_press(Message::OxDNARequested);
+
         let _button_make_grid =
             Button::new(&mut self.button_make_grid, iced::Text::new("Make grids"))
                 .on_press(Message::MakeGrids)
@@ -359,6 +365,7 @@ impl Program for TopBar {
             .push(button_scaffold)
             .push(button_stapples)
             .push(button_clean)
+            .push(button_oxdna)
             .push(_button_make_grid)
             .push(
                 Button::new(&mut self.button_help, iced::Text::new("Help"))

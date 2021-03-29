@@ -622,6 +622,11 @@ fn main() {
                         messages.lock().unwrap().new_ui_size(ui_size);
                         resized = true;
                     }
+
+                    if requests.oxdna {
+                        mediator.lock().unwrap().oxdna_export();
+                        requests.oxdna = false;
+                    }
                 }
 
                 if let Some(d_id) = download_stapples {

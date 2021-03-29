@@ -720,6 +720,9 @@ impl Design {
     /// Change the color of all the strands in the design, except the scaffold.
     pub fn recolor_stapples(&mut self) {
         self.data.lock().unwrap().recolor_stapples();
+    }
+
+    pub fn oxdna_export(&self) {
         self.data.lock().unwrap().oxdna_export();
     }
 

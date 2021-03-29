@@ -1180,6 +1180,12 @@ impl Mediator {
             d.write().unwrap().update_organizer_tree(tree)
         }
     }
+
+    pub fn oxdna_export(&self) {
+        if let Some(d) = self.designs.get(0) {
+            d.read().unwrap().oxdna_export()
+        }
+    }
 }
 
 #[derive(Debug, Clone)]

@@ -102,6 +102,7 @@ pub struct Requests {
     )>,
     pub new_tree: Option<OrganizerTree<crate::design::DnaElementKey>>,
     pub new_ui_size: Option<UiSize>,
+    pub oxdna: bool,
 }
 
 pub enum KeepProceed {
@@ -164,6 +165,7 @@ impl Requests {
             new_attribute: None,
             new_tree: None,
             new_ui_size: None,
+            oxdna: false,
         }
     }
 }

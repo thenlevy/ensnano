@@ -14,7 +14,7 @@ struct OxDnaNucl {
 
 struct OxDnaConfig {
     time: f32,
-    boudaries: [f32; 3],
+    boundaries: [f32; 3],
     /// Etot, U and K
     kinetic_energies: [f32; 3],
     nucls: Vec<OxDnaNucl>,
@@ -23,12 +23,9 @@ struct OxDnaConfig {
 impl OxDnaConfig {
     pub fn write<P: AsRef<Path>>(&self, path: P) -> Result<(), std::io::Error> {
         let mut file = std::fs::File::create(path)?;
+        let max = self.boundaries[0].max(self.boundaries[1].max(self.boundaries[2]));
         writeln!(&mut file, "t = {}", self.time)?;
-        writeln!(
-            &mut file,
-            "b = {} {} {}",
-            self.boudaries[0], self.boudaries[1], self.boudaries[2]
-        )?;
+        writeln!(&mut file, "b = {} {} {}", max, max, max)?;
         writeln!(
             &mut file,
             "E = {} {} {}",
@@ -112,7 +109,7 @@ impl Helix {
 impl Data {
     fn to_oxdna(&self) -> (OxDnaConfig, OxDnaTopology) {
         let mut nucl_id = 0isize;
-        let mut boudaries = [0f32, 0f32, 0f32];
+        let mut boundaries = [0f32, 0f32, 0f32];
         let mut bounds = Vec::new();
         let mut nucls = Vec::new();
         let mut basis_map = self.basis_map.read().unwrap().clone();
@@ -130,9 +127,9 @@ impl Data {
                             dom.forward,
                             &parameters,
                         );
-                        boudaries[0] = boudaries[0].max(ox_nucl.position.x.abs());
-                        boudaries[1] = boudaries[1].max(ox_nucl.position.y.abs());
-                        boudaries[2] = boudaries[2].max(ox_nucl.position.z.abs());
+                        boundaries[0] = boundaries[0].max(2. * ox_nucl.position.x.abs());
+                        boundaries[1] = boundaries[1].max(2. * ox_nucl.position.y.abs());
+                        boundaries[2] = boundaries[2].max(2. * ox_nucl.position.z.abs());
                         nucls.push(ox_nucl);
                         let nucl = Nucl {
                             position,
@@ -174,7 +171,7 @@ impl Data {
         let config = OxDnaConfig {
             time: 0f32,
             kinetic_energies: [0f32, 0f32, 0f32],
-            boudaries,
+            boundaries,
             nucls,
         };
         (config, topo)
