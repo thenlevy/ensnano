@@ -18,6 +18,7 @@ pub struct GridInstance {
     pub color: u32,
     pub design: usize,
     pub id: usize,
+    pub fake: bool,
 }
 
 impl GridInstance {
@@ -70,6 +71,7 @@ impl GridInstance {
     fn to_fake(&self) -> Self {
         Self {
             color: self.id as u32,
+            fake: true,
             ..self.clone()
         }
     }
@@ -88,6 +90,11 @@ impl GridInstance {
             min_y = self.min_y as f32;
             max_y = self.max_y as f32;
         }
+        let grid_type = if self.fake {
+            self.grid.grid_type.descr().to_u32() + 1000
+        } else {
+            self.grid.grid_type.descr().to_u32()
+        };
         GridInstanceRaw {
             model: Mat4::from_translation(self.grid.position)
                 * self.grid.orientation.into_matrix().into_homogeneous(),
@@ -95,7 +102,7 @@ impl GridInstance {
             max_x,
             min_y,
             max_y,
-            grid_type: self.grid.grid_type.descr().to_u32(),
+            grid_type,
             color: Instance::color_from_u32(self.color).truncated(),
             inter_helix_gap: self.grid.parameters.inter_helix_gap,
             helix_radius: self.grid.parameters.helix_radius,

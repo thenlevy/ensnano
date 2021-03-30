@@ -602,6 +602,7 @@ impl GridManager {
                 color: 0x00_00_FF,
                 design: design_id,
                 id: n,
+                fake: false,
             };
             ret.push(grid);
         }
