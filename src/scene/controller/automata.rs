@@ -1,5 +1,4 @@
 use super::*;
-use iced_winit::winit::event::*;
 use std::borrow::Cow;
 use std::cell::RefCell;
 
@@ -86,6 +85,17 @@ impl ControllerState for NormalState {
                     mouse_position: self.mouse_position,
                     clicked_position: self.mouse_position,
                     button_pressed: MouseButton::Left,
+                })),
+                consequences: Consequence::Nothing,
+            },
+            WindowEvent::MouseInput {
+                state: ElementState::Pressed,
+                button: MouseButton::Middle,
+                ..
+            } if ctrl(&controller.current_modifiers) => Transition {
+                new_state: Some(Box::new(RotatingCamera {
+                    clicked_position: position,
+                    button_pressed: MouseButton::Middle,
                 })),
                 consequences: Consequence::Nothing,
             },
@@ -193,9 +203,9 @@ impl ControllerState for SettingPivot {
             WindowEvent::CursorMoved { .. } => {
                 if position_difference(position, self.clicked_position) > 5. {
                     Transition {
-                        new_state: Some(Box::new(NormalState {
-                            pasting: controller.pasting,
-                            mouse_position: position,
+                        new_state: Some(Box::new(RotatingCamera {
+                            clicked_position: self.clicked_position,
+                            button_pressed: MouseButton::Right,
                         })),
                         consequences: Consequence::Nothing,
                     }
@@ -218,6 +228,55 @@ impl ControllerState for SettingPivot {
                     consequences: Consequence::PivotElement(element),
                 }
             }
+            _ => Transition::nothing(),
+        }
+    }
+}
+
+struct RotatingCamera {
+    clicked_position: PhysicalPosition<f64>,
+    button_pressed: MouseButton,
+}
+
+impl ControllerState for RotatingCamera {
+    fn display(&self) -> Cow<'static, str> {
+        "Rotating Camera".into()
+    }
+
+    fn transition_to(&self, _controller: &Controller) -> TransistionConsequence {
+        TransistionConsequence::InitMovement
+    }
+
+    fn transition_from(&self, _controller: &Controller) -> TransistionConsequence {
+        TransistionConsequence::EndMovement
+    }
+
+    fn input(
+        &mut self,
+        event: &WindowEvent,
+        position: PhysicalPosition<f64>,
+        controller: &Controller,
+        _pixel_reader: &mut ElementSelector,
+    ) -> Transition {
+        match event {
+            WindowEvent::CursorMoved { .. } => {
+                let mouse_dx =
+                    (position.x - self.clicked_position.x) / controller.area_size.width as f64;
+                let mouse_dy =
+                    (position.y - self.clicked_position.y) / controller.area_size.height as f64;
+                Transition::consequence(Consequence::Swing(mouse_dx, mouse_dy))
+            }
+            WindowEvent::MouseInput {
+                state: ElementState::Released,
+                button,
+                ..
+            } if *button == self.button_pressed => Transition {
+                new_state: Some(Box::new(NormalState {
+                    pasting: controller.pasting,
+                    mouse_position: position,
+                })),
+                consequences: Consequence::Nothing,
+            },
             _ => Transition::nothing(),
         }
     }

@@ -178,7 +178,7 @@ impl Scene {
                 }
             }
             Consequence::Swing(x, y) => {
-                let pivot = self.data.borrow().get_selected_position();
+                let pivot = self.data.borrow().get_pivot_position();
                 self.controller.set_pivot_point(pivot);
                 self.controller.swing(-x, -y);
                 self.notify(SceneNotification::CameraMoved);
@@ -338,7 +338,6 @@ impl Scene {
         }
         let pivot = self.data.borrow().get_selected_position();
         self.view.borrow_mut().update(ViewUpdate::FogCenter(pivot));
-        self.controller.set_pivot_point(pivot);
         self.update_handle();
     }
 

@@ -372,9 +372,6 @@ impl View {
         action_mode: ActionMode,
     ) {
         let fake_color = draw_type.is_fake();
-        if fake_color {
-            println!("drawing fake");
-        }
         if let Some(size) = self.new_size.take() {
             self.depth_texture =
                 Texture::create_depth_texture(self.device.as_ref(), &area.size, SAMPLE_COUNT);

@@ -493,6 +493,10 @@ impl Data {
         self.selected_position
     }
 
+    pub fn get_pivot_position(&self) -> Option<Vec3> {
+        self.pivot_position
+    }
+
     /// Update the selection by selecting the group to which a given nucleotide belongs. Return the
     /// selected group
     pub fn set_selection(&mut self, element: Option<SceneElement>) -> Option<Selection> {
