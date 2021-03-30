@@ -47,6 +47,7 @@ pub struct Data {
     /// The element arround which the camera rotates
     pivot_element: Option<SceneElement>,
     pivot_update: bool,
+    pivot_position: Option<Vec3>,
 }
 
 impl Data {
@@ -68,6 +69,7 @@ impl Data {
             widget_basis: None,
             pivot_element: None,
             pivot_update: false,
+            pivot_position: None,
         }
     }
 
@@ -89,6 +91,7 @@ impl Data {
         self.reset_candidate();
         self.notify_instance_update();
         self.notify_matrices_update();
+        self.pivot_element = None;
     }
 
     /// Forwards all needed update to the view
@@ -108,6 +111,10 @@ impl Data {
         if self.candidate_update {
             self.update_candidate();
             self.candidate_update = false;
+        }
+        if self.pivot_update {
+            self.update_pivot();
+            self.pivot_update = false;
         }
 
         if self.matrices_update {
@@ -555,6 +562,16 @@ impl Data {
         };
     }
 
+    fn update_pivot_position(&mut self) {
+        self.pivot_position = {
+            if let Some(element) = self.pivot_element.as_ref() {
+                self.get_element_position(element, Referential::World)
+            } else {
+                None
+            }
+        };
+    }
+
     /// Clear self.selected
     pub fn reset_selection(&mut self) {
         self.selection_update |= self.selected_element.is_some();
@@ -767,6 +784,18 @@ impl Data {
         self.view.borrow_mut().set_candidate_grid(grid);
     }
 
+    fn update_pivot(&mut self) {
+        self.update_pivot_position();
+        let spheres = if let Some(pivot) = self.pivot_position {
+            vec![Design3D::pivot_sphere(pivot)]
+        } else {
+            vec![]
+        };
+        self.view
+            .borrow_mut()
+            .update(ViewUpdate::RawDna(Mesh::PivotSphere, Rc::new(spheres)));
+    }
+
     /// This function must be called when the designs have been modified
     pub fn notify_instance_update(&mut self) {
         self.candidates = vec![];
@@ -809,6 +838,7 @@ impl Data {
                 pasted_tubes.push(tube);
             }
         }
+        self.update_pivot_position();
         self.view
             .borrow_mut()
             .update(ViewUpdate::RawDna(Mesh::Tube, Rc::new(tubes)));
@@ -834,7 +864,8 @@ impl Data {
         self.view
             .borrow_mut()
             .update(ViewUpdate::Grids(Rc::new(grids)));
-        self.selection_update = true
+        self.selection_update = true;
+        self.pivot_update = true;
     }
 
     fn update_discs(&mut self) {

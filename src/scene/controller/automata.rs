@@ -93,17 +93,25 @@ impl ControllerState for NormalState {
                 state: ElementState::Pressed,
                 button: MouseButton::Middle,
                 ..
-            } => {
-                println!("self {:?}, arg {:?}", self.mouse_position, position);
-                Transition {
-                    new_state: Some(Box::new(TranslatingCamera {
-                        mouse_position: self.mouse_position,
-                        clicked_position: self.mouse_position,
-                        button_pressed: MouseButton::Middle,
-                    })),
-                    consequences: Consequence::Nothing,
-                }
-            }
+            } => Transition {
+                new_state: Some(Box::new(TranslatingCamera {
+                    mouse_position: self.mouse_position,
+                    clicked_position: self.mouse_position,
+                    button_pressed: MouseButton::Middle,
+                })),
+                consequences: Consequence::Nothing,
+            },
+            WindowEvent::MouseInput {
+                state: ElementState::Pressed,
+                button: MouseButton::Right,
+                ..
+            } => Transition {
+                new_state: Some(Box::new(SettingPivot {
+                    mouse_position: position,
+                    clicked_position: position,
+                })),
+                consequences: Consequence::Nothing,
+            },
             _ => Transition::nothing(),
         }
     }
@@ -161,5 +169,68 @@ impl ControllerState for TranslatingCamera {
             }
             _ => Transition::nothing(),
         }
+    }
+}
+
+struct SettingPivot {
+    mouse_position: PhysicalPosition<f64>,
+    clicked_position: PhysicalPosition<f64>,
+}
+
+impl ControllerState for SettingPivot {
+    fn display(&self) -> Cow<'static, str> {
+        "Setting Pivot".into()
+    }
+
+    fn input(
+        &mut self,
+        event: &WindowEvent,
+        position: PhysicalPosition<f64>,
+        controller: &Controller,
+        pixel_reader: &mut ElementSelector,
+    ) -> Transition {
+        match event {
+            WindowEvent::CursorMoved { .. } => {
+                if position_difference(position, self.clicked_position) > 5. {
+                    Transition {
+                        new_state: Some(Box::new(NormalState {
+                            pasting: controller.pasting,
+                            mouse_position: position,
+                        })),
+                        consequences: Consequence::Nothing,
+                    }
+                } else {
+                    self.mouse_position = position;
+                    Transition::nothing()
+                }
+            }
+            WindowEvent::MouseInput {
+                state: ElementState::Released,
+                button: MouseButton::Right,
+                ..
+            } => {
+                let element = pixel_reader.set_selected_id(self.mouse_position);
+                Transition {
+                    new_state: Some(Box::new(NormalState {
+                        pasting: controller.pasting,
+                        mouse_position: position,
+                    })),
+                    consequences: Consequence::PivotElement(element),
+                }
+            }
+            _ => Transition::nothing(),
+        }
+    }
+}
+
+fn position_difference(a: PhysicalPosition<f64>, b: PhysicalPosition<f64>) -> f64 {
+    (a.x - b.x).abs().max((a.y - b.y).abs())
+}
+
+fn ctrl(modifiers: &ModifiersState) -> bool {
+    if cfg!(target_os = "macos") {
+        modifiers.logo()
+    } else {
+        modifiers.ctrl()
     }
 }

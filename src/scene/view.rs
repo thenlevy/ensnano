@@ -815,6 +815,7 @@ pub enum Mesh {
     SuggestionTube,
     PastedSphere,
     PastedTube,
+    PivotSphere,
 }
 
 impl Mesh {
@@ -846,6 +847,7 @@ struct DnaDrawers {
     suggestion_tube: InstanceDrawer<TubeInstance>,
     pasted_sphere: InstanceDrawer<SphereInstance>,
     pasted_tube: InstanceDrawer<TubeInstance>,
+    pivot_sphere: InstanceDrawer<SphereInstance>,
 }
 
 impl DnaDrawers {
@@ -867,6 +869,7 @@ impl DnaDrawers {
             Mesh::SuggestionSphere => &mut self.suggestion_sphere,
             Mesh::PastedSphere => &mut self.pasted_sphere,
             Mesh::PastedTube => &mut self.pasted_tube,
+            Mesh::PivotSphere => &mut self.pivot_sphere,
         }
     }
 
@@ -884,6 +887,7 @@ impl DnaDrawers {
             &mut self.suggestion_tube,
             &mut self.pasted_tube,
             &mut self.pasted_sphere,
+            &mut self.pivot_sphere,
         ]
     }
 
@@ -984,6 +988,14 @@ impl DnaDrawers {
                 false,
             ),
             selected_tube: InstanceDrawer::new(
+                device.clone(),
+                queue.clone(),
+                viewer_desc,
+                model_desc,
+                (),
+                false,
+            ),
+            pivot_sphere: InstanceDrawer::new(
                 device.clone(),
                 queue.clone(),
                 viewer_desc,

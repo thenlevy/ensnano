@@ -202,6 +202,7 @@ impl Scene {
                     }));
             }
             Consequence::Candidate(element) => self.set_candidate(element),
+            Consequence::PivotElement(element) => self.data.borrow_mut().set_pivot_element(element),
         };
     }
 
