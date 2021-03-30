@@ -187,7 +187,16 @@ impl View {
             grid_textures,
             false,
         );
-        let grid_manager = GridManager::new(grid_drawer);
+        let grid_textures = GridTextures::new(device.as_ref(), encoder);
+        let fake_grid_drawer = InstanceDrawer::new(
+            device.clone(),
+            queue.clone(),
+            &viewer.get_layout_desc(),
+            &model_bg_desc,
+            grid_textures,
+            true,
+        );
+        let grid_manager = GridManager::new(grid_drawer, fake_grid_drawer);
 
         println!("Create disc  drawer");
         let disc_drawer = InstanceDrawer::new(
@@ -485,6 +494,15 @@ impl View {
                         self.models.get_bindgroup(),
                     )
                 }
+            } else if draw_type == DrawType::Grid {
+                // Draw design elements and phantoms, to fill the depth buffer
+                for drawer in self.dna_drawers.fakes_and_phantoms() {
+                    drawer.draw(
+                        &mut render_pass,
+                        self.viewer.get_bindgroup(),
+                        self.models.get_bindgroup(),
+                    )
+                }
             }
 
             if draw_type.wants_widget() {
@@ -522,6 +540,7 @@ impl View {
                     &mut render_pass,
                     viewer_bind_group,
                     self.models.get_bindgroup(),
+                    false,
                 );
                 self.disc_drawer.draw(
                     &mut render_pass,
@@ -586,6 +605,51 @@ impl View {
                 viewer_bind_group,
                 self.models.get_bindgroup(),
             )
+        } else if draw_type == DrawType::Grid {
+            // render pass to draw the grids
+            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: None,
+                color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
+                    attachment,
+                    resolve_target,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(clear_color),
+                        store: true,
+                    },
+                }],
+                // Reuse previous depth_stencil_attachment
+                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachmentDescriptor {
+                    attachment: &depth_attachement.view,
+                    depth_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Load,
+                        store: true,
+                    }),
+                    stencil_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Load,
+                        store: true,
+                    }),
+                }),
+            });
+            render_pass.set_viewport(
+                area.position.x as f32,
+                area.position.y as f32,
+                area.size.width as f32,
+                area.size.height as f32,
+                0.0,
+                1.0,
+            );
+            render_pass.set_scissor_rect(
+                area.position.x,
+                area.position.y,
+                area.size.width,
+                area.size.height,
+            );
+            self.grid_manager.draw(
+                &mut render_pass,
+                viewer_bind_group,
+                self.models.get_bindgroup(),
+                true,
+            );
         }
     }
 
@@ -825,6 +889,15 @@ impl DnaDrawers {
         vec![&mut self.fake_phantom_sphere, &mut self.fake_phantom_tube]
     }
 
+    pub fn fakes_and_phantoms(&mut self) -> Vec<&mut dyn RawDrawer<RawInstance = RawDnaInstance>> {
+        vec![
+            &mut self.fake_sphere,
+            &mut self.fake_tube,
+            &mut self.fake_phantom_sphere,
+            &mut self.fake_phantom_tube,
+        ]
+    }
+
     pub fn new(
         device: Rc<Device>,
         queue: Rc<Queue>,
@@ -970,6 +1043,7 @@ pub enum DrawType {
     Design,
     Widget,
     Phantom,
+    Grid,
 }
 
 impl DrawType {
@@ -983,6 +1057,7 @@ impl DrawType {
             DrawType::Design => false,
             DrawType::Widget => true,
             DrawType::Phantom => false,
+            DrawType::Grid => false,
         }
     }
 }

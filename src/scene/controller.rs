@@ -9,6 +9,9 @@ use ultraviolet::{Rotor3, Vec3};
 
 use camera::CameraController;
 
+mod automata;
+use automata::{ControllerState, NormalState, Transition};
+
 /// The effect that draging the mouse have
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ClickMode {

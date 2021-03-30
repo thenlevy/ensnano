@@ -67,6 +67,13 @@ impl GridInstance {
         }
     }
 
+    fn to_fake(&self) -> Self {
+        Self {
+            color: self.id as u32,
+            ..self.clone()
+        }
+    }
+
     fn to_raw(&self) -> GridInstanceRaw {
         use crate::utils::instance::Instance;
         let (min_x, min_y, max_x, max_y);
@@ -184,13 +191,18 @@ pub struct GridManager {
     selected: Option<(usize, usize)>,
     candidate: Option<(usize, usize)>,
     drawer: InstanceDrawer<GridInstance>,
+    fake_drawer: InstanceDrawer<GridInstance>,
     need_new_colors: bool,
 }
 
 impl GridManager {
-    pub fn new(drawer: InstanceDrawer<GridInstance>) -> Self {
+    pub fn new(
+        drawer: InstanceDrawer<GridInstance>,
+        fake_drawer: InstanceDrawer<GridInstance>,
+    ) -> Self {
         Self {
             drawer,
+            fake_drawer,
             new_instances: Some(Rc::new(vec![])),
             number_instances: 0,
             instances: vec![],
@@ -210,10 +222,13 @@ impl GridManager {
     fn update_instances(&mut self) {
         if let Some(instances) = self.new_instances.take() {
             self.instances = (*instances).clone();
+            let fake_instances: Vec<GridInstance> =
+                self.instances.iter().map(GridInstance::to_fake).collect();
             self.number_instances = instances.len();
             if !self.need_new_colors {
                 self.drawer.new_instances((*instances).clone());
             }
+            self.fake_drawer.new_instances(fake_instances);
         }
     }
 
@@ -223,13 +238,19 @@ impl GridManager {
         render_pass: &mut RenderPass<'a>,
         viewer_bind_group: &'a wgpu::BindGroup,
         model_bind_group: &'a wgpu::BindGroup,
+        fake: bool,
     ) {
         self.update_instances();
         if self.need_new_colors {
             self.update_colors();
         }
-        self.drawer
-            .draw(render_pass, viewer_bind_group, model_bind_group)
+        if fake {
+            self.fake_drawer
+                .draw(render_pass, viewer_bind_group, model_bind_group)
+        } else {
+            self.drawer
+                .draw(render_pass, viewer_bind_group, model_bind_group)
+        }
     }
 
     pub fn intersect(&self, origin: Vec3, direction: Vec3) -> Option<GridIntersection> {

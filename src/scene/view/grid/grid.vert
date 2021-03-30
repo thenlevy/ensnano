@@ -6,6 +6,8 @@ layout(location=0) out flat uint v_grid_type;
 layout(location=1) out vec2 v_tex_honney_coords;
 layout(location=2) out vec2 v_tex_square_coords;
 layout(location=3) out vec3 v_color;
+layout(location=4) out flat uint v_fake;
+layout(location=5) out flat uint v_design_id;
 
 
 layout(set=0, binding=0)
@@ -39,7 +41,10 @@ buffer InstancesBlock {
 
 
 void main() {
-    v_grid_type = instances[gl_InstanceIndex].grid_type;
+    uint grid_type = instances[gl_InstanceIndex].grid_type;
+    v_grid_type = grid_type % 1000;
+    v_fake = grid_type / 1000;
+    v_design_id = instances[gl_InstanceIndex].design_id;
     v_color = instances[gl_InstanceIndex].color;
     float u_helix_radius = instances[gl_InstanceIndex].helix_radius;
     float u_inter_helix_gap = instances[gl_InstanceIndex].inter_helix_gap;

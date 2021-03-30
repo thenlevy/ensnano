@@ -29,6 +29,7 @@ impl ElementSelector {
     ) -> Self {
         let readers = vec![
             SceneReader::new(DrawType::Widget),
+            SceneReader::new(DrawType::Grid),
             SceneReader::new(DrawType::Design),
             SceneReader::new(DrawType::Phantom),
         ];
@@ -252,6 +253,7 @@ impl SceneReader {
             None
         } else {
             match self.draw_type {
+                DrawType::Grid => Some(SceneElement::Grid(a, color as usize)),
                 DrawType::Design => Some(SceneElement::DesignElement(a, color)),
                 DrawType::Phantom => Some(SceneElement::PhantomElement(
                     utils::phantom_helix_decoder(color),
