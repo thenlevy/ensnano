@@ -161,6 +161,12 @@ impl Controller {
                 })),
                 consequences: Consequence::Nothing,
             }
+        } else if let WindowEvent::MouseWheel { delta, .. } = event {
+            let mouse_x = position.x / self.area_size.width as f64;
+            let mouse_y = position.y / self.area_size.height as f64;
+            self.camera_controller
+                .process_scroll(delta, mouse_x as f32, mouse_y as f32);
+            Transition::consequence(Consequence::CameraMoved)
         } else {
             self.state
                 .borrow_mut()
