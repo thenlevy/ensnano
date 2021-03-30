@@ -97,6 +97,7 @@ pub enum Consequence {
     Redo,
     Candidate(Option<super::SceneElement>),
     PivotElement(Option<super::SceneElement>),
+    ElementSelected(Option<super::SceneElement>),
 }
 
 enum TransistionConsequence {

@@ -90,6 +90,21 @@ impl ControllerState for NormalState {
             },
             WindowEvent::MouseInput {
                 state: ElementState::Pressed,
+                button: MouseButton::Left,
+                ..
+            } => {
+                let element = pixel_reader.set_selected_id(position);
+                Transition {
+                    new_state: Some(Box::new(Selecting {
+                        element,
+                        clicked_position: position,
+                        mouse_position: position,
+                    })),
+                    consequences: Consequence::Nothing,
+                }
+            }
+            WindowEvent::MouseInput {
+                state: ElementState::Pressed,
                 button: MouseButton::Middle,
                 ..
             } if ctrl(&controller.current_modifiers) => Transition {
@@ -276,6 +291,55 @@ impl ControllerState for RotatingCamera {
                     mouse_position: position,
                 })),
                 consequences: Consequence::Nothing,
+            },
+            _ => Transition::nothing(),
+        }
+    }
+}
+
+struct Selecting {
+    mouse_position: PhysicalPosition<f64>,
+    clicked_position: PhysicalPosition<f64>,
+    element: Option<SceneElement>,
+}
+
+impl ControllerState for Selecting {
+    fn display(&self) -> Cow<'static, str> {
+        "Selecting".into()
+    }
+
+    fn input(
+        &mut self,
+        event: &WindowEvent,
+        position: PhysicalPosition<f64>,
+        controller: &Controller,
+        _pixel_reader: &mut ElementSelector,
+    ) -> Transition {
+        match event {
+            WindowEvent::CursorMoved { .. } => {
+                if position_difference(position, self.clicked_position) > 5. {
+                    Transition {
+                        new_state: Some(Box::new(NormalState {
+                            mouse_position: self.mouse_position,
+                            pasting: controller.pasting,
+                        })),
+                        consequences: Consequence::Nothing,
+                    }
+                } else {
+                    self.mouse_position = position;
+                    Transition::nothing()
+                }
+            }
+            WindowEvent::MouseInput {
+                state: ElementState::Released,
+                button: MouseButton::Left,
+                ..
+            } => Transition {
+                new_state: Some(Box::new(NormalState {
+                    pasting: controller.pasting,
+                    mouse_position: position,
+                })),
+                consequences: Consequence::ElementSelected(self.element),
             },
             _ => Transition::nothing(),
         }
