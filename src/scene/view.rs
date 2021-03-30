@@ -330,7 +330,10 @@ impl View {
             ViewUpdate::Grids(grid) => self.grid_manager.new_instances(grid),
             ViewUpdate::GridDiscs(instances) => self.disc_drawer.new_instances(instances),
             ViewUpdate::RawDna(mesh, instances) => {
-                self.need_redraw_fake = true;
+                match mesh {
+                    Mesh::FakeTube | Mesh::FakeSphere => self.need_redraw_fake = true,
+                    _ => (),
+                };
                 self.dna_drawers
                     .get_mut(mesh)
                     .new_instances_raw(instances.as_ref());
@@ -369,6 +372,9 @@ impl View {
         action_mode: ActionMode,
     ) {
         let fake_color = draw_type.is_fake();
+        if fake_color {
+            println!("drawing fake");
+        }
         if let Some(size) = self.new_size.take() {
             self.depth_texture =
                 Texture::create_depth_texture(self.device.as_ref(), &area.size, SAMPLE_COUNT);
