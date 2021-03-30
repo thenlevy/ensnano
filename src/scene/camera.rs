@@ -219,10 +219,10 @@ impl CameraController {
     }
 
     pub fn set_pivot_point(&mut self, point: Option<Vec3>) {
-        if point.is_none() && self.pivot_point.is_some() {
+        if let Some(origin) = point {
             self.zoom_plane = Some(Plane {
-                origin: self.pivot_point.unwrap(),
-                normal: (self.camera.borrow().position - self.pivot_point.unwrap()),
+                origin,
+                normal: (self.camera.borrow().position - origin),
             });
         }
         self.pivot_point = point
@@ -301,29 +301,27 @@ impl CameraController {
             camera.position += up_vec * (self.amount_up - self.amount_down) * self.speed * dt;
         }
 
-        let pivot = self
-            .pivot_point
-            .or(self.zoom_plane.as_ref().and_then(|plane| {
-                if self
-                    .camera
-                    .borrow()
-                    .direction()
-                    .normalized()
-                    .dot(-plane.normal.normalized())
-                    > 0.9
-                {
-                    maths::unproject_point_on_plane(
-                        plane.origin,
-                        plane.normal,
-                        self.camera.clone(),
-                        self.projection.clone(),
-                        self.x_scroll,
-                        self.y_scroll,
-                    )
-                } else {
-                    None
-                }
-            }));
+        let pivot = self.zoom_plane.as_ref().and_then(|plane| {
+            if self
+                .camera
+                .borrow()
+                .direction()
+                .normalized()
+                .dot(-plane.normal.normalized())
+                > 0.9
+            {
+                maths::unproject_point_on_plane(
+                    plane.origin,
+                    plane.normal,
+                    self.camera.clone(),
+                    self.projection.clone(),
+                    self.x_scroll,
+                    self.y_scroll,
+                )
+            } else {
+                None
+            }
+        });
 
         // Move in/out (aka. "zoom")
         // Note: this isn't an actual zoom. The camera's position
@@ -386,6 +384,12 @@ impl CameraController {
         self.cam0 = self.camera.borrow().clone();
         self.mouse_horizontal = 0.;
         self.mouse_vertical = 0.;
+        if let Some(origin) = self.pivot_point {
+            self.zoom_plane = Some(Plane {
+                origin,
+                normal: (self.camera.borrow().position - origin),
+            });
+        }
     }
 
     pub fn teleport_camera(&mut self, position: Vec3, rotation: Rotor3) {
@@ -483,6 +487,7 @@ impl CameraController {
 }
 
 /// A plane in space defined by an origin and a normal
+#[derive(Debug)]
 struct Plane {
     origin: Vec3,
     normal: Vec3,

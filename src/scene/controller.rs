@@ -139,7 +139,8 @@ impl Controller {
 
     /// Replace the camera by a new one.
     pub fn teleport_camera(&mut self, position: Vec3, rotation: Rotor3) {
-        self.camera_controller.teleport_camera(position, rotation)
+        self.camera_controller.teleport_camera(position, rotation);
+        self.end_movement();
     }
 
     /// Keep the camera orientation and make it face a given point.
