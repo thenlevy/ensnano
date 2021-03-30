@@ -1,16 +1,18 @@
 use super::{
-    camera, DataPtr, Duration, HandleDir, SceneElement, ViewPtr, WidgetRotationMode as RotationMode,
+    camera, DataPtr, Duration, ElementSelector, HandleDir, SceneElement, ViewPtr,
+    WidgetRotationMode as RotationMode,
 };
 use crate::consts::*;
 use crate::design::StrandBuilder;
 use crate::{PhySize, PhysicalPosition, WindowEvent};
 use iced_winit::winit::event::*;
+use std::cell::RefCell;
 use ultraviolet::{Rotor3, Vec3};
 
 use camera::CameraController;
 
 mod automata;
-use automata::{ControllerState, NormalState, Transition};
+use automata::{ControllerState, NormalState, State, Transition};
 
 /// The effect that draging the mouse have
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -20,6 +22,7 @@ pub enum ClickMode {
     RotateCam,
 }
 
+/*
 #[derive(Clone)]
 enum State {
     MoveCamera,
@@ -42,6 +45,7 @@ impl State {
         }
     }
 }
+*/
 
 /// An object handling input and notification for the scene.
 pub struct Controller {
@@ -68,12 +72,14 @@ pub struct Controller {
     /// The effect that dragging the mouse has
     click_mode: ClickMode,
     state: State,
+    pasting: bool,
 }
 
 const NO_POS: PhysicalPosition<f64> = PhysicalPosition::new(f64::NAN, f64::NAN);
 
 pub enum Consequence {
     CameraMoved,
+    CameraTranslated(f64, f64),
     PixelSelected(PhysicalPosition<f64>),
     XoverAtempt(PhysicalPosition<f64>),
     Translation(HandleDir, f64, f64),
@@ -89,6 +95,13 @@ pub enum Consequence {
     Building(Box<StrandBuilder>, isize),
     Undo,
     Redo,
+    Candidate(Option<super::SceneElement>),
+}
+
+enum TransistionConsequence {
+    Nothing,
+    InitMovement,
+    EndMovement,
 }
 
 impl Controller {
@@ -114,7 +127,8 @@ impl Controller {
             current_modifiers: ModifiersState::empty(),
             modifiers_when_clicked: ModifiersState::empty(),
             click_mode: ClickMode::TranslateCam,
-            state: State::MoveCamera,
+            state: automata::initial_state(false),
+            pasting: false,
         }
     }
 
@@ -132,13 +146,53 @@ impl Controller {
         self.camera_controller.center_camera(center)
     }
 
+    pub fn input(
+        &mut self,
+        event: &WindowEvent,
+        position: PhysicalPosition<f64>,
+        pixel_reader: &mut ElementSelector,
+    ) -> Consequence {
+        let transition = if let WindowEvent::Focused(false) = event {
+            Transition {
+                new_state: Some(Box::new(NormalState {
+                    mouse_position: PhysicalPosition::new(-1., -1.),
+                    pasting: self.pasting,
+                })),
+                consequences: Consequence::Nothing,
+            }
+        } else {
+            self.state
+                .borrow_mut()
+                .input(event, position, &self, pixel_reader)
+        };
+
+        if let Some(state) = transition.new_state {
+            println!("{}", state.display());
+            let csq = self.state.borrow().transition_from(&self);
+            self.transition_consequence(csq);
+            self.state = RefCell::new(state);
+            let csq = self.state.borrow().transition_to(&self);
+            self.transition_consequence(csq);
+        }
+        transition.consequences
+    }
+
+    fn transition_consequence(&mut self, csq: TransistionConsequence) {
+        match csq {
+            TransistionConsequence::Nothing => (),
+            TransistionConsequence::InitMovement => self.init_movement(),
+            TransistionConsequence::EndMovement => self.end_movement(),
+        }
+    }
+
+    /*
     /// Handles input
     /// # Argument
     ///
     /// * `event` the event to be handled
     ///
     /// * `position` the position of the mouse *in the drawing area coordinates*
-    pub fn input(&mut self, event: &WindowEvent, position: PhysicalPosition<f64>) -> Consequence {
+    pub fn _input(&mut self, event: &WindowEvent, position: PhysicalPosition<f64>) -> Consequence {
         match event {
             WindowEvent::ModifiersChanged(modifiers) => {
                 self.current_modifiers = *modifiers;
@@ -332,7 +386,7 @@ impl Controller {
             }
             _ => Consequence::Nothing,
         }
-    }
+    }*/
 
     /// True if the camera is moving and its position must be updated before next frame
     pub fn camera_is_moving(&self) -> bool {
@@ -369,6 +423,7 @@ impl Controller {
         self.window_size
     }
 
+    /*
     pub fn notify(&mut self, element: Option<SceneElement>) {
         if let State::Building(_) = self.state {
             return;
@@ -387,6 +442,15 @@ impl Controller {
         } else {
             self.state = State::MoveCamera
         }
+    }
+    */
+
+    fn init_movement(&mut self) {
+        self.camera_controller.init_movement();
+    }
+
+    fn end_movement(&mut self) {
+        self.camera_controller.end_movement();
     }
 
     fn left_click_camera(&mut self, state: &ElementState, ctrl: bool) -> Consequence {
@@ -434,6 +498,10 @@ impl Controller {
         self.camera_controller
             .look_at_orientation(target, up, pivot);
         self.shift_cam();
+    }
+
+    pub fn translate_camera(&mut self, dx: f64, dy: f64) {
+        self.camera_controller.process_mouse(dx, dy)
     }
 
     pub fn rotate_camera(&mut self, xz: f32, yz: f32, pivot: Option<Vec3>) {

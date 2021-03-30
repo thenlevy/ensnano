@@ -131,10 +131,16 @@ impl Scene {
     /// Input an event to the scene. The controller parse the event and return the consequence that
     /// the event must have.
     fn input(&mut self, event: &WindowEvent, cursor_position: PhysicalPosition<f64>) {
-        let consequence = self.controller.input(event, cursor_position);
+        let consequence = self
+            .controller
+            .input(event, cursor_position, &mut self.element_selector);
         match consequence {
             Consequence::Nothing => (),
             Consequence::CameraMoved => self.notify(SceneNotification::CameraMoved),
+            Consequence::CameraTranslated(dx, dy) => {
+                self.controller.translate_camera(dx, dy);
+                self.notify(SceneNotification::CameraMoved);
+            }
             Consequence::PixelSelected(clicked) => self.click_on(clicked),
             Consequence::XoverAtempt(clicked) => self.attempt_xover(clicked),
             Consequence::Translation(dir, x_coord, y_coord) => {
@@ -195,6 +201,7 @@ impl Scene {
                         builder,
                     }));
             }
+            Consequence::Candidate(element) => self.set_candidate(element),
         };
     }
 
@@ -358,7 +365,7 @@ impl Scene {
         } else {
             self.element_selector.set_selected_id(clicked_pixel)
         };
-        self.controller.notify(element);
+        //self.controller.notify(element);
         self.data.borrow_mut().set_candidate(element);
         if self.pasting {
             let candidate_nucl = self.data.borrow().get_candidate_nucl();
@@ -367,6 +374,16 @@ impl Scene {
                 .unwrap()
                 .set_paste_candidate(candidate_nucl);
         }
+        let widget = if let Some(SceneElement::WidgetElement(widget_id)) = element {
+            Some(widget_id)
+        } else {
+            None
+        };
+        self.view.borrow_mut().set_widget_candidate(widget);
+    }
+
+    fn set_candidate(&mut self, element: Option<SceneElement>) {
+        self.data.borrow_mut().set_candidate(element);
         let widget = if let Some(SceneElement::WidgetElement(widget_id)) = element {
             Some(widget_id)
         } else {

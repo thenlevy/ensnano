@@ -44,6 +44,9 @@ pub struct Data {
     instance_update: bool,
     matrices_update: bool,
     widget_basis: Option<WidgetBasis>,
+    /// The element arround which the camera rotates
+    pivot_element: Option<SceneElement>,
+    pivot_update: bool,
 }
 
 impl Data {
@@ -63,6 +66,8 @@ impl Data {
             instance_update: false,
             matrices_update: false,
             widget_basis: None,
+            pivot_element: None,
+            pivot_update: false,
         }
     }
 
@@ -117,6 +122,11 @@ impl Data {
             .iter()
             .filter_map(|s| s.get_design())
             .collect()
+    }
+
+    pub fn set_pivot_element(&mut self, element: Option<SceneElement>) {
+        self.pivot_update |= self.pivot_element != element;
+        self.pivot_element = element;
     }
 
     fn get_element_design(&self, element: &SceneElement) -> u32 {

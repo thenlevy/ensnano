@@ -377,6 +377,17 @@ impl CameraController {
         }
     }
 
+    pub fn init_movement(&mut self) {
+        self.processed_move = false;
+    }
+
+    pub fn end_movement(&mut self) {
+        self.last_rotor = self.camera.borrow().rotor;
+        self.cam0 = self.camera.borrow().clone();
+        self.mouse_horizontal = 0.;
+        self.mouse_vertical = 0.;
+    }
+
     pub fn teleport_camera(&mut self, position: Vec3, rotation: Rotor3) {
         let mut camera = self.camera.borrow_mut();
         camera.position = position;
