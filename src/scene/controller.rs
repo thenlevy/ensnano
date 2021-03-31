@@ -80,7 +80,6 @@ const NO_POS: PhysicalPosition<f64> = PhysicalPosition::new(f64::NAN, f64::NAN);
 pub enum Consequence {
     CameraMoved,
     CameraTranslated(f64, f64),
-    PixelSelected(PhysicalPosition<f64>),
     XoverAtempt(Nucl, Nucl, usize),
     Translation(HandleDir, f64, f64),
     MovementEnded,
@@ -89,7 +88,6 @@ pub enum Consequence {
     InitTranslation(f64, f64),
     Swing(f64, f64),
     Nothing,
-    CursorMoved(PhysicalPosition<f64>),
     ToggleWidget,
     BuildEnded(u32, u32),
     Building(Box<StrandBuilder>, isize),

@@ -33,7 +33,12 @@ pub struct Data {
     selection: Vec<Selection>,
     candidates: Vec<Selection>,
     /// The kind of selection being perfomed on the scene.
-    pub selection_mode: SelectionMode,
+    selection_mode: SelectionMode,
+    /// The kind of selection being performed if self.selection_mode is SelectionMode::Nucl.
+    ///
+    /// Can be toggled by selecting the same element several
+    /// time
+    sub_selection_mode: SelectionMode,
     /// The kind of action being performed on the scene
     pub action_mode: ActionMode,
     /// A position determined by the current selection. If only one nucleotide is selected, it's
@@ -43,7 +48,7 @@ pub struct Data {
     candidate_update: bool,
     instance_update: bool,
     matrices_update: bool,
-    widget_basis: Option<WidgetBasis>,
+    widget_basis: WidgetBasis,
     /// The element arround which the camera rotates
     pivot_element: Option<SceneElement>,
     pivot_update: bool,
@@ -62,13 +67,14 @@ impl Data {
             selection: Vec::new(),
             candidates: Vec::new(),
             selection_mode: SelectionMode::default(),
+            sub_selection_mode: SelectionMode::Nucleotide,
             action_mode: Default::default(),
             selected_position: None,
             selection_update: false,
             candidate_update: false,
             instance_update: false,
             matrices_update: false,
-            widget_basis: None,
+            widget_basis: WidgetBasis::World,
             pivot_element: None,
             pivot_update: false,
             pivot_position: None,
@@ -411,7 +417,8 @@ impl Data {
     pub fn get_selected_group(&self) -> u32 {
         match self.selected_element.as_ref() {
             Some(SceneElement::DesignElement(design_id, element_id)) => {
-                self.get_group_identifier(*design_id, *element_id)
+                let selection_mode = self.get_sub_selection_mode();
+                self.get_group_identifier(*design_id, *element_id, selection_mode)
             }
             Some(SceneElement::PhantomElement(phantom_element)) => phantom_element.helix_id,
             Some(SceneElement::Grid(_, g_id)) => *g_id as u32,
@@ -420,8 +427,13 @@ impl Data {
     }
 
     /// Return the group to which an element belongs. The group depends on self.selection_mode.
-    fn get_group_identifier(&self, design_id: u32, element_id: u32) -> u32 {
-        match self.selection_mode {
+    fn get_group_identifier(
+        &self,
+        design_id: u32,
+        element_id: u32,
+        selection_mode: SelectionMode,
+    ) -> u32 {
+        match selection_mode {
             SelectionMode::Nucleotide => element_id,
             SelectionMode::Design => design_id,
             SelectionMode::Strand => self.designs[design_id as usize].get_strand(element_id),
@@ -431,7 +443,11 @@ impl Data {
     }
 
     /// Return the group to which a phantom element belongs. The group depends on self.selection_mode.
-    fn get_group_identifier_phantom(&self, phantom_element: PhantomElement) -> Option<u32> {
+    fn get_group_identifier_phantom(
+        &self,
+        phantom_element: PhantomElement,
+        selection_mode: SelectionMode,
+    ) -> Option<u32> {
         let nucl = Nucl {
             helix: phantom_element.helix_id as usize,
             forward: phantom_element.forward,
@@ -441,7 +457,7 @@ impl Data {
         let design_id = phantom_element.design_id;
         let element_id = self.designs[design_id as usize].get_identifier_nucl(&nucl);
 
-        match self.selection_mode {
+        match selection_mode {
             SelectionMode::Nucleotide => element_id,
             SelectionMode::Design => Some(design_id),
             SelectionMode::Strand => {
@@ -481,14 +497,15 @@ impl Data {
     }
 
     /// Return the postion of a given element, either in the world pov or in the model pov
-    pub fn get_element_position(
+    fn get_element_position(
         &self,
         element: &SceneElement,
         referential: Referential,
+        selection_mode: SelectionMode,
     ) -> Option<Vec3> {
         let design_id = element.get_design()?;
         let design = self.designs.get(design_id as usize)?;
-        match self.selection_mode {
+        match selection_mode {
             SelectionMode::Helix => design.get_element_axis_position(element, referential),
             SelectionMode::Nucleotide
             | SelectionMode::Strand
@@ -513,14 +530,19 @@ impl Data {
         }
         let future_selection = element;
         if self.selected_element == future_selection {
-            self.toggle_widget_basis()
+            self.sub_selection_mode = toggle_selection(self.sub_selection_mode);
         } else {
-            self.widget_basis = Some(WidgetBasis::World);
+            self.sub_selection_mode = SelectionMode::Nucleotide;
         }
         self.selected_element = future_selection;
         self.update_selected_position();
+        let selection_mode = if self.selection_mode == SelectionMode::Nucleotide {
+            self.sub_selection_mode
+        } else {
+            self.selection_mode
+        };
         let selection = if let Some(element) = element.as_ref() {
-            self.element_to_selection(element)
+            self.element_to_selection(element, selection_mode)
         } else {
             Selection::Nothing
         };
@@ -568,9 +590,10 @@ impl Data {
     }
 
     fn update_selected_position(&mut self) {
+        let selection_mode = self.get_sub_selection_mode();
         self.selected_position = {
             if let Some(element) = self.selected_element.as_ref() {
-                self.get_element_position(element, Referential::World)
+                self.get_element_position(element, Referential::World, selection_mode)
             } else {
                 None
             }
@@ -580,7 +603,7 @@ impl Data {
     fn update_pivot_position(&mut self) {
         self.pivot_position = {
             if let Some(element) = self.pivot_element.as_ref() {
-                self.get_element_position(element, Referential::World)
+                self.get_element_position(element, Referential::World, self.selection_mode)
             } else {
                 None
             }
@@ -701,11 +724,15 @@ impl Data {
         }
     }
 
-    pub fn element_to_selection(&self, element: &SceneElement) -> Selection {
+    fn element_to_selection(
+        &self,
+        element: &SceneElement,
+        selection_mode: SelectionMode,
+    ) -> Selection {
         match element {
             SceneElement::DesignElement(design_id, element_id) => {
-                let group_id = self.get_group_identifier(*design_id, *element_id);
-                match self.selection_mode {
+                let group_id = self.get_group_identifier(*design_id, *element_id, selection_mode);
+                match selection_mode {
                     SelectionMode::Design => Selection::Design(*design_id),
                     SelectionMode::Strand => Selection::Strand(*design_id, group_id),
                     SelectionMode::Nucleotide => {
@@ -739,7 +766,7 @@ impl Data {
     /// Set the set of candidates to a given nucleotide
     pub fn set_candidate(&mut self, element: Option<SceneElement>) {
         let future_candidates = if let Some(element) = element.as_ref() {
-            let selection = self.element_to_selection(element);
+            let selection = self.element_to_selection(element, self.selection_mode);
             if selection != Selection::Nothing {
                 vec![selection]
             } else {
@@ -1030,26 +1057,24 @@ impl Data {
     }
 
     pub fn toggle_widget_basis(&mut self) {
-        if let Some(w) = self.widget_basis.as_mut() {
-            w.toggle()
-        }
+        self.widget_basis.toggle()
     }
 
     pub fn get_widget_basis(&self) -> Option<Rotor3> {
-        self.widget_basis.as_ref().and_then(|basis| match basis {
-            //WidgetBasis::World => Rotor3::identity(),
-            WidgetBasis::World => self.get_selected_basis(),
-            WidgetBasis::Object => self.get_selected_basis(),
+        self.get_selected_basis().map(|b| {
+            if let WidgetBasis::Object = self.widget_basis {
+                b
+            } else {
+                Rotor3::identity()
+            }
         })
     }
 
     fn get_selected_basis(&self) -> Option<Rotor3> {
         match self.selected_element.as_ref() {
-            Some(SceneElement::DesignElement(d_id, _)) => match self.selection_mode {
-                SelectionMode::Nucleotide
-                | SelectionMode::Design
-                | SelectionMode::Strand
-                | SelectionMode::Grid => Some(self.designs[*d_id as usize].get_basis()),
+            Some(SceneElement::DesignElement(d_id, _)) => match self.get_sub_selection_mode() {
+                SelectionMode::Nucleotide | SelectionMode::Design | SelectionMode::Strand => None,
+                SelectionMode::Grid => Some(self.designs[*d_id as usize].get_basis()),
                 SelectionMode::Helix => {
                     let h_id = self.get_selected_group();
                     self.designs[*d_id as usize].get_helix_basis(h_id)
@@ -1057,11 +1082,11 @@ impl Data {
             },
             Some(SceneElement::PhantomElement(phantom_element)) => {
                 let d_id = phantom_element.design_id;
-                match self.selection_mode {
-                    SelectionMode::Nucleotide
-                    | SelectionMode::Design
-                    | SelectionMode::Strand
-                    | SelectionMode::Grid => Some(self.designs[d_id as usize].get_basis()),
+                match self.get_sub_selection_mode() {
+                    SelectionMode::Nucleotide | SelectionMode::Design | SelectionMode::Strand => {
+                        None
+                    }
+                    SelectionMode::Grid => Some(self.designs[d_id as usize].get_basis()),
                     SelectionMode::Helix => {
                         let h_id = phantom_element.helix_id;
                         self.designs[d_id as usize].get_helix_basis(h_id)
@@ -1077,7 +1102,7 @@ impl Data {
 
     pub fn selection_can_rotate_freely(&self) -> bool {
         match self.selected_element.as_ref() {
-            Some(SceneElement::DesignElement(d_id, _)) => match self.selection_mode {
+            Some(SceneElement::DesignElement(d_id, _)) => match self.get_sub_selection_mode() {
                 SelectionMode::Nucleotide
                 | SelectionMode::Design
                 | SelectionMode::Strand
@@ -1089,7 +1114,7 @@ impl Data {
             },
             Some(SceneElement::PhantomElement(phantom_element)) => {
                 let d_id = phantom_element.design_id;
-                match self.selection_mode {
+                match self.get_sub_selection_mode() {
                     SelectionMode::Nucleotide
                     | SelectionMode::Design
                     | SelectionMode::Strand
@@ -1218,8 +1243,17 @@ impl Data {
         self.free_xover_update = true;
         let nucl = self.element_to_nucl(&element, true);
         if let Some(free_xover) = self.free_xover.as_mut() {
+            let origin_helix = if let FreeXoverEnd::Nucl(nucl) = free_xover.source {
+                Some(nucl.helix)
+            } else {
+                None
+            };
             if let Some((nucl, _)) = nucl.filter(|n| n.1 == free_xover.design_id) {
-                free_xover.target = FreeXoverEnd::Nucl(nucl);
+                if Some(nucl.helix) != origin_helix {
+                    free_xover.target = FreeXoverEnd::Nucl(nucl);
+                } else {
+                    free_xover.target = FreeXoverEnd::Free(position);
+                }
             } else {
                 free_xover.target = FreeXoverEnd::Free(position);
             }
@@ -1229,6 +1263,22 @@ impl Data {
     pub fn end_free_xover(&mut self) {
         self.free_xover_update = true;
         self.free_xover = None;
+    }
+
+    fn get_sub_selection_mode(&self) -> SelectionMode {
+        if self.selection_mode == SelectionMode::Nucleotide {
+            self.sub_selection_mode
+        } else {
+            self.selection_mode
+        }
+    }
+
+    pub fn get_selected_element(&self) -> Selection {
+        if let Some(selection) = self.selected_element.as_ref() {
+            self.element_to_selection(selection, self.get_sub_selection_mode())
+        } else {
+            Selection::Nothing
+        }
     }
 }
 
@@ -1280,4 +1330,13 @@ struct FreeXover {
 enum FreeXoverEnd {
     Free(Vec3),
     Nucl(Nucl),
+}
+
+fn toggle_selection(mode: SelectionMode) -> SelectionMode {
+    match mode {
+        SelectionMode::Nucleotide => SelectionMode::Strand,
+        SelectionMode::Strand => SelectionMode::Helix,
+        SelectionMode::Helix => SelectionMode::Nucleotide,
+        mode => mode,
+    }
 }

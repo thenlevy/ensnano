@@ -12,9 +12,9 @@ use crate::{DrawArea, PhySize, WindowEvent};
 use design::{Hyperboloid, Nucl};
 use instance::Instance;
 use mediator::{
-    ActionMode, AppId, Application, CreateGrid, DesignViewRotation, DesignViewTranslation,
-    GridHelixCreation, GridRotation, GridTranslation, HelixRotation, HelixTranslation, MediatorPtr,
-    NewHyperboloid, Notification, Operation, SelectionMode, StrandConstruction,
+    ActionMode, AppId, Application, CreateGrid, DesignViewTranslation, GridHelixCreation,
+    GridRotation, GridTranslation, HelixRotation, HelixTranslation, MediatorPtr, NewHyperboloid,
+    Notification, Operation, Selection, SelectionMode, StrandConstruction,
 };
 use utils::instance;
 use wgpu::{Device, Queue};
@@ -56,7 +56,6 @@ pub struct Scene {
     controller: Controller,
     /// The limits of the area on which the scene is displayed
     area: DrawArea,
-    pixel_to_check: Option<PhysicalPosition<f64>>,
     mediator: MediatorPtr,
     element_selector: ElementSelector,
     pasting: bool,
@@ -106,7 +105,6 @@ impl Scene {
             update,
             controller,
             area,
-            pixel_to_check: None,
             mediator,
             element_selector,
             pasting: false,
@@ -150,7 +148,6 @@ impl Scene {
                 self.controller.translate_camera(dx, dy);
                 self.notify(SceneNotification::CameraMoved);
             }
-            Consequence::PixelSelected(clicked) => self.click_on(clicked),
             Consequence::XoverAtempt(source, target, d_id) => {
                 self.attempt_xover(source, target, d_id);
                 self.data.borrow_mut().end_free_xover();
@@ -195,7 +192,6 @@ impl Scene {
                 self.controller.swing(-x, -y);
                 self.notify(SceneNotification::CameraMoved);
             }
-            Consequence::CursorMoved(clicked) => self.pixel_to_check = Some(clicked),
             Consequence::ToggleWidget => self.data.borrow_mut().toggle_widget_basis(),
             Consequence::BuildEnded(d_id, id) => {
                 self.select(Some(SceneElement::DesignElement(d_id, id)))
@@ -265,6 +261,7 @@ impl Scene {
         self.mediator.lock().unwrap().suspend_op();
     }
 
+    /*
     fn click_on(&mut self, clicked_pixel: PhysicalPosition<f64>) {
         let action_mode = self.data.borrow().get_action_mode();
         if let ActionMode::BuildHelix { position, length } = action_mode {
@@ -284,7 +281,7 @@ impl Scene {
             };
             self.select(element);
         }
-    }
+    }*/
 
     /// If a nucleotide is selected, and the clicked_pixel corresponds to an other nucleotide,
     /// request a cross-over between the two nucleotides.
@@ -357,6 +354,7 @@ impl Scene {
         self.update_handle();
     }
 
+    /*
     fn check_on(&mut self, clicked_pixel: PhysicalPosition<f64>) {
         let element = if self.data.borrow().selection_mode == SelectionMode::Grid {
             let widget = self
@@ -396,7 +394,7 @@ impl Scene {
             None
         };
         self.view.borrow_mut().set_widget_candidate(widget);
-    }
+    }*/
 
     fn set_candidate(&mut self, element: Option<SceneElement>) {
         self.data.borrow_mut().set_candidate(element);
@@ -409,7 +407,6 @@ impl Scene {
     }
 
     fn translate_selected_design(&mut self, translation: Vec3) {
-        let design_id = *self.get_selected_designs().iter().next().unwrap() as usize;
         let rotor = self.data.borrow().get_widget_basis();
         self.view.borrow_mut().translate_widgets(translation);
         if rotor.is_none() {
@@ -419,12 +416,11 @@ impl Scene {
         let right = Vec3::unit_x().rotated_by(rotor);
         let top = Vec3::unit_y().rotated_by(rotor);
         let dir = Vec3::unit_z().rotated_by(rotor);
-        let selection_mode = self.data.borrow().selection_mode;
 
-        let translation_op: Arc<dyn Operation> = match selection_mode {
-            SelectionMode::Grid => Arc::new(GridTranslation {
-                design_id,
-                grid_id: self.data.borrow().get_selected_group() as usize,
+        let translation_op: Arc<dyn Operation> = match self.data.borrow().get_selected_element() {
+            Selection::Grid(d_id, g_id) => Arc::new(GridTranslation {
+                design_id: d_id as usize,
+                grid_id: g_id as usize,
                 right: Vec3::unit_x().rotated_by(rotor),
                 top: Vec3::unit_y().rotated_by(rotor),
                 dir: Vec3::unit_z().rotated_by(rotor),
@@ -432,9 +428,9 @@ impl Scene {
                 y: translation.dot(top),
                 z: translation.dot(dir),
             }),
-            SelectionMode::Helix => Arc::new(HelixTranslation {
-                design_id,
-                helix_id: self.data.borrow().get_selected_group() as usize,
+            Selection::Helix(d_id, h_id) => Arc::new(HelixTranslation {
+                design_id: d_id as usize,
+                helix_id: h_id as usize,
                 right: Vec3::unit_x().rotated_by(rotor),
                 top: Vec3::unit_y().rotated_by(rotor),
                 dir: Vec3::unit_z().rotated_by(rotor),
@@ -443,15 +439,7 @@ impl Scene {
                 z: translation.dot(dir),
                 snap: true,
             }),
-            _ => Arc::new(DesignViewTranslation {
-                design_id,
-                right: Vec3::unit_x().rotated_by(rotor),
-                top: Vec3::unit_y().rotated_by(rotor),
-                dir: Vec3::unit_z().rotated_by(rotor),
-                x: translation.dot(right),
-                y: translation.dot(top),
-                z: translation.dot(dir),
-            }),
+            _ => return,
         };
 
         self.mediator
@@ -461,39 +449,33 @@ impl Scene {
     }
 
     fn rotate_selected_desgin(&mut self, rotation: Rotor3, origin: Vec3, positive: bool) {
-        let design_id = *self.get_selected_designs().iter().next().unwrap() as usize;
         let (mut angle, mut plane) = rotation.into_angle_plane();
         if !positive {
             angle *= -1.;
             plane *= -1.;
         }
-        let rotation: Arc<dyn Operation> = match self.data.borrow().selection_mode {
-            SelectionMode::Helix => {
-                let helix_id = self.data.borrow().get_selected_group() as usize;
+        let rotation: Arc<dyn Operation> = match self.data.borrow().get_selected_element() {
+            Selection::Helix(d_id, h_id) => {
+                let helix_id = h_id as usize;
                 Arc::new(HelixRotation {
                     helix_id,
                     angle,
                     plane,
                     origin,
-                    design_id,
+                    design_id: d_id as usize,
                 })
             }
-            SelectionMode::Grid => {
-                let grid_id = self.data.borrow().get_selected_group() as usize;
+            Selection::Grid(d_id, g_id) => {
+                let grid_id = g_id as usize;
                 Arc::new(GridRotation {
                     grid_id,
                     angle,
                     plane,
                     origin,
-                    design_id,
+                    design_id: d_id as usize,
                 })
             }
-            _ => Arc::new(DesignViewRotation {
-                angle,
-                plane,
-                origin,
-                design_id,
-            }),
+            _ => return,
         };
 
         self.mediator.lock().unwrap().update_opperation(rotation);
@@ -516,9 +498,6 @@ impl Scene {
 
     fn need_redraw(&mut self, dt: Duration) -> bool {
         self.check_timers();
-        if let Some(pixel) = self.pixel_to_check.take() {
-            self.check_on(pixel)
-        }
         if self.controller.camera_is_moving() {
             self.notify(SceneNotification::CameraMoved);
         }
