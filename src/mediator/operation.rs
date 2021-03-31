@@ -379,7 +379,7 @@ pub struct HelixTranslation {
     pub x: f32,
     pub y: f32,
     pub z: f32,
-    pub reversed: bool,
+    pub snap: bool,
 }
 
 impl Operation for HelixTranslation {
@@ -429,7 +429,6 @@ impl Operation for HelixTranslation {
             x: -self.x,
             y: -self.y,
             z: -self.z,
-            reversed: !self.reversed,
             ..*self
         })
     }
@@ -438,7 +437,7 @@ impl Operation for HelixTranslation {
         let translation = self.x * self.right + self.y * self.top + self.z * self.dir;
         AppNotification::Translation(DesignTranslation {
             translation,
-            target: IsometryTarget::Helix(self.helix_id as u32, !self.reversed),
+            target: IsometryTarget::Helix(self.helix_id as u32, self.snap),
         })
     }
 

@@ -47,6 +47,17 @@ pub enum HandleDir {
     Dir,
 }
 
+impl HandleDir {
+    pub fn from_widget_id(widget_id: u32) -> Self {
+        match widget_id {
+            RIGHT_HANDLE_ID => Self::Right,
+            UP_HANDLE_ID => Self::Up,
+            DIR_HANDLE_ID => Self::Dir,
+            _ => unreachable!("from widget id"),
+        }
+    }
+}
+
 pub struct HandlesDrawer {
     descriptor: Option<HandlesDescriptor>,
     handles: Option<[Handle; 3]>,

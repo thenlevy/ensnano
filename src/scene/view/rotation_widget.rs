@@ -13,6 +13,17 @@ pub enum RotationMode {
     Front,
 }
 
+impl RotationMode {
+    pub fn from_widget_id(widget_id: u32) -> Self {
+        match widget_id {
+            RIGHT_CIRCLE_ID => Self::Right,
+            UP_CIRCLE_ID => Self::Up,
+            FRONT_CIRCLE_ID => Self::Front,
+            _ => unreachable!("from widget id"),
+        }
+    }
+}
+
 pub struct RotationWidget {
     descriptor: Option<RotationWidgetDescriptor>,
     sphere: Option<Sphere>,

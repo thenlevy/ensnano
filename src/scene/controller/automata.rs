@@ -94,13 +94,35 @@ impl ControllerState for NormalState {
                 ..
             } => {
                 let element = pixel_reader.set_selected_id(position);
-                Transition {
-                    new_state: Some(Box::new(Selecting {
-                        element,
-                        clicked_position: position,
-                        mouse_position: position,
-                    })),
-                    consequences: Consequence::Nothing,
+                match element {
+                    Some(SceneElement::WidgetElement(widget_id)) => {
+                        let mouse_x = position.x / controller.area_size.width as f64;
+                        let mouse_y = position.y / controller.area_size.height as f64;
+                        match widget_id {
+                            UP_HANDLE_ID | DIR_HANDLE_ID | RIGHT_HANDLE_ID => Transition {
+                                new_state: Some(Box::new(TranslatingWidget {
+                                    direction: HandleDir::from_widget_id(widget_id),
+                                })),
+                                consequences: Consequence::InitTranslation(mouse_x, mouse_y),
+                            },
+                            RIGHT_CIRCLE_ID | FRONT_CIRCLE_ID | UP_CIRCLE_ID => {
+                                // Rotation state
+                                unimplemented!()
+                            }
+                            _ => {
+                                println!("WARNING UNEXPECTED WIDGET ID");
+                                Transition::nothing()
+                            }
+                        }
+                    }
+                    _ => Transition {
+                        new_state: Some(Box::new(Selecting {
+                            element,
+                            clicked_position: position,
+                            mouse_position: position,
+                        })),
+                        consequences: Consequence::Nothing,
+                    },
                 }
             }
             WindowEvent::MouseInput {
@@ -341,6 +363,44 @@ impl ControllerState for Selecting {
                 })),
                 consequences: Consequence::ElementSelected(self.element),
             },
+            _ => Transition::nothing(),
+        }
+    }
+}
+
+struct TranslatingWidget {
+    direction: HandleDir,
+}
+
+impl ControllerState for TranslatingWidget {
+    fn display(&self) -> Cow<'static, str> {
+        "Translating widget".into()
+    }
+
+    fn input(
+        &mut self,
+        event: &WindowEvent,
+        position: PhysicalPosition<f64>,
+        controller: &Controller,
+        _pixel_reader: &mut ElementSelector,
+    ) -> Transition {
+        match event {
+            WindowEvent::MouseInput {
+                button: MouseButton::Left,
+                state: ElementState::Released,
+                ..
+            } => Transition {
+                new_state: Some(Box::new(NormalState {
+                    pasting: controller.pasting,
+                    mouse_position: position,
+                })),
+                consequences: Consequence::MovementEnded,
+            },
+            WindowEvent::CursorMoved { .. } => {
+                let mouse_x = position.x / controller.area_size.width as f64;
+                let mouse_y = position.y / controller.area_size.height as f64;
+                Transition::consequence(Consequence::Translation(self.direction, mouse_x, mouse_y))
+            }
             _ => Transition::nothing(),
         }
     }

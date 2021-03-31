@@ -426,7 +426,7 @@ impl Scene {
                 x: translation.dot(right),
                 y: translation.dot(top),
                 z: translation.dot(dir),
-                reversed: false,
+                snap: true,
             }),
             _ => Arc::new(DesignViewTranslation {
                 design_id,

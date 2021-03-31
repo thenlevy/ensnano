@@ -874,13 +874,14 @@ impl Mediator {
         self.suspend_op();
         self.finish_pending();
         if let Some(op) = self.undo_stack.pop() {
+            println!("effect {:?}", op.effect());
             let rev_op = op.reverse();
             let target = {
                 let mut set = HashSet::new();
                 set.insert(rev_op.target() as u32);
                 set
             };
-            println!("effet {:?}", rev_op.effect());
+            println!("reversed effect {:?}", rev_op.effect());
             self.notify_designs(&target, rev_op.effect());
             self.notify_all_designs(AppNotification::MovementEnded);
             self.redo_stack.push(rev_op);
