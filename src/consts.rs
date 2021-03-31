@@ -42,6 +42,7 @@ pub const CANDIDATE_COLOR: u32 = 0xBF_00_FF_00;
 pub const SELECTED_COLOR: u32 = 0xBF_FF_00_00;
 pub const SUGGESTION_COLOR: u32 = 0xBF_FF_00_FF;
 pub const PIVOT_SPHERE_COLOR: u32 = 0xBF_FF_FF_00;
+pub const FREE_XOVER_COLOR: u32 = 0xBF_00_00_FF;
 
 pub const MAX_ZOOM_2D: f32 = 50.0;
 

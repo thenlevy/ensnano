@@ -1,6 +1,8 @@
 use super::*;
+use crate::design::Nucl;
 use std::borrow::Cow;
 use std::cell::RefCell;
+use std::time::Instant;
 
 pub(super) type State = RefCell<Box<dyn ControllerState>>;
 
@@ -52,7 +54,7 @@ pub(super) trait ControllerState {
         TransistionConsequence::Nothing
     }
 
-    fn check_timers(&mut self) -> Transition {
+    fn check_timers(&mut self, _controller: &Controller) -> Transition {
         Transition::nothing()
     }
 }
@@ -122,6 +124,7 @@ impl ControllerState for NormalState {
                             element,
                             clicked_position: position,
                             mouse_position: position,
+                            click_date: Instant::now(),
                         })),
                         consequences: Consequence::Nothing,
                     },
@@ -325,11 +328,53 @@ struct Selecting {
     mouse_position: PhysicalPosition<f64>,
     clicked_position: PhysicalPosition<f64>,
     element: Option<SceneElement>,
+    click_date: Instant,
 }
 
 impl ControllerState for Selecting {
     fn display(&self) -> Cow<'static, str> {
         "Selecting".into()
+    }
+
+    fn check_timers(&mut self, controller: &Controller) -> Transition {
+        let now = Instant::now();
+        if (now - self.click_date).as_millis() > 1000 {
+            if let Some((nucl, d_id)) = controller
+                .data
+                .borrow()
+                .element_to_nucl(&self.element, true)
+            {
+                let position_nucl = controller
+                    .data
+                    .borrow()
+                    .get_nucl_position(nucl, d_id)
+                    .expect("position nucl");
+                let mouse_x = self.mouse_position.x / controller.area_size.width as f64;
+                let mouse_y = self.mouse_position.y / controller.area_size.height as f64;
+                let projected_pos =
+                    controller
+                        .camera_controller
+                        .get_projection(position_nucl, mouse_x, mouse_y);
+
+                Transition {
+                    new_state: Some(Box::new(Xovering {
+                        source_element: self.element,
+                        source_position: position_nucl,
+                    })),
+                    consequences: Consequence::InitFreeXover(nucl, d_id, projected_pos),
+                }
+            } else {
+                Transition {
+                    new_state: Some(Box::new(NormalState {
+                        pasting: controller.pasting,
+                        mouse_position: self.mouse_position,
+                    })),
+                    consequences: Consequence::Nothing,
+                }
+            }
+        } else {
+            Transition::nothing()
+        }
     }
 
     fn input(
@@ -512,6 +557,68 @@ impl ControllerState for BuildingStrand {
                     Consequence::Nothing
                 };
                 Transition::consequence(consequence)
+            }
+            _ => Transition::nothing(),
+        }
+    }
+}
+
+struct Xovering {
+    source_element: Option<SceneElement>,
+    source_position: Vec3,
+}
+
+impl ControllerState for Xovering {
+    fn display(&self) -> Cow<'static, str> {
+        "Building Strand".into()
+    }
+
+    fn input(
+        &mut self,
+        event: &WindowEvent,
+        position: PhysicalPosition<f64>,
+        controller: &Controller,
+        pixel_reader: &mut ElementSelector,
+    ) -> Transition {
+        match event {
+            WindowEvent::MouseInput {
+                button: MouseButton::Left,
+                state: ElementState::Released,
+                ..
+            } => {
+                let element = pixel_reader.set_selected_id(position);
+                if let Some((source, target, design_id)) = controller
+                    .data
+                    .borrow()
+                    .attempt_xover(&self.source_element, &element)
+                {
+                    Transition {
+                        new_state: Some(Box::new(NormalState {
+                            pasting: controller.pasting,
+                            mouse_position: position,
+                        })),
+                        consequences: Consequence::XoverAtempt(source, target, design_id),
+                    }
+                } else {
+                    Transition {
+                        new_state: Some(Box::new(NormalState {
+                            pasting: controller.pasting,
+                            mouse_position: position,
+                        })),
+                        consequences: Consequence::EndFreeXover,
+                    }
+                }
+            }
+            WindowEvent::CursorMoved { .. } => {
+                let element = pixel_reader.set_selected_id(position);
+                let mouse_x = position.x / controller.area_size.width as f64;
+                let mouse_y = position.y / controller.area_size.height as f64;
+                let projected_pos = controller.camera_controller.get_projection(
+                    self.source_position,
+                    mouse_x,
+                    mouse_y,
+                );
+                Transition::consequence(Consequence::MoveFreeXover(element, projected_pos))
             }
             _ => Transition::nothing(),
         }

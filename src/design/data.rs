@@ -2430,6 +2430,11 @@ impl Data {
             "source strand {:?}, target strand {:?}",
             source_id, target_id
         );
+        println!(
+            "source end {:?}, target end {:?}",
+            source_strand_end.to_opt(),
+            target_strand_end.to_opt()
+        );
         if let (Some(source_id), Some(target_id), Some(source), Some(target)) =
             (source_id, target_id, source, target)
         {

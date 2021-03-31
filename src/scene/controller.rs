@@ -3,7 +3,7 @@ use super::{
     WidgetRotationMode as RotationMode,
 };
 use crate::consts::*;
-use crate::design::StrandBuilder;
+use crate::design::{Nucl, StrandBuilder};
 use crate::{PhySize, PhysicalPosition, WindowEvent};
 use iced_winit::winit::event::*;
 use std::cell::RefCell;
@@ -81,7 +81,7 @@ pub enum Consequence {
     CameraMoved,
     CameraTranslated(f64, f64),
     PixelSelected(PhysicalPosition<f64>),
-    XoverAtempt(PhysicalPosition<f64>),
+    XoverAtempt(Nucl, Nucl, usize),
     Translation(HandleDir, f64, f64),
     MovementEnded,
     Rotation(RotationMode, f64, f64),
@@ -98,6 +98,9 @@ pub enum Consequence {
     Candidate(Option<super::SceneElement>),
     PivotElement(Option<super::SceneElement>),
     ElementSelected(Option<super::SceneElement>),
+    InitFreeXover(Nucl, usize, Vec3),
+    MoveFreeXover(Option<super::SceneElement>, Vec3),
+    EndFreeXover,
 }
 
 enum TransistionConsequence {
@@ -147,6 +150,19 @@ impl Controller {
     /// Keep the camera orientation and make it face a given point.
     pub fn center_camera(&mut self, center: Vec3) {
         self.camera_controller.center_camera(center)
+    }
+
+    pub fn check_timers(&mut self) -> Consequence {
+        let transition = self.state.borrow_mut().check_timers(&self);
+        if let Some(state) = transition.new_state {
+            println!("{}", state.display());
+            let csq = self.state.borrow().transition_from(&self);
+            self.transition_consequence(csq);
+            self.state = RefCell::new(state);
+            let csq = self.state.borrow().transition_to(&self);
+            self.transition_consequence(csq);
+        }
+        transition.consequences
     }
 
     pub fn input(
@@ -462,6 +478,7 @@ impl Controller {
         self.camera_controller.end_movement();
     }
 
+    /*
     fn left_click_camera(&mut self, state: &ElementState, ctrl: bool) -> Consequence {
         self.camera_controller.process_click(state);
         let mut released = false;
@@ -491,6 +508,7 @@ impl Controller {
             Consequence::Nothing
         }
     }
+    */
 
     fn logical_mouse_position(&self) -> (f64, f64) {
         (

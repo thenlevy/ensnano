@@ -48,6 +48,8 @@ pub struct Data {
     pivot_element: Option<SceneElement>,
     pivot_update: bool,
     pivot_position: Option<Vec3>,
+    free_xover: Option<FreeXover>,
+    free_xover_update: bool,
 }
 
 impl Data {
@@ -70,6 +72,8 @@ impl Data {
             pivot_element: None,
             pivot_update: false,
             pivot_position: None,
+            free_xover: None,
+            free_xover_update: false,
         }
     }
 
@@ -115,6 +119,10 @@ impl Data {
         if self.pivot_update {
             self.update_pivot();
             self.pivot_update = false;
+        }
+        if self.free_xover_update {
+            self.update_free_xover();
+            self.free_xover_update = false;
         }
 
         if self.matrices_update {
@@ -533,23 +541,26 @@ impl Data {
         self.update_selected_position()
     }
 
-    /// If self.selected[0] is some nucleotide, target is some nucleotide and both nucleotides are
+    /// If source is some nucleotide, target is some nucleotide and both nucleotides are
     /// on the same design, return the pair of nucleotides. Otherwise return None
-    pub fn attempt_xover(&self, target: Option<SceneElement>) -> Option<(Nucl, Nucl, usize)> {
+    pub fn attempt_xover(
+        &self,
+        source: &Option<SceneElement>,
+        target: &Option<SceneElement>,
+    ) -> Option<(Nucl, Nucl, usize)> {
         let design_id;
-        let source_nucl =
-            if let Some(SceneElement::DesignElement(d_id, e_id)) = self.selected_element.as_ref() {
-                design_id = *d_id;
-                self.designs[*d_id as usize].get_nucl_relax(*e_id)
-            } else {
-                design_id = 0;
-                None
-            }?;
+        let source_nucl = if let Some(SceneElement::DesignElement(d_id, e_id)) = source {
+            design_id = *d_id;
+            self.designs[*d_id as usize].get_nucl_relax(*e_id)
+        } else {
+            design_id = 0;
+            None
+        }?;
         let target_nucl = if let Some(SceneElement::DesignElement(d_id, e_id)) = target {
-            if design_id != d_id {
+            if design_id != *d_id {
                 return None;
             }
-            self.designs[design_id as usize].get_nucl_relax(e_id)
+            self.designs[design_id as usize].get_nucl_relax(*e_id)
         } else {
             None
         }?;
@@ -800,6 +811,50 @@ impl Data {
             .update(ViewUpdate::RawDna(Mesh::PivotSphere, Rc::new(spheres)));
     }
 
+    fn update_free_xover(&mut self) {
+        let mut spheres = vec![];
+        let mut tubes = vec![];
+        let mut pos1 = None;
+        let mut pos2 = None;
+        if let Some(xover) = self.free_xover.as_ref() {
+            if let Some((pos, sphere)) = self.convert_free_end(&xover.source, xover.design_id) {
+                pos1 = Some(pos);
+                if let Some(s) = sphere {
+                    spheres.push(s);
+                }
+            }
+            if let Some((pos, sphere)) = self.convert_free_end(&xover.target, xover.design_id) {
+                pos2 = Some(pos);
+                if let Some(s) = sphere {
+                    spheres.push(s);
+                }
+            }
+            if let Some((pos1, pos2)) = pos1.zip(pos2) {
+                tubes.push(Design3D::free_xover_tube(pos1, pos2))
+            }
+        }
+        self.view
+            .borrow_mut()
+            .update(ViewUpdate::RawDna(Mesh::XoverSphere, Rc::new(spheres)));
+        self.view
+            .borrow_mut()
+            .update(ViewUpdate::RawDna(Mesh::XoverTube, Rc::new(tubes)));
+    }
+
+    fn convert_free_end(
+        &self,
+        free_end: &FreeXoverEnd,
+        design_id: usize,
+    ) -> Option<(Vec3, Option<RawDnaInstance>)> {
+        match free_end {
+            FreeXoverEnd::Nucl(nucl) => {
+                let position = self.get_nucl_position(*nucl, design_id)?;
+                Some((position, Some(Design3D::free_xover_sphere(position))))
+            }
+            FreeXoverEnd::Free(position) => Some((*position, None)),
+        }
+    }
+
     /// This function must be called when the designs have been modified
     pub fn notify_instance_update(&mut self) {
         self.candidates = vec![];
@@ -843,6 +898,7 @@ impl Data {
             }
         }
         self.update_pivot_position();
+        self.update_free_xover();
         self.view
             .borrow_mut()
             .update(ViewUpdate::RawDna(Mesh::Tube, Rc::new(tubes)));
@@ -1103,6 +1159,28 @@ impl Data {
         }
     }
 
+    pub fn element_to_nucl(
+        &self,
+        element: &Option<SceneElement>,
+        non_phantom: bool,
+    ) -> Option<(Nucl, usize)> {
+        match element {
+            Some(SceneElement::DesignElement(d_id, n_id)) => self.designs[*d_id as usize]
+                .get_nucl(*n_id)
+                .zip(Some(*d_id as usize)),
+            Some(SceneElement::PhantomElement(pe)) => {
+                let nucl = pe.to_nucl();
+                if non_phantom {
+                    Some((nucl, pe.design_id as usize))
+                        .filter(|n| self.designs[pe.design_id as usize].has_nucl(&n.0))
+                } else {
+                    Some((nucl, pe.design_id as usize))
+                }
+            }
+            _ => None,
+        }
+    }
+
     pub fn get_nucl_position(&self, nucl: Nucl, design_id: usize) -> Option<Vec3> {
         let design = self.designs.get(design_id)?;
         design.get_nucl_position(nucl)
@@ -1125,6 +1203,32 @@ impl Data {
             Some(SceneElement::PhantomElement(pe)) => Some(pe.to_nucl()),
             _ => None,
         }
+    }
+
+    pub fn init_free_xover(&mut self, nucl: Nucl, position: Vec3, design_id: usize) {
+        self.free_xover_update = true;
+        self.free_xover = Some(FreeXover {
+            source: FreeXoverEnd::Nucl(nucl),
+            target: FreeXoverEnd::Free(position),
+            design_id,
+        });
+    }
+
+    pub fn update_free_xover_target(&mut self, element: Option<SceneElement>, position: Vec3) {
+        self.free_xover_update = true;
+        let nucl = self.element_to_nucl(&element, true);
+        if let Some(free_xover) = self.free_xover.as_mut() {
+            if let Some((nucl, _)) = nucl.filter(|n| n.1 == free_xover.design_id) {
+                free_xover.target = FreeXoverEnd::Nucl(nucl);
+            } else {
+                free_xover.target = FreeXoverEnd::Free(position);
+            }
+        }
+    }
+
+    pub fn end_free_xover(&mut self) {
+        self.free_xover_update = true;
+        self.free_xover = None;
     }
 }
 
@@ -1165,4 +1269,15 @@ impl WidgetBasis {
             WidgetBasis::Object => *self = WidgetBasis::World,
         }
     }
+}
+
+struct FreeXover {
+    source: FreeXoverEnd,
+    target: FreeXoverEnd,
+    design_id: usize,
+}
+
+enum FreeXoverEnd {
+    Free(Vec3),
+    Nucl(Nucl),
 }

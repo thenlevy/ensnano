@@ -771,6 +771,28 @@ impl Design3D {
         }
         .to_raw_instance()
     }
+
+    pub fn free_xover_sphere(position: Vec3) -> RawDnaInstance {
+        SphereInstance {
+            position,
+            id: 0,
+            radius: 1.1 * SELECT_SCALE_FACTOR,
+            color: Instance::color_from_au32(FREE_XOVER_COLOR),
+        }
+        .to_raw_instance()
+    }
+
+    pub fn free_xover_tube(pos1: Vec3, pos2: Vec3) -> RawDnaInstance {
+        create_dna_bound(pos1, pos2, FREE_XOVER_COLOR, 0, true).to_raw_instance()
+    }
+
+    pub fn has_nucl(&self, nucl: &Nucl) -> bool {
+        self.design
+            .read()
+            .unwrap()
+            .get_identifier_nucl(nucl)
+            .is_some()
+    }
 }
 
 fn create_dna_bound(

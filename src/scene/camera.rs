@@ -228,6 +228,22 @@ impl CameraController {
         self.pivot_point = point
     }
 
+    pub fn get_projection(&self, origin: Vec3, x: f64, y: f64) -> Vec3 {
+        let plane = Plane {
+            origin,
+            normal: (self.camera.borrow().position - origin),
+        };
+        maths::unproject_point_on_plane(
+            plane.origin,
+            plane.normal,
+            self.camera.clone(),
+            self.projection.clone(),
+            x as f32,
+            y as f32,
+        )
+        .unwrap_or(origin)
+    }
+
     pub fn process_mouse(&mut self, mouse_dx: f64, mouse_dy: f64) {
         self.mouse_horizontal = -mouse_dx as f32;
         self.mouse_vertical = -mouse_dy as f32;

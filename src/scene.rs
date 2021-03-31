@@ -9,7 +9,7 @@ use ultraviolet::{Mat4, Rotor3, Vec3};
 
 use crate::{design, mediator, utils};
 use crate::{DrawArea, PhySize, WindowEvent};
-use design::Hyperboloid;
+use design::{Hyperboloid, Nucl};
 use instance::Instance;
 use mediator::{
     ActionMode, AppId, Application, CreateGrid, DesignViewRotation, DesignViewTranslation,
@@ -134,6 +134,15 @@ impl Scene {
         let consequence = self
             .controller
             .input(event, cursor_position, &mut self.element_selector);
+        self.read_consequence(consequence);
+    }
+
+    fn check_timers(&mut self) {
+        let consequence = self.controller.check_timers();
+        self.read_consequence(consequence);
+    }
+
+    fn read_consequence(&mut self, consequence: Consequence) {
         match consequence {
             Consequence::Nothing => (),
             Consequence::CameraMoved => self.notify(SceneNotification::CameraMoved),
@@ -142,7 +151,10 @@ impl Scene {
                 self.notify(SceneNotification::CameraMoved);
             }
             Consequence::PixelSelected(clicked) => self.click_on(clicked),
-            Consequence::XoverAtempt(clicked) => self.attempt_xover(clicked),
+            Consequence::XoverAtempt(source, target, d_id) => {
+                self.attempt_xover(source, target, d_id);
+                self.data.borrow_mut().end_free_xover();
+            }
             Consequence::Translation(dir, x_coord, y_coord) => {
                 let translation = self.view.borrow().compute_translation_handle(
                     x_coord as f32,
@@ -204,6 +216,14 @@ impl Scene {
             Consequence::Candidate(element) => self.set_candidate(element),
             Consequence::PivotElement(element) => self.data.borrow_mut().set_pivot_element(element),
             Consequence::ElementSelected(element) => self.select(element),
+            Consequence::InitFreeXover(nucl, d_id, position) => {
+                self.data.borrow_mut().init_free_xover(nucl, position, d_id)
+            }
+            Consequence::MoveFreeXover(element, position) => self
+                .data
+                .borrow_mut()
+                .update_free_xover_target(element, position),
+            Consequence::EndFreeXover => self.data.borrow_mut().end_free_xover(),
         };
     }
 
@@ -268,16 +288,11 @@ impl Scene {
 
     /// If a nucleotide is selected, and the clicked_pixel corresponds to an other nucleotide,
     /// request a cross-over between the two nucleotides.
-    fn attempt_xover(&mut self, clicked_pixel: PhysicalPosition<f64>) {
-        let element = self.element_selector.set_selected_id(clicked_pixel);
-        let xover = self.data.borrow().attempt_xover(element);
-        println!("{:?}", xover);
-        if let Some((source, target, design_id)) = xover {
-            self.mediator
-                .lock()
-                .unwrap()
-                .xover_request(source, target, design_id)
-        }
+    fn attempt_xover(&mut self, source: Nucl, target: Nucl, design_id: usize) {
+        self.mediator
+            .lock()
+            .unwrap()
+            .xover_request(source, target, design_id)
     }
 
     fn element_center(&mut self) -> Option<SceneElement> {
@@ -500,6 +515,7 @@ impl Scene {
     }
 
     fn need_redraw(&mut self, dt: Duration) -> bool {
+        self.check_timers();
         if let Some(pixel) = self.pixel_to_check.take() {
             self.check_on(pixel)
         }
