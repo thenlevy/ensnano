@@ -1076,7 +1076,7 @@ impl Data {
     }
 
     pub fn get_strand_builder(
-        &mut self,
+        &self,
         element: Option<SceneElement>,
         stick: bool,
     ) -> Option<StrandBuilder> {

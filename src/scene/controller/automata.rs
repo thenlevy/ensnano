@@ -342,12 +342,23 @@ impl ControllerState for Selecting {
         match event {
             WindowEvent::CursorMoved { .. } => {
                 if position_difference(position, self.clicked_position) > 5. {
-                    Transition {
-                        new_state: Some(Box::new(NormalState {
-                            mouse_position: self.mouse_position,
-                            pasting: controller.pasting,
-                        })),
-                        consequences: Consequence::Nothing,
+                    if let Some(builder) = controller
+                        .data
+                        .borrow()
+                        .get_strand_builder(self.element, controller.current_modifiers.shift())
+                    {
+                        Transition {
+                            new_state: Some(Box::new(BuildingStrand { builder })),
+                            consequences: Consequence::Nothing,
+                        }
+                    } else {
+                        Transition {
+                            new_state: Some(Box::new(NormalState {
+                                mouse_position: self.mouse_position,
+                                pasting: controller.pasting,
+                            })),
+                            consequences: Consequence::Nothing,
+                        }
                     }
                 } else {
                     self.mouse_position = position;
@@ -440,6 +451,67 @@ impl ControllerState for RotatingWidget {
                 let mouse_x = position.x / controller.area_size.width as f64;
                 let mouse_y = position.y / controller.area_size.height as f64;
                 Transition::consequence(Consequence::Rotation(self.rotation_mode, mouse_x, mouse_y))
+            }
+            _ => Transition::nothing(),
+        }
+    }
+}
+
+struct BuildingStrand {
+    builder: StrandBuilder,
+}
+
+impl ControllerState for BuildingStrand {
+    fn display(&self) -> Cow<'static, str> {
+        "Building Strand".into()
+    }
+
+    fn input(
+        &mut self,
+        event: &WindowEvent,
+        position: PhysicalPosition<f64>,
+        controller: &Controller,
+        _pixel_reader: &mut ElementSelector,
+    ) -> Transition {
+        match event {
+            WindowEvent::MouseInput {
+                button: MouseButton::Left,
+                state: ElementState::Released,
+                ..
+            } => {
+                let d_id = self.builder.get_design_id();
+                let id = self.builder.get_moving_end_identifier();
+                let consequence = if let Some(id) = id {
+                    Consequence::BuildEnded(d_id, id)
+                } else {
+                    println!("Warning could not recover id of moving end");
+                    Consequence::Nothing
+                };
+                Transition {
+                    new_state: Some(Box::new(NormalState {
+                        pasting: controller.pasting,
+                        mouse_position: position,
+                    })),
+                    consequences: consequence,
+                }
+            }
+            WindowEvent::CursorMoved { .. } => {
+                let mouse_x = position.x / controller.area_size.width as f64;
+                let mouse_y = position.y / controller.area_size.height as f64;
+                let position = controller.view.borrow().compute_projection_axis(
+                    &self.builder.axis,
+                    mouse_x,
+                    mouse_y,
+                );
+                let consequence = if let Some(position) = position {
+                    controller.data.borrow_mut().reset_selection();
+                    controller.data.borrow_mut().reset_candidate();
+                    self.builder.move_to(position);
+                    Consequence::Building(Box::new(self.builder.clone()), position)
+                } else {
+                    Consequence::Nothing
+                };
+                Transition::consequence(consequence)
             }
             _ => Transition::nothing(),
         }
