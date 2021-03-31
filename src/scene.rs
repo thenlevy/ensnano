@@ -1,7 +1,6 @@
 use iced_wgpu::wgpu;
 use iced_winit::winit;
 use std::cell::RefCell;
-use std::collections::HashSet;
 use std::rc::Rc;
 use std::sync::{Arc, RwLock};
 use std::time::Duration;
@@ -215,6 +214,31 @@ impl Scene {
                 .borrow_mut()
                 .update_free_xover_target(element, position),
             Consequence::EndFreeXover => self.data.borrow_mut().end_free_xover(),
+            Consequence::BuildHelix {
+                grid_id,
+                design_id,
+                length,
+                position,
+                x,
+                y,
+            } => {
+                self.mediator
+                    .lock()
+                    .unwrap()
+                    .update_opperation(Arc::new(GridHelixCreation {
+                        grid_id,
+                        design_id: design_id as usize,
+                        x,
+                        y,
+                        length,
+                        position,
+                    }));
+                self.data
+                    .borrow_mut()
+                    .set_selection(Some(SceneElement::Grid(design_id, grid_id)));
+                self.view.borrow_mut().update(ViewUpdate::Camera);
+                self.mediator.lock().unwrap().suspend_op();
+            }
         };
     }
 

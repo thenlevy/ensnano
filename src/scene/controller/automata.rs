@@ -1,5 +1,5 @@
 use super::*;
-use crate::design::Nucl;
+use crate::mediator::ActionMode;
 use std::borrow::Cow;
 use std::cell::RefCell;
 use std::time::Instant;
@@ -76,7 +76,31 @@ impl ControllerState for NormalState {
             WindowEvent::CursorMoved { .. } => {
                 self.mouse_position = position;
                 let element = pixel_reader.set_selected_id(position);
-                Transition::consequence(Consequence::Candidate(element))
+                if controller.data.borrow().get_action_mode().is_build() {
+                    if let Some(SceneElement::Grid(d_id, _)) = element {
+                        let mouse_x = position.x / controller.area_size.width as f64;
+                        let mouse_y = position.y / controller.area_size.height as f64;
+                        let candidate = if let Some(intersection) = controller
+                            .view
+                            .borrow()
+                            .grid_intersection(mouse_x as f32, mouse_y as f32)
+                        {
+                            Some(SceneElement::GridCircle(
+                                d_id,
+                                intersection.grid_id,
+                                intersection.x,
+                                intersection.y,
+                            ))
+                        } else {
+                            element
+                        };
+                        Transition::consequence(Consequence::Candidate(candidate))
+                    } else {
+                        Transition::consequence(Consequence::Candidate(element))
+                    }
+                } else {
+                    Transition::consequence(Consequence::Candidate(element))
+                }
             }
             WindowEvent::MouseInput {
                 state: ElementState::Pressed,
@@ -97,6 +121,38 @@ impl ControllerState for NormalState {
             } => {
                 let element = pixel_reader.set_selected_id(position);
                 match element {
+                    Some(SceneElement::Grid(d_id, _)) => {
+                        if let ActionMode::BuildHelix {
+                            position: helix_position,
+                            length,
+                        } = controller.data.borrow().get_action_mode()
+                        {
+                            let mouse_x = position.x / controller.area_size.width as f64;
+                            let mouse_y = position.y / controller.area_size.height as f64;
+                            if let Some(intersection) = controller
+                                .view
+                                .borrow()
+                                .grid_intersection(mouse_x as f32, mouse_y as f32)
+                            {
+                                Transition {
+                                    new_state: Some(Box::new(BuildingHelix {
+                                        position_helix: helix_position,
+                                        length_helix: length,
+                                        x_helix: intersection.x,
+                                        y_helix: intersection.y,
+                                        grid_id: intersection.grid_id,
+                                        design_id: d_id,
+                                        clicked_position: position,
+                                    })),
+                                    consequences: Consequence::Nothing,
+                                }
+                            } else {
+                                Transition::nothing()
+                            }
+                        } else {
+                            Transition::nothing()
+                        }
+                    }
                     Some(SceneElement::WidgetElement(widget_id)) => {
                         let mouse_x = position.x / controller.area_size.width as f64;
                         let mouse_y = position.y / controller.area_size.height as f64;
@@ -620,6 +676,65 @@ impl ControllerState for Xovering {
                 );
                 Transition::consequence(Consequence::MoveFreeXover(element, projected_pos))
             }
+            _ => Transition::nothing(),
+        }
+    }
+}
+
+struct BuildingHelix {
+    design_id: u32,
+    grid_id: usize,
+    x_helix: isize,
+    y_helix: isize,
+    length_helix: usize,
+    position_helix: isize,
+    clicked_position: PhysicalPosition<f64>,
+}
+
+impl ControllerState for BuildingHelix {
+    fn display(&self) -> Cow<'static, str> {
+        "Building Helix".into()
+    }
+
+    fn input(
+        &mut self,
+        event: &WindowEvent,
+        position: PhysicalPosition<f64>,
+        controller: &Controller,
+        _pixel_reader: &mut ElementSelector,
+    ) -> Transition {
+        match event {
+            WindowEvent::CursorMoved { .. } => {
+                if position_difference(self.clicked_position, position) > 5. {
+                    Transition {
+                        new_state: Some(Box::new(NormalState {
+                            pasting: controller.pasting,
+                            mouse_position: position,
+                        })),
+                        consequences: Consequence::Nothing,
+                    }
+                } else {
+                    Transition::nothing()
+                }
+            }
+            WindowEvent::MouseInput {
+                state: ElementState::Released,
+                button: MouseButton::Left,
+                ..
+            } => Transition {
+                new_state: Some(Box::new(NormalState {
+                    pasting: controller.pasting,
+                    mouse_position: position,
+                })),
+                consequences: Consequence::BuildHelix {
+                    design_id: self.design_id,
+                    grid_id: self.grid_id,
+                    length: self.length_helix,
+                    x: self.x_helix,
+                    y: self.y_helix,
+                    position: self.position_helix,
+                },
+            },
             _ => Transition::nothing(),
         }
     }

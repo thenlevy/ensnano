@@ -89,6 +89,14 @@ pub enum Consequence {
     InitFreeXover(Nucl, usize, Vec3),
     MoveFreeXover(Option<super::SceneElement>, Vec3),
     EndFreeXover,
+    BuildHelix {
+        design_id: u32,
+        grid_id: usize,
+        position: isize,
+        length: usize,
+        x: isize,
+        y: isize,
+    },
 }
 
 enum TransistionConsequence {
