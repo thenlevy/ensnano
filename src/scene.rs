@@ -12,9 +12,9 @@ use crate::{DrawArea, PhySize, WindowEvent};
 use design::{Hyperboloid, Nucl};
 use instance::Instance;
 use mediator::{
-    ActionMode, AppId, Application, CreateGrid, DesignViewTranslation, GridHelixCreation,
-    GridRotation, GridTranslation, HelixRotation, HelixTranslation, MediatorPtr, NewHyperboloid,
-    Notification, Operation, Selection, SelectionMode, StrandConstruction,
+    ActionMode, AppId, Application, CreateGrid, GridHelixCreation, GridRotation, GridTranslation,
+    HelixRotation, HelixTranslation, MediatorPtr, NewHyperboloid, Notification, Operation,
+    Selection, SelectionMode, StrandConstruction,
 };
 use utils::instance;
 use wgpu::{Device, Queue};
@@ -119,11 +119,6 @@ impl Scene {
     /// Remove all designs
     fn clear_design(&mut self) {
         self.data.borrow_mut().clear_designs()
-    }
-
-    /// Return the list of designs selected
-    fn get_selected_designs(&self) -> HashSet<u32> {
-        self.data.borrow().get_selected_designs()
     }
 
     /// Input an event to the scene. The controller parse the event and return the consequence that
@@ -304,34 +299,6 @@ impl Scene {
             .map(|g| SceneElement::Grid(g.design_id as u32, g.grid_id));
 
         grid.or_else(move || self.element_selector.set_selected_id(clicked_pixel))
-    }
-
-    fn build_helix(
-        &mut self,
-        clicked_pixel: PhysicalPosition<f64>,
-        position: isize,
-        length: usize,
-    ) {
-        let intersection = self.view.borrow().grid_intersection(
-            clicked_pixel.x as f32 / self.area.size.width as f32,
-            clicked_pixel.y as f32 / self.area.size.height as f32,
-        );
-        if self.data.borrow_mut().build_helix(&intersection) {
-            let intersection = intersection.unwrap();
-            self.mediator
-                .lock()
-                .unwrap()
-                .update_opperation(Arc::new(GridHelixCreation {
-                    grid_id: intersection.grid_id,
-                    design_id: intersection.design_id,
-                    x: intersection.x,
-                    y: intersection.y,
-                    length,
-                    position,
-                }));
-        } else {
-            self.mediator.lock().unwrap().finish_op();
-        }
     }
 
     fn select(&mut self, element: Option<SceneElement>) {
