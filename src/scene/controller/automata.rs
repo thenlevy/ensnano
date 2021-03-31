@@ -105,10 +105,12 @@ impl ControllerState for NormalState {
                                 })),
                                 consequences: Consequence::InitTranslation(mouse_x, mouse_y),
                             },
-                            RIGHT_CIRCLE_ID | FRONT_CIRCLE_ID | UP_CIRCLE_ID => {
-                                // Rotation state
-                                unimplemented!()
-                            }
+                            RIGHT_CIRCLE_ID | FRONT_CIRCLE_ID | UP_CIRCLE_ID => Transition {
+                                new_state: Some(Box::new(RotatingWidget {
+                                    rotation_mode: RotationMode::from_widget_id(widget_id),
+                                })),
+                                consequences: Consequence::InitRotation(mouse_x, mouse_y),
+                            },
                             _ => {
                                 println!("WARNING UNEXPECTED WIDGET ID");
                                 Transition::nothing()
@@ -400,6 +402,44 @@ impl ControllerState for TranslatingWidget {
                 let mouse_x = position.x / controller.area_size.width as f64;
                 let mouse_y = position.y / controller.area_size.height as f64;
                 Transition::consequence(Consequence::Translation(self.direction, mouse_x, mouse_y))
+            }
+            _ => Transition::nothing(),
+        }
+    }
+}
+
+struct RotatingWidget {
+    rotation_mode: RotationMode,
+}
+
+impl ControllerState for RotatingWidget {
+    fn display(&self) -> Cow<'static, str> {
+        "Rotating widget".into()
+    }
+
+    fn input(
+        &mut self,
+        event: &WindowEvent,
+        position: PhysicalPosition<f64>,
+        controller: &Controller,
+        _pixel_reader: &mut ElementSelector,
+    ) -> Transition {
+        match event {
+            WindowEvent::MouseInput {
+                button: MouseButton::Left,
+                state: ElementState::Released,
+                ..
+            } => Transition {
+                new_state: Some(Box::new(NormalState {
+                    pasting: controller.pasting,
+                    mouse_position: position,
+                })),
+                consequences: Consequence::MovementEnded,
+            },
+            WindowEvent::CursorMoved { .. } => {
+                let mouse_x = position.x / controller.area_size.width as f64;
+                let mouse_y = position.y / controller.area_size.height as f64;
+                Transition::consequence(Consequence::Rotation(self.rotation_mode, mouse_x, mouse_y))
             }
             _ => Transition::nothing(),
         }

@@ -1075,14 +1075,14 @@ impl Data {
         }
     }
 
-    pub fn get_strand_builder(&mut self) -> Option<StrandBuilder> {
-        if let ActionMode::Build(b) = self.action_mode {
-            let selected = self.candidate_element.as_ref()?;
-            let design = selected.get_design()?;
-            self.designs[design as usize].get_builder(selected, b)
-        } else {
-            None
-        }
+    pub fn get_strand_builder(
+        &mut self,
+        element: Option<SceneElement>,
+        stick: bool,
+    ) -> Option<StrandBuilder> {
+        let selected = element.as_ref()?;
+        let design = selected.get_design()?;
+        self.designs[design as usize].get_builder(selected, stick)
     }
 
     pub fn build_helix(&mut self, intersection: &Option<GridIntersection>) -> bool {
