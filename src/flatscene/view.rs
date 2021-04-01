@@ -394,11 +394,14 @@ impl View {
     }
 
     /// Center the top camera on a nucleotide
-    #[allow(dead_code)] // not used for now but might be useful in the future
-    pub fn center_nucl(&mut self, nucl: FlatNucl) {
+    pub fn center_nucl(&mut self, nucl: FlatNucl, bottom: bool) {
         let helix = nucl.helix;
         let position = self.helices[helix].get_pivot(nucl.position);
-        self.camera_top.borrow_mut().set_center(position);
+        if bottom {
+            self.camera_bottom.borrow_mut().set_center(position);
+        } else {
+            self.camera_top.borrow_mut().set_center(position);
+        }
     }
 
     pub fn update_rectangle(&mut self, c1: PhysicalPosition<f64>, c2: PhysicalPosition<f64>) {

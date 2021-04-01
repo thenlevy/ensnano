@@ -312,6 +312,7 @@ impl ControllerState for NormalState {
                             new_state: Some(Box::new(CenteringSuggestion {
                                 nucl,
                                 mouse_position: self.mouse_position,
+                                bottom: controller.is_bottom(position.y),
                             })),
                             consequences: Consequence::Nothing,
                         }
@@ -2015,7 +2016,7 @@ impl ControllerState for FollowingSuggestion {
     }
 
     fn display(&self) -> String {
-        String::from("get_camera(position.y)")
+        String::from("Following Suggestion")
     }
 
     fn input(
@@ -2085,6 +2086,7 @@ impl ControllerState for FollowingSuggestion {
 struct CenteringSuggestion {
     mouse_position: PhysicalPosition<f64>,
     nucl: FlatNucl,
+    bottom: bool,
 }
 
 impl ControllerState for CenteringSuggestion {
@@ -2097,7 +2099,7 @@ impl ControllerState for CenteringSuggestion {
     }
 
     fn display(&self) -> String {
-        String::from("RmHelix")
+        String::from("CenteringSuggestion")
     }
 
     fn input(
@@ -2130,7 +2132,8 @@ impl ControllerState for CenteringSuggestion {
                         .get_click(x, y, &controller.get_camera(position.y));
                 let consequences = if let ClickResult::Nucl(nucl) = nucl {
                     if nucl == self.nucl {
-                        Consequence::Centering(self.nucl)
+                        let nucl = controller.data.borrow().get_best_suggestion(self.nucl);
+                        Consequence::Centering(nucl.unwrap_or(self.nucl), !self.bottom)
                     } else {
                         Consequence::Nothing
                     }

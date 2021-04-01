@@ -50,7 +50,7 @@ pub enum Consequence {
     Built(Box<StrandBuilder>),
     FlipGroup(FlatHelix),
     FollowingSuggestion(FlatNucl, bool),
-    Centering(FlatNucl),
+    Centering(FlatNucl, bool),
     Select(FlatNucl),
     DrawingSelection(PhysicalPosition<f64>, PhysicalPosition<f64>),
     ReleasedSelection(Vec2, Vec2),
@@ -213,6 +213,15 @@ impl Controller {
             self.area_size.height
         }
     }
+
+    fn is_bottom(&self, y: f64) -> bool {
+        if self.splited {
+            y > self.area_size.height as f64 / 2.
+        } else {
+            false
+        }
+    }
+
 }
 
 fn ctrl(modifiers: &ModifiersState) -> bool {
