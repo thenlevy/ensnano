@@ -251,6 +251,35 @@ impl Helix {
         }
     }
 
+    pub fn move_handle(&mut self, handle: HelixHandle, position: Vec2) -> (isize, isize) {
+        let (pos, _) = self.get_click_unbounded(position.x, position.y);
+        match handle {
+            HelixHandle::Left => self.left = (self.right - 2).min(pos + 1),
+            HelixHandle::Right => self.right = (self.left + 2).max(pos - 1),
+        }
+        (self.left, self.right)
+    }
+
+    pub fn click_on_handle(&self, x: f32, y: f32) -> Option<HelixHandle> {
+        let click = {
+            let ret = Vec2::new(x, y);
+            let iso = self.isometry.inversed().into_homogeneous_matrix();
+            iso.transform_point2(ret)
+        };
+        if click.y <= 0. || click.y >= 2. {
+            None
+        } else {
+            let ret = self.get_click_unbounded(x, y);
+            if ret.0 == self.left - 1 {
+                Some(HelixHandle::Left)
+            } else if ret.0 == self.right + 1 {
+                Some(HelixHandle::Right)
+            } else {
+                None
+            }
+        }
+    }
+
     /// Project a click on the helix's axis, and return the corresponding nucleotide
     /// Do not take the left and right bound into account.
     pub fn get_click_unbounded(&self, x: f32, y: f32) -> (isize, bool) {
@@ -376,6 +405,62 @@ impl Helix {
         let angle_sin = Vec2::unit_y().dot(Vec2::unit_x().rotated_by(self.isometry.rotation));
 
         real_center + ((angle_sin - width) / 2.) * Vec2::unit_x() - height / 2. * Vec2::unit_y()
+    }
+
+    pub fn handle_circles(&self) -> Vec<CircleInstance> {
+        let top_left_pos = self.get_nucl_position(
+            &FlatNucl {
+                helix: self.flat_id,
+                position: self.left - 1,
+                forward: true,
+            },
+            Shift::No,
+        );
+        let bottom_left_pos = self.get_nucl_position(
+            &FlatNucl {
+                helix: self.flat_id,
+                position: self.left - 1,
+                forward: false,
+            },
+            Shift::No,
+        );
+        let top_right_pos = self.get_nucl_position(
+            &FlatNucl {
+                helix: self.flat_id,
+                position: self.right + 1,
+                forward: true,
+            },
+            Shift::No,
+        );
+        let bottom_right_pos = self.get_nucl_position(
+            &FlatNucl {
+                helix: self.flat_id,
+                position: self.right + 1,
+                forward: false,
+            },
+            Shift::No,
+        );
+        vec![
+            CircleInstance::new(top_left_pos, 0.5, self.flat_id.flat.0 as i32, CIRCLE2D_GREY),
+            CircleInstance::new(
+                bottom_left_pos,
+                0.5,
+                self.flat_id.flat.0 as i32,
+                CIRCLE2D_GREY,
+            ),
+            CircleInstance::new(
+                top_right_pos,
+                0.5,
+                self.flat_id.flat.0 as i32,
+                CIRCLE2D_GREY,
+            ),
+            CircleInstance::new(
+                bottom_right_pos,
+                0.5,
+                self.flat_id.flat.0 as i32,
+                CIRCLE2D_GREY,
+            ),
+        ]
     }
 
     /// Return the center of the helix's circle widget.
@@ -836,4 +921,10 @@ impl HelixLine {
             Self::Bottom => 2. * Vec2::unit_y(),
         }
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum HelixHandle {
+    Left,
+    Right,
 }

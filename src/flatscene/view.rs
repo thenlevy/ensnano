@@ -667,6 +667,9 @@ impl View {
             if let Some(circle) = h.get_circle(camera) {
                 circles.push(circle);
             }
+            for circle in h.handle_circles() {
+                circles.push(circle)
+            }
         }
         for h_id in self.selected_helices.iter() {
             if let Some(mut circle) = self.helices.get(h_id.0).and_then(|h| h.get_circle(camera)) {

@@ -5,7 +5,7 @@ use std::sync::{Arc, RwLock};
 use ultraviolet::Vec2;
 
 mod helix;
-pub use helix::{GpuVertex, Helix, HelixModel};
+pub use helix::{GpuVertex, Helix, HelixHandle, HelixModel};
 mod strand;
 pub use strand::{FreeEnd, Strand, StrandVertex};
 mod design;
@@ -210,6 +210,14 @@ impl Data {
             }
         }
         for h in self.helices.iter() {
+            if let Some(handle) = h.click_on_handle(x, y) {
+                return ClickResult::HelixHandle {
+                    h_id: h.flat_id,
+                    handle,
+                };
+            }
+        }
+        for h in self.helices.iter() {
             let ret = h.get_click(x, y).map(|(position, forward)| FlatNucl {
                 helix: h.flat_id,
                 position,
@@ -258,6 +266,12 @@ impl Data {
 
     pub fn snap_helix(&mut self, pivot: FlatNucl, translation: Vec2) {
         self.helices[pivot.helix.flat].snap(pivot, translation);
+        self.instance_update = true;
+    }
+
+    pub fn move_handle(&mut self, helix: FlatHelix, handle: HelixHandle, position: Vec2) {
+        let (left, right) = self.helices[helix.flat].move_handle(handle, position);
+        self.design.update_helix(helix, left, right);
         self.instance_update = true;
     }
 
@@ -627,6 +641,7 @@ impl Data {
                     }
                 }
             },
+            ClickResult::HelixHandle { .. } => (),
             ClickResult::Nothing => (),
         }
     }
@@ -688,7 +703,13 @@ impl Data {
 #[derive(Debug, PartialEq)]
 pub enum ClickResult {
     Nucl(FlatNucl),
-    CircleWidget { translation_pivot: FlatNucl },
+    CircleWidget {
+        translation_pivot: FlatNucl,
+    },
+    HelixHandle {
+        h_id: FlatHelix,
+        handle: HelixHandle,
+    },
     Nothing,
 }
 

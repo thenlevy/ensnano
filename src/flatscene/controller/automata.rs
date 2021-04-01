@@ -132,6 +132,10 @@ impl ControllerState for NormalState {
                         })),
                         consequences: Consequence::Nothing,
                     },
+                    ClickResult::HelixHandle { h_id, handle } => Transition {
+                        new_state: Some(Box::new(TranslatingHandle { h_id, handle })),
+                        consequences: Consequence::Nothing,
+                    },
                     ClickResult::Nucl(nucl)
                         if controller.data.borrow().is_suggested(&nucl)
                             && controller.modifiers.alt() =>
@@ -615,6 +619,10 @@ impl ControllerState for ReleasedPivot {
                             consequences: Consequence::Nothing,
                         }
                     }
+                    ClickResult::HelixHandle { h_id, handle } => Transition {
+                        new_state: Some(Box::new(TranslatingHandle { h_id, handle })),
+                        consequences: Consequence::Nothing,
+                    },
                     ClickResult::Nucl(nucl) => {
                         if controller.action_mode == ActionMode::Cut {
                             Transition {
@@ -2420,6 +2428,80 @@ impl ControllerState for AddClick {
             }
             _ => Transition::nothing(),
         }
+    }
+}
+
+struct TranslatingHandle {
+    h_id: FlatHelix,
+    handle: super::super::data::HelixHandle,
+}
+
+impl ControllerState for TranslatingHandle {
+    fn display(&self) -> String {
+        String::from("Translating state")
+    }
+    fn input(
+        &mut self,
+        event: &WindowEvent,
+        position: PhysicalPosition<f64>,
+        controller: &Controller,
+    ) -> Transition {
+        match event {
+            WindowEvent::MouseInput {
+                button: MouseButton::Left,
+                state,
+                ..
+            } => {
+                assert!(
+                    *state == ElementState::Released,
+                    "Pressed mouse button in translating mode"
+                );
+                if *state == ElementState::Pressed {
+                    return Transition::nothing();
+                }
+                Transition {
+                    new_state: Some(Box::new(NormalState {
+                        mouse_position: position,
+                    })),
+                    consequences: Consequence::Nothing,
+                }
+            }
+            WindowEvent::CursorMoved { .. } => {
+                let (x, y) = controller
+                    .get_camera(position.y)
+                    .borrow()
+                    .screen_to_world(position.x as f32, position.y as f32);
+                /*controller
+                .data
+                .borrow_mut()
+                .translate_helix(Vec2::new(mouse_dx, mouse_dy));*/
+                controller
+                    .data
+                    .borrow_mut()
+                    .move_handle(self.h_id, self.handle, Vec2::new(x, y));
+                Transition::nothing()
+            }
+            WindowEvent::KeyboardInput { .. } => {
+                controller.process_keyboard(event);
+                Transition::nothing()
+            }
+            WindowEvent::MouseWheel { delta, .. } => {
+                controller
+                    .get_camera(position.y)
+                    .borrow_mut()
+                    .process_scroll(delta, position);
+                Transition::nothing()
+            }
+            _ => Transition::nothing(),
+        }
+    }
+
+    fn transition_from(&self, _controller: &Controller) {
+        ()
+    }
+
+    fn transition_to(&self, _controller: &Controller) {
+        ()
     }
 }
 

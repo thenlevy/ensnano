@@ -141,6 +141,12 @@ impl Design2d {
         std::mem::replace(&mut self.removed, BTreeSet::new())
     }
 
+    pub fn update_helix(&mut self, helix: FlatHelix, left: isize, right: isize) {
+        let helix2d = &mut self.helices[helix.flat];
+        helix2d.left = left;
+        helix2d.right = right;
+    }
+
     /// Add a nucleotide to self.
     /// If the nucleotides lies on an helix that is not known from self, create a new helix.
     fn read_nucl(&mut self, nucl: &Nucl) {
