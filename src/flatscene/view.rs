@@ -40,19 +40,25 @@ pub struct View {
     pasted_strands: Vec<StrandView>,
     helices_model: Vec<HelixModel>,
     models: DynamicBindGroup,
-    globals: UniformBindGroup,
+    globals_top: UniformBindGroup,
+    globals_bottom: UniformBindGroup,
     helices_pipeline: RenderPipeline,
     strand_pipeline: RenderPipeline,
-    camera: CameraPtr,
+    camera_top: CameraPtr,
+    camera_bottom: CameraPtr,
+    splited: bool,
     was_updated: bool,
     area_size: PhySize,
     free_end: Option<FreeEnd>,
     background: Background,
-    circle_drawer: CircleDrawer,
+    circle_drawer_top: CircleDrawer,
+    circle_drawer_bottom: CircleDrawer,
     rotation_widget: CircleDrawer,
     insertion_drawer: InsertionDrawer,
-    char_drawers: HashMap<char, CharDrawer>,
-    char_map: HashMap<char, Vec<CharInstance>>,
+    char_drawers_top: HashMap<char, CharDrawer>,
+    char_drawers_bottom: HashMap<char, CharDrawer>,
+    char_map_top: HashMap<char, Vec<CharInstance>>,
+    char_map_bottom: HashMap<char, Vec<CharInstance>>,
     selection: FlatSelection,
     show_sec: bool,
     suggestions: Vec<(FlatNucl, FlatNucl)>,
@@ -72,13 +78,23 @@ impl View {
         device: Rc<Device>,
         queue: Rc<Queue>,
         area: DrawArea,
-        camera: CameraPtr,
+        camera_top: CameraPtr,
+        camera_bottom: CameraPtr,
+        splited: bool,
     ) -> Self {
         let depth_texture =
             Texture::create_depth_texture(device.as_ref(), &area.size, SAMPLE_COUNT);
         let models = DynamicBindGroup::new(device.clone(), queue.clone());
-        let globals =
-            UniformBindGroup::new(device.clone(), queue.clone(), camera.borrow().get_globals());
+        let globals_top = UniformBindGroup::new(
+            device.clone(),
+            queue.clone(),
+            camera_top.borrow().get_globals(),
+        );
+        let globals_bottom = UniformBindGroup::new(
+            device.clone(),
+            queue.clone(),
+            camera_bottom.borrow().get_globals(),
+        );
 
         let depth_stencil_state = Some(wgpu::DepthStencilState {
             format: wgpu::TextureFormat::Depth32Float,
@@ -96,44 +112,60 @@ impl View {
 
         let helices_pipeline = helices_pipeline_descr(
             &device,
-            globals.get_layout(),
+            globals_top.get_layout(), // the layout is the same for both globals
             models.get_layout(),
             depth_stencil_state.clone(),
         );
-        let strand_pipeline =
-            strand_pipeline_descr(&device, globals.get_layout(), depth_stencil_state.clone());
+        let strand_pipeline = strand_pipeline_descr(
+            &device,
+            globals_top.get_layout(),
+            depth_stencil_state.clone(),
+        );
 
-        let background = Background::new(&device, globals.get_layout(), &depth_stencil_state);
-        let circle_drawer = CircleDrawer::new(
+        let background = Background::new(&device, globals_top.get_layout(), &depth_stencil_state);
+        let circle_drawer_top = CircleDrawer::new(
             device.clone(),
             queue.clone(),
-            globals.get_layout(),
+            globals_top.get_layout(),
+            CircleKind::FullCircle,
+        );
+        let circle_drawer_bottom = CircleDrawer::new(
+            device.clone(),
+            queue.clone(),
+            globals_top.get_layout(),
             CircleKind::FullCircle,
         );
         let rotation_widget = CircleDrawer::new(
             device.clone(),
             queue.clone(),
-            globals.get_layout(),
+            globals_top.get_layout(),
             CircleKind::RotationWidget,
         );
         let rectangle = Rectangle::new(&device, queue.clone());
         let chars = [
             'A', 'T', 'G', 'C', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '-',
         ];
-        let mut char_drawers = HashMap::new();
-        let mut char_map = HashMap::new();
+        let mut char_drawers_top = HashMap::new();
+        let mut char_map_top = HashMap::new();
+        let mut char_drawers_bottom = HashMap::new();
+        let mut char_map_bottom = HashMap::new();
         for c in chars.iter() {
-            char_drawers.insert(
+            char_drawers_top.insert(
                 *c,
-                CharDrawer::new(device.clone(), queue.clone(), globals.get_layout(), *c),
+                CharDrawer::new(device.clone(), queue.clone(), globals_top.get_layout(), *c),
             );
-            char_map.insert(*c, Vec::new());
+            char_drawers_bottom.insert(
+                *c,
+                CharDrawer::new(device.clone(), queue.clone(), globals_top.get_layout(), *c),
+            );
+            char_map_top.insert(*c, Vec::new());
+            char_map_bottom.insert(*c, Vec::new());
         }
 
         let insertion_drawer = InsertionDrawer::new(
             device.clone(),
             queue.clone(),
-            globals.get_layout(),
+            globals_top.get_layout(),
             depth_stencil_state.clone(),
         );
 
@@ -148,18 +180,24 @@ impl View {
             helices_model: Vec::new(),
             helices_background: Vec::new(),
             models,
-            globals,
+            globals_top,
+            globals_bottom,
             helices_pipeline,
             strand_pipeline,
-            camera,
+            camera_top,
+            camera_bottom,
+            splited,
             was_updated: false,
             area_size: area.size,
             free_end: None,
             background,
-            circle_drawer,
+            circle_drawer_top,
+            circle_drawer_bottom,
             rotation_widget,
-            char_drawers,
-            char_map,
+            char_drawers_top,
+            char_map_top,
+            char_drawers_bottom,
+            char_map_bottom,
             selection: FlatSelection::Nothing,
             show_sec: false,
             suggestions: vec![],
@@ -319,7 +357,13 @@ impl View {
     }
 
     pub fn needs_redraw(&self) -> bool {
-        self.camera.borrow().was_updated() | self.was_updated
+        if self.splited {
+            self.camera_top.borrow().was_updated()
+                | self.was_updated
+                | self.camera_bottom.borrow().was_updated()
+        } else {
+            self.camera_top.borrow().was_updated() | self.was_updated
+        }
     }
 
     pub fn set_selection(&mut self, selection: FlatSelection) {
@@ -343,18 +387,18 @@ impl View {
                 },
                 _,
             ) => {
-                self.helices[helix].make_visible(position, self.camera.clone());
+                self.helices[helix].make_visible(position, self.camera_top.clone());
             }
             _ => (),
         }
     }
 
-    /// Center the camera on a nucleotide
+    /// Center the top camera on a nucleotide
     #[allow(dead_code)] // not used for now but might be useful in the future
     pub fn center_nucl(&mut self, nucl: FlatNucl) {
         let helix = nucl.helix;
         let position = self.helices[helix].get_pivot(nucl.position);
-        self.camera.borrow_mut().set_center(position);
+        self.camera_top.borrow_mut().set_center(position);
     }
 
     pub fn update_rectangle(&mut self, c1: PhysicalPosition<f64>, c2: PhysicalPosition<f64>) {
@@ -377,16 +421,23 @@ impl View {
         _area: DrawArea,
     ) {
         let mut need_new_circles = false;
-        if let Some(globals) = self.camera.borrow_mut().update() {
-            self.globals.update(globals);
+        if let Some(globals) = self.camera_top.borrow_mut().update() {
+            self.globals_top.update(globals);
+            need_new_circles = true;
+        }
+        if let Some(globals) = self.camera_bottom.borrow_mut().update() {
+            self.globals_bottom.update(globals);
             need_new_circles = true;
         }
         if need_new_circles || self.was_updated {
-            let instances = self.generate_circle_instances();
+            let instances_top = self.generate_circle_instances(&self.camera_top);
+            let instances_bottom = self.generate_circle_instances(&self.camera_bottom);
             if SHOW_SUGGESTION {
                 self.view_suggestion();
             }
-            self.circle_drawer.new_instances(Rc::new(instances));
+            self.circle_drawer_top.new_instances(Rc::new(instances_top));
+            self.circle_drawer_bottom
+                .new_instances(Rc::new(instances_bottom));
             self.generate_char_instances();
         }
 
@@ -442,7 +493,18 @@ impl View {
                 }),
             }),
         });
-        render_pass.set_bind_group(0, self.globals.get_bindgroup(), &[]);
+        if self.splited {
+            render_pass.set_viewport(
+                0.,
+                0.,
+                self.area_size.width as f32,
+                self.area_size.height as f32 / 2.,
+                0.,
+                1.,
+            );
+            render_pass.set_scissor_rect(0, 0, self.area_size.width, self.area_size.height / 2);
+        }
+        render_pass.set_bind_group(0, self.globals_top.get_bindgroup(), &[]);
         render_pass.set_bind_group(1, self.models.get_bindgroup(), &[]);
         self.background.draw(&mut render_pass);
 
@@ -472,9 +534,9 @@ impl View {
             highlight.draw(&mut render_pass);
         }
 
-        self.circle_drawer.draw(&mut render_pass);
+        self.circle_drawer_top.draw(&mut render_pass);
         self.rotation_widget.draw(&mut render_pass);
-        for drawer in self.char_drawers.values_mut() {
+        for drawer in self.char_drawers_top.values_mut() {
             drawer.draw(&mut render_pass);
         }
         self.insertion_drawer.draw(&mut render_pass);
@@ -502,6 +564,81 @@ impl View {
             }),
         });
         self.rectangle.draw(&mut render_pass);
+        drop(render_pass);
+        if self.splited {
+            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: None,
+                color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
+                    attachment,
+                    resolve_target,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Load,
+                        store: true,
+                    },
+                }],
+                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachmentDescriptor {
+                    attachment: &self.depth_texture.view,
+                    depth_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(1.),
+                        store: true,
+                    }),
+                    stencil_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(0),
+                        store: true,
+                    }),
+                }),
+            });
+            render_pass.set_viewport(
+                0.,
+                self.area_size.height as f32 / 2.,
+                self.area_size.width as f32,
+                self.area_size.height as f32 / 2.,
+                0.,
+                1.,
+            );
+            render_pass.set_scissor_rect(
+                0,
+                self.area_size.height / 2,
+                self.area_size.width,
+                self.area_size.height / 2,
+            );
+            render_pass.set_bind_group(0, self.globals_bottom.get_bindgroup(), &[]);
+            render_pass.set_bind_group(1, self.models.get_bindgroup(), &[]);
+            self.background.draw(&mut render_pass);
+
+            render_pass.set_pipeline(&self.helices_pipeline);
+
+            for background in self.helices_background.iter() {
+                background.draw(&mut render_pass);
+            }
+            for helix in self.helices_view.iter() {
+                helix.draw(&mut render_pass);
+            }
+
+            render_pass.set_pipeline(&self.strand_pipeline);
+            for strand in self.strands.iter() {
+                strand.draw(&mut render_pass);
+            }
+            for strand in self.pasted_strands.iter() {
+                strand.draw(&mut render_pass);
+            }
+            for suggestion in self.suggestions_view.iter() {
+                suggestion.draw(&mut render_pass);
+            }
+            for highlight in self.selected_strands.iter() {
+                highlight.draw(&mut render_pass);
+            }
+            for highlight in self.candidate_strands.iter() {
+                highlight.draw(&mut render_pass);
+            }
+
+            self.circle_drawer_bottom.draw(&mut render_pass);
+            self.rotation_widget.draw(&mut render_pass);
+            for drawer in self.char_drawers_bottom.values_mut() {
+                drawer.draw(&mut render_pass);
+            }
+            self.insertion_drawer.draw(&mut render_pass);
+        }
         self.was_updated = false;
     }
 
@@ -511,9 +648,9 @@ impl View {
     ///  * Helices circles
     ///  * Cross-over suggestions
     ///  * Torsion indications
-    fn generate_circle_instances(&self) -> Vec<CircleInstance> {
+    fn generate_circle_instances(&self, camera: &CameraPtr) -> Vec<CircleInstance> {
         let mut ret = Vec::new();
-        self.collect_helices_circles(&mut ret);
+        self.collect_helices_circles(&mut ret, camera);
         self.collect_suggestions(&mut ret);
         if self.show_torsion {
             self.collect_torsion_indications(&mut ret);
@@ -522,18 +659,14 @@ impl View {
     }
 
     /// Add the helices circles to the list of circle instances
-    fn collect_helices_circles(&self, circles: &mut Vec<CircleInstance>) {
+    fn collect_helices_circles(&self, circles: &mut Vec<CircleInstance>, camera: &CameraPtr) {
         for h in self.helices.iter() {
-            if let Some(circle) = h.get_circle(&self.camera) {
+            if let Some(circle) = h.get_circle(camera) {
                 circles.push(circle);
             }
         }
         for h_id in self.selected_helices.iter() {
-            if let Some(mut circle) = self
-                .helices
-                .get(h_id.0)
-                .and_then(|h| h.get_circle(&self.camera))
-            {
+            if let Some(mut circle) = self.helices.get(h_id.0).and_then(|h| h.get_circle(camera)) {
                 circle.set_radius(circle.radius * 1.2);
                 circle.set_color(0xFF_000000);
                 circles.push(circle);
@@ -541,11 +674,7 @@ impl View {
         }
 
         for h_id in self.candidate_helices.iter() {
-            if let Some(mut circle) = self
-                .helices
-                .get(h_id.0)
-                .and_then(|h| h.get_circle(&self.camera))
-            {
+            if let Some(mut circle) = self.helices.get(h_id.0).and_then(|h| h.get_circle(camera)) {
                 circle.set_radius(circle.radius * 1.2);
                 circle.set_color(0xFF_999999);
                 circles.push(circle);
@@ -633,21 +762,36 @@ impl View {
     }
 
     fn generate_char_instances(&mut self) {
-        for v in self.char_map.values_mut() {
+        for v in self.char_map_top.values_mut() {
+            v.clear();
+        }
+        for v in self.char_map_bottom.values_mut() {
             v.clear();
         }
 
         for h in self.helices.iter() {
             h.add_char_instances(
-                &self.camera,
-                &mut self.char_map,
-                &self.char_drawers,
+                &self.camera_top,
+                &mut self.char_map_top,
+                &self.char_drawers_top,
+                self.show_sec,
+            );
+            h.add_char_instances(
+                &self.camera_bottom,
+                &mut self.char_map_bottom,
+                &self.char_drawers_bottom,
                 self.show_sec,
             )
         }
 
-        for (c, v) in self.char_map.iter() {
-            self.char_drawers
+        for (c, v) in self.char_map_top.iter() {
+            self.char_drawers_top
+                .get_mut(c)
+                .unwrap()
+                .new_instances(Rc::new(v.clone()))
+        }
+        for (c, v) in self.char_map_bottom.iter() {
+            self.char_drawers_bottom
                 .get_mut(c)
                 .unwrap()
                 .new_instances(Rc::new(v.clone()))

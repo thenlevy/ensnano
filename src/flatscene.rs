@@ -74,18 +74,33 @@ impl FlatScene {
 
     /// Add a design to the scene. This creates a new `View`, a new `Data` and a new `Controller`
     fn add_design(&mut self, design: Arc<RwLock<Design>>) {
-        let globals = Globals {
-            resolution: [self.area.size.width as f32, self.area.size.height as f32],
+        let globals_top = Globals {
+            resolution: [
+                self.area.size.width as f32,
+                self.area.size.height as f32 / 2.,
+            ],
             scroll_offset: [-1., -1.],
             zoom: 80.,
             _padding: 0.,
         };
-        let camera = Rc::new(RefCell::new(Camera::new(globals)));
+        let globals_bottom = Globals {
+            resolution: [
+                self.area.size.width as f32,
+                self.area.size.height as f32 / 2.,
+            ],
+            scroll_offset: [-1., -1.],
+            zoom: 80.,
+            _padding: 0.,
+        };
+        let camera_top = Rc::new(RefCell::new(Camera::new(globals_top, false)));
+        let camera_bottom = Rc::new(RefCell::new(Camera::new(globals_bottom, true)));
         let view = Rc::new(RefCell::new(View::new(
             self.device.clone(),
             self.queue.clone(),
             self.area,
-            camera.clone(),
+            camera_top.clone(),
+            camera_bottom.clone(),
+            true,
         )));
         let data = Rc::new(RefCell::new(Data::new(view.clone(), design, 0)));
         let mut controller = Controller::new(
@@ -93,8 +108,10 @@ impl FlatScene {
             data.clone(),
             self.window_size,
             self.area.size,
-            camera,
+            camera_top,
+            camera_bottom,
             self.mediator.clone(),
+            true,
         );
         controller.fit();
         if self.view.len() > 0 {

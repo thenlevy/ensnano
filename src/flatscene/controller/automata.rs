@@ -66,10 +66,14 @@ impl ControllerState for NormalState {
                 ..
             } if controller.action_mode != ActionMode::Cut && controller.modifiers.shift() => {
                 let (x, y) = controller
-                    .camera
+                    .get_camera(position.y)
                     .borrow()
                     .screen_to_world(self.mouse_position.x as f32, self.mouse_position.y as f32);
-                let click_result = controller.data.borrow().get_click(x, y, &controller.camera);
+                let click_result =
+                    controller
+                        .data
+                        .borrow()
+                        .get_click(x, y, &controller.get_camera(position.y));
                 match click_result {
                     ClickResult::Nothing => Transition {
                         new_state: Some(Box::new(DraggingSelection {
@@ -101,10 +105,14 @@ impl ControllerState for NormalState {
                     return Transition::nothing();
                 }
                 let (x, y) = controller
-                    .camera
+                    .get_camera(position.y)
                     .borrow()
                     .screen_to_world(self.mouse_position.x as f32, self.mouse_position.y as f32);
-                let click_result = controller.data.borrow().get_click(x, y, &controller.camera);
+                let click_result =
+                    controller
+                        .data
+                        .borrow()
+                        .get_click(x, y, &controller.get_camera(position.y));
                 match click_result {
                     ClickResult::CircleWidget { .. } | ClickResult::Nothing
                         if controller.pasting =>
@@ -239,10 +247,11 @@ impl ControllerState for NormalState {
                                 consequences: Consequence::Nothing,
                             }
                         } else {
-                            let clicked = controller.camera.borrow().screen_to_world(
-                                self.mouse_position.x as f32,
-                                self.mouse_position.y as f32,
-                            );
+                            let clicked =
+                                controller.get_camera(position.y).borrow().screen_to_world(
+                                    self.mouse_position.x as f32,
+                                    self.mouse_position.y as f32,
+                                );
                             Transition {
                                 new_state: Some(Box::new(Translating {
                                     mouse_position: self.mouse_position,
@@ -289,10 +298,14 @@ impl ControllerState for NormalState {
                     return Transition::nothing();
                 }
                 let (x, y) = controller
-                    .camera
+                    .get_camera(position.y)
                     .borrow()
                     .screen_to_world(self.mouse_position.x as f32, self.mouse_position.y as f32);
-                let click_result = controller.data.borrow().get_click(x, y, &controller.camera);
+                let click_result =
+                    controller
+                        .data
+                        .borrow()
+                        .get_click(x, y, &controller.get_camera(position.y));
                 match click_result {
                     ClickResult::Nucl(nucl) if controller.data.borrow().is_suggested(&nucl) => {
                         Transition {
@@ -310,11 +323,14 @@ impl ControllerState for NormalState {
             WindowEvent::CursorMoved { .. } => {
                 self.mouse_position = position;
                 let (x, y) = controller
-                    .camera
+                    .get_camera(position.y)
                     .borrow()
                     .screen_to_world(self.mouse_position.x as f32, self.mouse_position.y as f32);
                 let pivot_opt = if let ClickResult::Nucl(nucl) =
-                    controller.data.borrow().get_click(x, y, &controller.camera)
+                    controller
+                        .data
+                        .borrow()
+                        .get_click(x, y, &controller.get_camera(position.y))
                 {
                     Some(nucl)
                 } else {
@@ -324,7 +340,7 @@ impl ControllerState for NormalState {
             }
             WindowEvent::MouseWheel { delta, .. } => {
                 controller
-                    .camera
+                    .get_camera(position.y)
                     .borrow_mut()
                     .process_scroll(delta, self.mouse_position);
                 Transition::nothing()
@@ -383,7 +399,7 @@ impl ControllerState for Translating {
                     if let Some(rotation_pivot) = controller
                         .data
                         .borrow()
-                        .get_rotation_pivot(pivot.helix.flat, &controller.camera)
+                        .get_rotation_pivot(pivot.helix.flat, &controller.get_camera(position.y))
                     {
                         translation_pivots.push(pivot.clone());
                         rotation_pivots.push(rotation_pivot);
@@ -411,7 +427,7 @@ impl ControllerState for Translating {
             WindowEvent::CursorMoved { .. } => {
                 self.mouse_position = position;
                 let (x, y) = controller
-                    .camera
+                    .get_camera(position.y)
                     .borrow()
                     .screen_to_world(position.x as f32, position.y as f32);
                 /*controller
@@ -432,7 +448,7 @@ impl ControllerState for Translating {
             }
             WindowEvent::MouseWheel { delta, .. } => {
                 controller
-                    .camera
+                    .get_camera(position.y)
                     .borrow_mut()
                     .process_scroll(delta, self.mouse_position);
                 Transition::nothing()
@@ -504,9 +520,9 @@ impl ControllerState for MovingCamera {
                 let mouse_dx = (position.x as f32 - self.clicked_position_screen.x as f32)
                     / controller.area_size.width as f32;
                 let mouse_dy = (position.y as f32 - self.clicked_position_screen.y as f32)
-                    / controller.area_size.height as f32;
+                    / controller.get_height() as f32;
                 controller
-                    .camera
+                    .get_camera(self.clicked_position_screen.y)
                     .borrow_mut()
                     .process_mouse(mouse_dx, mouse_dy);
                 Transition::nothing()
@@ -520,7 +536,7 @@ impl ControllerState for MovingCamera {
     }
 
     fn transition_from(&self, controller: &Controller) {
-        controller.camera.borrow_mut().end_movement();
+        controller.end_movement();
     }
 
     fn transition_to(&self, _controller: &Controller) {
@@ -574,10 +590,14 @@ impl ControllerState for ReleasedPivot {
                     return Transition::nothing();
                 }
                 let (x, y) = controller
-                    .camera
+                    .get_camera(position.y)
                     .borrow()
                     .screen_to_world(self.mouse_position.x as f32, self.mouse_position.y as f32);
-                let click_result = controller.data.borrow().get_click(x, y, &controller.camera);
+                let click_result =
+                    controller
+                        .data
+                        .borrow()
+                        .get_click(x, y, &controller.get_camera(position.y));
                 match click_result {
                     ClickResult::CircleWidget { translation_pivot }
                         if ctrl(&controller.modifiers) =>
@@ -633,7 +653,7 @@ impl ControllerState for ReleasedPivot {
                     ClickResult::CircleWidget { translation_pivot }
                         if self.translation_pivots.contains(&translation_pivot) =>
                     {
-                        let clicked = controller.camera.borrow().screen_to_world(
+                        let clicked = controller.get_camera(position.y).borrow().screen_to_world(
                             self.mouse_position.x as f32,
                             self.mouse_position.y as f32,
                         );
@@ -648,7 +668,7 @@ impl ControllerState for ReleasedPivot {
                     }
                     ClickResult::CircleWidget { translation_pivot } => {
                         // Clicked on an other circle
-                        let clicked = controller.camera.borrow().screen_to_world(
+                        let clicked = controller.get_camera(position.y).borrow().screen_to_world(
                             self.mouse_position.x as f32,
                             self.mouse_position.y as f32,
                         );
@@ -716,11 +736,14 @@ impl ControllerState for ReleasedPivot {
             WindowEvent::CursorMoved { .. } => {
                 self.mouse_position = position;
                 let (x, y) = controller
-                    .camera
+                    .get_camera(position.y)
                     .borrow()
                     .screen_to_world(self.mouse_position.x as f32, self.mouse_position.y as f32);
                 let pivot_opt = if let ClickResult::Nucl(nucl) =
-                    controller.data.borrow().get_click(x, y, &controller.camera)
+                    controller
+                        .data
+                        .borrow()
+                        .get_click(x, y, &controller.get_camera(position.y))
                 {
                     Some(nucl)
                 } else {
@@ -734,7 +757,7 @@ impl ControllerState for ReleasedPivot {
             }
             WindowEvent::MouseWheel { delta, .. } => {
                 controller
-                    .camera
+                    .get_camera(position.y)
                     .borrow_mut()
                     .process_scroll(delta, self.mouse_position);
                 Transition::nothing()
@@ -842,7 +865,7 @@ impl ControllerState for LeavingPivot {
             }
             WindowEvent::MouseWheel { delta, .. } => {
                 controller
-                    .camera
+                    .get_camera(position.y)
                     .borrow_mut()
                     .process_scroll(delta, self.mouse_position);
                 Transition::nothing()
@@ -940,13 +963,16 @@ impl ControllerState for Rotating {
                 self.mouse_position = position;
                 let angle = {
                     let (x, y) = controller
-                        .camera
+                        .get_camera(self.clicked_position_screen.y)
                         .borrow()
                         .screen_to_world(position.x as f32, position.y as f32);
-                    let (old_x, old_y) = controller.camera.borrow().screen_to_world(
-                        self.clicked_position_screen.x as f32,
-                        self.clicked_position_screen.y as f32,
-                    );
+                    let (old_x, old_y) = controller
+                        .get_camera(self.clicked_position_screen.y)
+                        .borrow()
+                        .screen_to_world(
+                            self.clicked_position_screen.x as f32,
+                            self.clicked_position_screen.y as f32,
+                        );
                     (y - self.pivot_center.y).atan2(x - self.pivot_center.x)
                         - (old_y - self.pivot_center.y).atan2(old_x - self.pivot_center.x)
                 };
@@ -965,7 +991,7 @@ impl ControllerState for Rotating {
             }
             WindowEvent::MouseWheel { delta, .. } => {
                 controller
-                    .camera
+                    .get_camera(position.y)
                     .borrow_mut()
                     .process_scroll(delta, self.mouse_position);
                 Transition::nothing()
@@ -1022,10 +1048,14 @@ impl ControllerState for InitCutting {
             WindowEvent::CursorMoved { .. } => {
                 self.mouse_position = position;
                 let (x, y) = controller
-                    .camera
+                    .get_camera(position.y)
                     .borrow()
                     .screen_to_world(self.mouse_position.x as f32, self.mouse_position.y as f32);
-                let click_result = controller.data.borrow().get_click(x, y, &controller.camera);
+                let click_result =
+                    controller
+                        .data
+                        .borrow()
+                        .get_click(x, y, &controller.get_camera(position.y));
                 match click_result {
                     ClickResult::Nucl(nucl2) if nucl2 == self.nucl => Transition::nothing(),
                     _ => {
@@ -1055,7 +1085,7 @@ impl ControllerState for InitCutting {
             }
             WindowEvent::MouseWheel { delta, .. } => {
                 controller
-                    .camera
+                    .get_camera(position.y)
                     .borrow_mut()
                     .process_scroll(delta, self.mouse_position);
                 Transition::nothing()
@@ -1114,10 +1144,14 @@ impl ControllerState for InitAttachement {
             WindowEvent::CursorMoved { .. } => {
                 self.mouse_position = position;
                 let (x, y) = controller
-                    .camera
+                    .get_camera(position.y)
                     .borrow()
                     .screen_to_world(self.mouse_position.x as f32, self.mouse_position.y as f32);
-                let click_result = controller.data.borrow().get_click(x, y, &controller.camera);
+                let click_result =
+                    controller
+                        .data
+                        .borrow()
+                        .get_click(x, y, &controller.get_camera(position.y));
                 match click_result {
                     ClickResult::Nucl(nucl2) if nucl2 == self.from => Transition::nothing(),
                     _ => {
@@ -1140,7 +1174,7 @@ impl ControllerState for InitAttachement {
             }
             WindowEvent::MouseWheel { delta, .. } => {
                 controller
-                    .camera
+                    .get_camera(position.y)
                     .borrow_mut()
                     .process_scroll(delta, self.mouse_position);
                 Transition::nothing()
@@ -1209,10 +1243,14 @@ impl ControllerState for InitBuilding {
             WindowEvent::CursorMoved { .. } => {
                 self.mouse_position = position;
                 let (x, y) = controller
-                    .camera
+                    .get_camera(position.y)
                     .borrow()
                     .screen_to_world(self.mouse_position.x as f32, self.mouse_position.y as f32);
-                let click_result = controller.data.borrow().get_click(x, y, &controller.camera);
+                let click_result =
+                    controller
+                        .data
+                        .borrow()
+                        .get_click(x, y, &controller.get_camera(position.y));
                 match click_result {
                     ClickResult::Nucl(FlatNucl {
                         helix,
@@ -1303,7 +1341,7 @@ impl ControllerState for InitBuilding {
             }
             WindowEvent::MouseWheel { delta, .. } => {
                 controller
-                    .camera
+                    .get_camera(position.y)
                     .borrow_mut()
                     .process_scroll(delta, self.mouse_position);
                 Transition::nothing()
@@ -1330,7 +1368,7 @@ impl ControllerState for MovingFreeEnd {
     }
 
     fn display(&self) -> String {
-        String::from("Init Building")
+        String::from("Moving Free End")
     }
 
     fn input(
@@ -1362,10 +1400,14 @@ impl ControllerState for MovingFreeEnd {
             WindowEvent::CursorMoved { .. } => {
                 self.mouse_position = position;
                 let (x, y) = controller
-                    .camera
+                    .get_camera(position.y)
                     .borrow()
                     .screen_to_world(self.mouse_position.x as f32, self.mouse_position.y as f32);
-                let click_result = controller.data.borrow().get_click(x, y, &controller.camera);
+                let click_result =
+                    controller
+                        .data
+                        .borrow()
+                        .get_click(x, y, &controller.get_camera(position.y));
                 match click_result {
                     ClickResult::Nucl(nucl) if nucl == self.from => Transition::nothing(),
                     ClickResult::Nucl(nucl)
@@ -1421,7 +1463,7 @@ impl ControllerState for MovingFreeEnd {
             }
             WindowEvent::MouseWheel { delta, .. } => {
                 controller
-                    .camera
+                    .get_camera(position.y)
                     .borrow_mut()
                     .process_scroll(delta, self.mouse_position);
                 Transition::nothing()
@@ -1492,7 +1534,7 @@ impl ControllerState for Building {
             WindowEvent::CursorMoved { .. } => {
                 self.mouse_position = position;
                 let (x, y) = controller
-                    .camera
+                    .get_camera(position.y)
                     .borrow()
                     .screen_to_world(self.mouse_position.x as f32, self.mouse_position.y as f32);
                 let nucl =
@@ -1520,7 +1562,7 @@ impl ControllerState for Building {
             }
             WindowEvent::MouseWheel { delta, .. } => {
                 controller
-                    .camera
+                    .get_camera(position.y)
                     .borrow_mut()
                     .process_scroll(delta, self.mouse_position);
                 Transition::nothing()
@@ -1585,10 +1627,14 @@ impl ControllerState for Crossing {
             WindowEvent::CursorMoved { .. } => {
                 self.mouse_position = position;
                 let (x, y) = controller
-                    .camera
+                    .get_camera(position.y)
                     .borrow()
                     .screen_to_world(self.mouse_position.x as f32, self.mouse_position.y as f32);
-                let nucl = controller.data.borrow().get_click(x, y, &controller.camera);
+                let nucl =
+                    controller
+                        .data
+                        .borrow()
+                        .get_click(x, y, &controller.get_camera(position.y));
                 if nucl != ClickResult::Nucl(self.to) {
                     Transition {
                         new_state: Some(Box::new(MovingFreeEnd {
@@ -1613,7 +1659,7 @@ impl ControllerState for Crossing {
             }
             WindowEvent::MouseWheel { delta, .. } => {
                 controller
-                    .camera
+                    .get_camera(position.y)
                     .borrow_mut()
                     .process_scroll(delta, self.mouse_position);
                 Transition::nothing()
@@ -1662,10 +1708,14 @@ impl ControllerState for Cutting {
                     return Transition::nothing();
                 }
                 let (x, y) = controller
-                    .camera
+                    .get_camera(position.y)
                     .borrow()
                     .screen_to_world(self.mouse_position.x as f32, self.mouse_position.y as f32);
-                let nucl = controller.data.borrow().get_click(x, y, &controller.camera);
+                let nucl =
+                    controller
+                        .data
+                        .borrow()
+                        .get_click(x, y, &controller.get_camera(position.y));
                 let consequences = if nucl == ClickResult::Nucl(self.nucl) {
                     if self.whole_strand {
                         Consequence::RmStrand(self.nucl)
@@ -1692,7 +1742,7 @@ impl ControllerState for Cutting {
             }
             WindowEvent::MouseWheel { delta, .. } => {
                 controller
-                    .camera
+                    .get_camera(position.y)
                     .borrow_mut()
                     .process_scroll(delta, self.mouse_position);
                 Transition::nothing()
@@ -1740,10 +1790,14 @@ impl ControllerState for RmHelix {
                     return Transition::nothing();
                 }
                 let (x, y) = controller
-                    .camera
+                    .get_camera(position.y)
                     .borrow()
                     .screen_to_world(self.mouse_position.x as f32, self.mouse_position.y as f32);
-                let nucl = controller.data.borrow().get_click(x, y, &controller.camera);
+                let nucl =
+                    controller
+                        .data
+                        .borrow()
+                        .get_click(x, y, &controller.get_camera(position.y));
                 let consequences = if let ClickResult::CircleWidget { translation_pivot } = nucl {
                     if translation_pivot.helix == self.helix {
                         Consequence::RmHelix(self.helix)
@@ -1770,7 +1824,7 @@ impl ControllerState for RmHelix {
             }
             WindowEvent::MouseWheel { delta, .. } => {
                 controller
-                    .camera
+                    .get_camera(position.y)
                     .borrow_mut()
                     .process_scroll(delta, self.mouse_position);
                 Transition::nothing()
@@ -1818,10 +1872,14 @@ impl ControllerState for FlipGroup {
                     return Transition::nothing();
                 }
                 let (x, y) = controller
-                    .camera
+                    .get_camera(position.y)
                     .borrow()
                     .screen_to_world(self.mouse_position.x as f32, self.mouse_position.y as f32);
-                let nucl = controller.data.borrow().get_click(x, y, &controller.camera);
+                let nucl =
+                    controller
+                        .data
+                        .borrow()
+                        .get_click(x, y, &controller.get_camera(position.y));
                 let consequences = if let ClickResult::CircleWidget { translation_pivot } = nucl {
                     if translation_pivot.helix == self.helix {
                         Consequence::FlipGroup(self.helix)
@@ -1848,7 +1906,7 @@ impl ControllerState for FlipGroup {
             }
             WindowEvent::MouseWheel { delta, .. } => {
                 controller
-                    .camera
+                    .get_camera(position.y)
                     .borrow_mut()
                     .process_scroll(delta, self.mouse_position);
                 Transition::nothing()
@@ -1897,10 +1955,14 @@ impl ControllerState for FlipVisibility {
                     return Transition::nothing();
                 }
                 let (x, y) = controller
-                    .camera
+                    .get_camera(position.y)
                     .borrow()
                     .screen_to_world(self.mouse_position.x as f32, self.mouse_position.y as f32);
-                let nucl = controller.data.borrow().get_click(x, y, &controller.camera);
+                let nucl =
+                    controller
+                        .data
+                        .borrow()
+                        .get_click(x, y, &controller.get_camera(position.y));
                 let consequences = if let ClickResult::CircleWidget { translation_pivot } = nucl {
                     if translation_pivot.helix == self.helix {
                         Consequence::FlipVisibility(self.helix, self.apply_to_other)
@@ -1927,7 +1989,7 @@ impl ControllerState for FlipVisibility {
             }
             WindowEvent::MouseWheel { delta, .. } => {
                 controller
-                    .camera
+                    .get_camera(position.y)
                     .borrow_mut()
                     .process_scroll(delta, self.mouse_position);
                 Transition::nothing()
@@ -1953,7 +2015,7 @@ impl ControllerState for FollowingSuggestion {
     }
 
     fn display(&self) -> String {
-        String::from("RmHelix")
+        String::from("get_camera(position.y)")
     }
 
     fn input(
@@ -1976,10 +2038,14 @@ impl ControllerState for FollowingSuggestion {
                     return Transition::nothing();
                 }
                 let (x, y) = controller
-                    .camera
+                    .get_camera(position.y)
                     .borrow()
                     .screen_to_world(self.mouse_position.x as f32, self.mouse_position.y as f32);
-                let nucl = controller.data.borrow().get_click(x, y, &controller.camera);
+                let nucl =
+                    controller
+                        .data
+                        .borrow()
+                        .get_click(x, y, &controller.get_camera(position.y));
                 let consequences = if let ClickResult::Nucl(nucl) = nucl {
                     if nucl == self.nucl {
                         Consequence::FollowingSuggestion(self.nucl, self.double)
@@ -2006,7 +2072,7 @@ impl ControllerState for FollowingSuggestion {
             }
             WindowEvent::MouseWheel { delta, .. } => {
                 controller
-                    .camera
+                    .get_camera(position.y)
                     .borrow_mut()
                     .process_scroll(delta, self.mouse_position);
                 Transition::nothing()
@@ -2054,10 +2120,14 @@ impl ControllerState for CenteringSuggestion {
                     return Transition::nothing();
                 }
                 let (x, y) = controller
-                    .camera
+                    .get_camera(position.y)
                     .borrow()
                     .screen_to_world(self.mouse_position.x as f32, self.mouse_position.y as f32);
-                let nucl = controller.data.borrow().get_click(x, y, &controller.camera);
+                let nucl =
+                    controller
+                        .data
+                        .borrow()
+                        .get_click(x, y, &controller.get_camera(position.y));
                 let consequences = if let ClickResult::Nucl(nucl) = nucl {
                     if nucl == self.nucl {
                         Consequence::Centering(self.nucl)
@@ -2084,7 +2154,7 @@ impl ControllerState for CenteringSuggestion {
             }
             WindowEvent::MouseWheel { delta, .. } => {
                 controller
-                    .camera
+                    .get_camera(position.y)
                     .borrow_mut()
                     .process_scroll(delta, self.mouse_position);
                 Transition::nothing()
@@ -2128,10 +2198,14 @@ impl ControllerState for Pasting {
                     return Transition::nothing();
                 }
                 let (x, y) = controller
-                    .camera
+                    .get_camera(position.y)
                     .borrow()
                     .screen_to_world(self.mouse_position.x as f32, self.mouse_position.y as f32);
-                let nucl = controller.data.borrow().get_click(x, y, &controller.camera);
+                let nucl =
+                    controller
+                        .data
+                        .borrow()
+                        .get_click(x, y, &controller.get_camera(position.y));
                 let consequences = if self.nucl.is_none() {
                     Consequence::PasteRequest(self.nucl)
                 } else if nucl == ClickResult::Nucl(self.nucl.unwrap()) {
@@ -2156,7 +2230,7 @@ impl ControllerState for Pasting {
             }
             WindowEvent::MouseWheel { delta, .. } => {
                 controller
-                    .camera
+                    .get_camera(position.y)
                     .borrow_mut()
                     .process_scroll(delta, self.mouse_position);
                 Transition::nothing()
@@ -2190,18 +2264,18 @@ impl ControllerState for DraggingSelection {
                 ..
             } => {
                 let corner1_world = controller
-                    .camera
+                    .get_camera(position.y)
                     .borrow()
                     .screen_to_world(self.fixed_corner.x as f32, self.fixed_corner.y as f32);
                 let corner2_world = controller
-                    .camera
+                    .get_camera(position.y)
                     .borrow()
                     .screen_to_world(self.mouse_position.x as f32, self.mouse_position.y as f32);
                 let (translation_pivots, rotation_pivots) =
                     controller.data.borrow_mut().select_rectangle(
                         corner1_world.into(),
                         corner2_world.into(),
-                        &controller.camera,
+                        &controller.get_camera(position.y),
                         self.adding,
                     );
                 if translation_pivots.len() > 0 {
@@ -2247,7 +2321,7 @@ impl ControllerState for DraggingSelection {
             }
             WindowEvent::MouseWheel { delta, .. } => {
                 controller
-                    .camera
+                    .get_camera(position.y)
                     .borrow_mut()
                     .process_scroll(delta, self.mouse_position);
                 Transition::nothing()
@@ -2257,7 +2331,7 @@ impl ControllerState for DraggingSelection {
     }
 
     fn transition_from(&self, controller: &Controller) {
-        controller.camera.borrow_mut().end_movement();
+        controller.end_movement();
     }
 
     fn transition_to(&self, _controller: &Controller) {
@@ -2303,10 +2377,14 @@ impl ControllerState for AddClick {
                     return Transition::nothing();
                 }
                 let (x, y) = controller
-                    .camera
+                    .get_camera(position.y)
                     .borrow()
                     .screen_to_world(self.mouse_position.x as f32, self.mouse_position.y as f32);
-                let click = controller.data.borrow().get_click(x, y, &controller.camera);
+                let click =
+                    controller
+                        .data
+                        .borrow()
+                        .get_click(x, y, &controller.get_camera(position.y));
                 let consequences = if click == self.click_result {
                     Consequence::AddClick(click)
                 } else {
@@ -2329,7 +2407,7 @@ impl ControllerState for AddClick {
             }
             WindowEvent::MouseWheel { delta, .. } => {
                 controller
-                    .camera
+                    .get_camera(position.y)
                     .borrow_mut()
                     .process_scroll(delta, self.mouse_position);
                 Transition::nothing()

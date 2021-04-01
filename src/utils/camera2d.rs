@@ -12,14 +12,16 @@ pub struct Camera {
     globals: Globals,
     was_updated: bool,
     old_globals: Globals,
+    bottom: bool,
 }
 
 impl Camera {
-    pub fn new(globals: Globals) -> Self {
+    pub fn new(globals: Globals, bottom: bool) -> Self {
         Self {
             old_globals: globals,
             globals,
             was_updated: true,
+            bottom,
         }
     }
 
@@ -124,7 +126,11 @@ impl Camera {
         // The screen coordinates have the y axis pointed down, and so does the 2d world
         // coordinates. So we do not flip the y axis.
         let x_ndc = 2. * x_screen / self.globals.resolution[0] - 1.;
-        let y_ndc = 2. * y_screen / self.globals.resolution[1] - 1.;
+        let y_ndc = if self.bottom {
+            2. * (y_screen - self.globals.resolution[1]) / self.globals.resolution[1] - 1.
+        } else {
+            2. * y_screen / self.globals.resolution[1] - 1.
+        };
         (
             x_ndc * self.globals.resolution[0] / (2. * self.globals.zoom)
                 + self.globals.scroll_offset[0],

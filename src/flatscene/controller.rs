@@ -24,7 +24,9 @@ pub struct Controller {
     #[allow(dead_code)]
     window_size: PhySize,
     area_size: PhySize,
-    pub camera: CameraPtr,
+    camera_top: CameraPtr,
+    camera_bottom: CameraPtr,
+    splited: bool,
     state: RefCell<Box<dyn ControllerState>>,
     action_mode: ActionMode,
     mediator: Arc<Mutex<Mediator>>,
@@ -62,18 +64,22 @@ impl Controller {
         data: DataPtr,
         window_size: PhySize,
         area_size: PhySize,
-        camera: CameraPtr,
+        camera_top: CameraPtr,
+        camera_bottom: CameraPtr,
         mediator: Arc<Mutex<Mediator>>,
+        splited: bool,
     ) -> Self {
         Self {
             view,
             data,
             window_size,
             area_size,
-            camera,
+            camera_top,
+            camera_bottom,
             state: RefCell::new(Box::new(NormalState {
                 mouse_position: PhysicalPosition::new(-1., -1.),
             })),
+            splited,
             action_mode: ActionMode::Normal,
             mediator,
             pasting: false,
@@ -88,14 +94,36 @@ impl Controller {
     pub fn resize(&mut self, window_size: PhySize, area_size: PhySize) {
         self.area_size = area_size;
         self.window_size = window_size;
-        self.camera
-            .borrow_mut()
-            .resize(area_size.width as f32, area_size.height as f32);
+        if self.splited {
+            self.camera_top
+                .borrow_mut()
+                .resize(area_size.width as f32, area_size.height as f32 / 2.);
+            self.camera_bottom
+                .borrow_mut()
+                .resize(area_size.width as f32, area_size.height as f32 / 2.);
+        } else {
+            self.camera_top
+                .borrow_mut()
+                .resize(area_size.width as f32, area_size.height as f32);
+        }
+    }
+
+    pub fn get_camera(&self, y: f64) -> CameraPtr {
+        if self.splited {
+            if y > self.area_size.height as f64 / 2. {
+                self.camera_bottom.clone()
+            } else {
+                self.camera_top.clone()
+            }
+        } else {
+            self.camera_top.clone()
+        }
     }
 
     pub fn fit(&mut self) {
         let rectangle = self.data.borrow().get_fit_rectangle();
-        self.camera.borrow_mut().fit(rectangle);
+        self.camera_top.borrow_mut().fit(rectangle);
+        self.camera_bottom.borrow_mut().fit(rectangle);
     }
 
     pub fn input(&mut self, event: &WindowEvent, position: PhysicalPosition<f64>) -> Consequence {
@@ -148,12 +176,15 @@ impl Controller {
         } = event
         {
             match *key {
+                // ZOOMING in and out is temporarilly disabled because of split view
+                /*
                 VirtualKeyCode::Up => {
                     self.camera.borrow_mut().zoom_in();
                 }
                 VirtualKeyCode::Down => {
                     self.camera.borrow_mut().zoom_out();
                 }
+                */
                 VirtualKeyCode::J => {
                     self.data.borrow_mut().move_helix_backward();
                 }
@@ -164,6 +195,19 @@ impl Controller {
                 VirtualKeyCode::R if ctrl(&self.modifiers) => self.mediator.lock().unwrap().redo(),
                 _ => (),
             }
+        }
+    }
+
+    fn end_movement(&self) {
+        self.camera_top.borrow_mut().end_movement();
+        self.camera_bottom.borrow_mut().end_movement();
+    }
+
+    fn get_height(&self) -> u32 {
+        if self.splited {
+            self.area_size.height / 2
+        } else {
+            self.area_size.height
         }
     }
 }
