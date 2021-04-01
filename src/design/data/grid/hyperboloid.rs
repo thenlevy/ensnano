@@ -147,7 +147,7 @@ impl Hyperboloid {
         if let Some(radius) = self.forced_radius {
             radius
         } else {
-            let (small_r, big_r) = self.sheet_radii(parameters);
+            let (_small_r, big_r) = self.sheet_radii(parameters);
             (1. - self.radius_shift) * 0.75 * big_r + self.radius_shift * 5.0 * big_r
         }
     }

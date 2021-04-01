@@ -1,7 +1,6 @@
 use std::rc::Rc;
 
 use super::{DataPtr, Device, DrawArea, DrawType, Queue, ViewPtr};
-use crate::mediator::Selection;
 use crate::utils;
 use futures::executor;
 use iced_wgpu::wgpu;
@@ -221,6 +220,7 @@ impl SceneElement {
         }
     }
 
+    #[allow(dead_code)]
     pub fn is_widget(&self) -> bool {
         match self {
             SceneElement::WidgetElement(_) => true,

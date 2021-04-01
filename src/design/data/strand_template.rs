@@ -422,30 +422,6 @@ impl Data {
         self.template_manager.update_chief_template(template);
     }
 
-    fn updated_template(&self, n: usize) -> Option<StrandTemplate> {
-        let chief = self.template_manager.templates.get(0).cloned()?;
-        let chief_origin = chief.origin.clone();
-        if n == 0 {
-            Some(chief)
-        } else {
-            let (edge, shift) = self.template_manager.template_edges.get(n - 1)?;
-            let mut ret = self.template_manager.templates.get(n).cloned()?;
-            println!("chief origin {:?}", chief_origin);
-            println!("edge {:?}, shift {:?}", edge, shift);
-            let pos2 = self
-                .grid_manager
-                .translate_by_edge(&chief_origin.helix, edge)?;
-            let new_origin = TemplateOrigin {
-                helix: pos2,
-                start: chief_origin.start + shift,
-                forward: ret.origin.forward,
-            };
-            ret.origin = new_origin;
-            println!("ret {:?}", ret);
-            Some(ret)
-        }
-    }
-
     fn edge_between_strands(&self, s_id1: usize, s_id2: usize) -> Option<(Edge, isize)> {
         let strand1 = self.design.strands.get(&s_id1)?;
         let strand2 = self.design.strands.get(&s_id2)?;
@@ -557,7 +533,7 @@ impl Data {
             }
             self.xover_copy_manager.initial_strands_state = Some(self.design.strands.clone());
             println!("xovers {:?}", self.xover_copy_manager.xovers);
-            if let Some((ref n01, ref n02)) = self.xover_copy_manager.xovers.get(0) {
+            if let Some((ref n01, ref _n02)) = self.xover_copy_manager.xovers.get(0) {
                 let edge_copy = self.edge_beteen_nucls(n01, &nucl);
                 if !duplicate {
                     self.xover_copy_manager.duplication_edge = edge_copy;

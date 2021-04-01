@@ -49,6 +49,7 @@ pub struct LeftPanel {
     action_mode: ActionMode,
     global_scroll: scrollable::State,
     logical_size: LogicalSize<f64>,
+    #[allow(dead_code)]
     logical_position: LogicalPosition<f64>,
     #[allow(dead_code)]
     open_color: button::State,

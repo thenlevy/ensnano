@@ -222,7 +222,7 @@ fn insertion_pipeline(
 struct InsertionVertexBuilder;
 
 impl StrokeVertexConstructor<InsertionVertex> for InsertionVertexBuilder {
-    fn new_vertex(&mut self, mut vertex: StrokeVertex) -> InsertionVertex {
+    fn new_vertex(&mut self, vertex: StrokeVertex) -> InsertionVertex {
         InsertionVertex {
             position: vertex.position_on_path().to_array(),
             normal: vertex.normal().to_array(),

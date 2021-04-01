@@ -192,8 +192,6 @@ pub struct GridManager {
     /// A possible updates to the instances to be drawn. Must be taken into account before drawing
     /// next frame
     new_instances: Option<Rc<Vec<GridInstance>>>,
-    /// The number of instance to draw.
-    number_instances: usize,
     instances: Vec<GridInstance>,
     selected: Option<(usize, usize)>,
     candidate: Option<(usize, usize)>,
@@ -211,7 +209,6 @@ impl GridManager {
             drawer,
             fake_drawer,
             new_instances: Some(Rc::new(vec![])),
-            number_instances: 0,
             instances: vec![],
             selected: None,
             candidate: None,
@@ -231,7 +228,6 @@ impl GridManager {
             self.instances = (*instances).clone();
             let fake_instances: Vec<GridInstance> =
                 self.instances.iter().map(GridInstance::to_fake).collect();
-            self.number_instances = instances.len();
             if !self.need_new_colors {
                 self.drawer.new_instances((*instances).clone());
             }

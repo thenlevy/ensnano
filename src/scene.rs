@@ -24,7 +24,7 @@ mod camera;
 /// Display of the scene
 mod view;
 use view::{
-    DrawType, GridIntersection, HandleDir, HandleOrientation, HandlesDescriptor, LetterInstance,
+    DrawType, HandleDir, HandleOrientation, HandlesDescriptor, LetterInstance,
     RotationMode as WidgetRotationMode, RotationWidgetDescriptor, RotationWidgetOrientation, View,
     ViewUpdate,
 };
@@ -57,7 +57,6 @@ pub struct Scene {
     area: DrawArea,
     mediator: MediatorPtr,
     element_selector: ElementSelector,
-    pasting: bool,
 }
 
 impl Scene {
@@ -106,7 +105,6 @@ impl Scene {
             area,
             mediator,
             element_selector,
-            pasting: false,
         }
     }
 
@@ -239,6 +237,8 @@ impl Scene {
                 self.view.borrow_mut().update(ViewUpdate::Camera);
                 self.mediator.lock().unwrap().suspend_op();
             }
+            Consequence::PasteCandidate(element) => self.pasting_candidate(element),
+            Consequence::Paste(element) => self.attempt_paste(element),
         };
     }
 
@@ -280,28 +280,6 @@ impl Scene {
         self.mediator.lock().unwrap().suspend_op();
     }
 
-    /*
-    fn click_on(&mut self, clicked_pixel: PhysicalPosition<f64>) {
-        let action_mode = self.data.borrow().get_action_mode();
-        if let ActionMode::BuildHelix { position, length } = action_mode {
-            self.build_helix(clicked_pixel, position, length)
-        } else {
-            self.mediator.lock().unwrap().finish_op();
-            let element = if self.data.borrow().selection_mode == SelectionMode::Grid {
-                self.view
-                    .borrow()
-                    .grid_intersection(
-                        clicked_pixel.x as f32 / self.area.size.width as f32,
-                        clicked_pixel.y as f32 / self.area.size.height as f32,
-                    )
-                    .map(|g| SceneElement::Grid(g.design_id as u32, g.grid_id))
-            } else {
-                self.element_selector.set_selected_id(clicked_pixel)
-            };
-            self.select(element);
-        }
-    }*/
-
     /// If a nucleotide is selected, and the clicked_pixel corresponds to an other nucleotide,
     /// request a cross-over between the two nucleotides.
     fn attempt_xover(&mut self, source: Nucl, target: Nucl, design_id: usize) {
@@ -326,11 +304,6 @@ impl Scene {
     }
 
     fn select(&mut self, element: Option<SceneElement>) {
-        if self.pasting {
-            self.data.borrow_mut().set_candidate(element);
-            let nucl = self.data.borrow().get_candidate_nucl();
-            self.mediator.lock().unwrap().attempt_paste(nucl);
-        }
         let selection = self.data.borrow_mut().set_selection(element);
         if let Some(selection) = selection {
             self.mediator
@@ -343,47 +316,21 @@ impl Scene {
         self.update_handle();
     }
 
-    /*
-    fn check_on(&mut self, clicked_pixel: PhysicalPosition<f64>) {
-        let element = if self.data.borrow().selection_mode == SelectionMode::Grid {
-            let widget = self
-                .element_selector
-                .set_selected_id(clicked_pixel)
-                .filter(SceneElement::is_widget);
-            let grid = self
-                .view
-                .borrow()
-                .grid_intersection(
-                    clicked_pixel.x as f32 / self.area.size.width as f32,
-                    clicked_pixel.y as f32 / self.area.size.height as f32,
-                )
-                .map(|g| {
-                    if self.data.borrow().get_action_mode().is_build() {
-                        SceneElement::GridCircle(g.design_id as u32, g.grid_id, g.x, g.y)
-                    } else {
-                        SceneElement::Grid(g.design_id as u32, g.grid_id)
-                    }
-                });
-            widget.or(grid)
-        } else {
-            self.element_selector.set_selected_id(clicked_pixel)
-        };
-        //self.controller.notify(element);
-        self.data.borrow_mut().set_candidate(element);
-        if self.pasting {
-            let candidate_nucl = self.data.borrow().get_candidate_nucl();
-            self.mediator
-                .lock()
-                .unwrap()
-                .set_paste_candidate(candidate_nucl);
-        }
-        let widget = if let Some(SceneElement::WidgetElement(widget_id)) = element {
-            Some(widget_id)
-        } else {
-            None
-        };
-        self.view.borrow_mut().set_widget_candidate(widget);
-    }*/
+    fn attempt_paste(&mut self, element: Option<SceneElement>) {
+        let nucl = self.data.borrow().element_to_nucl(&element, false);
+        self.mediator
+            .lock()
+            .unwrap()
+            .attempt_paste(nucl.map(|n| n.0));
+    }
+
+    fn pasting_candidate(&self, element: Option<SceneElement>) {
+        let nucl = self.data.borrow().element_to_nucl(&element, false);
+        self.mediator
+            .lock()
+            .unwrap()
+            .set_paste_candidate(nucl.map(|n| n.0));
+    }
 
     fn set_candidate(&mut self, element: Option<SceneElement>) {
         self.data.borrow_mut().set_candidate(element);
@@ -713,7 +660,7 @@ impl Application for Scene {
                 self.notify(SceneNotification::CameraMoved);
             }
             Notification::ShowTorsion(_) => (),
-            Notification::Pasting(b) => self.pasting = b,
+            Notification::Pasting(b) => self.controller.pasting = b,
             Notification::ModifersChanged(modifiers) => self.controller.update_modifiers(modifiers),
         }
     }

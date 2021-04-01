@@ -1,4 +1,5 @@
 use super::{maths, CameraPtr, Drawable, Drawer, ProjectionPtr, Vertex};
+
 use crate::consts::*;
 use iced_wgpu::wgpu;
 use std::f32::consts::PI;
@@ -33,7 +34,6 @@ pub struct RotationWidget {
     big_circle: Option<Circle>,
     big_circle_drawer: Drawer<Circle>,
     rotation_origin: Option<(f32, f32)>,
-    translation: Vec3,
     selected: Option<usize>,
 }
 
@@ -52,7 +52,6 @@ impl RotationWidget {
             big_circle: None,
             big_circle_drawer: Drawer::new(device),
             rotation_origin: None,
-            translation: Vec3::zero(),
             selected: None,
         }
     }
@@ -64,7 +63,6 @@ impl RotationWidget {
         projection: ProjectionPtr,
     ) {
         self.descriptor = descriptor;
-        self.translation = Vec3::zero();
         self.update_camera(camera, projection);
     }
 

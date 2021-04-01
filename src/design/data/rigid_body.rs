@@ -1,16 +1,12 @@
 use super::*;
 use ahash::RandomState;
 use mathru::algebra::linear::vector::vector::Vector;
-use mathru::analysis::differential_equation::ordinary::{
-    ExplicitEuler, ExplicitODE, Kutta3, Midpoint,
-};
+use mathru::analysis::differential_equation::ordinary::{ExplicitEuler, ExplicitODE, Kutta3};
 use ordered_float::OrderedFloat;
-use rand::{rngs::ThreadRng, Rng};
-use rand_distr::{Distribution, Exp, StandardNormal};
+use rand::Rng;
+use rand_distr::{Exp, StandardNormal};
 use std::collections::BinaryHeap;
 use ultraviolet::{Bivec3, Mat3, Rotor3, Vec3};
-
-const NUCL_MASS: f32 = 0.5;
 
 #[derive(Debug)]
 struct HelixSystem {
@@ -309,7 +305,7 @@ impl HelixSystem {
             *state.get_mut(entry) += 10. * self.epsilon_borwnian * gx;
             *state.get_mut(entry + 1) += 10. * self.epsilon_borwnian * gy;
             *state.get_mut(entry + 2) += 10. * self.epsilon_borwnian * gz;
-            if let ShakeTarget::Helix(h_id) = nucl {
+            if let ShakeTarget::Helix(_) = nucl {
                 let delta_roll =
                     rnd.gen::<f32>() * 2. * std::f32::consts::PI - std::f32::consts::PI;
                 let mut iterator = state.iter().skip(entry + 3);
@@ -475,6 +471,7 @@ struct GridsSystem {
     grids: Vec<RigidGrid>,
     time_span: (f32, f32),
     last_state: Option<Vector<f32>>,
+    #[allow(dead_code)]
     anchors: Vec<(ApplicationPoint, Vec3)>,
 }
 
@@ -483,7 +480,7 @@ impl GridsSystem {
         &self,
         positions: &[Vec3],
         orientations: &[Rotor3],
-        volume_exclusion: f32,
+        _volume_exclusion: f32,
     ) -> (Vec<Vec3>, Vec<Vec3>) {
         let mut forces = vec![Vec3::zero(); self.grids.len()];
         let mut torques = vec![Vec3::zero(); self.grids.len()];
@@ -1304,79 +1301,6 @@ impl Data {
         })
     }
 
-    /// Make an helix system without making flexible single_stranded part.
-    fn make_helices_system(
-        &self,
-        time_span: (f32, f32),
-        rigid_parameters: RigidBodyConstants,
-    ) -> Option<HelixSystem> {
-        let intervals = self.design.get_intervals();
-        let parameters = self.design.parameters.unwrap_or_default();
-        let mut helix_map = HashMap::with_capacity(self.design.helices.len());
-        let mut rigid_helices = Vec::with_capacity(self.design.helices.len());
-        for h_id in self.design.helices.keys() {
-            if let Some(rigid_helix) =
-                self.make_rigid_helix_world_pov(*h_id, &intervals, &parameters)
-            {
-                helix_map.insert(h_id, rigid_helices.len());
-                rigid_helices.push(rigid_helix);
-            }
-        }
-        let xovers = self.get_xovers_list();
-        let mut springs = Vec::with_capacity(xovers.len());
-        for (n1, n2) in xovers {
-            let rigid_1 = RigidNucl {
-                helix: helix_map[&n1.helix],
-                position: n1.position,
-                forward: n1.forward,
-            };
-            let rigid_2 = RigidNucl {
-                helix: helix_map[&n2.helix],
-                position: n2.position,
-                forward: n2.forward,
-            };
-            springs.push((rigid_1, rigid_2));
-        }
-        let nucl_0 = Nucl {
-            helix: 1,
-            position: 0,
-            forward: true,
-        };
-        let mut anchors = vec![];
-        for anchor in self.anchors.iter() {
-            if let Some(n_id) = self.identifier_nucl.get(anchor) {
-                if let Some(rigid_helix) = helix_map.get(&anchor.helix) {
-                    let rigid_nucl = RigidNucl {
-                        helix: *rigid_helix,
-                        position: anchor.position,
-                        forward: anchor.forward,
-                    };
-                    let position: Vec3 = self.space_position[n_id].into();
-                    anchors.push((rigid_nucl, position));
-                }
-            }
-        }
-        Some(HelixSystem {
-            helices: rigid_helices,
-            springs,
-            mixed_springs: vec![],
-            free_springs: vec![],
-            free_nucls: vec![],
-            free_nucl_position: vec![],
-            last_state: None,
-            time_span,
-            parameters,
-            anchors,
-            free_anchors: vec![],
-            current_time: 0f32,
-            next_time: 1.,
-            lambda_brownian: 1.,
-            epsilon_borwnian: 0.,
-            brownian_heap: Default::default(),
-            rigid_parameters,
-        })
-    }
-
     fn make_grid_system(
         &self,
         time_span: (f32, f32),
@@ -1487,33 +1411,6 @@ impl Data {
             *x_max as f32 * parameters.z_step,
             helix.roll,
             helix.orientation,
-            (*x_min, *x_max),
-        ))
-    }
-
-    fn make_rigid_helix_world_pov(
-        &self,
-        h_id: usize,
-        intervals: &BTreeMap<usize, (isize, isize)>,
-        parameters: &Parameters,
-    ) -> Option<RigidHelix> {
-        let (x_min, x_max) = intervals.get(&h_id)?;
-        let helix = self.design.helices.get(&h_id)?;
-        let left = helix.axis_position(parameters, *x_min);
-        let right = helix.axis_position(parameters, *x_max);
-        let position = (left + right) / 2.;
-        let position_delta =
-            -(*x_max as f32 * parameters.z_step + *x_min as f32 * parameters.z_step) / 2.
-                * Vec3::unit_x();
-        Some(RigidHelix::new_from_world(
-            position.y,
-            position.z,
-            position.x,
-            position_delta,
-            (right - left).mag(),
-            helix.roll,
-            helix.orientation,
-            h_id,
             (*x_min, *x_max),
         ))
     }
@@ -1706,15 +1603,6 @@ impl Data {
             println!("design was not performing rigid body simulation");
         }
         self.rigid_helix_simulator = None;
-    }
-
-    fn stop_helix_simulation(&mut self) {
-        if let Some(helix_simulation_ptr) = self.helix_simulation_ptr.as_mut() {
-            *helix_simulation_ptr.stop.lock().unwrap() = true;
-        } else {
-            println!("design was not performing rigid body simulation");
-        }
-        self.helix_simulation_ptr = None;
     }
 
     pub(super) fn stop_simulations(&mut self) {

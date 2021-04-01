@@ -112,6 +112,7 @@ pub struct CameraController {
     mouse_horizontal: f32,
     mouse_vertical: f32,
     scroll: f32,
+    #[allow(dead_code)]
     last_rotor: Rotor3,
     processed_move: bool,
     camera: CameraPtr,
@@ -375,19 +376,6 @@ impl CameraController {
         }
         if self.is_moving() {
             self.move_camera(dt);
-        }
-    }
-
-    pub fn process_click(&mut self, state: &ElementState) {
-        let camera = self.camera.borrow();
-        match *state {
-            ElementState::Released => {
-                self.last_rotor = camera.rotor;
-                self.cam0 = self.camera.borrow().clone();
-                self.mouse_horizontal = 0.;
-                self.mouse_vertical = 0.;
-            }
-            ElementState::Pressed => self.processed_move = false,
         }
     }
 

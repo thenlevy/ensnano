@@ -11,7 +11,6 @@
 use crate::gui::SimulationRequest;
 use ahash::RandomState;
 use cadnano_format::Cadnano;
-use mathru::algebra::linear::vector::vector::Vector;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::io::Write;
 use std::path::PathBuf;
@@ -93,6 +92,7 @@ pub struct Data {
     view_need_reset: bool,
     groups: Arc<RwLock<BTreeMap<usize, bool>>>,
     red_cubes: HashMap<(isize, isize, isize), Vec<Nucl>, RandomState>,
+    #[allow(dead_code)]
     blue_cubes: HashMap<(isize, isize, isize), Vec<Nucl>, RandomState>,
     blue_nucl: Vec<Nucl>,
     roller_ptrs: Option<(
@@ -107,7 +107,6 @@ pub struct Data {
     template_manager: TemplateManager,
     xover_copy_manager: XoverCopyManager,
     anchors: HashSet<Nucl>,
-    rigid_helix_update: Option<Vector<f32>>,
     rigid_helix_simulator: Option<rigid_body::RigidHelixSimulator>,
     elements_update: Option<Vec<DnaElement>>,
 }
@@ -157,7 +156,6 @@ impl Data {
             rigid_body_ptr: None,
             helix_simulation_ptr: None,
             anchors: HashSet::new(),
-            rigid_helix_update: None,
             rigid_helix_simulator: None,
             elements_update: None,
         }
@@ -364,7 +362,6 @@ impl Data {
             xover_copy_manager: Default::default(),
             rigid_body_ptr: None,
             helix_simulation_ptr: None,
-            rigid_helix_update: None,
             rigid_helix_simulator: None,
             anchors,
             elements_update: None,
@@ -2435,7 +2432,7 @@ impl Data {
             source_strand_end.to_opt(),
             target_strand_end.to_opt()
         );
-        if let (Some(source_id), Some(target_id), Some(source), Some(target)) =
+        if let (Some(source_id), Some(target_id), Some(source), Some(_target)) =
             (source_id, target_id, source, target)
         {
             match (source_strand_end.to_opt(), target_strand_end.to_opt()) {

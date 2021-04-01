@@ -20,8 +20,8 @@ use automata::{ControllerState, NormalState, Transition};
 pub struct Controller {
     #[allow(dead_code)]
     view: ViewPtr,
-    #[allow(dead_code)]
     data: DataPtr,
+    #[allow(dead_code)]
     window_size: PhySize,
     area_size: PhySize,
     pub camera: CameraPtr,

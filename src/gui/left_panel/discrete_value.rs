@@ -24,7 +24,6 @@ pub trait Requestable {
 }
 
 pub struct RequestFactory<R: Requestable> {
-    id: FactoryId,
     values: BTreeMap<ValueId, DiscreteValue>,
     pub requestable: R,
 }
@@ -53,7 +52,6 @@ impl<R: Requestable> RequestFactory<R> {
             );
         }
         Self {
-            id: factory_id,
             values,
             requestable,
         }

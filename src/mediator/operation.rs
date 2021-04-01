@@ -1189,7 +1189,7 @@ impl Operation for BigStrandModification {
         self.design_id
     }
 
-    fn with_new_value(&self, n: usize, val: String) -> Option<Arc<dyn Operation>> {
+    fn with_new_value(&self, _n: usize, _val: String) -> Option<Arc<dyn Operation>> {
         None
     }
 }
@@ -1251,7 +1251,7 @@ impl Operation for NewHyperboloid {
         self.design_id
     }
 
-    fn with_new_value(&self, n: usize, val: String) -> Option<Arc<dyn Operation>> {
+    fn with_new_value(&self, _n: usize, _val: String) -> Option<Arc<dyn Operation>> {
         None
     }
 }

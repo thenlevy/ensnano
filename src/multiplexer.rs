@@ -94,9 +94,6 @@ pub struct Multiplexer {
     layout_manager: LayoutTree,
     /// The Element on which the mouse cursor is currently on.
     focus: Option<ElementType>,
-    /// `true` if the left button of the mouse was pressed on the window, not released since and
-    /// the cursor has not left the window since
-    mouse_clicked: bool,
     /// The *physical* position of the cursor on the focus area
     cursor_position: PhysicalPosition<f64>,
     /// The area that are drawn on top of the application
@@ -168,7 +165,6 @@ impl Multiplexer {
             scale_factor,
             layout_manager,
             focus: None,
-            mouse_clicked: false,
             cursor_position: PhysicalPosition::new(-1., -1.),
             scene_texture: None,
             flat_scene_texture: None,
@@ -435,11 +431,9 @@ impl Multiplexer {
                                 mouse_position,
                                 element,
                             };
-                            self.mouse_clicked = true;
                         }
                         ElementState::Released => {
                             self.state = State::Normal { mouse_position };
-                            self.mouse_clicked = false;
                         }
                     },
                     _ => unreachable!(),

@@ -22,31 +22,6 @@ pub enum ClickMode {
     RotateCam,
 }
 
-/*
-#[derive(Clone)]
-enum State {
-    MoveCamera,
-    Translate(HandleDir),
-    Rotate(RotationMode),
-    TogglingWidget,
-    Building(Box<StrandBuilder>),
-}
-
-impl State {
-    #[allow(dead_code)]
-    fn debug(&self) {
-        use State::*;
-        match self {
-            MoveCamera => println!("move camera"),
-            Translate(_) => println!("translate"),
-            Rotate(_) => println!("rotate"),
-            TogglingWidget => println!("toggling"),
-            Building(_) => println!("building"),
-        }
-    }
-}
-*/
-
 /// An object handling input and notification for the scene.
 pub struct Controller {
     /// A pointer to the View
@@ -64,7 +39,7 @@ pub struct Controller {
     /// The effect that dragging the mouse has
     click_mode: ClickMode,
     state: State,
-    pasting: bool,
+    pub(super) pasting: bool,
 }
 
 pub enum Consequence {
@@ -97,6 +72,8 @@ pub enum Consequence {
         x: isize,
         y: isize,
     },
+    PasteCandidate(Option<super::SceneElement>),
+    Paste(Option<super::SceneElement>),
 }
 
 enum TransistionConsequence {
@@ -124,7 +101,7 @@ impl Controller {
             area_size,
             current_modifiers: ModifiersState::empty(),
             click_mode: ClickMode::TranslateCam,
-            state: automata::initial_state(false),
+            state: automata::initial_state(),
             pasting: false,
         }
     }
@@ -167,7 +144,6 @@ impl Controller {
             Transition {
                 new_state: Some(Box::new(NormalState {
                     mouse_position: PhysicalPosition::new(-1., -1.),
-                    pasting: self.pasting,
                 })),
                 consequences: Consequence::Nothing,
             }

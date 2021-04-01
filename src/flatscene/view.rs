@@ -15,18 +15,17 @@ mod background;
 mod insertion;
 mod rectangle;
 use super::FlatSelection;
+use crate::consts::SAMPLE_COUNT;
 use crate::utils::{chars2d as chars, circles2d as circles};
 use background::Background;
 use chars::CharDrawer;
 pub use chars::CharInstance;
 pub use circles::CircleInstance;
 use circles::{CircleDrawer, CircleKind};
+use iced_winit::winit::dpi::PhysicalPosition;
 use insertion::InsertionDrawer;
 pub use insertion::InsertionInstance;
 use rectangle::Rectangle;
-
-use crate::consts::SAMPLE_COUNT;
-use iced_winit::winit::dpi::{PhysicalPosition, PhysicalSize};
 
 const SHOW_SUGGESTION: bool = false;
 

@@ -1,4 +1,3 @@
-use super::FlatSelection;
 use super::{FlatNucl, FreeEnd, Helix, Strand};
 use iced_wgpu::wgpu;
 use std::rc::Rc;

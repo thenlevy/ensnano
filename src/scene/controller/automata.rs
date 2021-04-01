@@ -6,9 +6,8 @@ use std::time::Instant;
 
 pub(super) type State = RefCell<Box<dyn ControllerState>>;
 
-pub(super) fn initial_state(pasting: bool) -> State {
+pub(super) fn initial_state() -> State {
     RefCell::new(Box::new(NormalState {
-        pasting,
         mouse_position: PhysicalPosition::new(-1., -1.),
     }))
 }
@@ -61,7 +60,6 @@ pub(super) trait ControllerState {
 
 pub struct NormalState {
     pub mouse_position: PhysicalPosition<f64>,
-    pub pasting: bool,
 }
 
 impl ControllerState for NormalState {
@@ -73,6 +71,11 @@ impl ControllerState for NormalState {
         pixel_reader: &mut ElementSelector,
     ) -> Transition {
         match event {
+            WindowEvent::CursorMoved { .. } if controller.pasting => {
+                self.mouse_position = position;
+                let element = pixel_reader.set_selected_id(position);
+                Transition::consequence(Consequence::PasteCandidate(element))
+            }
             WindowEvent::CursorMoved { .. } => {
                 self.mouse_position = position;
                 let element = pixel_reader.set_selected_id(position);
@@ -118,6 +121,20 @@ impl ControllerState for NormalState {
                 state: ElementState::Pressed,
                 button: MouseButton::Left,
                 ..
+            } if controller.pasting => {
+                let element = pixel_reader.set_selected_id(position);
+                Transition {
+                    new_state: Some(Box::new(Pasting {
+                        clicked_position: position,
+                        element,
+                    })),
+                    consequences: Consequence::Nothing,
+                }
+            }
+            WindowEvent::MouseInput {
+                state: ElementState::Pressed,
+                button: MouseButton::Left,
+                ..
             } => {
                 let element = pixel_reader.set_selected_id(position);
                 match element {
@@ -147,10 +164,26 @@ impl ControllerState for NormalState {
                                     consequences: Consequence::Nothing,
                                 }
                             } else {
-                                Transition::nothing()
+                                Transition {
+                                    new_state: Some(Box::new(Selecting {
+                                        element,
+                                        clicked_position: position,
+                                        mouse_position: position,
+                                        click_date: Instant::now(),
+                                    })),
+                                    consequences: Consequence::Nothing,
+                                }
                             }
                         } else {
-                            Transition::nothing()
+                            Transition {
+                                new_state: Some(Box::new(Selecting {
+                                    element,
+                                    clicked_position: position,
+                                    mouse_position: position,
+                                    click_date: Instant::now(),
+                                })),
+                                consequences: Consequence::Nothing,
+                            }
                         }
                     }
                     Some(SceneElement::WidgetElement(widget_id)) => {
@@ -262,7 +295,6 @@ impl ControllerState for TranslatingCamera {
                 ..
             } if *button == self.button_pressed => Transition {
                 new_state: Some(Box::new(NormalState {
-                    pasting: controller.pasting,
                     mouse_position: self.mouse_position,
                 })),
                 consequences: Consequence::MovementEnded,
@@ -294,7 +326,7 @@ impl ControllerState for SettingPivot {
         &mut self,
         event: &WindowEvent,
         position: PhysicalPosition<f64>,
-        controller: &Controller,
+        _controller: &Controller,
         pixel_reader: &mut ElementSelector,
     ) -> Transition {
         match event {
@@ -320,7 +352,6 @@ impl ControllerState for SettingPivot {
                 let element = pixel_reader.set_selected_id(self.mouse_position);
                 Transition {
                     new_state: Some(Box::new(NormalState {
-                        pasting: controller.pasting,
                         mouse_position: position,
                     })),
                     consequences: Consequence::PivotElement(element),
@@ -370,7 +401,6 @@ impl ControllerState for RotatingCamera {
                 ..
             } if *button == self.button_pressed => Transition {
                 new_state: Some(Box::new(NormalState {
-                    pasting: controller.pasting,
                     mouse_position: position,
                 })),
                 consequences: Consequence::Nothing,
@@ -422,7 +452,6 @@ impl ControllerState for Selecting {
             } else {
                 Transition {
                     new_state: Some(Box::new(NormalState {
-                        pasting: controller.pasting,
                         mouse_position: self.mouse_position,
                     })),
                     consequences: Consequence::Nothing,
@@ -456,7 +485,6 @@ impl ControllerState for Selecting {
                         Transition {
                             new_state: Some(Box::new(NormalState {
                                 mouse_position: self.mouse_position,
-                                pasting: controller.pasting,
                             })),
                             consequences: Consequence::Nothing,
                         }
@@ -472,7 +500,6 @@ impl ControllerState for Selecting {
                 ..
             } => Transition {
                 new_state: Some(Box::new(NormalState {
-                    pasting: controller.pasting,
                     mouse_position: position,
                 })),
                 consequences: Consequence::ElementSelected(self.element),
@@ -505,7 +532,6 @@ impl ControllerState for TranslatingWidget {
                 ..
             } => Transition {
                 new_state: Some(Box::new(NormalState {
-                    pasting: controller.pasting,
                     mouse_position: position,
                 })),
                 consequences: Consequence::MovementEnded,
@@ -543,7 +569,6 @@ impl ControllerState for RotatingWidget {
                 ..
             } => Transition {
                 new_state: Some(Box::new(NormalState {
-                    pasting: controller.pasting,
                     mouse_position: position,
                 })),
                 consequences: Consequence::MovementEnded,
@@ -590,7 +615,6 @@ impl ControllerState for BuildingStrand {
                 };
                 Transition {
                     new_state: Some(Box::new(NormalState {
-                        pasting: controller.pasting,
                         mouse_position: position,
                     })),
                     consequences: consequence,
@@ -650,7 +674,6 @@ impl ControllerState for Xovering {
                 {
                     Transition {
                         new_state: Some(Box::new(NormalState {
-                            pasting: controller.pasting,
                             mouse_position: position,
                         })),
                         consequences: Consequence::XoverAtempt(source, target, design_id),
@@ -658,7 +681,6 @@ impl ControllerState for Xovering {
                 } else {
                     Transition {
                         new_state: Some(Box::new(NormalState {
-                            pasting: controller.pasting,
                             mouse_position: position,
                         })),
                         consequences: Consequence::EndFreeXover,
@@ -700,7 +722,7 @@ impl ControllerState for BuildingHelix {
         &mut self,
         event: &WindowEvent,
         position: PhysicalPosition<f64>,
-        controller: &Controller,
+        _controller: &Controller,
         _pixel_reader: &mut ElementSelector,
     ) -> Transition {
         match event {
@@ -708,7 +730,6 @@ impl ControllerState for BuildingHelix {
                 if position_difference(self.clicked_position, position) > 5. {
                     Transition {
                         new_state: Some(Box::new(NormalState {
-                            pasting: controller.pasting,
                             mouse_position: position,
                         })),
                         consequences: Consequence::Nothing,
@@ -723,7 +744,6 @@ impl ControllerState for BuildingHelix {
                 ..
             } => Transition {
                 new_state: Some(Box::new(NormalState {
-                    pasting: controller.pasting,
                     mouse_position: position,
                 })),
                 consequences: Consequence::BuildHelix {
@@ -734,6 +754,51 @@ impl ControllerState for BuildingHelix {
                     y: self.y_helix,
                     position: self.position_helix,
                 },
+            },
+            _ => Transition::nothing(),
+        }
+    }
+}
+
+struct Pasting {
+    clicked_position: PhysicalPosition<f64>,
+    element: Option<SceneElement>,
+}
+
+impl ControllerState for Pasting {
+    fn display(&self) -> Cow<'static, str> {
+        "Pasting".into()
+    }
+
+    fn input(
+        &mut self,
+        event: &WindowEvent,
+        position: PhysicalPosition<f64>,
+        _controller: &Controller,
+        _pixel_reader: &mut ElementSelector,
+    ) -> Transition {
+        match event {
+            WindowEvent::CursorMoved { .. } => {
+                if position_difference(self.clicked_position, position) > 5. {
+                    Transition {
+                        new_state: Some(Box::new(NormalState {
+                            mouse_position: position,
+                        })),
+                        consequences: Consequence::Nothing,
+                    }
+                } else {
+                    Transition::nothing()
+                }
+            }
+            WindowEvent::MouseInput {
+                state: ElementState::Released,
+                button: MouseButton::Left,
+                ..
+            } => Transition {
+                new_state: Some(Box::new(NormalState {
+                    mouse_position: position,
+                })),
+                consequences: Consequence::Paste(self.element),
             },
             _ => Transition::nothing(),
         }

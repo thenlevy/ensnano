@@ -616,64 +616,6 @@ impl GridManager {
         ret
     }
 
-    pub fn guess_grids(&mut self, design: &mut Design, groups: &HashMap<usize, Vec<usize>>) {
-        for group in groups.values() {
-            if group.len() < 4 {
-                continue;
-            }
-            let desc = self.find_grid_for_group(group, design);
-            match desc.grid_type {
-                GridTypeDescr::Square => {
-                    let grid: Grid = Grid::new(
-                        desc.position,
-                        desc.orientation,
-                        design.parameters.unwrap_or_default(),
-                        GridType::square(),
-                    );
-                    self.grids.push(grid);
-                }
-                GridTypeDescr::Honeycomb => {
-                    let grid: Grid = Grid::new(
-                        desc.position,
-                        desc.orientation,
-                        design.parameters.unwrap_or_default(),
-                        GridType::honneycomb(),
-                    );
-                    self.grids.push(grid);
-                }
-                GridTypeDescr::Hyperboloid {
-                    radius,
-                    shift,
-                    length,
-                    radius_shift,
-                    forced_radius,
-                } => {
-                    let grid = Grid::new(
-                        desc.position,
-                        desc.orientation,
-                        design.parameters.unwrap_or_default(),
-                        GridType::hyperboloid(Hyperboloid {
-                            radius,
-                            radius_shift,
-                            length,
-                            shift,
-                            forced_radius,
-                        }),
-                    );
-                    self.grids.push(grid);
-                }
-            }
-        }
-        for h in design.helices.values_mut() {
-            if h.grid_position.is_some() {
-                continue;
-            }
-            if let Some(position) = self.attach_existing(h) {
-                h.grid_position = Some(position)
-            }
-        }
-    }
-
     pub fn make_grid_from_helices(&mut self, design: &mut Design, helices: &[usize]) {
         if helices.len() < 4 {
             return;
@@ -797,20 +739,6 @@ impl GridManager {
                 }
             }
         }
-    }
-
-    fn attach_existing(&self, helix: &icednano::Helix) -> Option<GridPosition> {
-        let mut ret = None;
-        let mut best_err = f32::INFINITY;
-        let icednano::Axis { origin, direction } = helix.get_axis(&self.parameters);
-        for (g_id, g) in self.grids.iter().enumerate() {
-            let err = g.error_helix(origin, direction);
-            if err < best_err {
-                best_err = err;
-                ret = g.find_helix_position(helix, g_id)
-            }
-        }
-        ret
     }
 
     fn attach_to(&self, helix: &icednano::Helix, g_id: usize) -> Option<GridPosition> {

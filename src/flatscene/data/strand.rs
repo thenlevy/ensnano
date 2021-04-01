@@ -1,5 +1,4 @@
 use super::super::view::InsertionInstance;
-use super::super::FlatSelection;
 use super::helix::{Helix, Shift};
 use super::FlatNucl;
 use lyon::math::Point;

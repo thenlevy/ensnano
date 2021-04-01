@@ -2,7 +2,7 @@
 //! It also communicates with the desgings to get the position of the objects to draw on the scene.
 
 use super::view::RawDnaInstance;
-use super::{GridIntersection, LetterInstance, SceneElement, View, ViewUpdate};
+use super::{LetterInstance, SceneElement, View, ViewUpdate};
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
@@ -138,6 +138,7 @@ impl Data {
     }
 
     /// Return the sets of selected designs
+    #[allow(dead_code)]
     pub fn get_selected_designs(&self) -> HashSet<u32> {
         self.selection
             .iter()
@@ -150,6 +151,7 @@ impl Data {
         self.pivot_element = element;
     }
 
+    #[allow(dead_code)]
     fn get_element_design(&self, element: &SceneElement) -> u32 {
         match element {
             SceneElement::DesignElement(d_id, _) => *d_id,
@@ -443,6 +445,7 @@ impl Data {
     }
 
     /// Return the group to which a phantom element belongs. The group depends on self.selection_mode.
+    #[allow(dead_code)]
     fn get_group_identifier_phantom(
         &self,
         phantom_element: PhantomElement,
@@ -1032,6 +1035,7 @@ impl Data {
         self.designs.iter().map(|d| d.get_tubes_raw().len()).sum()
     }
 
+    #[allow(dead_code)]
     pub fn toggle_selection_mode(&mut self) {
         self.selection_mode = match self.selection_mode {
             SelectionMode::Nucleotide => SelectionMode::Design,
@@ -1130,6 +1134,7 @@ impl Data {
         }
     }
 
+    #[allow(dead_code)]
     pub fn select_5prime(&mut self) {
         let selected = self.selected_element.as_ref();
         if let Some(SceneElement::DesignElement(d_id, e_id)) = selected {
@@ -1143,6 +1148,7 @@ impl Data {
         }
     }
 
+    #[allow(dead_code)]
     pub fn select_3prime(&mut self) {
         let selected = self.selected_element.as_ref();
         if let Some(SceneElement::DesignElement(d_id, e_id)) = selected {
@@ -1164,24 +1170,6 @@ impl Data {
         let selected = element.as_ref()?;
         let design = selected.get_design()?;
         self.designs[design as usize].get_builder(selected, stick)
-    }
-
-    pub fn build_helix(&mut self, intersection: &Option<GridIntersection>) -> bool {
-        if let Some(GridIntersection {
-            grid_id, design_id, ..
-        }) = intersection
-        {
-            if self.action_mode.is_build() && self.selection_mode == SelectionMode::Grid {
-                self.set_selection(Some(SceneElement::Grid(*design_id as u32, *grid_id)));
-                self.selection_update = true;
-                true
-            } else {
-                false
-            }
-        } else {
-            self.set_selection(None);
-            false
-        }
     }
 
     pub fn element_to_nucl(
@@ -1219,6 +1207,7 @@ impl Data {
         }
     }
 
+    #[allow(dead_code)]
     pub fn get_candidate_nucl(&self) -> Option<Nucl> {
         match self.candidate_element.as_ref() {
             None => None,
