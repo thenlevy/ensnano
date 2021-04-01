@@ -132,7 +132,10 @@ impl ControllerState for NormalState {
                         })),
                         consequences: Consequence::Nothing,
                     },
-                    ClickResult::Nucl(nucl) if controller.data.borrow().is_suggested(&nucl) => {
+                    ClickResult::Nucl(nucl)
+                        if controller.data.borrow().is_suggested(&nucl)
+                            && controller.modifiers.alt() =>
+                    {
                         Transition {
                             new_state: Some(Box::new(FollowingSuggestion {
                                 nucl,

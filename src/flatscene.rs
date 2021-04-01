@@ -355,7 +355,9 @@ impl FlatScene {
                     }
                 }
                 Consequence::Centering(nucl, bottom) => {
-                    self.view[self.selected_design].borrow_mut().center_nucl(nucl, bottom);
+                    self.view[self.selected_design]
+                        .borrow_mut()
+                        .center_nucl(nucl, bottom);
                     let nucl = nucl.to_real();
                     self.mediator
                         .lock()

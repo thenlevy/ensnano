@@ -221,7 +221,6 @@ impl Controller {
             false
         }
     }
-
 }
 
 fn ctrl(modifiers: &ModifiersState) -> bool {
