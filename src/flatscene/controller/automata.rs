@@ -46,7 +46,6 @@ pub trait ControllerState {
 
 pub struct NormalState {
     pub mouse_position: PhysicalPosition<f64>,
-    pub pasting: bool,
 }
 
 impl ControllerState for NormalState {
@@ -107,9 +106,20 @@ impl ControllerState for NormalState {
                     .screen_to_world(self.mouse_position.x as f32, self.mouse_position.y as f32);
                 let click_result = controller.data.borrow().get_click(x, y, &controller.camera);
                 match click_result {
-                    ClickResult::Nucl(nucl) if self.pasting => Transition {
+                    ClickResult::CircleWidget { .. } | ClickResult::Nothing
+                        if controller.pasting =>
+                    {
+                        Transition {
+                            new_state: Some(Box::new(Pasting {
+                                nucl: None,
+                                mouse_position: self.mouse_position,
+                            })),
+                            consequences: Consequence::Nothing,
+                        }
+                    }
+                    ClickResult::Nucl(nucl) if controller.pasting => Transition {
                         new_state: Some(Box::new(Pasting {
-                            nucl,
+                            nucl: Some(nucl),
                             mouse_position: self.mouse_position,
                         })),
                         consequences: Consequence::Nothing,
@@ -393,7 +403,6 @@ impl ControllerState for Translating {
                     Transition {
                         new_state: Some(Box::new(NormalState {
                             mouse_position: self.mouse_position,
-                            pasting: controller.pasting,
                         })),
                         consequences: Consequence::Nothing,
                     }
@@ -485,7 +494,6 @@ impl ControllerState for MovingCamera {
                     Transition {
                         new_state: Some(Box::new(NormalState {
                             mouse_position: self.mouse_position,
-                            pasting: controller.pasting,
                         })),
                         consequences: Consequence::Nothing,
                     }
@@ -787,7 +795,6 @@ impl ControllerState for LeavingPivot {
                 Transition {
                     new_state: Some(Box::new(NormalState {
                         mouse_position: self.mouse_position,
-                        pasting: controller.pasting,
                     })),
                     consequences: Consequence::Nothing,
                 }
@@ -1008,7 +1015,6 @@ impl ControllerState for InitCutting {
                 Transition {
                     new_state: Some(Box::new(NormalState {
                         mouse_position: self.mouse_position,
-                        pasting: controller.pasting,
                     })),
                     consequences: Consequence::Cut(self.nucl),
                 }
@@ -1101,7 +1107,6 @@ impl ControllerState for InitAttachement {
                 Transition {
                     new_state: Some(Box::new(NormalState {
                         mouse_position: self.mouse_position,
-                        pasting: controller.pasting,
                     })),
                     consequences: Consequence::Xover(self.from, self.to),
                 }
@@ -1189,7 +1194,6 @@ impl ControllerState for InitBuilding {
                     Transition {
                         new_state: Some(Box::new(NormalState {
                             mouse_position: self.mouse_position,
-                            pasting: controller.pasting,
                         })),
                         consequences: Consequence::Xover(self.nucl, attachement),
                     }
@@ -1197,7 +1201,6 @@ impl ControllerState for InitBuilding {
                     Transition {
                         new_state: Some(Box::new(NormalState {
                             mouse_position: self.mouse_position,
-                            pasting: controller.pasting,
                         })),
                         consequences: Consequence::Cut(self.nucl),
                     }
@@ -1352,7 +1355,6 @@ impl ControllerState for MovingFreeEnd {
                 Transition {
                     new_state: Some(Box::new(NormalState {
                         mouse_position: self.mouse_position,
-                        pasting: controller.pasting,
                     })),
                     consequences: Consequence::FreeEnd(None),
                 }
@@ -1475,7 +1477,6 @@ impl ControllerState for Building {
                         return Transition {
                             new_state: Some(Box::new(NormalState {
                                 mouse_position: self.mouse_position,
-                                pasting: controller.pasting,
                             })),
                             consequences: Consequence::Xover(self.nucl, attachement),
                         };
@@ -1484,7 +1485,6 @@ impl ControllerState for Building {
                 Transition {
                     new_state: Some(Box::new(NormalState {
                         mouse_position: self.mouse_position,
-                        pasting: controller.pasting,
                     })),
                     consequences: Consequence::Built(Box::new(self.builder.clone())),
                 }
@@ -1574,7 +1574,6 @@ impl ControllerState for Crossing {
                 Transition {
                     new_state: Some(Box::new(NormalState {
                         mouse_position: self.mouse_position,
-                        pasting: controller.pasting,
                     })),
                     consequences: if self.cut {
                         Consequence::CutCross(self.from, self.to)
@@ -1679,7 +1678,6 @@ impl ControllerState for Cutting {
                 Transition {
                     new_state: Some(Box::new(NormalState {
                         mouse_position: self.mouse_position,
-                        pasting: controller.pasting,
                     })),
                     consequences,
                 }
@@ -1758,7 +1756,6 @@ impl ControllerState for RmHelix {
                 Transition {
                     new_state: Some(Box::new(NormalState {
                         mouse_position: self.mouse_position,
-                        pasting: controller.pasting,
                     })),
                     consequences,
                 }
@@ -1837,7 +1834,6 @@ impl ControllerState for FlipGroup {
                 Transition {
                     new_state: Some(Box::new(NormalState {
                         mouse_position: self.mouse_position,
-                        pasting: controller.pasting,
                     })),
                     consequences,
                 }
@@ -1917,7 +1913,6 @@ impl ControllerState for FlipVisibility {
                 Transition {
                     new_state: Some(Box::new(NormalState {
                         mouse_position: self.mouse_position,
-                        pasting: controller.pasting,
                     })),
                     consequences,
                 }
@@ -1997,7 +1992,6 @@ impl ControllerState for FollowingSuggestion {
                 Transition {
                     new_state: Some(Box::new(NormalState {
                         mouse_position: self.mouse_position,
-                        pasting: controller.pasting,
                     })),
                     consequences,
                 }
@@ -2076,7 +2070,6 @@ impl ControllerState for CenteringSuggestion {
                 Transition {
                     new_state: Some(Box::new(NormalState {
                         mouse_position: self.mouse_position,
-                        pasting: controller.pasting,
                     })),
                     consequences,
                 }
@@ -2103,7 +2096,7 @@ impl ControllerState for CenteringSuggestion {
 
 struct Pasting {
     mouse_position: PhysicalPosition<f64>,
-    nucl: FlatNucl,
+    nucl: Option<FlatNucl>,
 }
 
 impl ControllerState for Pasting {
@@ -2139,7 +2132,9 @@ impl ControllerState for Pasting {
                     .borrow()
                     .screen_to_world(self.mouse_position.x as f32, self.mouse_position.y as f32);
                 let nucl = controller.data.borrow().get_click(x, y, &controller.camera);
-                let consequences = if nucl == ClickResult::Nucl(self.nucl) {
+                let consequences = if self.nucl.is_none() {
+                    Consequence::PasteRequest(self.nucl)
+                } else if nucl == ClickResult::Nucl(self.nucl.unwrap()) {
                     Consequence::PasteRequest(self.nucl)
                 } else {
                     Consequence::Nothing
@@ -2147,7 +2142,6 @@ impl ControllerState for Pasting {
                 Transition {
                     new_state: Some(Box::new(NormalState {
                         mouse_position: self.mouse_position,
-                        pasting: controller.pasting,
                     })),
                     consequences,
                 }
@@ -2226,7 +2220,6 @@ impl ControllerState for DraggingSelection {
                     Transition {
                         new_state: Some(Box::new(NormalState {
                             mouse_position: self.mouse_position,
-                            pasting: controller.pasting,
                         })),
                         consequences: Consequence::ReleasedSelection(
                             corner1_world.into(),
@@ -2322,7 +2315,6 @@ impl ControllerState for AddClick {
                 Transition {
                     new_state: Some(Box::new(NormalState {
                         mouse_position: self.mouse_position,
-                        pasting: controller.pasting,
                     })),
                     consequences,
                 }

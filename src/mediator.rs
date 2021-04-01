@@ -63,6 +63,7 @@ pub struct Mediator {
     last_selected_design: usize,
     pasting_attempt: Option<Nucl>,
     duplication_attempt: bool,
+    canceling_pasting: bool,
 }
 
 /// The scheduler is responsible for running the different applications
@@ -208,6 +209,7 @@ impl Mediator {
             last_selected_design: 0,
             pasting_attempt: None,
             duplication_attempt: false,
+            canceling_pasting: false,
         }
     }
 
@@ -485,13 +487,17 @@ impl Mediator {
     pub fn notify_multiple_selection(&mut self, selection: Vec<Selection>, app_id: AppId) {
         self.selection = selection.clone();
         self.last_selection = Some((selection, app_id));
+        self.cancel_pasting();
+    }
+
+    fn cancel_pasting(&mut self) {
         self.pasting = PastingMode::Nothing;
         self.notify_all_designs(AppNotification::ResetCopyPaste);
+        self.canceling_pasting = true;
     }
 
     pub fn notify_unique_selection(&mut self, selection: Selection, app_id: AppId) {
-        self.pasting = PastingMode::Nothing;
-        self.notify_all_designs(AppNotification::ResetCopyPaste);
+        self.cancel_pasting();
         self.selection = vec![selection];
         self.last_selection = Some((vec![selection], app_id));
         if selection.is_strand() {
@@ -724,6 +730,10 @@ impl Mediator {
             ret = true;
             self.notify_apps(Notification::NewSelectionMode(SelectionMode::Nucleotide));
             self.notify_apps(Notification::Centering(centring.0, centring.1))
+        }
+        if self.canceling_pasting {
+            self.canceling_pasting = false;
+            self.notify_apps(Notification::Pasting(false))
         }
         ret
     }
@@ -1137,10 +1147,14 @@ impl Mediator {
         self.notify_apps(Notification::Pasting(self.pasting.is_placing_paste()));
     }
 
-    pub fn attempt_paste(&mut self, nucl: Nucl) {
+    pub fn attempt_paste(&mut self, nucl: Option<Nucl>) {
         println!("Attempt paste {:?}", nucl);
-        if self.pasting.is_placing_paste() {
-            self.pasting_attempt = Some(nucl);
+        if let Some(nucl) = nucl {
+            if self.pasting.is_placing_paste() {
+                self.pasting_attempt = Some(nucl);
+            }
+        } else {
+            self.cancel_pasting();
         }
     }
 

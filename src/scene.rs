@@ -328,10 +328,8 @@ impl Scene {
     fn select(&mut self, element: Option<SceneElement>) {
         if self.pasting {
             self.data.borrow_mut().set_candidate(element);
-            if let Some(nucl) = self.data.borrow().get_candidate_nucl() {
-                self.mediator.lock().unwrap().attempt_paste(nucl);
-                return;
-            }
+            let nucl = self.data.borrow().get_candidate_nucl();
+            self.mediator.lock().unwrap().attempt_paste(nucl);
         }
         let selection = self.data.borrow_mut().set_selection(element);
         if let Some(selection) = selection {

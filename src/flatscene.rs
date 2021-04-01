@@ -367,7 +367,10 @@ impl FlatScene {
                     );
                 }
                 Consequence::PasteRequest(nucl) => {
-                    self.mediator.lock().unwrap().attempt_paste(nucl.to_real());
+                    self.mediator
+                        .lock()
+                        .unwrap()
+                        .attempt_paste(nucl.map(|n| n.to_real()));
                 }
                 Consequence::AddClick(click) => {
                     self.data[self.selected_design]
