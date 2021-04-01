@@ -148,16 +148,19 @@ impl Controller {
     }
 
     pub fn set_pasting(&mut self, pasting: bool) {
+        let change = self.pasting != pasting;
         self.pasting = pasting;
-        let transition = Transition {
-            new_state: Some(Box::new(NormalState {
-                mouse_position: PhysicalPosition::new(-1., -1.),
-            })),
-            consequences: Consequence::Nothing,
-        };
-        self.state.borrow().transition_from(&self);
-        self.state = RefCell::new(transition.new_state.unwrap());
-        self.state.borrow().transition_to(&self);
+        if change {
+            let transition = Transition {
+                new_state: Some(Box::new(NormalState {
+                    mouse_position: PhysicalPosition::new(-1., -1.),
+                })),
+                consequences: Consequence::Nothing,
+            };
+            self.state.borrow().transition_from(&self);
+            self.state = RefCell::new(transition.new_state.unwrap());
+            self.state.borrow().transition_to(&self);
+        }
     }
 
     pub fn set_action_mode(&mut self, action_mode: ActionMode) {
