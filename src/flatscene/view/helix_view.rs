@@ -46,6 +46,7 @@ pub struct StrandView {
     vertex_buffer: DynamicBuffer,
     index_buffer: DynamicBuffer,
     num_instance: u32,
+    previous_points: Option<Vec<FlatNucl>>,
 }
 
 impl StrandView {
@@ -58,14 +59,25 @@ impl StrandView {
             ),
             index_buffer: DynamicBuffer::new(device, queue, wgpu::BufferUsage::INDEX),
             num_instance: 0,
+            previous_points: None,
         }
     }
 
     pub fn update(&mut self, strand: &Strand, helices: &[Helix], free_end: &Option<FreeEnd>) {
-        let vertices = strand.to_vertices(helices, free_end);
-        self.vertex_buffer.update(vertices.vertices.as_slice());
-        self.index_buffer.update(vertices.indices.as_slice());
-        self.num_instance = vertices.indices.len() as u32;
+        let need_update = if self.previous_points.as_ref() != Some(&strand.points) {
+            true
+        } else if let Some(free_end) = free_end {
+            free_end.strand_id == strand.id
+        } else {
+            false
+        };
+
+        if need_update {
+            let vertices = strand.to_vertices(helices, free_end);
+            self.vertex_buffer.update(vertices.vertices.as_slice());
+            self.index_buffer.update(vertices.indices.as_slice());
+            self.num_instance = vertices.indices.len() as u32;
+        }
     }
 
     pub fn set_indication(&mut self, nucl1: FlatNucl, nucl2: FlatNucl, helices: &[Helix]) {

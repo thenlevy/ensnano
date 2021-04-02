@@ -26,6 +26,7 @@ use camera::{Camera, Globals};
 use controller::Controller;
 use data::Data;
 use flattypes::*;
+use std::time::Instant;
 use view::View;
 
 type ViewPtr = Rc<RefCell<View>>;
@@ -49,6 +50,7 @@ pub struct FlatScene {
     device: Rc<Device>,
     queue: Rc<Queue>,
     mediator: Arc<Mutex<Mediator>>,
+    last_update: Instant,
 }
 
 impl FlatScene {
@@ -69,6 +71,7 @@ impl FlatScene {
             device,
             queue,
             mediator,
+            last_update: Instant::now(),
         }
     }
 
@@ -512,6 +515,12 @@ impl Application for FlatScene {
     }
 
     fn needs_redraw(&mut self, _: Duration) -> bool {
-        self.needs_redraw_()
+        let now = Instant::now();
+        if (now - self.last_update).as_millis() < 25 {
+            false
+        } else {
+            self.last_update = now;
+            self.needs_redraw_()
+        }
     }
 }

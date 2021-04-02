@@ -386,9 +386,7 @@ impl Data {
 
     pub fn set_free_end(&mut self, free_end: Option<FreeEnd>) {
         self.view.borrow_mut().set_free_end(free_end);
-        self.view
-            .borrow_mut()
-            .update_strands(&self.design.get_strands(), &self.helices);
+        self.instance_update = true;
     }
 
     pub fn xover(&self, from: FlatNucl, to: FlatNucl) -> (usize, usize) {
