@@ -2087,7 +2087,7 @@ impl Data {
                             forward: dom.forward,
                             helix: dom.helix,
                         };
-                        sequence.push(*basis_map.get(&nucl).unwrap());
+                        sequence.push(*basis_map.get(&nucl).unwrap_or(&'?'));
                     }
                 }
             }

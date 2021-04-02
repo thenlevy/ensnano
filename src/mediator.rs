@@ -374,13 +374,12 @@ impl Mediator {
             return;
         }
         if let Some(nucl) = self.designs[d_id].read().unwrap().get_stapple_mismatch() {
-            let msg = format!(
+            let _msg = format!(
                 "All stapples are not paired \n
                 first unpaired nucleotide {:?}",
                 nucl
             );
-            message(msg.into(), rfd::MessageLevel::Error);
-            return;
+            //message(msg.into(), rfd::MessageLevel::Warning);
         }
 
         let scaf_len = self.designs[d_id]
