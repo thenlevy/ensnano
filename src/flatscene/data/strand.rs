@@ -106,7 +106,7 @@ impl Strand {
                 let xover_origin = if alternate {
                     if let Some(alt) = alternative_position(last_pos, my_cam, other_cam) {
                         builder.end(false);
-                        builder.begin(Point::new(alt.x, alt.y), &[depth, sign]);
+                        builder.begin(Point::new(alt.x, alt.y), &[depth, 5.]);
                         cut = true;
                         alt
                     } else {
@@ -133,7 +133,11 @@ impl Strand {
                 };
                 let control = (xover_origin + xover_target) / 2. + normal / 3.;
                 if cut {
-                    builder.line_to(Point::new(xover_target.x, xover_target.y), &[depth, sign]);
+                    builder.line_to(
+                        Point::new(xover_origin.x + 0.01, xover_origin.y + 0.01),
+                        &[depth, 5.],
+                    );
+                    builder.line_to(Point::new(xover_target.x, xover_target.y), &[depth, 5.]);
                 } else {
                     sign *= -1.;
                     builder.quadratic_bezier_to(
@@ -171,7 +175,7 @@ impl Strand {
                 let xover_origin = if alternate {
                     if let Some(alt) = alternative_position(last_pos, my_cam, other_cam) {
                         builder.end(false);
-                        builder.begin(Point::new(alt.x, alt.y), &[depth, sign]);
+                        builder.begin(Point::new(alt.x, alt.y), &[depth, 5.]);
                         cut = true;
                         alt
                     } else {
@@ -197,7 +201,11 @@ impl Strand {
                 };
                 let control = (xover_origin + xover_target) / 2. + normal / 3.;
                 if cut {
-                    builder.line_to(Point::new(xover_target.x, xover_target.y), &[depth, sign]);
+                    builder.line_to(
+                        Point::new(xover_origin.x + 0.01, xover_origin.y + 0.01),
+                        &[depth, 5.],
+                    );
+                    builder.line_to(Point::new(xover_target.x, xover_target.y), &[depth, 5.]);
                 } else {
                     sign *= -1.;
                     builder.quadratic_bezier_to(
@@ -309,7 +317,7 @@ pub struct WithAttributes {
 
 impl StrokeVertexConstructor<StrandVertex> for WithAttributes {
     fn new_vertex(&mut self, mut vertex: StrokeVertex) -> StrandVertex {
-        let mut width = vertex.interpolated_attributes()[1].powi(2).max(0.3);
+        let mut width = vertex.interpolated_attributes()[1].min(1.).powi(2).max(0.3);
         if self.highlight {
             width *= 1.3;
         }

@@ -12,6 +12,7 @@ use wgpu::util::DeviceExt;
 
 pub struct Background {
     pipeline: wgpu::RenderPipeline,
+    border_pipeline: wgpu::RenderPipeline,
     vbo: wgpu::Buffer,
     ibo: wgpu::Buffer,
 }
@@ -49,6 +50,10 @@ impl Background {
             &device.create_shader_module(&wgpu::include_spirv!("background.vert.spv"));
         let bg_fs_module =
             &device.create_shader_module(&wgpu::include_spirv!("background.frag.spv"));
+        let border_vs_module =
+            &device.create_shader_module(&wgpu::include_spirv!("border.vert.spv"));
+        let border_fs_module =
+            &device.create_shader_module(&wgpu::include_spirv!("border.frag.spv"));
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             bind_group_layouts: &[globals_layout],
@@ -87,6 +92,31 @@ impl Background {
                 targets,
             }),
             depth_stencil: depth_stencil.clone(),
+            primitive: primitive.clone(),
+            multisample: wgpu::MultisampleState {
+                count: SAMPLE_COUNT,
+                mask: !0,
+                alpha_to_coverage_enabled: false,
+            },
+            label: None,
+        });
+        let border_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            layout: Some(&pipeline_layout),
+            vertex: wgpu::VertexState {
+                module: &border_vs_module,
+                entry_point: "main",
+                buffers: &[wgpu::VertexBufferLayout {
+                    array_stride: std::mem::size_of::<BgPoint>() as u64,
+                    step_mode: wgpu::InputStepMode::Vertex,
+                    attributes: &wgpu::vertex_attr_array![0 => Float2],
+                }],
+            },
+            fragment: Some(wgpu::FragmentState {
+                module: &border_fs_module,
+                entry_point: "main",
+                targets,
+            }),
+            depth_stencil: depth_stencil.clone(),
             primitive,
             multisample: wgpu::MultisampleState {
                 count: SAMPLE_COUNT,
@@ -98,6 +128,7 @@ impl Background {
 
         Self {
             pipeline: bg_pipeline,
+            border_pipeline,
             vbo: bg_vbo,
             ibo: bg_ibo,
         }
@@ -105,6 +136,13 @@ impl Background {
 
     pub fn draw<'a>(&'a self, render_pass: &mut wgpu::RenderPass<'a>) {
         render_pass.set_pipeline(&self.pipeline);
+        render_pass.set_index_buffer(self.ibo.slice(..), wgpu::IndexFormat::Uint16);
+        render_pass.set_vertex_buffer(0, self.vbo.slice(..));
+        render_pass.draw_indexed(0..6, 0, 0..1);
+    }
+
+    pub fn draw_border<'a>(&'a self, render_pass: &mut wgpu::RenderPass<'a>) {
+        render_pass.set_pipeline(&self.border_pipeline);
         render_pass.set_index_buffer(self.ibo.slice(..), wgpu::IndexFormat::Uint16);
         render_pass.set_vertex_buffer(0, self.vbo.slice(..));
         render_pass.draw_indexed(0..6, 0, 0..1);

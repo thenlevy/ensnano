@@ -459,10 +459,10 @@ impl View {
         }
 
         let clear_color = wgpu::Color {
-            r: 1.,
-            g: 1.,
-            b: 1.,
-            a: 1.,
+            r: 0.,
+            g: 0.,
+            b: 0.,
+            a: 0.,
         };
 
         let msaa_texture = if SAMPLE_COUNT > 1 {
@@ -534,6 +534,49 @@ impl View {
         for helix in self.helices_view.iter() {
             helix.draw(&mut render_pass);
         }
+        self.circle_drawer_top.draw(&mut render_pass);
+        self.rotation_widget.draw(&mut render_pass);
+        for drawer in self.char_drawers_top.values_mut() {
+            drawer.draw(&mut render_pass);
+        }
+        self.insertion_drawer.draw(&mut render_pass);
+        drop(render_pass);
+        let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: None,
+            color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
+                attachment,
+                resolve_target,
+                ops: wgpu::Operations {
+                    load: wgpu::LoadOp::Load,
+                    store: true,
+                },
+            }],
+            depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachmentDescriptor {
+                attachment: &self.depth_texture.view,
+                depth_ops: Some(wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(1.),
+                    store: true,
+                }),
+                stencil_ops: Some(wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(0),
+                    store: true,
+                }),
+            }),
+        });
+        if self.splited {
+            render_pass.set_viewport(
+                0.,
+                0.,
+                self.area_size.width as f32,
+                self.area_size.height as f32 / 2.,
+                0.,
+                1.,
+            );
+            render_pass.set_scissor_rect(0, 0, self.area_size.width, self.area_size.height / 2);
+        }
+        render_pass.set_bind_group(0, self.globals_top.get_bindgroup(), &[]);
+        render_pass.set_bind_group(1, self.models.get_bindgroup(), &[]);
+        self.background.draw_border(&mut render_pass);
 
         render_pass.set_pipeline(&self.strand_pipeline);
         for strand in self.strands.iter() {
@@ -552,12 +595,6 @@ impl View {
             highlight.draw(&mut render_pass, bottom);
         }
 
-        self.circle_drawer_top.draw(&mut render_pass);
-        self.rotation_widget.draw(&mut render_pass);
-        for drawer in self.char_drawers_top.values_mut() {
-            drawer.draw(&mut render_pass);
-        }
-        self.insertion_drawer.draw(&mut render_pass);
         drop(render_pass);
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: None,
@@ -633,6 +670,52 @@ impl View {
             for helix in self.helices_view.iter() {
                 helix.draw(&mut render_pass);
             }
+            self.circle_drawer_bottom.draw(&mut render_pass);
+            self.rotation_widget.draw(&mut render_pass);
+            for drawer in self.char_drawers_bottom.values_mut() {
+                drawer.draw(&mut render_pass);
+            }
+            self.insertion_drawer.draw(&mut render_pass);
+            drop(render_pass);
+            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: None,
+                color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
+                    attachment,
+                    resolve_target,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Load,
+                        store: true,
+                    },
+                }],
+                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachmentDescriptor {
+                    attachment: &self.depth_texture.view,
+                    depth_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(1.),
+                        store: true,
+                    }),
+                    stencil_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(0),
+                        store: true,
+                    }),
+                }),
+            });
+            render_pass.set_viewport(
+                0.,
+                self.area_size.height as f32 / 2.,
+                self.area_size.width as f32,
+                self.area_size.height as f32 / 2.,
+                0.,
+                1.,
+            );
+            render_pass.set_scissor_rect(
+                0,
+                self.area_size.height / 2,
+                self.area_size.width,
+                self.area_size.height / 2,
+            );
+            render_pass.set_bind_group(0, self.globals_bottom.get_bindgroup(), &[]);
+            render_pass.set_bind_group(1, self.models.get_bindgroup(), &[]);
+            self.background.draw_border(&mut render_pass);
 
             render_pass.set_pipeline(&self.strand_pipeline);
             for strand in self.strands.iter() {
@@ -650,13 +733,6 @@ impl View {
             for highlight in self.candidate_strands.iter() {
                 highlight.draw(&mut render_pass, bottom);
             }
-
-            self.circle_drawer_bottom.draw(&mut render_pass);
-            self.rotation_widget.draw(&mut render_pass);
-            for drawer in self.char_drawers_bottom.values_mut() {
-                drawer.draw(&mut render_pass);
-            }
-            self.insertion_drawer.draw(&mut render_pass);
         }
         self.was_updated = false;
     }
