@@ -287,11 +287,13 @@ impl View {
     pub fn add_strand(&mut self, strand: &Strand, helices: &[Helix]) {
         self.strands
             .push(StrandView::new(self.device.clone(), self.queue.clone()));
-        self.strands
-            .iter_mut()
-            .last()
-            .unwrap()
-            .update(&strand, helices, &self.free_end);
+        self.strands.iter_mut().last().unwrap().update(
+            &strand,
+            helices,
+            &self.free_end,
+            &self.camera_top,
+            &self.camera_bottom,
+        );
     }
 
     pub fn reset(&mut self) {
@@ -305,7 +307,13 @@ impl View {
     pub fn update_strands(&mut self, strands: &[Strand], helices: &[Helix]) {
         for (i, s) in self.strands.iter_mut().enumerate() {
             if i < strands.len() {
-                s.update(&strands[i], helices, &self.free_end);
+                s.update(
+                    &strands[i],
+                    helices,
+                    &self.free_end,
+                    &self.camera_top,
+                    &self.camera_bottom,
+                );
             }
         }
         for strand in strands.iter().skip(self.strands.len()) {
@@ -325,7 +333,7 @@ impl View {
         self.selected_strands.clear();
         for s in strands.iter() {
             let mut strand_view = StrandView::new(self.device.clone(), self.queue.clone());
-            strand_view.update(s, helices, &None);
+            strand_view.update(s, helices, &None, &self.camera_top, &self.camera_bottom);
             self.selected_strands.push(strand_view);
         }
         self.was_updated = true;
@@ -335,7 +343,7 @@ impl View {
         self.candidate_strands.clear();
         for s in strands.iter() {
             let mut strand_view = StrandView::new(self.device.clone(), self.queue.clone());
-            strand_view.update(s, helices, &None);
+            strand_view.update(s, helices, &None, &self.camera_top, &self.camera_bottom);
             self.candidate_strands.push(strand_view);
         }
         self.was_updated = true;
@@ -346,7 +354,13 @@ impl View {
             .iter()
             .map(|strand| {
                 let mut pasted_strand = StrandView::new(self.device.clone(), self.queue.clone());
-                pasted_strand.update(strand, helices, &None);
+                pasted_strand.update(
+                    strand,
+                    helices,
+                    &None,
+                    &self.camera_top,
+                    &self.camera_bottom,
+                );
                 pasted_strand
             })
             .collect();
@@ -474,6 +488,7 @@ impl View {
             None
         };
 
+        let bottom = false;
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: None,
             color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
@@ -522,19 +537,19 @@ impl View {
 
         render_pass.set_pipeline(&self.strand_pipeline);
         for strand in self.strands.iter() {
-            strand.draw(&mut render_pass);
+            strand.draw(&mut render_pass, bottom);
         }
         for strand in self.pasted_strands.iter() {
-            strand.draw(&mut render_pass);
+            strand.draw(&mut render_pass, bottom);
         }
         for suggestion in self.suggestions_view.iter() {
-            suggestion.draw(&mut render_pass);
+            suggestion.draw(&mut render_pass, bottom);
         }
         for highlight in self.selected_strands.iter() {
-            highlight.draw(&mut render_pass);
+            highlight.draw(&mut render_pass, bottom);
         }
         for highlight in self.candidate_strands.iter() {
-            highlight.draw(&mut render_pass);
+            highlight.draw(&mut render_pass, bottom);
         }
 
         self.circle_drawer_top.draw(&mut render_pass);
@@ -569,6 +584,7 @@ impl View {
         self.rectangle.draw(&mut render_pass);
         drop(render_pass);
         if self.splited {
+            let bottom = true;
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: None,
                 color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
@@ -620,19 +636,19 @@ impl View {
 
             render_pass.set_pipeline(&self.strand_pipeline);
             for strand in self.strands.iter() {
-                strand.draw(&mut render_pass);
+                strand.draw(&mut render_pass, bottom);
             }
             for strand in self.pasted_strands.iter() {
-                strand.draw(&mut render_pass);
+                strand.draw(&mut render_pass, bottom);
             }
             for suggestion in self.suggestions_view.iter() {
-                suggestion.draw(&mut render_pass);
+                suggestion.draw(&mut render_pass, bottom);
             }
             for highlight in self.selected_strands.iter() {
-                highlight.draw(&mut render_pass);
+                highlight.draw(&mut render_pass, bottom);
             }
             for highlight in self.candidate_strands.iter() {
-                highlight.draw(&mut render_pass);
+                highlight.draw(&mut render_pass, bottom);
             }
 
             self.circle_drawer_bottom.draw(&mut render_pass);

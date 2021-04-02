@@ -1,4 +1,4 @@
-use super::{FlatNucl, FreeEnd, Helix, Strand};
+use super::{CameraPtr, FlatNucl, FreeEnd, Helix, Strand};
 use iced_wgpu::wgpu;
 use std::rc::Rc;
 use wgpu::{Buffer, Device, Queue, RenderPass};
@@ -43,54 +43,100 @@ impl HelixView {
 }
 
 pub struct StrandView {
-    vertex_buffer: DynamicBuffer,
-    index_buffer: DynamicBuffer,
-    num_instance: u32,
+    vertex_buffer_top: DynamicBuffer,
+    index_buffer_top: DynamicBuffer,
+    num_instance_top: u32,
+    vertex_buffer_bottom: DynamicBuffer,
+    index_buffer_bottom: DynamicBuffer,
+    num_instance_bottom: u32,
+    #[allow(dead_code)]
     previous_points: Option<Vec<FlatNucl>>,
 }
 
 impl StrandView {
     pub fn new(device: Rc<Device>, queue: Rc<Queue>) -> Self {
         Self {
-            vertex_buffer: DynamicBuffer::new(
+            vertex_buffer_top: DynamicBuffer::new(
                 device.clone(),
                 queue.clone(),
                 wgpu::BufferUsage::VERTEX,
             ),
-            index_buffer: DynamicBuffer::new(device, queue, wgpu::BufferUsage::INDEX),
-            num_instance: 0,
+            index_buffer_top: DynamicBuffer::new(
+                device.clone(),
+                queue.clone(),
+                wgpu::BufferUsage::INDEX,
+            ),
+            vertex_buffer_bottom: DynamicBuffer::new(
+                device.clone(),
+                queue.clone(),
+                wgpu::BufferUsage::VERTEX,
+            ),
+            index_buffer_bottom: DynamicBuffer::new(device, queue, wgpu::BufferUsage::INDEX),
+            num_instance_top: 0,
+            num_instance_bottom: 0,
             previous_points: None,
         }
     }
 
-    pub fn update(&mut self, strand: &Strand, helices: &[Helix], free_end: &Option<FreeEnd>) {
+    pub fn update(
+        &mut self,
+        strand: &Strand,
+        helices: &[Helix],
+        free_end: &Option<FreeEnd>,
+        top_cam: &CameraPtr,
+        bottom_cam: &CameraPtr,
+    ) {
+        /*
         let need_update = if self.previous_points.as_ref() != Some(&strand.points) {
             true
         } else if let Some(free_end) = free_end {
             free_end.strand_id == strand.id
         } else {
             false
-        };
+        };*/
+        let need_update = true; //TODO improve this
 
         if need_update {
-            let vertices = strand.to_vertices(helices, free_end);
-            self.vertex_buffer.update(vertices.vertices.as_slice());
-            self.index_buffer.update(vertices.indices.as_slice());
-            self.num_instance = vertices.indices.len() as u32;
+            let vertices_top = strand.to_vertices(helices, free_end, top_cam, bottom_cam);
+            self.vertex_buffer_top
+                .update(vertices_top.vertices.as_slice());
+            self.index_buffer_top
+                .update(vertices_top.indices.as_slice());
+            self.num_instance_top = vertices_top.indices.len() as u32;
+            let vertices_bottom = strand.to_vertices(helices, free_end, bottom_cam, top_cam);
+            self.vertex_buffer_bottom
+                .update(vertices_bottom.vertices.as_slice());
+            self.index_buffer_bottom
+                .update(vertices_bottom.indices.as_slice());
+            self.num_instance_bottom = vertices_bottom.indices.len() as u32;
         }
     }
 
     pub fn set_indication(&mut self, nucl1: FlatNucl, nucl2: FlatNucl, helices: &[Helix]) {
         let vertices = Strand::indication(nucl1, nucl2, helices);
-        self.vertex_buffer.update(vertices.vertices.as_slice());
-        self.index_buffer.update(vertices.indices.as_slice());
-        self.num_instance = vertices.indices.len() as u32;
+        self.vertex_buffer_top.update(vertices.vertices.as_slice());
+        self.index_buffer_top.update(vertices.indices.as_slice());
+        self.num_instance_top = vertices.indices.len() as u32;
+        self.vertex_buffer_bottom
+            .update(vertices.vertices.as_slice());
+        self.index_buffer_bottom.update(vertices.indices.as_slice());
+        self.num_instance_bottom = vertices.indices.len() as u32;
     }
 
-    pub fn draw<'a>(&'a self, render_pass: &mut RenderPass<'a>) {
-        render_pass.set_index_buffer(self.index_buffer.get_slice(), wgpu::IndexFormat::Uint16);
-        render_pass.set_vertex_buffer(0, self.vertex_buffer.get_slice());
-        render_pass.draw_indexed(0..self.num_instance, 0, 0..1);
+    pub fn draw<'a>(&'a self, render_pass: &mut RenderPass<'a>, bottom: bool) {
+        if bottom {
+            render_pass.set_index_buffer(
+                self.index_buffer_bottom.get_slice(),
+                wgpu::IndexFormat::Uint16,
+            );
+            render_pass.set_vertex_buffer(0, self.vertex_buffer_bottom.get_slice());
+            render_pass.draw_indexed(0..self.num_instance_bottom, 0, 0..1);
+        } else {
+            render_pass
+                .set_index_buffer(self.index_buffer_top.get_slice(), wgpu::IndexFormat::Uint16);
+            render_pass.set_vertex_buffer(0, self.vertex_buffer_top.get_slice());
+            render_pass.draw_indexed(0..self.num_instance_top, 0, 0..1);
+        }
     }
 }
 

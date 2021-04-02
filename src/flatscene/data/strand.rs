@@ -34,7 +34,13 @@ impl Strand {
         }
     }
 
-    pub fn to_vertices(&self, helices: &[Helix], free_end: &Option<FreeEnd>, my_cam: &CameraPtr, other_cam: &CameraPtr) -> Vertices {
+    pub fn to_vertices(
+        &self,
+        helices: &[Helix],
+        free_end: &Option<FreeEnd>,
+        my_cam: &CameraPtr,
+        other_cam: &CameraPtr,
+    ) -> Vertices {
         let mut vertices = Vertices::new();
         if self.points.len() == 0 {
             return vertices;
@@ -54,7 +60,9 @@ impl Strand {
                 point,
                 strand_id,
                 prime3,
-            }) if *strand_id == self.id && !prime3 => Some(*point),
+            }) if *strand_id == self.id && !prime3 => {
+                alternative_position(*point, my_cam, other_cam).or(Some(*point))
+            }
             _ => None,
         };
 
@@ -82,6 +90,7 @@ impl Strand {
             //} else if last_point.is_some() && Some(nucl.helix) != last_nucl.map(|n| n.helix) {
             } else if xover {
                 let depth = depth.min(last_depth.unwrap_or(depth));
+                let mut cut = false;
                 if let Some(nucl) = last_nucl {
                     // We are drawing a xover
                     let point = helices[nucl.helix].get_nucl_position(&nucl, Shift::Prime3);
@@ -92,17 +101,42 @@ impl Strand {
                     builder.begin(Point::new(position.x, position.y), &[depth, sign]);
                 }
                 let last_pos = last_point.unwrap();
+                let xover_origin =
+                    if let Some(alt) = alternative_position(last_pos, my_cam, other_cam) {
+                        builder.end(false);
+                        builder.begin(Point::new(alt.x, alt.y), &[depth, sign]);
+                        cut = true;
+                        alt
+                    } else {
+                        last_pos
+                    };
+                let xover_target =
+                    if let Some(alt) = alternative_position(position, my_cam, other_cam) {
+                        cut = true;
+                        alt
+                    } else {
+                        position
+                    };
+
                 let normal = {
-                    let diff = (position - last_pos).normalized();
+                    let diff = (xover_target - xover_origin).normalized();
                     Vec2::new(diff.y, diff.x)
                 };
-                let control = (last_pos + position) / 2. + normal / 3.;
-                sign *= -1.;
-                builder.quadratic_bezier_to(
-                    Point::new(control.x, control.y),
-                    point,
-                    &[depth, sign],
-                );
+                let control = (xover_origin + xover_target) / 2. + normal / 3.;
+                if cut {
+                    builder.line_to(Point::new(xover_target.x, xover_target.y), &[depth, sign]);
+                } else {
+                    sign *= -1.;
+                    builder.quadratic_bezier_to(
+                        Point::new(control.x, control.y),
+                        Point::new(xover_target.x, xover_target.y),
+                        &[depth, sign],
+                    );
+                }
+                if cut {
+                    builder.end(false);
+                    builder.begin(point, &[depth, sign]);
+                }
             } else {
                 builder.line_to(point, &[depth, sign]);
             }
@@ -120,20 +154,41 @@ impl Strand {
                 point: position,
                 prime3,
             }) if *strand_id == self.id && *prime3 => {
+                let depth = 1e-4;
                 let last_pos = last_point.unwrap();
-                let point = Point::new(position.x, position.y);
+                let mut cut = false;
+                let xover_origin =
+                    if let Some(alt) = alternative_position(last_pos, my_cam, other_cam) {
+                        builder.end(false);
+                        builder.begin(Point::new(alt.x, alt.y), &[depth, sign]);
+                        cut = true;
+                        alt
+                    } else {
+                        last_pos
+                    };
+                let xover_target =
+                    if let Some(alt) = alternative_position(*position, my_cam, other_cam) {
+                        cut = true;
+                        alt
+                    } else {
+                        *position
+                    };
+
                 let normal = {
-                    let diff = (*position - last_pos).normalized();
+                    let diff = (xover_target - xover_origin).normalized();
                     Vec2::new(diff.y, diff.x)
                 };
-                let control = (last_pos + *position) / 2. + normal / 3.;
-                let depth = 1e-4;
-                sign *= -1.;
-                builder.quadratic_bezier_to(
-                    Point::new(control.x, control.y),
-                    point,
-                    &[depth, sign],
-                );
+                let control = (xover_origin + xover_target) / 2. + normal / 3.;
+                if cut {
+                    builder.line_to(Point::new(xover_target.x, xover_target.y), &[depth, sign]);
+                } else {
+                    sign *= -1.;
+                    builder.quadratic_bezier_to(
+                        Point::new(control.x, control.y),
+                        Point::new(xover_target.x, xover_target.y),
+                        &[depth, sign],
+                    );
+                }
             }
             _ => {
                 // Draw the tick of the 3' end if the strand is not empty
@@ -266,4 +321,28 @@ pub struct FreeEnd {
     pub strand_id: usize,
     pub point: Vec2,
     pub prime3: bool,
+}
+
+/// If nucl is visible on cam2, and not on cam 1, convert the position of the nucl in cam2
+/// screen coordinate then back to cam1 world coordinate
+fn alternative_position(position: Vec2, cam1: &CameraPtr, cam2: &CameraPtr) -> Option<Vec2> {
+    if cam1.borrow().bottom == cam2.borrow().bottom {
+        None
+    } else {
+        if !cam1.borrow().can_see_world_point(position)
+            && cam2.borrow().can_see_world_point(position)
+        {
+            let cam2_screen = cam2.borrow().world_to_norm_screen(position.x, position.y);
+            let alternative = if cam1.borrow().bottom {
+                cam1.borrow()
+                    .norm_screen_to_world(cam2_screen.0, cam2_screen.1 - 1.)
+            } else {
+                cam1.borrow()
+                    .norm_screen_to_world(cam2_screen.0, cam2_screen.1 + 1.)
+            };
+            Some(Vec2::new(alternative.0, alternative.1))
+        } else {
+            None
+        }
+    }
 }

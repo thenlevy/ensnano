@@ -139,6 +139,20 @@ impl Camera {
         )
     }
 
+    pub fn norm_screen_to_world(&self, x_normed: f32, y_normed: f32) -> (f32, f32) {
+        if self.bottom {
+            self.screen_to_world(
+                x_normed * self.globals.resolution[0],
+                (y_normed + 1.) * self.globals.resolution[1],
+            )
+        } else {
+            self.screen_to_world(
+                x_normed * self.globals.resolution[0],
+                y_normed * self.globals.resolution[1],
+            )
+        }
+    }
+
     /// Convert a *point* in world coordinates to a point in normalized screen ([0, 1] * [0, 1]) coordinates
     pub fn world_to_norm_screen(&self, x_world: f32, y_world: f32) -> (f32, f32) {
         // The screen coordinates have the y axis pointed down, and so does the 2d world
@@ -172,6 +186,14 @@ impl Camera {
         self.globals.scroll_offset[1] = self.globals.resolution[1] / 2. / self.globals.zoom + min_x;
         self.was_updated = true;
         self.end_movement();
+    }
+
+    pub fn can_see_world_point(&self, point: Vec2) -> bool {
+        let normalized_coord = self.world_to_norm_screen(point.x, point.y);
+        normalized_coord.0 >= 0.
+            && normalized_coord.0 <= 1.
+            && normalized_coord.1 >= 0.
+            && normalized_coord.1 <= 1.
     }
 }
 
