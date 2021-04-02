@@ -94,6 +94,7 @@ impl Strand {
                 if let Some(nucl) = last_nucl {
                     // We are drawing a xover
                     let point = helices[nucl.helix].get_nucl_position(&nucl, Shift::Prime3);
+                    last_point = Some(point);
                     builder.line_to(Point::new(point.x, point.y), &[depth, sign]);
                 } else {
                     // We are drawing the free end
@@ -101,7 +102,8 @@ impl Strand {
                     builder.begin(Point::new(position.x, position.y), &[depth, sign]);
                 }
                 let last_pos = last_point.unwrap();
-                let xover_origin =
+                let alternate = must_use_alternate(last_pos, position, my_cam, other_cam);
+                let xover_origin = if alternate {
                     if let Some(alt) = alternative_position(last_pos, my_cam, other_cam) {
                         builder.end(false);
                         builder.begin(Point::new(alt.x, alt.y), &[depth, sign]);
@@ -109,14 +111,21 @@ impl Strand {
                         alt
                     } else {
                         last_pos
-                    };
-                let xover_target =
+                    }
+                } else {
+                    last_pos
+                };
+
+                let xover_target = if alternate {
                     if let Some(alt) = alternative_position(position, my_cam, other_cam) {
                         cut = true;
                         alt
                     } else {
                         position
-                    };
+                    }
+                } else {
+                    position
+                };
 
                 let normal = {
                     let diff = (xover_target - xover_origin).normalized();
@@ -146,6 +155,7 @@ impl Strand {
         }
         if let Some(nucl) = last_nucl {
             let point = helices[nucl.helix].get_nucl_position(&nucl, Shift::Prime3);
+            last_point = Some(point);
             builder.line_to(Point::new(point.x, point.y), &[last_depth.unwrap(), sign]);
         }
         match free_end {
@@ -157,7 +167,8 @@ impl Strand {
                 let depth = 1e-4;
                 let last_pos = last_point.unwrap();
                 let mut cut = false;
-                let xover_origin =
+                let alternate = must_use_alternate(last_pos, *position, my_cam, other_cam);
+                let xover_origin = if alternate {
                     if let Some(alt) = alternative_position(last_pos, my_cam, other_cam) {
                         builder.end(false);
                         builder.begin(Point::new(alt.x, alt.y), &[depth, sign]);
@@ -165,14 +176,20 @@ impl Strand {
                         alt
                     } else {
                         last_pos
-                    };
-                let xover_target =
+                    }
+                } else {
+                    last_pos
+                };
+                let xover_target = if alternate {
                     if let Some(alt) = alternative_position(*position, my_cam, other_cam) {
                         cut = true;
                         alt
                     } else {
                         *position
-                    };
+                    }
+                } else {
+                    *position
+                };
 
                 let normal = {
                     let diff = (xover_target - xover_origin).normalized();
@@ -344,5 +361,15 @@ fn alternative_position(position: Vec2, cam1: &CameraPtr, cam2: &CameraPtr) -> O
         } else {
             None
         }
+    }
+}
+
+fn must_use_alternate(a: Vec2, b: Vec2, my_cam: &CameraPtr, other_cam: &CameraPtr) -> bool {
+    if my_cam.borrow().can_see_world_point(a) && !other_cam.borrow().can_see_world_point(a) {
+        !my_cam.borrow().can_see_world_point(b) && other_cam.borrow().can_see_world_point(b)
+    } else if !my_cam.borrow().can_see_world_point(a) && other_cam.borrow().can_see_world_point(a) {
+        my_cam.borrow().can_see_world_point(b) && !other_cam.borrow().can_see_world_point(b)
+    } else {
+        false
     }
 }
