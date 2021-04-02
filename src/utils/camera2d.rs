@@ -12,7 +12,7 @@ pub struct Camera {
     globals: Globals,
     was_updated: bool,
     old_globals: Globals,
-    bottom: bool,
+    pub bottom: bool,
 }
 
 impl Camera {

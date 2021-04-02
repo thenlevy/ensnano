@@ -174,6 +174,16 @@ impl Helix {
         }
     }
 
+    /// If nucl is visible on cam2, and not on cam 1, convert the position of the nucl in cam2
+    /// screen coordinate then back to cam1 world coordinate
+    pub fn alternative_nucl_position(&self, nucl: &FlatNucl, shift: Shift, cam1: &CameraPtr, cam2: &CameraPtr) -> Option<Vec2> {
+        if cam1.borrow().bottom == cam2.borrow().bottom {
+            None
+        } else {
+            unimplemented!()
+        }
+    }
+
     /// Return the position of the nucleotide in the 2d drawing
     pub fn get_nucl_position(&self, nucl: &FlatNucl, shift: Shift) -> Vec2 {
         let local_position = nucl.position as f32 * Vec2::unit_x()

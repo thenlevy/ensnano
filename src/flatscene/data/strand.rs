@@ -1,6 +1,6 @@
 use super::super::view::InsertionInstance;
 use super::helix::{Helix, Shift};
-use super::FlatNucl;
+use super::{CameraPtr, FlatNucl};
 use lyon::math::Point;
 use lyon::path::Path;
 use lyon::tessellation;
@@ -34,7 +34,7 @@ impl Strand {
         }
     }
 
-    pub fn to_vertices(&self, helices: &[Helix], free_end: &Option<FreeEnd>) -> Vertices {
+    pub fn to_vertices(&self, helices: &[Helix], free_end: &Option<FreeEnd>, my_cam: &CameraPtr, other_cam: &CameraPtr) -> Vertices {
         let mut vertices = Vertices::new();
         if self.points.len() == 0 {
             return vertices;
