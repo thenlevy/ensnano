@@ -664,15 +664,12 @@ impl Helix {
 
         let basis_map = self.basis_map.read().unwrap();
 
-        let mut pos = 0.max(self.left);
+        let mut pos = self.left;
         while pos <= self.right {
-            print_pos(pos);
-            pos += 8;
-        }
-        pos = -8;
-        while pos >= self.left {
-            print_pos(pos);
-            pos -= 8;
+            if (pos >= 0 && pos % 8 == 0) || (pos < 0 && -pos % 8 == 0) {
+                print_pos(pos);
+            }
+            pos += 1;
         }
 
         let mut print_basis = |position: isize, forward: bool| {
