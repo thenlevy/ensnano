@@ -224,6 +224,11 @@ impl View {
         self.was_updated = true;
     }
 
+    pub fn set_splited(&mut self, splited: bool) {
+        self.was_updated = true;
+        self.splited = splited;
+    }
+
     pub fn resize(&mut self, area: DrawArea) {
         self.depth_texture =
             Texture::create_depth_texture(self.device.clone().as_ref(), &area.size, SAMPLE_COUNT);
@@ -287,12 +292,17 @@ impl View {
     pub fn add_strand(&mut self, strand: &Strand, helices: &[Helix]) {
         self.strands
             .push(StrandView::new(self.device.clone(), self.queue.clone()));
+        let other_cam = if self.splited {
+            &self.camera_bottom
+        } else {
+            &self.camera_top
+        };
         self.strands.iter_mut().last().unwrap().update(
             &strand,
             helices,
             &self.free_end,
             &self.camera_top,
-            &self.camera_bottom,
+            other_cam,
         );
     }
 
@@ -306,13 +316,18 @@ impl View {
 
     pub fn update_strands(&mut self, strands: &[Strand], helices: &[Helix]) {
         for (i, s) in self.strands.iter_mut().enumerate() {
+            let other_cam = if self.splited {
+                &self.camera_bottom
+            } else {
+                &self.camera_top
+            };
             if i < strands.len() {
                 s.update(
                     &strands[i],
                     helices,
                     &self.free_end,
                     &self.camera_top,
-                    &self.camera_bottom,
+                    other_cam,
                 );
             }
         }

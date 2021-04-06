@@ -51,6 +51,7 @@ pub struct FlatScene {
     queue: Rc<Queue>,
     mediator: Arc<Mutex<Mediator>>,
     last_update: Instant,
+    splited: bool,
 }
 
 impl FlatScene {
@@ -72,6 +73,7 @@ impl FlatScene {
             queue,
             mediator,
             last_update: Instant::now(),
+            splited: false,
         }
     }
 
@@ -103,7 +105,7 @@ impl FlatScene {
             self.area,
             camera_top.clone(),
             camera_bottom.clone(),
-            true,
+            self.splited,
         )));
         let data = Rc::new(RefCell::new(Data::new(view.clone(), design, 0)));
         let mut controller = Controller::new(
@@ -114,7 +116,7 @@ impl FlatScene {
             camera_top,
             camera_bottom,
             self.mediator.clone(),
-            true,
+            self.splited,
         );
         controller.fit();
         if self.view.len() > 0 {
@@ -429,6 +431,16 @@ impl FlatScene {
             false
         }
     }
+
+    fn toggle_split(&mut self) {
+        self.splited ^= true;
+        for v in self.view.iter_mut() {
+            v.borrow_mut().set_splited(self.splited);
+        }
+        for c in self.controller.iter_mut() {
+            c.set_splited(self.splited);
+        }
+    }
 }
 
 impl Application for FlatScene {
@@ -493,6 +505,7 @@ impl Application for FlatScene {
                     c.update_modifiers(modifiers.clone())
                 }
             }
+            Notification::Split2d => self.toggle_split(),
         }
     }
 

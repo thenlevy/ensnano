@@ -627,6 +627,11 @@ fn main() {
                         mediator.lock().unwrap().oxdna_export();
                         requests.oxdna = false;
                     }
+
+                    if requests.split2d {
+                        mediator.lock().unwrap().split_2d();
+                        requests.split2d = false;
+                    }
                 }
 
                 if let Some(d_id) = download_stapples {

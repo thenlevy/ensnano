@@ -662,6 +662,7 @@ impl Application for Scene {
             Notification::ShowTorsion(_) => (),
             Notification::Pasting(b) => self.controller.pasting = b,
             Notification::ModifersChanged(modifiers) => self.controller.update_modifiers(modifiers),
+            Notification::Split2d => (),
         }
     }
 

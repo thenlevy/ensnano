@@ -171,6 +171,7 @@ pub enum Notification {
     Pasting(bool),
     ShowTorsion(bool),
     ModifersChanged(ModifiersState),
+    Split2d,
 }
 
 pub trait Application {
@@ -1203,6 +1204,10 @@ impl Mediator {
         if let Some(d) = self.designs.get(0) {
             d.read().unwrap().oxdna_export()
         }
+    }
+
+    pub fn split_2d(&mut self) {
+        self.notify_apps(Notification::Split2d)
     }
 }
 

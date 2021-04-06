@@ -94,17 +94,28 @@ impl Controller {
     pub fn resize(&mut self, window_size: PhySize, area_size: PhySize) {
         self.area_size = area_size;
         self.window_size = window_size;
+        self.update_globals();
+    }
+
+    pub fn set_splited(&mut self, splited: bool) {
+        self.splited = splited;
+        self.update_globals();
+    }
+
+    fn update_globals(&mut self) {
         if self.splited {
-            self.camera_top
-                .borrow_mut()
-                .resize(area_size.width as f32, area_size.height as f32 / 2.);
-            self.camera_bottom
-                .borrow_mut()
-                .resize(area_size.width as f32, area_size.height as f32 / 2.);
+            self.camera_top.borrow_mut().resize(
+                self.area_size.width as f32,
+                self.area_size.height as f32 / 2.,
+            );
+            self.camera_bottom.borrow_mut().resize(
+                self.area_size.width as f32,
+                self.area_size.height as f32 / 2.,
+            );
         } else {
             self.camera_top
                 .borrow_mut()
-                .resize(area_size.width as f32, area_size.height as f32);
+                .resize(self.area_size.width as f32, self.area_size.height as f32);
         }
     }
 

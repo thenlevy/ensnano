@@ -40,6 +40,7 @@ pub struct TopBar {
     button_help: button::State,
     button_clean: button::State,
     button_oxdna: button::State,
+    button_split_2d: button::State,
     toggle_text_value: bool,
     requests: Arc<Mutex<Requests>>,
     logical_size: LogicalSize<f64>,
@@ -66,6 +67,7 @@ pub enum Message {
     DeffaultScaffoldRequested,
     UiSizeChanged(UiSize),
     OxDNARequested,
+    Split2d,
 }
 
 impl TopBar {
@@ -84,6 +86,7 @@ impl TopBar {
             button_help: Default::default(),
             button_clean: Default::default(),
             button_oxdna: Default::default(),
+            button_split_2d: Default::default(),
             toggle_text_value: false,
             requests,
             logical_size,
@@ -281,6 +284,7 @@ impl Program for TopBar {
             }
             Message::UiSizeChanged(ui_size) => self.ui_size = ui_size,
             Message::OxDNARequested => self.requests.lock().unwrap().oxdna = true,
+            Message::Split2d => self.requests.lock().unwrap().split2d = true,
         };
         Command::none()
     }
@@ -338,6 +342,11 @@ impl Program for TopBar {
             .height(Length::Units(self.ui_size.button()))
             .on_press(Message::OxDNARequested);
 
+        let button_split_2d =
+            Button::new(&mut self.button_split_2d, iced::Text::new("Split 2d view"))
+                .height(Length::Units(self.ui_size.button()))
+                .on_press(Message::Split2d);
+
         let _button_make_grid =
             Button::new(&mut self.button_make_grid, iced::Text::new("Make grids"))
                 .on_press(Message::MakeGrids)
@@ -367,6 +376,7 @@ impl Program for TopBar {
             .push(button_clean)
             .push(button_oxdna)
             .push(_button_make_grid)
+            .push(button_split_2d)
             .push(
                 Button::new(&mut self.button_help, iced::Text::new("Help"))
                     .on_press(Message::HelpRequested),
