@@ -40,10 +40,11 @@ impl Strand {
         free_end: &Option<FreeEnd>,
         my_cam: &CameraPtr,
         other_cam: &CameraPtr,
-    ) -> Vertices {
+    ) -> (Vertices, Vertices) {
         let mut vertices = Vertices::new();
+        let mut cross_split_vertices = Vertices::new();
         if self.points.len() == 0 {
-            return vertices;
+            return (vertices, cross_split_vertices);
         }
         let color = if self.highlight {
             crate::utils::instance::Instance::color_from_au32(self.color)
@@ -54,6 +55,7 @@ impl Strand {
         let mut stroke_tess = lyon::tessellation::StrokeTessellator::new();
 
         let mut builder = Path::builder_with_attributes(2);
+        let mut cross_split_builder = Path::builder_with_attributes(2);
         let mut last_nucl: Option<FlatNucl> = None;
         let mut last_point = match free_end {
             Some(FreeEnd {
@@ -105,8 +107,6 @@ impl Strand {
                 let alternate = must_use_alternate(last_pos, position, my_cam, other_cam);
                 let xover_origin = if alternate {
                     if let Some(alt) = alternative_position(last_pos, my_cam, other_cam) {
-                        builder.end(false);
-                        builder.begin(Point::new(alt.x, alt.y), &[depth, 5.]);
                         cut = true;
                         alt
                     } else {
@@ -133,11 +133,15 @@ impl Strand {
                 };
                 let control = (xover_origin + xover_target) / 2. + normal / 3.;
                 if cut {
-                    builder.line_to(
+                    cross_split_builder
+                        .begin(Point::new(xover_origin.x, xover_origin.y), &[depth, 5.]);
+                    cross_split_builder.line_to(
                         Point::new(xover_origin.x + 0.01, xover_origin.y + 0.01),
                         &[depth, 5.],
                     );
-                    builder.line_to(Point::new(xover_target.x, xover_target.y), &[depth, 5.]);
+                    cross_split_builder
+                        .line_to(Point::new(xover_target.x, xover_target.y), &[depth, 5.]);
+                    cross_split_builder.end(false);
                 } else {
                     sign *= -1.;
                     builder.quadratic_bezier_to(
@@ -174,8 +178,6 @@ impl Strand {
                 let alternate = must_use_alternate(last_pos, *position, my_cam, other_cam);
                 let xover_origin = if alternate {
                     if let Some(alt) = alternative_position(last_pos, my_cam, other_cam) {
-                        builder.end(false);
-                        builder.begin(Point::new(alt.x, alt.y), &[depth, 5.]);
                         cut = true;
                         alt
                     } else {
@@ -201,11 +203,15 @@ impl Strand {
                 };
                 let control = (xover_origin + xover_target) / 2. + normal / 3.;
                 if cut {
-                    builder.line_to(
+                    cross_split_builder
+                        .begin(Point::new(xover_origin.x, xover_origin.y), &[depth, 5.]);
+                    cross_split_builder.line_to(
                         Point::new(xover_origin.x + 0.01, xover_origin.y + 0.01),
                         &[depth, 5.],
                     );
-                    builder.line_to(Point::new(xover_target.x, xover_target.y), &[depth, 5.]);
+                    cross_split_builder
+                        .line_to(Point::new(xover_target.x, xover_target.y), &[depth, 5.]);
+                    cross_split_builder.end(false);
                 } else {
                     sign *= -1.;
                     builder.quadratic_bezier_to(
@@ -226,6 +232,7 @@ impl Strand {
         }
         builder.end(false);
         let path = builder.build();
+        let cross_split_path = cross_split_builder.build();
         stroke_tess
             .tessellate_path(
                 &path,
@@ -243,7 +250,24 @@ impl Strand {
                 ),
             )
             .expect("Error durring tessellation");
-        vertices
+        stroke_tess
+            .tessellate_path(
+                &cross_split_path,
+                &tessellation::StrokeOptions::tolerance(0.01)
+                    .with_line_cap(tessellation::LineCap::Round)
+                    .with_end_cap(tessellation::LineCap::Round)
+                    .with_start_cap(tessellation::LineCap::Round)
+                    .with_line_join(tessellation::LineJoin::Round),
+                &mut tessellation::BuffersBuilder::new(
+                    &mut cross_split_vertices,
+                    WithAttributes {
+                        color,
+                        highlight: self.highlight,
+                    },
+                ),
+            )
+            .expect("Error durring tessellation");
+        (vertices, cross_split_vertices)
     }
 
     pub fn get_insertions(&self, helices: &[Helix]) -> Vec<InsertionInstance> {

@@ -49,6 +49,13 @@ pub struct StrandView {
     vertex_buffer_bottom: DynamicBuffer,
     index_buffer_bottom: DynamicBuffer,
     num_instance_bottom: u32,
+
+    split_vbo_top: DynamicBuffer,
+    split_ibo_top: DynamicBuffer,
+    num_instance_split_top: u32,
+    split_vbo_bottom: DynamicBuffer,
+    split_ibo_bottom: DynamicBuffer,
+    num_instance_split_bottom: u32,
     #[allow(dead_code)]
     previous_points: Option<Vec<FlatNucl>>,
 }
@@ -66,6 +73,26 @@ impl StrandView {
                 queue.clone(),
                 wgpu::BufferUsage::INDEX,
             ),
+            split_vbo_top: DynamicBuffer::new(
+                device.clone(),
+                queue.clone(),
+                wgpu::BufferUsage::VERTEX,
+            ),
+            split_ibo_top: DynamicBuffer::new(
+                device.clone(),
+                queue.clone(),
+                wgpu::BufferUsage::INDEX,
+            ),
+            split_vbo_bottom: DynamicBuffer::new(
+                device.clone(),
+                queue.clone(),
+                wgpu::BufferUsage::VERTEX,
+            ),
+            split_ibo_bottom: DynamicBuffer::new(
+                device.clone(),
+                queue.clone(),
+                wgpu::BufferUsage::INDEX,
+            ),
             vertex_buffer_bottom: DynamicBuffer::new(
                 device.clone(),
                 queue.clone(),
@@ -74,6 +101,8 @@ impl StrandView {
             index_buffer_bottom: DynamicBuffer::new(device, queue, wgpu::BufferUsage::INDEX),
             num_instance_top: 0,
             num_instance_bottom: 0,
+            num_instance_split_top: 0,
+            num_instance_split_bottom: 0,
             previous_points: None,
         }
     }
@@ -97,18 +126,30 @@ impl StrandView {
         let need_update = true; //TODO improve this
 
         if need_update {
-            let vertices_top = strand.to_vertices(helices, free_end, top_cam, bottom_cam);
+            let (vertices_top, split_vertices_top) =
+                strand.to_vertices(helices, free_end, top_cam, bottom_cam);
             self.vertex_buffer_top
                 .update(vertices_top.vertices.as_slice());
             self.index_buffer_top
                 .update(vertices_top.indices.as_slice());
             self.num_instance_top = vertices_top.indices.len() as u32;
-            let vertices_bottom = strand.to_vertices(helices, free_end, bottom_cam, top_cam);
+            self.split_vbo_top
+                .update(split_vertices_top.vertices.as_slice());
+            self.split_ibo_top
+                .update(split_vertices_top.indices.as_slice());
+            self.num_instance_split_top = split_vertices_top.indices.len() as u32;
+            let (vertices_bottom, split_vertices_bottom) =
+                strand.to_vertices(helices, free_end, bottom_cam, top_cam);
             self.vertex_buffer_bottom
                 .update(vertices_bottom.vertices.as_slice());
             self.index_buffer_bottom
                 .update(vertices_bottom.indices.as_slice());
             self.num_instance_bottom = vertices_bottom.indices.len() as u32;
+            self.split_vbo_bottom
+                .update(split_vertices_bottom.vertices.as_slice());
+            self.split_ibo_bottom
+                .update(split_vertices_bottom.indices.as_slice());
+            self.num_instance_split_bottom = split_vertices_bottom.indices.len() as u32;
         }
     }
 
@@ -136,6 +177,19 @@ impl StrandView {
                 .set_index_buffer(self.index_buffer_top.get_slice(), wgpu::IndexFormat::Uint16);
             render_pass.set_vertex_buffer(0, self.vertex_buffer_top.get_slice());
             render_pass.draw_indexed(0..self.num_instance_top, 0, 0..1);
+        }
+    }
+
+    pub fn draw_split<'a>(&'a self, render_pass: &mut RenderPass<'a>, bottom: bool) {
+        if bottom {
+            render_pass
+                .set_index_buffer(self.split_ibo_bottom.get_slice(), wgpu::IndexFormat::Uint16);
+            render_pass.set_vertex_buffer(0, self.split_vbo_bottom.get_slice());
+            render_pass.draw_indexed(0..self.num_instance_split_bottom, 0, 0..1);
+        } else {
+            render_pass.set_index_buffer(self.split_ibo_top.get_slice(), wgpu::IndexFormat::Uint16);
+            render_pass.set_vertex_buffer(0, self.split_vbo_top.get_slice());
+            render_pass.draw_indexed(0..self.num_instance_split_top, 0, 0..1);
         }
     }
 }

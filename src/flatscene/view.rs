@@ -555,6 +555,22 @@ impl View {
             drawer.draw(&mut render_pass);
         }
         self.insertion_drawer.draw(&mut render_pass);
+        render_pass.set_pipeline(&self.strand_pipeline);
+        for strand in self.strands.iter() {
+            strand.draw(&mut render_pass, bottom);
+        }
+        for strand in self.pasted_strands.iter() {
+            strand.draw(&mut render_pass, bottom);
+        }
+        for suggestion in self.suggestions_view.iter() {
+            suggestion.draw(&mut render_pass, bottom);
+        }
+        for highlight in self.selected_strands.iter() {
+            highlight.draw(&mut render_pass, bottom);
+        }
+        for highlight in self.candidate_strands.iter() {
+            highlight.draw(&mut render_pass, bottom);
+        }
         drop(render_pass);
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: None,
@@ -595,19 +611,19 @@ impl View {
 
         render_pass.set_pipeline(&self.strand_pipeline);
         for strand in self.strands.iter() {
-            strand.draw(&mut render_pass, bottom);
+            strand.draw_split(&mut render_pass, bottom);
         }
         for strand in self.pasted_strands.iter() {
-            strand.draw(&mut render_pass, bottom);
+            strand.draw_split(&mut render_pass, bottom);
         }
         for suggestion in self.suggestions_view.iter() {
-            suggestion.draw(&mut render_pass, bottom);
+            suggestion.draw_split(&mut render_pass, bottom);
         }
         for highlight in self.selected_strands.iter() {
-            highlight.draw(&mut render_pass, bottom);
+            highlight.draw_split(&mut render_pass, bottom);
         }
         for highlight in self.candidate_strands.iter() {
-            highlight.draw(&mut render_pass, bottom);
+            highlight.draw_split(&mut render_pass, bottom);
         }
 
         drop(render_pass);
@@ -691,6 +707,22 @@ impl View {
                 drawer.draw(&mut render_pass);
             }
             self.insertion_drawer.draw(&mut render_pass);
+            render_pass.set_pipeline(&self.strand_pipeline);
+            for strand in self.strands.iter() {
+                strand.draw(&mut render_pass, bottom);
+            }
+            for strand in self.pasted_strands.iter() {
+                strand.draw(&mut render_pass, bottom);
+            }
+            for suggestion in self.suggestions_view.iter() {
+                suggestion.draw(&mut render_pass, bottom);
+            }
+            for highlight in self.selected_strands.iter() {
+                highlight.draw(&mut render_pass, bottom);
+            }
+            for highlight in self.candidate_strands.iter() {
+                highlight.draw(&mut render_pass, bottom);
+            }
             drop(render_pass);
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: None,
@@ -734,19 +766,19 @@ impl View {
 
             render_pass.set_pipeline(&self.strand_pipeline);
             for strand in self.strands.iter() {
-                strand.draw(&mut render_pass, bottom);
+                strand.draw_split(&mut render_pass, bottom);
             }
             for strand in self.pasted_strands.iter() {
-                strand.draw(&mut render_pass, bottom);
+                strand.draw_split(&mut render_pass, bottom);
             }
             for suggestion in self.suggestions_view.iter() {
-                suggestion.draw(&mut render_pass, bottom);
+                suggestion.draw_split(&mut render_pass, bottom);
             }
             for highlight in self.selected_strands.iter() {
-                highlight.draw(&mut render_pass, bottom);
+                highlight.draw_split(&mut render_pass, bottom);
             }
             for highlight in self.candidate_strands.iter() {
-                highlight.draw(&mut render_pass, bottom);
+                highlight.draw_split(&mut render_pass, bottom);
             }
         }
         self.was_updated = false;
