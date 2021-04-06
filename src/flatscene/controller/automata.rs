@@ -2277,6 +2277,8 @@ impl ControllerState for DraggingSelection {
                 state: ElementState::Released,
                 ..
             } => {
+                let valid_rectangle = controller.is_bottom(self.fixed_corner.y)
+                    == controller.is_bottom(self.mouse_position.y);
                 let corner1_world = controller
                     .get_camera(position.y)
                     .borrow()
@@ -2285,13 +2287,16 @@ impl ControllerState for DraggingSelection {
                     .get_camera(position.y)
                     .borrow()
                     .screen_to_world(self.mouse_position.x as f32, self.mouse_position.y as f32);
-                let (translation_pivots, rotation_pivots) =
+                let (translation_pivots, rotation_pivots) = if valid_rectangle {
                     controller.data.borrow_mut().select_rectangle(
                         corner1_world.into(),
                         corner2_world.into(),
                         &controller.get_camera(position.y),
                         self.adding,
-                    );
+                    )
+                } else {
+                    (vec![], vec![])
+                };
                 if translation_pivots.len() > 0 {
                     Transition {
                         new_state: Some(Box::new(ReleasedPivot {

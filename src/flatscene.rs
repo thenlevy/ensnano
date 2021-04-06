@@ -79,20 +79,19 @@ impl FlatScene {
 
     /// Add a design to the scene. This creates a new `View`, a new `Data` and a new `Controller`
     fn add_design(&mut self, design: Arc<RwLock<Design>>) {
+        let height = if self.splited {
+            self.area.size.height as f32 / 2.
+        } else {
+            self.area.size.height as f32
+        };
         let globals_top = Globals {
-            resolution: [
-                self.area.size.width as f32,
-                self.area.size.height as f32 / 2.,
-            ],
+            resolution: [self.area.size.width as f32, height],
             scroll_offset: [-1., -1.],
             zoom: 80.,
             _padding: 0.,
         };
         let globals_bottom = Globals {
-            resolution: [
-                self.area.size.width as f32,
-                self.area.size.height as f32 / 2.,
-            ],
+            resolution: [self.area.size.width as f32, height],
             scroll_offset: [-1., -1.],
             zoom: 80.,
             _padding: 0.,

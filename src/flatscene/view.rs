@@ -434,10 +434,23 @@ impl View {
     }
 
     pub fn update_rectangle(&mut self, c1: PhysicalPosition<f64>, c2: PhysicalPosition<f64>) {
-        self.rectangle.update_corners(Some([
-            Ndc::from_physical(c1, self.area_size),
-            Ndc::from_physical(c2, self.area_size),
-        ]));
+        if self.splited {
+            if (c1.y < self.area_size.height as f64 / 2.)
+                != (c2.y < self.area_size.height as f64 / 2.)
+            {
+                self.rectangle.update_corners(None);
+            } else {
+                self.rectangle.update_corners(Some([
+                    Ndc::from_physical(c1, self.area_size),
+                    Ndc::from_physical(c2, self.area_size),
+                ]));
+            }
+        } else {
+            self.rectangle.update_corners(Some([
+                Ndc::from_physical(c1, self.area_size),
+                Ndc::from_physical(c2, self.area_size),
+            ]));
+        }
         self.was_updated = true;
     }
 
@@ -627,30 +640,6 @@ impl View {
         }
 
         drop(render_pass);
-        let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-            label: None,
-            color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
-                attachment,
-                resolve_target,
-                ops: wgpu::Operations {
-                    load: wgpu::LoadOp::Load,
-                    store: true,
-                },
-            }],
-            depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachmentDescriptor {
-                attachment: &self.depth_texture.view,
-                depth_ops: Some(wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(1.),
-                    store: true,
-                }),
-                stencil_ops: Some(wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(0),
-                    store: true,
-                }),
-            }),
-        });
-        self.rectangle.draw(&mut render_pass);
-        drop(render_pass);
         if self.splited {
             let bottom = true;
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -781,6 +770,29 @@ impl View {
                 highlight.draw_split(&mut render_pass, bottom);
             }
         }
+        let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: None,
+            color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
+                attachment,
+                resolve_target,
+                ops: wgpu::Operations {
+                    load: wgpu::LoadOp::Load,
+                    store: true,
+                },
+            }],
+            depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachmentDescriptor {
+                attachment: &self.depth_texture.view,
+                depth_ops: Some(wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(1.),
+                    store: true,
+                }),
+                stencil_ops: Some(wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(0),
+                    store: true,
+                }),
+            }),
+        });
+        self.rectangle.draw(&mut render_pass);
         self.was_updated = false;
     }
 
