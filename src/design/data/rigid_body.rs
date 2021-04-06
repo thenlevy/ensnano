@@ -51,6 +51,7 @@ struct FreeNucl {
     helix: Option<usize>,
     position: isize,
     forward: bool,
+    old_helix: Option<usize>,
 }
 
 impl FreeNucl {
@@ -59,6 +60,7 @@ impl FreeNucl {
             helix,
             position: nucl.position,
             forward: nucl.forward,
+            old_helix: helix.xor(Some(nucl.helix)),
         }
     }
 }
