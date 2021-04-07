@@ -654,3 +654,12 @@ fn convert_size(size: PhysicalSize<u32>) -> Size<f32> {
 fn convert_size_u32(size: PhysicalSize<u32>) -> Size<u32> {
     Size::new(size.width, size.height)
 }
+
+use iced::{button, Button, Length, Text};
+fn text_btn<'a, M: Clone>(
+    state: &'a mut button::State,
+    text: &'static str,
+    ui_size: UiSize,
+) -> Button<'a, M> {
+    Button::new(state, Text::new(text)).height(Length::Units(ui_size.button()))
+}

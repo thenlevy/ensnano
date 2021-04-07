@@ -5,8 +5,6 @@ use std::collections::BTreeMap;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ValueId(pub usize);
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub struct FactoryId(pub usize);
 
 pub trait Requestable {
     type Request;
@@ -28,10 +26,17 @@ pub struct RequestFactory<R: Requestable> {
     pub requestable: R,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Copy)]
+pub enum FactoryId {
+    HelixRoll,
+    Hyperboloid,
+    Scroll,
+    RigidBody,
+}
+
 impl<R: Requestable> RequestFactory<R> {
-    pub fn new(id: usize, requestable: R) -> Self {
+    pub fn new(factory_id: FactoryId, requestable: R) -> Self {
         let mut values = BTreeMap::new();
-        let factory_id = FactoryId(id);
         for id in 0..requestable.nb_values() {
             let default = requestable.initial_value(id);
             let min_val = requestable.min_val(id);

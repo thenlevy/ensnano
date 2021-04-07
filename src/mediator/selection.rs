@@ -147,13 +147,13 @@ pub(super) fn list_of_helices(selection: &[Selection]) -> Option<(usize, Vec<usi
     Some((design_id as usize, helices.into_iter().collect()))
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum SelectionMode {
     Grid,
     Nucleotide,
-    Design,
     Strand,
     Helix,
+    Design,
 }
 
 impl Default for SelectionMode {
@@ -186,10 +186,26 @@ impl SelectionMode {
         SelectionMode::Helix,
         SelectionMode::Grid,
     ];
+
+    pub fn icon_on(&self) -> String {
+        format!(
+            "{}/icons/icons/{}-on32.png",
+            env!("CARGO_MANIFEST_DIR"),
+            self
+        )
+    }
+
+    pub fn icon_off(&self) -> String {
+        format!(
+            "{}/icons/icons/{}-off32.png",
+            env!("CARGO_MANIFEST_DIR"),
+            self
+        )
+    }
 }
 
 /// Describe the action currently done by the user when they click left
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ActionMode {
     /// User is moving the camera
     Normal,
@@ -224,7 +240,7 @@ impl std::fmt::Display for ActionMode {
                 ActionMode::Translate => "Translate",
                 ActionMode::Rotate => "Rotate",
                 ActionMode::Build(_) => "Build",
-                ActionMode::BuildHelix { .. } => "BuildHelix",
+                ActionMode::BuildHelix { .. } => "Build",
                 ActionMode::Cut => "Cut",
             }
         )
@@ -238,5 +254,21 @@ impl ActionMode {
             Self::BuildHelix { .. } => true,
             _ => false,
         }
+    }
+
+    pub fn icon_on(&self) -> String {
+        format!(
+            "{}/icons/icons/{}-on32.png",
+            env!("CARGO_MANIFEST_DIR"),
+            self
+        )
+    }
+
+    pub fn icon_off(&self) -> String {
+        format!(
+            "{}/icons/icons/{}-off32.png",
+            env!("CARGO_MANIFEST_DIR"),
+            self
+        )
     }
 }

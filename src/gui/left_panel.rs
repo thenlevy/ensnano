@@ -20,7 +20,7 @@ use color_space::{Hsv, Rgb};
 use crate::design::{DnaElement, DnaElementKey};
 use crate::mediator::{ActionMode, SelectionMode};
 
-use super::{FogParameters as Fog, OverlayType, Requests, UiSize};
+use super::{text_btn, FogParameters as Fog, OverlayType, Requests, UiSize};
 mod color_picker;
 use color_picker::ColorPicker;
 mod sequence_input;
@@ -28,8 +28,11 @@ use sequence_input::SequenceInput;
 use text_input_style::BadValue;
 mod discrete_value;
 use discrete_value::{FactoryId, RequestFactory, Requestable, ValueId};
+mod tabs;
 
+use tabs::GridTab;
 use material_icons::{icon_to_char, Icon as MaterialIcon, FONT as MATERIALFONT};
+use std::collections::BTreeMap;
 
 const ICONFONT: iced::Font = iced::Font::External {
     name: "IconFont",
@@ -82,6 +85,7 @@ pub struct LeftPanel {
     organizer: Organizer<DnaElement>,
     ui_size: UiSize,
     size_pick_list: pick_list::State<UiSize>,
+    grid_tab: GridTab,
 }
 
 #[derive(Debug, Clone)]
@@ -160,11 +164,11 @@ impl LeftPanel {
             show_torsion: false,
             fog: Default::default(),
             physical_simulation: Default::default(),
-            scroll_sensitivity_factory: RequestFactory::new(0, ScrollSentivity {}),
-            helix_roll_factory: RequestFactory::new(1, HelixRoll {}),
-            hyperboloid_factory: RequestFactory::new(2, Hyperboloid_ {}),
+            scroll_sensitivity_factory: RequestFactory::new(FactoryId::Scroll, ScrollSentivity {}),
+            helix_roll_factory: RequestFactory::new(FactoryId::HelixRoll, HelixRoll {}),
+            hyperboloid_factory: RequestFactory::new(FactoryId::Hyperboloid, Hyperboloid_ {}),
             rigid_body_factory: RequestFactory::new(
-                3,
+                FactoryId::RigidBody,
                 RigidBodyFactory {
                     volume_exclusion: false,
                 },
@@ -183,6 +187,7 @@ impl LeftPanel {
             organizer: Organizer::new(),
             ui_size: UiSize::Small,
             size_pick_list: Default::default(),
+            grid_tab: GridTab::new(),
         }
     }
 
@@ -322,10 +327,7 @@ impl Program for LeftPanel {
                 self.yz = 0;
             }
             Message::LengthHelicesChanged(length_str) => {
-                if let Ok(length) = length_str.parse::<usize>() {
-                    self.length_helices = length
-                }
-                self.length_str = length_str;
+                self.grid_tab.update_length_str(length_str.clone());
                 let action_mode = ActionMode::BuildHelix {
                     position: self.position_helices,
                     length: self.length_helices,
@@ -336,10 +338,7 @@ impl Program for LeftPanel {
                 }
             }
             Message::PositionHelicesChanged(position_str) => {
-                if let Ok(position) = position_str.parse::<isize>() {
-                    self.position_helices = position
-                }
-                self.position_str = position_str;
+                self.grid_tab.update_pos_str(position_str.clone());
                 let action_mode = ActionMode::BuildHelix {
                     position: self.position_helices,
                     length: self.length_helices,
@@ -391,28 +390,27 @@ impl Program for LeftPanel {
                 factory_id,
                 value_id,
                 value,
-            } => match factory_id.0 {
-                0 => {
+            } => match factory_id {
+                FactoryId::Scroll => {
                     let request = &mut self.requests.lock().unwrap().scroll_sensitivity;
                     self.scroll_sensitivity_factory
                         .update_request(value_id, value, request);
                 }
-                1 => {
+                FactoryId::HelixRoll => {
                     let request = &mut self.requests.lock().unwrap().helix_roll;
                     self.helix_roll_factory
                         .update_request(value_id, value, request);
                 }
-                2 => {
+                FactoryId::Hyperboloid => {
                     let request = &mut self.requests.lock().unwrap().hyperboloid_update;
                     self.hyperboloid_factory
                         .update_request(value_id, value, request);
                 }
-                3 => {
+                FactoryId::RigidBody => {
                     let request = &mut self.requests.lock().unwrap().rigid_body_parameters;
                     self.rigid_body_factory
                         .update_request(value_id, value, request)
                 }
-                _ => unreachable!(),
             },
             Message::VolumeExclusion(b) => {
                 self.rigid_body_factory.requestable.volume_exclusion = b;
@@ -424,7 +422,8 @@ impl Program for LeftPanel {
             }
             Message::NewHyperboloid => {
                 let request = &mut self.requests.lock().unwrap().new_hyperboloid;
-                self.hyperboloid_factory = RequestFactory::new(2, Hyperboloid_ {});
+                self.hyperboloid_factory =
+                    RequestFactory::new(FactoryId::Hyperboloid, Hyperboloid_ {});
                 self.hyperboloid_factory.make_request(request);
                 self.building_hyperboloid = true;
             }
@@ -469,257 +468,11 @@ impl Program for LeftPanel {
         let width = self.logical_size.cast::<u16>().width;
         let ui_size = self.ui_size.clone();
 
-        let mut selection_buttons = vec![
-            Button::new(
-                &mut self.selection_mode_state.grid,
-                if self.selection_mode == SelectionMode::Grid {
-                    Image::new(format!(
-                        "{}/icons/icons/Grid-on32.png",
-                        env!("CARGO_MANIFEST_DIR")
-                    ))
-                } else {
-                    Image::new(format!(
-                        "{}/icons/icons/Grid-off32.png",
-                        env!("CARGO_MANIFEST_DIR")
-                    ))
-                },
-            )
-            .on_press(Message::SelectionModeChanged(SelectionMode::Grid))
-            .style(ButtonStyle(self.selection_mode == SelectionMode::Grid))
-            .width(Length::Units(ui_size.button())),
-            Button::new(
-                &mut self.selection_mode_state.helix,
-                if self.selection_mode == SelectionMode::Helix {
-                    Image::new(format!(
-                        "{}/icons/icons/Helix-on32.png",
-                        env!("CARGO_MANIFEST_DIR")
-                    ))
-                } else {
-                    Image::new(format!(
-                        "{}/icons/icons/Helix-off32.png",
-                        env!("CARGO_MANIFEST_DIR")
-                    ))
-                },
-            )
-            .on_press(Message::SelectionModeChanged(SelectionMode::Helix))
-            .style(ButtonStyle(self.selection_mode == SelectionMode::Helix))
-            .width(Length::Units(self.ui_size.button())),
-            Button::new(
-                &mut self.selection_mode_state.strand,
-                if self.selection_mode == SelectionMode::Strand {
-                    Image::new(format!(
-                        "{}/icons/icons/Strand-on32.png",
-                        env!("CARGO_MANIFEST_DIR")
-                    ))
-                } else {
-                    Image::new(format!(
-                        "{}/icons/icons/Strand-off32.png",
-                        env!("CARGO_MANIFEST_DIR")
-                    ))
-                },
-            )
-            .on_press(Message::SelectionModeChanged(SelectionMode::Strand))
-            .style(ButtonStyle(self.selection_mode == SelectionMode::Strand))
-            .width(Length::Units(self.ui_size.button())),
-            Button::new(
-                &mut self.selection_mode_state.nucleotide,
-                if self.selection_mode == SelectionMode::Nucleotide {
-                    Image::new(format!(
-                        "{}/icons/icons/Nucleotide-on32.png",
-                        env!("CARGO_MANIFEST_DIR")
-                    ))
-                } else {
-                    Image::new(format!(
-                        "{}/icons/icons/Nucleotide-off32.png",
-                        env!("CARGO_MANIFEST_DIR")
-                    ))
-                },
-            )
-            .on_press(Message::SelectionModeChanged(SelectionMode::Nucleotide))
-            .style(ButtonStyle(
-                self.selection_mode == SelectionMode::Nucleotide,
-            ))
-            .width(Length::Units(self.ui_size.button())),
-        ];
-
         let mut global_scroll = Scrollable::new(&mut self.global_scroll)
             .spacing(5)
             .push(Text::new("SelectionMode"));
-        while selection_buttons.len() > 0 {
-            let mut row = Row::new();
-            row = row.push(selection_buttons.pop().unwrap()).spacing(5);
-            let mut space = self.ui_size.button() + 5;
-            while space + self.ui_size.button() < width && selection_buttons.len() > 0 {
-                row = row.push(selection_buttons.pop().unwrap()).spacing(5);
-                space += self.ui_size.button() + 5;
-            }
-            global_scroll = global_scroll.spacing(5).push(row)
-        }
 
-        let mut action_buttons = vec![
-            Button::new(
-                &mut self.action_mode_state.select,
-                if self.action_mode == ActionMode::Normal {
-                    Image::new(format!(
-                        "{}/icons/icons/Select-on32.png",
-                        env!("CARGO_MANIFEST_DIR")
-                    ))
-                } else {
-                    Image::new(format!(
-                        "{}/icons/icons/Select-off32.png",
-                        env!("CARGO_MANIFEST_DIR")
-                    ))
-                },
-            )
-            .on_press(Message::ActionModeChanged(ActionMode::Normal))
-            .style(ButtonStyle(self.action_mode == ActionMode::Normal))
-            .width(Length::Units(self.ui_size.button())),
-            Button::new(
-                &mut self.action_mode_state.translate,
-                if self.action_mode == ActionMode::Translate {
-                    Image::new(format!(
-                        "{}/icons/icons/Move-on32.png",
-                        env!("CARGO_MANIFEST_DIR")
-                    ))
-                } else {
-                    Image::new(format!(
-                        "{}/icons/icons/Move-off32.png",
-                        env!("CARGO_MANIFEST_DIR")
-                    ))
-                },
-            )
-            .on_press(Message::ActionModeChanged(ActionMode::Translate))
-            .style(ButtonStyle(self.action_mode == ActionMode::Translate))
-            .width(Length::Units(self.ui_size.button())),
-            Button::new(
-                &mut self.action_mode_state.rotate,
-                if self.action_mode == ActionMode::Rotate {
-                    Image::new(format!(
-                        "{}/icons/icons/Rotate-on32.png",
-                        env!("CARGO_MANIFEST_DIR")
-                    ))
-                } else {
-                    Image::new(format!(
-                        "{}/icons/icons/Rotate-off32.png",
-                        env!("CARGO_MANIFEST_DIR")
-                    ))
-                },
-            )
-            .on_press(Message::ActionModeChanged(ActionMode::Rotate))
-            .style(ButtonStyle(self.action_mode == ActionMode::Rotate))
-            .width(Length::Units(self.ui_size.button())),
-            Button::new(
-                &mut self.action_mode_state.build,
-                if self.action_mode.is_build() {
-                    Image::new(format!(
-                        "{}/icons/icons/Build-on32.png",
-                        env!("CARGO_MANIFEST_DIR")
-                    ))
-                } else {
-                    Image::new(format!(
-                        "{}/icons/icons/Build-off32.png",
-                        env!("CARGO_MANIFEST_DIR")
-                    ))
-                },
-            )
-            .on_press(Message::ActionModeChanged(ActionMode::Build(false)))
-            .style(ButtonStyle(self.action_mode.is_build()))
-            .width(Length::Units(self.ui_size.button())),
-            Button::new(
-                &mut self.action_mode_state.cut,
-                if self.action_mode == ActionMode::Cut {
-                    Image::new(format!(
-                        "{}/icons/icons/Cut-on32.png",
-                        env!("CARGO_MANIFEST_DIR")
-                    ))
-                } else {
-                    Image::new(format!(
-                        "{}/icons/icons/Cut-off32.png",
-                        env!("CARGO_MANIFEST_DIR")
-                    ))
-                },
-            )
-            .on_press(Message::ActionModeChanged(ActionMode::Cut))
-            .width(Length::Units(self.ui_size.button()))
-            .style(ButtonStyle(self.action_mode == ActionMode::Cut)),
-            Button::new(
-                &mut self.action_mode_state.add_grid,
-                Image::new(format!(
-                    "{}/icons/icons/NewGrid-on32.png",
-                    env!("CARGO_MANIFEST_DIR")
-                )),
-            )
-            .on_press(Message::NewGrid)
-            .width(Length::Units(self.ui_size.button())),
-            Button::new(&mut self.action_mode_state.add_hyperboloid, Text::new("H"))
-                .on_press(Message::NewHyperboloid)
-                .width(Length::Units(self.ui_size.button())),
-        ];
-
-        let mut inputs = self.builder_input.iter_mut();
-
-        let position_input = TextInput::new(
-            inputs.next().unwrap(),
-            "Position",
-            &self.position_str,
-            Message::PositionHelicesChanged,
-        )
-        .style(BadValue(
-            self.position_str == self.position_helices.to_string(),
-        ));
-
-        let length_input = TextInput::new(
-            inputs.next().unwrap(),
-            "Length",
-            &self.length_str,
-            Message::LengthHelicesChanged,
-        )
-        .style(BadValue(self.length_str == self.length_helices.to_string()));
-
-        global_scroll = global_scroll.spacing(5).push(Text::new("Action Mode"));
-        while action_buttons.len() > 0 {
-            let mut row = Row::new();
-            row = row.push(action_buttons.remove(0)).spacing(5);
-            let mut space = self.ui_size.button() + 5;
-            while space + self.ui_size.button() < width && action_buttons.len() > 0 {
-                row = row.push(action_buttons.remove(0)).spacing(5);
-                space += self.ui_size.button() + 5;
-            }
-            global_scroll = global_scroll.spacing(5).push(row)
-        }
-
-        if let ActionMode::Build(b) = self.action_mode {
-            global_scroll = global_scroll.spacing(5).push(
-                Checkbox::new(b, "Stick", |b| {
-                    Message::ActionModeChanged(ActionMode::Build(b))
-                })
-                .size(self.ui_size.checkbox())
-                .spacing(CHECKBOXSPACING),
-            )
-        } else if let ActionMode::BuildHelix { .. } = self.action_mode {
-            let row = Row::new()
-                .push(
-                    Column::new()
-                        .push(Text::new("Position strand").color(Color::WHITE))
-                        .push(position_input)
-                        .width(Length::Units(width / 2)),
-                )
-                .push(
-                    Column::new()
-                        .push(Text::new("Length strands").color(Color::WHITE))
-                        .push(length_input),
-                );
-            global_scroll = global_scroll.push(row);
-        }
-        if self.building_hyperboloid {
-            for view in self.hyperboloid_factory.view().into_iter() {
-                global_scroll = global_scroll.push(view);
-            }
-            global_scroll = global_scroll.push(
-                Button::new(&mut self.finalize_hyperboloid, Text::new("Finish"))
-                    .on_press(Message::FinalizeHyperboloid),
-            );
-        }
+        global_scroll = global_scroll.push(self.grid_tab.view(self.action_mode, self.selection_mode, ui_size.clone(), width));
 
         if self.selection_mode == SelectionMode::Helix {
             for view in self.helix_roll_factory.view().into_iter() {
@@ -1007,6 +760,17 @@ struct SelectionModeState {
     pub grid: button::State,
 }
 
+impl SelectionModeState {
+    fn get_states<'a>(&'a mut self) -> BTreeMap<SelectionMode, &'a mut button::State> {
+        let mut ret = BTreeMap::new();
+        ret.insert(SelectionMode::Nucleotide, &mut self.nucleotide);
+        ret.insert(SelectionMode::Strand, &mut self.strand);
+        ret.insert(SelectionMode::Helix, &mut self.helix);
+        ret.insert(SelectionMode::Grid, &mut self.grid);
+        ret
+    }
+}
+
 #[derive(Default, Debug, Clone)]
 struct ActionModeState {
     pub select: button::State,
@@ -1016,6 +780,27 @@ struct ActionModeState {
     pub cut: button::State,
     pub add_grid: button::State,
     pub add_hyperboloid: button::State,
+}
+
+impl ActionModeState {
+    fn get_states<'a>(
+        &'a mut self,
+        len_helix: usize,
+        position_helix: isize,
+    ) -> BTreeMap<ActionMode, &'a mut button::State> {
+        let mut ret = BTreeMap::new();
+        ret.insert(ActionMode::Normal, &mut self.select);
+        ret.insert(ActionMode::Translate, &mut self.translate);
+        ret.insert(ActionMode::Rotate, &mut self.rotate);
+        ret.insert(
+            ActionMode::BuildHelix {
+                position: position_helix,
+                length: len_helix,
+            },
+            &mut self.build,
+        );
+        ret
+    }
 }
 
 fn target_message(i: usize) -> Message {
