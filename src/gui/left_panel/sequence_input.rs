@@ -34,4 +34,8 @@ impl SequenceInput {
     pub fn update_sequence(&mut self, sequence: String) {
         self.sequence = sequence;
     }
+
+    pub fn has_keyboard_priority(&self) -> bool {
+        self.input.is_focused()
+    }
 }

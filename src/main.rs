@@ -304,6 +304,23 @@ fn main() {
                 mediator.lock().unwrap().update_modifiers(modifiers.clone());
                 messages.lock().unwrap().update_modifiers(modifiers.clone());
             }
+            Event::WindowEvent {
+                event: WindowEvent::KeyboardInput { .. },
+                ..
+            } if gui.has_keyboard_priority() => {
+                if let Event::WindowEvent { event, .. } = event {
+                    if let Some(event) = event.to_static() {
+                        let event = iced_winit::conversion::window_event(
+                            &event,
+                            window.scale_factor(),
+                            modifiers,
+                        );
+                        if let Some(event) = event {
+                            gui.forward_event_all(event);
+                        }
+                    }
+                }
+            }
             Event::WindowEvent { event, .. } => {
                 //let modifiers = multiplexer.modifiers();
                 if let Some(event) = event.to_static() {

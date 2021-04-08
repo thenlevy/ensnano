@@ -307,6 +307,14 @@ impl GuiState {
             }
         }
     }
+
+    fn has_keyboard_priority(&self) -> bool {
+        match self {
+            Self::TopBar(_) => false,
+            Self::LeftPanel(left_panel) => left_panel.program().has_keyboard_priority(),
+            Self::StatusBar(status_bar) => status_bar.program().has_keyboard_priority(),
+        }
+    }
 }
 
 /// A Gui component.
@@ -412,6 +420,10 @@ impl GuiElement {
 
     fn get_state(&mut self) -> &mut GuiState {
         &mut self.state
+    }
+
+    fn has_keyboard_priority(&self) -> bool {
+        self.state.has_keyboard_priority()
     }
 
     fn resize(&mut self, window: &Window, multiplexer: &Multiplexer) {
@@ -531,6 +543,16 @@ impl Gui {
     /// Forward an event to the appropriate gui component
     pub fn forward_event(&mut self, area: ElementType, event: iced_native::Event) {
         self.elements.get_mut(&area).unwrap().forward_event(event);
+    }
+
+    pub fn forward_event_all(&mut self, event: iced_native::Event) {
+        for e in self.elements.values_mut() {
+            e.forward_event(event.clone())
+        }
+    }
+
+    pub fn has_keyboard_priority(&self) -> bool {
+        self.elements.values().any(|e| e.has_keyboard_priority())
     }
 
     /// Forward a message to the appropriate gui component

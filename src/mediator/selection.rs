@@ -236,8 +236,8 @@ impl std::fmt::Display for ActionMode {
             f,
             "{}",
             match self {
-                ActionMode::Normal => "Normal",
-                ActionMode::Translate => "Translate",
+                ActionMode::Normal => "Select",
+                ActionMode::Translate => "Move",
                 ActionMode::Rotate => "Rotate",
                 ActionMode::Build(_) => "Build",
                 ActionMode::BuildHelix { .. } => "Build",

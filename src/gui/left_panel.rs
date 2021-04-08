@@ -30,9 +30,9 @@ mod discrete_value;
 use discrete_value::{FactoryId, RequestFactory, Requestable, ValueId};
 mod tabs;
 
-use tabs::GridTab;
 use material_icons::{icon_to_char, Icon as MaterialIcon, FONT as MATERIALFONT};
 use std::collections::BTreeMap;
+use tabs::GridTab;
 
 const ICONFONT: iced::Font = iced::Font::External {
     name: "IconFont",
@@ -221,6 +221,10 @@ impl LeftPanel {
             _ => (),
         }
         None
+    }
+
+    pub fn has_keyboard_priority(&self) -> bool {
+        self.sequence_input.has_keyboard_priority() || self.grid_tab.has_keyboard_priority()
     }
 }
 
@@ -472,7 +476,12 @@ impl Program for LeftPanel {
             .spacing(5)
             .push(Text::new("SelectionMode"));
 
-        global_scroll = global_scroll.push(self.grid_tab.view(self.action_mode, self.selection_mode, ui_size.clone(), width));
+        global_scroll = global_scroll.push(self.grid_tab.view(
+            self.action_mode,
+            self.selection_mode,
+            ui_size.clone(),
+            width,
+        ));
 
         if self.selection_mode == SelectionMode::Helix {
             for view in self.helix_roll_factory.view().into_iter() {

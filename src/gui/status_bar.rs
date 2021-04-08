@@ -36,6 +36,13 @@ impl StatusParameter {
     fn choice() -> Self {
         Self::Choice(Default::default())
     }
+
+    fn has_keyboard_priority(&self) -> bool {
+        match self {
+            Self::Choice(_) => false,
+            Self::Value(state) => state.is_focused(),
+        }
+    }
 }
 
 pub struct StatusBar {
@@ -210,6 +217,10 @@ impl StatusBar {
             .width(Length::Fill)
             .height(Length::Fill)
             .into()
+    }
+
+    pub fn has_keyboard_priority(&self) -> bool {
+        self.parameters.iter().any(|p| p.has_keyboard_priority())
     }
 }
 

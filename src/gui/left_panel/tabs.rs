@@ -1,7 +1,7 @@
 use super::*;
 use iced::scrollable;
 
-pub (super) struct GridTab {
+pub(super) struct GridTab {
     selection_mode_state: SelectionModeState,
     action_mode_state: ActionModeState,
     scroll: iced::scrollable::State,
@@ -36,7 +36,7 @@ impl GridTab {
         }
     }
 
-    pub (super) fn view<'a>(
+    pub(super) fn view<'a>(
         &'a mut self,
         action_mode: ActionMode,
         selection_mode: SelectionMode,
@@ -167,18 +167,22 @@ impl GridTab {
         Scrollable::new(&mut self.scroll).push(ret).into()
     }
 
-    pub (super) fn update_pos_str(&mut self, position_str: String) {
+    pub(super) fn update_pos_str(&mut self, position_str: String) {
         if let Ok(position) = position_str.parse::<isize>() {
             self.helix_pos = position
         }
         self.pos_str = position_str;
     }
 
-    pub (super) fn update_length_str(&mut self, length_str: String) {
+    pub(super) fn update_length_str(&mut self, length_str: String) {
         if let Ok(length) = length_str.parse::<usize>() {
             self.helix_length = length
         }
         self.length_str = length_str;
+    }
+
+    pub fn has_keyboard_priority(&self) -> bool {
+        self.builder_input.iter().any(|s| s.is_focused())
     }
 }
 
