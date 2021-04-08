@@ -167,18 +167,26 @@ impl GridTab {
         Scrollable::new(&mut self.scroll).push(ret).into()
     }
 
-    pub(super) fn update_pos_str(&mut self, position_str: String) {
+    pub(super) fn update_pos_str(&mut self, position_str: String) -> ActionMode {
         if let Ok(position) = position_str.parse::<isize>() {
-            self.helix_pos = position
+            self.helix_pos = position;
         }
         self.pos_str = position_str;
+        ActionMode::BuildHelix {
+            position: self.helix_pos,
+            length: self.helix_length,
+        }
     }
 
-    pub(super) fn update_length_str(&mut self, length_str: String) {
+    pub(super) fn update_length_str(&mut self, length_str: String) -> ActionMode {
         if let Ok(length) = length_str.parse::<usize>() {
             self.helix_length = length
         }
         self.length_str = length_str;
+        ActionMode::BuildHelix {
+            position: self.helix_pos,
+            length: self.helix_length,
+        }
     }
 
     pub fn has_keyboard_priority(&self) -> bool {

@@ -331,22 +331,14 @@ impl Program for LeftPanel {
                 self.yz = 0;
             }
             Message::LengthHelicesChanged(length_str) => {
-                self.grid_tab.update_length_str(length_str.clone());
-                let action_mode = ActionMode::BuildHelix {
-                    position: self.position_helices,
-                    length: self.length_helices,
-                };
+                let action_mode = self.grid_tab.update_length_str(length_str.clone());
                 if self.action_mode != action_mode {
                     self.action_mode = action_mode;
                     self.requests.lock().unwrap().action_mode = Some(action_mode)
                 }
             }
             Message::PositionHelicesChanged(position_str) => {
-                self.grid_tab.update_pos_str(position_str.clone());
-                let action_mode = ActionMode::BuildHelix {
-                    position: self.position_helices,
-                    length: self.length_helices,
-                };
+                let action_mode = self.grid_tab.update_pos_str(position_str.clone());
                 if self.action_mode != action_mode {
                     self.action_mode = action_mode;
                     self.requests.lock().unwrap().action_mode = Some(action_mode)

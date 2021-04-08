@@ -307,6 +307,10 @@ fn main() {
             Event::WindowEvent {
                 event: WindowEvent::KeyboardInput { .. },
                 ..
+            }
+            | Event::WindowEvent {
+                event: WindowEvent::ReceivedCharacter(_),
+                ..
             } if gui.has_keyboard_priority() => {
                 if let Event::WindowEvent { event, .. } = event {
                     if let Some(event) = event.to_static() {
