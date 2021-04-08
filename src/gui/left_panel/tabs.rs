@@ -1,6 +1,109 @@
 use super::*;
 use iced::scrollable;
 
+pub(super) struct EditionTab {
+    selection_mode_state: SelectionModeState,
+    action_mode_state: ActionModeState,
+    scroll: iced::scrollable::State,
+    helix_roll_factory: RequestFactory<HelixRoll>,
+    color_picker: ColorPicker,
+    sequence_input: SequenceInput,
+}
+
+impl EditionTab {
+    pub(super) fn new() -> Self {
+        Self {
+            selection_mode_state: Default::default(),
+            action_mode_state: Default::default(),
+            scroll: Default::default(),
+            helix_roll_factory: RequestFactory::new(FactoryId::HelixRoll, HelixRoll {}),
+            color_picker: ColorPicker::new(),
+            sequence_input: SequenceInput::new(),
+        }
+    }
+
+    pub(super) fn view<'a>(
+        &'a mut self,
+        action_mode: ActionMode,
+        selection_mode: SelectionMode,
+        ui_size: UiSize,
+        width: u16,
+    ) -> Element<'a, Message> {
+        let mut ret = Column::new().spacing(5);
+        let selection_modes = [
+            SelectionMode::Nucleotide,
+            SelectionMode::Strand,
+            SelectionMode::Helix,
+        ];
+
+        let mut selection_buttons: Vec<Button<'a, Message>> = self
+            .selection_mode_state
+            .get_states()
+            .into_iter()
+            .filter(|(m, _)| selection_modes.contains(m))
+            .map(|(mode, state)| selection_mode_btn(state, mode, selection_mode, ui_size.button()))
+            .collect();
+
+        ret = ret.push(Text::new("Selection Mode"));
+        while selection_buttons.len() > 0 {
+            let mut row = Row::new();
+            row = row.push(selection_buttons.pop().unwrap()).spacing(5);
+            let mut space = ui_size.button() + 5;
+            while space + ui_size.button() < width && selection_buttons.len() > 0 {
+                row = row.push(selection_buttons.pop().unwrap()).spacing(5);
+                space += ui_size.button() + 5;
+            }
+            ret = ret.push(row)
+        }
+
+        let action_modes = [
+            ActionMode::Normal,
+            ActionMode::Translate,
+            ActionMode::Rotate,
+        ];
+
+        let mut action_buttons: Vec<Button<'a, Message>> = self
+            .action_mode_state
+            .get_states(0, 0)
+            .into_iter()
+            .filter(|(m, _)| action_modes.contains(m))
+            .map(|(mode, state)| action_mode_btn(state, mode, action_mode, ui_size.button()))
+            .collect();
+
+        ret = ret.push(Text::new("Action Mode"));
+        while action_buttons.len() > 0 {
+            let mut row = Row::new();
+            row = row.push(action_buttons.remove(0)).spacing(5);
+            let mut space = ui_size.button() + 5;
+            while space + ui_size.button() < width && action_buttons.len() > 0 {
+                row = row.push(action_buttons.remove(0)).spacing(5);
+                space += ui_size.button() + 5;
+            }
+            ret = ret.push(row)
+        }
+
+        if selection_mode == SelectionMode::Helix {
+            for view in self.helix_roll_factory.view().into_iter() {
+                ret = ret.push(view);
+            }
+        }
+
+        let color_square = self.color_picker.color_square();
+        if selection_mode == SelectionMode::Strand {
+            ret = ret
+                .push(self.color_picker.view())
+                .push(
+                    Row::new()
+                        .push(color_square)
+                        .push(iced::Space::new(Length::FillPortion(4), Length::Shrink)),
+                )
+                .push(self.sequence_input.view());
+        }
+
+        Scrollable::new(&mut self.scroll).push(ret).into()
+    }
+}
+
 pub(super) struct GridTab {
     selection_mode_state: SelectionModeState,
     action_mode_state: ActionModeState,
@@ -191,6 +294,16 @@ impl GridTab {
 
     pub fn has_keyboard_priority(&self) -> bool {
         self.builder_input.iter().any(|s| s.is_focused())
+    }
+
+    pub fn new_hyperboloid(&mut self, requests: &mut Option<HyperboloidRequest>) {
+        self.hyperboloid_factory = RequestFactory::new(FactoryId::Hyperboloid, Hyperboloid_ {});
+        self.hyperboloid_factory.make_request(requests);
+        self.building_hyperboloid = true;
+    }
+
+    pub fn finalize_hyperboloid(&mut self) {
+        self.building_hyperboloid = false;
     }
 }
 

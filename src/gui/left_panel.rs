@@ -32,7 +32,7 @@ mod tabs;
 
 use material_icons::{icon_to_char, Icon as MaterialIcon, FONT as MATERIALFONT};
 use std::collections::BTreeMap;
-use tabs::GridTab;
+use tabs::{EditionTab, GridTab};
 
 const ICONFONT: iced::Font = iced::Font::External {
     name: "IconFont",
@@ -58,8 +58,6 @@ pub struct LeftPanel {
     open_color: button::State,
     sequence_input: SequenceInput,
     requests: Arc<Mutex<Requests>>,
-    action_mode_state: ActionModeState,
-    selection_mode_state: SelectionModeState,
     color_picker: ColorPicker,
     camera_target_buttons: [button::State; 6],
     camera_rotation_buttons: [button::State; 4],
@@ -67,9 +65,6 @@ pub struct LeftPanel {
     yz: isize,
     length_helices: usize,
     position_helices: isize,
-    length_str: String,
-    position_str: String,
-    builder_input: [text_input::State; 2],
     show_torsion: bool,
     fog: FogParameters,
     physical_simulation: PhysicalSimulation,
@@ -77,8 +72,6 @@ pub struct LeftPanel {
     hyperboloid_factory: RequestFactory<Hyperboloid_>,
     helix_roll_factory: RequestFactory<HelixRoll>,
     rigid_body_factory: RequestFactory<RigidBodyFactory>,
-    building_hyperboloid: bool,
-    finalize_hyperboloid: button::State,
     rigid_grid_button: GoStop,
     rigid_helices_button: GoStop,
     selected_tab: usize,
@@ -86,6 +79,7 @@ pub struct LeftPanel {
     ui_size: UiSize,
     size_pick_list: pick_list::State<UiSize>,
     grid_tab: GridTab,
+    edition_tab: EditionTab,
 }
 
 #[derive(Debug, Clone)]
@@ -149,18 +143,13 @@ impl LeftPanel {
             open_color: Default::default(),
             sequence_input: SequenceInput::new(),
             requests,
-            action_mode_state: Default::default(),
-            selection_mode_state: Default::default(),
             color_picker: ColorPicker::new(),
             camera_rotation_buttons: Default::default(),
             camera_target_buttons: Default::default(),
             xz: 0,
             yz: 0,
-            builder_input: Default::default(),
             length_helices: 0,
             position_helices: 0,
-            length_str: "0".to_string(),
-            position_str: "0".to_string(),
             show_torsion: false,
             fog: Default::default(),
             physical_simulation: Default::default(),
@@ -173,8 +162,6 @@ impl LeftPanel {
                     volume_exclusion: false,
                 },
             ),
-            building_hyperboloid: false,
-            finalize_hyperboloid: Default::default(),
             rigid_helices_button: GoStop::new(
                 String::from("Rigid Helices"),
                 Message::RigidHelicesSimulation,
@@ -188,6 +175,7 @@ impl LeftPanel {
             ui_size: UiSize::Small,
             size_pick_list: Default::default(),
             grid_tab: GridTab::new(),
+            edition_tab: EditionTab::new(),
         }
     }
 
@@ -418,14 +406,11 @@ impl Program for LeftPanel {
             }
             Message::NewHyperboloid => {
                 let request = &mut self.requests.lock().unwrap().new_hyperboloid;
-                self.hyperboloid_factory =
-                    RequestFactory::new(FactoryId::Hyperboloid, Hyperboloid_ {});
-                self.hyperboloid_factory.make_request(request);
-                self.building_hyperboloid = true;
+                self.grid_tab.new_hyperboloid(request);
             }
             Message::FinalizeHyperboloid => {
                 self.requests.lock().unwrap().finalize_hyperboloid = true;
-                self.building_hyperboloid = false;
+                self.grid_tab.finalize_hyperboloid();
             }
             Message::RigidGridSimulation(b) => {
                 let request = &mut self.requests.lock().unwrap().rigid_grid_simulation;
@@ -462,6 +447,44 @@ impl Program for LeftPanel {
 
     fn view(&mut self) -> Element<Message> {
         let width = self.logical_size.cast::<u16>().width;
+        let tabs: Tabs<Message, Backend> = Tabs::new(self.selected_tab, Message::TabSelected)
+            .push(
+                TabLabel::Text("Edition".to_owned()),
+                self.edition_tab.view(
+                    self.action_mode,
+                    self.selection_mode,
+                    self.ui_size.clone(),
+                    width,
+                ),
+            )
+            .push(
+                TabLabel::Text("Grids".to_owned()),
+                self.grid_tab.view(
+                    self.action_mode,
+                    self.selection_mode,
+                    self.ui_size.clone(),
+                    width,
+                ),
+            )
+            .width(Length::Units(width))
+            .height(Length::Fill);
+        let contextual_menu = iced::Space::new(Length::Fill, Length::Fill);
+        let organizer = self.organizer.view().map(|m| Message::OrganizerMessage(m));
+
+        Container::new(
+            Column::new()
+                .width(Length::Fill)
+                .push(Container::new(tabs).height(Length::FillPortion(1)))
+                .push(Container::new(contextual_menu).height(Length::FillPortion(1)))
+                .push(Container::new(organizer).height(Length::FillPortion(1))),
+        )
+        .style(TopBarStyle)
+        .height(Length::Units(self.logical_size.height as u16))
+        .into()
+    }
+    /*
+    fn view(&mut self) -> Element<Message> {
+        let width = self.logical_size.cast::<u16>().width;
         let ui_size = self.ui_size.clone();
 
         let mut global_scroll = Scrollable::new(&mut self.global_scroll)
@@ -474,12 +497,6 @@ impl Program for LeftPanel {
             ui_size.clone(),
             width,
         ));
-
-        if self.selection_mode == SelectionMode::Helix {
-            for view in self.helix_roll_factory.view().into_iter() {
-                global_scroll = global_scroll.push(view);
-            }
-        }
 
         let mut target_buttons: Vec<_> = self
             .camera_target_buttons
@@ -595,7 +612,7 @@ impl Program for LeftPanel {
             .height(Length::Fill)
             .width(Length::Fill)
             .into()
-    }
+    }*/
 }
 
 struct TopBarStyle;
