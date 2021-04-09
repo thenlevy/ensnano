@@ -66,9 +66,6 @@ pub struct LeftPanel {
     scroll_sensitivity_factory: RequestFactory<ScrollSentivity>,
     hyperboloid_factory: RequestFactory<Hyperboloid_>,
     helix_roll_factory: RequestFactory<HelixRoll>,
-    rigid_body_factory: RequestFactory<RigidBodyFactory>,
-    rigid_grid_button: GoStop,
-    rigid_helices_button: GoStop,
     selected_tab: usize,
     organizer: Organizer<DnaElement>,
     ui_size: UiSize,
@@ -145,22 +142,8 @@ impl LeftPanel {
             show_torsion: false,
             physical_simulation: Default::default(),
             scroll_sensitivity_factory: RequestFactory::new(FactoryId::Scroll, ScrollSentivity {}),
-            helix_roll_factory: RequestFactory::new(FactoryId::HelixRoll, HelixRoll {}),
             hyperboloid_factory: RequestFactory::new(FactoryId::Hyperboloid, Hyperboloid_ {}),
-            rigid_body_factory: RequestFactory::new(
-                FactoryId::RigidBody,
-                RigidBodyFactory {
-                    volume_exclusion: false,
-                },
-            ),
-            rigid_helices_button: GoStop::new(
-                String::from("Rigid Helices"),
-                Message::RigidHelicesSimulation,
-            ),
-            rigid_grid_button: GoStop::new(
-                String::from("Rigid Grids"),
-                Message::RigidGridSimulation,
-            ),
+            helix_roll_factory: RequestFactory::new(FactoryId::HelixRoll, HelixRoll {}),
             selected_tab: 0,
             organizer: Organizer::new(),
             ui_size: UiSize::Small,
@@ -969,37 +952,6 @@ impl PhysicalSimulation {
     }
 }
 
-struct GoStop {
-    go_stop_button: button::State,
-    pub running: bool,
-    pub name: String,
-    on_press: Box<dyn Fn(bool) -> Message>,
-}
-
-impl GoStop {
-    fn new<F>(name: String, on_press: F) -> Self
-    where
-        F: 'static + Fn(bool) -> Message,
-    {
-        Self {
-            go_stop_button: Default::default(),
-            running: false,
-            name,
-            on_press: Box::new(on_press),
-        }
-    }
-
-    fn view(&mut self) -> Row<Message> {
-        let left_column = Column::new().push(Text::new(self.name.to_string()));
-        let button_str = if self.running { "Stop" } else { "Go" };
-        let right_column = Column::new().push(
-            Button::new(&mut self.go_stop_button, Text::new(button_str))
-                .on_press((self.on_press)(!self.running))
-                .style(ButtonColor::red_green(self.running)),
-        );
-        Row::new().push(left_column).push(right_column)
-    }
-}
 
 #[derive(Clone)]
 pub struct SimulationRequest {
