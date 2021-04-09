@@ -30,6 +30,11 @@ impl EditionTab {
         width: u16,
     ) -> Element<'a, Message> {
         let mut ret = Column::new().spacing(5);
+        ret = ret.push(
+            Text::new("Edition")
+                .horizontal_alignment(iced::HorizontalAlignment::Center)
+                .size(ui_size.main_text() * 2),
+        );
         let selection_modes = [
             SelectionMode::Nucleotide,
             SelectionMode::Strand,
@@ -40,6 +45,7 @@ impl EditionTab {
             .selection_mode_state
             .get_states()
             .into_iter()
+            .rev()
             .filter(|(m, _)| selection_modes.contains(m))
             .map(|(mode, state)| selection_mode_btn(state, mode, selection_mode, ui_size.button()))
             .collect();
@@ -147,6 +153,11 @@ impl GridTab {
         width: u16,
     ) -> Element<'a, Message> {
         let mut ret = Column::new().spacing(5);
+        ret = ret.push(
+            Text::new("Grids")
+                .horizontal_alignment(iced::HorizontalAlignment::Center)
+                .size(ui_size.main_text() * 2),
+        );
         let selection_modes = [
             SelectionMode::Nucleotide,
             SelectionMode::Strand,
@@ -157,6 +168,7 @@ impl GridTab {
             .selection_mode_state
             .get_states()
             .into_iter()
+            .rev()
             .filter(|(m, _)| selection_modes.contains(m))
             .map(|(mode, state)| selection_mode_btn(state, mode, selection_mode, ui_size.button()))
             .collect();
@@ -366,6 +378,11 @@ impl CameraTab {
 
     pub fn view<'a>(&'a mut self, ui_size: UiSize, width: u16) -> Element<'a, Message> {
         let mut ret = Column::new();
+        ret = ret.push(
+            Text::new("Camera")
+                .horizontal_alignment(iced::HorizontalAlignment::Center)
+                .size(ui_size.main_text() * 2),
+        );
         let mut target_buttons: Vec<_> = self
             .camera_target_buttons
             .iter_mut()
@@ -413,6 +430,7 @@ impl CameraTab {
             }
             ret = ret.spacing(5).push(row)
         }
+        ret = ret.push(self.fog.view(&ui_size));
 
         Scrollable::new(&mut self.scroll).push(ret).into()
     }

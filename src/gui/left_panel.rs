@@ -443,7 +443,7 @@ impl Program for LeftPanel {
         let width = self.logical_size.cast::<u16>().width;
         let tabs: Tabs<Message, Backend> = Tabs::new(self.selected_tab, Message::TabSelected)
             .push(
-                TabLabel::Text("Edition".to_owned()),
+                TabLabel::Text(format!("{}", icon_to_char(MaterialIcon::Edit))),
                 self.edition_tab.view(
                     self.action_mode,
                     self.selection_mode,
@@ -452,7 +452,7 @@ impl Program for LeftPanel {
                 ),
             )
             .push(
-                TabLabel::Text("Grids".to_owned()),
+                TabLabel::Text(format!("{}", icon_to_char(MaterialIcon::Apps))),
                 self.grid_tab.view(
                     self.action_mode,
                     self.selection_mode,
@@ -461,9 +461,12 @@ impl Program for LeftPanel {
                 ),
             )
             .push(
-                TabLabel::Text("Camera".to_owned()),
+                TabLabel::Text(format!("{}", icon_to_char(MaterialIcon::Videocam))),
                 self.camera_tab.view(self.ui_size.clone(), width),
             )
+            .text_size(self.ui_size.icon())
+            .text_font(ICONFONT)
+            .tab_bar_height(Length::Units(self.ui_size.button()))
             .width(Length::Units(width))
             .height(Length::Fill);
         let contextual_menu = iced::Space::new(Length::Fill, Length::Fill);
