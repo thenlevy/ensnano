@@ -2,8 +2,8 @@ use ensnano_organizer::{Organizer, OrganizerMessage, OrganizerTree};
 use std::sync::{Arc, Mutex};
 
 use iced::{
-    button, pick_list, scrollable, slider, text_input, Button, Checkbox, Color, Command, Element,
-    Length, PickList, Scrollable, Slider, Text, TextInput,
+    button, pick_list, slider, text_input, Button, Checkbox, Color, Command, Element, Length,
+    PickList, Scrollable, Slider, Text, TextInput,
 };
 use iced::{container, Background, Column, Container, Image, Row};
 use iced_aw::{TabLabel, Tabs};
@@ -32,7 +32,7 @@ mod tabs;
 
 use material_icons::{icon_to_char, Icon as MaterialIcon, FONT as MATERIALFONT};
 use std::collections::BTreeMap;
-use tabs::{CameraTab, EditionTab, GridTab, SimulationTab};
+use tabs::{CameraTab, EditionTab, GridTab, ParametersTab, SimulationTab};
 
 const ICONFONT: iced::Font = iced::Font::External {
     name: "IconFont",
@@ -50,7 +50,6 @@ const CHECKBOXSPACING: u16 = 5;
 pub struct LeftPanel {
     selection_mode: SelectionMode,
     action_mode: ActionMode,
-    global_scroll: scrollable::State,
     logical_size: LogicalSize<f64>,
     #[allow(dead_code)]
     logical_position: LogicalPosition<f64>,
@@ -59,20 +58,16 @@ pub struct LeftPanel {
     sequence_input: SequenceInput,
     requests: Arc<Mutex<Requests>>,
     color_picker: ColorPicker,
-    length_helices: usize,
-    position_helices: isize,
+    #[allow(dead_code)]
     show_torsion: bool,
-    scroll_sensitivity_factory: RequestFactory<ScrollSentivity>,
-    hyperboloid_factory: RequestFactory<Hyperboloid_>,
-    helix_roll_factory: RequestFactory<HelixRoll>,
     selected_tab: usize,
     organizer: Organizer<DnaElement>,
     ui_size: UiSize,
-    size_pick_list: pick_list::State<UiSize>,
     grid_tab: GridTab,
     edition_tab: EditionTab,
     camera_tab: CameraTab,
     simulation_tab: SimulationTab,
+    pamerters_tab: ParametersTab,
 }
 
 #[derive(Debug, Clone)]
@@ -91,6 +86,7 @@ pub enum Message {
     RotateCam(f32, f32),
     PositionHelicesChanged(String),
     LengthHelicesChanged(String),
+    #[allow(dead_code)]
     ShowTorsion(bool),
     FogVisibility(bool),
     FogRadius(f32),
@@ -126,31 +122,27 @@ impl LeftPanel {
         requests: Arc<Mutex<Requests>>,
         logical_size: LogicalSize<f64>,
         logical_position: LogicalPosition<f64>,
+        first_time: bool,
     ) -> Self {
+        let selected_tab = if first_time { 0 } else { 4 };
         Self {
             selection_mode: Default::default(),
             action_mode: Default::default(),
-            global_scroll: Default::default(),
             logical_size,
             logical_position,
             open_color: Default::default(),
             sequence_input: SequenceInput::new(),
             requests,
             color_picker: ColorPicker::new(),
-            length_helices: 0,
-            position_helices: 0,
             show_torsion: false,
-            scroll_sensitivity_factory: RequestFactory::new(FactoryId::Scroll, ScrollSentivity {}),
-            hyperboloid_factory: RequestFactory::new(FactoryId::Hyperboloid, Hyperboloid_ {}),
-            helix_roll_factory: RequestFactory::new(FactoryId::HelixRoll, HelixRoll {}),
-            selected_tab: 0,
+            selected_tab,
             organizer: Organizer::new(),
             ui_size: UiSize::Small,
-            size_pick_list: Default::default(),
             grid_tab: GridTab::new(),
             edition_tab: EditionTab::new(),
             camera_tab: CameraTab::new(),
             simulation_tab: SimulationTab::new(),
+            pamerters_tab: ParametersTab::new(),
         }
     }
 
@@ -200,43 +192,11 @@ impl Program for LeftPanel {
         match message {
             Message::SelectionModeChanged(selection_mode) => {
                 if selection_mode != self.selection_mode {
-                    let action_mode = if self.action_mode.is_build() {
-                        match selection_mode {
-                            SelectionMode::Grid => Some(ActionMode::BuildHelix {
-                                position: self.position_helices,
-                                length: self.length_helices,
-                            }),
-                            _ => {
-                                if let ActionMode::BuildHelix { .. } = self.action_mode {
-                                    Some(ActionMode::Build(false))
-                                } else {
-                                    None
-                                }
-                            }
-                        }
-                    } else {
-                        None
-                    };
                     self.selection_mode = selection_mode;
-                    if let Some(action_mode) = action_mode {
-                        self.action_mode = action_mode.clone();
-                        self.requests.lock().unwrap().action_mode = Some(action_mode);
-                    }
                     self.requests.lock().unwrap().selection_mode = Some(selection_mode);
                 }
             }
             Message::ActionModeChanged(action_mode) => {
-                let action_mode = if action_mode.is_build() {
-                    match self.selection_mode {
-                        SelectionMode::Grid => ActionMode::BuildHelix {
-                            position: self.position_helices,
-                            length: self.length_helices,
-                        },
-                        _ => action_mode,
-                    }
-                } else {
-                    action_mode
-                };
                 if self.action_mode != action_mode {
                     self.action_mode = action_mode;
                     self.requests.lock().unwrap().action_mode = Some(action_mode)
@@ -352,18 +312,18 @@ impl Program for LeftPanel {
             } => match factory_id {
                 FactoryId::Scroll => {
                     let request = &mut self.requests.lock().unwrap().scroll_sensitivity;
-                    self.scroll_sensitivity_factory
-                        .update_request(value_id, value, request);
+                    self.camera_tab
+                        .update_scroll_request(value_id, value, request);
                 }
                 FactoryId::HelixRoll => {
                     let request = &mut self.requests.lock().unwrap().helix_roll;
-                    self.helix_roll_factory
-                        .update_request(value_id, value, request);
+                    self.edition_tab
+                        .update_roll_request(value_id, value, request);
                 }
                 FactoryId::Hyperboloid => {
                     let request = &mut self.requests.lock().unwrap().hyperboloid_update;
-                    self.hyperboloid_factory
-                        .update_request(value_id, value, request);
+                    self.grid_tab
+                        .update_hyperboloid_request(value_id, value, request);
                 }
                 FactoryId::RigidBody => {
                     let request = &mut self.requests.lock().unwrap().rigid_body_parameters;
@@ -376,7 +336,7 @@ impl Program for LeftPanel {
                 self.simulation_tab.make_rigid_body_request(request);
             }
             Message::HelixRoll(roll) => {
-                self.helix_roll_factory.update_roll(roll);
+                self.edition_tab.update_roll(roll);
             }
             Message::NewHyperboloid => {
                 let request = &mut self.requests.lock().unwrap().new_hyperboloid;
@@ -448,6 +408,10 @@ impl Program for LeftPanel {
                 TabLabel::Text(format!("{}", icon_to_char(MaterialIcon::TrendingUp))),
                 self.simulation_tab.view(self.ui_size.clone()),
             )
+            .push(
+                TabLabel::Text(format!("{}", icon_to_char(MaterialIcon::Settings))),
+                self.pamerters_tab.view(self.ui_size.clone()),
+            )
             .text_size(self.ui_size.icon())
             .text_font(ICONFONT)
             .tab_bar_height(Length::Units(self.ui_size.button()))
@@ -469,137 +433,6 @@ impl Program for LeftPanel {
         .height(Length::Units(self.logical_size.height as u16))
         .into()
     }
-    /*
-    fn view(&mut self) -> Element<Message> {
-        let width = self.logical_size.cast::<u16>().width;
-        let ui_size = self.ui_size.clone();
-
-        let mut global_scroll = Scrollable::new(&mut self.global_scroll)
-            .spacing(5)
-            .push(Text::new("SelectionMode"));
-
-        global_scroll = global_scroll.push(self.grid_tab.view(
-            self.action_mode,
-            self.selection_mode,
-            ui_size.clone(),
-            width,
-        ));
-
-        let mut target_buttons: Vec<_> = self
-            .camera_target_buttons
-            .iter_mut()
-            .enumerate()
-            .map(|(i, s)| {
-                Button::new(s, Text::new(target_text(i)).size(10))
-                    .on_press(target_message(i))
-                    .width(Length::Units(ui_size.button()))
-            })
-            .collect();
-        global_scroll = global_scroll.spacing(5).push(Text::new("Camera Target"));
-        while target_buttons.len() > 0 {
-            let mut row = Row::new();
-            row = row.push(target_buttons.remove(0)).spacing(5);
-            let mut space = self.ui_size.button() + 5;
-            while space + self.ui_size.button() < width && target_buttons.len() > 0 {
-                row = row.push(target_buttons.remove(0)).spacing(5);
-                space += self.ui_size.button() + 5;
-            }
-            global_scroll = global_scroll.spacing(5).push(row)
-        }
-
-        let xz = self.xz;
-        let yz = self.yz;
-
-        let mut rotate_buttons: Vec<_> = self
-            .camera_rotation_buttons
-            .iter_mut()
-            .enumerate()
-            .map(|(i, s)| {
-                Button::new(s, rotation_text(i, ui_size.clone()))
-                    .on_press(rotation_message(i, xz, yz))
-                    .width(Length::Units(ui_size.button()))
-            })
-            .collect();
-
-        global_scroll = global_scroll.spacing(5).push(Text::new("Rotate Camera"));
-        while rotate_buttons.len() > 0 {
-            let mut row = Row::new();
-            row = row.push(rotate_buttons.remove(0)).spacing(5);
-            let mut space = self.ui_size.button() + 5;
-            while space + self.ui_size.button() < width && rotate_buttons.len() > 0 {
-                row = row.push(rotate_buttons.remove(0)).spacing(5);
-                space += self.ui_size.button() + 5;
-            }
-            global_scroll = global_scroll.spacing(5).push(row)
-        }
-        global_scroll = global_scroll
-            .push(self.physical_simulation.view(&self.ui_size))
-            .max_height(self.logical_size.height as u32);
-
-        let mut widget = global_scroll
-            .push(
-                Checkbox::new(self.show_torsion, "Show Torsion", Message::ShowTorsion)
-                    .size(self.ui_size.checkbox())
-                    .spacing(CHECKBOXSPACING),
-            )
-            .width(Length::Units(width));
-
-        let color_square = self.color_picker.color_square();
-        if self.selection_mode == SelectionMode::Strand {
-            widget = widget
-                .spacing(5)
-                .push(self.color_picker.view())
-                .push(
-                    Row::new()
-                        .push(color_square)
-                        .push(iced::Space::new(Length::FillPortion(4), Length::Shrink)),
-                )
-                .push(self.sequence_input.view());
-        }
-        widget = widget.push(self.fog.view(&self.ui_size));
-        for view in self.scroll_sensitivity_factory.view().into_iter() {
-            widget = widget.push(view);
-        }
-        widget = widget
-            .push(self.rigid_grid_button.view())
-            .push(self.rigid_helices_button.view());
-
-        let volume_exclusion = self.rigid_body_factory.requestable.volume_exclusion;
-        for view in self.rigid_body_factory.view().into_iter() {
-            widget = widget.push(view);
-        }
-        widget = widget.push(
-            Checkbox::new(
-                volume_exclusion,
-                "Volume exclusion",
-                Message::VolumeExclusion,
-            )
-            .spacing(CHECKBOXSPACING)
-            .size(self.ui_size.checkbox()),
-        );
-
-        widget = widget.push(PickList::new(
-            &mut self.size_pick_list,
-            &super::ALL_UI_SIZE[..],
-            Some(self.ui_size.clone()),
-            Message::UiSizePicked,
-        ));
-
-        let tabs: Tabs<Message, Backend> = Tabs::new(self.selected_tab, Message::TabSelected)
-            .push(TabLabel::Text("Menu".to_owned()), widget)
-            .push(
-                TabLabel::Text("Organizer".to_owned()),
-                self.organizer.view().map(|m| Message::OrganizerMessage(m)),
-            )
-            .width(Length::Units(width))
-            .height(Length::Units(self.logical_size.height as u16 - 20));
-
-        Container::new(tabs)
-            .style(TopBarStyle)
-            .height(Length::Fill)
-            .width(Length::Fill)
-            .into()
-    }*/
 }
 
 struct TopBarStyle;
@@ -1014,21 +847,21 @@ impl Requestable for ScrollSentivity {
     }
     fn min_val(&self, n: usize) -> f32 {
         if n == 0 {
-            -20f32
+            -10f32
         } else {
             unreachable!()
         }
     }
     fn max_val(&self, n: usize) -> f32 {
         if n == 0 {
-            20f32
+            10f32
         } else {
             unreachable!()
         }
     }
     fn step_val(&self, n: usize) -> f32 {
         if n == 0 {
-            1f32
+            0.5f32
         } else {
             unreachable!()
         }

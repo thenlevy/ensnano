@@ -108,6 +108,20 @@ impl EditionTab {
 
         Scrollable::new(&mut self.scroll).push(ret).into()
     }
+
+    pub(super) fn update_roll(&mut self, roll: f32) {
+        self.helix_roll_factory.update_roll(roll);
+    }
+
+    pub(super) fn update_roll_request(
+        &mut self,
+        value_id: ValueId,
+        value: f32,
+        request: &mut Option<f32>,
+    ) {
+        self.helix_roll_factory
+            .update_request(value_id, value, request);
+    }
 }
 
 pub(super) struct GridTab {
@@ -317,6 +331,16 @@ impl GridTab {
     pub fn finalize_hyperboloid(&mut self) {
         self.building_hyperboloid = false;
     }
+
+    pub fn update_hyperboloid_request(
+        &mut self,
+        value_id: ValueId,
+        value: f32,
+        request: &mut Option<HyperboloidRequest>,
+    ) {
+        self.hyperboloid_factory
+            .update_request(value_id, value, request);
+    }
 }
 
 fn selection_mode_btn<'a>(
@@ -358,6 +382,7 @@ fn action_mode_btn<'a>(
 pub(super) struct CameraTab {
     camera_target_buttons: [button::State; 6],
     camera_rotation_buttons: [button::State; 4],
+    scroll_sensitivity_factory: RequestFactory<ScrollSentivity>,
     xz: isize,
     yz: isize,
     fog: FogParameters,
@@ -369,6 +394,7 @@ impl CameraTab {
         Self {
             camera_target_buttons: Default::default(),
             camera_rotation_buttons: Default::default(),
+            scroll_sensitivity_factory: RequestFactory::new(FactoryId::Scroll, ScrollSentivity {}),
             fog: Default::default(),
             xz: 0,
             yz: 0,
@@ -383,6 +409,9 @@ impl CameraTab {
                 .horizontal_alignment(iced::HorizontalAlignment::Center)
                 .size(ui_size.main_text() * 2),
         );
+        for view in self.scroll_sensitivity_factory.view().into_iter() {
+            ret = ret.push(view);
+        }
         let mut target_buttons: Vec<_> = self
             .camera_target_buttons
             .iter_mut()
@@ -467,6 +496,16 @@ impl CameraTab {
 
     pub(super) fn notify_new_design(&mut self) {
         self.fog = Default::default();
+    }
+
+    pub(super) fn update_scroll_request(
+        &mut self,
+        value_id: ValueId,
+        value: f32,
+        request: &mut Option<f32>,
+    ) {
+        self.scroll_sensitivity_factory
+            .update_request(value_id, value, request);
     }
 }
 
@@ -711,5 +750,32 @@ impl PhysicalSimulation {
             roll: self.roll,
             springs: self.springs,
         }
+    }
+}
+
+pub struct ParametersTab {
+    size_pick_list: pick_list::State<UiSize>,
+    scroll: scrollable::State,
+}
+
+impl ParametersTab {
+    pub(super) fn new() -> Self {
+        Self {
+            size_pick_list: Default::default(),
+            scroll: Default::default(),
+        }
+    }
+
+    pub(super) fn view<'a>(&'a mut self, ui_size: UiSize) -> Element<'a, Message> {
+        let mut ret = Column::new();
+        ret = ret.push(Text::new("Parameters").size(2 * ui_size.main_text()));
+        ret = ret.push(PickList::new(
+            &mut self.size_pick_list,
+            &super::super::ALL_UI_SIZE[..],
+            Some(ui_size.clone()),
+            Message::UiSizePicked,
+        ));
+
+        Scrollable::new(&mut self.scroll).push(ret).into()
     }
 }

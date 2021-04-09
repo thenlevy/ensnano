@@ -361,6 +361,7 @@ impl GuiElement {
         window: &Window,
         multiplexer: &Multiplexer,
         requests: Arc<Mutex<Requests>>,
+        first_time: bool,
     ) -> Self {
         let cursor_position = PhysicalPosition::new(-1., -1.);
         let left_panel_area = multiplexer
@@ -370,6 +371,7 @@ impl GuiElement {
             requests.clone(),
             left_panel_area.size.to_logical(window.scale_factor()),
             left_panel_area.position.to_logical(window.scale_factor()),
+            first_time,
         );
         let mut left_panel_debug = Debug::new();
         let left_panel_state = program::State::new(
@@ -523,7 +525,7 @@ impl Gui {
         );
         elements.insert(
             ElementType::LeftPanel,
-            GuiElement::left_panel(&mut renderer, window, multiplexer, requests.clone()),
+            GuiElement::left_panel(&mut renderer, window, multiplexer, requests.clone(), true),
         );
         elements.insert(
             ElementType::StatusBar,
@@ -624,6 +626,7 @@ impl Gui {
                 window,
                 multiplexer,
                 self.requests.clone(),
+                false,
             ),
         );
         self.elements.insert(
