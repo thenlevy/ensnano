@@ -538,15 +538,16 @@ impl Default for FogParameters {
     }
 }
 
-pub (super) struct SimulationTab {
-    helix_roll_factory: RequestFactory<HelixRoll>,
+pub(super) struct SimulationTab {
     rigid_body_factory: RequestFactory<RigidBodyFactory>,
     rigid_grid_button: GoStop,
     rigid_helices_button: GoStop,
+    scroll: scrollable::State,
+    physical_simulation: PhysicalSimulation,
 }
 
 impl SimulationTab {
-    pub (super) fn new() -> Self {
+    pub(super) fn new() -> Self {
         Self {
             rigid_body_factory: RequestFactory::new(
                 FactoryId::RigidBody,
@@ -562,7 +563,85 @@ impl SimulationTab {
                 String::from("Rigid Grids"),
                 Message::RigidGridSimulation,
             ),
+            scroll: Default::default(),
+            physical_simulation: Default::default(),
         }
+    }
+
+    pub(super) fn view<'a>(&'a mut self, ui_size: UiSize) -> Element<'a, Message> {
+        let mut ret = Column::new();
+        ret = ret.push(Text::new("Simulation (Beta)").size(2 * ui_size.main_text()));
+        ret = ret.push(self.physical_simulation.view(&ui_size));
+        ret = ret
+            .push(self.rigid_grid_button.view())
+            .push(self.rigid_helices_button.view());
+
+        let volume_exclusion = self.rigid_body_factory.requestable.volume_exclusion;
+        for view in self.rigid_body_factory.view().into_iter() {
+            ret = ret.push(view);
+        }
+        ret = ret.push(
+            Checkbox::new(
+                volume_exclusion,
+                "Volume exclusion",
+                Message::VolumeExclusion,
+            )
+            .spacing(CHECKBOXSPACING)
+            .size(ui_size.checkbox()),
+        );
+
+        Scrollable::new(&mut self.scroll).push(ret).into()
+    }
+
+    pub(super) fn notify_grid_running(&mut self, running: bool) {
+        self.rigid_grid_button.running = running;
+    }
+
+    pub(super) fn notify_helices_running(&mut self, running: bool) {
+        self.rigid_helices_button.running = running;
+    }
+
+    pub(super) fn set_volume_exclusion(&mut self, volume_exclusion: bool) {
+        self.rigid_body_factory.requestable.volume_exclusion = volume_exclusion;
+    }
+
+    pub(super) fn make_rigid_body_request(
+        &mut self,
+        request: &mut Option<RigidBodyParametersRequest>,
+    ) {
+        self.rigid_body_factory.make_request(request)
+    }
+
+    pub(super) fn update_request(
+        &mut self,
+        value_id: ValueId,
+        value: f32,
+        request: &mut Option<RigidBodyParametersRequest>,
+    ) {
+        self.rigid_body_factory
+            .update_request(value_id, value, request)
+    }
+
+    pub(super) fn notify_new_design(&mut self) {
+        self.physical_simulation.running = false;
+        self.rigid_grid_button.running = false;
+        self.rigid_helices_button.running = false;
+    }
+
+    pub(super) fn notify_sim_request(&mut self) {
+        self.physical_simulation.running ^= true;
+    }
+
+    pub(super) fn set_roll(&mut self, roll: bool) {
+        self.physical_simulation.roll = roll;
+    }
+
+    pub(super) fn set_springs(&mut self, springs: bool) {
+        self.physical_simulation.springs = springs;
+    }
+
+    pub(super) fn get_physical_simulation_request(&self) -> SimulationRequest {
+        self.physical_simulation.request()
     }
 }
 
@@ -595,5 +674,42 @@ impl GoStop {
                 .style(ButtonColor::red_green(self.running)),
         );
         Row::new().push(left_column).push(right_column)
+    }
+}
+
+#[derive(Default)]
+struct PhysicalSimulation {
+    go_stop_button: button::State,
+    pub running: bool,
+    pub roll: bool,
+    pub springs: bool,
+}
+
+impl PhysicalSimulation {
+    fn view<'a, 'b>(&'a mut self, ui_size: &'b UiSize) -> Row<'a, Message> {
+        let left_column = Column::new()
+            .push(
+                Checkbox::new(self.roll, "Roll", Message::SimRoll)
+                    .size(ui_size.checkbox())
+                    .spacing(CHECKBOXSPACING),
+            )
+            .push(
+                Checkbox::new(self.springs, "Spring", Message::SimSprings)
+                    .size(ui_size.checkbox())
+                    .spacing(CHECKBOXSPACING),
+            );
+        let button_str = if self.running { "Stop" } else { "Go" };
+        let right_column = Column::new().push(
+            Button::new(&mut self.go_stop_button, Text::new(button_str))
+                .on_press(Message::SimRequest),
+        );
+        Row::new().push(left_column).push(right_column)
+    }
+
+    fn request(&self) -> SimulationRequest {
+        SimulationRequest {
+            roll: self.roll,
+            springs: self.springs,
+        }
     }
 }

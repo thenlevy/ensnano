@@ -32,7 +32,7 @@ mod tabs;
 
 use material_icons::{icon_to_char, Icon as MaterialIcon, FONT as MATERIALFONT};
 use std::collections::BTreeMap;
-use tabs::{CameraTab, EditionTab, GridTab};
+use tabs::{CameraTab, EditionTab, GridTab, SimulationTab};
 
 const ICONFONT: iced::Font = iced::Font::External {
     name: "IconFont",
@@ -62,7 +62,6 @@ pub struct LeftPanel {
     length_helices: usize,
     position_helices: isize,
     show_torsion: bool,
-    physical_simulation: PhysicalSimulation,
     scroll_sensitivity_factory: RequestFactory<ScrollSentivity>,
     hyperboloid_factory: RequestFactory<Hyperboloid_>,
     helix_roll_factory: RequestFactory<HelixRoll>,
@@ -73,6 +72,7 @@ pub struct LeftPanel {
     grid_tab: GridTab,
     edition_tab: EditionTab,
     camera_tab: CameraTab,
+    simulation_tab: SimulationTab,
 }
 
 #[derive(Debug, Clone)]
@@ -140,7 +140,6 @@ impl LeftPanel {
             length_helices: 0,
             position_helices: 0,
             show_torsion: false,
-            physical_simulation: Default::default(),
             scroll_sensitivity_factory: RequestFactory::new(FactoryId::Scroll, ScrollSentivity {}),
             hyperboloid_factory: RequestFactory::new(FactoryId::Hyperboloid, Hyperboloid_ {}),
             helix_roll_factory: RequestFactory::new(FactoryId::HelixRoll, HelixRoll {}),
@@ -151,6 +150,7 @@ impl LeftPanel {
             grid_tab: GridTab::new(),
             edition_tab: EditionTab::new(),
             camera_tab: CameraTab::new(),
+            simulation_tab: SimulationTab::new(),
         }
     }
 
@@ -326,21 +326,19 @@ impl Program for LeftPanel {
             }
             Message::NewDesign => {
                 self.show_torsion = false;
-                self.physical_simulation.running = false;
                 self.camera_tab.notify_new_design();
-                self.rigid_grid_button.running = false;
-                self.rigid_helices_button.running = false;
+                self.simulation_tab.notify_new_design();
             }
             Message::SimRoll(b) => {
-                self.physical_simulation.roll = b;
+                self.simulation_tab.set_roll(b);
             }
             Message::SimSprings(b) => {
-                self.physical_simulation.springs = b;
+                self.simulation_tab.set_springs(b);
             }
             Message::SimRequest => {
-                self.physical_simulation.running ^= true;
-                self.requests.lock().unwrap().roll_request =
-                    Some(self.physical_simulation.request());
+                self.simulation_tab.notify_sim_request();
+                let request = self.simulation_tab.get_physical_simulation_request();
+                self.requests.lock().unwrap().roll_request = Some(request);
             }
             Message::FogCamera(b) => {
                 self.camera_tab.fog_camera(b);
@@ -369,14 +367,13 @@ impl Program for LeftPanel {
                 }
                 FactoryId::RigidBody => {
                     let request = &mut self.requests.lock().unwrap().rigid_body_parameters;
-                    self.rigid_body_factory
-                        .update_request(value_id, value, request)
+                    self.simulation_tab.update_request(value_id, value, request);
                 }
             },
             Message::VolumeExclusion(b) => {
-                self.rigid_body_factory.requestable.volume_exclusion = b;
+                self.simulation_tab.set_volume_exclusion(b);
                 let request = &mut self.requests.lock().unwrap().rigid_body_parameters;
-                self.rigid_body_factory.make_request(request);
+                self.simulation_tab.make_rigid_body_request(request);
             }
             Message::HelixRoll(roll) => {
                 self.helix_roll_factory.update_roll(roll);
@@ -391,13 +388,13 @@ impl Program for LeftPanel {
             }
             Message::RigidGridSimulation(b) => {
                 let request = &mut self.requests.lock().unwrap().rigid_grid_simulation;
-                self.rigid_grid_button.running = b;
-                self.rigid_body_factory.make_request(request);
+                self.simulation_tab.notify_grid_running(b);
+                self.simulation_tab.make_rigid_body_request(request);
             }
             Message::RigidHelicesSimulation(b) => {
                 let request = &mut self.requests.lock().unwrap().rigid_helices_simulation;
-                self.rigid_helices_button.running = b;
-                self.rigid_body_factory.make_request(request);
+                self.simulation_tab.notify_helices_running(b);
+                self.simulation_tab.make_rigid_body_request(request);
             }
             Message::TabSelected(n) => self.selected_tab = n,
             Message::NewDnaElement(elements) => self.organizer.update_elements(elements),
@@ -435,7 +432,7 @@ impl Program for LeftPanel {
                 ),
             )
             .push(
-                TabLabel::Text(format!("{}", icon_to_char(MaterialIcon::Apps))),
+                TabLabel::Text(format!("{}", icon_to_char(MaterialIcon::GridOn))),
                 self.grid_tab.view(
                     self.action_mode,
                     self.selection_mode,
@@ -446,6 +443,10 @@ impl Program for LeftPanel {
             .push(
                 TabLabel::Text(format!("{}", icon_to_char(MaterialIcon::Videocam))),
                 self.camera_tab.view(self.ui_size.clone(), width),
+            )
+            .push(
+                TabLabel::Text(format!("{}", icon_to_char(MaterialIcon::TrendingUp))),
+                self.simulation_tab.view(self.ui_size.clone()),
             )
             .text_size(self.ui_size.icon())
             .text_font(ICONFONT)
@@ -914,44 +915,6 @@ mod text_input_style {
         }
     }
 }
-
-#[derive(Default)]
-struct PhysicalSimulation {
-    go_stop_button: button::State,
-    pub running: bool,
-    pub roll: bool,
-    pub springs: bool,
-}
-
-impl PhysicalSimulation {
-    fn view(&mut self, ui_size: &UiSize) -> Row<Message> {
-        let left_column = Column::new()
-            .push(
-                Checkbox::new(self.roll, "Roll", Message::SimRoll)
-                    .size(ui_size.checkbox())
-                    .spacing(CHECKBOXSPACING),
-            )
-            .push(
-                Checkbox::new(self.springs, "Spring", Message::SimSprings)
-                    .size(ui_size.checkbox())
-                    .spacing(CHECKBOXSPACING),
-            );
-        let button_str = if self.running { "Stop" } else { "Go" };
-        let right_column = Column::new().push(
-            Button::new(&mut self.go_stop_button, Text::new(button_str))
-                .on_press(Message::SimRequest),
-        );
-        Row::new().push(left_column).push(right_column)
-    }
-
-    fn request(&self) -> SimulationRequest {
-        SimulationRequest {
-            roll: self.roll,
-            springs: self.springs,
-        }
-    }
-}
-
 
 #[derive(Clone)]
 pub struct SimulationRequest {
