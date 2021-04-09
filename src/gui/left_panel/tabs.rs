@@ -342,3 +342,180 @@ fn action_mode_btn<'a>(
         .style(ButtonStyle(fixed_mode == mode))
         .width(Length::Units(button_size))
 }
+
+pub(super) struct CameraTab {
+    camera_target_buttons: [button::State; 6],
+    camera_rotation_buttons: [button::State; 4],
+    xz: isize,
+    yz: isize,
+    fog: FogParameters,
+    scroll: scrollable::State,
+}
+
+impl CameraTab {
+    pub fn new() -> Self {
+        Self {
+            camera_target_buttons: Default::default(),
+            camera_rotation_buttons: Default::default(),
+            fog: Default::default(),
+            xz: 0,
+            yz: 0,
+            scroll: Default::default(),
+        }
+    }
+
+    pub fn view<'a>(&'a mut self, ui_size: UiSize, width: u16) -> Element<'a, Message> {
+        let mut ret = Column::new();
+        let mut target_buttons: Vec<_> = self
+            .camera_target_buttons
+            .iter_mut()
+            .enumerate()
+            .map(|(i, s)| {
+                Button::new(s, Text::new(target_text(i)).size(10))
+                    .on_press(target_message(i))
+                    .width(Length::Units(ui_size.button()))
+            })
+            .collect();
+        ret = ret.push(Text::new("Camera Target"));
+        while target_buttons.len() > 0 {
+            let mut row = Row::new();
+            row = row.push(target_buttons.remove(0)).spacing(5);
+            let mut space = ui_size.button() + 5;
+            while space + ui_size.button() < width && target_buttons.len() > 0 {
+                row = row.push(target_buttons.remove(0)).spacing(5);
+                space += ui_size.button() + 5;
+            }
+            ret = ret.push(row)
+        }
+
+        let xz = self.xz;
+        let yz = self.yz;
+
+        let mut rotate_buttons: Vec<_> = self
+            .camera_rotation_buttons
+            .iter_mut()
+            .enumerate()
+            .map(|(i, s)| {
+                Button::new(s, rotation_text(i, ui_size.clone()))
+                    .on_press(rotation_message(i, xz, yz))
+                    .width(Length::Units(ui_size.button()))
+            })
+            .collect();
+
+        ret = ret.push(Text::new("Rotate Camera"));
+        while rotate_buttons.len() > 0 {
+            let mut row = Row::new();
+            row = row.push(rotate_buttons.remove(0)).spacing(5);
+            let mut space = ui_size.button() + 5;
+            while space + ui_size.button() < width && rotate_buttons.len() > 0 {
+                row = row.push(rotate_buttons.remove(0)).spacing(5);
+                space += ui_size.button() + 5;
+            }
+            ret = ret.spacing(5).push(row)
+        }
+
+        Scrollable::new(&mut self.scroll).push(ret).into()
+    }
+
+    pub(super) fn reset_angles(&mut self) {
+        self.xz = 0;
+        self.yz = 0;
+    }
+
+    pub(super) fn set_angles(&mut self, xz: isize, yz: isize) {
+        self.xz = xz;
+        self.yz = yz;
+    }
+
+    pub(super) fn fog_visible(&mut self, visible: bool) {
+        self.fog.visible = visible
+    }
+
+    pub(super) fn fog_length(&mut self, length: f32) {
+        self.fog.length = length
+    }
+
+    pub(super) fn fog_radius(&mut self, radius: f32) {
+        self.fog.radius = radius
+    }
+
+    pub(super) fn fog_camera(&mut self, from_camera: bool) {
+        self.fog.from_camera = from_camera;
+    }
+
+    pub(super) fn get_fog_request(&self) -> Fog {
+        self.fog.request()
+    }
+
+    pub(super) fn notify_new_design(&mut self) {
+        self.fog = Default::default();
+    }
+}
+
+struct FogParameters {
+    visible: bool,
+    from_camera: bool,
+    radius: f32,
+    radius_slider: slider::State,
+    length: f32,
+    length_slider: slider::State,
+}
+
+impl FogParameters {
+    fn view(&mut self, ui_size: &UiSize) -> Column<Message> {
+        let mut column = Column::new()
+            .push(Text::new("Fog"))
+            .push(
+                Checkbox::new(self.visible, "Visible", Message::FogVisibility)
+                    .size(ui_size.checkbox())
+                    .spacing(CHECKBOXSPACING),
+            )
+            .push(
+                Checkbox::new(self.from_camera, "From Camera", Message::FogCamera)
+                    .size(ui_size.checkbox())
+                    .spacing(CHECKBOXSPACING),
+            );
+
+        if self.visible {
+            column = column
+                .push(Text::new("Radius"))
+                .push(Slider::new(
+                    &mut self.radius_slider,
+                    0f32..=100f32,
+                    self.radius,
+                    Message::FogRadius,
+                ))
+                .push(Text::new("Length"))
+                .push(Slider::new(
+                    &mut self.length_slider,
+                    0f32..=100f32,
+                    self.length,
+                    Message::FogLength,
+                ));
+        }
+        column
+    }
+
+    fn request(&self) -> Fog {
+        Fog {
+            radius: self.radius,
+            active: self.visible,
+            length: self.length,
+            from_camera: self.from_camera,
+            alt_fog_center: None,
+        }
+    }
+}
+
+impl Default for FogParameters {
+    fn default() -> Self {
+        Self {
+            visible: false,
+            length: 10.,
+            radius: 10.,
+            length_slider: Default::default(),
+            radius_slider: Default::default(),
+            from_camera: false,
+        }
+    }
+}

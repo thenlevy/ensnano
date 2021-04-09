@@ -32,7 +32,7 @@ mod tabs;
 
 use material_icons::{icon_to_char, Icon as MaterialIcon, FONT as MATERIALFONT};
 use std::collections::BTreeMap;
-use tabs::{EditionTab, GridTab};
+use tabs::{CameraTab, EditionTab, GridTab};
 
 const ICONFONT: iced::Font = iced::Font::External {
     name: "IconFont",
@@ -59,14 +59,9 @@ pub struct LeftPanel {
     sequence_input: SequenceInput,
     requests: Arc<Mutex<Requests>>,
     color_picker: ColorPicker,
-    camera_target_buttons: [button::State; 6],
-    camera_rotation_buttons: [button::State; 4],
-    xz: isize,
-    yz: isize,
     length_helices: usize,
     position_helices: isize,
     show_torsion: bool,
-    fog: FogParameters,
     physical_simulation: PhysicalSimulation,
     scroll_sensitivity_factory: RequestFactory<ScrollSentivity>,
     hyperboloid_factory: RequestFactory<Hyperboloid_>,
@@ -80,6 +75,7 @@ pub struct LeftPanel {
     size_pick_list: pick_list::State<UiSize>,
     grid_tab: GridTab,
     edition_tab: EditionTab,
+    camera_tab: CameraTab,
 }
 
 #[derive(Debug, Clone)]
@@ -144,14 +140,9 @@ impl LeftPanel {
             sequence_input: SequenceInput::new(),
             requests,
             color_picker: ColorPicker::new(),
-            camera_rotation_buttons: Default::default(),
-            camera_target_buttons: Default::default(),
-            xz: 0,
-            yz: 0,
             length_helices: 0,
             position_helices: 0,
             show_torsion: false,
-            fog: Default::default(),
             physical_simulation: Default::default(),
             scroll_sensitivity_factory: RequestFactory::new(FactoryId::Scroll, ScrollSentivity {}),
             helix_roll_factory: RequestFactory::new(FactoryId::HelixRoll, HelixRoll {}),
@@ -176,6 +167,7 @@ impl LeftPanel {
             size_pick_list: Default::default(),
             grid_tab: GridTab::new(),
             edition_tab: EditionTab::new(),
+            camera_tab: CameraTab::new(),
         }
     }
 
@@ -309,14 +301,12 @@ impl Program for LeftPanel {
             Message::Resized(size, position) => self.resize(size, position),
             Message::NewGrid => self.requests.lock().unwrap().new_grid = true,
             Message::RotateCam(xz, yz) => {
-                self.xz = xz as isize;
-                self.yz = yz as isize;
+                self.camera_tab.set_angles(xz as isize, yz as isize);
                 self.requests.lock().unwrap().camera_rotation = Some((xz, yz));
             }
             Message::FixPoint(point, up) => {
                 self.requests.lock().unwrap().camera_target = Some((point, up));
-                self.xz = 0;
-                self.yz = 0;
+                self.camera_tab.reset_angles();
             }
             Message::LengthHelicesChanged(length_str) => {
                 let action_mode = self.grid_tab.update_length_str(length_str.clone());
@@ -337,21 +327,24 @@ impl Program for LeftPanel {
                 self.show_torsion = b;
             }
             Message::FogVisibility(b) => {
-                self.fog.visible = b;
-                self.requests.lock().unwrap().fog = Some(self.fog.request());
+                self.camera_tab.fog_visible(b);
+                let request = self.camera_tab.get_fog_request();
+                self.requests.lock().unwrap().fog = Some(request);
             }
             Message::FogLength(length) => {
-                self.fog.length = length;
-                self.requests.lock().unwrap().fog = Some(self.fog.request());
+                self.camera_tab.fog_length(length);
+                let request = self.camera_tab.get_fog_request();
+                self.requests.lock().unwrap().fog = Some(request);
             }
             Message::FogRadius(radius) => {
-                self.fog.radius = radius;
-                self.requests.lock().unwrap().fog = Some(self.fog.request());
+                self.camera_tab.fog_radius(radius);
+                let request = self.camera_tab.get_fog_request();
+                self.requests.lock().unwrap().fog = Some(request);
             }
             Message::NewDesign => {
                 self.show_torsion = false;
                 self.physical_simulation.running = false;
-                self.fog = Default::default();
+                self.camera_tab.notify_new_design();
                 self.rigid_grid_button.running = false;
                 self.rigid_helices_button.running = false;
             }
@@ -367,8 +360,9 @@ impl Program for LeftPanel {
                     Some(self.physical_simulation.request());
             }
             Message::FogCamera(b) => {
-                self.fog.from_camera = b;
-                self.requests.lock().unwrap().fog = Some(self.fog.request());
+                self.camera_tab.fog_camera(b);
+                let request = self.camera_tab.get_fog_request();
+                self.requests.lock().unwrap().fog = Some(request);
             }
             Message::DescreteValue {
                 factory_id,
@@ -466,6 +460,10 @@ impl Program for LeftPanel {
                     width,
                 ),
             )
+            .push(
+                TabLabel::Text("Camera".to_owned()),
+                self.camera_tab.view(self.ui_size.clone(), width),
+            )
             .width(Length::Units(width))
             .height(Length::Fill);
         let contextual_menu = iced::Space::new(Length::Fill, Length::Fill);
@@ -475,7 +473,9 @@ impl Program for LeftPanel {
             Column::new()
                 .width(Length::Fill)
                 .push(Container::new(tabs).height(Length::FillPortion(1)))
+                .push(iced::Rule::horizontal(5))
                 .push(Container::new(contextual_menu).height(Length::FillPortion(1)))
+                .push(iced::Rule::horizontal(5))
                 .push(Container::new(organizer).height(Length::FillPortion(1))),
         )
         .style(TopBarStyle)
@@ -925,74 +925,6 @@ mod text_input_style {
 
         fn selection_color(&self) -> Color {
             Color::from_rgb(0.8, 0.8, 1.0)
-        }
-    }
-}
-
-struct FogParameters {
-    visible: bool,
-    from_camera: bool,
-    radius: f32,
-    radius_slider: slider::State,
-    length: f32,
-    length_slider: slider::State,
-}
-
-impl FogParameters {
-    fn view(&mut self, ui_size: &UiSize) -> Column<Message> {
-        let mut column = Column::new()
-            .push(Text::new("Fog"))
-            .push(
-                Checkbox::new(self.visible, "Visible", Message::FogVisibility)
-                    .size(ui_size.checkbox())
-                    .spacing(CHECKBOXSPACING),
-            )
-            .push(
-                Checkbox::new(self.from_camera, "From Camera", Message::FogCamera)
-                    .size(ui_size.checkbox())
-                    .spacing(CHECKBOXSPACING),
-            );
-
-        if self.visible {
-            column = column
-                .push(Text::new("Radius"))
-                .push(Slider::new(
-                    &mut self.radius_slider,
-                    0f32..=100f32,
-                    self.radius,
-                    Message::FogRadius,
-                ))
-                .push(Text::new("Length"))
-                .push(Slider::new(
-                    &mut self.length_slider,
-                    0f32..=100f32,
-                    self.length,
-                    Message::FogLength,
-                ));
-        }
-        column
-    }
-
-    fn request(&self) -> Fog {
-        Fog {
-            radius: self.radius,
-            active: self.visible,
-            length: self.length,
-            from_camera: self.from_camera,
-            alt_fog_center: None,
-        }
-    }
-}
-
-impl Default for FogParameters {
-    fn default() -> Self {
-        Self {
-            visible: false,
-            length: 10.,
-            radius: 10.,
-            length_slider: Default::default(),
-            radius_slider: Default::default(),
-            from_camera: false,
         }
     }
 }
