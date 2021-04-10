@@ -178,6 +178,7 @@ impl std::fmt::Display for SelectionMode {
     }
 }
 
+use iced::image::Handle;
 impl SelectionMode {
     pub const ALL: [SelectionMode; 5] = [
         SelectionMode::Nucleotide,
@@ -187,20 +188,26 @@ impl SelectionMode {
         SelectionMode::Grid,
     ];
 
-    pub fn icon_on(&self) -> String {
-        format!(
-            "{}/icons/icons/{}-on32.png",
-            env!("CARGO_MANIFEST_DIR"),
-            self
-        )
+    pub fn icon_on(&self) -> Handle {
+        let bytes = match self {
+            Self::Grid { .. } => include_bytes!("../../icons/icons/Grid-on32.png").to_vec(),
+            Self::Helix => include_bytes!("../../icons/icons/Helix-on32.png").to_vec(),
+            Self::Nucleotide => include_bytes!("../../icons/icons/Nucleotide-on32.png").to_vec(),
+            Self::Strand => include_bytes!("../../icons/icons/Strand-on32.png").to_vec(),
+            _ => vec![],
+        };
+        Handle::from_memory(bytes)
     }
 
-    pub fn icon_off(&self) -> String {
-        format!(
-            "{}/icons/icons/{}-off32.png",
-            env!("CARGO_MANIFEST_DIR"),
-            self
-        )
+    pub fn icon_off(&self) -> Handle {
+        let bytes = match self {
+            Self::Grid { .. } => include_bytes!("../../icons/icons/Grid-off32.png").to_vec(),
+            Self::Helix => include_bytes!("../../icons/icons/Helix-off32.png").to_vec(),
+            Self::Nucleotide => include_bytes!("../../icons/icons/Nucleotide-off32.png").to_vec(),
+            Self::Strand => include_bytes!("../../icons/icons/Strand-off32.png").to_vec(),
+            _ => vec![],
+        };
+        Handle::from_memory(bytes)
     }
 }
 
@@ -256,19 +263,25 @@ impl ActionMode {
         }
     }
 
-    pub fn icon_on(&self) -> String {
-        format!(
-            "{}/icons/icons/{}-on32.png",
-            env!("CARGO_MANIFEST_DIR"),
-            self
-        )
+    pub fn icon_on(&self) -> Handle {
+        let bytes = match self {
+            Self::BuildHelix { .. } => include_bytes!("../../icons/icons/Build-on32.png").to_vec(),
+            Self::Normal => include_bytes!("../../icons/icons/Select-on32.png").to_vec(),
+            Self::Translate => include_bytes!("../../icons/icons/Move-on32.png").to_vec(),
+            Self::Rotate => include_bytes!("../../icons/icons/Rotate-on32.png").to_vec(),
+            _ => vec![],
+        };
+        Handle::from_memory(bytes)
     }
 
-    pub fn icon_off(&self) -> String {
-        format!(
-            "{}/icons/icons/{}-off32.png",
-            env!("CARGO_MANIFEST_DIR"),
-            self
-        )
+    pub fn icon_off(&self) -> Handle {
+        let bytes = match self {
+            Self::BuildHelix { .. } => include_bytes!("../../icons/icons/Build-off32.png").to_vec(),
+            Self::Normal => include_bytes!("../../icons/icons/Select-off32.png").to_vec(),
+            Self::Translate => include_bytes!("../../icons/icons/Move-off32.png").to_vec(),
+            Self::Rotate => include_bytes!("../../icons/icons/Rotate-off32.png").to_vec(),
+            _ => vec![],
+        };
+        Handle::from_memory(bytes)
     }
 }
