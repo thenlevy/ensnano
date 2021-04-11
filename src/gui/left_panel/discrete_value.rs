@@ -1,4 +1,4 @@
-use super::{button, slider, Button, Column, HelixRoll, Row, Slider, Text};
+use super::{button, slider, Button, Element, HelixRoll, Row, Slider, Text};
 
 use super::Message;
 use std::collections::BTreeMap;
@@ -62,7 +62,7 @@ impl<R: Requestable> RequestFactory<R> {
         }
     }
 
-    pub fn view(&mut self) -> Vec<Column<Message>> {
+    pub fn view(&mut self) -> Vec<Element<Message>> {
         self.values.values_mut().map(|v| v.view()).collect()
     }
 
@@ -123,7 +123,7 @@ impl DiscreteValue {
         }
     }
 
-    fn view(&mut self) -> Column<Message> {
+    fn view(&mut self) -> Element<Message> {
         let decr_button = if self.value - self.step > self.min_val {
             Button::new(&mut self.decr_button, Text::new("-")).on_press(Message::DescreteValue {
                 factory_id: self.owner_id,
@@ -142,26 +142,38 @@ impl DiscreteValue {
         } else {
             Button::new(&mut self.incr_button, Text::new("+"))
         };
-
-        let first_row = Row::new()
-            .push(Text::new(self.name.clone()))
-            .push(decr_button)
-            .push(incr_button);
         let factory_id = self.owner_id.clone();
         let value_id = self.value_id.clone();
-        Column::new().push(first_row).push(
-            Slider::new(
-                &mut self.slider,
-                self.min_val..=self.max_val,
-                self.value,
-                move |value| Message::DescreteValue {
-                    factory_id,
-                    value_id,
-                    value,
-                },
-            )
-            .step(self.step),
+        let slider = Slider::new(
+            &mut self.slider,
+            self.min_val..=self.max_val,
+            self.value,
+            move |value| Message::DescreteValue {
+                factory_id,
+                value_id,
+                value,
+            },
         )
+        .step(self.step);
+
+        let left = Row::new()
+            .push(Text::new(self.name.clone()))
+            .push(iced::Space::with_width(iced::Length::Fill))
+            .align_items(iced::Align::Center)
+            .width(iced::Length::FillPortion(4));
+
+        let right = Row::new()
+            .push(decr_button)
+            .push(incr_button)
+            .push(iced::Space::with_width(iced::Length::Units(2)))
+            .push(slider)
+            .width(iced::Length::FillPortion(5));
+
+        Row::new()
+            .push(left)
+            .push(right)
+            .align_items(iced::Align::Center)
+            .into()
     }
 
     fn get_value(&self) -> f32 {
