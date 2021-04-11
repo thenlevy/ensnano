@@ -16,6 +16,14 @@ impl UiSize {
         }
     }
 
+    pub fn head_text(&self) -> u16 {
+        match self {
+            Self::Small => 18,
+            Self::Medium => 24,
+            Self::Large => 30,
+        }
+    }
+
     pub fn icon(&self) -> u16 {
         match self {
             Self::Small => 14,

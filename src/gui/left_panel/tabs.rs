@@ -33,7 +33,7 @@ impl EditionTab {
         ret = ret.push(
             Text::new("Edition")
                 .horizontal_alignment(iced::HorizontalAlignment::Center)
-                .size(ui_size.main_text() * 2),
+                .size(ui_size.head_text()),
         );
         let selection_modes = [
             SelectionMode::Nucleotide,
@@ -170,7 +170,7 @@ impl GridTab {
         ret = ret.push(
             Text::new("Grids")
                 .horizontal_alignment(iced::HorizontalAlignment::Center)
-                .size(ui_size.main_text() * 2),
+                .size(ui_size.head_text()),
         );
         let selection_modes = [
             SelectionMode::Nucleotide,
@@ -382,7 +382,6 @@ fn action_mode_btn<'a>(
 pub(super) struct CameraTab {
     camera_target_buttons: [button::State; 6],
     camera_rotation_buttons: [button::State; 4],
-    scroll_sensitivity_factory: RequestFactory<ScrollSentivity>,
     xz: isize,
     yz: isize,
     fog: FogParameters,
@@ -394,7 +393,6 @@ impl CameraTab {
         Self {
             camera_target_buttons: Default::default(),
             camera_rotation_buttons: Default::default(),
-            scroll_sensitivity_factory: RequestFactory::new(FactoryId::Scroll, ScrollSentivity {}),
             fog: Default::default(),
             xz: 0,
             yz: 0,
@@ -407,11 +405,8 @@ impl CameraTab {
         ret = ret.push(
             Text::new("Camera")
                 .horizontal_alignment(iced::HorizontalAlignment::Center)
-                .size(ui_size.main_text() * 2),
+                .size(ui_size.head_text()),
         );
-        for view in self.scroll_sensitivity_factory.view().into_iter() {
-            ret = ret.push(view);
-        }
         let mut target_buttons: Vec<_> = self
             .camera_target_buttons
             .iter_mut()
@@ -496,16 +491,6 @@ impl CameraTab {
 
     pub(super) fn notify_new_design(&mut self) {
         self.fog = Default::default();
-    }
-
-    pub(super) fn update_scroll_request(
-        &mut self,
-        value_id: ValueId,
-        value: f32,
-        request: &mut Option<f32>,
-    ) {
-        self.scroll_sensitivity_factory
-            .update_request(value_id, value, request);
     }
 }
 
@@ -609,7 +594,7 @@ impl SimulationTab {
 
     pub(super) fn view<'a>(&'a mut self, ui_size: UiSize) -> Element<'a, Message> {
         let mut ret = Column::new();
-        ret = ret.push(Text::new("Simulation (Beta)").size(2 * ui_size.main_text()));
+        ret = ret.push(Text::new("Simulation (Beta)").size(ui_size.head_text()));
         ret = ret.push(self.physical_simulation.view(&ui_size));
         ret = ret
             .push(self.rigid_grid_button.view())
@@ -756,6 +741,7 @@ impl PhysicalSimulation {
 pub struct ParametersTab {
     size_pick_list: pick_list::State<UiSize>,
     scroll: scrollable::State,
+    scroll_sensitivity_factory: RequestFactory<ScrollSentivity>,
 }
 
 impl ParametersTab {
@@ -763,12 +749,14 @@ impl ParametersTab {
         Self {
             size_pick_list: Default::default(),
             scroll: Default::default(),
+            scroll_sensitivity_factory: RequestFactory::new(FactoryId::Scroll, ScrollSentivity {}),
         }
     }
 
     pub(super) fn view<'a>(&'a mut self, ui_size: UiSize) -> Element<'a, Message> {
         let mut ret = Column::new();
-        ret = ret.push(Text::new("Parameters").size(2 * ui_size.main_text()));
+        ret = ret.push(Text::new("Parameters").size(ui_size.head_text()));
+        ret = ret.push(Text::new("Font size"));
         ret = ret.push(PickList::new(
             &mut self.size_pick_list,
             &super::super::ALL_UI_SIZE[..],
@@ -776,6 +764,20 @@ impl ParametersTab {
             Message::UiSizePicked,
         ));
 
+        for view in self.scroll_sensitivity_factory.view().into_iter() {
+            ret = ret.push(view);
+        }
+
         Scrollable::new(&mut self.scroll).push(ret).into()
+    }
+
+    pub(super) fn update_scroll_request(
+        &mut self,
+        value_id: ValueId,
+        value: f32,
+        request: &mut Option<f32>,
+    ) {
+        self.scroll_sensitivity_factory
+            .update_request(value_id, value, request);
     }
 }

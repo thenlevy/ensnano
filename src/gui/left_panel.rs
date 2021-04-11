@@ -29,6 +29,7 @@ use text_input_style::BadValue;
 mod discrete_value;
 use discrete_value::{FactoryId, RequestFactory, Requestable, ValueId};
 mod tabs;
+use crate::consts::*;
 
 use material_icons::{icon_to_char, Icon as MaterialIcon, FONT as MATERIALFONT};
 use std::collections::BTreeMap;
@@ -37,6 +38,11 @@ use tabs::{CameraTab, EditionTab, GridTab, ParametersTab, SimulationTab};
 const ICONFONT: iced::Font = iced::Font::External {
     name: "IconFont",
     bytes: MATERIALFONT,
+};
+
+const ENSNANO_FONT: iced::Font = iced::Font::External {
+    name: "EnsNanoFont",
+    bytes: include_bytes!("../../font/ensnano.ttf"),
 };
 
 fn icon(icon: MaterialIcon, ui_size: &UiSize) -> iced::Text {
@@ -312,7 +318,7 @@ impl Program for LeftPanel {
             } => match factory_id {
                 FactoryId::Scroll => {
                     let request = &mut self.requests.lock().unwrap().scroll_sensitivity;
-                    self.camera_tab
+                    self.pamerters_tab
                         .update_scroll_request(value_id, value, request);
                 }
                 FactoryId::HelixRoll => {
@@ -405,7 +411,7 @@ impl Program for LeftPanel {
                 self.camera_tab.view(self.ui_size.clone(), width),
             )
             .push(
-                TabLabel::Text(format!("{}", icon_to_char(MaterialIcon::TrendingUp))),
+                TabLabel::Icon(ICON_PHYSICAL_ENGINE),
                 self.simulation_tab.view(self.ui_size.clone()),
             )
             .push(
@@ -414,6 +420,8 @@ impl Program for LeftPanel {
             )
             .text_size(self.ui_size.icon())
             .text_font(ICONFONT)
+            .icon_font(ENSNANO_FONT)
+            .icon_size(self.ui_size.icon())
             .tab_bar_height(Length::Units(self.ui_size.button()))
             .width(Length::Units(width))
             .height(Length::Fill);
