@@ -34,7 +34,6 @@ pub struct TopBar {
     button_split: button::State,
     button_make_grid: button::State,
     button_help: button::State,
-    button_clean: button::State,
     button_oxdna: button::State,
     button_split_2d: button::State,
     requests: Arc<Mutex<Requests>>,
@@ -54,7 +53,6 @@ pub enum Message {
     ToggleView(SplitMode),
     MakeGrids,
     HelpRequested,
-    CleanRequested,
     UiSizeChanged(UiSize),
     OxDNARequested,
     Split2d,
@@ -76,7 +74,6 @@ impl TopBar {
             button_split: Default::default(),
             button_make_grid: Default::default(),
             button_help: Default::default(),
-            button_clean: Default::default(),
             button_oxdna: Default::default(),
             button_split_2d: Default::default(),
             requests,
@@ -213,7 +210,6 @@ impl Program for TopBar {
                     */
                 }
             }
-            Message::CleanRequested => self.requests.lock().unwrap().clean_requests = true,
             Message::Resize(size) => self.resize(size),
             Message::MakeGrids => self.requests.lock().unwrap().make_grids = true,
             Message::ToggleView(b) => self.requests.lock().unwrap().toggle_scene = Some(b),
@@ -276,10 +272,6 @@ impl Program for TopBar {
             .height(Length::Units(self.ui_size.button()))
             .on_press(Message::ToggleView(SplitMode::Both));
 
-        let button_clean = Button::new(&mut self.button_clean, iced::Text::new("Clean"))
-            .height(Length::Units(self.ui_size.button()))
-            .on_press(Message::CleanRequested);
-
         let button_oxdna = Button::new(&mut self.button_oxdna, iced::Text::new("To OxDNA"))
             .height(Length::Units(self.ui_size.button()))
             .on_press(Message::OxDNARequested);
@@ -306,7 +298,6 @@ impl Program for TopBar {
             .push(button_2d)
             .push(button_3d)
             .push(button_split)
-            .push(button_clean)
             .push(_button_make_grid)
             .push(button_split_2d)
             .push(

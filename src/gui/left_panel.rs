@@ -129,6 +129,7 @@ pub enum Message {
     CustomScaffoldRequested,
     DeffaultScaffoldRequested,
     ToggleText(bool),
+    CleanRequested,
 }
 
 impl LeftPanel {
@@ -434,6 +435,7 @@ impl Program for LeftPanel {
                 self.requests.lock().unwrap().toggle_text = Some(b);
                 self.sequence_tab.toggle_text_value(b);
             }
+            Message::CleanRequested => self.requests.lock().unwrap().clean_requests = true,
         };
         Command::none()
     }
