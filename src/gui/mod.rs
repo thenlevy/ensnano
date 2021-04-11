@@ -19,6 +19,7 @@ pub use ui_size::*;
 
 use status_bar::StatusBar;
 
+use crate::design::GridTypeDescr;
 use crate::mediator::{ActionMode, Operation, SelectionMode};
 use crate::scene::FogParameters;
 use crate::SplitMode;
@@ -67,7 +68,7 @@ pub struct Requests {
     pub overlay_opened: Option<OverlayType>,
     pub operation_update: Option<Arc<dyn Operation>>,
     pub toggle_persistent_helices: Option<bool>,
-    pub new_grid: bool,
+    pub new_grid: Option<GridTypeDescr>,
     pub camera_rotation: Option<(f32, f32, f32)>,
     pub camera_target: Option<(Vec3, Vec3)>,
     pub small_spheres: Option<bool>,
@@ -134,7 +135,7 @@ impl Requests {
             overlay_opened: None,
             operation_update: None,
             toggle_persistent_helices: None,
-            new_grid: false,
+            new_grid: None,
             camera_target: None,
             camera_rotation: None,
             small_spheres: None,
@@ -709,4 +710,16 @@ fn text_btn<'a, M: Clone>(
     ui_size: UiSize,
 ) -> Button<'a, M> {
     Button::new(state, Text::new(text)).height(Length::Units(ui_size.button()))
+}
+
+fn icon_btn<'a, M: Clone>(
+    state: &'a mut button::State,
+    icon_char: char,
+    ui_size: UiSize,
+) -> Button<'a, M> {
+    Button::new(
+        state,
+        Text::new(icon_char.to_string()).font(left_panel::ENSNANO_FONT),
+    )
+    .height(Length::Units(ui_size.button()))
 }

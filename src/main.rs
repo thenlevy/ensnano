@@ -435,9 +435,8 @@ fn main() {
                         requests.make_grids = false
                     }
 
-                    if requests.new_grid {
-                        scene.lock().unwrap().make_new_grid();
-                        requests.new_grid = false;
+                    if let Some(grid_type) = requests.new_grid.take() {
+                        scene.lock().unwrap().make_new_grid(grid_type);
                     }
 
                     if let Some(selection_mode) = requests.selection_mode {

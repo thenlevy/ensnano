@@ -242,7 +242,7 @@ impl Scene {
         };
     }
 
-    pub fn make_new_grid(&self) {
+    pub fn make_new_grid(&self, grid_type: GridTypeDescr) {
         let camera = self.view.borrow().get_camera();
         let position = camera.borrow().position + 10_f32 * camera.borrow().direction();
         let orientation = camera.borrow().rotor.reversed()
@@ -254,7 +254,7 @@ impl Scene {
                 design_id: 0,
                 position,
                 orientation,
-                grid_type: GridTypeDescr::Square,
+                grid_type,
                 delete: false,
             }));
         self.data.borrow_mut().notify_instance_update();

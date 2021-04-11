@@ -19,6 +19,10 @@ pub trait Requestable {
     fn make_request(&self, values: &[f32], request: &mut Option<Self::Request>) {
         *request = Some(self.request_from_values(values))
     }
+
+    fn hidden(&self, _: usize) -> bool {
+        false
+    }
 }
 
 pub struct RequestFactory<R: Requestable> {
@@ -53,6 +57,7 @@ impl<R: Requestable> RequestFactory<R> {
                     name,
                     factory_id,
                     ValueId(id),
+                    requestable.hidden(id),
                 ),
             );
         }
@@ -63,7 +68,11 @@ impl<R: Requestable> RequestFactory<R> {
     }
 
     pub fn view(&mut self) -> Vec<Element<Message>> {
-        self.values.values_mut().map(|v| v.view()).collect()
+        self.values
+            .values_mut()
+            .filter(|v| !v.hidden)
+            .map(|v| v.view())
+            .collect()
     }
 
     pub fn update_request(
@@ -97,6 +106,7 @@ struct DiscreteValue {
     incr_button: button::State,
     decr_button: button::State,
     slider: slider::State,
+    hidden: bool,
 }
 
 impl DiscreteValue {
@@ -108,6 +118,7 @@ impl DiscreteValue {
         name: String,
         owner_id: FactoryId,
         value_id: ValueId,
+        hidden: bool,
     ) -> Self {
         Self {
             value: default,
@@ -120,6 +131,7 @@ impl DiscreteValue {
             incr_button: Default::default(),
             decr_button: Default::default(),
             slider: Default::default(),
+            hidden,
         }
     }
 

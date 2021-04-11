@@ -20,7 +20,9 @@ use color_space::{Hsv, Rgb};
 use crate::design::{DnaElement, DnaElementKey};
 use crate::mediator::{ActionMode, SelectionMode};
 
-use super::{text_btn, FogParameters as Fog, OverlayType, Requests, UiSize};
+use super::{
+    icon_btn, text_btn, FogParameters as Fog, GridTypeDescr, OverlayType, Requests, UiSize,
+};
 mod color_picker;
 use color_picker::ColorPicker;
 mod sequence_input;
@@ -41,7 +43,7 @@ const ICONFONT: iced::Font = iced::Font::External {
     bytes: MATERIALFONT,
 };
 
-const ENSNANO_FONT: iced::Font = iced::Font::External {
+pub(super) const ENSNANO_FONT: iced::Font = iced::Font::External {
     name: "EnsNanoFont",
     bytes: include_bytes!("../../font/ensnano.ttf"),
 };
@@ -90,7 +92,7 @@ pub enum Message {
     SequenceFileRequested,
     StrandColorChanged(Color),
     HueChanged(f32),
-    NewGrid,
+    NewGrid(GridTypeDescr),
     FixPoint(Vec3, Vec3),
     RotateCam(f32, f32, f32),
     PositionHelicesChanged(String),
@@ -260,7 +262,7 @@ impl Program for LeftPanel {
             }
             Message::HueChanged(x) => self.color_picker.change_hue(x),
             Message::Resized(size, position) => self.resize(size, position),
-            Message::NewGrid => self.requests.lock().unwrap().new_grid = true,
+            Message::NewGrid(grid_type) => self.requests.lock().unwrap().new_grid = Some(grid_type),
             Message::RotateCam(xz, yz, xy) => {
                 self.camera_tab
                     .set_angles(xz as isize, yz as isize, xy as isize);
@@ -869,7 +871,7 @@ impl Requestable for Hyperboloid_ {
             0 => 10f32,
             1 => 100f32,
             2 => 0f32,
-            3 => 1f32,
+            3 => 0.2f32,
             _ => unreachable!(),
         }
     }
@@ -906,11 +908,15 @@ impl Requestable for Hyperboloid_ {
     fn name_val(&self, n: usize) -> String {
         match n {
             0 => String::from("Nb helices"),
-            1 => String::from("Length"),
+            1 => String::from("Strands length"),
             2 => String::from("Angle shift"),
-            3 => String::from("Size"),
+            3 => String::from("Tube radius"),
             _ => unreachable!(),
         }
+    }
+
+    fn hidden(&self, n: usize) -> bool {
+        n == 2
     }
 }
 

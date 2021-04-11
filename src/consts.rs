@@ -57,3 +57,6 @@ pub const SELECTED_HELIX2D_COLOR: u32 = 0xFF_BF_1E_28;
 
 pub const ICON_PHYSICAL_ENGINE: char = '\u{e917}';
 pub const ICON_ATGC: char = '\u{e90d}';
+pub const ICON_SQUARE_GRID: char = '\u{e90e}';
+pub const ICON_HONEYCOMB_GRID: char = '\u{e907}';
+pub const ICON_NANOTUBE: char = '\u{e914}';

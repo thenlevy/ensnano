@@ -142,7 +142,8 @@ pub(super) struct GridTab {
     builder_input: [text_input::State; 2],
     building_hyperboloid: bool,
     finalize_hyperboloid_btn: button::State,
-    make_grid_btn: button::State,
+    make_square_grid_btn: button::State,
+    make_honeycomb_grid_btn: button::State,
     hyperboloid_factory: RequestFactory<Hyperboloid_>,
     start_hyperboloid_btn: button::State,
 }
@@ -158,7 +159,8 @@ impl GridTab {
             pos_str: "0".to_owned(),
             length_str: "0".to_owned(),
             builder_input: Default::default(),
-            make_grid_btn: Default::default(),
+            make_square_grid_btn: Default::default(),
+            make_honeycomb_grid_btn: Default::default(),
             hyperboloid_factory: RequestFactory::new(FactoryId::Hyperboloid, Hyperboloid_ {}),
             finalize_hyperboloid_btn: Default::default(),
             building_hyperboloid: false,
@@ -271,16 +273,46 @@ impl GridTab {
 
         ret = ret.push(iced::Space::with_height(Length::Units(5)));
 
-        let make_grid_btn = text_btn(&mut self.make_grid_btn, "Make Grid", ui_size.clone())
-            .on_press(Message::NewGrid);
+        ret = ret.push(Text::new("New Grid"));
+        let make_square_grid_btn = icon_btn(
+            &mut self.make_square_grid_btn,
+            ICON_SQUARE_GRID,
+            ui_size.clone(),
+        )
+        .on_press(Message::NewGrid(GridTypeDescr::Square));
+        let make_honeycomb_grid_btn = icon_btn(
+            &mut self.make_honeycomb_grid_btn,
+            ICON_HONEYCOMB_GRID,
+            ui_size.clone(),
+        )
+        .on_press(Message::NewGrid(GridTypeDescr::Honeycomb));
 
-        ret = ret.push(make_grid_btn);
+        let grid_buttons = Row::new()
+            .push(make_square_grid_btn)
+            .push(make_honeycomb_grid_btn)
+            .spacing(5);
+        ret = ret.push(grid_buttons);
 
         ret = ret.push(iced::Space::with_height(Length::Units(5)));
 
-        let start_hyperboloid_btn = text_btn(
+        let mut nanotube_title = Row::new().push(Text::new("New nanotube"));
+        if self.building_hyperboloid {
+            nanotube_title = nanotube_title
+                .push(
+                    text_btn(
+                        &mut self.finalize_hyperboloid_btn,
+                        "Finish",
+                        ui_size.clone(),
+                    )
+                    .on_press(Message::FinalizeHyperboloid),
+                )
+                .spacing(5);
+        }
+
+        ret = ret.push(nanotube_title);
+        let start_hyperboloid_btn = icon_btn(
             &mut self.start_hyperboloid_btn,
-            "Start Hyperboloid",
+            ICON_NANOTUBE,
             ui_size.clone(),
         )
         .on_press(Message::NewHyperboloid);
@@ -290,14 +322,6 @@ impl GridTab {
             for view in self.hyperboloid_factory.view().into_iter() {
                 ret = ret.push(view);
             }
-            ret = ret.push(
-                text_btn(
-                    &mut self.finalize_hyperboloid_btn,
-                    "Finish",
-                    ui_size.clone(),
-                )
-                .on_press(Message::FinalizeHyperboloid),
-            );
         }
 
         Scrollable::new(&mut self.scroll).push(ret).into()
