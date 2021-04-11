@@ -526,14 +526,14 @@ impl Scene {
         self.controller.set_camera_target(target, up, pivot);
     }
 
-    fn request_camera_rotation(&mut self, xz: f32, yz: f32) {
+    fn request_camera_rotation(&mut self, xz: f32, yz: f32, xy: f32) {
         let pivot = self.data.borrow().get_selected_position();
         let pivot = pivot.or_else(|| {
             let element_center = self.element_center();
             self.data.borrow_mut().set_selection(element_center);
             self.data.borrow().get_selected_position()
         });
-        self.controller.rotate_camera(xz, yz, pivot);
+        self.controller.rotate_camera(xz, yz, xy, pivot);
     }
 }
 
@@ -644,8 +644,8 @@ impl Application for Scene {
                 self.set_camera_target(target, up);
                 self.notify(SceneNotification::CameraMoved);
             }
-            Notification::CameraRotation(xz, yz) => {
-                self.request_camera_rotation(xz, yz);
+            Notification::CameraRotation(xz, yz, xy) => {
+                self.request_camera_rotation(xz, yz, xy);
                 self.notify(SceneNotification::CameraMoved);
             }
             Notification::Centering(nucl, design_id) => {

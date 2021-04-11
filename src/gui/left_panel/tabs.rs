@@ -381,9 +381,10 @@ fn action_mode_btn<'a>(
 
 pub(super) struct CameraTab {
     camera_target_buttons: [button::State; 6],
-    camera_rotation_buttons: [button::State; 4],
+    camera_rotation_buttons: [button::State; 6],
     xz: isize,
     yz: isize,
+    xy: isize,
     fog: FogParameters,
     scroll: scrollable::State,
 }
@@ -396,6 +397,7 @@ impl CameraTab {
             fog: Default::default(),
             xz: 0,
             yz: 0,
+            xy: 0,
             scroll: Default::default(),
         }
     }
@@ -431,6 +433,7 @@ impl CameraTab {
 
         let xz = self.xz;
         let yz = self.yz;
+        let xy = self.xy;
 
         let mut rotate_buttons: Vec<_> = self
             .camera_rotation_buttons
@@ -438,7 +441,7 @@ impl CameraTab {
             .enumerate()
             .map(|(i, s)| {
                 Button::new(s, rotation_text(i, ui_size.clone()))
-                    .on_press(rotation_message(i, xz, yz))
+                    .on_press(rotation_message(i, xz, yz, xy))
                     .width(Length::Units(ui_size.button()))
             })
             .collect();
@@ -462,11 +465,13 @@ impl CameraTab {
     pub(super) fn reset_angles(&mut self) {
         self.xz = 0;
         self.yz = 0;
+        self.xy = 0
     }
 
-    pub(super) fn set_angles(&mut self, xz: isize, yz: isize) {
-        self.xz = xz;
-        self.yz = yz;
+    pub(super) fn set_angles(&mut self, xz: isize, yz: isize, xy: isize) {
+        self.xz += xz;
+        self.yz += yz;
+        self.xy += xy;
     }
 
     pub(super) fn fog_visible(&mut self, visible: bool) {

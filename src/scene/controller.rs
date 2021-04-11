@@ -268,8 +268,9 @@ impl Controller {
         self.camera_controller.process_mouse(dx, dy)
     }
 
-    pub fn rotate_camera(&mut self, xz: f32, yz: f32, pivot: Option<Vec3>) {
+    pub fn rotate_camera(&mut self, xz: f32, yz: f32, xy: f32, pivot: Option<Vec3>) {
         self.camera_controller.rotate_camera(xz, yz, pivot);
+        self.camera_controller.tilt_camera(xy);
         self.shift_cam();
     }
 

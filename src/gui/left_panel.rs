@@ -89,7 +89,7 @@ pub enum Message {
     HueChanged(f32),
     NewGrid,
     FixPoint(Vec3, Vec3),
-    RotateCam(f32, f32),
+    RotateCam(f32, f32, f32),
     PositionHelicesChanged(String),
     LengthHelicesChanged(String),
     #[allow(dead_code)]
@@ -249,9 +249,10 @@ impl Program for LeftPanel {
             Message::HueChanged(x) => self.color_picker.change_hue(x),
             Message::Resized(size, position) => self.resize(size, position),
             Message::NewGrid => self.requests.lock().unwrap().new_grid = true,
-            Message::RotateCam(xz, yz) => {
-                self.camera_tab.set_angles(xz as isize, yz as isize);
-                self.requests.lock().unwrap().camera_rotation = Some((xz, yz));
+            Message::RotateCam(xz, yz, xy) => {
+                self.camera_tab
+                    .set_angles(xz as isize, yz as isize, xy as isize);
+                self.requests.lock().unwrap().camera_rotation = Some((xz, yz, xy));
             }
             Message::FixPoint(point, up) => {
                 self.requests.lock().unwrap().camera_target = Some((point, up));
@@ -660,7 +661,7 @@ fn target_message(i: usize) -> Message {
     }
 }
 
-fn rotation_message(i: usize, xz: isize, yz: isize) -> Message {
+fn rotation_message(i: usize, xz: isize, yz: isize, xy: isize) -> Message {
     let angle_xz = match i {
         0 => {
             if xz % 90 == 30 || xz % 90 == 45 {
@@ -695,7 +696,24 @@ fn rotation_message(i: usize, xz: isize, yz: isize) -> Message {
         }
         _ => 0f32,
     };
-    Message::RotateCam(angle_xz, angle_yz)
+    let angle_xy = match i {
+        4 => {
+            if xy % 90 == 30 || xy % 90 == 45 {
+                15f32.to_radians()
+            } else {
+                30f32.to_radians()
+            }
+        }
+        5 => {
+            if xy % 90 == 60 || xy % 90 == 45 {
+                -15f32.to_radians()
+            } else {
+                -30f32.to_radians()
+            }
+        }
+        _ => 0f32,
+    };
+    Message::RotateCam(angle_xz, angle_yz, angle_xy)
 }
 
 fn rotation_text(i: usize, ui_size: UiSize) -> Text {
@@ -703,7 +721,9 @@ fn rotation_text(i: usize, ui_size: UiSize) -> Text {
         0 => icon(MaterialIcon::ArrowBack, &ui_size),
         1 => icon(MaterialIcon::ArrowForward, &ui_size),
         2 => icon(MaterialIcon::ArrowUpward, &ui_size),
-        _ => icon(MaterialIcon::ArrowDownward, &ui_size),
+        3 => icon(MaterialIcon::ArrowDownward, &ui_size),
+        4 => icon(MaterialIcon::Undo, &ui_size),
+        _ => icon(MaterialIcon::Redo, &ui_size),
     }
 }
 

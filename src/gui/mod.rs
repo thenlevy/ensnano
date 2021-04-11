@@ -68,7 +68,7 @@ pub struct Requests {
     pub operation_update: Option<Arc<dyn Operation>>,
     pub toggle_persistent_helices: Option<bool>,
     pub new_grid: bool,
-    pub camera_rotation: Option<(f32, f32)>,
+    pub camera_rotation: Option<(f32, f32, f32)>,
     pub camera_target: Option<(Vec3, Vec3)>,
     pub small_spheres: Option<bool>,
     pub set_scaffold_id: Option<Option<usize>>,

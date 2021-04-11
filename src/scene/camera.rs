@@ -468,12 +468,20 @@ impl CameraController {
         // and we apply this rotation to the camera
         let new_rotor = rotation * self.cam0.rotor;
         self.camera.borrow_mut().rotor = new_rotor;
+        self.cam0.rotor = new_rotor;
         if let Some(dist) = dist {
-            self.cam0.rotor = self.camera.borrow().rotor;
             let new_pos = pivot.unwrap() - dist * self.camera.borrow().direction();
             self.camera.borrow_mut().position = new_pos;
             self.cam0.position = new_pos;
         }
+    }
+
+    pub fn tilt_camera(&mut self, angle_xy: f32) {
+        let rotation = Rotor3::from_rotation_xy(angle_xy);
+
+        let new_rotor = rotation * self.cam0.rotor;
+        self.camera.borrow_mut().rotor = new_rotor;
+        self.cam0.rotor = new_rotor;
     }
 
     pub fn shift(&mut self) {

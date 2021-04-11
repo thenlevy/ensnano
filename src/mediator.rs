@@ -166,7 +166,7 @@ pub enum Notification {
     Save(usize),
     /// The 3d camera must face a given target
     CameraTarget((Vec3, Vec3)),
-    CameraRotation(f32, f32),
+    CameraRotation(f32, f32, f32),
     Centering(Nucl, usize),
     Pasting(bool),
     ShowTorsion(bool),
@@ -956,8 +956,10 @@ impl Mediator {
         self.centring = Some((nucl, design_id))
     }
 
-    pub fn request_camera_rotation(&mut self, rotation: (f32, f32)) {
-        self.notify_apps(Notification::CameraRotation(rotation.0, rotation.1))
+    pub fn request_camera_rotation(&mut self, rotation: (f32, f32, f32)) {
+        self.notify_apps(Notification::CameraRotation(
+            rotation.0, rotation.1, rotation.2,
+        ))
     }
 
     pub fn set_camera_target(&mut self, target: (Vec3, Vec3)) {
