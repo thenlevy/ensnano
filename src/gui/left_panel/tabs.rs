@@ -412,19 +412,19 @@ impl CameraTab {
             .iter_mut()
             .enumerate()
             .map(|(i, s)| {
-                Button::new(s, Text::new(target_text(i)).size(10))
+                Button::new(s, Text::new(target_text(i)).size(ui_size.main_text()))
                     .on_press(target_message(i))
-                    .width(Length::Units(ui_size.button()))
+                    .width(Length::Units(2 * ui_size.button()))
             })
             .collect();
         ret = ret.push(Text::new("Camera Target"));
         while target_buttons.len() > 0 {
             let mut row = Row::new();
             row = row.push(target_buttons.remove(0)).spacing(5);
-            let mut space = ui_size.button() + 5;
-            while space + ui_size.button() < width && target_buttons.len() > 0 {
+            let mut space = 2 * ui_size.button() + 5;
+            while space + 2 * ui_size.button() < width && target_buttons.len() > 0 {
                 row = row.push(target_buttons.remove(0)).spacing(5);
-                space += ui_size.button() + 5;
+                space += 2 * ui_size.button() + 5;
             }
             ret = ret.push(row)
         }

@@ -709,12 +709,12 @@ fn rotation_text(i: usize, ui_size: UiSize) -> Text {
 
 fn target_text(i: usize) -> String {
     match i {
-        0 => "X+".to_string(),
-        1 => "X-".to_string(),
-        2 => "Y+".to_string(),
-        3 => "Y-".to_string(),
-        4 => "Z+".to_string(),
-        _ => "Z-".to_string(),
+        0 => "Right".to_string(),
+        1 => "Left".to_string(),
+        2 => "Top".to_string(),
+        3 => "Bottom".to_string(),
+        4 => "Back".to_string(),
+        _ => "Front".to_string(),
     }
 }
 
