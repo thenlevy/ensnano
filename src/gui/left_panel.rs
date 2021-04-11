@@ -1009,9 +1009,9 @@ impl Requestable for RigidBodyFactory {
     }
     fn name_val(&self, n: usize) -> String {
         match n {
-            0 => String::from("K spring"),
-            1 => String::from("K friction"),
-            2 => String::from("mass helix"),
+            0 => String::from("Stiffness (log)"),
+            1 => String::from("Friction (log)"),
+            2 => String::from("Mass (log)"),
             _ => unreachable!(),
         }
     }

@@ -162,6 +162,9 @@ impl DiscreteValue {
             .align_items(iced::Align::Center)
             .width(iced::Length::FillPortion(4));
 
+        let middle = Row::new()
+            .push(Text::new(format!("{:.1}", self.value)))
+            .width(iced::Length::FillPortion(1));
         let right = Row::new()
             .push(decr_button)
             .push(incr_button)
@@ -171,6 +174,7 @@ impl DiscreteValue {
 
         Row::new()
             .push(left)
+            .push(middle)
             .push(right)
             .align_items(iced::Align::Center)
             .into()
