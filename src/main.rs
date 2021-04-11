@@ -797,13 +797,13 @@ impl IcedMessages {
     }
 
     pub fn push_custom_scaffold(&mut self) {
-        self.top_bar
-            .push_back(gui::top_bar::Message::CustomScaffoldRequested);
+        self.left_panel
+            .push_back(gui::left_panel::Message::CustomScaffoldRequested);
     }
 
     pub fn push_default_scaffold(&mut self) {
-        self.top_bar
-            .push_back(gui::top_bar::Message::DeffaultScaffoldRequested);
+        self.left_panel
+            .push_back(gui::left_panel::Message::DeffaultScaffoldRequested);
     }
 
     pub fn push_color(&mut self, color: u32) {

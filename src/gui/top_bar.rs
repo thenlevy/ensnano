@@ -6,7 +6,7 @@ use iced::{container, Background, Container};
 use iced_native::clipboard::Null as NullClipBoard;
 use iced_wgpu::Renderer;
 use iced_winit::winit::dpi::LogicalSize;
-use iced_winit::{button, Button, Checkbox, Color, Command, Element, Length, Program, Row};
+use iced_winit::{button, Button, Color, Command, Element, Length, Program, Row};
 
 use material_icons::{icon_to_char, Icon as MaterialIcon, FONT as MATERIALFONT};
 
@@ -21,8 +21,6 @@ fn icon(icon: MaterialIcon, ui_size: UiSize) -> iced::Text {
         .size(ui_size.icon())
 }
 
-const CHECKBOXSPACING: u16 = 5;
-
 use super::{Requests, SplitMode};
 
 pub struct TopBar {
@@ -34,14 +32,11 @@ pub struct TopBar {
     button_3d: button::State,
     button_2d: button::State,
     button_split: button::State,
-    button_scaffold: button::State,
-    button_stapples: button::State,
     button_make_grid: button::State,
     button_help: button::State,
     button_clean: button::State,
     button_oxdna: button::State,
     button_split_2d: button::State,
-    toggle_text_value: bool,
     requests: Arc<Mutex<Requests>>,
     logical_size: LogicalSize<f64>,
     dialoging: Arc<Mutex<bool>>,
@@ -56,22 +51,21 @@ pub enum Message {
     FileReplaceRequested,
     FileSaveRequested,
     Resize(LogicalSize<f64>),
-    ToggleText(bool),
     ToggleView(SplitMode),
     MakeGrids,
     HelpRequested,
-    ScaffoldSequenceFile,
-    StapplesRequested,
     CleanRequested,
-    CustomScaffoldRequested,
-    DeffaultScaffoldRequested,
     UiSizeChanged(UiSize),
     OxDNARequested,
     Split2d,
 }
 
 impl TopBar {
-    pub fn new(requests: Arc<Mutex<Requests>>, logical_size: LogicalSize<f64>) -> TopBar {
+    pub fn new(
+        requests: Arc<Mutex<Requests>>,
+        logical_size: LogicalSize<f64>,
+        dialoging: Arc<Mutex<bool>>,
+    ) -> TopBar {
         Self {
             button_fit: Default::default(),
             button_add_file: Default::default(),
@@ -80,17 +74,14 @@ impl TopBar {
             button_2d: Default::default(),
             button_3d: Default::default(),
             button_split: Default::default(),
-            button_scaffold: Default::default(),
-            button_stapples: Default::default(),
             button_make_grid: Default::default(),
             button_help: Default::default(),
             button_clean: Default::default(),
             button_oxdna: Default::default(),
             button_split_2d: Default::default(),
-            toggle_text_value: false,
             requests,
             logical_size,
-            dialoging: Default::default(),
+            dialoging,
             ui_size: UiSize::Small,
         }
     }
@@ -168,43 +159,6 @@ impl Program for TopBar {
                     .expect("file_opening_request")
                     .file_clear = false;
             }
-            Message::DeffaultScaffoldRequested => {
-                let sequence = include_str!("p7249-Tilibit.txt");
-                self.requests.lock().unwrap().scaffold_sequence = Some(sequence.to_string())
-            }
-            Message::CustomScaffoldRequested => {
-                *self.dialoging.lock().unwrap() = true;
-                let requests = self.requests.clone();
-                let dialog = rfd::AsyncFileDialog::new().pick_file();
-                let dialoging = self.dialoging.clone();
-                thread::spawn(move || {
-                    let save_op = async move {
-                        let file = dialog.await;
-                        if let Some(handle) = file {
-                            let mut content = std::fs::read_to_string(handle.path()).unwrap();
-                            content.make_ascii_uppercase();
-                            if let Some(n) =
-                                content.find(|c| c != 'A' && c != 'T' && c != 'G' && c != 'C')
-                            {
-                                let msg = format!(
-                                    "This text file does not contain a valid DNA sequence.\n
-                                        First invalid char at position {}",
-                                    n
-                                );
-                                crate::utils::message(msg.into(), rfd::MessageLevel::Error);
-                            } else {
-                                requests.lock().unwrap().scaffold_sequence = Some(content)
-                            }
-                        }
-                        *dialoging.lock().unwrap() = false;
-                    };
-                    futures::executor::block_on(save_op);
-                });
-            }
-            Message::ScaffoldSequenceFile => {
-                use_default_scaffold(self.requests.clone());
-            }
-            Message::StapplesRequested => self.requests.lock().unwrap().stapples_request = true,
             Message::FileSaveRequested => {
                 if !*self.dialoging.lock().unwrap() {
                     *self.dialoging.lock().unwrap() = true;
@@ -261,10 +215,6 @@ impl Program for TopBar {
             }
             Message::CleanRequested => self.requests.lock().unwrap().clean_requests = true,
             Message::Resize(size) => self.resize(size),
-            Message::ToggleText(b) => {
-                self.requests.lock().unwrap().toggle_text = Some(b);
-                self.toggle_text_value = b;
-            }
             Message::MakeGrids => self.requests.lock().unwrap().make_grids = true,
             Message::ToggleView(b) => self.requests.lock().unwrap().toggle_scene = Some(b),
             Message::HelpRequested => {
@@ -326,14 +276,6 @@ impl Program for TopBar {
             .height(Length::Units(self.ui_size.button()))
             .on_press(Message::ToggleView(SplitMode::Both));
 
-        let button_scaffold = Button::new(&mut self.button_scaffold, iced::Text::new("Scaffold"))
-            .height(Length::Units(self.ui_size.button()))
-            .on_press(Message::ScaffoldSequenceFile);
-
-        let button_stapples = Button::new(&mut self.button_stapples, iced::Text::new("Stapples"))
-            .height(Length::Units(self.ui_size.button()))
-            .on_press(Message::StapplesRequested);
-
         let button_clean = Button::new(&mut self.button_clean, iced::Text::new("Clean"))
             .height(Length::Units(self.ui_size.button()))
             .on_press(Message::CleanRequested);
@@ -359,22 +301,12 @@ impl Program for TopBar {
             .push(button_add_file)
             //.push(button_replace_file)
             .push(button_save)
-            .push(
-                Checkbox::new(
-                    self.toggle_text_value,
-                    "Show Sequences",
-                    Message::ToggleText,
-                )
-                .spacing(CHECKBOXSPACING)
-                .size(self.ui_size.checkbox()),
-            )
+            .push(button_oxdna)
+            .push(iced::Space::with_width(Length::Units(30)))
             .push(button_2d)
             .push(button_3d)
             .push(button_split)
-            .push(button_scaffold)
-            .push(button_stapples)
             .push(button_clean)
-            .push(button_oxdna)
             .push(_button_make_grid)
             .push(button_split_2d)
             .push(
@@ -405,13 +337,3 @@ pub const BACKGROUND: Color = Color::from_rgb(
     0x39 as f32 / 255.0,
     0x3F as f32 / 255.0,
 );
-
-use super::KeepProceed;
-fn use_default_scaffold(requests: Arc<Mutex<Requests>>) {
-    crate::utils::yes_no_dialog(
-        "Use default m13 sequence".into(),
-        requests,
-        KeepProceed::DefaultScaffold,
-        Some(KeepProceed::CustomScaffold),
-    )
-}

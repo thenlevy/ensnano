@@ -786,3 +786,49 @@ impl ParametersTab {
             .update_request(value_id, value, request);
     }
 }
+
+pub struct SequenceTab {
+    scroll: scrollable::State,
+    button_scaffold: button::State,
+    button_stapples: button::State,
+    toggle_text_value: bool,
+}
+
+impl SequenceTab {
+    pub(super) fn new() -> Self {
+        Self {
+            scroll: Default::default(),
+            button_stapples: Default::default(),
+            button_scaffold: Default::default(),
+            toggle_text_value: false,
+        }
+    }
+
+    pub(super) fn view<'a>(&'a mut self, ui_size: UiSize) -> Element<'a, Message> {
+        let mut ret = Column::new();
+        ret = ret.push(Text::new("DNA Sequences").size(ui_size.head_text()));
+        let button_scaffold = Button::new(&mut self.button_scaffold, iced::Text::new("Scaffold"))
+            .height(Length::Units(ui_size.button()))
+            .on_press(Message::ScaffoldSequenceFile);
+
+        let button_stapples = Button::new(&mut self.button_stapples, iced::Text::new("Stapples"))
+            .height(Length::Units(ui_size.button()))
+            .on_press(Message::StapplesRequested);
+        ret = ret.push(button_stapples);
+        ret = ret.push(button_scaffold);
+        ret = ret.push(
+            Checkbox::new(
+                self.toggle_text_value,
+                "Show Sequences",
+                Message::ToggleText,
+            )
+            .spacing(CHECKBOXSPACING)
+            .size(ui_size.checkbox()),
+        );
+        Scrollable::new(&mut self.scroll).push(ret).into()
+    }
+
+    pub(super) fn toggle_text_value(&mut self, b: bool) {
+        self.toggle_text_value = b;
+    }
+}

@@ -56,3 +56,4 @@ pub const SCAFFOLD_COLOR: u32 = 0xFF_3498DB;
 pub const SELECTED_HELIX2D_COLOR: u32 = 0xFF_BF_1E_28;
 
 pub const ICON_PHYSICAL_ENGINE: char = '\u{e916}';
+pub const ICON_ATGC: char = '\u{e90d}';

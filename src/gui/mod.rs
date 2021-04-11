@@ -332,12 +332,14 @@ impl GuiElement {
         window: &Window,
         multiplexer: &Multiplexer,
         requests: Arc<Mutex<Requests>>,
+        dialoging: Arc<Mutex<bool>>,
     ) -> Self {
         let cursor_position = PhysicalPosition::new(-1., -1.);
         let top_bar_area = multiplexer.get_element_area(ElementType::TopBar).unwrap();
         let top_bar = TopBar::new(
             requests.clone(),
             top_bar_area.size.to_logical(window.scale_factor()),
+            dialoging,
         );
         let mut top_bar_debug = Debug::new();
         let top_bar_state = program::State::new(
@@ -362,6 +364,7 @@ impl GuiElement {
         multiplexer: &Multiplexer,
         requests: Arc<Mutex<Requests>>,
         first_time: bool,
+        dialoging: Arc<Mutex<bool>>,
     ) -> Self {
         let cursor_position = PhysicalPosition::new(-1., -1.);
         let left_panel_area = multiplexer
@@ -372,6 +375,7 @@ impl GuiElement {
             left_panel_area.size.to_logical(window.scale_factor()),
             left_panel_area.position.to_logical(window.scale_factor()),
             first_time,
+            dialoging,
         );
         let mut left_panel_debug = Debug::new();
         let left_panel_state = program::State::new(
@@ -507,6 +511,7 @@ pub struct Gui {
     device: Rc<Device>,
     resized: bool,
     requests: Arc<Mutex<Requests>>,
+    dialoging: Arc<Mutex<bool>>,
 }
 
 impl Gui {
@@ -519,13 +524,27 @@ impl Gui {
     ) -> Self {
         let mut renderer = Renderer::new(Backend::new(device.as_ref(), settings.clone()));
         let mut elements = HashMap::new();
+        let dialoging: Arc<Mutex<bool>> = Default::default();
         elements.insert(
             ElementType::TopBar,
-            GuiElement::top_bar(&mut renderer, window, multiplexer, requests.clone()),
+            GuiElement::top_bar(
+                &mut renderer,
+                window,
+                multiplexer,
+                requests.clone(),
+                dialoging.clone(),
+            ),
         );
         elements.insert(
             ElementType::LeftPanel,
-            GuiElement::left_panel(&mut renderer, window, multiplexer, requests.clone(), true),
+            GuiElement::left_panel(
+                &mut renderer,
+                window,
+                multiplexer,
+                requests.clone(),
+                true,
+                dialoging.clone(),
+            ),
         );
         elements.insert(
             ElementType::StatusBar,
@@ -539,6 +558,7 @@ impl Gui {
             renderer,
             device,
             resized: true,
+            dialoging,
         }
     }
 
@@ -617,6 +637,7 @@ impl Gui {
                 window,
                 multiplexer,
                 self.requests.clone(),
+                self.dialoging.clone(),
             ),
         );
         self.elements.insert(
@@ -627,6 +648,7 @@ impl Gui {
                 multiplexer,
                 self.requests.clone(),
                 false,
+                self.dialoging.clone(),
             ),
         );
         self.elements.insert(

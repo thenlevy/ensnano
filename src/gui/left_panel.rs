@@ -33,7 +33,8 @@ use crate::consts::*;
 
 use material_icons::{icon_to_char, Icon as MaterialIcon, FONT as MATERIALFONT};
 use std::collections::BTreeMap;
-use tabs::{CameraTab, EditionTab, GridTab, ParametersTab, SimulationTab};
+use std::thread;
+use tabs::{CameraTab, EditionTab, GridTab, ParametersTab, SequenceTab, SimulationTab};
 
 const ICONFONT: iced::Font = iced::Font::External {
     name: "IconFont",
@@ -54,6 +55,7 @@ fn icon(icon: MaterialIcon, ui_size: &UiSize) -> iced::Text {
 const CHECKBOXSPACING: u16 = 5;
 
 pub struct LeftPanel {
+    dialoging: Arc<Mutex<bool>>,
     selection_mode: SelectionMode,
     action_mode: ActionMode,
     logical_size: LogicalSize<f64>,
@@ -73,7 +75,8 @@ pub struct LeftPanel {
     edition_tab: EditionTab,
     camera_tab: CameraTab,
     simulation_tab: SimulationTab,
-    pamerters_tab: ParametersTab,
+    sequence_tab: SequenceTab,
+    parameters_tab: ParametersTab,
 }
 
 #[derive(Debug, Clone)]
@@ -121,6 +124,11 @@ pub enum Message {
     NewTreeApp(OrganizerTree<DnaElementKey>),
     UiSizeChanged(UiSize),
     UiSizePicked(UiSize),
+    ScaffoldSequenceFile,
+    StapplesRequested,
+    CustomScaffoldRequested,
+    DeffaultScaffoldRequested,
+    ToggleText(bool),
 }
 
 impl LeftPanel {
@@ -129,8 +137,9 @@ impl LeftPanel {
         logical_size: LogicalSize<f64>,
         logical_position: LogicalPosition<f64>,
         first_time: bool,
+        dialoging: Arc<Mutex<bool>>,
     ) -> Self {
-        let selected_tab = if first_time { 0 } else { 4 };
+        let selected_tab = if first_time { 0 } else { 5 };
         Self {
             selection_mode: Default::default(),
             action_mode: Default::default(),
@@ -148,7 +157,9 @@ impl LeftPanel {
             edition_tab: EditionTab::new(),
             camera_tab: CameraTab::new(),
             simulation_tab: SimulationTab::new(),
-            pamerters_tab: ParametersTab::new(),
+            sequence_tab: SequenceTab::new(),
+            parameters_tab: ParametersTab::new(),
+            dialoging,
         }
     }
 
@@ -319,7 +330,7 @@ impl Program for LeftPanel {
             } => match factory_id {
                 FactoryId::Scroll => {
                     let request = &mut self.requests.lock().unwrap().scroll_sensitivity;
-                    self.pamerters_tab
+                    self.parameters_tab
                         .update_scroll_request(value_id, value, request);
                 }
                 FactoryId::HelixRoll => {
@@ -382,6 +393,47 @@ impl Program for LeftPanel {
                 self.requests.lock().unwrap().new_ui_size = Some(ui_size)
             }
             Message::UiSizeChanged(ui_size) => self.ui_size = ui_size,
+            Message::DeffaultScaffoldRequested => {
+                let sequence = include_str!("p7249-Tilibit.txt");
+                self.requests.lock().unwrap().scaffold_sequence = Some(sequence.to_string())
+            }
+            Message::CustomScaffoldRequested => {
+                *self.dialoging.lock().unwrap() = true;
+                let requests = self.requests.clone();
+                let dialog = rfd::AsyncFileDialog::new().pick_file();
+                let dialoging = self.dialoging.clone();
+                thread::spawn(move || {
+                    let save_op = async move {
+                        let file = dialog.await;
+                        if let Some(handle) = file {
+                            let mut content = std::fs::read_to_string(handle.path()).unwrap();
+                            content.make_ascii_uppercase();
+                            if let Some(n) =
+                                content.find(|c| c != 'A' && c != 'T' && c != 'G' && c != 'C')
+                            {
+                                let msg = format!(
+                                    "This text file does not contain a valid DNA sequence.\n
+                                        First invalid char at position {}",
+                                    n
+                                );
+                                crate::utils::message(msg.into(), rfd::MessageLevel::Error);
+                            } else {
+                                requests.lock().unwrap().scaffold_sequence = Some(content)
+                            }
+                        }
+                        *dialoging.lock().unwrap() = false;
+                    };
+                    futures::executor::block_on(save_op);
+                });
+            }
+            Message::ScaffoldSequenceFile => {
+                use_default_scaffold(self.requests.clone());
+            }
+            Message::StapplesRequested => self.requests.lock().unwrap().stapples_request = true,
+            Message::ToggleText(b) => {
+                self.requests.lock().unwrap().toggle_text = Some(b);
+                self.sequence_tab.toggle_text_value(b);
+            }
         };
         Command::none()
     }
@@ -416,8 +468,12 @@ impl Program for LeftPanel {
                 self.simulation_tab.view(self.ui_size.clone()),
             )
             .push(
+                TabLabel::Icon(ICON_ATGC),
+                self.sequence_tab.view(self.ui_size.clone()),
+            )
+            .push(
                 TabLabel::Text(format!("{}", icon_to_char(MaterialIcon::Settings))),
-                self.pamerters_tab.view(self.ui_size.clone()),
+                self.parameters_tab.view(self.ui_size.clone()),
             )
             .text_size(self.ui_size.icon())
             .text_font(ICONFONT)
@@ -1015,4 +1071,14 @@ impl Requestable for RigidBodyFactory {
             _ => unreachable!(),
         }
     }
+}
+
+use super::KeepProceed;
+fn use_default_scaffold(requests: Arc<Mutex<Requests>>) {
+    crate::utils::yes_no_dialog(
+        "Use default m13 sequence".into(),
+        requests,
+        KeepProceed::DefaultScaffold,
+        Some(KeepProceed::CustomScaffold),
+    )
 }
