@@ -405,6 +405,21 @@ impl FlatScene {
                         AppId::FlatScene,
                     );
                 }
+                Consequence::SelectionChanged => {
+                    self.mediator.lock().unwrap().notify_multiple_selection(
+                        self.data[self.selected_design].borrow().selection.clone(),
+                        AppId::FlatScene,
+                    );
+                }
+                Consequence::ClearSelection => {
+                    self.data[self.selected_design]
+                        .borrow_mut()
+                        .set_selection(vec![]);
+                    self.mediator.lock().unwrap().notify_multiple_selection(
+                        self.data[self.selected_design].borrow().selection.clone(),
+                        AppId::FlatScene,
+                    );
+                }
                 _ => (),
             }
         }
@@ -466,6 +481,15 @@ impl Application for FlatScene {
                     self.view[self.selected_design]
                         .borrow_mut()
                         .center_selection();
+                    let pivots = self.data[self.selected_design]
+                        .borrow_mut()
+                        .get_pivot_of_selected_helices(
+                            &self.controller[self.selected_design].get_camera(0f64),
+                        );
+                    if let Some((translation_pivots, rotation_pivots)) = pivots {
+                        self.controller[self.selected_design]
+                            .select_pivots(translation_pivots, rotation_pivots);
+                    }
                 }
             },
             Notification::Save(d_id) => self.data[d_id].borrow_mut().save_isometry(),

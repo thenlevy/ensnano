@@ -4,6 +4,8 @@
 //! happens. In addition to the transistion in the automat, a `Consequence` is returned to the
 //! scene, that describes the consequences that the input must have on the view or the data held by
 //! the scene.
+use self::automata::ReleasedPivot;
+
 use super::data::{ClickResult, FreeEnd};
 use super::{
     ActionMode, Arc, CameraPtr, DataPtr, FlatHelix, FlatNucl, Mediator, Mutex, PhySize,
@@ -56,6 +58,8 @@ pub enum Consequence {
     ReleasedSelection(Vec2, Vec2),
     PasteRequest(Option<FlatNucl>),
     AddClick(ClickResult),
+    SelectionChanged,
+    ClearSelection,
 }
 
 impl Controller {
@@ -172,6 +176,20 @@ impl Controller {
             self.state = RefCell::new(transition.new_state.unwrap());
             self.state.borrow().transition_to(&self);
         }
+    }
+
+    pub fn select_pivots(&mut self, translation_pivots: Vec<FlatNucl>, rotation_pivots: Vec<Vec2>) {
+        let transition = Transition {
+            new_state: Some(Box::new(ReleasedPivot {
+                translation_pivots,
+                rotation_pivots,
+                mouse_position: PhysicalPosition::new(-1., -1.),
+            })),
+            consequences: Consequence::Nothing,
+        };
+        self.state.borrow().transition_from(&self);
+        self.state = RefCell::new(transition.new_state.unwrap());
+        self.state.borrow().transition_to(&self);
     }
 
     pub fn set_action_mode(&mut self, action_mode: ActionMode) {

@@ -259,13 +259,24 @@ impl ControllerState for NormalState {
                                     self.mouse_position.x as f32,
                                     self.mouse_position.y as f32,
                                 );
+                            if controller.modifiers.shift() {
+                                controller.data.borrow_mut().add_helix_selection(
+                                    click_result,
+                                    &controller.get_camera(position.y),
+                                );
+                            } else {
+                                controller.data.borrow_mut().set_helix_selection(
+                                    click_result,
+                                    &controller.get_camera(position.y),
+                                );
+                            }
                             Transition {
                                 new_state: Some(Box::new(Translating {
                                     mouse_position: self.mouse_position,
                                     world_clicked: clicked.into(),
                                     translation_pivots: vec![translation_pivot],
                                 })),
-                                consequences: Consequence::Nothing,
+                                consequences: Consequence::SelectionChanged,
                             }
                         }
                     }
@@ -553,9 +564,9 @@ impl ControllerState for MovingCamera {
 }
 
 pub struct ReleasedPivot {
-    mouse_position: PhysicalPosition<f64>,
-    translation_pivots: Vec<FlatNucl>,
-    rotation_pivots: Vec<Vec2>,
+    pub mouse_position: PhysicalPosition<f64>,
+    pub translation_pivots: Vec<FlatNucl>,
+    pub rotation_pivots: Vec<Vec2>,
 }
 
 impl ControllerState for ReleasedPivot {
@@ -585,6 +596,45 @@ impl ControllerState for ReleasedPivot {
         controller: &Controller,
     ) -> Transition {
         match event {
+            WindowEvent::MouseInput {
+                button: MouseButton::Left,
+                state: ElementState::Pressed,
+                ..
+            } if controller.modifiers.shift() => {
+                let (x, y) = controller
+                    .get_camera(position.y)
+                    .borrow()
+                    .screen_to_world(self.mouse_position.x as f32, self.mouse_position.y as f32);
+                let click_result =
+                    controller
+                        .data
+                        .borrow()
+                        .get_click(x, y, &controller.get_camera(position.y));
+                match click_result {
+                    ClickResult::CircleWidget { .. } => {
+                        // Clicked on an other circle
+                        Transition {
+                            new_state: Some(Box::new(AddClickPivots {
+                                translation_pivots: self.translation_pivots.clone(),
+                                rotation_pivots: self.rotation_pivots.clone(),
+                                mouse_position: self.mouse_position,
+                                click_result,
+                            })),
+                            consequences: Consequence::Nothing,
+                        }
+                    }
+                    _ => Transition {
+                        new_state: Some(Box::new(LeavingPivot {
+                            clicked_position_screen: self.mouse_position,
+                            mouse_position: self.mouse_position,
+                            translation_pivots: self.translation_pivots.clone(),
+                            rotation_pivots: self.rotation_pivots.clone(),
+                            shift: controller.modifiers.shift(),
+                        })),
+                        consequences: Consequence::Nothing,
+                    },
+                }
+            }
             WindowEvent::MouseInput {
                 button: MouseButton::Left,
                 state,
@@ -684,6 +734,10 @@ impl ControllerState for ReleasedPivot {
                             self.mouse_position.x as f32,
                             self.mouse_position.y as f32,
                         );
+                        controller
+                            .data
+                            .borrow_mut()
+                            .set_helix_selection(click_result, &controller.get_camera(position.y));
                         Transition {
                             new_state: Some(Box::new(Translating {
                                 translation_pivots: vec![translation_pivot],
@@ -831,7 +885,7 @@ impl ControllerState for LeavingPivot {
                     new_state: Some(Box::new(NormalState {
                         mouse_position: self.mouse_position,
                     })),
-                    consequences: Consequence::Nothing,
+                    consequences: Consequence::ClearSelection,
                 }
             }
             WindowEvent::MouseInput {
@@ -2404,16 +2458,144 @@ impl ControllerState for AddClick {
                         .data
                         .borrow()
                         .get_click(x, y, &controller.get_camera(position.y));
-                let consequences = if click == self.click_result {
-                    Consequence::AddClick(click)
+                if let ClickResult::CircleWidget { .. } = click {
+                    if let Some((translation_pivots, rotation_pivots)) = controller
+                        .data
+                        .borrow_mut()
+                        .add_helix_selection(click.clone(), &controller.get_camera(position.y))
+                        .filter(|_| click == self.click_result)
+                    {
+                        Transition {
+                            new_state: Some(Box::new(ReleasedPivot {
+                                mouse_position: position,
+                                translation_pivots,
+                                rotation_pivots,
+                            })),
+                            consequences: Consequence::SelectionChanged,
+                        }
+                    } else {
+                        Transition {
+                            new_state: Some(Box::new(NormalState {
+                                mouse_position: self.mouse_position,
+                            })),
+                            consequences: Consequence::Nothing,
+                        }
+                    }
                 } else {
-                    Consequence::Nothing
-                };
-                Transition {
-                    new_state: Some(Box::new(NormalState {
-                        mouse_position: self.mouse_position,
-                    })),
-                    consequences,
+                    let consequences = if click == self.click_result {
+                        Consequence::AddClick(click)
+                    } else {
+                        Consequence::Nothing
+                    };
+                    Transition {
+                        new_state: Some(Box::new(NormalState {
+                            mouse_position: self.mouse_position,
+                        })),
+                        consequences,
+                    }
+                }
+            }
+            WindowEvent::CursorMoved { .. } => {
+                self.mouse_position = position;
+                Transition::nothing()
+            }
+            WindowEvent::KeyboardInput { .. } => {
+                controller.process_keyboard(event);
+                Transition::nothing()
+            }
+            WindowEvent::MouseWheel { delta, .. } => {
+                controller
+                    .get_camera(position.y)
+                    .borrow_mut()
+                    .process_scroll(delta, self.mouse_position);
+                Transition::nothing()
+            }
+            _ => Transition::nothing(),
+        }
+    }
+}
+
+struct AddClickPivots {
+    mouse_position: PhysicalPosition<f64>,
+    translation_pivots: Vec<FlatNucl>,
+    rotation_pivots: Vec<Vec2>,
+    click_result: ClickResult,
+}
+
+impl ControllerState for AddClickPivots {
+    fn transition_from(&self, _controller: &Controller) {
+        ()
+    }
+
+    fn transition_to(&self, _controller: &Controller) {
+        ()
+    }
+
+    fn display(&self) -> String {
+        String::from("AddClick")
+    }
+
+    fn input(
+        &mut self,
+        event: &WindowEvent,
+        position: PhysicalPosition<f64>,
+        controller: &Controller,
+    ) -> Transition {
+        match event {
+            WindowEvent::MouseInput {
+                button: MouseButton::Left,
+                state,
+                ..
+            } => {
+                /*assert!(
+                    *state == ElementState::Released,
+                    "Pressed mouse button in Cutting state"
+                );*/
+                if *state == ElementState::Pressed {
+                    return Transition::nothing();
+                }
+                let (x, y) = controller
+                    .get_camera(position.y)
+                    .borrow()
+                    .screen_to_world(self.mouse_position.x as f32, self.mouse_position.y as f32);
+                let click =
+                    controller
+                        .data
+                        .borrow()
+                        .get_click(x, y, &controller.get_camera(position.y));
+                if click == self.click_result {
+                    if let Some((translation_pivots, rotation_pivots)) = controller
+                        .data
+                        .borrow_mut()
+                        .add_helix_selection(click, &controller.get_camera(position.y))
+                    {
+                        Transition {
+                            new_state: Some(Box::new(ReleasedPivot {
+                                mouse_position: self.mouse_position,
+                                translation_pivots,
+                                rotation_pivots,
+                            })),
+                            consequences: Consequence::SelectionChanged,
+                        }
+                    } else {
+                        Transition {
+                            new_state: Some(Box::new(ReleasedPivot {
+                                mouse_position: self.mouse_position,
+                                translation_pivots: self.translation_pivots.clone(),
+                                rotation_pivots: self.rotation_pivots.clone(),
+                            })),
+                            consequences: Consequence::SelectionChanged,
+                        }
+                    }
+                } else {
+                    Transition {
+                        new_state: Some(Box::new(ReleasedPivot {
+                            mouse_position: self.mouse_position,
+                            translation_pivots: self.translation_pivots.clone(),
+                            rotation_pivots: self.rotation_pivots.clone(),
+                        })),
+                        consequences: Consequence::Nothing,
+                    }
                 }
             }
             WindowEvent::CursorMoved { .. } => {

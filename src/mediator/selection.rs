@@ -129,7 +129,7 @@ pub(super) fn list_of_xovers(selection: &[Selection]) -> Option<(usize, Vec<(Nuc
     Some((design_id as usize, xovers.into_iter().collect()))
 }
 
-pub(super) fn list_of_helices(selection: &[Selection]) -> Option<(usize, Vec<usize>)> {
+pub fn list_of_helices(selection: &[Selection]) -> Option<(usize, Vec<usize>)> {
     let design_id = selection.get(0).and_then(Selection::get_design)?;
     let mut helices = BTreeSet::new();
     for s in selection.iter() {

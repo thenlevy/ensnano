@@ -240,6 +240,25 @@ impl Data {
             .map(|h| h.visible_center(camera).unwrap_or_else(|| h.center()))
     }
 
+    pub fn add_helix_selection(
+        &mut self,
+        click_result: ClickResult,
+        camera: &CameraPtr,
+    ) -> Option<(Vec<FlatNucl>, Vec<Vec2>)> {
+        self.add_selection(click_result);
+        self.get_pivot_of_selected_helices(camera)
+    }
+
+    pub fn set_helix_selection(
+        &mut self,
+        click_result: ClickResult,
+        camera: &CameraPtr,
+    ) -> Option<(Vec<FlatNucl>, Vec<Vec2>)> {
+        self.selection = vec![];
+        self.add_selection(click_result);
+        self.get_pivot_of_selected_helices(camera)
+    }
+
     pub fn get_click_unbounded_helix(&self, x: f32, y: f32, helix: FlatHelix) -> FlatNucl {
         let (position, forward) = self.helices[helix.flat].get_click_unbounded(x, y);
         FlatNucl {
@@ -535,6 +554,41 @@ impl Data {
         (translation_pivots, rotation_pivots)
     }
 
+    pub fn get_pivot_of_selected_helices(
+        &self,
+        camera: &CameraPtr,
+    ) -> Option<(Vec<FlatNucl>, Vec<Vec2>)> {
+        let id_map = self.design.id_map();
+
+        let ret: Option<Vec<(FlatNucl, Vec2)>> = self
+            .selection
+            .iter()
+            .map(|s| match s {
+                Selection::Helix(d_id, h_id) if *d_id == self.id => {
+                    if let Some(flat_id) = id_map.get(&(*h_id as usize)) {
+                        if let Some(h) = self.helices.get(*flat_id) {
+                            let translation_pivot =
+                                h.get_circle_pivot(camera).unwrap_or(FlatNucl {
+                                    helix: h.flat_id,
+                                    position: 0,
+                                    forward: true,
+                                });
+                            let rotation_pivot =
+                                h.visible_center(camera).unwrap_or_else(|| h.center());
+                            Some((translation_pivot, rotation_pivot))
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    }
+                }
+                _ => None,
+            })
+            .collect();
+        ret.map(|v| v.iter().cloned().unzip())
+    }
+
     fn select_xovers_rectangle(&mut self, camera: &CameraPtr, c1: Vec2, c2: Vec2, adding: bool) {
         let (x1, y1) = camera.borrow().world_to_norm_screen(c1.x, c1.y);
         let (x2, y2) = camera.borrow().world_to_norm_screen(c2.x, c2.y);
@@ -607,13 +661,11 @@ impl Data {
     pub fn add_selection(&mut self, click_result: ClickResult) {
         match click_result {
             ClickResult::CircleWidget { translation_pivot } => {
-                if self.selection_mode == SelectionMode::Helix {
-                    let selection = Selection::Helix(self.id, translation_pivot.helix.real as u32);
-                    if let Some(pos) = self.selection.iter().position(|x| *x == selection) {
-                        self.selection.remove(pos);
-                    } else {
-                        self.selection.push(selection);
-                    }
+                let selection = Selection::Helix(self.id, translation_pivot.helix.real as u32);
+                if let Some(pos) = self.selection.iter().position(|x| *x == selection) {
+                    self.selection.remove(pos);
+                } else {
+                    self.selection.push(selection);
                 }
             }
             ClickResult::Nucl(nucl) => match self.selection_mode {
@@ -631,6 +683,13 @@ impl Data {
                     if let Some(xover) = self.xover_containing_nucl(&nucl) {
                         let selection =
                             Selection::Bound(self.id, xover.0.to_real(), xover.1.to_real());
+                        if let Some(pos) = self.selection.iter().position(|x| *x == selection) {
+                            self.selection.remove(pos);
+                        } else {
+                            self.selection.push(selection);
+                        }
+                    } else if let Some(s_id) = self.design.get_strand_id(nucl.to_real()) {
+                        let selection = Selection::Strand(self.id, s_id as u32);
                         if let Some(pos) = self.selection.iter().position(|x| *x == selection) {
                             self.selection.remove(pos);
                         } else {
@@ -698,7 +757,7 @@ impl Data {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum ClickResult {
     Nucl(FlatNucl),
     CircleWidget {
