@@ -893,6 +893,22 @@ fn line_intersect(u0: Vec2, v0: Vec2, u1: Vec2, v1: Vec2) -> Option<(f32, f32)> 
     }
 }
 
+pub(super) fn rectangle_intersect(rect_0: Vec2, rect_1: Vec2, a: Vec2, b: Vec2) -> bool {
+    let on_segment = |t: &(f32, f32)| 0. <= t.0 && t.0 <= 1. && 0. <= t.1 && t.1 <= 1.;
+    line_intersect(rect_0, Vec2::new(rect_0.x, rect_1.y), a, b)
+        .filter(on_segment)
+        .is_some()
+        || line_intersect(rect_0, Vec2::new(rect_1.x, rect_0.y), a, b)
+            .filter(on_segment)
+            .is_some()
+        || line_intersect(rect_1, Vec2::new(rect_0.x, rect_1.y), a, b)
+            .filter(on_segment)
+            .is_some()
+        || line_intersect(rect_1, Vec2::new(rect_1.x, rect_0.y), a, b)
+            .filter(on_segment)
+            .is_some()
+}
+
 /// Represent a slight shift from the center of the square representing nucleotide
 pub enum Shift {
     /// No shift, the returned point will be on the center of the nucleotide

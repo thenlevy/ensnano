@@ -609,10 +609,13 @@ impl Data {
                 selection.insert((n1, n2));
             }
         }
-        let selection: Vec<Selection> = selection
+        let mut selection: Vec<Selection> = selection
             .iter()
             .map(|(n1, n2)| Selection::Bound(self.id, *n1, *n2))
             .collect();
+        if selection.is_empty() {
+            self.add_long_xover_rectangle(&mut selection, c1, c2);
+        }
         if adding {
             for s in selection.iter() {
                 if !self.selection.contains(s) {
@@ -623,6 +626,24 @@ impl Data {
             self.selection = selection;
         }
         println!("selection {:?}", self.selection);
+    }
+
+    fn add_long_xover_rectangle(&self, selection: &mut Vec<Selection>, c1: Vec2, c2: Vec2) {
+        let mut selection_set = BTreeSet::new();
+        for (flat_1, flat_2) in self.design.get_xovers_list() {
+            let h1 = &self.helices[flat_1.helix.flat];
+            let h2 = &self.helices[flat_2.helix.flat];
+            let a = h1.get_nucl_position(&flat_1, helix::Shift::No);
+            let b = h2.get_nucl_position(&&flat_2, helix::Shift::No);
+            if helix::rectangle_intersect(c1, c2, a, b) {
+                let n1 = flat_1.to_real();
+                let n2 = flat_2.to_real();
+                selection_set.insert((n1, n2));
+            }
+        }
+        for xover in selection_set.into_iter() {
+            selection.push(Selection::Bound(self.id, xover.0, xover.1))
+        }
     }
 
     fn select_strands_rectangle(&mut self, camera: &CameraPtr, c1: Vec2, c2: Vec2, adding: bool) {
