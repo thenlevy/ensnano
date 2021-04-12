@@ -667,8 +667,11 @@ impl Design {
         self.data.lock().unwrap().set_scaffold_id(scaffold_id)
     }
 
-    pub fn set_scaffold_sequence(&mut self, sequence: String) {
-        self.data.lock().unwrap().set_scaffold_sequence(sequence)
+    pub fn set_scaffold_sequence(&mut self, sequence: String, shift: usize) {
+        self.data
+            .lock()
+            .unwrap()
+            .set_scaffold_sequence(sequence, shift)
     }
 
     pub fn scaffold_is_set(&self) -> bool {
@@ -695,7 +698,7 @@ impl Design {
         self.data.lock().unwrap().get_stapples()
     }
 
-    pub fn optimize_shift(&self, channel: std::sync::mpsc::Sender<f32>) -> usize {
+    pub fn optimize_shift(&self, channel: std::sync::mpsc::Sender<f32>) -> (usize, String) {
         self.data.lock().unwrap().optimize_shift(channel)
     }
 

@@ -97,6 +97,7 @@ pub enum Message {
     RotateCam(f32, f32, f32),
     PositionHelicesChanged(String),
     LengthHelicesChanged(String),
+    ScaffoldPositionInput(String),
     #[allow(dead_code)]
     ShowTorsion(bool),
     FogVisibility(bool),
@@ -291,6 +292,9 @@ impl Program for LeftPanel {
                     self.requests.lock().unwrap().action_mode = Some(action_mode)
                 }
             }
+            Message::ScaffoldPositionInput(position_str) => {
+                self.sequence_tab.update_pos_str(position_str);
+            }
             Message::ShowTorsion(b) => {
                 self.requests.lock().unwrap().show_torsion_request = Some(b);
                 self.show_torsion = b;
@@ -411,13 +415,15 @@ impl Program for LeftPanel {
             Message::UiSizeChanged(ui_size) => self.ui_size = ui_size,
             Message::DeffaultScaffoldRequested => {
                 let sequence = include_str!("p7249-Tilibit.txt");
-                self.requests.lock().unwrap().scaffold_sequence = Some(sequence.to_string())
+                self.requests.lock().unwrap().scaffold_sequence =
+                    Some((sequence.to_string(), self.sequence_tab.get_scaffold_pos()))
             }
             Message::CustomScaffoldRequested => {
                 *self.dialoging.lock().unwrap() = true;
                 let requests = self.requests.clone();
                 let dialog = rfd::AsyncFileDialog::new().pick_file();
                 let dialoging = self.dialoging.clone();
+                let scaffold_shift = self.sequence_tab.get_scaffold_pos();
                 thread::spawn(move || {
                     let save_op = async move {
                         let file = dialog.await;
@@ -434,7 +440,8 @@ impl Program for LeftPanel {
                                 );
                                 crate::utils::message(msg.into(), rfd::MessageLevel::Error);
                             } else {
-                                requests.lock().unwrap().scaffold_sequence = Some(content)
+                                requests.lock().unwrap().scaffold_sequence =
+                                    Some((content, scaffold_shift))
                             }
                         }
                         *dialoging.lock().unwrap() = false;

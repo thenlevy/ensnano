@@ -292,7 +292,12 @@ impl Mediator {
             .set_scaffold_id(scaffold_id)
     }
 
-    pub fn set_scaffold_sequence(&mut self, sequence: String, requests: Arc<Mutex<Requests>>) {
+    pub fn set_scaffold_sequence(
+        &mut self,
+        sequence: String,
+        requests: Arc<Mutex<Requests>>,
+        shift: usize,
+    ) {
         let d_id = if let Some(d_id) = self.selected_design() {
             d_id as usize
         } else {
@@ -307,10 +312,10 @@ impl Mediator {
         self.designs[d_id]
             .write()
             .unwrap()
-            .set_scaffold_sequence(sequence);
+            .set_scaffold_sequence(sequence, shift);
         if self.designs[d_id].read().unwrap().scaffold_is_set() {
-            let message = "Optimize the scaffold position ?\n
-            If you chose \"Yes\", icednano will position the scaffold in a way that minimizes the number of anti-patern (G^4, C^4 (A|T)^7) in the stapples sequence. If you chose \"No\", the scaffold sequence will begin at position 0";
+            let message = format!("Optimize the scaffold position ?\n
+            If you chose \"Yes\", icednano will position the scaffold in a way that minimizes the number of anti-patern (G^4, C^4 (A|T)^7) in the stapples sequence. If you chose \"No\", the scaffold sequence will begin at position {}", shift);
             yes_no_dialog(
                 message.into(),
                 requests.clone(),
@@ -328,8 +333,8 @@ impl Mediator {
             let (send, rcv) = std::sync::mpsc::channel::<f32>();
             std::thread::spawn(move || {
                 *computing.lock().unwrap() = true;
-                let score = design.read().unwrap().optimize_shift(send);
-                let msg = format!("Number of anti-patern: {}", score);
+                let (position, score) = design.read().unwrap().optimize_shift(send);
+                let msg = format!("Scaffold position set to {}\n {}", position, score);
                 message(msg.into(), rfd::MessageLevel::Info);
                 *computing.lock().unwrap() = false;
             });

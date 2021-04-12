@@ -73,7 +73,7 @@ pub struct Requests {
     pub camera_target: Option<(Vec3, Vec3)>,
     pub small_spheres: Option<bool>,
     pub set_scaffold_id: Option<Option<usize>>,
-    pub scaffold_sequence: Option<String>,
+    pub scaffold_sequence: Option<(String, usize)>,
     pub stapples_request: bool,
     pub recolor_stapples: bool,
     pub clean_requests: bool,

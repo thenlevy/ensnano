@@ -497,8 +497,8 @@ fn main() {
                         mediator.lock().unwrap().set_scaffold(scaffold_id)
                     }
 
-                    if let Some(sequence) = requests.scaffold_sequence.take() {
-                        set_scaffold = Some(sequence);
+                    if let Some((sequence, shift)) = requests.scaffold_sequence.take() {
+                        set_scaffold = Some((sequence, shift));
                     }
 
                     if requests.stapples_request {
@@ -662,11 +662,12 @@ fn main() {
                     });
                 }
 
-                if let Some(sequence) = set_scaffold.take() {
-                    mediator
-                        .lock()
-                        .unwrap()
-                        .set_scaffold_sequence(sequence, requests.clone());
+                if let Some((sequence, shift)) = set_scaffold.take() {
+                    mediator.lock().unwrap().set_scaffold_sequence(
+                        sequence,
+                        requests.clone(),
+                        shift,
+                    );
                 }
 
                 if stapples.take().is_some() {

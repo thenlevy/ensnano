@@ -589,9 +589,9 @@ impl Data {
     }
 
     /// Set the sequence of the scaffold
-    pub fn set_scaffold_sequence(&mut self, sequence: String) {
+    pub fn set_scaffold_sequence(&mut self, sequence: String, shift: usize) {
         self.design.scaffold_sequence = Some(sequence);
-        self.design.scaffold_shift = None;
+        self.design.scaffold_shift = Some(shift);
         self.hash_maps_update = true;
     }
 
@@ -2124,9 +2124,10 @@ impl Data {
     }
 
     /// Shift the scaffold at an optimized poisition and return the corresponding score
-    pub fn optimize_shift(&mut self, channel: std::sync::mpsc::Sender<f32>) -> usize {
+    pub fn optimize_shift(&mut self, channel: std::sync::mpsc::Sender<f32>) -> (usize, String) {
         let mut best_score = 10000;
         let mut best_shfit = 0;
+        let mut best_result = String::new();
         let len = self
             .design
             .scaffold_sequence
@@ -2138,11 +2139,12 @@ impl Data {
                 channel.send(shift as f32 / len as f32).unwrap();
             }
             self.read_scaffold_seq(shift);
-            let score = self.evaluate_shift();
+            let (score, result) = self.evaluate_shift();
             if score < best_score {
                 println!("shift {} score {}", shift, score);
                 best_score = score;
                 best_shfit = shift;
+                best_result = result;
             }
             if score == 0 {
                 break;
@@ -2150,12 +2152,13 @@ impl Data {
         }
         self.design.scaffold_shift = Some(best_shfit);
         self.read_scaffold_seq(best_shfit);
-        best_score
+        (best_shfit, best_result)
     }
 
     /// Evaluate a scaffold position. The score of the position is given by
     /// score = nb((A|T)^7) + 10 nb(G^4 | C ^4) + 100 nb (G^5 | C^5) + 1000 nb (G^6 | C^6)
-    fn evaluate_shift(&self) -> usize {
+    fn evaluate_shift(&self) -> (usize, String) {
+        use std::fmt::Write;
         let basis_map = self.basis_map.read().unwrap();
         let mut ret = 0;
         let mut shown = false;
@@ -2192,24 +2195,47 @@ impl Data {
                 if !shown {
                     shown = true;
                 }
-                ret += 10;
+                ret += 100;
             }
             let mut matches = ultimatelybad.find_iter(&sequence);
             while matches.next().is_some() {
                 if !shown {
                     shown = true;
                 }
-                ret += 100;
+                ret += 10_000;
             }
             let mut matches = ultimatelybad2.find_iter(&sequence);
             while matches.next().is_some() {
                 if !shown {
                     shown = true;
                 }
-                ret += 1000;
+                ret += 1_000_000;
             }
         }
-        ret
+        let result = if ret == 0 {
+            "No bad pattern".to_owned()
+        } else {
+            let mut result = String::new();
+            if ret >= 1_000_000 {
+                writeln!(&mut result, "{} times G^6 or C^6", ret / 1_000_000).unwrap();
+            }
+            if (ret % 1_000_000) >= 10_000 {
+                writeln!(
+                    &mut result,
+                    "{} times G^5 or C^5",
+                    (ret % 1_000_000) / 10_000
+                )
+                .unwrap();
+            }
+            if (ret % 10_000) >= 100 {
+                writeln!(&mut result, "{} times G^4 or C^4", (ret % 10_000) / 100).unwrap();
+            }
+            if ret % 100 > 0 {
+                writeln!(&mut result, "{} times (A or T)^7", (ret % 100)).unwrap();
+            }
+            result
+        };
+        (ret, result)
     }
 
     pub fn get_groups(&self) -> Arc<RwLock<BTreeMap<usize, bool>>> {

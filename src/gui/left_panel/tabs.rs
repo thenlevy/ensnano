@@ -817,6 +817,9 @@ pub struct SequenceTab {
     button_scaffold: button::State,
     button_stapples: button::State,
     toggle_text_value: bool,
+    scaffold_position_str: String,
+    scaffold_position: usize,
+    scaffold_input: text_input::State,
 }
 
 impl SequenceTab {
@@ -826,6 +829,9 @@ impl SequenceTab {
             button_stapples: Default::default(),
             button_scaffold: Default::default(),
             toggle_text_value: false,
+            scaffold_position_str: "0".to_string(),
+            scaffold_position: 0,
+            scaffold_input: Default::default(),
         }
     }
 
@@ -839,8 +845,22 @@ impl SequenceTab {
         let button_stapples = Button::new(&mut self.button_stapples, iced::Text::new("Stapples"))
             .height(Length::Units(ui_size.button()))
             .on_press(Message::StapplesRequested);
+
+        let scaffold_row = Row::new().push(Text::new("Scaffold shift")).push(
+            TextInput::new(
+                &mut self.scaffold_input,
+                "Scaffold position",
+                &self.scaffold_position_str,
+                Message::ScaffoldPositionInput,
+            )
+            .style(BadValue(
+                self.scaffold_position_str == self.scaffold_position.to_string(),
+            )),
+        );
+
         ret = ret.push(button_stapples);
         ret = ret.push(button_scaffold);
+        ret = ret.push(scaffold_row);
         ret = ret.push(
             Checkbox::new(
                 self.toggle_text_value,
@@ -855,5 +875,16 @@ impl SequenceTab {
 
     pub(super) fn toggle_text_value(&mut self, b: bool) {
         self.toggle_text_value = b;
+    }
+
+    pub(super) fn update_pos_str(&mut self, position_str: String) {
+        self.scaffold_position_str = position_str;
+        if let Ok(pos) = self.scaffold_position_str.parse::<usize>() {
+            self.scaffold_position = pos;
+        }
+    }
+
+    pub(super) fn get_scaffold_pos(&self) -> usize {
+        self.scaffold_position
     }
 }
