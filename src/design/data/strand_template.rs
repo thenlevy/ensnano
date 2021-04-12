@@ -523,6 +523,7 @@ impl Data {
         println!("pasting {:?}", nucl);
         if let Some(nucl) = nucl {
             if let Some(ref applied_nucl) = self.xover_copy_manager.applied {
+                println!("applied nucl {:?}", applied_nucl);
                 if *applied_nucl != nucl && !duplicate {
                     println!("reverting");
                     self.unapply_xover_paste();
@@ -535,6 +536,7 @@ impl Data {
             println!("xovers {:?}", self.xover_copy_manager.xovers);
             if let Some((ref n01, ref _n02)) = self.xover_copy_manager.xovers.get(0) {
                 let edge_copy = self.edge_beteen_nucls(n01, &nucl);
+                println!("edge copy {:?}", edge_copy);
                 if !duplicate {
                     self.xover_copy_manager.duplication_edge = edge_copy;
                 }
@@ -544,7 +546,9 @@ impl Data {
                     let xovers = self.xover_copy_manager.xovers.clone();
                     for (n1, n2) in xovers.iter() {
                         let copy_1 = self.translate_nucl_by_edge(n1, edge, shift);
+                        println!("copy 1 {:?}", copy_1);
                         let copy_2 = self.translate_nucl_by_edge(n2, edge, shift);
+                        println!("copy 2 {:?}", copy_2);
                         if let Some((copy_1, copy_2)) = copy_1.zip(copy_2) {
                             if !self.is_middle_xover(&copy_1) && !self.is_middle_xover(&copy_2) {
                                 self.general_cross_over(copy_1, copy_2);
