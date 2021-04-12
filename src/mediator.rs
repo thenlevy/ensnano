@@ -610,24 +610,28 @@ impl Mediator {
                 match candidate[0] {
                     Selection::Strand(d_id, _) => {
                         let values = candidate[0].fetch_values(self.designs[d_id as usize].clone());
-                        self.messages
-                            .lock()
-                            .unwrap()
-                            .push_selection(candidate[0], values);
-                    }
-                    Selection::Nucleotide(d_id, nucl) => {
-                        let strand_opt = self.designs[d_id as usize]
-                            .read()
-                            .unwrap()
-                            .get_strand_nucl(&nucl);
-                        if let Some(strand) = strand_opt {
-                            let selection = Selection::Strand(d_id, strand as u32);
-                            let values =
-                                selection.fetch_values(self.designs[d_id as usize].clone());
+                        if self.selection.is_empty() {
                             self.messages
                                 .lock()
                                 .unwrap()
-                                .push_selection(selection, values);
+                                .push_selection(candidate[0], values);
+                        }
+                    }
+                    Selection::Nucleotide(d_id, nucl) => {
+                        if self.selection.is_empty() || self.selection[0] == Selection::Nothing {
+                            let strand_opt = self.designs[d_id as usize]
+                                .read()
+                                .unwrap()
+                                .get_strand_nucl(&nucl);
+                            if let Some(strand) = strand_opt {
+                                let selection = Selection::Strand(d_id, strand as u32);
+                                let values =
+                                    selection.fetch_values(self.designs[d_id as usize].clone());
+                                self.messages
+                                    .lock()
+                                    .unwrap()
+                                    .push_selection(selection, values);
+                            }
                         }
                     }
                     _ => (),
