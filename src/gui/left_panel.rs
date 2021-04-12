@@ -132,6 +132,7 @@ pub enum Message {
     DeffaultScaffoldRequested,
     ToggleText(bool),
     CleanRequested,
+    AddDoubleStrandHelix(bool),
 }
 
 impl LeftPanel {
@@ -450,6 +451,7 @@ impl Program for LeftPanel {
                 self.sequence_tab.toggle_text_value(b);
             }
             Message::CleanRequested => self.requests.lock().unwrap().clean_requests = true,
+            Message::AddDoubleStrandHelix(b) => self.grid_tab.set_show_strand(b),
         };
         Command::none()
     }
@@ -459,12 +461,8 @@ impl Program for LeftPanel {
         let tabs: Tabs<Message, Backend> = Tabs::new(self.selected_tab, Message::TabSelected)
             .push(
                 TabLabel::Text(format!("{}", icon_to_char(MaterialIcon::GridOn))),
-                self.grid_tab.view(
-                    self.action_mode,
-                    self.selection_mode,
-                    self.ui_size.clone(),
-                    width,
-                ),
+                self.grid_tab
+                    .view(self.action_mode, self.ui_size.clone(), width),
             )
             .push(
                 TabLabel::Text(format!("{}", icon_to_char(MaterialIcon::Edit))),

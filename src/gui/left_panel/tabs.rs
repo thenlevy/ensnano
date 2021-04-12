@@ -132,7 +132,6 @@ impl EditionTab {
 }
 
 pub(super) struct GridTab {
-    selection_mode_state: SelectionModeState,
     action_mode_state: ActionModeState,
     scroll: iced::scrollable::State,
     helix_pos: isize,
@@ -146,12 +145,12 @@ pub(super) struct GridTab {
     make_honeycomb_grid_btn: button::State,
     hyperboloid_factory: RequestFactory<Hyperboloid_>,
     start_hyperboloid_btn: button::State,
+    show_strand_menu: bool,
 }
 
 impl GridTab {
     pub fn new() -> Self {
         Self {
-            selection_mode_state: Default::default(),
             action_mode_state: Default::default(),
             scroll: Default::default(),
             helix_pos: 0,
@@ -165,13 +164,13 @@ impl GridTab {
             finalize_hyperboloid_btn: Default::default(),
             building_hyperboloid: false,
             start_hyperboloid_btn: Default::default(),
+            show_strand_menu: false,
         }
     }
 
     pub(super) fn view<'a>(
         &'a mut self,
         action_mode: ActionMode,
-        selection_mode: SelectionMode,
         ui_size: UiSize,
         width: u16,
     ) -> Element<'a, Message> {
@@ -181,97 +180,6 @@ impl GridTab {
                 .horizontal_alignment(iced::HorizontalAlignment::Center)
                 .size(ui_size.head_text()),
         );
-        let selection_modes = [
-            SelectionMode::Nucleotide,
-            SelectionMode::Strand,
-            SelectionMode::Helix,
-        ];
-
-        let mut selection_buttons: Vec<Button<'a, Message>> = self
-            .selection_mode_state
-            .get_states()
-            .into_iter()
-            .rev()
-            .filter(|(m, _)| selection_modes.contains(m))
-            .map(|(mode, state)| selection_mode_btn(state, mode, selection_mode, ui_size.button()))
-            .collect();
-
-        ret = ret.push(Text::new("Selection Mode"));
-        while selection_buttons.len() > 0 {
-            let mut row = Row::new();
-            row = row.push(selection_buttons.pop().unwrap()).spacing(5);
-            let mut space = ui_size.button() + 5;
-            while space + ui_size.button() < width && selection_buttons.len() > 0 {
-                row = row.push(selection_buttons.pop().unwrap()).spacing(5);
-                space += ui_size.button() + 5;
-            }
-            ret = ret.push(row)
-        }
-
-        let action_modes = [
-            ActionMode::Normal,
-            ActionMode::Translate,
-            ActionMode::Rotate,
-            ActionMode::BuildHelix {
-                position: self.helix_pos,
-                length: self.helix_length,
-            },
-        ];
-
-        let mut action_buttons: Vec<Button<'a, Message>> = self
-            .action_mode_state
-            .get_states(self.helix_length, self.helix_pos)
-            .into_iter()
-            .filter(|(m, _)| action_modes.contains(m))
-            .map(|(mode, state)| action_mode_btn(state, mode, action_mode, ui_size.button()))
-            .collect();
-
-        ret = ret.push(Text::new("Action Mode"));
-        while action_buttons.len() > 0 {
-            let mut row = Row::new();
-            row = row.push(action_buttons.remove(0)).spacing(5);
-            let mut space = ui_size.button() + 5;
-            while space + ui_size.button() < width && action_buttons.len() > 0 {
-                row = row.push(action_buttons.remove(0)).spacing(5);
-                space += ui_size.button() + 5;
-            }
-            ret = ret.push(row)
-        }
-
-        let mut inputs = self.builder_input.iter_mut();
-        let position_input = TextInput::new(
-            inputs.next().unwrap(),
-            "Position",
-            &self.pos_str,
-            Message::PositionHelicesChanged,
-        )
-        .style(BadValue(self.pos_str == self.helix_pos.to_string()));
-
-        let length_input = TextInput::new(
-            inputs.next().unwrap(),
-            "Length",
-            &self.length_str,
-            Message::LengthHelicesChanged,
-        )
-        .style(BadValue(self.length_str == self.helix_length.to_string()));
-
-        if let ActionMode::BuildHelix { .. } = action_mode {
-            let row = Row::new()
-                .push(
-                    Column::new()
-                        .push(Text::new("Position strand").color(Color::WHITE))
-                        .push(position_input)
-                        .width(Length::Units(width / 2)),
-                )
-                .push(
-                    Column::new()
-                        .push(Text::new("Length strands").color(Color::WHITE))
-                        .push(length_input),
-                );
-            ret = ret.push(row);
-        }
-
-        ret = ret.push(iced::Space::with_height(Length::Units(5)));
 
         ret = ret.push(Text::new("New Grid"));
         let make_square_grid_btn = icon_btn(
@@ -323,6 +231,81 @@ impl GridTab {
                 ret = ret.push(view);
             }
         }
+
+        let action_modes = [
+            ActionMode::Normal,
+            ActionMode::Translate,
+            ActionMode::Rotate,
+            ActionMode::BuildHelix {
+                position: self.helix_pos,
+                length: self.helix_length,
+            },
+        ];
+
+        let mut action_buttons: Vec<Button<'a, Message>> = self
+            .action_mode_state
+            .get_states(self.helix_length, self.helix_pos)
+            .into_iter()
+            .filter(|(m, _)| action_modes.contains(m))
+            .map(|(mode, state)| action_mode_btn(state, mode, action_mode, ui_size.button()))
+            .collect();
+
+        ret = ret.push(Text::new("Action Mode"));
+        while action_buttons.len() > 0 {
+            let mut row = Row::new();
+            row = row.push(action_buttons.remove(0)).spacing(5);
+            let mut space = ui_size.button() + 5;
+            while space + ui_size.button() < width && action_buttons.len() > 0 {
+                row = row.push(action_buttons.remove(0)).spacing(5);
+                space += ui_size.button() + 5;
+            }
+            ret = ret.push(row)
+        }
+
+        let mut inputs = self.builder_input.iter_mut();
+        let position_input = TextInput::new(
+            inputs.next().unwrap(),
+            "Position",
+            &self.pos_str,
+            Message::PositionHelicesChanged,
+        )
+        .style(BadValue(self.pos_str == self.helix_pos.to_string()));
+
+        let length_input = TextInput::new(
+            inputs.next().unwrap(),
+            "Length",
+            &self.length_str,
+            Message::LengthHelicesChanged,
+        )
+        .style(BadValue(self.length_str == self.helix_length.to_string()));
+
+        if let ActionMode::BuildHelix { .. } = action_mode {
+            ret = ret.push(
+                Checkbox::new(
+                    self.show_strand_menu,
+                    "Add double strand on helix",
+                    Message::AddDoubleStrandHelix,
+                )
+                .size(ui_size.checkbox()),
+            );
+            if self.show_strand_menu {
+                let row = Row::new()
+                    .push(
+                        Column::new()
+                            .push(Text::new("Position strand").color(Color::WHITE))
+                            .push(position_input)
+                            .width(Length::Units(width / 2)),
+                    )
+                    .push(
+                        Column::new()
+                            .push(Text::new("Length strands").color(Color::WHITE))
+                            .push(length_input),
+                    );
+                ret = ret.push(row);
+            }
+        }
+
+        ret = ret.push(iced::Space::with_height(Length::Units(5)));
 
         Scrollable::new(&mut self.scroll).push(ret).into()
     }
@@ -378,6 +361,10 @@ impl GridTab {
             length: self.helix_length,
             position: self.helix_pos,
         }
+    }
+
+    pub fn set_show_strand(&mut self, show: bool) {
+        self.show_strand_menu = show;
     }
 }
 

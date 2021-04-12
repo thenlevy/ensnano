@@ -265,7 +265,9 @@ impl ActionMode {
 
     pub fn icon_on(&self) -> Handle {
         let bytes = match self {
-            Self::BuildHelix { .. } => include_bytes!("../../icons/icons/NewHelix-on32.png").to_vec(),
+            Self::BuildHelix { .. } => {
+                include_bytes!("../../icons/icons/NewHelix-on32.png").to_vec()
+            }
             Self::Normal => include_bytes!("../../icons/icons/Select-on32.png").to_vec(),
             Self::Translate => include_bytes!("../../icons/icons/Move-on32.png").to_vec(),
             Self::Rotate => include_bytes!("../../icons/icons/Rotate-on32.png").to_vec(),
@@ -276,7 +278,9 @@ impl ActionMode {
 
     pub fn icon_off(&self) -> Handle {
         let bytes = match self {
-            Self::BuildHelix { .. } => include_bytes!("../../icons/icons/NewHelix-off32.png").to_vec(),
+            Self::BuildHelix { .. } => {
+                include_bytes!("../../icons/icons/NewHelix-off32.png").to_vec()
+            }
             Self::Normal => include_bytes!("../../icons/icons/Select-off32.png").to_vec(),
             Self::Translate => include_bytes!("../../icons/icons/Move-off32.png").to_vec(),
             Self::Rotate => include_bytes!("../../icons/icons/Rotate-off32.png").to_vec(),
