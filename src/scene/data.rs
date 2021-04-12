@@ -522,7 +522,7 @@ impl Data {
     }
 
     pub fn get_pivot_position(&self) -> Option<Vec3> {
-        self.pivot_position
+        self.pivot_position.or(self.selected_position)
     }
 
     /// Update the selection by selecting the group to which a given nucleotide belongs. Return the
