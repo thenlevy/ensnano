@@ -372,6 +372,13 @@ impl GridTab {
         self.hyperboloid_factory
             .update_request(value_id, value, request);
     }
+
+    pub fn get_build_helix_mode(&self) -> ActionMode {
+        ActionMode::BuildHelix {
+            length: self.helix_length,
+            position: self.helix_pos,
+        }
+    }
 }
 
 fn selection_mode_btn<'a>(

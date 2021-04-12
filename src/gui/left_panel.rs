@@ -262,7 +262,11 @@ impl Program for LeftPanel {
             }
             Message::HueChanged(x) => self.color_picker.change_hue(x),
             Message::Resized(size, position) => self.resize(size, position),
-            Message::NewGrid(grid_type) => self.requests.lock().unwrap().new_grid = Some(grid_type),
+            Message::NewGrid(grid_type) => {
+                self.requests.lock().unwrap().new_grid = Some(grid_type);
+                self.action_mode = self.grid_tab.get_build_helix_mode();
+                self.requests.lock().unwrap().action_mode = Some(self.action_mode);
+            }
             Message::RotateCam(xz, yz, xy) => {
                 self.camera_tab
                     .set_angles(xz as isize, yz as isize, xy as isize);
@@ -377,7 +381,15 @@ impl Program for LeftPanel {
                 self.simulation_tab.notify_helices_running(b);
                 self.simulation_tab.make_rigid_body_request(request);
             }
-            Message::TabSelected(n) => self.selected_tab = n,
+            Message::TabSelected(n) => {
+                if let ActionMode::BuildHelix { .. } = self.action_mode {
+                    if n != 0 {
+                        self.action_mode = ActionMode::Normal;
+                        self.requests.lock().unwrap().action_mode = Some(ActionMode::Normal);
+                    }
+                }
+                self.selected_tab = n;
+            }
             Message::NewDnaElement(elements) => self.organizer.update_elements(elements),
             Message::OrganizerMessage(m) => {
                 let next_message = self.organizer_message(m);
@@ -446,8 +458,8 @@ impl Program for LeftPanel {
         let width = self.logical_size.cast::<u16>().width;
         let tabs: Tabs<Message, Backend> = Tabs::new(self.selected_tab, Message::TabSelected)
             .push(
-                TabLabel::Text(format!("{}", icon_to_char(MaterialIcon::Edit))),
-                self.edition_tab.view(
+                TabLabel::Text(format!("{}", icon_to_char(MaterialIcon::GridOn))),
+                self.grid_tab.view(
                     self.action_mode,
                     self.selection_mode,
                     self.ui_size.clone(),
@@ -455,8 +467,8 @@ impl Program for LeftPanel {
                 ),
             )
             .push(
-                TabLabel::Text(format!("{}", icon_to_char(MaterialIcon::GridOn))),
-                self.grid_tab.view(
+                TabLabel::Text(format!("{}", icon_to_char(MaterialIcon::Edit))),
+                self.edition_tab.view(
                     self.action_mode,
                     self.selection_mode,
                     self.ui_size.clone(),
