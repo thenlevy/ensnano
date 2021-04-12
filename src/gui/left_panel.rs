@@ -494,6 +494,7 @@ impl Program for LeftPanel {
             .icon_font(ENSNANO_FONT)
             .icon_size(self.ui_size.icon())
             .tab_bar_height(Length::Units(self.ui_size.button()))
+            .tab_bar_style(TabStyle)
             .width(Length::Units(width))
             .height(Length::Fill);
         let contextual_menu = iced::Space::new(Length::Fill, Length::Fill);
@@ -1099,4 +1100,33 @@ fn use_default_scaffold(requests: Arc<Mutex<Requests>>) {
         KeepProceed::DefaultScaffold,
         Some(KeepProceed::CustomScaffold),
     )
+}
+
+#[derive(Clone, Copy, Debug)]
+struct TabStyle;
+
+impl iced_aw::style::tab_bar::StyleSheet for TabStyle {
+    fn active(&self, is_active: bool) -> iced_aw::style::tab_bar::Style {
+        iced_aw::style::tab_bar::Style {
+            background: None,
+            border_color: None,
+            border_width: 0.0,
+            tab_label_background: if is_active {
+                Background::Color([0.9, 0.9, 0.9].into())
+            } else {
+                Background::Color([0.6, 0.6, 0.6].into())
+            },
+            tab_label_border_color: [0.7, 0.7, 0.7].into(),
+            tab_label_border_width: 1.0,
+            icon_color: Color::BLACK,
+            text_color: Color::BLACK,
+        }
+    }
+
+    fn hovered(&self, is_active: bool) -> iced_aw::style::tab_bar::Style {
+        iced_aw::style::tab_bar::Style {
+            tab_label_background: Background::Color([0.9, 0.9, 0.9].into()),
+            ..self.active(is_active)
+        }
+    }
 }
