@@ -170,6 +170,8 @@ impl ControllerState for NormalState {
                                         clicked_position: position,
                                         mouse_position: position,
                                         click_date: Instant::now(),
+                                        adding: controller.current_modifiers.shift()
+                                            | ctrl(&controller.current_modifiers),
                                     })),
                                     consequences: Consequence::Nothing,
                                 }
@@ -181,6 +183,8 @@ impl ControllerState for NormalState {
                                     clicked_position: position,
                                     mouse_position: position,
                                     click_date: Instant::now(),
+                                    adding: controller.current_modifiers.shift()
+                                        | ctrl(&controller.current_modifiers),
                                 })),
                                 consequences: Consequence::Nothing,
                             }
@@ -214,6 +218,8 @@ impl ControllerState for NormalState {
                             clicked_position: position,
                             mouse_position: position,
                             click_date: Instant::now(),
+                            adding: controller.current_modifiers.shift()
+                                | ctrl(&controller.current_modifiers),
                         })),
                         consequences: Consequence::Nothing,
                     },
@@ -415,6 +421,7 @@ struct Selecting {
     clicked_position: PhysicalPosition<f64>,
     element: Option<SceneElement>,
     click_date: Instant,
+    adding: bool,
 }
 
 impl ControllerState for Selecting {
@@ -502,7 +509,7 @@ impl ControllerState for Selecting {
                 new_state: Some(Box::new(NormalState {
                     mouse_position: position,
                 })),
-                consequences: Consequence::ElementSelected(self.element),
+                consequences: Consequence::ElementSelected(self.element, self.adding),
             },
             _ => Transition::nothing(),
         }

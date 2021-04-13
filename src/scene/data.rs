@@ -561,6 +561,29 @@ impl Data {
         Some(selection)
     }
 
+    pub fn add_to_selection(&mut self, element: Option<SceneElement>) -> Option<Vec<Selection>> {
+        if let Some(SceneElement::WidgetElement(_)) = element {
+            return None;
+        }
+        self.sub_selection_mode = SelectionMode::Nucleotide;
+        let selection = if let Some(element) = element.as_ref() {
+            self.element_to_selection(element, self.selection_mode)
+        } else {
+            Selection::Nothing
+        };
+        if selection == Selection::Nothing {
+            None
+        } else {
+            if let Some(pos) = self.selection.iter().position(|x| *x == selection) {
+                self.selection.remove(pos);
+            } else {
+                self.selection.push(selection);
+            }
+            self.selection_update = true;
+            Some(self.selection.clone())
+        }
+    }
+
     /// This function must be called when the current movement ends.
     pub fn end_movement(&mut self) {
         self.update_selected_position()

@@ -60,7 +60,7 @@ pub enum Consequence {
     Redo,
     Candidate(Option<super::SceneElement>),
     PivotElement(Option<super::SceneElement>),
-    ElementSelected(Option<super::SceneElement>),
+    ElementSelected(Option<super::SceneElement>, bool),
     InitFreeXover(Nucl, usize, Vec3),
     MoveFreeXover(Option<super::SceneElement>, Vec3),
     EndFreeXover,

@@ -203,7 +203,13 @@ impl Scene {
             }
             Consequence::Candidate(element) => self.set_candidate(element),
             Consequence::PivotElement(element) => self.data.borrow_mut().set_pivot_element(element),
-            Consequence::ElementSelected(element) => self.select(element),
+            Consequence::ElementSelected(element, adding) => {
+                if adding {
+                    self.add_selection(element)
+                } else {
+                    self.select(element)
+                }
+            }
             Consequence::InitFreeXover(nucl, d_id, position) => {
                 self.data.borrow_mut().init_free_xover(nucl, position, d_id)
             }
@@ -314,6 +320,16 @@ impl Scene {
         let pivot = self.data.borrow().get_selected_position();
         self.view.borrow_mut().update(ViewUpdate::FogCenter(pivot));
         self.update_handle();
+    }
+
+    fn add_selection(&mut self, element: Option<SceneElement>) {
+        let selection = self.data.borrow_mut().add_to_selection(element);
+        if let Some(selection) = selection {
+            self.mediator
+                .lock()
+                .unwrap()
+                .notify_multiple_selection(selection, AppId::Scene);
+        }
     }
 
     fn attempt_paste(&mut self, element: Option<SceneElement>) {
