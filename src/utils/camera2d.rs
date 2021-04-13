@@ -112,6 +112,10 @@ impl Camera {
         self.end_movement();
     }
 
+    pub fn set_zoom(&mut self, zoom: f32) {
+        self.globals.zoom = zoom;
+    }
+
     /// Convert a *vector* in screen coordinate to a vector in world coordinate. (Does not apply
     /// the translation)
     fn transform_vec(&self, x: f32, y: f32) -> (f32, f32) {

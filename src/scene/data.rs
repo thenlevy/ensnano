@@ -569,6 +569,18 @@ impl Data {
         Some(selection)
     }
 
+    pub fn to_selection(&self, element: Option<SceneElement>) -> Option<Selection> {
+        if let Some(SceneElement::WidgetElement(_)) = element {
+            return None;
+        }
+        let selection = if let Some(element) = element.as_ref() {
+            self.element_to_selection(element, self.selection_mode)
+        } else {
+            Selection::Nothing
+        };
+        Some(selection).filter(|s| *s != Selection::Nothing)
+    }
+
     pub fn add_to_selection(&mut self, element: Option<SceneElement>) -> Option<Vec<Selection>> {
         if let Some(SceneElement::WidgetElement(_)) = element {
             return None;
@@ -761,7 +773,7 @@ impl Data {
         }
     }
 
-    fn element_to_selection(
+    pub fn element_to_selection(
         &self,
         element: &SceneElement,
         selection_mode: SelectionMode,
@@ -840,6 +852,19 @@ impl Data {
             .collect();
         self.selection_update |= self.selection != future_selection;
         self.selection = future_selection;
+        if selection.len() == 1 {
+            match selection[0] {
+                Selection::Nucleotide(d_id, nucl) => {
+                    self.selected_position = self.designs[d_id as usize].get_nucl_position(nucl);
+                }
+                Selection::Bound(d_id, n1, n2) => {
+                    let pos1 = self.designs[d_id as usize].get_nucl_position(n1);
+                    let pos2 = self.designs[d_id as usize].get_nucl_position(n2);
+                    self.selected_position = pos1.zip(pos2).map(|(a, b)| (a + b) / 2.);
+                }
+                _ => (),
+            }
+        }
     }
 
     /// Clear the set of candidates to a given nucleotide

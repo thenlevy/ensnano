@@ -5,7 +5,7 @@ use std::sync::{Arc, RwLock};
 use ultraviolet::Vec2;
 
 mod helix;
-pub use helix::{GpuVertex, Helix, HelixHandle, HelixModel};
+pub use helix::{GpuVertex, Helix, HelixHandle, HelixModel, Shift};
 mod strand;
 pub use strand::{FreeEnd, Strand, StrandVertex};
 mod design;

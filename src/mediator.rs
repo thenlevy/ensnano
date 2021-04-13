@@ -59,6 +59,7 @@ pub struct Mediator {
     redo_stack: Vec<Arc<dyn Operation>>,
     computing: Arc<Mutex<bool>>,
     centring: Option<(Nucl, usize)>,
+    center_selection: Option<(Selection, AppId)>,
     pasting: PastingMode,
     last_selected_design: usize,
     pasting_attempt: Option<Nucl>,
@@ -168,6 +169,7 @@ pub enum Notification {
     CameraTarget((Vec3, Vec3)),
     CameraRotation(f32, f32, f32),
     Centering(Nucl, usize),
+    CenterSelection(Selection, AppId),
     Pasting(bool),
     ShowTorsion(bool),
     ModifersChanged(ModifiersState),
@@ -206,6 +208,7 @@ impl Mediator {
             last_selection: None,
             computing,
             centring: None,
+            center_selection: None,
             pasting: PastingMode::Nothing,
             last_selected_design: 0,
             pasting_attempt: None,
@@ -740,6 +743,15 @@ impl Mediator {
             self.notify_apps(Notification::NewSelectionMode(SelectionMode::Nucleotide));
             self.notify_apps(Notification::Centering(centring.0, centring.1))
         }
+
+        if let Some(center_selection) = self.center_selection.take() {
+            ret = true;
+            self.notify_apps(Notification::CenterSelection(
+                center_selection.0,
+                center_selection.1,
+            ));
+        }
+
         if self.canceling_pasting {
             self.canceling_pasting = false;
             self.notify_apps(Notification::Pasting(false))
@@ -963,6 +975,10 @@ impl Mediator {
 
     pub fn request_centering(&mut self, nucl: Nucl, design_id: usize) {
         self.centring = Some((nucl, design_id))
+    }
+
+    pub fn request_center_selection(&mut self, selection: Selection, app_id: AppId) {
+        self.center_selection = Some((selection, app_id));
     }
 
     pub fn request_camera_rotation(&mut self, rotation: (f32, f32, f32)) {

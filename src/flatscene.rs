@@ -455,6 +455,19 @@ impl FlatScene {
             c.set_splited(self.splited);
         }
     }
+
+    fn split_and_center(&mut self, n1: FlatNucl, n2: FlatNucl) {
+        self.splited = true;
+        for v in self.view.iter_mut() {
+            v.borrow_mut().set_splited(self.splited);
+        }
+        for c in self.controller.iter_mut() {
+            c.set_splited(self.splited);
+        }
+        self.view[self.selected_design]
+            .borrow_mut()
+            .center_split(n1, n2);
+    }
 }
 
 impl Application for FlatScene {
@@ -478,9 +491,6 @@ impl Application for FlatScene {
                         .borrow_mut()
                         .set_selection(selection);
                     self.data[self.selected_design].borrow_mut().notify_update();
-                    self.view[self.selected_design]
-                        .borrow_mut()
-                        .center_selection();
                     let pivots = self.data[self.selected_design]
                         .borrow_mut()
                         .get_pivot_of_selected_helices(
@@ -522,6 +532,19 @@ impl Application for FlatScene {
                     .set_candidate(candidates),
             },
             Notification::Centering(_, _) => (),
+            Notification::CenterSelection(selection, app_id) => {
+                if app_id != AppId::FlatScene {
+                    self.data[self.selected_design]
+                        .borrow_mut()
+                        .set_selection(vec![selection]);
+                    let xover = self.view[self.selected_design]
+                        .borrow_mut()
+                        .center_selection();
+                    if let Some((n1, n2)) = xover {
+                        self.split_and_center(n1, n2);
+                    }
+                }
+            }
             Notification::CameraRotation(_, _, _) => (),
             Notification::ModifersChanged(modifiers) => {
                 for c in self.controller.iter_mut() {

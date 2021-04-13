@@ -74,6 +74,7 @@ pub enum Consequence {
     },
     PasteCandidate(Option<super::SceneElement>),
     Paste(Option<super::SceneElement>),
+    DoubleClick(Option<super::SceneElement>),
 }
 
 enum TransistionConsequence {

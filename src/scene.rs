@@ -246,6 +246,15 @@ impl Scene {
             }
             Consequence::PasteCandidate(element) => self.pasting_candidate(element),
             Consequence::Paste(element) => self.attempt_paste(element),
+            Consequence::DoubleClick(element) => {
+                let selection = self.data.borrow().to_selection(element);
+                if let Some(selection) = selection {
+                    self.mediator
+                        .lock()
+                        .unwrap()
+                        .request_center_selection(selection, AppId::Scene);
+                }
+            }
         };
     }
 
@@ -358,7 +367,10 @@ impl Scene {
         };
         self.view.borrow_mut().set_widget_candidate(widget);
         let selection = self.data.borrow().get_candidate();
-        self.mediator.lock().unwrap().set_candidate(None, selection, AppId::Scene);
+        self.mediator
+            .lock()
+            .unwrap()
+            .set_candidate(None, selection, AppId::Scene);
     }
 
     fn translate_selected_design(&mut self, translation: Vec3) {
@@ -677,6 +689,15 @@ impl Application for Scene {
                     self.data.borrow_mut().select_nucl(nucl, design_id);
                 }
                 self.notify(SceneNotification::CameraMoved);
+            }
+            Notification::CenterSelection(selection, app_id) => {
+                if app_id != AppId::Scene {
+                    self.data.borrow_mut().notify_selection(vec![selection]);
+                    if let Some(position) = self.data.borrow().get_selected_position() {
+                        self.controller.center_camera(position);
+                    }
+                    self.notify(SceneNotification::CameraMoved);
+                }
             }
             Notification::ShowTorsion(_) => (),
             Notification::Pasting(b) => self.controller.pasting = b,

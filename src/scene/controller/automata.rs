@@ -505,12 +505,69 @@ impl ControllerState for Selecting {
                 state: ElementState::Released,
                 button: MouseButton::Left,
                 ..
+            } => {
+                let now = Instant::now();
+                Transition {
+                    new_state: Some(Box::new(WaitDoubleClick {
+                        click_date: now,
+                        element: self.element.clone(),
+                        mouse_position: position,
+                    })),
+                    consequences: Consequence::ElementSelected(self.element, self.adding),
+                }
+            }
+            _ => Transition::nothing(),
+        }
+    }
+}
+
+struct WaitDoubleClick {
+    click_date: Instant,
+    element: Option<SceneElement>,
+    mouse_position: PhysicalPosition<f64>,
+}
+
+impl ControllerState for WaitDoubleClick {
+    fn check_timers(&mut self, _controller: &Controller) -> Transition {
+        let now = Instant::now();
+        if (now - self.click_date).as_millis() > 500 {
+            Transition {
+                new_state: Some(Box::new(NormalState {
+                    mouse_position: self.mouse_position,
+                })),
+                consequences: Consequence::Nothing,
+            }
+        } else {
+            Transition::nothing()
+        }
+    }
+
+    fn display(&self) -> Cow<'static, str> {
+        "Waiting Double Click".into()
+    }
+
+    fn input(
+        &mut self,
+        event: &WindowEvent,
+        position: PhysicalPosition<f64>,
+        _controller: &Controller,
+        _pixel_reader: &mut ElementSelector,
+    ) -> Transition {
+        match event {
+            WindowEvent::MouseInput {
+                button: MouseButton::Left,
+                state: ElementState::Released,
+                ..
             } => Transition {
                 new_state: Some(Box::new(NormalState {
-                    mouse_position: position,
+                    mouse_position: self.mouse_position,
                 })),
-                consequences: Consequence::ElementSelected(self.element, self.adding),
+                consequences: Consequence::DoubleClick(self.element.clone()),
             },
+            WindowEvent::CursorMoved { .. } => {
+                self.mouse_position = position;
+                Transition::nothing()
+            }
             _ => Transition::nothing(),
         }
     }

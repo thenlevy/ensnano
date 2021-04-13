@@ -1,4 +1,6 @@
-use super::data::{FlatTorsion, FreeEnd, GpuVertex, Helix, HelixModel, Strand, StrandVertex};
+use super::data::{
+    FlatTorsion, FreeEnd, GpuVertex, Helix, HelixModel, Shift, Strand, StrandVertex,
+};
 use super::{CameraPtr, FlatIdx, FlatNucl};
 use crate::utils::bindgroup_manager::{DynamicBindGroup, UniformBindGroup};
 use crate::utils::texture::Texture;
@@ -407,19 +409,47 @@ impl View {
         self.candidate_helices = selection;
     }
 
-    pub fn center_selection(&mut self) {
+    pub fn center_selection(&mut self) -> Option<(FlatNucl, FlatNucl)> {
         match self.selection {
-            FlatSelection::Bound(
+            FlatSelection::Bound(_, n1, n2) => {
+                self.helices[n1.helix].make_visible(n1.position, self.camera_top.clone());
+                let world_pos_1 = self.helices[n1.helix].get_nucl_position(&n1, Shift::No);
+                let world_pos_2 = self.helices[n2.helix].get_nucl_position(&n2, Shift::No);
+                let screen_pos_1 = self
+                    .camera_top
+                    .borrow()
+                    .world_to_norm_screen(world_pos_1.x, world_pos_1.y);
+                let screen_pos_2 = self
+                    .camera_top
+                    .borrow()
+                    .world_to_norm_screen(world_pos_2.x, world_pos_2.y);
+                if (screen_pos_1.0 - screen_pos_2.0) * (screen_pos_1.0 - screen_pos_2.0)
+                    + (screen_pos_1.1 - screen_pos_2.1) * (screen_pos_1.1 - screen_pos_2.1)
+                    > 0.25
+                {
+                    Some((n1, n2))
+                } else {
+                    None
+                }
+            }
+            FlatSelection::Nucleotide(
                 _,
                 FlatNucl {
                     helix, position, ..
                 },
-                _,
             ) => {
                 self.helices[helix].make_visible(position, self.camera_top.clone());
+                None
             }
-            _ => (),
+            _ => None,
         }
+    }
+
+    pub fn center_split(&mut self, n1: FlatNucl, n2: FlatNucl) {
+        let zoom = self.camera_top.borrow().get_globals().zoom;
+        self.camera_bottom.borrow_mut().set_zoom(zoom);
+        self.helices[n1.helix].make_visible(n1.position, self.camera_top.clone());
+        self.helices[n2.helix].make_visible(n2.position, self.camera_bottom.clone());
     }
 
     /// Center the top camera on a nucleotide
