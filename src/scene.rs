@@ -357,6 +357,8 @@ impl Scene {
             None
         };
         self.view.borrow_mut().set_widget_candidate(widget);
+        let selection = self.data.borrow().get_candidate();
+        self.mediator.lock().unwrap().set_candidate(None, selection, AppId::Scene);
     }
 
     fn translate_selected_design(&mut self, translation: Vec3) {

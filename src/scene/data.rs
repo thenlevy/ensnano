@@ -818,6 +818,10 @@ impl Data {
         self.candidate_element = element;
     }
 
+    pub fn get_candidate(&self) -> Vec<Selection> {
+        self.candidates.clone()
+    }
+
     pub fn notify_candidate(&mut self, candidate: Vec<Selection>) {
         let future_candidates = candidate
             .iter()

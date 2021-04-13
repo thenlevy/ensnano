@@ -824,16 +824,16 @@ impl View {
         }
         for h_id in self.selected_helices.iter() {
             if let Some(mut circle) = self.helices.get(h_id.0).and_then(|h| h.get_circle(camera)) {
-                circle.set_radius(circle.radius * 1.2);
-                circle.set_color(0xFF_000000);
+                circle.set_radius(circle.radius * 1.4);
+                circle.set_color(0xFF_FF0000);
                 circles.push(circle);
             }
         }
 
         for h_id in self.candidate_helices.iter() {
             if let Some(mut circle) = self.helices.get(h_id.0).and_then(|h| h.get_circle(camera)) {
-                circle.set_radius(circle.radius * 1.2);
-                circle.set_color(0xFF_999999);
+                circle.set_radius(circle.radius * 1.4);
+                circle.set_color(0xFF_00FF00);
                 circles.push(circle);
             }
         }
