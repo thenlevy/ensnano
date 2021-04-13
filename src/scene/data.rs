@@ -521,6 +521,14 @@ impl Data {
         self.selected_position
     }
 
+    pub fn try_update_pivot_position(&mut self) {
+        if self.pivot_element.is_none() {
+            self.pivot_element = self.selected_element;
+            self.update_pivot_position();
+            self.pivot_update = true;
+        }
+    }
+
     pub fn get_pivot_position(&self) -> Option<Vec3> {
         self.pivot_position.or(self.selected_position)
     }
@@ -571,6 +579,9 @@ impl Data {
         } else {
             Selection::Nothing
         };
+        if let Some(element) = element.clone() {
+            self.selected_element = Some(element);
+        }
         if selection == Selection::Nothing {
             None
         } else {

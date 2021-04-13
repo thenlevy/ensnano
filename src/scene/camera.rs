@@ -416,7 +416,7 @@ impl CameraController {
         if let Some(pivot) = self.pivot_point {
             self.rotate_camera_around(angle_xz, angle_yz, pivot);
         } else {
-            self.rotate_camera(angle_xz, angle_yz, None);
+            self.small_rotate_camera(angle_xz, angle_yz, None);
         }
     }
 
@@ -459,6 +459,20 @@ impl CameraController {
             self.cam0.position = new_pos;
         }
         self.cam0.rotor = self.camera.borrow().rotor;
+    }
+
+    fn small_rotate_camera(&mut self, angle_xz: f32, angle_yz: f32, pivot: Option<Vec3>) {
+        let dist = pivot.map(|p| (self.camera.borrow().position - p).mag());
+        let rotation = Rotor3::from_rotation_yz(angle_yz) * Rotor3::from_rotation_xz(angle_xz);
+
+        // and we apply this rotation to the camera
+        let new_rotor = rotation * self.cam0.rotor;
+        self.camera.borrow_mut().rotor = new_rotor;
+        if let Some(dist) = dist {
+            let new_pos = pivot.unwrap() - dist * self.camera.borrow().direction();
+            self.camera.borrow_mut().position = new_pos;
+            self.cam0.position = new_pos;
+        }
     }
 
     pub fn rotate_camera(&mut self, angle_xz: f32, angle_yz: f32, pivot: Option<Vec3>) {
