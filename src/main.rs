@@ -644,6 +644,15 @@ fn main() {
                         mediator.lock().unwrap().split_2d();
                         requests.split2d = false;
                     }
+
+                    if requests.all_visible {
+                        mediator.lock().unwrap().make_everything_visible();
+                        requests.all_visible = false;
+                    }
+
+                    if let Some(b) = requests.toggle_visibility.take() {
+                        mediator.lock().unwrap().toggle_visibility(b);
+                    }
                 }
 
                 if let Some(d_id) = download_stapples {

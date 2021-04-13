@@ -7,7 +7,7 @@ use std::sync::{Arc, Mutex, RwLock};
 use ultraviolet::{Mat4, Vec3};
 
 use crate::mediator;
-use mediator::AppNotification;
+use mediator::{Selection, AppNotification};
 
 mod controller;
 mod data;
@@ -922,7 +922,16 @@ impl Design {
     pub fn get_organizer_tree(&self) -> Option<OrganizerTree<DnaElementKey>> {
         self.data.lock().unwrap().get_organizer_tree()
     }
+
+    pub fn clear_visibility_sive(&mut self) {
+        self.data.lock().unwrap().clear_visibility_sive()
+    }
+
+    pub fn set_visibility_sieve(&mut self, selection: Vec<Selection>, compl: bool) {
+        self.data.lock().unwrap().set_visibility_sieve(selection, compl)
+    }
 }
+
 
 #[derive(Clone)]
 pub struct DesignNotification {

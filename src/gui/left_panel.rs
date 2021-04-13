@@ -134,6 +134,8 @@ pub enum Message {
     ToggleText(bool),
     CleanRequested,
     AddDoubleStrandHelix(bool),
+    ToggleVisibility(bool),
+    AllVisible,
 }
 
 impl LeftPanel {
@@ -465,6 +467,8 @@ impl Program for LeftPanel {
             }
             Message::CleanRequested => self.requests.lock().unwrap().clean_requests = true,
             Message::AddDoubleStrandHelix(b) => self.grid_tab.set_show_strand(b),
+            Message::ToggleVisibility(b) => self.requests.lock().unwrap().toggle_visibility = Some(b), 
+            Message::AllVisible => self.requests.lock().unwrap().all_visible = true,
         };
         Command::none()
     }

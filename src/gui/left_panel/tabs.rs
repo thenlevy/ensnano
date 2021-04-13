@@ -412,6 +412,9 @@ pub(super) struct CameraTab {
     xy: isize,
     fog: FogParameters,
     scroll: scrollable::State,
+    selection_visibility_btn: button::State,
+    compl_visibility_btn: button::State,
+    all_visible_btn: button::State,
 }
 
 impl CameraTab {
@@ -424,6 +427,9 @@ impl CameraTab {
             yz: 0,
             xy: 0,
             scroll: Default::default(),
+            selection_visibility_btn: Default::default(),
+            compl_visibility_btn: Default::default(),
+            all_visible_btn: Default::default(),
         }
     }
 
@@ -482,6 +488,9 @@ impl CameraTab {
             }
             ret = ret.spacing(5).push(row)
         }
+        ret = ret.push(text_btn(&mut self.selection_visibility_btn, "Toggle Selected Visibility", ui_size.clone()).on_press(Message::ToggleVisibility(false)));
+        ret = ret.push(text_btn(&mut self.compl_visibility_btn, "Toggle NonSelected Visibility", ui_size.clone()).on_press(Message::ToggleVisibility(true)));
+        ret = ret.push(text_btn(&mut self.all_visible_btn, "Everything visible", ui_size.clone()).on_press(Message::AllVisible));
         ret = ret.push(self.fog.view(&ui_size));
 
         Scrollable::new(&mut self.scroll).push(ret).into()

@@ -1220,6 +1220,18 @@ impl Mediator {
     pub fn split_2d(&mut self) {
         self.notify_apps(Notification::Split2d)
     }
+
+    pub fn make_everything_visible(&mut self) {
+        if let Some(d) = self.designs.get_mut(0) {
+            d.write().unwrap().clear_visibility_sive();
+        }
+    }
+
+    pub fn toggle_visibility(&mut self, compl: bool) {
+        if let Some(d) = self.designs.get_mut(0) {
+            d.write().unwrap().set_visibility_sieve(self.selection.clone(), compl)
+        }
+    }
 }
 
 #[derive(Debug, Clone)]

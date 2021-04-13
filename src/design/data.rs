@@ -48,6 +48,7 @@ use strand_builder::NeighbourDescriptor;
 pub use strand_builder::{DomainIdentifier, StrandBuilder};
 use strand_template::{TemplateManager, XoverCopyManager};
 pub use torsion::Torsion;
+use crate::mediator::Selection;
 
 pub type StrandState = BTreeMap<usize, Strand>;
 
@@ -109,6 +110,8 @@ pub struct Data {
     anchors: HashSet<Nucl>,
     rigid_helix_simulator: Option<rigid_body::RigidHelixSimulator>,
     elements_update: Option<Vec<DnaElement>>,
+    visible: HashMap<Nucl, bool>,
+    visibility_sieve: Option<VisibilitySieve>,
 }
 
 impl fmt::Debug for Data {
@@ -158,6 +161,8 @@ impl Data {
             anchors: HashSet::new(),
             rigid_helix_simulator: None,
             elements_update: None,
+            visible: Default::default(),
+            visibility_sieve: None,
         }
     }
 
@@ -365,6 +370,8 @@ impl Data {
             rigid_helix_simulator: None,
             anchors,
             elements_update: None,
+            visible: Default::default(),
+            visibility_sieve: None,
         };
         ret.make_hash_maps();
         ret.terminate_movement();
@@ -522,6 +529,7 @@ impl Data {
         drop(groups);
         self.read_scaffold_seq(self.design.scaffold_shift.unwrap_or(0));
         self.elements_update = Some(elements);
+        self.update_visibility();
     }
 
     fn read_scaffold_seq(&mut self, shift: usize) {
@@ -811,7 +819,7 @@ impl Data {
     pub fn get_all_visible_nucl_ids(&self) -> Vec<u32> {
         self.nucleotide
             .iter()
-            .filter(|(_, n)| self.get_visibility_helix(n.helix).unwrap_or(false))
+            .filter(|(_, n)| self.is_visible(*n))
             .map(|(k, _)| *k)
             .collect()
     }
@@ -827,8 +835,8 @@ impl Data {
         self.nucleotides_involved
             .iter()
             .filter(|(_, b)| {
-                self.get_visibility_helix(b.0.helix).unwrap_or(false)
-                    || self.get_visibility_helix(b.1.helix).unwrap_or(false)
+                self.is_visible(&b.0)
+                    && self.is_visible(&b.1)
             })
             .map(|(k, _)| *k)
             .collect()
@@ -2605,6 +2613,83 @@ impl Data {
     pub fn update_organizer_tree(&mut self, tree: OrganizerTree<DnaElementKey>) {
         self.design.organizer_tree = Some(tree)
     }
+
+    fn is_in_selection(&self, nucl: &Nucl, selection: &[Selection]) -> bool {
+        let strand_nucl = self.get_strand_nucl(nucl);
+        for s in selection.iter() {
+            match s {
+                Selection::Bound(_, n1, n2) => {
+                    if n1 == nucl || n2 == nucl {
+                        return true
+                    }
+                }
+                Selection::Nucleotide(_, n) => {
+                    if n == nucl {
+                        return true
+                    }
+                }
+                Selection::Strand(_, s_id) => {
+                    if strand_nucl == Some(*s_id as usize) {
+                        return true
+                    }
+                }
+                Selection::Helix(_, h_id) => {
+                    if nucl.helix == *h_id as usize {
+                        return true
+                    }
+                }
+                _ => ()
+            }
+        }
+        false
+    }
+
+    fn update_visibility(&mut self) {
+        if let Some(VisibilitySieve {
+            selection,
+            compl,
+            visible
+        }) = &self.visibility_sieve {
+            for nucl in self.nucleotide.values() {
+                if self.is_in_selection(nucl, selection) != *compl {
+                    self.visible.insert(*nucl, *visible);
+                }
+            }
+        } else {
+            self.visible = HashMap::new();
+        }
+        self.update_status = true;
+    }
+
+    pub fn set_visibility_sieve(&mut self, selection: Vec<Selection>, compl: bool) {
+        let visible = !self.whole_selection_is_visible(&selection, compl);
+        self.visibility_sieve = Some(VisibilitySieve {
+            selection,
+            visible,
+            compl
+        });
+        self.update_visibility();
+    }
+
+    pub fn clear_visibility_sive(&mut self) {
+        self.visibility_sieve = None;
+        self.update_visibility();
+    }
+
+    fn whole_selection_is_visible(&self, selection: &[Selection], compl: bool) -> bool {
+        for nucl in self.nucleotide.values() {
+            if self.is_in_selection(nucl, selection) != compl {
+                if !self.is_visible(nucl) {
+                    return false
+                }
+            }
+        }
+        true
+    }
+
+    pub fn is_visible(&self, nucl: &Nucl) -> bool {
+        *self.visible.get(nucl).unwrap_or(&true)
+    }
 }
 
 fn compl(c: Option<char>) -> Option<char> {
@@ -2726,4 +2811,10 @@ fn backup_name(path: &PathBuf) -> PathBuf {
     file_name.set_file_name(format!("{}.json", stem));
     println!("backup name {:?}", file_name);
     file_name
+}
+
+struct VisibilitySieve {
+    selection: Vec<Selection>,
+    compl: bool,
+    visible: bool,
 }

@@ -105,6 +105,8 @@ pub struct Requests {
     pub new_ui_size: Option<UiSize>,
     pub oxdna: bool,
     pub split2d: bool,
+    pub toggle_visibility: Option<bool>,
+    pub all_visible: bool,
 }
 
 pub enum KeepProceed {
@@ -169,6 +171,8 @@ impl Requests {
             new_ui_size: None,
             oxdna: false,
             split2d: false,
+            toggle_visibility: None,
+            all_visible: false,
         }
     }
 }
