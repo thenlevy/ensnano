@@ -771,14 +771,23 @@ impl ControllerState for ReleasedPivot {
                 if *state == ElementState::Released {
                     return Transition::nothing();
                 }
-                Transition {
-                    new_state: Some(Box::new(Rotating::new(
-                        self.translation_pivots.clone(),
-                        self.rotation_pivots.clone(),
-                        self.mouse_position,
-                        self.mouse_position,
-                    ))),
-                    consequences: Consequence::Nothing,
+                if self.translation_pivots.len() > 0 {
+                    Transition {
+                        new_state: Some(Box::new(Rotating::new(
+                            self.translation_pivots.clone(),
+                            self.rotation_pivots.clone(),
+                            self.mouse_position,
+                            self.mouse_position,
+                        ))),
+                        consequences: Consequence::Nothing,
+                    }
+                } else {
+                    Transition {
+                        new_state: Some(Box::new(NormalState {
+                            mouse_position: self.mouse_position,
+                        })),
+                        consequences: Consequence::Nothing,
+                    }
                 }
             }
             WindowEvent::MouseInput {
@@ -900,14 +909,23 @@ impl ControllerState for LeavingPivot {
                 if *state == ElementState::Released {
                     return Transition::nothing();
                 }
-                Transition {
-                    new_state: Some(Box::new(Rotating::new(
-                        self.translation_pivots.clone(),
-                        self.rotation_pivots.clone(),
-                        self.mouse_position,
-                        self.mouse_position,
-                    ))),
-                    consequences: Consequence::Nothing,
+                if self.translation_pivots.len() > 0 {
+                    Transition {
+                        new_state: Some(Box::new(Rotating::new(
+                            self.translation_pivots.clone(),
+                            self.rotation_pivots.clone(),
+                            self.mouse_position,
+                            self.mouse_position,
+                        ))),
+                        consequences: Consequence::Nothing,
+                    }
+                } else {
+                    Transition {
+                        new_state: Some(Box::new(NormalState {
+                            mouse_position: self.mouse_position,
+                        })),
+                        consequences: Consequence::Nothing,
+                    }
                 }
             }
             WindowEvent::CursorMoved { .. } => {

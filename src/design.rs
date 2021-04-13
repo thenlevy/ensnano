@@ -7,7 +7,7 @@ use std::sync::{Arc, Mutex, RwLock};
 use ultraviolet::{Mat4, Vec3};
 
 use crate::mediator;
-use mediator::{Selection, AppNotification};
+use mediator::{AppNotification, Selection};
 
 mod controller;
 mod data;
@@ -928,10 +928,12 @@ impl Design {
     }
 
     pub fn set_visibility_sieve(&mut self, selection: Vec<Selection>, compl: bool) {
-        self.data.lock().unwrap().set_visibility_sieve(selection, compl)
+        self.data
+            .lock()
+            .unwrap()
+            .set_visibility_sieve(selection, compl)
     }
 }
-
 
 #[derive(Clone)]
 pub struct DesignNotification {

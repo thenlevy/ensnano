@@ -1229,7 +1229,9 @@ impl Mediator {
 
     pub fn toggle_visibility(&mut self, compl: bool) {
         if let Some(d) = self.designs.get_mut(0) {
-            d.write().unwrap().set_visibility_sieve(self.selection.clone(), compl)
+            d.write()
+                .unwrap()
+                .set_visibility_sieve(self.selection.clone(), compl)
         }
     }
 }

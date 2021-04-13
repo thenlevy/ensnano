@@ -488,9 +488,30 @@ impl CameraTab {
             }
             ret = ret.spacing(5).push(row)
         }
-        ret = ret.push(text_btn(&mut self.selection_visibility_btn, "Toggle Selected Visibility", ui_size.clone()).on_press(Message::ToggleVisibility(false)));
-        ret = ret.push(text_btn(&mut self.compl_visibility_btn, "Toggle NonSelected Visibility", ui_size.clone()).on_press(Message::ToggleVisibility(true)));
-        ret = ret.push(text_btn(&mut self.all_visible_btn, "Everything visible", ui_size.clone()).on_press(Message::AllVisible));
+        ret = ret.push(
+            text_btn(
+                &mut self.selection_visibility_btn,
+                "Toggle Selected Visibility",
+                ui_size.clone(),
+            )
+            .on_press(Message::ToggleVisibility(false)),
+        );
+        ret = ret.push(
+            text_btn(
+                &mut self.compl_visibility_btn,
+                "Toggle NonSelected Visibility",
+                ui_size.clone(),
+            )
+            .on_press(Message::ToggleVisibility(true)),
+        );
+        ret = ret.push(
+            text_btn(
+                &mut self.all_visible_btn,
+                "Everything visible",
+                ui_size.clone(),
+            )
+            .on_press(Message::AllVisible),
+        );
         ret = ret.push(self.fog.view(&ui_size));
 
         Scrollable::new(&mut self.scroll).push(ret).into()

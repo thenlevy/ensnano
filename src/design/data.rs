@@ -33,6 +33,7 @@ mod strand_builder;
 mod strand_template;
 mod torsion;
 use super::utils::*;
+use crate::mediator::Selection;
 use crate::scene::GridInstance;
 use crate::utils::{message, new_color};
 pub use elements::*;
@@ -48,7 +49,6 @@ use strand_builder::NeighbourDescriptor;
 pub use strand_builder::{DomainIdentifier, StrandBuilder};
 use strand_template::{TemplateManager, XoverCopyManager};
 pub use torsion::Torsion;
-use crate::mediator::Selection;
 
 pub type StrandState = BTreeMap<usize, Strand>;
 
@@ -834,10 +834,7 @@ impl Data {
     pub fn get_all_visible_bound_ids(&self) -> Vec<u32> {
         self.nucleotides_involved
             .iter()
-            .filter(|(_, b)| {
-                self.is_visible(&b.0)
-                    && self.is_visible(&b.1)
-            })
+            .filter(|(_, b)| self.is_visible(&b.0) && self.is_visible(&b.1))
             .map(|(k, _)| *k)
             .collect()
     }
@@ -2620,25 +2617,25 @@ impl Data {
             match s {
                 Selection::Bound(_, n1, n2) => {
                     if n1 == nucl || n2 == nucl {
-                        return true
+                        return true;
                     }
                 }
                 Selection::Nucleotide(_, n) => {
                     if n == nucl {
-                        return true
+                        return true;
                     }
                 }
                 Selection::Strand(_, s_id) => {
                     if strand_nucl == Some(*s_id as usize) {
-                        return true
+                        return true;
                     }
                 }
                 Selection::Helix(_, h_id) => {
                     if nucl.helix == *h_id as usize {
-                        return true
+                        return true;
                     }
                 }
-                _ => ()
+                _ => (),
             }
         }
         false
@@ -2648,8 +2645,9 @@ impl Data {
         if let Some(VisibilitySieve {
             selection,
             compl,
-            visible
-        }) = &self.visibility_sieve {
+            visible,
+        }) = &self.visibility_sieve
+        {
             for nucl in self.nucleotide.values() {
                 if self.is_in_selection(nucl, selection) != *compl {
                     self.visible.insert(*nucl, *visible);
@@ -2666,7 +2664,7 @@ impl Data {
         self.visibility_sieve = Some(VisibilitySieve {
             selection,
             visible,
-            compl
+            compl,
         });
         self.update_visibility();
     }
@@ -2680,7 +2678,7 @@ impl Data {
         for nucl in self.nucleotide.values() {
             if self.is_in_selection(nucl, selection) != compl {
                 if !self.is_visible(nucl) {
-                    return false
+                    return false;
                 }
             }
         }
