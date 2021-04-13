@@ -204,7 +204,9 @@ impl LeftPanel {
     }
 
     pub fn has_keyboard_priority(&self) -> bool {
-        self.sequence_input.has_keyboard_priority() || self.grid_tab.has_keyboard_priority() || self.organizer.has_keyboard_priority()
+        self.sequence_input.has_keyboard_priority()
+            || self.grid_tab.has_keyboard_priority()
+            || self.organizer.has_keyboard_priority()
     }
 }
 
@@ -743,56 +745,20 @@ fn target_message(i: usize) -> Message {
     }
 }
 
-fn rotation_message(i: usize, xz: isize, yz: isize, xy: isize) -> Message {
+fn rotation_message(i: usize, _xz: isize, _yz: isize, _xy: isize) -> Message {
     let angle_xz = match i {
-        0 => {
-            if xz % 90 == 30 || xz % 90 == 45 {
-                15f32.to_radians()
-            } else {
-                30f32.to_radians()
-            }
-        }
-        1 => {
-            if xz % 90 == 60 || xz % 90 == 45 {
-                -15f32.to_radians()
-            } else {
-                -30f32.to_radians()
-            }
-        }
+        0 => 15f32.to_radians(),
+        1 => -15f32.to_radians(),
         _ => 0f32,
     };
     let angle_yz = match i {
-        2 => {
-            if yz % 90 == 30 || yz % 90 == 45 {
-                -15f32.to_radians()
-            } else {
-                -30f32.to_radians()
-            }
-        }
-        3 => {
-            if yz % 90 == 60 || yz % 90 == 45 {
-                15f32.to_radians()
-            } else {
-                30f32.to_radians()
-            }
-        }
+        2 => -15f32.to_radians(),
+        3 => 15f32.to_radians(),
         _ => 0f32,
     };
     let angle_xy = match i {
-        4 => {
-            if xy % 90 == 30 || xy % 90 == 45 {
-                15f32.to_radians()
-            } else {
-                30f32.to_radians()
-            }
-        }
-        5 => {
-            if xy % 90 == 60 || xy % 90 == 45 {
-                -15f32.to_radians()
-            } else {
-                -30f32.to_radians()
-            }
-        }
+        4 => 15f32.to_radians(),
+        5 => -15f32.to_radians(),
         _ => 0f32,
     };
     Message::RotateCam(angle_xz, angle_yz, angle_xy)
