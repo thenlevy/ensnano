@@ -391,10 +391,10 @@ fn main() {
                             if let Some(stem) = path.file_stem().and_then(|s| s.to_str()) {
                                 window.set_title(&format!("ENSnano {}", stem))
                             }
+                            messages.lock().unwrap().notify_new_design();
                             if let Some(tree) = design.get_organizer_tree() {
                                 messages.lock().unwrap().push_new_tree(tree)
                             }
-                            messages.lock().unwrap().notify_new_design();
                             mediator.lock().unwrap().clear_designs();
                             let design = Arc::new(RwLock::new(design));
                             mediator.lock().unwrap().add_design(design);

@@ -145,6 +145,8 @@ impl LeftPanel {
         dialoging: Arc<Mutex<bool>>,
     ) -> Self {
         let selected_tab = if first_time { 0 } else { 5 };
+        let mut organizer = Organizer::new();
+        organizer.set_width(logical_size.width as u16);
         Self {
             selection_mode: Default::default(),
             action_mode: Default::default(),
@@ -156,7 +158,7 @@ impl LeftPanel {
             color_picker: ColorPicker::new(),
             show_torsion: false,
             selected_tab,
-            organizer: Organizer::new(),
+            organizer,
             ui_size: UiSize::Small,
             grid_tab: GridTab::new(),
             edition_tab: EditionTab::new(),
@@ -175,6 +177,7 @@ impl LeftPanel {
     ) {
         self.logical_size = logical_size;
         self.logical_position = logical_position;
+        self.organizer.set_width(logical_size.width as u16);
     }
 
     fn organizer_message(&mut self, m: OrganizerMessage<DnaElement>) -> Option<Message> {
@@ -201,7 +204,7 @@ impl LeftPanel {
     }
 
     pub fn has_keyboard_priority(&self) -> bool {
-        self.sequence_input.has_keyboard_priority() || self.grid_tab.has_keyboard_priority()
+        self.sequence_input.has_keyboard_priority() || self.grid_tab.has_keyboard_priority() || self.organizer.has_keyboard_priority()
     }
 }
 
@@ -318,6 +321,7 @@ impl Program for LeftPanel {
                 self.show_torsion = false;
                 self.camera_tab.notify_new_design();
                 self.simulation_tab.notify_new_design();
+                self.organizer.reset();
             }
             Message::SimRoll(b) => {
                 self.simulation_tab.set_roll(b);
