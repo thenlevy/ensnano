@@ -321,6 +321,7 @@ impl Multiplexer {
     pub fn check_scale_factor(&mut self, window: &crate::Window) -> bool {
         if self.scale_factor != window.scale_factor() {
             self.scale_factor = window.scale_factor();
+            self.window_size = window.inner_size();
             self.resize(self.window_size, self.scale_factor);
 
             if self.window_size.width > 0 && self.window_size.height > 0 {

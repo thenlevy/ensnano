@@ -730,6 +730,7 @@ fn main() {
                 }
                 scale_factor_changed |= multiplexer.check_scale_factor(&window);
                 if scale_factor_changed {
+                    multiplexer.generate_textures();
                     gui.notify_scale_factor_change(&window, &multiplexer);
                     println!("lolz");
                     scheduler
