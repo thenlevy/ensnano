@@ -403,6 +403,7 @@ impl Multiplexer {
                 self.scale_factor = *scale_factor;
                 self.resize(self.window_size, self.scale_factor);
                 *resized = true;
+                *scale_factor_changed = true;
                 if self.window_size.width > 0 && self.window_size.height > 0 {
                     self.generate_textures();
                 }
