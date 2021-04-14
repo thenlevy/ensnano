@@ -679,6 +679,23 @@ impl Data {
         }
     }
 
+    pub fn double_click_to_selection(&self, click_result: ClickResult) -> Option<Selection> {
+        match click_result {
+            ClickResult::CircleWidget { .. } => None,
+            ClickResult::Nucl(nucl) => {
+                if let Some(xover) = self.xover_containing_nucl(&nucl) {
+                    let selection = Selection::Bound(self.id, xover.0.to_real(), xover.1.to_real());
+                    Some(selection)
+                } else {
+                    let selection = Selection::Nucleotide(self.id, nucl.to_real());
+                    Some(selection)
+                }
+            }
+            ClickResult::HelixHandle { .. } => None,
+            ClickResult::Nothing => None,
+        }
+    }
+
     pub fn add_selection(&mut self, click_result: ClickResult) {
         match click_result {
             ClickResult::CircleWidget { translation_pivot } => {

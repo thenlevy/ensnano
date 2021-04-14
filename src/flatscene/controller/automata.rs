@@ -3,6 +3,7 @@ use super::super::view::CircleInstance;
 use super::super::{FlatHelix, FlatNucl};
 use super::*;
 use crate::design::StrandBuilder;
+use std::time::Instant;
 
 const WHEEL_RADIUS: f32 = 1.5;
 use crate::consts::*;
@@ -42,6 +43,10 @@ pub trait ControllerState {
     fn transition_from(&self, controller: &Controller) -> ();
 
     fn transition_to(&self, controller: &Controller) -> ();
+
+    fn check_timers(&mut self, _controller: &Controller) -> Transition {
+        Transition::nothing()
+    }
 }
 
 pub struct NormalState {
@@ -2500,16 +2505,13 @@ impl ControllerState for AddClick {
                         }
                     }
                 } else {
-                    let consequences = if click == self.click_result {
-                        Consequence::AddClick(click)
-                    } else {
-                        Consequence::Nothing
-                    };
                     Transition {
-                        new_state: Some(Box::new(NormalState {
+                        new_state: Some(Box::new(DoubleClicking {
                             mouse_position: self.mouse_position,
+                            click_result: self.click_result.clone(),
+                            clicked_time: Instant::now(),
                         })),
-                        consequences,
+                        consequences: Consequence::Nothing,
                     }
                 }
             }
@@ -2530,6 +2532,82 @@ impl ControllerState for AddClick {
             }
             _ => Transition::nothing(),
         }
+    }
+}
+
+struct DoubleClicking {
+    clicked_time: Instant,
+    click_result: ClickResult,
+    mouse_position: PhysicalPosition<f64>,
+}
+
+impl ControllerState for DoubleClicking {
+    fn check_timers(&mut self, _controller: &Controller) -> Transition {
+        let now = Instant::now();
+        if (now - self.clicked_time).as_millis() > 250 {
+            Transition {
+                new_state: Some(Box::new(NormalState {
+                    mouse_position: self.mouse_position,
+                })),
+                consequences: Consequence::AddClick(self.click_result.clone()),
+            }
+        } else {
+            Transition::nothing()
+        }
+    }
+
+    fn display(&self) -> String {
+        "Waiting Double Click".to_owned()
+    }
+
+    fn input(
+        &mut self,
+        event: &WindowEvent,
+        position: PhysicalPosition<f64>,
+        controller: &Controller,
+    ) -> Transition {
+        match event {
+            WindowEvent::MouseInput {
+                button: MouseButton::Left,
+                state: ElementState::Released,
+                ..
+            } => {
+                let (x, y) = controller
+                    .get_camera(position.y)
+                    .borrow()
+                    .screen_to_world(self.mouse_position.x as f32, self.mouse_position.y as f32);
+                let click =
+                    controller
+                        .data
+                        .borrow()
+                        .get_click(x, y, &controller.get_camera(position.y));
+                let consequences = if click == self.click_result {
+                    Consequence::DoubleClick(click)
+                } else {
+                    Consequence::Nothing
+                };
+
+                Transition {
+                    new_state: Some(Box::new(NormalState {
+                        mouse_position: self.mouse_position,
+                    })),
+                    consequences,
+                }
+            }
+            WindowEvent::CursorMoved { .. } => {
+                self.mouse_position = position;
+                Transition::nothing()
+            }
+            _ => Transition::nothing(),
+        }
+    }
+
+    fn transition_from(&self, _controller: &Controller) {
+        ()
+    }
+
+    fn transition_to(&self, _controller: &Controller) {
+        ()
     }
 }
 

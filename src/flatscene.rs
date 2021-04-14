@@ -162,267 +162,287 @@ impl FlatScene {
     fn input(&mut self, event: &WindowEvent, cursor_position: PhysicalPosition<f64>) {
         if let Some(controller) = self.controller.get_mut(self.selected_design) {
             let consequence = controller.input(event, cursor_position);
-            use controller::Consequence;
-            match consequence {
-                Consequence::Xover(nucl1, nucl2) => {
-                    let (prime5_id, prime3_id) =
-                        self.data[self.selected_design].borrow().xover(nucl1, nucl2);
-                    let strand_5prime = self.data[self.selected_design]
+            self.read_consequence(consequence);
+        }
+    }
+
+    fn read_consequence(&mut self, consequence: controller::Consequence) {
+        use controller::Consequence;
+        match consequence {
+            Consequence::Xover(nucl1, nucl2) => {
+                let (prime5_id, prime3_id) =
+                    self.data[self.selected_design].borrow().xover(nucl1, nucl2);
+                let strand_5prime = self.data[self.selected_design]
+                    .borrow()
+                    .get_strand(prime5_id)
+                    .unwrap();
+                let strand_3prime = self.data[self.selected_design]
+                    .borrow()
+                    .get_strand(prime3_id)
+                    .unwrap();
+                self.mediator
+                    .lock()
+                    .unwrap()
+                    .update_opperation(Arc::new(Xover {
+                        strand_3prime,
+                        strand_5prime,
+                        prime3_id,
+                        prime5_id,
+                        undo: false,
+                        design_id: self.selected_design,
+                    }))
+            }
+            Consequence::Cut(nucl) => {
+                let strand_id = self.data[self.selected_design].borrow().get_strand_id(nucl);
+                if let Some(strand_id) = strand_id {
+                    println!("cutting");
+                    let strand = self.data[self.selected_design]
                         .borrow()
-                        .get_strand(prime5_id)
+                        .get_strand(strand_id)
                         .unwrap();
-                    let strand_3prime = self.data[self.selected_design]
-                        .borrow()
-                        .get_strand(prime3_id)
-                        .unwrap();
-                    self.mediator
-                        .lock()
-                        .unwrap()
-                        .update_opperation(Arc::new(Xover {
-                            strand_3prime,
-                            strand_5prime,
-                            prime3_id,
-                            prime5_id,
-                            undo: false,
-                            design_id: self.selected_design,
-                        }))
-                }
-                Consequence::Cut(nucl) => {
-                    let strand_id = self.data[self.selected_design].borrow().get_strand_id(nucl);
-                    if let Some(strand_id) = strand_id {
-                        println!("cutting");
-                        let strand = self.data[self.selected_design]
-                            .borrow()
-                            .get_strand(strand_id)
-                            .unwrap();
-                        let nucl = nucl.to_real();
-                        self.mediator
-                            .lock()
-                            .unwrap()
-                            .update_opperation(Arc::new(Cut {
-                                nucl,
-                                strand_id,
-                                strand,
-                                undo: false,
-                                design_id: self.selected_design,
-                            }))
-                    }
-                }
-                Consequence::FreeEnd(free_end) => self.data[self.selected_design]
-                    .borrow_mut()
-                    .set_free_end(free_end),
-                Consequence::CutFreeEnd(nucl, free_end) => {
-                    let strand_id = self.data[self.selected_design].borrow().get_strand_id(nucl);
-                    if let Some(strand_id) = strand_id {
-                        println!("cutting");
-                        let strand = self.data[self.selected_design]
-                            .borrow()
-                            .get_strand(strand_id)
-                            .unwrap();
-                        let nucl = nucl.to_real();
-                        self.mediator
-                            .lock()
-                            .unwrap()
-                            .update_opperation(Arc::new(Cut {
-                                nucl,
-                                strand_id,
-                                strand,
-                                undo: false,
-                                design_id: self.selected_design,
-                            }))
-                    }
-                    self.data[self.selected_design]
-                        .borrow_mut()
-                        .set_free_end(free_end);
-                }
-                Consequence::CutCross(from, to) => {
-                    if from.helix != to.helix {
-                        // CrossCut with source and target on the same helix are forbidden
-                        let op_var = self.data[self.selected_design].borrow().cut_cross(from, to);
-                        if let Some((source_id, target_id, target_3prime)) = op_var {
-                            let source_strand = self.data[self.selected_design]
-                                .borrow()
-                                .get_strand(source_id)
-                                .unwrap();
-                            let target_strand = self.data[self.selected_design]
-                                .borrow()
-                                .get_strand(target_id)
-                                .unwrap();
-                            self.mediator
-                                .lock()
-                                .unwrap()
-                                .update_opperation(Arc::new(CrossCut {
-                                    source_strand,
-                                    target_strand,
-                                    source_id,
-                                    target_id,
-                                    target_3prime,
-                                    nucl: to.to_real(),
-                                    undo: false,
-                                    design_id: self.selected_design,
-                                }))
-                        }
-                    }
-                }
-                Consequence::NewCandidate(candidate) => {
-                    let phantom = candidate.map(|n| PhantomElement {
-                        position: n.position as i32,
-                        helix_id: n.helix.real as u32,
-                        forward: n.forward,
-                        bound: false,
-                        design_id: self.selected_design as u32,
-                    });
-                    let other = candidate.and_then(|candidate| {
-                        self.data[self.selected_design]
-                            .borrow()
-                            .get_best_suggestion(candidate)
-                    });
-                    self.view[self.selected_design]
-                        .borrow_mut()
-                        .set_candidate_suggestion(candidate, other);
-                    let candidate = if let Some(selection) = phantom.and_then(|p| {
-                        self.data[self.selected_design]
-                            .borrow()
-                            .phantom_to_selection(p)
-                    }) {
-                        Some(selection)
-                    } else {
-                        phantom.map(|p| Selection::Phantom(p))
-                    };
-                    self.mediator.lock().unwrap().set_candidate(
-                        phantom,
-                        candidate.iter().cloned().collect(),
-                        AppId::FlatScene,
-                    )
-                }
-                Consequence::RmStrand(nucl) => {
-                    let strand_id = self.data[self.selected_design].borrow().get_strand_id(nucl);
-                    if let Some(strand_id) = strand_id {
-                        println!("removing strand");
-                        let strand = self.data[self.selected_design]
-                            .borrow()
-                            .get_strand(strand_id)
-                            .unwrap();
-                        self.mediator
-                            .lock()
-                            .unwrap()
-                            .update_opperation(Arc::new(RmStrand {
-                                strand,
-                                strand_id,
-                                undo: false,
-                                design_id: self.selected_design,
-                            }))
-                    }
-                }
-                Consequence::RmHelix(h_id) => {
-                    let helix = self.data[self.selected_design]
-                        .borrow_mut()
-                        .can_delete_helix(h_id);
-                    if let Some((helix, helix_id)) = helix {
-                        self.mediator.lock().unwrap().update_opperation(Arc::new(
-                            RawHelixCreation {
-                                helix,
-                                helix_id,
-                                design_id: self.selected_design,
-                                delete: true,
-                            },
-                        ))
-                    }
-                }
-                Consequence::Built(builder) => {
-                    let color = builder.get_strand_color();
-                    self.mediator
-                        .lock()
-                        .unwrap()
-                        .update_opperation(Arc::new(StrandConstruction {
-                            redo: Some(color),
-                            color,
-                            builder,
-                        }));
-                }
-                Consequence::FlipVisibility(helix, apply_to_other) => self.data
-                    [self.selected_design]
-                    .borrow_mut()
-                    .flip_visibility(helix, apply_to_other),
-                Consequence::FlipGroup(helix) => self.data[self.selected_design]
-                    .borrow_mut()
-                    .flip_group(helix),
-                Consequence::FollowingSuggestion(nucl, double) => {
-                    let nucl2 = self.data[self.selected_design]
-                        .borrow()
-                        .get_best_suggestion(nucl);
-                    if let Some(nucl2) = nucl2 {
-                        self.attempt_xover(nucl, nucl2);
-                        if double {
-                            self.attempt_xover(nucl.prime3(), nucl2.prime5());
-                        }
-                    }
-                }
-                Consequence::Centering(nucl, bottom) => {
-                    self.view[self.selected_design]
-                        .borrow_mut()
-                        .center_nucl(nucl, bottom);
                     let nucl = nucl.to_real();
                     self.mediator
                         .lock()
                         .unwrap()
-                        .request_centering(nucl, self.selected_design)
+                        .update_opperation(Arc::new(Cut {
+                            nucl,
+                            strand_id,
+                            strand,
+                            undo: false,
+                            design_id: self.selected_design,
+                        }))
                 }
-                Consequence::Select(nucl) => {
-                    let selection = self.data[self.selected_design]
-                        .borrow()
-                        .get_selection(nucl, self.selected_design as u32);
-                    self.mediator
-                        .lock()
-                        .unwrap()
-                        .notify_unique_selection(selection, AppId::FlatScene);
-                }
-                Consequence::DrawingSelection(c1, c2) => self.view[self.selected_design]
-                    .borrow_mut()
-                    .update_rectangle(c1, c2),
-                Consequence::ReleasedSelection(_, _) => {
-                    self.view[self.selected_design]
-                        .borrow_mut()
-                        .clear_rectangle();
-                    //self.data[self.selected_design].borrow().get_helices_in_rect(c1, c2, camera);
-                    self.mediator.lock().unwrap().notify_multiple_selection(
-                        self.data[self.selected_design].borrow().selection.clone(),
-                        AppId::FlatScene,
-                    );
-                }
-                Consequence::PasteRequest(nucl) => {
-                    self.mediator
-                        .lock()
-                        .unwrap()
-                        .attempt_paste(nucl.map(|n| n.to_real()));
-                }
-                Consequence::AddClick(click) => {
-                    self.data[self.selected_design]
-                        .borrow_mut()
-                        .add_selection(click);
-                    self.mediator.lock().unwrap().notify_multiple_selection(
-                        self.data[self.selected_design].borrow().selection.clone(),
-                        AppId::FlatScene,
-                    );
-                }
-                Consequence::SelectionChanged => {
-                    self.mediator.lock().unwrap().notify_multiple_selection(
-                        self.data[self.selected_design].borrow().selection.clone(),
-                        AppId::FlatScene,
-                    );
-                }
-                Consequence::ClearSelection => {
-                    self.data[self.selected_design]
-                        .borrow_mut()
-                        .set_selection(vec![]);
-                    self.mediator.lock().unwrap().notify_multiple_selection(
-                        self.data[self.selected_design].borrow().selection.clone(),
-                        AppId::FlatScene,
-                    );
-                }
-                _ => (),
             }
+            Consequence::FreeEnd(free_end) => self.data[self.selected_design]
+                .borrow_mut()
+                .set_free_end(free_end),
+            Consequence::CutFreeEnd(nucl, free_end) => {
+                let strand_id = self.data[self.selected_design].borrow().get_strand_id(nucl);
+                if let Some(strand_id) = strand_id {
+                    println!("cutting");
+                    let strand = self.data[self.selected_design]
+                        .borrow()
+                        .get_strand(strand_id)
+                        .unwrap();
+                    let nucl = nucl.to_real();
+                    self.mediator
+                        .lock()
+                        .unwrap()
+                        .update_opperation(Arc::new(Cut {
+                            nucl,
+                            strand_id,
+                            strand,
+                            undo: false,
+                            design_id: self.selected_design,
+                        }))
+                }
+                self.data[self.selected_design]
+                    .borrow_mut()
+                    .set_free_end(free_end);
+            }
+            Consequence::CutCross(from, to) => {
+                if from.helix != to.helix {
+                    // CrossCut with source and target on the same helix are forbidden
+                    let op_var = self.data[self.selected_design].borrow().cut_cross(from, to);
+                    if let Some((source_id, target_id, target_3prime)) = op_var {
+                        let source_strand = self.data[self.selected_design]
+                            .borrow()
+                            .get_strand(source_id)
+                            .unwrap();
+                        let target_strand = self.data[self.selected_design]
+                            .borrow()
+                            .get_strand(target_id)
+                            .unwrap();
+                        self.mediator
+                            .lock()
+                            .unwrap()
+                            .update_opperation(Arc::new(CrossCut {
+                                source_strand,
+                                target_strand,
+                                source_id,
+                                target_id,
+                                target_3prime,
+                                nucl: to.to_real(),
+                                undo: false,
+                                design_id: self.selected_design,
+                            }))
+                    }
+                }
+            }
+            Consequence::NewCandidate(candidate) => {
+                let phantom = candidate.map(|n| PhantomElement {
+                    position: n.position as i32,
+                    helix_id: n.helix.real as u32,
+                    forward: n.forward,
+                    bound: false,
+                    design_id: self.selected_design as u32,
+                });
+                let other = candidate.and_then(|candidate| {
+                    self.data[self.selected_design]
+                        .borrow()
+                        .get_best_suggestion(candidate)
+                });
+                self.view[self.selected_design]
+                    .borrow_mut()
+                    .set_candidate_suggestion(candidate, other);
+                let candidate = if let Some(selection) = phantom.and_then(|p| {
+                    self.data[self.selected_design]
+                        .borrow()
+                        .phantom_to_selection(p)
+                }) {
+                    Some(selection)
+                } else {
+                    phantom.map(|p| Selection::Phantom(p))
+                };
+                self.mediator.lock().unwrap().set_candidate(
+                    phantom,
+                    candidate.iter().cloned().collect(),
+                    AppId::FlatScene,
+                )
+            }
+            Consequence::RmStrand(nucl) => {
+                let strand_id = self.data[self.selected_design].borrow().get_strand_id(nucl);
+                if let Some(strand_id) = strand_id {
+                    println!("removing strand");
+                    let strand = self.data[self.selected_design]
+                        .borrow()
+                        .get_strand(strand_id)
+                        .unwrap();
+                    self.mediator
+                        .lock()
+                        .unwrap()
+                        .update_opperation(Arc::new(RmStrand {
+                            strand,
+                            strand_id,
+                            undo: false,
+                            design_id: self.selected_design,
+                        }))
+                }
+            }
+            Consequence::RmHelix(h_id) => {
+                let helix = self.data[self.selected_design]
+                    .borrow_mut()
+                    .can_delete_helix(h_id);
+                if let Some((helix, helix_id)) = helix {
+                    self.mediator
+                        .lock()
+                        .unwrap()
+                        .update_opperation(Arc::new(RawHelixCreation {
+                            helix,
+                            helix_id,
+                            design_id: self.selected_design,
+                            delete: true,
+                        }))
+                }
+            }
+            Consequence::Built(builder) => {
+                let color = builder.get_strand_color();
+                self.mediator
+                    .lock()
+                    .unwrap()
+                    .update_opperation(Arc::new(StrandConstruction {
+                        redo: Some(color),
+                        color,
+                        builder,
+                    }));
+            }
+            Consequence::FlipVisibility(helix, apply_to_other) => self.data[self.selected_design]
+                .borrow_mut()
+                .flip_visibility(helix, apply_to_other),
+            Consequence::FlipGroup(helix) => self.data[self.selected_design]
+                .borrow_mut()
+                .flip_group(helix),
+            Consequence::FollowingSuggestion(nucl, double) => {
+                let nucl2 = self.data[self.selected_design]
+                    .borrow()
+                    .get_best_suggestion(nucl);
+                if let Some(nucl2) = nucl2 {
+                    self.attempt_xover(nucl, nucl2);
+                    if double {
+                        self.attempt_xover(nucl.prime3(), nucl2.prime5());
+                    }
+                }
+            }
+            Consequence::Centering(nucl, bottom) => {
+                self.view[self.selected_design]
+                    .borrow_mut()
+                    .center_nucl(nucl, bottom);
+                let nucl = nucl.to_real();
+                self.mediator
+                    .lock()
+                    .unwrap()
+                    .request_centering(nucl, self.selected_design)
+            }
+            Consequence::Select(nucl) => {
+                let selection = self.data[self.selected_design]
+                    .borrow()
+                    .get_selection(nucl, self.selected_design as u32);
+                self.mediator
+                    .lock()
+                    .unwrap()
+                    .notify_unique_selection(selection, AppId::FlatScene);
+            }
+            Consequence::DrawingSelection(c1, c2) => self.view[self.selected_design]
+                .borrow_mut()
+                .update_rectangle(c1, c2),
+            Consequence::ReleasedSelection(_, _) => {
+                self.view[self.selected_design]
+                    .borrow_mut()
+                    .clear_rectangle();
+                //self.data[self.selected_design].borrow().get_helices_in_rect(c1, c2, camera);
+                self.mediator.lock().unwrap().notify_multiple_selection(
+                    self.data[self.selected_design].borrow().selection.clone(),
+                    AppId::FlatScene,
+                );
+            }
+            Consequence::PasteRequest(nucl) => {
+                self.mediator
+                    .lock()
+                    .unwrap()
+                    .attempt_paste(nucl.map(|n| n.to_real()));
+            }
+            Consequence::AddClick(click) => {
+                self.data[self.selected_design]
+                    .borrow_mut()
+                    .add_selection(click);
+                self.mediator.lock().unwrap().notify_multiple_selection(
+                    self.data[self.selected_design].borrow().selection.clone(),
+                    AppId::FlatScene,
+                );
+            }
+            Consequence::SelectionChanged => {
+                self.mediator.lock().unwrap().notify_multiple_selection(
+                    self.data[self.selected_design].borrow().selection.clone(),
+                    AppId::FlatScene,
+                );
+            }
+            Consequence::ClearSelection => {
+                self.data[self.selected_design]
+                    .borrow_mut()
+                    .set_selection(vec![]);
+                self.mediator.lock().unwrap().notify_multiple_selection(
+                    self.data[self.selected_design].borrow().selection.clone(),
+                    AppId::FlatScene,
+                );
+            }
+            Consequence::DoubleClick(click) => {
+                let selection = self.data[self.selected_design]
+                    .borrow()
+                    .double_click_to_selection(click);
+                if let Some(selection) = selection {
+                    self.mediator
+                        .lock()
+                        .unwrap()
+                        .request_center_selection(selection, AppId::FlatScene)
+                }
+            }
+            _ => (),
         }
+    }
+
+    fn check_timers(&mut self) {
+        let consequence = self.controller[self.selected_design].check_timers();
+        self.read_consequence(consequence);
     }
 
     fn attempt_xover(&self, nucl1: FlatNucl, nucl2: FlatNucl) {
@@ -435,7 +455,8 @@ impl FlatScene {
     }
 
     /// Ask the view if it has been modified since the last drawing
-    fn needs_redraw_(&self) -> bool {
+    fn needs_redraw_(&mut self) -> bool {
+        self.check_timers();
         if let Some(view) = self.view.get(self.selected_design) {
             self.data[self.selected_design]
                 .borrow_mut()

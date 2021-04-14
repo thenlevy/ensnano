@@ -427,7 +427,12 @@ impl View {
                     + (screen_pos_1.1 - screen_pos_2.1) * (screen_pos_1.1 - screen_pos_2.1)
                     > 0.25
                 {
-                    Some((n1, n2))
+                    // Center the topmost nucleotide on the top camera
+                    if screen_pos_1.1 < screen_pos_2.1 {
+                        Some((n1, n2))
+                    } else {
+                        Some((n2, n1))
+                    }
                 } else {
                     None
                 }

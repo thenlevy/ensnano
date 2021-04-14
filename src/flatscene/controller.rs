@@ -60,6 +60,7 @@ pub enum Consequence {
     AddClick(ClickResult),
     SelectionChanged,
     ClearSelection,
+    DoubleClick(ClickResult),
 }
 
 impl Controller {
@@ -249,6 +250,17 @@ impl Controller {
         } else {
             false
         }
+    }
+
+    pub fn check_timers(&mut self) -> Consequence {
+        let transition = self.state.borrow_mut().check_timers(&self);
+        if let Some(state) = transition.new_state {
+            println!("{}", state.display());
+            self.state.borrow().transition_from(&self);
+            self.state = RefCell::new(state);
+            self.state.borrow().transition_to(&self);
+        }
+        transition.consequences
     }
 }
 
