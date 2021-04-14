@@ -268,7 +268,7 @@ impl Program for TopBar {
         let button_3d = Button::new(&mut self.button_3d, iced::Text::new("3D"))
             .height(Length::Units(self.ui_size.button()))
             .on_press(Message::ToggleView(SplitMode::Scene3D));
-        let button_split = Button::new(&mut self.button_split, iced::Text::new("Split"))
+        let button_split = Button::new(&mut self.button_split, iced::Text::new("3D+2D"))
             .height(Length::Units(self.ui_size.button()))
             .on_press(Message::ToggleView(SplitMode::Both));
 
@@ -295,8 +295,8 @@ impl Program for TopBar {
             .push(button_save)
             .push(button_oxdna)
             .push(iced::Space::with_width(Length::Units(30)))
-            .push(button_2d)
             .push(button_3d)
+            .push(button_2d)
             .push(button_split)
             .push(_button_make_grid)
             .push(button_split_2d)
