@@ -512,6 +512,7 @@ impl ControllerState for Selecting {
                         click_date: now,
                         element: self.element.clone(),
                         mouse_position: position,
+                        clicked_position: self.clicked_position,
                     })),
                     consequences: Consequence::ElementSelected(self.element, self.adding),
                 }
@@ -525,12 +526,13 @@ struct WaitDoubleClick {
     click_date: Instant,
     element: Option<SceneElement>,
     mouse_position: PhysicalPosition<f64>,
+    clicked_position: PhysicalPosition<f64>,
 }
 
 impl ControllerState for WaitDoubleClick {
     fn check_timers(&mut self, _controller: &Controller) -> Transition {
         let now = Instant::now();
-        if (now - self.click_date).as_millis() > 500 {
+        if (now - self.click_date).as_millis() > 250 {
             Transition {
                 new_state: Some(Box::new(NormalState {
                     mouse_position: self.mouse_position,
@@ -566,7 +568,16 @@ impl ControllerState for WaitDoubleClick {
             },
             WindowEvent::CursorMoved { .. } => {
                 self.mouse_position = position;
-                Transition::nothing()
+                if position_difference(position, self.clicked_position) > 5. {
+                    Transition {
+                        new_state: Some(Box::new(NormalState {
+                            mouse_position: self.mouse_position,
+                        })),
+                        consequences: Consequence::Nothing,
+                    }
+                } else {
+                    Transition::nothing()
+                }
             }
             _ => Transition::nothing(),
         }
