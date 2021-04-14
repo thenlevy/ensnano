@@ -69,6 +69,20 @@ impl ControllerState for NormalState {
                 button: MouseButton::Left,
                 state: ElementState::Pressed,
                 ..
+            } if controller.modifiers.alt() => Transition {
+                new_state: Some(Box::new(MovingCamera {
+                    mouse_position: self.mouse_position,
+                    clicked_position_screen: self.mouse_position,
+                    translation_pivots: vec![],
+                    rotation_pivots: vec![],
+                    clicked_button: MouseButton::Left,
+                })),
+                consequences: Consequence::Nothing,
+            },
+            WindowEvent::MouseInput {
+                button: MouseButton::Left,
+                state: ElementState::Pressed,
+                ..
             } if controller.action_mode != ActionMode::Cut && controller.modifiers.shift() => {
                 let (x, y) = controller
                     .get_camera(position.y)
@@ -305,6 +319,7 @@ impl ControllerState for NormalState {
                     clicked_position_screen: self.mouse_position,
                     translation_pivots: vec![],
                     rotation_pivots: vec![],
+                    clicked_button: MouseButton::Middle,
                 })),
                 consequences: Consequence::Nothing,
             },
@@ -496,6 +511,7 @@ pub struct MovingCamera {
     clicked_position_screen: PhysicalPosition<f64>,
     translation_pivots: Vec<FlatNucl>,
     rotation_pivots: Vec<Vec2>,
+    clicked_button: MouseButton,
 }
 
 impl ControllerState for MovingCamera {
@@ -510,17 +526,10 @@ impl ControllerState for MovingCamera {
     ) -> Transition {
         match event {
             WindowEvent::MouseInput {
-                button: MouseButton::Middle,
-                state,
+                button,
+                state: ElementState::Released,
                 ..
-            } => {
-                /*assert!(
-                    *state == ElementState::Released,
-                    "Pressed mouse button in translating mode"
-                );*/
-                if *state == ElementState::Pressed {
-                    return Transition::nothing();
-                }
+            } if *button == self.clicked_button => {
                 if self.rotation_pivots.len() > 0 {
                     Transition {
                         new_state: Some(Box::new(ReleasedPivot {
@@ -601,6 +610,20 @@ impl ControllerState for ReleasedPivot {
         controller: &Controller,
     ) -> Transition {
         match event {
+            WindowEvent::MouseInput {
+                button: MouseButton::Left,
+                state: ElementState::Pressed,
+                ..
+            } if controller.modifiers.alt() => Transition {
+                new_state: Some(Box::new(MovingCamera {
+                    mouse_position: self.mouse_position,
+                    clicked_position_screen: self.mouse_position,
+                    translation_pivots: vec![],
+                    rotation_pivots: vec![],
+                    clicked_button: MouseButton::Left,
+                })),
+                consequences: Consequence::Nothing,
+            },
             WindowEvent::MouseInput {
                 button: MouseButton::Left,
                 state: ElementState::Pressed,
@@ -809,6 +832,7 @@ impl ControllerState for ReleasedPivot {
                         clicked_position_screen: self.mouse_position,
                         translation_pivots: self.translation_pivots.clone(),
                         rotation_pivots: self.rotation_pivots.clone(),
+                        clicked_button: MouseButton::Middle,
                     })),
                     consequences: Consequence::Nothing,
                 }
