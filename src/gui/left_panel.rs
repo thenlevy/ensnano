@@ -401,6 +401,12 @@ impl Program for LeftPanel {
                         self.requests.lock().unwrap().action_mode = Some(ActionMode::Normal);
                     }
                 }
+                if n != 0 {
+                    if self.grid_tab.is_building_hyperboloid() {
+                        self.requests.lock().unwrap().finalize_hyperboloid = true;
+                        self.grid_tab.finalize_hyperboloid();
+                    }
+                }
                 self.selected_tab = n;
             }
             Message::NewDnaElement(elements) => self.organizer.update_elements(elements),

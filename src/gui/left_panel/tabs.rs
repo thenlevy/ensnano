@@ -218,12 +218,15 @@ impl GridTab {
         }
 
         ret = ret.push(nanotube_title);
-        let start_hyperboloid_btn = icon_btn(
+        let mut start_hyperboloid_btn = icon_btn(
             &mut self.start_hyperboloid_btn,
             ICON_NANOTUBE,
             ui_size.clone(),
-        )
-        .on_press(Message::NewHyperboloid);
+        );
+
+        if !self.building_hyperboloid {
+            start_hyperboloid_btn = start_hyperboloid_btn.on_press(Message::NewHyperboloid);
+        }
 
         ret = ret.push(start_hyperboloid_btn);
         if self.building_hyperboloid {
@@ -344,6 +347,10 @@ impl GridTab {
 
     pub fn finalize_hyperboloid(&mut self) {
         self.building_hyperboloid = false;
+    }
+
+    pub fn is_building_hyperboloid(&self) -> bool {
+        self.building_hyperboloid
     }
 
     pub fn update_hyperboloid_request(
