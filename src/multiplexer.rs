@@ -399,8 +399,9 @@ impl Multiplexer {
                     self.generate_textures();
                 }
             }
-            WindowEvent::ScaleFactorChanged { scale_factor, .. } => {
+            WindowEvent::ScaleFactorChanged { scale_factor, new_inner_size } => {
                 self.scale_factor = *scale_factor;
+                self.window_size = **new_inner_size;
                 self.resize(self.window_size, self.scale_factor);
                 *resized = true;
                 *scale_factor_changed = true;

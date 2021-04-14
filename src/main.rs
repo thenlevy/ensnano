@@ -730,6 +730,7 @@ fn main() {
                 }
                 if scale_factor_changed {
                     gui.notify_scale_factor_change(&window, &multiplexer);
+                    scale_factor_changed = false;
                 }
                 // Get viewports from the partition
 
