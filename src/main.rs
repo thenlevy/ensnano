@@ -192,6 +192,7 @@ fn main() {
     let device = Rc::new(device);
     let queue = Rc::new(queue);
     let mut resized = false;
+    let mut scale_factor_changed = false;
     let mut staging_belt = wgpu::util::StagingBelt::new(5 * 1024);
     let mut local_pool = futures::executor::LocalPool::new();
 
@@ -329,7 +330,8 @@ fn main() {
                 //let modifiers = multiplexer.modifiers();
                 if let Some(event) = event.to_static() {
                     // Feed the event to the multiplexer
-                    let (event, icon_opt) = multiplexer.event(event, &mut resized);
+                    let (event, icon_opt) =
+                        multiplexer.event(event, &mut resized, &mut scale_factor_changed);
                     icon = icon.or(icon_opt);
 
                     if let Some((event, area)) = event {
@@ -725,6 +727,9 @@ fn main() {
                     );
 
                     gui.resize(&multiplexer, &window);
+                }
+                if scale_factor_changed {
+                    gui.notify_scale_factor_change(&window, &multiplexer);
                 }
                 // Get viewports from the partition
 

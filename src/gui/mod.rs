@@ -635,6 +635,14 @@ impl Gui {
     pub fn new_ui_size(&mut self, ui_size: UiSize, window: &Window, multiplexer: &Multiplexer) {
         self.set_text_size(ui_size.main_text());
 
+        self.rebuild_gui(window, multiplexer);
+    }
+
+    pub fn notify_scale_factor_change(&mut self, window: &Window, multiplexer: &Multiplexer) {
+        self.rebuild_gui(window, multiplexer);
+    }
+
+    fn rebuild_gui(&mut self, window: &Window, multiplexer: &Multiplexer) {
         self.elements.insert(
             ElementType::TopBar,
             GuiElement::top_bar(

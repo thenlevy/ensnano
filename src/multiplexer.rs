@@ -323,6 +323,7 @@ impl Multiplexer {
         &mut self,
         event: WindowEvent<'static>,
         resized: &mut bool,
+        scale_factor_changed: &mut bool,
     ) -> (
         Option<(WindowEvent<'static>, ElementType)>,
         Option<CursorIcon>,
