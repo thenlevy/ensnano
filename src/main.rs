@@ -371,7 +371,8 @@ fn main() {
                 }
             }
             Event::MainEventsCleared => {
-                let mut redraw = resized | icon.is_some();
+                scale_factor_changed |= multiplexer.check_scale_factor(&window);
+                let mut redraw = resized | scale_factor_changed | icon.is_some();
                 redraw |= gui.fetch_change(&window, &multiplexer);
 
                 // getting the file into which downloading the stapples must be done separatly
@@ -728,7 +729,6 @@ fn main() {
 
                     gui.resize(&multiplexer, &window);
                 }
-                scale_factor_changed |= multiplexer.check_scale_factor(&window);
                 if scale_factor_changed {
                     multiplexer.generate_textures();
                     gui.notify_scale_factor_change(&window, &multiplexer);
@@ -751,7 +751,6 @@ fn main() {
                     );
 
                     gui.resize(&multiplexer, &window);
-                    scale_factor_changed = false;
                 }
                 // Get viewports from the partition
 
@@ -761,6 +760,7 @@ fn main() {
                 overlay_manager.process_event(&mut renderer, resized, &multiplexer, &window);
 
                 resized = false;
+                scale_factor_changed = false;
 
                 if let Ok(frame) = swap_chain.get_current_frame() {
                     let mut encoder = device
