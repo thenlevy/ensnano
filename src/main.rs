@@ -714,7 +714,6 @@ fn main() {
                         .unwrap()
                         .forward_new_size(window.inner_size(), &multiplexer);
                     let window_size = window.inner_size();
-                    scale_factor_changed |= multiplexer.check_scale_factor(&window);
 
                     swap_chain = device.create_swap_chain(
                         &surface,
@@ -729,6 +728,7 @@ fn main() {
 
                     gui.resize(&multiplexer, &window);
                 }
+                scale_factor_changed |= multiplexer.check_scale_factor(&window);
                 if scale_factor_changed {
                     gui.notify_scale_factor_change(&window, &multiplexer);
                     println!("lolz");
@@ -737,7 +737,6 @@ fn main() {
                         .unwrap()
                         .forward_new_size(window.inner_size(), &multiplexer);
                     let window_size = window.inner_size();
-                    scale_factor_changed |= multiplexer.check_scale_factor(&window);
 
                     swap_chain = device.create_swap_chain(
                         &surface,
