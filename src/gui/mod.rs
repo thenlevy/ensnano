@@ -517,6 +517,7 @@ pub struct Gui {
     resized: bool,
     requests: Arc<Mutex<Requests>>,
     dialoging: Arc<Mutex<bool>>,
+    ui_size: UiSize,
 }
 
 impl Gui {
@@ -564,6 +565,7 @@ impl Gui {
             device,
             resized: true,
             dialoging,
+            ui_size: UiSize::Small,
         }
     }
 
@@ -634,11 +636,13 @@ impl Gui {
 
     pub fn new_ui_size(&mut self, ui_size: UiSize, window: &Window, multiplexer: &Multiplexer) {
         self.set_text_size(ui_size.main_text());
+        self.ui_size = ui_size.clone();
 
         self.rebuild_gui(window, multiplexer);
     }
 
     pub fn notify_scale_factor_change(&mut self, window: &Window, multiplexer: &Multiplexer) {
+        self.set_text_size(self.ui_size.main_text());
         self.rebuild_gui(window, multiplexer);
     }
 

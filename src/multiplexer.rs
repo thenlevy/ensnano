@@ -318,6 +318,20 @@ impl Multiplexer {
         Some(DrawArea { position, size })
     }
 
+    pub fn check_scale_factor(&mut self, window: &crate::Window) -> bool {
+        if self.scale_factor != window.scale_factor() {
+            self.scale_factor = window.scale_factor();
+            self.resize(self.window_size, self.scale_factor);
+
+            if self.window_size.width > 0 && self.window_size.height > 0 {
+                self.generate_textures();
+            }
+            true
+        } else {
+            false
+        }
+    }
+
     /// Forwards event to the elment on which they happen.
     pub fn event(
         &mut self,
@@ -399,7 +413,10 @@ impl Multiplexer {
                     self.generate_textures();
                 }
             }
-            WindowEvent::ScaleFactorChanged { scale_factor, new_inner_size } => {
+            WindowEvent::ScaleFactorChanged {
+                scale_factor,
+                new_inner_size,
+            } => {
                 self.scale_factor = *scale_factor;
                 self.window_size = **new_inner_size;
                 self.resize(self.window_size, self.scale_factor);

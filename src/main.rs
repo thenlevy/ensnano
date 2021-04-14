@@ -714,6 +714,7 @@ fn main() {
                         .unwrap()
                         .forward_new_size(window.inner_size(), &multiplexer);
                     let window_size = window.inner_size();
+                    scale_factor_changed |= multiplexer.check_scale_factor(&window);
 
                     swap_chain = device.create_swap_chain(
                         &surface,
@@ -730,6 +731,26 @@ fn main() {
                 }
                 if scale_factor_changed {
                     gui.notify_scale_factor_change(&window, &multiplexer);
+                    println!("lolz");
+                    scheduler
+                        .lock()
+                        .unwrap()
+                        .forward_new_size(window.inner_size(), &multiplexer);
+                    let window_size = window.inner_size();
+                    scale_factor_changed |= multiplexer.check_scale_factor(&window);
+
+                    swap_chain = device.create_swap_chain(
+                        &surface,
+                        &wgpu::SwapChainDescriptor {
+                            usage: wgpu::TextureUsage::RENDER_ATTACHMENT,
+                            format,
+                            width: window_size.width,
+                            height: window_size.height,
+                            present_mode: wgpu::PresentMode::Mailbox,
+                        },
+                    );
+
+                    gui.resize(&multiplexer, &window);
                     scale_factor_changed = false;
                 }
                 // Get viewports from the partition
