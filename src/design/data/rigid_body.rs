@@ -37,6 +37,7 @@ pub struct RigidBodyConstants {
     pub k_friction: f32,
     pub mass: f32,
     pub volume_exclusion: bool,
+    pub brownian_motion: bool,
 }
 
 #[derive(Debug)]
@@ -947,7 +948,9 @@ impl HelixSystemThread {
                 }
                 self.helix_system.next_time();
                 let solver = ExplicitEuler::new(1e-4f32);
-                self.helix_system.brownian_jump();
+                if self.helix_system.rigid_parameters.brownian_motion {
+                    self.helix_system.brownian_jump();
+                }
                 if let Some(nucl) = self.nucl_shake.lock().unwrap().take() {
                     self.helix_system.shake_nucl(nucl)
                 }

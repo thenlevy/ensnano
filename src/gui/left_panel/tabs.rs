@@ -651,6 +651,7 @@ impl SimulationTab {
                 FactoryId::RigidBody,
                 RigidBodyFactory {
                     volume_exclusion: false,
+                    brownian_motion: false,
                 },
             ),
             rigid_helices_button: GoStop::new(
@@ -675,6 +676,7 @@ impl SimulationTab {
             .push(self.rigid_helices_button.view());
 
         let volume_exclusion = self.rigid_body_factory.requestable.volume_exclusion;
+        let brownian_motion = self.rigid_body_factory.requestable.brownian_motion;
         for view in self.rigid_body_factory.view().into_iter() {
             ret = ret.push(view);
         }
@@ -686,6 +688,11 @@ impl SimulationTab {
             )
             .spacing(CHECKBOXSPACING)
             .size(ui_size.checkbox()),
+        );
+        ret = ret.push(
+            Checkbox::new(brownian_motion, "Random jumps", Message::BrownianMotion)
+                .spacing(CHECKBOXSPACING)
+                .size(ui_size.checkbox()),
         );
 
         Scrollable::new(&mut self.scroll).push(ret).into()
@@ -701,6 +708,10 @@ impl SimulationTab {
 
     pub(super) fn set_volume_exclusion(&mut self, volume_exclusion: bool) {
         self.rigid_body_factory.requestable.volume_exclusion = volume_exclusion;
+    }
+
+    pub(super) fn set_brownian_motion(&mut self, brownian_motion: bool) {
+        self.rigid_body_factory.requestable.brownian_motion = brownian_motion;
     }
 
     pub(super) fn make_rigid_body_request(

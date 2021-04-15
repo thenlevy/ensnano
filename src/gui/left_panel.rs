@@ -139,6 +139,7 @@ pub enum Message {
     AllVisible,
     Redim2dHelices(bool),
     InvertScroll(bool),
+    BrownianMotion(bool),
 }
 
 impl LeftPanel {
@@ -373,6 +374,11 @@ impl Program for LeftPanel {
             },
             Message::VolumeExclusion(b) => {
                 self.simulation_tab.set_volume_exclusion(b);
+                let request = &mut self.requests.lock().unwrap().rigid_body_parameters;
+                self.simulation_tab.make_rigid_body_request(request);
+            }
+            Message::BrownianMotion(b) => {
+                self.simulation_tab.set_brownian_motion(b);
                 let request = &mut self.requests.lock().unwrap().rigid_body_parameters;
                 self.simulation_tab.make_rigid_body_request(request);
             }
@@ -1025,10 +1031,12 @@ pub struct RigidBodyParametersRequest {
     pub k_friction: f32,
     pub mass_factor: f32,
     pub volume_exclusion: bool,
+    pub brownian_motion: bool,
 }
 
 struct RigidBodyFactory {
     pub volume_exclusion: bool,
+    pub brownian_motion: bool,
 }
 
 impl Requestable for RigidBodyFactory {
@@ -1039,6 +1047,7 @@ impl Requestable for RigidBodyFactory {
             k_friction: values[1],
             mass_factor: values[2],
             volume_exclusion: self.volume_exclusion,
+            brownian_motion: self.brownian_motion,
         }
     }
     fn nb_values(&self) -> usize {
