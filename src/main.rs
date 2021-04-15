@@ -664,6 +664,11 @@ fn main() {
                     if let Some(b) = requests.invert_scroll.take() {
                         multiplexer.invert_y_scroll = b;
                     }
+
+                    if requests.stop_roll {
+                        mediator.lock().unwrap().stop_roll();
+                        requests.stop_roll = false;
+                    }
                 }
 
                 if let Some(d_id) = download_stapples {

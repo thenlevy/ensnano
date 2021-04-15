@@ -104,8 +104,6 @@ pub enum Message {
     FogRadius(f32),
     FogLength(f32),
     FogCamera(bool),
-    SimRoll(bool),
-    SimSprings(bool),
     SimRequest,
     NewDesign,
     DescreteValue {
@@ -116,6 +114,7 @@ pub enum Message {
     HelixRoll(f32),
     NewHyperboloid,
     FinalizeHyperboloid,
+    RollTargeted(bool),
     RigidGridSimulation(bool),
     RigidHelicesSimulation(bool),
     VolumeExclusion(bool),
@@ -329,13 +328,8 @@ impl Program for LeftPanel {
                 self.show_torsion = false;
                 self.camera_tab.notify_new_design();
                 self.simulation_tab.notify_new_design();
+                self.edition_tab.notify_new_design();
                 self.organizer.reset();
-            }
-            Message::SimRoll(b) => {
-                self.simulation_tab.set_roll(b);
-            }
-            Message::SimSprings(b) => {
-                self.simulation_tab.set_springs(b);
             }
             Message::SimRequest => {
                 self.simulation_tab.notify_sim_request();
@@ -403,6 +397,15 @@ impl Program for LeftPanel {
                 self.simulation_tab.notify_helices_running(b);
                 self.simulation_tab.make_rigid_body_request(request);
             }
+            Message::RollTargeted(b) => {
+                if b {
+                    let simulation_request = self.edition_tab.get_roll_request();
+                    self.requests.lock().unwrap().roll_request = simulation_request;
+                } else {
+                    self.requests.lock().unwrap().stop_roll = true;
+                    self.edition_tab.stop_runing();
+                }
+            }
             Message::TabSelected(n) => {
                 if let ActionMode::BuildHelix { .. } = self.action_mode {
                     if n != 0 {
@@ -429,6 +432,7 @@ impl Program for LeftPanel {
                 .organizer
                 .new_modifiers(iced_winit::conversion::modifiers(modifiers)),
             Message::NewSelection(keys) => {
+                self.edition_tab.update_selection(&keys);
                 self.organizer.notify_selection(keys);
             }
             Message::NewTreeApp(tree) => self.organizer.read_tree(tree),
@@ -855,6 +859,7 @@ mod text_input_style {
 pub struct SimulationRequest {
     pub roll: bool,
     pub springs: bool,
+    pub target_helices: Option<Vec<usize>>,
 }
 
 #[derive(Clone)]

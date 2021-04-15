@@ -43,6 +43,7 @@ impl PhysicalSystem {
         intervals_map: BTreeMap<usize, (isize, isize)>,
         roll: bool,
         springs: bool,
+        target_helices: Option<Vec<usize>>,
     ) -> Self {
         let mut helix_map = HashMap::new();
         let mut intervals = Vec::with_capacity(helices.len());
@@ -50,7 +51,7 @@ impl PhysicalSystem {
             helix_map.insert(*k, n);
             intervals.push(intervals_map.get(k).cloned());
         }
-        let roller = RollSystem::new(helices.len());
+        let roller = RollSystem::new(helices.len(), target_helices, &helix_map);
         let springer = SpringSystem::new(helices.len());
         let data = DesignData {
             helices,
@@ -146,17 +147,32 @@ struct RollSystem {
     speed: Vec<f32>,
     acceleration: Vec<f32>,
     time_scale: f32,
+    must_roll: Vec<f32>,
 }
 
 impl RollSystem {
     /// Create a system from a design, the system will adjust the helices of the design.
-    pub fn new(nb_helices: usize) -> Self {
+    pub fn new(
+        nb_helices: usize,
+        target_helices: Option<Vec<usize>>,
+        helix_map: &HashMap<usize, usize>,
+    ) -> Self {
         let speed = vec![0.; nb_helices];
         let acceleration = vec![0.; nb_helices];
+        let must_roll = if let Some(target) = target_helices {
+            let mut ret = vec![0.; nb_helices];
+            for t in target.iter() {
+                ret[helix_map[t]] = 1.;
+            }
+            ret
+        } else {
+            vec![1.; nb_helices]
+        };
         Self {
             speed,
             acceleration,
             time_scale: 1.,
+            must_roll,
         }
     }
 
@@ -182,8 +198,8 @@ impl RollSystem {
                 n2.position,
                 n2.forward,
             );
-            self.acceleration[*h1] += delta_1 / MASS_HELIX;
-            self.acceleration[*h2] += delta_2 / MASS_HELIX;
+            self.acceleration[*h1] += delta_1 / MASS_HELIX * self.must_roll[*h1];
+            self.acceleration[*h2] += delta_2 / MASS_HELIX * self.must_roll[*h2];
         }
     }
 

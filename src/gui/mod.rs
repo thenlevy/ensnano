@@ -109,6 +109,7 @@ pub struct Requests {
     pub all_visible: bool,
     pub redim_2d_helices: Option<bool>,
     pub invert_scroll: Option<bool>,
+    pub stop_roll: bool,
 }
 
 pub enum KeepProceed {
@@ -177,6 +178,7 @@ impl Requests {
             all_visible: false,
             redim_2d_helices: None,
             invert_scroll: None,
+            stop_roll: false,
         }
     }
 }

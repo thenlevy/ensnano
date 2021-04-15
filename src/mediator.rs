@@ -1014,6 +1014,19 @@ impl Mediator {
         }
     }
 
+    pub fn stop_roll(&mut self) {
+        let request = SimulationRequest {
+            roll: false,
+            springs: false,
+            target_helices: None,
+        };
+        for d in self.designs.iter() {
+            d.write()
+                .unwrap()
+                .roll_request(request.clone(), self.computing.clone());
+        }
+    }
+
     pub fn rigid_grid_request(&mut self, request: RigidBodyParametersRequest) {
         let parameters = rigid_parameters(request);
         for d in self.designs.iter() {

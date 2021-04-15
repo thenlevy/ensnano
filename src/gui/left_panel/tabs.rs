@@ -10,6 +10,8 @@ pub(super) struct EditionTab {
     sequence_input: SequenceInput,
     redim_helices_button: button::State,
     redim_all_helices_button: button::State,
+    roll_target_btn: GoStop,
+    roll_target_helices: Vec<usize>,
 }
 
 impl EditionTab {
@@ -23,6 +25,11 @@ impl EditionTab {
             sequence_input: SequenceInput::new(),
             redim_helices_button: Default::default(),
             redim_all_helices_button: Default::default(),
+            roll_target_btn: GoStop::new(
+                "Autoroll selected helices".to_owned(),
+                Message::RollTargeted,
+            ),
+            roll_target_helices: vec![],
         }
     }
 
@@ -92,10 +99,14 @@ impl EditionTab {
             ret = ret.push(row)
         }
 
-        if selection_mode == SelectionMode::Helix {
+        if self.roll_target_helices.len() == 1 {
             for view in self.helix_roll_factory.view().into_iter() {
                 ret = ret.push(view);
             }
+        }
+
+        if self.roll_target_btn.running || self.roll_target_helices.len() > 0 {
+            ret = ret.push(self.roll_target_btn.view());
         }
 
         let color_square = self.color_picker.color_square();
@@ -123,6 +134,15 @@ impl EditionTab {
         Scrollable::new(&mut self.scroll).push(ret).into()
     }
 
+    pub(super) fn update_selection(&mut self, selection: &[DnaElementKey]) {
+        self.roll_target_helices.clear();
+        for s in selection.iter() {
+            if let DnaElementKey::Helix(h) = s {
+                self.roll_target_helices.push(*h)
+            }
+        }
+    }
+
     pub(super) fn update_roll(&mut self, roll: f32) {
         self.helix_roll_factory.update_roll(roll);
     }
@@ -135,6 +155,28 @@ impl EditionTab {
     ) {
         self.helix_roll_factory
             .update_request(value_id, value, request);
+    }
+
+    pub(super) fn notify_new_design(&mut self) {
+        self.roll_target_btn.running = false;
+        self.roll_target_helices = vec![];
+    }
+
+    pub(super) fn get_roll_request(&mut self) -> Option<SimulationRequest> {
+        if self.roll_target_helices.len() > 0 {
+            self.roll_target_btn.running = true;
+            Some(SimulationRequest {
+                roll: true,
+                springs: false,
+                target_helices: Some(self.roll_target_helices.clone()),
+            })
+        } else {
+            None
+        }
+    }
+
+    pub(super) fn stop_runing(&mut self) {
+        self.roll_target_btn.running = false;
     }
 }
 
@@ -741,14 +783,6 @@ impl SimulationTab {
         self.physical_simulation.running ^= true;
     }
 
-    pub(super) fn set_roll(&mut self, roll: bool) {
-        self.physical_simulation.roll = roll;
-    }
-
-    pub(super) fn set_springs(&mut self, springs: bool) {
-        self.physical_simulation.springs = springs;
-    }
-
     pub(super) fn get_physical_simulation_request(&self) -> SimulationRequest {
         self.physical_simulation.request()
     }
@@ -790,35 +824,23 @@ impl GoStop {
 struct PhysicalSimulation {
     go_stop_button: button::State,
     pub running: bool,
-    pub roll: bool,
-    pub springs: bool,
 }
 
 impl PhysicalSimulation {
-    fn view<'a, 'b>(&'a mut self, ui_size: &'b UiSize) -> Row<'a, Message> {
-        let left_column = Column::new()
-            .push(
-                Checkbox::new(self.roll, "Roll", Message::SimRoll)
-                    .size(ui_size.checkbox())
-                    .spacing(CHECKBOXSPACING),
-            )
-            .push(
-                Checkbox::new(self.springs, "Spring", Message::SimSprings)
-                    .size(ui_size.checkbox())
-                    .spacing(CHECKBOXSPACING),
-            );
+    fn view<'a, 'b>(&'a mut self, _ui_size: &'b UiSize) -> Row<'a, Message> {
         let button_str = if self.running { "Stop" } else { "Go" };
         let right_column = Column::new().push(
             Button::new(&mut self.go_stop_button, Text::new(button_str))
                 .on_press(Message::SimRequest),
         );
-        Row::new().push(left_column).push(right_column)
+        Row::new().push(Text::new("Roll")).push(right_column)
     }
 
     fn request(&self) -> SimulationRequest {
         SimulationRequest {
-            roll: self.roll,
-            springs: self.springs,
+            roll: true,
+            springs: false,
+            target_helices: None,
         }
     }
 }

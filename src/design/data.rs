@@ -692,6 +692,7 @@ impl Data {
             intervals,
             request.roll,
             request.springs,
+            request.target_helices,
         );
         let date = Instant::now();
         let (stop, snd) = physical_system.run(computing);
