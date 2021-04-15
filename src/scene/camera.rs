@@ -254,7 +254,7 @@ impl CameraController {
     pub fn process_scroll(&mut self, delta: &MouseScrollDelta, x_cursor: f32, y_cursor: f32) {
         self.x_scroll = x_cursor;
         self.y_scroll = y_cursor;
-        self.scroll = -match delta {
+        self.scroll = match delta {
             // I'm assuming a line is about 100 pixels
             MouseScrollDelta::LineDelta(_, scroll) => scroll.min(1.).max(-1.) * 10.,
             MouseScrollDelta::PixelDelta(PhysicalPosition { y: scroll, .. }) => *scroll as f32,
