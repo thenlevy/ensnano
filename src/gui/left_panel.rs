@@ -132,11 +132,13 @@ pub enum Message {
     CustomScaffoldRequested,
     DeffaultScaffoldRequested,
     ToggleText(bool),
+    #[allow(dead_code)]
     CleanRequested,
     AddDoubleStrandHelix(bool),
     ToggleVisibility(bool),
     AllVisible,
     Redim2dHelices(bool),
+    InvertScroll(bool),
 }
 
 impl LeftPanel {
@@ -479,6 +481,10 @@ impl Program for LeftPanel {
             }
             Message::AllVisible => self.requests.lock().unwrap().all_visible = true,
             Message::Redim2dHelices(b) => self.requests.lock().unwrap().redim_2d_helices = Some(b),
+            Message::InvertScroll(b) => {
+                self.requests.lock().unwrap().invert_scroll = Some(b);
+                self.parameters_tab.invert_y_scroll = b;
+            }
         };
         Command::none()
     }

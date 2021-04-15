@@ -816,6 +816,7 @@ pub struct ParametersTab {
     size_pick_list: pick_list::State<UiSize>,
     scroll: scrollable::State,
     scroll_sensitivity_factory: RequestFactory<ScrollSentivity>,
+    pub invert_y_scroll: bool,
 }
 
 impl ParametersTab {
@@ -824,6 +825,7 @@ impl ParametersTab {
             size_pick_list: Default::default(),
             scroll: Default::default(),
             scroll_sensitivity_factory: RequestFactory::new(FactoryId::Scroll, ScrollSentivity {}),
+            invert_y_scroll: false,
         }
     }
 
@@ -841,6 +843,15 @@ impl ParametersTab {
         for view in self.scroll_sensitivity_factory.view().into_iter() {
             ret = ret.push(view);
         }
+
+        ret = ret.push(
+            Checkbox::new(
+                self.invert_y_scroll,
+                "Inverse Scroll direction",
+                Message::InvertScroll,
+            )
+            .size(ui_size.checkbox()),
+        );
 
         Scrollable::new(&mut self.scroll).push(ret).into()
     }

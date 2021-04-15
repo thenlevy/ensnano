@@ -660,6 +660,10 @@ fn main() {
                     if let Some(b) = requests.redim_2d_helices.take() {
                         mediator.lock().unwrap().redim_2d_helices(b);
                     }
+
+                    if let Some(b) = requests.invert_scroll.take() {
+                        multiplexer.invert_y_scroll = b;
+                    }
                 }
 
                 if let Some(d_id) = download_stapples {

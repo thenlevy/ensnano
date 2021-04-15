@@ -124,6 +124,7 @@ pub struct Multiplexer {
     state: State,
     modifiers: ModifiersState,
     ui_size: UiSize,
+    pub invert_y_scroll: bool,
 }
 
 const MAX_LEFT_PANNEL_WIDTH: f64 = 200.;
@@ -186,6 +187,7 @@ impl Multiplexer {
             },
             modifiers: ModifiersState::empty(),
             ui_size,
+            invert_y_scroll: false,
         };
         ret.generate_textures();
         ret
@@ -336,7 +338,7 @@ impl Multiplexer {
     /// Forwards event to the elment on which they happen.
     pub fn event(
         &mut self,
-        event: WindowEvent<'static>,
+        mut event: WindowEvent<'static>,
         resized: &mut bool,
         scale_factor_changed: &mut bool,
     ) -> (
@@ -345,7 +347,7 @@ impl Multiplexer {
     ) {
         let mut icon = None;
         let mut captured = false;
-        match &event {
+        match &mut event {
             WindowEvent::CursorMoved { position, .. } => match &mut self.state {
                 State::Resizing {
                     region,
@@ -370,7 +372,7 @@ impl Multiplexer {
 
                 State::Normal { mouse_position, .. } => {
                     *mouse_position = *position;
-                    let &PhysicalPosition { x, y } = position;
+                    let &mut PhysicalPosition { x, y } = position;
                     if x > 0.0 || y > 0.0 {
                         let element = self.pixel_to_element(*position);
                         let area = match element {
@@ -512,6 +514,18 @@ impl Multiplexer {
                         self.requests.lock().unwrap().recolor_stapples = true;
                     }
                     _ => captured = false,
+                }
+            }
+            WindowEvent::MouseWheel { delta, .. } => {
+                if self.invert_y_scroll {
+                    match delta {
+                        MouseScrollDelta::LineDelta(_, y) => {
+                            *y *= -1.;
+                        }
+                        MouseScrollDelta::PixelDelta(position) => {
+                            position.y *= -1.;
+                        }
+                    }
                 }
             }
             _ => {}
