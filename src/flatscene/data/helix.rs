@@ -260,6 +260,21 @@ impl Helix {
         (self.left, self.right)
     }
 
+    pub fn reset_handle(&mut self, handle: HelixHandle) -> (isize, isize) {
+        match handle {
+            HelixHandle::Left => self.left = self.right - 1,
+            HelixHandle::Right => self.right = self.left + 1,
+        };
+        (self.left, self.right)
+    }
+
+    pub fn redim_zero(&mut self) -> (isize, isize) {
+        let (left, right) = (self.right, self.left);
+        self.left = left;
+        self.right = right;
+        (left, right)
+    }
+
     pub fn click_on_handle(&self, x: f32, y: f32) -> Option<HelixHandle> {
         let click = {
             let ret = Vec2::new(x, y);

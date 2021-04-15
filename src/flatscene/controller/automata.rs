@@ -152,7 +152,7 @@ impl ControllerState for NormalState {
                         consequences: Consequence::Nothing,
                     },
                     ClickResult::HelixHandle { h_id, handle } => Transition {
-                        new_state: Some(Box::new(TranslatingHandle { h_id, handle })),
+                        new_state: Some(Box::new(TranslatingHandle::new(h_id, handle, position))),
                         consequences: Consequence::Nothing,
                     },
                     ClickResult::Nucl(nucl)
@@ -421,16 +421,9 @@ impl ControllerState for Translating {
         match event {
             WindowEvent::MouseInput {
                 button: MouseButton::Left,
-                state,
+                state: ElementState::Released,
                 ..
             } => {
-                assert!(
-                    *state == ElementState::Released,
-                    "Pressed mouse button in translating mode"
-                );
-                if *state == ElementState::Pressed {
-                    return Transition::nothing();
-                }
                 controller.data.borrow_mut().end_movement();
                 let mut translation_pivots = vec![];
                 let mut rotation_pivots = vec![];
@@ -698,7 +691,7 @@ impl ControllerState for ReleasedPivot {
                         }
                     }
                     ClickResult::HelixHandle { h_id, handle } => Transition {
-                        new_state: Some(Box::new(TranslatingHandle { h_id, handle })),
+                        new_state: Some(Box::new(TranslatingHandle::new(h_id, handle, position))),
                         consequences: Consequence::Nothing,
                     },
                     ClickResult::Nucl(nucl) => {
@@ -2741,6 +2734,23 @@ impl ControllerState for AddClickPivots {
 struct TranslatingHandle {
     h_id: FlatHelix,
     handle: super::super::data::HelixHandle,
+    auto: bool,
+    clicked_position_screen: PhysicalPosition<f64>,
+}
+
+impl TranslatingHandle {
+    fn new(
+        h_id: FlatHelix,
+        handle: super::super::data::HelixHandle,
+        clicked_position_screen: PhysicalPosition<f64>,
+    ) -> Self {
+        Self {
+            h_id,
+            handle,
+            clicked_position_screen,
+            auto: true,
+        }
+    }
 }
 
 impl ControllerState for TranslatingHandle {
@@ -2756,15 +2766,14 @@ impl ControllerState for TranslatingHandle {
         match event {
             WindowEvent::MouseInput {
                 button: MouseButton::Left,
-                state,
+                state: ElementState::Released,
                 ..
             } => {
-                assert!(
-                    *state == ElementState::Released,
-                    "Pressed mouse button in translating mode"
-                );
-                if *state == ElementState::Pressed {
-                    return Transition::nothing();
+                if self.auto {
+                    controller
+                        .data
+                        .borrow_mut()
+                        .auto_redim_helix(self.h_id, self.handle)
                 }
                 Transition {
                     new_state: Some(Box::new(NormalState {
@@ -2774,6 +2783,9 @@ impl ControllerState for TranslatingHandle {
                 }
             }
             WindowEvent::CursorMoved { .. } => {
+                if position_difference(position, self.clicked_position_screen) > 5. {
+                    self.auto = false;
+                }
                 let (x, y) = controller
                     .get_camera(position.y)
                     .borrow()

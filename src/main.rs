@@ -656,6 +656,10 @@ fn main() {
                     if let Some(b) = requests.toggle_visibility.take() {
                         mediator.lock().unwrap().toggle_visibility(b);
                     }
+
+                    if let Some(b) = requests.redim_2d_helices.take() {
+                        mediator.lock().unwrap().redim_2d_helices(b);
+                    }
                 }
 
                 if let Some(d_id) = download_stapples {

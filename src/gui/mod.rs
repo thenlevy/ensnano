@@ -107,6 +107,7 @@ pub struct Requests {
     pub split2d: bool,
     pub toggle_visibility: Option<bool>,
     pub all_visible: bool,
+    pub redim_2d_helices: Option<bool>,
 }
 
 pub enum KeepProceed {
@@ -173,6 +174,7 @@ impl Requests {
             split2d: false,
             toggle_visibility: None,
             all_visible: false,
+            redim_2d_helices: None,
         }
     }
 }

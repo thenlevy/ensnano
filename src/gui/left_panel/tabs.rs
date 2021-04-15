@@ -8,7 +8,8 @@ pub(super) struct EditionTab {
     helix_roll_factory: RequestFactory<HelixRoll>,
     color_picker: ColorPicker,
     sequence_input: SequenceInput,
-    clean_button: button::State,
+    redim_helices_button: button::State,
+    redim_all_helices_button: button::State,
 }
 
 impl EditionTab {
@@ -20,7 +21,8 @@ impl EditionTab {
             helix_roll_factory: RequestFactory::new(FactoryId::HelixRoll, HelixRoll {}),
             color_picker: ColorPicker::new(),
             sequence_input: SequenceInput::new(),
-            clean_button: Default::default(),
+            redim_helices_button: Default::default(),
+            redim_all_helices_button: Default::default(),
         }
     }
 
@@ -108,10 +110,15 @@ impl EditionTab {
                 .push(self.sequence_input.view());
         }
 
-        let button_clean = Button::new(&mut self.clean_button, iced::Text::new("Clean"))
-            .height(Length::Units(ui_size.button()))
-            .on_press(Message::CleanRequested);
-        ret = ret.push(button_clean);
+        ret = ret.push(Text::new("Shrink 2D helices"));
+        ret = ret.push(
+            text_btn(&mut self.redim_helices_button, "Selected", ui_size.clone())
+                .on_press(Message::Redim2dHelices(false)),
+        );
+        ret = ret.push(
+            text_btn(&mut self.redim_all_helices_button, "All", ui_size.clone())
+                .on_press(Message::Redim2dHelices(true)),
+        );
 
         Scrollable::new(&mut self.scroll).push(ret).into()
     }

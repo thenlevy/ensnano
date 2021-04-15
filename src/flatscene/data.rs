@@ -294,6 +294,36 @@ impl Data {
         self.instance_update = true;
     }
 
+    pub fn auto_redim_helix(&mut self, helix: FlatHelix, handle: HelixHandle) {
+        let (left, right) = self.helices[helix.flat].reset_handle(handle);
+        self.design.update_helix(helix, left, right);
+    }
+
+    pub fn redim_helices(&mut self, all: bool) {
+        if all {
+            for h in self.helices.iter_mut() {
+                let (left, right) = h.redim_zero();
+                self.design.update_helix(h.flat_id, left, right);
+            }
+        } else {
+            let mut ids = Vec::new();
+            for s in self.selection.iter() {
+                if let Selection::Helix(_, h) = s {
+                    if let Some(h) = self.design.id_map().get(&(*h as usize)) {
+                        ids.push(*h)
+                    }
+                }
+            }
+            for h_id in ids.iter() {
+                if let Some(h) = self.helices.get_mut(h_id.0) {
+                    let (left, right) = h.redim_zero();
+                    self.design.update_helix(h.flat_id, left, right);
+                }
+            }
+        }
+        self.notify_update();
+    }
+
     pub fn rotate_helix(&mut self, helix: FlatHelix, pivot: Vec2, angle: f32) {
         self.helices[helix.flat].rotate(pivot, angle);
         self.instance_update = true;

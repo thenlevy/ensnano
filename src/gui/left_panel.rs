@@ -136,6 +136,7 @@ pub enum Message {
     AddDoubleStrandHelix(bool),
     ToggleVisibility(bool),
     AllVisible,
+    Redim2dHelices(bool),
 }
 
 impl LeftPanel {
@@ -477,6 +478,7 @@ impl Program for LeftPanel {
                 self.requests.lock().unwrap().toggle_visibility = Some(b)
             }
             Message::AllVisible => self.requests.lock().unwrap().all_visible = true,
+            Message::Redim2dHelices(b) => self.requests.lock().unwrap().redim_2d_helices = Some(b),
         };
         Command::none()
     }

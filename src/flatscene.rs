@@ -493,7 +493,6 @@ impl FlatScene {
 
 impl Application for FlatScene {
     fn on_notify(&mut self, notification: Notification) {
-        #[allow(clippy::single_match)] // we will implement for notification in the future
         match notification {
             Notification::NewDesign(design) => self.add_design(design),
             Notification::NewActionMode(am) => self.change_action_mode(am),
@@ -573,6 +572,9 @@ impl Application for FlatScene {
                 }
             }
             Notification::Split2d => self.toggle_split(),
+            Notification::Redim2dHelices(b) => self.data[self.selected_design]
+                .borrow_mut()
+                .redim_helices(b),
         }
     }
 

@@ -174,6 +174,7 @@ pub enum Notification {
     ShowTorsion(bool),
     ModifersChanged(ModifiersState),
     Split2d,
+    Redim2dHelices(bool),
 }
 
 pub trait Application {
@@ -1249,6 +1250,10 @@ impl Mediator {
                 .unwrap()
                 .set_visibility_sieve(self.selection.clone(), compl)
         }
+    }
+
+    pub fn redim_2d_helices(&mut self, all: bool) {
+        self.notify_apps(Notification::Redim2dHelices(all))
     }
 }
 
