@@ -203,7 +203,11 @@ impl Scene {
                     }));
             }
             Consequence::Candidate(element) => self.set_candidate(element),
-            Consequence::PivotElement(element) => self.data.borrow_mut().set_pivot_element(element),
+            Consequence::PivotElement(element) => {
+                self.data.borrow_mut().set_pivot_element(element);
+                let pivot = self.data.borrow().get_pivot_position();
+                self.view.borrow_mut().update(ViewUpdate::FogCenter(pivot));
+            }
             Consequence::ElementSelected(element, adding) => {
                 if adding {
                     self.add_selection(element)
@@ -327,8 +331,6 @@ impl Scene {
                 .unwrap()
                 .notify_unique_selection(selection, AppId::Scene);
         }
-        let pivot = self.data.borrow().get_selected_position();
-        self.view.borrow_mut().update(ViewUpdate::FogCenter(pivot));
         self.update_handle();
     }
 

@@ -617,38 +617,48 @@ struct FogParameters {
     radius_slider: slider::State,
     length: f32,
     length_slider: slider::State,
+    visible_btn: button::State,
+    center_btn: button::State,
 }
 
 impl FogParameters {
     fn view(&mut self, ui_size: &UiSize) -> Column<Message> {
+        let visible_text = if self.visible {
+            "Desactivate"
+        } else {
+            "Activate"
+        };
+        let center_text = if self.from_camera {
+            "Center on pivot"
+        } else {
+            "Center on camera"
+        };
         let mut column = Column::new()
             .push(Text::new("Fog"))
             .push(
-                Checkbox::new(self.visible, "Visible", Message::FogVisibility)
-                    .size(ui_size.checkbox())
-                    .spacing(CHECKBOXSPACING),
+                text_btn(&mut self.visible_btn, visible_text, ui_size.clone())
+                    .on_press(Message::FogVisibility(!self.visible)),
             )
             .push(
-                Checkbox::new(self.from_camera, "From Camera", Message::FogCamera)
-                    .size(ui_size.checkbox())
-                    .spacing(CHECKBOXSPACING),
+                text_btn(&mut self.center_btn, center_text, ui_size.clone())
+                    .on_press(Message::FogCamera(!self.from_camera)),
             );
 
         if self.visible {
             column = column
                 .push(Text::new("Radius"))
                 .push(Slider::new(
-                    &mut self.radius_slider,
-                    0f32..=100f32,
-                    self.radius,
-                    Message::FogRadius,
-                ))
-                .push(Text::new("Length"))
-                .push(Slider::new(
                     &mut self.length_slider,
                     0f32..=100f32,
                     self.length,
                     Message::FogLength,
+                ))
+                .push(Text::new("Gradient Length"))
+                .push(Slider::new(
+                    &mut self.radius_slider,
+                    0f32..=100f32,
+                    self.radius,
+                    Message::FogRadius,
                 ));
         }
         column
@@ -673,7 +683,9 @@ impl Default for FogParameters {
             radius: 10.,
             length_slider: Default::default(),
             radius_slider: Default::default(),
-            from_camera: false,
+            from_camera: true,
+            visible_btn: Default::default(),
+            center_btn: Default::default(),
         }
     }
 }
