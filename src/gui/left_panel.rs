@@ -1100,7 +1100,7 @@ impl iced_aw::style::tab_bar::StyleSheet for TabStyle {
             background: None,
             border_color: None,
             border_width: 0.0,
-            tab_label_background: if is_active {
+            tab_label_background: if !is_active {
                 Background::Color([0.9, 0.9, 0.9].into())
             } else {
                 Background::Color([0.6, 0.6, 0.6].into())
@@ -1114,7 +1114,7 @@ impl iced_aw::style::tab_bar::StyleSheet for TabStyle {
 
     fn hovered(&self, is_active: bool) -> iced_aw::style::tab_bar::Style {
         iced_aw::style::tab_bar::Style {
-            tab_label_background: Background::Color([0.9, 0.9, 0.9].into()),
+            tab_label_background: Background::Color([0.6, 0.6, 0.6].into()),
             ..self.active(is_active)
         }
     }
