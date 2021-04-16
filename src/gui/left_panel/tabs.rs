@@ -105,9 +105,8 @@ impl EditionTab {
             }
         }
 
-        if self.roll_target_btn.running || self.roll_target_helices.len() > 0 {
-            ret = ret.push(self.roll_target_btn.view());
-        }
+        let roll_target_active = self.roll_target_btn.running || self.roll_target_helices.len() > 0;
+        ret = ret.push(self.roll_target_btn.view(roll_target_active));
 
         let color_square = self.color_picker.color_square();
         if selection_mode == SelectionMode::Strand {
@@ -332,14 +331,12 @@ impl GridTab {
         .style(BadValue(self.length_str == self.helix_length.to_string()));
 
         if let ActionMode::BuildHelix { .. } = action_mode {
-            ret = ret.push(
-                Checkbox::new(
-                    self.show_strand_menu,
-                    "Add double strand on helix",
-                    Message::AddDoubleStrandHelix,
-                )
-                .size(ui_size.checkbox()),
-            );
+            ret = ret.push(right_checkbox(
+                self.show_strand_menu,
+                "Add double strand on helix",
+                Message::AddDoubleStrandHelix,
+                ui_size.clone(),
+            ));
             if self.show_strand_menu {
                 let row = Row::new()
                     .push(
@@ -722,32 +719,37 @@ impl SimulationTab {
     }
 
     pub(super) fn view<'a>(&'a mut self, ui_size: UiSize) -> Element<'a, Message> {
-        let mut ret = Column::new();
+        let grid_active = !self.rigid_helices_button.running && !self.physical_simulation.running;
+        let helices_active = !self.rigid_grid_button.running && !self.physical_simulation.running;
+        let roll_active = !self.rigid_grid_button.running && !self.rigid_helices_button.running;
+        let mut ret = Column::new().spacing(2);
         ret = ret.push(Text::new("Simulation (Beta)").size(ui_size.head_text()));
-        ret = ret.push(self.physical_simulation.view(&ui_size));
+        ret = ret.push(self.physical_simulation.view(&ui_size, "Roll", roll_active));
         ret = ret
-            .push(self.rigid_grid_button.view())
-            .push(self.rigid_helices_button.view());
+            .push(self.rigid_grid_button.view(grid_active))
+            .push(self.rigid_helices_button.view(helices_active));
 
         let volume_exclusion = self.rigid_body_factory.requestable.volume_exclusion;
         let brownian_motion = self.rigid_body_factory.requestable.brownian_motion;
+        ret = ret.push(iced::Space::with_height(Length::Units(3)));
+        ret = ret
+            .push(Text::new("Parameters for helices simulation").size(ui_size.intermediate_text()));
+        ret = ret.push(iced::Space::with_height(Length::Units(2)));
         for view in self.rigid_body_factory.view().into_iter() {
             ret = ret.push(view);
         }
-        ret = ret.push(
-            Checkbox::new(
-                volume_exclusion,
-                "Volume exclusion",
-                Message::VolumeExclusion,
-            )
-            .spacing(CHECKBOXSPACING)
-            .size(ui_size.checkbox()),
-        );
-        ret = ret.push(
-            Checkbox::new(brownian_motion, "Random jumps", Message::BrownianMotion)
-                .spacing(CHECKBOXSPACING)
-                .size(ui_size.checkbox()),
-        );
+        ret = ret.push(right_checkbox(
+            volume_exclusion,
+            "Volume exclusion",
+            Message::VolumeExclusion,
+            ui_size.clone(),
+        ));
+        ret = ret.push(right_checkbox(
+            brownian_motion,
+            "Random jumps",
+            Message::BrownianMotion,
+            ui_size.clone(),
+        ));
 
         Scrollable::new(&mut self.scroll).push(ret).into()
     }
@@ -820,15 +822,18 @@ impl GoStop {
         }
     }
 
-    fn view(&mut self) -> Row<Message> {
-        let left_column = Column::new().push(Text::new(self.name.to_string()));
-        let button_str = if self.running { "Stop" } else { "Go" };
-        let right_column = Column::new().push(
-            Button::new(&mut self.go_stop_button, Text::new(button_str))
-                .on_press((self.on_press)(!self.running))
-                .style(ButtonColor::red_green(self.running)),
-        );
-        Row::new().push(left_column).push(right_column)
+    fn view(&mut self, active: bool) -> Row<Message> {
+        let button_str = if self.running {
+            "Stop".to_owned()
+        } else {
+            self.name.clone()
+        };
+        let mut button = Button::new(&mut self.go_stop_button, Text::new(button_str))
+            .style(ButtonColor::red_green(self.running));
+        if active {
+            button = button.on_press((self.on_press)(!self.running));
+        }
+        Row::new().push(button)
     }
 }
 
@@ -839,13 +844,19 @@ struct PhysicalSimulation {
 }
 
 impl PhysicalSimulation {
-    fn view<'a, 'b>(&'a mut self, _ui_size: &'b UiSize) -> Row<'a, Message> {
-        let button_str = if self.running { "Stop" } else { "Go" };
-        let right_column = Column::new().push(
-            Button::new(&mut self.go_stop_button, Text::new(button_str))
-                .on_press(Message::SimRequest),
-        );
-        Row::new().push(Text::new("Roll")).push(right_column)
+    fn view<'a, 'b>(
+        &'a mut self,
+        _ui_size: &'b UiSize,
+        name: &'static str,
+        active: bool,
+    ) -> Row<'a, Message> {
+        let button_str = if self.running { "Stop" } else { name };
+        let mut button = Button::new(&mut self.go_stop_button, Text::new(button_str))
+            .style(ButtonColor::red_green(self.running));
+        if active {
+            button = button.on_press(Message::SimRequest);
+        }
+        Row::new().push(button)
     }
 
     fn request(&self) -> SimulationRequest {
@@ -889,14 +900,12 @@ impl ParametersTab {
             ret = ret.push(view);
         }
 
-        ret = ret.push(
-            Checkbox::new(
-                self.invert_y_scroll,
-                "Inverse Scroll direction",
-                Message::InvertScroll,
-            )
-            .size(ui_size.checkbox()),
-        );
+        ret = ret.push(right_checkbox(
+            self.invert_y_scroll,
+            "Inverse Scroll direction",
+            Message::InvertScroll,
+            ui_size.clone(),
+        ));
 
         Scrollable::new(&mut self.scroll).push(ret).into()
     }
@@ -961,15 +970,12 @@ impl SequenceTab {
         ret = ret.push(button_stapples);
         ret = ret.push(button_scaffold);
         ret = ret.push(scaffold_row);
-        ret = ret.push(
-            Checkbox::new(
-                self.toggle_text_value,
-                "Show Sequences",
-                Message::ToggleText,
-            )
-            .spacing(CHECKBOXSPACING)
-            .size(ui_size.checkbox()),
-        );
+        ret = ret.push(right_checkbox(
+            self.toggle_text_value,
+            "Show Sequences",
+            Message::ToggleText,
+            ui_size.clone(),
+        ));
         Scrollable::new(&mut self.scroll).push(ret).into()
     }
 
@@ -987,4 +993,20 @@ impl SequenceTab {
     pub(super) fn get_scaffold_pos(&self) -> usize {
         self.scaffold_position
     }
+}
+
+fn right_checkbox<'a, F>(
+    is_checked: bool,
+    label: impl Into<String>,
+    f: F,
+    ui_size: UiSize,
+) -> Element<'a, Message>
+where
+    F: 'static + Fn(bool) -> Message,
+{
+    Row::new()
+        .push(Text::new(label))
+        .push(Checkbox::new(is_checked, "", f).size(ui_size.checkbox()))
+        .spacing(4)
+        .into()
 }

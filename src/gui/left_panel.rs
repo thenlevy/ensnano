@@ -708,7 +708,24 @@ impl iced_wgpu::button::StyleSheet for ButtonColor {
         iced_wgpu::button::Style {
             background: Some(Background::Color(self.0)),
             //background: Some(Background::Color(BACKGROUND)),
+            border_radius: 2.0,
+            border_width: 1.0,
+            border_color: [0.7, 0.7, 0.7].into(),
+            text_color: Color::BLACK,
             ..Default::default()
+        }
+    }
+
+    fn hovered(&self) -> iced_wgpu::button::Style {
+        let active = self.active();
+        iced_wgpu::button::Style {
+            background: active.background.map(|background| match background {
+                Background::Color(color) => Background::Color(Color {
+                    a: color.a * 0.75,
+                    ..color
+                }),
+            }),
+            ..active
         }
     }
 }
@@ -1095,9 +1112,9 @@ impl Requestable for RigidBodyFactory {
     }
     fn name_val(&self, n: usize) -> String {
         match n {
-            0 => String::from("Stiffness (log)"),
-            1 => String::from("Friction (log)"),
-            2 => String::from("Mass (log)"),
+            0 => String::from("Stiffness (log scale)"),
+            1 => String::from("Friction (log scale)"),
+            2 => String::from("Mass (log scale)"),
             _ => unreachable!(),
         }
     }

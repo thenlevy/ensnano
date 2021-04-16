@@ -32,6 +32,14 @@ impl UiSize {
         }
     }
 
+    pub fn intermediate_text(&self) -> u16 {
+        match self {
+            Self::Small => 15,
+            Self::Medium => 20,
+            Self::Large => 25,
+        }
+    }
+
     pub fn icon(&self) -> u16 {
         match self {
             Self::Small => 14,
