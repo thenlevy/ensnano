@@ -689,6 +689,7 @@ impl Default for FogParameters {
 
 pub(super) struct SimulationTab {
     rigid_body_factory: RequestFactory<RigidBodyFactory>,
+    brownian_factory: RequestFactory<BrownianParametersFactory>,
     rigid_grid_button: GoStop,
     rigid_helices_button: GoStop,
     scroll: scrollable::State,
@@ -697,14 +698,20 @@ pub(super) struct SimulationTab {
 
 impl SimulationTab {
     pub(super) fn new() -> Self {
+        let init_brownian = BrownianParametersFactory {
+            rate: 0.,
+            amplitude: 0.08,
+        };
         Self {
             rigid_body_factory: RequestFactory::new(
                 FactoryId::RigidBody,
                 RigidBodyFactory {
                     volume_exclusion: false,
                     brownian_motion: false,
+                    brownian_parameters: init_brownian.clone(),
                 },
             ),
+            brownian_factory: RequestFactory::new(FactoryId::Brownian, init_brownian),
             rigid_helices_button: GoStop::new(
                 String::from("Rigid Helices"),
                 Message::RigidHelicesSimulation,
@@ -750,6 +757,9 @@ impl SimulationTab {
             Message::BrownianMotion,
             ui_size.clone(),
         ));
+        for view in self.brownian_factory.view().into_iter() {
+            ret = ret.push(view);
+        }
 
         Scrollable::new(&mut self.scroll).push(ret).into()
     }
@@ -785,6 +795,17 @@ impl SimulationTab {
     ) {
         self.rigid_body_factory
             .update_request(value_id, value, request)
+    }
+
+    pub(super) fn update_brownian(
+        &mut self,
+        value_id: ValueId,
+        value: f32,
+        request: &mut Option<RigidBodyParametersRequest>,
+    ) {
+        let new_brownian = self.brownian_factory.update_value(value_id, value);
+        self.rigid_body_factory.requestable.brownian_parameters = new_brownian;
+        self.rigid_body_factory.make_request(request)
     }
 
     pub(super) fn notify_new_design(&mut self) {

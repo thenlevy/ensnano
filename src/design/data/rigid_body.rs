@@ -5,6 +5,7 @@ use mathru::analysis::differential_equation::ordinary::{ExplicitEuler, ExplicitO
 use ordered_float::OrderedFloat;
 use rand::Rng;
 use rand_distr::{Exp, StandardNormal};
+use std::cmp::Reverse;
 use std::collections::BinaryHeap;
 use ultraviolet::{Bivec3, Mat3, Rotor3, Vec3};
 
@@ -23,12 +24,9 @@ struct HelixSystem {
     free_anchors: Vec<(usize, Vec3)>,
     current_time: f32,
     next_time: f32,
-    brownian_heap: BinaryHeap<(OrderedFloat<f32>, usize)>,
-    /// Parameters of the exponential law for brownian jump times
-    lambda_brownian: f32,
-    /// Radius of the brownian motion
-    epsilon_borwnian: f32,
+    brownian_heap: BinaryHeap<(Reverse<OrderedFloat<f32>>, usize)>,
     rigid_parameters: RigidBodyConstants,
+    max_time_step: f32,
 }
 
 #[derive(Clone, Debug)]
@@ -38,6 +36,8 @@ pub struct RigidBodyConstants {
     pub mass: f32,
     pub volume_exclusion: bool,
     pub brownian_motion: bool,
+    pub brownian_rate: f32,
+    pub brownian_amplitude: f32,
 }
 
 #[derive(Debug)]
@@ -266,33 +266,51 @@ impl HelixSystem {
     fn next_time(&mut self) {
         self.current_time = self.next_time;
         if let Some((t, _)) = self.brownian_heap.peek() {
-            self.next_time = -t.into_inner();
+            // t.0 because t is a &Reverse<_>
+            self.next_time = t.0.into_inner().min(self.current_time + self.max_time_step);
         } else {
-            self.next_time = self.current_time + 1.;
+            self.next_time = self.current_time + self.max_time_step;
         }
+        self.time_span = (0., self.next_time - self.current_time);
+        println!("{:?}", self.time_span());
     }
 
     fn brownian_jump(&mut self) {
         let mut rnd = rand::thread_rng();
+        if let Some((t, _)) = self.brownian_heap.peek() {
+            // t.0 because t is a &Reverse<_>
+            if self.next_time < t.0.into_inner() {
+                return;
+            }
+        }
         if let Some((_, nucl_id)) = self.brownian_heap.pop() {
             let gx: f32 = rnd.sample(StandardNormal);
             let gy: f32 = rnd.sample(StandardNormal);
             let gz: f32 = rnd.sample(StandardNormal);
             if let Some(state) = self.last_state.as_mut() {
                 let entry = 13 * (self.helices.len() + nucl_id);
-                *state.get_mut(entry) += self.epsilon_borwnian * gx;
-                *state.get_mut(entry + 1) += self.epsilon_borwnian * gy;
-                *state.get_mut(entry + 2) += self.epsilon_borwnian * gz;
+                *state.get_mut(entry) += self.rigid_parameters.brownian_amplitude * gx;
+                *state.get_mut(entry + 1) += self.rigid_parameters.brownian_amplitude * gy;
+                *state.get_mut(entry + 2) += self.rigid_parameters.brownian_amplitude * gz;
             }
 
-            let exp_law = Exp::new(self.lambda_brownian).unwrap();
-            let new_date = -(rnd.sample(exp_law) + self.current_time);
-            self.brownian_heap.push((new_date.into(), nucl_id));
+            let exp_law = Exp::new(self.rigid_parameters.brownian_rate).unwrap();
+            let new_date = rnd.sample(exp_law) + self.next_time;
+            self.brownian_heap.push((Reverse(new_date.into()), nucl_id));
         }
     }
 
     fn update_parameters(&mut self, parameters: RigidBodyConstants) {
         self.rigid_parameters = parameters;
+        self.brownian_heap.clear();
+        let mut rnd = rand::thread_rng();
+        let exp_law = Exp::new(self.rigid_parameters.brownian_rate).unwrap();
+        for i in 0..self.free_nucls.len() {
+            if !self.free_anchors.iter().any(|(x, _)| *x == i) {
+                let t = rnd.sample(exp_law) + self.next_time;
+                self.brownian_heap.push((Reverse(t.into()), i));
+            }
+        }
     }
 
     fn shake_nucl(&mut self, nucl: ShakeTarget) {
@@ -305,9 +323,9 @@ impl HelixSystem {
             ShakeTarget::FreeNucl(n) => 13 * (self.helices.len() + n),
         };
         if let Some(state) = self.last_state.as_mut() {
-            *state.get_mut(entry) += 10. * self.epsilon_borwnian * gx;
-            *state.get_mut(entry + 1) += 10. * self.epsilon_borwnian * gy;
-            *state.get_mut(entry + 2) += 10. * self.epsilon_borwnian * gz;
+            *state.get_mut(entry) += 10. * self.rigid_parameters.brownian_amplitude * gx;
+            *state.get_mut(entry + 1) += 10. * self.rigid_parameters.brownian_amplitude * gy;
+            *state.get_mut(entry + 2) += 10. * self.rigid_parameters.brownian_amplitude * gz;
             if let ShakeTarget::Helix(_) = nucl {
                 let delta_roll =
                     rnd.gen::<f32>() * 2. * std::f32::consts::PI - std::f32::consts::PI;
@@ -1276,13 +1294,11 @@ impl Data {
         }
         let mut rnd = rand::thread_rng();
         let mut brownian_heap = BinaryHeap::new();
-        let epsilon_borwnian = 0.08f32;
-        let lambda_brownian = 0.5f32;
-        let exp_law = Exp::new(lambda_brownian).unwrap();
+        let exp_law = Exp::new(rigid_parameters.brownian_rate).unwrap();
         for i in 0..interval_results.free_nucls.len() {
             if !free_anchors.iter().any(|(x, _)| *x == i) {
                 let t = rnd.sample(exp_law);
-                brownian_heap.push((t.into(), i));
+                brownian_heap.push((Reverse(t.into()), i));
             }
         }
         Some(HelixSystem {
@@ -1298,11 +1314,10 @@ impl Data {
             anchors,
             free_anchors,
             brownian_heap,
-            epsilon_borwnian,
-            lambda_brownian,
             current_time: 0.,
             next_time: 0.,
             rigid_parameters,
+            max_time_step: time_span.1,
         })
     }
 

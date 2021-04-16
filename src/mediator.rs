@@ -1408,6 +1408,8 @@ fn rigid_parameters(parameters: RigidBodyParametersRequest) -> RigidBodyConstant
         mass: 10f32.powf(parameters.mass_factor),
         volume_exclusion: parameters.volume_exclusion,
         brownian_motion: parameters.brownian_motion,
+        brownian_rate: 10f32.powf(parameters.brownian_rate),
+        brownian_amplitude: parameters.brownian_amplitude,
     };
     println!("{:?}", ret);
     ret

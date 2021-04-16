@@ -36,6 +36,7 @@ pub enum FactoryId {
     Hyperboloid,
     Scroll,
     RigidBody,
+    Brownian,
 }
 
 impl<R: Requestable> RequestFactory<R> {
@@ -87,6 +88,15 @@ impl<R: Requestable> RequestFactory<R> {
             .update_value(new_val);
         let values: Vec<f32> = self.values.values().map(|v| v.get_value()).collect();
         self.requestable.make_request(&values, request)
+    }
+
+    pub fn update_value(&mut self, value_id: ValueId, new_val: f32) -> R::Request {
+        self.values
+            .get_mut(&value_id)
+            .unwrap()
+            .update_value(new_val);
+        let values: Vec<f32> = self.values.values().map(|v| v.get_value()).collect();
+        self.requestable.request_from_values(&values)
     }
 
     pub fn make_request(&self, request: &mut Option<R::Request>) {

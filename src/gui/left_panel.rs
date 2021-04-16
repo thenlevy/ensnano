@@ -365,6 +365,11 @@ impl Program for LeftPanel {
                     let request = &mut self.requests.lock().unwrap().rigid_body_parameters;
                     self.simulation_tab.update_request(value_id, value, request);
                 }
+                FactoryId::Brownian => {
+                    let request = &mut self.requests.lock().unwrap().rigid_body_parameters;
+                    self.simulation_tab
+                        .update_brownian(value_id, value, request);
+                }
             },
             Message::VolumeExclusion(b) => {
                 self.simulation_tab.set_volume_exclusion(b);
@@ -1054,11 +1059,74 @@ pub struct RigidBodyParametersRequest {
     pub mass_factor: f32,
     pub volume_exclusion: bool,
     pub brownian_motion: bool,
+    pub brownian_rate: f32,
+    pub brownian_amplitude: f32,
 }
 
 struct RigidBodyFactory {
     pub volume_exclusion: bool,
     pub brownian_motion: bool,
+    pub brownian_parameters: BrownianParametersFactory,
+}
+
+#[derive(Clone)]
+struct BrownianParametersFactory {
+    pub rate: f32,
+    pub amplitude: f32,
+}
+
+impl Requestable for BrownianParametersFactory {
+    type Request = Self;
+    fn request_from_values(&self, values: &[f32]) -> Self {
+        Self {
+            rate: values[0],
+            amplitude: values[1],
+        }
+    }
+
+    fn nb_values(&self) -> usize {
+        2
+    }
+
+    fn initial_value(&self, n: usize) -> f32 {
+        match n {
+            0 => 0.,
+            1 => 0.08,
+            _ => unreachable!(),
+        }
+    }
+
+    fn min_val(&self, n: usize) -> f32 {
+        match n {
+            0 => -2.,
+            1 => 0.,
+            _ => unreachable!(),
+        }
+    }
+
+    fn max_val(&self, n: usize) -> f32 {
+        match n {
+            0 => 2.,
+            1 => 0.2,
+            _ => unreachable!(),
+        }
+    }
+
+    fn step_val(&self, n: usize) -> f32 {
+        match n {
+            0 => 0.1,
+            1 => 0.02,
+            _ => unreachable!(),
+        }
+    }
+
+    fn name_val(&self, n: usize) -> String {
+        match n {
+            0 => "Rate (log scale)".to_owned(),
+            1 => "Range".to_owned(),
+            _ => unreachable!(),
+        }
+    }
 }
 
 impl Requestable for RigidBodyFactory {
@@ -1070,6 +1138,8 @@ impl Requestable for RigidBodyFactory {
             mass_factor: values[2],
             volume_exclusion: self.volume_exclusion,
             brownian_motion: self.brownian_motion,
+            brownian_rate: self.brownian_parameters.rate,
+            brownian_amplitude: self.brownian_parameters.amplitude,
         }
     }
     fn nb_values(&self) -> usize {
