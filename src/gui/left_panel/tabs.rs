@@ -552,6 +552,9 @@ impl CameraTab {
             }
             ret = ret.spacing(5).push(row)
         }
+        ret = ret.push(iced::Space::with_height(Length::Units(2)));
+        ret = ret.push(Text::new("Visibility").size(ui_size.intermediate_text()));
+        ret = ret.push(iced::Space::with_height(Length::Units(2)));
         ret = ret.push(
             text_btn(
                 &mut self.selection_visibility_btn,
@@ -637,38 +640,72 @@ impl FogParameters {
             "Activate"
         };
         let center_text = if self.from_camera {
-            "Center on pivot"
+            "Centered on camera"
         } else {
-            "Center on camera"
+            "Centered on pivot"
         };
         let mut column = Column::new()
-            .push(Text::new("Fog"))
+            .push(Text::new("Fog").size(ui_size.intermediate_text()))
             .push(
-                text_btn(&mut self.visible_btn, visible_text, ui_size.clone())
-                    .on_press(Message::FogVisibility(!self.visible)),
-            )
-            .push(
-                text_btn(&mut self.center_btn, center_text, ui_size.clone())
-                    .on_press(Message::FogCamera(!self.from_camera)),
+                Row::new()
+                    .push(
+                        text_btn(&mut self.visible_btn, visible_text, ui_size.clone())
+                            .on_press(Message::FogVisibility(!self.visible)),
+                    )
+                    .push(
+                        text_btn(&mut self.center_btn, center_text, ui_size.clone())
+                            .on_press(Message::FogCamera(!self.from_camera)),
+                    ),
             );
 
-        if self.visible {
-            column = column
-                .push(Text::new("Radius"))
-                .push(Slider::new(
-                    &mut self.length_slider,
-                    0f32..=100f32,
-                    self.length,
-                    Message::FogLength,
-                ))
-                .push(Text::new("Gradient Length"))
-                .push(Slider::new(
-                    &mut self.radius_slider,
-                    0f32..=100f32,
-                    self.radius,
-                    Message::FogRadius,
-                ));
-        }
+        let radius_text = if self.visible {
+            Text::new("Radius")
+        } else {
+            Text::new("Radius").color([0.6, 0.6, 0.6])
+        };
+
+        let gradient_text = if self.visible {
+            Text::new("Softness")
+        } else {
+            Text::new("Softness").color([0.6, 0.6, 0.6])
+        };
+
+        let length_slider = if self.visible {
+            Slider::new(
+                &mut self.length_slider,
+                0f32..=100f32,
+                self.length,
+                Message::FogLength,
+            )
+        } else {
+            Slider::new(&mut self.length_slider, 0f32..=100f32, self.length, |_| {
+                Message::Nothing
+            })
+            .style(DesactivatedSlider)
+        };
+
+        let softness_slider = if self.visible {
+            Slider::new(
+                &mut self.radius_slider,
+                0f32..=100f32,
+                self.radius,
+                Message::FogRadius,
+            )
+        } else {
+            Slider::new(&mut self.radius_slider, 0f32..=100f32, self.radius, |_| {
+                Message::Nothing
+            })
+            .style(DesactivatedSlider)
+        };
+
+        column = column
+            .push(Row::new().spacing(5).push(radius_text).push(length_slider))
+            .push(
+                Row::new()
+                    .spacing(5)
+                    .push(gradient_text)
+                    .push(softness_slider),
+            );
         column
     }
 

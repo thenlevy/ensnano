@@ -21,7 +21,8 @@ use crate::design::{DnaElement, DnaElementKey};
 use crate::mediator::{ActionMode, SelectionMode};
 
 use super::{
-    icon_btn, text_btn, FogParameters as Fog, GridTypeDescr, OverlayType, Requests, UiSize,
+    icon_btn, slider_style::DesactivatedSlider, text_btn, FogParameters as Fog, GridTypeDescr,
+    OverlayType, Requests, UiSize,
 };
 mod color_picker;
 use color_picker::ColorPicker;

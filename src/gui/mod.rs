@@ -747,3 +747,35 @@ fn icon_btn<'a, M: Clone>(
     )
     .height(Length::Units(ui_size.button()))
 }
+
+mod slider_style {
+    use iced::slider::{Handle, HandleShape, Style, StyleSheet};
+    use iced::Color;
+
+    pub struct DesactivatedSlider;
+
+    impl StyleSheet for DesactivatedSlider {
+        fn active(&self) -> Style {
+            Style {
+                rail_colors: ([0.6, 0.6, 0.6, 0.5].into(), Color::WHITE),
+                handle: Handle {
+                    shape: HandleShape::Rectangle {
+                        width: 8,
+                        border_radius: 4.0,
+                    },
+                    color: Color::from_rgb(0.65, 0.65, 0.65),
+                    border_color: Color::from_rgb(0.6, 0.6, 0.6),
+                    border_width: 1.0,
+                },
+            }
+        }
+
+        fn hovered(&self) -> Style {
+            self.active()
+        }
+
+        fn dragging(&self) -> Style {
+            self.active()
+        }
+    }
+}

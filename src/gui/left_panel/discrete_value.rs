@@ -1,4 +1,4 @@
-use super::{button, slider, Button, Element, HelixRoll, Row, Slider, Text};
+use super::{button, slider, Button, DesactivatedSlider, Element, HelixRoll, Row, Slider, Text};
 
 use super::Message;
 use std::collections::BTreeMap;
@@ -185,6 +185,7 @@ impl DiscreteValue {
                 self.value,
                 |_| Message::Nothing,
             )
+            .style(DesactivatedSlider)
         };
 
         let mut name_text = Text::new(self.name.clone());
