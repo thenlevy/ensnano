@@ -552,6 +552,11 @@ fn main() {
                         mediator.lock().unwrap().finalize_hyperboloid();
                     }
 
+                    if requests.cancel_hyperboloid {
+                        requests.cancel_hyperboloid = false;
+                        mediator.lock().unwrap().cancel_hyperboloid();
+                    }
+
                     if let Some(roll) = requests.helix_roll.take() {
                         mediator.lock().unwrap().roll_helix(roll)
                     }

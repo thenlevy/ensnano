@@ -144,12 +144,14 @@ impl Hyperboloid {
     }
 
     fn radius(&self, parameters: &Parameters) -> f32 {
+        /*
         if let Some(radius) = self.forced_radius {
             radius
         } else {
             let (_small_r, big_r) = self.sheet_radii(parameters);
             (1. - self.radius_shift) * 0.75 * big_r + self.radius_shift * 5.0 * big_r
-        }
+        }*/
+        self.sheet_radii(parameters).0
     }
 
     pub fn grid_radius(&self, parameters: &Parameters) -> f32 {

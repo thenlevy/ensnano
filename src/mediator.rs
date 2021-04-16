@@ -807,7 +807,14 @@ impl Mediator {
             }
         }
         self.messages.lock().unwrap().push_op(operation.clone());
-        self.current_operation = Some(operation);
+
+        if operation.drop_undo() {
+            self.drop_undo_stack();
+            self.current_operation = None;
+        } else {
+            self.current_operation = Some(operation);
+        }
+
         self.notify_designs(&target, effect)
     }
 
@@ -1074,6 +1081,13 @@ impl Mediator {
         if let Some(design) = self.designs.get(0) {
             design.write().unwrap().finalize_hyperboloid()
         }
+        self.drop_undo_stack();
+    }
+
+    pub fn cancel_hyperboloid(&mut self) {
+        if let Some(design) = self.designs.get(0) {
+            design.write().unwrap().cancel_hyperboloid()
+        }
     }
 
     pub fn roll_helix(&mut self, roll: f32) {
@@ -1267,6 +1281,11 @@ impl Mediator {
 
     pub fn redim_2d_helices(&mut self, all: bool) {
         self.notify_apps(Notification::Redim2dHelices(all))
+    }
+
+    fn drop_undo_stack(&mut self) {
+        self.undo_stack.clear();
+        self.redo_stack.clear();
     }
 }
 

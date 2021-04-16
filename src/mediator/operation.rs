@@ -46,6 +46,10 @@ pub trait Operation: std::fmt::Debug + Sync + Send {
     fn must_reverse(&self) -> bool {
         true
     }
+
+    fn drop_undo(&self) -> bool {
+        false
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -1253,6 +1257,10 @@ impl Operation for NewHyperboloid {
 
     fn with_new_value(&self, _n: usize, _val: String) -> Option<Arc<dyn Operation>> {
         None
+    }
+
+    fn drop_undo(&self) -> bool {
+        true
     }
 }
 

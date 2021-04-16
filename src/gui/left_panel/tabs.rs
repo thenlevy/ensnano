@@ -99,10 +99,12 @@ impl EditionTab {
             ret = ret.push(row)
         }
 
-        if self.roll_target_helices.len() == 1 {
-            for view in self.helix_roll_factory.view().into_iter() {
-                ret = ret.push(view);
-            }
+        for view in self
+            .helix_roll_factory
+            .view(self.roll_target_helices.len() == 1)
+            .into_iter()
+        {
+            ret = ret.push(view);
         }
 
         let roll_target_active = self.roll_target_btn.running || self.roll_target_helices.len() > 0;
@@ -120,7 +122,7 @@ impl EditionTab {
                 .push(self.sequence_input.view());
         }
 
-        ret = ret.push(Text::new("Shrink 2D helices"));
+        ret = ret.push(Text::new("Tighten 2D helices"));
         ret = ret.push(
             text_btn(&mut self.redim_helices_button, "Selected", ui_size.clone())
                 .on_press(Message::Redim2dHelices(false)),
@@ -251,36 +253,45 @@ impl GridTab {
 
         ret = ret.push(iced::Space::with_height(Length::Units(5)));
 
-        let mut nanotube_title = Row::new().push(Text::new("New nanotube"));
-        if self.building_hyperboloid {
-            nanotube_title = nanotube_title
-                .push(
-                    text_btn(
-                        &mut self.finalize_hyperboloid_btn,
-                        "Finish",
-                        ui_size.clone(),
-                    )
-                    .on_press(Message::FinalizeHyperboloid),
-                )
-                .spacing(5);
-        }
+        let nanotube_title = Row::new().push(Text::new("New nanotube"));
 
         ret = ret.push(nanotube_title);
-        let mut start_hyperboloid_btn = icon_btn(
-            &mut self.start_hyperboloid_btn,
-            ICON_NANOTUBE,
-            ui_size.clone(),
-        );
+        let start_hyperboloid_btn = if !self.building_hyperboloid {
+            icon_btn(
+                &mut self.start_hyperboloid_btn,
+                ICON_NANOTUBE,
+                ui_size.clone(),
+            )
+            .on_press(Message::NewHyperboloid)
+        } else {
+            text_btn(&mut self.start_hyperboloid_btn, "Finish", ui_size.clone())
+                .on_press(Message::FinalizeHyperboloid)
+        };
 
-        if !self.building_hyperboloid {
-            start_hyperboloid_btn = start_hyperboloid_btn.on_press(Message::NewHyperboloid);
+        let cancel_hyperboloid_btn = text_btn(
+            &mut self.finalize_hyperboloid_btn,
+            "Cancel",
+            ui_size.clone(),
+        )
+        .on_press(Message::CancelHyperboloid);
+
+        if self.building_hyperboloid {
+            ret = ret.push(
+                Row::new()
+                    .spacing(3)
+                    .push(start_hyperboloid_btn)
+                    .push(cancel_hyperboloid_btn),
+            );
+        } else {
+            ret = ret.push(start_hyperboloid_btn);
         }
 
-        ret = ret.push(start_hyperboloid_btn);
-        if self.building_hyperboloid {
-            for view in self.hyperboloid_factory.view().into_iter() {
-                ret = ret.push(view);
-            }
+        for view in self
+            .hyperboloid_factory
+            .view(self.building_hyperboloid)
+            .into_iter()
+        {
+            ret = ret.push(view);
         }
 
         let action_modes = [
@@ -742,7 +753,7 @@ impl SimulationTab {
         ret = ret
             .push(Text::new("Parameters for helices simulation").size(ui_size.intermediate_text()));
         ret = ret.push(iced::Space::with_height(Length::Units(2)));
-        for view in self.rigid_body_factory.view().into_iter() {
+        for view in self.rigid_body_factory.view(true).into_iter() {
             ret = ret.push(view);
         }
         ret = ret.push(right_checkbox(
@@ -757,7 +768,7 @@ impl SimulationTab {
             Message::BrownianMotion,
             ui_size.clone(),
         ));
-        for view in self.brownian_factory.view().into_iter() {
+        for view in self.brownian_factory.view(brownian_motion).into_iter() {
             ret = ret.push(view);
         }
 
@@ -917,7 +928,7 @@ impl ParametersTab {
             Message::UiSizePicked,
         ));
 
-        for view in self.scroll_sensitivity_factory.view().into_iter() {
+        for view in self.scroll_sensitivity_factory.view(true).into_iter() {
             ret = ret.push(view);
         }
 
@@ -1028,6 +1039,6 @@ where
     Row::new()
         .push(Text::new(label))
         .push(Checkbox::new(is_checked, "", f).size(ui_size.checkbox()))
-        .spacing(4)
+        .spacing(CHECKBOXSPACING)
         .into()
 }

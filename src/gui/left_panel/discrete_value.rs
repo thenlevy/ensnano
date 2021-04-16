@@ -68,11 +68,11 @@ impl<R: Requestable> RequestFactory<R> {
         }
     }
 
-    pub fn view(&mut self) -> Vec<Element<Message>> {
+    pub fn view(&mut self, active: bool) -> Vec<Element<Message>> {
         self.values
             .values_mut()
             .filter(|v| !v.hidden)
-            .map(|v| v.view())
+            .map(|v| v.view(active))
             .collect()
     }
 
@@ -145,8 +145,8 @@ impl DiscreteValue {
         }
     }
 
-    fn view(&mut self) -> Element<Message> {
-        let decr_button = if self.value - self.step > self.min_val {
+    fn view(&mut self, active: bool) -> Element<Message> {
+        let decr_button = if active && self.value - self.step > self.min_val {
             Button::new(&mut self.decr_button, Text::new("-")).on_press(Message::DescreteValue {
                 factory_id: self.owner_id,
                 value_id: self.value_id,
@@ -155,7 +155,7 @@ impl DiscreteValue {
         } else {
             Button::new(&mut self.decr_button, Text::new("-"))
         };
-        let incr_button = if self.value + self.step < self.max_val {
+        let incr_button = if active && self.value + self.step < self.max_val {
             Button::new(&mut self.incr_button, Text::new("+")).on_press(Message::DescreteValue {
                 factory_id: self.owner_id,
                 value_id: self.value_id,
@@ -166,20 +166,35 @@ impl DiscreteValue {
         };
         let factory_id = self.owner_id.clone();
         let value_id = self.value_id.clone();
-        let slider = Slider::new(
-            &mut self.slider,
-            self.min_val..=self.max_val,
-            self.value,
-            move |value| Message::DescreteValue {
-                factory_id,
-                value_id,
-                value,
-            },
-        )
-        .step(self.step);
+        let slider = if active {
+            Slider::new(
+                &mut self.slider,
+                self.min_val..=self.max_val,
+                self.value,
+                move |value| Message::DescreteValue {
+                    factory_id,
+                    value_id,
+                    value,
+                },
+            )
+            .step(self.step)
+        } else {
+            Slider::new(
+                &mut self.slider,
+                self.min_val..=self.max_val,
+                self.value,
+                |_| Message::Nothing,
+            )
+        };
+
+        let mut name_text = Text::new(self.name.clone());
+
+        if !active {
+            name_text = name_text.color([0.6, 0.6, 0.6]);
+        }
 
         let left = Row::new()
-            .push(Text::new(self.name.clone()))
+            .push(name_text)
             .push(iced::Space::with_width(iced::Length::Fill))
             .align_items(iced::Align::Center)
             .width(iced::Length::FillPortion(4));

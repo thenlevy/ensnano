@@ -1,6 +1,6 @@
 use super::Requests;
 use crate::mediator::{Operation, ParameterField, Selection};
-use iced::{container, slider, Background, Container, Length, Slider};
+use iced::{container, slider, Background, Container, Length};
 use iced_native::{pick_list, text_input, Checkbox, Color, PickList, TextInput};
 use iced_winit::{Column, Command, Element, Program, Row, Space, Text};
 use std::str::FromStr;
@@ -53,6 +53,7 @@ pub struct StatusBar {
     requests: Arc<Mutex<Requests>>,
     selection: Selection,
     progress: Option<(String, f32)>,
+    #[allow(dead_code)]
     slider_state: slider::State,
 }
 
@@ -155,6 +156,7 @@ impl StatusBar {
                     .size(STATUS_FONT_SIZE)
                     .text_size(STATUS_FONT_SIZE),
                 );
+                /*
                 if let Some(current_angle) =
                     self.info_values.get(2).and_then(|s| s.parse::<f32>().ok())
                 {
@@ -172,6 +174,7 @@ impl StatusBar {
                         .width(Length::Units(150)),
                     )
                 }
+                */
             }
             Selection::Strand(_, _) => {
                 let s_id = self.info_values[2].parse::<usize>().unwrap();
@@ -233,6 +236,7 @@ pub enum Message {
     SetSmallSpheres(bool),
     ScaffoldIdSet(usize, bool),
     Progress(Option<(String, f32)>),
+    #[allow(dead_code)]
     SetShift(f32),
     ClearOp,
 }

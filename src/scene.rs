@@ -284,7 +284,7 @@ impl Scene {
     pub fn make_hyperboloid(&self, hyperboloid: Hyperboloid) {
         let camera = self.view.borrow().get_camera();
         let position = camera.borrow().position + 30_f32 * camera.borrow().direction()
-            - 20f32 * camera.borrow().right_vec();
+            - 2f32 * camera.borrow().right_vec();
         let orientation = camera.borrow().rotor.reversed();
         self.mediator
             .lock()

@@ -139,6 +139,8 @@ pub enum Message {
     Redim2dHelices(bool),
     InvertScroll(bool),
     BrownianMotion(bool),
+    Nothing,
+    CancelHyperboloid,
 }
 
 impl LeftPanel {
@@ -500,6 +502,11 @@ impl Program for LeftPanel {
                 self.requests.lock().unwrap().invert_scroll = Some(b);
                 self.parameters_tab.invert_y_scroll = b;
             }
+            Message::CancelHyperboloid => {
+                self.grid_tab.finalize_hyperboloid();
+                self.requests.lock().unwrap().cancel_hyperboloid = true;
+            }
+            Message::Nothing => (),
         };
         Command::none()
     }
@@ -910,7 +917,7 @@ impl Requestable for Hyperboloid_ {
     fn initial_value(&self, n: usize) -> f32 {
         match n {
             0 => 10f32,
-            1 => 100f32,
+            1 => 30f32,
             2 => 0f32,
             3 => 0.2f32,
             _ => unreachable!(),
@@ -957,7 +964,7 @@ impl Requestable for Hyperboloid_ {
     }
 
     fn hidden(&self, n: usize) -> bool {
-        n == 2
+        n == 2 || n == 3
     }
 }
 
