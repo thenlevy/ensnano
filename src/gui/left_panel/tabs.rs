@@ -753,7 +753,7 @@ impl SimulationTab {
         ));
         ret = ret.push(right_checkbox(
             brownian_motion,
-            "Random jumps",
+            "Unmatched nucleotides jiggle",
             Message::BrownianMotion,
             ui_size.clone(),
         ));
