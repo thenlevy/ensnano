@@ -124,12 +124,15 @@ impl EditionTab {
 
         ret = ret.push(Text::new("Tighten 2D helices"));
         ret = ret.push(
-            text_btn(&mut self.redim_helices_button, "Selected", ui_size.clone())
-                .on_press(Message::Redim2dHelices(false)),
-        );
-        ret = ret.push(
-            text_btn(&mut self.redim_all_helices_button, "All", ui_size.clone())
-                .on_press(Message::Redim2dHelices(true)),
+            Row::new()
+                .push(
+                    text_btn(&mut self.redim_helices_button, "Selected", ui_size.clone())
+                        .on_press(Message::Redim2dHelices(false)),
+                )
+                .push(
+                    text_btn(&mut self.redim_all_helices_button, "All", ui_size.clone())
+                        .on_press(Message::Redim2dHelices(true)),
+                ).spacing(5),
         );
 
         Scrollable::new(&mut self.scroll).push(ret).into()
