@@ -267,11 +267,16 @@ impl HelixSystem {
         self.current_time = self.next_time;
         if let Some((t, _)) = self.brownian_heap.peek() {
             // t.0 because t is a &Reverse<_>
-            self.next_time = t.0.into_inner().min(self.current_time + self.max_time_step);
+            if self.rigid_parameters.brownian_motion {
+                self.next_time = t.0.into_inner().min(self.current_time + self.max_time_step);
+            } else {
+                self.next_time = self.current_time + self.max_time_step;
+            }
         } else {
             self.next_time = self.current_time + self.max_time_step;
         }
         self.time_span = (0., self.next_time - self.current_time);
+        println!("max time span {}", self.max_time_step);
         println!("{:?}", self.time_span());
     }
 
