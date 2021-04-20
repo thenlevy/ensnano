@@ -1,16 +1,15 @@
-use std::collections::HashMap;
 use ahash::RandomState;
+use std::collections::HashMap;
 use std::hash::Hash;
-
 
 #[derive(Clone, Debug, Default)]
 pub struct IdGenerator<K: Eq + Hash + Clone> {
     next_id: usize,
     ids: HashMap<K, usize, RandomState>,
-    elements: HashMap<usize, K, RandomState>
+    elements: HashMap<usize, K, RandomState>,
 }
 
-impl<K: Eq + Hash + Clone>IdGenerator<K> {
+impl<K: Eq + Hash + Clone> IdGenerator<K> {
     #[allow(dead_code)]
     pub fn import_existing(existing: Vec<(usize, K)>) -> Self {
         use std::collections::HashSet;
@@ -22,7 +21,10 @@ impl<K: Eq + Hash + Clone>IdGenerator<K> {
         elements.reserve(existing.len());
         for (id, k) in existing.into_iter() {
             if !used.insert(id) {
-                panic!("Error while loading ids, the id {} is used more that once", id);
+                panic!(
+                    "Error while loading ids, the id {} is used more that once",
+                    id
+                );
             }
             elements.insert(id, k.clone());
             ids.insert(k, id);

@@ -110,6 +110,7 @@ fn make_strand(
     let mut ret = Strand {
         domains: Vec::new(),
         sequence: None,
+        junctions: Vec::new(),
         cyclic,
         color: crate::consts::SCAFFOLD_COLOR,
     };
@@ -194,6 +195,8 @@ fn make_strand(
             }
         }
     }
+    let junctions = super::icednano::read_junctions(&ret.domains, cyclic);
+    ret.junctions = junctions;
     ret
 }
 

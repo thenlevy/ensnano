@@ -8,11 +8,11 @@ pub mod bindgroup_manager;
 pub mod camera2d;
 pub mod chars2d;
 pub mod circles2d;
+pub mod id_generator;
 pub mod instance;
 pub mod light;
 pub mod mesh;
 pub mod texture;
-pub mod id_generator;
 
 pub fn create_buffer_with_data(
     device: &wgpu::Device,

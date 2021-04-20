@@ -222,12 +222,37 @@ impl Design {
     }
 }
 
+/// A link between a 5' and a 3' domain.
+///
+/// For any non cyclic strand, the last domain juction must be DomainJunction::Prime3. For a cyclic
+/// strand it must be the link that would be appropriate between the first and the last domain.
+///
+/// An Insertion is considered to be adjacent to its 5' neighbour. The link between an Insertion
+/// and it's 3' neighbour is the link that would exist between it's 5' and 3' neighbour if there
+/// were no insertion.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum DomainJunction {
+    /// A cross-over that has not yet been given an identifier. These should exist only in
+    /// transitory states.
+    UnindentifiedXover,
+    /// A cross-over with an identifier.
+    IdentifiedXover(usize),
+    /// A link between two neighbouring domains
+    Adjacent,
+    /// Indicate that the previous domain is the end of the strand.
+    Prime3,
+}
+
 /// A DNA strand. Strands are represented as sequences of `Domains`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Strand {
     /// The (ordered) vector of domains, where each domain is a
     /// directed interval of a helix.
     pub domains: Vec<Domain>,
+    /// The junctions between the consecutive domains of the strand.
+    /// This field is optional and will be filled automatically when absent.
+    #[serde(default)]
+    pub junctions: Vec<DomainJunction>,
     /// The sequence of this strand, if any. If the sequence is longer
     /// than specified by the domains, a prefix is assumed. Can be
     /// skipped in the serialisation.
@@ -243,17 +268,158 @@ pub struct Strand {
     pub color: u32,
 }
 
+/// Return a list of domains that validate the following condition:
+/// [SaneDomains]: There must always be a Domain::HelixDomain between two Domain::Insertion. If the
+/// strand is cyclic, this include the first and the last domain.
+fn sanitize_domains(domains: &[Domain], cyclic: bool) -> Vec<Domain> {
+    let mut ret = Vec::with_capacity(domains.len());
+    let mut current_insertion: Option<usize> = None;
+    for d in domains {
+        match d {
+            Domain::HelixDomain(_) => {
+                if let Some(n) = current_insertion.take() {
+                    ret.push(Domain::Insertion(n));
+                }
+                ret.push(d.clone());
+            }
+            Domain::Insertion(m) => {
+                if let Some(n) = current_insertion {
+                    current_insertion = Some(n + m);
+                } else {
+                    current_insertion = Some(*m);
+                }
+            }
+        }
+    }
+
+    if let Some(n) = current_insertion {
+        if cyclic {
+            if let Domain::Insertion(k) = &mut ret[0] {
+                *k += n;
+            } else {
+                ret.push(Domain::Insertion(n));
+            }
+        } else {
+            ret.push(Domain::Insertion(n));
+        }
+    }
+    ret
+}
+
+/// Infer juctions from a succession of domains.
+pub(super) fn read_junctions(domains: &[Domain], cyclic: bool) -> Vec<DomainJunction> {
+    if domains.len() == 0 {
+        return vec![];
+    }
+
+    let mut ret = Vec::with_capacity(domains.len());
+    let mut previous_domain = &domains[domains.len() - 1];
+
+    for i in 0..(domains.len() - 1) {
+        let current = &domains[i];
+        let next = &domains[i + 1];
+        add_juction(&mut ret, current, next, &mut previous_domain, cyclic, i);
+    }
+
+    if cyclic {
+        let last = &domains[domains.len() - 1];
+        let first = &domains[0];
+        add_juction(
+            &mut ret,
+            last,
+            first,
+            &mut previous_domain,
+            cyclic,
+            domains.len() - 1,
+        );
+    } else {
+        ret.push(DomainJunction::Prime3)
+    }
+
+    ret
+}
+
+/// Add the correct juction between current and next to junctions.
+/// Assumes and preseve the following invariant
+/// Invariant [read_junctions::PrevDomain]: One of the following is true
+/// * the strand is not cyclic
+/// * the strand is cyclic and its first domain is NOT and insertion.
+/// * previous domain points to some Domain::HelixDomain.
+///
+/// Moreover at the end of each iteration of the loop, previous_domain points to some
+/// Domain::HelixDomain. The loop is responsible for preserving the invariant. The invariant is
+/// true at initilasation if [SaneDomains] is true.
+fn add_juction<'b, 'a: 'b>(
+    junctions: &'b mut Vec<DomainJunction>,
+    current: &'a Domain,
+    next: &'a Domain,
+    previous_domain: &'b mut &'a Domain,
+    cyclic: bool,
+    i: usize,
+) {
+    match next {
+        Domain::Insertion(_) => {
+            junctions.push(DomainJunction::Adjacent);
+            if let Domain::HelixDomain(_) = current {
+                *previous_domain = current;
+            } else {
+                panic!("Invariant violated: SaneDomains");
+            }
+        }
+        Domain::HelixDomain(prime3) => {
+            match current {
+                Domain::Insertion(_) => {
+                    if i == 0 && !cyclic {
+                        // The first domain IS an insertion
+                        junctions.push(DomainJunction::Adjacent);
+                    } else {
+                        // previous domain MUST point to some Domain::HelixDomain.
+                        if let Domain::HelixDomain(prime5) = *previous_domain {
+                            junctions.push(junction(prime5, prime3))
+                        } else {
+                            if i == 0 {
+                                panic!("Invariant violated: SaneDomains");
+                            } else {
+                                panic!("Invariant violated: read_junctions::PrevDomain");
+                            }
+                        }
+                    }
+                }
+                Domain::HelixDomain(prime5) => {
+                    junctions.push(junction(prime5, prime3));
+                    *previous_domain = current;
+                }
+            }
+        }
+    }
+}
+
+/// Return the appropriate junction between two HelixInterval
+pub(super) fn junction(prime5: &HelixInterval, prime3: &HelixInterval) -> DomainJunction {
+    let prime5_nucl = prime5.prime3();
+    let prime3_nucl = prime3.prime5();
+
+    if prime3_nucl == prime5_nucl.prime3() {
+        DomainJunction::Adjacent
+    } else {
+        DomainJunction::UnindentifiedXover
+    }
+}
+
 impl Strand {
     pub fn from_codenano<Sl, Dl>(codenano_strand: &codenano::Strand<Sl, Dl>) -> Self {
-        let domains = codenano_strand
+        let domains: Vec<Domain> = codenano_strand
             .domains
             .iter()
             .map(|d| Domain::from_codenano(d))
             .collect();
+        let sane_domains = sanitize_domains(&domains, codenano_strand.cyclic);
+        let juctions = read_junctions(&sane_domains, codenano_strand.cyclic);
         Self {
-            domains,
+            domains: sane_domains,
             sequence: codenano_strand.sequence.clone(),
             cyclic: codenano_strand.cyclic,
+            junctions: juctions,
             color: codenano_strand
                 .color
                 .clone()
@@ -278,10 +444,14 @@ impl Strand {
         } else {
             None
         };
+        let cyclic = false; // TODO: determine this value
+        let sane_domains = sanitize_domains(&domains, cyclic);
+        let junctions = read_junctions(&sane_domains, cyclic);
         Some(Self {
-            domains,
+            domains: sane_domains,
             color,
-            cyclic: false, // TODO: determine this value
+            cyclic, // TODO: determine this value
+            junctions,
             sequence,
         })
     }
@@ -294,10 +464,13 @@ impl Strand {
             helix,
             forward,
         })];
+        let sane_domains = sanitize_domains(&domains, false);
+        let junctions = read_junctions(&sane_domains, false);
         Self {
-            domains,
+            domains: sane_domains,
             sequence: None,
             cyclic: false,
+            junctions,
             color,
         }
     }
@@ -484,6 +657,40 @@ pub struct HelixInterval {
     /// may have sequences too. The precedence has to be defined by
     /// the user of this library.
     pub sequence: Option<Cow<'static, str>>,
+}
+
+impl HelixInterval {
+    pub fn prime5(&self) -> Nucl {
+        if self.forward {
+            Nucl {
+                helix: self.helix,
+                position: self.start,
+                forward: true,
+            }
+        } else {
+            Nucl {
+                helix: self.helix,
+                position: self.end - 1,
+                forward: false,
+            }
+        }
+    }
+
+    pub fn prime3(&self) -> Nucl {
+        if self.forward {
+            Nucl {
+                helix: self.helix,
+                position: self.end - 1,
+                forward: true,
+            }
+        } else {
+            Nucl {
+                helix: self.helix,
+                position: self.start,
+                forward: false,
+            }
+        }
+    }
 }
 
 impl Domain {

@@ -337,9 +337,12 @@ impl Data {
         for pasted_strand in self.template_manager.pasted_strands.iter() {
             let color = super::new_color(&mut self.color_idx);
             if self.can_add_domains(&pasted_strand.domains) {
+                let junctions =
+                    super::icednano::read_junctions(pasted_strand.domains.as_slice(), false);
                 let strand = super::icednano::Strand {
                     domains: pasted_strand.domains.clone(),
                     color,
+                    junctions,
                     sequence: None,
                     cyclic: false,
                 };

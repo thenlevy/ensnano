@@ -40,6 +40,7 @@ pub use elements::*;
 use ensnano_organizer::OrganizerTree;
 use grid::GridManager;
 pub use grid::*;
+use icednano::DomainJunction;
 pub use icednano::Nucl;
 pub use icednano::{Axis, Design, Helix, Parameters, Strand};
 pub use rigid_body::RigidBodyConstants;
@@ -1299,8 +1300,10 @@ impl Data {
             let strand3prime = self.design.strands.remove(&prime3).expect("strand 3 prime");
             let len = strand5prime.domains.len() + strand3prime.domains.len();
             let mut domains = Vec::with_capacity(len);
-            for domain in strand5prime.domains.iter() {
+            let mut junctions = Vec::with_capacity(len);
+            for (i, domain) in strand5prime.domains.iter().enumerate() {
                 domains.push(domain.clone());
+                junctions.push(strand5prime.junctions[i].clone());
             }
             let skip;
             let last_helix = domains.last().and_then(|d| d.half_helix());
@@ -1316,11 +1319,16 @@ impl Data {
                     .as_mut()
                     .unwrap()
                     .merge(strand3prime.domains.iter().next().unwrap());
+                junctions.pop();
             } else {
                 skip = 0;
+                if let Some(j) = junctions.iter_mut().last() {
+                    *j = DomainJunction::UnindentifiedXover
+                }
             }
-            for domain in strand3prime.domains.iter().skip(skip) {
+            for (i, domain) in strand3prime.domains.iter().enumerate().skip(skip) {
                 domains.push(domain.clone());
+                junctions.push(strand3prime.junctions[i].clone());
             }
             let sequence = if let Some((seq5, seq3)) = strand5prime
                 .sequence
@@ -1340,6 +1348,7 @@ impl Data {
                 domains,
                 color: strand5prime.color,
                 sequence,
+                junctions,
                 cyclic: false,
             };
             self.design.strands.insert(prime5, new_strand);
@@ -1359,6 +1368,7 @@ impl Data {
             */
         }
         self.view_need_reset = true;
+        // TODO UNITTEST
     }
 
     /// Undo a strand merge
@@ -1387,6 +1397,58 @@ impl Data {
             .get_mut(&strand_id)
             .expect("Attempt to make non existing strand cyclic")
             .cyclic = cyclic;
+
+        let strand = self.design.strands.get_mut(&strand_id).unwrap();
+        if cyclic {
+            let first_last_domains = (strand.domains.iter().next(), strand.domains.iter().last());
+            let merge_insertions = if let (
+                Some(icednano::Domain::Insertion(n1)),
+                Some(icednano::Domain::Insertion(n2)),
+            ) = first_last_domains
+            {
+                Some(n1 + n2)
+            } else {
+                None
+            };
+            if let Some(n) = merge_insertions {
+                // If the strand starts and finishes by an Insertion, merge the insertions.
+                // TODO UNITTEST for this specific case
+                *strand.domains.last_mut().unwrap() = icednano::Domain::Insertion(n);
+                // remove the first insertions
+                strand.domains.remove(0);
+                strand.junctions.remove(0);
+            }
+
+            let first_last_domains = (strand.domains.iter().next(), strand.domains.iter().last());
+            let skip_last = if let (_, Some(icednano::Domain::Insertion(_))) = first_last_domains {
+                1
+            } else {
+                0
+            };
+            let skip_first = if let (Some(icednano::Domain::Insertion(_)), _) = first_last_domains {
+                1
+            } else {
+                0
+            };
+            let last_first_intervals = (
+                strand.domains.iter().rev().skip(skip_last).next(),
+                strand.domains.get(skip_first),
+            );
+            if let (
+                Some(icednano::Domain::HelixDomain(i1)),
+                Some(icednano::Domain::HelixDomain(i2)),
+            ) = last_first_intervals
+            {
+                use icednano::junction;
+                let junction = junction(i1, i2);
+                *strand.junctions.last_mut().unwrap() = junction;
+            } else {
+                panic!("Invariant Violated: SaneDomains")
+            }
+        } else {
+            *strand.junctions.last_mut().unwrap() = DomainJunction::Prime3;
+        }
+
         self.update_status = true;
         self.view_need_reset = true;
         //self.make_hash_maps();
@@ -1456,6 +1518,9 @@ impl Data {
         let mut domains = None;
         let mut on_3prime = force_end.unwrap_or(false);
         let mut prev_helix = None;
+        let mut prime5_junctions = Vec::new();
+        let mut prime3_junctions = Vec::new();
+
         for (d_id, domain) in strand.domains.iter().enumerate() {
             if domain.prime5_end() == Some(*nucl)
                 && prev_helix != domain.helix()
@@ -1466,6 +1531,7 @@ impl Data {
                 // half
                 on_3prime = true;
                 i = d_id;
+                prime5_junctions.push(DomainJunction::Prime3);
                 break;
             } else if domain.prime3_end() == Some(*nucl) && force_end != Some(true) {
                 // nucl is the 3' end of the current domain so it is the on the 5' end of a xover.
@@ -1474,16 +1540,19 @@ impl Data {
                 i = d_id + 1;
                 prim5_domains.push(domain.clone());
                 len_prim5 += domain.length();
+                prime5_junctions.push(DomainJunction::Prime3);
                 break;
             } else if let Some(n) = domain.has_nucl(nucl) {
                 let n = if force_end == Some(true) { n - 1 } else { n };
                 i = d_id;
                 len_prim5 += n;
                 domains = domain.split(n);
+                prime5_junctions.push(DomainJunction::Prime3);
                 break;
             } else {
                 len_prim5 += domain.length();
                 prim5_domains.push(domain.clone());
+                prime5_junctions.push(strand.junctions[d_id].clone());
             }
             prev_helix = domain.helix();
         }
@@ -1494,9 +1563,12 @@ impl Data {
             i += 1;
         }
 
-        for domain in strand.domains.iter().skip(i) {
+        for n in i..strand.domains.len() {
+            let domain = &strand.domains[n];
             prim3_domains.push(domain.clone());
+            prime3_junctions.push(strand.junctions[n].clone());
         }
+
         let seq_prim5;
         let seq_prim3;
         if let Some(seq) = strand.sequence {
@@ -1512,6 +1584,7 @@ impl Data {
         let strand_5prime = icednano::Strand {
             domains: prim5_domains,
             color: strand.color,
+            junctions: prime5_junctions,
             cyclic: false,
             sequence: seq_prim5,
         };
@@ -1520,6 +1593,7 @@ impl Data {
             domains: prim3_domains,
             color: strand.color,
             cyclic: false,
+            junctions: prime3_junctions,
             sequence: seq_prim3,
         };
         let new_id = (*self.design.strands.keys().max().unwrap_or(&0)).max(id) + 1;
@@ -1540,6 +1614,7 @@ impl Data {
         self.hash_maps_update = true;
         self.view_need_reset = true;
         Some(new_id)
+        // TODO UNITTEST
     }
 
     /// Split a cyclic strand at nucl
