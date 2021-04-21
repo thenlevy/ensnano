@@ -51,10 +51,19 @@ use std::sync::{mpsc::Sender, Arc, Mutex, RwLock};
 use strand_builder::NeighbourDescriptor;
 pub use strand_builder::{DomainIdentifier, StrandBuilder};
 use strand_template::{TemplateManager, XoverCopyManager};
-use tests::*;
 pub use torsion::Torsion;
 
-pub type StrandState = BTreeMap<usize, Strand>;
+#[derive(Clone)]
+pub struct StrandState {
+    strands: BTreeMap<usize, Strand>,
+    xover_ids: IdGenerator<(Nucl, Nucl)>,
+}
+
+impl std::fmt::Debug for StrandState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("").finish()
+    }
+}
 
 /// In addition to its `design` field, the `Data` struct has several hashmaps that are usefull to
 /// quickly access information about the design. These hasmaps must be updated when the design is
@@ -1693,6 +1702,7 @@ impl Data {
         self.hash_maps_update = true;
         self.view_need_reset = true;
 
+        self.test_named_junction("TEST AFTER SPLIT STRAND");
         Some(new_id)
         // TODO UNITTEST
     }
@@ -2608,12 +2618,19 @@ impl Data {
         true
     }
 
+    pub(super) fn get_strand_state(&self) -> StrandState {
+        StrandState {
+            strands: self.design.strands.clone(),
+            xover_ids: self.xover_ids.clone(),
+        }
+    }
+
     pub fn general_cross_over(
         &mut self,
         source_nucl: Nucl,
         target_nucl: Nucl,
     ) -> Option<(StrandState, StrandState)> {
-        let init = self.design.strands.clone();
+        let init = self.get_strand_state();
         println!("cross over between {:?} and {:?}", source_nucl, target_nucl);
         let source_id = self.get_strand_nucl(&source_nucl);
         let target_id = self.get_strand_nucl(&target_nucl);
@@ -2709,7 +2726,7 @@ impl Data {
                     }
                 }
             }
-            let final_state = self.design.strands.clone();
+            let final_state = self.get_strand_state();
             Some((init, final_state))
         } else {
             None
@@ -2725,7 +2742,8 @@ impl Data {
     }
 
     pub fn new_strand_state(&mut self, state: StrandState) {
-        self.design.strands = state;
+        self.design.strands = state.strands;
+        self.xover_ids = state.xover_ids;
         self.update_status = true;
         self.hash_maps_update = true;
         self.view_need_reset = true;

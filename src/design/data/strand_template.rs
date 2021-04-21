@@ -330,7 +330,7 @@ impl Data {
     }
 
     pub fn apply_copy(&mut self) -> Option<(StrandState, StrandState)> {
-        let initial_state = self.design.strands.clone();
+        let initial_state = self.get_strand_state();
         let mut ret = false;
         let mut first = true;
         let mut chief_id = None;
@@ -363,7 +363,7 @@ impl Data {
             self.update_chief_template(s_id)
         }
         if ret {
-            let final_state = self.design.strands.clone();
+            let final_state = self.get_strand_state();
             self.update_pasted_strand(vec![]);
             Some((initial_state, final_state))
         } else {
@@ -482,7 +482,7 @@ impl Data {
 #[derive(Default)]
 pub struct XoverCopyManager {
     xovers: Vec<(Nucl, Nucl)>,
-    initial_strands_state: Option<BTreeMap<usize, Strand>>,
+    initial_strands_state: Option<StrandState>,
     applied: Option<Nucl>,
     duplication_edge: Option<(Edge, isize)>,
     duplication_origin: Option<Nucl>,
@@ -502,14 +502,15 @@ impl Data {
         if xovers.len() > 0 {
             self.set_templates(vec![]);
         }
-        self.xover_copy_manager.initial_strands_state = Some(self.design.strands.clone());
+        self.xover_copy_manager.initial_strands_state = Some(self.get_strand_state());
         self.xover_copy_manager.xovers = xovers;
         true
     }
 
     pub fn unapply_xover_paste(&mut self) {
-        if let Some(strands) = self.xover_copy_manager.initial_strands_state.take() {
-            self.design.strands = strands;
+        if let Some(state) = self.xover_copy_manager.initial_strands_state.take() {
+            self.design.strands = state.strands;
+            self.xover_ids = state.xover_ids;
             //self.make_hash_maps();
             self.hash_maps_update = true;
             self.update_status = true;
@@ -535,7 +536,7 @@ impl Data {
                     return;
                 }
             }
-            self.xover_copy_manager.initial_strands_state = Some(self.design.strands.clone());
+            self.xover_copy_manager.initial_strands_state = Some(self.get_strand_state());
             println!("xovers {:?}", self.xover_copy_manager.xovers);
             if let Some((ref n01, ref _n02)) = self.xover_copy_manager.xovers.get(0) {
                 let edge_copy = self.edge_beteen_nucls(n01, &nucl);
@@ -577,7 +578,7 @@ impl Data {
         let initial_strands_state =
             std::mem::replace(&mut self.xover_copy_manager.initial_strands_state, None);
         self.xover_copy_manager.applied = None;
-        initial_strands_state.zip(Some(self.design.strands.clone()))
+        initial_strands_state.zip(Some(self.get_strand_state()))
     }
 
     pub fn duplicate_xovers(&mut self) -> Option<(StrandState, StrandState)> {
@@ -588,9 +589,9 @@ impl Data {
         {
             let new_origin = self.translate_nucl_by_edge(&nucl, &edge, shift);
             if let Some(origin) = new_origin {
-                let initial_state = self.design.strands.clone();
+                let initial_state = self.get_strand_state();
                 self.paste_xovers(Some(origin), true);
-                let final_state = self.design.strands.clone();
+                let final_state = self.get_strand_state();
                 Some((initial_state, final_state))
             } else {
                 None

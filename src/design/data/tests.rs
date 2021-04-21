@@ -2,6 +2,7 @@ use super::*;
 
 impl Data {
     pub(super) fn test_named_junction(&self, fail_msg: &'static str) {
+        let mut xover_cpy = self.xover_ids.clone();
         for s in self.design.strands.values() {
             let mut expected_prime5: Option<Nucl> = None;
             let mut expected_prime5_domain: Option<usize> = None;
@@ -24,6 +25,7 @@ impl Data {
                         } else {
                             // Expect named xover
                             if let Some(id) = self.xover_ids.get_id(&(prime5, prime3)) {
+                                xover_cpy.remove(id);
                                 if s.junctions[expected_prime5_domain.unwrap()]
                                     != DomainJunction::IdentifiedXover(id)
                                 {
@@ -52,5 +54,12 @@ impl Data {
                 }
             }
         }
+        assert!(
+            xover_cpy.is_empty(),
+            "In test {}\n
+        Remaining xovers {:?}",
+            fail_msg,
+            xover_cpy.get_all_elements()
+        );
     }
 }
