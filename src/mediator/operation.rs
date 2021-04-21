@@ -1,12 +1,10 @@
 //! This modules defines the `Operation` trait and several struct that implement it.
 //!
-//! An structure that implements `Operation` can produce an `AppNotification` that will have an
+//! An structure that implements `Operation` can produce an `UndoableOpperation` that will have an
 //! effect on the design.
 //!
 //! Moreover, these operations are meant to be modifiable via GUI component or user interaction.
-use super::{
-    AppNotification, DesignRotation, DesignTranslation, GridDescriptor, GridHelixDescriptor,
-};
+use super::{DesignRotation, DesignTranslation, GridDescriptor, GridHelixDescriptor, UndoableOp};
 use crate::design::{
     GridTypeDescr, Helix, Hyperboloid, IsometryTarget, Nucl, Strand, StrandBuilder, StrandState,
 };
@@ -31,7 +29,7 @@ pub trait Operation: std::fmt::Debug + Sync + Send {
     /// Return an opperation whose effect cancels the effect of `self`.
     fn reverse(&self) -> Arc<dyn Operation>;
     /// The effect of self that must be sent as a notifications to the targeted designs
-    fn effect(&self) -> AppNotification;
+    fn effect(&self) -> UndoableOp;
     /// A description of self of display in the GUI
     fn description(&self) -> String;
     /// The targeted designs of self.
@@ -96,9 +94,9 @@ impl Operation for GridRotation {
         })
     }
 
-    fn effect(&self) -> AppNotification {
+    fn effect(&self) -> UndoableOp {
         let rotor = Rotor3::from_angle_plane(self.angle, self.plane);
-        AppNotification::Rotation(DesignRotation {
+        UndoableOp::Rotation(DesignRotation {
             rotation: rotor,
             origin: self.origin,
             target: IsometryTarget::Grid(self.grid_id as u32),
@@ -170,9 +168,9 @@ impl Operation for HelixRotation {
         })
     }
 
-    fn effect(&self) -> AppNotification {
+    fn effect(&self) -> UndoableOp {
         let rotor = Rotor3::from_angle_plane(self.angle, self.plane);
-        AppNotification::Rotation(DesignRotation {
+        UndoableOp::Rotation(DesignRotation {
             rotation: rotor,
             origin: self.origin,
             target: IsometryTarget::Helix(self.helix_id as u32, false),
@@ -246,9 +244,9 @@ impl Operation for DesignViewRotation {
         })
     }
 
-    fn effect(&self) -> AppNotification {
+    fn effect(&self) -> UndoableOp {
         let rotor = Rotor3::from_angle_plane(self.angle, self.plane);
-        AppNotification::Rotation(DesignRotation {
+        UndoableOp::Rotation(DesignRotation {
             rotation: rotor,
             origin: self.origin,
             target: IsometryTarget::Design,
@@ -338,9 +336,9 @@ impl Operation for DesignViewTranslation {
         })
     }
 
-    fn effect(&self) -> AppNotification {
+    fn effect(&self) -> UndoableOp {
         let translation = self.x * self.right + self.y * self.top + self.z * self.dir;
-        AppNotification::Translation(DesignTranslation {
+        UndoableOp::Translation(DesignTranslation {
             translation,
             target: IsometryTarget::Design,
         })
@@ -437,9 +435,9 @@ impl Operation for HelixTranslation {
         })
     }
 
-    fn effect(&self) -> AppNotification {
+    fn effect(&self) -> UndoableOp {
         let translation = self.x * self.right + self.y * self.top + self.z * self.dir;
-        AppNotification::Translation(DesignTranslation {
+        UndoableOp::Translation(DesignTranslation {
             translation,
             target: IsometryTarget::Helix(self.helix_id as u32, self.snap),
         })
@@ -538,9 +536,9 @@ impl Operation for GridTranslation {
         })
     }
 
-    fn effect(&self) -> AppNotification {
+    fn effect(&self) -> UndoableOp {
         let translation = self.x * self.right + self.y * self.top + self.z * self.dir;
-        AppNotification::Translation(DesignTranslation {
+        UndoableOp::Translation(DesignTranslation {
             translation,
             target: IsometryTarget::Grid(self.grid_id as u32),
         })
@@ -614,8 +612,8 @@ impl Operation for GridHelixCreation {
         })
     }
 
-    fn effect(&self) -> AppNotification {
-        AppNotification::AddGridHelix(
+    fn effect(&self) -> UndoableOp {
+        UndoableOp::AddGridHelix(
             GridHelixDescriptor {
                 grid_id: self.grid_id,
                 x: self.x,
@@ -696,8 +694,8 @@ impl Operation for GridHelixDeletion {
         })
     }
 
-    fn effect(&self) -> AppNotification {
-        AppNotification::RmGridHelix(
+    fn effect(&self) -> UndoableOp {
+        UndoableOp::RmGridHelix(
             GridHelixDescriptor {
                 grid_id: self.grid_id,
                 x: self.x,
@@ -772,8 +770,8 @@ impl Operation for RawHelixCreation {
         })
     }
 
-    fn effect(&self) -> AppNotification {
-        AppNotification::RawHelixCreation {
+    fn effect(&self) -> UndoableOp {
+        UndoableOp::RawHelixCreation {
             helix: self.helix.clone(),
             h_id: self.helix_id,
             delete: self.delete,
@@ -835,15 +833,15 @@ impl Operation for Cut {
         })
     }
 
-    fn effect(&self) -> AppNotification {
+    fn effect(&self) -> UndoableOp {
         if self.strand.length() < 2 {
-            AppNotification::RmStrand {
+            UndoableOp::RmStrand {
                 strand: self.strand.clone(),
                 strand_id: self.strand_id,
                 undo: self.undo,
             }
         } else {
-            AppNotification::Cut {
+            UndoableOp::Cut {
                 nucl: self.nucl,
                 strand: self.strand.clone(),
                 s_id: self.strand_id,
@@ -903,8 +901,8 @@ impl Operation for Xover {
         })
     }
 
-    fn effect(&self) -> AppNotification {
-        AppNotification::Xover {
+    fn effect(&self) -> UndoableOp {
+        UndoableOp::Xover {
             strand_5prime: self.strand_5prime.clone(),
             strand_3prime: self.strand_3prime.clone(),
             prime5_id: self.prime5_id,
@@ -963,8 +961,8 @@ impl Operation for RmStrand {
         })
     }
 
-    fn effect(&self) -> AppNotification {
-        AppNotification::RmStrand {
+    fn effect(&self) -> UndoableOp {
+        UndoableOp::RmStrand {
             strand: self.strand.clone(),
             strand_id: self.strand_id,
             undo: self.undo,
@@ -1026,8 +1024,8 @@ impl Operation for CrossCut {
         })
     }
 
-    fn effect(&self) -> AppNotification {
-        AppNotification::CrossCut {
+    fn effect(&self) -> UndoableOp {
+        UndoableOp::CrossCut {
             source_strand: self.source_strand.clone(),
             target_strand: self.target_strand.clone(),
             source_id: self.source_id,
@@ -1091,11 +1089,11 @@ impl Operation for CreateGrid {
         })
     }
 
-    fn effect(&self) -> AppNotification {
+    fn effect(&self) -> UndoableOp {
         if self.delete {
-            AppNotification::RmGrid
+            UndoableOp::RmGrid
         } else {
-            AppNotification::AddGrid(GridDescriptor {
+            UndoableOp::AddGrid(GridDescriptor {
                 position: self.position,
                 orientation: self.orientation,
                 grid_type: self.grid_type,
@@ -1173,11 +1171,11 @@ impl Operation for BigStrandModification {
         })
     }
 
-    fn effect(&self) -> AppNotification {
+    fn effect(&self) -> UndoableOp {
         if self.reverse {
-            AppNotification::NewStrandState(self.initial_state.clone())
+            UndoableOp::NewStrandState(self.initial_state.clone())
         } else {
-            AppNotification::NewStrandState(self.final_state.clone())
+            UndoableOp::NewStrandState(self.final_state.clone())
         }
     }
 
@@ -1231,11 +1229,11 @@ impl Operation for NewHyperboloid {
         })
     }
 
-    fn effect(&self) -> AppNotification {
+    fn effect(&self) -> UndoableOp {
         if self.delete {
-            AppNotification::ClearHyperboloid
+            UndoableOp::ClearHyperboloid
         } else {
-            AppNotification::NewHyperboloid {
+            UndoableOp::NewHyperboloid {
                 position: self.position,
                 orientation: self.orientation,
                 hyperboloid: self.hyperboloid.clone(),
@@ -1297,16 +1295,16 @@ impl Operation for StrandConstruction {
         })
     }
 
-    fn effect(&self) -> AppNotification {
+    fn effect(&self) -> UndoableOp {
         if let Some(color) = self.redo {
             let remake = if self.builder.created_de_novo() {
                 Some((self.builder.get_strand_id(), color))
             } else {
                 None
             };
-            AppNotification::MoveBuilder(self.builder.clone(), remake)
+            UndoableOp::MoveBuilder(self.builder.clone(), remake)
         } else {
-            AppNotification::ResetBuilder(self.builder.clone())
+            UndoableOp::ResetBuilder(self.builder.clone())
         }
     }
 

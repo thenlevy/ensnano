@@ -785,23 +785,15 @@ impl Mediator {
             self.finish_pending();
             operation
         };
-        let target = {
-            let mut set = HashSet::new();
-            set.insert(operation.target() as u32);
-            set
-        };
+        let target = operation.target();
         let effect = operation.effect();
         if let Some(current_op) = self.current_operation.as_ref() {
             // If there already is a current operation. We test if the current operation is being
             // eddited.
             if current_op.descr() == operation.descr() && current_op.must_reverse() {
                 let rev_op = current_op.reverse();
-                let target = {
-                    let mut set = HashSet::new();
-                    set.insert(current_op.target() as u32);
-                    set
-                };
-                self.notify_designs(&target, rev_op.effect());
+                let target = current_op.target();
+                self.apply_operation(target, rev_op.effect());
             } else if current_op.descr() != operation.descr() {
                 self.finish_op();
             }
@@ -815,7 +807,15 @@ impl Mediator {
             self.current_operation = Some(operation);
         }
 
-        self.notify_designs(&target, effect)
+        if let Some((init, after)) = self.apply_operation(target, effect) {
+            self.current_operation = None;
+            self.undo_stack.push(Arc::new(BigStrandModification {
+                initial_state: init,
+                final_state: after,
+                reverse: false,
+                design_id: self.last_selected_design,
+            }))
+        }
     }
 
     /// Update the pending operation.
@@ -826,27 +826,19 @@ impl Mediator {
         if *self.computing.lock().unwrap() {
             return;
         }
-        let target = {
-            let mut set = HashSet::new();
-            set.insert(operation.target() as u32);
-            set
-        };
+        let target = operation.target();
         let effect = operation.effect();
         if let Some(current_op) = self.last_op.as_ref() {
             if current_op.descr() == operation.descr() {
                 let rev_op = current_op.reverse();
-                let target = {
-                    let mut set = HashSet::new();
-                    set.insert(current_op.target() as u32);
-                    set
-                };
-                self.notify_designs(&target, rev_op.effect());
+                let target = current_op.target();
+                self.apply_operation(target, rev_op.effect());
             } else {
                 self.finish_op();
             }
         }
         self.last_op = Some(operation.clone());
-        self.notify_designs(&target, effect)
+        self.apply_operation(target, effect);
     }
 
     /// Save the last operation and the pending operation on the undo stack.
@@ -913,30 +905,37 @@ impl Mediator {
         self.suspend_op();
         self.finish_pending();
         if let Some(op) = self.undo_stack.pop() {
-            println!("effect {:?}", op.effect());
+            //println!("effect {:?}", op.effect());
             let rev_op = op.reverse();
             let target = {
                 let mut set = HashSet::new();
                 set.insert(rev_op.target() as u32);
                 set
             };
-            println!("reversed effect {:?}", rev_op.effect());
-            self.notify_designs(&target, rev_op.effect());
+            //println!("reversed effect {:?}", rev_op.effect());
+            self.apply_operation(rev_op.target(), rev_op.effect());
             self.notify_all_designs(AppNotification::MovementEnded);
             self.redo_stack.push(rev_op);
         }
     }
 
+    fn apply_operation(
+        &mut self,
+        target: usize,
+        effect: UndoableOp,
+    ) -> Option<(StrandState, StrandState)> {
+        self.designs[target]
+            .write()
+            .unwrap()
+            .apply_operation(effect)
+    }
+
     pub fn redo(&mut self) {
         if let Some(op) = self.redo_stack.pop() {
             let rev_op = op.reverse();
-            println!("{:?}", rev_op);
-            let target = {
-                let mut set = HashSet::new();
-                set.insert(rev_op.target() as u32);
-                set
-            };
-            self.notify_designs(&target, rev_op.effect());
+            //println!("{:?}", rev_op);
+            let target = rev_op.target();
+            self.apply_operation(target, rev_op.effect());
             self.notify_all_designs(AppNotification::MovementEnded);
             self.undo_stack.push(rev_op);
         }
@@ -1292,6 +1291,11 @@ impl Mediator {
 #[derive(Debug, Clone)]
 pub enum AppNotification {
     MovementEnded,
+    ResetCopyPaste,
+    MakeGrids(Vec<usize>),
+}
+
+pub enum UndoableOp {
     Rotation(DesignRotation),
     Translation(DesignTranslation),
     AddGridHelix(GridHelixDescriptor, isize, usize),
@@ -1329,7 +1333,6 @@ pub enum AppNotification {
         undo: bool,
     },
     MakeAllGrids,
-    MakeGrids(Vec<usize>),
     AddGrid(GridDescriptor),
     MoveBuilder(Box<StrandBuilder>, Option<(usize, u32)>),
     ResetBuilder(Box<StrandBuilder>),

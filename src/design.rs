@@ -7,7 +7,7 @@ use std::sync::{Arc, Mutex, RwLock};
 use ultraviolet::{Mat4, Vec3};
 
 use crate::mediator;
-use mediator::{AppNotification, Selection};
+use mediator::{AppNotification, Selection, UndoableOp};
 
 mod controller;
 mod data;
@@ -194,31 +194,18 @@ impl Design {
         self.data.lock().unwrap().get_all_bound_ids().collect()
     }
 
-    /// Notify the design of a notification. This is how applications communicate their
-    /// modification request to the design
-    pub fn on_notify(&mut self, notification: AppNotification) {
-        match notification {
-            AppNotification::MovementEnded => self.terminate_movement(),
-            AppNotification::Rotation(rotation) => self.apply_rotation(&rotation),
-            AppNotification::Translation(translation) => self.apply_translation(&translation),
-            AppNotification::MakeAllGrids => self.data.lock().unwrap().create_grids(),
-            AppNotification::MakeGrids(h_ids) => {
-                self.data.lock().unwrap().make_grid_from_helices(&h_ids)
+    pub fn apply_operation(&mut self, operation: UndoableOp) -> Option<(StrandState, StrandState)> {
+        match operation {
+            UndoableOp::Rotation(rotation) => self.apply_rotation(&rotation),
+            UndoableOp::Translation(translation) => self.apply_translation(&translation),
+            UndoableOp::MakeAllGrids => self.data.lock().unwrap().create_grids(),
+            UndoableOp::AddGridHelix(GridHelixDescriptor { grid_id, x, y }, position, length) => {
+                self.data
+                    .lock()
+                    .unwrap()
+                    .build_helix_grid(grid_id, x, y, position, length)
             }
-            AppNotification::AddGridHelix(
-                GridHelixDescriptor { grid_id, x, y },
-                position,
-                length,
-            ) => self
-                .data
-                .lock()
-                .unwrap()
-                .build_helix_grid(grid_id, x, y, position, length),
-            AppNotification::RmGridHelix(
-                GridHelixDescriptor { grid_id, x, y },
-                position,
-                length,
-            ) => {
+            UndoableOp::RmGridHelix(GridHelixDescriptor { grid_id, x, y }, position, length) => {
                 if length > 0 {
                     self.data
                         .lock()
@@ -227,20 +214,24 @@ impl Design {
                 }
                 self.data.lock().unwrap().rm_helix_grid(grid_id, x, y)
             }
-            AppNotification::RmStrand {
+            UndoableOp::RmStrand {
                 strand,
                 strand_id,
                 undo,
-            } => self
-                .data
-                .lock()
-                .unwrap()
-                .undoable_rm_strand(strand, strand_id, undo),
-            AppNotification::RmGrid => self.data.lock().unwrap().delete_last_grid(),
-            AppNotification::AddGrid(grid_descriptor) => {
+            } => {
+                let init = self.data.lock().unwrap().get_strand_state();
+                self.data
+                    .lock()
+                    .unwrap()
+                    .undoable_rm_strand(strand, strand_id, undo);
+                let after = self.data.lock().unwrap().get_strand_state();
+                return Some((init, after));
+            }
+            UndoableOp::RmGrid => self.data.lock().unwrap().delete_last_grid(),
+            UndoableOp::AddGrid(grid_descriptor) => {
                 self.data.lock().unwrap().add_grid(grid_descriptor);
             }
-            AppNotification::ResetBuilder(builder) => {
+            UndoableOp::ResetBuilder(builder) => {
                 let mut builder = builder.clone();
                 builder.reset();
                 if builder.created_de_novo() {
@@ -248,7 +239,7 @@ impl Design {
                     self.data.lock().unwrap().rm_strand(&nucl);
                 }
             }
-            AppNotification::MoveBuilder(builder, remake) => {
+            UndoableOp::MoveBuilder(builder, remake) => {
                 let mut builder = builder.clone();
                 if let Some((s_id, color)) = remake {
                     let nucl = builder.get_initial_nucl();
@@ -256,7 +247,7 @@ impl Design {
                 }
                 builder.update();
             }
-            AppNotification::RawHelixCreation {
+            UndoableOp::RawHelixCreation {
                 helix,
                 h_id,
                 delete,
@@ -267,25 +258,29 @@ impl Design {
                     self.data.lock().unwrap().add_helix(&helix, h_id)
                 }
             }
-            AppNotification::Cut {
+            UndoableOp::Cut {
                 nucl,
                 strand,
                 undo,
                 s_id,
             } => {
+                let init = self.data.lock().unwrap().get_strand_state();
                 if undo {
                     self.data.lock().unwrap().undo_split(strand, s_id)
                 } else {
                     self.data.lock().unwrap().split_strand(&nucl, None);
                 }
+                let after = self.data.lock().unwrap().get_strand_state();
+                return Some((init, after));
             }
-            AppNotification::Xover {
+            UndoableOp::Xover {
                 strand_5prime,
                 strand_3prime,
                 prime5_id,
                 prime3_id,
                 undo,
             } => {
+                let init = self.data.lock().unwrap().get_strand_state();
                 if prime5_id == prime3_id {
                     self.data.lock().unwrap().make_cycle(prime5_id, !undo)
                 } else {
@@ -303,8 +298,10 @@ impl Design {
                             .merge_strands(prime5_id, prime3_id)
                     }
                 }
+                let after = self.data.lock().unwrap().get_strand_state();
+                return Some((init, after));
             }
-            AppNotification::CrossCut {
+            UndoableOp::CrossCut {
                 source_strand,
                 target_strand,
                 source_id,
@@ -314,6 +311,7 @@ impl Design {
                 undo,
             } => {
                 println!("Cross cut {} {}", source_id, target_id);
+                let init = self.data.lock().unwrap().get_strand_state();
                 if undo {
                     self.data.lock().unwrap().undo_cross_cut(
                         source_strand,
@@ -327,8 +325,10 @@ impl Design {
                         .unwrap()
                         .cross_cut(source_id, target_id, nucl, target_3prime)
                 }
+                let after = self.data.lock().unwrap().get_strand_state();
+                return Some((init, after));
             }
-            AppNotification::NewHyperboloid {
+            UndoableOp::NewHyperboloid {
                 position,
                 orientation,
                 hyperboloid,
@@ -338,11 +338,22 @@ impl Design {
                     .unwrap()
                     .add_hyperboloid(position, orientation, hyperboloid);
             }
-            AppNotification::ClearHyperboloid => self.data.lock().unwrap().clear_hyperboloid(),
-            AppNotification::NewStrandState(state) => {
-                self.data.lock().unwrap().new_strand_state(state)
-            }
+            UndoableOp::ClearHyperboloid => self.data.lock().unwrap().clear_hyperboloid(),
+            UndoableOp::NewStrandState(state) => self.data.lock().unwrap().new_strand_state(state),
+            UndoableOp::ResetCopyPaste => self.data.lock().unwrap().reset_copy_paste(),
+        }
+        None
+    }
+
+    /// Notify the design of a notification. This is how applications communicate their
+    /// modification request to the design
+    pub fn on_notify(&mut self, notification: AppNotification) {
+        match notification {
+            AppNotification::MovementEnded => self.terminate_movement(),
             AppNotification::ResetCopyPaste => self.data.lock().unwrap().reset_copy_paste(),
+            AppNotification::MakeGrids(h_ids) => {
+                self.data.lock().unwrap().make_grid_from_helices(&h_ids)
+            }
         }
     }
 
