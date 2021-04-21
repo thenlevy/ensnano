@@ -2,11 +2,21 @@ use ahash::RandomState;
 use std::collections::HashMap;
 use std::hash::Hash;
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct IdGenerator<K: Eq + Hash + Clone> {
     next_id: usize,
     ids: HashMap<K, usize, RandomState>,
     elements: HashMap<usize, K, RandomState>,
+}
+
+impl<K: Eq + Hash + Clone> Default for IdGenerator<K> {
+    fn default() -> Self {
+        Self {
+            next_id: 0,
+            ids: Default::default(),
+            elements: Default::default(),
+        }
+    }
 }
 
 impl<K: Eq + Hash + Clone> IdGenerator<K> {
@@ -37,17 +47,25 @@ impl<K: Eq + Hash + Clone> IdGenerator<K> {
         }
     }
 
-    pub fn insert(&mut self, key: K) {
+    pub fn insert(&mut self, key: K) -> usize {
+        let ret = self.next_id;
         self.elements.insert(self.next_id, key.clone());
         self.ids.insert(key, self.next_id);
         self.next_id += 1;
+        ret
     }
 
-    pub fn get_element(&mut self, id: usize) -> Option<K> {
+    pub fn insert_at(&mut self, key: K, id: usize) {
+        self.elements.insert(id, key.clone());
+        self.ids.insert(key, id);
+        self.next_id = self.next_id.max(id + 1);
+    }
+
+    pub fn get_element(&self, id: usize) -> Option<K> {
         self.elements.get(&id).cloned()
     }
 
-    pub fn get_id(&mut self, element: &K) -> Option<usize> {
+    pub fn get_id(&self, element: &K) -> Option<usize> {
         self.ids.get(element).cloned()
     }
 
@@ -58,5 +76,11 @@ impl<K: Eq + Hash + Clone> IdGenerator<K> {
             self.ids.remove(&old_key);
             self.elements.insert(id, new_key);
         }
+    }
+
+    pub fn remove(&mut self, id: usize) {
+        let elt = self.get_element(id).expect("Removing unexisting id");
+        self.ids.remove(&elt);
+        self.elements.remove(&id);
     }
 }

@@ -62,6 +62,8 @@ use winit::{
 extern crate serde_derive;
 extern crate serde;
 
+const MUST_TEST: bool = false;
+
 mod consts;
 /// Design handling
 mod design;

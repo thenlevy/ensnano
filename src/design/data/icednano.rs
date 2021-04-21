@@ -11,7 +11,7 @@ use super::codenano;
 use super::grid::{Grid, GridDescriptor, GridPosition};
 use super::scadnano::*;
 use super::strand_builder::{DomainIdentifier, NeighbourDescriptor};
-use super::DnaElementKey;
+use super::{DnaElementKey, IdGenerator};
 use ensnano_organizer::OrganizerTree;
 
 /// The `icednano` Design structure.
@@ -230,7 +230,7 @@ impl Design {
 /// An Insertion is considered to be adjacent to its 5' neighbour. The link between an Insertion
 /// and it's 3' neighbour is the link that would exist between it's 5' and 3' neighbour if there
 /// were no insertion.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(PartialEq, Eq, Debug, Clone, Serialize, Deserialize)]
 pub enum DomainJunction {
     /// A cross-over that has not yet been given an identifier. These should exist only in
     /// transitory states.
@@ -618,6 +618,89 @@ impl Strand {
                 false
             }
         })
+    }
+
+    /// Read the junctions for self when loading the design.
+    /// If `identified` is true (i.e. during the first pass), read the IdentifiedXover
+    /// and insert them in the xover_ids.
+    /// If `identified` is false (i.e. during the second pass), read the unidentified Xover and
+    /// provide them with identifier
+    ///
+    /// Assumes that self.junctions is either empty or a Vec with the following properties.
+    /// * Its length is equal to self.domains.length
+    /// * All the junctions are appropriate.
+    pub(super) fn read_junctions(
+        &mut self,
+        xover_ids: &mut IdGenerator<(Nucl, Nucl)>,
+        identified: bool,
+    ) {
+        //TODO check validity of self.junctions
+        if self.junctions.is_empty() {
+            let sane_domains = sanitize_domains(&self.domains, self.cyclic);
+            self.domains = sane_domains;
+            let junctions = read_junctions(&self.domains, self.cyclic);
+            self.junctions = junctions;
+        }
+        if self.domains.is_empty() {
+            return;
+        }
+        let mut previous_domain = self.domains.last().unwrap();
+        for i in 0..(self.domains.len() - 1) {
+            let current = &self.domains[i];
+            let next = &self.domains[i + 1];
+            match &mut self.junctions[i] {
+                s @ DomainJunction::UnindentifiedXover => {
+                    if !identified {
+                        if let (Domain::HelixDomain(d1), Domain::HelixDomain(d2)) = (current, next)
+                        {
+                            let prime5 = d1.prime3();
+                            let prime3 = d2.prime5();
+                            let id = xover_ids.insert((prime5, prime3));
+                            *s = DomainJunction::IdentifiedXover(id);
+                        } else if let (Domain::HelixDomain(d1), Domain::HelixDomain(d2)) =
+                            (previous_domain, next)
+                        {
+                            let prime5 = d1.prime3();
+                            let prime3 = d2.prime5();
+                            let id = xover_ids.insert((prime5, prime3));
+                            *s = DomainJunction::IdentifiedXover(id);
+                        } else if let Domain::Insertion(_) = next {
+                            panic!("UnindentifiedXover before an insertion");
+                        } else if let Domain::Insertion(_) = previous_domain {
+                            panic!("Invariant violated: [SaneDomains]");
+                        } else {
+                            unreachable!("Unexhastive match");
+                        }
+                    }
+                }
+                DomainJunction::IdentifiedXover(id) => {
+                    if identified {
+                        if let (Domain::HelixDomain(d1), Domain::HelixDomain(d2)) = (current, next)
+                        {
+                            let prime5 = d1.prime3();
+                            let prime3 = d2.prime5();
+                            xover_ids.insert_at((prime5, prime3), *id);
+                        } else if let (Domain::HelixDomain(d1), Domain::HelixDomain(d2)) =
+                            (previous_domain, next)
+                        {
+                            let prime5 = d1.prime3();
+                            let prime3 = d2.prime5();
+                            xover_ids.insert_at((prime5, prime3), *id);
+                        } else if let Domain::Insertion(_) = next {
+                            panic!("UnindentifiedXover before an insertion");
+                        } else if let Domain::Insertion(_) = previous_domain {
+                            panic!("Invariant violated: [SaneDomains]");
+                        } else {
+                            unreachable!("Unexhastive match");
+                        }
+                    }
+                }
+                _ => (),
+            }
+            if let Domain::HelixDomain(_) = current {
+                previous_domain = current;
+            }
+        }
     }
 }
 

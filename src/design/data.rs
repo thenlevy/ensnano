@@ -9,6 +9,7 @@
 //! about the element such as its position, color etc...
 //!
 use crate::gui::SimulationRequest;
+use crate::utils::id_generator::IdGenerator;
 use ahash::RandomState;
 use cadnano_format::Cadnano;
 use std::collections::{BTreeMap, HashMap, HashSet};
@@ -31,6 +32,7 @@ mod roller;
 mod scadnano;
 mod strand_builder;
 mod strand_template;
+mod tests;
 mod torsion;
 use super::utils::*;
 use crate::mediator::Selection;
@@ -49,6 +51,7 @@ use std::sync::{mpsc::Sender, Arc, Mutex, RwLock};
 use strand_builder::NeighbourDescriptor;
 pub use strand_builder::{DomainIdentifier, StrandBuilder};
 use strand_template::{TemplateManager, XoverCopyManager};
+use tests::*;
 pub use torsion::Torsion;
 
 pub type StrandState = BTreeMap<usize, Strand>;
@@ -113,6 +116,7 @@ pub struct Data {
     elements_update: Option<Vec<DnaElement>>,
     visible: HashMap<Nucl, bool>,
     visibility_sieve: Option<VisibilitySieve>,
+    xover_ids: IdGenerator<(Nucl, Nucl)>,
 }
 
 impl fmt::Debug for Data {
@@ -164,6 +168,7 @@ impl Data {
             elements_update: None,
             visible: Default::default(),
             visibility_sieve: None,
+            xover_ids: Default::default(),
         }
     }
 
@@ -323,8 +328,15 @@ impl Data {
     /// * codenano
     /// * icednano
     pub fn new_with_path(json_path: &PathBuf) -> Option<Self> {
+        let mut xover_ids: IdGenerator<(Nucl, Nucl)> = Default::default();
         let mut design = read_file(json_path)?;
         design.remove_empty_domains();
+        for s in design.strands.values_mut() {
+            s.read_junctions(&mut xover_ids, true);
+        }
+        for s in design.strands.values_mut() {
+            s.read_junctions(&mut xover_ids, false);
+        }
         let mut grid_manager = GridManager::new_from_design(&design);
         let mut grids = grid_manager.grids2d();
         for g in grids.iter_mut() {
@@ -373,6 +385,7 @@ impl Data {
             elements_update: None,
             visible: Default::default(),
             visibility_sieve: None,
+            xover_ids,
         };
         ret.make_hash_maps();
         ret.terminate_movement();
@@ -400,12 +413,22 @@ impl Data {
         let mut elements = Vec::new();
         self.blue_nucl.clear();
         let groups = self.groups.read().unwrap();
-        for (s_id, strand) in self.design.strands.iter() {
+        for (s_id, strand) in self.design.strands.iter_mut() {
             elements.push(elements::DnaElement::Strand { id: *s_id });
             let mut strand_position = 0;
             let strand_seq = strand.sequence.as_ref().filter(|s| s.is_ascii());
             let color = strand.color;
-            for domain in &strand.domains {
+            let mut last_xover_junction: Option<&mut DomainJunction> = None;
+            for (i, domain) in strand.domains.iter().enumerate() {
+                if let Some((prime5, prime3)) = old_nucl.clone().zip(domain.prime5_end()) {
+                    Self::update_junction(
+                        &mut self.xover_ids,
+                        *last_xover_junction
+                            .as_mut()
+                            .expect("Broke Invariant [LastXoverJunction]"),
+                        (prime5, prime3),
+                    );
+                }
                 if let icednano::Domain::HelixDomain(domain) = domain {
                     let dom_seq = domain.sequence.as_ref().filter(|s| s.is_ascii());
                     for (dom_position, nucl_position) in domain.iter().enumerate() {
@@ -485,6 +508,11 @@ impl Data {
                         old_nucl = Some(nucl);
                         old_nucl_id = Some(nucl_id);
                     }
+                    if strand.junctions.len() <= i {
+                        println!("{:?}", strand.domains);
+                        println!("{:?}", strand.junctions);
+                    }
+                    last_xover_junction = Some(&mut strand.junctions[i]);
                 } else if let icednano::Domain::Insertion(n) = domain {
                     strand_position += n;
                 }
@@ -531,6 +559,36 @@ impl Data {
         self.read_scaffold_seq(self.design.scaffold_shift.unwrap_or(0));
         self.elements_update = Some(elements);
         self.update_visibility();
+        self.test_named_junction("TEST AFTER MAKE HASH MAP");
+    }
+
+    fn update_junction(
+        xover_ids: &mut IdGenerator<(Nucl, Nucl)>,
+        junction: &mut DomainJunction,
+        bound: (Nucl, Nucl),
+    ) {
+        let is_xover = bound.0.prime3() != bound.1;
+        match junction {
+            DomainJunction::Adjacent if is_xover => {
+                panic!("DomainJunction::Adjacent between non adjacent nucl")
+            }
+            DomainJunction::UnindentifiedXover | DomainJunction::IdentifiedXover(_)
+                if !is_xover =>
+            {
+                panic!("Xover between adjacent nucls")
+            }
+            s @ DomainJunction::UnindentifiedXover => {
+                let id = xover_ids.insert(bound);
+                *s = DomainJunction::IdentifiedXover(id);
+            }
+            DomainJunction::IdentifiedXover(id) => {
+                let old_bound = xover_ids.get_element(*id);
+                if old_bound != Some(bound) {
+                    xover_ids.update(old_bound.expect("Could not get exisiting id"), bound);
+                }
+            }
+            _ => (),
+        }
     }
 
     fn read_scaffold_seq(&mut self, shift: usize) {
@@ -1085,6 +1143,7 @@ impl Data {
                 let strand_id = desc.identifier.strand;
                 let filter = |d: &NeighbourDescriptor| d.identifier != desc.identifier;
                 let neighbour_desc = left.filter(filter).or(right.filter(filter));
+                let stick = stick || neighbour_desc.map(|d| d.identifier.strand) == Some(strand_id);
                 if left.filter(filter).and(right.filter(filter)).is_some() {
                     // TODO maybe we should do something else ?
                     return None;
@@ -1326,9 +1385,11 @@ impl Data {
                     *j = DomainJunction::UnindentifiedXover
                 }
             }
-            for (i, domain) in strand3prime.domains.iter().enumerate().skip(skip) {
+            for domain in strand3prime.domains.iter().skip(skip) {
                 domains.push(domain.clone());
-                junctions.push(strand3prime.junctions[i].clone());
+            }
+            for junction in strand3prime.junctions.iter() {
+                junctions.push(junction.clone());
             }
             let sequence = if let Some((seq5, seq3)) = strand5prime
                 .sequence
@@ -1518,8 +1579,13 @@ impl Data {
         let mut domains = None;
         let mut on_3prime = force_end.unwrap_or(false);
         let mut prev_helix = None;
-        let mut prime5_junctions = Vec::new();
-        let mut prime3_junctions = Vec::new();
+        let mut prime5_junctions: Vec<DomainJunction> = Vec::new();
+        let mut prime3_junctions: Vec<DomainJunction> = Vec::new();
+        let mut rm_xover: Option<DomainJunction> = None;
+
+        println!("Spliting");
+        println!("{:?}", strand.domains);
+        println!("{:?}", strand.junctions);
 
         for (d_id, domain) in strand.domains.iter().enumerate() {
             if domain.prime5_end() == Some(*nucl)
@@ -1531,12 +1597,16 @@ impl Data {
                 // half
                 on_3prime = true;
                 i = d_id;
-                prime5_junctions.push(DomainJunction::Prime3);
+                if let Some(j) = prime5_junctions.last_mut() {
+                    rm_xover = Some(j.clone());
+                    *j = DomainJunction::Prime3;
+                }
                 break;
             } else if domain.prime3_end() == Some(*nucl) && force_end != Some(true) {
                 // nucl is the 3' end of the current domain so it is the on the 5' end of a xover.
                 // nucl is not required to be on the 3' half of the split, so we put it on the 5'
                 // half
+                rm_xover = Some(strand.junctions[d_id].clone());
                 i = d_id + 1;
                 prim5_domains.push(domain.clone());
                 len_prim5 += domain.length();
@@ -1548,6 +1618,7 @@ impl Data {
                 len_prim5 += n;
                 domains = domain.split(n);
                 prime5_junctions.push(DomainJunction::Prime3);
+                prime3_junctions.push(strand.junctions[d_id].clone());
                 break;
             } else {
                 len_prim5 += domain.length();
@@ -1555,6 +1626,9 @@ impl Data {
                 prime5_junctions.push(strand.junctions[d_id].clone());
             }
             prev_helix = domain.helix();
+        }
+        if let Some(DomainJunction::IdentifiedXover(id)) = rm_xover {
+            self.xover_ids.remove(id);
         }
         let mut prim3_domains = Vec::new();
         if let Some(ref domains) = domains {
@@ -1581,6 +1655,11 @@ impl Data {
             seq_prim5 = None;
         }
 
+        println!("prime5 {:?}", prim5_domains);
+        println!("prime5 {:?}", prime5_junctions);
+
+        println!("prime3 {:?}", prim3_domains);
+        println!("prime3 {:?}", prime3_junctions);
         let strand_5prime = icednano::Strand {
             domains: prim5_domains,
             color: strand.color,
@@ -1613,6 +1692,7 @@ impl Data {
         //self.make_hash_maps();
         self.hash_maps_update = true;
         self.view_need_reset = true;
+
         Some(new_id)
         // TODO UNITTEST
     }
@@ -1623,10 +1703,13 @@ impl Data {
     /// If `force_end` is `Some(false)` nucl will be the new 3' end of the strand.
     /// If `force_end` is `None`, nucl will be the new 3' end of the strand unless nucl is the 3'
     /// prime extremity of a crossover, in which case nucl will be the new 5' end of the strand
-    fn break_cycle(&self, mut strand: Strand, nucl: Nucl, force_end: Option<bool>) -> Strand {
+    fn break_cycle(&mut self, mut strand: Strand, nucl: Nucl, force_end: Option<bool>) -> Strand {
         let mut last_dom = None;
         let mut replace_last_dom = None;
         let mut prev_helix = None;
+
+        let mut junctions: Vec<DomainJunction> = Vec::with_capacity(strand.domains.len());
+        let mut rm_xover: Option<DomainJunction> = None;
 
         for (i, domain) in strand.domains.iter().enumerate() {
             if domain.prime5_end() == Some(nucl)
@@ -1638,9 +1721,12 @@ impl Data {
                 } else {
                     Some(strand.domains.len() - 1)
                 };
+                rm_xover = Some(strand.junctions[last_dom.unwrap()].clone());
+
                 break;
             } else if domain.prime3_end() == Some(nucl) && force_end != Some(true) {
                 last_dom = Some(i);
+                rm_xover = Some(strand.junctions[last_dom.unwrap()].clone());
                 break;
             } else if let Some(n) = domain.has_nucl(&nucl) {
                 let n = if force_end == Some(true) { n - 1 } else { n };
@@ -1652,21 +1738,32 @@ impl Data {
         let last_dom = last_dom.expect("Could not find nucl in strand");
         let mut new_domains = Vec::new();
         if let Some((_, ref d2)) = replace_last_dom {
-            new_domains.push(d2.clone())
+            new_domains.push(d2.clone());
+            junctions.push(strand.junctions[last_dom].clone());
         }
-        for d in strand.domains.iter().skip(last_dom + 1) {
+        for (i, d) in strand.domains.iter().enumerate().skip(last_dom + 1) {
             new_domains.push(d.clone());
+            junctions.push(strand.junctions[i].clone());
         }
-        for d in strand.domains.iter().take(last_dom) {
-            new_domains.push(d.clone())
+        for (i, d) in strand.domains.iter().enumerate().take(last_dom) {
+            new_domains.push(d.clone());
+            junctions.push(strand.junctions[i].clone());
         }
+
         if let Some((ref d1, _)) = replace_last_dom {
             new_domains.push(d1.clone())
         } else {
             new_domains.push(strand.domains[last_dom].clone())
         }
+        junctions.push(DomainJunction::Prime3);
+
+        if let Some(DomainJunction::IdentifiedXover(id)) = rm_xover {
+            self.xover_ids.remove(id);
+        }
+
         strand.domains = new_domains;
         strand.cyclic = false;
+        strand.junctions = junctions;
         strand
     }
 
@@ -2617,6 +2714,14 @@ impl Data {
         } else {
             None
         }
+    }
+
+    pub fn get_xover_id(&self, xover: &(Nucl, Nucl)) -> Option<usize> {
+        self.xover_ids.get_id(xover)
+    }
+
+    pub fn get_xover_with_id(&self, id: usize) -> Option<(Nucl, Nucl)> {
+        self.xover_ids.get_element(id)
     }
 
     pub fn new_strand_state(&mut self, state: StrandState) {
