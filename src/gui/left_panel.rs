@@ -235,6 +235,13 @@ impl Program for LeftPanel {
                 if self.action_mode != action_mode {
                     self.action_mode = action_mode;
                     self.requests.lock().unwrap().action_mode = Some(action_mode)
+                } else {
+                    match action_mode {
+                        ActionMode::Rotate | ActionMode::Translate => {
+                            self.requests.lock().unwrap().toggle_widget = true;
+                        }
+                        _ => (),
+                    }
                 }
             }
             Message::SequenceChanged(s) => {

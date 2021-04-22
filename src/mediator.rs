@@ -175,6 +175,7 @@ pub enum Notification {
     ModifersChanged(ModifiersState),
     Split2d,
     Redim2dHelices(bool),
+    ToggleWidget,
 }
 
 pub trait Application {
@@ -1282,6 +1283,10 @@ impl Mediator {
     fn drop_undo_stack(&mut self) {
         self.undo_stack.clear();
         self.redo_stack.clear();
+    }
+
+    pub fn toggle_widget(&mut self) {
+        self.notify_apps(Notification::ToggleWidget)
     }
 }
 

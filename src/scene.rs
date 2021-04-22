@@ -706,6 +706,10 @@ impl Application for Scene {
             Notification::ModifersChanged(modifiers) => self.controller.update_modifiers(modifiers),
             Notification::Split2d => (),
             Notification::Redim2dHelices(_) => (),
+            Notification::ToggleWidget => {
+                self.data.borrow_mut().toggle_widget_basis();
+                self.update_handle();
+            }
         }
     }
 

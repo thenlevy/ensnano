@@ -74,7 +74,7 @@ impl Data {
             candidate_update: false,
             instance_update: false,
             matrices_update: false,
-            widget_basis: WidgetBasis::World,
+            widget_basis: WidgetBasis::Object,
             pivot_element: None,
             pivot_update: false,
             pivot_position: None,

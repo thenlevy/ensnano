@@ -575,6 +575,7 @@ impl Application for FlatScene {
             Notification::Redim2dHelices(b) => self.data[self.selected_design]
                 .borrow_mut()
                 .redim_helices(b),
+            Notification::ToggleWidget => (),
         }
     }
 

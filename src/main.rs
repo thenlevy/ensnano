@@ -676,6 +676,11 @@ fn main() {
                         mediator.lock().unwrap().stop_roll();
                         requests.stop_roll = false;
                     }
+
+                    if requests.toggle_widget {
+                        requests.toggle_widget = false;
+                        mediator.lock().unwrap().toggle_widget();
+                    }
                 }
 
                 if let Some(d_id) = download_stapples {
