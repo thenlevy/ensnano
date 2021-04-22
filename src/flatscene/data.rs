@@ -777,8 +777,17 @@ impl Data {
         }
     }
 
-    pub fn set_selection(&mut self, selection: Vec<Selection>) {
+    pub fn set_selection(&mut self, mut selection: Vec<Selection>) {
+        self.selection = selection.clone();
         if selection.len() == 1 {
+            let xover = if let Some(Selection::Xover(d_id, xover_id)) = selection.get(0) {
+                Some(*d_id).zip(self.design.get_xover_with_id(*xover_id))
+            } else {
+                None
+            };
+            if let Some((d_id, (n1, n2))) = xover {
+                selection[0] = Selection::Bound(d_id, n1, n2);
+            }
             self.view
                 .borrow_mut()
                 .set_selection(super::FlatSelection::from_real(
@@ -786,7 +795,6 @@ impl Data {
                     self.id_map(),
                 ));
         }
-        self.selection = selection;
         self.selection_updated = true;
     }
 
