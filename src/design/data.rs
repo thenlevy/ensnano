@@ -2820,6 +2820,13 @@ impl Data {
                         return true;
                     }
                 }
+                Selection::Xover(_, xover_id) => {
+                    if let Some((n1, n2)) = self.xover_ids.get_element(*xover_id) {
+                        if &n1 == nucl || &n2 == nucl {
+                            return true;
+                        }
+                    }
+                }
                 Selection::Nucleotide(_, n) => {
                     if n == nucl {
                         return true;
@@ -2851,6 +2858,8 @@ impl Data {
             for nucl in self.nucleotide.values() {
                 if self.is_in_selection(nucl, selection) != *compl {
                     self.visible.insert(*nucl, *visible);
+                } else {
+                    self.visible.remove(nucl);
                 }
             }
         } else {
