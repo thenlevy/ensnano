@@ -112,6 +112,7 @@ pub struct Requests {
     pub invert_scroll: Option<bool>,
     pub stop_roll: bool,
     pub toggle_widget: bool,
+    pub delete_selection: bool,
 }
 
 pub enum KeepProceed {
@@ -183,6 +184,7 @@ impl Requests {
             invert_scroll: None,
             stop_roll: false,
             toggle_widget: false,
+            delete_selection: false,
         }
     }
 }

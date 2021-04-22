@@ -765,7 +765,7 @@ impl ControllerState for ReleasedPivot {
                                 world_clicked: clicked.into(),
                                 mouse_position: self.mouse_position,
                             })),
-                            consequences: Consequence::Nothing,
+                            consequences: Consequence::SelectionChanged,
                         }
                     }
                     ClickResult::Nothing => Transition {

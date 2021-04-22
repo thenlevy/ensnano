@@ -40,6 +40,7 @@ pub enum AppId {
     FlatScene,
     Scene,
     Organizer,
+    Mediator,
 }
 
 pub type MediatorPtr = Arc<Mutex<Mediator>>;
@@ -1287,6 +1288,48 @@ impl Mediator {
 
     pub fn toggle_widget(&mut self) {
         self.notify_apps(Notification::ToggleWidget)
+    }
+
+    pub fn delete_selection(&mut self) {
+        println!("selection {:?}", self.selection);
+        if self.selection.len() == 1 {
+            if let Selection::Helix(d_id, h_id) = self.selection[0] {
+                if self.designs[d_id as usize]
+                    .read()
+                    .unwrap()
+                    .helix_is_empty(h_id as usize)
+                {
+                    let helix = self.designs[d_id as usize]
+                        .read()
+                        .unwrap()
+                        .get_raw_helix(h_id as usize)
+                        .unwrap();
+                    self.update_opperation(Arc::new(RawHelixCreation {
+                        helix,
+                        helix_id: h_id as usize,
+                        design_id: d_id as usize,
+                        delete: true,
+                    }));
+                }
+                self.notify_multiple_selection(vec![], AppId::Mediator);
+                self.notify_apps(Notification::Selection3D(vec![], AppId::Mediator));
+                return;
+            }
+        }
+        if let Some((initial_state, final_state)) = self.designs[self.last_selected_design as usize]
+            .write()
+            .unwrap()
+            .delete_selection(self.selection.clone())
+        {
+            self.undo_stack.push(Arc::new(BigStrandModification {
+                initial_state,
+                final_state,
+                reverse: false,
+                design_id: self.last_selected_design,
+            }));
+        }
+        self.notify_multiple_selection(vec![], AppId::Mediator);
+        self.notify_apps(Notification::Selection3D(vec![], AppId::Mediator));
     }
 }
 

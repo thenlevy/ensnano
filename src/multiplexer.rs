@@ -488,17 +488,11 @@ impl Multiplexer {
                     VirtualKeyCode::L if ctrl(&self.modifiers) => {
                         self.requests.lock().unwrap().anchor = true;
                     }
-                    VirtualKeyCode::A => {
-                        self.requests.lock().unwrap().action_mode = Some(ActionMode::Build(false))
-                    }
                     VirtualKeyCode::R if !&self.modifiers.ctrl() => {
                         self.requests.lock().unwrap().action_mode = Some(ActionMode::Rotate)
                     }
                     VirtualKeyCode::T => {
                         self.requests.lock().unwrap().action_mode = Some(ActionMode::Translate)
-                    }
-                    VirtualKeyCode::X => {
-                        self.requests.lock().unwrap().action_mode = Some(ActionMode::Cut)
                     }
                     VirtualKeyCode::N => {
                         self.requests.lock().unwrap().selection_mode =
@@ -512,6 +506,9 @@ impl Multiplexer {
                     }
                     VirtualKeyCode::K => {
                         self.requests.lock().unwrap().recolor_stapples = true;
+                    }
+                    VirtualKeyCode::Delete | VirtualKeyCode::Back => {
+                        self.requests.lock().unwrap().delete_selection = true;
                     }
                     _ => captured = false,
                 }

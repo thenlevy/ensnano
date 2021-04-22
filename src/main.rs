@@ -681,6 +681,11 @@ fn main() {
                         requests.toggle_widget = false;
                         mediator.lock().unwrap().toggle_widget();
                     }
+
+                    if requests.delete_selection {
+                        requests.delete_selection = false;
+                        mediator.lock().unwrap().delete_selection();
+                    }
                 }
 
                 if let Some(d_id) = download_stapples {

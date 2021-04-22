@@ -236,7 +236,7 @@ impl Design {
                 builder.reset();
                 if builder.created_de_novo() {
                     let nucl = builder.get_moving_end_nucl();
-                    self.data.lock().unwrap().rm_strand(&nucl);
+                    self.data.lock().unwrap().rm_strand_containing_nucl(&nucl);
                 }
             }
             UndoableOp::MoveBuilder(builder, remake) => {
@@ -521,10 +521,6 @@ impl Design {
 
     pub fn split_strand_forced_end(&self, nucl: Nucl, forced_end: Option<bool>) {
         self.data.lock().unwrap().split_strand(&nucl, forced_end);
-    }
-
-    pub fn rm_strand(&self, nucl: Nucl) {
-        self.data.lock().unwrap().rm_strand(&nucl)
     }
 
     pub fn rm_helix(&self, helix: usize) {
@@ -955,6 +951,19 @@ impl Design {
 
     pub fn get_xover_with_id(&self, id: usize) -> Option<(Nucl, Nucl)> {
         self.data.lock().unwrap().get_xover_with_id(id)
+    }
+
+    pub fn delete_selection(
+        &mut self,
+        selection: Vec<Selection>,
+    ) -> Option<(StrandState, StrandState)> {
+        let init = self.data.lock().unwrap().get_strand_state();
+        if self.data.lock().unwrap().delete_selection(selection) {
+            let after = self.data.lock().unwrap().get_strand_state();
+            Some((init, after))
+        } else {
+            None
+        }
     }
 }
 

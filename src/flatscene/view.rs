@@ -317,6 +317,7 @@ impl View {
     }
 
     pub fn update_strands(&mut self, strands: &[Strand], helices: &[Helix]) {
+        self.strands.truncate(strands.len());
         for (i, s) in self.strands.iter_mut().enumerate() {
             let other_cam = if self.splited {
                 &self.camera_bottom

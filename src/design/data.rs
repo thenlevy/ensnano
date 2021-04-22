@@ -211,12 +211,12 @@ impl Data {
         let old_hyperboloids =
             std::mem::replace(&mut self.hyperboloid_helices, Vec::with_capacity(nb_helix));
         for h_id in old_hyperboloids.iter() {
-            self.rm_strand(&Nucl {
+            self.rm_strand_containing_nucl(&Nucl {
                 helix: *h_id,
                 position: 0,
                 forward: true,
             });
-            self.rm_strand(&Nucl {
+            self.rm_strand_containing_nucl(&Nucl {
                 helix: *h_id,
                 position: 0,
                 forward: false,
@@ -292,12 +292,12 @@ impl Data {
         let old_hyperboloids =
             std::mem::replace(&mut self.hyperboloid_helices, Vec::with_capacity(nb_helix));
         for h_id in old_hyperboloids.iter() {
-            self.rm_strand(&Nucl {
+            self.rm_strand_containing_nucl(&Nucl {
                 helix: *h_id,
                 position: 0,
                 forward: true,
             });
-            self.rm_strand(&Nucl {
+            self.rm_strand_containing_nucl(&Nucl {
                 helix: *h_id,
                 position: 0,
                 forward: false,
@@ -1846,16 +1846,35 @@ impl Data {
     pub fn undoable_rm_strand(&mut self, strand: Strand, strand_id: usize, undo: bool) {
         self.update_status = true;
         self.hash_maps_update = true;
-
         if undo {
             self.design.strands.insert(strand_id, strand);
         } else {
+            for j in strand.junctions.iter() {
+                if let DomainJunction::IdentifiedXover(id) = j {
+                    self.xover_ids.remove(*id);
+                }
+            }
             self.design.strands.remove(&strand_id).expect("strand");
         }
         self.view_need_reset = true;
     }
 
-    pub fn rm_strand(&mut self, nucl: &Nucl) {
+    fn rm_strand(&mut self, strand_id: usize) -> bool {
+        let strand = self.design.strands.get(&strand_id).cloned();
+        if let Some(strand) = strand {
+            for j in strand.junctions.iter() {
+                if let DomainJunction::IdentifiedXover(id) = j {
+                    self.xover_ids.remove(*id);
+                }
+            }
+            self.design.strands.remove(&strand_id).expect("strand");
+            true
+        } else {
+            false
+        }
+    }
+
+    pub(super) fn rm_strand_containing_nucl(&mut self, nucl: &Nucl) {
         self.update_status = true;
         self.hash_maps_update = true;
         let id = self
@@ -2024,12 +2043,12 @@ impl Data {
             .get(&(x, y))
             .cloned();
         if let Some(h_id) = h {
-            self.rm_strand(&Nucl {
+            self.rm_strand_containing_nucl(&Nucl {
                 helix: h_id,
                 position,
                 forward: true,
             });
-            self.rm_strand(&Nucl {
+            self.rm_strand_containing_nucl(&Nucl {
                 helix: h_id,
                 position,
                 forward: false,
@@ -2896,6 +2915,21 @@ impl Data {
 
     pub fn is_visible(&self, nucl: &Nucl) -> bool {
         *self.visible.get(nucl).unwrap_or(&true)
+    }
+
+    pub fn delete_selection(&mut self, selection: Vec<Selection>) -> bool {
+        let mut ret = false;
+        for s in selection.iter() {
+            match s {
+                Selection::Strand(_, s_id) => {
+                    ret |= self.rm_strand(*s_id as usize);
+                }
+                _ => (),
+            }
+        }
+        self.update_status |= ret;
+        self.hash_maps_update |= ret;
+        ret
     }
 }
 
