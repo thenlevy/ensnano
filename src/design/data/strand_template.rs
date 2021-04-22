@@ -1,7 +1,7 @@
 use super::grid::Edge;
 use super::GridPosition;
 use super::StrandState;
-use super::{icednano::Domain, icednano::HelixInterval, BTreeMap, Data, Nucl, Strand};
+use super::{icednano::Domain, icednano::HelixInterval, Data, Nucl, Strand};
 use ultraviolet::Vec3;
 
 /// A template describing the relation between the domains of a strand. Can be used for copy-paste
@@ -489,14 +489,12 @@ pub struct XoverCopyManager {
 }
 
 impl Data {
-    pub fn copy_xovers(&mut self, xovers: Vec<(Nucl, Nucl)>) -> bool {
+    pub fn copy_xovers(&mut self, xover_ids: Vec<usize>) -> bool {
+        let mut xovers: Vec<(Nucl, Nucl)> = Vec::with_capacity(xover_ids.len());
         // Check that the cross overs a corrects
-        for xover in xovers.iter() {
-            if !self.identifier_bound.contains_key(xover) {
-                return false;
-            }
-            if xover.0.helix == xover.1.helix && xover.0.forward == xover.1.forward {
-                return false;
+        for id in xover_ids.iter() {
+            if let Some(xover) = self.get_xover_with_id(*id) {
+                xovers.push(xover);
             }
         }
         if xovers.len() > 0 {

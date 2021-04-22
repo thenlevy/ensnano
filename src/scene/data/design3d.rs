@@ -684,6 +684,14 @@ impl Design3D {
         self.design.read().unwrap().get_identifier_bound(n1, n2)
     }
 
+    pub fn get_identifier_xover(&self, xover_id: usize) -> Option<u32> {
+        self.design
+            .read()
+            .unwrap()
+            .get_xover_with_id(xover_id)
+            .and_then(|(n1, n2)| self.design.read().unwrap().get_identifier_bound(&n1, &n2))
+    }
+
     pub fn get_builder(&self, element: &SceneElement, stick: bool) -> Option<StrandBuilder> {
         match element {
             SceneElement::DesignElement(_, e_id) => self

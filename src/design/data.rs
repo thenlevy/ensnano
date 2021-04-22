@@ -437,6 +437,17 @@ impl Data {
                             .expect("Broke Invariant [LastXoverJunction]"),
                         (prime5, prime3),
                     );
+                    if let Some(id) = self.xover_ids.get_id(&(prime5, prime3)) {
+                        elements.push(DnaElement::CrossOver {
+                            xover_id: id,
+                            helix5prime: prime5.helix,
+                            position5prime: prime5.position,
+                            forward5prime: prime5.forward,
+                            helix3prime: prime3.helix,
+                            position3prime: prime3.position,
+                            forward3prime: prime3.forward,
+                        });
+                    }
                 }
                 if let icednano::Domain::HelixDomain(domain) = domain {
                     let dom_seq = domain.sequence.as_ref().filter(|s| s.is_ascii());
@@ -493,16 +504,6 @@ impl Data {
                         let position = [position[0] as f32, position[1] as f32, position[2] as f32];
                         space_position.insert(nucl_id, position);
                         if let Some(old_nucl) = old_nucl.take() {
-                            if old_nucl.helix != nucl.helix {
-                                elements.push(DnaElement::CrossOver {
-                                    helix5prime: old_nucl.helix,
-                                    position5prime: old_nucl.position,
-                                    forward5prime: old_nucl.forward,
-                                    helix3prime: nucl.helix,
-                                    position3prime: nucl.position,
-                                    forward3prime: nucl.forward,
-                                });
-                            }
                             let bound_id = id;
                             id += 1;
                             let bound = (old_nucl, nucl);

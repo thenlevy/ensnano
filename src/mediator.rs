@@ -907,11 +907,6 @@ impl Mediator {
         if let Some(op) = self.undo_stack.pop() {
             //println!("effect {:?}", op.effect());
             let rev_op = op.reverse();
-            let target = {
-                let mut set = HashSet::new();
-                set.insert(rev_op.target() as u32);
-                set
-            };
             //println!("reversed effect {:?}", rev_op.effect());
             self.apply_operation(rev_op.target(), rev_op.effect());
             self.notify_all_designs(AppNotification::MovementEnded);
@@ -1128,16 +1123,18 @@ impl Mediator {
         self.pasting = PastingMode::Nothing;
         self.notify_all_designs(AppNotification::ResetCopyPaste);
         println!("selection : {:?}", self.selection);
-        if let Some((d_id, s_ids)) = list_of_strands(&self.selection, self.designs.clone()) {
+        let strand_opt = list_of_strands(&self.selection, &self.designs);
+        let xover_opt = list_of_xovers(&self.selection, &self.designs);
+        if let Some((d_id, s_ids)) = strand_opt {
             self.designs[d_id as usize]
                 .write()
                 .unwrap()
                 .request_copy_strands(s_ids);
-        } else if let Some((d_id, bounds)) = list_of_xovers(&self.selection) {
+        } else if let Some((d_id, xover_ids)) = xover_opt {
             let copy = self.designs[d_id as usize]
                 .write()
                 .unwrap()
-                .request_copy_xovers(bounds);
+                .request_copy_xovers(xover_ids);
             println!("copy success: {}", copy);
         }
     }

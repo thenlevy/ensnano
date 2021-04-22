@@ -801,8 +801,8 @@ impl Design {
         self.data.lock().unwrap().set_templates(s_ids)
     }
 
-    pub fn request_copy_xovers(&mut self, xovers: Vec<(Nucl, Nucl)>) -> bool {
-        self.data.lock().unwrap().copy_xovers(xovers)
+    pub fn request_copy_xovers(&mut self, xover_ids: Vec<usize>) -> bool {
+        self.data.lock().unwrap().copy_xovers(xover_ids)
     }
 
     pub fn request_paste_candidate(&mut self, nucl: Option<Nucl>) {
@@ -947,6 +947,14 @@ impl Design {
             .lock()
             .unwrap()
             .set_visibility_sieve(selection, compl)
+    }
+
+    pub fn get_xover_id(&self, xover: &(Nucl, Nucl)) -> Option<usize> {
+        self.data.lock().unwrap().get_xover_id(xover)
+    }
+
+    pub fn get_xover_with_id(&self, id: usize) -> Option<(Nucl, Nucl)> {
+        self.data.lock().unwrap().get_xover_with_id(id)
     }
 }
 

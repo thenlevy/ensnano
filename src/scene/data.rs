@@ -488,6 +488,11 @@ impl Data {
                 .iter()
                 .cloned()
                 .collect(),
+            Selection::Xover(d_id, xover_id) => self.designs[*d_id as usize]
+                .get_identifier_xover(*xover_id)
+                .iter()
+                .cloned()
+                .collect(),
             Selection::Helix(d_id, h_id) => self.designs[*d_id as usize].get_helix_elements(*h_id),
             Selection::Strand(d_id, s_id) => {
                 self.designs[*d_id as usize].get_strand_elements(*s_id)

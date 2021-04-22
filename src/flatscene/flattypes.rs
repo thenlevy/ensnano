@@ -147,6 +147,7 @@ impl FlatNucl {
 pub enum FlatSelection {
     Nucleotide(usize, FlatNucl),
     Bound(usize, FlatNucl, FlatNucl),
+    Xover(usize, usize),
     Design(usize),
     Strand(usize, usize),
     Helix(usize, FlatHelix),
@@ -170,6 +171,7 @@ impl FlatSelection {
                     let n2 = FlatNucl::from_real(n2, id_map);
                     Self::Bound(*d as usize, n1, n2)
                 }
+                Selection::Xover(d, xover_id) => Self::Xover(*d as usize, *xover_id),
                 Selection::Design(d) => Self::Design(*d as usize),
                 Selection::Strand(d, s_id) => Self::Strand(*d as usize, *s_id as usize),
                 Selection::Helix(d, h_id) => {

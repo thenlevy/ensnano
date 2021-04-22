@@ -20,6 +20,7 @@ pub enum DnaElement {
         forward: bool,
     },
     CrossOver {
+        xover_id: usize,
         helix5prime: usize,
         position5prime: isize,
         forward5prime: bool,
@@ -46,20 +47,8 @@ impl OrganizerElement for DnaElement {
                 position: *position,
                 forward: *forward,
             },
-            DnaElement::CrossOver {
-                helix5prime,
-                position5prime,
-                forward5prime,
-                helix3prime,
-                position3prime,
-                forward3prime,
-            } => DnaElementKey::CrossOver {
-                helix5prime: *helix5prime,
-                position5prime: *position5prime,
-                forward5prime: *forward5prime,
-                helix3prime: *helix3prime,
-                position3prime: *position3prime,
-                forward3prime: *forward3prime,
+            DnaElement::CrossOver { xover_id, .. } => DnaElementKey::CrossOver {
+                xover_id: *xover_id,
             },
         }
     }
@@ -80,6 +69,7 @@ impl OrganizerElement for DnaElement {
                 helix3prime,
                 position3prime,
                 forward3prime,
+                ..
             } => format!(
                 "Xover ({}:{}:{}) -> ({}:{}:{})",
                 helix5prime,
@@ -113,12 +103,7 @@ pub enum DnaElementKey {
         forward: bool,
     },
     CrossOver {
-        helix5prime: usize,
-        position5prime: isize,
-        forward5prime: bool,
-        helix3prime: usize,
-        position3prime: isize,
-        forward3prime: bool,
+        xover_id: usize,
     },
 }
 
@@ -251,20 +236,10 @@ impl DnaElementKey {
                     position: nucl.position,
                     forward: nucl.forward,
                 }),
-                Selection::Bound(_, n1, n2) => {
-                    if n1.helix != n2.helix {
-                        Some(Self::CrossOver {
-                            helix5prime: n1.helix,
-                            position5prime: n1.position,
-                            forward5prime: n1.forward,
-                            helix3prime: n2.helix,
-                            position3prime: n2.position,
-                            forward3prime: n2.forward,
-                        })
-                    } else {
-                        None
-                    }
-                }
+                Selection::Bound(_, _, _) => None,
+                Selection::Xover(_, xover_id) => Some(Self::CrossOver {
+                    xover_id: *xover_id,
+                }),
                 Selection::Phantom(pe) => {
                     if pe.bound {
                         None
@@ -298,26 +273,7 @@ impl DnaElementKey {
                     forward: *forward,
                 },
             ),
-            Self::CrossOver {
-                helix5prime,
-                position5prime,
-                forward5prime,
-                helix3prime,
-                position3prime,
-                forward3prime,
-            } => {
-                let nucl5prime = Nucl {
-                    helix: *helix5prime,
-                    position: *position5prime,
-                    forward: *forward5prime,
-                };
-                let nucl3prime = Nucl {
-                    helix: *helix3prime,
-                    position: *position3prime,
-                    forward: *forward3prime,
-                };
-                Selection::Bound(d_id, nucl5prime, nucl3prime)
-            }
+            Self::CrossOver { xover_id } => Selection::Xover(d_id, *xover_id),
             Self::Helix(h_id) => Selection::Helix(d_id, *h_id as u32),
             Self::Strand(s_id) => Selection::Strand(d_id, *s_id as u32),
         }

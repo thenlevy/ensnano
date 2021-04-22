@@ -7,6 +7,7 @@ use std::sync::{Arc, RwLock};
 pub enum Selection {
     Nucleotide(u32, Nucl),
     Bound(u32, Nucl, Nucl),
+    Xover(u32, usize),
     Design(u32),
     Strand(u32, u32),
     Helix(u32, u32),
@@ -33,6 +34,7 @@ impl Selection {
             Selection::Grid(d, _) => Some(*d),
             Selection::Phantom(pe) => Some(pe.design_id),
             Selection::Nothing => None,
+            Selection::Xover(d, _) => Some(*d),
         }
     }
 
@@ -83,7 +85,7 @@ impl Selection {
 
 pub(super) fn list_of_strands(
     selection: &[Selection],
-    designs: Vec<Arc<RwLock<Design>>>,
+    designs: &[Arc<RwLock<Design>>],
 ) -> Option<(usize, Vec<usize>)> {
     let design_id = selection.get(0).and_then(Selection::get_design)?;
     let mut strands = BTreeSet::new();
@@ -112,8 +114,12 @@ pub(super) fn list_of_strands(
     Some((design_id as usize, strands))
 }
 
-pub(super) fn list_of_xovers(selection: &[Selection]) -> Option<(usize, Vec<(Nucl, Nucl)>)> {
+pub(super) fn list_of_xovers(
+    selection: &[Selection],
+    designs: &[Arc<RwLock<Design>>],
+) -> Option<(usize, Vec<usize>)> {
     let design_id = selection.get(0).and_then(Selection::get_design)?;
+    let design = designs[design_id as usize].read().ok()?;
     let mut xovers = BTreeSet::new();
     for s in selection.iter() {
         match s {
@@ -121,7 +127,15 @@ pub(super) fn list_of_xovers(selection: &[Selection]) -> Option<(usize, Vec<(Nuc
                 if *d_id != design_id {
                     return None;
                 }
-                xovers.insert((*n1, *n2));
+                if let Some(id) = design.get_xover_id(&(*n1, *n2)) {
+                    xovers.insert(id);
+                }
+            }
+            Selection::Xover(d_id, xover_id) => {
+                if *d_id != design_id {
+                    return None;
+                }
+                xovers.insert(*xover_id);
             }
             _ => return None,
         }
