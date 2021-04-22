@@ -201,6 +201,14 @@ impl Data {
                     }));
                 }
             }
+        } else if let Selection::Xover(d_id, xover_id) = selection {
+            if object_type.is_bound() {
+                if let Some(b_id) =
+                    self.designs[*d_id as usize].get_element_identifier_from_xover_id(*xover_id)
+                {
+                    ret.push(SceneElement::DesignElement(*d_id, b_id))
+                }
+            }
         } else {
             let group = self.get_group_member(selection);
             for elt in group.iter() {
@@ -489,7 +497,7 @@ impl Data {
                 .cloned()
                 .collect(),
             Selection::Xover(d_id, xover_id) => self.designs[*d_id as usize]
-                .get_identifier_xover(*xover_id)
+                .get_element_identifier_from_xover_id(*xover_id)
                 .iter()
                 .cloned()
                 .collect(),
@@ -792,8 +800,13 @@ impl Data {
                     SelectionMode::Nucleotide => {
                         let nucl = self.designs[*design_id as usize].get_nucl(group_id);
                         let bound = self.designs[*design_id as usize].get_bound(group_id);
+                        let xover_id = bound.as_ref().and_then(|xover| {
+                            self.designs[*design_id as usize].get_xover_id(xover)
+                        });
                         if let Some(nucl) = nucl {
                             Selection::Nucleotide(*design_id, nucl)
+                        } else if let Some(id) = xover_id {
+                            Selection::Xover(*design_id, id)
                         } else if let Some((n1, n2)) = bound {
                             Selection::Bound(*design_id, n1, n2)
                         } else {

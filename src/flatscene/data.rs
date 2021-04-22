@@ -105,6 +105,11 @@ impl Data {
                 Selection::Bound(_, n1, n2) => {
                     selected_xovers.insert((*n1, *n2));
                 }
+                Selection::Xover(_, xover_id) => {
+                    if let Some((n1, n2)) = self.design.get_xover_with_id(*xover_id) {
+                        selected_xovers.insert((n1, n2));
+                    }
+                }
                 Selection::Helix(_, h) => {
                     let flat_helix = FlatHelix::from_real(*h as usize, id_map);
                     selected_helices.push(flat_helix.flat);
@@ -119,6 +124,11 @@ impl Data {
                 }
                 Selection::Bound(_, n1, n2) => {
                     candidate_xovers.insert((*n1, *n2));
+                }
+                Selection::Xover(_, xover_id) => {
+                    if let Some((n1, n2)) = self.design.get_xover_with_id(*xover_id) {
+                        candidate_xovers.insert((n1, n2));
+                    }
                 }
                 Selection::Helix(_, h) => {
                     let flat_helix = FlatHelix::from_real(*h as usize, id_map);
@@ -628,20 +638,18 @@ impl Data {
         let bottom = y1.max(y2);
         println!("{}, {}, {}, {}", left, top, right, bottom);
         let mut selection = BTreeSet::new();
-        for (flat_1, flat_2) in self.design.get_xovers_list() {
+        for (xover_id, (flat_1, flat_2)) in self.design.get_xovers_list() {
             let h1 = &self.helices[flat_1.helix.flat];
             let h2 = &self.helices[flat_2.helix.flat];
             if h1.rectangle_has_nucl(flat_1, left, top, right, bottom, camera)
                 && h2.rectangle_has_nucl(flat_2, left, top, right, bottom, camera)
             {
-                let n1 = flat_1.to_real();
-                let n2 = flat_2.to_real();
-                selection.insert((n1, n2));
+                selection.insert(xover_id);
             }
         }
         let mut selection: Vec<Selection> = selection
             .iter()
-            .map(|(n1, n2)| Selection::Bound(self.id, *n1, *n2))
+            .map(|xover_id| Selection::Xover(self.id, *xover_id))
             .collect();
         if selection.is_empty() {
             self.add_long_xover_rectangle(&mut selection, c1, c2);
@@ -660,19 +668,17 @@ impl Data {
 
     fn add_long_xover_rectangle(&self, selection: &mut Vec<Selection>, c1: Vec2, c2: Vec2) {
         let mut selection_set = BTreeSet::new();
-        for (flat_1, flat_2) in self.design.get_xovers_list() {
+        for (xover_id, (flat_1, flat_2)) in self.design.get_xovers_list() {
             let h1 = &self.helices[flat_1.helix.flat];
             let h2 = &self.helices[flat_2.helix.flat];
             let a = h1.get_nucl_position(&flat_1, helix::Shift::No);
             let b = h2.get_nucl_position(&&flat_2, helix::Shift::No);
             if helix::rectangle_intersect(c1, c2, a, b) {
-                let n1 = flat_1.to_real();
-                let n2 = flat_2.to_real();
-                selection_set.insert((n1, n2));
+                selection_set.insert(xover_id);
             }
         }
-        for xover in selection_set.into_iter() {
-            selection.push(Selection::Bound(self.id, xover.0, xover.1))
+        for xover_id in selection_set.into_iter() {
+            selection.push(Selection::Xover(self.id, xover_id))
         }
     }
 
@@ -791,7 +797,7 @@ impl Data {
 
     fn xover_containing_nucl(&self, nucl: &FlatNucl) -> Option<(FlatNucl, FlatNucl)> {
         let xovers_list = self.design.get_xovers_list();
-        xovers_list.iter().find_map(|(n1, n2)| {
+        xovers_list.iter().find_map(|(_, (n1, n2))| {
             if *n1 == *nucl {
                 Some((*n1, *n2))
             } else if *n2 == *nucl {

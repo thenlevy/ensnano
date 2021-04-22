@@ -851,7 +851,7 @@ impl Design {
         self.data.lock().unwrap().clear_hyperboloid()
     }
 
-    pub fn get_xovers_list(&self) -> Vec<(Nucl, Nucl)> {
+    pub fn get_xovers_list(&self) -> Vec<(usize, (Nucl, Nucl))> {
         self.data.lock().unwrap().get_xovers_list()
     }
 

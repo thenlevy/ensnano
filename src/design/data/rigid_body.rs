@@ -1227,7 +1227,7 @@ impl Data {
         let mut springs = Vec::with_capacity(xovers.len());
         let mut mixed_springs = Vec::with_capacity(xovers.len());
         let mut free_springs = Vec::with_capacity(xovers.len());
-        for (n1, n2) in xovers {
+        for (_, (n1, n2)) in xovers {
             println!("{:?}", (n1, n2));
             let free_nucl1 = interval_results.nucl_map[&n1];
             let free_nucl2 = interval_results.nucl_map[&n2];
@@ -1341,7 +1341,7 @@ impl Data {
         }
         let xovers = self.get_xovers_list();
         let mut springs = Vec::new();
-        for (n1, n2) in xovers {
+        for (_, (n1, n2)) in xovers {
             let h1 = self.design.helices.get(&n1.helix)?;
             let h2 = self.design.helices.get(&n2.helix)?;
             let g_id1 = h1.grid_position.map(|gp| gp.grid);

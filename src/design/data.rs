@@ -744,8 +744,8 @@ impl Data {
         }
     }
 
-    pub fn get_xovers_list(&self) -> Vec<(Nucl, Nucl)> {
-        self.design.get_xovers()
+    pub fn get_xovers_list(&self) -> Vec<(usize, (Nucl, Nucl))> {
+        self.xover_ids.get_all_elements()
     }
 
     fn start_rolling(&mut self, request: SimulationRequest, computing: Arc<Mutex<bool>>) {

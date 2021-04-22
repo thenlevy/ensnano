@@ -347,14 +347,14 @@ impl Design2d {
         torsions.iter().map(conversion).collect()
     }
 
-    pub fn get_xovers_list(&self) -> Vec<(FlatNucl, FlatNucl)> {
+    pub fn get_xovers_list(&self) -> Vec<(usize, (FlatNucl, FlatNucl))> {
         let xovers = self.design.read().unwrap().get_xovers_list();
         xovers
             .iter()
-            .map(|(n1, n2)| {
+            .map(|(id, (n1, n2))| {
                 let flat_1 = FlatNucl::from_real(n1, &self.id_map);
                 let flat_2 = FlatNucl::from_real(n2, &self.id_map);
-                (flat_1, flat_2)
+                (*id, (flat_1, flat_2))
             })
             .collect()
     }
@@ -377,6 +377,10 @@ impl Design2d {
 
     pub fn get_helix_from_eid(&self, element_id: u32) -> Option<usize> {
         self.design.read().unwrap().get_helix(element_id)
+    }
+
+    pub fn get_xover_with_id(&self, xover_id: usize) -> Option<(Nucl, Nucl)> {
+        self.design.read().unwrap().get_xover_with_id(xover_id)
     }
 }
 
