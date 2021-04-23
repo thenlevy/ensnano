@@ -573,7 +573,8 @@ impl Program for LeftPanel {
                 .push(iced::Rule::horizontal(5))
                 .push(Container::new(contextual_menu).height(Length::FillPortion(1)))
                 .push(iced::Rule::horizontal(5))
-                .push(Container::new(organizer).height(Length::FillPortion(1))),
+                .push(Container::new(organizer).height(Length::FillPortion(1)))
+                .padding(3)
         )
         .style(TopBarStyle)
         .height(Length::Units(self.logical_size.height as u16))
