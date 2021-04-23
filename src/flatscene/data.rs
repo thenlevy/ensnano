@@ -504,9 +504,9 @@ impl Data {
         };
         for h in self.helices.iter() {
             let left = h.get_pivot(h.get_left());
-            ret.add_point(Vec2::new(left.x, -left.y));
+            ret.add_point(Vec2::new(left.x, left.y));
             let right = h.get_pivot(h.get_right());
-            ret.add_point(Vec2::new(right.x, -right.y));
+            ret.add_point(Vec2::new(right.x, right.y));
         }
         ret
     }

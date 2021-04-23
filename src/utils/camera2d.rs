@@ -188,8 +188,8 @@ impl Camera {
         } else {
             self.globals.zoom = zoom_y;
         }
-        self.globals.scroll_offset[0] = self.globals.resolution[0] / 2. / self.globals.zoom + min_x;
-        self.globals.scroll_offset[1] = self.globals.resolution[1] / 2. / self.globals.zoom + min_x;
+        self.globals.scroll_offset[0] = (min_x + max_x) / 2.;
+        self.globals.scroll_offset[1] = (min_y + max_y) / 2.;
         self.was_updated = true;
         self.end_movement();
     }
