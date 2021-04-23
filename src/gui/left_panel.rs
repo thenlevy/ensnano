@@ -435,6 +435,7 @@ impl Program for LeftPanel {
                     }
                 }
                 if self.selected_tab == 3 && n != 3 {
+                    println!("leaving simulation tab");
                     self.simulation_tab.leave_tab(self.requests.clone());
                 }
                 self.selected_tab = n;
@@ -574,7 +575,7 @@ impl Program for LeftPanel {
                 .push(Container::new(contextual_menu).height(Length::FillPortion(1)))
                 .push(iced::Rule::horizontal(5))
                 .push(Container::new(organizer).height(Length::FillPortion(1)))
-                .padding(3)
+                .padding(3),
         )
         .style(TopBarStyle)
         .height(Length::Units(self.logical_size.height as u16))

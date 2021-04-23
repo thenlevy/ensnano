@@ -132,7 +132,8 @@ impl EditionTab {
                 .push(
                     text_btn(&mut self.redim_all_helices_button, "All", ui_size.clone())
                         .on_press(Message::Redim2dHelices(true)),
-                ).spacing(5),
+                )
+                .spacing(5),
         );
 
         Scrollable::new(&mut self.scroll).push(ret).into()
@@ -874,13 +875,16 @@ impl SimulationTab {
     }
 
     pub(super) fn leave_tab(&mut self, requests: Arc<Mutex<Requests>>) {
-        let request = &mut requests.lock().unwrap().rigid_grid_simulation;
         if self.rigid_grid_button.running {
+            let request = &mut requests.lock().unwrap().rigid_grid_simulation;
             self.notify_grid_running(false);
             self.make_rigid_body_request(request);
+            println!("stop grids");
         } else if self.rigid_helices_button.running {
+            let request = &mut requests.lock().unwrap().rigid_helices_simulation;
             self.notify_helices_running(false);
             self.make_rigid_body_request(request);
+            println!("stop helices");
         }
     }
 }
