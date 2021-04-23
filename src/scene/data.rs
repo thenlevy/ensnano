@@ -149,6 +149,7 @@ impl Data {
     pub fn set_pivot_element(&mut self, element: Option<SceneElement>) {
         self.pivot_update |= self.pivot_element != element;
         self.pivot_element = element;
+        self.try_update_pivot_position();
     }
 
     #[allow(dead_code)]
@@ -537,9 +538,9 @@ impl Data {
     pub fn try_update_pivot_position(&mut self) {
         if self.pivot_element.is_none() {
             self.pivot_element = self.selected_element;
-            self.update_pivot_position();
             self.pivot_update = true;
         }
+        self.update_pivot_position();
     }
 
     pub fn get_pivot_position(&self) -> Option<Vec3> {
