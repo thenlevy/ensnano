@@ -169,7 +169,7 @@ impl LeftPanel {
             show_torsion: false,
             selected_tab,
             organizer,
-            ui_size: UiSize::Small,
+            ui_size: Default::default(),
             grid_tab: GridTab::new(),
             edition_tab: EditionTab::new(),
             camera_tab: CameraTab::new(),
@@ -1028,7 +1028,7 @@ impl Requestable for ScrollSentivity {
     }
     fn name_val(&self, n: usize) -> String {
         if n == 0 {
-            String::from("ScrollSentivity")
+            String::from("Sentivity")
         } else {
             unreachable!()
         }

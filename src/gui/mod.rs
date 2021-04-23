@@ -577,7 +577,7 @@ impl Gui {
             device,
             resized: true,
             dialoging,
-            ui_size: UiSize::Small,
+            ui_size: Default::default(),
         }
     }
 
@@ -737,7 +737,12 @@ fn text_btn<'a, M: Clone>(
     text: &'static str,
     ui_size: UiSize,
 ) -> Button<'a, M> {
-    Button::new(state, Text::new(text)).height(Length::Units(ui_size.button()))
+    let size = if text.len() > 1 {
+        ui_size.main_text()
+    } else {
+        ui_size.icon()
+    };
+    Button::new(state, Text::new(text).size(size)).height(Length::Units(ui_size.button()))
 }
 
 fn icon_btn<'a, M: Clone>(
@@ -747,7 +752,9 @@ fn icon_btn<'a, M: Clone>(
 ) -> Button<'a, M> {
     Button::new(
         state,
-        Text::new(icon_char.to_string()).font(left_panel::ENSNANO_FONT),
+        Text::new(icon_char.to_string())
+            .font(left_panel::ENSNANO_FONT)
+            .size(ui_size.icon()),
     )
     .height(Length::Units(ui_size.button()))
 }

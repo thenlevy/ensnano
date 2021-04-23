@@ -450,15 +450,6 @@ impl GridTab {
         self.show_strand_menu = show;
     }
 
-    pub(super) fn update_selection(&mut self, selection: &[DnaElementKey]) {
-        self.can_make_grid = false;
-        for s in selection.iter() {
-            if let DnaElementKey::Helix(_) = s {
-                self.can_make_grid = true;
-            }
-        }
-    }
-
     pub(super) fn notify_new_design(&mut self) {
         self.can_make_grid = false;
     }
@@ -1011,13 +1002,15 @@ impl ParametersTab {
             Message::UiSizePicked,
         ));
 
+        ret = ret.push(iced::Space::with_height(Length::Units(5)));
+        ret = ret.push(Text::new("Scrolling").size(ui_size.intermediate_text()));
         for view in self.scroll_sensitivity_factory.view(true).into_iter() {
             ret = ret.push(view);
         }
 
         ret = ret.push(right_checkbox(
             self.invert_y_scroll,
-            "Inverse Scroll direction",
+            "Inverse direction",
             Message::InvertScroll,
             ui_size.clone(),
         ));

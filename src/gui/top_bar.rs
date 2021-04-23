@@ -78,7 +78,7 @@ impl TopBar {
             requests,
             logical_size,
             dialoging,
-            ui_size: UiSize::Small,
+            ui_size: Default::default(),
         }
     }
 

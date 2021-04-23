@@ -7,6 +7,12 @@ pub enum UiSize {
     Large,
 }
 
+impl Default for UiSize {
+    fn default() -> Self {
+        Self::Medium
+    }
+}
+
 impl UiSize {
     pub fn smaller_text(&self) -> u16 {
         match self {
