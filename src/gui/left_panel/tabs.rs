@@ -869,6 +869,17 @@ impl SimulationTab {
     pub(super) fn get_physical_simulation_request(&self) -> SimulationRequest {
         self.physical_simulation.request()
     }
+
+    pub(super) fn leave_tab(&mut self, requests: Arc<Mutex<Requests>>) {
+        let request = &mut requests.lock().unwrap().rigid_grid_simulation;
+        if self.rigid_grid_button.running {
+            self.notify_grid_running(false);
+            self.make_rigid_body_request(request);
+        } else if self.rigid_helices_button.running {
+            self.notify_helices_running(false);
+            self.make_rigid_body_request(request);
+        }
+    }
 }
 
 struct GoStop {

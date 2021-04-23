@@ -434,6 +434,9 @@ impl Program for LeftPanel {
                         self.grid_tab.finalize_hyperboloid();
                     }
                 }
+                if self.selected_tab == 3 && n != 3 {
+                    self.simulation_tab.leave_tab(self.requests.clone());
+                }
                 self.selected_tab = n;
             }
             Message::NewDnaElement(elements) => self.organizer.update_elements(elements),
