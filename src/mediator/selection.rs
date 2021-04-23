@@ -161,6 +161,33 @@ pub fn list_of_helices(selection: &[Selection]) -> Option<(usize, Vec<usize>)> {
     Some((design_id as usize, helices.into_iter().collect()))
 }
 
+pub fn all_helices_no_grid(selection: &[Selection], designs: &[Arc<RwLock<Design>>]) -> bool {
+    let design_id = selection.get(0).and_then(Selection::get_design);
+    let mut nb_helices = 0;
+    if design_id.is_none() {
+        return false;
+    }
+    let design_id = design_id.unwrap();
+    let design = designs[design_id as usize].read().unwrap();
+
+    for s in selection.iter() {
+        match s {
+            Selection::Helix(d_id, h_id) => {
+                if *d_id != design_id {
+                    return false;
+                }
+                if design.get_grid_pos_helix(*h_id).is_some() {
+                    return false;
+                }
+                nb_helices += 1;
+            }
+            s if s.get_design() == Some(design_id) => (),
+            _ => return false,
+        }
+    }
+    nb_helices >= 4
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum SelectionMode {
     Grid,

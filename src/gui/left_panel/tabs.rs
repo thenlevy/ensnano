@@ -200,6 +200,8 @@ pub(super) struct GridTab {
     hyperboloid_factory: RequestFactory<Hyperboloid_>,
     start_hyperboloid_btn: button::State,
     show_strand_menu: bool,
+    make_grid_btn: button::State,
+    pub(super) can_make_grid: bool,
 }
 
 impl GridTab {
@@ -219,6 +221,8 @@ impl GridTab {
             building_hyperboloid: false,
             start_hyperboloid_btn: Default::default(),
             show_strand_menu: false,
+            make_grid_btn: Default::default(),
+            can_make_grid: false,
         }
     }
 
@@ -369,7 +373,18 @@ impl GridTab {
             }
         }
 
-        ret = ret.push(iced::Space::with_height(Length::Units(5)));
+        ret = ret.push(Text::new(
+            "Make grids from selected helices (usefull for imported designs only)",
+        ));
+        let mut button_make_grid =
+            Button::new(&mut self.make_grid_btn, iced::Text::new("Make grids"))
+                .height(Length::Units(ui_size.button()));
+
+        if self.can_make_grid {
+            button_make_grid = button_make_grid.on_press(Message::MakeGrids);
+        }
+
+        ret = ret.push(button_make_grid);
 
         Scrollable::new(&mut self.scroll).push(ret).into()
     }
@@ -433,6 +448,19 @@ impl GridTab {
 
     pub fn set_show_strand(&mut self, show: bool) {
         self.show_strand_menu = show;
+    }
+
+    pub(super) fn update_selection(&mut self, selection: &[DnaElementKey]) {
+        self.can_make_grid = false;
+        for s in selection.iter() {
+            if let DnaElementKey::Helix(_) = s {
+                self.can_make_grid = true;
+            }
+        }
+    }
+
+    pub(super) fn notify_new_design(&mut self) {
+        self.can_make_grid = false;
     }
 }
 

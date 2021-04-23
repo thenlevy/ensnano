@@ -965,6 +965,11 @@ impl IcedMessages {
         self.top_bar
             .push_back(gui::top_bar::Message::UiSizeChanged(ui_size.clone()));
     }
+
+    pub fn push_can_make_grid(&mut self, can_make_grid: bool) {
+        self.left_panel
+            .push_back(gui::left_panel::Message::CanMakeGrid(can_make_grid));
+    }
 }
 
 pub struct OverlayManager {

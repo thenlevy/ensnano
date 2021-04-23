@@ -51,7 +51,6 @@ pub enum Message {
     FileSaveRequested,
     Resize(LogicalSize<f64>),
     ToggleView(SplitMode),
-    MakeGrids,
     HelpRequested,
     UiSizeChanged(UiSize),
     OxDNARequested,
@@ -211,7 +210,6 @@ impl Program for TopBar {
                 }
             }
             Message::Resize(size) => self.resize(size),
-            Message::MakeGrids => self.requests.lock().unwrap().make_grids = true,
             Message::ToggleView(b) => self.requests.lock().unwrap().toggle_scene = Some(b),
             Message::HelpRequested => {
                 let msg = "Change action mode: \n 
@@ -281,11 +279,6 @@ impl Program for TopBar {
                 .height(Length::Units(self.ui_size.button()))
                 .on_press(Message::Split2d);
 
-        let _button_make_grid =
-            Button::new(&mut self.button_make_grid, iced::Text::new("Make grids"))
-                .on_press(Message::MakeGrids)
-                .height(Length::Units(self.ui_size.button()));
-
         let buttons = Row::new()
             .width(Length::Fill)
             .height(Length::Units(height))
@@ -298,7 +291,6 @@ impl Program for TopBar {
             .push(button_3d)
             .push(button_2d)
             .push(button_split)
-            .push(_button_make_grid)
             .push(button_split_2d)
             .push(
                 Button::new(&mut self.button_help, iced::Text::new("Help"))

@@ -728,6 +728,11 @@ impl Mediator {
         }
         if let Some((selection, app_id)) = self.last_selection.take() {
             ret = true;
+            let can_make_grid = all_helices_no_grid(&selection, self.designs.as_slice());
+            self.messages
+                .lock()
+                .unwrap()
+                .push_can_make_grid(can_make_grid);
             if app_id != AppId::Organizer {
                 let organizer_selection: Vec<DnaElementKey> = selection
                     .iter()
@@ -738,7 +743,7 @@ impl Mediator {
                     .unwrap()
                     .push_organizer_selection(organizer_selection);
             }
-            self.notify_apps(Notification::Selection3D(selection, app_id))
+            self.notify_apps(Notification::Selection3D(selection, app_id));
         }
 
         if let Some(centring) = self.centring.take() {

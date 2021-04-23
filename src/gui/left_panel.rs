@@ -88,6 +88,7 @@ pub enum Message {
     Resized(LogicalSize<f64>, LogicalPosition<f64>),
     #[allow(dead_code)]
     OpenColor,
+    MakeGrids,
     ActionModeChanged(ActionMode),
     SequenceChanged(String),
     SequenceFileRequested,
@@ -142,6 +143,7 @@ pub enum Message {
     BrownianMotion(bool),
     Nothing,
     CancelHyperboloid,
+    CanMakeGrid(bool),
 }
 
 impl LeftPanel {
@@ -339,6 +341,7 @@ impl Program for LeftPanel {
                 self.camera_tab.notify_new_design();
                 self.simulation_tab.notify_new_design();
                 self.edition_tab.notify_new_design();
+                self.grid_tab.notify_new_design();
                 self.organizer.reset();
             }
             Message::SimRequest => {
@@ -412,6 +415,7 @@ impl Program for LeftPanel {
                 self.simulation_tab.notify_helices_running(b);
                 self.simulation_tab.make_rigid_body_request(request);
             }
+            Message::MakeGrids => self.requests.lock().unwrap().make_grids = true,
             Message::RollTargeted(b) => {
                 if b {
                     let simulation_request = self.edition_tab.get_roll_request();
@@ -453,6 +457,9 @@ impl Program for LeftPanel {
             Message::NewSelection(keys) => {
                 self.edition_tab.update_selection(&keys);
                 self.organizer.notify_selection(keys);
+            }
+            Message::CanMakeGrid(b) => {
+                self.grid_tab.can_make_grid = b;
             }
             Message::NewTreeApp(tree) => self.organizer.read_tree(tree),
             Message::UiSizePicked(ui_size) => {
