@@ -30,19 +30,27 @@ impl Controller {
         }
     }
 
-    /// Translate the whole view of the design
-    pub fn translate(&mut self, translation: &DesignTranslation) {
+    /// Attempt to perform a translation on the design. Return true iff the tranlsation was
+    /// effectively performed.
+    ///
+    /// At the moment, only helices tranlsation can fail, this happens when an helix should be
+    /// snapped to a grid position where an other helix is already present.
+    pub fn translate(&mut self, translation: &DesignTranslation) -> bool {
         match translation.target {
-            IsometryTarget::Design => self
-                .view
-                .lock()
-                .unwrap()
-                .set_matrix(self.old_matrix.translated(&translation.translation)),
-            IsometryTarget::Grid(g_id) => self
-                .data
-                .lock()
-                .unwrap()
-                .translate_grid(g_id as usize, translation.translation),
+            IsometryTarget::Design => {
+                self.view
+                    .lock()
+                    .unwrap()
+                    .set_matrix(self.old_matrix.translated(&translation.translation));
+                true
+            }
+            IsometryTarget::Grid(g_id) => {
+                self.data
+                    .lock()
+                    .unwrap()
+                    .translate_grid(g_id as usize, translation.translation);
+                true
+            }
             IsometryTarget::Helix(h_id, b) => {
                 self.data
                     .lock()

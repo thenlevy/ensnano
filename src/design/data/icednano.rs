@@ -1389,6 +1389,11 @@ impl Helix {
         self.append_translation(translation);
     }
 
+    pub fn cancel_current_movement(&mut self) {
+        self.position = self.old_position;
+        self.orientation = self.old_orientation;
+    }
+
     pub fn end_movement(&mut self) {
         self.old_position = self.position;
         self.old_orientation = self.orientation;

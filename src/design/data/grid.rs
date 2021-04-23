@@ -702,13 +702,15 @@ impl GridManager {
         }
     }
 
+    /// Recompute the position of helix `h_id` on its grid. Return false if there is already an
+    /// other helix at that position, otherwise return true.
     pub fn reattach_helix(
         &mut self,
         h_id: usize,
         design: &mut Design,
         preserve_roll: bool,
         grid2ds: &Vec<Arc<RwLock<Grid2D>>>,
-    ) {
+    ) -> bool {
         let h = design.helices.get_mut(&h_id).unwrap();
         let axis = h.get_axis(&self.parameters);
         if let Some(grid_position) = h.grid_position {
@@ -727,6 +729,8 @@ impl GridManager {
                     {
                         if *helix == h_id {
                             h.grid_position = candidate_position;
+                        } else {
+                            return false;
                         }
                     } else {
                         h.grid_position = candidate_position;
@@ -734,6 +738,7 @@ impl GridManager {
                 }
             }
         }
+        true
     }
 
     fn attach_to(&self, helix: &icednano::Helix, g_id: usize) -> Option<GridPosition> {

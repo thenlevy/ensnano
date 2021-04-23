@@ -1007,19 +1007,32 @@ impl Data {
         self.update_status = true;
     }
 
-    pub fn translate_helix(&mut self, h_id: usize, translation: Vec3, snap_grid: bool) {
+    /// Attempt to translate an helix, and return true iff the translation was effectively
+    /// perfored.
+    ///
+    /// If snap_grid is true, the helix is reattached to its grid after the translation. This
+    /// attachement can fail (when there is already an existing helix) in this case no translation
+    /// is performed, and this function return false. If the translation is performed return true.
+    pub fn translate_helix(&mut self, h_id: usize, translation: Vec3, snap_grid: bool) -> bool {
         self.design
             .helices
             .get_mut(&h_id)
             .map(|h| h.translate(translation));
+        let mut ret = true;
         if snap_grid {
-            self.grid_manager
-                .reattach_helix(h_id, &mut self.design, true, &self.grids);
+            let successfull_reattach =
+                self.grid_manager
+                    .reattach_helix(h_id, &mut self.design, true, &self.grids);
+            if !successfull_reattach {
+                //self.design.helices.get_mut(&h_id).map(|h| h.cancel_current_movement());
+                ret = false;
+            }
         }
         self.grid_manager.update(&mut self.design);
         self.update_grids();
         self.hash_maps_update = true;
         self.update_status = true;
+        ret
     }
 
     pub fn rotate_grid_arround(

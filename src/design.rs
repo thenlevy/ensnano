@@ -96,8 +96,8 @@ impl Design {
     }
 
     /// Translate the representation of self
-    pub fn apply_translation(&mut self, translation: &DesignTranslation) {
-        self.controller.translate(translation);
+    fn apply_translation(&mut self, translation: &DesignTranslation) -> bool {
+        self.controller.translate(translation)
     }
 
     /// Rotate the representation of self arround `origin`
@@ -194,10 +194,16 @@ impl Design {
         self.data.lock().unwrap().get_all_bound_ids().collect()
     }
 
-    pub fn apply_operation(&mut self, operation: UndoableOp) -> Option<(StrandState, StrandState)> {
+    pub fn apply_operation(&mut self, operation: UndoableOp) -> OperationResult {
         match operation {
             UndoableOp::Rotation(rotation) => self.apply_rotation(&rotation),
-            UndoableOp::Translation(translation) => self.apply_translation(&translation),
+            UndoableOp::Translation(translation) => {
+                if self.apply_translation(&translation) {
+                    return OperationResult::UndoableChange;
+                } else {
+                    return OperationResult::NoChange;
+                }
+            }
             UndoableOp::MakeAllGrids => self.data.lock().unwrap().create_grids(),
             UndoableOp::AddGridHelix(GridHelixDescriptor { grid_id, x, y }, position, length) => {
                 self.data
@@ -225,7 +231,7 @@ impl Design {
                     .unwrap()
                     .undoable_rm_strand(strand, strand_id, undo);
                 let after = self.data.lock().unwrap().get_strand_state();
-                return Some((init, after));
+                return OperationResult::BigChange(init, after);
             }
             UndoableOp::RmGrid => self.data.lock().unwrap().delete_last_grid(),
             UndoableOp::AddGrid(grid_descriptor) => {
@@ -271,7 +277,7 @@ impl Design {
                     self.data.lock().unwrap().split_strand(&nucl, None);
                 }
                 let after = self.data.lock().unwrap().get_strand_state();
-                return Some((init, after));
+                return OperationResult::BigChange(init, after);
             }
             UndoableOp::Xover {
                 strand_5prime,
@@ -299,7 +305,7 @@ impl Design {
                     }
                 }
                 let after = self.data.lock().unwrap().get_strand_state();
-                return Some((init, after));
+                return OperationResult::BigChange(init, after);
             }
             UndoableOp::CrossCut {
                 source_strand,
@@ -326,7 +332,7 @@ impl Design {
                         .cross_cut(source_id, target_id, nucl, target_3prime)
                 }
                 let after = self.data.lock().unwrap().get_strand_state();
-                return Some((init, after));
+                return OperationResult::BigChange(init, after);
             }
             UndoableOp::NewHyperboloid {
                 position,
@@ -342,7 +348,7 @@ impl Design {
             UndoableOp::NewStrandState(state) => self.data.lock().unwrap().new_strand_state(state),
             UndoableOp::ResetCopyPaste => self.data.lock().unwrap().reset_copy_paste(),
         }
-        None
+        OperationResult::UndoableChange
     }
 
     /// Notify the design of a notification. This is how applications communicate their
@@ -1005,4 +1011,11 @@ pub struct GridHelixDescriptor {
     pub grid_id: usize,
     pub x: isize,
     pub y: isize,
+}
+
+#[derive(Clone, Debug)]
+pub enum OperationResult {
+    BigChange(StrandState, StrandState),
+    UndoableChange,
+    NoChange,
 }

@@ -25,8 +25,8 @@ use crate::design;
 
 use design::{
     Design, DesignNotification, DesignRotation, DesignTranslation, DnaAttribute, DnaElementKey,
-    GridDescriptor, GridHelixDescriptor, Helix, Hyperboloid, Nucl, RigidBodyConstants, Stapple,
-    Strand, StrandBuilder, StrandState,
+    GridDescriptor, GridHelixDescriptor, Helix, Hyperboloid, Nucl, OperationResult,
+    RigidBodyConstants, Stapple, Strand, StrandBuilder, StrandState,
 };
 use ensnano_organizer::OrganizerTree;
 
@@ -776,6 +776,7 @@ impl Mediator {
         if *self.computing.lock().unwrap() {
             return;
         }
+        /*
         let operation = if let Some(op) = self
             .last_op
             .as_ref()
@@ -787,6 +788,8 @@ impl Mediator {
             self.finish_pending();
             operation
         };
+        */
+        self.finish_pending();
         let target = operation.target();
         let effect = operation.effect();
         if let Some(current_op) = self.current_operation.as_ref() {
@@ -802,21 +805,27 @@ impl Mediator {
         }
         self.messages.lock().unwrap().push_op(operation.clone());
 
-        if operation.drop_undo() {
-            self.drop_undo_stack();
-            self.current_operation = None;
-        } else {
-            self.current_operation = Some(operation);
-        }
+        let result = self.apply_operation(target, effect);
 
-        if let Some((init, after)) = self.apply_operation(target, effect) {
-            self.current_operation = None;
-            self.undo_stack.push(Arc::new(BigStrandModification {
-                initial_state: init,
-                final_state: after,
-                reverse: false,
-                design_id: self.last_selected_design,
-            }))
+        match result {
+            OperationResult::UndoableChange => {
+                if operation.drop_undo() {
+                    self.drop_undo_stack();
+                    self.current_operation = None;
+                } else {
+                    self.current_operation = Some(operation);
+                }
+            }
+            OperationResult::NoChange => (),
+            OperationResult::BigChange(init, after) => {
+                self.current_operation = None;
+                self.undo_stack.push(Arc::new(BigStrandModification {
+                    initial_state: init,
+                    final_state: after,
+                    reverse: false,
+                    design_id: self.last_selected_design,
+                }))
+            }
         }
     }
 
@@ -916,11 +925,7 @@ impl Mediator {
         }
     }
 
-    fn apply_operation(
-        &mut self,
-        target: usize,
-        effect: UndoableOp,
-    ) -> Option<(StrandState, StrandState)> {
+    fn apply_operation(&mut self, target: usize, effect: UndoableOp) -> OperationResult {
         self.designs[target]
             .write()
             .unwrap()

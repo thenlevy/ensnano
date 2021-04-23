@@ -471,6 +471,10 @@ impl Operation for HelixTranslation {
             _ => None,
         }
     }
+
+    fn must_reverse(&self) -> bool {
+        false
+    }
 }
 
 #[derive(Debug, Clone)]
