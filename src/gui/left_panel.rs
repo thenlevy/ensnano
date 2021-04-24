@@ -68,7 +68,6 @@ pub struct LeftPanel {
     open_color: button::State,
     sequence_input: SequenceInput,
     requests: Arc<Mutex<Requests>>,
-    color_picker: ColorPicker,
     #[allow(dead_code)]
     show_torsion: bool,
     selected_tab: usize,
@@ -165,7 +164,6 @@ impl LeftPanel {
             open_color: Default::default(),
             sequence_input: SequenceInput::new(),
             requests,
-            color_picker: ColorPicker::new(),
             show_torsion: false,
             selected_tab,
             organizer,
@@ -270,21 +268,10 @@ impl Program for LeftPanel {
                 self.requests.lock().unwrap().overlay_opened = Some(OverlayType::Color)
             }
             Message::StrandColorChanged(color) => {
-                let red = ((color.r * 255.) as u32) << 16;
-                let green = ((color.g * 255.) as u32) << 8;
-                let blue = (color.b * 255.) as u32;
-                self.color_picker.update_color(color);
-                let hue = Hsv::from(Rgb::new(
-                    color.r as f64 * 255.,
-                    color.g as f64 * 255.,
-                    color.b as f64 * 255.,
-                ))
-                .h;
-                self.color_picker.change_hue(hue as f32);
-                let color = red + green + blue;
-                self.requests.lock().unwrap().strand_color_change = Some(color);
+                let color_request = &mut self.requests.lock().unwrap().strand_color_change;
+                self.edition_tab.strand_color_change(color, color_request);
             }
-            Message::HueChanged(x) => self.color_picker.change_hue(x),
+            Message::HueChanged(x) => self.edition_tab.change_hue(x),
             Message::Resized(size, position) => self.resize(size, position),
             Message::NewGrid(grid_type) => {
                 self.requests.lock().unwrap().new_grid = Some(grid_type);
