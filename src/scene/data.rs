@@ -149,7 +149,7 @@ impl Data {
     pub fn set_pivot_element(&mut self, element: Option<SceneElement>) {
         self.pivot_update |= self.pivot_element != element;
         self.pivot_element = element;
-        self.try_update_pivot_position();
+        self.update_pivot_position();
     }
 
     #[allow(dead_code)]
@@ -539,8 +539,8 @@ impl Data {
         if self.pivot_element.is_none() {
             self.pivot_element = self.selected_element;
             self.pivot_update = true;
+            self.update_pivot_position();
         }
-        self.update_pivot_position();
     }
 
     pub fn get_pivot_position(&self) -> Option<Vec3> {
@@ -912,7 +912,6 @@ impl Data {
     }
 
     fn update_pivot(&mut self) {
-        self.update_pivot_position();
         let spheres = if let Some(pivot) = self.pivot_position {
             vec![Design3D::pivot_sphere(pivot)]
         } else {
@@ -1009,7 +1008,6 @@ impl Data {
                 pasted_tubes.push(tube);
             }
         }
-        self.update_pivot_position();
         self.update_free_xover();
         self.view
             .borrow_mut()
@@ -1037,7 +1035,6 @@ impl Data {
             .borrow_mut()
             .update(ViewUpdate::Grids(Rc::new(grids)));
         self.selection_update = true;
-        self.pivot_update = true;
     }
 
     fn update_discs(&mut self) {
