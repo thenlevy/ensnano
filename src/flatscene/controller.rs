@@ -53,7 +53,6 @@ pub enum Consequence {
     FlipGroup(FlatHelix),
     FollowingSuggestion(FlatNucl, bool),
     Centering(FlatNucl, bool),
-    Select(FlatNucl),
     DrawingSelection(PhysicalPosition<f64>, PhysicalPosition<f64>),
     ReleasedSelection(Vec2, Vec2),
     PasteRequest(Option<FlatNucl>),

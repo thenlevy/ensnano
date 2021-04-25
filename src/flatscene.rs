@@ -373,15 +373,6 @@ impl FlatScene {
                     .unwrap()
                     .request_centering(nucl, self.selected_design)
             }
-            Consequence::Select(nucl) => {
-                let selection = self.data[self.selected_design]
-                    .borrow()
-                    .get_selection(nucl, self.selected_design as u32);
-                self.mediator
-                    .lock()
-                    .unwrap()
-                    .notify_unique_selection(selection, AppId::FlatScene);
-            }
             Consequence::DrawingSelection(c1, c2) => self.view[self.selected_design]
                 .borrow_mut()
                 .update_rectangle(c1, c2),

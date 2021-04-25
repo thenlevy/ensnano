@@ -18,7 +18,7 @@ use ultraviolet::Vec3;
 use color_space::{Hsv, Rgb};
 
 use crate::design::{DnaElement, DnaElementKey};
-use crate::mediator::{ActionMode, SelectionMode};
+use crate::mediator::{ActionMode, Selection, SelectionMode};
 
 use super::{
     icon_btn, slider_style::DesactivatedSlider, text_btn, FogParameters as Fog, GridTypeDescr,
@@ -33,6 +33,8 @@ mod discrete_value;
 use discrete_value::{FactoryId, RequestFactory, Requestable, ValueId};
 mod tabs;
 use crate::consts::*;
+mod contextual_panel;
+use contextual_panel::ContextualPanel;
 
 use material_icons::{icon_to_char, Icon as MaterialIcon, FONT as MATERIALFONT};
 use std::collections::BTreeMap;
@@ -79,6 +81,7 @@ pub struct LeftPanel {
     simulation_tab: SimulationTab,
     sequence_tab: SequenceTab,
     parameters_tab: ParametersTab,
+    contextual_panel: ContextualPanel,
 }
 
 #[derive(Debug, Clone)]
@@ -123,6 +126,7 @@ pub enum Message {
     NewDnaElement(Vec<DnaElement>),
     NewSelection(Vec<DnaElementKey>),
     OrganizerMessage(OrganizerMessage<DnaElement>),
+    Selection(Selection, Vec<String>),
     ModifiersChanged(ModifiersState),
     NewTreeApp(OrganizerTree<DnaElementKey>),
     UiSizeChanged(UiSize),
@@ -143,6 +147,9 @@ pub enum Message {
     Nothing,
     CancelHyperboloid,
     CanMakeGrid(bool),
+    SelectionValueChanged(usize, String),
+    SetSmallSpheres(bool),
+    ScaffoldIdSet(usize, bool),
 }
 
 impl LeftPanel {
@@ -175,6 +182,7 @@ impl LeftPanel {
             sequence_tab: SequenceTab::new(),
             parameters_tab: ParametersTab::new(),
             dialoging,
+            contextual_panel: ContextualPanel::new(logical_size.width as u32),
         }
     }
 
@@ -185,6 +193,7 @@ impl LeftPanel {
     ) {
         self.logical_size = logical_size;
         self.logical_position = logical_position;
+        self.contextual_panel.new_width(logical_size.width as u32);
         self.organizer.set_width(logical_size.width as u16);
     }
 
@@ -512,6 +521,21 @@ impl Program for LeftPanel {
                 self.grid_tab.finalize_hyperboloid();
                 self.requests.lock().unwrap().cancel_hyperboloid = true;
             }
+            Message::SelectionValueChanged(n, s) => {
+                self.contextual_panel
+                    .selection_value_changed(n, s, self.requests.clone());
+            }
+            Message::SetSmallSpheres(b) => {
+                self.contextual_panel
+                    .set_small_sphere(b, self.requests.clone());
+            }
+            Message::ScaffoldIdSet(n, b) => {
+                self.contextual_panel
+                    .scaffold_id_set(n, b, self.requests.clone());
+            }
+            Message::Selection(selection, info_values) => self
+                .contextual_panel
+                .update_selection(selection, info_values),
             Message::Nothing => (),
         };
         Command::none()
@@ -558,7 +582,7 @@ impl Program for LeftPanel {
             .tab_bar_style(TabStyle)
             .width(Length::Units(width))
             .height(Length::Fill);
-        let contextual_menu = iced::Space::new(Length::Fill, Length::Fill);
+        let contextual_menu = self.contextual_panel.view(self.ui_size.clone());
         let organizer = self.organizer.view().map(|m| Message::OrganizerMessage(m));
 
         Container::new(

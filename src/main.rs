@@ -893,8 +893,19 @@ impl IcedMessages {
     }
 
     pub fn push_selection(&mut self, selection: mediator::Selection, values: Vec<String>) {
+        self.left_panel
+            .push_back(gui::left_panel::Message::Selection(
+                selection,
+                values.clone(),
+            ))
+    }
+
+    pub fn push_candidate(&mut self, selection: mediator::Selection, values: Vec<String>) {
         self.status_bar
-            .push_back(gui::status_bar::Message::Selection(selection, values))
+            .push_back(gui::status_bar::Message::Selection(
+                selection,
+                values.clone(),
+            ));
     }
 
     pub fn push_organizer_selection(&mut self, selection: Vec<crate::design::DnaElementKey>) {

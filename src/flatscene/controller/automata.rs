@@ -355,7 +355,6 @@ impl ControllerState for NormalState {
                             consequences: Consequence::Nothing,
                         }
                     }
-                    ClickResult::Nucl(nucl) => Transition::consequence(Consequence::Select(nucl)),
                     _ => Transition::nothing(),
                 }
             }

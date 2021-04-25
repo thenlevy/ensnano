@@ -497,8 +497,30 @@ impl Mediator {
 
     pub fn notify_multiple_selection(&mut self, selection: Vec<Selection>, app_id: AppId) {
         self.selection = selection.clone();
-        self.last_selection = Some((selection, app_id));
+        self.last_selection = Some((selection.clone(), app_id));
         self.cancel_pasting();
+
+        if selection.len() == 1 {
+            let selection = selection[0];
+            if let Some(d_id) = selection.get_design() {
+                let values = selection.fetch_values(self.designs[d_id as usize].clone());
+                self.last_selected_design = d_id as usize;
+                self.messages
+                    .lock()
+                    .unwrap()
+                    .push_selection(selection, values);
+            } else {
+                self.messages
+                    .lock()
+                    .unwrap()
+                    .push_selection(Selection::Nothing, vec![])
+            }
+        } else if selection.len() == 0 {
+            self.messages
+                .lock()
+                .unwrap()
+                .push_selection(Selection::Nothing, vec![])
+        }
     }
 
     fn cancel_pasting(&mut self) {
@@ -618,34 +640,12 @@ impl Mediator {
         if let Some((candidate, app_id)) = self.candidate.take() {
             ret = true;
             if candidate.len() == 1 {
-                match candidate[0] {
-                    Selection::Strand(d_id, _) => {
-                        let values = candidate[0].fetch_values(self.designs[d_id as usize].clone());
-                        if self.selection.is_empty() {
-                            self.messages
-                                .lock()
-                                .unwrap()
-                                .push_selection(candidate[0], values);
-                        }
-                    }
-                    Selection::Nucleotide(d_id, nucl) => {
-                        if self.selection.is_empty() || self.selection[0] == Selection::Nothing {
-                            let strand_opt = self.designs[d_id as usize]
-                                .read()
-                                .unwrap()
-                                .get_strand_nucl(&nucl);
-                            if let Some(strand) = strand_opt {
-                                let selection = Selection::Strand(d_id, strand as u32);
-                                let values =
-                                    selection.fetch_values(self.designs[d_id as usize].clone());
-                                self.messages
-                                    .lock()
-                                    .unwrap()
-                                    .push_selection(selection, values);
-                            }
-                        }
-                    }
-                    _ => (),
+                if let Some(d_id) = candidate[0].get_design() {
+                    let values = candidate[0].fetch_values(self.designs[d_id as usize].clone());
+                    self.messages
+                        .lock()
+                        .unwrap()
+                        .push_candidate(candidate[0], values);
                 }
             }
             self.notify_apps(Notification::NewCandidate(candidate, app_id))
