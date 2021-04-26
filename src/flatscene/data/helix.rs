@@ -269,7 +269,7 @@ impl Helix {
     }
 
     pub fn redim_zero(&mut self) -> (isize, isize) {
-        let (left, right) = (self.right, self.left);
+        let (left, right) = (self.right - 1, self.left + 1);
         self.left = left;
         self.right = right;
         (left, right)

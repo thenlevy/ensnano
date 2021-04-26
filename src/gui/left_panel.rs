@@ -17,7 +17,7 @@ use ultraviolet::Vec3;
 
 use color_space::{Hsv, Rgb};
 
-use crate::design::{DnaElement, DnaElementKey};
+use crate::design::{DnaElement, DnaElementKey, ScaffoldInfo};
 use crate::mediator::{ActionMode, Selection, SelectionMode};
 
 use super::{
@@ -150,6 +150,8 @@ pub enum Message {
     SelectionValueChanged(usize, String),
     SetSmallSpheres(bool),
     ScaffoldIdSet(usize, bool),
+    NewScaffoldInfo(Option<ScaffoldInfo>),
+    SelectScaffold,
 }
 
 impl LeftPanel {
@@ -224,6 +226,7 @@ impl LeftPanel {
         self.sequence_input.has_keyboard_priority()
             || self.grid_tab.has_keyboard_priority()
             || self.organizer.has_keyboard_priority()
+            || self.sequence_tab.has_keyboard_priority()
     }
 }
 
@@ -536,6 +539,8 @@ impl Program for LeftPanel {
             Message::Selection(selection, info_values) => self
                 .contextual_panel
                 .update_selection(selection, info_values),
+            Message::NewScaffoldInfo(info) => self.sequence_tab.scaffold_info = info,
+            Message::SelectScaffold => self.requests.lock().unwrap().select_scaffold = Some(()),
             Message::Nothing => (),
         };
         Command::none()

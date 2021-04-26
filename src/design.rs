@@ -971,6 +971,10 @@ impl Design {
             None
         }
     }
+
+    pub fn get_scaffold_info(&self) -> Option<ScaffoldInfo> {
+        self.data.lock().unwrap().get_scaffold_info()
+    }
 }
 
 #[derive(Clone)]
@@ -1018,4 +1022,10 @@ pub enum OperationResult {
     BigChange(StrandState, StrandState),
     UndoableChange,
     NoChange,
+}
+
+#[derive(Clone, Debug)]
+pub struct ScaffoldInfo {
+    pub id: usize,
+    pub shift: Option<usize>,
 }

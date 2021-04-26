@@ -686,6 +686,10 @@ fn main() {
                         requests.delete_selection = false;
                         mediator.lock().unwrap().delete_selection();
                     }
+
+                    if requests.select_scaffold.take().is_some() {
+                        mediator.lock().unwrap().select_scaffold();
+                    }
                 }
 
                 if let Some(d_id) = download_stapples {
@@ -860,6 +864,11 @@ impl IcedMessages {
             color_overlay: VecDeque::new(),
             status_bar: VecDeque::new(),
         }
+    }
+
+    pub fn push_scaffold_info(&mut self, info: Option<crate::design::ScaffoldInfo>) {
+        self.left_panel
+            .push_back(gui::left_panel::Message::NewScaffoldInfo(info));
     }
 
     pub fn push_custom_scaffold(&mut self) {

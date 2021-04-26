@@ -627,6 +627,11 @@ impl Mediator {
                 notifications.push(Notification::DesignNotification(notification))
             }
         }
+        let scaffold_info = self.designs[0].read().unwrap().get_scaffold_info();
+        self.messages
+            .lock()
+            .unwrap()
+            .push_scaffold_info(scaffold_info);
         if let Some(elements) = self
             .designs
             .get(0)
@@ -1340,6 +1345,13 @@ impl Mediator {
         }
         self.notify_multiple_selection(vec![], AppId::Mediator);
         self.notify_apps(Notification::Selection3D(vec![], AppId::Mediator));
+    }
+
+    pub fn select_scaffold(&mut self) {
+        let scaffold_info = self.designs[0].read().unwrap().get_scaffold_info();
+        if let Some(info) = scaffold_info {
+            self.notify_unique_selection(Selection::Strand(0, info.id as u32), AppId::Mediator)
+        }
     }
 }
 

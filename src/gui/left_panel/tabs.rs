@@ -1056,7 +1056,9 @@ pub struct SequenceTab {
     toggle_text_value: bool,
     scaffold_position_str: String,
     scaffold_position: usize,
+    pub scaffold_info: Option<ScaffoldInfo>,
     scaffold_input: text_input::State,
+    button_select_scaffold: button::State,
 }
 
 impl SequenceTab {
@@ -1068,7 +1070,9 @@ impl SequenceTab {
             toggle_text_value: false,
             scaffold_position_str: "0".to_string(),
             scaffold_position: 0,
+            scaffold_info: None,
             scaffold_input: Default::default(),
+            button_select_scaffold: Default::default(),
         }
     }
 
@@ -1077,16 +1081,33 @@ impl SequenceTab {
         ret = ret.push(Text::new("DNA Sequences").size(ui_size.head_text()));
 
         ret = ret.push(Text::new("Scaffold").size(ui_size.intermediate_text()));
+        let mut button_select_scaffold = text_btn(
+            &mut self.button_select_scaffold,
+            "Select scaffold strand",
+            ui_size.clone(),
+        );
+        if self.scaffold_info.is_some() {
+            button_select_scaffold = button_select_scaffold.on_press(Message::SelectScaffold);
+        }
         let button_scaffold = Button::new(
             &mut self.button_scaffold,
             iced::Text::new("Set scaffold sequence"),
         )
         .height(Length::Units(ui_size.button()))
         .on_press(Message::ScaffoldSequenceFile);
-        let scaffold_row = Row::new()
-            .push(
-                Text::new("Set scaffold sequence starting position").width(Length::FillPortion(2)),
+        let scaffold_info_shift = self.scaffold_info.as_ref().and_then(|info| info.shift);
+        let scaffold_position_text = if scaffold_info_shift.is_some()
+            && scaffold_info_shift != Some(self.scaffold_position)
+        {
+            format!(
+                "Starting position of sequence on the scaffold (Current position is {})",
+                scaffold_info_shift.unwrap()
             )
+        } else {
+            "Starting position of sequence on the scaffold".to_owned()
+        };
+        let scaffold_row = Row::new()
+            .push(Text::new(scaffold_position_text).width(Length::FillPortion(2)))
             .push(
                 TextInput::new(
                     &mut self.scaffold_input,
@@ -1099,6 +1120,7 @@ impl SequenceTab {
                 ))
                 .width(iced::Length::FillPortion(1)),
             );
+        ret = ret.push(button_select_scaffold);
         ret = ret.push(button_scaffold);
         ret = ret.push(scaffold_row);
 
@@ -1133,6 +1155,10 @@ impl SequenceTab {
 
     pub(super) fn get_scaffold_pos(&self) -> usize {
         self.scaffold_position
+    }
+
+    pub fn has_keyboard_priority(&self) -> bool {
+        self.scaffold_input.is_focused()
     }
 }
 

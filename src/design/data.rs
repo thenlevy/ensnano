@@ -2944,6 +2944,12 @@ impl Data {
         self.hash_maps_update |= ret;
         ret
     }
+
+    pub fn get_scaffold_info(&self) -> Option<super::ScaffoldInfo> {
+        let id = self.design.scaffold_id?;
+        let shift = self.design.scaffold_shift;
+        Some(super::ScaffoldInfo { id, shift })
+    }
 }
 
 fn compl(c: Option<char>) -> Option<char> {
