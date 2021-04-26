@@ -95,7 +95,7 @@ impl Helix {
     pub fn background_vertices(&self) -> Vertices {
         let mut vertices = Vertices::new();
         let left = self.left as f32;
-        let right = self.right as f32 + 1.;
+        let right = self.right.max(self.left + 1) as f32 + 1.;
         let top = 0.;
         let bottom = 2.;
         let mut fill_tess = lyon::tessellation::FillTessellator::new();
@@ -126,7 +126,7 @@ impl Helix {
     pub fn to_vertices(&self) -> Vertices {
         let mut vertices = Vertices::new();
         let left = self.left as f32;
-        let right = self.right as f32 + 1.;
+        let right = self.right.max(self.left + 1) as f32 + 1.;
         let top = 0.;
         let bottom = 2.;
 

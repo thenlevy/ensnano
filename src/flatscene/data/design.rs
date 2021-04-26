@@ -101,6 +101,10 @@ impl Design2d {
             let flat_helix = FlatHelix::from_real(*h_id, &self.id_map);
             self.helices[flat_helix.flat].visible = visibility.unwrap_or(false);
         }
+
+        for h in self.helices.iter_mut() {
+            h.force_positive_size();
+        }
     }
 
     pub fn suggestions(&self) -> Vec<(FlatNucl, FlatNucl)> {
@@ -395,6 +399,15 @@ pub struct Helix2d {
     pub right: isize,
     pub isometry: Isometry2,
     pub visible: bool,
+}
+
+impl Helix2d {
+    fn force_positive_size(&mut self) {
+        if self.right < self.left + 1 {
+            self.left = -1;
+            self.right = 1;
+        }
+    }
 }
 
 impl Flat for Helix2d {}
