@@ -168,6 +168,18 @@ impl ControllerState for NormalState {
                             consequences: Consequence::Nothing,
                         }
                     }
+                    ClickResult::Nucl(nucl)
+                        if controller.data.borrow().can_make_auto_xover(nucl).is_some() =>
+                    {
+                        Transition {
+                            new_state: Some(Box::new(FollowingSuggestion {
+                                nucl,
+                                mouse_position: self.mouse_position,
+                                double: false,
+                            })),
+                            consequences: Consequence::Nothing,
+                        }
+                    }
                     ClickResult::Nucl(nucl) => {
                         if controller.action_mode == ActionMode::Cut {
                             Transition {
@@ -194,7 +206,7 @@ impl ControllerState for NormalState {
                                             builder,
                                             can_attach: false,
                                         })),
-                                        consequences: Consequence::Nothing,
+                                        consequences: Consequence::NewCandidate(None),
                                     }
                                 } else {
                                     Transition {
@@ -204,7 +216,7 @@ impl ControllerState for NormalState {
                                             builder,
                                             end: controller.data.borrow().is_strand_end(nucl),
                                         })),
-                                        consequences: Consequence::Nothing,
+                                        consequences: Consequence::NewCandidate(None),
                                     }
                                 }
                             } else if let Some(attachement) =
@@ -693,6 +705,18 @@ impl ControllerState for ReleasedPivot {
                         new_state: Some(Box::new(TranslatingHandle::new(h_id, handle, position))),
                         consequences: Consequence::Nothing,
                     },
+                    ClickResult::Nucl(nucl)
+                        if controller.data.borrow().can_make_auto_xover(nucl).is_some() =>
+                    {
+                        Transition {
+                            new_state: Some(Box::new(FollowingSuggestion {
+                                nucl,
+                                mouse_position: self.mouse_position,
+                                double: false,
+                            })),
+                            consequences: Consequence::Nothing,
+                        }
+                    }
                     ClickResult::Nucl(nucl) => {
                         if controller.action_mode == ActionMode::Cut {
                             Transition {
@@ -718,7 +742,7 @@ impl ControllerState for ReleasedPivot {
                                         builder,
                                         end: controller.data.borrow().is_strand_end(nucl),
                                     })),
-                                    consequences: Consequence::Nothing,
+                                    consequences: Consequence::NewCandidate(None),
                                 }
                             } else {
                                 Transition {
@@ -727,7 +751,7 @@ impl ControllerState for ReleasedPivot {
                                         fixed_corner: self.mouse_position,
                                         adding: controller.modifiers.shift(),
                                     })),
-                                    consequences: Consequence::Nothing,
+                                    consequences: Consequence::NewCandidate(None),
                                 }
                             }
                         }
@@ -2168,8 +2192,35 @@ impl ControllerState for FollowingSuggestion {
                 }
             }
             WindowEvent::CursorMoved { .. } => {
-                self.mouse_position = position;
-                Transition::nothing()
+                if position_difference(self.mouse_position, position) >= 3. {
+                    if let Some(builder) = controller.data.borrow().get_builder(self.nucl, false) {
+                        if builder.created_de_novo() {
+                            Transition {
+                                new_state: Some(Box::new(Building {
+                                    mouse_position: self.mouse_position,
+                                    nucl: self.nucl,
+                                    builder,
+                                    can_attach: false,
+                                })),
+                                consequences: Consequence::NewCandidate(None),
+                            }
+                        } else {
+                            Transition {
+                                new_state: Some(Box::new(InitBuilding {
+                                    mouse_position: self.mouse_position,
+                                    nucl: self.nucl,
+                                    builder,
+                                    end: controller.data.borrow().is_strand_end(self.nucl),
+                                })),
+                                consequences: Consequence::NewCandidate(None),
+                            }
+                        }
+                    } else {
+                        Transition::nothing()
+                    }
+                } else {
+                    Transition::nothing()
+                }
             }
             WindowEvent::KeyboardInput { .. } => {
                 controller.process_keyboard(event);

@@ -277,11 +277,16 @@ impl FlatScene {
                     bound: false,
                     design_id: self.selected_design as u32,
                 });
-                let other = candidate.and_then(|candidate| {
+                let mut other = candidate.and_then(|candidate| {
                     self.data[self.selected_design]
                         .borrow()
                         .get_best_suggestion(candidate)
                 });
+                other = other.or(candidate.and_then(|n| {
+                    self.data[self.selected_design]
+                        .borrow()
+                        .can_make_auto_xover(n)
+                }));
                 self.view[self.selected_design]
                     .borrow_mut()
                     .set_candidate_suggestion(candidate, other);
@@ -355,7 +360,10 @@ impl FlatScene {
             Consequence::FollowingSuggestion(nucl, double) => {
                 let nucl2 = self.data[self.selected_design]
                     .borrow()
-                    .get_best_suggestion(nucl);
+                    .get_best_suggestion(nucl)
+                    .or(self.data[self.selected_design]
+                        .borrow()
+                        .can_make_auto_xover(nucl));
                 if let Some(nucl2) = nucl2 {
                     self.attempt_xover(nucl, nucl2);
                     if double {

@@ -547,11 +547,6 @@ impl Data {
         ret
     }
 
-    pub fn get_selection(&self, nucl: FlatNucl, d_id: u32) -> Selection {
-        let nucl = nucl.to_real();
-        Selection::Nucleotide(d_id, nucl)
-    }
-
     pub fn select_rectangle(
         &mut self,
         c1: Vec2,
@@ -836,6 +831,41 @@ impl Data {
         } else {
             None
         }
+    }
+
+    fn get_xover_nucl(&self, nucl: FlatNucl) -> Option<FlatNucl> {
+        for x in self.design.get_xovers_list() {
+            if x.1 .0 == nucl {
+                return Some(x.1 .1);
+            } else if x.1 .1 == nucl {
+                return Some(x.1 .0);
+            }
+        }
+        None
+    }
+
+    pub fn can_make_auto_xover(&self, nucl: FlatNucl) -> Option<FlatNucl> {
+        let strand = self.get_strand_id(nucl)?;
+        let prime5_nucl = nucl.prime5();
+        if self.get_strand_id(prime5_nucl) != Some(strand) {
+            if let Some(xover_of_prime5) = self.get_xover_nucl(prime5_nucl) {
+                let candidate = xover_of_prime5.prime5();
+                if self.can_cross_to(nucl, candidate) {
+                    return Some(candidate);
+                }
+            }
+        }
+
+        let prime3_nucl = nucl.prime3();
+        if self.get_strand_id(prime3_nucl) != Some(strand) {
+            if let Some(xover_of_prime3) = self.get_xover_nucl(prime3_nucl) {
+                let candidate = xover_of_prime3.prime3();
+                if self.can_cross_to(nucl, candidate) {
+                    return Some(candidate);
+                }
+            }
+        }
+        None
     }
 }
 
