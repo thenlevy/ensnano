@@ -186,7 +186,7 @@ fn main() {
     };
     let settings = Settings {
         antialiasing: Some(iced_graphics::Antialiasing::MSAAx4),
-        default_text_size: 12,
+        default_text_size: gui::UiSize::Medium.main_text(),
         default_font: Some(include_bytes!("../font/Inter/Inter-Regular.otf")),
         ..Default::default()
     };

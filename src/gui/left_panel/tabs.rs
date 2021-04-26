@@ -1075,29 +1075,42 @@ impl SequenceTab {
     pub(super) fn view<'a>(&'a mut self, ui_size: UiSize) -> Element<'a, Message> {
         let mut ret = Column::new();
         ret = ret.push(Text::new("DNA Sequences").size(ui_size.head_text()));
-        let button_scaffold = Button::new(&mut self.button_scaffold, iced::Text::new("Scaffold"))
-            .height(Length::Units(ui_size.button()))
-            .on_press(Message::ScaffoldSequenceFile);
 
-        let button_stapples = Button::new(&mut self.button_stapples, iced::Text::new("Stapples"))
-            .height(Length::Units(ui_size.button()))
-            .on_press(Message::StapplesRequested);
-
-        let scaffold_row = Row::new().push(Text::new("Scaffold shift")).push(
-            TextInput::new(
-                &mut self.scaffold_input,
-                "Scaffold position",
-                &self.scaffold_position_str,
-                Message::ScaffoldPositionInput,
+        ret = ret.push(Text::new("Scaffold").size(ui_size.intermediate_text()));
+        let button_scaffold = Button::new(
+            &mut self.button_scaffold,
+            iced::Text::new("Set scaffold sequence"),
+        )
+        .height(Length::Units(ui_size.button()))
+        .on_press(Message::ScaffoldSequenceFile);
+        let scaffold_row = Row::new()
+            .push(
+                Text::new("Set scaffold sequence starting position").width(Length::FillPortion(2)),
             )
-            .style(BadValue(
-                self.scaffold_position_str == self.scaffold_position.to_string(),
-            )),
-        );
-
-        ret = ret.push(button_stapples);
+            .push(
+                TextInput::new(
+                    &mut self.scaffold_input,
+                    "Scaffold position",
+                    &self.scaffold_position_str,
+                    Message::ScaffoldPositionInput,
+                )
+                .style(BadValue(
+                    self.scaffold_position_str == self.scaffold_position.to_string(),
+                ))
+                .width(iced::Length::FillPortion(1)),
+            );
         ret = ret.push(button_scaffold);
         ret = ret.push(scaffold_row);
+
+        ret = ret.push(iced::Space::with_height(Length::Units(3)));
+        ret = ret.push(Text::new("Stapples").size(ui_size.head_text()));
+        let button_stapples = Button::new(
+            &mut self.button_stapples,
+            iced::Text::new("Export Stapples"),
+        )
+        .height(Length::Units(ui_size.button()))
+        .on_press(Message::StapplesRequested);
+        ret = ret.push(button_stapples);
         ret = ret.push(right_checkbox(
             self.toggle_text_value,
             "Show Sequences",
