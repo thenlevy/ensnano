@@ -166,7 +166,16 @@ impl Program for TopBar {
                             let file = dialog.await;
                             if let Some(handle) = file {
                                 let mut path_buf: std::path::PathBuf = handle.path().clone().into();
-                                path_buf.set_extension("json");
+                                let extension = path_buf.extension().clone();
+                                if extension.is_none() {
+                                    path_buf.set_extension("json");
+                                } else if extension.and_then(|e| e.to_str()) != Some("json".into())
+                                {
+                                    let extension = extension.unwrap();
+                                    let new_extension =
+                                        format!("{}.json", extension.to_str().unwrap());
+                                    path_buf.set_extension(new_extension);
+                                }
                                 requests.lock().unwrap().file_save = Some(path_buf);
                             }
                             *dialoging.lock().unwrap() = false;
