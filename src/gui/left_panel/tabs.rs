@@ -511,33 +511,37 @@ fn action_mode_btn<'a>(
         .width(Length::Units(button_size))
 }
 
-pub(super) struct CameraTab {
+pub(super) struct CameraShortcut {
     camera_target_buttons: [button::State; 6],
     camera_rotation_buttons: [button::State; 6],
     xz: isize,
     yz: isize,
     xy: isize,
-    fog: FogParameters,
     scroll: scrollable::State,
-    selection_visibility_btn: button::State,
-    compl_visibility_btn: button::State,
-    all_visible_btn: button::State,
 }
 
-impl CameraTab {
+impl CameraShortcut {
     pub fn new() -> Self {
         Self {
             camera_target_buttons: Default::default(),
             camera_rotation_buttons: Default::default(),
-            fog: Default::default(),
             xz: 0,
             yz: 0,
             xy: 0,
             scroll: Default::default(),
-            selection_visibility_btn: Default::default(),
-            compl_visibility_btn: Default::default(),
-            all_visible_btn: Default::default(),
         }
+    }
+
+    pub(super) fn reset_angles(&mut self) {
+        self.xz = 0;
+        self.yz = 0;
+        self.xy = 0
+    }
+
+    pub(super) fn set_angles(&mut self, xz: isize, yz: isize, xy: isize) {
+        self.xz += xz;
+        self.yz += yz;
+        self.xy += xy;
     }
 
     pub fn view<'a>(&'a mut self, ui_size: UiSize, width: u16) -> Element<'a, Message> {
@@ -595,6 +599,37 @@ impl CameraTab {
             }
             ret = ret.spacing(5).push(row)
         }
+
+        Scrollable::new(&mut self.scroll).push(ret).into()
+    }
+}
+
+pub(super) struct CameraTab {
+    fog: FogParameters,
+    scroll: scrollable::State,
+    selection_visibility_btn: button::State,
+    compl_visibility_btn: button::State,
+    all_visible_btn: button::State,
+}
+
+impl CameraTab {
+    pub fn new() -> Self {
+        Self {
+            fog: Default::default(),
+            scroll: Default::default(),
+            selection_visibility_btn: Default::default(),
+            compl_visibility_btn: Default::default(),
+            all_visible_btn: Default::default(),
+        }
+    }
+
+    pub fn view<'a>(&'a mut self, ui_size: UiSize, width: u16) -> Element<'a, Message> {
+        let mut ret = Column::new();
+        ret = ret.push(
+            Text::new("Camera")
+                .horizontal_alignment(iced::HorizontalAlignment::Center)
+                .size(ui_size.head_text()),
+        );
         ret = ret.push(iced::Space::with_height(Length::Units(2)));
         ret = ret.push(Text::new("Visibility").size(ui_size.intermediate_text()));
         ret = ret.push(iced::Space::with_height(Length::Units(2)));
@@ -625,18 +660,6 @@ impl CameraTab {
         ret = ret.push(self.fog.view(&ui_size));
 
         Scrollable::new(&mut self.scroll).push(ret).into()
-    }
-
-    pub(super) fn reset_angles(&mut self) {
-        self.xz = 0;
-        self.yz = 0;
-        self.xy = 0
-    }
-
-    pub(super) fn set_angles(&mut self, xz: isize, yz: isize, xy: isize) {
-        self.xz += xz;
-        self.yz += yz;
-        self.xy += xy;
     }
 
     pub(super) fn fog_visible(&mut self, visible: bool) {

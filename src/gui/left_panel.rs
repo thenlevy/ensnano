@@ -39,7 +39,9 @@ use contextual_panel::ContextualPanel;
 use material_icons::{icon_to_char, Icon as MaterialIcon, FONT as MATERIALFONT};
 use std::collections::BTreeMap;
 use std::thread;
-use tabs::{CameraTab, EditionTab, GridTab, ParametersTab, SequenceTab, SimulationTab};
+use tabs::{
+    CameraShortcut, CameraTab, EditionTab, GridTab, ParametersTab, SequenceTab, SimulationTab,
+};
 
 const ICONFONT: iced::Font = iced::Font::External {
     name: "IconFont",
@@ -82,6 +84,7 @@ pub struct LeftPanel {
     sequence_tab: SequenceTab,
     parameters_tab: ParametersTab,
     contextual_panel: ContextualPanel,
+    camera_shortcut: CameraShortcut,
 }
 
 #[derive(Debug, Clone)]
@@ -185,6 +188,7 @@ impl LeftPanel {
             parameters_tab: ParametersTab::new(),
             dialoging,
             contextual_panel: ContextualPanel::new(logical_size.width as u32),
+            camera_shortcut: CameraShortcut::new(),
         }
     }
 
@@ -291,13 +295,13 @@ impl Program for LeftPanel {
                 self.requests.lock().unwrap().action_mode = Some(self.action_mode);
             }
             Message::RotateCam(xz, yz, xy) => {
-                self.camera_tab
+                self.camera_shortcut
                     .set_angles(xz as isize, yz as isize, xy as isize);
                 self.requests.lock().unwrap().camera_rotation = Some((xz, yz, xy));
             }
             Message::FixPoint(point, up) => {
                 self.requests.lock().unwrap().camera_target = Some((point, up));
-                self.camera_tab.reset_angles();
+                self.camera_shortcut.reset_angles();
             }
             Message::LengthHelicesChanged(length_str) => {
                 let action_mode = self.grid_tab.update_length_str(length_str.clone());
@@ -587,17 +591,20 @@ impl Program for LeftPanel {
             .tab_bar_style(TabStyle)
             .width(Length::Units(width))
             .height(Length::Fill);
+        let camera_shortcut = self.camera_shortcut.view(self.ui_size.clone(), width);
         let contextual_menu = self.contextual_panel.view(self.ui_size.clone());
         let organizer = self.organizer.view().map(|m| Message::OrganizerMessage(m));
 
         Container::new(
             Column::new()
                 .width(Length::Fill)
-                .push(Container::new(tabs).height(Length::FillPortion(1)))
+                .push(Container::new(tabs).height(Length::FillPortion(2)))
+                .push(iced::Rule::horizontal(5))
+                .push(Container::new(camera_shortcut).height(Length::FillPortion(1)))
                 .push(iced::Rule::horizontal(5))
                 .push(Container::new(contextual_menu).height(Length::FillPortion(1)))
                 .push(iced::Rule::horizontal(5))
-                .push(Container::new(organizer).height(Length::FillPortion(1)))
+                .push(Container::new(organizer).height(Length::FillPortion(2)))
                 .padding(3),
         )
         .style(TopBarStyle)
