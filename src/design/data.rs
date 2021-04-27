@@ -604,11 +604,11 @@ impl Data {
     fn read_scaffold_seq(&mut self, shift: usize) {
         let nb_skip = if let Some(sequence) = self.design.scaffold_sequence.as_ref() {
             if sequence.len() == 0 {
-                return
+                return;
             }
             sequence.len() - (shift % sequence.len())
         } else {
-            return
+            return;
         };
         if let Some(mut sequence) = self
             .design
@@ -2964,8 +2964,17 @@ impl Data {
         let id = self.design.scaffold_id?;
         let length = self.get_strand_length(id)?;
         let shift = self.design.scaffold_shift;
-        let starting_nucl = self.design.strands.get(&id).and_then(|s| s.get_nth_nucl(shift.unwrap_or(0)));
-        Some(super::ScaffoldInfo { id, shift, length, starting_nucl })
+        let starting_nucl = self
+            .design
+            .strands
+            .get(&id)
+            .and_then(|s| s.get_nth_nucl(shift.unwrap_or(0)));
+        Some(super::ScaffoldInfo {
+            id,
+            shift,
+            length,
+            starting_nucl,
+        })
     }
 }
 

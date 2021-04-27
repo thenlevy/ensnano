@@ -1033,5 +1033,5 @@ pub struct ScaffoldInfo {
     pub id: usize,
     pub shift: Option<usize>,
     pub length: usize,
-    pub starting_nucl: Option<Nucl>
+    pub starting_nucl: Option<Nucl>,
 }

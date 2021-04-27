@@ -1120,21 +1120,29 @@ impl SequenceTab {
             format!("Scaffold: NOT SET")
         };
         ret = ret.push(Text::new(scaffold_text).size(ui_size.main_text()));
-        let mut button_selection_to_scaffold = text_btn(&mut self.button_selection_to_scaffold, "From selection", ui_size.clone());
+        let mut button_selection_to_scaffold = text_btn(
+            &mut self.button_selection_to_scaffold,
+            "From selection",
+            ui_size.clone(),
+        );
         let mut button_selection_from_scaffold = text_btn(
             &mut self.button_selection_from_scaffold,
             "To selection",
             ui_size.clone(),
         );
         if self.scaffold_info.is_some() {
-            button_selection_from_scaffold = button_selection_from_scaffold.on_press(Message::SelectScaffold);
+            button_selection_from_scaffold =
+                button_selection_from_scaffold.on_press(Message::SelectScaffold);
         }
         if let Some(n) = self.candidate_scaffold_id {
-            button_selection_to_scaffold = button_selection_to_scaffold.on_press(Message::ScaffoldIdSet(n, true));
+            button_selection_to_scaffold =
+                button_selection_to_scaffold.on_press(Message::ScaffoldIdSet(n, true));
         }
-        ret = ret.push(Row::new()
-        .push(button_selection_from_scaffold)
-        .push(button_selection_to_scaffold));
+        ret = ret.push(
+            Row::new()
+                .push(button_selection_from_scaffold)
+                .push(button_selection_to_scaffold),
+        );
 
         let button_scaffold = Button::new(
             &mut self.button_scaffold,
@@ -1142,7 +1150,10 @@ impl SequenceTab {
         )
         .height(Length::Units(ui_size.button()))
         .on_press(Message::ScaffoldSequenceFile);
-        let scaffold_position_text = if let Some(nucl) = self.scaffold_info.as_ref().and_then(|info| info.starting_nucl)
+        let scaffold_position_text = if let Some(nucl) = self
+            .scaffold_info
+            .as_ref()
+            .and_then(|info| info.starting_nucl)
         {
             format!(
                 "Starting position of sequence on the scaffold\n Currently starting at (Helix #{} nt #{} {})",
@@ -1211,7 +1222,7 @@ impl SequenceTab {
         }
     }
 
-    pub (super) fn set_scaffold_info(&mut self, info: Option<ScaffoldInfo>) {
+    pub(super) fn set_scaffold_info(&mut self, info: Option<ScaffoldInfo>) {
         if !self.scaffold_input.is_focused() {
             if let Some(n) = info.as_ref().and_then(|info| info.shift) {
                 self.update_pos_str(n.to_string());

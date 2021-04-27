@@ -712,10 +712,10 @@ impl Strand {
                     return position.map(|position| Nucl {
                         position,
                         helix: d.helix,
-                        forward: d.forward
-                    })
+                        forward: d.forward,
+                    });
                 } else {
-                    return None
+                    return None;
                 }
             } else {
                 seen += d.length()
