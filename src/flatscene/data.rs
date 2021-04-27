@@ -255,7 +255,7 @@ impl Data {
         click_result: ClickResult,
         camera: &CameraPtr,
     ) -> Option<(Vec<FlatNucl>, Vec<Vec2>)> {
-        self.add_selection(click_result);
+        self.add_selection(click_result, true);
         self.get_pivot_of_selected_helices(camera)
     }
 
@@ -264,8 +264,7 @@ impl Data {
         click_result: ClickResult,
         camera: &CameraPtr,
     ) -> Option<(Vec<FlatNucl>, Vec<Vec2>)> {
-        self.selection = vec![];
-        self.add_selection(click_result);
+        self.add_selection(click_result, false);
         self.get_pivot_of_selected_helices(camera)
     }
 
@@ -727,7 +726,10 @@ impl Data {
         }
     }
 
-    pub fn add_selection(&mut self, click_result: ClickResult) {
+    pub fn add_selection(&mut self, click_result: ClickResult, adding: bool) {
+        if !adding {
+            self.selection.clear()
+        }
         match click_result {
             ClickResult::CircleWidget { translation_pivot } => {
                 let selection = Selection::Helix(self.id, translation_pivot.helix.real as u32);

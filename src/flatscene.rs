@@ -400,10 +400,10 @@ impl FlatScene {
                     .unwrap()
                     .attempt_paste(nucl.map(|n| n.to_real()));
             }
-            Consequence::AddClick(click) => {
+            Consequence::AddClick(click, add) => {
                 self.data[self.selected_design]
                     .borrow_mut()
-                    .add_selection(click);
+                    .add_selection(click, add);
                 self.mediator.lock().unwrap().notify_multiple_selection(
                     self.data[self.selected_design].borrow().selection.clone(),
                     AppId::FlatScene,

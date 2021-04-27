@@ -80,10 +80,10 @@ impl ControllerState for NormalState {
                 consequences: Consequence::Nothing,
             },
             WindowEvent::MouseInput {
-                button: MouseButton::Left,
+                button: MouseButton::Right,
                 state: ElementState::Pressed,
                 ..
-            } if controller.action_mode != ActionMode::Cut && controller.modifiers.shift() => {
+            } => {
                 let (x, y) = controller
                     .get_camera(position.y)
                     .borrow()
@@ -93,22 +93,12 @@ impl ControllerState for NormalState {
                         .data
                         .borrow()
                         .get_click(x, y, &controller.get_camera(position.y));
-                match click_result {
-                    ClickResult::Nothing => Transition {
-                        new_state: Some(Box::new(DraggingSelection {
-                            mouse_position: self.mouse_position,
-                            fixed_corner: self.mouse_position,
-                            adding: true,
-                        })),
-                        consequences: Consequence::Nothing,
-                    },
-                    click_result => Transition {
-                        new_state: Some(Box::new(AddClick {
-                            mouse_position: self.mouse_position,
-                            click_result,
-                        })),
-                        consequences: Consequence::Nothing,
-                    },
+                Transition {
+                    new_state: Some(Box::new(AddClick {
+                        mouse_position: self.mouse_position,
+                        click_result,
+                    })),
+                    consequences: Consequence::Nothing,
                 }
             }
             WindowEvent::MouseInput {
@@ -655,13 +645,10 @@ impl ControllerState for ReleasedPivot {
                             consequences: Consequence::Nothing,
                         }
                     }
-                    _ => Transition {
-                        new_state: Some(Box::new(LeavingPivot {
-                            clicked_position_screen: self.mouse_position,
+                    click_result => Transition {
+                        new_state: Some(Box::new(AddClick {
+                            click_result,
                             mouse_position: self.mouse_position,
-                            translation_pivots: self.translation_pivots.clone(),
-                            rotation_pivots: self.rotation_pivots.clone(),
-                            shift: controller.modifiers.shift(),
                         })),
                         consequences: Consequence::Nothing,
                     },
@@ -1010,6 +997,7 @@ pub struct Rotating {
     clicked_position_screen: PhysicalPosition<f64>,
     mouse_position: PhysicalPosition<f64>,
     pivot_center: Vec2,
+    selecting: bool,
 }
 
 impl Rotating {
@@ -1035,6 +1023,7 @@ impl Rotating {
             clicked_position_screen,
             mouse_position,
             pivot_center: Vec2::new((min_x + max_x) / 2., (min_y + max_y) / 2.),
+            selecting: true,
         }
     }
 }
@@ -1069,27 +1058,44 @@ impl ControllerState for Rotating {
         match event {
             WindowEvent::MouseInput {
                 button: MouseButton::Right,
-                state,
+                state: ElementState::Released,
                 ..
             } => {
-                /*assert!(
-                    *state == ElementState::Released,
-                    "Pressed mouse button in Rotating state"
-                );*/
-                if *state == ElementState::Pressed {
-                    return Transition::nothing();
-                }
-                Transition {
-                    new_state: Some(Box::new(ReleasedPivot {
-                        translation_pivots: self.translation_pivots.clone(),
-                        rotation_pivots: self.rotation_pivots.clone(),
-                        mouse_position: self.mouse_position,
-                    })),
-                    consequences: Consequence::Nothing,
+                if self.selecting {
+                    let (x, y) = controller.get_camera(position.y).borrow().screen_to_world(
+                        self.mouse_position.x as f32,
+                        self.mouse_position.y as f32,
+                    );
+                    let click_result = controller.data.borrow().get_click(
+                        x,
+                        y,
+                        &controller.get_camera(position.y),
+                    );
+                    Transition {
+                        new_state: Some(Box::new(NormalState {
+                            mouse_position: position,
+                        })),
+                        consequences: Consequence::AddClick(
+                            click_result,
+                            controller.modifiers.shift(),
+                        ),
+                    }
+                } else {
+                    Transition {
+                        new_state: Some(Box::new(ReleasedPivot {
+                            translation_pivots: self.translation_pivots.clone(),
+                            rotation_pivots: self.rotation_pivots.clone(),
+                            mouse_position: self.mouse_position,
+                        })),
+                        consequences: Consequence::Nothing,
+                    }
                 }
             }
             WindowEvent::CursorMoved { .. } => {
                 self.mouse_position = position;
+                if position_difference(self.clicked_position_screen, position) > 5. {
+                    self.selecting = false;
+                }
                 let angle = {
                     let (x, y) = controller
                         .get_camera(self.clicked_position_screen.y)
@@ -1105,12 +1111,14 @@ impl ControllerState for Rotating {
                     (y - self.pivot_center.y).atan2(x - self.pivot_center.x)
                         - (old_y - self.pivot_center.y).atan2(old_x - self.pivot_center.x)
                 };
-                for i in 0..self.rotation_pivots.len() {
-                    controller.data.borrow_mut().rotate_helix(
-                        self.translation_pivots[i].helix,
-                        self.pivot_center,
-                        angle,
-                    );
+                if !self.selecting {
+                    for i in 0..self.rotation_pivots.len() {
+                        controller.data.borrow_mut().rotate_helix(
+                            self.translation_pivots[i].helix,
+                            self.pivot_center,
+                            angle,
+                        );
+                    }
                 }
                 Transition::nothing()
             }
@@ -2528,7 +2536,7 @@ impl ControllerState for AddClick {
     ) -> Transition {
         match event {
             WindowEvent::MouseInput {
-                button: MouseButton::Left,
+                button: MouseButton::Right,
                 state,
                 ..
             } => {
@@ -2609,14 +2617,17 @@ struct DoubleClicking {
 }
 
 impl ControllerState for DoubleClicking {
-    fn check_timers(&mut self, _controller: &Controller) -> Transition {
+    fn check_timers(&mut self, controller: &Controller) -> Transition {
         let now = Instant::now();
         if (now - self.clicked_time).as_millis() > 250 {
             Transition {
                 new_state: Some(Box::new(NormalState {
                     mouse_position: self.mouse_position,
                 })),
-                consequences: Consequence::AddClick(self.click_result.clone()),
+                consequences: Consequence::AddClick(
+                    self.click_result.clone(),
+                    controller.modifiers.shift(),
+                ),
             }
         } else {
             Transition::nothing()
@@ -2635,7 +2646,7 @@ impl ControllerState for DoubleClicking {
     ) -> Transition {
         match event {
             WindowEvent::MouseInput {
-                button: MouseButton::Left,
+                button: MouseButton::Right,
                 state: ElementState::Released,
                 ..
             } => {

@@ -56,7 +56,7 @@ pub enum Consequence {
     DrawingSelection(PhysicalPosition<f64>, PhysicalPosition<f64>),
     ReleasedSelection(Vec2, Vec2),
     PasteRequest(Option<FlatNucl>),
-    AddClick(ClickResult),
+    AddClick(ClickResult, bool),
     SelectionChanged,
     ClearSelection,
     DoubleClick(ClickResult),
