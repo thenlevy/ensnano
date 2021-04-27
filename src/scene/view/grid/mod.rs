@@ -19,6 +19,7 @@ pub struct GridInstance {
     pub design: usize,
     pub id: usize,
     pub fake: bool,
+    pub visible: bool,
 }
 
 impl GridInstance {

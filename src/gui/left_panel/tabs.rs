@@ -122,16 +122,16 @@ impl EditionTab {
                 .push(self.sequence_input.view());
         }
 
-        let mut tighten_helices_button = text_btn(&mut self.redim_helices_button, "Selected", ui_size.clone());
+        let mut tighten_helices_button =
+            text_btn(&mut self.redim_helices_button, "Selected", ui_size.clone());
         if !self.roll_target_helices.is_empty() {
-            tighten_helices_button = tighten_helices_button.on_press(Message::Redim2dHelices(false));
+            tighten_helices_button =
+                tighten_helices_button.on_press(Message::Redim2dHelices(false));
         }
         ret = ret.push(Text::new("Tighten 2D helices"));
         ret = ret.push(
             Row::new()
-                .push(
-                    tighten_helices_button
-                )
+                .push(tighten_helices_button)
                 .push(
                     text_btn(&mut self.redim_all_helices_button, "All", ui_size.clone())
                         .on_press(Message::Redim2dHelices(true)),

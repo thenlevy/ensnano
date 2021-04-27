@@ -991,7 +991,7 @@ impl Data {
                 tubes.push(*tube);
             }
             letters = design.get_letter_instances();
-            for grid in design.get_grid().iter() {
+            for grid in design.get_grid().iter().filter(|g| g.visible) {
                 grids.push(grid.clone());
             }
             for sphere in design.get_suggested_spheres() {

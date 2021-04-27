@@ -926,6 +926,7 @@ impl Design {
             match attribute {
                 DnaAttribute::Visible(b) => match elt {
                     DnaElementKey::Helix(h) => data.set_visibility_helix(*h, b),
+                    DnaElementKey::Grid(g) => data.set_visibility_grid(*g, b),
                     _ => (),
                 },
                 DnaAttribute::XoverGroup(g) => match elt {

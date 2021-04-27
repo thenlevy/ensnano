@@ -481,6 +481,7 @@ pub(super) struct GridManager {
     parameters: Parameters,
     pub no_phantoms: HashSet<usize>,
     pub small_spheres: HashSet<usize>,
+    pub visibility: HashMap<usize, bool>,
 }
 
 impl GridManager {
@@ -492,7 +493,16 @@ impl GridManager {
             parameters,
             no_phantoms: HashSet::new(),
             small_spheres: HashSet::new(),
+            visibility: HashMap::new(),
         }
+    }
+
+    pub fn set_visibility(&mut self, g_id: usize, visibility: bool) {
+        self.visibility.insert(g_id, visibility);
+    }
+
+    pub fn get_visibility(&mut self, g_id: usize) -> bool {
+        self.visibility.get(&g_id).cloned().unwrap_or(true)
     }
 
     /*
@@ -581,7 +591,8 @@ impl GridManager {
             pos_to_helix,
             parameters: design.parameters.unwrap_or_default(),
             no_phantoms: design.no_phantoms.clone(),
-            small_spheres: design.no_phantoms.clone(),
+            small_spheres: design.small_spheres.clone(),
+            visibility: Default::default(),
         }
     }
 
@@ -598,6 +609,7 @@ impl GridManager {
                 design: design_id,
                 id: n,
                 fake: false,
+                visible: *self.visibility.get(&n).unwrap_or(&true),
             };
             ret.push(grid);
         }

@@ -51,8 +51,12 @@ pub struct Design {
     #[serde(skip_serializing_if = "HashSet::is_empty", default)]
     pub no_phantoms: HashSet<usize>,
 
-    #[serde(skip_serializing_if = "HashSet::is_empty", default)]
-    pub small_shperes: HashSet<usize>,
+    #[serde(
+        alias = "small_shperes",
+        skip_serializing_if = "HashSet::is_empty",
+        default
+    )]
+    pub small_spheres: HashSet<usize>,
 
     #[serde(skip_serializing_if = "HashSet::is_empty", default)]
     pub anchors: HashSet<Nucl>,
@@ -87,7 +91,7 @@ impl Design {
             scaffold_sequence: None,
             scaffold_shift: None,
             groups: Default::default(),
-            small_shperes: Default::default(),
+            small_spheres: Default::default(),
             no_phantoms: Default::default(),
             anchors: Default::default(),
             organizer_tree: None,
@@ -104,7 +108,7 @@ impl Design {
             scaffold_sequence: None,
             scaffold_shift: None,
             groups: Default::default(),
-            small_shperes: Default::default(),
+            small_spheres: Default::default(),
             no_phantoms: Default::default(),
             anchors: Default::default(),
             organizer_tree: None,
@@ -209,7 +213,7 @@ impl Design {
             grids,
             helices,
             strands,
-            small_shperes: Default::default(),
+            small_spheres: Default::default(),
             scaffold_id: None, //TODO determine this value
             scaffold_sequence: None,
             scaffold_shift: None,

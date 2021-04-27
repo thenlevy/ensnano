@@ -566,6 +566,12 @@ impl Data {
             });
         }
         drop(groups);
+        for g_id in 0..self.grid_manager.grids.len() {
+            elements.push(DnaElement::Grid {
+                id: g_id,
+                visible: self.grid_manager.get_visibility(g_id),
+            })
+        }
         self.read_scaffold_seq(self.design.scaffold_shift.unwrap_or(0));
         self.elements_update = Some(elements);
         self.update_visibility();
@@ -706,7 +712,7 @@ impl Data {
         self.design.anchors = self.anchors.clone();
         self.design.groups = self.groups.read().unwrap().clone();
         self.design.no_phantoms = self.grid_manager.no_phantoms.clone();
-        self.design.small_shperes = self.grid_manager.small_spheres.clone();
+        self.design.small_spheres = self.grid_manager.small_spheres.clone();
         let json_content = serde_json::to_string_pretty(&self.design);
         let mut f = std::fs::File::create(path)?;
         f.write_all(json_content.expect("serde_json failed").as_bytes())
@@ -2242,12 +2248,20 @@ impl Data {
     }
 
     pub fn set_visibility_helix(&mut self, h_id: usize, visibility: bool) {
+        let update = self.get_visibility_helix(h_id) != Some(visibility);
         self.design
             .helices
             .get_mut(&h_id)
             .map(|h| h.visible = visibility);
-        self.update_status = true;
-        self.hash_maps_update = true;
+        self.update_status = update;
+        self.hash_maps_update = update;
+    }
+
+    pub fn set_visibility_grid(&mut self, g_id: usize, visibility: bool) {
+        let update = self.grid_manager.get_visibility(g_id) != visibility;
+        self.grid_manager.set_visibility(g_id, visibility);
+        self.update_status = update;
+        self.hash_maps_update = update;
     }
 
     pub fn has_helix(&self, h_id: usize) -> bool {

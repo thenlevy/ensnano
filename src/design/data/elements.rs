@@ -6,6 +6,10 @@ use num_enum::{IntoPrimitive, TryFromPrimitive};
 
 #[derive(Clone, Debug)]
 pub enum DnaElement {
+    Grid {
+        id: usize,
+        visible: bool,
+    },
     Strand {
         id: usize,
     },
@@ -36,6 +40,7 @@ impl OrganizerElement for DnaElement {
 
     fn key(&self) -> DnaElementKey {
         match self {
+            DnaElement::Grid { id, .. } => DnaElementKey::Grid(*id),
             DnaElement::Strand { id } => DnaElementKey::Strand(*id),
             DnaElement::Helix { id, .. } => DnaElementKey::Helix(*id),
             DnaElement::Nucleotide {
@@ -55,6 +60,7 @@ impl OrganizerElement for DnaElement {
 
     fn display_name(&self) -> String {
         match self {
+            DnaElement::Grid { id, .. } => format!("Grid {}", id),
             DnaElement::Strand { id } => format!("Strand {}", id),
             DnaElement::Helix { id, .. } => format!("Helix {}", id),
             DnaElement::Nucleotide {
@@ -84,10 +90,8 @@ impl OrganizerElement for DnaElement {
 
     fn attributes(&self) -> Vec<DnaAttribute> {
         match self {
-            DnaElement::Helix { group, visible, .. } => vec![
-                DnaAttribute::Visible(*visible),
-                DnaAttribute::XoverGroup(*group),
-            ],
+            DnaElement::Helix { group, .. } => vec![DnaAttribute::XoverGroup(*group)],
+            DnaElement::Grid { visible, .. } => vec![DnaAttribute::Visible(*visible)],
             _ => vec![],
         }
     }
@@ -95,6 +99,7 @@ impl OrganizerElement for DnaElement {
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Debug, Serialize, Deserialize)]
 pub enum DnaElementKey {
+    Grid(usize),
     Strand(usize),
     Helix(usize),
     Nucleotide {
@@ -110,10 +115,11 @@ pub enum DnaElementKey {
 #[derive(Clone, PartialEq, PartialOrd, Ord, Eq, Debug, IntoPrimitive, TryFromPrimitive)]
 #[repr(usize)]
 pub enum DnaElementSection {
-    Strand,
+    Grid,
     Helix,
-    Nucleotide,
+    Strand,
     CrossOver,
+    Nucleotide,
 }
 
 impl ElementKey for DnaElementKey {
@@ -121,10 +127,11 @@ impl ElementKey for DnaElementKey {
 
     fn name(section: DnaElementSection) -> String {
         match section {
-            DnaElementSection::Strand => "Strand".to_owned(),
+            DnaElementSection::Grid => "Grid".to_owned(),
             DnaElementSection::Helix => "Helix".to_owned(),
-            DnaElementSection::Nucleotide => "Nucleotide".to_owned(),
+            DnaElementSection::Strand => "Strand".to_owned(),
             DnaElementSection::CrossOver => "CrossOver".to_owned(),
+            DnaElementSection::Nucleotide => "Nucleotide".to_owned(),
         }
     }
 
@@ -134,6 +141,7 @@ impl ElementKey for DnaElementKey {
             Self::Helix(_) => DnaElementSection::Helix,
             Self::Nucleotide { .. } => DnaElementSection::Nucleotide,
             Self::CrossOver { .. } => DnaElementSection::CrossOver,
+            Self::Grid { .. } => DnaElementSection::Grid,
         }
     }
 }
@@ -276,6 +284,7 @@ impl DnaElementKey {
             Self::CrossOver { xover_id } => Selection::Xover(d_id, *xover_id),
             Self::Helix(h_id) => Selection::Helix(d_id, *h_id as u32),
             Self::Strand(s_id) => Selection::Strand(d_id, *s_id as u32),
+            Self::Grid(g_id) => Selection::Grid(d_id, *g_id),
         }
     }
 }
