@@ -1043,7 +1043,7 @@ impl Data {
         let right = self.view.borrow().get_camera().borrow().right_vec();
         let up = self.view.borrow().get_camera().borrow().up_vec();
         for (d_id, design) in self.designs.iter().enumerate() {
-            for grid in design.get_grid().iter() {
+            for grid in design.get_grid().iter().filter(|g| g.visible) {
                 for (x, y) in design.get_helices_grid_coord(grid.id) {
                     let element = Some(SceneElement::GridCircle(d_id as u32, grid.id, x, y));
                     if self.selected_element.as_ref() != element.as_ref()
