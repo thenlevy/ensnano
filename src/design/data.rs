@@ -602,11 +602,19 @@ impl Data {
     }
 
     fn read_scaffold_seq(&mut self, shift: usize) {
+        let nb_skip = if let Some(sequence) = self.design.scaffold_sequence.as_ref() {
+            if sequence.len() == 0 {
+                return
+            }
+            sequence.len() - (shift % sequence.len())
+        } else {
+            return
+        };
         if let Some(mut sequence) = self
             .design
             .scaffold_sequence
             .as_ref()
-            .map(|s| s.chars().cycle().skip(shift))
+            .map(|s| s.chars().cycle().skip(nb_skip))
         {
             let mut basis_map = self.basis_map.read().unwrap().clone();
             if let Some(strand) = self
@@ -670,6 +678,13 @@ impl Data {
         self.design.scaffold_sequence = Some(sequence);
         self.design.scaffold_shift = Some(shift);
         self.hash_maps_update = true;
+    }
+
+    pub fn set_scaffold_shift(&mut self, shift: usize) {
+        if self.design.scaffold_sequence.is_some() {
+            self.design.scaffold_shift = Some(shift);
+            self.hash_maps_update = true;
+        }
     }
 
     pub fn request_save(&mut self, path: &PathBuf) -> std::io::Result<()> {
@@ -2947,8 +2962,10 @@ impl Data {
 
     pub fn get_scaffold_info(&self) -> Option<super::ScaffoldInfo> {
         let id = self.design.scaffold_id?;
+        let length = self.get_strand_length(id)?;
         let shift = self.design.scaffold_shift;
-        Some(super::ScaffoldInfo { id, shift })
+        let starting_nucl = self.design.strands.get(&id).and_then(|s| s.get_nth_nucl(shift.unwrap_or(0)));
+        Some(super::ScaffoldInfo { id, shift, length, starting_nucl })
     }
 }
 

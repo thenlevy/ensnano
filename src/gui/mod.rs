@@ -114,6 +114,7 @@ pub struct Requests {
     pub toggle_widget: bool,
     pub delete_selection: bool,
     pub select_scaffold: Option<()>,
+    pub scaffold_shift: Option<usize>,
 }
 
 pub enum KeepProceed {
@@ -187,6 +188,7 @@ impl Requests {
             toggle_widget: false,
             delete_selection: false,
             select_scaffold: None,
+            scaffold_shift: None,
         }
     }
 }

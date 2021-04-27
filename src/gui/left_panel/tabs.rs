@@ -623,7 +623,7 @@ impl CameraTab {
         }
     }
 
-    pub fn view<'a>(&'a mut self, ui_size: UiSize, width: u16) -> Element<'a, Message> {
+    pub fn view<'a>(&'a mut self, ui_size: UiSize) -> Element<'a, Message> {
         let mut ret = Column::new();
         ret = ret.push(
             Text::new("Camera")
@@ -1081,7 +1081,9 @@ pub struct SequenceTab {
     scaffold_position: usize,
     pub scaffold_info: Option<ScaffoldInfo>,
     scaffold_input: text_input::State,
-    button_select_scaffold: button::State,
+    button_selection_from_scaffold: button::State,
+    button_selection_to_scaffold: button::State,
+    candidate_scaffold_id: Option<usize>,
 }
 
 impl SequenceTab {
@@ -1095,36 +1097,56 @@ impl SequenceTab {
             scaffold_position: 0,
             scaffold_info: None,
             scaffold_input: Default::default(),
-            button_select_scaffold: Default::default(),
+            button_selection_from_scaffold: Default::default(),
+            button_selection_to_scaffold: Default::default(),
+            candidate_scaffold_id: None,
         }
     }
 
     pub(super) fn view<'a>(&'a mut self, ui_size: UiSize) -> Element<'a, Message> {
         let mut ret = Column::new();
-        ret = ret.push(Text::new("DNA Sequences").size(ui_size.head_text()));
+        ret = ret.push(Text::new("Sequences").size(ui_size.head_text()));
+        ret = ret.push(right_checkbox(
+            self.toggle_text_value,
+            "Show Sequences",
+            Message::ToggleText,
+            ui_size.clone(),
+        ));
 
         ret = ret.push(Text::new("Scaffold").size(ui_size.intermediate_text()));
-        let mut button_select_scaffold = text_btn(
-            &mut self.button_select_scaffold,
-            "Select scaffold strand",
+        let scaffold_text = if let Some(info) = self.scaffold_info.as_ref() {
+            format!("Scaffold: strand #{} (length {})", info.id, info.length)
+        } else {
+            format!("Scaffold: NOT SET")
+        };
+        ret = ret.push(Text::new(scaffold_text).size(ui_size.main_text()));
+        let mut button_selection_to_scaffold = text_btn(&mut self.button_selection_to_scaffold, "From selection", ui_size.clone());
+        let mut button_selection_from_scaffold = text_btn(
+            &mut self.button_selection_from_scaffold,
+            "To selection",
             ui_size.clone(),
         );
         if self.scaffold_info.is_some() {
-            button_select_scaffold = button_select_scaffold.on_press(Message::SelectScaffold);
+            button_selection_from_scaffold = button_selection_from_scaffold.on_press(Message::SelectScaffold);
         }
+        if let Some(n) = self.candidate_scaffold_id {
+            button_selection_to_scaffold = button_selection_to_scaffold.on_press(Message::ScaffoldIdSet(n, true));
+        }
+        ret = ret.push(Row::new()
+        .push(button_selection_from_scaffold)
+        .push(button_selection_to_scaffold));
+
         let button_scaffold = Button::new(
             &mut self.button_scaffold,
             iced::Text::new("Set scaffold sequence"),
         )
         .height(Length::Units(ui_size.button()))
         .on_press(Message::ScaffoldSequenceFile);
-        let scaffold_info_shift = self.scaffold_info.as_ref().and_then(|info| info.shift);
-        let scaffold_position_text = if scaffold_info_shift.is_some()
-            && scaffold_info_shift != Some(self.scaffold_position)
+        let scaffold_position_text = if let Some(nucl) = self.scaffold_info.as_ref().and_then(|info| info.starting_nucl)
         {
             format!(
-                "Starting position of sequence on the scaffold (Current position is {})",
-                scaffold_info_shift.unwrap()
+                "Starting position of sequence on the scaffold\n Currently starting at (Helix #{} nt #{} {})",
+                nucl.helix, nucl.position, if nucl.forward { "forward" } else { "backward" }
             )
         } else {
             "Starting position of sequence on the scaffold".to_owned()
@@ -1143,7 +1165,6 @@ impl SequenceTab {
                 ))
                 .width(iced::Length::FillPortion(1)),
             );
-        ret = ret.push(button_select_scaffold);
         ret = ret.push(button_scaffold);
         ret = ret.push(scaffold_row);
 
@@ -1156,12 +1177,6 @@ impl SequenceTab {
         .height(Length::Units(ui_size.button()))
         .on_press(Message::StapplesRequested);
         ret = ret.push(button_stapples);
-        ret = ret.push(right_checkbox(
-            self.toggle_text_value,
-            "Show Sequences",
-            Message::ToggleText,
-            ui_size.clone(),
-        ));
         Scrollable::new(&mut self.scroll).push(ret).into()
     }
 
@@ -1169,10 +1184,13 @@ impl SequenceTab {
         self.toggle_text_value = b;
     }
 
-    pub(super) fn update_pos_str(&mut self, position_str: String) {
+    pub(super) fn update_pos_str(&mut self, position_str: String) -> Option<usize> {
         self.scaffold_position_str = position_str;
         if let Ok(pos) = self.scaffold_position_str.parse::<usize>() {
             self.scaffold_position = pos;
+            Some(pos)
+        } else {
+            None
         }
     }
 
@@ -1182,6 +1200,24 @@ impl SequenceTab {
 
     pub fn has_keyboard_priority(&self) -> bool {
         self.scaffold_input.is_focused()
+    }
+
+    pub(super) fn update_selection(&mut self, selection: &[DnaElementKey]) {
+        self.candidate_scaffold_id = None;
+        if selection.len() == 1 {
+            if let DnaElementKey::Strand(n) = selection[0] {
+                self.candidate_scaffold_id = Some(n);
+            }
+        }
+    }
+
+    pub (super) fn set_scaffold_info(&mut self, info: Option<ScaffoldInfo>) {
+        if !self.scaffold_input.is_focused() {
+            if let Some(n) = info.as_ref().and_then(|info| info.shift) {
+                self.update_pos_str(n.to_string());
+            }
+        }
+        self.scaffold_info = info;
     }
 }
 

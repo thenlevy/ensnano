@@ -318,7 +318,9 @@ impl Program for LeftPanel {
                 }
             }
             Message::ScaffoldPositionInput(position_str) => {
-                self.sequence_tab.update_pos_str(position_str);
+                if let Some(n) = self.sequence_tab.update_pos_str(position_str) {
+                    self.requests.lock().unwrap().scaffold_shift = Some(n);
+                }
             }
             Message::ShowTorsion(b) => {
                 self.requests.lock().unwrap().show_torsion_request = Some(b);
@@ -459,6 +461,7 @@ impl Program for LeftPanel {
                 .new_modifiers(iced_winit::conversion::modifiers(modifiers)),
             Message::NewSelection(keys) => {
                 self.edition_tab.update_selection(&keys);
+                self.sequence_tab.update_selection(&keys);
                 self.organizer.notify_selection(keys);
             }
             Message::CanMakeGrid(b) => {
@@ -543,7 +546,7 @@ impl Program for LeftPanel {
             Message::Selection(selection, info_values) => self
                 .contextual_panel
                 .update_selection(selection, info_values),
-            Message::NewScaffoldInfo(info) => self.sequence_tab.scaffold_info = info,
+            Message::NewScaffoldInfo(info) => self.sequence_tab.set_scaffold_info(info),
             Message::SelectScaffold => self.requests.lock().unwrap().select_scaffold = Some(()),
             Message::Nothing => (),
         };
@@ -569,7 +572,7 @@ impl Program for LeftPanel {
             )
             .push(
                 TabLabel::Text(format!("{}", icon_to_char(MaterialIcon::Videocam))),
-                self.camera_tab.view(self.ui_size.clone(), width),
+                self.camera_tab.view(self.ui_size.clone()),
             )
             .push(
                 TabLabel::Icon(ICON_PHYSICAL_ENGINE),

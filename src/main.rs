@@ -690,6 +690,10 @@ fn main() {
                     if requests.select_scaffold.take().is_some() {
                         mediator.lock().unwrap().select_scaffold();
                     }
+
+                    if let Some(n) = requests.scaffold_shift.take() {
+                        mediator.lock().unwrap().set_scaffold_shift(n);
+                    }
                 }
 
                 if let Some(d_id) = download_stapples {

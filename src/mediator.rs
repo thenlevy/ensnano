@@ -298,6 +298,13 @@ impl Mediator {
             .set_scaffold_id(scaffold_id)
     }
 
+    pub fn set_scaffold_shift(
+        &mut self,
+        shift: usize
+    ) {
+        self.designs[0].write().unwrap().set_scaffold_shift(shift);
+    }
+
     pub fn set_scaffold_sequence(
         &mut self,
         sequence: String,

@@ -702,6 +702,27 @@ impl Strand {
             }
         }
     }
+
+    pub fn get_nth_nucl(&self, n: usize) -> Option<Nucl> {
+        let mut seen = 0;
+        for d in self.domains.iter() {
+            if seen + d.length() > n {
+                if let Domain::HelixDomain(d) = d {
+                    let position = d.iter().nth(n - seen);
+                    return position.map(|position| Nucl {
+                        position,
+                        helix: d.helix,
+                        forward: d.forward
+                    })
+                } else {
+                    return None
+                }
+            } else {
+                seen += d.length()
+            }
+        }
+        None
+    }
 }
 
 fn is_false(x: &bool) -> bool {

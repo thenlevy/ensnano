@@ -687,6 +687,10 @@ impl Design {
             .set_scaffold_sequence(sequence, shift)
     }
 
+    pub fn set_scaffold_shift(&mut self, shift: usize) {
+        self.data.lock().unwrap().set_scaffold_shift(shift)
+    }
+
     pub fn scaffold_is_set(&self) -> bool {
         self.data.lock().unwrap().scaffold_is_set()
     }
@@ -1028,4 +1032,6 @@ pub enum OperationResult {
 pub struct ScaffoldInfo {
     pub id: usize,
     pub shift: Option<usize>,
+    pub length: usize,
+    pub starting_nucl: Option<Nucl>
 }
