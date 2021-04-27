@@ -488,7 +488,7 @@ impl Multiplexer {
                     VirtualKeyCode::L if ctrl(&self.modifiers) => {
                         self.requests.lock().unwrap().anchor = true;
                     }
-                    VirtualKeyCode::R if !&self.modifiers.ctrl() => {
+                    VirtualKeyCode::R if !ctrl(&self.modifiers) => {
                         self.requests.lock().unwrap().action_mode = Some(ActionMode::Rotate)
                     }
                     VirtualKeyCode::T => {

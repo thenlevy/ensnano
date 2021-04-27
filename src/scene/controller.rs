@@ -166,12 +166,12 @@ impl Controller {
         {
             let csq = match *key {
                 VirtualKeyCode::Z
-                    if self.current_modifiers.ctrl() && *state == ElementState::Pressed =>
+                    if ctrl(&self.current_modifiers) && *state == ElementState::Pressed =>
                 {
                     Consequence::Undo
                 }
                 VirtualKeyCode::R
-                    if self.current_modifiers.ctrl() && *state == ElementState::Pressed =>
+                    if ctrl(&self.current_modifiers) && *state == ElementState::Pressed =>
                 {
                     Consequence::Redo
                 }
@@ -277,5 +277,13 @@ impl Controller {
 
     fn shift_cam(&mut self) {
         self.camera_controller.shift()
+    }
+}
+
+fn ctrl(modifiers: &ModifiersState) -> bool {
+    if cfg!(target_os = "macos") {
+        modifiers.logo()
+    } else {
+        modifiers.ctrl()
     }
 }
