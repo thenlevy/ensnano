@@ -692,6 +692,7 @@ impl Data {
         if self.design.scaffold_sequence.is_some() {
             self.design.scaffold_shift = Some(shift);
             self.hash_maps_update = true;
+            self.update_status = true;
         }
     }
 

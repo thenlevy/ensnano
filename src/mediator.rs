@@ -627,15 +627,15 @@ impl Mediator {
                 notifications.push(Notification::DesignNotification(notification))
             }
             if let Some(notification) = design_wrapper.read().unwrap().data_was_updated() {
+                let scaffold_info = design_wrapper.read().unwrap().get_scaffold_info();
+                self.messages
+                    .lock()
+                    .unwrap()
+                    .push_scaffold_info(scaffold_info);
                 ret = true;
                 notifications.push(Notification::DesignNotification(notification))
             }
         }
-        let scaffold_info = self.designs[0].read().unwrap().get_scaffold_info();
-        self.messages
-            .lock()
-            .unwrap()
-            .push_scaffold_info(scaffold_info);
         if let Some(elements) = self
             .designs
             .get(0)
