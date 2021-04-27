@@ -569,7 +569,9 @@ impl Data {
         self.read_scaffold_seq(self.design.scaffold_shift.unwrap_or(0));
         self.elements_update = Some(elements);
         self.update_visibility();
-        self.test_named_junction("TEST AFTER MAKE HASH MAP");
+        if crate::MUST_TEST {
+            self.test_named_junction("TEST AFTER MAKE HASH MAP");
+        }
     }
 
     fn update_junction(
@@ -1731,7 +1733,9 @@ impl Data {
         self.hash_maps_update = true;
         self.view_need_reset = true;
 
-        self.test_named_junction("TEST AFTER SPLIT STRAND");
+        if crate::MUST_TEST {
+            self.test_named_junction("TEST AFTER SPLIT STRAND");
+        }
         Some(new_id)
         // TODO UNITTEST
     }

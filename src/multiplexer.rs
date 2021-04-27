@@ -504,9 +504,10 @@ impl Multiplexer {
                     VirtualKeyCode::S => {
                         self.requests.lock().unwrap().selection_mode = Some(SelectionMode::Strand)
                     }
+                    /*
                     VirtualKeyCode::K => {
                         self.requests.lock().unwrap().recolor_stapples = true;
-                    }
+                    }*/
                     VirtualKeyCode::Delete | VirtualKeyCode::Back => {
                         self.requests.lock().unwrap().delete_selection = true;
                     }
