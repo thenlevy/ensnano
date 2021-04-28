@@ -208,8 +208,8 @@ impl OrganizerAttribute for DnaAttribute {
             }
             DnaAttribute::XoverGroup(group) => match group {
                 None => AttributeDisplay::Text("B".to_owned()),
-                Some(false) => AttributeDisplay::Text("R".to_owned()),
-                Some(true) => AttributeDisplay::Text("G".to_owned()),
+                Some(false) => AttributeDisplay::Text("G".to_owned()),
+                Some(true) => AttributeDisplay::Text("R".to_owned()),
             },
         }
     }
@@ -235,7 +235,7 @@ impl DnaElementKey {
     pub fn from_selection(selection: &Selection, d_id: u32) -> Option<Self> {
         if selection.get_design() == Some(d_id) {
             match selection {
-                Selection::Grid(_, _) => None,
+                Selection::Grid(_, g_id) => Some(Self::Grid(*g_id)),
                 Selection::Design(_) => None,
                 Selection::Helix(_, h_id) => Some(Self::Helix(*h_id as usize)),
                 Selection::Strand(_, s_id) => Some(Self::Strand(*s_id as usize)),
