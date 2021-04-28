@@ -160,7 +160,7 @@ impl Design3D {
                 let id = id | self.id << 24;
                 let color = Instance::color_from_au32(color);
                 let small = self.design.read().unwrap().has_small_spheres_nucl_id(id);
-                let radius = if small { radius / 4. } else { radius };
+                let radius = if small { radius / 3.5 } else { radius };
                 SphereInstance {
                     position,
                     radius,
@@ -192,7 +192,11 @@ impl Design3D {
                 let color = Instance::color_from_u32(color);
                 let id = id | self.id << 24;
                 let small = self.design.read().unwrap().has_small_spheres_nucl_id(id);
-                let radius = if small { 1. / 4. } else { 1. };
+                let radius = if small {
+                    BOUND_RADIUS / SPHERE_RADIUS
+                } else {
+                    1.
+                };
                 let sphere = SphereInstance {
                     position,
                     color,

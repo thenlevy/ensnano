@@ -431,7 +431,7 @@ impl ControllerState for Selecting {
 
     fn check_timers(&mut self, controller: &Controller) -> Transition {
         let now = Instant::now();
-        if (now - self.click_date).as_millis() > 1000 {
+        if (now - self.click_date).as_millis() > 250 {
             if let Some((nucl, d_id)) = controller
                 .data
                 .borrow()

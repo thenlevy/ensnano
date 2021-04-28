@@ -334,6 +334,12 @@ impl View {
                     .get_mut(mesh)
                     .new_instances_raw(instances.as_ref());
                 if let Some(mesh) = mesh.to_fake() {
+                    let mut instances = instances.as_ref().clone();
+                    for i in instances.iter_mut() {
+                        if i.scale.z < 0.99 {
+                            i.scale *= 2.;
+                        }
+                    }
                     self.need_redraw_fake = true;
                     self.dna_drawers
                         .get_mut(mesh)
