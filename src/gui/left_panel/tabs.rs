@@ -1,5 +1,6 @@
 use super::*;
 use iced::scrollable;
+use iced::Color;
 
 pub(super) struct EditionTab {
     selection_mode_state: SelectionModeState,
@@ -343,6 +344,7 @@ impl GridTab {
             .map(|(mode, state)| action_mode_btn(state, mode, action_mode, ui_size.button()))
             .collect();
 
+        ret = ret.push(iced::Space::with_height(Length::Units(5)));
         ret = ret.push(Text::new("Action Mode"));
         while action_buttons.len() > 0 {
             let mut row = Row::new();
@@ -396,11 +398,10 @@ impl GridTab {
             }
         }
 
-        ret = ret.push(Text::new(
-            "Make grids from selected helices (usefull for imported designs only)",
-        ));
+        ret = ret.push(iced::Space::with_height(Length::Units(5)));
+        ret = ret.push(Text::new("Guess grids").size(ui_size.intermediate_text()));
         let mut button_make_grid =
-            Button::new(&mut self.make_grid_btn, iced::Text::new("Make grids"))
+            Button::new(&mut self.make_grid_btn, iced::Text::new("From Selection"))
                 .height(Length::Units(ui_size.button()));
 
         if self.can_make_grid {
@@ -408,6 +409,7 @@ impl GridTab {
         }
 
         ret = ret.push(button_make_grid);
+        ret = ret.push(Text::new("Select ≥4 unattached helices").size(ui_size.main_text()));
 
         Scrollable::new(&mut self.scroll).push(ret).into()
     }
@@ -627,7 +629,7 @@ impl CameraTab {
     }
 
     pub fn view<'a>(&'a mut self, ui_size: UiSize) -> Element<'a, Message> {
-        let mut ret = Column::new();
+        let mut ret = Column::new().spacing(2);
         ret = ret.push(
             Text::new("Camera")
                 .horizontal_alignment(iced::HorizontalAlignment::Center)
@@ -1087,6 +1089,7 @@ pub struct SequenceTab {
     button_selection_from_scaffold: button::State,
     button_selection_to_scaffold: button::State,
     candidate_scaffold_id: Option<usize>,
+    button_show_sequence: button::State,
 }
 
 impl SequenceTab {
@@ -1103,26 +1106,48 @@ impl SequenceTab {
             button_selection_from_scaffold: Default::default(),
             button_selection_to_scaffold: Default::default(),
             candidate_scaffold_id: None,
+            button_show_sequence: Default::default(),
         }
     }
 
     pub(super) fn view<'a>(&'a mut self, ui_size: UiSize) -> Element<'a, Message> {
         let mut ret = Column::new();
         ret = ret.push(Text::new("Sequences").size(ui_size.head_text()));
-        ret = ret.push(right_checkbox(
-            self.toggle_text_value,
-            "Show Sequences",
-            Message::ToggleText,
-            ui_size.clone(),
-        ));
+        ret = ret.push(iced::Space::with_height(Length::Units(3)));
+        let button_show_sequence = if self.toggle_text_value {
+            text_btn(
+                &mut self.button_show_sequence,
+                "Hide Sequences",
+                ui_size.clone(),
+            )
+            .on_press(Message::ToggleText(false))
+        } else {
+            text_btn(
+                &mut self.button_show_sequence,
+                "Show Sequences",
+                ui_size.clone(),
+            )
+            .on_press(Message::ToggleText(true))
+        };
+        ret = ret.push(button_show_sequence);
+        ret = ret.push(iced::Space::with_height(Length::Units(3)));
 
         ret = ret.push(Text::new("Scaffold").size(ui_size.intermediate_text()));
-        let scaffold_text = if let Some(info) = self.scaffold_info.as_ref() {
-            format!("Scaffold: strand #{} (length {})", info.id, info.length)
+        ret = ret.push(iced::Space::with_height(Length::Units(3)));
+        let (scaffold_text, length_text) = if let Some(info) = self.scaffold_info.as_ref() {
+            (
+                format!("Strand #{}", info.id),
+                format!("length {}", info.length),
+            )
         } else {
-            format!("Scaffold: NOT SET")
+            ("NOT SET".to_owned(), "length —".to_owned())
         };
+        let mut length_text = Text::new(length_text);
+        if self.scaffold_info.is_none() {
+            length_text = length_text.color(innactive_color())
+        }
         ret = ret.push(Text::new(scaffold_text).size(ui_size.main_text()));
+        ret = ret.push(length_text);
         let mut button_selection_to_scaffold = text_btn(
             &mut self.button_selection_to_scaffold,
             "From selection",
@@ -1141,11 +1166,14 @@ impl SequenceTab {
             button_selection_to_scaffold =
                 button_selection_to_scaffold.on_press(Message::ScaffoldIdSet(n, true));
         }
+        ret = ret.push(iced::Space::with_height(Length::Units(3)));
         ret = ret.push(
             Row::new()
                 .push(button_selection_from_scaffold)
+                .push(iced::Space::with_width(Length::Units(5)))
                 .push(button_selection_to_scaffold),
         );
+        ret = ret.push(iced::Space::with_height(Length::Units(3)));
 
         let button_scaffold = Button::new(
             &mut self.button_scaffold,
@@ -1153,18 +1181,7 @@ impl SequenceTab {
         )
         .height(Length::Units(ui_size.button()))
         .on_press(Message::ScaffoldSequenceFile);
-        let scaffold_position_text = if let Some(nucl) = self
-            .scaffold_info
-            .as_ref()
-            .and_then(|info| info.starting_nucl)
-        {
-            format!(
-                "Starting position of sequence on the scaffold\n Currently starting at (Helix #{} nt #{} {})",
-                nucl.helix, nucl.position, if nucl.forward { "forward" } else { "backward" }
-            )
-        } else {
-            "Starting position of sequence on the scaffold".to_owned()
-        };
+        let scaffold_position_text = "Starting position";
         let scaffold_row = Row::new()
             .push(Text::new(scaffold_position_text).width(Length::FillPortion(2)))
             .push(
@@ -1180,10 +1197,31 @@ impl SequenceTab {
                 .width(iced::Length::FillPortion(1)),
             );
         ret = ret.push(button_scaffold);
+        ret = ret.push(iced::Space::with_height(Length::Units(3)));
         ret = ret.push(scaffold_row);
+        let starting_nucl = self
+            .scaffold_info
+            .as_ref()
+            .and_then(|info| info.starting_nucl);
+        let nucl_text = if let Some(nucl) = starting_nucl {
+            format!(
+                "Helix #{} \n strand {} \n nt #{})",
+                nucl.helix,
+                if nucl.forward { "forward" } else { "backward" },
+                nucl.position
+            )
+        } else {
+            "Helix — \n strand — \n nt —".to_owned()
+        };
+        let mut nucl_text = Text::new(nucl_text).size(ui_size.main_text());
+        if starting_nucl.is_none() {
+            nucl_text = nucl_text.color(innactive_color())
+        }
+        ret = ret.push(nucl_text);
 
         ret = ret.push(iced::Space::with_height(Length::Units(3)));
         ret = ret.push(Text::new("Stapples").size(ui_size.head_text()));
+        ret = ret.push(iced::Space::with_height(Length::Units(3)));
         let button_stapples = Button::new(
             &mut self.button_stapples,
             iced::Text::new("Export Stapples"),
