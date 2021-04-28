@@ -697,12 +697,17 @@ impl Data {
         self.view
             .borrow_mut()
             .update(ViewUpdate::RawDna(Mesh::PhantomTube, vec));
-        let grid = if let Some(SceneElement::Grid(d_id, g_id)) = self.selected_element.as_ref() {
-            Some((*d_id, *g_id))
+        let mut grids = if let Some(SceneElement::Grid(d_id, g_id)) = self.selected_element.as_ref() {
+            vec![(*d_id as usize, *g_id)]
         } else {
-            None
+            vec![]
         };
-        self.view.borrow_mut().set_selected_grid(grid);
+        for s in self.selection.iter() {
+            if let Selection::Grid(d_id, g_id) = s {
+                grids.push((*d_id as usize, *g_id));
+            }
+        }
+        self.view.borrow_mut().set_selected_grid(grids);
     }
 
     /// Return the sets of elements of the phantom helix
@@ -903,12 +908,17 @@ impl Data {
             Mesh::CandidateSphere,
             self.get_candidate_spheres(),
         ));
-        let grid = if let Some(SceneElement::Grid(d_id, g_id)) = self.candidate_element.as_ref() {
-            Some((*d_id, *g_id))
+        let mut grids = if let Some(SceneElement::Grid(d_id, g_id)) = self.candidate_element.as_ref() {
+            vec![(*d_id as usize, *g_id)]
         } else {
-            None
+            vec![]
         };
-        self.view.borrow_mut().set_candidate_grid(grid);
+        for c in self.candidates.iter() {
+            if let Selection::Grid(d_id, g_id) = c {
+                grids.push((*d_id as usize, *g_id));
+            }
+        }
+        self.view.borrow_mut().set_candidate_grid(grids);
     }
 
     fn update_pivot(&mut self) {

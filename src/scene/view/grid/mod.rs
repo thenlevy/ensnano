@@ -194,8 +194,8 @@ pub struct GridManager {
     /// next frame
     new_instances: Option<Rc<Vec<GridInstance>>>,
     instances: Vec<GridInstance>,
-    selected: Option<(usize, usize)>,
-    candidate: Option<(usize, usize)>,
+    selected: Vec<(usize, usize)>,
+    candidate: Vec<(usize, usize)>,
     drawer: InstanceDrawer<GridInstance>,
     fake_drawer: InstanceDrawer<GridInstance>,
     need_new_colors: bool,
@@ -211,8 +211,8 @@ impl GridManager {
             fake_drawer,
             new_instances: Some(Rc::new(vec![])),
             instances: vec![],
-            selected: None,
-            candidate: None,
+            selected: vec![],
+            candidate: vec![],
             need_new_colors: false,
         }
     }
@@ -271,21 +271,21 @@ impl GridManager {
         ret
     }
 
-    pub fn set_candidate_grid(&mut self, grid: Option<(u32, usize)>) {
+    pub fn set_candidate_grid(&mut self, grids: Vec<(usize, usize)>) {
         self.need_new_colors = true;
-        self.candidate = grid.map(|(a, b)| (a as usize, b))
+        self.candidate = grids
     }
 
-    pub fn set_selected_grid(&mut self, grid: Option<(u32, usize)>) {
+    pub fn set_selected_grid(&mut self, grids: Vec<(usize, usize)>) {
         self.need_new_colors = true;
-        self.selected = grid.map(|(a, b)| (a as usize, b))
+        self.selected = grids
     }
 
     fn update_colors(&mut self) {
         for instance in self.instances.iter_mut() {
-            if self.selected == Some((instance.design, instance.id)) {
+            if self.selected.contains(&(instance.design, instance.id)) {
                 instance.color = 0xFF_00_00
-            } else if self.candidate == Some((instance.design, instance.id)) {
+            } else if self.candidate.contains(&(instance.design, instance.id)) {
                 instance.color = 0x00_FF_00
             } else {
                 instance.color = 0x00_00_FF
