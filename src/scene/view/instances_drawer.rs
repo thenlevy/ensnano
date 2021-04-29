@@ -144,6 +144,24 @@ pub trait Instanciable {
         None
     }
 
+    /// The vertex shader used to draw the outline of the mesh. If this returns `None`, an
+    /// `InstanceDrawer` drawing the outline will use `self::vertex_module` instead.
+    fn outline_vertex_module(_device: &Device) -> Option<ShaderModule>
+    where
+        Self: Sized,
+    {
+        None
+    }
+
+    /// The fragment shader used to draw the outline of the mesh. If this returns `None`, an
+    /// `InstanceDrawer` drawing the outline will use `self::fragment_module` instead.
+    fn outline_fragment_module(_device: &Device) -> Option<ShaderModule>
+    where
+        Self: Sized,
+    {
+        None
+    }
+
     fn alpha_to_coverage_enabled() -> bool
     where
         Self: Sized,
@@ -197,6 +215,26 @@ impl<D: Instanciable> InstanceDrawer<D> {
             ressource,
             fake,
             false,
+            false,
+        )
+    }
+
+    pub fn new_outliner(
+        device: Rc<Device>,
+        queue: Rc<Queue>,
+        viewer_desc: &BindGroupLayoutDescriptor<'static>,
+        models_desc: &BindGroupLayoutDescriptor<'static>,
+        ressource: D::Ressource,
+    ) -> Self {
+        Self::init(
+            device,
+            queue,
+            viewer_desc,
+            models_desc,
+            ressource,
+            false,
+            false,
+            true,
         )
     }
 
@@ -216,6 +254,7 @@ impl<D: Instanciable> InstanceDrawer<D> {
             ressource,
             fake,
             true,
+            false,
         )
     }
 
@@ -227,6 +266,7 @@ impl<D: Instanciable> InstanceDrawer<D> {
         ressource: D::Ressource,
         fake: bool,
         wireframe: bool,
+        outliner: bool,
     ) -> Self {
         let index_buffer = create_buffer_with_data(
             device.as_ref(),
@@ -241,12 +281,16 @@ impl<D: Instanciable> InstanceDrawer<D> {
 
         let vertex_module = if fake {
             D::fake_vertex_module(&device).unwrap_or_else(|| D::vertex_module(&device))
+        } else if outliner {
+            D::outline_vertex_module(&device).unwrap_or_else(|| D::vertex_module(&device))
         } else {
             D::vertex_module(&device)
         };
 
         let fragment_module = if fake {
             D::fake_fragment_module(&device).unwrap_or_else(|| D::fragment_module(&device))
+        } else if outliner {
+            D::outline_fragment_module(&device).unwrap_or_else(|| D::fragment_module(&device))
         } else {
             D::fragment_module(&device)
         };
@@ -269,6 +313,7 @@ impl<D: Instanciable> InstanceDrawer<D> {
             fragment_module,
             primitive_topology,
             fake,
+            outliner,
         );
         let instances = DynamicBindGroup::new(device.clone(), queue);
 
@@ -332,6 +377,7 @@ impl<D: Instanciable> InstanceDrawer<D> {
         fragment_module: ShaderModule,
         primitive_topology: PrimitiveTopology,
         fake: bool,
+        outliner: bool,
     ) -> RenderPipeline {
         let viewer_bind_group_layout =
             device.create_bind_group_layout(&viewer_bind_group_layout_desc);
@@ -434,11 +480,17 @@ impl<D: Instanciable> InstanceDrawer<D> {
             _ => None,
         };
 
+        let cull_mode = if outliner {
+            wgpu::CullMode::Front
+        } else {
+            wgpu::CullMode::None
+        };
+
         let primitive = wgpu::PrimitiveState {
             topology: primitive_topology,
             strip_index_format,
             front_face: wgpu::FrontFace::Ccw,
-            cull_mode: wgpu::CullMode::None,
+            cull_mode,
             ..Default::default()
         };
 

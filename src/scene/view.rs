@@ -345,6 +345,11 @@ impl View {
                         .get_mut(mesh)
                         .new_instances_raw(instances.as_ref());
                 }
+                if let Some(mesh) = mesh.to_outline() {
+                    self.dna_drawers
+                        .get_mut(mesh)
+                        .new_instances_raw(instances.as_ref());
+                }
             }
             ViewUpdate::FogCenter(center) => {
                 self.fog_parameters.alt_fog_center = center;
@@ -801,6 +806,8 @@ pub enum ViewUpdate {
 pub enum Mesh {
     Sphere,
     Tube,
+    OutlineSphere,
+    OutlineTube,
     FakeSphere,
     FakeTube,
     CandidateSphere,
@@ -830,11 +837,21 @@ impl Mesh {
             _ => None,
         }
     }
+
+    fn to_outline(&self) -> Option<Self> {
+        match self {
+            Self::Sphere => Some(Self::OutlineSphere),
+            Self::Tube => Some(Self::OutlineTube),
+            _ => None,
+        }
+    }
 }
 
 struct DnaDrawers {
     sphere: InstanceDrawer<SphereInstance>,
     tube: InstanceDrawer<TubeInstance>,
+    outline_sphere: InstanceDrawer<SphereInstance>,
+    outline_tube: InstanceDrawer<TubeInstance>,
     candidate_sphere: InstanceDrawer<SphereInstance>,
     candidate_tube: InstanceDrawer<TubeInstance>,
     selected_sphere: InstanceDrawer<SphereInstance>,
@@ -859,6 +876,8 @@ impl DnaDrawers {
         match key {
             Mesh::Sphere => &mut self.sphere,
             Mesh::Tube => &mut self.tube,
+            Mesh::OutlineSphere => &mut self.outline_sphere,
+            Mesh::OutlineTube => &mut self.outline_tube,
             Mesh::CandidateSphere => &mut self.candidate_sphere,
             Mesh::CandidateTube => &mut self.candidate_tube,
             Mesh::SelectedSphere => &mut self.selected_sphere,
@@ -883,6 +902,8 @@ impl DnaDrawers {
         vec![
             &mut self.sphere,
             &mut self.tube,
+            &mut self.outline_tube,
+            &mut self.outline_sphere,
             &mut self.candidate_sphere,
             &mut self.candidate_tube,
             &mut self.selected_sphere,
@@ -938,6 +959,20 @@ impl DnaDrawers {
                 model_desc,
                 (),
                 false,
+            ),
+            outline_sphere: InstanceDrawer::new_outliner(
+                device.clone(),
+                queue.clone(),
+                viewer_desc,
+                model_desc,
+                (),
+            ),
+            outline_tube: InstanceDrawer::new_outliner(
+                device.clone(),
+                queue.clone(),
+                viewer_desc,
+                model_desc,
+                (),
             ),
             candidate_sphere: InstanceDrawer::new(
                 device.clone(),

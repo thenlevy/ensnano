@@ -141,6 +141,14 @@ impl Instanciable for SphereInstance {
     fn fake_fragment_module(device: &wgpu::Device) -> Option<wgpu::ShaderModule> {
         Some(device.create_shader_module(&wgpu::include_spirv!("dna_obj_fake.frag.spv")))
     }
+
+    fn outline_vertex_module(device: &wgpu::Device) -> Option<wgpu::ShaderModule> {
+        Some(device.create_shader_module(&wgpu::include_spirv!("dna_obj_outline.vert.spv")))
+    }
+
+    fn outline_fragment_module(device: &wgpu::Device) -> Option<wgpu::ShaderModule> {
+        Some(device.create_shader_module(&wgpu::include_spirv!("dna_obj_outline.frag.spv")))
+    }
 }
 
 impl DnaObject for SphereInstance {}
@@ -201,6 +209,14 @@ impl Instanciable for TubeInstance {
 
     fn fake_fragment_module(device: &wgpu::Device) -> Option<wgpu::ShaderModule> {
         Some(device.create_shader_module(&wgpu::include_spirv!("dna_obj_fake.frag.spv")))
+    }
+
+    fn outline_vertex_module(device: &wgpu::Device) -> Option<wgpu::ShaderModule> {
+        Some(device.create_shader_module(&wgpu::include_spirv!("dna_obj_outline.vert.spv")))
+    }
+
+    fn outline_fragment_module(device: &wgpu::Device) -> Option<wgpu::ShaderModule> {
+        Some(device.create_shader_module(&wgpu::include_spirv!("dna_obj_outline.frag.spv")))
     }
 
     fn primitive_topology() -> wgpu::PrimitiveTopology {
