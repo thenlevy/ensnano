@@ -25,7 +25,7 @@ impl ContextualPanel {
     }
 
     pub fn view(&mut self, ui_size: UiSize) -> Element<Message> {
-        let mut column = Column::new().max_width(self.width);
+        let mut column = Column::new().max_width(self.width - 2);
         let selection = &self.selection;
         if *selection == Selection::Nothing {
             column = add_help_to_column(column, "3D view", view_3d_help(), ui_size.clone());
@@ -190,7 +190,7 @@ fn view_3d_help() -> Vec<(String, String)> {
             "Rotate camera around pivot".to_owned(),
         ),
         (
-            format!("{}+{} Drab", CTRL, LCLICK),
+            format!("{}+{} Drag", CTRL, LCLICK),
             "Rotate camera around pivot".to_owned(),
         ),
         (String::new(), String::new()),
@@ -205,6 +205,7 @@ fn view_3d_help() -> Vec<(String, String)> {
             format!("{} on handle", LCLICK),
             "Move selected object".to_owned(),
         ),
+        (String::new(), String::new()),
         (format!("When in 3D {} mode", ROTCHAR), String::new()),
         (
             format!("{} on handle", LCLICK),
