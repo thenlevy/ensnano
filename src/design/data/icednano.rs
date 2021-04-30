@@ -649,9 +649,17 @@ impl Strand {
             return;
         }
         let mut previous_domain = self.domains.last().unwrap();
-        for i in 0..(self.domains.len() - 1) {
+        for i in 0..(self.domains.len()) {
             let current = &self.domains[i];
-            let next = &self.domains[i + 1];
+            let next = if i == self.domains.len() - 1 {
+                if self.cyclic {
+                    &self.domains[0]
+                } else {
+                    break;
+                }
+            } else {
+                &self.domains[i + 1]
+            };
             match &mut self.junctions[i] {
                 s @ DomainJunction::UnindentifiedXover => {
                     if !identified {

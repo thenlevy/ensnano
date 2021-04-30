@@ -542,6 +542,26 @@ impl Data {
                 color_map.insert(bound_id, color);
                 strand_map.insert(bound_id, *s_id);
                 helix_map.insert(bound_id, nucl.helix);
+                Self::update_junction(
+                    &mut self.xover_ids,
+                    strand
+                        .junctions
+                        .last_mut()
+                        .expect("Broke Invariant [LastXoverJunction]"),
+                    (bound.0, bound.1),
+                );
+                let (prime5, prime3) = bound;
+                if let Some(id) = self.xover_ids.get_id(&(prime5, prime3)) {
+                    elements.push(DnaElement::CrossOver {
+                        xover_id: id,
+                        helix5prime: prime5.helix,
+                        position5prime: prime5.position,
+                        forward5prime: prime5.forward,
+                        helix3prime: prime3.helix,
+                        position3prime: prime3.position,
+                        forward3prime: prime3.forward,
+                    });
+                }
             }
             old_nucl = None;
             old_nucl_id = None;
@@ -1473,11 +1493,11 @@ impl Data {
             println!("cycling");
             /*
             self.design
-                .strands
-                .get_mut(&prime5)
-                .as_mut()
-                .unwrap()
-                .cyclic = true;
+            .strands
+            .get_mut(&prime5)
+            .as_mut()
+            .unwrap()
+            .cyclic = true;
             self.hash_maps_update = true;
             self.update_status = true;
             */

@@ -34,8 +34,8 @@ rand_distr = "0.4.0"
 ordered-float = "2.0"
 rfd = "0.2.1"
 material-icons = "0.1.0"
-ensnano_organizer = { git = "https://gitlab.aliens-lyon.fr/nlevy/icednano_organizer" }
-#ensnano_organizer = { path = "../icednano_organizer" }
+#ensnano_organizer = { git = "https://gitlab.aliens-lyon.fr/nlevy/icednano_organizer" }
+ensnano_organizer = { path = "../icednano_organizer" }
 iced_aw = { git = "https://github.com/thenlevy/iced_aw", rev = "c302282" , features = ["tab_bar"]}
 num_enum = "0.5.1"
 cadnano-format = "0.1.0"

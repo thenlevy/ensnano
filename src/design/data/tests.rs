@@ -6,7 +6,12 @@ impl Data {
         for s in self.design.strands.values() {
             let mut expected_prime5: Option<Nucl> = None;
             let mut expected_prime5_domain: Option<usize> = None;
-            for (i, d) in s.domains.iter().enumerate() {
+            let nb_taken = if s.cyclic {
+                2 * s.domains.len()
+            } else {
+                s.domains.len()
+            };
+            for (i, d) in s.domains.iter().enumerate().cycle().take(nb_taken) {
                 if let Some(prime3) = d.prime5_end() {
                     if let Some(prime5) = expected_prime5 {
                         if prime5.prime3() == prime3 {
@@ -45,6 +50,9 @@ impl Data {
                                     (prime5, prime3)
                                 );
                             }
+                        }
+                        if expected_prime5_domain.unwrap() >= i {
+                            break;
                         }
                     }
                 }
