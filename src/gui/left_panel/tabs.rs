@@ -1209,7 +1209,7 @@ impl SequenceTab {
             .and_then(|info| info.starting_nucl);
         let nucl_text = if let Some(nucl) = starting_nucl {
             format!(
-                "Helix #{} \n strand {} \n nt #{})",
+                "Helix #{} \nstrand {} \nnt #{})",
                 nucl.helix,
                 if nucl.forward { "forward" } else { "backward" },
                 nucl.position
