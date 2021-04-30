@@ -302,10 +302,15 @@ impl Program for TopBar {
             .push(
                 Button::new(&mut self.button_help, iced::Text::new("Help"))
                     .on_press(Message::HelpRequested),
+            )
+            .push(
+                iced::Text::new("ENSnano")
+                    .width(Length::Fill)
+                    .horizontal_alignment(iced::HorizontalAlignment::Right),
             );
 
         Container::new(buttons)
-            .width(Length::Fill)
+            .width(Length::Units(self.logical_size.width as u16))
             .style(TopBarStyle)
             .into()
     }

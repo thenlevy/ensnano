@@ -697,7 +697,8 @@ impl Data {
         self.view
             .borrow_mut()
             .update(ViewUpdate::RawDna(Mesh::PhantomTube, vec));
-        let mut grids = if let Some(SceneElement::Grid(d_id, g_id)) = self.selected_element.as_ref() {
+        let mut grids = if let Some(SceneElement::Grid(d_id, g_id)) = self.selected_element.as_ref()
+        {
             vec![(*d_id as usize, *g_id)]
         } else {
             vec![]
@@ -908,11 +909,12 @@ impl Data {
             Mesh::CandidateSphere,
             self.get_candidate_spheres(),
         ));
-        let mut grids = if let Some(SceneElement::Grid(d_id, g_id)) = self.candidate_element.as_ref() {
-            vec![(*d_id as usize, *g_id)]
-        } else {
-            vec![]
-        };
+        let mut grids =
+            if let Some(SceneElement::Grid(d_id, g_id)) = self.candidate_element.as_ref() {
+                vec![(*d_id as usize, *g_id)]
+            } else {
+                vec![]
+            };
         for c in self.candidates.iter() {
             if let Selection::Grid(d_id, g_id) = c {
                 grids.push((*d_id as usize, *g_id));

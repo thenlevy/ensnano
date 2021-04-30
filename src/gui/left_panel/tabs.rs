@@ -399,7 +399,7 @@ impl GridTab {
         }
 
         ret = ret.push(iced::Space::with_height(Length::Units(5)));
-        ret = ret.push(Text::new("Guess grids").size(ui_size.intermediate_text()));
+        ret = ret.push(Text::new("Guess grid").size(ui_size.intermediate_text()));
         let mut button_make_grid =
             Button::new(&mut self.make_grid_btn, iced::Text::new("From Selection"))
                 .height(Length::Units(ui_size.button()));
