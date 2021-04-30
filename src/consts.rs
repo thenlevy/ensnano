@@ -71,7 +71,7 @@ pub const CTRL: &'static str = if cfg!(macos) { "\u{2318}" } else { "ctrl" };
 pub const ALT: &'static str = if cfg!(macos) { "\u{2325}" } else { "alt" };
 
 pub const SHIFT: char = '\u{21e7}';
-pub const MOVECHAR: char = '\u{e094}';
+pub const MOVECHAR: char = '\u{e904}';
 pub const ROTCHAR: char = '\u{e915}';
 pub const LCLICK: char = '\u{e918}';
 pub const MCLICK: char = '\u{e91b}';

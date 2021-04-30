@@ -28,18 +28,11 @@ impl ContextualPanel {
         let mut column = Column::new().max_width(self.width);
         let selection = &self.selection;
         if *selection == Selection::Nothing {
-            column = column.push(Text::new("3D view").size(ui_size.intermediate_text()));
-            for (l, r) in view_3d_help() {
-                if l.is_empty() {
-                    column = column.push(iced::Space::with_height(Length::Units(3)));
-                } else {
-                    column = column.push(
-                        Row::new()
-                            .push(Text::new(l).width(Length::FillPortion(1)))
-                            .push(Text::new(r).width(Length::FillPortion(1))),
-                    );
-                }
-            }
+            column = add_help_to_column(column, "3D view", view_3d_help(), ui_size.clone());
+            column = column.push(iced::Space::with_height(Length::Units(15)));
+            column = add_help_to_column(column, "2D/3D view", view_2d_3d_help(), ui_size.clone());
+            column = column.push(iced::Space::with_height(Length::Units(15)));
+            column = add_help_to_column(column, "2D view", view_2d_help(), ui_size.clone());
         } else {
             column = column.push(Text::new(selection.info()).size(ui_size.main_text()));
 
@@ -137,6 +130,38 @@ fn bool_to_string(b: bool) -> String {
     }
 }
 
+fn add_help_to_column<'a, M: 'static>(
+    mut column: Column<'a, M>,
+    help_title: impl Into<String>,
+    help: Vec<(String, String)>,
+    ui_size: UiSize,
+) -> Column<'a, M> {
+    column = column.push(Text::new(help_title).size(ui_size.intermediate_text()));
+    for (l, r) in help {
+        if l.is_empty() {
+            column = column.push(iced::Space::with_height(Length::Units(10)));
+        } else if r.is_empty() {
+            column = column.push(
+                Text::new(l)
+                    .width(Length::Fill)
+                    .horizontal_alignment(iced::HorizontalAlignment::Center),
+            );
+        } else {
+            column = column.push(
+                Row::new()
+                    .push(
+                        Text::new(l)
+                            .width(Length::FillPortion(5))
+                            .horizontal_alignment(iced::HorizontalAlignment::Right),
+                    )
+                    .push(iced::Space::with_width(Length::FillPortion(1)))
+                    .push(Text::new(r).width(Length::FillPortion(5))),
+            );
+        }
+    }
+    column
+}
+
 fn view_3d_help() -> Vec<(String, String)> {
     vec![
         (
@@ -175,12 +200,14 @@ fn view_3d_help() -> Vec<(String, String)> {
             "Make crossover (drop on nt)".to_owned(),
         ),
         (String::new(), String::new()),
+        (format!("When in 3D {} mode", MOVECHAR), String::new()),
         (
-            format!("When in 3D {} mode\n  {} on handle & Drag", ROTCHAR, LCLICK),
+            format!("{} on handle", LCLICK),
             "Move selected object".to_owned(),
         ),
+        (format!("When in 3D {} mode", ROTCHAR), String::new()),
         (
-            format!("When in 3D {} mode\n  {} on handle & Drag", ROTCHAR, LCLICK),
+            format!("{} on handle", LCLICK),
             "Rotate selected object".to_owned(),
         ),
     ]
@@ -206,6 +233,39 @@ fn view_2d_help() -> Vec<(String, String)> {
         (
             format!("{} + {}", SHIFT, RCLICK),
             "Multiple Select".to_owned(),
+        ),
+        (
+            format!("{} Drag", LCLICK),
+            "Rectangular selection".to_owned(),
+        ),
+        (String::new(), String::new()),
+        ("On helix numbers".to_owned(), String::new()),
+        (format!("{}", LCLICK), "Select helix".to_owned()),
+        (
+            format!("{} + {}", SHIFT, LCLICK),
+            "Multiple select".to_owned(),
+        ),
+        (
+            format!("{} Drag", LCLICK),
+            "Translate selected helices".to_owned(),
+        ),
+        (
+            format!("{} Drac", RCLICK),
+            "Rotate selected helices".to_owned(),
+        ),
+        (String::new(), String::new()),
+        ("On nucleotides".to_owned(), String::new()),
+        (
+            format!("{}", LCLICK),
+            "cut/glue strand or double xover".to_owned(),
+        ),
+        (
+            format!("{} Drag", LCLICK),
+            "edit strand/crossover".to_owned(),
+        ),
+        (
+            format!("{} + {}", ALT, LCLICK),
+            "Make suggested crossover".to_owned(),
         ),
     ]
 }
