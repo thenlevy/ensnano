@@ -27,20 +27,36 @@ impl ContextualPanel {
     pub fn view(&mut self, ui_size: UiSize) -> Element<Message> {
         let mut column = Column::new().max_width(self.width);
         let selection = &self.selection;
-        column = column.push(Text::new(selection.info()).size(ui_size.main_text()));
+        if *selection == Selection::Nothing {
+            column = column.push(Text::new("3D view").size(ui_size.intermediate_text()));
+            for (l, r) in view_3d_help() {
+                if l.is_empty() {
+                    column = column.push(iced::Space::with_height(Length::Units(3)));
+                } else {
+                    column = column.push(
+                        Row::new()
+                            .push(Text::new(l).width(Length::FillPortion(1)))
+                            .push(Text::new(r).width(Length::FillPortion(1))),
+                    );
+                }
+            }
+        } else {
+            column = column.push(Text::new(selection.info()).size(ui_size.main_text()));
 
-        match selection {
-            Selection::Grid(_, _) => {
-                column = add_grid_content(column, self.info_values.as_slice(), ui_size.clone())
+            match selection {
+                Selection::Grid(_, _) => {
+                    column = add_grid_content(column, self.info_values.as_slice(), ui_size.clone())
+                }
+                Selection::Strand(_, _) => {
+                    column =
+                        add_strand_content(column, self.info_values.as_slice(), ui_size.clone())
+                }
+                Selection::Nucleotide(_, _) => {
+                    let anchor = self.info_values[0].clone();
+                    column = column.push(Text::new(format!("Anchor {}", anchor)));
+                }
+                _ => (),
             }
-            Selection::Strand(_, _) => {
-                column = add_strand_content(column, self.info_values.as_slice(), ui_size.clone())
-            }
-            Selection::Nucleotide(_, _) => {
-                let anchor = self.info_values[0].clone();
-                column = column.push(Text::new(format!("Anchor {}", anchor)));
-            }
-            _ => (),
         }
 
         Scrollable::new(&mut self.scroll).push(column).into()
@@ -119,4 +135,77 @@ fn bool_to_string(b: bool) -> String {
     } else {
         String::from("false")
     }
+}
+
+fn view_3d_help() -> Vec<(String, String)> {
+    vec![
+        (
+            format!("{}", LCLICK),
+            "Select\nnt → strand → helix".to_owned(),
+        ),
+        (
+            format!("{}+{}", SHIFT, LCLICK),
+            "Multiple select".to_owned(),
+        ),
+        (String::new(), String::new()),
+        (
+            format!("2x{}", LCLICK),
+            "Center selection in 2D view".to_owned(),
+        ),
+        (String::new(), String::new()),
+        (format!("{} Drag", MCLICK), "Translate camera".to_owned()),
+        (
+            format!("{}+{} Drag", ALT, LCLICK),
+            "Translate camera".to_owned(),
+        ),
+        (String::new(), String::new()),
+        (format!("{}", RCLICK), "Set pivot".to_owned()),
+        (
+            format!("{} Drag", RCLICK),
+            "Rotate camera around pivot".to_owned(),
+        ),
+        (
+            format!("{}+{} Drab", CTRL, LCLICK),
+            "Rotate camera around pivot".to_owned(),
+        ),
+        (String::new(), String::new()),
+        (format!("{} Drag", LCLICK), "Edit strand".to_owned()),
+        (
+            format!("long {} Drag", LCLICK),
+            "Make crossover (drop on nt)".to_owned(),
+        ),
+        (String::new(), String::new()),
+        (
+            format!("When in 3D {} mode\n  {} on handle & Drag", ROTCHAR, LCLICK),
+            "Move selected object".to_owned(),
+        ),
+        (
+            format!("When in 3D {} mode\n  {} on handle & Drag", ROTCHAR, LCLICK),
+            "Rotate selected object".to_owned(),
+        ),
+    ]
+}
+
+fn view_2d_3d_help() -> Vec<(String, String)> {
+    vec![
+        (format!("{} + C", CTRL), "Copy selection".to_owned()),
+        (format!("{} + V", CTRL), "Paste".to_owned()),
+        (format!("{} + J", CTRL), "Magic Paste".to_owned()),
+    ]
+}
+
+fn view_2d_help() -> Vec<(String, String)> {
+    vec![
+        (format!("{} Drag", MCLICK), "Translate camera".to_owned()),
+        (
+            format!("{} + {} Drag", ALT, LCLICK),
+            "Translate camera".to_owned(),
+        ),
+        (String::new(), String::new()),
+        (format!("{}", RCLICK), "Select".to_owned()),
+        (
+            format!("{} + {}", SHIFT, RCLICK),
+            "Multiple Select".to_owned(),
+        ),
+    ]
 }
