@@ -155,6 +155,7 @@ pub enum Message {
     ScaffoldIdSet(usize, bool),
     NewScaffoldInfo(Option<ScaffoldInfo>),
     SelectScaffold,
+    Outline(bool),
 }
 
 impl LeftPanel {
@@ -548,6 +549,10 @@ impl Program for LeftPanel {
                 .update_selection(selection, info_values),
             Message::NewScaffoldInfo(info) => self.sequence_tab.set_scaffold_info(info),
             Message::SelectScaffold => self.requests.lock().unwrap().select_scaffold = Some(()),
+            Message::Outline(b) => {
+                self.parameters_tab.draw_outline = b;
+                self.requests.lock().unwrap().draw_outline = Some(b);
+            }
             Message::Nothing => (),
         };
         Command::none()

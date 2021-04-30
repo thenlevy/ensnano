@@ -1027,6 +1027,7 @@ pub struct ParametersTab {
     scroll: scrollable::State,
     scroll_sensitivity_factory: RequestFactory<ScrollSentivity>,
     pub invert_y_scroll: bool,
+    pub draw_outline: bool,
 }
 
 impl ParametersTab {
@@ -1036,11 +1037,18 @@ impl ParametersTab {
             scroll: Default::default(),
             scroll_sensitivity_factory: RequestFactory::new(FactoryId::Scroll, ScrollSentivity {}),
             invert_y_scroll: false,
+            draw_outline: false,
         }
     }
 
     pub(super) fn view<'a>(&'a mut self, ui_size: UiSize) -> Element<'a, Message> {
         let mut ret = Column::new();
+        ret = ret.push(right_checkbox(
+            self.draw_outline,
+            "Cartoon 3D mode",
+            Message::Outline,
+            ui_size.clone(),
+        ));
         ret = ret.push(Text::new("Parameters").size(ui_size.head_text()));
         ret = ret.push(Text::new("Font size"));
         ret = ret.push(PickList::new(

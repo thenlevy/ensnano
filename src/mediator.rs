@@ -177,6 +177,7 @@ pub enum Notification {
     Split2d,
     Redim2dHelices(bool),
     ToggleWidget,
+    DrawOutline(bool),
 }
 
 pub trait Application {
@@ -1356,6 +1357,10 @@ impl Mediator {
         if let Some(info) = scaffold_info {
             self.notify_unique_selection(Selection::Strand(0, info.id as u32), AppId::Mediator)
         }
+    }
+
+    pub fn draw_outline(&mut self, draw: bool) {
+        self.notify_apps(Notification::DrawOutline(draw));
     }
 }
 
