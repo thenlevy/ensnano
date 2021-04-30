@@ -710,6 +710,7 @@ impl Application for Scene {
                 self.data.borrow_mut().toggle_widget_basis();
                 self.update_handle();
             }
+            Notification::DrawOutline(b) => self.view.borrow_mut().draw_outline(b),
         }
     }
 

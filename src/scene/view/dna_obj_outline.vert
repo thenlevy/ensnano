@@ -53,17 +53,18 @@ void main() {
     v_normal = normal_matrix * a_normal;
     v_color = instances[gl_InstanceIndex].color;
     vec3 scale = instances[gl_InstanceIndex].scale;
+    vec3 outline = vec3(1.2);
     if (scale.x > LOW_CRIT && abs(scale.x - scale.y) > 1e-5) {
        scale.y *= 1.3;
        scale.z *= 1.3;
        float shade = smoothstep(LOW_CRIT, HIGH_CRIT, scale.x);
        float grey = 0.25 - 0.25 * shade;
+       outline.x = 1.;
        if (v_color.w > 0.99) {
            v_color = vec4(grey, grey, grey, 1.);
        }
     } 
-    float outline = 1.2;
-    vec4 model_space = model_matrix * vec4((a_position + v_normal * outline) * scale, 1.0); 
+    vec4 model_space = model_matrix * vec4((a_position + v_normal * 0.02) * scale * outline, 1.0); 
 
     if (scale.y < 0.8) {
         float dist = length(u_camera_position - model_space.xyz);
@@ -72,7 +73,7 @@ void main() {
         } else {
           scale /= max(1., (dist / 10.));
         }
-        model_space = model_matrix * vec4((a_position + v_normal * outline) * scale * outline, 1.0); 
+        model_space = model_matrix * vec4((a_position + v_normal * 0.02) * scale * outline, 1.0); 
     }
 
     v_position = model_space.xyz;

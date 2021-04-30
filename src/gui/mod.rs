@@ -115,6 +115,7 @@ pub struct Requests {
     pub delete_selection: bool,
     pub select_scaffold: Option<()>,
     pub scaffold_shift: Option<usize>,
+    pub draw_outline: Option<bool>,
 }
 
 pub enum KeepProceed {
@@ -189,6 +190,7 @@ impl Requests {
             delete_selection: false,
             select_scaffold: None,
             scaffold_shift: None,
+            draw_outline: None,
         }
     }
 }

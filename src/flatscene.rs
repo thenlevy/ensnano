@@ -575,6 +575,7 @@ impl Application for FlatScene {
                 .borrow_mut()
                 .redim_helices(b),
             Notification::ToggleWidget => (),
+            Notification::DrawOutline(_) => (),
         }
     }
 

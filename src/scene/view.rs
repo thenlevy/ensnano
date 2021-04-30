@@ -99,6 +99,7 @@ pub struct View {
     direction_cube: InstanceDrawer<DirectionCube>,
     skybox_cube: InstanceDrawer<SkyBox>,
     fog_parameters: FogParameters,
+    draw_outline: bool,
 }
 
 impl View {
@@ -261,6 +262,7 @@ impl View {
             direction_cube,
             skybox_cube,
             fog_parameters: FogParameters::new(),
+            draw_outline: false,
         }
     }
 
@@ -490,7 +492,7 @@ impl View {
                     self.viewer.get_bindgroup(),
                     self.models.get_bindgroup(),
                 );
-                for drawer in self.dna_drawers.reals() {
+                for drawer in self.dna_drawers.reals(self.draw_outline) {
                     drawer.draw(
                         &mut render_pass,
                         self.viewer.get_bindgroup(),
@@ -779,6 +781,11 @@ impl View {
     pub fn set_selected_grid(&mut self, grids: Vec<(usize, usize)>) {
         self.grid_manager.set_selected_grid(grids)
     }
+
+    pub fn draw_outline(&mut self, draw: bool) {
+        self.draw_outline = draw;
+        self.need_redraw = true;
+    }
 }
 
 /// An notification to be given to the view
@@ -898,12 +905,13 @@ impl DnaDrawers {
         }
     }
 
-    pub fn reals(&mut self) -> Vec<&mut dyn RawDrawer<RawInstance = RawDnaInstance>> {
-        vec![
+    pub fn reals(
+        &mut self,
+        outline: bool,
+    ) -> Vec<&mut dyn RawDrawer<RawInstance = RawDnaInstance>> {
+        let mut ret: Vec<&mut dyn RawDrawer<RawInstance = RawDnaInstance>> = vec![
             &mut self.sphere,
             &mut self.tube,
-            &mut self.outline_tube,
-            &mut self.outline_sphere,
             &mut self.candidate_sphere,
             &mut self.candidate_tube,
             &mut self.selected_sphere,
@@ -917,7 +925,13 @@ impl DnaDrawers {
             &mut self.pivot_sphere,
             &mut self.xover_sphere,
             &mut self.xover_tube,
-        ]
+        ];
+        if outline {
+            ret.insert(2, &mut self.outline_tube);
+            ret.insert(3, &mut self.outline_sphere);
+        }
+
+        ret
     }
 
     pub fn fakes(&mut self) -> Vec<&mut dyn RawDrawer<RawInstance = RawDnaInstance>> {
