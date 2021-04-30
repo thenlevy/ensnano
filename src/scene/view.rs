@@ -337,7 +337,7 @@ impl View {
                     let mut instances = instances.as_ref().clone();
                     for i in instances.iter_mut() {
                         if i.scale.z < 0.99 {
-                            i.scale *= 2.;
+                            i.scale *= 2.5;
                         }
                     }
                     self.need_redraw_fake = true;
