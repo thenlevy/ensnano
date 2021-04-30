@@ -708,6 +708,13 @@ impl Data {
         }
     }
 
+    fn before_simul_save(&mut self) {
+        let name = before_simul_name(&self.file_name);
+        if self.save_file(&name).is_err() {
+            println!("could not save before saving");
+        }
+    }
+
     /// Save the design to a file in the `icednano` format
     pub fn save_file(&mut self, path: &PathBuf) -> std::io::Result<()> {
         self.design.anchors = self.anchors.clone();
@@ -3098,6 +3105,12 @@ fn real_name(path: &PathBuf) -> PathBuf {
         } else {
             "unamed_design"
         }
+    } else if let Some(prefix) = stem.strip_prefix("_before_simulation") {
+        if prefix.len() > 0 {
+            prefix
+        } else {
+            "unamed_design"
+        }
     } else {
         stem
     };
@@ -3112,6 +3125,18 @@ fn backup_name(path: &PathBuf) -> PathBuf {
         .file_stem()
         .and_then(|s| s.to_str())
         .map(|s| format!("{}_recovry", s))
+        .unwrap_or(String::from("unamed_design_recovry"));
+    file_name.set_file_name(format!("{}.json", stem));
+    println!("backup name {:?}", file_name);
+    file_name
+}
+
+fn before_simul_name(path: &PathBuf) -> PathBuf {
+    let mut file_name = path.clone();
+    let stem = path
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .map(|s| format!("{}_before_simulation", s))
         .unwrap_or(String::from("unamed_design_recovry"));
     file_name.set_file_name(format!("{}.json", stem));
     println!("backup name {:?}", file_name);

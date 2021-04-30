@@ -385,13 +385,13 @@ impl GridTab {
                 let row = Row::new()
                     .push(
                         Column::new()
-                            .push(Text::new("Position strand").color(Color::WHITE))
+                            .push(Text::new("Starting position (nt)").color(Color::WHITE))
                             .push(position_input)
                             .width(Length::Units(width / 2)),
                     )
                     .push(
                         Column::new()
-                            .push(Text::new("Length strands").color(Color::WHITE))
+                            .push(Text::new("Length (nt)").color(Color::WHITE))
                             .push(length_input),
                     );
                 ret = ret.push(row);
@@ -1062,6 +1062,10 @@ impl ParametersTab {
             Message::InvertScroll,
             ui_size.clone(),
         ));
+
+        ret = ret.push(iced::Space::with_height(Length::Units(5)));
+        ret = ret.push(Text::new("About this software").size(ui_size.intermediate_text()));
+        ret = ret.push(Text::new("Version 0.1 (2020.05.03) \nDevelopment: Nicolas Levy \nConception: Nicolas Levy & Nicolas Schabanel \nDistributed under GPLv3"));
 
         Scrollable::new(&mut self.scroll).push(ret).into()
     }

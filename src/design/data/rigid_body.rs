@@ -1538,6 +1538,7 @@ impl Data {
         if self.rigid_body_ptr.is_some() {
             self.stop_rigid_body()
         } else {
+            self.before_simul_save();
             self.start_rigid_body(request, computing, parameters)
         }
     }
