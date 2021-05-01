@@ -118,6 +118,9 @@ pub struct Requests {
     pub draw_outline: Option<bool>,
     pub undo: Option<()>,
     pub redo: Option<()>,
+    pub save_shortcut: Option<()>,
+    pub open_shortcut: Option<()>,
+    pub exit_shortcut: Option<()>,
 }
 
 pub enum KeepProceed {
@@ -195,6 +198,9 @@ impl Requests {
             draw_outline: None,
             undo: None,
             redo: None,
+            save_shortcut: None,
+            open_shortcut: None,
+            exit_shortcut: None,
         }
     }
 }

@@ -706,6 +706,18 @@ fn main() {
                     if requests.redo.take().is_some() {
                         mediator.lock().unwrap().redo()
                     }
+
+                    if requests.save_shortcut.take().is_some() {
+                        messages.lock().unwrap().push_save();
+                    }
+
+                    if requests.open_shortcut.take().is_some() {
+                        messages.lock().unwrap().push_open();
+                    }
+
+                    if requests.exit_shortcut.take().is_some() {
+                        *control_flow = ControlFlow::Exit
+                    }
                 }
 
                 if let Some(d_id) = download_stapples {
@@ -1025,6 +1037,16 @@ impl IcedMessages {
                 .push_back(gui::top_bar::Message::CanRedo(redoable));
         }
         self.can_redo = redoable;
+    }
+
+    pub fn push_save(&mut self) {
+        self.top_bar
+            .push_back(gui::top_bar::Message::FileSaveRequested);
+    }
+
+    pub fn push_open(&mut self) {
+        self.top_bar
+            .push_back(gui::top_bar::Message::FileAddRequested);
     }
 }
 

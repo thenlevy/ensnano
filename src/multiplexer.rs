@@ -501,6 +501,15 @@ impl Multiplexer {
                     VirtualKeyCode::H => {
                         self.requests.lock().unwrap().selection_mode = Some(SelectionMode::Helix)
                     }
+                    VirtualKeyCode::S if ctrl(&self.modifiers) => {
+                        self.requests.lock().unwrap().save_shortcut = Some(());
+                    }
+                    VirtualKeyCode::O if ctrl(&self.modifiers) => {
+                        self.requests.lock().unwrap().open_shortcut = Some(());
+                    }
+                    VirtualKeyCode::Q if ctrl(&self.modifiers) && cfg!(target_os = "macos") => {
+                        self.requests.lock().unwrap().exit_shortcut = Some(());
+                    }
                     VirtualKeyCode::S => {
                         self.requests.lock().unwrap().selection_mode = Some(SelectionMode::Strand)
                     }

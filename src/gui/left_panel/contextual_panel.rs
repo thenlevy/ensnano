@@ -246,6 +246,8 @@ fn view_2d_3d_help() -> Vec<(String, String)> {
             "Delete selected strands".to_owned(),
         ),
         (String::new(), String::new()),
+        (format!("{} + S", CTRL), "Save design".to_owned()),
+        (format!("{} + O", CTRL), "Open design".to_owned()),
         (format!("{} + Z", CTRL), "Undo".to_owned()),
         (format!("{} + R", CTRL), "Redo".to_owned()),
         (String::new(), String::new()),
