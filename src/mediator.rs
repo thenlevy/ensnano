@@ -195,6 +195,7 @@ pub enum Notification {
     Redim2dHelices(bool),
     ToggleWidget,
     DrawOutline(bool),
+    DrawSky(bool),
 }
 
 pub trait Application {
@@ -1394,6 +1395,10 @@ impl Mediator {
 
     pub fn draw_outline(&mut self, draw: bool) {
         self.notify_apps(Notification::DrawOutline(draw));
+    }
+
+    pub fn draw_sky(&mut self, draw: bool) {
+        self.notify_apps(Notification::DrawSky(draw));
     }
 }
 

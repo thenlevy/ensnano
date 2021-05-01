@@ -1044,6 +1044,8 @@ pub struct ParametersTab {
     scroll_sensitivity_factory: RequestFactory<ScrollSentivity>,
     pub invert_y_scroll: bool,
     pub draw_outline: bool,
+    pub draw_sky: bool,
+    draw_sky_btn: button::State,
 }
 
 impl ParametersTab {
@@ -1054,18 +1056,29 @@ impl ParametersTab {
             scroll_sensitivity_factory: RequestFactory::new(FactoryId::Scroll, ScrollSentivity {}),
             invert_y_scroll: false,
             draw_outline: false,
+            draw_sky: true,
+            draw_sky_btn: Default::default(),
         }
     }
 
     pub(super) fn view<'a>(&'a mut self, ui_size: UiSize) -> Element<'a, Message> {
         let mut ret = Column::new();
+        ret = ret.push(Text::new("Parameters").size(ui_size.head_text()));
         ret = ret.push(right_checkbox(
             self.draw_outline,
             "Cartoon 3D mode",
             Message::Outline,
             ui_size.clone(),
         ));
-        ret = ret.push(Text::new("Parameters").size(ui_size.head_text()));
+        let draw_sky_btn = if self.draw_sky {
+            text_btn(&mut self.draw_sky_btn, "White", ui_size.clone())
+                .on_press(Message::DrawSky(false))
+        } else {
+            text_btn(&mut self.draw_sky_btn, "Sky", ui_size.clone())
+                .on_press(Message::DrawSky(true))
+        };
+        ret = ret.push(draw_sky_btn);
+        ret = ret.push(Text::new("Background"));
         ret = ret.push(Text::new("Font size"));
         ret = ret.push(PickList::new(
             &mut self.size_pick_list,
@@ -1087,9 +1100,18 @@ impl ParametersTab {
             ui_size.clone(),
         ));
 
+        ret = ret.push(iced::Space::with_height(Length::Units(10)));
+        ret = ret.push(Text::new("About").size(ui_size.head_text()));
+        ret = ret.push(Text::new("Version 0.1 (2020.05.03)"));
         ret = ret.push(iced::Space::with_height(Length::Units(5)));
-        ret = ret.push(Text::new("About this software").size(ui_size.intermediate_text()));
-        ret = ret.push(Text::new("Version 0.1 (2020.05.03) \nDevelopment: Nicolas Levy \nConception: Nicolas Levy & Nicolas Schabanel \nDistributed under GPLv3"));
+        ret = ret.push(Text::new("Development:").size(ui_size.intermediate_text()));
+        ret = ret.push(Text::new("Nicolas Levy"));
+        ret = ret.push(iced::Space::with_height(Length::Units(5)));
+        ret = ret.push(Text::new("Conception:").size(ui_size.intermediate_text()));
+        ret = ret.push(Text::new("Nicolas Levy"));
+        ret = ret.push(Text::new("Nicolas Schabanel"));
+        ret = ret.push(iced::Space::with_height(Length::Units(5)));
+        ret = ret.push(Text::new("Distributed under GPLv3"));
 
         Scrollable::new(&mut self.scroll).push(ret).into()
     }

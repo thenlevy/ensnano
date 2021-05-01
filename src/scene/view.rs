@@ -117,6 +117,7 @@ pub struct View {
     skybox_cube: InstanceDrawer<SkyBox>,
     fog_parameters: FogParameters,
     draw_outline: bool,
+    draw_sky: bool,
 }
 
 impl View {
@@ -280,6 +281,7 @@ impl View {
             skybox_cube,
             fog_parameters: FogParameters::new(),
             draw_outline: false,
+            draw_sky: true,
         }
     }
 
@@ -414,7 +416,7 @@ impl View {
                 None
             };
         }
-        let clear_color = if fake_color {
+        let clear_color = if fake_color || !self.draw_sky {
             wgpu::Color {
                 r: 1.,
                 g: 1.,
@@ -504,11 +506,13 @@ impl View {
                     )
                 }
             } else if draw_type == DrawType::Scene {
-                self.skybox_cube.draw(
-                    &mut render_pass,
-                    self.viewer.get_bindgroup(),
-                    self.models.get_bindgroup(),
-                );
+                if self.draw_sky {
+                    self.skybox_cube.draw(
+                        &mut render_pass,
+                        self.viewer.get_bindgroup(),
+                        self.models.get_bindgroup(),
+                    );
+                }
                 for drawer in self.dna_drawers.reals(self.draw_outline) {
                     drawer.draw(
                         &mut render_pass,
@@ -801,6 +805,11 @@ impl View {
 
     pub fn draw_outline(&mut self, draw: bool) {
         self.draw_outline = draw;
+        self.need_redraw = true;
+    }
+
+    pub fn draw_sky(&mut self, draw: bool) {
+        self.draw_sky = draw;
         self.need_redraw = true;
     }
 }

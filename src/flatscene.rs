@@ -593,6 +593,7 @@ impl Application for FlatScene {
                 .redim_helices(b),
             Notification::ToggleWidget => (),
             Notification::DrawOutline(_) => (),
+            Notification::DrawSky(_) => (),
         }
     }
 

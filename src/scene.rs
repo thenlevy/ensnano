@@ -730,6 +730,7 @@ impl Application for Scene {
                 self.update_handle();
             }
             Notification::DrawOutline(b) => self.view.borrow_mut().draw_outline(b),
+            Notification::DrawSky(b) => self.view.borrow_mut().draw_sky(b),
         }
     }
 

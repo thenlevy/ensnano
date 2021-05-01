@@ -15,12 +15,10 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
-//! `icednano` is a software for designing 3D DNA nanostructures.
+//! `ensnano` is a software for designing 3D DNA nanostructures.
 //!
 //! # Organization of the software
 //!
-//! ![Organization
-//! chart](https://perso.ens-lyon.fr/nicolas.levy/doc_icednano/img/main_chart.jpg)
 //!
 //! The [main](main) function owns the event_loop and the framebuffer. It recieves window events
 //! and handles the framebuffer.
@@ -714,6 +712,10 @@ fn main() {
 
                     if let Some(b) = requests.draw_outline.take() {
                         mediator.lock().unwrap().draw_outline(b);
+                    }
+
+                    if let Some(b) = requests.draw_sky.take() {
+                        mediator.lock().unwrap().draw_sky(b);
                     }
 
                     if requests.undo.take().is_some() {

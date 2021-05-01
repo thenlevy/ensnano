@@ -173,6 +173,7 @@ pub enum Message {
     NewScaffoldInfo(Option<ScaffoldInfo>),
     SelectScaffold,
     Outline(bool),
+    DrawSky(bool),
     ForceHelp,
 }
 
@@ -570,6 +571,10 @@ impl Program for LeftPanel {
             Message::Outline(b) => {
                 self.parameters_tab.draw_outline = b;
                 self.requests.lock().unwrap().draw_outline = Some(b);
+            }
+            Message::DrawSky(b) => {
+                self.parameters_tab.draw_sky = b;
+                self.requests.lock().unwrap().draw_sky = Some(b);
             }
             Message::ForceHelp => self.contextual_panel.force_help = true,
             Message::Nothing => (),
