@@ -78,6 +78,13 @@ pub const ALT: &'static str = if cfg!(target_os = "macos") {
     "alt"
 };
 
+pub const BACKSPACECHAR: char = '\u{232b}';
+pub const SUPPRCHAR: char = '\u{2326}';
+pub const SELECTCHAR: char = '\u{e90c}';
+pub const HELIXCHAR: char = '\u{e913}';
+pub const STRANDCHAR: char = '\u{e901}';
+pub const NUCLCHAR: char = '\u{e900}';
+
 pub const SHIFT: char = '\u{21e7}';
 pub const MOVECHAR: char = '\u{e904}';
 pub const ROTCHAR: char = '\u{e915}';

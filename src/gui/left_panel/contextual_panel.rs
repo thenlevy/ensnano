@@ -32,6 +32,12 @@ impl ContextualPanel {
         let mut column = Column::new().max_width(self.width - 2);
         let selection = &self.selection;
         if *selection == Selection::Nothing || self.force_help {
+            column = column.push(
+                Text::new("Help")
+                    .size(ui_size.head_text())
+                    .width(Length::Fill)
+                    .horizontal_alignment(iced::HorizontalAlignment::Center),
+            );
             column = add_help_to_column(column, "3D view", view_3d_help(), ui_size.clone());
             column = column.push(iced::Space::with_height(Length::Units(15)));
             column = add_help_to_column(column, "2D/3D view", view_2d_3d_help(), ui_size.clone());
@@ -234,6 +240,24 @@ fn view_2d_3d_help() -> Vec<(String, String)> {
         (format!("{} + C", CTRL), "Copy selection".to_owned()),
         (format!("{} + V", CTRL), "Paste".to_owned()),
         (format!("{} + J", CTRL), "Magic Paste".to_owned()),
+        (String::new(), String::new()),
+        (
+            format!("{} or {}", SUPPRCHAR, BACKSPACECHAR),
+            "Delete selected strands".to_owned(),
+        ),
+        (String::new(), String::new()),
+        (format!("{} + Z", CTRL), "Undo".to_owned()),
+        (format!("{} + R", CTRL), "Redo".to_owned()),
+        (String::new(), String::new()),
+        ("Selection mode shortcuts".to_owned(), "".to_owned()),
+        ("'N' key".to_owned(), format!("Nucleotide, ({})", NUCLCHAR)),
+        ("'S' key".to_owned(), format!("Strand ({})", STRANDCHAR)),
+        ("'H' key".to_owned(), format!("Helix ({})", HELIXCHAR)),
+        (String::new(), String::new()),
+        ("Action mode shortcuts".to_owned(), "".to_owned()),
+        ("ESC".to_owned(), format!("Select ({})", SELECTCHAR)),
+        ("'T' key".to_owned(), format!("Translation ({})", MOVECHAR)),
+        ("'R' key".to_owned(), format!("Rotation ({})", ROTCHAR)),
     ]
 }
 
