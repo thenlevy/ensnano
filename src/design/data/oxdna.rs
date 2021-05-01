@@ -183,11 +183,24 @@ impl Data {
         let mut topology_name = self.file_name.clone();
         topology_name.set_extension("top");
         let (config, topo) = self.to_oxdna();
-        if config.write(config_name).is_err() {
+        let mut success = true;
+        if config.write(config_name.clone()).is_err() {
             println!("Could not write config");
+            success = false;
         }
-        if topo.write(topology_name).is_err() {
+        if topo.write(topology_name.clone()).is_err() {
             println!("Could not write topo");
+            success = false;
+        }
+        if success {
+            crate::utils::message(
+                format!(
+                    "Successfully exported to {:?} and {:?}",
+                    config_name, topology_name,
+                )
+                .into(),
+                rfd::MessageLevel::Info,
+            );
         }
     }
 }
