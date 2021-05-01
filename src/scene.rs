@@ -262,9 +262,7 @@ impl Scene {
                         length,
                         position,
                     }));
-                self.data
-                    .borrow_mut()
-                    .set_selection(Some(SceneElement::Grid(design_id, grid_id)));
+                self.select(Some(SceneElement::Grid(design_id, grid_id)));
                 self.view.borrow_mut().update(ViewUpdate::Camera);
                 self.mediator.lock().unwrap().suspend_op();
             }

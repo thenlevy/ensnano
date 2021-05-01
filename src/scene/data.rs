@@ -801,8 +801,7 @@ impl Data {
     }
 
     fn must_draw_phantom(&self) -> bool {
-        let ret = self.selection_mode == SelectionMode::Helix
-            || (self.action_mode.is_build() && self.selection_mode != SelectionMode::Grid);
+        let ret = self.selection_mode == SelectionMode::Helix;
         if ret {
             true
         } else {
