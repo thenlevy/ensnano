@@ -753,6 +753,7 @@ impl Data {
         if !self.read_rigid_helix_update() {
             self.check_rigid_body();
             self.check_rigid_helices();
+            let mut stop_rolling = false;
             if let Some((_, snd_ptr, date)) = self.roller_ptrs.as_mut() {
                 let now = Instant::now();
                 if (now - *date).as_millis() > 30 {
@@ -765,7 +766,11 @@ impl Data {
                     *date = now;
                     self.hash_maps_update = true;
                     self.update_status = true;
+                    stop_rolling = true;
                 }
+            }
+            if stop_rolling {
+                self.stop_rolling()
             }
             if self.hash_maps_update {
                 self.make_hash_maps();

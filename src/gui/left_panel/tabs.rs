@@ -934,7 +934,7 @@ impl SimulationTab {
     }
 
     pub(super) fn notify_sim_request(&mut self) {
-        self.physical_simulation.running ^= true;
+        self.physical_simulation.running = false;
     }
 
     pub(super) fn get_physical_simulation_request(&self) -> SimulationRequest {

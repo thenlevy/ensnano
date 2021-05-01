@@ -320,7 +320,7 @@ impl Program for TopBar {
                 iced::Text::new("\u{e91c}")
                     .width(Length::Fill)
                     .horizontal_alignment(iced::HorizontalAlignment::Right)
-                    .vertical_alignment(iced::VerticalAlignment::Bottom),
+                    .vertical_alignment(iced::VerticalAlignment::Center),
             )
             .push(iced::Space::with_width(Length::Units(10)));
 
