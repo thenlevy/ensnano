@@ -887,6 +887,14 @@ impl Data {
                     let pos2 = self.designs[d_id as usize].get_nucl_position(n2);
                     self.selected_position = pos1.zip(pos2).map(|(a, b)| (a + b) / 2.);
                 }
+                Selection::Xover(d_id, xover_id) => {
+                    if let Some((n1, n2)) = self.designs[d_id as usize].get_xover_with_id(xover_id)
+                    {
+                        let pos1 = self.designs[d_id as usize].get_nucl_position(n1);
+                        let pos2 = self.designs[d_id as usize].get_nucl_position(n2);
+                        self.selected_position = pos1.zip(pos2).map(|(a, b)| (a + b) / 2.);
+                    }
+                }
                 _ => (),
             }
         }

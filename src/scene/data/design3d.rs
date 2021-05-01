@@ -700,6 +700,10 @@ impl Design3D {
         self.design.read().unwrap().get_xover_id(xover)
     }
 
+    pub fn get_xover_with_id(&self, xover_id: usize) -> Option<(Nucl, Nucl)> {
+        self.design.read().unwrap().get_xover_with_id(xover_id)
+    }
+
     pub fn get_builder(&self, element: &SceneElement, stick: bool) -> Option<StrandBuilder> {
         match element {
             SceneElement::DesignElement(_, e_id) => self

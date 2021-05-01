@@ -714,7 +714,7 @@ impl Data {
             ClickResult::CircleWidget { .. } => None,
             ClickResult::Nucl(nucl) => {
                 if let Some(xover) = self.xover_containing_nucl(&nucl) {
-                    let selection = Selection::Bound(self.id, xover.0.to_real(), xover.1.to_real());
+                    let selection = Selection::Xover(self.id, xover);
                     Some(selection)
                 } else {
                     let selection = Selection::Nucleotide(self.id, nucl.to_real());
@@ -752,8 +752,7 @@ impl Data {
                 }
                 _ => {
                     if let Some(xover) = self.xover_containing_nucl(&nucl) {
-                        let selection =
-                            Selection::Bound(self.id, xover.0.to_real(), xover.1.to_real());
+                        let selection = Selection::Xover(self.id, xover);
                         if let Some(pos) = self.selection.iter().position(|x| *x == selection) {
                             self.selection.remove(pos);
                         } else {
@@ -800,13 +799,13 @@ impl Data {
         self.selection_updated = true;
     }
 
-    fn xover_containing_nucl(&self, nucl: &FlatNucl) -> Option<(FlatNucl, FlatNucl)> {
+    fn xover_containing_nucl(&self, nucl: &FlatNucl) -> Option<usize> {
         let xovers_list = self.design.get_xovers_list();
-        xovers_list.iter().find_map(|(_, (n1, n2))| {
+        xovers_list.iter().find_map(|(id, (n1, n2))| {
             if *n1 == *nucl {
-                Some((*n1, *n2))
+                Some(*id)
             } else if *n2 == *nucl {
-                Some((*n1, *n2))
+                Some(*id)
             } else {
                 None
             }
