@@ -676,6 +676,7 @@ impl Mediator {
                             reverse: false,
                             design_id: self.last_selected_design,
                         }));
+                        self.redo_stack.clear();
                         self.pasting.place_paste();
                         self.notify_apps(Notification::Pasting(self.pasting.is_placing_paste()));
                     }
@@ -693,6 +694,7 @@ impl Mediator {
                             reverse: false,
                             design_id: self.last_selected_design,
                         }));
+                        self.redo_stack.clear();
                         self.pasting.place_paste();
                         self.notify_apps(Notification::Pasting(self.pasting.is_placing_paste()));
                     }
@@ -713,6 +715,7 @@ impl Mediator {
                         reverse: false,
                         design_id: self.last_selected_design,
                     }));
+                    self.redo_stack.clear();
                 } else {
                     self.pasting = PastingMode::FirstDulplication;
                 }
@@ -729,6 +732,7 @@ impl Mediator {
                         reverse: false,
                         design_id: self.last_selected_design,
                     }));
+                    self.redo_stack.clear();
                 } else {
                     self.pasting = PastingMode::FirstDulplicationXover;
                 }
@@ -774,7 +778,19 @@ impl Mediator {
             self.canceling_pasting = false;
             self.notify_apps(Notification::Pasting(false))
         }
+        self.update_undo_redo();
         ret
+    }
+
+    fn update_undo_redo(&self) {
+        let can_undo = !self.undo_stack.is_empty()
+            || self.current_operation.is_some()
+            || self.last_op.is_some();
+        let can_redo = !self.redo_stack.is_empty()
+            && self.current_operation.is_none()
+            && self.last_op.is_none();
+        self.messages.lock().unwrap().push_undoable(can_undo);
+        self.messages.lock().unwrap().push_redoable(can_redo);
     }
 
     fn selected_design(&self) -> Option<u32> {
@@ -1134,6 +1150,7 @@ impl Mediator {
                 reverse: false,
                 design_id: self.last_selected_design,
             }));
+            self.redo_stack.clear();
         }
     }
 
@@ -1347,6 +1364,7 @@ impl Mediator {
                 reverse: false,
                 design_id: self.last_selected_design,
             }));
+            self.redo_stack.clear();
         }
         self.notify_multiple_selection(vec![], AppId::Mediator);
         self.notify_apps(Notification::Selection3D(vec![], AppId::Mediator));

@@ -29,6 +29,8 @@ pub struct TopBar {
     #[allow(dead_code)]
     button_replace_file: button::State,
     button_save: button::State,
+    button_undo: button::State,
+    button_redo: button::State,
     button_3d: button::State,
     button_2d: button::State,
     button_split: button::State,
@@ -39,6 +41,8 @@ pub struct TopBar {
     logical_size: LogicalSize<f64>,
     dialoging: Arc<Mutex<bool>>,
     ui_size: UiSize,
+    can_undo: bool,
+    can_redo: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -54,6 +58,10 @@ pub enum Message {
     UiSizeChanged(UiSize),
     OxDNARequested,
     Split2d,
+    CanUndo(bool),
+    CanRedo(bool),
+    Undo,
+    Redo,
 }
 
 impl TopBar {
@@ -67,6 +75,8 @@ impl TopBar {
             button_add_file: Default::default(),
             button_replace_file: Default::default(),
             button_save: Default::default(),
+            button_undo: Default::default(),
+            button_redo: Default::default(),
             button_2d: Default::default(),
             button_3d: Default::default(),
             button_split: Default::default(),
@@ -77,6 +87,8 @@ impl TopBar {
             logical_size,
             dialoging,
             ui_size: Default::default(),
+            can_undo: false,
+            can_redo: false,
         }
     }
 
@@ -236,6 +248,10 @@ impl Program for TopBar {
             Message::UiSizeChanged(ui_size) => self.ui_size = ui_size,
             Message::OxDNARequested => self.requests.lock().unwrap().oxdna = true,
             Message::Split2d => self.requests.lock().unwrap().split2d = true,
+            Message::CanUndo(b) => self.can_undo = b,
+            Message::CanRedo(b) => self.can_redo = b,
+            Message::Undo => self.requests.lock().unwrap().undo = Some(()),
+            Message::Redo => self.requests.lock().unwrap().redo = Some(()),
         };
         Command::none()
     }
@@ -267,6 +283,22 @@ impl Program for TopBar {
         .on_press(Message::FileSaveRequested)
         .height(Length::Units(height));
 
+        let mut button_undo = Button::new(
+            &mut self.button_undo,
+            icon(MaterialIcon::Undo, self.ui_size.clone()),
+        );
+        if self.can_undo {
+            button_undo = button_undo.on_press(Message::Undo)
+        }
+
+        let mut button_redo = Button::new(
+            &mut self.button_redo,
+            icon(MaterialIcon::Redo, self.ui_size.clone()),
+        );
+        if self.can_redo {
+            button_redo = button_redo.on_press(Message::Redo)
+        }
+
         let button_2d = Button::new(&mut self.button_2d, iced::Text::new("2D"))
             .height(Length::Units(self.ui_size.button()))
             .on_press(Message::ToggleView(SplitMode::Flat));
@@ -294,6 +326,9 @@ impl Program for TopBar {
             //.push(button_replace_file)
             .push(button_save)
             .push(button_oxdna)
+            .push(iced::Space::with_width(Length::Units(10)))
+            .push(button_undo)
+            .push(button_redo)
             .push(iced::Space::with_width(Length::Units(30)))
             .push(button_3d)
             .push(button_2d)

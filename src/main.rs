@@ -698,6 +698,14 @@ fn main() {
                     if let Some(b) = requests.draw_outline.take() {
                         mediator.lock().unwrap().draw_outline(b);
                     }
+
+                    if requests.undo.take().is_some() {
+                        mediator.lock().unwrap().undo()
+                    }
+
+                    if requests.redo.take().is_some() {
+                        mediator.lock().unwrap().redo()
+                    }
                 }
 
                 if let Some(d_id) = download_stapples {
@@ -861,6 +869,8 @@ pub struct IcedMessages {
     top_bar: VecDeque<gui::top_bar::Message>,
     color_overlay: VecDeque<gui::left_panel::ColorMessage>,
     status_bar: VecDeque<gui::status_bar::Message>,
+    can_undo: bool,
+    can_redo: bool,
 }
 
 impl IcedMessages {
@@ -871,6 +881,8 @@ impl IcedMessages {
             top_bar: VecDeque::new(),
             color_overlay: VecDeque::new(),
             status_bar: VecDeque::new(),
+            can_undo: false,
+            can_redo: false,
         }
     }
 
@@ -997,6 +1009,22 @@ impl IcedMessages {
     pub fn push_can_make_grid(&mut self, can_make_grid: bool) {
         self.left_panel
             .push_back(gui::left_panel::Message::CanMakeGrid(can_make_grid));
+    }
+
+    pub fn push_undoable(&mut self, undoable: bool) {
+        if self.can_undo != undoable {
+            self.top_bar
+                .push_back(gui::top_bar::Message::CanUndo(undoable));
+        }
+        self.can_undo = undoable;
+    }
+
+    pub fn push_redoable(&mut self, redoable: bool) {
+        if self.can_redo != redoable {
+            self.top_bar
+                .push_back(gui::top_bar::Message::CanRedo(redoable));
+        }
+        self.can_redo = redoable;
     }
 }
 
