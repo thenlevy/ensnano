@@ -747,16 +747,14 @@ impl Mediator {
                 .lock()
                 .unwrap()
                 .push_can_make_grid(can_make_grid);
-            if app_id != AppId::Organizer {
-                let organizer_selection: Vec<DnaElementKey> = selection
-                    .iter()
-                    .filter_map(|s| DnaElementKey::from_selection(s, 0))
-                    .collect();
-                self.messages
-                    .lock()
-                    .unwrap()
-                    .push_organizer_selection(organizer_selection);
-            }
+            let organizer_selection: Vec<DnaElementKey> = selection
+                .iter()
+                .filter_map(|s| DnaElementKey::from_selection(s, 0))
+                .collect();
+            self.messages
+                .lock()
+                .unwrap()
+                .push_organizer_selection(organizer_selection);
             self.notify_apps(Notification::Selection3D(selection, app_id));
         }
 

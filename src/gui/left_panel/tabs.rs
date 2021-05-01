@@ -173,7 +173,6 @@ impl EditionTab {
 
     pub(super) fn get_roll_request(&mut self) -> Option<SimulationRequest> {
         if self.roll_target_helices.len() > 0 {
-            self.roll_target_btn.running = true;
             Some(SimulationRequest {
                 roll: true,
                 springs: false,
