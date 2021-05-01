@@ -66,9 +66,9 @@ pub const fn innactive_color() -> Color {
     Color::from_rgb(0.6, 0.6, 0.6)
 }
 
-pub const CTRL: &'static str = if cfg!(macos) { "\u{2318}" } else { "ctrl" };
+pub const CTRL: &'static str = if cfg!(target_os="macos") { "\u{2318}" } else { "ctrl" };
 
-pub const ALT: &'static str = if cfg!(macos) { "\u{2325}" } else { "alt" };
+pub const ALT: &'static str = if cfg!(target_os="macos") { "\u{2325}" } else { "alt" };
 
 pub const SHIFT: char = '\u{21e7}';
 pub const MOVECHAR: char = '\u{e904}';
