@@ -498,8 +498,8 @@ impl Data {
         let mut ret = FitRectangle {
             min_x: -5.,
             max_x: 15.,
-            min_y: -30.,
-            max_y: 5.,
+            min_y: -5.,
+            max_y: 30.,
         };
         for h in self.helices.iter() {
             let left = h.get_pivot(h.get_left());
