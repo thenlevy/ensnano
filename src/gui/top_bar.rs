@@ -34,7 +34,6 @@ pub struct TopBar {
     button_3d: button::State,
     button_2d: button::State,
     button_split: button::State,
-    button_help: button::State,
     button_oxdna: button::State,
     button_split_2d: button::State,
     requests: Arc<Mutex<Requests>>,
@@ -54,7 +53,6 @@ pub enum Message {
     FileSaveRequested,
     Resize(LogicalSize<f64>),
     ToggleView(SplitMode),
-    HelpRequested,
     UiSizeChanged(UiSize),
     OxDNARequested,
     Split2d,
@@ -80,7 +78,6 @@ impl TopBar {
             button_2d: Default::default(),
             button_3d: Default::default(),
             button_split: Default::default(),
-            button_help: Default::default(),
             button_oxdna: Default::default(),
             button_split_2d: Default::default(),
             requests,
@@ -230,21 +227,6 @@ impl Program for TopBar {
             }
             Message::Resize(size) => self.resize(size),
             Message::ToggleView(b) => self.requests.lock().unwrap().toggle_scene = Some(b),
-            Message::HelpRequested => {
-                let msg = "Change action mode: \n 
-                        Normal: Escape\n
-                        Translate: T\n
-                        Rotate: R\n
-                        Build: A\n
-                        Cut: X\n
-                        \n
-                        Change selection mode: \n
-                        Nucleotide: N\n
-                        Strand: S\n
-                        Helix: H\n
-                        Grid: G\n";
-                crate::utils::message(msg.into(), rfd::MessageLevel::Info);
-            }
             Message::UiSizeChanged(ui_size) => self.ui_size = ui_size,
             Message::OxDNARequested => self.requests.lock().unwrap().oxdna = true,
             Message::Split2d => self.requests.lock().unwrap().split2d = true,
@@ -334,10 +316,6 @@ impl Program for TopBar {
             .push(button_2d)
             .push(button_split)
             .push(button_split_2d)
-            .push(
-                Button::new(&mut self.button_help, iced::Text::new("Help"))
-                    .on_press(Message::HelpRequested),
-            )
             .push(
                 iced::Text::new("ENSnano")
                     .width(Length::Fill)

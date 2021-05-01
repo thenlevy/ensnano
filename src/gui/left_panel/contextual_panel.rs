@@ -8,6 +8,8 @@ pub(super) struct ContextualPanel {
     info_values: Vec<Cow<'static, str>>,
     scroll: scrollable::State,
     width: u32,
+    pub force_help: bool,
+    help_btn: button::State,
 }
 
 impl ContextualPanel {
@@ -17,6 +19,8 @@ impl ContextualPanel {
             info_values: vec![],
             scroll: Default::default(),
             width,
+            force_help: false,
+            help_btn: Default::default(),
         }
     }
 
@@ -27,13 +31,23 @@ impl ContextualPanel {
     pub fn view(&mut self, ui_size: UiSize) -> Element<Message> {
         let mut column = Column::new().max_width(self.width - 2);
         let selection = &self.selection;
-        if *selection == Selection::Nothing {
+        if *selection == Selection::Nothing || self.force_help {
             column = add_help_to_column(column, "3D view", view_3d_help(), ui_size.clone());
             column = column.push(iced::Space::with_height(Length::Units(15)));
             column = add_help_to_column(column, "2D/3D view", view_2d_3d_help(), ui_size.clone());
             column = column.push(iced::Space::with_height(Length::Units(15)));
             column = add_help_to_column(column, "2D view", view_2d_help(), ui_size.clone());
         } else {
+            let help_btn =
+                text_btn(&mut self.help_btn, "Help", ui_size.clone()).on_press(Message::ForceHelp);
+            column = column.push(
+                Row::new()
+                    .width(Length::Fill)
+                    .push(iced::Space::with_width(Length::FillPortion(1)))
+                    .align_items(iced::Align::Center)
+                    .push(Column::new().width(Length::FillPortion(1)).push(help_btn))
+                    .push(iced::Space::with_width(Length::FillPortion(1))),
+            );
             column = column.push(Text::new(selection.info()).size(ui_size.main_text()));
 
             match selection {
@@ -77,6 +91,7 @@ impl ContextualPanel {
     pub fn update_selection(&mut self, selection: Selection, info_values: Vec<String>) {
         self.selection = selection;
         self.info_values = info_values.into_iter().map(|s| s.into()).collect();
+        self.force_help = false;
     }
 }
 

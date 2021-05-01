@@ -156,6 +156,7 @@ pub enum Message {
     NewScaffoldInfo(Option<ScaffoldInfo>),
     SelectScaffold,
     Outline(bool),
+    ForceHelp,
 }
 
 impl LeftPanel {
@@ -553,6 +554,7 @@ impl Program for LeftPanel {
                 self.parameters_tab.draw_outline = b;
                 self.requests.lock().unwrap().draw_outline = Some(b);
             }
+            Message::ForceHelp => self.contextual_panel.force_help = true,
             Message::Nothing => (),
         };
         Command::none()
