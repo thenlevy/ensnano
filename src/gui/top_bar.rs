@@ -321,7 +321,8 @@ impl Program for TopBar {
                     .width(Length::Fill)
                     .horizontal_alignment(iced::HorizontalAlignment::Right)
                     .vertical_alignment(iced::VerticalAlignment::Bottom),
-            ).push(iced::Space::with_width(Length::Units(10)));
+            )
+            .push(iced::Space::with_width(Length::Units(10)));
 
         Container::new(buttons)
             .width(Length::Units(self.logical_size.width as u16))

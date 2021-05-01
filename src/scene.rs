@@ -179,8 +179,11 @@ impl Scene {
                 }
             }
             Consequence::Swing(x, y) => {
-                self.data.borrow_mut().try_update_pivot_position();
-                let pivot = self.data.borrow().get_pivot_position();
+                let mut pivot = self.data.borrow().get_pivot_position();
+                if pivot.is_none() {
+                    self.data.borrow_mut().try_update_pivot_position();
+                    pivot = self.data.borrow().get_pivot_position();
+                }
                 self.controller.set_pivot_point(pivot);
                 self.controller.swing(-x, -y);
                 self.notify(SceneNotification::CameraMoved);
@@ -283,9 +286,9 @@ impl Scene {
 
     pub fn make_hyperboloid(&self, hyperboloid: Hyperboloid) {
         let camera = self.view.borrow().get_camera();
-        let position = camera.borrow().position + 30_f32 * camera.borrow().direction()
-            - 2f32 * camera.borrow().right_vec();
-        let orientation = camera.borrow().rotor.reversed();
+        let position = camera.borrow().position + 40_f32 * camera.borrow().direction();
+        let orientation = camera.borrow().rotor.reversed()
+            * Rotor3::from_rotation_xz(std::f32::consts::FRAC_PI_2);
         self.mediator
             .lock()
             .unwrap()
@@ -296,6 +299,7 @@ impl Scene {
                 hyperboloid,
                 delete: false,
             }));
+        self.data.borrow_mut().set_pivot_position(position);
         self.data.borrow_mut().notify_instance_update();
         self.mediator.lock().unwrap().suspend_op();
     }

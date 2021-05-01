@@ -152,6 +152,11 @@ impl Data {
         self.update_pivot_position();
     }
 
+    pub fn set_pivot_position(&mut self, position: Vec3) {
+        self.pivot_position = Some(position);
+        self.pivot_update = true;
+    }
+
     #[allow(dead_code)]
     fn get_element_design(&self, element: &SceneElement) -> u32 {
         match element {
