@@ -317,10 +317,11 @@ impl Program for TopBar {
             .push(button_split)
             .push(button_split_2d)
             .push(
-                iced::Text::new("ENSnano")
+                iced::Text::new("\u{e91c}")
                     .width(Length::Fill)
-                    .horizontal_alignment(iced::HorizontalAlignment::Right),
-            );
+                    .horizontal_alignment(iced::HorizontalAlignment::Right)
+                    .vertical_alignment(iced::VerticalAlignment::Bottom),
+            ).push(iced::Space::with_width(Length::Units(10)));
 
         Container::new(buttons)
             .width(Length::Units(self.logical_size.width as u16))
