@@ -160,7 +160,7 @@ impl Design3D {
 
     /// Convert return an instance representing the object with identifier `id` and custom
     /// color and radius.
-    pub fn make_instance(&self, id: u32, color: u32, radius: f32) -> Option<RawDnaInstance> {
+    pub fn make_instance(&self, id: u32, color: u32, mut radius: f32) -> Option<RawDnaInstance> {
         let kind = self.get_object_type(id)?;
         let referential = Referential::Model;
         let instanciable = match kind {
@@ -177,7 +177,10 @@ impl Design3D {
                 let id = id | self.id << 24;
                 let color = Instance::color_from_au32(color);
                 let small = self.design.read().unwrap().has_small_spheres_nucl_id(id);
-                let radius = if small { radius / 3.5 } else { radius };
+                if radius > 1.01 && small {
+                    radius *= 2.5;
+                }
+                radius = if small { radius / 3.5 } else { radius };
                 SphereInstance {
                     position,
                     radius,
