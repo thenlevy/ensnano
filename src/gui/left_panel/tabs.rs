@@ -691,7 +691,9 @@ impl CameraTab {
         ret = ret.push(self.fog.view(&ui_size));
 
         ret = ret.push(iced::Space::with_height(Length::Units(2)));
-        ret = ret.push(Text::new("RenderingMode").size(ui_size.intermediate_text()));
+        ret = ret.push(Text::new("Rendering").size(ui_size.intermediate_text()));
+        ret = ret.push(Text::new("Style"));
+        ret = ret.push(iced::Space::with_height(Length::Units(2)));
         ret = ret.push(PickList::new(
             &mut self.rendering_mode_picklist,
             &ALL_RENDERING_MODE[..],
@@ -699,7 +701,8 @@ impl CameraTab {
             Message::RenderingMode,
         ));
         ret = ret.push(iced::Space::with_height(Length::Units(2)));
-        ret = ret.push(Text::new("3D view background").size(ui_size.intermediate_text()));
+        ret = ret.push(Text::new("Background"));
+        ret = ret.push(iced::Space::with_height(Length::Units(2)));
         ret = ret.push(PickList::new(
             &mut self.background3d_picklist,
             &ALL_BACKGROUND3D[..],
@@ -1267,7 +1270,7 @@ impl SequenceTab {
                 nucl.position
             )
         } else {
-            "Helix — \n strand — \n nt —".to_owned()
+            "Helix #— \nstrand — \nnt #—".to_owned()
         };
         let mut nucl_text = Text::new(nucl_text).size(ui_size.main_text());
         if starting_nucl.is_none() {
