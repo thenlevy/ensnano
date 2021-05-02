@@ -246,13 +246,14 @@ pub(super) struct GridTab {
 
 impl GridTab {
     pub fn new() -> Self {
+        let default_helix_length = 48;
         Self {
             action_mode_state: Default::default(),
             scroll: Default::default(),
             helix_pos: 0,
-            helix_length: 0,
+            helix_length: default_helix_length,
             pos_str: "0".to_owned(),
-            length_str: "0".to_owned(),
+            length_str: default_helix_length.to_string().to_owned(),
             builder_input: Default::default(),
             make_square_grid_btn: Default::default(),
             make_honeycomb_grid_btn: Default::default(),
@@ -299,7 +300,49 @@ impl GridTab {
             .spacing(5);
         ret = ret.push(grid_buttons);
 
-        ret = ret.push(iced::Space::with_height(Length::Units(5)));
+        ret = ret.push(iced::Space::with_height(Length::Units(1)));
+
+        let mut inputs = self.builder_input.iter_mut();
+        let position_input = TextInput::new(
+            inputs.next().unwrap(),
+            "Position",
+            &self.pos_str,
+            Message::PositionHelicesChanged,
+        )
+        .style(BadValue(self.pos_str == self.helix_pos.to_string()));
+
+        let length_input = TextInput::new(
+            inputs.next().unwrap(),
+            "Length",
+            &self.length_str,
+            Message::LengthHelicesChanged,
+        )
+        .style(BadValue(self.length_str == self.helix_length.to_string()));
+
+        ret = ret.push(right_checkbox(
+                self.show_strand_menu,
+                "Add double strand on helix",
+                Message::AddDoubleStrandHelix,
+                ui_size.clone(),
+        ));
+        let color_white = Color::WHITE;
+        let color_gray = Color { r: 0.6, g: 0.6, b: 0.6, a: 1.0 };
+        let color_choose_strand_start_length = if self.show_strand_menu { color_white } else { color_gray };
+        let row = Row::new()
+            .push(
+                Column::new()
+                    .push(Text::new("Starting nt").color(color_choose_strand_start_length))
+                    .push(position_input)
+                    .width(Length::Units(width / 2)),
+                )
+            .push(
+                Column::new()
+                    .push(Text::new("Length (nt)").color(color_choose_strand_start_length))
+                    .push(length_input),
+                );
+        ret = ret.push(row);
+    
+        ret = ret.push(iced::Space::with_height(Length::Units(3)));
 
         let nanotube_title = Row::new().push(Text::new("New nanotube"));
 
@@ -373,46 +416,6 @@ impl GridTab {
             ret = ret.push(row)
         }
 
-        let mut inputs = self.builder_input.iter_mut();
-        let position_input = TextInput::new(
-            inputs.next().unwrap(),
-            "Position",
-            &self.pos_str,
-            Message::PositionHelicesChanged,
-        )
-        .style(BadValue(self.pos_str == self.helix_pos.to_string()));
-
-        let length_input = TextInput::new(
-            inputs.next().unwrap(),
-            "Length",
-            &self.length_str,
-            Message::LengthHelicesChanged,
-        )
-        .style(BadValue(self.length_str == self.helix_length.to_string()));
-
-        if let ActionMode::BuildHelix { .. } = action_mode {
-            ret = ret.push(right_checkbox(
-                self.show_strand_menu,
-                "Add double strand on helix",
-                Message::AddDoubleStrandHelix,
-                ui_size.clone(),
-            ));
-            if self.show_strand_menu {
-                let row = Row::new()
-                    .push(
-                        Column::new()
-                            .push(Text::new("Starting position (nt)").color(Color::WHITE))
-                            .push(position_input)
-                            .width(Length::Units(width / 2)),
-                    )
-                    .push(
-                        Column::new()
-                            .push(Text::new("Length (nt)").color(Color::WHITE))
-                            .push(length_input),
-                    );
-                ret = ret.push(row);
-            }
-        }
 
         ret = ret.push(iced::Space::with_height(Length::Units(5)));
         ret = ret.push(Text::new("Guess grid").size(ui_size.intermediate_text()));
@@ -1119,7 +1122,7 @@ impl ParametersTab {
         ret = ret.push(Text::new("Nicolas Levy"));
         ret = ret.push(Text::new("Nicolas Schabanel"));
         ret = ret.push(iced::Space::with_height(Length::Units(5)));
-        ret = ret.push(Text::new("License").size(ui_size.intermediate_text()));
+        ret = ret.push(Text::new("License:").size(ui_size.intermediate_text()));
         ret = ret.push(Text::new("GPLv3"));
 
         Scrollable::new(&mut self.scroll).push(ret).into()
@@ -1263,12 +1266,12 @@ impl SequenceTab {
             .scaffold_info
             .as_ref()
             .and_then(|info| info.starting_nucl);
-        macro_rules! nucl_text_fmt {() => ("   Helix #{}\n   Strand #{}\n   Nt #{}")}
+        macro_rules! nucl_text_fmt {() => ("   Helix #{}\n   Strand: {}\n   Nt #{}")}
         let nucl_text = if let Some(nucl) = starting_nucl {
             format!(
                 nucl_text_fmt!(),
                 nucl.helix,
-                if nucl.forward { "forward" } else { "backward" },
+                if nucl.forward { "→ forward" } else { "← backward" }, // Pourquoi pas "→" et "←" ?
                 nucl.position
             )
         } else {
