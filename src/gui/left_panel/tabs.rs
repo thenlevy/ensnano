@@ -692,8 +692,8 @@ impl CameraTab {
 
         ret = ret.push(iced::Space::with_height(Length::Units(2)));
         ret = ret.push(Text::new("Rendering").size(ui_size.intermediate_text()));
-        ret = ret.push(Text::new("Style"));
         ret = ret.push(iced::Space::with_height(Length::Units(2)));
+        ret = ret.push(Text::new("Style"));
         ret = ret.push(PickList::new(
             &mut self.rendering_mode_picklist,
             &ALL_RENDERING_MODE[..],
@@ -702,7 +702,6 @@ impl CameraTab {
         ));
         ret = ret.push(iced::Space::with_height(Length::Units(2)));
         ret = ret.push(Text::new("Background"));
-        ret = ret.push(iced::Space::with_height(Length::Units(2)));
         ret = ret.push(PickList::new(
             &mut self.background3d_picklist,
             &ALL_BACKGROUND3D[..],
@@ -1120,7 +1119,8 @@ impl ParametersTab {
         ret = ret.push(Text::new("Nicolas Levy"));
         ret = ret.push(Text::new("Nicolas Schabanel"));
         ret = ret.push(iced::Space::with_height(Length::Units(5)));
-        ret = ret.push(Text::new("Distributed under GPLv3"));
+        ret = ret.push(Text::new("License").size(ui_size.intermediate_text()));
+        ret = ret.push(Text::new("GPLv3"));
 
         Scrollable::new(&mut self.scroll).push(ret).into()
     }

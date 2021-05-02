@@ -274,7 +274,7 @@ fn view_2d_3d_help() -> Vec<(String, String)> {
     vec![
         (format!("{} + C", CTRL), "Copy selection".to_owned()),
         (format!("{} + V", CTRL), "Paste".to_owned()),
-        (format!("{} + J", CTRL), "Magic Paste".to_owned()),
+        (format!("{} + J", CTRL), "Paste & repeat".to_owned()),
         (String::new(), String::new()),
         (
             format!("{} or {}", SUPPRCHAR, BACKSPACECHAR),
@@ -327,7 +327,7 @@ fn view_2d_help() -> Vec<(String, String)> {
             "Translate selected helices".to_owned(),
         ),
         (
-            format!("{} Drac", RCLICK),
+            format!("{} Drag", RCLICK),
             "Rotate selected helices".to_owned(),
         ),
         (String::new(), String::new()),

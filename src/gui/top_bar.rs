@@ -344,7 +344,7 @@ impl Program for TopBar {
             .push(iced::Space::with_width(Length::Units(10)))
             .push(button_undo)
             .push(button_redo)
-            .push(iced::Space::with_width(Length::Units(30)))
+            .push(iced::Space::with_width(Length::Units(10)))
             .push(button_3d)
             .push(button_2d)
             .push(button_split)
