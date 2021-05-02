@@ -172,9 +172,9 @@ pub enum Message {
     ScaffoldIdSet(usize, bool),
     NewScaffoldInfo(Option<ScaffoldInfo>),
     SelectScaffold,
-    Outline(bool),
-    DrawSky(bool),
     ForceHelp,
+    RenderingMode(crate::mediator::RenderingMode),
+    Background3D(crate::mediator::Background3D),
 }
 
 impl LeftPanel {
@@ -568,13 +568,13 @@ impl Program for LeftPanel {
                 .update_selection(selection, info_values),
             Message::NewScaffoldInfo(info) => self.sequence_tab.set_scaffold_info(info),
             Message::SelectScaffold => self.requests.lock().unwrap().select_scaffold = Some(()),
-            Message::Outline(b) => {
-                self.parameters_tab.draw_outline = b;
-                self.requests.lock().unwrap().draw_outline = Some(b);
+            Message::RenderingMode(mode) => {
+                self.requests.lock().unwrap().rendering_mode = Some(mode.clone());
+                self.camera_tab.rendering_mode = mode;
             }
-            Message::DrawSky(b) => {
-                self.parameters_tab.draw_sky = b;
-                self.requests.lock().unwrap().draw_sky = Some(b);
+            Message::Background3D(bg) => {
+                self.requests.lock().unwrap().background3d = Some(bg.clone());
+                self.camera_tab.background3d = bg;
             }
             Message::ForceHelp => self.contextual_panel.force_help = true,
             Message::Nothing => (),

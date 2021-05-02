@@ -710,12 +710,12 @@ fn main() {
                         mediator.lock().unwrap().set_scaffold_shift(n);
                     }
 
-                    if let Some(b) = requests.draw_outline.take() {
-                        mediator.lock().unwrap().draw_outline(b);
+                    if let Some(mode) = requests.rendering_mode.take() {
+                        mediator.lock().unwrap().rendering_mode(mode);
                     }
 
-                    if let Some(b) = requests.draw_sky.take() {
-                        mediator.lock().unwrap().draw_sky(b);
+                    if let Some(bg) = requests.background3d.take() {
+                        mediator.lock().unwrap().background3d(bg);
                     }
 
                     if requests.undo.take().is_some() {

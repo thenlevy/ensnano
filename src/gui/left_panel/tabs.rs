@@ -625,12 +625,18 @@ impl CameraShortcut {
     }
 }
 
+use crate::mediator::{Background3D, RenderingMode, ALL_BACKGROUND3D, ALL_RENDERING_MODE};
+
 pub(super) struct CameraTab {
     fog: FogParameters,
     scroll: scrollable::State,
     selection_visibility_btn: button::State,
     compl_visibility_btn: button::State,
     all_visible_btn: button::State,
+    pub background3d: Background3D,
+    background3d_picklist: pick_list::State<Background3D>,
+    pub rendering_mode: RenderingMode,
+    rendering_mode_picklist: pick_list::State<RenderingMode>,
 }
 
 impl CameraTab {
@@ -641,6 +647,10 @@ impl CameraTab {
             selection_visibility_btn: Default::default(),
             compl_visibility_btn: Default::default(),
             all_visible_btn: Default::default(),
+            background3d: Default::default(),
+            background3d_picklist: Default::default(),
+            rendering_mode: Default::default(),
+            rendering_mode_picklist: Default::default(),
         }
     }
 
@@ -679,6 +689,23 @@ impl CameraTab {
             .on_press(Message::AllVisible),
         );
         ret = ret.push(self.fog.view(&ui_size));
+
+        ret = ret.push(iced::Space::with_height(Length::Units(2)));
+        ret = ret.push(Text::new("RenderingMode").size(ui_size.intermediate_text()));
+        ret = ret.push(PickList::new(
+            &mut self.rendering_mode_picklist,
+            &ALL_RENDERING_MODE[..],
+            Some(self.rendering_mode),
+            Message::RenderingMode,
+        ));
+        ret = ret.push(iced::Space::with_height(Length::Units(2)));
+        ret = ret.push(Text::new("3D view background").size(ui_size.intermediate_text()));
+        ret = ret.push(PickList::new(
+            &mut self.background3d_picklist,
+            &ALL_BACKGROUND3D[..],
+            Some(self.background3d),
+            Message::Background3D,
+        ));
 
         Scrollable::new(&mut self.scroll).push(ret).into()
     }
@@ -1043,9 +1070,6 @@ pub struct ParametersTab {
     scroll: scrollable::State,
     scroll_sensitivity_factory: RequestFactory<ScrollSentivity>,
     pub invert_y_scroll: bool,
-    pub draw_outline: bool,
-    pub draw_sky: bool,
-    draw_sky_btn: button::State,
 }
 
 impl ParametersTab {
@@ -1055,30 +1079,12 @@ impl ParametersTab {
             scroll: Default::default(),
             scroll_sensitivity_factory: RequestFactory::new(FactoryId::Scroll, ScrollSentivity {}),
             invert_y_scroll: false,
-            draw_outline: false,
-            draw_sky: true,
-            draw_sky_btn: Default::default(),
         }
     }
 
     pub(super) fn view<'a>(&'a mut self, ui_size: UiSize) -> Element<'a, Message> {
         let mut ret = Column::new();
         ret = ret.push(Text::new("Parameters").size(ui_size.head_text()));
-        ret = ret.push(right_checkbox(
-            self.draw_outline,
-            "Cartoon 3D mode",
-            Message::Outline,
-            ui_size.clone(),
-        ));
-        let draw_sky_btn = if self.draw_sky {
-            text_btn(&mut self.draw_sky_btn, "White", ui_size.clone())
-                .on_press(Message::DrawSky(false))
-        } else {
-            text_btn(&mut self.draw_sky_btn, "Sky", ui_size.clone())
-                .on_press(Message::DrawSky(true))
-        };
-        ret = ret.push(draw_sky_btn);
-        ret = ret.push(Text::new("Background"));
         ret = ret.push(Text::new("Font size"));
         ret = ret.push(PickList::new(
             &mut self.size_pick_list,

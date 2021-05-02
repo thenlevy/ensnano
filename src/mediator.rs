@@ -47,8 +47,10 @@ use design::{
 };
 use ensnano_organizer::OrganizerTree;
 
+mod graphic_options;
 mod operation;
 mod selection;
+pub use graphic_options::*;
 pub use operation::*;
 pub use selection::*;
 
@@ -194,8 +196,8 @@ pub enum Notification {
     Split2d,
     Redim2dHelices(bool),
     ToggleWidget,
-    DrawOutline(bool),
-    DrawSky(bool),
+    Background3D(Background3D),
+    RenderingMode(RenderingMode),
 }
 
 pub trait Application {
@@ -1394,12 +1396,12 @@ impl Mediator {
         }
     }
 
-    pub fn draw_outline(&mut self, draw: bool) {
-        self.notify_apps(Notification::DrawOutline(draw));
+    pub fn rendering_mode(&mut self, mode: RenderingMode) {
+        self.notify_apps(Notification::RenderingMode(mode));
     }
 
-    pub fn draw_sky(&mut self, draw: bool) {
-        self.notify_apps(Notification::DrawSky(draw));
+    pub fn background3d(&mut self, bg: Background3D) {
+        self.notify_apps(Notification::Background3D(bg));
     }
 }
 

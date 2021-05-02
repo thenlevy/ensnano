@@ -79,6 +79,8 @@ static MODEL_BG_ENTRY: &'static [wgpu::BindGroupLayoutEntry] = &[wgpu::BindGroup
     count: None,
 }];
 
+use crate::mediator::{Background3D, RenderingMode};
+
 /// An object that handles the communication with the GPU to draw the scene.
 pub struct View {
     /// The camera, that is in charge of producing the view and projection matrices.
@@ -116,8 +118,8 @@ pub struct View {
     direction_cube: InstanceDrawer<DirectionCube>,
     skybox_cube: InstanceDrawer<SkyBox>,
     fog_parameters: FogParameters,
-    draw_outline: bool,
-    draw_sky: bool,
+    rendering_mode: RenderingMode,
+    background3d: Background3D,
 }
 
 impl View {
@@ -280,8 +282,8 @@ impl View {
             direction_cube,
             skybox_cube,
             fog_parameters: FogParameters::new(),
-            draw_outline: false,
-            draw_sky: true,
+            rendering_mode: Default::default(),
+            background3d: Default::default(),
         }
     }
 
@@ -416,7 +418,7 @@ impl View {
                 None
             };
         }
-        let clear_color = if fake_color || !self.draw_sky {
+        let clear_color = if fake_color || self.background3d == Background3D::White {
             wgpu::Color {
                 r: 1.,
                 g: 1.,
@@ -506,14 +508,14 @@ impl View {
                     )
                 }
             } else if draw_type == DrawType::Scene {
-                if self.draw_sky {
+                if self.background3d == Background3D::Sky {
                     self.skybox_cube.draw(
                         &mut render_pass,
                         self.viewer.get_bindgroup(),
                         self.models.get_bindgroup(),
                     );
                 }
-                for drawer in self.dna_drawers.reals(self.draw_outline) {
+                for drawer in self.dna_drawers.reals(self.rendering_mode) {
                     drawer.draw(
                         &mut render_pass,
                         self.viewer.get_bindgroup(),
@@ -803,13 +805,13 @@ impl View {
         self.grid_manager.set_selected_grid(grids)
     }
 
-    pub fn draw_outline(&mut self, draw: bool) {
-        self.draw_outline = draw;
+    pub fn rendering_mode(&mut self, mode: RenderingMode) {
+        self.rendering_mode = mode;
         self.need_redraw = true;
     }
 
-    pub fn draw_sky(&mut self, draw: bool) {
-        self.draw_sky = draw;
+    pub fn background3d(&mut self, bg: Background3D) {
+        self.background3d = bg;
         self.need_redraw = true;
     }
 }
@@ -933,7 +935,7 @@ impl DnaDrawers {
 
     pub fn reals(
         &mut self,
-        outline: bool,
+        rendering_mode: RenderingMode,
     ) -> Vec<&mut dyn RawDrawer<RawInstance = RawDnaInstance>> {
         let mut ret: Vec<&mut dyn RawDrawer<RawInstance = RawDnaInstance>> = vec![
             &mut self.sphere,
@@ -952,7 +954,7 @@ impl DnaDrawers {
             &mut self.xover_sphere,
             &mut self.xover_tube,
         ];
-        if outline {
+        if rendering_mode == RenderingMode::Cartoon {
             ret.insert(2, &mut self.outline_tube);
             ret.insert(3, &mut self.outline_sphere);
         }

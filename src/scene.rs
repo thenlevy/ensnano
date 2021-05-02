@@ -729,8 +729,8 @@ impl Application for Scene {
                 self.data.borrow_mut().toggle_widget_basis();
                 self.update_handle();
             }
-            Notification::DrawOutline(b) => self.view.borrow_mut().draw_outline(b),
-            Notification::DrawSky(b) => self.view.borrow_mut().draw_sky(b),
+            Notification::RenderingMode(mode) => self.view.borrow_mut().rendering_mode(mode),
+            Notification::Background3D(bg) => self.view.borrow_mut().background3d(bg),
         }
     }
 
