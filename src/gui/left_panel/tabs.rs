@@ -300,8 +300,6 @@ impl GridTab {
             .spacing(5);
         ret = ret.push(grid_buttons);
 
-        ret = ret.push(iced::Space::with_height(Length::Units(1)));
-
         let mut inputs = self.builder_input.iter_mut();
         let position_input = TextInput::new(
             inputs.next().unwrap(),
