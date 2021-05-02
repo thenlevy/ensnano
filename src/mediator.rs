@@ -969,6 +969,7 @@ impl Mediator {
             self.apply_operation(rev_op.target(), rev_op.effect());
             self.notify_all_designs(AppNotification::MovementEnded);
             self.redo_stack.push(rev_op);
+            self.notify_multiple_selection(vec![], AppId::Mediator);
         }
     }
 

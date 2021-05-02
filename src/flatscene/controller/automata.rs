@@ -830,8 +830,18 @@ impl ControllerState for ReleasedPivot {
                         consequences: Consequence::Nothing,
                     }
                 } else {
+                    let (x, y) = controller.get_camera(position.y).borrow().screen_to_world(
+                        self.mouse_position.x as f32,
+                        self.mouse_position.y as f32,
+                    );
+                    let click_result = controller.data.borrow().get_click(
+                        x,
+                        y,
+                        &controller.get_camera(position.y),
+                    );
                     Transition {
-                        new_state: Some(Box::new(NormalState {
+                        new_state: Some(Box::new(AddClick {
+                            click_result,
                             mouse_position: self.mouse_position,
                         })),
                         consequences: Consequence::Nothing,
@@ -1088,14 +1098,36 @@ impl ControllerState for Rotating {
                         y,
                         &controller.get_camera(position.y),
                     );
-                    Transition {
-                        new_state: Some(Box::new(NormalState {
-                            mouse_position: position,
-                        })),
-                        consequences: Consequence::AddClick(
-                            click_result,
-                            controller.modifiers.shift(),
-                        ),
+                    let pivots_opt = if controller.modifiers.shift() {
+                        controller.data.borrow_mut().add_helix_selection(
+                            click_result.clone(),
+                            &controller.get_camera(position.y),
+                        )
+                    } else {
+                        controller.data.borrow_mut().set_helix_selection(
+                            click_result.clone(),
+                            &controller.get_camera(position.y),
+                        )
+                    };
+                    if let Some((translation_pivots, rotation_pivots)) = pivots_opt {
+                        Transition {
+                            new_state: Some(Box::new(ReleasedPivot {
+                                mouse_position: self.mouse_position,
+                                translation_pivots,
+                                rotation_pivots,
+                            })),
+                            consequences: Consequence::SelectionChanged,
+                        }
+                    } else {
+                        Transition {
+                            new_state: Some(Box::new(NormalState {
+                                mouse_position: position,
+                            })),
+                            consequences: Consequence::AddClick(
+                                click_result,
+                                controller.modifiers.shift(),
+                            ),
+                        }
                     }
                 } else {
                     Transition {
@@ -2574,12 +2606,18 @@ impl ControllerState for AddClick {
                         .borrow()
                         .get_click(x, y, &controller.get_camera(position.y));
                 if let ClickResult::CircleWidget { .. } = click {
-                    if let Some((translation_pivots, rotation_pivots)) = controller
-                        .data
-                        .borrow_mut()
-                        .add_helix_selection(click.clone(), &controller.get_camera(position.y))
-                        .filter(|_| click == self.click_result)
-                    {
+                    let pivots_opt = if controller.modifiers.shift() {
+                        controller
+                            .data
+                            .borrow_mut()
+                            .add_helix_selection(click, &controller.get_camera(position.y))
+                    } else {
+                        controller
+                            .data
+                            .borrow_mut()
+                            .set_helix_selection(click, &controller.get_camera(position.y))
+                    };
+                    if let Some((translation_pivots, rotation_pivots)) = pivots_opt {
                         Transition {
                             new_state: Some(Box::new(ReleasedPivot {
                                 mouse_position: position,
@@ -2723,7 +2761,7 @@ impl ControllerState for AddClickPivots {
     }
 
     fn display(&self) -> String {
-        String::from("AddClick")
+        String::from("AddClickPivots")
     }
 
     fn input(
@@ -2755,11 +2793,18 @@ impl ControllerState for AddClickPivots {
                         .borrow()
                         .get_click(x, y, &controller.get_camera(position.y));
                 if click == self.click_result {
-                    if let Some((translation_pivots, rotation_pivots)) = controller
-                        .data
-                        .borrow_mut()
-                        .add_helix_selection(click, &controller.get_camera(position.y))
-                    {
+                    let pivots_opt = if controller.modifiers.shift() {
+                        controller
+                            .data
+                            .borrow_mut()
+                            .add_helix_selection(click, &controller.get_camera(position.y))
+                    } else {
+                        controller
+                            .data
+                            .borrow_mut()
+                            .set_helix_selection(click, &controller.get_camera(position.y))
+                    };
+                    if let Some((translation_pivots, rotation_pivots)) = pivots_opt {
                         Transition {
                             new_state: Some(Box::new(ReleasedPivot {
                                 mouse_position: self.mouse_position,
