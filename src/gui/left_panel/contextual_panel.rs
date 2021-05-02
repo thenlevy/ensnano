@@ -132,6 +132,7 @@ impl ContextualPanel {
         self.selection = selection;
         self.info_values = info_values.into_iter().map(|s| s.into()).collect();
         self.force_help = false;
+        self.show_tutorial = false;
     }
 }
 
