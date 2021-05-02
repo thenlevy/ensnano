@@ -323,7 +323,7 @@ fn view_2d_help() -> Vec<(String, String)> {
             "edit strand/crossover".to_owned(),
         ),
         (
-            format!("{} + {}", ALT, LCLICK),
+            format!("{} + {}", CTRL, LCLICK),
             "Make suggested crossover".to_owned(),
         ),
     ]
