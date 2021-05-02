@@ -173,6 +173,7 @@ pub enum Message {
     NewScaffoldInfo(Option<ScaffoldInfo>),
     SelectScaffold,
     ForceHelp,
+    ShowTutorial,
     RenderingMode(crate::mediator::RenderingMode),
     Background3D(crate::mediator::Background3D),
 }
@@ -576,7 +577,14 @@ impl Program for LeftPanel {
                 self.requests.lock().unwrap().background3d = Some(bg.clone());
                 self.camera_tab.background3d = bg;
             }
-            Message::ForceHelp => self.contextual_panel.force_help = true,
+            Message::ForceHelp => {
+                self.contextual_panel.force_help = true;
+                self.contextual_panel.show_tutorial = false;
+            }
+            Message::ShowTutorial => {
+                self.contextual_panel.show_tutorial ^= true;
+                self.contextual_panel.force_help = false;
+            }
             Message::Nothing => (),
         };
         Command::none()

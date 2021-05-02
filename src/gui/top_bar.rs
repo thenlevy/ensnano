@@ -53,6 +53,8 @@ pub struct TopBar {
     button_split: button::State,
     button_oxdna: button::State,
     button_split_2d: button::State,
+    button_help: button::State,
+    button_tutorial: button::State,
     requests: Arc<Mutex<Requests>>,
     logical_size: LogicalSize<f64>,
     dialoging: Arc<Mutex<bool>>,
@@ -75,6 +77,8 @@ pub enum Message {
     Split2d,
     CanUndo(bool),
     CanRedo(bool),
+    ForceHelp,
+    ShowTutorial,
     Undo,
     Redo,
 }
@@ -97,6 +101,8 @@ impl TopBar {
             button_split: Default::default(),
             button_oxdna: Default::default(),
             button_split_2d: Default::default(),
+            button_help: Default::default(),
+            button_tutorial: Default::default(),
             requests,
             logical_size,
             dialoging,
@@ -251,6 +257,8 @@ impl Program for TopBar {
             Message::CanRedo(b) => self.can_redo = b,
             Message::Undo => self.requests.lock().unwrap().undo = Some(()),
             Message::Redo => self.requests.lock().unwrap().redo = Some(()),
+            Message::ForceHelp => self.requests.lock().unwrap().force_help = Some(()),
+            Message::ShowTutorial => self.requests.lock().unwrap().show_tutorial = Some(()),
         };
         Command::none()
     }
@@ -317,6 +325,14 @@ impl Program for TopBar {
                 .height(Length::Units(self.ui_size.button()))
                 .on_press(Message::Split2d);
 
+        let button_help = Button::new(&mut self.button_help, iced::Text::new("Help"))
+            .height(Length::Units(self.ui_size.button()))
+            .on_press(Message::ForceHelp);
+
+        let button_tutorial = Button::new(&mut self.button_tutorial, iced::Text::new("Tutorials"))
+            .height(Length::Units(self.ui_size.button()))
+            .on_press(Message::ShowTutorial);
+
         let buttons = Row::new()
             .width(Length::Fill)
             .height(Length::Units(height))
@@ -333,6 +349,8 @@ impl Program for TopBar {
             .push(button_2d)
             .push(button_split)
             .push(button_split_2d)
+            .push(button_help)
+            .push(button_tutorial)
             .push(
                 iced::Text::new("\u{e91c}")
                     .width(Length::Fill)

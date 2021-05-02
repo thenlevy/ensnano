@@ -737,6 +737,14 @@ fn main() {
                     if requests.exit_shortcut.take().is_some() {
                         *control_flow = ControlFlow::Exit
                     }
+
+                    if requests.show_tutorial.take().is_some() {
+                        messages.lock().unwrap().push_show_tutorial()
+                    }
+
+                    if requests.force_help.take().is_some() {
+                        messages.lock().unwrap().show_help()
+                    }
                 }
 
                 if let Some(d_id) = download_stapples {
@@ -1066,6 +1074,16 @@ impl IcedMessages {
     pub fn push_open(&mut self) {
         self.top_bar
             .push_back(gui::top_bar::Message::FileAddRequested);
+    }
+
+    pub fn push_show_tutorial(&mut self) {
+        self.left_panel
+            .push_back(gui::left_panel::Message::ShowTutorial);
+    }
+
+    pub fn show_help(&mut self) {
+        self.left_panel
+            .push_back(gui::left_panel::Message::ForceHelp);
     }
 }
 

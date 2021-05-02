@@ -26,6 +26,7 @@ pub(super) struct ContextualPanel {
     scroll: scrollable::State,
     width: u32,
     pub force_help: bool,
+    pub show_tutorial: bool,
     help_btn: button::State,
 }
 
@@ -37,6 +38,7 @@ impl ContextualPanel {
             scroll: Default::default(),
             width,
             force_help: false,
+            show_tutorial: false,
             help_btn: Default::default(),
         }
     }
@@ -48,7 +50,24 @@ impl ContextualPanel {
     pub fn view(&mut self, ui_size: UiSize) -> Element<Message> {
         let mut column = Column::new().max_width(self.width - 2);
         let selection = &self.selection;
-        if *selection == Selection::Nothing || self.force_help {
+        if self.show_tutorial {
+            column = column.push(
+                Text::new("Tutorials")
+                    .size(ui_size.head_text())
+                    .width(Length::Fill)
+                    .horizontal_alignment(iced::HorizontalAlignment::Center),
+            );
+            let help_btn = text_btn(&mut self.help_btn, "Hide", ui_size.clone())
+                .on_press(Message::ShowTutorial);
+            column = column.push(
+                Row::new()
+                    .width(Length::Fill)
+                    .push(iced::Space::with_width(Length::FillPortion(1)))
+                    .align_items(iced::Align::Center)
+                    .push(Column::new().width(Length::FillPortion(1)).push(help_btn))
+                    .push(iced::Space::with_width(Length::FillPortion(1))),
+            );
+        } else if *selection == Selection::Nothing || self.force_help {
             column = column.push(
                 Text::new("Help")
                     .size(ui_size.head_text())

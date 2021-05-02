@@ -139,6 +139,8 @@ pub struct Requests {
     pub save_shortcut: Option<()>,
     pub open_shortcut: Option<()>,
     pub exit_shortcut: Option<()>,
+    pub force_help: Option<()>,
+    pub show_tutorial: Option<()>,
 }
 
 pub enum KeepProceed {
@@ -220,6 +222,8 @@ impl Requests {
             save_shortcut: None,
             open_shortcut: None,
             exit_shortcut: None,
+            force_help: None,
+            show_tutorial: None,
         }
     }
 }
