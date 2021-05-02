@@ -1193,13 +1193,14 @@ impl SequenceTab {
 
         ret = ret.push(Text::new("Scaffold").size(ui_size.intermediate_text()));
         ret = ret.push(iced::Space::with_height(Length::Units(3)));
+        macro_rules! scaffold_length_fmt {() => ("Length: {} nt")}
         let (scaffold_text, length_text) = if let Some(info) = self.scaffold_info.as_ref() {
             (
                 format!("Strand #{}", info.id),
-                format!("length {}", info.length),
+                format!(scaffold_length_fmt!(), info.length),
             )
         } else {
-            ("NOT SET".to_owned(), "length —".to_owned())
+            ("NOT SET".to_owned(), format!(scaffold_length_fmt!(), "—").to_owned())
         };
         let mut length_text = Text::new(length_text);
         if self.scaffold_info.is_none() {
@@ -1262,15 +1263,16 @@ impl SequenceTab {
             .scaffold_info
             .as_ref()
             .and_then(|info| info.starting_nucl);
+        macro_rules! nucl_text_fmt {() => ("   Helix # {}\n   Strand # {}\n   Nt # {}")}
         let nucl_text = if let Some(nucl) = starting_nucl {
             format!(
-                "Helix #{} \nstrand {} \nnt #{})",
+                nucl_text_fmt!(),
                 nucl.helix,
                 if nucl.forward { "forward" } else { "backward" },
                 nucl.position
             )
         } else {
-            "Helix #— \nstrand — \nnt #—".to_owned()
+            format!(nucl_text_fmt!(), "—", "—", "—")
         };
         let mut nucl_text = Text::new(nucl_text).size(ui_size.main_text());
         if starting_nucl.is_none() {
