@@ -1263,7 +1263,7 @@ impl SequenceTab {
             .scaffold_info
             .as_ref()
             .and_then(|info| info.starting_nucl);
-        macro_rules! nucl_text_fmt {() => ("   Helix # {}\n   Strand # {}\n   Nt # {}")}
+        macro_rules! nucl_text_fmt {() => ("   Helix #{}\n   Strand #{}\n   Nt #{}")}
         let nucl_text = if let Some(nucl) = starting_nucl {
             format!(
                 nucl_text_fmt!(),
@@ -1272,7 +1272,7 @@ impl SequenceTab {
                 nucl.position
             )
         } else {
-            format!(nucl_text_fmt!(), "—", "—", "—")
+            format!(nucl_text_fmt!(), " —", " —", " —")
         };
         let mut nucl_text = Text::new(nucl_text).size(ui_size.main_text());
         if starting_nucl.is_none() {
