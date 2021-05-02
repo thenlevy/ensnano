@@ -28,6 +28,7 @@ pub(super) struct ContextualPanel {
     pub force_help: bool,
     pub show_tutorial: bool,
     help_btn: button::State,
+    ens_nano_website: button::State,
 }
 
 impl ContextualPanel {
@@ -40,6 +41,7 @@ impl ContextualPanel {
             force_help: false,
             show_tutorial: false,
             help_btn: Default::default(),
+            ens_nano_website: Default::default(),
         }
     }
 
@@ -57,16 +59,12 @@ impl ContextualPanel {
                     .width(Length::Fill)
                     .horizontal_alignment(iced::HorizontalAlignment::Center),
             );
-            let help_btn = text_btn(&mut self.help_btn, "Hide", ui_size.clone())
-                .on_press(Message::ShowTutorial);
-            column = column.push(
-                Row::new()
-                    .width(Length::Fill)
-                    .push(iced::Space::with_width(Length::FillPortion(1)))
-                    .align_items(iced::Align::Center)
-                    .push(Column::new().width(Length::FillPortion(1)).push(help_btn))
-                    .push(iced::Space::with_width(Length::FillPortion(1))),
-            );
+            column = column.push(Text::new("ENSnano website"));
+            column = column.push(link_row(
+                &mut self.ens_nano_website,
+                "http://ens-lyon.fr/ensnano",
+                ui_size.clone(),
+            ));
         } else if *selection == Selection::Nothing || self.force_help {
             column = column.push(
                 Text::new("Help")
@@ -346,4 +344,22 @@ fn view_2d_help() -> Vec<(String, String)> {
             "Make suggested crossover".to_owned(),
         ),
     ]
+}
+
+fn link_row<'a>(
+    button_state: &'a mut button::State,
+    link: &'static str,
+    ui_size: UiSize,
+) -> Row<'a, Message> {
+    Row::new()
+        .push(
+            Column::new()
+                .push(Text::new(link))
+                .width(Length::FillPortion(3)),
+        )
+        .push(
+            Column::new()
+                .push(text_btn(button_state, "Go", ui_size).on_press(Message::OpenLink(link)))
+                .width(Length::FillPortion(1)),
+        )
 }

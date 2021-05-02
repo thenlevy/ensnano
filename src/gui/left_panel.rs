@@ -176,6 +176,7 @@ pub enum Message {
     ShowTutorial,
     RenderingMode(crate::mediator::RenderingMode),
     Background3D(crate::mediator::Background3D),
+    OpenLink(&'static str),
 }
 
 impl LeftPanel {
@@ -584,6 +585,10 @@ impl Program for LeftPanel {
             Message::ShowTutorial => {
                 self.contextual_panel.show_tutorial ^= true;
                 self.contextual_panel.force_help = false;
+            }
+            Message::OpenLink(link) => {
+                // ATM we continue even in case of error, later any error will be promted to user
+                let _ = open::that(link);
             }
             Message::Nothing => (),
         };
