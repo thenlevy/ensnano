@@ -2746,6 +2746,9 @@ impl Data {
         source_nucl: Nucl,
         target_nucl: Nucl,
     ) -> Option<(StrandState, StrandState)> {
+        if source_nucl.helix == target_nucl.helix {
+            return None;
+        }
         let init = self.get_strand_state();
         println!("cross over between {:?} and {:?}", source_nucl, target_nucl);
         let source_id = self.get_strand_nucl(&source_nucl);

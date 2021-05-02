@@ -224,7 +224,7 @@ impl OrganizerAttribute for DnaAttribute {
                 AttributeDisplay::Icon(c)
             }
             DnaAttribute::XoverGroup(group) => match group {
-                None => AttributeDisplay::Text("B".to_owned()),
+                None => AttributeDisplay::Text("\u{2205}".to_owned()),
                 Some(false) => AttributeDisplay::Text("G".to_owned()),
                 Some(true) => AttributeDisplay::Text("R".to_owned()),
             },

@@ -388,6 +388,11 @@ impl Data {
     }
 
     pub fn can_cross_to(&self, from: FlatNucl, to: FlatNucl) -> bool {
+        if from.helix == to.helix {
+            if from.prime5() != to && from.prime3() != to {
+                return false;
+            }
+        }
         let from = from.to_real();
         let to = to.to_real();
         let prim5 = self.design.prime5_of(from).or(self.design.prime5_of(to));
