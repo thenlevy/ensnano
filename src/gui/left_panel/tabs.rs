@@ -99,7 +99,7 @@ impl EditionTab {
 
         let mut action_buttons: Vec<Button<'a, Message>> = self
             .action_mode_state
-            .get_states(0, 0)
+            .get_states(0, 0, false)
             .into_iter()
             .filter(|(m, _)| action_modes.contains(m))
             .map(|(mode, state)| action_mode_btn(state, mode, action_mode, ui_size.button()))
@@ -273,6 +273,13 @@ impl GridTab {
         ui_size: UiSize,
         width: u16,
     ) -> Element<'a, Message> {
+        let action_modes = [
+            ActionMode::Normal,
+            ActionMode::Translate,
+            ActionMode::Rotate,
+            self.get_build_helix_mode(),
+        ];
+
         let mut ret = Column::new().spacing(5);
         ret = ret.push(
             Text::new("Grids")
@@ -392,19 +399,9 @@ impl GridTab {
             ret = ret.push(view);
         }
 
-        let action_modes = [
-            ActionMode::Normal,
-            ActionMode::Translate,
-            ActionMode::Rotate,
-            ActionMode::BuildHelix {
-                position: self.helix_pos,
-                length: self.helix_length,
-            },
-        ];
-
         let mut action_buttons: Vec<Button<'a, Message>> = self
             .action_mode_state
-            .get_states(self.helix_length, self.helix_pos)
+            .get_states(self.helix_length, self.helix_pos, self.show_strand_menu)
             .into_iter()
             .filter(|(m, _)| action_modes.contains(m))
             .map(|(mode, state)| action_mode_btn(state, mode, action_mode, ui_size.button()))
@@ -444,6 +441,7 @@ impl GridTab {
             self.helix_pos = position;
         }
         self.pos_str = position_str;
+        self.set_show_strand(true);
         ActionMode::BuildHelix {
             position: self.helix_pos,
             length: self.helix_length,
@@ -455,6 +453,7 @@ impl GridTab {
             self.helix_length = length
         }
         self.length_str = length_str;
+        self.set_show_strand(true);
         ActionMode::BuildHelix {
             position: self.helix_pos,
             length: self.helix_length,
@@ -490,10 +489,12 @@ impl GridTab {
     }
 
     pub fn get_build_helix_mode(&self) -> ActionMode {
-        ActionMode::BuildHelix {
-            length: self.helix_length,
-            position: self.helix_pos,
-        }
+        let (length, position) = if self.show_strand_menu {
+            (self.helix_length, self.helix_pos)
+        } else {
+            (0, 0)
+        };
+        ActionMode::BuildHelix { length, position }
     }
 
     pub fn set_show_strand(&mut self, show: bool) {

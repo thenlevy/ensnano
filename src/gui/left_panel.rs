@@ -539,7 +539,13 @@ impl Program for LeftPanel {
                 self.sequence_tab.toggle_text_value(b);
             }
             Message::CleanRequested => self.requests.lock().unwrap().clean_requests = true,
-            Message::AddDoubleStrandHelix(b) => self.grid_tab.set_show_strand(b),
+            Message::AddDoubleStrandHelix(b) => {
+                self.grid_tab.set_show_strand(b);
+                if let ActionMode::BuildHelix { .. } = self.action_mode {
+                    self.action_mode = self.grid_tab.get_build_helix_mode();
+                    self.requests.lock().unwrap().action_mode = Some(self.action_mode.clone());
+                }
+            }
             Message::ToggleVisibility(b) => {
                 self.requests.lock().unwrap().toggle_visibility = Some(b)
             }
@@ -865,18 +871,18 @@ impl ActionModeState {
         &'a mut self,
         len_helix: usize,
         position_helix: isize,
+        make_strands: bool,
     ) -> BTreeMap<ActionMode, &'a mut button::State> {
         let mut ret = BTreeMap::new();
         ret.insert(ActionMode::Normal, &mut self.select);
         ret.insert(ActionMode::Translate, &mut self.translate);
         ret.insert(ActionMode::Rotate, &mut self.rotate);
-        ret.insert(
-            ActionMode::BuildHelix {
-                position: position_helix,
-                length: len_helix,
-            },
-            &mut self.build,
-        );
+        let (position, length) = if make_strands {
+            (position_helix, len_helix)
+        } else {
+            (0, 0)
+        };
+        ret.insert(ActionMode::BuildHelix { position, length }, &mut self.build);
         ret
     }
 }

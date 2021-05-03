@@ -2456,6 +2456,8 @@ impl Data {
         }
         self.design.scaffold_shift = Some(best_shfit);
         self.read_scaffold_seq(best_shfit);
+        self.update_status = true;
+        self.hash_maps_update = true;
         (best_shfit, best_result)
     }
 
