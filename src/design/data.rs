@@ -726,10 +726,10 @@ impl Data {
     }
 
     pub fn set_scaffold_shift(&mut self, shift: usize) {
+        self.design.scaffold_shift = Some(shift);
+        self.update_status = true;
         if self.design.scaffold_sequence.is_some() {
-            self.design.scaffold_shift = Some(shift);
             self.hash_maps_update = true;
-            self.update_status = true;
         }
     }
 
