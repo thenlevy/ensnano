@@ -318,28 +318,37 @@ impl GridTab {
         .style(BadValue(self.length_str == self.helix_length.to_string()));
 
         ret = ret.push(right_checkbox(
-                self.show_strand_menu,
-                "Add double strand on helix",
-                Message::AddDoubleStrandHelix,
-                ui_size.clone(),
+            self.show_strand_menu,
+            "Add double strand on helix",
+            Message::AddDoubleStrandHelix,
+            ui_size.clone(),
         ));
         let color_white = Color::WHITE;
-        let color_gray = Color { r: 0.6, g: 0.6, b: 0.6, a: 1.0 };
-        let color_choose_strand_start_length = if self.show_strand_menu { color_white } else { color_gray };
+        let color_gray = Color {
+            r: 0.6,
+            g: 0.6,
+            b: 0.6,
+            a: 1.0,
+        };
+        let color_choose_strand_start_length = if self.show_strand_menu {
+            color_white
+        } else {
+            color_gray
+        };
         let row = Row::new()
             .push(
                 Column::new()
                     .push(Text::new("Starting nt").color(color_choose_strand_start_length))
                     .push(position_input)
                     .width(Length::Units(width / 2)),
-                )
+            )
             .push(
                 Column::new()
                     .push(Text::new("Length (nt)").color(color_choose_strand_start_length))
                     .push(length_input),
-                );
+            );
         ret = ret.push(row);
-    
+
         ret = ret.push(iced::Space::with_height(Length::Units(3)));
 
         let nanotube_title = Row::new().push(Text::new("New nanotube"));
@@ -413,7 +422,6 @@ impl GridTab {
             }
             ret = ret.push(row)
         }
-
 
         ret = ret.push(iced::Space::with_height(Length::Units(5)));
         ret = ret.push(Text::new("Guess grid").size(ui_size.intermediate_text()));
@@ -1194,14 +1202,21 @@ impl SequenceTab {
 
         ret = ret.push(Text::new("Scaffold").size(ui_size.intermediate_text()));
         ret = ret.push(iced::Space::with_height(Length::Units(3)));
-        macro_rules! scaffold_length_fmt {() => ("Length: {} nt")}
+        macro_rules! scaffold_length_fmt {
+            () => {
+                "Length: {} nt"
+            };
+        }
         let (scaffold_text, length_text) = if let Some(info) = self.scaffold_info.as_ref() {
             (
                 format!("Strand #{}", info.id),
                 format!(scaffold_length_fmt!(), info.length),
             )
         } else {
-            ("NOT SET".to_owned(), format!(scaffold_length_fmt!(), "—").to_owned())
+            (
+                "NOT SET".to_owned(),
+                format!(scaffold_length_fmt!(), "—").to_owned(),
+            )
         };
         let mut length_text = Text::new(length_text);
         if self.scaffold_info.is_none() {
@@ -1264,12 +1279,20 @@ impl SequenceTab {
             .scaffold_info
             .as_ref()
             .and_then(|info| info.starting_nucl);
-        macro_rules! nucl_text_fmt {() => ("   Helix #{}\n   Strand: {}\n   Nt #{}")}
+        macro_rules! nucl_text_fmt {
+            () => {
+                "   Helix #{}\n   Strand: {}\n   Nt #{}"
+            };
+        }
         let nucl_text = if let Some(nucl) = starting_nucl {
             format!(
                 nucl_text_fmt!(),
                 nucl.helix,
-                if nucl.forward { "→ forward" } else { "← backward" }, // Pourquoi pas "→" et "←" ?
+                if nucl.forward {
+                    "→ forward"
+                } else {
+                    "← backward"
+                }, // Pourquoi pas "→" et "←" ?
                 nucl.position
             )
         } else {
