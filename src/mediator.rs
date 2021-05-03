@@ -275,6 +275,7 @@ impl Mediator {
     }
 
     pub fn add_design(&mut self, design: Arc<RwLock<Design>>) {
+        self.drop_undo_stack();
         self.designs.push(design.clone());
         self.notify_apps(Notification::NewDesign(design));
     }
@@ -1338,6 +1339,8 @@ impl Mediator {
     }
 
     fn drop_undo_stack(&mut self) {
+        self.current_operation = None;
+        self.last_op = None;
         self.undo_stack.clear();
         self.redo_stack.clear();
     }
