@@ -2371,7 +2371,8 @@ impl Data {
     /// This function will panic if all the sapples are not matched.
     pub fn get_stapples(&self) -> Vec<Stapple> {
         let mut ret = Vec::new();
-        let mut sequences: BTreeMap<(usize, isize, usize, isize), String> = Default::default();
+        let mut sequences: BTreeMap<(usize, isize, usize, isize), (usize, String)> =
+            Default::default();
         let basis_map = self.basis_map.read().unwrap();
         for (s_id, strand) in self.design.strands.iter() {
             if strand.length() == 0 || self.design.scaffold_id == Some(*s_id) {
@@ -2401,9 +2402,9 @@ impl Data {
                 println!("WARNING, STAPPLE WITH NO KEY !!!");
                 (0, 0, 0, 0)
             };
-            sequences.insert(key, sequence);
+            sequences.insert(key, (*s_id, sequence));
         }
-        for (n, ((h5, nt5, h3, nt3), sequence)) in sequences.iter().enumerate() {
+        for (n, ((h5, nt5, h3, nt3), (s_id, sequence))) in sequences.iter().enumerate() {
             let plate = n / 96 + 1;
             let row = (n % 96) / 8 + 1;
             let column = match (n % 96) % 8 {
@@ -2421,7 +2422,10 @@ impl Data {
                 plate,
                 well: format!("{}{}", column, row.to_string()),
                 sequence: sequence.clone(),
-                name: format!("Stapple 5':h{}:nt{}>3':h{}:nt{}", *h5, *nt5, *h3, *nt3),
+                name: format!(
+                    "Stapple {:04}; 5':h{}:nt{}>3':h{}:nt{}",
+                    s_id, *h5, *nt5, *h3, *nt3
+                ),
             });
         }
         ret
