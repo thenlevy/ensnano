@@ -402,7 +402,14 @@ impl Data {
         } else {
             let from_end = self.design.prime5_of(from).or(self.design.prime3_of(from));
             let to_end = self.design.prime3_of(to).or(self.design.prime5_of(to));
-            from_end.is_some() && to_end.is_some()
+            let correct_order = if from.helix != to.helix {
+                true
+            } else if self.design.prime3_of(from).is_some() {
+                from.prime3() == to
+            } else {
+                from.prime5() == to
+            };
+            correct_order && from_end.is_some() && to_end.is_some()
         }
     }
 
