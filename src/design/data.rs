@@ -1662,6 +1662,7 @@ impl Data {
         if strand.cyclic {
             let new_strand = self.break_cycle(strand.clone(), *nucl, force_end);
             self.design.strands.insert(id, new_strand);
+            self.clean_domains_one_strand(id);
             //println!("Cutting cyclic strand");
             return Some(id);
         }
@@ -2675,9 +2676,23 @@ impl Data {
     }
 
     pub fn clean_up_domains(&mut self) {
-        for strand in self.design.strands.values_mut() {
-            strand.merge_consecutive_domains();
+        let ids: Vec<usize> = self.design.strands.keys().cloned().collect();
+        for s_id in ids {
+            self.clean_domains_one_strand(s_id)
         }
+    }
+
+    fn clean_domains_one_strand(&mut self, s_id: usize) {
+        if !self.design.strands.contains_key(&s_id) {
+            return;
+        }
+        let mut strand = self.design.strands.get(&s_id).cloned().unwrap();
+        self.rm_strand(s_id);
+        strand.merge_consecutive_domains();
+        strand.junctions.clear();
+        strand.read_junctions(&mut self.xover_ids, true);
+        strand.read_junctions(&mut self.xover_ids, false);
+        self.design.strands.insert(s_id, strand);
         self.update_status = true;
         self.hash_maps_update = true;
         self.view_need_reset = true;

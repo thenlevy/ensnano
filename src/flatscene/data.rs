@@ -415,20 +415,9 @@ impl Data {
 
     pub fn attachable_neighbour(&self, nucl: FlatNucl) -> Option<FlatNucl> {
         if self.can_cross_to(nucl, nucl.prime5()) {
-            if !(self.design.prime5_of(nucl.to_real())
-                == self.design.prime3_of(nucl.prime5().to_real()))
-            {
-                return Some(nucl.prime5());
-            }
-        }
-        if self.can_cross_to(nucl, nucl.prime3()) {
-            if self.design.prime3_of(nucl.to_real())
-                == self.design.prime5_of(nucl.prime3().to_real())
-            {
-                None
-            } else {
-                Some(nucl.prime3())
-            }
+            Some(nucl.prime5())
+        } else if self.can_cross_to(nucl, nucl.prime3()) {
+            Some(nucl.prime3())
         } else {
             None
         }
