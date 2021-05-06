@@ -465,6 +465,10 @@ impl Program for LeftPanel {
                         self.grid_tab.finalize_hyperboloid();
                     }
                 }
+                if n == 0 {
+                    self.action_mode = self.grid_tab.get_build_helix_mode();
+                    self.requests.lock().unwrap().action_mode = Some(self.action_mode.clone());
+                }
                 if self.selected_tab == 3 && n != 3 {
                     println!("leaving simulation tab");
                     self.simulation_tab.leave_tab(self.requests.clone());
