@@ -803,6 +803,10 @@ impl Design {
         self.data.lock().unwrap().notify_death()
     }
 
+    pub fn get_simulation_state(&self) -> SimulationState {
+        self.data.lock().unwrap().get_simulation_state()
+    }
+
     pub fn update_hyperboloid(
         &mut self,
         nb_helix: usize,

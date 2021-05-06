@@ -38,7 +38,7 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex, RwLock};
 use ultraviolet::Vec3;
 
-use crate::design;
+use crate::{design, ApplicationState};
 
 use design::{
     Design, DesignNotification, DesignRotation, DesignTranslation, DnaAttribute, DnaElementKey,
@@ -797,19 +797,13 @@ impl Mediator {
             self.canceling_pasting = false;
             self.notify_apps(Notification::Pasting(false))
         }
-        self.update_undo_redo();
+        self.update_application_state();
         ret
     }
 
-    fn update_undo_redo(&self) {
-        let can_undo = !self.undo_stack.is_empty()
-            || self.current_operation.is_some()
-            || self.last_op.is_some();
-        let can_redo = !self.redo_stack.is_empty()
-            && self.current_operation.is_none()
-            && self.last_op.is_none();
-        self.messages.lock().unwrap().push_undoable(can_undo);
-        self.messages.lock().unwrap().push_redoable(can_redo);
+    fn update_application_state(&self) {
+        let state = self.get_application_state();
+        self.messages.lock().unwrap().push_application_state(state);
     }
 
     fn selected_design(&self) -> Option<u32> {
@@ -1423,6 +1417,21 @@ impl Mediator {
 
     pub fn background3d(&mut self, bg: Background3D) {
         self.notify_apps(Notification::Background3D(bg));
+    }
+
+    fn get_application_state(&self) -> ApplicationState {
+        let can_undo = !self.undo_stack.is_empty()
+            || self.current_operation.is_some()
+            || self.last_op.is_some();
+        let can_redo = !self.redo_stack.is_empty()
+            && self.current_operation.is_none()
+            && self.last_op.is_none();
+        let simulation_state = self.designs[0].read().unwrap().get_simulation_state();
+        ApplicationState {
+            can_redo,
+            can_undo,
+            simulation_state,
+        }
     }
 }
 

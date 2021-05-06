@@ -908,8 +908,14 @@ pub struct IcedMessages {
     top_bar: VecDeque<gui::top_bar::Message>,
     color_overlay: VecDeque<gui::left_panel::ColorMessage>,
     status_bar: VecDeque<gui::status_bar::Message>,
-    can_undo: bool,
-    can_redo: bool,
+    application_state: ApplicationState,
+}
+
+#[derive(Default, PartialEq, Eq, Debug, Clone)]
+pub struct ApplicationState {
+    pub can_undo: bool,
+    pub can_redo: bool,
+    pub simulation_state: crate::design::SimulationState,
 }
 
 impl IcedMessages {
@@ -920,8 +926,7 @@ impl IcedMessages {
             top_bar: VecDeque::new(),
             color_overlay: VecDeque::new(),
             status_bar: VecDeque::new(),
-            can_undo: false,
-            can_redo: false,
+            application_state: Default::default(),
         }
     }
 
@@ -1050,22 +1055,6 @@ impl IcedMessages {
             .push_back(gui::left_panel::Message::CanMakeGrid(can_make_grid));
     }
 
-    pub fn push_undoable(&mut self, undoable: bool) {
-        if self.can_undo != undoable {
-            self.top_bar
-                .push_back(gui::top_bar::Message::CanUndo(undoable));
-        }
-        self.can_undo = undoable;
-    }
-
-    pub fn push_redoable(&mut self, redoable: bool) {
-        if self.can_redo != redoable {
-            self.top_bar
-                .push_back(gui::top_bar::Message::CanRedo(redoable));
-        }
-        self.can_redo = redoable;
-    }
-
     pub fn push_save(&mut self) {
         self.top_bar
             .push_back(gui::top_bar::Message::FileSaveRequested);
@@ -1084,6 +1073,17 @@ impl IcedMessages {
     pub fn show_help(&mut self) {
         self.left_panel
             .push_back(gui::left_panel::Message::ForceHelp);
+    }
+
+    pub(crate) fn push_application_state(&mut self, state: ApplicationState) {
+        let must_update = self.application_state != state;
+        self.application_state = state.clone();
+        if must_update {
+            self.left_panel
+                .push_back(gui::left_panel::Message::NewApplicationState(state.clone()));
+            self.top_bar
+                .push_back(gui::top_bar::Message::NewApplicationState(state))
+        }
     }
 }
 
