@@ -62,7 +62,7 @@ pub use grid::*;
 use icednano::DomainJunction;
 pub use icednano::Nucl;
 pub use icednano::{Axis, Design, Helix, Parameters, Strand};
-pub use rigid_body::RigidBodyConstants;
+pub use rigid_body::{GridSystemState, RigidBodyConstants, RigidHelixState};
 use roller::PhysicalSystem;
 use std::sync::{mpsc::Sender, Arc, Mutex, RwLock};
 use strand_builder::NeighbourDescriptor;
@@ -814,6 +814,18 @@ impl Data {
             self.stop_rolling()
         } else {
             self.start_rolling(request, computing)
+        }
+    }
+
+    pub fn get_simulation_state(&self) -> SimulationState {
+        if self.roller_ptrs.is_some() {
+            SimulationState::Rolling
+        } else if self.rigid_helix_simulator.is_some() {
+            SimulationState::RigidHelices
+        } else if self.rigid_body_ptr.is_some() {
+            SimulationState::RigidGrid
+        } else {
+            SimulationState::None
         }
     }
 
@@ -3213,4 +3225,52 @@ struct VisibilitySieve {
     selection: Vec<Selection>,
     compl: bool,
     visible: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SimulationState {
+    None,
+    Rolling,
+    RigidGrid,
+    RigidHelices,
+}
+
+impl SimulationState {
+    pub fn is_none(&self) -> bool {
+        if let Self::None = self {
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn is_rolling(&self) -> bool {
+        if let Self::Rolling = self {
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn simulating_grid(&self) -> bool {
+        if let Self::RigidGrid = self {
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn simulating_helices(&self) -> bool {
+        if let Self::RigidHelices = self {
+            true
+        } else {
+            false
+        }
+    }
+}
+
+impl Default for SimulationState {
+    fn default() -> Self {
+        Self::None
+    }
 }

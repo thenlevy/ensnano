@@ -32,6 +32,7 @@ pub use left_panel::{
 };
 pub mod status_bar;
 mod ui_size;
+use crate::ApplicationState;
 pub use ui_size::*;
 
 use status_bar::StatusBar;

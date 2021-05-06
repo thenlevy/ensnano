@@ -1031,7 +1031,7 @@ impl HelixSystemThread {
 }
 
 #[derive(Clone)]
-struct GridSystemState {
+pub struct GridSystemState {
     positions: Vec<Vec3>,
     orientations: Vec<Rotor3>,
     center_of_mass_from_grid: Vec<Vec3>,
@@ -1052,7 +1052,7 @@ pub(super) struct RigidHelixPtr {
 }
 
 #[derive(Debug, Clone)]
-struct RigidHelixState {
+pub struct RigidHelixState {
     positions: Vec<Vec3>,
     orientations: Vec<Rotor3>,
     center_of_mass_from_helix: Vec<Vec3>,
@@ -1068,6 +1068,7 @@ pub(super) struct RigidHelixSimulator {
     state_update: Option<RigidHelixState>,
     parameters: Parameters,
     rigid_parameters: Arc<Mutex<Option<RigidBodyConstants>>>,
+    initial_state: RigidHelixState,
 }
 
 impl RigidHelixSimulator {
@@ -1083,6 +1084,7 @@ impl RigidHelixSimulator {
         let shake_nucl = helix_system_thread.get_nucl_ptr();
 
         let date = Instant::now();
+        let initial_state = helix_system_thread.get_state();
         let (stop, snd) = helix_system_thread.run(computing);
         let simulation_ptr = RigidHelixPtr {
             instant: date,
@@ -1099,6 +1101,7 @@ impl RigidHelixSimulator {
             simulation_ptr,
             state_update: None,
             rigid_parameters,
+            initial_state,
         }
     }
 
@@ -1491,23 +1494,26 @@ impl Data {
                 let (snd, rcv) = std::sync::mpsc::channel();
                 *ptrs.state.lock().unwrap() = Some(snd);
                 let state = rcv.recv().unwrap();
-                for i in 0..state.ids.len() {
-                    let position = state.positions[i];
-                    let orientation = state.orientations[i].normalized();
-                    let grid = &mut self.grid_manager.grids[state.ids[i]];
-                    grid.position =
-                        position - state.center_of_mass_from_grid[i].rotated_by(orientation);
-                    grid.orientation = orientation;
-                    grid.end_movement();
-                }
-                self.grid_manager.update(&mut self.design);
-                self.hash_maps_update = true;
-                self.update_status = true;
                 ptrs.instant = now;
-                self.hash_maps_update = true;
-                self.update_status = true;
+                self.read_grid_system_state(state);
             }
         }
+    }
+
+    fn read_grid_system_state(&mut self, state: GridSystemState) {
+        for i in 0..state.ids.len() {
+            let position = state.positions[i];
+            let orientation = state.orientations[i].normalized();
+            let grid = &mut self.grid_manager.grids[state.ids[i]];
+            grid.position = position - state.center_of_mass_from_grid[i].rotated_by(orientation);
+            grid.orientation = orientation;
+            grid.end_movement();
+        }
+        self.grid_manager.update(&mut self.design);
+        self.hash_maps_update = true;
+        self.update_status = true;
+        self.hash_maps_update = true;
+        self.update_status = true;
     }
 
     pub(super) fn check_rigid_helices(&mut self) {
@@ -1517,24 +1523,28 @@ impl Data {
                 let (snd, rcv) = std::sync::mpsc::channel();
                 *ptrs.state.lock().unwrap() = Some(snd);
                 let state = rcv.recv().unwrap();
-                for i in 0..state.ids.len() {
-                    let position = state.positions[i];
-                    let orientation = state.orientations[i].normalized();
-                    self.design.helices.get_mut(&state.ids[i]).unwrap().position =
-                        position + state.center_of_mass_from_helix[i].rotated_by(orientation);
-                    self.design
-                        .helices
-                        .get_mut(&state.ids[i])
-                        .unwrap()
-                        .orientation = orientation;
-                }
-                self.hash_maps_update = true;
-                self.update_status = true;
                 ptrs.instant = now;
-                self.hash_maps_update = true;
-                self.update_status = true;
+                self.read_rigid_helix_state(state);
             }
         }
+    }
+
+    fn read_rigid_helix_state(&mut self, state: RigidHelixState) {
+        for i in 0..state.ids.len() {
+            let position = state.positions[i];
+            let orientation = state.orientations[i].normalized();
+            self.design.helices.get_mut(&state.ids[i]).unwrap().position =
+                position + state.center_of_mass_from_helix[i].rotated_by(orientation);
+            self.design
+                .helices
+                .get_mut(&state.ids[i])
+                .unwrap()
+                .orientation = orientation;
+        }
+        self.hash_maps_update = true;
+        self.update_status = true;
+        self.hash_maps_update = true;
+        self.update_status = true;
     }
 
     pub(super) fn read_rigid_helix_update(&mut self) -> bool {
@@ -1546,18 +1556,29 @@ impl Data {
         }
     }
 
+    pub fn undo_grid_simulation(&mut self, initial_state: GridSystemState) {
+        self.stop_rigid_body();
+        self.read_grid_system_state(initial_state);
+    }
+
     pub fn rigid_body_request(
         &mut self,
         request: (f32, f32),
         computing: Arc<Mutex<bool>>,
         parameters: RigidBodyConstants,
-    ) {
+    ) -> Option<GridSystemState> {
         if self.rigid_body_ptr.is_some() {
-            self.stop_rigid_body()
+            self.stop_rigid_body();
+            None
         } else {
             self.before_simul_save();
             self.start_rigid_body(request, computing, parameters)
         }
+    }
+
+    pub fn undo_helix_simulation(&mut self, initial_state: RigidHelixState) {
+        self.stop_free_helix_simulation();
+        self.read_rigid_helix_state(initial_state);
     }
 
     pub fn helix_simulation_request(
@@ -1565,7 +1586,7 @@ impl Data {
         request: (f32, f32),
         computing: Arc<Mutex<bool>>,
         parameters: RigidBodyConstants,
-    ) {
+    ) -> Option<RigidHelixState> {
         /*
         if self.helix_simulation_ptr.is_some() {
             self.stop_helix_simulation()
@@ -1575,8 +1596,9 @@ impl Data {
         */
         if self.rigid_helix_simulator.is_some() {
             self.stop_free_helix_simulation();
+            None
         } else {
-            self.start_free_helix_simulation(request, computing, parameters);
+            self.start_free_helix_simulation(request, computing, parameters)
         }
     }
 
@@ -1585,16 +1607,20 @@ impl Data {
         request: (f32, f32),
         computing: Arc<Mutex<bool>>,
         parameters: RigidBodyConstants,
-    ) {
+    ) -> Option<GridSystemState> {
         if let Some(grid_system) = self.make_grid_system(request, parameters) {
             let grid_system_thread = GridsSystemThread::new(grid_system);
             let date = Instant::now();
+            let initial_state = grid_system_thread.get_state();
             let (stop, snd) = grid_system_thread.run(computing);
             self.rigid_body_ptr = Some(RigidBodyPtr {
                 instant: date,
                 stop,
                 state: snd,
             });
+            Some(initial_state)
+        } else {
+            None
         }
     }
 
@@ -1628,14 +1654,18 @@ impl Data {
         request: (f32, f32),
         computing: Arc<Mutex<bool>>,
         parameters: RigidBodyConstants,
-    ) {
+    ) -> Option<RigidHelixState> {
         let interval_results = self.read_intervals();
         let helix_system_opt =
             self.make_flexible_helices_system(request, &interval_results, parameters);
         if let Some(helix_system) = helix_system_opt {
             let helix_simulator =
                 RigidHelixSimulator::start_simulation(helix_system, computing, interval_results);
+            let ret = helix_simulator.initial_state.clone();
             self.rigid_helix_simulator = Some(helix_simulator);
+            Some(ret)
+        } else {
+            None
         }
     }
 

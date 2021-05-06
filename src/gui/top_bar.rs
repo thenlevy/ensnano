@@ -18,7 +18,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 use std::sync::{Arc, Mutex};
 use std::thread;
 
-use super::UiSize;
+use super::{ApplicationState, UiSize};
 use iced::{container, Background, Container};
 use iced_native::clipboard::Null as NullClipBoard;
 use iced_wgpu::Renderer;
@@ -59,8 +59,7 @@ pub struct TopBar {
     logical_size: LogicalSize<f64>,
     dialoging: Arc<Mutex<bool>>,
     ui_size: UiSize,
-    can_undo: bool,
-    can_redo: bool,
+    application_state: ApplicationState,
 }
 
 #[derive(Debug, Clone)]
@@ -75,8 +74,7 @@ pub enum Message {
     UiSizeChanged(UiSize),
     OxDNARequested,
     Split2d,
-    CanUndo(bool),
-    CanRedo(bool),
+    NewApplicationState(ApplicationState),
     ForceHelp,
     ShowTutorial,
     Undo,
@@ -107,8 +105,7 @@ impl TopBar {
             logical_size,
             dialoging,
             ui_size: Default::default(),
-            can_undo: false,
-            can_redo: false,
+            application_state: Default::default(),
         }
     }
 
@@ -253,8 +250,7 @@ impl Program for TopBar {
             Message::UiSizeChanged(ui_size) => self.ui_size = ui_size,
             Message::OxDNARequested => self.requests.lock().unwrap().oxdna = true,
             Message::Split2d => self.requests.lock().unwrap().split2d = true,
-            Message::CanUndo(b) => self.can_undo = b,
-            Message::CanRedo(b) => self.can_redo = b,
+            Message::NewApplicationState(state) => self.application_state = state,
             Message::Undo => self.requests.lock().unwrap().undo = Some(()),
             Message::Redo => self.requests.lock().unwrap().redo = Some(()),
             Message::ForceHelp => self.requests.lock().unwrap().force_help = Some(()),
@@ -294,7 +290,7 @@ impl Program for TopBar {
             &mut self.button_undo,
             icon(MaterialIcon::Undo, self.ui_size.clone()),
         );
-        if self.can_undo {
+        if self.application_state.can_undo {
             button_undo = button_undo.on_press(Message::Undo)
         }
 
@@ -302,7 +298,7 @@ impl Program for TopBar {
             &mut self.button_redo,
             icon(MaterialIcon::Redo, self.ui_size.clone()),
         );
-        if self.can_redo {
+        if self.application_state.can_redo {
             button_redo = button_redo.on_press(Message::Redo)
         }
 

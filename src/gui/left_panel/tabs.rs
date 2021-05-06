@@ -19,6 +19,8 @@ use super::*;
 use iced::scrollable;
 use iced::Color;
 
+use crate::design::SimulationState;
+
 pub(super) struct EditionTab {
     selection_mode_state: SelectionModeState,
     action_mode_state: ActionModeState,
@@ -57,6 +59,7 @@ impl EditionTab {
         selection_mode: SelectionMode,
         ui_size: UiSize,
         width: u16,
+        app_state: &ApplicationState,
     ) -> Element<'a, Message> {
         let mut ret = Column::new().spacing(5);
         ret = ret.push(
@@ -125,8 +128,12 @@ impl EditionTab {
             ret = ret.push(view);
         }
 
-        let roll_target_active = self.roll_target_btn.running || self.roll_target_helices.len() > 0;
-        ret = ret.push(self.roll_target_btn.view(roll_target_active));
+        let sim_state = &app_state.simulation_state;
+        let roll_target_active = sim_state.is_rolling() || self.roll_target_helices.len() > 0;
+        ret = ret.push(
+            self.roll_target_btn
+                .view(roll_target_active, sim_state.is_rolling()),
+        );
 
         let color_square = self.color_picker.color_square();
         if selection_mode == SelectionMode::Strand {
@@ -184,7 +191,6 @@ impl EditionTab {
     }
 
     pub(super) fn notify_new_design(&mut self) {
-        self.roll_target_btn.running = false;
         self.roll_target_helices = vec![];
     }
 
@@ -198,10 +204,6 @@ impl EditionTab {
         } else {
             None
         }
-    }
-
-    pub(super) fn stop_runing(&mut self) {
-        self.roll_target_btn.running = false;
     }
 
     pub(super) fn strand_color_change(&mut self, color: Color, color_request: &mut Option<u32>) {
@@ -899,16 +901,32 @@ impl SimulationTab {
         }
     }
 
-    pub(super) fn view<'a>(&'a mut self, ui_size: UiSize) -> Element<'a, Message> {
-        let grid_active = !self.rigid_helices_button.running && !self.physical_simulation.running;
-        let helices_active = !self.rigid_grid_button.running && !self.physical_simulation.running;
-        let roll_active = !self.rigid_grid_button.running && !self.rigid_helices_button.running;
+    pub(super) fn view<'a>(
+        &'a mut self,
+        ui_size: UiSize,
+        app_state: &ApplicationState,
+    ) -> Element<'a, Message> {
+        let sim_state = &app_state.simulation_state;
+        let grid_active = sim_state.is_none() || sim_state.simulating_grid();
+        let helices_active = sim_state.is_none() || sim_state.simulating_helices();
+        let roll_active = sim_state.is_none() || sim_state.is_rolling();
         let mut ret = Column::new().spacing(2);
         ret = ret.push(Text::new("Simulation (Beta)").size(ui_size.head_text()));
-        ret = ret.push(self.physical_simulation.view(&ui_size, "Roll", roll_active));
+        ret = ret.push(self.physical_simulation.view(
+            &ui_size,
+            "Roll",
+            roll_active,
+            sim_state.is_rolling(),
+        ));
         ret = ret
-            .push(self.rigid_grid_button.view(grid_active))
-            .push(self.rigid_helices_button.view(helices_active));
+            .push(
+                self.rigid_grid_button
+                    .view(grid_active, sim_state.simulating_grid()),
+            )
+            .push(
+                self.rigid_helices_button
+                    .view(helices_active, sim_state.simulating_helices()),
+            );
 
         let volume_exclusion = self.rigid_body_factory.requestable.volume_exclusion;
         let brownian_motion = self.rigid_body_factory.requestable.brownian_motion;
@@ -936,14 +954,6 @@ impl SimulationTab {
         }
 
         Scrollable::new(&mut self.scroll).push(ret).into()
-    }
-
-    pub(super) fn notify_grid_running(&mut self, running: bool) {
-        self.rigid_grid_button.running = running;
-    }
-
-    pub(super) fn notify_helices_running(&mut self, running: bool) {
-        self.rigid_helices_button.running = running;
     }
 
     pub(super) fn set_volume_exclusion(&mut self, volume_exclusion: bool) {
@@ -982,29 +992,21 @@ impl SimulationTab {
         self.rigid_body_factory.make_request(request)
     }
 
-    pub(super) fn notify_new_design(&mut self) {
-        self.physical_simulation.running = false;
-        self.rigid_grid_button.running = false;
-        self.rigid_helices_button.running = false;
-    }
-
-    pub(super) fn notify_sim_request(&mut self) {
-        self.physical_simulation.running = false;
-    }
-
     pub(super) fn get_physical_simulation_request(&self) -> SimulationRequest {
         self.physical_simulation.request()
     }
 
-    pub(super) fn leave_tab(&mut self, requests: Arc<Mutex<Requests>>) {
-        if self.rigid_grid_button.running {
+    pub(super) fn leave_tab(
+        &mut self,
+        requests: Arc<Mutex<Requests>>,
+        app_state: &ApplicationState,
+    ) {
+        if app_state.simulation_state == SimulationState::RigidGrid {
             let request = &mut requests.lock().unwrap().rigid_grid_simulation;
-            self.notify_grid_running(false);
             self.make_rigid_body_request(request);
             println!("stop grids");
-        } else if self.rigid_helices_button.running {
+        } else if app_state.simulation_state == SimulationState::RigidHelices {
             let request = &mut requests.lock().unwrap().rigid_helices_simulation;
-            self.notify_helices_running(false);
             self.make_rigid_body_request(request);
             println!("stop helices");
         }
@@ -1013,7 +1015,6 @@ impl SimulationTab {
 
 struct GoStop {
     go_stop_button: button::State,
-    pub running: bool,
     pub name: String,
     on_press: Box<dyn Fn(bool) -> Message>,
 }
@@ -1025,22 +1026,21 @@ impl GoStop {
     {
         Self {
             go_stop_button: Default::default(),
-            running: false,
             name,
             on_press: Box::new(on_press),
         }
     }
 
-    fn view(&mut self, active: bool) -> Row<Message> {
-        let button_str = if self.running {
+    fn view(&mut self, active: bool, running: bool) -> Row<Message> {
+        let button_str = if running {
             "Stop".to_owned()
         } else {
             self.name.clone()
         };
         let mut button = Button::new(&mut self.go_stop_button, Text::new(button_str))
-            .style(ButtonColor::red_green(self.running));
+            .style(ButtonColor::red_green(running));
         if active {
-            button = button.on_press((self.on_press)(!self.running));
+            button = button.on_press((self.on_press)(!running));
         }
         Row::new().push(button)
     }
@@ -1049,7 +1049,6 @@ impl GoStop {
 #[derive(Default)]
 struct PhysicalSimulation {
     go_stop_button: button::State,
-    pub running: bool,
 }
 
 impl PhysicalSimulation {
@@ -1058,10 +1057,11 @@ impl PhysicalSimulation {
         _ui_size: &'b UiSize,
         name: &'static str,
         active: bool,
+        running: bool,
     ) -> Row<'a, Message> {
-        let button_str = if self.running { "Stop" } else { name };
+        let button_str = if running { "Stop" } else { name };
         let mut button = Button::new(&mut self.go_stop_button, Text::new(button_str))
-            .style(ButtonColor::red_green(self.running));
+            .style(ButtonColor::red_green(running));
         if active {
             button = button.on_press(Message::SimRequest);
         }

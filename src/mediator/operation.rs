@@ -65,6 +65,10 @@ pub trait Operation: std::fmt::Debug + Sync + Send {
     fn drop_undo(&self) -> bool {
         false
     }
+
+    fn redoable(&self) -> bool {
+        true
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -1342,6 +1346,114 @@ impl Operation for StrandConstruction {
     }
 
     fn must_reverse(&self) -> bool {
+        false
+    }
+}
+
+#[derive(Clone)]
+pub struct RigidGridSimulation {
+    pub initial_state: crate::design::GridSystemState,
+    pub design_id: usize,
+}
+
+impl std::fmt::Debug for RigidGridSimulation {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("RigidGridSimulation").finish()
+    }
+}
+
+impl Operation for RigidGridSimulation {
+    fn descr(&self) -> OperationDescriptor {
+        OperationDescriptor::BigStrandModification
+    }
+
+    fn compose(&self, _other: &dyn Operation) -> Option<Arc<dyn Operation>> {
+        None
+    }
+
+    fn parameters(&self) -> Vec<Parameter> {
+        vec![]
+    }
+
+    fn values(&self) -> Vec<String> {
+        vec![]
+    }
+
+    fn reverse(&self) -> Arc<dyn Operation> {
+        Arc::new(self.clone())
+    }
+
+    fn effect(&self) -> UndoableOp {
+        UndoableOp::UndoGridSimulation(self.initial_state.clone())
+    }
+
+    fn description(&self) -> String {
+        format!("Undo grid simulation")
+    }
+
+    fn target(&self) -> usize {
+        self.design_id
+    }
+
+    fn with_new_value(&self, _n: usize, _val: String) -> Option<Arc<dyn Operation>> {
+        None
+    }
+
+    fn redoable(&self) -> bool {
+        false
+    }
+}
+
+#[derive(Clone)]
+pub struct RigidHelixSimulation {
+    pub initial_state: crate::design::RigidHelixState,
+    pub design_id: usize,
+}
+
+impl std::fmt::Debug for RigidHelixSimulation {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("RigidHelixSimulation").finish()
+    }
+}
+
+impl Operation for RigidHelixSimulation {
+    fn descr(&self) -> OperationDescriptor {
+        OperationDescriptor::BigStrandModification
+    }
+
+    fn compose(&self, _other: &dyn Operation) -> Option<Arc<dyn Operation>> {
+        None
+    }
+
+    fn parameters(&self) -> Vec<Parameter> {
+        vec![]
+    }
+
+    fn values(&self) -> Vec<String> {
+        vec![]
+    }
+
+    fn reverse(&self) -> Arc<dyn Operation> {
+        Arc::new(self.clone())
+    }
+
+    fn effect(&self) -> UndoableOp {
+        UndoableOp::UndoHelixSimulation(self.initial_state.clone())
+    }
+
+    fn description(&self) -> String {
+        format!("Undo helix simulation")
+    }
+
+    fn target(&self) -> usize {
+        self.design_id
+    }
+
+    fn with_new_value(&self, _n: usize, _val: String) -> Option<Arc<dyn Operation>> {
+        None
+    }
+
+    fn redoable(&self) -> bool {
         false
     }
 }

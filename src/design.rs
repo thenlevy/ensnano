@@ -364,6 +364,16 @@ impl Design {
             UndoableOp::ClearHyperboloid => self.data.lock().unwrap().clear_hyperboloid(),
             UndoableOp::NewStrandState(state) => self.data.lock().unwrap().new_strand_state(state),
             UndoableOp::ResetCopyPaste => self.data.lock().unwrap().reset_copy_paste(),
+            UndoableOp::UndoGridSimulation(initial_state) => self
+                .data
+                .lock()
+                .unwrap()
+                .undo_grid_simulation(initial_state),
+            UndoableOp::UndoHelixSimulation(initial_state) => self
+                .data
+                .lock()
+                .unwrap()
+                .undo_helix_simulation(initial_state),
         }
         OperationResult::UndoableChange
     }
@@ -793,6 +803,10 @@ impl Design {
         self.data.lock().unwrap().notify_death()
     }
 
+    pub fn get_simulation_state(&self) -> SimulationState {
+        self.data.lock().unwrap().get_simulation_state()
+    }
+
     pub fn update_hyperboloid(
         &mut self,
         nb_helix: usize,
@@ -878,28 +892,30 @@ impl Design {
         self.data.lock().unwrap().get_xovers_list()
     }
 
+    #[must_use]
     pub fn grid_simulation(
         &mut self,
         time_span: (f32, f32),
         computing: Arc<Mutex<bool>>,
         parameters: RigidBodyConstants,
-    ) {
+    ) -> Option<GridSystemState> {
         self.data
             .lock()
             .unwrap()
             .rigid_body_request(time_span, computing, parameters)
     }
 
+    #[must_use]
     pub fn rigid_helices_simulation(
         &mut self,
         time_span: (f32, f32),
         computing: Arc<Mutex<bool>>,
         parameters: RigidBodyConstants,
-    ) {
+    ) -> Option<RigidHelixState> {
         self.data
             .lock()
             .unwrap()
-            .helix_simulation_request(time_span, computing, parameters);
+            .helix_simulation_request(time_span, computing, parameters)
     }
 
     pub fn rigid_body_parameters_update(&mut self, parameters: RigidBodyConstants) {
