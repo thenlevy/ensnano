@@ -62,7 +62,7 @@ pub use grid::*;
 use icednano::DomainJunction;
 pub use icednano::Nucl;
 pub use icednano::{Axis, Design, Helix, Parameters, Strand};
-pub use rigid_body::RigidBodyConstants;
+pub use rigid_body::{GridSystemState, RigidBodyConstants, RigidHelixState};
 use roller::PhysicalSystem;
 use std::sync::{mpsc::Sender, Arc, Mutex, RwLock};
 use strand_builder::NeighbourDescriptor;
