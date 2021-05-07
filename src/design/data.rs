@@ -62,7 +62,7 @@ pub use grid::*;
 use icednano::DomainJunction;
 pub use icednano::Nucl;
 pub use icednano::{Axis, Design, Helix, Parameters, Strand};
-pub use rigid_body::RigidBodyConstants;
+pub use rigid_body::{GridSystemState, RigidBodyConstants, RigidHelixState};
 use roller::PhysicalSystem;
 use std::sync::{mpsc::Sender, Arc, Mutex, RwLock};
 use strand_builder::NeighbourDescriptor;
@@ -356,6 +356,7 @@ impl Data {
     pub fn new_with_path(json_path: &PathBuf) -> Option<Self> {
         let mut xover_ids: IdGenerator<(Nucl, Nucl)> = Default::default();
         let mut design = read_file(json_path)?;
+        design.update_version();
         design.remove_empty_domains();
         for s in design.strands.values_mut() {
             s.read_junctions(&mut xover_ids, true);
@@ -814,6 +815,18 @@ impl Data {
             self.stop_rolling()
         } else {
             self.start_rolling(request, computing)
+        }
+    }
+
+    pub fn get_simulation_state(&self) -> SimulationState {
+        if self.roller_ptrs.is_some() {
+            SimulationState::Rolling
+        } else if self.rigid_helix_simulator.is_some() {
+            SimulationState::RigidHelices
+        } else if self.rigid_body_ptr.is_some() {
+            SimulationState::RigidGrid
+        } else {
+            SimulationState::None
         }
     }
 
@@ -1662,6 +1675,7 @@ impl Data {
         if strand.cyclic {
             let new_strand = self.break_cycle(strand.clone(), *nucl, force_end);
             self.design.strands.insert(id, new_strand);
+            self.clean_domains_one_strand(id);
             //println!("Cutting cyclic strand");
             return Some(id);
         }
@@ -2675,9 +2689,23 @@ impl Data {
     }
 
     pub fn clean_up_domains(&mut self) {
-        for strand in self.design.strands.values_mut() {
-            strand.merge_consecutive_domains();
+        let ids: Vec<usize> = self.design.strands.keys().cloned().collect();
+        for s_id in ids {
+            self.clean_domains_one_strand(s_id)
         }
+    }
+
+    fn clean_domains_one_strand(&mut self, s_id: usize) {
+        if !self.design.strands.contains_key(&s_id) {
+            return;
+        }
+        let mut strand = self.design.strands.get(&s_id).cloned().unwrap();
+        self.rm_strand(s_id);
+        strand.merge_consecutive_domains();
+        strand.junctions.clear();
+        strand.read_junctions(&mut self.xover_ids, true);
+        strand.read_junctions(&mut self.xover_ids, false);
+        self.design.strands.insert(s_id, strand);
         self.update_status = true;
         self.hash_maps_update = true;
         self.view_need_reset = true;
@@ -3198,4 +3226,52 @@ struct VisibilitySieve {
     selection: Vec<Selection>,
     compl: bool,
     visible: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SimulationState {
+    None,
+    Rolling,
+    RigidGrid,
+    RigidHelices,
+}
+
+impl SimulationState {
+    pub fn is_none(&self) -> bool {
+        if let Self::None = self {
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn is_rolling(&self) -> bool {
+        if let Self::Rolling = self {
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn simulating_grid(&self) -> bool {
+        if let Self::RigidGrid = self {
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn simulating_helices(&self) -> bool {
+        if let Self::RigidHelices = self {
+            true
+        } else {
+            false
+        }
+    }
+}
+
+impl Default for SimulationState {
+    fn default() -> Self {
+        Self::None
+    }
 }

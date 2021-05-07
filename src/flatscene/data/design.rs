@@ -101,7 +101,7 @@ impl Design2d {
         self.pasted_strands = nucls_opt
             .iter()
             .map(|nucls| {
-                let color = 0xCC_30_30_30;
+                let color = crate::consts::CANDIDATE_COLOR;
                 for nucl in nucls.iter() {
                     self.read_nucl(nucl)
                 }
@@ -109,7 +109,7 @@ impl Design2d {
                     .iter()
                     .map(|n| FlatNucl::from_real(n, self.id_map()))
                     .collect();
-                Strand::new(color, flat_strand, vec![], 0, false)
+                Strand::new(color, flat_strand, vec![], 0, true)
             })
             .collect();
 

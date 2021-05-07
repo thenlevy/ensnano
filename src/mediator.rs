@@ -38,7 +38,7 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex, RwLock};
 use ultraviolet::Vec3;
 
-use crate::design;
+use crate::{design, ApplicationState};
 
 use design::{
     Design, DesignNotification, DesignRotation, DesignTranslation, DnaAttribute, DnaElementKey,
@@ -797,19 +797,13 @@ impl Mediator {
             self.canceling_pasting = false;
             self.notify_apps(Notification::Pasting(false))
         }
-        self.update_undo_redo();
+        self.update_application_state();
         ret
     }
 
-    fn update_undo_redo(&self) {
-        let can_undo = !self.undo_stack.is_empty()
-            || self.current_operation.is_some()
-            || self.last_op.is_some();
-        let can_redo = !self.redo_stack.is_empty()
-            && self.current_operation.is_none()
-            && self.last_op.is_none();
-        self.messages.lock().unwrap().push_undoable(can_undo);
-        self.messages.lock().unwrap().push_redoable(can_redo);
+    fn update_application_state(&self) {
+        let state = self.get_application_state();
+        self.messages.lock().unwrap().push_application_state(state);
     }
 
     fn selected_design(&self) -> Option<u32> {
@@ -971,7 +965,11 @@ impl Mediator {
             //println!("reversed effect {:?}", rev_op.effect());
             self.apply_operation(rev_op.target(), rev_op.effect());
             self.notify_all_designs(AppNotification::MovementEnded);
-            self.redo_stack.push(rev_op);
+            if rev_op.redoable() {
+                self.redo_stack.push(rev_op);
+            } else {
+                self.redo_stack.clear();
+            }
             self.notify_multiple_selection(vec![], AppId::Mediator);
         }
     }
@@ -1088,23 +1086,37 @@ impl Mediator {
 
     pub fn rigid_grid_request(&mut self, request: RigidBodyParametersRequest) {
         let parameters = rigid_parameters(request);
-        for d in self.designs.iter() {
-            d.write().unwrap().grid_simulation(
-                (0., 1.),
-                self.computing.clone(),
-                parameters.clone(),
-            );
+        let d = &self.designs[self.last_selected_design];
+        let state_opt = d.write().unwrap().grid_simulation(
+            (0., 1.),
+            self.computing.clone(),
+            parameters.clone(),
+        );
+        if let Some(initial_state) = state_opt {
+            self.finish_op();
+            self.undo_stack.push(Arc::new(RigidGridSimulation {
+                initial_state,
+                design_id: self.last_selected_design,
+            }));
+            self.redo_stack.clear();
         }
     }
 
     pub fn rigid_helices_request(&mut self, request: RigidBodyParametersRequest) {
         let parameters = rigid_parameters(request);
-        for d in self.designs.iter() {
-            d.write().unwrap().rigid_helices_simulation(
-                (0., 0.1),
-                self.computing.clone(),
-                parameters.clone(),
-            );
+        let d = &self.designs[self.last_selected_design];
+        let state_opt = d.write().unwrap().rigid_helices_simulation(
+            (0., 0.1),
+            self.computing.clone(),
+            parameters.clone(),
+        );
+        if let Some(initial_state) = state_opt {
+            self.finish_op();
+            self.undo_stack.push(Arc::new(RigidHelixSimulation {
+                initial_state,
+                design_id: self.last_selected_design,
+            }));
+            self.redo_stack.clear();
         }
         println!("self.computing {:?}", self.computing);
     }
@@ -1406,6 +1418,21 @@ impl Mediator {
     pub fn background3d(&mut self, bg: Background3D) {
         self.notify_apps(Notification::Background3D(bg));
     }
+
+    fn get_application_state(&self) -> ApplicationState {
+        let can_undo = !self.undo_stack.is_empty()
+            || self.current_operation.is_some()
+            || self.last_op.is_some();
+        let can_redo = !self.redo_stack.is_empty()
+            && self.current_operation.is_none()
+            && self.last_op.is_none();
+        let simulation_state = self.designs[0].read().unwrap().get_simulation_state();
+        ApplicationState {
+            can_redo,
+            can_undo,
+            simulation_state,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -1465,6 +1492,8 @@ pub enum UndoableOp {
     ClearHyperboloid,
     NewStrandState(StrandState),
     ResetCopyPaste,
+    UndoGridSimulation(crate::design::GridSystemState),
+    UndoHelixSimulation(crate::design::RigidHelixState),
 }
 
 fn write_stapples(stapples: Vec<Stapple>, path: PathBuf) {

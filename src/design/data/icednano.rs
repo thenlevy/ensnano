@@ -42,7 +42,12 @@ pub struct Design {
     /// Parameters of DNA geometry. This can be skipped (in JSON), or
     /// set to `None` in Rust, in which case a default set of
     /// parameters from the literature is used.
-    #[serde(skip_serializing_if = "Option::is_none", default)]
+    #[serde(
+        skip_serializing_if = "Option::is_none",
+        default,
+        rename(serialize = "dna_parameters"),
+        alias = "dna_parameters"
+    )]
     pub parameters: Option<Parameters>,
 
     /// The strand that is the scaffold if the design is an origami
@@ -70,6 +75,8 @@ pub struct Design {
 
     #[serde(
         alias = "small_shperes",
+        alias = "no_spheres",
+        rename(serialize = "no_spheres"),
         skip_serializing_if = "HashSet::is_empty",
         default
     )]
@@ -80,6 +87,13 @@ pub struct Design {
 
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub organizer_tree: Option<OrganizerTree<DnaElementKey>>,
+
+    #[serde(default)]
+    pub ensnano_version: String,
+}
+
+fn ensnano_version() -> String {
+    std::env!("CARGO_PKG_VERSION").to_owned()
 }
 
 impl Design {
@@ -112,6 +126,7 @@ impl Design {
             no_phantoms: Default::default(),
             anchors: Default::default(),
             organizer_tree: None,
+            ensnano_version: ensnano_version(),
         }
     }
 
@@ -129,6 +144,7 @@ impl Design {
             no_phantoms: Default::default(),
             anchors: Default::default(),
             organizer_tree: None,
+            ensnano_version: ensnano_version(),
         }
     }
 
@@ -191,6 +207,24 @@ impl Design {
             s.remove_empty_domains()
         }
     }
+
+    pub fn update_version(&mut self) {
+        if self.ensnano_version == ensnano_version() {
+            return;
+        } else if self.ensnano_version.is_empty() {
+            // Version < 0.2.0 had no version identifier, and there DNA parameters where different.
+            // The groove_angle was negative, and the roll was going in the opposite direction
+            if let Some(parameters) = self.parameters.as_mut() {
+                parameters.groove_angle *= -1.;
+            } else {
+                self.parameters = Some(Default::default())
+            }
+            for h in self.helices.values_mut() {
+                h.roll *= -1.;
+            }
+            self.ensnano_version = ensnano_version();
+        }
+    }
 }
 
 impl Design {
@@ -239,6 +273,7 @@ impl Design {
             parameters: Some(Parameters::DEFAULT),
             anchors: Default::default(),
             organizer_tree: None,
+            ensnano_version: ensnano_version(),
         })
     }
 }
@@ -1194,18 +1229,17 @@ pub struct Parameters {
 }
 
 impl Parameters {
-    /// Default values for the parameters of DNA, taken from the litterature.
+    /// Default values for the parameters of DNA, taken from the litterature (Wikipedia, Cargo
+    /// sorting paper, Woo 2011).
     pub const DEFAULT: Parameters = Parameters {
-        // z-step and helix radius from:
-        //
-        // Single-molecule portrait of DNA and RNA double helices,
-        // J. Ricardo Arias-Gonzalez, Integrative Biology, Royal
-        // Society of Chemistry, 2014, vol. 6, p.904
+        // z-step and helix radius from: Wikipedia
         z_step: 0.332,
         helix_radius: 1.,
         // bases per turn from Woo Rothemund (Nature Chemistry).
         bases_per_turn: 10.44,
-        groove_angle: -24. * PI / 34.,
+        // minor groove 12 Å, major groove 22 Å total 34 Å
+        // negative because the major groove in on your left when you go from 5' to 3'
+        groove_angle: 2. * PI * 12. / 34.,
         // From Paul's paper.
         inter_helix_gap: 0.65,
     };
@@ -1255,6 +1289,8 @@ pub struct Helix {
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub isometry2d: Option<Isometry2>,
 
+    /// Roll of the helix. A roll equal to 0 means that the nucleotide 0 of the forward strand is
+    /// at point (0., 1., 0.) in the helix's coordinate.
     #[serde(default)]
     pub roll: f32,
 }
@@ -1380,8 +1416,14 @@ impl Helix {
 
     /// Angle of base number `n` around this helix.
     pub fn theta(&self, n: isize, forward: bool, cst: &Parameters) -> f32 {
+        // The groove_angle goes from the backward strand to the forward strand
         let shift = if forward { cst.groove_angle } else { 0. };
-        n as f32 * 2. * PI / cst.bases_per_turn + shift + PI + self.roll
+        let beta = 2. * PI / cst.bases_per_turn;
+        self.roll
+            -n as f32 * beta  // Beta is positive but helix turn clockwise when n increases
+            + shift
+            + std::f32::consts::FRAC_PI_2 // Add PI/2 so that when the roll is 0,
+                                          // the backward strand is at vertical position on nucl 0
     }
 
     /// 3D position of a nucleotide on this helix. `n` is the position along the axis, and `forward` is true iff the 5' to 3' direction of the strand containing that nucleotide runs in the same direction as the axis of the helix.
@@ -1389,8 +1431,8 @@ impl Helix {
         let theta = self.theta(n, forward, p);
         let mut ret = Vec3::new(
             n as f32 * p.z_step,
-            -theta.cos() * p.helix_radius,
-            -theta.sin() * p.helix_radius,
+            theta.sin() * p.helix_radius,
+            theta.cos() * p.helix_radius,
         );
 
         ret = self.rotate_point(ret);

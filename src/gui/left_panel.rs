@@ -38,8 +38,8 @@ use crate::design::{DnaElement, DnaElementKey, ScaffoldInfo};
 use crate::mediator::{ActionMode, Selection, SelectionMode};
 
 use super::{
-    icon_btn, slider_style::DesactivatedSlider, text_btn, FogParameters as Fog, GridTypeDescr,
-    OverlayType, Requests, UiSize,
+    icon_btn, slider_style::DesactivatedSlider, text_btn, ApplicationState, FogParameters as Fog,
+    GridTypeDescr, OverlayType, Requests, UiSize,
 };
 mod color_picker;
 use color_picker::ColorPicker;
@@ -102,6 +102,7 @@ pub struct LeftPanel {
     parameters_tab: ParametersTab,
     contextual_panel: ContextualPanel,
     camera_shortcut: CameraShortcut,
+    application_state: ApplicationState,
 }
 
 #[derive(Debug, Clone)]
@@ -177,6 +178,7 @@ pub enum Message {
     RenderingMode(crate::mediator::RenderingMode),
     Background3D(crate::mediator::Background3D),
     OpenLink(&'static str),
+    NewApplicationState(ApplicationState),
 }
 
 impl LeftPanel {
@@ -211,6 +213,7 @@ impl LeftPanel {
             dialoging,
             contextual_panel: ContextualPanel::new(logical_size.width as u32),
             camera_shortcut: CameraShortcut::new(),
+            application_state: Default::default(),
         }
     }
 
@@ -366,13 +369,11 @@ impl Program for LeftPanel {
             Message::NewDesign => {
                 self.show_torsion = false;
                 self.camera_tab.notify_new_design();
-                self.simulation_tab.notify_new_design();
                 self.edition_tab.notify_new_design();
                 self.grid_tab.notify_new_design();
                 self.organizer.reset();
             }
             Message::SimRequest => {
-                self.simulation_tab.notify_sim_request();
                 let request = self.simulation_tab.get_physical_simulation_request();
                 self.requests.lock().unwrap().roll_request = Some(request);
             }
@@ -432,14 +433,12 @@ impl Program for LeftPanel {
                 self.requests.lock().unwrap().finalize_hyperboloid = true;
                 self.grid_tab.finalize_hyperboloid();
             }
-            Message::RigidGridSimulation(b) => {
+            Message::RigidGridSimulation(_) => {
                 let request = &mut self.requests.lock().unwrap().rigid_grid_simulation;
-                self.simulation_tab.notify_grid_running(b);
                 self.simulation_tab.make_rigid_body_request(request);
             }
-            Message::RigidHelicesSimulation(b) => {
+            Message::RigidHelicesSimulation(_) => {
                 let request = &mut self.requests.lock().unwrap().rigid_helices_simulation;
-                self.simulation_tab.notify_helices_running(b);
                 self.simulation_tab.make_rigid_body_request(request);
             }
             Message::MakeGrids => self.requests.lock().unwrap().make_grids = true,
@@ -449,7 +448,6 @@ impl Program for LeftPanel {
                     self.requests.lock().unwrap().roll_request = simulation_request;
                 } else {
                     self.requests.lock().unwrap().stop_roll = true;
-                    self.edition_tab.stop_runing();
                 }
             }
             Message::TabSelected(n) => {
@@ -465,9 +463,14 @@ impl Program for LeftPanel {
                         self.grid_tab.finalize_hyperboloid();
                     }
                 }
+                if n == 0 {
+                    self.action_mode = self.grid_tab.get_build_helix_mode();
+                    self.requests.lock().unwrap().action_mode = Some(self.action_mode.clone());
+                }
                 if self.selected_tab == 3 && n != 3 {
                     println!("leaving simulation tab");
-                    self.simulation_tab.leave_tab(self.requests.clone());
+                    self.simulation_tab
+                        .leave_tab(self.requests.clone(), &self.application_state);
                 }
                 self.selected_tab = n;
             }
@@ -596,6 +599,9 @@ impl Program for LeftPanel {
                 // ATM we continue even in case of error, later any error will be promted to user
                 let _ = open::that(link);
             }
+            Message::NewApplicationState(state) => {
+                self.application_state = state;
+            }
             Message::Nothing => (),
         };
         Command::none()
@@ -616,6 +622,7 @@ impl Program for LeftPanel {
                     self.selection_mode,
                     self.ui_size.clone(),
                     width,
+                    &self.application_state,
                 ),
             )
             .push(
@@ -624,7 +631,8 @@ impl Program for LeftPanel {
             )
             .push(
                 TabLabel::Icon(ICON_PHYSICAL_ENGINE),
-                self.simulation_tab.view(self.ui_size.clone()),
+                self.simulation_tab
+                    .view(self.ui_size.clone(), &self.application_state),
             )
             .push(
                 TabLabel::Icon(ICON_ATGC),

@@ -147,8 +147,11 @@ pub(super) fn cross_over_force(
     let theta_self = me.theta(n_self, b_self, parameters);
     let theta_other = other.theta(n_other, b_other, parameters);
 
-    let vec_self = me.rotate_point([0., theta_self.sin(), -theta_self.cos()].into());
-    let vec_other = other.rotate_point([0., theta_other.sin(), -theta_other.cos()].into());
+    // vec_self is the derivative of the position of self w.r.t. theta
+    // postion of self is [0, sin(theta), cos(theta)]
+    // so the derivative is [0, cos(theta), -sin(theta)]
+    let vec_self = me.rotate_point([0., theta_self.cos(), -theta_self.sin()].into());
+    let vec_other = other.rotate_point([0., theta_other.cos(), -theta_other.sin()].into());
 
     (
         (0..3)

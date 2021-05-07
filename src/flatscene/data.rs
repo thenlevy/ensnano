@@ -402,26 +402,22 @@ impl Data {
         } else {
             let from_end = self.design.prime5_of(from).or(self.design.prime3_of(from));
             let to_end = self.design.prime3_of(to).or(self.design.prime5_of(to));
-            from_end.is_some() && to_end.is_some()
+            let correct_order = if from.helix != to.helix {
+                true
+            } else if self.design.prime3_of(from).is_some() {
+                from.prime3() == to
+            } else {
+                from.prime5() == to
+            };
+            correct_order && from_end.is_some() && to_end.is_some()
         }
     }
 
     pub fn attachable_neighbour(&self, nucl: FlatNucl) -> Option<FlatNucl> {
         if self.can_cross_to(nucl, nucl.prime5()) {
-            if !(self.design.prime5_of(nucl.to_real())
-                == self.design.prime3_of(nucl.prime5().to_real()))
-            {
-                return Some(nucl.prime5());
-            }
-        }
-        if self.can_cross_to(nucl, nucl.prime3()) {
-            if self.design.prime3_of(nucl.to_real())
-                == self.design.prime5_of(nucl.prime3().to_real())
-            {
-                None
-            } else {
-                Some(nucl.prime3())
-            }
+            Some(nucl.prime5())
+        } else if self.can_cross_to(nucl, nucl.prime3()) {
+            Some(nucl.prime3())
         } else {
             None
         }
