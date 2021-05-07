@@ -1120,7 +1120,10 @@ impl ParametersTab {
 
         ret = ret.push(iced::Space::with_height(Length::Units(10)));
         ret = ret.push(Text::new("About").size(ui_size.head_text()));
-        ret = ret.push(Text::new(format!("Version {}", std::env!("CARGO_PKG_VERSION"))));
+        ret = ret.push(Text::new(format!(
+            "Version {}",
+            std::env!("CARGO_PKG_VERSION")
+        )));
         ret = ret.push(iced::Space::with_height(Length::Units(5)));
         ret = ret.push(Text::new("Development:").size(ui_size.intermediate_text()));
         ret = ret.push(Text::new("Nicolas Levy"));

@@ -151,11 +151,9 @@ fn add_grid_content<'a>(
         .text_size(ui_size.main_text()),
     );
     column = column.push(
-        Checkbox::new(
-            info_values[1].parse::<bool>().unwrap(),
-            "Small spheres",
-            |b| Message::SetSmallSpheres(b),
-        )
+        Checkbox::new(info_values[1].parse::<bool>().unwrap(), "No sphere", |b| {
+            Message::SetSmallSpheres(b)
+        })
         .size(ui_size.checkbox())
         .text_size(ui_size.main_text()),
     );
