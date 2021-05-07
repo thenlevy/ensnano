@@ -115,7 +115,7 @@ impl ContextualPanel {
     }
 
     pub fn set_small_sphere(&mut self, b: bool, requests: Arc<Mutex<Requests>>) {
-        self.info_values[1] = if b { "false".into() } else { "true".into() };
+        self.info_values[1] = if b { "true".into() } else { "false".into() };
         requests.lock().unwrap().small_spheres = Some(b);
     }
 
@@ -151,8 +151,8 @@ fn add_grid_content<'a>(
         .text_size(ui_size.main_text()),
     );
     column = column.push(
-        Checkbox::new(info_values[1].parse::<bool>().unwrap(), "Show phere", |b| {
-            Message::SetSmallSpheres(!b)
+        Checkbox::new(info_values[1].parse::<bool>().unwrap(), "No sphere", |b| {
+            Message::SetSmallSpheres(b)
         })
         .size(ui_size.checkbox())
         .text_size(ui_size.main_text()),
