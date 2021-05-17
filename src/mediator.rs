@@ -278,6 +278,7 @@ impl Mediator {
         self.drop_undo_stack();
         self.designs.push(design.clone());
         self.notify_apps(Notification::NewDesign(design));
+        self.request_fits();
     }
 
     pub fn change_strand_color(&mut self, color: u32) {
