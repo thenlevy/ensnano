@@ -676,7 +676,7 @@ impl Helix {
                     *x *= 2.;
                 }
             }
-            let x_shift = if pos >= 0 { 0. } else { advances[1] };
+            let x_shift = if pos >= 0 { 0. } else { -advances[1] / 2. };
             for (c_idx, c) in pos.to_string().chars().enumerate() {
                 let instances = char_map.get_mut(&c).unwrap();
                 let center = self.num_position_top(

@@ -526,6 +526,7 @@ impl Mediator {
         self.selection = selection.clone();
         self.last_selection = Some((selection.clone(), app_id));
         self.cancel_pasting();
+        self.finish_op();
 
         if selection.len() == 1 {
             let selection = selection[0];
@@ -558,6 +559,7 @@ impl Mediator {
 
     pub fn notify_unique_selection(&mut self, selection: Selection, app_id: AppId) {
         self.cancel_pasting();
+        self.finish_op();
         self.selection = vec![selection];
         self.last_selection = Some((vec![selection], app_id));
         if selection.is_strand() {
@@ -671,7 +673,7 @@ impl Mediator {
         }
         if let Some((candidate, app_id)) = self.candidate.take() {
             ret = true;
-            if candidate.len() == 1 {
+            if candidate.len() == 1 && self.last_op.is_none() {
                 if let Some(d_id) = candidate[0].get_design() {
                     let values = candidate[0].fetch_values(self.designs[d_id as usize].clone());
                     self.messages
@@ -1226,9 +1228,6 @@ impl Mediator {
             self.pasting = PastingMode::PastingXover
         }
         println!("{:?}", self.pasting);
-        if self.pasting.is_placing_paste() {
-            self.change_selection_mode(SelectionMode::Nucleotide);
-        }
         self.notify_apps(Notification::Pasting(self.pasting.is_placing_paste()));
     }
 
