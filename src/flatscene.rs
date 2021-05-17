@@ -124,7 +124,8 @@ impl FlatScene {
             self.splited,
         )));
         let data = Rc::new(RefCell::new(Data::new(view.clone(), design, 0)));
-        let mut controller = Controller::new(
+        data.borrow_mut().perform_update();
+        let controller = Controller::new(
             view.clone(),
             data.clone(),
             self.window_size,
@@ -134,7 +135,6 @@ impl FlatScene {
             self.mediator.clone(),
             self.splited,
         );
-        controller.fit();
         if self.view.len() > 0 {
             self.view[0] = view;
             self.data[0] = data;
