@@ -594,14 +594,18 @@ impl CameraShortcut {
                     .width(Length::Units(2 * ui_size.button()))
             })
             .collect();
-        ret = ret.push(Text::new("Camera Target"));
         while target_buttons.len() > 0 {
             let mut row = Row::new();
             row = row.push(target_buttons.remove(0)).spacing(5);
+            let mut nb_button_row = 1;
             let mut space = 2 * ui_size.button() + 5;
-            while space + 2 * ui_size.button() < width && target_buttons.len() > 0 {
+            while space + 2 * ui_size.button() < width
+                && target_buttons.len() > 0
+                && nb_button_row < 3
+            {
                 row = row.push(target_buttons.remove(0)).spacing(5);
                 space += 2 * ui_size.button() + 5;
+                nb_button_row += 1;
             }
             ret = ret.push(row)
         }

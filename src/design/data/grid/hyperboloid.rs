@@ -40,35 +40,17 @@ pub struct Hyperboloid {
 
 impl GridDivision for Hyperboloid {
     fn origin_helix(&self, parameters: &Parameters, x: isize, _y: isize) -> Vec2 {
-        use std::f32::consts::PI;
-        let angle = PI / self.radius as f32;
-        let grid_radius = self.radius(parameters);
         let i = x % (self.radius as isize);
-        let theta = 2. * i as f32 * angle;
-        let theta_ = theta + self.shift;
-        let left_helix = Vec3::new(0., grid_radius * theta.sin(), grid_radius * theta.cos());
-        let right_helix = Vec3::new(
-            self.length,
-            grid_radius * theta_.sin(),
-            grid_radius * theta_.cos(),
-        );
+        let left_helix = self.origin(i, parameters);
+        let right_helix = self.destination(i, parameters);
         let origin = (right_helix + left_helix) / 2.;
         Vec2::new(origin.z, origin.y)
     }
 
     fn orientation_helix(&self, parameters: &Parameters, x: isize, _y: isize) -> Rotor3 {
-        use std::f32::consts::PI;
-        let angle = PI / self.radius as f32;
-        let grid_radius = self.radius(parameters);
         let i = x % (self.radius as isize);
-        let theta = 2. * i as f32 * angle;
-        let origin = Vec3::new(0., grid_radius * theta.sin(), grid_radius * theta.cos());
-        let theta_ = theta + self.shift;
-        let dest = Vec3::new(
-            self.length,
-            grid_radius * theta_.sin(),
-            grid_radius * theta_.cos(),
-        );
+        let origin = self.origin(i, parameters);
+        let dest = self.destination(i, parameters);
         Rotor3::from_rotation_between(Vec3::unit_x(), (dest - origin).normalized())
     }
 
@@ -99,22 +81,10 @@ impl GridDivision for Hyperboloid {
 impl Hyperboloid {
     pub fn make_helices(&self, parameters: &Parameters) -> (Vec<Helix>, usize) {
         let mut ret = Vec::with_capacity(self.radius);
-        use std::f32::consts::PI;
-        let angle = PI / self.radius as f32;
-        let grid_radius = self.radius(parameters);
-        let mut nb_nucl = 0;
         for i in 0..self.radius {
-            let theta = 2. * i as f32 * angle;
-            let theta_ = theta + self.shift;
-            let left_helix = Vec3::new(0., grid_radius * theta.sin(), grid_radius * theta.cos());
-            let right_helix = Vec3::new(
-                self.length,
-                grid_radius * theta_.sin(),
-                grid_radius * theta_.cos(),
-            );
+            let left_helix = self.origin(i as isize, parameters);
+            let right_helix = self.destination(i as isize, parameters);
             let origin = (left_helix + right_helix) / 2.;
-            let real_length = (right_helix - left_helix).mag();
-            nb_nucl = (real_length / parameters.z_step).round() as usize;
             let orientation = Rotor3::from_rotation_between(
                 Vec3::unit_x(),
                 (right_helix - left_helix).normalized(),
@@ -122,7 +92,7 @@ impl Hyperboloid {
             let helix = Helix::new(origin, orientation);
             ret.push(helix);
         }
-        (ret, nb_nucl)
+        (ret, self.length as usize)
     }
 
     pub fn modify_shift(&mut self, new_shift: f32, parameters: &Parameters) {
@@ -161,13 +131,6 @@ impl Hyperboloid {
     }
 
     fn radius(&self, parameters: &Parameters) -> f32 {
-        /*
-        if let Some(radius) = self.forced_radius {
-            radius
-        } else {
-            let (_small_r, big_r) = self.sheet_radii(parameters);
-            (1. - self.radius_shift) * 0.75 * big_r + self.radius_shift * 5.0 * big_r
-        }*/
         self.sheet_radii(parameters).0
     }
 
@@ -175,5 +138,27 @@ impl Hyperboloid {
         let grid_radius = self.radius(parameters);
         let r = grid_radius / 2. * (2. + 2. * self.shift.cos()).sqrt();
         self.forced_radius.unwrap_or(r) + parameters.helix_radius + parameters.inter_helix_gap / 2.
+    }
+
+    fn origin(&self, i: isize, parameters: &Parameters) -> Vec3 {
+        use std::f32::consts::PI;
+        let angle = PI / self.radius as f32;
+        let grid_radius = self.radius(parameters);
+        let i = i % (self.radius as isize);
+        let theta = 2. * i as f32 * angle;
+        Vec3::new(0., grid_radius * theta.sin(), grid_radius * theta.cos())
+    }
+
+    fn destination(&self, i: isize, parameters: &Parameters) -> Vec3 {
+        use std::f32::consts::PI;
+        let angle = PI / self.radius as f32;
+        let grid_radius = self.radius(parameters);
+        let i = i % (self.radius as isize);
+        let theta = 2. * i as f32 * angle + self.shift;
+        Vec3::new(
+            self.length * parameters.z_step,
+            grid_radius * theta.sin(),
+            grid_radius * theta.cos(),
+        )
     }
 }

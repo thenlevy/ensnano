@@ -191,22 +191,19 @@ impl Camera {
         ((coord_ndc.0 + 1.) / 2., (coord_ndc.1 + 1.) / 2.)
     }
 
-    pub fn fit(&mut self, rectangle: FitRectangle) {
-        let FitRectangle {
-            min_x,
-            max_x,
-            min_y,
-            max_y,
-        } = rectangle;
-        let zoom_x = self.globals.resolution[0] / (max_x - min_x);
-        let zoom_y = self.globals.resolution[1] / (max_y - min_y);
+    pub fn fit(&mut self, mut rectangle: FitRectangle) {
+        rectangle.finish();
+        rectangle.adjust_height(1.1);
+        let zoom_x = self.globals.resolution[0] / rectangle.width().unwrap();
+        let zoom_y = self.globals.resolution[1] / rectangle.height().unwrap();
         if zoom_x < zoom_y {
             self.globals.zoom = zoom_x;
         } else {
             self.globals.zoom = zoom_y;
         }
-        self.globals.scroll_offset[0] = (min_x + max_x) / 2.;
-        self.globals.scroll_offset[1] = (min_y + max_y) / 2.;
+        let (center_x, center_y) = rectangle.center().unwrap();
+        self.globals.scroll_offset[0] = center_x;
+        self.globals.scroll_offset[1] = center_y;
         self.was_updated = true;
         self.end_movement();
     }
@@ -232,19 +229,123 @@ pub struct Globals {
 unsafe impl bytemuck::Zeroable for Globals {}
 unsafe impl bytemuck::Pod for Globals {}
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct FitRectangle {
-    pub min_x: f32,
-    pub max_x: f32,
-    pub min_y: f32,
-    pub max_y: f32,
+    pub min_x: Option<f32>,
+    pub max_x: Option<f32>,
+    pub min_y: Option<f32>,
+    pub max_y: Option<f32>,
 }
 
 impl FitRectangle {
+    pub fn new() -> Self {
+        Default::default()
+    }
+
     pub fn add_point(&mut self, point: ultraviolet::Vec2) {
-        self.min_x = self.min_x.min(point.x);
-        self.max_x = self.max_x.max(point.x);
-        self.min_y = self.min_y.min(point.y);
-        self.max_y = self.max_y.max(point.y);
+        self.min_x = self.min_x.map(|x| x.min(point.x)).or(Some(point.x));
+        self.max_x = self.max_x.map(|x| x.max(point.x)).or(Some(point.x));
+        self.min_y = self.min_y.map(|y| y.min(point.y)).or(Some(point.y));
+        self.max_y = self.max_y.map(|y| y.max(point.y)).or(Some(point.y));
+    }
+
+    pub fn finish(&mut self) {
+        let width = self.width().unwrap_or(0.);
+        let height = self.height().unwrap_or(0.);
+
+        if width <= Self::min_width() {
+            let diff = Self::min_width() - width;
+            self.min_x = self.min_x.map(|x| x - diff / 4.).or(Some(-5.));
+            self.max_x = self.max_x.map(|x| x + 3. * diff / 4.).or(Some(15.))
+        }
+
+        if height <= Self::min_height() {
+            let diff = Self::min_height() - height;
+            self.min_y = self.min_y.map(|y| y - diff / 7.).or(Some(-5.));
+            self.max_y = self.max_y.map(|y| y + 6. * diff / 7.).or(Some(30.));
+        }
+    }
+
+    pub fn adjust_height(&mut self, factor: f32) {
+        let height = self.height().unwrap_or(0.);
+        let delta = (factor - 1.) / 2.;
+        self.min_y.as_mut().map(|y| *y -= delta * height);
+        self.max_y.as_mut().map(|y| *y += delta * height);
+    }
+
+    fn width(&self) -> Option<f32> {
+        let max_x = self.max_x?;
+        let min_x = self.min_x?;
+        Some(max_x - min_x)
+    }
+
+    fn height(&self) -> Option<f32> {
+        let max_y = self.max_y?;
+        let min_y = self.min_y?;
+        Some(max_y - min_y)
+    }
+
+    fn center(&self) -> Option<(f32, f32)> {
+        let max_x = self.max_x?;
+        let min_x = self.min_x?;
+        let max_y = self.max_y?;
+        let min_y = self.min_y?;
+        Some(((max_x + min_x) / 2., (max_y + min_y) / 2.))
+    }
+
+    fn min_width() -> f32 {
+        20f32
+    }
+
+    fn min_height() -> f32 {
+        35f32
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn empty_rectangle() {
+        let rect = FitRectangle::new();
+        assert!(rect.width().is_none());
+        assert!(rect.height().is_none());
+    }
+
+    #[test]
+    fn minimum_height_after_finish() {
+        let mut rect = FitRectangle::new();
+        rect.finish();
+        let height = rect.height().unwrap();
+        assert!(height >= FitRectangle::min_height())
+    }
+
+    #[test]
+    fn minimum_width_after_finish() {
+        let mut rect = FitRectangle::new();
+        rect.finish();
+        let width = rect.width().unwrap();
+        assert!(width >= FitRectangle::min_width())
+    }
+
+    #[test]
+    fn correct_width() {
+        let mut rect = FitRectangle::new();
+        rect.add_point(Vec2::new(-3., 4.));
+        rect.add_point(Vec2::new(-2., 5.));
+        rect.add_point(Vec2::new(-1., -2.));
+        let width = rect.width().unwrap();
+        assert!((width - (2.)).abs() < 1e-5);
+    }
+
+    #[test]
+    fn correct_height() {
+        let mut rect = FitRectangle::new();
+        rect.add_point(Vec2::new(-3., 4.));
+        rect.add_point(Vec2::new(-2., 5.));
+        rect.add_point(Vec2::new(-1., -2.));
+        let height = rect.height().unwrap();
+        assert!((height - 7.).abs() < 1e-5);
     }
 }

@@ -316,10 +316,9 @@ impl Program for TopBar {
             .height(Length::Units(self.ui_size.button()))
             .on_press(Message::OxDNARequested);
 
-        let button_split_2d =
-            Button::new(&mut self.button_split_2d, iced::Text::new("Split 2d view"))
-                .height(Length::Units(self.ui_size.button()))
-                .on_press(Message::Split2d);
+        let button_split_2d = Button::new(&mut self.button_split_2d, iced::Text::new("(Un)split"))
+            .height(Length::Units(self.ui_size.button()))
+            .on_press(Message::Split2d);
 
         let button_help = Button::new(&mut self.button_help, iced::Text::new("Help"))
             .height(Length::Units(self.ui_size.button()))
