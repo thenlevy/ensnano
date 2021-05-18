@@ -119,6 +119,8 @@ pub struct ScadnanoStrand {
         default
     )]
     pub prime3_modification: Option<String>,
+    #[serde(default)]
+    pub circular: bool,
 }
 
 impl ScadnanoStrand {
