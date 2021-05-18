@@ -31,6 +31,9 @@ use super::strand_builder::{DomainIdentifier, NeighbourDescriptor};
 use super::{DnaElementKey, IdGenerator};
 use ensnano_organizer::OrganizerTree;
 
+#[cfg(test)]
+mod test;
+
 /// The `icednano` Design structure.
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Design {
@@ -500,13 +503,13 @@ impl Strand {
         } else {
             None
         };
-        let cyclic = false; // TODO: determine this value
+        let cyclic = scad.circular;
         let sane_domains = sanitize_domains(&domains, cyclic);
         let junctions = read_junctions(&sane_domains, cyclic);
         Some(Self {
             domains: sane_domains,
             color,
-            cyclic, // TODO: determine this value
+            cyclic,
             junctions,
             sequence,
         })

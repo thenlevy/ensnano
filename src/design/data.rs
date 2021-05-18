@@ -543,6 +543,7 @@ impl Data {
                     last_xover_junction = Some(&mut strand.junctions[i]);
                 } else if let icednano::Domain::Insertion(n) = domain {
                     strand_position += n;
+                    last_xover_junction = Some(&mut strand.junctions[i]);
                 }
             }
             if strand.cyclic {
