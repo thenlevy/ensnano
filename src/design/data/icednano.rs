@@ -32,7 +32,7 @@ use super::{DnaElementKey, IdGenerator};
 use ensnano_organizer::OrganizerTree;
 
 #[cfg(test)]
-mod test;
+mod tests;
 
 /// The `icednano` Design structure.
 #[derive(Serialize, Deserialize, Clone)]
@@ -789,6 +789,33 @@ impl Strand {
             }
         }
         None
+    }
+
+    pub fn insertion_points(&self) -> Vec<(Option<Nucl>, Option<Nucl>)> {
+        let mut ret = Vec::new();
+        let mut prev_prime3 = if self.cyclic {
+            self.domains.last().and_then(|d| d.prime3_end())
+        } else {
+            None
+        };
+        for (d1, d2) in self.domains.iter().zip(self.domains.iter().skip(1)) {
+            if let Domain::Insertion(_) = d1 {
+                ret.push((prev_prime3, d2.prime5_end()))
+            } else {
+                prev_prime3 = d1.prime3_end()
+            }
+        }
+        if let Some(Domain::Insertion(_)) = self.domains.last() {
+            if self.cyclic {
+                ret.push((
+                    prev_prime3,
+                    self.domains.first().and_then(|d| d.prime5_end()),
+                ))
+            } else {
+                ret.push((prev_prime3, None))
+            }
+        }
+        ret
     }
 }
 
