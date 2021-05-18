@@ -67,6 +67,7 @@ impl Design {
         let view = Arc::new(Mutex::new(View::new()));
         let data = Arc::new(Mutex::new(Data::new_with_path(path)?));
         let controller = Controller::new(view.clone(), data.clone());
+        data.lock().unwrap().replace_all_insertions();
         Some(Self {
             view,
             data,

@@ -131,6 +131,21 @@ fn correct_sanetization_cyclic() {
 }
 
 #[test]
+fn correct_sanetization_cyclic_pathological() {
+    let mut strand = strand_with_insertion();
+    strand.cyclic = true;
+    let add_prime5 = 123;
+    strand.domains.insert(0, Domain::Insertion(add_prime5));
+    let add_prime3 = 9874;
+    strand.domains.push(Domain::Insertion(add_prime3));
+    let sane_domains = sanitize_domains(&strand.domains, true);
+    assert_eq!(
+        sane_domains.iter().map(|d| d.length()).collect::<Vec<_>>(),
+        vec![4, 8, 4, 5, 8, add_prime5 + add_prime3]
+    );
+}
+
+#[test]
 fn correct_sanetization_cyclic_insertion_5prime() {
     let mut strand = strand_with_insertion();
     strand.cyclic = true;
@@ -141,7 +156,7 @@ fn correct_sanetization_cyclic_insertion_5prime() {
     let sane_domains = sanitize_domains(&strand.domains, true);
     assert_eq!(
         sane_domains.iter().map(|d| d.length()).collect::<Vec<_>>(),
-        vec![insertion_prime5, 4, 8, 4, 5, 8]
+        vec![4, 8, 4, 5, 8, insertion_prime5]
     );
 }
 
@@ -171,7 +186,7 @@ fn correct_sanetization_cyclic_insertion_3prime_5prime() {
     let sane_domains = sanitize_domains(&strand.domains, true);
     assert_eq!(
         sane_domains.iter().map(|d| d.length()).collect::<Vec<_>>(),
-        vec![insertion_prime3 + insertion_prime5, 4, 8, 4, 5, 8]
+        vec![4, 8, 4, 5, 8, insertion_prime3 + insertion_prime5]
     );
 }
 
@@ -336,18 +351,6 @@ fn correct_insertion_cyclic_prime5() {
         vec![
             (
                 Some(Nucl {
-                    helix: 2,
-                    position: 0,
-                    forward: false
-                }),
-                Some(Nucl {
-                    helix: 1,
-                    position: 0,
-                    forward: true
-                })
-            ),
-            (
-                Some(Nucl {
                     helix: 1,
                     position: 3,
                     forward: true
@@ -368,6 +371,18 @@ fn correct_insertion_cyclic_prime5() {
                     helix: 2,
                     position: 7,
                     forward: false
+                })
+            ),
+            (
+                Some(Nucl {
+                    helix: 2,
+                    position: 0,
+                    forward: false
+                }),
+                Some(Nucl {
+                    helix: 1,
+                    position: 0,
+                    forward: true
                 })
             ),
         ]
@@ -439,18 +454,6 @@ fn correct_insertion_cyclic_prime5_prime3() {
         vec![
             (
                 Some(Nucl {
-                    helix: 2,
-                    position: 0,
-                    forward: false
-                }),
-                Some(Nucl {
-                    helix: 1,
-                    position: 0,
-                    forward: true
-                })
-            ),
-            (
-                Some(Nucl {
                     helix: 1,
                     position: 3,
                     forward: true
@@ -473,6 +476,43 @@ fn correct_insertion_cyclic_prime5_prime3() {
                     forward: false
                 })
             ),
+            (
+                Some(Nucl {
+                    helix: 2,
+                    position: 0,
+                    forward: false
+                }),
+                Some(Nucl {
+                    helix: 1,
+                    position: 0,
+                    forward: true
+                })
+            ),
+        ]
+    );
+}
+
+#[test]
+fn correct_junction_cyclic_pathological() {
+    let mut strand = strand_with_insertion();
+    strand.cyclic = true;
+    let insertion_prime5 = 12;
+    let insertion_prime3 = 17;
+    strand
+        .domains
+        .insert(0, Domain::Insertion(insertion_prime5));
+    strand.domains.push(Domain::Insertion(insertion_prime3));
+    let sane_domains = sanitize_domains(&strand.domains, true);
+    let junctions = read_junctions(sane_domains.as_slice(), strand.cyclic);
+    assert_eq!(
+        junctions,
+        vec![
+            DomainJunction::Adjacent,
+            DomainJunction::Adjacent,
+            DomainJunction::Adjacent,
+            DomainJunction::UnindentifiedXover,
+            DomainJunction::Adjacent,
+            DomainJunction::UnindentifiedXover
         ]
     );
 }
