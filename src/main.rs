@@ -77,7 +77,11 @@ use winit::{
 extern crate serde_derive;
 extern crate serde;
 
+#[cfg(not(test))]
 const MUST_TEST: bool = false;
+
+#[cfg(test)]
+const MUST_TEST: bool = true;
 
 mod consts;
 /// Design handling

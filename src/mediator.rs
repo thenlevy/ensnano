@@ -276,6 +276,20 @@ impl Mediator {
 
     pub fn add_design(&mut self, design: Arc<RwLock<Design>>) {
         self.drop_undo_stack();
+        if design
+            .read()
+            .unwrap()
+            .has_at_least_on_strand_with_insertions()
+        {
+            message(
+                "Your design contains insertions and/or deletions. These are not very well \
+            handled by ENSnano at the moment and the current solution is to replace them by single \
+            strands on helices specially created for that puropse."
+                    .into(),
+                rfd::MessageLevel::Warning,
+            );
+            design.write().unwrap().replace_insertions_by_helices();
+        }
         self.designs.push(design.clone());
         self.notify_apps(Notification::NewDesign(design));
         self.request_fits();

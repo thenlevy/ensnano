@@ -1013,6 +1013,17 @@ impl Design {
     pub fn get_scaffold_info(&self) -> Option<ScaffoldInfo> {
         self.data.lock().unwrap().get_scaffold_info()
     }
+
+    pub fn has_at_least_on_strand_with_insertions(&self) -> bool {
+        self.data
+            .lock()
+            .unwrap()
+            .has_at_least_on_strand_with_insertions()
+    }
+
+    pub fn replace_insertions_by_helices(&mut self) {
+        self.data.lock().unwrap().replace_all_insertions()
+    }
 }
 
 #[derive(Clone)]

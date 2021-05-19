@@ -38,10 +38,12 @@ impl Data {
                             {
                                 panic!(
                                     "In test{} \n
-                                    Expected junction {:?}, got {:?}",
+                                    Expected junction {:?}, got {:?}\n
+                                    junctions are {:?}",
                                     fail_msg,
                                     DomainJunction::Adjacent,
-                                    s.junctions[expected_prime5_domain.unwrap()]
+                                    s.junctions[expected_prime5_domain.unwrap()],
+                                    s.junctions,
                                 );
                             }
                         } else {
@@ -53,18 +55,22 @@ impl Data {
                                 {
                                     panic!(
                                         "In test{} \n
-                                    Expected junction {:?}, got {:?}",
+                                    Expected junction {:?}, got {:?}\n
+                                    junctions are {:?}",
                                         fail_msg,
                                         DomainJunction::IdentifiedXover(id),
-                                        s.junctions[expected_prime5_domain.unwrap()]
+                                        s.junctions[expected_prime5_domain.unwrap()],
+                                        s.junctions,
                                     );
                                 }
                             } else {
                                 panic!(
                                     "In test{} \n
-                                    Could not find xover in xover_ids {:?}",
+                                    Could not find xover in xover_ids {:?}
+                                    xover_ids: {:?}",
                                     fail_msg,
-                                    (prime5, prime3)
+                                    (prime5, prime3),
+                                    self.xover_ids.get_all_elements(),
                                 );
                             }
                         }
@@ -75,8 +81,8 @@ impl Data {
                 }
                 if let Some(nucl) = d.prime3_end() {
                     expected_prime5 = Some(nucl);
-                    expected_prime5_domain = Some(i);
                 }
+                expected_prime5_domain = Some(i);
             }
         }
         assert!(

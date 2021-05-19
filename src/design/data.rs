@@ -31,7 +31,7 @@ use ahash::RandomState;
 use cadnano_format::Cadnano;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::io::Write;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use ultraviolet::Vec3;
 
 use std::borrow::Cow;
@@ -43,6 +43,7 @@ mod codenano;
 mod elements;
 mod grid;
 mod icednano;
+mod insertion_replacement;
 mod oxdna;
 mod rigid_body;
 mod roller;
@@ -59,9 +60,9 @@ pub use elements::*;
 use ensnano_organizer::OrganizerTree;
 use grid::GridManager;
 pub use grid::*;
-use icednano::DomainJunction;
 pub use icednano::Nucl;
 pub use icednano::{Axis, Design, Helix, Parameters, Strand};
+use icednano::{Domain, DomainJunction, HelixInterval};
 pub use rigid_body::{GridSystemState, RigidBodyConstants, RigidHelixState};
 use roller::PhysicalSystem;
 use std::sync::{mpsc::Sender, Arc, Mutex, RwLock};
@@ -561,6 +562,7 @@ impl Data {
                 color_map.insert(bound_id, color);
                 strand_map.insert(bound_id, *s_id);
                 helix_map.insert(bound_id, nucl.helix);
+                println!("adding {:?}, {:?}", bound.0, bound.1);
                 Self::update_junction(
                     &mut self.xover_ids,
                     strand
@@ -3082,6 +3084,10 @@ impl Data {
             starting_nucl,
         })
     }
+
+    pub fn has_at_least_on_strand_with_insertions(&self) -> bool {
+        self.design.has_at_least_on_strand_with_insertions()
+    }
 }
 
 fn compl(c: Option<char>) -> Option<char> {
@@ -3095,9 +3101,9 @@ fn compl(c: Option<char>) -> Option<char> {
 }
 
 /// Create a design by parsing a file
-fn read_file(path: &PathBuf) -> Option<icednano::Design> {
+fn read_file<P: AsRef<Path> + std::fmt::Debug>(path: P) -> Option<icednano::Design> {
     let json_str =
-        std::fs::read_to_string(path).unwrap_or_else(|_| panic!("File not found {:?}", path));
+        std::fs::read_to_string(&path).unwrap_or_else(|_| panic!("File not found {:?}", path));
 
     let design: Result<icednano::Design, _> = serde_json::from_str(&json_str);
     // First try to read icednano format

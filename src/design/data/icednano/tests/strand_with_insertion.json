@@ -1,0 +1,41 @@
+{
+      "domains": [
+        {
+          "HelixDomain": {
+            "helix": 1,
+            "start": 0,
+            "end": 4,
+            "forward": true,
+            "sequence": null
+          }
+        },
+        {
+            "Insertion": 5
+        },
+        {
+            "Insertion": 3
+        },
+        {
+          "HelixDomain": {
+            "helix": 1,
+            "start": 4,
+            "end": 8,
+            "forward": true,
+            "sequence": null
+          }
+        },
+        {
+            "Insertion": 5
+        },
+        {
+          "HelixDomain": {
+            "helix": 2,
+            "start": 0,
+            "end": 8,
+            "forward": false,
+            "sequence": null
+          }
+        }
+      ],
+      "color": 4279832335
+}

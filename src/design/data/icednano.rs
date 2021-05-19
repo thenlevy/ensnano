@@ -32,7 +32,7 @@ use super::{DnaElementKey, IdGenerator};
 use ensnano_organizer::OrganizerTree;
 
 #[cfg(test)]
-mod test;
+mod tests;
 
 /// The `icednano` Design structure.
 #[derive(Serialize, Deserialize, Clone)]
@@ -228,6 +228,10 @@ impl Design {
             self.ensnano_version = ensnano_version();
         }
     }
+
+    pub fn has_at_least_on_strand_with_insertions(&self) -> bool {
+        self.strands.values().any(|s| s.has_insertions())
+    }
 }
 
 impl Design {
@@ -351,15 +355,20 @@ fn sanitize_domains(domains: &[Domain], cyclic: bool) -> Vec<Domain> {
         }
     }
 
-    if let Some(n) = current_insertion {
+    if let Some(mut n) = current_insertion {
         if cyclic {
-            if let Domain::Insertion(k) = &mut ret[0] {
-                *k += n;
-            } else {
-                ret.push(Domain::Insertion(n));
+            if let Domain::Insertion(k) = ret[0].clone() {
+                ret.remove(0);
+                n += k;
             }
+            ret.push(Domain::Insertion(n));
         } else {
             ret.push(Domain::Insertion(n));
+        }
+    } else if cyclic {
+        if let Domain::Insertion(k) = ret[0].clone() {
+            ret.remove(0);
+            ret.push(Domain::Insertion(k));
         }
     }
     ret
@@ -789,6 +798,42 @@ impl Strand {
             }
         }
         None
+    }
+
+    pub fn insertion_points(&self) -> Vec<(Option<Nucl>, Option<Nucl>)> {
+        let mut ret = Vec::new();
+        let mut prev_prime3 = if self.cyclic {
+            self.domains.last().and_then(|d| d.prime3_end())
+        } else {
+            None
+        };
+        for (d1, d2) in self.domains.iter().zip(self.domains.iter().skip(1)) {
+            if let Domain::Insertion(_) = d1 {
+                ret.push((prev_prime3, d2.prime5_end()))
+            } else {
+                prev_prime3 = d1.prime3_end()
+            }
+        }
+        if let Some(Domain::Insertion(_)) = self.domains.last() {
+            if self.cyclic {
+                ret.push((
+                    prev_prime3,
+                    self.domains.first().and_then(|d| d.prime5_end()),
+                ))
+            } else {
+                ret.push((prev_prime3, None))
+            }
+        }
+        ret
+    }
+
+    pub fn has_insertions(&self) -> bool {
+        for d in self.domains.iter() {
+            if let Domain::Insertion(_) = d {
+                return true;
+            }
+        }
+        false
     }
 }
 
@@ -1441,6 +1486,47 @@ impl Helix {
         ret = self.rotate_point(ret);
         ret += self.position;
         ret
+    }
+
+    ///Return an helix that makes an ideal cross-over with self at postion n
+    pub fn ideal_neighbour(&self, n: isize, forward: bool, p: &Parameters) -> Helix {
+        let other_helix_pos = self.position_ideal_neighbour(n, forward, p);
+        let mut new_helix = self.detatched_copy_at(other_helix_pos);
+        self.adjust_theta_neighbour(n, forward, &mut new_helix, p);
+        new_helix
+    }
+
+    fn detatched_copy_at(&self, position: Vec3) -> Helix {
+        Helix {
+            position,
+            old_position: position,
+            orientation: self.orientation,
+            old_orientation: self.orientation,
+            grid_position: None,
+            roll: 0.,
+            visible: true,
+            isometry2d: None,
+        }
+    }
+
+    fn position_ideal_neighbour(&self, n: isize, forward: bool, p: &Parameters) -> Vec3 {
+        let axis_pos = self.axis_position(p, n);
+        let my_nucl_pos = self.space_pos(p, n, forward);
+        let direction = (my_nucl_pos - axis_pos).normalized();
+        let other_helix_pos = (2. * p.helix_radius + p.inter_helix_gap) * direction + axis_pos;
+        other_helix_pos
+    }
+
+    fn adjust_theta_neighbour(
+        &self,
+        n: isize,
+        forward: bool,
+        new_helix: &mut Helix,
+        p: &Parameters,
+    ) {
+        let theta_current = new_helix.theta(0, forward, p);
+        let theta_obj = self.theta(n, forward, p) + std::f32::consts::PI;
+        new_helix.roll = theta_obj - theta_current;
     }
 
     pub fn get_axis(&self, p: &Parameters) -> Axis {
