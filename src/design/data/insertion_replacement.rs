@@ -26,6 +26,8 @@ impl Data {
         for s in self.design.strands.values_mut() {
             replace_insertions_one_strand(s, helices, &parameters);
         }
+        self.update_status = true;
+        self.hash_maps_update = true;
     }
 }
 

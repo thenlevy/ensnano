@@ -3084,6 +3084,10 @@ impl Data {
             starting_nucl,
         })
     }
+
+    pub fn has_at_least_on_strand_with_insertions(&self) -> bool {
+        self.design.has_at_least_on_strand_with_insertions()
+    }
 }
 
 fn compl(c: Option<char>) -> Option<char> {

@@ -67,7 +67,6 @@ impl Design {
         let view = Arc::new(Mutex::new(View::new()));
         let data = Arc::new(Mutex::new(Data::new_with_path(path)?));
         let controller = Controller::new(view.clone(), data.clone());
-        data.lock().unwrap().replace_all_insertions();
         Some(Self {
             view,
             data,
@@ -1013,6 +1012,17 @@ impl Design {
 
     pub fn get_scaffold_info(&self) -> Option<ScaffoldInfo> {
         self.data.lock().unwrap().get_scaffold_info()
+    }
+
+    pub fn has_at_least_on_strand_with_insertions(&self) -> bool {
+        self.data
+            .lock()
+            .unwrap()
+            .has_at_least_on_strand_with_insertions()
+    }
+
+    pub fn replace_insertions_by_helices(&mut self) {
+        self.data.lock().unwrap().replace_all_insertions()
     }
 }
 

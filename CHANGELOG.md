@@ -3,6 +3,7 @@
 <!-- next-header -->
 
 ## Unreleased
+- Fix import of scadnano files containing insertions or deletions & replace those by single strands
 - Fix a bug that would cause the fitting of the 2D view to be incorrect
 - Fix a bug that would incorretly initiate the length of strands when creating nanotubes
 - Fix position of text indicating negative indices on helices in 2d view

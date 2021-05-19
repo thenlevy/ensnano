@@ -228,6 +228,10 @@ impl Design {
             self.ensnano_version = ensnano_version();
         }
     }
+
+    pub fn has_at_least_on_strand_with_insertions(&self) -> bool {
+        self.strands.values().any(|s| s.has_insertions())
+    }
 }
 
 impl Design {
@@ -821,6 +825,15 @@ impl Strand {
             }
         }
         ret
+    }
+
+    pub fn has_insertions(&self) -> bool {
+        for d in self.domains.iter() {
+            if let Domain::Insertion(_) = d {
+                return true;
+            }
+        }
+        false
     }
 }
 
