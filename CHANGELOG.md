@@ -2,7 +2,8 @@
 
 <!-- next-header -->
 
-## Unreleased
+## 0.2.1
+- Take loops into account when importing cadnano file
 - Fix import of scadnano files containing insertions or deletions & replace those by single strands
 - Fix a bug that would cause the fitting of the 2D view to be incorrect
 - Fix a bug that would incorretly initiate the length of strands when creating nanotubes

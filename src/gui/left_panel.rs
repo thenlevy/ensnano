@@ -514,9 +514,9 @@ impl Program for LeftPanel {
                         if let Some(handle) = file {
                             let mut content = std::fs::read_to_string(handle.path()).unwrap();
                             content.make_ascii_uppercase();
-                            if let Some(n) =
-                                content.find(|c| c != 'A' && c != 'T' && c != 'G' && c != 'C')
-                            {
+                            if let Some(n) = content.find(|c: char| {
+                                c != 'A' && c != 'T' && c != 'G' && c != 'C' && !c.is_whitespace()
+                            }) {
                                 let msg = format!(
                                     "This text file does not contain a valid DNA sequence.\n
                                         First invalid char at position {}",
