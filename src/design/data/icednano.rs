@@ -835,6 +835,40 @@ impl Strand {
         }
         false
     }
+
+    pub fn add_insertion_at_nucl(&mut self, nucl: &Nucl, insertion_size: usize) {
+        let insertion_point = self.locate_nucl(nucl);
+        if let Some((d_id, n)) = insertion_point {
+            self.add_insertion_at_dom_position(d_id, n, insertion_size);
+        } else {
+            println!("Could not add insertion");
+            if cfg!(test) {
+                panic!("Could not locate nucleotide in strand");
+            }
+        }
+    }
+
+    fn locate_nucl(&self, nucl: &Nucl) -> Option<(usize, usize)> {
+        for (d_id, d) in self.domains.iter().enumerate() {
+            if let Some(n) = d.has_nucl(nucl) {
+                return Some((d_id, n));
+            }
+        }
+        None
+    }
+
+    fn add_insertion_at_dom_position(&mut self, d_id: usize, pos: usize, insertion_size: usize) {
+        if let Some((prime5, prime3)) = self.domains[d_id].split(pos) {
+            self.domains[d_id] = prime3;
+            self.domains.insert(d_id, Domain::Insertion(insertion_size));
+            self.domains.insert(d_id, prime5);
+        } else {
+            println!("Could not split");
+            if cfg!(test) {
+                panic!("Could not split domain");
+            }
+        }
+    }
 }
 
 fn is_false(x: &bool) -> bool {
