@@ -30,6 +30,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 //!
 //!
 //! The multiplexer is also in charge of drawing to the frame.
+use super::{save_before_open, save_before_quit};
 use crate::gui::{Requests, UiSize};
 use crate::mediator::{ActionMode, SelectionMode};
 use crate::utils::texture::SampledTexture;
@@ -522,10 +523,10 @@ impl Multiplexer {
                         self.requests.lock().unwrap().save_shortcut = Some(());
                     }
                     VirtualKeyCode::O if ctrl(&self.modifiers) => {
-                        self.requests.lock().unwrap().open_shortcut = Some(());
+                        save_before_open(self.requests.clone());
                     }
                     VirtualKeyCode::Q if ctrl(&self.modifiers) && cfg!(target_os = "macos") => {
-                        self.requests.lock().unwrap().exit_shortcut = Some(());
+                        save_before_quit(self.requests.clone());
                     }
                     VirtualKeyCode::S => {
                         self.requests.lock().unwrap().selection_mode = Some(SelectionMode::Strand)
