@@ -38,7 +38,7 @@ fn icon(icon: MaterialIcon, ui_size: UiSize) -> iced::Text {
         .size(ui_size.icon())
 }
 
-use super::{Requests, SplitMode};
+use super::{KeepProceed, Requests, SplitMode};
 
 pub struct TopBar {
     button_fit: button::State,
@@ -66,9 +66,10 @@ pub struct TopBar {
 pub enum Message {
     SceneFitRequested,
     FileAddRequested,
+    OpenFileButtonPressed,
     #[allow(dead_code)]
     FileReplaceRequested,
-    FileSaveRequested,
+    FileSaveRequested(Option<KeepProceed>),
     Resize(LogicalSize<f64>),
     ToggleView(SplitMode),
     UiSizeChanged(UiSize),
@@ -123,6 +124,9 @@ impl Program for TopBar {
         match message {
             Message::SceneFitRequested => {
                 self.requests.lock().expect("fitting_requested").fitting = true;
+            }
+            Message::OpenFileButtonPressed => {
+                crate::save_before_open(self.requests.clone());
             }
             Message::FileAddRequested => {
                 if !*self.dialoging.lock().unwrap() {
@@ -182,7 +186,7 @@ impl Program for TopBar {
                     .expect("file_opening_request")
                     .file_clear = false;
             }
-            Message::FileSaveRequested => {
+            Message::FileSaveRequested(keep_proceed) => {
                 if !*self.dialoging.lock().unwrap() {
                     *self.dialoging.lock().unwrap() = true;
                     let requests = self.requests.clone();
@@ -203,46 +207,12 @@ impl Program for TopBar {
                                         format!("{}.json", extension.to_str().unwrap());
                                     path_buf.set_extension(new_extension);
                                 }
-                                requests.lock().unwrap().file_save = Some(path_buf);
+                                requests.lock().unwrap().file_save = Some((path_buf, keep_proceed));
                             }
                             *dialoging.lock().unwrap() = false;
                         };
                         futures::executor::block_on(save_op);
                     });
-                    /*
-                    if cfg!(target_os = "macos") {
-                        // do not spawn a new thread for macos
-                        let result = match nfd2::open_save_dialog(None, None).expect("oh no") {
-                            Response::Okay(file_path) => Some(file_path),
-                            Response::OkayMultiple(_) => {
-                                println!("Please open only one file");
-                                None
-                            }
-                            Response::Cancel => None,
-                        };
-                        *self.dialoging.lock().unwrap() = false;
-                        if let Some(path) = result {
-                            requests.lock().expect("file_opening_request").file_save = Some(path);
-                        }
-                    } else {
-                        let dialoging = self.dialoging.clone();
-                        thread::spawn(move || {
-                            let result = match nfd2::open_save_dialog(None, None).expect("oh no") {
-                                Response::Okay(file_path) => Some(file_path),
-                                Response::OkayMultiple(_) => {
-                                    println!("Please open only one file");
-                                    None
-                                }
-                                Response::Cancel => None,
-                            };
-                            *dialoging.lock().unwrap() = false;
-                            if let Some(path) = result {
-                                requests.lock().expect("file_opening_request").file_save =
-                                    Some(path);
-                            }
-                        });
-                    }
-                    */
                 }
             }
             Message::Resize(size) => self.resize(size),
@@ -271,7 +241,7 @@ impl Program for TopBar {
             &mut self.button_add_file,
             icon(MaterialIcon::FolderOpen, self.ui_size.clone()),
         )
-        .on_press(Message::FileAddRequested)
+        .on_press(Message::OpenFileButtonPressed)
         .height(Length::Units(height));
         /*let button_replace_file = Button::new(
             &mut self.button_replace_file,
@@ -279,11 +249,12 @@ impl Program for TopBar {
         )
         .on_press(Message::FileReplaceRequested)
         .height(Length::Units(height));*/
+        let save_message = Message::FileSaveRequested(None);
         let button_save = Button::new(
             &mut self.button_save,
             icon(MaterialIcon::Save, self.ui_size.clone()),
         )
-        .on_press(Message::FileSaveRequested)
+        .on_press(save_message)
         .height(Length::Units(height));
 
         let mut button_undo = Button::new(

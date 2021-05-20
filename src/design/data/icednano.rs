@@ -31,6 +31,7 @@ use super::strand_builder::{DomainIdentifier, NeighbourDescriptor};
 use super::{DnaElementKey, IdGenerator};
 use ensnano_organizer::OrganizerTree;
 
+mod formating;
 #[cfg(test)]
 mod tests;
 
@@ -877,7 +878,7 @@ fn is_false(x: &bool) -> bool {
 
 /// A domain can be either an interval of nucleotides on an helix, or an "Insertion" that is a set
 /// of nucleotides that are not on an helix and form an independent loop.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub enum Domain {
     /// An interval of nucleotides on an helix
     HelixDomain(HelixInterval),
@@ -885,7 +886,7 @@ pub enum Domain {
     Insertion(usize),
 }
 
-#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+#[derive(Default, Clone, Serialize, Deserialize)]
 pub struct HelixInterval {
     /// Index of the helix in the array of helices. Indices start at
     /// 0.

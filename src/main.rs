@@ -308,6 +308,7 @@ fn main() {
     let mut last_render_time = std::time::Instant::now();
     let mut mouse_interaction = iced::mouse::Interaction::Pointer;
     let mut icon = None;
+
     event_loop.run(move |event, _, control_flow| {
         // Wait for event or redraw a frame every 33 ms (30 frame per seconds)
         *control_flow = ControlFlow::WaitUntil(Instant::now() + Duration::from_millis(33));
@@ -317,7 +318,7 @@ fn main() {
             Event::WindowEvent {
                 event: WindowEvent::CloseRequested,
                 ..
-            } => *control_flow = ControlFlow::Exit,
+            } => save_before_quit(requests.clone()),
             Event::WindowEvent {
                 event: WindowEvent::ModifiersChanged(modifiers),
                 ..
@@ -401,6 +402,7 @@ fn main() {
                 let mut download_stapples = None;
                 let mut set_scaffold = None;
                 let mut stapples = None;
+                let mut load_after_save = None;
 
                 // When there is no more event to deal with
                 if let Ok(mut requests) = requests.try_lock() {
@@ -409,12 +411,11 @@ fn main() {
                         requests.fitting = false;
                     }
 
-                    if let Some(ref path) = requests.file_add {
+                    if let Some(ref path) = requests.file_add.take() {
                         let design = Design::new_with_path(0, path);
+                        let path_end = formated_path_end(path);
                         if let Some(design) = design {
-                            if let Some(stem) = path.file_stem().and_then(|s| s.to_str()) {
-                                window.set_title(&format!("ENSnano {}", stem))
-                            }
+                            window.set_title(&format!("ENSnano: {}", path_end));
                             messages.lock().unwrap().notify_new_design();
                             if let Some(tree) = design.get_organizer_tree() {
                                 messages.lock().unwrap().push_new_tree(tree)
@@ -423,7 +424,6 @@ fn main() {
                             let design = Arc::new(RwLock::new(design));
                             mediator.lock().unwrap().add_design(design);
                         }
-                        requests.file_add = None;
                     }
 
                     if requests.file_clear {
@@ -431,12 +431,11 @@ fn main() {
                         requests.file_clear = false;
                     }
 
-                    if let Some(ref path) = requests.file_save {
-                        if let Some(stem) = path.file_stem().and_then(|s| s.to_str()) {
-                            window.set_title(&format!("ENSnano {}", stem))
-                        }
-                        mediator.lock().unwrap().save_design(path);
-                        requests.file_save = None;
+                    if let Some((path, keep_proceed)) = requests.file_save.take() {
+                        let path_end = formated_path_end(&path);
+                        window.set_title(&format!("ENSnano: {}", path_end));
+                        mediator.lock().unwrap().save_design(&path);
+                        requests.keep_proceed = keep_proceed;
                     }
 
                     if let Some(value) = requests.toggle_text {
@@ -626,6 +625,24 @@ fn main() {
                             KeepProceed::Stapples(d_id) => {
                                 download_stapples = Some(d_id);
                             }
+                            KeepProceed::Quit => {
+                                *control_flow = ControlFlow::Exit;
+                            }
+                            KeepProceed::SaveBeforeOpen => {
+                                messages
+                                    .lock()
+                                    .unwrap()
+                                    .push_save(Some(KeepProceed::LoadDesignAfterSave));
+                            }
+                            KeepProceed::SaveBeforeQuit => {
+                                messages.lock().unwrap().push_save(Some(KeepProceed::Quit));
+                            }
+                            KeepProceed::LoadDesign => {
+                                messages.lock().unwrap().push_open();
+                            }
+                            KeepProceed::LoadDesignAfterSave => {
+                                load_after_save = Some(());
+                            }
                             _ => (),
                         }
                     }
@@ -731,15 +748,7 @@ fn main() {
                     }
 
                     if requests.save_shortcut.take().is_some() {
-                        messages.lock().unwrap().push_save();
-                    }
-
-                    if requests.open_shortcut.take().is_some() {
-                        messages.lock().unwrap().push_open();
-                    }
-
-                    if requests.exit_shortcut.take().is_some() {
-                        *control_flow = ControlFlow::Exit
+                        messages.lock().unwrap().push_save(None);
                     }
 
                     if requests.show_tutorial.take().is_some() {
@@ -749,6 +758,15 @@ fn main() {
                     if requests.force_help.take().is_some() {
                         messages.lock().unwrap().show_help()
                     }
+                }
+
+                if load_after_save.take().is_some() {
+                    crate::utils::blocking_message(
+                        "Saved successfully".into(),
+                        rfd::MessageLevel::Info,
+                        requests.clone(),
+                        KeepProceed::LoadDesign,
+                    )
                 }
 
                 if let Some(d_id) = download_stapples {
@@ -1059,9 +1077,9 @@ impl IcedMessages {
             .push_back(gui::left_panel::Message::CanMakeGrid(can_make_grid));
     }
 
-    pub fn push_save(&mut self) {
+    pub fn push_save(&mut self, keep_proceed: Option<KeepProceed>) {
         self.top_bar
-            .push_back(gui::top_bar::Message::FileSaveRequested);
+            .push_back(gui::top_bar::Message::FileSaveRequested(keep_proceed));
     }
 
     pub fn push_open(&mut self) {
@@ -1260,4 +1278,38 @@ impl OverlayManager {
         }
         ret
     }
+}
+
+fn formated_path_end(path: &PathBuf) -> String {
+    let components: Vec<_> = path.components().map(|comp| comp.as_os_str()).collect();
+    let mut ret = if components.len() > 3 {
+        vec!["..."]
+    } else {
+        vec![]
+    };
+    let mut iter = components.iter().rev().take(3).rev();
+    for _ in 0..3 {
+        if let Some(comp) = iter.next().and_then(|s| s.to_str()) {
+            ret.push(comp.clone());
+        }
+    }
+    ret.join("/")
+}
+
+fn save_before_open(requests: Arc<Mutex<Requests>>) {
+    crate::utils::yes_no_dialog(
+        "Do you want to save your design before loading a new one?".into(),
+        requests,
+        KeepProceed::SaveBeforeOpen,
+        Some(KeepProceed::LoadDesign),
+    );
+}
+
+fn save_before_quit(requests: Arc<Mutex<Requests>>) {
+    crate::utils::yes_no_dialog(
+        "Do you want to save your design before exiting the app?".into(),
+        requests,
+        KeepProceed::SaveBeforeQuit,
+        Some(KeepProceed::Quit),
+    );
 }
