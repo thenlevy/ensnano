@@ -95,7 +95,7 @@ mod mediator;
 mod multiplexer;
 /// 3D scene drawing
 mod scene;
-use mediator::{Mediator, Operation, Scheduler};
+use mediator::{ActionMode, Mediator, Operation, ParameterPtr, Scheduler, SelectionMode};
 mod flatscene;
 mod text;
 mod utils;
@@ -402,7 +402,7 @@ fn main() {
                 let mut download_stapples = None;
                 let mut set_scaffold = None;
                 let mut stapples = None;
-                let mut load_after_save = None;
+                let mut blocking_info = None;
 
                 // When there is no more event to deal with
                 if let Ok(mut requests) = requests.try_lock() {
@@ -634,6 +634,12 @@ fn main() {
                                     .unwrap()
                                     .push_save(Some(KeepProceed::LoadDesignAfterSave));
                             }
+                            KeepProceed::SaveBeforeNew => {
+                                messages
+                                    .lock()
+                                    .unwrap()
+                                    .push_save(Some(KeepProceed::NewDesignAfterSave));
+                            }
                             KeepProceed::SaveBeforeQuit => {
                                 messages.lock().unwrap().push_save(Some(KeepProceed::Quit));
                             }
@@ -641,7 +647,20 @@ fn main() {
                                 messages.lock().unwrap().push_open();
                             }
                             KeepProceed::LoadDesignAfterSave => {
-                                load_after_save = Some(());
+                                blocking_info =
+                                    Some(("Save successfully", KeepProceed::LoadDesign));
+                            }
+                            KeepProceed::NewDesign => {
+                                let design = Design::new(0);
+                                messages.lock().unwrap().notify_new_design();
+                                mediator.lock().unwrap().clear_designs();
+                                mediator
+                                    .lock()
+                                    .unwrap()
+                                    .add_design(Arc::new(RwLock::new(design)));
+                            }
+                            KeepProceed::NewDesignAfterSave => {
+                                blocking_info = Some(("Save successfully", KeepProceed::NewDesign));
                             }
                             _ => (),
                         }
@@ -760,12 +779,12 @@ fn main() {
                     }
                 }
 
-                if load_after_save.take().is_some() {
+                if let Some((msg, keep_proceed)) = blocking_info.take() {
                     crate::utils::blocking_message(
-                        "Saved successfully".into(),
+                        msg.into(),
                         rfd::MessageLevel::Info,
                         requests.clone(),
-                        KeepProceed::LoadDesign,
+                        keep_proceed,
                     )
                 }
 
@@ -926,7 +945,6 @@ fn main() {
 /// Message sent to the gui component
 pub struct IcedMessages {
     left_panel: VecDeque<gui::left_panel::Message>,
-    #[allow(dead_code)]
     top_bar: VecDeque<gui::top_bar::Message>,
     color_overlay: VecDeque<gui::left_panel::ColorMessage>,
     status_bar: VecDeque<gui::status_bar::Message>,
@@ -938,6 +956,10 @@ pub struct ApplicationState {
     pub can_undo: bool,
     pub can_redo: bool,
     pub simulation_state: crate::design::SimulationState,
+    pub parameter_ptr: ParameterPtr,
+    pub axis_aligned: bool,
+    pub action_mode: ActionMode,
+    pub selection_mode: SelectionMode,
 }
 
 impl IcedMessages {
@@ -1294,6 +1316,15 @@ fn formated_path_end(path: &PathBuf) -> String {
         }
     }
     ret.join("/")
+}
+
+fn save_before_new(requests: Arc<Mutex<Requests>>) {
+    crate::utils::yes_no_dialog(
+        "Do you want to save your design before loading an empty one?".into(),
+        requests,
+        KeepProceed::SaveBeforeNew,
+        Some(KeepProceed::NewDesign),
+    );
 }
 
 fn save_before_open(requests: Arc<Mutex<Requests>>) {

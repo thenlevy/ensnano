@@ -452,6 +452,11 @@ impl Design3D {
                 self.get_phantom_element_position(phantom, referential, false)
             }
             SceneElement::Grid(_, g_id) => self.design.read().unwrap().get_grid_position(*g_id),
+            SceneElement::GridCircle(_, g_id, x, y) => self
+                .design
+                .read()
+                .unwrap()
+                .get_grid_latice_position(*g_id, *x, *y),
             _ => None,
         }
     }
@@ -832,6 +837,18 @@ impl Design3D {
             .unwrap()
             .get_identifier_nucl(nucl)
             .is_some()
+    }
+
+    pub fn both_prime3(&self, nucl1: Nucl, nucl2: Nucl) -> bool {
+        let prime3_1 = self.design.read().unwrap().prime3_of(nucl1);
+        let prime3_2 = self.design.read().unwrap().prime3_of(nucl2);
+        prime3_1.and(prime3_2).is_some()
+    }
+
+    pub fn both_prime5(&self, nucl1: Nucl, nucl2: Nucl) -> bool {
+        let prime5_1 = self.design.read().unwrap().prime5_of(nucl1);
+        let prime5_2 = self.design.read().unwrap().prime5_of(nucl2);
+        prime5_1.and(prime5_2).is_some()
     }
 }
 

@@ -55,8 +55,6 @@ impl EditionTab {
 
     pub(super) fn view<'a>(
         &'a mut self,
-        action_mode: ActionMode,
-        selection_mode: SelectionMode,
         ui_size: UiSize,
         width: u16,
         app_state: &ApplicationState,
@@ -79,7 +77,9 @@ impl EditionTab {
             .into_iter()
             .rev()
             .filter(|(m, _)| selection_modes.contains(m))
-            .map(|(mode, state)| selection_mode_btn(state, mode, selection_mode, ui_size.button()))
+            .map(|(mode, state)| {
+                selection_mode_btn(state, mode, app_state.selection_mode, ui_size.button())
+            })
             .collect();
 
         ret = ret.push(Text::new("Selection Mode"));
@@ -105,7 +105,15 @@ impl EditionTab {
             .get_states(0, 0, false)
             .into_iter()
             .filter(|(m, _)| action_modes.contains(m))
-            .map(|(mode, state)| action_mode_btn(state, mode, action_mode, ui_size.button()))
+            .map(|(mode, state)| {
+                action_mode_btn(
+                    state,
+                    mode,
+                    app_state.action_mode,
+                    ui_size.button(),
+                    app_state.axis_aligned,
+                )
+            })
             .collect();
 
         ret = ret.push(Text::new("Action Mode"));
@@ -136,7 +144,7 @@ impl EditionTab {
         );
 
         let color_square = self.color_picker.color_square();
-        if selection_mode == SelectionMode::Strand {
+        if app_state.selection_mode == SelectionMode::Strand {
             ret = ret
                 .push(self.color_picker.view())
                 .push(
@@ -271,9 +279,9 @@ impl GridTab {
 
     pub(super) fn view<'a>(
         &'a mut self,
-        action_mode: ActionMode,
         ui_size: UiSize,
         width: u16,
+        app_state: &ApplicationState,
     ) -> Element<'a, Message> {
         let action_modes = [
             ActionMode::Normal,
@@ -406,7 +414,15 @@ impl GridTab {
             .get_states(self.helix_length, self.helix_pos, self.show_strand_menu)
             .into_iter()
             .filter(|(m, _)| action_modes.contains(m))
-            .map(|(mode, state)| action_mode_btn(state, mode, action_mode, ui_size.button()))
+            .map(|(mode, state)| {
+                action_mode_btn(
+                    state,
+                    mode,
+                    app_state.action_mode,
+                    ui_size.button(),
+                    app_state.axis_aligned,
+                )
+            })
             .collect();
 
         ret = ret.push(iced::Space::with_height(Length::Units(5)));
@@ -531,11 +547,12 @@ fn action_mode_btn<'a>(
     mode: ActionMode,
     fixed_mode: ActionMode,
     button_size: u16,
+    axis_aligned: bool,
 ) -> Button<'a, Message> {
     let icon_path = if fixed_mode == mode {
-        mode.icon_on()
+        mode.icon_on(axis_aligned)
     } else {
-        mode.icon_off()
+        mode.icon_off(axis_aligned)
     };
 
     Button::new(state, Image::new(icon_path))
@@ -1098,7 +1115,11 @@ impl ParametersTab {
         }
     }
 
-    pub(super) fn view<'a>(&'a mut self, ui_size: UiSize) -> Element<'a, Message> {
+    pub(super) fn view<'a>(
+        &'a mut self,
+        ui_size: UiSize,
+        app_state: &ApplicationState,
+    ) -> Element<'a, Message> {
         let mut ret = Column::new();
         ret = ret.push(Text::new("Parameters").size(ui_size.head_text()));
         ret = ret.push(Text::new("Font size"));
@@ -1122,6 +1143,11 @@ impl ParametersTab {
             ui_size.clone(),
         ));
 
+        ret = ret.push(iced::Space::with_height(Length::Units(10)));
+        ret = ret.push(Text::new("DNA parameters").size(ui_size.head_text()));
+        for line in app_state.parameter_ptr.as_ref().formated_string().lines() {
+            ret = ret.push(Text::new(line));
+        }
         ret = ret.push(iced::Space::with_height(Length::Units(10)));
         ret = ret.push(Text::new("About").size(ui_size.head_text()));
         ret = ret.push(Text::new(format!(

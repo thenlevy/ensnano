@@ -321,27 +321,51 @@ impl ActionMode {
         }
     }
 
-    pub fn icon_on(&self) -> Handle {
+    pub fn icon_on(&self, axis_aligned: bool) -> Handle {
         let bytes = match self {
             Self::BuildHelix { .. } => {
                 include_bytes!("../../icons/icons/NewHelix-on32.png").to_vec()
             }
             Self::Normal => include_bytes!("../../icons/icons/Select-on32.png").to_vec(),
-            Self::Translate => include_bytes!("../../icons/icons/Move-on32.png").to_vec(),
-            Self::Rotate => include_bytes!("../../icons/icons/Rotate-on32.png").to_vec(),
+            Self::Translate => {
+                if axis_aligned {
+                    include_bytes!("../../icons/icons/Move-on32.png").to_vec()
+                } else {
+                    include_bytes!("../../icons/icons/Move-on-in32.png").to_vec()
+                }
+            }
+            Self::Rotate => {
+                if axis_aligned {
+                    include_bytes!("../../icons/icons/Rotate-on32.png").to_vec()
+                } else {
+                    include_bytes!("../../icons/icons/Rotate-on-in32.png").to_vec()
+                }
+            }
             _ => vec![],
         };
         Handle::from_memory(bytes)
     }
 
-    pub fn icon_off(&self) -> Handle {
+    pub fn icon_off(&self, axis_aligned: bool) -> Handle {
         let bytes = match self {
             Self::BuildHelix { .. } => {
                 include_bytes!("../../icons/icons/NewHelix-off32.png").to_vec()
             }
             Self::Normal => include_bytes!("../../icons/icons/Select-off32.png").to_vec(),
-            Self::Translate => include_bytes!("../../icons/icons/Move-off32.png").to_vec(),
-            Self::Rotate => include_bytes!("../../icons/icons/Rotate-off32.png").to_vec(),
+            Self::Translate => {
+                if axis_aligned {
+                    include_bytes!("../../icons/icons/Move-off32.png").to_vec()
+                } else {
+                    include_bytes!("../../icons/icons/Move-off-in32.png").to_vec()
+                }
+            }
+            Self::Rotate => {
+                if axis_aligned {
+                    include_bytes!("../../icons/icons/Rotate-off32.png").to_vec()
+                } else {
+                    include_bytes!("../../icons/icons/Rotate-off-in32.png").to_vec()
+                }
+            }
             _ => vec![],
         };
         Handle::from_memory(bytes)
