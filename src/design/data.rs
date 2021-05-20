@@ -2083,6 +2083,13 @@ impl Data {
         self.grid_manager.grids.get(g_id).map(|g| g.position)
     }
 
+    pub fn get_grid_latice_position(&self, g_id: usize, x: isize, y: isize) -> Option<Vec3> {
+        self.grid_manager
+            .grids
+            .get(g_id)
+            .map(|g| g.position_helix(x, y))
+    }
+
     pub fn build_helix_grid(
         &mut self,
         g_id: usize,
@@ -3087,6 +3094,10 @@ impl Data {
 
     pub fn has_at_least_on_strand_with_insertions(&self) -> bool {
         self.design.has_at_least_on_strand_with_insertions()
+    }
+
+    pub fn get_dna_parameters(&self) -> Parameters {
+        self.design.parameters.unwrap_or_default()
     }
 }
 

@@ -205,7 +205,7 @@ impl Scene {
                 self.controller.swing(-x, -y);
                 self.notify(SceneNotification::CameraMoved);
             }
-            Consequence::ToggleWidget => self.data.borrow_mut().toggle_widget_basis(),
+            Consequence::ToggleWidget => self.data.borrow_mut().toggle_widget_basis(false),
             Consequence::BuildEnded(d_id, id) => {
                 self.select(Some(SceneElement::DesignElement(d_id, id)))
             }
@@ -725,8 +725,8 @@ impl Application for Scene {
             Notification::ModifersChanged(modifiers) => self.controller.update_modifiers(modifiers),
             Notification::Split2d => (),
             Notification::Redim2dHelices(_) => (),
-            Notification::ToggleWidget => {
-                self.data.borrow_mut().toggle_widget_basis();
+            Notification::ToggleWidget(b) => {
+                self.data.borrow_mut().toggle_widget_basis(b);
                 self.update_handle();
             }
             Notification::RenderingMode(mode) => self.view.borrow_mut().rendering_mode(mode),

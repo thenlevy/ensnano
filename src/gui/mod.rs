@@ -154,6 +154,9 @@ pub enum KeepProceed {
     LoadDesignAfterSave,
     SaveBeforeQuit,
     SaveBeforeOpen,
+    SaveBeforeNew,
+    NewDesign,
+    NewDesignAfterSave,
     Other,
 }
 
