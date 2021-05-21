@@ -15,9 +15,10 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
+use super::super::maths_3d::{Basis3D, UnalignedBoundaries};
 use super::super::view::{Instanciable, RawDnaInstance, SphereInstance, TubeInstance};
 use super::super::GridInstance;
-use super::{LetterInstance, SceneElement, StrandBuilder};
+use super::{CameraPtr, LetterInstance, ProjectionPtr, SceneElement, StrandBuilder};
 use crate::consts::*;
 use crate::design::{Design, Nucl, ObjectType, Referential};
 use crate::utils;
@@ -592,6 +593,62 @@ impl Design3D {
             }
         }
         [min_x, max_x, min_y, max_y, min_z, max_z]
+    }
+
+    fn get_all_grid_corners(&self) -> Vec<Vec3> {
+        let mut ret = Vec::new();
+        for grid in self.get_grid().iter() {
+            ret.push(
+                grid.grid
+                    .position_helix(grid.min_x as isize, grid.min_y as isize),
+            );
+            ret.push(
+                grid.grid
+                    .position_helix(grid.min_x as isize, grid.max_y as isize),
+            );
+            ret.push(
+                grid.grid
+                    .position_helix(grid.max_x as isize, grid.min_y as isize),
+            );
+            ret.push(
+                grid.grid
+                    .position_helix(grid.max_x as isize, grid.max_y as isize),
+            );
+        }
+        ret
+    }
+
+    fn get_all_points(&self) -> Vec<Vec3> {
+        let ids = self.design.read().unwrap().get_all_nucl_ids();
+        let mut ret: Vec<Vec3> = ids
+            .iter()
+            .filter_map(|id| {
+                self.design
+                    .read()
+                    .unwrap()
+                    .get_element_position(*id, Referential::World)
+            })
+            .collect();
+        ret.extend(self.get_all_grid_corners().into_iter());
+        ret
+    }
+
+    fn boundaries_unaligned(&self, basis: Basis3D) -> UnalignedBoundaries {
+        let mut ret = UnalignedBoundaries::from_basis(basis);
+        for point in self.get_all_points().into_iter() {
+            ret.add_point(point)
+        }
+        ret
+    }
+
+    pub fn get_fitting_camera_position(
+        &self,
+        basis: Basis3D,
+        fovy: f32,
+        ratio: f32,
+    ) -> Option<Vec3> {
+        let boundaries = self.boundaries_unaligned(basis);
+        boundaries.fit_point(fovy, ratio)
     }
 
     /// Return the 3 axis sorted by magnitude of instances coordinates

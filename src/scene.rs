@@ -56,6 +56,7 @@ use data::Data;
 use design::{Design, DesignNotification, DesignNotificationContent};
 mod element_selector;
 use element_selector::{ElementSelector, SceneElement};
+mod maths_3d;
 
 type ViewPtr = Rc<RefCell<View>>;
 type DataPtr = Rc<RefCell<Data>>;
@@ -472,13 +473,10 @@ impl Scene {
     /// Adapt the camera, position, orientation and pivot point to a design so that the design fits
     /// the scene, and the pivot point of the camera is the center of the design.
     fn fit_design(&mut self) {
-        let camera = self
-            .data
-            .borrow()
-            .get_fitting_camera(self.get_ratio(), self.get_fovy());
-        if let Some((position, rotor)) = camera {
+        let camera_position = self.data.borrow().get_fitting_camera_position();
+        if let Some(position) = camera_position {
             let pivot_point = self.data.borrow().get_middle_point(0);
-            self.notify(SceneNotification::NewCamera(position, rotor));
+            self.notify(SceneNotification::NewCameraPosition(position));
             self.controller.set_pivot_point(Some(pivot_point));
             self.controller.set_pivot_point(None);
         }
@@ -576,6 +574,7 @@ impl Scene {
             self.data.borrow().get_selected_position()
         });
         self.controller.set_camera_target(target, up, pivot);
+        self.fit_design();
     }
 
     fn request_camera_rotation(&mut self, xz: f32, yz: f32, xy: f32) {
@@ -631,6 +630,7 @@ pub enum SceneNotification {
     NewCamera(Vec3, Rotor3),
     /// The drawing area has been modified
     NewSize(PhySize, DrawArea),
+    NewCameraPosition(Vec3),
 }
 
 impl Scene {
@@ -639,6 +639,10 @@ impl Scene {
         match notification {
             SceneNotification::NewCamera(position, projection) => {
                 self.controller.teleport_camera(position, projection);
+                self.update.camera_update = true;
+            }
+            SceneNotification::NewCameraPosition(position) => {
+                self.controller.set_camera_position(position);
                 self.update.camera_update = true;
             }
             SceneNotification::CameraMoved => self.update.camera_update = true,

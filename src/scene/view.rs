@@ -45,10 +45,10 @@ mod grid_disc;
 mod handle_drawer;
 mod instances_drawer;
 mod letter;
-pub mod maths;
 /// A RotationWidget draws the widget for rotating objects
 mod rotation_widget;
 
+use super::maths_3d;
 use crate::text::Letter;
 use bindgroup_manager::{DynamicBindGroup, UniformBindGroup};
 use direction_cube::*;
@@ -62,7 +62,7 @@ pub use handle_drawer::{HandleDir, HandleOrientation, HandlesDescriptor};
 pub use instances_drawer::Instanciable;
 use instances_drawer::{InstanceDrawer, RawDrawer};
 pub use letter::LetterInstance;
-use maths::unproject_point_on_line;
+use maths_3d::unproject_point_on_line;
 use rotation_widget::RotationWidget;
 pub use rotation_widget::{RotationMode, RotationWidgetDescriptor, RotationWidgetOrientation};
 //use plane_drawer::PlaneDrawer;
@@ -793,7 +793,7 @@ impl View {
     }
 
     pub fn grid_intersection(&self, x_ndc: f32, y_ndc: f32) -> Option<GridIntersection> {
-        let ray = maths::cast_ray(x_ndc, y_ndc, self.camera.clone(), self.projection.clone());
+        let ray = maths_3d::cast_ray(x_ndc, y_ndc, self.camera.clone(), self.projection.clone());
         self.grid_manager.intersect(ray.0, ray.1)
     }
 

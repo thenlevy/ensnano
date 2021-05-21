@@ -428,6 +428,7 @@ impl View {
     }
 
     pub fn center_selection(&mut self) -> Option<(FlatNucl, FlatNucl)> {
+        self.camera_top.borrow_mut().zoom_closer();
         match self.selection {
             FlatSelection::Bound(_, n1, n2) => {
                 self.helices[n1.helix].make_visible(n1.position, self.camera_top.clone());
