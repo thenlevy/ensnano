@@ -252,3 +252,100 @@ impl Instanciable for TubeInstance {
 }
 
 impl DnaObject for TubeInstance {}
+
+pub struct ConeInstance {
+    pub position: Vec3,
+    pub rotor: Rotor3,
+    pub color: Vec4,
+    pub id: u32,
+    pub radius: f32,
+    pub length: f32,
+}
+
+impl Instanciable for ConeInstance {
+    type Vertex = DnaVertex;
+    type RawInstance = RawDnaInstance;
+    type Ressource = ();
+
+    fn vertices() -> Vec<DnaVertex> {
+        let radius = 1.;
+        let mut ret: Vec<DnaVertex> = (0..(2 * NB_RAY_TUBE))
+            .map(|i| {
+                let point = i / 2 + i % 2;
+                let side = if i % 2 == 0 { 0. } else { 1. };
+                let height = if i % 2 == 0 { radius } else { 0. };
+                let theta = (point as f32) * 2. * PI / NB_RAY_TUBE as f32;
+                let position = [side, theta.sin() * height, theta.cos() * height];
+                use std::f32::consts::FRAC_1_SQRT_2;
+
+                let normal = [
+                    FRAC_1_SQRT_2,
+                    FRAC_1_SQRT_2 * theta.sin(),
+                    FRAC_1_SQRT_2 * theta.cos(),
+                ];
+                DnaVertex { position, normal }
+            })
+            .collect();
+
+        for i in 0..(2 * NB_RAY_TUBE) {
+            let point = i / 2 + i % 2;
+            let height = if i % 2 == 0 { radius } else { 0. };
+            let theta = (point as f32) * 2. * PI / NB_RAY_TUBE as f32;
+            let position = [0., theta.sin() * height, theta.cos() * height];
+            let normal = [-1., 0., 0.];
+            ret.push(DnaVertex { position, normal });
+        }
+
+        ret
+    }
+
+    fn indices() -> Vec<u16> {
+        let nb_point = 2 * NB_RAY_TUBE as u16;
+        let mut ret = Vec::with_capacity(3 * nb_point as usize);
+        for i in 0..nb_point {
+            ret.push((2 * i) % nb_point);
+            ret.push((2 * i + 1) % nb_point);
+            ret.push((2 * i + 2) % nb_point);
+            ret.push((2 * i) % nb_point + nb_point);
+            ret.push((2 * i + 1) % nb_point + nb_point);
+            ret.push((2 * i + 2) % nb_point + nb_point);
+        }
+        ret
+    }
+
+    fn vertex_module(device: &wgpu::Device) -> wgpu::ShaderModule {
+        device.create_shader_module(&wgpu::include_spirv!("dna_obj.vert.spv"))
+    }
+
+    fn fragment_module(device: &wgpu::Device) -> wgpu::ShaderModule {
+        device.create_shader_module(&wgpu::include_spirv!("dna_obj.frag.spv"))
+    }
+
+    fn fake_fragment_module(device: &wgpu::Device) -> Option<wgpu::ShaderModule> {
+        Some(device.create_shader_module(&wgpu::include_spirv!("dna_obj_fake.frag.spv")))
+    }
+
+    fn outline_vertex_module(device: &wgpu::Device) -> Option<wgpu::ShaderModule> {
+        Some(device.create_shader_module(&wgpu::include_spirv!("dna_obj_outline.vert.spv")))
+    }
+
+    fn outline_fragment_module(device: &wgpu::Device) -> Option<wgpu::ShaderModule> {
+        Some(device.create_shader_module(&wgpu::include_spirv!("dna_obj_outline.frag.spv")))
+    }
+
+    fn primitive_topology() -> wgpu::PrimitiveTopology {
+        wgpu::PrimitiveTopology::TriangleList
+    }
+
+    fn to_raw_instance(&self) -> RawDnaInstance {
+        RawDnaInstance {
+            model: Mat4::from_translation(self.position)
+                * self.rotor.into_matrix().into_homogeneous(),
+            color: self.color,
+            scale: Vec3::new(self.length, self.radius, self.radius),
+            id: self.id,
+        }
+    }
+}
+
+impl DnaObject for ConeInstance {}

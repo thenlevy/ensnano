@@ -1040,6 +1040,10 @@ impl Design {
     pub fn get_dna_parameters(&self) -> Parameters {
         self.data.lock().unwrap().get_dna_parameters()
     }
+
+    pub fn get_prime3_set(&self) -> Vec<(Vec3, Vec3, u32)> {
+        self.data.lock().unwrap().get_prime3_set()
+    }
 }
 
 #[derive(Clone)]

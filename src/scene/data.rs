@@ -27,8 +27,6 @@ use std::sync::{Arc, RwLock};
 
 use ultraviolet::{Rotor3, Vec3};
 
-use super::camera::*;
-use super::maths_3d::Basis3D;
 use super::view::Mesh;
 use crate::consts::*;
 use crate::design::{Design, Nucl, ObjectType, Referential, StrandBuilder};
@@ -1040,6 +1038,7 @@ impl Data {
 
         let mut letters = Vec::new();
         let mut grids = Vec::new();
+        let mut cones = Vec::new();
         for design in self.designs.iter() {
             for sphere in design.get_spheres_raw().iter() {
                 spheres.push(*sphere);
@@ -1063,6 +1062,9 @@ impl Data {
             }
             for tube in tubes {
                 pasted_tubes.push(tube);
+            }
+            for cone in design.get_all_prime3_cone() {
+                cones.push(cone);
             }
         }
         self.update_free_xover();
@@ -1091,6 +1093,9 @@ impl Data {
         self.view
             .borrow_mut()
             .update(ViewUpdate::Grids(Rc::new(grids)));
+        self.view
+            .borrow_mut()
+            .update(ViewUpdate::RawDna(Mesh::Prime3Cone, Rc::new(cones)));
         self.selection_update = true;
     }
 
@@ -1149,13 +1154,6 @@ impl Data {
         self.view
             .borrow_mut()
             .update(ViewUpdate::ModelMatrices(matrices));
-    }
-
-    /// Return a position and rotation of the camera that fits the first design
-    pub fn get_fitting_camera(&self, ratio: f32, fovy: f32) -> Option<(Vec3, Rotor3)> {
-        let design = self.designs.get(0)?;
-        Some(design.get_fitting_camera(ratio, fovy))
-            .filter(|(v, _)| !v.x.is_nan() && !v.y.is_nan() && !v.z.is_nan())
     }
 
     pub fn get_fitting_camera_position(&self) -> Option<Vec3> {
