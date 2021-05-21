@@ -108,3 +108,4 @@ pub const ROTCHAR: char = '\u{e915}';
 pub const LCLICK: char = '\u{e918}';
 pub const MCLICK: char = '\u{e91b}';
 pub const RCLICK: char = '\u{e91a}';
+pub const NEWFILE: char = '\u{e91c}';
