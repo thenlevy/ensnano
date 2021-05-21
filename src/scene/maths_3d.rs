@@ -15,7 +15,10 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
-use super::{CameraPtr, ProjectionPtr, Vec3};
+use super::{
+    camera::{CameraPtr, ProjectionPtr},
+    Vec3,
+};
 
 /// Use to compute the shortes line between two lines in 3D.
 /// Let P1, P2, P3, P4 be 4 points.
@@ -111,4 +114,100 @@ pub fn cast_ray(
 ) -> (Vec3, Vec3) {
     let target = ndc_to_world(x_ndc, y_ndc, camera.clone(), projection);
     (camera.borrow().position, target - camera.borrow().position)
+}
+
+pub struct UnalignedBoundaries {
+    min_x: f32,
+    max_x: f32,
+    min_y: f32,
+    max_y: f32,
+    min_z: f32,
+    max_z: f32,
+    basis: Basis3D,
+}
+
+pub struct Basis3D {
+    unit_x: Vec3,
+    unit_y: Vec3,
+    unit_z: Vec3,
+}
+
+impl Basis3D {
+    pub fn from_vecs(unit_x: Vec3, unit_y: Vec3, unit_z: Vec3) -> Self {
+        Self {
+            unit_x,
+            unit_y,
+            unit_z,
+        }
+    }
+
+    pub fn convert_point_to_self(&self, point: Vec3) -> Vec3 {
+        Vec3::new(
+            point.dot(self.unit_x),
+            point.dot(self.unit_y),
+            point.dot(self.unit_z),
+        )
+    }
+
+    pub fn convert_point_from_self(&self, point: Vec3) -> Vec3 {
+        point.x * self.unit_x + point.y * self.unit_y + point.z * self.unit_z
+    }
+}
+
+impl UnalignedBoundaries {
+    pub fn from_basis(basis: Basis3D) -> Self {
+        Self {
+            min_x: std::f32::INFINITY,
+            min_y: std::f32::INFINITY,
+            min_z: std::f32::INFINITY,
+            max_x: std::f32::NEG_INFINITY,
+            max_y: std::f32::NEG_INFINITY,
+            max_z: std::f32::NEG_INFINITY,
+            basis,
+        }
+    }
+
+    pub fn add_point(&mut self, point: Vec3) {
+        let real_point = self.basis.convert_point_to_self(point);
+        self.min_x = self.min_x.min(real_point.x);
+        self.max_x = self.max_x.max(real_point.x);
+        self.min_y = self.min_y.min(real_point.y);
+        self.max_y = self.max_y.max(real_point.y);
+        self.min_z = self.min_z.min(real_point.z);
+        self.max_z = self.max_z.max(real_point.z);
+    }
+
+    pub fn middle(&self) -> Option<Vec3> {
+        let x = (self.min_x + self.max_x) / 2.;
+        let y = (self.min_y + self.max_y) / 2.;
+        let z = (self.min_z + self.max_z) / 2.;
+
+        if x.is_normal() && y.is_normal() && z.is_normal() {
+            Some(self.basis.convert_point_from_self(Vec3::new(x, y, z)))
+        } else {
+            None
+        }
+    }
+
+    fn bounding_sphere_radius(&self) -> Option<f32> {
+        let lenght_x = self.max_x - self.min_x;
+        let length_y = self.max_y - self.min_y;
+        let length_z = self.max_z - self.min_z;
+
+        let max_length = lenght_x.max(length_y.max(length_z));
+        if max_length.is_normal() {
+            Some(max_length / 2. * 3f32.sqrt())
+        } else {
+            None
+        }
+    }
+
+    pub fn fit_point(&self, fovy: f32, ratio: f32) -> Option<Vec3> {
+        let middle = self.middle()?;
+        let radius = self.bounding_sphere_radius()? * 1.1;
+        let ratio_adjust = (1. / ratio).max(1.);
+        let x_back = radius * ratio_adjust / 2. / (fovy / 2.).tan();
+
+        Some(middle + x_back.max(10.) * self.basis.unit_z)
+    }
 }

@@ -613,6 +613,15 @@ impl GridManager {
         }
     }
 
+    #[allow(dead_code)]
+    pub fn get_empty_grids_id(&self) -> HashSet<usize> {
+        let mut ret: HashSet<usize> = (0..self.grids.len()).collect();
+        for (n, _, _) in self.pos_to_helix.keys() {
+            ret.remove(n);
+        }
+        ret
+    }
+
     pub fn grid_instances(&self, design_id: usize) -> Vec<GridInstance> {
         let mut ret = Vec::new();
         for (n, g) in self.grids.iter().enumerate() {

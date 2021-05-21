@@ -45,14 +45,14 @@ mod grid_disc;
 mod handle_drawer;
 mod instances_drawer;
 mod letter;
-pub mod maths;
 /// A RotationWidget draws the widget for rotating objects
 mod rotation_widget;
 
+use super::maths_3d;
 use crate::text::Letter;
 use bindgroup_manager::{DynamicBindGroup, UniformBindGroup};
 use direction_cube::*;
-pub use dna_obj::{DnaObject, RawDnaInstance, SphereInstance, TubeInstance};
+pub use dna_obj::{ConeInstance, DnaObject, RawDnaInstance, SphereInstance, TubeInstance};
 use drawable::{Drawable, Drawer, Vertex};
 pub use grid::{GridInstance, GridIntersection, GridTypeDescr};
 use grid::{GridManager, GridTextures};
@@ -62,7 +62,7 @@ pub use handle_drawer::{HandleDir, HandleOrientation, HandlesDescriptor};
 pub use instances_drawer::Instanciable;
 use instances_drawer::{InstanceDrawer, RawDrawer};
 pub use letter::LetterInstance;
-use maths::unproject_point_on_line;
+use maths_3d::unproject_point_on_line;
 use rotation_widget::RotationWidget;
 pub use rotation_widget::{RotationMode, RotationWidgetDescriptor, RotationWidgetOrientation};
 //use plane_drawer::PlaneDrawer;
@@ -793,7 +793,7 @@ impl View {
     }
 
     pub fn grid_intersection(&self, x_ndc: f32, y_ndc: f32) -> Option<GridIntersection> {
-        let ray = maths::cast_ray(x_ndc, y_ndc, self.camera.clone(), self.projection.clone());
+        let ray = maths_3d::cast_ray(x_ndc, y_ndc, self.camera.clone(), self.projection.clone());
         self.grid_manager.intersect(ray.0, ray.1)
     }
 
@@ -860,6 +860,8 @@ pub enum Mesh {
     PivotSphere,
     XoverSphere,
     XoverTube,
+    Prime3Cone,
+    Prime3ConeOutline,
 }
 
 impl Mesh {
@@ -877,6 +879,7 @@ impl Mesh {
         match self {
             Self::Sphere => Some(Self::OutlineSphere),
             Self::Tube => Some(Self::OutlineTube),
+            Self::Prime3Cone => Some(Self::Prime3ConeOutline),
             _ => None,
         }
     }
@@ -904,6 +907,8 @@ struct DnaDrawers {
     pivot_sphere: InstanceDrawer<SphereInstance>,
     xover_sphere: InstanceDrawer<SphereInstance>,
     xover_tube: InstanceDrawer<TubeInstance>,
+    prime3_cones: InstanceDrawer<dna_obj::ConeInstance>,
+    outline_prime3_cones: InstanceDrawer<dna_obj::ConeInstance>,
 }
 
 impl DnaDrawers {
@@ -930,6 +935,8 @@ impl DnaDrawers {
             Mesh::PivotSphere => &mut self.pivot_sphere,
             Mesh::XoverSphere => &mut self.xover_sphere,
             Mesh::XoverTube => &mut self.xover_tube,
+            Mesh::Prime3Cone => &mut self.prime3_cones,
+            Mesh::Prime3ConeOutline => &mut self.outline_prime3_cones,
         }
     }
 
@@ -940,6 +947,7 @@ impl DnaDrawers {
         let mut ret: Vec<&mut dyn RawDrawer<RawInstance = RawDnaInstance>> = vec![
             &mut self.sphere,
             &mut self.tube,
+            &mut self.prime3_cones,
             &mut self.candidate_sphere,
             &mut self.candidate_tube,
             &mut self.selected_sphere,
@@ -955,8 +963,9 @@ impl DnaDrawers {
             &mut self.xover_tube,
         ];
         if rendering_mode == RenderingMode::Cartoon {
-            ret.insert(2, &mut self.outline_tube);
-            ret.insert(3, &mut self.outline_sphere);
+            ret.insert(3, &mut self.outline_tube);
+            ret.insert(4, &mut self.outline_sphere);
+            ret.insert(5, &mut self.outline_prime3_cones);
         }
 
         ret
@@ -1002,6 +1011,14 @@ impl DnaDrawers {
                 (),
                 false,
             ),
+            prime3_cones: InstanceDrawer::new(
+                device.clone(),
+                queue.clone(),
+                viewer_desc,
+                model_desc,
+                (),
+                false,
+            ),
             outline_sphere: InstanceDrawer::new_outliner(
                 device.clone(),
                 queue.clone(),
@@ -1010,6 +1027,13 @@ impl DnaDrawers {
                 (),
             ),
             outline_tube: InstanceDrawer::new_outliner(
+                device.clone(),
+                queue.clone(),
+                viewer_desc,
+                model_desc,
+                (),
+            ),
+            outline_prime3_cones: InstanceDrawer::new_outliner(
                 device.clone(),
                 queue.clone(),
                 viewer_desc,

@@ -31,6 +31,7 @@ use super::strand_builder::{DomainIdentifier, NeighbourDescriptor};
 use super::{DnaElementKey, IdGenerator};
 use ensnano_organizer::OrganizerTree;
 
+mod formating;
 #[cfg(test)]
 mod tests;
 
@@ -877,7 +878,7 @@ fn is_false(x: &bool) -> bool {
 
 /// A domain can be either an interval of nucleotides on an helix, or an "Insertion" that is a set
 /// of nucleotides that are not on an helix and form an independent loop.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub enum Domain {
     /// An interval of nucleotides on an helix
     HelixDomain(HelixInterval),
@@ -885,7 +886,7 @@ pub enum Domain {
     Insertion(usize),
 }
 
-#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+#[derive(Default, Clone, Serialize, Deserialize)]
 pub struct HelixInterval {
     /// Index of the helix in the array of helices. Indices start at
     /// 0.
@@ -1320,7 +1321,6 @@ impl Parameters {
         // bases per turn from Woo Rothemund (Nature Chemistry).
         bases_per_turn: 10.44,
         // minor groove 12 Å, major groove 22 Å total 34 Å
-        // negative because the major groove in on your left when you go from 5' to 3'
         groove_angle: 2. * PI * 12. / 34.,
         // From Paul's paper.
         inter_helix_gap: 0.65,
@@ -1334,6 +1334,22 @@ impl Parameters {
             groove_angle: codenano_param.groove_angle as f32,
             inter_helix_gap: codenano_param.inter_helix_gap as f32,
         }
+    }
+
+    pub fn formated_string(&self) -> String {
+        use std::fmt::Write;
+        let mut ret = String::new();
+        writeln!(&mut ret, "z_step: {:.3}", self.z_step).unwrap_or_default();
+        writeln!(&mut ret, "helix radius: {:.3}", self.helix_radius).unwrap_or_default();
+        writeln!(&mut ret, "bases per turn: {:.3}", self.bases_per_turn).unwrap_or_default();
+        writeln!(
+            &mut ret,
+            "minor groove angle (degrees): {:.3}",
+            self.groove_angle.to_degrees()
+        )
+        .unwrap_or_default();
+        writeln!(&mut ret, "inter helix gap: {:.3}", self.inter_helix_gap).unwrap_or_default();
+        ret
     }
 }
 

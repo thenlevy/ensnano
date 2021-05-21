@@ -139,6 +139,22 @@ pub fn message(message: Cow<'static, str>, level: rfd::MessageLevel) {
     std::thread::spawn(move || futures::executor::block_on(msg));
 }
 
+pub fn blocking_message(
+    message: Cow<'static, str>,
+    level: rfd::MessageLevel,
+    request: Arc<Mutex<Requests>>,
+    keep_proceed: KeepProceed,
+) {
+    let msg = rfd::AsyncMessageDialog::new()
+        .set_level(level)
+        .set_description(message.as_ref())
+        .show();
+    std::thread::spawn(move || {
+        futures::executor::block_on(msg);
+        request.lock().unwrap().keep_proceed = Some(keep_proceed);
+    });
+}
+
 pub fn new_color(color_idx: &mut usize) -> u32 {
     let color = {
         let hue = (*color_idx as f64 * (1. + 5f64.sqrt()) / 2.).fract() * 360.;

@@ -99,6 +99,10 @@ impl Camera {
         self.was_updated = true;
     }
 
+    pub fn zoom_closer(&mut self) {
+        self.globals.zoom = self.globals.zoom.max(MAX_ZOOM_2D / 2.);
+    }
+
     /// Descrete zoom on the scene
     #[allow(dead_code)]
     pub fn zoom_in(&mut self) {

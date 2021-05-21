@@ -80,8 +80,6 @@ const CHECKBOXSPACING: u16 = 5;
 
 pub struct LeftPanel {
     dialoging: Arc<Mutex<bool>>,
-    selection_mode: SelectionMode,
-    action_mode: ActionMode,
     logical_size: LogicalSize<f64>,
     #[allow(dead_code)]
     logical_position: LogicalPosition<f64>,
@@ -125,10 +123,8 @@ pub enum Message {
     ScaffoldPositionInput(String),
     #[allow(dead_code)]
     ShowTorsion(bool),
-    FogVisibility(bool),
     FogRadius(f32),
     FogLength(f32),
-    FogCamera(bool),
     SimRequest,
     NewDesign,
     DescreteValue {
@@ -179,6 +175,7 @@ pub enum Message {
     Background3D(crate::mediator::Background3D),
     OpenLink(&'static str),
     NewApplicationState(ApplicationState),
+    FogChoice(tabs::FogChoice),
 }
 
 impl LeftPanel {
@@ -193,8 +190,6 @@ impl LeftPanel {
         let mut organizer = Organizer::new();
         organizer.set_width(logical_size.width as u16);
         Self {
-            selection_mode: Default::default(),
-            action_mode: Default::default(),
             logical_size,
             logical_position,
             open_color: Default::default(),
@@ -267,14 +262,12 @@ impl Program for LeftPanel {
     fn update(&mut self, message: Message, _cb: &mut NullClipboard) -> Command<Message> {
         match message {
             Message::SelectionModeChanged(selection_mode) => {
-                if selection_mode != self.selection_mode {
-                    self.selection_mode = selection_mode;
+                if selection_mode != self.application_state.selection_mode {
                     self.requests.lock().unwrap().selection_mode = Some(selection_mode);
                 }
             }
             Message::ActionModeChanged(action_mode) => {
-                if self.action_mode != action_mode {
-                    self.action_mode = action_mode;
+                if self.application_state.action_mode != action_mode {
                     self.requests.lock().unwrap().action_mode = Some(action_mode)
                 } else {
                     match action_mode {
@@ -316,8 +309,8 @@ impl Program for LeftPanel {
             Message::Resized(size, position) => self.resize(size, position),
             Message::NewGrid(grid_type) => {
                 self.requests.lock().unwrap().new_grid = Some(grid_type);
-                self.action_mode = self.grid_tab.get_build_helix_mode();
-                self.requests.lock().unwrap().action_mode = Some(self.action_mode);
+                let action_mode = self.grid_tab.get_build_helix_mode();
+                self.requests.lock().unwrap().action_mode = Some(action_mode);
             }
             Message::RotateCam(xz, yz, xy) => {
                 self.camera_shortcut
@@ -330,15 +323,13 @@ impl Program for LeftPanel {
             }
             Message::LengthHelicesChanged(length_str) => {
                 let action_mode = self.grid_tab.update_length_str(length_str.clone());
-                if self.action_mode != action_mode {
-                    self.action_mode = action_mode;
+                if self.application_state.action_mode != action_mode {
                     self.requests.lock().unwrap().action_mode = Some(action_mode)
                 }
             }
             Message::PositionHelicesChanged(position_str) => {
                 let action_mode = self.grid_tab.update_pos_str(position_str.clone());
-                if self.action_mode != action_mode {
-                    self.action_mode = action_mode;
+                if self.application_state.action_mode != action_mode {
                     self.requests.lock().unwrap().action_mode = Some(action_mode)
                 }
             }
@@ -350,11 +341,6 @@ impl Program for LeftPanel {
             Message::ShowTorsion(b) => {
                 self.requests.lock().unwrap().show_torsion_request = Some(b);
                 self.show_torsion = b;
-            }
-            Message::FogVisibility(b) => {
-                self.camera_tab.fog_visible(b);
-                let request = self.camera_tab.get_fog_request();
-                self.requests.lock().unwrap().fog = Some(request);
             }
             Message::FogLength(length) => {
                 self.camera_tab.fog_length(length);
@@ -377,8 +363,10 @@ impl Program for LeftPanel {
                 let request = self.simulation_tab.get_physical_simulation_request();
                 self.requests.lock().unwrap().roll_request = Some(request);
             }
-            Message::FogCamera(b) => {
-                self.camera_tab.fog_camera(b);
+            Message::FogChoice(choice) => {
+                let (visble, from_camera) = choice.to_param();
+                self.camera_tab.fog_camera(from_camera);
+                self.camera_tab.fog_visible(visble);
                 let request = self.camera_tab.get_fog_request();
                 self.requests.lock().unwrap().fog = Some(request);
             }
@@ -451,10 +439,10 @@ impl Program for LeftPanel {
                 }
             }
             Message::TabSelected(n) => {
-                if let ActionMode::BuildHelix { .. } = self.action_mode {
+                if let ActionMode::BuildHelix { .. } = self.application_state.action_mode {
                     if n != 0 {
-                        self.action_mode = ActionMode::Normal;
-                        self.requests.lock().unwrap().action_mode = Some(ActionMode::Normal);
+                        let action_mode = ActionMode::Normal;
+                        self.requests.lock().unwrap().action_mode = Some(action_mode);
                     }
                 }
                 if n != 0 {
@@ -464,8 +452,8 @@ impl Program for LeftPanel {
                     }
                 }
                 if n == 0 {
-                    self.action_mode = self.grid_tab.get_build_helix_mode();
-                    self.requests.lock().unwrap().action_mode = Some(self.action_mode.clone());
+                    let action_mode = self.grid_tab.get_build_helix_mode();
+                    self.requests.lock().unwrap().action_mode = Some(action_mode);
                 }
                 if self.selected_tab == 3 && n != 3 {
                     println!("leaving simulation tab");
@@ -544,9 +532,9 @@ impl Program for LeftPanel {
             Message::CleanRequested => self.requests.lock().unwrap().clean_requests = true,
             Message::AddDoubleStrandHelix(b) => {
                 self.grid_tab.set_show_strand(b);
-                if let ActionMode::BuildHelix { .. } = self.action_mode {
-                    self.action_mode = self.grid_tab.get_build_helix_mode();
-                    self.requests.lock().unwrap().action_mode = Some(self.action_mode.clone());
+                if let ActionMode::BuildHelix { .. } = self.application_state.action_mode {
+                    let action_mode = self.grid_tab.get_build_helix_mode();
+                    self.requests.lock().unwrap().action_mode = Some(action_mode);
                 }
             }
             Message::ToggleVisibility(b) => {
@@ -613,17 +601,12 @@ impl Program for LeftPanel {
             .push(
                 TabLabel::Text(format!("{}", icon_to_char(MaterialIcon::GridOn))),
                 self.grid_tab
-                    .view(self.action_mode, self.ui_size.clone(), width),
+                    .view(self.ui_size.clone(), width, &self.application_state),
             )
             .push(
                 TabLabel::Text(format!("{}", icon_to_char(MaterialIcon::Edit))),
-                self.edition_tab.view(
-                    self.action_mode,
-                    self.selection_mode,
-                    self.ui_size.clone(),
-                    width,
-                    &self.application_state,
-                ),
+                self.edition_tab
+                    .view(self.ui_size.clone(), width, &self.application_state),
             )
             .push(
                 TabLabel::Text(format!("{}", icon_to_char(MaterialIcon::Videocam))),
@@ -640,7 +623,8 @@ impl Program for LeftPanel {
             )
             .push(
                 TabLabel::Text(format!("{}", icon_to_char(MaterialIcon::Settings))),
-                self.parameters_tab.view(self.ui_size.clone()),
+                self.parameters_tab
+                    .view(self.ui_size.clone(), &self.application_state),
             )
             .text_size(self.ui_size.icon())
             .text_font(ICONFONT)
