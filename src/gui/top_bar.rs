@@ -243,13 +243,11 @@ impl Program for TopBar {
         .on_press(Message::SceneFitRequested)
         .height(Length::Units(height));
 
-        let button_new_empty_design = bottom_tooltip_icon_btn(
+        let button_new_empty_design = super::icon_btn(
             &mut self.button_new_empty_design,
-            MaterialIcon::ClearAll,
-            &top_size_info,
-            "New",
-            Some(Message::ButtonNewEmptyDesignPressed),
-        );
+            crate::consts::NEWFILE,
+            self.ui_size.clone()
+        ).on_press(Message::ButtonNewEmptyDesignPressed);
 
         let button_add_file = bottom_tooltip_icon_btn(
             &mut self.button_add_file,
