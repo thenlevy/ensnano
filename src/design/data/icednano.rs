@@ -1339,16 +1339,21 @@ impl Parameters {
     pub fn formated_string(&self) -> String {
         use std::fmt::Write;
         let mut ret = String::new();
-        writeln!(&mut ret, "z_step: {:.3}", self.z_step).unwrap_or_default();
-        writeln!(&mut ret, "helix radius: {:.3}", self.helix_radius).unwrap_or_default();
-        writeln!(&mut ret, "bases per turn: {:.3}", self.bases_per_turn).unwrap_or_default();
+        writeln!(&mut ret, "  Z step: {:.3} nm", self.z_step).unwrap_or_default();
+        writeln!(&mut ret, "  Helix radius: {:.2} nm", self.helix_radius).unwrap_or_default();
+        writeln!(&mut ret, "  #Bases per turn: {:.2}", self.bases_per_turn).unwrap_or_default();
         writeln!(
             &mut ret,
-            "minor groove angle (degrees): {:.3}",
+            "  Minor groove angle: {:.1}°",
             self.groove_angle.to_degrees()
         )
         .unwrap_or_default();
-        writeln!(&mut ret, "inter helix gap: {:.3}", self.inter_helix_gap).unwrap_or_default();
+        writeln!(
+            &mut ret,
+            "  Inter helix gap: {:.2} nm",
+            self.inter_helix_gap
+        )
+        .unwrap_or_default();
         ret
     }
 }
