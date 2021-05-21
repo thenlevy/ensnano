@@ -297,12 +297,7 @@ impl Program for TopBar {
         let button_oxdna = Button::new(&mut self.button_oxdna, iced::Text::new("To OxView"))
             .height(Length::Units(self.ui_size.button()))
             .on_press(Message::OxDNARequested);
-        let oxdna_tooltip = Tooltip::new(
-            button_oxdna,
-            "Export to OxDNA viewer",
-            ToolTipPosition::Bottom,
-        )
-        .style(ToolTipStyle);
+        let oxdna_tooltip = button_oxdna;
 
         let button_split_2d = Button::new(&mut self.button_split_2d, iced::Text::new("(Un)split"))
             .height(Length::Units(self.ui_size.button()))
@@ -384,20 +379,23 @@ impl TopSizeInfo {
     }
 }
 
+#[allow(unused_imports)]
 use iced::tooltip::Position as ToolTipPosition;
+#[allow(unused_imports)]
 use iced::Tooltip;
 fn bottom_tooltip_icon_btn<'a, M: 'a + Clone>(
     state: &'a mut button::State,
     icon_char: MaterialIcon,
     size: &TopSizeInfo,
-    tooltip_text: impl ToString,
+    _tooltip_text: impl ToString,
     on_press: Option<M>,
-) -> Tooltip<'a, M> {
+) -> Button<'a, M, Renderer> {
     let mut button = Button::new(state, icon(icon_char, size.ui_size.clone())).height(size.height);
     if let Some(on_press) = on_press {
         button = button.on_press(on_press);
     }
-    Tooltip::new(button, tooltip_text, ToolTipPosition::Bottom).style(ToolTipStyle)
+    button
+    //Tooltip::new(button, tooltip_text, ToolTipPosition::Bottom).style(ToolTipStyle)
 }
 
 struct ToolTipStyle;
