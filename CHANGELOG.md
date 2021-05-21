@@ -3,6 +3,7 @@
 <!-- next-header -->
 
 ## Unreleased
+- Fix a bug in oxdna export
 - Fix a bug that would make user believe that a cross-over between two 3' ends or two 5' ends was possible in 3D
 view
 - Make it possible to put rotation/translation origin of grids at any point on the grid's latice
