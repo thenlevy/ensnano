@@ -777,35 +777,19 @@ struct FogParameters {
     radius_slider: slider::State,
     length: f32,
     length_slider: slider::State,
-    visible_btn: button::State,
-    center_btn: button::State,
+    picklist: pick_list::State<FogChoice>,
 }
 
 impl FogParameters {
     fn view(&mut self, ui_size: &UiSize) -> Column<Message> {
-        let visible_text = if self.visible {
-            "Desactivate"
-        } else {
-            "Activate"
-        };
-        let center_text = if self.from_camera {
-            "Centered on camera"
-        } else {
-            "Centered on pivot"
-        };
         let mut column = Column::new()
             .push(Text::new("Fog").size(ui_size.intermediate_text()))
-            .push(
-                Row::new()
-                    .push(
-                        text_btn(&mut self.visible_btn, visible_text, ui_size.clone())
-                            .on_press(Message::FogVisibility(!self.visible)),
-                    )
-                    .push(
-                        text_btn(&mut self.center_btn, center_text, ui_size.clone())
-                            .on_press(Message::FogCamera(!self.from_camera)),
-                    ),
-            );
+            .push(PickList::new(
+                &mut self.picklist,
+                &ALL_FOG_CHOICE[..],
+                Some(FogChoice::from_param(self.visible, self.from_camera)),
+                Message::FogChoice,
+            ));
 
         let radius_text = if self.visible {
             Text::new("Radius")
@@ -878,8 +862,7 @@ impl Default for FogParameters {
             length_slider: Default::default(),
             radius_slider: Default::default(),
             from_camera: true,
-            visible_btn: Default::default(),
-            center_btn: Default::default(),
+            picklist: Default::default(),
         }
     }
 }
@@ -1406,4 +1389,53 @@ where
         .push(Checkbox::new(is_checked, "", f).size(ui_size.checkbox()))
         .spacing(CHECKBOXSPACING)
         .into()
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Copy)]
+pub enum FogChoice {
+    None,
+    FromCamera,
+    FromPivot,
+}
+
+impl Default for FogChoice {
+    fn default() -> Self {
+        Self::None
+    }
+}
+
+const ALL_FOG_CHOICE: [FogChoice; 3] =
+    [FogChoice::None, FogChoice::FromCamera, FogChoice::FromPivot];
+
+impl std::fmt::Display for FogChoice {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let ret = match self {
+            Self::None => "None",
+            Self::FromCamera => "From Camera",
+            Self::FromPivot => "From Pivot",
+        };
+        write!(f, "{}", ret)
+    }
+}
+
+impl FogChoice {
+    fn from_param(visible: bool, from_camera: bool) -> Self {
+        if visible {
+            if from_camera {
+                Self::FromCamera
+            } else {
+                Self::FromPivot
+            }
+        } else {
+            Self::None
+        }
+    }
+
+    pub fn to_param(&self) -> (bool, bool) {
+        match self {
+            Self::None => (false, false),
+            Self::FromPivot => (true, false),
+            Self::FromCamera => (true, true),
+        }
+    }
 }

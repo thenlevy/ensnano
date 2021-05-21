@@ -123,10 +123,8 @@ pub enum Message {
     ScaffoldPositionInput(String),
     #[allow(dead_code)]
     ShowTorsion(bool),
-    FogVisibility(bool),
     FogRadius(f32),
     FogLength(f32),
-    FogCamera(bool),
     SimRequest,
     NewDesign,
     DescreteValue {
@@ -177,6 +175,7 @@ pub enum Message {
     Background3D(crate::mediator::Background3D),
     OpenLink(&'static str),
     NewApplicationState(ApplicationState),
+    FogChoice(tabs::FogChoice),
 }
 
 impl LeftPanel {
@@ -343,11 +342,6 @@ impl Program for LeftPanel {
                 self.requests.lock().unwrap().show_torsion_request = Some(b);
                 self.show_torsion = b;
             }
-            Message::FogVisibility(b) => {
-                self.camera_tab.fog_visible(b);
-                let request = self.camera_tab.get_fog_request();
-                self.requests.lock().unwrap().fog = Some(request);
-            }
             Message::FogLength(length) => {
                 self.camera_tab.fog_length(length);
                 let request = self.camera_tab.get_fog_request();
@@ -369,8 +363,10 @@ impl Program for LeftPanel {
                 let request = self.simulation_tab.get_physical_simulation_request();
                 self.requests.lock().unwrap().roll_request = Some(request);
             }
-            Message::FogCamera(b) => {
-                self.camera_tab.fog_camera(b);
+            Message::FogChoice(choice) => {
+                let (visble, from_camera) = choice.to_param();
+                self.camera_tab.fog_camera(from_camera);
+                self.camera_tab.fog_visible(visble);
                 let request = self.camera_tab.get_fog_request();
                 self.requests.lock().unwrap().fog = Some(request);
             }

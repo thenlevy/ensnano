@@ -3,6 +3,7 @@
 <!-- next-header -->
 
 ## Unreleased
+- Draw a cone pointing in the 3' direction at the 3' end of strands in 3D view.
 - Improve automatic positioning of camera
 - Fix a bug in oxdna export
 - Fix a bug that would make user believe that a cross-over between two 3' ends or two 5' ends was possible in 3D
