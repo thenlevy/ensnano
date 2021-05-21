@@ -106,7 +106,7 @@ impl Helix {
         let position = self.space_pos(parameters, nucl_idx, forward);
         let backbone_base = {
             let center = self.axis_position(parameters, nucl_idx);
-            (position - center).normalized()
+            (center - position).normalized()
         };
         let normal = if forward {
             (self.axis_position(parameters, 1) - self.axis_position(parameters, 0)).normalized()
