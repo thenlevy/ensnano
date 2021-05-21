@@ -27,6 +27,8 @@ use std::sync::{Arc, RwLock};
 
 use ultraviolet::{Rotor3, Vec3};
 
+use super::camera::*;
+use super::maths_3d::Basis3D;
 use super::view::Mesh;
 use crate::consts::*;
 use crate::design::{Design, Nucl, ObjectType, Referential, StrandBuilder};
@@ -1154,6 +1156,16 @@ impl Data {
         let design = self.designs.get(0)?;
         Some(design.get_fitting_camera(ratio, fovy))
             .filter(|(v, _)| !v.x.is_nan() && !v.y.is_nan() && !v.z.is_nan())
+    }
+
+    pub fn get_fitting_camera_position(&self) -> Option<Vec3> {
+        let view = self.view.borrow();
+        let basis = view.get_camera().borrow().get_basis();
+        let fovy = view.get_projection().borrow().get_fovy();
+        let ratio = view.get_projection().borrow().get_ratio();
+        self.designs
+            .get(0)
+            .and_then(|d| d.get_fitting_camera_position(basis, fovy, ratio))
     }
 
     /// Return the point in the middle of the selected design
