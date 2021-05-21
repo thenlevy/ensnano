@@ -243,15 +243,17 @@ impl Program for TopBar {
         .on_press(Message::SceneFitRequested)
         .height(Length::Units(height));
 
-        let button_new_empty_design = super::icon_btn(
+        let button_new_empty_design = bottom_tooltip_icon_btn(
             &mut self.button_new_empty_design,
-            crate::consts::NEWFILE,
-            self.ui_size.clone()
-        ).on_press(Message::ButtonNewEmptyDesignPressed);
+            MaterialIcon::InsertDriveFile,
+            &top_size_info,
+            "Load empty design",
+            Some(Message::ButtonNewEmptyDesignPressed),
+        );
 
         let button_add_file = bottom_tooltip_icon_btn(
             &mut self.button_add_file,
-            MaterialIcon::FolderOpen,
+            MaterialIcon::Folder,
             &top_size_info,
             "Open",
             Some(Message::OpenFileButtonPressed),
