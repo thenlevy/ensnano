@@ -542,16 +542,6 @@ impl Scene {
         self.update.need_update = false;
     }
 
-    /// Return the vertical field of view of the camera in radians
-    fn get_fovy(&self) -> f32 {
-        self.view.borrow().get_projection().borrow().get_fovy()
-    }
-
-    /// Return the width/height ratio of the camera
-    fn get_ratio(&self) -> f32 {
-        self.view.borrow().get_projection().borrow().get_ratio()
-    }
-
     fn change_selection_mode(&mut self, selection_mode: SelectionMode) {
         self.data.borrow_mut().change_selection_mode(selection_mode);
         self.update_handle();
@@ -627,6 +617,7 @@ pub enum SceneNotification {
     /// updated.
     CameraMoved,
     /// The camera is replaced by a new one.
+    #[allow(dead_code)]
     NewCamera(Vec3, Rotor3),
     /// The drawing area has been modified
     NewSize(PhySize, DrawArea),

@@ -16,9 +16,11 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 use super::super::maths_3d::{Basis3D, UnalignedBoundaries};
-use super::super::view::{Instanciable, RawDnaInstance, SphereInstance, TubeInstance};
+use super::super::view::{
+    ConeInstance, Instanciable, RawDnaInstance, SphereInstance, TubeInstance,
+};
 use super::super::GridInstance;
-use super::{CameraPtr, LetterInstance, ProjectionPtr, SceneElement, StrandBuilder};
+use super::{LetterInstance, SceneElement, StrandBuilder};
 use crate::consts::*;
 use crate::design::{Design, Nucl, ObjectType, Referential};
 use crate::utils;
@@ -34,8 +36,6 @@ pub struct Design3D {
     id: u32,
     symbol_map: HashMap<char, usize>,
 }
-
-type Basis = (f32, f32, f32, [f32; 3], u32);
 
 impl Design3D {
     pub fn new(design: Arc<RwLock<Design>>) -> Self {
@@ -502,15 +502,6 @@ impl Design3D {
         self.design.read().unwrap().get_color(id)
     }
 
-    /// Return a camera position and orientation so that self fits in the scene.
-    pub fn get_fitting_camera(&self, ratio: f32, fovy: f32) -> (Vec3, Rotor3) {
-        let mut bases = self.get_bases(ratio);
-        let rotation = self.get_fitting_rotor(&bases);
-        let direction = rotation.reversed() * -Vec3::unit_z();
-        let position = self.get_fitting_position(&mut bases, ratio, fovy, &direction);
-        (position, rotation)
-    }
-
     /// Return the middle point of `self` in the world coordinates
     pub fn middle_point(&self) -> Vec3 {
         let boundaries = self.boundaries();
@@ -649,58 +640,6 @@ impl Design3D {
     ) -> Option<Vec3> {
         let boundaries = self.boundaries_unaligned(basis);
         boundaries.fit_point(fovy, ratio)
-    }
-
-    /// Return the 3 axis sorted by magnitude of instances coordinates
-    fn get_bases(&self, ratio: f32) -> Vec<Basis> {
-        let [min_x, max_x, min_y, max_y, min_z, max_z] = self.boundaries();
-        let delta_x = ((max_x - min_x) * 1.1) as f32;
-        let delta_y = ((max_y - min_y) * 1.1) as f32;
-        let delta_z = ((max_z - min_z) * 1.1) as f32;
-
-        let mut bases = vec![
-            (delta_x, (max_x + min_x) / 2., max_x, [1., 0., 0.], 0),
-            (delta_y, (max_y + min_y) / 2., max_y, [0., 1., 0.], 1),
-            (delta_z, (max_z + min_z) / 2., max_z, [0., 0., 1.], 2),
-        ];
-
-        bases.sort_by(|a, b| (b.0).partial_cmp(&(a.0)).unwrap());
-
-        if ratio < 1. {
-            bases.swap(0, 1);
-        }
-
-        bases
-    }
-
-    /// Return a rotor that will maps the longest axis to the camera's x axis,
-    /// and the second longest axis to the camera's y axis
-    fn get_fitting_rotor(&self, bases: &[Basis]) -> Rotor3 {
-        let right: Vec3 = bases[0].3.into();
-        let up: Vec3 = bases[1].3.into();
-        let reverse_direction = right.cross(up);
-        // The arguments of Mat3::new are the columns so this is the *inverse* of the rotation
-        // matrix
-        let inv_rotation_matrix = ultraviolet::Mat3::new(right, up, reverse_direction);
-        inv_rotation_matrix.into_rotor3().reversed()
-    }
-
-    /// Given the orientation of the camera, computes its position so that it can see everything.
-    fn get_fitting_position(
-        &self,
-        bases: &mut Vec<Basis>,
-        ratio: f32,
-        fovy: f32,
-        direction: &Vec3,
-    ) -> Vec3 {
-        // We want to fit both the x and the y axis.
-        let vertical = (bases[1].0).max(bases[0].0 / ratio) + bases[2].0;
-
-        let x_back = vertical / 2. / (fovy / 2.).tan();
-
-        bases.sort_by_key(|b| b.4);
-        let coord = self.middle_point();
-        coord - *direction * x_back
     }
 
     pub fn get_all_elements(&self) -> HashSet<u32> {
@@ -907,6 +846,15 @@ impl Design3D {
         let prime5_2 = self.design.read().unwrap().prime5_of(nucl2);
         prime5_1.and(prime5_2).is_some()
     }
+
+    pub fn get_all_prime3_cone(&self) -> Vec<RawDnaInstance> {
+        let cones = self.design.read().unwrap().get_prime3_set();
+        let mut ret = Vec::with_capacity(cones.len());
+        for c in cones {
+            ret.push(create_prime3_cone(c.0, c.1, c.2));
+        }
+        ret
+    }
 }
 
 fn create_dna_bound(
@@ -933,4 +881,20 @@ fn create_dna_bound(
         radius: 1.,
         length,
     }
+}
+
+fn create_prime3_cone(source: Vec3, dest: Vec3, color: u32) -> RawDnaInstance {
+    let color = Instance::color_from_u32(color);
+    let rotor = Rotor3::from_rotation_between(Vec3::unit_x(), (dest - source).normalized());
+    let position = source;
+    let length = 2. / 3. * (dest - source).mag();
+    ConeInstance {
+        position,
+        length,
+        rotor,
+        color,
+        id: 0,
+        radius: 1.5 * SPHERE_RADIUS,
+    }
+    .to_raw_instance()
 }
