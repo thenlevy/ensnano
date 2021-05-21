@@ -2,7 +2,8 @@
 
 <!-- next-header -->
 
-## Unreleased
+## 0.2.1
+- Take loops into account when importing cadnano file
 - Draw a cone pointing in the 3' direction at the 3' end of strands in 3D view.
 - Improve automatic positioning of camera
 - Fix a bug in oxdna export
