@@ -43,7 +43,7 @@ use crate::{design, ApplicationState};
 use design::{
     Design, DesignNotification, DesignRotation, DesignTranslation, DnaAttribute, DnaElementKey,
     GridDescriptor, GridHelixDescriptor, Helix, Hyperboloid, Nucl, OperationResult,
-    RigidBodyConstants, Stapple, Strand, StrandBuilder, StrandState,
+    Parameters as DNAParameters, RigidBodyConstants, Stapple, Strand, StrandBuilder, StrandState,
 };
 use ensnano_organizer::OrganizerTree;
 
@@ -85,6 +85,8 @@ pub struct Mediator {
     pasting_attempt: Option<Nucl>,
     duplication_attempt: bool,
     canceling_pasting: bool,
+    parameters_ptr: ParameterPtr,
+    main_state: MainState,
 }
 
 /// The scheduler is responsible for running the different applications
@@ -195,7 +197,7 @@ pub enum Notification {
     ModifersChanged(ModifiersState),
     Split2d,
     Redim2dHelices(bool),
-    ToggleWidget,
+    ToggleWidget(bool),
     Background3D(Background3D),
     RenderingMode(RenderingMode),
 }
@@ -238,6 +240,8 @@ impl Mediator {
             pasting_attempt: None,
             duplication_attempt: false,
             canceling_pasting: false,
+            parameters_ptr: Default::default(),
+            main_state: Default::default(),
         }
     }
 
@@ -258,15 +262,12 @@ impl Mediator {
     }
 
     pub fn change_action_mode(&mut self, action_mode: ActionMode) {
-        self.messages.lock().unwrap().push_action_mode(action_mode);
+        self.main_state.action_mode = action_mode;
         self.notify_apps(Notification::NewActionMode(action_mode))
     }
 
     pub fn change_selection_mode(&mut self, selection_mode: SelectionMode) {
-        self.messages
-            .lock()
-            .unwrap()
-            .push_selection_mode(selection_mode);
+        self.main_state.selection_mode = selection_mode;
         self.notify_apps(Notification::NewSelectionMode(selection_mode))
     }
 
@@ -276,8 +277,24 @@ impl Mediator {
 
     pub fn add_design(&mut self, design: Arc<RwLock<Design>>) {
         self.drop_undo_stack();
+        if design
+            .read()
+            .unwrap()
+            .has_at_least_on_strand_with_insertions()
+        {
+            message(
+                "Your design contains insertions and/or deletions. These are not very well \
+            handled by ENSnano at the moment and the current solution is to replace them by single \
+            strands on helices specially created for that puropse."
+                    .into(),
+                rfd::MessageLevel::Warning,
+            );
+            design.write().unwrap().replace_insertions_by_helices();
+        }
+        self.parameters_ptr = ParameterPtr(Arc::new(design.read().unwrap().get_dna_parameters()));
         self.designs.push(design.clone());
         self.notify_apps(Notification::NewDesign(design));
+        self.request_fits();
     }
 
     pub fn change_strand_color(&mut self, color: u32) {
@@ -525,6 +542,7 @@ impl Mediator {
         self.selection = selection.clone();
         self.last_selection = Some((selection.clone(), app_id));
         self.cancel_pasting();
+        self.finish_op();
 
         if selection.len() == 1 {
             let selection = selection[0];
@@ -557,6 +575,7 @@ impl Mediator {
 
     pub fn notify_unique_selection(&mut self, selection: Selection, app_id: AppId) {
         self.cancel_pasting();
+        self.finish_op();
         self.selection = vec![selection];
         self.last_selection = Some((vec![selection], app_id));
         if selection.is_strand() {
@@ -670,7 +689,7 @@ impl Mediator {
         }
         if let Some((candidate, app_id)) = self.candidate.take() {
             ret = true;
-            if candidate.len() == 1 {
+            if candidate.len() == 1 && self.last_op.is_none() {
                 if let Some(d_id) = candidate[0].get_design() {
                     let values = candidate[0].fetch_values(self.designs[d_id as usize].clone());
                     self.messages
@@ -1225,9 +1244,6 @@ impl Mediator {
             self.pasting = PastingMode::PastingXover
         }
         println!("{:?}", self.pasting);
-        if self.pasting.is_placing_paste() {
-            self.change_selection_mode(SelectionMode::Nucleotide);
-        }
         self.notify_apps(Notification::Pasting(self.pasting.is_placing_paste()));
     }
 
@@ -1358,7 +1374,8 @@ impl Mediator {
     }
 
     pub fn toggle_widget(&mut self) {
-        self.notify_apps(Notification::ToggleWidget)
+        self.main_state.axis_aligned ^= true;
+        self.notify_apps(Notification::ToggleWidget(self.main_state.axis_aligned));
     }
 
     pub fn delete_selection(&mut self) {
@@ -1431,6 +1448,10 @@ impl Mediator {
             can_redo,
             can_undo,
             simulation_state,
+            parameter_ptr: self.parameters_ptr.clone(),
+            axis_aligned: self.main_state.axis_aligned,
+            action_mode: self.main_state.action_mode.clone(),
+            selection_mode: self.main_state.selection_mode.clone(),
         }
     }
 }
@@ -1584,4 +1605,37 @@ fn rigid_parameters(parameters: RigidBodyParametersRequest) -> RigidBodyConstant
     };
     println!("{:?}", ret);
     ret
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct ParameterPtr(Arc<DNAParameters>);
+
+impl PartialEq for ParameterPtr {
+    fn eq(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.0, &other.0)
+    }
+}
+
+impl Eq for ParameterPtr {}
+
+impl AsRef<DNAParameters> for ParameterPtr {
+    fn as_ref(&self) -> &DNAParameters {
+        self.0.as_ref()
+    }
+}
+
+struct MainState {
+    axis_aligned: bool,
+    action_mode: ActionMode,
+    selection_mode: SelectionMode,
+}
+
+impl Default for MainState {
+    fn default() -> Self {
+        Self {
+            axis_aligned: true,
+            action_mode: ActionMode::Normal,
+            selection_mode: SelectionMode::Nucleotide,
+        }
+    }
 }

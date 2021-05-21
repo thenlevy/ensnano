@@ -70,7 +70,7 @@ pub struct Requests {
     /// A request to remove all designs
     pub file_clear: bool,
     /// A request to save the selected design
-    pub file_save: Option<PathBuf>,
+    pub file_save: Option<(PathBuf, Option<KeepProceed>)>,
     /// A request to change the color of the selcted strand
     pub strand_color_change: Option<u32>,
     /// A request to change the sequence of the selected strand
@@ -139,16 +139,24 @@ pub struct Requests {
     pub redo: Option<()>,
     pub save_shortcut: Option<()>,
     pub open_shortcut: Option<()>,
-    pub exit_shortcut: Option<()>,
     pub force_help: Option<()>,
     pub show_tutorial: Option<()>,
 }
 
+#[derive(Debug, Clone)]
 pub enum KeepProceed {
     DefaultScaffold,
     CustomScaffold,
     OptimizeShift(usize),
     Stapples(usize),
+    Quit,
+    LoadDesign,
+    LoadDesignAfterSave,
+    SaveBeforeQuit,
+    SaveBeforeOpen,
+    SaveBeforeNew,
+    NewDesign,
+    NewDesignAfterSave,
     Other,
 }
 
@@ -222,7 +230,6 @@ impl Requests {
             redo: None,
             save_shortcut: None,
             open_shortcut: None,
-            exit_shortcut: None,
             force_help: None,
             show_tutorial: None,
         }

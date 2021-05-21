@@ -15,7 +15,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
-use super::icednano::{Design, Domain, Helix, HelixInterval, Strand};
+use super::icednano::{Design, Domain, Helix, HelixInterval, Nucl, Strand};
 use super::{Grid, GridType};
 use cadnano_format::{Cadnano, VStrand};
 use std::collections::{BTreeMap, HashMap, HashSet};
@@ -132,12 +132,15 @@ fn make_strand(
         color: crate::consts::SCAFFOLD_COLOR,
     };
 
+    let mut insertions = Vec::new();
+
     let mut curent_dom = 0;
     while curent_dom == 0 || i != end_5.0 || j != end_5.1 {
         let curent_helix = i;
         let curent_5 = j;
         let mut curent_3 = j;
         let mut once = false;
+        let mut insertions_on_dom = Vec::new();
         while i == curent_helix && (i != end_5.0 || j != end_5.1 || !once) {
             once = true;
             curent_3 = j;
@@ -151,6 +154,10 @@ fn make_strand(
             } else {
                 vstrands[i].stap[j]
             };
+            let insertion_size = vstrands[i].loop_[j];
+            if vstrands[i].loop_[j] > 0 {
+                insertions_on_dom.push((j, insertion_size));
+            }
             println!("result {:?}", result);
             i = num_to_helix[&result.2];
             j = result.3 as usize;
@@ -167,6 +174,16 @@ fn make_strand(
         } else {
             substract_skips(curent_5, curent_helix, vstrands)
         };
+        for (j, n) in insertions_on_dom {
+            insertions.push((
+                Nucl {
+                    helix: curent_helix,
+                    position: substract_skips(j, curent_helix, vstrands),
+                    forward,
+                },
+                n,
+            ));
+        }
 
         println!("pushing {} {} {} {}", curent_helix, start, end, forward);
         ret.domains.push(Domain::HelixDomain(HelixInterval {
@@ -212,8 +229,9 @@ fn make_strand(
             }
         }
     }
-    let junctions = super::icednano::read_junctions(&ret.domains, cyclic);
-    ret.junctions = junctions;
+    for (nucl, n) in insertions.iter() {
+        ret.add_insertion_at_nucl(nucl, *n as usize);
+    }
     ret
 }
 
@@ -221,8 +239,5 @@ fn substract_skips(nucl: usize, helix: usize, vstrands: &Vec<VStrand>) -> isize 
     let skips: isize = (0..(nucl + 1))
         .map(|n| vstrands[helix].skip[n as usize])
         .sum();
-    let insertions: isize = (0..(nucl + 1))
-        .map(|n| vstrands[helix].loop_[n as usize])
-        .sum();
-    nucl as isize + skips + insertions
+    nucl as isize + skips
 }

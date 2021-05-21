@@ -592,6 +592,18 @@ impl Design {
         self.data.lock().unwrap().get_grid_position(g_id)
     }
 
+    pub fn get_grid_latice_position(
+        &self,
+        g_id: usize,
+        x: isize,
+        y: isize,
+    ) -> Option<ultraviolet::Vec3> {
+        self.data
+            .lock()
+            .unwrap()
+            .get_grid_latice_position(g_id, x, y)
+    }
+
     pub fn get_grid_pos_helix(&self, h_id: u32) -> Option<GridPosition> {
         self.data.lock().unwrap().get_grid_pos_helix(h_id)
     }
@@ -1012,6 +1024,25 @@ impl Design {
 
     pub fn get_scaffold_info(&self) -> Option<ScaffoldInfo> {
         self.data.lock().unwrap().get_scaffold_info()
+    }
+
+    pub fn has_at_least_on_strand_with_insertions(&self) -> bool {
+        self.data
+            .lock()
+            .unwrap()
+            .has_at_least_on_strand_with_insertions()
+    }
+
+    pub fn replace_insertions_by_helices(&mut self) {
+        self.data.lock().unwrap().replace_all_insertions()
+    }
+
+    pub fn get_dna_parameters(&self) -> Parameters {
+        self.data.lock().unwrap().get_dna_parameters()
+    }
+
+    pub fn get_prime3_set(&self) -> Vec<(Vec3, Vec3, u32)> {
+        self.data.lock().unwrap().get_prime3_set()
     }
 }
 

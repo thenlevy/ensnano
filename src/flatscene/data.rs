@@ -513,12 +513,7 @@ impl Data {
     }
 
     pub fn get_fit_rectangle(&self) -> FitRectangle {
-        let mut ret = FitRectangle {
-            min_x: -5.,
-            max_x: 15.,
-            min_y: -5.,
-            max_y: 30.,
-        };
+        let mut ret = FitRectangle::new();
         for h in self.helices.iter() {
             let left = h.get_pivot(h.get_left());
             ret.add_point(Vec2::new(left.x, left.y));

@@ -31,7 +31,7 @@ use ahash::RandomState;
 use cadnano_format::Cadnano;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::io::Write;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use ultraviolet::Vec3;
 
 use std::borrow::Cow;
@@ -43,6 +43,7 @@ mod codenano;
 mod elements;
 mod grid;
 mod icednano;
+mod insertion_replacement;
 mod oxdna;
 mod rigid_body;
 mod roller;
@@ -59,9 +60,9 @@ pub use elements::*;
 use ensnano_organizer::OrganizerTree;
 use grid::GridManager;
 pub use grid::*;
-use icednano::DomainJunction;
 pub use icednano::Nucl;
 pub use icednano::{Axis, Design, Helix, Parameters, Strand};
+use icednano::{Domain, DomainJunction, HelixInterval};
 pub use rigid_body::{GridSystemState, RigidBodyConstants, RigidHelixState};
 use roller::PhysicalSystem;
 use std::sync::{mpsc::Sender, Arc, Mutex, RwLock};
@@ -143,6 +144,7 @@ pub struct Data {
     visible: HashMap<Nucl, bool>,
     visibility_sieve: Option<VisibilitySieve>,
     xover_ids: IdGenerator<(Nucl, Nucl)>,
+    prime3_set: Vec<(Vec3, Vec3, u32)>,
 }
 
 impl fmt::Debug for Data {
@@ -195,6 +197,7 @@ impl Data {
             visible: Default::default(),
             visibility_sieve: None,
             xover_ids: Default::default(),
+            prime3_set: Default::default(),
         }
     }
 
@@ -413,6 +416,7 @@ impl Data {
             visible: Default::default(),
             visibility_sieve: None,
             xover_ids,
+            prime3_set: Default::default(),
         };
         ret.make_hash_maps();
         ret.terminate_movement();
@@ -438,6 +442,7 @@ impl Data {
         let mut blue_cubes = HashMap::default();
         let mut red_cubes = HashMap::default();
         let mut elements = Vec::new();
+        let mut prime3_set = Vec::new();
         self.blue_nucl.clear();
         let groups = self.groups.read().unwrap();
         for (s_id, strand) in self.design.strands.iter_mut() {
@@ -543,6 +548,7 @@ impl Data {
                     last_xover_junction = Some(&mut strand.junctions[i]);
                 } else if let icednano::Domain::Insertion(n) = domain {
                     strand_position += n;
+                    last_xover_junction = Some(&mut strand.junctions[i]);
                 }
             }
             if strand.cyclic {
@@ -560,6 +566,7 @@ impl Data {
                 color_map.insert(bound_id, color);
                 strand_map.insert(bound_id, *s_id);
                 helix_map.insert(bound_id, nucl.helix);
+                println!("adding {:?}, {:?}", bound.0, bound.1);
                 Self::update_junction(
                     &mut self.xover_ids,
                     strand
@@ -580,6 +587,21 @@ impl Data {
                         forward3prime: prime3.forward,
                     });
                 }
+            } else {
+                if let Some(nucl) = old_nucl {
+                    let position_start = self.design.helices[&nucl.helix].space_pos(
+                        self.design.parameters.as_ref().unwrap(),
+                        nucl.position,
+                        nucl.forward,
+                    );
+                    let position_end = self.design.helices[&nucl.helix].space_pos(
+                        self.design.parameters.as_ref().unwrap(),
+                        nucl.prime3().position,
+                        nucl.forward,
+                    );
+                    let color = strand.color;
+                    prime3_set.push((position_start, position_end, color));
+                }
             }
             old_nucl = None;
             old_nucl_id = None;
@@ -596,6 +618,7 @@ impl Data {
         *self.basis_map.write().unwrap() = basis_map;
         self.red_cubes = red_cubes;
         self.blue_cubes = blue_cubes;
+        self.prime3_set = prime3_set;
         for (h_id, h) in self.design.helices.iter() {
             elements.push(DnaElement::Helix {
                 id: *h_id,
@@ -2080,6 +2103,13 @@ impl Data {
         self.grid_manager.grids.get(g_id).map(|g| g.position)
     }
 
+    pub fn get_grid_latice_position(&self, g_id: usize, x: isize, y: isize) -> Option<Vec3> {
+        self.grid_manager
+            .grids
+            .get(g_id)
+            .map(|g| g.position_helix(x, y))
+    }
+
     pub fn build_helix_grid(
         &mut self,
         g_id: usize,
@@ -3081,6 +3111,18 @@ impl Data {
             starting_nucl,
         })
     }
+
+    pub fn has_at_least_on_strand_with_insertions(&self) -> bool {
+        self.design.has_at_least_on_strand_with_insertions()
+    }
+
+    pub fn get_dna_parameters(&self) -> Parameters {
+        self.design.parameters.unwrap_or_default()
+    }
+
+    pub fn get_prime3_set(&self) -> Vec<(Vec3, Vec3, u32)> {
+        self.prime3_set.clone()
+    }
 }
 
 fn compl(c: Option<char>) -> Option<char> {
@@ -3094,9 +3136,9 @@ fn compl(c: Option<char>) -> Option<char> {
 }
 
 /// Create a design by parsing a file
-fn read_file(path: &PathBuf) -> Option<icednano::Design> {
+fn read_file<P: AsRef<Path> + std::fmt::Debug>(path: P) -> Option<icednano::Design> {
     let json_str =
-        std::fs::read_to_string(path).unwrap_or_else(|_| panic!("File not found {:?}", path));
+        std::fs::read_to_string(&path).unwrap_or_else(|_| panic!("File not found {:?}", path));
 
     let design: Result<icednano::Design, _> = serde_json::from_str(&json_str);
     // First try to read icednano format

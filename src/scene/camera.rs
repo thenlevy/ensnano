@@ -15,7 +15,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
-use super::view::maths;
+use super::maths_3d;
 use super::{ClickMode, PhySize};
 use iced_winit::winit;
 use std::cell::RefCell;
@@ -67,6 +67,10 @@ impl Camera {
     /// The up vector of the camera, expressed in the world coordinates.
     pub fn up_vec(&self) -> Vec3 {
         self.right_vec().cross(self.direction())
+    }
+
+    pub fn get_basis(&self) -> maths_3d::Basis3D {
+        maths_3d::Basis3D::from_vecs(self.right_vec(), self.up_vec(), -self.direction())
     }
 }
 
@@ -251,7 +255,7 @@ impl CameraController {
             origin,
             normal: (self.camera.borrow().position - origin),
         };
-        maths::unproject_point_on_plane(
+        maths_3d::unproject_point_on_plane(
             plane.origin,
             plane.normal,
             self.camera.clone(),
@@ -344,7 +348,7 @@ impl CameraController {
                 .dot(-plane.normal.normalized())
                 > 0.9
             {
-                maths::unproject_point_on_plane(
+                maths_3d::unproject_point_on_plane(
                     plane.origin,
                     plane.normal,
                     self.camera.clone(),
@@ -418,6 +422,12 @@ impl CameraController {
         camera.position = position;
         camera.rotor = rotation;
         self.last_rotor = rotation;
+        self.cam0 = camera.clone();
+    }
+
+    pub fn set_camera_position(&mut self, position: Vec3) {
+        let mut camera = self.camera.borrow_mut();
+        camera.position = position;
         self.cam0 = camera.clone();
     }
 

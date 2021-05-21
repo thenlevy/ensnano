@@ -134,6 +134,11 @@ impl Controller {
         self.end_movement();
     }
 
+    pub fn set_camera_position(&mut self, position: Vec3) {
+        self.camera_controller.set_camera_position(position);
+        self.end_movement();
+    }
+
     /// Keep the camera orientation and make it face a given point.
     pub fn center_camera(&mut self, center: Vec3) {
         self.camera_controller.center_camera(center)

@@ -38,7 +38,7 @@ fn icon(icon: MaterialIcon, ui_size: UiSize) -> iced::Text {
         .size(ui_size.icon())
 }
 
-use super::{Requests, SplitMode};
+use super::{KeepProceed, Requests, SplitMode};
 
 pub struct TopBar {
     button_fit: button::State,
@@ -55,6 +55,7 @@ pub struct TopBar {
     button_split_2d: button::State,
     button_help: button::State,
     button_tutorial: button::State,
+    button_new_empty_design: button::State,
     requests: Arc<Mutex<Requests>>,
     logical_size: LogicalSize<f64>,
     dialoging: Arc<Mutex<bool>>,
@@ -66,9 +67,10 @@ pub struct TopBar {
 pub enum Message {
     SceneFitRequested,
     FileAddRequested,
+    OpenFileButtonPressed,
     #[allow(dead_code)]
     FileReplaceRequested,
-    FileSaveRequested,
+    FileSaveRequested(Option<KeepProceed>),
     Resize(LogicalSize<f64>),
     ToggleView(SplitMode),
     UiSizeChanged(UiSize),
@@ -79,6 +81,7 @@ pub enum Message {
     ShowTutorial,
     Undo,
     Redo,
+    ButtonNewEmptyDesignPressed,
 }
 
 impl TopBar {
@@ -101,6 +104,7 @@ impl TopBar {
             button_split_2d: Default::default(),
             button_help: Default::default(),
             button_tutorial: Default::default(),
+            button_new_empty_design: Default::default(),
             requests,
             logical_size,
             dialoging,
@@ -123,6 +127,9 @@ impl Program for TopBar {
         match message {
             Message::SceneFitRequested => {
                 self.requests.lock().expect("fitting_requested").fitting = true;
+            }
+            Message::OpenFileButtonPressed => {
+                crate::save_before_open(self.requests.clone());
             }
             Message::FileAddRequested => {
                 if !*self.dialoging.lock().unwrap() {
@@ -182,7 +189,7 @@ impl Program for TopBar {
                     .expect("file_opening_request")
                     .file_clear = false;
             }
-            Message::FileSaveRequested => {
+            Message::FileSaveRequested(keep_proceed) => {
                 if !*self.dialoging.lock().unwrap() {
                     *self.dialoging.lock().unwrap() = true;
                     let requests = self.requests.clone();
@@ -203,46 +210,12 @@ impl Program for TopBar {
                                         format!("{}.json", extension.to_str().unwrap());
                                     path_buf.set_extension(new_extension);
                                 }
-                                requests.lock().unwrap().file_save = Some(path_buf);
+                                requests.lock().unwrap().file_save = Some((path_buf, keep_proceed));
                             }
                             *dialoging.lock().unwrap() = false;
                         };
                         futures::executor::block_on(save_op);
                     });
-                    /*
-                    if cfg!(target_os = "macos") {
-                        // do not spawn a new thread for macos
-                        let result = match nfd2::open_save_dialog(None, None).expect("oh no") {
-                            Response::Okay(file_path) => Some(file_path),
-                            Response::OkayMultiple(_) => {
-                                println!("Please open only one file");
-                                None
-                            }
-                            Response::Cancel => None,
-                        };
-                        *self.dialoging.lock().unwrap() = false;
-                        if let Some(path) = result {
-                            requests.lock().expect("file_opening_request").file_save = Some(path);
-                        }
-                    } else {
-                        let dialoging = self.dialoging.clone();
-                        thread::spawn(move || {
-                            let result = match nfd2::open_save_dialog(None, None).expect("oh no") {
-                                Response::Okay(file_path) => Some(file_path),
-                                Response::OkayMultiple(_) => {
-                                    println!("Please open only one file");
-                                    None
-                                }
-                                Response::Cancel => None,
-                            };
-                            *dialoging.lock().unwrap() = false;
-                            if let Some(path) = result {
-                                requests.lock().expect("file_opening_request").file_save =
-                                    Some(path);
-                            }
-                        });
-                    }
-                    */
                 }
             }
             Message::Resize(size) => self.resize(size),
@@ -255,36 +228,45 @@ impl Program for TopBar {
             Message::Redo => self.requests.lock().unwrap().redo = Some(()),
             Message::ForceHelp => self.requests.lock().unwrap().force_help = Some(()),
             Message::ShowTutorial => self.requests.lock().unwrap().show_tutorial = Some(()),
+            Message::ButtonNewEmptyDesignPressed => crate::save_before_new(self.requests.clone()),
         };
         Command::none()
     }
 
     fn view(&mut self) -> Element<Message, Renderer> {
         let height = self.logical_size.cast::<u16>().height;
+        let top_size_info = TopSizeInfo::new(self.ui_size.clone(), height);
         let button_fit = Button::new(
             &mut self.button_fit,
             icon(MaterialIcon::CenterFocusStrong, self.ui_size.clone()),
         )
         .on_press(Message::SceneFitRequested)
         .height(Length::Units(height));
-        let button_add_file = Button::new(
+
+        let button_new_empty_design = bottom_tooltip_icon_btn(
+            &mut self.button_new_empty_design,
+            MaterialIcon::ClearAll,
+            &top_size_info,
+            "New",
+            Some(Message::ButtonNewEmptyDesignPressed),
+        );
+
+        let button_add_file = bottom_tooltip_icon_btn(
             &mut self.button_add_file,
-            icon(MaterialIcon::FolderOpen, self.ui_size.clone()),
-        )
-        .on_press(Message::FileAddRequested)
-        .height(Length::Units(height));
-        /*let button_replace_file = Button::new(
-            &mut self.button_replace_file,
-            Image::new("icons/delete.png"),
-        )
-        .on_press(Message::FileReplaceRequested)
-        .height(Length::Units(height));*/
-        let button_save = Button::new(
+            MaterialIcon::FolderOpen,
+            &top_size_info,
+            "Open",
+            Some(Message::OpenFileButtonPressed),
+        );
+
+        let save_message = Message::FileSaveRequested(None);
+        let button_save = bottom_tooltip_icon_btn(
             &mut self.button_save,
-            icon(MaterialIcon::Save, self.ui_size.clone()),
-        )
-        .on_press(Message::FileSaveRequested)
-        .height(Length::Units(height));
+            MaterialIcon::Save,
+            &top_size_info,
+            "Save As..",
+            Some(save_message),
+        );
 
         let mut button_undo = Button::new(
             &mut self.button_undo,
@@ -312,14 +294,19 @@ impl Program for TopBar {
             .height(Length::Units(self.ui_size.button()))
             .on_press(Message::ToggleView(SplitMode::Both));
 
-        let button_oxdna = Button::new(&mut self.button_oxdna, iced::Text::new("To OxDNA"))
+        let button_oxdna = Button::new(&mut self.button_oxdna, iced::Text::new("To OxView"))
             .height(Length::Units(self.ui_size.button()))
             .on_press(Message::OxDNARequested);
+        let oxdna_tooltip = Tooltip::new(
+            button_oxdna,
+            "Export to OxDNA viewer",
+            ToolTipPosition::Bottom,
+        )
+        .style(ToolTipStyle);
 
-        let button_split_2d =
-            Button::new(&mut self.button_split_2d, iced::Text::new("Split 2d view"))
-                .height(Length::Units(self.ui_size.button()))
-                .on_press(Message::Split2d);
+        let button_split_2d = Button::new(&mut self.button_split_2d, iced::Text::new("(Un)split"))
+            .height(Length::Units(self.ui_size.button()))
+            .on_press(Message::Split2d);
 
         let button_help = Button::new(&mut self.button_help, iced::Text::new("Help"))
             .height(Length::Units(self.ui_size.button()))
@@ -332,9 +319,10 @@ impl Program for TopBar {
         let buttons = Row::new()
             .width(Length::Fill)
             .height(Length::Units(height))
+            .push(button_new_empty_design)
             .push(button_add_file)
             .push(button_save)
-            .push(button_oxdna)
+            .push(oxdna_tooltip)
             .push(iced::Space::with_width(Length::Units(10)))
             .push(button_3d)
             .push(button_2d)
@@ -380,3 +368,44 @@ pub const BACKGROUND: Color = Color::from_rgb(
     0x39 as f32 / 255.0,
     0x3F as f32 / 255.0,
 );
+
+#[derive(Clone)]
+struct TopSizeInfo {
+    ui_size: UiSize,
+    height: iced::Length,
+}
+
+impl TopSizeInfo {
+    fn new(ui_size: UiSize, height: u16) -> Self {
+        Self {
+            ui_size,
+            height: iced::Length::Units(height),
+        }
+    }
+}
+
+use iced::tooltip::Position as ToolTipPosition;
+use iced::Tooltip;
+fn bottom_tooltip_icon_btn<'a, M: 'a + Clone>(
+    state: &'a mut button::State,
+    icon_char: MaterialIcon,
+    size: &TopSizeInfo,
+    tooltip_text: impl ToString,
+    on_press: Option<M>,
+) -> Tooltip<'a, M> {
+    let mut button = Button::new(state, icon(icon_char, size.ui_size.clone())).height(size.height);
+    if let Some(on_press) = on_press {
+        button = button.on_press(on_press);
+    }
+    Tooltip::new(button, tooltip_text, ToolTipPosition::Bottom).style(ToolTipStyle)
+}
+
+struct ToolTipStyle;
+impl iced::container::StyleSheet for ToolTipStyle {
+    fn style(&self) -> iced::container::Style {
+        iced::container::Style {
+            text_color: Some(iced::Color::BLACK),
+            ..Default::default()
+        }
+    }
+}

@@ -31,6 +31,10 @@ use super::strand_builder::{DomainIdentifier, NeighbourDescriptor};
 use super::{DnaElementKey, IdGenerator};
 use ensnano_organizer::OrganizerTree;
 
+mod formating;
+#[cfg(test)]
+mod tests;
+
 /// The `icednano` Design structure.
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Design {
@@ -225,6 +229,10 @@ impl Design {
             self.ensnano_version = ensnano_version();
         }
     }
+
+    pub fn has_at_least_on_strand_with_insertions(&self) -> bool {
+        self.strands.values().any(|s| s.has_insertions())
+    }
 }
 
 impl Design {
@@ -348,15 +356,20 @@ fn sanitize_domains(domains: &[Domain], cyclic: bool) -> Vec<Domain> {
         }
     }
 
-    if let Some(n) = current_insertion {
+    if let Some(mut n) = current_insertion {
         if cyclic {
-            if let Domain::Insertion(k) = &mut ret[0] {
-                *k += n;
-            } else {
-                ret.push(Domain::Insertion(n));
+            if let Domain::Insertion(k) = ret[0].clone() {
+                ret.remove(0);
+                n += k;
             }
+            ret.push(Domain::Insertion(n));
         } else {
             ret.push(Domain::Insertion(n));
+        }
+    } else if cyclic {
+        if let Domain::Insertion(k) = ret[0].clone() {
+            ret.remove(0);
+            ret.push(Domain::Insertion(k));
         }
     }
     ret
@@ -500,13 +513,13 @@ impl Strand {
         } else {
             None
         };
-        let cyclic = false; // TODO: determine this value
+        let cyclic = scad.circular;
         let sane_domains = sanitize_domains(&domains, cyclic);
         let junctions = read_junctions(&sane_domains, cyclic);
         Some(Self {
             domains: sane_domains,
             color,
-            cyclic, // TODO: determine this value
+            cyclic,
             junctions,
             sequence,
         })
@@ -787,6 +800,76 @@ impl Strand {
         }
         None
     }
+
+    pub fn insertion_points(&self) -> Vec<(Option<Nucl>, Option<Nucl>)> {
+        let mut ret = Vec::new();
+        let mut prev_prime3 = if self.cyclic {
+            self.domains.last().and_then(|d| d.prime3_end())
+        } else {
+            None
+        };
+        for (d1, d2) in self.domains.iter().zip(self.domains.iter().skip(1)) {
+            if let Domain::Insertion(_) = d1 {
+                ret.push((prev_prime3, d2.prime5_end()))
+            } else {
+                prev_prime3 = d1.prime3_end()
+            }
+        }
+        if let Some(Domain::Insertion(_)) = self.domains.last() {
+            if self.cyclic {
+                ret.push((
+                    prev_prime3,
+                    self.domains.first().and_then(|d| d.prime5_end()),
+                ))
+            } else {
+                ret.push((prev_prime3, None))
+            }
+        }
+        ret
+    }
+
+    pub fn has_insertions(&self) -> bool {
+        for d in self.domains.iter() {
+            if let Domain::Insertion(_) = d {
+                return true;
+            }
+        }
+        false
+    }
+
+    pub fn add_insertion_at_nucl(&mut self, nucl: &Nucl, insertion_size: usize) {
+        let insertion_point = self.locate_nucl(nucl);
+        if let Some((d_id, n)) = insertion_point {
+            self.add_insertion_at_dom_position(d_id, n, insertion_size);
+        } else {
+            println!("Could not add insertion");
+            if cfg!(test) {
+                panic!("Could not locate nucleotide in strand");
+            }
+        }
+    }
+
+    fn locate_nucl(&self, nucl: &Nucl) -> Option<(usize, usize)> {
+        for (d_id, d) in self.domains.iter().enumerate() {
+            if let Some(n) = d.has_nucl(nucl) {
+                return Some((d_id, n));
+            }
+        }
+        None
+    }
+
+    fn add_insertion_at_dom_position(&mut self, d_id: usize, pos: usize, insertion_size: usize) {
+        if let Some((prime5, prime3)) = self.domains[d_id].split(pos) {
+            self.domains[d_id] = prime3;
+            self.domains.insert(d_id, Domain::Insertion(insertion_size));
+            self.domains.insert(d_id, prime5);
+        } else {
+            println!("Could not split");
+            if cfg!(test) {
+                panic!("Could not split domain");
+            }
+        }
+    }
 }
 
 fn is_false(x: &bool) -> bool {
@@ -795,7 +878,7 @@ fn is_false(x: &bool) -> bool {
 
 /// A domain can be either an interval of nucleotides on an helix, or an "Insertion" that is a set
 /// of nucleotides that are not on an helix and form an independent loop.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub enum Domain {
     /// An interval of nucleotides on an helix
     HelixDomain(HelixInterval),
@@ -803,7 +886,7 @@ pub enum Domain {
     Insertion(usize),
 }
 
-#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+#[derive(Default, Clone, Serialize, Deserialize)]
 pub struct HelixInterval {
     /// Index of the helix in the array of helices. Indices start at
     /// 0.
@@ -1238,7 +1321,6 @@ impl Parameters {
         // bases per turn from Woo Rothemund (Nature Chemistry).
         bases_per_turn: 10.44,
         // minor groove 12 Å, major groove 22 Å total 34 Å
-        // negative because the major groove in on your left when you go from 5' to 3'
         groove_angle: 2. * PI * 12. / 34.,
         // From Paul's paper.
         inter_helix_gap: 0.65,
@@ -1252,6 +1334,22 @@ impl Parameters {
             groove_angle: codenano_param.groove_angle as f32,
             inter_helix_gap: codenano_param.inter_helix_gap as f32,
         }
+    }
+
+    pub fn formated_string(&self) -> String {
+        use std::fmt::Write;
+        let mut ret = String::new();
+        writeln!(&mut ret, "z_step: {:.3}", self.z_step).unwrap_or_default();
+        writeln!(&mut ret, "helix radius: {:.3}", self.helix_radius).unwrap_or_default();
+        writeln!(&mut ret, "bases per turn: {:.3}", self.bases_per_turn).unwrap_or_default();
+        writeln!(
+            &mut ret,
+            "minor groove angle (degrees): {:.3}",
+            self.groove_angle.to_degrees()
+        )
+        .unwrap_or_default();
+        writeln!(&mut ret, "inter helix gap: {:.3}", self.inter_helix_gap).unwrap_or_default();
+        ret
     }
 }
 
@@ -1438,6 +1536,47 @@ impl Helix {
         ret = self.rotate_point(ret);
         ret += self.position;
         ret
+    }
+
+    ///Return an helix that makes an ideal cross-over with self at postion n
+    pub fn ideal_neighbour(&self, n: isize, forward: bool, p: &Parameters) -> Helix {
+        let other_helix_pos = self.position_ideal_neighbour(n, forward, p);
+        let mut new_helix = self.detatched_copy_at(other_helix_pos);
+        self.adjust_theta_neighbour(n, forward, &mut new_helix, p);
+        new_helix
+    }
+
+    fn detatched_copy_at(&self, position: Vec3) -> Helix {
+        Helix {
+            position,
+            old_position: position,
+            orientation: self.orientation,
+            old_orientation: self.orientation,
+            grid_position: None,
+            roll: 0.,
+            visible: true,
+            isometry2d: None,
+        }
+    }
+
+    fn position_ideal_neighbour(&self, n: isize, forward: bool, p: &Parameters) -> Vec3 {
+        let axis_pos = self.axis_position(p, n);
+        let my_nucl_pos = self.space_pos(p, n, forward);
+        let direction = (my_nucl_pos - axis_pos).normalized();
+        let other_helix_pos = (2. * p.helix_radius + p.inter_helix_gap) * direction + axis_pos;
+        other_helix_pos
+    }
+
+    fn adjust_theta_neighbour(
+        &self,
+        n: isize,
+        forward: bool,
+        new_helix: &mut Helix,
+        p: &Parameters,
+    ) {
+        let theta_current = new_helix.theta(0, forward, p);
+        let theta_obj = self.theta(n, forward, p) + std::f32::consts::PI;
+        new_helix.roll = theta_obj - theta_current;
     }
 
     pub fn get_axis(&self, p: &Parameters) -> Axis {
