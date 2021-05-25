@@ -26,7 +26,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 use crate::gui::RigidBodyParametersRequest;
 use crate::gui::{HyperboloidRequest, KeepProceed, Requests, SimulationRequest};
 use crate::utils::{message, yes_no_dialog, PhantomElement};
-use crate::{DrawArea, Duration, ElementType, IcedMessages, Multiplexer, WindowEvent};
+use crate::{AppState, DrawArea, Duration, ElementType, IcedMessages, Multiplexer, WindowEvent};
 use iced_wgpu::wgpu;
 use iced_winit::winit::{
     dpi::{PhysicalPosition, PhysicalSize},
@@ -65,7 +65,7 @@ pub enum AppId {
 pub type MediatorPtr = Arc<Mutex<Mediator>>;
 
 pub struct Mediator {
-    applications: HashMap<ElementType, Arc<Mutex<dyn Application>>>,
+    applications: HashMap<ElementType, Arc<Mutex<dyn Application<AppState = AppState>>>>,
     designs: Vec<Arc<RwLock<Design>>>,
     selection: Vec<Selection>,
     candidate: Option<(Vec<Selection>, AppId)>,
@@ -87,11 +87,12 @@ pub struct Mediator {
     canceling_pasting: bool,
     parameters_ptr: ParameterPtr,
     main_state: MainState,
+    application_state: AppState,
 }
 
 /// The scheduler is responsible for running the different applications
 pub struct Scheduler {
-    applications: HashMap<ElementType, Arc<Mutex<dyn Application>>>,
+    applications: HashMap<ElementType, Arc<Mutex<dyn Application<AppState = AppState>>>>,
     needs_redraw: Vec<ElementType>,
 }
 
@@ -105,7 +106,7 @@ impl Scheduler {
 
     pub fn add_application(
         &mut self,
-        application: Arc<Mutex<dyn Application>>,
+        application: Arc<Mutex<dyn Application<AppState = AppState>>>,
         element_type: ElementType,
     ) {
         self.applications.insert(element_type, application);
@@ -117,16 +118,26 @@ impl Scheduler {
         event: &WindowEvent,
         area: ElementType,
         cursor_position: PhysicalPosition<f64>,
+        app_state: AppState,
     ) {
         if let Some(app) = self.applications.get_mut(&area) {
-            app.lock().unwrap().on_event(event, cursor_position)
+            app.lock()
+                .unwrap()
+                .on_event(event, cursor_position, &app_state)
         }
     }
 
-    pub fn check_redraw(&mut self, multiplexer: &Multiplexer, dt: Duration) -> bool {
+    pub fn check_redraw(
+        &mut self,
+        multiplexer: &Multiplexer,
+        dt: Duration,
+        app_state: AppState,
+    ) -> bool {
         self.needs_redraw.clear();
         for (area, app) in self.applications.iter_mut() {
-            if multiplexer.is_showing(area) && app.lock().unwrap().needs_redraw(dt) {
+            if multiplexer.is_showing(area)
+                && app.lock().unwrap().needs_redraw(dt, app_state.clone())
+            {
                 self.needs_redraw.push(*area)
             }
         }
@@ -203,12 +214,18 @@ pub enum Notification {
 }
 
 pub trait Application {
+    type AppState;
     /// For notification about the data
     fn on_notify(&mut self, notification: Notification);
     /// The method must be called when the window is resized or when the drawing area is modified
     fn on_resize(&mut self, window_size: PhysicalSize<u32>, area: DrawArea);
     /// The methods is used to forwards the window events to applications
-    fn on_event(&mut self, event: &WindowEvent, position: PhysicalPosition<f64>);
+    fn on_event(
+        &mut self,
+        event: &WindowEvent,
+        position: PhysicalPosition<f64>,
+        app_state: &Self::AppState,
+    );
     /// The method is used to forwards redraw_requests to applications
     fn on_redraw_request(
         &mut self,
@@ -216,7 +233,7 @@ pub trait Application {
         target: &wgpu::TextureView,
         dt: Duration,
     );
-    fn needs_redraw(&mut self, dt: Duration) -> bool;
+    fn needs_redraw(&mut self, dt: Duration, app_state: Self::AppState) -> bool;
 }
 
 impl Mediator {
@@ -242,7 +259,12 @@ impl Mediator {
             canceling_pasting: false,
             parameters_ptr: Default::default(),
             main_state: Default::default(),
+            application_state: Default::default(),
         }
+    }
+
+    pub fn get_state(&self) -> AppState {
+        self.application_state.clone()
     }
 
     pub fn update_modifiers(&mut self, modifers: ModifiersState) {
@@ -251,7 +273,7 @@ impl Mediator {
 
     pub fn add_application(
         &mut self,
-        application: Arc<Mutex<dyn Application>>,
+        application: Arc<Mutex<dyn Application<AppState = AppState>>>,
         element_type: ElementType,
     ) {
         self.applications.insert(element_type, application);
@@ -565,6 +587,7 @@ impl Mediator {
                 .unwrap()
                 .push_selection(Selection::Nothing, vec![])
         }
+        self.application_state = self.application_state.with_selection(selection);
     }
 
     fn cancel_pasting(&mut self) {
@@ -617,6 +640,9 @@ impl Mediator {
                 .unwrap()
                 .push_selection(Selection::Nothing, vec![])
         }
+        self.application_state = self
+            .application_state
+            .with_selection(self.selection.clone());
     }
 
     /// Show/Hide the DNA sequences

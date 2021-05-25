@@ -33,6 +33,8 @@ use crate::design::{Design, Nucl, ObjectType, Referential, StrandBuilder};
 use crate::mediator::{ActionMode, Selection, SelectionMode};
 use crate::utils::PhantomElement;
 
+use super::AppState;
+
 type ViewPtr = Rc<RefCell<View>>;
 
 /// A module that handles the instantiation of designs as 3D geometric objects
@@ -47,8 +49,6 @@ pub struct Data {
     selected_element: Option<SceneElement>,
     /// The set of candidates elements
     candidate_element: Option<SceneElement>,
-    selection: Vec<Selection>,
-    candidates: Vec<Selection>,
     /// The kind of selection being perfomed on the scene.
     selection_mode: SelectionMode,
     /// The kind of selection being performed if self.selection_mode is SelectionMode::Nucl.
@@ -81,8 +81,6 @@ impl Data {
             designs: Vec::new(),
             selected_element: None,
             candidate_element: None,
-            selection: Vec::new(),
-            candidates: Vec::new(),
             selection_mode: SelectionMode::default(),
             sub_selection_mode: SelectionMode::Nucleotide,
             action_mode: Default::default(),
@@ -113,8 +111,6 @@ impl Data {
         self.designs = Vec::new();
         self.selected_element = None;
         self.candidate_element = None;
-        self.selection = Vec::new();
-        self.candidates = Vec::new();
         self.reset_selection();
         self.reset_candidate();
         self.notify_instance_update();
@@ -127,7 +123,7 @@ impl Data {
     }
 
     /// Forwards all needed update to the view
-    pub fn update_view(&mut self) {
+    pub fn update_view<S: AppState>(&mut self, app_state: &S, older_app_state: &S) {
         if self.instance_update || self.selection_update || self.candidate_update {
             self.update_discs();
         }
@@ -136,12 +132,12 @@ impl Data {
             self.instance_update = false;
         }
 
-        if self.selection_update {
-            self.update_selection();
+        if app_state.selection_was_updated(older_app_state) {
+            self.update_selection(app_state.get_selection());
             self.selection_update = false;
         }
-        if self.candidate_update {
-            self.update_candidate();
+        if app_state.candidates_set_was_updated(older_app_state) {
+            self.update_candidate(app_state.get_candidates());
             self.candidate_update = false;
         }
         if self.pivot_update {
@@ -161,11 +157,8 @@ impl Data {
 
     /// Return the sets of selected designs
     #[allow(dead_code)]
-    pub fn get_selected_designs(&self) -> HashSet<u32> {
-        self.selection
-            .iter()
-            .filter_map(|s| s.get_design())
-            .collect()
+    pub fn get_selected_designs(&self, selection: &[Selection]) -> HashSet<u32> {
+        selection.iter().filter_map(|s| s.get_design()).collect()
     }
 
     pub fn set_pivot_element(&mut self, element: Option<SceneElement>) {
@@ -292,9 +285,9 @@ impl Data {
     }*/
 
     /// Return the instances of selected spheres
-    pub fn get_selected_spheres(&self) -> Rc<Vec<RawDnaInstance>> {
+    pub fn get_selected_spheres(&self, selection: &[Selection]) -> Rc<Vec<RawDnaInstance>> {
         let mut ret = Vec::new();
-        for selection in self.selection.iter() {
+        for selection in selection.iter() {
             for element in self
                 .expand_selection(ObjectType::Nucleotide(0), selection)
                 .iter()
@@ -332,9 +325,9 @@ impl Data {
     }
 
     /// Return the instances of selected tubes
-    pub fn get_selected_tubes(&self) -> Rc<Vec<RawDnaInstance>> {
+    pub fn get_selected_tubes(&self, selection: &[Selection]) -> Rc<Vec<RawDnaInstance>> {
         let mut ret = Vec::new();
-        for selection in self.selection.iter() {
+        for selection in selection.iter() {
             for element in self
                 .expand_selection(ObjectType::Bound(0, 0), selection)
                 .iter()
@@ -372,9 +365,9 @@ impl Data {
     }
 
     /// Return the instances of candidate spheres
-    pub fn get_candidate_spheres(&self) -> Rc<Vec<RawDnaInstance>> {
+    pub fn get_candidate_spheres(&self, candidates: &[Selection]) -> Rc<Vec<RawDnaInstance>> {
         let mut ret = Vec::new();
-        for candidate in self.candidates.iter() {
+        for candidate in candidates.iter() {
             for element in self
                 .expand_selection(ObjectType::Nucleotide(0), candidate)
                 .iter()
@@ -412,9 +405,9 @@ impl Data {
     }
 
     /// Return the instances of candidate tubes
-    pub fn get_candidate_tubes(&self) -> Rc<Vec<RawDnaInstance>> {
+    pub fn get_candidate_tubes(&self, candidates: &[Selection]) -> Rc<Vec<RawDnaInstance>> {
         let mut ret = Vec::new();
-        for candidate in self.candidates.iter() {
+        for candidate in candidates.iter() {
             for element in self
                 .expand_selection(ObjectType::Bound(0, 0), candidate)
                 .iter()
@@ -607,10 +600,6 @@ impl Data {
         } else {
             vec![]
         };
-        self.selection_update |= self.selected_element != element;
-        self.selection_update |= self.selection != future_selection;
-        self.selection = future_selection;
-
         Some(selection)
     }
 
@@ -626,12 +615,16 @@ impl Data {
         Some(selection).filter(|s| *s != Selection::Nothing)
     }
 
-    pub fn add_to_selection(&mut self, element: Option<SceneElement>) -> Option<Vec<Selection>> {
+    pub fn add_to_selection(
+        &mut self,
+        element: Option<SceneElement>,
+        selection: &[Selection],
+    ) -> Option<Vec<Selection>> {
         if let Some(SceneElement::WidgetElement(_)) = element {
             return None;
         }
         self.sub_selection_mode = SelectionMode::Nucleotide;
-        let selection = if let Some(element) = element.as_ref() {
+        let selected = if let Some(element) = element.as_ref() {
             self.element_to_selection(element, self.selection_mode)
         } else {
             Selection::Nothing
@@ -639,16 +632,17 @@ impl Data {
         if let Some(element) = element.clone() {
             self.selected_element = Some(element);
         }
-        if selection == Selection::Nothing {
+        if selected == Selection::Nothing {
             None
         } else {
-            if let Some(pos) = self.selection.iter().position(|x| *x == selection) {
-                self.selection.remove(pos);
+            let mut new_selection = selection.to_vec();
+            if let Some(pos) = new_selection.iter().position(|x| *x == selected) {
+                new_selection.remove(pos);
             } else {
-                self.selection.push(selection);
+                new_selection.push(selected);
             }
             self.selection_update = true;
-            Some(self.selection.clone())
+            Some(new_selection)
         }
     }
 
@@ -712,14 +706,14 @@ impl Data {
     }
 
     /// Notify the view that the selected elements have been modified
-    fn update_selection(&mut self) {
+    fn update_selection(&mut self, selection: &[Selection]) {
         self.view.borrow_mut().update(ViewUpdate::RawDna(
             Mesh::SelectedTube,
-            self.get_selected_tubes(),
+            self.get_selected_tubes(selection),
         ));
         self.view.borrow_mut().update(ViewUpdate::RawDna(
             Mesh::SelectedSphere,
-            self.get_selected_spheres(),
+            self.get_selected_spheres(selection),
         ));
         let (sphere, vec) = self.get_phantom_instances();
         self.view
@@ -734,7 +728,7 @@ impl Data {
         } else {
             vec![]
         };
-        for s in self.selection.iter() {
+        for s in selection.iter() {
             if let Selection::Grid(d_id, g_id) = s {
                 grids.push((*d_id as usize, *g_id));
             }
@@ -873,45 +867,22 @@ impl Data {
     }
 
     /// Set the set of candidates to a given nucleotide
-    pub fn set_candidate(&mut self, element: Option<SceneElement>) {
+    pub fn set_candidate(&mut self, element: Option<SceneElement>) -> Option<Selection> {
+        self.candidate_element = element;
         let future_candidates = if let Some(element) = element.as_ref() {
             let selection = self.element_to_selection(element, self.selection_mode);
             if selection != Selection::Nothing {
-                vec![selection]
+                Some(selection)
             } else {
-                vec![]
+                None
             }
         } else {
-            vec![]
+            None
         };
-        self.candidate_update |= self.candidate_element != element;
-        self.candidate_update |= self.candidates != future_candidates;
-        self.candidates = future_candidates;
-        self.candidate_element = element;
+        future_candidates
     }
 
-    pub fn get_candidate(&self) -> Vec<Selection> {
-        self.candidates.clone()
-    }
-
-    pub fn notify_candidate(&mut self, candidate: Vec<Selection>) {
-        let future_candidates = candidate
-            .iter()
-            .filter(|c| c.get_design().is_some())
-            .cloned()
-            .collect();
-        self.candidate_update |= self.candidates != future_candidates;
-        self.candidates = future_candidates;
-    }
-
-    pub fn notify_selection(&mut self, selection: Vec<Selection>) {
-        let future_selection = selection
-            .iter()
-            .filter(|s| s.get_design().is_some())
-            .cloned()
-            .collect();
-        self.selection_update |= self.selection != future_selection;
-        self.selection = future_selection;
+    pub fn notify_selection(&mut self, selection: &[Selection]) {
         if selection.len() == 1 {
             match selection[0] {
                 Selection::Nucleotide(d_id, nucl) => {
@@ -937,20 +908,18 @@ impl Data {
 
     /// Clear the set of candidates to a given nucleotide
     pub fn reset_candidate(&mut self) {
-        self.candidate_update |= !self.candidates.is_empty();
-        self.candidates = Vec::new();
         self.candidate_element = None;
     }
 
     /// Notify the view that the instances of candidates have changed
-    fn update_candidate(&mut self) {
+    fn update_candidate(&mut self, candidates: &[Selection]) {
         self.view.borrow_mut().update(ViewUpdate::RawDna(
             Mesh::CandidateTube,
-            self.get_candidate_tubes(),
+            self.get_candidate_tubes(candidates),
         ));
         self.view.borrow_mut().update(ViewUpdate::RawDna(
             Mesh::CandidateSphere,
-            self.get_candidate_spheres(),
+            self.get_candidate_spheres(candidates),
         ));
         let mut grids =
             if let Some(SceneElement::Grid(d_id, g_id)) = self.candidate_element.as_ref() {
@@ -958,7 +927,7 @@ impl Data {
             } else {
                 vec![]
             };
-        for c in self.candidates.iter() {
+        for c in candidates.iter() {
             if let Selection::Grid(d_id, g_id) = c {
                 grids.push((*d_id as usize, *g_id));
             }
@@ -1023,7 +992,6 @@ impl Data {
 
     /// This function must be called when the designs have been modified
     pub fn notify_instance_update(&mut self) {
-        self.candidates = vec![];
         self.instance_update = true;
     }
 

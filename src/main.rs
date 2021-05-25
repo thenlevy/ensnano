@@ -101,6 +101,9 @@ mod text;
 mod utils;
 // mod grid_panel; We don't use the grid panel atm
 
+mod app_state;
+use app_state::AppState;
+
 use flatscene::FlatScene;
 use gui::{ColorOverlay, KeepProceed, OverlayType, Requests};
 use multiplexer::{DrawArea, ElementType, Multiplexer, Overlay, SplitMode};
@@ -247,6 +250,7 @@ fn main() {
         scene_area,
         mediator.clone(),
         &mut encoder,
+        mediator.lock().unwrap().get_state(),
     )));
     queue.submit(Some(encoder.finish()));
     mediator
@@ -264,6 +268,7 @@ fn main() {
         window.inner_size(),
         scene_area,
         mediator.clone(),
+        mediator.lock().unwrap().get_state(),
     )));
     mediator
         .lock()
@@ -385,6 +390,7 @@ fn main() {
                                     &event,
                                     area,
                                     cursor_position,
+                                    mediator.lock().unwrap().get_state(),
                                 )
                             }
                             _ => unreachable!(),
@@ -828,7 +834,11 @@ fn main() {
                 mediator.lock().unwrap().observe_designs();
                 let now = std::time::Instant::now();
                 let dt = now - last_render_time;
-                redraw |= scheduler.lock().unwrap().check_redraw(&multiplexer, dt);
+                redraw |= scheduler.lock().unwrap().check_redraw(
+                    &multiplexer,
+                    dt,
+                    mediator.lock().unwrap().get_state(),
+                );
                 last_render_time = now;
 
                 if redraw {

@@ -62,7 +62,7 @@ type ViewPtr = Rc<RefCell<View>>;
 type DataPtr = Rc<RefCell<Data>>;
 
 /// A structure responsible of the 3D display of the designs
-pub struct Scene {
+pub struct Scene<S: AppState> {
     /// The update to be performed before next frame
     update: SceneUpdate,
     /// The Object that handles the drawing to the 3d texture
@@ -75,9 +75,10 @@ pub struct Scene {
     area: DrawArea,
     mediator: MediatorPtr,
     element_selector: ElementSelector,
+    older_state: S,
 }
 
-impl Scene {
+impl<S: AppState> Scene<S> {
     /// Create a new scene.
     /// # Argument
     ///
@@ -95,6 +96,7 @@ impl Scene {
         area: DrawArea,
         mediator: MediatorPtr,
         encoder: &mut wgpu::CommandEncoder,
+        inital_state: S,
     ) -> Self {
         let update = SceneUpdate::new();
         let view: ViewPtr = Rc::new(RefCell::new(View::new(
@@ -123,6 +125,7 @@ impl Scene {
             area,
             mediator,
             element_selector,
+            older_state: inital_state,
         }
     }
 
@@ -138,19 +141,24 @@ impl Scene {
 
     /// Input an event to the scene. The controller parse the event and return the consequence that
     /// the event must have.
-    fn input(&mut self, event: &WindowEvent, cursor_position: PhysicalPosition<f64>) {
+    fn input(
+        &mut self,
+        event: &WindowEvent,
+        cursor_position: PhysicalPosition<f64>,
+        app_state: &S,
+    ) {
         let consequence = self
             .controller
             .input(event, cursor_position, &mut self.element_selector);
-        self.read_consequence(consequence);
+        self.read_consequence(consequence, app_state);
     }
 
-    fn check_timers(&mut self) {
+    fn check_timers(&mut self, app_state: &S) {
         let consequence = self.controller.check_timers();
-        self.read_consequence(consequence);
+        self.read_consequence(consequence, app_state);
     }
 
-    fn read_consequence(&mut self, consequence: Consequence) {
+    fn read_consequence(&mut self, consequence: Consequence, app_state: &S) {
         match consequence {
             Consequence::Nothing => (),
             Consequence::CameraMoved => self.notify(SceneNotification::CameraMoved),
@@ -231,7 +239,7 @@ impl Scene {
             }
             Consequence::ElementSelected(element, adding) => {
                 if adding {
-                    self.add_selection(element)
+                    self.add_selection(element, app_state.get_selection())
                 } else {
                     self.select(element)
                 }
@@ -354,8 +362,11 @@ impl Scene {
         self.update_handle();
     }
 
-    fn add_selection(&mut self, element: Option<SceneElement>) {
-        let selection = self.data.borrow_mut().add_to_selection(element);
+    fn add_selection(&mut self, element: Option<SceneElement>, current_selection: &[Selection]) {
+        let selection = self
+            .data
+            .borrow_mut()
+            .add_to_selection(element, current_selection);
         if let Some(selection) = selection {
             self.mediator
                 .lock()
@@ -381,14 +392,18 @@ impl Scene {
     }
 
     fn set_candidate(&mut self, element: Option<SceneElement>) {
-        self.data.borrow_mut().set_candidate(element);
+        let new_candidates = self.data.borrow_mut().set_candidate(element);
         let widget = if let Some(SceneElement::WidgetElement(widget_id)) = element {
             Some(widget_id)
         } else {
             None
         };
         self.view.borrow_mut().set_widget_candidate(widget);
-        let selection = self.data.borrow().get_candidate();
+        let selection = if let Some(c) = new_candidates {
+            vec![c]
+        } else {
+            vec![]
+        };
         self.mediator
             .lock()
             .unwrap()
@@ -482,15 +497,18 @@ impl Scene {
         }
     }
 
-    fn need_redraw(&mut self, dt: Duration) -> bool {
-        self.check_timers();
+    fn need_redraw(&mut self, dt: Duration, new_state: S) -> bool {
+        self.check_timers(&new_state);
         if self.controller.camera_is_moving() {
             self.notify(SceneNotification::CameraMoved);
         }
         if self.update.need_update {
             self.perform_update(dt);
         }
-        self.data.borrow_mut().update_view();
+        self.data
+            .borrow_mut()
+            .update_view(&new_state, &self.older_state);
+        self.older_state = new_state;
         self.view.borrow().need_redraw()
     }
 
@@ -624,7 +642,7 @@ pub enum SceneNotification {
     NewCameraPosition(Vec3),
 }
 
-impl Scene {
+impl<S: AppState> Scene<S> {
     /// Send a notificatoin to the scene
     pub fn notify(&mut self, notification: SceneNotification) {
         match notification {
@@ -658,7 +676,8 @@ impl Scene {
     }
 }
 
-impl Application for Scene {
+impl<S: AppState> Application for Scene<S> {
+    type AppState = S;
     fn on_notify(&mut self, notification: Notification) {
         match notification {
             Notification::DesignNotification(notification) => {
@@ -672,20 +691,8 @@ impl Application for Scene {
             Notification::NewActionMode(am) => self.change_action_mode(am),
             Notification::NewSelectionMode(sm) => self.change_selection_mode(sm),
             Notification::NewSensitivity(x) => self.change_sensitivity(x),
-            Notification::NewCandidate(candidate, app_id) => {
-                if let AppId::Scene = app_id {
-                    ()
-                } else {
-                    self.data.borrow_mut().notify_candidate(candidate)
-                }
-            }
-            Notification::Selection3D(selection, app_id) => {
-                if let AppId::Scene = app_id {
-                    ()
-                } else {
-                    self.data.borrow_mut().notify_selection(selection)
-                }
-            }
+            Notification::NewCandidate(candidate, app_id) => (),
+            Notification::Selection3D(selection, app_id) => (),
             Notification::Save(_) => (),
             Notification::CameraTarget((target, up)) => {
                 self.set_camera_target(target, up);
@@ -708,7 +715,9 @@ impl Application for Scene {
             }
             Notification::CenterSelection(selection, app_id) => {
                 if app_id != AppId::Scene {
-                    self.data.borrow_mut().notify_selection(vec![selection]);
+                    self.data
+                        .borrow_mut()
+                        .notify_selection(vec![selection].as_slice());
                     if let Some(position) = self.data.borrow().get_selected_position() {
                         self.controller.center_camera(position);
                     }
@@ -729,8 +738,13 @@ impl Application for Scene {
         }
     }
 
-    fn on_event(&mut self, event: &WindowEvent, cursor_position: PhysicalPosition<f64>) {
-        self.input(event, cursor_position)
+    fn on_event(
+        &mut self,
+        event: &WindowEvent,
+        cursor_position: PhysicalPosition<f64>,
+        app_state: &S,
+    ) {
+        self.input(event, cursor_position, &app_state)
     }
 
     fn on_resize(&mut self, window_size: PhySize, area: DrawArea) {
@@ -746,12 +760,12 @@ impl Application for Scene {
         self.draw_view(encoder, target)
     }
 
-    fn needs_redraw(&mut self, dt: Duration) -> bool {
-        self.need_redraw(dt)
+    fn needs_redraw(&mut self, dt: Duration, state: S) -> bool {
+        self.need_redraw(dt, state)
     }
 }
 
-impl Scene {
+impl<S: AppState> Scene<S> {
     fn handle_design_notification(&mut self, notification: DesignNotification) {
         let _design_id = notification.design_id;
         match notification.content {
@@ -768,4 +782,11 @@ impl Scene {
             }
         }
     }
+}
+
+pub trait AppState {
+    fn get_selection(&self) -> &[Selection];
+    fn get_candidates(&self) -> &[Selection];
+    fn selection_was_updated(&self, other: &Self) -> bool;
+    fn candidates_set_was_updated(&self, other: &Self) -> bool;
 }

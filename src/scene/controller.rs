@@ -26,6 +26,8 @@ use iced_winit::winit::event::*;
 use std::cell::RefCell;
 use ultraviolet::{Rotor3, Vec3};
 
+use super::AppState;
+
 use camera::CameraController;
 
 mod automata;

@@ -51,7 +51,7 @@ type DataPtr = Rc<RefCell<Data>>;
 type CameraPtr = Rc<RefCell<Camera>>;
 
 /// A Flatscene handles one design at a time
-pub struct FlatScene {
+pub struct FlatScene<S: AppState> {
     /// Handle the data to send to the GPU
     view: Vec<ViewPtr>,
     /// Handle the data representing the design
@@ -69,15 +69,17 @@ pub struct FlatScene {
     mediator: Arc<Mutex<Mediator>>,
     last_update: Instant,
     splited: bool,
+    old_state: S,
 }
 
-impl FlatScene {
+impl<S: AppState> FlatScene<S> {
     pub fn new(
         device: Rc<Device>,
         queue: Rc<Queue>,
         window_size: PhySize,
         area: DrawArea,
         mediator: Arc<Mutex<Mediator>>,
+        initial_state: S,
     ) -> Self {
         Self {
             view: Vec::new(),
@@ -91,6 +93,7 @@ impl FlatScene {
             mediator,
             last_update: Instant::now(),
             splited: false,
+            old_state: initial_state,
         }
     }
 
@@ -471,12 +474,13 @@ impl FlatScene {
     }
 
     /// Ask the view if it has been modified since the last drawing
-    fn needs_redraw_(&mut self) -> bool {
+    fn needs_redraw_(&mut self, new_state: S) -> bool {
         self.check_timers();
         if let Some(view) = self.view.get(self.selected_design) {
             self.data[self.selected_design]
                 .borrow_mut()
                 .perform_update();
+            self.old_state = new_state;
             view.borrow().needs_redraw()
         } else {
             false
@@ -507,7 +511,8 @@ impl FlatScene {
     }
 }
 
-impl Application for FlatScene {
+impl<S: AppState> Application for FlatScene<S> {
+    type AppState = S;
     fn on_notify(&mut self, notification: Notification) {
         match notification {
             Notification::NewDesign(design) => self.add_design(design),
@@ -520,6 +525,7 @@ impl Application for FlatScene {
             }
             Notification::FitRequest => self.controller[self.selected_design].fit(),
             Notification::Selection3D(selection, app_id) => match app_id {
+                /*
                 AppId::FlatScene => (),
                 _ => {
                     self.needs_redraw(Duration::from_nanos(1));
@@ -536,7 +542,8 @@ impl Application for FlatScene {
                         self.controller[self.selected_design]
                             .select_pivots(translation_pivots, rotation_pivots);
                     }
-                }
+                }*/
+                _ => (),
             },
             Notification::Save(d_id) => self.data[d_id].borrow_mut().save_isometry(),
             Notification::ToggleText(b) => {
@@ -601,7 +608,7 @@ impl Application for FlatScene {
         self.resize(window_size, area)
     }
 
-    fn on_event(&mut self, event: &WindowEvent, cursor_position: PhysicalPosition<f64>) {
+    fn on_event(&mut self, event: &WindowEvent, cursor_position: PhysicalPosition<f64>, state: &S) {
         self.input(event, cursor_position)
     }
 
@@ -615,13 +622,15 @@ impl Application for FlatScene {
         self.draw_view(encoder, target)
     }
 
-    fn needs_redraw(&mut self, _: Duration) -> bool {
+    fn needs_redraw(&mut self, _: Duration, state: S) -> bool {
         let now = Instant::now();
         if (now - self.last_update).as_millis() < 25 {
             false
         } else {
             self.last_update = now;
-            self.needs_redraw_()
+            self.needs_redraw_(state)
         }
     }
 }
+
+pub trait AppState {}
