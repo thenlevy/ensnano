@@ -38,7 +38,7 @@ pub use ui_size::*;
 use status_bar::StatusBar;
 
 use crate::design::GridTypeDescr;
-use crate::mediator::{ActionMode, Operation, SelectionMode};
+use crate::mediator::{ActionMode, Operation, SelectionMode, Background3D, RenderingMode};
 use crate::scene::FogParameters;
 use crate::SplitMode;
 use crate::{DrawArea, ElementType, IcedMessages, Multiplexer};
@@ -57,197 +57,77 @@ use winit::{
     window::Window,
 };
 
-/// A structure that contains all the requests that can be made through the GUI.
-pub struct Requests {
-    /// A change of the rotation mode
-    pub action_mode: Option<ActionMode>,
-    /// A change of the selection mode
-    pub selection_mode: Option<SelectionMode>,
-    /// A request to move the camera so that the frustrum fits the desgin
-    pub fitting: bool,
-    /// A request to load a design into the scene
-    pub file_add: Option<PathBuf>,
-    /// A request to remove all designs
-    pub file_clear: bool,
-    /// A request to save the selected design
-    pub file_save: Option<(PathBuf, Option<KeepProceed>)>,
-    /// A request to change the color of the selcted strand
-    pub strand_color_change: Option<u32>,
-    /// A request to change the sequence of the selected strand
-    pub sequence_change: Option<String>,
-    /// A request to show/hide the sequences
-    pub toggle_text: Option<bool>,
-    /// A request to change the view
-    pub toggle_scene: Option<SplitMode>,
-    /// A request to change the sensitivity of scrolling
-    pub scroll_sensitivity: Option<f32>,
-    pub make_grids: bool,
-    pub overlay_closed: Option<OverlayType>,
-    pub overlay_opened: Option<OverlayType>,
-    pub operation_update: Option<Arc<dyn Operation>>,
-    pub toggle_persistent_helices: Option<bool>,
-    pub new_grid: Option<GridTypeDescr>,
-    pub camera_rotation: Option<(f32, f32, f32)>,
-    pub camera_target: Option<(Vec3, Vec3)>,
-    pub small_spheres: Option<bool>,
-    pub set_scaffold_id: Option<Option<usize>>,
-    pub scaffold_sequence: Option<(String, usize)>,
-    pub stapples_request: bool,
-    pub recolor_stapples: bool,
-    pub clean_requests: bool,
-    pub roll_request: Option<SimulationRequest>,
-    pub show_torsion_request: Option<bool>,
-    pub fog: Option<FogParameters>,
-    pub hyperboloid_update: Option<HyperboloidRequest>,
-    pub new_hyperboloid: Option<HyperboloidRequest>,
-    pub finalize_hyperboloid: bool,
-    pub cancel_hyperboloid: bool,
-    pub helix_roll: Option<f32>,
-    pub copy: bool,
-    pub paste: bool,
-    pub duplication: bool,
-    pub rigid_grid_simulation: Option<RigidBodyParametersRequest>,
-    pub rigid_helices_simulation: Option<RigidBodyParametersRequest>,
-    pub anchor: bool,
-    pub rigid_body_parameters: Option<RigidBodyParametersRequest>,
-    pub stapples_file: Option<(usize, PathBuf)>,
-    pub keep_proceed: Option<KeepProceed>,
-    pub sequence_input: Option<String>,
-    pub new_shift_hyperboloid: Option<f32>,
-    pub organizer_selection: Option<Vec<crate::design::DnaElementKey>>,
-    pub organizer_candidates: Option<Vec<crate::design::DnaElementKey>>,
-    pub new_attribute: Option<(
-        crate::design::DnaAttribute,
-        Vec<crate::design::DnaElementKey>,
-    )>,
-    pub new_tree: Option<OrganizerTree<crate::design::DnaElementKey>>,
-    pub new_ui_size: Option<UiSize>,
-    pub oxdna: bool,
-    pub split2d: bool,
-    pub toggle_visibility: Option<bool>,
-    pub all_visible: bool,
-    pub redim_2d_helices: Option<bool>,
-    pub invert_scroll: Option<bool>,
-    pub stop_roll: bool,
-    pub toggle_widget: bool,
-    pub delete_selection: bool,
-    pub select_scaffold: Option<()>,
-    pub scaffold_shift: Option<usize>,
-    pub rendering_mode: Option<crate::mediator::RenderingMode>,
-    pub background3d: Option<crate::mediator::Background3D>,
-    pub undo: Option<()>,
-    pub redo: Option<()>,
-    pub save_shortcut: Option<()>,
-    pub open_shortcut: Option<()>,
-    pub force_help: Option<()>,
-    pub show_tutorial: Option<()>,
+pub trait Requests: 'static {
+    /// Show a pop up asking if the user want to use the default scaffold.
+    fn ask_use_default_scaffold(&mut self);
+    /// Close an overlay
+    fn close_overlay(&mut self, overlay_type: OverlayType);
+    /// Change the color of the selected strands
+    fn change_strand_color(&mut self, color: u32);
+    /// Change the background of the 3D scene
+    fn change_3d_background(&mut self, bg: Background3D);
+    /// Change the rendering mode
+    fn change_3d_rendering_mode(&mut self, rendering_mode: RenderingMode);
+    /// Set the selected strand as the scaffold
+    fn set_scaffold_from_selection(&mut self);
+    /// Cancel the current hyperboloid construction
+    fn cancel_hyperboloid(&mut self);
+    /// Change the scrolling direction
+    fn invert_scroll(&mut self, invert: bool);
+    /// Resize all the 2D helices, or only the selected ones
+    fn resize_2d_helices(&mut self, selected: bool);
+    /// Make all elements of the design visible
+    fn make_all_elements_visible(&mut self);
+    /// Toggle the visibility of the selected elements
+    fn toggle_visibility(&mut self, visible: bool);
+    /// Remove empty domains in the design
+    fn remove_empty_domains(&mut self);
+    /// Change the action mode
+    fn change_action_mode(&mut self, action_mode: ActionMode);
+    /// Show/hide the DNA sequences
+    fn set_dna_sequences_visibility(&mut self, visible: bool);
+    /// Download the stapples as an xlsx file
+    fn download_stapples(&mut self);
+    /// Set the sequence and shifting of the scaffold
+    fn set_scaffold_sequence(&mut self, sequence: String, shift: usize);
+    /// Change the size of the UI components
+    fn set_ui_size(&mut self, size: UiSize);
+    /// Finalize the currently eddited hyperboloid grid
+    fn finalize_hyperboloid(&mut self);
+    fn stop_roll_simulation(&mut self);
+    fn start_roll_simulation(&mut self, roll_request: SimulationRequest);
+    /// Make a grid from the set of selected helices
+    fn make_grid_from_selection(&mut self);
+    /// Start of Update the rigid helices simulation
+    fn update_rigid_helices_simulation(&mut self, parameters: RigidBodyParametersRequest);
+    /// Start of Update the rigid grids simulation
+    fn update_rigid_grids_simulation(&mut self, parameters: RigidBodyParametersRequest);
+    /// Update the parameters of the current simulation (rigid grids or helices)
+    fn update_rigid_body_simulation_parameters(&mut self, parameters: RigidBodyParametersRequest);
+    fn create_new_hyperboloid(&mut self, parameters: HyperboloidRequest);
+    /// Update the parameters of the currently eddited hyperboloid grid
+    fn update_current_hyperboloid(&mut self, parameters: HyperboloidRequest);
+    fn update_roll_of_selected_helices(&mut self, roll: f32);
+    fn update_scroll_sensitivity(&mut self, sensitivity: f32);
+    fn set_fog_parameters(&mut self, parameters: FogParameters);
+    /// Show/hide the torsion indications
+    fn set_torsion_visibility(&mut self, visible: bool);
+
 }
 
-#[derive(Debug, Clone)]
-pub enum KeepProceed {
-    DefaultScaffold,
-    CustomScaffold,
-    OptimizeShift(usize),
-    Stapples(usize),
-    Quit,
-    LoadDesign,
-    LoadDesignAfterSave,
-    SaveBeforeQuit,
-    SaveBeforeOpen,
-    SaveBeforeNew,
-    NewDesign,
-    NewDesignAfterSave,
-    Other,
-}
-
-impl Requests {
-    /// Initialise the request structures with no requests
-    pub fn new() -> Self {
-        Self {
-            action_mode: None,
-            selection_mode: None,
-            fitting: false,
-            file_add: None,
-            file_clear: false,
-            file_save: None,
-            strand_color_change: None,
-            sequence_change: None,
-            toggle_text: None,
-            toggle_scene: Some(SplitMode::Both),
-            scroll_sensitivity: None,
-            make_grids: false,
-            overlay_closed: None,
-            overlay_opened: None,
-            operation_update: None,
-            toggle_persistent_helices: None,
-            new_grid: None,
-            camera_target: None,
-            camera_rotation: None,
-            small_spheres: None,
-            set_scaffold_id: None,
-            scaffold_sequence: None,
-            stapples_request: false,
-            recolor_stapples: false,
-            clean_requests: false,
-            roll_request: None,
-            show_torsion_request: None,
-            fog: None,
-            hyperboloid_update: None,
-            new_hyperboloid: None,
-            finalize_hyperboloid: false,
-            cancel_hyperboloid: false,
-            helix_roll: None,
-            copy: false,
-            paste: false,
-            duplication: false,
-            rigid_helices_simulation: None,
-            rigid_grid_simulation: None,
-            anchor: false,
-            rigid_body_parameters: None,
-            keep_proceed: None,
-            stapples_file: None,
-            sequence_input: None,
-            new_shift_hyperboloid: None,
-            organizer_selection: None,
-            organizer_candidates: None,
-            new_attribute: None,
-            new_tree: None,
-            new_ui_size: None,
-            oxdna: false,
-            split2d: false,
-            toggle_visibility: None,
-            all_visible: false,
-            redim_2d_helices: None,
-            invert_scroll: None,
-            stop_roll: false,
-            toggle_widget: false,
-            delete_selection: false,
-            select_scaffold: None,
-            scaffold_shift: None,
-            rendering_mode: None,
-            background3d: None,
-            undo: None,
-            redo: None,
-            save_shortcut: None,
-            open_shortcut: None,
-            force_help: None,
-            show_tutorial: None,
-        }
-    }
-}
 
 #[derive(PartialEq)]
 pub enum OverlayType {
     Color,
 }
 
-enum GuiState {
-    TopBar(iced_winit::program::State<TopBar>),
-    LeftPanel(iced_winit::program::State<LeftPanel>),
-    StatusBar(iced_winit::program::State<StatusBar>),
+enum GuiState<R: Requests> {
+    TopBar(iced_winit::program::State<TopBar<R>>),
+    LeftPanel(iced_winit::program::State<LeftPanel<R>>),
+    StatusBar(iced_winit::program::State<StatusBar<R>>),
 }
 
-impl GuiState {
+impl<R: Requests> GuiState<R> {
     fn queue_event(&mut self, event: Event) {
         match self {
             GuiState::TopBar(state) => state.queue_event(event),
@@ -382,20 +262,20 @@ impl GuiState {
 }
 
 /// A Gui component.
-struct GuiElement {
-    state: GuiState,
+struct GuiElement<R: Requests> {
+    state: GuiState<R>,
     debug: Debug,
     redraw: bool,
     element_type: ElementType,
 }
 
-impl GuiElement {
+impl<R: Requests> GuiElement<R> {
     /// Initialize the top bar gui component
     fn top_bar(
         renderer: &mut Renderer,
         window: &Window,
         multiplexer: &Multiplexer,
-        requests: Arc<Mutex<Requests>>,
+        requests: Arc<Mutex<R>>,
         dialoging: Arc<Mutex<bool>>,
     ) -> Self {
         let cursor_position = PhysicalPosition::new(-1., -1.);
@@ -426,7 +306,7 @@ impl GuiElement {
         renderer: &mut Renderer,
         window: &Window,
         multiplexer: &Multiplexer,
-        requests: Arc<Mutex<Requests>>,
+        requests: Arc<Mutex<R>>,
         first_time: bool,
         dialoging: Arc<Mutex<bool>>,
     ) -> Self {
@@ -461,7 +341,7 @@ impl GuiElement {
         renderer: &mut Renderer,
         window: &Window,
         multiplexer: &Multiplexer,
-        requests: Arc<Mutex<Requests>>,
+        requests: Arc<Mutex<R>>,
     ) -> Self {
         let cursor_position = PhysicalPosition::new(-1., -1.);
         let status_bar_area = multiplexer
@@ -488,7 +368,7 @@ impl GuiElement {
         self.state.queue_event(event)
     }
 
-    fn get_state(&mut self) -> &mut GuiState {
+    fn get_state(&mut self) -> &mut GuiState<R> {
         &mut self.state
     }
 
@@ -567,24 +447,24 @@ impl GuiElement {
 }
 
 /// The Gui manager.
-pub struct Gui {
+pub struct Gui<R: Requests> {
     /// HashMap mapping [ElementType](ElementType) to a GuiElement
-    elements: HashMap<ElementType, GuiElement>,
+    elements: HashMap<ElementType, GuiElement<R>>,
     renderer: iced_wgpu::Renderer,
     settings: Settings,
     device: Rc<Device>,
     resized: bool,
-    requests: Arc<Mutex<Requests>>,
+    requests: Arc<Mutex<R>>,
     dialoging: Arc<Mutex<bool>>,
     ui_size: UiSize,
 }
 
-impl Gui {
+impl<R: Requests> Gui<R> {
     pub fn new(
         device: Rc<Device>,
         window: &Window,
         multiplexer: &Multiplexer,
-        requests: Arc<Mutex<Requests>>,
+        requests: Arc<Mutex<R>>,
         settings: Settings,
     ) -> Self {
         let mut renderer = Renderer::new(Backend::new(device.as_ref(), settings.clone()));

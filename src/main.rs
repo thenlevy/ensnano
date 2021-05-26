@@ -104,8 +104,11 @@ mod utils;
 mod app_state;
 use app_state::AppState;
 
+mod requests;
+pub use requests::{KeepProceed, Requests};
+
 use flatscene::FlatScene;
-use gui::{ColorOverlay, KeepProceed, OverlayType, Requests};
+use gui::{ColorOverlay, OverlayType};
 use multiplexer::{DrawArea, ElementType, Multiplexer, Overlay, SplitMode};
 use scene::Scene;
 
@@ -221,7 +224,7 @@ fn main() {
     let mut local_pool = futures::executor::LocalPool::new();
 
     // Initialize the mediator
-    let requests = Arc::new(Mutex::new(Requests::new()));
+    let requests = Arc::new(Mutex::new(Requests::default()));
     let messages = Arc::new(Mutex::new(IcedMessages::new()));
     let computing = Arc::new(Mutex::new(false));
     let mediator = Arc::new(Mutex::new(Mediator::new(
@@ -386,11 +389,12 @@ fn main() {
                             }
                             area if area.is_scene() => {
                                 let cursor_position = multiplexer.get_cursor_position();
+                                let state = mediator.lock().unwrap().get_state();
                                 scheduler.lock().unwrap().forward_event(
                                     &event,
                                     area,
                                     cursor_position,
-                                    mediator.lock().unwrap().get_state(),
+                                    state,
                                 )
                             }
                             _ => unreachable!(),

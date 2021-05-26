@@ -78,7 +78,7 @@ fn icon(icon: MaterialIcon, ui_size: &UiSize) -> iced::Text {
 
 const CHECKBOXSPACING: u16 = 5;
 
-pub struct LeftPanel {
+pub struct LeftPanel<R: Requests> {
     dialoging: Arc<Mutex<bool>>,
     logical_size: LogicalSize<f64>,
     #[allow(dead_code)]
@@ -86,7 +86,7 @@ pub struct LeftPanel {
     #[allow(dead_code)]
     open_color: button::State,
     sequence_input: SequenceInput,
-    requests: Arc<Mutex<Requests>>,
+    requests: Arc<Mutex<R>>,
     #[allow(dead_code)]
     show_torsion: bool,
     selected_tab: usize,
@@ -178,9 +178,9 @@ pub enum Message {
     FogChoice(tabs::FogChoice),
 }
 
-impl LeftPanel {
+impl<R: Requests> LeftPanel<R> {
     pub fn new(
-        requests: Arc<Mutex<Requests>>,
+        requests: Arc<Mutex<R>>,
         logical_size: LogicalSize<f64>,
         logical_position: LogicalPosition<f64>,
         first_time: bool,
@@ -254,7 +254,7 @@ impl LeftPanel {
     }
 }
 
-impl Program for LeftPanel {
+impl<R: Requests> Program for LeftPanel<R> {
     type Renderer = Renderer;
     type Message = Message;
     type Clipboard = NullClipboard;
@@ -339,18 +339,18 @@ impl Program for LeftPanel {
                 }
             }
             Message::ShowTorsion(b) => {
-                self.requests.lock().unwrap().show_torsion_request = Some(b);
+                self.requests.lock().unwrap().set_torsion_visibility(b);
                 self.show_torsion = b;
             }
             Message::FogLength(length) => {
                 self.camera_tab.fog_length(length);
                 let request = self.camera_tab.get_fog_request();
-                self.requests.lock().unwrap().fog = Some(request);
+                self.requests.lock().unwrap().set_fog_parameters(request);
             }
             Message::FogRadius(radius) => {
                 self.camera_tab.fog_radius(radius);
                 let request = self.camera_tab.get_fog_request();
-                self.requests.lock().unwrap().fog = Some(request);
+                self.requests.lock().unwrap().set_fog_parameters(request);
             }
             Message::NewDesign => {
                 self.show_torsion = false;
@@ -361,14 +361,14 @@ impl Program for LeftPanel {
             }
             Message::SimRequest => {
                 let request = self.simulation_tab.get_physical_simulation_request();
-                self.requests.lock().unwrap().roll_request = Some(request);
+                self.requests.lock().unwrap().start_roll_simulation(request);
             }
             Message::FogChoice(choice) => {
                 let (visble, from_camera) = choice.to_param();
                 self.camera_tab.fog_camera(from_camera);
                 self.camera_tab.fog_visible(visble);
                 let request = self.camera_tab.get_fog_request();
-                self.requests.lock().unwrap().fog = Some(request);
+                self.requests.lock().unwrap().set_fog_parameters(request);
             }
             Message::DescreteValue {
                 factory_id,
@@ -376,84 +376,115 @@ impl Program for LeftPanel {
                 value,
             } => match factory_id {
                 FactoryId::Scroll => {
-                    let request = &mut self.requests.lock().unwrap().scroll_sensitivity;
+                    let mut request = None;
                     self.parameters_tab
-                        .update_scroll_request(value_id, value, request);
+                        .update_scroll_request(value_id, value, &mut request);
+                    if let Some(request) = request {
+                        self.requests.lock().unwrap().update_scroll_sensitivity(request);
+                    }
                 }
                 FactoryId::HelixRoll => {
-                    let request = &mut self.requests.lock().unwrap().helix_roll;
+                    let mut request = None;
                     self.edition_tab
-                        .update_roll_request(value_id, value, request);
+                        .update_roll_request(value_id, value, &mut request);
+                    if let Some(request) = request {
+                        self.requests.lock().unwrap().update_roll_of_selected_helices(request);
+                    }
                 }
                 FactoryId::Hyperboloid => {
-                    let request = &mut self.requests.lock().unwrap().hyperboloid_update;
+                    let mut request = None;
                     self.grid_tab
-                        .update_hyperboloid_request(value_id, value, request);
+                        .update_hyperboloid_request(value_id, value, &mut request);
+                    if let Some(request) = request {
+                        self.requests.lock().unwrap().update_current_hyperboloid(request);
+                    }
                 }
                 FactoryId::RigidBody => {
-                    let request = &mut self.requests.lock().unwrap().rigid_body_parameters;
-                    self.simulation_tab.update_request(value_id, value, request);
+                    let mut request = None;
+                    self.simulation_tab.update_request(value_id, value, &mut request);
+                    if let Some(request) = request {
+                        self.requests.lock().unwrap().update_rigid_body_simulation_parameters(request);
+                    }
                 }
                 FactoryId::Brownian => {
-                    let request = &mut self.requests.lock().unwrap().rigid_body_parameters;
+                    let mut request = None;
                     self.simulation_tab
-                        .update_brownian(value_id, value, request);
+                        .update_brownian(value_id, value, &mut request);
+                    if let Some(request) = request {
+                        self.requests.lock().unwrap().update_rigid_body_simulation_parameters(request);
+                    }
                 }
             },
             Message::VolumeExclusion(b) => {
                 self.simulation_tab.set_volume_exclusion(b);
-                let request = &mut self.requests.lock().unwrap().rigid_body_parameters;
-                self.simulation_tab.make_rigid_body_request(request);
+                let mut request: Option<RigidBodyParametersRequest> = None;
+                self.simulation_tab.make_rigid_body_request(&mut request);
+                if let Some(request) = request {
+                    self.requests.lock().unwrap().update_rigid_body_simulation_parameters(request);
+                }
             }
             Message::BrownianMotion(b) => {
                 self.simulation_tab.set_brownian_motion(b);
-                let request = &mut self.requests.lock().unwrap().rigid_body_parameters;
-                self.simulation_tab.make_rigid_body_request(request);
+                let mut request: Option<RigidBodyParametersRequest> = None;
+                self.simulation_tab.make_rigid_body_request(&mut request);
+                if let Some(request) = request {
+                    self.requests.lock().unwrap().update_rigid_body_simulation_parameters(request);
+                }
             }
             Message::HelixRoll(roll) => {
                 self.edition_tab.update_roll(roll);
             }
             Message::NewHyperboloid => {
-                let request = &mut self.requests.lock().unwrap().new_hyperboloid;
-                self.grid_tab.new_hyperboloid(request);
+                let mut request: Option<HyperboloidRequest> = None;
+                self.grid_tab.new_hyperboloid(&mut request);
+                if let Some(request) = request {
+                    self.requests.lock().unwrap().create_new_hyperboloid(request);
+                }
             }
             Message::FinalizeHyperboloid => {
-                self.requests.lock().unwrap().finalize_hyperboloid = true;
+                self.requests.lock().unwrap().finalize_hyperboloid();
                 self.grid_tab.finalize_hyperboloid();
             }
             Message::RigidGridSimulation(_) => {
-                let request = &mut self.requests.lock().unwrap().rigid_grid_simulation;
-                self.simulation_tab.make_rigid_body_request(request);
+                let mut request: Option<RigidBodyParametersRequest> = None;
+                self.simulation_tab.make_rigid_body_request(&mut request);
+                if let Some(request) = request {
+                    self.requests.lock().unwrap().update_rigid_grids_simulation(request);
+                }
             }
             Message::RigidHelicesSimulation(_) => {
-                let request = &mut self.requests.lock().unwrap().rigid_helices_simulation;
-                self.simulation_tab.make_rigid_body_request(request);
+                let mut request: Option<RigidBodyParametersRequest> = None;
+                self.simulation_tab.make_rigid_body_request(&mut request);
+                if let Some(request) = request {
+                    self.requests.lock().unwrap().update_rigid_helices_simulation(request);
+                }
             }
-            Message::MakeGrids => self.requests.lock().unwrap().make_grids = true,
+            Message::MakeGrids => self.requests.lock().unwrap().make_grid_from_selection(),
             Message::RollTargeted(b) => {
                 if b {
-                    let simulation_request = self.edition_tab.get_roll_request();
-                    self.requests.lock().unwrap().roll_request = simulation_request;
+                    if let Some(simulation_request) = self.edition_tab.get_roll_request() {
+                        self.requests.lock().unwrap().start_roll_simulation(simulation_request);
+                    }
                 } else {
-                    self.requests.lock().unwrap().stop_roll = true;
+                    self.requests.lock().unwrap().stop_roll_simulation();
                 }
             }
             Message::TabSelected(n) => {
                 if let ActionMode::BuildHelix { .. } = self.application_state.action_mode {
                     if n != 0 {
                         let action_mode = ActionMode::Normal;
-                        self.requests.lock().unwrap().action_mode = Some(action_mode);
+                        self.requests.lock().unwrap().change_action_mode(action_mode);
                     }
                 }
                 if n != 0 {
                     if self.grid_tab.is_building_hyperboloid() {
-                        self.requests.lock().unwrap().finalize_hyperboloid = true;
+                        self.requests.lock().unwrap().finalize_hyperboloid();
                         self.grid_tab.finalize_hyperboloid();
                     }
                 }
                 if n == 0 {
                     let action_mode = self.grid_tab.get_build_helix_mode();
-                    self.requests.lock().unwrap().action_mode = Some(action_mode);
+                    self.requests.lock().unwrap().change_action_mode(action_mode);
                 }
                 if self.selected_tab == 3 && n != 3 {
                     println!("leaving simulation tab");
@@ -482,13 +513,12 @@ impl Program for LeftPanel {
             }
             Message::NewTreeApp(tree) => self.organizer.read_tree(tree),
             Message::UiSizePicked(ui_size) => {
-                self.requests.lock().unwrap().new_ui_size = Some(ui_size)
+                self.requests.lock().unwrap().set_ui_size(ui_size)
             }
             Message::UiSizeChanged(ui_size) => self.ui_size = ui_size,
             Message::DeffaultScaffoldRequested => {
                 let sequence = include_str!("p7249-Tilibit.txt");
-                self.requests.lock().unwrap().scaffold_sequence =
-                    Some((sequence.to_string(), self.sequence_tab.get_scaffold_pos()))
+                self.requests.lock().unwrap().set_scaffold_sequence(sequence.to_string(), self.sequence_tab.get_scaffold_pos())
             }
             Message::CustomScaffoldRequested => {
                 *self.dialoging.lock().unwrap() = true;
@@ -512,8 +542,7 @@ impl Program for LeftPanel {
                                 );
                                 crate::utils::message(msg.into(), rfd::MessageLevel::Error);
                             } else {
-                                requests.lock().unwrap().scaffold_sequence =
-                                    Some((content, scaffold_shift))
+                                requests.lock().unwrap().set_scaffold_sequence(content, scaffold_shift)
                             }
                         }
                         *dialoging.lock().unwrap() = false;
@@ -524,31 +553,31 @@ impl Program for LeftPanel {
             Message::ScaffoldSequenceFile => {
                 use_default_scaffold(self.requests.clone());
             }
-            Message::StapplesRequested => self.requests.lock().unwrap().stapples_request = true,
+            Message::StapplesRequested => self.requests.lock().unwrap().download_stapples(),
             Message::ToggleText(b) => {
-                self.requests.lock().unwrap().toggle_text = Some(b);
+                self.requests.lock().unwrap().set_dna_sequences_visibility(b);
                 self.sequence_tab.toggle_text_value(b);
             }
-            Message::CleanRequested => self.requests.lock().unwrap().clean_requests = true,
+            Message::CleanRequested => self.requests.lock().unwrap().remove_empty_domains(),
             Message::AddDoubleStrandHelix(b) => {
                 self.grid_tab.set_show_strand(b);
                 if let ActionMode::BuildHelix { .. } = self.application_state.action_mode {
                     let action_mode = self.grid_tab.get_build_helix_mode();
-                    self.requests.lock().unwrap().action_mode = Some(action_mode);
+                    self.requests.lock().unwrap().change_action_mode(action_mode);
                 }
             }
             Message::ToggleVisibility(b) => {
-                self.requests.lock().unwrap().toggle_visibility = Some(b)
+                self.requests.lock().unwrap().toggle_visibility(b)
             }
-            Message::AllVisible => self.requests.lock().unwrap().all_visible = true,
-            Message::Redim2dHelices(b) => self.requests.lock().unwrap().redim_2d_helices = Some(b),
+            Message::AllVisible => self.requests.lock().unwrap().make_all_elements_visible(),
+            Message::Redim2dHelices(b) => self.requests.lock().unwrap().redim_2d_helices(b),
             Message::InvertScroll(b) => {
-                self.requests.lock().unwrap().invert_scroll = Some(b);
+                self.requests.lock().unwrap().invert_scroll(b);
                 self.parameters_tab.invert_y_scroll = b;
             }
             Message::CancelHyperboloid => {
                 self.grid_tab.finalize_hyperboloid();
-                self.requests.lock().unwrap().cancel_hyperboloid = true;
+                self.requests.lock().unwrap().cancel_hyperboloid();
             }
             Message::SelectionValueChanged(n, s) => {
                 self.contextual_panel
@@ -566,13 +595,13 @@ impl Program for LeftPanel {
                 .contextual_panel
                 .update_selection(selection, info_values),
             Message::NewScaffoldInfo(info) => self.sequence_tab.set_scaffold_info(info),
-            Message::SelectScaffold => self.requests.lock().unwrap().select_scaffold = Some(()),
+            Message::SelectScaffold => self.requests.lock().unwrap().set_scaffold_from_selection(),
             Message::RenderingMode(mode) => {
-                self.requests.lock().unwrap().rendering_mode = Some(mode.clone());
+                self.requests.lock().unwrap().change_3d_rendering_mode(mode.clone());
                 self.camera_tab.rendering_mode = mode;
             }
             Message::Background3D(bg) => {
-                self.requests.lock().unwrap().background3d = Some(bg.clone());
+                self.requests.lock().unwrap().change_3d_background(bg.clone());
                 self.camera_tab.background3d = bg;
             }
             Message::ForceHelp => {
@@ -673,15 +702,15 @@ pub const BACKGROUND: Color = Color::from_rgb(
     0x2A as f32 / 255.0,
 );
 
-pub struct ColorOverlay {
+pub struct ColorOverlay<R: Requests> {
     logical_size: LogicalSize<f64>,
     color_picker: ColorPicker,
     close_button: iced::button::State,
-    requests: Arc<Mutex<Requests>>,
+    requests: Arc<Mutex<R>>,
 }
 
-impl ColorOverlay {
-    pub fn new(requests: Arc<Mutex<Requests>>, logical_size: LogicalSize<f64>) -> Self {
+impl<R: Requests> ColorOverlay<R> {
+    pub fn new(requests: Arc<Mutex<R>>, logical_size: LogicalSize<f64>) -> Self {
         Self {
             logical_size,
             close_button: Default::default(),
@@ -704,7 +733,7 @@ pub enum ColorMessage {
     Closed,
 }
 
-impl Program for ColorOverlay {
+impl<R: Requests> Program for ColorOverlay<R> {
     type Renderer = Renderer;
     type Message = ColorMessage;
     type Clipboard = NullClipboard;
@@ -724,11 +753,11 @@ impl Program for ColorOverlay {
                 .h;
                 self.color_picker.change_hue(hue as f32);
                 let color = red + green + blue;
-                self.requests.lock().unwrap().strand_color_change = Some(color);
+                self.requests.lock().unwrap().change_strand_color(color);
             }
             ColorMessage::HueChanged(x) => self.color_picker.change_hue(x),
             ColorMessage::Closed => {
-                self.requests.lock().unwrap().overlay_closed = Some(OverlayType::Color)
+                self.requests.lock().unwrap().close_overlay(OverlayType::Color);
             }
             ColorMessage::Resized(size) => self.resize(size),
         };
@@ -1283,14 +1312,15 @@ impl Requestable for RigidBodyFactory {
     }
 }
 
-use super::KeepProceed;
-fn use_default_scaffold(requests: Arc<Mutex<Requests>>) {
+fn use_default_scaffold<R: Requests>(requests: Arc<Mutex<R>>) {
+    requests.lock().unwrap().ask_use_default_scaffold();
+    /*
     crate::utils::yes_no_dialog(
         "Use default m13 sequence".into(),
         requests,
         KeepProceed::DefaultScaffold,
         Some(KeepProceed::CustomScaffold),
-    )
+    )*/
 }
 
 #[derive(Clone, Copy, Debug)]

@@ -61,20 +61,20 @@ impl StatusParameter {
     }
 }
 
-pub struct StatusBar {
+pub struct StatusBar<R: Requests> {
     parameters: Vec<StatusParameter>,
     info_values: Vec<String>,
     operation_values: Vec<String>,
     operation: Option<Arc<dyn Operation>>,
-    requests: Arc<Mutex<Requests>>,
+    requests: Arc<Mutex<R>>,
     selection: Selection,
     progress: Option<(String, f32)>,
     #[allow(dead_code)]
     slider_state: slider::State,
 }
 
-impl StatusBar {
-    pub fn new(requests: Arc<Mutex<Requests>>) -> Self {
+impl<R: Requests> StatusBar<R> {
+    pub fn new(requests: Arc<Mutex<R>>) -> Self {
         Self {
             parameters: Vec::new(),
             info_values: Vec::new(),
@@ -173,7 +173,7 @@ pub enum Message {
     ClearOp,
 }
 
-impl Program for StatusBar {
+impl<R: Requests> Program for StatusBar<R> {
     type Message = Message;
     type Renderer = iced_wgpu::Renderer;
     type Clipboard = iced_native::clipboard::Null;

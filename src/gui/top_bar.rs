@@ -40,7 +40,7 @@ fn icon(icon: MaterialIcon, ui_size: UiSize) -> iced::Text {
 
 use super::{KeepProceed, Requests, SplitMode};
 
-pub struct TopBar {
+pub struct TopBar<R: Requests> {
     button_fit: button::State,
     button_add_file: button::State,
     #[allow(dead_code)]
@@ -56,7 +56,7 @@ pub struct TopBar {
     button_help: button::State,
     button_tutorial: button::State,
     button_new_empty_design: button::State,
-    requests: Arc<Mutex<Requests>>,
+    requests: Arc<Mutex<R>>,
     logical_size: LogicalSize<f64>,
     dialoging: Arc<Mutex<bool>>,
     ui_size: UiSize,
@@ -84,12 +84,12 @@ pub enum Message {
     ButtonNewEmptyDesignPressed,
 }
 
-impl TopBar {
+impl<R: Requests> TopBar<R> {
     pub fn new(
-        requests: Arc<Mutex<Requests>>,
+        requests: Arc<Mutex<R>>,
         logical_size: LogicalSize<f64>,
         dialoging: Arc<Mutex<bool>>,
-    ) -> TopBar {
+    ) -> Self {
         Self {
             button_fit: Default::default(),
             button_add_file: Default::default(),
@@ -118,7 +118,7 @@ impl TopBar {
     }
 }
 
-impl Program for TopBar {
+impl<R: Requests> Program for TopBar<R> {
     type Renderer = Renderer;
     type Message = Message;
     type Clipboard = NullClipBoard;
