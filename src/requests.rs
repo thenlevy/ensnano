@@ -102,4 +102,3 @@ pub struct Requests {
     pub force_help: Option<()>,
     pub show_tutorial: Option<()>,
 }
-

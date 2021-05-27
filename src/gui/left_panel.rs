@@ -231,16 +231,21 @@ impl<R: Requests> LeftPanel<R> {
                     .message(&m)
                     .map(|m_| Message::OrganizerMessage(m_))
             }
-            OrganizerMessage::Selection(s) => {
-                self.requests.lock().unwrap().organizer_selection = Some(s)
-            }
+            OrganizerMessage::Selection(s) => self.requests.lock().unwrap().set_selected_keys(s),
             OrganizerMessage::NewAttribute(a, keys) => {
-                self.requests.lock().unwrap().new_attribute = Some((a, keys.into_iter().collect()))
+                self.requests
+                    .lock()
+                    .unwrap()
+                    .update_attribute_of_elements(a, keys.into_iter().collect());
             }
-            OrganizerMessage::NewTree(tree) => self.requests.lock().unwrap().new_tree = Some(tree),
-            OrganizerMessage::Candidates(candidates) => {
-                self.requests.lock().unwrap().organizer_candidates = Some(candidates)
+            OrganizerMessage::NewTree(tree) => {
+                self.requests.lock().unwrap().update_organizer_tree(tree)
             }
+            OrganizerMessage::Candidates(candidates) => self
+                .requests
+                .lock()
+                .unwrap()
+                .set_candidates_keys(candidates),
             _ => (),
         }
         None
@@ -263,23 +268,32 @@ impl<R: Requests> Program for LeftPanel<R> {
         match message {
             Message::SelectionModeChanged(selection_mode) => {
                 if selection_mode != self.application_state.selection_mode {
-                    self.requests.lock().unwrap().selection_mode = Some(selection_mode);
+                    self.requests
+                        .lock()
+                        .unwrap()
+                        .change_selection_mode(selection_mode);
                 }
             }
             Message::ActionModeChanged(action_mode) => {
                 if self.application_state.action_mode != action_mode {
-                    self.requests.lock().unwrap().action_mode = Some(action_mode)
+                    self.requests
+                        .lock()
+                        .unwrap()
+                        .change_action_mode(action_mode)
                 } else {
                     match action_mode {
                         ActionMode::Rotate | ActionMode::Translate => {
-                            self.requests.lock().unwrap().toggle_widget = true;
+                            self.requests.lock().unwrap().toggle_widget_basis();
                         }
                         _ => (),
                     }
                 }
             }
             Message::SequenceChanged(s) => {
-                self.requests.lock().unwrap().sequence_change = Some(s.clone());
+                self.requests
+                    .lock()
+                    .unwrap()
+                    .set_selected_strand_sequence(s.clone());
                 self.sequence_input.update_sequence(s);
             }
             Message::SequenceFileRequested => {
@@ -291,51 +305,74 @@ impl<R: Requests> Program for LeftPanel<R> {
                         if let Some(handle) = file {
                             let content = std::fs::read_to_string(handle.path());
                             if let Ok(content) = content {
-                                requests.lock().unwrap().sequence_input = Some(content);
+                                requests
+                                    .lock()
+                                    .unwrap()
+                                    .set_selected_strand_sequence(content);
                             }
                         }
                     };
                     futures::executor::block_on(save_op);
                 });
             }
-            Message::OpenColor => {
-                self.requests.lock().unwrap().overlay_opened = Some(OverlayType::Color)
-            }
+            Message::OpenColor => self
+                .requests
+                .lock()
+                .unwrap()
+                .open_overlay(OverlayType::Color),
             Message::StrandColorChanged(color) => {
-                let color_request = &mut self.requests.lock().unwrap().strand_color_change;
-                self.edition_tab.strand_color_change(color, color_request);
+                let requested_color = self.edition_tab.strand_color_change(color);
+                self.requests
+                    .lock()
+                    .unwrap()
+                    .change_strand_color(requested_color);
             }
             Message::HueChanged(x) => self.edition_tab.change_hue(x),
             Message::Resized(size, position) => self.resize(size, position),
             Message::NewGrid(grid_type) => {
-                self.requests.lock().unwrap().new_grid = Some(grid_type);
+                self.requests.lock().unwrap().create_grid(grid_type);
                 let action_mode = self.grid_tab.get_build_helix_mode();
-                self.requests.lock().unwrap().action_mode = Some(action_mode);
+                self.requests
+                    .lock()
+                    .unwrap()
+                    .change_action_mode(action_mode);
             }
             Message::RotateCam(xz, yz, xy) => {
                 self.camera_shortcut
                     .set_angles(xz as isize, yz as isize, xy as isize);
-                self.requests.lock().unwrap().camera_rotation = Some((xz, yz, xy));
+                self.requests
+                    .lock()
+                    .unwrap()
+                    .perform_camera_rotation(xz, yz, xy);
             }
             Message::FixPoint(point, up) => {
-                self.requests.lock().unwrap().camera_target = Some((point, up));
+                self.requests
+                    .lock()
+                    .unwrap()
+                    .set_camera_dir_up_vec(point, up);
                 self.camera_shortcut.reset_angles();
             }
             Message::LengthHelicesChanged(length_str) => {
                 let action_mode = self.grid_tab.update_length_str(length_str.clone());
                 if self.application_state.action_mode != action_mode {
-                    self.requests.lock().unwrap().action_mode = Some(action_mode)
+                    self.requests
+                        .lock()
+                        .unwrap()
+                        .change_action_mode(action_mode)
                 }
             }
             Message::PositionHelicesChanged(position_str) => {
                 let action_mode = self.grid_tab.update_pos_str(position_str.clone());
                 if self.application_state.action_mode != action_mode {
-                    self.requests.lock().unwrap().action_mode = Some(action_mode)
+                    self.requests
+                        .lock()
+                        .unwrap()
+                        .change_action_mode(action_mode)
                 }
             }
             Message::ScaffoldPositionInput(position_str) => {
                 if let Some(n) = self.sequence_tab.update_pos_str(position_str) {
-                    self.requests.lock().unwrap().scaffold_shift = Some(n);
+                    self.requests.lock().unwrap().set_scaffold_shift(n);
                 }
             }
             Message::ShowTorsion(b) => {
@@ -380,7 +417,10 @@ impl<R: Requests> Program for LeftPanel<R> {
                     self.parameters_tab
                         .update_scroll_request(value_id, value, &mut request);
                     if let Some(request) = request {
-                        self.requests.lock().unwrap().update_scroll_sensitivity(request);
+                        self.requests
+                            .lock()
+                            .unwrap()
+                            .update_scroll_sensitivity(request);
                     }
                 }
                 FactoryId::HelixRoll => {
@@ -388,7 +428,10 @@ impl<R: Requests> Program for LeftPanel<R> {
                     self.edition_tab
                         .update_roll_request(value_id, value, &mut request);
                     if let Some(request) = request {
-                        self.requests.lock().unwrap().update_roll_of_selected_helices(request);
+                        self.requests
+                            .lock()
+                            .unwrap()
+                            .update_roll_of_selected_helices(request);
                     }
                 }
                 FactoryId::Hyperboloid => {
@@ -396,14 +439,21 @@ impl<R: Requests> Program for LeftPanel<R> {
                     self.grid_tab
                         .update_hyperboloid_request(value_id, value, &mut request);
                     if let Some(request) = request {
-                        self.requests.lock().unwrap().update_current_hyperboloid(request);
+                        self.requests
+                            .lock()
+                            .unwrap()
+                            .update_current_hyperboloid(request);
                     }
                 }
                 FactoryId::RigidBody => {
                     let mut request = None;
-                    self.simulation_tab.update_request(value_id, value, &mut request);
+                    self.simulation_tab
+                        .update_request(value_id, value, &mut request);
                     if let Some(request) = request {
-                        self.requests.lock().unwrap().update_rigid_body_simulation_parameters(request);
+                        self.requests
+                            .lock()
+                            .unwrap()
+                            .update_rigid_body_simulation_parameters(request);
                     }
                 }
                 FactoryId::Brownian => {
@@ -411,7 +461,10 @@ impl<R: Requests> Program for LeftPanel<R> {
                     self.simulation_tab
                         .update_brownian(value_id, value, &mut request);
                     if let Some(request) = request {
-                        self.requests.lock().unwrap().update_rigid_body_simulation_parameters(request);
+                        self.requests
+                            .lock()
+                            .unwrap()
+                            .update_rigid_body_simulation_parameters(request);
                     }
                 }
             },
@@ -420,7 +473,10 @@ impl<R: Requests> Program for LeftPanel<R> {
                 let mut request: Option<RigidBodyParametersRequest> = None;
                 self.simulation_tab.make_rigid_body_request(&mut request);
                 if let Some(request) = request {
-                    self.requests.lock().unwrap().update_rigid_body_simulation_parameters(request);
+                    self.requests
+                        .lock()
+                        .unwrap()
+                        .update_rigid_body_simulation_parameters(request);
                 }
             }
             Message::BrownianMotion(b) => {
@@ -428,7 +484,10 @@ impl<R: Requests> Program for LeftPanel<R> {
                 let mut request: Option<RigidBodyParametersRequest> = None;
                 self.simulation_tab.make_rigid_body_request(&mut request);
                 if let Some(request) = request {
-                    self.requests.lock().unwrap().update_rigid_body_simulation_parameters(request);
+                    self.requests
+                        .lock()
+                        .unwrap()
+                        .update_rigid_body_simulation_parameters(request);
                 }
             }
             Message::HelixRoll(roll) => {
@@ -438,7 +497,10 @@ impl<R: Requests> Program for LeftPanel<R> {
                 let mut request: Option<HyperboloidRequest> = None;
                 self.grid_tab.new_hyperboloid(&mut request);
                 if let Some(request) = request {
-                    self.requests.lock().unwrap().create_new_hyperboloid(request);
+                    self.requests
+                        .lock()
+                        .unwrap()
+                        .create_new_hyperboloid(request);
                 }
             }
             Message::FinalizeHyperboloid => {
@@ -449,21 +511,30 @@ impl<R: Requests> Program for LeftPanel<R> {
                 let mut request: Option<RigidBodyParametersRequest> = None;
                 self.simulation_tab.make_rigid_body_request(&mut request);
                 if let Some(request) = request {
-                    self.requests.lock().unwrap().update_rigid_grids_simulation(request);
+                    self.requests
+                        .lock()
+                        .unwrap()
+                        .update_rigid_grids_simulation(request);
                 }
             }
             Message::RigidHelicesSimulation(_) => {
                 let mut request: Option<RigidBodyParametersRequest> = None;
                 self.simulation_tab.make_rigid_body_request(&mut request);
                 if let Some(request) = request {
-                    self.requests.lock().unwrap().update_rigid_helices_simulation(request);
+                    self.requests
+                        .lock()
+                        .unwrap()
+                        .update_rigid_helices_simulation(request);
                 }
             }
             Message::MakeGrids => self.requests.lock().unwrap().make_grid_from_selection(),
             Message::RollTargeted(b) => {
                 if b {
                     if let Some(simulation_request) = self.edition_tab.get_roll_request() {
-                        self.requests.lock().unwrap().start_roll_simulation(simulation_request);
+                        self.requests
+                            .lock()
+                            .unwrap()
+                            .start_roll_simulation(simulation_request);
                     }
                 } else {
                     self.requests.lock().unwrap().stop_roll_simulation();
@@ -473,7 +544,10 @@ impl<R: Requests> Program for LeftPanel<R> {
                 if let ActionMode::BuildHelix { .. } = self.application_state.action_mode {
                     if n != 0 {
                         let action_mode = ActionMode::Normal;
-                        self.requests.lock().unwrap().change_action_mode(action_mode);
+                        self.requests
+                            .lock()
+                            .unwrap()
+                            .change_action_mode(action_mode);
                     }
                 }
                 if n != 0 {
@@ -484,7 +558,10 @@ impl<R: Requests> Program for LeftPanel<R> {
                 }
                 if n == 0 {
                     let action_mode = self.grid_tab.get_build_helix_mode();
-                    self.requests.lock().unwrap().change_action_mode(action_mode);
+                    self.requests
+                        .lock()
+                        .unwrap()
+                        .change_action_mode(action_mode);
                 }
                 if self.selected_tab == 3 && n != 3 {
                     println!("leaving simulation tab");
@@ -512,13 +589,18 @@ impl<R: Requests> Program for LeftPanel<R> {
                 self.grid_tab.can_make_grid = b;
             }
             Message::NewTreeApp(tree) => self.organizer.read_tree(tree),
-            Message::UiSizePicked(ui_size) => {
-                self.requests.lock().unwrap().set_ui_size(ui_size)
-            }
+            Message::UiSizePicked(ui_size) => self.requests.lock().unwrap().set_ui_size(ui_size),
             Message::UiSizeChanged(ui_size) => self.ui_size = ui_size,
             Message::DeffaultScaffoldRequested => {
                 let sequence = include_str!("p7249-Tilibit.txt");
-                self.requests.lock().unwrap().set_scaffold_sequence(sequence.to_string(), self.sequence_tab.get_scaffold_pos())
+                self.requests
+                    .lock()
+                    .unwrap()
+                    .set_scaffold_sequence(sequence.to_string());
+                self.requests
+                    .lock()
+                    .unwrap()
+                    .set_scaffold_shift(self.sequence_tab.get_scaffold_pos());
             }
             Message::CustomScaffoldRequested => {
                 *self.dialoging.lock().unwrap() = true;
@@ -542,7 +624,8 @@ impl<R: Requests> Program for LeftPanel<R> {
                                 );
                                 crate::utils::message(msg.into(), rfd::MessageLevel::Error);
                             } else {
-                                requests.lock().unwrap().set_scaffold_sequence(content, scaffold_shift)
+                                requests.lock().unwrap().set_scaffold_sequence(content);
+                                requests.lock().unwrap().set_scaffold_shift(scaffold_shift);
                             }
                         }
                         *dialoging.lock().unwrap() = false;
@@ -555,7 +638,10 @@ impl<R: Requests> Program for LeftPanel<R> {
             }
             Message::StapplesRequested => self.requests.lock().unwrap().download_stapples(),
             Message::ToggleText(b) => {
-                self.requests.lock().unwrap().set_dna_sequences_visibility(b);
+                self.requests
+                    .lock()
+                    .unwrap()
+                    .set_dna_sequences_visibility(b);
                 self.sequence_tab.toggle_text_value(b);
             }
             Message::CleanRequested => self.requests.lock().unwrap().remove_empty_domains(),
@@ -563,14 +649,15 @@ impl<R: Requests> Program for LeftPanel<R> {
                 self.grid_tab.set_show_strand(b);
                 if let ActionMode::BuildHelix { .. } = self.application_state.action_mode {
                     let action_mode = self.grid_tab.get_build_helix_mode();
-                    self.requests.lock().unwrap().change_action_mode(action_mode);
+                    self.requests
+                        .lock()
+                        .unwrap()
+                        .change_action_mode(action_mode);
                 }
             }
-            Message::ToggleVisibility(b) => {
-                self.requests.lock().unwrap().toggle_visibility(b)
-            }
+            Message::ToggleVisibility(b) => self.requests.lock().unwrap().toggle_visibility(b),
             Message::AllVisible => self.requests.lock().unwrap().make_all_elements_visible(),
-            Message::Redim2dHelices(b) => self.requests.lock().unwrap().redim_2d_helices(b),
+            Message::Redim2dHelices(b) => self.requests.lock().unwrap().resize_2d_helices(b),
             Message::InvertScroll(b) => {
                 self.requests.lock().unwrap().invert_scroll(b);
                 self.parameters_tab.invert_y_scroll = b;
@@ -597,11 +684,17 @@ impl<R: Requests> Program for LeftPanel<R> {
             Message::NewScaffoldInfo(info) => self.sequence_tab.set_scaffold_info(info),
             Message::SelectScaffold => self.requests.lock().unwrap().set_scaffold_from_selection(),
             Message::RenderingMode(mode) => {
-                self.requests.lock().unwrap().change_3d_rendering_mode(mode.clone());
+                self.requests
+                    .lock()
+                    .unwrap()
+                    .change_3d_rendering_mode(mode.clone());
                 self.camera_tab.rendering_mode = mode;
             }
             Message::Background3D(bg) => {
-                self.requests.lock().unwrap().change_3d_background(bg.clone());
+                self.requests
+                    .lock()
+                    .unwrap()
+                    .change_3d_background(bg.clone());
                 self.camera_tab.background3d = bg;
             }
             Message::ForceHelp => {
@@ -757,7 +850,10 @@ impl<R: Requests> Program for ColorOverlay<R> {
             }
             ColorMessage::HueChanged(x) => self.color_picker.change_hue(x),
             ColorMessage::Closed => {
-                self.requests.lock().unwrap().close_overlay(OverlayType::Color);
+                self.requests
+                    .lock()
+                    .unwrap()
+                    .close_overlay(OverlayType::Color);
             }
             ColorMessage::Resized(size) => self.resize(size),
         };

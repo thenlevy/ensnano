@@ -37,8 +37,8 @@ pub use ui_size::*;
 
 use status_bar::StatusBar;
 
-use crate::design::GridTypeDescr;
-use crate::mediator::{ActionMode, Operation, SelectionMode, Background3D, RenderingMode};
+use crate::design::{DnaAttribute, DnaElementKey, GridTypeDescr};
+use crate::mediator::{ActionMode, Background3D, Operation, RenderingMode, SelectionMode};
 use crate::scene::FogParameters;
 use crate::SplitMode;
 use crate::{DrawArea, ElementType, IcedMessages, Multiplexer};
@@ -46,7 +46,7 @@ use ensnano_organizer::OrganizerTree;
 use iced_native::Event;
 use iced_wgpu::{wgpu, Backend, Renderer, Settings, Viewport};
 use iced_winit::{conversion, program, winit, Debug, Size};
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
@@ -57,11 +57,11 @@ use winit::{
     window::Window,
 };
 
-pub trait Requests: 'static {
+pub trait Requests: 'static + Send {
     /// Show a pop up asking if the user want to use the default scaffold.
     fn ask_use_default_scaffold(&mut self);
-    /// Close an overlay
     fn close_overlay(&mut self, overlay_type: OverlayType);
+    fn open_overlay(&mut self, overlay_type: OverlayType);
     /// Change the color of the selected strands
     fn change_strand_color(&mut self, color: u32);
     /// Change the background of the 3D scene
@@ -75,21 +75,24 @@ pub trait Requests: 'static {
     /// Change the scrolling direction
     fn invert_scroll(&mut self, invert: bool);
     /// Resize all the 2D helices, or only the selected ones
-    fn resize_2d_helices(&mut self, selected: bool);
+    fn resize_2d_helices(&mut self, all: bool);
     /// Make all elements of the design visible
     fn make_all_elements_visible(&mut self);
     /// Toggle the visibility of the selected elements
     fn toggle_visibility(&mut self, visible: bool);
     /// Remove empty domains in the design
     fn remove_empty_domains(&mut self);
-    /// Change the action mode
     fn change_action_mode(&mut self, action_mode: ActionMode);
+    fn change_selection_mode(&mut self, selection_mode: SelectionMode);
+    /// Switch widget basis between world and object
+    fn toggle_widget_basis(&mut self);
     /// Show/hide the DNA sequences
     fn set_dna_sequences_visibility(&mut self, visible: bool);
     /// Download the stapples as an xlsx file
     fn download_stapples(&mut self);
-    /// Set the sequence and shifting of the scaffold
-    fn set_scaffold_sequence(&mut self, sequence: String, shift: usize);
+    fn set_selected_strand_sequence(&mut self, sequence: String);
+    fn set_scaffold_sequence(&mut self, sequence: String);
+    fn set_scaffold_shift(&mut self, shift: usize);
     /// Change the size of the UI components
     fn set_ui_size(&mut self, size: UiSize);
     /// Finalize the currently eddited hyperboloid grid
@@ -112,9 +115,21 @@ pub trait Requests: 'static {
     fn set_fog_parameters(&mut self, parameters: FogParameters);
     /// Show/hide the torsion indications
     fn set_torsion_visibility(&mut self, visible: bool);
-
+    /// Set the direction and up vector of the 3D camera
+    fn set_camera_dir_up_vec(&mut self, direction: Vec3, up: Vec3);
+    fn perform_camera_rotation(&mut self, xz: f32, yz: f32, xy: f32);
+    /// Create a new grid in front of the 3D camera
+    fn create_grid(&mut self, grid_type_descriptor: GridTypeDescr);
+    fn set_candidates_keys(&mut self, candidates: Vec<DnaElementKey>);
+    fn set_selected_keys(&mut self, selection: Vec<DnaElementKey>);
+    fn update_organizer_tree(&mut self, tree: OrganizerTree<DnaElementKey>);
+    /// Update one attribute of several Dna Elements
+    fn update_attribute_of_elements(
+        &mut self,
+        attribute: DnaAttribute,
+        keys: BTreeSet<DnaElementKey>,
+    );
 }
-
 
 #[derive(PartialEq)]
 pub enum OverlayType {

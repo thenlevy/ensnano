@@ -214,7 +214,7 @@ impl EditionTab {
         }
     }
 
-    pub(super) fn strand_color_change(&mut self, color: Color, color_request: &mut Option<u32>) {
+    pub(super) fn strand_color_change(&mut self, color: Color) -> u32 {
         let red = ((color.r * 255.) as u32) << 16;
         let green = ((color.g * 255.) as u32) << 8;
         let blue = (color.b * 255.) as u32;
@@ -227,7 +227,7 @@ impl EditionTab {
         .h;
         self.color_picker.change_hue(hue as f32);
         let color = red + green + blue;
-        *color_request = Some(color);
+        color
     }
 
     pub(super) fn change_hue(&mut self, hue: f32) {
