@@ -1000,19 +1000,28 @@ impl SimulationTab {
         self.physical_simulation.request()
     }
 
-    pub(super) fn leave_tab(
+    pub(super) fn leave_tab<R: Requests>(
         &mut self,
-        requests: Arc<Mutex<Requests>>,
+        requests: Arc<Mutex<R>>,
         app_state: &ApplicationState,
     ) {
         if app_state.simulation_state == SimulationState::RigidGrid {
-            let request = &mut requests.lock().unwrap().rigid_grid_simulation;
-            self.make_rigid_body_request(request);
+            self.request_stop_rigid_body_simulation(requests);
             println!("stop grids");
         } else if app_state.simulation_state == SimulationState::RigidHelices {
-            let request = &mut requests.lock().unwrap().rigid_helices_simulation;
-            self.make_rigid_body_request(request);
+            self.request_stop_rigid_body_simulation(requests);
             println!("stop helices");
+        }
+    }
+
+    fn request_stop_rigid_body_simulation<R: Requests>(&mut self, requests: Arc<Mutex<R>>) {
+        let mut request = None;
+        self.make_rigid_body_request(&mut request);
+        if let Some(request) = request {
+            requests
+                .lock()
+                .unwrap()
+                .update_rigid_body_simulation_parameters(request)
         }
     }
 }

@@ -131,30 +131,6 @@ impl PhantomElement {
     }
 }
 
-pub fn message(message: Cow<'static, str>, level: rfd::MessageLevel) {
-    let msg = rfd::AsyncMessageDialog::new()
-        .set_level(level)
-        .set_description(message.as_ref())
-        .show();
-    std::thread::spawn(move || futures::executor::block_on(msg));
-}
-
-pub fn blocking_message(
-    message: Cow<'static, str>,
-    level: rfd::MessageLevel,
-    request: Arc<Mutex<Requests>>,
-    keep_proceed: KeepProceed,
-) {
-    let msg = rfd::AsyncMessageDialog::new()
-        .set_level(level)
-        .set_description(message.as_ref())
-        .show();
-    std::thread::spawn(move || {
-        futures::executor::block_on(msg);
-        request.lock().unwrap().keep_proceed = Some(keep_proceed);
-    });
-}
-
 pub fn new_color(color_idx: &mut usize) -> u32 {
     let color = {
         let hue = (*color_idx as f64 * (1. + 5f64.sqrt()) / 2.).fract() * 360.;
@@ -190,31 +166,4 @@ impl Ndc {
             y: position.y / size.height * -2. + 1.,
         }
     }
-}
-
-use crate::gui::{KeepProceed, Requests};
-use std::borrow::Cow;
-pub fn yes_no_dialog(
-    message: Cow<'static, str>,
-    request: Arc<Mutex<Requests>>,
-    yes: KeepProceed,
-    no: Option<KeepProceed>,
-) {
-    let msg = rfd::AsyncMessageDialog::new()
-        .set_description(message.as_ref())
-        .set_buttons(rfd::MessageButtons::YesNo)
-        .show();
-    std::thread::spawn(move || {
-        let choice = async move {
-            println!("thread spawned");
-            let ret = msg.await;
-            println!("about to send");
-            if ret {
-                request.lock().unwrap().keep_proceed = Some(yes);
-            } else {
-                request.lock().unwrap().keep_proceed = no;
-            }
-        };
-        futures::executor::block_on(choice);
-    });
 }

@@ -16,6 +16,10 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+use super::gui::UiSize;
+use super::*;
+use ultraviolet::Vec3;
+
 /// A structure that contains all the requests that can be made through the GUI.
 #[derive(Default)]
 pub struct Requests {

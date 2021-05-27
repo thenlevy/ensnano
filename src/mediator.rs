@@ -24,8 +24,8 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 //!
 //! The mediator also holds data that is common to all applications.
 use crate::gui::RigidBodyParametersRequest;
-use crate::gui::{HyperboloidRequest, KeepProceed, Requests, SimulationRequest};
-use crate::utils::{message, yes_no_dialog, PhantomElement};
+use crate::gui::{HyperboloidRequest, SimulationRequest};
+use crate::utils::PhantomElement;
 use crate::{AppState, DrawArea, Duration, ElementType, IcedMessages, Multiplexer, WindowEvent};
 use iced_wgpu::wgpu;
 use iced_winit::winit::{
@@ -49,10 +49,15 @@ use ensnano_organizer::OrganizerTree;
 
 mod graphic_options;
 mod operation;
+mod scaffold_shift_optimization;
 mod selection;
+mod staples_download;
+mod warnings;
 pub use graphic_options::*;
 pub use operation::*;
 pub use selection::*;
+pub use staples_download::*;
+pub use warnings::*;
 
 #[derive(PartialEq, Debug, Clone, Copy)]
 pub enum AppId {
@@ -297,26 +302,23 @@ impl Mediator {
         self.notify_apps(Notification::FitRequest)
     }
 
-    pub fn add_design(&mut self, design: Arc<RwLock<Design>>) {
+    #[must_use]
+    pub fn add_design(&mut self, design: Arc<RwLock<Design>>) -> Option<Warning> {
         self.drop_undo_stack();
+        let mut ret = None;
         if design
             .read()
             .unwrap()
             .has_at_least_on_strand_with_insertions()
         {
-            message(
-                "Your design contains insertions and/or deletions. These are not very well \
-            handled by ENSnano at the moment and the current solution is to replace them by single \
-            strands on helices specially created for that puropse."
-                    .into(),
-                rfd::MessageLevel::Warning,
-            );
+            ret = Some(Warning::LoadedDesignWithInsertions);
             design.write().unwrap().replace_insertions_by_helices();
         }
         self.parameters_ptr = ParameterPtr(Arc::new(design.read().unwrap().get_dna_parameters()));
         self.designs.push(design.clone());
         self.notify_apps(Notification::NewDesign(design));
         self.request_fits();
+        ret
     }
 
     pub fn change_strand_color(&mut self, color: u32) {
@@ -346,10 +348,12 @@ impl Mediator {
             d_id as usize
         } else {
             if self.designs.len() > 1 {
+                /*
                 message(
                     "No design selected, setting scaffold for design 0".into(),
                     rfd::MessageLevel::Warning,
                 );
+                */
             }
             0
         };
@@ -361,132 +365,6 @@ impl Mediator {
 
     pub fn set_scaffold_shift(&mut self, shift: usize) {
         self.designs[0].write().unwrap().set_scaffold_shift(shift);
-    }
-
-    pub fn set_scaffold_sequence(
-        &mut self,
-        sequence: String,
-        requests: Arc<Mutex<Requests>>,
-        shift: usize,
-    ) {
-        let d_id = if let Some(d_id) = self.selected_design() {
-            d_id as usize
-        } else {
-            if self.designs.len() > 1 {
-                message(
-                    "No design selected, setting sequence for design 0".into(),
-                    rfd::MessageLevel::Warning,
-                );
-            }
-            0
-        };
-        self.designs[d_id]
-            .write()
-            .unwrap()
-            .set_scaffold_sequence(sequence, shift);
-        if self.designs[d_id].read().unwrap().scaffold_is_set() {
-            let message = format!("Optimize the scaffold position ?\n
-            If you chose \"Yes\", icednano will position the scaffold in a way that minimizes the number of anti-patern (G^4, C^4 (A|T)^7) in the stapples sequence. If you chose \"No\", the scaffold sequence will begin at position {}", shift);
-            yes_no_dialog(
-                message.into(),
-                requests.clone(),
-                KeepProceed::OptimizeShift(d_id as usize),
-                None,
-            )
-        }
-    }
-
-    pub fn optimize_shift(&mut self, d_id: usize) {
-        let computing = self.computing.clone();
-        let design = self.designs[d_id].clone();
-        let messages = self.messages.clone();
-        std::thread::spawn(move || {
-            let (send, rcv) = std::sync::mpsc::channel::<f32>();
-            std::thread::spawn(move || {
-                *computing.lock().unwrap() = true;
-                let (position, score) = design.read().unwrap().optimize_shift(send);
-                let msg = format!("Scaffold position set to {}\n {}", position, score);
-                message(msg.into(), rfd::MessageLevel::Info);
-                *computing.lock().unwrap() = false;
-            });
-            while let Ok(progress) = rcv.recv() {
-                messages
-                    .lock()
-                    .unwrap()
-                    .push_progress("Optimizing position".to_string(), progress)
-            }
-            messages.lock().unwrap().finish_progess();
-        });
-    }
-
-    pub fn download_stapples(&self, requests: Arc<Mutex<Requests>>) {
-        let d_id = if let Some(d_id) = self.selected_design() {
-            d_id as usize
-        } else {
-            if self.designs.len() > 1 {
-                message(
-                    "No design selected, Downloading stapples design 0".into(),
-                    rfd::MessageLevel::Warning,
-                );
-            }
-            0
-        };
-        if !self.designs[d_id].read().unwrap().scaffold_is_set() {
-            message(
-                "No scaffold set. \n
-                    Chose a strand and set it as the scaffold by checking the scaffold checkbox\
-                    in the status bar"
-                    .into(),
-                rfd::MessageLevel::Error,
-            );
-            return;
-        }
-        if !self.designs[d_id].read().unwrap().scaffold_sequence_set() {
-            message(
-                "No sequence uploaded for scaffold. \n
-                Upload a sequence for the scaffold by pressing the \"Load scaffold\" button"
-                    .into(),
-                rfd::MessageLevel::Error,
-            );
-            return;
-        }
-        if let Some(nucl) = self.designs[d_id].read().unwrap().get_stapple_mismatch() {
-            let _msg = format!(
-                "All stapples are not paired \n
-                first unpaired nucleotide {:?}",
-                nucl
-            );
-            //message(msg.into(), rfd::MessageLevel::Warning);
-        }
-
-        let scaf_len = self.designs[d_id]
-            .read()
-            .unwrap()
-            .get_scaffold_len()
-            .unwrap();
-        let scaf_seq_len = self.designs[d_id]
-            .read()
-            .unwrap()
-            .get_scaffold_sequence_len()
-            .unwrap();
-        if scaf_len != scaf_seq_len {
-            let msg = format!(
-                "The scaffod length does not match its sequence\n
-                Length of the scaffold {}\n
-                Length of the sequence {}\n
-                Proceed anyway ?",
-                scaf_len, scaf_seq_len
-            );
-
-            yes_no_dialog(
-                msg.into(),
-                requests.clone(),
-                KeepProceed::Stapples(d_id),
-                None,
-            );
-        } else {
-            requests.lock().unwrap().keep_proceed = Some(KeepProceed::Stapples(d_id))
-        }
     }
 
     pub fn proceed_stapples(&mut self, design_id: usize, path: PathBuf) {
@@ -544,10 +422,12 @@ impl Mediator {
             self.notify_apps(Notification::Save(0));
             self.designs[0].read().unwrap().save_to(path);
             if self.designs.len() > 1 {
+                /*
                 message(
                     "No design selected, saved design 0".into(),
                     rfd::MessageLevel::Warning,
                 );
+                */
             }
         }
     }

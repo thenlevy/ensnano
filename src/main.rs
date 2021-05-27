@@ -105,10 +105,17 @@ mod app_state;
 use app_state::AppState;
 
 mod requests;
-pub use requests::{KeepProceed, Requests};
+pub use requests::Requests;
+mod keep_proceed;
+use keep_proceed::KeepProceed;
+
+mod dialog;
+use dialog::*;
+
+mod chanel_reader;
 
 use flatscene::FlatScene;
-use gui::{ColorOverlay, OverlayType};
+use gui::{ColorOverlay, OverlayType, Requests as GuiRequests};
 use multiplexer::{DrawArea, ElementType, Multiplexer, Overlay, SplitMode};
 use scene::Scene;
 
@@ -1146,7 +1153,7 @@ impl IcedMessages {
 }
 
 pub struct OverlayManager {
-    color_state: iced_native::program::State<ColorOverlay>,
+    color_state: iced_native::program::State<ColorOverlay<Requests>>,
     color_debug: Debug,
     overlay_types: Vec<OverlayType>,
     overlays: Vec<Overlay>,
@@ -1330,31 +1337,4 @@ fn formated_path_end(path: &PathBuf) -> String {
         }
     }
     ret.join("/")
-}
-
-fn save_before_new(requests: Arc<Mutex<Requests>>) {
-    crate::utils::yes_no_dialog(
-        "Do you want to save your design before loading an empty one?".into(),
-        requests,
-        KeepProceed::SaveBeforeNew,
-        Some(KeepProceed::NewDesign),
-    );
-}
-
-fn save_before_open(requests: Arc<Mutex<Requests>>) {
-    crate::utils::yes_no_dialog(
-        "Do you want to save your design before loading a new one?".into(),
-        requests,
-        KeepProceed::SaveBeforeOpen,
-        Some(KeepProceed::LoadDesign),
-    );
-}
-
-fn save_before_quit(requests: Arc<Mutex<Requests>>) {
-    crate::utils::yes_no_dialog(
-        "Do you want to save your design before exiting the app?".into(),
-        requests,
-        KeepProceed::SaveBeforeQuit,
-        Some(KeepProceed::Quit),
-    );
 }
