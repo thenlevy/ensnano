@@ -129,6 +129,20 @@ pub trait Requests: 'static + Send {
         attribute: DnaAttribute,
         keys: BTreeSet<DnaElementKey>,
     );
+    fn change_split_mode(&mut self, split_mode: SplitMode);
+    fn export_to_oxdna(&mut self);
+    /// Split/Unsplit the 2D view
+    fn toggle_2d_view_split(&mut self);
+    fn undo(&mut self);
+    fn redo(&mut self);
+    /// Display the help message in the contextual panel, regardless of the selection
+    fn force_help(&mut self);
+    /// Show tutorial in the contextual panel
+    fn show_tutorial(&mut self);
+    fn new_design(&mut self);
+    fn save_as(&mut self);
+    fn open_file(&mut self);
+    fn fit_design_in_scenes(&mut self);
 }
 
 #[derive(PartialEq)]

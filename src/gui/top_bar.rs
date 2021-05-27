@@ -38,7 +38,7 @@ fn icon(icon: MaterialIcon, ui_size: UiSize) -> iced::Text {
         .size(ui_size.icon())
 }
 
-use super::{KeepProceed, Requests, SplitMode};
+use super::{Requests, SplitMode};
 
 pub struct TopBar<R: Requests> {
     button_fit: button::State,
@@ -68,9 +68,7 @@ pub enum Message {
     SceneFitRequested,
     FileAddRequested,
     OpenFileButtonPressed,
-    #[allow(dead_code)]
-    FileReplaceRequested,
-    FileSaveRequested(Option<KeepProceed>),
+    FileSaveRequested,
     Resize(LogicalSize<f64>),
     ToggleView(SplitMode),
     UiSizeChanged(UiSize),
@@ -126,12 +124,14 @@ impl<R: Requests> Program for TopBar<R> {
     fn update(&mut self, message: Message, _cb: &mut NullClipBoard) -> Command<Message> {
         match message {
             Message::SceneFitRequested => {
-                self.requests.lock().expect("fitting_requested").fitting = true;
+                self.requests.lock().unwrap().fit_design_in_scenes();
             }
             Message::OpenFileButtonPressed => {
-                crate::save_before_open(self.requests.clone());
+                self.requests.lock().unwrap().open_file();
             }
             Message::FileAddRequested => {
+                self.requests.lock().unwrap().open_file();
+                /*
                 if !*self.dialoging.lock().unwrap() {
                     *self.dialoging.lock().unwrap() = true;
                     let requests = self.requests.clone();
@@ -182,14 +182,10 @@ impl<R: Requests> Program for TopBar<R> {
                         });
                     }*/
                 }
+                */
             }
-            Message::FileReplaceRequested => {
-                self.requests
-                    .lock()
-                    .expect("file_opening_request")
-                    .file_clear = false;
-            }
-            Message::FileSaveRequested(keep_proceed) => {
+            Message::FileSaveRequested => {
+                /*
                 if !*self.dialoging.lock().unwrap() {
                     *self.dialoging.lock().unwrap() = true;
                     let requests = self.requests.clone();
@@ -216,19 +212,20 @@ impl<R: Requests> Program for TopBar<R> {
                         };
                         futures::executor::block_on(save_op);
                     });
-                }
+                }*/
+                self.requests.lock().unwrap().save_as();
             }
             Message::Resize(size) => self.resize(size),
-            Message::ToggleView(b) => self.requests.lock().unwrap().toggle_scene = Some(b),
+            Message::ToggleView(b) => self.requests.lock().unwrap().change_split_mode(b),
             Message::UiSizeChanged(ui_size) => self.ui_size = ui_size,
-            Message::OxDNARequested => self.requests.lock().unwrap().oxdna = true,
-            Message::Split2d => self.requests.lock().unwrap().split2d = true,
+            Message::OxDNARequested => self.requests.lock().unwrap().export_to_oxdna(),
+            Message::Split2d => self.requests.lock().unwrap().toggle_2d_view_split(),
             Message::NewApplicationState(state) => self.application_state = state,
-            Message::Undo => self.requests.lock().unwrap().undo = Some(()),
-            Message::Redo => self.requests.lock().unwrap().redo = Some(()),
-            Message::ForceHelp => self.requests.lock().unwrap().force_help = Some(()),
-            Message::ShowTutorial => self.requests.lock().unwrap().show_tutorial = Some(()),
-            Message::ButtonNewEmptyDesignPressed => crate::save_before_new(self.requests.clone()),
+            Message::Undo => self.requests.lock().unwrap().undo(),
+            Message::Redo => self.requests.lock().unwrap().redo(),
+            Message::ForceHelp => self.requests.lock().unwrap().force_help(),
+            Message::ShowTutorial => self.requests.lock().unwrap().show_tutorial(),
+            Message::ButtonNewEmptyDesignPressed => self.requests.lock().unwrap().new_design(),
         };
         Command::none()
     }
@@ -259,7 +256,7 @@ impl<R: Requests> Program for TopBar<R> {
             Some(Message::OpenFileButtonPressed),
         );
 
-        let save_message = Message::FileSaveRequested(None);
+        let save_message = Message::FileSaveRequested;
         let button_save = bottom_tooltip_icon_btn(
             &mut self.button_save,
             MaterialIcon::Save,
