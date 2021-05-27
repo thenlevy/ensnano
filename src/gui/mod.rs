@@ -142,7 +142,12 @@ pub trait Requests: 'static + Send {
     fn new_design(&mut self);
     fn save_as(&mut self);
     fn open_file(&mut self);
+    /// Adjust the 2D and 3D cameras so that the design fit in screen
     fn fit_design_in_scenes(&mut self);
+    /// Update the parameters of the current operation
+    fn update_current_operation(&mut self, operation: Arc<dyn Operation>);
+    /// Update the shift of the currently seleced hyperbloid grid
+    fn update_hyperboloid_shift(&mut self, shift: f32);
 }
 
 #[derive(PartialEq)]

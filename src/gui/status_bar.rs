@@ -197,7 +197,9 @@ impl<R: Requests> Program for StatusBar<R> {
                 if let Some(ref op) = new_op {
                     self.operation = Some(op.clone());
                 }
-                self.requests.lock().unwrap().operation_update = new_op;
+                if let Some(op) = new_op {
+                    self.requests.lock().unwrap().update_current_operation(op);
+                }
             }
             Message::Progress(progress) => self.progress = progress,
             Message::Selection(s, v) => {
@@ -208,7 +210,7 @@ impl<R: Requests> Program for StatusBar<R> {
             Message::ClearOp => self.operation = None,
             Message::SetShift(f) => {
                 self.info_values[2] = f.to_string();
-                self.requests.lock().unwrap().new_shift_hyperboloid = Some(f);
+                self.requests.lock().unwrap().update_hyperboloid_shift(f);
             }
         }
         Command::none()
