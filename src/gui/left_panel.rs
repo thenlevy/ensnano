@@ -1095,21 +1095,6 @@ mod text_input_style {
     }
 }
 
-#[derive(Clone)]
-pub struct SimulationRequest {
-    pub roll: bool,
-    pub springs: bool,
-    pub target_helices: Option<Vec<usize>>,
-}
-
-#[derive(Clone)]
-pub struct HyperboloidRequest {
-    pub radius: usize,
-    pub length: f32,
-    pub shift: f32,
-    pub radius_shift: f32,
-}
-
 pub struct Hyperboloid_ {}
 
 impl Requestable for Hyperboloid_ {

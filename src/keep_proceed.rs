@@ -34,4 +34,6 @@ pub enum KeepProceed {
     NewDesign,
     NewDesignAfterSave,
     Other,
+    /// Ask the user if they want to use the m13 sequence or use an other one.
+    AskUseDefaultScafSequence,
 }

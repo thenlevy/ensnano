@@ -797,7 +797,7 @@ fn main() {
                 }
 
                 if let Some((msg, keep_proceed)) = blocking_info.take() {
-                    crate::utils::blocking_message(
+                    blocking_message(
                         msg.into(),
                         rfd::MessageLevel::Info,
                         requests.clone(),

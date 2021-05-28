@@ -16,7 +16,6 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 //! This modules defines the type [`Design`](Design) which offers an interface to a DNA nanostructure design.
-use crate::gui::SimulationRequest;
 use ahash::RandomState;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::PathBuf;
@@ -62,12 +61,12 @@ impl Design {
         }
     }
 
-    /// Create a new design by reading a file. At the moment only codenano format is supported
-    pub fn new_with_path(id: usize, path: &PathBuf) -> Option<Self> {
+    /// Create a new design by reading a file.
+    pub fn new_with_path(id: usize, path: &PathBuf) -> Result<Self, ParseDesignError> {
         let view = Arc::new(Mutex::new(View::new()));
         let data = Arc::new(Mutex::new(Data::new_with_path(path)?));
         let controller = Controller::new(view.clone(), data.clone());
-        Some(Self {
+        Ok(Self {
             view,
             data,
             controller,
@@ -420,12 +419,14 @@ impl Design {
     }
 
     /// Save the design in icednano format
-    pub fn save_to(&self, path: &PathBuf) {
+    pub fn save_to(&self, path: &PathBuf) -> std::io::Result<()> {
         let result = self.data.lock().unwrap().request_save(path);
+        result
+        /*
         if result.is_err() {
             let text = format!("Could not save_file {:?}", result);
             crate::utils::message(text.into(), rfd::MessageLevel::Error);
-        }
+        }*/
     }
 
     /// Change the collor of a strand
@@ -1099,4 +1100,11 @@ pub struct ScaffoldInfo {
     pub shift: Option<usize>,
     pub length: usize,
     pub starting_nucl: Option<Nucl>,
+}
+
+#[derive(Clone)]
+pub struct SimulationRequest {
+    pub roll: bool,
+    pub springs: bool,
+    pub target_helices: Option<Vec<usize>>,
 }

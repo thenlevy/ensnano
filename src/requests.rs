@@ -16,9 +16,18 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+mod impl_gui;
+
 use super::gui::UiSize;
 use super::*;
 use ultraviolet::Vec3;
+
+use super::design::GridTypeDescr;
+use super::gui::OrganizerTree;
+use super::mediator::{
+    Background3D, HyperboloidRequest, RenderingMode, RigidBodyConstants, SimulationRequest,
+};
+use super::scene::FogParameters;
 
 /// A structure that contains all the requests that can be made through the GUI.
 #[derive(Default)]
@@ -28,11 +37,11 @@ pub struct Requests {
     /// A change of the selection mode
     pub selection_mode: Option<SelectionMode>,
     /// A request to move the camera so that the frustrum fits the desgin
-    pub fitting: bool,
+    pub fitting: Option<()>,
     /// A request to load a design into the scene
     pub file_add: Option<PathBuf>,
     /// A request to remove all designs
-    pub file_clear: bool,
+    pub file_clear: Option<()>,
     /// A request to save the selected design
     pub file_save: Option<(PathBuf, Option<KeepProceed>)>,
     /// A request to change the color of the selcted strand
@@ -45,7 +54,7 @@ pub struct Requests {
     pub toggle_scene: Option<SplitMode>,
     /// A request to change the sensitivity of scrolling
     pub scroll_sensitivity: Option<f32>,
-    pub make_grids: bool,
+    pub make_grids: Option<()>,
     pub overlay_closed: Option<OverlayType>,
     pub overlay_opened: Option<OverlayType>,
     pub operation_update: Option<Arc<dyn Operation>>,
@@ -55,25 +64,25 @@ pub struct Requests {
     pub camera_target: Option<(Vec3, Vec3)>,
     pub small_spheres: Option<bool>,
     pub set_scaffold_id: Option<Option<usize>>,
-    pub scaffold_sequence: Option<(String, usize)>,
-    pub stapples_request: bool,
-    pub recolor_stapples: bool,
-    pub clean_requests: bool,
+    pub scaffold_sequence: Option<(String)>,
+    pub stapples_request: Option<()>,
+    pub recolor_stapples: Option<()>,
+    pub clean_requests: Option<()>,
     pub roll_request: Option<SimulationRequest>,
     pub show_torsion_request: Option<bool>,
     pub fog: Option<FogParameters>,
     pub hyperboloid_update: Option<HyperboloidRequest>,
     pub new_hyperboloid: Option<HyperboloidRequest>,
-    pub finalize_hyperboloid: bool,
-    pub cancel_hyperboloid: bool,
+    pub finalize_hyperboloid: Option<()>,
+    pub cancel_hyperboloid: Option<()>,
     pub helix_roll: Option<f32>,
-    pub copy: bool,
-    pub paste: bool,
-    pub duplication: bool,
-    pub rigid_grid_simulation: Option<RigidBodyParametersRequest>,
-    pub rigid_helices_simulation: Option<RigidBodyParametersRequest>,
-    pub anchor: bool,
-    pub rigid_body_parameters: Option<RigidBodyParametersRequest>,
+    pub copy: Option<()>,
+    pub paste: Option<()>,
+    pub duplication: Option<()>,
+    pub rigid_grid_simulation: Option<RigidBodyConstants>,
+    pub rigid_helices_simulation: Option<RigidBodyConstants>,
+    pub anchor: Option<()>,
+    pub rigid_body_parameters: Option<RigidBodyConstants>,
     pub stapples_file: Option<(usize, PathBuf)>,
     pub keep_proceed: Option<KeepProceed>,
     pub sequence_input: Option<String>,
@@ -86,19 +95,19 @@ pub struct Requests {
     )>,
     pub new_tree: Option<OrganizerTree<crate::design::DnaElementKey>>,
     pub new_ui_size: Option<UiSize>,
-    pub oxdna: bool,
-    pub split2d: bool,
+    pub oxdna: Option<()>,
+    pub split2d: Option<()>,
     pub toggle_visibility: Option<bool>,
-    pub all_visible: bool,
+    pub all_visible: Option<()>,
     pub redim_2d_helices: Option<bool>,
     pub invert_scroll: Option<bool>,
-    pub stop_roll: bool,
-    pub toggle_widget: bool,
-    pub delete_selection: bool,
+    pub stop_roll: Option<()>,
+    pub toggle_widget: Option<()>,
+    pub delete_selection: Option<()>,
     pub select_scaffold: Option<()>,
     pub scaffold_shift: Option<usize>,
-    pub rendering_mode: Option<crate::mediator::RenderingMode>,
-    pub background3d: Option<crate::mediator::Background3D>,
+    pub rendering_mode: Option<RenderingMode>,
+    pub background3d: Option<Background3D>,
     pub undo: Option<()>,
     pub redo: Option<()>,
     pub save_shortcut: Option<()>,

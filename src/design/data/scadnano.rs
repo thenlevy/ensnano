@@ -38,16 +38,18 @@ fn default_grid() -> String {
 }
 
 impl ScadnanoDesign {
-    pub fn default_grid_descriptor(&self) -> Option<GridDescriptor> {
+    pub fn default_grid_descriptor(&self) -> Result<GridDescriptor, ScadnanoImportError> {
         let grid_type = match self.grid.as_str() {
-            "square" => Some(GridTypeDescr::Square),
-            "honeycomb" => Some(GridTypeDescr::Honeycomb),
+            "square" => Ok(GridTypeDescr::Square),
+            "honeycomb" => Ok(GridTypeDescr::Honeycomb),
             grid_type => {
                 println!("Unsported grid type: {}", grid_type);
-                None
+                Err(ScadnanoImportError::UnsuportedGridType(
+                    grid_type.to_string(),
+                ))
             }
         }?;
-        Some(GridDescriptor {
+        Ok(GridDescriptor {
             position: Vec3::zero(),
             orientation: Rotor3::identity(),
             grid_type,
@@ -68,13 +70,15 @@ pub struct ScadnanoGroup {
 }
 
 impl ScadnanoGroup {
-    pub fn to_grid_desc(&self) -> Option<GridDescriptor> {
+    pub fn to_grid_desc(&self) -> Result<GridDescriptor, ScadnanoImportError> {
         let grid_type = match self.grid.as_str() {
-            "square" => Some(GridTypeDescr::Square),
-            "honeycomb" => Some(GridTypeDescr::Honeycomb),
+            "square" => Ok(GridTypeDescr::Square),
+            "honeycomb" => Ok(GridTypeDescr::Honeycomb),
             grid_type => {
                 println!("Unsported grid type: {}", grid_type);
-                None
+                Err(ScadnanoImportError::UnsuportedGridType(
+                    grid_type.to_string(),
+                ))
             }
         }?;
         let orientation = Rotor3::from_euler_angles(
@@ -82,7 +86,7 @@ impl ScadnanoGroup {
             self.pitch.unwrap_or_default().to_radians(),
             self.yaw.unwrap_or_default().to_radians(),
         );
-        Some(GridDescriptor {
+        Ok(GridDescriptor {
             grid_type,
             orientation,
             position: self.position,
@@ -124,12 +128,14 @@ pub struct ScadnanoStrand {
 }
 
 impl ScadnanoStrand {
-    pub fn color(&self) -> Option<u32> {
-        let ret = u32::from_str_radix(&self.color[1..], 16).ok();
-        if ret.is_none() {
-            println!("invalid color {}", self.color);
+    pub fn color(&self) -> Result<u32, ScadnanoImportError> {
+        let color_str = &self.color[1..];
+        let ret = u32::from_str_radix(color_str, 16);
+        if let Ok(ret) = ret {
+            Ok(ret)
+        } else {
+            Err(ScadnanoImportError::InvalidColor(color_str.to_string()))
         }
-        ret
     }
 
     pub fn read_deletions(&self, deletions: &mut BTreeMap<usize, BTreeSet<isize>>) {
@@ -180,4 +186,10 @@ pub struct ScadnanoModification {
     pub display_text: String,
     pub idt_text: String,
     pub location: String,
+}
+
+pub enum ScadnanoImportError {
+    UnsuportedGridType(String),
+    InvalidColor(String),
+    MissingField(String),
 }

@@ -27,9 +27,7 @@ pub mod top_bar;
 pub use top_bar::TopBar;
 /// Draw the left pannel of the GUI
 pub mod left_panel;
-pub use left_panel::{
-    ColorOverlay, HyperboloidRequest, LeftPanel, RigidBodyParametersRequest, SimulationRequest,
-};
+pub use left_panel::{ColorOverlay, LeftPanel, RigidBodyParametersRequest};
 pub mod status_bar;
 mod ui_size;
 use crate::ApplicationState;
@@ -38,11 +36,14 @@ pub use ui_size::*;
 use status_bar::StatusBar;
 
 use crate::design::{DnaAttribute, DnaElementKey, GridTypeDescr};
-use crate::mediator::{ActionMode, Background3D, Operation, RenderingMode, SelectionMode};
+use crate::mediator::{
+    ActionMode, Background3D, HyperboloidRequest, Operation, RenderingMode, SelectionMode,
+    SimulationRequest,
+};
 use crate::scene::FogParameters;
 use crate::SplitMode;
 use crate::{DrawArea, ElementType, IcedMessages, Multiplexer};
-use ensnano_organizer::OrganizerTree;
+pub use ensnano_organizer::OrganizerTree;
 use iced_native::Event;
 use iced_wgpu::{wgpu, Backend, Renderer, Settings, Viewport};
 use iced_winit::{conversion, program, winit, Debug, Size};

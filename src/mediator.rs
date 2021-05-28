@@ -24,7 +24,6 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 //!
 //! The mediator also holds data that is common to all applications.
 use crate::gui::RigidBodyParametersRequest;
-use crate::gui::{HyperboloidRequest, SimulationRequest};
 use crate::utils::PhantomElement;
 use crate::{AppState, DrawArea, Duration, ElementType, IcedMessages, Multiplexer, WindowEvent};
 use iced_wgpu::wgpu;
@@ -43,8 +42,9 @@ use crate::{design, ApplicationState};
 use design::{
     Design, DesignNotification, DesignRotation, DesignTranslation, DnaAttribute, DnaElementKey,
     GridDescriptor, GridHelixDescriptor, Helix, Hyperboloid, Nucl, OperationResult,
-    Parameters as DNAParameters, RigidBodyConstants, Stapple, Strand, StrandBuilder, StrandState,
+    Parameters as DNAParameters, Stapple, Strand, StrandBuilder, StrandState,
 };
+pub use design::{RigidBodyConstants, SimulationRequest};
 use ensnano_organizer::OrganizerTree;
 
 mod graphic_options;
@@ -414,13 +414,13 @@ impl Mediator {
         }
     }
 
-    pub fn save_design(&mut self, path: &PathBuf) {
+    #[must_use]
+    pub fn save_design(&mut self, path: &PathBuf) -> std::io::Result<()> {
         if let Some(d_id) = self.selected_design() {
             self.notify_apps(Notification::Save(d_id as usize));
             self.designs[d_id as usize].read().unwrap().save_to(path)
         } else {
             self.notify_apps(Notification::Save(0));
-            self.designs[0].read().unwrap().save_to(path);
             if self.designs.len() > 1 {
                 /*
                 message(
@@ -429,6 +429,7 @@ impl Mediator {
                 );
                 */
             }
+            self.designs[0].read().unwrap().save_to(path)
         }
     }
 
@@ -1009,8 +1010,7 @@ impl Mediator {
         }
     }
 
-    pub fn rigid_grid_request(&mut self, request: RigidBodyParametersRequest) {
-        let parameters = rigid_parameters(request);
+    pub fn rigid_grid_request(&mut self, parameters: RigidBodyConstants) {
         let d = &self.designs[self.last_selected_design];
         let state_opt = d.write().unwrap().grid_simulation(
             (0., 1.),
@@ -1027,8 +1027,7 @@ impl Mediator {
         }
     }
 
-    pub fn rigid_helices_request(&mut self, request: RigidBodyParametersRequest) {
-        let parameters = rigid_parameters(request);
+    pub fn rigid_helices_request(&mut self, parameters: RigidBodyConstants) {
         let d = &self.designs[self.last_selected_design];
         let state_opt = d.write().unwrap().rigid_helices_simulation(
             (0., 0.1),
@@ -1046,8 +1045,7 @@ impl Mediator {
         println!("self.computing {:?}", self.computing);
     }
 
-    pub fn rigid_parameters_request(&mut self, request: RigidBodyParametersRequest) {
-        let parameters = rigid_parameters(request);
+    pub fn rigid_parameters_request(&mut self, parameters: RigidBodyConstants) {
         for d in self.designs.iter() {
             d.write()
                 .unwrap()
@@ -1499,20 +1497,6 @@ impl PastingMode {
     }
 }
 
-fn rigid_parameters(parameters: RigidBodyParametersRequest) -> RigidBodyConstants {
-    let ret = RigidBodyConstants {
-        k_spring: 10f32.powf(parameters.k_springs),
-        k_friction: 10f32.powf(parameters.k_friction),
-        mass: 10f32.powf(parameters.mass_factor),
-        volume_exclusion: parameters.volume_exclusion,
-        brownian_motion: parameters.brownian_motion,
-        brownian_rate: 10f32.powf(parameters.brownian_rate),
-        brownian_amplitude: parameters.brownian_amplitude,
-    };
-    println!("{:?}", ret);
-    ret
-}
-
 #[derive(Clone, Debug, Default)]
 pub struct ParameterPtr(Arc<DNAParameters>);
 
@@ -1544,4 +1528,12 @@ impl Default for MainState {
             selection_mode: SelectionMode::Nucleotide,
         }
     }
+}
+
+#[derive(Clone)]
+pub struct HyperboloidRequest {
+    pub radius: usize,
+    pub length: f32,
+    pub shift: f32,
+    pub radius_shift: f32,
 }

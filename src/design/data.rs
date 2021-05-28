@@ -41,6 +41,7 @@ use std::time::Instant;
 mod cadnano;
 mod codenano;
 mod elements;
+mod file_parsing;
 mod grid;
 mod icednano;
 mod insertion_replacement;
@@ -55,9 +56,10 @@ mod torsion;
 use super::utils::*;
 use crate::mediator::Selection;
 use crate::scene::GridInstance;
-use crate::utils::{message, new_color};
+use crate::utils::new_color;
 pub use elements::*;
 use ensnano_organizer::OrganizerTree;
+pub use file_parsing::*;
 use grid::GridManager;
 pub use grid::*;
 pub use icednano::Nucl;
@@ -65,6 +67,7 @@ pub use icednano::{Axis, Design, Helix, Parameters, Strand};
 use icednano::{Domain, DomainJunction, HelixInterval};
 pub use rigid_body::{GridSystemState, RigidBodyConstants, RigidHelixState};
 use roller::PhysicalSystem;
+pub use scadnano::ScadnanoImportError;
 use std::sync::{mpsc::Sender, Arc, Mutex, RwLock};
 use strand_builder::NeighbourDescriptor;
 pub use strand_builder::{DomainIdentifier, StrandBuilder};
@@ -351,76 +354,6 @@ impl Data {
         self.hash_maps_update = true;
         self.view_need_reset = true;
         self.update_status = true;
-    }
-
-    /// Create a new data by reading a file. At the moment, the supported format are
-    /// * codenano
-    /// * icednano
-    pub fn new_with_path(json_path: &PathBuf) -> Option<Self> {
-        let mut xover_ids: IdGenerator<(Nucl, Nucl)> = Default::default();
-        let mut design = read_file(json_path)?;
-        design.update_version();
-        design.remove_empty_domains();
-        for s in design.strands.values_mut() {
-            s.read_junctions(&mut xover_ids, true);
-        }
-        for s in design.strands.values_mut() {
-            s.read_junctions(&mut xover_ids, false);
-        }
-        let mut grid_manager = GridManager::new_from_design(&design);
-        let mut grids = grid_manager.grids2d();
-        for g in grids.iter_mut() {
-            g.write().unwrap().update(&design);
-        }
-        grid_manager.update(&mut design);
-        let color_idx = design.strands.keys().len();
-        let groups = design.groups.clone();
-        let anchors = design.anchors.clone();
-        let file_name = real_name(json_path);
-
-        let mut ret = Self {
-            design,
-            file_name,
-            last_backup_time: None,
-            object_type: HashMap::default(),
-            space_position: HashMap::default(),
-            identifier_nucl: HashMap::default(),
-            identifier_bound: HashMap::default(),
-            nucleotides_involved: HashMap::default(),
-            nucleotide: HashMap::default(),
-            strand_map: HashMap::default(),
-            helix_map: HashMap::default(),
-            color: HashMap::default(),
-            update_status: false,
-            // false because we call make_hash_maps here
-            hash_maps_update: false,
-            basis_map: Default::default(),
-            grid_manager,
-            grids,
-            color_idx,
-            view_need_reset: false,
-            groups: Arc::new(RwLock::new(groups)),
-            red_cubes: HashMap::default(),
-            blue_cubes: HashMap::default(),
-            blue_nucl: vec![],
-            roller_ptrs: None,
-            hyperboloid_helices: vec![],
-            hyperboloid_draft: None,
-            template_manager: Default::default(),
-            xover_copy_manager: Default::default(),
-            rigid_body_ptr: None,
-            helix_simulation_ptr: None,
-            rigid_helix_simulator: None,
-            anchors,
-            elements_update: None,
-            visible: Default::default(),
-            visibility_sieve: None,
-            xover_ids,
-            prime3_set: Default::default(),
-        };
-        ret.make_hash_maps();
-        ret.terminate_movement();
-        Some(ret)
     }
 
     /// Update all the hash maps
@@ -3132,40 +3065,6 @@ fn compl(c: Option<char>) -> Option<char> {
         Some('G') => Some('C'),
         Some('C') => Some('G'),
         _ => None,
-    }
-}
-
-/// Create a design by parsing a file
-fn read_file<P: AsRef<Path> + std::fmt::Debug>(path: P) -> Option<icednano::Design> {
-    let json_str =
-        std::fs::read_to_string(&path).unwrap_or_else(|_| panic!("File not found {:?}", path));
-
-    let design: Result<icednano::Design, _> = serde_json::from_str(&json_str);
-    // First try to read icednano format
-    if let Ok(design) = design {
-        println!("ok icednano");
-        Some(design)
-    } else {
-        // If the file is not in icednano format, try the other supported format
-        let cdn_design: Result<codenano::Design<(), ()>, _> = serde_json::from_str(&json_str);
-
-        let scadnano_design: Result<scadnano::ScadnanoDesign, _> = serde_json::from_str(&json_str);
-
-        // Try codenano format
-        if let Ok(scadnano) = scadnano_design {
-            icednano::Design::from_scadnano(&scadnano)
-        } else if let Ok(design) = cdn_design {
-            println!("{:?}", scadnano_design.err());
-            println!("ok codenano");
-            Some(icednano::Design::from_codenano(&design))
-        } else if let Ok(cadnano) = Cadnano::from_file(path) {
-            println!("ok cadnano");
-            Some(icednano::Design::from_cadnano(cadnano))
-        } else {
-            // The file is not in any supported format
-            message("Unrecognized file format".into(), rfd::MessageLevel::Error);
-            None
-        }
     }
 }
 

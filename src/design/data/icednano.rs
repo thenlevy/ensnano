@@ -28,7 +28,7 @@ use super::codenano;
 use super::grid::{Grid, GridDescriptor, GridPosition};
 use super::scadnano::*;
 use super::strand_builder::{DomainIdentifier, NeighbourDescriptor};
-use super::{DnaElementKey, IdGenerator};
+use super::{DnaElementKey, IdGenerator, ParseDesignError};
 use ensnano_organizer::OrganizerTree;
 
 mod formating;
@@ -236,7 +236,7 @@ impl Design {
 }
 
 impl Design {
-    pub fn from_scadnano(scad: &ScadnanoDesign) -> Option<Self> {
+    pub fn from_scadnano(scad: &ScadnanoDesign) -> Result<Self, ParseDesignError> {
         let mut grids = Vec::new();
         let mut group_map = BTreeMap::new();
         let default_grid = scad.default_grid_descriptor()?;
@@ -268,7 +268,7 @@ impl Design {
             strands.insert(i, strand);
         }
         println!("grids {:?}", grids);
-        Some(Self {
+        Ok(Self {
             grids,
             helices,
             strands,
@@ -500,7 +500,7 @@ impl Strand {
     pub fn from_scadnano(
         scad: &ScadnanoStrand,
         deletions: &BTreeMap<usize, BTreeSet<isize>>,
-    ) -> Option<Self> {
+    ) -> Result<Self, ScadnanoImportError> {
         let color = scad.color()?;
         let domains: Vec<Domain> = scad
             .domains
@@ -516,7 +516,7 @@ impl Strand {
         let cyclic = scad.circular;
         let sane_domains = sanitize_domains(&domains, cyclic);
         let junctions = read_junctions(&sane_domains, cyclic);
-        Some(Self {
+        Ok(Self {
             domains: sane_domains,
             color,
             cyclic,
@@ -1444,16 +1444,45 @@ impl Helix {
         group_map: &BTreeMap<String, usize>,
         groups: &Vec<ScadnanoGroup>,
         helix_per_group: &mut Vec<usize>,
-    ) -> Option<Self> {
+    ) -> Result<Self, ScadnanoImportError> {
         let group_id = scad.group.clone().unwrap_or(String::from("default_group"));
-        let grid_id = group_map.get(&group_id)?;
-        let x = scad.grid_position.get(0).cloned()?;
-        let y = scad.grid_position.get(1).cloned()?;
-        let group = groups.get(*grid_id)?;
+        let grid_id = if let Some(id) = group_map.get(&group_id) {
+            id
+        } else {
+            return Err(ScadnanoImportError::MissingField(format!(
+                "group {}",
+                group_id
+            )));
+        };
+        let x = if let Some(x) = scad.grid_position.get(0).cloned() {
+            x
+        } else {
+            return Err(ScadnanoImportError::MissingField(format!("x")));
+        };
+        let y = if let Some(y) = scad.grid_position.get(1).cloned() {
+            y
+        } else {
+            return Err(ScadnanoImportError::MissingField(format!("y")));
+        };
+        let group = if let Some(group) = groups.get(*grid_id) {
+            group
+        } else {
+            return Err(ScadnanoImportError::MissingField(format!(
+                "group {}",
+                grid_id
+            )));
+        };
 
         println!("helices per group {:?}", group_map);
         println!("helices per group {:?}", helix_per_group);
-        let nb_helices = helix_per_group.get_mut(*grid_id)?;
+        let nb_helices = if let Some(nb_helices) = helix_per_group.get_mut(*grid_id) {
+            nb_helices
+        } else {
+            return Err(ScadnanoImportError::MissingField(format!(
+                "helix_per_group {}",
+                grid_id
+            )));
+        };
         let rotation =
             ultraviolet::Rotor2::from_angle(group.pitch.unwrap_or_default().to_radians());
         let isometry2d = Isometry2 {
@@ -1464,7 +1493,7 @@ impl Helix {
         };
         *nb_helices += 1;
 
-        Some(Self {
+        Ok(Self {
             position: Vec3::zero(),
             orientation: Rotor3::identity(),
             old_position: Vec3::zero(),
