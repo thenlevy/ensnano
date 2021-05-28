@@ -36,9 +36,9 @@ pub fn yes_no_dialog(
             let ret = msg.await;
             println!("about to send");
             if ret {
-                request.lock().unwrap().keep_proceed = Some(yes);
-            } else {
-                request.lock().unwrap().keep_proceed = no;
+                request.lock().unwrap().keep_proceed.push_back(yes);
+            } else if let Some(no) = no {
+                request.lock().unwrap().keep_proceed.push_back(no);
             }
         };
         futures::executor::block_on(choice);
@@ -65,7 +65,7 @@ pub fn blocking_message(
         .show();
     std::thread::spawn(move || {
         futures::executor::block_on(msg);
-        request.lock().unwrap().keep_proceed = Some(keep_proceed);
+        request.lock().unwrap().keep_proceed.push_back(keep_proceed);
     });
 }
 

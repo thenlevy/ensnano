@@ -109,17 +109,22 @@ impl ContextualPanel {
         Scrollable::new(&mut self.scroll).push(column).into()
     }
 
-    pub fn selection_value_changed(&mut self, n: usize, s: String, requests: Arc<Mutex<Requests>>) {
+    pub fn selection_value_changed<R: Requests>(
+        &mut self,
+        n: usize,
+        s: String,
+        requests: Arc<Mutex<R>>,
+    ) {
         requests.lock().unwrap().toggle_persistent_helices = s.parse().ok();
         self.info_values[n] = s.into();
     }
 
-    pub fn set_small_sphere(&mut self, b: bool, requests: Arc<Mutex<Requests>>) {
+    pub fn set_small_sphere<R: Requests>(&mut self, b: bool, requests: Arc<Mutex<R>>) {
         self.info_values[1] = if b { "true".into() } else { "false".into() };
         requests.lock().unwrap().small_spheres = Some(b);
     }
 
-    pub fn scaffold_id_set(&mut self, n: usize, b: bool, requests: Arc<Mutex<Requests>>) {
+    pub fn scaffold_id_set<R: Requests>(&mut self, n: usize, b: bool, requests: Arc<Mutex<R>>) {
         self.info_values[1] = if b { "true".into() } else { "false".into() };
         if b {
             requests.lock().unwrap().set_scaffold_id = Some(Some(n))

@@ -18,6 +18,8 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 
 //! This modules defines action that are performed immediatly after handling the requests.
 
+use super::*;
+
 /// An action to be performed immediately after processing a Request.
 #[derive(Debug, Clone)]
 pub enum KeepProceed {
@@ -31,9 +33,24 @@ pub enum KeepProceed {
     SaveBeforeQuit,
     SaveBeforeOpen,
     SaveBeforeNew,
+    /// Replace the current design by an empty one
     NewDesign,
+    /// Replace the current design by an empty one, after displaying a "successful save" message
     NewDesignAfterSave,
     Other,
     /// Ask the user if they want to use the m13 sequence or use an other one.
     AskUseDefaultScafSequence,
+    /// A request to create a new design has been registered
+    NewDesignRequested,
+    SaveAs,
+    Warning(String),
+    ErrorMsg(String),
+    DownloadStaplesRequest,
+    SetScaffoldSequence(String),
+    BlockingInfo(String, Box<KeepProceed>),
+    GetTargetXlsxStaple(usize),
+    DownloadStaples {
+        target_file: PathBuf,
+        design_id: usize,
+    },
 }

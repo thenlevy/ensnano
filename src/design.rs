@@ -720,11 +720,8 @@ impl Design {
         self.data.lock().unwrap().set_scaffold_id(scaffold_id)
     }
 
-    pub fn set_scaffold_sequence(&mut self, sequence: String, shift: usize) {
-        self.data
-            .lock()
-            .unwrap()
-            .set_scaffold_sequence(sequence, shift)
+    pub fn set_scaffold_sequence(&mut self, sequence: String) {
+        self.data.lock().unwrap().set_scaffold_sequence(sequence)
     }
 
     pub fn set_scaffold_shift(&mut self, shift: usize) {

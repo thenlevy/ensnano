@@ -18,12 +18,14 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 
 use crate::gui::{Requests as GuiRequests, RigidBodyParametersRequest};
 use crate::mediator::RigidBodyConstants;
+use std::collections::BTreeSet;
 
 use super::*;
 
 impl GuiRequests for Requests {
     fn ask_use_default_scaffold(&mut self) {
-        self.keep_proceed = Some(KeepProceed::AskUseDefaultScafSequence)
+        self.keep_proceed
+            .push_back(KeepProceed::AskUseDefaultScafSequence)
     }
 
     fn close_overlay(&mut self, overlay_type: OverlayType) {
@@ -91,7 +93,8 @@ impl GuiRequests for Requests {
     }
 
     fn download_stapples(&mut self) {
-        self.stapples_request = Some(())
+        self.keep_proceed
+            .push_back(KeepProceed::DownloadStaplesRequest)
     }
 
     fn set_selected_strand_sequence(&mut self, sequence: String) {
@@ -99,7 +102,8 @@ impl GuiRequests for Requests {
     }
 
     fn set_scaffold_sequence(&mut self, sequence: String) {
-        self.scaffold_sequence = Some(sequence);
+        self.keep_proceed
+            .push_back(KeepProceed::SetScaffoldSequence(sequence));
     }
 
     fn set_scaffold_shift(&mut self, shift: usize) {
@@ -129,6 +133,128 @@ impl GuiRequests for Requests {
     fn update_rigid_helices_simulation(&mut self, parameters: RigidBodyParametersRequest) {
         let rigid_body_paramters = rigid_parameters(parameters);
         self.rigid_body_parameters = Some(rigid_body_paramters);
+    }
+
+    fn update_rigid_grids_simulation(&mut self, parameters: RigidBodyParametersRequest) {
+        let rigid_body_parameters = rigid_parameters(parameters);
+        self.rigid_body_parameters = Some(rigid_body_parameters);
+    }
+
+    fn update_rigid_body_simulation_parameters(&mut self, parameters: RigidBodyParametersRequest) {
+        let rigid_body_parameters = rigid_parameters(parameters);
+        self.rigid_body_parameters = Some(rigid_body_parameters);
+    }
+
+    fn create_new_hyperboloid(&mut self, parameters: HyperboloidRequest) {
+        self.new_hyperboloid = Some(parameters);
+    }
+
+    fn update_current_hyperboloid(&mut self, parameters: HyperboloidRequest) {
+        self.hyperboloid_update = Some(parameters);
+    }
+
+    fn update_roll_of_selected_helices(&mut self, roll: f32) {
+        self.helix_roll = Some(roll);
+    }
+
+    fn update_scroll_sensitivity(&mut self, sensitivity: f32) {
+        self.scroll_sensitivity = Some(sensitivity);
+    }
+
+    fn set_fog_parameters(&mut self, parameters: FogParameters) {
+        self.fog = Some(parameters);
+    }
+
+    fn set_torsion_visibility(&mut self, visible: bool) {
+        self.show_torsion_request = Some(visible);
+    }
+
+    fn set_camera_dir_up_vec(&mut self, direction: Vec3, up: Vec3) {
+        self.camera_target = Some((direction, up));
+    }
+
+    fn perform_camera_rotation(&mut self, xz: f32, yz: f32, xy: f32) {
+        self.camera_rotation = Some((xz, yz, xy));
+    }
+
+    fn create_grid(&mut self, grid_type_descriptor: GridTypeDescr) {
+        self.new_grid = Some(grid_type_descriptor);
+    }
+
+    fn set_candidates_keys(&mut self, candidates: Vec<DnaElementKey>) {
+        self.organizer_candidates = Some(candidates);
+    }
+
+    fn set_selected_keys(&mut self, selection: Vec<DnaElementKey>) {
+        self.organizer_selection = Some(selection);
+    }
+
+    fn update_organizer_tree(&mut self, tree: OrganizerTree<DnaElementKey>) {
+        self.new_tree = Some(tree);
+    }
+
+    fn update_attribute_of_elements(
+        &mut self,
+        attribute: DnaAttribute,
+        keys: BTreeSet<DnaElementKey>,
+    ) {
+        self.new_attribute = Some((attribute, keys.iter().cloned().collect()));
+    }
+
+    fn change_split_mode(&mut self, split_mode: SplitMode) {
+        self.toggle_scene = Some(split_mode);
+    }
+
+    fn export_to_oxdna(&mut self) {
+        self.oxdna = Some(());
+    }
+
+    fn toggle_2d_view_split(&mut self) {
+        self.split2d = Some(());
+    }
+
+    fn undo(&mut self) {
+        self.undo = Some(());
+    }
+
+    fn redo(&mut self) {
+        self.redo = Some(());
+    }
+
+    fn force_help(&mut self) {
+        self.force_help = Some(());
+    }
+
+    fn show_tutorial(&mut self) {
+        self.show_tutorial = Some(());
+    }
+
+    fn new_design(&mut self) {
+        self.keep_proceed.push_back(KeepProceed::NewDesignRequested)
+    }
+
+    fn save_as(&mut self) {
+        self.keep_proceed.push_back(KeepProceed::SaveAs);
+    }
+
+    fn open_file(&mut self) {
+        self.keep_proceed.push_back(KeepProceed::SaveBeforeOpen);
+    }
+
+    fn fit_design_in_scenes(&mut self) {
+        self.fitting = Some(());
+    }
+
+    fn update_current_operation(&mut self, operation: Arc<dyn Operation>) {
+        self.operation_update = Some(operation);
+    }
+
+    fn update_hyperboloid_shift(&mut self, shift: f32) {
+        self.new_shift_hyperboloid = Some(shift);
+    }
+
+    fn display_error_msg(&mut self, msg: String) {
+        self.keep_proceed.push_back(KeepProceed::ErrorMsg(msg))
     }
 }
 

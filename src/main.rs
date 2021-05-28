@@ -115,7 +115,7 @@ use dialog::*;
 mod chanel_reader;
 
 use flatscene::FlatScene;
-use gui::{ColorOverlay, OverlayType, Requests as GuiRequests};
+use gui::{ColorOverlay, OverlayType};
 use multiplexer::{DrawArea, ElementType, Multiplexer, Overlay, SplitMode};
 use scene::Scene;
 
@@ -291,7 +291,7 @@ fn main() {
 
     // Add a design to the scene if one was given as a command line arguement
     if let Some(ref path) = path {
-        let design = Design::new_with_path(0, path).unwrap_or_else(|| Design::new(0));
+        let design = Design::new_with_path(0, path).unwrap_or_else(|_| Design::new(0)); // TODO print error
         if let Some(tree) = design.get_organizer_tree() {
             messages.lock().unwrap().push_new_tree(tree)
         }
@@ -414,24 +414,16 @@ fn main() {
                 let mut redraw = resized | scale_factor_changed | icon.is_some();
                 redraw |= gui.fetch_change(&window, &multiplexer);
 
-                // getting the file into which downloading the stapples must be done separatly
-                // because the requests lock must first be dropped.
-                let mut download_stapples = None;
-                let mut set_scaffold = None;
-                let mut stapples = None;
-                let mut blocking_info = None;
-
                 // When there is no more event to deal with
                 if let Ok(mut requests) = requests.try_lock() {
-                    if requests.fitting {
+                    if requests.fitting.take().is_some() {
                         mediator.lock().unwrap().request_fits();
-                        requests.fitting = false;
                     }
 
                     if let Some(ref path) = requests.file_add.take() {
                         let design = Design::new_with_path(0, path);
                         let path_end = formated_path_end(path);
-                        if let Some(design) = design {
+                        if let Ok(design) = design {
                             window.set_title(&format!("ENSnano: {}", path_end));
                             messages.lock().unwrap().notify_new_design();
                             if let Some(tree) = design.get_organizer_tree() {
@@ -440,19 +432,22 @@ fn main() {
                             mediator.lock().unwrap().clear_designs();
                             let design = Arc::new(RwLock::new(design));
                             mediator.lock().unwrap().add_design(design);
+                        } else {
+                            //TODO
                         }
                     }
 
-                    if requests.file_clear {
+                    if requests.file_clear.take().is_some() {
                         mediator.lock().unwrap().clear_designs();
-                        requests.file_clear = false;
                     }
 
                     if let Some((path, keep_proceed)) = requests.file_save.take() {
                         let path_end = formated_path_end(&path);
                         window.set_title(&format!("ENSnano: {}", path_end));
                         mediator.lock().unwrap().save_design(&path);
-                        requests.keep_proceed = keep_proceed;
+                        if let Some(keep_proceed) = keep_proceed {
+                            requests.keep_proceed.push_back(keep_proceed);
+                        }
                     }
 
                     if let Some(value) = requests.toggle_text {
@@ -470,9 +465,8 @@ fn main() {
                         requests.toggle_scene = None;
                     }
 
-                    if requests.make_grids {
+                    if requests.make_grids.take().is_some() {
                         mediator.lock().unwrap().make_grids();
-                        requests.make_grids = false
                     }
 
                     if let Some(grid_type) = requests.new_grid.take() {
@@ -537,22 +531,11 @@ fn main() {
                         mediator.lock().unwrap().set_scaffold(scaffold_id)
                     }
 
-                    if let Some((sequence, shift)) = requests.scaffold_sequence.take() {
-                        set_scaffold = Some((sequence, shift));
-                    }
-
-                    if requests.stapples_request {
-                        requests.stapples_request = false;
-                        stapples = Some(());
-                    }
-
-                    if requests.recolor_stapples {
-                        requests.recolor_stapples = false;
+                    if requests.recolor_stapples.take().is_some() {
                         mediator.lock().unwrap().recolor_stapples();
                     }
 
-                    if requests.clean_requests {
-                        requests.clean_requests = false;
+                    if requests.clean_requests.take().is_some() {
                         mediator.lock().unwrap().clean_designs();
                     }
 
@@ -584,13 +567,11 @@ fn main() {
                         mediator.lock().unwrap().hyperboloid_update(hyperboloid)
                     }
 
-                    if requests.finalize_hyperboloid {
-                        requests.finalize_hyperboloid = false;
+                    if requests.finalize_hyperboloid.take().is_some() {
                         mediator.lock().unwrap().finalize_hyperboloid();
                     }
 
-                    if requests.cancel_hyperboloid {
-                        requests.cancel_hyperboloid = false;
+                    if requests.cancel_hyperboloid.take().is_some() {
                         mediator.lock().unwrap().cancel_hyperboloid();
                     }
 
@@ -598,18 +579,15 @@ fn main() {
                         mediator.lock().unwrap().roll_helix(roll)
                     }
 
-                    if requests.copy {
+                    if requests.copy.take().is_some() {
                         mediator.lock().unwrap().request_copy();
-                        requests.copy = false;
                     }
 
-                    if requests.paste {
+                    if requests.paste.take().is_some() {
                         mediator.lock().unwrap().request_pasting_mode();
-                        requests.paste = false;
-                        requests.duplication = false;
-                    } else if requests.duplication {
+                        requests.duplication = None;
+                    } else if requests.duplication.take().is_some() {
                         mediator.lock().unwrap().request_duplication();
-                        requests.duplication = false;
                     }
 
                     if let Some(b) = requests.rigid_grid_simulation.take() {
@@ -624,63 +602,8 @@ fn main() {
                         mediator.lock().unwrap().rigid_parameters_request(p);
                     }
 
-                    if requests.anchor {
+                    if requests.anchor.take().is_some() {
                         mediator.lock().unwrap().request_anchor();
-                        requests.anchor = false;
-                    }
-                    if let Some(proceed) = requests.keep_proceed.take() {
-                        match proceed {
-                            KeepProceed::CustomScaffold => {
-                                messages.lock().unwrap().push_custom_scaffold()
-                            }
-                            KeepProceed::DefaultScaffold => {
-                                messages.lock().unwrap().push_default_scaffold()
-                            }
-                            KeepProceed::OptimizeShift(d_id) => {
-                                mediator.lock().unwrap().optimize_shift(d_id);
-                            }
-                            KeepProceed::Stapples(d_id) => {
-                                download_stapples = Some(d_id);
-                            }
-                            KeepProceed::Quit => {
-                                *control_flow = ControlFlow::Exit;
-                            }
-                            KeepProceed::SaveBeforeOpen => {
-                                messages
-                                    .lock()
-                                    .unwrap()
-                                    .push_save(Some(KeepProceed::LoadDesignAfterSave));
-                            }
-                            KeepProceed::SaveBeforeNew => {
-                                messages
-                                    .lock()
-                                    .unwrap()
-                                    .push_save(Some(KeepProceed::NewDesignAfterSave));
-                            }
-                            KeepProceed::SaveBeforeQuit => {
-                                messages.lock().unwrap().push_save(Some(KeepProceed::Quit));
-                            }
-                            KeepProceed::LoadDesign => {
-                                messages.lock().unwrap().push_open();
-                            }
-                            KeepProceed::LoadDesignAfterSave => {
-                                blocking_info =
-                                    Some(("Save successfully", KeepProceed::LoadDesign));
-                            }
-                            KeepProceed::NewDesign => {
-                                let design = Design::new(0);
-                                messages.lock().unwrap().notify_new_design();
-                                mediator.lock().unwrap().clear_designs();
-                                mediator
-                                    .lock()
-                                    .unwrap()
-                                    .add_design(Arc::new(RwLock::new(design)));
-                            }
-                            KeepProceed::NewDesignAfterSave => {
-                                blocking_info = Some(("Save successfully", KeepProceed::NewDesign));
-                            }
-                            _ => (),
-                        }
                     }
                     if let Some((d_id, path)) = requests.stapples_file.take() {
                         mediator.lock().unwrap().proceed_stapples(d_id, path);
@@ -717,19 +640,16 @@ fn main() {
                         resized = true;
                     }
 
-                    if requests.oxdna {
+                    if requests.oxdna.take().is_some() {
                         mediator.lock().unwrap().oxdna_export();
-                        requests.oxdna = false;
                     }
 
-                    if requests.split2d {
+                    if requests.split2d.take().is_some() {
                         mediator.lock().unwrap().split_2d();
-                        requests.split2d = false;
                     }
 
-                    if requests.all_visible {
+                    if requests.all_visible.take().is_some() {
                         mediator.lock().unwrap().make_everything_visible();
-                        requests.all_visible = false;
                     }
 
                     if let Some(b) = requests.toggle_visibility.take() {
@@ -744,18 +664,15 @@ fn main() {
                         multiplexer.invert_y_scroll = b;
                     }
 
-                    if requests.stop_roll {
+                    if requests.stop_roll.take().is_some() {
                         mediator.lock().unwrap().stop_roll();
-                        requests.stop_roll = false;
                     }
 
-                    if requests.toggle_widget {
-                        requests.toggle_widget = false;
+                    if requests.toggle_widget.take().is_some() {
                         mediator.lock().unwrap().toggle_widget();
                     }
 
-                    if requests.delete_selection {
-                        requests.delete_selection = false;
+                    if requests.delete_selection.take().is_some() {
                         mediator.lock().unwrap().delete_selection();
                     }
 
@@ -784,7 +701,7 @@ fn main() {
                     }
 
                     if requests.save_shortcut.take().is_some() {
-                        messages.lock().unwrap().push_save(None);
+                        requests.keep_proceed.push_back(KeepProceed::SaveAs);
                     }
 
                     if requests.show_tutorial.take().is_some() {
@@ -796,41 +713,102 @@ fn main() {
                     }
                 }
 
-                if let Some((msg, keep_proceed)) = blocking_info.take() {
-                    blocking_message(
-                        msg.into(),
-                        rfd::MessageLevel::Info,
-                        requests.clone(),
-                        keep_proceed,
-                    )
-                }
-
-                if let Some(d_id) = download_stapples {
-                    let requests = requests.clone();
-                    let dialog = rfd::AsyncFileDialog::new().save_file();
-                    std::thread::spawn(move || {
-                        let save_op = async move {
-                            let file = dialog.await;
-                            if let Some(handle) = file {
-                                let mut path_buf: std::path::PathBuf = handle.path().clone().into();
-                                path_buf.set_extension("xlsx");
-                                requests.lock().unwrap().stapples_file = Some((d_id, path_buf));
-                            }
-                        };
-                        futures::executor::block_on(save_op);
-                    });
-                }
-
-                if let Some((sequence, shift)) = set_scaffold.take() {
-                    mediator.lock().unwrap().set_scaffold_sequence(
-                        sequence,
-                        requests.clone(),
-                        shift,
-                    );
-                }
-
-                if stapples.take().is_some() {
-                    mediator.lock().unwrap().download_stapples(requests.clone())
+                let keep_proceed = requests.lock().unwrap().keep_proceed.pop_front();
+                if let Some(proceed) = keep_proceed {
+                    match proceed {
+                        KeepProceed::CustomScaffold => {
+                            messages.lock().unwrap().push_custom_scaffold()
+                        }
+                        KeepProceed::DefaultScaffold => {
+                            messages.lock().unwrap().push_default_scaffold()
+                        }
+                        KeepProceed::OptimizeShift(d_id) => {
+                            // start a shift optimization using Mediator::optimize_shift;
+                            unimplemented!();
+                            //mediator.lock().unwrap().optimize_shift(d_id);
+                        }
+                        KeepProceed::Stapples(d_id) => {
+                            // Get the path in which to save the staples
+                            // and proceed to download
+                            let requests = requests.clone();
+                            let dialog = rfd::AsyncFileDialog::new().save_file();
+                            std::thread::spawn(move || {
+                                let save_op = async move {
+                                    let file = dialog.await;
+                                    if let Some(handle) = file {
+                                        let mut path_buf: std::path::PathBuf =
+                                            handle.path().clone().into();
+                                        path_buf.set_extension("xlsx");
+                                        requests.lock().unwrap().keep_proceed.push_back(
+                                            KeepProceed::DownloadStaples {
+                                                target_file: path_buf,
+                                                design_id: d_id,
+                                            },
+                                        );
+                                    }
+                                };
+                                futures::executor::block_on(save_op);
+                            });
+                        }
+                        KeepProceed::Quit => {
+                            *control_flow = ControlFlow::Exit;
+                        }
+                        KeepProceed::SaveBeforeOpen => {
+                            unimplemented!()
+                            /*
+                            messages
+                                .lock()
+                                .unwrap()
+                                .push_save(Some(KeepProceed::LoadDesignAfterSave));*/
+                        }
+                        KeepProceed::SaveBeforeNew => {
+                            unimplemented!();
+                            /*messages
+                            .lock()
+                            .unwrap()
+                            .push_save(Some(KeepProceed::NewDesignAfterSave));*/
+                        }
+                        KeepProceed::SaveBeforeQuit => {
+                            unimplemented!();
+                            //messages.lock().unwrap().push_save(Some(KeepProceed::Quit));
+                        }
+                        KeepProceed::LoadDesign => {
+                            unimplemented!();
+                            //messages.lock().unwrap().push_open();
+                        }
+                        KeepProceed::LoadDesignAfterSave => {
+                            requests.lock().unwrap().keep_proceed.push_back(
+                                KeepProceed::BlockingInfo(
+                                    "Save successfully".into(),
+                                    Box::new(KeepProceed::LoadDesign),
+                                ),
+                            );
+                        }
+                        KeepProceed::NewDesign => {
+                            let design = Design::new(0);
+                            messages.lock().unwrap().notify_new_design();
+                            mediator.lock().unwrap().clear_designs();
+                            mediator
+                                .lock()
+                                .unwrap()
+                                .add_design(Arc::new(RwLock::new(design)));
+                        }
+                        KeepProceed::NewDesignAfterSave => {
+                            requests.lock().unwrap().keep_proceed.push_back(
+                                KeepProceed::BlockingInfo(
+                                    "Save successfully".into(),
+                                    Box::new(KeepProceed::NewDesign),
+                                ),
+                            );
+                        }
+                        KeepProceed::BlockingInfo(msg, keep_proceed) => blocking_message(
+                            msg.into(),
+                            rfd::MessageLevel::Info,
+                            requests.clone(),
+                            *keep_proceed,
+                        ),
+                        _ => (),
+                    }
                 }
 
                 // Treat eventual event that happenend in the gui left panel.
@@ -1120,16 +1098,6 @@ impl IcedMessages {
             .push_back(gui::left_panel::Message::CanMakeGrid(can_make_grid));
     }
 
-    pub fn push_save(&mut self, keep_proceed: Option<KeepProceed>) {
-        self.top_bar
-            .push_back(gui::top_bar::Message::FileSaveRequested(keep_proceed));
-    }
-
-    pub fn push_open(&mut self) {
-        self.top_bar
-            .push_back(gui::top_bar::Message::FileAddRequested);
-    }
-
     pub fn push_show_tutorial(&mut self) {
         self.left_panel
             .push_back(gui::left_panel::Message::ShowTutorial);
@@ -1337,4 +1305,51 @@ fn formated_path_end(path: &PathBuf) -> String {
         }
     }
     ret.join("/")
+}
+
+use std::ops::{Deref, DerefMut};
+fn download_stapples<R: DerefMut<Target = Requests>, M: Deref<Target = Mediator>>(
+    requests: R,
+    mediator: M,
+) {
+    use mediator::{DownloadStappleError, DownloadStappleOk};
+    let result = mediator.download_stapples();
+    match result {
+        Ok(DownloadStappleOk {
+            design_id,
+            warnings,
+        }) => {
+            for warn in warnings {
+                requests
+                    .keep_proceed
+                    .push_back(KeepProceed::Warning(warn.dialog()))
+            }
+            requests
+                .keep_proceed
+                .push_back(KeepProceed::Stapples(design_id))
+        }
+        Err(DownloadStappleError::NoScaffoldSet) => {
+            message(
+                "No scaffold set. \n
+                    Chose a strand and set it as the scaffold by checking the scaffold checkbox\
+                    in the status bar"
+                    .into(),
+                rfd::MessageLevel::Error,
+            );
+        }
+        Err(DownloadStappleError::ScaffoldSequenceNotSet) => {
+            message(
+                "No sequence uploaded for scaffold. \n
+                Upload a sequence for the scaffold by pressing the \"Load scaffold\" button"
+                    .into(),
+                rfd::MessageLevel::Error,
+            );
+        }
+        Err(DownloadStappleError::SeveralDesignNoneSelected) => {
+            message(
+                "No design selected, select a design by selecting one of its elements".into(),
+                rfd::MessageLevel::Error,
+            );
+        }
+    }
 }

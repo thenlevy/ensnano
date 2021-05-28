@@ -29,33 +29,14 @@ impl Mediator {
             d_id as usize
         } else {
             if self.designs.len() > 1 {
-                /*message(
-                    "No design selected, Downloading stapples design 0".into(),
-                    rfd::MessageLevel::Warning,
-                );*/
                 return Err(DownloadStappleError::SeveralDesignNoneSelected);
             }
             0
         };
         if !self.designs[d_id].read().unwrap().scaffold_is_set() {
-            /*
-            message(
-                "No scaffold set. \n
-                    Chose a strand and set it as the scaffold by checking the scaffold checkbox\
-                    in the status bar"
-                    .into(),
-                    rfd::MessageLevel::Error,
-            );*/
             return Err(DownloadStappleError::NoScaffoldSet);
         }
         if !self.designs[d_id].read().unwrap().scaffold_sequence_set() {
-            /*
-            message(
-                "No sequence uploaded for scaffold. \n
-                Upload a sequence for the scaffold by pressing the \"Load scaffold\" button"
-                .into(),
-                rfd::MessageLevel::Error,
-            );*/
             return Err(DownloadStappleError::ScaffoldSequenceNotSet);
         }
         if let Some(nucl) = self.designs[d_id].read().unwrap().get_stapple_mismatch() {
@@ -109,7 +90,6 @@ impl Mediator {
     pub fn set_scaffold_sequence(
         &mut self,
         sequence: String,
-        shift: usize,
     ) -> Result<SetScaffoldSequenceOk, SetScaffoldSequenceError> {
         let d_id = if let Some(d_id) = self.selected_design() {
             d_id as usize
@@ -128,8 +108,12 @@ impl Mediator {
         self.designs[d_id]
             .write()
             .unwrap()
-            .set_scaffold_sequence(sequence, shift);
-        let can_optimize = self.designs[d_id].read().unwrap().scaffold_is_set();
+            .set_scaffold_sequence(sequence);
+        let default_shift = self.designs[d_id]
+            .read()
+            .unwrap()
+            .get_scaffold_info()
+            .and_then(|info| info.shift);
         /*
         let message = format!("Optimize the scaffold position ?\n
         If you chose \"Yes\", ENSnano will position the scaffold in a way that minimizes the number of anti-patern (G^4, C^4 (A|T)^7) in the stapples sequence. If you chose \"No\", the scaffold sequence will begin at position {}", shift);
@@ -141,13 +125,13 @@ impl Mediator {
         )*/
         Ok(SetScaffoldSequenceOk {
             design_id: d_id,
-            can_optimize,
+            default_shift,
         })
     }
 }
 
 pub struct SetScaffoldSequenceOk {
-    pub can_optimize: bool,
+    pub default_shift: Option<usize>,
     pub design_id: usize,
 }
 

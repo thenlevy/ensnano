@@ -25,7 +25,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 //! The `Data` objects can convert these identifier into `Nucl` position or retrieve information
 //! about the element such as its position, color etc...
 //!
-use crate::gui::SimulationRequest;
+use super::SimulationRequest;
 use crate::utils::id_generator::IdGenerator;
 use ahash::RandomState;
 use cadnano_format::Cadnano;
@@ -676,9 +676,11 @@ impl Data {
     }
 
     /// Set the sequence of the scaffold
-    pub fn set_scaffold_sequence(&mut self, sequence: String, shift: usize) {
+    pub fn set_scaffold_sequence(&mut self, sequence: String) {
         self.design.scaffold_sequence = Some(sequence);
-        self.design.scaffold_shift = Some(shift);
+        if self.design.scaffold_shift.is_none() {
+            self.design.scaffold_shift = Some(0);
+        }
         self.hash_maps_update = true;
     }
 

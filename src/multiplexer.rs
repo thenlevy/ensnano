@@ -30,8 +30,8 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 //!
 //!
 //! The multiplexer is also in charge of drawing to the frame.
-use super::{save_before_open, save_before_quit};
-use crate::gui::{Requests, UiSize};
+use super::{save_before_open, save_before_quit, Requests};
+use crate::gui::UiSize;
 use crate::mediator::{ActionMode, SelectionMode};
 use crate::utils::texture::SampledTexture;
 use crate::PhySize;
@@ -495,16 +495,16 @@ impl Multiplexer {
                         self.requests.lock().unwrap().action_mode = Some(ActionMode::Normal)
                     }
                     VirtualKeyCode::C if ctrl(&self.modifiers) => {
-                        self.requests.lock().unwrap().copy = true;
+                        self.requests.lock().unwrap().copy = Some(());
                     }
                     VirtualKeyCode::V if ctrl(&self.modifiers) => {
-                        self.requests.lock().unwrap().paste = true;
+                        self.requests.lock().unwrap().paste = Some(());
                     }
                     VirtualKeyCode::J if ctrl(&self.modifiers) => {
-                        self.requests.lock().unwrap().duplication = true;
+                        self.requests.lock().unwrap().duplication = Some(());
                     }
                     VirtualKeyCode::L if ctrl(&self.modifiers) => {
-                        self.requests.lock().unwrap().anchor = true;
+                        self.requests.lock().unwrap().anchor = Some(());
                     }
                     VirtualKeyCode::R if !ctrl(&self.modifiers) => {
                         self.requests.lock().unwrap().action_mode = Some(ActionMode::Rotate)
@@ -536,7 +536,7 @@ impl Multiplexer {
                         self.requests.lock().unwrap().recolor_stapples = true;
                     }*/
                     VirtualKeyCode::Delete | VirtualKeyCode::Back => {
-                        self.requests.lock().unwrap().delete_selection = true;
+                        self.requests.lock().unwrap().delete_selection = Some(());
                     }
                     _ => captured = false,
                 }

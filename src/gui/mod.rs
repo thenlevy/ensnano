@@ -149,6 +149,7 @@ pub trait Requests: 'static + Send {
     fn update_current_operation(&mut self, operation: Arc<dyn Operation>);
     /// Update the shift of the currently seleced hyperbloid grid
     fn update_hyperboloid_shift(&mut self, shift: f32);
+    fn display_error_msg(&mut self, msg: String);
 }
 
 #[derive(PartialEq)]

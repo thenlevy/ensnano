@@ -22,12 +22,14 @@ use super::gui::UiSize;
 use super::*;
 use ultraviolet::Vec3;
 
-use super::design::GridTypeDescr;
+use super::design::{DnaAttribute, DnaElementKey, GridTypeDescr};
 use super::gui::OrganizerTree;
 use super::mediator::{
     Background3D, HyperboloidRequest, RenderingMode, RigidBodyConstants, SimulationRequest,
 };
 use super::scene::FogParameters;
+
+use std::collections::VecDeque;
 
 /// A structure that contains all the requests that can be made through the GUI.
 #[derive(Default)]
@@ -64,8 +66,6 @@ pub struct Requests {
     pub camera_target: Option<(Vec3, Vec3)>,
     pub small_spheres: Option<bool>,
     pub set_scaffold_id: Option<Option<usize>>,
-    pub scaffold_sequence: Option<(String)>,
-    pub stapples_request: Option<()>,
     pub recolor_stapples: Option<()>,
     pub clean_requests: Option<()>,
     pub roll_request: Option<SimulationRequest>,
@@ -84,16 +84,13 @@ pub struct Requests {
     pub anchor: Option<()>,
     pub rigid_body_parameters: Option<RigidBodyConstants>,
     pub stapples_file: Option<(usize, PathBuf)>,
-    pub keep_proceed: Option<KeepProceed>,
+    pub keep_proceed: VecDeque<KeepProceed>,
     pub sequence_input: Option<String>,
     pub new_shift_hyperboloid: Option<f32>,
-    pub organizer_selection: Option<Vec<crate::design::DnaElementKey>>,
-    pub organizer_candidates: Option<Vec<crate::design::DnaElementKey>>,
-    pub new_attribute: Option<(
-        crate::design::DnaAttribute,
-        Vec<crate::design::DnaElementKey>,
-    )>,
-    pub new_tree: Option<OrganizerTree<crate::design::DnaElementKey>>,
+    pub organizer_selection: Option<Vec<DnaElementKey>>,
+    pub organizer_candidates: Option<Vec<DnaElementKey>>,
+    pub new_attribute: Option<(DnaAttribute, Vec<DnaElementKey>)>,
+    pub new_tree: Option<OrganizerTree<DnaElementKey>>,
     pub new_ui_size: Option<UiSize>,
     pub oxdna: Option<()>,
     pub split2d: Option<()>,

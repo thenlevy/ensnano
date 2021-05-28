@@ -53,6 +53,7 @@ use crate::consts::*;
 mod contextual_panel;
 use contextual_panel::ContextualPanel;
 
+use crate::mediator::HyperboloidRequest;
 use material_icons::{icon_to_char, Icon as MaterialIcon, FONT as MATERIALFONT};
 use std::collections::BTreeMap;
 use std::thread;
@@ -622,7 +623,7 @@ impl<R: Requests> Program for LeftPanel<R> {
                                         First invalid char at position {}",
                                     n
                                 );
-                                crate::utils::message(msg.into(), rfd::MessageLevel::Error);
+                                requests.lock().unwrap().display_error_msg(msg);
                             } else {
                                 requests.lock().unwrap().set_scaffold_sequence(content);
                                 requests.lock().unwrap().set_scaffold_shift(scaffold_shift);
