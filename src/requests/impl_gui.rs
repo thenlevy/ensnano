@@ -256,6 +256,18 @@ impl GuiRequests for Requests {
     fn display_error_msg(&mut self, msg: String) {
         self.keep_proceed.push_back(KeepProceed::ErrorMsg(msg))
     }
+
+    fn set_scaffold_id(&mut self, s_id: Option<usize>) {
+        self.set_scaffold_id = Some(s_id);
+    }
+
+    fn toggle_helices_persistance_of_grid(&mut self, persistant: bool) {
+        self.toggle_persistent_helices = Some(persistant);
+    }
+
+    fn set_small_sphere(&mut self, small: bool) {
+        self.small_spheres = Some(small);
+    }
 }
 
 fn rigid_parameters(parameters: RigidBodyParametersRequest) -> RigidBodyConstants {

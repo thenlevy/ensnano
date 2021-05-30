@@ -150,6 +150,12 @@ pub trait Requests: 'static + Send {
     /// Update the shift of the currently seleced hyperbloid grid
     fn update_hyperboloid_shift(&mut self, shift: f32);
     fn display_error_msg(&mut self, msg: String);
+    /// Set the scaffold to be the some strand with id `s_id`, or none
+    fn set_scaffold_id(&mut self, s_id: Option<usize>);
+    /// make the spheres of the currently selected grid large/small
+    fn toggle_helices_persistance_of_grid(&mut self, persistant: bool);
+    /// make the spheres of the currently selected grid large/small
+    fn set_small_sphere(&mut self, small: bool);
 }
 
 #[derive(PartialEq)]

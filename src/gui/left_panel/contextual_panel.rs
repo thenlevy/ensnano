@@ -115,21 +115,26 @@ impl ContextualPanel {
         s: String,
         requests: Arc<Mutex<R>>,
     ) {
-        requests.lock().unwrap().toggle_persistent_helices = s.parse().ok();
+        if let Ok(g_id) = s.parse() {
+            requests
+                .lock()
+                .unwrap()
+                .toggle_helices_persistance_of_grid(g_id);
+        }
         self.info_values[n] = s.into();
     }
 
     pub fn set_small_sphere<R: Requests>(&mut self, b: bool, requests: Arc<Mutex<R>>) {
         self.info_values[1] = if b { "true".into() } else { "false".into() };
-        requests.lock().unwrap().small_spheres = Some(b);
+        requests.lock().unwrap().set_small_sphere(b);
     }
 
     pub fn scaffold_id_set<R: Requests>(&mut self, n: usize, b: bool, requests: Arc<Mutex<R>>) {
         self.info_values[1] = if b { "true".into() } else { "false".into() };
         if b {
-            requests.lock().unwrap().set_scaffold_id = Some(Some(n))
+            requests.lock().unwrap().set_scaffold_id(Some(n))
         } else {
-            requests.lock().unwrap().set_scaffold_id = Some(None)
+            requests.lock().unwrap().set_scaffold_id(None)
         }
     }
 
