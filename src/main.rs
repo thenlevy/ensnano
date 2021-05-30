@@ -1309,7 +1309,7 @@ fn formated_path_end(path: &PathBuf) -> String {
 
 use std::ops::{Deref, DerefMut};
 fn download_stapples<R: DerefMut<Target = Requests>, M: Deref<Target = Mediator>>(
-    requests: R,
+    mut requests: R,
     mediator: M,
 ) {
     use mediator::{DownloadStappleError, DownloadStappleOk};

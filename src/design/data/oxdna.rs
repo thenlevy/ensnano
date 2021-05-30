@@ -194,21 +194,21 @@ impl Data {
         (config, topo)
     }
 
-    pub fn oxdna_export(&self) {
+    #[must_use]
+    pub fn oxdna_export(&self) -> Result<(), OxDnaExportError> {
         let mut config_name = self.file_name.clone();
         config_name.set_extension("oxdna");
         let mut topology_name = self.file_name.clone();
         topology_name.set_extension("top");
         let (config, topo) = self.to_oxdna();
-        let mut success = true;
-        if config.write(config_name.clone()).is_err() {
-            println!("Could not write config");
-            success = false;
+        if let Err(err) =  config.write(config_name.clone()){
+            return Err(OxDnaExportError::CouldNotWriteConfig(err));
         }
-        if topo.write(topology_name.clone()).is_err() {
-            println!("Could not write topo");
-            success = false;
+        if let Err(err) = topo.write(topology_name.clone()) {
+            return Err(OxDnaExportError::CouldNotWriteTopoly(err));
         }
+        Ok(())
+        /*
         if success {
             crate::utils::message(
                 format!(
@@ -218,7 +218,7 @@ impl Data {
                 .into(),
                 rfd::MessageLevel::Info,
             );
-        }
+        }*/
     }
 }
 
@@ -238,4 +238,9 @@ fn compl(c: char) -> char {
         'T' => 'A',
         _ => 'G',
     }
+}
+
+pub enum OxDnaExportError {
+    CouldNotWriteTopoly(std::io::Error),
+    CouldNotWriteConfig(std::io::Error),
 }
