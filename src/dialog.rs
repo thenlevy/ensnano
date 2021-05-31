@@ -17,32 +17,35 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 
 use super::{KeepProceed, Requests};
-use std::sync::{Arc, Mutex};
+use std::path::PathBuf;
+use std::sync::{mpsc, Arc, Mutex};
+use std::thread;
 
 use std::borrow::Cow;
-pub fn yes_no_dialog(
-    message: Cow<'static, str>,
-    request: Arc<Mutex<Requests>>,
-    yes: KeepProceed,
-    no: Option<KeepProceed>,
-) {
+/// A question to which the user must answer yes or no
+pub struct YesNoQuestion(mpsc::Receiver<bool>);
+impl YesNoQuestion {
+    pub fn answer(&self) -> Option<bool> {
+        self.0.recv().ok()
+    }
+}
+
+pub fn yes_no_dialog(message: Cow<'static, str>) -> YesNoQuestion {
     let msg = rfd::AsyncMessageDialog::new()
         .set_description(message.as_ref())
         .set_buttons(rfd::MessageButtons::YesNo)
         .show();
-    std::thread::spawn(move || {
+    let (snd, rcv) = mpsc::channel();
+    thread::spawn(move || {
         let choice = async move {
             println!("thread spawned");
             let ret = msg.await;
             println!("about to send");
-            if ret {
-                request.lock().unwrap().keep_proceed.push_back(yes);
-            } else if let Some(no) = no {
-                request.lock().unwrap().keep_proceed.push_back(no);
-            }
+            snd.send(ret);
         };
         futures::executor::block_on(choice);
     });
+    YesNoQuestion(rcv)
 }
 
 pub fn message(message: Cow<'static, str>, level: rfd::MessageLevel) {
@@ -50,48 +53,72 @@ pub fn message(message: Cow<'static, str>, level: rfd::MessageLevel) {
         .set_level(level)
         .set_description(message.as_ref())
         .show();
-    std::thread::spawn(move || futures::executor::block_on(msg));
+    thread::spawn(move || futures::executor::block_on(msg));
 }
 
-pub fn blocking_message(
-    message: Cow<'static, str>,
-    level: rfd::MessageLevel,
-    request: Arc<Mutex<Requests>>,
-    keep_proceed: KeepProceed,
-) {
+/// A message that the user must acknowledge
+pub struct MustAckMessage(mpsc::Receiver<()>);
+impl MustAckMessage {
+    pub fn was_ack(&self) -> bool {
+        self.0.try_recv().is_ok()
+    }
+}
+
+pub fn blocking_message(message: Cow<'static, str>, level: rfd::MessageLevel) -> MustAckMessage {
     let msg = rfd::AsyncMessageDialog::new()
         .set_level(level)
         .set_description(message.as_ref())
         .show();
-    std::thread::spawn(move || {
+    let (snd, rcv) = mpsc::channel();
+    thread::spawn(move || {
         futures::executor::block_on(msg);
-        request.lock().unwrap().keep_proceed.push_back(keep_proceed);
+        snd.send(()).unwrap();
     });
+    MustAckMessage(rcv)
 }
 
-pub fn save_before_new(requests: Arc<Mutex<Requests>>) {
-    yes_no_dialog(
-        "Do you want to save your design before loading an empty one?".into(),
-        requests,
-        KeepProceed::SaveBeforeNew,
-        Some(KeepProceed::NewDesign),
-    );
+pub struct PathInput(mpsc::Receiver<Option<PathBuf>>);
+impl PathInput {
+    pub fn get(&self) -> Option<Option<PathBuf>> {
+        self.0.try_recv().ok()
+    }
 }
 
-pub fn save_before_open(requests: Arc<Mutex<Requests>>) {
-    yes_no_dialog(
-        "Do you want to save your design before loading a new one?".into(),
-        requests,
-        KeepProceed::SaveBeforeOpen,
-        Some(KeepProceed::LoadDesign),
-    );
+pub fn save(target_extension: &'static str) -> PathInput {
+    let dialog = rfd::AsyncFileDialog::new().save_file();
+    let (snd, rcv) = mpsc::channel();
+    thread::spawn(move || {
+        let save_op = async move {
+            let file = dialog.await;
+            if let Some(handle) = file {
+                let mut path_buf: std::path::PathBuf = handle.path().clone().into();
+                let extension = path_buf.extension().clone();
+                if extension.is_none() {
+                    path_buf.set_extension(target_extension);
+                } else if extension.and_then(|e| e.to_str()) != Some(target_extension.into()) {
+                    let extension = extension.unwrap();
+                    let new_extension =
+                        format!("{}.{}", extension.to_str().unwrap(), target_extension);
+                    path_buf.set_extension(new_extension);
+                }
+                snd.send(Some(path_buf));
+            } else {
+                snd.send(None);
+            }
+        };
+        futures::executor::block_on(save_op);
+    });
+    PathInput(rcv)
 }
 
-pub fn save_before_quit(requests: Arc<Mutex<Requests>>) {
-    yes_no_dialog(
-        "Do you want to save your design before exiting the app?".into(),
-        requests,
-        KeepProceed::SaveBeforeQuit,
-        Some(KeepProceed::Quit),
-    );
+pub fn save_before_new() -> YesNoQuestion {
+    yes_no_dialog("Do you want to save your design before loading an empty one?".into())
+}
+
+pub fn save_before_open() -> YesNoQuestion {
+    yes_no_dialog("Do you want to save your design before loading a new one?".into())
+}
+
+pub fn save_before_quit() -> YesNoQuestion {
+    yes_no_dialog("Do you want to save your design before exiting the app?".into())
 }

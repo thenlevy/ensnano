@@ -62,6 +62,7 @@ impl Design {
     }
 
     /// Create a new design by reading a file.
+    #[must_use]
     pub fn new_with_path(id: usize, path: &PathBuf) -> Result<Self, ParseDesignError> {
         let view = Arc::new(Mutex::new(View::new()));
         let data = Arc::new(Mutex::new(Data::new_with_path(path)?));
@@ -419,6 +420,7 @@ impl Design {
     }
 
     /// Save the design in icednano format
+    #[must_use]
     pub fn save_to(&self, path: &PathBuf) -> std::io::Result<()> {
         let result = self.data.lock().unwrap().request_save(path);
         result
@@ -782,8 +784,9 @@ impl Design {
         self.data.lock().unwrap().recolor_stapples();
     }
 
-    pub fn oxdna_export(&self) {
-        self.data.lock().unwrap().oxdna_export();
+    #[must_use]
+    pub fn oxdna_export(&self) -> Result<(), OxDnaExportError> {
+        self.data.lock().unwrap().oxdna_export()
     }
 
     /// Merge all the consecutives domains in the design

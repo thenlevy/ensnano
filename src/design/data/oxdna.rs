@@ -201,7 +201,7 @@ impl Data {
         let mut topology_name = self.file_name.clone();
         topology_name.set_extension("top");
         let (config, topo) = self.to_oxdna();
-        if let Err(err) =  config.write(config_name.clone()){
+        if let Err(err) = config.write(config_name.clone()) {
             return Err(OxDnaExportError::CouldNotWriteConfig(err));
         }
         if let Err(err) = topo.write(topology_name.clone()) {

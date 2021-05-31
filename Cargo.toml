@@ -33,7 +33,7 @@ mathru = "0.8.4"
 rand = "0.8.3"
 rand_distr = "0.4.0"
 ordered-float = "2.0"
-rfd = "0.2.1"
+rfd = "0.4"
 material-icons = "0.1.0"
 ensnano_organizer = { git = "https://gitlab.aliens-lyon.fr/nlevy/icednano_organizer" }
 #ensnano_organizer = { path = "../icednano_organizer" }

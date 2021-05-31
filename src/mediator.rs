@@ -23,7 +23,6 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 //! mediator.
 //!
 //! The mediator also holds data that is common to all applications.
-use crate::gui::RigidBodyParametersRequest;
 use crate::utils::PhantomElement;
 use crate::{AppState, DrawArea, Duration, ElementType, IcedMessages, Multiplexer, WindowEvent};
 use iced_wgpu::wgpu;
@@ -42,7 +41,7 @@ use crate::{design, ApplicationState};
 use design::{
     Design, DesignNotification, DesignRotation, DesignTranslation, DnaAttribute, DnaElementKey,
     GridDescriptor, GridHelixDescriptor, Helix, Hyperboloid, Nucl, OperationResult,
-    Parameters as DNAParameters, Stapple, Strand, StrandBuilder, StrandState,
+    OxDnaExportError, Parameters as DNAParameters, Stapple, Strand, StrandBuilder, StrandState,
 };
 pub use design::{RigidBodyConstants, SimulationRequest};
 use ensnano_organizer::OrganizerTree;
@@ -1242,10 +1241,9 @@ impl Mediator {
         }
     }
 
-    pub fn oxdna_export(&self) {
-        if let Some(d) = self.designs.get(0) {
-            d.read().unwrap().oxdna_export()
-        }
+    #[must_use]
+    pub fn oxdna_export(&self) -> Result<(), OxDnaExportError> {
+        self.designs[0].read().unwrap().oxdna_export()
     }
 
     pub fn split_2d(&mut self) {

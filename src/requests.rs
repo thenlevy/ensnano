@@ -17,9 +17,11 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 
 mod impl_gui;
+mod poll;
 
 use super::gui::UiSize;
 use super::*;
+pub use poll::*;
 use ultraviolet::Vec3;
 
 use super::design::{DnaAttribute, DnaElementKey, GridTypeDescr};

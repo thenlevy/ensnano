@@ -102,6 +102,7 @@ mod utils;
 // mod grid_panel; We don't use the grid panel atm
 
 mod app_state;
+mod controller;
 use app_state::AppState;
 
 mod requests;
@@ -727,7 +728,7 @@ fn main() {
                             unimplemented!();
                             //mediator.lock().unwrap().optimize_shift(d_id);
                         }
-                        KeepProceed::Stapples(d_id) => {
+                        KeepProceed::AskStaplesPath { d_id } => {
                             // Get the path in which to save the staples
                             // and proceed to download
                             let requests = requests.clone();
@@ -1326,7 +1327,7 @@ fn download_stapples<R: DerefMut<Target = Requests>, M: Deref<Target = Mediator>
             }
             requests
                 .keep_proceed
-                .push_back(KeepProceed::Stapples(design_id))
+                .push_back(KeepProceed::AskStaplesPath { d_id: design_id })
         }
         Err(DownloadStappleError::NoScaffoldSet) => {
             message(
@@ -1352,4 +1353,12 @@ fn download_stapples<R: DerefMut<Target = Requests>, M: Deref<Target = Mediator>
             );
         }
     }
+}
+
+/// The state of the main event loop.
+struct MainState {
+    app_state: AppState,
+    pending_actions: VecDeque<KeepProceed>,
+    undo_stack: Vec<AppState>,
+    redo_stack: Vec<AppState>,
 }
