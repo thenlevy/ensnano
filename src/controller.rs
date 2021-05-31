@@ -17,6 +17,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 
 mod download_staples;
+mod quit;
 
 use super::Mediator;
 use std::path::PathBuf;
@@ -50,6 +51,8 @@ impl State for NormalState {
     }
 }
 
+/// Display a message that must be acknowledged by the user, and transition to a predetermined
+/// state.
 struct TransitionMessage {
     level: rfd::MessageLevel,
     content: String,
@@ -86,6 +89,14 @@ impl State for TransitionMessage {
             Box::new(self)
         }
     }
+}
+
+use dialog::YesNoQuestion;
+/// Ask the user a yes/no question and transition to a state that depends on their answer.
+struct YesNo {
+    answer: YesNoQuestion,
+    yes: Box<dyn State>,
+    no: Box<dyn State>,
 }
 
 /// An action to be performed at the end of an event loop iteration
