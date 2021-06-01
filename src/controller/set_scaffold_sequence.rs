@@ -52,6 +52,7 @@ enum Step {
     AskPath { path_input: Option<PathInput> },
     GotPath(PathBuf),
     SetSequence(String),
+    OptimizeScaffoldPosition { design_id: usize },
 }
 
 impl State for SetScaffoldSequence {
@@ -64,7 +65,10 @@ impl State for SetScaffoldSequence {
             Step::Init => init_set_scaffold_sequence(),
             Step::AskPath { path_input } => ask_path(path_input),
             Step::GotPath(path) => got_path(path),
-            Step::SetSequence(seq) => unimplemented!(), // TODO
+            Step::SetSequence(seq) => set_sequence(seq, mediator),
+            Step::OptimizeScaffoldPosition { design_id } => {
+                optimize_scaffold_position(design_id, main_state, mediator)
+            }
         }
     }
 }
@@ -123,4 +127,41 @@ fn got_path(path: PathBuf) -> Box<dyn State> {
             step: Step::SetSequence(content),
         })
     }
+}
+
+use super::super::mediator::SetScaffoldSequenceOk;
+fn set_sequence(sequence: String, mediator: Arc<Mutex<Mediator>>) -> Box<dyn State> {
+    let result = mediator.lock().unwrap().set_scaffold_sequence(sequence);
+    match result {
+        Ok(SetScaffoldSequenceOk {
+            design_id,
+            default_shift,
+        }) => {
+            let message = format!("Optimize the scaffold position ?\n
+              If you chose \"Yes\", ENSnano will position the scaffold in a way that minimizes the \
+              number of anti-patern (G^4, C^4 (A|T)^7) in the stapples sequence. If you chose \"No\", \
+              the scaffold sequence will begin at position {}", default_shift.unwrap_or(0));
+
+            let yes = Box::new(SetScaffoldSequence {
+                step: Step::OptimizeScaffoldPosition { design_id },
+            });
+            let no = Box::new(super::NormalState);
+            Box::new(YesNo::new(message.into(), yes, no))
+        }
+        Err(err) => TransitionMessage::new(
+            format!("{:?}", err),
+            rfd::MessageLevel::Error,
+            Box::new(super::NormalState),
+        ),
+    }
+}
+
+fn optimize_scaffold_position(
+    design_id: usize,
+    main_state: &mut dyn MainState,
+    mediator: Arc<Mutex<Mediator>>,
+) -> Box<dyn State> {
+    let reader = main_state.get_chanel_reader();
+    mediator.lock().unwrap().optimize_shift(design_id, reader);
+    Box::new(super::NormalState)
 }

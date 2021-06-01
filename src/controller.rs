@@ -179,11 +179,13 @@ pub enum KeepProceed {
     },
 }
 
+use super::ChanelReader;
 pub trait MainState {
     fn pop_action(&mut self) -> Option<KeepProceed>;
     fn exit_control_flow(&mut self);
     fn new_design(&mut self);
     fn load_design(&mut self, path: PathBuf) -> Result<(), LoadDesignError>;
+    fn get_chanel_reader(&mut self) -> &mut ChanelReader;
 }
 
 pub struct LoadDesignError(String);

@@ -135,6 +135,7 @@ pub struct SetScaffoldSequenceOk {
     pub design_id: usize,
 }
 
+#[derive(Debug)]
 pub enum SetScaffoldSequenceError {
     SeveralDesignNoneSelected,
 }
