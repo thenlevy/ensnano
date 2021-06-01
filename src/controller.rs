@@ -18,6 +18,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 
 mod download_staples;
 mod quit;
+mod set_scaffold_sequence;
 
 use super::Mediator;
 use std::path::PathBuf;

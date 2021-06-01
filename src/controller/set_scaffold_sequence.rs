@@ -1,0 +1,126 @@
+/*
+ENSnano, a 3d graphical application for DNA nanostructures.
+    Copyright (C) 2021  Nicolas Levy <nicolaspierrelevy@gmail.com> and Nicolas Schabanel <nicolas.schabanel@ens-lyon.fr>
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <https://www.gnu.org/licenses/>.
+*/
+
+use super::{dialog, Arc, MainState, Mediator, Mutex, State, TransitionMessage, YesNo};
+
+use dialog::PathInput;
+
+#[derive(Default)]
+struct SetScaffoldSequence {
+    step: Step,
+}
+
+impl Default for Step {
+    fn default() -> Self {
+        Self::Init
+    }
+}
+
+impl SetScaffoldSequence {
+    fn use_default() -> Self {
+        let sequence = include_str!("p7249-Tilibit.txt").to_string();
+        Self {
+            step: Step::SetSequence(sequence),
+        }
+    }
+
+    fn ask_path() -> Self {
+        Self {
+            step: Step::AskPath { path_input: None },
+        }
+    }
+}
+
+use std::path::PathBuf;
+enum Step {
+    Init,
+    AskPath { path_input: Option<PathInput> },
+    GotPath(PathBuf),
+    SetSequence(String),
+}
+
+impl State for SetScaffoldSequence {
+    fn make_progress(
+        self,
+        main_state: &mut dyn MainState,
+        mediator: Arc<Mutex<Mediator>>,
+    ) -> Box<dyn State> {
+        match self.step {
+            Step::Init => init_set_scaffold_sequence(),
+            Step::AskPath { path_input } => ask_path(path_input),
+            Step::GotPath(path) => got_path(path),
+            Step::SetSequence(seq) => unimplemented!(), // TODO
+        }
+    }
+}
+
+fn init_set_scaffold_sequence() -> Box<dyn State> {
+    let yes = Box::new(SetScaffoldSequence::use_default());
+    let no = Box::new(SetScaffoldSequence::ask_path());
+    Box::new(YesNo::new("Use default m13 sequence?".into(), yes, no))
+}
+
+fn ask_path(path_input: Option<PathInput>) -> Box<dyn State> {
+    if let Some(path_input) = path_input {
+        if let Some(result) = path_input.get() {
+            if let Some(path) = result {
+                Box::new(SetScaffoldSequence {
+                    step: Step::GotPath(path),
+                })
+            } else {
+                TransitionMessage::new(
+                    "Did not recieve any file to load".into(),
+                    rfd::MessageLevel::Error,
+                    Box::new(super::NormalState),
+                )
+            }
+        } else {
+            Box::new(SetScaffoldSequence {
+                step: Step::AskPath {
+                    path_input: Some(path_input),
+                },
+            })
+        }
+    } else {
+        let path_input = dialog::load();
+        Box::new(SetScaffoldSequence {
+            step: Step::AskPath {
+                path_input: Some(path_input),
+            },
+        })
+    }
+}
+
+fn got_path(path: PathBuf) -> Box<dyn State> {
+    let mut content = std::fs::read_to_string(path).unwrap();
+    content.make_ascii_uppercase();
+    if let Some(n) =
+        content.find(|c: char| c != 'A' && c != 'T' && c != 'G' && c != 'C' && !c.is_whitespace())
+    {
+        let msg = format!(
+            "This text file does not contain a valid DNA sequence.\n
+             First invalid char at position {}",
+            n
+        );
+        TransitionMessage::new(msg, rfd::MessageLevel::Error, Box::new(super::NormalState))
+    } else {
+        Box::new(SetScaffoldSequence {
+            step: Step::SetSequence(content),
+        })
+    }
+}
