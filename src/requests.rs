@@ -42,12 +42,8 @@ pub struct Requests {
     pub selection_mode: Option<SelectionMode>,
     /// A request to move the camera so that the frustrum fits the desgin
     pub fitting: Option<()>,
-    /// A request to load a design into the scene
-    pub file_add: Option<PathBuf>,
-    /// A request to remove all designs
-    pub file_clear: Option<()>,
     /// A request to save the selected design
-    pub file_save: Option<(PathBuf, Option<KeepProceed>)>,
+    pub file_save: Option<()>,
     /// A request to change the color of the selcted strand
     pub strand_color_change: Option<u32>,
     /// A request to change the sequence of the selected strand
@@ -86,7 +82,7 @@ pub struct Requests {
     pub anchor: Option<()>,
     pub rigid_body_parameters: Option<RigidBodyConstants>,
     pub stapples_file: Option<(usize, PathBuf)>,
-    pub keep_proceed: VecDeque<KeepProceed>,
+    pub keep_proceed: VecDeque<Action>,
     pub sequence_input: Option<String>,
     pub new_shift_hyperboloid: Option<f32>,
     pub organizer_selection: Option<Vec<DnaElementKey>>,

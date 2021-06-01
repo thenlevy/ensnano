@@ -16,9 +16,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-use super::{
-    dialog, Arc, KeepProceed, MainState, Mediator, Mutex, State, TransitionMessage, YesNo,
-};
+use super::{dialog, Action, Arc, MainState, Mediator, Mutex, State, TransitionMessage, YesNo};
 
 use dialog::{yes_no_dialog, PathInput, YesNoQuestion};
 

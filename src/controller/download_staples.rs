@@ -16,7 +16,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-use super::{Arc, KeepProceed, MainState, Mediator, Mutex, NormalState, State, TransitionMessage};
+use super::{Action, Arc, MainState, Mediator, Mutex, NormalState, State, TransitionMessage};
 
 use crate::dialog;
 use dialog::{MustAckMessage, PathInput, YesNoQuestion};
@@ -75,11 +75,11 @@ impl State for DownloadStaples {
             for warn in warnings {
                 requests
                     .keep_proceed
-                    .push_back(KeepProceed::Warning(warn.dialog()))
+                    .push_back(Action::Warning(warn.dialog()))
             }
             requests
                 .keep_proceed
-                .push_back(KeepProceed::AskStaplesPath { d_id: design_id })
+                .push_back(Action::AskStaplesPath { d_id: design_id })
         }
         Err(DownloadStappleError::NoScaffoldSet) => {
             message(

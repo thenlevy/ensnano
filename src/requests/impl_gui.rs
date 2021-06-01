@@ -25,7 +25,7 @@ use super::*;
 impl GuiRequests for Requests {
     fn ask_use_default_scaffold(&mut self) {
         self.keep_proceed
-            .push_back(KeepProceed::AskUseDefaultScafSequence)
+            .push_back(Action::AskUseDefaultScafSequence)
     }
 
     fn close_overlay(&mut self, overlay_type: OverlayType) {
@@ -93,8 +93,7 @@ impl GuiRequests for Requests {
     }
 
     fn download_stapples(&mut self) {
-        self.keep_proceed
-            .push_back(KeepProceed::DownloadStaplesRequest)
+        self.keep_proceed.push_back(Action::DownloadStaplesRequest)
     }
 
     fn set_selected_strand_sequence(&mut self, sequence: String) {
@@ -103,7 +102,7 @@ impl GuiRequests for Requests {
 
     fn set_scaffold_sequence(&mut self, sequence: String) {
         self.keep_proceed
-            .push_back(KeepProceed::SetScaffoldSequence(sequence));
+            .push_back(Action::SetScaffoldSequence(sequence));
     }
 
     fn set_scaffold_shift(&mut self, shift: usize) {
@@ -230,15 +229,15 @@ impl GuiRequests for Requests {
     }
 
     fn new_design(&mut self) {
-        self.keep_proceed.push_back(KeepProceed::NewDesignRequested)
+        self.keep_proceed.push_back(Action::NewDesignRequested)
     }
 
     fn save_as(&mut self) {
-        self.keep_proceed.push_back(KeepProceed::SaveAs);
+        self.keep_proceed.push_back(Action::SaveAs);
     }
 
     fn open_file(&mut self) {
-        self.keep_proceed.push_back(KeepProceed::SaveBeforeOpen);
+        self.keep_proceed.push_back(Action::SaveBeforeOpen);
     }
 
     fn fit_design_in_scenes(&mut self) {
@@ -254,7 +253,7 @@ impl GuiRequests for Requests {
     }
 
     fn display_error_msg(&mut self, msg: String) {
-        self.keep_proceed.push_back(KeepProceed::ErrorMsg(msg))
+        self.keep_proceed.push_back(Action::ErrorMsg(msg))
     }
 
     fn set_scaffold_id(&mut self, s_id: Option<usize>) {

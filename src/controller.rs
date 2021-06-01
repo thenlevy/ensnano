@@ -143,7 +143,7 @@ impl State for YesNo {
 
 /// An action to be performed at the end of an event loop iteration
 #[derive(Debug, Clone)]
-pub enum KeepProceed {
+pub enum Action {
     DefaultScaffold,
     CustomScaffold,
     OptimizeShift(usize),
@@ -171,18 +171,19 @@ pub enum KeepProceed {
     ErrorMsg(String),
     DownloadStaplesRequest,
     SetScaffoldSequence(String),
-    BlockingInfo(String, Box<KeepProceed>),
+    BlockingInfo(String, Box<Action>),
     GetTargetXlsxStaple(usize),
     DownloadStaples {
         target_file: PathBuf,
         design_id: usize,
     },
     Exit,
+    FitDesign,
 }
 
 use super::ChanelReader;
 pub trait MainState {
-    fn pop_action(&mut self) -> Option<KeepProceed>;
+    fn pop_action(&mut self) -> Option<Action>;
     fn exit_control_flow(&mut self);
     fn new_design(&mut self);
     fn load_design(&mut self, path: PathBuf) -> Result<(), LoadDesignError>;

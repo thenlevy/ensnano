@@ -105,7 +105,7 @@ mod utils;
 mod app_state;
 mod controller;
 use app_state::AppState;
-use controller::KeepProceed;
+use controller::Action;
 
 mod requests;
 pub use requests::Requests;
@@ -343,7 +343,7 @@ fn main() {
             } => main_state_view
                 .main_state
                 .pending_actions
-                .push_back(KeepProceed::Exit),
+                .push_back(Action::Exit),
             Event::WindowEvent {
                 event: WindowEvent::ModifiersChanged(modifiers),
                 ..
@@ -711,7 +711,7 @@ fn main() {
                     }
 
                     if requests.save_shortcut.take().is_some() {
-                        requests.keep_proceed.push_back(KeepProceed::SaveAs);
+                        requests.keep_proceed.push_back(Action::SaveAs);
                     }
 
                     if requests.show_tutorial.take().is_some() {
@@ -727,18 +727,18 @@ fn main() {
                 let keep_proceed = requests.lock().unwrap().keep_proceed.pop_front();
                 if let Some(proceed) = keep_proceed {
                     match proceed {
-                        KeepProceed::CustomScaffold => {
+                        Action::CustomScaffold => {
                             messages.lock().unwrap().push_custom_scaffold()
                         }
-                        KeepProceed::DefaultScaffold => {
+                        Action::DefaultScaffold => {
                             messages.lock().unwrap().push_default_scaffold()
                         }
-                        KeepProceed::OptimizeShift(d_id) => {
+                        Action::OptimizeShift(d_id) => {
                             // start a shift optimization using Mediator::optimize_shift;
                             unimplemented!();
                             //mediator.lock().unwrap().optimize_shift(d_id);
                         }
-                        KeepProceed::AskStaplesPath { d_id } => {
+                        Action::AskStaplesPath { d_id } => {
                             // Get the path in which to save the staples
                             // and proceed to download
                             let requests = requests.clone();
@@ -751,7 +751,7 @@ fn main() {
                                             handle.path().clone().into();
                                         path_buf.set_extension("xlsx");
                                         requests.lock().unwrap().keep_proceed.push_back(
-                                            KeepProceed::DownloadStaples {
+                                            Action::DownloadStaples {
                                                 target_file: path_buf,
                                                 design_id: d_id,
                                             },
@@ -761,41 +761,41 @@ fn main() {
                                 futures::executor::block_on(save_op);
                             });
                         }
-                        KeepProceed::Quit => {
+                        Action::Quit => {
                             *control_flow = ControlFlow::Exit;
                         }
-                        KeepProceed::SaveBeforeOpen => {
+                        Action::SaveBeforeOpen => {
                             unimplemented!()
                             /*
                             messages
                                 .lock()
                                 .unwrap()
-                                .push_save(Some(KeepProceed::LoadDesignAfterSave));*/
+                                .push_save(Some(Action::LoadDesignAfterSave));*/
                         }
-                        KeepProceed::SaveBeforeNew => {
+                        Action::SaveBeforeNew => {
                             unimplemented!();
                             /*messages
                             .lock()
                             .unwrap()
-                            .push_save(Some(KeepProceed::NewDesignAfterSave));*/
+                            .push_save(Some(Action::NewDesignAfterSave));*/
                         }
-                        KeepProceed::SaveBeforeQuit => {
+                        Action::SaveBeforeQuit => {
                             unimplemented!();
-                            //messages.lock().unwrap().push_save(Some(KeepProceed::Quit));
+                            //messages.lock().unwrap().push_save(Some(Action::Quit));
                         }
-                        KeepProceed::LoadDesign => {
+                        Action::LoadDesign => {
                             unimplemented!();
                             //messages.lock().unwrap().push_open();
                         }
-                        KeepProceed::LoadDesignAfterSave => {
+                        Action::LoadDesignAfterSave => {
                             requests.lock().unwrap().keep_proceed.push_back(
-                                KeepProceed::BlockingInfo(
+                                Action::BlockingInfo(
                                     "Save successfully".into(),
-                                    Box::new(KeepProceed::LoadDesign),
+                                    Box::new(Action::LoadDesign),
                                 ),
                             );
                         }
-                        KeepProceed::NewDesign => {
+                        Action::NewDesign => {
                             let design = Design::new(0);
                             messages.lock().unwrap().notify_new_design();
                             mediator.lock().unwrap().clear_designs();
@@ -804,15 +804,15 @@ fn main() {
                                 .unwrap()
                                 .add_design(Arc::new(RwLock::new(design)));
                         }
-                        KeepProceed::NewDesignAfterSave => {
+                        Action::NewDesignAfterSave => {
                             requests.lock().unwrap().keep_proceed.push_back(
-                                KeepProceed::BlockingInfo(
+                                Action::BlockingInfo(
                                     "Save successfully".into(),
-                                    Box::new(KeepProceed::NewDesign),
+                                    Box::new(Action::NewDesign),
                                 ),
                             );
                         }
-                        KeepProceed::BlockingInfo(msg, keep_proceed) => blocking_message(
+                        Action::BlockingInfo(msg, keep_proceed) => blocking_message(
                             msg.into(),
                             rfd::MessageLevel::Info,
                             requests.clone(),
@@ -1333,11 +1333,11 @@ fn download_stapples<R: DerefMut<Target = Requests>, M: Deref<Target = Mediator>
             for warn in warnings {
                 requests
                     .keep_proceed
-                    .push_back(KeepProceed::Warning(warn.dialog()))
+                    .push_back(Action::Warning(warn.dialog()))
             }
             requests
                 .keep_proceed
-                .push_back(KeepProceed::AskStaplesPath { d_id: design_id })
+                .push_back(Action::AskStaplesPath { d_id: design_id })
         }
         Err(DownloadStappleError::NoScaffoldSet) => {
             message(
@@ -1368,7 +1368,7 @@ fn download_stapples<R: DerefMut<Target = Requests>, M: Deref<Target = Mediator>
 /// The state of the main event loop.
 struct MainState {
     app_state: AppState,
-    pending_actions: VecDeque<KeepProceed>,
+    pending_actions: VecDeque<Action>,
     undo_stack: Vec<AppState>,
     redo_stack: Vec<AppState>,
     chanel_reader: ChanelReader,
@@ -1384,6 +1384,10 @@ impl MainState {
             chanel_reader: Default::default(),
         }
     }
+
+    fn push_action(&mut self, action: Action) {
+        self.pending_actions.push_back(action)
+    }
 }
 
 /// A temporary view of the main state and the control flow.
@@ -1394,7 +1398,7 @@ struct MainStateView<'a> {
 
 use controller::{LoadDesignError, MainState as MainStateInteface};
 impl<'a> MainStateInteface for MainStateView<'a> {
-    fn pop_action(&mut self) -> Option<KeepProceed> {
+    fn pop_action(&mut self) -> Option<Action> {
         self.main_state.pending_actions.pop_front()
     }
 

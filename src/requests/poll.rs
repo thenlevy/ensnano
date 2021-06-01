@@ -21,9 +21,10 @@ use super::*;
 use std::ops::DerefMut;
 pub fn poll_all<R: DerefMut<Target = Requests>>(mut requests: R, main_state: &mut MainState) {
     if requests.fitting.take().is_some() {
-        mediator.lock().unwrap().request_fits();
+        main_state.push_action(Action::FitDesign)
     }
 
+    /*
     if let Some(ref path) = requests.file_add.take() {
         let design = Design::new_with_path(0, path);
         let path_end = formated_path_end(path);
@@ -39,12 +40,9 @@ pub fn poll_all<R: DerefMut<Target = Requests>>(mut requests: R, main_state: &mu
         } else {
             //TODO
         }
-    }
+    }*/
 
-    if requests.file_clear.take().is_some() {
-        mediator.lock().unwrap().clear_designs();
-    }
-
+    /*
     if let Some((path, keep_proceed)) = requests.file_save.take() {
         let path_end = formated_path_end(&path);
         window.set_title(&format!("ENSnano: {}", path_end));
@@ -52,7 +50,7 @@ pub fn poll_all<R: DerefMut<Target = Requests>>(mut requests: R, main_state: &mu
         if let Some(keep_proceed) = keep_proceed {
             requests.keep_proceed.push_back(keep_proceed);
         }
-    }
+    }*/
 
     if let Some(value) = requests.toggle_text {
         mediator.lock().unwrap().toggle_text(value);
@@ -305,7 +303,7 @@ pub fn poll_all<R: DerefMut<Target = Requests>>(mut requests: R, main_state: &mu
     }
 
     if requests.save_shortcut.take().is_some() {
-        requests.keep_proceed.push_back(KeepProceed::SaveAs);
+        requests.keep_proceed.push_back(Action::SaveAs);
     }
 
     if requests.show_tutorial.take().is_some() {
