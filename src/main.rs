@@ -61,6 +61,7 @@ use std::sync::{Arc, Mutex, RwLock};
 use std::time::{Duration, Instant};
 pub type PhySize = iced_winit::winit::dpi::PhysicalSize<u32>;
 
+use chanel_reader::ChanelReader;
 use iced_native::Event as IcedEvent;
 use iced_wgpu::{wgpu, Backend, Renderer, Settings, Viewport};
 use iced_winit::{conversion, futures, program, winit, Debug, Size};
@@ -104,11 +105,10 @@ mod utils;
 mod app_state;
 mod controller;
 use app_state::AppState;
+use controller::KeepProceed;
 
 mod requests;
 pub use requests::Requests;
-mod keep_proceed;
-use keep_proceed::KeepProceed;
 
 mod dialog;
 use dialog::*;
@@ -325,16 +325,25 @@ fn main() {
     let mut mouse_interaction = iced::mouse::Interaction::Pointer;
     let mut icon = None;
 
+    let mut main_state = MainState::new();
+
     event_loop.run(move |event, _, control_flow| {
         // Wait for event or redraw a frame every 33 ms (30 frame per seconds)
         *control_flow = ControlFlow::WaitUntil(Instant::now() + Duration::from_millis(33));
-        //*control_flow = ControlFlow::Wait;
+
+        let main_state_view = MainStateView {
+            main_state: &mut main_state,
+            control_flow,
+        };
 
         match event {
             Event::WindowEvent {
                 event: WindowEvent::CloseRequested,
                 ..
-            } => save_before_quit(requests.clone()),
+            } => main_state_view
+                .main_state
+                .pending_actions
+                .push_back(KeepProceed::Exit),
             Event::WindowEvent {
                 event: WindowEvent::ModifiersChanged(modifiers),
                 ..
@@ -714,6 +723,7 @@ fn main() {
                     }
                 }
 
+                /*
                 let keep_proceed = requests.lock().unwrap().keep_proceed.pop_front();
                 if let Some(proceed) = keep_proceed {
                     match proceed {
@@ -810,7 +820,7 @@ fn main() {
                         ),
                         _ => (),
                     }
-                }
+                }*/
 
                 // Treat eventual event that happenend in the gui left panel.
                 let _overlay_change =
@@ -1361,6 +1371,19 @@ struct MainState {
     pending_actions: VecDeque<KeepProceed>,
     undo_stack: Vec<AppState>,
     redo_stack: Vec<AppState>,
+    chanel_reader: ChanelReader,
+}
+
+impl MainState {
+    fn new() -> Self {
+        Self {
+            app_state: Default::default(),
+            pending_actions: VecDeque::new(),
+            undo_stack: Vec::new(),
+            redo_stack: Vec::new(),
+            chanel_reader: Default::default(),
+        }
+    }
 }
 
 /// A temporary view of the main state and the control flow.
@@ -1369,7 +1392,7 @@ struct MainStateView<'a> {
     control_flow: &'a mut ControlFlow,
 }
 
-use controller::MainState as MainStateInteface;
+use controller::{LoadDesignError, MainState as MainStateInteface};
 impl<'a> MainStateInteface for MainStateView<'a> {
     fn pop_action(&mut self) -> Option<KeepProceed> {
         self.main_state.pending_actions.pop_front()
@@ -1377,5 +1400,17 @@ impl<'a> MainStateInteface for MainStateView<'a> {
 
     fn exit_control_flow(&mut self) {
         *self.control_flow = ControlFlow::Exit
+    }
+
+    fn new_design(&mut self) {
+        todo!()
+    }
+
+    fn load_design(&mut self, path: PathBuf) -> Result<(), LoadDesignError> {
+        todo!()
+    }
+
+    fn get_chanel_reader(&mut self) -> &mut ChanelReader {
+        &mut self.main_state.chanel_reader
     }
 }

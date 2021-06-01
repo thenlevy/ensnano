@@ -177,6 +177,7 @@ pub enum KeepProceed {
         target_file: PathBuf,
         design_id: usize,
     },
+    Exit,
 }
 
 use super::ChanelReader;
