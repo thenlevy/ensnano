@@ -111,6 +111,24 @@ pub fn save(target_extension: &'static str) -> PathInput {
     PathInput(rcv)
 }
 
+pub fn load() -> PathInput {
+    let dialog = rfd::AsyncFileDialog::new().pick_file();
+    let (snd, rcv) = mpsc::channel();
+    thread::spawn(move || {
+        let load_op = async move {
+            let file = dialog.await;
+            if let Some(handle) = file {
+                let path_buf: std::path::PathBuf = handle.path().clone().into();
+                snd.send(Some(path_buf));
+            } else {
+                snd.send(None);
+            }
+        };
+        futures::executor::block_on(load_op);
+    });
+    PathInput(rcv)
+}
+
 pub fn save_before_new() -> YesNoQuestion {
     yes_no_dialog("Do you want to save your design before loading an empty one?".into())
 }

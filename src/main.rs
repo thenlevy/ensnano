@@ -1362,3 +1362,20 @@ struct MainState {
     undo_stack: Vec<AppState>,
     redo_stack: Vec<AppState>,
 }
+
+/// A temporary view of the main state and the control flow.
+struct MainStateView<'a> {
+    main_state: &'a mut MainState,
+    control_flow: &'a mut ControlFlow,
+}
+
+use controller::MainState as MainStateInteface;
+impl<'a> MainStateInteface for MainStateView<'a> {
+    fn pop_action(&mut self) -> Option<KeepProceed> {
+        self.main_state.pending_actions.pop_front()
+    }
+
+    fn exit_control_flow(&mut self) {
+        *self.control_flow = ControlFlow::Exit
+    }
+}

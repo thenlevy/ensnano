@@ -16,7 +16,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-use super::{Arc, KeepProceed, Mediator, Mutex, NormalState, State, TransitionMessage};
+use super::{Arc, KeepProceed, MainState, Mediator, Mutex, NormalState, State, TransitionMessage};
 
 use crate::dialog;
 use dialog::{MustAckMessage, PathInput, YesNoQuestion};
@@ -51,7 +51,7 @@ use super::super::mediator::{DownloadStappleError, DownloadStappleOk};
 impl State for DownloadStaples {
     fn make_progress(
         self,
-        pending_actions: &mut [KeepProceed],
+        main_state: &mut dyn MainState,
         mediator: Arc<Mutex<Mediator>>,
     ) -> Box<dyn State> {
         match self.step {
