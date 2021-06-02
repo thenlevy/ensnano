@@ -16,6 +16,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+pub use super::design::ShiftOptimizationResult;
 use super::*;
 use std::sync::mpsc;
 
@@ -28,12 +29,16 @@ impl Mediator {
         reader.attach_progress_chanel(rcv_progress);
         let (send_result, rcv_result) = mpsc::channel::<ShiftOptimizationResult>();
         reader.attach_result_chanel(rcv_result);
+        design
+            .read()
+            .unwrap()
+            .optimize_shift(send_progress, send_result);
+        /*
         std::thread::spawn(move || {
-            let (position, score) = design.read().unwrap().optimize_shift(send_progress);
             send_result
                 .send(ShiftOptimizationResult { position, score })
                 .unwrap();
-        });
+        });*/
         /*
         std::thread::spawn(move || {
             let (send, rcv) = std::sync::mpsc::channel::<f32>();
@@ -59,9 +64,4 @@ impl Mediator {
 pub trait ShiftOptimizerReader: Send {
     fn attach_progress_chanel(&mut self, chanel: mpsc::Receiver<f32>);
     fn attach_result_chanel(&mut self, chanel: mpsc::Receiver<ShiftOptimizationResult>);
-}
-
-pub struct ShiftOptimizationResult {
-    position: usize,
-    score: String,
 }

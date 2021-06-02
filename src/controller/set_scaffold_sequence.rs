@@ -21,7 +21,7 @@ use super::{dialog, Arc, MainState, Mediator, Mutex, State, TransitionMessage, Y
 use dialog::PathInput;
 
 #[derive(Default)]
-struct SetScaffoldSequence {
+pub(super) struct SetScaffoldSequence {
     step: Step,
 }
 

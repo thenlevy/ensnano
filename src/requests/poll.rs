@@ -312,7 +312,7 @@ pub(crate) fn poll_all<R: DerefMut<Target = Requests>>(
     }
 
     if requests.save_shortcut.take().is_some() {
-        requests.keep_proceed.push_back(Action::SaveAs);
+        main_state.pending_actions.push_back(Action::SaveAs);
     }
 
     if requests.show_tutorial.take().is_some() {
@@ -321,5 +321,9 @@ pub(crate) fn poll_all<R: DerefMut<Target = Requests>>(
 
     if requests.force_help.take().is_some() {
         main_state.messages.lock().unwrap().show_help()
+    }
+
+    for action in requests.keep_proceed.drain(..) {
+        main_state.pending_actions.push_back(action)
     }
 }

@@ -17,8 +17,14 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 
 mod download_staples;
+use download_staples::*;
 mod quit;
+use quit::*;
 mod set_scaffold_sequence;
+use set_scaffold_sequence::*;
+mod normal_state;
+pub use normal_state::Action;
+use normal_state::NormalState;
 
 use super::Mediator;
 use std::path::PathBuf;
@@ -65,18 +71,6 @@ impl State for OhNo {
         _: Arc<Mutex<Mediator>>,
     ) -> Box<dyn State> {
         panic!("Oh No !")
-    }
-}
-
-struct NormalState;
-
-impl State for NormalState {
-    fn make_progress(
-        self: Box<Self>,
-        _: &mut dyn MainState,
-        _: Arc<Mutex<Mediator>>,
-    ) -> Box<dyn State> {
-        unimplemented!()
     }
 }
 
@@ -175,52 +169,6 @@ impl State for YesNo {
             self
         }
     }
-}
-
-/// An action to be performed at the end of an event loop iteration, and that will have an effect
-/// on the main application state, e.g. Closing the window, or toggling between 3D/2D views.
-#[derive(Debug, Clone)]
-pub enum Action {
-    DefaultScaffold,
-    CustomScaffold,
-    OptimizeShift(usize),
-    /// Ask the path of the file in whcih to save the staples of design `d_id`
-    AskStaplesPath {
-        d_id: usize,
-    },
-    Quit,
-    LoadDesign,
-    LoadDesignAfterSave,
-    SaveBeforeQuit,
-    SaveBeforeOpen,
-    SaveBeforeNew,
-    /// Replace the current design by an empty one
-    NewDesign,
-    /// Replace the current design by an empty one, after displaying a "successful save" message
-    NewDesignAfterSave,
-    Other,
-    /// Ask the user if they want to use the m13 sequence or use an other one.
-    AskUseDefaultScafSequence,
-    /// A request to create a new design has been registered
-    NewDesignRequested,
-    SaveAs,
-    Warning(String),
-    ErrorMsg(String),
-    DownloadStaplesRequest,
-    SetScaffoldSequence,
-    BlockingInfo(String, Box<Action>),
-    GetTargetXlsxStaple(usize),
-    DownloadStaples {
-        target_file: PathBuf,
-        design_id: usize,
-    },
-    Exit,
-    ToggleSplit(SplitMode),
-    OxDnaExport,
-    CloseOverlay(OverlayType),
-    OpenOverlay(OverlayType),
-    ChangeUiSize(UiSize),
-    InvertScrollY(bool),
 }
 
 use super::ChanelReader;

@@ -2412,37 +2412,48 @@ impl Data {
     }
 
     /// Shift the scaffold at an optimized poisition and return the corresponding score
-    pub fn optimize_shift(&mut self, channel: std::sync::mpsc::Sender<f32>) -> (usize, String) {
-        let mut best_score = 10000;
-        let mut best_shfit = 0;
-        let mut best_result = String::new();
-        let len = self
-            .design
-            .scaffold_sequence
-            .as_ref()
-            .map(|s| s.len())
-            .unwrap_or(0);
-        for shift in 0..len {
-            if shift % 10 == 0 {
-                channel.send(shift as f32 / len as f32).unwrap();
+    pub fn optimize_shift(
+        &mut self,
+        progress_channel: std::sync::mpsc::Sender<f32>,
+        result_channel: std::sync::mpsc::Sender<ShiftOptimizationResult>,
+    ) {
+        let cloned = self.design.clone();
+        let mut fake_data = Self::new();
+        fake_data.design = cloned;
+        fake_data.xover_ids = self.xover_ids.clone();
+        std::thread::spawn(move || {
+            fake_data.make_hash_maps();
+            let mut best_score = 10000;
+            let mut best_shfit = 0;
+            let mut best_result = String::new();
+            let len = fake_data
+                .design
+                .scaffold_sequence
+                .as_ref()
+                .map(|s| s.len())
+                .unwrap_or(0);
+            for shift in 0..len {
+                if shift % 100 == 0 {
+                    progress_channel.send(shift as f32 / len as f32).unwrap();
+                }
+                fake_data.read_scaffold_seq(shift);
+                let (score, result) = fake_data.evaluate_shift();
+                if score < best_score {
+                    println!("shift {} score {}", shift, score);
+                    best_score = score;
+                    best_shfit = shift;
+                    best_result = result;
+                }
+                if score == 0 {
+                    break;
+                }
             }
-            self.read_scaffold_seq(shift);
-            let (score, result) = self.evaluate_shift();
-            if score < best_score {
-                println!("shift {} score {}", shift, score);
-                best_score = score;
-                best_shfit = shift;
-                best_result = result;
-            }
-            if score == 0 {
-                break;
-            }
-        }
-        self.design.scaffold_shift = Some(best_shfit);
-        self.read_scaffold_seq(best_shfit);
-        self.update_status = true;
-        self.hash_maps_update = true;
-        (best_shfit, best_result)
+            let result = ShiftOptimizationResult {
+                position: best_shfit,
+                score: best_result,
+            };
+            result_channel.send(result).unwrap();
+        });
     }
 
     /// Evaluate a scaffold position. The score of the position is given by
@@ -3218,4 +3229,9 @@ impl Default for SimulationState {
     fn default() -> Self {
         Self::None
     }
+}
+
+pub struct ShiftOptimizationResult {
+    pub position: usize,
+    pub score: String,
 }

@@ -23,11 +23,6 @@ use std::collections::BTreeSet;
 use super::*;
 
 impl GuiRequests for Requests {
-    fn ask_use_default_scaffold(&mut self) {
-        self.keep_proceed
-            .push_back(Action::AskUseDefaultScafSequence)
-    }
-
     fn close_overlay(&mut self, overlay_type: OverlayType) {
         self.keep_proceed
             .push_back(Action::CloseOverlay(overlay_type));
@@ -230,7 +225,7 @@ impl GuiRequests for Requests {
     }
 
     fn new_design(&mut self) {
-        self.keep_proceed.push_back(Action::NewDesignRequested)
+        self.keep_proceed.push_back(Action::NewDesign)
     }
 
     fn save_as(&mut self) {
@@ -238,7 +233,7 @@ impl GuiRequests for Requests {
     }
 
     fn open_file(&mut self) {
-        self.keep_proceed.push_back(Action::SaveBeforeOpen);
+        self.keep_proceed.push_back(Action::LoadDesign);
     }
 
     fn fit_design_in_scenes(&mut self) {

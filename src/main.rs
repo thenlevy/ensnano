@@ -61,7 +61,7 @@ use std::sync::{Arc, Mutex, RwLock};
 use std::time::{Duration, Instant};
 pub type PhySize = iced_winit::winit::dpi::PhysicalSize<u32>;
 
-use chanel_reader::ChanelReader;
+use chanel_reader::{ChanelReader, ChanelReaderUpdate};
 use iced_native::Event as IcedEvent;
 use iced_wgpu::{wgpu, Backend, Renderer, Settings, Viewport};
 use iced_winit::{conversion, futures, program, winit, Debug, Size};
@@ -442,6 +442,25 @@ fn main() {
                 };
 
                 controller.make_progress(&mut main_state_view);
+
+                for update in main_state.chanel_reader.get_updates() {
+                    if let ChanelReaderUpdate::ScaffoldShiftOptimizationProgress(x) = update {
+                        main_state
+                            .messages
+                            .lock()
+                            .unwrap()
+                            .push_progress("Optimizing: ".to_string(), x);
+                    } else if let ChanelReaderUpdate::ScaffoldShiftOptimizationResult(result) =
+                        update
+                    {
+                        main_state.messages.lock().unwrap().finish_progess();
+                        let msg = format!(
+                            "Scaffold position set to {}\n {}",
+                            result.position, result.score
+                        );
+                        main_state.pending_actions.push_back(Action::ErrorMsg(msg));
+                    }
+                }
 
                 /*
                 let keep_proceed = requests.lock().unwrap().keep_proceed.pop_front();
@@ -1028,7 +1047,7 @@ fn formated_path_end(path: &PathBuf) -> String {
     ret.join("/")
 }
 
-use std::ops::{Deref, DerefMut};
+/*
 fn download_stapples<R: DerefMut<Target = Requests>, M: Deref<Target = Mediator>>(
     mut requests: R,
     mediator: M,
@@ -1073,7 +1092,7 @@ fn download_stapples<R: DerefMut<Target = Requests>, M: Deref<Target = Mediator>
             );
         }
     }
-}
+}*/
 
 /// The state of the main event loop.
 pub(crate) struct MainState {

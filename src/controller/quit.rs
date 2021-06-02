@@ -232,7 +232,7 @@ pub(super) struct Save {
 }
 
 impl Save {
-    fn new(on_success: Box<dyn State>, on_error: Box<dyn State>) -> Self {
+    pub(super) fn new(on_success: Box<dyn State>, on_error: Box<dyn State>) -> Self {
         Self {
             file_getter: None,
             on_success,

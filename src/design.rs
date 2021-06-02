@@ -19,7 +19,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 use ahash::RandomState;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{mpsc, Arc, Mutex, RwLock};
 use ultraviolet::{Mat4, Vec3};
 
 use crate::mediator;
@@ -754,8 +754,15 @@ impl Design {
         self.data.lock().unwrap().get_stapples()
     }
 
-    pub fn optimize_shift(&self, channel: std::sync::mpsc::Sender<f32>) -> (usize, String) {
-        self.data.lock().unwrap().optimize_shift(channel)
+    pub fn optimize_shift(
+        &self,
+        progress_channel: mpsc::Sender<f32>,
+        result_channel: mpsc::Sender<ShiftOptimizationResult>,
+    ) {
+        self.data
+            .lock()
+            .unwrap()
+            .optimize_shift(progress_channel, result_channel)
     }
 
     /// Return the map whose keys are the id of strands that are in a group and the values are the

@@ -48,7 +48,6 @@ use iced_native::Event;
 use iced_wgpu::{wgpu, Backend, Renderer, Settings, Viewport};
 use iced_winit::{conversion, program, winit, Debug, Size};
 use std::collections::{BTreeSet, HashMap};
-use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 use ultraviolet::Vec3;
@@ -59,8 +58,6 @@ use winit::{
 };
 
 pub trait Requests: 'static + Send {
-    /// Show a pop up asking if the user want to use the default scaffold.
-    fn ask_use_default_scaffold(&mut self);
     fn close_overlay(&mut self, overlay_type: OverlayType);
     fn open_overlay(&mut self, overlay_type: OverlayType);
     /// Change the color of the selected strands

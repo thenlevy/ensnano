@@ -1350,17 +1350,6 @@ impl Requestable for RigidBodyFactory {
     }
 }
 
-fn use_default_scaffold<R: Requests>(requests: Arc<Mutex<R>>) {
-    requests.lock().unwrap().ask_use_default_scaffold();
-    /*
-    crate::utils::yes_no_dialog(
-        "Use default m13 sequence".into(),
-        requests,
-        KeepProceed::DefaultScaffold,
-        Some(KeepProceed::CustomScaffold),
-    )*/
-}
-
 #[derive(Clone, Copy, Debug)]
 struct TabStyle;
 
