@@ -46,7 +46,7 @@ impl Quit {
 
 impl State for Quit {
     fn make_progress(
-        self,
+        self: Box<Self>,
         pending_action: &mut dyn MainState,
         mediator: Arc<Mutex<Mediator>>,
     ) -> Box<dyn State> {
@@ -103,7 +103,7 @@ impl Load {
 
 impl State for Load {
     fn make_progress(
-        self,
+        self: Box<Self>,
         state: &mut dyn MainState,
         mediator: Arc<Mutex<Mediator>>,
     ) -> Box<dyn State> {
@@ -193,7 +193,7 @@ impl NewDesign {
 
 impl State for NewDesign {
     fn make_progress(
-        self,
+        self: Box<Self>,
         main_state: &mut dyn MainState,
         mediator: Arc<Mutex<Mediator>>,
     ) -> Box<dyn State> {
@@ -243,7 +243,7 @@ impl Save {
 
 impl State for Save {
     fn make_progress(
-        mut self,
+        mut self: Box<Self>,
         main_state: &mut dyn MainState,
         mediator: Arc<Mutex<Mediator>>,
     ) -> Box<dyn State> {
@@ -271,12 +271,12 @@ impl State for Save {
                     )
                 }
             } else {
-                Box::new(self)
+                self
             }
         } else {
             let getter = dialog::save("json");
             self.file_getter = Some(getter);
-            Box::new(self)
+            self
         }
     }
 }

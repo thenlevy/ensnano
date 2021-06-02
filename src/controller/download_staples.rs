@@ -50,7 +50,7 @@ impl Default for Step {
 use super::super::mediator::{DownloadStappleError, DownloadStappleOk};
 impl State for DownloadStaples {
     fn make_progress(
-        self,
+        self: Box<Self>,
         main_state: &mut dyn MainState,
         mediator: Arc<Mutex<Mediator>>,
     ) -> Box<dyn State> {

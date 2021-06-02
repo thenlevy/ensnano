@@ -57,7 +57,7 @@ enum Step {
 
 impl State for SetScaffoldSequence {
     fn make_progress(
-        self,
+        self: Box<Self>,
         main_state: &mut dyn MainState,
         mediator: Arc<Mutex<Mediator>>,
     ) -> Box<dyn State> {

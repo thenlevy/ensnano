@@ -34,18 +34,48 @@ pub struct Controller {
     state: Box<dyn State + 'static>,
 }
 
+impl Controller {
+    pub fn new(mediator: Arc<Mutex<Mediator>>) -> Self {
+        Self {
+            mediator,
+            state: Box::new(NormalState),
+        }
+    }
+
+    pub(crate) fn make_progress(&mut self, main_state: &mut dyn MainState) {
+        let old_state = std::mem::replace(&mut self.state, Box::new(OhNo));
+        self.state = old_state.make_progress(main_state, self.mediator.clone());
+    }
+}
+
 trait State {
     fn make_progress(
-        self,
+        self: Box<Self>,
         main_state: &mut dyn MainState,
         mediator: Arc<Mutex<Mediator>>,
     ) -> Box<dyn State>;
 }
 
+struct OhNo;
+
+impl State for OhNo {
+    fn make_progress(
+        self: Box<Self>,
+        _: &mut dyn MainState,
+        _: Arc<Mutex<Mediator>>,
+    ) -> Box<dyn State> {
+        panic!("Oh No !")
+    }
+}
+
 struct NormalState;
 
 impl State for NormalState {
-    fn make_progress(self, _: &mut dyn MainState, _: Arc<Mutex<Mediator>>) -> Box<dyn State> {
+    fn make_progress(
+        self: Box<Self>,
+        _: &mut dyn MainState,
+        _: Arc<Mutex<Mediator>>,
+    ) -> Box<dyn State> {
         unimplemented!()
     }
 }
@@ -76,7 +106,7 @@ impl TransitionMessage {
 
 impl State for TransitionMessage {
     fn make_progress(
-        mut self,
+        mut self: Box<Self>,
         _: &mut dyn MainState,
         _: Arc<Mutex<Mediator>>,
     ) -> Box<dyn State + 'static> {
@@ -84,13 +114,13 @@ impl State for TransitionMessage {
             if ack.was_ack() {
                 self.transistion_to
             } else {
-                Box::new(self)
+                self
             }
         } else {
             let ack =
                 dialog::blocking_message(self.content.clone().into(), clone_msg_level(&self.level));
             self.ack = Some(ack);
-            Box::new(self)
+            self
         }
     }
 }
@@ -124,7 +154,11 @@ impl YesNo {
 }
 
 impl State for YesNo {
-    fn make_progress(mut self, _: &mut dyn MainState, _: Arc<Mutex<Mediator>>) -> Box<dyn State> {
+    fn make_progress(
+        mut self: Box<Self>,
+        _: &mut dyn MainState,
+        _: Arc<Mutex<Mediator>>,
+    ) -> Box<dyn State> {
         if let Some(ans) = self.answer.as_ref() {
             if let Some(b) = ans.answer() {
                 if b {
@@ -133,12 +167,12 @@ impl State for YesNo {
                     self.no
                 }
             } else {
-                Box::new(self)
+                self
             }
         } else {
             let yesno = dialog::yes_no_dialog(self.question.clone().into());
             self.answer = Some(yesno);
-            Box::new(self)
+            self
         }
     }
 }
