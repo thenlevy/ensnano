@@ -24,6 +24,7 @@ use super::Mediator;
 use std::path::PathBuf;
 
 use super::dialog;
+use super::{gui::UiSize, OverlayType, SplitMode};
 use dialog::MustAckMessage;
 use std::borrow::Cow;
 use std::sync::{Arc, Mutex};
@@ -141,7 +142,8 @@ impl State for YesNo {
     }
 }
 
-/// An action to be performed at the end of an event loop iteration
+/// An action to be performed at the end of an event loop iteration, and that will have an effect
+/// on the main application state, e.g. Closing the window, or toggling between 3D/2D views.
 #[derive(Debug, Clone)]
 pub enum Action {
     DefaultScaffold,
@@ -178,7 +180,12 @@ pub enum Action {
         design_id: usize,
     },
     Exit,
-    FitDesign,
+    ToggleSplit(SplitMode),
+    OxDnaExport,
+    CloseOverlay(OverlayType),
+    OpenOverlay(OverlayType),
+    ChangeUiSize(UiSize),
+    InvertScrollY(bool),
 }
 
 use super::ChanelReader;

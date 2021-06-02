@@ -54,6 +54,7 @@ mod staples_download;
 mod warnings;
 pub use graphic_options::*;
 pub use operation::*;
+pub use scaffold_shift_optimization::*;
 pub use selection::*;
 pub use staples_download::*;
 pub use warnings::*;

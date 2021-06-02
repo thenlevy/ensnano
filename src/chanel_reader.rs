@@ -21,17 +21,18 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 
 use std::sync::mpsc;
 
+use super::mediator::{ShiftOptimizationResult, ShiftOptimizerReader};
 #[derive(Default)]
 pub(super) struct ChanelReader {
     scaffold_shift_optimization_progress: Option<mpsc::Receiver<f32>>,
-    scaffold_shift_optimization_result: Option<mpsc::Receiver<usize>>,
+    scaffold_shift_optimization_result: Option<mpsc::Receiver<ShiftOptimizationResult>>,
 }
 
 pub(super) enum ChanelReaderUpdate {
     /// Progress has been made in the optimization of the scaffold position
     ScaffoldShiftOptimizationProgress(f32),
     /// The optimum scaffold position has been found
-    ScaffoldShiftOptimizationResult(usize),
+    ScaffoldShiftOptimizationResult(ShiftOptimizationResult),
 }
 
 impl ChanelReader {
@@ -54,9 +55,19 @@ impl ChanelReader {
             .and_then(|chanel| chanel.try_recv().ok())
     }
 
-    fn get_scaffold_shift_optimization_result(&self) -> Option<usize> {
+    fn get_scaffold_shift_optimization_result(&self) -> Option<ShiftOptimizationResult> {
         self.scaffold_shift_optimization_result
             .as_ref()
             .and_then(|chanel| chanel.try_recv().ok())
+    }
+}
+
+impl ShiftOptimizerReader for ChanelReader {
+    fn attach_result_chanel(&mut self, chanel: mpsc::Receiver<ShiftOptimizationResult>) {
+        self.scaffold_shift_optimization_result = Some(chanel);
+    }
+
+    fn attach_progress_chanel(&mut self, chanel: mpsc::Receiver<f32>) {
+        self.scaffold_shift_optimization_progress = Some(chanel);
     }
 }

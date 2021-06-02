@@ -19,9 +19,13 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 use super::*;
 
 use std::ops::DerefMut;
-pub fn poll_all<R: DerefMut<Target = Requests>>(mut requests: R, main_state: &mut MainState) {
+pub fn poll_all<R: DerefMut<Target = Requests>>(
+    mut requests: R,
+    main_state: &mut MainState,
+    mediator: Arc<Mutex<Mediator>>,
+) {
     if requests.fitting.take().is_some() {
-        main_state.push_action(Action::FitDesign)
+        mediator.lock().unwrap().request_fits();
     }
 
     /*
@@ -57,6 +61,7 @@ pub fn poll_all<R: DerefMut<Target = Requests>>(mut requests: R, main_state: &mu
         requests.toggle_text = None;
     }
 
+    /*
     if let Some(value) = requests.toggle_scene {
         multiplexer.change_split(value);
         scheduler
@@ -65,14 +70,14 @@ pub fn poll_all<R: DerefMut<Target = Requests>>(mut requests: R, main_state: &mu
             .forward_new_size(window.inner_size(), &multiplexer);
         gui.resize(&multiplexer, &window);
         requests.toggle_scene = None;
-    }
+    }*/
 
     if requests.make_grids.take().is_some() {
         mediator.lock().unwrap().make_grids();
     }
 
     if let Some(grid_type) = requests.new_grid.take() {
-        scene.lock().unwrap().make_new_grid(grid_type);
+        main_state.scene.lock().unwrap().make_new_grid(grid_type);
     }
 
     if let Some(selection_mode) = requests.selection_mode {
@@ -100,13 +105,14 @@ pub fn poll_all<R: DerefMut<Target = Requests>>(mut requests: R, main_state: &mu
         //flat_scene.lock().unwrap().change_sensitivity(sensitivity);
     }
 
+    /*
     if let Some(overlay_type) = requests.overlay_closed.take() {
         overlay_manager.rm_overlay(overlay_type, &mut multiplexer);
     }
 
     if let Some(overlay_type) = requests.overlay_opened.take() {
         overlay_manager.add_overlay(overlay_type, &mut multiplexer);
-    }
+    }*/
 
     if let Some(op) = requests.operation_update.take() {
         mediator.lock().unwrap().update_pending(op)
@@ -137,10 +143,6 @@ pub fn poll_all<R: DerefMut<Target = Requests>>(mut requests: R, main_state: &mu
         mediator.lock().unwrap().recolor_stapples();
     }
 
-    if requests.clean_requests.take().is_some() {
-        mediator.lock().unwrap().clean_designs();
-    }
-
     if let Some(roll_request) = requests.roll_request.take() {
         mediator.lock().unwrap().roll_request(roll_request);
     }
@@ -150,7 +152,7 @@ pub fn poll_all<R: DerefMut<Target = Requests>>(mut requests: R, main_state: &mu
     }
 
     if let Some(fog) = requests.fog.take() {
-        scene.lock().unwrap().fog_request(fog)
+        main_state.scene.lock().unwrap().fog_request(fog)
     }
 
     if let Some(hyperboloid) = requests.new_hyperboloid.take() {
@@ -162,7 +164,7 @@ pub fn poll_all<R: DerefMut<Target = Requests>>(mut requests: R, main_state: &mu
             radius_shift: hyperboloid.radius_shift,
             forced_radius: None,
         };
-        scene.lock().unwrap().make_hyperboloid(h)
+        main_state.scene.lock().unwrap().make_hyperboloid(h)
     }
 
     if let Some(hyperboloid) = requests.hyperboloid_update.take() {
@@ -212,7 +214,7 @@ pub fn poll_all<R: DerefMut<Target = Requests>>(mut requests: R, main_state: &mu
     }
 
     if let Some(content) = requests.sequence_input.take() {
-        messages.lock().unwrap().push_sequence(content);
+        main_state.messages.lock().unwrap().push_sequence(content);
     }
 
     if let Some(f) = requests.new_shift_hyperboloid.take() {
@@ -235,16 +237,22 @@ pub fn poll_all<R: DerefMut<Target = Requests>>(mut requests: R, main_state: &mu
         mediator.lock().unwrap().update_tree(tree);
     }
 
+    if requests.clean_requests.take().is_some() {
+        mediator.lock().unwrap().clean_designs();
+    }
+
+    /*
     if let Some(ui_size) = requests.new_ui_size.take() {
         gui.new_ui_size(ui_size.clone(), &window, &multiplexer);
         multiplexer.change_ui_size(ui_size.clone(), &window);
         messages.lock().unwrap().new_ui_size(ui_size);
         resized = true;
-    }
+    }*/
 
+    /*
     if requests.oxdna.take().is_some() {
         mediator.lock().unwrap().oxdna_export();
-    }
+    }*/
 
     if requests.split2d.take().is_some() {
         mediator.lock().unwrap().split_2d();
@@ -262,9 +270,10 @@ pub fn poll_all<R: DerefMut<Target = Requests>>(mut requests: R, main_state: &mu
         mediator.lock().unwrap().redim_2d_helices(b);
     }
 
+    /*
     if let Some(b) = requests.invert_scroll.take() {
         multiplexer.invert_y_scroll = b;
-    }
+    }*/
 
     if requests.stop_roll.take().is_some() {
         mediator.lock().unwrap().stop_roll();
@@ -307,10 +316,10 @@ pub fn poll_all<R: DerefMut<Target = Requests>>(mut requests: R, main_state: &mu
     }
 
     if requests.show_tutorial.take().is_some() {
-        messages.lock().unwrap().push_show_tutorial()
+        main_state.messages.lock().unwrap().push_show_tutorial()
     }
 
     if requests.force_help.take().is_some() {
-        messages.lock().unwrap().show_help()
+        main_state.messages.lock().unwrap().show_help()
     }
 }

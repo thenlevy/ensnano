@@ -325,7 +325,13 @@ fn main() {
     let mut mouse_interaction = iced::mouse::Interaction::Pointer;
     let mut icon = None;
 
-    let mut main_state = MainState::new();
+    let main_state_constructor = MainStateConstructor {
+        scene: scene.clone(),
+        flatscene: flat_scene.clone(),
+        messages: messages.clone(),
+    };
+
+    let mut main_state = MainState::new(main_state_constructor);
 
     event_loop.run(move |event, _, control_flow| {
         // Wait for event or redraw a frame every 33 ms (30 frame per seconds)
@@ -425,6 +431,7 @@ fn main() {
                 redraw |= gui.fetch_change(&window, &multiplexer);
 
                 // When there is no more event to deal with
+                /*
                 if let Ok(mut requests) = requests.try_lock() {
                     if requests.fitting.take().is_some() {
                         mediator.lock().unwrap().request_fits();
@@ -721,7 +728,7 @@ fn main() {
                     if requests.force_help.take().is_some() {
                         messages.lock().unwrap().show_help()
                     }
-                }
+                }*/
 
                 /*
                 let keep_proceed = requests.lock().unwrap().keep_proceed.pop_front();
@@ -1372,16 +1379,28 @@ struct MainState {
     undo_stack: Vec<AppState>,
     redo_stack: Vec<AppState>,
     chanel_reader: ChanelReader,
+    scene: Arc<Mutex<Scene<AppState>>>,
+    flatscene: Arc<Mutex<FlatScene<AppState>>>,
+    messages: Arc<Mutex<IcedMessages>>,
+}
+
+struct MainStateConstructor {
+    scene: Arc<Mutex<Scene<AppState>>>,
+    flatscene: Arc<Mutex<FlatScene<AppState>>>,
+    messages: Arc<Mutex<IcedMessages>>,
 }
 
 impl MainState {
-    fn new() -> Self {
+    fn new(constructor: MainStateConstructor) -> Self {
         Self {
             app_state: Default::default(),
             pending_actions: VecDeque::new(),
             undo_stack: Vec::new(),
             redo_stack: Vec::new(),
             chanel_reader: Default::default(),
+            scene: constructor.scene,
+            flatscene: constructor.flatscene,
+            messages: constructor.messages,
         }
     }
 

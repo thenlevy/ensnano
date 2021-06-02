@@ -56,7 +56,7 @@ impl Mediator {
     }
 }
 
-pub trait ShiftOptimizerReader {
+pub trait ShiftOptimizerReader: Send {
     fn attach_progress_chanel(&mut self, chanel: mpsc::Receiver<f32>);
     fn attach_result_chanel(&mut self, chanel: mpsc::Receiver<ShiftOptimizationResult>);
 }

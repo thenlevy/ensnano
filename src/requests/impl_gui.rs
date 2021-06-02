@@ -29,11 +29,13 @@ impl GuiRequests for Requests {
     }
 
     fn close_overlay(&mut self, overlay_type: OverlayType) {
-        self.overlay_closed = Some(overlay_type);
+        self.keep_proceed
+            .push_back(Action::CloseOverlay(overlay_type));
     }
 
     fn open_overlay(&mut self, overlay_type: OverlayType) {
-        self.overlay_opened = Some(overlay_type);
+        self.keep_proceed
+            .push_back(Action::OpenOverlay(overlay_type));
     }
 
     fn change_strand_color(&mut self, color: u32) {
@@ -57,7 +59,7 @@ impl GuiRequests for Requests {
     }
 
     fn invert_scroll(&mut self, inverted: bool) {
-        self.invert_scroll = Some(inverted);
+        self.keep_proceed.push_back(Action::InvertScrollY(inverted));
     }
 
     fn resize_2d_helices(&mut self, all: bool) {
@@ -110,7 +112,7 @@ impl GuiRequests for Requests {
     }
 
     fn set_ui_size(&mut self, size: UiSize) {
-        self.new_ui_size = Some(size);
+        self.keep_proceed.push_back(Action::ChangeUiSize(size));
     }
 
     fn finalize_hyperboloid(&mut self) {
@@ -201,11 +203,11 @@ impl GuiRequests for Requests {
     }
 
     fn change_split_mode(&mut self, split_mode: SplitMode) {
-        self.toggle_scene = Some(split_mode);
+        self.keep_proceed.push_back(Action::ToggleSplit(split_mode))
     }
 
     fn export_to_oxdna(&mut self) {
-        self.oxdna = Some(());
+        self.keep_proceed.push_back(Action::OxDnaExport)
     }
 
     fn toggle_2d_view_split(&mut self) {

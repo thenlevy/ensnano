@@ -50,13 +50,9 @@ pub struct Requests {
     pub sequence_change: Option<String>,
     /// A request to show/hide the sequences
     pub toggle_text: Option<bool>,
-    /// A request to change the view
-    pub toggle_scene: Option<SplitMode>,
     /// A request to change the sensitivity of scrolling
     pub scroll_sensitivity: Option<f32>,
     pub make_grids: Option<()>,
-    pub overlay_closed: Option<OverlayType>,
-    pub overlay_opened: Option<OverlayType>,
     pub operation_update: Option<Arc<dyn Operation>>,
     pub toggle_persistent_helices: Option<bool>,
     pub new_grid: Option<GridTypeDescr>,
@@ -65,7 +61,6 @@ pub struct Requests {
     pub small_spheres: Option<bool>,
     pub set_scaffold_id: Option<Option<usize>>,
     pub recolor_stapples: Option<()>,
-    pub clean_requests: Option<()>,
     pub roll_request: Option<SimulationRequest>,
     pub show_torsion_request: Option<bool>,
     pub fog: Option<FogParameters>,
@@ -89,13 +84,10 @@ pub struct Requests {
     pub organizer_candidates: Option<Vec<DnaElementKey>>,
     pub new_attribute: Option<(DnaAttribute, Vec<DnaElementKey>)>,
     pub new_tree: Option<OrganizerTree<DnaElementKey>>,
-    pub new_ui_size: Option<UiSize>,
-    pub oxdna: Option<()>,
     pub split2d: Option<()>,
     pub toggle_visibility: Option<bool>,
     pub all_visible: Option<()>,
     pub redim_2d_helices: Option<bool>,
-    pub invert_scroll: Option<bool>,
     pub stop_roll: Option<()>,
     pub toggle_widget: Option<()>,
     pub delete_selection: Option<()>,
@@ -109,4 +101,5 @@ pub struct Requests {
     pub open_shortcut: Option<()>,
     pub force_help: Option<()>,
     pub show_tutorial: Option<()>,
+    pub clean_requests: Option<()>,
 }

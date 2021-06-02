@@ -158,7 +158,7 @@ pub trait Requests: 'static + Send {
     fn set_small_sphere(&mut self, small: bool);
 }
 
-#[derive(PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum OverlayType {
     Color,
 }
