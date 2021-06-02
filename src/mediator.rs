@@ -367,7 +367,7 @@ impl Mediator {
         self.designs[0].write().unwrap().set_scaffold_shift(shift);
     }
 
-    pub fn proceed_stapples(&mut self, design_id: usize, path: PathBuf) {
+    pub fn proceed_stapples(&mut self, design_id: usize, path: &PathBuf) {
         let stapples = self.designs[design_id].read().unwrap().get_stapples();
         /*
         let path = if cfg!(target_os = "windows") {
@@ -1420,7 +1420,7 @@ pub enum UndoableOp {
     UndoHelixSimulation(crate::design::RigidHelixState),
 }
 
-fn write_stapples(stapples: Vec<Stapple>, path: PathBuf) {
+fn write_stapples(stapples: Vec<Stapple>, path: &PathBuf) {
     use std::collections::BTreeMap;
     let mut wb = Workbook::create(path.to_str().unwrap());
     let mut sheets = BTreeMap::new();

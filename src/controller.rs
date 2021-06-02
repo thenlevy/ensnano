@@ -45,11 +45,7 @@ trait State {
 struct NormalState;
 
 impl State for NormalState {
-    fn make_progress(
-        self,
-        main_state: &mut dyn MainState,
-        mediator: Arc<Mutex<Mediator>>,
-    ) -> Box<dyn State> {
+    fn make_progress(self, _: &mut dyn MainState, _: Arc<Mutex<Mediator>>) -> Box<dyn State> {
         unimplemented!()
     }
 }
@@ -81,8 +77,8 @@ impl TransitionMessage {
 impl State for TransitionMessage {
     fn make_progress(
         mut self,
-        main_state: &mut dyn MainState,
-        mediator: Arc<Mutex<Mediator>>,
+        _: &mut dyn MainState,
+        _: Arc<Mutex<Mediator>>,
     ) -> Box<dyn State + 'static> {
         if let Some(ack) = self.ack.as_ref() {
             if ack.was_ack() {
@@ -91,10 +87,19 @@ impl State for TransitionMessage {
                 Box::new(self)
             }
         } else {
-            let ack = dialog::blocking_message(self.content.into(), self.level);
+            let ack =
+                dialog::blocking_message(self.content.clone().into(), clone_msg_level(&self.level));
             self.ack = Some(ack);
             Box::new(self)
         }
+    }
+}
+
+fn clone_msg_level(level: &rfd::MessageLevel) -> rfd::MessageLevel {
+    match level {
+        rfd::MessageLevel::Warning => rfd::MessageLevel::Warning,
+        rfd::MessageLevel::Info => rfd::MessageLevel::Info,
+        rfd::MessageLevel::Error => rfd::MessageLevel::Error,
     }
 }
 
@@ -119,11 +124,7 @@ impl YesNo {
 }
 
 impl State for YesNo {
-    fn make_progress(
-        self,
-        main_state: &mut dyn MainState,
-        mediator: Arc<Mutex<Mediator>>,
-    ) -> Box<dyn State> {
+    fn make_progress(mut self, _: &mut dyn MainState, _: Arc<Mutex<Mediator>>) -> Box<dyn State> {
         if let Some(ans) = self.answer.as_ref() {
             if let Some(b) = ans.answer() {
                 if b {
@@ -135,7 +136,7 @@ impl State for YesNo {
                 Box::new(self)
             }
         } else {
-            let yesno = dialog::yes_no_dialog(self.question.into());
+            let yesno = dialog::yes_no_dialog(self.question.clone().into());
             self.answer = Some(yesno);
             Box::new(self)
         }
@@ -172,7 +173,7 @@ pub enum Action {
     Warning(String),
     ErrorMsg(String),
     DownloadStaplesRequest,
-    SetScaffoldSequence(String),
+    SetScaffoldSequence,
     BlockingInfo(String, Box<Action>),
     GetTargetXlsxStaple(usize),
     DownloadStaples {
@@ -189,7 +190,7 @@ pub enum Action {
 }
 
 use super::ChanelReader;
-pub trait MainState {
+pub(crate) trait MainState {
     fn pop_action(&mut self) -> Option<Action>;
     fn exit_control_flow(&mut self);
     fn new_design(&mut self);

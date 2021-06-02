@@ -210,7 +210,10 @@ fn download_staples(
     design_id: usize,
     path: PathBuf,
 ) -> Box<dyn State> {
-    mediator.lock().unwrap().proceed_stapples(design_id, path);
-    let msg = format!("Successfully wrote staples in {}", path.to_string_lossy());
+    mediator.lock().unwrap().proceed_stapples(design_id, &path);
+    let msg = format!(
+        "Successfully wrote staples in {}",
+        path.clone().to_string_lossy()
+    );
     TransitionMessage::new(msg, rfd::MessageLevel::Error, Box::new(NormalState))
 }

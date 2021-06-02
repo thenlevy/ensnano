@@ -19,7 +19,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 use super::*;
 
 use std::ops::DerefMut;
-pub fn poll_all<R: DerefMut<Target = Requests>>(
+pub(crate) fn poll_all<R: DerefMut<Target = Requests>>(
     mut requests: R,
     main_state: &mut MainState,
     mediator: Arc<Mutex<Mediator>>,
@@ -210,7 +210,7 @@ pub fn poll_all<R: DerefMut<Target = Requests>>(
         mediator.lock().unwrap().request_anchor();
     }
     if let Some((d_id, path)) = requests.stapples_file.take() {
-        mediator.lock().unwrap().proceed_stapples(d_id, path);
+        mediator.lock().unwrap().proceed_stapples(d_id, &path);
     }
 
     if let Some(content) = requests.sequence_input.take() {

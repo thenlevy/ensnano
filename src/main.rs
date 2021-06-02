@@ -996,16 +996,6 @@ impl IcedMessages {
             .push_back(gui::left_panel::Message::NewScaffoldInfo(info));
     }
 
-    pub fn push_custom_scaffold(&mut self) {
-        self.left_panel
-            .push_back(gui::left_panel::Message::CustomScaffoldRequested);
-    }
-
-    pub fn push_default_scaffold(&mut self) {
-        self.left_panel
-            .push_back(gui::left_panel::Message::DeffaultScaffoldRequested);
-    }
-
     pub fn push_color(&mut self, color: u32) {
         let bytes = color.to_be_bytes();
         // bytes is [A, R, G, B]
@@ -1373,7 +1363,7 @@ fn download_stapples<R: DerefMut<Target = Requests>, M: Deref<Target = Mediator>
 }
 
 /// The state of the main event loop.
-struct MainState {
+pub(crate) struct MainState {
     app_state: AppState,
     pending_actions: VecDeque<Action>,
     undo_stack: Vec<AppState>,

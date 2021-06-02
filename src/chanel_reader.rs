@@ -23,7 +23,7 @@ use std::sync::mpsc;
 
 use super::mediator::{ShiftOptimizationResult, ShiftOptimizerReader};
 #[derive(Default)]
-pub(super) struct ChanelReader {
+pub(crate) struct ChanelReader {
     scaffold_shift_optimization_progress: Option<mpsc::Receiver<f32>>,
     scaffold_shift_optimization_result: Option<mpsc::Receiver<ShiftOptimizationResult>>,
 }

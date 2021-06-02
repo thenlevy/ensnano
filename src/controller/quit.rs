@@ -247,7 +247,7 @@ impl State for Save {
         main_state: &mut dyn MainState,
         mediator: Arc<Mutex<Mediator>>,
     ) -> Box<dyn State> {
-        if let Some(getter) = self.file_getter {
+        if let Some(ref getter) = self.file_getter {
             if let Some(path_opt) = getter.get() {
                 if let Some(ref path) = path_opt {
                     if let Err(err) = mediator.lock().unwrap().save_design(path) {

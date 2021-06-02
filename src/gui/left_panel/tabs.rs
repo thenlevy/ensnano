@@ -1283,7 +1283,7 @@ impl SequenceTab {
             iced::Text::new("Set scaffold sequence"),
         )
         .height(Length::Units(ui_size.button()))
-        .on_press(Message::ScaffoldSequenceFile);
+        .on_press(Message::SetScaffoldSeqButtonPressed);
         let scaffold_position_text = "Starting position";
         let scaffold_row = Row::new()
             .push(Text::new(scaffold_position_text).width(Length::FillPortion(2)))

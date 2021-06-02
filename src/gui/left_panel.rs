@@ -149,10 +149,7 @@ pub enum Message {
     NewTreeApp(OrganizerTree<DnaElementKey>),
     UiSizeChanged(UiSize),
     UiSizePicked(UiSize),
-    ScaffoldSequenceFile,
     StapplesRequested,
-    CustomScaffoldRequested,
-    DeffaultScaffoldRequested,
     ToggleText(bool),
     #[allow(dead_code)]
     CleanRequested,
@@ -177,6 +174,7 @@ pub enum Message {
     OpenLink(&'static str),
     NewApplicationState(ApplicationState),
     FogChoice(tabs::FogChoice),
+    SetScaffoldSeqButtonPressed,
 }
 
 impl<R: Requests> LeftPanel<R> {
@@ -592,50 +590,8 @@ impl<R: Requests> Program for LeftPanel<R> {
             Message::NewTreeApp(tree) => self.organizer.read_tree(tree),
             Message::UiSizePicked(ui_size) => self.requests.lock().unwrap().set_ui_size(ui_size),
             Message::UiSizeChanged(ui_size) => self.ui_size = ui_size,
-            Message::DeffaultScaffoldRequested => {
-                let sequence = include_str!("p7249-Tilibit.txt");
-                self.requests
-                    .lock()
-                    .unwrap()
-                    .set_scaffold_sequence(sequence.to_string());
-                self.requests
-                    .lock()
-                    .unwrap()
-                    .set_scaffold_shift(self.sequence_tab.get_scaffold_pos());
-            }
-            Message::CustomScaffoldRequested => {
-                *self.dialoging.lock().unwrap() = true;
-                let requests = self.requests.clone();
-                let dialog = rfd::AsyncFileDialog::new().pick_file();
-                let dialoging = self.dialoging.clone();
-                let scaffold_shift = self.sequence_tab.get_scaffold_pos();
-                thread::spawn(move || {
-                    let save_op = async move {
-                        let file = dialog.await;
-                        if let Some(handle) = file {
-                            let mut content = std::fs::read_to_string(handle.path()).unwrap();
-                            content.make_ascii_uppercase();
-                            if let Some(n) = content.find(|c: char| {
-                                c != 'A' && c != 'T' && c != 'G' && c != 'C' && !c.is_whitespace()
-                            }) {
-                                let msg = format!(
-                                    "This text file does not contain a valid DNA sequence.\n
-                                        First invalid char at position {}",
-                                    n
-                                );
-                                requests.lock().unwrap().display_error_msg(msg);
-                            } else {
-                                requests.lock().unwrap().set_scaffold_sequence(content);
-                                requests.lock().unwrap().set_scaffold_shift(scaffold_shift);
-                            }
-                        }
-                        *dialoging.lock().unwrap() = false;
-                    };
-                    futures::executor::block_on(save_op);
-                });
-            }
-            Message::ScaffoldSequenceFile => {
-                use_default_scaffold(self.requests.clone());
+            Message::SetScaffoldSeqButtonPressed => {
+                self.requests.lock().unwrap().set_scaffold_sequence();
             }
             Message::StapplesRequested => self.requests.lock().unwrap().download_stapples(),
             Message::ToggleText(b) => {

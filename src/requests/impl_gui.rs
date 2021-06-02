@@ -102,9 +102,8 @@ impl GuiRequests for Requests {
         self.sequence_change = Some(sequence);
     }
 
-    fn set_scaffold_sequence(&mut self, sequence: String) {
-        self.keep_proceed
-            .push_back(Action::SetScaffoldSequence(sequence));
+    fn set_scaffold_sequence(&mut self) {
+        self.keep_proceed.push_back(Action::SetScaffoldSequence);
     }
 
     fn set_scaffold_shift(&mut self, shift: usize) {
