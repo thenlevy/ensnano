@@ -127,7 +127,9 @@ mod tests {
             env!("CARGO_MANIFEST_DIR")
         );
         let path = Path::new(path_str.as_str());
-        Data::new_with_path(&path.into()).expect("Could parse file")
+        Data::new_with_path(&path.into())
+            .ok()
+            .expect("Could parse file")
     }
 
     /// A design with one strand containing 3 domains: H1: -1 -> 4 ; Insertion 5 ; H1: 5 -> 10 ;
@@ -138,7 +140,9 @@ mod tests {
             env!("CARGO_MANIFEST_DIR")
         );
         let path = Path::new(path_str.as_str());
-        Data::new_with_path(&path.into()).expect("Could parse file")
+        Data::new_with_path(&path.into())
+            .ok()
+            .expect("Could parse file")
     }
 
     /// A design with a cyclic strand containing 5 domains: Insertion 2 ; H1: -1 -> 4 ; Insertion 5
@@ -149,7 +153,9 @@ mod tests {
             env!("CARGO_MANIFEST_DIR")
         );
         let path = Path::new(path_str.as_str());
-        Data::new_with_path(&path.into()).expect("Could parse file")
+        Data::new_with_path(&path.into())
+            .ok()
+            .expect("Could parse file")
     }
 
     #[test]
