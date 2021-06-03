@@ -426,3 +426,29 @@ pub struct DomainIdentifier {
     pub strand: usize,
     pub domain: usize,
 }
+
+use ensnano_design::Design;
+pub(super) trait NeighbourDescriptorGiver {
+    fn get_neighbour_nucl(&self, nucl: Nucl) -> Option<NeighbourDescriptor>;
+}
+
+impl NeighbourDescriptorGiver for Design {
+    fn get_neighbour_nucl(&self, nucl: Nucl) -> Option<NeighbourDescriptor> {
+        for (s_id, s) in self.strands.iter() {
+            for (d_id, d) in s.domains.iter().enumerate() {
+                if let Some(other) = d.other_end(nucl) {
+                    return Some(NeighbourDescriptor {
+                        identifier: DomainIdentifier {
+                            strand: *s_id,
+                            domain: d_id,
+                        },
+                        fixed_end: other,
+                        initial_moving_end: nucl.position,
+                        moving_end: nucl.position,
+                    });
+                }
+            }
+        }
+        None
+    }
+}

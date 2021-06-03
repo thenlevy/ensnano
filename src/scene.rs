@@ -25,7 +25,7 @@ use ultraviolet::{Mat4, Rotor3, Vec3};
 
 use crate::{design, mediator, utils};
 use crate::{DrawArea, PhySize, WindowEvent};
-use design::{Hyperboloid, Nucl};
+use ensnano_design::{grid::Hyperboloid, Nucl};
 use instance::Instance;
 use mediator::{
     ActionMode, AppId, Application, CreateGrid, GridHelixCreation, GridRotation, GridTranslation,
@@ -40,12 +40,13 @@ use winit::dpi::PhysicalPosition;
 mod camera;
 /// Display of the scene
 mod view;
+use ensnano_design::grid::GridTypeDescr;
 use view::{
     DrawType, HandleDir, HandleOrientation, HandlesDescriptor, LetterInstance,
     RotationMode as WidgetRotationMode, RotationWidgetDescriptor, RotationWidgetOrientation, View,
     ViewUpdate,
 };
-pub use view::{FogParameters, GridInstance, GridTypeDescr};
+pub use view::{FogParameters, GridInstance};
 /// Handling of inputs and notifications
 mod controller;
 use controller::{Consequence, Controller};

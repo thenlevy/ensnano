@@ -35,6 +35,7 @@ use controller::Controller;
 pub use controller::{DesignRotation, DesignTranslation, IsometryTarget};
 use data::Data;
 pub use data::*;
+use ensnano_design::grid::GridPosition;
 use ensnano_organizer::OrganizerTree;
 pub use utils::*;
 use view::View;

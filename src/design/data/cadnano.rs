@@ -15,17 +15,21 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
-use super::icednano::{Design, Domain, Helix, HelixInterval, Nucl, Strand};
 use super::{Grid, GridType};
 use cadnano_format::{Cadnano, VStrand};
+use ensnano_design::{Design, Domain, Helix, HelixInterval, Nucl, Strand};
 use std::collections::{BTreeMap, HashMap, HashSet};
 use ultraviolet::{Rotor3, Vec3};
 
 const NO_HELIX: usize = std::usize::MAX;
 
-impl Design {
+pub(super) trait FromCadnano: Sized {
+    fn from_cadnano(nano: Cadnano) -> Self;
+}
+
+impl FromCadnano for Design {
     /// Create a design from a cadnano file
-    pub fn from_cadnano(nano: Cadnano) -> Self {
+    fn from_cadnano(nano: Cadnano) -> Self {
         let vstrands = nano.vstrands;
         let mut seen: HashSet<(usize, usize, bool)> = HashSet::new();
         let mut design = Design::new();

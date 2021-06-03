@@ -21,7 +21,7 @@ use ultraviolet::{Mat4, Vec2, Vec3};
 use wgpu::{include_spirv, Device, RenderPass};
 
 use super::{grid_disc::GridDisc, instances_drawer::*, LetterInstance};
-pub use crate::design::{Grid, GridDivision, GridType, GridTypeDescr, Parameters};
+use ensnano_design::grid::{Grid, GridDivision, GridType};
 
 mod texture;
 

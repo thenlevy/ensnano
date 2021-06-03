@@ -39,16 +39,14 @@ use std::fmt;
 use std::time::Instant;
 
 mod cadnano;
-mod codenano;
 mod elements;
 mod file_parsing;
-mod grid;
-mod icednano;
+mod grid_data;
 mod insertion_replacement;
+mod junctions;
 mod oxdna;
 mod rigid_body;
 mod roller;
-mod scadnano;
 mod strand_builder;
 mod strand_template;
 mod tests;
@@ -58,20 +56,22 @@ use crate::mediator::Selection;
 use crate::scene::GridInstance;
 use crate::utils::new_color;
 pub use elements::*;
+use ensnano_design::grid;
+pub use ensnano_design::Nucl;
+pub use ensnano_design::{Axis, Design, Helix, Parameters, Strand};
+use ensnano_design::{Domain, DomainJunction, HelixInterval};
 use ensnano_organizer::OrganizerTree;
 pub use file_parsing::*;
-use grid::GridManager;
-pub use grid::*;
-pub use icednano::Nucl;
-pub use icednano::{Axis, Design, Helix, Parameters, Strand};
-use icednano::{Domain, DomainJunction, HelixInterval};
+use grid::*;
+pub use grid_data::Grid2D;
+use grid_data::*;
+use junctions::StrandJunction;
 pub use oxdna::*;
 pub use rigid_body::{GridSystemState, RigidBodyConstants, RigidHelixState};
 use roller::PhysicalSystem;
-pub use scadnano::ScadnanoImportError;
 use std::sync::{mpsc::Sender, Arc, Mutex, RwLock};
-use strand_builder::NeighbourDescriptor;
 pub use strand_builder::{DomainIdentifier, StrandBuilder};
+use strand_builder::{NeighbourDescriptor, NeighbourDescriptorGiver};
 use strand_template::{TemplateManager, XoverCopyManager};
 pub use torsion::Torsion;
 
@@ -94,7 +94,7 @@ impl std::fmt::Debug for StrandState {
 /// At the moment, the hash maps are completely recomputed on every modification of the design. In
 /// the future this might be optimised.
 pub struct Data {
-    design: icednano::Design,
+    design: Design,
     file_name: PathBuf,
     last_backup_time: Option<Instant>,
     object_type: HashMap<u32, ObjectType, RandomState>,
@@ -160,7 +160,7 @@ impl fmt::Debug for Data {
 impl Data {
     #[allow(dead_code)]
     pub fn new() -> Self {
-        let design = icednano::Design::new();
+        let design = Design::new();
         let grid_manager = GridManager::new(Parameters::default());
         let mut file_name = std::env::current_exe().unwrap();
         file_name.set_file_name("unamed_design.json");
@@ -296,7 +296,7 @@ impl Data {
                 self.design.helices.insert(key, h);
                 for b in [true, false].iter() {
                     let new_key = self.add_strand(key, -(nb_nucl as isize) / 2, *b);
-                    if let icednano::Domain::HelixDomain(ref mut dom) =
+                    if let Domain::HelixDomain(ref mut dom) =
                         self.design.strands.get_mut(&new_key).unwrap().domains[0]
                     {
                         dom.end = dom.start + nb_nucl as isize;
@@ -406,7 +406,7 @@ impl Data {
                         });
                     }
                 }
-                if let icednano::Domain::HelixDomain(domain) = domain {
+                if let Domain::HelixDomain(domain) = domain {
                     let dom_seq = domain.sequence.as_ref().filter(|s| s.is_ascii());
                     for (dom_position, nucl_position) in domain.iter().enumerate() {
                         let position = self.design.helices[&domain.helix].space_pos(
@@ -480,7 +480,7 @@ impl Data {
                         println!("{:?}", strand.junctions);
                     }
                     last_xover_junction = Some(&mut strand.junctions[i]);
-                } else if let icednano::Domain::Insertion(n) = domain {
+                } else if let Domain::Insertion(n) = domain {
                     strand_position += n;
                     last_xover_junction = Some(&mut strand.junctions[i]);
                 }
@@ -627,7 +627,7 @@ impl Data {
                 .and_then(|s_id| self.design.strands.get(s_id))
             {
                 for domain in &strand.domains {
-                    if let icednano::Domain::HelixDomain(dom) = domain {
+                    if let Domain::HelixDomain(dom) = domain {
                         for nucl_position in dom.iter() {
                             let nucl = Nucl {
                                 helix: dom.helix,
@@ -643,7 +643,7 @@ impl Data {
                                 }
                             }
                         }
-                    } else if let icednano::Domain::Insertion(n) = domain {
+                    } else if let Domain::Insertion(n) = domain {
                         for _ in 0..*n {
                             sequence.next();
                         }
@@ -1169,7 +1169,7 @@ impl Data {
             .get_mut(&identifier.strand)
             .unwrap()
             .domains[identifier.domain];
-        if let icednano::Domain::HelixDomain(domain) = domain {
+        if let Domain::HelixDomain(domain) = domain {
             assert!(domain.start == fixed_position || domain.end - 1 == fixed_position);
             domain.start = start;
             domain.end = end;
@@ -1274,10 +1274,9 @@ impl Data {
         };
         self.color_idx += 1;
 
-        self.design.strands.insert(
-            new_key,
-            icednano::Strand::init(helix, position, forward, color),
-        );
+        self.design
+            .strands
+            .insert(new_key, Strand::init(helix, position, forward, color));
         self.hash_maps_update = true;
         self.update_status = true;
         new_key
@@ -1286,7 +1285,7 @@ impl Data {
     pub fn remake_strand(&mut self, nucl: Nucl, strand_id: usize, color: u32) {
         self.design.strands.insert(
             strand_id,
-            icednano::Strand::init(nucl.helix, nucl.position, nucl.forward, color),
+            Strand::init(nucl.helix, nucl.position, nucl.forward, color),
         );
         self.hash_maps_update = true;
         self.update_status = true;
@@ -1313,7 +1312,7 @@ impl Data {
         let strand = self.design.strands.get(&s_id)?;
         let mut ret = Vec::new();
         for domain in strand.domains.iter() {
-            if let icednano::Domain::HelixDomain(domain) = domain {
+            if let Domain::HelixDomain(domain) = domain {
                 if domain.forward {
                     ret.push(Nucl::new(domain.helix, domain.start, domain.forward));
                     ret.push(Nucl::new(domain.helix, domain.end - 1, domain.forward));
@@ -1334,7 +1333,7 @@ impl Data {
         for strand in self.template_manager.pasted_strands.iter() {
             let mut points = Vec::new();
             for domain in strand.domains.iter() {
-                if let icednano::Domain::HelixDomain(domain) = domain {
+                if let Domain::HelixDomain(domain) = domain {
                     if domain.forward {
                         points.push(Nucl::new(domain.helix, domain.start, domain.forward));
                         points.push(Nucl::new(domain.helix, domain.end - 1, domain.forward));
@@ -1473,7 +1472,7 @@ impl Data {
             } else {
                 None
             };
-            let new_strand = icednano::Strand {
+            let new_strand = Strand {
                 domains,
                 color: strand5prime.color,
                 sequence,
@@ -1530,31 +1529,30 @@ impl Data {
         let strand = self.design.strands.get_mut(&strand_id).unwrap();
         if cyclic {
             let first_last_domains = (strand.domains.iter().next(), strand.domains.iter().last());
-            let merge_insertions = if let (
-                Some(icednano::Domain::Insertion(n1)),
-                Some(icednano::Domain::Insertion(n2)),
-            ) = first_last_domains
-            {
-                Some(n1 + n2)
-            } else {
-                None
-            };
+            let merge_insertions =
+                if let (Some(Domain::Insertion(n1)), Some(Domain::Insertion(n2))) =
+                    first_last_domains
+                {
+                    Some(n1 + n2)
+                } else {
+                    None
+                };
             if let Some(n) = merge_insertions {
                 // If the strand starts and finishes by an Insertion, merge the insertions.
                 // TODO UNITTEST for this specific case
-                *strand.domains.last_mut().unwrap() = icednano::Domain::Insertion(n);
+                *strand.domains.last_mut().unwrap() = Domain::Insertion(n);
                 // remove the first insertions
                 strand.domains.remove(0);
                 strand.junctions.remove(0);
             }
 
             let first_last_domains = (strand.domains.iter().next(), strand.domains.iter().last());
-            let skip_last = if let (_, Some(icednano::Domain::Insertion(_))) = first_last_domains {
+            let skip_last = if let (_, Some(Domain::Insertion(_))) = first_last_domains {
                 1
             } else {
                 0
             };
-            let skip_first = if let (Some(icednano::Domain::Insertion(_)), _) = first_last_domains {
+            let skip_first = if let (Some(Domain::Insertion(_)), _) = first_last_domains {
                 1
             } else {
                 0
@@ -1563,13 +1561,10 @@ impl Data {
                 strand.domains.iter().rev().skip(skip_last).next(),
                 strand.domains.get(skip_first),
             );
-            if let (
-                Some(icednano::Domain::HelixDomain(i1)),
-                Some(icednano::Domain::HelixDomain(i2)),
-            ) = last_first_intervals
+            if let (Some(Domain::HelixDomain(i1)), Some(Domain::HelixDomain(i2))) =
+                last_first_intervals
             {
-                use icednano::junction;
-                let junction = junction(i1, i2);
+                let junction = junctions::junction(i1, i2);
                 *strand.junctions.last_mut().unwrap() = junction;
             } else {
                 panic!("Invariant Violated: SaneDomains")
@@ -1729,7 +1724,7 @@ impl Data {
 
         println!("prime3 {:?}", prim3_domains);
         println!("prime3 {:?}", prime3_junctions);
-        let strand_5prime = icednano::Strand {
+        let strand_5prime = Strand {
             domains: prim5_domains,
             color: strand.color,
             junctions: prime5_junctions,
@@ -1737,7 +1732,7 @@ impl Data {
             sequence: seq_prim5,
         };
 
-        let strand_3prime = icednano::Strand {
+        let strand_3prime = Strand {
             domains: prim3_domains,
             color: strand.color,
             cyclic: false,
@@ -2061,13 +2056,13 @@ impl Data {
                 .helices()
                 .contains_key(&(x, y))
             {
-                let helix = icednano::Helix::new_on_grid(grid, x, y, g_id);
+                let helix = Helix::new_on_grid(grid, x, y, g_id);
                 let helix_id = self.design.helices.keys().last().unwrap_or(&0) + 1;
                 self.design.helices.insert(helix_id, helix);
                 if length > 0 {
                     for b in [false, true].iter() {
                         let new_key = self.add_strand(helix_id, position, *b);
-                        if let icednano::Domain::HelixDomain(ref mut dom) =
+                        if let Domain::HelixDomain(ref mut dom) =
                             self.design.strands.get_mut(&new_key).unwrap().domains[0]
                         {
                             dom.end = dom.start + length as isize;
@@ -2170,7 +2165,7 @@ impl Data {
     pub fn helix_is_empty(&self, h_id: usize) -> bool {
         for strand in self.design.strands.values() {
             for domain in strand.domains.iter() {
-                if let icednano::Domain::HelixDomain(domain) = domain {
+                if let Domain::HelixDomain(domain) = domain {
                     if domain.helix == h_id && domain.start < domain.end {
                         return false;
                     }
@@ -2318,7 +2313,7 @@ impl Data {
         let basis_map = self.basis_map.read().unwrap();
         for strand in self.design.strands.values() {
             for domain in &strand.domains {
-                if let icednano::Domain::HelixDomain(dom) = domain {
+                if let Domain::HelixDomain(dom) = domain {
                     for position in dom.iter() {
                         let nucl = Nucl {
                             position,
@@ -2365,7 +2360,7 @@ impl Data {
                     sequence.push(' ');
                 }
                 first = false;
-                if let icednano::Domain::HelixDomain(dom) = domain {
+                if let Domain::HelixDomain(dom) = domain {
                     for position in dom.iter() {
                         let nucl = Nucl {
                             position,
@@ -2473,7 +2468,7 @@ impl Data {
             }
             let mut sequence = String::with_capacity(10000);
             for domain in &strand.domains {
-                if let icednano::Domain::HelixDomain(dom) = domain {
+                if let Domain::HelixDomain(dom) = domain {
                     for position in dom.iter() {
                         let nucl = Nucl {
                             position,
@@ -2736,7 +2731,7 @@ impl Data {
         self.template_manager.templates.len() > 0
     }
 
-    fn can_add_domains(&self, domains: &[icednano::Domain]) -> bool {
+    fn can_add_domains(&self, domains: &[Domain]) -> bool {
         for s in self.design.strands.values() {
             if s.intersect_domains(domains) {
                 return false;

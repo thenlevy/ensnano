@@ -1,8 +1,5 @@
-[workspace]
-members = [ "ensnano-design" ]
-
 [package]
-name = "ensnano"
+name = "ensnano_design"
 version = "0.2.1"
 authors = ["thenlevy <nicolaspierrelevy@gmail.com>"]
 edition = "2018"
@@ -11,11 +8,6 @@ license = "GPL-3.0-or-later"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-iced = { git = "https://github.com/thenlevy/iced", rev = "5eddea0", features=["image"] }
-iced_wgpu = { git = "https://github.com/thenlevy/iced", rev = "5eddea0" }
-iced_graphics = { git = "https://github.com/thenlevy/iced", rev = "5eddea0" }
-iced_winit = { git = "https://github.com/thenlevy/iced", rev = "5eddea0" }
-iced_native = { git = "https://github.com/thenlevy/iced", rev = "5eddea0" }
 ultraviolet = { git = "https://github.com/termhn/ultraviolet", rev = "b2fb29e" , features = ["bytemuck", "f64", "serde"] }
 bytemuck = "1.2.0"
 failure = "0.1.8"
@@ -25,8 +17,6 @@ futures = "0.3.5"
 serde = "1.0.116"
 serde_derive = "1.0.116"
 color_space = "0.5.2"
-fontdue = "0.4.0"
-lyon = { git = "https://github.com/nical/lyon", rev = "ea6d904c6c9ec0445c5653c119a48c43ea76cee9" }
 chrono = "0.4"
 image = "0.23"
 simple_excel_writer = "0.1.7"
@@ -36,13 +26,7 @@ mathru = "0.8.4"
 rand = "0.8.3"
 rand_distr = "0.4.0"
 ordered-float = "2.0"
-rfd = "0.4"
 material-icons = "0.1.0"
 ensnano_organizer = { git = "https://gitlab.aliens-lyon.fr/nlevy/icednano_organizer" }
-#ensnano_organizer = { path = "../icednano_organizer" }
-iced_aw = { git = "https://github.com/thenlevy/iced_aw", rev = "c302282" , features = ["tab_bar"]}
 num_enum = "0.5.1"
 cadnano-format = "0.1.0"
-open = "1"
-ensnano_design = { path = "ensnano-design" }
-

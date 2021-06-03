@@ -54,7 +54,7 @@ use bindgroup_manager::{DynamicBindGroup, UniformBindGroup};
 use direction_cube::*;
 pub use dna_obj::{ConeInstance, DnaObject, RawDnaInstance, SphereInstance, TubeInstance};
 use drawable::{Drawable, Drawer, Vertex};
-pub use grid::{GridInstance, GridIntersection, GridTypeDescr};
+pub use grid::{GridInstance, GridIntersection};
 use grid::{GridManager, GridTextures};
 pub use grid_disc::GridDisc;
 use handle_drawer::HandlesDrawer;

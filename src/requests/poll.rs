@@ -156,7 +156,7 @@ pub(crate) fn poll_all<R: DerefMut<Target = Requests>>(
     }
 
     if let Some(hyperboloid) = requests.new_hyperboloid.take() {
-        use crate::design::Hyperboloid;
+        use ensnano_design::grid::Hyperboloid;
         let h = Hyperboloid {
             radius: hyperboloid.radius,
             length: hyperboloid.length,

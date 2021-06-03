@@ -39,8 +39,10 @@ use crate::mediator::{ActionMode, Selection, SelectionMode};
 
 use super::{
     icon_btn, slider_style::DesactivatedSlider, text_btn, ApplicationState, FogParameters as Fog,
-    GridTypeDescr, OverlayType, Requests, UiSize,
+    OverlayType, Requests, UiSize,
 };
+
+use ensnano_design::grid::GridTypeDescr;
 mod color_picker;
 use color_picker::ColorPicker;
 mod sequence_input;

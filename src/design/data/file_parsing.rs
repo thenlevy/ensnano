@@ -17,6 +17,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 
 use super::*;
+use ensnano_design::{codenano, scadnano};
 
 impl Data {
     /// Create a new data by reading a file. At the moment, the supported format are
@@ -91,13 +92,12 @@ impl Data {
 }
 
 /// Create a design by parsing a file
-fn read_file<P: AsRef<Path> + std::fmt::Debug>(
-    path: P,
-) -> Result<icednano::Design, ParseDesignError> {
+use super::cadnano::FromCadnano;
+fn read_file<P: AsRef<Path> + std::fmt::Debug>(path: P) -> Result<Design, ParseDesignError> {
     let json_str =
         std::fs::read_to_string(&path).unwrap_or_else(|_| panic!("File not found {:?}", path));
 
-    let design: Result<icednano::Design, _> = serde_json::from_str(&json_str);
+    let design: Result<Design, _> = serde_json::from_str(&json_str);
     // First try to read icednano format
     if let Ok(design) = design {
         println!("ok icednano");
@@ -110,14 +110,14 @@ fn read_file<P: AsRef<Path> + std::fmt::Debug>(
 
         // Try codenano format
         if let Ok(scadnano) = scadnano_design {
-            icednano::Design::from_scadnano(&scadnano)
+            Design::from_scadnano(&scadnano).map_err(|e| ParseDesignError::ScadnanoError(e))
         } else if let Ok(design) = cdn_design {
             println!("{:?}", scadnano_design.err());
             println!("ok codenano");
-            Ok(icednano::Design::from_codenano(&design))
+            Ok(Design::from_codenano(&design))
         } else if let Ok(cadnano) = Cadnano::from_file(path) {
             println!("ok cadnano");
-            Ok(icednano::Design::from_cadnano(cadnano))
+            Ok(Design::from_cadnano(cadnano))
         } else {
             // The file is not in any supported format
             //message("Unrecognized file format".into(), rfd::MessageLevel::Error);
@@ -126,6 +126,7 @@ fn read_file<P: AsRef<Path> + std::fmt::Debug>(
     }
 }
 
+use scadnano::ScadnanoImportError;
 pub enum ParseDesignError {
     UnrecognizedFileFormat,
     ScadnanoError(ScadnanoImportError),

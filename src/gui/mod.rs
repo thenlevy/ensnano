@@ -35,7 +35,6 @@ pub use ui_size::*;
 
 use status_bar::StatusBar;
 
-use crate::design::{DnaAttribute, DnaElementKey, GridTypeDescr};
 use crate::mediator::{
     ActionMode, Background3D, HyperboloidRequest, Operation, RenderingMode, SelectionMode,
     SimulationRequest,
@@ -43,6 +42,10 @@ use crate::mediator::{
 use crate::scene::FogParameters;
 use crate::SplitMode;
 use crate::{DrawArea, ElementType, IcedMessages, Multiplexer};
+use ensnano_design::{
+    elements::{DnaAttribute, DnaElementKey},
+    grid::GridTypeDescr,
+};
 pub use ensnano_organizer::OrganizerTree;
 use iced_native::Event;
 use iced_wgpu::{wgpu, Backend, Renderer, Settings, Viewport};

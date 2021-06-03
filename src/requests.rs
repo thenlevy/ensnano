@@ -24,12 +24,13 @@ use super::*;
 pub use poll::*;
 use ultraviolet::Vec3;
 
-use super::design::{DnaAttribute, DnaElementKey, GridTypeDescr};
+use super::design::{DnaAttribute, DnaElementKey};
 use super::gui::OrganizerTree;
 use super::mediator::{
     Background3D, HyperboloidRequest, RenderingMode, RigidBodyConstants, SimulationRequest,
 };
 use super::scene::FogParameters;
+use ensnano_design::grid::GridTypeDescr;
 
 use std::collections::VecDeque;
 

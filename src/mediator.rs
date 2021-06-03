@@ -38,10 +38,12 @@ use ultraviolet::Vec3;
 
 use crate::{design, ApplicationState};
 
+use ensnano_design::grid::{GridDescriptor, Hyperboloid};
+
 use design::{
     Design, DesignNotification, DesignRotation, DesignTranslation, DnaAttribute, DnaElementKey,
-    GridDescriptor, GridHelixDescriptor, Helix, Hyperboloid, Nucl, OperationResult,
-    OxDnaExportError, Parameters as DNAParameters, Stapple, Strand, StrandBuilder, StrandState,
+    GridHelixDescriptor, Helix, Nucl, OperationResult, OxDnaExportError,
+    Parameters as DNAParameters, SelectionConverstion, Stapple, Strand, StrandBuilder, StrandState,
 };
 pub use design::{RigidBodyConstants, SimulationRequest};
 use ensnano_organizer::OrganizerTree;

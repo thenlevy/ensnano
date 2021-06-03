@@ -22,9 +22,8 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 //!
 //! Moreover, these operations are meant to be modifiable via GUI component or user interaction.
 use super::{DesignRotation, DesignTranslation, GridDescriptor, GridHelixDescriptor, UndoableOp};
-use crate::design::{
-    GridTypeDescr, Helix, Hyperboloid, IsometryTarget, Nucl, Strand, StrandBuilder, StrandState,
-};
+use crate::design::{Helix, IsometryTarget, Nucl, Strand, StrandBuilder, StrandState};
+use ensnano_design::grid::{GridTypeDescr, Hyperboloid};
 use std::sync::Arc;
 use ultraviolet::{Bivec3, Rotor3, Vec3};
 

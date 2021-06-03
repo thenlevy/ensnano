@@ -17,8 +17,8 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 use super::grid::Edge;
 use super::GridPosition;
-use super::StrandState;
-use super::{icednano::Domain, icednano::HelixInterval, Data, Nucl, Strand};
+use super::{Data, StrandState};
+use ensnano_design::{Domain, HelixInterval, Nucl, Strand};
 use ultraviolet::Vec3;
 
 /// A template describing the relation between the domains of a strand. Can be used for copy-paste
@@ -355,8 +355,8 @@ impl Data {
             let color = super::new_color(&mut self.color_idx);
             if self.can_add_domains(&pasted_strand.domains) {
                 let junctions =
-                    super::icednano::read_junctions(pasted_strand.domains.as_slice(), false);
-                let strand = super::icednano::Strand {
+                    super::junctions::read_junctions(pasted_strand.domains.as_slice(), false);
+                let strand = Strand {
                     domains: pasted_strand.domains.clone(),
                     color,
                     junctions,
