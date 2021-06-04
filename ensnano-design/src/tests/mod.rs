@@ -63,7 +63,7 @@ fn sanitize_domains_scadnano() {
     }
   ]
       }"##;
-    let scadnano_design: super::super::scadnano::ScadnanoDesign =
+    let scadnano_design: super::scadnano::ScadnanoDesign =
         serde_json::from_str(&input).expect("Failed to parse scadnano input");
     let ensnano_design = Design::from_scadnano(&scadnano_design)
         .ok()
@@ -107,7 +107,7 @@ fn scadnano_import_one_loopout() {
     }
   ]
       }"##;
-    let scadnano_design: super::super::scadnano::ScadnanoDesign =
+    let scadnano_design: super::scadnano::ScadnanoDesign =
         serde_json::from_str(&input).expect("Failed to parse scadnano input");
     let ensnano_design = Design::from_scadnano(&scadnano_design)
         .ok()
