@@ -19,7 +19,7 @@ use iced_wgpu::wgpu;
 use iced_winit::winit;
 use std::cell::RefCell;
 use std::rc::Rc;
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, Mutex, RwLock};
 use std::time::Duration;
 use ultraviolet::{Mat4, Rotor3, Vec3};
 
@@ -74,9 +74,9 @@ pub struct Scene<S: AppState> {
     controller: Controller,
     /// The limits of the area on which the scene is displayed
     area: DrawArea,
-    mediator: MediatorPtr,
     element_selector: ElementSelector,
     older_state: S,
+    requests: Arc<Mutex<dyn Requests>>,
 }
 
 impl<S: AppState> Scene<S> {
@@ -95,7 +95,7 @@ impl<S: AppState> Scene<S> {
         queue: Rc<Queue>,
         window_size: PhySize,
         area: DrawArea,
-        mediator: MediatorPtr,
+        requests: Arc<Mutex<dyn Requests>>,
         encoder: &mut wgpu::CommandEncoder,
         inital_state: S,
     ) -> Self {
@@ -124,7 +124,7 @@ impl<S: AppState> Scene<S> {
             update,
             controller,
             area,
-            mediator,
+            requests,
             element_selector,
             older_state: inital_state,
         }
@@ -182,7 +182,7 @@ impl<S: AppState> Scene<S> {
                 }
             }
             Consequence::MovementEnded => {
-                self.mediator.lock().unwrap().suspend_op();
+                self.requests.lock().unwrap().suspend_op();
                 self.data.borrow_mut().end_movement();
                 self.update_handle();
             }
@@ -219,11 +219,11 @@ impl<S: AppState> Scene<S> {
             Consequence::BuildEnded(d_id, id) => {
                 self.select(Some(SceneElement::DesignElement(d_id, id)))
             }
-            Consequence::Undo => self.mediator.lock().unwrap().undo(),
-            Consequence::Redo => self.mediator.lock().unwrap().redo(),
+            Consequence::Undo => self.requests.lock().unwrap().undo(),
+            Consequence::Redo => self.requests.lock().unwrap().redo(),
             Consequence::Building(builder, _) => {
                 let color = builder.get_strand_color();
-                self.mediator
+                self.requests
                     .lock()
                     .unwrap()
                     .update_opperation(Arc::new(StrandConstruction {
@@ -261,7 +261,7 @@ impl<S: AppState> Scene<S> {
                 x,
                 y,
             } => {
-                self.mediator
+                self.requests
                     .lock()
                     .unwrap()
                     .update_opperation(Arc::new(GridHelixCreation {
@@ -274,14 +274,14 @@ impl<S: AppState> Scene<S> {
                     }));
                 self.select(Some(SceneElement::Grid(design_id, grid_id)));
                 self.view.borrow_mut().update(ViewUpdate::Camera);
-                self.mediator.lock().unwrap().suspend_op();
+                self.requests.lock().unwrap().suspend_op();
             }
             Consequence::PasteCandidate(element) => self.pasting_candidate(element),
             Consequence::Paste(element) => self.attempt_paste(element),
             Consequence::DoubleClick(element) => {
                 let selection = self.data.borrow().to_selection(element);
                 if let Some(selection) = selection {
-                    self.mediator
+                    self.requests
                         .lock()
                         .unwrap()
                         .request_center_selection(selection, AppId::Scene);
@@ -295,7 +295,7 @@ impl<S: AppState> Scene<S> {
         let position = camera.borrow().position + 10_f32 * camera.borrow().direction();
         let orientation = camera.borrow().rotor.reversed()
             * Rotor3::from_rotation_xz(std::f32::consts::FRAC_PI_2);
-        self.mediator
+        self.requests
             .lock()
             .unwrap()
             .update_opperation(Arc::new(CreateGrid {
@@ -306,7 +306,7 @@ impl<S: AppState> Scene<S> {
                 delete: false,
             }));
         self.data.borrow_mut().notify_instance_update();
-        self.mediator.lock().unwrap().suspend_op();
+        self.requests.lock().unwrap().suspend_op();
     }
 
     pub fn make_hyperboloid(&self, hyperboloid: Hyperboloid) {
@@ -314,7 +314,7 @@ impl<S: AppState> Scene<S> {
         let position = camera.borrow().position + 40_f32 * camera.borrow().direction();
         let orientation = camera.borrow().rotor.reversed()
             * Rotor3::from_rotation_xz(std::f32::consts::FRAC_PI_2);
-        self.mediator
+        self.requests
             .lock()
             .unwrap()
             .update_opperation(Arc::new(NewHyperboloid {
@@ -326,13 +326,13 @@ impl<S: AppState> Scene<S> {
             }));
         self.data.borrow_mut().set_pivot_position(position);
         self.data.borrow_mut().notify_instance_update();
-        self.mediator.lock().unwrap().suspend_op();
+        self.requests.lock().unwrap().suspend_op();
     }
 
     /// If a nucleotide is selected, and the clicked_pixel corresponds to an other nucleotide,
     /// request a cross-over between the two nucleotides.
     fn attempt_xover(&mut self, source: Nucl, target: Nucl, design_id: usize) {
-        self.mediator
+        self.requests
             .lock()
             .unwrap()
             .xover_request(source, target, design_id)
@@ -355,10 +355,7 @@ impl<S: AppState> Scene<S> {
     fn select(&mut self, element: Option<SceneElement>) {
         let selection = self.data.borrow_mut().set_selection(element);
         if let Some(selection) = selection {
-            self.mediator
-                .lock()
-                .unwrap()
-                .notify_unique_selection(selection, AppId::Scene);
+            self.requests.lock().unwrap().set_selection(vec![selection]);
         }
         self.update_handle();
     }
@@ -369,16 +366,13 @@ impl<S: AppState> Scene<S> {
             .borrow_mut()
             .add_to_selection(element, current_selection);
         if let Some(selection) = selection {
-            self.mediator
-                .lock()
-                .unwrap()
-                .notify_multiple_selection(selection, AppId::Scene);
+            self.requests.lock().unwrap().set_selection(selection);
         }
     }
 
     fn attempt_paste(&mut self, element: Option<SceneElement>) {
         let nucl = self.data.borrow().element_to_nucl(&element, false);
-        self.mediator
+        self.requests
             .lock()
             .unwrap()
             .attempt_paste(nucl.map(|n| n.0));
@@ -386,7 +380,7 @@ impl<S: AppState> Scene<S> {
 
     fn pasting_candidate(&self, element: Option<SceneElement>) {
         let nucl = self.data.borrow().element_to_nucl(&element, false);
-        self.mediator
+        self.requests
             .lock()
             .unwrap()
             .set_paste_candidate(nucl.map(|n| n.0));
@@ -405,10 +399,7 @@ impl<S: AppState> Scene<S> {
         } else {
             vec![]
         };
-        self.mediator
-            .lock()
-            .unwrap()
-            .set_candidate(None, selection, AppId::Scene);
+        self.requests.lock().unwrap().set_candidate(selection);
     }
 
     fn translate_selected_design(&mut self, translation: Vec3) {
@@ -447,7 +438,7 @@ impl<S: AppState> Scene<S> {
             _ => return,
         };
 
-        self.mediator
+        self.requests
             .lock()
             .unwrap()
             .update_opperation(translation_op);
@@ -483,7 +474,7 @@ impl<S: AppState> Scene<S> {
             _ => return,
         };
 
-        self.mediator.lock().unwrap().update_opperation(rotation);
+        self.requests.lock().unwrap().update_opperation(rotation);
     }
 
     /// Adapt the camera, position, orientation and pivot point to a design so that the design fits
@@ -790,4 +781,17 @@ pub trait AppState {
     fn get_candidates(&self) -> &[Selection];
     fn selection_was_updated(&self, other: &Self) -> bool;
     fn candidates_set_was_updated(&self, other: &Self) -> bool;
+}
+
+pub trait Requests {
+    fn update_opperation(&mut self, op: Arc<dyn Operation>);
+    fn set_candidate(&mut self, candidates: Vec<Selection>);
+    fn set_paste_candidate(&mut self, nucl: Option<Nucl>);
+    fn set_selection(&mut self, selection: Vec<Selection>);
+    fn attempt_paste(&mut self, nucl: Option<Nucl>);
+    fn xover_request(&mut self, source: Nucl, target: Nucl, design_id: usize);
+    fn suspend_op(&mut self);
+    fn request_center_selection(&mut self, selection: Selection, app_id: AppId);
+    fn undo(&mut self);
+    fn redo(&mut self);
 }
