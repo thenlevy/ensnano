@@ -23,8 +23,8 @@ use crate::{DrawArea, Duration, PhySize, WindowEvent};
 use iced_wgpu::wgpu;
 use iced_winit::winit;
 use mediator::{
-    ActionMode, AppId, Application, CrossCut, Cut, Mediator, Notification, RawHelixCreation,
-    RmStrand, Selection, StrandConstruction, Xover,
+    ActionMode, AppId, Application, CrossCut, Cut, Mediator, Notification, Operation,
+    RawHelixCreation, RmStrand, Selection, StrandConstruction, Xover,
 };
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -66,10 +66,10 @@ pub struct FlatScene<S: AppState> {
     selected_design: usize,
     device: Rc<Device>,
     queue: Rc<Queue>,
-    mediator: Arc<Mutex<Mediator>>,
     last_update: Instant,
     splited: bool,
     old_state: S,
+    requests: Arc<Mutex<dyn Requests>>,
 }
 
 impl<S: AppState> FlatScene<S> {
@@ -78,7 +78,7 @@ impl<S: AppState> FlatScene<S> {
         queue: Rc<Queue>,
         window_size: PhySize,
         area: DrawArea,
-        mediator: Arc<Mutex<Mediator>>,
+        requests: Arc<Mutex<dyn Requests>>,
         initial_state: S,
     ) -> Self {
         Self {
@@ -90,10 +90,10 @@ impl<S: AppState> FlatScene<S> {
             selected_design: 0,
             device,
             queue,
-            mediator,
             last_update: Instant::now(),
             splited: false,
             old_state: initial_state,
+            requests,
         }
     }
 
@@ -135,7 +135,6 @@ impl<S: AppState> FlatScene<S> {
             self.area.size,
             camera_top,
             camera_bottom,
-            self.mediator.clone(),
             self.splited,
         );
         if self.view.len() > 0 {
@@ -200,7 +199,7 @@ impl<S: AppState> FlatScene<S> {
                     .borrow()
                     .get_strand(prime3_id)
                     .unwrap();
-                self.mediator
+                self.requests
                     .lock()
                     .unwrap()
                     .update_opperation(Arc::new(Xover {
@@ -221,7 +220,7 @@ impl<S: AppState> FlatScene<S> {
                         .get_strand(strand_id)
                         .unwrap();
                     let nucl = nucl.to_real();
-                    self.mediator
+                    self.requests
                         .lock()
                         .unwrap()
                         .update_opperation(Arc::new(Cut {
@@ -245,7 +244,7 @@ impl<S: AppState> FlatScene<S> {
                         .get_strand(strand_id)
                         .unwrap();
                     let nucl = nucl.to_real();
-                    self.mediator
+                    self.requests
                         .lock()
                         .unwrap()
                         .update_opperation(Arc::new(Cut {
@@ -273,7 +272,7 @@ impl<S: AppState> FlatScene<S> {
                             .borrow()
                             .get_strand(target_id)
                             .unwrap();
-                        self.mediator
+                        self.requests
                             .lock()
                             .unwrap()
                             .update_opperation(Arc::new(CrossCut {
@@ -319,11 +318,10 @@ impl<S: AppState> FlatScene<S> {
                 } else {
                     phantom.map(|p| Selection::Phantom(p))
                 };
-                self.mediator.lock().unwrap().set_candidate(
-                    phantom,
-                    candidate.iter().cloned().collect(),
-                    AppId::FlatScene,
-                )
+                self.requests
+                    .lock()
+                    .unwrap()
+                    .new_candidates(candidate.iter().cloned().collect())
             }
             Consequence::RmStrand(nucl) => {
                 let strand_id = self.data[self.selected_design].borrow().get_strand_id(nucl);
@@ -333,7 +331,7 @@ impl<S: AppState> FlatScene<S> {
                         .borrow()
                         .get_strand(strand_id)
                         .unwrap();
-                    self.mediator
+                    self.requests
                         .lock()
                         .unwrap()
                         .update_opperation(Arc::new(RmStrand {
@@ -349,7 +347,7 @@ impl<S: AppState> FlatScene<S> {
                     .borrow_mut()
                     .can_delete_helix(h_id);
                 if let Some((helix, helix_id)) = helix {
-                    self.mediator
+                    self.requests
                         .lock()
                         .unwrap()
                         .update_opperation(Arc::new(RawHelixCreation {
@@ -362,7 +360,7 @@ impl<S: AppState> FlatScene<S> {
             }
             Consequence::Built(builder) => {
                 let color = builder.get_strand_color();
-                self.mediator
+                self.requests
                     .lock()
                     .unwrap()
                     .update_opperation(Arc::new(StrandConstruction {
@@ -396,10 +394,10 @@ impl<S: AppState> FlatScene<S> {
                     .borrow_mut()
                     .center_nucl(nucl, bottom);
                 let nucl = nucl.to_real();
-                self.mediator
+                self.requests
                     .lock()
                     .unwrap()
-                    .request_centering(nucl, self.selected_design)
+                    .request_centering_on_nucl(nucl, self.selected_design)
             }
             Consequence::DrawingSelection(c1, c2) => self.view[self.selected_design]
                 .borrow_mut()
@@ -409,13 +407,13 @@ impl<S: AppState> FlatScene<S> {
                     .borrow_mut()
                     .clear_rectangle();
                 //self.data[self.selected_design].borrow().get_helices_in_rect(c1, c2, camera);
-                self.mediator.lock().unwrap().notify_multiple_selection(
-                    self.data[self.selected_design].borrow().selection.clone(),
-                    AppId::FlatScene,
-                );
+                self.requests
+                    .lock()
+                    .unwrap()
+                    .new_selection(self.data[self.selected_design].borrow().selection.clone());
             }
             Consequence::PasteRequest(nucl) => {
-                self.mediator
+                self.requests
                     .lock()
                     .unwrap()
                     .attempt_paste(nucl.map(|n| n.to_real()));
@@ -424,32 +422,32 @@ impl<S: AppState> FlatScene<S> {
                 self.data[self.selected_design]
                     .borrow_mut()
                     .add_selection(click, add);
-                self.mediator.lock().unwrap().notify_multiple_selection(
-                    self.data[self.selected_design].borrow().selection.clone(),
-                    AppId::FlatScene,
-                );
+                self.requests
+                    .lock()
+                    .unwrap()
+                    .new_selection(self.data[self.selected_design].borrow().selection.clone());
             }
             Consequence::SelectionChanged => {
-                self.mediator.lock().unwrap().notify_multiple_selection(
-                    self.data[self.selected_design].borrow().selection.clone(),
-                    AppId::FlatScene,
-                );
+                self.requests
+                    .lock()
+                    .unwrap()
+                    .new_selection(self.data[self.selected_design].borrow().selection.clone());
             }
             Consequence::ClearSelection => {
                 self.data[self.selected_design]
                     .borrow_mut()
                     .set_selection(vec![]);
-                self.mediator.lock().unwrap().notify_multiple_selection(
-                    self.data[self.selected_design].borrow().selection.clone(),
-                    AppId::FlatScene,
-                );
+                self.requests
+                    .lock()
+                    .unwrap()
+                    .new_selection(self.data[self.selected_design].borrow().selection.clone());
             }
             Consequence::DoubleClick(click) => {
                 let selection = self.data[self.selected_design]
                     .borrow()
                     .double_click_to_selection(click);
                 if let Some(selection) = selection {
-                    self.mediator
+                    self.requests
                         .lock()
                         .unwrap()
                         .request_center_selection(selection, AppId::FlatScene)
@@ -467,7 +465,7 @@ impl<S: AppState> FlatScene<S> {
     fn attempt_xover(&self, nucl1: FlatNucl, nucl2: FlatNucl) {
         let source = nucl1.to_real();
         let target = nucl2.to_real();
-        self.mediator
+        self.requests
             .lock()
             .unwrap()
             .xover_request(source, target, self.selected_design);
@@ -634,3 +632,13 @@ impl<S: AppState> Application for FlatScene<S> {
 }
 
 pub trait AppState {}
+
+pub trait Requests {
+    fn xover_request(&mut self, souce: Nucl, target: Nucl, design_id: usize);
+    fn request_center_selection(&mut self, selection: Selection, app_id: AppId);
+    fn new_selection(&mut self, selection: Vec<Selection>);
+    fn new_candidates(&mut self, candidates: Vec<Selection>);
+    fn attempt_paste(&mut self, nucl: Option<Nucl>);
+    fn request_centering_on_nucl(&mut self, nucl: Nucl, design_id: usize);
+    fn update_opperation(&mut self, operation: Arc<dyn Operation>);
+}

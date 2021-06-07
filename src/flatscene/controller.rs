@@ -48,7 +48,6 @@ pub struct Controller {
     splited: bool,
     state: RefCell<Box<dyn ControllerState>>,
     action_mode: ActionMode,
-    mediator: Arc<Mutex<Mediator>>,
     pasting: bool,
     modifiers: ModifiersState,
 }
@@ -87,7 +86,6 @@ impl Controller {
         area_size: PhySize,
         camera_top: CameraPtr,
         camera_bottom: CameraPtr,
-        mediator: Arc<Mutex<Mediator>>,
         splited: bool,
     ) -> Self {
         Self {
@@ -102,7 +100,6 @@ impl Controller {
             })),
             splited,
             action_mode: ActionMode::Normal,
-            mediator,
             pasting: false,
             modifiers: ModifiersState::empty(),
         }
@@ -240,8 +237,6 @@ impl Controller {
                 VirtualKeyCode::K => {
                     self.data.borrow_mut().move_helix_forward();
                 }
-                VirtualKeyCode::Z if ctrl(&self.modifiers) => self.mediator.lock().unwrap().undo(),
-                VirtualKeyCode::R if ctrl(&self.modifiers) => self.mediator.lock().unwrap().redo(),
                 _ => (),
             }
         }
