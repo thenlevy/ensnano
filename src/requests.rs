@@ -16,6 +16,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+mod impl_flatscene;
 mod impl_gui;
 mod impl_scene;
 mod poll;
@@ -112,4 +113,5 @@ pub struct Requests {
     pub xover_request: Option<(Nucl, Nucl, usize)>,
     pub suspend_op: Option<()>,
     pub center_selection: Option<(Selection, AppId)>,
+    pub centering_on_nucl: Option<(Nucl, usize)>,
 }

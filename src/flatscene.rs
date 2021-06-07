@@ -634,7 +634,7 @@ impl<S: AppState> Application for FlatScene<S> {
 pub trait AppState {}
 
 pub trait Requests {
-    fn xover_request(&mut self, souce: Nucl, target: Nucl, design_id: usize);
+    fn xover_request(&mut self, source: Nucl, target: Nucl, design_id: usize);
     fn request_center_selection(&mut self, selection: Selection, app_id: AppId);
     fn new_selection(&mut self, selection: Vec<Selection>);
     fn new_candidates(&mut self, candidates: Vec<Selection>);

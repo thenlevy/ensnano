@@ -279,7 +279,7 @@ fn main() {
         queue.clone(),
         window.inner_size(),
         scene_area,
-        mediator.clone(),
+        requests.clone(),
         mediator.lock().unwrap().get_state(),
     )));
     mediator
