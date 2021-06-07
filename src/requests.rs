@@ -17,14 +17,16 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 
 mod impl_gui;
+mod impl_scene;
 mod poll;
 
 use super::gui::UiSize;
 use super::*;
+use crate::mediator::{AppId, Selection};
 pub use poll::*;
 use ultraviolet::Vec3;
 
-use super::design::{DnaAttribute, DnaElementKey};
+use super::design::{DnaAttribute, DnaElementKey, Nucl};
 use super::gui::OrganizerTree;
 use super::mediator::{
     Background3D, HyperboloidRequest, RenderingMode, RigidBodyConstants, SimulationRequest,
@@ -103,4 +105,11 @@ pub struct Requests {
     pub force_help: Option<()>,
     pub show_tutorial: Option<()>,
     pub clean_requests: Option<()>,
+    pub new_candidates: Option<Vec<Selection>>,
+    pub new_selection: Option<Vec<Selection>>,
+    pub new_paste_candidate: Option<Option<Nucl>>,
+    pub paste_attempt: Option<Option<Nucl>>,
+    pub xover_request: Option<(Nucl, Nucl, usize)>,
+    pub suspend_op: Option<()>,
+    pub center_selection: Option<(Selection, AppId)>,
 }

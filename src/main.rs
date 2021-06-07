@@ -260,7 +260,7 @@ fn main() {
         queue.clone(),
         window.inner_size(),
         scene_area,
-        mediator.clone(),
+        requests.clone(),
         &mut encoder,
         mediator.lock().unwrap().get_state(),
     )));
