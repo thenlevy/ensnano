@@ -254,22 +254,46 @@ impl Data {
             .map(|h| h.visible_center(camera).unwrap_or_else(|| h.center()))
     }
 
-    pub fn add_helix_selection(
+    pub fn add_helix_selection<S: AppState>(
         &mut self,
         click_result: ClickResult,
         camera: &CameraPtr,
-    ) -> Option<(Vec<FlatNucl>, Vec<Vec2>)> {
-        self.add_selection(click_result, true);
-        self.get_pivot_of_selected_helices(camera)
+        app_state: &S,
+    ) -> Option<GraphicalSelection> {
+        let mut new_selection = app_state.get_selection().to_vec();
+        self.add_selection(
+            click_result,
+            true,
+            &mut new_selection,
+            app_state.get_selection_mode(),
+        );
+        let pivots_opt = self.get_pivot_of_selected_helices(camera, app_state);
+        pivots_opt.map(|(translation_pivots, rotation_pivots)| GraphicalSelection {
+            translation_pivots,
+            rotation_pivots,
+            new_selection,
+        })
     }
 
-    pub fn set_helix_selection(
+    pub fn set_helix_selection<S: AppState>(
         &mut self,
         click_result: ClickResult,
         camera: &CameraPtr,
-    ) -> Option<(Vec<FlatNucl>, Vec<Vec2>)> {
-        self.add_selection(click_result, false);
-        self.get_pivot_of_selected_helices(camera)
+        app_state: &S,
+    ) -> Option<GraphicalSelection> {
+        let mut new_selection = app_state.get_selection().to_vec();
+        self.add_selection(
+            click_result,
+            false,
+            &mut new_selection,
+            app_state.get_selection_mode(),
+        );
+        let pivots_opt = self.get_pivot_of_selected_helices(camera, app_state);
+        pivots_opt.map(|(translation_pivots, rotation_pivots)| GraphicalSelection {
+            translation_pivots,
+            rotation_pivots,
+            new_selection,
+        })
     }
 
     pub fn get_click_unbounded_helix(&self, x: f32, y: f32, helix: FlatHelix) -> FlatNucl {
@@ -554,15 +578,15 @@ impl Data {
         camera: &CameraPtr,
         adding: bool,
         app_state: &S,
-    ) -> RectangleSelection {
+    ) -> GraphicalSelection {
         let mut new_selection = app_state.get_selection().to_vec();
         let selection_mode = app_state.get_selection_mode();
         if selection_mode == SelectionMode::Strand {
             self.select_strands_rectangle(camera, c1, c2, adding, &mut new_selection);
-            return RectangleSelection::selection_only(new_selection);
+            return GraphicalSelection::selection_only(new_selection);
         } else if selection_mode == SelectionMode::Nucleotide {
             self.select_xovers_rectangle(camera, c1, c2, adding, &mut new_selection);
-            return RectangleSelection::selection_only(new_selection);
+            return GraphicalSelection::selection_only(new_selection);
         }
         println!("{:?} {:?}", c1, c2);
         let mut translation_pivots = vec![];
@@ -588,21 +612,22 @@ impl Data {
         } else {
             new_selection = selection;
         }
-        RectangleSelection {
+        GraphicalSelection {
             translation_pivots,
             rotation_pivots,
             new_selection,
         }
     }
 
-    pub fn get_pivot_of_selected_helices(
+    pub fn get_pivot_of_selected_helices<S: AppState>(
         &self,
         camera: &CameraPtr,
+        app_state: &S,
     ) -> Option<(Vec<FlatNucl>, Vec<Vec2>)> {
         let id_map = self.design.id_map();
 
-        let ret: Option<Vec<(FlatNucl, Vec2)>> = self
-            .selection
+        let ret: Option<Vec<(FlatNucl, Vec2)>> = app_state
+            .get_selection()
             .iter()
             .map(|s| match s {
                 Selection::Helix(d_id, h_id) if *d_id == self.id => {
@@ -747,44 +772,50 @@ impl Data {
         }
     }
 
-    pub fn add_selection(&mut self, click_result: ClickResult, adding: bool) {
+    pub fn add_selection(
+        &mut self,
+        click_result: ClickResult,
+        adding: bool,
+        new_selection: &mut Vec<Selection>,
+        selection_mode: SelectionMode,
+    ) {
         if !adding {
-            self.selection.clear()
+            new_selection.clear()
         }
         match click_result {
             ClickResult::CircleWidget { translation_pivot } => {
                 let selection = Selection::Helix(self.id, translation_pivot.helix.real as u32);
-                if let Some(pos) = self.selection.iter().position(|x| *x == selection) {
-                    self.selection.remove(pos);
+                if let Some(pos) = new_selection.iter().position(|x| *x == selection) {
+                    new_selection.remove(pos);
                 } else {
-                    self.selection.push(selection);
+                    new_selection.push(selection);
                 }
             }
-            ClickResult::Nucl(nucl) => match self.selection_mode {
+            ClickResult::Nucl(nucl) => match selection_mode {
                 SelectionMode::Strand => {
                     if let Some(s_id) = self.design.get_strand_id(nucl.to_real()) {
                         let selection = Selection::Strand(self.id, s_id as u32);
-                        if let Some(pos) = self.selection.iter().position(|x| *x == selection) {
-                            self.selection.remove(pos);
+                        if let Some(pos) = new_selection.iter().position(|x| *x == selection) {
+                            new_selection.remove(pos);
                         } else {
-                            self.selection.push(selection);
+                            new_selection.push(selection);
                         }
                     }
                 }
                 _ => {
                     if let Some(xover) = self.xover_containing_nucl(&nucl) {
                         let selection = Selection::Xover(self.id, xover);
-                        if let Some(pos) = self.selection.iter().position(|x| *x == selection) {
-                            self.selection.remove(pos);
+                        if let Some(pos) = new_selection.iter().position(|x| *x == selection) {
+                            new_selection.remove(pos);
                         } else {
-                            self.selection.push(selection);
+                            new_selection.push(selection);
                         }
                     } else if let Some(s_id) = self.design.get_strand_id(nucl.to_real()) {
                         let selection = Selection::Strand(self.id, s_id as u32);
-                        if let Some(pos) = self.selection.iter().position(|x| *x == selection) {
-                            self.selection.remove(pos);
+                        if let Some(pos) = new_selection.iter().position(|x| *x == selection) {
+                            new_selection.remove(pos);
                         } else {
-                            self.selection.push(selection);
+                            new_selection.push(selection);
                         }
                     }
                 }
@@ -794,6 +825,7 @@ impl Data {
         }
     }
 
+    /*
     pub fn set_selection(&mut self, mut selection: Vec<Selection>) {
         self.selection = selection.clone();
         if selection.len() == 1 {
@@ -813,12 +845,13 @@ impl Data {
                 ));
         }
         self.selection_updated = true;
-    }
+    }*/
 
+    /*
     pub fn set_candidate(&mut self, candidates: Vec<Selection>) {
         self.candidates = candidates;
         self.selection_updated = true;
-    }
+    }*/
 
     fn xover_containing_nucl(&self, nucl: &FlatNucl) -> Option<usize> {
         let xovers_list = self.design.get_xovers_list();
@@ -921,13 +954,14 @@ pub(super) struct Xover {
     pub source_end: Option<bool>,
 }
 
-pub(super) struct RectangleSelection {
+/// A selection made by interacting with the 2D scene.
+pub(super) struct GraphicalSelection {
     pub translation_pivots: Vec<FlatNucl>,
     pub rotation_pivots: Vec<Vec2>,
     pub new_selection: Vec<Selection>,
 }
 
-impl RectangleSelection {
+impl GraphicalSelection {
     fn selection_only(selection: Vec<Selection>) -> Self {
         Self {
             new_selection: selection,
