@@ -402,15 +402,14 @@ impl<S: AppState> FlatScene<S> {
             Consequence::DrawingSelection(c1, c2) => self.view[self.selected_design]
                 .borrow_mut()
                 .update_rectangle(c1, c2),
-            Consequence::ReleasedSelection(_, _) => {
+            Consequence::ReleasedSelection(selection) => {
                 self.view[self.selected_design]
                     .borrow_mut()
                     .clear_rectangle();
                 //self.data[self.selected_design].borrow().get_helices_in_rect(c1, c2, camera);
-                self.requests
-                    .lock()
-                    .unwrap()
-                    .new_selection(self.data[self.selected_design].borrow().selection.clone());
+                if let Some(selection) = selection {
+                    self.requests.lock().unwrap().new_selection(selection);
+                }
             }
             Consequence::PasteRequest(nucl) => {
                 self.requests
@@ -474,15 +473,17 @@ impl<S: AppState> FlatScene<S> {
     /// Ask the view if it has been modified since the last drawing
     fn needs_redraw_(&mut self, new_state: S) -> bool {
         self.check_timers();
-        if let Some(view) = self.view.get(self.selected_design) {
+        let ret = if let Some(view) = self.view.get(self.selected_design) {
             self.data[self.selected_design]
                 .borrow_mut()
-                .perform_update();
+                .perform_update(&new_state, &self.old_state);
             self.old_state = new_state;
             view.borrow().needs_redraw()
         } else {
             false
-        }
+        };
+        self.old_state = new_state;
+        ret
     }
 
     fn toggle_split(&mut self) {
@@ -631,7 +632,12 @@ impl<S: AppState> Application for FlatScene<S> {
     }
 }
 
-pub trait AppState {}
+pub trait AppState {
+    fn selection_was_updated(&self, other: &Self) -> bool;
+    fn get_selection(&self) -> &[Selection];
+    fn get_candidates(&self) -> &[Selection];
+    fn get_selection_mode(&self) -> SelectionMode;
+}
 
 pub trait Requests {
     fn xover_request(&mut self, source: Nucl, target: Nucl, design_id: usize);

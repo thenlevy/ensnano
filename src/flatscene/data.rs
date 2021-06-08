@@ -15,7 +15,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
-use super::{Flat, HelixVec, PhantomElement, ViewPtr};
+use super::{AppState, Flat, HelixVec, PhantomElement, ViewPtr};
 use crate::design::{Design, Nucl, StrandBuilder};
 use crate::mediator::{Selection, SelectionMode};
 use std::sync::{Arc, RwLock};
@@ -46,11 +46,7 @@ pub struct Data {
     basis_map: Arc<RwLock<HashMap<Nucl, char, RandomState>>>,
     groups: Arc<RwLock<BTreeMap<usize, bool>>>,
     suggestions: HashMap<FlatNucl, HashSet<FlatNucl, RandomState>, RandomState>,
-    selection_mode: SelectionMode,
-    pub selection: Vec<Selection>,
-    pub candidates: Vec<Selection>,
     id: u32,
-    selection_updated: bool,
 }
 
 impl Data {
@@ -68,19 +64,11 @@ impl Data {
             basis_map,
             groups,
             suggestions: Default::default(),
-            selection_mode: SelectionMode::default(),
-            selection: vec![],
-            candidates: vec![],
-            selection_updated: false,
             id,
         }
     }
 
-    pub fn change_selection_mode(&mut self, selection_mode: SelectionMode) {
-        self.selection_mode = selection_mode
-    }
-
-    pub fn perform_update(&mut self) {
+    pub fn perform_update<S: AppState>(&mut self, new_state: &S, old_state: &S) {
         if self.instance_reset {
             self.view.borrow_mut().reset();
             self.instance_reset = false;
@@ -95,9 +83,9 @@ impl Data {
             self.view
                 .borrow_mut()
                 .update_pasted_strand(self.design.get_pasted_strand(), &self.helices);
-            self.update_highlight();
-        } else if self.selection_updated {
-            self.update_highlight();
+            self.update_highlight(new_state);
+        } else if new_state.selection_was_updated(old_state) {
+            self.update_highlight(new_state);
         }
         self.instance_update = false;
     }
@@ -106,7 +94,7 @@ impl Data {
         self.design.id_map()
     }
 
-    pub fn update_highlight(&mut self) {
+    pub fn update_highlight<S: AppState>(&mut self, new_state: &S) {
         let mut selected_strands = HashSet::new();
         let mut candidate_strands = HashSet::new();
         let mut selected_xovers = HashSet::new();
@@ -114,7 +102,7 @@ impl Data {
         let mut selected_helices = Vec::new();
         let mut candidate_helices = Vec::new();
         let id_map = self.design.id_map();
-        for s in self.selection.iter() {
+        for s in new_state.get_selection().iter() {
             match s {
                 Selection::Strand(_, s_id) => {
                     selected_strands.insert(*s_id as usize);
@@ -134,7 +122,7 @@ impl Data {
                 _ => (),
             }
         }
-        for c in self.candidates.iter() {
+        for c in new_state.get_candidates().iter() {
             match c {
                 Selection::Strand(_, s_id) => {
                     candidate_strands.insert(*s_id as usize);
@@ -182,7 +170,6 @@ impl Data {
         self.view
             .borrow_mut()
             .set_candidate_helices(candidate_helices);
-        self.selection_updated = false;
     }
 
     fn fetch_helices(&mut self) {
@@ -325,15 +312,11 @@ impl Data {
         self.design.update_helix(helix, left, right);
     }
 
-    pub fn redim_helices(&mut self, all: bool) {
-        if all {
-            for h in self.helices.iter_mut() {
-                let (left, right) = h.redim_zero();
-                self.design.update_helix(h.flat_id, left, right);
-            }
-        } else {
+    /// Shrink the selected helices if selection is Some, or all helices if selection is None.
+    pub fn redim_helices(&mut self, selection: Option<&[Selection]>) {
+        if let Some(selection) = selection {
             let mut ids = Vec::new();
-            for s in self.selection.iter() {
+            for s in selection.iter() {
                 if let Selection::Helix(_, h) = s {
                     if let Some(h) = self.design.id_map().get(&(*h as usize)) {
                         ids.push(*h)
@@ -345,6 +328,11 @@ impl Data {
                     let (left, right) = h.redim_zero();
                     self.design.update_helix(h.flat_id, left, right);
                 }
+            }
+        } else {
+            for h in self.helices.iter_mut() {
+                let (left, right) = h.redim_zero();
+                self.design.update_helix(h.flat_id, left, right);
             }
         }
         self.notify_update();
@@ -559,20 +547,22 @@ impl Data {
         ret
     }
 
-    pub fn select_rectangle(
+    pub fn select_rectangle<S: AppState>(
         &mut self,
         c1: Vec2,
         c2: Vec2,
         camera: &CameraPtr,
         adding: bool,
-    ) -> (Vec<FlatNucl>, Vec<Vec2>) {
-        self.selection_updated = true;
-        if self.selection_mode == SelectionMode::Strand {
-            self.select_strands_rectangle(camera, c1, c2, adding);
-            return (vec![], vec![]);
-        } else if self.selection_mode == SelectionMode::Nucleotide {
-            self.select_xovers_rectangle(camera, c1, c2, adding);
-            return (vec![], vec![]);
+        app_state: &S,
+    ) -> RectangleSelection {
+        let mut new_selection = app_state.get_selection().to_vec();
+        let selection_mode = app_state.get_selection_mode();
+        if selection_mode == SelectionMode::Strand {
+            self.select_strands_rectangle(camera, c1, c2, adding, &mut new_selection);
+            return RectangleSelection::selection_only(new_selection);
+        } else if selection_mode == SelectionMode::Nucleotide {
+            self.select_xovers_rectangle(camera, c1, c2, adding, &mut new_selection);
+            return RectangleSelection::selection_only(new_selection);
         }
         println!("{:?} {:?}", c1, c2);
         let mut translation_pivots = vec![];
@@ -591,14 +581,18 @@ impl Data {
         }
         if adding {
             for s in selection.iter() {
-                if !self.selection.contains(s) {
-                    self.selection.push(*s);
+                if new_selection.contains(s) {
+                    new_selection.push(*s);
                 }
             }
         } else {
-            self.selection = selection;
+            new_selection = selection;
         }
-        (translation_pivots, rotation_pivots)
+        RectangleSelection {
+            translation_pivots,
+            rotation_pivots,
+            new_selection,
+        }
     }
 
     pub fn get_pivot_of_selected_helices(
@@ -636,7 +630,14 @@ impl Data {
         ret.map(|v| v.iter().cloned().unzip())
     }
 
-    fn select_xovers_rectangle(&mut self, camera: &CameraPtr, c1: Vec2, c2: Vec2, adding: bool) {
+    fn select_xovers_rectangle(
+        &mut self,
+        camera: &CameraPtr,
+        c1: Vec2,
+        c2: Vec2,
+        adding: bool,
+        new_selection: &mut Vec<Selection>,
+    ) {
         let (x1, y1) = camera.borrow().world_to_norm_screen(c1.x, c1.y);
         let (x2, y2) = camera.borrow().world_to_norm_screen(c2.x, c2.y);
         let left = x1.min(x2);
@@ -663,14 +664,14 @@ impl Data {
         }
         if adding {
             for s in selection.iter() {
-                if !self.selection.contains(s) {
-                    self.selection.push(*s);
+                if !new_selection.contains(s) {
+                    new_selection.push(*s);
                 }
             }
         } else {
-            self.selection = selection;
+            *new_selection = selection;
         }
-        println!("selection {:?}", self.selection);
+        println!("selection {:?}", new_selection);
     }
 
     fn add_long_xover_rectangle(&self, selection: &mut Vec<Selection>, c1: Vec2, c2: Vec2) {
@@ -689,7 +690,14 @@ impl Data {
         }
     }
 
-    fn select_strands_rectangle(&mut self, camera: &CameraPtr, c1: Vec2, c2: Vec2, adding: bool) {
+    fn select_strands_rectangle(
+        &mut self,
+        camera: &CameraPtr,
+        c1: Vec2,
+        c2: Vec2,
+        adding: bool,
+        new_selection: &mut Vec<Selection>,
+    ) {
         let (x1, y1) = camera.borrow().world_to_norm_screen(c1.x, c1.y);
         let (x2, y2) = camera.borrow().world_to_norm_screen(c2.x, c2.y);
         let left = x1.min(x2);
@@ -713,12 +721,12 @@ impl Data {
             .collect();
         if adding {
             for s in selection.iter() {
-                if !self.selection.contains(s) {
-                    self.selection.push(*s);
+                if !new_selection.contains(s) {
+                    new_selection.push(*s);
                 }
             }
         } else {
-            self.selection = selection;
+            *new_selection = selection;
         }
     }
 
@@ -825,9 +833,13 @@ impl Data {
         })
     }
 
-    pub fn phantom_to_selection(&self, phantom: PhantomElement) -> Option<Selection> {
+    pub fn phantom_to_selection(
+        &self,
+        phantom: PhantomElement,
+        selection_mode: SelectionMode,
+    ) -> Option<Selection> {
         if let Some(n_id) = self.design.get_nucl_id(phantom.to_nucl()) {
-            match self.selection_mode {
+            match selection_mode {
                 SelectionMode::Grid => None,
                 SelectionMode::Helix => self
                     .design
@@ -907,4 +919,20 @@ pub(super) struct Xover {
     pub design_id: usize,
     pub target_end: Option<bool>,
     pub source_end: Option<bool>,
+}
+
+pub(super) struct RectangleSelection {
+    pub translation_pivots: Vec<FlatNucl>,
+    pub rotation_pivots: Vec<Vec2>,
+    pub new_selection: Vec<Selection>,
+}
+
+impl RectangleSelection {
+    fn selection_only(selection: Vec<Selection>) -> Self {
+        Self {
+            new_selection: selection,
+            translation_pivots: vec![],
+            rotation_pivots: vec![],
+        }
+    }
 }

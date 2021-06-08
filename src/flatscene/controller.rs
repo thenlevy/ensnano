@@ -25,8 +25,8 @@ use self::automata::ReleasedPivot;
 
 use super::data::{ClickResult, FreeEnd};
 use super::{
-    ActionMode, Arc, CameraPtr, DataPtr, FlatHelix, FlatNucl, Mediator, Mutex, PhySize,
-    PhysicalPosition, ViewPtr, WindowEvent,
+    ActionMode, AppState, Arc, CameraPtr, DataPtr, FlatHelix, FlatNucl, Mediator, Mutex, PhySize,
+    PhysicalPosition, Selection, ViewPtr, WindowEvent,
 };
 use crate::design::StrandBuilder;
 use iced_winit::winit::event::*;
@@ -70,7 +70,7 @@ pub enum Consequence {
     FollowingSuggestion(FlatNucl, bool),
     Centering(FlatNucl, bool),
     DrawingSelection(PhysicalPosition<f64>, PhysicalPosition<f64>),
-    ReleasedSelection(Vec2, Vec2),
+    ReleasedSelection(Option<Vec<Selection>>),
     PasteRequest(Option<FlatNucl>),
     AddClick(ClickResult, bool),
     SelectionChanged,
