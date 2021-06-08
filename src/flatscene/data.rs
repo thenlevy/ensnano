@@ -259,7 +259,7 @@ impl Data {
         click_result: ClickResult,
         camera: &CameraPtr,
         app_state: &S,
-    ) -> Option<GraphicalSelection> {
+    ) -> GraphicalSelection {
         let mut new_selection = app_state.get_selection().to_vec();
         self.add_selection(
             click_result,
@@ -268,11 +268,13 @@ impl Data {
             app_state.get_selection_mode(),
         );
         let pivots_opt = self.get_pivot_of_selected_helices(camera, app_state);
-        pivots_opt.map(|(translation_pivots, rotation_pivots)| GraphicalSelection {
-            translation_pivots,
-            rotation_pivots,
-            new_selection,
-        })
+        pivots_opt
+            .map(|(translation_pivots, rotation_pivots)| GraphicalSelection {
+                translation_pivots,
+                rotation_pivots,
+                new_selection,
+            })
+            .unwrap_or_else(|| GraphicalSelection::selection_only(new_selection))
     }
 
     pub fn set_helix_selection<S: AppState>(
@@ -280,7 +282,7 @@ impl Data {
         click_result: ClickResult,
         camera: &CameraPtr,
         app_state: &S,
-    ) -> Option<GraphicalSelection> {
+    ) -> GraphicalSelection {
         let mut new_selection = app_state.get_selection().to_vec();
         self.add_selection(
             click_result,
@@ -289,11 +291,13 @@ impl Data {
             app_state.get_selection_mode(),
         );
         let pivots_opt = self.get_pivot_of_selected_helices(camera, app_state);
-        pivots_opt.map(|(translation_pivots, rotation_pivots)| GraphicalSelection {
-            translation_pivots,
-            rotation_pivots,
-            new_selection,
-        })
+        pivots_opt
+            .map(|(translation_pivots, rotation_pivots)| GraphicalSelection {
+                translation_pivots,
+                rotation_pivots,
+                new_selection,
+            })
+            .unwrap_or_else(|| GraphicalSelection::selection_only(new_selection))
     }
 
     pub fn get_click_unbounded_helix(&self, x: f32, y: f32, helix: FlatHelix) -> FlatNucl {

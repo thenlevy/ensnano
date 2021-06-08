@@ -51,18 +51,18 @@ pub trait ControllerState<S: AppState> {
         &mut self,
         event: &WindowEvent,
         position: PhysicalPosition<f64>,
-        controller: &Controller,
+        controller: &Controller<S>,
         state: &S,
     ) -> Transition<S>;
 
     #[allow(dead_code)]
     fn display(&self) -> String;
 
-    fn transition_from(&self, controller: &Controller) -> ();
+    fn transition_from(&self, controller: &Controller<S>) -> ();
 
-    fn transition_to(&self, controller: &Controller) -> ();
+    fn transition_to(&self, controller: &Controller<S>) -> ();
 
-    fn check_timers(&mut self, _controller: &Controller) -> Transition<S> {
+    fn check_timers(&mut self, _controller: &Controller<S>) -> Transition<S> {
         Transition::nothing()
     }
 }
@@ -80,8 +80,8 @@ impl<S: AppState> ControllerState<S> for NormalState {
         &mut self,
         event: &WindowEvent,
         position: PhysicalPosition<f64>,
-        controller: &Controller,
-        _: &S,
+        controller: &Controller<S>,
+        app_state: &S,
     ) -> Transition<S> {
         match event {
             WindowEvent::MouseInput {
@@ -299,24 +299,28 @@ impl<S: AppState> ControllerState<S> for NormalState {
                                     self.mouse_position.x as f32,
                                     self.mouse_position.y as f32,
                                 );
-                            if controller.modifiers.shift() {
+                            let selection = if controller.modifiers.shift() {
                                 controller.data.borrow_mut().add_helix_selection(
                                     click_result,
                                     &controller.get_camera(position.y),
-                                );
+                                    app_state,
+                                )
                             } else {
                                 controller.data.borrow_mut().set_helix_selection(
                                     click_result,
                                     &controller.get_camera(position.y),
-                                );
-                            }
+                                    app_state,
+                                )
+                            };
                             Transition {
                                 new_state: Some(Box::new(Translating {
                                     mouse_position: self.mouse_position,
                                     world_clicked: clicked.into(),
-                                    translation_pivots: vec![translation_pivot],
+                                    translation_pivots: selection.translation_pivots,
                                 })),
-                                consequences: Consequence::SelectionChanged,
+                                consequences: Consequence::SelectionChanged(
+                                    selection.new_selection,
+                                ),
                             }
                         }
                     }
@@ -412,12 +416,12 @@ impl<S: AppState> ControllerState<S> for NormalState {
         }
     }
 
-    fn transition_to(&self, controller: &Controller) {
+    fn transition_to(&self, controller: &Controller<S>) {
         controller.data.borrow_mut().set_selected_helices(vec![]);
         controller.data.borrow_mut().set_free_end(None);
     }
 
-    fn transition_from(&self, _controller: &Controller) {
+    fn transition_from(&self, _controller: &Controller<S>) {
         ()
     }
 }
@@ -436,7 +440,7 @@ impl<S: AppState> ControllerState<S> for Translating {
         &mut self,
         event: &WindowEvent,
         position: PhysicalPosition<f64>,
-        controller: &Controller,
+        controller: &Controller<S>,
         _: &S,
     ) -> Transition<S> {
         match event {
@@ -510,11 +514,11 @@ impl<S: AppState> ControllerState<S> for Translating {
         }
     }
 
-    fn transition_from(&self, controller: &Controller) {
+    fn transition_from(&self, controller: &Controller<S>) {
         controller.data.borrow_mut().end_movement()
     }
 
-    fn transition_to(&self, controller: &Controller) {
+    fn transition_to(&self, controller: &Controller<S>) {
         let helices = self.translation_pivots.iter().map(|p| p.helix).collect();
         controller.data.borrow_mut().set_selected_helices(helices)
     }
@@ -536,7 +540,7 @@ impl<S: AppState> ControllerState<S> for MovingCamera {
         &mut self,
         event: &WindowEvent,
         position: PhysicalPosition<f64>,
-        controller: &Controller,
+        controller: &Controller<S>,
         _: &S,
     ) -> Transition<S> {
         match event {
@@ -583,11 +587,11 @@ impl<S: AppState> ControllerState<S> for MovingCamera {
         }
     }
 
-    fn transition_from(&self, controller: &Controller) {
+    fn transition_from(&self, controller: &Controller<S>) {
         controller.end_movement();
     }
 
-    fn transition_to(&self, _controller: &Controller) {
+    fn transition_to(&self, _controller: &Controller<S>) {
         ()
     }
 }
@@ -599,7 +603,7 @@ pub struct ReleasedPivot {
 }
 
 impl<S: AppState> ControllerState<S> for ReleasedPivot {
-    fn transition_to(&self, controller: &Controller) {
+    fn transition_to(&self, controller: &Controller<S>) {
         let helices = self.translation_pivots.iter().map(|p| p.helix).collect();
         controller.data.borrow_mut().set_selected_helices(helices);
 
@@ -611,7 +615,7 @@ impl<S: AppState> ControllerState<S> for ReleasedPivot {
         controller.view.borrow_mut().set_wheels(wheels);
     }
 
-    fn transition_from(&self, controller: &Controller) {
+    fn transition_from(&self, controller: &Controller<S>) {
         controller.view.borrow_mut().set_wheels(vec![]);
     }
 
@@ -622,8 +626,8 @@ impl<S: AppState> ControllerState<S> for ReleasedPivot {
         &mut self,
         event: &WindowEvent,
         position: PhysicalPosition<f64>,
-        controller: &Controller,
-        _: &S,
+        controller: &Controller<S>,
+        app_state: &S,
     ) -> Transition<S> {
         match event {
             WindowEvent::MouseInput {
@@ -787,17 +791,18 @@ impl<S: AppState> ControllerState<S> for ReleasedPivot {
                             self.mouse_position.x as f32,
                             self.mouse_position.y as f32,
                         );
-                        controller
-                            .data
-                            .borrow_mut()
-                            .set_helix_selection(click_result, &controller.get_camera(position.y));
+                        let selection = controller.data.borrow_mut().set_helix_selection(
+                            click_result,
+                            &controller.get_camera(position.y),
+                            app_state,
+                        );
                         Transition {
                             new_state: Some(Box::new(Translating {
-                                translation_pivots: vec![translation_pivot],
+                                translation_pivots: selection.translation_pivots,
                                 world_clicked: clicked.into(),
                                 mouse_position: self.mouse_position,
                             })),
-                            consequences: Consequence::SelectionChanged,
+                            consequences: Consequence::SelectionChanged(selection.new_selection),
                         }
                     }
                     ClickResult::Nothing => Transition {
@@ -918,7 +923,7 @@ pub struct LeavingPivot {
 }
 
 impl<S: AppState> ControllerState<S> for LeavingPivot {
-    fn transition_to(&self, controller: &Controller) {
+    fn transition_to(&self, controller: &Controller<S>) {
         let wheels = self
             .rotation_pivots
             .iter()
@@ -927,7 +932,7 @@ impl<S: AppState> ControllerState<S> for LeavingPivot {
         controller.view.borrow_mut().set_wheels(wheels);
     }
 
-    fn transition_from(&self, controller: &Controller) {
+    fn transition_from(&self, controller: &Controller<S>) {
         controller.view.borrow_mut().set_wheels(vec![]);
     }
 
@@ -938,7 +943,7 @@ impl<S: AppState> ControllerState<S> for LeavingPivot {
         &mut self,
         event: &WindowEvent,
         position: PhysicalPosition<f64>,
-        controller: &Controller,
+        controller: &Controller<S>,
         _: &S,
     ) -> Transition<S> {
         match event {
@@ -1062,7 +1067,7 @@ impl Rotating {
 }
 
 impl<S: AppState> ControllerState<S> for Rotating {
-    fn transition_to(&self, controller: &Controller) {
+    fn transition_to(&self, controller: &Controller<S>) {
         let helices = self.translation_pivots.iter().map(|p| p.helix).collect();
         controller.data.borrow_mut().set_selected_helices(helices);
 
@@ -1074,7 +1079,7 @@ impl<S: AppState> ControllerState<S> for Rotating {
         controller.view.borrow_mut().set_wheels(wheels);
     }
 
-    fn transition_from(&self, controller: &Controller) {
+    fn transition_from(&self, controller: &Controller<S>) {
         controller.data.borrow_mut().end_movement();
         controller.view.borrow_mut().set_wheels(vec![]);
     }
@@ -1086,8 +1091,8 @@ impl<S: AppState> ControllerState<S> for Rotating {
         &mut self,
         event: &WindowEvent,
         position: PhysicalPosition<f64>,
-        controller: &Controller,
-        _: &S,
+        controller: &Controller<S>,
+        app_state: &S,
     ) -> Transition<S> {
         match event {
             WindowEvent::MouseInput {
@@ -1105,36 +1110,26 @@ impl<S: AppState> ControllerState<S> for Rotating {
                         y,
                         &controller.get_camera(position.y),
                     );
-                    let pivots_opt = if controller.modifiers.shift() {
+                    let selection = if controller.modifiers.shift() {
                         controller.data.borrow_mut().add_helix_selection(
                             click_result.clone(),
                             &controller.get_camera(position.y),
+                            app_state,
                         )
                     } else {
                         controller.data.borrow_mut().set_helix_selection(
                             click_result.clone(),
                             &controller.get_camera(position.y),
+                            app_state,
                         )
                     };
-                    if let Some((translation_pivots, rotation_pivots)) = pivots_opt {
-                        Transition {
-                            new_state: Some(Box::new(ReleasedPivot {
-                                mouse_position: self.mouse_position,
-                                translation_pivots,
-                                rotation_pivots,
-                            })),
-                            consequences: Consequence::SelectionChanged,
-                        }
-                    } else {
-                        Transition {
-                            new_state: Some(Box::new(NormalState {
-                                mouse_position: position,
-                            })),
-                            consequences: Consequence::AddClick(
-                                click_result,
-                                controller.modifiers.shift(),
-                            ),
-                        }
+                    Transition {
+                        new_state: Some(Box::new(ReleasedPivot {
+                            mouse_position: self.mouse_position,
+                            translation_pivots: selection.translation_pivots,
+                            rotation_pivots: selection.rotation_pivots,
+                        })),
+                        consequences: Consequence::SelectionChanged(selection.new_selection),
                     }
                 } else {
                     Transition {
@@ -1200,11 +1195,11 @@ struct InitCutting {
 }
 
 impl<S: AppState> ControllerState<S> for InitCutting {
-    fn transition_from(&self, _controller: &Controller) {
+    fn transition_from(&self, _controller: &Controller<S>) {
         ()
     }
 
-    fn transition_to(&self, _controller: &Controller) {
+    fn transition_to(&self, _controller: &Controller<S>) {
         ()
     }
 
@@ -1216,7 +1211,7 @@ impl<S: AppState> ControllerState<S> for InitCutting {
         &mut self,
         event: &WindowEvent,
         position: PhysicalPosition<f64>,
-        controller: &Controller,
+        controller: &Controller<S>,
         _: &S,
     ) -> Transition<S> {
         match event {
@@ -1296,11 +1291,11 @@ struct InitAttachement {
 }
 
 impl<S: AppState> ControllerState<S> for InitAttachement {
-    fn transition_from(&self, _controller: &Controller) {
+    fn transition_from(&self, _controller: &Controller<S>) {
         ()
     }
 
-    fn transition_to(&self, _controller: &Controller) {
+    fn transition_to(&self, _controller: &Controller<S>) {
         ()
     }
 
@@ -1312,7 +1307,7 @@ impl<S: AppState> ControllerState<S> for InitAttachement {
         &mut self,
         event: &WindowEvent,
         position: PhysicalPosition<f64>,
-        controller: &Controller,
+        controller: &Controller<S>,
         _: &S,
     ) -> Transition<S> {
         match event {
@@ -1387,11 +1382,11 @@ struct InitBuilding {
 }
 
 impl<S: AppState> ControllerState<S> for InitBuilding {
-    fn transition_from(&self, _controller: &Controller) {
+    fn transition_from(&self, _controller: &Controller<S>) {
         ()
     }
 
-    fn transition_to(&self, _controller: &Controller) {
+    fn transition_to(&self, _controller: &Controller<S>) {
         ()
     }
 
@@ -1403,7 +1398,7 @@ impl<S: AppState> ControllerState<S> for InitBuilding {
         &mut self,
         event: &WindowEvent,
         position: PhysicalPosition<f64>,
-        controller: &Controller,
+        controller: &Controller<S>,
         _: &S,
     ) -> Transition<S> {
         match event {
@@ -1555,11 +1550,11 @@ struct MovingFreeEnd {
 }
 
 impl<S: AppState> ControllerState<S> for MovingFreeEnd {
-    fn transition_from(&self, _controller: &Controller) {
+    fn transition_from(&self, _controller: &Controller<S>) {
         ()
     }
 
-    fn transition_to(&self, _controller: &Controller) {
+    fn transition_to(&self, _controller: &Controller<S>) {
         ()
     }
 
@@ -1571,7 +1566,7 @@ impl<S: AppState> ControllerState<S> for MovingFreeEnd {
         &mut self,
         event: &WindowEvent,
         position: PhysicalPosition<f64>,
-        controller: &Controller,
+        controller: &Controller<S>,
         _: &S,
     ) -> Transition<S> {
         match event {
@@ -1678,11 +1673,11 @@ struct Building {
 }
 
 impl<S: AppState> ControllerState<S> for Building {
-    fn transition_from(&self, _controller: &Controller) {
+    fn transition_from(&self, _controller: &Controller<S>) {
         ()
     }
 
-    fn transition_to(&self, _controller: &Controller) {
+    fn transition_to(&self, _controller: &Controller<S>) {
         ()
     }
 
@@ -1694,7 +1689,7 @@ impl<S: AppState> ControllerState<S> for Building {
         &mut self,
         event: &WindowEvent,
         position: PhysicalPosition<f64>,
-        controller: &Controller,
+        controller: &Controller<S>,
         _: &S,
     ) -> Transition<S> {
         match event {
@@ -1780,11 +1775,11 @@ pub struct Crossing {
 }
 
 impl<S: AppState> ControllerState<S> for Crossing {
-    fn transition_to(&self, _controller: &Controller) {
+    fn transition_to(&self, _controller: &Controller<S>) {
         ()
     }
 
-    fn transition_from(&self, _controller: &Controller) {
+    fn transition_from(&self, _controller: &Controller<S>) {
         ()
     }
 
@@ -1796,7 +1791,7 @@ impl<S: AppState> ControllerState<S> for Crossing {
         &mut self,
         event: &WindowEvent,
         position: PhysicalPosition<f64>,
-        controller: &Controller,
+        controller: &Controller<S>,
         _: &S,
     ) -> Transition<S> {
         match event {
@@ -1875,11 +1870,11 @@ struct Cutting {
 }
 
 impl<S: AppState> ControllerState<S> for Cutting {
-    fn transition_from(&self, _controller: &Controller) {
+    fn transition_from(&self, _controller: &Controller<S>) {
         ()
     }
 
-    fn transition_to(&self, _controller: &Controller) {
+    fn transition_to(&self, _controller: &Controller<S>) {
         ()
     }
 
@@ -1891,7 +1886,7 @@ impl<S: AppState> ControllerState<S> for Cutting {
         &mut self,
         event: &WindowEvent,
         position: PhysicalPosition<f64>,
-        controller: &Controller,
+        controller: &Controller<S>,
         _: &S,
     ) -> Transition<S> {
         match event {
@@ -1958,11 +1953,11 @@ struct RmHelix {
 }
 
 impl<S: AppState> ControllerState<S> for RmHelix {
-    fn transition_from(&self, _controller: &Controller) {
+    fn transition_from(&self, _controller: &Controller<S>) {
         ()
     }
 
-    fn transition_to(&self, _controller: &Controller) {
+    fn transition_to(&self, _controller: &Controller<S>) {
         ()
     }
 
@@ -1974,7 +1969,7 @@ impl<S: AppState> ControllerState<S> for RmHelix {
         &mut self,
         event: &WindowEvent,
         position: PhysicalPosition<f64>,
-        controller: &Controller,
+        controller: &Controller<S>,
         _: &S,
     ) -> Transition<S> {
         match event {
@@ -2041,11 +2036,11 @@ struct FlipGroup {
 }
 
 impl<S: AppState> ControllerState<S> for FlipGroup {
-    fn transition_from(&self, _controller: &Controller) {
+    fn transition_from(&self, _controller: &Controller<S>) {
         ()
     }
 
-    fn transition_to(&self, _controller: &Controller) {
+    fn transition_to(&self, _controller: &Controller<S>) {
         ()
     }
 
@@ -2057,7 +2052,7 @@ impl<S: AppState> ControllerState<S> for FlipGroup {
         &mut self,
         event: &WindowEvent,
         position: PhysicalPosition<f64>,
-        controller: &Controller,
+        controller: &Controller<S>,
         _: &S,
     ) -> Transition<S> {
         match event {
@@ -2125,11 +2120,11 @@ struct FlipVisibility {
 }
 
 impl<S: AppState> ControllerState<S> for FlipVisibility {
-    fn transition_from(&self, _controller: &Controller) {
+    fn transition_from(&self, _controller: &Controller<S>) {
         ()
     }
 
-    fn transition_to(&self, _controller: &Controller) {
+    fn transition_to(&self, _controller: &Controller<S>) {
         ()
     }
 
@@ -2141,7 +2136,7 @@ impl<S: AppState> ControllerState<S> for FlipVisibility {
         &mut self,
         event: &WindowEvent,
         position: PhysicalPosition<f64>,
-        controller: &Controller,
+        controller: &Controller<S>,
         _: &S,
     ) -> Transition<S> {
         match event {
@@ -2209,11 +2204,11 @@ struct FollowingSuggestion {
 }
 
 impl<S: AppState> ControllerState<S> for FollowingSuggestion {
-    fn transition_from(&self, _controller: &Controller) {
+    fn transition_from(&self, _controller: &Controller<S>) {
         ()
     }
 
-    fn transition_to(&self, _controller: &Controller) {
+    fn transition_to(&self, _controller: &Controller<S>) {
         ()
     }
 
@@ -2225,7 +2220,7 @@ impl<S: AppState> ControllerState<S> for FollowingSuggestion {
         &mut self,
         event: &WindowEvent,
         position: PhysicalPosition<f64>,
-        controller: &Controller,
+        controller: &Controller<S>,
         _: &S,
     ) -> Transition<S> {
         match event {
@@ -2320,11 +2315,11 @@ struct CenteringSuggestion {
 }
 
 impl<S: AppState> ControllerState<S> for CenteringSuggestion {
-    fn transition_from(&self, _controller: &Controller) {
+    fn transition_from(&self, _controller: &Controller<S>) {
         ()
     }
 
-    fn transition_to(&self, _controller: &Controller) {
+    fn transition_to(&self, _controller: &Controller<S>) {
         ()
     }
 
@@ -2336,7 +2331,7 @@ impl<S: AppState> ControllerState<S> for CenteringSuggestion {
         &mut self,
         event: &WindowEvent,
         position: PhysicalPosition<f64>,
-        controller: &Controller,
+        controller: &Controller<S>,
         _: &S,
     ) -> Transition<S> {
         match event {
@@ -2404,11 +2399,11 @@ struct Pasting {
 }
 
 impl<S: AppState> ControllerState<S> for Pasting {
-    fn transition_from(&self, _controller: &Controller) {
+    fn transition_from(&self, _controller: &Controller<S>) {
         ()
     }
 
-    fn transition_to(&self, _controller: &Controller) {
+    fn transition_to(&self, _controller: &Controller<S>) {
         ()
     }
 
@@ -2420,7 +2415,7 @@ impl<S: AppState> ControllerState<S> for Pasting {
         &mut self,
         event: &WindowEvent,
         position: PhysicalPosition<f64>,
-        controller: &Controller,
+        controller: &Controller<S>,
         _: &S,
     ) -> Transition<S> {
         match event {
@@ -2490,7 +2485,7 @@ impl<S: AppState> ControllerState<S> for DraggingSelection {
         &mut self,
         event: &WindowEvent,
         position: PhysicalPosition<f64>,
-        controller: &Controller,
+        controller: &Controller<S>,
         app_state: &S,
     ) -> Transition<S> {
         match event {
@@ -2568,11 +2563,11 @@ impl<S: AppState> ControllerState<S> for DraggingSelection {
         }
     }
 
-    fn transition_from(&self, controller: &Controller) {
+    fn transition_from(&self, controller: &Controller<S>) {
         controller.end_movement();
     }
 
-    fn transition_to(&self, _controller: &Controller) {
+    fn transition_to(&self, _controller: &Controller<S>) {
         ()
     }
 }
@@ -2583,11 +2578,11 @@ struct AddClick {
 }
 
 impl<S: AppState> ControllerState<S> for AddClick {
-    fn transition_from(&self, _controller: &Controller) {
+    fn transition_from(&self, _controller: &Controller<S>) {
         ()
     }
 
-    fn transition_to(&self, _controller: &Controller) {
+    fn transition_to(&self, _controller: &Controller<S>) {
         ()
     }
 
@@ -2599,8 +2594,8 @@ impl<S: AppState> ControllerState<S> for AddClick {
         &mut self,
         event: &WindowEvent,
         position: PhysicalPosition<f64>,
-        controller: &Controller,
-        _: &S,
+        controller: &Controller<S>,
+        app_state: &S,
     ) -> Transition<S> {
         match event {
             WindowEvent::MouseInput {
@@ -2625,33 +2620,26 @@ impl<S: AppState> ControllerState<S> for AddClick {
                         .borrow()
                         .get_click(x, y, &controller.get_camera(position.y));
                 if let ClickResult::CircleWidget { .. } = click {
-                    let pivots_opt = if controller.modifiers.shift() {
-                        controller
-                            .data
-                            .borrow_mut()
-                            .add_helix_selection(click, &controller.get_camera(position.y))
+                    let selection = if controller.modifiers.shift() {
+                        controller.data.borrow_mut().add_helix_selection(
+                            click,
+                            &controller.get_camera(position.y),
+                            app_state,
+                        )
                     } else {
-                        controller
-                            .data
-                            .borrow_mut()
-                            .set_helix_selection(click, &controller.get_camera(position.y))
+                        controller.data.borrow_mut().set_helix_selection(
+                            click,
+                            &controller.get_camera(position.y),
+                            app_state,
+                        )
                     };
-                    if let Some((translation_pivots, rotation_pivots)) = pivots_opt {
-                        Transition {
-                            new_state: Some(Box::new(ReleasedPivot {
-                                mouse_position: position,
-                                translation_pivots,
-                                rotation_pivots,
-                            })),
-                            consequences: Consequence::SelectionChanged,
-                        }
-                    } else {
-                        Transition {
-                            new_state: Some(Box::new(NormalState {
-                                mouse_position: self.mouse_position,
-                            })),
-                            consequences: Consequence::Nothing,
-                        }
+                    Transition {
+                        new_state: Some(Box::new(ReleasedPivot {
+                            mouse_position: position,
+                            translation_pivots: selection.translation_pivots,
+                            rotation_pivots: selection.rotation_pivots,
+                        })),
+                        consequences: Consequence::SelectionChanged(selection.new_selection),
                     }
                 } else {
                     Transition {
@@ -2691,7 +2679,7 @@ struct DoubleClicking {
 }
 
 impl<S: AppState> ControllerState<S> for DoubleClicking {
-    fn check_timers(&mut self, controller: &Controller) -> Transition<S> {
+    fn check_timers(&mut self, controller: &Controller<S>) -> Transition<S> {
         let now = Instant::now();
         if (now - self.clicked_time).as_millis() > 250 {
             Transition {
@@ -2716,7 +2704,7 @@ impl<S: AppState> ControllerState<S> for DoubleClicking {
         &mut self,
         event: &WindowEvent,
         position: PhysicalPosition<f64>,
-        controller: &Controller,
+        controller: &Controller<S>,
         _: &S,
     ) -> Transition<S> {
         match event {
@@ -2755,11 +2743,11 @@ impl<S: AppState> ControllerState<S> for DoubleClicking {
         }
     }
 
-    fn transition_from(&self, _controller: &Controller) {
+    fn transition_from(&self, _controller: &Controller<S>) {
         ()
     }
 
-    fn transition_to(&self, _controller: &Controller) {
+    fn transition_to(&self, _controller: &Controller<S>) {
         ()
     }
 }
@@ -2772,11 +2760,11 @@ struct AddClickPivots {
 }
 
 impl<S: AppState> ControllerState<S> for AddClickPivots {
-    fn transition_from(&self, _controller: &Controller) {
+    fn transition_from(&self, _controller: &Controller<S>) {
         ()
     }
 
-    fn transition_to(&self, _controller: &Controller) {
+    fn transition_to(&self, _controller: &Controller<S>) {
         ()
     }
 
@@ -2788,8 +2776,8 @@ impl<S: AppState> ControllerState<S> for AddClickPivots {
         &mut self,
         event: &WindowEvent,
         position: PhysicalPosition<f64>,
-        controller: &Controller,
-        _: &S,
+        controller: &Controller<S>,
+        app_state: &S,
     ) -> Transition<S> {
         match event {
             WindowEvent::MouseInput {
@@ -2814,35 +2802,26 @@ impl<S: AppState> ControllerState<S> for AddClickPivots {
                         .borrow()
                         .get_click(x, y, &controller.get_camera(position.y));
                 if click == self.click_result {
-                    let pivots_opt = if controller.modifiers.shift() {
-                        controller
-                            .data
-                            .borrow_mut()
-                            .add_helix_selection(click, &controller.get_camera(position.y))
+                    let selection = if controller.modifiers.shift() {
+                        controller.data.borrow_mut().add_helix_selection(
+                            click,
+                            &controller.get_camera(position.y),
+                            app_state,
+                        )
                     } else {
-                        controller
-                            .data
-                            .borrow_mut()
-                            .set_helix_selection(click, &controller.get_camera(position.y))
+                        controller.data.borrow_mut().set_helix_selection(
+                            click,
+                            &controller.get_camera(position.y),
+                            app_state,
+                        )
                     };
-                    if let Some((translation_pivots, rotation_pivots)) = pivots_opt {
-                        Transition {
-                            new_state: Some(Box::new(ReleasedPivot {
-                                mouse_position: self.mouse_position,
-                                translation_pivots,
-                                rotation_pivots,
-                            })),
-                            consequences: Consequence::SelectionChanged,
-                        }
-                    } else {
-                        Transition {
-                            new_state: Some(Box::new(ReleasedPivot {
-                                mouse_position: self.mouse_position,
-                                translation_pivots: self.translation_pivots.clone(),
-                                rotation_pivots: self.rotation_pivots.clone(),
-                            })),
-                            consequences: Consequence::SelectionChanged,
-                        }
+                    Transition {
+                        new_state: Some(Box::new(ReleasedPivot {
+                            mouse_position: self.mouse_position,
+                            translation_pivots: selection.translation_pivots,
+                            rotation_pivots: selection.rotation_pivots,
+                        })),
+                        consequences: Consequence::SelectionChanged(selection.new_selection),
                     }
                 } else {
                     Transition {
@@ -2905,7 +2884,7 @@ impl<S: AppState> ControllerState<S> for TranslatingHandle {
         &mut self,
         event: &WindowEvent,
         position: PhysicalPosition<f64>,
-        controller: &Controller,
+        controller: &Controller<S>,
         _: &S,
     ) -> Transition<S> {
         match event {
@@ -2960,11 +2939,11 @@ impl<S: AppState> ControllerState<S> for TranslatingHandle {
         }
     }
 
-    fn transition_from(&self, _controller: &Controller) {
+    fn transition_from(&self, _controller: &Controller<S>) {
         ()
     }
 
-    fn transition_to(&self, _controller: &Controller) {
+    fn transition_to(&self, _controller: &Controller<S>) {
         ()
     }
 }

@@ -36,7 +36,7 @@ use ultraviolet::Vec2;
 mod automata;
 use automata::{ControllerState, NormalState, Transition};
 
-pub struct Controller {
+pub struct Controller<S: AppState> {
     #[allow(dead_code)]
     view: ViewPtr,
     data: DataPtr,
@@ -46,7 +46,7 @@ pub struct Controller {
     camera_top: CameraPtr,
     camera_bottom: CameraPtr,
     splited: bool,
-    state: RefCell<Box<dyn ControllerState>>,
+    state: RefCell<Box<dyn ControllerState<S>>>,
     action_mode: ActionMode,
     pasting: bool,
     modifiers: ModifiersState,
@@ -73,12 +73,12 @@ pub enum Consequence {
     ReleasedSelection(Option<Vec<Selection>>),
     PasteRequest(Option<FlatNucl>),
     AddClick(ClickResult, bool),
-    SelectionChanged,
+    SelectionChanged(Vec<Selection>),
     ClearSelection,
     DoubleClick(ClickResult),
 }
 
-impl Controller {
+impl<S: AppState> Controller<S> {
     pub fn new(
         view: ViewPtr,
         data: DataPtr,

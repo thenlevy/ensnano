@@ -24,7 +24,7 @@ use iced_wgpu::wgpu;
 use iced_winit::winit;
 use mediator::{
     ActionMode, AppId, Application, CrossCut, Cut, Mediator, Notification, Operation,
-    RawHelixCreation, RmStrand, Selection, StrandConstruction, Xover,
+    RawHelixCreation, RmStrand, Selection, SelectionMode, StrandConstruction, Xover,
 };
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -57,7 +57,7 @@ pub struct FlatScene<S: AppState> {
     /// Handle the data representing the design
     data: Vec<DataPtr>,
     /// Handle the inputs
-    controller: Vec<Controller>,
+    controller: Vec<Controller<S>>,
     /// The area on which the flatscene is displayed
     area: DrawArea,
     /// The size of the window on which the flatscene is displayed
@@ -127,7 +127,8 @@ impl<S: AppState> FlatScene<S> {
             self.splited,
         )));
         let data = Rc::new(RefCell::new(Data::new(view.clone(), design, 0)));
-        data.borrow_mut().perform_update();
+        //data.borrow_mut().perform_update();
+        // TODO is this update necessary ?
         let controller = Controller::new(
             view.clone(),
             data.clone(),
@@ -151,9 +152,6 @@ impl<S: AppState> FlatScene<S> {
     /// Draw the view of the currently selected design
     fn draw_view(&mut self, encoder: &mut wgpu::CommandEncoder, target: &wgpu::TextureView) {
         if let Some(view) = self.view.get(self.selected_design) {
-            self.data[self.selected_design]
-                .borrow_mut()
-                .perform_update();
             view.borrow_mut().draw(encoder, target, self.area);
         }
     }
@@ -178,14 +176,20 @@ impl<S: AppState> FlatScene<S> {
     }
 
     /// Handle an input that happend while the cursor was on the flatscene drawing area
-    fn input(&mut self, event: &WindowEvent, cursor_position: PhysicalPosition<f64>) {
+    fn input(
+        &mut self,
+        event: &WindowEvent,
+        cursor_position: PhysicalPosition<f64>,
+        app_state: &S,
+    ) {
         if let Some(controller) = self.controller.get_mut(self.selected_design) {
             let consequence = controller.input(event, cursor_position);
-            self.read_consequence(consequence);
+            self.read_consequence(consequence, Some(app_state));
         }
     }
 
-    fn read_consequence(&mut self, consequence: controller::Consequence) {
+    fn read_consequence(&mut self, consequence: controller::Consequence, new_state: Option<&S>) {
+        let app_state = new_state.unwrap_or(&self.old_state);
         use controller::Consequence;
         match consequence {
             Consequence::Xover(nucl1, nucl2) => {
@@ -312,7 +316,7 @@ impl<S: AppState> FlatScene<S> {
                 let candidate = if let Some(selection) = phantom.and_then(|p| {
                     self.data[self.selected_design]
                         .borrow()
-                        .phantom_to_selection(p)
+                        .phantom_to_selection(p, app_state.get_selection_mode())
                 }) {
                     Some(selection)
                 } else {
@@ -418,28 +422,20 @@ impl<S: AppState> FlatScene<S> {
                     .attempt_paste(nucl.map(|n| n.to_real()));
             }
             Consequence::AddClick(click, add) => {
-                self.data[self.selected_design]
-                    .borrow_mut()
-                    .add_selection(click, add);
-                self.requests
-                    .lock()
-                    .unwrap()
-                    .new_selection(self.data[self.selected_design].borrow().selection.clone());
+                let mut new_selection = app_state.get_selection().to_vec();
+                let selection = self.data[self.selected_design].borrow_mut().add_selection(
+                    click,
+                    add,
+                    &mut new_selection,
+                    app_state.get_selection_mode(),
+                );
+                self.requests.lock().unwrap().new_selection(new_selection);
             }
-            Consequence::SelectionChanged => {
-                self.requests
-                    .lock()
-                    .unwrap()
-                    .new_selection(self.data[self.selected_design].borrow().selection.clone());
+            Consequence::SelectionChanged(selection) => {
+                self.requests.lock().unwrap().new_selection(selection);
             }
             Consequence::ClearSelection => {
-                self.data[self.selected_design]
-                    .borrow_mut()
-                    .set_selection(vec![]);
-                self.requests
-                    .lock()
-                    .unwrap()
-                    .new_selection(self.data[self.selected_design].borrow().selection.clone());
+                self.requests.lock().unwrap().new_selection(vec![]);
             }
             Consequence::DoubleClick(click) => {
                 let selection = self.data[self.selected_design]
@@ -458,7 +454,7 @@ impl<S: AppState> FlatScene<S> {
 
     fn check_timers(&mut self) {
         let consequence = self.controller[self.selected_design].check_timers();
-        self.read_consequence(consequence);
+        self.read_consequence(consequence, None);
     }
 
     fn attempt_xover(&self, nucl1: FlatNucl, nucl2: FlatNucl) {
@@ -559,26 +555,14 @@ impl<S: AppState> Application for FlatScene<S> {
                 }
             }
             Notification::CameraTarget(_) => (),
-            Notification::NewSelectionMode(selection_mode) => {
-                for data in self.data.iter() {
-                    data.borrow_mut().change_selection_mode(selection_mode);
-                }
-            }
+            Notification::NewSelectionMode(selection_mode) => (),
             Notification::AppNotification(_) => (),
             Notification::NewSensitivity(_) => (),
             Notification::ClearDesigns => (),
-            Notification::NewCandidate(candidates, app_id) => match app_id {
-                AppId::FlatScene => (),
-                _ => self.data[self.selected_design]
-                    .borrow_mut()
-                    .set_candidate(candidates),
-            },
+            Notification::NewCandidate(candidates, app_id) => (),
             Notification::Centering(_, _) => (),
             Notification::CenterSelection(selection, app_id) => {
                 if app_id != AppId::FlatScene {
-                    self.data[self.selected_design]
-                        .borrow_mut()
-                        .set_selection(vec![selection]);
                     let xover = self.view[self.selected_design]
                         .borrow_mut()
                         .center_selection();
@@ -594,9 +578,16 @@ impl<S: AppState> Application for FlatScene<S> {
                 }
             }
             Notification::Split2d => self.toggle_split(),
-            Notification::Redim2dHelices(b) => self.data[self.selected_design]
-                .borrow_mut()
-                .redim_helices(b),
+            Notification::Redim2dHelices(b) => {
+                let selection = if b {
+                    None
+                } else {
+                    Some(self.old_state.get_selection())
+                };
+                self.data[self.selected_design]
+                    .borrow_mut()
+                    .redim_helices(selection)
+            }
             Notification::ToggleWidget(_) => (),
             Notification::RenderingMode(_) => (),
             Notification::Background3D(_) => (),
@@ -608,7 +599,7 @@ impl<S: AppState> Application for FlatScene<S> {
     }
 
     fn on_event(&mut self, event: &WindowEvent, cursor_position: PhysicalPosition<f64>, state: &S) {
-        self.input(event, cursor_position)
+        self.input(event, cursor_position, state)
     }
 
     fn on_redraw_request(
