@@ -24,11 +24,12 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 //!
 //! Each component of ENSnano has specific needs and express them via its own `AppState` trait.
 
-use super::mediator::Selection;
+use super::mediator::{Selection, SelectionMode};
 
 mod address_pointer;
 use address_pointer::AddressPointer;
 
+mod impl_app2d;
 mod impl_app3d;
 
 /// A structure containing the global state of the program.
@@ -50,6 +51,12 @@ impl AppState {
         new_state.candidates = AddressPointer::new(candidates);
         Self(AddressPointer::new(new_state))
     }
+
+    pub fn with_selection_mode(&self, selection_mode: SelectionMode) -> Self {
+        let mut new_state = (*self.0).clone();
+        new_state.selection_mode = selection_mode;
+        Self(AddressPointer::new(new_state))
+    }
 }
 
 #[derive(Clone, PartialEq, Eq, Default)]
@@ -58,8 +65,5 @@ struct AppState_ {
     selection: AddressPointer<Vec<Selection>>,
     /// The set of objects that are "one click away from beeing selected"
     candidates: AddressPointer<Vec<Selection>>,
+    selection_mode: SelectionMode,
 }
-
-use crate::flatscene::AppState as App2D;
-
-impl App2D for AppState {}

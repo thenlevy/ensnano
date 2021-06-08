@@ -155,7 +155,12 @@ impl<S: AppState> Controller<S> {
         self.camera_bottom.borrow_mut().fit(rectangle);
     }
 
-    pub fn input(&mut self, event: &WindowEvent, position: PhysicalPosition<f64>) -> Consequence {
+    pub fn input(
+        &mut self,
+        event: &WindowEvent,
+        position: PhysicalPosition<f64>,
+        app_state: &S,
+    ) -> Consequence {
         let transition = if let WindowEvent::Focused(false) = event {
             Transition {
                 new_state: Some(Box::new(NormalState {
@@ -164,7 +169,9 @@ impl<S: AppState> Controller<S> {
                 consequences: Consequence::Nothing,
             }
         } else {
-            self.state.borrow_mut().input(event, position, self)
+            self.state
+                .borrow_mut()
+                .input(event, position, self, app_state)
         };
 
         if let Some(state) = transition.new_state {

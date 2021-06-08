@@ -183,7 +183,7 @@ impl<S: AppState> FlatScene<S> {
         app_state: &S,
     ) {
         if let Some(controller) = self.controller.get_mut(self.selected_design) {
-            let consequence = controller.input(event, cursor_position);
+            let consequence = controller.input(event, cursor_position, app_state);
             self.read_consequence(consequence, Some(app_state));
         }
     }
@@ -469,7 +469,7 @@ impl<S: AppState> FlatScene<S> {
     /// Ask the view if it has been modified since the last drawing
     fn needs_redraw_(&mut self, new_state: S) -> bool {
         self.check_timers();
-        let ret = if let Some(view) = self.view.get(self.selected_design) {
+        if let Some(view) = self.view.get(self.selected_design) {
             self.data[self.selected_design]
                 .borrow_mut()
                 .perform_update(&new_state, &self.old_state);
@@ -477,9 +477,7 @@ impl<S: AppState> FlatScene<S> {
             view.borrow().needs_redraw()
         } else {
             false
-        };
-        self.old_state = new_state;
-        ret
+        }
     }
 
     fn toggle_split(&mut self) {
@@ -519,7 +517,7 @@ impl<S: AppState> Application for FlatScene<S> {
                 }
             }
             Notification::FitRequest => self.controller[self.selected_design].fit(),
-            Notification::Selection3D(selection, app_id) => match app_id {
+            Notification::Selection3D(_, app_id) => match app_id {
                 /*
                 AppId::FlatScene => (),
                 _ => {
@@ -555,13 +553,13 @@ impl<S: AppState> Application for FlatScene<S> {
                 }
             }
             Notification::CameraTarget(_) => (),
-            Notification::NewSelectionMode(selection_mode) => (),
+            Notification::NewSelectionMode(_) => (),
             Notification::AppNotification(_) => (),
             Notification::NewSensitivity(_) => (),
             Notification::ClearDesigns => (),
-            Notification::NewCandidate(candidates, app_id) => (),
+            Notification::NewCandidate(_, _) => (),
             Notification::Centering(_, _) => (),
-            Notification::CenterSelection(selection, app_id) => {
+            Notification::CenterSelection(_, app_id) => {
                 if app_id != AppId::FlatScene {
                     let xover = self.view[self.selected_design]
                         .borrow_mut()

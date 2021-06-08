@@ -254,7 +254,7 @@ impl Data {
             .map(|h| h.visible_center(camera).unwrap_or_else(|| h.center()))
     }
 
-    pub fn add_helix_selection<S: AppState>(
+    pub(super) fn add_helix_selection<S: AppState>(
         &mut self,
         click_result: ClickResult,
         camera: &CameraPtr,
@@ -268,16 +268,18 @@ impl Data {
             app_state.get_selection_mode(),
         );
         let pivots_opt = self.get_pivot_of_selected_helices(camera, app_state);
-        pivots_opt
-            .map(|(translation_pivots, rotation_pivots)| GraphicalSelection {
+        if let Some((translation_pivots, rotation_pivots)) = pivots_opt {
+            GraphicalSelection {
                 translation_pivots,
                 rotation_pivots,
                 new_selection,
-            })
-            .unwrap_or_else(|| GraphicalSelection::selection_only(new_selection))
+            }
+        } else {
+            GraphicalSelection::selection_only(new_selection)
+        }
     }
 
-    pub fn set_helix_selection<S: AppState>(
+    pub(super) fn set_helix_selection<S: AppState>(
         &mut self,
         click_result: ClickResult,
         camera: &CameraPtr,
@@ -291,13 +293,15 @@ impl Data {
             app_state.get_selection_mode(),
         );
         let pivots_opt = self.get_pivot_of_selected_helices(camera, app_state);
-        pivots_opt
-            .map(|(translation_pivots, rotation_pivots)| GraphicalSelection {
+        if let Some((translation_pivots, rotation_pivots)) = pivots_opt {
+            GraphicalSelection {
                 translation_pivots,
                 rotation_pivots,
                 new_selection,
-            })
-            .unwrap_or_else(|| GraphicalSelection::selection_only(new_selection))
+            }
+        } else {
+            GraphicalSelection::selection_only(new_selection)
+        }
     }
 
     pub fn get_click_unbounded_helix(&self, x: f32, y: f32, helix: FlatHelix) -> FlatNucl {
@@ -575,7 +579,7 @@ impl Data {
         ret
     }
 
-    pub fn select_rectangle<S: AppState>(
+    pub(super) fn select_rectangle<S: AppState>(
         &mut self,
         c1: Vec2,
         c2: Vec2,
