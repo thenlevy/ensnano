@@ -105,6 +105,12 @@ fn ensnano_version() -> String {
     std::env!("CARGO_PKG_VERSION").to_owned()
 }
 
+impl Default for Design {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Design {
     pub fn from_codenano<Sl, Dl>(codenano_desgin: &codenano::Design<Sl, Dl>) -> Self {
         let mut helices = BTreeMap::new();

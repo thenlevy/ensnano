@@ -28,6 +28,7 @@ use super::mediator::{Selection, SelectionMode};
 
 mod address_pointer;
 use address_pointer::AddressPointer;
+use ensnano_design::Design;
 
 mod impl_app2d;
 mod impl_app3d;
@@ -57,6 +58,14 @@ impl AppState {
         new_state.selection_mode = selection_mode;
         Self(AddressPointer::new(new_state))
     }
+
+    pub fn new_design(design: Design) -> Self {
+        let state = AppState_ {
+            design: AddressPointer::new(design),
+            ..Default::default()
+        };
+        Self(AddressPointer::new(state))
+    }
 }
 
 #[derive(Clone, PartialEq, Eq, Default)]
@@ -66,4 +75,9 @@ struct AppState_ {
     /// The set of objects that are "one click away from beeing selected"
     candidates: AddressPointer<Vec<Selection>>,
     selection_mode: SelectionMode,
+    /// A pointer to the design currently beign eddited. The pointed design is never mutatated.
+    /// Instead, when a modification is requested, the design is cloned and the `design` pointer is
+    /// replaced by a pointer to a modified `Design`.
+    design: AddressPointer<Design>,
 }
+
