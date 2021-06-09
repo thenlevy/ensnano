@@ -44,3 +44,16 @@ impl Presenter {
         self.old_design = design;
     }
 }
+
+pub(super) fn update_presenter(
+    presenter: &AddressPointer<Presenter>,
+    design: AddressPointer<Design>,
+) -> AddressPointer<Presenter> {
+    if presenter.old_design != design {
+        let mut new_presenter = presenter.clone_inner();
+        new_presenter.read_design(design);
+        AddressPointer::new(new_presenter)
+    } else {
+        presenter.clone()
+    }
+}

@@ -36,6 +36,10 @@ impl App3D for AppState {
     fn candidates_set_was_updated(&self, other: &AppState) -> bool {
         self.0.candidates != other.0.candidates
     }
+
+    fn design_was_modified(&self, other: &Self) -> bool {
+        self.0.design.has_different_design_than(&other.0.design)
+    }
 }
 
 #[cfg(test)]
@@ -63,5 +67,33 @@ mod tests {
         state = state.with_candidates(vec![]);
         assert!(state.candidates_set_was_updated(&old_state));
         assert!(!state.selection_was_updated(&old_state));
+    }
+
+    #[test]
+    fn new_design_is_a_modification() {
+        let mut state = AppState::default();
+        let old_state = state.clone();
+
+        assert!(!state.design_was_modified(&old_state));
+        state = AppState::new_design(Default::default());
+        assert!(state.design_was_modified(&old_state));
+    }
+
+    #[test]
+    fn new_selection_is_not_a_modification() {
+        let mut state = AppState::default();
+        let old_state = state.clone();
+
+        state = state.with_selection(vec![]);
+        assert!(!state.design_was_modified(&old_state));
+    }
+
+    #[test]
+    fn new_candidates_is_not_a_modification() {
+        let mut state = AppState::default();
+        let old_state = state.clone();
+
+        state = state.with_candidates(vec![]);
+        assert!(!state.design_was_modified(&old_state));
     }
 }

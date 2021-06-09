@@ -21,7 +21,7 @@ use ensnano_design::Design;
 use std::cell::{Ref, RefCell};
 
 mod presenter;
-use presenter::Presenter;
+use presenter::{update_presenter, Presenter};
 mod controller;
 use controller::Controller;
 
@@ -40,12 +40,22 @@ pub struct DesignInteractor {
 
 impl DesignInteractor {
     pub(super) fn get_design_reader<'a>(&'a self) -> DesignReader<'a> {
-        self.presenter.replace_with(|presenter| {
-            AddressPointer::new(presenter.clone_inner().update(self.design.clone()))
-        });
+        self.presenter
+            .replace_with(|presenter| update_presenter(presenter, self.design.clone()));
         DesignReader {
             presenter: self.presenter.borrow(),
         }
+    }
+
+    pub(super) fn new_design(design: Design) -> Self {
+        Self {
+            design: AddressPointer::new(design),
+            ..Default::default()
+        }
+    }
+
+    pub(super) fn has_different_design_than(&self, other: &Self) -> bool {
+        self.design != other.design
     }
 }
 

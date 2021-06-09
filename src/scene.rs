@@ -781,6 +781,7 @@ pub trait AppState {
     fn get_candidates(&self) -> &[Selection];
     fn selection_was_updated(&self, other: &Self) -> bool;
     fn candidates_set_was_updated(&self, other: &Self) -> bool;
+    fn design_was_modified(&self, other: &Self) -> bool;
 }
 
 pub trait Requests {

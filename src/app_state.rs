@@ -31,6 +31,8 @@ mod design_interactor;
 use address_pointer::AddressPointer;
 use ensnano_design::Design;
 
+use design_interactor::DesignInteractor;
+
 mod impl_app2d;
 mod impl_app3d;
 
@@ -62,7 +64,7 @@ impl AppState {
 
     pub fn new_design(design: Design) -> Self {
         let state = AppState_ {
-            design: AddressPointer::new(design),
+            design: AddressPointer::new(DesignInteractor::new_design(design)),
             ..Default::default()
         };
         Self(AddressPointer::new(state))
@@ -79,5 +81,5 @@ struct AppState_ {
     /// A pointer to the design currently beign eddited. The pointed design is never mutatated.
     /// Instead, when a modification is requested, the design is cloned and the `design` pointer is
     /// replaced by a pointer to a modified `Design`.
-    design: AddressPointer<Design>,
+    design: AddressPointer<DesignInteractor>,
 }
