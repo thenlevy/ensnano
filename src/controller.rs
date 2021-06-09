@@ -16,6 +16,8 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+//! This modules defines the `Controller` struct which handles windows and dialog interactions.
+
 mod download_staples;
 use download_staples::*;
 mod quit;
@@ -44,6 +46,7 @@ impl Controller {
     pub fn new(mediator: Arc<Mutex<Mediator>>) -> Self {
         Self {
             mediator,
+            /// The sate of the windows
             state: Box::new(NormalState),
         }
     }

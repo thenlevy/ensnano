@@ -18,6 +18,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 
 use super::*;
 
+/// User is interacting with graphical components.
 pub(super) struct NormalState;
 
 impl State for NormalState {

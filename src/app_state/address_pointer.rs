@@ -51,3 +51,11 @@ impl<T: Default> AddressPointer<T> {
         Self(Arc::new(content))
     }
 }
+
+use std::ops::Deref;
+impl<T: Clone + Default> AddressPointer<T> {
+    /// Return a clone of the pointed value.
+    pub fn clone_inner(&self) -> T {
+        self.0.deref().clone()
+    }
+}

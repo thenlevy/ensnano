@@ -27,6 +27,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 use super::mediator::{Selection, SelectionMode};
 
 mod address_pointer;
+mod design_interactor;
 use address_pointer::AddressPointer;
 use ensnano_design::Design;
 
@@ -80,4 +81,3 @@ struct AppState_ {
     /// replaced by a pointer to a modified `Design`.
     design: AddressPointer<Design>,
 }
-

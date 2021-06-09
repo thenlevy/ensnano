@@ -21,6 +21,7 @@ use super::{dialog, Arc, MainState, Mediator, Mutex, State, TransitionMessage, Y
 use dialog::PathInput;
 
 #[derive(Default)]
+/// User is in the process of setting the sequence of the scaffold
 pub(super) struct SetScaffoldSequence {
     step: Step,
 }
@@ -48,10 +49,17 @@ impl SetScaffoldSequence {
 
 use std::path::PathBuf;
 enum Step {
+    /// The request to set the sequence of the scaffold has been acknowledged. User is asked to
+    /// chose between the default m13 scaffold or a custom one.
     Init,
+    /// The user has chosen to use a custom scaffold, and is asked a path the sequence file.
     AskPath { path_input: Option<PathInput> },
+    /// The user has chosen a sequence file. The content of the file is checked.
     GotPath(PathBuf),
+    /// The new sequence of the scaffold has been decided, user is asked if they want to optimize
+    /// the starting position
     SetSequence(String),
+    /// The user has chosen to optimize the scaffold position.
     OptimizeScaffoldPosition { design_id: usize },
 }
 
