@@ -54,13 +54,14 @@ use controller::{Consequence, Controller};
 mod data;
 pub use controller::ClickMode;
 use data::Data;
+pub use data::DesignReader;
 use design::{Design, DesignNotification, DesignNotificationContent};
 mod element_selector;
 use element_selector::{ElementSelector, SceneElement};
 mod maths_3d;
 
 type ViewPtr = Rc<RefCell<View>>;
-type DataPtr = Rc<RefCell<Data>>;
+type DataPtr<R: DesignReader> = Rc<RefCell<Data<R>>>;
 
 /// A structure responsible of the 3D display of the designs
 pub struct Scene<S: AppState> {
@@ -69,7 +70,7 @@ pub struct Scene<S: AppState> {
     /// The Object that handles the drawing to the 3d texture
     view: ViewPtr,
     /// The Object thant handles the designs data
-    data: DataPtr,
+    data: DataPtr<S::DesignReader>,
     /// The Object that handles input and notifications
     controller: Controller,
     /// The limits of the area on which the scene is displayed
@@ -107,7 +108,7 @@ impl<S: AppState> Scene<S> {
             queue.clone(),
             encoder,
         )));
-        let data: DataPtr = Rc::new(RefCell::new(Data::new(view.clone())));
+        let data: DataPtr<S::DesignReader> = Rc::new(RefCell::new(Data::new(view.clone())));
         let controller: Controller =
             Controller::new(view.clone(), data.clone(), window_size, area.size);
         let element_selector = ElementSelector::new(
@@ -130,10 +131,11 @@ impl<S: AppState> Scene<S> {
         }
     }
 
+    /*
     /// Add a design to be rendered.
     fn add_design(&mut self, design: Arc<RwLock<Design>>) {
         self.data.borrow_mut().add_design(design)
-    }
+    }*/
 
     /// Remove all designs
     fn clear_design(&mut self) {
@@ -676,7 +678,7 @@ impl<S: AppState> Application for Scene<S> {
                 self.handle_design_notification(notification)
             }
             Notification::AppNotification(_) => (),
-            Notification::NewDesign(design) => self.add_design(design),
+            Notification::NewDesign(_) => (),
             Notification::ClearDesigns => self.clear_design(),
             Notification::ToggleText(value) => self.view.borrow_mut().set_draw_letter(value),
             Notification::FitRequest => self.fit_design(),
@@ -777,6 +779,7 @@ impl<S: AppState> Scene<S> {
 }
 
 pub trait AppState {
+    type DesignReader: DesignReader;
     fn get_selection(&self) -> &[Selection];
     fn get_candidates(&self) -> &[Selection];
     fn selection_was_updated(&self, other: &Self) -> bool;

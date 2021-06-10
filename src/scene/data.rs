@@ -23,13 +23,12 @@ use super::{LetterInstance, SceneElement, View, ViewUpdate};
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
-use std::sync::{Arc, RwLock};
 
 use ultraviolet::{Rotor3, Vec3};
 
 use super::view::Mesh;
 use crate::consts::*;
-use crate::design::{Design, Nucl, ObjectType, Referential, StrandBuilder};
+use crate::design::{Nucl, ObjectType, Referential};
 use crate::mediator::{ActionMode, Selection, SelectionMode};
 use crate::utils::PhantomElement;
 
@@ -40,11 +39,12 @@ type ViewPtr = Rc<RefCell<View>>;
 /// A module that handles the instantiation of designs as 3D geometric objects
 mod design3d;
 use design3d::Design3D;
+pub use design3d::DesignReader;
 
-pub struct Data {
+pub struct Data<R: DesignReader> {
     view: ViewPtr,
     /// A `Design3D` is associated to each design.
-    designs: Vec<Design3D>,
+    designs: Vec<Design3D<R>>,
     /// The set of selected elements
     selected_element: Option<SceneElement>,
     /// The set of candidates elements
@@ -74,7 +74,7 @@ pub struct Data {
     free_xover_update: bool,
 }
 
-impl Data {
+impl<R: DesignReader> Data<R> {
     pub fn new(view: ViewPtr) -> Self {
         Self {
             view,
@@ -99,9 +99,9 @@ impl Data {
     }
 
     /// Add a new design to be drawn
-    pub fn add_design(&mut self, design: Arc<RwLock<Design>>) {
+    pub fn add_design(&mut self, design: R) {
         self.clear_designs();
-        self.designs.push(Design3D::new(design));
+        self.designs.push(Design3D::new(design, 0));
         self.notify_instance_update();
         self.notify_matrices_update();
     }
@@ -937,7 +937,7 @@ impl Data {
 
     fn update_pivot(&mut self) {
         let spheres = if let Some(pivot) = self.pivot_position {
-            vec![Design3D::pivot_sphere(pivot)]
+            vec![Design3D::<R>::pivot_sphere(pivot)]
         } else {
             vec![]
         };
@@ -965,7 +965,7 @@ impl Data {
                 }
             }
             if let Some((pos1, pos2)) = pos1.zip(pos2) {
-                tubes.push(Design3D::free_xover_tube(pos1, pos2))
+                tubes.push(Design3D::<R>::free_xover_tube(pos1, pos2))
             }
         }
         self.view
@@ -984,7 +984,7 @@ impl Data {
         match free_end {
             FreeXoverEnd::Nucl(nucl) => {
                 let position = self.get_nucl_position(*nucl, design_id)?;
-                Some((position, Some(Design3D::free_xover_sphere(position))))
+                Some((position, Some(Design3D::<R>::free_xover_sphere(position))))
             }
             FreeXoverEnd::Free(position) => Some((*position, None)),
         }
@@ -1277,14 +1277,18 @@ impl Data {
         }
     }
 
-    pub fn get_strand_builder(
-        &self,
-        element: Option<SceneElement>,
-        stick: bool,
-    ) -> Option<StrandBuilder> {
-        let selected = element.as_ref()?;
-        let design = selected.get_design()?;
-        self.designs[design as usize].get_builder(selected, stick)
+    pub fn can_start_builder(&self, element: Option<SceneElement>) -> bool {
+        let selected = if let Some(element) = element.as_ref() {
+            element
+        } else {
+            return false;
+        };
+        let design = if let Some(design) = selected.get_design() {
+            design
+        } else {
+            return false;
+        };
+        self.designs[design as usize].can_start_builder(selected)
     }
 
     pub fn element_to_nucl(
