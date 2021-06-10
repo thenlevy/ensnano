@@ -27,6 +27,7 @@ use crate::utils;
 use crate::utils::instance::Instance;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
+use ensnano_design::grid::GridPosition;
 use ultraviolet::{Mat4, Rotor3, Vec3};
 
 /// An object that handles the 3d graphcial representation of a `Design`
@@ -57,10 +58,10 @@ impl Design3D {
     }*/
 
     /// Convert a list of ids into a list of instances
-    pub fn id_to_raw_instances(&self, ids: Vec<u32>) -> Vec<RawDnaInstance> {
+    pub fn id_to_raw_instances(&self, ids: Vec<u32>, design: &dyn DesignReader) -> Vec<RawDnaInstance> {
         let mut ret = Vec::new();
         for id in ids.iter() {
-            if let Some(instance) = self.make_raw_instance(*id) {
+            if let Some(instance) = self.make_raw_instance(*id, design) {
                 ret.push(instance)
             }
         }
@@ -78,7 +79,7 @@ impl Design3D {
     /// Return the list of raw sphere instances to be displayed to represent the design
     pub fn get_spheres_raw(&self, design: &dyn DesignReader) -> Rc<Vec<RawDnaInstance>> {
         let ids = design.get_all_visible_nucl_ids();
-        Rc::new(self.id_to_raw_instances(ids))
+        Rc::new(self.id_to_raw_instances(ids, design))
     }
 
     pub fn get_pasted_strand(
@@ -148,7 +149,7 @@ impl Design3D {
     /// Return the list of tube instances to be displayed to represent the design
     pub fn get_tubes_raw(&self, design: &dyn DesignReader) -> Rc<Vec<RawDnaInstance>> {
         let ids = design.get_all_visible_bound_ids();
-        Rc::new(self.id_to_raw_instances(ids))
+        Rc::new(self.id_to_raw_instances(ids, design))
     }
 
     pub fn get_model_matrix(&self, design: &dyn DesignReader) -> Mat4 {
@@ -164,19 +165,19 @@ impl Design3D {
         mut radius: f32,
         design: &dyn DesignReader,
     ) -> Option<RawDnaInstance> {
-        let kind = self.get_object_type(id)?;
+        let kind = self.get_object_type(id, design)?;
         let referential = Referential::Model;
         let instanciable = match kind {
             ObjectType::Bound(id1, id2) => {
-                let pos1 = self.get_design_element_position(id1, referential)?;
-                let pos2 = self.get_design_element_position(id2, referential)?;
+                let pos1 = self.get_design_element_position(id1, referential, design)?;
+                let pos2 = self.get_design_element_position(id2, referential, design)?;
                 let id = id | self.id << 24;
                 create_dna_bound(pos1, pos2, color, id, true)
                     .with_radius(radius)
                     .to_raw_instance()
             }
             ObjectType::Nucleotide(id) => {
-                let position = self.get_design_element_position(id, referential)?;
+                let position = self.get_design_element_position(id, referential, design)?;
                 let id = id | self.id << 24;
                 let color = Instance::color_from_au32(color);
                 let small = design.has_small_spheres_nucl_id(id);
@@ -198,20 +199,20 @@ impl Design3D {
 
     /// Convert return an instance representing the object with identifier `id`
     pub fn make_raw_instance(&self, id: u32, design: &dyn DesignReader) -> Option<RawDnaInstance> {
-        let kind = self.get_object_type(id)?;
+        let kind = self.get_object_type(id, design)?;
         let referential = Referential::Model;
         let raw_instance = match kind {
             ObjectType::Bound(id1, id2) => {
-                let pos1 = self.get_design_element_position(id1, referential)?;
-                let pos2 = self.get_design_element_position(id2, referential)?;
-                let color = self.get_color(id).unwrap_or(0);
+                let pos1 = self.get_design_element_position(id1, referential, design)?;
+                let pos2 = self.get_design_element_position(id2, referential, design)?;
+                let color = self.get_color(id, design).unwrap_or(0);
                 let id = id | self.id << 24;
                 let tube = create_dna_bound(pos1, pos2, color, id, false);
                 tube.to_raw_instance()
             }
             ObjectType::Nucleotide(id) => {
-                let position = self.get_design_element_position(id, referential)?;
-                let color = self.get_color(id)?;
+                let position = self.get_design_element_position(id, referential, design)?;
+                let color = self.get_color(id, design)?;
                 let color = Instance::color_from_u32(color);
                 let id = id | self.id << 24;
                 let small = design.has_small_spheres_nucl_id(id);
@@ -401,7 +402,7 @@ impl Design3D {
 
     pub fn get_bound(&self, id: u32, design: &dyn DesignReader) -> Option<(Nucl, Nucl)> {
         if let Some(ObjectType::Bound(n1, n2)) = self.get_object_type(id, design) {
-            self.get_nucl(n1).zip(self.get_nucl(n2))
+            self.get_nucl(n1, design).zip(self.get_nucl(n2, design))
         } else {
             None
         }
@@ -415,7 +416,7 @@ impl Design3D {
     ) -> Option<Vec3> {
         match element {
             SceneElement::DesignElement(_, e_id) => {
-                self.get_design_element_position(*e_id, referential)
+                self.get_design_element_position(*e_id, referential, design)
             }
             SceneElement::PhantomElement(phantom) => {
                 self.get_phantom_element_position(phantom, referential, false, design)
@@ -436,7 +437,7 @@ impl Design3D {
     ) -> Option<Vec3> {
         match element {
             SceneElement::DesignElement(_, e_id) => {
-                self.get_design_element_axis_position(*e_id, referential)
+                self.get_design_element_axis_position(*e_id, referential, design)
             }
             SceneElement::PhantomElement(phantom) => {
                 self.get_phantom_element_position(phantom, referential, true, design)
@@ -471,7 +472,7 @@ impl Design3D {
 
     /// Return the middle point of `self` in the world coordinates
     pub fn middle_point(&self, design: &dyn DesignReader) -> Vec3 {
-        let boundaries = self.boundaries();
+        let boundaries = self.boundaries(design);
         let middle = Vec3::new(
             (boundaries[0] + boundaries[1]) as f32 / 2.,
             (boundaries[2] + boundaries[3]) as f32 / 2.,
@@ -513,7 +514,7 @@ impl Design3D {
                 max_z = coord[2];
             }
         }
-        for grid in self.get_grid().iter() {
+        for grid in self.get_grid(design).iter() {
             let coords: [[f32; 3]; 2] = [
                 grid.grid
                     .position_helix(grid.min_x as isize, grid.min_y as isize)
@@ -546,9 +547,9 @@ impl Design3D {
         [min_x, max_x, min_y, max_y, min_z, max_z]
     }
 
-    fn get_all_grid_corners(&self) -> Vec<Vec3> {
+    fn get_all_grid_corners(&self, design: &dyn DesignReader) -> Vec<Vec3> {
         let mut ret = Vec::new();
-        for grid in self.get_grid().iter() {
+        for grid in self.get_grid(design).iter() {
             ret.push(
                 grid.grid
                     .position_helix(grid.min_x as isize, grid.min_y as isize),
@@ -575,7 +576,7 @@ impl Design3D {
             .iter()
             .filter_map(|id| design.get_element_position(*id, Referential::World))
             .collect();
-        ret.extend(self.get_all_grid_corners().into_iter());
+        ret.extend(self.get_all_grid_corners(design).into_iter());
         ret
     }
 
@@ -763,39 +764,35 @@ impl Design3D {
             .unwrap_or(Vec::new())
     }
 
-    pub fn get_helix_grid(&self, g_id: usize, x: isize, y: isize) -> Option<u32> {
-        design.get_helix_grid(g_id, x, y)
+    pub fn get_helix_grid(&self, g_id: usize, x: isize, y: isize, design: &dyn DesignReader) -> Option<u32> {
+        design.get_helix_id_at_grid_coord(g_id, x, y)
     }
 
-    pub fn get_persistent_phantom_helices(&self) -> HashSet<u32> {
-        design.get_persistent_phantom_helices()
+    pub fn get_persistent_phantom_helices(&self, design: &dyn DesignReader) -> HashSet<u32> {
+        design.get_persistent_phantom_helices_id()
     }
 
-    pub fn get_grid_basis(&self, g_id: usize) -> Option<Rotor3> {
+    pub fn get_grid_basis(&self, g_id: usize, design: &dyn DesignReader) -> Option<Rotor3> {
         design.get_grid_basis(g_id)
     }
 
-    pub fn get_nucl(&self, e_id: u32) -> Option<Nucl> {
-        design.get_nucl(e_id)
+    pub fn get_nucl(&self, e_id: u32, design: &dyn DesignReader) -> Option<Nucl> {
+        design.get_nucl_with_id(e_id)
     }
 
-    pub fn get_nucl_relax(&self, e_id: u32) -> Option<Nucl> {
-        design.get_nucl_relax(e_id)
+    pub fn get_nucl_relax(&self, e_id: u32, design: &dyn DesignReader) -> Option<Nucl> {
+        design.get_nucl_with_id_relaxed(e_id)
     }
 
-    pub fn helix_is_on_grid(&self, h_id: u32) -> bool {
-        self.design
-            .read()
-            .unwrap()
-            .get_grid_pos_helix(h_id)
+    pub fn helix_is_on_grid(&self, h_id: u32, design: &dyn DesignReader) -> bool {
+        design
+            .get_helix_grid_position(h_id)
             .is_some()
     }
 
-    pub fn get_nucl_position(&self, nucl: Nucl) -> Option<Vec3> {
-        self.design
-            .read()
-            .unwrap()
-            .get_helix_nucl(nucl, Referential::World, false)
+    pub fn get_nucl_position(&self, nucl: Nucl, design: &dyn DesignReader) -> Option<Vec3> {
+        design
+            .get_position_of_nucl_on_helix(nucl, Referential::World, false)
     }
 
     pub fn pivot_sphere(position: Vec3) -> RawDnaInstance {
@@ -822,28 +819,26 @@ impl Design3D {
         create_dna_bound(pos1, pos2, FREE_XOVER_COLOR, 0, true).to_raw_instance()
     }
 
-    pub fn has_nucl(&self, nucl: &Nucl) -> bool {
-        self.design
-            .read()
-            .unwrap()
+    pub fn has_nucl(&self, nucl: &Nucl, design: &dyn DesignReader) -> bool {
+        design
             .get_identifier_nucl(nucl)
             .is_some()
     }
 
-    pub fn both_prime3(&self, nucl1: Nucl, nucl2: Nucl) -> bool {
-        let prime3_1 = design.prime3_of(nucl1);
-        let prime3_2 = design.prime3_of(nucl2);
+    pub fn both_prime3(&self, nucl1: Nucl, nucl2: Nucl, design: &dyn DesignReader) -> bool {
+        let prime3_1 = design.prime3_of_which_strand(nucl1);
+        let prime3_2 = design.prime3_of_which_strand(nucl2);
         prime3_1.and(prime3_2).is_some()
     }
 
-    pub fn both_prime5(&self, nucl1: Nucl, nucl2: Nucl) -> bool {
-        let prime5_1 = design.prime5_of(nucl1);
-        let prime5_2 = design.prime5_of(nucl2);
+    pub fn both_prime5(&self, nucl1: Nucl, nucl2: Nucl, design: &dyn DesignReader) -> bool {
+        let prime5_1 = design.prime5_of_which_strand(nucl1);
+        let prime5_2 = design.prime5_of_which_strand(nucl2);
         prime5_1.and(prime5_2).is_some()
     }
 
-    pub fn get_all_prime3_cone(&self) -> Vec<RawDnaInstance> {
-        let cones = design.get_prime3_set();
+    pub fn get_all_prime3_cone(&self, design: &dyn DesignReader) -> Vec<RawDnaInstance> {
+        let cones = design.get_all_prime3_nucl();
         let mut ret = Vec::with_capacity(cones.len());
         for c in cones {
             ret.push(create_prime3_cone(c.0, c.1, c.2));
@@ -939,8 +934,19 @@ pub trait DesignReader {
     fn get_xover_with_id(&self, xover_id: usize) -> Option<(Nucl, Nucl)>;
     fn get_xover_id(&self, xover: &(Nucl, Nucl)) -> Option<usize>;
     fn get_nucl_with_id(&self, e_id: u32) -> Option<Nucl>;
+    /// Return the nucleotide with id e_id or the 5' end of the bound with id e_id
+    fn get_nucl_with_id_relaxed(&self, e_id: u32) -> Option<Nucl>;
     fn can_start_builder_at(&self, nucl: &Nucl) -> bool;
     fn get_grid_instances(&self) -> Vec<GridInstance>;
     fn get_helices_on_grid(&self, g_id: usize) -> Option<HashSet<usize>>;
     fn get_used_coordinates_on_grid(&self, g_id: usize) -> Option<Vec<(isize, isize)>>;
+    fn get_helices_grid_key_coord(&self, g_id: usize) -> Option<Vec<((isize, isize), usize)>>;
+    fn get_helix_id_at_grid_coord(&self, g_id: usize, x:isize, y: isize) -> Option<u32>;
+    fn get_persistent_phantom_helices_id(&self) -> HashSet<u32>;
+    fn get_grid_basis(&self, g_id: usize) -> Option<Rotor3>;
+    fn get_helix_grid_position(&self, h_id: u32) -> Option<GridPosition>;
+    fn prime5_of_which_strand(&self, nucl: Nucl) -> Option<usize>;
+    fn prime3_of_which_strand(&self, nucl: Nucl) -> Option<usize>;
+    fn get_all_prime3_nucl(&self) -> Vec<(Vec3, Vec3, u32)>;
+
 }
