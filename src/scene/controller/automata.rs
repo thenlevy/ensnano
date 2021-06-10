@@ -731,8 +731,6 @@ impl ControllerState for BuildingStrand {
                     mouse_y,
                 );
                 let consequence = if let Some(position) = position {
-                    controller.data.borrow_mut().reset_selection();
-                    controller.data.borrow_mut().reset_candidate();
                     self.builder.move_to(position);
                     Consequence::Building(Box::new(self.builder.clone()), position)
                 } else {

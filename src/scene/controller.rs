@@ -16,7 +16,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 use super::{
-    camera, DataPtr, Duration, ElementSelector, HandleDir, SceneElement, ViewPtr,
+    camera, Duration, ElementSelector, HandleDir, SceneElement, ViewPtr,
     WidgetRotationMode as RotationMode,
 };
 use crate::consts::*;
@@ -40,6 +40,9 @@ pub enum ClickMode {
     #[allow(dead_code)]
     RotateCam,
 }
+
+use std::rc::Rc;
+type DataPtr = Rc<RefCell<dyn Data>>;
 
 /// An object handling input and notification for the scene.
 pub struct Controller {
@@ -310,4 +313,16 @@ fn ctrl(modifiers: &ModifiersState) -> bool {
     } else {
         modifiers.ctrl()
     }
+}
+
+use crate::mediator::ActionMode;
+pub(super) trait Data {
+    fn get_action_mode(&self) -> ActionMode;
+    fn element_to_nucl(&self, element: &Option<SceneElement>, _: bool) -> Option<(Nucl, usize)>;
+    fn get_nucl_position(&self, nucl: Nucl, d_id: usize) -> Option<Vec3>;
+    fn attempt_xover(
+        &self,
+        source: &Option<SceneElement>,
+        dest: &Option<SceneElement>,
+    ) -> Option<(Nucl, Nucl, usize)>;
 }
