@@ -24,14 +24,14 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 //!
 //! Each component of ENSnano has specific needs and express them via its own `AppState` trait.
 
-use super::mediator::{Selection, SelectionMode};
+use super::mediator::{ActionMode, Selection, SelectionMode};
 
 mod address_pointer;
 mod design_interactor;
 use address_pointer::AddressPointer;
 use ensnano_design::Design;
 
-use design_interactor::DesignInteractor;
+use design_interactor::{DesignInteractor, DesignReader};
 
 mod impl_app2d;
 mod impl_app3d;
@@ -69,6 +69,18 @@ impl AppState {
         };
         Self(AddressPointer::new(state))
     }
+
+    pub fn updated(mut self) -> Self {
+        let mut interactor = self.0.design.clone_inner();
+        interactor = interactor.with_updated_design_reader();
+        self.with_interactor(interactor)
+    }
+
+    fn with_interactor(mut self, interactor: DesignInteractor) -> Self {
+        let mut new_state = self.0.clone_inner();
+        new_state.design = AddressPointer::new(interactor);
+        Self(AddressPointer::new(new_state))
+    }
 }
 
 #[derive(Clone, PartialEq, Eq, Default)]
@@ -82,4 +94,5 @@ struct AppState_ {
     /// Instead, when a modification is requested, the design is cloned and the `design` pointer is
     /// replaced by a pointer to a modified `Design`.
     design: AddressPointer<DesignInteractor>,
+    action_mode: ActionMode,
 }

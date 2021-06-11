@@ -17,8 +17,9 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 
 use super::*;
+use ultraviolet::Mat4;
 
-#[derive(Clone, Default)]
+#[derive(Clone)]
 /// The structure that handles "read" operations on designs.
 ///
 /// It contains several data structure that are pre-computed to allow quicker response to the read
@@ -30,6 +31,16 @@ use super::*;
 /// structures, the strucutres are updated before returning the design reader.
 pub(super) struct Presenter {
     old_design: AddressPointer<Design>,
+    model_matrix: AddressPointer<Mat4>,
+}
+
+impl Default for Presenter {
+    fn default() -> Self {
+        Self {
+            old_design: Default::default(),
+            model_matrix: AddressPointer::new(Mat4::identity()),
+        }
+    }
 }
 
 impl Presenter {
@@ -57,3 +68,5 @@ pub(super) fn update_presenter(
         presenter.clone()
     }
 }
+
+struct HashMaps {}

@@ -23,6 +23,7 @@ use std::sync::{Arc, Mutex, RwLock};
 use std::time::Duration;
 use ultraviolet::{Mat4, Rotor3, Vec3};
 
+use crate::design::StrandBuilder;
 use crate::{design, mediator, utils};
 use crate::{DrawArea, PhySize, WindowEvent};
 use ensnano_design::{grid::Hyperboloid, Nucl};
@@ -72,7 +73,7 @@ pub struct Scene<S: AppState> {
     /// The Object thant handles the designs data
     data: DataPtr<S::DesignReader>,
     /// The Object that handles input and notifications
-    controller: Controller,
+    controller: Controller<S>,
     /// The limits of the area on which the scene is displayed
     area: DrawArea,
     element_selector: ElementSelector,
@@ -109,7 +110,7 @@ impl<S: AppState> Scene<S> {
             encoder,
         )));
         let data: DataPtr<S::DesignReader> = Rc::new(RefCell::new(Data::new(view.clone())));
-        let controller: Controller =
+        let controller: Controller<S> =
             Controller::new(view.clone(), data.clone(), window_size, area.size);
         let element_selector = ElementSelector::new(
             device,
@@ -149,9 +150,12 @@ impl<S: AppState> Scene<S> {
         cursor_position: PhysicalPosition<f64>,
         app_state: &S,
     ) {
-        let consequence = self
-            .controller
-            .input(event, cursor_position, &mut self.element_selector);
+        let consequence = self.controller.input(
+            event,
+            cursor_position,
+            &mut self.element_selector,
+            app_state,
+        );
         self.read_consequence(consequence, app_state);
     }
 
@@ -216,21 +220,14 @@ impl<S: AppState> Scene<S> {
                 self.notify(SceneNotification::CameraMoved);
             }
             Consequence::ToggleWidget => self.data.borrow_mut().toggle_widget_basis(false),
-            Consequence::BuildEnded(d_id, id) => {
-                self.select(Some(SceneElement::DesignElement(d_id, id)), app_state)
-            }
+            Consequence::BuildEnded => self.requests.lock().unwrap().suspend_op(),
             Consequence::Undo => self.requests.lock().unwrap().undo(),
             Consequence::Redo => self.requests.lock().unwrap().redo(),
-            Consequence::Building(builder, _) => {
-                let color = builder.get_strand_color();
+            Consequence::Building(position) => {
                 self.requests
                     .lock()
                     .unwrap()
-                    .update_opperation(Arc::new(StrandConstruction {
-                        redo: Some(color),
-                        color,
-                        builder,
-                    }));
+                    .update_builder_position(position);
             }
             Consequence::Candidate(element) => self.set_candidate(element, app_state),
             Consequence::PivotElement(element) => {
@@ -818,6 +815,7 @@ pub trait AppState {
     fn get_selection_mode(&self) -> SelectionMode;
     fn get_action_mode(&self) -> ActionMode;
     fn get_design_reader(&self) -> Self::DesignReader;
+    fn get_strand_builders(&self) -> Vec<StrandBuilder>;
 }
 
 pub trait Requests {
@@ -831,4 +829,5 @@ pub trait Requests {
     fn request_center_selection(&mut self, selection: Selection, app_id: AppId);
     fn undo(&mut self);
     fn redo(&mut self);
+    fn update_builder_position(&mut self, position: isize);
 }

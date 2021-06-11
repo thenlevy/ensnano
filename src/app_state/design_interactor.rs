@@ -18,12 +18,12 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 
 use super::AddressPointer;
 use ensnano_design::Design;
-use std::cell::{Ref, RefCell};
 
 mod presenter;
 use presenter::{update_presenter, Presenter};
 mod controller;
 use controller::Controller;
+mod impl_reader3d;
 
 /// The `DesignInteractor` handles all read/write operations on the design. It is a stateful struct
 /// so it is meant to be unexpansive to clone.
@@ -33,18 +33,21 @@ pub struct DesignInteractor {
     design: AddressPointer<Design>,
     /// The structure that handles "read" operations. The graphic components of EnsNano access the
     /// presenter via a trait that defines each components needs.
-    presenter: RefCell<AddressPointer<Presenter>>,
+    presenter: AddressPointer<Presenter>,
     /// The structure that handles "write" operations.
     controller: AddressPointer<Controller>,
 }
 
 impl DesignInteractor {
-    pub(super) fn get_design_reader<'a>(&'a self) -> DesignReader<'a> {
-        self.presenter
-            .replace_with(|presenter| update_presenter(presenter, self.design.clone()));
+    pub(super) fn get_design_reader(&self) -> DesignReader {
         DesignReader {
-            presenter: self.presenter.borrow(),
+            presenter: self.presenter.clone(),
         }
+    }
+
+    pub(super) fn with_updated_design_reader(mut self) -> Self {
+        self.presenter = update_presenter(&self.presenter, self.design.clone());
+        self
     }
 
     pub(super) fn new_design(design: Design) -> Self {
@@ -57,10 +60,12 @@ impl DesignInteractor {
     pub(super) fn has_different_design_than(&self, other: &Self) -> bool {
         self.design != other.design
     }
+
+    pub(super) fn has_different_model_matrix_than(&self, other: &Self) -> bool {}
 }
 
 /// A reference to a Presenter that is guaranted to always have up to date internal data
 /// structures.
-pub(super) struct DesignReader<'a> {
-    presenter: Ref<'a, AddressPointer<Presenter>>,
+pub(super) struct DesignReader {
+    presenter: AddressPointer<Presenter>,
 }

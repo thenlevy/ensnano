@@ -1397,4 +1397,28 @@ fn toggle_selection(mode: SelectionMode) -> SelectionMode {
 
 use super::controller::Data as ControllerData;
 
-impl<R: DesignReader> ControllerData for Data<R> {}
+impl<R: DesignReader> ControllerData for Data<R> {
+    fn element_to_nucl(
+        &self,
+        element: &Option<SceneElement>,
+        non_phantom: bool,
+    ) -> Option<(Nucl, usize)> {
+        self.element_to_nucl(element, non_phantom)
+    }
+
+    fn get_nucl_position(&self, nucl: Nucl, design_id: usize) -> Option<Vec3> {
+        self.get_nucl_position(nucl, design_id)
+    }
+
+    fn attempt_xover(
+        &self,
+        source: &Option<SceneElement>,
+        target: &Option<SceneElement>,
+    ) -> Option<(Nucl, Nucl, usize)> {
+        self.attempt_xover(source, target)
+    }
+
+    fn can_start_builder(&self, element: Option<SceneElement>) -> bool {
+        self.can_start_builder(element)
+    }
+}

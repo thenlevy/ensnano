@@ -21,20 +21,22 @@ use std::borrow::Cow;
 use std::cell::RefCell;
 use std::time::Instant;
 
-pub(super) type State = RefCell<Box<dyn ControllerState>>;
+use super::AppState;
 
-pub(super) fn initial_state() -> State {
+pub(super) type State<S: AppState> = RefCell<Box<dyn ControllerState<S>>>;
+
+pub(super) fn initial_state<S: AppState>() -> State<S> {
     RefCell::new(Box::new(NormalState {
         mouse_position: PhysicalPosition::new(-1., -1.),
     }))
 }
 
-pub(super) struct Transition {
-    pub new_state: Option<Box<dyn ControllerState>>,
+pub(super) struct Transition<S: AppState> {
+    pub new_state: Option<Box<dyn ControllerState<S>>>,
     pub consequences: Consequence,
 }
 
-impl Transition {
+impl<S: AppState> Transition<S> {
     pub fn nothing() -> Self {
         Self {
             new_state: None,
@@ -50,27 +52,28 @@ impl Transition {
     }
 }
 
-pub(super) trait ControllerState {
+pub(super) trait ControllerState<S: AppState> {
     fn input(
         &mut self,
         event: &WindowEvent,
         position: PhysicalPosition<f64>,
-        controller: &Controller,
+        controller: &Controller<S>,
         pixel_reader: &mut ElementSelector,
-    ) -> Transition;
+        app_state: &S,
+    ) -> Transition<S>;
 
     #[allow(dead_code)]
     fn display(&self) -> Cow<'static, str>;
 
-    fn transition_from(&self, _controller: &Controller) -> TransistionConsequence {
+    fn transition_from(&self, _controller: &Controller<S>) -> TransistionConsequence {
         TransistionConsequence::Nothing
     }
 
-    fn transition_to(&self, _controller: &Controller) -> TransistionConsequence {
+    fn transition_to(&self, _controller: &Controller<S>) -> TransistionConsequence {
         TransistionConsequence::Nothing
     }
 
-    fn check_timers(&mut self, _controller: &Controller) -> Transition {
+    fn check_timers(&mut self, _controller: &Controller<S>) -> Transition<S> {
         Transition::nothing()
     }
 }
@@ -79,14 +82,15 @@ pub struct NormalState {
     pub mouse_position: PhysicalPosition<f64>,
 }
 
-impl ControllerState for NormalState {
+impl<S: AppState> ControllerState<S> for NormalState {
     fn input(
         &mut self,
         event: &WindowEvent,
         position: PhysicalPosition<f64>,
-        controller: &Controller,
+        controller: &Controller<S>,
         pixel_reader: &mut ElementSelector,
-    ) -> Transition {
+        app_state: &S,
+    ) -> Transition<S> {
         match event {
             WindowEvent::CursorMoved { .. } if controller.pasting => {
                 self.mouse_position = position;
@@ -96,7 +100,7 @@ impl ControllerState for NormalState {
             WindowEvent::CursorMoved { .. } => {
                 self.mouse_position = position;
                 let element = pixel_reader.set_selected_id(position);
-                if controller.data.borrow().get_action_mode().is_build() {
+                if controller.action_mode.is_build() {
                     if let Some(SceneElement::Grid(d_id, _)) = element {
                         let mouse_x = position.x / controller.area_size.width as f64;
                         let mouse_y = position.y / controller.area_size.height as f64;
@@ -165,7 +169,7 @@ impl ControllerState for NormalState {
                         if let ActionMode::BuildHelix {
                             position: helix_position,
                             length,
-                        } = controller.data.borrow().get_action_mode()
+                        } = controller.action_mode
                         {
                             if let Some(intersection) = grid_intersection {
                                 Transition {
@@ -301,16 +305,16 @@ struct TranslatingCamera {
     button_pressed: MouseButton,
 }
 
-impl ControllerState for TranslatingCamera {
+impl<S: AppState> ControllerState<S> for TranslatingCamera {
     fn display(&self) -> Cow<'static, str> {
         "Translating Camera".into()
     }
 
-    fn transition_to(&self, _controller: &Controller) -> TransistionConsequence {
+    fn transition_to(&self, _controller: &Controller<S>) -> TransistionConsequence {
         TransistionConsequence::InitMovement
     }
 
-    fn transition_from(&self, _controller: &Controller) -> TransistionConsequence {
+    fn transition_from(&self, _controller: &Controller<S>) -> TransistionConsequence {
         TransistionConsequence::EndMovement
     }
 
@@ -318,9 +322,10 @@ impl ControllerState for TranslatingCamera {
         &mut self,
         event: &WindowEvent,
         position: PhysicalPosition<f64>,
-        controller: &Controller,
+        controller: &Controller<S>,
         _pixel_reader: &mut ElementSelector,
-    ) -> Transition {
+        app_state: &S,
+    ) -> Transition<S> {
         match event {
             WindowEvent::MouseInput {
                 button,
@@ -350,7 +355,7 @@ struct SettingPivot {
     clicked_position: PhysicalPosition<f64>,
 }
 
-impl ControllerState for SettingPivot {
+impl<S: AppState> ControllerState<S> for SettingPivot {
     fn display(&self) -> Cow<'static, str> {
         "Setting Pivot".into()
     }
@@ -359,9 +364,10 @@ impl ControllerState for SettingPivot {
         &mut self,
         event: &WindowEvent,
         position: PhysicalPosition<f64>,
-        _controller: &Controller,
+        _controller: &Controller<S>,
         pixel_reader: &mut ElementSelector,
-    ) -> Transition {
+        app_state: &S,
+    ) -> Transition<S> {
         match event {
             WindowEvent::CursorMoved { .. } => {
                 if position_difference(position, self.clicked_position) > 5. {
@@ -400,16 +406,16 @@ struct RotatingCamera {
     button_pressed: MouseButton,
 }
 
-impl ControllerState for RotatingCamera {
+impl<S: AppState> ControllerState<S> for RotatingCamera {
     fn display(&self) -> Cow<'static, str> {
         "Rotating Camera".into()
     }
 
-    fn transition_to(&self, _controller: &Controller) -> TransistionConsequence {
+    fn transition_to(&self, _controller: &Controller<S>) -> TransistionConsequence {
         TransistionConsequence::InitMovement
     }
 
-    fn transition_from(&self, _controller: &Controller) -> TransistionConsequence {
+    fn transition_from(&self, _controller: &Controller<S>) -> TransistionConsequence {
         TransistionConsequence::EndMovement
     }
 
@@ -417,9 +423,10 @@ impl ControllerState for RotatingCamera {
         &mut self,
         event: &WindowEvent,
         position: PhysicalPosition<f64>,
-        controller: &Controller,
+        controller: &Controller<S>,
         _pixel_reader: &mut ElementSelector,
-    ) -> Transition {
+        app_state: &S,
+    ) -> Transition<S> {
         match event {
             WindowEvent::CursorMoved { .. } => {
                 let mouse_dx =
@@ -451,12 +458,12 @@ struct Selecting {
     adding: bool,
 }
 
-impl ControllerState for Selecting {
+impl<S: AppState> ControllerState<S> for Selecting {
     fn display(&self) -> Cow<'static, str> {
         "Selecting".into()
     }
 
-    fn check_timers(&mut self, controller: &Controller) -> Transition {
+    fn check_timers(&mut self, controller: &Controller<S>) -> Transition<S> {
         let now = Instant::now();
         if (now - self.click_date).as_millis() > 250 {
             if let Some((nucl, d_id)) = controller
@@ -500,19 +507,16 @@ impl ControllerState for Selecting {
         &mut self,
         event: &WindowEvent,
         position: PhysicalPosition<f64>,
-        controller: &Controller,
+        controller: &Controller<S>,
         _pixel_reader: &mut ElementSelector,
-    ) -> Transition {
+        app_state: &S,
+    ) -> Transition<S> {
         match event {
             WindowEvent::CursorMoved { .. } => {
                 if position_difference(position, self.clicked_position) > 5. {
-                    if let Some(builder) = controller
-                        .data
-                        .borrow()
-                        .get_strand_builder(self.element, controller.current_modifiers.shift())
-                    {
+                    if controller.data.borrow().can_start_builder(self.element) {
                         Transition {
-                            new_state: Some(Box::new(BuildingStrand { builder })),
+                            new_state: Some(Box::new(BuildingStrand)),
                             consequences: Consequence::Nothing,
                         }
                     } else {
@@ -556,8 +560,8 @@ struct WaitDoubleClick {
     clicked_position: PhysicalPosition<f64>,
 }
 
-impl ControllerState for WaitDoubleClick {
-    fn check_timers(&mut self, _controller: &Controller) -> Transition {
+impl<S: AppState> ControllerState<S> for WaitDoubleClick {
+    fn check_timers(&mut self, _controller: &Controller<S>) -> Transition<S> {
         let now = Instant::now();
         if (now - self.click_date).as_millis() > 250 {
             Transition {
@@ -579,9 +583,10 @@ impl ControllerState for WaitDoubleClick {
         &mut self,
         event: &WindowEvent,
         position: PhysicalPosition<f64>,
-        _controller: &Controller,
+        _controller: &Controller<S>,
         _pixel_reader: &mut ElementSelector,
-    ) -> Transition {
+        app_state: &S,
+    ) -> Transition<S> {
         match event {
             WindowEvent::MouseInput {
                 button: MouseButton::Left,
@@ -615,7 +620,7 @@ struct TranslatingWidget {
     direction: HandleDir,
 }
 
-impl ControllerState for TranslatingWidget {
+impl<S: AppState> ControllerState<S> for TranslatingWidget {
     fn display(&self) -> Cow<'static, str> {
         "Translating widget".into()
     }
@@ -624,9 +629,10 @@ impl ControllerState for TranslatingWidget {
         &mut self,
         event: &WindowEvent,
         position: PhysicalPosition<f64>,
-        controller: &Controller,
+        controller: &Controller<S>,
         _pixel_reader: &mut ElementSelector,
-    ) -> Transition {
+        app_state: &S,
+    ) -> Transition<S> {
         match event {
             WindowEvent::MouseInput {
                 button: MouseButton::Left,
@@ -652,7 +658,7 @@ struct RotatingWidget {
     rotation_mode: RotationMode,
 }
 
-impl ControllerState for RotatingWidget {
+impl<S: AppState> ControllerState<S> for RotatingWidget {
     fn display(&self) -> Cow<'static, str> {
         "Rotating widget".into()
     }
@@ -661,9 +667,10 @@ impl ControllerState for RotatingWidget {
         &mut self,
         event: &WindowEvent,
         position: PhysicalPosition<f64>,
-        controller: &Controller,
+        controller: &Controller<S>,
         _pixel_reader: &mut ElementSelector,
-    ) -> Transition {
+        app_state: &S,
+    ) -> Transition<S> {
         match event {
             WindowEvent::MouseInput {
                 button: MouseButton::Left,
@@ -685,11 +692,8 @@ impl ControllerState for RotatingWidget {
     }
 }
 
-struct BuildingStrand {
-    builder: StrandBuilder,
-}
-
-impl ControllerState for BuildingStrand {
+struct BuildingStrand;
+impl<S: AppState> ControllerState<S> for BuildingStrand {
     fn display(&self) -> Cow<'static, str> {
         "Building Strand".into()
     }
@@ -698,45 +702,39 @@ impl ControllerState for BuildingStrand {
         &mut self,
         event: &WindowEvent,
         position: PhysicalPosition<f64>,
-        controller: &Controller,
+        controller: &Controller<S>,
         _pixel_reader: &mut ElementSelector,
-    ) -> Transition {
+        app_state: &S,
+    ) -> Transition<S> {
         match event {
             WindowEvent::MouseInput {
                 button: MouseButton::Left,
                 state: ElementState::Released,
                 ..
-            } => {
-                let d_id = self.builder.get_design_id();
-                let id = self.builder.get_moving_end_identifier();
-                let consequence = if let Some(id) = id {
-                    Consequence::BuildEnded(d_id, id)
-                } else {
-                    println!("Warning could not recover id of moving end");
-                    Consequence::Nothing
-                };
-                Transition {
-                    new_state: Some(Box::new(NormalState {
-                        mouse_position: position,
-                    })),
-                    consequences: consequence,
-                }
-            }
+            } => Transition {
+                new_state: Some(Box::new(NormalState {
+                    mouse_position: position,
+                })),
+                consequences: Consequence::BuildEnded,
+            },
             WindowEvent::CursorMoved { .. } => {
-                let mouse_x = position.x / controller.area_size.width as f64;
-                let mouse_y = position.y / controller.area_size.height as f64;
-                let position = controller.view.borrow().compute_projection_axis(
-                    &self.builder.axis,
-                    mouse_x,
-                    mouse_y,
-                );
-                let consequence = if let Some(position) = position {
-                    self.builder.move_to(position);
-                    Consequence::Building(Box::new(self.builder.clone()), position)
+                if let Some(builder) = app_state.get_strand_builders().get(0) {
+                    let mouse_x = position.x / controller.area_size.width as f64;
+                    let mouse_y = position.y / controller.area_size.height as f64;
+                    let position = controller.view.borrow().compute_projection_axis(
+                        &builder.axis,
+                        mouse_x,
+                        mouse_y,
+                    );
+                    let consequence = if let Some(position) = position {
+                        Consequence::Building(position)
+                    } else {
+                        Consequence::Nothing
+                    };
+                    Transition::consequence(consequence)
                 } else {
-                    Consequence::Nothing
-                };
-                Transition::consequence(consequence)
+                    Transition::nothing()
+                }
             }
             _ => Transition::nothing(),
         }
@@ -748,7 +746,7 @@ struct Xovering {
     source_position: Vec3,
 }
 
-impl ControllerState for Xovering {
+impl<S: AppState> ControllerState<S> for Xovering {
     fn display(&self) -> Cow<'static, str> {
         "Building Strand".into()
     }
@@ -757,9 +755,10 @@ impl ControllerState for Xovering {
         &mut self,
         event: &WindowEvent,
         position: PhysicalPosition<f64>,
-        controller: &Controller,
+        controller: &Controller<S>,
         pixel_reader: &mut ElementSelector,
-    ) -> Transition {
+        app_state: &S,
+    ) -> Transition<S> {
         match event {
             WindowEvent::MouseInput {
                 button: MouseButton::Left,
@@ -813,7 +812,7 @@ struct BuildingHelix {
     clicked_position: PhysicalPosition<f64>,
 }
 
-impl ControllerState for BuildingHelix {
+impl<S: AppState> ControllerState<S> for BuildingHelix {
     fn display(&self) -> Cow<'static, str> {
         "Building Helix".into()
     }
@@ -822,9 +821,10 @@ impl ControllerState for BuildingHelix {
         &mut self,
         event: &WindowEvent,
         position: PhysicalPosition<f64>,
-        _controller: &Controller,
+        _controller: &Controller<S>,
         _pixel_reader: &mut ElementSelector,
-    ) -> Transition {
+        app_state: &S,
+    ) -> Transition<S> {
         match event {
             WindowEvent::CursorMoved { .. } => {
                 if position_difference(self.clicked_position, position) > 5. {
@@ -865,7 +865,7 @@ struct Pasting {
     element: Option<SceneElement>,
 }
 
-impl ControllerState for Pasting {
+impl<S: AppState> ControllerState<S> for Pasting {
     fn display(&self) -> Cow<'static, str> {
         "Pasting".into()
     }
@@ -874,9 +874,10 @@ impl ControllerState for Pasting {
         &mut self,
         event: &WindowEvent,
         position: PhysicalPosition<f64>,
-        _controller: &Controller,
+        _controller: &Controller<S>,
         _pixel_reader: &mut ElementSelector,
-    ) -> Transition {
+        app_state: &S,
+    ) -> Transition<S> {
         match event {
             WindowEvent::CursorMoved { .. } => {
                 if position_difference(self.clicked_position, position) > 5. {

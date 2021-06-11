@@ -1129,6 +1129,11 @@ impl MainState {
     fn push_action(&mut self, action: Action) {
         self.pending_actions.push_back(action)
     }
+
+    fn get_app_state(&mut self) -> AppState {
+        self.app_state = self.app_state.updated();
+        self.app_state.clone()
+    }
 }
 
 /// A temporary view of the main state and the control flow.

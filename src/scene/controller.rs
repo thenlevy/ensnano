@@ -26,6 +26,7 @@ use iced_winit::winit::event::*;
 use std::cell::RefCell;
 use ultraviolet::{Rotor3, Vec3};
 
+use super::AppState;
 use super::DesignReader;
 
 use camera::CameraController;
@@ -45,7 +46,7 @@ use std::rc::Rc;
 type DataPtr = Rc<RefCell<dyn Data>>;
 
 /// An object handling input and notification for the scene.
-pub struct Controller {
+pub struct Controller<S: AppState> {
     /// A pointer to the View
     view: ViewPtr,
     /// A pointer to the data
@@ -60,8 +61,9 @@ pub struct Controller {
     current_modifiers: ModifiersState,
     /// The effect that dragging the mouse has
     click_mode: ClickMode,
-    state: State,
+    state: State<S>,
     pub(super) pasting: bool,
+    action_mode: ActionMode,
 }
 
 pub enum Consequence {
@@ -76,8 +78,8 @@ pub enum Consequence {
     Swing(f64, f64),
     Nothing,
     ToggleWidget,
-    BuildEnded(u32, u32),
-    Building(Box<StrandBuilder>, isize),
+    BuildEnded,
+    Building(isize),
     Undo,
     Redo,
     Candidate(Option<super::SceneElement>),
@@ -105,7 +107,7 @@ enum TransistionConsequence {
     EndMovement,
 }
 
-impl Controller {
+impl<S: AppState> Controller<S> {
     pub fn new(view: ViewPtr, data: DataPtr, window_size: PhySize, area_size: PhySize) -> Self {
         let camera_controller = {
             let view = view.borrow();
@@ -126,6 +128,7 @@ impl Controller {
             click_mode: ClickMode::TranslateCam,
             state: automata::initial_state(),
             pasting: false,
+            action_mode: Default::default(),
         }
     }
 
@@ -167,6 +170,7 @@ impl Controller {
         event: &WindowEvent,
         position: PhysicalPosition<f64>,
         pixel_reader: &mut ElementSelector,
+        app_state: &S,
     ) -> Consequence {
         let transition = if let WindowEvent::Focused(false) = event {
             Transition {
@@ -217,7 +221,7 @@ impl Controller {
         } else {
             self.state
                 .borrow_mut()
-                .input(event, position, &self, pixel_reader)
+                .input(event, position, &self, pixel_reader, app_state)
         };
 
         if let Some(state) = transition.new_state {
@@ -317,7 +321,6 @@ fn ctrl(modifiers: &ModifiersState) -> bool {
 
 use crate::mediator::ActionMode;
 pub(super) trait Data {
-    fn get_action_mode(&self) -> ActionMode;
     fn element_to_nucl(&self, element: &Option<SceneElement>, _: bool) -> Option<(Nucl, usize)>;
     fn get_nucl_position(&self, nucl: Nucl, d_id: usize) -> Option<Vec3>;
     fn attempt_xover(
@@ -325,4 +328,5 @@ pub(super) trait Data {
         source: &Option<SceneElement>,
         dest: &Option<SceneElement>,
     ) -> Option<(Nucl, Nucl, usize)>;
+    fn can_start_builder(&self, element: Option<SceneElement>) -> bool;
 }

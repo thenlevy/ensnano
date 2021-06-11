@@ -21,6 +21,7 @@ use crate::scene::AppState as App3D;
 use super::*;
 
 impl App3D for AppState {
+    type DesignReader = DesignReader;
     fn get_selection(&self) -> &[Selection] {
         self.0.selection.as_slice()
     }
@@ -39,6 +40,24 @@ impl App3D for AppState {
 
     fn design_was_modified(&self, other: &Self) -> bool {
         self.0.design.has_different_design_than(&other.0.design)
+    }
+
+    fn design_model_matrix_was_updated(&self, other: &Self) -> bool {
+        self.0
+            .design
+            .has_different_model_matrix_than(&other.0.design)
+    }
+
+    fn get_selection_mode(&self) -> SelectionMode {
+        self.0.selection_mode
+    }
+
+    fn get_action_mode(&self) -> ActionMode {
+        self.0.action_mode
+    }
+
+    fn get_design_reader(&self) -> Self::DesignReader {
+        self.0.design.get_design_reader()
     }
 }
 
