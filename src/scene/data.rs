@@ -1394,3 +1394,7 @@ fn toggle_selection(mode: SelectionMode) -> SelectionMode {
         mode => mode,
     }
 }
+
+use super::controller::Data as ControllerData;
+
+impl<R: DesignReader> ControllerData for Data<R> {}

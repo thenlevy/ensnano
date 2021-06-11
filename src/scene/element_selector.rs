@@ -17,6 +17,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 use std::rc::Rc;
 
+use super::{AppState, DesignReader};
 use super::{DataPtr, Device, DrawArea, DrawType, Queue, ViewPtr};
 use crate::utils;
 use futures::executor;
@@ -30,7 +31,6 @@ pub struct ElementSelector {
     readers: Vec<SceneReader>,
     window_size: PhysicalSize<u32>,
     view: ViewPtr,
-    data: DataPtr,
     area: DrawArea,
 }
 
@@ -40,7 +40,6 @@ impl ElementSelector {
         queue: Rc<Queue>,
         window_size: PhysicalSize<u32>,
         view: ViewPtr,
-        data: DataPtr,
         area: DrawArea,
     ) -> Self {
         let readers = vec![
@@ -55,7 +54,6 @@ impl ElementSelector {
             window_size,
             readers,
             view,
-            data,
             area,
         }
     }
@@ -120,13 +118,9 @@ impl ElementSelector {
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
 
-        self.view.borrow_mut().draw(
-            &mut encoder,
-            &texture_view,
-            draw_type,
-            self.area,
-            self.data.borrow().get_action_mode(),
-        );
+        self.view
+            .borrow_mut()
+            .draw(&mut encoder, &texture_view, draw_type, self.area);
 
         // create a buffer and fill it with the texture
         let extent = wgpu::Extent3d {

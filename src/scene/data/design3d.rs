@@ -848,7 +848,7 @@ fn create_prime3_cone(source: Vec3, dest: Vec3, color: u32) -> RawDnaInstance {
     .to_raw_instance()
 }
 
-pub trait DesignReader {
+pub trait DesignReader: 'static {
     /// Return the identifier of all the visible nucleotides
     fn get_all_visible_nucl_ids(&self) -> Vec<u32>;
     /// Return the identifier of all the visible bounds

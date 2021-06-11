@@ -116,7 +116,6 @@ impl<S: AppState> Scene<S> {
             queue,
             controller.get_window_size(),
             view.clone(),
-            data.clone(),
             area,
         );
         Self {
@@ -180,13 +179,12 @@ impl<S: AppState> Scene<S> {
                     dir,
                 );
                 if let Some(t) = translation {
-                    self.translate_selected_design(t);
+                    self.translate_selected_design(t, app_state);
                 }
             }
             Consequence::MovementEnded => {
                 self.requests.lock().unwrap().suspend_op();
-                self.data.borrow_mut().end_movement();
-                self.update_handle();
+                self.update_handle(app_state);
             }
             Consequence::InitRotation(x, y) => {
                 self.view.borrow_mut().init_rotation(x as f32, y as f32)
@@ -201,7 +199,7 @@ impl<S: AppState> Scene<S> {
                     .compute_rotation(x as f32, y as f32, mode);
                 if let Some((rotation, origin, positive)) = rotation {
                     if rotation.bv.mag() > 1e-3 {
-                        self.rotate_selected_desgin(rotation, origin, positive)
+                        self.rotate_selected_desgin(rotation, origin, positive, app_state)
                     }
                 } else {
                     println!("Warning rotiation was None")
@@ -210,7 +208,7 @@ impl<S: AppState> Scene<S> {
             Consequence::Swing(x, y) => {
                 let mut pivot = self.data.borrow().get_pivot_position();
                 if pivot.is_none() {
-                    self.data.borrow_mut().try_update_pivot_position();
+                    self.data.borrow_mut().try_update_pivot_position(app_state);
                     pivot = self.data.borrow().get_pivot_position();
                 }
                 self.controller.set_pivot_point(pivot);
@@ -219,7 +217,7 @@ impl<S: AppState> Scene<S> {
             }
             Consequence::ToggleWidget => self.data.borrow_mut().toggle_widget_basis(false),
             Consequence::BuildEnded(d_id, id) => {
-                self.select(Some(SceneElement::DesignElement(d_id, id)))
+                self.select(Some(SceneElement::DesignElement(d_id, id)), app_state)
             }
             Consequence::Undo => self.requests.lock().unwrap().undo(),
             Consequence::Redo => self.requests.lock().unwrap().redo(),
@@ -234,17 +232,17 @@ impl<S: AppState> Scene<S> {
                         builder,
                     }));
             }
-            Consequence::Candidate(element) => self.set_candidate(element),
+            Consequence::Candidate(element) => self.set_candidate(element, app_state),
             Consequence::PivotElement(element) => {
-                self.data.borrow_mut().set_pivot_element(element);
+                self.data.borrow_mut().set_pivot_element(element, app_state);
                 let pivot = self.data.borrow().get_pivot_position();
                 self.view.borrow_mut().update(ViewUpdate::FogCenter(pivot));
             }
             Consequence::ElementSelected(element, adding) => {
                 if adding {
-                    self.add_selection(element, app_state.get_selection())
+                    self.add_selection(element, app_state.get_selection(), app_state)
                 } else {
-                    self.select(element)
+                    self.select(element, app_state)
                 }
             }
             Consequence::InitFreeXover(nucl, d_id, position) => {
@@ -274,14 +272,14 @@ impl<S: AppState> Scene<S> {
                         length,
                         position,
                     }));
-                self.select(Some(SceneElement::Grid(design_id, grid_id)));
+                self.select(Some(SceneElement::Grid(design_id, grid_id)), app_state);
                 self.view.borrow_mut().update(ViewUpdate::Camera);
                 self.requests.lock().unwrap().suspend_op();
             }
             Consequence::PasteCandidate(element) => self.pasting_candidate(element),
             Consequence::Paste(element) => self.attempt_paste(element),
             Consequence::DoubleClick(element) => {
-                let selection = self.data.borrow().to_selection(element);
+                let selection = self.data.borrow().to_selection(element, app_state);
                 if let Some(selection) = selection {
                     self.requests
                         .lock()
@@ -307,7 +305,6 @@ impl<S: AppState> Scene<S> {
                 grid_type,
                 delete: false,
             }));
-        self.data.borrow_mut().notify_instance_update();
         self.requests.lock().unwrap().suspend_op();
     }
 
@@ -327,7 +324,6 @@ impl<S: AppState> Scene<S> {
                 delete: false,
             }));
         self.data.borrow_mut().set_pivot_position(position);
-        self.data.borrow_mut().notify_instance_update();
         self.requests.lock().unwrap().suspend_op();
     }
 
@@ -340,7 +336,7 @@ impl<S: AppState> Scene<S> {
             .xover_request(source, target, design_id)
     }
 
-    fn element_center(&mut self) -> Option<SceneElement> {
+    fn element_center(&mut self, app_state: &S) -> Option<SceneElement> {
         let clicked_pixel = PhysicalPosition::new(
             self.area.size.width as f64 / 2.,
             self.area.size.height as f64 / 2.,
@@ -354,19 +350,24 @@ impl<S: AppState> Scene<S> {
         grid.or_else(move || self.element_selector.set_selected_id(clicked_pixel))
     }
 
-    fn select(&mut self, element: Option<SceneElement>) {
-        let selection = self.data.borrow_mut().set_selection(element);
+    fn select(&mut self, element: Option<SceneElement>, app_state: &S) {
+        let selection = self.data.borrow_mut().set_selection(element, app_state);
         if let Some(selection) = selection {
             self.requests.lock().unwrap().set_selection(vec![selection]);
         }
-        self.update_handle();
+        self.update_handle(app_state);
     }
 
-    fn add_selection(&mut self, element: Option<SceneElement>, current_selection: &[Selection]) {
-        let selection = self
-            .data
-            .borrow_mut()
-            .add_to_selection(element, current_selection);
+    fn add_selection(
+        &mut self,
+        element: Option<SceneElement>,
+        current_selection: &[Selection],
+        app_state: &S,
+    ) {
+        let selection =
+            self.data
+                .borrow_mut()
+                .add_to_selection(element, current_selection, app_state);
         if let Some(selection) = selection {
             self.requests.lock().unwrap().set_selection(selection);
         }
@@ -388,8 +389,8 @@ impl<S: AppState> Scene<S> {
             .set_paste_candidate(nucl.map(|n| n.0));
     }
 
-    fn set_candidate(&mut self, element: Option<SceneElement>) {
-        let new_candidates = self.data.borrow_mut().set_candidate(element);
+    fn set_candidate(&mut self, element: Option<SceneElement>, app_state: &S) {
+        let new_candidates = self.data.borrow_mut().set_candidate(element, app_state);
         let widget = if let Some(SceneElement::WidgetElement(widget_id)) = element {
             Some(widget_id)
         } else {
@@ -404,8 +405,8 @@ impl<S: AppState> Scene<S> {
         self.requests.lock().unwrap().set_candidate(selection);
     }
 
-    fn translate_selected_design(&mut self, translation: Vec3) {
-        let rotor = self.data.borrow().get_widget_basis();
+    fn translate_selected_design(&mut self, translation: Vec3, app_state: &S) {
+        let rotor = self.data.borrow().get_widget_basis(app_state);
         self.view.borrow_mut().translate_widgets(translation);
         if rotor.is_none() {
             return;
@@ -415,30 +416,31 @@ impl<S: AppState> Scene<S> {
         let top = Vec3::unit_y().rotated_by(rotor);
         let dir = Vec3::unit_z().rotated_by(rotor);
 
-        let translation_op: Arc<dyn Operation> = match self.data.borrow().get_selected_element() {
-            Selection::Grid(d_id, g_id) => Arc::new(GridTranslation {
-                design_id: d_id as usize,
-                grid_id: g_id as usize,
-                right: Vec3::unit_x().rotated_by(rotor),
-                top: Vec3::unit_y().rotated_by(rotor),
-                dir: Vec3::unit_z().rotated_by(rotor),
-                x: translation.dot(right),
-                y: translation.dot(top),
-                z: translation.dot(dir),
-            }),
-            Selection::Helix(d_id, h_id) => Arc::new(HelixTranslation {
-                design_id: d_id as usize,
-                helix_id: h_id as usize,
-                right: Vec3::unit_x().rotated_by(rotor),
-                top: Vec3::unit_y().rotated_by(rotor),
-                dir: Vec3::unit_z().rotated_by(rotor),
-                x: translation.dot(right),
-                y: translation.dot(top),
-                z: translation.dot(dir),
-                snap: true,
-            }),
-            _ => return,
-        };
+        let translation_op: Arc<dyn Operation> =
+            match self.data.borrow().get_selected_element(app_state) {
+                Selection::Grid(d_id, g_id) => Arc::new(GridTranslation {
+                    design_id: d_id as usize,
+                    grid_id: g_id as usize,
+                    right: Vec3::unit_x().rotated_by(rotor),
+                    top: Vec3::unit_y().rotated_by(rotor),
+                    dir: Vec3::unit_z().rotated_by(rotor),
+                    x: translation.dot(right),
+                    y: translation.dot(top),
+                    z: translation.dot(dir),
+                }),
+                Selection::Helix(d_id, h_id) => Arc::new(HelixTranslation {
+                    design_id: d_id as usize,
+                    helix_id: h_id as usize,
+                    right: Vec3::unit_x().rotated_by(rotor),
+                    top: Vec3::unit_y().rotated_by(rotor),
+                    dir: Vec3::unit_z().rotated_by(rotor),
+                    x: translation.dot(right),
+                    y: translation.dot(top),
+                    z: translation.dot(dir),
+                    snap: true,
+                }),
+                _ => return,
+            };
 
         self.requests
             .lock()
@@ -446,13 +448,20 @@ impl<S: AppState> Scene<S> {
             .update_opperation(translation_op);
     }
 
-    fn rotate_selected_desgin(&mut self, rotation: Rotor3, origin: Vec3, positive: bool) {
+    fn rotate_selected_desgin(
+        &mut self,
+        rotation: Rotor3,
+        origin: Vec3,
+        positive: bool,
+        app_state: &S,
+    ) {
         let (mut angle, mut plane) = rotation.into_angle_plane();
         if !positive {
             angle *= -1.;
             plane *= -1.;
         }
-        let rotation: Arc<dyn Operation> = match self.data.borrow().get_selected_element() {
+        let rotation: Arc<dyn Operation> = match self.data.borrow().get_selected_element(app_state)
+        {
             Selection::Helix(d_id, h_id) => {
                 let helix_id = h_id as usize;
                 Arc::new(HelixRotation {
@@ -497,7 +506,7 @@ impl<S: AppState> Scene<S> {
             self.notify(SceneNotification::CameraMoved);
         }
         if self.update.need_update {
-            self.perform_update(dt);
+            self.perform_update(dt, &new_state);
         }
         self.data
             .borrow_mut()
@@ -507,53 +516,65 @@ impl<S: AppState> Scene<S> {
     }
 
     /// Draw the scene
-    fn draw_view(&mut self, encoder: &mut wgpu::CommandEncoder, target: &wgpu::TextureView) {
-        self.view.borrow_mut().draw(
-            encoder,
-            target,
-            DrawType::Scene,
-            self.area,
-            self.data.borrow().get_action_mode(),
-        );
-    }
-
-    fn update_handle(&mut self) {
-        let origin = self.data.borrow().get_selected_position();
-        let orientation = self.data.borrow().get_widget_basis();
-        let descr = origin
-            .clone()
-            .zip(orientation.clone())
-            .map(|(origin, orientation)| HandlesDescriptor {
-                origin,
-                orientation: HandleOrientation::Rotor(orientation),
-                size: 0.25,
-            });
-        self.view.borrow_mut().update(ViewUpdate::Handles(descr));
-        let only_right = !self.data.borrow().selection_can_rotate_freely();
-        let descr = origin
-            .clone()
-            .zip(orientation.clone())
-            .map(|(origin, orientation)| RotationWidgetDescriptor {
-                origin,
-                orientation: RotationWidgetOrientation::Rotor(orientation),
-                size: 0.2,
-                only_right,
-            });
+    fn draw_view(
+        &mut self,
+        encoder: &mut wgpu::CommandEncoder,
+        target: &wgpu::TextureView,
+        app_state: &S,
+    ) {
         self.view
             .borrow_mut()
-            .update(ViewUpdate::RotationWidget(descr));
+            .draw(encoder, target, DrawType::Scene, self.area);
     }
 
-    fn perform_update(&mut self, dt: Duration) {
+    fn update_handle(&mut self, app_state: &S) {
+        let origin = self.data.borrow().get_selected_position();
+        let orientation = self.data.borrow().get_widget_basis(app_state);
+        let handle_descr = if app_state.get_action_mode().wants_handle() {
+            origin
+                .clone()
+                .zip(orientation.clone())
+                .map(|(origin, orientation)| HandlesDescriptor {
+                    origin,
+                    orientation: HandleOrientation::Rotor(orientation),
+                    size: 0.25,
+                })
+        } else {
+            None
+        };
+        self.view
+            .borrow_mut()
+            .update(ViewUpdate::Handles(handle_descr));
+        let only_right = !self.data.borrow().selection_can_rotate_freely(app_state);
+        let rotation_widget_descr = if app_state.get_action_mode().wants_rotation() {
+            origin
+                .clone()
+                .zip(orientation.clone())
+                .map(|(origin, orientation)| RotationWidgetDescriptor {
+                    origin,
+                    orientation: RotationWidgetOrientation::Rotor(orientation),
+                    size: 0.2,
+                    only_right,
+                })
+        } else {
+            None
+        };
+        self.view
+            .borrow_mut()
+            .update(ViewUpdate::RotationWidget(rotation_widget_descr));
+    }
+
+    fn perform_update(&mut self, dt: Duration, app_state: &S) {
         if self.update.camera_update {
             self.controller.update_camera(dt);
             self.view.borrow_mut().update(ViewUpdate::Camera);
             self.update.camera_update = false;
-            self.update_handle()
+            self.update_handle(app_state)
         }
         self.update.need_update = false;
     }
 
+    /*
     fn change_selection_mode(&mut self, selection_mode: SelectionMode) {
         self.data.borrow_mut().change_selection_mode(selection_mode);
         self.update_handle();
@@ -562,28 +583,32 @@ impl<S: AppState> Scene<S> {
     fn change_action_mode(&mut self, action_mode: ActionMode) {
         self.data.borrow_mut().change_action_mode(action_mode);
         self.update_handle();
-    }
+    }*/
 
     fn change_sensitivity(&mut self, sensitivity: f32) {
         self.controller.change_sensitivity(sensitivity)
     }
 
-    fn set_camera_target(&mut self, target: Vec3, up: Vec3) {
+    fn set_camera_target(&mut self, target: Vec3, up: Vec3, app_state: &S) {
         let pivot = self.data.borrow().get_selected_position();
         let pivot = pivot.or_else(|| {
-            let element_center = self.element_center();
-            self.data.borrow_mut().set_selection(element_center);
+            let element_center = self.element_center(app_state);
+            self.data
+                .borrow_mut()
+                .set_selection(element_center, app_state);
             self.data.borrow().get_selected_position()
         });
         self.controller.set_camera_target(target, up, pivot);
         self.fit_design();
     }
 
-    fn request_camera_rotation(&mut self, xz: f32, yz: f32, xy: f32) {
+    fn request_camera_rotation(&mut self, xz: f32, yz: f32, xy: f32, app_state: &S) {
         let pivot = self.data.borrow().get_selected_position();
         let pivot = pivot.or_else(|| {
-            let element_center = self.element_center();
-            self.data.borrow_mut().set_selection(element_center);
+            let element_center = self.element_center(app_state);
+            self.data
+                .borrow_mut()
+                .set_selection(element_center, app_state);
             self.data.borrow().get_selected_position()
         });
         self.controller.rotate_camera(xz, yz, xy, pivot);
@@ -675,25 +700,31 @@ impl<S: AppState> Application for Scene<S> {
     fn on_notify(&mut self, notification: Notification) {
         match notification {
             Notification::DesignNotification(notification) => {
-                self.handle_design_notification(notification)
+                //self.handle_design_notification(notification)
             }
             Notification::AppNotification(_) => (),
             Notification::NewDesign(_) => (),
             Notification::ClearDesigns => self.clear_design(),
             Notification::ToggleText(value) => self.view.borrow_mut().set_draw_letter(value),
             Notification::FitRequest => self.fit_design(),
-            Notification::NewActionMode(am) => self.change_action_mode(am),
-            Notification::NewSelectionMode(sm) => self.change_selection_mode(sm),
+            Notification::NewActionMode(am) => {
+                ()
+                //self.change_action_mode(am),
+            }
+            Notification::NewSelectionMode(sm) => {
+                //self.change_selection_mode(sm),
+                ()
+            }
             Notification::NewSensitivity(x) => self.change_sensitivity(x),
             Notification::NewCandidate(candidate, app_id) => (),
             Notification::Selection3D(selection, app_id) => (),
             Notification::Save(_) => (),
             Notification::CameraTarget((target, up)) => {
-                self.set_camera_target(target, up);
+                self.set_camera_target(target, up, &self.older_state);
                 self.notify(SceneNotification::CameraMoved);
             }
             Notification::CameraRotation(xz, yz, xy) => {
-                self.request_camera_rotation(xz, yz, xy);
+                self.request_camera_rotation(xz, yz, xy, &self.older_state);
                 self.notify(SceneNotification::CameraMoved);
             }
             Notification::Centering(nucl, design_id) => {
@@ -701,9 +732,6 @@ impl<S: AppState> Application for Scene<S> {
                 if let Some(position) = self.data.borrow().get_nucl_position(nucl, design_id) {
                     self.controller.center_camera(position);
                     selected = true;
-                }
-                if selected {
-                    self.data.borrow_mut().select_nucl(nucl, design_id);
                 }
                 self.notify(SceneNotification::CameraMoved);
             }
@@ -725,7 +753,7 @@ impl<S: AppState> Application for Scene<S> {
             Notification::Redim2dHelices(_) => (),
             Notification::ToggleWidget(b) => {
                 self.data.borrow_mut().toggle_widget_basis(b);
-                self.update_handle();
+                self.update_handle(&self.older_state);
             }
             Notification::RenderingMode(mode) => self.view.borrow_mut().rendering_mode(mode),
             Notification::Background3D(bg) => self.view.borrow_mut().background3d(bg),
@@ -751,7 +779,7 @@ impl<S: AppState> Application for Scene<S> {
         target: &wgpu::TextureView,
         _dt: Duration,
     ) {
-        self.draw_view(encoder, target)
+        self.draw_view(encoder, target, &self.older_state)
     }
 
     fn needs_redraw(&mut self, dt: Duration, state: S) -> bool {
@@ -760,6 +788,7 @@ impl<S: AppState> Application for Scene<S> {
 }
 
 impl<S: AppState> Scene<S> {
+    /*
     fn handle_design_notification(&mut self, notification: DesignNotification) {
         let _design_id = notification.design_id;
         match notification.content {
@@ -775,7 +804,7 @@ impl<S: AppState> Scene<S> {
                 self.data.borrow_mut().set_selection(None);
             }
         }
-    }
+    }*/
 }
 
 pub trait AppState {
@@ -788,6 +817,7 @@ pub trait AppState {
     fn design_model_matrix_was_updated(&self, other: &Self) -> bool;
     fn get_selection_mode(&self) -> SelectionMode;
     fn get_action_mode(&self) -> ActionMode;
+    fn get_design_reader(&self) -> Self::DesignReader;
 }
 
 pub trait Requests {
