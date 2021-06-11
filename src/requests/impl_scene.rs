@@ -59,4 +59,8 @@ impl SceneRequests for Requests {
     fn redo(&mut self) {
         self.redo = Some(());
     }
+
+    fn update_builder_position(&mut self, position: isize) {
+        todo!()
+    }
 }

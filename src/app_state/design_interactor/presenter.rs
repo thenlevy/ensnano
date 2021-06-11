@@ -16,8 +16,15 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+use crate::design::ObjectType;
+
 use super::*;
+use ensnano_design::Nucl;
 use ultraviolet::Mat4;
+
+use crate::utils::id_generator::IdGenerator;
+type JunctionsIds = IdGenerator<(Nucl, Nucl)>;
+mod design_content;
 
 #[derive(Clone)]
 /// The structure that handles "read" operations on designs.
@@ -32,6 +39,7 @@ use ultraviolet::Mat4;
 pub(super) struct Presenter {
     old_design: AddressPointer<Design>,
     model_matrix: AddressPointer<Mat4>,
+    id_generator: AddressPointer<IdGenerator<(Nucl, Nucl)>>,
 }
 
 impl Default for Presenter {
@@ -39,6 +47,7 @@ impl Default for Presenter {
         Self {
             old_design: Default::default(),
             model_matrix: AddressPointer::new(Mat4::identity()),
+            id_generator: Default::default(),
         }
     }
 }
@@ -47,12 +56,26 @@ impl Presenter {
     pub fn update(mut self, design: AddressPointer<Design>) -> Self {
         if self.old_design != design {
             self.read_design(design);
+            self.read_scaffold_seq();
+            self.update_visibility();
         }
         self
     }
 
     fn read_design(&mut self, design: AddressPointer<Design>) {
         self.old_design = design;
+    }
+
+    pub(super) fn has_different_model_matrix_than(&self, other: &Self) -> bool {
+        self.model_matrix != other.model_matrix
+    }
+
+    fn read_scaffold_seq(&mut self) {
+        ()
+    }
+
+    fn update_visibility(&mut self) {
+        ()
     }
 }
 
@@ -68,5 +91,3 @@ pub(super) fn update_presenter(
         presenter.clone()
     }
 }
-
-struct HashMaps {}

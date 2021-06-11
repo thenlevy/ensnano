@@ -16,6 +16,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+use crate::design::StrandBuilder;
 use crate::scene::AppState as App3D;
 
 use super::*;
@@ -58,6 +59,10 @@ impl App3D for AppState {
 
     fn get_design_reader(&self) -> Self::DesignReader {
         self.0.design.get_design_reader()
+    }
+
+    fn get_strand_builders(&self) -> Vec<StrandBuilder> {
+        todo!()
     }
 }
 

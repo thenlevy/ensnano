@@ -61,7 +61,10 @@ impl DesignInteractor {
         self.design != other.design
     }
 
-    pub(super) fn has_different_model_matrix_than(&self, other: &Self) -> bool {}
+    pub(super) fn has_different_model_matrix_than(&self, other: &Self) -> bool {
+        self.presenter
+            .has_different_model_matrix_than(other.presenter.as_ref())
+    }
 }
 
 /// A reference to a Presenter that is guaranted to always have up to date internal data
