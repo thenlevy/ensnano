@@ -69,6 +69,6 @@ impl DesignInteractor {
 
 /// A reference to a Presenter that is guaranted to always have up to date internal data
 /// structures.
-pub(super) struct DesignReader {
+pub struct DesignReader {
     presenter: AddressPointer<Presenter>,
 }

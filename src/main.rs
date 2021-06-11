@@ -1131,7 +1131,8 @@ impl MainState {
     }
 
     fn get_app_state(&mut self) -> AppState {
-        self.app_state = self.app_state.updated();
+        let tmp = std::mem::take(&mut self.app_state);
+        self.app_state = tmp.updated();
         self.app_state.clone()
     }
 }

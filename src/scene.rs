@@ -695,6 +695,7 @@ impl<S: AppState> Scene<S> {
 impl<S: AppState> Application for Scene<S> {
     type AppState = S;
     fn on_notify(&mut self, notification: Notification) {
+        let older_state = self.older_state.clone();
         match notification {
             Notification::DesignNotification(notification) => {
                 //self.handle_design_notification(notification)
@@ -717,11 +718,11 @@ impl<S: AppState> Application for Scene<S> {
             Notification::Selection3D(selection, app_id) => (),
             Notification::Save(_) => (),
             Notification::CameraTarget((target, up)) => {
-                self.set_camera_target(target, up, &self.older_state);
+                self.set_camera_target(target, up, &older_state);
                 self.notify(SceneNotification::CameraMoved);
             }
             Notification::CameraRotation(xz, yz, xy) => {
-                self.request_camera_rotation(xz, yz, xy, &self.older_state);
+                self.request_camera_rotation(xz, yz, xy, &older_state);
                 self.notify(SceneNotification::CameraMoved);
             }
             Notification::Centering(nucl, design_id) => {
@@ -750,7 +751,7 @@ impl<S: AppState> Application for Scene<S> {
             Notification::Redim2dHelices(_) => (),
             Notification::ToggleWidget(b) => {
                 self.data.borrow_mut().toggle_widget_basis(b);
-                self.update_handle(&self.older_state);
+                self.update_handle(&older_state);
             }
             Notification::RenderingMode(mode) => self.view.borrow_mut().rendering_mode(mode),
             Notification::Background3D(bg) => self.view.borrow_mut().background3d(bg),
@@ -776,7 +777,8 @@ impl<S: AppState> Application for Scene<S> {
         target: &wgpu::TextureView,
         _dt: Duration,
     ) {
-        self.draw_view(encoder, target, &self.older_state)
+        let older_state = self.older_state.clone();
+        self.draw_view(encoder, target, &older_state)
     }
 
     fn needs_redraw(&mut self, dt: Duration, state: S) -> bool {
@@ -804,7 +806,7 @@ impl<S: AppState> Scene<S> {
     }*/
 }
 
-pub trait AppState {
+pub trait AppState: Clone {
     type DesignReader: DesignReader;
     fn get_selection(&self) -> &[Selection];
     fn get_candidates(&self) -> &[Selection];

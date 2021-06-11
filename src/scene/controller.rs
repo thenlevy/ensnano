@@ -108,7 +108,12 @@ enum TransistionConsequence {
 }
 
 impl<S: AppState> Controller<S> {
-    pub fn new(view: ViewPtr, data: DataPtr, window_size: PhySize, area_size: PhySize) -> Self {
+    pub(super) fn new(
+        view: ViewPtr,
+        data: DataPtr,
+        window_size: PhySize,
+        area_size: PhySize,
+    ) -> Self {
         let camera_controller = {
             let view = view.borrow();
             CameraController::new(
