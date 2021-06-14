@@ -18,53 +18,84 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 
 use super::*;
 use crate::design::ObjectType;
+use crate::scene::GridInstance;
 use ahash::RandomState;
 use ensnano_design::elements::DnaElement;
 use ensnano_design::*;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use ultraviolet::Vec3;
 
 mod grid_data;
 use grid_data::GridManager;
 
-struct DesignContent {
+#[derive(Default, Clone)]
+pub(super) struct DesignContent {
     /// Maps identifer of elements to their object type
-    object_type: HashMap<u32, ObjectType, RandomState>,
+    pub object_type: HashMap<u32, ObjectType, RandomState>,
     /// Maps identifier of nucleotide to Nucleotide objects
-    nucleotide: HashMap<u32, Nucl, RandomState>,
+    pub nucleotide: HashMap<u32, Nucl, RandomState>,
     /// Maps identifier of bounds to the pair of nucleotides involved in the bound
-    nucleotides_involved: HashMap<u32, (Nucl, Nucl), RandomState>,
+    pub nucleotides_involved: HashMap<u32, (Nucl, Nucl), RandomState>,
     /// Maps identifier of element to their position in the Model's coordinates
-    space_position: HashMap<u32, [f32; 3], RandomState>,
+    pub space_position: HashMap<u32, [f32; 3], RandomState>,
     /// Maps a Nucl object to its identifier
-    identifier_nucl: HashMap<Nucl, u32, RandomState>,
+    pub identifier_nucl: HashMap<Nucl, u32, RandomState>,
     /// Maps a pair of nucleotide forming a bound to the identifier of the bound
-    identifier_bound: HashMap<(Nucl, Nucl), u32, RandomState>,
+    pub identifier_bound: HashMap<(Nucl, Nucl), u32, RandomState>,
     /// Maps the identifier of a element to the identifier of the strands to which it belongs
-    strand_map: HashMap<u32, usize, RandomState>,
+    pub strand_map: HashMap<u32, usize, RandomState>,
     /// Maps the identifier of a element to the identifier of the helix to which it belongs
-    helix_map: HashMap<u32, usize, RandomState>,
+    pub helix_map: HashMap<u32, usize, RandomState>,
     /// Maps the identifier of an element to its color
-    color: HashMap<u32, u32, RandomState>,
-    basis_map: HashMap<Nucl, char, RandomState>,
+    pub color: HashMap<u32, u32, RandomState>,
+    pub basis_map: HashMap<Nucl, char, RandomState>,
     /// The position in space of the nucleotides in the Red group
-    red_cubes: HashMap<(isize, isize, isize), Vec<Nucl>, RandomState>,
+    pub red_cubes: HashMap<(isize, isize, isize), Vec<Nucl>, RandomState>,
     /// The list of nucleotides in the blue group
-    blue_nucl: Vec<Nucl>,
-    prime3_set: Vec<Prime3End>,
-    elements: Vec<DnaElement>,
+    pub blue_nucl: Vec<Nucl>,
+    pub prime3_set: Vec<Prime3End>,
+    pub elements: Vec<DnaElement>,
     grid_manager: GridManager,
 }
 
-struct Prime3End {
-    position_start: Vec3,
-    position_end: Vec3,
-    color: u32,
+impl DesignContent {
+    pub(super) fn get_grid_instances(&self) -> Vec<GridInstance> {
+        self.grid_manager.grid_instances(0)
+    }
+
+    pub(super) fn get_helices_on_grid(&self, g_id: usize) -> HashSet<usize> {
+        self.grid_manager.get_helices_on_grid(g_id)
+    }
+    /// Return the position of an element.
+    /// If the element is a nucleotide, return the center of the nucleotide.
+    /// If the element is a bound, return the middle of the segment between the two nucleotides
+    /// involved in the bound.
+    pub(super) fn get_element_position(&self, id: u32) -> Option<Vec3> {
+        if let Some(object_type) = self.object_type.get(&id) {
+            match object_type {
+                ObjectType::Nucleotide(id) => self.space_position.get(&id).map(|x| x.into()),
+                ObjectType::Bound(e1, e2) => {
+                    let a = self.space_position.get(e1)?;
+                    let b = self.space_position.get(e2)?;
+                    Some((Vec3::from(*a) + Vec3::from(*b)) / 2.)
+                }
+            }
+        } else {
+            None
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct Prime3End {
+    pub position_start: Vec3,
+    pub position_end: Vec3,
+    pub color: u32,
 }
 
 impl DesignContent {
     /// Update all the hash maps
-    fn make_hash_maps(
+    pub(super) fn make_hash_maps(
         mut design: Design,
         groups: &BTreeMap<usize, bool>,
         xover_ids: AddressPointer<JunctionsIds>,

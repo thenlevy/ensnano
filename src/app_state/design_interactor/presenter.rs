@@ -25,6 +25,9 @@ use ultraviolet::Mat4;
 use crate::utils::id_generator::IdGenerator;
 type JunctionsIds = IdGenerator<(Nucl, Nucl)>;
 mod design_content;
+mod impl_reader3d;
+use design_content::DesignContent;
+use std::collections::BTreeMap;
 
 #[derive(Clone)]
 /// The structure that handles "read" operations on designs.
@@ -37,24 +40,30 @@ mod design_content;
 /// pointer does not point to the same address as the one that was used to create the data
 /// structures, the strucutres are updated before returning the design reader.
 pub(super) struct Presenter {
-    old_design: AddressPointer<Design>,
+    current_design: AddressPointer<Design>,
     model_matrix: AddressPointer<Mat4>,
     id_generator: AddressPointer<IdGenerator<(Nucl, Nucl)>>,
+    content: AddressPointer<DesignContent>,
+    junctions_ids: AddressPointer<JunctionsIds>,
+    helices_groups: AddressPointer<BTreeMap<usize, bool>>,
 }
 
 impl Default for Presenter {
     fn default() -> Self {
         Self {
-            old_design: Default::default(),
+            current_design: Default::default(),
             model_matrix: AddressPointer::new(Mat4::identity()),
             id_generator: Default::default(),
+            content: Default::default(),
+            junctions_ids: Default::default(),
+            helices_groups: Default::default(),
         }
     }
 }
 
 impl Presenter {
     pub fn update(mut self, design: AddressPointer<Design>) -> Self {
-        if self.old_design != design {
+        if self.current_design != design {
             self.read_design(design);
             self.read_scaffold_seq();
             self.update_visibility();
@@ -63,7 +72,16 @@ impl Presenter {
     }
 
     fn read_design(&mut self, design: AddressPointer<Design>) {
-        self.old_design = design;
+        let (content, design, junctions_ids) = DesignContent::make_hash_maps(
+            design.clone_inner(),
+            self.helices_groups.as_ref(),
+            self.junctions_ids.clone(),
+        );
+        self.current_design = AddressPointer::new(design);
+        self.content = AddressPointer::new(content);
+        if let Some(junctions_ids) = junctions_ids {
+            self.junctions_ids = AddressPointer::new(junctions_ids);
+        }
     }
 
     pub(super) fn has_different_model_matrix_than(&self, other: &Self) -> bool {
@@ -83,7 +101,7 @@ pub(super) fn update_presenter(
     presenter: &AddressPointer<Presenter>,
     design: AddressPointer<Design>,
 ) -> AddressPointer<Presenter> {
-    if presenter.old_design != design {
+    if presenter.current_design != design {
         let mut new_presenter = presenter.clone_inner();
         new_presenter.read_design(design);
         AddressPointer::new(new_presenter)

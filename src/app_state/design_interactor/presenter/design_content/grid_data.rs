@@ -25,6 +25,7 @@ use ultraviolet::{Rotor3, Vec2, Vec3};
 
 use crate::scene::GridInstance;
 
+#[derive(Default, Clone)]
 pub(super) struct GridManager {
     pub grids: Vec<Grid>,
     helix_to_pos: HashMap<usize, GridPosition>,
@@ -499,6 +500,15 @@ impl GridManager {
 
     pub fn pos_to_helix(&self, grid: usize, x: isize, y: isize) -> Option<usize> {
         self.pos_to_helix.get(&(grid, x, y)).cloned()
+    }
+
+    pub(super) fn get_helices_on_grid(&self, g_id: usize) -> HashSet<usize> {
+        self.pos_to_helix
+            .iter()
+            .filter(|(pos, _)| pos.0 == g_id)
+            .map(|(_, h)| h)
+            .cloned()
+            .collect()
     }
 }
 

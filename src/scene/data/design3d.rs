@@ -649,28 +649,18 @@ impl<R: DesignReader> Design3D<R> {
         self.design.get_basis()
     }
 
-    pub fn get_element_5prime(&self, element_id: u32) -> Option<SceneElement> {
-        let id = self.design.get_element_5prime(element_id)?;
-        Some(SceneElement::DesignElement(self.id, id))
-    }
-
-    pub fn get_element_3prime(&self, element_id: u32) -> Option<SceneElement> {
-        let id = self.design.get_element_3prime(element_id)?;
-        Some(SceneElement::DesignElement(self.id, id))
-    }
-
     pub fn get_identifier_nucl(&self, nucl: &Nucl) -> Option<u32> {
         self.design.get_identifier_nucl(nucl)
     }
 
-    pub fn get_identifier_bound(&self, n1: &Nucl, n2: &Nucl) -> Option<u32> {
+    pub fn get_identifier_bound(&self, n1: Nucl, n2: Nucl) -> Option<u32> {
         self.design.get_identifier_bound(n1, n2)
     }
 
     pub fn get_element_identifier_from_xover_id(&self, xover_id: usize) -> Option<u32> {
         self.design
             .get_xover_with_id(xover_id)
-            .and_then(|(n1, n2)| self.design.get_identifier_bound(&n1, &n2))
+            .and_then(|(n1, n2)| self.design.get_identifier_bound(n1, n2))
     }
 
     pub fn get_xover_id(&self, xover: &(Nucl, Nucl)) -> Option<usize> {
@@ -886,10 +876,8 @@ pub trait DesignReader: 'static {
     fn get_ids_of_elements_belonging_to_helix(&self, h_id: usize) -> Vec<u32>;
     fn get_helix_basis(&self, h_id: u32) -> Option<Rotor3>;
     fn get_basis(&self) -> Rotor3;
-    fn get_element_5prime(&self, e_id: u32) -> Option<u32>;
-    fn get_element_3prime(&self, e_id: u32) -> Option<u32>;
     fn get_identifier_nucl(&self, nucl: &Nucl) -> Option<u32>;
-    fn get_identifier_bound(&self, n1: &Nucl, n2: &Nucl) -> Option<u32>;
+    fn get_identifier_bound(&self, n1: Nucl, n2: Nucl) -> Option<u32>;
     fn get_xover_with_id(&self, xover_id: usize) -> Option<(Nucl, Nucl)>;
     fn get_xover_id(&self, xover: &(Nucl, Nucl)) -> Option<usize>;
     fn get_nucl_with_id(&self, e_id: u32) -> Option<Nucl>;

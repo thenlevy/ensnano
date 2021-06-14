@@ -27,23 +27,32 @@ use crate::scene::DesignReader as Reader3D;
 
 impl Reader3D for DesignReader {
     fn get_color(&self, e_id: u32) -> Option<u32> {
-        todo!()
+        self.presenter.content.color.get(&e_id).cloned()
     }
 
     fn get_basis(&self) -> Rotor3 {
-        todo!()
+        self.presenter.model_matrix.extract_rotation()
     }
 
     fn get_symbol(&self, e_id: u32) -> Option<char> {
-        todo!()
+        self.presenter
+            .content
+            .nucleotide
+            .get(&e_id)
+            .and_then(|nucl| self.presenter.content.basis_map.get(nucl))
+            .cloned()
     }
 
     fn get_xover_id(&self, xover: &(Nucl, Nucl)) -> Option<usize> {
-        todo!()
+        self.presenter.junctions_ids.get_id(xover)
     }
 
     fn get_grid_basis(&self, g_id: usize) -> Option<Rotor3> {
-        todo!()
+        self.presenter
+            .current_design
+            .grids
+            .get(g_id)
+            .map(|g| g.orientation)
     }
 
     fn get_suggestions(&self) -> Vec<(Nucl, Nucl)> {
@@ -51,47 +60,53 @@ impl Reader3D for DesignReader {
     }
 
     fn get_object_type(&self, id: u32) -> Option<ObjectType> {
-        todo!()
+        self.presenter.content.object_type.get(&id).cloned()
     }
 
     fn get_helix_basis(&self, h_id: u32) -> Option<Rotor3> {
-        todo!()
+        self.presenter
+            .current_design
+            .helices
+            .get(&(h_id as usize))
+            .map(|h| h.orientation)
     }
 
     fn get_all_nucl_ids(&self) -> Vec<u32> {
-        todo!()
+        self.presenter.content.nucleotide.keys().cloned().collect()
     }
 
     fn get_model_matrix(&self) -> Mat4 {
-        todo!()
+        // Mat4 is Copy
+        *self.presenter.model_matrix
     }
 
     fn get_nucl_with_id(&self, e_id: u32) -> Option<Nucl> {
-        todo!()
+        self.presenter.content.nucleotide.get(&e_id).cloned()
     }
 
     fn get_all_bound_ids(&self) -> Vec<u32> {
-        todo!()
+        self.presenter
+            .content
+            .nucleotides_involved
+            .keys()
+            .cloned()
+            .collect()
     }
 
     fn get_grid_position(&self, g_id: usize) -> Option<Vec3> {
-        todo!()
+        self.presenter
+            .current_design
+            .grids
+            .get(g_id)
+            .map(|g| g.position)
     }
 
     fn get_xover_with_id(&self, xover_id: usize) -> Option<(Nucl, Nucl)> {
-        todo!()
-    }
-
-    fn get_element_5prime(&self, e_id: u32) -> Option<u32> {
-        todo!()
-    }
-
-    fn get_element_3prime(&self, e_id: u32) -> Option<u32> {
-        todo!()
+        self.presenter.junctions_ids.get_element(xover_id)
     }
 
     fn get_grid_instances(&self) -> Vec<GridInstance> {
-        todo!()
+        self.presenter.content.get_grid_instances()
     }
 
     fn get_pasted_position(&self) -> Vec<(Vec<Vec3>, bool)> {
@@ -99,11 +114,12 @@ impl Reader3D for DesignReader {
     }
 
     fn get_symbol_position(&self, e_id: u32) -> Option<Vec3> {
-        todo!()
+        let nucl = self.get_nucl_with_id(e_id)?;
+        self.get_position_of_nucl_on_helix(nucl, Referential::World, false)
     }
 
     fn get_identifier_nucl(&self, nucl: &Nucl) -> Option<u32> {
-        todo!()
+        self.presenter.content.identifier_nucl.get(nucl).cloned()
     }
 
     fn get_position_of_nucl_on_helix(
@@ -112,23 +128,40 @@ impl Reader3D for DesignReader {
         referential: Referential,
         on_axis: bool,
     ) -> Option<Vec3> {
-        todo!()
+        let helix = self.presenter.current_design.helices.get(&nucl.helix)?;
+        let parameters = self.presenter.current_design.parameters.unwrap_or_default();
+        let position = if on_axis {
+            helix.axis_position(&parameters, nucl.position)
+        } else {
+            helix.space_pos(&parameters, nucl.position, nucl.forward)
+        };
+        Some(self.presenter.in_referential(position, referential))
     }
 
     fn get_helices_on_grid(&self, g_id: usize) -> Option<HashSet<usize>> {
-        todo!()
+        Some(self.presenter.content.get_helices_on_grid(g_id))
     }
 
     fn get_all_prime3_nucl(&self) -> Vec<(Vec3, Vec3, u32)> {
-        todo!()
+        self.presenter
+            .content
+            .prime3_set
+            .iter()
+            .map(|prime3| (prime3.position_start, prime3.position_end, prime3.color))
+            .collect()
     }
 
     fn get_element_position(&self, e_id: u32, referential: Referential) -> Option<Vec3> {
-        todo!()
+        let position = self.presenter.content.get_element_position(e_id)?;
+        Some(self.presenter.in_referential(position, referential))
     }
 
-    fn get_identifier_bound(&self, n1: &Nucl, n2: &Nucl) -> Option<u32> {
-        todo!()
+    fn get_identifier_bound(&self, n1: Nucl, n2: Nucl) -> Option<u32> {
+        self.presenter
+            .content
+            .identifier_bound
+            .get(&(n1, n2))
+            .cloned()
     }
 
     fn get_helix_grid_position(&self, h_id: u32) -> Option<GridPosition> {
@@ -201,5 +234,14 @@ impl Reader3D for DesignReader {
 
     fn has_small_spheres_nucl_id(&self, e_id: u32) -> bool {
         todo!()
+    }
+}
+
+impl Presenter {
+    fn in_referential(&self, position: Vec3, referential: Referential) -> Vec3 {
+        match referential {
+            Referential::World => self.model_matrix.transform_point3(position),
+            Referential::Model => position,
+        }
     }
 }

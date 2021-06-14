@@ -195,7 +195,7 @@ impl<R: DesignReader> Data<R> {
             }
         } else if let Selection::Bound(d_id, n1, n2) = selection {
             if object_type.is_bound() {
-                if let Some(b_id) = self.designs[*d_id as usize].get_identifier_bound(n1, n2) {
+                if let Some(b_id) = self.designs[*d_id as usize].get_identifier_bound(*n1, *n2) {
                     ret.push(SceneElement::DesignElement(*d_id, b_id))
                 } else {
                     ret.push(SceneElement::PhantomElement(PhantomElement {
@@ -498,7 +498,7 @@ impl<R: DesignReader> Data<R> {
                 .cloned()
                 .collect(),
             Selection::Bound(d_id, n1, n2) => self.designs[*d_id as usize]
-                .get_identifier_bound(n1, n2)
+                .get_identifier_bound(*n1, *n2)
                 .iter()
                 .cloned()
                 .collect(),

@@ -23,7 +23,6 @@ mod presenter;
 use presenter::{update_presenter, Presenter};
 mod controller;
 use controller::Controller;
-mod impl_reader3d;
 
 /// The `DesignInteractor` handles all read/write operations on the design. It is a stateful struct
 /// so it is meant to be unexpansive to clone.
