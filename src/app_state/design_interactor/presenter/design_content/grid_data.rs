@@ -28,8 +28,8 @@ use crate::scene::GridInstance;
 #[derive(Default, Clone)]
 pub(super) struct GridManager {
     pub grids: Vec<Grid>,
-    helix_to_pos: HashMap<usize, GridPosition>,
-    pos_to_helix: HashMap<(usize, isize, isize), usize>,
+    pub helix_to_pos: HashMap<usize, GridPosition>,
+    pub pos_to_helix: HashMap<(usize, isize, isize), usize>,
     parameters: Parameters,
     pub no_phantoms: HashSet<usize>,
     pub small_spheres: HashSet<usize>,

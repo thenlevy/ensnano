@@ -56,7 +56,8 @@ impl Reader3D for DesignReader {
     }
 
     fn get_suggestions(&self) -> Vec<(Nucl, Nucl)> {
-        todo!()
+        //TODO
+        vec![]
     }
 
     fn get_object_type(&self, id: u32) -> Option<ObjectType> {
@@ -110,7 +111,8 @@ impl Reader3D for DesignReader {
     }
 
     fn get_pasted_position(&self) -> Vec<(Vec<Vec3>, bool)> {
-        todo!()
+        //TODO
+        vec![]
     }
 
     fn get_symbol_position(&self, e_id: u32) -> Option<Vec3> {
@@ -165,75 +167,154 @@ impl Reader3D for DesignReader {
     }
 
     fn get_helix_grid_position(&self, h_id: u32) -> Option<GridPosition> {
-        todo!()
+        self.presenter
+            .content
+            .get_helix_grid_position(h_id as usize)
     }
 
     fn get_all_visible_nucl_ids(&self) -> Vec<u32> {
-        todo!()
+        self.presenter.content.nucleotide.keys().cloned().collect()
     }
 
     fn get_grid_latice_position(&self, g_id: usize, x: isize, y: isize) -> Option<Vec3> {
-        todo!()
+        self.presenter.content.get_grid_latice_position(g_id, x, y)
     }
 
     fn get_nucl_with_id_relaxed(&self, e_id: u32) -> Option<Nucl> {
-        todo!()
+        self.get_nucl_with_id(e_id).or(self
+            .presenter
+            .content
+            .nucleotides_involved
+            .get(&e_id)
+            .map(|t| t.0))
     }
 
     fn get_all_visible_bound_ids(&self) -> Vec<u32> {
-        todo!()
+        self.presenter
+            .content
+            .nucleotides_involved
+            .keys()
+            .cloned()
+            .collect()
     }
 
-    fn get_element_axis_position(&self, id: u32, referential: Referential) -> Option<Vec3> {
-        todo!()
+    fn get_element_axis_position(&self, e_id: u32, referential: Referential) -> Option<Vec3> {
+        if let Some(nucl) = self.get_nucl_with_id(e_id) {
+            self.get_position_of_nucl_on_helix(nucl, referential, true)
+        } else if let Some((n1, n2)) = self.presenter.content.nucleotides_involved.get(&e_id) {
+            let a = self.get_position_of_nucl_on_helix(*n1, referential, true);
+            let b = self.get_position_of_nucl_on_helix(*n2, referential, true);
+            a.zip(b).map(|(a, b)| (a + b) / 2.)
+        } else {
+            None
+        }
     }
 
     fn get_id_of_helix_containing(&self, e_id: u32) -> Option<usize> {
-        todo!()
+        if let Some(nucl) = self.get_nucl_with_id(e_id) {
+            Some(nucl.helix)
+        } else if let Some((n1, n2)) = self.presenter.content.nucleotides_involved.get(&e_id) {
+            if n1.helix == n2.helix {
+                Some(n1.helix)
+            } else {
+                None
+            }
+        } else {
+            None
+        }
     }
 
     fn get_helices_grid_key_coord(&self, g_id: usize) -> Option<Vec<((isize, isize), usize)>> {
-        todo!()
+        Some(self.presenter.content.get_helices_grid_key_coord(g_id))
     }
 
     fn get_helix_id_at_grid_coord(&self, g_id: usize, x: isize, y: isize) -> Option<u32> {
-        todo!()
+        self.presenter
+            .content
+            .get_helix_id_at_grid_coord(g_id, x, y)
+            .map(|h_id| h_id as u32)
     }
 
     fn get_id_of_strand_containing(&self, e_id: u32) -> Option<usize> {
-        todo!()
+        self.presenter.content.strand_map.get(&e_id).cloned()
     }
 
     fn get_used_coordinates_on_grid(&self, g_id: usize) -> Option<Vec<(isize, isize)>> {
-        todo!()
+        Some(self.presenter.content.get_used_coordinates_on_grid(g_id))
     }
 
     fn get_persistent_phantom_helices_id(&self) -> HashSet<u32> {
-        todo!()
+        self.presenter.content.get_persistent_phantom_helices_id()
     }
 
     fn get_ids_of_elements_belonging_to_helix(&self, h_id: usize) -> Vec<u32> {
-        todo!()
+        let nucls = self
+            .presenter
+            .content
+            .nucleotide
+            .iter()
+            .filter(|(_k, n)| n.helix == h_id)
+            .map(|t| t.0);
+        let bounds = self
+            .presenter
+            .content
+            .nucleotides_involved
+            .iter()
+            .filter(|(_k, (n1, n2))| n1.helix == h_id && n2.helix == h_id)
+            .map(|t| t.0);
+        nucls.chain(bounds).cloned().collect()
     }
 
     fn get_ids_of_elements_belonging_to_strand(&self, s_id: usize) -> Vec<u32> {
-        todo!()
+        let belong_to_strand = |k: &&u32| self.presenter.content.strand_map.get(*k) == Some(&s_id);
+        let nucls = self
+            .presenter
+            .content
+            .nucleotide
+            .keys()
+            .filter(belong_to_strand);
+        let bounds = self
+            .presenter
+            .content
+            .nucleotides_involved
+            .keys()
+            .filter(belong_to_strand);
+        nucls.chain(bounds).cloned().collect()
     }
 
     fn prime5_of_which_strand(&self, nucl: Nucl) -> Option<usize> {
-        todo!()
+        for (s_id, s) in self.presenter.current_design.strands.iter() {
+            if !s.cyclic && s.get_5prime() == Some(nucl) {
+                return Some(*s_id);
+            }
+        }
+        None
     }
 
     fn prime3_of_which_strand(&self, nucl: Nucl) -> Option<usize> {
-        todo!()
+        for (s_id, s) in self.presenter.current_design.strands.iter() {
+            if !s.cyclic && s.get_5prime() == Some(nucl) {
+                return Some(*s_id);
+            }
+        }
+        None
     }
 
     fn can_start_builder_at(&self, nucl: &Nucl) -> bool {
-        todo!()
+        //TODO
+        false
     }
 
     fn has_small_spheres_nucl_id(&self, e_id: u32) -> bool {
-        todo!()
+        if let Some(nucl) = self.get_nucl_with_id(e_id) {
+            if let Some(grid_pos) = self.get_helix_grid_position(nucl.helix as u32) {
+                self.presenter.content.grid_has_small_spheres(grid_pos.grid)
+            } else {
+                false
+            }
+        } else {
+            false
+        }
     }
 }
 
@@ -243,5 +324,31 @@ impl Presenter {
             Referential::World => self.model_matrix.transform_point3(position),
             Referential::Model => position,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn correct_suggestions() {
+        // TODO: write test, and implement function
+        assert!(false)
+    }
+
+    #[test]
+    fn correct_pasted_position() {
+        assert!(false)
+    }
+
+    #[test]
+    fn nucls_are_filtered_by_visibility() {
+        assert!(false)
+    }
+
+    #[test]
+    fn can_start_builder_implemented() {
+        assert!(false)
     }
 }

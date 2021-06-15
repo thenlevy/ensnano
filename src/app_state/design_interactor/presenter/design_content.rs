@@ -21,6 +21,7 @@ use crate::design::ObjectType;
 use crate::scene::GridInstance;
 use ahash::RandomState;
 use ensnano_design::elements::DnaElement;
+use ensnano_design::grid::GridPosition;
 use ensnano_design::*;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use ultraviolet::Vec3;
@@ -83,6 +84,55 @@ impl DesignContent {
         } else {
             None
         }
+    }
+
+    pub(super) fn get_helix_grid_position(&self, h_id: usize) -> Option<GridPosition> {
+        self.grid_manager.helix_to_pos.get(&h_id).cloned()
+    }
+
+    pub(super) fn get_grid_latice_position(&self, g_id: usize, x: isize, y: isize) -> Option<Vec3> {
+        let grid = self.grid_manager.grids.get(g_id)?;
+        Some(grid.position_helix(x, y))
+    }
+
+    pub(super) fn get_helices_grid_key_coord(&self, g_id: usize) -> Vec<((isize, isize), usize)> {
+        self.grid_manager
+            .pos_to_helix
+            .iter()
+            .filter(|t| t.0 .0 == g_id)
+            .map(|t| ((t.0 .1, t.0 .2), *t.1))
+            .collect()
+    }
+
+    pub(super) fn get_used_coordinates_on_grid(&self, g_id: usize) -> Vec<(isize, isize)> {
+        self.grid_manager
+            .pos_to_helix
+            .iter()
+            .filter(|t| t.0 .0 == g_id)
+            .map(|t| (t.0 .1, t.0 .2))
+            .collect()
+    }
+
+    pub(super) fn get_helix_id_at_grid_coord(
+        &self,
+        g_id: usize,
+        x: isize,
+        y: isize,
+    ) -> Option<usize> {
+        self.grid_manager.pos_to_helix(g_id, x, y)
+    }
+
+    pub(super) fn get_persistent_phantom_helices_id(&self) -> HashSet<u32> {
+        self.grid_manager
+            .pos_to_helix
+            .iter()
+            .filter(|(k, _)| !self.grid_manager.no_phantoms.contains(&k.0))
+            .map(|(_, v)| *v as u32)
+            .collect()
+    }
+
+    pub(super) fn grid_has_small_spheres(&self, g_id: usize) -> bool {
+        self.grid_manager.small_spheres.contains(&g_id)
     }
 }
 
