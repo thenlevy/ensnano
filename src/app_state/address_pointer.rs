@@ -50,6 +50,10 @@ impl<T: Default> AddressPointer<T> {
     pub fn new(content: T) -> Self {
         Self(Arc::new(content))
     }
+
+    pub fn show_address(&self) {
+        println!("{:p}", Arc::as_ptr::(self.0))
+    }
 }
 
 use std::ops::Deref;

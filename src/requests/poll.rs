@@ -326,4 +326,8 @@ pub(crate) fn poll_all<R: DerefMut<Target = Requests>>(
     for action in requests.keep_proceed.drain(..) {
         main_state.pending_actions.push_back(action)
     }
+
+    if let Some(candidates) = requests.new_candidates.take() {
+        main_state.update_candidates(candidates);
+    }
 }

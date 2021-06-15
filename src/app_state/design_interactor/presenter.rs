@@ -95,12 +95,12 @@ impl Presenter {
     }
 
     fn read_design(&mut self, design: AddressPointer<Design>) {
-        let (content, design, junctions_ids) = DesignContent::make_hash_maps(
+        let (content, new_design, junctions_ids) = DesignContent::make_hash_maps(
             design.clone_inner(),
             self.helices_groups.as_ref(),
             self.junctions_ids.clone(),
         );
-        self.current_design = AddressPointer::new(design);
+        self.current_design = AddressPointer::new(new_design);
         self.content = AddressPointer::new(content);
         if let Some(junctions_ids) = junctions_ids {
             self.junctions_ids = AddressPointer::new(junctions_ids);
@@ -123,12 +123,14 @@ impl Presenter {
 pub(super) fn update_presenter(
     presenter: &AddressPointer<Presenter>,
     design: AddressPointer<Design>,
-) -> AddressPointer<Presenter> {
+) -> (AddressPointer<Presenter>, AddressPointer<Design>) {
     if presenter.current_design != design {
+        println!("updating presenter");
         let mut new_presenter = presenter.clone_inner();
         new_presenter.read_design(design);
-        AddressPointer::new(new_presenter)
+        let design = new_presenter.current_design.clone();
+        (AddressPointer::new(new_presenter), design)
     } else {
-        presenter.clone()
+        (presenter.clone(), design)
     }
 }

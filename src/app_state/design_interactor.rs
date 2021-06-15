@@ -48,7 +48,10 @@ impl DesignInteractor {
     }
 
     pub(super) fn with_updated_design_reader(mut self) -> Self {
-        self.presenter = update_presenter(&self.presenter, self.design.clone());
+        println!("{:p}", self.design.0.as_ptr());
+        let (new_presenter, new_design) = update_presenter(&self.presenter, self.design.clone());
+        self.presenter = new_presenter;
+        self.design = new_design;
         self
     }
 
@@ -77,6 +80,7 @@ pub struct DesignReader {
 
 #[cfg(test)]
 mod tests {
+    use super::super::*;
     use super::*;
     use crate::scene::DesignReader as Reader3d;
     use std::path::PathBuf;
@@ -95,5 +99,26 @@ mod tests {
         let interactor = interactor.with_updated_design_reader();
         let reader = interactor.get_design_reader();
         assert_eq!(reader.get_all_visible_nucl_ids().len(), 24)
+    }
+
+    #[test]
+    fn first_update_has_effect() {
+        use crate::scene::AppState as App3d;
+        let path = one_helix_path();
+        let app_state = AppState::import_design(&path).ok().unwrap();
+        let old_app_state = app_state.clone();
+        let app_state = app_state.updated();
+        assert!(old_app_state.design_was_modified(&app_state));
+    }
+
+    #[test]
+    fn second_update_has_no_effect() {
+        use crate::scene::AppState as App3d;
+        let path = one_helix_path();
+        let app_state = AppState::import_design(&path).ok().unwrap();
+        let app_state = app_state.updated();
+        let old_app_state = app_state.clone();
+        let app_state = app_state.updated();
+        assert!(!old_app_state.design_was_modified(&app_state));
     }
 }

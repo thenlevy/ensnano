@@ -67,6 +67,7 @@ use iced_wgpu::{wgpu, Backend, Renderer, Settings, Viewport};
 use iced_winit::{conversion, futures, program, winit, Debug, Size};
 
 use futures::task::SpawnExt;
+use mediator::Selection;
 use winit::{
     dpi::{PhysicalPosition, PhysicalSize},
     event::{Event, ModifiersState, WindowEvent},
@@ -415,7 +416,7 @@ fn main() {
                             }
                             area if area.is_scene() => {
                                 let cursor_position = multiplexer.get_cursor_position();
-                                let state = mediator.lock().unwrap().get_state();
+                                let state = main_state.get_app_state();
                                 scheduler.lock().unwrap().forward_event(
                                     &event,
                                     area,
@@ -1147,6 +1148,11 @@ impl MainState {
     fn update(&mut self) {
         let state = std::mem::take(&mut self.app_state);
         self.app_state = state.updated();
+    }
+
+    fn update_candidates(&mut self, candidates: Vec<Selection>) {
+        let state = std::mem::take(&mut self.app_state);
+        self.app_state = state.with_candidates(candidates);
     }
 }
 
