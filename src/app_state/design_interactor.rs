@@ -24,6 +24,9 @@ use presenter::{update_presenter, Presenter};
 mod controller;
 use controller::Controller;
 
+mod file_parsing;
+pub use file_parsing::ParseDesignError;
+
 /// The `DesignInteractor` handles all read/write operations on the design. It is a stateful struct
 /// so it is meant to be unexpansive to clone.
 #[derive(Clone, Default)]
@@ -70,4 +73,27 @@ impl DesignInteractor {
 /// structures.
 pub struct DesignReader {
     presenter: AddressPointer<Presenter>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::scene::DesignReader as Reader3d;
+    use std::path::PathBuf;
+
+    fn one_helix_path() -> PathBuf {
+        let mut ret = PathBuf::from(std::env!("CARGO_MANIFEST_DIR"));
+        ret.push("tests");
+        ret.push("one_helix.json");
+        ret
+    }
+
+    #[test]
+    fn read_one_helix() {
+        let path = one_helix_path();
+        let interactor = DesignInteractor::new_with_path(&path).ok().unwrap();
+        let interactor = interactor.with_updated_design_reader();
+        let reader = interactor.get_design_reader();
+        assert_eq!(reader.get_all_visible_nucl_ids().len(), 24)
+    }
 }

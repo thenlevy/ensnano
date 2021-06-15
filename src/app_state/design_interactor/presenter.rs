@@ -42,7 +42,6 @@ use std::collections::BTreeMap;
 pub(super) struct Presenter {
     current_design: AddressPointer<Design>,
     model_matrix: AddressPointer<Mat4>,
-    id_generator: AddressPointer<IdGenerator<(Nucl, Nucl)>>,
     content: AddressPointer<DesignContent>,
     junctions_ids: AddressPointer<JunctionsIds>,
     helices_groups: AddressPointer<BTreeMap<usize, bool>>,
@@ -53,7 +52,6 @@ impl Default for Presenter {
         Self {
             current_design: Default::default(),
             model_matrix: AddressPointer::new(Mat4::identity()),
-            id_generator: Default::default(),
             content: Default::default(),
             junctions_ids: Default::default(),
             helices_groups: Default::default(),
@@ -69,6 +67,31 @@ impl Presenter {
             self.update_visibility();
         }
         self
+    }
+
+    /// Return a fresh presenter presenting an imported `Design` with a given set of junctions, as
+    /// well as a pointer to the design held by this fresh presenter.
+    pub fn from_new_design(
+        design: Design,
+        junctions_ids: JunctionsIds,
+    ) -> (Self, AddressPointer<Design>) {
+        let helices_groups = design.groups.clone();
+        let model_matrix = Mat4::identity();
+        let junctions_ids = AddressPointer::new(junctions_ids);
+        let (content, design, junctions_ids_opt) =
+            DesignContent::make_hash_maps(design, &helices_groups, junctions_ids.clone());
+        let junctions_ids = junctions_ids_opt
+            .map(AddressPointer::new)
+            .unwrap_or(junctions_ids);
+        let design = AddressPointer::new(design);
+        let ret = Self {
+            current_design: design.clone(),
+            content: AddressPointer::new(content),
+            model_matrix: AddressPointer::new(model_matrix),
+            junctions_ids,
+            helices_groups: AddressPointer::new(helices_groups),
+        };
+        (ret, design)
     }
 
     fn read_design(&mut self, design: AddressPointer<Design>) {

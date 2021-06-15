@@ -26,6 +26,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 
 use super::mediator::{ActionMode, Selection, SelectionMode};
 
+use std::path::PathBuf;
 mod address_pointer;
 mod design_interactor;
 use address_pointer::AddressPointer;
@@ -70,13 +71,21 @@ impl AppState {
         Self(AddressPointer::new(state))
     }
 
-    pub fn updated(mut self) -> Self {
+    pub fn import_design(path: &PathBuf) -> Result<Self, design_interactor::ParseDesignError> {
+        let design_interactor = DesignInteractor::new_with_path(path)?;
+        Ok(Self(AddressPointer::new(AppState_ {
+            design: AddressPointer::new(design_interactor),
+            ..Default::default()
+        })))
+    }
+
+    pub fn updated(self) -> Self {
         let mut interactor = self.0.design.clone_inner();
         interactor = interactor.with_updated_design_reader();
         self.with_interactor(interactor)
     }
 
-    fn with_interactor(mut self, interactor: DesignInteractor) -> Self {
+    fn with_interactor(self, interactor: DesignInteractor) -> Self {
         let mut new_state = self.0.clone_inner();
         new_state.design = AddressPointer::new(interactor);
         Self(AddressPointer::new(new_state))
