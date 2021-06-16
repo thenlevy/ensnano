@@ -628,6 +628,7 @@ pub trait AppState {
     fn get_selection_mode(&self) -> SelectionMode;
 }
 
+use ultraviolet::Isometry2;
 pub trait Requests {
     fn xover_request(&mut self, source: Nucl, target: Nucl, design_id: usize);
     fn request_center_selection(&mut self, selection: Selection, app_id: AppId);
@@ -636,4 +637,7 @@ pub trait Requests {
     fn attempt_paste(&mut self, nucl: Option<Nucl>);
     fn request_centering_on_nucl(&mut self, nucl: Nucl, design_id: usize);
     fn update_opperation(&mut self, operation: Arc<dyn Operation>);
+    fn set_isometry(&mut self, helix: usize, isometry: Isometry2);
+    fn set_visibility_helix(&mut self, helix: usize, visibility: bool);
+    fn flip_group(&mut self, helix: usize);
 }

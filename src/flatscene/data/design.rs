@@ -15,15 +15,16 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
-use std::collections::{BTreeSet, HashMap};
-use std::sync::{Arc, RwLock};
+use std::collections::{BTreeSet, HashMap, HashSet};
+use std::sync::{Arc, Mutex};
 
-use super::super::{FlatHelix, FlatIdx, FlatNucl};
+use super::super::{FlatHelix, FlatIdx, FlatNucl, Requests};
 use super::{Flat, HelixVec, Nucl, Strand};
-use crate::design::{Design, Helix as DesignHelix, Strand as StrandDesign, StrandBuilder, Torsion};
-use ultraviolet::{Isometry2, Rotor2, Vec2};
+use crate::design::{Design, Extremity, Referential, Torsion};
+use ensnano_design::{Helix as DesignHelix, Strand as StrandDesign};
+use ultraviolet::{Isometry2, Rotor2, Vec2, Vec3};
 
-pub(super) struct Design2d {
+pub(super) struct Design2d<R: DesignReader> {
     /// The 2d helices
     helices: HelixVec<Helix2d>,
     /// Maps id of helices in design to location in self.helices
@@ -31,15 +32,16 @@ pub(super) struct Design2d {
     /// the 2d strands
     strands: Vec<Strand>,
     /// A pointer to the design
-    design: Arc<RwLock<Design>>,
+    design: R,
     /// The strand being pasted,
     pasted_strands: Vec<Strand>,
     last_flip_other: Option<FlatHelix>,
     removed: BTreeSet<FlatIdx>,
+    requests: Arc<Mutex<dyn Requests>>,
 }
 
-impl Design2d {
-    pub fn new(design: Arc<RwLock<Design>>) -> Self {
+impl<R: DesignReader> Design2d<R> {
+    pub fn new(design: R, requests: Arc<Mutex<dyn Requests>>) -> Self {
         Self {
             design,
             helices: HelixVec::new(),
@@ -48,6 +50,7 @@ impl Design2d {
             pasted_strands: Vec::new(),
             last_flip_other: None,
             removed: BTreeSet::new(),
+            requests,
         }
     }
 
@@ -58,19 +61,16 @@ impl Design2d {
         self.strands = Vec::new();
         self.fetch_empty_helices();
         self.rm_deleted_helices();
-        let strand_ids = self.design.read().unwrap().get_all_strand_ids();
+        let strand_ids = self.design.get_all_strand_ids();
         for strand_id in strand_ids.iter() {
-            let strand_opt = self.design.read().unwrap().get_strand_points(*strand_id);
+            let strand_opt = self.design.get_strand_points(*strand_id);
+            // Unwrap: `strand_id` is in the list returned by `get_all_strand_ids` so it
+            // corresponds to an existing strand id.
             let strand = strand_opt.unwrap();
-            let color = self
-                .design
-                .read()
-                .unwrap()
-                .get_strand_color(*strand_id)
-                .unwrap_or_else(|| {
-                    println!("Warning: could not find strand color, this is not normal");
-                    0
-                });
+            let color = self.design.get_strand_color(*strand_id).unwrap_or_else(|| {
+                println!("Warning: could not find strand color, this is not normal");
+                0
+            });
             for nucl in strand.iter() {
                 self.read_nucl(nucl)
             }
@@ -78,12 +78,7 @@ impl Design2d {
                 .iter()
                 .map(|n| FlatNucl::from_real(n, self.id_map()))
                 .collect();
-            let insertions = self
-                .design
-                .read()
-                .unwrap()
-                .get_insertions(*strand_id)
-                .unwrap_or_default();
+            let insertions = self.design.get_insertions(*strand_id).unwrap_or_default();
             let insertions = insertions
                 .iter()
                 .map(|n| FlatNucl::from_real(n, self.id_map()))
@@ -96,7 +91,7 @@ impl Design2d {
                 false,
             ));
         }
-        let nucls_opt = self.design.read().unwrap().get_copy_points();
+        let nucls_opt = self.design.get_copy_points();
 
         self.pasted_strands = nucls_opt
             .iter()
@@ -114,7 +109,7 @@ impl Design2d {
             .collect();
 
         for h_id in self.id_map.keys() {
-            let visibility = self.design.read().unwrap().get_visibility_helix(*h_id);
+            let visibility = self.design.get_visibility_helix(*h_id);
             let flat_helix = FlatHelix::from_real(*h_id, &self.id_map);
             self.helices[flat_helix.flat].visible = visibility.unwrap_or(false);
         }
@@ -125,7 +120,7 @@ impl Design2d {
     }
 
     pub fn suggestions(&self) -> Vec<(FlatNucl, FlatNucl)> {
-        let suggestions = self.design.read().unwrap().get_suggestions();
+        let suggestions = self.design.get_suggestions();
         suggestions
             .iter()
             .map(|(n1, n2)| {
@@ -140,7 +135,7 @@ impl Design2d {
     fn rm_deleted_helices(&mut self) {
         let mut to_remove = Vec::new();
         for (h_id, h) in self.id_map.iter() {
-            if !self.design.read().unwrap().has_helix(*h_id) {
+            if !self.design.has_helix(*h_id) {
                 let flat_helix = FlatHelix {
                     flat: *h,
                     real: *h_id,
@@ -182,7 +177,7 @@ impl Design2d {
             helix2d.right = helix2d.right.max(nucl.position + 1);
         } else {
             self.id_map.insert(helix, FlatIdx(self.helices.len()));
-            let iso_opt = self.design.read().unwrap().get_isometry(helix);
+            let iso_opt = self.design.get_isometry(helix);
             let isometry = if let Some(iso) = iso_opt {
                 iso
             } else {
@@ -190,7 +185,7 @@ impl Design2d {
                     (5. * helix as f32 - 1.) * Vec2::unit_y(),
                     Rotor2::identity(),
                 );
-                self.design.read().unwrap().set_isometry(helix, iso);
+                self.requests.lock().unwrap().set_isometry(helix, iso);
                 iso
             };
             self.helices.push(Helix2d {
@@ -198,23 +193,18 @@ impl Design2d {
                 left: nucl.position - 1,
                 right: nucl.position + 1,
                 isometry,
-                visible: self
-                    .design
-                    .read()
-                    .unwrap()
-                    .get_visibility_helix(helix)
-                    .unwrap_or(false),
+                visible: self.design.get_visibility_helix(helix).unwrap_or(false),
             });
         }
     }
 
     fn fetch_empty_helices(&mut self) {
         let mut i = 0;
-        let mut grid2d = self.design.read().unwrap().get_grid2d(i).clone();
-        while let Some(grid) = grid2d {
-            for h_id in grid.read().unwrap().helices().values() {
+        let mut helices_opt = self.design.get_helices_on_grid(i);
+        while let Some(helices) = helices_opt {
+            for h_id in helices.iter() {
                 if !self.id_map.contains_key(h_id) {
-                    let iso_opt = self.design.read().unwrap().get_isometry(*h_id);
+                    let iso_opt = self.design.get_isometry(*h_id);
                     let isometry = if let Some(iso) = iso_opt {
                         iso
                     } else {
@@ -222,7 +212,7 @@ impl Design2d {
                             (5. * *h_id as f32 - 1.) * Vec2::unit_y(),
                             Rotor2::identity(),
                         );
-                        self.design.read().unwrap().set_isometry(*h_id, iso);
+                        self.requests.lock().unwrap().set_isometry(*h_id, iso);
                         iso
                     };
                     self.id_map.insert(*h_id, FlatIdx(self.helices.len()));
@@ -231,17 +221,12 @@ impl Design2d {
                         left: -1,
                         right: 1,
                         isometry,
-                        visible: self
-                            .design
-                            .read()
-                            .unwrap()
-                            .get_visibility_helix(*h_id)
-                            .unwrap_or(false),
+                        visible: self.design.get_visibility_helix(*h_id).unwrap_or(false),
                     });
                 }
             }
             i += 1;
-            grid2d = self.design.read().unwrap().get_grid2d(i).clone();
+            helices_opt = self.design.get_helices_on_grid(i);
         }
     }
 
@@ -258,8 +243,8 @@ impl Design2d {
     }
 
     pub fn set_isometry(&self, helix: FlatHelix, isometry: Isometry2) {
-        self.design
-            .read()
+        self.requests
+            .lock()
             .unwrap()
             .set_isometry(helix.real, isometry);
     }
@@ -274,45 +259,45 @@ impl Design2d {
                 !self.helices[flat_helix.flat].visible
             };
             for helix in self.id_map.keys().filter(|h| **h != flat_helix.real) {
-                self.design
-                    .write()
+                self.requests
+                    .lock()
                     .unwrap()
                     .set_visibility_helix(*helix, visibility)
             }
         } else {
-            self.design
-                .write()
+            self.requests
+                .lock()
                 .unwrap()
                 .set_visibility_helix(flat_helix.real, !self.helices[flat_helix.flat].visible)
         }
     }
 
     pub fn flip_group(&mut self, helix: FlatHelix) {
-        self.design.write().unwrap().flip_group(helix.real)
+        self.requests.lock().unwrap().flip_group(helix.real)
     }
 
-    pub fn get_builder(&self, nucl: Nucl, stick: bool) -> Option<StrandBuilder> {
-        self.design.read().unwrap().get_builder(nucl, stick)
+    pub fn can_get_builder(&self, nucl: Nucl) -> bool {
+        self.design.can_get_builder(nucl)
     }
 
     pub fn prime3_of(&self, nucl: Nucl) -> Option<usize> {
-        self.design.read().unwrap().prime3_of(nucl)
+        self.design.prime3_of_which_strand(nucl)
     }
 
     pub fn prime5_of(&self, nucl: Nucl) -> Option<usize> {
-        self.design.read().unwrap().prime5_of(nucl)
+        self.design.prime5_of_which_strand(nucl)
     }
 
     pub fn can_delete_helix(&self, helix: FlatHelix) -> bool {
-        self.design.read().unwrap().helix_is_empty(helix.real)
+        self.design.helix_is_empty(helix.real).unwrap_or(false)
     }
 
     pub fn get_raw_helix(&self, helix: FlatHelix) -> Option<DesignHelix> {
-        self.design.read().unwrap().get_raw_helix(helix.real)
+        self.design.get_raw_helix(helix.real)
     }
 
     pub fn get_strand(&self, s_id: usize) -> Option<StrandDesign> {
-        self.design.read().unwrap().get_raw_strand(s_id)
+        self.design.get_raw_strand(s_id)
     }
 
     pub fn remake_id_map(&mut self) {
@@ -327,38 +312,29 @@ impl Design2d {
     }
 
     pub fn is_xover_end(&self, nucl: &Nucl) -> Option<bool> {
-        self.design.read().unwrap().is_xover_end(nucl).to_opt()
+        self.design.is_xover_end(nucl).to_opt()
     }
 
     pub fn has_nucl(&self, nucl: Nucl) -> bool {
-        self.design
-            .read()
-            .unwrap()
-            .get_identifier_nucl(&nucl)
-            .is_some()
+        self.design.get_identifier_nucl(&nucl).is_some()
     }
 
     pub fn get_strand_id(&self, nucl: Nucl) -> Option<usize> {
-        self.design.read().unwrap().get_strand_nucl(&nucl)
+        self.design.get_id_of_strand_containing_nucl(&nucl)
     }
 
     pub fn get_dist(&self, nucl1: Nucl, nucl2: Nucl) -> Option<f32> {
-        use crate::design::Referential;
         let pos1 = self
             .design
-            .read()
-            .unwrap()
-            .get_helix_nucl(nucl1, Referential::Model, false)?;
+            .get_position_of_nucl_on_helix(nucl1, Referential::Model, false)?;
         let pos2 = self
             .design
-            .read()
-            .unwrap()
-            .get_helix_nucl(nucl2, Referential::Model, false)?;
+            .get_position_of_nucl_on_helix(nucl2, Referential::Model, false)?;
         Some((pos1 - pos2).mag())
     }
 
     pub fn get_torsions(&self) -> HashMap<(FlatNucl, FlatNucl), FlatTorsion> {
-        let torsions = self.design.read().unwrap().get_torsions();
+        let torsions = self.design.get_torsions();
         let conversion = |((n1, n2), k): (&(Nucl, Nucl), &Torsion)| {
             let flat_1 = FlatNucl::from_real(n1, &self.id_map);
             let flat_2 = FlatNucl::from_real(n2, &self.id_map);
@@ -369,7 +345,7 @@ impl Design2d {
     }
 
     pub fn get_xovers_list(&self) -> Vec<(usize, (FlatNucl, FlatNucl))> {
-        let xovers = self.design.read().unwrap().get_xovers_list();
+        let xovers = self.design.get_xovers_list_with_id();
         xovers
             .iter()
             .map(|(id, (n1, n2))| {
@@ -389,19 +365,19 @@ impl Design2d {
     }
 
     pub fn get_nucl_id(&self, nucl: Nucl) -> Option<u32> {
-        self.design.read().unwrap().get_identifier_nucl(&nucl)
+        self.design.get_identifier_nucl(&nucl)
     }
 
     pub fn get_strand_from_eid(&self, element_id: u32) -> Option<usize> {
-        self.design.read().unwrap().get_strand(element_id)
+        self.design.get_id_of_strand_containing_elt(element_id)
     }
 
     pub fn get_helix_from_eid(&self, element_id: u32) -> Option<usize> {
-        self.design.read().unwrap().get_helix(element_id)
+        self.design.get_id_of_of_helix_containing_elt(element_id)
     }
 
     pub fn get_xover_with_id(&self, xover_id: usize) -> Option<(Nucl, Nucl)> {
-        self.design.read().unwrap().get_xover_with_id(xover_id)
+        self.design.get_xover_with_id(xover_id)
     }
 }
 
@@ -448,4 +424,39 @@ impl FlatTorsion {
             }),
         }
     }
+}
+
+pub trait DesignReader {
+    fn get_all_strand_ids(&self) -> Vec<usize>;
+    /// Return a the list of consecutive domain extremities of strand `s_id`. Return None iff there
+    /// is no strand with id `s_id` in the design.
+    fn get_strand_points(&self, s_id: usize) -> Option<Vec<Nucl>>;
+    fn get_strand_color(&self, s_id: usize) -> Option<u32>;
+    fn get_insertions(&self, s_id: usize) -> Option<Vec<Nucl>>;
+    fn get_copy_points(&self) -> Vec<Vec<Nucl>>;
+    fn get_visibility_helix(&self, h_id: usize) -> Option<bool>;
+    fn get_suggestions(&self) -> Vec<(Nucl, Nucl)>;
+    fn has_helix(&self, h_id: usize) -> bool;
+    fn get_isometry(&self, h_id: usize) -> Option<Isometry2>;
+    fn can_get_builder(&self, nucl: Nucl) -> bool;
+    fn prime3_of_which_strand(&self, nucl: Nucl) -> Option<usize>;
+    fn prime5_of_which_strand(&self, nucl: Nucl) -> Option<usize>;
+    fn helix_is_empty(&self, h_id: usize) -> Option<bool>;
+    fn get_raw_helix(&self, h_id: usize) -> Option<DesignHelix>;
+    fn get_raw_strand(&self, s_id: usize) -> Option<StrandDesign>;
+    fn is_xover_end(&self, nucl: &Nucl) -> Extremity;
+    fn get_identifier_nucl(&self, nucl: &Nucl) -> Option<u32>;
+    fn get_id_of_strand_containing_nucl(&self, nucl: &Nucl) -> Option<usize>;
+    fn get_position_of_nucl_on_helix(
+        &self,
+        nucl: Nucl,
+        referential: Referential,
+        on_axis: bool,
+    ) -> Option<Vec3>;
+    fn get_torsions(&self) -> HashMap<(Nucl, Nucl), Torsion>;
+    fn get_xovers_list_with_id(&self) -> Vec<(usize, (Nucl, Nucl))>;
+    fn get_id_of_strand_containing_elt(&self, e_id: u32) -> Option<usize>;
+    fn get_id_of_of_helix_containing_elt(&self, e_id: u32) -> Option<usize>;
+    fn get_xover_with_id(&self, xover_id: usize) -> Option<(Nucl, Nucl)>;
+    fn get_helices_on_grid(&self, g_id: usize) -> Option<HashSet<usize>>;
 }
