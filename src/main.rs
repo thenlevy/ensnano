@@ -1154,6 +1154,11 @@ impl MainState {
         let state = std::mem::take(&mut self.app_state);
         self.app_state = state.with_candidates(candidates);
     }
+
+    fn update_selection(&mut self, selection: Vec<Selection>) {
+        let state = std::mem::take(&mut self.app_state);
+        self.app_state = state.with_selection(selection);
+    }
 }
 
 /// A temporary view of the main state and the control flow.

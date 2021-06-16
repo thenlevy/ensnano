@@ -88,7 +88,7 @@ mod tests {
 
         // When a new state is created with this methods it should be considered to have a new
         // set of candidates but the same selection
-        state = state.with_candidates(vec![]);
+        state = state.with_candidates(vec![Selection::Strand(0, 0)]);
         assert!(state.candidates_set_was_updated(&old_state));
         assert!(!state.selection_was_updated(&old_state));
     }

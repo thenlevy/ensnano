@@ -63,3 +63,10 @@ impl<T: Clone + Default> AddressPointer<T> {
         self.0.deref().clone()
     }
 }
+
+impl<T: Default + PartialEq> AddressPointer<T> {
+    /// Test the content of two pointers for equality
+    pub fn content_equal(&self, content: &T) -> bool {
+        self.0.as_ref() == content
+    }
+}

@@ -391,10 +391,6 @@ impl<S: AppState> Scene<S> {
 
     fn set_candidate(&mut self, element: Option<SceneElement>, app_state: &S) {
         let new_candidates = self.data.borrow_mut().set_candidate(element, app_state);
-        println!(
-            "nb nucl {:?}",
-            app_state.get_design_reader().get_all_nucl_ids().len()
-        );
         let widget = if let Some(SceneElement::WidgetElement(widget_id)) = element {
             Some(widget_id)
         } else {

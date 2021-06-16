@@ -330,4 +330,8 @@ pub(crate) fn poll_all<R: DerefMut<Target = Requests>>(
     if let Some(candidates) = requests.new_candidates.take() {
         main_state.update_candidates(candidates);
     }
+
+    if let Some(selection) = requests.new_selection.take() {
+        main_state.update_selection(selection);
+    }
 }

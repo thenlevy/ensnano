@@ -52,9 +52,13 @@ impl AppState {
     }
 
     pub fn with_candidates(&self, candidates: Vec<Selection>) -> Self {
-        let mut new_state = (*self.0).clone();
-        new_state.candidates = AddressPointer::new(candidates);
-        Self(AddressPointer::new(new_state))
+        if self.0.candidates.content_equal(&candidates) {
+            self.clone()
+        } else {
+            let mut new_state = (*self.0).clone();
+            new_state.candidates = AddressPointer::new(candidates);
+            Self(AddressPointer::new(new_state))
+        }
     }
 
     pub fn with_selection_mode(&self, selection_mode: SelectionMode) -> Self {

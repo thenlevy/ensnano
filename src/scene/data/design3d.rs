@@ -84,7 +84,6 @@ impl<R: DesignReader> Design3D<R> {
     /// Return the list of raw sphere instances to be displayed to represent the design
     pub fn get_spheres_raw(&self) -> Rc<Vec<RawDnaInstance>> {
         let ids = self.design.get_all_visible_nucl_ids();
-        println!("nb visible nucls {}", ids.len());
         Rc::new(self.id_to_raw_instances(ids))
     }
 
