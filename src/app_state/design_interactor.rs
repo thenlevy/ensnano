@@ -48,18 +48,24 @@ impl DesignInteractor {
     }
 
     pub(super) fn with_updated_design_reader(mut self) -> Self {
-        println!("{:p}", self.design.0.as_ptr());
+        if cfg!(test) {
+            print!("Old design: ");
+            self.design.show_address();
+        }
         let (new_presenter, new_design) = update_presenter(&self.presenter, self.design.clone());
         self.presenter = new_presenter;
+        if cfg!(test) {
+            print!("New design: ");
+            new_design.show_address();
+        }
         self.design = new_design;
         self
     }
 
-    pub(super) fn new_design(design: Design) -> Self {
-        Self {
-            design: AddressPointer::new(design),
-            ..Default::default()
-        }
+    pub(super) fn with_updated_design(&self, design: Design) -> Self {
+        let mut new_interactor = self.clone();
+        new_interactor.design = AddressPointer::new(design);
+        new_interactor
     }
 
     pub(super) fn has_different_design_than(&self, other: &Self) -> bool {
@@ -92,6 +98,12 @@ mod tests {
         ret
     }
 
+    fn fake_design_update(state: &mut AppState) {
+        let design = state.0.design.design.clone_inner();
+        let mut new_state = std::mem::take(state);
+        *state = new_state.with_updated_design(design);
+    }
+
     #[test]
     fn read_one_helix() {
         let path = one_helix_path();
@@ -105,8 +117,9 @@ mod tests {
     fn first_update_has_effect() {
         use crate::scene::AppState as App3d;
         let path = one_helix_path();
-        let app_state = AppState::import_design(&path).ok().unwrap();
+        let mut app_state = AppState::import_design(&path).ok().unwrap();
         let old_app_state = app_state.clone();
+        fake_design_update(&mut app_state);
         let app_state = app_state.updated();
         assert!(old_app_state.design_was_modified(&app_state));
     }
@@ -115,8 +128,9 @@ mod tests {
     fn second_update_has_no_effect() {
         use crate::scene::AppState as App3d;
         let path = one_helix_path();
-        let app_state = AppState::import_design(&path).ok().unwrap();
-        let app_state = app_state.updated();
+        let mut app_state = AppState::import_design(&path).ok().unwrap();
+        fake_design_update(&mut app_state);
+        app_state = app_state.updated();
         let old_app_state = app_state.clone();
         let app_state = app_state.updated();
         assert!(!old_app_state.design_was_modified(&app_state));

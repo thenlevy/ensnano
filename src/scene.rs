@@ -514,7 +514,7 @@ impl<S: AppState> Scene<S> {
         }
         self.data
             .borrow_mut()
-            .add_design(new_state.get_design_reader());
+            .update_design(new_state.get_design_reader());
         self.data
             .borrow_mut()
             .update_view(&new_state, &self.older_state);

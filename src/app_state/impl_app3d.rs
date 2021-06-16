@@ -99,7 +99,7 @@ mod tests {
         let old_state = state.clone();
 
         assert!(!state.design_was_modified(&old_state));
-        state = AppState::new_design(Default::default());
+        state.update_design(Default::default());
         assert!(state.design_was_modified(&old_state));
     }
 

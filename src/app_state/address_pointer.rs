@@ -52,7 +52,7 @@ impl<T: Default> AddressPointer<T> {
     }
 
     pub fn show_address(&self) {
-        println!("{:p}", Arc::as_ptr::(self.0))
+        println!("{:p}", Arc::as_ptr(&self.0))
     }
 }
 

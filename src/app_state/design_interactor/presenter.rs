@@ -125,7 +125,9 @@ pub(super) fn update_presenter(
     design: AddressPointer<Design>,
 ) -> (AddressPointer<Presenter>, AddressPointer<Design>) {
     if presenter.current_design != design {
-        println!("updating presenter");
+        if cfg!(test) {
+            println!("updating presenter");
+        }
         let mut new_presenter = presenter.clone_inner();
         new_presenter.read_design(design);
         let design = new_presenter.current_design.clone();

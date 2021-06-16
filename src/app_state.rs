@@ -63,12 +63,16 @@ impl AppState {
         Self(AddressPointer::new(new_state))
     }
 
-    pub fn new_design(design: Design) -> Self {
-        let state = AppState_ {
-            design: AddressPointer::new(DesignInteractor::new_design(design)),
-            ..Default::default()
-        };
-        Self(AddressPointer::new(state))
+    pub fn update_design(&mut self, design: Design) {
+        let new_state = std::mem::take(self);
+        *self = new_state.with_updated_design(design);
+    }
+
+    pub fn with_updated_design(&self, design: Design) -> Self {
+        let mut new_state = self.0.clone_inner();
+        let new_interactor = new_state.design.with_updated_design(design);
+        new_state.design = AddressPointer::new(new_interactor);
+        Self(AddressPointer::new(new_state))
     }
 
     pub fn import_design(path: &PathBuf) -> Result<Self, design_interactor::ParseDesignError> {
