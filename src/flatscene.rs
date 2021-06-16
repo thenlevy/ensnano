@@ -42,6 +42,7 @@ mod view;
 use camera::{Camera, Globals};
 use controller::Controller;
 use data::Data;
+pub use data::DesignReader;
 use flattypes::*;
 use std::time::Instant;
 use view::View;
@@ -622,10 +623,12 @@ impl<S: AppState> Application for FlatScene<S> {
 }
 
 pub trait AppState {
+    type Reader: DesignReader;
     fn selection_was_updated(&self, other: &Self) -> bool;
     fn get_selection(&self) -> &[Selection];
     fn get_candidates(&self) -> &[Selection];
     fn get_selection_mode(&self) -> SelectionMode;
+    fn get_design_reader(&self) -> Self::Reader;
 }
 
 use ultraviolet::Isometry2;

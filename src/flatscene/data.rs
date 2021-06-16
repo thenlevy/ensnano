@@ -15,10 +15,10 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
-use super::{AppState, Flat, HelixVec, PhantomElement, ViewPtr};
+use super::{AppState, Flat, HelixVec, PhantomElement, Requests, ViewPtr};
 use crate::design::{Design, Nucl, StrandBuilder};
 use crate::mediator::{Selection, SelectionMode};
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, Mutex, RwLock};
 use ultraviolet::Vec2;
 
 mod helix;
@@ -31,8 +31,8 @@ use crate::consts::*;
 use crate::design::{Helix as DesignHelix, Strand as DesignStrand};
 use crate::utils::camera2d::FitRectangle;
 use ahash::RandomState;
-pub use design::FlatTorsion;
 use design::{Design2d, Helix2d};
+pub use design::{DesignReader, FlatTorsion};
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
 pub struct Data {
@@ -43,26 +43,25 @@ pub struct Data {
     helices: HelixVec<Helix>,
     selected_helix: Option<FlatIdx>,
     nb_helices_created: usize,
-    basis_map: Arc<RwLock<HashMap<Nucl, char, RandomState>>>,
-    groups: Arc<RwLock<BTreeMap<usize, bool>>>,
     suggestions: HashMap<FlatNucl, HashSet<FlatNucl, RandomState>, RandomState>,
     id: u32,
 }
 
 impl Data {
-    pub fn new(view: ViewPtr, design: Arc<RwLock<Design>>, id: u32) -> Self {
-        let basis_map = design.read().unwrap().get_basis_map();
-        let groups = design.read().unwrap().get_groups();
+    pub fn new<R: DesignReader>(
+        view: ViewPtr,
+        design: R,
+        id: u32,
+        requests: Arc<Mutex<dyn Requests>>,
+    ) -> Self {
         Self {
             view,
-            design: Design2d::new(design),
+            design: Design2d::new(design, requests),
             instance_update: true,
             instance_reset: false,
             helices: HelixVec::new(),
             selected_helix: None,
             nb_helices_created: 0,
-            basis_map,
-            groups,
             suggestions: Default::default(),
             id,
         }
@@ -75,7 +74,7 @@ impl Data {
         }
         if self.instance_update || self.view.borrow().needs_redraw() {
             self.design.update();
-            self.fetch_helices();
+            self.fetch_helices(new_state.get_design_reader());
             self.view.borrow_mut().update_helices(&self.helices);
             self.view
                 .borrow_mut()
@@ -172,7 +171,7 @@ impl Data {
             .set_candidate_helices(candidate_helices);
     }
 
-    fn fetch_helices(&mut self) {
+    fn fetch_helices<R: DesignReader>(&mut self, design: R) {
         let removed_helices = self.design.get_removed_helices();
         for h in removed_helices.iter().rev() {
             self.helices.remove(*h);
@@ -193,8 +192,8 @@ impl Data {
                 flat_helix,
                 h.id,
                 h.visible,
-                self.basis_map.clone(),
-                self.groups.clone(),
+                design.get_basis_map(),
+                design.get_group_map(),
             ));
             self.nb_helices_created += 1;
         }
@@ -395,8 +394,8 @@ impl Data {
         }
     }
 
-    pub fn get_builder(&self, nucl: FlatNucl, stick: bool) -> Option<StrandBuilder> {
-        self.design.get_builder(nucl.to_real(), stick)
+    pub fn can_start_builder_at(&self, nucl: FlatNucl) -> bool {
+        self.design.can_start_builder_at(nucl.to_real())
     }
 
     pub fn notify_update(&mut self) {

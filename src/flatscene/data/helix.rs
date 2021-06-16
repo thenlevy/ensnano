@@ -54,8 +54,8 @@ pub struct Helix {
     pub flat_id: FlatHelix,
     pub real_id: usize,
     pub visible: bool,
-    basis_map: Arc<RwLock<HashMap<Nucl, char, RandomState>>>,
-    groups: Arc<RwLock<BTreeMap<usize, bool>>>,
+    basis_map: Arc<HashMap<Nucl, char, RandomState>>,
+    groups: Arc<BTreeMap<usize, bool>>,
 }
 
 impl Flat for Helix {}
@@ -81,8 +81,8 @@ impl Helix {
         flat_id: FlatHelix,
         real_id: usize,
         visible: bool,
-        basis_map: Arc<RwLock<HashMap<Nucl, char, RandomState>>>,
-        groups: Arc<RwLock<BTreeMap<usize, bool>>>,
+        basis_map: Arc<HashMap<Nucl, char, RandomState>>,
+        groups: Arc<BTreeMap<usize, bool>>,
     ) -> Self {
         Self {
             left,
@@ -526,7 +526,7 @@ impl Helix {
         let color = if !self.visible {
             CIRCLE2D_GREY
         } else {
-            match self.groups.read().unwrap().get(&self.real_id) {
+            match self.groups.get(&self.real_id) {
                 None => CIRCLE2D_BLUE,
                 Some(true) => CIRCLE2D_RED,
                 Some(false) => CIRCLE2D_GREEN,
@@ -694,7 +694,7 @@ impl Helix {
             }
         };
 
-        let basis_map = self.basis_map.read().unwrap();
+        let basis_map = self.basis_map.as_ref();
 
         let mut pos = self.left;
         while pos <= self.right {

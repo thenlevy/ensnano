@@ -15,16 +15,17 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
-use std::collections::{BTreeSet, HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
 use super::super::{FlatHelix, FlatIdx, FlatNucl, Requests};
 use super::{Flat, HelixVec, Nucl, Strand};
 use crate::design::{Design, Extremity, Referential, Torsion};
+use ahash::RandomState;
 use ensnano_design::{Helix as DesignHelix, Strand as StrandDesign};
 use ultraviolet::{Isometry2, Rotor2, Vec2, Vec3};
 
-pub(super) struct Design2d<R: DesignReader> {
+pub(super) struct Design2d {
     /// The 2d helices
     helices: HelixVec<Helix2d>,
     /// Maps id of helices in design to location in self.helices
@@ -32,7 +33,7 @@ pub(super) struct Design2d<R: DesignReader> {
     /// the 2d strands
     strands: Vec<Strand>,
     /// A pointer to the design
-    design: R,
+    design: Box<dyn DesignReader>,
     /// The strand being pasted,
     pasted_strands: Vec<Strand>,
     last_flip_other: Option<FlatHelix>,
@@ -40,10 +41,10 @@ pub(super) struct Design2d<R: DesignReader> {
     requests: Arc<Mutex<dyn Requests>>,
 }
 
-impl<R: DesignReader> Design2d<R> {
-    pub fn new(design: R, requests: Arc<Mutex<dyn Requests>>) -> Self {
+impl Design2d {
+    pub fn new<R: DesignReader>(design: R, requests: Arc<Mutex<dyn Requests>>) -> Self {
         Self {
-            design,
+            design: Box::new(design),
             helices: HelixVec::new(),
             id_map: HashMap::new(),
             strands: Vec::new(),
@@ -276,8 +277,8 @@ impl<R: DesignReader> Design2d<R> {
         self.requests.lock().unwrap().flip_group(helix.real)
     }
 
-    pub fn can_get_builder(&self, nucl: Nucl) -> bool {
-        self.design.can_get_builder(nucl)
+    pub fn can_start_builder_at(&self, nucl: Nucl) -> bool {
+        self.design.can_start_builder_at(nucl)
     }
 
     pub fn prime3_of(&self, nucl: Nucl) -> Option<usize> {
@@ -426,7 +427,7 @@ impl FlatTorsion {
     }
 }
 
-pub trait DesignReader {
+pub trait DesignReader: 'static {
     fn get_all_strand_ids(&self) -> Vec<usize>;
     /// Return a the list of consecutive domain extremities of strand `s_id`. Return None iff there
     /// is no strand with id `s_id` in the design.
@@ -438,7 +439,7 @@ pub trait DesignReader {
     fn get_suggestions(&self) -> Vec<(Nucl, Nucl)>;
     fn has_helix(&self, h_id: usize) -> bool;
     fn get_isometry(&self, h_id: usize) -> Option<Isometry2>;
-    fn can_get_builder(&self, nucl: Nucl) -> bool;
+    fn can_start_builder_at(&self, nucl: Nucl) -> bool;
     fn prime3_of_which_strand(&self, nucl: Nucl) -> Option<usize>;
     fn prime5_of_which_strand(&self, nucl: Nucl) -> Option<usize>;
     fn helix_is_empty(&self, h_id: usize) -> Option<bool>;
@@ -459,4 +460,6 @@ pub trait DesignReader {
     fn get_id_of_of_helix_containing_elt(&self, e_id: u32) -> Option<usize>;
     fn get_xover_with_id(&self, xover_id: usize) -> Option<(Nucl, Nucl)>;
     fn get_helices_on_grid(&self, g_id: usize) -> Option<HashSet<usize>>;
+    fn get_basis_map(&self) -> Arc<HashMap<Nucl, char, RandomState>>;
+    fn get_group_map(&self) -> Arc<BTreeMap<usize, bool>>;
 }
