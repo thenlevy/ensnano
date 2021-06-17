@@ -26,6 +26,7 @@ use crate::utils::id_generator::IdGenerator;
 type JunctionsIds = IdGenerator<(Nucl, Nucl)>;
 mod design_content;
 mod impl_reader3d;
+mod impl_reader2d;
 use design_content::DesignContent;
 use std::collections::BTreeMap;
 

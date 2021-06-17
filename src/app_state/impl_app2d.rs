@@ -20,6 +20,7 @@ use super::*;
 use crate::flatscene::AppState as App2D;
 
 impl App2D for AppState {
+    type Reader = DesignReader;
     fn get_selection(&self) -> &[Selection] {
         self.0.selection.as_slice()
     }
@@ -34,6 +35,10 @@ impl App2D for AppState {
 
     fn get_selection_mode(&self) -> SelectionMode {
         self.0.selection_mode
+    }
+
+    fn get_design_reader(&self) -> Self::Reader {
+        self.0.design.get_design_reader()
     }
 }
 

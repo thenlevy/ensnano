@@ -82,7 +82,7 @@ impl<S: AppState> FlatScene<S> {
         requests: Arc<Mutex<dyn Requests>>,
         initial_state: S,
     ) -> Self {
-        Self {
+        let mut ret = Self {
             view: Vec::new(),
             data: Vec::new(),
             controller: Vec::new(),
@@ -93,13 +93,15 @@ impl<S: AppState> FlatScene<S> {
             queue,
             last_update: Instant::now(),
             splited: false,
-            old_state: initial_state,
-            requests,
-        }
+            old_state: initial_state.clone(),
+            requests: requests.clone(),
+        };
+        ret.add_design(initial_state.get_design_reader(), requests);
+        ret
     }
 
     /// Add a design to the scene. This creates a new `View`, a new `Data` and a new `Controller`
-    fn add_design(&mut self, design: Arc<RwLock<Design>>) {
+    fn add_design(&mut self, reader: S::Reader, requests: Arc<Mutex<dyn Requests>>) {
         let height = if self.splited {
             self.area.size.height as f32 / 2.
         } else {
@@ -127,7 +129,7 @@ impl<S: AppState> FlatScene<S> {
             camera_bottom.clone(),
             self.splited,
         )));
-        let data = Rc::new(RefCell::new(Data::new(view.clone(), design, 0)));
+        let data = Rc::new(RefCell::new(Data::new(view.clone(), reader, 0, requests)));
         //data.borrow_mut().perform_update();
         // TODO is this update necessary ?
         let controller = Controller::new(
@@ -509,7 +511,7 @@ impl<S: AppState> Application for FlatScene<S> {
     type AppState = S;
     fn on_notify(&mut self, notification: Notification) {
         match notification {
-            Notification::NewDesign(design) => self.add_design(design),
+            Notification::NewDesign(_) => (), 
             Notification::NewActionMode(am) => self.change_action_mode(am),
             Notification::DesignNotification(DesignNotification { design_id, content }) => {
                 self.data[design_id].borrow_mut().notify_update();
@@ -622,7 +624,7 @@ impl<S: AppState> Application for FlatScene<S> {
     }
 }
 
-pub trait AppState {
+pub trait AppState: Clone {
     type Reader: DesignReader;
     fn selection_was_updated(&self, other: &Self) -> bool;
     fn get_selection(&self) -> &[Selection];
