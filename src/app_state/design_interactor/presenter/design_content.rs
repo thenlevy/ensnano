@@ -24,6 +24,7 @@ use ensnano_design::grid::GridPosition;
 use ensnano_design::*;
 use ensnano_interactor::ObjectType;
 use std::collections::{BTreeMap, HashMap, HashSet};
+use std::sync::Arc;
 use ultraviolet::Vec3;
 
 mod grid_data;
@@ -49,7 +50,7 @@ pub(super) struct DesignContent {
     pub helix_map: HashMap<u32, usize, RandomState>,
     /// Maps the identifier of an element to its color
     pub color: HashMap<u32, u32, RandomState>,
-    pub basis_map: HashMap<Nucl, char, RandomState>,
+    pub basis_map: Arc<HashMap<Nucl, char, RandomState>>,
     /// The position in space of the nucleotides in the Red group
     pub red_cubes: HashMap<(isize, isize, isize), Vec<Nucl>, RandomState>,
     /// The list of nucleotides in the blue group
@@ -358,7 +359,7 @@ impl DesignContent {
             space_position,
             color: color_map,
             helix_map,
-            basis_map,
+            basis_map: Arc::new(basis_map),
             red_cubes,
             prime3_set,
             blue_nucl,

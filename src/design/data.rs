@@ -715,7 +715,7 @@ impl Data {
     /// Save the design to a file in the `icednano` format
     pub fn save_file(&mut self, path: &PathBuf) -> std::io::Result<()> {
         self.design.anchors = self.anchors.clone();
-        self.design.groups = self.groups.read().unwrap().clone();
+        self.design.groups = Arc::new(self.groups.read().unwrap().clone());
         self.design.no_phantoms = self.grid_manager.no_phantoms.clone();
         self.design.small_spheres = self.grid_manager.small_spheres.clone();
         let json_content = serde_json::to_string_pretty(&self.design);

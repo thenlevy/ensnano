@@ -21,6 +21,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 use std::borrow::Cow;
 use std::collections::{BTreeMap, BTreeSet, HashSet};
 use std::f32::consts::PI;
+use std::sync::Arc;
 
 #[macro_use]
 extern crate serde_derive;
@@ -76,8 +77,8 @@ pub struct Design {
     pub grids: Vec<GridDescriptor>,
 
     /// The groups in which the helices are.
-    #[serde(skip_serializing_if = "BTreeMap::is_empty", default)]
-    pub groups: BTreeMap<usize, bool>,
+    #[serde(skip_serializing_if = "groups_is_empty", default)]
+    pub groups: Arc<BTreeMap<usize, bool>>,
 
     #[serde(skip_serializing_if = "HashSet::is_empty", default)]
     pub no_phantoms: HashSet<usize>,
@@ -103,6 +104,10 @@ pub struct Design {
 
 fn ensnano_version() -> String {
     std::env!("CARGO_PKG_VERSION").to_owned()
+}
+
+fn groups_is_empty<K, V>(groups: &Arc<BTreeMap<K, V>>) -> bool {
+    groups.as_ref().is_empty()
 }
 
 impl Default for Design {

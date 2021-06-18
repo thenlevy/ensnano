@@ -18,6 +18,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 
 use super::*;
 use ensnano_design::{codenano, scadnano};
+use std::ops::Deref;
 
 impl Data {
     /// Create a new data by reading a file. At the moment, the supported format are
@@ -41,7 +42,7 @@ impl Data {
         }
         grid_manager.update(&mut design);
         let color_idx = design.strands.keys().len();
-        let groups = design.groups.clone();
+        let groups = design.groups.as_ref().clone();
         let anchors = design.anchors.clone();
         let file_name = real_name(json_path);
 

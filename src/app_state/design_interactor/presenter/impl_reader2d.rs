@@ -21,70 +21,103 @@ use super::*;
 use crate::design::{Extremity, Referential, Torsion};
 use crate::flatscene::DesignReader as Reader2D;
 use ahash::RandomState;
-use ensnano_design::{Helix, Strand};
+use ensnano_design::{Domain, Helix, Strand};
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::sync::Arc;
 use ultraviolet::{Isometry2, Vec3};
 
 impl Reader2D for DesignReader {
     fn get_isometry(&self, h_id: usize) -> Option<Isometry2> {
-        todo!()
+        self.presenter
+            .current_design
+            .helices
+            .get(&h_id)
+            .and_then(|h| h.isometry2d)
     }
 
     fn get_strand_points(&self, s_id: usize) -> Option<Vec<Nucl>> {
-        todo!()
+        let strand = self.presenter.current_design.strands.get(&s_id)?;
+        let mut ret = Vec::new();
+        for domain in strand.domains.iter() {
+            if let Domain::HelixDomain(domain) = domain {
+                if domain.forward {
+                    ret.push(Nucl::new(domain.helix, domain.start, domain.forward));
+                    ret.push(Nucl::new(domain.helix, domain.end - 1, domain.forward));
+                } else {
+                    ret.push(Nucl::new(domain.helix, domain.end - 1, domain.forward));
+                    ret.push(Nucl::new(domain.helix, domain.start, domain.forward));
+                }
+            }
+        }
+        if strand.cyclic {
+            ret.push(ret[0])
+        }
+        Some(ret)
     }
 
     fn get_all_strand_ids(&self) -> Vec<usize> {
-        todo!()
+        self.presenter
+            .current_design
+            .strands
+            .keys()
+            .cloned()
+            .collect()
     }
 
     fn get_strand_color(&self, s_id: usize) -> Option<u32> {
-        todo!()
+        self.presenter
+            .current_design
+            .strands
+            .get(&s_id)
+            .map(|s| s.color)
     }
 
     fn get_torsions(&self) -> HashMap<(Nucl, Nucl), Torsion> {
-        todo!()
+        HashMap::new()
     }
 
     fn get_raw_helix(&self, h_id: usize) -> Option<Helix> {
-        todo!()
+        self.presenter.current_design.helices.get(&h_id).cloned()
     }
 
     fn get_basis_map(&self) -> Arc<HashMap<Nucl, char, RandomState>> {
-        todo!()
+        self.presenter.content.basis_map.clone()
     }
 
     fn get_group_map(&self) -> Arc<BTreeMap<usize, bool>> {
-        todo!()
+        self.presenter.current_design.groups.clone()
     }
 
     fn get_insertions(&self, s_id: usize) -> Option<Vec<Nucl>> {
-        todo!()
+        self.presenter
+            .current_design
+            .strands
+            .get(&s_id)
+            .map(|s| s.get_insertions())
     }
 
     fn get_raw_strand(&self, s_id: usize) -> Option<Strand> {
-        todo!()
+        self.presenter.current_design.strands.get(&s_id).cloned()
     }
 
     fn get_copy_points(&self) -> Vec<Vec<Nucl>> {
-        todo!()
+        vec![]
     }
 
     fn get_suggestions(&self) -> Vec<(Nucl, Nucl)> {
-        todo!()
+        vec![]
     }
 
     fn get_xover_with_id(&self, xover_id: usize) -> Option<(Nucl, Nucl)> {
-        todo!()
+        self.presenter.junctions_ids.get_element(xover_id)
     }
 
     fn get_identifier_nucl(&self, nucl: &Nucl) -> Option<u32> {
-        todo!()
+        self.presenter.content.identifier_nucl.get(nucl).cloned()
     }
 
     fn get_helices_on_grid(&self, g_id: usize) -> Option<HashSet<usize>> {
-        todo!()
+        Some(self.presenter.content.get_helices_on_grid(g_id))
     }
 
     fn get_visibility_helix(&self, h_id: usize) -> Option<bool> {
@@ -138,5 +171,31 @@ impl Reader2D for DesignReader {
 
     fn is_xover_end(&self, nucl: &Nucl) -> Extremity {
         todo!()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn correct_suggestions() {
+        // TODO: write test, and implement function
+        assert!(false)
+    }
+
+    #[test]
+    fn copy_points() {
+        assert!(false)
+    }
+
+    #[test]
+    fn can_start_builder_implemented() {
+        assert!(false)
+    }
+
+    #[test]
+    fn get_torsions_implemented() {
+        assert!(false)
     }
 }
