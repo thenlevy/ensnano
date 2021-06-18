@@ -17,12 +17,12 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 
 use super::*;
-use crate::design::ObjectType;
 use crate::scene::GridInstance;
 use ahash::RandomState;
 use ensnano_design::elements::DnaElement;
 use ensnano_design::grid::GridPosition;
 use ensnano_design::*;
+use ensnano_interactor::ObjectType;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use ultraviolet::Vec3;
 

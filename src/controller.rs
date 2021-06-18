@@ -190,3 +190,5 @@ impl From<String> for LoadDesignError {
         Self(s)
     }
 }
+
+pub enum DesignAction {}

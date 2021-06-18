@@ -22,10 +22,10 @@ use super::super::view::{
 use super::super::GridInstance;
 use super::{LetterInstance, SceneElement};
 use crate::consts::*;
-use crate::design::{Nucl, ObjectType, Referential};
 use crate::utils;
 use crate::utils::instance::Instance;
-use ensnano_design::grid::GridPosition;
+use ensnano_design::{grid::GridPosition, Nucl};
+use ensnano_interactor::{ObjectType, Referential};
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 use ultraviolet::{Mat4, Rotor3, Vec3};

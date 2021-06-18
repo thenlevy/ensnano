@@ -18,13 +18,13 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 
 use super::*;
 
+use crate::design::{Extremity, Referential, Torsion};
 use crate::flatscene::DesignReader as Reader2D;
-use ensnano_design::{Strand, Helix};
-use ultraviolet::{Isometry2, Vec3};
-use std::collections::{HashMap, BTreeMap, HashSet};
-use crate::design::{Torsion, Referential, Extremity};
-use std::sync::Arc;
 use ahash::RandomState;
+use ensnano_design::{Helix, Strand};
+use std::collections::{BTreeMap, HashMap, HashSet};
+use std::sync::Arc;
+use ultraviolet::{Isometry2, Vec3};
 
 impl Reader2D for DesignReader {
     fn get_isometry(&self, h_id: usize) -> Option<Isometry2> {
@@ -95,7 +95,12 @@ impl Reader2D for DesignReader {
         todo!()
     }
 
-    fn get_position_of_nucl_on_helix(&self, nucl: Nucl, referential: Referential, on_axis: bool) -> Option<Vec3> {
+    fn get_position_of_nucl_on_helix(
+        &self,
+        nucl: Nucl,
+        referential: Referential,
+        on_axis: bool,
+    ) -> Option<Vec3> {
         todo!()
     }
 

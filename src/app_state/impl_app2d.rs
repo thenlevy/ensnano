@@ -17,6 +17,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 
 use super::*;
+use crate::design::StrandBuilder;
 use crate::flatscene::AppState as App2D;
 
 impl App2D for AppState {
@@ -39,6 +40,10 @@ impl App2D for AppState {
 
     fn get_design_reader(&self) -> Self::Reader {
         self.0.design.get_design_reader()
+    }
+
+    fn get_strand_builders(&self) -> &[StrandBuilder] {
+        &[]
     }
 }
 

@@ -19,6 +19,8 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 use super::*;
 use crate::flatscene::Requests as FlatSceneRequests;
 
+use ultraviolet::Isometry2;
+
 impl FlatSceneRequests for Requests {
     fn xover_request(&mut self, source: Nucl, target: Nucl, design_id: usize) {
         self.xover_request = Some((source, target, design_id));
@@ -46,5 +48,21 @@ impl FlatSceneRequests for Requests {
 
     fn update_opperation(&mut self, operation: Arc<dyn Operation>) {
         self.operation_update = Some(operation);
+    }
+
+    fn set_isometry(&mut self, helix: usize, isometry: Isometry2) {
+        todo!()
+    }
+
+    fn set_visibility_helix(&mut self, helix: usize, visibility: bool) {
+        todo!()
+    }
+
+    fn flip_group(&mut self, helix: usize) {
+        todo!()
+    }
+
+    fn suspend_op(&mut self) {
+        todo!()
     }
 }

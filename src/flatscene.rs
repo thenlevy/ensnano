@@ -17,7 +17,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 //! This module handles the 2D view
 
-use crate::design::{Design, DesignNotification, DesignNotificationContent, Nucl};
+use crate::design::{Design, DesignNotification, DesignNotificationContent, Nucl, StrandBuilder};
 use crate::mediator;
 use crate::{DrawArea, Duration, PhySize, WindowEvent};
 use iced_wgpu::wgpu;
@@ -365,16 +365,8 @@ impl<S: AppState> FlatScene<S> {
                         }))
                 }
             }
-            Consequence::Built(builder) => {
-                let color = builder.get_strand_color();
-                self.requests
-                    .lock()
-                    .unwrap()
-                    .update_opperation(Arc::new(StrandConstruction {
-                        redo: Some(color),
-                        color,
-                        builder,
-                    }));
+            Consequence::Built => {
+                self.requests.lock().unwrap().suspend_op();
             }
             Consequence::FlipVisibility(helix, apply_to_other) => self.data[self.selected_design]
                 .borrow_mut()
@@ -511,7 +503,7 @@ impl<S: AppState> Application for FlatScene<S> {
     type AppState = S;
     fn on_notify(&mut self, notification: Notification) {
         match notification {
-            Notification::NewDesign(_) => (), 
+            Notification::NewDesign(_) => (),
             Notification::NewActionMode(am) => self.change_action_mode(am),
             Notification::DesignNotification(DesignNotification { design_id, content }) => {
                 self.data[design_id].borrow_mut().notify_update();
@@ -631,6 +623,7 @@ pub trait AppState: Clone {
     fn get_candidates(&self) -> &[Selection];
     fn get_selection_mode(&self) -> SelectionMode;
     fn get_design_reader(&self) -> Self::Reader;
+    fn get_strand_builders(&self) -> &[StrandBuilder];
 }
 
 use ultraviolet::Isometry2;
@@ -645,4 +638,5 @@ pub trait Requests {
     fn set_isometry(&mut self, helix: usize, isometry: Isometry2);
     fn set_visibility_helix(&mut self, helix: usize, visibility: bool);
     fn flip_group(&mut self, helix: usize);
+    fn suspend_op(&mut self);
 }

@@ -17,9 +17,9 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 
 use super::*;
-use crate::design::{ObjectType, Referential};
 use crate::scene::GridInstance;
 use ensnano_design::{grid::GridPosition, Nucl};
+use ensnano_interactor::{ObjectType, Referential};
 use std::collections::HashSet;
 use ultraviolet::{Mat4, Rotor3, Vec3};
 

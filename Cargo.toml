@@ -1,5 +1,5 @@
 [workspace]
-members = [ "ensnano-design" ]
+members = [ "ensnano-design", "ensnano-interactor" ]
 
 [package]
 name = "ensnano"
@@ -45,4 +45,4 @@ num_enum = "0.5.1"
 cadnano-format = "0.1.0"
 open = "1"
 ensnano_design = { path = "ensnano-design" }
-
+ensnano_interactor = { path = "ensnano-interactor" }

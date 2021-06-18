@@ -205,27 +205,26 @@ impl<S: AppState> ControllerState<S> for NormalState {
                             } else {
                                 false
                             };
-                            if let Some(builder) = controller.data.borrow().get_builder(nucl, stick)
-                            {
-                                if builder.created_de_novo() {
+                            if controller.data.borrow().can_start_builder_at(nucl) {
+                                if !controller.data.borrow().has_nucl(nucl) {
+                                    // If the builder is not on an existing strand, we transition
+                                    // directly to building state
                                     Transition {
                                         new_state: Some(Box::new(Building {
                                             mouse_position: self.mouse_position,
                                             nucl,
-                                            builder,
                                             can_attach: false,
                                         })),
-                                        consequences: Consequence::NewCandidate(None),
+                                        consequences: Consequence::InitBuilding(nucl),
                                     }
                                 } else {
                                     Transition {
                                         new_state: Some(Box::new(InitBuilding {
                                             mouse_position: self.mouse_position,
                                             nucl,
-                                            builder,
                                             end: controller.data.borrow().is_strand_end(nucl),
                                         })),
-                                        consequences: Consequence::NewCandidate(None),
+                                        consequences: Consequence::InitBuilding(nucl),
                                     }
                                 }
                             } else if let Some(attachement) =
@@ -746,16 +745,14 @@ impl<S: AppState> ControllerState<S> for ReleasedPivot {
                             } else {
                                 false
                             };
-                            if let Some(builder) = controller.data.borrow().get_builder(nucl, stick)
-                            {
+                            if controller.data.borrow().can_start_builder_at(nucl) {
                                 Transition {
                                     new_state: Some(Box::new(InitBuilding {
                                         mouse_position: self.mouse_position,
                                         nucl,
-                                        builder,
                                         end: controller.data.borrow().is_strand_end(nucl),
                                     })),
-                                    consequences: Consequence::NewCandidate(None),
+                                    consequences: Consequence::InitBuilding(nucl),
                                 }
                             } else {
                                 Transition {
@@ -764,7 +761,7 @@ impl<S: AppState> ControllerState<S> for ReleasedPivot {
                                         fixed_corner: self.mouse_position,
                                         adding: controller.modifiers.shift(),
                                     })),
-                                    consequences: Consequence::NewCandidate(None),
+                                    consequences: Consequence::InitBuilding(nucl),
                                 }
                             }
                         }
@@ -1374,9 +1371,20 @@ impl<S: AppState> ControllerState<S> for InitAttachement {
     }
 }
 
+/// The state in which the controller is just after creating strand builders.
+/// From there depending on which mouse movement the user make, the controller will transition to
+/// an other state. A transition is triggered when the cursor leaves the square in which the user
+/// clicked to initiate strand building.
+///
+/// * If the cursor is moved on a neighbour nucleotide, the controller transition to Building
+/// * If the cursor is moved out of the helix, the strand is cut and the controller transition to
+/// CrossCut state.
+///
+/// It is possible to reach this state with no strand builder being active, in this case moving the
+/// cursor will have no effet and the controller will transition to NormalState when the left mouse
+/// button is released.
 struct InitBuilding {
     mouse_position: PhysicalPosition<f64>,
-    builder: StrandBuilder,
     nucl: FlatNucl,
     end: Option<bool>,
 }
@@ -1399,7 +1407,7 @@ impl<S: AppState> ControllerState<S> for InitBuilding {
         event: &WindowEvent,
         position: PhysicalPosition<f64>,
         controller: &Controller<S>,
-        _: &S,
+        app_state: &S,
     ) -> Transition<S> {
         match event {
             WindowEvent::MouseInput {
@@ -1433,97 +1441,100 @@ impl<S: AppState> ControllerState<S> for InitBuilding {
             }
             WindowEvent::CursorMoved { .. } => {
                 self.mouse_position = position;
-                let (x, y) = controller
-                    .get_camera(position.y)
-                    .borrow()
-                    .screen_to_world(self.mouse_position.x as f32, self.mouse_position.y as f32);
-                let click_result =
-                    controller
-                        .data
-                        .borrow()
-                        .get_click(x, y, &controller.get_camera(position.y));
-                match click_result {
-                    ClickResult::Nucl(FlatNucl {
-                        helix,
-                        position,
-                        forward,
-                    }) if helix == self.nucl.helix && forward == self.nucl.forward => {
-                        if position != self.nucl.position {
-                            self.builder.move_to(position);
+                if let Some(builder) = app_state.get_strand_builders().get(0) {
+                    let (x, y) = controller.get_camera(position.y).borrow().screen_to_world(
+                        self.mouse_position.x as f32,
+                        self.mouse_position.y as f32,
+                    );
+                    let click_result = controller.data.borrow().get_click(
+                        x,
+                        y,
+                        &controller.get_camera(position.y),
+                    );
+                    match click_result {
+                        ClickResult::Nucl(FlatNucl {
+                            helix,
+                            position,
+                            forward,
+                        }) if helix == self.nucl.helix && forward == self.nucl.forward => {
+                            if position != self.nucl.position {
+                                //self.builder.move_to(position);
+                                controller.data.borrow_mut().notify_update();
+                                Transition {
+                                    new_state: Some(Box::new(Building {
+                                        mouse_position: self.mouse_position,
+                                        nucl: self.nucl,
+                                        can_attach: true,
+                                    })),
+                                    consequences: Consequence::MoveBuilders(position),
+                                }
+                            } else {
+                                Transition::nothing()
+                            }
+                        }
+                        ClickResult::Nucl(nucl)
+                            if controller.data.borrow().can_cross_to(self.nucl, nucl) =>
+                        {
+                            //self.builder.reset();
                             controller.data.borrow_mut().notify_update();
                             Transition {
-                                new_state: Some(Box::new(Building {
-                                    mouse_position: self.mouse_position,
-                                    builder: self.builder.clone(),
-                                    nucl: self.nucl,
-                                    can_attach: true,
-                                })),
-                                consequences: Consequence::Nothing,
-                            }
-                        } else {
-                            Transition::nothing()
-                        }
-                    }
-                    ClickResult::Nucl(nucl)
-                        if controller.data.borrow().can_cross_to(self.nucl, nucl) =>
-                    {
-                        self.builder.reset();
-                        controller.data.borrow_mut().notify_update();
-                        Transition {
-                            new_state: Some(Box::new(Crossing {
-                                mouse_position: self.mouse_position,
-                                from: self.nucl,
-                                to: nucl,
-                                strand_id: self.builder.get_strand_id(),
-                                from3prime: self.end.expect("from3prime"),
-                                cut: false,
-                            })),
-                            consequences: Consequence::FreeEnd(self.end.map(|b| FreeEnd {
-                                strand_id: self.builder.get_strand_id(),
-                                point: Vec2::new(x, y),
-                                prime3: b,
-                            })),
-                        }
-                    }
-                    _ => {
-                        if let Some(prime3) = self.end {
-                            Transition {
-                                new_state: Some(Box::new(MovingFreeEnd {
+                                new_state: Some(Box::new(Crossing {
                                     mouse_position: self.mouse_position,
                                     from: self.nucl,
-                                    prime3,
-                                    strand_id: self.builder.get_strand_id(),
+                                    to: nucl,
+                                    strand_id: builder.get_strand_id(),
+                                    from3prime: self.end.expect("from3prime"),
+                                    cut: false,
                                 })),
-                                consequences: Consequence::FreeEnd(Some(FreeEnd {
-                                    strand_id: self.builder.get_strand_id(),
+                                consequences: Consequence::FreeEnd(self.end.map(|b| FreeEnd {
+                                    strand_id: builder.get_strand_id(),
                                     point: Vec2::new(x, y),
-                                    prime3,
+                                    prime3: b,
                                 })),
                             }
-                        } else {
-                            let prime3 = controller
-                                .data
-                                .borrow()
-                                .is_xover_end(&self.nucl)
-                                .unwrap_or(true);
-                            Transition {
-                                new_state: Some(Box::new(MovingFreeEnd {
-                                    mouse_position: self.mouse_position,
-                                    from: self.nucl,
-                                    prime3,
-                                    strand_id: self.builder.get_strand_id(),
-                                })),
-                                consequences: Consequence::CutFreeEnd(
-                                    self.nucl,
-                                    Some(FreeEnd {
-                                        strand_id: self.builder.get_strand_id(),
+                        }
+                        _ => {
+                            if let Some(prime3) = self.end {
+                                Transition {
+                                    new_state: Some(Box::new(MovingFreeEnd {
+                                        mouse_position: self.mouse_position,
+                                        from: self.nucl,
+                                        prime3,
+                                        strand_id: builder.get_strand_id(),
+                                    })),
+                                    consequences: Consequence::FreeEnd(Some(FreeEnd {
+                                        strand_id: builder.get_strand_id(),
                                         point: Vec2::new(x, y),
                                         prime3,
-                                    }),
-                                ),
+                                    })),
+                                }
+                            } else {
+                                let prime3 = controller
+                                    .data
+                                    .borrow()
+                                    .is_xover_end(&self.nucl)
+                                    .unwrap_or(true);
+                                Transition {
+                                    new_state: Some(Box::new(MovingFreeEnd {
+                                        mouse_position: self.mouse_position,
+                                        from: self.nucl,
+                                        prime3,
+                                        strand_id: builder.get_strand_id(),
+                                    })),
+                                    consequences: Consequence::CutFreeEnd(
+                                        self.nucl,
+                                        Some(FreeEnd {
+                                            strand_id: builder.get_strand_id(),
+                                            point: Vec2::new(x, y),
+                                            prime3,
+                                        }),
+                                    ),
+                                }
                             }
                         }
                     }
+                } else {
+                    Transition::nothing()
                 }
             }
             WindowEvent::KeyboardInput { .. } => {
@@ -1665,9 +1676,9 @@ impl<S: AppState> ControllerState<S> for MovingFreeEnd {
     }
 }
 
+/// Elongating or shortening strands.
 struct Building {
     mouse_position: PhysicalPosition<f64>,
-    builder: StrandBuilder,
     nucl: FlatNucl,
     can_attach: bool,
 }
@@ -1721,7 +1732,7 @@ impl<S: AppState> ControllerState<S> for Building {
                     new_state: Some(Box::new(NormalState {
                         mouse_position: self.mouse_position,
                     })),
-                    consequences: Consequence::Built(Box::new(self.builder.clone())),
+                    consequences: Consequence::Built,
                 }
             }
             WindowEvent::CursorMoved { .. } => {
@@ -1742,9 +1753,8 @@ impl<S: AppState> ControllerState<S> for Building {
                     FlatNucl {
                         helix, position, ..
                     } if helix == self.nucl.helix => {
-                        self.builder.move_to(position);
                         controller.data.borrow_mut().notify_update();
-                        Transition::consequence(Consequence::FreeEnd(None))
+                        Transition::consequence(Consequence::MoveBuilders(position))
                     }
                     _ => Transition::nothing(),
                 }
@@ -2263,26 +2273,24 @@ impl<S: AppState> ControllerState<S> for FollowingSuggestion {
             }
             WindowEvent::CursorMoved { .. } => {
                 if position_difference(self.mouse_position, position) >= 3. {
-                    if let Some(builder) = controller.data.borrow().get_builder(self.nucl, false) {
-                        if builder.created_de_novo() {
+                    if controller.data.borrow().can_start_builder_at(self.nucl) {
+                        if !controller.data.borrow().has_nucl(self.nucl) {
                             Transition {
                                 new_state: Some(Box::new(Building {
                                     mouse_position: self.mouse_position,
                                     nucl: self.nucl,
-                                    builder,
                                     can_attach: false,
                                 })),
-                                consequences: Consequence::NewCandidate(None),
+                                consequences: Consequence::InitBuilding(self.nucl),
                             }
                         } else {
                             Transition {
                                 new_state: Some(Box::new(InitBuilding {
                                     mouse_position: self.mouse_position,
                                     nucl: self.nucl,
-                                    builder,
                                     end: controller.data.borrow().is_strand_end(self.nucl),
                                 })),
-                                consequences: Consequence::NewCandidate(None),
+                                consequences: Consequence::InitBuilding(self.nucl),
                             }
                         }
                     } else {

@@ -65,7 +65,7 @@ pub enum Consequence {
     RmStrand(FlatNucl),
     RmHelix(FlatHelix),
     FlipVisibility(FlatHelix, bool),
-    Built(Box<StrandBuilder>),
+    Built,
     FlipGroup(FlatHelix),
     FollowingSuggestion(FlatNucl, bool),
     Centering(FlatNucl, bool),
@@ -76,6 +76,8 @@ pub enum Consequence {
     SelectionChanged(Vec<Selection>),
     ClearSelection,
     DoubleClick(ClickResult),
+    MoveBuilders(isize),
+    InitBuilding(FlatNucl),
 }
 
 impl<S: AppState> Controller<S> {

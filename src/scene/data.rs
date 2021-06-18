@@ -28,9 +28,10 @@ use ultraviolet::{Rotor3, Vec3};
 
 use super::view::Mesh;
 use crate::consts::*;
-use crate::design::{Nucl, ObjectType, Referential};
 use crate::mediator::{ActionMode, Selection, SelectionMode};
 use crate::utils::PhantomElement;
+use ensnano_design::Nucl;
+use ensnano_interactor::{ObjectType, Referential};
 
 use super::AppState;
 
