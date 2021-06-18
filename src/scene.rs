@@ -56,6 +56,7 @@ use data::Data;
 use design::{Design, DesignNotification, DesignNotificationContent};
 mod element_selector;
 use element_selector::{ElementSelector, SceneElement};
+mod maths_3d;
 
 type ViewPtr = Rc<RefCell<View>>;
 type DataPtr = Rc<RefCell<Data>>;
@@ -205,7 +206,7 @@ impl Scene {
                 self.controller.swing(-x, -y);
                 self.notify(SceneNotification::CameraMoved);
             }
-            Consequence::ToggleWidget => self.data.borrow_mut().toggle_widget_basis(),
+            Consequence::ToggleWidget => self.data.borrow_mut().toggle_widget_basis(false),
             Consequence::BuildEnded(d_id, id) => {
                 self.select(Some(SceneElement::DesignElement(d_id, id)))
             }
@@ -472,13 +473,10 @@ impl Scene {
     /// Adapt the camera, position, orientation and pivot point to a design so that the design fits
     /// the scene, and the pivot point of the camera is the center of the design.
     fn fit_design(&mut self) {
-        let camera = self
-            .data
-            .borrow()
-            .get_fitting_camera(self.get_ratio(), self.get_fovy());
-        if let Some((position, rotor)) = camera {
+        let camera_position = self.data.borrow().get_fitting_camera_position();
+        if let Some(position) = camera_position {
             let pivot_point = self.data.borrow().get_middle_point(0);
-            self.notify(SceneNotification::NewCamera(position, rotor));
+            self.notify(SceneNotification::NewCameraPosition(position));
             self.controller.set_pivot_point(Some(pivot_point));
             self.controller.set_pivot_point(None);
         }
@@ -544,16 +542,6 @@ impl Scene {
         self.update.need_update = false;
     }
 
-    /// Return the vertical field of view of the camera in radians
-    fn get_fovy(&self) -> f32 {
-        self.view.borrow().get_projection().borrow().get_fovy()
-    }
-
-    /// Return the width/height ratio of the camera
-    fn get_ratio(&self) -> f32 {
-        self.view.borrow().get_projection().borrow().get_ratio()
-    }
-
     fn change_selection_mode(&mut self, selection_mode: SelectionMode) {
         self.data.borrow_mut().change_selection_mode(selection_mode);
         self.update_handle();
@@ -576,6 +564,7 @@ impl Scene {
             self.data.borrow().get_selected_position()
         });
         self.controller.set_camera_target(target, up, pivot);
+        self.fit_design();
     }
 
     fn request_camera_rotation(&mut self, xz: f32, yz: f32, xy: f32) {
@@ -628,9 +617,11 @@ pub enum SceneNotification {
     /// updated.
     CameraMoved,
     /// The camera is replaced by a new one.
+    #[allow(dead_code)]
     NewCamera(Vec3, Rotor3),
     /// The drawing area has been modified
     NewSize(PhySize, DrawArea),
+    NewCameraPosition(Vec3),
 }
 
 impl Scene {
@@ -639,6 +630,10 @@ impl Scene {
         match notification {
             SceneNotification::NewCamera(position, projection) => {
                 self.controller.teleport_camera(position, projection);
+                self.update.camera_update = true;
+            }
+            SceneNotification::NewCameraPosition(position) => {
+                self.controller.set_camera_position(position);
                 self.update.camera_update = true;
             }
             SceneNotification::CameraMoved => self.update.camera_update = true,
@@ -725,8 +720,8 @@ impl Application for Scene {
             Notification::ModifersChanged(modifiers) => self.controller.update_modifiers(modifiers),
             Notification::Split2d => (),
             Notification::Redim2dHelices(_) => (),
-            Notification::ToggleWidget => {
-                self.data.borrow_mut().toggle_widget_basis();
+            Notification::ToggleWidget(b) => {
+                self.data.borrow_mut().toggle_widget_basis(b);
                 self.update_handle();
             }
             Notification::RenderingMode(mode) => self.view.borrow_mut().rendering_mode(mode),

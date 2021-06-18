@@ -55,8 +55,6 @@ impl EditionTab {
 
     pub(super) fn view<'a>(
         &'a mut self,
-        action_mode: ActionMode,
-        selection_mode: SelectionMode,
         ui_size: UiSize,
         width: u16,
         app_state: &ApplicationState,
@@ -79,7 +77,9 @@ impl EditionTab {
             .into_iter()
             .rev()
             .filter(|(m, _)| selection_modes.contains(m))
-            .map(|(mode, state)| selection_mode_btn(state, mode, selection_mode, ui_size.button()))
+            .map(|(mode, state)| {
+                selection_mode_btn(state, mode, app_state.selection_mode, ui_size.button())
+            })
             .collect();
 
         ret = ret.push(Text::new("Selection Mode"));
@@ -105,7 +105,15 @@ impl EditionTab {
             .get_states(0, 0, false)
             .into_iter()
             .filter(|(m, _)| action_modes.contains(m))
-            .map(|(mode, state)| action_mode_btn(state, mode, action_mode, ui_size.button()))
+            .map(|(mode, state)| {
+                action_mode_btn(
+                    state,
+                    mode,
+                    app_state.action_mode,
+                    ui_size.button(),
+                    app_state.axis_aligned,
+                )
+            })
             .collect();
 
         ret = ret.push(Text::new("Action Mode"));
@@ -136,7 +144,7 @@ impl EditionTab {
         );
 
         let color_square = self.color_picker.color_square();
-        if selection_mode == SelectionMode::Strand {
+        if app_state.selection_mode == SelectionMode::Strand {
             ret = ret
                 .push(self.color_picker.view())
                 .push(
@@ -271,9 +279,9 @@ impl GridTab {
 
     pub(super) fn view<'a>(
         &'a mut self,
-        action_mode: ActionMode,
         ui_size: UiSize,
         width: u16,
+        app_state: &ApplicationState,
     ) -> Element<'a, Message> {
         let action_modes = [
             ActionMode::Normal,
@@ -406,7 +414,15 @@ impl GridTab {
             .get_states(self.helix_length, self.helix_pos, self.show_strand_menu)
             .into_iter()
             .filter(|(m, _)| action_modes.contains(m))
-            .map(|(mode, state)| action_mode_btn(state, mode, action_mode, ui_size.button()))
+            .map(|(mode, state)| {
+                action_mode_btn(
+                    state,
+                    mode,
+                    app_state.action_mode,
+                    ui_size.button(),
+                    app_state.axis_aligned,
+                )
+            })
             .collect();
 
         ret = ret.push(iced::Space::with_height(Length::Units(5)));
@@ -531,11 +547,12 @@ fn action_mode_btn<'a>(
     mode: ActionMode,
     fixed_mode: ActionMode,
     button_size: u16,
+    axis_aligned: bool,
 ) -> Button<'a, Message> {
     let icon_path = if fixed_mode == mode {
-        mode.icon_on()
+        mode.icon_on(axis_aligned)
     } else {
-        mode.icon_off()
+        mode.icon_off(axis_aligned)
     };
 
     Button::new(state, Image::new(icon_path))
@@ -760,35 +777,19 @@ struct FogParameters {
     radius_slider: slider::State,
     length: f32,
     length_slider: slider::State,
-    visible_btn: button::State,
-    center_btn: button::State,
+    picklist: pick_list::State<FogChoice>,
 }
 
 impl FogParameters {
     fn view(&mut self, ui_size: &UiSize) -> Column<Message> {
-        let visible_text = if self.visible {
-            "Desactivate"
-        } else {
-            "Activate"
-        };
-        let center_text = if self.from_camera {
-            "Centered on camera"
-        } else {
-            "Centered on pivot"
-        };
         let mut column = Column::new()
             .push(Text::new("Fog").size(ui_size.intermediate_text()))
-            .push(
-                Row::new()
-                    .push(
-                        text_btn(&mut self.visible_btn, visible_text, ui_size.clone())
-                            .on_press(Message::FogVisibility(!self.visible)),
-                    )
-                    .push(
-                        text_btn(&mut self.center_btn, center_text, ui_size.clone())
-                            .on_press(Message::FogCamera(!self.from_camera)),
-                    ),
-            );
+            .push(PickList::new(
+                &mut self.picklist,
+                &ALL_FOG_CHOICE[..],
+                Some(FogChoice::from_param(self.visible, self.from_camera)),
+                Message::FogChoice,
+            ));
 
         let radius_text = if self.visible {
             Text::new("Radius")
@@ -861,8 +862,7 @@ impl Default for FogParameters {
             length_slider: Default::default(),
             radius_slider: Default::default(),
             from_camera: true,
-            visible_btn: Default::default(),
-            center_btn: Default::default(),
+            picklist: Default::default(),
         }
     }
 }
@@ -1098,7 +1098,11 @@ impl ParametersTab {
         }
     }
 
-    pub(super) fn view<'a>(&'a mut self, ui_size: UiSize) -> Element<'a, Message> {
+    pub(super) fn view<'a>(
+        &'a mut self,
+        ui_size: UiSize,
+        app_state: &ApplicationState,
+    ) -> Element<'a, Message> {
         let mut ret = Column::new();
         ret = ret.push(Text::new("Parameters").size(ui_size.head_text()));
         ret = ret.push(Text::new("Font size"));
@@ -1122,6 +1126,11 @@ impl ParametersTab {
             ui_size.clone(),
         ));
 
+        ret = ret.push(iced::Space::with_height(Length::Units(10)));
+        ret = ret.push(Text::new("DNA parameters").size(ui_size.head_text()));
+        for line in app_state.parameter_ptr.as_ref().formated_string().lines() {
+            ret = ret.push(Text::new(line));
+        }
         ret = ret.push(iced::Space::with_height(Length::Units(10)));
         ret = ret.push(Text::new("About").size(ui_size.head_text()));
         ret = ret.push(Text::new(format!(
@@ -1380,4 +1389,53 @@ where
         .push(Checkbox::new(is_checked, "", f).size(ui_size.checkbox()))
         .spacing(CHECKBOXSPACING)
         .into()
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Copy)]
+pub enum FogChoice {
+    None,
+    FromCamera,
+    FromPivot,
+}
+
+impl Default for FogChoice {
+    fn default() -> Self {
+        Self::None
+    }
+}
+
+const ALL_FOG_CHOICE: [FogChoice; 3] =
+    [FogChoice::None, FogChoice::FromCamera, FogChoice::FromPivot];
+
+impl std::fmt::Display for FogChoice {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let ret = match self {
+            Self::None => "None",
+            Self::FromCamera => "From Camera",
+            Self::FromPivot => "From Pivot",
+        };
+        write!(f, "{}", ret)
+    }
+}
+
+impl FogChoice {
+    fn from_param(visible: bool, from_camera: bool) -> Self {
+        if visible {
+            if from_camera {
+                Self::FromCamera
+            } else {
+                Self::FromPivot
+            }
+        } else {
+            Self::None
+        }
+    }
+
+    pub fn to_param(&self) -> (bool, bool) {
+        match self {
+            Self::None => (false, false),
+            Self::FromPivot => (true, false),
+            Self::FromCamera => (true, true),
+        }
+    }
 }

@@ -144,6 +144,7 @@ pub struct Data {
     visible: HashMap<Nucl, bool>,
     visibility_sieve: Option<VisibilitySieve>,
     xover_ids: IdGenerator<(Nucl, Nucl)>,
+    prime3_set: Vec<(Vec3, Vec3, u32)>,
 }
 
 impl fmt::Debug for Data {
@@ -196,6 +197,7 @@ impl Data {
             visible: Default::default(),
             visibility_sieve: None,
             xover_ids: Default::default(),
+            prime3_set: Default::default(),
         }
     }
 
@@ -414,6 +416,7 @@ impl Data {
             visible: Default::default(),
             visibility_sieve: None,
             xover_ids,
+            prime3_set: Default::default(),
         };
         ret.make_hash_maps();
         ret.terminate_movement();
@@ -439,6 +442,7 @@ impl Data {
         let mut blue_cubes = HashMap::default();
         let mut red_cubes = HashMap::default();
         let mut elements = Vec::new();
+        let mut prime3_set = Vec::new();
         self.blue_nucl.clear();
         let groups = self.groups.read().unwrap();
         for (s_id, strand) in self.design.strands.iter_mut() {
@@ -583,6 +587,21 @@ impl Data {
                         forward3prime: prime3.forward,
                     });
                 }
+            } else {
+                if let Some(nucl) = old_nucl {
+                    let position_start = self.design.helices[&nucl.helix].space_pos(
+                        self.design.parameters.as_ref().unwrap(),
+                        nucl.position,
+                        nucl.forward,
+                    );
+                    let position_end = self.design.helices[&nucl.helix].space_pos(
+                        self.design.parameters.as_ref().unwrap(),
+                        nucl.prime3().position,
+                        nucl.forward,
+                    );
+                    let color = strand.color;
+                    prime3_set.push((position_start, position_end, color));
+                }
             }
             old_nucl = None;
             old_nucl_id = None;
@@ -599,6 +618,7 @@ impl Data {
         *self.basis_map.write().unwrap() = basis_map;
         self.red_cubes = red_cubes;
         self.blue_cubes = blue_cubes;
+        self.prime3_set = prime3_set;
         for (h_id, h) in self.design.helices.iter() {
             elements.push(DnaElement::Helix {
                 id: *h_id,
@@ -2083,6 +2103,13 @@ impl Data {
         self.grid_manager.grids.get(g_id).map(|g| g.position)
     }
 
+    pub fn get_grid_latice_position(&self, g_id: usize, x: isize, y: isize) -> Option<Vec3> {
+        self.grid_manager
+            .grids
+            .get(g_id)
+            .map(|g| g.position_helix(x, y))
+    }
+
     pub fn build_helix_grid(
         &mut self,
         g_id: usize,
@@ -3087,6 +3114,14 @@ impl Data {
 
     pub fn has_at_least_on_strand_with_insertions(&self) -> bool {
         self.design.has_at_least_on_strand_with_insertions()
+    }
+
+    pub fn get_dna_parameters(&self) -> Parameters {
+        self.design.parameters.unwrap_or_default()
+    }
+
+    pub fn get_prime3_set(&self) -> Vec<(Vec3, Vec3, u32)> {
+        self.prime3_set.clone()
     }
 }
 

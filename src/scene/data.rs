@@ -102,6 +102,7 @@ impl Data {
 
     /// Add a new design to be drawn
     pub fn add_design(&mut self, design: Arc<RwLock<Design>>) {
+        self.clear_designs();
         self.designs.push(Design3D::new(design));
         self.notify_instance_update();
         self.notify_matrices_update();
@@ -119,6 +120,10 @@ impl Data {
         self.notify_instance_update();
         self.notify_matrices_update();
         self.pivot_element = None;
+        self.pivot_position = None;
+        self.pivot_update = true;
+        self.candidate_update = true;
+        self.selection_update = true;
     }
 
     /// Forwards all needed update to the view
@@ -545,7 +550,9 @@ impl Data {
         let design_id = element.get_design()?;
         let design = self.designs.get(design_id as usize)?;
         match selection_mode {
-            SelectionMode::Helix => design.get_element_axis_position(element, referential),
+            SelectionMode::Helix => design
+                .get_element_axis_position(element, referential)
+                .or(design.get_element_position(element, referential)),
             SelectionMode::Nucleotide
             | SelectionMode::Strand
             | SelectionMode::Design
@@ -575,6 +582,7 @@ impl Data {
         if let Some(SceneElement::WidgetElement(_)) = element {
             return None;
         }
+        println!("selected {:?}", element);
         let future_selection = element;
         if self.selected_element == future_selection {
             self.sub_selection_mode = toggle_selection(self.sub_selection_mode);
@@ -583,6 +591,7 @@ impl Data {
         }
         self.selected_element = future_selection;
         self.update_selected_position();
+        println!("selected position: {:?}", self.selected_position);
         let selection_mode = if self.selection_mode == SelectionMode::Nucleotide {
             self.sub_selection_mode
         } else {
@@ -846,13 +855,18 @@ impl Data {
                 }
             }
             SceneElement::Grid(d_id, g_id) => Selection::Grid(*d_id, *g_id),
+            SceneElement::GridCircle(d_id, g_id, _, _) => Selection::Grid(*d_id, *g_id),
             SceneElement::PhantomElement(phantom) if phantom.bound => Selection::Bound(
                 phantom.design_id,
                 phantom.to_nucl(),
                 phantom.to_nucl().left(),
             ),
             SceneElement::PhantomElement(phantom) => {
-                Selection::Nucleotide(phantom.design_id, phantom.to_nucl())
+                if selection_mode == SelectionMode::Helix {
+                    Selection::Helix(phantom.design_id, phantom.to_nucl().helix as u32)
+                } else {
+                    Selection::Nucleotide(phantom.design_id, phantom.to_nucl())
+                }
             }
             _ => Selection::Nothing,
         }
@@ -1024,6 +1038,7 @@ impl Data {
 
         let mut letters = Vec::new();
         let mut grids = Vec::new();
+        let mut cones = Vec::new();
         for design in self.designs.iter() {
             for sphere in design.get_spheres_raw().iter() {
                 spheres.push(*sphere);
@@ -1047,6 +1062,9 @@ impl Data {
             }
             for tube in tubes {
                 pasted_tubes.push(tube);
+            }
+            for cone in design.get_all_prime3_cone() {
+                cones.push(cone);
             }
         }
         self.update_free_xover();
@@ -1075,6 +1093,9 @@ impl Data {
         self.view
             .borrow_mut()
             .update(ViewUpdate::Grids(Rc::new(grids)));
+        self.view
+            .borrow_mut()
+            .update(ViewUpdate::RawDna(Mesh::Prime3Cone, Rc::new(cones)));
         self.selection_update = true;
     }
 
@@ -1135,11 +1156,14 @@ impl Data {
             .update(ViewUpdate::ModelMatrices(matrices));
     }
 
-    /// Return a position and rotation of the camera that fits the first design
-    pub fn get_fitting_camera(&self, ratio: f32, fovy: f32) -> Option<(Vec3, Rotor3)> {
-        let design = self.designs.get(0)?;
-        Some(design.get_fitting_camera(ratio, fovy))
-            .filter(|(v, _)| !v.x.is_nan() && !v.y.is_nan() && !v.z.is_nan())
+    pub fn get_fitting_camera_position(&self) -> Option<Vec3> {
+        let view = self.view.borrow();
+        let basis = view.get_camera().borrow().get_basis();
+        let fovy = view.get_projection().borrow().get_fovy();
+        let ratio = view.get_projection().borrow().get_ratio();
+        self.designs
+            .get(0)
+            .and_then(|d| d.get_fitting_camera_position(basis, fovy, ratio))
     }
 
     /// Return the point in the middle of the selected design
@@ -1180,8 +1204,8 @@ impl Data {
         self.update_matrices();
     }
 
-    pub fn toggle_widget_basis(&mut self) {
-        self.widget_basis.toggle()
+    pub fn toggle_widget_basis(&mut self, axis_aligned: bool) {
+        self.widget_basis.toggle(axis_aligned)
     }
 
     pub fn get_widget_basis(&self) -> Option<Rotor3> {
@@ -1218,6 +1242,9 @@ impl Data {
                 }
             }
             Some(SceneElement::Grid(d_id, g_id)) => {
+                self.designs[*d_id as usize].get_grid_basis(*g_id)
+            }
+            Some(SceneElement::GridCircle(d_id, g_id, _, _)) => {
                 self.designs[*d_id as usize].get_grid_basis(*g_id)
             }
             _ => None,
@@ -1352,19 +1379,16 @@ impl Data {
         self.free_xover_update = true;
         let nucl = self.element_to_nucl(&element, true);
         if let Some(free_xover) = self.free_xover.as_mut() {
-            let origin_helix = if let FreeXoverEnd::Nucl(nucl) = free_xover.source {
-                Some(nucl.helix)
-            } else {
-                None
-            };
-            if let Some((nucl, _)) = nucl.filter(|n| n.1 == free_xover.design_id) {
-                if Some(nucl.helix) != origin_helix {
-                    free_xover.target = FreeXoverEnd::Nucl(nucl);
-                } else {
-                    free_xover.target = FreeXoverEnd::Free(position);
+            free_xover.target = FreeXoverEnd::Free(position);
+            if let FreeXoverEnd::Nucl(origin_nucl) = free_xover.source {
+                if let Some((nucl, _)) = nucl.filter(|n| n.1 == free_xover.design_id) {
+                    if nucl.helix != origin_nucl.helix
+                        && !self.designs[free_xover.design_id].both_prime3(origin_nucl, nucl)
+                        && !self.designs[free_xover.design_id].both_prime5(origin_nucl, nucl)
+                    {
+                        free_xover.target = FreeXoverEnd::Nucl(nucl);
+                    }
                 }
-            } else {
-                free_xover.target = FreeXoverEnd::Free(position);
             }
         }
     }
@@ -1422,11 +1446,12 @@ enum WidgetBasis {
 }
 
 impl WidgetBasis {
-    pub fn toggle(&mut self) {
-        match self {
-            WidgetBasis::World => *self = WidgetBasis::Object,
-            WidgetBasis::Object => *self = WidgetBasis::World,
-        }
+    pub fn toggle(&mut self, axis_aligned: bool) {
+        if axis_aligned {
+            *self = WidgetBasis::World
+        } else {
+            *self = WidgetBasis::Object
+        };
     }
 }
 

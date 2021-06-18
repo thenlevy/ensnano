@@ -21,6 +21,8 @@ use std::io::Write;
 use std::path::Path;
 use ultraviolet::Vec3;
 
+const BACKBONE_TO_CM: f32 = 0.34;
+
 struct OxDnaNucl {
     position: Vec3,
     backbone_base: Vec3,
@@ -103,18 +105,19 @@ struct OxDnaBound {
 
 impl Helix {
     fn ox_dna_nucl(&self, nucl_idx: isize, forward: bool, parameters: &Parameters) -> OxDnaNucl {
-        let position = self.space_pos(parameters, nucl_idx, forward);
+        let backbone_position = self.space_pos(parameters, nucl_idx, forward);
         let backbone_base = {
             let center = self.axis_position(parameters, nucl_idx);
-            (center - position).normalized()
+            (center - backbone_position).normalized()
         };
         let normal = if forward {
             (self.axis_position(parameters, 1) - self.axis_position(parameters, 0)).normalized()
         } else {
             -(self.axis_position(parameters, 1) - self.axis_position(parameters, 0)).normalized()
         };
+        let cm_position = backbone_position + backbone_base * BACKBONE_TO_CM;
         OxDnaNucl {
-            position,
+            position: cm_position,
             backbone_base,
             normal,
             velocity: Vec3::zero(),

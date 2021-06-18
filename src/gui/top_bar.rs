@@ -55,6 +55,7 @@ pub struct TopBar {
     button_split_2d: button::State,
     button_help: button::State,
     button_tutorial: button::State,
+    button_new_empty_design: button::State,
     requests: Arc<Mutex<Requests>>,
     logical_size: LogicalSize<f64>,
     dialoging: Arc<Mutex<bool>>,
@@ -80,6 +81,7 @@ pub enum Message {
     ShowTutorial,
     Undo,
     Redo,
+    ButtonNewEmptyDesignPressed,
 }
 
 impl TopBar {
@@ -102,6 +104,7 @@ impl TopBar {
             button_split_2d: Default::default(),
             button_help: Default::default(),
             button_tutorial: Default::default(),
+            button_new_empty_design: Default::default(),
             requests,
             logical_size,
             dialoging,
@@ -225,37 +228,45 @@ impl Program for TopBar {
             Message::Redo => self.requests.lock().unwrap().redo = Some(()),
             Message::ForceHelp => self.requests.lock().unwrap().force_help = Some(()),
             Message::ShowTutorial => self.requests.lock().unwrap().show_tutorial = Some(()),
+            Message::ButtonNewEmptyDesignPressed => crate::save_before_new(self.requests.clone()),
         };
         Command::none()
     }
 
     fn view(&mut self) -> Element<Message, Renderer> {
         let height = self.logical_size.cast::<u16>().height;
+        let top_size_info = TopSizeInfo::new(self.ui_size.clone(), height);
         let button_fit = Button::new(
             &mut self.button_fit,
             icon(MaterialIcon::CenterFocusStrong, self.ui_size.clone()),
         )
         .on_press(Message::SceneFitRequested)
         .height(Length::Units(height));
-        let button_add_file = Button::new(
+
+        let button_new_empty_design = bottom_tooltip_icon_btn(
+            &mut self.button_new_empty_design,
+            MaterialIcon::InsertDriveFile,
+            &top_size_info,
+            "Load empty design",
+            Some(Message::ButtonNewEmptyDesignPressed),
+        );
+
+        let button_add_file = bottom_tooltip_icon_btn(
             &mut self.button_add_file,
-            icon(MaterialIcon::FolderOpen, self.ui_size.clone()),
-        )
-        .on_press(Message::OpenFileButtonPressed)
-        .height(Length::Units(height));
-        /*let button_replace_file = Button::new(
-            &mut self.button_replace_file,
-            Image::new("icons/delete.png"),
-        )
-        .on_press(Message::FileReplaceRequested)
-        .height(Length::Units(height));*/
+            MaterialIcon::Folder,
+            &top_size_info,
+            "Open",
+            Some(Message::OpenFileButtonPressed),
+        );
+
         let save_message = Message::FileSaveRequested(None);
-        let button_save = Button::new(
+        let button_save = bottom_tooltip_icon_btn(
             &mut self.button_save,
-            icon(MaterialIcon::Save, self.ui_size.clone()),
-        )
-        .on_press(save_message)
-        .height(Length::Units(height));
+            MaterialIcon::Save,
+            &top_size_info,
+            "Save As..",
+            Some(save_message),
+        );
 
         let mut button_undo = Button::new(
             &mut self.button_undo,
@@ -283,9 +294,10 @@ impl Program for TopBar {
             .height(Length::Units(self.ui_size.button()))
             .on_press(Message::ToggleView(SplitMode::Both));
 
-        let button_oxdna = Button::new(&mut self.button_oxdna, iced::Text::new("To OxDNA"))
+        let button_oxdna = Button::new(&mut self.button_oxdna, iced::Text::new("To OxView"))
             .height(Length::Units(self.ui_size.button()))
             .on_press(Message::OxDNARequested);
+        let oxdna_tooltip = button_oxdna;
 
         let button_split_2d = Button::new(&mut self.button_split_2d, iced::Text::new("(Un)split"))
             .height(Length::Units(self.ui_size.button()))
@@ -302,9 +314,10 @@ impl Program for TopBar {
         let buttons = Row::new()
             .width(Length::Fill)
             .height(Length::Units(height))
+            .push(button_new_empty_design)
             .push(button_add_file)
             .push(button_save)
-            .push(button_oxdna)
+            .push(oxdna_tooltip)
             .push(iced::Space::with_width(Length::Units(10)))
             .push(button_3d)
             .push(button_2d)
@@ -350,3 +363,47 @@ pub const BACKGROUND: Color = Color::from_rgb(
     0x39 as f32 / 255.0,
     0x3F as f32 / 255.0,
 );
+
+#[derive(Clone)]
+struct TopSizeInfo {
+    ui_size: UiSize,
+    height: iced::Length,
+}
+
+impl TopSizeInfo {
+    fn new(ui_size: UiSize, height: u16) -> Self {
+        Self {
+            ui_size,
+            height: iced::Length::Units(height),
+        }
+    }
+}
+
+#[allow(unused_imports)]
+use iced::tooltip::Position as ToolTipPosition;
+#[allow(unused_imports)]
+use iced::Tooltip;
+fn bottom_tooltip_icon_btn<'a, M: 'a + Clone>(
+    state: &'a mut button::State,
+    icon_char: MaterialIcon,
+    size: &TopSizeInfo,
+    _tooltip_text: impl ToString,
+    on_press: Option<M>,
+) -> Button<'a, M, Renderer> {
+    let mut button = Button::new(state, icon(icon_char, size.ui_size.clone())).height(size.height);
+    if let Some(on_press) = on_press {
+        button = button.on_press(on_press);
+    }
+    button
+    //Tooltip::new(button, tooltip_text, ToolTipPosition::Bottom).style(ToolTipStyle)
+}
+
+struct ToolTipStyle;
+impl iced::container::StyleSheet for ToolTipStyle {
+    fn style(&self) -> iced::container::Style {
+        iced::container::Style {
+            text_color: Some(iced::Color::BLACK),
+            ..Default::default()
+        }
+    }
+}

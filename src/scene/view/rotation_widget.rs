@@ -15,7 +15,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
-use super::{maths, CameraPtr, Drawable, Drawer, ProjectionPtr, Vertex};
+use super::{maths_3d, CameraPtr, Drawable, Drawer, ProjectionPtr, Vertex};
 
 use crate::consts::*;
 use iced_wgpu::wgpu;
@@ -180,7 +180,7 @@ impl RotationWidget {
             RotationMode::Up => (circles[1].origin, circles[1].normal()),
             RotationMode::Front => (circles[2].origin, circles[2].normal()),
         };
-        let point_clicked = maths::unproject_point_on_plane(
+        let point_clicked = maths_3d::unproject_point_on_plane(
             origin,
             normal,
             camera.clone(),
@@ -189,7 +189,7 @@ impl RotationWidget {
             y_init,
         )?;
         let point_moved =
-            maths::unproject_point_on_plane(origin, normal, camera, projection, x, y)?;
+            maths_3d::unproject_point_on_plane(origin, normal, camera, projection, x, y)?;
         let rotation = Rotor3::from_rotation_between(
             (point_clicked - origin).normalized(),
             (point_moved - origin).normalized(),
