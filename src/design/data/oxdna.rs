@@ -106,19 +106,19 @@ struct OxDnaBound {
 impl Helix {
     fn ox_dna_nucl(&self, nucl_idx: isize, forward: bool, parameters: &Parameters) -> OxDnaNucl {
         let backbone_position = self.space_pos(parameters, nucl_idx, forward);
-        let backbone_base = {
-            let center = self.axis_position(parameters, nucl_idx);
-            (center - backbone_position).normalized()
+        let a1 = {
+            let other_base = self.space_pos(parameters, nucl_idx, !forward);
+            (other_base - backbone_position).normalized()
         };
         let normal = if forward {
             (self.axis_position(parameters, 1) - self.axis_position(parameters, 0)).normalized()
         } else {
             -(self.axis_position(parameters, 1) - self.axis_position(parameters, 0)).normalized()
         };
-        let cm_position = backbone_position + backbone_base * BACKBONE_TO_CM;
+        let cm_position = backbone_position + a1 * BACKBONE_TO_CM;
         OxDnaNucl {
             position: cm_position,
-            backbone_base,
+            backbone_base: a1,
             normal,
             velocity: Vec3::zero(),
             angular_velocity: Vec3::zero(),
