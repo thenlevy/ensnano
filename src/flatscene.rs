@@ -624,6 +624,7 @@ pub trait AppState: Clone {
     fn get_selection_mode(&self) -> SelectionMode;
     fn get_design_reader(&self) -> Self::Reader;
     fn get_strand_builders(&self) -> &[StrandBuilder];
+    fn design_was_updated(&self, other: &Self) -> bool;
 }
 
 use ultraviolet::Isometry2;

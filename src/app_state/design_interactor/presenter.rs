@@ -146,10 +146,10 @@ pub(super) fn update_presenter(
     }
 }
 
-use ultraviolet::Vec3;
 use ensnano_interactor::Referential;
+use ultraviolet::Vec3;
 impl DesignReader {
-    pub (super) fn get_position_of_nucl_on_helix(
+    pub(super) fn get_position_of_nucl_on_helix(
         &self,
         nucl: Nucl,
         referential: Referential,
@@ -165,7 +165,7 @@ impl DesignReader {
         Some(self.presenter.in_referential(position, referential))
     }
 
-    pub (super) fn prime5_of_which_strand(&self, nucl: Nucl) -> Option<usize> {
+    pub(super) fn prime5_of_which_strand(&self, nucl: Nucl) -> Option<usize> {
         for (s_id, s) in self.presenter.current_design.strands.iter() {
             if !s.cyclic && s.get_5prime() == Some(nucl) {
                 return Some(*s_id);
@@ -174,7 +174,7 @@ impl DesignReader {
         None
     }
 
-    pub (super) fn prime3_of_which_strand(&self, nucl: Nucl) -> Option<usize> {
+    pub(super) fn prime3_of_which_strand(&self, nucl: Nucl) -> Option<usize> {
         for (s_id, s) in self.presenter.current_design.strands.iter() {
             if !s.cyclic && s.get_5prime() == Some(nucl) {
                 return Some(*s_id);
@@ -183,20 +183,20 @@ impl DesignReader {
         None
     }
 
-    pub (super) fn helix_is_empty(&self, h_id: usize) -> Option<bool> {
+    pub(super) fn helix_is_empty(&self, h_id: usize) -> Option<bool> {
         if !self.presenter.current_design.helices.contains_key(&h_id) {
             None
         } else {
             for h in self.presenter.content.helix_map.values() {
                 if *h == h_id {
-                    return Some(true)
+                    return Some(true);
                 }
             }
             Some(false)
         }
     }
 
-    pub (super) fn get_id_of_strand_containing_nucl(&self, nucl: &Nucl) -> Option<usize> {
+    pub(super) fn get_id_of_strand_containing_nucl(&self, nucl: &Nucl) -> Option<usize> {
         let e_id = self.presenter.content.identifier_nucl.get(nucl)?;
         self.presenter.content.strand_map.get(e_id).cloned()
     }
@@ -212,7 +212,7 @@ impl DesignReader {
         let strand = if let Some(strand) = self.presenter.current_design.strands.get(&strand_id) {
             strand
         } else {
-            return Extremity::No
+            return Extremity::No;
         };
         let mut prev_helix = None;
         for domain in strand.domains.iter() {
@@ -227,5 +227,4 @@ impl DesignReader {
         }
         return Extremity::No;
     }
-
 }

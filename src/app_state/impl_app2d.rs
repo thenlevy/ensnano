@@ -45,6 +45,10 @@ impl App2D for AppState {
     fn get_strand_builders(&self) -> &[StrandBuilder] {
         &[]
     }
+
+    fn design_was_updated(&self, other: &Self) -> bool {
+        self.0.design.has_different_design_than(&other.0.design)
+    }
 }
 
 #[cfg(test)]

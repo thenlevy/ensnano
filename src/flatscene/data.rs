@@ -72,8 +72,12 @@ impl Data {
             self.view.borrow_mut().reset();
             self.instance_reset = false;
         }
-        if self.instance_update || self.view.borrow().needs_redraw() {
-            self.design.update();
+        if new_state.design_was_updated(old_state)
+            || self.instance_update
+            || self.view.borrow().needs_redraw()
+        {
+            println!("update");
+            self.design.update(new_state.get_design_reader());
             self.fetch_helices(new_state.get_design_reader());
             self.view.borrow_mut().update_helices(&self.helices);
             self.view

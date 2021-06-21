@@ -504,12 +504,14 @@ impl GridManager {
 
     pub(super) fn get_helices_on_grid(&self, g_id: usize) -> Option<HashSet<usize>> {
         if self.grids.len() > g_id {
-            Some(self.pos_to_helix
-                .iter()
-                .filter(|(pos, _)| pos.0 == g_id)
-                .map(|(_, h)| h)
-                .cloned()
-                .collect())
+            Some(
+                self.pos_to_helix
+                    .iter()
+                    .filter(|(pos, _)| pos.0 == g_id)
+                    .map(|(_, h)| h)
+                    .cloned()
+                    .collect(),
+            )
         } else {
             None
         }

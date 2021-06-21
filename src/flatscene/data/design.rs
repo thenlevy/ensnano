@@ -21,9 +21,9 @@ use std::sync::{Arc, Mutex};
 use super::super::{FlatHelix, FlatIdx, FlatNucl, Requests};
 use super::{Flat, HelixVec, Nucl, Strand};
 use crate::design::{Design, Torsion};
-use ensnano_interactor::{Referential, Extremity};
 use ahash::RandomState;
 use ensnano_design::{Helix as DesignHelix, Strand as StrandDesign};
+use ensnano_interactor::{Extremity, Referential};
 use ultraviolet::{Isometry2, Rotor2, Vec2, Vec3};
 
 pub(super) struct Design2d {
@@ -57,7 +57,8 @@ impl Design2d {
     }
 
     /// Re-read the design and update the 2d data accordingly
-    pub fn update(&mut self) {
+    pub fn update<R: DesignReader>(&mut self, design: R) {
+        self.design = Box::new(design);
         println!("updating design");
         // At the moment we rebuild the strands from scratch. If needed, this might be an optimisation
         // target

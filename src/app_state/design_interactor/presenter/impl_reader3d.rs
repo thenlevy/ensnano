@@ -308,8 +308,7 @@ impl Reader3D for DesignReader {
     }
 }
 
-impl Presenter {
-}
+impl Presenter {}
 
 #[cfg(test)]
 mod tests {
