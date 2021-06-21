@@ -38,6 +38,18 @@ impl State for NormalState {
                 Action::ErrorMsg(msg) => {
                     TransitionMessage::new(msg, rfd::MessageLevel::Error, Box::new(NormalState))
                 }
+                Action::DesignOperation(op) => {
+                    main_state.apply_operation(op);
+                    self
+                }
+                Action::Undo => {
+                    main_state.undo();
+                    self
+                }
+                Action::Redo => {
+                    main_state.redo();
+                    self
+                }
                 _ => todo!(),
             }
         } else {
@@ -56,6 +68,7 @@ fn save_as() -> Box<dyn State> {
     Box::new(Save::new(on_success, on_error))
 }
 
+use ensnano_interactor::DesignOperation;
 /// An action to be performed at the end of an event loop iteration, and that will have an effect
 /// on the main application state, e.g. Closing the window, or toggling between 3D/2D views.
 #[derive(Debug, Clone)]
@@ -73,4 +86,7 @@ pub enum Action {
     ChangeUiSize(UiSize),
     InvertScrollY(bool),
     ErrorMsg(String),
+    DesignOperation(DesignOperation),
+    Undo,
+    Redo,
 }

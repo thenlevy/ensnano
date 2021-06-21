@@ -66,6 +66,7 @@ impl Referential {
     }
 }
 
+#[derive(Debug, Clone)]
 /// An operation that can be perorfed on a design
 pub enum DesignOperation {
     /// Rotate an element of the design
@@ -86,16 +87,12 @@ pub enum DesignOperation {
     },
     /// Make a cross-over between two nucleotides, spliting the source and target strands if needed
     Xover {
-        strand_5prime: Strand,
-        strand_3prime: Strand,
         undo: bool,
         prime5_id: usize,
         prime3_id: usize,
     },
     /// Make a cross over from a strand end to a nucleotide, spliting the target strand if needed.
     CrossCut {
-        source_strand: Strand,
-        target_strand: Strand,
         target_3prime: bool,
         source_id: usize,
         target_id: usize,
@@ -104,7 +101,6 @@ pub enum DesignOperation {
     },
     /// Delete a strand
     RmStrand {
-        strand: Strand,
         strand_id: usize,
         undo: bool,
     },
@@ -113,6 +109,14 @@ pub enum DesignOperation {
     AddGrid(GridDescriptor),
     /// Remove a grid
     RmGrid(usize),
+    /// Pick a new color at random for all the strands that are not the scaffold
+    RecolorStaples,
+}
+
+/// An action performed on the application
+pub enum AppOperation {
+    /// Adjust the camera so that the design fit the view
+    Fit,
 }
 
 /// A rotation on an element of a design.

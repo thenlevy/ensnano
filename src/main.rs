@@ -62,6 +62,7 @@ use std::time::{Duration, Instant};
 pub type PhySize = iced_winit::winit::dpi::PhysicalSize<u32>;
 
 use chanel_reader::{ChanelReader, ChanelReaderUpdate};
+use ensnano_interactor::DesignOperation;
 use iced_native::Event as IcedEvent;
 use iced_wgpu::{wgpu, Backend, Renderer, Settings, Viewport};
 use iced_winit::{conversion, futures, program, winit, Debug, Size};
@@ -1134,8 +1135,7 @@ impl MainState {
     }
 
     fn get_app_state(&mut self) -> AppState {
-        let tmp = std::mem::take(&mut self.app_state);
-        self.app_state = tmp.updated();
+        self.app_state.update();
         self.app_state.clone()
     }
 
@@ -1146,8 +1146,7 @@ impl MainState {
     }
 
     fn update(&mut self) {
-        let state = std::mem::take(&mut self.app_state);
-        self.app_state = state.updated();
+        self.app_state.update()
     }
 
     fn update_candidates(&mut self, candidates: Vec<Selection>) {
@@ -1157,7 +1156,30 @@ impl MainState {
 
     fn update_selection(&mut self, selection: Vec<Selection>) {
         let state = std::mem::take(&mut self.app_state);
+        self.undo_stack.push(state.clone());
         self.app_state = state.with_selection(selection);
+        self.redo_stack.clear();
+    }
+
+    fn apply_operation(&mut self, operation: DesignOperation) {
+        if let Some(state) = self.app_state.apply_design_op(operation) {
+            self.undo_stack.push(state);
+            self.redo_stack.clear();
+        }
+    }
+
+    fn undo(&mut self) {
+        if let Some(state) = self.undo_stack.pop() {
+            let redo = std::mem::replace(&mut self.app_state, state);
+            self.redo_stack.push(redo);
+        }
+    }
+
+    fn redo(&mut self) {
+        if let Some(state) = self.redo_stack.pop() {
+            let undo = std::mem::replace(&mut self.app_state, state);
+            self.undo_stack.push(undo);
+        }
     }
 }
 
@@ -1193,4 +1215,24 @@ impl<'a> MainStateInteface for MainStateView<'a> {
     fn get_chanel_reader(&mut self) -> &mut ChanelReader {
         &mut self.main_state.chanel_reader
     }
+
+    fn apply_operation(&mut self, operation: DesignOperation) {
+        self.main_state.apply_operation(operation)
+    }
+
+    fn undo(&mut self) {
+        self.main_state.undo();
+    }
+
+    fn redo(&mut self) {
+        self.main_state.redo();
+    }
+}
+
+fn apply_update<T: Default, F>(obj: &mut T, update_func: F)
+where
+    F: FnOnce(T) -> T,
+{
+    let tmp = std::mem::take(obj);
+    *obj = update_func(tmp);
 }

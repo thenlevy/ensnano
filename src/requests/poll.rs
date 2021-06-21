@@ -140,7 +140,7 @@ pub(crate) fn poll_all<R: DerefMut<Target = Requests>>(
     }
 
     if requests.recolor_stapples.take().is_some() {
-        mediator.lock().unwrap().recolor_stapples();
+        main_state.push_action(Action::DesignOperation(DesignOperation::RecolorStaples))
     }
 
     if let Some(roll_request) = requests.roll_request.take() {
@@ -304,11 +304,11 @@ pub(crate) fn poll_all<R: DerefMut<Target = Requests>>(
     }
 
     if requests.undo.take().is_some() {
-        mediator.lock().unwrap().undo()
+        main_state.push_action(Action::Undo);
     }
 
     if requests.redo.take().is_some() {
-        mediator.lock().unwrap().redo()
+        main_state.push_action(Action::Redo);
     }
 
     if requests.save_shortcut.take().is_some() {

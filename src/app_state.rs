@@ -29,10 +29,12 @@ use super::mediator::{ActionMode, Selection, SelectionMode};
 use std::path::PathBuf;
 mod address_pointer;
 mod design_interactor;
+use crate::apply_update;
 use address_pointer::AddressPointer;
 use ensnano_design::Design;
+use ensnano_interactor::DesignOperation;
 
-use design_interactor::{DesignInteractor, DesignReader};
+use design_interactor::{DesignInteractor, DesignReader, InteractorResult};
 
 mod impl_app2d;
 mod impl_app3d;
@@ -68,8 +70,7 @@ impl AppState {
     }
 
     pub fn update_design(&mut self, design: Design) {
-        let new_state = std::mem::take(self);
-        *self = new_state.with_updated_design(design);
+        apply_update(self, |s| s.with_updated_design(design))
     }
 
     pub fn with_updated_design(&self, design: Design) -> Self {
@@ -87,7 +88,11 @@ impl AppState {
         })))
     }
 
-    pub fn updated(self) -> Self {
+    pub(super) fn update(&mut self) {
+        apply_update(self, Self::updated)
+    }
+
+    fn updated(self) -> Self {
         let mut interactor = self.0.design.clone_inner();
         interactor = interactor.with_updated_design_reader();
         self.with_interactor(interactor)
@@ -97,6 +102,26 @@ impl AppState {
         let mut new_state = self.0.clone_inner();
         new_state.design = AddressPointer::new(interactor);
         Self(AddressPointer::new(new_state))
+    }
+
+    pub(super) fn apply_design_op(&mut self, op: DesignOperation) -> Option<Self> {
+        match self.0.design.apply_operation(op) {
+            Ok(InteractorResult::Push(design)) => {
+                let ret = Some(self.clone());
+                let new_state = self.clone().with_interactor(design);
+                *self = new_state;
+                ret
+            }
+            Ok(InteractorResult::Replace(design)) => {
+                let new_state = self.clone().with_interactor(design);
+                *self = new_state;
+                None
+            }
+            Err(e) => {
+                println!("error");
+                None
+            }
+        }
     }
 }
 

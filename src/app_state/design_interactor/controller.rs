@@ -16,10 +16,15 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+use ensnano_design::Design;
+use ensnano_interactor::DesignOperation;
+
 use super::*;
 
 #[derive(Clone, Default)]
-pub(super) struct Controller;
+pub(super) struct Controller {
+    color_idx: usize,
+}
 
 impl Controller {
     /// Apply an operation to the design. This will either produce a modified copy of the design,
@@ -27,10 +32,24 @@ impl Controller {
     /// operation could no be applied.
     pub fn apply_operation(
         &self,
-        design: Design,
-        operation: Operation,
-    ) -> Result<OkOperation, ErrOperation> {
-        todo!()
+        design: &Design,
+        operation: DesignOperation,
+    ) -> Result<(OkOperation, Self), ErrOperation> {
+        match operation {
+            DesignOperation::RecolorStaples => {
+                let mut new_controller = self.clone();
+                let returned_design = new_controller.recolor_stapples(design.clone());
+                Ok((
+                    new_controller.return_design(returned_design),
+                    new_controller,
+                ))
+            }
+            _ => Err(ErrOperation::NotImplemented),
+        }
+    }
+
+    fn return_design(&self, design: Design) -> OkOperation {
+        OkOperation::Replace(design)
     }
 }
 
@@ -51,6 +70,29 @@ pub enum OkOperation {
     Replace(Design),
 }
 
-pub struct ErrOperation;
+#[derive(Debug)]
+pub enum ErrOperation {
+    NotImplemented,
+}
 
-pub struct Operation;
+impl Controller {
+    fn recolor_stapples(&mut self, mut design: Design) -> Design {
+        for (s_id, strand) in design.strands.iter_mut() {
+            if Some(*s_id) != design.scaffold_id {
+                let color = {
+                    let hue = (self.color_idx as f64 * (1. + 5f64.sqrt()) / 2.).fract() * 360.;
+                    let saturation =
+                        (self.color_idx as f64 * 7. * (1. + 5f64.sqrt() / 2.)).fract() * 0.4 + 0.4;
+                    let value =
+                        (self.color_idx as f64 * 11. * (1. + 5f64.sqrt() / 2.)).fract() * 0.7 + 0.1;
+                    let hsv = color_space::Hsv::new(hue, saturation, value);
+                    let rgb = color_space::Rgb::from(hsv);
+                    (0xFF << 24) | ((rgb.r as u32) << 16) | ((rgb.g as u32) << 8) | (rgb.b as u32)
+                };
+                self.color_idx += 1;
+                strand.color = color;
+            }
+        }
+        design
+    }
+}

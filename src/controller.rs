@@ -21,6 +21,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 mod download_staples;
 use download_staples::*;
 mod quit;
+use ensnano_interactor::DesignOperation;
 use quit::*;
 mod set_scaffold_sequence;
 use set_scaffold_sequence::*;
@@ -181,6 +182,9 @@ pub(crate) trait MainState {
     fn new_design(&mut self);
     fn load_design(&mut self, path: PathBuf) -> Result<(), LoadDesignError>;
     fn get_chanel_reader(&mut self) -> &mut ChanelReader;
+    fn apply_operation(&mut self, operation: DesignOperation);
+    fn undo(&mut self);
+    fn redo(&mut self);
 }
 
 pub struct LoadDesignError(String);

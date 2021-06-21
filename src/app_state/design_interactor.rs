@@ -18,11 +18,15 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 
 use super::AddressPointer;
 use ensnano_design::Design;
+use ensnano_interactor::DesignOperation;
 
 mod presenter;
 use presenter::{update_presenter, Presenter};
 mod controller;
 use controller::Controller;
+
+pub(super) use controller::ErrOperation;
+use controller::OkOperation;
 
 mod file_parsing;
 pub use file_parsing::ParseDesignError;
@@ -44,6 +48,30 @@ impl DesignInteractor {
     pub(super) fn get_design_reader(&self) -> DesignReader {
         DesignReader {
             presenter: self.presenter.clone(),
+        }
+    }
+
+    pub(super) fn apply_operation(
+        &self,
+        operation: DesignOperation,
+    ) -> Result<InteractorResult, ErrOperation> {
+        match self
+            .controller
+            .apply_operation(self.design.as_ref(), operation)
+        {
+            Ok((OkOperation::Replace(design), controller)) => {
+                let mut ret = self.clone();
+                ret.controller = AddressPointer::new(controller);
+                ret.design = AddressPointer::new(design);
+                Ok(InteractorResult::Replace(ret))
+            }
+            Ok((OkOperation::Push(design), controller)) => {
+                let mut ret = self.clone();
+                ret.controller = AddressPointer::new(controller);
+                ret.design = AddressPointer::new(design);
+                Ok(InteractorResult::Push(ret))
+            }
+            Err(e) => Err(e),
         }
     }
 
@@ -76,6 +104,14 @@ impl DesignInteractor {
         self.presenter
             .has_different_model_matrix_than(other.presenter.as_ref())
     }
+}
+
+/// An opperation has been successfully applied to the design, resulting in a new modifed
+/// interactor. The variants of these enum indicate different ways in which the result should be
+/// handled
+pub(super) enum InteractorResult {
+    Push(DesignInteractor),
+    Replace(DesignInteractor),
 }
 
 /// A reference to a Presenter that is guaranted to always have up to date internal data
