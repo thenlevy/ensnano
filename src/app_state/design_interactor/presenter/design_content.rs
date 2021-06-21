@@ -65,7 +65,7 @@ impl DesignContent {
         self.grid_manager.grid_instances(0)
     }
 
-    pub(super) fn get_helices_on_grid(&self, g_id: usize) -> HashSet<usize> {
+    pub(super) fn get_helices_on_grid(&self, g_id: usize) -> Option<HashSet<usize>> {
         self.grid_manager.get_helices_on_grid(g_id)
     }
     /// Return the position of an element.

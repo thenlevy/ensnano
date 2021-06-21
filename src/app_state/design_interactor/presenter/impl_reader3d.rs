@@ -141,7 +141,7 @@ impl Reader3D for DesignReader {
     }
 
     fn get_helices_on_grid(&self, g_id: usize) -> Option<HashSet<usize>> {
-        Some(self.presenter.content.get_helices_on_grid(g_id))
+        self.presenter.content.get_helices_on_grid(g_id)
     }
 
     fn get_all_prime3_nucl(&self) -> Vec<(Vec3, Vec3, u32)> {

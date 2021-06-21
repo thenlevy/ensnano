@@ -58,6 +58,7 @@ impl Design2d {
 
     /// Re-read the design and update the 2d data accordingly
     pub fn update(&mut self) {
+        println!("updating design");
         // At the moment we rebuild the strands from scratch. If needed, this might be an optimisation
         // target
         self.strands = Vec::new();
@@ -119,6 +120,7 @@ impl Design2d {
         for h in self.helices.iter_mut() {
             h.force_positive_size();
         }
+        println!("done");
     }
 
     pub fn suggestions(&self) -> Vec<(FlatNucl, FlatNucl)> {
