@@ -26,6 +26,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 
 use super::mediator::{ActionMode, Selection, SelectionMode};
 
+use std::path::PathBuf;
 mod address_pointer;
 mod design_interactor;
 use address_pointer::AddressPointer;
@@ -51,9 +52,13 @@ impl AppState {
     }
 
     pub fn with_candidates(&self, candidates: Vec<Selection>) -> Self {
-        let mut new_state = (*self.0).clone();
-        new_state.candidates = AddressPointer::new(candidates);
-        Self(AddressPointer::new(new_state))
+        if self.0.candidates.content_equal(&candidates) {
+            self.clone()
+        } else {
+            let mut new_state = (*self.0).clone();
+            new_state.candidates = AddressPointer::new(candidates);
+            Self(AddressPointer::new(new_state))
+        }
     }
 
     pub fn with_selection_mode(&self, selection_mode: SelectionMode) -> Self {
@@ -62,21 +67,33 @@ impl AppState {
         Self(AddressPointer::new(new_state))
     }
 
-    pub fn new_design(design: Design) -> Self {
-        let state = AppState_ {
-            design: AddressPointer::new(DesignInteractor::new_design(design)),
-            ..Default::default()
-        };
-        Self(AddressPointer::new(state))
+    pub fn update_design(&mut self, design: Design) {
+        let new_state = std::mem::take(self);
+        *self = new_state.with_updated_design(design);
     }
 
-    pub fn updated(mut self) -> Self {
+    pub fn with_updated_design(&self, design: Design) -> Self {
+        let mut new_state = self.0.clone_inner();
+        let new_interactor = new_state.design.with_updated_design(design);
+        new_state.design = AddressPointer::new(new_interactor);
+        Self(AddressPointer::new(new_state))
+    }
+
+    pub fn import_design(path: &PathBuf) -> Result<Self, design_interactor::ParseDesignError> {
+        let design_interactor = DesignInteractor::new_with_path(path)?;
+        Ok(Self(AddressPointer::new(AppState_ {
+            design: AddressPointer::new(design_interactor),
+            ..Default::default()
+        })))
+    }
+
+    pub fn updated(self) -> Self {
         let mut interactor = self.0.design.clone_inner();
         interactor = interactor.with_updated_design_reader();
         self.with_interactor(interactor)
     }
 
-    fn with_interactor(mut self, interactor: DesignInteractor) -> Self {
+    fn with_interactor(self, interactor: DesignInteractor) -> Self {
         let mut new_state = self.0.clone_inner();
         new_state.design = AddressPointer::new(interactor);
         Self(AddressPointer::new(new_state))

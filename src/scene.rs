@@ -109,7 +109,10 @@ impl<S: AppState> Scene<S> {
             queue.clone(),
             encoder,
         )));
-        let data: DataPtr<S::DesignReader> = Rc::new(RefCell::new(Data::new(view.clone())));
+        let data: DataPtr<S::DesignReader> = Rc::new(RefCell::new(Data::new(
+            inital_state.get_design_reader(),
+            view.clone(),
+        )));
         let controller: Controller<S> =
             Controller::new(view.clone(), data.clone(), window_size, area.size);
         let element_selector = ElementSelector::new(
@@ -505,6 +508,9 @@ impl<S: AppState> Scene<S> {
         if self.update.need_update {
             self.perform_update(dt, &new_state);
         }
+        self.data
+            .borrow_mut()
+            .update_design(new_state.get_design_reader());
         self.data
             .borrow_mut()
             .update_view(&new_state, &self.older_state);

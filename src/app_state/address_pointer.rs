@@ -50,6 +50,10 @@ impl<T: Default> AddressPointer<T> {
     pub fn new(content: T) -> Self {
         Self(Arc::new(content))
     }
+
+    pub fn show_address(&self) {
+        println!("{:p}", Arc::as_ptr(&self.0))
+    }
 }
 
 use std::ops::Deref;
@@ -57,5 +61,18 @@ impl<T: Clone + Default> AddressPointer<T> {
     /// Return a clone of the pointed value.
     pub fn clone_inner(&self) -> T {
         self.0.deref().clone()
+    }
+}
+
+impl<T: Default + PartialEq> AddressPointer<T> {
+    /// Test the content of two pointers for equality
+    pub fn content_equal(&self, content: &T) -> bool {
+        self.0.as_ref() == content
+    }
+}
+
+impl<T: Default> From<Arc<T>> for AddressPointer<T> {
+    fn from(arc: Arc<T>) -> Self {
+        Self(arc)
     }
 }

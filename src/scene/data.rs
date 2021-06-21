@@ -68,10 +68,10 @@ pub struct Data<R: DesignReader> {
 }
 
 impl<R: DesignReader> Data<R> {
-    pub fn new(view: ViewPtr) -> Self {
+    pub fn new(reader: R, view: ViewPtr) -> Self {
         Self {
             view,
-            designs: Vec::new(),
+            designs: vec![Design3D::new(reader, 0)],
             selected_element: None,
             candidate_element: None,
             sub_selection_mode: SelectionMode::Nucleotide,
@@ -86,9 +86,8 @@ impl<R: DesignReader> Data<R> {
     }
 
     /// Add a new design to be drawn
-    pub fn add_design(&mut self, design: R) {
-        self.clear_designs();
-        self.designs.push(Design3D::new(design, 0));
+    pub fn update_design(&mut self, design: R) {
+        self.designs[0] = Design3D::new(design, 0);
     }
 
     /// Remove all designs to be drawn
@@ -1037,6 +1036,7 @@ impl<R: DesignReader> Data<R> {
                 cones.push(cone);
             }
         }
+        println!("nb sphres {}", spheres.len());
         self.update_free_xover();
         self.view
             .borrow_mut()

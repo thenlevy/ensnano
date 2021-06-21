@@ -24,6 +24,9 @@ use presenter::{update_presenter, Presenter};
 mod controller;
 use controller::Controller;
 
+mod file_parsing;
+pub use file_parsing::ParseDesignError;
+
 /// The `DesignInteractor` handles all read/write operations on the design. It is a stateful struct
 /// so it is meant to be unexpansive to clone.
 #[derive(Clone, Default)]
@@ -45,15 +48,24 @@ impl DesignInteractor {
     }
 
     pub(super) fn with_updated_design_reader(mut self) -> Self {
-        self.presenter = update_presenter(&self.presenter, self.design.clone());
+        if cfg!(test) {
+            print!("Old design: ");
+            self.design.show_address();
+        }
+        let (new_presenter, new_design) = update_presenter(&self.presenter, self.design.clone());
+        self.presenter = new_presenter;
+        if cfg!(test) {
+            print!("New design: ");
+            new_design.show_address();
+        }
+        self.design = new_design;
         self
     }
 
-    pub(super) fn new_design(design: Design) -> Self {
-        Self {
-            design: AddressPointer::new(design),
-            ..Default::default()
-        }
+    pub(super) fn with_updated_design(&self, design: Design) -> Self {
+        let mut new_interactor = self.clone();
+        new_interactor.design = AddressPointer::new(design);
+        new_interactor
     }
 
     pub(super) fn has_different_design_than(&self, other: &Self) -> bool {
@@ -72,3 +84,55 @@ pub struct DesignReader {
     presenter: AddressPointer<Presenter>,
 }
 
+#[cfg(test)]
+mod tests {
+    use super::super::*;
+    use super::*;
+    use crate::scene::DesignReader as Reader3d;
+    use std::path::PathBuf;
+
+    fn one_helix_path() -> PathBuf {
+        let mut ret = PathBuf::from(std::env!("CARGO_MANIFEST_DIR"));
+        ret.push("tests");
+        ret.push("one_helix.json");
+        ret
+    }
+
+    fn fake_design_update(state: &mut AppState) {
+        let design = state.0.design.design.clone_inner();
+        let mut new_state = std::mem::take(state);
+        *state = new_state.with_updated_design(design);
+    }
+
+    #[test]
+    fn read_one_helix() {
+        let path = one_helix_path();
+        let interactor = DesignInteractor::new_with_path(&path).ok().unwrap();
+        let interactor = interactor.with_updated_design_reader();
+        let reader = interactor.get_design_reader();
+        assert_eq!(reader.get_all_visible_nucl_ids().len(), 24)
+    }
+
+    #[test]
+    fn first_update_has_effect() {
+        use crate::scene::AppState as App3d;
+        let path = one_helix_path();
+        let mut app_state = AppState::import_design(&path).ok().unwrap();
+        let old_app_state = app_state.clone();
+        fake_design_update(&mut app_state);
+        let app_state = app_state.updated();
+        assert!(old_app_state.design_was_modified(&app_state));
+    }
+
+    #[test]
+    fn second_update_has_no_effect() {
+        use crate::scene::AppState as App3d;
+        let path = one_helix_path();
+        let mut app_state = AppState::import_design(&path).ok().unwrap();
+        fake_design_update(&mut app_state);
+        app_state = app_state.updated();
+        let old_app_state = app_state.clone();
+        let app_state = app_state.updated();
+        assert!(!old_app_state.design_was_modified(&app_state));
+    }
+}

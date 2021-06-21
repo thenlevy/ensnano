@@ -67,6 +67,7 @@ use iced_wgpu::{wgpu, Backend, Renderer, Settings, Viewport};
 use iced_winit::{conversion, futures, program, winit, Debug, Size};
 
 use futures::task::SpawnExt;
+use mediator::Selection;
 use winit::{
     dpi::{PhysicalPosition, PhysicalSize},
     event::{Event, ModifiersState, WindowEvent},
@@ -415,7 +416,7 @@ fn main() {
                             }
                             area if area.is_scene() => {
                                 let cursor_position = multiplexer.get_cursor_position();
-                                let state = mediator.lock().unwrap().get_state();
+                                let state = main_state.get_app_state();
                                 scheduler.lock().unwrap().forward_event(
                                     &event,
                                     area,
@@ -461,6 +462,8 @@ fn main() {
                         main_state.pending_actions.push_back(Action::ErrorMsg(msg));
                     }
                 }
+
+                main_state.update();
 
                 /*
                 let keep_proceed = requests.lock().unwrap().keep_proceed.pop_front();
@@ -576,7 +579,7 @@ fn main() {
                 redraw |= scheduler.lock().unwrap().check_redraw(
                     &multiplexer,
                     dt,
-                    mediator.lock().unwrap().get_state(),
+                    main_state.get_app_state(),
                 );
                 last_render_time = now;
 
@@ -1135,6 +1138,27 @@ impl MainState {
         self.app_state = tmp.updated();
         self.app_state.clone()
     }
+
+    fn clear_app_state(&mut self, new_state: AppState) {
+        self.undo_stack.clear();
+        self.redo_stack.clear();
+        self.app_state = new_state;
+    }
+
+    fn update(&mut self) {
+        let state = std::mem::take(&mut self.app_state);
+        self.app_state = state.updated();
+    }
+
+    fn update_candidates(&mut self, candidates: Vec<Selection>) {
+        let state = std::mem::take(&mut self.app_state);
+        self.app_state = state.with_candidates(candidates);
+    }
+
+    fn update_selection(&mut self, selection: Vec<Selection>) {
+        let state = std::mem::take(&mut self.app_state);
+        self.app_state = state.with_selection(selection);
+    }
 }
 
 /// A temporary view of the main state and the control flow.
@@ -1154,11 +1178,16 @@ impl<'a> MainStateInteface for MainStateView<'a> {
     }
 
     fn new_design(&mut self) {
-        todo!()
+        self.main_state.clear_app_state(Default::default())
     }
 
     fn load_design(&mut self, path: PathBuf) -> Result<(), LoadDesignError> {
-        todo!()
+        if let Ok(state) = AppState::import_design(&path) {
+            self.main_state.clear_app_state(state);
+            Ok(())
+        } else {
+            Err(LoadDesignError::from("\"Oh No\"".to_string()))
+        }
     }
 
     fn get_chanel_reader(&mut self) -> &mut ChanelReader {
