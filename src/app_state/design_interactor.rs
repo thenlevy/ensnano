@@ -71,3 +71,4 @@ impl DesignInteractor {
 pub struct DesignReader {
     presenter: AddressPointer<Presenter>,
 }
+

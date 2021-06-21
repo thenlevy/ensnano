@@ -20,6 +20,7 @@ use crate::design::ObjectType;
 
 use super::*;
 use ensnano_design::Nucl;
+use ensnano_interactor::Extremity;
 use ultraviolet::Mat4;
 
 use crate::utils::id_generator::IdGenerator;
@@ -96,6 +97,13 @@ impl Presenter {
     fn update_visibility(&mut self) {
         ()
     }
+
+    fn in_referential(&self, position: Vec3, referential: Referential) -> Vec3 {
+        match referential {
+            Referential::World => self.model_matrix.transform_point3(position),
+            Referential::Model => position,
+        }
+    }
 }
 
 pub(super) fn update_presenter(
@@ -109,4 +117,88 @@ pub(super) fn update_presenter(
     } else {
         presenter.clone()
     }
+}
+
+use ultraviolet::Vec3;
+use ensnano_interactor::Referential;
+impl DesignReader {
+    pub (super) fn get_position_of_nucl_on_helix(
+        &self,
+        nucl: Nucl,
+        referential: Referential,
+        on_axis: bool,
+    ) -> Option<Vec3> {
+        let helix = self.presenter.current_design.helices.get(&nucl.helix)?;
+        let parameters = self.presenter.current_design.parameters.unwrap_or_default();
+        let position = if on_axis {
+            helix.axis_position(&parameters, nucl.position)
+        } else {
+            helix.space_pos(&parameters, nucl.position, nucl.forward)
+        };
+        Some(self.presenter.in_referential(position, referential))
+    }
+
+    pub (super) fn prime5_of_which_strand(&self, nucl: Nucl) -> Option<usize> {
+        for (s_id, s) in self.presenter.current_design.strands.iter() {
+            if !s.cyclic && s.get_5prime() == Some(nucl) {
+                return Some(*s_id);
+            }
+        }
+        None
+    }
+
+    pub (super) fn prime3_of_which_strand(&self, nucl: Nucl) -> Option<usize> {
+        for (s_id, s) in self.presenter.current_design.strands.iter() {
+            if !s.cyclic && s.get_5prime() == Some(nucl) {
+                return Some(*s_id);
+            }
+        }
+        None
+    }
+
+    pub (super) fn helix_is_empty(&self, h_id: usize) -> Option<bool> {
+        if !self.presenter.current_design.helices.contains_key(&h_id) {
+            None
+        } else {
+            for h in self.presenter.content.helix_map.values() {
+                if *h == h_id {
+                    return Some(true)
+                }
+            }
+            Some(false)
+        }
+    }
+
+    pub (super) fn get_id_of_strand_containing_nucl(&self, nucl: &Nucl) -> Option<usize> {
+        let e_id = self.presenter.content.identifier_nucl.get(nucl)?;
+        self.presenter.content.strand_map.get(e_id).cloned()
+    }
+
+    /// Return the xover extremity status of nucl.
+    pub fn is_xover_end(&self, nucl: &Nucl) -> Extremity {
+        let strand_id = if let Some(id) = self.get_id_of_strand_containing_nucl(nucl) {
+            id
+        } else {
+            return Extremity::No;
+        };
+
+        let strand = if let Some(strand) = self.presenter.current_design.strands.get(&strand_id) {
+            strand
+        } else {
+            return Extremity::No
+        };
+        let mut prev_helix = None;
+        for domain in strand.domains.iter() {
+            if domain.prime5_end() == Some(*nucl) && prev_helix != domain.half_helix() {
+                return Extremity::Prime5;
+            } else if domain.prime3_end() == Some(*nucl) {
+                return Extremity::Prime3;
+            } else if let Some(_) = domain.has_nucl(nucl) {
+                return Extremity::No;
+            }
+            prev_helix = domain.half_helix();
+        }
+        return Extremity::No;
+    }
+
 }

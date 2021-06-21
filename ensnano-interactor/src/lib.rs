@@ -149,3 +149,42 @@ pub struct GridHelixDescriptor {
     pub x: isize,
     pub y: isize,
 }
+
+/// The return type for methods that ask if a nucleotide is the end of a domain/strand/xover
+#[derive(Debug, Clone, Copy)]
+pub enum Extremity {
+    No,
+    Prime3,
+    Prime5,
+}
+
+impl Extremity {
+    pub fn is_3prime(&self) -> bool {
+        match self {
+            Extremity::Prime3 => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_5prime(&self) -> bool {
+        match self {
+            Extremity::Prime5 => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_end(&self) -> bool {
+        match self {
+            Extremity::No => false,
+            _ => true,
+        }
+    }
+
+    pub fn to_opt(&self) -> Option<bool> {
+        match self {
+            Extremity::No => None,
+            Extremity::Prime3 => Some(true),
+            Extremity::Prime5 => Some(false),
+        }
+    }
+}

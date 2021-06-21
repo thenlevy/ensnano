@@ -52,6 +52,7 @@ pub struct Controller<S: AppState> {
     modifiers: ModifiersState,
 }
 
+#[derive(Debug)]
 pub enum Consequence {
     #[allow(dead_code)]
     GlobalsChanged,

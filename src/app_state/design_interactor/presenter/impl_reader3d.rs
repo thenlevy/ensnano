@@ -283,21 +283,11 @@ impl Reader3D for DesignReader {
     }
 
     fn prime5_of_which_strand(&self, nucl: Nucl) -> Option<usize> {
-        for (s_id, s) in self.presenter.current_design.strands.iter() {
-            if !s.cyclic && s.get_5prime() == Some(nucl) {
-                return Some(*s_id);
-            }
-        }
-        None
+        self.prime5_of_which_strand(nucl)
     }
 
     fn prime3_of_which_strand(&self, nucl: Nucl) -> Option<usize> {
-        for (s_id, s) in self.presenter.current_design.strands.iter() {
-            if !s.cyclic && s.get_5prime() == Some(nucl) {
-                return Some(*s_id);
-            }
-        }
-        None
+        self.prime3_of_which_strand(nucl)
     }
 
     fn can_start_builder_at(&self, nucl: &Nucl) -> bool {
@@ -319,12 +309,6 @@ impl Reader3D for DesignReader {
 }
 
 impl Presenter {
-    fn in_referential(&self, position: Vec3, referential: Referential) -> Vec3 {
-        match referential {
-            Referential::World => self.model_matrix.transform_point3(position),
-            Referential::Model => position,
-        }
-    }
 }
 
 #[cfg(test)]

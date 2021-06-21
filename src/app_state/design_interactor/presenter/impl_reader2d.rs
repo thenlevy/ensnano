@@ -18,7 +18,8 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 
 use super::*;
 
-use crate::design::{Extremity, Referential, Torsion};
+use crate::design::{Torsion};
+use ensnano_interactor::{Extremity, Referential};
 use crate::flatscene::DesignReader as Reader2D;
 use ahash::RandomState;
 use ensnano_design::{Domain, Helix, Strand};
@@ -121,11 +122,11 @@ impl Reader2D for DesignReader {
     }
 
     fn get_visibility_helix(&self, h_id: usize) -> Option<bool> {
-        todo!()
+        None
     }
 
     fn get_xovers_list_with_id(&self) -> Vec<(usize, (Nucl, Nucl))> {
-        todo!()
+        self.presenter.junctions_ids.get_all_elements()
     }
 
     fn get_position_of_nucl_on_helix(
@@ -134,43 +135,43 @@ impl Reader2D for DesignReader {
         referential: Referential,
         on_axis: bool,
     ) -> Option<Vec3> {
-        todo!()
+        self.get_position_of_nucl_on_helix(nucl, referential, on_axis)
     }
 
     fn get_id_of_strand_containing_elt(&self, e_id: u32) -> Option<usize> {
-        todo!()
+        self.presenter.content.strand_map.get(&e_id).cloned()
     }
 
     fn get_id_of_strand_containing_nucl(&self, nucl: &Nucl) -> Option<usize> {
-        todo!()
+        self.get_id_of_strand_containing_nucl(nucl)
     }
 
     fn get_id_of_of_helix_containing_elt(&self, e_id: u32) -> Option<usize> {
-        todo!()
+        self.presenter.content.helix_map.get(&e_id).cloned()
     }
 
     fn has_helix(&self, h_id: usize) -> bool {
-        todo!()
+        self.presenter.current_design.helices.contains_key(&h_id)
     }
 
     fn can_start_builder_at(&self, nucl: Nucl) -> bool {
-        todo!()
+        false
     }
 
     fn prime3_of_which_strand(&self, nucl: Nucl) -> Option<usize> {
-        todo!()
+        self.prime3_of_which_strand(nucl)
     }
 
     fn prime5_of_which_strand(&self, nucl: Nucl) -> Option<usize> {
-        todo!()
+        self.prime5_of_which_strand(nucl)
     }
 
     fn helix_is_empty(&self, h_id: usize) -> Option<bool> {
-        todo!()
+        self.helix_is_empty(h_id)
     }
 
     fn is_xover_end(&self, nucl: &Nucl) -> Extremity {
-        todo!()
+        self.is_xover_end(nucl)
     }
 }
 
@@ -196,6 +197,11 @@ mod tests {
 
     #[test]
     fn get_torsions_implemented() {
+        assert!(false)
+    }
+
+    #[test]
+    fn get_correct_visibility_helix() {
         assert!(false)
     }
 }
