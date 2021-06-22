@@ -77,7 +77,8 @@ pub(crate) fn poll_all<R: DerefMut<Target = Requests>>(
     }
 
     if let Some(grid_type) = requests.new_grid.take() {
-        main_state.scene.lock().unwrap().make_new_grid(grid_type);
+        //main_state.scene.lock().unwrap().make_new_grid(grid_type);
+        todo!()
     }
 
     if let Some(selection_mode) = requests.selection_mode {
@@ -152,11 +153,12 @@ pub(crate) fn poll_all<R: DerefMut<Target = Requests>>(
     }
 
     if let Some(fog) = requests.fog.take() {
-        main_state.scene.lock().unwrap().fog_request(fog)
+        //main_state.scene.lock().unwrap().fog_request(fog)
+        todo!()
     }
 
     if let Some(hyperboloid) = requests.new_hyperboloid.take() {
-        use ensnano_design::grid::Hyperboloid;
+        /*use ensnano_design::grid::Hyperboloid;
         let h = Hyperboloid {
             radius: hyperboloid.radius,
             length: hyperboloid.length,
@@ -164,7 +166,8 @@ pub(crate) fn poll_all<R: DerefMut<Target = Requests>>(
             radius_shift: hyperboloid.radius_shift,
             forced_radius: None,
         };
-        main_state.scene.lock().unwrap().make_hyperboloid(h)
+        main_state.scene.lock().unwrap().make_hyperboloid(h)*/
+        todo!()
     }
 
     if let Some(hyperboloid) = requests.hyperboloid_update.take() {

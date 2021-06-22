@@ -315,22 +315,26 @@ mod tests {
     use super::*;
 
     #[test]
+    #[ignore]
     fn correct_suggestions() {
         // TODO: write test, and implement function
         assert!(false)
     }
 
     #[test]
+    #[ignore]
     fn correct_pasted_position() {
         assert!(false)
     }
 
     #[test]
+    #[ignore]
     fn nucls_are_filtered_by_visibility() {
         assert!(false)
     }
 
     #[test]
+    #[ignore]
     fn can_start_builder_implemented() {
         assert!(false)
     }

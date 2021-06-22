@@ -48,9 +48,13 @@ pub struct AppState(AddressPointer<AppState_>);
 
 impl AppState {
     pub fn with_selection(&self, selection: Vec<Selection>) -> Self {
-        let mut new_state = (*self.0).clone();
-        new_state.selection = AddressPointer::new(selection);
-        Self(AddressPointer::new(new_state))
+        if self.0.selection.content_equal(&selection) {
+            self.clone()
+        } else {
+            let mut new_state = (*self.0).clone();
+            new_state.selection = AddressPointer::new(selection);
+            Self(AddressPointer::new(new_state))
+        }
     }
 
     pub fn with_candidates(&self, candidates: Vec<Selection>) -> Self {

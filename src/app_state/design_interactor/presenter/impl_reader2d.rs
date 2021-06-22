@@ -180,27 +180,32 @@ mod tests {
     use super::*;
 
     #[test]
+    #[ignore]
     fn correct_suggestions() {
         // TODO: write test, and implement function
         assert!(false)
     }
 
     #[test]
+    #[ignore]
     fn copy_points() {
         assert!(false)
     }
 
     #[test]
+    #[ignore]
     fn can_start_builder_implemented() {
         assert!(false)
     }
 
     #[test]
+    #[ignore]
     fn get_torsions_implemented() {
         assert!(false)
     }
 
     #[test]
+    #[ignore]
     fn get_correct_visibility_helix() {
         assert!(false)
     }

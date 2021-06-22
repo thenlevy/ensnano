@@ -102,6 +102,9 @@ use mediator::{ActionMode, Mediator, Operation, ParameterPtr, Scheduler, Selecti
 mod flatscene;
 mod text;
 mod utils;
+
+#[cfg(test)]
+mod main_tests;
 // mod grid_panel; We don't use the grid panel atm
 
 mod app_state;
@@ -329,8 +332,6 @@ fn main() {
     let mut icon = None;
 
     let main_state_constructor = MainStateConstructor {
-        scene: scene.clone(),
-        flatscene: flat_scene.clone(),
         messages: messages.clone(),
     };
 
@@ -1105,14 +1106,10 @@ pub(crate) struct MainState {
     undo_stack: Vec<AppState>,
     redo_stack: Vec<AppState>,
     chanel_reader: ChanelReader,
-    scene: Arc<Mutex<Scene<AppState>>>,
-    flatscene: Arc<Mutex<FlatScene<AppState>>>,
     messages: Arc<Mutex<IcedMessages>>,
 }
 
 struct MainStateConstructor {
-    scene: Arc<Mutex<Scene<AppState>>>,
-    flatscene: Arc<Mutex<FlatScene<AppState>>>,
     messages: Arc<Mutex<IcedMessages>>,
 }
 
@@ -1124,8 +1121,6 @@ impl MainState {
             undo_stack: Vec::new(),
             redo_stack: Vec::new(),
             chanel_reader: Default::default(),
-            scene: constructor.scene,
-            flatscene: constructor.flatscene,
             messages: constructor.messages,
         }
     }
@@ -1155,10 +1150,7 @@ impl MainState {
     }
 
     fn update_selection(&mut self, selection: Vec<Selection>) {
-        let state = std::mem::take(&mut self.app_state);
-        self.undo_stack.push(state.clone());
-        self.app_state = state.with_selection(selection);
-        self.redo_stack.clear();
+        self.modify_state(|s| s.with_selection(selection));
     }
 
     fn apply_operation(&mut self, operation: DesignOperation) {
@@ -1179,6 +1171,19 @@ impl MainState {
         if let Some(state) = self.redo_stack.pop() {
             let undo = std::mem::replace(&mut self.app_state, state);
             self.undo_stack.push(undo);
+        }
+    }
+
+    fn modify_state<F>(&mut self, modification: F)
+    where
+        F: FnOnce(AppState) -> AppState,
+    {
+        let state = std::mem::take(&mut self.app_state);
+        let old_state = state.clone();
+        self.app_state = modification(state);
+        if old_state != self.app_state {
+            self.undo_stack.push(old_state);
+            self.redo_stack.clear();
         }
     }
 }
