@@ -157,6 +157,8 @@ impl State for YesNo {
 }
 
 use super::ChanelReader;
+pub use download_staples::StaplesDownloader;
+pub use set_scaffold_sequence::ScaffoldSetter;
 pub(crate) trait MainState {
     fn pop_action(&mut self) -> Option<Action>;
     fn exit_control_flow(&mut self);
@@ -166,6 +168,8 @@ pub(crate) trait MainState {
     fn apply_operation(&mut self, operation: DesignOperation);
     fn undo(&mut self);
     fn redo(&mut self);
+    fn get_staple_downloader(&self) -> &dyn StaplesDownloader;
+    fn get_scaffold_setter(&mut self) -> &mut dyn ScaffoldSetter;
 }
 
 pub struct LoadDesignError(String);

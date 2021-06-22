@@ -47,17 +47,17 @@ impl Default for Step {
     }
 }
 
-use super::super::mediator::{DownloadStappleError, DownloadStappleOk};
 impl State for DownloadStaples {
     fn make_progress(self: Box<Self>, main_state: &mut dyn MainState) -> Box<dyn State> {
+        let downloader = main_state.get_staple_downloader();
         match self.step {
-            Step::Init => get_design_providing_staples(mediator),
+            Step::Init => get_design_providing_staples(downloader),
             Step::AskingPath(state) => ask_path(state),
             Step::PathAsked {
                 path_input,
                 design_id,
             } => poll_path(path_input, design_id),
-            Step::Downloading { design_id, path } => download_staples(mediator, design_id, path),
+            Step::Downloading { design_id, path } => download_staples(downloader, design_id, path),
         }
     }
 
@@ -104,8 +104,8 @@ impl State for DownloadStaples {
     */
 }
 
-fn get_design_providing_staples() -> Box<dyn State> {
-    let result = mediator.lock().unwrap().download_stapples();
+fn get_design_providing_staples(downlader: &dyn StaplesDownloader) -> Box<dyn State> {
+    let result = downlader.download_stapples();
     match result {
         Ok(DownloadStappleOk {
             design_id,
@@ -202,14 +202,33 @@ fn poll_path(path_input: PathInput, design_id: usize) -> Box<dyn State> {
 }
 
 fn download_staples(
-    mediator: Arc<Mutex<Mediator>>,
+    downlader: &dyn StaplesDownloader,
     design_id: usize,
     path: PathBuf,
 ) -> Box<dyn State> {
-    mediator.lock().unwrap().proceed_stapples(design_id, &path);
+    downlader.write_staples_xlsx(design_id, &path);
     let msg = format!(
         "Successfully wrote staples in {}",
         path.clone().to_string_lossy()
     );
     TransitionMessage::new(msg, rfd::MessageLevel::Error, Box::new(NormalState))
+}
+
+pub trait StaplesDownloader {
+    fn download_staples(&self) -> Result<DownloadStappleOk, DownloadStappleError>;
+    fn write_staples_xlsx(&self, xlsx_path: &PathBuf);
+}
+
+pub enum DownloadStappleError {
+    /// There are several designs and none is selected.
+    SeveralDesignNoneSelected,
+    /// No strand is set as the scaffold
+    NoScaffoldSet,
+    /// There is no sequence set for the scaffold
+    ScaffoldSequenceNotSet,
+}
+
+pub struct DownloadStappleOk {
+    pub design_id: usize,
+    pub warnings: Vec<String>,
 }

@@ -16,7 +16,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-use super::{dialog, Arc, MainState, Mediator, Mutex, State, TransitionMessage, YesNo};
+use super::{dialog, Arc, MainState, Mutex, State, TransitionMessage, YesNo};
 
 use dialog::PathInput;
 
@@ -64,18 +64,15 @@ enum Step {
 }
 
 impl State for SetScaffoldSequence {
-    fn make_progress(
-        self: Box<Self>,
-        main_state: &mut dyn MainState,
-        mediator: Arc<Mutex<Mediator>>,
-    ) -> Box<dyn State> {
+    fn make_progress(self: Box<Self>, main_state: &mut dyn MainState) -> Box<dyn State> {
+        let setter = main_state.get_scaffold_setter();
         match self.step {
             Step::Init => init_set_scaffold_sequence(),
             Step::AskPath { path_input } => ask_path(path_input),
             Step::GotPath(path) => got_path(path),
-            Step::SetSequence(seq) => set_sequence(seq, mediator),
+            Step::SetSequence(seq) => set_sequence(seq, setter),
             Step::OptimizeScaffoldPosition { design_id } => {
-                optimize_scaffold_position(design_id, main_state, mediator)
+                optimize_scaffold_position(design_id, main_state, setter)
             }
         }
     }
@@ -137,9 +134,8 @@ fn got_path(path: PathBuf) -> Box<dyn State> {
     }
 }
 
-use super::super::mediator::SetScaffoldSequenceOk;
-fn set_sequence(sequence: String, mediator: Arc<Mutex<Mediator>>) -> Box<dyn State> {
-    let result = mediator.lock().unwrap().set_scaffold_sequence(sequence);
+fn set_sequence(sequence: String, scaffold_setter: &dyn ScaffoldSetter) -> Box<dyn State> {
+    let result = scaffold_setter.set_scaffold_sequence(sequence);
     match result {
         Ok(SetScaffoldSequenceOk {
             design_id,
@@ -167,9 +163,35 @@ fn set_sequence(sequence: String, mediator: Arc<Mutex<Mediator>>) -> Box<dyn Sta
 fn optimize_scaffold_position(
     design_id: usize,
     main_state: &mut dyn MainState,
-    mediator: Arc<Mutex<Mediator>>,
+    scaffold_setter: &dyn ScaffoldSetter,
 ) -> Box<dyn State> {
     let reader = main_state.get_chanel_reader();
-    mediator.lock().unwrap().optimize_shift(design_id, reader);
+    scaffold_setter.optimize_shift(design_id, reader);
     Box::new(super::NormalState)
+}
+
+pub trait ScaffoldSetter {
+    fn set_scaffold_sequence(&mut self, sequence: String);
+    fn optimize_shift(&self, reader: &mut dyn ShiftOptimizerReader);
+}
+
+use std::sync::mpsc;
+pub trait ShiftOptimizerReader: Send {
+    fn attach_progress_chanel(&mut self, chanel: mpsc::Receiver<f32>);
+    fn attach_result_chanel(&mut self, chanel: mpsc::Receiver<ShiftOptimizationResult>);
+}
+
+pub struct ShiftOptimizationResult {
+    pub position: usize,
+    pub score: String,
+}
+
+pub struct SetScaffoldSequenceOk {
+    pub default_shift: Option<usize>,
+    pub design_id: usize,
+}
+
+#[derive(Debug)]
+pub enum SetScaffoldSequenceError {
+    SeveralDesignNoneSelected,
 }
