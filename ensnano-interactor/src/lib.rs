@@ -85,14 +85,14 @@ pub enum DesignOperation {
     RawHelixCreation {
         h_id: usize,
     },
-    /// Split a strand at a given position
+    /// Split a strand at a given position. If the strand containing the nucleotide has length 1,
+    /// delete the strand.
     Cut {
         nucl: Nucl,
         s_id: usize,
     },
     /// Make a cross-over between two nucleotides, spliting the source and target strands if needed
     Xover {
-        undo: bool,
         prime5_id: usize,
         prime3_id: usize,
     },
@@ -102,12 +102,11 @@ pub enum DesignOperation {
         source_id: usize,
         target_id: usize,
         nucl: Nucl,
-        undo: bool,
     },
     /// Delete a strand
     RmStrand {
         strand_id: usize,
-        undo: bool,
+        design_id: usize,
     },
     MakeAllGrids,
     /// Add a grid to the design

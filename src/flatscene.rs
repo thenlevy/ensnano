@@ -17,15 +17,15 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 //! This module handles the 2D view
 
-use crate::design::{Design, DesignNotification, DesignNotificationContent, Nucl, StrandBuilder};
-use crate::mediator;
+use crate::design::{DesignNotification, DesignNotificationContent, Nucl, StrandBuilder};
 use crate::{DrawArea, Duration, PhySize, WindowEvent};
+use ensnano_interactor::{
+    application::{AppId, Application, Notification},
+    operation::*,
+    ActionMode, PhantomElement, Selection,
+};
 use iced_wgpu::wgpu;
 use iced_winit::winit;
-use mediator::{
-    ActionMode, AppId, Application, CrossCut, Cut, Mediator, Notification, Operation,
-    RawHelixCreation, RmStrand, Selection, SelectionMode, StrandConstruction, Xover,
-};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -34,7 +34,6 @@ use wgpu::{Device, Queue};
 use winit::dpi::PhysicalPosition;
 
 use crate::utils::camera2d as camera;
-use crate::utils::PhantomElement;
 mod controller;
 mod data;
 mod flattypes;
@@ -210,8 +209,6 @@ impl<S: AppState> FlatScene<S> {
                     .lock()
                     .unwrap()
                     .update_opperation(Arc::new(Xover {
-                        strand_3prime,
-                        strand_5prime,
                         prime3_id,
                         prime5_id,
                         undo: false,
@@ -233,8 +230,6 @@ impl<S: AppState> FlatScene<S> {
                         .update_opperation(Arc::new(Cut {
                             nucl,
                             strand_id,
-                            strand,
-                            undo: false,
                             design_id: self.selected_design,
                         }))
                 }
@@ -257,8 +252,6 @@ impl<S: AppState> FlatScene<S> {
                         .update_opperation(Arc::new(Cut {
                             nucl,
                             strand_id,
-                            strand,
-                            undo: false,
                             design_id: self.selected_design,
                         }))
                 }
@@ -283,13 +276,10 @@ impl<S: AppState> FlatScene<S> {
                             .lock()
                             .unwrap()
                             .update_opperation(Arc::new(CrossCut {
-                                source_strand,
-                                target_strand,
                                 source_id,
                                 target_id,
                                 target_3prime,
                                 nucl: to.to_real(),
-                                undo: false,
                                 design_id: self.selected_design,
                             }))
                     }
@@ -342,9 +332,7 @@ impl<S: AppState> FlatScene<S> {
                         .lock()
                         .unwrap()
                         .update_opperation(Arc::new(RmStrand {
-                            strand,
                             strand_id,
-                            undo: false,
                             design_id: self.selected_design,
                         }))
                 }

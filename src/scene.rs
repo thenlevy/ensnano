@@ -24,15 +24,15 @@ use std::time::Duration;
 use ultraviolet::{Mat4, Rotor3, Vec3};
 
 use crate::design::StrandBuilder;
-use crate::{design, mediator, utils};
+use crate::{design, utils};
 use crate::{DrawArea, PhySize, WindowEvent};
 use ensnano_design::{grid::Hyperboloid, Nucl};
-use instance::Instance;
-use mediator::{
-    ActionMode, AppId, Application, CreateGrid, GridHelixCreation, GridRotation, GridTranslation,
-    HelixRotation, HelixTranslation, MediatorPtr, NewHyperboloid, Notification, Operation,
-    Selection, SelectionMode, StrandConstruction,
+use ensnano_interactor::{
+    application::{AppId, Application, Notification},
+    operation::*,
+    ActionMode, Selection, SelectionMode,
 };
+use instance::Instance;
 use utils::instance;
 use wgpu::{Device, Queue};
 use winit::dpi::PhysicalPosition;
@@ -56,7 +56,6 @@ mod data;
 pub use controller::ClickMode;
 use data::Data;
 pub use data::DesignReader;
-use design::{Design, DesignNotification, DesignNotificationContent};
 mod element_selector;
 use element_selector::{ElementSelector, SceneElement};
 mod maths_3d;
@@ -303,7 +302,6 @@ impl<S: AppState> Scene<S> {
                 position,
                 orientation,
                 grid_type,
-                delete: false,
             }));
         self.requests.lock().unwrap().suspend_op();
     }
