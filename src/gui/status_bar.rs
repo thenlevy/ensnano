@@ -15,7 +15,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
-use super::Requests;
+use super::{AppState, Requests};
 use crate::mediator::{Operation, ParameterField, Selection};
 use iced::{container, slider, Background, Container, Length};
 use iced_native::{pick_list, text_input, Color, PickList, TextInput};
@@ -61,7 +61,7 @@ impl StatusParameter {
     }
 }
 
-pub struct StatusBar<R: Requests> {
+pub struct StatusBar<R: Requests, S: AppState> {
     parameters: Vec<StatusParameter>,
     info_values: Vec<String>,
     operation_values: Vec<String>,
@@ -71,9 +71,10 @@ pub struct StatusBar<R: Requests> {
     progress: Option<(String, f32)>,
     #[allow(dead_code)]
     slider_state: slider::State,
+    app_state: S,
 }
 
-impl<R: Requests> StatusBar<R> {
+impl<R: Requests, S: AppState> StatusBar<R, S> {
     pub fn new(requests: Arc<Mutex<R>>) -> Self {
         Self {
             parameters: Vec::new(),
@@ -84,6 +85,7 @@ impl<R: Requests> StatusBar<R> {
             selection: Selection::Nothing,
             progress: None,
             slider_state: Default::default(),
+            app_state: Default::default(),
         }
     }
 
@@ -100,7 +102,7 @@ impl<R: Requests> StatusBar<R> {
         self.parameters = new_param;
     }
 
-    fn view_op(&mut self) -> Element<Message, iced_wgpu::Renderer> {
+    fn view_op(&mut self) -> Element<Message<S>, iced_wgpu::Renderer> {
         let mut row = Row::new();
         let op = self.operation.as_ref().unwrap(); // the function view op is only called when op is some.
         row = row.push(Text::new(op.description()).size(STATUS_FONT_SIZE));
@@ -139,7 +141,7 @@ impl<R: Requests> StatusBar<R> {
         row.into()
     }
 
-    fn view_selection(&mut self) -> Element<Message, iced_wgpu::Renderer> {
+    fn view_selection(&mut self) -> Element<Message<S>, iced_wgpu::Renderer> {
         let mut row = Row::new();
         if self.selection != Selection::Nothing {
             row = row.push(Text::new(self.selection.info()).size(STATUS_FONT_SIZE));
@@ -147,7 +149,7 @@ impl<R: Requests> StatusBar<R> {
         row.into()
     }
 
-    fn view_progress(&mut self) -> Element<Message, iced_wgpu::Renderer> {
+    fn view_progress(&mut self) -> Element<Message<S>, iced_wgpu::Renderer> {
         let mut row = Row::new();
         let progress = self.progress.as_ref().unwrap();
         row = row.push(
@@ -163,7 +165,7 @@ impl<R: Requests> StatusBar<R> {
 }
 
 #[derive(Clone, Debug)]
-pub enum Message {
+pub enum Message<S: AppState> {
     Operation(Arc<dyn Operation>),
     Selection(Selection, Vec<String>),
     ValueChanged(usize, String),
@@ -171,18 +173,19 @@ pub enum Message {
     #[allow(dead_code)]
     SetShift(f32),
     ClearOp,
+    NewApplicationState(S),
 }
 
-impl<R: Requests> Program for StatusBar<R> {
-    type Message = Message;
+impl<R: Requests, S: AppState> Program for StatusBar<R, S> {
+    type Message = Message<S>;
     type Renderer = iced_wgpu::Renderer;
     type Clipboard = iced_native::clipboard::Null;
 
     fn update(
         &mut self,
-        message: Message,
+        message: Message<S>,
         _cb: &mut iced_native::clipboard::Null,
-    ) -> Command<Message> {
+    ) -> Command<Message<S>> {
         match message {
             Message::Operation(ref op) => {
                 self.operation = Some(op.clone());
@@ -212,11 +215,12 @@ impl<R: Requests> Program for StatusBar<R> {
                 self.info_values[2] = f.to_string();
                 self.requests.lock().unwrap().update_hyperboloid_shift(f);
             }
+            Message::NewApplicationState(state) => self.app_state = state,
         }
         Command::none()
     }
 
-    fn view(&mut self) -> Element<Message, iced_wgpu::Renderer> {
+    fn view(&mut self) -> Element<Message<S>, iced_wgpu::Renderer> {
         let content = if self.progress.is_some() {
             self.view_progress()
         } else if self.operation.is_some() {

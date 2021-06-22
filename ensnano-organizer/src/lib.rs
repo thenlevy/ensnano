@@ -276,10 +276,7 @@ impl<E: OrganizerElement> Organizer<E> {
                 ));
             }
             OrganizerMessage_::NewGroup => {
-                self.push_content(
-                    self.selection.iter().cloned().collect(),
-                    String::from(""),
-                );
+                self.push_content(self.selection.iter().cloned().collect(), String::from(""));
                 return Some(OrganizerMessage::NewTree(self.tree()));
             }
             OrganizerMessage_::Delete { id } => {

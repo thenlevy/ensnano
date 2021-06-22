@@ -21,6 +21,10 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 
 use ensnano_design::{grid::GridDescriptor, Nucl, Strand};
 use ultraviolet::{Rotor3, Vec3};
+pub mod graphics;
+mod selection;
+pub use selection::*;
+pub mod operation;
 
 #[derive(Clone, Copy, Eq, PartialEq)]
 pub enum ObjectType {
@@ -191,4 +195,19 @@ impl Extremity {
             Extremity::Prime5 => Some(false),
         }
     }
+}
+
+#[derive(Clone)]
+pub struct HyperboloidRequest {
+    pub radius: usize,
+    pub length: f32,
+    pub shift: f32,
+    pub radius_shift: f32,
+}
+
+#[derive(Clone)]
+pub struct SimulationRequest {
+    pub roll: bool,
+    pub springs: bool,
+    pub target_helices: Option<Vec<usize>>,
 }

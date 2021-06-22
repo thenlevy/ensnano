@@ -16,13 +16,13 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 use super::*;
-use crate::mediator::SimulationRequest;
+use ensnano_interactor::SimulationRequest;
 use iced::scrollable;
 use iced::Color;
 
 use crate::design::SimulationState;
 
-pub(super) struct EditionTab {
+pub(super) struct EditionTab<S: AppState> {
     selection_mode_state: SelectionModeState,
     action_mode_state: ActionModeState,
     scroll: iced::scrollable::State,
@@ -31,11 +31,11 @@ pub(super) struct EditionTab {
     sequence_input: SequenceInput,
     redim_helices_button: button::State,
     redim_all_helices_button: button::State,
-    roll_target_btn: GoStop,
+    roll_target_btn: GoStop<S>,
     roll_target_helices: Vec<usize>,
 }
 
-impl EditionTab {
+impl<S: AppState> EditionTab<S> {
     pub(super) fn new() -> Self {
         Self {
             selection_mode_state: Default::default(),
@@ -58,8 +58,8 @@ impl EditionTab {
         &'a mut self,
         ui_size: UiSize,
         width: u16,
-        app_state: &ApplicationState,
-    ) -> Element<'a, Message> {
+        app_state: &S,
+    ) -> Element<'a, Message<S>> {
         let mut ret = Column::new().spacing(5);
         ret = ret.push(
             Text::new("Edition")
@@ -278,12 +278,12 @@ impl GridTab {
         }
     }
 
-    pub(super) fn view<'a>(
+    pub(super) fn view<'a, S: AppState>(
         &'a mut self,
         ui_size: UiSize,
         width: u16,
-        app_state: &ApplicationState,
-    ) -> Element<'a, Message> {
+        app_state: &S,
+    ) -> Element<'a, Message<S>> {
         let action_modes = [
             ActionMode::Normal,
             ActionMode::Translate,
@@ -525,12 +525,12 @@ impl GridTab {
     }
 }
 
-fn selection_mode_btn<'a>(
+fn selection_mode_btn<'a, S: AppState>(
     state: &'a mut button::State,
     mode: SelectionMode,
     fixed_mode: SelectionMode,
     button_size: u16,
-) -> Button<'a, Message> {
+) -> Button<'a, S> {
     let icon_path = if fixed_mode == mode {
         mode.icon_on()
     } else {
@@ -543,13 +543,13 @@ fn selection_mode_btn<'a>(
         .width(Length::Units(button_size))
 }
 
-fn action_mode_btn<'a>(
+fn action_mode_btn<'a, S: AppState>(
     state: &'a mut button::State,
     mode: ActionMode,
     fixed_mode: ActionMode,
     button_size: u16,
     axis_aligned: bool,
-) -> Button<'a, Message> {
+) -> Button<'a, Message<S>> {
     let icon_path = if fixed_mode == mode {
         mode.icon_on(axis_aligned)
     } else {
@@ -595,7 +595,11 @@ impl CameraShortcut {
         self.xy += xy;
     }
 
-    pub fn view<'a>(&'a mut self, ui_size: UiSize, width: u16) -> Element<'a, Message> {
+    pub fn view<'a, S: AppState>(
+        &'a mut self,
+        ui_size: UiSize,
+        width: u16,
+    ) -> Element<'a, Message<S>> {
         let mut ret = Column::new();
         ret = ret.push(
             Text::new("Camera")
@@ -659,7 +663,9 @@ impl CameraShortcut {
     }
 }
 
-use crate::mediator::{Background3D, RenderingMode, ALL_BACKGROUND3D, ALL_RENDERING_MODE};
+use ensnano_interactor::graphics::{
+    Background3D, RenderingMode, ALL_BACKGROUND3D, ALL_RENDERING_MODE,
+};
 
 pub(super) struct CameraTab {
     fog: FogParameters,
@@ -688,7 +694,7 @@ impl CameraTab {
         }
     }
 
-    pub fn view<'a>(&'a mut self, ui_size: UiSize) -> Element<'a, Message> {
+    pub fn view<'a, S>(&'a mut self, ui_size: UiSize) -> Element<'a, Message<S>> {
         let mut ret = Column::new().spacing(2);
         ret = ret.push(
             Text::new("Camera")
@@ -782,7 +788,7 @@ struct FogParameters {
 }
 
 impl FogParameters {
-    fn view(&mut self, ui_size: &UiSize) -> Column<Message> {
+    fn view<S>(&mut self, ui_size: &UiSize) -> Column<Message<S>> {
         let mut column = Column::new()
             .push(Text::new("Fog").size(ui_size.intermediate_text()))
             .push(PickList::new(
@@ -868,16 +874,16 @@ impl Default for FogParameters {
     }
 }
 
-pub(super) struct SimulationTab {
+pub(super) struct SimulationTab<S: AppState> {
     rigid_body_factory: RequestFactory<RigidBodyFactory>,
     brownian_factory: RequestFactory<BrownianParametersFactory>,
-    rigid_grid_button: GoStop,
-    rigid_helices_button: GoStop,
+    rigid_grid_button: GoStop<S>,
+    rigid_helices_button: GoStop<S>,
     scroll: scrollable::State,
     physical_simulation: PhysicalSimulation,
 }
 
-impl SimulationTab {
+impl<S: AppState> SimulationTab<S> {
     pub(super) fn new() -> Self {
         let init_brownian = BrownianParametersFactory {
             rate: 0.,
@@ -909,8 +915,8 @@ impl SimulationTab {
     pub(super) fn view<'a>(
         &'a mut self,
         ui_size: UiSize,
-        app_state: &ApplicationState,
-    ) -> Element<'a, Message> {
+        app_state: &S,
+    ) -> Element<'a, Message<S>> {
         let sim_state = &app_state.simulation_state;
         let grid_active = sim_state.is_none() || sim_state.simulating_grid();
         let helices_active = sim_state.is_none() || sim_state.simulating_helices();
@@ -1001,11 +1007,7 @@ impl SimulationTab {
         self.physical_simulation.request()
     }
 
-    pub(super) fn leave_tab<R: Requests>(
-        &mut self,
-        requests: Arc<Mutex<R>>,
-        app_state: &ApplicationState,
-    ) {
+    pub(super) fn leave_tab<R: Requests>(&mut self, requests: Arc<Mutex<R>>, app_state: &S) {
         if app_state.simulation_state == SimulationState::RigidGrid {
             self.request_stop_rigid_body_simulation(requests);
             println!("stop grids");
@@ -1027,16 +1029,16 @@ impl SimulationTab {
     }
 }
 
-struct GoStop {
+struct GoStop<S: AppState> {
     go_stop_button: button::State,
     pub name: String,
-    on_press: Box<dyn Fn(bool) -> Message>,
+    on_press: Box<dyn Fn(bool) -> Message<S>>,
 }
 
-impl GoStop {
+impl<S: AppState> GoStop<S> {
     fn new<F>(name: String, on_press: F) -> Self
     where
-        F: 'static + Fn(bool) -> Message,
+        F: 'static + Fn(bool) -> Message<S>,
     {
         Self {
             go_stop_button: Default::default(),
@@ -1045,7 +1047,7 @@ impl GoStop {
         }
     }
 
-    fn view(&mut self, active: bool, running: bool) -> Row<Message> {
+    fn view(&mut self, active: bool, running: bool) -> Row<Message<S>> {
         let button_str = if running {
             "Stop".to_owned()
         } else {
@@ -1066,13 +1068,13 @@ struct PhysicalSimulation {
 }
 
 impl PhysicalSimulation {
-    fn view<'a, 'b>(
+    fn view<'a, 'b, S: AppState>(
         &'a mut self,
         _ui_size: &'b UiSize,
         name: &'static str,
         active: bool,
         running: bool,
-    ) -> Row<'a, Message> {
+    ) -> Row<'a, Message<S>> {
         let button_str = if running { "Stop" } else { name };
         let mut button = Button::new(&mut self.go_stop_button, Text::new(button_str))
             .style(ButtonColor::red_green(running));
@@ -1108,11 +1110,11 @@ impl ParametersTab {
         }
     }
 
-    pub(super) fn view<'a>(
+    pub(super) fn view<'a, S: AppState>(
         &'a mut self,
         ui_size: UiSize,
-        app_state: &ApplicationState,
-    ) -> Element<'a, Message> {
+        app_state: &S,
+    ) -> Element<'a, Message<S>> {
         let mut ret = Column::new();
         ret = ret.push(Text::new("Parameters").size(ui_size.head_text()));
         ret = ret.push(Text::new("Font size"));
@@ -1205,7 +1207,7 @@ impl SequenceTab {
         }
     }
 
-    pub(super) fn view<'a>(&'a mut self, ui_size: UiSize) -> Element<'a, Message> {
+    pub(super) fn view<'a, S: AppState>(&'a mut self, ui_size: UiSize) -> Element<'a, Message<S>> {
         let mut ret = Column::new();
         ret = ret.push(Text::new("Sequences").size(ui_size.head_text()));
         ret = ret.push(iced::Space::with_height(Length::Units(3)));
@@ -1385,14 +1387,14 @@ impl SequenceTab {
     }
 }
 
-fn right_checkbox<'a, F>(
+fn right_checkbox<'a, F, S>(
     is_checked: bool,
     label: impl Into<String>,
     f: F,
     ui_size: UiSize,
-) -> Element<'a, Message>
+) -> Element<'a, Message<S>>
 where
-    F: 'static + Fn(bool) -> Message,
+    F: 'static + Fn(bool) -> Message<S>,
 {
     Row::new()
         .push(Text::new(label))

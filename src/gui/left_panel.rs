@@ -38,7 +38,7 @@ use crate::design::{DnaElement, DnaElementKey, ScaffoldInfo};
 use crate::mediator::{ActionMode, Selection, SelectionMode};
 
 use super::{
-    icon_btn, slider_style::DesactivatedSlider, text_btn, ApplicationState, FogParameters as Fog,
+    icon_btn, slider_style::DesactivatedSlider, text_btn, AppState, FogParameters as Fog,
     OverlayType, Requests, UiSize,
 };
 
@@ -55,10 +55,9 @@ use crate::consts::*;
 mod contextual_panel;
 use contextual_panel::ContextualPanel;
 
-use crate::mediator::HyperboloidRequest;
+use ensnano_interactor::HyperboloidRequest;
 use material_icons::{icon_to_char, Icon as MaterialIcon, FONT as MATERIALFONT};
 use std::collections::BTreeMap;
-use std::thread;
 use tabs::{
     CameraShortcut, CameraTab, EditionTab, GridTab, ParametersTab, SequenceTab, SimulationTab,
 };
@@ -81,7 +80,7 @@ fn icon(icon: MaterialIcon, ui_size: &UiSize) -> iced::Text {
 
 const CHECKBOXSPACING: u16 = 5;
 
-pub struct LeftPanel<R: Requests> {
+pub struct LeftPanel<R: Requests, S: AppState> {
     dialoging: Arc<Mutex<bool>>,
     logical_size: LogicalSize<f64>,
     #[allow(dead_code)]
@@ -96,18 +95,18 @@ pub struct LeftPanel<R: Requests> {
     organizer: Organizer<DnaElement>,
     ui_size: UiSize,
     grid_tab: GridTab,
-    edition_tab: EditionTab,
+    edition_tab: EditionTab<S>,
     camera_tab: CameraTab,
-    simulation_tab: SimulationTab,
+    simulation_tab: SimulationTab<S>,
     sequence_tab: SequenceTab,
     parameters_tab: ParametersTab,
     contextual_panel: ContextualPanel,
     camera_shortcut: CameraShortcut,
-    application_state: ApplicationState,
+    application_state: S,
 }
 
 #[derive(Debug, Clone)]
-pub enum Message {
+pub enum Message<S> {
     SelectionModeChanged(SelectionMode),
     Resized(LogicalSize<f64>, LogicalPosition<f64>),
     #[allow(dead_code)]
@@ -174,12 +173,12 @@ pub enum Message {
     RenderingMode(crate::mediator::RenderingMode),
     Background3D(crate::mediator::Background3D),
     OpenLink(&'static str),
-    NewApplicationState(ApplicationState),
+    NewApplicationState(S),
     FogChoice(tabs::FogChoice),
     SetScaffoldSeqButtonPressed,
 }
 
-impl<R: Requests> LeftPanel<R> {
+impl<R: Requests, S: AppState> LeftPanel<R, S> {
     pub fn new(
         requests: Arc<Mutex<R>>,
         logical_size: LogicalSize<f64>,
@@ -224,7 +223,7 @@ impl<R: Requests> LeftPanel<R> {
         self.organizer.set_width(logical_size.width as u16);
     }
 
-    fn organizer_message(&mut self, m: OrganizerMessage<DnaElement>) -> Option<Message> {
+    fn organizer_message(&mut self, m: OrganizerMessage<DnaElement>) -> Option<Message<S>> {
         match m {
             OrganizerMessage::InternalMessage(m) => {
                 return self
@@ -260,12 +259,12 @@ impl<R: Requests> LeftPanel<R> {
     }
 }
 
-impl<R: Requests> Program for LeftPanel<R> {
+impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
     type Renderer = Renderer;
-    type Message = Message;
+    type Message = Message<S>;
     type Clipboard = NullClipboard;
 
-    fn update(&mut self, message: Message, _cb: &mut NullClipboard) -> Command<Message> {
+    fn update(&mut self, message: Message<S>, _cb: &mut NullClipboard) -> Command<Message<S>> {
         match message {
             Message::SelectionModeChanged(selection_mode) => {
                 if selection_mode != self.application_state.selection_mode {
@@ -676,7 +675,7 @@ impl<R: Requests> Program for LeftPanel<R> {
         Command::none()
     }
 
-    fn view(&mut self) -> Element<Message> {
+    fn view(&mut self) -> Element<Message<S>> {
         let width = self.logical_size.cast::<u16>().width;
         let tabs: Tabs<Message, Backend> = Tabs::new(self.selected_tab, Message::TabSelected)
             .push(
@@ -963,7 +962,7 @@ impl ActionModeState {
     }
 }
 
-fn target_message(i: usize) -> Message {
+fn target_message<S: AppState>(i: usize) -> Message<S> {
     match i {
         0 => Message::FixPoint(Vec3::unit_x(), Vec3::unit_y()),
         1 => Message::FixPoint(-Vec3::unit_x(), Vec3::unit_y()),
@@ -974,7 +973,7 @@ fn target_message(i: usize) -> Message {
     }
 }
 
-fn rotation_message(i: usize, _xz: isize, _yz: isize, _xy: isize) -> Message {
+fn rotation_message<S: AppState>(i: usize, _xz: isize, _yz: isize, _xy: isize) -> Message<S> {
     let angle_xz = match i {
         0 => 15f32.to_radians(),
         1 => -15f32.to_radians(),

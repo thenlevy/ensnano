@@ -1530,11 +1530,3 @@ impl Default for MainState {
         }
     }
 }
-
-#[derive(Clone)]
-pub struct HyperboloidRequest {
-    pub radius: usize,
-    pub length: f32,
-    pub shift: f32,
-    pub radius_shift: f32,
-}

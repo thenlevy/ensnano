@@ -49,7 +49,7 @@ impl ContextualPanel {
         self.width = width;
     }
 
-    pub fn view(&mut self, ui_size: UiSize) -> Element<Message> {
+    pub fn view<S: AppState>(&mut self, ui_size: UiSize) -> Element<Message<S>> {
         let mut column = Column::new().max_width(self.width - 2);
         let selection = &self.selection;
         if self.show_tutorial {
@@ -146,11 +146,11 @@ impl ContextualPanel {
     }
 }
 
-fn add_grid_content<'a>(
-    mut column: Column<'a, Message>,
+fn add_grid_content<'a, S: AppState>(
+    mut column: Column<'a, Message<S>>,
     info_values: &[Cow<'static, str>],
     ui_size: UiSize,
-) -> Column<'a, Message> {
+) -> Column<'a, Message<S>> {
     column = column.push(
         Checkbox::new(
             info_values[0].parse::<bool>().unwrap(),
@@ -170,11 +170,11 @@ fn add_grid_content<'a>(
     column
 }
 
-fn add_strand_content<'a>(
-    mut column: Column<'a, Message>,
+fn add_strand_content<'a, S: AppState>(
+    mut column: Column<'a, Message<S>>,
     info_values: &[Cow<'static, str>],
     ui_size: UiSize,
-) -> Column<'a, Message> {
+) -> Column<'a, Message<S>> {
     let s_id = info_values[2].parse::<usize>().unwrap();
     column = column.push(Text::new(format!("length {}", info_values[0])).size(ui_size.main_text()));
     column = column.push(Checkbox::new(
@@ -355,11 +355,11 @@ fn view_2d_help() -> Vec<(String, String)> {
     ]
 }
 
-fn link_row<'a>(
+fn link_row<'a, S: AppState>(
     button_state: &'a mut button::State,
     link: &'static str,
     ui_size: UiSize,
-) -> Row<'a, Message> {
+) -> Row<'a, Message<S>> {
     Row::new()
         .push(
             Column::new()

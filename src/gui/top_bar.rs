@@ -18,7 +18,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 use std::sync::{Arc, Mutex};
 use std::thread;
 
-use super::{ApplicationState, UiSize};
+use super::{AppState, UiSize};
 use iced::{container, Background, Container};
 use iced_native::clipboard::Null as NullClipBoard;
 use iced_wgpu::Renderer;
@@ -40,7 +40,7 @@ fn icon(icon: MaterialIcon, ui_size: UiSize) -> iced::Text {
 
 use super::{Requests, SplitMode};
 
-pub struct TopBar<R: Requests> {
+pub struct TopBar<R: Requests, S: AppState> {
     button_fit: button::State,
     button_add_file: button::State,
     #[allow(dead_code)]
@@ -60,11 +60,11 @@ pub struct TopBar<R: Requests> {
     logical_size: LogicalSize<f64>,
     dialoging: Arc<Mutex<bool>>,
     ui_size: UiSize,
-    application_state: ApplicationState,
+    application_state: S,
 }
 
 #[derive(Debug, Clone)]
-pub enum Message {
+pub enum Message<S: AppState> {
     SceneFitRequested,
     FileAddRequested,
     OpenFileButtonPressed,
@@ -74,7 +74,7 @@ pub enum Message {
     UiSizeChanged(UiSize),
     OxDNARequested,
     Split2d,
-    NewApplicationState(ApplicationState),
+    NewApplicationState(S),
     ForceHelp,
     ShowTutorial,
     Undo,
@@ -82,7 +82,7 @@ pub enum Message {
     ButtonNewEmptyDesignPressed,
 }
 
-impl<R: Requests> TopBar<R> {
+impl<R: Requests, S: AppState> TopBar<R, S> {
     pub fn new(
         requests: Arc<Mutex<R>>,
         logical_size: LogicalSize<f64>,
@@ -116,12 +116,12 @@ impl<R: Requests> TopBar<R> {
     }
 }
 
-impl<R: Requests> Program for TopBar<R> {
+impl<R: Requests, S: AppState> Program for TopBar<R, S> {
     type Renderer = Renderer;
-    type Message = Message;
+    type Message = Message<S>;
     type Clipboard = NullClipBoard;
 
-    fn update(&mut self, message: Message, _cb: &mut NullClipBoard) -> Command<Message> {
+    fn update(&mut self, message: Message<S>, _cb: &mut NullClipBoard) -> Command<Message<S>> {
         match message {
             Message::SceneFitRequested => {
                 self.requests.lock().unwrap().fit_design_in_scenes();
@@ -230,7 +230,7 @@ impl<R: Requests> Program for TopBar<R> {
         Command::none()
     }
 
-    fn view(&mut self) -> Element<Message, Renderer> {
+    fn view(&mut self) -> Element<Message<S>, Renderer> {
         let height = self.logical_size.cast::<u16>().height;
         let top_size_info = TopSizeInfo::new(self.ui_size.clone(), height);
         let button_fit = Button::new(

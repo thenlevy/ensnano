@@ -30,22 +30,20 @@ pub mod left_panel;
 pub use left_panel::{ColorOverlay, LeftPanel, RigidBodyParametersRequest};
 pub mod status_bar;
 mod ui_size;
-use crate::ApplicationState;
 pub use ui_size::*;
+
+mod icon;
 
 use status_bar::StatusBar;
 
-use crate::mediator::{
-    ActionMode, Background3D, HyperboloidRequest, Operation, RenderingMode, SelectionMode,
-    SimulationRequest,
-};
 use crate::scene::FogParameters;
-use crate::SplitMode;
-use crate::{DrawArea, ElementType, IcedMessages, Multiplexer};
 use ensnano_design::{
     elements::{DnaAttribute, DnaElementKey},
     grid::GridTypeDescr,
 };
+use ensnano_interactor::graphics::{Background3D, DrawArea, ElementType, RenderingMode, SplitMode};
+use ensnano_interactor::operation::Operation;
+use ensnano_interactor::{ActionMode, HyperboloidRequest, SelectionMode, SimulationRequest};
 pub use ensnano_organizer::OrganizerTree;
 use iced_native::Event;
 use iced_wgpu::{wgpu, Backend, Renderer, Settings, Viewport};
@@ -57,6 +55,7 @@ use ultraviolet::Vec3;
 use wgpu::Device;
 use winit::{
     dpi::{PhysicalPosition, PhysicalSize},
+    event::ModifiersState,
     window::Window,
 };
 
@@ -163,13 +162,13 @@ pub enum OverlayType {
     Color,
 }
 
-enum GuiState<R: Requests> {
-    TopBar(iced_winit::program::State<TopBar<R>>),
-    LeftPanel(iced_winit::program::State<LeftPanel<R>>),
-    StatusBar(iced_winit::program::State<StatusBar<R>>),
+enum GuiState<R: Requests, S: AppState> {
+    TopBar(iced_winit::program::State<TopBar<R, S>>),
+    LeftPanel(iced_winit::program::State<LeftPanel<R, S>>),
+    StatusBar(iced_winit::program::State<StatusBar<R, S>>),
 }
 
-impl<R: Requests> GuiState<R> {
+impl<R: Requests, S: AppState> GuiState<R, S> {
     fn queue_event(&mut self, event: Event) {
         match self {
             GuiState::TopBar(state) => state.queue_event(event),
@@ -178,7 +177,7 @@ impl<R: Requests> GuiState<R> {
         }
     }
 
-    fn queue_top_bar_message(&mut self, message: top_bar::Message) {
+    fn queue_top_bar_message(&mut self, message: top_bar::Message<S>) {
         if let GuiState::TopBar(ref mut state) = self {
             state.queue_message(message)
         } else {
@@ -186,7 +185,7 @@ impl<R: Requests> GuiState<R> {
         }
     }
 
-    fn queue_left_panel_message(&mut self, message: left_panel::Message) {
+    fn queue_left_panel_message(&mut self, message: left_panel::Message<S>) {
         if let GuiState::LeftPanel(ref mut state) = self {
             state.queue_message(message)
         } else {
@@ -194,7 +193,7 @@ impl<R: Requests> GuiState<R> {
         }
     }
 
-    fn queue_status_bar_message(&mut self, message: status_bar::Message) {
+    fn queue_status_bar_message(&mut self, message: status_bar::Message<S>) {
         if let GuiState::StatusBar(ref mut state) = self {
             state.queue_message(message)
         } else {
@@ -304,24 +303,24 @@ impl<R: Requests> GuiState<R> {
 }
 
 /// A Gui component.
-struct GuiElement<R: Requests> {
-    state: GuiState<R>,
+struct GuiElement<R: Requests, S: AppState> {
+    state: GuiState<R, S>,
     debug: Debug,
     redraw: bool,
     element_type: ElementType,
 }
 
-impl<R: Requests> GuiElement<R> {
+impl<R: Requests, S: AppState> GuiElement<R, S> {
     /// Initialize the top bar gui component
     fn top_bar(
         renderer: &mut Renderer,
         window: &Window,
-        multiplexer: &Multiplexer,
+        multiplexer: &dyn Multiplexer,
         requests: Arc<Mutex<R>>,
         dialoging: Arc<Mutex<bool>>,
     ) -> Self {
         let cursor_position = PhysicalPosition::new(-1., -1.);
-        let top_bar_area = multiplexer.get_element_area(ElementType::TopBar).unwrap();
+        let top_bar_area = multiplexer.get_draw_area(ElementType::TopBar).unwrap();
         let top_bar = TopBar::new(
             requests.clone(),
             top_bar_area.size.to_logical(window.scale_factor()),
@@ -347,15 +346,13 @@ impl<R: Requests> GuiElement<R> {
     fn left_panel(
         renderer: &mut Renderer,
         window: &Window,
-        multiplexer: &Multiplexer,
+        multiplexer: &dyn Multiplexer,
         requests: Arc<Mutex<R>>,
         first_time: bool,
         dialoging: Arc<Mutex<bool>>,
     ) -> Self {
         let cursor_position = PhysicalPosition::new(-1., -1.);
-        let left_panel_area = multiplexer
-            .get_element_area(ElementType::LeftPanel)
-            .unwrap();
+        let left_panel_area = multiplexer.get_draw_area(ElementType::LeftPanel).unwrap();
         let left_panel = LeftPanel::new(
             requests.clone(),
             left_panel_area.size.to_logical(window.scale_factor()),
@@ -382,13 +379,11 @@ impl<R: Requests> GuiElement<R> {
     fn status_bar(
         renderer: &mut Renderer,
         window: &Window,
-        multiplexer: &Multiplexer,
+        multiplexer: &dyn Multiplexer,
         requests: Arc<Mutex<R>>,
     ) -> Self {
         let cursor_position = PhysicalPosition::new(-1., -1.);
-        let status_bar_area = multiplexer
-            .get_element_area(ElementType::StatusBar)
-            .unwrap();
+        let status_bar_area = multiplexer.get_draw_area(ElementType::StatusBar).unwrap();
         let status_bar = StatusBar::new(requests);
         let mut status_bar_debug = Debug::new();
         let status_bar_state = program::State::new(
@@ -410,7 +405,7 @@ impl<R: Requests> GuiElement<R> {
         self.state.queue_event(event)
     }
 
-    fn get_state(&mut self) -> &mut GuiState<R> {
+    fn get_state(&mut self) -> &mut GuiState<R, S> {
         &mut self.state
     }
 
@@ -418,7 +413,7 @@ impl<R: Requests> GuiElement<R> {
         self.state.has_keyboard_priority()
     }
 
-    fn resize(&mut self, window: &Window, multiplexer: &Multiplexer) {
+    fn resize(&mut self, window: &Window, multiplexer: &dyn Multiplexer) {
         let area = multiplexer.get_draw_area(self.element_type).unwrap();
         self.state.resize(area, window);
         self.redraw = true;
@@ -427,11 +422,11 @@ impl<R: Requests> GuiElement<R> {
     fn fetch_change(
         &mut self,
         window: &Window,
-        multiplexer: &Multiplexer,
+        multiplexer: &dyn Multiplexer,
         renderer: &mut Renderer,
         resized: bool,
     ) -> bool {
-        let area = multiplexer.get_element_area(self.element_type).unwrap();
+        let area = multiplexer.get_draw_area(self.element_type).unwrap();
         let cursor = if multiplexer.foccused_element() == Some(self.element_type) {
             multiplexer.get_cursor_position()
         } else {
@@ -458,18 +453,13 @@ impl<R: Requests> GuiElement<R> {
         encoder: &mut wgpu::CommandEncoder,
         device: &Device,
         window: &Window,
-        multiplexer: &Multiplexer,
+        multiplexer: &dyn Multiplexer,
         staging_belt: &mut wgpu::util::StagingBelt,
         mouse_interaction: &mut iced::mouse::Interaction,
     ) {
         if self.redraw {
             let viewport = Viewport::with_physical_size(
-                convert_size_u32(
-                    multiplexer
-                        .get_element_area(self.element_type)
-                        .unwrap()
-                        .size,
-                ),
+                convert_size_u32(multiplexer.get_draw_area(self.element_type).unwrap().size),
                 window.scale_factor(),
             );
             let target = multiplexer.get_texture_view(self.element_type).unwrap();
@@ -489,9 +479,9 @@ impl<R: Requests> GuiElement<R> {
 }
 
 /// The Gui manager.
-pub struct Gui<R: Requests> {
+pub struct Gui<R: Requests, S: AppState> {
     /// HashMap mapping [ElementType](ElementType) to a GuiElement
-    elements: HashMap<ElementType, GuiElement<R>>,
+    elements: HashMap<ElementType, GuiElement<R, S>>,
     renderer: iced_wgpu::Renderer,
     settings: Settings,
     device: Rc<Device>,
@@ -501,11 +491,11 @@ pub struct Gui<R: Requests> {
     ui_size: UiSize,
 }
 
-impl<R: Requests> Gui<R> {
+impl<R: Requests, S: AppState> Gui<R, S> {
     pub fn new(
         device: Rc<Device>,
         window: &Window,
-        multiplexer: &Multiplexer,
+        multiplexer: &dyn Multiplexer,
         requests: Arc<Mutex<R>>,
         settings: Settings,
     ) -> Self {
@@ -566,7 +556,7 @@ impl<R: Requests> Gui<R> {
     }
 
     /// Forward a message to the appropriate gui component
-    pub fn forward_messages(&mut self, messages: &mut IcedMessages) {
+    pub fn forward_messages(&mut self, messages: &mut IcedMessages<S>) {
         for m in messages.top_bar.drain(..) {
             self.elements
                 .get_mut(&ElementType::TopBar)
@@ -591,7 +581,7 @@ impl<R: Requests> Gui<R> {
     }
 
     /// Get the new size of each gui component from the multiplexer and forwards them.
-    pub fn resize(&mut self, multiplexer: &Multiplexer, window: &Window) {
+    pub fn resize(&mut self, multiplexer: &dyn Multiplexer, window: &Window) {
         for element in self.elements.values_mut() {
             element.resize(window, multiplexer)
         }
@@ -599,7 +589,7 @@ impl<R: Requests> Gui<R> {
     }
 
     /// Ask the gui component to process the event that they have recieved
-    pub fn fetch_change(&mut self, window: &Window, multiplexer: &Multiplexer) -> bool {
+    pub fn fetch_change(&mut self, window: &Window, multiplexer: &dyn Multiplexer) -> bool {
         let mut ret = false;
         for elements in self.elements.values_mut() {
             ret |= elements.fetch_change(window, multiplexer, &mut self.renderer, false);
@@ -608,26 +598,26 @@ impl<R: Requests> Gui<R> {
     }
 
     /// Ask the gui component to process the event and messages that they that they have recieved.
-    pub fn update(&mut self, multiplexer: &Multiplexer, window: &Window) {
+    pub fn update(&mut self, multiplexer: &dyn Multiplexer, window: &Window) {
         for elements in self.elements.values_mut() {
             elements.fetch_change(window, multiplexer, &mut self.renderer, self.resized);
         }
         self.resized = false;
     }
 
-    pub fn new_ui_size(&mut self, ui_size: UiSize, window: &Window, multiplexer: &Multiplexer) {
+    pub fn new_ui_size(&mut self, ui_size: UiSize, window: &Window, multiplexer: &dyn Multiplexer) {
         self.set_text_size(ui_size.main_text());
         self.ui_size = ui_size.clone();
 
         self.rebuild_gui(window, multiplexer);
     }
 
-    pub fn notify_scale_factor_change(&mut self, window: &Window, multiplexer: &Multiplexer) {
+    pub fn notify_scale_factor_change(&mut self, window: &Window, multiplexer: &dyn Multiplexer) {
         self.set_text_size(self.ui_size.main_text());
         self.rebuild_gui(window, multiplexer);
     }
 
-    fn rebuild_gui(&mut self, window: &Window, multiplexer: &Multiplexer) {
+    fn rebuild_gui(&mut self, window: &Window, multiplexer: &dyn Multiplexer) {
         self.elements.insert(
             ElementType::TopBar,
             GuiElement::top_bar(
@@ -674,7 +664,7 @@ impl<R: Requests> Gui<R> {
         &mut self,
         encoder: &mut wgpu::CommandEncoder,
         window: &Window,
-        multiplexer: &Multiplexer,
+        multiplexer: &dyn Multiplexer,
         staging_belt: &mut wgpu::util::StagingBelt,
         mouse_interaction: &mut iced::mouse::Interaction,
     ) {
@@ -758,4 +748,130 @@ mod slider_style {
             self.active()
         }
     }
+}
+
+use std::collections::VecDeque;
+/// Message sent to the gui component
+pub struct IcedMessages<S: AppState> {
+    left_panel: VecDeque<left_panel::Message<S>>,
+    top_bar: VecDeque<top_bar::Message<S>>,
+    color_overlay: VecDeque<left_panel::ColorMessage>,
+    status_bar: VecDeque<status_bar::Message<S>>,
+    application_state: Box<S>,
+}
+
+impl<S: AppState> IcedMessages<S> {
+    #[allow(clippy::new_without_default)]
+    pub fn new() -> Self {
+        Self {
+            left_panel: VecDeque::new(),
+            top_bar: VecDeque::new(),
+            color_overlay: VecDeque::new(),
+            status_bar: VecDeque::new(),
+            application_state: Default::default(),
+        }
+    }
+
+    pub fn push_scaffold_info(&mut self, info: Option<crate::design::ScaffoldInfo>) {
+        self.left_panel
+            .push_back(left_panel::Message::NewScaffoldInfo(info));
+    }
+
+    pub fn push_color(&mut self, color: u32) {
+        let bytes = color.to_be_bytes();
+        // bytes is [A, R, G, B]
+        let color = iced::Color::from_rgb8(bytes[1], bytes[2], bytes[3]);
+        self.color_overlay
+            .push_back(left_panel::ColorMessage::StrandColorChanged(color));
+        self.left_panel
+            .push_back(left_panel::Message::StrandColorChanged(color));
+    }
+
+    pub fn push_sequence(&mut self, sequence: String) {
+        self.left_panel
+            .push_back(left_panel::Message::SequenceChanged(sequence));
+    }
+
+    pub fn push_progress(&mut self, progress_name: String, progress: f32) {
+        self.status_bar
+            .push_back(status_bar::Message::Progress(Some((
+                progress_name,
+                progress,
+            ))))
+    }
+
+    pub fn finish_progess(&mut self) {
+        self.status_bar
+            .push_back(status_bar::Message::Progress(None))
+    }
+
+    pub fn notify_new_design(&mut self) {
+        self.left_panel.push_back(left_panel::Message::NewDesign)
+    }
+
+    pub fn push_roll(&mut self, roll: f32) {
+        self.left_panel
+            .push_back(left_panel::Message::HelixRoll(roll))
+    }
+
+    pub fn push_dna_elements(&mut self, elements: Vec<crate::design::DnaElement>) {
+        self.left_panel
+            .push_back(left_panel::Message::NewDnaElement(elements))
+    }
+
+    pub fn update_modifiers(&mut self, modifiers: ModifiersState) {
+        self.left_panel
+            .push_back(left_panel::Message::ModifiersChanged(modifiers))
+    }
+
+    pub fn push_new_tree(
+        &mut self,
+        tree: ensnano_organizer::OrganizerTree<crate::design::DnaElementKey>,
+    ) {
+        self.left_panel
+            .push_back(left_panel::Message::NewTreeApp(tree))
+    }
+
+    pub fn new_ui_size(&mut self, ui_size: UiSize) {
+        self.left_panel
+            .push_back(left_panel::Message::UiSizeChanged(ui_size.clone()));
+        self.top_bar
+            .push_back(top_bar::Message::UiSizeChanged(ui_size.clone()));
+    }
+
+    pub fn push_can_make_grid(&mut self, can_make_grid: bool) {
+        self.left_panel
+            .push_back(left_panel::Message::CanMakeGrid(can_make_grid));
+    }
+
+    pub fn push_show_tutorial(&mut self) {
+        self.left_panel.push_back(left_panel::Message::ShowTutorial);
+    }
+
+    pub fn show_help(&mut self) {
+        self.left_panel.push_back(left_panel::Message::ForceHelp);
+    }
+
+    pub fn push_application_state(&mut self, state: S) {
+        let must_update = self.application_state != state;
+        self.application_state = state.clone();
+        if must_update {
+            self.left_panel
+                .push_back(left_panel::Message::NewApplicationState(state.clone()));
+            self.top_bar
+                .push_back(top_bar::Message::NewApplicationState(state))
+        }
+    }
+}
+
+/// An object mapping ElementType to DrawArea
+pub trait Multiplexer {
+    fn get_draw_area(&self, element_type: ElementType) -> Option<DrawArea>;
+    fn foccused_element(&self) -> Option<ElementType>;
+    fn get_cursor_position(&self) -> PhysicalPosition<f64>;
+    fn get_texture_view(&self, element_type: ElementType) -> Option<&wgpu::TextureView>;
+}
+
+pub trait AppState: Default + PartialEq + Clone {
+    fn get_selection_mode(&self) -> SelectionMode;
 }

@@ -15,7 +15,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
-use super::{ColorMessage, Message};
+use super::{AppState, ColorMessage, Message};
 use iced::{Color, Row};
 
 pub struct ColorPicker {
@@ -47,7 +47,7 @@ impl ColorPicker {
         self.hue = hue
     }
 
-    pub fn view(&mut self) -> Row<Message> {
+    pub fn view<S: AppState>(&mut self) -> Row<Message<S>> {
         let color_picker = Row::new()
             .spacing(5)
             .push(HueColumn::new(&mut self.hue_state, Message::HueChanged))

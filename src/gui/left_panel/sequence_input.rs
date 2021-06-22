@@ -15,7 +15,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
-use super::Message;
+use super::{AppState, Message};
 use iced::{button, text_input, Button, Row, Text, TextInput};
 
 pub struct SequenceInput {
@@ -32,7 +32,7 @@ impl SequenceInput {
             button_state: Default::default(),
         }
     }
-    pub fn view(&mut self) -> Row<Message> {
+    pub fn view<S: AppState>(&mut self) -> Row<Message<S>> {
         let sequence_input = Row::new()
             .spacing(5)
             .push(TextInput::new(

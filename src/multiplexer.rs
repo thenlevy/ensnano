@@ -48,59 +48,8 @@ use winit::{
 };
 
 mod layout_manager;
+use ensnano_interactor::graphics::{DrawArea, ElementType, SplitMode};
 use layout_manager::{LayoutTree, PixelRegion};
-
-/// A structure that represents an area on which an element can be drawn
-#[derive(Clone, Copy, Debug)]
-pub struct DrawArea {
-    /// The top left corner of the element
-    pub position: PhysicalPosition<u32>,
-    /// The *physical* size of the element
-    pub size: PhySize,
-}
-
-/// The different elements represented on the scene. Each element is instanciated once.
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
-pub enum ElementType {
-    /// The top menu bar
-    TopBar,
-    /// The 3D scene
-    Scene,
-    /// The flat Scene
-    FlatScene,
-    /// The Left Panel
-    LeftPanel,
-    /// The status bar
-    StatusBar,
-    GridPanel,
-    /// An overlay area
-    Overlay(usize),
-    /// An area that has not been attributed to an element
-    Unattributed,
-}
-
-impl ElementType {
-    pub fn is_gui(&self) -> bool {
-        match self {
-            ElementType::TopBar | ElementType::LeftPanel | ElementType::StatusBar => true,
-            _ => false,
-        }
-    }
-
-    pub fn is_scene(&self) -> bool {
-        match self {
-            ElementType::Scene | ElementType::FlatScene => true,
-            _ => false,
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum SplitMode {
-    Flat,
-    Scene3D,
-    Both,
-}
 
 /// A structure that handles the division of the window into different `DrawArea`
 pub struct Multiplexer {

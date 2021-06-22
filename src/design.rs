@@ -1109,10 +1109,3 @@ pub struct ScaffoldInfo {
     pub length: usize,
     pub starting_nucl: Option<Nucl>,
 }
-
-#[derive(Clone)]
-pub struct SimulationRequest {
-    pub roll: bool,
-    pub springs: bool,
-    pub target_helices: Option<Vec<usize>>,
-}
