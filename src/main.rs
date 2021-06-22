@@ -68,7 +68,6 @@ use iced_wgpu::{wgpu, Backend, Renderer, Settings, Viewport};
 use iced_winit::{conversion, futures, program, winit, Debug, Size};
 
 use futures::task::SpawnExt;
-use mediator::Selection;
 use winit::{
     dpi::{PhysicalPosition, PhysicalSize},
     event::{Event, ModifiersState, WindowEvent},
@@ -92,16 +91,21 @@ mod design;
 /// Graphical interface drawing
 mod gui;
 use design::Design;
-/// Message passing between applications
-mod mediator;
+//mod mediator;
 /// Separation of the window into drawing regions
 mod multiplexer;
 /// 3D scene drawing
 mod scene;
-use mediator::{ActionMode, Mediator, Operation, ParameterPtr, Scheduler, SelectionMode};
+use ensnano_interactor::{
+    graphics::{DrawArea, ElementType, SplitMode},
+    operation::Operation,
+    ActionMode, Selection, SelectionMode,
+};
 mod flatscene;
+mod scheduler;
 mod text;
 mod utils;
+use scheduler::Scheduler;
 
 #[cfg(test)]
 mod main_tests;
@@ -122,8 +126,8 @@ use dialog::*;
 mod chanel_reader;
 
 use flatscene::FlatScene;
-use gui::{ColorOverlay, OverlayType};
-use multiplexer::{DrawArea, ElementType, Multiplexer, Overlay, SplitMode};
+use gui::{ColorOverlay, IcedMessages, OverlayType};
+use multiplexer::{Multiplexer, Overlay};
 use scene::Scene;
 
 fn convert_size(size: PhySize) -> Size<f32> {
@@ -241,10 +245,6 @@ fn main() {
     let requests = Arc::new(Mutex::new(Requests::default()));
     let messages = Arc::new(Mutex::new(IcedMessages::new()));
     let computing = Arc::new(Mutex::new(false));
-    let mediator = Arc::new(Mutex::new(Mediator::new(
-        messages.clone(),
-        computing.clone(),
-    )));
     let scheduler = Arc::new(Mutex::new(Scheduler::new()));
 
     // Initialize the layout
@@ -267,13 +267,9 @@ fn main() {
         scene_area,
         requests.clone(),
         &mut encoder,
-        mediator.lock().unwrap().get_state(),
+        Default::default(),
     )));
     queue.submit(Some(encoder.finish()));
-    mediator
-        .lock()
-        .unwrap()
-        .add_application(scene.clone(), ElementType::Scene);
     scheduler
         .lock()
         .unwrap()
@@ -285,12 +281,8 @@ fn main() {
         window.inner_size(),
         scene_area,
         requests.clone(),
-        mediator.lock().unwrap().get_state(),
+        Default::default(),
     )));
-    mediator
-        .lock()
-        .unwrap()
-        .add_application(flat_scene.clone(), ElementType::FlatScene);
     scheduler
         .lock()
         .unwrap()
@@ -302,16 +294,8 @@ fn main() {
         if let Some(tree) = design.get_organizer_tree() {
             messages.lock().unwrap().push_new_tree(tree)
         }
-        mediator
-            .lock()
-            .unwrap()
-            .add_design(Arc::new(RwLock::new(design)));
     } else {
         let design = Design::new(0);
-        mediator
-            .lock()
-            .unwrap()
-            .add_design(Arc::new(RwLock::new(design)));
     }
 
     // Initialize the UI
@@ -361,7 +345,6 @@ fn main() {
                 ..
             } => {
                 multiplexer.update_modifiers(modifiers.clone());
-                mediator.lock().unwrap().update_modifiers(modifiers.clone());
                 messages.lock().unwrap().update_modifiers(modifiers.clone());
             }
             Event::WindowEvent {
@@ -575,7 +558,6 @@ fn main() {
                     overlay_manager.forward_messages(&mut messages);
                 }
 
-                mediator.lock().unwrap().observe_designs();
                 let now = std::time::Instant::now();
                 let dt = now - last_render_time;
                 redraw |= scheduler.lock().unwrap().check_redraw(
@@ -694,17 +676,6 @@ fn main() {
             _ => {}
         }
     })
-}
-
-#[derive(Default, PartialEq, Eq, Debug, Clone)]
-pub struct ApplicationState {
-    pub can_undo: bool,
-    pub can_redo: bool,
-    pub simulation_state: crate::design::SimulationState,
-    pub parameter_ptr: ParameterPtr,
-    pub axis_aligned: bool,
-    pub action_mode: ActionMode,
-    pub selection_mode: SelectionMode,
 }
 
 pub struct OverlayManager {

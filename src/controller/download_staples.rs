@@ -16,7 +16,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-use super::{Action, Arc, MainState, Mediator, Mutex, NormalState, State, TransitionMessage};
+use super::{Arc, MainState, Mutex, NormalState, State, TransitionMessage};
 
 use crate::dialog;
 use dialog::{MustAckMessage, PathInput, YesNoQuestion};
@@ -49,11 +49,7 @@ impl Default for Step {
 
 use super::super::mediator::{DownloadStappleError, DownloadStappleOk};
 impl State for DownloadStaples {
-    fn make_progress(
-        self: Box<Self>,
-        main_state: &mut dyn MainState,
-        mediator: Arc<Mutex<Mediator>>,
-    ) -> Box<dyn State> {
+    fn make_progress(self: Box<Self>, main_state: &mut dyn MainState) -> Box<dyn State> {
         match self.step {
             Step::Init => get_design_providing_staples(mediator),
             Step::AskingPath(state) => ask_path(state),
@@ -108,7 +104,7 @@ impl State for DownloadStaples {
     */
 }
 
-fn get_design_providing_staples(mediator: Arc<Mutex<Mediator>>) -> Box<dyn State> {
+fn get_design_providing_staples() -> Box<dyn State> {
     let result = mediator.lock().unwrap().download_stapples();
     match result {
         Ok(DownloadStappleOk {

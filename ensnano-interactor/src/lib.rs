@@ -24,6 +24,7 @@ use ultraviolet::{Rotor3, Vec3};
 pub mod graphics;
 mod selection;
 pub use selection::*;
+pub mod application;
 pub mod operation;
 
 #[derive(Clone, Copy, Eq, PartialEq)]

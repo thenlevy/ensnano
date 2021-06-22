@@ -757,7 +757,7 @@ pub struct IcedMessages<S: AppState> {
     top_bar: VecDeque<top_bar::Message<S>>,
     color_overlay: VecDeque<left_panel::ColorMessage>,
     status_bar: VecDeque<status_bar::Message<S>>,
-    application_state: Box<S>,
+    application_state: S,
 }
 
 impl<S: AppState> IcedMessages<S> {
@@ -872,6 +872,6 @@ pub trait Multiplexer {
     fn get_texture_view(&self, element_type: ElementType) -> Option<&wgpu::TextureView>;
 }
 
-pub trait AppState: Default + PartialEq + Clone {
+pub trait AppState: Default + PartialEq + Clone + 'static {
     fn get_selection_mode(&self) -> SelectionMode;
 }

@@ -72,14 +72,19 @@ impl<S: AppState> EditionTab<S> {
             SelectionMode::Helix,
         ];
 
-        let mut selection_buttons: Vec<Button<'a, Message>> = self
+        let mut selection_buttons: Vec<Button<'a, Message<S>>> = self
             .selection_mode_state
             .get_states()
             .into_iter()
             .rev()
             .filter(|(m, _)| selection_modes.contains(m))
             .map(|(mode, state)| {
-                selection_mode_btn(state, mode, app_state.selection_mode, ui_size.button())
+                selection_mode_btn(
+                    state,
+                    mode,
+                    app_state.get_selection_mode(),
+                    ui_size.button(),
+                )
             })
             .collect();
 
@@ -530,7 +535,7 @@ fn selection_mode_btn<'a, S: AppState>(
     mode: SelectionMode,
     fixed_mode: SelectionMode,
     button_size: u16,
-) -> Button<'a, S> {
+) -> Button<'a, Message<S>> {
     let icon_path = if fixed_mode == mode {
         mode.icon_on()
     } else {

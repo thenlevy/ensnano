@@ -29,4 +29,5 @@ num_enum = "0.5.1"
 open = "1"
 ensnano_design = { path = "../ensnano-design" }
 iced_winit = { git = "https://github.com/thenlevy/iced", rev = "5eddea0" }
+iced_wgpu = { git = "https://github.com/thenlevy/iced", rev = "5eddea0" }
 

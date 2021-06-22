@@ -34,8 +34,9 @@ use ultraviolet::Vec3;
 
 use color_space::{Hsv, Rgb};
 
-use crate::design::{DnaElement, DnaElementKey, ScaffoldInfo};
 use crate::mediator::{ActionMode, Selection, SelectionMode};
+use ensnano_design::elements::{DnaElement, DnaElementKey};
+use ensnano_interactor::ScaffoldInfo;
 
 use super::{
     icon_btn, slider_style::DesactivatedSlider, text_btn, AppState, FogParameters as Fog,
