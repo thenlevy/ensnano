@@ -23,14 +23,13 @@ use std::sync::{Arc, Mutex, RwLock};
 use std::time::Duration;
 use ultraviolet::{Mat4, Rotor3, Vec3};
 
-use crate::design::StrandBuilder;
-use crate::{design, utils};
+use crate::utils;
 use crate::{DrawArea, PhySize, WindowEvent};
 use ensnano_design::{grid::Hyperboloid, Nucl};
 use ensnano_interactor::{
     application::{AppId, Application, Notification},
     operation::*,
-    ActionMode, Selection, SelectionMode,
+    ActionMode, Selection, SelectionMode, StrandBuilder
 };
 use instance::Instance;
 use utils::instance;
@@ -306,6 +305,7 @@ impl<S: AppState> Scene<S> {
         self.requests.lock().unwrap().suspend_op();
     }
 
+    /*
     pub fn make_hyperboloid(&self, hyperboloid: Hyperboloid) {
         let camera = self.view.borrow().get_camera();
         let position = camera.borrow().position + 40_f32 * camera.borrow().direction();
@@ -323,6 +323,14 @@ impl<S: AppState> Scene<S> {
             }));
         self.data.borrow_mut().set_pivot_position(position);
         self.requests.lock().unwrap().suspend_op();
+    }*/
+
+    pub fn get_position_for_new_hyperboloid(&self) -> (Vec3, Rotor3) {
+        let camera = self.view.borrow().get_camera();
+        let position = camera.borrow().position + 40_f32 * camera.borrow().direction();
+        let orientation = camera.borrow().rotor.reversed()
+            * Rotor3::from_rotation_xz(std::f32::consts::FRAC_PI_2);
+        (position, orientation)
     }
 
     /// If a nucleotide is selected, and the clicked_pixel corresponds to an other nucleotide,

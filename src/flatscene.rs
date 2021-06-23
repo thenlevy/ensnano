@@ -17,12 +17,13 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 //! This module handles the 2D view
 
-use crate::design::{DesignNotification, DesignNotificationContent, Nucl, StrandBuilder};
+//use crate::design::{DesignNotification, DesignNotificationContent, Nucl, StrandBuilder};
+use ensnano_design::Nucl;
 use crate::{DrawArea, Duration, PhySize, WindowEvent};
 use ensnano_interactor::{
     application::{AppId, Application, Notification},
     operation::*,
-    ActionMode, PhantomElement, Selection,
+    ActionMode, PhantomElement, Selection, SelectionMode, StrandBuilder,
 };
 use iced_wgpu::wgpu;
 use iced_winit::winit;
@@ -345,11 +346,9 @@ impl<S: AppState> FlatScene<S> {
                     self.requests
                         .lock()
                         .unwrap()
-                        .update_opperation(Arc::new(RawHelixCreation {
-                            helix,
+                        .update_opperation(Arc::new(RmHelix {
                             helix_id,
                             design_id: self.selected_design,
-                            delete: true,
                         }))
                 }
             }
@@ -493,12 +492,7 @@ impl<S: AppState> Application for FlatScene<S> {
         match notification {
             Notification::NewDesign(_) => (),
             Notification::NewActionMode(am) => self.change_action_mode(am),
-            Notification::DesignNotification(DesignNotification { design_id, content }) => {
-                self.data[design_id].borrow_mut().notify_update();
-                if let DesignNotificationContent::ViewNeedReset = content {
-                    self.data[design_id].borrow_mut().notify_reset();
-                }
-            }
+            Notification::DesignNotification() => (),
             Notification::FitRequest => self.controller[self.selected_design].fit(),
             Notification::Selection3D(_, app_id) => match app_id {
                 /*

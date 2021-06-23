@@ -17,6 +17,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 use std::rc::Rc;
 
+use ensnano_interactor::{PhantomElement, phantom_helix_decoder};
 use super::{AppState, DesignReader};
 use super::{DataPtr, Device, DrawArea, DrawType, Queue, ViewPtr};
 use crate::utils;
@@ -215,7 +216,7 @@ impl ElementSelector {
 pub enum SceneElement {
     DesignElement(u32, u32),
     WidgetElement(u32),
-    PhantomElement(utils::PhantomElement),
+    PhantomElement(PhantomElement),
     Grid(u32, usize),
     GridCircle(u32, usize, isize, isize),
 }
@@ -267,7 +268,7 @@ impl SceneReader {
                 DrawType::Grid => Some(SceneElement::Grid(a, color as usize)),
                 DrawType::Design => Some(SceneElement::DesignElement(a, color)),
                 DrawType::Phantom => Some(SceneElement::PhantomElement(
-                    utils::phantom_helix_decoder(color),
+                    phantom_helix_decoder(color),
                 )),
                 DrawType::Widget => Some(SceneElement::WidgetElement(color)),
                 DrawType::Scene => unreachable!(),

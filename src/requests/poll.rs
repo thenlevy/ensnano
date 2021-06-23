@@ -18,7 +18,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 
 use super::*;
 
-use ensnano_interactor::{application::Notification, HyperboloidOperation};
+use ensnano_interactor::{application::Notification, HyperboloidOperation, SelectionConversion};
 
 use std::ops::DerefMut;
 pub(crate) fn poll_all<R: DerefMut<Target = Requests>>(
@@ -224,19 +224,25 @@ pub(crate) fn poll_all<R: DerefMut<Target = Requests>>(
     }
 
     if let Some(s) = requests.organizer_selection.take() {
-        mediator.lock().unwrap().organizer_selection(s);
+        let selection = s.into_iter().map(|e| e.to_selection(0));
+        main_state.update_selection(selection);
     }
 
     if let Some(c) = requests.organizer_candidates.take() {
-        mediator.lock().unwrap().organizer_candidates(c);
+        let candidates = c.into_iter().map(|e| e.to_selection(0));
+        main_state.update_selection(candidates);
     }
 
     if let Some((a, elts)) = requests.new_attribute.take() {
-        mediator.lock().unwrap().update_attribute(a, elts);
+        let elements = elts.into_iter().map(|e| e.to_selection(0));
+        main_state.push_action(Action::UpdateAttribute {
+            attribute: a,
+            elements,
+        })
     }
 
     if let Some(tree) = requests.new_tree.take() {
-        mediator.lock().unwrap().update_tree(tree);
+        main_state.push_action(Action::UpdateOrganizerTree(tree));
     }
 
     if requests.clean_requests.take().is_some() {

@@ -29,6 +29,8 @@ mod selection;
 pub use selection::*;
 pub mod application;
 pub mod operation;
+mod strand_builder;
+pub use strand_builder::*;
 
 #[derive(Clone, Copy, Eq, PartialEq)]
 pub enum ObjectType {
@@ -85,7 +87,7 @@ pub enum DesignOperation {
     AddGridHelix(GridHelixDescriptor, isize, usize),
     /// Remove an helix on a grid
     RmGridHelix(GridHelixDescriptor, isize, usize),
-    RawHelixCreation {
+    RmHelix {
         h_id: usize,
     },
     /// Split a strand at a given position. If the strand containing the nucleotide has length 1,

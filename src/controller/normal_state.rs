@@ -65,10 +65,8 @@ fn save_as() -> Box<dyn State> {
     Box::new(Save::new(on_success, on_error))
 }
 
-use ensnano_design::grid::GridTypeDescr;
-use ensnano_interactor::{
-    application::Notification, DesignOperation, RigidBodyConstants, SimulationRequest,
-};
+use ensnano_design::{elements::{DnaAttribute, DnaElementKey}, grid::GridTypeDescr};
+use ensnano_interactor::{DesignOperation, RigidBodyConstants, Selection, SimulationRequest, application::Notification};
 /// An action to be performed at the end of an event loop iteration, and that will have an effect
 /// on the main application state, e.g. Closing the window, or toggling between 3D/2D views.
 #[derive(Debug, Clone)]
@@ -117,4 +115,9 @@ pub enum Action {
     ScaffoldFromSelection,
     /// Remove empty domains and merge consecutive domains
     CleanDesign,
+    UpdateAttribute {
+        attribute: DnaAttribute,
+        elements: Vec<Selection>,
+    },
+    UpdateOrganizerTree(ensnano_organizer::OrganizerTree<DnaElementKey>),
 }

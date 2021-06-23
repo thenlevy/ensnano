@@ -25,7 +25,7 @@ use crate::consts::*;
 use crate::utils;
 use crate::utils::instance::Instance;
 use ensnano_design::{grid::GridPosition, Nucl};
-use ensnano_interactor::{ObjectType, Referential};
+use ensnano_interactor::{ObjectType, Referential, PhantomElement, PHANTOM_RANGE, phantom_helix_encoder_bound, phantom_helix_encoder_nucl};
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 use ultraviolet::{Mat4, Rotor3, Vec3};
@@ -285,7 +285,7 @@ impl<R: DesignReader> Design3D<R> {
     /// Make a instance with the same postion and orientation as a phantom element.
     pub fn make_instance_phantom(
         &self,
-        phantom_element: &utils::PhantomElement,
+        phantom_element: &PhantomElement,
         color: u32,
         radius: f32,
     ) -> Option<RawDnaInstance> {
@@ -306,13 +306,13 @@ impl<R: DesignReader> Design3D<R> {
                 Referential::Model,
                 false,
             )?;
-            let id = utils::phantom_helix_encoder_bound(self.id, helix_id, i, forward);
+            let id = phantom_helix_encoder_bound(self.id, helix_id, i, forward);
             Some(create_dna_bound(nucl_1, nucl_2, color, id, true).to_raw_instance())
         } else {
             let nucl_coord =
                 self.design
                     .get_position_of_nucl_on_helix(nucl, Referential::Model, false)?;
-            let id = utils::phantom_helix_encoder_nucl(self.id, helix_id, i, forward);
+            let id = phantom_helix_encoder_nucl(self.id, helix_id, i, forward);
             let instance = SphereInstance {
                 color: Instance::color_from_au32(color),
                 position: nucl_coord,
@@ -326,7 +326,7 @@ impl<R: DesignReader> Design3D<R> {
 
     pub fn get_phantom_element_position(
         &self,
-        phantom_element: &utils::PhantomElement,
+        phantom_element: &PhantomElement,
         referential: Referential,
         on_axis: bool,
     ) -> Option<Vec3> {
@@ -383,7 +383,7 @@ impl<R: DesignReader> Design3D<R> {
                         continue;
                     }
                     let nucl_coord = nucl_coord.unwrap();
-                    let id = utils::phantom_helix_encoder_nucl(self.id, *helix_id, i, *forward);
+                    let id = phantom_helix_encoder_nucl(self.id, *helix_id, i, *forward);
                     spheres.push(
                         SphereInstance {
                             position: nucl_coord,
@@ -395,7 +395,7 @@ impl<R: DesignReader> Design3D<R> {
                     );
                     if let Some(coord) = previous_nucl {
                         let id =
-                            utils::phantom_helix_encoder_bound(self.id, *helix_id, i, *forward);
+                            phantom_helix_encoder_bound(self.id, *helix_id, i, *forward);
                         tubes.push(
                             create_dna_bound(nucl_coord, coord, color, id, true)
                                 .with_radius(0.6)
@@ -688,7 +688,7 @@ impl<R: DesignReader> Design3D<R> {
             .unwrap_or(false)
     }
 
-    fn can_start_builder_on_phantom(&self, phantom_element: &crate::utils::PhantomElement) -> bool {
+    fn can_start_builder_on_phantom(&self, phantom_element: &PhantomElement) -> bool {
         let nucl = Nucl {
             helix: phantom_element.helix_id as usize,
             position: phantom_element.position as isize,
