@@ -32,9 +32,9 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 //! The multiplexer is also in charge of drawing to the frame.
 use super::{Action, Requests};
 use crate::gui::UiSize;
-use crate::mediator::{ActionMode, SelectionMode};
 use crate::utils::texture::SampledTexture;
 use crate::PhySize;
+use ensnano_interactor::{ActionMode, SelectionMode};
 use iced_wgpu::wgpu;
 use iced_winit::winit;
 use iced_winit::winit::event::*;

@@ -18,14 +18,15 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 
 use super::*;
 
+use ensnano_interactor::{application::Notification, HyperboloidOperation};
+
 use std::ops::DerefMut;
 pub(crate) fn poll_all<R: DerefMut<Target = Requests>>(
     mut requests: R,
     main_state: &mut MainState,
-    mediator: Arc<Mutex<Mediator>>,
 ) {
     if requests.fitting.take().is_some() {
-        mediator.lock().unwrap().request_fits();
+        main_state.push_action(Action::NotifyApps(Notification::FitRequest))
     }
 
     /*
@@ -56,9 +57,8 @@ pub(crate) fn poll_all<R: DerefMut<Target = Requests>>(
         }
     }*/
 
-    if let Some(value) = requests.toggle_text {
-        mediator.lock().unwrap().toggle_text(value);
-        requests.toggle_text = None;
+    if let Some(value) = requests.toggle_text.take() {
+        main_state.push_action(Action::NotifyApps(Notification::ToggleText(value)))
     }
 
     /*
@@ -73,37 +73,33 @@ pub(crate) fn poll_all<R: DerefMut<Target = Requests>>(
     }*/
 
     if requests.make_grids.take().is_some() {
-        mediator.lock().unwrap().make_grids();
+        main_state.push_action(Action::TurnSelectionIntoGrid);
     }
 
     if let Some(grid_type) = requests.new_grid.take() {
-        //main_state.scene.lock().unwrap().make_new_grid(grid_type);
-        todo!()
+        main_state.push_action(Action::AddGrid(grid_type));
     }
 
-    if let Some(selection_mode) = requests.selection_mode {
-        mediator
-            .lock()
-            .unwrap()
-            .change_selection_mode(selection_mode);
-        requests.selection_mode = None;
+    if let Some(selection_mode) = requests.selection_mode.take() {
+        main_state.change_selection_mode(selection_mode)
     }
 
     if let Some(action_mode) = requests.action_mode.take() {
-        println!("action mode {:?}", action_mode);
-        mediator.lock().unwrap().change_action_mode(action_mode);
+        main_state.change_action_mode(action_mode)
     }
 
     if let Some(sequence) = requests.sequence_change.take() {
-        mediator.lock().unwrap().change_sequence(sequence);
+        main_state.push_action(Action::ChangeSequence(sequence))
     }
-    if let Some(color) = requests.strand_color_change {
-        mediator.lock().unwrap().change_strand_color(color);
-        requests.strand_color_change = None;
+
+    if let Some(color) = requests.strand_color_change.take() {
+        main_state.push_action(Action::ChangeColorStrand(color))
     }
+
     if let Some(sensitivity) = requests.scroll_sensitivity.take() {
-        mediator.lock().unwrap().change_sensitivity(sensitivity);
-        //flat_scene.lock().unwrap().change_sensitivity(sensitivity);
+        main_state.push_action(Action::NotifyApps(Notification::NewSensitivity(
+            sensitivity,
+        )))
     }
 
     /*
@@ -116,28 +112,29 @@ pub(crate) fn poll_all<R: DerefMut<Target = Requests>>(
     }*/
 
     if let Some(op) = requests.operation_update.take() {
-        mediator.lock().unwrap().update_pending(op)
+        main_state.update_pending_operation(op)
     }
 
     if let Some(b) = requests.toggle_persistent_helices.take() {
-        mediator.lock().unwrap().set_persistent_phantom(b)
+        main_state.push_action(Action::ToggleHelicesPersistance(b))
     }
 
     if let Some(b) = requests.small_spheres.take() {
-        println!("requested small spheres");
-        mediator.lock().unwrap().set_small_spheres(b)
+        main_state.push_action(Action::ToggleSmallSphere(b))
     }
 
-    if let Some(point) = requests.camera_target.take() {
-        mediator.lock().unwrap().set_camera_target(point)
+    if let Some(target) = requests.camera_target.take() {
+        main_state.push_action(Action::NotifyApps(Notification::CameraTarget(target)))
     }
 
     if let Some(rotation) = requests.camera_rotation.take() {
-        mediator.lock().unwrap().request_camera_rotation(rotation)
+        main_state.push_action(Action::NotifyApps(Notification::CameraRotation(rotation)))
     }
 
     if let Some(scaffold_id) = requests.set_scaffold_id.take() {
-        mediator.lock().unwrap().set_scaffold(scaffold_id)
+        main_state.push_action(Action::DesignOperation(DesignOperation::SetScaffoldId(
+            scaffold_id,
+        )))
     }
 
     if requests.recolor_stapples.take().is_some() {
@@ -145,11 +142,11 @@ pub(crate) fn poll_all<R: DerefMut<Target = Requests>>(
     }
 
     if let Some(roll_request) = requests.roll_request.take() {
-        mediator.lock().unwrap().roll_request(roll_request);
+        main_state.push_action(Action::SimulationRequest(roll_request))
     }
 
     if let Some(b) = requests.show_torsion_request.take() {
-        mediator.lock().unwrap().show_torsion_request(b)
+        main_state.push_action(Action::NotifyApps(Notification::ShowTorsion(b)))
     }
 
     if let Some(fog) = requests.fog.take() {
@@ -158,70 +155,72 @@ pub(crate) fn poll_all<R: DerefMut<Target = Requests>>(
     }
 
     if let Some(hyperboloid) = requests.new_hyperboloid.take() {
-        /*use ensnano_design::grid::Hyperboloid;
-        let h = Hyperboloid {
-            radius: hyperboloid.radius,
-            length: hyperboloid.length,
-            shift: hyperboloid.shift,
-            radius_shift: hyperboloid.radius_shift,
-            forced_radius: None,
-        };
-        main_state.scene.lock().unwrap().make_hyperboloid(h)*/
-        todo!()
+        main_state.push_action(Action::DesignOperation(
+            DesignOperation::HyperboloidOperation(HyperboloidOperation::New(hyperboloid)),
+        ))
     }
 
     if let Some(hyperboloid) = requests.hyperboloid_update.take() {
-        mediator.lock().unwrap().hyperboloid_update(hyperboloid)
+        main_state.push_action(Action::DesignOperation(
+            DesignOperation::HyperboloidOperation(HyperboloidOperation::Update(hyperboloid)),
+        ))
     }
 
     if requests.finalize_hyperboloid.take().is_some() {
-        mediator.lock().unwrap().finalize_hyperboloid();
+        main_state.push_action(Action::DesignOperation(
+            DesignOperation::HyperboloidOperation(HyperboloidOperation::Finalize),
+        ))
     }
 
     if requests.cancel_hyperboloid.take().is_some() {
-        mediator.lock().unwrap().cancel_hyperboloid();
+        main_state.push_action(Action::DesignOperation(
+            DesignOperation::HyperboloidOperation(HyperboloidOperation::Cancel),
+        ))
     }
 
     if let Some(roll) = requests.helix_roll.take() {
-        mediator.lock().unwrap().roll_helix(roll)
+        main_state.push_action(Action::RollHelices(roll))
     }
 
     if requests.copy.take().is_some() {
-        mediator.lock().unwrap().request_copy();
+        main_state.push_action(Action::Copy)
     }
 
     if requests.paste.take().is_some() {
-        mediator.lock().unwrap().request_pasting_mode();
+        main_state.push_action(Action::Paste);
         requests.duplication = None;
     } else if requests.duplication.take().is_some() {
-        mediator.lock().unwrap().request_duplication();
+        main_state.push_action(Action::Duplicate)
     }
 
-    if let Some(b) = requests.rigid_grid_simulation.take() {
-        mediator.lock().unwrap().rigid_grid_request(b);
+    if let Some(parameters) = requests.rigid_grid_simulation.take() {
+        main_state.push_action(Action::RigidGridSimulation { parameters })
     }
 
-    if let Some(b) = requests.rigid_helices_simulation.take() {
-        mediator.lock().unwrap().rigid_helices_request(b);
+    if let Some(parameters) = requests.rigid_helices_simulation.take() {
+        main_state.push_action(Action::RigidHelicesSimulation { parameters })
     }
 
-    if let Some(p) = requests.rigid_body_parameters.take() {
-        mediator.lock().unwrap().rigid_parameters_request(p);
+    if let Some(parameters) = requests.rigid_body_parameters.take() {
+        main_state.push_action(Action::RigidParametersUpdate(parameters))
     }
 
     if requests.anchor.take().is_some() {
-        mediator.lock().unwrap().request_anchor();
+        main_state.push_action(Action::TurnIntoAnchor)
     }
+
+    /*
     if let Some((d_id, path)) = requests.stapples_file.take() {
         mediator.lock().unwrap().proceed_stapples(d_id, &path);
-    }
+    }*/
 
+    /*
     if let Some(content) = requests.sequence_input.take() {
         main_state.messages.lock().unwrap().push_sequence(content);
-    }
+    }*/
 
     if let Some(f) = requests.new_shift_hyperboloid.take() {
-        mediator.lock().unwrap().new_shift_hyperboloid(f);
+        main_state.push_action(Action::UpdateHyperboloidShift(f))
     }
 
     if let Some(s) = requests.organizer_selection.take() {
@@ -241,7 +240,7 @@ pub(crate) fn poll_all<R: DerefMut<Target = Requests>>(
     }
 
     if requests.clean_requests.take().is_some() {
-        mediator.lock().unwrap().clean_designs();
+        main_state.push_action(Action::DesignOperation(DesignOperation::CleanDesign))
     }
 
     /*
@@ -258,19 +257,19 @@ pub(crate) fn poll_all<R: DerefMut<Target = Requests>>(
     }*/
 
     if requests.split2d.take().is_some() {
-        mediator.lock().unwrap().split_2d();
+        main_state.split_2d_view()
     }
 
     if requests.all_visible.take().is_some() {
-        mediator.lock().unwrap().make_everything_visible();
+        main_state.clear_visibility_sieve()
     }
 
     if let Some(b) = requests.toggle_visibility.take() {
-        mediator.lock().unwrap().toggle_visibility(b);
+        main_state.push_action(Action::SetVisiblitySieve { visible: b })
     }
 
     if let Some(b) = requests.redim_2d_helices.take() {
-        mediator.lock().unwrap().redim_2d_helices(b);
+        main_state.redim_2d_helices(b)
     }
 
     /*
@@ -278,32 +277,26 @@ pub(crate) fn poll_all<R: DerefMut<Target = Requests>>(
         multiplexer.invert_y_scroll = b;
     }*/
 
-    if requests.stop_roll.take().is_some() {
-        mediator.lock().unwrap().stop_roll();
-    }
-
-    if requests.toggle_widget.take().is_some() {
-        mediator.lock().unwrap().toggle_widget();
-    }
-
     if requests.delete_selection.take().is_some() {
-        mediator.lock().unwrap().delete_selection();
+        main_state.push_action(Action::DeleteSelection)
     }
 
     if requests.select_scaffold.take().is_some() {
-        mediator.lock().unwrap().select_scaffold();
+        main_state.push_action(Action::ScaffoldFromSelection)
     }
 
     if let Some(n) = requests.scaffold_shift.take() {
-        mediator.lock().unwrap().set_scaffold_shift(n);
+        main_state.push_action(Action::DesignOperation(DesignOperation::SetScaffoldShift(
+            n,
+        )))
     }
 
     if let Some(mode) = requests.rendering_mode.take() {
-        mediator.lock().unwrap().rendering_mode(mode);
+        main_state.push_action(Action::NotifyApps(Notification::RenderingMode(mode)))
     }
 
     if let Some(bg) = requests.background3d.take() {
-        mediator.lock().unwrap().background3d(bg);
+        main_state.push_action(Action::NotifyApps(Notification::Background3D(bg)))
     }
 
     if requests.undo.take().is_some() {

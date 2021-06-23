@@ -87,10 +87,10 @@ const MUST_TEST: bool = true;
 
 mod consts;
 /// Design handling
-mod design;
+//mod design;
 /// Graphical interface drawing
 mod gui;
-use design::Design;
+//use design::Design;
 //mod mediator;
 /// Separation of the window into drawing regions
 mod multiplexer;
@@ -288,16 +288,6 @@ fn main() {
         .unwrap()
         .add_application(flat_scene.clone(), ElementType::FlatScene);
 
-    // Add a design to the scene if one was given as a command line arguement
-    if let Some(ref path) = path {
-        let design = Design::new_with_path(0, path).unwrap_or_else(|_| Design::new(0)); // TODO print error
-        if let Some(tree) = design.get_organizer_tree() {
-            messages.lock().unwrap().push_new_tree(tree)
-        }
-    } else {
-        let design = Design::new(0);
-    }
-
     // Initialize the UI
 
     let mut gui = gui::Gui::new(
@@ -321,7 +311,12 @@ fn main() {
 
     let mut main_state = MainState::new(main_state_constructor);
 
-    let mut controller = Controller::new(mediator.clone());
+    // Add a design to the scene if one was given as a command line arguement
+    if let Some(ref path) = path {
+        main_state.push_action(Action::LoadDesign(path.clone()));
+    }
+
+    let mut controller = Controller::new();
 
     event_loop.run(move |event, _, control_flow| {
         // Wait for event or redraw a frame every 33 ms (30 frame per seconds)
@@ -420,7 +415,7 @@ fn main() {
                 redraw |= gui.fetch_change(&window, &multiplexer);
 
                 // When there is no more event to deal with
-                requests::poll_all(requests.lock().unwrap(), &mut main_state, mediator.clone());
+                requests::poll_all(requests.lock().unwrap(), &mut main_state);
 
                 let mut main_state_view = MainStateView {
                     main_state: &mut main_state,
@@ -998,6 +993,34 @@ impl MainState {
             self.undo_stack.push(old_state);
             self.redo_stack.clear();
         }
+    }
+
+    fn update_pending_operation(&mut self, operation: Arc<dyn Operation>) {
+        todo!()
+    }
+
+    fn request_copy(&mut self) {
+        println!("TODO copy is not yet implemented");
+    }
+
+    fn request_paste(&mut self) {
+        println!("TODO copy is not yet implemented");
+    }
+
+    fn request_duplication(&mut self) {
+        println!("TODO copy is not yet implemented");
+    }
+
+    fn split_2d_view(&mut self) {
+        println!("TODO split2d view is not yet implemented");
+    }
+
+    fn clear_visibility_sieve(&mut self) {
+        println!("TODO");
+    }
+
+    fn redim_2d_helices(&mut self, all: bool) {
+        println!("TODO");
     }
 }
 

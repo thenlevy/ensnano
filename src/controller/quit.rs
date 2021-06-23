@@ -16,7 +16,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-use super::{dialog, Action, Arc, MainState, Mediator, Mutex, State, TransitionMessage, YesNo};
+use super::{dialog, Action, Arc, MainState, Mutex, State, TransitionMessage, YesNo};
 
 use dialog::{yes_no_dialog, PathInput, YesNoQuestion};
 
@@ -45,11 +45,7 @@ impl Quit {
 }
 
 impl State for Quit {
-    fn make_progress(
-        self: Box<Self>,
-        pending_action: &mut dyn MainState,
-        mediator: Arc<Mutex<Mediator>>,
-    ) -> Box<dyn State> {
+    fn make_progress(self: Box<Self>, pending_action: &mut dyn MainState) -> Box<dyn State> {
         match self.step {
             QuitStep::Init => init_quit(),
             QuitStep::Quitting => {
@@ -80,6 +76,14 @@ pub(super) struct Load {
     step: LoadStep,
 }
 
+impl Load {
+    pub(super) fn known_path(path: PathBuf) -> Self {
+        Self {
+            step: LoadStep::GotPath(path),
+        }
+    }
+}
+
 use std::path::PathBuf;
 enum LoadStep {
     Init,
@@ -102,11 +106,7 @@ impl Load {
 }
 
 impl State for Load {
-    fn make_progress(
-        self: Box<Self>,
-        state: &mut dyn MainState,
-        mediator: Arc<Mutex<Mediator>>,
-    ) -> Box<dyn State> {
+    fn make_progress(self: Box<Self>, state: &mut dyn MainState) -> Box<dyn State> {
         match self.step {
             LoadStep::Init => init_load(),
             LoadStep::AskPath { path_input } => ask_path(path_input),
@@ -192,11 +192,7 @@ impl NewDesign {
 }
 
 impl State for NewDesign {
-    fn make_progress(
-        self: Box<Self>,
-        main_state: &mut dyn MainState,
-        mediator: Arc<Mutex<Mediator>>,
-    ) -> Box<dyn State> {
+    fn make_progress(self: Box<Self>, main_state: &mut dyn MainState) -> Box<dyn State> {
         match self.step {
             NewStep::Init => init_new_design(),
             NewStep::MakeNewDesign => new_design(main_state),
@@ -242,11 +238,7 @@ impl Save {
 }
 
 impl State for Save {
-    fn make_progress(
-        mut self: Box<Self>,
-        main_state: &mut dyn MainState,
-        mediator: Arc<Mutex<Mediator>>,
-    ) -> Box<dyn State> {
+    fn make_progress(mut self: Box<Self>, main_state: &mut dyn MainState) -> Box<dyn State> {
         if let Some(ref getter) = self.file_getter {
             if let Some(path_opt) = getter.get() {
                 if let Some(ref path) = path_opt {

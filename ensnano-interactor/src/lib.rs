@@ -19,7 +19,10 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 //! This modules defines types and operation used  by the graphical component of ENSnano to
 //! interract with the design.
 
-use ensnano_design::{grid::GridDescriptor, Nucl, Strand};
+use ensnano_design::{
+    grid::{GridDescriptor, Hyperboloid},
+    Nucl, Strand,
+};
 use ultraviolet::{Rotor3, Vec3};
 pub mod graphics;
 mod selection;
@@ -115,12 +118,29 @@ pub enum DesignOperation {
     RmGrid(usize),
     /// Pick a new color at random for all the strands that are not the scaffold
     RecolorStaples,
+    /// Set the sequence of a set of strands
+    ChangeSequence {
+        sequence: String,
+        strands: Vec<usize>,
+    },
+    /// Set the strand with a given id as the scaffold
+    SetScaffoldId(usize),
+    SetScaffoldShift(usize),
+    HyperboloidOperation(HyperboloidOperation),
 }
 
 /// An action performed on the application
 pub enum AppOperation {
     /// Adjust the camera so that the design fit the view
     Fit,
+}
+
+#[derive(Debug, Clone)]
+pub enum HyperboloidOperation {
+    New(HyperboloidRequest),
+    Update(HyperboloidRequest),
+    Finalize,
+    Cancel,
 }
 
 /// A rotation on an element of a design.
@@ -197,7 +217,7 @@ impl Extremity {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct HyperboloidRequest {
     pub radius: usize,
     pub length: f32,
@@ -205,9 +225,32 @@ pub struct HyperboloidRequest {
     pub radius_shift: f32,
 }
 
+impl HyperboloidRequest {
+    fn to_grid(self) -> Hyperboloid {
+        Hyperboloid {
+            radius: self.radius,
+            length: self.length,
+            shift: self.shift,
+            radius_shift: self.radius_shift,
+            forced_radius: None,
+        }
+    }
+}
+
 #[derive(Clone)]
 pub struct SimulationRequest {
     pub roll: bool,
     pub springs: bool,
     pub target_helices: Option<Vec<usize>>,
+}
+
+#[derive(Clone, Debug)]
+pub struct RigidBodyConstants {
+    pub k_spring: f32,
+    pub k_friction: f32,
+    pub mass: f32,
+    pub volume_exclusion: bool,
+    pub brownian_motion: bool,
+    pub brownian_rate: f32,
+    pub brownian_amplitude: f32,
 }

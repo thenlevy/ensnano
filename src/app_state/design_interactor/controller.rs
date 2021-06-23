@@ -96,3 +96,10 @@ impl Controller {
         design
     }
 }
+
+#[allow(dead_code)]
+enum State {
+    Normal,
+    MakingHyperboloid,
+    BuildingStrand,
+}

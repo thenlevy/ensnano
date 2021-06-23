@@ -23,17 +23,21 @@ mod poll;
 
 use super::gui::UiSize;
 use super::*;
-use crate::mediator::{AppId, Selection};
+use ensnano_interactor::{application::AppId, Selection};
 pub use poll::*;
 use ultraviolet::Vec3;
 
-use super::design::{DnaAttribute, DnaElementKey, Nucl};
 use super::gui::OrganizerTree;
-use super::mediator::{
-    Background3D, HyperboloidRequest, RenderingMode, RigidBodyConstants, SimulationRequest,
-};
 use super::scene::FogParameters;
 use ensnano_design::grid::GridTypeDescr;
+use ensnano_design::{
+    elements::{DnaAttribute, DnaElementKey},
+    Nucl,
+};
+use ensnano_interactor::{
+    graphics::{Background3D, RenderingMode},
+    HyperboloidRequest, RigidBodyConstants, SimulationRequest,
+};
 
 use std::collections::VecDeque;
 
@@ -80,9 +84,7 @@ pub struct Requests {
     pub rigid_helices_simulation: Option<RigidBodyConstants>,
     pub anchor: Option<()>,
     pub rigid_body_parameters: Option<RigidBodyConstants>,
-    pub stapples_file: Option<(usize, PathBuf)>,
     pub keep_proceed: VecDeque<Action>,
-    pub sequence_input: Option<String>,
     pub new_shift_hyperboloid: Option<f32>,
     pub organizer_selection: Option<Vec<DnaElementKey>>,
     pub organizer_candidates: Option<Vec<DnaElementKey>>,
@@ -92,8 +94,6 @@ pub struct Requests {
     pub toggle_visibility: Option<bool>,
     pub all_visible: Option<()>,
     pub redim_2d_helices: Option<bool>,
-    pub stop_roll: Option<()>,
-    pub toggle_widget: Option<()>,
     pub delete_selection: Option<()>,
     pub select_scaffold: Option<()>,
     pub scaffold_shift: Option<usize>,

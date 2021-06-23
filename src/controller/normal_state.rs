@@ -22,15 +22,12 @@ use super::*;
 pub(super) struct NormalState;
 
 impl State for NormalState {
-    fn make_progress(
-        self: Box<Self>,
-        main_state: &mut dyn MainState,
-        _: Arc<Mutex<Mediator>>,
-    ) -> Box<dyn State> {
+    fn make_progress(self: Box<Self>, main_state: &mut dyn MainState) -> Box<dyn State> {
         if let Some(action) = main_state.pop_action() {
             match action {
                 Action::NewDesign => todo!(),
-                Action::LoadDesign => Box::new(Load::default()),
+                Action::LoadDesign(Some(path)) => Box::new(Load::known_path(path)),
+                Action::LoadDesign(None) => Box::new(Load::default()),
                 Action::SaveAs => save_as(),
                 Action::SetScaffoldSequence => Box::new(SetScaffoldSequence::default()),
                 Action::DownloadStaplesRequest => Box::new(DownloadStaples::default()),
@@ -68,12 +65,15 @@ fn save_as() -> Box<dyn State> {
     Box::new(Save::new(on_success, on_error))
 }
 
-use ensnano_interactor::DesignOperation;
+use ensnano_design::grid::GridTypeDescr;
+use ensnano_interactor::{
+    application::Notification, DesignOperation, RigidBodyConstants, SimulationRequest,
+};
 /// An action to be performed at the end of an event loop iteration, and that will have an effect
 /// on the main application state, e.g. Closing the window, or toggling between 3D/2D views.
 #[derive(Debug, Clone)]
 pub enum Action {
-    LoadDesign,
+    LoadDesign(Option<PathBuf>),
     NewDesign,
     SaveAs,
     DownloadStaplesRequest,
@@ -89,4 +89,32 @@ pub enum Action {
     DesignOperation(DesignOperation),
     Undo,
     Redo,
+    NotifyApps(Notification),
+    TurnSelectionIntoGrid,
+    AddGrid(GridTypeDescr),
+    ChangeSequence(String),
+    ChangeColor(u32),
+    ToggleHelicesPersistance(bool),
+    ToggleSmallSphere(bool),
+    SimulationRequest(SimulationRequest),
+    RollHelices(f32),
+    Copy,
+    Paste,
+    Duplicate,
+    RigidGridSimulation {
+        parameters: RigidBodyConstants,
+    },
+    RigidHelicesSimulation {
+        parameters: RigidBodyConstants,
+    },
+    RigidParametersUpdate(RigidBodyConstants),
+    TurnIntoAnchor,
+    UpdateHyperboloidShift(f32),
+    SetVisiblitySieve {
+        visible: bool,
+    },
+    DeleteSelection,
+    ScaffoldFromSelection,
+    /// Remove empty domains and merge consecutive domains
+    CleanDesign,
 }
