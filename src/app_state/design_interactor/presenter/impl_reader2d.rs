@@ -18,11 +18,10 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 
 use super::*;
 
-use crate::design::Torsion;
 use crate::flatscene::DesignReader as Reader2D;
 use ahash::RandomState;
 use ensnano_design::{Domain, Helix, Strand};
-use ensnano_interactor::{Extremity, Referential};
+use ensnano_interactor::{torsion::Torsion, Extremity, Referential};
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::sync::Arc;
 use ultraviolet::{Isometry2, Vec3};

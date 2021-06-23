@@ -20,10 +20,10 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 
 use super::{camera, ActionMode};
 use crate::consts::*;
-use crate::design::Axis;
 use crate::utils::{bindgroup_manager, texture};
 use crate::{DrawArea, PhySize};
 use camera::{Camera, CameraPtr, Projection, ProjectionPtr};
+use ensnano_design::Axis;
 use iced_wgpu::wgpu;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -79,7 +79,7 @@ static MODEL_BG_ENTRY: &'static [wgpu::BindGroupLayoutEntry] = &[wgpu::BindGroup
     count: None,
 }];
 
-use crate::mediator::{Background3D, RenderingMode};
+use ensnano_interactor::graphics::{Background3D, RenderingMode};
 
 /// An object that handles the communication with the GPU to draw the scene.
 pub struct View {

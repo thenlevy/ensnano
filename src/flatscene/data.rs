@@ -16,8 +16,8 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 use super::{AppState, Flat, HelixVec, PhantomElement, Requests, ViewPtr};
-use crate::design::{Design, Nucl, StrandBuilder};
-use crate::mediator::{Selection, SelectionMode};
+use ensnano_design::{Design, Nucl};
+use ensnano_interactor::{Selection, SelectionMode, StrandBuilder};
 use std::sync::{Arc, Mutex, RwLock};
 use ultraviolet::Vec2;
 
@@ -28,11 +28,11 @@ pub use strand::{FreeEnd, Strand, StrandVertex};
 mod design;
 use super::{CameraPtr, FlatHelix, FlatIdx, FlatNucl};
 use crate::consts::*;
-use crate::design::{Helix as DesignHelix, Strand as DesignStrand};
 use crate::utils::camera2d::FitRectangle;
 use ahash::RandomState;
 use design::{Design2d, Helix2d};
 pub use design::{DesignReader, FlatTorsion};
+use ensnano_design::{Helix as DesignHelix, Strand as DesignStrand};
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
 pub struct Data {

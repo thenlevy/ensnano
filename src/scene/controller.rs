@@ -20,8 +20,9 @@ use super::{
     WidgetRotationMode as RotationMode,
 };
 use crate::consts::*;
-use crate::design::{Nucl, StrandBuilder};
 use crate::{PhySize, PhysicalPosition, WindowEvent};
+use ensnano_design::Nucl;
+use ensnano_interactor::ActionMode;
 use iced_winit::winit::event::*;
 use std::cell::RefCell;
 use ultraviolet::{Rotor3, Vec3};
@@ -324,7 +325,6 @@ fn ctrl(modifiers: &ModifiersState) -> bool {
     }
 }
 
-use crate::mediator::ActionMode;
 pub(super) trait Data {
     fn element_to_nucl(&self, element: &Option<SceneElement>, _: bool) -> Option<(Nucl, usize)>;
     fn get_nucl_position(&self, nucl: Nucl, d_id: usize) -> Option<Vec3>;

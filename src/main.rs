@@ -61,7 +61,7 @@ use std::sync::{Arc, Mutex, RwLock};
 use std::time::{Duration, Instant};
 pub type PhySize = iced_winit::winit::dpi::PhysicalSize<u32>;
 
-use chanel_reader::{ChanelReader, ChanelReaderUpdate};
+use controller::{ChanelReader, ChanelReaderUpdate};
 use ensnano_interactor::DesignOperation;
 use iced_native::Event as IcedEvent;
 use iced_wgpu::{wgpu, Backend, Renderer, Settings, Viewport};
@@ -122,8 +122,6 @@ pub use requests::Requests;
 
 mod dialog;
 use dialog::*;
-
-mod chanel_reader;
 
 use flatscene::FlatScene;
 use gui::{ColorOverlay, IcedMessages, OverlayType};

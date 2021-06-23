@@ -28,9 +28,8 @@ use ultraviolet::{Rotor3, Vec3};
 
 use super::view::Mesh;
 use crate::consts::*;
-use crate::mediator::{ActionMode, Selection, SelectionMode};
-use crate::utils::PhantomElement;
 use ensnano_design::Nucl;
+use ensnano_interactor::{ActionMode, PhantomElement, Selection, SelectionMode};
 use ensnano_interactor::{ObjectType, Referential};
 
 use super::AppState;
@@ -1336,8 +1335,15 @@ impl<R: DesignReader> Data<R> {
     }
 }
 
-impl ActionMode {
-    pub const ALL: [ActionMode; 5] = [
+trait WantWidget {
+    const ALL: &'static [Self];
+
+    fn wants_rotation(&self) -> bool;
+    fn wants_handle(&self) -> bool;
+}
+
+impl WantWidget for ActionMode {
+    const ALL: &'static [ActionMode] = &[
         ActionMode::Normal,
         ActionMode::Translate,
         ActionMode::Rotate,
@@ -1345,14 +1351,14 @@ impl ActionMode {
         ActionMode::Cut,
     ];
 
-    pub fn wants_rotation(&self) -> bool {
+    fn wants_rotation(&self) -> bool {
         match self {
             ActionMode::Rotate => true,
             _ => false,
         }
     }
 
-    pub fn wants_handle(&self) -> bool {
+    fn wants_handle(&self) -> bool {
         match self {
             ActionMode::Translate => true,
             _ => false,

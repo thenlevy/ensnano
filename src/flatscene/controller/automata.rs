@@ -19,7 +19,6 @@ use super::super::data::ClickResult;
 use super::super::view::CircleInstance;
 use super::super::{FlatHelix, FlatNucl};
 use super::*;
-use crate::design::StrandBuilder;
 use std::time::Instant;
 
 const WHEEL_RADIUS: f32 = 1.5;

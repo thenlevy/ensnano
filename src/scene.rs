@@ -29,7 +29,7 @@ use ensnano_design::{grid::Hyperboloid, Nucl};
 use ensnano_interactor::{
     application::{AppId, Application, Notification},
     operation::*,
-    ActionMode, Selection, SelectionMode, StrandBuilder
+    ActionMode, Selection, SelectionMode, StrandBuilder,
 };
 use instance::Instance;
 use utils::instance;

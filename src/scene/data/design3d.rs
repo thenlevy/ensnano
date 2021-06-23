@@ -25,7 +25,10 @@ use crate::consts::*;
 use crate::utils;
 use crate::utils::instance::Instance;
 use ensnano_design::{grid::GridPosition, Nucl};
-use ensnano_interactor::{ObjectType, Referential, PhantomElement, PHANTOM_RANGE, phantom_helix_encoder_bound, phantom_helix_encoder_nucl};
+use ensnano_interactor::{
+    phantom_helix_encoder_bound, phantom_helix_encoder_nucl, ObjectType, PhantomElement,
+    Referential, PHANTOM_RANGE,
+};
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 use ultraviolet::{Mat4, Rotor3, Vec3};
@@ -394,8 +397,7 @@ impl<R: DesignReader> Design3D<R> {
                         .to_raw_instance(),
                     );
                     if let Some(coord) = previous_nucl {
-                        let id =
-                            phantom_helix_encoder_bound(self.id, *helix_id, i, *forward);
+                        let id = phantom_helix_encoder_bound(self.id, *helix_id, i, *forward);
                         tubes.push(
                             create_dna_bound(nucl_coord, coord, color, id, true)
                                 .with_radius(0.6)

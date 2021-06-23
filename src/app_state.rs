@@ -24,7 +24,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 //!
 //! Each component of ENSnano has specific needs and express them via its own `AppState` trait.
 
-use super::mediator::{ActionMode, Selection, SelectionMode};
+use ensnano_interactor::{ActionMode, Selection, SelectionMode};
 
 use std::path::PathBuf;
 mod address_pointer;

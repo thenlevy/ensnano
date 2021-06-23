@@ -17,10 +17,10 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 use std::rc::Rc;
 
-use ensnano_interactor::{PhantomElement, phantom_helix_decoder};
 use super::{AppState, DesignReader};
 use super::{DataPtr, Device, DrawArea, DrawType, Queue, ViewPtr};
 use crate::utils;
+use ensnano_interactor::{phantom_helix_decoder, PhantomElement};
 use futures::executor;
 use iced_wgpu::wgpu;
 use iced_winit::winit::dpi::{PhysicalPosition, PhysicalSize};
@@ -267,9 +267,9 @@ impl SceneReader {
             match self.draw_type {
                 DrawType::Grid => Some(SceneElement::Grid(a, color as usize)),
                 DrawType::Design => Some(SceneElement::DesignElement(a, color)),
-                DrawType::Phantom => Some(SceneElement::PhantomElement(
-                    phantom_helix_decoder(color),
-                )),
+                DrawType::Phantom => {
+                    Some(SceneElement::PhantomElement(phantom_helix_decoder(color)))
+                }
                 DrawType::Widget => Some(SceneElement::WidgetElement(color)),
                 DrawType::Scene => unreachable!(),
             }

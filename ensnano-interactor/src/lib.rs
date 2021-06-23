@@ -31,6 +31,7 @@ pub mod application;
 pub mod operation;
 mod strand_builder;
 pub use strand_builder::*;
+pub mod torsion;
 
 #[derive(Clone, Copy, Eq, PartialEq)]
 pub enum ObjectType {
@@ -255,4 +256,60 @@ pub struct RigidBodyConstants {
     pub brownian_motion: bool,
     pub brownian_rate: f32,
     pub brownian_amplitude: f32,
+}
+
+#[derive(Clone, Debug)]
+pub struct ScaffoldInfo {
+    pub id: usize,
+    pub shift: Option<usize>,
+    pub length: usize,
+    pub starting_nucl: Option<Nucl>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SimulationState {
+    None,
+    Rolling,
+    RigidGrid,
+    RigidHelices,
+}
+
+impl SimulationState {
+    pub fn is_none(&self) -> bool {
+        if let Self::None = self {
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn is_rolling(&self) -> bool {
+        if let Self::Rolling = self {
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn simulating_grid(&self) -> bool {
+        if let Self::RigidGrid = self {
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn simulating_helices(&self) -> bool {
+        if let Self::RigidHelices = self {
+            true
+        } else {
+            false
+        }
+    }
+}
+
+impl Default for SimulationState {
+    fn default() -> Self {
+        Self::None
+    }
 }

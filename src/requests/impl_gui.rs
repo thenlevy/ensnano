@@ -17,7 +17,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 
 use crate::gui::{Requests as GuiRequests, RigidBodyParametersRequest};
-use crate::mediator::RigidBodyConstants;
+use ensnano_interactor::RigidBodyConstants;
 use std::collections::BTreeSet;
 
 use super::*;
@@ -233,7 +233,7 @@ impl GuiRequests for Requests {
     }
 
     fn open_file(&mut self) {
-        self.keep_proceed.push_back(Action::LoadDesign);
+        self.keep_proceed.push_back(Action::LoadDesign(None));
     }
 
     fn fit_design_in_scenes(&mut self) {

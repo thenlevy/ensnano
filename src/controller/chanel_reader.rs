@@ -21,14 +21,14 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 
 use std::sync::mpsc;
 
-use super::mediator::{ShiftOptimizationResult, ShiftOptimizerReader};
+use super::{ShiftOptimizationResult, ShiftOptimizerReader};
 #[derive(Default)]
-pub(crate) struct ChanelReader {
+pub struct ChanelReader {
     scaffold_shift_optimization_progress: Option<mpsc::Receiver<f32>>,
     scaffold_shift_optimization_result: Option<mpsc::Receiver<ShiftOptimizationResult>>,
 }
 
-pub(super) enum ChanelReaderUpdate {
+pub enum ChanelReaderUpdate {
     /// Progress has been made in the optimization of the scaffold position
     ScaffoldShiftOptimizationProgress(f32),
     /// The optimum scaffold position has been found

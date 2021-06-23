@@ -25,10 +25,10 @@ use self::automata::ReleasedPivot;
 
 use super::data::{ClickResult, FreeEnd};
 use super::{
-    ActionMode, AppState, Arc, CameraPtr, DataPtr, FlatHelix, FlatNucl, Mediator, Mutex, PhySize,
-    PhysicalPosition, Selection, ViewPtr, WindowEvent,
+    ActionMode, AppState, CameraPtr, DataPtr, FlatHelix, FlatNucl, PhySize, PhysicalPosition,
+    Selection, ViewPtr, WindowEvent,
 };
-use crate::design::StrandBuilder;
+
 use iced_winit::winit::event::*;
 use std::cell::RefCell;
 use ultraviolet::Vec2;

@@ -25,7 +25,9 @@ use ensnano_interactor::DesignOperation;
 use quit::*;
 mod set_scaffold_sequence;
 use set_scaffold_sequence::*;
+mod chanel_reader;
 mod normal_state;
+pub use chanel_reader::{ChanelReader, ChanelReaderUpdate};
 pub use normal_state::Action;
 use normal_state::NormalState;
 
@@ -156,9 +158,6 @@ impl State for YesNo {
     }
 }
 
-use super::ChanelReader;
-pub use download_staples::StaplesDownloader;
-pub use set_scaffold_sequence::ScaffoldSetter;
 pub(crate) trait MainState {
     fn pop_action(&mut self) -> Option<Action>;
     fn exit_control_flow(&mut self);

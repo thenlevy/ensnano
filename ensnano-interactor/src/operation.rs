@@ -557,14 +557,13 @@ pub struct RmHelix {
 impl Operation for RmHelix {
     fn effect(&self) -> DesignOperation {
         DesignOperation::RmHelix {
-            h_id: self.helix_id
+            h_id: self.helix_id,
         }
     }
 
     fn description(&self) -> String {
         format!("Remove helix {}", self.helix_id)
     }
-
 }
 
 /// Cut the target strand at nucl, and make a cross over from the source strand.

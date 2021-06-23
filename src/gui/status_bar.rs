@@ -16,7 +16,10 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 use super::{AppState, Requests};
-use crate::mediator::{Operation, ParameterField, Selection};
+use ensnano_interactor::{
+    operation::{Operation, ParameterField},
+    Selection,
+};
 use iced::{container, slider, Background, Container, Length};
 use iced_native::{pick_list, text_input, Color, PickList, TextInput};
 use iced_winit::{Column, Command, Element, Program, Row, Space, Text};

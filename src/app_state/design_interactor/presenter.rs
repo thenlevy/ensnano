@@ -16,11 +16,9 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-use crate::design::ObjectType;
-
 use super::*;
 use ensnano_design::Nucl;
-use ensnano_interactor::Extremity;
+use ensnano_interactor::{Extremity, ObjectType};
 use ultraviolet::Mat4;
 
 use crate::utils::id_generator::IdGenerator;

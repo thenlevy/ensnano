@@ -38,7 +38,7 @@ use status_bar::StatusBar;
 
 use crate::scene::FogParameters;
 use ensnano_design::{
-    elements::{DnaAttribute, DnaElementKey},
+    elements::{DnaAttribute, DnaElement, DnaElementKey},
     grid::GridTypeDescr,
 };
 use ensnano_interactor::graphics::{Background3D, DrawArea, ElementType, RenderingMode, SplitMode};
@@ -772,7 +772,7 @@ impl<S: AppState> IcedMessages<S> {
         }
     }
 
-    pub fn push_scaffold_info(&mut self, info: Option<crate::design::ScaffoldInfo>) {
+    pub fn push_scaffold_info(&mut self, info: Option<ensnano_interactor::ScaffoldInfo>) {
         self.left_panel
             .push_back(left_panel::Message::NewScaffoldInfo(info));
     }
@@ -814,7 +814,7 @@ impl<S: AppState> IcedMessages<S> {
             .push_back(left_panel::Message::HelixRoll(roll))
     }
 
-    pub fn push_dna_elements(&mut self, elements: Vec<crate::design::DnaElement>) {
+    pub fn push_dna_elements(&mut self, elements: Vec<DnaElement>) {
         self.left_panel
             .push_back(left_panel::Message::NewDnaElement(elements))
     }
@@ -824,10 +824,7 @@ impl<S: AppState> IcedMessages<S> {
             .push_back(left_panel::Message::ModifiersChanged(modifiers))
     }
 
-    pub fn push_new_tree(
-        &mut self,
-        tree: ensnano_organizer::OrganizerTree<crate::design::DnaElementKey>,
-    ) {
+    pub fn push_new_tree(&mut self, tree: ensnano_organizer::OrganizerTree<DnaElementKey>) {
         self.left_panel
             .push_back(left_panel::Message::NewTreeApp(tree))
     }

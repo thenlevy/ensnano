@@ -34,9 +34,11 @@ use ultraviolet::Vec3;
 
 use color_space::{Hsv, Rgb};
 
-use crate::mediator::{ActionMode, Selection, SelectionMode};
 use ensnano_design::elements::{DnaElement, DnaElementKey};
-use ensnano_interactor::ScaffoldInfo;
+use ensnano_interactor::{
+    graphics::{Background3D, RenderingMode},
+    ActionMode, ScaffoldInfo, Selection, SelectionMode,
+};
 
 use super::{
     icon_btn, slider_style::DesactivatedSlider, text_btn, AppState, FogParameters as Fog,
@@ -171,8 +173,8 @@ pub enum Message<S> {
     SelectScaffold,
     ForceHelp,
     ShowTutorial,
-    RenderingMode(crate::mediator::RenderingMode),
-    Background3D(crate::mediator::Background3D),
+    RenderingMode(RenderingMode),
+    Background3D(Background3D),
     OpenLink(&'static str),
     NewApplicationState(S),
     FogChoice(tabs::FogChoice),

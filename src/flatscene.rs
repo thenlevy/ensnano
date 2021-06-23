@@ -18,8 +18,8 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 //! This module handles the 2D view
 
 //use crate::design::{DesignNotification, DesignNotificationContent, Nucl, StrandBuilder};
-use ensnano_design::Nucl;
 use crate::{DrawArea, Duration, PhySize, WindowEvent};
+use ensnano_design::Nucl;
 use ensnano_interactor::{
     application::{AppId, Application, Notification},
     operation::*,
