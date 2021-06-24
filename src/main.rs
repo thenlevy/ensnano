@@ -802,7 +802,7 @@ impl OverlayManager {
         multiplexer.set_overlays(self.overlays.clone())
     }
 
-    fn forward_messages(&mut self, messages: &mut IcedMessages) {
+    fn forward_messages(&mut self, messages: &mut IcedMessages<AppState>) {
         for m in messages.color_overlay.drain(..) {
             self.color_state.queue_message(m);
         }
@@ -912,11 +912,11 @@ pub(crate) struct MainState {
     undo_stack: Vec<AppState>,
     redo_stack: Vec<AppState>,
     chanel_reader: ChanelReader,
-    messages: Arc<Mutex<IcedMessages>>,
+    messages: Arc<Mutex<IcedMessages<AppState>>>,
 }
 
 struct MainStateConstructor {
-    messages: Arc<Mutex<IcedMessages>>,
+    messages: Arc<Mutex<IcedMessages<AppState>>>,
 }
 
 impl MainState {

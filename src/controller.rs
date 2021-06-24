@@ -163,6 +163,7 @@ pub(crate) trait MainState {
     fn exit_control_flow(&mut self);
     fn new_design(&mut self);
     fn load_design(&mut self, path: PathBuf) -> Result<(), LoadDesignError>;
+    fn save_design(&mut self, path: &PathBuf) -> Result<(), SaveDesignError>;
     fn get_chanel_reader(&mut self) -> &mut ChanelReader;
     fn apply_operation(&mut self, operation: DesignOperation);
     fn undo(&mut self);
@@ -172,6 +173,7 @@ pub(crate) trait MainState {
 }
 
 pub struct LoadDesignError(String);
+pub struct SaveDesignError(String);
 
 impl From<String> for LoadDesignError {
     fn from(s: String) -> Self {

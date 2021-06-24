@@ -1335,7 +1335,7 @@ impl<R: DesignReader> Data<R> {
     }
 }
 
-trait WantWidget {
+trait WantWidget: Sized + 'static {
     const ALL: &'static [Self];
 
     fn wants_rotation(&self) -> bool;

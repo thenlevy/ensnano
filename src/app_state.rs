@@ -38,6 +38,7 @@ use design_interactor::{DesignInteractor, DesignReader, InteractorResult};
 
 mod impl_app2d;
 mod impl_app3d;
+mod impl_gui;
 
 /// A structure containing the global state of the program.
 ///

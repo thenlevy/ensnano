@@ -242,9 +242,9 @@ impl State for Save {
         if let Some(ref getter) = self.file_getter {
             if let Some(path_opt) = getter.get() {
                 if let Some(ref path) = path_opt {
-                    if let Err(err) = mediator.lock().unwrap().save_design(path) {
+                    if let Err(err) = main_state.save_design(path) {
                         TransitionMessage::new(
-                            format!("Failed to save: {:?}", err),
+                            format!("Failed to save: {:?}", err.0),
                             rfd::MessageLevel::Error,
                             self.on_error,
                         )
