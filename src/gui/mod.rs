@@ -40,9 +40,13 @@ use crate::scene::FogParameters;
 use ensnano_design::{
     elements::{DnaAttribute, DnaElement, DnaElementKey},
     grid::GridTypeDescr,
+    Parameters,
 };
-use ensnano_interactor::graphics::{Background3D, DrawArea, ElementType, RenderingMode, SplitMode};
 use ensnano_interactor::operation::Operation;
+use ensnano_interactor::{
+    graphics::{Background3D, DrawArea, ElementType, RenderingMode, SplitMode},
+    SimulationState, WidgetBasis,
+};
 use ensnano_interactor::{ActionMode, HyperboloidRequest, SelectionMode, SimulationRequest};
 pub use ensnano_organizer::OrganizerTree;
 use iced_native::Event;
@@ -849,14 +853,18 @@ impl<S: AppState> IcedMessages<S> {
         self.left_panel.push_back(left_panel::Message::ForceHelp);
     }
 
-    pub fn push_application_state(&mut self, state: S) {
+    pub fn push_application_state(&mut self, state: S, can_undo: bool, can_redo: bool) {
         let must_update = self.application_state != state;
         self.application_state = state.clone();
         if must_update {
             self.left_panel
                 .push_back(left_panel::Message::NewApplicationState(state.clone()));
             self.top_bar
-                .push_back(top_bar::Message::NewApplicationState(state))
+                .push_back(top_bar::Message::NewApplicationState(top_bar::MainState {
+                    app_state: state,
+                    can_undo,
+                    can_redo,
+                }))
         }
     }
 }
@@ -869,6 +877,10 @@ pub trait Multiplexer {
     fn get_texture_view(&self, element_type: ElementType) -> Option<&wgpu::TextureView>;
 }
 
-pub trait AppState: Default + PartialEq + Clone + 'static {
+pub trait AppState: Default + PartialEq + Clone + 'static + Send + std::fmt::Debug {
     fn get_selection_mode(&self) -> SelectionMode;
+    fn get_action_mode(&self) -> ActionMode;
+    fn get_widget_basis(&self) -> WidgetBasis;
+    fn get_simulation_state(&self) -> SimulationState;
+    fn get_dna_parameters(&self) -> Parameters;
 }

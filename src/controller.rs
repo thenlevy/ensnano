@@ -20,11 +20,13 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 
 mod download_staples;
 use download_staples::*;
+pub use download_staples::{DownloadStappleError, DownloadStappleOk, StaplesDownloader};
 mod quit;
 use ensnano_interactor::DesignOperation;
 use quit::*;
 mod set_scaffold_sequence;
 use set_scaffold_sequence::*;
+pub use set_scaffold_sequence::{ScaffoldSetter, SetScaffoldSequenceError, SetScaffoldSequenceOk};
 mod chanel_reader;
 mod normal_state;
 pub use chanel_reader::{ChanelReader, ChanelReaderUpdate};
@@ -158,7 +160,7 @@ impl State for YesNo {
     }
 }
 
-pub(crate) trait MainState {
+pub(crate) trait MainState: ScaffoldSetter {
     fn pop_action(&mut self) -> Option<Action>;
     fn exit_control_flow(&mut self);
     fn new_design(&mut self);
@@ -168,8 +170,7 @@ pub(crate) trait MainState {
     fn apply_operation(&mut self, operation: DesignOperation);
     fn undo(&mut self);
     fn redo(&mut self);
-    fn get_staple_downloader(&self) -> &dyn StaplesDownloader;
-    fn get_scaffold_setter(&mut self) -> &mut dyn ScaffoldSetter;
+    fn get_staple_downloader(&self) -> Box<dyn StaplesDownloader>;
 }
 
 pub struct LoadDesignError(String);
@@ -178,6 +179,12 @@ pub struct SaveDesignError(String);
 impl From<String> for LoadDesignError {
     fn from(s: String) -> Self {
         Self(s)
+    }
+}
+
+impl<E: std::error::Error> From<E> for SaveDesignError {
+    fn from(e: E) -> Self {
+        Self(format!("{}", e))
     }
 }
 

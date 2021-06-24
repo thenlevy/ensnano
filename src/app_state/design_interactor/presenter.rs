@@ -24,6 +24,7 @@ use ultraviolet::Mat4;
 use crate::utils::id_generator::IdGenerator;
 type JunctionsIds = IdGenerator<(Nucl, Nucl)>;
 mod design_content;
+mod impl_main_reader;
 mod impl_reader2d;
 mod impl_reader3d;
 use design_content::DesignContent;
@@ -40,7 +41,7 @@ use std::collections::BTreeMap;
 /// pointer does not point to the same address as the one that was used to create the data
 /// structures, the strucutres are updated before returning the design reader.
 pub(super) struct Presenter {
-    current_design: AddressPointer<Design>,
+    pub current_design: AddressPointer<Design>,
     model_matrix: AddressPointer<Mat4>,
     content: AddressPointer<DesignContent>,
     junctions_ids: AddressPointer<JunctionsIds>,

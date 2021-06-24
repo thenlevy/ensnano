@@ -310,8 +310,8 @@ fn main() {
     let mut main_state = MainState::new(main_state_constructor);
 
     // Add a design to the scene if one was given as a command line arguement
-    if let Some(ref path) = path {
-        main_state.push_action(Action::LoadDesign(path.clone()));
+    if path.is_some() {
+        main_state.push_action(Action::LoadDesign(path))
     }
 
     let mut controller = Controller::new();
@@ -433,6 +433,8 @@ fn main() {
                         update
                     {
                         main_state.messages.lock().unwrap().finish_progess();
+                        main_state
+                            .apply_operation(DesignOperation::SetScaffoldShift(result.position));
                         let msg = format!(
                             "Scaffold position set to {}\n {}",
                             result.position, result.score
@@ -803,9 +805,11 @@ impl OverlayManager {
     }
 
     fn forward_messages(&mut self, messages: &mut IcedMessages<AppState>) {
+        todo!()
+        /*
         for m in messages.color_overlay.drain(..) {
             self.color_state.queue_message(m);
-        }
+        }*/
     }
 
     fn fetch_change(
@@ -919,6 +923,7 @@ struct MainStateConstructor {
     messages: Arc<Mutex<IcedMessages<AppState>>>,
 }
 
+use controller::SaveDesignError;
 impl MainState {
     fn new(constructor: MainStateConstructor) -> Self {
         Self {
@@ -951,19 +956,24 @@ impl MainState {
     }
 
     fn update_candidates(&mut self, candidates: Vec<Selection>) {
-        let state = std::mem::take(&mut self.app_state);
-        self.app_state = state.with_candidates(candidates);
+        self.modify_state(|s| s.with_candidates(candidates), false);
     }
 
     fn update_selection(&mut self, selection: Vec<Selection>) {
-        self.modify_state(|s| s.with_selection(selection));
+        self.modify_state(|s| s.with_selection(selection), true);
     }
 
     fn apply_operation(&mut self, operation: DesignOperation) {
-        if let Some(state) = self.app_state.apply_design_op(operation) {
-            self.undo_stack.push(state);
-            self.redo_stack.clear();
+        match self.app_state.apply_design_op(operation) {
+            Ok(Some(old_state)) => self.save_old_state(old_state),
+            Ok(None) => (),
+            Err(e) => println!("{:?}", e),
         }
+    }
+
+    fn save_old_state(&mut self, old_state: AppState) {
+        self.undo_stack.push(old_state);
+        self.redo_stack.clear();
     }
 
     fn undo(&mut self) {
@@ -980,14 +990,14 @@ impl MainState {
         }
     }
 
-    fn modify_state<F>(&mut self, modification: F)
+    fn modify_state<F>(&mut self, modification: F, undoable: bool)
     where
         F: FnOnce(AppState) -> AppState,
     {
         let state = std::mem::take(&mut self.app_state);
         let old_state = state.clone();
         self.app_state = modification(state);
-        if old_state != self.app_state {
+        if old_state != self.app_state && undoable {
             self.undo_stack.push(old_state);
             self.redo_stack.clear();
         }
@@ -1020,6 +1030,26 @@ impl MainState {
     fn redim_2d_helices(&mut self, all: bool) {
         println!("TODO");
     }
+
+    fn stop_roll(&mut self) {
+        println!("TODO")
+    }
+
+    fn save_design(&self, path: &PathBuf) -> Result<(), SaveDesignError> {
+        self.app_state.get_design_reader().save_design(path)
+    }
+
+    fn change_selection_mode(&mut self, mode: SelectionMode) {
+        self.modify_state(|s| s.with_selection_mode(mode), false)
+    }
+
+    fn change_action_mode(&mut self, mode: ActionMode) {
+        self.modify_state(|s| s.with_action_mode(mode), false)
+    }
+
+    fn toggle_widget_basis(&mut self) {
+        self.modify_state(|s| s.with_toggled_widget_basis(), false)
+    }
 }
 
 /// A temporary view of the main state and the control flow.
@@ -1028,7 +1058,7 @@ struct MainStateView<'a> {
     control_flow: &'a mut ControlFlow,
 }
 
-use controller::{LoadDesignError, MainState as MainStateInteface};
+use controller::{LoadDesignError, MainState as MainStateInteface, StaplesDownloader};
 impl<'a> MainStateInteface for MainStateView<'a> {
     fn pop_action(&mut self) -> Option<Action> {
         self.main_state.pending_actions.pop_front()
@@ -1065,6 +1095,39 @@ impl<'a> MainStateInteface for MainStateView<'a> {
 
     fn redo(&mut self) {
         self.main_state.redo();
+    }
+
+    fn get_staple_downloader(&self) -> Box<dyn StaplesDownloader> {
+        Box::new(self.main_state.app_state.get_design_reader())
+    }
+
+    fn save_design(&mut self, path: &PathBuf) -> Result<(), SaveDesignError> {
+        self.main_state.save_design(path)?;
+        Ok(())
+    }
+}
+
+use controller::{SetScaffoldSequenceError, SetScaffoldSequenceOk};
+impl<'a> controller::ScaffoldSetter for MainStateView<'a> {
+    fn set_scaffold_sequence(
+        &mut self,
+        sequence: String,
+    ) -> Result<SetScaffoldSequenceOk, SetScaffoldSequenceError> {
+        match self
+            .main_state
+            .app_state
+            .apply_design_op(DesignOperation::SetScaffoldSequence(sequence))
+        {
+            Ok(Some(old_state)) => self.main_state.save_old_state(old_state),
+            Ok(None) => (),
+            Err(e) => return Err(SetScaffoldSequenceError(format!("{:?}", e))),
+        };
+        let default_shift = self.get_staple_downloader().default_shift();
+        Ok(SetScaffoldSequenceOk { default_shift })
+    }
+
+    fn optimize_shift(&mut self) {
+        todo!()
     }
 }
 

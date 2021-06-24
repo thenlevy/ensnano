@@ -127,9 +127,11 @@ pub enum DesignOperation {
         strands: Vec<usize>,
     },
     /// Set the strand with a given id as the scaffold
-    SetScaffoldId(usize),
+    SetScaffoldId(Option<usize>),
     SetScaffoldShift(usize),
+    SetScaffoldSequence(String),
     HyperboloidOperation(HyperboloidOperation),
+    CleanDesign,
 }
 
 /// An action performed on the application
@@ -240,7 +242,7 @@ impl HyperboloidRequest {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct SimulationRequest {
     pub roll: bool,
     pub springs: bool,
@@ -311,5 +313,34 @@ impl SimulationState {
 impl Default for SimulationState {
     fn default() -> Self {
         Self::None
+    }
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum WidgetBasis {
+    World,
+    Object,
+}
+
+impl WidgetBasis {
+    pub fn toggle(&mut self) {
+        if self.is_axis_aligned() {
+            *self = WidgetBasis::World
+        } else {
+            *self = WidgetBasis::Object
+        };
+    }
+
+    pub fn is_axis_aligned(&self) -> bool {
+        match self {
+            Self::World => true,
+            Self::Object => false,
+        }
+    }
+}
+
+impl Default for WidgetBasis {
+    fn default() -> Self {
+        Self::World
     }
 }

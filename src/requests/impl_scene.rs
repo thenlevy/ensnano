@@ -63,4 +63,8 @@ impl SceneRequests for Requests {
     fn update_builder_position(&mut self, position: isize) {
         todo!()
     }
+
+    fn toggle_widget_basis(&mut self) {
+        self.toggle_widget_basis = Some(())
+    }
 }

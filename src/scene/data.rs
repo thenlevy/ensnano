@@ -57,7 +57,6 @@ pub struct Data<R: DesignReader> {
     /// A position determined by the current selection. If only one nucleotide is selected, it's
     /// the position of the nucleotide.
     selected_position: Option<Vec3>,
-    widget_basis: WidgetBasis,
     /// The element arround which the camera rotates
     pivot_element: Option<SceneElement>,
     pivot_update: bool,
@@ -75,7 +74,6 @@ impl<R: DesignReader> Data<R> {
             candidate_element: None,
             sub_selection_mode: SelectionMode::Nucleotide,
             selected_position: None,
-            widget_basis: WidgetBasis::Object,
             pivot_element: None,
             pivot_update: false,
             pivot_position: None,
@@ -1143,16 +1141,12 @@ impl<R: DesignReader> Data<R> {
         self.designs.iter().map(|d| d.get_tubes_raw().len()).sum()
     }
 
-    pub fn toggle_widget_basis(&mut self, axis_aligned: bool) {
-        self.widget_basis.toggle(axis_aligned)
-    }
-
     pub fn get_widget_basis<S: AppState>(&self, app_state: &S) -> Option<Rotor3> {
         self.get_selected_basis(app_state).map(|b| {
-            if let WidgetBasis::Object = self.widget_basis {
-                b
-            } else {
+            if app_state.get_widget_basis().is_axis_aligned() {
                 Rotor3::identity()
+            } else {
+                b
             }
         })
     }
@@ -1335,7 +1329,7 @@ impl<R: DesignReader> Data<R> {
     }
 }
 
-trait WantWidget: Sized + 'static {
+pub(super) trait WantWidget: Sized + 'static {
     const ALL: &'static [Self];
 
     fn wants_rotation(&self) -> bool;
@@ -1363,22 +1357,6 @@ impl WantWidget for ActionMode {
             ActionMode::Translate => true,
             _ => false,
         }
-    }
-}
-
-#[derive(Clone, Copy)]
-enum WidgetBasis {
-    World,
-    Object,
-}
-
-impl WidgetBasis {
-    pub fn toggle(&mut self, axis_aligned: bool) {
-        if axis_aligned {
-            *self = WidgetBasis::World
-        } else {
-            *self = WidgetBasis::Object
-        };
     }
 }
 

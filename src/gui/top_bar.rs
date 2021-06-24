@@ -60,7 +60,14 @@ pub struct TopBar<R: Requests, S: AppState> {
     logical_size: LogicalSize<f64>,
     dialoging: Arc<Mutex<bool>>,
     ui_size: UiSize,
-    application_state: S,
+    application_state: MainState<S>,
+}
+
+#[derive(Debug, Default, Clone)]
+pub struct MainState<S: AppState> {
+    pub app_state: S,
+    pub can_undo: bool,
+    pub can_redo: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -74,7 +81,7 @@ pub enum Message<S: AppState> {
     UiSizeChanged(UiSize),
     OxDNARequested,
     Split2d,
-    NewApplicationState(S),
+    NewApplicationState(MainState<S>),
     ForceHelp,
     ShowTutorial,
     Undo,

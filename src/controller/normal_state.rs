@@ -95,11 +95,14 @@ pub enum Action {
     NotifyApps(Notification),
     TurnSelectionIntoGrid,
     AddGrid(GridTypeDescr),
+    /// Set the sequence of all the selected strands
     ChangeSequence(String),
-    ChangeColor(u32),
+    /// Change the color of all the selected strands
+    ChangeColorStrand(u32),
     ToggleHelicesPersistance(bool),
     ToggleSmallSphere(bool),
     SimulationRequest(SimulationRequest),
+    StopRoll,
     RollHelices(f32),
     Copy,
     Paste,

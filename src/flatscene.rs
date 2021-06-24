@@ -490,31 +490,7 @@ impl<S: AppState> Application for FlatScene<S> {
     type AppState = S;
     fn on_notify(&mut self, notification: Notification) {
         match notification {
-            Notification::NewDesign(_) => (),
-            Notification::NewActionMode(am) => self.change_action_mode(am),
-            Notification::DesignNotification() => (),
             Notification::FitRequest => self.controller[self.selected_design].fit(),
-            Notification::Selection3D(_, app_id) => match app_id {
-                /*
-                AppId::FlatScene => (),
-                _ => {
-                    self.needs_redraw(Duration::from_nanos(1));
-                    self.data[self.selected_design]
-                        .borrow_mut()
-                        .set_selection(selection);
-                    self.data[self.selected_design].borrow_mut().notify_update();
-                    let pivots = self.data[self.selected_design]
-                        .borrow_mut()
-                        .get_pivot_of_selected_helices(
-                            &self.controller[self.selected_design].get_camera(0f64),
-                        );
-                    if let Some((translation_pivots, rotation_pivots)) = pivots {
-                        self.controller[self.selected_design]
-                            .select_pivots(translation_pivots, rotation_pivots);
-                    }
-                }*/
-                _ => (),
-            },
             Notification::Save(d_id) => self.data[d_id].borrow_mut().save_isometry(),
             Notification::ToggleText(b) => {
                 self.view[self.selected_design].borrow_mut().set_show_sec(b)
@@ -530,11 +506,8 @@ impl<S: AppState> Application for FlatScene<S> {
                 }
             }
             Notification::CameraTarget(_) => (),
-            Notification::NewSelectionMode(_) => (),
-            Notification::AppNotification(_) => (),
             Notification::NewSensitivity(_) => (),
             Notification::ClearDesigns => (),
-            Notification::NewCandidate(_, _) => (),
             Notification::Centering(_, _) => (),
             Notification::CenterSelection(_, app_id) => {
                 if app_id != AppId::FlatScene {
@@ -563,7 +536,6 @@ impl<S: AppState> Application for FlatScene<S> {
                     .borrow_mut()
                     .redim_helices(selection)
             }
-            Notification::ToggleWidget(_) => (),
             Notification::RenderingMode(_) => (),
             Notification::Background3D(_) => (),
         }

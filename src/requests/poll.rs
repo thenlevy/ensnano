@@ -128,7 +128,9 @@ pub(crate) fn poll_all<R: DerefMut<Target = Requests>>(
     }
 
     if let Some(rotation) = requests.camera_rotation.take() {
-        main_state.push_action(Action::NotifyApps(Notification::CameraRotation(rotation)))
+        main_state.push_action(Action::NotifyApps(Notification::CameraRotation(
+            rotation.0, rotation.1, rotation.2,
+        )))
     }
 
     if let Some(scaffold_id) = requests.set_scaffold_id.take() {
@@ -224,17 +226,17 @@ pub(crate) fn poll_all<R: DerefMut<Target = Requests>>(
     }
 
     if let Some(s) = requests.organizer_selection.take() {
-        let selection = s.into_iter().map(|e| e.to_selection(0));
+        let selection = s.into_iter().map(|e| e.to_selection(0)).collect();
         main_state.update_selection(selection);
     }
 
     if let Some(c) = requests.organizer_candidates.take() {
-        let candidates = c.into_iter().map(|e| e.to_selection(0));
-        main_state.update_selection(candidates);
+        let candidates = c.into_iter().map(|e| e.to_selection(0)).collect();
+        main_state.update_candidates(candidates);
     }
 
     if let Some((a, elts)) = requests.new_attribute.take() {
-        let elements = elts.into_iter().map(|e| e.to_selection(0));
+        let elements = elts.into_iter().map(|e| e.to_selection(0)).collect();
         main_state.push_action(Action::UpdateAttribute {
             attribute: a,
             elements,
@@ -335,5 +337,13 @@ pub(crate) fn poll_all<R: DerefMut<Target = Requests>>(
 
     if let Some(selection) = requests.new_selection.take() {
         main_state.update_selection(selection);
+    }
+
+    if requests.toggle_widget_basis.take().is_some() {
+        main_state.toggle_widget_basis()
+    }
+
+    if requests.stop_roll.take().is_some() {
+        main_state.pending_actions.push_back(Action::StopRoll)
     }
 }

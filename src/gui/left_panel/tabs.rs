@@ -104,7 +104,7 @@ impl<S: AppState> EditionTab<S> {
             ActionMode::Rotate,
         ];
 
-        let mut action_buttons: Vec<Button<'a, Message>> = self
+        let mut action_buttons: Vec<Button<'a, Message<S>>> = self
             .action_mode_state
             .get_states(0, 0, false)
             .into_iter()
@@ -113,9 +113,9 @@ impl<S: AppState> EditionTab<S> {
                 action_mode_btn(
                     state,
                     mode,
-                    app_state.action_mode,
+                    app_state.get_action_mode(),
                     ui_size.button(),
-                    app_state.axis_aligned,
+                    app_state.get_widget_basis().is_axis_aligned(),
                 )
             })
             .collect();
@@ -140,7 +140,7 @@ impl<S: AppState> EditionTab<S> {
             ret = ret.push(view);
         }
 
-        let sim_state = &app_state.simulation_state;
+        let sim_state = &app_state.get_simulation_state();
         let roll_target_active = sim_state.is_rolling() || self.roll_target_helices.len() > 0;
         ret = ret.push(
             self.roll_target_btn
@@ -148,7 +148,7 @@ impl<S: AppState> EditionTab<S> {
         );
 
         let color_square = self.color_picker.color_square();
-        if app_state.selection_mode == SelectionMode::Strand {
+        if app_state.get_selection_mode() == SelectionMode::Strand {
             ret = ret
                 .push(self.color_picker.view())
                 .push(
@@ -413,7 +413,7 @@ impl GridTab {
             ret = ret.push(view);
         }
 
-        let mut action_buttons: Vec<Button<'a, Message>> = self
+        let mut action_buttons: Vec<Button<'a, Message<S>>> = self
             .action_mode_state
             .get_states(self.helix_length, self.helix_pos, self.show_strand_menu)
             .into_iter()
@@ -422,9 +422,9 @@ impl GridTab {
                 action_mode_btn(
                     state,
                     mode,
-                    app_state.action_mode,
+                    app_state.get_action_mode(),
                     ui_size.button(),
-                    app_state.axis_aligned,
+                    app_state.get_widget_basis().is_axis_aligned(),
                 )
             })
             .collect();
@@ -528,6 +528,8 @@ impl GridTab {
     }
 }
 
+use super::super::icon::HasIcon;
+use super::super::icon::HasIconDependentOnAxis;
 fn selection_mode_btn<'a, S: AppState>(
     state: &'a mut button::State,
     mode: SelectionMode,
@@ -697,7 +699,7 @@ impl CameraTab {
         }
     }
 
-    pub fn view<'a, S>(&'a mut self, ui_size: UiSize) -> Element<'a, Message<S>> {
+    pub fn view<'a, S: AppState>(&'a mut self, ui_size: UiSize) -> Element<'a, Message<S>> {
         let mut ret = Column::new().spacing(2);
         ret = ret.push(
             Text::new("Camera")
@@ -791,7 +793,7 @@ struct FogParameters {
 }
 
 impl FogParameters {
-    fn view<S>(&mut self, ui_size: &UiSize) -> Column<Message<S>> {
+    fn view<S: AppState>(&mut self, ui_size: &UiSize) -> Column<Message<S>> {
         let mut column = Column::new()
             .push(Text::new("Fog").size(ui_size.intermediate_text()))
             .push(PickList::new(
@@ -920,7 +922,7 @@ impl<S: AppState> SimulationTab<S> {
         ui_size: UiSize,
         app_state: &S,
     ) -> Element<'a, Message<S>> {
-        let sim_state = &app_state.simulation_state;
+        let sim_state = &app_state.get_simulation_state();
         let grid_active = sim_state.is_none() || sim_state.simulating_grid();
         let helices_active = sim_state.is_none() || sim_state.simulating_helices();
         let roll_active = sim_state.is_none() || sim_state.is_rolling();
@@ -1011,10 +1013,10 @@ impl<S: AppState> SimulationTab<S> {
     }
 
     pub(super) fn leave_tab<R: Requests>(&mut self, requests: Arc<Mutex<R>>, app_state: &S) {
-        if app_state.simulation_state == SimulationState::RigidGrid {
+        if app_state.get_simulation_state() == SimulationState::RigidGrid {
             self.request_stop_rigid_body_simulation(requests);
             println!("stop grids");
-        } else if app_state.simulation_state == SimulationState::RigidHelices {
+        } else if app_state.get_simulation_state() == SimulationState::RigidHelices {
             self.request_stop_rigid_body_simulation(requests);
             println!("stop helices");
         }
@@ -1143,7 +1145,7 @@ impl ParametersTab {
 
         ret = ret.push(iced::Space::with_height(Length::Units(10)));
         ret = ret.push(Text::new("DNA parameters").size(ui_size.head_text()));
-        for line in app_state.parameter_ptr.as_ref().formated_string().lines() {
+        for line in app_state.get_dna_parameters().formated_string().lines() {
             ret = ret.push(Text::new(line));
         }
         ret = ret.push(iced::Space::with_height(Length::Units(10)));
@@ -1390,7 +1392,7 @@ impl SequenceTab {
     }
 }
 
-fn right_checkbox<'a, F, S>(
+fn right_checkbox<'a, F, S: AppState>(
     is_checked: bool,
     label: impl Into<String>,
     f: F,

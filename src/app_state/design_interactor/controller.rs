@@ -36,20 +36,29 @@ impl Controller {
         operation: DesignOperation,
     ) -> Result<(OkOperation, Self), ErrOperation> {
         match operation {
-            DesignOperation::RecolorStaples => {
-                let mut new_controller = self.clone();
-                let returned_design = new_controller.recolor_stapples(design.clone());
-                Ok((
-                    new_controller.return_design(returned_design),
-                    new_controller,
-                ))
-            }
+            DesignOperation::RecolorStaples => Ok(self.ok_apply(Self::recolor_stapples, design)),
+            DesignOperation::SetScaffoldSequence(sequence) => Ok(self.ok_apply(
+                |ctrl, design| ctrl.set_scaffold_sequence(design, sequence),
+                design,
+            )),
             _ => Err(ErrOperation::NotImplemented),
         }
     }
 
     fn return_design(&self, design: Design) -> OkOperation {
         OkOperation::Replace(design)
+    }
+
+    fn ok_apply<F>(&self, design_op: F, design: &Design) -> (OkOperation, Self)
+    where
+        F: FnOnce(&mut Self, Design) -> Design,
+    {
+        let mut new_controller = self.clone();
+        let returned_design = design_op(&mut new_controller, design.clone());
+        (
+            new_controller.return_design(returned_design),
+            new_controller,
+        )
     }
 }
 
@@ -93,6 +102,11 @@ impl Controller {
                 strand.color = color;
             }
         }
+        design
+    }
+
+    fn set_scaffold_sequence(&mut self, mut design: Design, sequence: String) -> Design {
+        design.scaffold_sequence = Some(sequence);
         design
     }
 }

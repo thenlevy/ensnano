@@ -136,6 +136,4 @@ pub struct SetScaffoldSequenceOk {
 }
 
 #[derive(Debug)]
-pub enum SetScaffoldSequenceError {
-    SeveralDesignNoneSelected,
-}
+pub struct SetScaffoldSequenceError(String);

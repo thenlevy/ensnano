@@ -270,7 +270,7 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
     fn update(&mut self, message: Message<S>, _cb: &mut NullClipboard) -> Command<Message<S>> {
         match message {
             Message::SelectionModeChanged(selection_mode) => {
-                if selection_mode != self.application_state.selection_mode {
+                if selection_mode != self.application_state.get_selection_mode() {
                     self.requests
                         .lock()
                         .unwrap()
@@ -278,7 +278,7 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
                 }
             }
             Message::ActionModeChanged(action_mode) => {
-                if self.application_state.action_mode != action_mode {
+                if self.application_state.get_action_mode() != action_mode {
                     self.requests
                         .lock()
                         .unwrap()
@@ -357,7 +357,7 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
             }
             Message::LengthHelicesChanged(length_str) => {
                 let action_mode = self.grid_tab.update_length_str(length_str.clone());
-                if self.application_state.action_mode != action_mode {
+                if self.application_state.get_action_mode() != action_mode {
                     self.requests
                         .lock()
                         .unwrap()
@@ -366,7 +366,7 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
             }
             Message::PositionHelicesChanged(position_str) => {
                 let action_mode = self.grid_tab.update_pos_str(position_str.clone());
-                if self.application_state.action_mode != action_mode {
+                if self.application_state.get_action_mode() != action_mode {
                     self.requests
                         .lock()
                         .unwrap()
@@ -544,7 +544,7 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
                 }
             }
             Message::TabSelected(n) => {
-                if let ActionMode::BuildHelix { .. } = self.application_state.action_mode {
+                if let ActionMode::BuildHelix { .. } = self.application_state.get_action_mode() {
                     if n != 0 {
                         let action_mode = ActionMode::Normal;
                         self.requests
@@ -608,7 +608,7 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
             Message::CleanRequested => self.requests.lock().unwrap().remove_empty_domains(),
             Message::AddDoubleStrandHelix(b) => {
                 self.grid_tab.set_show_strand(b);
-                if let ActionMode::BuildHelix { .. } = self.application_state.action_mode {
+                if let ActionMode::BuildHelix { .. } = self.application_state.get_action_mode() {
                     let action_mode = self.grid_tab.get_build_helix_mode();
                     self.requests
                         .lock()
@@ -680,7 +680,7 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
 
     fn view(&mut self) -> Element<Message<S>> {
         let width = self.logical_size.cast::<u16>().width;
-        let tabs: Tabs<Message, Backend> = Tabs::new(self.selected_tab, Message::TabSelected)
+        let tabs: Tabs<Message<S>, Backend> = Tabs::new(self.selected_tab, Message::TabSelected)
             .push(
                 TabLabel::Text(format!("{}", icon_to_char(MaterialIcon::GridOn))),
                 self.grid_tab

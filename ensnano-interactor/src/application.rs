@@ -52,7 +52,7 @@ pub trait Application {
 
 use ultraviolet::Vec3;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 /// A notification that must be send to the application
 pub enum Notification {
     /// The application must show/hide the sequences
@@ -74,7 +74,6 @@ pub enum Notification {
     ModifersChanged(ModifiersState),
     Split2d,
     Redim2dHelices(bool),
-    ToggleWidget(bool),
     Background3D(Background3D),
     RenderingMode(RenderingMode),
 }

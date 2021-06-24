@@ -87,7 +87,7 @@ impl<R: Requestable> RequestFactory<R> {
         }
     }
 
-    pub fn view<S>(&mut self, active: bool) -> Vec<Element<Message<S>>> {
+    pub fn view<S: AppState>(&mut self, active: bool) -> Vec<Element<Message<S>>> {
         self.values
             .values_mut()
             .filter(|v| !v.hidden)
@@ -164,7 +164,7 @@ impl DiscreteValue {
         }
     }
 
-    fn view<S>(&mut self, active: bool) -> Element<Message<S>> {
+    fn view<S: AppState>(&mut self, active: bool) -> Element<Message<S>> {
         let decr_button = if active && self.value - self.step > self.min_val {
             Button::new(&mut self.decr_button, Text::new("-")).on_press(Message::DescreteValue {
                 factory_id: self.owner_id,

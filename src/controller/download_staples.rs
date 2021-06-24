@@ -51,13 +51,15 @@ impl State for DownloadStaples {
     fn make_progress(self: Box<Self>, main_state: &mut dyn MainState) -> Box<dyn State> {
         let downloader = main_state.get_staple_downloader();
         match self.step {
-            Step::Init => get_design_providing_staples(downloader),
+            Step::Init => get_design_providing_staples(downloader.as_ref()),
             Step::AskingPath(state) => ask_path(state),
             Step::PathAsked {
                 path_input,
                 design_id,
             } => poll_path(path_input, design_id),
-            Step::Downloading { design_id, path } => download_staples(downloader, design_id, path),
+            Step::Downloading { design_id, path } => {
+                download_staples(downloader.as_ref(), design_id, path)
+            }
         }
     }
 
@@ -105,20 +107,14 @@ impl State for DownloadStaples {
 }
 
 fn get_design_providing_staples(downlader: &dyn StaplesDownloader) -> Box<dyn State> {
-    let result = downlader.download_stapples();
+    let result = downlader.download_staples();
     match result {
-        Ok(DownloadStappleOk {
-            design_id,
+        Ok(DownloadStappleOk { warnings }) => AskingPath_ {
             warnings,
-        }) => {
-            let warnings = warnings.iter().map(|w| w.dialog()).collect();
-            AskingPath_ {
-                warnings,
-                design_id,
-                warning_ack: None,
-            }
-            .to_state()
+            design_id: 0,
+            warning_ack: None,
         }
+        .to_state(),
         Err(DownloadStappleError::NoScaffoldSet) => {
             let message = "No scaffold set. \n
                     Chose a strand and set it as the scaffold by checking the scaffold checkbox\
@@ -206,7 +202,7 @@ fn download_staples(
     design_id: usize,
     path: PathBuf,
 ) -> Box<dyn State> {
-    downlader.write_staples_xlsx(design_id, &path);
+    downlader.write_staples_xlsx(&path);
     let msg = format!(
         "Successfully wrote staples in {}",
         path.clone().to_string_lossy()
@@ -217,6 +213,7 @@ fn download_staples(
 pub trait StaplesDownloader {
     fn download_staples(&self) -> Result<DownloadStappleOk, DownloadStappleError>;
     fn write_staples_xlsx(&self, xlsx_path: &PathBuf);
+    fn default_shift(&self) -> Option<usize>;
 }
 
 pub enum DownloadStappleError {
@@ -229,6 +226,5 @@ pub enum DownloadStappleError {
 }
 
 pub struct DownloadStappleOk {
-    pub design_id: usize,
     pub warnings: Vec<String>,
 }

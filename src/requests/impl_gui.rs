@@ -82,7 +82,7 @@ impl GuiRequests for Requests {
     }
 
     fn toggle_widget_basis(&mut self) {
-        self.toggle_widget = Some(());
+        self.toggle_widget_basis = Some(())
     }
 
     fn set_dna_sequences_visibility(&mut self, visible: bool) {

@@ -62,7 +62,11 @@ impl App3D for AppState {
     }
 
     fn get_strand_builders(&self) -> Vec<StrandBuilder> {
-        todo!()
+        vec![]
+    }
+
+    fn get_widget_basis(&self) -> WidgetBasis {
+        self.0.widget_basis
     }
 }
 
@@ -119,5 +123,10 @@ mod tests {
 
         state = state.with_candidates(vec![]);
         assert!(!state.design_was_modified(&old_state));
+    }
+
+    #[test]
+    fn get_strand_builders() {
+        todo!()
     }
 }

@@ -24,7 +24,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 //!
 //! Each component of ENSnano has specific needs and express them via its own `AppState` trait.
 
-use ensnano_interactor::{ActionMode, Selection, SelectionMode};
+use ensnano_interactor::{ActionMode, Selection, SelectionMode, WidgetBasis};
 
 use std::path::PathBuf;
 mod address_pointer;
@@ -34,7 +34,9 @@ use address_pointer::AddressPointer;
 use ensnano_design::Design;
 use ensnano_interactor::DesignOperation;
 
-use design_interactor::{DesignInteractor, DesignReader, InteractorResult};
+pub use design_interactor::controller::ErrOperation;
+pub use design_interactor::DesignReader;
+use design_interactor::{DesignInteractor, InteractorResult};
 
 mod impl_app2d;
 mod impl_app3d;
@@ -46,6 +48,12 @@ mod impl_gui;
 /// on an undo/redo stack.
 #[derive(Clone, PartialEq, Eq, Default)]
 pub struct AppState(AddressPointer<AppState_>);
+
+impl std::fmt::Debug for AppState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("AppState").finish()
+    }
+}
 
 impl AppState {
     pub fn with_selection(&self, selection: Vec<Selection>) -> Self {
@@ -71,6 +79,18 @@ impl AppState {
     pub fn with_selection_mode(&self, selection_mode: SelectionMode) -> Self {
         let mut new_state = (*self.0).clone();
         new_state.selection_mode = selection_mode;
+        Self(AddressPointer::new(new_state))
+    }
+
+    pub fn with_action_mode(&self, action_mode: ActionMode) -> Self {
+        let mut new_state = (*self.0).clone();
+        new_state.action_mode = action_mode;
+        Self(AddressPointer::new(new_state))
+    }
+
+    pub fn with_toggled_widget_basis(&self) -> Self {
+        let mut new_state = (*self.0).clone();
+        new_state.widget_basis.toggle();
         Self(AddressPointer::new(new_state))
     }
 
@@ -109,24 +129,31 @@ impl AppState {
         Self(AddressPointer::new(new_state))
     }
 
-    pub(super) fn apply_design_op(&mut self, op: DesignOperation) -> Option<Self> {
+    pub(super) fn apply_design_op(
+        &mut self,
+        op: DesignOperation,
+    ) -> Result<Option<Self>, ErrOperation> {
         match self.0.design.apply_operation(op) {
             Ok(InteractorResult::Push(design)) => {
                 let ret = Some(self.clone());
                 let new_state = self.clone().with_interactor(design);
                 *self = new_state;
-                ret
+                Ok(ret)
             }
             Ok(InteractorResult::Replace(design)) => {
                 let new_state = self.clone().with_interactor(design);
                 *self = new_state;
-                None
+                Ok(None)
             }
             Err(e) => {
                 println!("error");
-                None
+                Err(e)
             }
         }
+    }
+
+    pub fn get_design_reader(&self) -> DesignReader {
+        self.0.design.get_design_reader()
     }
 }
 
@@ -142,4 +169,5 @@ struct AppState_ {
     /// replaced by a pointer to a modified `Design`.
     design: AddressPointer<DesignInteractor>,
     action_mode: ActionMode,
+    widget_basis: WidgetBasis,
 }

@@ -65,14 +65,13 @@ enum Step {
 
 impl State for SetScaffoldSequence {
     fn make_progress(self: Box<Self>, main_state: &mut dyn MainState) -> Box<dyn State> {
-        let setter = main_state.get_scaffold_setter();
         match self.step {
             Step::Init => init_set_scaffold_sequence(),
             Step::AskPath { path_input } => ask_path(path_input),
             Step::GotPath(path) => got_path(path),
-            Step::SetSequence(seq) => set_sequence(seq, setter),
+            Step::SetSequence(seq) => set_sequence(seq, main_state),
             Step::OptimizeScaffoldPosition { design_id } => {
-                optimize_scaffold_position(design_id, main_state, setter)
+                optimize_scaffold_position(design_id, main_state)
             }
         }
     }
@@ -134,20 +133,17 @@ fn got_path(path: PathBuf) -> Box<dyn State> {
     }
 }
 
-fn set_sequence(sequence: String, scaffold_setter: &dyn ScaffoldSetter) -> Box<dyn State> {
+fn set_sequence(sequence: String, scaffold_setter: &mut dyn MainState) -> Box<dyn State> {
     let result = scaffold_setter.set_scaffold_sequence(sequence);
     match result {
-        Ok(SetScaffoldSequenceOk {
-            design_id,
-            default_shift,
-        }) => {
+        Ok(SetScaffoldSequenceOk { default_shift }) => {
             let message = format!("Optimize the scaffold position ?\n
               If you chose \"Yes\", ENSnano will position the scaffold in a way that minimizes the \
               number of anti-patern (G^4, C^4 (A|T)^7) in the stapples sequence. If you chose \"No\", \
               the scaffold sequence will begin at position {}", default_shift.unwrap_or(0));
 
             let yes = Box::new(SetScaffoldSequence {
-                step: Step::OptimizeScaffoldPosition { design_id },
+                step: Step::OptimizeScaffoldPosition { design_id: 0 },
             });
             let no = Box::new(super::NormalState);
             Box::new(YesNo::new(message.into(), yes, no))
@@ -160,19 +156,17 @@ fn set_sequence(sequence: String, scaffold_setter: &dyn ScaffoldSetter) -> Box<d
     }
 }
 
-fn optimize_scaffold_position(
-    design_id: usize,
-    main_state: &mut dyn MainState,
-    scaffold_setter: &dyn ScaffoldSetter,
-) -> Box<dyn State> {
-    let reader = main_state.get_chanel_reader();
-    scaffold_setter.optimize_shift(design_id, reader);
+fn optimize_scaffold_position(design_id: usize, main_state: &mut dyn MainState) -> Box<dyn State> {
+    main_state.optimize_shift();
     Box::new(super::NormalState)
 }
 
 pub trait ScaffoldSetter {
-    fn set_scaffold_sequence(&mut self, sequence: String);
-    fn optimize_shift(&self, reader: &mut dyn ShiftOptimizerReader);
+    fn set_scaffold_sequence(
+        &mut self,
+        sequence: String,
+    ) -> Result<SetScaffoldSequenceOk, SetScaffoldSequenceError>;
+    fn optimize_shift(&mut self);
 }
 
 use std::sync::mpsc;
@@ -188,10 +182,7 @@ pub struct ShiftOptimizationResult {
 
 pub struct SetScaffoldSequenceOk {
     pub default_shift: Option<usize>,
-    pub design_id: usize,
 }
 
 #[derive(Debug)]
-pub enum SetScaffoldSequenceError {
-    SeveralDesignNoneSelected,
-}
+pub struct SetScaffoldSequenceError(pub String);

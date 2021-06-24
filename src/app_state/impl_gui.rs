@@ -18,9 +18,27 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 
 use super::*;
 use crate::gui::AppState as GuiState;
+use ensnano_design::Parameters;
+use ensnano_interactor::SimulationState;
 
 impl GuiState for AppState {
     fn get_selection_mode(&self) -> SelectionMode {
         self.0.selection_mode
+    }
+
+    fn get_action_mode(&self) -> ActionMode {
+        self.0.action_mode
+    }
+
+    fn get_widget_basis(&self) -> WidgetBasis {
+        self.0.widget_basis
+    }
+
+    fn get_simulation_state(&self) -> SimulationState {
+        self.0.design.get_simulation_state()
+    }
+
+    fn get_dna_parameters(&self) -> Parameters {
+        self.0.design.get_dna_parameters()
     }
 }

@@ -1,3 +1,4 @@
+use ensnano_interactor::WidgetBasis;
 /*
 ENSnano, a 3d graphical application for DNA nanostructures.
     Copyright (C) 2021  Nicolas Levy <nicolaspierrelevy@gmail.com> and Nicolas Schabanel <nicolas.schabanel@ens-lyon.fr>
@@ -53,8 +54,8 @@ use controller::{Consequence, Controller};
 /// Handling of designs and internal data
 mod data;
 pub use controller::ClickMode;
-use data::Data;
 pub use data::DesignReader;
+use data::{Data, WantWidget};
 mod element_selector;
 use element_selector::{ElementSelector, SceneElement};
 mod maths_3d;
@@ -220,7 +221,7 @@ impl<S: AppState> Scene<S> {
                 self.controller.swing(-x, -y);
                 self.notify(SceneNotification::CameraMoved);
             }
-            Consequence::ToggleWidget => self.data.borrow_mut().toggle_widget_basis(false),
+            Consequence::ToggleWidget => self.requests.lock().unwrap().toggle_widget_basis(),
             Consequence::BuildEnded => self.requests.lock().unwrap().suspend_op(),
             Consequence::Undo => self.requests.lock().unwrap().undo(),
             Consequence::Redo => self.requests.lock().unwrap().redo(),
@@ -709,25 +710,10 @@ impl<S: AppState> Application for Scene<S> {
     fn on_notify(&mut self, notification: Notification) {
         let older_state = self.older_state.clone();
         match notification {
-            Notification::DesignNotification(notification) => {
-                //self.handle_design_notification(notification)
-            }
-            Notification::AppNotification(_) => (),
-            Notification::NewDesign(_) => (),
             Notification::ClearDesigns => self.clear_design(),
             Notification::ToggleText(value) => self.view.borrow_mut().set_draw_letter(value),
             Notification::FitRequest => self.fit_design(),
-            Notification::NewActionMode(am) => {
-                ()
-                //self.change_action_mode(am),
-            }
-            Notification::NewSelectionMode(sm) => {
-                //self.change_selection_mode(sm),
-                ()
-            }
             Notification::NewSensitivity(x) => self.change_sensitivity(x),
-            Notification::NewCandidate(candidate, app_id) => (),
-            Notification::Selection3D(selection, app_id) => (),
             Notification::Save(_) => (),
             Notification::CameraTarget((target, up)) => {
                 self.set_camera_target(target, up, &older_state);
@@ -761,10 +747,6 @@ impl<S: AppState> Application for Scene<S> {
             Notification::ModifersChanged(modifiers) => self.controller.update_modifiers(modifiers),
             Notification::Split2d => (),
             Notification::Redim2dHelices(_) => (),
-            Notification::ToggleWidget(b) => {
-                self.data.borrow_mut().toggle_widget_basis(b);
-                self.update_handle(&older_state);
-            }
             Notification::RenderingMode(mode) => self.view.borrow_mut().rendering_mode(mode),
             Notification::Background3D(bg) => self.view.borrow_mut().background3d(bg),
         }
@@ -830,6 +812,7 @@ pub trait AppState: Clone {
     fn get_action_mode(&self) -> ActionMode;
     fn get_design_reader(&self) -> Self::DesignReader;
     fn get_strand_builders(&self) -> Vec<StrandBuilder>;
+    fn get_widget_basis(&self) -> WidgetBasis;
 }
 
 pub trait Requests {
@@ -844,4 +827,5 @@ pub trait Requests {
     fn undo(&mut self);
     fn redo(&mut self);
     fn update_builder_position(&mut self, position: isize);
+    fn toggle_widget_basis(&mut self);
 }

@@ -114,4 +114,6 @@ pub struct Requests {
     pub suspend_op: Option<()>,
     pub center_selection: Option<(Selection, AppId)>,
     pub centering_on_nucl: Option<(Nucl, usize)>,
+    pub toggle_widget_basis: Option<()>,
+    pub stop_roll: Option<()>,
 }

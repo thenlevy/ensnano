@@ -17,12 +17,12 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 
 use super::AddressPointer;
-use ensnano_design::Design;
-use ensnano_interactor::DesignOperation;
+use ensnano_design::{Design, Parameters};
+use ensnano_interactor::{DesignOperation, SimulationState};
 
 mod presenter;
 use presenter::{update_presenter, Presenter};
-mod controller;
+pub(super) mod controller;
 use controller::Controller;
 
 pub(super) use controller::ErrOperation;
@@ -104,6 +104,15 @@ impl DesignInteractor {
         self.presenter
             .has_different_model_matrix_than(other.presenter.as_ref())
     }
+
+    pub(super) fn get_simulation_state(&self) -> SimulationState {
+        //TODO
+        SimulationState::None
+    }
+
+    pub(super) fn get_dna_parameters(&self) -> Parameters {
+        self.presenter.current_design.parameters.unwrap_or_default()
+    }
 }
 
 /// An opperation has been successfully applied to the design, resulting in a new modifed
@@ -118,6 +127,18 @@ pub(super) enum InteractorResult {
 /// structures.
 pub struct DesignReader {
     presenter: AddressPointer<Presenter>,
+}
+
+use crate::controller::SaveDesignError;
+use std::path::PathBuf;
+impl DesignReader {
+    pub fn save_design(&self, path: &PathBuf) -> Result<(), SaveDesignError> {
+        use std::io::Write;
+        let json_content = serde_json::to_string_pretty(&self.presenter.current_design.as_ref())?;
+        let mut f = std::fs::File::create(path)?;
+        f.write_all(json_content.as_bytes())?;
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -170,5 +191,10 @@ mod tests {
         let old_app_state = app_state.clone();
         let app_state = app_state.updated();
         assert!(!old_app_state.design_was_modified(&app_state));
+    }
+
+    #[test]
+    fn correct_simulation_state() {
+        assert!(false)
     }
 }

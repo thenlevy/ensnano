@@ -476,7 +476,7 @@ impl Multiplexer {
                             .lock()
                             .unwrap()
                             .keep_proceed
-                            .push_back(Action::LoadDesign);
+                            .push_back(Action::LoadDesign(None));
                     }
                     VirtualKeyCode::Q if ctrl(&self.modifiers) && cfg!(target_os = "macos") => {
                         self.requests
@@ -771,5 +771,25 @@ fn ctrl(modifiers: &ModifiersState) -> bool {
         modifiers.logo()
     } else {
         modifiers.ctrl()
+    }
+}
+
+use crate::gui::Multiplexer as GuiMultiplexer;
+
+impl GuiMultiplexer for Multiplexer {
+    fn get_draw_area(&self, element_type: ElementType) -> Option<DrawArea> {
+        self.get_draw_area(element_type)
+    }
+
+    fn get_texture_view(&self, element_type: ElementType) -> Option<&wgpu::TextureView> {
+        self.get_texture_view(element_type)
+    }
+
+    fn get_cursor_position(&self) -> PhysicalPosition<f64> {
+        self.get_cursor_position()
+    }
+
+    fn foccused_element(&self) -> Option<ElementType> {
+        self.foccused_element()
     }
 }
