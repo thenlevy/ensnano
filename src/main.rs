@@ -445,105 +445,6 @@ fn main() {
 
                 main_state.update();
 
-                /*
-                let keep_proceed = requests.lock().unwrap().keep_proceed.pop_front();
-                if let Some(proceed) = keep_proceed {
-                    match proceed {
-                        Action::CustomScaffold => {
-                            messages.lock().unwrap().push_custom_scaffold()
-                        }
-                        Action::DefaultScaffold => {
-                            messages.lock().unwrap().push_default_scaffold()
-                        }
-                        Action::OptimizeShift(d_id) => {
-                            // start a shift optimization using Mediator::optimize_shift;
-                            unimplemented!();
-                            //mediator.lock().unwrap().optimize_shift(d_id);
-                        }
-                        Action::AskStaplesPath { d_id } => {
-                            // Get the path in which to save the staples
-                            // and proceed to download
-                            let requests = requests.clone();
-                            let dialog = rfd::AsyncFileDialog::new().save_file();
-                            std::thread::spawn(move || {
-                                let save_op = async move {
-                                    let file = dialog.await;
-                                    if let Some(handle) = file {
-                                        let mut path_buf: std::path::PathBuf =
-                                            handle.path().clone().into();
-                                        path_buf.set_extension("xlsx");
-                                        requests.lock().unwrap().keep_proceed.push_back(
-                                            Action::DownloadStaples {
-                                                target_file: path_buf,
-                                                design_id: d_id,
-                                            },
-                                        );
-                                    }
-                                };
-                                futures::executor::block_on(save_op);
-                            });
-                        }
-                        Action::Quit => {
-                            *control_flow = ControlFlow::Exit;
-                        }
-                        Action::SaveBeforeOpen => {
-                            unimplemented!()
-                            /*
-                            messages
-                                .lock()
-                                .unwrap()
-                                .push_save(Some(Action::LoadDesignAfterSave));*/
-                        }
-                        Action::SaveBeforeNew => {
-                            unimplemented!();
-                            /*messages
-                            .lock()
-                            .unwrap()
-                            .push_save(Some(Action::NewDesignAfterSave));*/
-                        }
-                        Action::SaveBeforeQuit => {
-                            unimplemented!();
-                            //messages.lock().unwrap().push_save(Some(Action::Quit));
-                        }
-                        Action::LoadDesign => {
-                            unimplemented!();
-                            //messages.lock().unwrap().push_open();
-                        }
-                        Action::LoadDesignAfterSave => {
-                            requests.lock().unwrap().keep_proceed.push_back(
-                                Action::BlockingInfo(
-                                    "Save successfully".into(),
-                                    Box::new(Action::LoadDesign),
-                                ),
-                            );
-                        }
-                        Action::NewDesign => {
-                            let design = Design::new(0);
-                            messages.lock().unwrap().notify_new_design();
-                            mediator.lock().unwrap().clear_designs();
-                            mediator
-                                .lock()
-                                .unwrap()
-                                .add_design(Arc::new(RwLock::new(design)));
-                        }
-                        Action::NewDesignAfterSave => {
-                            requests.lock().unwrap().keep_proceed.push_back(
-                                Action::BlockingInfo(
-                                    "Save successfully".into(),
-                                    Box::new(Action::NewDesign),
-                                ),
-                            );
-                        }
-                        Action::BlockingInfo(msg, keep_proceed) => blocking_message(
-                            msg.into(),
-                            rfd::MessageLevel::Info,
-                            requests.clone(),
-                            *keep_proceed,
-                        ),
-                        _ => (),
-                    }
-                }*/
-
                 // Treat eventual event that happenend in the gui left panel.
                 let _overlay_change =
                     overlay_manager.fetch_change(&multiplexer, &window, &mut renderer);
@@ -616,6 +517,11 @@ fn main() {
                 // Get viewports from the partition
 
                 // If there are events pending
+                messages.lock().unwrap().push_application_state(
+                    main_state.get_app_state().clone(),
+                    !main_state.undo_stack.is_empty(),
+                    !main_state.redo_stack.is_empty(),
+                );
                 gui.update(&multiplexer, &window);
 
                 overlay_manager.process_event(&mut renderer, resized, &multiplexer, &window);
@@ -805,7 +711,7 @@ impl OverlayManager {
     }
 
     fn forward_messages(&mut self, messages: &mut IcedMessages<AppState>) {
-        todo!()
+        ()
         /*
         for m in messages.color_overlay.drain(..) {
             self.color_state.queue_message(m);

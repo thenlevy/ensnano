@@ -24,6 +24,7 @@ use super::*;
 #[derive(Clone, Default)]
 pub(super) struct Controller {
     color_idx: usize,
+    state: ControllerState,
 }
 
 impl Controller {
@@ -46,7 +47,10 @@ impl Controller {
     }
 
     fn return_design(&self, design: Design) -> OkOperation {
-        OkOperation::Replace(design)
+        match self.state {
+            ControllerState::Normal => OkOperation::Push(design),
+            _ => OkOperation::Replace(design),
+        }
     }
 
     fn ok_apply<F>(&self, design_op: F, design: &Design) -> (OkOperation, Self)
@@ -55,10 +59,7 @@ impl Controller {
     {
         let mut new_controller = self.clone();
         let returned_design = design_op(&mut new_controller, design.clone());
-        (
-            new_controller.return_design(returned_design),
-            new_controller,
-        )
+        (self.return_design(returned_design), new_controller)
     }
 }
 
@@ -111,9 +112,15 @@ impl Controller {
     }
 }
 
-#[allow(dead_code)]
-enum State {
+#[derive(Clone)]
+enum ControllerState {
     Normal,
     MakingHyperboloid,
     BuildingStrand,
+}
+
+impl Default for ControllerState {
+    fn default() -> Self {
+        Self::Normal
+    }
 }

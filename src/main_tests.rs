@@ -59,3 +59,10 @@ fn empty_selections_dont_pollute_undo_stack() {
     state.undo();
     assert_eq!(state.app_state.get_selection().clone(), selection_1);
 }
+
+#[test]
+fn recolor_stapple_undoable() {
+    let mut state = new_state();
+    state.apply_operation(DesignOperation::RecolorStaples);
+    assert!(!state.undo_stack.is_empty())
+}
