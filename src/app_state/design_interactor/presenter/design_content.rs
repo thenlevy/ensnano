@@ -136,6 +136,17 @@ impl DesignContent {
         self.grid_manager.small_spheres.contains(&g_id)
     }
 
+    pub(super) fn grid_has_persistent_phantom(&self, g_id: usize) -> bool {
+        !self.grid_manager.no_phantoms.contains(&g_id)
+    }
+
+    pub(super) fn get_grid_shift(&self, g_id: usize) -> Option<f32> {
+        self.grid_manager
+            .grids
+            .get(g_id)
+            .and_then(|g| g.grid_type.get_shift())
+    }
+
     pub(super) fn get_stapple_mismatch(&self, design: &Design) -> Option<Nucl> {
         let basis_map = self.basis_map.as_ref();
         for strand in design.strands.values() {

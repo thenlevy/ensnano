@@ -67,7 +67,7 @@ impl<S: AppState> EditionTab<S> {
             SelectionMode::Strand,
             SelectionMode::Helix,
         ];
-        let selection = app_state.get_selection();
+        let selection = app_state.get_selection_as_dnaelement();
         let roll_target_helices = self.get_roll_target_helices(&selection);
 
         let mut selection_buttons: Vec<Button<'a, Message<S>>> = self
@@ -1257,7 +1257,7 @@ impl SequenceTab {
             button_selection_from_scaffold =
                 button_selection_from_scaffold.on_press(Message::SelectScaffold);
         }
-        let selection = app_state.get_selection();
+        let selection = app_state.get_selection_as_dnaelement();
         if let Some(n) = Self::get_candidate_scaffold(&selection) {
             button_selection_to_scaffold =
                 button_selection_to_scaffold.on_press(Message::ScaffoldIdSet(n, true));

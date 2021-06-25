@@ -15,14 +15,13 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
+use super::super::DesignReader;
 use super::*;
 use ensnano_interactor::Selection;
 use iced::{scrollable, Scrollable};
 use std::borrow::Cow;
 
 pub(super) struct ContextualPanel {
-    selection: Selection,
-    info_values: Vec<Cow<'static, str>>,
     scroll: scrollable::State,
     width: u32,
     pub force_help: bool,
@@ -34,8 +33,6 @@ pub(super) struct ContextualPanel {
 impl ContextualPanel {
     pub fn new(width: u32) -> Self {
         Self {
-            selection: Selection::Nothing,
-            info_values: vec![],
             scroll: Default::default(),
             width,
             force_help: false,
@@ -49,9 +46,13 @@ impl ContextualPanel {
         self.width = width;
     }
 
-    pub fn view<S: AppState>(&mut self, ui_size: UiSize) -> Element<Message<S>> {
+    pub fn view<S: AppState>(&mut self, ui_size: UiSize, app_state: &S) -> Element<Message<S>> {
         let mut column = Column::new().max_width(self.width - 2);
-        let selection = &self.selection;
+        let selection = app_state
+            .get_selection()
+            .get(0)
+            .unwrap_or(&Selection::Nothing);
+        let info_values = values_of_selection(selection, app_state.get_reader().as_ref());
         if self.show_tutorial {
             column = column.push(
                 Text::new("Tutorials")
@@ -92,14 +93,13 @@ impl ContextualPanel {
 
             match selection {
                 Selection::Grid(_, _) => {
-                    column = add_grid_content(column, self.info_values.as_slice(), ui_size.clone())
+                    column = add_grid_content(column, info_values.as_slice(), ui_size.clone())
                 }
                 Selection::Strand(_, _) => {
-                    column =
-                        add_strand_content(column, self.info_values.as_slice(), ui_size.clone())
+                    column = add_strand_content(column, info_values.as_slice(), ui_size.clone())
                 }
                 Selection::Nucleotide(_, _) => {
-                    let anchor = self.info_values[0].clone();
+                    let anchor = info_values[0].clone();
                     column = column.push(Text::new(format!("Anchor {}", anchor)));
                 }
                 _ => (),
@@ -121,16 +121,13 @@ impl ContextualPanel {
                 .unwrap()
                 .toggle_helices_persistance_of_grid(g_id);
         }
-        self.info_values[n] = s.into();
     }
 
     pub fn set_small_sphere<R: Requests>(&mut self, b: bool, requests: Arc<Mutex<R>>) {
-        self.info_values[1] = if b { "true".into() } else { "false".into() };
         requests.lock().unwrap().set_small_sphere(b);
     }
 
     pub fn scaffold_id_set<R: Requests>(&mut self, n: usize, b: bool, requests: Arc<Mutex<R>>) {
-        self.info_values[1] = if b { "true".into() } else { "false".into() };
         if b {
             requests.lock().unwrap().set_scaffold_id(Some(n))
         } else {
@@ -138,17 +135,15 @@ impl ContextualPanel {
         }
     }
 
-    pub fn update_selection(&mut self, selection: Selection, info_values: Vec<String>) {
-        self.selection = selection;
-        self.info_values = info_values.into_iter().map(|s| s.into()).collect();
+    pub fn state_updated(&mut self) {
         self.force_help = false;
         self.show_tutorial = false;
     }
 }
 
-fn add_grid_content<'a, S: AppState>(
+fn add_grid_content<'a, S: AppState, I: std::ops::Deref<Target = str>>(
     mut column: Column<'a, Message<S>>,
-    info_values: &[Cow<'static, str>],
+    info_values: &[I],
     ui_size: UiSize,
 ) -> Column<'a, Message<S>> {
     column = column.push(
@@ -170,19 +165,20 @@ fn add_grid_content<'a, S: AppState>(
     column
 }
 
-fn add_strand_content<'a, S: AppState>(
+fn add_strand_content<'a, S: AppState, I: std::ops::Deref<Target = str>>(
     mut column: Column<'a, Message<S>>,
-    info_values: &[Cow<'static, str>],
+    info_values: &[I],
     ui_size: UiSize,
 ) -> Column<'a, Message<S>> {
     let s_id = info_values[2].parse::<usize>().unwrap();
-    column = column.push(Text::new(format!("length {}", info_values[0])).size(ui_size.main_text()));
+    column = column
+        .push(Text::new(format!("length {}", info_values[0].deref())).size(ui_size.main_text()));
     column = column.push(Checkbox::new(
         info_values[1].parse().unwrap(),
         "Scaffold",
         move |b| Message::ScaffoldIdSet(s_id, b),
     ));
-    column = column.push(Text::new(info_values[3].clone()).size(ui_size.main_text()));
+    column = column.push(Text::new(info_values[3].deref()).size(ui_size.main_text()));
     column
 }
 
@@ -371,4 +367,40 @@ fn link_row<'a, S: AppState>(
                 .push(text_btn(button_state, "Go", ui_size).on_press(Message::OpenLink(link)))
                 .width(Length::FillPortion(1)),
         )
+}
+
+fn values_of_selection(selection: &Selection, reader: &dyn DesignReader) -> Vec<String> {
+    match selection {
+        Selection::Grid(_, g_id) => {
+            let b1 = reader.grid_has_persistent_phantom(*g_id);
+            let b2 = reader.grid_has_small_spheres(*g_id);
+            let mut ret: Vec<String> = vec![b1, b2]
+                .iter()
+                .map(|b| {
+                    if *b {
+                        "true".to_string()
+                    } else {
+                        "false".to_string()
+                    }
+                })
+                .collect();
+            if let Some(f) = reader.get_grid_shift(*g_id) {
+                ret.push(f.to_string());
+            }
+            ret
+        }
+        Selection::Strand(_, s_id) => vec![
+            format!(
+                "{:?}",
+                reader.get_strand_length(*s_id as usize).unwrap_or(0)
+            ),
+            format!("{:?}", reader.is_id_of_scaffold(*s_id as usize)),
+            s_id.to_string(),
+            reader.length_decomposition(*s_id as usize),
+        ],
+        Selection::Nucleotide(_, nucl) => {
+            vec![format!("{}", reader.nucl_is_anchor(*nucl))]
+        }
+        _ => Vec::new(),
+    }
 }

@@ -1,0 +1,54 @@
+/*
+ENSnano, a 3d graphical application for DNA nanostructures.
+    Copyright (C) 2021  Nicolas Levy <nicolaspierrelevy@gmail.com> and Nicolas Schabanel <nicolas.schabanel@ens-lyon.fr>
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <https://www.gnu.org/licenses/>.
+*/
+
+use super::*;
+use crate::gui::DesignReader as ReaderGui;
+
+impl ReaderGui for DesignReader {
+    fn grid_has_small_spheres(&self, g_id: usize) -> bool {
+        self.presenter.content.grid_has_small_spheres(g_id)
+    }
+
+    fn grid_has_persistent_phantom(&self, g_id: usize) -> bool {
+        self.presenter.content.grid_has_persistent_phantom(g_id)
+    }
+
+    fn get_grid_shift(&self, g_id: usize) -> Option<f32> {
+        self.presenter.content.get_grid_shift(g_id)
+    }
+
+    fn get_strand_length(&self, s_id: usize) -> Option<usize> {
+        self.presenter
+            .current_design
+            .strands
+            .get(&s_id)
+            .map(|s| s.length())
+    }
+
+    fn is_id_of_scaffold(&self, s_id: usize) -> bool {
+        self.presenter.current_design.scaffold_id == Some(s_id)
+    }
+
+    fn nucl_is_anchor(&self, nucl: Nucl) -> bool {
+        self.presenter.current_design.anchors.contains(&nucl)
+    }
+
+    fn length_decomposition(&self, s_id: usize) -> String {
+        self.presenter.decompose_length(s_id)
+    }
+}

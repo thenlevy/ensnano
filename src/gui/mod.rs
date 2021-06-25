@@ -40,11 +40,11 @@ use crate::scene::FogParameters;
 use ensnano_design::{
     elements::{DnaAttribute, DnaElement, DnaElementKey},
     grid::GridTypeDescr,
-    Parameters,
+    Nucl, Parameters,
 };
 use ensnano_interactor::{
     graphics::{Background3D, DrawArea, ElementType, RenderingMode, SplitMode},
-    SimulationState, WidgetBasis,
+    Selection, SimulationState, WidgetBasis,
 };
 use ensnano_interactor::{operation::Operation, ScaffoldInfo};
 use ensnano_interactor::{ActionMode, HyperboloidRequest, SelectionMode, SimulationRequest};
@@ -875,6 +875,18 @@ pub trait AppState: Default + PartialEq + Clone + 'static + Send + std::fmt::Deb
     fn get_dna_parameters(&self) -> Parameters;
     fn is_building_hyperboloid(&self) -> bool;
     fn get_scaffold_info(&self) -> Option<ScaffoldInfo>;
-    fn get_selection(&self) -> Vec<DnaElementKey>;
+    fn get_selection(&self) -> &[Selection];
+    fn get_selection_as_dnaelement(&self) -> Vec<DnaElementKey>;
     fn can_make_grid(&self) -> bool;
+    fn get_reader(&self) -> Box<dyn DesignReader>;
+}
+
+pub trait DesignReader: 'static {
+    fn grid_has_persistent_phantom(&self, g_id: usize) -> bool;
+    fn grid_has_small_spheres(&self, g_id: usize) -> bool;
+    fn get_grid_shift(&self, g_id: usize) -> Option<f32>;
+    fn get_strand_length(&self, s_id: usize) -> Option<usize>;
+    fn is_id_of_scaffold(&self, s_id: usize) -> bool;
+    fn length_decomposition(&self, s_id: usize) -> String;
+    fn nucl_is_anchor(&self, nucl: Nucl) -> bool;
 }

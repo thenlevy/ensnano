@@ -148,7 +148,6 @@ pub enum Message<S> {
     NewDnaElement(Vec<DnaElement>),
     NewSelection(Vec<DnaElementKey>),
     OrganizerMessage(OrganizerMessage<DnaElement>),
-    Selection(Selection, Vec<String>),
     ModifiersChanged(ModifiersState),
     NewTreeApp(OrganizerTree<DnaElementKey>),
     UiSizeChanged(UiSize),
@@ -527,7 +526,7 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
             }
             Message::MakeGrids => self.requests.lock().unwrap().make_grid_from_selection(),
             Message::RollTargeted(b) => {
-                let selection = self.application_state.get_selection();
+                let selection = self.application_state.get_selection_as_dnaelement();
                 if b {
                     if let Some(simulation_request) = self.edition_tab.get_roll_request(&selection)
                     {
@@ -629,9 +628,6 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
                 self.contextual_panel
                     .scaffold_id_set(n, b, self.requests.clone());
             }
-            Message::Selection(selection, info_values) => self
-                .contextual_panel
-                .update_selection(selection, info_values),
             Message::SelectScaffold => self.requests.lock().unwrap().set_scaffold_from_selection(),
             Message::RenderingMode(mode) => {
                 self.requests
@@ -661,6 +657,7 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
             }
             Message::NewApplicationState(state) => {
                 self.application_state = state;
+                self.contextual_panel.state_updated();
             }
             Message::Nothing => (),
         };
@@ -708,7 +705,9 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
             .width(Length::Units(width))
             .height(Length::Fill);
         let camera_shortcut = self.camera_shortcut.view(self.ui_size.clone(), width);
-        let contextual_menu = self.contextual_panel.view(self.ui_size.clone());
+        let contextual_menu = self
+            .contextual_panel
+            .view(self.ui_size.clone(), &self.application_state);
         let organizer = self.organizer.view().map(|m| Message::OrganizerMessage(m));
 
         Container::new(

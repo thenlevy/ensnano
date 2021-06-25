@@ -27,6 +27,7 @@ mod design_content;
 mod impl_main_reader;
 mod impl_reader2d;
 mod impl_reader3d;
+mod impl_readergui;
 use design_content::DesignContent;
 use std::collections::BTreeMap;
 
@@ -125,6 +126,22 @@ impl Presenter {
             Referential::World => self.model_matrix.transform_point3(position),
             Referential::Model => position,
         }
+    }
+
+    /// Return a string describing the decomposition of the length of the strand `s_id` into the
+    /// sum of the length of its domains
+    pub fn decompose_length(&self, s_id: usize) -> String {
+        let mut ret = String::new();
+        if let Some(strand) = self.current_design.strands.get(&s_id) {
+            ret.push_str(&strand.length().to_string());
+            let mut first = true;
+            for d in strand.domains.iter() {
+                let sign = if first { '=' } else { '+' };
+                ret.push_str(&format!(" {} {}", sign, d.length()));
+                first = false;
+            }
+        }
+        ret
     }
 }
 

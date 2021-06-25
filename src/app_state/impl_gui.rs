@@ -42,7 +42,11 @@ impl GuiState for AppState {
         self.0.design.get_dna_parameters()
     }
 
-    fn get_selection(&self) -> Vec<DnaElementKey> {
+    fn get_selection(&self) -> &[Selection] {
+        self.0.selection.as_ref()
+    }
+
+    fn get_selection_as_dnaelement(&self) -> Vec<DnaElementKey> {
         self.0
             .selection
             .iter()
@@ -60,6 +64,10 @@ impl GuiState for AppState {
 
     fn can_make_grid(&self) -> bool {
         false
+    }
+
+    fn get_reader(&self) -> Box<dyn crate::gui::DesignReader> {
+        Box::new(self.get_design_reader())
     }
 }
 
