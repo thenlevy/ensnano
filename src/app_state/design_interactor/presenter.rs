@@ -28,6 +28,7 @@ mod impl_main_reader;
 mod impl_reader2d;
 mod impl_reader3d;
 mod impl_readergui;
+mod oxdna;
 use design_content::DesignContent;
 use std::collections::BTreeMap;
 

@@ -172,6 +172,7 @@ pub(crate) trait MainState: ScaffoldSetter {
     fn redo(&mut self);
     fn get_staple_downloader(&self) -> Box<dyn StaplesDownloader>;
     fn toggle_split_mode(&mut self, mode: SplitMode);
+    fn oxdna_export(&mut self, path: &PathBuf) -> std::io::Result<(PathBuf, PathBuf)>;
 }
 
 pub struct LoadDesignError(String);

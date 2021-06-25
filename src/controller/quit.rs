@@ -272,3 +272,60 @@ impl State for Save {
         }
     }
 }
+
+pub(super) struct OxDnaExport {
+    file_getter: Option<PathInput>,
+    on_success: Box<dyn State>,
+    on_error: Box<dyn State>,
+}
+
+impl OxDnaExport {
+    pub(super) fn new(on_success: Box<dyn State>, on_error: Box<dyn State>) -> Self {
+        Self {
+            file_getter: None,
+            on_success,
+            on_error,
+        }
+    }
+}
+
+impl State for OxDnaExport {
+    fn make_progress(mut self: Box<Self>, main_state: &mut dyn MainState) -> Box<dyn State> {
+        if let Some(ref getter) = self.file_getter {
+            if let Some(path_opt) = getter.get() {
+                if let Some(ref path) = path_opt {
+                    match main_state.oxdna_export(path) {
+                        Err(err) => TransitionMessage::new(
+                            format!("Failed to save: {:?}", err),
+                            rfd::MessageLevel::Error,
+                            self.on_error,
+                        ),
+                        Ok((config, topo)) => TransitionMessage::new(
+                            format!(
+                                "Successfully exported to\n
+                            {}\n
+                            {}",
+                                config.to_string_lossy(),
+                                topo.to_string_lossy()
+                            ),
+                            rfd::MessageLevel::Info,
+                            self.on_success,
+                        ),
+                    }
+                } else {
+                    TransitionMessage::new(
+                        "Error, did not recieve any file".to_string(),
+                        rfd::MessageLevel::Error,
+                        self.on_error,
+                    )
+                }
+            } else {
+                self
+            }
+        } else {
+            let getter = dialog::get_dir();
+            self.file_getter = Some(getter);
+            self
+        }
+    }
+}

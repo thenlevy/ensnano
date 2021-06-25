@@ -110,6 +110,24 @@ pub fn save(target_extension: &'static str) -> PathInput {
     PathInput(rcv)
 }
 
+pub fn get_dir() -> PathInput {
+    let dialog = rfd::AsyncFileDialog::new().pick_folder();
+    let (snd, rcv) = mpsc::channel();
+    thread::spawn(move || {
+        let save_op = async move {
+            let file = dialog.await;
+            if let Some(handle) = file {
+                let path_buf: std::path::PathBuf = handle.path().clone().into();
+                snd.send(Some(path_buf));
+            } else {
+                snd.send(None);
+            }
+        };
+        futures::executor::block_on(save_op);
+    });
+    PathInput(rcv)
+}
+
 pub fn load() -> PathInput {
     let dialog = rfd::AsyncFileDialog::new().pick_file();
     let (snd, rcv) = mpsc::channel();

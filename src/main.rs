@@ -928,6 +928,10 @@ impl<'a> MainStateInteface for MainStateView<'a> {
         self.main_state.clear_app_state(Default::default())
     }
 
+    fn oxdna_export(&mut self, path: &PathBuf) -> std::io::Result<(PathBuf, PathBuf)> {
+        self.main_state.app_state.oxdna_export(path)
+    }
+
     fn load_design(&mut self, path: PathBuf) -> Result<(), LoadDesignError> {
         if let Ok(state) = AppState::import_design(&path) {
             self.main_state.clear_app_state(state);

@@ -139,6 +139,10 @@ impl DesignReader {
         f.write_all(json_content.as_bytes())?;
         Ok(())
     }
+
+    pub fn oxdna_export(&self, target_dir: &PathBuf) -> std::io::Result<(PathBuf, PathBuf)> {
+        self.presenter.oxdna_export(target_dir)
+    }
 }
 
 #[cfg(test)]

@@ -155,6 +155,10 @@ impl AppState {
     pub fn get_design_reader(&self) -> DesignReader {
         self.0.design.get_design_reader()
     }
+
+    pub fn oxdna_export(&self, target_dir: &PathBuf) -> std::io::Result<(PathBuf, PathBuf)> {
+        self.get_design_reader().oxdna_export(target_dir)
+    }
 }
 
 #[derive(Clone, PartialEq, Eq, Default)]

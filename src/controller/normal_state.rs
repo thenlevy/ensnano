@@ -37,6 +37,7 @@ impl State for NormalState {
                     main_state.toggle_split_mode(mode);
                     self
                 }
+                Action::OxDnaExport => oxdna_export(),
                 Action::LoadDesign(Some(path)) => Box::new(Load::known_path(path)),
                 Action::LoadDesign(None) => Box::new(Load::default()),
                 Action::ErrorMsg(msg) => {
@@ -70,6 +71,16 @@ fn save_as() -> Box<dyn State> {
         Box::new(NormalState),
     );
     Box::new(Save::new(on_success, on_error))
+}
+
+fn oxdna_export() -> Box<dyn State> {
+    let on_success = Box::new(NormalState);
+    let on_error = TransitionMessage::new(
+        "Export failed".into(),
+        rfd::MessageLevel::Error,
+        Box::new(NormalState),
+    );
+    Box::new(OxDnaExport::new(on_success, on_error))
 }
 
 use ensnano_design::{

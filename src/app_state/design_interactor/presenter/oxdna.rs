@@ -15,11 +15,13 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
-use super::{Data, Nucl, Parameters};
-use ensnano_design::{Domain, Helix};
+use super::*;
+use ensnano_design::{Domain, Helix, Nucl, Parameters};
 use std::io::Write;
 use std::path::Path;
 use ultraviolet::Vec3;
+
+const BACKBONE_TO_CM: f32 = 0.34;
 
 struct OxDnaNucl {
     position: Vec3,
@@ -107,19 +109,20 @@ trait OxDnaHelix {
 
 impl OxDnaHelix for Helix {
     fn ox_dna_nucl(&self, nucl_idx: isize, forward: bool, parameters: &Parameters) -> OxDnaNucl {
-        let position = self.space_pos(parameters, nucl_idx, forward);
-        let backbone_base = {
-            let center = self.axis_position(parameters, nucl_idx);
-            (center - position).normalized()
+        let backbone_position = self.space_pos(parameters, nucl_idx, forward);
+        let a1 = {
+            let other_base = self.space_pos(parameters, nucl_idx, !forward);
+            (other_base - backbone_position).normalized()
         };
         let normal = if forward {
             (self.axis_position(parameters, 1) - self.axis_position(parameters, 0)).normalized()
         } else {
             -(self.axis_position(parameters, 1) - self.axis_position(parameters, 0)).normalized()
         };
+        let cm_position = backbone_position + a1 * BACKBONE_TO_CM;
         OxDnaNucl {
-            position,
-            backbone_base,
+            position: cm_position,
+            backbone_base: a1,
             normal,
             velocity: Vec3::zero(),
             angular_velocity: Vec3::zero(),
@@ -127,23 +130,23 @@ impl OxDnaHelix for Helix {
     }
 }
 
-impl Data {
+impl Presenter {
     fn to_oxdna(&self) -> (OxDnaConfig, OxDnaTopology) {
         let mut nucl_id = 0isize;
         let mut boundaries = [0f32, 0f32, 0f32];
         let mut bounds = Vec::new();
         let mut nucls = Vec::new();
-        let mut basis_map = self.basis_map.read().unwrap().clone();
+        let mut basis_map = (*self.content.basis_map.clone()).clone();
         let mut nb_strand = 0;
-        let parameters = self.design.parameters.unwrap_or_default();
-        for (strand_id, s) in self.design.strands.values().enumerate() {
+        let parameters = self.current_design.parameters.unwrap_or_default();
+        for (strand_id, s) in self.current_design.strands.values().enumerate() {
             nb_strand = strand_id + 1;
             let mut prev_nucl: Option<isize> = None;
             let first_strand_nucl = nucl_id;
             for d in s.domains.iter() {
                 if let Domain::HelixDomain(dom) = d {
                     for position in dom.iter() {
-                        let ox_nucl = self.design.helices[&dom.helix].ox_dna_nucl(
+                        let ox_nucl = self.current_design.helices[&dom.helix].ox_dna_nucl(
                             position,
                             dom.forward,
                             &parameters,
@@ -198,20 +201,15 @@ impl Data {
         (config, topo)
     }
 
-    #[must_use]
-    pub fn oxdna_export(&self) -> Result<(), OxDnaExportError> {
-        let mut config_name = self.file_name.clone();
-        config_name.set_extension("oxdna");
-        let mut topology_name = self.file_name.clone();
-        topology_name.set_extension("top");
+    pub fn oxdna_export(&self, directory: &PathBuf) -> std::io::Result<(PathBuf, PathBuf)> {
+        let mut config_name = directory.clone();
+        config_name.push("export.oxdna");
+        let mut topology_name = directory.clone();
+        topology_name.push("export.top");
         let (config, topo) = self.to_oxdna();
-        if let Err(err) = config.write(config_name.clone()) {
-            return Err(OxDnaExportError::CouldNotWriteConfig(err));
-        }
-        if let Err(err) = topo.write(topology_name.clone()) {
-            return Err(OxDnaExportError::CouldNotWriteTopoly(err));
-        }
-        Ok(())
+        config.write(config_name.clone())?;
+        topo.write(topology_name.clone())?;
+        Ok((config_name, topology_name))
         /*
         if success {
             crate::utils::message(
@@ -242,9 +240,4 @@ fn compl(c: char) -> char {
         'T' => 'A',
         _ => 'G',
     }
-}
-
-pub enum OxDnaExportError {
-    CouldNotWriteTopoly(std::io::Error),
-    CouldNotWriteConfig(std::io::Error),
 }
