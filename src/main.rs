@@ -125,7 +125,7 @@ mod dialog;
 use dialog::*;
 
 use flatscene::FlatScene;
-use gui::{ColorOverlay, Gui, IcedMessages, OverlayType};
+use gui::{ColorOverlay, Gui, IcedMessages, OverlayType, UiSize};
 use multiplexer::{Multiplexer, Overlay};
 use scene::Scene;
 
@@ -328,6 +328,7 @@ fn main() {
             gui: &mut gui,
             scheduler: &mut scheduler,
             window: &window,
+            resized: false,
         };
 
         match event {
@@ -422,9 +423,11 @@ fn main() {
                     gui: &mut gui,
                     scheduler: &mut scheduler,
                     window: &window,
+                    resized: false,
                 };
 
                 controller.make_progress(&mut main_state_view);
+                resized |= main_state_view.resized;
 
                 for update in main_state.chanel_reader.get_updates() {
                     if let ChanelReaderUpdate::ScaffoldShiftOptimizationProgress(x) = update {
@@ -912,6 +915,7 @@ struct MainStateView<'a> {
     scheduler: &'a mut Scheduler,
     gui: &'a mut Gui<Requests, AppState>,
     window: &'a Window,
+    resized: bool,
 }
 
 use controller::{LoadDesignError, MainState as MainStateInteface, StaplesDownloader};
@@ -971,6 +975,20 @@ impl<'a> MainStateInteface for MainStateView<'a> {
         self.scheduler
             .forward_new_size(self.window.inner_size(), self.multiplexer);
         self.gui.resize(self.multiplexer, self.window);
+    }
+
+    fn change_ui_size(&mut self, ui_size: UiSize) {
+        self.gui
+            .new_ui_size(ui_size.clone(), self.window, self.multiplexer);
+        self.multiplexer
+            .change_ui_size(ui_size.clone(), self.window);
+        self.main_state
+            .messages
+            .lock()
+            .unwrap()
+            .new_ui_size(ui_size);
+        self.resized = true;
+        //messages.lock().unwrap().new_ui_size(ui_size);
     }
 }
 

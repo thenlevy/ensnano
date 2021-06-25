@@ -38,6 +38,14 @@ impl State for NormalState {
                     self
                 }
                 Action::OxDnaExport => oxdna_export(),
+                Action::CloseOverlay(_) | Action::OpenOverlay(_) => {
+                    println!("unexpected action");
+                    self
+                }
+                Action::ChangeUiSize(size) => {
+                    main_state.change_ui_size(size);
+                    self
+                }
                 Action::LoadDesign(Some(path)) => Box::new(Load::known_path(path)),
                 Action::LoadDesign(None) => Box::new(Load::default()),
                 Action::ErrorMsg(msg) => {
