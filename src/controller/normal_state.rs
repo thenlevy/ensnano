@@ -46,8 +46,10 @@ impl State for NormalState {
                     main_state.change_ui_size(size);
                     self
                 }
-                Action::LoadDesign(Some(path)) => Box::new(Load::known_path(path)),
-                Action::LoadDesign(None) => Box::new(Load::default()),
+                Action::InvertScrollY(inverted) => {
+                    main_state.invert_scroll_y(inverted);
+                    self
+                }
                 Action::ErrorMsg(msg) => {
                     TransitionMessage::new(msg, rfd::MessageLevel::Error, Box::new(NormalState))
                 }
@@ -63,6 +65,12 @@ impl State for NormalState {
                     main_state.redo();
                     self
                 }
+                Action::NotifyApps(notificiation) => {
+                    main_state.notify_apps(notificiation);
+                    self
+                }
+                Action::LoadDesign(Some(path)) => Box::new(Load::known_path(path)),
+                Action::LoadDesign(None) => Box::new(Load::default()),
                 _ => todo!(),
             }
         } else {

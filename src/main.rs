@@ -62,7 +62,7 @@ use std::time::{Duration, Instant};
 pub type PhySize = iced_winit::winit::dpi::PhysicalSize<u32>;
 
 use controller::{ChanelReader, ChanelReaderUpdate};
-use ensnano_interactor::application::Application;
+use ensnano_interactor::application::{Application, Notification};
 use ensnano_interactor::DesignOperation;
 use iced_native::Event as IcedEvent;
 use iced_wgpu::{wgpu, Backend, Renderer, Settings, Viewport};
@@ -989,6 +989,16 @@ impl<'a> MainStateInteface for MainStateView<'a> {
             .new_ui_size(ui_size);
         self.resized = true;
         //messages.lock().unwrap().new_ui_size(ui_size);
+    }
+
+    fn invert_scroll_y(&mut self, inverted: bool) {
+        self.multiplexer.invert_y_scroll = inverted;
+    }
+
+    fn notify_apps(&mut self, notificiation: Notification) {
+        for app in self.main_state.applications.values_mut() {
+            app.lock().unwrap().on_notify(notificiation.clone())
+        }
     }
 }
 

@@ -22,7 +22,7 @@ mod download_staples;
 use download_staples::*;
 pub use download_staples::{DownloadStappleError, DownloadStappleOk, StaplesDownloader};
 mod quit;
-use ensnano_interactor::DesignOperation;
+use ensnano_interactor::{application::Notification, DesignOperation};
 use quit::*;
 mod set_scaffold_sequence;
 use set_scaffold_sequence::*;
@@ -174,6 +174,8 @@ pub(crate) trait MainState: ScaffoldSetter {
     fn toggle_split_mode(&mut self, mode: SplitMode);
     fn oxdna_export(&mut self, path: &PathBuf) -> std::io::Result<(PathBuf, PathBuf)>;
     fn change_ui_size(&mut self, ui_size: UiSize);
+    fn invert_scroll_y(&mut self, inverted: bool);
+    fn notify_apps(&mut self, notificiation: Notification);
 }
 
 pub struct LoadDesignError(String);
