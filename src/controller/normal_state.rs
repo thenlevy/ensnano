@@ -25,13 +25,20 @@ impl State for NormalState {
     fn make_progress(self: Box<Self>, main_state: &mut dyn MainState) -> Box<dyn State> {
         if let Some(action) = main_state.pop_action() {
             match action {
-                Action::NewDesign => todo!(),
+                Action::NewDesign => {
+                    main_state.new_design();
+                    self
+                }
+                Action::SaveAs => save_as(),
+                Action::DownloadStaplesRequest => Box::new(DownloadStaples::default()),
+                Action::SetScaffoldSequence => Box::new(SetScaffoldSequence::default()),
+                Action::Exit => Box::new(Quit::default()),
+                Action::ToggleSplit(mode) => {
+                    main_state.toggle_split_mode(mode);
+                    self
+                }
                 Action::LoadDesign(Some(path)) => Box::new(Load::known_path(path)),
                 Action::LoadDesign(None) => Box::new(Load::default()),
-                Action::SaveAs => save_as(),
-                Action::SetScaffoldSequence => Box::new(SetScaffoldSequence::default()),
-                Action::DownloadStaplesRequest => Box::new(DownloadStaples::default()),
-                Action::Exit => Box::new(Quit::default()),
                 Action::ErrorMsg(msg) => {
                     TransitionMessage::new(msg, rfd::MessageLevel::Error, Box::new(NormalState))
                 }

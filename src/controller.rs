@@ -171,6 +171,7 @@ pub(crate) trait MainState: ScaffoldSetter {
     fn undo(&mut self);
     fn redo(&mut self);
     fn get_staple_downloader(&self) -> Box<dyn StaplesDownloader>;
+    fn toggle_split_mode(&mut self, mode: SplitMode);
 }
 
 pub struct LoadDesignError(String);

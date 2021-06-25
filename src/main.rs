@@ -53,7 +53,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 //!
 //!  In the case of a GUI component, consequences are transmitted to the [main](main) function that
 //!  will consequently send the appropriate request to the [Mediator](mediator).
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
 use std::env;
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -62,6 +62,7 @@ use std::time::{Duration, Instant};
 pub type PhySize = iced_winit::winit::dpi::PhysicalSize<u32>;
 
 use controller::{ChanelReader, ChanelReaderUpdate};
+use ensnano_interactor::application::Application;
 use ensnano_interactor::DesignOperation;
 use iced_native::Event as IcedEvent;
 use iced_wgpu::{wgpu, Backend, Renderer, Settings, Viewport};
@@ -124,7 +125,7 @@ mod dialog;
 use dialog::*;
 
 use flatscene::FlatScene;
-use gui::{ColorOverlay, IcedMessages, OverlayType};
+use gui::{ColorOverlay, Gui, IcedMessages, OverlayType};
 use multiplexer::{Multiplexer, Overlay};
 use scene::Scene;
 
@@ -243,7 +244,7 @@ fn main() {
     let requests = Arc::new(Mutex::new(Requests::default()));
     let messages = Arc::new(Mutex::new(IcedMessages::new()));
     let computing = Arc::new(Mutex::new(false));
-    let scheduler = Arc::new(Mutex::new(Scheduler::new()));
+    let mut scheduler = Scheduler::new();
 
     // Initialize the layout
     let mut multiplexer = Multiplexer::new(
@@ -268,10 +269,7 @@ fn main() {
         Default::default(),
     )));
     queue.submit(Some(encoder.finish()));
-    scheduler
-        .lock()
-        .unwrap()
-        .add_application(scene.clone(), ElementType::Scene);
+    scheduler.add_application(scene.clone(), ElementType::Scene);
 
     let flat_scene = Arc::new(Mutex::new(FlatScene::new(
         device.clone(),
@@ -281,10 +279,7 @@ fn main() {
         requests.clone(),
         Default::default(),
     )));
-    scheduler
-        .lock()
-        .unwrap()
-        .add_application(flat_scene.clone(), ElementType::FlatScene);
+    scheduler.add_application(flat_scene.clone(), ElementType::FlatScene);
 
     // Initialize the UI
 
@@ -308,6 +303,12 @@ fn main() {
     };
 
     let mut main_state = MainState::new(main_state_constructor);
+    main_state
+        .applications
+        .insert(ElementType::Scene, scene.clone());
+    main_state
+        .applications
+        .insert(ElementType::FlatScene, flat_scene.clone());
 
     // Add a design to the scene if one was given as a command line arguement
     if path.is_some() {
@@ -323,6 +324,10 @@ fn main() {
         let main_state_view = MainStateView {
             main_state: &mut main_state,
             control_flow,
+            multiplexer: &mut multiplexer,
+            gui: &mut gui,
+            scheduler: &mut scheduler,
+            window: &window,
         };
 
         match event {
@@ -395,12 +400,7 @@ fn main() {
                             area if area.is_scene() => {
                                 let cursor_position = multiplexer.get_cursor_position();
                                 let state = main_state.get_app_state();
-                                scheduler.lock().unwrap().forward_event(
-                                    &event,
-                                    area,
-                                    cursor_position,
-                                    state,
-                                )
+                                scheduler.forward_event(&event, area, cursor_position, state)
                             }
                             _ => unreachable!(),
                         }
@@ -418,6 +418,10 @@ fn main() {
                 let mut main_state_view = MainStateView {
                     main_state: &mut main_state,
                     control_flow,
+                    multiplexer: &mut multiplexer,
+                    gui: &mut gui,
+                    scheduler: &mut scheduler,
+                    window: &window,
                 };
 
                 controller.make_progress(&mut main_state_view);
@@ -456,11 +460,7 @@ fn main() {
 
                 let now = std::time::Instant::now();
                 let dt = now - last_render_time;
-                redraw |= scheduler.lock().unwrap().check_redraw(
-                    &multiplexer,
-                    dt,
-                    main_state.get_app_state(),
-                );
+                redraw |= scheduler.check_redraw(&multiplexer, dt, main_state.get_app_state());
                 last_render_time = now;
 
                 if redraw {
@@ -472,10 +472,7 @@ fn main() {
             {
                 if resized {
                     multiplexer.generate_textures();
-                    scheduler
-                        .lock()
-                        .unwrap()
-                        .forward_new_size(window.inner_size(), &multiplexer);
+                    scheduler.forward_new_size(window.inner_size(), &multiplexer);
                     let window_size = window.inner_size();
 
                     swap_chain = device.create_swap_chain(
@@ -495,10 +492,7 @@ fn main() {
                     multiplexer.generate_textures();
                     gui.notify_scale_factor_change(&window, &multiplexer);
                     println!("lolz");
-                    scheduler
-                        .lock()
-                        .unwrap()
-                        .forward_new_size(window.inner_size(), &multiplexer);
+                    scheduler.forward_new_size(window.inner_size(), &multiplexer);
                     let window_size = window.inner_size();
 
                     swap_chain = device.create_swap_chain(
@@ -536,10 +530,7 @@ fn main() {
                     // We draw the applications first
                     let now = std::time::Instant::now();
                     let dt = now - last_render_time;
-                    scheduler
-                        .lock()
-                        .unwrap()
-                        .draw_apps(&mut encoder, &multiplexer, dt);
+                    scheduler.draw_apps(&mut encoder, &multiplexer, dt);
 
                     gui.render(
                         &mut encoder,
@@ -768,53 +759,6 @@ fn formated_path_end(path: &PathBuf) -> String {
     ret.join("/")
 }
 
-/*
-fn download_stapples<R: DerefMut<Target = Requests>, M: Deref<Target = Mediator>>(
-    mut requests: R,
-    mediator: M,
-) {
-    use mediator::{DownloadStappleError, DownloadStappleOk};
-    let result = mediator.download_stapples();
-    match result {
-        Ok(DownloadStappleOk {
-            design_id,
-            warnings,
-        }) => {
-            for warn in warnings {
-                requests
-                    .keep_proceed
-                    .push_back(Action::Warning(warn.dialog()))
-            }
-            requests
-                .keep_proceed
-                .push_back(Action::AskStaplesPath { d_id: design_id })
-        }
-        Err(DownloadStappleError::NoScaffoldSet) => {
-            message(
-                "No scaffold set. \n
-                    Chose a strand and set it as the scaffold by checking the scaffold checkbox\
-                    in the status bar"
-                    .into(),
-                rfd::MessageLevel::Error,
-            );
-        }
-        Err(DownloadStappleError::ScaffoldSequenceNotSet) => {
-            message(
-                "No sequence uploaded for scaffold. \n
-                Upload a sequence for the scaffold by pressing the \"Load scaffold\" button"
-                    .into(),
-                rfd::MessageLevel::Error,
-            );
-        }
-        Err(DownloadStappleError::SeveralDesignNoneSelected) => {
-            message(
-                "No design selected, select a design by selecting one of its elements".into(),
-                rfd::MessageLevel::Error,
-            );
-        }
-    }
-}*/
-
 /// The state of the main event loop.
 pub(crate) struct MainState {
     app_state: AppState,
@@ -823,6 +767,7 @@ pub(crate) struct MainState {
     redo_stack: Vec<AppState>,
     chanel_reader: ChanelReader,
     messages: Arc<Mutex<IcedMessages<AppState>>>,
+    applications: HashMap<ElementType, Arc<Mutex<dyn Application<AppState = AppState>>>>,
 }
 
 struct MainStateConstructor {
@@ -839,6 +784,7 @@ impl MainState {
             redo_stack: Vec::new(),
             chanel_reader: Default::default(),
             messages: constructor.messages,
+            applications: Default::default(),
         }
     }
 
@@ -962,6 +908,10 @@ impl MainState {
 struct MainStateView<'a> {
     main_state: &'a mut MainState,
     control_flow: &'a mut ControlFlow,
+    multiplexer: &'a mut Multiplexer,
+    scheduler: &'a mut Scheduler,
+    gui: &'a mut Gui<Requests, AppState>,
+    window: &'a Window,
 }
 
 use controller::{LoadDesignError, MainState as MainStateInteface, StaplesDownloader};
@@ -1010,6 +960,13 @@ impl<'a> MainStateInteface for MainStateView<'a> {
     fn save_design(&mut self, path: &PathBuf) -> Result<(), SaveDesignError> {
         self.main_state.save_design(path)?;
         Ok(())
+    }
+
+    fn toggle_split_mode(&mut self, mode: SplitMode) {
+        self.multiplexer.change_split(mode);
+        self.scheduler
+            .forward_new_size(self.window.inner_size(), self.multiplexer);
+        self.gui.resize(self.multiplexer, self.window);
     }
 }
 
