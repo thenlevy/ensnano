@@ -152,7 +152,6 @@ pub struct Organizer<E: OrganizerElement> {
     width: iced::Length,
     edditing: Option<NodeId>,
     modifiers: Modifiers,
-    selection: BTreeSet<E::Key>,
     selected_nodes: BTreeSet<NodeId>,
     dragging: BTreeSet<Identifier<E::Key>>,
     new_group_button: button::State,
@@ -179,7 +178,6 @@ impl<E: OrganizerElement> Organizer<E> {
             width: iced::Length::Units(300),
             edditing: None,
             modifiers: Modifiers::default(),
-            selection: BTreeSet::new(),
             selected_nodes: BTreeSet::new(),
             dragging: BTreeSet::new(),
             new_group_button: Default::default(),
@@ -199,7 +197,7 @@ impl<E: OrganizerElement> Organizer<E> {
         self.width = iced::Length::Units(width);
     }
 
-    pub fn view(&mut self) -> Element<OrganizerMessage<E>> {
+    pub fn view(&mut self, selection: BTreeSet<E::Key>) -> Element<OrganizerMessage<E>> {
         self.update_attributes();
         self.hovered_in = None;
         let mut ret = Scrollable::new(&mut self.scroll_state)
@@ -211,7 +209,7 @@ impl<E: OrganizerElement> Organizer<E> {
                     c.view(
                         &self.theme,
                         &self.sections,
-                        &self.selection,
+                        &selection,
                         &self.selected_nodes,
                     )
                     .width(iced::Length::FillPortion(8)),
@@ -221,13 +219,13 @@ impl<E: OrganizerElement> Organizer<E> {
         for s in self.sections.iter_mut() {
             ret = ret.push(
                 Row::new().push(tabulation()).push(
-                    s.view(&self.theme, &self.selection)
+                    s.view(&self.theme, &selection)
                         .width(iced::Length::FillPortion(8)),
                 ),
             )
         }
         let mut new_group_button = Button::new(&mut self.new_group_button, Text::new("New Group"));
-        if !self.selection.is_empty() {
+        if !selection.is_empty() {
             new_group_button = new_group_button.on_press(OrganizerMessage::new_group());
         }
         let new_group_tooltip = Tooltip::new(
@@ -247,15 +245,19 @@ impl<E: OrganizerElement> Organizer<E> {
         self.start_edditing(id);
     }
 
-    pub fn message(&mut self, message: &InternalMessage<E>) -> Option<OrganizerMessage<E>> {
+    pub fn message(
+        &mut self,
+        message: &InternalMessage<E>,
+        selection: &BTreeSet<E::Key>,
+    ) -> Option<OrganizerMessage<E>> {
         println!("{:?}", message);
         match &message.0 {
             OrganizerMessage_::Expand { id, expanded } => self.expand(id, *expanded),
             OrganizerMessage_::NodeSelected { id } => {
                 let add = self.modifiers.is_command_pressed() || self.modifiers.shift;
-                self.select_node(id, add);
+                let new_selection = self.select_node(id, add, selection.clone());
                 return Some(OrganizerMessage::Selection(
-                    self.selection.iter().cloned().collect(),
+                    new_selection.into_iter().collect(),
                 ));
             }
             OrganizerMessage_::Eddit { id } => self.start_edditing(id.clone()),
@@ -265,18 +267,20 @@ impl<E: OrganizerElement> Organizer<E> {
                 return Some(OrganizerMessage::NewTree(self.tree()));
             }
             OrganizerMessage_::ElementSelected { key } => {
-                if self.modifiers.is_command_pressed() || self.modifiers.shift {
-                    self.add_selection(key, true)
+                let new_selection = if self.modifiers.is_command_pressed() || self.modifiers.shift {
+                    let mut new_selection = selection.clone();
+                    Self::add_selection(&mut new_selection, key, true);
+                    new_selection
                 } else {
                     self.selected_nodes = BTreeSet::new();
-                    self.set_selection(key)
-                }
+                    self.set_selection(key, selection.clone())
+                };
                 return Some(OrganizerMessage::Selection(
-                    self.selection.iter().cloned().collect(),
+                    new_selection.into_iter().collect(),
                 ));
             }
             OrganizerMessage_::NewGroup => {
-                self.push_content(self.selection.iter().cloned().collect(), String::from(""));
+                self.push_content(selection.iter().cloned().collect(), String::from(""));
                 return Some(OrganizerMessage::NewTree(self.tree()));
             }
             OrganizerMessage_::Delete { id } => {
@@ -323,46 +327,51 @@ impl<E: OrganizerElement> Organizer<E> {
         }
     }
 
-    pub fn notify_selection(&mut self, keys: Vec<E::Key>) {
-        self.selection = keys.into_iter().collect();
+    pub fn notify_selection(&mut self) {
         self.selected_nodes = BTreeSet::new();
     }
 
-    fn add_selection(&mut self, key: &E::Key, may_remove: bool) {
-        if self.selection.contains(key) {
+    fn add_selection(selection: &mut BTreeSet<E::Key>, key: &E::Key, may_remove: bool) {
+        if selection.contains(key) {
             if may_remove {
-                self.selection.remove(key);
+                selection.remove(key);
             }
         } else {
-            self.selection.insert(key.clone());
+            selection.insert(key.clone());
         }
     }
 
-    fn select_node(&mut self, id: &NodeId, add: bool) {
+    fn select_node(
+        &mut self,
+        id: &NodeId,
+        add: bool,
+        mut current_selection: BTreeSet<E::Key>,
+    ) -> BTreeSet<E::Key> {
         if add {
             if self.selected_nodes.contains(id) {
                 let keys: BTreeSet<E::Key> = self.get_keys_below(id).into_iter().collect();
                 for key in keys.iter() {
-                    self.selection.remove(key);
+                    current_selection.remove(key);
                 }
                 self.selected_nodes.remove(id);
             } else {
                 let keys: BTreeSet<E::Key> = self.get_keys_below(id).into_iter().collect();
                 for key in keys.iter() {
-                    self.add_selection(key, false);
+                    Self::add_selection(&mut current_selection, key, false);
                 }
                 self.selected_nodes.insert(id.clone());
             }
         } else {
             if self.selected_nodes.len() == 1 && self.selected_nodes.contains(id) {
                 self.selected_nodes = BTreeSet::new();
-                self.selection = BTreeSet::new();
+                current_selection = BTreeSet::new();
             } else {
                 self.selected_nodes = BTreeSet::new();
                 self.selected_nodes.insert(id.clone());
-                self.selection = self.get_keys_below(id).iter().cloned().collect();
+                current_selection = self.get_keys_below(id).iter().cloned().collect();
             }
         }
+        current_selection
     }
 
     fn get_keys_below(&self, id: &NodeId) -> Vec<E::Key> {
@@ -398,13 +407,18 @@ impl<E: OrganizerElement> Organizer<E> {
         }
     }
 
-    fn set_selection(&mut self, key: &E::Key) {
-        if self.selection.len() == 1 && self.selection.contains(key) {
-            self.selection.clear();
+    fn set_selection(
+        &mut self,
+        key: &E::Key,
+        mut current_selection: BTreeSet<E::Key>,
+    ) -> BTreeSet<E::Key> {
+        if current_selection.len() == 1 && current_selection.contains(key) {
+            current_selection.clear();
         } else {
-            self.selection.clear();
-            self.selection.insert(key.clone());
-        }
+            current_selection.clear();
+            current_selection.insert(key.clone());
+        };
+        current_selection
     }
 
     fn start_edditing(&mut self, id: NodeId) {
@@ -611,15 +625,15 @@ impl<E: OrganizerElement> Organizer<E> {
         self.recompute_id();
     }
 
-    pub fn update_elements(&mut self, elements: Vec<E>) {
+    pub fn update_elements(&mut self, elements: &[E]) {
         for s in self.sections.iter_mut() {
             s.elements.clear();
             s.content.clear();
         }
-        for e in elements.into_iter() {
+        for e in elements.iter() {
             let key = e.key();
             let section_id: usize = key.section().into();
-            self.sections[section_id].add_element(e);
+            self.sections[section_id].add_element(e.clone());
         }
     }
 

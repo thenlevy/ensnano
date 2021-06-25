@@ -69,6 +69,14 @@ impl GuiState for AppState {
     fn get_reader(&self) -> Box<dyn crate::gui::DesignReader> {
         Box::new(self.get_design_reader())
     }
+
+    fn design_was_modified(&self, other: &Self) -> bool {
+        self.0.design.has_different_design_than(&other.0.design)
+    }
+
+    fn selection_was_updated(&self, other: &Self) -> bool {
+        self.0.selection != other.0.selection
+    }
 }
 
 #[cfg(test)]

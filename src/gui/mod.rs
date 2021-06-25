@@ -813,11 +813,6 @@ impl<S: AppState> IcedMessages<S> {
             .push_back(left_panel::Message::HelixRoll(roll))
     }
 
-    pub fn push_dna_elements(&mut self, elements: Vec<DnaElement>) {
-        self.left_panel
-            .push_back(left_panel::Message::NewDnaElement(elements))
-    }
-
     pub fn update_modifiers(&mut self, modifiers: ModifiersState) {
         self.left_panel
             .push_back(left_panel::Message::ModifiersChanged(modifiers))
@@ -879,6 +874,8 @@ pub trait AppState: Default + PartialEq + Clone + 'static + Send + std::fmt::Deb
     fn get_selection_as_dnaelement(&self) -> Vec<DnaElementKey>;
     fn can_make_grid(&self) -> bool;
     fn get_reader(&self) -> Box<dyn DesignReader>;
+    fn design_was_modified(&self, other: &Self) -> bool;
+    fn selection_was_updated(&self, other: &Self) -> bool;
 }
 
 pub trait DesignReader: 'static {
@@ -889,4 +886,5 @@ pub trait DesignReader: 'static {
     fn is_id_of_scaffold(&self, s_id: usize) -> bool;
     fn length_decomposition(&self, s_id: usize) -> String;
     fn nucl_is_anchor(&self, nucl: Nucl) -> bool;
+    fn get_dna_elements(&self) -> &[DnaElement];
 }

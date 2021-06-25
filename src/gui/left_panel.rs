@@ -37,7 +37,7 @@ use color_space::{Hsv, Rgb};
 use ensnano_design::elements::{DnaElement, DnaElementKey};
 use ensnano_interactor::{
     graphics::{Background3D, RenderingMode},
-    ActionMode, ScaffoldInfo, Selection, SelectionMode,
+    ActionMode, ScaffoldInfo, Selection, SelectionConversion, SelectionMode,
 };
 
 use super::{
@@ -145,8 +145,6 @@ pub enum Message<S> {
     RigidHelicesSimulation(bool),
     VolumeExclusion(bool),
     TabSelected(usize),
-    NewDnaElement(Vec<DnaElement>),
-    NewSelection(Vec<DnaElementKey>),
     OrganizerMessage(OrganizerMessage<DnaElement>),
     ModifiersChanged(ModifiersState),
     NewTreeApp(OrganizerTree<DnaElementKey>),
@@ -227,10 +225,16 @@ impl<R: Requests, S: AppState> LeftPanel<R, S> {
     fn organizer_message(&mut self, m: OrganizerMessage<DnaElement>) -> Option<Message<S>> {
         match m {
             OrganizerMessage::InternalMessage(m) => {
+                let selection = self
+                    .application_state
+                    .get_selection()
+                    .iter()
+                    .filter_map(|s| DnaElementKey::from_selection(s, 0))
+                    .collect();
                 return self
                     .organizer
-                    .message(&m)
-                    .map(|m_| Message::OrganizerMessage(m_))
+                    .message(&m, &selection)
+                    .map(|m_| Message::OrganizerMessage(m_));
             }
             OrganizerMessage::Selection(s) => self.requests.lock().unwrap().set_selected_keys(s),
             OrganizerMessage::NewAttribute(a, keys) => {
@@ -568,7 +572,6 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
                 }
                 self.selected_tab = n;
             }
-            Message::NewDnaElement(elements) => self.organizer.update_elements(elements),
             Message::OrganizerMessage(m) => {
                 let next_message = self.organizer_message(m);
                 if let Some(message) = next_message {
@@ -578,9 +581,6 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
             Message::ModifiersChanged(modifiers) => self
                 .organizer
                 .new_modifiers(iced_winit::conversion::modifiers(modifiers)),
-            Message::NewSelection(keys) => {
-                self.organizer.notify_selection(keys);
-            }
             Message::NewTreeApp(tree) => self.organizer.read_tree(tree),
             Message::UiSizePicked(ui_size) => self.requests.lock().unwrap().set_ui_size(ui_size),
             Message::UiSizeChanged(ui_size) => self.ui_size = ui_size,
@@ -656,6 +656,13 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
                 let _ = open::that(link);
             }
             Message::NewApplicationState(state) => {
+                if state.design_was_modified(&self.application_state) {
+                    let reader = state.get_reader();
+                    self.organizer.update_elements(reader.get_dna_elements());
+                }
+                if state.selection_was_updated(&self.application_state) {
+                    self.organizer.notify_selection();
+                }
                 self.application_state = state;
                 self.contextual_panel.state_updated();
             }
@@ -708,7 +715,16 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
         let contextual_menu = self
             .contextual_panel
             .view(self.ui_size.clone(), &self.application_state);
-        let organizer = self.organizer.view().map(|m| Message::OrganizerMessage(m));
+        let selection = self
+            .application_state
+            .get_selection()
+            .iter()
+            .filter_map(|e| DnaElementKey::from_selection(e, 0))
+            .collect();
+        let organizer = self
+            .organizer
+            .view(selection)
+            .map(|m| Message::OrganizerMessage(m));
 
         Container::new(
             Column::new()
