@@ -42,11 +42,11 @@ use ensnano_design::{
     grid::GridTypeDescr,
     Parameters,
 };
-use ensnano_interactor::operation::Operation;
 use ensnano_interactor::{
     graphics::{Background3D, DrawArea, ElementType, RenderingMode, SplitMode},
     SimulationState, WidgetBasis,
 };
+use ensnano_interactor::{operation::Operation, ScaffoldInfo};
 use ensnano_interactor::{ActionMode, HyperboloidRequest, SelectionMode, SimulationRequest};
 pub use ensnano_organizer::OrganizerTree;
 use iced_native::Event;
@@ -776,11 +776,6 @@ impl<S: AppState> IcedMessages<S> {
         }
     }
 
-    pub fn push_scaffold_info(&mut self, info: Option<ensnano_interactor::ScaffoldInfo>) {
-        self.left_panel
-            .push_back(left_panel::Message::NewScaffoldInfo(info));
-    }
-
     pub fn push_color(&mut self, color: u32) {
         let bytes = color.to_be_bytes();
         // bytes is [A, R, G, B]
@@ -840,11 +835,6 @@ impl<S: AppState> IcedMessages<S> {
             .push_back(top_bar::Message::UiSizeChanged(ui_size.clone()));
     }
 
-    pub fn push_can_make_grid(&mut self, can_make_grid: bool) {
-        self.left_panel
-            .push_back(left_panel::Message::CanMakeGrid(can_make_grid));
-    }
-
     pub fn push_show_tutorial(&mut self) {
         self.left_panel.push_back(left_panel::Message::ShowTutorial);
     }
@@ -883,4 +873,8 @@ pub trait AppState: Default + PartialEq + Clone + 'static + Send + std::fmt::Deb
     fn get_widget_basis(&self) -> WidgetBasis;
     fn get_simulation_state(&self) -> SimulationState;
     fn get_dna_parameters(&self) -> Parameters;
+    fn is_building_hyperboloid(&self) -> bool;
+    fn get_scaffold_info(&self) -> Option<ScaffoldInfo>;
+    fn get_selection(&self) -> Vec<DnaElementKey>;
+    fn can_make_grid(&self) -> bool;
 }

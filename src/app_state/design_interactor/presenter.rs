@@ -18,7 +18,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 
 use super::*;
 use ensnano_design::Nucl;
-use ensnano_interactor::{Extremity, ObjectType};
+use ensnano_interactor::{Extremity, ObjectType, ScaffoldInfo};
 use ultraviolet::Mat4;
 
 use crate::utils::id_generator::IdGenerator;
@@ -225,5 +225,31 @@ impl DesignReader {
             prev_helix = domain.half_helix();
         }
         return Extremity::No;
+    }
+
+    fn get_strand_length(&self, s_id: usize) -> Option<usize> {
+        self.presenter
+            .current_design
+            .strands
+            .get(&s_id)
+            .map(|s| s.length())
+    }
+
+    pub fn get_scaffold_info(&self) -> Option<ScaffoldInfo> {
+        let id = self.presenter.current_design.scaffold_id?;
+        let length = self.get_strand_length(id)?;
+        let shift = self.presenter.current_design.scaffold_shift;
+        let starting_nucl = self
+            .presenter
+            .current_design
+            .strands
+            .get(&id)
+            .and_then(|s| s.get_nth_nucl(shift.unwrap_or(0)));
+        Some(ScaffoldInfo {
+            id,
+            shift,
+            length,
+            starting_nucl,
+        })
     }
 }

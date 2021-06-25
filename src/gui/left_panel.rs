@@ -165,11 +165,10 @@ pub enum Message<S> {
     BrownianMotion(bool),
     Nothing,
     CancelHyperboloid,
-    CanMakeGrid(bool),
     SelectionValueChanged(usize, String),
     SetSmallSpheres(bool),
     ScaffoldIdSet(usize, bool),
-    NewScaffoldInfo(Option<ScaffoldInfo>),
+    //NewScaffoldInfo(Option<ScaffoldInfo>),
     SelectScaffold,
     ForceHelp,
     ShowTutorial,
@@ -394,9 +393,6 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
             }
             Message::NewDesign => {
                 self.show_torsion = false;
-                self.camera_tab.notify_new_design();
-                self.edition_tab.notify_new_design();
-                self.grid_tab.notify_new_design();
                 self.organizer.reset();
             }
             Message::SimRequest => {
@@ -508,7 +504,6 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
             }
             Message::FinalizeHyperboloid => {
                 self.requests.lock().unwrap().finalize_hyperboloid();
-                self.grid_tab.finalize_hyperboloid();
             }
             Message::RigidGridSimulation(_) => {
                 let mut request: Option<RigidBodyParametersRequest> = None;
@@ -532,8 +527,10 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
             }
             Message::MakeGrids => self.requests.lock().unwrap().make_grid_from_selection(),
             Message::RollTargeted(b) => {
+                let selection = self.application_state.get_selection();
                 if b {
-                    if let Some(simulation_request) = self.edition_tab.get_roll_request() {
+                    if let Some(simulation_request) = self.edition_tab.get_roll_request(&selection)
+                    {
                         self.requests
                             .lock()
                             .unwrap()
@@ -554,9 +551,8 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
                     }
                 }
                 if n != 0 {
-                    if self.grid_tab.is_building_hyperboloid() {
+                    if self.application_state.is_building_hyperboloid() {
                         self.requests.lock().unwrap().finalize_hyperboloid();
-                        self.grid_tab.finalize_hyperboloid();
                     }
                 }
                 if n == 0 {
@@ -584,12 +580,7 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
                 .organizer
                 .new_modifiers(iced_winit::conversion::modifiers(modifiers)),
             Message::NewSelection(keys) => {
-                self.edition_tab.update_selection(&keys);
-                self.sequence_tab.update_selection(&keys);
                 self.organizer.notify_selection(keys);
-            }
-            Message::CanMakeGrid(b) => {
-                self.grid_tab.can_make_grid = b;
             }
             Message::NewTreeApp(tree) => self.organizer.read_tree(tree),
             Message::UiSizePicked(ui_size) => self.requests.lock().unwrap().set_ui_size(ui_size),
@@ -624,7 +615,6 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
                 self.parameters_tab.invert_y_scroll = b;
             }
             Message::CancelHyperboloid => {
-                self.grid_tab.finalize_hyperboloid();
                 self.requests.lock().unwrap().cancel_hyperboloid();
             }
             Message::SelectionValueChanged(n, s) => {
@@ -642,7 +632,6 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
             Message::Selection(selection, info_values) => self
                 .contextual_panel
                 .update_selection(selection, info_values),
-            Message::NewScaffoldInfo(info) => self.sequence_tab.set_scaffold_info(info),
             Message::SelectScaffold => self.requests.lock().unwrap().set_scaffold_from_selection(),
             Message::RenderingMode(mode) => {
                 self.requests
@@ -702,7 +691,8 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
             )
             .push(
                 TabLabel::Icon(ICON_ATGC),
-                self.sequence_tab.view(self.ui_size.clone()),
+                self.sequence_tab
+                    .view(self.ui_size.clone(), &self.application_state),
             )
             .push(
                 TabLabel::Text(format!("{}", icon_to_char(MaterialIcon::Settings))),

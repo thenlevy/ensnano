@@ -18,8 +18,8 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 
 use super::*;
 use crate::gui::AppState as GuiState;
-use ensnano_design::Parameters;
-use ensnano_interactor::SimulationState;
+use ensnano_design::{elements::DnaElementKey, Parameters};
+use ensnano_interactor::{ScaffoldInfo, SelectionConversion, SimulationState};
 
 impl GuiState for AppState {
     fn get_selection_mode(&self) -> SelectionMode {
@@ -40,5 +40,40 @@ impl GuiState for AppState {
 
     fn get_dna_parameters(&self) -> Parameters {
         self.0.design.get_dna_parameters()
+    }
+
+    fn get_selection(&self) -> Vec<DnaElementKey> {
+        self.0
+            .selection
+            .iter()
+            .filter_map(|s| DnaElementKey::from_selection(s, 0))
+            .collect()
+    }
+
+    fn is_building_hyperboloid(&self) -> bool {
+        false
+    }
+
+    fn get_scaffold_info(&self) -> Option<ScaffoldInfo> {
+        self.get_design_reader().get_scaffold_info()
+    }
+
+    fn can_make_grid(&self) -> bool {
+        false
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn is_building_hyperboloid_implemented() {
+        todo!()
+    }
+
+    #[test]
+    fn can_make_grid_implemented() {
+        todo!()
     }
 }

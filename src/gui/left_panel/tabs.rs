@@ -30,7 +30,6 @@ pub(super) struct EditionTab<S: AppState> {
     redim_helices_button: button::State,
     redim_all_helices_button: button::State,
     roll_target_btn: GoStop<S>,
-    roll_target_helices: Vec<usize>,
 }
 
 impl<S: AppState> EditionTab<S> {
@@ -48,7 +47,6 @@ impl<S: AppState> EditionTab<S> {
                 "Autoroll selected helices".to_owned(),
                 Message::RollTargeted,
             ),
-            roll_target_helices: vec![],
         }
     }
 
@@ -69,6 +67,8 @@ impl<S: AppState> EditionTab<S> {
             SelectionMode::Strand,
             SelectionMode::Helix,
         ];
+        let selection = app_state.get_selection();
+        let roll_target_helices = self.get_roll_target_helices(&selection);
 
         let mut selection_buttons: Vec<Button<'a, Message<S>>> = self
             .selection_mode_state
@@ -134,14 +134,14 @@ impl<S: AppState> EditionTab<S> {
 
         for view in self
             .helix_roll_factory
-            .view(self.roll_target_helices.len() == 1)
+            .view(roll_target_helices.len() == 1)
             .into_iter()
         {
             ret = ret.push(view);
         }
 
         let sim_state = &app_state.get_simulation_state();
-        let roll_target_active = sim_state.is_rolling() || self.roll_target_helices.len() > 0;
+        let roll_target_active = sim_state.is_rolling() || roll_target_helices.len() > 0;
         ret = ret.push(
             self.roll_target_btn
                 .view(roll_target_active, sim_state.is_rolling()),
@@ -161,7 +161,7 @@ impl<S: AppState> EditionTab<S> {
 
         let mut tighten_helices_button =
             text_btn(&mut self.redim_helices_button, "Selected", ui_size.clone());
-        if !self.roll_target_helices.is_empty() {
+        if !roll_target_helices.is_empty() {
             tighten_helices_button =
                 tighten_helices_button.on_press(Message::Redim2dHelices(false));
         }
@@ -179,13 +179,14 @@ impl<S: AppState> EditionTab<S> {
         Scrollable::new(&mut self.scroll).push(ret).into()
     }
 
-    pub(super) fn update_selection(&mut self, selection: &[DnaElementKey]) {
-        self.roll_target_helices.clear();
+    fn get_roll_target_helices(&self, selection: &[DnaElementKey]) -> Vec<usize> {
+        let mut ret = vec![];
         for s in selection.iter() {
             if let DnaElementKey::Helix(h) = s {
-                self.roll_target_helices.push(*h)
+                ret.push(*h)
             }
         }
+        ret
     }
 
     pub(super) fn update_roll(&mut self, roll: f32) {
@@ -202,16 +203,16 @@ impl<S: AppState> EditionTab<S> {
             .update_request(value_id, value, request);
     }
 
-    pub(super) fn notify_new_design(&mut self) {
-        self.roll_target_helices = vec![];
-    }
-
-    pub(super) fn get_roll_request(&mut self) -> Option<SimulationRequest> {
-        if self.roll_target_helices.len() > 0 {
+    pub(super) fn get_roll_request(
+        &mut self,
+        selection: &[DnaElementKey],
+    ) -> Option<SimulationRequest> {
+        let roll_target_helices = self.get_roll_target_helices(selection);
+        if roll_target_helices.len() > 0 {
             Some(SimulationRequest {
                 roll: true,
                 springs: false,
-                target_helices: Some(self.roll_target_helices.clone()),
+                target_helices: Some(roll_target_helices.clone()),
             })
         } else {
             None
@@ -247,7 +248,6 @@ pub(super) struct GridTab {
     pos_str: String,
     length_str: String,
     builder_input: [text_input::State; 2],
-    building_hyperboloid: bool,
     finalize_hyperboloid_btn: button::State,
     make_square_grid_btn: button::State,
     make_honeycomb_grid_btn: button::State,
@@ -255,7 +255,6 @@ pub(super) struct GridTab {
     start_hyperboloid_btn: button::State,
     show_strand_menu: bool,
     make_grid_btn: button::State,
-    pub(super) can_make_grid: bool,
 }
 
 impl GridTab {
@@ -273,11 +272,9 @@ impl GridTab {
             make_honeycomb_grid_btn: Default::default(),
             hyperboloid_factory: RequestFactory::new(FactoryId::Hyperboloid, Hyperboloid_ {}),
             finalize_hyperboloid_btn: Default::default(),
-            building_hyperboloid: false,
             start_hyperboloid_btn: Default::default(),
             show_strand_menu: false,
             make_grid_btn: Default::default(),
-            can_make_grid: false,
         }
     }
 
@@ -375,7 +372,7 @@ impl GridTab {
         let nanotube_title = Row::new().push(Text::new("New nanotube"));
 
         ret = ret.push(nanotube_title);
-        let start_hyperboloid_btn = if !self.building_hyperboloid {
+        let start_hyperboloid_btn = if !app_state.is_building_hyperboloid() {
             icon_btn(
                 &mut self.start_hyperboloid_btn,
                 ICON_NANOTUBE,
@@ -394,7 +391,7 @@ impl GridTab {
         )
         .on_press(Message::CancelHyperboloid);
 
-        if self.building_hyperboloid {
+        if app_state.is_building_hyperboloid() {
             ret = ret.push(
                 Row::new()
                     .spacing(3)
@@ -407,7 +404,7 @@ impl GridTab {
 
         for view in self
             .hyperboloid_factory
-            .view(self.building_hyperboloid)
+            .view(app_state.is_building_hyperboloid())
             .into_iter()
         {
             ret = ret.push(view);
@@ -448,7 +445,7 @@ impl GridTab {
             Button::new(&mut self.make_grid_btn, iced::Text::new("From Selection"))
                 .height(Length::Units(ui_size.button()));
 
-        if self.can_make_grid {
+        if app_state.can_make_grid() {
             button_make_grid = button_make_grid.on_press(Message::MakeGrids);
         }
 
@@ -489,15 +486,6 @@ impl GridTab {
     pub fn new_hyperboloid(&mut self, requests: &mut Option<HyperboloidRequest>) {
         self.hyperboloid_factory = RequestFactory::new(FactoryId::Hyperboloid, Hyperboloid_ {});
         self.hyperboloid_factory.make_request(requests);
-        self.building_hyperboloid = true;
-    }
-
-    pub fn finalize_hyperboloid(&mut self) {
-        self.building_hyperboloid = false;
-    }
-
-    pub fn is_building_hyperboloid(&self) -> bool {
-        self.building_hyperboloid
     }
 
     pub fn update_hyperboloid_request(
@@ -521,10 +509,6 @@ impl GridTab {
 
     pub fn set_show_strand(&mut self, show: bool) {
         self.show_strand_menu = show;
-    }
-
-    pub(super) fn notify_new_design(&mut self) {
-        self.can_make_grid = false;
     }
 }
 
@@ -775,10 +759,6 @@ impl CameraTab {
 
     pub(super) fn get_fog_request(&self) -> Fog {
         self.fog.request()
-    }
-
-    pub(super) fn notify_new_design(&mut self) {
-        self.fog = Default::default();
     }
 }
 
@@ -1186,11 +1166,9 @@ pub struct SequenceTab {
     toggle_text_value: bool,
     scaffold_position_str: String,
     scaffold_position: usize,
-    pub scaffold_info: Option<ScaffoldInfo>,
     scaffold_input: text_input::State,
     button_selection_from_scaffold: button::State,
     button_selection_to_scaffold: button::State,
-    candidate_scaffold_id: Option<usize>,
     button_show_sequence: button::State,
 }
 
@@ -1203,19 +1181,26 @@ impl SequenceTab {
             toggle_text_value: false,
             scaffold_position_str: "0".to_string(),
             scaffold_position: 0,
-            scaffold_info: None,
             scaffold_input: Default::default(),
             button_selection_from_scaffold: Default::default(),
             button_selection_to_scaffold: Default::default(),
-            candidate_scaffold_id: None,
             button_show_sequence: Default::default(),
         }
     }
 
-    pub(super) fn view<'a, S: AppState>(&'a mut self, ui_size: UiSize) -> Element<'a, Message<S>> {
+    pub(super) fn view<'a, S: AppState>(
+        &'a mut self,
+        ui_size: UiSize,
+        app_state: &'a S,
+    ) -> Element<'a, Message<S>> {
         let mut ret = Column::new();
         ret = ret.push(Text::new("Sequences").size(ui_size.head_text()));
         ret = ret.push(iced::Space::with_height(Length::Units(3)));
+        if !self.scaffold_input.is_focused() {
+            if let Some(n) = app_state.get_scaffold_info().and_then(|info| info.shift) {
+                self.update_pos_str(n.to_string());
+            }
+        }
         let button_show_sequence = if self.toggle_text_value {
             text_btn(
                 &mut self.button_show_sequence,
@@ -1241,7 +1226,7 @@ impl SequenceTab {
                 "Length: {} nt"
             };
         }
-        let (scaffold_text, length_text) = if let Some(info) = self.scaffold_info.as_ref() {
+        let (scaffold_text, length_text) = if let Some(info) = app_state.get_scaffold_info() {
             (
                 format!("Strand #{}", info.id),
                 format!(scaffold_length_fmt!(), info.length),
@@ -1253,7 +1238,7 @@ impl SequenceTab {
             )
         };
         let mut length_text = Text::new(length_text);
-        if self.scaffold_info.is_none() {
+        if app_state.get_scaffold_info().is_none() {
             length_text = length_text.color(innactive_color())
         }
         ret = ret.push(Text::new(scaffold_text).size(ui_size.main_text()));
@@ -1268,11 +1253,12 @@ impl SequenceTab {
             "To selection",
             ui_size.clone(),
         );
-        if self.scaffold_info.is_some() {
+        if app_state.get_scaffold_info().is_some() {
             button_selection_from_scaffold =
                 button_selection_from_scaffold.on_press(Message::SelectScaffold);
         }
-        if let Some(n) = self.candidate_scaffold_id {
+        let selection = app_state.get_selection();
+        if let Some(n) = Self::get_candidate_scaffold(&selection) {
             button_selection_to_scaffold =
                 button_selection_to_scaffold.on_press(Message::ScaffoldIdSet(n, true));
         }
@@ -1309,8 +1295,8 @@ impl SequenceTab {
         ret = ret.push(button_scaffold);
         ret = ret.push(iced::Space::with_height(Length::Units(3)));
         ret = ret.push(scaffold_row);
-        let starting_nucl = self
-            .scaffold_info
+        let starting_nucl = app_state
+            .get_scaffold_info()
             .as_ref()
             .and_then(|info| info.starting_nucl);
         macro_rules! nucl_text_fmt {
@@ -1373,22 +1359,16 @@ impl SequenceTab {
         self.scaffold_input.is_focused()
     }
 
-    pub(super) fn update_selection(&mut self, selection: &[DnaElementKey]) {
-        self.candidate_scaffold_id = None;
+    fn get_candidate_scaffold(selection: &[DnaElementKey]) -> Option<usize> {
         if selection.len() == 1 {
             if let DnaElementKey::Strand(n) = selection[0] {
-                self.candidate_scaffold_id = Some(n);
+                Some(n)
+            } else {
+                None
             }
+        } else {
+            None
         }
-    }
-
-    pub(super) fn set_scaffold_info(&mut self, info: Option<ScaffoldInfo>) {
-        if !self.scaffold_input.is_focused() {
-            if let Some(n) = info.as_ref().and_then(|info| info.shift) {
-                self.update_pos_str(n.to_string());
-            }
-        }
-        self.scaffold_info = info;
     }
 }
 
