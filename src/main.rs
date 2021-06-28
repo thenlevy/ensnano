@@ -378,6 +378,10 @@ fn main() {
 
                     if let Some((event, area)) = event {
                         // pass the event to the area on which it happenened
+                        if main_state.focussed_element != Some(area) {
+                            main_state.focussed_element = Some(area);
+                            main_state.update_candidates(vec![]);
+                        }
                         match area {
                             area if area.is_gui() => {
                                 let event = iced_winit::conversion::window_event(
@@ -772,6 +776,7 @@ pub(crate) struct MainState {
     chanel_reader: ChanelReader,
     messages: Arc<Mutex<IcedMessages<AppState>>>,
     applications: HashMap<ElementType, Arc<Mutex<dyn Application<AppState = AppState>>>>,
+    focussed_element: Option<ElementType>,
 }
 
 struct MainStateConstructor {
@@ -789,6 +794,7 @@ impl MainState {
             chanel_reader: Default::default(),
             messages: constructor.messages,
             applications: Default::default(),
+            focussed_element: None,
         }
     }
 
