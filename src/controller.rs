@@ -161,6 +161,7 @@ impl State for YesNo {
     }
 }
 
+use ultraviolet::{Rotor3, Vec3};
 pub(crate) trait MainState: ScaffoldSetter {
     fn pop_action(&mut self) -> Option<Action>;
     fn exit_control_flow(&mut self);
@@ -179,6 +180,7 @@ pub(crate) trait MainState: ScaffoldSetter {
     fn notify_apps(&mut self, notificiation: Notification);
     fn get_selection(&mut self) -> Box<dyn AsRef<[Selection]>>;
     fn get_design_reader(&mut self) -> Box<dyn DesignReader>;
+    fn get_grid_creation_position(&self) -> Option<(Vec3, Rotor3)>;
 }
 
 pub struct LoadDesignError(String);

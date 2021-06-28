@@ -22,6 +22,7 @@ use ensnano_design::Nucl;
 use iced_wgpu::wgpu;
 use iced_winit::winit;
 use std::time::Duration;
+use ultraviolet::{Rotor3, Vec3};
 use winit::{
     dpi::{PhysicalPosition, PhysicalSize},
     event::{ModifiersState, WindowEvent},
@@ -48,9 +49,10 @@ pub trait Application {
         dt: Duration,
     );
     fn needs_redraw(&mut self, dt: Duration, app_state: Self::AppState) -> bool;
+    fn get_position_for_new_grid(&self) -> Option<(Vec3, Rotor3)> {
+        None
+    }
 }
-
-use ultraviolet::Vec3;
 
 #[derive(Clone, Debug)]
 /// A notification that must be send to the application

@@ -70,6 +70,7 @@ impl State for NormalState {
                     self
                 }
                 Action::TurnSelectionIntoGrid => self.turn_selection_into_grid(main_state),
+                Action::AddGrid(descr) => self.add_grid(main_state, descr),
                 Action::LoadDesign(Some(path)) => Box::new(Load::known_path(path)),
                 Action::LoadDesign(None) => Box::new(Load::default()),
                 _ => todo!(),
@@ -89,6 +90,23 @@ impl NormalState {
         ) {
             let selection = selection.as_ref().as_ref().iter().cloned().collect();
             main_state.apply_operation(DesignOperation::HelicesToGrid(selection));
+        }
+        self
+    }
+
+    fn add_grid(
+        self: Box<Self>,
+        main_state: &mut dyn MainState,
+        descr: GridTypeDescr,
+    ) -> Box<Self> {
+        if let Some((position, orientation)) = main_state.get_grid_creation_position() {
+            main_state.apply_operation(DesignOperation::AddGrid(GridDescriptor {
+                grid_type: descr,
+                position,
+                orientation,
+            }))
+        } else {
+            println!("Could not get position and orientation for new grid");
         }
         self
     }
@@ -116,7 +134,7 @@ fn oxdna_export() -> Box<dyn State> {
 
 use ensnano_design::{
     elements::{DnaAttribute, DnaElementKey},
-    grid::GridTypeDescr,
+    grid::{GridDescriptor, GridTypeDescr},
 };
 use ensnano_interactor::{
     application::Notification, DesignOperation, RigidBodyConstants, Selection, SimulationRequest,

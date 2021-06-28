@@ -16,7 +16,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-use ensnano_design::Design;
+use ensnano_design::{grid::GridDescriptor, Design};
 use ensnano_interactor::{DesignOperation, Selection};
 
 use super::grid_data::GridManager;
@@ -44,6 +44,9 @@ impl Controller {
             )),
             DesignOperation::HelicesToGrid(selection) => {
                 self.apply(|c, d| c.turn_selection_into_grid(d, selection), design)
+            }
+            DesignOperation::AddGrid(descriptor) => {
+                Ok(self.ok_apply(|c, d| c.add_grid(d, descriptor), design))
             }
             _ => Err(ErrOperation::NotImplemented),
         }
@@ -85,6 +88,11 @@ impl Controller {
             ensnano_interactor::list_of_helices(&selection).ok_or(ErrOperation::BadSelection)?;
         grid_manager.make_grid_from_helices(&mut design, &helices.1)?;
         Ok(design)
+    }
+
+    fn add_grid(&mut self, mut design: Design, descriptor: GridDescriptor) -> Design {
+        design.grids.push(descriptor);
+        design
     }
 }
 

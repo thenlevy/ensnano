@@ -69,6 +69,7 @@ use iced_wgpu::{wgpu, Backend, Renderer, Settings, Viewport};
 use iced_winit::{conversion, futures, program, winit, Debug, Size};
 
 use futures::task::SpawnExt;
+use ultraviolet::{Rotor3, Vec3};
 use winit::{
     dpi::{PhysicalPosition, PhysicalSize},
     event::{Event, ModifiersState, WindowEvent},
@@ -1007,6 +1008,13 @@ impl<'a> MainStateInteface for MainStateView<'a> {
 
     fn get_design_reader(&mut self) -> Box<dyn DesignReader> {
         Box::new(self.main_state.app_state.get_design_reader())
+    }
+
+    fn get_grid_creation_position(&self) -> Option<(Vec3, Rotor3)> {
+        self.main_state
+            .applications
+            .get(&ElementType::Scene)
+            .and_then(|s| s.lock().unwrap().get_position_for_new_grid())
     }
 }
 

@@ -778,6 +778,14 @@ impl<S: AppState> Application for Scene<S> {
     fn needs_redraw(&mut self, dt: Duration, state: S) -> bool {
         self.need_redraw(dt, state)
     }
+
+    fn get_position_for_new_grid(&self) -> Option<(Vec3, Rotor3)> {
+        let camera = self.view.borrow().get_camera();
+        let position = camera.borrow().position + 10_f32 * camera.borrow().direction();
+        let orientation = camera.borrow().rotor.reversed()
+            * Rotor3::from_rotation_xz(std::f32::consts::FRAC_PI_2);
+        Some((position, orientation))
+    }
 }
 
 impl<S: AppState> Scene<S> {
