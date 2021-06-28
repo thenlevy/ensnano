@@ -159,6 +159,7 @@ pub trait Requests: 'static + Send {
     fn toggle_helices_persistance_of_grid(&mut self, persistant: bool);
     /// make the spheres of the currently selected grid large/small
     fn set_small_sphere(&mut self, small: bool);
+    fn finish_changing_color(&mut self);
 }
 
 #[derive(Clone, Debug, PartialEq)]

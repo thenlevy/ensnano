@@ -35,8 +35,8 @@ use ensnano_design::Design;
 use ensnano_interactor::DesignOperation;
 
 pub use design_interactor::controller::ErrOperation;
-pub use design_interactor::DesignReader;
 use design_interactor::{DesignInteractor, InteractorResult};
+pub use design_interactor::{DesignReader, InteractorNotification};
 
 mod impl_app2d;
 mod impl_app3d;
@@ -150,6 +150,11 @@ impl AppState {
                 Err(e)
             }
         }
+    }
+
+    pub fn notified(&self, notification: InteractorNotification) -> Self {
+        let new_interactor = self.0.design.notify(notification);
+        self.clone().with_interactor(new_interactor)
     }
 
     pub fn get_design_reader(&self) -> DesignReader {

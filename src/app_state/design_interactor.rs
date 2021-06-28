@@ -24,6 +24,7 @@ mod presenter;
 use presenter::{update_presenter, Presenter};
 pub(super) mod controller;
 use controller::Controller;
+pub use controller::InteractorNotification;
 
 pub(super) use controller::ErrOperation;
 use controller::OkOperation;
@@ -75,6 +76,12 @@ impl DesignInteractor {
             }
             Err(e) => Err(e),
         }
+    }
+
+    pub(super) fn notify(&self, notification: InteractorNotification) -> Self {
+        let mut ret = self.clone();
+        ret.controller = AddressPointer::new(ret.controller.notify(notification));
+        ret
     }
 
     pub(super) fn with_updated_design_reader(mut self) -> Self {

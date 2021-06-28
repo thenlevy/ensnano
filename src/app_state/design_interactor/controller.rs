@@ -36,6 +36,9 @@ impl Controller {
         design: &Design,
         operation: DesignOperation,
     ) -> Result<(OkOperation, Self), ErrOperation> {
+        if !self.check_compatibilty(&operation) {
+            return Err(ErrOperation::IncompatibleState);
+        }
         match operation {
             DesignOperation::RecolorStaples => Ok(self.ok_apply(Self::recolor_stapples, design)),
             DesignOperation::SetScaffoldSequence(sequence) => Ok(self.ok_apply(
@@ -48,7 +51,34 @@ impl Controller {
             DesignOperation::AddGrid(descriptor) => {
                 Ok(self.ok_apply(|c, d| c.add_grid(d, descriptor), design))
             }
+            DesignOperation::ChangeColor { color, strands } => {
+                Ok(self.ok_apply(|c, d| c.change_color_strands(d, color, strands), design))
+            }
             _ => Err(ErrOperation::NotImplemented),
+        }
+    }
+
+    pub fn notify(&self, notification: InteractorNotification) -> Self {
+        let mut new_interactor = self.clone();
+        match notification {
+            InteractorNotification::FinishChangingColor => {
+                new_interactor.state = ControllerState::Normal
+            }
+        }
+        new_interactor
+    }
+
+    fn check_compatibilty(&self, operation: &DesignOperation) -> bool {
+        match self.state {
+            ControllerState::Normal => true,
+            ControllerState::ChangingColor => {
+                if let DesignOperation::ChangeColor { .. } = operation {
+                    true
+                } else {
+                    false
+                }
+            }
+            _ => false,
         }
     }
 
@@ -116,8 +146,14 @@ pub enum OkOperation {
 #[derive(Debug)]
 pub enum ErrOperation {
     NotImplemented,
-    NotEnoughHelices { actual: usize, required: usize },
+    NotEnoughHelices {
+        actual: usize,
+        required: usize,
+    },
+    /// The operation cannot be applied on the current selection
     BadSelection,
+    /// The controller is in a state incompatible with applying the operation
+    IncompatibleState,
 }
 
 impl Controller {
@@ -145,6 +181,21 @@ impl Controller {
         design.scaffold_sequence = Some(sequence);
         design
     }
+
+    fn change_color_strands(
+        &mut self,
+        mut design: Design,
+        color: u32,
+        strands: Vec<usize>,
+    ) -> Design {
+        self.state = ControllerState::ChangingColor;
+        for s_id in strands.iter() {
+            if let Some(strand) = design.strands.get_mut(s_id) {
+                strand.color = color;
+            }
+        }
+        design
+    }
 }
 
 #[derive(Clone)]
@@ -152,10 +203,15 @@ enum ControllerState {
     Normal,
     MakingHyperboloid,
     BuildingStrand,
+    ChangingColor,
 }
 
 impl Default for ControllerState {
     fn default() -> Self {
         Self::Normal
     }
+}
+
+pub enum InteractorNotification {
+    FinishChangingColor,
 }

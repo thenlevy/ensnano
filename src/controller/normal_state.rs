@@ -71,6 +71,15 @@ impl State for NormalState {
                 }
                 Action::TurnSelectionIntoGrid => self.turn_selection_into_grid(main_state),
                 Action::AddGrid(descr) => self.add_grid(main_state, descr),
+                Action::ChangeSequence(_) => {
+                    println!("Sequence input is not yet implemented");
+                    self
+                }
+                Action::ChangeColorStrand(color) => self.change_color(main_state, color),
+                Action::FinishChangingColor => {
+                    main_state.finish_changing_color();
+                    self
+                }
                 Action::LoadDesign(Some(path)) => Box::new(Load::known_path(path)),
                 Action::LoadDesign(None) => Box::new(Load::default()),
                 _ => todo!(),
@@ -108,6 +117,14 @@ impl NormalState {
         } else {
             println!("Could not get position and orientation for new grid");
         }
+        self
+    }
+
+    fn change_color(self: Box<Self>, main_state: &mut dyn MainState, color: u32) -> Box<Self> {
+        let strands = ensnano_interactor::extract_strands_from_selection(
+            main_state.get_selection().as_ref().as_ref(),
+        );
+        main_state.apply_operation(DesignOperation::ChangeColor { color, strands });
         self
     }
 }
@@ -166,6 +183,7 @@ pub enum Action {
     ChangeSequence(String),
     /// Change the color of all the selected strands
     ChangeColorStrand(u32),
+    FinishChangingColor,
     ToggleHelicesPersistance(bool),
     ToggleSmallSphere(bool),
     SimulationRequest(SimulationRequest),

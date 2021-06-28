@@ -263,6 +263,10 @@ impl GuiRequests for Requests {
     fn set_small_sphere(&mut self, small: bool) {
         self.small_spheres = Some(small);
     }
+
+    fn finish_changing_color(&mut self) {
+        self.keep_proceed.push_back(Action::FinishChangingColor);
+    }
 }
 
 fn rigid_parameters(parameters: RigidBodyParametersRequest) -> RigidBodyConstants {

@@ -99,6 +99,18 @@ impl Selection {
     }*/
 }
 
+pub fn extract_strands_from_selection(selection: &[Selection]) -> Vec<usize> {
+    selection.iter().filter_map(extract_one_strand).collect()
+}
+
+fn extract_one_strand(selection: &Selection) -> Option<usize> {
+    if let Selection::Strand(_, s_id) = selection {
+        Some(*s_id as usize)
+    } else {
+        None
+    }
+}
+
 pub(super) fn list_of_strands(
     selection: &[Selection],
     designs: &[Arc<RwLock<Design>>],

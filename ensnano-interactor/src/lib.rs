@@ -126,6 +126,11 @@ pub enum DesignOperation {
         sequence: String,
         strands: Vec<usize>,
     },
+    /// Change the color of a set of strands
+    ChangeColor {
+        color: u32,
+        strands: Vec<usize>,
+    },
     /// Set the strand with a given id as the scaffold
     SetScaffoldId(Option<usize>),
     SetScaffoldShift(usize),

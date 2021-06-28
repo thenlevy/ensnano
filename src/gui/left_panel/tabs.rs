@@ -149,14 +149,12 @@ impl<S: AppState> EditionTab<S> {
 
         let color_square = self.color_picker.color_square();
         if app_state.get_selection_mode() == SelectionMode::Strand {
-            ret = ret
-                .push(self.color_picker.view())
-                .push(
-                    Row::new()
-                        .push(color_square)
-                        .push(iced::Space::new(Length::FillPortion(4), Length::Shrink)),
-                )
-                .push(self.sequence_input.view());
+            ret = ret.push(self.color_picker.view()).push(
+                Row::new()
+                    .push(color_square)
+                    .push(iced::Space::new(Length::FillPortion(4), Length::Shrink)),
+            )
+            //.push(self.sequence_input.view());
         }
 
         let mut tighten_helices_button =

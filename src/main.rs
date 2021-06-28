@@ -1016,6 +1016,13 @@ impl<'a> MainStateInteface for MainStateView<'a> {
             .get(&ElementType::Scene)
             .and_then(|s| s.lock().unwrap().get_position_for_new_grid())
     }
+
+    fn finish_changing_color(&mut self) {
+        self.main_state.modify_state(
+            |s| s.notified(app_state::InteractorNotification::FinishChangingColor),
+            false,
+        )
+    }
 }
 
 use controller::{SetScaffoldSequenceError, SetScaffoldSequenceOk};

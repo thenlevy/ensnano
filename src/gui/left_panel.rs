@@ -119,6 +119,7 @@ pub enum Message<S> {
     SequenceChanged(String),
     SequenceFileRequested,
     StrandColorChanged(Color),
+    FinishChangingColor,
     HueChanged(f32),
     NewGrid(GridTypeDescr),
     FixPoint(Vec3, Vec3),
@@ -666,6 +667,7 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
                 self.application_state = state;
                 self.contextual_panel.state_updated();
             }
+            Message::FinishChangingColor => self.requests.lock().unwrap().finish_changing_color(),
             Message::Nothing => (),
         };
         Command::none()
@@ -789,6 +791,7 @@ pub enum ColorMessage {
     HueChanged(f32),
     #[allow(dead_code)]
     Resized(LogicalSize<f64>),
+    FinishChangingColor,
     Closed,
 }
 
@@ -820,6 +823,9 @@ impl<R: Requests> Program for ColorOverlay<R> {
                     .lock()
                     .unwrap()
                     .close_overlay(OverlayType::Color);
+            }
+            ColorMessage::FinishChangingColor => {
+                self.requests.lock().unwrap().finish_changing_color();
             }
             ColorMessage::Resized(size) => self.resize(size),
         };
