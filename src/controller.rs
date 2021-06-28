@@ -23,6 +23,7 @@ use download_staples::*;
 pub use download_staples::{DownloadStappleError, DownloadStappleOk, StaplesDownloader};
 mod quit;
 use ensnano_interactor::{application::Notification, DesignOperation};
+use ensnano_interactor::{DesignReader, Selection};
 use quit::*;
 mod set_scaffold_sequence;
 use set_scaffold_sequence::*;
@@ -176,6 +177,8 @@ pub(crate) trait MainState: ScaffoldSetter {
     fn change_ui_size(&mut self, ui_size: UiSize);
     fn invert_scroll_y(&mut self, inverted: bool);
     fn notify_apps(&mut self, notificiation: Notification);
+    fn get_selection(&mut self) -> Box<dyn AsRef<[Selection]>>;
+    fn get_design_reader(&mut self) -> Box<dyn DesignReader>;
 }
 
 pub struct LoadDesignError(String);

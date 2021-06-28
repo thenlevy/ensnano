@@ -27,7 +27,6 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::sync::Arc;
 use ultraviolet::Vec3;
 
-mod grid_data;
 use grid_data::GridManager;
 
 #[derive(Default, Clone)]
@@ -57,7 +56,7 @@ pub(super) struct DesignContent {
     pub blue_nucl: Vec<Nucl>,
     pub prime3_set: Vec<Prime3End>,
     pub elements: Vec<DnaElement>,
-    grid_manager: GridManager,
+    pub(super) grid_manager: GridManager,
 }
 
 impl DesignContent {
@@ -510,6 +509,13 @@ impl DesignContent {
             }
             _ => (),
         }
+    }
+
+    pub fn get_shift(&self, g_id: usize) -> Option<f32> {
+        self.grid_manager
+            .grids
+            .get(g_id)
+            .and_then(|g| g.grid_type.get_shift())
     }
 }
 

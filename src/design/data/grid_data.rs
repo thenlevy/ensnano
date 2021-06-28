@@ -189,6 +189,7 @@ impl GridManager {
             return;
         }
         let desc = self.find_grid_for_group(helices, design);
+        design.grids.push(desc);
         match desc.grid_type {
             GridTypeDescr::Square => {
                 let grid: Grid = Grid::new(

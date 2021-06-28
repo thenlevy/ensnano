@@ -17,9 +17,9 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 
 use ensnano_design::Design;
-use ensnano_interactor::DesignOperation;
+use ensnano_interactor::{DesignOperation, Selection};
 
-use super::*;
+use super::grid_data::GridManager;
 
 #[derive(Clone, Default)]
 pub(super) struct Controller {
@@ -42,6 +42,9 @@ impl Controller {
                 |ctrl, design| ctrl.set_scaffold_sequence(design, sequence),
                 design,
             )),
+            DesignOperation::HelicesToGrid(selection) => {
+                self.apply(|c, d| c.turn_selection_into_grid(d, selection), design)
+            }
             _ => Err(ErrOperation::NotImplemented),
         }
     }
@@ -53,6 +56,7 @@ impl Controller {
         }
     }
 
+    /// Apply an opperation that cannot fail on the design
     fn ok_apply<F>(&self, design_op: F, design: &Design) -> (OkOperation, Self)
     where
         F: FnOnce(&mut Self, Design) -> Design,
@@ -60,6 +64,27 @@ impl Controller {
         let mut new_controller = self.clone();
         let returned_design = design_op(&mut new_controller, design.clone());
         (self.return_design(returned_design), new_controller)
+    }
+
+    fn apply<F>(&self, design_op: F, design: &Design) -> Result<(OkOperation, Self), ErrOperation>
+    where
+        F: FnOnce(&mut Self, Design) -> Result<Design, ErrOperation>,
+    {
+        let mut new_controller = self.clone();
+        let returned_design = design_op(&mut new_controller, design.clone())?;
+        Ok((self.return_design(returned_design), new_controller))
+    }
+
+    fn turn_selection_into_grid(
+        &mut self,
+        mut design: Design,
+        selection: Vec<Selection>,
+    ) -> Result<Design, ErrOperation> {
+        let mut grid_manager = GridManager::new_from_design(&design);
+        let helices =
+            ensnano_interactor::list_of_helices(&selection).ok_or(ErrOperation::BadSelection)?;
+        grid_manager.make_grid_from_helices(&mut design, &helices.1)?;
+        Ok(design)
     }
 }
 
@@ -83,6 +108,8 @@ pub enum OkOperation {
 #[derive(Debug)]
 pub enum ErrOperation {
     NotImplemented,
+    NotEnoughHelices { actual: usize, required: usize },
+    BadSelection,
 }
 
 impl Controller {

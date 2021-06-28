@@ -38,6 +38,12 @@ impl<T: Default> AsRef<T> for AddressPointer<T> {
     }
 }
 
+impl<T, V: AsRef<[T]> + Default> AsRef<[T]> for AddressPointer<V> {
+    fn as_ref(&self) -> &[T] {
+        self.0.as_ref().as_ref()
+    }
+}
+
 impl<T: Default> std::ops::Deref for AddressPointer<T> {
     type Target = T;
 

@@ -159,6 +159,10 @@ impl AppState {
     pub fn oxdna_export(&self, target_dir: &PathBuf) -> std::io::Result<(PathBuf, PathBuf)> {
         self.get_design_reader().oxdna_export(target_dir)
     }
+
+    pub fn get_selection(&self) -> impl AsRef<[Selection]> {
+        self.0.selection.clone()
+    }
 }
 
 #[derive(Clone, PartialEq, Eq, Default)]

@@ -69,6 +69,7 @@ impl State for NormalState {
                     main_state.notify_apps(notificiation);
                     self
                 }
+                Action::TurnSelectionIntoGrid => self.turn_selection_into_grid(main_state),
                 Action::LoadDesign(Some(path)) => Box::new(Load::known_path(path)),
                 Action::LoadDesign(None) => Box::new(Load::default()),
                 _ => todo!(),
@@ -76,6 +77,20 @@ impl State for NormalState {
         } else {
             self
         }
+    }
+}
+
+impl NormalState {
+    fn turn_selection_into_grid(self: Box<Self>, main_state: &mut dyn MainState) -> Box<Self> {
+        let selection = main_state.get_selection();
+        if ensnano_interactor::all_helices_no_grid(
+            selection.as_ref().as_ref(),
+            main_state.get_design_reader().as_ref(),
+        ) {
+            let selection = selection.as_ref().as_ref().iter().cloned().collect();
+            main_state.apply_operation(DesignOperation::HelicesToGrid(selection));
+        }
+        self
     }
 }
 

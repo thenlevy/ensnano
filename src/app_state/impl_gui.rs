@@ -63,7 +63,11 @@ impl GuiState for AppState {
     }
 
     fn can_make_grid(&self) -> bool {
-        false
+        self.0.selection.len() > 4
+            && ensnano_interactor::all_helices_no_grid(
+                self.0.selection.as_ref(),
+                &self.get_design_reader(),
+            )
     }
 
     fn get_reader(&self) -> Box<dyn crate::gui::DesignReader> {
@@ -85,11 +89,6 @@ mod tests {
 
     #[test]
     fn is_building_hyperboloid_implemented() {
-        todo!()
-    }
-
-    #[test]
-    fn can_make_grid_implemented() {
         todo!()
     }
 }

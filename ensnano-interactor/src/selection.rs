@@ -61,6 +61,7 @@ impl Selection {
         format!("{:?}", self)
     }
 
+    /*
     pub fn fetch_values(&self, reader: &dyn DesignReader) -> Vec<String> {
         match self {
             Selection::Grid(_, g_id) => {
@@ -95,7 +96,7 @@ impl Selection {
             }
             _ => Vec::new(),
         }
-    }
+    }*/
 }
 
 pub(super) fn list_of_strands(
@@ -364,14 +365,6 @@ impl PhantomElement {
 pub trait DesignReader {
     fn get_grid_position_of_helix(&self, h_id: usize) -> Option<GridPosition>;
     fn get_xover_id(&self, pair: &(Nucl, Nucl)) -> Option<usize>;
-    fn has_persistent_phantom(&self, g_id: usize) -> bool;
-    fn has_small_spheres(&self, g_id: usize) -> bool;
-    /// If g_id is the identifier of an hyperboloid grid, return the shift of the hyperboloid
-    fn get_hyperboloid_shift(&self, g_id: usize) -> Option<f32>;
-    fn get_strand_length(&self, s_id: usize) -> Option<usize>;
-    fn is_scaffold(&self, s_id: usize) -> bool;
-    fn formatted_length_decomposition_of_strand(&self, s_id: usize) -> String;
-    fn is_anchor(&self, nucl: Nucl) -> bool;
 }
 
 pub trait SelectionConversion: Sized {

@@ -23,10 +23,13 @@ use std::f32::consts::FRAC_PI_2;
 use std::sync::{Arc, RwLock};
 use ultraviolet::{Rotor3, Vec2, Vec3};
 
+use super::ErrOperation;
 use crate::scene::GridInstance;
 
+const MIN_HELICES_TO_MAKE_GRID: usize = 4;
+
 #[derive(Default, Clone)]
-pub(super) struct GridManager {
+pub struct GridManager {
     pub grids: Vec<Grid>,
     pub helix_to_pos: HashMap<usize, GridPosition>,
     pub pos_to_helix: HashMap<(usize, isize, isize), usize>,
@@ -184,11 +187,19 @@ impl GridManager {
         ret
     }
 
-    pub fn make_grid_from_helices(&mut self, design: &mut Design, helices: &[usize]) {
-        if helices.len() < 4 {
-            return;
+    pub fn make_grid_from_helices(
+        &mut self,
+        design: &mut Design,
+        helices: &[usize],
+    ) -> Result<(), ErrOperation> {
+        if helices.len() < MIN_HELICES_TO_MAKE_GRID {
+            return Err(ErrOperation::NotEnoughHelices {
+                actual: helices.len(),
+                required: MIN_HELICES_TO_MAKE_GRID,
+            });
         }
         let desc = self.find_grid_for_group(helices, design);
+        design.grids.push(desc);
         match desc.grid_type {
             GridTypeDescr::Square => {
                 let grid: Grid = Grid::new(
@@ -240,6 +251,7 @@ impl GridManager {
                 }
             }
         }
+        Ok(())
     }
 
     pub fn update(&mut self, design: &mut Design) {

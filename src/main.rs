@@ -63,7 +63,7 @@ pub type PhySize = iced_winit::winit::dpi::PhysicalSize<u32>;
 
 use controller::{ChanelReader, ChanelReaderUpdate};
 use ensnano_interactor::application::{Application, Notification};
-use ensnano_interactor::DesignOperation;
+use ensnano_interactor::{DesignOperation, DesignReader};
 use iced_native::Event as IcedEvent;
 use iced_wgpu::{wgpu, Backend, Renderer, Settings, Viewport};
 use iced_winit::{conversion, futures, program, winit, Debug, Size};
@@ -999,6 +999,14 @@ impl<'a> MainStateInteface for MainStateView<'a> {
         for app in self.main_state.applications.values_mut() {
             app.lock().unwrap().on_notify(notificiation.clone())
         }
+    }
+
+    fn get_selection(&mut self) -> Box<dyn AsRef<[Selection]>> {
+        Box::new(self.main_state.app_state.get_selection())
+    }
+
+    fn get_design_reader(&mut self) -> Box<dyn DesignReader> {
+        Box::new(self.main_state.app_state.get_design_reader())
     }
 }
 

@@ -115,3 +115,20 @@ fn warn_scaffold_seq_mismatch(scaffold_length: usize, sequence_length: usize) ->
         scaffold_length, sequence_length
     )
 }
+
+use ensnano_design::grid::GridPosition;
+use ensnano_interactor::DesignReader as MainReader;
+
+impl MainReader for DesignReader {
+    fn get_xover_id(&self, pair: &(Nucl, Nucl)) -> Option<usize> {
+        self.presenter.junctions_ids.get_id(pair)
+    }
+
+    fn get_grid_position_of_helix(&self, h_id: usize) -> Option<GridPosition> {
+        self.presenter
+            .current_design
+            .helices
+            .get(&h_id)
+            .and_then(|h| h.grid_position)
+    }
+}

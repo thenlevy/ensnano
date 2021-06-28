@@ -132,6 +132,7 @@ pub enum DesignOperation {
     SetScaffoldSequence(String),
     HyperboloidOperation(HyperboloidOperation),
     CleanDesign,
+    HelicesToGrid(Vec<Selection>),
 }
 
 /// An action performed on the application
