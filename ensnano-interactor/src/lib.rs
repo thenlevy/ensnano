@@ -138,6 +138,14 @@ pub enum DesignOperation {
     HyperboloidOperation(HyperboloidOperation),
     CleanDesign,
     HelicesToGrid(Vec<Selection>),
+    SetHelicesPersistance {
+        grid_ids: Vec<usize>,
+        persistant: bool,
+    },
+    SetSmallSpheres {
+        grid_ids: Vec<usize>,
+        small: bool,
+    },
 }
 
 /// An action performed on the application

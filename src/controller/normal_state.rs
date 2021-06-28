@@ -80,6 +80,10 @@ impl State for NormalState {
                     main_state.finish_changing_color();
                     self
                 }
+                Action::ToggleHelicesPersistance(persistant) => {
+                    self.toggle_helices_persistance(main_state, persistant)
+                }
+                Action::ToggleSmallSphere(small) => self.toggle_small_spheres(main_state, small),
                 Action::LoadDesign(Some(path)) => Box::new(Load::known_path(path)),
                 Action::LoadDesign(None) => Box::new(Load::default()),
                 _ => todo!(),
@@ -125,6 +129,35 @@ impl NormalState {
             main_state.get_selection().as_ref().as_ref(),
         );
         main_state.apply_operation(DesignOperation::ChangeColor { color, strands });
+        self
+    }
+
+    fn toggle_small_spheres(
+        self: Box<Self>,
+        main_state: &mut dyn MainState,
+        small: bool,
+    ) -> Box<Self> {
+        let grid_ids =
+            ensnano_interactor::extract_grids(main_state.get_selection().as_ref().as_ref());
+        if grid_ids.len() > 0 {
+            main_state.apply_operation(DesignOperation::SetSmallSpheres { grid_ids, small });
+        }
+        self
+    }
+
+    fn toggle_helices_persistance(
+        self: Box<Self>,
+        main_state: &mut dyn MainState,
+        persistant: bool,
+    ) -> Box<Self> {
+        let grid_ids =
+            ensnano_interactor::extract_grids(main_state.get_selection().as_ref().as_ref());
+        if grid_ids.len() > 0 {
+            main_state.apply_operation(DesignOperation::SetHelicesPersistance {
+                grid_ids,
+                persistant,
+            });
+        }
         self
     }
 }

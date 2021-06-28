@@ -54,6 +54,16 @@ impl Controller {
             DesignOperation::ChangeColor { color, strands } => {
                 Ok(self.ok_apply(|c, d| c.change_color_strands(d, color, strands), design))
             }
+            DesignOperation::SetHelicesPersistance {
+                grid_ids,
+                persistant,
+            } => Ok(self.ok_apply(
+                |c, d| c.set_helices_persisance(d, grid_ids, persistant),
+                design,
+            )),
+            DesignOperation::SetSmallSpheres { grid_ids, small } => {
+                Ok(self.ok_apply(|c, d| c.set_small_spheres(d, grid_ids, small), design))
+            }
             _ => Err(ErrOperation::NotImplemented),
         }
     }
@@ -196,6 +206,38 @@ impl Controller {
         for s_id in strands.iter() {
             if let Some(strand) = design.strands.get_mut(s_id) {
                 strand.color = color;
+            }
+        }
+        design
+    }
+
+    fn set_helices_persisance(
+        &mut self,
+        mut design: Design,
+        grid_ids: Vec<usize>,
+        persistant: bool,
+    ) -> Design {
+        for g_id in grid_ids.into_iter() {
+            if persistant {
+                design.no_phantoms.remove(&g_id);
+            } else {
+                design.no_phantoms.insert(g_id);
+            }
+        }
+        design
+    }
+
+    fn set_small_spheres(
+        &mut self,
+        mut design: Design,
+        grid_ids: Vec<usize>,
+        small: bool,
+    ) -> Design {
+        for g_id in grid_ids.into_iter() {
+            if small {
+                design.small_spheres.insert(g_id);
+            } else {
+                design.small_spheres.remove(&g_id);
             }
         }
         design

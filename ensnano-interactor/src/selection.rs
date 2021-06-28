@@ -111,6 +111,18 @@ fn extract_one_strand(selection: &Selection) -> Option<usize> {
     }
 }
 
+pub fn extract_grids(selection: &[Selection]) -> Vec<usize> {
+    selection.iter().filter_map(extract_one_grid).collect()
+}
+
+fn extract_one_grid(selection: &Selection) -> Option<usize> {
+    if let Selection::Grid(_, g_id) = selection {
+        Some(*g_id)
+    } else {
+        None
+    }
+}
+
 pub(super) fn list_of_strands(
     selection: &[Selection],
     designs: &[Arc<RwLock<Design>>],
