@@ -68,6 +68,10 @@ impl App3D for AppState {
     fn get_widget_basis(&self) -> WidgetBasis {
         self.0.widget_basis
     }
+
+    fn is_changing_color(&self) -> bool {
+        self.is_changing_color()
+    }
 }
 
 #[cfg(test)]

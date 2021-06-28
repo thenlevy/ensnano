@@ -168,6 +168,10 @@ impl AppState {
     pub fn get_selection(&self) -> impl AsRef<[Selection]> {
         self.0.selection.clone()
     }
+
+    fn is_changing_color(&self) -> bool {
+        self.0.design.as_ref().is_changing_color()
+    }
 }
 
 #[derive(Clone, PartialEq, Eq, Default)]

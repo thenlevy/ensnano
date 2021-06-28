@@ -124,6 +124,10 @@ impl Controller {
         design.grids.push(descriptor);
         design
     }
+
+    pub(super) fn is_changing_color(&self) -> bool {
+        self.state == ControllerState::ChangingColor
+    }
 }
 
 /// An operation has been successfully applied on a design, resulting in a new modified design. The
@@ -198,7 +202,7 @@ impl Controller {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq)]
 enum ControllerState {
     Normal,
     MakingHyperboloid,

@@ -105,24 +105,26 @@ impl Data {
         let mut selected_helices = Vec::new();
         let mut candidate_helices = Vec::new();
         let id_map = self.design.id_map();
-        for s in new_state.get_selection().iter() {
-            match s {
-                Selection::Strand(_, s_id) => {
-                    selected_strands.insert(*s_id as usize);
-                }
-                Selection::Bound(_, n1, n2) => {
-                    selected_xovers.insert((*n1, *n2));
-                }
-                Selection::Xover(_, xover_id) => {
-                    if let Some((n1, n2)) = self.design.get_xover_with_id(*xover_id) {
-                        selected_xovers.insert((n1, n2));
+        if !new_state.is_changing_color() {
+            for s in new_state.get_selection().iter() {
+                match s {
+                    Selection::Strand(_, s_id) => {
+                        selected_strands.insert(*s_id as usize);
                     }
+                    Selection::Bound(_, n1, n2) => {
+                        selected_xovers.insert((*n1, *n2));
+                    }
+                    Selection::Xover(_, xover_id) => {
+                        if let Some((n1, n2)) = self.design.get_xover_with_id(*xover_id) {
+                            selected_xovers.insert((n1, n2));
+                        }
+                    }
+                    Selection::Helix(_, h) => {
+                        let flat_helix = FlatHelix::from_real(*h as usize, id_map);
+                        selected_helices.push(flat_helix.flat);
+                    }
+                    _ => (),
                 }
-                Selection::Helix(_, h) => {
-                    let flat_helix = FlatHelix::from_real(*h as usize, id_map);
-                    selected_helices.push(flat_helix.flat);
-                }
-                _ => (),
             }
         }
         for c in new_state.get_candidates().iter() {

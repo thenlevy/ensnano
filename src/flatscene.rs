@@ -579,6 +579,7 @@ pub trait AppState: Clone {
     fn get_design_reader(&self) -> Self::Reader;
     fn get_strand_builders(&self) -> &[StrandBuilder];
     fn design_was_updated(&self, other: &Self) -> bool;
+    fn is_changing_color(&self) -> bool;
 }
 
 use ultraviolet::Isometry2;

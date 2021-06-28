@@ -109,7 +109,9 @@ impl<R: DesignReader> Data<R> {
             self.update_instances();
         }
 
-        if app_state.selection_was_updated(older_app_state) {
+        if app_state.is_changing_color() {
+            self.update_selection(&[], app_state)
+        } else if app_state.selection_was_updated(older_app_state) {
             self.update_selection(app_state.get_selection(), app_state);
         }
         if app_state.candidates_set_was_updated(older_app_state) {

@@ -122,6 +122,10 @@ impl DesignInteractor {
     pub(super) fn get_dna_parameters(&self) -> Parameters {
         self.presenter.current_design.parameters.unwrap_or_default()
     }
+
+    pub(super) fn is_changing_color(&self) -> bool {
+        self.controller.is_changing_color()
+    }
 }
 
 /// An opperation has been successfully applied to the design, resulting in a new modifed

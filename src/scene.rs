@@ -821,6 +821,7 @@ pub trait AppState: Clone {
     fn get_design_reader(&self) -> Self::DesignReader;
     fn get_strand_builders(&self) -> Vec<StrandBuilder>;
     fn get_widget_basis(&self) -> WidgetBasis;
+    fn is_changing_color(&self) -> bool;
 }
 
 pub trait Requests {

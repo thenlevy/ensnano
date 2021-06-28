@@ -49,6 +49,10 @@ impl App2D for AppState {
     fn design_was_updated(&self, other: &Self) -> bool {
         self.0.design.has_different_design_than(&other.0.design)
     }
+
+    fn is_changing_color(&self) -> bool {
+        self.is_changing_color()
+    }
 }
 
 #[cfg(test)]
