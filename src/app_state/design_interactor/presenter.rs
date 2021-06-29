@@ -82,7 +82,7 @@ impl Presenter {
         let model_matrix = Mat4::identity();
         let junctions_ids = AddressPointer::new(junctions_ids);
         let (content, design, junctions_ids_opt) =
-            DesignContent::make_hash_maps(design, &helices_groups, junctions_ids.clone());
+            DesignContent::make_hash_maps(design, &helices_groups, junctions_ids.clone(), true);
         let junctions_ids = junctions_ids_opt
             .map(AddressPointer::new)
             .unwrap_or(junctions_ids);
@@ -102,6 +102,7 @@ impl Presenter {
             design.clone_inner(),
             self.helices_groups.as_ref(),
             self.junctions_ids.clone(),
+            false,
         );
         self.current_design = AddressPointer::new(new_design);
         self.content = AddressPointer::new(content);
@@ -154,8 +155,7 @@ pub(super) fn update_presenter(
         if cfg!(test) {
             println!("updating presenter");
         }
-        let mut new_presenter = presenter.clone_inner();
-        new_presenter.read_design(design);
+        let new_presenter = presenter.clone_inner().update(design);
         let design = new_presenter.current_design.clone();
         (AddressPointer::new(new_presenter), design)
     } else {

@@ -267,6 +267,7 @@ impl Design {
             strands.insert(i, strand);
         }
         println!("grids {:?}", grids);
+        println!("helices {:?}", helices);
         Ok(Self {
             grids,
             helices: Arc::new(helices),

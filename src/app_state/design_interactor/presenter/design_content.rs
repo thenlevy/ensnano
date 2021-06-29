@@ -251,6 +251,7 @@ impl DesignContent {
         mut design: Design,
         groups: &BTreeMap<usize, bool>,
         xover_ids: AddressPointer<JunctionsIds>,
+        first_time: bool,
     ) -> (Self, Design, Option<JunctionsIds>) {
         let mut object_type = HashMap::default();
         let mut space_position = HashMap::default();
@@ -271,6 +272,10 @@ impl DesignContent {
         let mut prime3_set = Vec::new();
         let mut blue_nucl = Vec::new();
         let mut new_junctions: Option<JunctionsIds> = None;
+        let mut grid_manager = GridManager::new_from_design(&design);
+        if first_time {
+            grid_manager.reposition_all_helices(&mut design);
+        }
         for (s_id, strand) in design.strands.iter_mut() {
             elements.push(elements::DnaElement::Strand { id: *s_id });
             let mut strand_position = 0;
@@ -436,7 +441,6 @@ impl DesignContent {
             old_nucl = None;
             old_nucl_id = None;
         }
-        let mut grid_manager = GridManager::new_from_design(&design);
         for g_id in 0..grid_manager.grids.len() {
             elements.push(DnaElement::Grid {
                 id: g_id,

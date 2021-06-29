@@ -256,9 +256,9 @@ impl GridManager {
         Ok(())
     }
 
-    /*
-    pub fn update(&mut self, design: &mut Design) {
-        for (h_id, h) in design.helices.iter_mut() {
+    pub fn reposition_all_helices(&mut self, design: &mut Design) {
+        let mut new_helices = BTreeMap::clone(design.helices.as_ref());
+        for (h_id, h) in new_helices.iter_mut() {
             if let Some(grid_position) = h.grid_position {
                 self.helix_to_pos.insert(*h_id, grid_position);
                 self.pos_to_helix.insert(
@@ -266,24 +266,29 @@ impl GridManager {
                     *h_id,
                 );
                 let grid = &self.grids[grid_position.grid];
-                h.position = grid.position_helix(grid_position.x, grid_position.y);
-                h.orientation = {
-                    let orientation = grid.orientation_helix(grid_position.x, grid_position.y);
-                    let normal =
-                        -self.parameters.helix_radius * Vec3::unit_y().rotated_by(orientation);
-                    let actual = -self.parameters.helix_radius
-                        * Vec3::unit_y().rotated_by(orientation)
-                        * grid_position.roll.cos()
-                        - self.parameters.helix_radius
-                            * Vec3::unit_z().rotated_by(orientation)
-                            * grid_position.roll.sin();
-                    let roll = Rotor3::from_rotation_between(normal, actual);
-                    (roll * grid.orientation_helix(grid_position.x, grid_position.y)).normalized()
-                };
-                h.position -=
-                    grid_position.axis_pos as f32 * h.get_axis(&self.parameters).direction;
+
+                mutate_helix(h, |h| {
+                    h.position = grid.position_helix(grid_position.x, grid_position.y);
+                    h.orientation = {
+                        let orientation = grid.orientation_helix(grid_position.x, grid_position.y);
+                        let normal =
+                            -self.parameters.helix_radius * Vec3::unit_y().rotated_by(orientation);
+                        let actual = -self.parameters.helix_radius
+                            * Vec3::unit_y().rotated_by(orientation)
+                            * grid_position.roll.cos()
+                            - self.parameters.helix_radius
+                                * Vec3::unit_z().rotated_by(orientation)
+                                * grid_position.roll.sin();
+                        let roll = Rotor3::from_rotation_between(normal, actual);
+                        (roll * grid.orientation_helix(grid_position.x, grid_position.y))
+                            .normalized()
+                    };
+                    h.position -=
+                        grid_position.axis_pos as f32 * h.get_axis(&self.parameters).direction;
+                });
             }
         }
+        design.helices = Arc::new(new_helices);
         design.grids.clear();
         for g in self.grids.iter() {
             design.grids.push(g.desc());
@@ -299,7 +304,12 @@ impl GridManager {
         preserve_roll: bool,
         grid2ds: &Vec<Arc<RwLock<Grid2D>>>,
     ) -> bool {
-        let h = design.helices.get_mut(&h_id).unwrap();
+        let mut new_helices = BTreeMap::clone(design.helices.as_ref());
+        let h = new_helices.get_mut(&h_id);
+        if h.is_none() {
+            return false;
+        }
+        let h = h.unwrap();
         let axis = h.get_axis(&self.parameters);
         if let Some(grid_position) = h.grid_position {
             let g = &self.grids[grid_position.grid];
@@ -316,18 +326,19 @@ impl GridManager {
                         .get(&(grid_pos.x, grid_pos.y))
                     {
                         if *helix == h_id {
-                            h.grid_position = candidate_position;
+                            mutate_helix(h, |h| h.grid_position = candidate_position);
                         } else {
                             return false;
                         }
                     } else {
-                        h.grid_position = candidate_position;
+                        mutate_helix(h, |h| h.grid_position = candidate_position);
                     }
                 }
             }
         }
+        design.helices = Arc::new(new_helices);
         true
-    }*/
+    }
 
     fn attach_to(&self, helix: &Helix, g_id: usize) -> Option<GridPosition> {
         let mut ret = None;
