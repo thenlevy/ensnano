@@ -45,6 +45,7 @@ pub struct Data {
     nb_helices_created: usize,
     suggestions: HashMap<FlatNucl, HashSet<FlatNucl, RandomState>, RandomState>,
     id: u32,
+    requests: Arc<Mutex<dyn Requests>>,
 }
 
 impl Data {
@@ -56,7 +57,7 @@ impl Data {
     ) -> Self {
         Self {
             view,
-            design: Design2d::new(design, requests),
+            design: Design2d::new(design, requests.clone()),
             instance_update: true,
             instance_reset: false,
             helices: HelixVec::new(),
@@ -64,6 +65,7 @@ impl Data {
             nb_helices_created: 0,
             suggestions: Default::default(),
             id,
+            requests,
         }
     }
 
@@ -324,6 +326,7 @@ impl Data {
     }
 
     pub fn set_selected_helices(&mut self, helices: Vec<FlatHelix>) {
+        /*
         for h in self.helices.iter_mut() {
             h.set_color(HELIX_BORDER_COLOR);
         }
@@ -331,12 +334,19 @@ impl Data {
             self.helices[h.flat].set_color(SELECTED_HELIX2D_COLOR);
         }
         self.instance_update = true;
+        */
+        let new_selection = helices
+            .into_iter()
+            .map(|flat| Selection::Helix(0, flat.real as u32))
+            .collect();
+        self.requests.lock().unwrap().new_selection(new_selection);
     }
 
+    /*
     pub fn snap_helix(&mut self, pivot: FlatNucl, translation: Vec2) {
         self.helices[pivot.helix.flat].snap(pivot, translation);
         self.instance_update = true;
-    }
+    }*/
 
     pub fn move_handle(&mut self, helix: FlatHelix, handle: HelixHandle, position: Vec2) {
         let (left, right) = self.helices[helix.flat].move_handle(handle, position);
@@ -375,15 +385,18 @@ impl Data {
         self.notify_update();
     }
 
+    /*
     pub fn rotate_helix(&mut self, helix: FlatHelix, pivot: Vec2, angle: f32) {
         self.helices[helix.flat].rotate(pivot, angle);
         self.instance_update = true;
-    }
+    }*/
 
     pub fn end_movement(&mut self) {
+        /*
         for h in self.helices.iter_mut() {
             h.end_movement()
-        }
+        }*/
+        self.requests.lock().unwrap().suspend_op()
     }
 
     pub fn move_helix_forward(&mut self) {

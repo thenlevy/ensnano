@@ -447,7 +447,6 @@ impl<S: AppState> ControllerState<S> for Translating {
                 state: ElementState::Released,
                 ..
             } => {
-                controller.data.borrow_mut().end_movement();
                 let mut translation_pivots = vec![];
                 let mut rotation_pivots = vec![];
                 for pivot in self.translation_pivots.iter() {
@@ -468,14 +467,14 @@ impl<S: AppState> ControllerState<S> for Translating {
                             translation_pivots,
                             rotation_pivots,
                         })),
-                        consequences: Consequence::Nothing,
+                        consequences: Consequence::Helix2DMvmtEnded,
                     }
                 } else {
                     Transition {
                         new_state: Some(Box::new(NormalState {
                             mouse_position: self.mouse_position,
                         })),
-                        consequences: Consequence::Nothing,
+                        consequences: Consequence::Helix2DMvmtEnded,
                     }
                 }
             }
@@ -485,17 +484,17 @@ impl<S: AppState> ControllerState<S> for Translating {
                     .get_camera(position.y)
                     .borrow()
                     .screen_to_world(position.x as f32, position.y as f32);
-                /*controller
-                .data
-                .borrow_mut()
-                .translate_helix(Vec2::new(mouse_dx, mouse_dy));*/
+                /*
                 for pivot in self.translation_pivots.iter() {
                     controller
                         .data
                         .borrow_mut()
                         .snap_helix(*pivot, Vec2::new(x, y) - self.world_clicked);
-                }
-                Transition::nothing()
+                }*/
+                Transition::consequence(Consequence::Snap {
+                    pivots: self.translation_pivots.clone(),
+                    translation: Vec2::new(x, y) - self.world_clicked,
+                })
             }
             WindowEvent::KeyboardInput { .. } => {
                 controller.process_keyboard(event);
@@ -1159,15 +1158,15 @@ impl<S: AppState> ControllerState<S> for Rotating {
                         - (old_y - self.pivot_center.y).atan2(old_x - self.pivot_center.x)
                 };
                 if !self.selecting {
-                    for i in 0..self.rotation_pivots.len() {
-                        controller.data.borrow_mut().rotate_helix(
-                            self.translation_pivots[i].helix,
-                            self.pivot_center,
-                            angle,
-                        );
-                    }
+                    let helices = self.translation_pivots.iter().map(|n| n.helix).collect();
+                    Transition::consequence(Consequence::Rotation {
+                        helices,
+                        center: self.pivot_center,
+                        angle,
+                    })
+                } else {
+                    Transition::nothing()
                 }
-                Transition::nothing()
             }
             WindowEvent::KeyboardInput { .. } => {
                 controller.process_keyboard(event);

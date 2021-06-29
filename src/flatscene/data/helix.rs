@@ -45,7 +45,6 @@ pub struct Helix {
     /// The first nucleotide that is not drawn
     right: isize,
     pub isometry: Isometry2,
-    old_isometry: Isometry2,
     scale: f32,
     color: u32,
     z_index: i32,
@@ -88,7 +87,6 @@ impl Helix {
             left,
             right,
             isometry,
-            old_isometry: isometry,
             scale: 1f32,
             color: HELIX_BORDER_COLOR,
             z_index: 500,
@@ -107,6 +105,7 @@ impl Helix {
         self.visible = helix2d.visible;
         self.real_id = helix2d.id;
         self.flat_id = FlatHelix::from_real(self.real_id, id_map);
+        self.isometry = helix2d.isometry;
     }
 
     pub fn background_vertices(&self) -> Vertices {
@@ -240,6 +239,7 @@ impl Helix {
             .transform_point2(self.scale * local_position)
     }
 
+    /*
     fn get_old_pivot_position(&self, nucl: &FlatNucl) -> Vec2 {
         let local_position = nucl.position as f32 * Vec2::unit_x()
             + if nucl.forward {
@@ -251,7 +251,7 @@ impl Helix {
         self.old_isometry
             .into_homogeneous_matrix()
             .transform_point2(self.scale * local_position)
-    }
+    }*/
 
     /// Return the nucleotide displayed at position (x, y) or None if (x, y) is outside the helix
     pub fn get_click(&self, x: f32, y: f32) -> Option<(isize, bool)> {
@@ -334,18 +334,22 @@ impl Helix {
         }
     }
 
+    /*
     pub fn translate(&mut self, translation: Vec2) {
         self.isometry.translation = self.old_isometry.translation + translation
     }
+    */
 
+    /*
     /// Translate self so that the pivot ends up on position.
     pub fn snap(&mut self, pivot: FlatNucl, translation: Vec2) {
         let old_pos = self.get_old_pivot_position(&pivot);
         let position = old_pos + translation;
         let position = Vec2::new(position.x.round(), position.y.round());
         self.translate(position - old_pos)
-    }
+    }*/
 
+    /*
     pub fn rotate(&mut self, pivot: Vec2, angle: f32) {
         let angle = {
             let k = (angle / std::f32::consts::FRAC_PI_8).round();
@@ -356,15 +360,16 @@ impl Helix {
         self.isometry
             .append_rotation(ultraviolet::Rotor2::from_angle(angle));
         self.isometry.append_translation(pivot);
-    }
+    }*/
 
     pub fn get_pivot(&self, position: isize) -> Vec2 {
         self.isometry * (self.scale * Vec2::new(position as f32, 1.))
     }
 
+    /*
     pub fn end_movement(&mut self) {
         self.old_isometry = self.isometry
-    }
+    }*/
 
     pub fn set_color(&mut self, color: u32) {
         self.color = color

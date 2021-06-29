@@ -79,6 +79,16 @@ pub enum Consequence {
     DoubleClick(ClickResult),
     MoveBuilders(isize),
     InitBuilding(FlatNucl),
+    Helix2DMvmtEnded,
+    Snap {
+        pivots: Vec<FlatNucl>,
+        translation: Vec2,
+    },
+    Rotation {
+        helices: Vec<FlatHelix>,
+        center: Vec2,
+        angle: f32,
+    },
 }
 
 impl<S: AppState> Controller<S> {
