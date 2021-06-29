@@ -302,7 +302,6 @@ impl GridManager {
         h_id: usize,
         design: &mut Design,
         preserve_roll: bool,
-        grid2ds: &Vec<Arc<RwLock<Grid2D>>>,
     ) -> bool {
         let mut new_helices = BTreeMap::clone(design.helices.as_ref());
         let h = new_helices.get_mut(&h_id);
@@ -319,13 +318,10 @@ impl GridManager {
                     .find_helix_position(h, grid_position.grid)
                     .map(|g| g.with_roll(old_roll));
                 if let Some(grid_pos) = candidate_position {
-                    if let Some(helix) = grid2ds[grid_pos.grid]
-                        .read()
-                        .unwrap()
-                        .helices
-                        .get(&(grid_pos.x, grid_pos.y))
+                    if let Some(helix) =
+                        self.pos_to_helix(grid_position.grid, grid_position.x, grid_pos.y)
                     {
-                        if *helix == h_id {
+                        if helix == h_id {
                             mutate_helix(h, |h| h.grid_position = candidate_position);
                         } else {
                             return false;

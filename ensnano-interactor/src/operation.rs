@@ -119,7 +119,7 @@ impl Operation for GridRotation {
 pub struct HelixRotation {
     pub origin: Vec3,
     pub design_id: usize,
-    pub helix_id: usize,
+    pub helices: Vec<usize>,
     pub angle: f32,
     pub plane: Bivec3,
 }
@@ -141,14 +141,14 @@ impl Operation for HelixRotation {
         DesignOperation::Rotation(DesignRotation {
             rotation: rotor,
             origin: self.origin,
-            target: IsometryTarget::Helix(self.helix_id as u32, false),
+            target: IsometryTarget::Helices(self.helices.clone(), false),
         })
     }
 
     fn description(&self) -> String {
         format!(
-            "Rotate helix {} of design {}",
-            self.helix_id, self.design_id
+            "Rotate helices {:?} of design {}",
+            self.helices, self.design_id
         )
     }
 
@@ -157,7 +157,7 @@ impl Operation for HelixRotation {
             let degrees: f32 = val.parse().ok()?;
             Some(Arc::new(Self {
                 angle: degrees.to_radians(),
-                ..*self
+                ..self.clone()
             }))
         } else {
             None
@@ -278,7 +278,7 @@ impl Operation for DesignViewTranslation {
 #[derive(Debug, Clone)]
 pub struct HelixTranslation {
     pub design_id: usize,
-    pub helix_id: usize,
+    pub helices: Vec<usize>,
     pub right: Vec3,
     pub top: Vec3,
     pub dir: Vec3,
@@ -314,14 +314,14 @@ impl Operation for HelixTranslation {
         let translation = self.x * self.right + self.y * self.top + self.z * self.dir;
         DesignOperation::Translation(DesignTranslation {
             translation,
-            target: IsometryTarget::Helix(self.helix_id as u32, self.snap),
+            target: IsometryTarget::Helices(self.helices.clone(), self.snap),
         })
     }
 
     fn description(&self) -> String {
         format!(
-            "Translate helix {} of design {}",
-            self.helix_id, self.design_id
+            "Translate helices {:?} of design {}",
+            self.helices, self.design_id
         )
     }
 
@@ -329,15 +329,24 @@ impl Operation for HelixTranslation {
         match n {
             0 => {
                 let new_x: f32 = val.parse().ok()?;
-                Some(Arc::new(Self { x: new_x, ..*self }))
+                Some(Arc::new(Self {
+                    x: new_x,
+                    ..self.clone()
+                }))
             }
             1 => {
                 let new_y: f32 = val.parse().ok()?;
-                Some(Arc::new(Self { y: new_y, ..*self }))
+                Some(Arc::new(Self {
+                    y: new_y,
+                    ..self.clone()
+                }))
             }
             2 => {
                 let new_z: f32 = val.parse().ok()?;
-                Some(Arc::new(Self { z: new_z, ..*self }))
+                Some(Arc::new(Self {
+                    z: new_z,
+                    ..self.clone()
+                }))
             }
             _ => None,
         }

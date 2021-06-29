@@ -198,7 +198,7 @@ pub enum IsometryTarget {
     /// The view of the whole design
     Design,
     /// An helix of the design
-    Helix(u32, bool),
+    Helices(Vec<usize>, bool),
     /// A grid of the desgin
     Grid(u32),
 }

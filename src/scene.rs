@@ -437,7 +437,7 @@ impl<S: AppState> Scene<S> {
                 }),
                 Selection::Helix(d_id, h_id) => Arc::new(HelixTranslation {
                     design_id: d_id as usize,
-                    helix_id: h_id as usize,
+                    helices: vec![h_id as usize],
                     right: Vec3::unit_x().rotated_by(rotor),
                     top: Vec3::unit_y().rotated_by(rotor),
                     dir: Vec3::unit_z().rotated_by(rotor),
@@ -469,16 +469,13 @@ impl<S: AppState> Scene<S> {
         }
         let rotation: Arc<dyn Operation> = match self.data.borrow().get_selected_element(app_state)
         {
-            Selection::Helix(d_id, h_id) => {
-                let helix_id = h_id as usize;
-                Arc::new(HelixRotation {
-                    helix_id,
-                    angle,
-                    plane,
-                    origin,
-                    design_id: d_id as usize,
-                })
-            }
+            Selection::Helix(d_id, h_id) => Arc::new(HelixRotation {
+                helices: vec![h_id as usize],
+                angle,
+                plane,
+                origin,
+                design_id: d_id as usize,
+            }),
             Selection::Grid(d_id, g_id) => {
                 let grid_id = g_id as usize;
                 Arc::new(GridRotation {

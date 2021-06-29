@@ -19,12 +19,12 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 use crate::app_state::AddressPointer;
 use ensnano_design::{grid::GridDescriptor, mutate_helix, Design, Nucl};
 use ensnano_interactor::operation::Operation;
-use ensnano_interactor::{DesignOperation, Selection};
+use ensnano_interactor::{DesignOperation, DesignTranslation, IsometryTarget, Selection};
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use super::grid_data::GridManager;
-use ultraviolet::{Isometry2, Vec2};
+use ultraviolet::{Isometry2, Vec2, Vec3};
 
 #[derive(Clone, Default)]
 pub(super) struct Controller {
@@ -81,6 +81,10 @@ impl Controller {
                 center,
                 angle,
             } => Ok(self.ok_apply(|c, d| c.rotate_helices(d, helices, center, angle), design)),
+            DesignOperation::Translation(translation) => {
+                println!("translation {:?}", translation.translation);
+                self.apply(|c, d| c.apply_translation(d, translation), design)
+            }
             _ => Err(ErrOperation::NotImplemented),
         }
     }
@@ -179,6 +183,51 @@ impl Controller {
             true
         } else {
             false
+        }
+    }
+
+    fn apply_translation(
+        &mut self,
+        design: Design,
+        translation: DesignTranslation,
+    ) -> Result<Design, ErrOperation> {
+        match translation.target {
+            IsometryTarget::Design => Err(ErrOperation::NotImplemented),
+            IsometryTarget::Helices(helices, snap) => {
+                Ok(self.translate_helices(design, snap, helices, translation.translation))
+            }
+            IsometryTarget::Grid(_) => Err(ErrOperation::NotImplemented),
+        }
+    }
+
+    fn translate_helices(
+        &mut self,
+        design: Design,
+        snap: bool,
+        helices: Vec<usize>,
+        translation: Vec3,
+    ) -> Design {
+        let mut new_helices = BTreeMap::clone(design.helices.as_ref());
+        for h_id in helices.iter() {
+            if let Some(h) = new_helices.get_mut(h_id) {
+                mutate_helix(h, |h| h.translate(translation));
+            }
+        }
+        let mut new_design = design.clone();
+        new_design.helices = Arc::new(new_helices);
+        if snap {
+            let mut grid_manager = GridManager::new_from_design(&new_design);
+            let mut successfull_reattach = true;
+            for h_id in helices.iter() {
+                successfull_reattach &= grid_manager.reattach_helix(*h_id, &mut new_design, true);
+            }
+            if successfull_reattach {
+                new_design
+            } else {
+                design
+            }
+        } else {
+            new_design
         }
     }
 }
