@@ -23,7 +23,7 @@ use ensnano_design::{
     grid::{GridDescriptor, Hyperboloid},
     Nucl, Strand,
 };
-use ultraviolet::{Rotor3, Vec3};
+use ultraviolet::{Isometry2, Rotor3, Vec2, Vec3};
 pub mod graphics;
 mod selection;
 pub use selection::*;
@@ -145,6 +145,15 @@ pub enum DesignOperation {
     SetSmallSpheres {
         grid_ids: Vec<usize>,
         small: bool,
+    },
+    /// Apply a translation to the 2d representation of helices holding each pivot
+    SnapHelices {
+        pivots: Vec<Nucl>,
+        translation: Vec2,
+    },
+    SetIsometry {
+        helix: usize,
+        isometry: Isometry2,
     },
 }
 

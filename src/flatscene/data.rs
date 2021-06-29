@@ -274,7 +274,11 @@ impl Data {
             &mut new_selection,
             app_state.get_selection_mode(),
         );
-        let pivots_opt = self.get_pivot_of_selected_helices(camera, app_state);
+        let pivots_opt = self.get_pivot_of_selected_helices(camera, &new_selection);
+        self.requests
+            .lock()
+            .unwrap()
+            .new_selection(new_selection.clone());
         if let Some((translation_pivots, rotation_pivots)) = pivots_opt {
             GraphicalSelection {
                 translation_pivots,
@@ -299,7 +303,11 @@ impl Data {
             &mut new_selection,
             app_state.get_selection_mode(),
         );
-        let pivots_opt = self.get_pivot_of_selected_helices(camera, app_state);
+        let pivots_opt = self.get_pivot_of_selected_helices(camera, &new_selection);
+        self.requests
+            .lock()
+            .unwrap()
+            .new_selection(new_selection.clone());
         if let Some((translation_pivots, rotation_pivots)) = pivots_opt {
             GraphicalSelection {
                 translation_pivots,
@@ -641,15 +649,14 @@ impl Data {
         }
     }
 
-    pub fn get_pivot_of_selected_helices<S: AppState>(
+    pub fn get_pivot_of_selected_helices(
         &self,
         camera: &CameraPtr,
-        app_state: &S,
+        selection: &[Selection],
     ) -> Option<(Vec<FlatNucl>, Vec<Vec2>)> {
         let id_map = self.design.id_map();
 
-        let ret: Option<Vec<(FlatNucl, Vec2)>> = app_state
-            .get_selection()
+        let ret: Option<Vec<(FlatNucl, Vec2)>> = selection
             .iter()
             .map(|s| match s {
                 Selection::Helix(d_id, h_id) if *d_id == self.id => {

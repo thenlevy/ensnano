@@ -803,7 +803,6 @@ impl MainState {
     }
 
     fn get_app_state(&mut self) -> AppState {
-        self.app_state.update();
         self.app_state.clone()
     }
 
@@ -866,7 +865,7 @@ impl MainState {
     }
 
     fn update_pending_operation(&mut self, operation: Arc<dyn Operation>) {
-        todo!()
+        println!("TODO");
     }
 
     fn request_copy(&mut self) {
@@ -1023,9 +1022,9 @@ impl<'a> MainStateInteface for MainStateView<'a> {
             .and_then(|s| s.lock().unwrap().get_position_for_new_grid())
     }
 
-    fn finish_changing_color(&mut self) {
+    fn finish_operation(&mut self) {
         self.main_state.modify_state(
-            |s| s.notified(app_state::InteractorNotification::FinishChangingColor),
+            |s| s.notified(app_state::InteractorNotification::FinishOperation),
             false,
         )
     }

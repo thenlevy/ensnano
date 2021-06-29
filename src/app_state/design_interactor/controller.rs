@@ -16,10 +16,14 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-use ensnano_design::{grid::GridDescriptor, Design};
+use crate::app_state::AddressPointer;
+use ensnano_design::{grid::GridDescriptor, mutate_helix, Design, Nucl};
 use ensnano_interactor::{DesignOperation, Selection};
+use std::collections::BTreeMap;
+use std::sync::Arc;
 
 use super::grid_data::GridManager;
+use ultraviolet::{Isometry2, Vec2};
 
 #[derive(Clone, Default)]
 pub(super) struct Controller {
@@ -64,6 +68,13 @@ impl Controller {
             DesignOperation::SetSmallSpheres { grid_ids, small } => {
                 Ok(self.ok_apply(|c, d| c.set_small_spheres(d, grid_ids, small), design))
             }
+            DesignOperation::SnapHelices {
+                pivots,
+                translation,
+            } => Ok(self.ok_apply(|c, d| c.snap_helices(d, pivots, translation), design)),
+            DesignOperation::SetIsometry { helix, isometry } => {
+                Ok(self.ok_apply(|c, d| c.set_isometry(d, helix, isometry), design))
+            }
             _ => Err(ErrOperation::NotImplemented),
         }
     }
@@ -71,7 +82,7 @@ impl Controller {
     pub fn notify(&self, notification: InteractorNotification) -> Self {
         let mut new_interactor = self.clone();
         match notification {
-            InteractorNotification::FinishChangingColor => {
+            InteractorNotification::FinishOperation => {
                 new_interactor.state = ControllerState::Normal
             }
         }
@@ -83,6 +94,13 @@ impl Controller {
             ControllerState::Normal => true,
             ControllerState::ChangingColor => {
                 if let DesignOperation::ChangeColor { .. } = operation {
+                    true
+                } else {
+                    false
+                }
+            }
+            ControllerState::SnapingHelices { .. } => {
+                if let DesignOperation::SnapHelices { .. } = operation {
                     true
                 } else {
                     false
@@ -242,6 +260,57 @@ impl Controller {
         }
         design
     }
+
+    fn snap_helices(&mut self, mut design: Design, pivots: Vec<Nucl>, translation: Vec2) -> Design {
+        println!("snaping {:?}, {:?}", pivots, translation);
+        if let ControllerState::SnapingHelices { design: design_ptr } = &self.state {
+            design = design_ptr.clone_inner();
+        } else {
+            self.state = ControllerState::SnapingHelices {
+                design: AddressPointer::new(design.clone()),
+            };
+        }
+
+        let mut new_helices = BTreeMap::clone(design.helices.as_ref());
+        for p in pivots.iter() {
+            if let Some(h) = new_helices.get_mut(&p.helix) {
+                println!("before {:?}", h.as_ref().isometry2d);
+                if let Some(old_pos) = nucl_pos_2d(&design, p) {
+                    let position = old_pos + translation;
+                    let position = Vec2::new(position.x.round(), position.y.round());
+                    mutate_helix(h, |h| {
+                        if let Some(isometry) = h.isometry2d.as_mut() {
+                            isometry.append_translation(position - old_pos)
+                        }
+                    })
+                }
+                println!("after {:?}", h.as_ref().isometry2d);
+            }
+        }
+        design.helices = Arc::new(new_helices);
+        design
+    }
+
+    fn set_isometry(&mut self, mut design: Design, h_id: usize, isometry: Isometry2) -> Design {
+        let mut new_helices = BTreeMap::clone(design.helices.as_ref());
+        if let Some(h) = new_helices.get_mut(&h_id) {
+            mutate_helix(h, |h| h.isometry2d = Some(isometry));
+            design.helices = Arc::new(new_helices);
+        }
+        design
+    }
+}
+
+fn nucl_pos_2d(design: &Design, nucl: &Nucl) -> Option<Vec2> {
+    let local_position = nucl.position as f32 * Vec2::unit_x()
+        + if nucl.forward {
+            Vec2::zero()
+        } else {
+            Vec2::unit_y()
+        };
+    let isometry = design.helices.get(&nucl.helix).and_then(|h| h.isometry2d);
+
+    isometry.map(|i| i.into_homogeneous_matrix().transform_point2(local_position))
 }
 
 #[derive(Clone, PartialEq, Eq)]
@@ -250,6 +319,7 @@ enum ControllerState {
     MakingHyperboloid,
     BuildingStrand,
     ChangingColor,
+    SnapingHelices { design: AddressPointer<Design> },
 }
 
 impl Default for ControllerState {
@@ -259,5 +329,5 @@ impl Default for ControllerState {
 }
 
 pub enum InteractorNotification {
-    FinishChangingColor,
+    FinishOperation,
 }

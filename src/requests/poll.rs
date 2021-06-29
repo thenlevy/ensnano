@@ -327,10 +327,6 @@ pub(crate) fn poll_all<R: DerefMut<Target = Requests>>(
         main_state.messages.lock().unwrap().show_help()
     }
 
-    for action in requests.keep_proceed.drain(..) {
-        main_state.pending_actions.push_back(action)
-    }
-
     if let Some(candidates) = requests.new_candidates.take() {
         main_state.update_candidates(candidates);
     }
@@ -345,5 +341,15 @@ pub(crate) fn poll_all<R: DerefMut<Target = Requests>>(
 
     if requests.stop_roll.take().is_some() {
         main_state.pending_actions.push_back(Action::StopRoll)
+    }
+
+    if let Some(op) = requests.next_operation.take() {
+        main_state
+            .pending_actions
+            .push_back(Action::DesignOperation(op))
+    }
+
+    for action in requests.keep_proceed.drain(..) {
+        main_state.pending_actions.push_back(action)
     }
 }

@@ -23,7 +23,7 @@ use ensnano_design::Nucl;
 use ensnano_interactor::{
     application::{AppId, Application, Notification},
     operation::*,
-    ActionMode, PhantomElement, Selection, SelectionMode, StrandBuilder,
+    ActionMode, DesignOperation, PhantomElement, Selection, SelectionMode, StrandBuilder,
 };
 use iced_wgpu::wgpu;
 use iced_winit::winit;
@@ -198,14 +198,6 @@ impl<S: AppState> FlatScene<S> {
             Consequence::Xover(nucl1, nucl2) => {
                 let (prime5_id, prime3_id) =
                     self.data[self.selected_design].borrow().xover(nucl1, nucl2);
-                let strand_5prime = self.data[self.selected_design]
-                    .borrow()
-                    .get_strand(prime5_id)
-                    .unwrap();
-                let strand_3prime = self.data[self.selected_design]
-                    .borrow()
-                    .get_strand(prime3_id)
-                    .unwrap();
                 self.requests
                     .lock()
                     .unwrap()
@@ -220,10 +212,6 @@ impl<S: AppState> FlatScene<S> {
                 let strand_id = self.data[self.selected_design].borrow().get_strand_id(nucl);
                 if let Some(strand_id) = strand_id {
                     println!("cutting");
-                    let strand = self.data[self.selected_design]
-                        .borrow()
-                        .get_strand(strand_id)
-                        .unwrap();
                     let nucl = nucl.to_real();
                     self.requests
                         .lock()
@@ -242,10 +230,6 @@ impl<S: AppState> FlatScene<S> {
                 let strand_id = self.data[self.selected_design].borrow().get_strand_id(nucl);
                 if let Some(strand_id) = strand_id {
                     println!("cutting");
-                    let strand = self.data[self.selected_design]
-                        .borrow()
-                        .get_strand(strand_id)
-                        .unwrap();
                     let nucl = nucl.to_real();
                     self.requests
                         .lock()
@@ -265,14 +249,6 @@ impl<S: AppState> FlatScene<S> {
                     // CrossCut with source and target on the same helix are forbidden
                     let op_var = self.data[self.selected_design].borrow().cut_cross(from, to);
                     if let Some((source_id, target_id, target_3prime)) = op_var {
-                        let source_strand = self.data[self.selected_design]
-                            .borrow()
-                            .get_strand(source_id)
-                            .unwrap();
-                        let target_strand = self.data[self.selected_design]
-                            .borrow()
-                            .get_strand(target_id)
-                            .unwrap();
                         self.requests
                             .lock()
                             .unwrap()
@@ -325,10 +301,6 @@ impl<S: AppState> FlatScene<S> {
                 let strand_id = self.data[self.selected_design].borrow().get_strand_id(nucl);
                 if let Some(strand_id) = strand_id {
                     println!("removing strand");
-                    let strand = self.data[self.selected_design]
-                        .borrow()
-                        .get_strand(strand_id)
-                        .unwrap();
                     self.requests
                         .lock()
                         .unwrap()
@@ -429,6 +401,19 @@ impl<S: AppState> FlatScene<S> {
                         .unwrap()
                         .request_center_selection(selection, AppId::FlatScene)
                 }
+            }
+            Consequence::Helix2DMvmtEnded => self.requests.lock().unwrap().suspend_op(),
+            Consequence::Snap {
+                pivots,
+                translation,
+            } => {
+                let pivots = pivots.into_iter().map(|n| n.to_real()).collect();
+                self.requests.lock().unwrap().apply_design_operation(
+                    DesignOperation::SnapHelices {
+                        pivots,
+                        translation,
+                    },
+                );
             }
             _ => (),
         }
@@ -595,4 +580,5 @@ pub trait Requests {
     fn set_visibility_helix(&mut self, helix: usize, visibility: bool);
     fn flip_group(&mut self, helix: usize);
     fn suspend_op(&mut self);
+    fn apply_design_operation(&mut self, op: DesignOperation);
 }

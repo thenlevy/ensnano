@@ -181,7 +181,7 @@ pub(crate) trait MainState: ScaffoldSetter {
     fn get_selection(&mut self) -> Box<dyn AsRef<[Selection]>>;
     fn get_design_reader(&mut self) -> Box<dyn DesignReader>;
     fn get_grid_creation_position(&self) -> Option<(Vec3, Rotor3)>;
-    fn finish_changing_color(&mut self);
+    fn finish_operation(&mut self);
 }
 
 pub struct LoadDesignError(String);

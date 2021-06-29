@@ -77,7 +77,7 @@ impl State for NormalState {
                 }
                 Action::ChangeColorStrand(color) => self.change_color(main_state, color),
                 Action::FinishChangingColor => {
-                    main_state.finish_changing_color();
+                    main_state.finish_operation();
                     self
                 }
                 Action::ToggleHelicesPersistance(persistant) => {
@@ -86,6 +86,10 @@ impl State for NormalState {
                 Action::ToggleSmallSphere(small) => self.toggle_small_spheres(main_state, small),
                 Action::LoadDesign(Some(path)) => Box::new(Load::known_path(path)),
                 Action::LoadDesign(None) => Box::new(Load::default()),
+                Action::SuspendOp => {
+                    main_state.finish_operation();
+                    self
+                }
                 _ => todo!(),
             }
         } else {
@@ -246,4 +250,5 @@ pub enum Action {
         elements: Vec<Selection>,
     },
     UpdateOrganizerTree(ensnano_organizer::OrganizerTree<DnaElementKey>),
+    SuspendOp,
 }
