@@ -75,6 +75,11 @@ impl Controller {
             DesignOperation::SetIsometry { helix, isometry } => {
                 Ok(self.ok_apply(|c, d| c.set_isometry(d, helix, isometry), design))
             }
+            DesignOperation::RotateHelices {
+                helices,
+                center,
+                angle,
+            } => Ok(self.ok_apply(|c, d| c.rotate_helices(d, helices, center, angle), design)),
             _ => Err(ErrOperation::NotImplemented),
         }
     }
@@ -101,6 +106,8 @@ impl Controller {
             }
             ControllerState::SnapingHelices { .. } => {
                 if let DesignOperation::SnapHelices { .. } = operation {
+                    true
+                } else if let DesignOperation::RotateHelices { .. } = operation {
                     true
                 } else {
                     false
@@ -274,7 +281,6 @@ impl Controller {
         let mut new_helices = BTreeMap::clone(design.helices.as_ref());
         for p in pivots.iter() {
             if let Some(h) = new_helices.get_mut(&p.helix) {
-                println!("before {:?}", h.as_ref().isometry2d);
                 if let Some(old_pos) = nucl_pos_2d(&design, p) {
                     let position = old_pos + translation;
                     let position = Vec2::new(position.x.round(), position.y.round());
@@ -284,7 +290,6 @@ impl Controller {
                         }
                     })
                 }
-                println!("after {:?}", h.as_ref().isometry2d);
             }
         }
         design.helices = Arc::new(new_helices);
@@ -297,6 +302,40 @@ impl Controller {
             mutate_helix(h, |h| h.isometry2d = Some(isometry));
             design.helices = Arc::new(new_helices);
         }
+        design
+    }
+
+    fn rotate_helices(
+        &mut self,
+        mut design: Design,
+        helices: Vec<usize>,
+        center: Vec2,
+        angle: f32,
+    ) -> Design {
+        if let ControllerState::SnapingHelices { design: design_ptr } = &self.state {
+            design = design_ptr.clone_inner();
+        } else {
+            self.state = ControllerState::SnapingHelices {
+                design: AddressPointer::new(design.clone()),
+            };
+        }
+        let angle = {
+            let k = (angle / std::f32::consts::FRAC_PI_8).round();
+            k * std::f32::consts::FRAC_PI_8
+        };
+        let mut new_helices = BTreeMap::clone(design.helices.as_ref());
+        for h_id in helices.iter() {
+            if let Some(h) = new_helices.get_mut(h_id) {
+                mutate_helix(h, |h| {
+                    if let Some(isometry) = h.isometry2d.as_mut() {
+                        isometry.append_translation(-center);
+                        isometry.append_rotation(ultraviolet::Rotor2::from_angle(angle));
+                        isometry.append_translation(center);
+                    }
+                })
+            }
+        }
+        design.helices = Arc::new(new_helices);
         design
     }
 }

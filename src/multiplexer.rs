@@ -443,6 +443,12 @@ impl Multiplexer {
                     VirtualKeyCode::Escape => {
                         self.requests.lock().unwrap().action_mode = Some(ActionMode::Normal)
                     }
+                    VirtualKeyCode::Z if ctrl(&self.modifiers) => {
+                        self.requests.lock().unwrap().undo = Some(());
+                    }
+                    VirtualKeyCode::R if ctrl(&self.modifiers) => {
+                        self.requests.lock().unwrap().redo = Some(());
+                    }
                     VirtualKeyCode::C if ctrl(&self.modifiers) => {
                         self.requests.lock().unwrap().copy = Some(());
                     }

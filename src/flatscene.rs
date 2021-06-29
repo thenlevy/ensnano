@@ -415,6 +415,20 @@ impl<S: AppState> FlatScene<S> {
                     },
                 );
             }
+            Consequence::Rotation {
+                helices,
+                center,
+                angle,
+            } => {
+                let helices = helices.into_iter().map(|fh| fh.real).collect();
+                self.requests.lock().unwrap().apply_design_operation(
+                    DesignOperation::RotateHelices {
+                        helices,
+                        center,
+                        angle,
+                    },
+                )
+            }
             _ => (),
         }
     }

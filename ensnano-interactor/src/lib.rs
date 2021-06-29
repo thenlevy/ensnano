@@ -151,6 +151,11 @@ pub enum DesignOperation {
         pivots: Vec<Nucl>,
         translation: Vec2,
     },
+    RotateHelices {
+        helices: Vec<usize>,
+        center: Vec2,
+        angle: f32,
+    },
     SetIsometry {
         helix: usize,
         isometry: Isometry2,
