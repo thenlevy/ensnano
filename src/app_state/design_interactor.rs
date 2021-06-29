@@ -18,7 +18,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 
 use super::AddressPointer;
 use ensnano_design::{Design, Parameters};
-use ensnano_interactor::{DesignOperation, SimulationState};
+use ensnano_interactor::{operation::Operation, DesignOperation, SimulationState};
 
 mod presenter;
 use presenter::{update_presenter, Presenter};
@@ -58,10 +58,27 @@ impl DesignInteractor {
         &self,
         operation: DesignOperation,
     ) -> Result<InteractorResult, ErrOperation> {
-        match self
+        let result = self
             .controller
-            .apply_operation(self.design.as_ref(), operation)
-        {
+            .apply_operation(self.design.as_ref(), operation);
+        self.handle_operation_result(result)
+    }
+
+    pub(super) fn update_pending_operation(
+        &self,
+        operation: Arc<dyn Operation>,
+    ) -> Result<InteractorResult, ErrOperation> {
+        let result = self
+            .controller
+            .update_pending_operation(self.design.as_ref(), operation);
+        self.handle_operation_result(result)
+    }
+
+    fn handle_operation_result(
+        &self,
+        result: Result<(OkOperation, Controller), ErrOperation>,
+    ) -> Result<InteractorResult, ErrOperation> {
+        match result {
             Ok((OkOperation::Replace(design), controller)) => {
                 let mut ret = self.clone();
                 ret.controller = AddressPointer::new(controller);
@@ -143,7 +160,7 @@ pub struct DesignReader {
 }
 
 use crate::controller::SaveDesignError;
-use std::path::PathBuf;
+use std::{path::PathBuf, sync::Arc};
 impl DesignReader {
     pub fn save_design(&self, path: &PathBuf) -> Result<(), SaveDesignError> {
         use std::io::Write;

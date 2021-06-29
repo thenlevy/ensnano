@@ -865,7 +865,11 @@ impl MainState {
     }
 
     fn update_pending_operation(&mut self, operation: Arc<dyn Operation>) {
-        println!("TODO");
+        match self.app_state.update_pending_operation(operation) {
+            Ok(Some(old_state)) => self.save_old_state(old_state),
+            Ok(None) => (),
+            Err(e) => println!("{:?}", e),
+        }
     }
 
     fn request_copy(&mut self) {

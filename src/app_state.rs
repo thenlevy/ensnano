@@ -24,9 +24,10 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 //!
 //! Each component of ENSnano has specific needs and express them via its own `AppState` trait.
 
-use ensnano_interactor::{ActionMode, Selection, SelectionMode, WidgetBasis};
+use ensnano_interactor::{operation::Operation, ActionMode, Selection, SelectionMode, WidgetBasis};
 
 use std::path::PathBuf;
+use std::sync::Arc;
 mod address_pointer;
 mod design_interactor;
 use crate::apply_update;
@@ -133,7 +134,23 @@ impl AppState {
         &mut self,
         op: DesignOperation,
     ) -> Result<Option<Self>, ErrOperation> {
-        match self.0.design.apply_operation(op) {
+        let result = self.0.design.apply_operation(op);
+        self.handle_operation_result(result)
+    }
+
+    pub(super) fn update_pending_operation(
+        &mut self,
+        op: Arc<dyn Operation>,
+    ) -> Result<Option<Self>, ErrOperation> {
+        let result = self.0.design.update_pending_operation(op);
+        self.handle_operation_result(result)
+    }
+
+    fn handle_operation_result(
+        &mut self,
+        result: Result<InteractorResult, ErrOperation>,
+    ) -> Result<Option<Self>, ErrOperation> {
+        match result {
             Ok(InteractorResult::Push(design)) => {
                 let ret = Some(self.clone());
                 let new_state = self.clone().with_interactor(design);

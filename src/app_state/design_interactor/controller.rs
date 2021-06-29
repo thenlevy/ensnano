@@ -18,6 +18,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 
 use crate::app_state::AddressPointer;
 use ensnano_design::{grid::GridDescriptor, mutate_helix, Design, Nucl};
+use ensnano_interactor::operation::Operation;
 use ensnano_interactor::{DesignOperation, Selection};
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -84,6 +85,17 @@ impl Controller {
         }
     }
 
+    pub fn update_pending_operation(
+        &self,
+        design: &Design,
+        operation: Arc<dyn Operation>,
+    ) -> Result<(OkOperation, Self), ErrOperation> {
+        let effect = operation.effect();
+        let mut ret = self.apply_operation(design, effect)?;
+        ret.1.state = ControllerState::WithPendingOp(operation);
+        Ok(ret)
+    }
+
     pub fn notify(&self, notification: InteractorNotification) -> Self {
         let mut new_interactor = self.clone();
         match notification {
@@ -97,6 +109,7 @@ impl Controller {
     fn check_compatibilty(&self, operation: &DesignOperation) -> bool {
         match self.state {
             ControllerState::Normal => true,
+            ControllerState::WithPendingOp(_) => true,
             ControllerState::ChangingColor => {
                 if let DesignOperation::ChangeColor { .. } = operation {
                     true
@@ -120,6 +133,7 @@ impl Controller {
     fn return_design(&self, design: Design) -> OkOperation {
         match self.state {
             ControllerState::Normal => OkOperation::Push(design),
+            ControllerState::WithPendingOp(_) => OkOperation::Push(design),
             _ => OkOperation::Replace(design),
         }
     }
@@ -161,7 +175,11 @@ impl Controller {
     }
 
     pub(super) fn is_changing_color(&self) -> bool {
-        self.state == ControllerState::ChangingColor
+        if let ControllerState::ChangingColor = self.state {
+            true
+        } else {
+            false
+        }
     }
 }
 
@@ -352,13 +370,14 @@ fn nucl_pos_2d(design: &Design, nucl: &Nucl) -> Option<Vec2> {
     isometry.map(|i| i.into_homogeneous_matrix().transform_point2(local_position))
 }
 
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone)]
 enum ControllerState {
     Normal,
     MakingHyperboloid,
     BuildingStrand,
     ChangingColor,
     SnapingHelices { design: AddressPointer<Design> },
+    WithPendingOp(Arc<dyn Operation>),
 }
 
 impl Default for ControllerState {
