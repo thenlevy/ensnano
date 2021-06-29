@@ -46,7 +46,7 @@ mod tests;
 pub struct Design {
     /// The collection of all helices used in this design. Helices have a
     /// position and an orientation in 3D.
-    pub helices: BTreeMap<usize, Helix>,
+    pub helices: Arc<BTreeMap<usize, Arc<Helix>>>,
     /// The vector of strands.
     pub strands: BTreeMap<usize, Strand>,
     /// Parameters of DNA geometry. This can be skipped (in JSON), or
@@ -120,7 +120,7 @@ impl Design {
     pub fn from_codenano<Sl, Dl>(codenano_desgin: &codenano::Design<Sl, Dl>) -> Self {
         let mut helices = BTreeMap::new();
         for (i, helix) in codenano_desgin.helices.iter().enumerate() {
-            helices.insert(i, Helix::from_codenano(helix));
+            helices.insert(i, Arc::new(Helix::from_codenano(helix)));
         }
 
         let mut strands = BTreeMap::new();
@@ -134,7 +134,7 @@ impl Design {
             .unwrap_or_default();
 
         Self {
-            helices,
+            helices: Arc::new(helices),
             strands,
             parameters: Some(parameters),
             grids: Vec::new(),
@@ -152,7 +152,7 @@ impl Design {
 
     pub fn new() -> Self {
         Self {
-            helices: BTreeMap::new(),
+            helices: Default::default(),
             strands: BTreeMap::new(),
             parameters: Some(Parameters::DEFAULT),
             grids: Vec::new(),
@@ -220,9 +220,11 @@ impl Design {
             } else {
                 self.parameters = Some(Default::default())
             }
+            mutate_all_helices(self, |h| h.roll *= -1.);
+            /*
             for h in self.helices.values_mut() {
                 h.roll *= -1.;
-            }
+            }*/
             self.ensnano_version = ensnano_version();
         }
     }
@@ -257,7 +259,7 @@ impl Design {
         let mut helices = BTreeMap::new();
         for (i, h) in scad.helices.iter().enumerate() {
             let helix = Helix::from_scadnano(h, &group_map, &groups, &mut helices_per_group)?;
-            helices.insert(i, helix);
+            helices.insert(i, Arc::new(helix));
         }
         let mut strands = BTreeMap::new();
         for (i, s) in scad.strands.iter().enumerate() {
@@ -267,7 +269,7 @@ impl Design {
         println!("grids {:?}", grids);
         Ok(Self {
             grids,
-            helices,
+            helices: Arc::new(helices),
             strands,
             small_spheres: Default::default(),
             scaffold_id: None, //TODO determine this value
@@ -1478,6 +1480,29 @@ impl Helix {
     pub fn set_roll(&mut self, roll: f32) {
         self.roll = roll
     }
+}
+
+/// Apply a mutating function to the value wrapped in an Arc<Helix>. This will make `helix_ptr`
+/// point to a new helix on which the update has been applied.
+pub fn mutate_helix<F>(helix_ptr: &mut Arc<Helix>, mut mutation: F)
+where
+    F: FnMut(&mut Helix),
+{
+    let mut new_helix = Helix::clone(&helix_ptr);
+    mutation(&mut new_helix);
+    *helix_ptr = Arc::new(new_helix)
+}
+
+/// Apply a mutating fucntion to all the helices of a design.
+pub fn mutate_all_helices<F>(design: &mut Design, mutation: F)
+where
+    F: FnMut(&mut Helix) + Clone,
+{
+    let mut new_helices_map = BTreeMap::clone(&design.helices);
+    for h in new_helices_map.values_mut() {
+        mutate_helix(h, mutation.clone())
+    }
+    design.helices = Arc::new(new_helices_map);
 }
 
 #[derive(Serialize, Deserialize, Clone, Copy, Eq, PartialEq, Hash, Debug, PartialOrd, Ord)]

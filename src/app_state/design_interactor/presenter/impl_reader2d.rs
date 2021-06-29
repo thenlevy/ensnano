@@ -76,7 +76,7 @@ impl Reader2D for DesignReader {
         HashMap::new()
     }
 
-    fn get_raw_helix(&self, h_id: usize) -> Option<Helix> {
+    fn get_raw_helix(&self, h_id: usize) -> Option<Arc<Helix>> {
         self.presenter.current_design.helices.get(&h_id).cloned()
     }
 
@@ -171,6 +171,10 @@ impl Reader2D for DesignReader {
 
     fn is_xover_end(&self, nucl: &Nucl) -> Extremity {
         self.is_xover_end(nucl)
+    }
+
+    fn get_helices_map(&self) -> Arc<BTreeMap<usize, Arc<Helix>>> {
+        self.presenter.current_design.helices.clone()
     }
 }
 

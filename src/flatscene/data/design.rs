@@ -39,6 +39,8 @@ pub(super) struct Design2d {
     last_flip_other: Option<FlatHelix>,
     removed: BTreeSet<FlatIdx>,
     requests: Arc<Mutex<dyn Requests>>,
+    known_helices: HashMap<usize, *const DesignHelix>,
+    known_map: *const BTreeMap<usize, Arc<DesignHelix>>,
 }
 
 impl Design2d {
@@ -52,6 +54,8 @@ impl Design2d {
             last_flip_other: None,
             removed: BTreeSet::new(),
             requests,
+            known_helices: Default::default(),
+            known_map: std::ptr::null(),
         }
     }
 
@@ -62,7 +66,7 @@ impl Design2d {
         // At the moment we rebuild the strands from scratch. If needed, this might be an optimisation
         // target
         self.strands = Vec::new();
-        self.fetch_empty_helices();
+        self.update_helices();
         self.rm_deleted_helices();
         let strand_ids = self.design.get_all_strand_ids();
         for strand_id in strand_ids.iter() {
@@ -202,35 +206,34 @@ impl Design2d {
         }
     }
 
-    fn fetch_empty_helices(&mut self) {
-        let mut i = 0;
-        let mut helices_opt = self.design.get_helices_on_grid(i);
-        while let Some(helices) = helices_opt {
-            for h_id in helices.iter() {
-                if !self.id_map.contains_key(h_id) {
-                    let iso_opt = self.design.get_isometry(*h_id);
-                    let isometry = if let Some(iso) = iso_opt {
-                        iso
-                    } else {
-                        let iso = Isometry2::new(
-                            (5. * *h_id as f32 - 1.) * Vec2::unit_y(),
-                            Rotor2::identity(),
-                        );
-                        self.requests.lock().unwrap().set_isometry(*h_id, iso);
-                        iso
-                    };
-                    self.id_map.insert(*h_id, FlatIdx(self.helices.len()));
-                    self.helices.push(Helix2d {
-                        id: *h_id,
-                        left: -1,
-                        right: 1,
-                        isometry,
-                        visible: self.design.get_visibility_helix(*h_id).unwrap_or(false),
-                    });
-                }
+    fn update_helices(&mut self) {
+        if self.known_map == Arc::as_ptr(&self.design.get_helices_map()) {
+            return;
+        }
+        let helices = self.design.get_helices_map();
+        self.known_map = Arc::as_ptr(&helices);
+        for (h_id, helix) in helices.iter() {
+            if !self.id_map.contains_key(h_id) {
+                let iso_opt = self.design.get_isometry(*h_id);
+                let isometry = if let Some(iso) = iso_opt {
+                    iso
+                } else {
+                    let iso = Isometry2::new(
+                        (5. * *h_id as f32 - 1.) * Vec2::unit_y(),
+                        Rotor2::identity(),
+                    );
+                    self.requests.lock().unwrap().set_isometry(*h_id, iso);
+                    iso
+                };
+                self.id_map.insert(*h_id, FlatIdx(self.helices.len()));
+                self.helices.push(Helix2d {
+                    id: *h_id,
+                    left: -1,
+                    right: 1,
+                    isometry,
+                    visible: self.design.get_visibility_helix(*h_id).unwrap_or(false),
+                });
             }
-            i += 1;
-            helices_opt = self.design.get_helices_on_grid(i);
         }
     }
 
@@ -296,7 +299,7 @@ impl Design2d {
         self.design.helix_is_empty(helix.real).unwrap_or(false)
     }
 
-    pub fn get_raw_helix(&self, helix: FlatHelix) -> Option<DesignHelix> {
+    pub fn get_raw_helix(&self, helix: FlatHelix) -> Option<Arc<DesignHelix>> {
         self.design.get_raw_helix(helix.real)
     }
 
@@ -446,7 +449,8 @@ pub trait DesignReader: 'static {
     fn prime3_of_which_strand(&self, nucl: Nucl) -> Option<usize>;
     fn prime5_of_which_strand(&self, nucl: Nucl) -> Option<usize>;
     fn helix_is_empty(&self, h_id: usize) -> Option<bool>;
-    fn get_raw_helix(&self, h_id: usize) -> Option<DesignHelix>;
+    fn get_helices_map(&self) -> Arc<BTreeMap<usize, Arc<DesignHelix>>>;
+    fn get_raw_helix(&self, h_id: usize) -> Option<Arc<DesignHelix>>;
     fn get_raw_strand(&self, s_id: usize) -> Option<StrandDesign>;
     fn is_xover_end(&self, nucl: &Nucl) -> Extremity;
     fn get_identifier_nucl(&self, nucl: &Nucl) -> Option<u32>;

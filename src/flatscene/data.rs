@@ -529,12 +529,8 @@ impl Data {
         self.design.get_strand(strand_id)
     }
 
-    pub fn can_delete_helix(&mut self, helix: FlatHelix) -> Option<(DesignHelix, usize)> {
-        if self.design.can_delete_helix(helix) {
-            self.design.get_raw_helix(helix).zip(Some(helix.real))
-        } else {
-            None
-        }
+    pub fn can_delete_helix(&mut self, helix: FlatHelix) -> bool {
+        self.design.can_delete_helix(helix)
     }
 
     pub fn get_fit_rectangle(&self) -> FitRectangle {

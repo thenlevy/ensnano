@@ -20,6 +20,7 @@ use cadnano_format::VStrand;
 use ensnano_design::grid::{Grid, GridType};
 use ensnano_design::{Design, Domain, Helix, HelixInterval, Nucl, Strand};
 use std::collections::{BTreeMap, HashMap, HashSet};
+use std::sync::Arc;
 use ultraviolet::{Rotor3, Vec3};
 
 const NO_HELIX: usize = std::usize::MAX;
@@ -60,7 +61,7 @@ impl FromCadnano for Design {
             num_to_helix.insert(v.num, i);
             let position = grid.position_helix(v.col, v.row);
             let helix = Helix::new(position, Rotor3::identity());
-            helices.insert(i, helix);
+            helices.insert(i, Arc::new(helix));
             for (j, color) in v.stap_colors.iter() {
                 colors.insert((i, *j as usize), *color as usize);
             }
@@ -85,7 +86,7 @@ impl FromCadnano for Design {
             }
         }
         println!("color {:?}", colors);
-        design.helices = helices;
+        design.helices = Arc::new(helices);
         design
     }
 }

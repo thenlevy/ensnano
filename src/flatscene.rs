@@ -339,15 +339,15 @@ impl<S: AppState> FlatScene<S> {
                 }
             }
             Consequence::RmHelix(h_id) => {
-                let helix = self.data[self.selected_design]
+                let can_delete = self.data[self.selected_design]
                     .borrow_mut()
                     .can_delete_helix(h_id);
-                if let Some((helix, helix_id)) = helix {
+                if can_delete {
                     self.requests
                         .lock()
                         .unwrap()
                         .update_opperation(Arc::new(RmHelix {
-                            helix_id,
+                            helix_id: h_id.real,
                             design_id: self.selected_design,
                         }))
                 }

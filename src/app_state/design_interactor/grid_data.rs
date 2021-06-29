@@ -17,7 +17,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 
 use ensnano_design::grid::*;
-use ensnano_design::{Design, Domain, Helix, Parameters};
+use ensnano_design::{mutate_helix, Design, Domain, Helix, Parameters};
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::f32::consts::FRAC_PI_2;
 use std::sync::{Arc, RwLock};
@@ -241,19 +241,22 @@ impl GridManager {
                 self.grids.push(grid);
             }
         }
+        let mut new_helices = BTreeMap::clone(&design.helices);
         for h_id in helices.iter() {
-            if let Some(h) = design.helices.get_mut(h_id) {
+            if let Some(h) = new_helices.get_mut(h_id) {
                 if h.grid_position.is_some() {
                     continue;
                 }
                 if let Some(position) = self.attach_to(h, self.grids.len() - 1) {
-                    h.grid_position = Some(position)
+                    mutate_helix(h, |h| h.grid_position = Some(position))
                 }
             }
         }
+        design.helices = Arc::new(new_helices);
         Ok(())
     }
 
+    /*
     pub fn update(&mut self, design: &mut Design) {
         for (h_id, h) in design.helices.iter_mut() {
             if let Some(grid_position) = h.grid_position {
@@ -324,7 +327,7 @@ impl GridManager {
             }
         }
         true
-    }
+    }*/
 
     fn attach_to(&self, helix: &Helix, g_id: usize) -> Option<GridPosition> {
         let mut ret = None;
