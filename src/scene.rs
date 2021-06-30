@@ -1,3 +1,4 @@
+use ensnano_interactor::list_of_helices;
 use ensnano_interactor::WidgetBasis;
 /*
 ENSnano, a 3d graphical application for DNA nanostructures.
@@ -190,7 +191,6 @@ impl<S: AppState> Scene<S> {
             }
             Consequence::MovementEnded => {
                 self.requests.lock().unwrap().suspend_op();
-                self.update_handle(app_state);
             }
             Consequence::InitRotation(x, y) => {
                 self.view.borrow_mut().init_rotation(x as f32, y as f32)
@@ -362,7 +362,6 @@ impl<S: AppState> Scene<S> {
         if let Some(selection) = selection {
             self.requests.lock().unwrap().set_selection(vec![selection]);
         }
-        self.update_handle(app_state);
     }
 
     fn add_selection(
@@ -435,17 +434,22 @@ impl<S: AppState> Scene<S> {
                     y: translation.dot(top),
                     z: translation.dot(dir),
                 }),
-                Selection::Helix(d_id, h_id) => Arc::new(HelixTranslation {
-                    design_id: d_id as usize,
-                    helices: vec![h_id as usize],
-                    right: Vec3::unit_x().rotated_by(rotor),
-                    top: Vec3::unit_y().rotated_by(rotor),
-                    dir: Vec3::unit_z().rotated_by(rotor),
-                    x: translation.dot(right),
-                    y: translation.dot(top),
-                    z: translation.dot(dir),
-                    snap: true,
-                }),
+                Selection::Helix(d_id, h_id) => {
+                    let helices = list_of_helices(app_state.get_selection())
+                        .unwrap_or((0, vec![h_id as usize]))
+                        .1;
+                    Arc::new(HelixTranslation {
+                        design_id: d_id as usize,
+                        helices,
+                        right: Vec3::unit_x().rotated_by(rotor),
+                        top: Vec3::unit_y().rotated_by(rotor),
+                        dir: Vec3::unit_z().rotated_by(rotor),
+                        x: translation.dot(right),
+                        y: translation.dot(top),
+                        z: translation.dot(dir),
+                        snap: true,
+                    })
+                }
                 _ => return,
             };
 
@@ -534,49 +538,11 @@ impl<S: AppState> Scene<S> {
             .draw(encoder, target, DrawType::Scene, self.area);
     }
 
-    fn update_handle(&mut self, app_state: &S) {
-        let origin = self.data.borrow().get_selected_position();
-        let orientation = self.data.borrow().get_widget_basis(app_state);
-        let handle_descr = if app_state.get_action_mode().wants_handle() {
-            origin
-                .clone()
-                .zip(orientation.clone())
-                .map(|(origin, orientation)| HandlesDescriptor {
-                    origin,
-                    orientation: HandleOrientation::Rotor(orientation),
-                    size: 0.25,
-                })
-        } else {
-            None
-        };
-        self.view
-            .borrow_mut()
-            .update(ViewUpdate::Handles(handle_descr));
-        let only_right = !self.data.borrow().selection_can_rotate_freely(app_state);
-        let rotation_widget_descr = if app_state.get_action_mode().wants_rotation() {
-            origin
-                .clone()
-                .zip(orientation.clone())
-                .map(|(origin, orientation)| RotationWidgetDescriptor {
-                    origin,
-                    orientation: RotationWidgetOrientation::Rotor(orientation),
-                    size: 0.2,
-                    only_right,
-                })
-        } else {
-            None
-        };
-        self.view
-            .borrow_mut()
-            .update(ViewUpdate::RotationWidget(rotation_widget_descr));
-    }
-
     fn perform_update(&mut self, dt: Duration, app_state: &S) {
         if self.update.camera_update {
             self.controller.update_camera(dt);
             self.view.borrow_mut().update(ViewUpdate::Camera);
             self.update.camera_update = false;
-            self.update_handle(app_state)
         }
         self.update.need_update = false;
     }

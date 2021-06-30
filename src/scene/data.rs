@@ -19,7 +19,10 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 //! It also communicates with the desgings to get the position of the objects to draw on the scene.
 
 use super::view::RawDnaInstance;
-use super::{LetterInstance, SceneElement, View, ViewUpdate};
+use super::{
+    HandleOrientation, HandlesDescriptor, LetterInstance, RotationWidgetDescriptor,
+    RotationWidgetOrientation, SceneElement, View, ViewUpdate,
+};
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
@@ -63,6 +66,7 @@ pub struct Data<R: DesignReader> {
     pivot_position: Option<Vec3>,
     free_xover: Option<FreeXover>,
     free_xover_update: bool,
+    handle_need_opdate: bool,
 }
 
 impl<R: DesignReader> Data<R> {
@@ -79,6 +83,7 @@ impl<R: DesignReader> Data<R> {
             pivot_position: None,
             free_xover: None,
             free_xover_update: false,
+            handle_need_opdate: false,
         }
     }
 
@@ -111,8 +116,17 @@ impl<R: DesignReader> Data<R> {
 
         if app_state.is_changing_color() {
             self.update_selection(&[], app_state)
-        } else if app_state.selection_was_updated(older_app_state) {
+        } else if app_state.selection_was_updated(older_app_state)
+            || app_state.design_was_modified(older_app_state)
+        {
             self.update_selection(app_state.get_selection(), app_state);
+        }
+        self.handle_need_opdate |= app_state.design_was_modified(older_app_state)
+            || app_state.selection_was_updated(older_app_state)
+            || app_state.get_action_mode() != older_app_state.get_action_mode();
+        if self.handle_need_opdate {
+            self.update_handle(app_state);
+            self.handle_need_opdate = false;
         }
         if app_state.candidates_set_was_updated(older_app_state) {
             self.update_candidate(app_state.get_candidates());
@@ -129,6 +143,43 @@ impl<R: DesignReader> Data<R> {
         if app_state.design_model_matrix_was_updated(older_app_state) {
             self.update_matrices();
         }
+    }
+
+    fn update_handle<S: AppState>(&self, app_state: &S) {
+        let origin = self.get_selected_position();
+        let orientation = self.get_widget_basis(app_state);
+        let handle_descr = if app_state.get_action_mode().wants_handle() {
+            origin
+                .clone()
+                .zip(orientation.clone())
+                .map(|(origin, orientation)| HandlesDescriptor {
+                    origin,
+                    orientation: HandleOrientation::Rotor(orientation),
+                    size: 0.25,
+                })
+        } else {
+            None
+        };
+        self.view
+            .borrow_mut()
+            .update(ViewUpdate::Handles(handle_descr));
+        let only_right = !self.selection_can_rotate_freely(app_state);
+        let rotation_widget_descr = if app_state.get_action_mode().wants_rotation() {
+            origin
+                .clone()
+                .zip(orientation.clone())
+                .map(|(origin, orientation)| RotationWidgetDescriptor {
+                    origin,
+                    orientation: RotationWidgetOrientation::Rotor(orientation),
+                    size: 0.2,
+                    only_right,
+                })
+        } else {
+            None
+        };
+        self.view
+            .borrow_mut()
+            .update(ViewUpdate::RotationWidget(rotation_widget_descr));
     }
 }
 
@@ -569,6 +620,7 @@ impl<R: DesignReader> Data<R> {
         element: Option<SceneElement>,
         app_state: &S,
     ) -> Option<Selection> {
+        self.handle_need_opdate = true;
         if let Some(SceneElement::WidgetElement(_)) = element {
             return None;
         }
@@ -711,6 +763,19 @@ impl<R: DesignReader> Data<R> {
 
     /// Notify the view that the selected elements have been modified
     fn update_selection<S: AppState>(&mut self, selection: &[Selection], app_state: &S) {
+        let sphere = self.get_selected_spheres(selection);
+        let tubes = self.get_selected_tubes(selection);
+        let pos: Vec3 = sphere
+            .iter()
+            .chain(tubes.iter())
+            .map(|i| i.model.extract_translation())
+            .sum();
+        let total_len = sphere.len() + tubes.len();
+        if selection.len() > 1 && total_len > 1 {
+            self.selected_position = Some(pos / (total_len as f32));
+        } else {
+            self.update_selected_position(app_state);
+        }
         self.view.borrow_mut().update(ViewUpdate::RawDna(
             Mesh::SelectedTube,
             self.get_selected_tubes(selection),
