@@ -96,16 +96,14 @@ impl Controller {
     ) -> Result<(OkOperation, Self), ErrOperation> {
         let effect = operation.effect();
         let mut ret = self.apply_operation(design, effect)?;
-        ret.1.state = ControllerState::WithPendingOp(operation);
+        ret.1.state.update_operation(operation);
         Ok(ret)
     }
 
     pub fn notify(&self, notification: InteractorNotification) -> Self {
         let mut new_interactor = self.clone();
         match notification {
-            InteractorNotification::FinishOperation => {
-                new_interactor.state = ControllerState::Normal
-            }
+            InteractorNotification::FinishOperation => new_interactor.state = self.state.finish(),
         }
         new_interactor
     }
@@ -125,6 +123,13 @@ impl Controller {
                 if let DesignOperation::SnapHelices { .. } = operation {
                     true
                 } else if let DesignOperation::RotateHelices { .. } = operation {
+                    true
+                } else {
+                    false
+                }
+            }
+            ControllerState::TranslatingHelices { .. } => {
+                if let DesignOperation::Translation(_) = operation {
                     true
                 } else {
                     false
@@ -202,11 +207,22 @@ impl Controller {
 
     fn translate_helices(
         &mut self,
-        design: Design,
+        mut design: Design,
         snap: bool,
         helices: Vec<usize>,
         translation: Vec3,
     ) -> Design {
+        if let ControllerState::TranslatingHelices {
+            design: design_ptr, ..
+        } = &self.state
+        {
+            design = design_ptr.clone_inner();
+        } else {
+            self.state = ControllerState::TranslatingHelices {
+                design: AddressPointer::new(design.clone()),
+                operation: None,
+            };
+        }
         let mut new_helices = BTreeMap::clone(design.helices.as_ref());
         for h_id in helices.iter() {
             if let Some(h) = new_helices.get_mut(h_id) {
@@ -336,7 +352,6 @@ impl Controller {
     }
 
     fn snap_helices(&mut self, mut design: Design, pivots: Vec<Nucl>, translation: Vec2) -> Design {
-        println!("snaping {:?}, {:?}", pivots, translation);
         if let ControllerState::SnapingHelices { design: design_ptr } = &self.state {
             design = design_ptr.clone_inner();
         } else {
@@ -425,13 +440,44 @@ enum ControllerState {
     MakingHyperboloid,
     BuildingStrand,
     ChangingColor,
-    SnapingHelices { design: AddressPointer<Design> },
+    SnapingHelices {
+        design: AddressPointer<Design>,
+    },
     WithPendingOp(Arc<dyn Operation>),
+    TranslatingHelices {
+        design: AddressPointer<Design>,
+        operation: Option<Arc<dyn Operation>>,
+    },
 }
 
 impl Default for ControllerState {
     fn default() -> Self {
         Self::Normal
+    }
+}
+
+impl ControllerState {
+    fn update_operation(&mut self, op: Arc<dyn Operation>) {
+        match self {
+            Self::TranslatingHelices { operation, .. } => *operation = Some(op),
+            _ => (),
+        }
+    }
+
+    fn get_operation(&self) -> Option<Arc<dyn Operation>> {
+        match self {
+            Self::TranslatingHelices { operation, .. } => operation.clone(),
+            Self::WithPendingOp(op) => Some(op.clone()),
+            _ => None,
+        }
+    }
+
+    fn finish(&self) -> Self {
+        if let Some(op) = self.get_operation() {
+            Self::WithPendingOp(op)
+        } else {
+            Self::Normal
+        }
     }
 }
 

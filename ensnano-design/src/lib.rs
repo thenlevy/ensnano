@@ -1192,11 +1192,6 @@ pub struct Helix {
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub grid_position: Option<GridPosition>,
 
-    #[serde(default, skip_serializing)]
-    old_position: Vec3,
-    #[serde(default, skip_serializing)]
-    old_orientation: Rotor3,
-
     /// Representation of the helix in 2d
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub isometry2d: Option<Isometry2>,
@@ -1239,8 +1234,6 @@ impl Helix {
         Self {
             position,
             orientation,
-            old_position: position,
-            old_orientation: orientation,
             grid_position: None,
             isometry2d: None,
             visible: true,
@@ -1305,8 +1298,6 @@ impl Helix {
         Ok(Self {
             position: Vec3::zero(),
             orientation: Rotor3::identity(),
-            old_position: Vec3::zero(),
-            old_orientation: Rotor3::identity(),
             grid_position: Some(GridPosition {
                 grid: *grid_id,
                 x,
@@ -1326,8 +1317,6 @@ impl Helix {
         Self {
             position: origin,
             orientation,
-            old_orientation: orientation,
-            old_position: origin,
             isometry2d: None,
             grid_position: None,
             visible: true,
@@ -1340,8 +1329,6 @@ impl Helix {
         Self {
             position,
             orientation: grid.orientation,
-            old_orientation: grid.orientation,
-            old_position: position,
             isometry2d: None,
             grid_position: Some(GridPosition {
                 grid: g_id,
@@ -1392,9 +1379,7 @@ impl Helix {
     fn detatched_copy_at(&self, position: Vec3) -> Helix {
         Helix {
             position,
-            old_position: position,
             orientation: self.orientation,
-            old_orientation: self.orientation,
             grid_position: None,
             roll: 0.,
             visible: true,
@@ -1451,26 +1436,13 @@ impl Helix {
     }
 
     pub fn rotate_arround(&mut self, rotation: Rotor3, origin: Vec3) {
-        self.orientation = self.old_orientation;
-        self.position = self.old_position;
         self.append_translation(-origin);
         self.append_rotation(rotation);
         self.append_translation(origin);
     }
 
     pub fn translate(&mut self, translation: Vec3) {
-        self.position = self.old_position;
         self.append_translation(translation);
-    }
-
-    pub fn cancel_current_movement(&mut self) {
-        self.position = self.old_position;
-        self.orientation = self.old_orientation;
-    }
-
-    pub fn end_movement(&mut self) {
-        self.old_position = self.position;
-        self.old_orientation = self.orientation;
     }
 
     #[allow(dead_code)]

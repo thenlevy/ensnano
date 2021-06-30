@@ -25,10 +25,7 @@ impl State for NormalState {
     fn make_progress(self: Box<Self>, main_state: &mut dyn MainState) -> Box<dyn State> {
         if let Some(action) = main_state.pop_action() {
             match action {
-                Action::NewDesign => {
-                    main_state.new_design();
-                    self
-                }
+                Action::NewDesign => self,
                 Action::SaveAs => save_as(),
                 Action::DownloadStaplesRequest => Box::new(DownloadStaples::default()),
                 Action::SetScaffoldSequence => Box::new(SetScaffoldSequence::default()),

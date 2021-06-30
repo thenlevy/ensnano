@@ -349,6 +349,10 @@ pub(crate) fn poll_all<R: DerefMut<Target = Requests>>(
             .push_back(Action::DesignOperation(op))
     }
 
+    if requests.suspend_op.take().is_some() {
+        main_state.pending_actions.push_back(Action::SuspendOp)
+    }
+
     for action in requests.keep_proceed.drain(..) {
         main_state.pending_actions.push_back(action)
     }
