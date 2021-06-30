@@ -82,7 +82,6 @@ impl Controller {
                 angle,
             } => Ok(self.ok_apply(|c, d| c.rotate_helices(d, helices, center, angle), design)),
             DesignOperation::Translation(translation) => {
-                println!("translation {:?}", translation.translation);
                 self.apply(|c, d| c.apply_translation(d, translation), design)
             }
             _ => Err(ErrOperation::NotImplemented),

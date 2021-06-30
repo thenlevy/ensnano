@@ -310,24 +310,36 @@ impl GridManager {
         }
         let h = h.unwrap();
         let axis = h.get_axis(&self.parameters);
-        if let Some(grid_position) = h.grid_position {
-            let g = &self.grids[grid_position.grid];
-            if let Some(_) = g.interpolate_helix(axis.origin, axis.direction) {
+        if let Some(old_grid_position) = h.grid_position {
+            let g = &self.grids[old_grid_position.grid];
+            if g.interpolate_helix(axis.origin, axis.direction).is_some() {
                 let old_roll = h.grid_position.map(|gp| gp.roll).filter(|_| preserve_roll);
                 let candidate_position = g
-                    .find_helix_position(h, grid_position.grid)
+                    .find_helix_position(h, old_grid_position.grid)
                     .map(|g| g.with_roll(old_roll));
-                if let Some(grid_pos) = candidate_position {
-                    if let Some(helix) =
-                        self.pos_to_helix(grid_position.grid, grid_position.x, grid_pos.y)
-                    {
+                println!("candidate_position {:?}", candidate_position);
+                println!("{:?}", self.pos_to_helix);
+                if let Some(new_grid_position) = candidate_position {
+                    if let Some(helix) = self.pos_to_helix(
+                        new_grid_position.grid,
+                        new_grid_position.x,
+                        new_grid_position.y,
+                    ) {
+                        println!("Found helix {} {}", helix, h_id);
                         if helix == h_id {
                             mutate_helix(h, |h| h.grid_position = candidate_position);
+                            mutate_helix(h, |h| {
+                                h.position =
+                                    g.position_helix(new_grid_position.x, new_grid_position.y)
+                            });
                         } else {
                             return false;
                         }
                     } else {
                         mutate_helix(h, |h| h.grid_position = candidate_position);
+                        mutate_helix(h, |h| {
+                            h.position = g.position_helix(new_grid_position.x, new_grid_position.y)
+                        });
                     }
                 }
             }
