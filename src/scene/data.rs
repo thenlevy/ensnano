@@ -429,15 +429,16 @@ impl<R: DesignReader> Data<R> {
     }
 
     /// Return the identifier of the group of the selected element
-    pub fn get_selected_group<S: AppState>(&self, app_state: &S) -> u32 {
+    pub fn get_selected_group<S: AppState>(&self, app_state: &S) -> Option<u32> {
         match self.selected_element.as_ref() {
             Some(SceneElement::DesignElement(design_id, element_id)) => {
                 let selection_mode = self.get_sub_selection_mode(app_state);
                 self.get_group_identifier(*design_id, *element_id, selection_mode)
+                    .map(|x| x as u32)
             }
-            Some(SceneElement::PhantomElement(phantom_element)) => phantom_element.helix_id,
-            Some(SceneElement::Grid(_, g_id)) => *g_id as u32,
-            _ => unreachable!(),
+            Some(SceneElement::PhantomElement(phantom_element)) => Some(phantom_element.helix_id),
+            Some(SceneElement::Grid(_, g_id)) => Some(*g_id as u32),
+            _ => None,
         }
     }
 
@@ -447,13 +448,17 @@ impl<R: DesignReader> Data<R> {
         design_id: u32,
         element_id: u32,
         selection_mode: SelectionMode,
-    ) -> u32 {
+    ) -> Option<u32> {
         match selection_mode {
-            SelectionMode::Nucleotide => element_id,
-            SelectionMode::Design => design_id,
-            SelectionMode::Strand => self.designs[design_id as usize].get_strand(element_id),
-            SelectionMode::Helix => self.designs[design_id as usize].get_helix(element_id),
-            SelectionMode::Grid => element_id,
+            SelectionMode::Nucleotide => Some(element_id),
+            SelectionMode::Design => Some(design_id),
+            SelectionMode::Strand => self.designs[design_id as usize]
+                .get_strand(element_id)
+                .map(|x| x as u32),
+            SelectionMode::Helix => self.designs[design_id as usize]
+                .get_helix(element_id)
+                .map(|x| x as u32),
+            SelectionMode::Grid => Some(element_id),
         }
     }
 
@@ -476,16 +481,20 @@ impl<R: DesignReader> Data<R> {
         match selection_mode {
             SelectionMode::Nucleotide => element_id,
             SelectionMode::Design => Some(design_id),
-            SelectionMode::Strand => {
-                element_id.map(|e| self.designs[design_id as usize].get_strand(e))
-            }
+            SelectionMode::Strand => element_id.and_then(|e| {
+                self.designs[design_id as usize]
+                    .get_strand(e)
+                    .map(|x| x as u32)
+            }),
             SelectionMode::Helix => Some(phantom_element.helix_id),
             SelectionMode::Grid => None,
         }
     }
 
-    fn get_helix_identifier(&self, design_id: u32, element_id: u32) -> u32 {
-        self.designs[design_id as usize].get_helix(element_id)
+    fn get_helix_identifier(&self, design_id: u32, element_id: u32) -> Option<u32> {
+        self.designs[design_id as usize]
+            .get_helix(element_id)
+            .map(|x| x as u32)
     }
 
     /// Return the set of elements in a given group
@@ -772,7 +781,9 @@ impl<R: DesignReader> Data<R> {
                 match element {
                     SceneElement::DesignElement(d_id, elt_id) => {
                         let set = ret.entry(*d_id).or_insert_with(HashMap::new);
-                        set.insert(self.get_helix_identifier(*d_id, *elt_id), false);
+                        if let Some(h_id) = self.get_helix_identifier(*d_id, *elt_id) {
+                            set.insert(h_id, false);
+                        }
                     }
                     SceneElement::PhantomElement(phantom_element) => {
                         let set = ret
@@ -825,28 +836,33 @@ impl<R: DesignReader> Data<R> {
     ) -> Selection {
         match element {
             SceneElement::DesignElement(design_id, element_id) => {
-                let group_id = self.get_group_identifier(*design_id, *element_id, selection_mode);
-                match selection_mode {
-                    SelectionMode::Design => Selection::Design(*design_id),
-                    SelectionMode::Strand => Selection::Strand(*design_id, group_id),
-                    SelectionMode::Nucleotide => {
-                        let nucl = self.designs[*design_id as usize].get_nucl(group_id);
-                        let bound = self.designs[*design_id as usize].get_bound(group_id);
-                        let xover_id = bound.as_ref().and_then(|xover| {
-                            self.designs[*design_id as usize].get_xover_id(xover)
-                        });
-                        if let Some(nucl) = nucl {
-                            Selection::Nucleotide(*design_id, nucl)
-                        } else if let Some(id) = xover_id {
-                            Selection::Xover(*design_id, id)
-                        } else if let Some((n1, n2)) = bound {
-                            Selection::Bound(*design_id, n1, n2)
-                        } else {
-                            Selection::Nothing
+                if let Some(group_id) =
+                    self.get_group_identifier(*design_id, *element_id, selection_mode)
+                {
+                    match selection_mode {
+                        SelectionMode::Design => Selection::Design(*design_id),
+                        SelectionMode::Strand => Selection::Strand(*design_id, group_id),
+                        SelectionMode::Nucleotide => {
+                            let nucl = self.designs[*design_id as usize].get_nucl(group_id);
+                            let bound = self.designs[*design_id as usize].get_bound(group_id);
+                            let xover_id = bound.as_ref().and_then(|xover| {
+                                self.designs[*design_id as usize].get_xover_id(xover)
+                            });
+                            if let Some(nucl) = nucl {
+                                Selection::Nucleotide(*design_id, nucl)
+                            } else if let Some(id) = xover_id {
+                                Selection::Xover(*design_id, id)
+                            } else if let Some((n1, n2)) = bound {
+                                Selection::Bound(*design_id, n1, n2)
+                            } else {
+                                Selection::Nothing
+                            }
                         }
+                        SelectionMode::Helix => Selection::Helix(*design_id, group_id),
+                        SelectionMode::Grid => Selection::Grid(*design_id, group_id as usize),
                     }
-                    SelectionMode::Helix => Selection::Helix(*design_id, group_id),
-                    SelectionMode::Grid => Selection::Grid(*design_id, group_id as usize),
+                } else {
+                    Selection::Nothing
                 }
             }
             SceneElement::Grid(d_id, g_id) => Selection::Grid(*d_id, *g_id),
@@ -1162,7 +1178,7 @@ impl<R: DesignReader> Data<R> {
                 SelectionMode::Grid => Some(self.designs[*d_id as usize].get_basis()),
                 SelectionMode::Helix => {
                     let h_id = self.get_selected_group(app_state);
-                    self.designs[*d_id as usize].get_helix_basis(h_id)
+                    h_id.and_then(|h_id| self.designs[*d_id as usize].get_helix_basis(h_id))
                 }
             },
             Some(SceneElement::PhantomElement(phantom_element)) => {
@@ -1197,8 +1213,11 @@ impl<R: DesignReader> Data<R> {
                     | SelectionMode::Strand
                     | SelectionMode::Grid => true,
                     SelectionMode::Helix => {
-                        let h_id = self.get_selected_group(app_state);
-                        !self.designs[*d_id as usize].helix_is_on_grid(h_id)
+                        if let Some(h_id) = self.get_selected_group(app_state) {
+                            !self.designs[*d_id as usize].helix_is_on_grid(h_id)
+                        } else {
+                            true
+                        }
                     }
                 }
             }

@@ -617,12 +617,12 @@ impl<R: DesignReader> Design3D<R> {
         ret
     }
 
-    pub fn get_strand(&self, element_id: u32) -> u32 {
-        self.design.get_id_of_strand_containing(element_id).unwrap() as u32
+    pub fn get_strand(&self, element_id: u32) -> Option<usize> {
+        self.design.get_id_of_strand_containing(element_id)
     }
 
-    pub fn get_helix(&self, element_id: u32) -> u32 {
-        self.design.get_id_of_helix_containing(element_id).unwrap() as u32
+    pub fn get_helix(&self, element_id: u32) -> Option<usize> {
+        self.design.get_id_of_helix_containing(element_id)
     }
 
     pub fn get_strand_elements(&self, strand_id: u32) -> HashSet<u32> {
