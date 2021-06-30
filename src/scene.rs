@@ -1,5 +1,3 @@
-use ensnano_interactor::list_of_helices;
-use ensnano_interactor::WidgetBasis;
 /*
 ENSnano, a 3d graphical application for DNA nanostructures.
     Copyright (C) 2021  Nicolas Levy <nicolaspierrelevy@gmail.com> and Nicolas Schabanel <nicolas.schabanel@ens-lyon.fr>
@@ -30,8 +28,9 @@ use crate::{DrawArea, PhySize, WindowEvent};
 use ensnano_design::{grid::Hyperboloid, Nucl};
 use ensnano_interactor::{
     application::{AppId, Application, Notification},
+    list_of_grids, list_of_helices,
     operation::*,
-    ActionMode, Selection, SelectionMode, StrandBuilder,
+    ActionMode, Selection, SelectionMode, StrandBuilder, WidgetBasis,
 };
 use instance::Instance;
 use utils::instance;
@@ -424,16 +423,21 @@ impl<S: AppState> Scene<S> {
 
         let translation_op: Arc<dyn Operation> =
             match self.data.borrow().get_selected_element(app_state) {
-                Selection::Grid(d_id, g_id) => Arc::new(GridTranslation {
-                    design_id: d_id as usize,
-                    grid_id: g_id as usize,
-                    right: Vec3::unit_x().rotated_by(rotor),
-                    top: Vec3::unit_y().rotated_by(rotor),
-                    dir: Vec3::unit_z().rotated_by(rotor),
-                    x: translation.dot(right),
-                    y: translation.dot(top),
-                    z: translation.dot(dir),
-                }),
+                Selection::Grid(d_id, g_id) => {
+                    let grids = list_of_grids(app_state.get_selection())
+                        .unwrap_or((0, vec![g_id as usize]))
+                        .1;
+                    Arc::new(GridTranslation {
+                        design_id: d_id as usize,
+                        grid_ids: grids,
+                        right: Vec3::unit_x().rotated_by(rotor),
+                        top: Vec3::unit_y().rotated_by(rotor),
+                        dir: Vec3::unit_z().rotated_by(rotor),
+                        x: translation.dot(right),
+                        y: translation.dot(top),
+                        z: translation.dot(dir),
+                    })
+                }
                 Selection::Helix(d_id, h_id) => {
                     let helices = list_of_helices(app_state.get_selection())
                         .unwrap_or((0, vec![h_id as usize]))
@@ -483,7 +487,7 @@ impl<S: AppState> Scene<S> {
             Selection::Grid(d_id, g_id) => {
                 let grid_id = g_id as usize;
                 Arc::new(GridRotation {
-                    grid_id,
+                    grid_ids: vec![grid_id],
                     angle,
                     plane,
                     origin,

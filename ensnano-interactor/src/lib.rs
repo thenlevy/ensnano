@@ -200,7 +200,7 @@ pub enum IsometryTarget {
     /// An helix of the design
     Helices(Vec<usize>, bool),
     /// A grid of the desgin
-    Grid(u32),
+    Grids(Vec<usize>),
 }
 
 /// A stucture that defines an helix on a grid

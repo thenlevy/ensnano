@@ -200,7 +200,9 @@ impl Controller {
             IsometryTarget::Helices(helices, snap) => {
                 Ok(self.translate_helices(design, snap, helices, translation.translation))
             }
-            IsometryTarget::Grid(_) => Err(ErrOperation::NotImplemented),
+            IsometryTarget::Grids(grid_ids) => {
+                Ok(self.translate_grids(design, grid_ids, translation.translation))
+            }
         }
     }
 
@@ -244,6 +246,31 @@ impl Controller {
         } else {
             new_design
         }
+    }
+
+    fn translate_grids(
+        &mut self,
+        mut design: Design,
+        grid_ids: Vec<usize>,
+        translation: Vec3,
+    ) -> Design {
+        if let ControllerState::TranslatingHelices {
+            design: design_ptr, ..
+        } = &self.state
+        {
+            design = design_ptr.clone_inner();
+        } else {
+            self.state = ControllerState::TranslatingHelices {
+                design: AddressPointer::new(design.clone()),
+                operation: None,
+            };
+        }
+        for g_id in grid_ids.into_iter() {
+            if let Some(desc) = design.grids.get_mut(g_id) {
+                desc.position += translation;
+            }
+        }
+        design
     }
 }
 
@@ -444,6 +471,10 @@ enum ControllerState {
     },
     WithPendingOp(Arc<dyn Operation>),
     TranslatingHelices {
+        design: AddressPointer<Design>,
+        operation: Option<Arc<dyn Operation>>,
+    },
+    TranslatingGrids {
         design: AddressPointer<Design>,
         operation: Option<Arc<dyn Operation>>,
     },

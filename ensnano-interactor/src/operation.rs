@@ -72,7 +72,7 @@ pub trait Operation: std::fmt::Debug + Sync + Send {
 pub struct GridRotation {
     pub origin: Vec3,
     pub design_id: usize,
-    pub grid_id: usize,
+    pub grid_ids: Vec<usize>,
     pub angle: f32,
     pub plane: Bivec3,
 }
@@ -94,12 +94,15 @@ impl Operation for GridRotation {
         DesignOperation::Rotation(DesignRotation {
             rotation: rotor,
             origin: self.origin,
-            target: IsometryTarget::Grid(self.grid_id as u32),
+            target: IsometryTarget::Grids(self.grid_ids.clone()),
         })
     }
 
     fn description(&self) -> String {
-        format!("Rotate grid {} of design {}", self.grid_id, self.design_id)
+        format!(
+            "Rotate grids {:?} of design {}",
+            self.grid_ids, self.design_id
+        )
     }
 
     fn with_new_value(&self, n: usize, val: String) -> Option<Arc<dyn Operation>> {
@@ -107,7 +110,7 @@ impl Operation for GridRotation {
             let degrees: f32 = val.parse().ok()?;
             Some(Arc::new(Self {
                 angle: degrees.to_radians(),
-                ..*self
+                ..self.clone()
             }))
         } else {
             None
@@ -360,7 +363,7 @@ impl Operation for HelixTranslation {
 #[derive(Debug, Clone)]
 pub struct GridTranslation {
     pub design_id: usize,
-    pub grid_id: usize,
+    pub grid_ids: Vec<usize>,
     pub right: Vec3,
     pub top: Vec3,
     pub dir: Vec3,
@@ -395,14 +398,14 @@ impl Operation for GridTranslation {
         let translation = self.x * self.right + self.y * self.top + self.z * self.dir;
         DesignOperation::Translation(DesignTranslation {
             translation,
-            target: IsometryTarget::Grid(self.grid_id as u32),
+            target: IsometryTarget::Grids(self.grid_ids.clone()),
         })
     }
 
     fn description(&self) -> String {
         format!(
-            "Translate grid {} of design {}",
-            self.grid_id, self.design_id
+            "Translate grids {:?} of design {}",
+            self.grid_ids, self.design_id
         )
     }
 
@@ -410,15 +413,24 @@ impl Operation for GridTranslation {
         match n {
             0 => {
                 let new_x: f32 = val.parse().ok()?;
-                Some(Arc::new(Self { x: new_x, ..*self }))
+                Some(Arc::new(Self {
+                    x: new_x,
+                    ..self.clone()
+                }))
             }
             1 => {
                 let new_y: f32 = val.parse().ok()?;
-                Some(Arc::new(Self { y: new_y, ..*self }))
+                Some(Arc::new(Self {
+                    y: new_y,
+                    ..self.clone()
+                }))
             }
             2 => {
                 let new_z: f32 = val.parse().ok()?;
-                Some(Arc::new(Self { z: new_z, ..*self }))
+                Some(Arc::new(Self {
+                    z: new_z,
+                    ..self.clone()
+                }))
             }
             _ => None,
         }

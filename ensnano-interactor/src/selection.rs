@@ -154,6 +154,21 @@ pub(super) fn list_of_strands(
     Some((design_id as usize, strands))
 }
 
+pub fn list_of_grids(selection: &[Selection]) -> Option<(usize, Vec<usize>)> {
+    let design_id = selection.get(0).and_then(Selection::get_design)?;
+    let mut grids = BTreeSet::new();
+    for s in selection.iter() {
+        match s {
+            Selection::Grid(d_id, g_id) if *d_id == design_id => {
+                grids.insert(*g_id);
+            }
+            _ => return None,
+        }
+    }
+    let grids: Vec<usize> = grids.into_iter().collect();
+    Some((design_id as usize, grids))
+}
+
 /// Convert a selection of bounds into a list of cross-overs
 pub fn list_of_xovers(
     selection: &[Selection],
