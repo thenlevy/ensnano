@@ -758,26 +758,6 @@ impl<S: AppState> Application for Scene<S> {
     }
 }
 
-impl<S: AppState> Scene<S> {
-    /*
-    fn handle_design_notification(&mut self, notification: DesignNotification) {
-        let _design_id = notification.design_id;
-        match notification.content {
-            DesignNotificationContent::ModelChanged(_) => {
-                self.update.need_update = true;
-                self.data.borrow_mut().notify_matrices_update();
-            }
-            DesignNotificationContent::InstanceChanged => {
-                self.data.borrow_mut().notify_instance_update()
-            }
-            DesignNotificationContent::ViewNeedReset => {
-                self.data.borrow_mut().notify_instance_update();
-                self.data.borrow_mut().set_selection(None);
-            }
-        }
-    }*/
-}
-
 pub trait AppState: Clone {
     type DesignReader: DesignReader;
     fn get_selection(&self) -> &[Selection];

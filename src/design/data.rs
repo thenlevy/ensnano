@@ -1761,7 +1761,6 @@ impl Data {
             self.test_named_junction("TEST AFTER SPLIT STRAND");
         }
         Some(new_id)
-        // TODO UNITTEST
     }
 
     /// Split a cyclic strand at nucl

@@ -17,7 +17,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 
 use crate::app_state::AddressPointer;
-use ensnano_design::{grid::GridDescriptor, mutate_helix, Design, Nucl, Strand};
+use ensnano_design::{grid::GridDescriptor, mutate_helix, Design, Nucl, Strand, DomainJunction};
 use ensnano_interactor::operation::Operation;
 use ensnano_interactor::{
     DesignOperation, DesignRotation, DesignTranslation, DomainIdentifier, IsometryTarget,
@@ -387,6 +387,7 @@ pub enum ErrOperation {
     /// The controller is in a state incompatible with applying the operation
     IncompatibleState,
     CannotBuildOn(Nucl),
+    CutInexistingStrand,
 }
 
 impl Controller {
@@ -634,7 +635,7 @@ impl Controller {
 
     fn move_strand_builders(
         &mut self,
-        mut design: Design,
+        _: Design,
         n: isize,
     ) -> Result<Design, ErrOperation> {
         if let ControllerState::BuildingStrand {
@@ -642,7 +643,7 @@ impl Controller {
             builders,
         } = &mut self.state
         {
-            design = initial_design.clone_inner();
+            let mut design = initial_design.clone_inner();
             for builder in builders.iter_mut() {
                 builder.move_to(n, &mut design)
             }
@@ -651,6 +652,229 @@ impl Controller {
             Err(ErrOperation::IncompatibleState)
         }
     }
+
+    
+    /// Split a strand at nucl, and return the id of the newly created strand
+    ///
+    /// The part of the strand that contains nucl is given the original
+    /// strand's id, the other part is given a new id.
+    ///
+    /// If `force_end` is `Some(true)`, nucl will be on the 3 prime half of the split.
+    /// If `force_end` is `Some(false)` nucl will be on the 5 prime half of the split.
+    /// If `force_end` is `None`, nucl will be on the 5 prime half of the split unless nucl is the 3
+    /// prime extremity of a crossover, in which case nucl will be on the 3 prime half of the
+    /// split.
+    fn split_strand(design: &mut Design, nucl: &Nucl, force_end: Option<bool>) -> Result<usize, ErrOperation> {
+        let id = design.get_strand_nucl(nucl).ok_or(ErrOperation::CutInexistingStrand)?;
+
+        let strand = design.strands.remove(&id).expect("strand");
+        if strand.cyclic {
+            let new_strand = Self::break_cycle(design, strand.clone(), *nucl, force_end);
+            design.strands.insert(id, new_strand);
+            //self.clean_domains_one_strand(id);
+            //println!("Cutting cyclic strand");
+            return Ok(id);
+        }
+        if strand.length() <= 1 {
+            // return without putting the strand back
+            return Err(ErrOperation::CutInexistingStrand);
+        }
+        let mut i = strand.domains.len();
+        let mut prim5_domains = Vec::new();
+        let mut len_prim5 = 0;
+        let mut domains = None;
+        let mut on_3prime = force_end.unwrap_or(false);
+        let mut prev_helix = None;
+        let mut prime5_junctions: Vec<DomainJunction> = Vec::new();
+        let mut prime3_junctions: Vec<DomainJunction> = Vec::new();
+        let mut rm_xover: Option<DomainJunction> = None;
+
+        println!("Spliting");
+        println!("{:?}", strand.domains);
+        println!("{:?}", strand.junctions);
+
+        for (d_id, domain) in strand.domains.iter().enumerate() {
+            if domain.prime5_end() == Some(*nucl)
+                && prev_helix != domain.helix()
+                && force_end != Some(false)
+            {
+                // nucl is the 5' end of the next domain so it is the on the 3' end of a xover.
+                // nucl is not required to be on the 5' half of the split, so we put it on the 3'
+                // half
+                on_3prime = true;
+                i = d_id;
+                if let Some(j) = prime5_junctions.last_mut() {
+                    rm_xover = Some(j.clone());
+                    *j = DomainJunction::Prime3;
+                }
+                break;
+            } else if domain.prime3_end() == Some(*nucl) && force_end != Some(true) {
+                // nucl is the 3' end of the current domain so it is the on the 5' end of a xover.
+                // nucl is not required to be on the 3' half of the split, so we put it on the 5'
+                // half
+                rm_xover = Some(strand.junctions[d_id].clone());
+                i = d_id + 1;
+                prim5_domains.push(domain.clone());
+                len_prim5 += domain.length();
+                prime5_junctions.push(DomainJunction::Prime3);
+                break;
+            } else if let Some(n) = domain.has_nucl(nucl) {
+                let n = if force_end == Some(true) { n - 1 } else { n };
+                i = d_id;
+                len_prim5 += n;
+                domains = domain.split(n);
+                prime5_junctions.push(DomainJunction::Prime3);
+                prime3_junctions.push(strand.junctions[d_id].clone());
+                break;
+            } else {
+                len_prim5 += domain.length();
+                prim5_domains.push(domain.clone());
+                prime5_junctions.push(strand.junctions[d_id].clone());
+            }
+            prev_helix = domain.helix();
+        }
+        if let Some(DomainJunction::IdentifiedXover(id)) = rm_xover {
+            self.xover_ids.remove(id);
+        }
+        let mut prim3_domains = Vec::new();
+        if let Some(ref domains) = domains {
+            prim5_domains.push(domains.0.clone());
+            prim3_domains.push(domains.1.clone());
+            i += 1;
+        }
+
+        for n in i..strand.domains.len() {
+            let domain = &strand.domains[n];
+            prim3_domains.push(domain.clone());
+            prime3_junctions.push(strand.junctions[n].clone());
+        }
+
+        let seq_prim5;
+        let seq_prim3;
+        if let Some(seq) = strand.sequence {
+            let seq = seq.into_owned();
+            let chars = seq.chars();
+            seq_prim5 = Some(Cow::Owned(chars.clone().take(len_prim5).collect()));
+            seq_prim3 = Some(Cow::Owned(chars.clone().skip(len_prim5).collect()));
+        } else {
+            seq_prim3 = None;
+            seq_prim5 = None;
+        }
+
+        println!("prime5 {:?}", prim5_domains);
+        println!("prime5 {:?}", prime5_junctions);
+
+        println!("prime3 {:?}", prim3_domains);
+        println!("prime3 {:?}", prime3_junctions);
+        let strand_5prime = Strand {
+            domains: prim5_domains,
+            color: strand.color,
+            junctions: prime5_junctions,
+            cyclic: false,
+            sequence: seq_prim5,
+        };
+
+        let strand_3prime = Strand {
+            domains: prim3_domains,
+            color: strand.color,
+            cyclic: false,
+            junctions: prime3_junctions,
+            sequence: seq_prim3,
+        };
+        let new_id = (*self.design.strands.keys().max().unwrap_or(&0)).max(id) + 1;
+        println!("new id {}, ; id {}", new_id, id);
+        let (id_5prime, id_3prime) = if !on_3prime {
+            (id, new_id)
+        } else {
+            (new_id, id)
+        };
+        if strand_5prime.domains.len() > 0 {
+            self.design.strands.insert(id_5prime, strand_5prime);
+        }
+        if strand_3prime.domains.len() > 0 {
+            self.design.strands.insert(id_3prime, strand_3prime);
+        }
+        self.update_status = true;
+        //self.make_hash_maps();
+        self.hash_maps_update = true;
+        self.view_need_reset = true;
+
+        if crate::MUST_TEST {
+            self.test_named_junction("TEST AFTER SPLIT STRAND");
+        }
+        Some(new_id)
+    }
+
+    /// Split a cyclic strand at nucl
+    ///
+    /// If `force_end` is `Some(true)`, nucl will be the new 5' end of the strand.
+    /// If `force_end` is `Some(false)` nucl will be the new 3' end of the strand.
+    /// If `force_end` is `None`, nucl will be the new 3' end of the strand unless nucl is the 3'
+    /// prime extremity of a crossover, in which case nucl will be the new 5' end of the strand
+    fn break_cycle(&mut self, mut strand: Strand, nucl: Nucl, force_end: Option<bool>) -> Strand {
+        let mut last_dom = None;
+        let mut replace_last_dom = None;
+        let mut prev_helix = None;
+
+        let mut junctions: Vec<DomainJunction> = Vec::with_capacity(strand.domains.len());
+        let mut rm_xover: Option<DomainJunction> = None;
+
+        for (i, domain) in strand.domains.iter().enumerate() {
+            if domain.prime5_end() == Some(nucl)
+                && prev_helix != domain.helix()
+                && force_end != Some(false)
+            {
+                last_dom = if i != 0 {
+                    Some(i - 1)
+                } else {
+                    Some(strand.domains.len() - 1)
+                };
+                rm_xover = Some(strand.junctions[last_dom.unwrap()].clone());
+
+                break;
+            } else if domain.prime3_end() == Some(nucl) && force_end != Some(true) {
+                last_dom = Some(i);
+                rm_xover = Some(strand.junctions[last_dom.unwrap()].clone());
+                break;
+            } else if let Some(n) = domain.has_nucl(&nucl) {
+                let n = if force_end == Some(true) { n - 1 } else { n };
+                last_dom = Some(i);
+                replace_last_dom = domain.split(n);
+            }
+            prev_helix = domain.helix();
+        }
+        let last_dom = last_dom.expect("Could not find nucl in strand");
+        let mut new_domains = Vec::new();
+        if let Some((_, ref d2)) = replace_last_dom {
+            new_domains.push(d2.clone());
+            junctions.push(strand.junctions[last_dom].clone());
+        }
+        for (i, d) in strand.domains.iter().enumerate().skip(last_dom + 1) {
+            new_domains.push(d.clone());
+            junctions.push(strand.junctions[i].clone());
+        }
+        for (i, d) in strand.domains.iter().enumerate().take(last_dom) {
+            new_domains.push(d.clone());
+            junctions.push(strand.junctions[i].clone());
+        }
+
+        if let Some((ref d1, _)) = replace_last_dom {
+            new_domains.push(d1.clone())
+        } else {
+            new_domains.push(strand.domains[last_dom].clone())
+        }
+        junctions.push(DomainJunction::Prime3);
+
+        if let Some(DomainJunction::IdentifiedXover(id)) = rm_xover {
+            self.xover_ids.remove(id);
+        }
+
+        strand.domains = new_domains;
+        strand.cyclic = false;
+        strand.junctions = junctions;
+        strand
+    }
+
 }
 
 fn nucl_pos_2d(design: &Design, nucl: &Nucl) -> Option<Vec2> {
