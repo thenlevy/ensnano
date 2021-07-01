@@ -74,7 +74,7 @@ pub struct Design {
     pub scaffold_shift: Option<usize>,
 
     #[serde(default)]
-    pub grids: Vec<GridDescriptor>,
+    pub grids: Arc<Vec<GridDescriptor>>,
 
     /// The groups in which the helices are.
     #[serde(skip_serializing_if = "groups_is_empty", default)]
@@ -137,7 +137,7 @@ impl Design {
             helices: Arc::new(helices),
             strands,
             parameters: Some(parameters),
-            grids: Vec::new(),
+            grids: Default::default(),
             scaffold_id: None,
             scaffold_sequence: None,
             scaffold_shift: None,
@@ -155,7 +155,7 @@ impl Design {
             helices: Default::default(),
             strands: BTreeMap::new(),
             parameters: Some(Parameters::DEFAULT),
-            grids: Vec::new(),
+            grids: Default::default(),
             scaffold_id: None,
             scaffold_sequence: None,
             scaffold_shift: None,
@@ -269,7 +269,7 @@ impl Design {
         println!("grids {:?}", grids);
         println!("helices {:?}", helices);
         Ok(Self {
-            grids,
+            grids: Arc::new(grids),
             helices: Arc::new(helices),
             strands,
             small_spheres: Default::default(),

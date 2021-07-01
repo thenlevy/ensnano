@@ -178,7 +178,9 @@ impl Controller {
     }
 
     fn add_grid(&mut self, mut design: Design, descriptor: GridDescriptor) -> Design {
-        design.grids.push(descriptor);
+        let mut new_grids = Vec::clone(design.grids.as_ref());
+        new_grids.push(descriptor);
+        design.grids = Arc::new(new_grids);
         design
     }
 
@@ -265,11 +267,13 @@ impl Controller {
                 operation: None,
             };
         }
+        let mut new_grids = Vec::clone(design.grids.as_ref());
         for g_id in grid_ids.into_iter() {
-            if let Some(desc) = design.grids.get_mut(g_id) {
+            if let Some(desc) = new_grids.get_mut(g_id) {
                 desc.position += translation;
             }
         }
+        design.grids = Arc::new(new_grids);
         design
     }
 }

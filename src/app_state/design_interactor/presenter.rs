@@ -17,7 +17,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 
 use super::*;
-use ensnano_design::Nucl;
+use ensnano_design::{grid::GridDescriptor, Nucl};
 use ensnano_interactor::{Extremity, ObjectType, ScaffoldInfo};
 use ultraviolet::Mat4;
 
@@ -48,6 +48,7 @@ pub(super) struct Presenter {
     content: AddressPointer<DesignContent>,
     junctions_ids: AddressPointer<JunctionsIds>,
     helices_groups: AddressPointer<BTreeMap<usize, bool>>,
+    old_grid_ptr: Option<usize>,
 }
 
 impl Default for Presenter {
@@ -58,6 +59,7 @@ impl Default for Presenter {
             content: Default::default(),
             junctions_ids: Default::default(),
             helices_groups: Default::default(),
+            old_grid_ptr: None,
         }
     }
 }
@@ -81,8 +83,13 @@ impl Presenter {
         let helices_groups = design.groups.clone();
         let model_matrix = Mat4::identity();
         let junctions_ids = AddressPointer::new(junctions_ids);
-        let (content, design, junctions_ids_opt) =
-            DesignContent::make_hash_maps(design, &helices_groups, junctions_ids.clone(), true);
+        let mut old_grid_ptr = None;
+        let (content, design, junctions_ids_opt) = DesignContent::make_hash_maps(
+            design,
+            &helices_groups,
+            junctions_ids.clone(),
+            &mut old_grid_ptr,
+        );
         let junctions_ids = junctions_ids_opt
             .map(AddressPointer::new)
             .unwrap_or(junctions_ids);
@@ -93,6 +100,7 @@ impl Presenter {
             model_matrix: AddressPointer::new(model_matrix),
             junctions_ids,
             helices_groups: AddressPointer::from(helices_groups),
+            old_grid_ptr,
         };
         (ret, design)
     }
@@ -102,7 +110,7 @@ impl Presenter {
             design.clone_inner(),
             self.helices_groups.as_ref(),
             self.junctions_ids.clone(),
-            false,
+            &mut self.old_grid_ptr,
         );
         self.current_design = AddressPointer::new(new_design);
         self.content = AddressPointer::new(content);

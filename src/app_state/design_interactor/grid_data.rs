@@ -199,7 +199,8 @@ impl GridManager {
             });
         }
         let desc = self.find_grid_for_group(helices, design);
-        design.grids.push(desc);
+        let mut grids = Vec::clone(design.grids.as_ref());
+        grids.push(desc);
         match desc.grid_type {
             GridTypeDescr::Square => {
                 let grid: Grid = Grid::new(
@@ -253,6 +254,7 @@ impl GridManager {
             }
         }
         design.helices = Arc::new(new_helices);
+        design.grids = Arc::new(grids);
         Ok(())
     }
 
@@ -289,10 +291,6 @@ impl GridManager {
             }
         }
         design.helices = Arc::new(new_helices);
-        design.grids.clear();
-        for g in self.grids.iter() {
-            design.grids.push(g.desc());
-        }
     }
 
     /// Recompute the position of helix `h_id` on its grid. Return false if there is already an

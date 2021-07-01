@@ -20,6 +20,7 @@ use super::*;
 use crate::scene::GridInstance;
 use ahash::RandomState;
 use ensnano_design::elements::DnaElement;
+use ensnano_design::grid::GridDescriptor;
 use ensnano_design::grid::GridPosition;
 use ensnano_design::*;
 use ensnano_interactor::ObjectType;
@@ -251,7 +252,7 @@ impl DesignContent {
         mut design: Design,
         groups: &BTreeMap<usize, bool>,
         xover_ids: AddressPointer<JunctionsIds>,
-        first_time: bool,
+        old_grid_ptr: &mut Option<usize>,
     ) -> (Self, Design, Option<JunctionsIds>) {
         let mut object_type = HashMap::default();
         let mut space_position = HashMap::default();
@@ -273,7 +274,8 @@ impl DesignContent {
         let mut blue_nucl = Vec::new();
         let mut new_junctions: Option<JunctionsIds> = None;
         let mut grid_manager = GridManager::new_from_design(&design);
-        if first_time {
+        if *old_grid_ptr != Some(Arc::as_ptr(&design.grids) as usize) {
+            *old_grid_ptr = Some(Arc::as_ptr(&design.grids) as usize);
             grid_manager.reposition_all_helices(&mut design);
         }
         for (s_id, strand) in design.strands.iter_mut() {
