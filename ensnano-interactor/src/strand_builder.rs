@@ -365,7 +365,7 @@ pub struct DomainIdentifier {
 }
 
 use ensnano_design::Design;
-pub(super) trait NeighbourDescriptorGiver {
+pub trait NeighbourDescriptorGiver {
     fn get_neighbour_nucl(&self, nucl: Nucl) -> Option<NeighbourDescriptor>;
 }
 

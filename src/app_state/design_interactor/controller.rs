@@ -17,11 +17,9 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 
 use crate::app_state::AddressPointer;
-use ensnano_design::{grid::GridDescriptor, mutate_helix, Design, Nucl};
+use ensnano_design::{grid::GridDescriptor, mutate_helix, Design, Nucl, Strand};
 use ensnano_interactor::operation::Operation;
-use ensnano_interactor::{
-    DesignOperation, DesignRotation, DesignTranslation, IsometryTarget, Selection,
-};
+use ensnano_interactor::{DesignOperation, DesignRotation, DesignTranslation, IsometryTarget, Selection, StrandBuilder, NeighbourDescriptorGiver, NeighbourDescriptor, DomainIdentifier};
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
@@ -88,6 +86,9 @@ impl Controller {
             }
             DesignOperation::Rotation(rotation) => {
                 self.apply(|c, d| c.apply_rotattion(d, rotation), design)
+            }
+            DesignOperation::RequestStrandBuilders { nucls } => {
+                self.apply(|c, d| c.request_strand_builders(d, nucls), design)
             }
             _ => Err(ErrOperation::NotImplemented),
         }
@@ -364,6 +365,7 @@ pub enum ErrOperation {
     BadSelection,
     /// The controller is in a state incompatible with applying the operation
     IncompatibleState,
+    CannotBuildOn(Nucl),
 }
 
 impl Controller {
@@ -495,6 +497,109 @@ impl Controller {
         design.helices = Arc::new(new_helices);
         design
     }
+
+    fn request_strand_builders(&mut self, mut design: Design, nucls: Vec<Nucl>) -> Result<Design, ErrOperation> {
+        let mut builders = Vec::with_capacity(nucls.len());
+        for nucl in nucls.into_iter() {
+            builders.push(self.request_one_builder(&mut design, nucl).ok_or(ErrOperation::CannotBuildOn(nucl))?);
+        }
+        self.state = ControllerState::BuildingStrand {
+            builders,
+            // The initial design is indeed the one AFTER adding the new strands
+            initial_design: AddressPointer::new(design.clone()),
+        };
+        Ok(design)
+    }
+
+    fn request_one_builder(&mut self, design: &mut Design, nucl: Nucl) -> Option<StrandBuilder> {
+        // if there is a strand that passes through the nucleotide
+        if design.get_strand_nucl(&nucl).is_some() {
+            self.strand_builder_on_exisiting(design, nucl)
+        } else {
+            self.new_strand_builder(design, nucl)
+        }
+    }
+
+    fn strand_builder_on_exisiting(&mut self, design: &Design, nucl: Nucl) -> Option<StrandBuilder> {
+        let left = design.get_neighbour_nucl(nucl.left());
+        let right = design.get_neighbour_nucl(nucl.right());
+        let axis = design
+            .helices
+            .get(&nucl.helix)
+            .map(|h| h.get_axis(&design.parameters.unwrap_or_default()))?;
+        let desc = design.get_neighbour_nucl(nucl)?;
+        let strand_id = desc.identifier.strand;
+        let filter = |d: &NeighbourDescriptor| d.identifier != desc.identifier;
+        let neighbour_desc = left.filter(filter).or(right.filter(filter));
+        let stick = neighbour_desc.map(|d| d.identifier.strand) == Some(strand_id);
+        if left.filter(filter).and(right.filter(filter)).is_some() {
+            // TODO maybe we should do something else ?
+            return None;
+        }
+        match design.strands.get(&strand_id).map(|s| s.length()) {
+            Some(n) if n > 1 => Some(StrandBuilder::init_existing(
+                    desc.identifier,
+                    nucl,
+                    axis,
+                    desc.fixed_end,
+                    neighbour_desc,
+                    stick,
+            )),
+            _ => Some(StrandBuilder::init_empty(
+                    DomainIdentifier {
+                        strand: strand_id,
+                        domain: 0,
+                    },
+                    nucl,
+                    axis,
+                    neighbour_desc,
+                    false,
+            )),
+        }
+    }
+
+    fn new_strand_builder(&mut self, design: &mut Design, nucl: Nucl) -> Option<StrandBuilder> {
+        let left = design.get_neighbour_nucl(nucl.left());
+        let right = design.get_neighbour_nucl(nucl.right());
+        let axis = design
+            .helices
+            .get(&nucl.helix)
+            .map(|h| h.get_axis(&design.parameters.unwrap_or_default()))?;
+        if left.is_some() && right.is_some() {
+            return None;
+        }
+        let new_key = self.init_strand(design, nucl);
+        Some(StrandBuilder::init_empty(
+                DomainIdentifier {
+                    strand: new_key,
+                    domain: 0,
+                },
+                nucl,
+                axis,
+                left.or(right),
+                true,
+        ))
+
+    }
+
+    fn init_strand(&mut self, design: &mut Design, nucl: Nucl) -> usize {
+        let s_id = design.strands.keys().max().map(|n| n + 1).unwrap_or(0);
+        let color = {
+            let hue = (self.color_idx as f64 * (1. + 5f64.sqrt()) / 2.).fract() * 360.;
+            let saturation =
+                (self.color_idx as f64 * 7. * (1. + 5f64.sqrt() / 2.)).fract() * 0.4 + 0.4;
+            let value = (self.color_idx as f64 * 11. * (1. + 5f64.sqrt() / 2.)).fract() * 0.7 + 0.1;
+            let hsv = color_space::Hsv::new(hue, saturation, value);
+            let rgb = color_space::Rgb::from(hsv);
+            (0xFF << 24) | ((rgb.r as u32) << 16) | ((rgb.g as u32) << 8) | (rgb.b as u32)
+        };
+        self.color_idx += 1;
+        design
+            .strands
+            .insert(s_id, Strand::init(nucl.helix, nucl.position, nucl.forward, color));
+        s_id
+    }
+
 }
 
 fn nucl_pos_2d(design: &Design, nucl: &Nucl) -> Option<Vec2> {
@@ -513,7 +618,10 @@ fn nucl_pos_2d(design: &Design, nucl: &Nucl) -> Option<Vec2> {
 enum ControllerState {
     Normal,
     MakingHyperboloid,
-    BuildingStrand,
+    BuildingStrand {
+        builders: Vec<StrandBuilder>,
+        initial_design: AddressPointer<Design>,
+    },
     ChangingColor,
     WithPendingOp(Arc<dyn Operation>),
     ApplyingOperation {

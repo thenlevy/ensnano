@@ -160,6 +160,10 @@ pub enum DesignOperation {
         helix: usize,
         isometry: Isometry2,
     },
+    RequestStrandBuilders {
+        nucls: Vec<Nucl>,
+    },
+    MoveBuilders(isize),
 }
 
 /// An action performed on the application
