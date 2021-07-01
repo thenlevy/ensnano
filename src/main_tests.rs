@@ -35,7 +35,10 @@ fn undoable_selection() {
     state.update_selection(selection_1.clone());
     state.update_selection(vec![]);
     state.undo();
-    assert_eq!(state.app_state.get_selection().as_ref().clone(), selection_1);
+    assert_eq!(
+        state.app_state.get_selection().as_ref().clone(),
+        selection_1
+    );
 }
 
 #[test]
@@ -46,7 +49,10 @@ fn redoable_selection() {
     state.undo();
     assert_eq!(state.app_state.get_selection().as_ref().clone(), vec![]);
     state.redo();
-    assert_eq!(state.app_state.get_selection().as_ref().clone(), selection_1);
+    assert_eq!(
+        state.app_state.get_selection().as_ref().clone(),
+        selection_1
+    );
 }
 
 #[test]
@@ -57,7 +63,10 @@ fn empty_selections_dont_pollute_undo_stack() {
     state.update_selection(vec![]);
     state.update_selection(vec![]);
     state.undo();
-    assert_eq!(state.app_state.get_selection().as_ref().clone(), selection_1);
+    assert_eq!(
+        state.app_state.get_selection().as_ref().clone(),
+        selection_1
+    );
 }
 
 #[test]

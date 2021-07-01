@@ -16,7 +16,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-use ensnano_design::{Axis, Nucl};
+use ensnano_design::{Axis, Domain, Nucl};
 
 use std::cmp::Ordering;
 use std::sync::{Arc, Mutex};
@@ -243,10 +243,9 @@ impl StrandBuilder {
         }
     }
 
-    /*
     /// Move the moving end to an objective position. If this position cannot be reached by the
     /// moving end, it will go as far as possible.
-    pub fn move_to(&mut self, objective: isize, design: &Design) {
+    pub fn move_to(&mut self, objective: isize, design: &mut Design) {
         let mut need_update = true;
         match objective.cmp(&self.moving_end.position) {
             Ordering::Greater => {
@@ -264,26 +263,41 @@ impl StrandBuilder {
             _ => (),
         }
         if need_update {
-            self.update()
+            self.update(design)
         }
-    }*/
+    }
 
-    /*
     /// Apply the modification on the data
-    pub fn update(&mut self) {
-        let mut data = self.data.as_mut().unwrap().lock().unwrap();
-        data.update_strand(
+    pub fn update(&mut self, design: &mut Design) {
+        Self::update_strand(
+            design,
             self.identifier,
             self.moving_end.position,
             self.fixed_end.unwrap_or(self.initial_position),
         );
         if let Some(desc) = self.neighbour_strand {
-            data.update_strand(desc.identifier, desc.moving_end, desc.fixed_end)
+            Self::update_strand(design, desc.identifier, desc.moving_end, desc.fixed_end)
         }
         if let Some(desc) = self.detached_neighbour.take() {
-            data.update_strand(desc.identifier, desc.moving_end, desc.fixed_end)
+            Self::update_strand(design, desc.identifier, desc.moving_end, desc.fixed_end)
         }
-    }*/
+    }
+
+    fn update_strand(
+        design: &mut Design,
+        identifier: DomainIdentifier,
+        position: isize,
+        fixed_position: isize,
+    ) {
+        let start = position.min(fixed_position);
+        let end = position.max(fixed_position) + 1;
+        let domain =
+            &mut design.strands.get_mut(&identifier.strand).unwrap().domains[identifier.domain];
+        if let Domain::HelixDomain(domain) = domain {
+            domain.start = start;
+            domain.end = end;
+        }
+    }
 
     /// Convert the axis in the world's coordinate. This function is used at the creation of the
     /// builder.

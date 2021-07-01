@@ -154,7 +154,7 @@ impl Reader2D for DesignReader {
     }
 
     fn can_start_builder_at(&self, nucl: Nucl) -> bool {
-        false
+        self.presenter.can_start_builder_at(nucl)
     }
 
     fn prime3_of_which_strand(&self, nucl: Nucl) -> Option<usize> {

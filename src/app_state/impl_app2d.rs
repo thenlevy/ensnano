@@ -43,7 +43,7 @@ impl App2D for AppState {
     }
 
     fn get_strand_builders(&self) -> &[StrandBuilder] {
-        &[]
+        self.0.design.get_strand_builders()
     }
 
     fn design_was_updated(&self, other: &Self) -> bool {

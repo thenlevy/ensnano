@@ -17,8 +17,8 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 
 use super::*;
-use ensnano_design::{grid::GridDescriptor, Nucl};
-use ensnano_interactor::{Extremity, ObjectType, ScaffoldInfo};
+use ensnano_design::Nucl;
+use ensnano_interactor::{Extremity, NeighbourDescriptor, NeighbourDescriptorGiver, ScaffoldInfo};
 use ultraviolet::Mat4;
 
 use crate::utils::id_generator::IdGenerator;
@@ -65,6 +65,21 @@ impl Default for Presenter {
 }
 
 impl Presenter {
+    pub fn can_start_builder_at(&self, nucl: Nucl) -> bool {
+        let left = self.current_design.get_neighbour_nucl(nucl.left());
+        let right = self.current_design.get_neighbour_nucl(nucl.right());
+        if self.content.identifier_nucl.contains_key(&nucl) {
+            if let Some(desc) = self.current_design.get_neighbour_nucl(nucl) {
+                let filter = |d: &NeighbourDescriptor| d.identifier != desc.identifier;
+                !left.filter(filter).and(right.filter(filter)).is_some()
+            } else {
+                false
+            }
+        } else {
+            !(left.is_some() && right.is_some())
+        }
+    }
+
     pub fn update(mut self, design: AddressPointer<Design>) -> Self {
         if self.current_design != design {
             self.read_design(design);

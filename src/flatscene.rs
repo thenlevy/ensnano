@@ -429,6 +429,18 @@ impl<S: AppState> FlatScene<S> {
                     },
                 )
             }
+            Consequence::InitBuilding(nucl) => {
+                self.requests.lock().unwrap().apply_design_operation(
+                    DesignOperation::RequestStrandBuilders {
+                        nucls: vec![nucl.to_real()],
+                    },
+                )
+            }
+            Consequence::MoveBuilders(n) => self
+                .requests
+                .lock()
+                .unwrap()
+                .apply_design_operation(DesignOperation::MoveBuilders(n)),
             _ => (),
         }
     }

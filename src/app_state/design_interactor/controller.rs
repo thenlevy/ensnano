@@ -19,7 +19,10 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 use crate::app_state::AddressPointer;
 use ensnano_design::{grid::GridDescriptor, mutate_helix, Design, Nucl, Strand};
 use ensnano_interactor::operation::Operation;
-use ensnano_interactor::{DesignOperation, DesignRotation, DesignTranslation, IsometryTarget, Selection, StrandBuilder, NeighbourDescriptorGiver, NeighbourDescriptor, DomainIdentifier};
+use ensnano_interactor::{
+    DesignOperation, DesignRotation, DesignTranslation, DomainIdentifier, IsometryTarget,
+    NeighbourDescriptor, NeighbourDescriptorGiver, Selection, StrandBuilder,
+};
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
@@ -90,6 +93,9 @@ impl Controller {
             DesignOperation::RequestStrandBuilders { nucls } => {
                 self.apply(|c, d| c.request_strand_builders(d, nucls), design)
             }
+            DesignOperation::MoveBuilders(n) => {
+                self.apply(|c, d| c.move_strand_builders(d, n), design)
+            }
             _ => Err(ErrOperation::NotImplemented),
         }
     }
@@ -125,6 +131,13 @@ impl Controller {
                 }
             }
             ControllerState::ApplyingOperation { .. } => true,
+            ControllerState::BuildingStrand { .. } => {
+                if let DesignOperation::MoveBuilders(_) = operation {
+                    true
+                } else {
+                    false
+                }
+            }
             _ => false,
         }
     }
@@ -194,6 +207,14 @@ impl Controller {
             true
         } else {
             false
+        }
+    }
+
+    pub(super) fn get_strand_builders(&self) -> &[StrandBuilder] {
+        if let ControllerState::BuildingStrand { builders, .. } = &self.state {
+            builders.as_slice()
+        } else {
+            &[]
         }
     }
 
@@ -498,10 +519,17 @@ impl Controller {
         design
     }
 
-    fn request_strand_builders(&mut self, mut design: Design, nucls: Vec<Nucl>) -> Result<Design, ErrOperation> {
+    fn request_strand_builders(
+        &mut self,
+        mut design: Design,
+        nucls: Vec<Nucl>,
+    ) -> Result<Design, ErrOperation> {
         let mut builders = Vec::with_capacity(nucls.len());
         for nucl in nucls.into_iter() {
-            builders.push(self.request_one_builder(&mut design, nucl).ok_or(ErrOperation::CannotBuildOn(nucl))?);
+            builders.push(
+                self.request_one_builder(&mut design, nucl)
+                    .ok_or(ErrOperation::CannotBuildOn(nucl))?,
+            );
         }
         self.state = ControllerState::BuildingStrand {
             builders,
@@ -520,7 +548,11 @@ impl Controller {
         }
     }
 
-    fn strand_builder_on_exisiting(&mut self, design: &Design, nucl: Nucl) -> Option<StrandBuilder> {
+    fn strand_builder_on_exisiting(
+        &mut self,
+        design: &Design,
+        nucl: Nucl,
+    ) -> Option<StrandBuilder> {
         let left = design.get_neighbour_nucl(nucl.left());
         let right = design.get_neighbour_nucl(nucl.right());
         let axis = design
@@ -538,22 +570,22 @@ impl Controller {
         }
         match design.strands.get(&strand_id).map(|s| s.length()) {
             Some(n) if n > 1 => Some(StrandBuilder::init_existing(
-                    desc.identifier,
-                    nucl,
-                    axis,
-                    desc.fixed_end,
-                    neighbour_desc,
-                    stick,
+                desc.identifier,
+                nucl,
+                axis,
+                desc.fixed_end,
+                neighbour_desc,
+                stick,
             )),
             _ => Some(StrandBuilder::init_empty(
-                    DomainIdentifier {
-                        strand: strand_id,
-                        domain: 0,
-                    },
-                    nucl,
-                    axis,
-                    neighbour_desc,
-                    false,
+                DomainIdentifier {
+                    strand: strand_id,
+                    domain: 0,
+                },
+                nucl,
+                axis,
+                neighbour_desc,
+                false,
             )),
         }
     }
@@ -570,16 +602,15 @@ impl Controller {
         }
         let new_key = self.init_strand(design, nucl);
         Some(StrandBuilder::init_empty(
-                DomainIdentifier {
-                    strand: new_key,
-                    domain: 0,
-                },
-                nucl,
-                axis,
-                left.or(right),
-                true,
+            DomainIdentifier {
+                strand: new_key,
+                domain: 0,
+            },
+            nucl,
+            axis,
+            left.or(right),
+            true,
         ))
-
     }
 
     fn init_strand(&mut self, design: &mut Design, nucl: Nucl) -> usize {
@@ -594,12 +625,32 @@ impl Controller {
             (0xFF << 24) | ((rgb.r as u32) << 16) | ((rgb.g as u32) << 8) | (rgb.b as u32)
         };
         self.color_idx += 1;
-        design
-            .strands
-            .insert(s_id, Strand::init(nucl.helix, nucl.position, nucl.forward, color));
+        design.strands.insert(
+            s_id,
+            Strand::init(nucl.helix, nucl.position, nucl.forward, color),
+        );
         s_id
     }
 
+    fn move_strand_builders(
+        &mut self,
+        mut design: Design,
+        n: isize,
+    ) -> Result<Design, ErrOperation> {
+        if let ControllerState::BuildingStrand {
+            initial_design,
+            builders,
+        } = &mut self.state
+        {
+            design = initial_design.clone_inner();
+            for builder in builders.iter_mut() {
+                builder.move_to(n, &mut design)
+            }
+            Ok(design)
+        } else {
+            Err(ErrOperation::IncompatibleState)
+        }
+    }
 }
 
 fn nucl_pos_2d(design: &Design, nucl: &Nucl) -> Option<Vec2> {

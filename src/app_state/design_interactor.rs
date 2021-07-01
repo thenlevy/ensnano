@@ -18,7 +18,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 
 use super::AddressPointer;
 use ensnano_design::{Design, Parameters};
-use ensnano_interactor::{operation::Operation, DesignOperation, SimulationState};
+use ensnano_interactor::{operation::Operation, DesignOperation, SimulationState, StrandBuilder};
 
 mod presenter;
 use presenter::{update_presenter, Presenter};
@@ -142,6 +142,10 @@ impl DesignInteractor {
 
     pub(super) fn is_changing_color(&self) -> bool {
         self.controller.is_changing_color()
+    }
+
+    pub(super) fn get_strand_builders(&self) -> &[StrandBuilder] {
+        self.controller.get_strand_builders()
     }
 }
 
