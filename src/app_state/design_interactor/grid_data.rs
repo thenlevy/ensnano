@@ -315,20 +315,19 @@ impl GridManager {
                 let candidate_position = g
                     .find_helix_position(h, old_grid_position.grid)
                     .map(|g| g.with_roll(old_roll));
-                println!("candidate_position {:?}", candidate_position);
-                println!("{:?}", self.pos_to_helix);
                 if let Some(new_grid_position) = candidate_position {
                     if let Some(helix) = self.pos_to_helix(
                         new_grid_position.grid,
                         new_grid_position.x,
                         new_grid_position.y,
                     ) {
-                        println!("Found helix {} {}", helix, h_id);
                         if helix == h_id {
                             mutate_helix(h, |h| h.grid_position = candidate_position);
                             mutate_helix(h, |h| {
-                                h.position =
-                                    g.position_helix(new_grid_position.x, new_grid_position.y)
+                                h.position = g
+                                    .position_helix(new_grid_position.x, new_grid_position.y)
+                                    - h.get_axis(&self.parameters).direction
+                                        * new_grid_position.axis_pos as f32
                             });
                         } else {
                             return false;
@@ -337,6 +336,8 @@ impl GridManager {
                         mutate_helix(h, |h| h.grid_position = candidate_position);
                         mutate_helix(h, |h| {
                             h.position = g.position_helix(new_grid_position.x, new_grid_position.y)
+                                - h.get_axis(&self.parameters).direction
+                                    * new_grid_position.axis_pos as f32
                         });
                     }
                 }
