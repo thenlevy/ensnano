@@ -514,10 +514,10 @@ impl<S: AppState> ControllerState<S> for Selecting {
         match event {
             WindowEvent::CursorMoved { .. } => {
                 if position_difference(position, self.clicked_position) > 5. {
-                    if controller.data.borrow().can_start_builder(self.element) {
+                    if let Some(nucl) = controller.data.borrow().can_start_builder(self.element) {
                         Transition {
                             new_state: Some(Box::new(BuildingStrand)),
-                            consequences: Consequence::Nothing,
+                            consequences: Consequence::InitBuild(nucl),
                         }
                     } else {
                         Transition {

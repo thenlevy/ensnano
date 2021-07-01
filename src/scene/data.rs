@@ -1304,17 +1304,9 @@ impl<R: DesignReader> Data<R> {
         }
     }
 
-    pub fn can_start_builder(&self, element: Option<SceneElement>) -> bool {
-        let selected = if let Some(element) = element.as_ref() {
-            element
-        } else {
-            return false;
-        };
-        let design = if let Some(design) = selected.get_design() {
-            design
-        } else {
-            return false;
-        };
+    pub fn can_start_builder(&self, element: Option<SceneElement>) -> Option<Nucl> {
+        let selected = element.as_ref()?;
+        let design = selected.get_design()?;
         self.designs[design as usize].can_start_builder(selected)
     }
 
@@ -1489,7 +1481,7 @@ impl<R: DesignReader> ControllerData for Data<R> {
         self.attempt_xover(source, target)
     }
 
-    fn can_start_builder(&self, element: Option<SceneElement>) -> bool {
+    fn can_start_builder(&self, element: Option<SceneElement>) -> Option<Nucl> {
         self.can_start_builder(element)
     }
 }

@@ -291,8 +291,7 @@ impl Reader3D for DesignReader {
     }
 
     fn can_start_builder_at(&self, nucl: &Nucl) -> bool {
-        //TODO
-        false
+        self.presenter.can_start_builder_at(*nucl)
     }
 
     fn has_small_spheres_nucl_id(&self, e_id: u32) -> bool {
@@ -330,12 +329,6 @@ mod tests {
     #[test]
     #[ignore]
     fn nucls_are_filtered_by_visibility() {
-        assert!(false)
-    }
-
-    #[test]
-    #[ignore]
-    fn can_start_builder_implemented() {
         assert!(false)
     }
 }

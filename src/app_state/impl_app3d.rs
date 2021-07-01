@@ -61,8 +61,8 @@ impl App3D for AppState {
         self.0.design.get_design_reader()
     }
 
-    fn get_strand_builders(&self) -> Vec<StrandBuilder> {
-        vec![]
+    fn get_strand_builders(&self) -> &[StrandBuilder] {
+        self.0.design.get_strand_builders()
     }
 
     fn get_widget_basis(&self) -> WidgetBasis {
@@ -127,10 +127,5 @@ mod tests {
 
         state = state.with_candidates(vec![]);
         assert!(!state.design_was_modified(&old_state));
-    }
-
-    #[test]
-    fn get_strand_builders() {
-        todo!()
     }
 }

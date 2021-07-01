@@ -100,6 +100,7 @@ pub enum Consequence {
     PasteCandidate(Option<super::SceneElement>),
     Paste(Option<super::SceneElement>),
     DoubleClick(Option<super::SceneElement>),
+    InitBuild(Nucl),
 }
 
 enum TransistionConsequence {
@@ -333,5 +334,5 @@ pub(super) trait Data {
         source: &Option<SceneElement>,
         dest: &Option<SceneElement>,
     ) -> Option<(Nucl, Nucl, usize)>;
-    fn can_start_builder(&self, element: Option<SceneElement>) -> bool;
+    fn can_start_builder(&self, element: Option<SceneElement>) -> Option<Nucl>;
 }

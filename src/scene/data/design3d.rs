@@ -673,30 +673,32 @@ impl<R: DesignReader> Design3D<R> {
         self.design.get_xover_with_id(xover_id)
     }
 
-    pub fn can_start_builder(&self, element: &SceneElement) -> bool {
+    pub fn can_start_builder(&self, element: &SceneElement) -> Option<Nucl> {
         match element {
             SceneElement::DesignElement(_, e_id) => self.can_start_builder_on_element(*e_id),
             SceneElement::PhantomElement(phantom_element) => {
                 self.can_start_builder_on_phantom(phantom_element)
             }
-            _ => false,
+            _ => None,
         }
     }
 
-    fn can_start_builder_on_element(&self, e_id: u32) -> bool {
+    fn can_start_builder_on_element(&self, e_id: u32) -> Option<Nucl> {
         let nucl = self.design.get_nucl_with_id(e_id);
-        nucl.as_ref()
-            .map(|n| self.design.can_start_builder_at(n))
-            .unwrap_or(false)
+        nucl.filter(|n| self.design.can_start_builder_at(n))
     }
 
-    fn can_start_builder_on_phantom(&self, phantom_element: &PhantomElement) -> bool {
+    fn can_start_builder_on_phantom(&self, phantom_element: &PhantomElement) -> Option<Nucl> {
         let nucl = Nucl {
             helix: phantom_element.helix_id as usize,
             position: phantom_element.position as isize,
             forward: phantom_element.forward,
         };
-        self.design.can_start_builder_at(&nucl)
+        if self.design.can_start_builder_at(&nucl) {
+            Some(nucl)
+        } else {
+            None
+        }
     }
 
     pub fn get_grid(&self) -> Vec<GridInstance> {

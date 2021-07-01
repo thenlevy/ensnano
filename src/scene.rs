@@ -30,7 +30,7 @@ use ensnano_interactor::{
     application::{AppId, Application, Notification},
     list_of_grids, list_of_helices,
     operation::*,
-    ActionMode, Selection, SelectionMode, StrandBuilder, WidgetBasis,
+    ActionMode, DesignOperation, Selection, SelectionMode, StrandBuilder, WidgetBasis,
 };
 use instance::Instance;
 use utils::instance;
@@ -285,6 +285,9 @@ impl<S: AppState> Scene<S> {
                         .request_center_selection(selection, AppId::Scene);
                 }
             }
+            Consequence::InitBuild(nucl) => self.requests.lock().unwrap().apply_design_operation(
+                DesignOperation::RequestStrandBuilders { nucls: vec![nucl] },
+            ),
         };
     }
 
@@ -786,13 +789,14 @@ pub trait AppState: Clone {
     fn get_selection_mode(&self) -> SelectionMode;
     fn get_action_mode(&self) -> (ActionMode, WidgetBasis);
     fn get_design_reader(&self) -> Self::DesignReader;
-    fn get_strand_builders(&self) -> Vec<StrandBuilder>;
+    fn get_strand_builders(&self) -> &[StrandBuilder];
     fn get_widget_basis(&self) -> WidgetBasis;
     fn is_changing_color(&self) -> bool;
 }
 
 pub trait Requests {
     fn update_opperation(&mut self, op: Arc<dyn Operation>);
+    fn apply_design_operation(&mut self, op: DesignOperation);
     fn set_candidate(&mut self, candidates: Vec<Selection>);
     fn set_paste_candidate(&mut self, nucl: Option<Nucl>);
     fn set_selection(&mut self, selection: Vec<Selection>);
