@@ -19,12 +19,14 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 use crate::app_state::AddressPointer;
 use ensnano_design::{grid::GridDescriptor, mutate_helix, Design, Nucl};
 use ensnano_interactor::operation::Operation;
-use ensnano_interactor::{DesignOperation, DesignTranslation, IsometryTarget, Selection};
+use ensnano_interactor::{
+    DesignOperation, DesignRotation, DesignTranslation, IsometryTarget, Selection,
+};
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use super::grid_data::GridManager;
-use ultraviolet::{Isometry2, Vec2, Vec3};
+use ultraviolet::{Isometry2, Rotor3, Vec2, Vec3};
 
 #[derive(Clone, Default)]
 pub(super) struct Controller {
@@ -84,6 +86,9 @@ impl Controller {
             DesignOperation::Translation(translation) => {
                 self.apply(|c, d| c.apply_translation(d, translation), design)
             }
+            DesignOperation::Rotation(rotation) => {
+                self.apply(|c, d| c.apply_rotattion(d, rotation), design)
+            }
             _ => Err(ErrOperation::NotImplemented),
         }
     }
@@ -118,23 +123,22 @@ impl Controller {
                     false
                 }
             }
-            ControllerState::SnapingHelices { .. } => {
-                if let DesignOperation::SnapHelices { .. } = operation {
-                    true
-                } else if let DesignOperation::RotateHelices { .. } = operation {
-                    true
-                } else {
-                    false
-                }
-            }
-            ControllerState::TranslatingHelices { .. } => {
-                if let DesignOperation::Translation(_) = operation {
-                    true
-                } else {
-                    false
-                }
-            }
+            ControllerState::ApplyingOperation { .. } => true,
             _ => false,
+        }
+    }
+
+    fn update_state_and_design(&mut self, design: &mut Design) {
+        if let ControllerState::ApplyingOperation {
+            design: design_ptr, ..
+        } = &self.state
+        {
+            *design = design_ptr.clone_inner();
+        } else {
+            self.state = ControllerState::ApplyingOperation {
+                design: AddressPointer::new(design.clone()),
+                operation: None,
+            };
         }
     }
 
@@ -208,6 +212,26 @@ impl Controller {
         }
     }
 
+    fn apply_rotattion(
+        &mut self,
+        design: Design,
+        rotation: DesignRotation,
+    ) -> Result<Design, ErrOperation> {
+        match rotation.target {
+            IsometryTarget::Design => Err(ErrOperation::NotImplemented),
+            IsometryTarget::Helices(helices, snap) => Ok(self.rotate_helices_3d(
+                design,
+                snap,
+                helices,
+                rotation.rotation,
+                rotation.origin,
+            )),
+            IsometryTarget::Grids(grid_ids) => {
+                Ok(self.rotate_grids(design, grid_ids, rotation.rotation, rotation.origin))
+            }
+        }
+    }
+
     fn translate_helices(
         &mut self,
         mut design: Design,
@@ -215,17 +239,7 @@ impl Controller {
         helices: Vec<usize>,
         translation: Vec3,
     ) -> Design {
-        if let ControllerState::TranslatingHelices {
-            design: design_ptr, ..
-        } = &self.state
-        {
-            design = design_ptr.clone_inner();
-        } else {
-            self.state = ControllerState::TranslatingHelices {
-                design: AddressPointer::new(design.clone()),
-                operation: None,
-            };
-        }
+        self.update_state_and_design(&mut design);
         let mut new_helices = BTreeMap::clone(design.helices.as_ref());
         for h_id in helices.iter() {
             if let Some(h) = new_helices.get_mut(h_id) {
@@ -235,18 +249,51 @@ impl Controller {
         let mut new_design = design.clone();
         new_design.helices = Arc::new(new_helices);
         if snap {
-            let mut grid_manager = GridManager::new_from_design(&new_design);
-            let mut successfull_reattach = true;
-            for h_id in helices.iter() {
-                successfull_reattach &= grid_manager.reattach_helix(*h_id, &mut new_design, true);
-            }
-            if successfull_reattach {
-                new_design
-            } else {
-                design
-            }
+            self.attempt_reattach(design, new_design, &helices)
         } else {
             new_design
+        }
+    }
+
+    fn rotate_helices_3d(
+        &mut self,
+        mut design: Design,
+        snap: bool,
+        helices: Vec<usize>,
+        rotation: Rotor3,
+        origin: Vec3,
+    ) -> Design {
+        self.update_state_and_design(&mut design);
+        let mut new_helices = BTreeMap::clone(design.helices.as_ref());
+        for h_id in helices.iter() {
+            if let Some(h) = new_helices.get_mut(h_id) {
+                mutate_helix(h, |h| h.rotate_arround(rotation, origin))
+            }
+        }
+        let mut new_design = design.clone();
+        new_design.helices = Arc::new(new_helices);
+        if snap {
+            self.attempt_reattach(design, new_design, &helices)
+        } else {
+            new_design
+        }
+    }
+
+    fn attempt_reattach(
+        &mut self,
+        design: Design,
+        mut new_design: Design,
+        helices: &[usize],
+    ) -> Design {
+        let mut grid_manager = GridManager::new_from_design(&new_design);
+        let mut successfull_reattach = true;
+        for h_id in helices.iter() {
+            successfull_reattach &= grid_manager.reattach_helix(*h_id, &mut new_design, true);
+        }
+        if successfull_reattach {
+            new_design
+        } else {
+            design
         }
     }
 
@@ -256,21 +303,32 @@ impl Controller {
         grid_ids: Vec<usize>,
         translation: Vec3,
     ) -> Design {
-        if let ControllerState::TranslatingHelices {
-            design: design_ptr, ..
-        } = &self.state
-        {
-            design = design_ptr.clone_inner();
-        } else {
-            self.state = ControllerState::TranslatingHelices {
-                design: AddressPointer::new(design.clone()),
-                operation: None,
-            };
-        }
+        self.update_state_and_design(&mut design);
         let mut new_grids = Vec::clone(design.grids.as_ref());
         for g_id in grid_ids.into_iter() {
             if let Some(desc) = new_grids.get_mut(g_id) {
                 desc.position += translation;
+            }
+        }
+        design.grids = Arc::new(new_grids);
+        design
+    }
+
+    fn rotate_grids(
+        &mut self,
+        mut design: Design,
+        grid_ids: Vec<usize>,
+        rotation: Rotor3,
+        origin: Vec3,
+    ) -> Design {
+        self.update_state_and_design(&mut design);
+        let mut new_grids = Vec::clone(design.grids.as_ref());
+        for g_id in grid_ids.into_iter() {
+            if let Some(desc) = new_grids.get_mut(g_id) {
+                desc.position -= origin;
+                desc.orientation = rotation * desc.orientation;
+                desc.position = rotation * desc.position;
+                desc.position += origin;
             }
         }
         design.grids = Arc::new(new_grids);
@@ -382,14 +440,7 @@ impl Controller {
     }
 
     fn snap_helices(&mut self, mut design: Design, pivots: Vec<Nucl>, translation: Vec2) -> Design {
-        if let ControllerState::SnapingHelices { design: design_ptr } = &self.state {
-            design = design_ptr.clone_inner();
-        } else {
-            self.state = ControllerState::SnapingHelices {
-                design: AddressPointer::new(design.clone()),
-            };
-        }
-
+        self.update_state_and_design(&mut design);
         let mut new_helices = BTreeMap::clone(design.helices.as_ref());
         for p in pivots.iter() {
             if let Some(h) = new_helices.get_mut(&p.helix) {
@@ -424,13 +475,7 @@ impl Controller {
         center: Vec2,
         angle: f32,
     ) -> Design {
-        if let ControllerState::SnapingHelices { design: design_ptr } = &self.state {
-            design = design_ptr.clone_inner();
-        } else {
-            self.state = ControllerState::SnapingHelices {
-                design: AddressPointer::new(design.clone()),
-            };
-        }
+        self.update_state_and_design(&mut design);
         let angle = {
             let k = (angle / std::f32::consts::FRAC_PI_8).round();
             k * std::f32::consts::FRAC_PI_8
@@ -470,15 +515,8 @@ enum ControllerState {
     MakingHyperboloid,
     BuildingStrand,
     ChangingColor,
-    SnapingHelices {
-        design: AddressPointer<Design>,
-    },
     WithPendingOp(Arc<dyn Operation>),
-    TranslatingHelices {
-        design: AddressPointer<Design>,
-        operation: Option<Arc<dyn Operation>>,
-    },
-    TranslatingGrids {
+    ApplyingOperation {
         design: AddressPointer<Design>,
         operation: Option<Arc<dyn Operation>>,
     },
@@ -493,14 +531,15 @@ impl Default for ControllerState {
 impl ControllerState {
     fn update_operation(&mut self, op: Arc<dyn Operation>) {
         match self {
-            Self::TranslatingHelices { operation, .. } => *operation = Some(op),
+            Self::ApplyingOperation { operation, .. } => *operation = Some(op),
+            Self::WithPendingOp(old_op) => *old_op = op,
             _ => (),
         }
     }
 
     fn get_operation(&self) -> Option<Arc<dyn Operation>> {
         match self {
-            Self::TranslatingHelices { operation, .. } => operation.clone(),
+            Self::ApplyingOperation { operation, .. } => operation.clone(),
             Self::WithPendingOp(op) => Some(op.clone()),
             _ => None,
         }
