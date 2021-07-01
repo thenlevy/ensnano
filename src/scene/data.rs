@@ -148,7 +148,7 @@ impl<R: DesignReader> Data<R> {
     fn update_handle<S: AppState>(&self, app_state: &S) {
         let origin = self.get_selected_position();
         let orientation = self.get_widget_basis(app_state);
-        let handle_descr = if app_state.get_action_mode().wants_handle() {
+        let handle_descr = if app_state.get_action_mode().0.wants_handle() {
             origin
                 .clone()
                 .zip(orientation.clone())
@@ -164,7 +164,7 @@ impl<R: DesignReader> Data<R> {
             .borrow_mut()
             .update(ViewUpdate::Handles(handle_descr));
         let only_right = !self.selection_can_rotate_freely(app_state);
-        let rotation_widget_descr = if app_state.get_action_mode().wants_rotation() {
+        let rotation_widget_descr = if app_state.get_action_mode().0.wants_rotation() {
             origin
                 .clone()
                 .zip(orientation.clone())

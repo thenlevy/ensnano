@@ -322,7 +322,7 @@ fn main() {
         // Wait for event or redraw a frame every 33 ms (30 frame per seconds)
         *control_flow = ControlFlow::WaitUntil(Instant::now() + Duration::from_millis(33));
 
-        let main_state_view = MainStateView {
+        let mut main_state_view = MainStateView {
             main_state: &mut main_state,
             control_flow,
             multiplexer: &mut multiplexer,
@@ -344,8 +344,11 @@ fn main() {
                 event: WindowEvent::ModifiersChanged(modifiers),
                 ..
             } => {
-                multiplexer.update_modifiers(modifiers.clone());
+                main_state_view
+                    .multiplexer
+                    .update_modifiers(modifiers.clone());
                 messages.lock().unwrap().update_modifiers(modifiers.clone());
+                main_state_view.notify_apps(Notification::ModifersChanged(modifiers));
             }
             Event::WindowEvent {
                 event: WindowEvent::KeyboardInput { .. },

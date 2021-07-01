@@ -784,7 +784,7 @@ pub trait AppState: Clone {
     fn design_was_modified(&self, other: &Self) -> bool;
     fn design_model_matrix_was_updated(&self, other: &Self) -> bool;
     fn get_selection_mode(&self) -> SelectionMode;
-    fn get_action_mode(&self) -> ActionMode;
+    fn get_action_mode(&self) -> (ActionMode, WidgetBasis);
     fn get_design_reader(&self) -> Self::DesignReader;
     fn get_strand_builders(&self) -> Vec<StrandBuilder>;
     fn get_widget_basis(&self) -> WidgetBasis;

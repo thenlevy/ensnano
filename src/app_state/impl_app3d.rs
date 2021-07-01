@@ -53,8 +53,8 @@ impl App3D for AppState {
         self.0.selection_mode
     }
 
-    fn get_action_mode(&self) -> ActionMode {
-        self.0.action_mode
+    fn get_action_mode(&self) -> (ActionMode, WidgetBasis) {
+        (self.0.action_mode, self.0.widget_basis)
     }
 
     fn get_design_reader(&self) -> Self::DesignReader {

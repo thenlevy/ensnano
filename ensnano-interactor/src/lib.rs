@@ -353,9 +353,9 @@ pub enum WidgetBasis {
 impl WidgetBasis {
     pub fn toggle(&mut self) {
         if self.is_axis_aligned() {
-            *self = WidgetBasis::World
-        } else {
             *self = WidgetBasis::Object
+        } else {
+            *self = WidgetBasis::World
         };
     }
 
