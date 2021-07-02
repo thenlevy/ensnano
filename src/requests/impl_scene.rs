@@ -61,7 +61,10 @@ impl SceneRequests for Requests {
     }
 
     fn update_builder_position(&mut self, position: isize) {
-        self.next_operation = Some(DesignOperation::MoveBuilders(position))
+        self.keep_proceed
+            .push_back(Action::DesignOperation(DesignOperation::MoveBuilders(
+                position,
+            )))
     }
 
     fn toggle_widget_basis(&mut self) {
@@ -69,6 +72,6 @@ impl SceneRequests for Requests {
     }
 
     fn apply_design_operation(&mut self, op: DesignOperation) {
-        self.next_operation = Some(op);
+        self.keep_proceed.push_back(Action::DesignOperation(op))
     }
 }

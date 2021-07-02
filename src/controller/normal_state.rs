@@ -52,7 +52,7 @@ impl State for NormalState {
                 }
                 Action::DesignOperation(op) => {
                     main_state.apply_operation(op);
-                    self
+                    self.make_progress(main_state)
                 }
                 Action::Undo => {
                     main_state.undo();

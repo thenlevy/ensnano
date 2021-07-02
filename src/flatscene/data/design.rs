@@ -215,18 +215,18 @@ impl Design2d {
         for (h_id, helix) in helices.iter() {
             if self.known_helices.get(h_id) != Some(&Arc::as_ptr(helix)) {
                 self.known_helices.insert(*h_id, Arc::as_ptr(helix));
+                let iso_opt = self.design.get_isometry(*h_id);
+                let isometry = if let Some(iso) = iso_opt {
+                    iso
+                } else {
+                    let iso = Isometry2::new(
+                        (5. * *h_id as f32 - 1.) * Vec2::unit_y(),
+                        Rotor2::identity(),
+                    );
+                    self.requests.lock().unwrap().set_isometry(*h_id, iso);
+                    iso
+                };
                 if !self.id_map.contains_key(h_id) {
-                    let iso_opt = self.design.get_isometry(*h_id);
-                    let isometry = if let Some(iso) = iso_opt {
-                        iso
-                    } else {
-                        let iso = Isometry2::new(
-                            (5. * *h_id as f32 - 1.) * Vec2::unit_y(),
-                            Rotor2::identity(),
-                        );
-                        self.requests.lock().unwrap().set_isometry(*h_id, iso);
-                        iso
-                    };
                     self.id_map.insert(*h_id, FlatIdx(self.helices.len()));
                     self.helices.push(Helix2d {
                         id: *h_id,
@@ -238,9 +238,7 @@ impl Design2d {
                 } else {
                     let flat = self.id_map.get(h_id).unwrap();
                     let helix2d = &mut self.helices[*flat];
-                    if let Some(iso) = self.design.get_isometry(*h_id) {
-                        helix2d.isometry = iso;
-                    }
+                    helix2d.isometry = isometry;
                 }
             }
         }

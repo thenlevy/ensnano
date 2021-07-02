@@ -51,7 +51,11 @@ impl FlatSceneRequests for Requests {
     }
 
     fn set_isometry(&mut self, helix: usize, isometry: Isometry2) {
-        self.next_operation = Some(DesignOperation::SetIsometry { helix, isometry })
+        self.keep_proceed
+            .push_back(Action::DesignOperation(DesignOperation::SetIsometry {
+                helix,
+                isometry,
+            }))
     }
 
     fn set_visibility_helix(&mut self, helix: usize, visibility: bool) {
@@ -67,6 +71,6 @@ impl FlatSceneRequests for Requests {
     }
 
     fn apply_design_operation(&mut self, op: DesignOperation) {
-        self.next_operation = Some(op)
+        self.keep_proceed.push_back(Action::DesignOperation(op))
     }
 }

@@ -343,12 +343,6 @@ pub(crate) fn poll_all<R: DerefMut<Target = Requests>>(
         main_state.pending_actions.push_back(Action::StopRoll)
     }
 
-    if let Some(op) = requests.next_operation.take() {
-        main_state
-            .pending_actions
-            .push_back(Action::DesignOperation(op))
-    }
-
     if requests.suspend_op.take().is_some() {
         main_state.pending_actions.push_back(Action::SuspendOp)
     }

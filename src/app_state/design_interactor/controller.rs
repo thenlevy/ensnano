@@ -133,11 +133,11 @@ impl Controller {
                 }
             }
             ControllerState::ApplyingOperation { .. } => true,
-            ControllerState::BuildingStrand { .. } => {
+            ControllerState::BuildingStrand { initializing, .. } => {
                 if let DesignOperation::MoveBuilders(_) = operation {
                     true
                 } else {
-                    false
+                    initializing
                 }
             }
             _ => false,
@@ -536,6 +536,7 @@ impl Controller {
         }
         self.state = ControllerState::BuildingStrand {
             builders,
+            initializing: true,
             // The initial design is indeed the one AFTER adding the new strands
             initial_design: AddressPointer::new(design.clone()),
         };
@@ -639,12 +640,14 @@ impl Controller {
         if let ControllerState::BuildingStrand {
             initial_design,
             builders,
+            initializing,
         } = &mut self.state
         {
             let mut design = initial_design.clone_inner();
             for builder in builders.iter_mut() {
                 builder.move_to(n, &mut design)
             }
+            *initializing = false;
             Ok(design)
         } else {
             Err(ErrOperation::IncompatibleState)
@@ -900,6 +903,7 @@ enum ControllerState {
     BuildingStrand {
         builders: Vec<StrandBuilder>,
         initial_design: AddressPointer<Design>,
+        initializing: bool,
     },
     ChangingColor,
     WithPendingOp(Arc<dyn Operation>),

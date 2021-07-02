@@ -62,7 +62,6 @@ pub struct Requests {
     pub scroll_sensitivity: Option<f32>,
     pub make_grids: Option<()>,
     pub operation_update: Option<Arc<dyn Operation>>,
-    pub next_operation: Option<DesignOperation>,
     pub toggle_persistent_helices: Option<bool>,
     pub new_grid: Option<GridTypeDescr>,
     pub camera_rotation: Option<(f32, f32, f32)>,
