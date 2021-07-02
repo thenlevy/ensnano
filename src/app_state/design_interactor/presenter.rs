@@ -93,27 +93,23 @@ impl Presenter {
     /// well as a pointer to the design held by this fresh presenter.
     pub fn from_new_design(
         design: Design,
-        junctions_ids: JunctionsIds,
+        old_junctions_ids: &JunctionsIds,
     ) -> (Self, AddressPointer<Design>) {
         let helices_groups = design.groups.clone();
         let model_matrix = Mat4::identity();
-        let junctions_ids = AddressPointer::new(junctions_ids);
         let mut old_grid_ptr = None;
-        let (content, design, junctions_ids_opt) = DesignContent::make_hash_maps(
+        let (content, design, junctions_ids) = DesignContent::make_hash_maps(
             design,
             &helices_groups,
-            junctions_ids.clone(),
+            old_junctions_ids,
             &mut old_grid_ptr,
         );
-        let junctions_ids = junctions_ids_opt
-            .map(AddressPointer::new)
-            .unwrap_or(junctions_ids);
         let design = AddressPointer::new(design);
         let ret = Self {
             current_design: design.clone(),
             content: AddressPointer::new(content),
             model_matrix: AddressPointer::new(model_matrix),
-            junctions_ids,
+            junctions_ids: AddressPointer::new(junctions_ids),
             helices_groups: AddressPointer::from(helices_groups),
             old_grid_ptr,
         };
@@ -121,17 +117,15 @@ impl Presenter {
     }
 
     fn read_design(&mut self, design: AddressPointer<Design>) {
-        let (content, new_design, junctions_ids) = DesignContent::make_hash_maps(
+        let (content, new_design, new_junctions_ids) = DesignContent::make_hash_maps(
             design.clone_inner(),
             self.helices_groups.as_ref(),
-            self.junctions_ids.clone(),
+            self.junctions_ids.as_ref(),
             &mut self.old_grid_ptr,
         );
         self.current_design = AddressPointer::new(new_design);
         self.content = AddressPointer::new(content);
-        if let Some(junctions_ids) = junctions_ids {
-            self.junctions_ids = AddressPointer::new(junctions_ids);
-        }
+        self.junctions_ids = AddressPointer::new(new_junctions_ids);
     }
 
     pub(super) fn has_different_model_matrix_than(&self, other: &Self) -> bool {

@@ -44,7 +44,7 @@ impl DesignInteractor {
         let groups = design.groups.clone();
         let anchors = design.anchors.clone();
         //let file_name = real_name(json_path);
-        let (presenter, design_ptr) = Presenter::from_new_design(design, xover_ids);
+        let (presenter, design_ptr) = Presenter::from_new_design(design, &xover_ids);
         let ret = Self {
             design: design_ptr,
             presenter: AddressPointer::new(presenter),

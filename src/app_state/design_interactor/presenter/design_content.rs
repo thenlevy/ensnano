@@ -251,9 +251,9 @@ impl DesignContent {
     pub(super) fn make_hash_maps(
         mut design: Design,
         groups: &BTreeMap<usize, bool>,
-        xover_ids: AddressPointer<JunctionsIds>,
+        xover_ids: &JunctionsIds,
         old_grid_ptr: &mut Option<usize>,
-    ) -> (Self, Design, Option<JunctionsIds>) {
+    ) -> (Self, Design, JunctionsIds) {
         let mut object_type = HashMap::default();
         let mut space_position = HashMap::default();
         let mut identifier_nucl = HashMap::default();
@@ -272,7 +272,8 @@ impl DesignContent {
         let mut elements = Vec::new();
         let mut prime3_set = Vec::new();
         let mut blue_nucl = Vec::new();
-        let mut new_junctions: Option<JunctionsIds> = None;
+        let mut new_junctions: JunctionsIds = Default::default();
+        xover_ids.agree_on_next_id(&mut new_junctions);
         let mut grid_manager = GridManager::new_from_design(&design);
         if *old_grid_ptr != Some(Arc::as_ptr(&design.grids) as usize) {
             *old_grid_ptr = Some(Arc::as_ptr(&design.grids) as usize);
@@ -288,7 +289,7 @@ impl DesignContent {
                 if let Some((prime5, prime3)) = old_nucl.clone().zip(domain.prime5_end()) {
                     Self::update_junction(
                         &mut new_junctions,
-                        xover_ids.clone(),
+                        xover_ids,
                         *last_xover_junction
                             .as_mut()
                             .expect("Broke Invariant [LastXoverJunction]"),
@@ -401,7 +402,7 @@ impl DesignContent {
                 println!("adding {:?}, {:?}", bound.0, bound.1);
                 Self::update_junction(
                     &mut new_junctions,
-                    xover_ids.clone(),
+                    xover_ids,
                     strand
                         .junctions
                         .last_mut()
@@ -409,7 +410,7 @@ impl DesignContent {
                     (bound.0, bound.1),
                 );
                 let (prime5, prime3) = bound;
-                if let Some(id) = get_shared(&new_junctions, &xover_ids).get_id(&(prime5, prime3)) {
+                if let Some(id) = new_junctions.get_id(&(prime5, prime3)) {
                     elements.push(DnaElement::CrossOver {
                         xover_id: id,
                         helix5prime: prime5.helix,
@@ -478,15 +479,14 @@ impl DesignContent {
 
         #[cfg(test)]
         {
-            let xover_ids = get_shared(&new_junctions, &xover_ids);
-            ret.test_named_junction(&design, xover_ids, "TEST AFTER MAKE HASH MAP");
+            ret.test_named_junction(&design, &mut new_junctions, "TEST AFTER MAKE HASH MAP");
         }
         (ret, design, new_junctions)
     }
 
     fn update_junction(
-        new_xover_ids: &mut Option<JunctionsIds>,
-        old_xover_ids: AddressPointer<JunctionsIds>,
+        new_xover_ids: &mut JunctionsIds,
+        old_xover_ids: &JunctionsIds,
         junction: &mut DomainJunction,
         bound: (Nucl, Nucl),
     ) {
@@ -501,16 +501,16 @@ impl DesignContent {
                 panic!("Xover between adjacent nucls")
             }
             s @ DomainJunction::UnindentifiedXover => {
-                let xover_ids = get_mutable(new_xover_ids, old_xover_ids.clone());
-                let id = xover_ids.insert(bound);
+                let id = new_xover_ids.insert(bound);
                 *s = DomainJunction::IdentifiedXover(id);
             }
             DomainJunction::IdentifiedXover(id) => {
-                let xover_ids = get_shared(new_xover_ids, &old_xover_ids);
-                let old_bound = xover_ids.get_element(*id);
+                let old_bound = old_xover_ids.get_element(*id);
                 if old_bound != Some(bound) {
-                    let xover_ids = get_mutable(new_xover_ids, old_xover_ids.clone());
-                    xover_ids.update(old_bound.expect("Could not get exisiting id"), bound);
+                    let id = new_xover_ids.insert(bound);
+                    *junction = DomainJunction::IdentifiedXover(id);
+                } else {
+                    new_xover_ids.insert_at(bound, *id);
                 }
             }
             _ => (),

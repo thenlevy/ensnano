@@ -17,12 +17,13 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 
 use crate::app_state::AddressPointer;
-use ensnano_design::{grid::GridDescriptor, mutate_helix, Design, Nucl, Strand, DomainJunction};
+use ensnano_design::{grid::GridDescriptor, mutate_helix, Design, DomainJunction, Nucl, Strand};
 use ensnano_interactor::operation::Operation;
 use ensnano_interactor::{
     DesignOperation, DesignRotation, DesignTranslation, DomainIdentifier, IsometryTarget,
     NeighbourDescriptor, NeighbourDescriptorGiver, Selection, StrandBuilder,
 };
+use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
@@ -96,6 +97,7 @@ impl Controller {
             DesignOperation::MoveBuilders(n) => {
                 self.apply(|c, d| c.move_strand_builders(d, n), design)
             }
+            DesignOperation::Cut { nucl, .. } => self.apply(|c, d| c.cut(d, nucl), design),
             _ => Err(ErrOperation::NotImplemented),
         }
     }
@@ -633,11 +635,7 @@ impl Controller {
         s_id
     }
 
-    fn move_strand_builders(
-        &mut self,
-        _: Design,
-        n: isize,
-    ) -> Result<Design, ErrOperation> {
+    fn move_strand_builders(&mut self, _: Design, n: isize) -> Result<Design, ErrOperation> {
         if let ControllerState::BuildingStrand {
             initial_design,
             builders,
@@ -653,7 +651,11 @@ impl Controller {
         }
     }
 
-    
+    fn cut(&mut self, mut design: Design, nucl: Nucl) -> Result<Design, ErrOperation> {
+        let _ = Self::split_strand(&mut design, &nucl, None)?;
+        Ok(design)
+    }
+
     /// Split a strand at nucl, and return the id of the newly created strand
     ///
     /// The part of the strand that contains nucl is given the original
@@ -664,8 +666,14 @@ impl Controller {
     /// If `force_end` is `None`, nucl will be on the 5 prime half of the split unless nucl is the 3
     /// prime extremity of a crossover, in which case nucl will be on the 3 prime half of the
     /// split.
-    fn split_strand(design: &mut Design, nucl: &Nucl, force_end: Option<bool>) -> Result<usize, ErrOperation> {
-        let id = design.get_strand_nucl(nucl).ok_or(ErrOperation::CutInexistingStrand)?;
+    fn split_strand(
+        design: &mut Design,
+        nucl: &Nucl,
+        force_end: Option<bool>,
+    ) -> Result<usize, ErrOperation> {
+        let id = design
+            .get_strand_nucl(nucl)
+            .ok_or(ErrOperation::CutInexistingStrand)?;
 
         let strand = design.strands.remove(&id).expect("strand");
         if strand.cyclic {
@@ -733,9 +741,7 @@ impl Controller {
             }
             prev_helix = domain.helix();
         }
-        if let Some(DomainJunction::IdentifiedXover(id)) = rm_xover {
-            self.xover_ids.remove(id);
-        }
+
         let mut prim3_domains = Vec::new();
         if let Some(ref domains) = domains {
             prim5_domains.push(domains.0.clone());
@@ -781,7 +787,7 @@ impl Controller {
             junctions: prime3_junctions,
             sequence: seq_prim3,
         };
-        let new_id = (*self.design.strands.keys().max().unwrap_or(&0)).max(id) + 1;
+        let new_id = (*design.strands.keys().max().unwrap_or(&0)).max(id) + 1;
         println!("new id {}, ; id {}", new_id, id);
         let (id_5prime, id_3prime) = if !on_3prime {
             (id, new_id)
@@ -789,20 +795,18 @@ impl Controller {
             (new_id, id)
         };
         if strand_5prime.domains.len() > 0 {
-            self.design.strands.insert(id_5prime, strand_5prime);
+            design.strands.insert(id_5prime, strand_5prime);
         }
         if strand_3prime.domains.len() > 0 {
-            self.design.strands.insert(id_3prime, strand_3prime);
+            design.strands.insert(id_3prime, strand_3prime);
         }
-        self.update_status = true;
         //self.make_hash_maps();
-        self.hash_maps_update = true;
-        self.view_need_reset = true;
 
+        /*
         if crate::MUST_TEST {
             self.test_named_junction("TEST AFTER SPLIT STRAND");
-        }
-        Some(new_id)
+        }*/
+        Ok(new_id)
     }
 
     /// Split a cyclic strand at nucl
@@ -811,7 +815,12 @@ impl Controller {
     /// If `force_end` is `Some(false)` nucl will be the new 3' end of the strand.
     /// If `force_end` is `None`, nucl will be the new 3' end of the strand unless nucl is the 3'
     /// prime extremity of a crossover, in which case nucl will be the new 5' end of the strand
-    fn break_cycle(&mut self, mut strand: Strand, nucl: Nucl, force_end: Option<bool>) -> Strand {
+    fn break_cycle(
+        design: &mut Design,
+        mut strand: Strand,
+        nucl: Nucl,
+        force_end: Option<bool>,
+    ) -> Strand {
         let mut last_dom = None;
         let mut replace_last_dom = None;
         let mut prev_helix = None;
@@ -865,16 +874,11 @@ impl Controller {
         }
         junctions.push(DomainJunction::Prime3);
 
-        if let Some(DomainJunction::IdentifiedXover(id)) = rm_xover {
-            self.xover_ids.remove(id);
-        }
-
         strand.domains = new_domains;
         strand.cyclic = false;
         strand.junctions = junctions;
         strand
     }
-
 }
 
 fn nucl_pos_2d(design: &Design, nucl: &Nucl) -> Option<Vec2> {

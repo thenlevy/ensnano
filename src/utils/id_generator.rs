@@ -108,4 +108,8 @@ impl<K: Eq + Hash + Clone> IdGenerator<K> {
     pub fn get_all_elements(&self) -> Vec<(usize, K)> {
         self.elements.clone().into_iter().collect()
     }
+
+    pub fn agree_on_next_id(&self, next: &mut Self) {
+        next.next_id = self.next_id;
+    }
 }

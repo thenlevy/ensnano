@@ -15,9 +15,9 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
-/// This module defines the icednano format.
-/// All other format supported by icednano are converted into this format and run-time manipulation
-/// of designs are performed on an `icednano::Design` structure
+/// This module defines the ensnano format.
+/// All other format supported by ensnano are converted into this format and run-time manipulation
+/// of designs are performed on an `ensnano::Design` structure
 use std::borrow::Cow;
 use std::collections::{BTreeMap, BTreeSet, HashSet};
 use std::f32::consts::PI;
@@ -41,7 +41,7 @@ mod formating;
 #[cfg(test)]
 mod tests;
 
-/// The `icednano` Design structure.
+/// The `ensnano` Design structure.
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Design {
     /// The collection of all helices used in this design. Helices have a
@@ -76,13 +76,17 @@ pub struct Design {
     #[serde(default)]
     pub grids: Arc<Vec<GridDescriptor>>,
 
-    /// The groups in which the helices are.
+    /// The cross-over suggestion groups
     #[serde(skip_serializing_if = "groups_is_empty", default)]
     pub groups: Arc<BTreeMap<usize, bool>>,
 
+    /// The set of identifiers of grids whose helices must not always display their phantom
+    /// helices.
     #[serde(skip_serializing_if = "HashSet::is_empty", default)]
     pub no_phantoms: HashSet<usize>,
 
+    /// The set of identifiers of grids whose helices are displayed with smaller spheres for the
+    /// nucleotides.
     #[serde(
         alias = "small_shperes",
         alias = "no_spheres",
@@ -92,6 +96,7 @@ pub struct Design {
     )]
     pub small_spheres: HashSet<usize>,
 
+    /// The set of nucleotides that must not move during physical simulations
     #[serde(skip_serializing_if = "HashSet::is_empty", default)]
     pub anchors: HashSet<Nucl>,
 
