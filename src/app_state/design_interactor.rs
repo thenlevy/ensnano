@@ -184,13 +184,36 @@ mod tests {
     use super::super::*;
     use super::*;
     use crate::scene::DesignReader as Reader3d;
+    use ensnano_design::{grid::GridDescriptor, DomainJunction, Nucl, Strand};
     use std::path::PathBuf;
+    use ultraviolet::{Rotor3, Vec3};
 
-    fn one_helix_path() -> PathBuf {
+    fn test_path(design_name: &'static str) -> PathBuf {
         let mut ret = PathBuf::from(std::env!("CARGO_MANIFEST_DIR"));
         ret.push("tests");
-        ret.push("one_helix.json");
+        ret.push(design_name);
         ret
+    }
+
+    fn one_helix_path() -> PathBuf {
+        test_path("one_helix.json")
+    }
+
+    fn assert_good_strand<S: std::ops::Deref<Target = str>>(strand: &Strand, objective: S) {
+        use regex::Regex;
+        let re = Regex::new(r#"\[[^\]]*\]"#).unwrap();
+        let formated_strand = strand.formated_domains();
+        let left = re.find_iter(&formated_strand);
+        let right = re.find_iter(&objective);
+        for (a, b) in left.zip(right) {
+            assert_eq!(a.as_str(), b.as_str());
+        }
+    }
+
+    /// A design with one strand h1: 0 -> 5 ; h2: 0 <- 5
+    fn one_xover() -> AppState {
+        let path = test_path("one_xover.json");
+        AppState::import_design(&path).ok().unwrap()
     }
 
     fn fake_design_update(state: &mut AppState) {
@@ -231,6 +254,113 @@ mod tests {
         assert!(!old_app_state.design_was_modified(&app_state));
     }
 
+    #[test]
+    fn strand_builder_on_xover_end() {
+        let mut app_state = one_xover();
+        app_state
+            .apply_design_op(DesignOperation::RequestStrandBuilders {
+                nucls: vec![
+                    Nucl {
+                        helix: 1,
+                        position: 5,
+                        forward: true,
+                    },
+                    Nucl {
+                        helix: 2,
+                        position: 5,
+                        forward: false,
+                    },
+                ],
+            })
+            .unwrap();
+        app_state.update();
+        assert_eq!(app_state.0.design.get_strand_builders().len(), 2);
+    }
+
+    #[test]
+    fn moving_one_strand_builder() {
+        let mut app_state = one_xover();
+        app_state
+            .apply_design_op(DesignOperation::RequestStrandBuilders {
+                nucls: vec![Nucl {
+                    helix: 1,
+                    position: 5,
+                    forward: true,
+                }],
+            })
+            .unwrap();
+        app_state.update();
+        app_state
+            .apply_design_op(DesignOperation::MoveBuilders(7))
+            .unwrap();
+        app_state.update();
+        let strand = app_state
+            .0
+            .design
+            .presenter
+            .current_design
+            .strands
+            .get(&0)
+            .expect("No strand 0");
+        assert_good_strand(strand, "[H1: 0 -> 7] [H2: 0 <- 5]");
+        assert_eq!(
+            strand.junctions,
+            vec![DomainJunction::IdentifiedXover(0), DomainJunction::Prime3]
+        )
+    }
+
+    #[test]
+    fn moving_xover_preserve_ids() {
+        let mut app_state = one_xover();
+        app_state
+            .apply_design_op(DesignOperation::RequestStrandBuilders {
+                nucls: vec![Nucl {
+                    helix: 1,
+                    position: 5,
+                    forward: true,
+                }],
+            })
+            .unwrap();
+        app_state.update();
+        app_state
+            .apply_design_op(DesignOperation::MoveBuilders(7))
+            .unwrap();
+        app_state.update();
+
+        let n1 = Nucl {
+            helix: 1,
+            position: 7,
+            forward: true,
+        };
+        let n2 = Nucl {
+            helix: 2,
+            position: 5,
+            forward: false,
+        };
+        let xover_id = app_state
+            .0
+            .design
+            .presenter
+            .junctions_ids
+            .get_all_elements();
+        assert_eq!(xover_id, vec![(0, (n1, n2))]);
+    }
+
+    #[test]
+    fn add_grid_helix() {
+        let mut app_state = AppState::default();
+        app_state
+            .apply_design_op(DesignOperation::AddGrid(GridDescriptor {
+                position: Vec3::zero(),
+                orientation: Rotor3::identity(),
+                grid_type: ensnano_design::grid::GridTypeDescr::Square,
+            }))
+            .unwrap();
+        app_state.update();
+        assert_eq!(app_state.0.design.presenter.current_design.grids.len(), 1)
+    }
+
+    #[ignore]
     #[test]
     fn correct_simulation_state() {
         assert!(false)

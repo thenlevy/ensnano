@@ -17,7 +17,10 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 
 use crate::app_state::AddressPointer;
-use ensnano_design::{grid::GridDescriptor, mutate_helix, Design, DomainJunction, Nucl, Strand};
+use ensnano_design::{
+    grid::{GridDescriptor, GridPosition},
+    mutate_helix, Design, Domain, DomainJunction, Helix, Nucl, Strand,
+};
 use ensnano_interactor::operation::Operation;
 use ensnano_interactor::{
     DesignOperation, DesignRotation, DesignTranslation, DomainIdentifier, IsometryTarget,
@@ -98,6 +101,12 @@ impl Controller {
                 self.apply(|c, d| c.move_strand_builders(d, n), design)
             }
             DesignOperation::Cut { nucl, .. } => self.apply(|c, d| c.cut(d, nucl), design),
+            DesignOperation::Xover { .. } => Err(ErrOperation::NotImplemented),
+            DesignOperation::AddGridHelix {
+                position,
+                length,
+                start,
+            } => self.apply(|c, d| c.add_grid_helix(d, position, start, length), design),
             _ => Err(ErrOperation::NotImplemented),
         }
     }
@@ -390,6 +399,8 @@ pub enum ErrOperation {
     IncompatibleState,
     CannotBuildOn(Nucl),
     CutInexistingStrand,
+    GridDoesNotExist(usize),
+    GridPositionAlreadyUsed,
 }
 
 impl Controller {
@@ -636,6 +647,35 @@ impl Controller {
         s_id
     }
 
+    fn add_strand(
+        &mut self,
+        design: &mut Design,
+        helix: usize,
+        position: isize,
+        forward: bool,
+    ) -> usize {
+        let new_key = if let Some(k) = design.strands.keys().max() {
+            *k + 1
+        } else {
+            0
+        };
+        let color = {
+            let hue = (self.color_idx as f64 * (1. + 5f64.sqrt()) / 2.).fract() * 360.;
+            let saturation =
+                (self.color_idx as f64 * 7. * (1. + 5f64.sqrt() / 2.)).fract() * 0.4 + 0.4;
+            let value = (self.color_idx as f64 * 11. * (1. + 5f64.sqrt() / 2.)).fract() * 0.7 + 0.1;
+            let hsv = color_space::Hsv::new(hue, saturation, value);
+            let rgb = color_space::Rgb::from(hsv);
+            (0xFF << 24) | ((rgb.r as u32) << 16) | ((rgb.g as u32) << 8) | (rgb.b as u32)
+        };
+        self.color_idx += 1;
+
+        design
+            .strands
+            .insert(new_key, Strand::init(helix, position, forward, color));
+        new_key
+    }
+
     fn move_strand_builders(&mut self, _: Design, n: isize) -> Result<Design, ErrOperation> {
         if let ControllerState::BuildingStrand {
             initial_design,
@@ -680,7 +720,7 @@ impl Controller {
 
         let strand = design.strands.remove(&id).expect("strand");
         if strand.cyclic {
-            let new_strand = Self::break_cycle(design, strand.clone(), *nucl, force_end);
+            let new_strand = Self::break_cycle(strand.clone(), *nucl, force_end);
             design.strands.insert(id, new_strand);
             //self.clean_domains_one_strand(id);
             //println!("Cutting cyclic strand");
@@ -698,7 +738,6 @@ impl Controller {
         let mut prev_helix = None;
         let mut prime5_junctions: Vec<DomainJunction> = Vec::new();
         let mut prime3_junctions: Vec<DomainJunction> = Vec::new();
-        let mut rm_xover: Option<DomainJunction> = None;
 
         println!("Spliting");
         println!("{:?}", strand.domains);
@@ -715,7 +754,6 @@ impl Controller {
                 on_3prime = true;
                 i = d_id;
                 if let Some(j) = prime5_junctions.last_mut() {
-                    rm_xover = Some(j.clone());
                     *j = DomainJunction::Prime3;
                 }
                 break;
@@ -723,7 +761,6 @@ impl Controller {
                 // nucl is the 3' end of the current domain so it is the on the 5' end of a xover.
                 // nucl is not required to be on the 3' half of the split, so we put it on the 5'
                 // half
-                rm_xover = Some(strand.junctions[d_id].clone());
                 i = d_id + 1;
                 prim5_domains.push(domain.clone());
                 len_prim5 += domain.length();
@@ -818,18 +855,12 @@ impl Controller {
     /// If `force_end` is `Some(false)` nucl will be the new 3' end of the strand.
     /// If `force_end` is `None`, nucl will be the new 3' end of the strand unless nucl is the 3'
     /// prime extremity of a crossover, in which case nucl will be the new 5' end of the strand
-    fn break_cycle(
-        design: &mut Design,
-        mut strand: Strand,
-        nucl: Nucl,
-        force_end: Option<bool>,
-    ) -> Strand {
+    fn break_cycle(mut strand: Strand, nucl: Nucl, force_end: Option<bool>) -> Strand {
         let mut last_dom = None;
         let mut replace_last_dom = None;
         let mut prev_helix = None;
 
         let mut junctions: Vec<DomainJunction> = Vec::with_capacity(strand.domains.len());
-        let mut rm_xover: Option<DomainJunction> = None;
 
         for (i, domain) in strand.domains.iter().enumerate() {
             if domain.prime5_end() == Some(nucl)
@@ -841,12 +872,10 @@ impl Controller {
                 } else {
                     Some(strand.domains.len() - 1)
                 };
-                rm_xover = Some(strand.junctions[last_dom.unwrap()].clone());
 
                 break;
             } else if domain.prime3_end() == Some(nucl) && force_end != Some(true) {
                 last_dom = Some(i);
-                rm_xover = Some(strand.junctions[last_dom.unwrap()].clone());
                 break;
             } else if let Some(n) = domain.has_nucl(&nucl) {
                 let n = if force_end == Some(true) { n - 1 } else { n };
@@ -881,6 +910,41 @@ impl Controller {
         strand.cyclic = false;
         strand.junctions = junctions;
         strand
+    }
+
+    fn add_grid_helix(
+        &mut self,
+        mut design: Design,
+        position: GridPosition,
+        start: isize,
+        length: usize,
+    ) -> Result<Design, ErrOperation> {
+        let grid_manager = GridManager::new_from_design(&design);
+        if grid_manager
+            .pos_to_helix(position.grid, position.x, position.y)
+            .is_some()
+        {
+            return Err(ErrOperation::GridPositionAlreadyUsed);
+        }
+        let grid = grid_manager
+            .grids
+            .get(position.grid)
+            .ok_or(ErrOperation::GridDoesNotExist(position.grid))?;
+        let mut new_helices = BTreeMap::clone(design.helices.as_ref());
+        let helix = Helix::new_on_grid(grid, position.x, position.y, position.grid);
+        let helix_id = new_helices.keys().last().unwrap_or(&0) + 1;
+        new_helices.insert(helix_id, Arc::new(helix));
+        if length > 0 {
+            for b in [false, true].iter() {
+                let new_key = self.add_strand(&mut design, helix_id, start, *b);
+                if let Domain::HelixDomain(ref mut dom) =
+                    design.strands.get_mut(&new_key).unwrap().domains[0]
+                {
+                    dom.end = dom.start + length as isize;
+                }
+            }
+        }
+        Ok(design)
     }
 }
 

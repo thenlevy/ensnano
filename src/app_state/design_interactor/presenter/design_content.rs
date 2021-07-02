@@ -289,7 +289,6 @@ impl DesignContent {
                 if let Some((prime5, prime3)) = old_nucl.clone().zip(domain.prime5_end()) {
                     Self::update_junction(
                         &mut new_junctions,
-                        xover_ids,
                         *last_xover_junction
                             .as_mut()
                             .expect("Broke Invariant [LastXoverJunction]"),
@@ -402,7 +401,6 @@ impl DesignContent {
                 println!("adding {:?}, {:?}", bound.0, bound.1);
                 Self::update_junction(
                     &mut new_junctions,
-                    xover_ids,
                     strand
                         .junctions
                         .last_mut()
@@ -486,7 +484,6 @@ impl DesignContent {
 
     fn update_junction(
         new_xover_ids: &mut JunctionsIds,
-        old_xover_ids: &JunctionsIds,
         junction: &mut DomainJunction,
         bound: (Nucl, Nucl),
     ) {
@@ -505,13 +502,7 @@ impl DesignContent {
                 *s = DomainJunction::IdentifiedXover(id);
             }
             DomainJunction::IdentifiedXover(id) => {
-                let old_bound = old_xover_ids.get_element(*id);
-                if old_bound != Some(bound) {
-                    let id = new_xover_ids.insert(bound);
-                    *junction = DomainJunction::IdentifiedXover(id);
-                } else {
-                    new_xover_ids.insert_at(bound, *id);
-                }
+                new_xover_ids.insert_at(bound, *id);
             }
             _ => (),
         }

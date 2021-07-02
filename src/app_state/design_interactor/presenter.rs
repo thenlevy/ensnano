@@ -46,7 +46,7 @@ pub(super) struct Presenter {
     pub current_design: AddressPointer<Design>,
     model_matrix: AddressPointer<Mat4>,
     content: AddressPointer<DesignContent>,
-    junctions_ids: AddressPointer<JunctionsIds>,
+    pub junctions_ids: AddressPointer<JunctionsIds>,
     helices_groups: AddressPointer<BTreeMap<usize, bool>>,
     old_grid_ptr: Option<usize>,
 }

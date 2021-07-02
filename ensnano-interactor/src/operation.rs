@@ -453,15 +453,17 @@ impl Operation for GridHelixCreation {
     }
 
     fn effect(&self) -> DesignOperation {
-        DesignOperation::AddGridHelix(
-            super::GridHelixDescriptor {
-                grid_id: self.grid_id,
+        DesignOperation::AddGridHelix {
+            position: ensnano_design::grid::GridPosition {
+                grid: self.grid_id,
                 x: self.x,
                 y: self.y,
+                roll: 0f32,
+                axis_pos: 0,
             },
-            self.position,
-            self.length,
-        )
+            start: self.position,
+            length: self.length,
+        }
     }
 
     fn description(&self) -> String {

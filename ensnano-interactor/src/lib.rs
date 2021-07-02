@@ -20,7 +20,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 //! interract with the design.
 
 use ensnano_design::{
-    grid::{GridDescriptor, Hyperboloid},
+    grid::{GridDescriptor, GridPosition, Hyperboloid},
     Nucl, Strand,
 };
 use ultraviolet::{Isometry2, Rotor3, Vec2, Vec3};
@@ -85,9 +85,11 @@ pub enum DesignOperation {
     /// Translate an element of the design
     Translation(DesignTranslation),
     /// Add an helix on a grid
-    AddGridHelix(GridHelixDescriptor, isize, usize),
-    /// Remove an helix on a grid
-    RmGridHelix(GridHelixDescriptor, isize, usize),
+    AddGridHelix {
+        position: GridPosition,
+        start: isize,
+        length: usize,
+    },
     RmHelix {
         h_id: usize,
     },
