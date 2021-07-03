@@ -54,6 +54,10 @@ impl State for NormalState {
                     main_state.apply_operation(op);
                     self.make_progress(main_state)
                 }
+                Action::SilentDesignOperation(op) => {
+                    main_state.apply_silent_operation(op);
+                    self.make_progress(main_state)
+                }
                 Action::Undo => {
                     main_state.undo();
                     self
@@ -208,6 +212,7 @@ pub enum Action {
     InvertScrollY(bool),
     ErrorMsg(String),
     DesignOperation(DesignOperation),
+    SilentDesignOperation(DesignOperation),
     Undo,
     Redo,
     NotifyApps(Notification),

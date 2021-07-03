@@ -189,6 +189,12 @@ impl AppState {
     fn is_changing_color(&self) -> bool {
         self.0.design.as_ref().is_changing_color()
     }
+
+    pub(super) fn prepare_for_replacement(&mut self, source: &Self) {
+        *self = self.with_candidates(vec![]);
+        *self = self.with_action_mode(source.0.action_mode.clone());
+        *self = self.with_selection_mode(source.0.selection_mode.clone());
+    }
 }
 
 #[derive(Clone, PartialEq, Eq, Default)]

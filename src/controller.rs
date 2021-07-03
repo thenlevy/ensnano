@@ -170,6 +170,7 @@ pub(crate) trait MainState: ScaffoldSetter {
     fn save_design(&mut self, path: &PathBuf) -> Result<(), SaveDesignError>;
     fn get_chanel_reader(&mut self) -> &mut ChanelReader;
     fn apply_operation(&mut self, operation: DesignOperation);
+    fn apply_silent_operation(&mut self, operation: DesignOperation);
     fn undo(&mut self);
     fn redo(&mut self);
     fn get_staple_downloader(&self) -> Box<dyn StaplesDownloader>;

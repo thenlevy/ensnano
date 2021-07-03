@@ -156,6 +156,7 @@ impl Design2d {
         if to_remove.len() > 0 {
             for h in to_remove.iter().rev() {
                 self.helices.remove(h.flat);
+                self.known_helices.remove(&h.real);
             }
             self.remake_id_map();
         }

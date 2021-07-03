@@ -115,7 +115,7 @@ mod main_tests;
 
 mod app_state;
 mod controller;
-use app_state::AppState;
+use app_state::{AppState, InteractorNotification};
 use controller::Action;
 use controller::Controller;
 
@@ -835,20 +835,29 @@ impl MainState {
         }
     }
 
+    fn apply_silent_operation(&mut self, operation: DesignOperation) {
+        match self.app_state.apply_design_op(operation) {
+            Ok(_) => (),
+            Err(e) => println!("{:?}", e),
+        }
+    }
+
     fn save_old_state(&mut self, old_state: AppState) {
         self.undo_stack.push(old_state);
         self.redo_stack.clear();
     }
 
     fn undo(&mut self) {
-        if let Some(state) = self.undo_stack.pop() {
+        if let Some(mut state) = self.undo_stack.pop() {
+            state.prepare_for_replacement(&self.app_state);
             let redo = std::mem::replace(&mut self.app_state, state);
             self.redo_stack.push(redo);
         }
     }
 
     fn redo(&mut self) {
-        if let Some(state) = self.redo_stack.pop() {
+        if let Some(mut state) = self.redo_stack.pop() {
+            state.prepare_for_replacement(&self.app_state);
             let undo = std::mem::replace(&mut self.app_state, state);
             self.undo_stack.push(undo);
         }
@@ -964,6 +973,10 @@ impl<'a> MainStateInteface for MainStateView<'a> {
 
     fn apply_operation(&mut self, operation: DesignOperation) {
         self.main_state.apply_operation(operation)
+    }
+
+    fn apply_silent_operation(&mut self, operation: DesignOperation) {
+        self.main_state.apply_silent_operation(operation)
     }
 
     fn undo(&mut self) {

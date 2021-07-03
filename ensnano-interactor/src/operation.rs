@@ -42,7 +42,7 @@ pub trait Operation: std::fmt::Debug + Sync + Send {
     fn description(&self) -> String;
 
     /// Produce an new opperation by setting the value of the `n`-th parameter to `val`.
-    fn with_new_value(&self, n: usize, val: String) -> Option<Arc<dyn Operation>> {
+    fn with_new_value(&self, _n: usize, _val: String) -> Option<Arc<dyn Operation>> {
         None
     }
 
