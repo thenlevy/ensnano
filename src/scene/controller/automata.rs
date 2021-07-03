@@ -100,7 +100,7 @@ impl<S: AppState> ControllerState<S> for NormalState {
             WindowEvent::CursorMoved { .. } => {
                 self.mouse_position = position;
                 let element = pixel_reader.set_selected_id(position);
-                if controller.action_mode.is_build() {
+                if app_state.get_action_mode().0.is_build() {
                     if let Some(SceneElement::Grid(d_id, _)) = element {
                         let mouse_x = position.x / controller.area_size.width as f64;
                         let mouse_y = position.y / controller.area_size.height as f64;
@@ -159,6 +159,38 @@ impl<S: AppState> ControllerState<S> for NormalState {
             } => {
                 let element = pixel_reader.set_selected_id(position);
                 match element {
+                    Some(SceneElement::GridCircle(d_id, g_id, x, y)) => {
+                        if let ActionMode::BuildHelix {
+                            position: position_helix,
+                            length,
+                        } = app_state.get_action_mode().0
+                        {
+                            Transition {
+                                new_state: Some(Box::new(BuildingHelix {
+                                    position_helix,
+                                    length_helix: length,
+                                    x_helix: x,
+                                    y_helix: y,
+                                    grid_id: g_id,
+                                    design_id: d_id,
+                                    clicked_position: position,
+                                })),
+                                consequences: Consequence::Nothing,
+                            }
+                        } else {
+                            Transition {
+                                new_state: Some(Box::new(Selecting {
+                                    element,
+                                    clicked_position: position,
+                                    mouse_position: position,
+                                    click_date: Instant::now(),
+                                    adding: controller.current_modifiers.shift()
+                                        | ctrl(&controller.current_modifiers),
+                                })),
+                                consequences: Consequence::Nothing,
+                            }
+                        }
+                    }
                     Some(SceneElement::Grid(d_id, _)) => {
                         let mouse_x = position.x / controller.area_size.width as f64;
                         let mouse_y = position.y / controller.area_size.height as f64;
@@ -169,7 +201,7 @@ impl<S: AppState> ControllerState<S> for NormalState {
                         if let ActionMode::BuildHelix {
                             position: helix_position,
                             length,
-                        } = controller.action_mode
+                        } = app_state.get_action_mode().0
                         {
                             if let Some(intersection) = grid_intersection {
                                 Transition {
@@ -823,7 +855,7 @@ impl<S: AppState> ControllerState<S> for BuildingHelix {
         position: PhysicalPosition<f64>,
         _controller: &Controller<S>,
         _pixel_reader: &mut ElementSelector,
-        app_state: &S,
+        _app_state: &S,
     ) -> Transition<S> {
         match event {
             WindowEvent::CursorMoved { .. } => {

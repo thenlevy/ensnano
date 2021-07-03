@@ -64,7 +64,6 @@ pub struct Controller<S: AppState> {
     click_mode: ClickMode,
     state: State<S>,
     pub(super) pasting: bool,
-    action_mode: ActionMode,
 }
 
 pub enum Consequence {
@@ -135,7 +134,6 @@ impl<S: AppState> Controller<S> {
             click_mode: ClickMode::TranslateCam,
             state: automata::initial_state(),
             pasting: false,
-            action_mode: Default::default(),
         }
     }
 

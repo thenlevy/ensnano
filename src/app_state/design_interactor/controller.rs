@@ -944,6 +944,7 @@ impl Controller {
                 }
             }
         }
+        design.helices = Arc::new(new_helices);
         Ok(design)
     }
 }

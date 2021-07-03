@@ -184,7 +184,9 @@ mod tests {
     use super::super::*;
     use super::*;
     use crate::scene::DesignReader as Reader3d;
+    use ensnano_design::grid::GridPosition;
     use ensnano_design::{grid::GridDescriptor, DomainJunction, Nucl, Strand};
+    use ensnano_interactor::operation::GridHelixCreation;
     use std::path::PathBuf;
     use ultraviolet::{Rotor3, Vec3};
 
@@ -347,7 +349,7 @@ mod tests {
     }
 
     #[test]
-    fn add_grid_helix() {
+    fn add_grid() {
         let mut app_state = AppState::default();
         app_state
             .apply_design_op(DesignOperation::AddGrid(GridDescriptor {
@@ -358,6 +360,53 @@ mod tests {
             .unwrap();
         app_state.update();
         assert_eq!(app_state.0.design.presenter.current_design.grids.len(), 1)
+    }
+
+    #[test]
+    fn add_grid_helix_via_op() {
+        let mut app_state = AppState::default();
+        app_state
+            .apply_design_op(DesignOperation::AddGrid(GridDescriptor {
+                position: Vec3::zero(),
+                orientation: Rotor3::identity(),
+                grid_type: ensnano_design::grid::GridTypeDescr::Square,
+            }))
+            .unwrap();
+        app_state.update();
+        app_state
+            .update_pending_operation(Arc::new(GridHelixCreation {
+                design_id: 0,
+                grid_id: 0,
+                x: 0,
+                y: 0,
+                position: 0,
+                length: 0,
+            }))
+            .unwrap();
+        app_state.update();
+        assert_eq!(app_state.0.design.presenter.current_design.helices.len(), 1)
+    }
+
+    #[test]
+    fn add_grid_helix_directly() {
+        let mut app_state = AppState::default();
+        app_state
+            .apply_design_op(DesignOperation::AddGrid(GridDescriptor {
+                position: Vec3::zero(),
+                orientation: Rotor3::identity(),
+                grid_type: ensnano_design::grid::GridTypeDescr::Square,
+            }))
+            .unwrap();
+        app_state.update();
+        app_state
+            .apply_design_op(DesignOperation::AddGridHelix {
+                position: GridPosition::from_grid_id_x_y(0, 0, 0),
+                start: 0,
+                length: 0,
+            })
+            .unwrap();
+        app_state.update();
+        assert_eq!(app_state.0.design.presenter.current_design.helices.len(), 1)
     }
 
     #[ignore]

@@ -462,6 +462,16 @@ impl GridPosition {
             self
         }
     }
+
+    pub fn from_grid_id_x_y(g_id: usize, x: isize, y: isize) -> Self {
+        Self {
+            grid: g_id,
+            x,
+            y,
+            roll: 0f32,
+            axis_pos: 0,
+        }
+    }
 }
 
 #[derive(Clone, Debug, Copy)]

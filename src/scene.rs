@@ -271,8 +271,6 @@ impl<S: AppState> Scene<S> {
                         position,
                     }));
                 self.select(Some(SceneElement::Grid(design_id, grid_id)), app_state);
-                self.view.borrow_mut().update(ViewUpdate::Camera);
-                self.requests.lock().unwrap().suspend_op();
             }
             Consequence::PasteCandidate(element) => self.pasting_candidate(element),
             Consequence::Paste(element) => self.attempt_paste(element),
