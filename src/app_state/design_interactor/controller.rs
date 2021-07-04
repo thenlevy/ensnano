@@ -107,6 +107,15 @@ impl Controller {
                 length,
                 start,
             } => self.apply(|c, d| c.add_grid_helix(d, position, start, length), design),
+            DesignOperation::CrossCut {
+                target_3prime,
+                source_id,
+                target_id,
+                nucl,
+            } => self.apply(
+                |c, d| c.apply_cross_cut(d, source_id, target_id, nucl, target_3prime),
+                design,
+            ),
             _ => Err(ErrOperation::NotImplemented),
         }
     }
@@ -401,6 +410,8 @@ pub enum ErrOperation {
     CutInexistingStrand,
     GridDoesNotExist(usize),
     GridPositionAlreadyUsed,
+    StrandDoesNotExist(usize),
+    MergingSameStrand,
 }
 
 impl Controller {
@@ -947,6 +958,224 @@ impl Controller {
         design.helices = Arc::new(new_helices);
         Ok(design)
     }
+
+    /// Merge two strands with identifier prime5 and prime3. The resulting strand will have
+    /// identifier prime5.
+    fn merge_strands(
+        design: &mut Design,
+        prime5: usize,
+        prime3: usize,
+    ) -> Result<(), ErrOperation> {
+        // We panic, if we can't find the strand, because this means that the program has a bug
+        if prime5 != prime3 {
+            let strand5prime = design
+                .strands
+                .remove(&prime5)
+                .ok_or(ErrOperation::StrandDoesNotExist(prime5))?;
+            let strand3prime = design
+                .strands
+                .remove(&prime3)
+                .ok_or(ErrOperation::StrandDoesNotExist(prime3))?;
+            let len = strand5prime.domains.len() + strand3prime.domains.len();
+            let mut domains = Vec::with_capacity(len);
+            let mut junctions = Vec::with_capacity(len);
+            for (i, domain) in strand5prime.domains.iter().enumerate() {
+                domains.push(domain.clone());
+                junctions.push(strand5prime.junctions[i].clone());
+            }
+            let skip;
+            let last_helix = domains.last().and_then(|d| d.half_helix());
+            let next_helix = strand3prime
+                .domains
+                .iter()
+                .next()
+                .and_then(|d| d.half_helix());
+            if last_helix == next_helix && last_helix.is_some() {
+                skip = 1;
+                domains
+                    .last_mut()
+                    .as_mut()
+                    .unwrap()
+                    .merge(strand3prime.domains.iter().next().unwrap());
+                junctions.pop();
+            } else {
+                skip = 0;
+                if let Some(j) = junctions.iter_mut().last() {
+                    *j = DomainJunction::UnindentifiedXover
+                }
+            }
+            for domain in strand3prime.domains.iter().skip(skip) {
+                domains.push(domain.clone());
+            }
+            for junction in strand3prime.junctions.iter() {
+                junctions.push(junction.clone());
+            }
+            let sequence = if let Some((seq5, seq3)) = strand5prime
+                .sequence
+                .clone()
+                .zip(strand3prime.sequence.clone())
+            {
+                let new_seq = seq5.into_owned() + &seq3.into_owned();
+                Some(Cow::Owned(new_seq))
+            } else if let Some(ref seq5) = strand5prime.sequence {
+                Some(seq5.clone())
+            } else if let Some(ref seq3) = strand3prime.sequence {
+                Some(seq3.clone())
+            } else {
+                None
+            };
+            let new_strand = Strand {
+                domains,
+                color: strand5prime.color,
+                sequence,
+                junctions,
+                cyclic: false,
+            };
+            design.strands.insert(prime5, new_strand);
+            Ok(())
+        } else {
+            // To make a cyclic strand use `make_cyclic_strand` instead
+            Err(ErrOperation::MergingSameStrand)
+        }
+    }
+
+    /// Make a strand cyclic by linking the 3' and the 5' end, or undo this operation.
+    fn make_cycle(design: &mut Design, strand_id: usize, cyclic: bool) -> Result<(), ErrOperation> {
+        design
+            .strands
+            .get_mut(&strand_id)
+            .ok_or(ErrOperation::StrandDoesNotExist(strand_id))?
+            .cyclic = cyclic;
+
+        let strand = design
+            .strands
+            .get_mut(&strand_id)
+            .ok_or(ErrOperation::StrandDoesNotExist(strand_id))?;
+        if cyclic {
+            let first_last_domains = (strand.domains.iter().next(), strand.domains.iter().last());
+            let merge_insertions =
+                if let (Some(Domain::Insertion(n1)), Some(Domain::Insertion(n2))) =
+                    first_last_domains
+                {
+                    Some(n1 + n2)
+                } else {
+                    None
+                };
+            if let Some(n) = merge_insertions {
+                // If the strand starts and finishes by an Insertion, merge the insertions.
+                // TODO UNITTEST for this specific case
+                *strand.domains.last_mut().unwrap() = Domain::Insertion(n);
+                // remove the first insertions
+                strand.domains.remove(0);
+                strand.junctions.remove(0);
+            }
+
+            let first_last_domains = (strand.domains.iter().next(), strand.domains.iter().last());
+            let skip_last = if let (_, Some(Domain::Insertion(_))) = first_last_domains {
+                1
+            } else {
+                0
+            };
+            let skip_first = if let (Some(Domain::Insertion(_)), _) = first_last_domains {
+                1
+            } else {
+                0
+            };
+            let last_first_intervals = (
+                strand.domains.iter().rev().skip(skip_last).next(),
+                strand.domains.get(skip_first),
+            );
+            if let (Some(Domain::HelixDomain(i1)), Some(Domain::HelixDomain(i2))) =
+                last_first_intervals
+            {
+                let junction = junction(i1, i2);
+                *strand.junctions.last_mut().unwrap() = junction;
+            } else {
+                panic!("Invariant Violated: SaneDomains")
+            }
+        } else {
+            *strand.junctions.last_mut().unwrap() = DomainJunction::Prime3;
+        }
+        Ok(())
+    }
+
+    fn apply_cross_cut(
+        &mut self,
+        mut design: Design,
+        source_strand: usize,
+        target_strand: usize,
+        nucl: Nucl,
+        target_3prime: bool,
+    ) -> Result<Design, ErrOperation> {
+        Self::cross_cut(
+            &mut design,
+            source_strand,
+            target_strand,
+            nucl,
+            target_3prime,
+        )?;
+        Ok(design)
+    }
+
+    /// Cut the target strand at nucl and the make a cross over from the source strand to the part
+    /// that contains nucl
+    fn cross_cut(
+        design: &mut Design,
+        source_strand: usize,
+        target_strand: usize,
+        nucl: Nucl,
+        target_3prime: bool,
+    ) -> Result<(), ErrOperation> {
+        let new_id = design.strands.keys().max().map(|n| n + 1).unwrap_or(0);
+        let was_cyclic = design
+            .strands
+            .get(&target_strand)
+            .ok_or(ErrOperation::StrandDoesNotExist(target_strand))?
+            .cyclic;
+        //println!("half1 {}, ; half0 {}", new_id, target_strand);
+        Self::split_strand(design, &nucl, Some(target_3prime))?;
+        //println!("splitted");
+
+        if !was_cyclic && source_strand != target_strand {
+            if target_3prime {
+                // swap the position of the two half of the target strands so that the merged part is the
+                // new id
+                let half0 = design
+                    .strands
+                    .remove(&target_strand)
+                    .ok_or(ErrOperation::StrandDoesNotExist(target_strand))?;
+                let half1 = design
+                    .strands
+                    .remove(&new_id)
+                    .ok_or(ErrOperation::StrandDoesNotExist(new_id))?;
+                design.strands.insert(new_id, half0);
+                design.strands.insert(target_strand, half1);
+                Self::merge_strands(design, source_strand, new_id)
+            } else {
+                // if the target strand is the 5' end of the merge, we give the new id to the source
+                // strand because it is the one that is lost in the merge.
+                let half0 = design
+                    .strands
+                    .remove(&source_strand)
+                    .ok_or(ErrOperation::StrandDoesNotExist(source_strand))?;
+                let half1 = design
+                    .strands
+                    .remove(&new_id)
+                    .ok_or(ErrOperation::StrandDoesNotExist(new_id))?;
+                design.strands.insert(new_id, half0);
+                design.strands.insert(source_strand, half1);
+                Self::merge_strands(design, target_strand, new_id)
+            }
+        } else if source_strand == target_strand {
+            Self::make_cycle(design, source_strand, true)
+        } else {
+            if target_3prime {
+                Self::merge_strands(design, source_strand, target_strand)
+            } else {
+                Self::merge_strands(design, target_strand, source_strand)
+            }
+        }
+    }
 }
 
 fn nucl_pos_2d(design: &Design, nucl: &Nucl) -> Option<Vec2> {
@@ -1012,4 +1241,17 @@ impl ControllerState {
 
 pub enum InteractorNotification {
     FinishOperation,
+}
+
+use ensnano_design::HelixInterval;
+/// Return the appropriate junction between two HelixInterval
+pub(super) fn junction(prime5: &HelixInterval, prime3: &HelixInterval) -> DomainJunction {
+    let prime5_nucl = prime5.prime3();
+    let prime3_nucl = prime3.prime5();
+
+    if prime3_nucl == prime5_nucl.prime3() {
+        DomainJunction::Adjacent
+    } else {
+        DomainJunction::UnindentifiedXover
+    }
 }
