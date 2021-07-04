@@ -101,7 +101,6 @@ impl Controller {
                 self.apply(|c, d| c.move_strand_builders(d, n), design)
             }
             DesignOperation::Cut { nucl, .. } => self.apply(|c, d| c.cut(d, nucl), design),
-            DesignOperation::Xover { .. } => Err(ErrOperation::NotImplemented),
             DesignOperation::AddGridHelix {
                 position,
                 length,
@@ -116,6 +115,10 @@ impl Controller {
                 |c, d| c.apply_cross_cut(d, source_id, target_id, nucl, target_3prime),
                 design,
             ),
+            DesignOperation::Xover {
+                prime5_id,
+                prime3_id,
+            } => self.apply(|c, d| c.apply_merge(d, prime5_id, prime3_id), design),
             _ => Err(ErrOperation::NotImplemented),
         }
     }
@@ -1114,6 +1117,20 @@ impl Controller {
             nucl,
             target_3prime,
         )?;
+        Ok(design)
+    }
+
+    fn apply_merge(
+        &mut self,
+        mut design: Design,
+        prime5_id: usize,
+        prime3_id: usize,
+    ) -> Result<Design, ErrOperation> {
+        if prime5_id != prime5_id {
+            Self::merge_strands(&mut design, prime5_id, prime3_id)?;
+        } else {
+            Self::make_cycle(&mut design, prime5_id, true)?;
+        }
         Ok(design)
     }
 
