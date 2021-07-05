@@ -389,6 +389,40 @@ impl Controller {
         }
         true
     }
+
+    pub(super) fn apply_paste(&mut self, mut design: Design) -> Result<Design, ErrOperation> {
+        let pasted_strands = match &mut self.state {
+            ControllerState::PositioningPastingPoint { pasted_strands, .. } => Ok(pasted_strands),
+            ControllerState::PositioningDuplicationPoint { pasted_strands, .. } => {
+                Ok(pasted_strands)
+            }
+            _ => Err(ErrOperation::IncompatibleState),
+        }?;
+        if pasted_strands.get(0).map(|s| s.pastable) == Some(false) {
+            return Err(ErrOperation::CannotPasteHere);
+        }
+        for pasted_strand in pasted_strands.iter() {
+            let color = Self::new_color(&mut self.color_idx);
+            if pasted_strand.pastable {
+                let junctions =
+                    ensnano_design::read_junctions(pasted_strand.domains.as_slice(), false);
+                let strand = Strand {
+                    domains: pasted_strand.domains.clone(),
+                    color,
+                    junctions,
+                    sequence: None,
+                    cyclic: false,
+                };
+                let strand_id = if let Some(n) = design.strands.keys().max() {
+                    n + 1
+                } else {
+                    0
+                };
+                design.strands.insert(strand_id, strand.clone());
+            }
+        }
+        Ok(design)
+    }
 }
 
 pub enum CopyOperation {

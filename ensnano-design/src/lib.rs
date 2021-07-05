@@ -1647,7 +1647,7 @@ fn add_juction<'b, 'a: 'b>(
 }
 
 /// Infer juctions from a succession of domains.
-fn read_junctions(domains: &[Domain], cyclic: bool) -> Vec<DomainJunction> {
+pub fn read_junctions(domains: &[Domain], cyclic: bool) -> Vec<DomainJunction> {
     if domains.len() == 0 {
         return vec![];
     }

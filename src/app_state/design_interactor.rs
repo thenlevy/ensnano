@@ -468,6 +468,47 @@ mod tests {
     }
 
     #[test]
+    fn can_paste_on_same_helix_if_not_intersecting() {
+        let mut app_state = pastable_design();
+        assert_eq!(app_state.0.design.design.strands.len(), 1);
+        app_state
+            .apply_copy_operation(CopyOperation::CopyStrands(vec![0]))
+            .unwrap();
+        app_state
+            .apply_copy_operation(CopyOperation::PositionPastingPoint(Some(Nucl {
+                helix: 1,
+                position: 10,
+                forward: true,
+            })))
+            .unwrap();
+        app_state
+            .apply_copy_operation(CopyOperation::Paste)
+            .unwrap();
+        app_state.update();
+        assert_eq!(app_state.0.design.design.strands.len(), 2);
+    }
+
+    #[test]
+    fn copy_cannot_intersect_existing_strand() {
+        let mut app_state = pastable_design();
+        assert_eq!(app_state.0.design.design.strands.len(), 1);
+        app_state
+            .apply_copy_operation(CopyOperation::CopyStrands(vec![0]))
+            .unwrap();
+        app_state
+            .apply_copy_operation(CopyOperation::PositionPastingPoint(Some(Nucl {
+                helix: 1,
+                position: 5,
+                forward: true,
+            })))
+            .unwrap();
+        match app_state.apply_copy_operation(CopyOperation::Paste) {
+            Err(ErrOperation::CannotPasteHere) => (),
+            x => panic!("expected CannotPasteHere, got {:?}", x),
+        }
+    }
+
+    #[test]
     fn not_pasting_after_copy() {
         let mut app_state = pastable_design();
         app_state

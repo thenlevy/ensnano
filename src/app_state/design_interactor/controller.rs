@@ -47,6 +47,19 @@ pub(super) struct Controller {
 }
 
 impl Controller {
+    fn new_color(color_idx: &mut usize) -> u32 {
+        let color = {
+            let hue = (*color_idx as f64 * (1. + 5f64.sqrt()) / 2.).fract() * 360.;
+            let saturation = (*color_idx as f64 * 7. * (1. + 5f64.sqrt() / 2.)).fract() * 0.4 + 0.4;
+            let value = (*color_idx as f64 * 11. * (1. + 5f64.sqrt() / 2.)).fract() * 0.7 + 0.1;
+            let hsv = color_space::Hsv::new(hue, saturation, value);
+            let rgb = color_space::Rgb::from(hsv);
+            (0xFF << 24) | ((rgb.r as u32) << 16) | ((rgb.g as u32) << 8) | (rgb.b as u32)
+        };
+        *color_idx += 1;
+        color
+    }
+
     /// Apply an operation to the design. This will either produce a modified copy of the design,
     /// or result in an error that could be shown to the user to explain why the requested
     /// operation could no be applied.
@@ -168,6 +181,7 @@ impl Controller {
                 },
                 design,
             ),
+            CopyOperation::Paste => self.apply(|c, d| c.apply_paste(d), design),
             _ => Err(ErrOperation::NotImplemented),
         }
     }
@@ -499,6 +513,7 @@ pub enum ErrOperation {
     CouldNotCreateEdges,
     EmptyOrigin,
     EmptyClipboard,
+    CannotPasteHere,
 }
 
 impl Controller {
