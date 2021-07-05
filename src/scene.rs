@@ -711,7 +711,6 @@ impl<S: AppState> Application for Scene<S> {
                 }
             }
             Notification::ShowTorsion(_) => (),
-            Notification::Pasting(b) => self.controller.pasting = b,
             Notification::ModifersChanged(modifiers) => self.controller.update_modifiers(modifiers),
             Notification::Split2d => (),
             Notification::Redim2dHelices(_) => (),
@@ -770,6 +769,7 @@ pub trait AppState: Clone {
     fn get_strand_builders(&self) -> &[StrandBuilder];
     fn get_widget_basis(&self) -> WidgetBasis;
     fn is_changing_color(&self) -> bool;
+    fn is_pasting(&self) -> bool;
 }
 
 pub trait Requests {

@@ -63,7 +63,6 @@ pub struct Controller<S: AppState> {
     /// The effect that dragging the mouse has
     click_mode: ClickMode,
     state: State<S>,
-    pub(super) pasting: bool,
 }
 
 pub enum Consequence {
@@ -133,7 +132,6 @@ impl<S: AppState> Controller<S> {
             current_modifiers: ModifiersState::empty(),
             click_mode: ClickMode::TranslateCam,
             state: automata::initial_state(),
-            pasting: false,
         }
     }
 

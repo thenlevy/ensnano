@@ -48,7 +48,6 @@ pub struct Controller<S: AppState> {
     splited: bool,
     state: RefCell<Box<dyn ControllerState<S>>>,
     action_mode: ActionMode,
-    pasting: bool,
     modifiers: ModifiersState,
 }
 
@@ -113,7 +112,6 @@ impl<S: AppState> Controller<S> {
             })),
             splited,
             action_mode: ActionMode::Normal,
-            pasting: false,
             modifiers: ModifiersState::empty(),
         }
     }
@@ -194,22 +192,6 @@ impl<S: AppState> Controller<S> {
             self.state.borrow().transition_to(&self);
         }
         transition.consequences
-    }
-
-    pub fn set_pasting(&mut self, pasting: bool) {
-        let change = self.pasting != pasting;
-        self.pasting = pasting;
-        if change {
-            let transition = Transition {
-                new_state: Some(Box::new(NormalState {
-                    mouse_position: PhysicalPosition::new(-1., -1.),
-                })),
-                consequences: Consequence::Nothing,
-            };
-            self.state.borrow().transition_from(&self);
-            self.state = RefCell::new(transition.new_state.unwrap());
-            self.state.borrow().transition_to(&self);
-        }
     }
 
     pub fn select_pivots(&mut self, translation_pivots: Vec<FlatNucl>, rotation_pivots: Vec<Vec2>) {

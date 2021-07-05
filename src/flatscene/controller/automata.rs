@@ -142,7 +142,7 @@ impl<S: AppState> ControllerState<S> for NormalState {
                         .get_click(x, y, &controller.get_camera(position.y));
                 match click_result {
                     ClickResult::CircleWidget { .. } | ClickResult::Nothing
-                        if controller.pasting =>
+                        if app_state.is_pasting() =>
                     {
                         Transition {
                             new_state: Some(Box::new(Pasting {
@@ -152,7 +152,7 @@ impl<S: AppState> ControllerState<S> for NormalState {
                             consequences: Consequence::Nothing,
                         }
                     }
-                    ClickResult::Nucl(nucl) if controller.pasting => Transition {
+                    ClickResult::Nucl(nucl) if app_state.is_pasting() => Transition {
                         new_state: Some(Box::new(Pasting {
                             nucl: Some(nucl),
                             mouse_position: self.mouse_position,

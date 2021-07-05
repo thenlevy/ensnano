@@ -262,6 +262,11 @@ impl<S: AppState> FlatScene<S> {
                     }
                 }
             }
+            Consequence::NewCandidate(candidate) if app_state.is_pasting() => self
+                .requests
+                .lock()
+                .unwrap()
+                .set_paste_candidate(candidate.map(|n| n.to_real())),
             Consequence::NewCandidate(candidate) => {
                 let phantom = candidate.map(|n| PhantomElement {
                     position: n.position as i32,
@@ -511,11 +516,6 @@ impl<S: AppState> Application for FlatScene<S> {
                     v.borrow_mut().set_show_torsion(b);
                 }
             }
-            Notification::Pasting(b) => {
-                for c in self.controller.iter_mut() {
-                    c.set_pasting(b)
-                }
-            }
             Notification::CameraTarget(_) => (),
             Notification::NewSensitivity(_) => (),
             Notification::ClearDesigns => (),
@@ -591,6 +591,7 @@ pub trait AppState: Clone {
     fn get_strand_builders(&self) -> &[StrandBuilder];
     fn design_was_updated(&self, other: &Self) -> bool;
     fn is_changing_color(&self) -> bool;
+    fn is_pasting(&self) -> bool;
 }
 
 use ultraviolet::Isometry2;
@@ -607,4 +608,5 @@ pub trait Requests {
     fn flip_group(&mut self, helix: usize);
     fn suspend_op(&mut self);
     fn apply_design_operation(&mut self, op: DesignOperation);
+    fn set_paste_candidate(&mut self, candidate: Option<Nucl>);
 }

@@ -75,4 +75,9 @@ impl FlatSceneRequests for Requests {
     fn apply_design_operation(&mut self, op: DesignOperation) {
         self.keep_proceed.push_back(Action::DesignOperation(op))
     }
+
+    fn set_paste_candidate(&mut self, candidate: Option<Nucl>) {
+        self.keep_proceed
+            .push_back(Action::PasteCandidate(candidate))
+    }
 }

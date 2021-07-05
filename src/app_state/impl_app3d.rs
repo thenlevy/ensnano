@@ -72,6 +72,10 @@ impl App3D for AppState {
     fn is_changing_color(&self) -> bool {
         self.is_changing_color()
     }
+
+    fn is_pasting(&self) -> bool {
+        self.is_pasting()
+    }
 }
 
 #[cfg(test)]

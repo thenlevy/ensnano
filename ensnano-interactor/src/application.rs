@@ -71,7 +71,6 @@ pub enum Notification {
     CameraRotation(f32, f32, f32),
     Centering(Nucl, usize),
     CenterSelection(Selection, AppId),
-    Pasting(bool),
     ShowTorsion(bool),
     ModifersChanged(ModifiersState),
     Split2d,

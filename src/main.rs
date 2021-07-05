@@ -827,6 +827,8 @@ impl MainState {
         self.modify_state(|s| s.with_selection(selection), true);
     }
 
+    fn apply_copy_operation(&mut self, operation: CopyOperation) {}
+
     fn apply_operation(&mut self, operation: DesignOperation) {
         match self.app_state.apply_design_op(operation) {
             Ok(Some(old_state)) => self.save_old_state(old_state),

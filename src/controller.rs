@@ -183,6 +183,7 @@ pub(crate) trait MainState: ScaffoldSetter {
     fn get_design_reader(&mut self) -> Box<dyn DesignReader>;
     fn get_grid_creation_position(&self) -> Option<(Vec3, Rotor3)>;
     fn finish_operation(&mut self);
+    fn request_copy(&mut self);
 }
 
 pub struct LoadDesignError(String);

@@ -189,7 +189,7 @@ pub(crate) fn poll_all<R: DerefMut<Target = Requests>>(
     }
 
     if requests.paste.take().is_some() {
-        main_state.push_action(Action::Paste);
+        main_state.push_action(Action::InitPaste);
         requests.duplication = None;
     } else if requests.duplication.take().is_some() {
         main_state.push_action(Action::Duplicate)

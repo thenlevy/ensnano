@@ -17,6 +17,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 
 use super::*;
+use ensnano_design::Nucl;
 
 /// User is interacting with graphical components.
 pub(super) struct NormalState;
@@ -89,6 +90,10 @@ impl State for NormalState {
                 Action::LoadDesign(None) => Box::new(Load::default()),
                 Action::SuspendOp => {
                     main_state.finish_operation();
+                    self
+                }
+                Action::Copy => {
+                    main_state.request_copy();
                     self
                 }
                 _ => todo!(),
@@ -229,7 +234,9 @@ pub enum Action {
     StopRoll,
     RollHelices(f32),
     Copy,
-    Paste,
+    PasteCandidate(Option<Nucl>),
+    InitPaste,
+    ApplyPaste,
     Duplicate,
     RigidGridSimulation {
         parameters: RigidBodyConstants,

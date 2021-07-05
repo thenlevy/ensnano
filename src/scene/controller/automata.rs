@@ -92,7 +92,7 @@ impl<S: AppState> ControllerState<S> for NormalState {
         app_state: &S,
     ) -> Transition<S> {
         match event {
-            WindowEvent::CursorMoved { .. } if controller.pasting => {
+            WindowEvent::CursorMoved { .. } if app_state.is_pasting() => {
                 self.mouse_position = position;
                 let element = pixel_reader.set_selected_id(position);
                 Transition::consequence(Consequence::PasteCandidate(element))
@@ -142,7 +142,7 @@ impl<S: AppState> ControllerState<S> for NormalState {
                 state: ElementState::Pressed,
                 button: MouseButton::Left,
                 ..
-            } if controller.pasting => {
+            } if app_state.is_pasting() => {
                 let element = pixel_reader.set_selected_id(position);
                 Transition {
                     new_state: Some(Box::new(Pasting {
