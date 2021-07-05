@@ -21,8 +21,14 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 use std::sync::Arc;
 
 /// A wrapper arround an Arc<T> that uses `Arc::ptr_eq` to test for equality.
-#[derive(Clone, Default)]
+#[derive(Default)]
 pub(super) struct AddressPointer<T: Default>(Arc<T>);
+
+impl<T: Default> Clone for AddressPointer<T> {
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
+    }
+}
 
 impl<T: Default> PartialEq for AddressPointer<T> {
     fn eq(&self, other: &Self) -> bool {

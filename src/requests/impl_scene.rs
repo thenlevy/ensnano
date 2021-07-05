@@ -40,8 +40,12 @@ impl SceneRequests for Requests {
         self.paste_attempt = Some(nucl);
     }
 
-    fn xover_request(&mut self, source: Nucl, target: Nucl, design_id: usize) {
-        self.xover_request = Some((source, target, design_id));
+    fn xover_request(&mut self, source: Nucl, target: Nucl, _design_id: usize) {
+        self.keep_proceed
+            .push_back(Action::DesignOperation(DesignOperation::GeneralXover {
+                source,
+                target,
+            }))
     }
 
     fn suspend_op(&mut self) {

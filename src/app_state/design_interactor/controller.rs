@@ -18,7 +18,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 
 use crate::app_state::AddressPointer;
 use ensnano_design::{
-    grid::{GridDescriptor, GridPosition},
+    grid::{Edge, GridDescriptor, GridPosition},
     mutate_helix, Design, Domain, DomainJunction, Helix, Nucl, Strand,
 };
 use ensnano_interactor::operation::Operation;
@@ -30,13 +30,20 @@ use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
+use self::clipboard::PastedStrand;
+
 use super::grid_data::GridManager;
 use ultraviolet::{Isometry2, Rotor3, Vec2, Vec3};
+
+mod clipboard;
+use clipboard::Clipboard;
+pub use clipboard::CopyOperation;
 
 #[derive(Clone, Default)]
 pub(super) struct Controller {
     color_idx: usize,
     state: ControllerState,
+    clipboard: AddressPointer<Clipboard>,
 }
 
 impl Controller {
@@ -119,6 +126,9 @@ impl Controller {
                 prime5_id,
                 prime3_id,
             } => self.apply(|c, d| c.apply_merge(d, prime5_id, prime3_id), design),
+            DesignOperation::GeneralXover { source, target } => {
+                self.apply(|c, d| c.general_cross_over(d, source, target), design)
+            }
             _ => Err(ErrOperation::NotImplemented),
         }
     }
@@ -132,6 +142,46 @@ impl Controller {
         let mut ret = self.apply_operation(design, effect)?;
         ret.1.state.update_operation(operation);
         Ok(ret)
+    }
+
+    pub fn apply_copy_operation(
+        &self,
+        design: &Design,
+        operation: CopyOperation,
+    ) -> Result<(OkOperation, Self), ErrOperation> {
+        match operation {
+            CopyOperation::CopyStrands(strand_ids) => {
+                self.apply_no_op(|c, d| c.set_templates(d, strand_ids), design)
+            }
+            CopyOperation::PositionPastingPoint(nucl) => {
+                self.apply_no_op(|c, d| c.position_strand_copies(d, nucl), design)
+            }
+            CopyOperation::InitStrandsDuplication(strand_ids) => self.apply_no_op(
+                |c, d| {
+                    c.set_templates(d, strand_ids)?;
+                    c.state = ControllerState::PositioningDuplicationPoint {
+                        pasted_strands: vec![],
+                        duplication_edge: None,
+                        pasting_point: None,
+                    };
+                    Ok(())
+                },
+                design,
+            ),
+            _ => Err(ErrOperation::NotImplemented),
+        }
+    }
+
+    pub fn size_of_clipboard(&self) -> usize {
+        self.clipboard.size()
+    }
+
+    pub fn is_pasting(&self) -> bool {
+        match self.state {
+            ControllerState::PositioningPastingPoint { .. } => true,
+            ControllerState::PositioningDuplicationPoint { .. } => true,
+            _ => false,
+        }
     }
 
     pub fn notify(&self, notification: InteractorNotification) -> Self {
@@ -197,6 +247,15 @@ impl Controller {
         (self.return_design(returned_design), new_controller)
     }
 
+    fn ok_no_op<F>(&self, interactor_op: F, design: &Design) -> (OkOperation, Self)
+    where
+        F: FnOnce(&mut Self, &Design),
+    {
+        let mut new_controller = self.clone();
+        interactor_op(&mut new_controller, design);
+        (OkOperation::NoOp, new_controller)
+    }
+
     fn apply<F>(&self, design_op: F, design: &Design) -> Result<(OkOperation, Self), ErrOperation>
     where
         F: FnOnce(&mut Self, Design) -> Result<Design, ErrOperation>,
@@ -204,6 +263,19 @@ impl Controller {
         let mut new_controller = self.clone();
         let returned_design = design_op(&mut new_controller, design.clone())?;
         Ok((self.return_design(returned_design), new_controller))
+    }
+
+    fn apply_no_op<F>(
+        &self,
+        interactor_op: F,
+        design: &Design,
+    ) -> Result<(OkOperation, Self), ErrOperation>
+    where
+        F: FnOnce(&mut Self, &Design) -> Result<(), ErrOperation>,
+    {
+        let mut new_controller = self.clone();
+        interactor_op(&mut new_controller, design)?;
+        Ok((OkOperation::NoOp, new_controller))
     }
 
     fn turn_selection_into_grid(
@@ -396,6 +468,7 @@ pub enum OkOperation {
     /// pushed on the undo stack, since an undo is expected to revert back to the state prior to
     /// the whole drag and drop operation.
     Replace(Design),
+    NoOp,
 }
 
 #[derive(Debug)]
@@ -414,7 +487,18 @@ pub enum ErrOperation {
     GridDoesNotExist(usize),
     GridPositionAlreadyUsed,
     StrandDoesNotExist(usize),
+    HelixDoesNotExists(usize),
+    HelixHasNoGridPosition(usize),
+    CouldNotMakeEdge(GridPosition, GridPosition),
     MergingSameStrand,
+    XoverOnSameHelix,
+    NuclDoesNotExist(Nucl),
+    XoverBetweenTwoPrime5,
+    XoverBetweenTwoPrime3,
+    CouldNotCreateTemplates,
+    CouldNotCreateEdges,
+    EmptyOrigin,
+    EmptyClipboard,
 }
 
 impl Controller {
@@ -1193,6 +1277,126 @@ impl Controller {
             }
         }
     }
+
+    fn general_cross_over(
+        &mut self,
+        mut design: Design,
+        source_nucl: Nucl,
+        target_nucl: Nucl,
+    ) -> Result<Design, ErrOperation> {
+        if source_nucl.helix == target_nucl.helix {
+            return Err(ErrOperation::XoverOnSameHelix);
+        }
+        println!("cross over between {:?} and {:?}", source_nucl, target_nucl);
+        let source_id = design
+            .get_strand_nucl(&source_nucl)
+            .ok_or(ErrOperation::NuclDoesNotExist(source_nucl))?;
+        let target_id = design
+            .get_strand_nucl(&target_nucl)
+            .ok_or(ErrOperation::NuclDoesNotExist(target_nucl))?;
+
+        let source = design
+            .strands
+            .get(&source_id)
+            .cloned()
+            .ok_or(ErrOperation::StrandDoesNotExist(source_id))?;
+        let target = design
+            .strands
+            .get(&target_id)
+            .cloned()
+            .ok_or(ErrOperation::StrandDoesNotExist(target_id))?;
+
+        let source_strand_end = design.is_strand_end(&source_nucl);
+        let target_strand_end = design.is_strand_end(&target_nucl);
+        println!(
+            "source strand {:?}, target strand {:?}",
+            source_id, target_id
+        );
+        println!(
+            "source end {:?}, target end {:?}",
+            source_strand_end.to_opt(),
+            target_strand_end.to_opt()
+        );
+        match (source_strand_end.to_opt(), target_strand_end.to_opt()) {
+            (Some(true), Some(true)) => return Err(ErrOperation::XoverBetweenTwoPrime3),
+            (Some(false), Some(false)) => return Err(ErrOperation::XoverBetweenTwoPrime5),
+            (Some(true), Some(false)) => {
+                // We can xover directly
+                if source_id == target_id {
+                    Self::make_cycle(&mut design, source_id, true)?
+                } else {
+                    Self::merge_strands(&mut design, source_id, target_id)?
+                }
+            }
+            (Some(false), Some(true)) => {
+                // We can xover directly but we must reverse the xover
+                if source_id == target_id {
+                    Self::make_cycle(&mut design, target_id, true)?
+                } else {
+                    Self::merge_strands(&mut design, target_id, source_id)?
+                }
+            }
+            (Some(b), None) => {
+                // We can cut cross directly, but only if the target and source's helices are
+                // different
+                let target_3prime = b;
+                if source_nucl.helix != target_nucl.helix {
+                    Self::cross_cut(
+                        &mut design,
+                        source_id,
+                        target_id,
+                        target_nucl,
+                        target_3prime,
+                    )?
+                }
+            }
+            (None, Some(b)) => {
+                // We can cut cross directly but we need to reverse the xover
+                let target_3prime = b;
+                if source_nucl.helix != target_nucl.helix {
+                    Self::cross_cut(
+                        &mut design,
+                        target_id,
+                        source_id,
+                        source_nucl,
+                        target_3prime,
+                    )?
+                }
+            }
+            (None, None) => {
+                if source_nucl.helix != target_nucl.helix {
+                    if source_id != target_id {
+                        Self::split_strand(&mut design, &source_nucl, None)?;
+                        Self::cross_cut(&mut design, source_id, target_id, target_nucl, true)?;
+                    } else if source.cyclic {
+                        Self::split_strand(&mut design, &source_nucl, Some(false))?;
+                        Self::cross_cut(&mut design, source_id, target_id, target_nucl, true)?;
+                    } else {
+                        // if the two nucleotides are on the same strand care must be taken
+                        // because one of them might be on the newly crated strand after the
+                        // split
+                        let pos1 = source
+                            .find_nucl(&source_nucl)
+                            .ok_or(ErrOperation::NuclDoesNotExist(source_nucl))?;
+                        let pos2 = source
+                            .find_nucl(&target_nucl)
+                            .ok_or(ErrOperation::NuclDoesNotExist(target_nucl))?;
+                        if pos1 > pos2 {
+                            // the source nucl will be on the 5' end of the split and the
+                            // target nucl as well
+                            Self::split_strand(&mut design, &source_nucl, Some(false))?;
+                            Self::cross_cut(&mut design, source_id, target_id, target_nucl, true)?;
+                        } else {
+                            let new_id =
+                                Self::split_strand(&mut design, &source_nucl, Some(false))?;
+                            Self::cross_cut(&mut design, source_id, new_id, target_nucl, true)?;
+                        }
+                    }
+                }
+            }
+        }
+        Ok(design)
+    }
 }
 
 fn nucl_pos_2d(design: &Design, nucl: &Nucl) -> Option<Vec2> {
@@ -1222,6 +1426,15 @@ enum ControllerState {
         design: AddressPointer<Design>,
         operation: Option<Arc<dyn Operation>>,
     },
+    PositioningPastingPoint {
+        pasting_point: Option<Nucl>,
+        pasted_strands: Vec<PastedStrand>,
+    },
+    PositioningDuplicationPoint {
+        pasting_point: Option<Nucl>,
+        pasted_strands: Vec<PastedStrand>,
+        duplication_edge: Option<(Edge, isize)>,
+    },
 }
 
 impl Default for ControllerState {
@@ -1231,6 +1444,31 @@ impl Default for ControllerState {
 }
 
 impl ControllerState {
+    fn update_pasting_position(
+        &mut self,
+        point: Option<Nucl>,
+        strands: Vec<PastedStrand>,
+        duplication_edge: Option<(Edge, isize)>,
+    ) -> Result<(), ErrOperation> {
+        match self {
+            Self::PositioningPastingPoint { .. } | Self::Normal | Self::WithPendingOp(_) => {
+                *self = Self::PositioningPastingPoint {
+                    pasting_point: point,
+                    pasted_strands: strands,
+                };
+                Ok(())
+            }
+            Self::PositioningDuplicationPoint { .. } => {
+                *self = Self::PositioningDuplicationPoint {
+                    pasting_point: point,
+                    pasted_strands: strands,
+                    duplication_edge,
+                };
+                Ok(())
+            }
+            _ => Err(ErrOperation::IncompatibleState),
+        }
+    }
     fn update_operation(&mut self, op: Arc<dyn Operation>) {
         match self {
             Self::ApplyingOperation { operation, .. } => *operation = Some(op),

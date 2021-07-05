@@ -39,6 +39,8 @@ pub use design_interactor::controller::ErrOperation;
 use design_interactor::{DesignInteractor, InteractorResult};
 pub use design_interactor::{DesignReader, InteractorNotification};
 
+use design_interactor::CopyOperation;
+
 mod impl_app2d;
 mod impl_app3d;
 mod impl_gui;
@@ -138,6 +140,14 @@ impl AppState {
         self.handle_operation_result(result)
     }
 
+    pub(super) fn apply_copy_operation(
+        &mut self,
+        op: CopyOperation,
+    ) -> Result<Option<Self>, ErrOperation> {
+        let result = self.0.design.apply_copy_operation(op);
+        self.handle_operation_result(result)
+    }
+
     pub(super) fn update_pending_operation(
         &mut self,
         op: Arc<dyn Operation>,
@@ -194,6 +204,10 @@ impl AppState {
         *self = self.with_candidates(vec![]);
         *self = self.with_action_mode(source.0.action_mode.clone());
         *self = self.with_selection_mode(source.0.selection_mode.clone());
+    }
+
+    fn is_pasting(&self) -> bool {
+        self.0.design.is_pasting()
     }
 }
 

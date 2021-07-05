@@ -21,8 +21,8 @@ use std::sync::{Arc, Mutex};
 use super::super::{FlatHelix, FlatIdx, FlatNucl, Requests};
 use super::{Flat, HelixVec, Nucl, Strand};
 use ahash::RandomState;
-use ensnano_design::{Design, Helix as DesignHelix, Strand as StrandDesign};
-use ensnano_interactor::{torsion::Torsion, Extremity, Referential};
+use ensnano_design::{Design, Extremity, Helix as DesignHelix, Strand as StrandDesign};
+use ensnano_interactor::{torsion::Torsion, Referential};
 use ultraviolet::{Isometry2, Rotor2, Vec2, Vec3};
 
 pub(super) struct Design2d {

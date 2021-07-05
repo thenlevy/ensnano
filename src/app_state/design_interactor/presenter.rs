@@ -17,8 +17,8 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 
 use super::*;
-use ensnano_design::Nucl;
-use ensnano_interactor::{Extremity, NeighbourDescriptor, NeighbourDescriptorGiver, ScaffoldInfo};
+use ensnano_design::{Extremity, Nucl};
+use ensnano_interactor::{NeighbourDescriptor, NeighbourDescriptorGiver, ScaffoldInfo};
 use ultraviolet::Mat4;
 
 use crate::utils::id_generator::IdGenerator;

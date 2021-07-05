@@ -24,6 +24,7 @@ mod presenter;
 use presenter::{update_presenter, Presenter};
 pub(super) mod controller;
 use controller::Controller;
+pub use controller::CopyOperation;
 pub use controller::InteractorNotification;
 
 pub(super) use controller::ErrOperation;
@@ -64,6 +65,16 @@ impl DesignInteractor {
         self.handle_operation_result(result)
     }
 
+    pub(super) fn apply_copy_operation(
+        &self,
+        operation: CopyOperation,
+    ) -> Result<InteractorResult, ErrOperation> {
+        let result = self
+            .controller
+            .apply_copy_operation(self.design.as_ref(), operation);
+        self.handle_operation_result(result)
+    }
+
     pub(super) fn update_pending_operation(
         &self,
         operation: Arc<dyn Operation>,
@@ -90,6 +101,11 @@ impl DesignInteractor {
                 ret.controller = AddressPointer::new(controller);
                 ret.design = AddressPointer::new(design);
                 Ok(InteractorResult::Push(ret))
+            }
+            Ok((OkOperation::NoOp, controller)) => {
+                let mut ret = self.clone();
+                ret.controller = AddressPointer::new(controller);
+                Ok(InteractorResult::Replace(ret))
             }
             Err(e) => Err(e),
         }
@@ -147,6 +163,10 @@ impl DesignInteractor {
     pub(super) fn get_strand_builders(&self) -> &[StrandBuilder] {
         self.controller.get_strand_builders()
     }
+
+    pub(super) fn is_pasting(&self) -> bool {
+        self.controller.is_pasting()
+    }
 }
 
 /// An opperation has been successfully applied to the design, resulting in a new modifed
@@ -182,6 +202,7 @@ impl DesignReader {
 #[cfg(test)]
 mod tests {
     use super::super::*;
+    use super::controller::CopyOperation;
     use super::*;
     use crate::scene::DesignReader as Reader3d;
     use ensnano_design::grid::GridPosition;
@@ -215,6 +236,13 @@ mod tests {
     /// A design with one strand h1: 0 -> 5 ; h2: 0 <- 5
     fn one_xover() -> AppState {
         let path = test_path("one_xover.json");
+        AppState::import_design(&path).ok().unwrap()
+    }
+
+    /// A design with one strand h1: -1 -> 7 ; h2: -1 <- 7 ; h3: 0 -> 9 that can be pasted on
+    /// helices 4, 5 and 6
+    fn pastable_design() -> AppState {
+        let path = test_path("pastable.json");
         AppState::import_design(&path).ok().unwrap()
     }
 
@@ -407,6 +435,66 @@ mod tests {
             .unwrap();
         app_state.update();
         assert_eq!(app_state.0.design.presenter.current_design.helices.len(), 1)
+    }
+
+    #[test]
+    fn copy_creates_clipboard() {
+        let mut app_state = pastable_design();
+        app_state
+            .apply_copy_operation(CopyOperation::CopyStrands(vec![0]))
+            .unwrap();
+        assert_eq!(app_state.0.design.controller.size_of_clipboard(), 1)
+    }
+
+    #[test]
+    fn coping_one_strand() {
+        let mut app_state = pastable_design();
+        assert_eq!(app_state.0.design.design.strands.len(), 1);
+        app_state
+            .apply_copy_operation(CopyOperation::CopyStrands(vec![0]))
+            .unwrap();
+        app_state
+            .apply_copy_operation(CopyOperation::PositionPastingPoint(Some(Nucl {
+                helix: 4,
+                position: 5,
+                forward: true,
+            })))
+            .unwrap();
+        app_state
+            .apply_copy_operation(CopyOperation::Paste)
+            .unwrap();
+        app_state.update();
+        assert_eq!(app_state.0.design.design.strands.len(), 2);
+    }
+
+    #[test]
+    fn not_pasting_after_copy() {
+        let mut app_state = pastable_design();
+        app_state
+            .apply_copy_operation(CopyOperation::CopyStrands(vec![0]))
+            .unwrap();
+        assert!(!app_state.is_pasting())
+    }
+
+    #[test]
+    fn pasting_after_copy_and_paste() {
+        let mut app_state = pastable_design();
+        app_state
+            .apply_copy_operation(CopyOperation::CopyStrands(vec![0]))
+            .unwrap();
+        app_state
+            .apply_copy_operation(CopyOperation::PositionPastingPoint(None))
+            .unwrap();
+        assert!(app_state.is_pasting())
+    }
+
+    #[test]
+    fn pasting_after_duplicate() {
+        let mut app_state = pastable_design();
+        app_state
+            .apply_copy_operation(CopyOperation::InitStrandsDuplication(vec![0]))
+            .unwrap();
+        assert!(app_state.is_pasting())
     }
 
     #[ignore]

@@ -237,6 +237,18 @@ impl Design {
     pub fn has_at_least_on_strand_with_insertions(&self) -> bool {
         self.strands.values().any(|s| s.has_insertions())
     }
+
+    /// Return the strand end status of nucl
+    pub fn is_strand_end(&self, nucl: &Nucl) -> Extremity {
+        for s in self.strands.values() {
+            if !s.cyclic && s.get_5prime() == Some(*nucl) {
+                return Extremity::Prime5;
+            } else if !s.cyclic && s.get_3prime() == Some(*nucl) {
+                return Extremity::Prime3;
+            }
+        }
+        return Extremity::No;
+    }
 }
 
 impl Design {
@@ -1676,5 +1688,44 @@ fn junction(prime5: &HelixInterval, prime3: &HelixInterval) -> DomainJunction {
         DomainJunction::Adjacent
     } else {
         DomainJunction::UnindentifiedXover
+    }
+}
+
+/// The return type for methods that ask if a nucleotide is the end of a domain/strand/xover
+#[derive(Debug, Clone, Copy)]
+pub enum Extremity {
+    No,
+    Prime3,
+    Prime5,
+}
+
+impl Extremity {
+    pub fn is_3prime(&self) -> bool {
+        match self {
+            Extremity::Prime3 => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_5prime(&self) -> bool {
+        match self {
+            Extremity::Prime5 => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_end(&self) -> bool {
+        match self {
+            Extremity::No => false,
+            _ => true,
+        }
+    }
+
+    pub fn to_opt(&self) -> Option<bool> {
+        match self {
+            Extremity::No => None,
+            Extremity::Prime3 => Some(true),
+            Extremity::Prime5 => Some(false),
+        }
     }
 }

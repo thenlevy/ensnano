@@ -22,8 +22,12 @@ use crate::flatscene::Requests as FlatSceneRequests;
 use ultraviolet::Isometry2;
 
 impl FlatSceneRequests for Requests {
-    fn xover_request(&mut self, source: Nucl, target: Nucl, design_id: usize) {
-        self.xover_request = Some((source, target, design_id));
+    fn xover_request(&mut self, source: Nucl, target: Nucl, _design_id: usize) {
+        self.keep_proceed
+            .push_back(Action::DesignOperation(DesignOperation::GeneralXover {
+                source,
+                target,
+            }))
     }
 
     fn request_center_selection(&mut self, selection: Selection, app_id: AppId) {
