@@ -1126,7 +1126,7 @@ impl Controller {
         prime5_id: usize,
         prime3_id: usize,
     ) -> Result<Design, ErrOperation> {
-        if prime5_id != prime5_id {
+        if prime5_id != prime3_id {
             Self::merge_strands(&mut design, prime5_id, prime3_id)?;
         } else {
             Self::make_cycle(&mut design, prime5_id, true)?;
