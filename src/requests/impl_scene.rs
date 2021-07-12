@@ -37,7 +37,8 @@ impl SceneRequests for Requests {
     }
 
     fn attempt_paste(&mut self, nucl: Option<Nucl>) {
-        self.paste_attempt = Some(nucl);
+        self.keep_proceed.push_back(Action::PasteCandidate(nucl));
+        self.keep_proceed.push_back(Action::ApplyPaste);
     }
 
     fn xover_request(&mut self, source: Nucl, target: Nucl, _design_id: usize) {

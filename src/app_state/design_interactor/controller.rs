@@ -181,7 +181,9 @@ impl Controller {
                 },
                 design,
             ),
-            CopyOperation::Paste => self.apply(|c, d| c.apply_paste(d), design),
+            CopyOperation::Paste => {
+                Self::make_undoable(self.apply(|c, d| c.apply_paste(d), design))
+            }
             _ => Err(ErrOperation::NotImplemented),
         }
     }
@@ -261,6 +263,7 @@ impl Controller {
         (self.return_design(returned_design), new_controller)
     }
 
+    /// Apply an operation that modifies the interactor and not the design, and that cannot fail.
     fn ok_no_op<F>(&self, interactor_op: F, design: &Design) -> (OkOperation, Self)
     where
         F: FnOnce(&mut Self, &Design),
@@ -277,6 +280,15 @@ impl Controller {
         let mut new_controller = self.clone();
         let returned_design = design_op(&mut new_controller, design.clone())?;
         Ok((self.return_design(returned_design), new_controller))
+    }
+
+    fn make_undoable(
+        result: Result<(OkOperation, Self), ErrOperation>,
+    ) -> Result<(OkOperation, Self), ErrOperation> {
+        match result {
+            Ok((ok_op, interactor)) => Ok((ok_op.into_undoable(), interactor)),
+            Err(e) => Err(e),
+        }
     }
 
     fn apply_no_op<F>(
@@ -483,6 +495,16 @@ pub enum OkOperation {
     /// the whole drag and drop operation.
     Replace(Design),
     NoOp,
+}
+
+impl OkOperation {
+    fn into_undoable(self) -> Self {
+        match self {
+            Self::Replace(design) => Self::Push(design),
+            Self::Push(design) => Self::Push(design),
+            Self::NoOp => Self::NoOp,
+        }
+    }
 }
 
 #[derive(Debug)]

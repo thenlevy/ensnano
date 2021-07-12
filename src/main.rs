@@ -62,6 +62,7 @@ use std::time::{Duration, Instant};
 pub type PhySize = iced_winit::winit::dpi::PhysicalSize<u32>;
 
 use controller::{ChanelReader, ChanelReaderUpdate};
+use ensnano_design::Nucl;
 use ensnano_interactor::application::{Application, Notification};
 use ensnano_interactor::{DesignOperation, DesignReader};
 use iced_native::Event as IcedEvent;
@@ -115,7 +116,7 @@ mod main_tests;
 
 mod app_state;
 mod controller;
-use app_state::{AppState, InteractorNotification};
+use app_state::{AppState, CopyOperation, ErrOperation, InteractorNotification};
 use controller::Action;
 use controller::Controller;
 
@@ -827,14 +828,14 @@ impl MainState {
         self.modify_state(|s| s.with_selection(selection), true);
     }
 
-    fn apply_copy_operation(&mut self, operation: CopyOperation) {}
+    fn apply_copy_operation(&mut self, operation: CopyOperation) {
+        let result = self.app_state.apply_copy_operation(operation);
+        self.apply_operation_result(result);
+    }
 
     fn apply_operation(&mut self, operation: DesignOperation) {
-        match self.app_state.apply_design_op(operation) {
-            Ok(Some(old_state)) => self.save_old_state(old_state),
-            Ok(None) => (),
-            Err(e) => println!("{:?}", e),
-        }
+        let result = self.app_state.apply_design_op(operation);
+        self.apply_operation_result(result);
     }
 
     fn apply_silent_operation(&mut self, operation: DesignOperation) {
@@ -879,7 +880,12 @@ impl MainState {
     }
 
     fn update_pending_operation(&mut self, operation: Arc<dyn Operation>) {
-        match self.app_state.update_pending_operation(operation) {
+        let result = self.app_state.update_pending_operation(operation);
+        self.apply_operation_result(result);
+    }
+
+    fn apply_operation_result(&mut self, result: Result<Option<AppState>, ErrOperation>) {
+        match result {
             Ok(Some(old_state)) => self.save_old_state(old_state),
             Ok(None) => (),
             Err(e) => println!("{:?}", e),
@@ -887,7 +893,10 @@ impl MainState {
     }
 
     fn request_copy(&mut self) {
-        println!("TODO copy is not yet implemented");
+        let strand_ids = ensnano_interactor::extract_strands_from_selection(
+            self.app_state.get_selection().as_ref(),
+        );
+        self.apply_copy_operation(CopyOperation::CopyStrands(strand_ids))
     }
 
     fn request_paste(&mut self) {
@@ -1049,6 +1058,24 @@ impl<'a> MainStateInteface for MainStateView<'a> {
             |s| s.notified(app_state::InteractorNotification::FinishOperation),
             false,
         )
+    }
+
+    fn request_copy(&mut self) {
+        self.main_state.request_copy()
+    }
+
+    fn init_paste(&mut self) {
+        self.main_state
+            .apply_copy_operation(CopyOperation::PositionPastingPoint(None));
+    }
+
+    fn apply_paste(&mut self) {
+        self.main_state.apply_copy_operation(CopyOperation::Paste);
+    }
+
+    fn request_pasting_candidate(&mut self, candidate: Option<Nucl>) {
+        self.main_state
+            .apply_copy_operation(CopyOperation::PositionPastingPoint(candidate))
     }
 }
 

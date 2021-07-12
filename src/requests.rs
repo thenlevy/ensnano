@@ -109,7 +109,6 @@ pub struct Requests {
     pub new_candidates: Option<Vec<Selection>>,
     pub new_selection: Option<Vec<Selection>>,
     pub new_paste_candidate: Option<Option<Nucl>>,
-    pub paste_attempt: Option<Option<Nucl>>,
     pub suspend_op: Option<()>,
     pub center_selection: Option<(Selection, AppId)>,
     pub centering_on_nucl: Option<(Nucl, usize)>,

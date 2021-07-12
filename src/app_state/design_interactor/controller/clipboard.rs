@@ -421,6 +421,7 @@ impl Controller {
                 design.strands.insert(strand_id, strand.clone());
             }
         }
+        self.state = ControllerState::Normal;
         Ok(design)
     }
 }

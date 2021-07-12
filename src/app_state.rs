@@ -36,10 +36,8 @@ use ensnano_design::Design;
 use ensnano_interactor::DesignOperation;
 
 pub use design_interactor::controller::ErrOperation;
+pub use design_interactor::{CopyOperation, DesignReader, InteractorNotification};
 use design_interactor::{DesignInteractor, InteractorResult};
-pub use design_interactor::{DesignReader, InteractorNotification};
-
-use design_interactor::CopyOperation;
 
 mod impl_app2d;
 mod impl_app3d;

@@ -96,6 +96,19 @@ impl State for NormalState {
                     main_state.request_copy();
                     self
                 }
+                Action::InitPaste => {
+                    main_state.init_paste();
+                    self
+                }
+                Action::ApplyPaste => {
+                    println!("Applying paste");
+                    main_state.apply_paste();
+                    self
+                }
+                Action::PasteCandidate(candidate) => {
+                    main_state.request_pasting_candidate(candidate);
+                    self
+                }
                 _ => todo!(),
             }
         } else {

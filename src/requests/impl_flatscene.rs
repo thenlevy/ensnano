@@ -43,7 +43,8 @@ impl FlatSceneRequests for Requests {
     }
 
     fn attempt_paste(&mut self, nucl: Option<Nucl>) {
-        self.paste_attempt = Some(nucl);
+        self.keep_proceed.push_back(Action::PasteCandidate(nucl));
+        self.keep_proceed.push_back(Action::ApplyPaste);
     }
 
     fn request_centering_on_nucl(&mut self, nucl: Nucl, design_id: usize) {

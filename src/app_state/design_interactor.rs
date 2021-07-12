@@ -468,6 +468,27 @@ mod tests {
     }
 
     #[test]
+    fn pasting_is_undoable() {
+        let mut app_state = pastable_design();
+        assert_eq!(app_state.0.design.design.strands.len(), 1);
+        app_state
+            .apply_copy_operation(CopyOperation::CopyStrands(vec![0]))
+            .unwrap();
+        app_state
+            .apply_copy_operation(CopyOperation::PositionPastingPoint(Some(Nucl {
+                helix: 4,
+                position: 5,
+                forward: true,
+            })))
+            .unwrap();
+        assert!(app_state
+            .apply_copy_operation(CopyOperation::Paste)
+            .unwrap()
+            .is_some()); // apply_copy_operation returns Some(self) when the action is
+                         // undoable and nothing otherwise
+    }
+
+    #[test]
     fn can_paste_on_same_helix_if_not_intersecting() {
         let mut app_state = pastable_design();
         assert_eq!(app_state.0.design.design.strands.len(), 1);
@@ -518,7 +539,7 @@ mod tests {
     }
 
     #[test]
-    fn pasting_after_copy_and_paste() {
+    fn pasting_after_copy_and_request_paste() {
         let mut app_state = pastable_design();
         app_state
             .apply_copy_operation(CopyOperation::CopyStrands(vec![0]))
@@ -527,6 +548,26 @@ mod tests {
             .apply_copy_operation(CopyOperation::PositionPastingPoint(None))
             .unwrap();
         assert!(app_state.is_pasting())
+    }
+
+    #[test]
+    fn not_pasting_after_paste() {
+        let mut app_state = pastable_design();
+        app_state
+            .apply_copy_operation(CopyOperation::CopyStrands(vec![0]))
+            .unwrap();
+        app_state
+            .apply_copy_operation(CopyOperation::PositionPastingPoint(Some(Nucl {
+                helix: 4,
+                position: 5,
+                forward: true,
+            })))
+            .unwrap();
+        app_state
+            .apply_copy_operation(CopyOperation::Paste)
+            .unwrap();
+        app_state.update();
+        assert!(!app_state.is_pasting())
     }
 
     #[test]
