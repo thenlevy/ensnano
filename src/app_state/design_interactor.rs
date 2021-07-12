@@ -52,6 +52,7 @@ impl DesignInteractor {
     pub(super) fn get_design_reader(&self) -> DesignReader {
         DesignReader {
             presenter: self.presenter.clone(),
+            controller: self.controller.clone(),
         }
     }
 
@@ -181,6 +182,7 @@ pub(super) enum InteractorResult {
 /// structures.
 pub struct DesignReader {
     presenter: AddressPointer<Presenter>,
+    controller: AddressPointer<Controller>,
 }
 
 use crate::controller::SaveDesignError;
@@ -583,5 +585,43 @@ mod tests {
     #[test]
     fn correct_simulation_state() {
         assert!(false)
+    }
+
+    #[test]
+    fn pasting_candidate_position_are_accessible() {
+        let mut app_state = pastable_design();
+        assert_eq!(app_state.0.design.controller.get_pasted_position().len(), 0);
+        app_state
+            .apply_copy_operation(CopyOperation::CopyStrands(vec![0]))
+            .unwrap();
+        app_state
+            .apply_copy_operation(CopyOperation::PositionPastingPoint(Some(Nucl {
+                helix: 1,
+                position: 5,
+                forward: true,
+            })))
+            .unwrap();
+        assert!(app_state.0.design.controller.get_pasted_position().len() > 0);
+    }
+
+    #[test]
+    fn setting_a_candidate_triggers_update() {
+        use crate::scene::AppState as App3d;
+        let mut app_state = pastable_design();
+        let old_app_state = app_state.clone();
+        assert!(!old_app_state.design_was_modified(&app_state));
+        assert_eq!(app_state.0.design.controller.get_pasted_position().len(), 0);
+        app_state
+            .apply_copy_operation(CopyOperation::CopyStrands(vec![0]))
+            .unwrap();
+        app_state
+            .apply_copy_operation(CopyOperation::PositionPastingPoint(Some(Nucl {
+                helix: 1,
+                position: 5,
+                forward: true,
+            })))
+            .unwrap();
+        app_state.update();
+        assert!(old_app_state.design_was_modified(&app_state));
     }
 }

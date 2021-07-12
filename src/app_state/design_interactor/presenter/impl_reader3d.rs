@@ -111,8 +111,7 @@ impl Reader3D for DesignReader {
     }
 
     fn get_pasted_position(&self) -> Vec<(Vec<Vec3>, bool)> {
-        //TODO
-        vec![]
+        self.controller.get_pasted_position()
     }
 
     fn get_symbol_position(&self, e_id: u32) -> Option<Vec3> {

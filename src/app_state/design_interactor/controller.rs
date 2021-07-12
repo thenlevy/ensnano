@@ -167,7 +167,17 @@ impl Controller {
                 self.apply_no_op(|c, d| c.set_templates(d, strand_ids), design)
             }
             CopyOperation::PositionPastingPoint(nucl) => {
-                self.apply_no_op(|c, d| c.position_strand_copies(d, nucl), design)
+                if self.get_pasting_point() == Some(nucl) {
+                    Ok((OkOperation::NoOp, self.clone()))
+                } else {
+                    self.apply(
+                        |c, d| {
+                            c.position_strand_copies(&d, nucl)?;
+                            Ok(d)
+                        },
+                        design,
+                    )
+                }
             }
             CopyOperation::InitStrandsDuplication(strand_ids) => self.apply_no_op(
                 |c, d| {

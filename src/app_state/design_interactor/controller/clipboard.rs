@@ -424,6 +424,36 @@ impl Controller {
         self.state = ControllerState::Normal;
         Ok(design)
     }
+
+    pub fn get_pasted_position(&self) -> Vec<(Vec<Vec3>, bool)> {
+        match self.state {
+            ControllerState::PositioningPastingPoint {
+                ref pasted_strands, ..
+            } => pasted_strands
+                .iter()
+                .map(|s| (s.nucl_position.clone(), s.pastable))
+                .collect(),
+            ControllerState::PositioningDuplicationPoint {
+                ref pasted_strands, ..
+            } => pasted_strands
+                .iter()
+                .map(|s| (s.nucl_position.clone(), s.pastable))
+                .collect(),
+            _ => vec![],
+        }
+    }
+
+    pub(super) fn get_pasting_point(&self) -> Option<Option<Nucl>> {
+        match self.state {
+            ControllerState::PositioningPastingPoint { pasting_point, .. } => {
+                Some(pasting_point.clone())
+            }
+            ControllerState::PositioningDuplicationPoint { pasting_point, .. } => {
+                Some(pasting_point.clone())
+            }
+            _ => None,
+        }
+    }
 }
 
 pub enum CopyOperation {

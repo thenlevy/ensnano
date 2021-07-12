@@ -33,7 +33,7 @@ impl SceneRequests for Requests {
     }
 
     fn set_paste_candidate(&mut self, nucl: Option<Nucl>) {
-        self.new_paste_candidate = Some(nucl);
+        self.keep_proceed.push_back(Action::PasteCandidate(nucl));
     }
 
     fn attempt_paste(&mut self, nucl: Option<Nucl>) {
