@@ -113,4 +113,5 @@ pub struct Requests {
     pub centering_on_nucl: Option<(Nucl, usize)>,
     pub toggle_widget_basis: Option<()>,
     pub stop_roll: Option<()>,
+    pub new_paste_candiate: Option<Option<Nucl>>,
 }

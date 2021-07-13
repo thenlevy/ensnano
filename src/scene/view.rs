@@ -304,7 +304,6 @@ impl View {
                 ));
                 self.handle_drawers
                     .update_camera(self.camera.clone(), self.projection.clone());
-                self.need_redraw_fake = true;
                 let dist = self.projection.borrow().cube_dist();
                 self.direction_cube
                     .new_instances(vec![DirectionCube::new(dist)]);
@@ -325,7 +324,6 @@ impl View {
                     self.camera.clone(),
                     self.projection.clone(),
                 );
-                self.need_redraw_fake = true;
             }
 
             ViewUpdate::RotationWidget(descr) => {
@@ -334,11 +332,9 @@ impl View {
                     self.camera.clone(),
                     self.projection.clone(),
                 );
-                self.need_redraw_fake = true;
             }
             ViewUpdate::ModelMatrices(ref matrices) => {
                 self.models.update(matrices.clone().as_slice());
-                self.need_redraw_fake = true;
             }
             ViewUpdate::Letter(letter) => {
                 for (i, instance) in letter.into_iter().enumerate() {
@@ -363,7 +359,6 @@ impl View {
                             i.scale *= 2.5;
                         }
                     }
-                    self.need_redraw_fake = true;
                     self.dna_drawers
                         .get_mut(mesh)
                         .new_instances_raw(instances.as_ref());
@@ -594,6 +589,7 @@ impl View {
                 self.need_redraw = true;
             } else {
                 self.need_redraw = false;
+                self.need_redraw_fake = true;
             }
         }
         if !fake_color {
