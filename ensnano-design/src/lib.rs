@@ -249,6 +249,42 @@ impl Design {
         }
         return Extremity::No;
     }
+
+    /// Return a list of tuples (n1, n2, M) where n1 and n2 are nuclotides that are not on the same
+    /// helix and whose distance is at most `epsilon` and M is the middle of the segment between
+    /// the two positions of n1 and n2.
+    pub fn get_pairs_of_close_nucleotides(&self, epsilon: f32) -> Vec<(Nucl, Nucl, Vec3)> {
+        let mut ret = Vec::new();
+        let mut nucls = Vec::new();
+        let parameters = self.parameters.unwrap_or_default();
+        for s in self.strands.values() {
+            for d in s.domains.iter() {
+                if let Domain::HelixDomain(interval) = d {
+                    for i in interval.iter() {
+                        let nucl = Nucl {
+                            helix: interval.helix,
+                            forward: interval.forward,
+                            position: i,
+                        };
+                        if let Some(h) = self.helices.get(&interval.helix) {
+                            let space_position = h.space_pos(&parameters, nucl.position, nucl.forward);
+                            nucls.push((nucl, space_position));
+                        }
+                    }
+                }
+            }
+        }
+        for (n_id, n1) in nucls.iter().enumerate() {
+            for n2 in nucls.iter().skip(n_id + 1) {
+                if n1.0.helix != n2.0.helix {
+                    if (n1.1 - n2.1).mag() < epsilon {
+                        ret.push((n1.0, n2.0, ((n1.1 + n2.1) / 2.)));
+                    }
+                }
+            }
+        }
+        ret
+    }
 }
 
 impl Design {
