@@ -207,6 +207,10 @@ impl AppState {
     fn is_pasting(&self) -> bool {
         self.0.design.is_pasting()
     }
+
+    pub(super) fn can_iterate_duplication(&self) -> bool {
+        self.0.design.can_iterate_duplication()
+    }
 }
 
 #[derive(Clone, PartialEq, Eq, Default)]

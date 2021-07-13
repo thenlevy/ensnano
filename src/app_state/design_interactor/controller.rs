@@ -30,7 +30,7 @@ use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-use self::clipboard::PastedStrand;
+use self::clipboard::{PastedStrand, StrandClipboard};
 
 use super::grid_data::GridManager;
 use ultraviolet::{Isometry2, Rotor3, Vec2, Vec3};
@@ -182,19 +182,30 @@ impl Controller {
             CopyOperation::InitStrandsDuplication(strand_ids) => self.apply_no_op(
                 |c, d| {
                     c.set_templates(d, strand_ids)?;
+                    let clipboard = c.clipboard.as_ref().get_strand_clipboard()?;
                     c.state = ControllerState::PositioningDuplicationPoint {
                         pasted_strands: vec![],
                         duplication_edge: None,
                         pasting_point: None,
+                        clipboard,
                     };
                     Ok(())
                 },
                 design,
             ),
+            CopyOperation::Duplicate => self.apply(|c, d| c.apply_duplication(d), design),
             CopyOperation::Paste => {
                 Self::make_undoable(self.apply(|c, d| c.apply_paste(d), design))
             }
             _ => Err(ErrOperation::NotImplemented),
+        }
+    }
+
+    pub fn can_iterate_duplication(&self) -> bool {
+        if let ControllerState::WithPendingDuplication { .. } = self.state {
+            true
+        } else {
+            false
         }
     }
 
@@ -222,6 +233,7 @@ impl Controller {
         match self.state {
             ControllerState::Normal => true,
             ControllerState::WithPendingOp(_) => true,
+            ControllerState::WithPendingDuplication { .. } => true,
             ControllerState::ChangingColor => {
                 if let DesignOperation::ChangeColor { .. } = operation {
                     true
@@ -259,6 +271,7 @@ impl Controller {
         match self.state {
             ControllerState::Normal => OkOperation::Push(design),
             ControllerState::WithPendingOp(_) => OkOperation::Push(design),
+            ControllerState::WithPendingDuplication { .. } => OkOperation::Push(design),
             _ => OkOperation::Replace(design),
         }
     }
@@ -1481,6 +1494,12 @@ enum ControllerState {
         pasting_point: Option<Nucl>,
         pasted_strands: Vec<PastedStrand>,
         duplication_edge: Option<(Edge, isize)>,
+        clipboard: StrandClipboard,
+    },
+    WithPendingDuplication {
+        last_pasting_point: Nucl,
+        duplication_edge: (Edge, isize),
+        clipboard: StrandClipboard,
     },
 }
 
@@ -1505,11 +1524,12 @@ impl ControllerState {
                 };
                 Ok(())
             }
-            Self::PositioningDuplicationPoint { .. } => {
+            Self::PositioningDuplicationPoint { clipboard, .. } => {
                 *self = Self::PositioningDuplicationPoint {
                     pasting_point: point,
                     pasted_strands: strands,
                     duplication_edge,
+                    clipboard: clipboard.clone(),
                 };
                 Ok(())
             }

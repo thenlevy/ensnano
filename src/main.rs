@@ -904,7 +904,14 @@ impl MainState {
     }
 
     fn request_duplication(&mut self) {
-        println!("TODO copy is not yet implemented");
+        if self.app_state.can_iterate_duplication() {
+            self.apply_copy_operation(CopyOperation::Duplicate)
+        } else {
+            let strand_ids = ensnano_interactor::extract_strands_from_selection(
+                self.app_state.get_selection().as_ref(),
+            );
+            self.apply_copy_operation(CopyOperation::InitStrandsDuplication(strand_ids))
+        }
     }
 
     fn split_2d_view(&mut self) {
@@ -1071,6 +1078,10 @@ impl<'a> MainStateInteface for MainStateView<'a> {
 
     fn apply_paste(&mut self) {
         self.main_state.apply_copy_operation(CopyOperation::Paste);
+    }
+
+    fn duplicate(&mut self) {
+        self.main_state.request_duplication();
     }
 
     fn request_pasting_candidate(&mut self, candidate: Option<Nucl>) {

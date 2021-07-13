@@ -188,6 +188,7 @@ pub(crate) trait MainState: ScaffoldSetter {
     fn request_pasting_candidate(&mut self, candidate: Option<Nucl>);
     fn init_paste(&mut self);
     fn apply_paste(&mut self);
+    fn duplicate(&mut self);
 }
 
 pub struct LoadDesignError(String);

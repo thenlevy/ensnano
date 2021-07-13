@@ -168,6 +168,10 @@ impl DesignInteractor {
     pub(super) fn is_pasting(&self) -> bool {
         self.controller.is_pasting()
     }
+
+    pub(super) fn can_iterate_duplication(&self) -> bool {
+        self.controller.can_iterate_duplication()
+    }
 }
 
 /// An opperation has been successfully applied to the design, resulting in a new modifed
@@ -579,6 +583,29 @@ mod tests {
             .apply_copy_operation(CopyOperation::InitStrandsDuplication(vec![0]))
             .unwrap();
         assert!(app_state.is_pasting())
+    }
+
+    #[test]
+    fn duplication_of_one_strand() {
+        let mut app_state = pastable_design();
+        app_state
+            .apply_copy_operation(CopyOperation::InitStrandsDuplication(vec![0]))
+            .unwrap();
+        app_state
+            .apply_copy_operation(CopyOperation::PositionPastingPoint(Some(Nucl {
+                helix: 1,
+                position: 10,
+                forward: true,
+            })))
+            .unwrap();
+        app_state
+            .apply_copy_operation(CopyOperation::Duplicate)
+            .unwrap();
+        assert_eq!(app_state.0.design.design.strands.len(), 2);
+        app_state
+            .apply_copy_operation(CopyOperation::Duplicate)
+            .unwrap();
+        assert_eq!(app_state.0.design.design.strands.len(), 3);
     }
 
     #[ignore]
