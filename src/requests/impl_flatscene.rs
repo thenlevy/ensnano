@@ -78,7 +78,6 @@ impl FlatSceneRequests for Requests {
     }
 
     fn set_paste_candidate(&mut self, candidate: Option<Nucl>) {
-        self.keep_proceed
-            .push_back(Action::PasteCandidate(candidate))
+        self.new_paste_candiate = Some(candidate);
     }
 }
