@@ -26,6 +26,7 @@ use ultraviolet::Vec3;
 pub(super) enum Clipboard {
     Empty,
     Strands(StrandClipboard),
+    Xovers(Vec<(Nucl, Nucl)>),
 }
 
 impl Clipboard {
@@ -33,6 +34,7 @@ impl Clipboard {
         match self {
             Self::Empty => 0,
             Self::Strands(strand_clipboard) => strand_clipboard.templates.len(),
+            Self::Xovers(xovers) => xovers.len(),
         }
     }
 
@@ -40,6 +42,14 @@ impl Clipboard {
         match self {
             Self::Empty => Err(ErrOperation::EmptyClipboard),
             Self::Strands(strand_clipboard) => Ok(strand_clipboard.clone()),
+            Self::Xovers(_) => Err(ErrOperation::WrongClipboard),
+        }
+    }
+
+    fn get_leading_xover_nucl(&self) -> Option<Nucl> {
+        match self {
+            Self::Xovers(v) => v.get(0).map(|t| t.0),
+            _ => None,
         }
     }
 }
@@ -223,6 +233,43 @@ impl Controller {
         grid_manager
             .get_edge(&pos1, &pos2)
             .zip(Some(nucl2.position - nucl1.position))
+    }
+
+    fn edge_beteen_nucls(
+        design: &Design,
+        grid_manager: &GridManager,
+        n1: &Nucl,
+        n2: &Nucl,
+    ) -> Option<(Edge, isize)> {
+        let pos1 = design
+            .helices
+            .get(&n1.helix)
+            .and_then(|h| h.grid_position)?;
+        let pos2 = design
+            .helices
+            .get(&n2.helix)
+            .and_then(|h| h.grid_position)?;
+        grid_manager
+            .get_edge(&pos1, &pos2)
+            .zip(Some(n2.position - n1.position))
+    }
+
+    pub(super) fn position_copy(
+        &mut self,
+        mut design: Design,
+        nucl: Option<Nucl>,
+    ) -> Result<Design, ErrOperation> {
+        match self.clipboard.as_ref() {
+            Clipboard::Strands(_) => {
+                self.position_strand_copies(&design, nucl)?;
+                Ok(design)
+            }
+            Clipboard::Xovers(_) => {
+                self.position_xover_copies(&mut design, nucl)?;
+                Ok(design)
+            }
+            Clipboard::Empty => Err(ErrOperation::EmptyClipboard),
+        }
     }
 
     pub(super) fn position_strand_copies(
@@ -551,16 +598,57 @@ impl Controller {
             ControllerState::PositioningDuplicationPoint { pasting_point, .. } => {
                 Some(pasting_point.clone())
             }
+            ControllerState::DoingFirstXoversDuplication { pasting_point, .. } => {
+                Some(pasting_point.clone())
+            }
+            ControllerState::PastingXovers { pasting_point, .. } => Some(pasting_point.clone()),
             _ => None,
         }
+    }
+
+    pub(super) fn copy_xovers(&mut self, xovers: Vec<(Nucl, Nucl)>) -> Result<(), ErrOperation> {
+        if xovers.len() > 0 {
+            self.clipboard = AddressPointer::new(Clipboard::Xovers(xovers))
+        } else {
+            self.clipboard = Default::default()
+        }
+        Ok(())
+    }
+
+    pub(super) fn get_design_before_pasting_xovers(&self) -> Option<&AddressPointer<Design>> {
+        match &self.state {
+            ControllerState::PastingXovers { initial_design, .. } => Some(initial_design),
+            ControllerState::DoingFirstXoversDuplication { initial_design, .. } => {
+                Some(initial_design)
+            }
+            _ => None,
+        }
+    }
+
+    fn position_xover_copies(
+        &mut self,
+        design: &mut Design,
+        nucl: Option<Nucl>,
+    ) -> Result<(), ErrOperation> {
+        let grid_manager = GridManager::new_from_design(design);
+        let n1 = self
+            .clipboard
+            .get_leading_xover_nucl()
+            .ok_or(ErrOperation::WrongClipboard)?;
+        let edge = nucl
+            .as_ref()
+            .and_then(|n2| Self::edge_beteen_nucls(design, &grid_manager, &n1, n2));
+        self.state.update_xover_pasting_position(nucl, edge)?;
+        Err(ErrOperation::NotImplemented) //TODO
+                                          //Ok(())
     }
 }
 
 pub enum CopyOperation {
     CopyStrands(Vec<usize>),
-    CopyXovers(Vec<usize>),
+    CopyXovers(Vec<(Nucl, Nucl)>),
     InitStrandsDuplication(Vec<usize>),
-    IntiXoverDuplication(Vec<usize>),
+    IntiXoverDuplication(Vec<(Nucl, Nucl)>),
     PositionPastingPoint(Option<Nucl>),
     Paste,
     Duplicate,

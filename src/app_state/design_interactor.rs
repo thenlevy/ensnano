@@ -650,4 +650,14 @@ mod tests {
         app_state.update();
         assert!(old_app_state.design_was_modified(&app_state));
     }
+
+    #[test]
+    fn pasting_xovers() {
+        let mut app_state = pastable_design();
+        let (n1, n2) = app_state.get_design_reader().get_xover_with_id(0).unwrap();
+        app_state
+            .apply_copy_operation(CopyOperation::CopyXovers(vec![(n1, n2)]))
+            .unwrap();
+        todo!()
+    }
 }

@@ -170,13 +170,13 @@ impl Controller {
                 if self.get_pasting_point() == Some(nucl) {
                     Ok((OkOperation::NoOp, self.clone()))
                 } else {
-                    self.apply(
-                        |c, d| {
-                            c.position_strand_copies(&d, nucl)?;
-                            Ok(d)
-                        },
-                        design,
-                    )
+                    let design_pasted_on = if let Some(p) = self.get_design_before_pasting_xovers()
+                    {
+                        p.as_ref()
+                    } else {
+                        design
+                    };
+                    self.apply(|c, d| c.position_copy(d, nucl), design_pasted_on)
                 }
             }
             CopyOperation::InitStrandsDuplication(strand_ids) => self.apply_no_op(
@@ -561,6 +561,7 @@ pub enum ErrOperation {
     CouldNotCreateEdges,
     EmptyOrigin,
     EmptyClipboard,
+    WrongClipboard,
     CannotPasteHere,
 }
 
@@ -1504,6 +1505,16 @@ enum ControllerState {
         duplication_edge: (Edge, isize),
         clipboard: StrandClipboard,
     },
+    PastingXovers {
+        initial_design: AddressPointer<Design>,
+        pasting_point: Option<Nucl>,
+    },
+    DoingFirstXoversDuplication {
+        initial_design: AddressPointer<Design>,
+        duplication_edge: Option<(Edge, isize)>,
+        xovers: Vec<(Nucl, Nucl)>,
+        pasting_point: Option<Nucl>,
+    },
 }
 
 impl Default for ControllerState {
@@ -1539,6 +1550,30 @@ impl ControllerState {
             _ => Err(ErrOperation::IncompatibleState),
         }
     }
+
+    fn update_xover_pasting_position(
+        &mut self,
+        point: Option<Nucl>,
+        edge: Option<(Edge, isize)>,
+    ) -> Result<(), ErrOperation> {
+        match self {
+            Self::PastingXovers { pasting_point, .. } => {
+                *pasting_point = point;
+                Ok(())
+            }
+            Self::DoingFirstXoversDuplication {
+                pasting_point,
+                duplication_edge,
+                ..
+            } => {
+                *pasting_point = point;
+                *duplication_edge = edge;
+                Ok(())
+            }
+            _ => Err(ErrOperation::IncompatibleState),
+        }
+    }
+
     fn update_operation(&mut self, op: Arc<dyn Operation>) {
         match self {
             Self::ApplyingOperation { operation, .. } => *operation = Some(op),
