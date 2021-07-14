@@ -225,6 +225,9 @@ impl Controller {
         let mut new_interactor = self.clone();
         match notification {
             InteractorNotification::FinishOperation => new_interactor.state = self.state.finish(),
+            InteractorNotification::NewSelection => {
+                new_interactor.state = self.state.acknowledge_new_selection()
+            }
         }
         new_interactor
     }
@@ -1559,10 +1562,19 @@ impl ControllerState {
             Self::Normal
         }
     }
+
+    fn acknowledge_new_selection(&self) -> Self {
+        if let Self::WithPendingDuplication { .. } = self {
+            Self::Normal
+        } else {
+            self.clone()
+        }
+    }
 }
 
 pub enum InteractorNotification {
     FinishOperation,
+    NewSelection,
 }
 
 use ensnano_design::HelixInterval;

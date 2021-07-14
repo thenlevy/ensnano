@@ -62,8 +62,13 @@ impl AppState {
             self.clone()
         } else {
             let mut new_state = (*self.0).clone();
+            let selection_len = selection.len();
             new_state.selection = AddressPointer::new(selection);
-            Self(AddressPointer::new(new_state))
+            let mut ret = Self(AddressPointer::new(new_state));
+            if selection_len > 0 {
+                ret = ret.notified(InteractorNotification::NewSelection)
+            }
+            ret
         }
     }
 
