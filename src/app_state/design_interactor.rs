@@ -24,8 +24,7 @@ mod presenter;
 use presenter::{update_presenter, Presenter};
 pub(super) mod controller;
 use controller::Controller;
-pub use controller::CopyOperation;
-pub use controller::InteractorNotification;
+pub use controller::{CopyOperation, InteractorNotification, PastingStatus};
 
 pub(super) use controller::ErrOperation;
 use controller::OkOperation;
@@ -165,7 +164,7 @@ impl DesignInteractor {
         self.controller.get_strand_builders()
     }
 
-    pub(super) fn is_pasting(&self) -> bool {
+    pub(super) fn is_pasting(&self) -> PastingStatus {
         self.controller.is_pasting()
     }
 
@@ -541,7 +540,7 @@ mod tests {
         app_state
             .apply_copy_operation(CopyOperation::CopyStrands(vec![0]))
             .unwrap();
-        assert!(!app_state.is_pasting())
+        assert_eq!(app_state.is_pasting(), PastingStatus::None)
     }
 
     #[test]
@@ -553,7 +552,7 @@ mod tests {
         app_state
             .apply_copy_operation(CopyOperation::PositionPastingPoint(None))
             .unwrap();
-        assert!(app_state.is_pasting())
+        assert_eq!(app_state.is_pasting(), PastingStatus::Copy)
     }
 
     #[test]
@@ -573,7 +572,7 @@ mod tests {
             .apply_copy_operation(CopyOperation::Paste)
             .unwrap();
         app_state.update();
-        assert!(!app_state.is_pasting())
+        assert_eq!(app_state.is_pasting(), PastingStatus::None)
     }
 
     #[test]
@@ -582,7 +581,7 @@ mod tests {
         app_state
             .apply_copy_operation(CopyOperation::InitStrandsDuplication(vec![0]))
             .unwrap();
-        assert!(app_state.is_pasting())
+        assert_eq!(app_state.is_pasting(), PastingStatus::Duplication)
     }
 
     #[test]

@@ -213,11 +213,11 @@ impl Controller {
         self.clipboard.size()
     }
 
-    pub fn is_pasting(&self) -> bool {
+    pub fn is_pasting(&self) -> PastingStatus {
         match self.state {
-            ControllerState::PositioningPastingPoint { .. } => true,
-            ControllerState::PositioningDuplicationPoint { .. } => true,
-            _ => false,
+            ControllerState::PositioningPastingPoint { .. } => PastingStatus::Copy,
+            ControllerState::PositioningDuplicationPoint { .. } => PastingStatus::Duplication,
+            _ => PastingStatus::None,
         }
     }
 
@@ -1575,5 +1575,21 @@ pub(super) fn junction(prime5: &HelixInterval, prime3: &HelixInterval) -> Domain
         DomainJunction::Adjacent
     } else {
         DomainJunction::UnindentifiedXover
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PastingStatus {
+    Copy,
+    Duplication,
+    None,
+}
+
+impl PastingStatus {
+    pub fn is_pasting(&self) -> bool {
+        match self {
+            Self::Copy | Self::Duplication => true,
+            Self::None => false,
+        }
     }
 }

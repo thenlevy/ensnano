@@ -116,7 +116,7 @@ mod main_tests;
 
 mod app_state;
 mod controller;
-use app_state::{AppState, CopyOperation, ErrOperation, InteractorNotification};
+use app_state::{AppState, CopyOperation, ErrOperation, InteractorNotification, PastingStatus};
 use controller::Action;
 use controller::Controller;
 
@@ -899,8 +899,12 @@ impl MainState {
         self.apply_copy_operation(CopyOperation::CopyStrands(strand_ids))
     }
 
-    fn request_paste(&mut self) {
-        println!("TODO copy is not yet implemented");
+    fn apply_paste(&mut self) {
+        match self.app_state.is_pasting() {
+            PastingStatus::Copy => self.apply_copy_operation(CopyOperation::Paste),
+            PastingStatus::Duplication => self.apply_copy_operation(CopyOperation::Duplicate),
+            _ => (),
+        }
     }
 
     fn request_duplication(&mut self) {
@@ -1077,7 +1081,7 @@ impl<'a> MainStateInteface for MainStateView<'a> {
     }
 
     fn apply_paste(&mut self) {
-        self.main_state.apply_copy_operation(CopyOperation::Paste);
+        self.main_state.apply_paste();
     }
 
     fn duplicate(&mut self) {

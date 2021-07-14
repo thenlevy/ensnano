@@ -26,7 +26,7 @@ fn new_state() -> MainState {
     MainState::new(constructor)
 }
 
-use scene::AppState;
+use scene::AppState as App3D;
 
 #[test]
 fn undoable_selection() {
@@ -74,4 +74,86 @@ fn recolor_stapple_undoable() {
     let mut state = new_state();
     state.apply_operation(DesignOperation::RecolorStaples);
     assert!(!state.undo_stack.is_empty())
+}
+
+/// A design with one strand h1: -1 -> 7 ; h2: -1 <- 7 ; h3: 0 -> 9 that can be pasted on
+/// helices 4, 5 and 6
+fn pastable_design() -> AppState {
+    let path = test_path("pastable.json");
+    AppState::import_design(&path).ok().unwrap()
+}
+
+fn test_path(design_name: &'static str) -> PathBuf {
+    let mut ret = PathBuf::from(std::env!("CARGO_MANIFEST_DIR"));
+    ret.push("tests");
+    ret.push(design_name);
+    ret
+}
+
+#[test]
+fn duplication_via_requests_correct_status() {
+    let mut main_state = new_state();
+    let app_state = pastable_design();
+    main_state.clear_app_state(app_state);
+    main_state.update_selection(vec![Selection::Strand(0, 0)]);
+    main_state.request_duplication();
+    assert_eq!(
+        main_state.app_state.is_pasting(),
+        PastingStatus::Duplication
+    );
+    main_state.apply_copy_operation(CopyOperation::PositionPastingPoint(Some(Nucl {
+        helix: 1,
+        position: 10,
+        forward: true,
+    })));
+    main_state.apply_paste();
+    assert_eq!(main_state.app_state.is_pasting(), PastingStatus::None);
+    main_state.request_duplication();
+    assert_eq!(main_state.app_state.is_pasting(), PastingStatus::None);
+}
+
+#[test]
+fn duplication_via_requests_strands_are_duplicated() {
+    use crate::controller::MainState;
+    use crate::scene::DesignReader;
+    let mut main_state = new_state();
+    let app_state = pastable_design();
+    main_state.clear_app_state(app_state);
+    main_state.update_selection(vec![Selection::Strand(0, 0)]);
+    let initial_amount = main_state
+        .get_app_state()
+        .get_design_reader()
+        .get_all_nucl_ids()
+        .len();
+    assert!(initial_amount > 0);
+    main_state.request_duplication();
+    main_state.apply_copy_operation(CopyOperation::PositionPastingPoint(Some(Nucl {
+        helix: 1,
+        position: 10,
+        forward: true,
+    })));
+    main_state.apply_paste();
+    main_state.update();
+    let amount = main_state
+        .get_app_state()
+        .get_design_reader()
+        .get_all_nucl_ids()
+        .len();
+    assert_eq!(amount, 2 * initial_amount);
+    main_state.request_duplication();
+    main_state.update();
+    let amount = main_state
+        .get_app_state()
+        .get_design_reader()
+        .get_all_nucl_ids()
+        .len();
+    assert_eq!(amount, 3 * initial_amount);
+    main_state.request_duplication();
+    main_state.update();
+    let amount = main_state
+        .get_app_state()
+        .get_design_reader()
+        .get_all_nucl_ids()
+        .len();
+    assert_eq!(amount, 4 * initial_amount);
 }

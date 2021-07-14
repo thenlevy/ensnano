@@ -36,7 +36,7 @@ use ensnano_design::Design;
 use ensnano_interactor::DesignOperation;
 
 pub use design_interactor::controller::ErrOperation;
-pub use design_interactor::{CopyOperation, DesignReader, InteractorNotification};
+pub use design_interactor::{CopyOperation, DesignReader, InteractorNotification, PastingStatus};
 use design_interactor::{DesignInteractor, InteractorResult};
 
 mod impl_app2d;
@@ -204,7 +204,7 @@ impl AppState {
         *self = self.with_selection_mode(source.0.selection_mode.clone());
     }
 
-    fn is_pasting(&self) -> bool {
+    pub(super) fn is_pasting(&self) -> PastingStatus {
         self.0.design.is_pasting()
     }
 
