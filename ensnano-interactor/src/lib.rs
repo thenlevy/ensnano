@@ -90,8 +90,8 @@ pub enum DesignOperation {
         start: isize,
         length: usize,
     },
-    RmHelix {
-        h_id: usize,
+    RmHelices {
+        h_ids: Vec<usize>,
     },
     /// Split a strand at a given position. If the strand containing the nucleotide has length 1,
     /// delete the strand.
@@ -118,9 +118,8 @@ pub enum DesignOperation {
         nucl: Nucl,
     },
     /// Delete a strand
-    RmStrand {
-        strand_id: usize,
-        design_id: usize,
+    RmStrands {
+        strand_ids: Vec<usize>,
     },
     MakeAllGrids,
     /// Add a grid to the design

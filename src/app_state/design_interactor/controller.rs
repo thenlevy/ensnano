@@ -142,6 +142,12 @@ impl Controller {
             DesignOperation::GeneralXover { source, target } => {
                 self.apply(|c, d| c.apply_general_cross_over(d, source, target), design)
             }
+            DesignOperation::RmStrands { strand_ids } => {
+                self.apply(|c, d| c.delete_strands(d, strand_ids), design)
+            }
+            DesignOperation::RmHelices { h_ids } => {
+                self.apply(|c, d| c.delete_helices(d, h_ids), design)
+            }
             _ => Err(ErrOperation::NotImplemented),
         }
     }
@@ -587,6 +593,7 @@ pub enum ErrOperation {
     EmptyClipboard,
     WrongClipboard,
     CannotPasteHere,
+    HelixNotEmpty(usize),
 }
 
 impl Controller {
@@ -1483,6 +1490,34 @@ impl Controller {
             }
         }
         Ok(())
+    }
+
+    fn delete_strands(
+        &mut self,
+        mut design: Design,
+        strand_ids: Vec<usize>,
+    ) -> Result<Design, ErrOperation> {
+        for s_id in strand_ids.iter() {
+            design.strands.remove(s_id);
+        }
+        Ok(design)
+    }
+
+    fn delete_helices(
+        &mut self,
+        mut design: Design,
+        helices_id: Vec<usize>,
+    ) -> Result<Design, ErrOperation> {
+        let mut new_helices = BTreeMap::clone(design.helices.as_ref());
+        for h_id in helices_id.iter() {
+            if design.uses_helix(*h_id) {
+                return Err(ErrOperation::HelixNotEmpty(*h_id));
+            } else {
+                new_helices.remove(h_id);
+            }
+        }
+        design.helices = Arc::new(new_helices);
+        Ok(design)
     }
 }
 

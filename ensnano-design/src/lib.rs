@@ -308,6 +308,20 @@ impl Design {
     pub fn is_true_xover_end(&self, nucl: &Nucl) -> bool {
         self.is_domain_end(nucl).to_opt().is_some() && self.is_strand_end(nucl).to_opt().is_none()
     }
+
+    /// Return true if at least one strand goes through helix h_id
+    pub fn uses_helix(&self, h_id: usize) -> bool {
+        for s in self.strands.values() {
+            for d in s.domains.iter() {
+                if let Domain::HelixDomain(interval) = d {
+                    if interval.helix == h_id {
+                        return true;
+                    }
+                }
+            }
+        }
+        false
+    }
 }
 
 impl Design {

@@ -548,6 +548,7 @@ impl Operation for Xover {
     }
 }
 
+/*
 /// Delete a strand
 #[derive(Clone, Debug)]
 pub struct RmStrand {
@@ -588,6 +589,7 @@ impl Operation for RmHelix {
         format!("Remove helix {}", self.helix_id)
     }
 }
+*/
 
 /// Cut the target strand at nucl, and make a cross over from the source strand.
 #[derive(Clone, Debug)]

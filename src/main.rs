@@ -1108,6 +1108,23 @@ impl<'a> MainStateInteface for MainStateView<'a> {
         self.main_state
             .apply_copy_operation(CopyOperation::PositionPastingPoint(candidate))
     }
+
+    fn delete_selection(&mut self) {
+        let selection = self.get_selection();
+        if let Some((_, strand_ids)) =
+            ensnano_interactor::list_of_strands(selection.as_ref().as_ref())
+        {
+            self.main_state.update_selection(vec![]);
+            self.main_state
+                .apply_operation(DesignOperation::RmStrands { strand_ids })
+        } else if let Some((_, h_ids)) =
+            ensnano_interactor::list_of_helices(selection.as_ref().as_ref())
+        {
+            self.main_state.update_selection(vec![]);
+            self.main_state
+                .apply_operation(DesignOperation::RmHelices { h_ids })
+        }
+    }
 }
 
 use controller::{SetScaffoldSequenceError, SetScaffoldSequenceOk};

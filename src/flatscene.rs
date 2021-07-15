@@ -302,33 +302,6 @@ impl<S: AppState> FlatScene<S> {
                     .unwrap()
                     .new_candidates(candidate.iter().cloned().collect())
             }
-            Consequence::RmStrand(nucl) => {
-                let strand_id = self.data[self.selected_design].borrow().get_strand_id(nucl);
-                if let Some(strand_id) = strand_id {
-                    println!("removing strand");
-                    self.requests
-                        .lock()
-                        .unwrap()
-                        .update_opperation(Arc::new(RmStrand {
-                            strand_id,
-                            design_id: self.selected_design,
-                        }))
-                }
-            }
-            Consequence::RmHelix(h_id) => {
-                let can_delete = self.data[self.selected_design]
-                    .borrow_mut()
-                    .can_delete_helix(h_id);
-                if can_delete {
-                    self.requests
-                        .lock()
-                        .unwrap()
-                        .update_opperation(Arc::new(RmHelix {
-                            helix_id: h_id.real,
-                            design_id: self.selected_design,
-                        }))
-                }
-            }
             Consequence::Built => {
                 self.requests.lock().unwrap().suspend_op();
             }

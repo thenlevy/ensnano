@@ -123,24 +123,11 @@ fn extract_one_grid(selection: &Selection) -> Option<usize> {
     }
 }
 
-pub(super) fn list_of_strands(
-    selection: &[Selection],
-    designs: &[Arc<RwLock<Design>>],
-) -> Option<(usize, Vec<usize>)> {
+pub fn list_of_strands(selection: &[Selection]) -> Option<(usize, Vec<usize>)> {
     let design_id = selection.get(0).and_then(Selection::get_design)?;
     let mut strands = BTreeSet::new();
     for s in selection.iter() {
         match s {
-            Selection::Nucleotide(d_id, n) => {
-                if *d_id != design_id {
-                    return None;
-                }
-                let s_id = designs[design_id as usize]
-                    .read()
-                    .unwrap()
-                    .get_strand_nucl(n)?;
-                strands.insert(s_id);
-            }
             Selection::Strand(d_id, s_id) => {
                 if *d_id != design_id {
                     return None;

@@ -113,6 +113,10 @@ impl State for NormalState {
                     main_state.duplicate();
                     self
                 }
+                Action::DeleteSelection => {
+                    main_state.delete_selection();
+                    self
+                }
                 _ => todo!(),
             }
         } else {
