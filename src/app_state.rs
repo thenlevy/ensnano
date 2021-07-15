@@ -36,7 +36,7 @@ use ensnano_design::Design;
 use ensnano_interactor::DesignOperation;
 
 pub use design_interactor::controller::ErrOperation;
-pub use design_interactor::{CopyOperation, DesignReader, InteractorNotification};
+pub use design_interactor::{CopyOperation, DesignReader, InteractorNotification, PastingStatus};
 use design_interactor::{DesignInteractor, InteractorResult};
 
 mod impl_app2d;
@@ -62,8 +62,13 @@ impl AppState {
             self.clone()
         } else {
             let mut new_state = (*self.0).clone();
+            let selection_len = selection.len();
             new_state.selection = AddressPointer::new(selection);
-            Self(AddressPointer::new(new_state))
+            let mut ret = Self(AddressPointer::new(new_state));
+            if selection_len > 0 {
+                ret = ret.notified(InteractorNotification::NewSelection)
+            }
+            ret
         }
     }
 
@@ -204,8 +209,12 @@ impl AppState {
         *self = self.with_selection_mode(source.0.selection_mode.clone());
     }
 
-    fn is_pasting(&self) -> bool {
+    pub(super) fn is_pasting(&self) -> PastingStatus {
         self.0.design.is_pasting()
+    }
+
+    pub(super) fn can_iterate_duplication(&self) -> bool {
+        self.0.design.can_iterate_duplication()
     }
 }
 

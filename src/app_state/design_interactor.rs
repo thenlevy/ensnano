@@ -24,8 +24,7 @@ mod presenter;
 use presenter::{update_presenter, Presenter};
 pub(super) mod controller;
 use controller::Controller;
-pub use controller::CopyOperation;
-pub use controller::InteractorNotification;
+pub use controller::{CopyOperation, InteractorNotification, PastingStatus};
 
 pub(super) use controller::ErrOperation;
 use controller::OkOperation;
@@ -165,8 +164,12 @@ impl DesignInteractor {
         self.controller.get_strand_builders()
     }
 
-    pub(super) fn is_pasting(&self) -> bool {
+    pub(super) fn is_pasting(&self) -> PastingStatus {
         self.controller.is_pasting()
+    }
+
+    pub(super) fn can_iterate_duplication(&self) -> bool {
+        self.controller.can_iterate_duplication()
     }
 }
 
@@ -537,7 +540,7 @@ mod tests {
         app_state
             .apply_copy_operation(CopyOperation::CopyStrands(vec![0]))
             .unwrap();
-        assert!(!app_state.is_pasting())
+        assert_eq!(app_state.is_pasting(), PastingStatus::None)
     }
 
     #[test]
@@ -549,7 +552,7 @@ mod tests {
         app_state
             .apply_copy_operation(CopyOperation::PositionPastingPoint(None))
             .unwrap();
-        assert!(app_state.is_pasting())
+        assert_eq!(app_state.is_pasting(), PastingStatus::Copy)
     }
 
     #[test]
@@ -569,7 +572,7 @@ mod tests {
             .apply_copy_operation(CopyOperation::Paste)
             .unwrap();
         app_state.update();
-        assert!(!app_state.is_pasting())
+        assert_eq!(app_state.is_pasting(), PastingStatus::None)
     }
 
     #[test]
@@ -578,7 +581,30 @@ mod tests {
         app_state
             .apply_copy_operation(CopyOperation::InitStrandsDuplication(vec![0]))
             .unwrap();
-        assert!(app_state.is_pasting())
+        assert_eq!(app_state.is_pasting(), PastingStatus::Duplication)
+    }
+
+    #[test]
+    fn duplication_of_one_strand() {
+        let mut app_state = pastable_design();
+        app_state
+            .apply_copy_operation(CopyOperation::InitStrandsDuplication(vec![0]))
+            .unwrap();
+        app_state
+            .apply_copy_operation(CopyOperation::PositionPastingPoint(Some(Nucl {
+                helix: 1,
+                position: 10,
+                forward: true,
+            })))
+            .unwrap();
+        app_state
+            .apply_copy_operation(CopyOperation::Duplicate)
+            .unwrap();
+        assert_eq!(app_state.0.design.design.strands.len(), 2);
+        app_state
+            .apply_copy_operation(CopyOperation::Duplicate)
+            .unwrap();
+        assert_eq!(app_state.0.design.design.strands.len(), 3);
     }
 
     #[ignore]
@@ -623,5 +649,110 @@ mod tests {
             .unwrap();
         app_state.update();
         assert!(old_app_state.design_was_modified(&app_state));
+    }
+
+    #[test]
+    fn positioning_xovers_paste() {
+        let mut app_state = pastable_design();
+        let (n1, n2) = app_state.get_design_reader().get_xover_with_id(0).unwrap();
+        app_state
+            .apply_copy_operation(CopyOperation::CopyXovers(vec![(n1, n2)]))
+            .unwrap();
+        app_state
+            .apply_copy_operation(CopyOperation::PositionPastingPoint(None))
+            .unwrap();
+        assert_eq!(app_state.0.design.design.strands.len(), 1);
+        app_state
+            .apply_copy_operation(CopyOperation::PositionPastingPoint(Some(Nucl {
+                helix: 1,
+                position: 5,
+                forward: true,
+            })))
+            .unwrap();
+        assert_eq!(app_state.0.design.design.strands.len(), 2);
+        app_state
+            .apply_copy_operation(CopyOperation::PositionPastingPoint(Some(Nucl {
+                helix: 1,
+                position: 3,
+                forward: true,
+            })))
+            .unwrap();
+        assert_eq!(app_state.0.design.design.strands.len(), 2);
+        app_state
+            .apply_copy_operation(CopyOperation::PositionPastingPoint(None))
+            .unwrap();
+        assert_eq!(app_state.0.design.design.strands.len(), 1);
+    }
+
+    #[test]
+    fn pasting_when_positioning_xovers() {
+        let mut app_state = pastable_design();
+        let (n1, n2) = app_state.get_design_reader().get_xover_with_id(0).unwrap();
+        app_state
+            .apply_copy_operation(CopyOperation::CopyXovers(vec![(n1, n2)]))
+            .unwrap();
+        app_state
+            .apply_copy_operation(CopyOperation::PositionPastingPoint(None))
+            .unwrap();
+        assert_eq!(app_state.is_pasting(), PastingStatus::Copy);
+    }
+
+    #[test]
+    fn duplicating_xovers() {
+        let mut app_state = pastable_design();
+        let (n1, n2) = app_state.get_design_reader().get_xover_with_id(0).unwrap();
+        app_state
+            .apply_copy_operation(CopyOperation::InitXoverDuplication(vec![(n1, n2)]))
+            .unwrap();
+        app_state
+            .apply_copy_operation(CopyOperation::PositionPastingPoint(None))
+            .unwrap();
+        assert_eq!(app_state.0.design.design.strands.len(), 1);
+        app_state
+            .apply_copy_operation(CopyOperation::PositionPastingPoint(Some(Nucl {
+                helix: 1,
+                position: 5,
+                forward: true,
+            })))
+            .unwrap();
+        assert_eq!(app_state.0.design.design.strands.len(), 2);
+        app_state
+            .apply_copy_operation(CopyOperation::Duplicate)
+            .unwrap();
+        assert_eq!(app_state.0.design.design.strands.len(), 2);
+        app_state
+            .apply_copy_operation(CopyOperation::Duplicate)
+            .unwrap();
+        assert_eq!(app_state.0.design.design.strands.len(), 3);
+        app_state
+            .apply_copy_operation(CopyOperation::Duplicate)
+            .unwrap();
+        assert_eq!(app_state.0.design.design.strands.len(), 4);
+    }
+
+    #[test]
+    fn duplicating_xovers_pasting_status() {
+        let mut app_state = pastable_design();
+        let (n1, n2) = app_state.get_design_reader().get_xover_with_id(0).unwrap();
+        app_state
+            .apply_copy_operation(CopyOperation::InitXoverDuplication(vec![(n1, n2)]))
+            .unwrap();
+        assert_eq!(app_state.is_pasting(), PastingStatus::Duplication);
+        app_state
+            .apply_copy_operation(CopyOperation::PositionPastingPoint(Some(Nucl {
+                helix: 1,
+                position: 5,
+                forward: true,
+            })))
+            .unwrap();
+        assert_eq!(app_state.is_pasting(), PastingStatus::Duplication);
+        app_state
+            .apply_copy_operation(CopyOperation::Duplicate)
+            .unwrap();
+        assert_eq!(app_state.is_pasting(), PastingStatus::None);
+        app_state
+            .apply_copy_operation(CopyOperation::Duplicate)
+            .unwrap();
+        assert_eq!(app_state.is_pasting(), PastingStatus::None);
     }
 }

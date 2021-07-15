@@ -116,7 +116,7 @@ mod main_tests;
 
 mod app_state;
 mod controller;
-use app_state::{AppState, CopyOperation, ErrOperation, InteractorNotification};
+use app_state::{AppState, CopyOperation, ErrOperation, InteractorNotification, PastingStatus};
 use controller::Action;
 use controller::Controller;
 
@@ -893,18 +893,45 @@ impl MainState {
     }
 
     fn request_copy(&mut self) {
-        let strand_ids = ensnano_interactor::extract_strands_from_selection(
+        let reader = self.app_state.get_design_reader();
+        if let Some((_, xover_ids)) = ensnano_interactor::list_of_xover_as_nucl_pairs(
             self.app_state.get_selection().as_ref(),
-        );
-        self.apply_copy_operation(CopyOperation::CopyStrands(strand_ids))
+            &reader,
+        ) {
+            self.apply_copy_operation(CopyOperation::CopyXovers(xover_ids))
+        } else {
+            let strand_ids = ensnano_interactor::extract_strands_from_selection(
+                self.app_state.get_selection().as_ref(),
+            );
+            self.apply_copy_operation(CopyOperation::CopyStrands(strand_ids))
+        }
     }
 
-    fn request_paste(&mut self) {
-        println!("TODO copy is not yet implemented");
+    fn apply_paste(&mut self) {
+        println!("apply paste");
+        match self.app_state.is_pasting() {
+            PastingStatus::Copy => self.apply_copy_operation(CopyOperation::Paste),
+            PastingStatus::Duplication => self.apply_copy_operation(CopyOperation::Duplicate),
+            _ => (),
+        }
     }
 
     fn request_duplication(&mut self) {
-        println!("TODO copy is not yet implemented");
+        if self.app_state.can_iterate_duplication() {
+            self.apply_copy_operation(CopyOperation::Duplicate)
+        } else {
+            if let Some((_, nucl_pairs)) = ensnano_interactor::list_of_xover_as_nucl_pairs(
+                self.app_state.get_selection().as_ref(),
+                &self.app_state.get_design_reader(),
+            ) {
+                self.apply_copy_operation(CopyOperation::InitXoverDuplication(nucl_pairs))
+            } else {
+                let strand_ids = ensnano_interactor::extract_strands_from_selection(
+                    self.app_state.get_selection().as_ref(),
+                );
+                self.apply_copy_operation(CopyOperation::InitStrandsDuplication(strand_ids))
+            }
+        }
     }
 
     fn split_2d_view(&mut self) {
@@ -1070,7 +1097,11 @@ impl<'a> MainStateInteface for MainStateView<'a> {
     }
 
     fn apply_paste(&mut self) {
-        self.main_state.apply_copy_operation(CopyOperation::Paste);
+        self.main_state.apply_paste();
+    }
+
+    fn duplicate(&mut self) {
+        self.main_state.request_duplication();
     }
 
     fn request_pasting_candidate(&mut self, candidate: Option<Nucl>) {

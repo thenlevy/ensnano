@@ -286,6 +286,27 @@ impl Design {
         }
         ret
     }
+
+    pub fn is_domain_end(&self, nucl: &Nucl) -> Extremity {
+        for strand in self.strands.values() {
+            let mut prev_helix = None;
+            for domain in strand.domains.iter() {
+                if domain.prime5_end() == Some(*nucl) && prev_helix != domain.half_helix() {
+                    return Extremity::Prime5;
+                } else if domain.prime3_end() == Some(*nucl) {
+                    return Extremity::Prime3;
+                } else if let Some(_) = domain.has_nucl(nucl) {
+                    return Extremity::No;
+                }
+                prev_helix = domain.half_helix();
+            }
+        }
+        Extremity::No
+    }
+
+    pub fn is_true_xover_end(&self, nucl: &Nucl) -> bool {
+        self.is_domain_end(nucl).to_opt().is_some() && self.is_strand_end(nucl).to_opt().is_none()
+    }
 }
 
 impl Design {

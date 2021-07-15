@@ -30,7 +30,7 @@ use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-use self::clipboard::PastedStrand;
+use self::clipboard::{PastedStrand, StrandClipboard};
 
 use super::grid_data::GridManager;
 use ultraviolet::{Isometry2, Rotor3, Vec2, Vec3};
@@ -140,7 +140,7 @@ impl Controller {
                 prime3_id,
             } => self.apply(|c, d| c.apply_merge(d, prime5_id, prime3_id), design),
             DesignOperation::GeneralXover { source, target } => {
-                self.apply(|c, d| c.general_cross_over(d, source, target), design)
+                self.apply(|c, d| c.apply_general_cross_over(d, source, target), design)
             }
             _ => Err(ErrOperation::NotImplemented),
         }
@@ -166,35 +166,62 @@ impl Controller {
             CopyOperation::CopyStrands(strand_ids) => {
                 self.apply_no_op(|c, d| c.set_templates(d, strand_ids), design)
             }
+            CopyOperation::CopyXovers(xovers) => {
+                self.apply_no_op(|c, _d| c.copy_xovers(xovers), design)
+            }
             CopyOperation::PositionPastingPoint(nucl) => {
                 if self.get_pasting_point() == Some(nucl) {
                     Ok((OkOperation::NoOp, self.clone()))
                 } else {
-                    self.apply(
-                        |c, d| {
-                            c.position_strand_copies(&d, nucl)?;
-                            Ok(d)
-                        },
-                        design,
-                    )
+                    let design_pasted_on = if let Some(p) = self.get_design_before_pasting_xovers()
+                    {
+                        p.as_ref()
+                    } else {
+                        design
+                    };
+                    self.apply(|c, d| c.position_copy(d, nucl), design_pasted_on)
                 }
             }
             CopyOperation::InitStrandsDuplication(strand_ids) => self.apply_no_op(
                 |c, d| {
                     c.set_templates(d, strand_ids)?;
+                    let clipboard = c.clipboard.as_ref().get_strand_clipboard()?;
                     c.state = ControllerState::PositioningDuplicationPoint {
                         pasted_strands: vec![],
                         duplication_edge: None,
                         pasting_point: None,
+                        clipboard,
                     };
                     Ok(())
                 },
                 design,
             ),
-            CopyOperation::Paste => {
-                Self::make_undoable(self.apply(|c, d| c.apply_paste(d), design))
-            }
+            CopyOperation::Duplicate => self.apply(|c, d| c.apply_duplication(d), design),
+            CopyOperation::Paste => self.make_undoable(self.apply(|c, d| c.apply_paste(d), design)),
+            CopyOperation::InitXoverDuplication(xovers) => self.apply_no_op(
+                |c, d| {
+                    c.copy_xovers(xovers.clone())?;
+                    c.state = ControllerState::DoingFirstXoversDuplication {
+                        initial_design: AddressPointer::new(d.clone()),
+                        duplication_edge: None,
+                        pasting_point: None,
+                        xovers,
+                    };
+                    Ok(())
+                },
+                design,
+            ),
             _ => Err(ErrOperation::NotImplemented),
+        }
+    }
+
+    pub fn can_iterate_duplication(&self) -> bool {
+        if let ControllerState::WithPendingDuplication { .. } = self.state {
+            true
+        } else if let ControllerState::WithPendingXoverDuplication { .. } = self.state {
+            true
+        } else {
+            false
         }
     }
 
@@ -202,11 +229,13 @@ impl Controller {
         self.clipboard.size()
     }
 
-    pub fn is_pasting(&self) -> bool {
+    pub fn is_pasting(&self) -> PastingStatus {
         match self.state {
-            ControllerState::PositioningPastingPoint { .. } => true,
-            ControllerState::PositioningDuplicationPoint { .. } => true,
-            _ => false,
+            ControllerState::PositioningPastingPoint { .. } => PastingStatus::Copy,
+            ControllerState::PositioningDuplicationPoint { .. } => PastingStatus::Duplication,
+            ControllerState::PastingXovers { .. } => PastingStatus::Copy,
+            ControllerState::DoingFirstXoversDuplication { .. } => PastingStatus::Duplication,
+            _ => PastingStatus::None,
         }
     }
 
@@ -214,6 +243,9 @@ impl Controller {
         let mut new_interactor = self.clone();
         match notification {
             InteractorNotification::FinishOperation => new_interactor.state = self.state.finish(),
+            InteractorNotification::NewSelection => {
+                new_interactor.state = self.state.acknowledge_new_selection()
+            }
         }
         new_interactor
     }
@@ -222,6 +254,7 @@ impl Controller {
         match self.state {
             ControllerState::Normal => true,
             ControllerState::WithPendingOp(_) => true,
+            ControllerState::WithPendingDuplication { .. } => true,
             ControllerState::ChangingColor => {
                 if let DesignOperation::ChangeColor { .. } = operation {
                     true
@@ -259,6 +292,8 @@ impl Controller {
         match self.state {
             ControllerState::Normal => OkOperation::Push(design),
             ControllerState::WithPendingOp(_) => OkOperation::Push(design),
+            ControllerState::WithPendingDuplication { .. } => OkOperation::Push(design),
+            ControllerState::WithPendingXoverDuplication { .. } => OkOperation::Push(design),
             _ => OkOperation::Replace(design),
         }
     }
@@ -293,11 +328,16 @@ impl Controller {
     }
 
     fn make_undoable(
+        &self,
         result: Result<(OkOperation, Self), ErrOperation>,
     ) -> Result<(OkOperation, Self), ErrOperation> {
-        match result {
-            Ok((ok_op, interactor)) => Ok((ok_op.into_undoable(), interactor)),
-            Err(e) => Err(e),
+        if self.state.is_undoable_once() {
+            match result {
+                Ok((ok_op, interactor)) => Ok((ok_op.into_undoable(), interactor)),
+                Err(e) => Err(e),
+            }
+        } else {
+            result
         }
     }
 
@@ -545,6 +585,7 @@ pub enum ErrOperation {
     CouldNotCreateEdges,
     EmptyOrigin,
     EmptyClipboard,
+    WrongClipboard,
     CannotPasteHere,
 }
 
@@ -1325,12 +1366,22 @@ impl Controller {
         }
     }
 
-    fn general_cross_over(
+    fn apply_general_cross_over(
         &mut self,
         mut design: Design,
         source_nucl: Nucl,
         target_nucl: Nucl,
     ) -> Result<Design, ErrOperation> {
+        self.general_cross_over(&mut design, source_nucl, target_nucl)?;
+        Ok(design)
+    }
+
+    fn general_cross_over(
+        &mut self,
+        design: &mut Design,
+        source_nucl: Nucl,
+        target_nucl: Nucl,
+    ) -> Result<(), ErrOperation> {
         if source_nucl.helix == target_nucl.helix {
             return Err(ErrOperation::XoverOnSameHelix);
         }
@@ -1370,17 +1421,17 @@ impl Controller {
             (Some(true), Some(false)) => {
                 // We can xover directly
                 if source_id == target_id {
-                    Self::make_cycle(&mut design, source_id, true)?
+                    Self::make_cycle(design, source_id, true)?
                 } else {
-                    Self::merge_strands(&mut design, source_id, target_id)?
+                    Self::merge_strands(design, source_id, target_id)?
                 }
             }
             (Some(false), Some(true)) => {
                 // We can xover directly but we must reverse the xover
                 if source_id == target_id {
-                    Self::make_cycle(&mut design, target_id, true)?
+                    Self::make_cycle(design, target_id, true)?
                 } else {
-                    Self::merge_strands(&mut design, target_id, source_id)?
+                    Self::merge_strands(design, target_id, source_id)?
                 }
             }
             (Some(b), None) => {
@@ -1388,36 +1439,24 @@ impl Controller {
                 // different
                 let target_3prime = b;
                 if source_nucl.helix != target_nucl.helix {
-                    Self::cross_cut(
-                        &mut design,
-                        source_id,
-                        target_id,
-                        target_nucl,
-                        target_3prime,
-                    )?
+                    Self::cross_cut(design, source_id, target_id, target_nucl, target_3prime)?
                 }
             }
             (None, Some(b)) => {
                 // We can cut cross directly but we need to reverse the xover
                 let target_3prime = b;
                 if source_nucl.helix != target_nucl.helix {
-                    Self::cross_cut(
-                        &mut design,
-                        target_id,
-                        source_id,
-                        source_nucl,
-                        target_3prime,
-                    )?
+                    Self::cross_cut(design, target_id, source_id, source_nucl, target_3prime)?
                 }
             }
             (None, None) => {
                 if source_nucl.helix != target_nucl.helix {
                     if source_id != target_id {
-                        Self::split_strand(&mut design, &source_nucl, None)?;
-                        Self::cross_cut(&mut design, source_id, target_id, target_nucl, true)?;
+                        Self::split_strand(design, &source_nucl, None)?;
+                        Self::cross_cut(design, source_id, target_id, target_nucl, true)?;
                     } else if source.cyclic {
-                        Self::split_strand(&mut design, &source_nucl, Some(false))?;
-                        Self::cross_cut(&mut design, source_id, target_id, target_nucl, true)?;
+                        Self::split_strand(design, &source_nucl, Some(false))?;
+                        Self::cross_cut(design, source_id, target_id, target_nucl, true)?;
                     } else {
                         // if the two nucleotides are on the same strand care must be taken
                         // because one of them might be on the newly crated strand after the
@@ -1431,18 +1470,17 @@ impl Controller {
                         if pos1 > pos2 {
                             // the source nucl will be on the 5' end of the split and the
                             // target nucl as well
-                            Self::split_strand(&mut design, &source_nucl, Some(false))?;
-                            Self::cross_cut(&mut design, source_id, target_id, target_nucl, true)?;
+                            Self::split_strand(design, &source_nucl, Some(false))?;
+                            Self::cross_cut(design, source_id, target_id, target_nucl, true)?;
                         } else {
-                            let new_id =
-                                Self::split_strand(&mut design, &source_nucl, Some(false))?;
-                            Self::cross_cut(&mut design, source_id, new_id, target_nucl, true)?;
+                            let new_id = Self::split_strand(design, &source_nucl, Some(false))?;
+                            Self::cross_cut(design, source_id, new_id, target_nucl, true)?;
                         }
                     }
                 }
             }
         }
-        Ok(design)
+        Ok(())
     }
 }
 
@@ -1481,6 +1519,27 @@ enum ControllerState {
         pasting_point: Option<Nucl>,
         pasted_strands: Vec<PastedStrand>,
         duplication_edge: Option<(Edge, isize)>,
+        clipboard: StrandClipboard,
+    },
+    WithPendingDuplication {
+        last_pasting_point: Nucl,
+        duplication_edge: (Edge, isize),
+        clipboard: StrandClipboard,
+    },
+    WithPendingXoverDuplication {
+        last_pasting_point: Nucl,
+        duplication_edge: (Edge, isize),
+        xovers: Vec<(Nucl, Nucl)>,
+    },
+    PastingXovers {
+        initial_design: AddressPointer<Design>,
+        pasting_point: Option<Nucl>,
+    },
+    DoingFirstXoversDuplication {
+        initial_design: AddressPointer<Design>,
+        duplication_edge: Option<(Edge, isize)>,
+        xovers: Vec<(Nucl, Nucl)>,
+        pasting_point: Option<Nucl>,
     },
 }
 
@@ -1505,17 +1564,50 @@ impl ControllerState {
                 };
                 Ok(())
             }
-            Self::PositioningDuplicationPoint { .. } => {
+            Self::PositioningDuplicationPoint { clipboard, .. } => {
                 *self = Self::PositioningDuplicationPoint {
                     pasting_point: point,
                     pasted_strands: strands,
                     duplication_edge,
+                    clipboard: clipboard.clone(),
                 };
                 Ok(())
             }
             _ => Err(ErrOperation::IncompatibleState),
         }
     }
+
+    fn update_xover_pasting_position(
+        &mut self,
+        point: Option<Nucl>,
+        edge: Option<(Edge, isize)>,
+        design: &Design,
+    ) -> Result<(), ErrOperation> {
+        match self {
+            Self::PastingXovers { pasting_point, .. } => {
+                *pasting_point = point;
+                Ok(())
+            }
+            Self::DoingFirstXoversDuplication {
+                pasting_point,
+                duplication_edge,
+                ..
+            } => {
+                *pasting_point = point;
+                *duplication_edge = edge;
+                Ok(())
+            }
+            Self::Normal | Self::WithPendingOp(_) | Self::WithPendingDuplication { .. } => {
+                *self = Self::PastingXovers {
+                    pasting_point: point,
+                    initial_design: AddressPointer::new(design.clone()),
+                };
+                Ok(())
+            }
+            _ => Err(ErrOperation::IncompatibleState),
+        }
+    }
+
     fn update_operation(&mut self, op: Arc<dyn Operation>) {
         match self {
             Self::ApplyingOperation { operation, .. } => *operation = Some(op),
@@ -1539,10 +1631,29 @@ impl ControllerState {
             Self::Normal
         }
     }
+
+    fn acknowledge_new_selection(&self) -> Self {
+        if let Self::WithPendingDuplication { .. } = self {
+            Self::Normal
+        } else if let Self::WithPendingXoverDuplication { .. } = self {
+            Self::Normal
+        } else {
+            self.clone()
+        }
+    }
+
+    /// Return true if the operation is undoable only when going from this state to normal
+    fn is_undoable_once(&self) -> bool {
+        match self {
+            Self::PositioningDuplicationPoint { .. } | Self::PositioningPastingPoint { .. } => true,
+            _ => false,
+        }
+    }
 }
 
 pub enum InteractorNotification {
     FinishOperation,
+    NewSelection,
 }
 
 use ensnano_design::HelixInterval;
@@ -1555,5 +1666,21 @@ pub(super) fn junction(prime5: &HelixInterval, prime3: &HelixInterval) -> Domain
         DomainJunction::Adjacent
     } else {
         DomainJunction::UnindentifiedXover
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PastingStatus {
+    Copy,
+    Duplication,
+    None,
+}
+
+impl PastingStatus {
+    pub fn is_pasting(&self) -> bool {
+        match self {
+            Self::Copy | Self::Duplication => true,
+            Self::None => false,
+        }
     }
 }

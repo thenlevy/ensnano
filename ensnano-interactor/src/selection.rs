@@ -170,7 +170,7 @@ pub fn list_of_grids(selection: &[Selection]) -> Option<(usize, Vec<usize>)> {
 }
 
 /// Convert a selection of bounds into a list of cross-overs
-pub fn list_of_xovers(
+pub fn list_of_xover_ids(
     selection: &[Selection],
     reader: &dyn DesignReader,
 ) -> Option<(usize, Vec<usize>)> {
@@ -191,6 +191,39 @@ pub fn list_of_xovers(
                     return None;
                 }
                 xovers.insert(*xover_id);
+            }
+            _ => return None,
+        }
+    }
+    Some((design_id as usize, xovers.into_iter().collect()))
+}
+
+/// Convert a selection of bounds into a list of cross-overs
+pub fn list_of_xover_as_nucl_pairs(
+    selection: &[Selection],
+    reader: &dyn DesignReader,
+) -> Option<(usize, Vec<(Nucl, Nucl)>)> {
+    let design_id = selection.get(0).and_then(Selection::get_design)?;
+    let mut xovers = BTreeSet::new();
+    for s in selection.iter() {
+        match s {
+            Selection::Bound(d_id, n1, n2) => {
+                if *d_id != design_id {
+                    return None;
+                }
+                if reader.get_xover_id(&(*n1, *n2)).is_none() {
+                    xovers.insert((*n1, *n2));
+                }
+            }
+            Selection::Xover(d_id, xover_id) => {
+                if *d_id != design_id {
+                    return None;
+                }
+                if let Some(pair) = reader.get_xover_with_id(*xover_id) {
+                    xovers.insert(pair);
+                } else {
+                    return None;
+                }
             }
             _ => return None,
         }
@@ -404,6 +437,7 @@ impl PhantomElement {
 pub trait DesignReader {
     fn get_grid_position_of_helix(&self, h_id: usize) -> Option<GridPosition>;
     fn get_xover_id(&self, pair: &(Nucl, Nucl)) -> Option<usize>;
+    fn get_xover_with_id(&self, id: usize) -> Option<(Nucl, Nucl)>;
 }
 
 pub trait SelectionConversion: Sized {

@@ -109,6 +109,10 @@ impl State for NormalState {
                     main_state.request_pasting_candidate(candidate);
                     self
                 }
+                Action::Duplicate => {
+                    main_state.duplicate();
+                    self
+                }
                 _ => todo!(),
             }
         } else {

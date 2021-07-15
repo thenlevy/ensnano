@@ -55,7 +55,7 @@ impl App2D for AppState {
     }
 
     fn is_pasting(&self) -> bool {
-        self.is_pasting()
+        self.is_pasting().is_pasting()
     }
 }
 
