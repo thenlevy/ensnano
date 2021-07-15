@@ -696,4 +696,63 @@ mod tests {
             .unwrap();
         assert_eq!(app_state.is_pasting(), PastingStatus::Copy);
     }
+
+    #[test]
+    fn duplicating_xovers() {
+        let mut app_state = pastable_design();
+        let (n1, n2) = app_state.get_design_reader().get_xover_with_id(0).unwrap();
+        app_state
+            .apply_copy_operation(CopyOperation::InitXoverDuplication(vec![(n1, n2)]))
+            .unwrap();
+        app_state
+            .apply_copy_operation(CopyOperation::PositionPastingPoint(None))
+            .unwrap();
+        assert_eq!(app_state.0.design.design.strands.len(), 1);
+        app_state
+            .apply_copy_operation(CopyOperation::PositionPastingPoint(Some(Nucl {
+                helix: 1,
+                position: 5,
+                forward: true,
+            })))
+            .unwrap();
+        assert_eq!(app_state.0.design.design.strands.len(), 2);
+        app_state
+            .apply_copy_operation(CopyOperation::Duplicate)
+            .unwrap();
+        assert_eq!(app_state.0.design.design.strands.len(), 2);
+        app_state
+            .apply_copy_operation(CopyOperation::Duplicate)
+            .unwrap();
+        assert_eq!(app_state.0.design.design.strands.len(), 3);
+        app_state
+            .apply_copy_operation(CopyOperation::Duplicate)
+            .unwrap();
+        assert_eq!(app_state.0.design.design.strands.len(), 4);
+    }
+
+    #[test]
+    fn duplicating_xovers_pasting_status() {
+        let mut app_state = pastable_design();
+        let (n1, n2) = app_state.get_design_reader().get_xover_with_id(0).unwrap();
+        app_state
+            .apply_copy_operation(CopyOperation::InitXoverDuplication(vec![(n1, n2)]))
+            .unwrap();
+        assert_eq!(app_state.is_pasting(), PastingStatus::Duplication);
+        app_state
+            .apply_copy_operation(CopyOperation::PositionPastingPoint(Some(Nucl {
+                helix: 1,
+                position: 5,
+                forward: true,
+            })))
+            .unwrap();
+        assert_eq!(app_state.is_pasting(), PastingStatus::Duplication);
+        app_state
+            .apply_copy_operation(CopyOperation::Duplicate)
+            .unwrap();
+        assert_eq!(app_state.is_pasting(), PastingStatus::None);
+        app_state
+            .apply_copy_operation(CopyOperation::Duplicate)
+            .unwrap();
+        assert_eq!(app_state.is_pasting(), PastingStatus::None);
+    }
 }

@@ -553,6 +553,7 @@ impl Controller {
                         clipboard,
                     };
                 } else {
+                    // If it is not possible to ducplicate here, cancel the duplication
                     self.state = ControllerState::Normal
                 }
                 Ok(design)
@@ -584,6 +585,53 @@ impl Controller {
                     last_pasting_point: new_duplication_point,
                     duplication_edge,
                     clipboard,
+                };
+                Ok(design)
+            }
+            ControllerState::DoingFirstXoversDuplication {
+                xovers,
+                pasting_point,
+                duplication_edge,
+                ..
+            } => {
+                if let Some((nucl, duplication_edge)) = pasting_point.zip(duplication_edge) {
+                    self.state = ControllerState::WithPendingXoverDuplication {
+                        last_pasting_point: nucl,
+                        duplication_edge,
+                        xovers,
+                    };
+                } else {
+                    self.state = ControllerState::Normal
+                }
+                Ok(design)
+            }
+            ControllerState::WithPendingXoverDuplication {
+                last_pasting_point,
+                duplication_edge,
+                xovers,
+            } => {
+                let grid_manager = GridManager::new_from_design(&design);
+                let new_duplication_point = self
+                    .translate_nucl_by_edge(
+                        &last_pasting_point,
+                        &duplication_edge.0,
+                        duplication_edge.1,
+                        &design,
+                        &grid_manager,
+                    )
+                    .ok_or(ErrOperation::CannotPasteHere)?;
+                let n1 = xovers
+                    .get(0)
+                    .map(|n| n.0)
+                    .ok_or(ErrOperation::EmptyClipboard)?;
+                let edge =
+                    Self::edge_beteen_nucls(&design, &grid_manager, &n1, &new_duplication_point)
+                        .ok_or(ErrOperation::CannotPasteHere)?;
+                self.put_xovers_on_design(&grid_manager, &mut design, &xovers, edge)?;
+                self.state = ControllerState::WithPendingXoverDuplication {
+                    last_pasting_point: new_duplication_point,
+                    duplication_edge,
+                    xovers,
                 };
                 Ok(design)
             }
@@ -699,7 +747,7 @@ pub enum CopyOperation {
     CopyStrands(Vec<usize>),
     CopyXovers(Vec<(Nucl, Nucl)>),
     InitStrandsDuplication(Vec<usize>),
-    IntiXoverDuplication(Vec<(Nucl, Nucl)>),
+    InitXoverDuplication(Vec<(Nucl, Nucl)>),
     PositionPastingPoint(Option<Nucl>),
     Paste,
     Duplicate,

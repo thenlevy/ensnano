@@ -198,12 +198,27 @@ impl Controller {
             ),
             CopyOperation::Duplicate => self.apply(|c, d| c.apply_duplication(d), design),
             CopyOperation::Paste => self.make_undoable(self.apply(|c, d| c.apply_paste(d), design)),
+            CopyOperation::InitXoverDuplication(xovers) => self.apply_no_op(
+                |c, d| {
+                    c.copy_xovers(xovers.clone())?;
+                    c.state = ControllerState::DoingFirstXoversDuplication {
+                        initial_design: AddressPointer::new(d.clone()),
+                        duplication_edge: None,
+                        pasting_point: None,
+                        xovers,
+                    };
+                    Ok(())
+                },
+                design,
+            ),
             _ => Err(ErrOperation::NotImplemented),
         }
     }
 
     pub fn can_iterate_duplication(&self) -> bool {
         if let ControllerState::WithPendingDuplication { .. } = self.state {
+            true
+        } else if let ControllerState::WithPendingXoverDuplication { .. } = self.state {
             true
         } else {
             false
@@ -278,6 +293,7 @@ impl Controller {
             ControllerState::Normal => OkOperation::Push(design),
             ControllerState::WithPendingOp(_) => OkOperation::Push(design),
             ControllerState::WithPendingDuplication { .. } => OkOperation::Push(design),
+            ControllerState::WithPendingXoverDuplication { .. } => OkOperation::Push(design),
             _ => OkOperation::Replace(design),
         }
     }
@@ -1510,6 +1526,11 @@ enum ControllerState {
         duplication_edge: (Edge, isize),
         clipboard: StrandClipboard,
     },
+    WithPendingXoverDuplication {
+        last_pasting_point: Nucl,
+        duplication_edge: (Edge, isize),
+        xovers: Vec<(Nucl, Nucl)>,
+    },
     PastingXovers {
         initial_design: AddressPointer<Design>,
         pasting_point: Option<Nucl>,
@@ -1613,6 +1634,8 @@ impl ControllerState {
 
     fn acknowledge_new_selection(&self) -> Self {
         if let Self::WithPendingDuplication { .. } = self {
+            Self::Normal
+        } else if let Self::WithPendingXoverDuplication { .. } = self {
             Self::Normal
         } else {
             self.clone()

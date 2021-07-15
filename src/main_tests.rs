@@ -295,3 +295,86 @@ fn undo_redo_copy_paste_xover_pasting_status() {
     main_state.update();
     assert!(!main_state.app_state.is_pasting().is_pasting());
 }
+
+#[test]
+fn duplicate_xover_pasting_status() {
+    use crate::scene::DesignReader;
+    let mut main_state = new_state();
+    let app_state = pastable_design();
+    main_state.clear_app_state(app_state);
+    main_state.update_selection(vec![Selection::Xover(0, 0)]);
+    main_state.request_duplication();
+    assert!(main_state.app_state.is_pasting().is_pasting());
+    main_state.apply_copy_operation(CopyOperation::PositionPastingPoint(Some(Nucl {
+        helix: 1,
+        position: 5,
+        forward: true,
+    })));
+    main_state.apply_paste();
+    main_state.update();
+    assert!(!main_state.app_state.is_pasting().is_pasting());
+    main_state.request_duplication();
+    main_state.update();
+    assert!(!main_state.app_state.is_pasting().is_pasting());
+}
+
+#[test]
+fn duplicate_xover() {
+    use crate::scene::DesignReader;
+    let mut main_state = new_state();
+    let app_state = pastable_design();
+    main_state.clear_app_state(app_state);
+    main_state.update_selection(vec![Selection::Xover(0, 0)]);
+    main_state.request_duplication();
+    let n1 = Nucl {
+        helix: 1,
+        position: 5,
+        forward: true,
+    };
+    let n2 = Nucl {
+        helix: 1,
+        position: 3,
+        forward: true,
+    };
+    assert!(main_state
+        .app_state
+        .get_design_reader()
+        .is_xover_end(&n1)
+        .to_opt()
+        .is_none());
+    assert!(main_state
+        .app_state
+        .get_design_reader()
+        .is_xover_end(&n2)
+        .to_opt()
+        .is_none());
+    main_state.apply_copy_operation(CopyOperation::PositionPastingPoint(Some(n1)));
+    main_state.apply_paste();
+    main_state.update();
+    assert!(main_state
+        .app_state
+        .get_design_reader()
+        .is_xover_end(&n1)
+        .to_opt()
+        .is_some());
+    assert!(main_state
+        .app_state
+        .get_design_reader()
+        .is_xover_end(&n2)
+        .to_opt()
+        .is_none());
+    main_state.request_duplication();
+    main_state.update();
+    assert!(main_state
+        .app_state
+        .get_design_reader()
+        .is_xover_end(&n1)
+        .to_opt()
+        .is_some());
+    assert!(main_state
+        .app_state
+        .get_design_reader()
+        .is_xover_end(&n2)
+        .to_opt()
+        .is_some());
+}
