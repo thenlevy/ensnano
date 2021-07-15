@@ -584,6 +584,7 @@ impl<S: AppState> Application for FlatScene<S> {
 pub trait AppState: Clone {
     type Reader: DesignReader;
     fn selection_was_updated(&self, other: &Self) -> bool;
+    fn candidate_was_updated(&self, other: &Self) -> bool;
     fn get_selection(&self) -> &[Selection];
     fn get_candidates(&self) -> &[Selection];
     fn get_selection_mode(&self) -> SelectionMode;

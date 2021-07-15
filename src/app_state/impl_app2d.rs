@@ -34,6 +34,10 @@ impl App2D for AppState {
         self.0.selection != other.0.selection
     }
 
+    fn candidate_was_updated(&self, other: &Self) -> bool {
+        self.0.candidates != other.0.candidates
+    }
+
     fn get_selection_mode(&self) -> SelectionMode {
         self.0.selection_mode
     }

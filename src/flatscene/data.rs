@@ -75,6 +75,8 @@ impl Data {
             self.instance_reset = false;
         }
         if new_state.design_was_updated(old_state)
+            || new_state.selection_was_updated(old_state)
+            || new_state.candidate_was_updated(old_state)
             || self.instance_update
             || self.view.borrow().needs_redraw()
         {
