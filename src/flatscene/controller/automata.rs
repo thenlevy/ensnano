@@ -124,6 +124,7 @@ impl<S: AppState> ControllerState<S> for NormalState {
                 state,
                 ..
             } => {
+                println!("pasting: {}", app_state.is_pasting());
                 /*assert!(
                     *state == ElementState::Pressed,
                     "Released mouse button in normal mode"
@@ -626,6 +627,14 @@ impl<S: AppState> ControllerState<S> for ReleasedPivot {
         controller: &Controller<S>,
         app_state: &S,
     ) -> Transition<S> {
+        if app_state.is_pasting() {
+            return Transition {
+                new_state: Some(Box::new(NormalState {
+                    mouse_position: self.mouse_position,
+                })),
+                consequences: Consequence::Nothing,
+            };
+        }
         match event {
             WindowEvent::MouseInput {
                 button: MouseButton::Left,
