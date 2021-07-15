@@ -27,6 +27,7 @@ use std::sync::Arc;
 extern crate serde_derive;
 extern crate serde;
 use ultraviolet::{Isometry2, Mat4, Rotor3, Vec3};
+pub use ultraviolet;
 
 pub mod codenano;
 pub mod grid;
