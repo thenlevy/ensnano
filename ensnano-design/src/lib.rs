@@ -26,8 +26,8 @@ use std::sync::Arc;
 #[macro_use]
 extern crate serde_derive;
 extern crate serde;
-use ultraviolet::{Isometry2, Mat4, Rotor3, Vec3};
 pub use ultraviolet;
+use ultraviolet::{Isometry2, Mat4, Rotor3, Vec3};
 
 pub mod codenano;
 pub mod grid;
@@ -268,7 +268,8 @@ impl Design {
                             position: i,
                         };
                         if let Some(h) = self.helices.get(&interval.helix) {
-                            let space_position = h.space_pos(&parameters, nucl.position, nucl.forward);
+                            let space_position =
+                                h.space_pos(&parameters, nucl.position, nucl.forward);
                             nucls.push((nucl, space_position));
                         }
                     }

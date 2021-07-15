@@ -657,6 +657,36 @@ impl Controller {
         }
     }
 
+    pub fn get_copy_points(&self) -> Vec<Vec<Nucl>> {
+        let pasted_strands = match self.state {
+            ControllerState::PositioningPastingPoint {
+                ref pasted_strands, ..
+            } => pasted_strands,
+            ControllerState::PositioningDuplicationPoint {
+                ref pasted_strands, ..
+            } => pasted_strands,
+            _ => return vec![],
+        };
+
+        let mut ret = Vec::new();
+        for strand in pasted_strands.iter() {
+            let mut points = Vec::new();
+            for domain in strand.domains.iter() {
+                if let Domain::HelixDomain(domain) = domain {
+                    if domain.forward {
+                        points.push(Nucl::new(domain.helix, domain.start, domain.forward));
+                        points.push(Nucl::new(domain.helix, domain.end - 1, domain.forward));
+                    } else {
+                        points.push(Nucl::new(domain.helix, domain.end - 1, domain.forward));
+                        points.push(Nucl::new(domain.helix, domain.start, domain.forward));
+                    }
+                }
+            }
+            ret.push(points)
+        }
+        ret
+    }
+
     pub(super) fn get_pasting_point(&self) -> Option<Option<Nucl>> {
         match self.state {
             ControllerState::PositioningPastingPoint { pasting_point, .. } => {

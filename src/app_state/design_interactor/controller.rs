@@ -1289,6 +1289,7 @@ impl Controller {
             nucl,
             target_3prime,
         )?;
+        self.state = ControllerState::Normal;
         Ok(design)
     }
 
@@ -1303,6 +1304,7 @@ impl Controller {
         } else {
             Self::make_cycle(&mut design, prime5_id, true)?;
         }
+        self.state = ControllerState::Normal;
         Ok(design)
     }
 
@@ -1550,6 +1552,22 @@ impl Default for ControllerState {
 }
 
 impl ControllerState {
+    fn state_name(&self) -> &'static str {
+        match self {
+            Self::Normal => "Normal",
+            Self::MakingHyperboloid => "MakingHyperboloid",
+            Self::BuildingStrand { .. } => "BuildingStrand",
+            Self::ChangingColor => "ChangingColor",
+            Self::WithPendingOp(_) => "WithPendingOp",
+            Self::ApplyingOperation { .. } => "ApplyingOperation",
+            Self::PositioningPastingPoint { .. } => "PositioningPastingPoint",
+            Self::PositioningDuplicationPoint { .. } => "PositioningDuplicationPoint",
+            Self::WithPendingDuplication { .. } => "WithPendingDuplication",
+            Self::WithPendingXoverDuplication { .. } => "WithPendingXoverDuplication",
+            Self::PastingXovers { .. } => "PastingXovers",
+            Self::DoingFirstXoversDuplication { .. } => "DoingFirstXoversDuplication",
+        }
+    }
     fn update_pasting_position(
         &mut self,
         point: Option<Nucl>,

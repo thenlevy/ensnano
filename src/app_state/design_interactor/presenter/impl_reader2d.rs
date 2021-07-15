@@ -101,7 +101,7 @@ impl Reader2D for DesignReader {
     }
 
     fn get_copy_points(&self) -> Vec<Vec<Nucl>> {
-        vec![]
+        self.controller.get_copy_points()
     }
 
     fn get_suggestions(&self) -> Vec<(Nucl, Nucl)> {
@@ -186,18 +186,6 @@ mod tests {
     #[ignore]
     fn correct_suggestions() {
         // TODO: write test, and implement function
-        assert!(false)
-    }
-
-    #[test]
-    #[ignore]
-    fn copy_points() {
-        assert!(false)
-    }
-
-    #[test]
-    #[ignore]
-    fn can_start_builder_implemented() {
         assert!(false)
     }
 
