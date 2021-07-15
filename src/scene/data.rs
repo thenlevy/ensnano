@@ -67,6 +67,7 @@ pub struct Data<R: DesignReader> {
     free_xover: Option<FreeXover>,
     free_xover_update: bool,
     handle_need_opdate: bool,
+    last_candidate_disc: Option<SceneElement>,
 }
 
 impl<R: DesignReader> Data<R> {
@@ -84,6 +85,7 @@ impl<R: DesignReader> Data<R> {
             free_xover: None,
             free_xover_update: false,
             handle_need_opdate: false,
+            last_candidate_disc: None,
         }
     }
 
@@ -107,7 +109,7 @@ impl<R: DesignReader> Data<R> {
 impl<R: DesignReader> Data<R> {
     /// Forwards all needed update to the view
     pub fn update_view<S: AppState>(&mut self, app_state: &S, older_app_state: &S) {
-        if discs_need_update(app_state, older_app_state) {
+        if self.discs_need_update(app_state, older_app_state) {
             self.update_discs();
         }
         if app_state.design_was_modified(older_app_state) {
@@ -143,6 +145,15 @@ impl<R: DesignReader> Data<R> {
         if app_state.design_model_matrix_was_updated(older_app_state) {
             self.update_matrices();
         }
+    }
+
+    fn discs_need_update<S: AppState>(&mut self, app_state: &S, older_app_state: &S) -> bool {
+        let ret = app_state.design_was_modified(older_app_state)
+            || app_state.selection_was_updated(older_app_state)
+            || app_state.candidates_set_was_updated(older_app_state)
+            || self.last_candidate_disc != self.candidate_element;
+        self.last_candidate_disc = self.candidate_element.clone();
+        ret
     }
 
     fn update_handle<S: AppState>(&self, app_state: &S) {
@@ -181,12 +192,6 @@ impl<R: DesignReader> Data<R> {
             .borrow_mut()
             .update(ViewUpdate::RotationWidget(rotation_widget_descr));
     }
-}
-
-fn discs_need_update<S: AppState>(app_state: &S, older_app_state: &S) -> bool {
-    app_state.design_was_modified(older_app_state)
-        || app_state.selection_was_updated(older_app_state)
-        || app_state.candidates_set_was_updated(older_app_state)
 }
 
 impl<R: DesignReader> Data<R> {
