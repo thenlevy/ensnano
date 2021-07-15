@@ -140,7 +140,7 @@ impl Controller {
                 prime3_id,
             } => self.apply(|c, d| c.apply_merge(d, prime5_id, prime3_id), design),
             DesignOperation::GeneralXover { source, target } => {
-                self.apply(|c, d| c.general_cross_over(d, source, target), design)
+                self.apply(|c, d| c.apply_general_cross_over(d, source, target), design)
             }
             _ => Err(ErrOperation::NotImplemented),
         }
@@ -165,6 +165,9 @@ impl Controller {
         match operation {
             CopyOperation::CopyStrands(strand_ids) => {
                 self.apply_no_op(|c, d| c.set_templates(d, strand_ids), design)
+            }
+            CopyOperation::CopyXovers(xovers) => {
+                self.apply_no_op(|c, _d| c.copy_xovers(xovers), design)
             }
             CopyOperation::PositionPastingPoint(nucl) => {
                 if self.get_pasting_point() == Some(nucl) {
@@ -194,9 +197,7 @@ impl Controller {
                 design,
             ),
             CopyOperation::Duplicate => self.apply(|c, d| c.apply_duplication(d), design),
-            CopyOperation::Paste => {
-                Self::make_undoable(self.apply(|c, d| c.apply_paste(d), design))
-            }
+            CopyOperation::Paste => self.make_undoable(self.apply(|c, d| c.apply_paste(d), design)),
             _ => Err(ErrOperation::NotImplemented),
         }
     }
@@ -217,6 +218,8 @@ impl Controller {
         match self.state {
             ControllerState::PositioningPastingPoint { .. } => PastingStatus::Copy,
             ControllerState::PositioningDuplicationPoint { .. } => PastingStatus::Duplication,
+            ControllerState::PastingXovers { .. } => PastingStatus::Copy,
+            ControllerState::DoingFirstXoversDuplication { .. } => PastingStatus::Duplication,
             _ => PastingStatus::None,
         }
     }
@@ -309,11 +312,16 @@ impl Controller {
     }
 
     fn make_undoable(
+        &self,
         result: Result<(OkOperation, Self), ErrOperation>,
     ) -> Result<(OkOperation, Self), ErrOperation> {
-        match result {
-            Ok((ok_op, interactor)) => Ok((ok_op.into_undoable(), interactor)),
-            Err(e) => Err(e),
+        if self.state.is_undoable_once() {
+            match result {
+                Ok((ok_op, interactor)) => Ok((ok_op.into_undoable(), interactor)),
+                Err(e) => Err(e),
+            }
+        } else {
+            result
         }
     }
 
@@ -1342,12 +1350,22 @@ impl Controller {
         }
     }
 
-    fn general_cross_over(
+    fn apply_general_cross_over(
         &mut self,
         mut design: Design,
         source_nucl: Nucl,
         target_nucl: Nucl,
     ) -> Result<Design, ErrOperation> {
+        self.general_cross_over(&mut design, source_nucl, target_nucl)?;
+        Ok(design)
+    }
+
+    fn general_cross_over(
+        &mut self,
+        design: &mut Design,
+        source_nucl: Nucl,
+        target_nucl: Nucl,
+    ) -> Result<(), ErrOperation> {
         if source_nucl.helix == target_nucl.helix {
             return Err(ErrOperation::XoverOnSameHelix);
         }
@@ -1387,17 +1405,17 @@ impl Controller {
             (Some(true), Some(false)) => {
                 // We can xover directly
                 if source_id == target_id {
-                    Self::make_cycle(&mut design, source_id, true)?
+                    Self::make_cycle(design, source_id, true)?
                 } else {
-                    Self::merge_strands(&mut design, source_id, target_id)?
+                    Self::merge_strands(design, source_id, target_id)?
                 }
             }
             (Some(false), Some(true)) => {
                 // We can xover directly but we must reverse the xover
                 if source_id == target_id {
-                    Self::make_cycle(&mut design, target_id, true)?
+                    Self::make_cycle(design, target_id, true)?
                 } else {
-                    Self::merge_strands(&mut design, target_id, source_id)?
+                    Self::merge_strands(design, target_id, source_id)?
                 }
             }
             (Some(b), None) => {
@@ -1405,36 +1423,24 @@ impl Controller {
                 // different
                 let target_3prime = b;
                 if source_nucl.helix != target_nucl.helix {
-                    Self::cross_cut(
-                        &mut design,
-                        source_id,
-                        target_id,
-                        target_nucl,
-                        target_3prime,
-                    )?
+                    Self::cross_cut(design, source_id, target_id, target_nucl, target_3prime)?
                 }
             }
             (None, Some(b)) => {
                 // We can cut cross directly but we need to reverse the xover
                 let target_3prime = b;
                 if source_nucl.helix != target_nucl.helix {
-                    Self::cross_cut(
-                        &mut design,
-                        target_id,
-                        source_id,
-                        source_nucl,
-                        target_3prime,
-                    )?
+                    Self::cross_cut(design, target_id, source_id, source_nucl, target_3prime)?
                 }
             }
             (None, None) => {
                 if source_nucl.helix != target_nucl.helix {
                     if source_id != target_id {
-                        Self::split_strand(&mut design, &source_nucl, None)?;
-                        Self::cross_cut(&mut design, source_id, target_id, target_nucl, true)?;
+                        Self::split_strand(design, &source_nucl, None)?;
+                        Self::cross_cut(design, source_id, target_id, target_nucl, true)?;
                     } else if source.cyclic {
-                        Self::split_strand(&mut design, &source_nucl, Some(false))?;
-                        Self::cross_cut(&mut design, source_id, target_id, target_nucl, true)?;
+                        Self::split_strand(design, &source_nucl, Some(false))?;
+                        Self::cross_cut(design, source_id, target_id, target_nucl, true)?;
                     } else {
                         // if the two nucleotides are on the same strand care must be taken
                         // because one of them might be on the newly crated strand after the
@@ -1448,18 +1454,17 @@ impl Controller {
                         if pos1 > pos2 {
                             // the source nucl will be on the 5' end of the split and the
                             // target nucl as well
-                            Self::split_strand(&mut design, &source_nucl, Some(false))?;
-                            Self::cross_cut(&mut design, source_id, target_id, target_nucl, true)?;
+                            Self::split_strand(design, &source_nucl, Some(false))?;
+                            Self::cross_cut(design, source_id, target_id, target_nucl, true)?;
                         } else {
-                            let new_id =
-                                Self::split_strand(&mut design, &source_nucl, Some(false))?;
-                            Self::cross_cut(&mut design, source_id, new_id, target_nucl, true)?;
+                            let new_id = Self::split_strand(design, &source_nucl, Some(false))?;
+                            Self::cross_cut(design, source_id, new_id, target_nucl, true)?;
                         }
                     }
                 }
             }
         }
-        Ok(design)
+        Ok(())
     }
 }
 
@@ -1555,6 +1560,7 @@ impl ControllerState {
         &mut self,
         point: Option<Nucl>,
         edge: Option<(Edge, isize)>,
+        design: &Design,
     ) -> Result<(), ErrOperation> {
         match self {
             Self::PastingXovers { pasting_point, .. } => {
@@ -1568,6 +1574,13 @@ impl ControllerState {
             } => {
                 *pasting_point = point;
                 *duplication_edge = edge;
+                Ok(())
+            }
+            Self::Normal | Self::WithPendingOp(_) | Self::WithPendingDuplication { .. } => {
+                *self = Self::PastingXovers {
+                    pasting_point: point,
+                    initial_design: AddressPointer::new(design.clone()),
+                };
                 Ok(())
             }
             _ => Err(ErrOperation::IncompatibleState),
@@ -1603,6 +1616,14 @@ impl ControllerState {
             Self::Normal
         } else {
             self.clone()
+        }
+    }
+
+    /// Return true if the operation is undoable only when going from this state to normal
+    fn is_undoable_once(&self) -> bool {
+        match self {
+            Self::PositioningDuplicationPoint { .. } | Self::PositioningPastingPoint { .. } => true,
+            _ => false,
         }
     }
 }

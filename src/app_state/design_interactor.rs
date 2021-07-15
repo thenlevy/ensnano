@@ -652,12 +652,48 @@ mod tests {
     }
 
     #[test]
-    fn pasting_xovers() {
+    fn positioning_xovers_paste() {
         let mut app_state = pastable_design();
         let (n1, n2) = app_state.get_design_reader().get_xover_with_id(0).unwrap();
         app_state
             .apply_copy_operation(CopyOperation::CopyXovers(vec![(n1, n2)]))
             .unwrap();
-        todo!()
+        app_state
+            .apply_copy_operation(CopyOperation::PositionPastingPoint(None))
+            .unwrap();
+        assert_eq!(app_state.0.design.design.strands.len(), 1);
+        app_state
+            .apply_copy_operation(CopyOperation::PositionPastingPoint(Some(Nucl {
+                helix: 1,
+                position: 5,
+                forward: true,
+            })))
+            .unwrap();
+        assert_eq!(app_state.0.design.design.strands.len(), 2);
+        app_state
+            .apply_copy_operation(CopyOperation::PositionPastingPoint(Some(Nucl {
+                helix: 1,
+                position: 3,
+                forward: true,
+            })))
+            .unwrap();
+        assert_eq!(app_state.0.design.design.strands.len(), 2);
+        app_state
+            .apply_copy_operation(CopyOperation::PositionPastingPoint(None))
+            .unwrap();
+        assert_eq!(app_state.0.design.design.strands.len(), 1);
+    }
+
+    #[test]
+    fn pasting_when_positioning_xovers() {
+        let mut app_state = pastable_design();
+        let (n1, n2) = app_state.get_design_reader().get_xover_with_id(0).unwrap();
+        app_state
+            .apply_copy_operation(CopyOperation::CopyXovers(vec![(n1, n2)]))
+            .unwrap();
+        app_state
+            .apply_copy_operation(CopyOperation::PositionPastingPoint(None))
+            .unwrap();
+        assert_eq!(app_state.is_pasting(), PastingStatus::Copy);
     }
 }

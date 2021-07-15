@@ -124,6 +124,10 @@ impl MainReader for DesignReader {
         self.presenter.junctions_ids.get_id(pair)
     }
 
+    fn get_xover_with_id(&self, id: usize) -> Option<(Nucl, Nucl)> {
+        self.presenter.junctions_ids.get_element(id)
+    }
+
     fn get_grid_position_of_helix(&self, h_id: usize) -> Option<GridPosition> {
         self.presenter
             .current_design

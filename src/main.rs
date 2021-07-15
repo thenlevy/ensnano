@@ -893,13 +893,22 @@ impl MainState {
     }
 
     fn request_copy(&mut self) {
-        let strand_ids = ensnano_interactor::extract_strands_from_selection(
+        let reader = self.app_state.get_design_reader();
+        if let Some((_, xover_ids)) = ensnano_interactor::list_of_xover_as_nucl_pairs(
             self.app_state.get_selection().as_ref(),
-        );
-        self.apply_copy_operation(CopyOperation::CopyStrands(strand_ids))
+            &reader,
+        ) {
+            self.apply_copy_operation(CopyOperation::CopyXovers(xover_ids))
+        } else {
+            let strand_ids = ensnano_interactor::extract_strands_from_selection(
+                self.app_state.get_selection().as_ref(),
+            );
+            self.apply_copy_operation(CopyOperation::CopyStrands(strand_ids))
+        }
     }
 
     fn apply_paste(&mut self) {
+        println!("apply paste");
         match self.app_state.is_pasting() {
             PastingStatus::Copy => self.apply_copy_operation(CopyOperation::Paste),
             PastingStatus::Duplication => self.apply_copy_operation(CopyOperation::Duplicate),

@@ -184,3 +184,114 @@ fn new_selection_empties_duplication_clipboard() {
     );
     main_state.update();
 }
+
+#[test]
+fn position_paste_via_requests() {
+    use crate::scene::DesignReader;
+    let mut main_state = new_state();
+    let app_state = pastable_design();
+    main_state.clear_app_state(app_state);
+    main_state.update_selection(vec![Selection::Xover(0, 0)]);
+    main_state.request_copy();
+    let nucl = Nucl {
+        helix: 1,
+        position: 3,
+        forward: true,
+    };
+    assert!(!main_state
+        .app_state
+        .get_design_reader()
+        .is_xover_end(&nucl)
+        .to_opt()
+        .is_some());
+    main_state.apply_copy_operation(CopyOperation::PositionPastingPoint(None));
+    main_state.apply_copy_operation(CopyOperation::PositionPastingPoint(Some(Nucl {
+        helix: 1,
+        position: 3,
+        forward: true,
+    })));
+    main_state.update();
+    assert!(main_state
+        .app_state
+        .get_design_reader()
+        .is_xover_end(&nucl)
+        .to_opt()
+        .is_some());
+}
+
+#[test]
+fn undo_redo_copy_paste_xover() {
+    use crate::scene::DesignReader;
+    let mut main_state = new_state();
+    let app_state = pastable_design();
+    main_state.clear_app_state(app_state);
+    main_state.update_selection(vec![Selection::Xover(0, 0)]);
+    main_state.request_copy();
+    let nucl = Nucl {
+        helix: 1,
+        position: 3,
+        forward: true,
+    };
+    main_state.apply_copy_operation(CopyOperation::PositionPastingPoint(None));
+    main_state.apply_copy_operation(CopyOperation::PositionPastingPoint(Some(Nucl {
+        helix: 1,
+        position: 3,
+        forward: true,
+    })));
+    main_state.apply_copy_operation(CopyOperation::Paste);
+    main_state.update();
+    assert!(main_state
+        .app_state
+        .get_design_reader()
+        .is_xover_end(&nucl)
+        .to_opt()
+        .is_some());
+    main_state.undo();
+    main_state.update();
+    assert!(!main_state
+        .app_state
+        .get_design_reader()
+        .is_xover_end(&nucl)
+        .to_opt()
+        .is_some());
+    main_state.redo();
+    main_state.update();
+    assert!(main_state
+        .app_state
+        .get_design_reader()
+        .is_xover_end(&nucl)
+        .to_opt()
+        .is_some());
+}
+
+#[test]
+fn undo_redo_copy_paste_xover_pasting_status() {
+    use crate::scene::DesignReader;
+    let mut main_state = new_state();
+    let app_state = pastable_design();
+    main_state.clear_app_state(app_state);
+    main_state.update_selection(vec![Selection::Xover(0, 0)]);
+    main_state.request_copy();
+    let nucl = Nucl {
+        helix: 1,
+        position: 3,
+        forward: true,
+    };
+    main_state.apply_copy_operation(CopyOperation::PositionPastingPoint(None));
+    assert!(main_state.app_state.is_pasting().is_pasting());
+    main_state.apply_copy_operation(CopyOperation::PositionPastingPoint(Some(Nucl {
+        helix: 1,
+        position: 3,
+        forward: true,
+    })));
+    assert!(main_state.app_state.is_pasting().is_pasting());
+    main_state.apply_copy_operation(CopyOperation::Paste);
+    main_state.update();
+    assert!(!main_state.app_state.is_pasting().is_pasting());
+    main_state.undo();
+    main_state.update();
+    assert!(!main_state.app_state.is_pasting().is_pasting());
+    main_state.redo();
+    main_state.update();
+    assert!(!main_state.app_state.is_pasting().is_pasting());
+}

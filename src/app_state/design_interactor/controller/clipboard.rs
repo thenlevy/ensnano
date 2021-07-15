@@ -468,7 +468,26 @@ impl Controller {
         true
     }
 
-    pub(super) fn apply_paste(&mut self, mut design: Design) -> Result<Design, ErrOperation> {
+    pub(super) fn apply_paste(&mut self, design: Design) -> Result<Design, ErrOperation> {
+        match self.state {
+            ControllerState::PastingXovers { .. }
+            | ControllerState::DoingFirstXoversDuplication { .. } => {
+                self.apply_paste_xovers(design)
+            }
+            ControllerState::PositioningPastingPoint { .. }
+            | ControllerState::PositioningDuplicationPoint { .. } => {
+                self.apply_paste_strands(design)
+            }
+            _ => Err(ErrOperation::IncompatibleState),
+        }
+    }
+
+    fn apply_paste_xovers(&mut self, design: Design) -> Result<Design, ErrOperation> {
+        self.state = ControllerState::Normal;
+        Ok(design)
+    }
+
+    fn apply_paste_strands(&mut self, mut design: Design) -> Result<Design, ErrOperation> {
         let pasted_strands = match &self.state {
             ControllerState::PositioningPastingPoint { pasted_strands, .. } => Ok(pasted_strands),
             ControllerState::PositioningDuplicationPoint { pasted_strands, .. } => {
@@ -638,9 +657,41 @@ impl Controller {
         let edge = nucl
             .as_ref()
             .and_then(|n2| Self::edge_beteen_nucls(design, &grid_manager, &n1, n2));
-        self.state.update_xover_pasting_position(nucl, edge)?;
-        Err(ErrOperation::NotImplemented) //TODO
-                                          //Ok(())
+        self.state
+            .update_xover_pasting_position(nucl, edge, design)?;
+        if let Some(edge) = edge {
+            let clipboard = self.clipboard.clone();
+            let xovers = match clipboard.as_ref() {
+                Clipboard::Xovers(xovers) => Ok(xovers),
+                _ => Err(ErrOperation::WrongClipboard),
+            }?;
+            self.put_xovers_on_design(&grid_manager, design, xovers, edge)?;
+        }
+        Ok(())
+    }
+
+    fn put_xovers_on_design(
+        &mut self,
+        grid_manager: &GridManager,
+        design: &mut Design,
+        xovers: &[(Nucl, Nucl)],
+        copy_edge: (Edge, isize),
+    ) -> Result<(), ErrOperation> {
+        let (edge, shift) = copy_edge;
+        for (n1, n2) in xovers.iter() {
+            let copy_1 = self.translate_nucl_by_edge(n1, &edge, shift, design, grid_manager);
+            println!("copy 1 {:?}", copy_1);
+            let copy_2 = self.translate_nucl_by_edge(n2, &edge, shift, design, grid_manager);
+            println!("copy 2 {:?}", copy_2);
+            if let Some((copy_1, copy_2)) = copy_1.zip(copy_2) {
+                if !design.is_true_xover_end(&copy_1) && !design.is_true_xover_end(&copy_2) {
+                    // If general_cross_over returns an error we simply ignore this cross_over
+                    self.general_cross_over(design, copy_1, copy_2)
+                        .unwrap_or_default();
+                }
+            }
+        }
+        Ok(())
     }
 }
 
