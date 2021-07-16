@@ -184,6 +184,10 @@ impl DesignInteractor {
     pub(super) fn can_iterate_duplication(&self) -> bool {
         self.controller.can_iterate_duplication()
     }
+
+    pub(super) fn is_building_hyperboloid(&self) -> bool {
+        self.controller.is_building_hyperboloid()
+    }
 }
 
 /// An opperation has been successfully applied to the design, resulting in a new modifed

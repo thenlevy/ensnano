@@ -55,7 +55,7 @@ impl GuiState for AppState {
     }
 
     fn is_building_hyperboloid(&self) -> bool {
-        false
+        self.0.design.is_building_hyperboloid()
     }
 
     fn get_scaffold_info(&self) -> Option<ScaffoldInfo> {

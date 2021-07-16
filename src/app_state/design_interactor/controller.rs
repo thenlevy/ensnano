@@ -18,10 +18,10 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 
 use crate::app_state::AddressPointer;
 use ensnano_design::{
-    grid::{Edge, GridDescriptor, GridPosition},
+    grid::{Edge, GridDescriptor, GridPosition, Hyperboloid},
     mutate_helix, Design, Domain, DomainJunction, Helix, Nucl, Strand,
 };
-use ensnano_interactor::operation::Operation;
+use ensnano_interactor::{operation::Operation, HyperboloidOperation};
 use ensnano_interactor::{
     DesignOperation, DesignRotation, DesignTranslation, DomainIdentifier, IsometryTarget,
     NeighbourDescriptor, NeighbourDescriptorGiver, Selection, StrandBuilder,
@@ -165,6 +165,9 @@ impl Controller {
                 },
                 design,
             )),
+            DesignOperation::HyperboloidOperation(op) => {
+                self.apply(|c, d| c.apply_hyperbolid_operation(d, op), design)
+            }
             _ => Err(ErrOperation::NotImplemented),
         }
     }
@@ -237,6 +240,110 @@ impl Controller {
         }
     }
 
+    fn add_hyperboloid_helices(
+        &mut self,
+        design: &mut Design,
+        hyperboloid: &Hyperboloid,
+        position: Vec3,
+        orientation: Rotor3,
+    ) {
+        use ensnano_design::grid::GridDivision;
+        let parameters = design.parameters.unwrap_or_default();
+        let (helices, nb_nucl) = hyperboloid.make_helices(&parameters);
+        let nb_nucl = nb_nucl.min(5000);
+        let mut key = design.helices.keys().max().map(|m| m + 1).unwrap_or(0);
+        let mut new_helices = BTreeMap::clone(design.helices.as_ref());
+        for (i, mut h) in helices.into_iter().enumerate() {
+            let origin = hyperboloid.origin_helix(&parameters, i as isize, 0);
+            let z_vec = Vec3::unit_z().rotated_by(orientation);
+            let y_vec = Vec3::unit_y().rotated_by(orientation);
+            h.position = position + origin.x * z_vec + origin.y * y_vec;
+            h.orientation = orientation * hyperboloid.orientation_helix(&parameters, i as isize, 0);
+            new_helices.insert(key, Arc::new(h));
+            for b in [true, false].iter() {
+                let new_key = self.add_strand(design, key, -(nb_nucl as isize) / 2, *b);
+                if let Domain::HelixDomain(ref mut dom) =
+                    design.strands.get_mut(&new_key).unwrap().domains[0]
+                {
+                    dom.end = dom.start + nb_nucl as isize;
+                }
+            }
+            key += 1;
+        }
+        design.helices = Arc::new(new_helices);
+    }
+
+    fn apply_hyperbolid_operation(
+        &mut self,
+        mut design: Design,
+        operation: HyperboloidOperation,
+    ) -> Result<Design, ErrOperation> {
+        match operation {
+            HyperboloidOperation::New {
+                position,
+                orientation,
+                request,
+            } => {
+                self.state = ControllerState::MakingHyperboloid {
+                    position,
+                    orientation,
+                    initial_design: AddressPointer::new(design.clone()),
+                };
+                let hyperboloid = request.to_grid();
+                let grid_descriptor =
+                    GridDescriptor::hyperboloid(position, orientation, hyperboloid.clone());
+                design = self.add_grid(design, grid_descriptor);
+                self.add_hyperboloid_helices(&mut design, &hyperboloid, position, orientation);
+                Ok(design)
+            }
+            HyperboloidOperation::Update(request) => {
+                if let ControllerState::MakingHyperboloid {
+                    position,
+                    orientation,
+                    initial_design,
+                } = &self.state
+                {
+                    let position = position.clone();
+                    let orientation = orientation.clone();
+                    design = initial_design.clone_inner();
+                    let hyperboloid = request.to_grid();
+                    let grid_descriptor =
+                        GridDescriptor::hyperboloid(position, orientation, hyperboloid.clone());
+                    design = self.add_grid(design, grid_descriptor);
+                    self.add_hyperboloid_helices(&mut design, &hyperboloid, position, orientation);
+                    Ok(design)
+                } else {
+                    Err(ErrOperation::IncompatibleState)
+                }
+            }
+            HyperboloidOperation::Cancel => {
+                if let ControllerState::MakingHyperboloid { initial_design, .. } = &self.state {
+                    let design = initial_design.clone_inner();
+                    self.state = ControllerState::Normal;
+                    Ok(design)
+                } else {
+                    Err(ErrOperation::IncompatibleState)
+                }
+            }
+            HyperboloidOperation::Finalize => {
+                if let ControllerState::MakingHyperboloid { .. } = &self.state {
+                    self.state = ControllerState::Normal;
+                    Ok(design)
+                } else {
+                    Err(ErrOperation::IncompatibleState)
+                }
+            }
+        }
+    }
+
+    pub(super) fn is_building_hyperboloid(&self) -> bool {
+        if let ControllerState::MakingHyperboloid { .. } = &self.state {
+            true
+        } else {
+            false
+        }
+    }
+
     pub fn can_iterate_duplication(&self) -> bool {
         if let ControllerState::WithPendingDuplication { .. } = self.state {
             true
@@ -300,6 +407,17 @@ impl Controller {
     fn check_compatibilty(&self, operation: &DesignOperation) -> bool {
         match self.state {
             ControllerState::Normal => true,
+            ControllerState::MakingHyperboloid { .. } => {
+                if let DesignOperation::HyperboloidOperation(op) = operation {
+                    if let HyperboloidOperation::New { .. } = op {
+                        false
+                    } else {
+                        true
+                    }
+                } else {
+                    false
+                }
+            }
             ControllerState::WithPendingOp(_) => true,
             ControllerState::WithPendingDuplication { .. } => true,
             ControllerState::ChangingColor => {
@@ -1606,7 +1724,11 @@ fn nucl_pos_2d(design: &Design, nucl: &Nucl) -> Option<Vec2> {
 #[derive(Clone)]
 enum ControllerState {
     Normal,
-    MakingHyperboloid,
+    MakingHyperboloid {
+        initial_design: AddressPointer<Design>,
+        position: Vec3,
+        orientation: Rotor3,
+    },
     BuildingStrand {
         builders: Vec<StrandBuilder>,
         initial_design: AddressPointer<Design>,
@@ -1661,7 +1783,7 @@ impl ControllerState {
     fn state_name(&self) -> &'static str {
         match self {
             Self::Normal => "Normal",
-            Self::MakingHyperboloid => "MakingHyperboloid",
+            Self::MakingHyperboloid { .. } => "MakingHyperboloid",
             Self::BuildingStrand { .. } => "BuildingStrand",
             Self::ChangingColor => "ChangingColor",
             Self::WithPendingOp(_) => "WithPendingOp",
@@ -1755,7 +1877,7 @@ impl ControllerState {
         } else {
             match self {
                 Self::Normal => Self::Normal,
-                Self::MakingHyperboloid => Self::Normal,
+                Self::MakingHyperboloid { .. } => self.clone(),
                 Self::BuildingStrand { .. } => Self::Normal,
                 Self::ChangingColor => Self::Normal,
                 Self::WithPendingOp(_) => Self::Normal,

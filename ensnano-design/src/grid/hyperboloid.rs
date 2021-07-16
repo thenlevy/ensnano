@@ -103,6 +103,16 @@ impl Hyperboloid {
         }
     }
 
+    pub fn desc(&self) -> GridTypeDescr {
+        GridTypeDescr::Hyperboloid {
+            radius: self.radius,
+            shift: self.shift,
+            length: self.length,
+            radius_shift: self.radius_shift,
+            forced_radius: self.forced_radius,
+        }
+    }
+
     /// Return the radii of the sheet so that the helices respectively fits perfectly at the center of the
     /// hyperboloid or at the extremity of the hyperboloid
     fn sheet_radii(&self, parameters: &Parameters) -> (f32, f32) {

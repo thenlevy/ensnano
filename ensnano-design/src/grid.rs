@@ -53,6 +53,16 @@ pub enum GridTypeDescr {
     },
 }
 
+impl GridDescriptor {
+    pub fn hyperboloid(position: Vec3, orientation: Rotor3, hyperboloid: Hyperboloid) -> Self {
+        Self {
+            position,
+            orientation,
+            grid_type: hyperboloid.desc(),
+        }
+    }
+}
+
 impl GridTypeDescr {
     pub fn to_string(&self) -> String {
         match self {

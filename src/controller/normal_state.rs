@@ -18,6 +18,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 
 use super::*;
 use ensnano_design::Nucl;
+use ensnano_interactor::HyperboloidOperation;
 
 /// User is interacting with graphical components.
 pub(super) struct NormalState;
@@ -121,6 +122,18 @@ impl State for NormalState {
                     main_state.scaffold_to_selection();
                     self
                 }
+                Action::NewHyperboloid(request) => {
+                    if let Some((position, orientation)) = main_state.get_grid_creation_position() {
+                        main_state.apply_operation(DesignOperation::HyperboloidOperation(
+                            HyperboloidOperation::New {
+                                request,
+                                position,
+                                orientation,
+                            },
+                        ));
+                    }
+                    self
+                }
                 _ => todo!(),
             }
         } else {
@@ -221,6 +234,7 @@ use ensnano_design::{
     elements::{DnaAttribute, DnaElementKey},
     grid::{GridDescriptor, GridTypeDescr},
 };
+use ensnano_interactor::HyperboloidRequest;
 use ensnano_interactor::{
     application::Notification, DesignOperation, RigidBodyConstants, Selection, SimulationRequest,
 };
@@ -271,6 +285,7 @@ pub enum Action {
     },
     RigidParametersUpdate(RigidBodyConstants),
     TurnIntoAnchor,
+    NewHyperboloid(HyperboloidRequest),
     UpdateHyperboloidShift(f32),
     SetVisiblitySieve {
         visible: bool,

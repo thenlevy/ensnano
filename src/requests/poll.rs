@@ -157,9 +157,7 @@ pub(crate) fn poll_all<R: DerefMut<Target = Requests>>(
     }
 
     if let Some(hyperboloid) = requests.new_hyperboloid.take() {
-        main_state.push_action(Action::DesignOperation(
-            DesignOperation::HyperboloidOperation(HyperboloidOperation::New(hyperboloid)),
-        ))
+        main_state.push_action(Action::NewHyperboloid(hyperboloid))
     }
 
     if let Some(hyperboloid) = requests.hyperboloid_update.take() {

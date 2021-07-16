@@ -184,7 +184,11 @@ pub enum AppOperation {
 
 #[derive(Debug, Clone)]
 pub enum HyperboloidOperation {
-    New(HyperboloidRequest),
+    New {
+        request: HyperboloidRequest,
+        position: Vec3,
+        orientation: Rotor3,
+    },
     Update(HyperboloidRequest),
     Finalize,
     Cancel,
@@ -234,7 +238,7 @@ pub struct HyperboloidRequest {
 }
 
 impl HyperboloidRequest {
-    fn to_grid(self) -> Hyperboloid {
+    pub fn to_grid(self) -> Hyperboloid {
         Hyperboloid {
             radius: self.radius,
             length: self.length,
