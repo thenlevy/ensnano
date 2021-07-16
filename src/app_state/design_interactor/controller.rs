@@ -158,6 +158,13 @@ impl Controller {
             DesignOperation::RmXovers { xovers } => {
                 self.apply(|c, d| c.delete_xovers(d, &xovers), design)
             }
+            DesignOperation::SetScaffoldId(s_id) => Ok(self.ok_apply(
+                |_, mut d| {
+                    d.scaffold_id = s_id;
+                    d
+                },
+                design,
+            )),
             _ => Err(ErrOperation::NotImplemented),
         }
     }
