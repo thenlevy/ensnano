@@ -291,7 +291,7 @@ pub(crate) fn poll_all<R: DerefMut<Target = Requests>>(
 
     if requests.select_scaffold.take().is_some() {
         println!("select scaffold");
-        main_state.push_action(Action::ScaffoldFromSelection)
+        main_state.push_action(Action::ScaffoldToSelection)
     }
 
     if let Some(n) = requests.scaffold_shift.take() {

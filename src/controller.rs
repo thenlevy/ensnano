@@ -190,6 +190,7 @@ pub(crate) trait MainState: ScaffoldSetter {
     fn apply_paste(&mut self);
     fn duplicate(&mut self);
     fn delete_selection(&mut self);
+    fn scaffold_to_selection(&mut self);
 }
 
 pub struct LoadDesignError(String);

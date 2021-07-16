@@ -117,6 +117,10 @@ impl State for NormalState {
                     main_state.delete_selection();
                     self
                 }
+                Action::ScaffoldToSelection => {
+                    main_state.scaffold_to_selection();
+                    self
+                }
                 _ => todo!(),
             }
         } else {
@@ -272,7 +276,7 @@ pub enum Action {
         visible: bool,
     },
     DeleteSelection,
-    ScaffoldFromSelection,
+    ScaffoldToSelection,
     /// Remove empty domains and merge consecutive domains
     CleanDesign,
     UpdateAttribute {

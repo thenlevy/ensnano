@@ -1144,6 +1144,19 @@ impl<'a> MainStateInteface for MainStateView<'a> {
                 .apply_operation(DesignOperation::RmHelices { h_ids })
         }
     }
+
+    fn scaffold_to_selection(&mut self) {
+        let scaffold_id = self
+            .main_state
+            .get_app_state()
+            .get_design_reader()
+            .get_scaffold_info()
+            .map(|info| info.id);
+        if let Some(s_id) = scaffold_id {
+            self.main_state
+                .update_selection(vec![Selection::Strand(0, s_id as u32)])
+        }
+    }
 }
 
 use controller::{SetScaffoldSequenceError, SetScaffoldSequenceOk};
