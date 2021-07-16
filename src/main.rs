@@ -449,13 +449,19 @@ fn main() {
                         update
                     {
                         main_state.messages.lock().unwrap().finish_progess();
-                        main_state
-                            .apply_operation(DesignOperation::SetScaffoldShift(result.position));
-                        let msg = format!(
-                            "Scaffold position set to {}\n {}",
-                            result.position, result.score
-                        );
-                        main_state.pending_actions.push_back(Action::ErrorMsg(msg));
+                        if let Ok(result) = result {
+                            main_state.apply_operation(DesignOperation::SetScaffoldShift(
+                                result.position,
+                            ));
+                            let msg = format!(
+                                "Scaffold position set to {}\n {}",
+                                result.position, result.score
+                            );
+                            main_state.pending_actions.push_back(Action::ErrorMsg(msg));
+                        } else {
+                            // unwrap because in this block, result is necessarilly an Err
+                            println!("{:?}", result.err().unwrap());
+                        }
                     }
                 }
 
@@ -884,6 +890,12 @@ impl MainState {
         self.apply_operation_result(result);
     }
 
+    fn optimize_shift(&mut self) {
+        let reader = &mut self.chanel_reader;
+        let result = self.app_state.optimize_shift(reader);
+        self.apply_operation_result(result);
+    }
+
     fn apply_operation_result(&mut self, result: Result<Option<AppState>, ErrOperation>) {
         match result {
             Ok(Some(old_state)) => self.save_old_state(old_state),
@@ -1154,7 +1166,7 @@ impl<'a> controller::ScaffoldSetter for MainStateView<'a> {
     }
 
     fn optimize_shift(&mut self) {
-        todo!()
+        self.main_state.optimize_shift();
     }
 }
 

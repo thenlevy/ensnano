@@ -29,6 +29,7 @@ mod impl_reader2d;
 mod impl_reader3d;
 mod impl_readergui;
 mod oxdna;
+use ahash::AHashMap;
 use design_content::DesignContent;
 use std::collections::BTreeMap;
 
@@ -161,6 +162,10 @@ impl Presenter {
             }
         }
         ret
+    }
+
+    pub(super) fn get_nucl_map(&self) -> AHashMap<Nucl, u32> {
+        self.content.identifier_nucl.clone().into()
     }
 }
 

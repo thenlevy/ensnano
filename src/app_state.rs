@@ -36,7 +36,10 @@ use ensnano_design::Design;
 use ensnano_interactor::DesignOperation;
 
 pub use design_interactor::controller::ErrOperation;
-pub use design_interactor::{CopyOperation, DesignReader, InteractorNotification, PastingStatus};
+pub use design_interactor::{
+    CopyOperation, DesignReader, InteractorNotification, PastingStatus, ShiftOptimizationResult,
+    ShiftOptimizerReader,
+};
 use design_interactor::{DesignInteractor, InteractorResult};
 
 mod impl_app2d;
@@ -215,6 +218,14 @@ impl AppState {
 
     pub(super) fn can_iterate_duplication(&self) -> bool {
         self.0.design.can_iterate_duplication()
+    }
+
+    pub(super) fn optimize_shift(
+        &mut self,
+        reader: &mut dyn ShiftOptimizerReader,
+    ) -> Result<Option<Self>, ErrOperation> {
+        let result = self.0.design.optimize_shift(reader);
+        self.handle_operation_result(result)
     }
 }
 

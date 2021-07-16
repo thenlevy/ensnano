@@ -24,7 +24,10 @@ mod presenter;
 use presenter::{update_presenter, Presenter};
 pub(super) mod controller;
 use controller::Controller;
-pub use controller::{CopyOperation, InteractorNotification, PastingStatus};
+pub use controller::{
+    CopyOperation, InteractorNotification, PastingStatus, ShiftOptimizationResult,
+    ShiftOptimizerReader,
+};
 
 pub(super) use controller::ErrOperation;
 use controller::OkOperation;
@@ -53,6 +56,16 @@ impl DesignInteractor {
             presenter: self.presenter.clone(),
             controller: self.controller.clone(),
         }
+    }
+    pub(super) fn optimize_shift(
+        &self,
+        reader: &mut dyn ShiftOptimizerReader,
+    ) -> Result<InteractorResult, ErrOperation> {
+        let nucl_map = self.presenter.get_nucl_map().clone();
+        let result = self
+            .controller
+            .optimize_shift(reader, Arc::new(nucl_map), &self.design);
+        self.handle_operation_result(result)
     }
 
     pub(super) fn apply_operation(

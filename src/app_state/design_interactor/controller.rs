@@ -30,7 +30,7 @@ use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-use self::clipboard::{PastedStrand, StrandClipboard};
+use clipboard::{PastedStrand, StrandClipboard};
 
 use super::grid_data::GridManager;
 use ultraviolet::{Isometry2, Rotor3, Vec2, Vec3};
@@ -38,6 +38,10 @@ use ultraviolet::{Isometry2, Rotor3, Vec2, Vec3};
 mod clipboard;
 use clipboard::Clipboard;
 pub use clipboard::CopyOperation;
+
+mod shift_optimization;
+use ahash::AHashMap;
+pub use shift_optimization::{ShiftOptimizationResult, ShiftOptimizerReader};
 
 #[derive(Clone, Default)]
 pub(super) struct Controller {
@@ -77,6 +81,9 @@ impl Controller {
                 |ctrl, design| ctrl.set_scaffold_sequence(design, sequence),
                 design,
             )),
+            DesignOperation::SetScaffoldShift(shift) => {
+                Ok(self.ok_apply(|c, d| c.set_scaffold_shift(d, shift), design))
+            }
             DesignOperation::HelicesToGrid(selection) => {
                 self.apply(|c, d| c.turn_selection_into_grid(d, selection), design)
             }
@@ -220,7 +227,6 @@ impl Controller {
                 },
                 design,
             ),
-            _ => Err(ErrOperation::NotImplemented),
         }
     }
 
@@ -232,6 +238,31 @@ impl Controller {
         } else {
             false
         }
+    }
+
+    pub(super) fn optimize_shift(
+        &self,
+        chanel_reader: &mut dyn ShiftOptimizerReader,
+        nucl_map: Arc<AHashMap<Nucl, u32>>,
+        design: &Design,
+    ) -> Result<(OkOperation, Self), ErrOperation> {
+        if !self.check_compatibilty(&DesignOperation::SetScaffoldShift(0)) {
+            return Err(ErrOperation::IncompatibleState);
+        }
+        Ok(self.ok_no_op(
+            |c, d| c.start_shift_optimization(d, chanel_reader, nucl_map),
+            design,
+        ))
+    }
+
+    fn start_shift_optimization(
+        &mut self,
+        design: &Design,
+        chanel_reader: &mut dyn ShiftOptimizerReader,
+        nucl_map: Arc<AHashMap<Nucl, u32>>,
+    ) {
+        self.state = ControllerState::OptimizingScaffoldPosition;
+        shift_optimization::optimize_shift(Arc::new(design.clone()), nucl_map, chanel_reader);
     }
 
     pub fn size_of_clipboard(&self) -> usize {
@@ -279,6 +310,13 @@ impl Controller {
                     initializing
                 }
             }
+            ControllerState::OptimizingScaffoldPosition => {
+                if let DesignOperation::SetScaffoldShift(_) = operation {
+                    true
+                } else {
+                    false
+                }
+            }
             _ => false,
         }
     }
@@ -318,6 +356,7 @@ impl Controller {
     }
 
     /// Apply an operation that modifies the interactor and not the design, and that cannot fail.
+    #[allow(dead_code)]
     fn ok_no_op<F>(&self, interactor_op: F, design: &Design) -> (OkOperation, Self)
     where
         F: FnOnce(&mut Self, &Design),
@@ -597,6 +636,8 @@ pub enum ErrOperation {
     WrongClipboard,
     CannotPasteHere,
     HelixNotEmpty(usize),
+    EmptyScaffoldSequence,
+    NoScaffoldSet,
 }
 
 impl Controller {
@@ -622,6 +663,14 @@ impl Controller {
 
     fn set_scaffold_sequence(&mut self, mut design: Design, sequence: String) -> Design {
         design.scaffold_sequence = Some(sequence);
+        design
+    }
+
+    fn set_scaffold_shift(&mut self, mut design: Design, shift: usize) -> Design {
+        if let ControllerState::OptimizingScaffoldPosition = self.state {
+            self.state = ControllerState::Normal;
+        }
+        design.scaffold_shift = Some(shift);
         design
     }
 
@@ -895,7 +944,7 @@ impl Controller {
         mut design: Design,
         xovers: &[(Nucl, Nucl)],
     ) -> Result<Design, ErrOperation> {
-        for (n1, n2) in xovers.iter() {
+        for (n1, _) in xovers.iter() {
             let _ = Self::split_strand(&mut design, &n1, None)?;
         }
         Ok(design)
@@ -1421,7 +1470,7 @@ impl Controller {
             .get(&source_id)
             .cloned()
             .ok_or(ErrOperation::StrandDoesNotExist(source_id))?;
-        let target = design
+        let _ = design
             .strands
             .get(&target_id)
             .cloned()
@@ -1592,6 +1641,7 @@ enum ControllerState {
         xovers: Vec<(Nucl, Nucl)>,
         pasting_point: Option<Nucl>,
     },
+    OptimizingScaffoldPosition,
 }
 
 impl Default for ControllerState {
@@ -1615,6 +1665,7 @@ impl ControllerState {
             Self::WithPendingXoverDuplication { .. } => "WithPendingXoverDuplication",
             Self::PastingXovers { .. } => "PastingXovers",
             Self::DoingFirstXoversDuplication { .. } => "DoingFirstXoversDuplication",
+            Self::OptimizingScaffoldPosition => "OptimizingScaffoldPosition",
         }
     }
     fn update_pasting_position(
@@ -1695,7 +1746,21 @@ impl ControllerState {
         if let Some(op) = self.get_operation() {
             Self::WithPendingOp(op)
         } else {
-            Self::Normal
+            match self {
+                Self::Normal => Self::Normal,
+                Self::MakingHyperboloid => Self::Normal,
+                Self::BuildingStrand { .. } => Self::Normal,
+                Self::ChangingColor => Self::Normal,
+                Self::WithPendingOp(_) => Self::Normal,
+                Self::ApplyingOperation { .. } => Self::Normal,
+                Self::PositioningPastingPoint { .. } => self.clone(),
+                Self::PositioningDuplicationPoint { .. } => self.clone(),
+                Self::WithPendingDuplication { .. } => self.clone(),
+                Self::WithPendingXoverDuplication { .. } => self.clone(),
+                Self::PastingXovers { .. } => self.clone(),
+                Self::DoingFirstXoversDuplication { .. } => self.clone(),
+                Self::OptimizingScaffoldPosition => self.clone(),
+            }
         }
     }
 
