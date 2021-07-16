@@ -148,6 +148,9 @@ impl Controller {
             DesignOperation::RmHelices { h_ids } => {
                 self.apply(|c, d| c.delete_helices(d, h_ids), design)
             }
+            DesignOperation::RmXovers { xovers } => {
+                self.apply(|c, d| c.delete_xovers(d, &xovers), design)
+            }
             _ => Err(ErrOperation::NotImplemented),
         }
     }
@@ -885,6 +888,17 @@ impl Controller {
         } else {
             Err(ErrOperation::IncompatibleState)
         }
+    }
+
+    fn delete_xovers(
+        &mut self,
+        mut design: Design,
+        xovers: &[(Nucl, Nucl)],
+    ) -> Result<Design, ErrOperation> {
+        for (n1, n2) in xovers.iter() {
+            let _ = Self::split_strand(&mut design, &n1, None)?;
+        }
+        Ok(design)
     }
 
     fn cut(&mut self, mut design: Design, nucl: Nucl) -> Result<Design, ErrOperation> {

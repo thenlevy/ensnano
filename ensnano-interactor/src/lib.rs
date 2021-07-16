@@ -93,6 +93,9 @@ pub enum DesignOperation {
     RmHelices {
         h_ids: Vec<usize>,
     },
+    RmXovers {
+        xovers: Vec<(Nucl, Nucl)>,
+    },
     /// Split a strand at a given position. If the strand containing the nucleotide has length 1,
     /// delete the strand.
     Cut {

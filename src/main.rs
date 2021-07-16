@@ -1111,7 +1111,14 @@ impl<'a> MainStateInteface for MainStateView<'a> {
 
     fn delete_selection(&mut self) {
         let selection = self.get_selection();
-        if let Some((_, strand_ids)) =
+        if let Some((_, nucl_pairs)) = ensnano_interactor::list_of_xover_as_nucl_pairs(
+            selection.as_ref().as_ref(),
+            self.get_design_reader().as_ref(),
+        ) {
+            self.main_state.update_selection(vec![]);
+            self.main_state
+                .apply_operation(DesignOperation::RmXovers { xovers: nucl_pairs })
+        } else if let Some((_, strand_ids)) =
             ensnano_interactor::list_of_strands(selection.as_ref().as_ref())
         {
             self.main_state.update_selection(vec![]);
