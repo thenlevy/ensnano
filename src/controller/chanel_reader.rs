@@ -22,7 +22,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 use std::sync::mpsc;
 use std::sync::Weak;
 
-use crate::app_state::{ShiftOptimizationResult, ShiftOptimizerReader};
+use crate::app_state::{HelixSimulationReader, ShiftOptimizationResult, ShiftOptimizerReader};
 #[derive(Default)]
 pub struct ChanelReader {
     scaffold_shift_optimization_progress: Option<mpsc::Receiver<f32>>,

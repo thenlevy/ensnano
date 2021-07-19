@@ -117,6 +117,11 @@ impl Presenter {
         (ret, design)
     }
 
+    fn apply_simulation_update(&mut self, update: Box<dyn SimulationUpdate>) {
+        let mut new_content = self.content.clone_inner();
+        self.content = AddressPointer::new(new_content);
+    }
+
     fn read_design(&mut self, design: AddressPointer<Design>) {
         let (content, new_design, new_junctions_ids) = DesignContent::make_hash_maps(
             design.clone_inner(),
@@ -183,6 +188,21 @@ pub(super) fn update_presenter(
     } else {
         (presenter.clone(), design)
     }
+}
+
+pub(super) fn apply_simulation_update(
+    presenter: &AddressPointer<Presenter>,
+    design: AddressPointer<Design>,
+    update: Box<dyn SimulationUpdate>,
+) -> (AddressPointer<Presenter>, AddressPointer<Design>) {
+    let mut new_design = design.clone_inner();
+    update.update_design(&mut new_design);
+    let (mut returned_presenter, returned_design) =
+        update_presenter(presenter, AddressPointer::new(new_design));
+    let mut new_content = returned_presenter.content.clone_inner();
+    new_content.read_simualtion_update(update.as_ref());
+    returned_presenter.content = AddressPointer::new(new_content);
+    (returned_presenter, returned_design)
 }
 
 use ensnano_interactor::Referential;
@@ -319,4 +339,16 @@ impl HelixPresenter for Presenter {
     fn has_nucl(&self, nucl: &Nucl) -> bool {
         self.content.identifier_nucl.contains_key(nucl)
     }
+}
+
+use std::collections::HashMap;
+pub trait SimulationUpdate {
+    fn update_positions(
+        &self,
+        identifier_nucl: &HashMap<Nucl, u32, ahash::RandomState>,
+        space_position: &mut HashMap<u32, [f32; 3], ahash::RandomState>,
+    ) {
+    }
+
+    fn update_design(&self, design: &mut Design);
 }

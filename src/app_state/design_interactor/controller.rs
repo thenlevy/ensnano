@@ -28,9 +28,11 @@ use ensnano_interactor::{
 };
 use std::borrow::Cow;
 use std::collections::BTreeMap;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use clipboard::{PastedStrand, StrandClipboard};
+
+use self::simulations::{HelixSystemInterface, HelixSystemThread};
 
 use super::grid_data::GridManager;
 use ultraviolet::{Isometry2, Rotor3, Vec2, Vec3};
@@ -44,7 +46,9 @@ use ahash::AHashMap;
 pub use shift_optimization::{ShiftOptimizationResult, ShiftOptimizerReader};
 
 mod simulations;
-pub use simulations::HelixPresenter;
+pub use simulations::{
+    HelixPresenter, HelixSimulationReader, RigidHelixState, ShakeTarget, SimulationOperation,
+};
 
 #[derive(Clone, Default)]
 pub(super) struct Controller {
@@ -240,6 +244,51 @@ impl Controller {
                 },
                 design,
             ),
+        }
+    }
+
+    fn apply_simulation_operation(
+        &self,
+        operation: SimulationOperation,
+    ) -> Result<Self, ErrOperation> {
+        let mut ret = self.clone();
+        match operation {
+            SimulationOperation::StartHelices {
+                presenter,
+                parameters,
+                reader,
+            } => {
+                if !self.is_in_persistant_state() {
+                    return Err(ErrOperation::IncompatibleState);
+                }
+                let interface = HelixSystemThread::start_new(presenter, parameters, reader)?;
+                ret.state = ControllerState::Simulating { interface };
+                Ok(ret)
+            }
+            SimulationOperation::UpdateParameters { new_parameters } => {
+                if let ControllerState::Simulating { interface } = &ret.state {
+                    interface.lock().unwrap().parameters_update = Some(new_parameters);
+                    Ok(ret)
+                } else {
+                    Err(ErrOperation::IncompatibleState)
+                }
+            }
+            SimulationOperation::Shake(target) => {
+                if let ControllerState::Simulating { interface } = &ret.state {
+                    interface.lock().unwrap().nucl_shake = Some(target);
+                    Ok(ret)
+                } else {
+                    Err(ErrOperation::IncompatibleState)
+                }
+            }
+            SimulationOperation::Stop => {
+                if let ControllerState::Simulating { .. } = &ret.state {
+                    ret.state = ControllerState::Normal;
+                    Ok(ret)
+                } else {
+                    Err(ErrOperation::IncompatibleState)
+                }
+            }
         }
     }
 
@@ -1782,6 +1831,9 @@ enum ControllerState {
         pasting_point: Option<Nucl>,
     },
     OptimizingScaffoldPosition,
+    Simulating {
+        interface: Arc<Mutex<HelixSystemInterface>>,
+    },
 }
 
 impl Default for ControllerState {
@@ -1806,6 +1858,7 @@ impl ControllerState {
             Self::PastingXovers { .. } => "PastingXovers",
             Self::DoingFirstXoversDuplication { .. } => "DoingFirstXoversDuplication",
             Self::OptimizingScaffoldPosition => "OptimizingScaffoldPosition",
+            Self::Simulating { .. } => "Simulation",
         }
     }
     fn update_pasting_position(
@@ -1900,6 +1953,7 @@ impl ControllerState {
                 Self::PastingXovers { .. } => self.clone(),
                 Self::DoingFirstXoversDuplication { .. } => self.clone(),
                 Self::OptimizingScaffoldPosition => self.clone(),
+                Self::Simulating { .. } => self.clone(),
             }
         }
     }

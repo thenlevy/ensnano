@@ -580,7 +580,7 @@ impl RigidHelix {
     }
 }
 
-enum ShakeTarget {
+pub enum ShakeTarget {
     FreeNucl(usize),
     Helix(usize),
 }
@@ -783,17 +783,18 @@ fn inertia_helices(helices: &[RigidHelix], center_of_mass: Vec3) -> Mat3 {
     ret
 }
 
-struct HelixSystemThread {
+pub(super) struct HelixSystemThread {
     helix_system: HelixSystem,
     /// The interface of the thread. A weak pointer is used so that the thread execution will
     /// immeadiatly stop when the listener is dropped.
     interface: Weak<Mutex<HelixSystemInterface>>,
 }
 
+#[derive(Default)]
 pub struct HelixSystemInterface {
-    new_state: Option<RigidHelixState>,
-    nucl_shake: Option<ShakeTarget>,
-    parameters_update: Option<RigidBodyConstants>,
+    pub new_state: Option<RigidHelixState>,
+    pub(super) nucl_shake: Option<ShakeTarget>,
+    pub(super) parameters_update: Option<RigidBodyConstants>,
 }
 
 #[derive(Debug, Clone)]
@@ -805,6 +806,19 @@ pub struct RigidHelixState {
 }
 
 impl HelixSystemThread {
+    pub(super) fn start_new(
+        presenter: &dyn HelixPresenter,
+        rigid_parameters: RigidBodyConstants,
+        reader: &mut dyn HelixSimulationReader,
+    ) -> Result<Arc<Mutex<HelixSystemInterface>>, ErrOperation> {
+        let helix_system = make_flexible_helices_system((0., 1.), rigid_parameters, presenter)?;
+        let ret = Arc::new(Mutex::new(HelixSystemInterface::default()));
+        reader.attach_state(&ret);
+        let mut helix_system_thread = Self::new(helix_system, &ret);
+        helix_system_thread.run();
+        Ok(ret)
+    }
+
     fn new(helix_system: HelixSystem, interface: &Arc<Mutex<HelixSystemInterface>>) -> Self {
         Self {
             helix_system,
@@ -1153,4 +1167,21 @@ pub struct IntervalResult {
     free_nucl_ids: HashMap<FreeNucl, usize>,
     free_nucl_position: Vec<Vec3>,
     intervals: Vec<(isize, isize)>,
+}
+
+pub enum SimulationOperation<'pres, 'reader> {
+    StartHelices {
+        presenter: &'pres dyn HelixPresenter,
+        parameters: RigidBodyConstants,
+        reader: &'reader mut dyn HelixSimulationReader,
+    },
+    UpdateParameters {
+        new_parameters: RigidBodyConstants,
+    },
+    Shake(ShakeTarget),
+    Stop,
+}
+
+pub trait HelixSimulationReader {
+    fn attach_state(&mut self, state_chanel: &Arc<Mutex<HelixSystemInterface>>);
 }

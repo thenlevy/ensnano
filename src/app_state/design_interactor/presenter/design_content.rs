@@ -514,6 +514,10 @@ impl DesignContent {
             .get(g_id)
             .and_then(|g| g.grid_type.get_shift())
     }
+
+    pub fn read_simualtion_update(&mut self, update: &dyn SimulationUpdate) {
+        update.update_positions(&self.identifier_nucl, &mut self.space_position)
+    }
 }
 
 fn get_mutable<T: Default + Clone>(new: &mut Option<T>, old: AddressPointer<T>) -> &mut T {

@@ -21,12 +21,13 @@ use ensnano_design::{Design, Parameters};
 use ensnano_interactor::{operation::Operation, DesignOperation, SimulationState, StrandBuilder};
 
 mod presenter;
-use presenter::{update_presenter, Presenter};
+pub use presenter::SimulationUpdate;
+use presenter::{apply_simulation_update, update_presenter, Presenter};
 pub(super) mod controller;
 use controller::Controller;
 pub use controller::{
-    CopyOperation, InteractorNotification, PastingStatus, ShiftOptimizationResult,
-    ShiftOptimizerReader,
+    CopyOperation, HelixSimulationReader, InteractorNotification, PastingStatus, RigidHelixState,
+    ShiftOptimizationResult, ShiftOptimizerReader,
 };
 
 pub(super) use controller::ErrOperation;
@@ -141,6 +142,17 @@ impl DesignInteractor {
             print!("New design: ");
             new_design.show_address();
         }
+        self.design = new_design;
+        self
+    }
+
+    pub(super) fn with_simualtion_update_applied(
+        mut self,
+        update: Box<dyn SimulationUpdate>,
+    ) -> Self {
+        let (new_presenter, new_design) =
+            apply_simulation_update(&self.presenter, self.design.clone(), update);
+        self.presenter.new_presenter;
         self.design = new_design;
         self
     }
