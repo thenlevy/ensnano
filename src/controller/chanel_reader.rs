@@ -20,6 +20,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 //! computation threads that can be spawned by the progam
 
 use std::sync::mpsc;
+use std::sync::Weak;
 
 use crate::app_state::{ShiftOptimizationResult, ShiftOptimizerReader};
 #[derive(Default)]

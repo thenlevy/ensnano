@@ -30,7 +30,7 @@ pub use controller::{
 };
 
 pub(super) use controller::ErrOperation;
-use controller::OkOperation;
+use controller::{HelixPresenter, OkOperation};
 
 mod file_parsing;
 pub use file_parsing::ParseDesignError;

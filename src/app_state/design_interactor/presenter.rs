@@ -293,3 +293,30 @@ impl DesignReader {
         })
     }
 }
+
+impl HelixPresenter for Presenter {
+    fn get_xovers_list(&self) -> Vec<(Nucl, Nucl)> {
+        self.current_design.get_xovers()
+    }
+
+    fn get_design(&self) -> &Design {
+        self.current_design.as_ref()
+    }
+
+    fn get_all_bounds(&self) -> Vec<(Nucl, Nucl)> {
+        self.content.identifier_bound.keys().cloned().collect()
+    }
+
+    fn get_identifier(&self, nucl: &Nucl) -> Option<u32> {
+        self.content.identifier_nucl.get(nucl).cloned()
+    }
+
+    fn get_space_position(&self, nucl: &Nucl) -> Option<Vec3> {
+        self.get_identifier(nucl)
+            .and_then(|id| self.content.space_position.get(&id).map(|v| v.into()))
+    }
+
+    fn has_nucl(&self, nucl: &Nucl) -> bool {
+        self.content.identifier_nucl.contains_key(nucl)
+    }
+}

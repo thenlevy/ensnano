@@ -43,6 +43,9 @@ mod shift_optimization;
 use ahash::AHashMap;
 pub use shift_optimization::{ShiftOptimizationResult, ShiftOptimizerReader};
 
+mod simulations;
+pub use simulations::HelixPresenter;
+
 #[derive(Clone, Default)]
 pub(super) struct Controller {
     color_idx: usize,
@@ -461,12 +464,20 @@ impl Controller {
     }
 
     fn return_design(&self, design: Design) -> OkOperation {
+        if self.is_in_persistant_state() {
+            OkOperation::Push(design)
+        } else {
+            OkOperation::Replace(design)
+        }
+    }
+
+    fn is_in_persistant_state(&self) -> bool {
         match self.state {
-            ControllerState::Normal => OkOperation::Push(design),
-            ControllerState::WithPendingOp(_) => OkOperation::Push(design),
-            ControllerState::WithPendingDuplication { .. } => OkOperation::Push(design),
-            ControllerState::WithPendingXoverDuplication { .. } => OkOperation::Push(design),
-            _ => OkOperation::Replace(design),
+            ControllerState::Normal => true,
+            ControllerState::WithPendingOp(_) => true,
+            ControllerState::WithPendingDuplication { .. } => true,
+            ControllerState::WithPendingXoverDuplication { .. } => true,
+            _ => false,
         }
     }
 
