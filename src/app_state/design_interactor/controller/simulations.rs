@@ -449,8 +449,6 @@ impl HelixSystem {
             self.next_time = self.current_time + self.max_time_step;
         }
         self.time_span = (0., self.next_time - self.current_time);
-        println!("max time span {}", self.max_time_step);
-        println!("{:?}", self.time_span());
     }
 
     fn brownian_jump(&mut self) {
@@ -853,20 +851,23 @@ impl HelixSystemThread {
     /// termination of the simulation and one to fetch the current state of the helices.
     fn run(mut self) -> () {
         std::thread::spawn(move || {
-            while let Some(interface) = self.interface.upgrade() {
-                let mut interface = interface.lock().unwrap();
+            while let Some(interface_ptr) = self.interface.upgrade() {
+                let mut interface = interface_ptr.lock().unwrap();
                 if let Some(parameters) = interface.parameters_update.take() {
                     self.helix_system.update_parameters(parameters)
                 }
                 interface.new_state = Some(self.get_state());
+                drop(interface);
                 self.helix_system.next_time();
                 let solver = ExplicitEuler::new(1e-4f32);
                 if self.helix_system.rigid_parameters.brownian_motion {
                     self.helix_system.brownian_jump();
                 }
+                let mut interface = interface_ptr.lock().unwrap();
                 if let Some(nucl) = interface.nucl_shake.take() {
                     self.helix_system.shake_nucl(nucl)
                 }
+                drop(interface);
                 if let Ok((_, y)) = solver.solve(&self.helix_system) {
                     self.helix_system.last_state = y.last().cloned();
                 }
@@ -1216,6 +1217,7 @@ pub trait SimulationInterface: Send {
 
 impl SimulationInterface for HelixSystemInterface {
     fn get_simulation_state(&mut self) -> Option<Box<dyn SimulationUpdate>> {
+        println!("got lock");
         let s = self.new_state.take()?;
         Some(Box::new(s))
     }

@@ -869,7 +869,9 @@ impl MainState {
         if let Some(mut state) = self.undo_stack.pop() {
             state.prepare_for_replacement(&self.app_state);
             let redo = std::mem::replace(&mut self.app_state, state);
-            self.redo_stack.push(redo);
+            if redo.is_in_stable_state() {
+                self.redo_stack.push(redo);
+            }
         }
     }
 

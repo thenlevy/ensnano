@@ -117,9 +117,9 @@ impl Presenter {
         (ret, design)
     }
 
-    fn apply_simulation_update(&mut self, update: Box<dyn SimulationUpdate>) {
+    fn apply_simulation_update(&mut self, update: impl AsRef<dyn SimulationUpdate>) {
         let mut new_content = self.content.clone_inner();
-        update.update_positions(
+        update.as_ref().update_positions(
             &new_content.identifier_nucl,
             &mut new_content.space_position,
         );
@@ -197,10 +197,10 @@ pub(super) fn update_presenter(
 pub(super) fn apply_simulation_update(
     presenter: &AddressPointer<Presenter>,
     design: AddressPointer<Design>,
-    update: Box<dyn SimulationUpdate>,
+    update: impl AsRef<dyn SimulationUpdate>,
 ) -> (AddressPointer<Presenter>, AddressPointer<Design>) {
     let mut new_design = design.clone_inner();
-    update.update_design(&mut new_design);
+    update.as_ref().update_design(&mut new_design);
     let (new_presenter, returned_design) =
         update_presenter(presenter, AddressPointer::new(new_design));
     let mut new_content = new_presenter.content.clone_inner();
@@ -348,7 +348,7 @@ impl HelixPresenter for Presenter {
 }
 
 use std::collections::HashMap;
-pub trait SimulationUpdate {
+pub trait SimulationUpdate: Send + Sync {
     fn update_positions(
         &self,
         identifier_nucl: &HashMap<Nucl, u32, ahash::RandomState>,

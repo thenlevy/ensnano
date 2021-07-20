@@ -284,8 +284,6 @@ impl Controller {
             SimulationOperation::Stop => {
                 if let ControllerState::Simulating { .. } = &ret.state {
                     ret.state = ControllerState::Normal;
-                } else {
-                    return Err(ErrOperation::IncompatibleState);
                 }
             }
         }
@@ -520,7 +518,7 @@ impl Controller {
         }
     }
 
-    fn is_in_persistant_state(&self) -> bool {
+    pub(super) fn is_in_persistant_state(&self) -> bool {
         match self.state {
             ControllerState::Normal => true,
             ControllerState::WithPendingOp(_) => true,

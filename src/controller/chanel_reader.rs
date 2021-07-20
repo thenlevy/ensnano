@@ -42,7 +42,7 @@ pub enum ChanelReaderUpdate {
 }
 
 impl ChanelReader {
-    pub fn get_updates(&self) -> Vec<ChanelReaderUpdate> {
+    pub fn get_updates(&mut self) -> Vec<ChanelReaderUpdate> {
         let mut updates = Vec::new();
         if let Some(progress) = self.get_scaffold_shift_optimization_progress() {
             updates.push(ChanelReaderUpdate::ScaffoldShiftOptimizationProgress(
@@ -51,6 +51,15 @@ impl ChanelReader {
         }
         if let Some(result) = self.get_scaffold_shift_optimization_result() {
             updates.push(ChanelReaderUpdate::ScaffoldShiftOptimizationResult(result));
+        }
+        if let Some(interface_ptr) = self.simulation_interface.as_ref() {
+            if let Some(interface) = interface_ptr.upgrade() {
+                if let Some(new_state) = interface.lock().unwrap().get_simulation_state() {
+                    updates.push(ChanelReaderUpdate::SimulationUpdate(new_state))
+                }
+            } else {
+                self.simulation_interface = None;
+            }
         }
         updates
     }

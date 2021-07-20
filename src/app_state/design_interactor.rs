@@ -35,6 +35,7 @@ pub use controller::{
 pub(super) use controller::ErrOperation;
 use controller::{HelixPresenter, OkOperation};
 
+use std::sync::Arc;
 mod file_parsing;
 pub use file_parsing::ParseDesignError;
 
@@ -51,6 +52,7 @@ pub struct DesignInteractor {
     presenter: AddressPointer<Presenter>,
     /// The structure that handles "write" operations.
     controller: AddressPointer<Controller>,
+    simulation_update: Option<Arc<dyn SimulationUpdate>>,
 }
 
 impl DesignInteractor {
@@ -161,13 +163,26 @@ impl DesignInteractor {
             new_design.show_address();
         }
         self.design = new_design;
-        self
+        if let Some(update) = self.simulation_update.take() {
+            if !self.controller.is_in_persistant_state() {
+                self.after_applying_simulation_update(update)
+            } else {
+                self
+            }
+        } else {
+            self
+        }
     }
 
     pub(super) fn with_simualtion_update_applied(
         mut self,
         update: Box<dyn SimulationUpdate>,
     ) -> Self {
+        self.simulation_update = Some(update.into());
+        self
+    }
+
+    fn after_applying_simulation_update(mut self, update: Arc<dyn SimulationUpdate>) -> Self {
         let (new_presenter, new_design) =
             apply_simulation_update(&self.presenter, self.design.clone(), update);
         self.presenter = new_presenter;
@@ -179,6 +194,10 @@ impl DesignInteractor {
         let mut new_interactor = self.clone();
         new_interactor.design = AddressPointer::new(design);
         new_interactor
+    }
+
+    pub(super) fn is_in_stable_state(&self) -> bool {
+        self.controller.is_in_persistant_state()
     }
 
     pub(super) fn has_different_design_than(&self, other: &Self) -> bool {
@@ -236,7 +255,7 @@ pub struct DesignReader {
 }
 
 use crate::controller::SaveDesignError;
-use std::{path::PathBuf, sync::Arc};
+use std::path::PathBuf;
 impl DesignReader {
     pub fn save_design(&self, path: &PathBuf) -> Result<(), SaveDesignError> {
         use std::io::Write;

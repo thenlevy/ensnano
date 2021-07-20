@@ -246,6 +246,10 @@ impl AppState {
         let result = self.0.design.optimize_shift(reader);
         self.handle_operation_result(result)
     }
+
+    pub(super) fn is_in_stable_state(&self) -> bool {
+        self.0.design.is_in_stable_state()
+    }
 }
 
 #[derive(Clone, PartialEq, Eq, Default)]
