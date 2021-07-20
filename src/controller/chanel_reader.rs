@@ -20,13 +20,17 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 //! computation threads that can be spawned by the progam
 
 use std::sync::mpsc;
-use std::sync::Weak;
+use std::sync::{Arc, Mutex, Weak};
 
-use crate::app_state::{HelixSimulationReader, ShiftOptimizationResult, ShiftOptimizerReader};
+use crate::app_state::{
+    ShiftOptimizationResult, ShiftOptimizerReader, SimulationInterface, SimulationReader,
+    SimulationUpdate,
+};
 #[derive(Default)]
 pub struct ChanelReader {
     scaffold_shift_optimization_progress: Option<mpsc::Receiver<f32>>,
     scaffold_shift_optimization_result: Option<mpsc::Receiver<ShiftOptimizationResult>>,
+    simulation_interface: Option<Weak<Mutex<dyn SimulationInterface>>>,
 }
 
 pub enum ChanelReaderUpdate {
@@ -34,6 +38,7 @@ pub enum ChanelReaderUpdate {
     ScaffoldShiftOptimizationProgress(f32),
     /// The optimum scaffold position has been found
     ScaffoldShiftOptimizationResult(ShiftOptimizationResult),
+    SimulationUpdate(Box<dyn SimulationUpdate>),
 }
 
 impl ChanelReader {
@@ -70,5 +75,11 @@ impl ShiftOptimizerReader for ChanelReader {
 
     fn attach_progress_chanel(&mut self, chanel: mpsc::Receiver<f32>) {
         self.scaffold_shift_optimization_progress = Some(chanel);
+    }
+}
+
+impl SimulationReader for ChanelReader {
+    fn attach_state(&mut self, state_chanel: &std::sync::Arc<Mutex<dyn SimulationInterface>>) {
+        self.simulation_interface = Some(Arc::downgrade(state_chanel))
     }
 }

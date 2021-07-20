@@ -26,8 +26,8 @@ use presenter::{apply_simulation_update, update_presenter, Presenter};
 pub(super) mod controller;
 use controller::Controller;
 pub use controller::{
-    CopyOperation, HelixSimulationReader, InteractorNotification, PastingStatus, RigidHelixState,
-    ShiftOptimizationResult, ShiftOptimizerReader,
+    CopyOperation, InteractorNotification, PastingStatus, RigidHelixState, ShiftOptimizationResult,
+    ShiftOptimizerReader, SimulationInterface, SimulationReader,
 };
 
 pub(super) use controller::ErrOperation;
@@ -152,7 +152,7 @@ impl DesignInteractor {
     ) -> Self {
         let (new_presenter, new_design) =
             apply_simulation_update(&self.presenter, self.design.clone(), update);
-        self.presenter.new_presenter;
+        self.presenter = new_presenter;
         self.design = new_design;
         self
     }

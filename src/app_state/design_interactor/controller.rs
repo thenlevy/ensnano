@@ -16,6 +16,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+use super::SimulationUpdate;
 use crate::app_state::AddressPointer;
 use ensnano_design::{
     grid::{Edge, GridDescriptor, GridPosition, Hyperboloid},
@@ -47,7 +48,8 @@ pub use shift_optimization::{ShiftOptimizationResult, ShiftOptimizerReader};
 
 mod simulations;
 pub use simulations::{
-    HelixPresenter, HelixSimulationReader, RigidHelixState, ShakeTarget, SimulationOperation,
+    HelixPresenter, RigidHelixState, ShakeTarget, SimulationInterface, SimulationOperation,
+    SimulationReader,
 };
 
 #[derive(Clone, Default)]

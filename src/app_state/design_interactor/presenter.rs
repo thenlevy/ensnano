@@ -197,12 +197,13 @@ pub(super) fn apply_simulation_update(
 ) -> (AddressPointer<Presenter>, AddressPointer<Design>) {
     let mut new_design = design.clone_inner();
     update.update_design(&mut new_design);
-    let (mut returned_presenter, returned_design) =
+    let (new_presenter, returned_design) =
         update_presenter(presenter, AddressPointer::new(new_design));
-    let mut new_content = returned_presenter.content.clone_inner();
+    let mut new_content = new_presenter.content.clone_inner();
+    let mut returned_presenter = new_presenter.clone_inner();
     new_content.read_simualtion_update(update.as_ref());
     returned_presenter.content = AddressPointer::new(new_content);
-    (returned_presenter, returned_design)
+    (AddressPointer::new(returned_presenter), returned_design)
 }
 
 use ensnano_interactor::Referential;

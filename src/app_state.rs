@@ -37,8 +37,8 @@ use ensnano_interactor::DesignOperation;
 
 pub use design_interactor::controller::ErrOperation;
 pub use design_interactor::{
-    CopyOperation, DesignReader, HelixSimulationReader, InteractorNotification, PastingStatus,
-    ShiftOptimizationResult, ShiftOptimizerReader,
+    CopyOperation, DesignReader, InteractorNotification, PastingStatus, ShiftOptimizationResult,
+    ShiftOptimizerReader, SimulationInterface, SimulationReader, SimulationUpdate,
 };
 use design_interactor::{DesignInteractor, InteractorResult};
 

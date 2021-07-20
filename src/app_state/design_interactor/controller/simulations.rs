@@ -50,6 +50,19 @@ struct HelixSystem {
     max_time_step: f32,
 }
 
+impl HelixSystem {
+    fn get_constants(&self, interval_result: IntervalResult) -> RigidHelixConstants {
+        let roll = self.helices.iter().map(|h| h.roll).collect();
+        RigidHelixConstants {
+            roll,
+            free_nucls_ids: interval_result.free_nucl_ids,
+            nb_helices: interval_result.intervals.len(),
+            parameters: self.parameters.clone(),
+            nucl_maps: interval_result.nucl_map,
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct RigidBodyConstants {
     pub k_spring: f32,
@@ -788,6 +801,7 @@ pub(super) struct HelixSystemThread {
     /// The interface of the thread. A weak pointer is used so that the thread execution will
     /// immeadiatly stop when the listener is dropped.
     interface: Weak<Mutex<HelixSystemInterface>>,
+    constants: Arc<RigidHelixConstants>,
 }
 
 #[derive(Default)]
@@ -803,26 +817,45 @@ pub struct RigidHelixState {
     orientations: Vec<Rotor3>,
     center_of_mass_from_helix: Vec<Vec3>,
     ids: Vec<usize>,
+    constants: Arc<RigidHelixConstants>,
+}
+
+#[derive(Debug)]
+struct RigidHelixConstants {
+    nb_helices: usize,
+    parameters: Parameters,
+    free_nucls_ids: HashMap<FreeNucl, usize>,
+    roll: Vec<f32>,
+    nucl_maps: HashMap<Nucl, FreeNucl>,
 }
 
 impl HelixSystemThread {
     pub(super) fn start_new(
         presenter: &dyn HelixPresenter,
         rigid_parameters: RigidBodyConstants,
-        reader: &mut dyn HelixSimulationReader,
+        reader: &mut dyn SimulationReader,
     ) -> Result<Arc<Mutex<HelixSystemInterface>>, ErrOperation> {
-        let helix_system = make_flexible_helices_system((0., 1.), rigid_parameters, presenter)?;
+        let interval_results = read_intervals(presenter)?;
+        let helix_system =
+            make_flexible_helices_system((0., 1.), rigid_parameters, presenter, &interval_results)?;
         let ret = Arc::new(Mutex::new(HelixSystemInterface::default()));
-        reader.attach_state(&ret);
-        let mut helix_system_thread = Self::new(helix_system, &ret);
+        let ret_dyn: Arc<Mutex<dyn SimulationInterface>> = ret.clone();
+        reader.attach_state(&ret_dyn);
+        let helix_system_thread = Self::new(helix_system, &ret, interval_results);
         helix_system_thread.run();
         Ok(ret)
     }
 
-    fn new(helix_system: HelixSystem, interface: &Arc<Mutex<HelixSystemInterface>>) -> Self {
+    fn new(
+        helix_system: HelixSystem,
+        interface: &Arc<Mutex<HelixSystemInterface>>,
+        interval_result: IntervalResult,
+    ) -> Self {
+        let constants = helix_system.get_constants(interval_result);
         Self {
             helix_system,
             interface: Arc::downgrade(interface),
+            constants: Arc::new(constants),
         }
     }
 
@@ -866,6 +899,7 @@ impl HelixSystemThread {
             orientations,
             center_of_mass_from_helix,
             ids,
+            constants: self.constants.clone(),
         }
     }
 }
@@ -874,13 +908,13 @@ fn make_flexible_helices_system(
     time_span: (f32, f32),
     rigid_parameters: RigidBodyConstants,
     presenter: &dyn HelixPresenter,
+    interval_results: &IntervalResult,
 ) -> Result<HelixSystem, ErrOperation> {
     let parameters = presenter
         .get_design()
         .parameters
         .clone()
         .unwrap_or_default();
-    let interval_results = read_intervals(presenter)?;
     let mut rigid_helices = Vec::with_capacity(interval_results.helix_map.len());
     for i in 0..interval_results.helix_map.len() {
         let h_id = interval_results.helix_map[i];
@@ -1173,7 +1207,7 @@ pub enum SimulationOperation<'pres, 'reader> {
     StartHelices {
         presenter: &'pres dyn HelixPresenter,
         parameters: RigidBodyConstants,
-        reader: &'reader mut dyn HelixSimulationReader,
+        reader: &'reader mut dyn SimulationReader,
     },
     UpdateParameters {
         new_parameters: RigidBodyConstants,
@@ -1182,6 +1216,62 @@ pub enum SimulationOperation<'pres, 'reader> {
     Stop,
 }
 
-pub trait HelixSimulationReader {
-    fn attach_state(&mut self, state_chanel: &Arc<Mutex<HelixSystemInterface>>);
+pub trait SimulationReader {
+    fn attach_state(&mut self, state_chanel: &Arc<Mutex<dyn SimulationInterface>>);
+}
+
+pub trait SimulationInterface: Send {
+    fn get_simulation_state(&mut self) -> Option<Box<dyn SimulationUpdate>>;
+}
+
+impl SimulationInterface for HelixSystemInterface {
+    fn get_simulation_state(&mut self) -> Option<Box<dyn SimulationUpdate>> {
+        let s = self.new_state.take()?;
+        Some(Box::new(s))
+    }
+}
+
+impl SimulationUpdate for RigidHelixState {
+    fn update_design(&self, design: &mut Design) {
+        ()
+        // since update positions is implemented, we do not need to move the helices.
+    }
+
+    fn update_positions(
+        &self,
+        identifier_nucl: &HashMap<Nucl, u32, ahash::RandomState>,
+        space_position: &mut HashMap<u32, [f32; 3], ahash::RandomState>,
+    ) {
+        let helices: Vec<Helix> = (0..self.constants.nb_helices)
+            .map(|n| {
+                let orientation = self.orientations[n].normalized();
+                let position =
+                    self.positions[n] + self.center_of_mass_from_helix[n].rotated_by(orientation);
+                let mut h = Helix::new(position, orientation);
+                h.roll(self.constants.roll[n]);
+                h
+            })
+            .collect();
+        for (nucl, id) in identifier_nucl.iter() {
+            let free_nucl = self.constants.nucl_maps[nucl];
+            if let Some(n) = free_nucl.helix {
+                space_position.insert(
+                    *id,
+                    helices[n]
+                        .space_pos(
+                            &self.constants.parameters,
+                            free_nucl.position,
+                            free_nucl.forward,
+                        )
+                        .into(),
+                );
+            } else {
+                let free_id = self.constants.free_nucls_ids[&free_nucl];
+                space_position.insert(
+                    *id,
+                    self.positions[self.constants.nb_helices + free_id].into(),
+                );
+            }
+        }
+    }
 }
