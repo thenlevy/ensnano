@@ -18,7 +18,9 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 
 use super::AddressPointer;
 use ensnano_design::{Design, Parameters};
-use ensnano_interactor::{operation::Operation, DesignOperation, SimulationState, StrandBuilder};
+use ensnano_interactor::{
+    operation::Operation, DesignOperation, RigidBodyConstants, SimulationState, StrandBuilder,
+};
 
 mod presenter;
 pub use presenter::SimulationUpdate;
@@ -96,6 +98,22 @@ impl DesignInteractor {
         let result = self
             .controller
             .update_pending_operation(self.design.as_ref(), operation);
+        self.handle_operation_result(result)
+    }
+
+    pub(super) fn start_helix_simulation(
+        &self,
+        parameters: RigidBodyConstants,
+        reader: &mut dyn SimulationReader,
+    ) -> Result<InteractorResult, ErrOperation> {
+        let result = self.controller.apply_simulation_operation(
+            self.design.clone_inner(),
+            controller::SimulationOperation::StartHelices {
+                presenter: self.presenter.as_ref(),
+                parameters,
+                reader,
+            },
+        );
         self.handle_operation_result(result)
     }
 

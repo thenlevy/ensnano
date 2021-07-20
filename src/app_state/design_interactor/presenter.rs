@@ -119,6 +119,10 @@ impl Presenter {
 
     fn apply_simulation_update(&mut self, update: Box<dyn SimulationUpdate>) {
         let mut new_content = self.content.clone_inner();
+        update.update_positions(
+            &new_content.identifier_nucl,
+            &mut new_content.space_position,
+        );
         self.content = AddressPointer::new(new_content);
     }
 
@@ -203,6 +207,7 @@ pub(super) fn apply_simulation_update(
     let mut returned_presenter = new_presenter.clone_inner();
     new_content.read_simualtion_update(update.as_ref());
     returned_presenter.content = AddressPointer::new(new_content);
+    returned_presenter.apply_simulation_update(update);
     (AddressPointer::new(returned_presenter), returned_design)
 }
 

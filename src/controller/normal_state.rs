@@ -134,7 +134,14 @@ impl State for NormalState {
                     }
                     self
                 }
-                _ => todo!(),
+                Action::RigidHelicesSimulation { parameters } => {
+                    main_state.start_helix_simulation(parameters);
+                    self
+                }
+                action => {
+                    println!("Not implemented {:?}", action);
+                    self
+                }
             }
         } else {
             self

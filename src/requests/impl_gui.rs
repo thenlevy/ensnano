@@ -127,12 +127,12 @@ impl GuiRequests for Requests {
 
     fn update_rigid_helices_simulation(&mut self, parameters: RigidBodyParametersRequest) {
         let rigid_body_paramters = rigid_parameters(parameters);
-        self.rigid_body_parameters = Some(rigid_body_paramters);
+        self.rigid_helices_simulation = Some(rigid_body_paramters);
     }
 
     fn update_rigid_grids_simulation(&mut self, parameters: RigidBodyParametersRequest) {
         let rigid_body_parameters = rigid_parameters(parameters);
-        self.rigid_body_parameters = Some(rigid_body_parameters);
+        self.rigid_grid_simulation = Some(rigid_body_parameters);
     }
 
     fn update_rigid_body_simulation_parameters(&mut self, parameters: RigidBodyParametersRequest) {

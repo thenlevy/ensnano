@@ -64,7 +64,7 @@ pub type PhySize = iced_winit::winit::dpi::PhysicalSize<u32>;
 use controller::{ChanelReader, ChanelReaderUpdate};
 use ensnano_design::Nucl;
 use ensnano_interactor::application::{Application, Notification};
-use ensnano_interactor::{DesignOperation, DesignReader};
+use ensnano_interactor::{DesignOperation, DesignReader, RigidBodyConstants};
 use iced_native::Event as IcedEvent;
 use iced_wgpu::{wgpu, Backend, Renderer, Settings, Viewport};
 use iced_winit::{conversion, futures, program, winit, Debug, Size};
@@ -846,6 +846,13 @@ impl MainState {
         self.apply_operation_result(result);
     }
 
+    fn start_helix_simulation(&mut self, parameters: RigidBodyConstants) {
+        let result = self
+            .app_state
+            .start_helix_simulation(parameters, &mut self.chanel_reader);
+        self.apply_operation_result(result)
+    }
+
     fn apply_silent_operation(&mut self, operation: DesignOperation) {
         match self.app_state.apply_design_op(operation) {
             Ok(_) => (),
@@ -1158,6 +1165,10 @@ impl<'a> MainStateInteface for MainStateView<'a> {
             self.main_state
                 .update_selection(vec![Selection::Strand(0, s_id as u32)])
         }
+    }
+
+    fn start_helix_simulation(&mut self, parameters: RigidBodyConstants) {
+        self.main_state.start_helix_simulation(parameters);
     }
 }
 

@@ -33,7 +33,7 @@ mod design_interactor;
 use crate::apply_update;
 use address_pointer::AddressPointer;
 use ensnano_design::Design;
-use ensnano_interactor::DesignOperation;
+use ensnano_interactor::{DesignOperation, RigidBodyConstants};
 
 pub use design_interactor::controller::ErrOperation;
 pub use design_interactor::{
@@ -169,6 +169,15 @@ impl AppState {
         op: Arc<dyn Operation>,
     ) -> Result<Option<Self>, ErrOperation> {
         let result = self.0.design.update_pending_operation(op);
+        self.handle_operation_result(result)
+    }
+
+    pub(super) fn start_helix_simulation(
+        &mut self,
+        parameters: RigidBodyConstants,
+        reader: &mut dyn SimulationReader,
+    ) -> Result<Option<Self>, ErrOperation> {
+        let result = self.0.design.start_helix_simulation(parameters, reader);
         self.handle_operation_result(result)
     }
 

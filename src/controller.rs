@@ -24,7 +24,7 @@ use download_staples::*;
 pub use download_staples::{DownloadStappleError, DownloadStappleOk, StaplesDownloader};
 mod quit;
 use ensnano_interactor::{application::Notification, DesignOperation};
-use ensnano_interactor::{DesignReader, Selection};
+use ensnano_interactor::{DesignReader, RigidBodyConstants, Selection};
 use quit::*;
 mod set_scaffold_sequence;
 use set_scaffold_sequence::*;
@@ -191,6 +191,7 @@ pub(crate) trait MainState: ScaffoldSetter {
     fn duplicate(&mut self);
     fn delete_selection(&mut self);
     fn scaffold_to_selection(&mut self);
+    fn start_helix_simulation(&mut self, parameters: RigidBodyConstants);
 }
 
 pub struct LoadDesignError(String);

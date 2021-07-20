@@ -249,10 +249,11 @@ impl Controller {
         }
     }
 
-    fn apply_simulation_operation(
+    pub(super) fn apply_simulation_operation(
         &self,
+        design: Design,
         operation: SimulationOperation,
-    ) -> Result<Self, ErrOperation> {
+    ) -> Result<(OkOperation, Self), ErrOperation> {
         let mut ret = self.clone();
         match operation {
             SimulationOperation::StartHelices {
@@ -265,33 +266,30 @@ impl Controller {
                 }
                 let interface = HelixSystemThread::start_new(presenter, parameters, reader)?;
                 ret.state = ControllerState::Simulating { interface };
-                Ok(ret)
             }
             SimulationOperation::UpdateParameters { new_parameters } => {
                 if let ControllerState::Simulating { interface } = &ret.state {
                     interface.lock().unwrap().parameters_update = Some(new_parameters);
-                    Ok(ret)
                 } else {
-                    Err(ErrOperation::IncompatibleState)
+                    return Err(ErrOperation::IncompatibleState);
                 }
             }
             SimulationOperation::Shake(target) => {
                 if let ControllerState::Simulating { interface } = &ret.state {
                     interface.lock().unwrap().nucl_shake = Some(target);
-                    Ok(ret)
                 } else {
-                    Err(ErrOperation::IncompatibleState)
+                    return Err(ErrOperation::IncompatibleState);
                 }
             }
             SimulationOperation::Stop => {
                 if let ControllerState::Simulating { .. } = &ret.state {
                     ret.state = ControllerState::Normal;
-                    Ok(ret)
                 } else {
-                    Err(ErrOperation::IncompatibleState)
+                    return Err(ErrOperation::IncompatibleState);
                 }
             }
         }
+        Ok((self.return_design(design), ret))
     }
 
     fn add_hyperboloid_helices(

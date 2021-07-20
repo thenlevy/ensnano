@@ -19,6 +19,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 use super::*;
 
 use ensnano_design::Parameters;
+use ensnano_interactor::RigidBodyConstants;
 use mathru::algebra::linear::vector::vector::Vector;
 use mathru::analysis::differential_equation::ordinary::{ExplicitEuler, ExplicitODE, Kutta3};
 use ordered_float::OrderedFloat;
@@ -61,17 +62,6 @@ impl HelixSystem {
             nucl_maps: interval_result.nucl_map,
         }
     }
-}
-
-#[derive(Clone, Debug)]
-pub struct RigidBodyConstants {
-    pub k_spring: f32,
-    pub k_friction: f32,
-    pub mass: f32,
-    pub volume_exclusion: bool,
-    pub brownian_motion: bool,
-    pub brownian_rate: f32,
-    pub brownian_amplitude: f32,
 }
 
 #[derive(Debug)]
