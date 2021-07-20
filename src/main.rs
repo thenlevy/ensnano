@@ -462,6 +462,8 @@ fn main() {
                             // unwrap because in this block, result is necessarilly an Err
                             println!("{:?}", result.err().unwrap());
                         }
+                    } else if let ChanelReaderUpdate::SimulationUpdate(update) = update {
+                        main_state.app_state.apply_simulation_update(update)
                     }
                 }
 
