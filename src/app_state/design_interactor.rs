@@ -210,8 +210,7 @@ impl DesignInteractor {
     }
 
     pub(super) fn get_simulation_state(&self) -> SimulationState {
-        //TODO
-        SimulationState::None
+        self.controller.get_simulation_state()
     }
 
     pub(super) fn get_dna_parameters(&self) -> Parameters {

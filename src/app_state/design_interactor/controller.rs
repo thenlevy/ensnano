@@ -22,7 +22,7 @@ use ensnano_design::{
     grid::{Edge, GridDescriptor, GridPosition, Hyperboloid},
     mutate_helix, Design, Domain, DomainJunction, Helix, Nucl, Strand,
 };
-use ensnano_interactor::{operation::Operation, HyperboloidOperation};
+use ensnano_interactor::{operation::Operation, HyperboloidOperation, SimulationState};
 use ensnano_interactor::{
     DesignOperation, DesignRotation, DesignTranslation, DomainIdentifier, IsometryTarget,
     NeighbourDescriptor, NeighbourDescriptorGiver, Selection, StrandBuilder,
@@ -515,6 +515,13 @@ impl Controller {
             OkOperation::Push(design)
         } else {
             OkOperation::Replace(design)
+        }
+    }
+
+    pub(super) fn get_simulation_state(&self) -> SimulationState {
+        match self.state {
+            ControllerState::Simulating { .. } => SimulationState::RigidHelices,
+            _ => SimulationState::None,
         }
     }
 
