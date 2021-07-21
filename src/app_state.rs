@@ -31,6 +31,7 @@ use std::sync::Arc;
 mod address_pointer;
 mod design_interactor;
 use crate::apply_update;
+use crate::controller::SimulationRequest;
 use address_pointer::AddressPointer;
 use ensnano_design::Design;
 use ensnano_interactor::{DesignOperation, RigidBodyConstants};
@@ -181,8 +182,11 @@ impl AppState {
         self.handle_operation_result(result)
     }
 
-    pub(super) fn stop_simualtion(&mut self) -> Result<Option<Self>, ErrOperation> {
-        let result = self.0.design.stop_simulation();
+    pub(super) fn update_simulation(
+        &mut self,
+        request: SimulationRequest,
+    ) -> Result<Option<Self>, ErrOperation> {
+        let result = self.0.design.update_simulation(request);
         self.handle_operation_result(result)
     }
 

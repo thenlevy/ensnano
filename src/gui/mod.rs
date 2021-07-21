@@ -47,7 +47,7 @@ use ensnano_interactor::{
     Selection, SimulationState, WidgetBasis,
 };
 use ensnano_interactor::{operation::Operation, ScaffoldInfo};
-use ensnano_interactor::{ActionMode, HyperboloidRequest, SelectionMode, SimulationRequest};
+use ensnano_interactor::{ActionMode, HyperboloidRequest, RollRequest, SelectionMode};
 pub use ensnano_organizer::OrganizerTree;
 use iced_native::Event;
 use iced_wgpu::{wgpu, Backend, Renderer, Settings, Viewport};
@@ -102,7 +102,7 @@ pub trait Requests: 'static + Send {
     /// Finalize the currently eddited hyperboloid grid
     fn finalize_hyperboloid(&mut self);
     fn stop_roll_simulation(&mut self);
-    fn start_roll_simulation(&mut self, roll_request: SimulationRequest);
+    fn start_roll_simulation(&mut self, roll_request: RollRequest);
     /// Make a grid from the set of selected helices
     fn make_grid_from_selection(&mut self);
     /// Start of Update the rigid helices simulation
@@ -161,6 +161,7 @@ pub trait Requests: 'static + Send {
     fn set_small_sphere(&mut self, small: bool);
     fn finish_changing_color(&mut self);
     fn stop_simulations(&mut self);
+    fn reset_simulations(&mut self);
 }
 
 #[derive(Clone, Debug, PartialEq)]

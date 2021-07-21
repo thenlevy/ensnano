@@ -16,7 +16,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 use super::*;
-use ensnano_interactor::{SimulationRequest, SimulationState};
+use ensnano_interactor::{RollRequest, SimulationState};
 use iced::scrollable;
 use iced::Color;
 
@@ -201,13 +201,10 @@ impl<S: AppState> EditionTab<S> {
             .update_request(value_id, value, request);
     }
 
-    pub(super) fn get_roll_request(
-        &mut self,
-        selection: &[DnaElementKey],
-    ) -> Option<SimulationRequest> {
+    pub(super) fn get_roll_request(&mut self, selection: &[DnaElementKey]) -> Option<RollRequest> {
         let roll_target_helices = self.get_roll_target_helices(selection);
         if roll_target_helices.len() > 0 {
-            Some(SimulationRequest {
+            Some(RollRequest {
                 roll: true,
                 springs: false,
                 target_helices: Some(roll_target_helices.clone()),
@@ -864,6 +861,7 @@ pub(super) struct SimulationTab<S: AppState> {
     rigid_helices_button: GoStop<S>,
     scroll: scrollable::State,
     physical_simulation: PhysicalSimulation,
+    reset_state: button::State,
 }
 
 impl<S: AppState> SimulationTab<S> {
@@ -892,6 +890,7 @@ impl<S: AppState> SimulationTab<S> {
             ),
             scroll: Default::default(),
             physical_simulation: Default::default(),
+            reset_state: Default::default(),
         }
     }
 
@@ -917,10 +916,12 @@ impl<S: AppState> SimulationTab<S> {
                 self.rigid_grid_button
                     .view(grid_active, sim_state.simulating_grid()),
             )
-            .push(
-                self.rigid_helices_button
-                    .view(helices_active, sim_state.simulating_helices()),
-            );
+            .push(Self::helix_btns(
+                &mut self.rigid_helices_button,
+                &mut self.reset_state,
+                app_state,
+                ui_size.clone(),
+            ));
 
         let volume_exclusion = self.rigid_body_factory.requestable.volume_exclusion;
         let brownian_motion = self.rigid_body_factory.requestable.brownian_motion;
@@ -948,6 +949,27 @@ impl<S: AppState> SimulationTab<S> {
         }
 
         Scrollable::new(&mut self.scroll).push(ret).into()
+    }
+
+    fn helix_btns<'a>(
+        go_stop: &'a mut GoStop<S>,
+        reset_state: &'a mut button::State,
+        app_state: &S,
+        ui_size: UiSize,
+    ) -> Element<'a, Message<S>> {
+        let sim_state = app_state.get_simulation_state();
+        if sim_state.is_paused() {
+            Row::new()
+                .push(go_stop.view(true, false))
+                .spacing(3)
+                .push(text_btn(reset_state, "Reset", ui_size).on_press(Message::ResetSimulation))
+                .into()
+        } else {
+            let helices_active = sim_state.is_none() || sim_state.simulating_helices();
+            go_stop
+                .view(helices_active, sim_state.simulating_helices())
+                .into()
+        }
     }
 
     pub(super) fn set_volume_exclusion(&mut self, volume_exclusion: bool) {
@@ -986,7 +1008,7 @@ impl<S: AppState> SimulationTab<S> {
         self.rigid_body_factory.make_request(request)
     }
 
-    pub(super) fn get_physical_simulation_request(&self) -> SimulationRequest {
+    pub(super) fn get_physical_simulation_request(&self) -> RollRequest {
         self.physical_simulation.request()
     }
 
@@ -1067,8 +1089,8 @@ impl PhysicalSimulation {
         Row::new().push(button)
     }
 
-    fn request(&self) -> SimulationRequest {
-        SimulationRequest {
+    fn request(&self) -> RollRequest {
+        RollRequest {
             roll: true,
             springs: false,
             target_helices: None,

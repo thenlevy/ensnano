@@ -139,7 +139,11 @@ impl State for NormalState {
                     self
                 }
                 Action::StopSimulation => {
-                    main_state.stop_simulation();
+                    main_state.update_simulation(SimulationRequest::Stop);
+                    self
+                }
+                Action::ResetSimulation => {
+                    main_state.update_simulation(SimulationRequest::Reset);
                     self
                 }
                 action => {
@@ -247,7 +251,7 @@ use ensnano_design::{
 };
 use ensnano_interactor::HyperboloidRequest;
 use ensnano_interactor::{
-    application::Notification, DesignOperation, RigidBodyConstants, Selection, SimulationRequest,
+    application::Notification, DesignOperation, RigidBodyConstants, RollRequest, Selection,
 };
 /// An action to be performed at the end of an event loop iteration, and that will have an effect
 /// on the main application state, e.g. Closing the window, or toggling between 3D/2D views.
@@ -280,7 +284,7 @@ pub enum Action {
     FinishChangingColor,
     ToggleHelicesPersistance(bool),
     ToggleSmallSphere(bool),
-    SimulationRequest(SimulationRequest),
+    RollRequest(RollRequest),
     StopSimulation,
     RollHelices(f32),
     Copy,
@@ -294,6 +298,7 @@ pub enum Action {
     RigidHelicesSimulation {
         parameters: RigidBodyConstants,
     },
+    ResetSimulation,
     RigidParametersUpdate(RigidBodyConstants),
     TurnIntoAnchor,
     NewHyperboloid(HyperboloidRequest),

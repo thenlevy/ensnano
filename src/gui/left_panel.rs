@@ -176,6 +176,7 @@ pub enum Message<S> {
     NewApplicationState(S),
     FogChoice(tabs::FogChoice),
     SetScaffoldSeqButtonPressed,
+    ResetSimulation,
 }
 
 impl<R: Requests, S: AppState> LeftPanel<R, S> {
@@ -676,6 +677,7 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
                 self.contextual_panel.state_updated();
             }
             Message::FinishChangingColor => self.requests.lock().unwrap().finish_changing_color(),
+            Message::ResetSimulation => self.requests.lock().unwrap().reset_simulations(),
             Message::Nothing => (),
         };
         Command::none()

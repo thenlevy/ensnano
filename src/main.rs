@@ -61,7 +61,7 @@ use std::sync::{Arc, Mutex, RwLock};
 use std::time::{Duration, Instant};
 pub type PhySize = iced_winit::winit::dpi::PhysicalSize<u32>;
 
-use controller::{ChanelReader, ChanelReaderUpdate};
+use controller::{ChanelReader, ChanelReaderUpdate, SimulationRequest};
 use ensnano_design::Nucl;
 use ensnano_interactor::application::{Application, Notification};
 use ensnano_interactor::{DesignOperation, DesignReader, RigidBodyConstants};
@@ -853,8 +853,8 @@ impl MainState {
         self.apply_operation_result(result)
     }
 
-    fn stop_simulation(&mut self) {
-        let result = self.app_state.stop_simualtion();
+    fn update_simulation(&mut self, request: SimulationRequest) {
+        let result = self.app_state.update_simulation(request);
         self.apply_operation_result(result);
     }
 
@@ -1178,8 +1178,8 @@ impl<'a> MainStateInteface for MainStateView<'a> {
         self.main_state.start_helix_simulation(parameters);
     }
 
-    fn stop_simulation(&mut self) {
-        self.main_state.stop_simulation();
+    fn update_simulation(&mut self, request: SimulationRequest) {
+        self.main_state.update_simulation(request)
     }
 }
 

@@ -32,6 +32,7 @@ pub use controller::{
     ShiftOptimizerReader, SimulationInterface, SimulationReader,
 };
 
+use crate::controller::SimulationRequest;
 pub(super) use controller::ErrOperation;
 use controller::{HelixPresenter, OkOperation};
 
@@ -119,11 +120,20 @@ impl DesignInteractor {
         self.handle_operation_result(result)
     }
 
-    pub(super) fn stop_simulation(&self) -> Result<InteractorResult, ErrOperation> {
-        let result = self.controller.apply_simulation_operation(
-            self.design.clone_inner(),
-            controller::SimulationOperation::Stop,
-        );
+    pub(super) fn update_simulation(
+        &self,
+        request: SimulationRequest,
+    ) -> Result<InteractorResult, ErrOperation> {
+        let operation = match request {
+            SimulationRequest::Stop => controller::SimulationOperation::Stop,
+            SimulationRequest::Reset => controller::SimulationOperation::Reset,
+            SimulationRequest::UpdateParameters(new_parameters) => {
+                controller::SimulationOperation::UpdateParameters { new_parameters }
+            }
+        };
+        let result = self
+            .controller
+            .apply_simulation_operation(self.design.clone_inner(), operation);
         self.handle_operation_result(result)
     }
 
@@ -171,12 +181,11 @@ impl DesignInteractor {
             new_design.show_address();
         }
         self.design = new_design;
-        if let Some(update) = self.simulation_update.take() {
-            if !self.controller.is_in_persistant_state() {
-                self.after_applying_simulation_update(update)
-            } else {
-                self
+        if let Some(update) = self.simulation_update.clone() {
+            if !self.controller.get_simulation_state().is_runing() {
+                self.simulation_update = None;
             }
+            self.after_applying_simulation_update(update)
         } else {
             self
         }

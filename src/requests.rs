@@ -23,7 +23,7 @@ mod poll;
 
 use super::gui::UiSize;
 use super::*;
-use ensnano_interactor::{application::AppId, Selection};
+use ensnano_interactor::{application::AppId, RollRequest, Selection};
 pub use poll::*;
 use ultraviolet::Vec3;
 
@@ -36,7 +36,7 @@ use ensnano_design::{
 };
 use ensnano_interactor::{
     graphics::{Background3D, RenderingMode},
-    HyperboloidRequest, RigidBodyConstants, SimulationRequest,
+    HyperboloidRequest, RigidBodyConstants,
 };
 
 use std::collections::VecDeque;
@@ -69,7 +69,7 @@ pub struct Requests {
     pub small_spheres: Option<bool>,
     pub set_scaffold_id: Option<Option<usize>>,
     pub recolor_stapples: Option<()>,
-    pub roll_request: Option<SimulationRequest>,
+    pub roll_request: Option<RollRequest>,
     pub show_torsion_request: Option<bool>,
     pub fog: Option<FogParameters>,
     pub hyperboloid_update: Option<HyperboloidRequest>,

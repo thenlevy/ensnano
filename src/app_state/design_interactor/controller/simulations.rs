@@ -1205,6 +1205,7 @@ pub enum SimulationOperation<'pres, 'reader> {
     },
     Shake(ShakeTarget),
     Stop,
+    Reset,
 }
 
 pub trait SimulationReader {

@@ -17,7 +17,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 
 use crate::gui::{Requests as GuiRequests, RigidBodyParametersRequest};
-use ensnano_interactor::RigidBodyConstants;
+use ensnano_interactor::{RigidBodyConstants, RollRequest};
 use std::collections::BTreeSet;
 
 use super::*;
@@ -117,7 +117,7 @@ impl GuiRequests for Requests {
         self.stop_roll = Some(())
     }
 
-    fn start_roll_simulation(&mut self, request: SimulationRequest) {
+    fn start_roll_simulation(&mut self, request: RollRequest) {
         self.roll_request = Some(request);
     }
 
@@ -270,6 +270,10 @@ impl GuiRequests for Requests {
 
     fn stop_simulations(&mut self) {
         self.keep_proceed.push_back(Action::StopSimulation)
+    }
+
+    fn reset_simulations(&mut self) {
+        self.keep_proceed.push_back(Action::ResetSimulation)
     }
 }
 

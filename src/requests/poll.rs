@@ -144,7 +144,7 @@ pub(crate) fn poll_all<R: DerefMut<Target = Requests>>(
     }
 
     if let Some(roll_request) = requests.roll_request.take() {
-        main_state.push_action(Action::SimulationRequest(roll_request))
+        main_state.push_action(Action::RollRequest(roll_request))
     }
 
     if let Some(b) = requests.show_torsion_request.take() {

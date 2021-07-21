@@ -192,7 +192,7 @@ pub(crate) trait MainState: ScaffoldSetter {
     fn delete_selection(&mut self);
     fn scaffold_to_selection(&mut self);
     fn start_helix_simulation(&mut self, parameters: RigidBodyConstants);
-    fn stop_simulation(&mut self);
+    fn update_simulation(&mut self, request: SimulationRequest);
 }
 
 pub struct LoadDesignError(String);
@@ -211,3 +211,10 @@ impl<E: std::error::Error> From<E> for SaveDesignError {
 }
 
 pub enum DesignAction {}
+
+#[derive(Clone, Debug)]
+pub enum SimulationRequest {
+    Stop,
+    UpdateParameters(RigidBodyConstants),
+    Reset,
+}

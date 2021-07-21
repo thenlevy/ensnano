@@ -265,25 +265,37 @@ impl Controller {
                     return Err(ErrOperation::IncompatibleState);
                 }
                 let interface = HelixSystemThread::start_new(presenter, parameters, reader)?;
-                ret.state = ControllerState::Simulating { interface };
+                ret.state = ControllerState::Simulating {
+                    interface,
+                    initial_design: AddressPointer::new(design.clone()),
+                };
             }
             SimulationOperation::UpdateParameters { new_parameters } => {
-                if let ControllerState::Simulating { interface } = &ret.state {
+                if let ControllerState::Simulating { interface, .. } = &ret.state {
                     interface.lock().unwrap().parameters_update = Some(new_parameters);
                 } else {
                     return Err(ErrOperation::IncompatibleState);
                 }
             }
             SimulationOperation::Shake(target) => {
-                if let ControllerState::Simulating { interface } = &ret.state {
+                if let ControllerState::Simulating { interface, .. } = &ret.state {
                     interface.lock().unwrap().nucl_shake = Some(target);
                 } else {
                     return Err(ErrOperation::IncompatibleState);
                 }
             }
             SimulationOperation::Stop => {
-                if let ControllerState::Simulating { .. } = &ret.state {
+                if let ControllerState::Simulating { initial_design, .. } = &ret.state {
+                    ret.state = ControllerState::WithPausedSimulation {
+                        initial_design: initial_design.clone(),
+                    };
+                }
+            }
+            SimulationOperation::Reset => {
+                if let ControllerState::WithPausedSimulation { initial_design } = &ret.state {
+                    let returned_design = initial_design.clone_inner();
                     ret.state = ControllerState::Normal;
+                    return Ok((OkOperation::Push(returned_design), ret));
                 }
             }
         }
@@ -521,6 +533,7 @@ impl Controller {
     pub(super) fn get_simulation_state(&self) -> SimulationState {
         match self.state {
             ControllerState::Simulating { .. } => SimulationState::RigidHelices,
+            ControllerState::WithPausedSimulation { .. } => SimulationState::Paused,
             _ => SimulationState::None,
         }
     }
@@ -531,6 +544,7 @@ impl Controller {
             ControllerState::WithPendingOp(_) => true,
             ControllerState::WithPendingDuplication { .. } => true,
             ControllerState::WithPendingXoverDuplication { .. } => true,
+            ControllerState::WithPausedSimulation { .. } => true,
             _ => false,
         }
     }
@@ -1838,6 +1852,10 @@ enum ControllerState {
     OptimizingScaffoldPosition,
     Simulating {
         interface: Arc<Mutex<HelixSystemInterface>>,
+        initial_design: AddressPointer<Design>,
+    },
+    WithPausedSimulation {
+        initial_design: AddressPointer<Design>,
     },
 }
 
@@ -1864,6 +1882,7 @@ impl ControllerState {
             Self::DoingFirstXoversDuplication { .. } => "DoingFirstXoversDuplication",
             Self::OptimizingScaffoldPosition => "OptimizingScaffoldPosition",
             Self::Simulating { .. } => "Simulation",
+            Self::WithPausedSimulation { .. } => "WithPausedSimulation",
         }
     }
     fn update_pasting_position(
@@ -1959,6 +1978,7 @@ impl ControllerState {
                 Self::DoingFirstXoversDuplication { .. } => self.clone(),
                 Self::OptimizingScaffoldPosition => self.clone(),
                 Self::Simulating { .. } => self.clone(),
+                Self::WithPausedSimulation { .. } => self.clone(),
             }
         }
     }

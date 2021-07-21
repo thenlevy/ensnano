@@ -250,7 +250,7 @@ impl HyperboloidRequest {
 }
 
 #[derive(Clone, Debug)]
-pub struct SimulationRequest {
+pub struct RollRequest {
     pub roll: bool,
     pub springs: bool,
     pub target_helices: Option<Vec<usize>>,
@@ -281,6 +281,7 @@ pub enum SimulationState {
     Rolling,
     RigidGrid,
     RigidHelices,
+    Paused,
 }
 
 impl SimulationState {
@@ -313,6 +314,21 @@ impl SimulationState {
             true
         } else {
             false
+        }
+    }
+
+    pub fn is_paused(&self) -> bool {
+        if let Self::Paused = self {
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn is_runing(&self) -> bool {
+        match self {
+            Self::Paused | Self::None => false,
+            _ => true,
         }
     }
 }
