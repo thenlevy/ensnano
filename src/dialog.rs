@@ -25,7 +25,7 @@ use std::borrow::Cow;
 pub struct YesNoQuestion(mpsc::Receiver<bool>);
 impl YesNoQuestion {
     pub fn answer(&self) -> Option<bool> {
-        self.0.recv().ok()
+        self.0.try_recv().ok()
     }
 }
 
