@@ -853,6 +853,11 @@ impl MainState {
         self.apply_operation_result(result)
     }
 
+    fn stop_simulation(&mut self) {
+        let result = self.app_state.stop_simualtion();
+        self.apply_operation_result(result);
+    }
+
     fn apply_silent_operation(&mut self, operation: DesignOperation) {
         match self.app_state.apply_design_op(operation) {
             Ok(_) => (),
@@ -1171,6 +1176,10 @@ impl<'a> MainStateInteface for MainStateView<'a> {
 
     fn start_helix_simulation(&mut self, parameters: RigidBodyConstants) {
         self.main_state.start_helix_simulation(parameters);
+    }
+
+    fn stop_simulation(&mut self) {
+        self.main_state.stop_simulation();
     }
 }
 

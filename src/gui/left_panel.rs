@@ -509,24 +509,32 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
             Message::FinalizeHyperboloid => {
                 self.requests.lock().unwrap().finalize_hyperboloid();
             }
-            Message::RigidGridSimulation(_) => {
-                let mut request: Option<RigidBodyParametersRequest> = None;
-                self.simulation_tab.make_rigid_body_request(&mut request);
-                if let Some(request) = request {
-                    self.requests
-                        .lock()
-                        .unwrap()
-                        .update_rigid_grids_simulation(request);
+            Message::RigidGridSimulation(start) => {
+                if start {
+                    let mut request: Option<RigidBodyParametersRequest> = None;
+                    self.simulation_tab.make_rigid_body_request(&mut request);
+                    if let Some(request) = request {
+                        self.requests
+                            .lock()
+                            .unwrap()
+                            .update_rigid_grids_simulation(request);
+                    }
+                } else {
+                    self.requests.lock().unwrap().stop_simulations();
                 }
             }
-            Message::RigidHelicesSimulation(_) => {
-                let mut request: Option<RigidBodyParametersRequest> = None;
-                self.simulation_tab.make_rigid_body_request(&mut request);
-                if let Some(request) = request {
-                    self.requests
-                        .lock()
-                        .unwrap()
-                        .update_rigid_helices_simulation(request);
+            Message::RigidHelicesSimulation(start) => {
+                if start {
+                    let mut request: Option<RigidBodyParametersRequest> = None;
+                    self.simulation_tab.make_rigid_body_request(&mut request);
+                    if let Some(request) = request {
+                        self.requests
+                            .lock()
+                            .unwrap()
+                            .update_rigid_helices_simulation(request);
+                    }
+                } else {
+                    self.requests.lock().unwrap().stop_simulations();
                 }
             }
             Message::MakeGrids => self.requests.lock().unwrap().make_grid_from_selection(),

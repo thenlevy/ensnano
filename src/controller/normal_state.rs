@@ -138,6 +138,10 @@ impl State for NormalState {
                     main_state.start_helix_simulation(parameters);
                     self
                 }
+                Action::StopSimulation => {
+                    main_state.stop_simulation();
+                    self
+                }
                 action => {
                     println!("Not implemented {:?}", action);
                     self
@@ -277,7 +281,7 @@ pub enum Action {
     ToggleHelicesPersistance(bool),
     ToggleSmallSphere(bool),
     SimulationRequest(SimulationRequest),
-    StopRoll,
+    StopSimulation,
     RollHelices(f32),
     Copy,
     PasteCandidate(Option<Nucl>),

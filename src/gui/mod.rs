@@ -160,6 +160,7 @@ pub trait Requests: 'static + Send {
     /// make the spheres of the currently selected grid large/small
     fn set_small_sphere(&mut self, small: bool);
     fn finish_changing_color(&mut self);
+    fn stop_simulations(&mut self);
 }
 
 #[derive(Clone, Debug, PartialEq)]

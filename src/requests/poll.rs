@@ -339,7 +339,7 @@ pub(crate) fn poll_all<R: DerefMut<Target = Requests>>(
     }
 
     if requests.stop_roll.take().is_some() {
-        main_state.pending_actions.push_back(Action::StopRoll)
+        main_state.pending_actions.push_back(Action::StopSimulation)
     }
 
     if requests.suspend_op.take().is_some() {

@@ -267,6 +267,10 @@ impl GuiRequests for Requests {
     fn finish_changing_color(&mut self) {
         self.keep_proceed.push_back(Action::FinishChangingColor);
     }
+
+    fn stop_simulations(&mut self) {
+        self.keep_proceed.push_back(Action::StopSimulation)
+    }
 }
 
 fn rigid_parameters(parameters: RigidBodyParametersRequest) -> RigidBodyConstants {

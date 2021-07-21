@@ -192,6 +192,7 @@ pub(crate) trait MainState: ScaffoldSetter {
     fn delete_selection(&mut self);
     fn scaffold_to_selection(&mut self);
     fn start_helix_simulation(&mut self, parameters: RigidBodyConstants);
+    fn stop_simulation(&mut self);
 }
 
 pub struct LoadDesignError(String);

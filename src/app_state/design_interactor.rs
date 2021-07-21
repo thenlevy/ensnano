@@ -119,6 +119,14 @@ impl DesignInteractor {
         self.handle_operation_result(result)
     }
 
+    pub(super) fn stop_simulation(&self) -> Result<InteractorResult, ErrOperation> {
+        let result = self.controller.apply_simulation_operation(
+            self.design.clone_inner(),
+            controller::SimulationOperation::Stop,
+        );
+        self.handle_operation_result(result)
+    }
+
     fn handle_operation_result(
         &self,
         result: Result<(OkOperation, Controller), ErrOperation>,

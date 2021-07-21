@@ -181,6 +181,11 @@ impl AppState {
         self.handle_operation_result(result)
     }
 
+    pub(super) fn stop_simualtion(&mut self) -> Result<Option<Self>, ErrOperation> {
+        let result = self.0.design.stop_simulation();
+        self.handle_operation_result(result)
+    }
+
     fn handle_operation_result(
         &mut self,
         result: Result<InteractorResult, ErrOperation>,
