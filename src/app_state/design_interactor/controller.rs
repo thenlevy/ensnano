@@ -33,7 +33,9 @@ use std::sync::{Arc, Mutex};
 
 use clipboard::{PastedStrand, StrandClipboard};
 
-use self::simulations::{HelixSystemInterface, HelixSystemThread};
+use self::simulations::{
+    GridSystemInterface, GridsSystemThread, HelixSystemInterface, HelixSystemThread,
+};
 
 use super::grid_data::GridManager;
 use ultraviolet::{Isometry2, Rotor3, Vec2, Vec3};
@@ -48,8 +50,8 @@ pub use shift_optimization::{ShiftOptimizationResult, ShiftOptimizerReader};
 
 mod simulations;
 pub use simulations::{
-    HelixPresenter, RigidHelixState, ShakeTarget, SimulationInterface, SimulationOperation,
-    SimulationReader,
+    GridPresenter, HelixPresenter, RigidHelixState, ShakeTarget, SimulationInterface,
+    SimulationOperation, SimulationReader,
 };
 
 #[derive(Clone, Default)]
@@ -270,9 +272,25 @@ impl Controller {
                     initial_design: AddressPointer::new(design.clone()),
                 };
             }
+            SimulationOperation::StartGrids {
+                presenter,
+                parameters,
+                reader,
+            } => {
+                if !self.is_in_persistant_state() {
+                    return Err(ErrOperation::IncompatibleState);
+                }
+                let interface = GridsSystemThread::start_new(presenter, parameters, reader)?;
+                ret.state = ControllerState::SimulatingGrids {
+                    interface,
+                    initial_design: AddressPointer::new(design.clone()),
+                }
+            }
             SimulationOperation::UpdateParameters { new_parameters } => {
                 if let ControllerState::Simulating { interface, .. } = &ret.state {
                     interface.lock().unwrap().parameters_update = Some(new_parameters);
+                } else if let ControllerState::SimulatingGrids { interface, .. } = &ret.state {
+                    interface.lock().unwrap().parameters_update = Some(new_parameters)
                 } else {
                     return Err(ErrOperation::IncompatibleState);
                 }
@@ -289,6 +307,8 @@ impl Controller {
                     ret.state = ControllerState::WithPausedSimulation {
                         initial_design: initial_design.clone(),
                     };
+                } else if let ControllerState::SimulatingGrids { .. } = &ret.state {
+                    ret.state = ControllerState::Normal;
                 }
             }
             SimulationOperation::Reset => {
@@ -534,6 +554,7 @@ impl Controller {
         match self.state {
             ControllerState::Simulating { .. } => SimulationState::RigidHelices,
             ControllerState::WithPausedSimulation { .. } => SimulationState::Paused,
+            ControllerState::SimulatingGrids { .. } => SimulationState::RigidGrid,
             _ => SimulationState::None,
         }
     }
@@ -842,6 +863,7 @@ pub enum ErrOperation {
     HelixNotEmpty(usize),
     EmptyScaffoldSequence,
     NoScaffoldSet,
+    NoGrids,
 }
 
 impl Controller {
@@ -1854,6 +1876,10 @@ enum ControllerState {
         interface: Arc<Mutex<HelixSystemInterface>>,
         initial_design: AddressPointer<Design>,
     },
+    SimulatingGrids {
+        interface: Arc<Mutex<GridSystemInterface>>,
+        initial_design: AddressPointer<Design>,
+    },
     WithPausedSimulation {
         initial_design: AddressPointer<Design>,
     },
@@ -1882,6 +1908,7 @@ impl ControllerState {
             Self::DoingFirstXoversDuplication { .. } => "DoingFirstXoversDuplication",
             Self::OptimizingScaffoldPosition => "OptimizingScaffoldPosition",
             Self::Simulating { .. } => "Simulation",
+            Self::SimulatingGrids { .. } => "Simulating Grids",
             Self::WithPausedSimulation { .. } => "WithPausedSimulation",
         }
     }
@@ -1978,6 +2005,7 @@ impl ControllerState {
                 Self::DoingFirstXoversDuplication { .. } => self.clone(),
                 Self::OptimizingScaffoldPosition => self.clone(),
                 Self::Simulating { .. } => self.clone(),
+                Self::SimulatingGrids { .. } => self.clone(),
                 Self::WithPausedSimulation { .. } => self.clone(),
             }
         }

@@ -116,7 +116,9 @@ mod main_tests;
 
 mod app_state;
 mod controller;
-use app_state::{AppState, CopyOperation, ErrOperation, InteractorNotification, PastingStatus};
+use app_state::{
+    AppState, CopyOperation, ErrOperation, InteractorNotification, PastingStatus, SimulationTarget,
+};
 use controller::Action;
 use controller::Controller;
 
@@ -847,9 +849,20 @@ impl MainState {
     }
 
     fn start_helix_simulation(&mut self, parameters: RigidBodyConstants) {
-        let result = self
-            .app_state
-            .start_helix_simulation(parameters, &mut self.chanel_reader);
+        let result = self.app_state.start_simulation(
+            parameters,
+            &mut self.chanel_reader,
+            SimulationTarget::Helices,
+        );
+        self.apply_operation_result(result)
+    }
+
+    fn start_grid_simulation(&mut self, parameters: RigidBodyConstants) {
+        let result = self.app_state.start_simulation(
+            parameters,
+            &mut self.chanel_reader,
+            SimulationTarget::Grids,
+        );
         self.apply_operation_result(result)
     }
 
@@ -1176,6 +1189,10 @@ impl<'a> MainStateInteface for MainStateView<'a> {
 
     fn start_helix_simulation(&mut self, parameters: RigidBodyConstants) {
         self.main_state.start_helix_simulation(parameters);
+    }
+
+    fn start_grid_simulation(&mut self, parameters: RigidBodyConstants) {
+        self.main_state.start_grid_simulation(parameters);
     }
 
     fn update_simulation(&mut self, request: SimulationRequest) {

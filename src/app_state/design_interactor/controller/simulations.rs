@@ -18,7 +18,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 
 use super::*;
 
-use ensnano_design::Parameters;
+use ensnano_design::{grid::Grid, Parameters};
 use ensnano_interactor::RigidBodyConstants;
 use mathru::algebra::linear::vector::vector::Vector;
 use mathru::analysis::differential_equation::ordinary::{ExplicitEuler, ExplicitODE, Kutta3};
@@ -847,8 +847,7 @@ impl HelixSystemThread {
         }
     }
 
-    /// Spawn a thread to run the physical simulation. Return a pair of pointers. One to request the
-    /// termination of the simulation and one to fetch the current state of the helices.
+    /// Spawn a thread to run the physical simulation.
     fn run(mut self) -> () {
         std::thread::spawn(move || {
             while let Some(interface_ptr) = self.interface.upgrade() {
@@ -891,6 +890,78 @@ impl HelixSystemThread {
             center_of_mass_from_helix,
             ids,
             constants: self.constants.clone(),
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct GridSystemState {
+    positions: Vec<Vec3>,
+    orientations: Vec<Rotor3>,
+    center_of_mass_from_grid: Vec<Vec3>,
+    ids: Vec<usize>,
+}
+
+pub(super) struct GridsSystemThread {
+    grid_system: GridsSystem,
+    interface: Weak<Mutex<GridSystemInterface>>,
+}
+
+#[derive(Default)]
+pub(super) struct GridSystemInterface {
+    new_state: Option<GridSystemState>,
+    pub(super) parameters_update: Option<RigidBodyConstants>,
+}
+
+impl GridsSystemThread {
+    pub(super) fn start_new(
+        presenter: &dyn GridPresenter,
+        rigid_parameters: RigidBodyConstants,
+        reader: &mut dyn SimulationReader,
+    ) -> Result<Arc<Mutex<GridSystemInterface>>, ErrOperation> {
+        let grid_system = make_grid_system(presenter, (0., 1.), rigid_parameters)?;
+        let ret = Arc::new(Mutex::new(GridSystemInterface::default()));
+        let ret_dyn: Arc<Mutex<dyn SimulationInterface>> = ret.clone();
+        reader.attach_state(&ret_dyn);
+        let grid_system_thread = Self {
+            grid_system,
+            interface: Arc::downgrade(&ret),
+        };
+        grid_system_thread.run();
+        Ok(ret)
+    }
+
+    /// Spawn a thread to run the physical simulation
+    fn run(mut self) -> () {
+        std::thread::spawn(move || {
+            while let Some(interface_ptr) = self.interface.upgrade() {
+                if let Some(parameters) = interface_ptr.lock().unwrap().parameters_update.take() {
+                    self.grid_system.update_parameters(parameters);
+                }
+                interface_ptr.lock().unwrap().new_state = Some(self.get_state());
+                let solver = Kutta3::new(1e-4f32);
+                if let Ok((_, y)) = solver.solve(&self.grid_system) {
+                    self.grid_system.last_state = y.last().cloned();
+                }
+            }
+        });
+    }
+
+    fn get_state(&self) -> GridSystemState {
+        let state = self.grid_system.init_cond();
+        let (positions, orientations, _, _) = self.grid_system.read_state(&state);
+        let ids = self.grid_system.grids.iter().map(|g| g.id).collect();
+        let center_of_mass_from_grid = self
+            .grid_system
+            .grids
+            .iter()
+            .map(|g| g.center_of_mass_from_grid)
+            .collect();
+        GridSystemState {
+            positions,
+            orientations,
+            center_of_mass_from_grid,
+            ids,
         }
     }
 }
@@ -1200,6 +1271,11 @@ pub enum SimulationOperation<'pres, 'reader> {
         parameters: RigidBodyConstants,
         reader: &'reader mut dyn SimulationReader,
     },
+    StartGrids {
+        presenter: &'pres dyn GridPresenter,
+        parameters: RigidBodyConstants,
+        reader: &'reader mut dyn SimulationReader,
+    },
     UpdateParameters {
         new_parameters: RigidBodyConstants,
     },
@@ -1218,7 +1294,6 @@ pub trait SimulationInterface: Send {
 
 impl SimulationInterface for HelixSystemInterface {
     fn get_simulation_state(&mut self) -> Option<Box<dyn SimulationUpdate>> {
-        println!("got lock");
         let s = self.new_state.take()?;
         Some(Box::new(s))
     }
@@ -1266,5 +1341,422 @@ impl SimulationUpdate for RigidHelixState {
                 );
             }
         }
+    }
+}
+
+struct GridsSystem {
+    springs: Vec<(ApplicationPoint, ApplicationPoint)>,
+    grids: Vec<RigidGrid>,
+    time_span: (f32, f32),
+    last_state: Option<Vector<f32>>,
+    #[allow(dead_code)]
+    anchors: Vec<(ApplicationPoint, Vec3)>,
+    parameters: RigidBodyConstants,
+}
+
+#[derive(Debug)]
+struct RigidGrid {
+    /// Center of mass of of the grid in world coordinates
+    center_of_mass: Vec3,
+    /// Center of mass of the grid in the grid coordinates
+    center_of_mass_from_grid: Vec3,
+    /// Orientation of the grid in the world coordinates
+    orientation: Rotor3,
+    inertia_inverse: Mat3,
+    mass: f32,
+    id: usize,
+    helices: Vec<RigidHelix>,
+}
+
+impl RigidGrid {
+    pub fn from_helices(
+        id: usize,
+        helices: Vec<RigidHelix>,
+        position_grid: Vec3,
+        orientation: Rotor3,
+    ) -> Self {
+        // Center of mass in the grid coordinates.
+        println!("helices {:?}", helices);
+        let center_of_mass = center_of_mass_helices(&helices);
+
+        // Inertia matrix when the orientation is the identity
+        let inertia_matrix = inertia_helices(&helices, center_of_mass);
+        let inertia_inverse = inertia_matrix.inversed();
+        let mass = helices.iter().map(|h| h.height()).sum();
+        Self {
+            center_of_mass: center_of_mass.rotated_by(orientation) + position_grid,
+            center_of_mass_from_grid: center_of_mass,
+            inertia_inverse,
+            orientation,
+            mass,
+            id,
+            helices,
+        }
+    }
+}
+
+impl GridsSystem {
+    fn forces_and_torques(
+        &self,
+        positions: &[Vec3],
+        orientations: &[Rotor3],
+        _volume_exclusion: f32,
+    ) -> (Vec<Vec3>, Vec<Vec3>) {
+        let mut forces = vec![Vec3::zero(); self.grids.len()];
+        let mut torques = vec![Vec3::zero(); self.grids.len()];
+
+        const L0: f32 = 0.7;
+        let k_springs = self.parameters.k_spring;
+
+        let point_conversion = |application_point: &ApplicationPoint| {
+            let g_id = application_point.grid_id;
+            let position = positions[g_id];
+            let orientation = orientations[g_id];
+            application_point.position_on_grid.rotated_by(orientation) + position
+        };
+
+        for spring in self.springs.iter() {
+            let point_0 = point_conversion(&spring.0);
+            let point_1 = point_conversion(&spring.1);
+            let len = (point_1 - point_0).mag();
+            //println!("len {}", len);
+            let norm = len - L0;
+
+            // The force applied on point 0
+            let force = if len > 1e-5 {
+                k_springs * norm * (point_1 - point_0) / len
+            } else {
+                Vec3::zero()
+            };
+
+            forces[spring.0.grid_id] += force;
+            forces[spring.1.grid_id] -= force;
+
+            let torque0 = (point_0 - positions[spring.0.grid_id]).cross(force);
+            let torque1 = (point_1 - positions[spring.1.grid_id]).cross(-force);
+
+            torques[spring.0.grid_id] += torque0;
+            torques[spring.1.grid_id] += torque1;
+        }
+        /*
+        for i in 0..self.grids.len() {
+            for j in (i + 1)..self.grids.len() {
+                let grid_1 = &self.grids[i];
+                let grid_2 = &self.grids[j];
+                for h1 in grid_1.helices.iter() {
+                    let a = Vec3::new(h1.x_min, h1.y_pos, h1.z_pos);
+                    let a = a.rotated_by(orientations[i]) + positions[i];
+                    let b = Vec3::new(h1.x_max, h1.y_pos, h1.z_pos);
+                    let b = b.rotated_by(orientations[i]) + positions[i];
+                    for h2 in grid_2.helices.iter() {
+                        let c = Vec3::new(h2.x_min, h2.y_pos, h2.z_pos);
+                        let c = c.rotated_by(orientations[j]) + positions[j];
+                        let d = Vec3::new(h2.x_max, h2.y_pos, h2.z_pos);
+                        let d = d.rotated_by(orientations[j]) + positions[j];
+                        let r = 2.;
+                        let (dist, vec, point_a, point_c) = distance_segment(a, b, c, d);
+                        if dist < r {
+                            let norm = ((dist - r) / dist).powi(2) / 1. * 1000.;
+                            forces[i] += norm * vec;
+                            forces[j] += -norm * vec;
+                            let torque0 = (point_a - positions[i]).cross(norm * vec);
+                            let torque1 = (point_c - positions[j]).cross(-norm * vec);
+                            torques[i] += torque0;
+                            torques[j] += torque1;
+                        }
+                    }
+                }
+            }
+        }*/
+
+        (forces, torques)
+    }
+
+    fn update_parameters(&mut self, parameters: RigidBodyConstants) {
+        self.parameters = parameters;
+    }
+}
+
+impl ExplicitODE<f32> for GridsSystem {
+    // We read the sytem in the following format. For each grid, we read
+    // * 3 f32 for position
+    // * 4 f32 for rotation
+    // * 3 f32 for linear momentum
+    // * 3 f32 for angular momentum
+
+    fn func(&self, _t: &f32, x: &Vector<f32>) -> Vector<f32> {
+        let (positions, rotations, linear_momentums, angular_momentums) = self.read_state(x);
+        let volume_exclusion = 1.;
+        let (forces, torques) = self.forces_and_torques(&positions, &rotations, volume_exclusion);
+
+        let mut ret = Vec::with_capacity(13 * self.grids.len());
+        for i in 0..self.grids.len() {
+            let d_position = linear_momentums[i] / (self.grids[i].mass * self.parameters.mass);
+            ret.push(d_position.x);
+            ret.push(d_position.y);
+            ret.push(d_position.z);
+            let omega = self.grids[i].inertia_inverse * angular_momentums[i] / self.parameters.mass;
+            let d_rotation = 0.5
+                * Rotor3::from_quaternion_array([omega.x, omega.y, omega.z, 0f32])
+                * rotations[i];
+
+            ret.push(d_rotation.s);
+            ret.push(d_rotation.bv.xy);
+            ret.push(d_rotation.bv.xz);
+            ret.push(d_rotation.bv.yz);
+
+            let d_linear_momentum = forces[i]
+                - linear_momentums[i] * self.parameters.k_friction
+                    / (self.grids[i].mass * self.parameters.mass);
+
+            ret.push(d_linear_momentum.x);
+            ret.push(d_linear_momentum.y);
+            ret.push(d_linear_momentum.z);
+
+            let d_angular_momentum = torques[i]
+                - angular_momentums[i] * self.parameters.k_friction
+                    / (self.grids[i].mass * self.parameters.mass);
+            ret.push(d_angular_momentum.x);
+            ret.push(d_angular_momentum.y);
+            ret.push(d_angular_momentum.z);
+        }
+
+        Vector::new_row(ret.len(), ret)
+    }
+
+    fn time_span(&self) -> (f32, f32) {
+        self.time_span
+    }
+
+    fn init_cond(&self) -> Vector<f32> {
+        if let Some(state) = self.last_state.clone() {
+            state
+        } else {
+            let mut ret = Vec::with_capacity(13 * self.grids.len());
+            for i in 0..self.grids.len() {
+                let position = self.grids[i].center_of_mass;
+                ret.push(position.x);
+                ret.push(position.y);
+                ret.push(position.z);
+                let rotation = self.grids[i].orientation;
+
+                ret.push(rotation.s);
+                ret.push(rotation.bv.xy);
+                ret.push(rotation.bv.xz);
+                ret.push(rotation.bv.yz);
+
+                let linear_momentum = Vec3::zero();
+
+                ret.push(linear_momentum.x);
+                ret.push(linear_momentum.y);
+                ret.push(linear_momentum.z);
+
+                let angular_momentum = Vec3::zero();
+                ret.push(angular_momentum.x);
+                ret.push(angular_momentum.y);
+                ret.push(angular_momentum.z);
+            }
+            Vector::new_row(ret.len(), ret)
+        }
+    }
+}
+
+impl GridsSystem {
+    fn read_state(&self, x: &Vector<f32>) -> (Vec<Vec3>, Vec<Rotor3>, Vec<Vec3>, Vec<Vec3>) {
+        let mut positions = Vec::with_capacity(self.grids.len());
+        let mut rotations = Vec::with_capacity(self.grids.len());
+        let mut linear_momentums = Vec::with_capacity(self.grids.len());
+        let mut angular_momentums = Vec::with_capacity(self.grids.len());
+        let mut iterator = x.iter();
+        for _ in 0..self.grids.len() {
+            let position = Vec3::new(
+                *iterator.next().unwrap(),
+                *iterator.next().unwrap(),
+                *iterator.next().unwrap(),
+            );
+            let rotation = Rotor3::new(
+                *iterator.next().unwrap(),
+                Bivec3::new(
+                    *iterator.next().unwrap(),
+                    *iterator.next().unwrap(),
+                    *iterator.next().unwrap(),
+                ),
+            )
+            .normalized();
+            let linear_momentum = Vec3::new(
+                *iterator.next().unwrap(),
+                *iterator.next().unwrap(),
+                *iterator.next().unwrap(),
+            );
+            let angular_momentum = Vec3::new(
+                *iterator.next().unwrap(),
+                *iterator.next().unwrap(),
+                *iterator.next().unwrap(),
+            );
+            positions.push(position);
+            rotations.push(rotation);
+            linear_momentums.push(linear_momentum);
+            angular_momentums.push(angular_momentum);
+        }
+        (positions, rotations, linear_momentums, angular_momentums)
+    }
+}
+
+#[derive(Debug)]
+struct ApplicationPoint {
+    grid_id: usize,
+    position_on_grid: Vec3,
+}
+
+fn make_grid_system(
+    presenter: &dyn GridPresenter,
+    time_span: (f32, f32),
+    rigid_paramaters: RigidBodyConstants,
+) -> Result<GridsSystem, ErrOperation> {
+    let intervals = presenter.get_design().get_intervals();
+    let parameters = presenter
+        .get_design()
+        .parameters
+        .clone()
+        .unwrap_or_default();
+    let mut selected_grids = HashMap::with_capacity(presenter.get_design().grids.len());
+    let mut rigid_grids = Vec::with_capacity(presenter.get_design().grids.len());
+    for g_id in 0..presenter.get_design().grids.len() {
+        if let Some(rigid_grid) = make_rigid_grid(presenter, g_id, &intervals, &parameters) {
+            selected_grids.insert(g_id, rigid_grids.len());
+            rigid_grids.push(rigid_grid);
+        }
+    }
+    if rigid_grids.len() == 0 {
+        return Err(ErrOperation::NoGrids);
+    }
+    let xovers = presenter.get_xovers_list();
+    let mut springs = Vec::new();
+    for (n1, n2) in xovers {
+        let h1 = presenter
+            .get_design()
+            .helices
+            .get(&n1.helix)
+            .ok_or(ErrOperation::HelixDoesNotExists(n1.helix))?;
+        let h2 = presenter
+            .get_design()
+            .helices
+            .get(&n2.helix)
+            .ok_or(ErrOperation::HelixDoesNotExists(n2.helix))?;
+        let g_id1 = h1.grid_position.map(|gp| gp.grid);
+        let g_id2 = h2.grid_position.map(|gp| gp.grid);
+        if let Some((g_id1, g_id2)) = g_id1.zip(g_id2) {
+            if g_id1 != g_id2 {
+                let rigid_id1 = selected_grids.get(&g_id1).cloned();
+                let rigid_id2 = selected_grids.get(&g_id2).cloned();
+                if let Some((rigid_id1, rigid_id2)) = rigid_id1.zip(rigid_id2) {
+                    let grid1 = presenter
+                        .get_grid(g_id1)
+                        .ok_or(ErrOperation::GridDoesNotExist(g_id1))?;
+                    let grid2 = presenter
+                        .get_grid(g_id2)
+                        .ok_or(ErrOperation::GridDoesNotExist(g_id2))?;
+                    let pos1 = (h1.space_pos(&parameters, n1.position, n1.forward)
+                        - rigid_grids[rigid_id1].center_of_mass)
+                        .rotated_by(grid1.orientation.reversed());
+                    let pos2 = (h2.space_pos(&parameters, n2.position, n2.forward)
+                        - rigid_grids[rigid_id2].center_of_mass)
+                        .rotated_by(grid2.orientation.reversed());
+                    let application_point1 = ApplicationPoint {
+                        position_on_grid: pos1,
+                        grid_id: rigid_id1,
+                    };
+                    let application_point2 = ApplicationPoint {
+                        position_on_grid: pos2,
+                        grid_id: rigid_id2,
+                    };
+                    springs.push((application_point1, application_point2));
+                }
+            }
+        }
+    }
+    Ok(GridsSystem {
+        springs,
+        grids: rigid_grids,
+        time_span,
+        last_state: None,
+        anchors: vec![],
+        parameters: rigid_paramaters,
+    })
+}
+
+fn make_rigid_grid(
+    presenter: &dyn GridPresenter,
+    g_id: usize,
+    intervals: &BTreeMap<usize, (isize, isize)>,
+    parameters: &Parameters,
+) -> Option<RigidGrid> {
+    let helices: Vec<usize> = presenter.get_helices_attached_to_grid(g_id)?;
+    let grid = presenter.get_grid(g_id)?;
+    let mut rigid_helices = Vec::with_capacity(helices.len());
+    for h in helices {
+        if let Some(rigid_helix) = make_rigid_helix_grid_pov(presenter, h, intervals, parameters) {
+            rigid_helices.push(rigid_helix)
+        }
+    }
+    if rigid_helices.len() > 0 {
+        Some(RigidGrid::from_helices(
+            g_id,
+            rigid_helices,
+            grid.position,
+            grid.orientation,
+        ))
+    } else {
+        None
+    }
+}
+
+fn make_rigid_helix_grid_pov(
+    presenter: &dyn GridPresenter,
+    h_id: usize,
+    intervals: &BTreeMap<usize, (isize, isize)>,
+    parameters: &Parameters,
+) -> Option<RigidHelix> {
+    let (x_min, x_max) = intervals.get(&h_id)?;
+    let helix = presenter.get_design().helices.get(&h_id)?;
+    let grid_position = helix.grid_position?;
+    let grid = presenter.get_grid(grid_position.grid)?;
+    let position = grid.position_helix(grid_position.x, grid_position.y) - grid.position;
+    Some(RigidHelix::new_from_grid(
+        position.y,
+        position.z,
+        *x_min as f32 * parameters.z_step,
+        *x_max as f32 * parameters.z_step,
+        helix.roll,
+        helix.orientation,
+        (*x_min, *x_max),
+    ))
+}
+
+pub trait GridPresenter {
+    fn get_design(&self) -> &Design;
+    fn get_grid(&self, g_id: usize) -> Option<&Grid>;
+    fn get_helices_attached_to_grid(&self, g_id: usize) -> Option<Vec<usize>>;
+    fn get_xovers_list(&self) -> Vec<(Nucl, Nucl)>;
+}
+
+impl SimulationInterface for GridSystemInterface {
+    fn get_simulation_state(&mut self) -> Option<Box<dyn SimulationUpdate>> {
+        let s = self.new_state.take()?;
+        Some(Box::new(s))
+    }
+}
+
+impl SimulationUpdate for GridSystemState {
+    fn update_design(&self, design: &mut Design) {
+        let mut new_grids = Vec::clone(design.grids.as_ref());
+        for i in 0..self.ids.len() {
+            let position = self.positions[i];
+            let orientation = self.orientations[i].normalized();
+            let grid = &mut new_grids[self.ids[i]];
+            grid.position = position - self.center_of_mass_from_grid[i].rotated_by(orientation);
+            grid.orientation = orientation;
+        }
+        design.grids = Arc::new(new_grids);
     }
 }

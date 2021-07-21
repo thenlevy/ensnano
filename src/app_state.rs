@@ -39,7 +39,8 @@ use ensnano_interactor::{DesignOperation, RigidBodyConstants};
 pub use design_interactor::controller::ErrOperation;
 pub use design_interactor::{
     CopyOperation, DesignReader, InteractorNotification, PastingStatus, ShiftOptimizationResult,
-    ShiftOptimizerReader, SimulationInterface, SimulationReader, SimulationUpdate,
+    ShiftOptimizerReader, SimulationInterface, SimulationReader, SimulationTarget,
+    SimulationUpdate,
 };
 use design_interactor::{DesignInteractor, InteractorResult};
 
@@ -173,12 +174,13 @@ impl AppState {
         self.handle_operation_result(result)
     }
 
-    pub(super) fn start_helix_simulation(
+    pub(super) fn start_simulation(
         &mut self,
         parameters: RigidBodyConstants,
         reader: &mut dyn SimulationReader,
+        target: SimulationTarget,
     ) -> Result<Option<Self>, ErrOperation> {
-        let result = self.0.design.start_helix_simulation(parameters, reader);
+        let result = self.0.design.start_simulation(parameters, reader, target);
         self.handle_operation_result(result)
     }
 

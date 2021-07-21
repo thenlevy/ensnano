@@ -347,6 +347,26 @@ impl HelixPresenter for Presenter {
     }
 }
 
+impl GridPresenter for Presenter {
+    fn get_design(&self) -> &Design {
+        self.current_design.as_ref()
+    }
+
+    fn get_xovers_list(&self) -> Vec<(Nucl, Nucl)> {
+        self.current_design.get_xovers()
+    }
+
+    fn get_helices_attached_to_grid(&self, g_id: usize) -> Option<Vec<usize>> {
+        self.content
+            .get_helices_on_grid(g_id)
+            .map(|set| set.into_iter().collect())
+    }
+
+    fn get_grid(&self, g_id: usize) -> Option<&ensnano_design::grid::Grid> {
+        self.content.grid_manager.grids.get(g_id)
+    }
+}
+
 use std::collections::HashMap;
 pub trait SimulationUpdate: Send + Sync {
     fn update_positions(

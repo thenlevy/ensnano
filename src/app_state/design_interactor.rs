@@ -34,7 +34,7 @@ pub use controller::{
 
 use crate::controller::SimulationRequest;
 pub(super) use controller::ErrOperation;
-use controller::{HelixPresenter, OkOperation};
+use controller::{GridPresenter, HelixPresenter, OkOperation};
 
 use std::sync::Arc;
 mod file_parsing;
@@ -104,19 +104,27 @@ impl DesignInteractor {
         self.handle_operation_result(result)
     }
 
-    pub(super) fn start_helix_simulation(
+    pub(super) fn start_simulation(
         &self,
         parameters: RigidBodyConstants,
         reader: &mut dyn SimulationReader,
+        target: SimulationTarget,
     ) -> Result<InteractorResult, ErrOperation> {
-        let result = self.controller.apply_simulation_operation(
-            self.design.clone_inner(),
-            controller::SimulationOperation::StartHelices {
+        let operation = match target {
+            SimulationTarget::Helices => controller::SimulationOperation::StartHelices {
                 presenter: self.presenter.as_ref(),
                 parameters,
                 reader,
             },
-        );
+            SimulationTarget::Grids => controller::SimulationOperation::StartGrids {
+                presenter: self.presenter.as_ref(),
+                parameters,
+                reader,
+            },
+        };
+        let result = self
+            .controller
+            .apply_simulation_operation(self.design.clone_inner(), operation);
         self.handle_operation_result(result)
     }
 
@@ -837,4 +845,9 @@ mod tests {
             .unwrap();
         assert_eq!(app_state.is_pasting(), PastingStatus::None);
     }
+}
+
+pub enum SimulationTarget {
+    Grids,
+    Helices,
 }

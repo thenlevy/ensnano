@@ -138,6 +138,10 @@ impl State for NormalState {
                     main_state.start_helix_simulation(parameters);
                     self
                 }
+                Action::RigidGridSimulation { parameters } => {
+                    main_state.start_grid_simulation(parameters);
+                    self
+                }
                 Action::StopSimulation => {
                     main_state.update_simulation(SimulationRequest::Stop);
                     self
