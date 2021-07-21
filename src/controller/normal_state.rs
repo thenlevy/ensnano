@@ -146,6 +146,10 @@ impl State for NormalState {
                     main_state.update_simulation(SimulationRequest::Reset);
                     self
                 }
+                Action::RigidParametersUpdate(parameters) => {
+                    main_state.update_simulation(SimulationRequest::UpdateParameters(parameters));
+                    self
+                }
                 action => {
                     println!("Not implemented {:?}", action);
                     self
