@@ -1515,7 +1515,7 @@ impl ExplicitODE<f32> for GridsSystem {
 
             let d_angular_momentum = torques[i]
                 - angular_momentums[i] * self.parameters.k_friction
-                    / (self.grids[i].mass * self.parameters.mass);
+                    / (self.parameters.mass);
             ret.push(d_angular_momentum.x);
             ret.push(d_angular_momentum.y);
             ret.push(d_angular_momentum.z);
