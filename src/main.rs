@@ -908,7 +908,7 @@ impl MainState {
         let state = std::mem::take(&mut self.app_state);
         let old_state = state.clone();
         self.app_state = modification(state);
-        if old_state != self.app_state && undoable {
+        if old_state != self.app_state && undoable && old_state.is_in_stable_state() {
             self.undo_stack.push(old_state);
             self.redo_stack.clear();
         }

@@ -1472,7 +1472,12 @@ impl GridsSystem {
         (forces, torques)
     }
 
-    fn update_parameters(&mut self, parameters: RigidBodyConstants) {
+    fn update_parameters(&mut self, mut parameters: RigidBodyConstants) {
+        let friction_multiplier = 1e3;
+        let k_spring_multiplier = 1e2;
+
+        parameters.k_friction *= friction_multiplier;
+        parameters.k_spring *= k_spring_multiplier;
         self.parameters = parameters;
     }
 }
@@ -1514,8 +1519,7 @@ impl ExplicitODE<f32> for GridsSystem {
             ret.push(d_linear_momentum.z);
 
             let d_angular_momentum = torques[i]
-                - angular_momentums[i] * self.parameters.k_friction
-                    / (self.parameters.mass);
+                - angular_momentums[i] * self.parameters.k_friction / (self.parameters.mass);
             ret.push(d_angular_momentum.x);
             ret.push(d_angular_momentum.y);
             ret.push(d_angular_momentum.z);
@@ -1675,14 +1679,16 @@ fn make_grid_system(
             }
         }
     }
-    Ok(GridsSystem {
+    let mut ret = GridsSystem {
         springs,
         grids: rigid_grids,
         time_span,
         last_state: None,
         anchors: vec![],
-        parameters: rigid_paramaters,
-    })
+        parameters: rigid_paramaters.clone(),
+    };
+    ret.update_parameters(rigid_paramaters);
+    Ok(ret)
 }
 
 fn make_rigid_grid(
