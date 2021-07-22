@@ -64,6 +64,7 @@ pub type PhySize = iced_winit::winit::dpi::PhysicalSize<u32>;
 use controller::{ChanelReader, ChanelReaderUpdate, SimulationRequest};
 use ensnano_design::Nucl;
 use ensnano_interactor::application::{Application, Notification};
+use ensnano_interactor::graphics::FogParameters;
 use ensnano_interactor::{DesignOperation, DesignReader, RigidBodyConstants};
 use iced_native::Event as IcedEvent;
 use iced_wgpu::{wgpu, Backend, Renderer, Settings, Viewport};

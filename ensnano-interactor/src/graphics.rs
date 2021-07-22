@@ -67,7 +67,7 @@ impl std::fmt::Display for RenderingMode {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FogParameters {
     pub radius: f32,
     pub length: f32,

@@ -716,6 +716,7 @@ impl<S: AppState> Application for Scene<S> {
             Notification::Redim2dHelices(_) => (),
             Notification::RenderingMode(mode) => self.view.borrow_mut().rendering_mode(mode),
             Notification::Background3D(bg) => self.view.borrow_mut().background3d(bg),
+            Notification::Fog(fog) => self.fog_request(fog),
         }
     }
 

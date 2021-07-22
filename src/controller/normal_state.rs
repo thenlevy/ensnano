@@ -18,7 +18,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 
 use super::*;
 use ensnano_design::Nucl;
-use ensnano_interactor::HyperboloidOperation;
+use ensnano_interactor::{graphics::FogParameters, HyperboloidOperation};
 
 /// User is interacting with graphical components.
 pub(super) struct NormalState;
@@ -156,6 +156,10 @@ impl State for NormalState {
                 }
                 Action::RollRequest(request) => {
                     main_state.start_roll_simulation(request.target_helices);
+                    self
+                }
+                Action::Fog(fog) => {
+                    main_state.notify_apps(Notification::Fog(fog));
                     self
                 }
                 action => {
@@ -328,4 +332,5 @@ pub enum Action {
     },
     UpdateOrganizerTree(ensnano_organizer::OrganizerTree<DnaElementKey>),
     SuspendOp,
+    Fog(FogParameters),
 }

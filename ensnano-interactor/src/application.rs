@@ -77,6 +77,7 @@ pub enum Notification {
     Redim2dHelices(bool),
     Background3D(Background3D),
     RenderingMode(RenderingMode),
+    Fog(FogParameters),
 }
 
 #[derive(PartialEq, Debug, Clone, Copy)]

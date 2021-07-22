@@ -152,8 +152,7 @@ pub(crate) fn poll_all<R: DerefMut<Target = Requests>>(
     }
 
     if let Some(fog) = requests.fog.take() {
-        //main_state.scene.lock().unwrap().fog_request(fog)
-        todo!()
+        main_state.push_action(Action::Fog(fog))
     }
 
     if let Some(hyperboloid) = requests.new_hyperboloid.take() {

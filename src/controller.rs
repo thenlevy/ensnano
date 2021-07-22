@@ -23,6 +23,7 @@ mod download_staples;
 use download_staples::*;
 pub use download_staples::{DownloadStappleError, DownloadStappleOk, StaplesDownloader};
 mod quit;
+use ensnano_interactor::graphics::FogParameters;
 use ensnano_interactor::{application::Notification, DesignOperation};
 use ensnano_interactor::{DesignReader, RigidBodyConstants, Selection};
 use quit::*;
