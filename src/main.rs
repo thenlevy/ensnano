@@ -866,6 +866,15 @@ impl MainState {
         self.apply_operation_result(result)
     }
 
+    fn start_roll_simulation(&mut self, target_helices: Option<Vec<usize>>) {
+        let result = self.app_state.start_simulation(
+            Default::default(),
+            &mut self.chanel_reader,
+            SimulationTarget::Roll { target_helices },
+        );
+        self.apply_operation_result(result)
+    }
+
     fn update_simulation(&mut self, request: SimulationRequest) {
         let result = self.app_state.update_simulation(request);
         self.apply_operation_result(result);
@@ -1193,6 +1202,10 @@ impl<'a> MainStateInteface for MainStateView<'a> {
 
     fn start_grid_simulation(&mut self, parameters: RigidBodyConstants) {
         self.main_state.start_grid_simulation(parameters);
+    }
+
+    fn start_roll_simulation(&mut self, target_helices: Option<Vec<usize>>) {
+        self.main_state.start_roll_simulation(target_helices);
     }
 
     fn update_simulation(&mut self, request: SimulationRequest) {

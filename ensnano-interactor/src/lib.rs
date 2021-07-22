@@ -267,6 +267,20 @@ pub struct RigidBodyConstants {
     pub brownian_amplitude: f32,
 }
 
+impl Default for RigidBodyConstants {
+    fn default() -> Self {
+        Self {
+            k_friction: 1.,
+            k_spring: 1.,
+            mass: 1.,
+            volume_exclusion: false,
+            brownian_amplitude: 1.,
+            brownian_rate: 1.,
+            brownian_motion: false,
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct ScaffoldInfo {
     pub id: usize,

@@ -901,7 +901,6 @@ impl<S: AppState> SimulationTab<S> {
     ) -> Element<'a, Message<S>> {
         let sim_state = &app_state.get_simulation_state();
         let grid_active = sim_state.is_none() || sim_state.simulating_grid();
-        let helices_active = sim_state.is_none() || sim_state.simulating_helices();
         let roll_active = sim_state.is_none() || sim_state.is_rolling();
         let mut ret = Column::new().spacing(2);
         ret = ret.push(Text::new("Simulation (Beta)").size(ui_size.head_text()));

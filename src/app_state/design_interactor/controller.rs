@@ -35,6 +35,7 @@ use clipboard::{PastedStrand, StrandClipboard};
 
 use self::simulations::{
     GridSystemInterface, GridsSystemThread, HelixSystemInterface, HelixSystemThread,
+    PhysicalSystem, RollInterface,
 };
 
 use super::grid_data::GridManager;
@@ -50,8 +51,8 @@ pub use shift_optimization::{ShiftOptimizationResult, ShiftOptimizerReader};
 
 mod simulations;
 pub use simulations::{
-    GridPresenter, HelixPresenter, RigidHelixState, ShakeTarget, SimulationInterface,
-    SimulationOperation, SimulationReader,
+    GridPresenter, HelixPresenter, RigidHelixState, RollPresenter, ShakeTarget,
+    SimulationInterface, SimulationOperation, SimulationReader,
 };
 
 #[derive(Clone, Default)]
@@ -286,6 +287,20 @@ impl Controller {
                     initial_design: AddressPointer::new(design.clone()),
                 }
             }
+            SimulationOperation::StartRoll {
+                presenter,
+                target_helices,
+                reader,
+            } => {
+                if !self.is_in_persistant_state() {
+                    return Err(ErrOperation::IncompatibleState);
+                }
+                let interface = PhysicalSystem::start_new(presenter, target_helices, reader);
+                ret.state = ControllerState::Rolling {
+                    interface,
+                    initial_design: AddressPointer::new(design.clone()),
+                };
+            }
             SimulationOperation::UpdateParameters { new_parameters } => {
                 if let ControllerState::Simulating { interface, .. } = &ret.state {
                     interface.lock().unwrap().parameters_update = Some(new_parameters);
@@ -309,6 +324,8 @@ impl Controller {
                     };
                 } else if let ControllerState::SimulatingGrids { .. } = &ret.state {
                     ret.state = ControllerState::Normal;
+                } else if let ControllerState::Rolling { .. } = &ret.state {
+                    ret.state = ControllerState::Normal
                 }
             }
             SimulationOperation::Reset => {
@@ -555,6 +572,7 @@ impl Controller {
             ControllerState::Simulating { .. } => SimulationState::RigidHelices,
             ControllerState::WithPausedSimulation { .. } => SimulationState::Paused,
             ControllerState::SimulatingGrids { .. } => SimulationState::RigidGrid,
+            ControllerState::Rolling { .. } => SimulationState::Rolling,
             _ => SimulationState::None,
         }
     }
@@ -1883,6 +1901,10 @@ enum ControllerState {
     WithPausedSimulation {
         initial_design: AddressPointer<Design>,
     },
+    Rolling {
+        interface: Arc<Mutex<RollInterface>>,
+        initial_design: AddressPointer<Design>,
+    },
 }
 
 impl Default for ControllerState {
@@ -1910,6 +1932,7 @@ impl ControllerState {
             Self::Simulating { .. } => "Simulation",
             Self::SimulatingGrids { .. } => "Simulating Grids",
             Self::WithPausedSimulation { .. } => "WithPausedSimulation",
+            Self::Rolling { .. } => "Rolling",
         }
     }
     fn update_pasting_position(
@@ -2007,6 +2030,7 @@ impl ControllerState {
                 Self::Simulating { .. } => self.clone(),
                 Self::SimulatingGrids { .. } => self.clone(),
                 Self::WithPausedSimulation { .. } => self.clone(),
+                Self::Rolling { .. } => self.clone(),
             }
         }
     }

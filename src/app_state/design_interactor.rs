@@ -34,7 +34,7 @@ pub use controller::{
 
 use crate::controller::SimulationRequest;
 pub(super) use controller::ErrOperation;
-use controller::{GridPresenter, HelixPresenter, OkOperation};
+use controller::{GridPresenter, HelixPresenter, OkOperation, RollPresenter};
 
 use std::sync::Arc;
 mod file_parsing;
@@ -121,6 +121,13 @@ impl DesignInteractor {
                 parameters,
                 reader,
             },
+            SimulationTarget::Roll { target_helices } => {
+                controller::SimulationOperation::StartRoll {
+                    presenter: self.presenter.as_ref(),
+                    reader,
+                    target_helices,
+                }
+            }
         };
         let result = self
             .controller
@@ -850,4 +857,5 @@ mod tests {
 pub enum SimulationTarget {
     Grids,
     Helices,
+    Roll { target_helices: Option<Vec<usize>> },
 }

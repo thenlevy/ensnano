@@ -367,6 +367,24 @@ impl GridPresenter for Presenter {
     }
 }
 
+impl RollPresenter for Presenter {
+    fn get_design(&self) -> &Design {
+        self.current_design.as_ref()
+    }
+
+    fn get_xovers_list(&self) -> Vec<(Nucl, Nucl)> {
+        self.current_design.get_xovers()
+    }
+
+    fn get_helices(&self) -> BTreeMap<usize, ensnano_design::Helix> {
+        self.current_design
+            .helices
+            .iter()
+            .map(|(k, h)| (*k, ensnano_design::Helix::clone(h)))
+            .collect()
+    }
+}
+
 use std::collections::HashMap;
 pub trait SimulationUpdate: Send + Sync {
     fn update_positions(

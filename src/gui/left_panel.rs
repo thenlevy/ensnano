@@ -401,8 +401,12 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
                 self.organizer.reset();
             }
             Message::SimRequest => {
-                let request = self.simulation_tab.get_physical_simulation_request();
-                self.requests.lock().unwrap().start_roll_simulation(request);
+                if self.application_state.get_simulation_state().is_rolling() {
+                    self.requests.lock().unwrap().stop_simulations()
+                } else {
+                    let request = self.simulation_tab.get_physical_simulation_request();
+                    self.requests.lock().unwrap().start_roll_simulation(request);
+                }
             }
             Message::FogChoice(choice) => {
                 let (visble, from_camera) = choice.to_param();

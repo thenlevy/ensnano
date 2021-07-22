@@ -154,6 +154,10 @@ impl State for NormalState {
                     main_state.update_simulation(SimulationRequest::UpdateParameters(parameters));
                     self
                 }
+                Action::RollRequest(request) => {
+                    main_state.start_roll_simulation(request.target_helices);
+                    self
+                }
                 action => {
                     println!("Not implemented {:?}", action);
                     self

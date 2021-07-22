@@ -193,6 +193,7 @@ pub(crate) trait MainState: ScaffoldSetter {
     fn scaffold_to_selection(&mut self);
     fn start_helix_simulation(&mut self, parameters: RigidBodyConstants);
     fn start_grid_simulation(&mut self, parameters: RigidBodyConstants);
+    fn start_roll_simulation(&mut self, target_helices: Option<Vec<usize>>);
     fn update_simulation(&mut self, request: SimulationRequest);
 }
 

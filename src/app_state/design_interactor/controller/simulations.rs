@@ -31,6 +31,9 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex, Weak};
 use ultraviolet::{Bivec3, Mat3};
 
+mod roller;
+pub use roller::{PhysicalSystem, RollInterface, RollPresenter};
+
 #[derive(Debug)]
 struct HelixSystem {
     springs: Vec<(RigidNucl, RigidNucl)>,
@@ -1282,6 +1285,11 @@ pub enum SimulationOperation<'pres, 'reader> {
     Shake(ShakeTarget),
     Stop,
     Reset,
+    StartRoll {
+        presenter: &'pres dyn RollPresenter,
+        reader: &'reader mut dyn SimulationReader,
+        target_helices: Option<Vec<usize>>,
+    },
 }
 
 pub trait SimulationReader {
