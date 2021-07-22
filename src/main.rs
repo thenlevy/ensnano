@@ -466,6 +466,8 @@ fn main() {
                         }
                     } else if let ChanelReaderUpdate::SimulationUpdate(update) = update {
                         main_state.app_state.apply_simulation_update(update)
+                    } else if let ChanelReaderUpdate::SimulationExpired = update {
+                        main_state.update_simulation(SimulationRequest::Stop)
                     }
                 }
 

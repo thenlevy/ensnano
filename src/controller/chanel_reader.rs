@@ -39,6 +39,7 @@ pub enum ChanelReaderUpdate {
     /// The optimum scaffold position has been found
     ScaffoldShiftOptimizationResult(ShiftOptimizationResult),
     SimulationUpdate(Box<dyn SimulationUpdate>),
+    SimulationExpired,
 }
 
 impl ChanelReader {
@@ -52,14 +53,22 @@ impl ChanelReader {
         if let Some(result) = self.get_scaffold_shift_optimization_result() {
             updates.push(ChanelReaderUpdate::ScaffoldShiftOptimizationResult(result));
         }
+        let mut invalidated = false;
         if let Some(interface_ptr) = self.simulation_interface.as_ref() {
             if let Some(interface) = interface_ptr.upgrade() {
+                if !interface.lock().unwrap().still_valid() {
+                    invalidated = true;
+                    updates.push(ChanelReaderUpdate::SimulationExpired)
+                }
                 if let Some(new_state) = interface.lock().unwrap().get_simulation_state() {
                     updates.push(ChanelReaderUpdate::SimulationUpdate(new_state))
                 }
             } else {
-                self.simulation_interface = None;
+                invalidated = true;
             }
+        }
+        if invalidated {
+            self.simulation_interface = None;
         }
         updates
     }
@@ -89,6 +98,6 @@ impl ShiftOptimizerReader for ChanelReader {
 
 impl SimulationReader for ChanelReader {
     fn attach_state(&mut self, state_chanel: &std::sync::Arc<Mutex<dyn SimulationInterface>>) {
-        self.simulation_interface = Some(Arc::downgrade(state_chanel))
+        self.simulation_interface = Some(Arc::downgrade(state_chanel));
     }
 }

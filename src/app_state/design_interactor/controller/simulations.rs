@@ -1297,7 +1297,13 @@ pub trait SimulationReader {
 }
 
 pub trait SimulationInterface: Send {
+    /// Return the state of the design as determined by the current advancement of the simulation
     fn get_simulation_state(&mut self) -> Option<Box<dyn SimulationUpdate>>;
+    /// return true if the simulation should still be running. By overriding this methods, some
+    /// simulations can implement automatic termination conditions.
+    fn still_valid(&self) -> bool {
+        true
+    }
 }
 
 impl SimulationInterface for HelixSystemInterface {

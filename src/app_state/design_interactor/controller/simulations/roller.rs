@@ -93,7 +93,9 @@ impl PhysicalSystem {
     pub fn run(mut self) {
         std::thread::spawn(move || {
             while let Some(interface_ptr) = self.interface.upgrade() {
-                self.roller.solve_one_step(&mut self.data, 1e-3);
+                let grad = self.roller.solve_one_step(&mut self.data, 1e-3);
+                println!("grad {}", grad);
+                interface_ptr.lock().unwrap().stabilized = grad < 0.1;
                 interface_ptr.lock().unwrap().new_state = Some(self.data.get_simulation_state())
             }
         });
@@ -238,7 +240,19 @@ impl RollSystem {
     pub fn solve_one_step(&mut self, data: &mut DesignData, lr: f32) -> f32 {
         self.time_scale = 1.;
         self.update_acceleration(data);
-        let grad = self.acceleration.iter().map(|x| x.abs()).sum();
+        let grad = self
+            .acceleration
+            .iter()
+            .map(|x| x.abs())
+            .max_by(|a, b| a.partial_cmp(b).unwrap())
+            .unwrap_or(0.)
+            .max(
+                self.speed
+                    .iter()
+                    .map(|x| x.abs())
+                    .max_by(|a, b| a.partial_cmp(b).unwrap())
+                    .unwrap_or(0.),
+            );
         let dt = lr * self.time_scale;
         self.update_speed(dt);
         self.update_rolls(data, dt);
@@ -291,12 +305,17 @@ impl DesignData {
 #[derive(Default)]
 pub struct RollInterface {
     pub new_state: Option<RollState>,
+    stabilized: bool,
 }
 
 impl super::SimulationInterface for RollInterface {
     fn get_simulation_state(&mut self) -> Option<Box<dyn crate::app_state::SimulationUpdate>> {
         let s = self.new_state.take()?;
         Some(Box::new(s))
+    }
+
+    fn still_valid(&self) -> bool {
+        !self.stabilized
     }
 }
 
