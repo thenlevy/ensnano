@@ -847,8 +847,16 @@ impl MainState {
     }
 
     fn apply_operation(&mut self, operation: DesignOperation) {
-        let result = self.app_state.apply_design_op(operation);
-        self.apply_operation_result(result);
+        let result = self.app_state.apply_design_op(operation.clone());
+        if let Err(ErrOperation::FinishFirst) = result {
+            self.modify_state(
+                |s| s.notified(app_state::InteractorNotification::FinishOperation),
+                false,
+            );
+            self.apply_operation(operation);
+        } else {
+            self.apply_operation_result(result);
+        }
     }
 
     fn start_helix_simulation(&mut self, parameters: RigidBodyConstants) {
@@ -893,6 +901,14 @@ impl MainState {
     fn save_old_state(&mut self, old_state: AppState) {
         self.undo_stack.push(old_state);
         self.redo_stack.clear();
+    }
+
+    fn set_roll_of_selected_helices(&mut self, roll: f32) {
+        if let Some((_, helices)) =
+            ensnano_interactor::list_of_helices(self.app_state.get_selection().as_ref())
+        {
+            self.apply_operation(DesignOperation::SetRollHelices { helices, roll })
+        }
     }
 
     fn undo(&mut self) {
@@ -1213,6 +1229,10 @@ impl<'a> MainStateInteface for MainStateView<'a> {
 
     fn update_simulation(&mut self, request: SimulationRequest) {
         self.main_state.update_simulation(request)
+    }
+
+    fn set_roll_of_selected_helices(&mut self, roll: f32) {
+        self.main_state.set_roll_of_selected_helices(roll)
     }
 }
 

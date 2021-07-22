@@ -174,6 +174,10 @@ pub enum DesignOperation {
         nucls: Vec<Nucl>,
     },
     MoveBuilders(isize),
+    SetRollHelices {
+        helices: Vec<usize>,
+        roll: f32,
+    },
 }
 
 /// An action performed on the application

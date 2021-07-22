@@ -84,8 +84,10 @@ impl Controller {
         design: &Design,
         operation: DesignOperation,
     ) -> Result<(OkOperation, Self), ErrOperation> {
-        if !self.check_compatibilty(&operation) {
-            return Err(ErrOperation::IncompatibleState);
+        match self.check_compatibilty(&operation) {
+            OperationCompatibility::Incompatible => return Err(ErrOperation::IncompatibleState),
+            OperationCompatibility::FinishFirst => return Err(ErrOperation::FinishFirst),
+            OperationCompatibility::Compatible => (),
         }
         match operation {
             DesignOperation::RecolorStaples => Ok(self.ok_apply(Self::recolor_stapples, design)),
@@ -179,6 +181,9 @@ impl Controller {
             )),
             DesignOperation::HyperboloidOperation(op) => {
                 self.apply(|c, d| c.apply_hyperbolid_operation(d, op), design)
+            }
+            DesignOperation::SetRollHelices { helices, roll } => {
+                self.apply(|c, d| c.set_roll_helices(d, helices, roll), design)
             }
             _ => Err(ErrOperation::NotImplemented),
         }
@@ -372,6 +377,26 @@ impl Controller {
         design.helices = Arc::new(new_helices);
     }
 
+    fn set_roll_helices(
+        &mut self,
+        mut design: Design,
+        helices: Vec<usize>,
+        roll: f32,
+    ) -> Result<Design, ErrOperation> {
+        let mut new_helices = BTreeMap::clone(design.helices.as_ref());
+        for h in helices.iter() {
+            if let Some(mut helix) = new_helices.get(h).map(|ptr| Helix::clone(ptr)) {
+                helix.roll = roll;
+                new_helices.insert(*h, Arc::new(helix));
+            } else {
+                return Err(ErrOperation::HelixDoesNotExists(*h));
+            }
+        }
+        self.state = ControllerState::SettingRollHelices;
+        design.helices = Arc::new(new_helices);
+        Ok(design)
+    }
+
     fn apply_hyperbolid_operation(
         &mut self,
         mut design: Design,
@@ -459,7 +484,9 @@ impl Controller {
         nucl_map: Arc<AHashMap<Nucl, u32>>,
         design: &Design,
     ) -> Result<(OkOperation, Self), ErrOperation> {
-        if !self.check_compatibilty(&DesignOperation::SetScaffoldShift(0)) {
+        if let OperationCompatibility::Incompatible =
+            self.check_compatibilty(&DesignOperation::SetScaffoldShift(0))
+        {
             return Err(ErrOperation::IncompatibleState);
         }
         Ok(self.ok_no_op(
@@ -503,45 +530,56 @@ impl Controller {
         new_interactor
     }
 
-    fn check_compatibilty(&self, operation: &DesignOperation) -> bool {
+    fn check_compatibilty(&self, operation: &DesignOperation) -> OperationCompatibility {
         match self.state {
-            ControllerState::Normal => true,
+            ControllerState::Normal => OperationCompatibility::Compatible,
             ControllerState::MakingHyperboloid { .. } => {
                 if let DesignOperation::HyperboloidOperation(op) = operation {
                     if let HyperboloidOperation::New { .. } = op {
-                        false
+                        OperationCompatibility::Incompatible
                     } else {
-                        true
+                        OperationCompatibility::Compatible
                     }
                 } else {
-                    false
+                    OperationCompatibility::Incompatible
                 }
             }
-            ControllerState::WithPendingOp(_) => true,
-            ControllerState::WithPendingDuplication { .. } => true,
+            ControllerState::WithPendingOp(_) => OperationCompatibility::Compatible,
+            ControllerState::WithPendingDuplication { .. } => OperationCompatibility::Compatible,
             ControllerState::ChangingColor => {
                 if let DesignOperation::ChangeColor { .. } = operation {
-                    true
+                    OperationCompatibility::Compatible
                 } else {
-                    false
+                    OperationCompatibility::Incompatible
                 }
             }
-            ControllerState::ApplyingOperation { .. } => true,
+            ControllerState::SettingRollHelices => {
+                if let DesignOperation::SetRollHelices { .. } = operation {
+                    OperationCompatibility::Compatible
+                } else {
+                    OperationCompatibility::FinishFirst
+                }
+            }
+            ControllerState::ApplyingOperation { .. } => OperationCompatibility::Compatible,
             ControllerState::BuildingStrand { initializing, .. } => {
                 if let DesignOperation::MoveBuilders(_) = operation {
-                    true
+                    OperationCompatibility::Compatible
                 } else {
-                    initializing
+                    if initializing {
+                        OperationCompatibility::Compatible
+                    } else {
+                        OperationCompatibility::Incompatible
+                    }
                 }
             }
             ControllerState::OptimizingScaffoldPosition => {
                 if let DesignOperation::SetScaffoldShift(_) = operation {
-                    true
+                    OperationCompatibility::Compatible
                 } else {
-                    false
+                    OperationCompatibility::Incompatible
                 }
             }
-            _ => false,
+            _ => OperationCompatibility::Incompatible,
         }
     }
 
@@ -882,6 +920,7 @@ pub enum ErrOperation {
     EmptyScaffoldSequence,
     NoScaffoldSet,
     NoGrids,
+    FinishFirst,
 }
 
 impl Controller {
@@ -1854,6 +1893,7 @@ enum ControllerState {
         initializing: bool,
     },
     ChangingColor,
+    SettingRollHelices,
     WithPendingOp(Arc<dyn Operation>),
     ApplyingOperation {
         design: AddressPointer<Design>,
@@ -1933,6 +1973,7 @@ impl ControllerState {
             Self::SimulatingGrids { .. } => "Simulating Grids",
             Self::WithPausedSimulation { .. } => "WithPausedSimulation",
             Self::Rolling { .. } => "Rolling",
+            Self::SettingRollHelices => "SettingRollHelices",
         }
     }
     fn update_pasting_position(
@@ -2031,6 +2072,7 @@ impl ControllerState {
                 Self::SimulatingGrids { .. } => self.clone(),
                 Self::WithPausedSimulation { .. } => self.clone(),
                 Self::Rolling { .. } => self.clone(),
+                Self::SettingRollHelices => Self::Normal,
             }
         }
     }
@@ -2086,4 +2128,10 @@ impl PastingStatus {
             Self::None => false,
         }
     }
+}
+
+enum OperationCompatibility {
+    Compatible,
+    Incompatible,
+    FinishFirst,
 }

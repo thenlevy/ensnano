@@ -146,6 +146,10 @@ impl State for NormalState {
                     main_state.update_simulation(SimulationRequest::Stop);
                     self
                 }
+                Action::RollHelices(roll) => {
+                    main_state.set_roll_of_selected_helices(roll);
+                    self
+                }
                 Action::ResetSimulation => {
                     main_state.update_simulation(SimulationRequest::Reset);
                     self
