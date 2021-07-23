@@ -62,11 +62,19 @@ impl FlatSceneRequests for Requests {
     }
 
     fn set_visibility_helix(&mut self, helix: usize, visibility: bool) {
-        todo!()
+        self.keep_proceed.push_back(Action::DesignOperation(
+            DesignOperation::SetVisibilityHelix {
+                helix,
+                visible: visibility,
+            },
+        ))
     }
 
     fn flip_group(&mut self, helix: usize) {
-        todo!()
+        self.keep_proceed
+            .push_back(Action::DesignOperation(DesignOperation::FlipHelixGroup {
+                helix,
+            }))
     }
 
     fn suspend_op(&mut self) {

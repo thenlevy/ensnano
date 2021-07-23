@@ -172,7 +172,9 @@ impl Reader3D for DesignReader {
     }
 
     fn get_all_visible_nucl_ids(&self) -> Vec<u32> {
-        self.presenter.content.nucleotide.keys().cloned().collect()
+        self.presenter
+            .content
+            .get_all_visible_nucl_ids(&self.presenter.current_design)
     }
 
     fn get_grid_latice_position(&self, g_id: usize, x: isize, y: isize) -> Option<Vec3> {
@@ -191,10 +193,7 @@ impl Reader3D for DesignReader {
     fn get_all_visible_bound_ids(&self) -> Vec<u32> {
         self.presenter
             .content
-            .nucleotides_involved
-            .keys()
-            .cloned()
-            .collect()
+            .get_all_visible_bounds(&self.presenter.current_design)
     }
 
     fn get_element_axis_position(&self, e_id: u32, referential: Referential) -> Option<Vec3> {

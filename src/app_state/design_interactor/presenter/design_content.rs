@@ -229,6 +229,41 @@ impl DesignContent {
         }
         ret
     }
+
+    pub fn get_all_visible_nucl_ids(&self, design: &Design) -> Vec<u32> {
+        let check_visiblity = |&(_, v): &(&u32, &Nucl)| {
+            design
+                .helices
+                .get(&v.helix)
+                .map(|h| h.visible)
+                .unwrap_or_default()
+        };
+        self.nucleotide
+            .iter()
+            .filter(check_visiblity)
+            .map(|t| *t.0)
+            .collect()
+    }
+
+    pub fn get_all_visible_bounds(&self, design: &Design) -> Vec<u32> {
+        let check_visiblity = |&(_, bound): &(&u32, &(Nucl, Nucl))| {
+            design
+                .helices
+                .get(&bound.0.helix)
+                .map(|h| h.visible)
+                .unwrap_or_default()
+                || design
+                    .helices
+                    .get(&bound.1.helix)
+                    .map(|h| h.visible)
+                    .unwrap_or_default()
+        };
+        self.nucleotides_involved
+            .iter()
+            .filter(check_visiblity)
+            .map(|t| *t.0)
+            .collect()
+    }
 }
 
 #[derive(Debug)]

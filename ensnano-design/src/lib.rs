@@ -1568,6 +1568,18 @@ where
     design.helices = Arc::new(new_helices_map);
 }
 
+pub fn mutate_one_helix<F>(design: &mut Design, h_id: usize, mutation: F) -> Option<()>
+where
+    F: FnMut(&mut Helix) + Clone,
+{
+    let mut new_helices_map = BTreeMap::clone(&design.helices);
+    new_helices_map
+        .get_mut(&h_id)
+        .map(|h| mutate_helix(h, mutation))?;
+    design.helices = Arc::new(new_helices_map);
+    Some(())
+}
+
 #[derive(Serialize, Deserialize, Clone, Copy, Eq, PartialEq, Hash, Debug, PartialOrd, Ord)]
 pub struct Nucl {
     pub helix: usize,

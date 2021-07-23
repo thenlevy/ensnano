@@ -178,6 +178,13 @@ pub enum DesignOperation {
         helices: Vec<usize>,
         roll: f32,
     },
+    SetVisibilityHelix {
+        helix: usize,
+        visible: bool,
+    },
+    FlipHelixGroup {
+        helix: usize,
+    },
 }
 
 /// An action performed on the application

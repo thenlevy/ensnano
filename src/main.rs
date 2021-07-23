@@ -1011,10 +1011,6 @@ impl MainState {
         println!("TODO");
     }
 
-    fn stop_roll(&mut self) {
-        println!("TODO")
-    }
-
     fn save_design(&self, path: &PathBuf) -> Result<(), SaveDesignError> {
         self.app_state.get_design_reader().save_design(path)
     }

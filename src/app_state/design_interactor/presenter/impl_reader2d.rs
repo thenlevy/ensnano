@@ -121,7 +121,11 @@ impl Reader2D for DesignReader {
     }
 
     fn get_visibility_helix(&self, h_id: usize) -> Option<bool> {
-        None
+        self.presenter
+            .current_design
+            .helices
+            .get(&h_id)
+            .map(|h| h.visible)
     }
 
     fn get_xovers_list_with_id(&self) -> Vec<(usize, (Nucl, Nucl))> {

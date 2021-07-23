@@ -185,6 +185,12 @@ impl Controller {
             DesignOperation::SetRollHelices { helices, roll } => {
                 self.apply(|c, d| c.set_roll_helices(d, helices, roll), design)
             }
+            DesignOperation::SetVisibilityHelix { helix, visible } => {
+                self.apply(|c, d| c.set_visiblity_helix(d, helix, visible), design)
+            }
+            DesignOperation::FlipHelixGroup { helix } => {
+                self.apply(|c, d| c.flip_helix_group(d, helix), design)
+            }
             _ => Err(ErrOperation::NotImplemented),
         }
     }
@@ -394,6 +400,37 @@ impl Controller {
         }
         self.state = ControllerState::SettingRollHelices;
         design.helices = Arc::new(new_helices);
+        Ok(design)
+    }
+
+    fn set_visiblity_helix(
+        &mut self,
+        mut design: Design,
+        helix: usize,
+        visible: bool,
+    ) -> Result<Design, ErrOperation> {
+        ensnano_design::mutate_one_helix(&mut design, helix, |h| h.visible = visible)
+            .ok_or(ErrOperation::HelixDoesNotExists(helix))?;
+        Ok(design)
+    }
+
+    fn flip_helix_group(
+        &mut self,
+        mut design: Design,
+        helix: usize,
+    ) -> Result<Design, ErrOperation> {
+        let mut new_groups = BTreeMap::clone(design.groups.as_ref());
+        println!("group {:?}", new_groups.get(&helix));
+        match new_groups.remove(&helix) {
+            None => {
+                new_groups.insert(helix, false);
+            }
+            Some(false) => {
+                new_groups.insert(helix, true);
+            }
+            Some(true) => (),
+        }
+        design.groups = Arc::new(new_groups);
         Ok(design)
     }
 
