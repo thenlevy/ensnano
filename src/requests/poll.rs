@@ -262,7 +262,7 @@ pub(crate) fn poll_all<R: DerefMut<Target = Requests>>(
     }*/
 
     if requests.split2d.take().is_some() {
-        main_state.split_2d_view()
+        main_state.push_action(Action::Split2D)
     }
 
     if requests.all_visible.take().is_some() {

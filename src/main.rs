@@ -1003,10 +1003,6 @@ impl MainState {
         }
     }
 
-    fn split_2d_view(&mut self) {
-        println!("TODO split2d view is not yet implemented");
-    }
-
     fn clear_visibility_sieve(&mut self) {
         println!("TODO");
     }

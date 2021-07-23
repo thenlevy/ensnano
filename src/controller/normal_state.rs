@@ -166,6 +166,10 @@ impl State for NormalState {
                     main_state.notify_apps(Notification::Fog(fog));
                     self
                 }
+                Action::Split2D => {
+                    main_state.notify_apps(Notification::Split2d);
+                    self
+                }
                 action => {
                     println!("Not implemented {:?}", action);
                     self
@@ -337,4 +341,5 @@ pub enum Action {
     UpdateOrganizerTree(ensnano_organizer::OrganizerTree<DnaElementKey>),
     SuspendOp,
     Fog(FogParameters),
+    Split2D,
 }
