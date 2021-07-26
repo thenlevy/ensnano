@@ -53,8 +53,6 @@ pub struct Helix {
     pub flat_id: FlatHelix,
     pub real_id: usize,
     pub visible: bool,
-    basis_map: Arc<HashMap<Nucl, char, RandomState>>,
-    groups: Arc<BTreeMap<usize, bool>>,
 }
 
 impl Flat for Helix {}
@@ -94,8 +92,6 @@ impl Helix {
             flat_id,
             real_id,
             visible,
-            basis_map,
-            groups,
         }
     }
 
@@ -327,7 +323,7 @@ impl Helix {
 
     /// Return true if (x, y) is on the circle representing self
     pub fn click_on_circle(&self, x: f32, y: f32, camera: &CameraPtr) -> bool {
-        if let Some(center) = self.get_circle(camera) {
+        if let Some(center) = self.get_circle(camera, &BTreeMap::new()) {
             (center.center - Vec2::new(x, y)).mag() < center.radius
         } else {
             false
@@ -508,7 +504,11 @@ impl Helix {
     /// * On the left of the helix,
     /// * On the right of the helix,
     /// * On the leftmost visible position of the helix
-    pub fn get_circle(&self, camera: &CameraPtr) -> Option<CircleInstance> {
+    pub fn get_circle(
+        &self,
+        camera: &CameraPtr,
+        groups: &BTreeMap<usize, bool>,
+    ) -> Option<CircleInstance> {
         let (left, right) = self.screen_intersection(camera)?;
         let center = if self.left as f32 > right || (self.right as f32) < left {
             // the helix is invisible
@@ -531,7 +531,7 @@ impl Helix {
         let color = if !self.visible {
             CIRCLE2D_GREY
         } else {
-            match self.groups.get(&self.real_id) {
+            match groups.get(&self.real_id) {
                 None => CIRCLE2D_BLUE,
                 Some(true) => CIRCLE2D_RED,
                 Some(false) => CIRCLE2D_GREEN,
@@ -639,12 +639,14 @@ impl Helix {
         camera: &CameraPtr,
         char_map: &mut HashMap<char, Vec<CharInstance>>,
         char_drawers: &HashMap<char, crate::utils::chars2d::CharDrawer>,
+        groups: &BTreeMap<usize, bool>,
+        basis_map: &HashMap<Nucl, char, RandomState>,
         show_seq: bool,
     ) {
         let show_seq = show_seq && camera.borrow().get_globals().zoom >= ZOOM_THRESHOLD;
         let size_id = 3.;
         let size_pos = 1.4;
-        let circle = self.get_circle(camera);
+        let circle = self.get_circle(camera, groups);
         if let Some(circle) = circle {
             let nb_chars = self.real_id.to_string().len(); // ok to use len because digits are ascii
             let scale = size_id / nb_chars as f32;
@@ -698,8 +700,6 @@ impl Helix {
                 })
             }
         };
-
-        let basis_map = self.basis_map.as_ref();
 
         let mut pos = self.left;
         while pos <= self.right {

@@ -19,8 +19,9 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 use super::SimulationUpdate;
 use crate::app_state::AddressPointer;
 use ensnano_design::{
+    elements::{DnaAttribute, DnaElement, DnaElementKey},
     grid::{Edge, GridDescriptor, GridPosition, Hyperboloid},
-    mutate_helix, Design, Domain, DomainJunction, Helix, Nucl, Strand,
+    mutate_in_arc, Design, Domain, DomainJunction, Helix, Nucl, Strand,
 };
 use ensnano_interactor::{operation::Operation, HyperboloidOperation, SimulationState};
 use ensnano_interactor::{
@@ -191,7 +192,13 @@ impl Controller {
             DesignOperation::FlipHelixGroup { helix } => {
                 self.apply(|c, d| c.flip_helix_group(d, helix), design)
             }
-            _ => Err(ErrOperation::NotImplemented),
+            DesignOperation::UpdateAttribute {
+                attribute,
+                elements,
+            } => self.apply(|c, d| c.update_attribute(d, attribute, elements), design),
+            DesignOperation::RmGrid(_) => Err(ErrOperation::NotImplemented), // TODO
+            DesignOperation::ChangeSequence { .. } => Err(ErrOperation::NotImplemented), // TODO
+            DesignOperation::CleanDesign => Err(ErrOperation::NotImplemented), // TODO
         }
     }
 
@@ -432,6 +439,63 @@ impl Controller {
         }
         design.groups = Arc::new(new_groups);
         Ok(design)
+    }
+
+    fn update_attribute(
+        &mut self,
+        mut design: Design,
+        attribute: DnaAttribute,
+        elements: Vec<DnaElementKey>,
+    ) -> Result<Design, ErrOperation> {
+        println!("updating attribute {:?}, {:?}", attribute, elements);
+        for elt in elements.iter() {
+            match attribute {
+                DnaAttribute::Visible(b) => self.make_element_visible(&mut design, elt, b)?,
+                DnaAttribute::XoverGroup(g) => self.set_xover_group_of_elt(&mut design, elt, g)?,
+            }
+        }
+        Ok(design)
+    }
+
+    fn make_element_visible(
+        &self,
+        design: &mut Design,
+        element: &DnaElementKey,
+        visible: bool,
+    ) -> Result<(), ErrOperation> {
+        match element {
+            DnaElementKey::Helix(helix) => {
+                ensnano_design::mutate_one_helix(design, *helix, |h| h.visible = visible)
+                    .ok_or(ErrOperation::HelixDoesNotExists(*helix))?;
+            }
+            DnaElementKey::Grid(g_id) => {
+                ensnano_design::mutate_one_grid(design, *g_id, |g| g.invisible = !visible)
+                    .ok_or(ErrOperation::GridDoesNotExist(*g_id))?;
+            }
+            _ => (),
+        }
+        Ok(())
+    }
+
+    fn set_xover_group_of_elt(
+        &self,
+        design: &mut Design,
+        element: &DnaElementKey,
+        group: Option<bool>,
+    ) -> Result<(), ErrOperation> {
+        if let DnaElementKey::Helix(h_id) = element {
+            if !design.helices.contains_key(h_id) {
+                return Err(ErrOperation::HelixDoesNotExists(*h_id));
+            }
+            let mut new_groups = BTreeMap::clone(design.groups.as_ref());
+            if let Some(group) = group {
+                new_groups.insert(*h_id, group);
+            } else {
+                new_groups.remove(h_id);
+            }
+            design.groups = Arc::new(new_groups);
+        }
+        Ok(())
     }
 
     fn apply_hyperbolid_operation(
@@ -802,7 +866,7 @@ impl Controller {
         let mut new_helices = BTreeMap::clone(design.helices.as_ref());
         for h_id in helices.iter() {
             if let Some(h) = new_helices.get_mut(h_id) {
-                mutate_helix(h, |h| h.translate(translation));
+                mutate_in_arc(h, |h| h.translate(translation));
             }
         }
         let mut new_design = design.clone();
@@ -826,7 +890,7 @@ impl Controller {
         let mut new_helices = BTreeMap::clone(design.helices.as_ref());
         for h_id in helices.iter() {
             if let Some(h) = new_helices.get_mut(h_id) {
-                mutate_helix(h, |h| h.rotate_arround(rotation, origin))
+                mutate_in_arc(h, |h| h.rotate_arround(rotation, origin))
             }
         }
         let mut new_design = design.clone();
@@ -1049,7 +1113,7 @@ impl Controller {
                 if let Some(old_pos) = nucl_pos_2d(&design, p) {
                     let position = old_pos + translation;
                     let position = Vec2::new(position.x.round(), position.y.round());
-                    mutate_helix(h, |h| {
+                    mutate_in_arc(h, |h| {
                         if let Some(isometry) = h.isometry2d.as_mut() {
                             isometry.append_translation(position - old_pos)
                         }
@@ -1064,7 +1128,7 @@ impl Controller {
     fn set_isometry(&mut self, mut design: Design, h_id: usize, isometry: Isometry2) -> Design {
         let mut new_helices = BTreeMap::clone(design.helices.as_ref());
         if let Some(h) = new_helices.get_mut(&h_id) {
-            mutate_helix(h, |h| h.isometry2d = Some(isometry));
+            mutate_in_arc(h, |h| h.isometry2d = Some(isometry));
             design.helices = Arc::new(new_helices);
         }
         design
@@ -1085,7 +1149,7 @@ impl Controller {
         let mut new_helices = BTreeMap::clone(design.helices.as_ref());
         for h_id in helices.iter() {
             if let Some(h) = new_helices.get_mut(h_id) {
-                mutate_helix(h, |h| {
+                mutate_in_arc(h, |h| {
                     if let Some(isometry) = h.isometry2d.as_mut() {
                         isometry.append_translation(-center);
                         isometry.append_rotation(ultraviolet::Rotor2::from_angle(angle));

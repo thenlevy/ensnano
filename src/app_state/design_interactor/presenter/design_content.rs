@@ -285,10 +285,10 @@ impl DesignContent {
     /// Update all the hash maps
     pub(super) fn make_hash_maps(
         mut design: Design,
-        groups: &BTreeMap<usize, bool>,
         xover_ids: &JunctionsIds,
         old_grid_ptr: &mut Option<usize>,
     ) -> (Self, Design, JunctionsIds) {
+        let groups = design.groups.clone();
         let mut object_type = HashMap::default();
         let mut space_position = HashMap::default();
         let mut identifier_nucl = HashMap::default();

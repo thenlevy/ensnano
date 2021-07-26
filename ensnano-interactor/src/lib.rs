@@ -20,6 +20,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 //! interract with the design.
 
 use ensnano_design::{
+    elements::{DnaAttribute, DnaElementKey},
     grid::{GridDescriptor, GridPosition, Hyperboloid},
     Nucl, Strand,
 };
@@ -124,7 +125,6 @@ pub enum DesignOperation {
     RmStrands {
         strand_ids: Vec<usize>,
     },
-    MakeAllGrids,
     /// Add a grid to the design
     AddGrid(GridDescriptor),
     /// Remove a grid
@@ -151,6 +151,10 @@ pub enum DesignOperation {
     SetHelicesPersistance {
         grid_ids: Vec<usize>,
         persistant: bool,
+    },
+    UpdateAttribute {
+        attribute: DnaAttribute,
+        elements: Vec<DnaElementKey>,
     },
     SetSmallSpheres {
         grid_ids: Vec<usize>,

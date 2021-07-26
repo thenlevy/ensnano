@@ -1547,13 +1547,13 @@ impl Helix {
 
 /// Apply a mutating function to the value wrapped in an Arc<Helix>. This will make `helix_ptr`
 /// point to a new helix on which the update has been applied.
-pub fn mutate_helix<F>(helix_ptr: &mut Arc<Helix>, mut mutation: F)
+pub fn mutate_in_arc<F, Obj: Clone>(obj_ptr: &mut Arc<Obj>, mut mutation: F)
 where
-    F: FnMut(&mut Helix),
+    F: FnMut(&mut Obj),
 {
-    let mut new_helix = Helix::clone(&helix_ptr);
-    mutation(&mut new_helix);
-    *helix_ptr = Arc::new(new_helix)
+    let mut new_obj = Obj::clone(&obj_ptr);
+    mutation(&mut new_obj);
+    *obj_ptr = Arc::new(new_obj)
 }
 
 /// Apply a mutating fucntion to all the helices of a design.
@@ -1563,7 +1563,7 @@ where
 {
     let mut new_helices_map = BTreeMap::clone(&design.helices);
     for h in new_helices_map.values_mut() {
-        mutate_helix(h, mutation.clone())
+        mutate_in_arc(h, mutation.clone())
     }
     design.helices = Arc::new(new_helices_map);
 }
@@ -1575,8 +1575,18 @@ where
     let mut new_helices_map = BTreeMap::clone(&design.helices);
     new_helices_map
         .get_mut(&h_id)
-        .map(|h| mutate_helix(h, mutation))?;
+        .map(|h| mutate_in_arc(h, mutation))?;
     design.helices = Arc::new(new_helices_map);
+    Some(())
+}
+
+pub fn mutate_one_grid<F>(design: &mut Design, g_id: usize, mut mutation: F) -> Option<()>
+where
+    F: FnMut(&mut GridDescriptor) + Clone,
+{
+    let mut new_grids_map = Vec::clone(&design.grids);
+    new_grids_map.get_mut(g_id).map(|g| mutation(g))?;
+    design.grids = Arc::new(new_grids_map);
     Some(())
 }
 

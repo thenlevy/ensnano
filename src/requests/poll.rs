@@ -232,12 +232,11 @@ pub(crate) fn poll_all<R: DerefMut<Target = Requests>>(
         main_state.update_candidates(candidates);
     }
 
-    if let Some((a, elts)) = requests.new_attribute.take() {
-        let elements = elts.into_iter().map(|e| e.to_selection(0)).collect();
-        main_state.push_action(Action::UpdateAttribute {
-            attribute: a,
+    if let Some((attribute, elements)) = requests.new_attribute.take() {
+        main_state.push_action(Action::DesignOperation(DesignOperation::UpdateAttribute {
+            attribute,
             elements,
-        })
+        }))
     }
 
     if let Some(tree) = requests.new_tree.take() {

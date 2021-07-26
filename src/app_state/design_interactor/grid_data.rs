@@ -17,7 +17,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 
 use ensnano_design::grid::*;
-use ensnano_design::{mutate_helix, Design, Domain, Helix, Parameters};
+use ensnano_design::{mutate_in_arc, Design, Domain, Helix, Parameters};
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::f32::consts::FRAC_PI_2;
 use std::sync::{Arc, RwLock};
@@ -249,7 +249,7 @@ impl GridManager {
                     continue;
                 }
                 if let Some(position) = self.attach_to(h, self.grids.len() - 1) {
-                    mutate_helix(h, |h| h.grid_position = Some(position))
+                    mutate_in_arc(h, |h| h.grid_position = Some(position))
                 }
             }
         }
@@ -269,7 +269,7 @@ impl GridManager {
                 );
                 let grid = &self.grids[grid_position.grid];
 
-                mutate_helix(h, |h| {
+                mutate_in_arc(h, |h| {
                     h.position = grid.position_helix(grid_position.x, grid_position.y);
                     h.orientation = {
                         let orientation = grid.orientation_helix(grid_position.x, grid_position.y);
@@ -322,8 +322,8 @@ impl GridManager {
                         new_grid_position.y,
                     ) {
                         if helix == h_id {
-                            mutate_helix(h, |h| h.grid_position = candidate_position);
-                            mutate_helix(h, |h| {
+                            mutate_in_arc(h, |h| h.grid_position = candidate_position);
+                            mutate_in_arc(h, |h| {
                                 h.position = g
                                     .position_helix(new_grid_position.x, new_grid_position.y)
                                     - h.get_axis(&self.parameters).direction
@@ -333,8 +333,8 @@ impl GridManager {
                             return false;
                         }
                     } else {
-                        mutate_helix(h, |h| h.grid_position = candidate_position);
-                        mutate_helix(h, |h| {
+                        mutate_in_arc(h, |h| h.grid_position = candidate_position);
+                        mutate_in_arc(h, |h| {
                             h.position = g.position_helix(new_grid_position.x, new_grid_position.y)
                                 - h.get_axis(&self.parameters).direction
                                     * new_grid_position.axis_pos as f32
@@ -417,12 +417,14 @@ impl GridManager {
                 position: square_grid.position,
                 orientation: square_grid.orientation,
                 grid_type: GridTypeDescr::Square,
+                invisible: square_grid.invisible,
             }
         } else {
             GridDescriptor {
                 position: hex_grid.position,
                 orientation: hex_grid.orientation,
                 grid_type: GridTypeDescr::Honeycomb,
+                invisible: hex_grid.invisible,
             }
         }
     }

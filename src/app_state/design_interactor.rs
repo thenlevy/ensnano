@@ -486,6 +486,7 @@ mod tests {
                 position: Vec3::zero(),
                 orientation: Rotor3::identity(),
                 grid_type: ensnano_design::grid::GridTypeDescr::Square,
+                invisible: false,
             }))
             .unwrap();
         app_state.update();
@@ -500,6 +501,7 @@ mod tests {
                 position: Vec3::zero(),
                 orientation: Rotor3::identity(),
                 grid_type: ensnano_design::grid::GridTypeDescr::Square,
+                invisible: false,
             }))
             .unwrap();
         app_state.update();
@@ -525,6 +527,7 @@ mod tests {
                 position: Vec3::zero(),
                 orientation: Rotor3::identity(),
                 grid_type: ensnano_design::grid::GridTypeDescr::Square,
+                invisible: false,
             }))
             .unwrap();
         app_state.update();

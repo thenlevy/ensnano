@@ -215,6 +215,9 @@ impl Data {
         self.view
             .borrow_mut()
             .set_torsions(self.design.get_torsions());
+        self.view
+            .borrow_mut()
+            .update_maps(design.get_group_map(), design.get_basis_map());
     }
 
     fn update_suggestion(&mut self, suggestion: &[(FlatNucl, FlatNucl)]) {
@@ -625,7 +628,7 @@ impl Data {
         let mut rotation_pivots = vec![];
         let mut selection = Vec::new();
         for h in self.helices.iter_mut() {
-            let c = h.get_circle(camera);
+            let c = h.get_circle(camera, &BTreeMap::new());
             if c.map(|c| c.in_rectangle(&c1, &c2)).unwrap_or(false) {
                 let translation_pivot = h.get_circle_pivot(camera).unwrap();
                 let rotation_pivot = h.visible_center(camera).unwrap_or_else(|| h.center());

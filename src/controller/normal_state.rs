@@ -204,6 +204,7 @@ impl NormalState {
                 grid_type: descr,
                 position,
                 orientation,
+                invisible: false,
             }))
         } else {
             println!("Could not get position and orientation for new grid");
@@ -334,10 +335,6 @@ pub enum Action {
     ScaffoldToSelection,
     /// Remove empty domains and merge consecutive domains
     CleanDesign,
-    UpdateAttribute {
-        attribute: DnaAttribute,
-        elements: Vec<Selection>,
-    },
     UpdateOrganizerTree(ensnano_organizer::OrganizerTree<DnaElementKey>),
     SuspendOp,
     Fog(FogParameters),

@@ -645,6 +645,7 @@ impl Operation for CreateGrid {
             position: self.position,
             orientation: self.orientation,
             grid_type: self.grid_type,
+            invisible: false,
         })
     }
 

@@ -48,7 +48,6 @@ pub(super) struct Presenter {
     model_matrix: AddressPointer<Mat4>,
     content: AddressPointer<DesignContent>,
     pub junctions_ids: AddressPointer<JunctionsIds>,
-    helices_groups: AddressPointer<BTreeMap<usize, bool>>,
     old_grid_ptr: Option<usize>,
 }
 
@@ -59,7 +58,6 @@ impl Default for Presenter {
             model_matrix: AddressPointer::new(Mat4::identity()),
             content: Default::default(),
             junctions_ids: Default::default(),
-            helices_groups: Default::default(),
             old_grid_ptr: None,
         }
     }
@@ -96,22 +94,16 @@ impl Presenter {
         design: Design,
         old_junctions_ids: &JunctionsIds,
     ) -> (Self, AddressPointer<Design>) {
-        let helices_groups = design.groups.clone();
         let model_matrix = Mat4::identity();
         let mut old_grid_ptr = None;
-        let (content, design, junctions_ids) = DesignContent::make_hash_maps(
-            design,
-            &helices_groups,
-            old_junctions_ids,
-            &mut old_grid_ptr,
-        );
+        let (content, design, junctions_ids) =
+            DesignContent::make_hash_maps(design, old_junctions_ids, &mut old_grid_ptr);
         let design = AddressPointer::new(design);
         let ret = Self {
             current_design: design.clone(),
             content: AddressPointer::new(content),
             model_matrix: AddressPointer::new(model_matrix),
             junctions_ids: AddressPointer::new(junctions_ids),
-            helices_groups: AddressPointer::from(helices_groups),
             old_grid_ptr,
         };
         (ret, design)
@@ -129,7 +121,6 @@ impl Presenter {
     fn read_design(&mut self, design: AddressPointer<Design>) {
         let (content, new_design, new_junctions_ids) = DesignContent::make_hash_maps(
             design.clone_inner(),
-            self.helices_groups.as_ref(),
             self.junctions_ids.as_ref(),
             &mut self.old_grid_ptr,
         );

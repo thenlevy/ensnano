@@ -28,6 +28,7 @@ pub struct Grid {
     pub orientation: Rotor3,
     pub parameters: Parameters,
     pub grid_type: GridType,
+    pub invisible: bool,
     old_position: Vec3,
     old_orientation: Rotor3,
 }
@@ -37,6 +38,8 @@ pub struct GridDescriptor {
     pub position: Vec3,
     pub orientation: Rotor3,
     pub grid_type: GridTypeDescr,
+    #[serde(default)]
+    pub invisible: bool, // by default grids are visible so we store a "negative attribute"
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
@@ -59,6 +62,7 @@ impl GridDescriptor {
             position,
             orientation,
             grid_type: hyperboloid.desc(),
+            invisible: false,
         }
     }
 }
@@ -196,6 +200,7 @@ impl Grid {
             grid_type,
             old_position: position,
             old_orientation: orientation,
+            invisible: false,
         }
     }
 
@@ -302,6 +307,7 @@ impl Grid {
             position: self.position,
             orientation: self.orientation,
             grid_type: self.grid_type.descr(),
+            invisible: self.invisible,
         }
     }
 
