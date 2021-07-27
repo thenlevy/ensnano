@@ -365,6 +365,8 @@ impl Controller {
         orientation: Rotor3,
     ) {
         use ensnano_design::grid::GridDivision;
+        // the hyperboloid grid is always the last one that was added to the design
+        let grid_id = design.grids.len() - 1;
         let parameters = design.parameters.unwrap_or_default();
         let (helices, nb_nucl) = hyperboloid.make_helices(&parameters);
         let nb_nucl = nb_nucl.min(5000);
@@ -376,6 +378,13 @@ impl Controller {
             let y_vec = Vec3::unit_y().rotated_by(orientation);
             h.position = position + origin.x * z_vec + origin.y * y_vec;
             h.orientation = orientation * hyperboloid.orientation_helix(&parameters, i as isize, 0);
+            h.grid_position = Some(GridPosition {
+                grid: grid_id,
+                x: i as isize,
+                y: 0,
+                axis_pos: 0,
+                roll: 0.,
+            });
             new_helices.insert(key, Arc::new(h));
             for b in [true, false].iter() {
                 let new_key = self.add_strand(design, key, -(nb_nucl as isize) / 2, *b);
