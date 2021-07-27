@@ -105,7 +105,7 @@ impl Reader2D for DesignReader {
     }
 
     fn get_suggestions(&self) -> Vec<(Nucl, Nucl)> {
-        vec![]
+        self.presenter.content.suggestions.clone()
     }
 
     fn get_xover_with_id(&self, xover_id: usize) -> Option<(Nucl, Nucl)> {

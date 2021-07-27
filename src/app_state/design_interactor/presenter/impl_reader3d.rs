@@ -56,8 +56,7 @@ impl Reader3D for DesignReader {
     }
 
     fn get_suggestions(&self) -> Vec<(Nucl, Nucl)> {
-        //TODO
-        vec![]
+        self.presenter.content.suggestions.clone()
     }
 
     fn get_object_type(&self, id: u32) -> Option<ObjectType> {

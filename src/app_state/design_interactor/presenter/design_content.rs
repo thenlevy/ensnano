@@ -57,6 +57,7 @@ pub(super) struct DesignContent {
     pub blue_nucl: Vec<Nucl>,
     pub prime3_set: Vec<Prime3End>,
     pub elements: Vec<DnaElement>,
+    pub suggestions: Vec<(Nucl, Nucl)>,
     pub(super) grid_manager: GridManager,
 }
 
@@ -263,6 +264,81 @@ impl DesignContent {
             .filter(check_visiblity)
             .map(|t| *t.0)
             .collect()
+    }
+
+    /// Return the list of all suggested crossovers
+    fn get_suggestions(&self, design: &Design) -> Vec<(Nucl, Nucl)> {
+        let mut ret = vec![];
+        for blue_nucl in self.blue_nucl.iter() {
+            let neighbour = self
+                .get_possible_cross_over(design, blue_nucl)
+                .unwrap_or_default();
+            for (red_nucl, dist) in neighbour {
+                ret.push((*blue_nucl, red_nucl, dist))
+            }
+        }
+        ret.sort_by(|a, b| a.2.partial_cmp(&b.2).unwrap());
+        self.trimm_suggestion(&ret)
+    }
+
+    /// Trimm a list of crossovers so that each nucleotide appears at most once in the suggestion
+    /// list.
+    fn trimm_suggestion(&self, suggestion: &[(Nucl, Nucl, f32)]) -> Vec<(Nucl, Nucl)> {
+        let mut used = HashSet::new();
+        let mut ret = vec![];
+        for (a, b, _) in suggestion {
+            if !used.contains(a) && !used.contains(b) {
+                ret.push((*a, *b));
+                used.insert(a);
+                used.insert(b);
+            }
+        }
+        ret
+    }
+
+    /// Return all the crossovers of length less than `len_crit` involving `nucl`, and their length.
+    fn get_possible_cross_over(&self, design: &Design, nucl: &Nucl) -> Option<Vec<(Nucl, f32)>> {
+        let mut ret = Vec::new();
+        let positions = self
+            .identifier_nucl
+            .get(nucl)
+            .and_then(|id| self.space_position.get(id))?;
+        let cube0 = space_to_cube(positions[0], positions[1], positions[2]);
+
+        let len_crit = 1.2;
+        for i in vec![-1, 0, 1].iter() {
+            for j in vec![-1, 0, 1].iter() {
+                for k in vec![-1, 0, 1].iter() {
+                    let cube = (cube0.0 + i, cube0.1 + j, cube0.2 + k);
+                    if let Some(v) = self.red_cubes.get(&cube) {
+                        for red_nucl in v {
+                            if red_nucl.helix != nucl.helix {
+                                if let Some(red_position) = self
+                                    .identifier_nucl
+                                    .get(&red_nucl)
+                                    .and_then(|id| self.space_position.get(id))
+                                {
+                                    let dist = (0..3)
+                                        .map(|i| (positions[i], red_position[i]))
+                                        .map(|(x, y)| (x - y) * (x - y))
+                                        .sum::<f32>()
+                                        .sqrt();
+                                    if dist < len_crit
+                                        && design.get_strand_nucl(nucl) != design.scaffold_id
+                                        && design.get_strand_nucl(red_nucl) != design.scaffold_id
+                                        && design.get_strand_nucl(nucl)
+                                            != design.get_strand_nucl(red_nucl)
+                                    {
+                                        ret.push((*red_nucl, dist));
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        Some(ret)
     }
 }
 
@@ -490,7 +566,7 @@ impl DesignContent {
                 visible: h.visible,
             });
         }
-        let ret = Self {
+        let mut ret = Self {
             object_type,
             nucleotide,
             nucleotides_involved,
@@ -506,7 +582,10 @@ impl DesignContent {
             blue_nucl,
             elements,
             grid_manager,
+            suggestions: vec![],
         };
+        let suggestions = ret.get_suggestions(&design);
+        ret.suggestions = suggestions;
 
         drop(groups);
 
