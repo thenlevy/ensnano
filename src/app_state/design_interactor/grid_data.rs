@@ -36,7 +36,6 @@ pub struct GridManager {
     parameters: Parameters,
     pub no_phantoms: HashSet<usize>,
     pub small_spheres: HashSet<usize>,
-    pub visibility: HashMap<usize, bool>,
 }
 
 impl GridManager {
@@ -48,16 +47,11 @@ impl GridManager {
             parameters,
             no_phantoms: HashSet::new(),
             small_spheres: HashSet::new(),
-            visibility: HashMap::new(),
         }
     }
 
-    pub fn set_visibility(&mut self, g_id: usize, visibility: bool) {
-        self.visibility.insert(g_id, visibility);
-    }
-
     pub fn get_visibility(&mut self, g_id: usize) -> bool {
-        self.visibility.get(&g_id).cloned().unwrap_or(true)
+        self.grids.get(g_id).map(|g| !g.invisible).unwrap_or(false)
     }
 
     /*
@@ -87,48 +81,10 @@ impl GridManager {
         let mut grids = Vec::new();
         let mut helix_to_pos = HashMap::new();
         let mut pos_to_helix = HashMap::new();
+        let parameters = design.parameters.unwrap_or_default();
         for desc in design.grids.iter() {
-            match desc.grid_type {
-                GridTypeDescr::Square => {
-                    let grid: Grid = Grid::new(
-                        desc.position,
-                        desc.orientation,
-                        design.parameters.unwrap_or_default(),
-                        GridType::square(),
-                    );
-                    grids.push(grid);
-                }
-                GridTypeDescr::Honeycomb => {
-                    let grid: Grid = Grid::new(
-                        desc.position,
-                        desc.orientation,
-                        design.parameters.unwrap_or_default(),
-                        GridType::honneycomb(),
-                    );
-                    grids.push(grid);
-                }
-                GridTypeDescr::Hyperboloid {
-                    radius,
-                    radius_shift,
-                    length,
-                    shift,
-                    forced_radius,
-                } => {
-                    let grid = Grid::new(
-                        desc.position,
-                        desc.orientation,
-                        design.parameters.unwrap_or_default(),
-                        GridType::Hyperboloid(Hyperboloid {
-                            radius,
-                            shift,
-                            length,
-                            radius_shift,
-                            forced_radius,
-                        }),
-                    );
-                    grids.push(grid);
-                }
-            }
+            let grid = desc.to_grid(parameters.clone());
+            grids.push(grid);
         }
         for (h_id, h) in design.helices.iter() {
             if let Some(grid_position) = h.grid_position {
@@ -147,7 +103,6 @@ impl GridManager {
             parameters: design.parameters.unwrap_or_default(),
             no_phantoms: design.no_phantoms.clone(),
             small_spheres: design.small_spheres.clone(),
-            visibility: Default::default(),
         }
     }
 
@@ -173,7 +128,7 @@ impl GridManager {
                 design: design_id,
                 id: n,
                 fake: false,
-                visible: *self.visibility.get(&n).unwrap_or(&true),
+                visible: !g.invisible,
             };
             ret.push(grid);
         }
@@ -201,47 +156,8 @@ impl GridManager {
         let desc = self.find_grid_for_group(helices, design);
         let mut grids = Vec::clone(design.grids.as_ref());
         grids.push(desc);
-        match desc.grid_type {
-            GridTypeDescr::Square => {
-                let grid: Grid = Grid::new(
-                    desc.position,
-                    desc.orientation,
-                    design.parameters.unwrap_or_default(),
-                    GridType::square(),
-                );
-                self.grids.push(grid);
-            }
-            GridTypeDescr::Honeycomb => {
-                let grid: Grid = Grid::new(
-                    desc.position,
-                    desc.orientation,
-                    design.parameters.unwrap_or_default(),
-                    GridType::honneycomb(),
-                );
-                self.grids.push(grid);
-            }
-            GridTypeDescr::Hyperboloid {
-                radius,
-                shift,
-                length,
-                radius_shift,
-                forced_radius,
-            } => {
-                let grid = Grid::new(
-                    desc.position,
-                    desc.orientation,
-                    design.parameters.unwrap_or_default(),
-                    GridType::hyperboloid(Hyperboloid {
-                        radius,
-                        radius_shift,
-                        length,
-                        shift,
-                        forced_radius,
-                    }),
-                );
-                self.grids.push(grid);
-            }
-        }
+        let grid = desc.to_grid(self.parameters.clone());
+        self.grids.push(grid);
         let mut new_helices = BTreeMap::clone(&design.helices);
         for h_id in helices.iter() {
             if let Some(h) = new_helices.get_mut(h_id) {
@@ -441,20 +357,6 @@ impl GridManager {
             ))));
         }
         ret
-    }
-
-    pub fn rotate_grid_arround(&mut self, g_id: usize, rotation: Rotor3, origin: Vec3) {
-        self.grids[g_id].rotate_arround(rotation, origin)
-    }
-
-    pub fn translate_grid(&mut self, g_id: usize, translation: Vec3) {
-        self.grids[g_id].translate(translation)
-    }
-
-    pub fn terminate_movement(&mut self) {
-        for g in self.grids.iter_mut() {
-            g.end_movement()
-        }
     }
 
     pub fn delete_last_grid(&mut self) {

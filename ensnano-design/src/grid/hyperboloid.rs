@@ -74,7 +74,7 @@ impl GridDivision for Hyperboloid {
     }
 
     fn grid_type(&self) -> GridType {
-        unimplemented!()
+        GridType::Hyperboloid(self.clone())
     }
 }
 

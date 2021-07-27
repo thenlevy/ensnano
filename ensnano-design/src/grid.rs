@@ -29,8 +29,6 @@ pub struct Grid {
     pub parameters: Parameters,
     pub grid_type: GridType,
     pub invisible: bool,
-    old_position: Vec3,
-    old_orientation: Rotor3,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Copy)]
@@ -65,6 +63,16 @@ impl GridDescriptor {
             invisible: false,
         }
     }
+
+    pub fn to_grid(&self, parameters: Parameters) -> Grid {
+        Grid {
+            position: self.position,
+            orientation: self.orientation,
+            invisible: self.invisible,
+            grid_type: self.grid_type.to_concrete(),
+            parameters,
+        }
+    }
 }
 
 impl GridTypeDescr {
@@ -81,6 +89,26 @@ impl GridTypeDescr {
             GridTypeDescr::Square => 0u32,
             GridTypeDescr::Honeycomb => 1u32,
             GridTypeDescr::Hyperboloid { .. } => 2u32,
+        }
+    }
+
+    fn to_concrete(&self) -> GridType {
+        match self.clone() {
+            Self::Square => GridType::square(),
+            Self::Honeycomb => GridType::honneycomb(),
+            Self::Hyperboloid {
+                radius,
+                shift,
+                forced_radius,
+                length,
+                radius_shift,
+            } => GridType::Hyperboloid(Hyperboloid {
+                radius,
+                shift,
+                forced_radius,
+                length,
+                radius_shift,
+            }),
         }
     }
 }
@@ -198,8 +226,6 @@ impl Grid {
             orientation,
             parameters,
             grid_type,
-            old_position: position,
-            old_orientation: orientation,
             invisible: false,
         }
     }
@@ -309,33 +335,6 @@ impl Grid {
             grid_type: self.grid_type.descr(),
             invisible: self.invisible,
         }
-    }
-
-    fn append_translation(&mut self, translation: Vec3) {
-        self.position += translation;
-    }
-
-    fn append_rotation(&mut self, rotation: Rotor3) {
-        self.orientation = rotation * self.orientation;
-        self.position = rotation * self.position;
-    }
-
-    pub fn translate(&mut self, translation: Vec3) {
-        self.position = self.old_position;
-        self.append_translation(translation)
-    }
-
-    pub fn rotate_arround(&mut self, rotation: Rotor3, origin: Vec3) {
-        self.orientation = self.old_orientation;
-        self.position = self.old_position;
-        self.append_translation(-origin);
-        self.append_rotation(rotation);
-        self.append_translation(origin);
-    }
-
-    pub fn end_movement(&mut self) {
-        self.old_position = self.position;
-        self.old_orientation = self.orientation;
     }
 }
 
