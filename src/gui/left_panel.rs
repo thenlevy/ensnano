@@ -599,7 +599,10 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
             Message::UiSizePicked(ui_size) => self.requests.lock().unwrap().set_ui_size(ui_size),
             Message::UiSizeChanged(ui_size) => self.ui_size = ui_size,
             Message::SetScaffoldSeqButtonPressed => {
-                self.requests.lock().unwrap().set_scaffold_sequence();
+                self.requests
+                    .lock()
+                    .unwrap()
+                    .set_scaffold_sequence(self.sequence_tab.get_scaffold_shift());
             }
             Message::StapplesRequested => self.requests.lock().unwrap().download_stapples(),
             Message::ToggleText(b) => {

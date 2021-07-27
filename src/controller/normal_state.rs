@@ -30,7 +30,7 @@ impl State for NormalState {
                 Action::NewDesign => self,
                 Action::SaveAs => save_as(),
                 Action::DownloadStaplesRequest => Box::new(DownloadStaples::default()),
-                Action::SetScaffoldSequence => Box::new(SetScaffoldSequence::default()),
+                Action::SetScaffoldSequence { shift } => Box::new(SetScaffoldSequence::init(shift)),
                 Action::Exit => Box::new(Quit::default()),
                 Action::ToggleSplit(mode) => {
                     main_state.toggle_split_mode(mode);
@@ -286,7 +286,10 @@ pub enum Action {
     NewDesign,
     SaveAs,
     DownloadStaplesRequest,
-    SetScaffoldSequence,
+    /// Trigger the sequence of action that will set the scaffold of the sequence.
+    SetScaffoldSequence {
+        shift: usize,
+    },
     Exit,
     ToggleSplit(SplitMode),
     OxDnaExport,

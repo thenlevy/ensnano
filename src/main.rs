@@ -1233,11 +1233,12 @@ impl<'a> controller::ScaffoldSetter for MainStateView<'a> {
     fn set_scaffold_sequence(
         &mut self,
         sequence: String,
+        shift: usize,
     ) -> Result<SetScaffoldSequenceOk, SetScaffoldSequenceError> {
         match self
             .main_state
             .app_state
-            .apply_design_op(DesignOperation::SetScaffoldSequence(sequence))
+            .apply_design_op(DesignOperation::SetScaffoldSequence { sequence, shift })
         {
             Ok(Some(old_state)) => self.main_state.save_old_state(old_state),
             Ok(None) => (),

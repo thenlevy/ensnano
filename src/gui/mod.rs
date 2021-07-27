@@ -95,7 +95,7 @@ pub trait Requests: 'static + Send {
     /// Download the stapples as an xlsx file
     fn download_stapples(&mut self);
     fn set_selected_strand_sequence(&mut self, sequence: String);
-    fn set_scaffold_sequence(&mut self);
+    fn set_scaffold_sequence(&mut self, shift: usize);
     fn set_scaffold_shift(&mut self, shift: usize);
     /// Change the size of the UI components
     fn set_ui_size(&mut self, size: UiSize);

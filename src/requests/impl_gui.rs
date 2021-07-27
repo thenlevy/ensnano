@@ -97,8 +97,9 @@ impl GuiRequests for Requests {
         self.sequence_change = Some(sequence);
     }
 
-    fn set_scaffold_sequence(&mut self) {
-        self.keep_proceed.push_back(Action::SetScaffoldSequence);
+    fn set_scaffold_sequence(&mut self, shift: usize) {
+        self.keep_proceed
+            .push_back(Action::SetScaffoldSequence { shift });
     }
 
     fn set_scaffold_shift(&mut self, shift: usize) {

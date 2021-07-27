@@ -143,8 +143,13 @@ pub enum DesignOperation {
     },
     /// Set the strand with a given id as the scaffold
     SetScaffoldId(Option<usize>),
+    /// Change the shift of the scaffold without changing the sequence
     SetScaffoldShift(usize),
-    SetScaffoldSequence(String),
+    /// Change the sequence and the shift of the scaffold
+    SetScaffoldSequence {
+        sequence: String,
+        shift: usize,
+    },
     HyperboloidOperation(HyperboloidOperation),
     CleanDesign,
     HelicesToGrid(Vec<Selection>),

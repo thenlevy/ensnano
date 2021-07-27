@@ -20,10 +20,19 @@ use super::{dialog, Arc, MainState, Mutex, State, TransitionMessage, YesNo};
 
 use dialog::PathInput;
 
-#[derive(Default)]
 /// User is in the process of setting the sequence of the scaffold
 pub(super) struct SetScaffoldSequence {
     step: Step,
+    shift: usize,
+}
+
+impl SetScaffoldSequence {
+    pub(super) fn init(shift: usize) -> Self {
+        Self {
+            shift,
+            step: Default::default(),
+        }
+    }
 }
 
 impl Default for Step {
@@ -33,16 +42,18 @@ impl Default for Step {
 }
 
 impl SetScaffoldSequence {
-    fn use_default() -> Self {
+    fn use_default(shift: usize) -> Self {
         let sequence = include_str!("p7249-Tilibit.txt").to_string();
         Self {
             step: Step::SetSequence(sequence),
+            shift,
         }
     }
 
-    fn ask_path() -> Self {
+    fn ask_path(shift: usize) -> Self {
         Self {
             step: Step::AskPath { path_input: None },
+            shift,
         }
     }
 }
@@ -66,10 +77,10 @@ enum Step {
 impl State for SetScaffoldSequence {
     fn make_progress(self: Box<Self>, main_state: &mut dyn MainState) -> Box<dyn State> {
         match self.step {
-            Step::Init => init_set_scaffold_sequence(),
-            Step::AskPath { path_input } => ask_path(path_input),
-            Step::GotPath(path) => got_path(path),
-            Step::SetSequence(seq) => set_sequence(seq, main_state),
+            Step::Init => init_set_scaffold_sequence(self.shift),
+            Step::AskPath { path_input } => ask_path(path_input, self.shift),
+            Step::GotPath(path) => got_path(path, self.shift),
+            Step::SetSequence(sequence) => set_sequence(sequence, self.shift, main_state),
             Step::OptimizeScaffoldPosition { design_id } => {
                 optimize_scaffold_position(design_id, main_state)
             }
@@ -77,18 +88,19 @@ impl State for SetScaffoldSequence {
     }
 }
 
-fn init_set_scaffold_sequence() -> Box<dyn State> {
-    let yes = Box::new(SetScaffoldSequence::use_default());
-    let no = Box::new(SetScaffoldSequence::ask_path());
+fn init_set_scaffold_sequence(shift: usize) -> Box<dyn State> {
+    let yes = Box::new(SetScaffoldSequence::use_default(shift));
+    let no = Box::new(SetScaffoldSequence::ask_path(shift));
     Box::new(YesNo::new("Use default m13 sequence?".into(), yes, no))
 }
 
-fn ask_path(path_input: Option<PathInput>) -> Box<dyn State> {
+fn ask_path(path_input: Option<PathInput>, shift: usize) -> Box<dyn State> {
     if let Some(path_input) = path_input {
         if let Some(result) = path_input.get() {
             if let Some(path) = result {
                 Box::new(SetScaffoldSequence {
                     step: Step::GotPath(path),
+                    shift,
                 })
             } else {
                 TransitionMessage::new(
@@ -102,6 +114,7 @@ fn ask_path(path_input: Option<PathInput>) -> Box<dyn State> {
                 step: Step::AskPath {
                     path_input: Some(path_input),
                 },
+                shift,
             })
         }
     } else {
@@ -110,11 +123,12 @@ fn ask_path(path_input: Option<PathInput>) -> Box<dyn State> {
             step: Step::AskPath {
                 path_input: Some(path_input),
             },
+            shift,
         })
     }
 }
 
-fn got_path(path: PathBuf) -> Box<dyn State> {
+fn got_path(path: PathBuf, shift: usize) -> Box<dyn State> {
     let mut content = std::fs::read_to_string(path).unwrap();
     content.make_ascii_uppercase();
     if let Some(n) =
@@ -129,12 +143,17 @@ fn got_path(path: PathBuf) -> Box<dyn State> {
     } else {
         Box::new(SetScaffoldSequence {
             step: Step::SetSequence(content),
+            shift,
         })
     }
 }
 
-fn set_sequence(sequence: String, scaffold_setter: &mut dyn MainState) -> Box<dyn State> {
-    let result = scaffold_setter.set_scaffold_sequence(sequence);
+fn set_sequence(
+    sequence: String,
+    shift: usize,
+    scaffold_setter: &mut dyn MainState,
+) -> Box<dyn State> {
+    let result = scaffold_setter.set_scaffold_sequence(sequence, shift);
     match result {
         Ok(SetScaffoldSequenceOk { default_shift }) => {
             let message = format!("Optimize the scaffold position ?\n
@@ -144,6 +163,7 @@ fn set_sequence(sequence: String, scaffold_setter: &mut dyn MainState) -> Box<dy
 
             let yes = Box::new(SetScaffoldSequence {
                 step: Step::OptimizeScaffoldPosition { design_id: 0 },
+                shift,
             });
             let no = Box::new(super::NormalState);
             Box::new(YesNo::new(message.into(), yes, no))
@@ -165,6 +185,7 @@ pub trait ScaffoldSetter {
     fn set_scaffold_sequence(
         &mut self,
         sequence: String,
+        shift: usize,
     ) -> Result<SetScaffoldSequenceOk, SetScaffoldSequenceError>;
     fn optimize_shift(&mut self);
 }

@@ -1389,6 +1389,10 @@ impl SequenceTab {
             None
         }
     }
+
+    pub fn get_scaffold_shift(&self) -> usize {
+        self.scaffold_position
+    }
 }
 
 fn right_checkbox<'a, F, S: AppState>(

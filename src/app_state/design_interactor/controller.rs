@@ -92,8 +92,8 @@ impl Controller {
         }
         match operation {
             DesignOperation::RecolorStaples => Ok(self.ok_apply(Self::recolor_stapples, design)),
-            DesignOperation::SetScaffoldSequence(sequence) => Ok(self.ok_apply(
-                |ctrl, design| ctrl.set_scaffold_sequence(design, sequence),
+            DesignOperation::SetScaffoldSequence { sequence, shift } => Ok(self.ok_apply(
+                |ctrl, design| ctrl.set_scaffold_sequence(design, sequence, shift),
                 design,
             )),
             DesignOperation::SetScaffoldShift(shift) => {
@@ -1045,8 +1045,14 @@ impl Controller {
         design
     }
 
-    fn set_scaffold_sequence(&mut self, mut design: Design, sequence: String) -> Design {
+    fn set_scaffold_sequence(
+        &mut self,
+        mut design: Design,
+        sequence: String,
+        shift: usize,
+    ) -> Design {
         design.scaffold_sequence = Some(sequence);
+        design.scaffold_shift = Some(shift);
         design
     }
 
