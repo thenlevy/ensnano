@@ -196,6 +196,9 @@ impl Controller {
                 attribute,
                 elements,
             } => self.apply(|c, d| c.update_attribute(d, attribute, elements), design),
+            DesignOperation::FlipAnchors { nucls } => {
+                self.apply(|c, d| c.flip_anchors(d, nucls), design)
+            }
             DesignOperation::RmGrid(_) => Err(ErrOperation::NotImplemented), // TODO
             DesignOperation::ChangeSequence { .. } => Err(ErrOperation::NotImplemented), // TODO
             DesignOperation::CleanDesign => Err(ErrOperation::NotImplemented), // TODO
@@ -461,6 +464,24 @@ impl Controller {
             match attribute {
                 DnaAttribute::Visible(b) => self.make_element_visible(&mut design, elt, b)?,
                 DnaAttribute::XoverGroup(g) => self.set_xover_group_of_elt(&mut design, elt, g)?,
+            }
+        }
+        Ok(design)
+    }
+
+    fn flip_anchors(
+        &mut self,
+        mut design: Design,
+        nucls: Vec<Nucl>,
+    ) -> Result<Design, ErrOperation> {
+        let new_anchor_status = !nucls.iter().all(|n| design.anchors.contains(n));
+        if new_anchor_status {
+            for n in nucls.into_iter() {
+                design.anchors.insert(n);
+            }
+        } else {
+            for n in nucls.iter() {
+                design.anchors.remove(n);
             }
         }
         Ok(design)

@@ -1226,6 +1226,14 @@ impl<'a> MainStateInteface for MainStateView<'a> {
     fn set_roll_of_selected_helices(&mut self, roll: f32) {
         self.main_state.set_roll_of_selected_helices(roll)
     }
+
+    fn turn_selection_into_anchor(&mut self) {
+        let selection = self.get_selection();
+        let nucls = ensnano_interactor::extract_nucls_from_selection(selection.as_ref().as_ref());
+
+        self.main_state
+            .apply_operation(DesignOperation::FlipAnchors { nucls });
+    }
 }
 
 use controller::{SetScaffoldSequenceError, SetScaffoldSequenceOk};

@@ -197,6 +197,7 @@ pub(crate) trait MainState: ScaffoldSetter {
     fn start_roll_simulation(&mut self, target_helices: Option<Vec<usize>>);
     fn update_simulation(&mut self, request: SimulationRequest);
     fn set_roll_of_selected_helices(&mut self, roll: f32);
+    fn turn_selection_into_anchor(&mut self);
 }
 
 pub struct LoadDesignError(String);

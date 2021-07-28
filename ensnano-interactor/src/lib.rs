@@ -194,6 +194,9 @@ pub enum DesignOperation {
     FlipHelixGroup {
         helix: usize,
     },
+    FlipAnchors {
+        nucls: Vec<Nucl>,
+    },
 }
 
 /// An action performed on the application

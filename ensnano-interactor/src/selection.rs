@@ -263,6 +263,17 @@ pub fn all_helices_no_grid(selection: &[Selection], reader: &dyn DesignReader) -
     nb_helices >= 4
 }
 
+/// Extract all the elements of the form Selection::Nucl(_) from a slice of selection
+pub fn extract_nucls_from_selection(selection: &[Selection]) -> Vec<Nucl> {
+    let mut ret = vec![];
+    for s in selection.iter() {
+        if let Selection::Nucleotide(_, nucl) = s {
+            ret.push(nucl.clone())
+        }
+    }
+    ret
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum SelectionMode {
     Grid,

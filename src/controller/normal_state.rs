@@ -170,6 +170,10 @@ impl State for NormalState {
                     main_state.notify_apps(Notification::Split2d);
                     self
                 }
+                Action::TurnIntoAnchor => {
+                    main_state.turn_selection_into_anchor();
+                    self
+                }
                 action => {
                     println!("Not implemented {:?}", action);
                     self
