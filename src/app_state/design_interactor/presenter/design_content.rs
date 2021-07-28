@@ -23,7 +23,7 @@ use ensnano_design::elements::DnaElement;
 use ensnano_design::grid::GridDescriptor;
 use ensnano_design::grid::GridPosition;
 use ensnano_design::*;
-use ensnano_interactor::ObjectType;
+use ensnano_interactor::{ObjectType, Selection};
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::sync::Arc;
 use ultraviolet::Vec3;

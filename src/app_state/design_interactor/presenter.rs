@@ -18,7 +18,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 
 use super::*;
 use ensnano_design::{Extremity, Nucl};
-use ensnano_interactor::{NeighbourDescriptor, NeighbourDescriptorGiver, ScaffoldInfo};
+use ensnano_interactor::{NeighbourDescriptor, NeighbourDescriptorGiver, ScaffoldInfo, Selection};
 use ultraviolet::Mat4;
 
 use crate::utils::id_generator::IdGenerator;
@@ -31,7 +31,7 @@ mod impl_readergui;
 mod oxdna;
 use ahash::AHashMap;
 use design_content::DesignContent;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 
 #[derive(Clone)]
 /// The structure that handles "read" operations on designs.
@@ -49,6 +49,8 @@ pub(super) struct Presenter {
     content: AddressPointer<DesignContent>,
     pub junctions_ids: AddressPointer<JunctionsIds>,
     old_grid_ptr: Option<usize>,
+    visibility_sive: Option<VisibilitySieve>,
+    invisible_nucls: HashSet<Nucl>,
 }
 
 impl Default for Presenter {
@@ -59,6 +61,8 @@ impl Default for Presenter {
             content: Default::default(),
             junctions_ids: Default::default(),
             old_grid_ptr: None,
+            visibility_sive: None,
+            invisible_nucls: Default::default(),
         }
     }
 }
@@ -105,6 +109,8 @@ impl Presenter {
             model_matrix: AddressPointer::new(model_matrix),
             junctions_ids: AddressPointer::new(junctions_ids),
             old_grid_ptr,
+            visibility_sive: None,
+            invisible_nucls: Default::default(),
         };
         (ret, design)
     }
@@ -145,6 +151,26 @@ impl Presenter {
         match referential {
             Referential::World => self.model_matrix.transform_point3(position),
             Referential::Model => position,
+        }
+    }
+
+    fn selection_contains_nucl(&self, selection: &Selection, nucl: Nucl, design: &Design) -> bool {
+        match selection {
+            Selection::Design(_) => design.get_strand_nucl(&nucl).is_some(),
+            Selection::Strand(_, s_id) => design.get_strand_nucl(&nucl) == Some(*s_id as usize),
+            Selection::Grid(_, _) => false,
+            Selection::Nucleotide(_, n) => nucl == *n,
+            Selection::Helix(_, h_id) => nucl.helix == *h_id as usize,
+            Selection::Nothing => false,
+            Selection::Xover(_, xover_id) => {
+                if let Some((n1, n2)) = self.junctions_ids.get_element(*xover_id) {
+                    n1 == nucl || n2 == nucl
+                } else {
+                    false
+                }
+            }
+            Selection::Bound(_, n1, n2) => *n1 == nucl || *n2 == nucl,
+            Selection::Phantom(e) => e.to_nucl() == nucl,
         }
     }
 
@@ -386,4 +412,11 @@ pub trait SimulationUpdate: Send + Sync {
     }
 
     fn update_design(&self, design: &mut Design);
+}
+
+#[derive(Clone)]
+struct VisibilitySieve {
+    selection: Vec<Selection>,
+    compl: bool,
+    visible: bool,
 }
