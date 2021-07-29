@@ -65,8 +65,8 @@ impl GuiRequests for Requests {
         self.all_visible = Some(());
     }
 
-    fn toggle_visibility(&mut self, visible: bool) {
-        self.toggle_visibility = Some(visible);
+    fn toggle_visibility(&mut self, compl: bool) {
+        self.toggle_visibility = Some(compl);
     }
 
     fn remove_empty_domains(&mut self) {

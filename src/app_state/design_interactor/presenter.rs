@@ -144,21 +144,24 @@ impl Presenter {
     }
 
     fn update_visibility(&mut self) {
-        self.invisible_nucls = HashSet::new();
+        let mut new_invisible_nucls = HashSet::new();
         if let Some(VisibilitySieve {
             selection,
             compl,
             visible,
         }) = self.visibility_sive.as_ref()
         {
-            for s in selection {
-                for nucl in self.content.nucleotide.values() {
-                    if self.selection_contains_nucl(s, *nucl) != *compl ^ visible {
-                        self.invisible_nucls.insert(nucl.clone());
+            for nucl in self.content.nucleotide.values() {
+                if self.selection_contains_nucl(selection, *nucl) != *compl {
+                    if !visible {
+                        new_invisible_nucls.insert(nucl.clone());
                     }
+                } else if self.invisible_nucls.contains(nucl) {
+                    new_invisible_nucls.insert(nucl.clone());
                 }
             }
         }
+        self.invisible_nucls = new_invisible_nucls;
     }
 
     fn in_referential(&self, position: Vec3, referential: Referential) -> Vec3 {
@@ -168,31 +171,37 @@ impl Presenter {
         }
     }
 
-    fn selection_contains_nucl(&self, selection: &Selection, nucl: Nucl) -> bool {
+    fn selection_contains_nucl(&self, selection: &[Selection], nucl: Nucl) -> bool {
         let identifier_nucl = if let Some(id) = self.content.identifier_nucl.get(&nucl) {
             id
         } else {
             return false;
         };
-        match selection {
-            Selection::Design(_) => true,
-            Selection::Strand(_, s_id) => {
-                self.content.strand_map.get(identifier_nucl).cloned() == Some(*s_id as usize)
-            }
-            Selection::Grid(_, _) => false,
-            Selection::Nucleotide(_, n) => nucl == *n,
-            Selection::Helix(_, h_id) => nucl.helix == *h_id as usize,
-            Selection::Nothing => false,
-            Selection::Xover(_, xover_id) => {
-                if let Some((n1, n2)) = self.junctions_ids.get_element(*xover_id) {
-                    n1 == nucl || n2 == nucl
-                } else {
-                    false
-                }
-            }
-            Selection::Bound(_, n1, n2) => *n1 == nucl || *n2 == nucl,
-            Selection::Phantom(e) => e.to_nucl() == nucl,
+        let mut ret = false;
+        for s in selection.iter() {
+            ret = ret
+                || match s {
+                    Selection::Design(_) => true,
+                    Selection::Strand(_, s_id) => {
+                        self.content.strand_map.get(identifier_nucl).cloned()
+                            == Some(*s_id as usize)
+                    }
+                    Selection::Grid(_, _) => false,
+                    Selection::Nucleotide(_, n) => nucl == *n,
+                    Selection::Helix(_, h_id) => nucl.helix == *h_id as usize,
+                    Selection::Nothing => false,
+                    Selection::Xover(_, xover_id) => {
+                        if let Some((n1, n2)) = self.junctions_ids.get_element(*xover_id) {
+                            n1 == nucl || n2 == nucl
+                        } else {
+                            false
+                        }
+                    }
+                    Selection::Bound(_, n1, n2) => *n1 == nucl || *n2 == nucl,
+                    Selection::Phantom(e) => e.to_nucl() == nucl,
+                };
         }
+        ret
     }
 
     /// Return a string describing the decomposition of the length of the strand `s_id` into the
@@ -217,11 +226,9 @@ impl Presenter {
 
     fn whole_selection_is_visible(&self, selection: &[Selection], compl: bool) -> bool {
         for nucl in self.content.nucleotide.values() {
-            for s in selection {
-                if self.selection_contains_nucl(s, *nucl) != compl {
-                    if self.invisible_nucls.contains(nucl) {
-                        return false;
-                    }
+            if self.selection_contains_nucl(selection, *nucl) != compl {
+                if self.invisible_nucls.contains(nucl) {
+                    return false;
                 }
             }
         }
