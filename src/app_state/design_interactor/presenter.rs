@@ -153,9 +153,7 @@ impl Presenter {
         {
             for s in selection {
                 for nucl in self.content.nucleotide.values() {
-                    if self.selection_contains_nucl(s, *nucl, &self.current_design)
-                        != *compl ^ visible
-                    {
+                    if self.selection_contains_nucl(s, *nucl) != *compl ^ visible {
                         self.invisible_nucls.insert(nucl.clone());
                     }
                 }
@@ -170,7 +168,7 @@ impl Presenter {
         }
     }
 
-    fn selection_contains_nucl(&self, selection: &Selection, nucl: Nucl, design: &Design) -> bool {
+    fn selection_contains_nucl(&self, selection: &Selection, nucl: Nucl) -> bool {
         let identifier_nucl = if let Some(id) = self.content.identifier_nucl.get(&nucl) {
             id
         } else {
@@ -220,7 +218,7 @@ impl Presenter {
     fn whole_selection_is_visible(&self, selection: &[Selection], compl: bool) -> bool {
         for nucl in self.content.nucleotide.values() {
             for s in selection {
-                if self.selection_contains_nucl(s, *nucl, &self.current_design) != compl {
+                if self.selection_contains_nucl(s, *nucl) != compl {
                     if self.invisible_nucls.contains(nucl) {
                         return false;
                     }
@@ -236,7 +234,8 @@ impl Presenter {
             selection,
             compl,
             visible,
-        })
+        });
+        self.update_visibility();
     }
 }
 

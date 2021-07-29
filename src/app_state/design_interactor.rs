@@ -270,11 +270,16 @@ impl DesignInteractor {
         self.controller.is_building_hyperboloid()
     }
 
-    pub(super) fn with_visibility_sieve(mut self, selection: Vec<Selection>, compl: bool) -> Self {
+    pub(super) fn with_visibility_sieve(
+        mut self,
+        selection: Vec<Selection>,
+        compl: bool,
+    ) -> InteractorResult {
         let mut presenter = self.presenter.clone_inner();
         presenter.set_visibility_sieve(selection, compl);
         self.presenter = AddressPointer::new(presenter);
-        self
+        self.design = AddressPointer::new(self.design.clone_inner());
+        InteractorResult::Push(self)
     }
 }
 

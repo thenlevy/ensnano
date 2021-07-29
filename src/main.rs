@@ -1026,6 +1026,11 @@ impl MainState {
     fn toggle_widget_basis(&mut self) {
         self.modify_state(|s| s.with_toggled_widget_basis(), false)
     }
+
+    fn set_visibility_sieve(&mut self, selection: Vec<Selection>, compl: bool) {
+        let result = self.app_state.set_visibility_sieve(selection, compl);
+        self.apply_operation_result(result)
+    }
 }
 
 /// A temporary view of the main state and the control flow.
@@ -1237,9 +1242,7 @@ impl<'a> MainStateInteface for MainStateView<'a> {
 
     fn set_visibility_sieve(&mut self, compl: bool) {
         let selection = self.get_selection().as_ref().as_ref().to_vec();
-        self.main_state
-            .app_state
-            .set_visibility_sieve(selection, compl);
+        self.main_state.set_visibility_sieve(selection, compl);
     }
 }
 

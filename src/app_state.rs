@@ -262,13 +262,18 @@ impl AppState {
         self.0.design.is_in_stable_state()
     }
 
-    pub(super) fn set_visibility_sieve(&mut self, selection: Vec<Selection>, compl: bool) {
-        *self = self.clone().with_interactor(
-            self.0
-                .design
-                .clone_inner()
-                .with_visibility_sieve(selection, compl),
-        )
+    #[must_use]
+    pub(super) fn set_visibility_sieve(
+        &mut self,
+        selection: Vec<Selection>,
+        compl: bool,
+    ) -> Result<Option<Self>, ErrOperation> {
+        let result = self
+            .0
+            .design
+            .clone_inner()
+            .with_visibility_sieve(selection, compl);
+        self.handle_operation_result(Ok(result))
     }
 }
 
