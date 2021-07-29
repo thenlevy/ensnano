@@ -258,16 +258,16 @@ impl DesignContent {
     ) -> Vec<u32> {
         let check_visiblity = |&(_, bound): &(&u32, &(Nucl, Nucl))| {
             !(invisible_nucls.contains(&bound.0) && invisible_nucls.contains(&bound.1))
-                && design
+                && (design
                     .helices
                     .get(&bound.0.helix)
                     .map(|h| h.visible)
                     .unwrap_or_default()
-                || design
-                    .helices
-                    .get(&bound.1.helix)
-                    .map(|h| h.visible)
-                    .unwrap_or_default()
+                    || design
+                        .helices
+                        .get(&bound.1.helix)
+                        .map(|h| h.visible)
+                        .unwrap_or_default())
         };
         self.nucleotides_involved
             .iter()
