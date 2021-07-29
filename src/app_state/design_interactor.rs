@@ -19,7 +19,8 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 use super::AddressPointer;
 use ensnano_design::{Design, Parameters};
 use ensnano_interactor::{
-    operation::Operation, DesignOperation, RigidBodyConstants, SimulationState, StrandBuilder,
+    operation::Operation, DesignOperation, RigidBodyConstants, Selection, SimulationState,
+    StrandBuilder,
 };
 
 mod presenter;
@@ -267,6 +268,13 @@ impl DesignInteractor {
 
     pub(super) fn is_building_hyperboloid(&self) -> bool {
         self.controller.is_building_hyperboloid()
+    }
+
+    pub(super) fn with_visibility_sieve(mut self, selection: Vec<Selection>, compl: bool) -> Self {
+        let mut presenter = self.presenter.clone_inner();
+        presenter.set_visibility_sieve(selection, compl);
+        self.presenter = AddressPointer::new(presenter);
+        self
     }
 }
 

@@ -231,13 +231,18 @@ impl DesignContent {
         ret
     }
 
-    pub fn get_all_visible_nucl_ids(&self, design: &Design) -> Vec<u32> {
+    pub fn get_all_visible_nucl_ids(
+        &self,
+        design: &Design,
+        invisible_nucls: &HashSet<Nucl>,
+    ) -> Vec<u32> {
         let check_visiblity = |&(_, v): &(&u32, &Nucl)| {
-            design
-                .helices
-                .get(&v.helix)
-                .map(|h| h.visible)
-                .unwrap_or_default()
+            !invisible_nucls.contains(v)
+                && design
+                    .helices
+                    .get(&v.helix)
+                    .map(|h| h.visible)
+                    .unwrap_or_default()
         };
         self.nucleotide
             .iter()
@@ -246,13 +251,18 @@ impl DesignContent {
             .collect()
     }
 
-    pub fn get_all_visible_bounds(&self, design: &Design) -> Vec<u32> {
+    pub fn get_all_visible_bounds(
+        &self,
+        design: &Design,
+        invisible_nucls: &HashSet<Nucl>,
+    ) -> Vec<u32> {
         let check_visiblity = |&(_, bound): &(&u32, &(Nucl, Nucl))| {
-            design
-                .helices
-                .get(&bound.0.helix)
-                .map(|h| h.visible)
-                .unwrap_or_default()
+            !(invisible_nucls.contains(&bound.0) && invisible_nucls.contains(&bound.1))
+                && design
+                    .helices
+                    .get(&bound.0.helix)
+                    .map(|h| h.visible)
+                    .unwrap_or_default()
                 || design
                     .helices
                     .get(&bound.1.helix)

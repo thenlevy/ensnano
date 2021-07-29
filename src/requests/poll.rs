@@ -269,7 +269,7 @@ pub(crate) fn poll_all<R: DerefMut<Target = Requests>>(
     }
 
     if let Some(b) = requests.toggle_visibility.take() {
-        main_state.push_action(Action::SetVisiblitySieve { visible: b })
+        main_state.push_action(Action::SetVisiblitySieve { compl: b })
     }
 
     if let Some(b) = requests.redim_2d_helices.take() {

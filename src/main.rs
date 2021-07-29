@@ -1234,6 +1234,13 @@ impl<'a> MainStateInteface for MainStateView<'a> {
         self.main_state
             .apply_operation(DesignOperation::FlipAnchors { nucls });
     }
+
+    fn set_visibility_sieve(&mut self, compl: bool) {
+        let selection = self.get_selection().as_ref().as_ref().to_vec();
+        self.main_state
+            .app_state
+            .set_visibility_sieve(selection, compl);
+    }
 }
 
 use controller::{SetScaffoldSequenceError, SetScaffoldSequenceOk};

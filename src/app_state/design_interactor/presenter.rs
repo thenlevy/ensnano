@@ -144,7 +144,23 @@ impl Presenter {
     }
 
     fn update_visibility(&mut self) {
-        ()
+        self.invisible_nucls = HashSet::new();
+        if let Some(VisibilitySieve {
+            selection,
+            compl,
+            visible,
+        }) = self.visibility_sive.as_ref()
+        {
+            for s in selection {
+                for nucl in self.content.nucleotide.values() {
+                    if self.selection_contains_nucl(s, *nucl, &self.current_design)
+                        != *compl ^ visible
+                    {
+                        self.invisible_nucls.insert(nucl.clone());
+                    }
+                }
+            }
+        }
     }
 
     fn in_referential(&self, position: Vec3, referential: Referential) -> Vec3 {
@@ -155,9 +171,16 @@ impl Presenter {
     }
 
     fn selection_contains_nucl(&self, selection: &Selection, nucl: Nucl, design: &Design) -> bool {
+        let identifier_nucl = if let Some(id) = self.content.identifier_nucl.get(&nucl) {
+            id
+        } else {
+            return false;
+        };
         match selection {
-            Selection::Design(_) => design.get_strand_nucl(&nucl).is_some(),
-            Selection::Strand(_, s_id) => design.get_strand_nucl(&nucl) == Some(*s_id as usize),
+            Selection::Design(_) => true,
+            Selection::Strand(_, s_id) => {
+                self.content.strand_map.get(identifier_nucl).cloned() == Some(*s_id as usize)
+            }
             Selection::Grid(_, _) => false,
             Selection::Nucleotide(_, n) => nucl == *n,
             Selection::Helix(_, h_id) => nucl.helix == *h_id as usize,
@@ -192,6 +215,28 @@ impl Presenter {
 
     pub(super) fn get_nucl_map(&self) -> AHashMap<Nucl, u32> {
         self.content.identifier_nucl.clone().into()
+    }
+
+    fn whole_selection_is_visible(&self, selection: &[Selection], compl: bool) -> bool {
+        for nucl in self.content.nucleotide.values() {
+            for s in selection {
+                if self.selection_contains_nucl(s, *nucl, &self.current_design) != compl {
+                    if self.invisible_nucls.contains(nucl) {
+                        return false;
+                    }
+                }
+            }
+        }
+        true
+    }
+
+    pub fn set_visibility_sieve(&mut self, selection: Vec<Selection>, compl: bool) {
+        let visible = !self.whole_selection_is_visible(&selection, compl);
+        self.visibility_sive = Some(VisibilitySieve {
+            selection,
+            compl,
+            visible,
+        })
     }
 }
 

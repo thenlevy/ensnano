@@ -174,6 +174,10 @@ impl State for NormalState {
                     main_state.turn_selection_into_anchor();
                     self
                 }
+                Action::SetVisiblitySieve { compl } => {
+                    main_state.set_visibility_sieve(compl);
+                    self
+                }
                 action => {
                     println!("Not implemented {:?}", action);
                     self
@@ -336,7 +340,7 @@ pub enum Action {
     NewHyperboloid(HyperboloidRequest),
     UpdateHyperboloidShift(f32),
     SetVisiblitySieve {
-        visible: bool,
+        compl: bool,
     },
     DeleteSelection,
     ScaffoldToSelection,
