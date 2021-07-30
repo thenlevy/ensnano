@@ -31,7 +31,7 @@ impl State for NormalState {
                 Action::SaveAs => save_as(),
                 Action::DownloadStaplesRequest => Box::new(DownloadStaples::default()),
                 Action::SetScaffoldSequence { shift } => Box::new(SetScaffoldSequence::init(shift)),
-                Action::Exit => Box::new(Quit::default()),
+                Action::Exit => Quit::quit(main_state.need_save()),
                 Action::ToggleSplit(mode) => {
                     main_state.toggle_split_mode(mode);
                     self
@@ -88,7 +88,7 @@ impl State for NormalState {
                 }
                 Action::ToggleSmallSphere(small) => self.toggle_small_spheres(main_state, small),
                 Action::LoadDesign(Some(path)) => Box::new(Load::known_path(path)),
-                Action::LoadDesign(None) => Box::new(Load::default()),
+                Action::LoadDesign(None) => Load::load(main_state.need_save()),
                 Action::SuspendOp => {
                     main_state.finish_operation();
                     self

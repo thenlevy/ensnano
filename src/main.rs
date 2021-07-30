@@ -857,7 +857,8 @@ impl MainState {
     fn clear_app_state(&mut self, new_state: AppState) {
         self.undo_stack.clear();
         self.redo_stack.clear();
-        self.app_state = new_state;
+        self.app_state = new_state.clone();
+        self.last_saved_state = new_state;
     }
 
     fn update(&mut self) {
@@ -1042,8 +1043,10 @@ impl MainState {
         println!("TODO");
     }
 
-    fn save_design(&self, path: &PathBuf) -> Result<(), SaveDesignError> {
-        self.app_state.get_design_reader().save_design(path)
+    fn save_design(&mut self, path: &PathBuf) -> Result<(), SaveDesignError> {
+        self.app_state.get_design_reader().save_design(path)?;
+        self.last_saved_state = self.app_state.clone();
+        Ok(())
     }
 
     fn change_selection_mode(&mut self, mode: SelectionMode) {
@@ -1278,6 +1281,10 @@ impl<'a> MainStateInteface for MainStateView<'a> {
     fn set_visibility_sieve(&mut self, compl: bool) {
         let selection = self.get_selection().as_ref().as_ref().to_vec();
         self.main_state.set_visibility_sieve(selection, compl);
+    }
+
+    fn need_save(&self) -> bool {
+        self.main_state.need_save()
     }
 }
 

@@ -20,20 +20,13 @@ use super::{dialog, Action, Arc, MainState, Mutex, State, TransitionMessage, Yes
 
 use dialog::{yes_no_dialog, PathInput, YesNoQuestion};
 
-#[derive(Default)]
 pub(super) struct Quit {
     step: QuitStep,
 }
 
 enum QuitStep {
-    Init,
+    Init { need_save: bool },
     Quitting,
-}
-
-impl Default for QuitStep {
-    fn default() -> Self {
-        Self::Init
-    }
 }
 
 impl Quit {
@@ -42,12 +35,18 @@ impl Quit {
             step: QuitStep::Quitting,
         }
     }
+
+    pub fn quit(need_save: bool) -> Box<Self> {
+        Box::new(Self {
+            step: QuitStep::Init { need_save },
+        })
+    }
 }
 
 impl State for Quit {
     fn make_progress(self: Box<Self>, pending_action: &mut dyn MainState) -> Box<dyn State> {
         match self.step {
-            QuitStep::Init => init_quit(),
+            QuitStep::Init { need_save } => init_quit(need_save),
             QuitStep::Quitting => {
                 pending_action.exit_control_flow();
                 Box::new(super::NormalState)
@@ -56,13 +55,17 @@ impl State for Quit {
     }
 }
 
-fn init_quit() -> Box<dyn State> {
-    let quitting = Box::new(Quit::quitting());
-    Box::new(YesNo::new(
-        "Do you want to save your design before exiting the program ?".into(),
-        save_before_quit(),
-        quitting,
-    ))
+fn init_quit(need_save: bool) -> Box<dyn State> {
+    if need_save {
+        let quitting = Box::new(Quit::quitting());
+        Box::new(YesNo::new(
+            "Do you want to save your design before exiting the program ?".into(),
+            save_before_quit(),
+            quitting,
+        ))
+    } else {
+        Box::new(Quit::quitting())
+    }
 }
 
 fn save_before_quit() -> Box<dyn State> {
@@ -71,7 +74,6 @@ fn save_before_quit() -> Box<dyn State> {
     Box::new(Save::new(on_success, on_error))
 }
 
-#[derive(Default)]
 pub(super) struct Load {
     step: LoadStep,
 }
@@ -86,15 +88,9 @@ impl Load {
 
 use std::path::PathBuf;
 enum LoadStep {
-    Init,
+    Init { need_save: bool },
     AskPath { path_input: Option<PathInput> },
     GotPath(PathBuf),
-}
-
-impl Default for LoadStep {
-    fn default() -> Self {
-        Self::Init
-    }
 }
 
 impl Load {
@@ -103,26 +99,36 @@ impl Load {
             step: LoadStep::AskPath { path_input: None },
         })
     }
+
+    pub fn load(need_save: bool) -> Box<Self> {
+        Box::new(Self {
+            step: LoadStep::Init { need_save },
+        })
+    }
 }
 
 impl State for Load {
     fn make_progress(self: Box<Self>, state: &mut dyn MainState) -> Box<dyn State> {
         match self.step {
-            LoadStep::Init => init_load(),
+            LoadStep::Init { need_save } => init_load(need_save),
             LoadStep::AskPath { path_input } => ask_path(path_input),
             LoadStep::GotPath(path) => load(path, state),
         }
     }
 }
 
-fn init_load() -> Box<dyn State> {
-    let yes = save_before_load();
-    let no = Load::ask_path();
-    Box::new(YesNo::new(
-        "Do you want to save the current design beore loading a new one?".into(),
-        yes,
-        no,
-    ))
+fn init_load(need_save: bool) -> Box<dyn State> {
+    if need_save {
+        let yes = save_before_load();
+        let no = Load::ask_path();
+        Box::new(YesNo::new(
+            "Do you want to save the current design beore loading a new one?".into(),
+            yes,
+            no,
+        ))
+    } else {
+        Load::ask_path()
+    }
 }
 
 fn save_before_load() -> Box<dyn State> {

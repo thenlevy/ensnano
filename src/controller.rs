@@ -199,6 +199,7 @@ pub(crate) trait MainState: ScaffoldSetter {
     fn set_roll_of_selected_helices(&mut self, roll: f32);
     fn turn_selection_into_anchor(&mut self);
     fn set_visibility_sieve(&mut self, compl: bool);
+    fn need_save(&self) -> bool;
 }
 
 pub struct LoadDesignError(String);
