@@ -339,6 +339,8 @@ fn main() {
     if path.is_some() {
         main_state.push_action(Action::LoadDesign(path))
     }
+    main_state.update();
+    main_state.last_saved_state = main_state.app_state.clone();
 
     let mut controller = Controller::new();
 
@@ -558,8 +560,11 @@ fn main() {
                 // If there are events pending
                 messages.lock().unwrap().push_application_state(
                     main_state.get_app_state().clone(),
-                    !main_state.undo_stack.is_empty(),
-                    !main_state.redo_stack.is_empty(),
+                    gui::MainState {
+                        can_undo: !main_state.undo_stack.is_empty(),
+                        can_redo: !main_state.redo_stack.is_empty(),
+                        need_save: main_state.need_save(),
+                    },
                 );
                 gui.update(&multiplexer, &window);
 
@@ -817,6 +822,7 @@ pub(crate) struct MainState {
     messages: Arc<Mutex<IcedMessages<AppState>>>,
     applications: HashMap<ElementType, Arc<Mutex<dyn Application<AppState = AppState>>>>,
     focussed_element: Option<ElementType>,
+    last_saved_state: AppState,
 }
 
 struct MainStateConstructor {
@@ -826,8 +832,9 @@ struct MainStateConstructor {
 use controller::SaveDesignError;
 impl MainState {
     fn new(constructor: MainStateConstructor) -> Self {
+        let app_state = AppState::default();
         Self {
-            app_state: Default::default(),
+            app_state: app_state.clone(),
             pending_actions: VecDeque::new(),
             undo_stack: Vec::new(),
             redo_stack: Vec::new(),
@@ -835,6 +842,7 @@ impl MainState {
             messages: constructor.messages,
             applications: Default::default(),
             focussed_element: None,
+            last_saved_state: app_state.clone(),
         }
     }
 
@@ -1053,6 +1061,10 @@ impl MainState {
     fn set_visibility_sieve(&mut self, selection: Vec<Selection>, compl: bool) {
         let result = self.app_state.set_visibility_sieve(selection, compl);
         self.apply_operation_result(result)
+    }
+
+    fn need_save(&self) -> bool {
+        self.app_state.design_was_modified(&self.last_saved_state)
     }
 }
 

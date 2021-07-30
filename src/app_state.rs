@@ -275,6 +275,10 @@ impl AppState {
             .with_visibility_sieve(selection, compl);
         self.handle_operation_result(Ok(result))
     }
+
+    pub fn design_was_modified(&self, other: &Self) -> bool {
+        self.0.design.has_different_design_than(&other.0.design)
+    }
 }
 
 #[derive(Clone, PartialEq, Eq, Default)]

@@ -68,6 +68,7 @@ pub struct MainState<S: AppState> {
     pub app_state: S,
     pub can_undo: bool,
     pub can_redo: bool,
+    pub need_save: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -138,88 +139,8 @@ impl<R: Requests, S: AppState> Program for TopBar<R, S> {
             }
             Message::FileAddRequested => {
                 self.requests.lock().unwrap().open_file();
-                /*
-                if !*self.dialoging.lock().unwrap() {
-                    *self.dialoging.lock().unwrap() = true;
-                    let requests = self.requests.clone();
-                    let dialog = rfd::AsyncFileDialog::new().pick_file();
-                    let dialoging = self.dialoging.clone();
-                    thread::spawn(move || {
-                        let load_op = async move {
-                            let file = dialog.await;
-                            if let Some(handle) = file {
-                                let path_buf: std::path::PathBuf = handle.path().clone().into();
-                                requests.lock().unwrap().file_add = Some(path_buf);
-                            }
-                            *dialoging.lock().unwrap() = false;
-                        };
-                        futures::executor::block_on(load_op);
-                    });
-                    /*
-                    if cfg!(target_os = "macos") {
-                        // do not spawn a new thread on macos
-                        let result = match nfd2::open_file_dialog(None, None).expect("oh no") {
-                            Response::Okay(file_path) => Some(file_path),
-                            Response::OkayMultiple(_) => {
-                                println!("Please open only one file");
-                                None
-                            }
-                            Response::Cancel => None,
-                        };
-                        *self.dialoging.lock().unwrap() = false;
-                        if let Some(path) = result {
-                            requests.lock().expect("file_opening_request").file_add = Some(path);
-                        }
-                    } else {
-                        let dialoging = self.dialoging.clone();
-                        thread::spawn(move || {
-                            let result = match nfd2::open_file_dialog(None, None).expect("oh no") {
-                                Response::Okay(file_path) => Some(file_path),
-                                Response::OkayMultiple(_) => {
-                                    println!("Please open only one file");
-                                    None
-                                }
-                                Response::Cancel => None,
-                            };
-                            *dialoging.lock().unwrap() = false;
-                            if let Some(path) = result {
-                                requests.lock().expect("file_opening_request").file_add =
-                                    Some(path);
-                            }
-                        });
-                    }*/
-                }
-                */
             }
             Message::FileSaveRequested => {
-                /*
-                if !*self.dialoging.lock().unwrap() {
-                    *self.dialoging.lock().unwrap() = true;
-                    let requests = self.requests.clone();
-                    let dialog = rfd::AsyncFileDialog::new().save_file();
-                    let dialoging = self.dialoging.clone();
-                    thread::spawn(move || {
-                        let save_op = async move {
-                            let file = dialog.await;
-                            if let Some(handle) = file {
-                                let mut path_buf: std::path::PathBuf = handle.path().clone().into();
-                                let extension = path_buf.extension().clone();
-                                if extension.is_none() {
-                                    path_buf.set_extension("json");
-                                } else if extension.and_then(|e| e.to_str()) != Some("json".into())
-                                {
-                                    let extension = extension.unwrap();
-                                    let new_extension =
-                                        format!("{}.json", extension.to_str().unwrap());
-                                    path_buf.set_extension(new_extension);
-                                }
-                                requests.lock().unwrap().file_save = Some((path_buf, keep_proceed));
-                            }
-                            *dialoging.lock().unwrap() = false;
-                        };
-                        futures::executor::block_on(save_op);
-                    });
-                }*/
                 self.requests.lock().unwrap().save_as();
             }
             Message::Resize(size) => self.resize(size),
@@ -264,13 +185,28 @@ impl<R: Requests, S: AppState> Program for TopBar<R, S> {
         );
 
         let save_message = Message::FileSaveRequested;
+        /*
         let button_save = bottom_tooltip_icon_btn(
             &mut self.button_save,
             MaterialIcon::Save,
             &top_size_info,
             "Save As..",
             Some(save_message),
-        );
+        );*/
+        let button_save = if self.application_state.need_save {
+            Button::new(
+                &mut self.button_save,
+                icon(MaterialIcon::Save, self.ui_size.clone())
+                    .color(iced::Color::from_rgb8(0x6D, 0x07, 0x1A)),
+            )
+            .on_press(save_message)
+        } else {
+            Button::new(
+                &mut self.button_save,
+                icon(MaterialIcon::Save, self.ui_size.clone()),
+            )
+            .on_press(save_message)
+        };
 
         let mut button_undo = Button::new(
             &mut self.button_undo,

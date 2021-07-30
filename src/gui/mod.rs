@@ -841,7 +841,7 @@ impl<S: AppState> IcedMessages<S> {
         self.left_panel.push_back(left_panel::Message::ForceHelp);
     }
 
-    pub fn push_application_state(&mut self, state: S, can_undo: bool, can_redo: bool) {
+    pub fn push_application_state(&mut self, state: S, main_state: MainState) {
         let must_update = self.application_state != state;
         self.application_state = state.clone();
         if must_update {
@@ -850,8 +850,9 @@ impl<S: AppState> IcedMessages<S> {
             self.top_bar
                 .push_back(top_bar::Message::NewApplicationState(top_bar::MainState {
                     app_state: state,
-                    can_undo,
-                    can_redo,
+                    can_undo: main_state.can_undo,
+                    can_redo: main_state.can_redo,
+                    need_save: main_state.need_save,
                 }))
         }
     }
@@ -890,4 +891,10 @@ pub trait DesignReader: 'static {
     fn length_decomposition(&self, s_id: usize) -> String;
     fn nucl_is_anchor(&self, nucl: Nucl) -> bool;
     fn get_dna_elements(&self) -> &[DnaElement];
+}
+
+pub struct MainState {
+    pub can_undo: bool,
+    pub can_redo: bool,
+    pub need_save: bool,
 }
