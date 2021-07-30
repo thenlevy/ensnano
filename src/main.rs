@@ -33,26 +33,47 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 //! For each region the [Multiplexer](multiplexer) holds a texture, and at each draw request, it
 //! will request the corresponding app or gui element to possibly update the texture.
 //!
-//!  Applications are notified when the design that they display have been modified and may request
-//!  from the [Design](design) the data that they need to display it.
 //!
-//!  ## Handling of events
+//! ## Handling of events
 //!
-//!  Window events are recieved by the `main` function that forwards them to the
-//!  [Multiplexer](multiplexer). The [Multiplexer](multiplexer) then forwards the event to the last
-//!  active region (the region under the cursor). Special events like resizing of the window are
-//!  handled by the multiplexer.
+//! The Global state of the program is encoded in an automata defined in the
+//! [controller](controller) module. This global state determines weither inputs are handled
+//! normally or if the program should wait for the user to interact with dialog windows.
 //!
-//!  When applications and GUI component handle an event. This event might have consequences that
-//!  must be known by the other components of the software.
+//! When the Global automata is in NormalState, events are forwarded to the
+//! [Multiplexer](multiplexer) which decides what application should handle the event. This is usually the
+//! application displayed in the active region (the region under the cursor). Special events like resizing of the window are
+//! handled by the multiplexer.
 //!
-//!  In the case of an application, the
-//!  consequences is transmitted to the [Mediator](mediator). The [Mediator](mediator) may then
-//!  request appropriate modifications of the [Designs](design) or forward messages for the GUI
-//!  components.
+//! When GUIs handle an event. They recieve a reference to the state of the main program. This
+//! state is encoded in the [AppState](app_state::AppState) data structure. Each GUI components
+//! needs to be able to recieve some specific information about the state of the program to handle
+//! events and to draw their views. Theese needs are encoded in traits. GUI component typically
+//! defines their own `AppState` trait that must be implemented by the concrete `AppState` type.
 //!
-//!  In the case of a GUI component, consequences are transmitted to the [main](main) function that
-//!  will consequently send the appropriate request to the [Mediator](mediator).
+//! GUI components may interpret event as a request from the user to modify the design or the state
+//! of the main application (for example by changing the selection). These requests are stored in
+//! the [Requests](requests::Requests) data structure. Each application defines a `Requests` trait
+//! that must be implemented by the concrete `Requests` type.
+//!
+//! On each itteration of the main event loop, if the Global controller is in Normal State,
+//! requests are polled and transmitted to the main `AppState` my the main controller. The
+//! processing of these requests may have 3 different kind of consequences:
+//!
+//!  * An undoable action is performed on the main `AppState`, modifiying it. In that case the
+//!  current `AppState` is copied on the undo stack and the replaced by the modified one.
+//!
+//!  * A non-undoable action is perfomed on the main `AppState`, modyfing it. In that case, the
+//!  current `AppState` is replaced by the modified one, but not stored on the undo stack.
+//!  This typically happens when the `AppState` is in a transient state for example while the user
+//!  is performing a drag and drop action. Transient states are not stored on the undo stack
+//!  because they are not meant to be restored by undos.
+//!   
+//!  * An error is returned. In the case the `AppState` is not modified and the user is notified of
+//!  the error. Error typically occur when user attempt to make actions on the design that are not
+//!  permitted by the current state of the program. For example an error is returned if the user
+//!  try to modify the design durring a simulation.
+//!
 use std::collections::{HashMap, VecDeque};
 use std::env;
 use std::path::PathBuf;
@@ -248,7 +269,6 @@ fn main() {
     // Initialize the mediator
     let requests = Arc::new(Mutex::new(Requests::default()));
     let messages = Arc::new(Mutex::new(IcedMessages::new()));
-    let computing = Arc::new(Mutex::new(false));
     let mut scheduler = Scheduler::new();
 
     // Initialize the layout
@@ -634,6 +654,7 @@ impl OverlayManager {
         }
     }
 
+    #[allow(dead_code)]
     fn add_overlay(&mut self, overlay_type: OverlayType, multiplexer: &mut Multiplexer) {
         match overlay_type {
             OverlayType::Color => self.overlays.push(Overlay {
@@ -708,6 +729,7 @@ impl OverlayManager {
         }
     }
 
+    #[allow(dead_code)]
     fn rm_overlay(&mut self, overlay_type: OverlayType, multiplexer: &mut Multiplexer) {
         let mut rm_idx = Vec::new();
         for (idx, overlay_type_) in self.overlay_types.iter().rev().enumerate() {
@@ -722,11 +744,12 @@ impl OverlayManager {
         self.update_multiplexer(multiplexer);
     }
 
+    #[allow(dead_code)]
     fn update_multiplexer(&self, multiplexer: &mut Multiplexer) {
         multiplexer.set_overlays(self.overlays.clone())
     }
 
-    fn forward_messages(&mut self, messages: &mut IcedMessages<AppState>) {
+    fn forward_messages(&mut self, _messages: &mut IcedMessages<AppState>) {
         ()
         /*
         for m in messages.color_overlay.drain(..) {
