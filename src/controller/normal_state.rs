@@ -28,7 +28,20 @@ impl State for NormalState {
         if let Some(action) = main_state.pop_action() {
             match action {
                 Action::NewDesign => self,
-                Action::SaveAs => save_as(),
+                Action::SaveAs => {
+                    if let Some(path) = main_state.get_current_file_name() {
+                        ask_save_as(path)
+                    } else {
+                        save_as()
+                    }
+                }
+                Action::QuickSave => {
+                    if let Some(path) = main_state.get_current_file_name() {
+                        quicksave(path)
+                    } else {
+                        save_as()
+                    }
+                }
                 Action::DownloadStaplesRequest => Box::new(DownloadStaples::default()),
                 Action::SetScaffoldSequence { shift } => Box::new(SetScaffoldSequence::init(shift)),
                 Action::Exit => Quit::quit(main_state.need_save()),
@@ -260,12 +273,33 @@ impl NormalState {
 
 fn save_as() -> Box<dyn State> {
     let on_success = Box::new(NormalState);
-    let on_error = TransitionMessage::new(
+    let on_error = could_not_save_design();
+    Box::new(SaveAs::new(on_success, on_error))
+}
+
+fn could_not_save_design() -> Box<dyn State> {
+    TransitionMessage::new(
         "Could not save design".into(),
         rfd::MessageLevel::Error,
         Box::new(NormalState),
-    );
-    Box::new(Save::new(on_success, on_error))
+    )
+}
+
+fn ask_save_as<P: AsRef<Path>>(starting_path: P) -> Box<dyn State> {
+    let question = format!("Save under the current file name: {} ?\n 
+    if you chose \"No\" you will be asked to select a new location to save your design\n
+    TIP: To quickly save under the current file name, you can use Ctrl/⌘ + S instead of clicking on the \"Save\" icon", starting_path.as_ref().as_os_str().to_str().unwrap_or(""));
+    let on_yes = quicksave(starting_path);
+    let on_no = save_as();
+    Box::new(YesNo::new(question.into(), on_yes, on_no))
+}
+
+fn quicksave<P: AsRef<Path>>(starting_path: P) -> Box<dyn State> {
+    Box::new(SaveWithPath {
+        path: starting_path.as_ref().to_path_buf(),
+        on_success: Box::new(NormalState),
+        on_error: could_not_save_design(),
+    })
 }
 
 fn oxdna_export() -> Box<dyn State> {
@@ -293,6 +327,7 @@ pub enum Action {
     LoadDesign(Option<PathBuf>),
     NewDesign,
     SaveAs,
+    QuickSave,
     DownloadStaplesRequest,
     /// Trigger the sequence of action that will set the scaffold of the sequence.
     SetScaffoldSequence {

@@ -16,6 +16,8 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+use crate::controller::normal_state::NormalState;
+
 use super::{dialog, Action, Arc, MainState, Mutex, State, TransitionMessage, YesNo};
 
 use dialog::{yes_no_dialog, PathInput, YesNoQuestion};
@@ -72,7 +74,7 @@ fn init_quit(need_save: bool) -> Box<dyn State> {
 fn save_before_quit() -> Box<dyn State> {
     let on_success = Box::new(Quit::quitting());
     let on_error = Box::new(super::NormalState);
-    Box::new(Save::new(on_success, on_error))
+    Box::new(SaveAs::new(on_success, on_error))
 }
 
 pub(super) struct Load {
@@ -137,7 +139,7 @@ fn init_load(need_save: bool) -> Box<dyn State> {
 fn save_before_load() -> Box<dyn State> {
     let on_success = Load::ask_path();
     let on_error = Box::new(super::NormalState);
-    Box::new(Save::new(on_success, on_error))
+    Box::new(SaveAs::new(on_success, on_error))
 }
 
 fn ask_path<P: AsRef<Path>>(
@@ -230,16 +232,16 @@ fn new_design(main_state: &mut dyn MainState) -> Box<dyn State> {
 fn save_before_new() -> Box<dyn State> {
     let on_success = NewDesign::make_new_design();
     let on_error = Box::new(super::NormalState);
-    Box::new(Save::new(on_success, on_error))
+    Box::new(SaveAs::new(on_success, on_error))
 }
 
-pub(super) struct Save {
+pub(super) struct SaveAs {
     file_getter: Option<PathInput>,
     on_success: Box<dyn State>,
     on_error: Box<dyn State>,
 }
 
-impl Save {
+impl SaveAs {
     pub(super) fn new(on_success: Box<dyn State>, on_error: Box<dyn State>) -> Self {
         Self {
             file_getter: None,
@@ -249,7 +251,7 @@ impl Save {
     }
 }
 
-impl State for Save {
+impl State for SaveAs {
     fn make_progress(mut self: Box<Self>, main_state: &mut dyn MainState) -> Box<dyn State> {
         if let Some(ref getter) = self.file_getter {
             if let Some(path_opt) = getter.get() {
@@ -281,6 +283,30 @@ impl State for Save {
             let getter = dialog::save("json", main_state.get_current_design_directory());
             self.file_getter = Some(getter);
             self
+        }
+    }
+}
+
+pub(super) struct SaveWithPath {
+    pub path: PathBuf,
+    pub on_error: Box<dyn State>,
+    pub on_success: Box<dyn State>,
+}
+
+impl State for SaveWithPath {
+    fn make_progress(self: Box<Self>, main_state: &mut dyn MainState) -> Box<dyn State> {
+        if let Err(err) = main_state.save_design(&self.path) {
+            TransitionMessage::new(
+                format!("Failed to save: {:?}", err.0),
+                rfd::MessageLevel::Error,
+                self.on_error,
+            )
+        } else {
+            TransitionMessage::new(
+                "Saved successfully".to_string(),
+                rfd::MessageLevel::Info,
+                self.on_success,
+            )
         }
     }
 }

@@ -1309,6 +1309,14 @@ impl<'a> MainStateInteface for MainStateView<'a> {
             }
         }
     }
+
+    fn get_current_file_name(&self) -> Option<&Path> {
+        self.main_state
+            .path_to_current_design
+            .as_ref()
+            .filter(|p| p.is_file())
+            .map(|p| p.as_ref())
+    }
 }
 
 use controller::{SetScaffoldSequenceError, SetScaffoldSequenceOk};
