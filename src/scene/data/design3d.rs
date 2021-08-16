@@ -555,25 +555,33 @@ impl<R: DesignReader> Design3D<R> {
         [min_x, max_x, min_y, max_y, min_z, max_z]
     }
 
-    fn get_all_grid_corners(&self) -> Vec<Vec3> {
+    /// Return the list of corners of grid with no helices on them
+    fn get_all_naked_grids_corners(&self) -> Vec<Vec3> {
         let mut ret = Vec::new();
         for grid in self.get_grid().iter() {
-            ret.push(
-                grid.grid
-                    .position_helix(grid.min_x as isize, grid.min_y as isize),
-            );
-            ret.push(
-                grid.grid
-                    .position_helix(grid.min_x as isize, grid.max_y as isize),
-            );
-            ret.push(
-                grid.grid
-                    .position_helix(grid.max_x as isize, grid.min_y as isize),
-            );
-            ret.push(
-                grid.grid
-                    .position_helix(grid.max_x as isize, grid.max_y as isize),
-            );
+            if self
+                .design
+                .get_helices_on_grid(grid.id)
+                .map(|s| s.is_empty())
+                .unwrap_or(false)
+            {
+                ret.push(
+                    grid.grid
+                        .position_helix(grid.min_x as isize, grid.min_y as isize),
+                );
+                ret.push(
+                    grid.grid
+                        .position_helix(grid.min_x as isize, grid.max_y as isize),
+                );
+                ret.push(
+                    grid.grid
+                        .position_helix(grid.max_x as isize, grid.min_y as isize),
+                );
+                ret.push(
+                    grid.grid
+                        .position_helix(grid.max_x as isize, grid.max_y as isize),
+                );
+            }
         }
         ret
     }
@@ -584,7 +592,7 @@ impl<R: DesignReader> Design3D<R> {
             .iter()
             .filter_map(|id| self.design.get_element_position(*id, Referential::World))
             .collect();
-        ret.extend(self.get_all_grid_corners().into_iter());
+        ret.extend(self.get_all_naked_grids_corners().into_iter());
         ret
     }
 
