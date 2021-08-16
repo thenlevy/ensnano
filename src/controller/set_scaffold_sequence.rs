@@ -19,6 +19,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 use super::{dialog, Arc, MainState, Mutex, State, TransitionMessage, YesNo};
 
 use dialog::PathInput;
+use std::path::Path;
 
 /// User is in the process of setting the sequence of the scaffold
 pub(super) struct SetScaffoldSequence {
@@ -78,7 +79,11 @@ impl State for SetScaffoldSequence {
     fn make_progress(self: Box<Self>, main_state: &mut dyn MainState) -> Box<dyn State> {
         match self.step {
             Step::Init => init_set_scaffold_sequence(self.shift),
-            Step::AskPath { path_input } => ask_path(path_input, self.shift),
+            Step::AskPath { path_input } => ask_path(
+                path_input,
+                self.shift,
+                main_state.get_current_design_directory(),
+            ),
             Step::GotPath(path) => got_path(path, self.shift),
             Step::SetSequence(sequence) => set_sequence(sequence, self.shift, main_state),
             Step::OptimizeScaffoldPosition { design_id } => {
@@ -94,7 +99,11 @@ fn init_set_scaffold_sequence(shift: usize) -> Box<dyn State> {
     Box::new(YesNo::new("Use default m13 sequence?".into(), yes, no))
 }
 
-fn ask_path(path_input: Option<PathInput>, shift: usize) -> Box<dyn State> {
+fn ask_path<P: AsRef<Path>>(
+    path_input: Option<PathInput>,
+    shift: usize,
+    starting_directory: Option<P>,
+) -> Box<dyn State> {
     if let Some(path_input) = path_input {
         if let Some(result) = path_input.get() {
             if let Some(path) = result {
@@ -118,7 +127,7 @@ fn ask_path(path_input: Option<PathInput>, shift: usize) -> Box<dyn State> {
             })
         }
     } else {
-        let path_input = dialog::load();
+        let path_input = dialog::load(starting_directory);
         Box::new(SetScaffoldSequence {
             step: Step::AskPath {
                 path_input: Some(path_input),

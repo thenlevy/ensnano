@@ -19,6 +19,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 use super::{dialog, Action, Arc, MainState, Mutex, State, TransitionMessage, YesNo};
 
 use dialog::{yes_no_dialog, PathInput, YesNoQuestion};
+use std::path::Path;
 
 pub(super) struct Quit {
     step: QuitStep,
@@ -111,7 +112,9 @@ impl State for Load {
     fn make_progress(self: Box<Self>, state: &mut dyn MainState) -> Box<dyn State> {
         match self.step {
             LoadStep::Init { need_save } => init_load(need_save),
-            LoadStep::AskPath { path_input } => ask_path(path_input),
+            LoadStep::AskPath { path_input } => {
+                ask_path(path_input, state.get_current_design_directory())
+            }
             LoadStep::GotPath(path) => load(path, state),
         }
     }
@@ -137,7 +140,10 @@ fn save_before_load() -> Box<dyn State> {
     Box::new(Save::new(on_success, on_error))
 }
 
-fn ask_path(path_input: Option<PathInput>) -> Box<dyn State> {
+fn ask_path<P: AsRef<Path>>(
+    path_input: Option<PathInput>,
+    starting_directory: Option<P>,
+) -> Box<dyn State> {
     if let Some(path_input) = path_input {
         if let Some(result) = path_input.get() {
             if let Some(path) = result {
@@ -159,7 +165,7 @@ fn ask_path(path_input: Option<PathInput>) -> Box<dyn State> {
             })
         }
     } else {
-        let path_input = dialog::load();
+        let path_input = dialog::load(starting_directory);
         Box::new(Load {
             step: LoadStep::AskPath {
                 path_input: Some(path_input),
@@ -272,7 +278,7 @@ impl State for Save {
                 self
             }
         } else {
-            let getter = dialog::save("json");
+            let getter = dialog::save("json", main_state.get_current_design_directory());
             self.file_getter = Some(getter);
             self
         }

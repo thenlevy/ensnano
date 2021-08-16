@@ -36,7 +36,7 @@ pub use chanel_reader::{ChanelReader, ChanelReaderUpdate};
 pub use normal_state::Action;
 use normal_state::NormalState;
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use super::dialog;
 use super::{gui::UiSize, OverlayType, SplitMode};
@@ -200,6 +200,7 @@ pub(crate) trait MainState: ScaffoldSetter {
     fn turn_selection_into_anchor(&mut self);
     fn set_visibility_sieve(&mut self, compl: bool);
     fn need_save(&self) -> bool;
+    fn get_current_design_directory(&self) -> Option<&Path>;
 }
 
 pub struct LoadDesignError(String);

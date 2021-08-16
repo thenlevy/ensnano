@@ -20,7 +20,7 @@ use super::{Arc, MainState, Mutex, NormalState, State, TransitionMessage};
 
 use crate::dialog;
 use dialog::{MustAckMessage, PathInput, YesNoQuestion};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 #[derive(Default)]
 pub(super) struct DownloadStaples {
@@ -52,7 +52,7 @@ impl State for DownloadStaples {
         let downloader = main_state.get_staple_downloader();
         match self.step {
             Step::Init => get_design_providing_staples(downloader.as_ref()),
-            Step::AskingPath(state) => ask_path(state),
+            Step::AskingPath(state) => ask_path(state, main_state.get_current_design_directory()),
             Step::PathAsked {
                 path_input,
                 design_id,
@@ -136,7 +136,10 @@ fn get_design_providing_staples(downlader: &dyn StaplesDownloader) -> Box<dyn St
     }
 }
 
-fn ask_path(mut state: AskingPath_) -> Box<DownloadStaples> {
+fn ask_path<P: AsRef<Path>>(
+    mut state: AskingPath_,
+    starting_diectory: Option<P>,
+) -> Box<DownloadStaples> {
     if let Some(must_ack) = state.warning_ack.as_ref() {
         if !must_ack.was_ack() {
             return Box::new(DownloadStaples {
@@ -148,7 +151,7 @@ fn ask_path(mut state: AskingPath_) -> Box<DownloadStaples> {
         let must_ack = dialog::blocking_message(msg.into(), rfd::MessageLevel::Warning);
         state.with_ack(must_ack)
     } else {
-        let path_input = dialog::save("xlsx");
+        let path_input = dialog::save("xlsx", starting_diectory);
         Box::new(DownloadStaples {
             step: Step::PathAsked {
                 path_input,

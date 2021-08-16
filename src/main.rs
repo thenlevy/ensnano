@@ -76,7 +76,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 //!
 use std::collections::{HashMap, VecDeque};
 use std::env;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::{Duration, Instant};
@@ -823,6 +823,7 @@ pub(crate) struct MainState {
     applications: HashMap<ElementType, Arc<Mutex<dyn Application<AppState = AppState>>>>,
     focussed_element: Option<ElementType>,
     last_saved_state: AppState,
+    path_to_current_design: Option<PathBuf>,
 }
 
 struct MainStateConstructor {
@@ -843,6 +844,7 @@ impl MainState {
             applications: Default::default(),
             focussed_element: None,
             last_saved_state: app_state.clone(),
+            path_to_current_design: None,
         }
     }
 
@@ -1046,6 +1048,7 @@ impl MainState {
     fn save_design(&mut self, path: &PathBuf) -> Result<(), SaveDesignError> {
         self.app_state.get_design_reader().save_design(path)?;
         self.last_saved_state = self.app_state.clone();
+        self.path_to_current_design = Some(path.clone());
         Ok(())
     }
 
@@ -1103,6 +1106,7 @@ impl<'a> MainStateInteface for MainStateView<'a> {
     fn load_design(&mut self, path: PathBuf) -> Result<(), LoadDesignError> {
         if let Ok(state) = AppState::import_design(&path) {
             self.main_state.clear_app_state(state);
+            self.main_state.path_to_current_design = Some(path.clone());
             Ok(())
         } else {
             Err(LoadDesignError::from("\"Oh No\"".to_string()))
@@ -1285,6 +1289,25 @@ impl<'a> MainStateInteface for MainStateView<'a> {
 
     fn need_save(&self) -> bool {
         self.main_state.need_save()
+    }
+
+    fn get_current_design_directory(&self) -> Option<&Path> {
+        let mut ancestors = self
+            .main_state
+            .path_to_current_design
+            .as_ref()
+            .map(|p| p.ancestors())?;
+        let first_ancestor = ancestors.next()?;
+        if first_ancestor.is_dir() {
+            Some(first_ancestor)
+        } else {
+            let second_ancestor = ancestors.next()?;
+            if second_ancestor.is_dir() {
+                Some(second_ancestor)
+            } else {
+                None
+            }
+        }
     }
 }
 

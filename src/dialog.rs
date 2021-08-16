@@ -16,7 +16,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::mpsc;
 use std::thread;
 
@@ -83,12 +83,16 @@ impl PathInput {
     }
 }
 
-pub fn save(target_extension: &'static str) -> PathInput {
-    let dialog = rfd::AsyncFileDialog::new().save_file();
+pub fn save<P: AsRef<Path>>(target_extension: &'static str, starting_path: Option<P>) -> PathInput {
+    let mut dialog = rfd::AsyncFileDialog::new();
+    if let Some(path) = starting_path {
+        dialog = dialog.set_directory(path);
+    }
+    let future_file = dialog.save_file();
     let (snd, rcv) = mpsc::channel();
     thread::spawn(move || {
         let save_op = async move {
-            let file = dialog.await;
+            let file = future_file.await;
             if let Some(handle) = file {
                 let mut path_buf: std::path::PathBuf = handle.path().clone().into();
                 let extension = path_buf.extension().clone();
@@ -128,12 +132,16 @@ pub fn get_dir() -> PathInput {
     PathInput(rcv)
 }
 
-pub fn load() -> PathInput {
-    let dialog = rfd::AsyncFileDialog::new().pick_file();
+pub fn load<P: AsRef<Path>>(starting_path: Option<P>) -> PathInput {
+    let mut dialog = rfd::AsyncFileDialog::new();
+    if let Some(path) = starting_path {
+        dialog = dialog.set_directory(path);
+    }
+    let future_file = dialog.pick_file();
     let (snd, rcv) = mpsc::channel();
     thread::spawn(move || {
         let load_op = async move {
-            let file = dialog.await;
+            let file = future_file.await;
             if let Some(handle) = file {
                 let path_buf: std::path::PathBuf = handle.path().clone().into();
                 snd.send(Some(path_buf));
