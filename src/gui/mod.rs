@@ -855,6 +855,7 @@ impl<S: AppState> IcedMessages<S> {
                     can_redo: main_state.can_redo,
                     need_save: main_state.need_save,
                     can_reload: main_state.can_reload,
+                    can_split2d: main_state.can_split2d,
                 }))
         }
     }
@@ -900,4 +901,5 @@ pub struct MainState {
     pub can_redo: bool,
     pub need_save: bool,
     pub can_reload: bool,
+    pub can_split2d: bool,
 }

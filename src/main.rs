@@ -565,6 +565,7 @@ fn main() {
                         can_redo: !main_state.redo_stack.is_empty(),
                         need_save: main_state.need_save(),
                         can_reload: main_state.get_current_file_name().is_some(),
+                        can_split2d: multiplexer.is_showing(&ElementType::FlatScene),
                     },
                 );
                 gui.update(&multiplexer, &window);
