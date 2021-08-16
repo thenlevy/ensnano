@@ -523,6 +523,7 @@ impl<S: AppState> Application for FlatScene<S> {
             Notification::RenderingMode(_) => (),
             Notification::Background3D(_) => (),
             Notification::Fog(_) => (),
+            Notification::WindowFocusLost => (),
         }
     }
 

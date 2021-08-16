@@ -312,6 +312,10 @@ impl<S: AppState> Controller<S> {
     fn shift_cam(&mut self) {
         self.camera_controller.shift()
     }
+
+    pub fn stop_camera_movement(&mut self) {
+        self.camera_controller.stop_camera_movement()
+    }
 }
 
 fn ctrl(modifiers: &ModifiersState) -> bool {

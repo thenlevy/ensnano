@@ -78,6 +78,7 @@ pub enum Notification {
     Background3D(Background3D),
     RenderingMode(RenderingMode),
     Fog(FogParameters),
+    WindowFocusLost,
 }
 
 #[derive(PartialEq, Debug, Clone, Copy)]

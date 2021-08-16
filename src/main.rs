@@ -367,6 +367,10 @@ fn main() {
                 .pending_actions
                 .push_back(Action::Exit),
             Event::WindowEvent {
+                event: WindowEvent::Focused(false),
+                ..
+            } => main_state_view.notify_apps(Notification::WindowFocusLost),
+            Event::WindowEvent {
                 event: WindowEvent::ModifiersChanged(modifiers),
                 ..
             } => {
