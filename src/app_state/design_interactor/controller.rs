@@ -1178,9 +1178,10 @@ impl Controller {
         angle: f32,
     ) -> Design {
         self.update_state_and_design(&mut design);
+        let step = std::f32::consts::FRAC_PI_6 / 2.; // = Pi / 12 = 15 degrees
         let angle = {
-            let k = (angle / std::f32::consts::FRAC_PI_8).round();
-            k * std::f32::consts::FRAC_PI_8
+            let k = (angle / step).round();
+            k * step
         };
         let mut new_helices = BTreeMap::clone(design.helices.as_ref());
         for h_id in helices.iter() {
