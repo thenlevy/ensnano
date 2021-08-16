@@ -191,6 +191,13 @@ impl State for NormalState {
                     main_state.set_visibility_sieve(compl);
                     self
                 }
+                Action::ReloadFile => {
+                    if let Some(path) = main_state.get_current_file_name() {
+                        Box::new(Load::known_path(path.to_path_buf()))
+                    } else {
+                        self
+                    }
+                }
                 action => {
                     println!("Not implemented {:?}", action);
                     self
@@ -385,4 +392,5 @@ pub enum Action {
     SuspendOp,
     Fog(FogParameters),
     Split2D,
+    ReloadFile,
 }

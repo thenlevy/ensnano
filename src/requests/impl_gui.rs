@@ -276,6 +276,10 @@ impl GuiRequests for Requests {
     fn reset_simulations(&mut self) {
         self.keep_proceed.push_back(Action::ResetSimulation)
     }
+
+    fn reload_file(&mut self) {
+        self.keep_proceed.push_back(Action::ReloadFile)
+    }
 }
 
 fn rigid_parameters(parameters: RigidBodyParametersRequest) -> RigidBodyConstants {

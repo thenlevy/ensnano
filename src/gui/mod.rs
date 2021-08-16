@@ -162,6 +162,7 @@ pub trait Requests: 'static + Send {
     fn finish_changing_color(&mut self);
     fn stop_simulations(&mut self);
     fn reset_simulations(&mut self);
+    fn reload_file(&mut self);
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -853,6 +854,7 @@ impl<S: AppState> IcedMessages<S> {
                     can_undo: main_state.can_undo,
                     can_redo: main_state.can_redo,
                     need_save: main_state.need_save,
+                    can_reload: main_state.can_reload,
                 }))
         }
     }
@@ -897,4 +899,5 @@ pub struct MainState {
     pub can_undo: bool,
     pub can_redo: bool,
     pub need_save: bool,
+    pub can_reload: bool,
 }

@@ -69,6 +69,7 @@ pub struct MainState<S: AppState> {
     pub can_undo: bool,
     pub can_redo: bool,
     pub need_save: bool,
+    pub can_reload: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -88,6 +89,7 @@ pub enum Message<S: AppState> {
     Undo,
     Redo,
     ButtonNewEmptyDesignPressed,
+    Reload,
 }
 
 impl<R: Requests, S: AppState> TopBar<R, S> {
@@ -154,6 +156,7 @@ impl<R: Requests, S: AppState> Program for TopBar<R, S> {
             Message::ForceHelp => self.requests.lock().unwrap().force_help(),
             Message::ShowTutorial => self.requests.lock().unwrap().show_tutorial(),
             Message::ButtonNewEmptyDesignPressed => self.requests.lock().unwrap().new_design(),
+            Message::Reload => self.requests.lock().unwrap().reload_file(),
         };
         Command::none()
     }
@@ -208,6 +211,15 @@ impl<R: Requests, S: AppState> Program for TopBar<R, S> {
             .on_press(save_message)
         };
 
+        let mut button_reload = Button::new(
+            &mut self.button_replace_file,
+            icon(MaterialIcon::Autorenew, self.ui_size.clone()),
+        );
+
+        if self.application_state.can_reload {
+            button_reload = button_reload.on_press(Message::Reload);
+        }
+
         let mut button_undo = Button::new(
             &mut self.button_undo,
             icon(MaterialIcon::Undo, self.ui_size.clone()),
@@ -256,6 +268,7 @@ impl<R: Requests, S: AppState> Program for TopBar<R, S> {
             .height(Length::Units(height))
             .push(button_new_empty_design)
             .push(button_add_file)
+            .push(button_reload)
             .push(button_save)
             .push(oxdna_tooltip)
             .push(iced::Space::with_width(Length::Units(10)))

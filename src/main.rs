@@ -564,6 +564,7 @@ fn main() {
                         can_undo: !main_state.undo_stack.is_empty(),
                         can_redo: !main_state.redo_stack.is_empty(),
                         need_save: main_state.need_save(),
+                        can_reload: main_state.get_current_file_name().is_some(),
                     },
                 );
                 gui.update(&multiplexer, &window);
@@ -1072,6 +1073,13 @@ impl MainState {
     fn need_save(&self) -> bool {
         self.app_state.design_was_modified(&self.last_saved_state)
     }
+
+    fn get_current_file_name(&self) -> Option<&Path> {
+        self.path_to_current_design
+            .as_ref()
+            .filter(|p| p.is_file())
+            .map(|p| p.as_ref())
+    }
 }
 
 /// A temporary view of the main state and the control flow.
@@ -1311,11 +1319,7 @@ impl<'a> MainStateInteface for MainStateView<'a> {
     }
 
     fn get_current_file_name(&self) -> Option<&Path> {
-        self.main_state
-            .path_to_current_design
-            .as_ref()
-            .filter(|p| p.is_file())
-            .map(|p| p.as_ref())
+        self.main_state.get_current_file_name()
     }
 }
 
