@@ -1231,7 +1231,9 @@ impl<R: DesignReader> Data<R> {
 
     pub fn get_widget_basis<S: AppState>(&self, app_state: &S) -> Option<Rotor3> {
         self.get_selected_basis(app_state).map(|b| {
-            if app_state.get_widget_basis().is_axis_aligned() {
+            if app_state.get_widget_basis().is_axis_aligned()
+                && self.selection_can_rotate_freely(app_state)
+            {
                 Rotor3::identity()
             } else {
                 b
@@ -1247,8 +1249,14 @@ impl<R: DesignReader> Data<R> {
                 SelectionMode::Nucleotide | SelectionMode::Design | SelectionMode::Strand => None,
                 SelectionMode::Grid => Some(self.designs[*d_id as usize].get_basis()),
                 SelectionMode::Helix => {
-                    let h_id = self.get_selected_group(app_state);
-                    h_id.and_then(|h_id| self.designs[*d_id as usize].get_helix_basis(h_id))
+                    let h_id = self.get_selected_group(app_state)?;
+                    if let Some(grid_position) =
+                        self.designs[*d_id as usize].get_helix_grid_position(h_id)
+                    {
+                        self.designs[*d_id as usize].get_grid_basis(grid_position.grid)
+                    } else {
+                        self.designs[*d_id as usize].get_helix_basis(h_id)
+                    }
                 }
             },
             Some(SceneElement::PhantomElement(phantom_element)) => {

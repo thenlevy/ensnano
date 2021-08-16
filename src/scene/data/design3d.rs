@@ -745,6 +745,10 @@ impl<R: DesignReader> Design3D<R> {
         self.design.get_helix_grid_position(h_id).is_some()
     }
 
+    pub fn get_helix_grid_position(&self, h_id: u32) -> Option<GridPosition> {
+        self.design.get_helix_grid_position(h_id)
+    }
+
     pub fn get_nucl_position(&self, nucl: Nucl) -> Option<Vec3> {
         self.design
             .get_position_of_nucl_on_helix(nucl, Referential::World, false)
