@@ -193,7 +193,7 @@ impl State for NormalState {
                 }
                 Action::ReloadFile => {
                     if let Some(path) = main_state.get_current_file_name() {
-                        Box::new(Load::known_path(path.to_path_buf()))
+                        Load::init_reolad(main_state.need_save(), path.to_path_buf())
                     } else {
                         self
                     }

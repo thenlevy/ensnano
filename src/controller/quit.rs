@@ -87,6 +87,20 @@ impl Load {
             step: LoadStep::GotPath(path),
         }
     }
+
+    pub(super) fn init_reolad(need_save: bool, path: PathBuf) -> Box<dyn State> {
+        if need_save {
+            let yes = save_before_known_path(path.clone());
+            let no = Box::new(Load::known_path(path));
+            Box::new(YesNo::new(
+                "Do you want to save the current design beore reloading?".into(),
+                yes,
+                no,
+            ))
+        } else {
+            Box::new(Load::known_path(path))
+        }
+    }
 }
 
 use std::path::PathBuf;
@@ -139,6 +153,12 @@ fn init_load(need_save: bool) -> Box<dyn State> {
 fn save_before_load() -> Box<dyn State> {
     let on_success = Load::ask_path();
     let on_error = Box::new(super::NormalState);
+    Box::new(SaveAs::new(on_success, on_error))
+}
+
+fn save_before_known_path(path: PathBuf) -> Box<dyn State> {
+    let on_success = Box::new(Load::known_path(path));
+    let on_error = Box::new(NormalState);
     Box::new(SaveAs::new(on_success, on_error))
 }
 
