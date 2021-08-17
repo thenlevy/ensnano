@@ -344,6 +344,14 @@ pub(crate) fn poll_all<R: DerefMut<Target = Requests>>(
         main_state.pending_actions.push_back(Action::SuspendOp)
     }
 
+    if let Some((selection, app_id)) = requests.center_selection.take() {
+        main_state
+            .pending_actions
+            .push_back(Action::NotifyApps(Notification::CenterSelection(
+                selection, app_id,
+            )))
+    }
+
     if let Some(candidate) = requests.new_paste_candiate.take() {
         main_state
             .pending_actions

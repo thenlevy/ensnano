@@ -493,11 +493,18 @@ impl<S: AppState> Application for FlatScene<S> {
             Notification::NewSensitivity(_) => (),
             Notification::ClearDesigns => (),
             Notification::Centering(_, _) => (),
-            Notification::CenterSelection(_, app_id) => {
+            Notification::CenterSelection(selection, app_id) => {
+                println!("Flat selection {:?}", selection);
+                let flat_selection = self.data[self.selected_design]
+                    .borrow()
+                    .convert_to_flat(selection);
+                let flat_selection_bonds = self.data[self.selected_design]
+                    .borrow()
+                    .xover_to_nuclpair(flat_selection);
                 if app_id != AppId::FlatScene {
                     let xover = self.view[self.selected_design]
                         .borrow_mut()
-                        .center_selection();
+                        .center_selection(flat_selection_bonds);
                     if let Some((n1, n2)) = xover {
                         self.split_and_center(n1, n2);
                     }

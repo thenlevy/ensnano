@@ -436,9 +436,10 @@ impl View {
         self.candidate_helices = selection;
     }
 
-    pub fn center_selection(&mut self) -> Option<(FlatNucl, FlatNucl)> {
+    pub fn center_selection(&mut self, selection: FlatSelection) -> Option<(FlatNucl, FlatNucl)> {
         self.camera_top.borrow_mut().zoom_closer();
-        match self.selection {
+        self.was_updated = true;
+        match selection {
             FlatSelection::Bound(_, n1, n2) => {
                 self.helices[n1.helix].make_visible(n1.position, self.camera_top.clone());
                 let world_pos_1 = self.helices[n1.helix].get_nucl_position(&n1, Shift::No);

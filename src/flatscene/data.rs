@@ -15,7 +15,9 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
-use super::{AppState, Flat, HelixVec, PhantomElement, Requests, ViewPtr};
+use super::{
+    flattypes::FlatSelection, AppState, Flat, HelixVec, PhantomElement, Requests, ViewPtr,
+};
 use ensnano_design::{Design, Nucl};
 use ensnano_interactor::{Selection, SelectionMode, StrandBuilder};
 use std::sync::{Arc, Mutex, RwLock};
@@ -886,6 +888,26 @@ impl Data {
         self.candidates = candidates;
         self.selection_updated = true;
     }*/
+
+    pub(super) fn convert_to_flat(&self, selection: Selection) -> FlatSelection {
+        FlatSelection::from_real(Some(&selection), self.id_map())
+    }
+
+    pub(super) fn xover_to_nuclpair(&self, selection: FlatSelection) -> FlatSelection {
+        if let FlatSelection::Xover(d_id, xover_id) = selection {
+            if let Some((n1, n2)) = self.design.get_xover_with_id(xover_id) {
+                FlatSelection::Bound(
+                    d_id,
+                    FlatNucl::from_real(&n1, self.id_map()),
+                    FlatNucl::from_real(&n2, self.id_map()),
+                )
+            } else {
+                FlatSelection::Nothing
+            }
+        } else {
+            selection
+        }
+    }
 
     fn xover_containing_nucl(&self, nucl: &FlatNucl) -> Option<usize> {
         let xovers_list = self.design.get_xovers_list();
