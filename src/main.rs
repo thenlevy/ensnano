@@ -89,6 +89,7 @@ use ensnano_interactor::graphics::FogParameters;
 use ensnano_interactor::{DesignOperation, DesignReader, RigidBodyConstants};
 use iced_native::Event as IcedEvent;
 use iced_wgpu::{wgpu, Backend, Renderer, Settings, Viewport};
+use iced_winit::winit::event::VirtualKeyCode;
 use iced_winit::{conversion, futures, program, winit, Debug, Size};
 
 use futures::task::SpawnExt;
@@ -380,6 +381,10 @@ fn main() {
                 messages.lock().unwrap().update_modifiers(modifiers.clone());
                 main_state_view.notify_apps(Notification::ModifersChanged(modifiers));
             }
+            Event::WindowEvent {
+                event: WindowEvent::KeyboardInput { input, .. },
+                ..
+            } if input.virtual_keycode == Some(VirtualKeyCode::Escape) && window.fullscreen().is_some() => window.set_fullscreen(None),
             Event::WindowEvent {
                 event: WindowEvent::KeyboardInput { .. },
                 ..
