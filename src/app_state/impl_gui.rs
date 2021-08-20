@@ -81,6 +81,24 @@ impl GuiState for AppState {
     fn selection_was_updated(&self, other: &Self) -> bool {
         self.0.selection != other.0.selection
     }
+
+    fn get_build_helix_mode(&self) -> ActionMode {
+        if let Some(NewHelixStrand { length, start }) = self.0.strand_on_new_helix.as_ref() {
+            ActionMode::BuildHelix {
+                position: *start,
+                length: *length,
+            }
+        } else {
+            ActionMode::BuildHelix {
+                position: 0,
+                length: 0,
+            }
+        }
+    }
+
+    fn has_double_strand_on_new_helix(&self) -> bool {
+        self.0.strand_on_new_helix.is_some()
+    }
 }
 
 #[cfg(test)]

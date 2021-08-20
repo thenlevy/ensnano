@@ -19,11 +19,13 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 
 use super::{AppState, UiSize};
+use ensnano_interactor::{ActionMode, SelectionMode};
 use iced::{container, Background, Container};
 use iced_native::clipboard::Null as NullClipBoard;
 use iced_wgpu::Renderer;
 use iced_winit::winit::dpi::LogicalSize;
 use iced_winit::{button, Button, Color, Command, Element, Length, Program, Row};
+use std::collections::BTreeMap;
 
 use super::material_icons_light;
 use material_icons::{icon_to_char, Icon as MaterialIcon, FONT as MATERIALFONT};
@@ -81,7 +83,8 @@ pub struct TopBar<R: Requests, S: AppState> {
     button_new_empty_design: button::State,
     requests: Arc<Mutex<R>>,
     logical_size: LogicalSize<f64>,
-    dialoging: Arc<Mutex<bool>>,
+    action_mode_state: ActionModeState,
+    selection_mode_state: SelectionModeState,
     ui_size: UiSize,
     application_state: MainState<S>,
 }
@@ -113,6 +116,8 @@ pub enum Message<S: AppState> {
     Undo,
     Redo,
     ButtonNewEmptyDesignPressed,
+    ActionModeChanged(ActionMode),
+    SelectionModeChanged(SelectionMode),
     Reload,
 }
 
@@ -139,7 +144,8 @@ impl<R: Requests, S: AppState> TopBar<R, S> {
             button_new_empty_design: Default::default(),
             requests,
             logical_size,
-            dialoging,
+            action_mode_state: Default::default(),
+            selection_mode_state: Default::default(),
             ui_size: Default::default(),
             application_state: Default::default(),
         }
@@ -147,6 +153,10 @@ impl<R: Requests, S: AppState> TopBar<R, S> {
 
     pub fn resize(&mut self, logical_size: LogicalSize<f64>) {
         self.logical_size = logical_size;
+    }
+
+    fn get_build_helix_mode(&self) -> ActionMode {
+        self.application_state.app_state.get_build_helix_mode()
     }
 }
 
@@ -181,11 +191,40 @@ impl<R: Requests, S: AppState> Program for TopBar<R, S> {
             Message::ShowTutorial => self.requests.lock().unwrap().show_tutorial(),
             Message::ButtonNewEmptyDesignPressed => self.requests.lock().unwrap().new_design(),
             Message::Reload => self.requests.lock().unwrap().reload_file(),
+            Message::SelectionModeChanged(selection_mode) => {
+                if selection_mode != self.application_state.app_state.get_selection_mode() {
+                    self.requests
+                        .lock()
+                        .unwrap()
+                        .change_selection_mode(selection_mode);
+                }
+            }
+            Message::ActionModeChanged(action_mode) => {
+                if self.application_state.app_state.get_action_mode() != action_mode {
+                    self.requests
+                        .lock()
+                        .unwrap()
+                        .change_action_mode(action_mode)
+                } else {
+                    match action_mode {
+                        ActionMode::Rotate | ActionMode::Translate => {
+                            self.requests.lock().unwrap().toggle_widget_basis();
+                        }
+                        _ => (),
+                    }
+                }
+            }
         };
         Command::none()
     }
 
     fn view(&mut self) -> Element<Message<S>, Renderer> {
+        let action_modes = [
+            ActionMode::Normal,
+            ActionMode::Translate,
+            ActionMode::Rotate,
+            self.get_build_helix_mode(),
+        ];
         let height = self.logical_size.cast::<u16>().height;
         let button_fit = Button::new(
             &mut self.button_fit,
@@ -234,13 +273,13 @@ impl<R: Requests, S: AppState> Program for TopBar<R, S> {
                 &mut self.button_save_as,
                 dark_icon(LightIcon::DriveFileMove, self.ui_size.clone()),
             )
-                .on_press(Message::SaveAsRequested)
+            .on_press(Message::SaveAsRequested)
         } else {
             Button::new(
                 &mut self.button_save_as,
                 light_icon(LightIcon::DriveFileMove, self.ui_size.clone()),
             )
-                .on_press(Message::SaveAsRequested)
+            .on_press(Message::SaveAsRequested)
         };
 
         let mut button_undo = Button::new(
@@ -290,7 +329,25 @@ impl<R: Requests, S: AppState> Program for TopBar<R, S> {
             .height(Length::Units(self.ui_size.button()))
             .on_press(Message::ShowTutorial);
 
-        let buttons = Row::new()
+        let app_state = &self.application_state.app_state;
+        let ui_size = self.ui_size.clone();
+        let action_buttons: Vec<Button<Message<S>, _>> = self
+            .action_mode_state
+            .get_states(0, 0, false)
+            .into_iter()
+            .filter(|(m, _)| action_modes.contains(m))
+            .map(|(mode, state)| {
+                action_mode_btn(
+                    state,
+                    mode,
+                    app_state.get_action_mode(),
+                    ui_size.button(),
+                    app_state.get_widget_basis().is_axis_aligned(),
+                )
+            })
+            .collect();
+
+        let mut buttons = Row::new()
             .width(Length::Fill)
             .height(Length::Units(height))
             .push(button_new_empty_design)
@@ -308,7 +365,15 @@ impl<R: Requests, S: AppState> Program for TopBar<R, S> {
             .push(iced::Space::with_width(Length::Units(10)))
             .push(button_undo)
             .push(button_redo)
-            .push(iced::Space::with_width(Length::Units(10)))
+            .push(iced::Space::with_width(Length::Units(10)));
+
+        for button in action_buttons.into_iter() {
+            buttons = buttons.push(button);
+        }
+
+        buttons = buttons.push(iced::Space::with_width(Length::Units(10)));
+
+        buttons = buttons
             .push(button_help)
             .push(iced::Space::with_width(Length::Units(2)))
             .push(button_tutorial)
@@ -386,4 +451,95 @@ impl iced::container::StyleSheet for ToolTipStyle {
             ..Default::default()
         }
     }
+}
+
+#[derive(Default, Debug, Clone)]
+struct SelectionModeState {
+    pub nucleotide: button::State,
+    pub strand: button::State,
+    pub helix: button::State,
+    pub grid: button::State,
+}
+
+impl SelectionModeState {
+    fn get_states<'a>(&'a mut self) -> BTreeMap<SelectionMode, &'a mut button::State> {
+        let mut ret = BTreeMap::new();
+        ret.insert(SelectionMode::Nucleotide, &mut self.nucleotide);
+        ret.insert(SelectionMode::Strand, &mut self.strand);
+        ret.insert(SelectionMode::Helix, &mut self.helix);
+        ret.insert(SelectionMode::Grid, &mut self.grid);
+        ret
+    }
+}
+
+#[derive(Default, Debug, Clone)]
+struct ActionModeState {
+    pub select: button::State,
+    pub translate: button::State,
+    pub rotate: button::State,
+    pub build: button::State,
+    pub cut: button::State,
+    pub add_grid: button::State,
+    pub add_hyperboloid: button::State,
+}
+
+impl ActionModeState {
+    fn get_states<'a>(
+        &'a mut self,
+        len_helix: usize,
+        position_helix: isize,
+        make_strands: bool,
+    ) -> BTreeMap<ActionMode, &'a mut button::State> {
+        let mut ret = BTreeMap::new();
+        ret.insert(ActionMode::Normal, &mut self.select);
+        ret.insert(ActionMode::Translate, &mut self.translate);
+        ret.insert(ActionMode::Rotate, &mut self.rotate);
+        let (position, length) = if make_strands {
+            (position_helix, len_helix)
+        } else {
+            (0, 0)
+        };
+        ret.insert(ActionMode::BuildHelix { position, length }, &mut self.build);
+        ret
+    }
+}
+
+struct ButtonStyle(bool);
+
+impl iced_wgpu::button::StyleSheet for ButtonStyle {
+    fn active(&self) -> iced_wgpu::button::Style {
+        iced_wgpu::button::Style {
+            border_width: if self.0 { 3_f32 } else { 1_f32 },
+            border_radius: if self.0 { 3_f32 } else { 2_f32 },
+            border_color: if self.0 {
+                Color::BLACK
+            } else {
+                [0.7, 0.7, 0.7].into()
+            },
+            background: Some(Background::Color([0.87, 0.87, 0.87].into())),
+            //background: Some(Background::Color(BACKGROUND)),
+            ..Default::default()
+        }
+    }
+}
+
+use super::icon::{HasIcon, HasIconDependentOnAxis};
+use iced::Image;
+fn action_mode_btn<'a, S: AppState>(
+    state: &'a mut button::State,
+    mode: ActionMode,
+    fixed_mode: ActionMode,
+    button_size: u16,
+    axis_aligned: bool,
+) -> Button<'a, Message<S>, Renderer> {
+    let icon_path = if fixed_mode == mode {
+        mode.icon_on(axis_aligned)
+    } else {
+        mode.icon_off(axis_aligned)
+    };
+
+    Button::new(state, Image::new(icon_path))
+        .on_press(Message::ActionModeChanged(mode))
+        .style(ButtonStyle(fixed_mode == mode))
+        .width(Length::Units(button_size))
 }

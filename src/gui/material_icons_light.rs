@@ -3,8 +3,7 @@
 pub const MATERIAL_ICON_LIGHT: &[u8] =
     include_bytes!("../../font/MaterialIconsOutlined-Regular.otf");
 
-pub const MATERIAL_ICON_DARK: &[u8] =
-    include_bytes!("../../font/MaterialIcons-Regular.ttf");
+pub const MATERIAL_ICON_DARK: &[u8] = include_bytes!("../../font/MaterialIcons-Regular.ttf");
 
 pub enum LightIcon {
     _10K,

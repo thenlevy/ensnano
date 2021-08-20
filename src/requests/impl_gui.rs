@@ -284,6 +284,10 @@ impl GuiRequests for Requests {
     fn reload_file(&mut self) {
         self.keep_proceed.push_back(Action::ReloadFile)
     }
+
+    fn add_double_strand_on_new_helix(&mut self, parameters: Option<(isize, usize)>) {
+        self.new_double_strand_parameters = Some(parameters);
+    }
 }
 
 fn rigid_parameters(parameters: RigidBodyParametersRequest) -> RigidBodyConstants {

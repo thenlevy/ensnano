@@ -88,6 +88,10 @@ pub(crate) fn poll_all<R: DerefMut<Target = Requests>>(
         main_state.change_action_mode(action_mode)
     }
 
+    if let Some(double_strand_parameters) = requests.new_double_strand_parameters.take() {
+        main_state.change_double_strand_parameters(double_strand_parameters)
+    }
+
     if let Some(sequence) = requests.sequence_change.take() {
         main_state.push_action(Action::ChangeSequence(sequence))
     }

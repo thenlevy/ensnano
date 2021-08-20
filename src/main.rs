@@ -1075,6 +1075,10 @@ impl MainState {
         self.modify_state(|s| s.with_action_mode(mode), false)
     }
 
+    fn change_double_strand_parameters(&mut self, parameters: Option<(isize, usize)>) {
+        self.modify_state(|s| s.with_strand_on_helix(parameters), false)
+    }
+
     fn toggle_widget_basis(&mut self) {
         self.modify_state(|s| s.with_toggled_widget_basis(), false)
     }

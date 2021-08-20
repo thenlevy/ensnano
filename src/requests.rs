@@ -114,4 +114,5 @@ pub struct Requests {
     pub toggle_widget_basis: Option<()>,
     pub stop_roll: Option<()>,
     pub new_paste_candiate: Option<Option<Nucl>>,
+    pub new_double_strand_parameters: Option<Option<(isize, usize)>>,
 }

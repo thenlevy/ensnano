@@ -99,6 +99,30 @@ impl AppState {
         Self(AddressPointer::new(new_state))
     }
 
+    pub fn with_strand_on_helix(&self, parameters: Option<(isize, usize)>) -> Self {
+        let new_strand_parameters =
+            parameters.map(|(start, length)| NewHelixStrand { length, start });
+        if let ActionMode::BuildHelix { .. } = self.0.action_mode {
+            let mut new_state = (*self.0).clone();
+            let length = new_strand_parameters
+                .as_ref()
+                .map(|strand| strand.length)
+                .unwrap_or_default();
+            let start = new_strand_parameters
+                .as_ref()
+                .map(|strand| strand.start)
+                .unwrap_or_default();
+            new_state.strand_on_new_helix = new_strand_parameters;
+            new_state.action_mode = ActionMode::BuildHelix {
+                length,
+                position: start,
+            };
+            Self(AddressPointer::new(new_state))
+        } else {
+            self.clone()
+        }
+    }
+
     pub fn with_toggled_widget_basis(&self) -> Self {
         let mut new_state = (*self.0).clone();
         new_state.widget_basis.toggle();
@@ -294,4 +318,11 @@ struct AppState_ {
     design: AddressPointer<DesignInteractor>,
     action_mode: ActionMode,
     widget_basis: WidgetBasis,
+    strand_on_new_helix: Option<NewHelixStrand>,
+}
+
+#[derive(Clone, PartialEq, Eq)]
+struct NewHelixStrand {
+    length: usize,
+    start: isize,
 }

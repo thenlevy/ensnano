@@ -165,6 +165,7 @@ pub trait Requests: 'static + Send {
     fn stop_simulations(&mut self);
     fn reset_simulations(&mut self);
     fn reload_file(&mut self);
+    fn add_double_strand_on_new_helix(&mut self, parameters: Option<(isize, usize)>);
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -874,6 +875,8 @@ pub trait Multiplexer {
 pub trait AppState: Default + PartialEq + Clone + 'static + Send + std::fmt::Debug {
     fn get_selection_mode(&self) -> SelectionMode;
     fn get_action_mode(&self) -> ActionMode;
+    fn get_build_helix_mode(&self) -> ActionMode;
+    fn has_double_strand_on_new_helix(&self) -> bool;
     fn get_widget_basis(&self) -> WidgetBasis;
     fn get_simulation_state(&self) -> SimulationState;
     fn get_dna_parameters(&self) -> Parameters;
