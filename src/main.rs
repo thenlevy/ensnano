@@ -384,7 +384,11 @@ fn main() {
             Event::WindowEvent {
                 event: WindowEvent::KeyboardInput { input, .. },
                 ..
-            } if input.virtual_keycode == Some(VirtualKeyCode::Escape) && window.fullscreen().is_some() => window.set_fullscreen(None),
+            } if input.virtual_keycode == Some(VirtualKeyCode::Escape)
+                && window.fullscreen().is_some() =>
+            {
+                window.set_fullscreen(None)
+            }
             Event::WindowEvent {
                 event: WindowEvent::KeyboardInput { .. },
                 ..

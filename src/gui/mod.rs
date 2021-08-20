@@ -31,6 +31,7 @@ pub use left_panel::{ColorOverlay, LeftPanel, RigidBodyParametersRequest};
 pub mod status_bar;
 mod ui_size;
 pub use ui_size::*;
+mod material_icons_light;
 
 mod icon;
 

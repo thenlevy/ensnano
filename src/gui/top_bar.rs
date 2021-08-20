@@ -26,15 +26,28 @@ use iced_winit::winit::dpi::LogicalSize;
 use iced_winit::{button, Button, Color, Command, Element, Length, Program, Row};
 
 use material_icons::{icon_to_char, Icon as MaterialIcon, FONT as MATERIALFONT};
+use super::material_icons_light;
+use material_icons_light::LightIcon;
 
 const ICONFONT: iced::Font = iced::Font::External {
     name: "IconFont",
     bytes: MATERIALFONT,
 };
 
+const LIGHT_ICONFONT: iced::Font = iced::Font::External {
+    name: "IconFontLight",
+    bytes: material_icons_light::MATERIAL_ICON_LIGHT,
+};
+
 fn icon(icon: MaterialIcon, ui_size: UiSize) -> iced::Text {
     iced::Text::new(format!("{}", icon_to_char(icon)))
         .font(ICONFONT)
+        .size(ui_size.icon())
+}
+
+fn light_icon(icon: LightIcon, ui_size: UiSize) -> iced::Text {
+    iced::Text::new(format!("{}", material_icons_light::icon_to_char(icon)))
+        .font(LIGHT_ICONFONT)
         .size(ui_size.icon())
 }
 
@@ -200,14 +213,13 @@ impl<R: Requests, S: AppState> Program for TopBar<R, S> {
         let button_save = if self.application_state.need_save {
             Button::new(
                 &mut self.button_save,
-                icon(MaterialIcon::Save, self.ui_size.clone())
-                    .color(iced::Color::from_rgb8(0x6D, 0x07, 0x1A)),
+                icon(MaterialIcon::Save, self.ui_size.clone()),
             )
             .on_press(save_message)
         } else {
             Button::new(
                 &mut self.button_save,
-                icon(MaterialIcon::Save, self.ui_size.clone()),
+                light_icon(LightIcon::Save, self.ui_size.clone()),
             )
             .on_press(save_message)
         };
