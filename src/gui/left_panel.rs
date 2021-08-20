@@ -360,22 +360,18 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
                 self.camera_shortcut.reset_angles();
             }
             Message::LengthHelicesChanged(length_str) => {
-                let action_mode = self.grid_tab.update_length_str(length_str.clone());
-                if self.application_state.get_action_mode() != action_mode {
-                    self.requests
-                        .lock()
-                        .unwrap()
-                        .change_action_mode(action_mode)
-                }
+                let new_strand_parameters = self.grid_tab.update_length_str(length_str.clone());
+                self.requests
+                    .lock()
+                    .unwrap()
+                    .add_double_strand_on_new_helix(Some(new_strand_parameters))
             }
             Message::PositionHelicesChanged(position_str) => {
-                let action_mode = self.grid_tab.update_pos_str(position_str.clone());
-                if self.application_state.get_action_mode() != action_mode {
-                    self.requests
-                        .lock()
-                        .unwrap()
-                        .change_action_mode(action_mode)
-                }
+                let new_strand_parameters = self.grid_tab.update_pos_str(position_str.clone());
+                self.requests
+                    .lock()
+                    .unwrap()
+                    .add_double_strand_on_new_helix(Some(new_strand_parameters))
             }
             Message::ScaffoldPositionInput(position_str) => {
                 if let Some(n) = self.sequence_tab.update_pos_str(position_str) {
@@ -615,13 +611,11 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
             Message::CleanRequested => self.requests.lock().unwrap().remove_empty_domains(),
             Message::AddDoubleStrandHelix(b) => {
                 self.grid_tab.set_show_strand(b);
-                if let ActionMode::BuildHelix { .. } = self.application_state.get_action_mode() {
-                    let action_mode = self.grid_tab.get_build_helix_mode();
-                    self.requests
-                        .lock()
-                        .unwrap()
-                        .change_action_mode(action_mode);
-                }
+                let new_strand_parameters = self.grid_tab.get_new_strand_parameters();
+                self.requests
+                    .lock()
+                    .unwrap()
+                    .add_double_strand_on_new_helix(new_strand_parameters);
             }
             Message::ToggleVisibility(b) => self.requests.lock().unwrap().toggle_visibility(b),
             Message::AllVisible => self.requests.lock().unwrap().make_all_elements_visible(),

@@ -450,28 +450,22 @@ impl GridTab {
         Scrollable::new(&mut self.scroll).push(ret).into()
     }
 
-    pub(super) fn update_pos_str(&mut self, position_str: String) -> ActionMode {
+    pub(super) fn update_pos_str(&mut self, position_str: String) -> (isize, usize) {
         if let Ok(position) = position_str.parse::<isize>() {
             self.helix_pos = position;
         }
         self.pos_str = position_str;
         self.set_show_strand(true);
-        ActionMode::BuildHelix {
-            position: self.helix_pos,
-            length: self.helix_length,
-        }
+        (self.helix_pos, self.helix_length)
     }
 
-    pub(super) fn update_length_str(&mut self, length_str: String) -> ActionMode {
+    pub(super) fn update_length_str(&mut self, length_str: String) -> (isize, usize) {
         if let Ok(length) = length_str.parse::<usize>() {
             self.helix_length = length
         }
         self.length_str = length_str;
         self.set_show_strand(true);
-        ActionMode::BuildHelix {
-            position: self.helix_pos,
-            length: self.helix_length,
-        }
+        (self.helix_pos, self.helix_length)
     }
 
     pub fn has_keyboard_priority(&self) -> bool {
@@ -500,6 +494,14 @@ impl GridTab {
             (0, 0)
         };
         ActionMode::BuildHelix { length, position }
+    }
+
+    pub fn get_new_strand_parameters(&self) -> Option<(isize, usize)> {
+        if self.show_strand_menu {
+            Some((self.helix_pos, self.helix_length))
+        } else {
+            None
+        }
     }
 
     pub fn set_show_strand(&mut self, show: bool) {

@@ -219,11 +219,12 @@ impl<R: Requests, S: AppState> Program for TopBar<R, S> {
     }
 
     fn view(&mut self) -> Element<Message<S>, Renderer> {
+        let build_helix_mode = self.get_build_helix_mode();
         let action_modes = [
             ActionMode::Normal,
             ActionMode::Translate,
             ActionMode::Rotate,
-            self.get_build_helix_mode(),
+            build_helix_mode.clone(),
         ];
         let height = self.logical_size.cast::<u16>().height;
         let button_fit = Button::new(
@@ -333,7 +334,7 @@ impl<R: Requests, S: AppState> Program for TopBar<R, S> {
         let ui_size = self.ui_size.clone();
         let action_buttons: Vec<Button<Message<S>, _>> = self
             .action_mode_state
-            .get_states(0, 0, false)
+            .get_states(build_helix_mode)
             .into_iter()
             .filter(|(m, _)| action_modes.contains(m))
             .map(|(mode, state)| {
@@ -486,20 +487,13 @@ struct ActionModeState {
 impl ActionModeState {
     fn get_states<'a>(
         &'a mut self,
-        len_helix: usize,
-        position_helix: isize,
-        make_strands: bool,
+        build_helix_mode: ActionMode,
     ) -> BTreeMap<ActionMode, &'a mut button::State> {
         let mut ret = BTreeMap::new();
         ret.insert(ActionMode::Normal, &mut self.select);
         ret.insert(ActionMode::Translate, &mut self.translate);
         ret.insert(ActionMode::Rotate, &mut self.rotate);
-        let (position, length) = if make_strands {
-            (position_helix, len_helix)
-        } else {
-            (0, 0)
-        };
-        ret.insert(ActionMode::BuildHelix { position, length }, &mut self.build);
+        ret.insert(build_helix_mode, &mut self.build);
         ret
     }
 }
