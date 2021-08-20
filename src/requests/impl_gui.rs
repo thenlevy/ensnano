@@ -233,6 +233,10 @@ impl GuiRequests for Requests {
         self.keep_proceed.push_back(Action::SaveAs);
     }
 
+    fn save(&mut self) {
+        self.keep_proceed.push_back(Action::QuickSave);
+    }
+
     fn open_file(&mut self) {
         self.keep_proceed.push_back(Action::LoadDesign(None));
     }

@@ -25,8 +25,8 @@ use iced_wgpu::Renderer;
 use iced_winit::winit::dpi::LogicalSize;
 use iced_winit::{button, Button, Color, Command, Element, Length, Program, Row};
 
-use material_icons::{icon_to_char, Icon as MaterialIcon, FONT as MATERIALFONT};
 use super::material_icons_light;
+use material_icons::{icon_to_char, Icon as MaterialIcon, FONT as MATERIALFONT};
 use material_icons_light::LightIcon;
 
 const ICONFONT: iced::Font = iced::Font::External {
@@ -56,8 +56,7 @@ use super::{Requests, SplitMode};
 pub struct TopBar<R: Requests, S: AppState> {
     button_fit: button::State,
     button_add_file: button::State,
-    #[allow(dead_code)]
-    button_replace_file: button::State,
+    button_save_as: button::State,
     button_save: button::State,
     button_undo: button::State,
     button_redo: button::State,
@@ -89,9 +88,9 @@ pub struct MainState<S: AppState> {
 #[derive(Debug, Clone)]
 pub enum Message<S: AppState> {
     SceneFitRequested,
-    FileAddRequested,
     OpenFileButtonPressed,
     FileSaveRequested,
+    SaveAsRequested,
     Resize(LogicalSize<f64>),
     ToggleView(SplitMode),
     UiSizeChanged(UiSize),
@@ -115,7 +114,7 @@ impl<R: Requests, S: AppState> TopBar<R, S> {
         Self {
             button_fit: Default::default(),
             button_add_file: Default::default(),
-            button_replace_file: Default::default(),
+            button_save_as: Default::default(),
             button_save: Default::default(),
             button_undo: Default::default(),
             button_redo: Default::default(),
@@ -153,11 +152,11 @@ impl<R: Requests, S: AppState> Program for TopBar<R, S> {
             Message::OpenFileButtonPressed => {
                 self.requests.lock().unwrap().open_file();
             }
-            Message::FileAddRequested => {
-                self.requests.lock().unwrap().open_file();
+            Message::SaveAsRequested => {
+                self.requests.lock().unwrap().save_as();
             }
             Message::FileSaveRequested => {
-                self.requests.lock().unwrap().save_as();
+                self.requests.lock().unwrap().save();
             }
             Message::Resize(size) => self.resize(size),
             Message::ToggleView(b) => self.requests.lock().unwrap().change_split_mode(b),
@@ -177,29 +176,24 @@ impl<R: Requests, S: AppState> Program for TopBar<R, S> {
 
     fn view(&mut self) -> Element<Message<S>, Renderer> {
         let height = self.logical_size.cast::<u16>().height;
-        let top_size_info = TopSizeInfo::new(self.ui_size.clone(), height);
         let button_fit = Button::new(
             &mut self.button_fit,
-            icon(MaterialIcon::CenterFocusStrong, self.ui_size.clone()),
+            light_icon(LightIcon::ViewInAr, self.ui_size.clone()),
         )
         .on_press(Message::SceneFitRequested)
         .height(Length::Units(height));
 
-        let button_new_empty_design = bottom_tooltip_icon_btn(
+        let button_new_empty_design = Button::new(
             &mut self.button_new_empty_design,
-            MaterialIcon::InsertDriveFile,
-            &top_size_info,
-            "Load empty design",
-            Some(Message::ButtonNewEmptyDesignPressed),
-        );
+            light_icon(LightIcon::InsertDriveFile, self.ui_size.clone()),
+        )
+        .on_press(Message::ButtonNewEmptyDesignPressed);
 
-        let button_add_file = bottom_tooltip_icon_btn(
+        let button_add_file = Button::new(
             &mut self.button_add_file,
-            MaterialIcon::Folder,
-            &top_size_info,
-            "Open",
-            Some(Message::OpenFileButtonPressed),
-        );
+            light_icon(LightIcon::FolderOpen, self.ui_size.clone()),
+        )
+        .on_press(Message::OpenFileButtonPressed);
 
         let save_message = Message::FileSaveRequested;
         /*
@@ -224,14 +218,11 @@ impl<R: Requests, S: AppState> Program for TopBar<R, S> {
             .on_press(save_message)
         };
 
-        let mut button_reload = Button::new(
-            &mut self.button_replace_file,
-            icon(MaterialIcon::Autorenew, self.ui_size.clone()),
-        );
-
-        if self.application_state.can_reload {
-            button_reload = button_reload.on_press(Message::Reload);
-        }
+        let mut button_save_as = Button::new(
+            &mut self.button_save_as,
+            light_icon(LightIcon::DriveFileMove, self.ui_size.clone()),
+        )
+        .on_press(Message::SaveAsRequested);
 
         let mut button_undo = Button::new(
             &mut self.button_undo,
@@ -285,8 +276,8 @@ impl<R: Requests, S: AppState> Program for TopBar<R, S> {
             .height(Length::Units(height))
             .push(button_new_empty_design)
             .push(button_add_file)
-            .push(button_reload)
             .push(button_save)
+            .push(button_save_as)
             .push(oxdna_tooltip)
             .push(iced::Space::with_width(Length::Units(10)))
             .push(button_3d)

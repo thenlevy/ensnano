@@ -146,6 +146,7 @@ pub trait Requests: 'static + Send {
     fn show_tutorial(&mut self);
     fn new_design(&mut self);
     fn save_as(&mut self);
+    fn save(&mut self);
     fn open_file(&mut self);
     /// Adjust the 2D and 3D cameras so that the design fit in screen
     fn fit_design_in_scenes(&mut self);
