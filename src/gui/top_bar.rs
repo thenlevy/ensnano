@@ -39,6 +39,11 @@ const LIGHT_ICONFONT: iced::Font = iced::Font::External {
     bytes: material_icons_light::MATERIAL_ICON_LIGHT,
 };
 
+const DARK_ICONFONT: iced::Font = iced::Font::External {
+    name: "IconFontDark",
+    bytes: material_icons_light::MATERIAL_ICON_DARK,
+};
+
 fn icon(icon: MaterialIcon, ui_size: UiSize) -> iced::Text {
     iced::Text::new(format!("{}", icon_to_char(icon)))
         .font(ICONFONT)
@@ -48,6 +53,12 @@ fn icon(icon: MaterialIcon, ui_size: UiSize) -> iced::Text {
 fn light_icon(icon: LightIcon, ui_size: UiSize) -> iced::Text {
     iced::Text::new(format!("{}", material_icons_light::icon_to_char(icon)))
         .font(LIGHT_ICONFONT)
+        .size(ui_size.icon())
+}
+
+fn dark_icon(icon: LightIcon, ui_size: UiSize) -> iced::Text {
+    iced::Text::new(format!("{}", material_icons_light::icon_to_char(icon)))
+        .font(DARK_ICONFONT)
         .size(ui_size.icon())
 }
 
@@ -218,11 +229,19 @@ impl<R: Requests, S: AppState> Program for TopBar<R, S> {
             .on_press(save_message)
         };
 
-        let mut button_save_as = Button::new(
-            &mut self.button_save_as,
-            light_icon(LightIcon::DriveFileMove, self.ui_size.clone()),
-        )
-        .on_press(Message::SaveAsRequested);
+        let button_save_as = if self.application_state.need_save {
+            Button::new(
+                &mut self.button_save_as,
+                dark_icon(LightIcon::DriveFileMove, self.ui_size.clone()),
+            )
+                .on_press(Message::SaveAsRequested)
+        } else {
+            Button::new(
+                &mut self.button_save_as,
+                light_icon(LightIcon::DriveFileMove, self.ui_size.clone()),
+            )
+                .on_press(Message::SaveAsRequested)
+        };
 
         let mut button_undo = Button::new(
             &mut self.button_undo,
