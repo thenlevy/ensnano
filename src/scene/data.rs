@@ -953,6 +953,25 @@ impl<R: DesignReader> Data<R> {
         }
     }
 
+    pub fn selection_to_element(&self, selection: Selection) -> Option<SceneElement> {
+        match selection {
+            Selection::Nucleotide(d_id, nucl) => {
+                let id = self.designs[d_id as usize].get_identifier_nucl(&nucl)?;
+                Some(SceneElement::DesignElement(d_id, id))
+            }
+            Selection::Bound(d_id, n1, n2) => {
+                let id = self.designs[d_id as usize].get_identifier_bound(n1, n2)?;
+                Some(SceneElement::DesignElement(d_id, id))
+            }
+            Selection::Xover(d_id, xover_id) => {
+                let (n1, n2) = self.designs[d_id as usize].get_xover_with_id(xover_id)?;
+                let id = self.designs[d_id as usize].get_identifier_bound(n1, n2)?;
+                Some(SceneElement::DesignElement(d_id, id))
+            }
+            _ => None,
+        }
+    }
+
     /// Set the set of candidates to a given nucleotide
     pub fn set_candidate<S: AppState>(
         &mut self,

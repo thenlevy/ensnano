@@ -705,6 +705,10 @@ impl<S: AppState> Application for Scene<S> {
                     if let Some(position) = self.data.borrow().get_selected_position() {
                         self.controller.center_camera(position);
                     }
+                    let pivot_element = self.data.borrow().selection_to_element(selection);
+                    self.data
+                        .borrow_mut()
+                        .set_pivot_element(pivot_element, &older_state);
                     self.notify(SceneNotification::CameraMoved);
                 }
             }
