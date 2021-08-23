@@ -1,6 +1,16 @@
 # Changelog
 
 <!-- next-header -->
+## 0.3.0
+- It is now possible to translate several helices at once.
+- It is now possible to change the color of several strands at once. Moreover, the red hilighting
+of the select strands disappears when changing color.
+- Several actions that were not undoable before can now be undone:
+ * selections
+ * changing color of strands
+ * moving helices in the 2d view
+- A "Save As" button has been added with the behavior of the previous "Save" button. The "Save" button now
+save the design with the current file name instead of opening a file picking dialog.
 
 ## 0.2.1
 - Take loops into account when importing cadnano file
