@@ -935,57 +935,6 @@ impl iced_wgpu::button::StyleSheet for ButtonColor {
     }
 }
 
-#[derive(Default, Debug, Clone)]
-struct SelectionModeState {
-    pub nucleotide: button::State,
-    pub strand: button::State,
-    pub helix: button::State,
-    pub grid: button::State,
-}
-
-impl SelectionModeState {
-    fn get_states<'a>(&'a mut self) -> BTreeMap<SelectionMode, &'a mut button::State> {
-        let mut ret = BTreeMap::new();
-        ret.insert(SelectionMode::Nucleotide, &mut self.nucleotide);
-        ret.insert(SelectionMode::Strand, &mut self.strand);
-        ret.insert(SelectionMode::Helix, &mut self.helix);
-        ret.insert(SelectionMode::Grid, &mut self.grid);
-        ret
-    }
-}
-
-#[derive(Default, Debug, Clone)]
-struct ActionModeState {
-    pub select: button::State,
-    pub translate: button::State,
-    pub rotate: button::State,
-    pub build: button::State,
-    pub cut: button::State,
-    pub add_grid: button::State,
-    pub add_hyperboloid: button::State,
-}
-
-impl ActionModeState {
-    fn get_states<'a>(
-        &'a mut self,
-        len_helix: usize,
-        position_helix: isize,
-        make_strands: bool,
-    ) -> BTreeMap<ActionMode, &'a mut button::State> {
-        let mut ret = BTreeMap::new();
-        ret.insert(ActionMode::Normal, &mut self.select);
-        ret.insert(ActionMode::Translate, &mut self.translate);
-        ret.insert(ActionMode::Rotate, &mut self.rotate);
-        let (position, length) = if make_strands {
-            (position_helix, len_helix)
-        } else {
-            (0, 0)
-        };
-        ret.insert(ActionMode::BuildHelix { position, length }, &mut self.build);
-        ret
-    }
-}
-
 fn target_message<S: AppState>(i: usize) -> Message<S> {
     match i {
         0 => Message::FixPoint(Vec3::unit_x(), Vec3::unit_y()),

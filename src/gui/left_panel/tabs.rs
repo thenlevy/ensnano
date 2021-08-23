@@ -21,8 +21,6 @@ use iced::scrollable;
 use iced::Color;
 
 pub(super) struct EditionTab<S: AppState> {
-    selection_mode_state: SelectionModeState,
-    action_mode_state: ActionModeState,
     scroll: iced::scrollable::State,
     helix_roll_factory: RequestFactory<HelixRoll>,
     color_picker: ColorPicker,
@@ -35,8 +33,6 @@ pub(super) struct EditionTab<S: AppState> {
 impl<S: AppState> EditionTab<S> {
     pub(super) fn new() -> Self {
         Self {
-            selection_mode_state: Default::default(),
-            action_mode_state: Default::default(),
             scroll: Default::default(),
             helix_roll_factory: RequestFactory::new(FactoryId::HelixRoll, HelixRoll {}),
             color_picker: ColorPicker::new(),
@@ -62,75 +58,8 @@ impl<S: AppState> EditionTab<S> {
                 .horizontal_alignment(iced::HorizontalAlignment::Center)
                 .size(ui_size.head_text()),
         );
-        let selection_modes = [
-            SelectionMode::Nucleotide,
-            SelectionMode::Strand,
-            SelectionMode::Helix,
-        ];
         let selection = app_state.get_selection_as_dnaelement();
         let roll_target_helices = self.get_roll_target_helices(&selection);
-
-        let mut selection_buttons: Vec<Button<'a, Message<S>>> = self
-            .selection_mode_state
-            .get_states()
-            .into_iter()
-            .rev()
-            .filter(|(m, _)| selection_modes.contains(m))
-            .map(|(mode, state)| {
-                selection_mode_btn(
-                    state,
-                    mode,
-                    app_state.get_selection_mode(),
-                    ui_size.button(),
-                )
-            })
-            .collect();
-
-        ret = ret.push(Text::new("Selection Mode"));
-        while selection_buttons.len() > 0 {
-            let mut row = Row::new();
-            row = row.push(selection_buttons.pop().unwrap()).spacing(5);
-            let mut space = ui_size.button() + 5;
-            while space + ui_size.button() < width && selection_buttons.len() > 0 {
-                row = row.push(selection_buttons.pop().unwrap()).spacing(5);
-                space += ui_size.button() + 5;
-            }
-            ret = ret.push(row)
-        }
-
-        let action_modes = [
-            ActionMode::Normal,
-            ActionMode::Translate,
-            ActionMode::Rotate,
-        ];
-
-        let mut action_buttons: Vec<Button<'a, Message<S>>> = self
-            .action_mode_state
-            .get_states(0, 0, false)
-            .into_iter()
-            .filter(|(m, _)| action_modes.contains(m))
-            .map(|(mode, state)| {
-                action_mode_btn(
-                    state,
-                    mode,
-                    app_state.get_action_mode(),
-                    ui_size.button(),
-                    app_state.get_widget_basis().is_axis_aligned(),
-                )
-            })
-            .collect();
-
-        ret = ret.push(Text::new("Action Mode"));
-        while action_buttons.len() > 0 {
-            let mut row = Row::new();
-            row = row.push(action_buttons.remove(0)).spacing(5);
-            let mut space = ui_size.button() + 5;
-            while space + ui_size.button() < width && action_buttons.len() > 0 {
-                row = row.push(action_buttons.remove(0)).spacing(5);
-                space += ui_size.button() + 5;
-            }
-            ret = ret.push(row)
-        }
 
         for view in self
             .helix_roll_factory
@@ -364,45 +293,6 @@ impl GridTab {
         self.hyperboloid_factory
             .update_request(value_id, value, request);
     }
-}
-
-use super::super::icon::HasIcon;
-use super::super::icon::HasIconDependentOnAxis;
-fn selection_mode_btn<'a, S: AppState>(
-    state: &'a mut button::State,
-    mode: SelectionMode,
-    fixed_mode: SelectionMode,
-    button_size: u16,
-) -> Button<'a, Message<S>> {
-    let icon_path = if fixed_mode == mode {
-        mode.icon_on()
-    } else {
-        mode.icon_off()
-    };
-
-    Button::new(state, Image::new(icon_path))
-        .on_press(Message::SelectionModeChanged(mode))
-        .style(ButtonStyle(fixed_mode == mode))
-        .width(Length::Units(button_size))
-}
-
-fn action_mode_btn<'a, S: AppState>(
-    state: &'a mut button::State,
-    mode: ActionMode,
-    fixed_mode: ActionMode,
-    button_size: u16,
-    axis_aligned: bool,
-) -> Button<'a, Message<S>> {
-    let icon_path = if fixed_mode == mode {
-        mode.icon_on(axis_aligned)
-    } else {
-        mode.icon_off(axis_aligned)
-    };
-
-    Button::new(state, Image::new(icon_path))
-        .on_press(Message::ActionModeChanged(mode))
-        .style(ButtonStyle(fixed_mode == mode))
-        .width(Length::Units(button_size))
 }
 
 pub(super) struct CameraShortcut {

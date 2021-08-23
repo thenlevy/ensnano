@@ -348,6 +348,28 @@ impl<R: Requests, S: AppState> Program for TopBar<R, S> {
             })
             .collect();
 
+        let selection_modes = [
+            SelectionMode::Nucleotide,
+            SelectionMode::Strand,
+            SelectionMode::Helix,
+        ];
+
+        let selection_buttons: Vec<_> = self
+            .selection_mode_state
+            .get_states()
+            .into_iter()
+            .rev()
+            .filter(|(m, _)| selection_modes.contains(m))
+            .map(|(mode, state)| {
+                selection_mode_btn(
+                    state,
+                    mode,
+                    app_state.get_selection_mode(),
+                    ui_size.button(),
+                )
+            })
+            .collect();
+
         let mut buttons = Row::new()
             .width(Length::Fill)
             .height(Length::Units(height))
@@ -369,6 +391,12 @@ impl<R: Requests, S: AppState> Program for TopBar<R, S> {
             .push(iced::Space::with_width(Length::Units(10)));
 
         for button in action_buttons.into_iter() {
+            buttons = buttons.push(button);
+        }
+
+        buttons = buttons.push(iced::Space::with_width(Length::Units(10)));
+
+        for button in selection_buttons.into_iter() {
             buttons = buttons.push(button);
         }
 
@@ -534,6 +562,24 @@ fn action_mode_btn<'a, S: AppState>(
 
     Button::new(state, Image::new(icon_path))
         .on_press(Message::ActionModeChanged(mode))
+        .style(ButtonStyle(fixed_mode == mode))
+        .width(Length::Units(button_size))
+}
+
+fn selection_mode_btn<'a, S: AppState>(
+    state: &'a mut button::State,
+    mode: SelectionMode,
+    fixed_mode: SelectionMode,
+    button_size: u16,
+) -> Button<'a, Message<S>, Renderer> {
+    let icon_path = if fixed_mode == mode {
+        mode.icon_on()
+    } else {
+        mode.icon_off()
+    };
+
+    Button::new(state, Image::new(icon_path))
+        .on_press(Message::SelectionModeChanged(mode))
         .style(ButtonStyle(fixed_mode == mode))
         .width(Length::Units(button_size))
 }
