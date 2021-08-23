@@ -236,40 +236,28 @@ impl<S: AppState> EditionTab<S> {
 }
 
 pub(super) struct GridTab {
-    action_mode_state: ActionModeState,
     scroll: iced::scrollable::State,
-    helix_pos: isize,
-    helix_length: usize,
-    pos_str: String,
-    length_str: String,
-    builder_input: [text_input::State; 2],
     finalize_hyperboloid_btn: button::State,
     make_square_grid_btn: button::State,
     make_honeycomb_grid_btn: button::State,
     hyperboloid_factory: RequestFactory<Hyperboloid_>,
     start_hyperboloid_btn: button::State,
-    show_strand_menu: bool,
     make_grid_btn: button::State,
+    add_strand_menu: AddStrandMenu,
 }
 
 impl GridTab {
     pub fn new() -> Self {
         let default_helix_length = 48;
         Self {
-            action_mode_state: Default::default(),
             scroll: Default::default(),
-            helix_pos: 0,
-            helix_length: default_helix_length,
-            pos_str: "0".to_owned(),
-            length_str: default_helix_length.to_string().to_owned(),
-            builder_input: Default::default(),
             make_square_grid_btn: Default::default(),
             make_honeycomb_grid_btn: Default::default(),
             hyperboloid_factory: RequestFactory::new(FactoryId::Hyperboloid, Hyperboloid_ {}),
             finalize_hyperboloid_btn: Default::default(),
             start_hyperboloid_btn: Default::default(),
-            show_strand_menu: false,
             make_grid_btn: Default::default(),
+            add_strand_menu: Default::default(),
         }
     }
 
@@ -279,13 +267,6 @@ impl GridTab {
         width: u16,
         app_state: &S,
     ) -> Element<'a, Message<S>> {
-        let action_modes = [
-            ActionMode::Normal,
-            ActionMode::Translate,
-            ActionMode::Rotate,
-            self.get_build_helix_mode(),
-        ];
-
         let mut ret = Column::new().spacing(5);
         ret = ret.push(
             Text::new("Grids")
@@ -313,54 +294,9 @@ impl GridTab {
             .spacing(5);
         ret = ret.push(grid_buttons);
 
-        let mut inputs = self.builder_input.iter_mut();
-        let position_input = TextInput::new(
-            inputs.next().unwrap(),
-            "Position",
-            &self.pos_str,
-            Message::PositionHelicesChanged,
-        )
-        .style(BadValue(self.pos_str == self.helix_pos.to_string()));
+        let strand_menu = self.add_strand_menu.view(ui_size, width);
 
-        let length_input = TextInput::new(
-            inputs.next().unwrap(),
-            "Length",
-            &self.length_str,
-            Message::LengthHelicesChanged,
-        )
-        .style(BadValue(self.length_str == self.helix_length.to_string()));
-
-        ret = ret.push(right_checkbox(
-            self.show_strand_menu,
-            "Add double strand on helix",
-            Message::AddDoubleStrandHelix,
-            ui_size.clone(),
-        ));
-        let color_white = Color::WHITE;
-        let color_gray = Color {
-            r: 0.6,
-            g: 0.6,
-            b: 0.6,
-            a: 1.0,
-        };
-        let color_choose_strand_start_length = if self.show_strand_menu {
-            color_white
-        } else {
-            color_gray
-        };
-        let row = Row::new()
-            .push(
-                Column::new()
-                    .push(Text::new("Starting nt").color(color_choose_strand_start_length))
-                    .push(position_input)
-                    .width(Length::Units(width / 2)),
-            )
-            .push(
-                Column::new()
-                    .push(Text::new("Length (nt)").color(color_choose_strand_start_length))
-                    .push(length_input),
-            );
-        ret = ret.push(row);
+        ret = ret.push(strand_menu);
 
         ret = ret.push(iced::Space::with_height(Length::Units(3)));
 
@@ -405,35 +341,6 @@ impl GridTab {
             ret = ret.push(view);
         }
 
-        let mut action_buttons: Vec<Button<'a, Message<S>>> = self
-            .action_mode_state
-            .get_states(self.helix_length, self.helix_pos, self.show_strand_menu)
-            .into_iter()
-            .filter(|(m, _)| action_modes.contains(m))
-            .map(|(mode, state)| {
-                action_mode_btn(
-                    state,
-                    mode,
-                    app_state.get_action_mode(),
-                    ui_size.button(),
-                    app_state.get_widget_basis().is_axis_aligned(),
-                )
-            })
-            .collect();
-
-        ret = ret.push(iced::Space::with_height(Length::Units(5)));
-        ret = ret.push(Text::new("Action Mode"));
-        while action_buttons.len() > 0 {
-            let mut row = Row::new();
-            row = row.push(action_buttons.remove(0)).spacing(5);
-            let mut space = ui_size.button() + 5;
-            while space + ui_size.button() < width && action_buttons.len() > 0 {
-                row = row.push(action_buttons.remove(0)).spacing(5);
-                space += ui_size.button() + 5;
-            }
-            ret = ret.push(row)
-        }
-
         ret = ret.push(iced::Space::with_height(Length::Units(5)));
         ret = ret.push(Text::new("Guess grid").size(ui_size.intermediate_text()));
         let mut button_make_grid =
@@ -448,28 +355,6 @@ impl GridTab {
         ret = ret.push(Text::new("Select ≥4 unattached helices").size(ui_size.main_text()));
 
         Scrollable::new(&mut self.scroll).push(ret).into()
-    }
-
-    pub(super) fn update_pos_str(&mut self, position_str: String) -> (isize, usize) {
-        if let Ok(position) = position_str.parse::<isize>() {
-            self.helix_pos = position;
-        }
-        self.pos_str = position_str;
-        self.set_show_strand(true);
-        (self.helix_pos, self.helix_length)
-    }
-
-    pub(super) fn update_length_str(&mut self, length_str: String) -> (isize, usize) {
-        if let Ok(length) = length_str.parse::<usize>() {
-            self.helix_length = length
-        }
-        self.length_str = length_str;
-        self.set_show_strand(true);
-        (self.helix_pos, self.helix_length)
-    }
-
-    pub fn has_keyboard_priority(&self) -> bool {
-        self.builder_input.iter().any(|s| s.is_focused())
     }
 
     pub fn new_hyperboloid(&mut self, requests: &mut Option<HyperboloidRequest>) {
@@ -487,8 +372,78 @@ impl GridTab {
             .update_request(value_id, value, request);
     }
 
+    pub(super) fn update_pos_str(&mut self, position_str: String) -> (isize, usize) {
+        self.add_strand_menu.update_pos_str(position_str)
+    }
+
+    pub(super) fn update_length_str(&mut self, length_str: String) -> (isize, usize) {
+        self.add_strand_menu.update_length_str(length_str)
+    }
+
+    pub fn has_keyboard_priority(&self) -> bool {
+        self.add_strand_menu.has_keyboard_priority()
+    }
+
     pub fn get_build_helix_mode(&self) -> ActionMode {
-        let (length, position) = if self.show_strand_menu {
+        self.add_strand_menu.get_build_helix_mode()
+    }
+
+    pub fn get_new_strand_parameters(&self) -> Option<(isize, usize)> {
+        self.add_strand_menu.get_new_strand_parameters()
+    }
+
+    pub fn set_show_strand(&mut self, show: bool) {
+        self.add_strand_menu.set_show_strand(show)
+    }
+}
+
+struct AddStrandMenu {
+    helix_pos: isize,
+    helix_length: usize,
+    pos_str: String,
+    length_str: String,
+    text_inputs_are_active: bool,
+    builder_input: [text_input::State; 2],
+}
+
+impl Default for AddStrandMenu {
+    fn default() -> Self {
+        Self {
+            helix_pos: 0,
+            helix_length: 0,
+            pos_str: "0".into(),
+            length_str: "0".into(),
+            text_inputs_are_active: false,
+            builder_input: Default::default(),
+        }
+    }
+}
+
+impl AddStrandMenu {
+    fn update_pos_str(&mut self, position_str: String) -> (isize, usize) {
+        if let Ok(position) = position_str.parse::<isize>() {
+            self.helix_pos = position;
+        }
+        self.pos_str = position_str;
+        self.set_show_strand(true);
+        (self.helix_pos, self.helix_length)
+    }
+
+    fn update_length_str(&mut self, length_str: String) -> (isize, usize) {
+        if let Ok(length) = length_str.parse::<usize>() {
+            self.helix_length = length
+        }
+        self.length_str = length_str;
+        self.set_show_strand(true);
+        (self.helix_pos, self.helix_length)
+    }
+
+    fn has_keyboard_priority(&self) -> bool {
+        self.builder_input.iter().any(|s| s.is_focused())
+    }
+
+    fn get_build_helix_mode(&self) -> ActionMode {
+        let (length, position) = if self.text_inputs_are_active {
             (self.helix_length, self.helix_pos)
         } else {
             (0, 0)
@@ -496,16 +451,69 @@ impl GridTab {
         ActionMode::BuildHelix { length, position }
     }
 
-    pub fn get_new_strand_parameters(&self) -> Option<(isize, usize)> {
-        if self.show_strand_menu {
+    fn get_new_strand_parameters(&self) -> Option<(isize, usize)> {
+        if self.text_inputs_are_active {
             Some((self.helix_pos, self.helix_length))
         } else {
             None
         }
     }
 
-    pub fn set_show_strand(&mut self, show: bool) {
-        self.show_strand_menu = show;
+    fn set_show_strand(&mut self, show: bool) {
+        self.text_inputs_are_active = show;
+    }
+
+    fn view<'a, S: AppState>(&'a mut self, ui_size: UiSize, width: u16) -> Element<'a, Message<S>> {
+        let mut ret = Column::new();
+        let mut inputs = self.builder_input.iter_mut();
+        let position_input = TextInput::new(
+            inputs.next().unwrap(),
+            "Position",
+            &self.pos_str,
+            Message::PositionHelicesChanged,
+        )
+        .style(BadValue(self.pos_str == self.helix_pos.to_string()));
+
+        let length_input = TextInput::new(
+            inputs.next().unwrap(),
+            "Length",
+            &self.length_str,
+            Message::LengthHelicesChanged,
+        )
+        .style(BadValue(self.length_str == self.helix_length.to_string()));
+
+        ret = ret.push(right_checkbox(
+            self.text_inputs_are_active,
+            "Add double strand on helix",
+            Message::AddDoubleStrandHelix,
+            ui_size,
+        ));
+        let color_white = Color::WHITE;
+        let color_gray = Color {
+            r: 0.6,
+            g: 0.6,
+            b: 0.6,
+            a: 1.0,
+        };
+        let color_choose_strand_start_length = if self.text_inputs_are_active {
+            color_white
+        } else {
+            color_gray
+        };
+        let row = Row::new()
+            .push(
+                Column::new()
+                    .push(Text::new("Starting nt").color(color_choose_strand_start_length))
+                    .push(position_input)
+                    .width(Length::Units(width / 2)),
+            )
+            .push(
+                Column::new()
+                    .push(Text::new("Length (nt)").color(color_choose_strand_start_length))
+                    .push(length_input),
+            );
+        ret = ret.push(row);
+        ret.into()
     }
 }
 
