@@ -357,16 +357,15 @@ impl<R: Requests, S: AppState> Program for TopBar<R, S> {
             .collect();
 
         let selection_modes = [
-            SelectionMode::Nucleotide,
-            SelectionMode::Strand,
             SelectionMode::Helix,
+            SelectionMode::Strand,
+            SelectionMode::Nucleotide,
         ];
 
         let selection_buttons: Vec<_> = self
             .selection_mode_state
             .get_states()
             .into_iter()
-            .rev()
             .filter(|(m, _)| selection_modes.contains(m))
             .map(|(mode, state)| {
                 selection_mode_btn(
