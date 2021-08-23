@@ -322,7 +322,6 @@ fn main() {
     // Run event loop
     let mut last_render_time = std::time::Instant::now();
     let mut mouse_interaction = iced::mouse::Interaction::Pointer;
-    let mut icon = None;
 
     let main_state_constructor = MainStateConstructor {
         messages: messages.clone(),
@@ -414,9 +413,7 @@ fn main() {
                 //let modifiers = multiplexer.modifiers();
                 if let Some(event) = event.to_static() {
                     // Feed the event to the multiplexer
-                    let (event, icon_opt) =
-                        multiplexer.event(event, &mut resized, &mut scale_factor_changed);
-                    icon = icon.or(icon_opt);
+                    let event = multiplexer.event(event, &mut resized, &mut scale_factor_changed);
 
                     if let Some((event, area)) = event {
                         // pass the event to the area on which it happenened
@@ -457,7 +454,7 @@ fn main() {
             }
             Event::MainEventsCleared => {
                 scale_factor_changed |= multiplexer.check_scale_factor(&window);
-                let mut redraw = resized | scale_factor_changed | icon.is_some();
+                let mut redraw = resized | scale_factor_changed | multiplexer.icon.is_some();
                 redraw |= gui.fetch_change(&window, &multiplexer);
 
                 // When there is no more event to deal with
@@ -613,12 +610,8 @@ fn main() {
                     queue.submit(Some(encoder.finish()));
 
                     // And update the mouse cursor
-                    window.set_cursor_icon(iced_winit::conversion::mouse_interaction(
-                        mouse_interaction,
-                    ));
-                    if let Some(icon) = icon.take() {
-                        window.set_cursor_icon(icon);
-                    }
+                    let iced_icon = iced_winit::conversion::mouse_interaction(mouse_interaction);
+                    window.set_cursor_icon(multiplexer.icon.unwrap_or(iced_icon));
                     local_pool
                         .spawner()
                         .spawn(staging_belt.recall())

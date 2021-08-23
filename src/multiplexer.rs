@@ -92,6 +92,7 @@ pub struct Multiplexer {
     modifiers: ModifiersState,
     ui_size: UiSize,
     pub invert_y_scroll: bool,
+    pub icon: Option<CursorIcon>,
 }
 
 const MAX_LEFT_PANNEL_WIDTH: f64 = 200.;
@@ -155,6 +156,7 @@ impl Multiplexer {
             modifiers: ModifiersState::empty(),
             ui_size,
             invert_y_scroll: false,
+            icon: None,
         };
         ret.generate_textures();
         ret
@@ -308,11 +310,7 @@ impl Multiplexer {
         mut event: WindowEvent<'static>,
         resized: &mut bool,
         scale_factor_changed: &mut bool,
-    ) -> (
-        Option<(WindowEvent<'static>, ElementType)>,
-        Option<CursorIcon>,
-    ) {
-        let mut icon = None;
+    ) -> Option<(WindowEvent<'static>, ElementType)> {
         let mut captured = false;
         match &mut event {
             WindowEvent::CursorMoved { position, .. } => match &mut self.state {
@@ -333,7 +331,7 @@ impl Multiplexer {
                         &clicked_position,
                         *old_proportion,
                     );
-                    icon = Some(CursorIcon::EwResize);
+                    self.icon = Some(CursorIcon::EwResize);
                     captured = true;
                 }
 
@@ -344,11 +342,11 @@ impl Multiplexer {
                         let element = self.pixel_to_element(*position);
                         let area = match element {
                             PixelRegion::Resize(_) => {
-                                icon = Some(CursorIcon::EwResize);
+                                self.icon = Some(CursorIcon::EwResize);
                                 None
                             }
                             PixelRegion::Element(element) => {
-                                icon = Some(CursorIcon::Arrow);
+                                self.icon = None;
                                 self.focus = Some(element);
                                 self.get_draw_area(element)
                             }
@@ -519,9 +517,9 @@ impl Multiplexer {
         }
 
         if let Some(focus) = self.focus.filter(|_| !captured) {
-            (Some((event, focus)), icon)
+            Some((event, focus))
         } else {
-            (None, icon)
+            None
         }
     }
 
