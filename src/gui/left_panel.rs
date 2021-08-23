@@ -260,7 +260,7 @@ impl<R: Requests, S: AppState> LeftPanel<R, S> {
 
     pub fn has_keyboard_priority(&self) -> bool {
         self.sequence_input.has_keyboard_priority()
-            || self.grid_tab.has_keyboard_priority()
+            || self.contextual_panel.has_keyboard_priority()
             || self.organizer.has_keyboard_priority()
             || self.sequence_tab.has_keyboard_priority()
     }
@@ -338,7 +338,7 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
             Message::Resized(size, position) => self.resize(size, position),
             Message::NewGrid(grid_type) => {
                 self.requests.lock().unwrap().create_grid(grid_type);
-                let action_mode = self.grid_tab.get_build_helix_mode();
+                let action_mode = self.contextual_panel.get_build_helix_mode();
                 self.requests
                     .lock()
                     .unwrap()
@@ -360,14 +360,16 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
                 self.camera_shortcut.reset_angles();
             }
             Message::LengthHelicesChanged(length_str) => {
-                let new_strand_parameters = self.grid_tab.update_length_str(length_str.clone());
+                let new_strand_parameters =
+                    self.contextual_panel.update_length_str(length_str.clone());
                 self.requests
                     .lock()
                     .unwrap()
                     .add_double_strand_on_new_helix(Some(new_strand_parameters))
             }
             Message::PositionHelicesChanged(position_str) => {
-                let new_strand_parameters = self.grid_tab.update_pos_str(position_str.clone());
+                let new_strand_parameters =
+                    self.contextual_panel.update_pos_str(position_str.clone());
                 self.requests
                     .lock()
                     .unwrap()
@@ -569,7 +571,7 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
                     }
                 }
                 if n == 0 {
-                    let action_mode = self.grid_tab.get_build_helix_mode();
+                    let action_mode = self.contextual_panel.get_build_helix_mode();
                     self.requests
                         .lock()
                         .unwrap()
@@ -610,8 +612,8 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
             }
             Message::CleanRequested => self.requests.lock().unwrap().remove_empty_domains(),
             Message::AddDoubleStrandHelix(b) => {
-                self.grid_tab.set_show_strand(b);
-                let new_strand_parameters = self.grid_tab.get_new_strand_parameters();
+                self.contextual_panel.set_show_strand(b);
+                let new_strand_parameters = self.contextual_panel.get_new_strand_parameters();
                 self.requests
                     .lock()
                     .unwrap()
@@ -670,12 +672,16 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
                 if state.design_was_modified(&self.application_state) {
                     let reader = state.get_reader();
                     self.organizer.update_elements(reader.get_dna_elements());
+                    self.contextual_panel.state_updated();
                 }
                 if state.selection_was_updated(&self.application_state) {
                     self.organizer.notify_selection();
+                    self.contextual_panel.state_updated();
+                }
+                if state.get_action_mode() != self.application_state.get_action_mode() {
+                    self.contextual_panel.state_updated();
                 }
                 self.application_state = state;
-                self.contextual_panel.state_updated();
             }
             Message::FinishChangingColor => self.requests.lock().unwrap().finish_changing_color(),
             Message::ResetSimulation => self.requests.lock().unwrap().reset_simulations(),
@@ -1403,4 +1409,20 @@ impl iced_aw::style::tab_bar::StyleSheet for TabStyle {
             ..self.active(is_active)
         }
     }
+}
+
+fn right_checkbox<'a, F, S: AppState>(
+    is_checked: bool,
+    label: impl Into<String>,
+    f: F,
+    ui_size: UiSize,
+) -> Element<'a, Message<S>>
+where
+    F: 'static + Fn(bool) -> Message<S>,
+{
+    Row::new()
+        .push(Text::new(label))
+        .push(Checkbox::new(is_checked, "", f).size(ui_size.checkbox()))
+        .spacing(CHECKBOXSPACING)
+        .into()
 }

@@ -28,6 +28,7 @@ pub(super) struct ContextualPanel {
     pub show_tutorial: bool,
     help_btn: button::State,
     ens_nano_website: button::State,
+    add_strand_menu: AddStrandMenu,
 }
 
 impl ContextualPanel {
@@ -39,6 +40,7 @@ impl ContextualPanel {
             show_tutorial: false,
             help_btn: Default::default(),
             ens_nano_website: Default::default(),
+            add_strand_menu: Default::default(),
         }
     }
 
@@ -66,18 +68,13 @@ impl ContextualPanel {
                 "http://ens-lyon.fr/ensnano",
                 ui_size.clone(),
             ));
-        } else if *selection == Selection::Nothing || self.force_help {
-            column = column.push(
-                Text::new("Help")
-                    .size(ui_size.head_text())
-                    .width(Length::Fill)
-                    .horizontal_alignment(iced::HorizontalAlignment::Center),
-            );
-            column = add_help_to_column(column, "3D view", view_3d_help(), ui_size.clone());
-            column = column.push(iced::Space::with_height(Length::Units(15)));
-            column = add_help_to_column(column, "2D/3D view", view_2d_3d_help(), ui_size.clone());
-            column = column.push(iced::Space::with_height(Length::Units(15)));
-            column = add_help_to_column(column, "2D view", view_2d_help(), ui_size.clone());
+        } else if self.force_help {
+            column = turn_into_help_column(column, ui_size)
+        } else if app_state.get_action_mode().is_build() {
+            let strand_menu = self.add_strand_menu.view(ui_size, self.width as u16);
+            column = column.push(strand_menu);
+        } else if *selection == Selection::Nothing {
+            column = turn_into_help_column(column, ui_size)
         } else {
             let help_btn =
                 text_btn(&mut self.help_btn, "Help", ui_size.clone()).on_press(Message::ForceHelp);
@@ -138,6 +135,30 @@ impl ContextualPanel {
     pub fn state_updated(&mut self) {
         self.force_help = false;
         self.show_tutorial = false;
+    }
+
+    pub(super) fn update_pos_str(&mut self, position_str: String) -> (isize, usize) {
+        self.add_strand_menu.update_pos_str(position_str)
+    }
+
+    pub(super) fn update_length_str(&mut self, length_str: String) -> (isize, usize) {
+        self.add_strand_menu.update_length_str(length_str)
+    }
+
+    pub fn has_keyboard_priority(&self) -> bool {
+        self.add_strand_menu.has_keyboard_priority()
+    }
+
+    pub fn get_build_helix_mode(&self) -> ActionMode {
+        self.add_strand_menu.get_build_helix_mode()
+    }
+
+    pub fn get_new_strand_parameters(&self) -> Option<(isize, usize)> {
+        self.add_strand_menu.get_new_strand_parameters()
+    }
+
+    pub fn set_show_strand(&mut self, show: bool) {
+        self.add_strand_menu.set_show_strand(show)
     }
 }
 
@@ -219,6 +240,24 @@ fn add_help_to_column<'a, M: 'static>(
             );
         }
     }
+    column
+}
+
+fn turn_into_help_column<'a, M: 'static>(
+    mut column: Column<'a, M>,
+    ui_size: UiSize,
+) -> Column<'a, M> {
+    column = column.push(
+        Text::new("Help")
+            .size(ui_size.head_text())
+            .width(Length::Fill)
+            .horizontal_alignment(iced::HorizontalAlignment::Center),
+    );
+    column = add_help_to_column(column, "3D view", view_3d_help(), ui_size.clone());
+    column = column.push(iced::Space::with_height(Length::Units(15)));
+    column = add_help_to_column(column, "2D/3D view", view_2d_3d_help(), ui_size.clone());
+    column = column.push(iced::Space::with_height(Length::Units(15)));
+    column = add_help_to_column(column, "2D view", view_2d_help(), ui_size.clone());
     column
 }
 
@@ -402,5 +441,125 @@ fn values_of_selection(selection: &Selection, reader: &dyn DesignReader) -> Vec<
             vec![format!("{}", reader.nucl_is_anchor(*nucl))]
         }
         _ => Vec::new(),
+    }
+}
+
+struct AddStrandMenu {
+    helix_pos: isize,
+    helix_length: usize,
+    pos_str: String,
+    length_str: String,
+    text_inputs_are_active: bool,
+    builder_input: [text_input::State; 2],
+}
+
+impl Default for AddStrandMenu {
+    fn default() -> Self {
+        Self {
+            helix_pos: 0,
+            helix_length: 0,
+            pos_str: "0".into(),
+            length_str: "0".into(),
+            text_inputs_are_active: false,
+            builder_input: Default::default(),
+        }
+    }
+}
+
+impl AddStrandMenu {
+    fn update_pos_str(&mut self, position_str: String) -> (isize, usize) {
+        if let Ok(position) = position_str.parse::<isize>() {
+            self.helix_pos = position;
+        }
+        self.pos_str = position_str;
+        self.set_show_strand(true);
+        (self.helix_pos, self.helix_length)
+    }
+
+    fn update_length_str(&mut self, length_str: String) -> (isize, usize) {
+        if let Ok(length) = length_str.parse::<usize>() {
+            self.helix_length = length
+        }
+        self.length_str = length_str;
+        self.set_show_strand(true);
+        (self.helix_pos, self.helix_length)
+    }
+
+    fn has_keyboard_priority(&self) -> bool {
+        self.builder_input.iter().any(|s| s.is_focused())
+    }
+
+    fn get_build_helix_mode(&self) -> ActionMode {
+        let (length, position) = if self.text_inputs_are_active {
+            (self.helix_length, self.helix_pos)
+        } else {
+            (0, 0)
+        };
+        ActionMode::BuildHelix { length, position }
+    }
+
+    fn get_new_strand_parameters(&self) -> Option<(isize, usize)> {
+        if self.text_inputs_are_active {
+            Some((self.helix_pos, self.helix_length))
+        } else {
+            None
+        }
+    }
+
+    fn set_show_strand(&mut self, show: bool) {
+        self.text_inputs_are_active = show;
+    }
+
+    fn view<'a, S: AppState>(&'a mut self, ui_size: UiSize, width: u16) -> Element<'a, Message<S>> {
+        let mut ret = Column::new();
+        let mut inputs = self.builder_input.iter_mut();
+        let position_input = TextInput::new(
+            inputs.next().unwrap(),
+            "Position",
+            &self.pos_str,
+            Message::PositionHelicesChanged,
+        )
+        .style(BadValue(self.pos_str == self.helix_pos.to_string()));
+
+        let length_input = TextInput::new(
+            inputs.next().unwrap(),
+            "Length",
+            &self.length_str,
+            Message::LengthHelicesChanged,
+        )
+        .style(BadValue(self.length_str == self.helix_length.to_string()));
+
+        ret = ret.push(right_checkbox(
+            self.text_inputs_are_active,
+            "Add double strand on helix",
+            Message::AddDoubleStrandHelix,
+            ui_size,
+        ));
+        let color_white = Color::WHITE;
+        let color_gray = Color {
+            r: 0.6,
+            g: 0.6,
+            b: 0.6,
+            a: 1.0,
+        };
+        let color_choose_strand_start_length = if self.text_inputs_are_active {
+            color_white
+        } else {
+            color_gray
+        };
+        let row = Row::new()
+            .push(
+                Column::new()
+                    .push(Text::new("Starting nt").color(color_choose_strand_start_length))
+                    .push(position_input)
+                    .width(Length::Units(width / 2)),
+            )
+            .push(
+                Column::new()
+                    .push(Text::new("Length (nt)").color(color_choose_strand_start_length))
+                    .push(length_input),
+            );
+        ret = ret.push(row);
+        ret.into()
     }
 }
