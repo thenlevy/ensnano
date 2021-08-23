@@ -280,7 +280,7 @@ impl<R: Requests, S: AppState> GuiState<R, S> {
                 );
             }
             GuiState::LeftPanel(ref state) => {
-                renderer.backend_mut().draw(
+                let icon = renderer.backend_mut().draw(
                     device,
                     staging_belt,
                     encoder,
@@ -289,9 +289,12 @@ impl<R: Requests, S: AppState> GuiState<R, S> {
                     state.primitive(),
                     &debug.overlay(),
                 );
+                if icon > *mouse_interaction {
+                    *mouse_interaction = icon;
+                }
             }
             GuiState::StatusBar(ref state) => {
-                renderer.backend_mut().draw(
+                let icon = renderer.backend_mut().draw(
                     device,
                     staging_belt,
                     encoder,
@@ -300,6 +303,9 @@ impl<R: Requests, S: AppState> GuiState<R, S> {
                     state.primitive(),
                     &debug.overlay(),
                 );
+                if icon > *mouse_interaction {
+                    *mouse_interaction = icon;
+                }
             }
         }
     }
