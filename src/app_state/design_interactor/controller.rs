@@ -285,7 +285,7 @@ impl Controller {
                 parameters,
                 reader,
             } => {
-                if !self.is_in_persistant_state() {
+                if self.is_in_persistant_state().is_transitory() {
                     return Err(ErrOperation::IncompatibleState);
                 }
                 let interface = HelixSystemThread::start_new(presenter, parameters, reader)?;
@@ -299,7 +299,7 @@ impl Controller {
                 parameters,
                 reader,
             } => {
-                if !self.is_in_persistant_state() {
+                if self.is_in_persistant_state().is_transitory() {
                     return Err(ErrOperation::IncompatibleState);
                 }
                 let interface = GridsSystemThread::start_new(presenter, parameters, reader)?;
@@ -313,7 +313,7 @@ impl Controller {
                 target_helices,
                 reader,
             } => {
-                if !self.is_in_persistant_state() {
+                if self.is_in_persistant_state().is_transitory() {
                     return Err(ErrOperation::IncompatibleState);
                 }
                 let interface = PhysicalSystem::start_new(presenter, target_helices, reader);
@@ -729,7 +729,7 @@ impl Controller {
     }
 
     fn return_design(&self, design: Design) -> OkOperation {
-        if self.is_in_persistant_state() {
+        if self.is_in_persistant_state().is_persistant() {
             OkOperation::Push(design)
         } else {
             OkOperation::Replace(design)
@@ -746,14 +746,15 @@ impl Controller {
         }
     }
 
-    pub(super) fn is_in_persistant_state(&self) -> bool {
+    pub(super) fn is_in_persistant_state(&self) -> StatePersitance {
         match self.state {
-            ControllerState::Normal => true,
-            ControllerState::WithPendingOp(_) => true,
-            ControllerState::WithPendingDuplication { .. } => true,
-            ControllerState::WithPendingXoverDuplication { .. } => true,
-            ControllerState::WithPausedSimulation { .. } => true,
-            _ => false,
+            ControllerState::Normal => StatePersitance::Persistant,
+            ControllerState::WithPendingOp(_) => StatePersitance::Persistant,
+            ControllerState::WithPendingDuplication { .. } => StatePersitance::Persistant,
+            ControllerState::WithPendingXoverDuplication { .. } => StatePersitance::Persistant,
+            ControllerState::WithPausedSimulation { .. } => StatePersitance::Persistant,
+            ControllerState::SettingRollHelices { .. } => StatePersitance::NeedFinish,
+            _ => StatePersitance::Transitory,
         }
     }
 
@@ -2272,4 +2273,20 @@ enum OperationCompatibility {
     Compatible,
     Incompatible,
     FinishFirst,
+}
+
+pub(super) enum StatePersitance {
+    Persistant,
+    NeedFinish,
+    Transitory,
+}
+
+impl StatePersitance {
+    pub fn is_persistant(&self) -> bool {
+        matches!(self, StatePersitance::Persistant)
+    }
+
+    pub fn is_transitory(&self) -> bool {
+        matches!(self, StatePersitance::Transitory)
+    }
 }
