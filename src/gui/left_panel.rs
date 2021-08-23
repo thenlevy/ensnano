@@ -570,13 +570,6 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
                         self.requests.lock().unwrap().finalize_hyperboloid();
                     }
                 }
-                if n == 0 {
-                    let action_mode = self.contextual_panel.get_build_helix_mode();
-                    self.requests
-                        .lock()
-                        .unwrap()
-                        .change_action_mode(action_mode);
-                }
                 if self.selected_tab == 3 && n != 3 {
                     println!("leaving simulation tab");
                     self.simulation_tab
