@@ -80,6 +80,7 @@ pub struct TopBar<R: Requests, S: AppState> {
     button_split_2d: button::State,
     button_help: button::State,
     button_tutorial: button::State,
+    button_reload: button::State,
     button_new_empty_design: button::State,
     requests: Arc<Mutex<R>>,
     logical_size: LogicalSize<f64>,
@@ -142,6 +143,7 @@ impl<R: Requests, S: AppState> TopBar<R, S> {
             button_help: Default::default(),
             button_tutorial: Default::default(),
             button_new_empty_design: Default::default(),
+            button_reload: Default::default(),
             requests,
             logical_size,
             action_mode_state: Default::default(),
@@ -245,6 +247,12 @@ impl<R: Requests, S: AppState> Program for TopBar<R, S> {
             light_icon(LightIcon::FolderOpen, self.ui_size.clone()),
         )
         .on_press(Message::OpenFileButtonPressed);
+
+        let button_reload = Button::new(
+            &mut self.button_reload,
+            light_icon(LightIcon::RestorePage, self.ui_size),
+        )
+        .on_press(Message::Reload);
 
         let save_message = Message::FileSaveRequested;
         /*
@@ -375,6 +383,7 @@ impl<R: Requests, S: AppState> Program for TopBar<R, S> {
             .height(Length::Units(height))
             .push(button_new_empty_design)
             .push(button_add_file)
+            .push(button_reload)
             .push(button_save)
             .push(button_save_as)
             .push(oxdna_tooltip)
