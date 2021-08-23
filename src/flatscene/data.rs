@@ -632,7 +632,9 @@ impl Data {
         for h in self.helices.iter_mut() {
             let c = h.get_circle(camera, &BTreeMap::new());
             if c.map(|c| c.in_rectangle(&c1, &c2)).unwrap_or(false) {
-                let translation_pivot = h.get_circle_pivot(camera).unwrap();
+                let translation_pivot = h
+                    .get_circle_pivot(camera)
+                    .unwrap_or_else(|| h.default_pivot());
                 let rotation_pivot = h.visible_center(camera).unwrap_or_else(|| h.center());
                 h.set_color(SELECTED_HELIX2D_COLOR);
                 translation_pivots.push(translation_pivot);
@@ -641,11 +643,14 @@ impl Data {
             }
         }
         if adding {
-            for s in selection.iter() {
-                if new_selection.contains(s) {
-                    new_selection.push(*s);
-                }
+            if let Some((mut old_translation_pivots, mut old_rotation_pivots)) =
+                self.get_pivot_of_selected_helices(camera, &new_selection)
+            {
+                translation_pivots.append(&mut old_translation_pivots);
+                rotation_pivots.append(&mut old_rotation_pivots);
             }
+            selection.append(&mut new_selection);
+            new_selection = selection;
         } else {
             new_selection = selection;
         }
@@ -669,12 +674,9 @@ impl Data {
                 Selection::Helix(d_id, h_id) if *d_id == self.id => {
                     if let Some(flat_id) = id_map.get(&(*h_id as usize)) {
                         if let Some(h) = self.helices.get(*flat_id) {
-                            let translation_pivot =
-                                h.get_circle_pivot(camera).unwrap_or(FlatNucl {
-                                    helix: h.flat_id,
-                                    position: 0,
-                                    forward: true,
-                                });
+                            let translation_pivot = h
+                                .get_circle_pivot(camera)
+                                .unwrap_or_else(|| h.default_pivot());
                             let rotation_pivot =
                                 h.visible_center(camera).unwrap_or_else(|| h.center());
                             Some((translation_pivot, rotation_pivot))

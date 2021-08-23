@@ -652,42 +652,6 @@ impl<S: AppState> ControllerState<S> for ReleasedPivot {
             },
             WindowEvent::MouseInput {
                 button: MouseButton::Left,
-                state: ElementState::Pressed,
-                ..
-            } if controller.modifiers.shift() => {
-                let (x, y) = controller
-                    .get_camera(position.y)
-                    .borrow()
-                    .screen_to_world(self.mouse_position.x as f32, self.mouse_position.y as f32);
-                let click_result =
-                    controller
-                        .data
-                        .borrow()
-                        .get_click(x, y, &controller.get_camera(position.y));
-                match click_result {
-                    ClickResult::CircleWidget { .. } => {
-                        // Clicked on an other circle
-                        Transition {
-                            new_state: Some(Box::new(AddClickPivots {
-                                translation_pivots: self.translation_pivots.clone(),
-                                rotation_pivots: self.rotation_pivots.clone(),
-                                mouse_position: self.mouse_position,
-                                click_result,
-                            })),
-                            consequences: Consequence::Nothing,
-                        }
-                    }
-                    click_result => Transition {
-                        new_state: Some(Box::new(AddClick {
-                            click_result,
-                            mouse_position: self.mouse_position,
-                        })),
-                        consequences: Consequence::Nothing,
-                    },
-                }
-            }
-            WindowEvent::MouseInput {
-                button: MouseButton::Left,
                 state,
                 ..
             } => {
@@ -716,6 +680,17 @@ impl<S: AppState> ControllerState<S> for ReleasedPivot {
                                 mouse_position: self.mouse_position,
                                 helix: translation_pivot.helix,
                                 apply_to_other: controller.modifiers.alt(),
+                            })),
+                            consequences: Consequence::Nothing,
+                        }
+                    }
+                    ClickResult::CircleWidget { .. } if controller.modifiers.shift() => {
+                        Transition {
+                            new_state: Some(Box::new(AddClickPivots {
+                                translation_pivots: self.translation_pivots.clone(),
+                                rotation_pivots: self.rotation_pivots.clone(),
+                                mouse_position: self.mouse_position,
+                                click_result,
                             })),
                             consequences: Consequence::Nothing,
                         }

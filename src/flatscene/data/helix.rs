@@ -557,7 +557,7 @@ impl Helix {
         CircleInstance::new(center, 0.4, self.flat_id.flat.0 as i32, color)
     }
 
-    /// Return the pivot under the center of the helix's circle widget.
+    /// Return the nucl under the center of the helix's circle widget.
     /// See [get_circle](get_circle).
     pub fn get_circle_pivot(&self, camera: &CameraPtr) -> Option<FlatNucl> {
         let (left, right) = self.screen_intersection(camera)?;
@@ -583,6 +583,15 @@ impl Helix {
                 helix: self.flat_id,
                 forward: true,
             })
+        }
+    }
+
+    /// A default nucleotide position for when the helix cannot be seen by the camera
+    pub fn default_pivot(&self) -> FlatNucl {
+        FlatNucl {
+            position: self.left - 3,
+            helix: self.flat_id,
+            forward: true,
         }
     }
 
