@@ -185,6 +185,10 @@ impl State for NormalState {
                     main_state.set_visibility_sieve(compl);
                     self
                 }
+                Action::ClearVisibilitySieve => {
+                    main_state.clear_visibility_sieve();
+                    self
+                }
                 Action::ReloadFile => {
                     if let Some(path) = main_state.get_current_file_name() {
                         Load::init_reolad(main_state.need_save(), path.to_path_buf())
@@ -379,4 +383,5 @@ pub enum Action {
     Split2D,
     ReloadFile,
     AddDoubleStrandNewHelix(Option<(isize, usize)>),
+    ClearVisibilitySieve,
 }

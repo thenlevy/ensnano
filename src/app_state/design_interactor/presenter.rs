@@ -236,12 +236,16 @@ impl Presenter {
     }
 
     pub fn set_visibility_sieve(&mut self, selection: Vec<Selection>, compl: bool) {
-        let visible = !self.whole_selection_is_visible(&selection, compl);
-        self.visibility_sive = Some(VisibilitySieve {
-            selection,
-            compl,
-            visible,
-        });
+        if selection.is_empty() {
+            self.visibility_sive = None;
+        } else {
+            let visible = !self.whole_selection_is_visible(&selection, compl);
+            self.visibility_sive = Some(VisibilitySieve {
+                selection,
+                compl,
+                visible,
+            });
+        }
         self.update_visibility();
     }
 }

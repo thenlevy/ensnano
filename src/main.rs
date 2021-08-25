@@ -1303,6 +1303,10 @@ impl<'a> MainStateInteface for MainStateView<'a> {
         self.main_state.set_visibility_sieve(selection, compl);
     }
 
+    fn clear_visibility_sieve(&mut self) {
+        self.main_state.set_visibility_sieve(vec![], true);
+    }
+
     fn need_save(&self) -> bool {
         self.main_state.need_save()
     }

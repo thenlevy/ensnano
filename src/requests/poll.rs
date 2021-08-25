@@ -268,10 +268,9 @@ pub(crate) fn poll_all<R: DerefMut<Target = Requests>>(
         main_state.push_action(Action::Split2D)
     }
 
-    /*
     if requests.all_visible.take().is_some() {
-        main_state.clear_visibility_sieve()
-    }*/
+        main_state.push_action(Action::ClearVisibilitySieve)
+    }
 
     if let Some(b) = requests.toggle_visibility.take() {
         main_state.push_action(Action::SetVisiblitySieve { compl: b })
