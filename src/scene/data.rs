@@ -121,7 +121,9 @@ impl<R: DesignReader> Data<R> {
         } else if app_state.selection_was_updated(older_app_state)
             || app_state.design_was_modified(older_app_state)
         {
+            println!("Update selection");
             self.update_selection(app_state.get_selection(), app_state);
+            println!("selected pos {:?}", self.selected_position);
         }
         self.handle_need_opdate |= app_state.design_was_modified(older_app_state)
             || app_state.selection_was_updated(older_app_state)
@@ -157,6 +159,7 @@ impl<R: DesignReader> Data<R> {
     }
 
     fn update_handle<S: AppState>(&self, app_state: &S) {
+        println!("updating handle");
         let origin = self.get_selected_position();
         let orientation = self.get_widget_basis(app_state);
         let handle_descr = if app_state.get_action_mode().0.wants_handle() {
@@ -171,6 +174,7 @@ impl<R: DesignReader> Data<R> {
         } else {
             None
         };
+        println!("{:?}", handle_descr);
         self.view
             .borrow_mut()
             .update(ViewUpdate::Handles(handle_descr));
@@ -776,7 +780,9 @@ impl<R: DesignReader> Data<R> {
             .map(|i| i.model.extract_translation())
             .sum();
         let total_len = sphere.len() + tubes.len();
-        if selection.len() > 1 && total_len > 1 {
+        let non_nucl_selection =
+            selection.len() > 1 || matches!(selection.get(0), Some(Selection::Helix(_, _)));
+        if non_nucl_selection && total_len > 1 {
             self.selected_position = Some(pos / (total_len as f32));
         } else {
             self.update_selected_position(app_state);
@@ -1261,7 +1267,7 @@ impl<R: DesignReader> Data<R> {
     }
 
     fn get_selected_basis<S: AppState>(&self, app_state: &S) -> Option<Rotor3> {
-        match self.selected_element.as_ref() {
+        let from_selected_element = match self.selected_element.as_ref() {
             Some(SceneElement::DesignElement(d_id, _)) => match self
                 .get_sub_selection_mode(app_state)
             {
@@ -1298,11 +1304,28 @@ impl<R: DesignReader> Data<R> {
                 self.designs[*d_id as usize].get_grid_basis(*g_id)
             }
             _ => None,
-        }
+        };
+        let from_selection = match app_state.get_selection().get(0) {
+            Some(Selection::Grid(d_id, g_id)) => self
+                .designs
+                .get(*d_id as usize)
+                .and_then(|d| d.get_grid_basis(*g_id)),
+            Some(Selection::Helix(d_id, h_id)) => {
+                if let Some(grid_position) =
+                    self.designs[*d_id as usize].get_helix_grid_position(*h_id)
+                {
+                    self.designs[*d_id as usize].get_grid_basis(grid_position.grid)
+                } else {
+                    self.designs[*d_id as usize].get_helix_basis(*h_id)
+                }
+            }
+            _ => None,
+        };
+        from_selection.or(from_selected_element)
     }
 
     pub fn selection_can_rotate_freely<S: AppState>(&self, app_state: &S) -> bool {
-        match self.selected_element.as_ref() {
+        let selected_element_can_rotate = match self.selected_element.as_ref() {
             Some(SceneElement::DesignElement(d_id, _)) => {
                 match self.get_sub_selection_mode(app_state) {
                     SelectionMode::Nucleotide
@@ -1333,7 +1356,15 @@ impl<R: DesignReader> Data<R> {
             }
             Some(SceneElement::Grid(_, _)) => true,
             _ => true,
+        };
+        for s in app_state.get_selection() {
+            if let Selection::Helix(d_id, h_id) = s {
+                if self.designs[*d_id as usize].helix_is_on_grid(*h_id) {
+                    return false;
+                }
+            }
         }
+        selected_element_can_rotate
     }
 
     pub fn can_start_builder(&self, element: Option<SceneElement>) -> Option<Nucl> {

@@ -422,41 +422,40 @@ impl<S: AppState> Scene<S> {
         let top = Vec3::unit_y().rotated_by(rotor);
         let dir = Vec3::unit_z().rotated_by(rotor);
 
-        let translation_op: Arc<dyn Operation> =
-            match self.data.borrow().get_selected_element(app_state) {
-                Selection::Grid(d_id, g_id) => {
-                    let grids = list_of_grids(app_state.get_selection())
-                        .unwrap_or((0, vec![g_id as usize]))
-                        .1;
-                    Arc::new(GridTranslation {
-                        design_id: d_id as usize,
-                        grid_ids: grids,
-                        right: Vec3::unit_x().rotated_by(rotor),
-                        top: Vec3::unit_y().rotated_by(rotor),
-                        dir: Vec3::unit_z().rotated_by(rotor),
-                        x: translation.dot(right),
-                        y: translation.dot(top),
-                        z: translation.dot(dir),
-                    })
-                }
-                Selection::Helix(d_id, h_id) => {
-                    let helices = list_of_helices(app_state.get_selection())
-                        .unwrap_or((0, vec![h_id as usize]))
-                        .1;
-                    Arc::new(HelixTranslation {
-                        design_id: d_id as usize,
-                        helices,
-                        right: Vec3::unit_x().rotated_by(rotor),
-                        top: Vec3::unit_y().rotated_by(rotor),
-                        dir: Vec3::unit_z().rotated_by(rotor),
-                        x: translation.dot(right),
-                        y: translation.dot(top),
-                        z: translation.dot(dir),
-                        snap: true,
-                    })
-                }
-                _ => return,
-            };
+        let translation_op: Arc<dyn Operation> = match app_state.get_selection().get(0) {
+            Some(Selection::Grid(d_id, g_id)) => {
+                let grids = list_of_grids(app_state.get_selection())
+                    .unwrap_or((0, vec![*g_id as usize]))
+                    .1;
+                Arc::new(GridTranslation {
+                    design_id: *d_id as usize,
+                    grid_ids: grids,
+                    right: Vec3::unit_x().rotated_by(rotor),
+                    top: Vec3::unit_y().rotated_by(rotor),
+                    dir: Vec3::unit_z().rotated_by(rotor),
+                    x: translation.dot(right),
+                    y: translation.dot(top),
+                    z: translation.dot(dir),
+                })
+            }
+            Some(Selection::Helix(d_id, h_id)) => {
+                let helices = list_of_helices(app_state.get_selection())
+                    .unwrap_or((0, vec![*h_id as usize]))
+                    .1;
+                Arc::new(HelixTranslation {
+                    design_id: *d_id as usize,
+                    helices,
+                    right: Vec3::unit_x().rotated_by(rotor),
+                    top: Vec3::unit_y().rotated_by(rotor),
+                    dir: Vec3::unit_z().rotated_by(rotor),
+                    x: translation.dot(right),
+                    y: translation.dot(top),
+                    z: translation.dot(dir),
+                    snap: true,
+                })
+            }
+            _ => return,
+        };
 
         self.requests
             .lock()
