@@ -355,8 +355,8 @@ impl View {
                 if let Some(mesh) = mesh.to_fake() {
                     let mut instances = instances.as_ref().clone();
                     for i in instances.iter_mut() {
-                        if i.scale.z < 0.99 {
-                            i.scale *= 2.5;
+                        if i.scale.z <= 1. {
+                            i.scale *= crate::consts::SELECT_SCALE_FACTOR;
                         }
                     }
                     self.dna_drawers
