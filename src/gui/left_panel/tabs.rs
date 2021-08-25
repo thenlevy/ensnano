@@ -63,7 +63,7 @@ impl<S: AppState> EditionTab<S> {
 
         for view in self
             .helix_roll_factory
-            .view(roll_target_helices.len() == 1)
+            .view(roll_target_helices.len() >= 1)
             .into_iter()
         {
             ret = ret.push(view);
