@@ -268,16 +268,13 @@ pub(crate) fn poll_all<R: DerefMut<Target = Requests>>(
         main_state.push_action(Action::Split2D)
     }
 
+    /*
     if requests.all_visible.take().is_some() {
         main_state.clear_visibility_sieve()
-    }
+    }*/
 
     if let Some(b) = requests.toggle_visibility.take() {
         main_state.push_action(Action::SetVisiblitySieve { compl: b })
-    }
-
-    if let Some(b) = requests.redim_2d_helices.take() {
-        main_state.redim_2d_helices(b)
     }
 
     /*
@@ -346,6 +343,14 @@ pub(crate) fn poll_all<R: DerefMut<Target = Requests>>(
 
     if requests.suspend_op.take().is_some() {
         main_state.pending_actions.push_back(Action::SuspendOp)
+    }
+
+    if let Some(all_helices) = requests.redim_2d_helices.take() {
+        main_state
+            .pending_actions
+            .push_back(Action::NotifyApps(Notification::Redim2dHelices(
+                all_helices,
+            )))
     }
 
     if let Some((selection, app_id)) = requests.center_selection.take() {

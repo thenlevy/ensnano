@@ -1050,14 +1050,6 @@ impl MainState {
         }
     }
 
-    fn clear_visibility_sieve(&mut self) {
-        println!("TODO");
-    }
-
-    fn redim_2d_helices(&mut self, all: bool) {
-        println!("TODO");
-    }
-
     fn save_design(&mut self, path: &PathBuf) -> Result<(), SaveDesignError> {
         self.app_state.get_design_reader().save_design(path)?;
         self.last_saved_state = self.app_state.clone();
