@@ -941,8 +941,9 @@ impl Controller {
     ) -> Design {
         let mut grid_manager = GridManager::new_from_design(&new_design);
         let mut successfull_reattach = true;
-        for h_id in helices.iter() {
-            successfull_reattach &= grid_manager.reattach_helix(*h_id, &mut new_design, true);
+        for (i, h_id) in helices.iter().enumerate() {
+            successfull_reattach &=
+                grid_manager.reattach_helix(*h_id, &mut new_design, true, helices);
         }
         if successfull_reattach {
             new_design

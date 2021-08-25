@@ -216,6 +216,7 @@ impl GridManager {
         h_id: usize,
         design: &mut Design,
         preserve_roll: bool,
+        authorized_collisions: &[usize],
     ) -> bool {
         let mut new_helices = BTreeMap::clone(design.helices.as_ref());
         let h = new_helices.get_mut(&h_id);
@@ -237,7 +238,11 @@ impl GridManager {
                         new_grid_position.x,
                         new_grid_position.y,
                     ) {
-                        if helix == h_id {
+                        println!(
+                            "{} collides with {}. Authorized collisions are {:?}",
+                            h_id, helix, authorized_collisions
+                        );
+                        if authorized_collisions.contains(&helix) {
                             mutate_in_arc(h, |h| h.grid_position = candidate_position);
                             mutate_in_arc(h, |h| {
                                 h.position = g

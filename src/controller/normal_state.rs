@@ -382,6 +382,5 @@ pub enum Action {
     Fog(FogParameters),
     Split2D,
     ReloadFile,
-    AddDoubleStrandNewHelix(Option<(isize, usize)>),
     ClearVisibilitySieve,
 }

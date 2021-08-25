@@ -458,9 +458,9 @@ impl LayoutNode {
                 ..
             } => {
                 let separation = *left + *left_proportion * (*right - *left);
-                if let Some(id) =
-                    resizable.filter(|_| x >= separation - RESIZE_REGION_WIDTH && x <= separation + RESIZE_REGION_WIDTH)
-                {
+                if let Some(id) = resizable.filter(|_| {
+                    x >= separation - RESIZE_REGION_WIDTH && x <= separation + RESIZE_REGION_WIDTH
+                }) {
                     PixelRegion::Resize(id)
                 } else {
                     if x <= separation {
