@@ -581,7 +581,11 @@ impl<S: AppState> Scene<S> {
     }
 
     fn request_camera_rotation(&mut self, xz: f32, yz: f32, xy: f32, app_state: &S) {
-        let pivot = self.data.borrow().get_selected_position();
+        let pivot = self
+            .data
+            .borrow()
+            .get_pivot_position()
+            .or(self.data.borrow().get_selected_position());
         let pivot = pivot.or_else(|| {
             let element_center = self.element_center(app_state);
             self.data
