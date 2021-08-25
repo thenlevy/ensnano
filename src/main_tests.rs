@@ -320,7 +320,6 @@ fn duplicate_xover_pasting_status() {
 
 #[test]
 fn duplicate_xover() {
-    use crate::scene::DesignReader;
     let mut main_state = new_state();
     let app_state = pastable_design();
     main_state.clear_app_state(app_state);
@@ -377,4 +376,21 @@ fn duplicate_xover() {
         .is_xover_end(&n2)
         .to_opt()
         .is_some());
+}
+
+#[test]
+fn default_app_state_does_not_need_save() {
+    let mut main_state = new_state();
+    assert!(!main_state.need_save(), "Need save before update");
+    main_state.update();
+    assert!(!main_state.need_save(), "Need save after update");
+}
+
+#[test]
+fn no_need_to_save_after_new_design() {
+    let mut main_state = new_state();
+    main_state.new_design();
+    assert!(!main_state.need_save(), "Need save before update");
+    main_state.update();
+    assert!(!main_state.need_save(), "Need save after update");
 }

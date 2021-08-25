@@ -213,11 +213,17 @@ pub(super) struct NewDesign {
 }
 
 enum NewStep {
-    Init,
+    Init { need_save: bool },
     MakeNewDesign,
 }
 
 impl NewDesign {
+    pub fn init(need_save: bool) -> Self {
+        Self {
+            step: NewStep::Init { need_save },
+        }
+    }
+
     fn make_new_design() -> Box<dyn State> {
         Box::new(Self {
             step: NewStep::MakeNewDesign,
@@ -228,7 +234,13 @@ impl NewDesign {
 impl State for NewDesign {
     fn make_progress(self: Box<Self>, main_state: &mut dyn MainState) -> Box<dyn State> {
         match self.step {
-            NewStep::Init => init_new_design(),
+            NewStep::Init { need_save } => {
+                if need_save {
+                    init_new_design()
+                } else {
+                    new_design(main_state)
+                }
+            }
             NewStep::MakeNewDesign => new_design(main_state),
         }
     }

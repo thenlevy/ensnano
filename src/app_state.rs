@@ -52,12 +52,19 @@ mod impl_gui;
 ///
 /// At each event loop iteration, a new `AppState` may be created. Successive AppState are stored
 /// on an undo/redo stack.
-#[derive(Clone, PartialEq, Eq, Default)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct AppState(AddressPointer<AppState_>);
 
 impl std::fmt::Debug for AppState {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("AppState").finish()
+    }
+}
+
+impl Default for AppState {
+    fn default() -> Self {
+        let mut ret = AppState(Default::default());
+        ret.updated()
     }
 }
 

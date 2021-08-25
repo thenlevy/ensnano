@@ -864,6 +864,11 @@ impl MainState {
         self.app_state.clone()
     }
 
+    fn new_design(&mut self) {
+        self.clear_app_state(Default::default());
+        self.path_to_current_design = None;
+    }
+
     fn clear_app_state(&mut self, new_state: AppState) {
         self.undo_stack.clear();
         self.redo_stack.clear();
@@ -1115,7 +1120,7 @@ impl<'a> MainStateInteface for MainStateView<'a> {
     }
 
     fn new_design(&mut self) {
-        self.main_state.clear_app_state(Default::default())
+        self.main_state.new_design()
     }
 
     fn oxdna_export(&mut self, path: &PathBuf) -> std::io::Result<(PathBuf, PathBuf)> {

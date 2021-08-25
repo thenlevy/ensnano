@@ -27,7 +27,7 @@ impl State for NormalState {
     fn make_progress(self: Box<Self>, main_state: &mut dyn MainState) -> Box<dyn State> {
         if let Some(action) = main_state.pop_action() {
             match action {
-                Action::NewDesign => self,
+                Action::NewDesign => Box::new(NewDesign::init(main_state.need_save())),
                 Action::SaveAs => save_as(),
                 Action::QuickSave => {
                     if let Some(path) = main_state.get_current_file_name() {
