@@ -362,8 +362,7 @@ pub struct Staple {
 
 #[derive(Clone)]
 pub struct Prime3End {
-    pub position_start: Vec3,
-    pub position_end: Vec3,
+    pub nucl: Nucl,
     pub color: u32,
 }
 
@@ -386,7 +385,7 @@ impl DesignContent {
         let mut helix_map = HashMap::default();
         let mut basis_map = HashMap::default();
         let mut id = 0u32;
-        let mut nucl_id;
+        let mut nucl_id = id;
         let mut old_nucl: Option<Nucl> = None;
         let mut old_nucl_id = None;
         let mut red_cubes = HashMap::default();
@@ -553,11 +552,7 @@ impl DesignContent {
                         nucl.forward,
                     );
                     let color = strand.color;
-                    prime3_set.push(Prime3End {
-                        position_start,
-                        position_end,
-                        color,
-                    });
+                    prime3_set.push(Prime3End { nucl, color });
                 }
             }
             old_nucl = None;

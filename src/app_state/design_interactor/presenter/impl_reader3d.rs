@@ -143,11 +143,23 @@ impl Reader3D for DesignReader {
     }
 
     fn get_all_prime3_nucl(&self) -> Vec<(Vec3, Vec3, u32)> {
+        let locate_nucl = |nucl| {
+            let pos_start_opt = self
+                .get_identifier_nucl(&nucl)
+                .and_then(|nucl_id| self.get_element_position(nucl_id, Referential::World));
+            pos_start_opt.or(self.get_position_of_nucl_on_helix(nucl, Referential::World, false))
+        };
+
         self.presenter
             .content
             .prime3_set
             .iter()
-            .map(|prime3| (prime3.position_start, prime3.position_end, prime3.color))
+            .filter(|prime3| !self.presenter.invisible_nucls.contains(&prime3.nucl))
+            .filter_map(|prime3| {
+                let start = locate_nucl(prime3.nucl)?;
+                let end = locate_nucl(prime3.nucl.prime3())?;
+                Some((start, end, prime3.color))
+            })
             .collect()
     }
 
