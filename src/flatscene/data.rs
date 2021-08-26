@@ -616,6 +616,8 @@ impl Data {
         adding: bool,
         app_state: &S,
     ) -> GraphicalSelection {
+        // Initialize the new selection with the current one. It will be cleared later if `adding`
+        // is `false`.
         let mut new_selection = app_state.get_selection().to_vec();
         let selection_mode = app_state.get_selection_mode();
         if selection_mode == SelectionMode::Strand {
@@ -646,9 +648,15 @@ impl Data {
             if let Some((mut old_translation_pivots, mut old_rotation_pivots)) =
                 self.get_pivot_of_selected_helices(camera, &new_selection)
             {
+                apply_symetric_difference_to_pivots(
+                    &mut old_translation_pivots,
+                    &mut old_rotation_pivots,
+                    &selection,
+                );
                 translation_pivots.append(&mut old_translation_pivots);
                 rotation_pivots.append(&mut old_rotation_pivots);
             }
+            apply_symetric_difference_to_selection(&mut selection, &mut new_selection);
             selection.append(&mut new_selection);
             new_selection = selection;
         } else {
@@ -1027,4 +1035,45 @@ impl GraphicalSelection {
             rotation_pivots: vec![],
         }
     }
+}
+
+/// Remove the element of `old_translation_pivots` and `old_rotation_pivots` that corresponds to an
+/// element existing in `selection`
+fn apply_symetric_difference_to_pivots(
+    old_translation_pivots: &mut Vec<FlatNucl>,
+    old_rotation_pivots: &mut Vec<Vec2>,
+    selection: &[Selection],
+) {
+    if old_translation_pivots.len() != old_rotation_pivots.len() {
+        return;
+    }
+
+    for i in (0..old_rotation_pivots.len()).rev() {
+        let real_helix = old_translation_pivots[i].helix.real;
+        if selection
+            .iter()
+            .find(|s| matches!(s, Selection::Helix(_, h_id) if *h_id == real_helix as u32))
+            .is_some()
+        {
+            old_translation_pivots.remove(i);
+            old_rotation_pivots.remove(i);
+        }
+    }
+}
+
+fn apply_symetric_difference_to_selection(
+    old_selection: &mut Vec<Selection>,
+    new_selection: &mut Vec<Selection>,
+) {
+    let mut to_remove = Vec::new();
+    for s in old_selection.iter() {
+        if new_selection.contains(s) {
+            to_remove.push(s.clone());
+        }
+    }
+
+    let retain_condition = |s: &Selection| !to_remove.contains(s);
+
+    old_selection.retain(retain_condition);
+    new_selection.retain(retain_condition);
 }
