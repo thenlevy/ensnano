@@ -140,7 +140,56 @@ impl Presenter {
     }
 
     fn read_scaffold_seq(&mut self) {
-        ()
+        let nb_skip = if let Some(sequence) = self.current_design.scaffold_sequence.as_ref() {
+            if sequence.len() == 0 {
+                return;
+            }
+            let shift = self.current_design.scaffold_shift.unwrap_or(0);
+            sequence.len() - (shift % sequence.len())
+        } else {
+            return;
+        };
+        if let Some(mut sequence) = self
+            .current_design
+            .scaffold_sequence
+            .as_ref()
+            .map(|s| s.chars().cycle().skip(nb_skip))
+        {
+            let mut basis_map = HashMap::clone(self.content.basis_map.as_ref());
+            if let Some(strand) = self
+                .current_design
+                .scaffold_id
+                .as_ref()
+                .and_then(|s_id| self.current_design.strands.get(s_id))
+            {
+                for domain in &strand.domains {
+                    if let ensnano_design::Domain::HelixDomain(dom) = domain {
+                        for nucl_position in dom.iter() {
+                            let nucl = Nucl {
+                                helix: dom.helix,
+                                position: nucl_position,
+                                forward: dom.forward,
+                            };
+                            let basis = sequence.next();
+                            let basis_compl = compl(basis);
+                            if let Some((basis, basis_compl)) = basis.zip(basis_compl) {
+                                basis_map.insert(nucl, basis);
+                                if self.content.identifier_nucl.contains_key(&nucl.compl()) {
+                                    basis_map.insert(nucl.compl(), basis_compl);
+                                }
+                            }
+                        }
+                    } else if let ensnano_design::Domain::Insertion(n) = domain {
+                        for _ in 0..*n {
+                            sequence.next();
+                        }
+                    }
+                }
+            }
+            let mut new_content = self.content.clone_inner();
+            new_content.basis_map = Arc::new(basis_map);
+            self.content = AddressPointer::new(new_content);
+        }
     }
 
     fn update_visibility(&mut self) {
@@ -474,4 +523,14 @@ struct VisibilitySieve {
     selection: Vec<Selection>,
     compl: bool,
     visible: bool,
+}
+
+fn compl(c: Option<char>) -> Option<char> {
+    match c {
+        Some('T') => Some('A'),
+        Some('A') => Some('T'),
+        Some('G') => Some('C'),
+        Some('C') => Some('G'),
+        _ => None,
+    }
 }
