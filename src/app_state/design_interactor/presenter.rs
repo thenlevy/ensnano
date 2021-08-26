@@ -16,6 +16,9 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+#[cfg(test)]
+pub use self::design_content::Staple;
+
 use super::*;
 use ensnano_design::{Extremity, Nucl};
 use ensnano_interactor::{NeighbourDescriptor, NeighbourDescriptorGiver, ScaffoldInfo, Selection};
@@ -68,6 +71,11 @@ impl Default for Presenter {
 }
 
 impl Presenter {
+    #[cfg(test)]
+    pub(super) fn get_staples(&self) -> Vec<Staple> {
+        self.content.get_staples(&self.current_design)
+    }
+
     pub fn can_start_builder_at(&self, nucl: Nucl) -> bool {
         let left = self.current_design.get_neighbour_nucl(nucl.left());
         let right = self.current_design.get_neighbour_nucl(nucl.right());
@@ -140,21 +148,25 @@ impl Presenter {
     }
 
     fn read_scaffold_seq(&mut self) {
-        let nb_skip = if let Some(sequence) = self.current_design.scaffold_sequence.as_ref() {
-            if sequence.len() == 0 {
-                return;
-            }
+        let sequence = self.current_design.scaffold_sequence.as_ref();
+        if sequence.is_none() {
+            return;
+        }
+        let sequence: String = sequence
+            .unwrap()
+            .chars()
+            .filter(|c| c.is_alphabetic())
+            .collect();
+        let nb_skip = {
             let shift = self.current_design.scaffold_shift.unwrap_or(0);
             sequence.len() - (shift % sequence.len())
-        } else {
-            return;
         };
-        if let Some(mut sequence) = self
-            .current_design
-            .scaffold_sequence
-            .as_ref()
-            .map(|s| s.chars().cycle().skip(nb_skip))
-        {
+        if let Some(mut sequence) = self.current_design.scaffold_sequence.as_ref().map(|s| {
+            s.chars()
+                .filter(|c| c.is_alphabetic())
+                .cycle()
+                .skip(nb_skip)
+        }) {
             let mut basis_map = HashMap::clone(self.content.basis_map.as_ref());
             if let Some(strand) = self
                 .current_design
@@ -172,6 +184,7 @@ impl Presenter {
                             };
                             let basis = sequence.next();
                             let basis_compl = compl(basis);
+                            println!("basis {:?}, basis_compl {:?}", basis, basis_compl);
                             if let Some((basis, basis_compl)) = basis.zip(basis_compl) {
                                 basis_map.insert(nucl, basis);
                                 if self.content.identifier_nucl.contains_key(&nucl.compl()) {

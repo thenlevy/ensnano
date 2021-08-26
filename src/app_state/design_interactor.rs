@@ -337,6 +337,11 @@ mod tests {
         test_path("one_helix.json")
     }
 
+    fn design_for_sequence_testing() -> AppState {
+        let path = test_path("test_sequence.json");
+        AppState::import_design(&path).ok().unwrap()
+    }
+
     fn assert_good_strand<S: std::ops::Deref<Target = str>>(strand: &Strand, objective: S) {
         use regex::Regex;
         let re = Regex::new(r#"\[[^\]]*\]"#).unwrap();
@@ -867,6 +872,70 @@ mod tests {
             .apply_copy_operation(CopyOperation::Duplicate)
             .unwrap();
         assert_eq!(app_state.is_pasting(), PastingStatus::None);
+    }
+
+    #[test]
+    fn correct_staples_no_scaffold_shift() {
+        let mut app_state = design_for_sequence_testing();
+        let sequence = std::fs::read_to_string(test_path("seq_test.txt")).unwrap();
+        app_state
+            .apply_design_op(DesignOperation::SetScaffoldSequence { sequence, shift: 0 })
+            .unwrap();
+        app_state.update();
+        let s_id = app_state
+            .get_design_reader()
+            .get_id_of_strand_containing_nucl(&Nucl {
+                helix: 1,
+                position: 0,
+                forward: true,
+            })
+            .unwrap();
+        app_state
+            .apply_design_op(DesignOperation::SetScaffoldId(Some(s_id)))
+            .unwrap();
+        app_state.update();
+        let stapples = app_state.get_design_reader().presenter.get_staples();
+        for s in stapples.iter() {
+            if s.name.contains("5':h1:nt7") {
+                assert_eq!(s.sequence, "CCAA TTTT")
+            } else if s.name.contains("5':h2:nt0") {
+                assert_eq!(s.sequence, "AAAA GGTT")
+            } else {
+                panic!("Incorrect staple name {:?}", s.name);
+            }
+        }
+    }
+
+    #[test]
+    fn correct_staples_scaffold_shift() {
+        let mut app_state = design_for_sequence_testing();
+        let sequence = std::fs::read_to_string(test_path("seq_test.txt")).unwrap();
+        app_state
+            .apply_design_op(DesignOperation::SetScaffoldSequence { sequence, shift: 3 })
+            .unwrap();
+        app_state.update();
+        let s_id = app_state
+            .get_design_reader()
+            .get_id_of_strand_containing_nucl(&Nucl {
+                helix: 1,
+                position: 0,
+                forward: true,
+            })
+            .unwrap();
+        app_state
+            .apply_design_op(DesignOperation::SetScaffoldId(Some(s_id)))
+            .unwrap();
+        app_state.update();
+        let stapples = app_state.get_design_reader().presenter.get_staples();
+        for s in stapples.iter() {
+            if s.name.contains("5':h1:nt7") {
+                assert_eq!(s.sequence, "AGGT TCCA")
+            } else if s.name.contains("5':h2:nt0") {
+                assert_eq!(s.sequence, "ATTT TAAA")
+            } else {
+                panic!("Incorrect staple name {:?}", s.name);
+            }
+        }
     }
 }
 
