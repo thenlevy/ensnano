@@ -842,7 +842,7 @@ fn create_prime3_cone(source: Vec3, dest: Vec3, color: u32) -> RawDnaInstance {
     let color = Instance::color_from_u32(color);
     let rotor = Rotor3::from_rotation_between(Vec3::unit_x(), (dest - source).normalized());
     let position = source;
-    let length = 2. / 3. * (dest - source).mag();
+    let length = (2. / 3. * (dest - source).mag()).min(2. / 3. * 0.7);
     ConeInstance {
         position,
         length,

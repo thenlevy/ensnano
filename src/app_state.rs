@@ -24,7 +24,9 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 //!
 //! Each component of ENSnano has specific needs and express them via its own `AppState` trait.
 
-use ensnano_interactor::{operation::Operation, ActionMode, Selection, SelectionMode, WidgetBasis};
+use ensnano_interactor::{
+    operation::Operation, ActionMode, CenterOfSelection, Selection, SelectionMode, WidgetBasis,
+};
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -63,7 +65,7 @@ impl std::fmt::Debug for AppState {
 
 impl Default for AppState {
     fn default() -> Self {
-        let mut ret = AppState(Default::default());
+        let ret = AppState(Default::default());
         ret.updated()
     }
 }
@@ -76,11 +78,24 @@ impl AppState {
             let mut new_state = (*self.0).clone();
             let selection_len = selection.len();
             new_state.selection = AddressPointer::new(selection);
+            // Set when the selection is modified, the center of selection is set to None. It is up
+            // to the caller to set it to a certain value when applicable
+            new_state.center_of_selection = None;
             let mut ret = Self(AddressPointer::new(new_state));
             if selection_len > 0 {
                 ret = ret.notified(InteractorNotification::NewSelection)
             }
             ret
+        }
+    }
+
+    pub fn with_center_of_selection(&self, center: Option<CenterOfSelection>) -> Self {
+        if center == self.0.center_of_selection {
+            self.clone()
+        } else {
+            let mut new_state = (*self.0).clone();
+            new_state.center_of_selection = center;
+            Self(AddressPointer::new(new_state))
         }
     }
 
@@ -312,7 +327,7 @@ impl AppState {
     }
 }
 
-#[derive(Clone, PartialEq, Eq, Default)]
+#[derive(Clone, Default)]
 struct AppState_ {
     /// The set of currently selected objects
     selection: AddressPointer<Vec<Selection>>,
@@ -326,6 +341,7 @@ struct AppState_ {
     action_mode: ActionMode,
     widget_basis: WidgetBasis,
     strand_on_new_helix: Option<NewHelixStrand>,
+    center_of_selection: Option<CenterOfSelection>,
 }
 
 #[derive(Clone, PartialEq, Eq)]
