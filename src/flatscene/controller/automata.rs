@@ -124,7 +124,10 @@ impl<S: AppState> ControllerState<S> for NormalState {
                 state,
                 ..
             } => {
-                println!("pasting: {}", app_state.is_pasting());
+                log::debug!(
+                    "On left button pressed, pasting = {}",
+                    app_state.is_pasting()
+                );
                 /*assert!(
                     *state == ElementState::Pressed,
                     "Released mouse button in normal mode"
@@ -1302,7 +1305,7 @@ impl<S: AppState> ControllerState<S> for InitAttachement {
                 if *state == ElementState::Pressed {
                     return Transition::nothing();
                 }
-                println!("from {:?} to {:?}", self.from, self.to);
+                log::debug!("transition from {:?} to {:?}", self.from, self.to);
                 Transition {
                     new_state: Some(Box::new(NormalState {
                         mouse_position: self.mouse_position,

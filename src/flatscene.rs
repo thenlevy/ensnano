@@ -211,7 +211,7 @@ impl<S: AppState> FlatScene<S> {
             Consequence::Cut(nucl) => {
                 let strand_id = self.data[self.selected_design].borrow().get_strand_id(nucl);
                 if let Some(strand_id) = strand_id {
-                    println!("cutting");
+                    log::info!("cutting {:?}", nucl);
                     let nucl = nucl.to_real();
                     self.requests
                         .lock()
@@ -229,7 +229,7 @@ impl<S: AppState> FlatScene<S> {
             Consequence::CutFreeEnd(nucl, free_end) => {
                 let strand_id = self.data[self.selected_design].borrow().get_strand_id(nucl);
                 if let Some(strand_id) = strand_id {
-                    println!("cutting");
+                    log::info!("cutting {:?}", nucl);
                     let nucl = nucl.to_real();
                     self.requests
                         .lock()
@@ -494,7 +494,7 @@ impl<S: AppState> Application for FlatScene<S> {
             Notification::ClearDesigns => (),
             Notification::Centering(_, _) => (),
             Notification::CenterSelection(selection, app_id) => {
-                println!("Flat selection {:?}", selection);
+                log::info!("2D view centering selection {:?}", selection);
                 let flat_selection = self.data[self.selected_design]
                     .borrow()
                     .convert_to_flat(selection);

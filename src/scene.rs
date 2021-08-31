@@ -208,7 +208,7 @@ impl<S: AppState> Scene<S> {
                         self.rotate_selected_desgin(rotation, origin, positive, app_state)
                     }
                 } else {
-                    println!("Warning rotiation was None")
+                    log::warn!("Warning rotiation was None")
                 }
             }
             Consequence::Swing(x, y) => {

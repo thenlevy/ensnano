@@ -293,8 +293,8 @@ impl HelixSystem {
             self.next_time = self.current_time + self.max_time_step;
         }
         self.time_span = (0., self.next_time - self.current_time);
-        println!("max time span {}", self.max_time_step);
-        println!("{:?}", self.time_span());
+        log::trace!("max time span {}", self.max_time_step);
+        log::trace!("{:?}", self.time_span());
     }
 
     fn brownian_jump(&mut self) {
@@ -808,7 +808,7 @@ impl RigidGrid {
         orientation: Rotor3,
     ) -> Self {
         // Center of mass in the grid coordinates.
-        println!("helices {:?}", helices);
+        log::debug!("helices {:?}", helices);
         let center_of_mass = center_of_mass_helices(&helices);
 
         // Inertia matrix when the orientation is the identity

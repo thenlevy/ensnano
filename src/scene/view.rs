@@ -150,7 +150,7 @@ impl View {
             entries: MODEL_BG_ENTRY,
             label: None,
         };
-        println!("Create letter drawer");
+        log::info!("Create letter drawer");
         let letter_drawer = BASIS_SYMBOLS
             .iter()
             .map(|c| {
@@ -165,7 +165,7 @@ impl View {
                 )
             })
             .collect();
-        println!("Create helix letter drawer");
+        log::info!("Create helix letter drawer");
         let helix_letter_drawer = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
             .iter()
             .map(|c| {
@@ -198,7 +198,7 @@ impl View {
         let models = DynamicBindGroup::new(device.clone(), queue.clone());
 
         let grid_textures = GridTextures::new(device.as_ref(), encoder);
-        println!("Create grid drawer");
+        log::info!("Create grid drawer");
 
         let grid_drawer = InstanceDrawer::new(
             device.clone(),
@@ -219,7 +219,7 @@ impl View {
         );
         let grid_manager = GridManager::new(grid_drawer, fake_grid_drawer);
 
-        println!("Create disc  drawer");
+        log::info!("Create disc  drawer");
         let disc_drawer = InstanceDrawer::new(
             device.clone(),
             queue.clone(),
@@ -229,7 +229,7 @@ impl View {
             false,
         );
 
-        println!("Create dna drawer");
+        log::info!("Create dna drawer");
         let dna_drawers = DnaDrawers::new(
             device.clone(),
             queue.clone(),

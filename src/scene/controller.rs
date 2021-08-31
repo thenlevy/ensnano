@@ -158,7 +158,7 @@ impl<S: AppState> Controller<S> {
     pub fn check_timers(&mut self) -> Consequence {
         let transition = self.state.borrow_mut().check_timers(&self);
         if let Some(state) = transition.new_state {
-            println!("{}", state.display());
+            log::info!("3D controller state: {}", state.display());
             let csq = self.state.borrow().transition_from(&self);
             self.transition_consequence(csq);
             self.state = RefCell::new(state);
@@ -228,7 +228,7 @@ impl<S: AppState> Controller<S> {
         };
 
         if let Some(state) = transition.new_state {
-            println!("{}", state.display());
+            log::info!("3D controller state: {}", state.display());
             let csq = self.state.borrow().transition_from(&self);
             self.transition_consequence(csq);
             self.state = RefCell::new(state);

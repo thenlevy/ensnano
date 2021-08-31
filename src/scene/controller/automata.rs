@@ -100,28 +100,24 @@ impl<S: AppState> ControllerState<S> for NormalState {
             WindowEvent::CursorMoved { .. } => {
                 self.mouse_position = position;
                 let element = pixel_reader.set_selected_id(position);
-                if app_state.get_action_mode().0.is_build() {
-                    if let Some(SceneElement::Grid(d_id, _)) = element {
-                        let mouse_x = position.x / controller.area_size.width as f64;
-                        let mouse_y = position.y / controller.area_size.height as f64;
-                        let candidate = if let Some(intersection) = controller
-                            .view
-                            .borrow()
-                            .grid_intersection(mouse_x as f32, mouse_y as f32)
-                        {
-                            Some(SceneElement::GridCircle(
-                                d_id,
-                                intersection.grid_id,
-                                intersection.x,
-                                intersection.y,
-                            ))
-                        } else {
-                            element
-                        };
-                        Transition::consequence(Consequence::Candidate(candidate))
+                if let Some(SceneElement::Grid(d_id, _)) = element {
+                    let mouse_x = position.x / controller.area_size.width as f64;
+                    let mouse_y = position.y / controller.area_size.height as f64;
+                    let candidate = if let Some(intersection) = controller
+                        .view
+                        .borrow()
+                        .grid_intersection(mouse_x as f32, mouse_y as f32)
+                    {
+                        Some(SceneElement::GridCircle(
+                            d_id,
+                            intersection.grid_id,
+                            intersection.x,
+                            intersection.y,
+                        ))
                     } else {
-                        Transition::consequence(Consequence::Candidate(element))
-                    }
+                        element
+                    };
+                    Transition::consequence(Consequence::Candidate(candidate))
                 } else {
                     Transition::consequence(Consequence::Candidate(element))
                 }
