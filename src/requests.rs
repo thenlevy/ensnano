@@ -23,6 +23,7 @@ mod poll;
 
 use super::gui::UiSize;
 use super::*;
+use ensnano_interactor::CenterOfSelection;
 use ensnano_interactor::{application::AppId, RollRequest, Selection};
 pub use poll::*;
 use ultraviolet::Vec3;
@@ -115,4 +116,5 @@ pub struct Requests {
     pub stop_roll: Option<()>,
     pub new_paste_candiate: Option<Option<Nucl>>,
     pub new_double_strand_parameters: Option<Option<(isize, usize)>>,
+    pub new_center_of_selection: Option<Option<CenterOfSelection>>,
 }

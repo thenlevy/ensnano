@@ -1,3 +1,4 @@
+use ensnano_interactor::CenterOfSelection;
 /*
 ENSnano, a 3d graphical application for DNA nanostructures.
     Copyright (C) 2021  Nicolas Levy <nicolaspierrelevy@gmail.com> and Nicolas Schabanel <nicolas.schabanel@ens-lyon.fr>
@@ -358,9 +359,13 @@ impl<S: AppState> Scene<S> {
     }
 
     fn select(&mut self, element: Option<SceneElement>, app_state: &S) {
-        let selection = self.data.borrow_mut().set_selection(element, app_state);
+        let (selection, center_of_selection) =
+            self.data.borrow_mut().set_selection(element, app_state);
         if let Some(selection) = selection {
-            self.requests.lock().unwrap().set_selection(vec![selection]);
+            self.requests
+                .lock()
+                .unwrap()
+                .set_selection(vec![selection], center_of_selection);
         }
     }
 
@@ -374,8 +379,11 @@ impl<S: AppState> Scene<S> {
             self.data
                 .borrow_mut()
                 .add_to_selection(element, current_selection, app_state);
-        if let Some(selection) = selection {
-            self.requests.lock().unwrap().set_selection(selection);
+        if let Some((selection, center_of_selection)) = selection {
+            self.requests
+                .lock()
+                .unwrap()
+                .set_selection(selection, center_of_selection);
         }
     }
 
@@ -777,6 +785,7 @@ pub trait AppState: Clone {
     fn get_widget_basis(&self) -> WidgetBasis;
     fn is_changing_color(&self) -> bool;
     fn is_pasting(&self) -> bool;
+    fn get_selected_element(&self) -> Option<CenterOfSelection>;
 }
 
 pub trait Requests {
@@ -784,7 +793,11 @@ pub trait Requests {
     fn apply_design_operation(&mut self, op: DesignOperation);
     fn set_candidate(&mut self, candidates: Vec<Selection>);
     fn set_paste_candidate(&mut self, nucl: Option<Nucl>);
-    fn set_selection(&mut self, selection: Vec<Selection>);
+    fn set_selection(
+        &mut self,
+        selection: Vec<Selection>,
+        center_of_selection: Option<CenterOfSelection>,
+    );
     fn attempt_paste(&mut self, nucl: Option<Nucl>);
     fn xover_request(&mut self, source: Nucl, target: Nucl, design_id: usize);
     fn suspend_op(&mut self);

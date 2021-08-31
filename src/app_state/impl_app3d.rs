@@ -33,6 +33,7 @@ impl App3D for AppState {
 
     fn selection_was_updated(&self, other: &AppState) -> bool {
         self.0.selection != other.0.selection
+            || self.0.center_of_selection != other.0.center_of_selection
     }
 
     fn candidates_set_was_updated(&self, other: &AppState) -> bool {
@@ -75,6 +76,10 @@ impl App3D for AppState {
 
     fn is_pasting(&self) -> bool {
         self.is_pasting().is_pasting()
+    }
+
+    fn get_selected_element(&self) -> Option<CenterOfSelection> {
+        self.0.center_of_selection.clone()
     }
 }
 

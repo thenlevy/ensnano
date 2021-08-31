@@ -35,6 +35,19 @@ pub enum Selection {
     Nothing,
 }
 
+/// The object that is foccused in the 3D scene.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CenterOfSelection {
+    Nucleotide(u32, Nucl),
+    Bound(u32, Nucl, Nucl),
+    GridPosition {
+        design: u32,
+        grid_id: usize,
+        x: isize,
+        y: isize,
+    },
+}
+
 impl Selection {
     pub fn is_strand(&self) -> bool {
         match self {

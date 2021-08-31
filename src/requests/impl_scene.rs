@@ -28,8 +28,13 @@ impl SceneRequests for Requests {
         self.new_candidates = Some(candidates);
     }
 
-    fn set_selection(&mut self, selection: Vec<Selection>) {
+    fn set_selection(
+        &mut self,
+        selection: Vec<Selection>,
+        center_of_selection: Option<ensnano_interactor::CenterOfSelection>,
+    ) {
         self.new_selection = Some(selection);
+        self.new_center_of_selection = Some(center_of_selection);
     }
 
     fn set_paste_candidate(&mut self, nucl: Option<Nucl>) {

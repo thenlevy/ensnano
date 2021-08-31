@@ -18,7 +18,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 //! This modules handles internal informations about the scene, such as the selected objects etc..
 //! It also communicates with the desgings to get the position of the objects to draw on the scene.
 
-use super::view::RawDnaInstance;
+use super::view::{GridDisc, RawDnaInstance};
 use super::{
     HandleOrientation, HandlesDescriptor, LetterInstance, RotationWidgetDescriptor,
     RotationWidgetOrientation, SceneElement, View, ViewUpdate,
@@ -27,13 +27,16 @@ use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
+use ensnano_design::grid::GridPosition;
 use ultraviolet::{Rotor3, Vec3};
 
 use super::view::Mesh;
 use crate::consts::*;
 use ensnano_design::Nucl;
-use ensnano_interactor::{ActionMode, PhantomElement, Selection, SelectionMode};
-use ensnano_interactor::{ObjectType, Referential};
+use ensnano_interactor::{
+    ActionMode, CenterOfSelection, ObjectType, PhantomElement, Referential, Selection,
+    SelectionMode,
+};
 
 use super::AppState;
 
@@ -48,8 +51,6 @@ pub struct Data<R: DesignReader> {
     view: ViewPtr,
     /// A `Design3D` is associated to each design.
     designs: Vec<Design3D<R>>,
-    /// The set of selected elements
-    selected_element: Option<SceneElement>,
     /// The set of candidates elements
     candidate_element: Option<SceneElement>,
     /// The kind of selection being performed if app_state.get_selection_mode() is SelectionMode::Nucl.
@@ -75,7 +76,6 @@ impl<R: DesignReader> Data<R> {
         Self {
             view,
             designs: vec![Design3D::new(reader, 0)],
-            selected_element: None,
             candidate_element: None,
             sub_selection_mode: SelectionMode::Nucleotide,
             selected_position: None,
@@ -96,7 +96,6 @@ impl<R: DesignReader> Data<R> {
 
     /// Remove all designs to be drawn
     pub fn clear_designs(&mut self) {
-        self.selected_element = None;
         self.candidate_element = None;
         self.reset_selection();
         self.reset_candidate();
@@ -110,20 +109,19 @@ impl<R: DesignReader> Data<R> {
     /// Forwards all needed update to the view
     pub fn update_view<S: AppState>(&mut self, app_state: &S, older_app_state: &S) {
         if self.discs_need_update(app_state, older_app_state) {
-            self.update_discs();
+            self.update_discs(app_state);
         }
         if app_state.design_was_modified(older_app_state) {
             self.update_instances();
         }
 
+        // If the color of a strand is being modified, we tell the view to highlight nothing.
         if app_state.is_changing_color() {
             self.update_selection(&[], app_state)
         } else if app_state.selection_was_updated(older_app_state)
             || app_state.design_was_modified(older_app_state)
         {
-            println!("Update selection");
             self.update_selection(app_state.get_selection(), app_state);
-            println!("selected pos {:?}", self.selected_position);
         }
         self.handle_need_opdate |= app_state.design_was_modified(older_app_state)
             || app_state.selection_was_updated(older_app_state)
@@ -159,7 +157,7 @@ impl<R: DesignReader> Data<R> {
     }
 
     fn update_handle<S: AppState>(&self, app_state: &S) {
-        println!("updating handle");
+        println!("updating handle {:?} ", self.selected_element(app_state));
         let origin = self.get_selected_position();
         let orientation = self.get_widget_basis(app_state);
         let handle_descr = if app_state.get_action_mode().0.wants_handle() {
@@ -490,14 +488,14 @@ impl<R: DesignReader> Data<R> {
 
     /// Return the identifier of the group of the selected element
     pub fn get_selected_group<S: AppState>(&self, app_state: &S) -> Option<u32> {
-        match self.selected_element.as_ref() {
+        match self.selected_element(app_state) {
             Some(SceneElement::DesignElement(design_id, element_id)) => {
                 let selection_mode = self.get_sub_selection_mode(app_state);
-                self.get_group_identifier(*design_id, *element_id, selection_mode)
+                self.get_group_identifier(design_id, element_id, selection_mode)
                     .map(|x| x as u32)
             }
             Some(SceneElement::PhantomElement(phantom_element)) => Some(phantom_element.helix_id),
-            Some(SceneElement::Grid(_, g_id)) => Some(*g_id as u32),
+            Some(SceneElement::Grid(_, g_id)) => Some(g_id as u32),
             _ => None,
         }
     }
@@ -612,7 +610,7 @@ impl<R: DesignReader> Data<R> {
 
     pub fn try_update_pivot_position<S: AppState>(&mut self, app_state: &S) {
         if self.pivot_element.is_none() {
-            self.pivot_element = self.selected_element;
+            self.pivot_element = self.selected_element(app_state);
             self.pivot_update = true;
             self.update_pivot_position(app_state);
         }
@@ -628,19 +626,20 @@ impl<R: DesignReader> Data<R> {
         &mut self,
         element: Option<SceneElement>,
         app_state: &S,
-    ) -> Option<Selection> {
+    ) -> (Option<Selection>, Option<CenterOfSelection>) {
         self.handle_need_opdate = true;
         if let Some(SceneElement::WidgetElement(_)) = element {
-            return None;
+            return (None, None);
         }
         println!("selected {:?}", element);
-        let future_selection = element;
-        if self.selected_element == future_selection {
+        let future_selection = element.clone();
+        let new_center_of_selection =
+            element.and_then(|element| self.scene_element_to_center_of_selection(element));
+        if self.selected_element(app_state) == future_selection {
             self.sub_selection_mode = toggle_selection(self.sub_selection_mode);
         } else {
             self.sub_selection_mode = SelectionMode::Nucleotide;
         }
-        self.selected_element = future_selection;
         self.update_selected_position(app_state);
         println!("selected position: {:?}", self.selected_position);
         let selection_mode = if app_state.get_selection_mode() == SelectionMode::Nucleotide {
@@ -653,12 +652,7 @@ impl<R: DesignReader> Data<R> {
         } else {
             Selection::Nothing
         };
-        let future_selection = if selection != Selection::Nothing {
-            vec![selection]
-        } else {
-            vec![]
-        };
-        Some(selection)
+        (Some(selection), new_center_of_selection)
     }
 
     pub fn to_selection<S: AppState>(
@@ -682,10 +676,11 @@ impl<R: DesignReader> Data<R> {
         element: Option<SceneElement>,
         selection: &[Selection],
         app_state: &S,
-    ) -> Option<Vec<Selection>> {
+    ) -> Option<(Vec<Selection>, Option<CenterOfSelection>)> {
         if let Some(SceneElement::WidgetElement(_)) = element {
             return None;
         }
+        let mut center_of_selection: Option<CenterOfSelection> = None;
         self.sub_selection_mode = SelectionMode::Nucleotide;
         let selected = if let Some(element) = element.as_ref() {
             self.element_to_selection(element, app_state.get_selection_mode())
@@ -693,7 +688,7 @@ impl<R: DesignReader> Data<R> {
             Selection::Nothing
         };
         if let Some(element) = element.clone() {
-            self.selected_element = Some(element);
+            center_of_selection = self.scene_element_to_center_of_selection(element);
         }
         if selected == Selection::Nothing {
             None
@@ -704,7 +699,7 @@ impl<R: DesignReader> Data<R> {
             } else {
                 new_selection.push(selected);
             }
-            Some(new_selection)
+            Some((new_selection, center_of_selection))
         }
     }
 
@@ -740,9 +735,10 @@ impl<R: DesignReader> Data<R> {
     }
 
     fn update_selected_position<S: AppState>(&mut self, app_state: &S) {
+        println!("updating selected position");
         let selection_mode = self.get_sub_selection_mode(app_state);
         self.selected_position = {
-            if let Some(element) = self.selected_element.as_ref() {
+            if let Some(element) = self.selected_element(app_state).as_ref() {
                 self.get_element_position(element, Referential::World, selection_mode)
             } else {
                 None
@@ -767,11 +763,11 @@ impl<R: DesignReader> Data<R> {
     /// Clear self.selected
     pub fn reset_selection(&mut self) {
         self.selected_position = None;
-        self.selected_element = None;
     }
 
     /// Notify the view that the selected elements have been modified
     fn update_selection<S: AppState>(&mut self, selection: &[Selection], app_state: &S) {
+        log::trace!("Update selection {:?}", selection);
         let sphere = self.get_selected_spheres(selection);
         let tubes = self.get_selected_tubes(selection);
         let pos: Vec3 = sphere
@@ -783,8 +779,10 @@ impl<R: DesignReader> Data<R> {
         let non_nucl_selection =
             selection.len() > 1 || matches!(selection.get(0), Some(Selection::Helix(_, _)));
         if non_nucl_selection && total_len > 1 {
+            log::trace!("Not using center_of_selection");
             self.selected_position = Some(pos / (total_len as f32));
         } else {
+            log::trace!("Using center_of_selection for updating self.selected_position");
             self.update_selected_position(app_state);
         }
         self.view.borrow_mut().update(ViewUpdate::RawDna(
@@ -802,12 +800,12 @@ impl<R: DesignReader> Data<R> {
         self.view
             .borrow_mut()
             .update(ViewUpdate::RawDna(Mesh::PhantomTube, vec));
-        let mut grids = if let Some(SceneElement::Grid(d_id, g_id)) = self.selected_element.as_ref()
-        {
-            vec![(*d_id as usize, *g_id)]
-        } else {
-            vec![]
-        };
+        let mut grids =
+            if let Some(SceneElement::Grid(d_id, g_id)) = self.selected_element(app_state) {
+                vec![(d_id as usize, g_id)]
+            } else {
+                vec![]
+            };
         for s in selection.iter() {
             if let Selection::Grid(d_id, g_id) = s {
                 grids.push((*d_id as usize, *g_id));
@@ -853,11 +851,11 @@ impl<R: DesignReader> Data<R> {
             }
         }
         if self.must_draw_phantom(app_state) {
-            for element in self.selected_element.iter() {
+            for element in self.selected_element(app_state).into_iter() {
                 match element {
                     SceneElement::DesignElement(d_id, elt_id) => {
-                        let set = ret.entry(*d_id).or_insert_with(HashMap::new);
-                        if let Some(h_id) = self.get_helix_identifier(*d_id, *elt_id) {
+                        let set = ret.entry(d_id).or_insert_with(HashMap::new);
+                        if let Some(h_id) = self.get_helix_identifier(d_id, elt_id) {
                             set.insert(h_id, false);
                         }
                     }
@@ -868,19 +866,17 @@ impl<R: DesignReader> Data<R> {
                         set.insert(phantom_element.helix_id, false);
                     }
                     SceneElement::Grid(d_id, g_id) => {
-                        let new_helices = self.designs[*d_id as usize]
-                            .get_helices_grid(*g_id)
+                        let new_helices = self.designs[d_id as usize]
+                            .get_helices_grid(g_id)
                             .unwrap_or_default();
-                        let set = ret.entry(*d_id).or_insert_with(HashMap::new);
+                        let set = ret.entry(d_id).or_insert_with(HashMap::new);
                         for h_id in new_helices.iter() {
                             set.insert(*h_id as u32, true);
                         }
                     }
                     SceneElement::GridCircle(d_id, g_id, x, y) => {
-                        if let Some(h_id) =
-                            self.designs[*d_id as usize].get_helix_grid(*g_id, *x, *y)
-                        {
-                            let set = ret.entry(*d_id).or_insert_with(HashMap::new);
+                        if let Some(h_id) = self.designs[d_id as usize].get_helix_grid(g_id, x, y) {
+                            let set = ret.entry(d_id).or_insert_with(HashMap::new);
                             set.insert(h_id, false);
                         }
                     }
@@ -896,7 +892,7 @@ impl<R: DesignReader> Data<R> {
         if ret {
             true
         } else {
-            for element in self.selected_element.iter() {
+            for element in self.selected_element(app_state).iter() {
                 if let SceneElement::PhantomElement(_) = element {
                     return true;
                 }
@@ -1178,40 +1174,49 @@ impl<R: DesignReader> Data<R> {
             .update(ViewUpdate::RawDna(Mesh::Prime3Cone, Rc::new(cones)));
     }
 
-    fn update_discs(&mut self) {
+    fn update_discs<S: AppState>(&mut self, app_state: &S) {
         let mut discs = Vec::new();
         let mut letters: Vec<Vec<LetterInstance>> = vec![vec![]; 10];
         let right = self.view.borrow().get_camera().borrow().right_vec();
         let up = self.view.borrow().get_camera().borrow().up_vec();
-        for (d_id, design) in self.designs.iter().enumerate() {
+        let mut selected_discs: Vec<(usize, isize, isize)> = Vec::new();
+        let mut candidate_discs: Vec<(usize, isize, isize)> = Vec::new();
+        let design = &self.designs[0];
+        macro_rules! discs {
+            () => {
+                Discs {
+                    design,
+                    selection: &mut selected_discs,
+                    candidates: &mut candidate_discs,
+                    discs: &mut discs,
+                }
+            };
+        }
+        if let Some(SceneElement::GridCircle(0, g_id, x, y)) = self.candidate_element.as_ref() {
+            add_discs((*g_id, *x, *y), discs!(), DiscLevel::Candidate);
+        }
+        for c in app_state.get_candidates() {
+            if let Selection::Helix(0, h_id) = c {
+                if let Some(pos) = design.get_helix_grid_position(*h_id) {
+                    add_discs((pos.grid, pos.x, pos.y), discs!(), DiscLevel::Candidate)
+                };
+            }
+        }
+        for s in app_state.get_selection() {
+            if let Selection::Helix(0, h_id) = s {
+                if let Some(pos) = design.get_helix_grid_position(*h_id) {
+                    add_discs((pos.grid, pos.x, pos.y), discs!(), DiscLevel::Selection)
+                }
+            }
+        }
+        for design in self.designs.iter() {
             for grid in design.get_grid().iter().filter(|g| g.visible) {
                 for (x, y) in design.get_helices_grid_coord(grid.id) {
-                    let element = Some(SceneElement::GridCircle(d_id as u32, grid.id, x, y));
-                    if self.selected_element.as_ref() != element.as_ref()
-                        && self.candidate_element.as_ref() != element.as_ref()
-                    {
-                        let (d1, d2) = grid.disc(x, y, 0xAA_FF_FF_FF, d_id as u32);
-                        discs.push(d1);
-                        discs.push(d2);
-                    }
+                    add_discs((grid.id, x, y), discs!(), DiscLevel::Scene);
                 }
                 for ((x, y), h_id) in design.get_helices_grid_key_coord(grid.id) {
                     grid.letter_instance(x, y, h_id, &mut letters, right, up);
                 }
-            }
-        }
-        if let Some(SceneElement::GridCircle(d_id, g_id, x, y)) = self.selected_element.as_ref() {
-            if let Some(grid) = self.designs[*d_id as usize].get_grid().get(*g_id as usize) {
-                let (d1, d2) = grid.disc(*x, *y, 0xAA_FF_00_00, *d_id as u32);
-                discs.push(d1);
-                discs.push(d2);
-            }
-        }
-        if let Some(SceneElement::GridCircle(d_id, g_id, x, y)) = self.candidate_element.as_ref() {
-            if let Some(grid) = self.designs[*d_id as usize].get_grid().get(*g_id as usize) {
-                let (d1, d2) = grid.disc(*x, *y, 0xAA_00_FF_00, *d_id as u32);
-                discs.push(d1);
-                discs.push(d2);
             }
         }
         self.view.borrow_mut().update(ViewUpdate::GridDiscs(discs));
@@ -1267,20 +1272,20 @@ impl<R: DesignReader> Data<R> {
     }
 
     fn get_selected_basis<S: AppState>(&self, app_state: &S) -> Option<Rotor3> {
-        let from_selected_element = match self.selected_element.as_ref() {
+        let from_selected_element = match self.selected_element(app_state) {
             Some(SceneElement::DesignElement(d_id, _)) => match self
                 .get_sub_selection_mode(app_state)
             {
                 SelectionMode::Nucleotide | SelectionMode::Design | SelectionMode::Strand => None,
-                SelectionMode::Grid => Some(self.designs[*d_id as usize].get_basis()),
+                SelectionMode::Grid => Some(self.designs[d_id as usize].get_basis()),
                 SelectionMode::Helix => {
                     let h_id = self.get_selected_group(app_state)?;
                     if let Some(grid_position) =
-                        self.designs[*d_id as usize].get_helix_grid_position(h_id)
+                        self.designs[d_id as usize].get_helix_grid_position(h_id)
                     {
-                        self.designs[*d_id as usize].get_grid_basis(grid_position.grid)
+                        self.designs[d_id as usize].get_grid_basis(grid_position.grid)
                     } else {
-                        self.designs[*d_id as usize].get_helix_basis(h_id)
+                        self.designs[d_id as usize].get_helix_basis(h_id)
                     }
                 }
             },
@@ -1298,10 +1303,10 @@ impl<R: DesignReader> Data<R> {
                 }
             }
             Some(SceneElement::Grid(d_id, g_id)) => {
-                self.designs[*d_id as usize].get_grid_basis(*g_id)
+                self.designs[d_id as usize].get_grid_basis(g_id)
             }
             Some(SceneElement::GridCircle(d_id, g_id, _, _)) => {
-                self.designs[*d_id as usize].get_grid_basis(*g_id)
+                self.designs[d_id as usize].get_grid_basis(g_id)
             }
             _ => None,
         };
@@ -1325,7 +1330,7 @@ impl<R: DesignReader> Data<R> {
     }
 
     pub fn selection_can_rotate_freely<S: AppState>(&self, app_state: &S) -> bool {
-        let selected_element_can_rotate = match self.selected_element.as_ref() {
+        let selected_element_can_rotate = match self.selected_element(app_state) {
             Some(SceneElement::DesignElement(d_id, _)) => {
                 match self.get_sub_selection_mode(app_state) {
                     SelectionMode::Nucleotide
@@ -1334,7 +1339,7 @@ impl<R: DesignReader> Data<R> {
                     | SelectionMode::Grid => true,
                     SelectionMode::Helix => {
                         if let Some(h_id) = self.get_selected_group(app_state) {
-                            !self.designs[*d_id as usize].helix_is_on_grid(h_id)
+                            !self.designs[d_id as usize].helix_is_on_grid(h_id)
                         } else {
                             true
                         }
@@ -1462,10 +1467,124 @@ impl<R: DesignReader> Data<R> {
     }
 
     pub fn get_selected_element<S: AppState>(&self, app_state: &S) -> Selection {
-        if let Some(selection) = self.selected_element.as_ref() {
+        if let Some(selection) = self.selected_element(app_state).as_ref() {
             self.element_to_selection(selection, self.get_sub_selection_mode(app_state))
         } else {
             Selection::Nothing
+        }
+    }
+
+    fn selected_element<S: AppState>(&self, app_state: &S) -> Option<SceneElement> {
+        let center_of_selection = app_state.get_selected_element();
+        let provided_center =
+            center_of_selection.and_then(|s| self.center_of_selection_to_element(s));
+        provided_center.or_else(|| self.default_element(app_state))
+    }
+
+    fn center_of_selection_to_element(
+        &self,
+        center_of_selection: CenterOfSelection,
+    ) -> Option<SceneElement> {
+        match center_of_selection {
+            CenterOfSelection::Bound(d_id, n1, n2) => self
+                .designs
+                .get(d_id as usize)
+                .and_then(|d| {
+                    d.get_identifier_bound(n1, n2)
+                        .or_else(|| d.get_identifier_bound(n2, n1))
+                })
+                .map(|id| SceneElement::DesignElement(d_id, id)),
+            CenterOfSelection::Nucleotide(d_id, n1) => self
+                .designs
+                .get(d_id as usize)
+                .and_then(|d| d.get_identifier_nucl(&n1))
+                .map(|id| SceneElement::DesignElement(d_id, id)),
+            CenterOfSelection::GridPosition {
+                design,
+                grid_id,
+                x,
+                y,
+            } => Some(SceneElement::GridCircle(design, grid_id, x, y)),
+        }
+    }
+
+    /// Return a default selected element when no center of selection was provided
+    fn default_element<S: AppState>(&self, app_state: &S) -> Option<SceneElement> {
+        log::trace!("Using default element");
+        let selected_object = app_state.get_selection().get(0)?;
+        let design = selected_object
+            .get_design()
+            .and_then(|d_id| self.designs.get(d_id as usize))?;
+        match selected_object {
+            Selection::Helix(d_id, h_id) => {
+                if let Some(pos) = design.get_helix_grid_position(*h_id) {
+                    Some(SceneElement::GridCircle(*d_id, pos.grid, pos.x, pos.y))
+                } else {
+                    Some(SceneElement::PhantomElement(PhantomElement {
+                        design_id: *d_id,
+                        helix_id: *h_id,
+                        forward: true,
+                        bound: false,
+                        position: 0,
+                    }))
+                }
+            }
+            Selection::Bound(d_id, n1, n2) => design
+                .get_identifier_bound(*n1, *n2)
+                .or_else(|| design.get_identifier_bound(*n2, *n1))
+                .map(|bound_id| SceneElement::DesignElement(*d_id, bound_id)),
+            Selection::Nucleotide(d_id, nucl) => design
+                .get_identifier_nucl(nucl)
+                .map(|nucl_id| SceneElement::DesignElement(*d_id, nucl_id)),
+            Selection::Grid(d_id, g_id) => Some(SceneElement::GridCircle(*d_id, *g_id, 0, 0)),
+            Selection::Xover(d_id, xover_id) => design
+                .get_element_identifier_from_xover_id(*xover_id)
+                .map(|e_id| SceneElement::DesignElement(*d_id, e_id)),
+            _ => None,
+        }
+    }
+
+    fn scene_element_to_center_of_selection(
+        &self,
+        element: SceneElement,
+    ) -> Option<CenterOfSelection> {
+        match element {
+            SceneElement::PhantomElement(pe) => {
+                if pe.bound {
+                    Some(CenterOfSelection::Bound(
+                        pe.design_id,
+                        pe.to_nucl(),
+                        pe.to_nucl().prime3(),
+                    ))
+                } else {
+                    Some(CenterOfSelection::Nucleotide(pe.design_id, pe.to_nucl()))
+                }
+            }
+            SceneElement::Grid(design, grid_id) => Some(CenterOfSelection::GridPosition {
+                design,
+                grid_id,
+                x: 0,
+                y: 0,
+            }),
+            SceneElement::GridCircle(design, grid_id, x, y) => {
+                Some(CenterOfSelection::GridPosition {
+                    design,
+                    grid_id,
+                    x,
+                    y,
+                })
+            }
+            SceneElement::DesignElement(d_id, e_id) => {
+                self.designs.get(d_id as usize).and_then(|d| {
+                    d.get_nucl(e_id)
+                        .map(|n| CenterOfSelection::Nucleotide(d_id, n))
+                        .or_else(|| {
+                            d.get_bound(e_id)
+                                .map(|(n1, n2)| CenterOfSelection::Bound(d_id, n1, n2))
+                        })
+                })
+            }
+            SceneElement::WidgetElement(_) => None,
         }
     }
 }
@@ -1546,5 +1665,63 @@ impl<R: DesignReader> ControllerData for Data<R> {
 
     fn can_start_builder(&self, element: Option<SceneElement>) -> Option<Nucl> {
         self.can_start_builder(element)
+    }
+}
+
+type DiscPos = (usize, isize, isize);
+
+#[derive(Debug, Clone, PartialOrd, PartialEq)]
+enum DiscLevel {
+    Scene,
+    Selection,
+    Candidate,
+}
+
+impl DiscLevel {
+    fn color(&self) -> u32 {
+        match self {
+            Self::Candidate => 0xAA_00_FF_00,
+            Self::Selection => 0xAA_FF_00_00,
+            Self::Scene => 0xAA_FF_FF_FF,
+        }
+    }
+}
+
+struct Discs<'a, R: DesignReader> {
+    discs: &'a mut Vec<GridDisc>,
+    selection: &'a mut Vec<DiscPos>,
+    candidates: &'a mut Vec<DiscPos>,
+    design: &'a Design3D<R>,
+}
+
+fn add_discs<R: DesignReader>(pos: DiscPos, discs: Discs<R>, level: DiscLevel) {
+    if let Some(grid) = discs.design.get_grid().get(pos.0) {
+        let new_disc_instances = match level {
+            DiscLevel::Candidate => {
+                discs.candidates.push(pos);
+                Some(grid.disc(pos.1, pos.2, level.color(), 0))
+            }
+            DiscLevel::Selection => {
+                if !discs.candidates.contains(&pos) {
+                    discs.selection.push(pos);
+                    Some(grid.disc(pos.1, pos.2, level.color(), 0))
+                } else {
+                    None
+                }
+            }
+            DiscLevel::Scene => {
+                if !discs.candidates.contains(&pos) && !discs.selection.contains(&pos) {
+                    Some(grid.disc(pos.1, pos.2, level.color(), 0))
+                } else {
+                    None
+                }
+            }
+        };
+        if let Some((d1, d2)) = new_disc_instances {
+            discs.discs.push(d1);
+            discs.discs.push(d2);
+        }
+    } else {
+        log::error!("Could not get grid {:?}", pos.0);
     }
 }

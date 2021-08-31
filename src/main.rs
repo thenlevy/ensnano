@@ -86,7 +86,7 @@ use controller::{ChanelReader, ChanelReaderUpdate, SimulationRequest};
 use ensnano_design::Nucl;
 use ensnano_interactor::application::{Application, Notification};
 use ensnano_interactor::graphics::FogParameters;
-use ensnano_interactor::{DesignOperation, DesignReader, RigidBodyConstants};
+use ensnano_interactor::{CenterOfSelection, DesignOperation, DesignReader, RigidBodyConstants};
 use iced_native::Event as IcedEvent;
 use iced_wgpu::{wgpu, Backend, Renderer, Settings, Viewport};
 use iced_winit::winit::event::VirtualKeyCode;
@@ -110,6 +110,9 @@ const MUST_TEST: bool = false;
 
 #[cfg(test)]
 const MUST_TEST: bool = true;
+
+#[macro_use]
+extern crate pretty_env_logger;
 
 mod consts;
 /// Design handling
@@ -192,6 +195,7 @@ fn convert_size_u32(size: PhySize) -> Size<u32> {
 ///
 ///
 fn main() {
+    pretty_env_logger::init();
     // parse arugments, if an argument was given it is treated as a file to open
     let args: Vec<String> = env::args().collect();
     let path = if args.len() >= 2 {
@@ -886,6 +890,10 @@ impl MainState {
 
     fn update_selection(&mut self, selection: Vec<Selection>) {
         self.modify_state(|s| s.with_selection(selection), true);
+    }
+
+    fn update_center_of_selection(&mut self, center: Option<CenterOfSelection>) {
+        self.modify_state(|s| s.with_center_of_selection(center), false)
     }
 
     fn apply_copy_operation(&mut self, operation: CopyOperation) {

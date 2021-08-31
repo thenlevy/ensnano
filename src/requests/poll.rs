@@ -330,6 +330,9 @@ pub(crate) fn poll_all<R: DerefMut<Target = Requests>>(
 
     if let Some(selection) = requests.new_selection.take() {
         main_state.update_selection(selection);
+        if let Some(center) = requests.new_center_of_selection.take() {
+            main_state.update_center_of_selection(center);
+        }
     }
 
     if requests.toggle_widget_basis.take().is_some() {
