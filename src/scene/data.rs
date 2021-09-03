@@ -157,7 +157,7 @@ impl<R: DesignReader> Data<R> {
     }
 
     fn update_handle<S: AppState>(&self, app_state: &S) {
-        println!("updating handle {:?} ", self.selected_element(app_state));
+        log::debug!("updating handle {:?} ", self.selected_element(app_state));
         let origin = self.get_selected_position();
         let orientation = self.get_widget_basis(app_state);
         let handle_descr = if app_state.get_action_mode().0.wants_handle() {
@@ -172,7 +172,7 @@ impl<R: DesignReader> Data<R> {
         } else {
             None
         };
-        println!("{:?}", handle_descr);
+        log::debug!("{:?}", handle_descr);
         self.view
             .borrow_mut()
             .update(ViewUpdate::Handles(handle_descr));
@@ -631,7 +631,7 @@ impl<R: DesignReader> Data<R> {
         if let Some(SceneElement::WidgetElement(_)) = element {
             return (None, None);
         }
-        println!("selected {:?}", element);
+        log::debug!("selected {:?}", element);
         let future_selection = element.clone();
         let new_center_of_selection =
             element.and_then(|element| self.scene_element_to_center_of_selection(element));
@@ -641,7 +641,7 @@ impl<R: DesignReader> Data<R> {
             self.sub_selection_mode = SelectionMode::Nucleotide;
         }
         self.update_selected_position(app_state);
-        println!("selected position: {:?}", self.selected_position);
+        log::debug!("selected position: {:?}", self.selected_position);
         let selection_mode = if app_state.get_selection_mode() == SelectionMode::Nucleotide {
             self.sub_selection_mode
         } else {
@@ -735,7 +735,7 @@ impl<R: DesignReader> Data<R> {
     }
 
     fn update_selected_position<S: AppState>(&mut self, app_state: &S) {
-        println!("updating selected position");
+        log::trace!("updating selected position");
         let selection_mode = self.get_sub_selection_mode(app_state);
         self.selected_position = {
             if let Some(element) = self.selected_element(app_state).as_ref() {
@@ -938,7 +938,14 @@ impl<R: DesignReader> Data<R> {
                 }
             }
             SceneElement::Grid(d_id, g_id) => Selection::Grid(*d_id, *g_id),
-            SceneElement::GridCircle(d_id, g_id, _, _) => Selection::Grid(*d_id, *g_id),
+            SceneElement::GridCircle(d_id, g_id, x, y) => {
+                let helix = self
+                    .designs
+                    .get(*d_id as usize)
+                    .and_then(|d| d.get_helix_grid(*g_id, *x, *y))
+                    .map(|h_id| Selection::Helix(*d_id, h_id));
+                helix.unwrap_or(Selection::Grid(*d_id, *g_id))
+            }
             SceneElement::PhantomElement(phantom) if phantom.bound => Selection::Bound(
                 phantom.design_id,
                 phantom.to_nucl(),
@@ -980,6 +987,11 @@ impl<R: DesignReader> Data<R> {
         element: Option<SceneElement>,
         app_state: &S,
     ) -> Option<Selection> {
+        if log::log_enabled!(log::Level::Info) {
+            if element.is_some() {
+                log::debug!("candidate {:?}", element);
+            }
+        }
         self.candidate_element = element;
         let future_candidates = if let Some(element) = element.as_ref() {
             let selection = self.element_to_selection(element, app_state.get_selection_mode());
@@ -1142,7 +1154,6 @@ impl<R: DesignReader> Data<R> {
                 cones.push(cone);
             }
         }
-        println!("nb sphres {}", spheres.len());
         self.update_free_xover();
         self.view
             .borrow_mut()
@@ -1192,9 +1203,15 @@ impl<R: DesignReader> Data<R> {
                 }
             };
         }
-        if let Some(SceneElement::GridCircle(0, g_id, x, y)) = self.candidate_element.as_ref() {
-            add_discs((*g_id, *x, *y), discs!(), DiscLevel::Candidate);
+
+        // If we are building helices, we want to show candidates grid circle even when they do not
+        // correspond to an existing helix
+        if app_state.get_action_mode().0.is_build() {
+            if let Some(SceneElement::GridCircle(0, g_id, x, y)) = self.candidate_element.as_ref() {
+                add_discs((*g_id, *x, *y), discs!(), DiscLevel::Candidate);
+            }
         }
+
         for c in app_state.get_candidates() {
             if let Selection::Helix(0, h_id) = c {
                 if let Some(pos) = design.get_helix_grid_position(*h_id) {
@@ -1202,6 +1219,7 @@ impl<R: DesignReader> Data<R> {
                 };
             }
         }
+
         for s in app_state.get_selection() {
             if let Selection::Helix(0, h_id) = s {
                 if let Some(pos) = design.get_helix_grid_position(*h_id) {
@@ -1665,6 +1683,12 @@ impl<R: DesignReader> ControllerData for Data<R> {
 
     fn can_start_builder(&self, element: Option<SceneElement>) -> Option<Nucl> {
         self.can_start_builder(element)
+    }
+
+    fn get_grid_helix(&self, grid_id: usize, x: isize, y: isize) -> Option<u32> {
+        self.designs
+            .get(0)
+            .and_then(|d| d.get_helix_grid(grid_id, x, y))
     }
 }
 

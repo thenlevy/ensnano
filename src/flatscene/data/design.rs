@@ -62,7 +62,7 @@ impl Design2d {
     /// Re-read the design and update the 2d data accordingly
     pub fn update<R: DesignReader>(&mut self, design: R) {
         self.design = Box::new(design);
-        println!("updating design");
+        log::trace!("updating design");
         // At the moment we rebuild the strands from scratch. If needed, this might be an optimisation
         // target
         self.strands = Vec::new();
@@ -75,7 +75,7 @@ impl Design2d {
             // corresponds to an existing strand id.
             let strand = strand_opt.unwrap();
             let color = self.design.get_strand_color(*strand_id).unwrap_or_else(|| {
-                println!("Warning: could not find strand color, this is not normal");
+                log::warn!("Warning: could not find strand color, this is not normal");
                 0
             });
             for nucl in strand.iter() {
@@ -124,7 +124,7 @@ impl Design2d {
         for h in self.helices.iter_mut() {
             h.force_positive_size();
         }
-        println!("done");
+        log::trace!("done");
     }
 
     pub fn suggestions(&self) -> Vec<(FlatNucl, FlatNucl)> {

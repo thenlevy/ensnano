@@ -100,28 +100,24 @@ impl<S: AppState> ControllerState<S> for NormalState {
             WindowEvent::CursorMoved { .. } => {
                 self.mouse_position = position;
                 let element = pixel_reader.set_selected_id(position);
-                if app_state.get_action_mode().0.is_build() {
-                    if let Some(SceneElement::Grid(d_id, _)) = element {
-                        let mouse_x = position.x / controller.area_size.width as f64;
-                        let mouse_y = position.y / controller.area_size.height as f64;
-                        let candidate = if let Some(intersection) = controller
-                            .view
-                            .borrow()
-                            .grid_intersection(mouse_x as f32, mouse_y as f32)
-                        {
-                            Some(SceneElement::GridCircle(
-                                d_id,
-                                intersection.grid_id,
-                                intersection.x,
-                                intersection.y,
-                            ))
-                        } else {
-                            element
-                        };
-                        Transition::consequence(Consequence::Candidate(candidate))
+                if let Some(SceneElement::Grid(d_id, _)) = element {
+                    let mouse_x = position.x / controller.area_size.width as f64;
+                    let mouse_y = position.y / controller.area_size.height as f64;
+                    let candidate = if let Some(intersection) = controller
+                        .view
+                        .borrow()
+                        .grid_intersection(mouse_x as f32, mouse_y as f32)
+                    {
+                        Some(SceneElement::GridCircle(
+                            d_id,
+                            intersection.grid_id,
+                            intersection.x,
+                            intersection.y,
+                        ))
                     } else {
-                        Transition::consequence(Consequence::Candidate(element))
-                    }
+                        element
+                    };
+                    Transition::consequence(Consequence::Candidate(candidate))
                 } else {
                     Transition::consequence(Consequence::Candidate(element))
                 }
@@ -158,6 +154,7 @@ impl<S: AppState> ControllerState<S> for NormalState {
                 ..
             } => {
                 let element = pixel_reader.set_selected_id(position);
+                log::info!("Clicked on {:?}", element);
                 match element {
                     Some(SceneElement::GridCircle(d_id, g_id, x, y)) => {
                         if let ActionMode::BuildHelix {
@@ -204,17 +201,33 @@ impl<S: AppState> ControllerState<S> for NormalState {
                         } = app_state.get_action_mode().0
                         {
                             if let Some(intersection) = grid_intersection {
-                                Transition {
-                                    new_state: Some(Box::new(BuildingHelix {
-                                        position_helix: helix_position,
-                                        length_helix: length,
-                                        x_helix: intersection.x,
-                                        y_helix: intersection.y,
-                                        grid_id: intersection.grid_id,
-                                        design_id: d_id,
-                                        clicked_position: position,
-                                    })),
-                                    consequences: Consequence::Nothing,
+                                if let Some(helix) = controller.data.borrow().get_grid_helix(
+                                    intersection.grid_id,
+                                    intersection.x,
+                                    intersection.y,
+                                ) {
+                                    Transition {
+                                        new_state: Some(Box::new(TranslatingHelix {
+                                            grid_id: intersection.grid_id,
+                                            helix_id: helix as usize,
+                                            x: intersection.x,
+                                            y: intersection.y,
+                                        })),
+                                        consequences: Consequence::HelixSelected(helix as usize),
+                                    }
+                                } else {
+                                    Transition {
+                                        new_state: Some(Box::new(BuildingHelix {
+                                            position_helix: helix_position,
+                                            length_helix: length,
+                                            x_helix: intersection.x,
+                                            y_helix: intersection.y,
+                                            grid_id: intersection.grid_id,
+                                            design_id: d_id,
+                                            clicked_position: position,
+                                        })),
+                                        consequences: Consequence::Nothing,
+                                    }
                                 }
                             } else {
                                 Transition {
@@ -230,26 +243,48 @@ impl<S: AppState> ControllerState<S> for NormalState {
                                 }
                             }
                         } else {
-                            let element = if let Some(intersection) = grid_intersection {
-                                Some(SceneElement::GridCircle(
+                            let clicked_element;
+                            let helix;
+                            if let Some(intersection) = grid_intersection.as_ref() {
+                                clicked_element = Some(SceneElement::GridCircle(
                                     d_id,
                                     intersection.grid_id,
                                     intersection.x,
                                     intersection.y,
-                                ))
+                                ));
+                                helix = controller.data.borrow().get_grid_helix(
+                                    intersection.grid_id,
+                                    intersection.x,
+                                    intersection.y,
+                                );
                             } else {
-                                element
+                                clicked_element = element;
+                                helix = None;
                             };
-                            Transition {
-                                new_state: Some(Box::new(Selecting {
-                                    element,
-                                    clicked_position: position,
-                                    mouse_position: position,
-                                    click_date: Instant::now(),
-                                    adding: controller.current_modifiers.shift()
-                                        | ctrl(&controller.current_modifiers),
-                                })),
-                                consequences: Consequence::Nothing,
+                            if let Some(h_id) = helix {
+                                // if helix is Some, intersection is also Some
+                                let intersection = grid_intersection.unwrap();
+                                Transition {
+                                    new_state: Some(Box::new(TranslatingHelix {
+                                        grid_id: intersection.grid_id,
+                                        helix_id: h_id as usize,
+                                        x: intersection.x,
+                                        y: intersection.y,
+                                    })),
+                                    consequences: Consequence::HelixSelected(h_id as usize),
+                                }
+                            } else {
+                                Transition {
+                                    new_state: Some(Box::new(Selecting {
+                                        element: clicked_element,
+                                        clicked_position: position,
+                                        mouse_position: position,
+                                        click_date: Instant::now(),
+                                        adding: controller.current_modifiers.shift()
+                                            | ctrl(&controller.current_modifiers),
+                                    })),
+                                    consequences: Consequence::Nothing,
+                                }
                             }
                         }
                     }
@@ -680,6 +715,70 @@ impl<S: AppState> ControllerState<S> for TranslatingWidget {
                 let mouse_x = position.x / controller.area_size.width as f64;
                 let mouse_y = position.y / controller.area_size.height as f64;
                 Transition::consequence(Consequence::Translation(self.direction, mouse_x, mouse_y))
+            }
+            _ => Transition::nothing(),
+        }
+    }
+}
+
+struct TranslatingHelix {
+    helix_id: usize,
+    grid_id: usize,
+    x: isize,
+    y: isize,
+}
+
+impl<S: AppState> ControllerState<S> for TranslatingHelix {
+    fn display(&self) -> Cow<'static, str> {
+        format!(
+            "Translating helix {} on grid {}",
+            self.helix_id, self.grid_id
+        )
+        .into()
+    }
+
+    fn input(
+        &mut self,
+        event: &WindowEvent,
+        position: PhysicalPosition<f64>,
+        controller: &Controller<S>,
+        pixel_reader: &mut ElementSelector,
+        app_state: &S,
+    ) -> Transition<S> {
+        match event {
+            WindowEvent::MouseInput {
+                button: MouseButton::Left,
+                state: ElementState::Released,
+                ..
+            } => Transition {
+                new_state: Some(Box::new(NormalState {
+                    mouse_position: position,
+                })),
+                consequences: Consequence::MovementEnded,
+            },
+            WindowEvent::CursorMoved { .. } => {
+                let mouse_x = position.x / controller.area_size.width as f64;
+                let mouse_y = position.y / controller.area_size.height as f64;
+                if let Some(intersection) = controller.view.borrow().specific_grid_intersection(
+                    mouse_x as f32,
+                    mouse_y as f32,
+                    self.grid_id,
+                ) {
+                    if intersection.x != self.x || intersection.y != self.y {
+                        self.x = intersection.x;
+                        self.y = intersection.y;
+                        Transition::consequence(Consequence::HelixTranslated {
+                            helix: self.helix_id,
+                            grid: self.grid_id,
+                            x: intersection.x,
+                            y: intersection.y,
+                        })
+                    } else {
+                        Transition::nothing()
+                    }
+                } else {
+                    Transition::nothing()
+                }
             }
             _ => Transition::nothing(),
         }
