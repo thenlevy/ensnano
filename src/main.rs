@@ -210,7 +210,7 @@ fn main() {
     window.set_title("ENSnano");
     window.set_min_inner_size(Some(PhySize::new(100, 100)));
 
-    println!("scale factor {}", window.scale_factor());
+    log::info!("scale factor {}", window.scale_factor());
 
     let modifiers = ModifiersState::default();
 
@@ -499,7 +499,7 @@ fn main() {
                             main_state.pending_actions.push_back(Action::ErrorMsg(msg));
                         } else {
                             // unwrap because in this block, result is necessarilly an Err
-                            println!("{:?}", result.err().unwrap());
+                            log::warn!("{:?}", result.err().unwrap());
                         }
                     } else if let ChanelReaderUpdate::SimulationUpdate(update) = update {
                         main_state.app_state.apply_simulation_update(update)
@@ -552,7 +552,7 @@ fn main() {
                 if scale_factor_changed {
                     multiplexer.generate_textures();
                     gui.notify_scale_factor_change(&window, &multiplexer);
-                    println!("lolz");
+                    log::info!("Notified of scale factor change: {}", window.scale_factor());
                     scheduler.forward_new_size(window.inner_size(), &multiplexer);
                     let window_size = window.inner_size();
 
@@ -623,7 +623,7 @@ fn main() {
 
                     local_pool.run_until_stalled();
                 } else {
-                    println!("Error getting next frame, attempt to recreate swap chain");
+                    log::warn!("Error getting next frame, attempt to recreate swap chain");
                     resized = true;
                 }
             }
@@ -664,7 +664,7 @@ impl OverlayManager {
     fn forward_event(&mut self, event: IcedEvent, n: usize) {
         match self.overlay_types.get(n) {
             None => {
-                println!("recieve event from non existing overlay");
+                log::error!("recieve event from non existing overlay");
                 unreachable!();
             }
             Some(OverlayType::Color) => self.color_state.queue_event(event),
@@ -949,7 +949,7 @@ impl MainState {
     fn apply_silent_operation(&mut self, operation: DesignOperation) {
         match self.app_state.apply_design_op(operation) {
             Ok(_) => (),
-            Err(e) => println!("{:?}", e),
+            Err(e) => log::warn!("{:?}", e),
         }
     }
 
@@ -1012,7 +1012,7 @@ impl MainState {
         match result {
             Ok(Some(old_state)) => self.save_old_state(old_state),
             Ok(None) => (),
-            Err(e) => println!("{:?}", e),
+            Err(e) => log::warn!("{:?}", e),
         }
     }
 
@@ -1032,7 +1032,7 @@ impl MainState {
     }
 
     fn apply_paste(&mut self) {
-        println!("apply paste");
+        log::info!("apply paste");
         match self.app_state.is_pasting() {
             PastingStatus::Copy => self.apply_copy_operation(CopyOperation::Paste),
             PastingStatus::Duplication => self.apply_copy_operation(CopyOperation::Duplicate),

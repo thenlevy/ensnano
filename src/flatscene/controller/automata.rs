@@ -124,7 +124,10 @@ impl<S: AppState> ControllerState<S> for NormalState {
                 state,
                 ..
             } => {
-                println!("pasting: {}", app_state.is_pasting());
+                log::debug!(
+                    "On left button pressed, pasting = {}",
+                    app_state.is_pasting()
+                );
                 /*assert!(
                     *state == ElementState::Pressed,
                     "Released mouse button in normal mode"
@@ -388,17 +391,27 @@ impl<S: AppState> ControllerState<S> for NormalState {
                     .get_camera(position.y)
                     .borrow()
                     .screen_to_world(self.mouse_position.x as f32, self.mouse_position.y as f32);
-                let pivot_opt = if let ClickResult::Nucl(nucl) =
+                let click_result =
                     controller
                         .data
                         .borrow()
-                        .get_click(x, y, &controller.get_camera(position.y))
-                {
+                        .get_click(x, y, &controller.get_camera(position.y));
+                let candidate_helix =
+                    if let ClickResult::CircleWidget { translation_pivot } = click_result {
+                        Some(translation_pivot.helix)
+                    } else {
+                        None
+                    };
+                let pivot_opt = if let ClickResult::Nucl(nucl) = click_result {
                     Some(nucl)
                 } else {
                     None
                 };
-                Transition::consequence(Consequence::NewCandidate(pivot_opt))
+                if let Some(helix) = candidate_helix {
+                    Transition::consequence(Consequence::NewHelixCandidate(helix))
+                } else {
+                    Transition::consequence(Consequence::NewCandidate(pivot_opt))
+                }
             }
             WindowEvent::MouseWheel { delta, .. } => {
                 controller
@@ -862,17 +875,27 @@ impl<S: AppState> ControllerState<S> for ReleasedPivot {
                     .get_camera(position.y)
                     .borrow()
                     .screen_to_world(self.mouse_position.x as f32, self.mouse_position.y as f32);
-                let pivot_opt = if let ClickResult::Nucl(nucl) =
+                let click_result =
                     controller
                         .data
                         .borrow()
-                        .get_click(x, y, &controller.get_camera(position.y))
-                {
+                        .get_click(x, y, &controller.get_camera(position.y));
+                let candidate_helix =
+                    if let ClickResult::CircleWidget { translation_pivot } = click_result {
+                        Some(translation_pivot.helix)
+                    } else {
+                        None
+                    };
+                let pivot_opt = if let ClickResult::Nucl(nucl) = click_result {
                     Some(nucl)
                 } else {
                     None
                 };
-                Transition::consequence(Consequence::NewCandidate(pivot_opt))
+                if let Some(helix) = candidate_helix {
+                    Transition::consequence(Consequence::NewHelixCandidate(helix))
+                } else {
+                    Transition::consequence(Consequence::NewCandidate(pivot_opt))
+                }
             }
             WindowEvent::KeyboardInput { .. } => {
                 controller.process_keyboard(event);
@@ -1302,7 +1325,7 @@ impl<S: AppState> ControllerState<S> for InitAttachement {
                 if *state == ElementState::Pressed {
                     return Transition::nothing();
                 }
-                println!("from {:?} to {:?}", self.from, self.to);
+                log::debug!("transition from {:?} to {:?}", self.from, self.to);
                 Transition {
                     new_state: Some(Box::new(NormalState {
                         mouse_position: self.mouse_position,

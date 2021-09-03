@@ -62,6 +62,7 @@ pub enum Consequence {
     FreeEnd(Option<FreeEnd>),
     CutFreeEnd(FlatNucl, Option<FreeEnd>),
     NewCandidate(Option<FlatNucl>),
+    NewHelixCandidate(FlatHelix),
     RmStrand(FlatNucl),
     RmHelix(FlatHelix),
     FlipVisibility(FlatHelix, bool),
@@ -186,7 +187,7 @@ impl<S: AppState> Controller<S> {
         };
 
         if let Some(state) = transition.new_state {
-            println!("{}", state.display());
+            log::info!("2D automata state: {}", state.display());
             self.state.borrow().transition_from(&self);
             self.state = RefCell::new(state);
             self.state.borrow().transition_to(&self);

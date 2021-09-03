@@ -82,7 +82,7 @@ impl Data {
             || self.instance_update
             || self.view.borrow().needs_redraw()
         {
-            println!("update");
+            log::trace!("updating 2d data");
             self.design.update(new_state.get_design_reader());
             self.fetch_helices(new_state.get_design_reader());
             self.view.borrow_mut().update_helices(&self.helices);
@@ -548,7 +548,7 @@ impl Data {
             .or(self.design.prime3_of(nucl2));
 
         if strand_3prime.is_none() || strand_5prime.is_none() {
-            println!("Problem during cross-over attempt. If you are not trying to break a cyclic strand please repport a bug");
+            log::error!("Problem during cross-over attempt. If you are not trying to break a cyclic strand please repport a bug");
         }
         (strand_5prime.unwrap(), strand_3prime.unwrap())
     }
@@ -622,12 +622,16 @@ impl Data {
         let selection_mode = app_state.get_selection_mode();
         if selection_mode == SelectionMode::Strand {
             self.select_strands_rectangle(camera, c1, c2, adding, &mut new_selection);
-            return GraphicalSelection::selection_only(new_selection);
+            if !new_selection.is_empty() {
+                return GraphicalSelection::selection_only(new_selection);
+            }
         } else if selection_mode == SelectionMode::Nucleotide {
             self.select_xovers_rectangle(camera, c1, c2, adding, &mut new_selection);
-            return GraphicalSelection::selection_only(new_selection);
+            if !new_selection.is_empty() {
+                return GraphicalSelection::selection_only(new_selection);
+            }
         }
-        println!("{:?} {:?}", c1, c2);
+        log::debug!("rectangle selection: {:?} {:?}", c1, c2);
         let mut translation_pivots = vec![];
         let mut rotation_pivots = vec![];
         let mut selection = Vec::new();
@@ -715,7 +719,13 @@ impl Data {
         let right = x1.max(x2);
         let top = y1.min(y2);
         let bottom = y1.max(y2);
-        println!("{}, {}, {}, {}", left, top, right, bottom);
+        log::debug!(
+            "rectangle corners: {}, {}, {}, {}",
+            left,
+            top,
+            right,
+            bottom
+        );
         let mut selection = BTreeSet::new();
         for (xover_id, (flat_1, flat_2)) in self.design.get_xovers_list() {
             let h1 = &self.helices[flat_1.helix.flat];
@@ -742,7 +752,7 @@ impl Data {
         } else {
             *new_selection = selection;
         }
-        println!("selection {:?}", new_selection);
+        log::debug!("returned selection {:?}", new_selection);
     }
 
     fn add_long_xover_rectangle(&self, selection: &mut Vec<Selection>, c1: Vec2, c2: Vec2) {
@@ -775,7 +785,7 @@ impl Data {
         let right = x1.max(x2);
         let top = y1.min(y2);
         let bottom = y1.max(y2);
-        println!("{}, {}, {}, {}", left, top, right, bottom);
+        log::debug!("rectangle corner {}, {}, {}, {}", left, top, right, bottom);
         let mut selection = BTreeSet::new();
         for s in self.design.get_strands().iter() {
             for n in s.points.iter() {
