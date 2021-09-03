@@ -788,6 +788,16 @@ impl View {
         self.grid_manager.intersect(ray.0, ray.1)
     }
 
+    pub fn specific_grid_intersection(
+        &self,
+        x_ndc: f32,
+        y_ndc: f32,
+        g_id: usize,
+    ) -> Option<GridIntersection> {
+        let ray = maths_3d::cast_ray(x_ndc, y_ndc, self.camera.clone(), self.projection.clone());
+        self.grid_manager.specific_intersect(ray.0, ray.1, g_id)
+    }
+
     pub fn set_candidate_grid(&mut self, grids: Vec<(usize, usize)>) {
         self.grid_manager.set_candidate_grid(grids)
     }

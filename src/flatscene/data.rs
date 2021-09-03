@@ -622,10 +622,14 @@ impl Data {
         let selection_mode = app_state.get_selection_mode();
         if selection_mode == SelectionMode::Strand {
             self.select_strands_rectangle(camera, c1, c2, adding, &mut new_selection);
-            return GraphicalSelection::selection_only(new_selection);
+            if !new_selection.is_empty() {
+                return GraphicalSelection::selection_only(new_selection);
+            }
         } else if selection_mode == SelectionMode::Nucleotide {
             self.select_xovers_rectangle(camera, c1, c2, adding, &mut new_selection);
-            return GraphicalSelection::selection_only(new_selection);
+            if !new_selection.is_empty() {
+                return GraphicalSelection::selection_only(new_selection);
+            }
         }
         log::debug!("rectangle selection: {:?} {:?}", c1, c2);
         let mut translation_pivots = vec![];

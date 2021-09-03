@@ -288,6 +288,17 @@ impl GridManager {
         ret
     }
 
+    pub fn specific_intersect(
+        &self,
+        origin: Vec3,
+        direction: Vec3,
+        grid_id: usize,
+    ) -> Option<GridIntersection> {
+        self.instances
+            .get(grid_id)
+            .and_then(|g| g.ray_intersection(origin, direction))
+    }
+
     pub fn set_candidate_grid(&mut self, grids: Vec<(usize, usize)>) {
         self.need_new_colors = true;
         self.candidate = grids

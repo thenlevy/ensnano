@@ -197,6 +197,12 @@ pub enum DesignOperation {
     FlipAnchors {
         nucls: Vec<Nucl>,
     },
+    AttachHelix {
+        helix: usize,
+        grid: usize,
+        x: isize,
+        y: isize,
+    },
 }
 
 /// An action performed on the application

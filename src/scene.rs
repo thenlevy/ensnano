@@ -1,4 +1,3 @@
-use ensnano_interactor::CenterOfSelection;
 /*
 ENSnano, a 3d graphical application for DNA nanostructures.
     Copyright (C) 2021  Nicolas Levy <nicolaspierrelevy@gmail.com> and Nicolas Schabanel <nicolas.schabanel@ens-lyon.fr>
@@ -31,7 +30,8 @@ use ensnano_interactor::{
     application::{AppId, Application, Notification},
     list_of_grids, list_of_helices,
     operation::*,
-    ActionMode, DesignOperation, Selection, SelectionMode, StrandBuilder, WidgetBasis,
+    ActionMode, CenterOfSelection, DesignOperation, Selection, SelectionMode, StrandBuilder,
+    WidgetBasis,
 };
 use instance::Instance;
 use utils::instance;
@@ -189,9 +189,21 @@ impl<S: AppState> Scene<S> {
                     self.translate_selected_design(t, app_state);
                 }
             }
+            Consequence::HelixTranslated { helix, grid, x, y } => {
+                log::info!("Moving helix {} to grid {} ({} {})", helix, grid, x, y);
+                self.requests
+                    .lock()
+                    .unwrap()
+                    .apply_design_operation(DesignOperation::AttachHelix { helix, grid, x, y });
+            }
             Consequence::MovementEnded => {
                 self.requests.lock().unwrap().suspend_op();
             }
+            Consequence::HelixSelected(h_id) => self
+                .requests
+                .lock()
+                .unwrap()
+                .set_selection(vec![Selection::Helix(0, h_id as u32)], None),
             Consequence::InitRotation(x, y) => {
                 self.view.borrow_mut().init_rotation(x as f32, y as f32)
             }

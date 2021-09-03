@@ -1203,19 +1203,20 @@ impl<R: DesignReader> Data<R> {
                 }
             };
         }
-        if let Some(SceneElement::GridCircle(0, g_id, x, y)) = self.candidate_element.as_ref() {
-            add_discs((*g_id, *x, *y), discs!(), DiscLevel::Candidate);
-        }
 
         // If we are building helices, we want to show candidates grid circle even when they do not
         // correspond to an existing helix
         if app_state.get_action_mode().0.is_build() {
-            for c in app_state.get_candidates() {
-                if let Selection::Helix(0, h_id) = c {
-                    if let Some(pos) = design.get_helix_grid_position(*h_id) {
-                        add_discs((pos.grid, pos.x, pos.y), discs!(), DiscLevel::Candidate)
-                    };
-                }
+            if let Some(SceneElement::GridCircle(0, g_id, x, y)) = self.candidate_element.as_ref() {
+                add_discs((*g_id, *x, *y), discs!(), DiscLevel::Candidate);
+            }
+        }
+
+        for c in app_state.get_candidates() {
+            if let Selection::Helix(0, h_id) = c {
+                if let Some(pos) = design.get_helix_grid_position(*h_id) {
+                    add_discs((pos.grid, pos.x, pos.y), discs!(), DiscLevel::Candidate)
+                };
             }
         }
 
@@ -1682,6 +1683,12 @@ impl<R: DesignReader> ControllerData for Data<R> {
 
     fn can_start_builder(&self, element: Option<SceneElement>) -> Option<Nucl> {
         self.can_start_builder(element)
+    }
+
+    fn get_grid_helix(&self, grid_id: usize, x: isize, y: isize) -> Option<u32> {
+        self.designs
+            .get(0)
+            .and_then(|d| d.get_helix_grid(grid_id, x, y))
     }
 }
 

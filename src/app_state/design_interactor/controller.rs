@@ -202,6 +202,9 @@ impl Controller {
             DesignOperation::RmGrid(_) => Err(ErrOperation::NotImplemented), // TODO
             DesignOperation::ChangeSequence { .. } => Err(ErrOperation::NotImplemented), // TODO
             DesignOperation::CleanDesign => Err(ErrOperation::NotImplemented), // TODO
+            DesignOperation::AttachHelix { helix, grid, x, y } => {
+                self.apply(|c, d| c.attach_helix(d, helix, grid, x, y), design)
+            }
         }
     }
 
@@ -863,6 +866,52 @@ impl Controller {
             IsometryTarget::Grids(grid_ids) => {
                 Ok(self.translate_grids(design, grid_ids, translation.translation))
             }
+        }
+    }
+
+    fn attach_helix(
+        &mut self,
+        mut design: Design,
+        helix: usize,
+        grid: usize,
+        x: isize,
+        y: isize,
+    ) -> Result<Design, ErrOperation> {
+        self.update_state_and_design(&mut design);
+        let grid_manager = GridManager::new_from_design(&design);
+        if matches!(grid_manager.pos_to_helix(grid, x, y), Some(h_id) if h_id != helix) {
+            Err(ErrOperation::GridPositionAlreadyUsed)
+        } else {
+            let mut new_helices = BTreeMap::clone(design.helices.as_ref());
+            let helix_ref = new_helices
+                .get_mut(&helix)
+                .ok_or(ErrOperation::HelixDoesNotExists(helix))?;
+            // take previous axis position if there were one
+            let axis_pos = helix_ref
+                .grid_position
+                .map(|pos| pos.axis_pos)
+                .unwrap_or_default();
+            let roll = helix_ref
+                .grid_position
+                .map(|pos| pos.roll)
+                .unwrap_or_default();
+            let grid_ref = grid_manager
+                .grids
+                .get(grid)
+                .ok_or(ErrOperation::GridDoesNotExist(grid))?;
+            let helix = Helix::new_on_grid(grid_ref, x, y, grid);
+            mutate_in_arc(helix_ref, |h| {
+                h.grid_position = Some(GridPosition {
+                    grid,
+                    x,
+                    y,
+                    axis_pos,
+                    roll: 0f32,
+                });
+                h.position = helix.position;
+            });
+            design.helices = Arc::new(new_helices);
+            Ok(design)
         }
     }
 

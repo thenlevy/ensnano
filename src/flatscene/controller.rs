@@ -62,6 +62,7 @@ pub enum Consequence {
     FreeEnd(Option<FreeEnd>),
     CutFreeEnd(FlatNucl, Option<FreeEnd>),
     NewCandidate(Option<FlatNucl>),
+    NewHelixCandidate(FlatHelix),
     RmStrand(FlatNucl),
     RmHelix(FlatHelix),
     FlipVisibility(FlatHelix, bool),

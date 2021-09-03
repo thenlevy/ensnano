@@ -99,6 +99,13 @@ pub enum Consequence {
     Paste(Option<super::SceneElement>),
     DoubleClick(Option<super::SceneElement>),
     InitBuild(Nucl),
+    HelixTranslated {
+        helix: usize,
+        grid: usize,
+        x: isize,
+        y: isize,
+    },
+    HelixSelected(usize),
 }
 
 enum TransistionConsequence {
@@ -335,4 +342,5 @@ pub(super) trait Data {
         dest: &Option<SceneElement>,
     ) -> Option<(Nucl, Nucl, usize)>;
     fn can_start_builder(&self, element: Option<SceneElement>) -> Option<Nucl>;
+    fn get_grid_helix(&self, grid_id: usize, x: isize, y: isize) -> Option<u32>;
 }

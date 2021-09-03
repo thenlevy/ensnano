@@ -886,7 +886,11 @@ impl View {
                 circles.push(circle)
             }
         }
-        for h_id in self.selected_helices.iter() {
+        for h_id in self
+            .selected_helices
+            .iter()
+            .filter(|h| !self.candidate_helices.contains(h))
+        {
             if let Some(mut circle) = self
                 .helices
                 .get(h_id.0)
