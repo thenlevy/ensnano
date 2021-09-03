@@ -17,6 +17,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 use super::*;
 use ensnano_interactor::ActionMode;
+use ensnano_organizer::element;
 use std::borrow::Cow;
 use std::cell::RefCell;
 use std::time::Instant;
@@ -431,7 +432,7 @@ impl<S: AppState> ControllerState<S> for SettingPivot {
         &mut self,
         event: &WindowEvent,
         position: PhysicalPosition<f64>,
-        _controller: &Controller<S>,
+        controller: &Controller<S>,
         pixel_reader: &mut ElementSelector,
         app_state: &S,
     ) -> Transition<S> {
@@ -455,7 +456,29 @@ impl<S: AppState> ControllerState<S> for SettingPivot {
                 button: MouseButton::Right,
                 ..
             } => {
-                let element = pixel_reader.set_selected_id(self.mouse_position);
+                let element = match pixel_reader.set_selected_id(self.mouse_position) {
+                    Some(SceneElement::Grid(d_id, g_id)) => {
+                        // for grids we take the precise grid position on which the user clicked.
+                        let mouse_x = self.mouse_position.x / controller.area_size.width as f64;
+                        let mouse_y = self.mouse_position.y / controller.area_size.height as f64;
+                        if let Some(intersection) = controller
+                            .view
+                            .borrow()
+                            .specific_grid_intersection(mouse_x as f32, mouse_y as f32, g_id)
+                        {
+                            Some(SceneElement::GridCircle(
+                                d_id,
+                                intersection.grid_id,
+                                intersection.x,
+                                intersection.y,
+                            ))
+                        } else {
+                            Some(SceneElement::Grid(d_id, g_id))
+                        }
+                    }
+                    element => element,
+                };
+                log::debug!("Pivot element {:?}", element);
                 Transition {
                     new_state: Some(Box::new(NormalState {
                         mouse_position: position,
