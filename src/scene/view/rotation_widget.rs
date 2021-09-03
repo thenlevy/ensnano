@@ -50,7 +50,9 @@ pub struct RotationWidget {
     circle_drawers: [Drawer<Circle>; 3],
     big_circle: Option<Circle>,
     big_circle_drawer: Drawer<Circle>,
-    rotation_origin: Option<(f32, f32)>,
+    clicked_origin: Option<(f32, f32)>,
+    rotation_origin: Option<Vec3>,
+    rotation_normal: Option<Vec3>,
     selected: Option<usize>,
 }
 
@@ -68,8 +70,10 @@ impl RotationWidget {
             ],
             big_circle: None,
             big_circle_drawer: Drawer::new(device),
-            rotation_origin: None,
+            clicked_origin: None,
             selected: None,
+            rotation_normal: None,
+            rotation_origin: None,
         }
     }
 
@@ -161,8 +165,22 @@ impl RotationWidget {
         }
     }
 
-    pub fn init_rotation(&mut self, x: f32, y: f32) {
-        self.rotation_origin = Some((x, y))
+    pub fn init_rotation(&mut self, x: f32, y: f32, mode: RotationMode) {
+        self.clicked_origin = Some((x, y));
+        if let Some(circles) = self.circles.as_ref() {
+            let circle_idx = match mode {
+                RotationMode::Right => 0,
+                RotationMode::Up => 1,
+                RotationMode::Front => 2,
+            };
+            let (origin, normal) = if let Some(circle) = circles.get(circle_idx) {
+                (Some(circle.origin), Some(circle.normal()))
+            } else {
+                (None, None)
+            };
+            self.rotation_origin = origin;
+            self.rotation_normal = normal;
+        }
     }
 
     pub fn compute_rotation(
@@ -171,15 +189,10 @@ impl RotationWidget {
         y: f32,
         camera: CameraPtr,
         projection: ProjectionPtr,
-        mode: RotationMode,
     ) -> Option<(Rotor3, Vec3, bool)> {
-        let (x_init, y_init) = self.rotation_origin?;
-        let circles = &self.circles?;
-        let (origin, normal) = match mode {
-            RotationMode::Right => (circles[0].origin, circles[0].normal()),
-            RotationMode::Up => (circles[1].origin, circles[1].normal()),
-            RotationMode::Front => (circles[2].origin, circles[2].normal()),
-        };
+        let (x_init, y_init) = self.clicked_origin?;
+        let origin = self.rotation_origin?;
+        let normal = self.rotation_normal?;
         let point_clicked = maths_3d::unproject_point_on_plane(
             origin,
             normal,

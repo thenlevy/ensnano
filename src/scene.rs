@@ -204,17 +204,15 @@ impl<S: AppState> Scene<S> {
                 .lock()
                 .unwrap()
                 .set_selection(vec![Selection::Helix(0, h_id as u32)], None),
-            Consequence::InitRotation(x, y) => {
-                self.view.borrow_mut().init_rotation(x as f32, y as f32)
-            }
+            Consequence::InitRotation(mode, x, y) => self
+                .view
+                .borrow_mut()
+                .init_rotation(mode, x as f32, y as f32),
             Consequence::InitTranslation(x, y) => {
                 self.view.borrow_mut().init_translation(x as f32, y as f32)
             }
-            Consequence::Rotation(mode, x, y) => {
-                let rotation = self
-                    .view
-                    .borrow()
-                    .compute_rotation(x as f32, y as f32, mode);
+            Consequence::Rotation(x, y) => {
+                let rotation = self.view.borrow().compute_rotation(x as f32, y as f32);
                 if let Some((rotation, origin, positive)) = rotation {
                     if rotation.bv.mag() > 1e-3 {
                         self.rotate_selected_desgin(rotation, origin, positive, app_state)
@@ -490,6 +488,11 @@ impl<S: AppState> Scene<S> {
         positive: bool,
         app_state: &S,
     ) {
+        log::debug!(
+            "Rotation {:?}, positive {}",
+            rotation.into_angle_plane(),
+            positive
+        );
         let (mut angle, mut plane) = rotation.into_angle_plane();
         if !positive {
             angle *= -1.;

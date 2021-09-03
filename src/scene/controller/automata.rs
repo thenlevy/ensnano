@@ -300,10 +300,12 @@ impl<S: AppState> ControllerState<S> for NormalState {
                                 consequences: Consequence::InitTranslation(mouse_x, mouse_y),
                             },
                             RIGHT_CIRCLE_ID | FRONT_CIRCLE_ID | UP_CIRCLE_ID => Transition {
-                                new_state: Some(Box::new(RotatingWidget {
-                                    rotation_mode: RotationMode::from_widget_id(widget_id),
-                                })),
-                                consequences: Consequence::InitRotation(mouse_x, mouse_y),
+                                new_state: Some(Box::new(RotatingWidget {})),
+                                consequences: Consequence::InitRotation(
+                                    RotationMode::from_widget_id(widget_id),
+                                    mouse_x,
+                                    mouse_y,
+                                ),
                             },
                             _ => {
                                 println!("WARNING UNEXPECTED WIDGET ID");
@@ -808,9 +810,7 @@ impl<S: AppState> ControllerState<S> for TranslatingHelix {
     }
 }
 
-struct RotatingWidget {
-    rotation_mode: RotationMode,
-}
+struct RotatingWidget {}
 
 impl<S: AppState> ControllerState<S> for RotatingWidget {
     fn display(&self) -> Cow<'static, str> {
@@ -839,7 +839,7 @@ impl<S: AppState> ControllerState<S> for RotatingWidget {
             WindowEvent::CursorMoved { .. } => {
                 let mouse_x = position.x / controller.area_size.width as f64;
                 let mouse_y = position.y / controller.area_size.height as f64;
-                Transition::consequence(Consequence::Rotation(self.rotation_mode, mouse_x, mouse_y))
+                Transition::consequence(Consequence::Rotation(mouse_x, mouse_y))
             }
             _ => Transition::nothing(),
         }

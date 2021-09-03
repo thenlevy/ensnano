@@ -731,9 +731,9 @@ impl View {
     }
 
     /// Initialise the rotation that will be applied on objects affected by the rotation widget.
-    pub fn init_rotation(&mut self, x_coord: f32, y_coord: f32) {
+    pub fn init_rotation(&mut self, mode: RotationMode, x_coord: f32, y_coord: f32) {
         self.need_redraw = true;
-        self.rotation_widget.init_rotation(x_coord, y_coord)
+        self.rotation_widget.init_rotation(x_coord, y_coord, mode)
     }
 
     /// Initialise the translation that will be applied on objects affected by the handle widget.
@@ -744,19 +744,9 @@ impl View {
 
     /// Compute the rotation that needs to be applied to the objects affected by the rotation
     /// widget.
-    pub fn compute_rotation(
-        &self,
-        x: f32,
-        y: f32,
-        mode: RotationMode,
-    ) -> Option<(Rotor3, Vec3, bool)> {
-        self.rotation_widget.compute_rotation(
-            x,
-            y,
-            self.camera.clone(),
-            self.projection.clone(),
-            mode,
-        )
+    pub fn compute_rotation(&self, x: f32, y: f32) -> Option<(Rotor3, Vec3, bool)> {
+        self.rotation_widget
+            .compute_rotation(x, y, self.camera.clone(), self.projection.clone())
     }
 
     pub fn set_widget_candidate(&mut self, selected_id: Option<u32>) {
