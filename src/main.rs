@@ -509,6 +509,10 @@ fn main() {
                 }
 
                 main_state.update();
+                if let Some(path) = main_state.get_current_file_name() {
+                    let path_str = formated_path_end(path);
+                    window.set_title(&format!("ENSnano: {}", path_str));
+                }
 
                 // Treat eventual event that happenend in the gui left panel.
                 let _overlay_change =
@@ -808,8 +812,12 @@ impl OverlayManager {
     }
 }
 
-fn formated_path_end(path: &PathBuf) -> String {
-    let components: Vec<_> = path.components().map(|comp| comp.as_os_str()).collect();
+fn formated_path_end<P: AsRef<Path>>(path: P) -> String {
+    let components: Vec<_> = path
+        .as_ref()
+        .components()
+        .map(|comp| comp.as_os_str())
+        .collect();
     let mut ret = if components.len() > 3 {
         vec!["..."]
     } else {
