@@ -776,8 +776,7 @@ impl<R: DesignReader> Data<R> {
             .map(|i| i.model.extract_translation())
             .sum();
         let total_len = sphere.len() + tubes.len();
-        let non_nucl_selection =
-            selection.len() > 1 || matches!(selection.get(0), Some(Selection::Helix(_, _)));
+        let non_nucl_selection = selection.len() > 1;
         if non_nucl_selection && total_len > 1 {
             log::trace!("Not using center_of_selection");
             self.selected_position = Some(pos / (total_len as f32));
