@@ -494,8 +494,8 @@ impl DesignContent {
                         old_nucl_id = Some(nucl_id);
                     }
                     if strand.junctions.len() <= i {
-                        println!("{:?}", strand.domains);
-                        println!("{:?}", strand.junctions);
+                        log::debug!("{:?}", strand.domains);
+                        log::debug!("{:?}", strand.junctions);
                     }
                     last_xover_junction = Some(&mut strand.junctions[i]);
                 } else if let Domain::Insertion(n) = domain {
@@ -518,7 +518,7 @@ impl DesignContent {
                 color_map.insert(bound_id, color);
                 strand_map.insert(bound_id, *s_id);
                 helix_map.insert(bound_id, nucl.helix);
-                println!("adding {:?}, {:?}", bound.0, bound.1);
+                log::debug!("adding {:?}, {:?}", bound.0, bound.1);
                 Self::update_junction(
                     &mut new_junctions,
                     strand
@@ -569,6 +569,7 @@ impl DesignContent {
                 id: *h_id,
                 group: groups.get(h_id).cloned(),
                 visible: h.visible,
+                locked_for_simualtions: h.locked_for_simulations,
             });
         }
         let mut ret = Self {

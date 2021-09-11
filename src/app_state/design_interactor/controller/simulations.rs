@@ -102,6 +102,7 @@ struct RigidHelix {
     pub center_to_origin: Vec3,
     pub mass: f32,
     pub id: usize,
+    pub locked: bool,
     interval: (isize, isize),
 }
 
@@ -125,6 +126,7 @@ impl ExplicitODE<f32> for HelixSystem {
                 ret.push(d_position.x);
                 ret.push(d_position.y);
                 ret.push(d_position.z);
+                log::trace!("angular momentum{} {:?}", i, angular_momentums[i]);
                 let omega = self.helices[i].inertia_inverse * angular_momentums[i]
                     / self.rigid_parameters.mass;
                 let d_rotation = 0.5
@@ -394,6 +396,13 @@ impl HelixSystem {
             }
         }
 
+        for (h_id, h) in self.helices.iter().enumerate() {
+            if h.locked {
+                forces[h_id] = Vec3::zero();
+                torques[h_id] = Vec3::zero();
+            }
+        }
+
         (forces, torques)
     }
 }
@@ -549,6 +558,7 @@ impl RigidHelix {
             // at the moment we do not care for the id when creating a rigid helix for a grid
             id: 0,
             interval,
+            locked: false,
         }
     }
 
@@ -572,6 +582,7 @@ impl RigidHelix {
             inertia_inverse: inertia_helix(mass, 1.).inversed(),
             id,
             interval,
+            locked: false,
         }
     }
 
@@ -984,12 +995,18 @@ fn make_flexible_helices_system(
     for i in 0..interval_results.helix_map.len() {
         let h_id = interval_results.helix_map[i];
         let interval = interval_results.intervals[i];
-        let rigid_helix = make_rigid_helix_world_pov_interval(
+        let mut rigid_helix = make_rigid_helix_world_pov_interval(
             presenter.get_design(),
             h_id,
             interval,
             &parameters,
         );
+        rigid_helix.locked = presenter
+            .get_design()
+            .helices
+            .get(&h_id)
+            .map(|h| h.locked_for_simulations)
+            .unwrap_or_default();
         rigid_helices.push(rigid_helix);
     }
     let xovers = presenter.get_xovers_list();

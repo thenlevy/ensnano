@@ -164,7 +164,7 @@ impl<E: OrganizerElement> Organizer<E> {
         let mut i = 0usize;
         let mut section: Result<<E::Key as ElementKey>::Section, _> = i.try_into();
         while let Ok(s) = section {
-            println!("{:?}, {:?}", i, s);
+            log::info!("section {:?}, {:?}", i, s);
             let new_section: Section<E> = Section::new(i, E::Key::name(s));
             sections.push(new_section);
             i += 1;
@@ -250,7 +250,7 @@ impl<E: OrganizerElement> Organizer<E> {
         message: &InternalMessage<E>,
         selection: &BTreeSet<E::Key>,
     ) -> Option<OrganizerMessage<E>> {
-        println!("{:?}", message);
+        log::trace!("{:?}", message);
         match &message.0 {
             OrganizerMessage_::Expand { id, expanded } => self.expand(id, *expanded),
             OrganizerMessage_::NodeSelected { id } => {
