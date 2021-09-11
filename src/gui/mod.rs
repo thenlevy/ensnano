@@ -831,11 +831,6 @@ impl<S: AppState> IcedMessages<S> {
             .push_back(left_panel::Message::ModifiersChanged(modifiers))
     }
 
-    pub fn push_new_tree(&mut self, tree: ensnano_organizer::OrganizerTree<DnaElementKey>) {
-        self.left_panel
-            .push_back(left_panel::Message::NewTreeApp(tree))
-    }
-
     pub fn new_ui_size(&mut self, ui_size: UiSize) {
         self.left_panel
             .push_back(left_panel::Message::UiSizeChanged(ui_size.clone()));
@@ -905,6 +900,7 @@ pub trait DesignReader: 'static {
     fn length_decomposition(&self, s_id: usize) -> String;
     fn nucl_is_anchor(&self, nucl: Nucl) -> bool;
     fn get_dna_elements(&self) -> &[DnaElement];
+    fn get_organizer_tree(&self) -> Option<Arc<ensnano_design::EnsnTree>>;
 }
 
 pub struct MainState {

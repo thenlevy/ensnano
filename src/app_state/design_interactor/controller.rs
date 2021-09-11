@@ -205,6 +205,13 @@ impl Controller {
             DesignOperation::AttachHelix { helix, grid, x, y } => {
                 self.apply(|c, d| c.attach_helix(d, helix, grid, x, y), design)
             }
+            DesignOperation::SetOrganizerTree(tree) => Ok(self.ok_apply(
+                |_, mut d| {
+                    d.organizer_tree = Some(Arc::new(tree));
+                    d
+                },
+                design,
+            )),
         }
     }
 

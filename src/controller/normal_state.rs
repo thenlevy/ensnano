@@ -377,7 +377,6 @@ pub enum Action {
     ScaffoldToSelection,
     /// Remove empty domains and merge consecutive domains
     CleanDesign,
-    UpdateOrganizerTree(ensnano_organizer::OrganizerTree<DnaElementKey>),
     SuspendOp,
     Fog(FogParameters),
     Split2D,

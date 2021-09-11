@@ -244,7 +244,9 @@ pub(crate) fn poll_all<R: DerefMut<Target = Requests>>(
     }
 
     if let Some(tree) = requests.new_tree.take() {
-        main_state.push_action(Action::UpdateOrganizerTree(tree));
+        main_state.push_action(Action::DesignOperation(DesignOperation::SetOrganizerTree(
+            tree,
+        )));
     }
 
     if requests.clean_requests.take().is_some() {

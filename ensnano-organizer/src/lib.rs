@@ -156,6 +156,7 @@ pub struct Organizer<E: OrganizerElement> {
     dragging: BTreeSet<Identifier<E::Key>>,
     new_group_button: button::State,
     hovered_in: Option<NodeId>,
+    last_read_tree: *const OrganizerTree<E::Key>,
 }
 
 impl<E: OrganizerElement> Organizer<E> {
@@ -182,6 +183,7 @@ impl<E: OrganizerElement> Organizer<E> {
             dragging: BTreeSet::new(),
             new_group_button: Default::default(),
             hovered_in: None,
+            last_read_tree: std::ptr::null(),
         }
     }
 
@@ -476,13 +478,16 @@ impl<E: OrganizerElement> Organizer<E> {
         OrganizerTree::Node("root".to_owned(), groups)
     }
 
-    pub fn read_tree(&mut self, tree: OrganizerTree<E::Key>) {
-        if let OrganizerTree::Node(_, groups) = tree {
-            self.groups = groups.iter().map(|g| GroupContent::read_tree(g)).collect();
-        } else {
-            self.groups = vec![];
+    pub fn read_tree(&mut self, tree: &OrganizerTree<E::Key>) {
+        if self.last_read_tree != tree {
+            self.last_read_tree = tree;
+            if let OrganizerTree::Node(_, groups) = tree {
+                self.groups = groups.iter().map(|g| GroupContent::read_tree(g)).collect();
+            } else {
+                self.groups = vec![];
+            }
+            self.recompute_id();
         }
-        self.recompute_id();
     }
 
     fn pop_id(&mut self, id: &NodeId) -> Option<GroupContent<E>> {

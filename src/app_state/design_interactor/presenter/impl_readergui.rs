@@ -57,4 +57,10 @@ impl ReaderGui for DesignReader {
     fn get_dna_elements(&self) -> &[DnaElement] {
         self.presenter.content.elements.as_slice()
     }
+
+    fn get_organizer_tree(&self) -> Option<Arc<ensnano_design::EnsnTree>> {
+        RollPresenter::get_design(self.presenter.as_ref())
+            .organizer_tree
+            .clone()
+    }
 }

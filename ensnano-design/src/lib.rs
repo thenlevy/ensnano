@@ -33,10 +33,11 @@ pub mod codenano;
 pub mod grid;
 use grid::{Grid, GridDescriptor, GridPosition};
 pub mod scadnano;
-use ensnano_organizer::OrganizerTree;
+pub use ensnano_organizer::OrganizerTree;
 use scadnano::*;
 pub mod elements;
 use elements::DnaElementKey;
+pub type EnsnTree = OrganizerTree<DnaElementKey>;
 
 mod formating;
 #[cfg(test)]
@@ -102,7 +103,7 @@ pub struct Design {
     pub anchors: HashSet<Nucl>,
 
     #[serde(skip_serializing_if = "Option::is_none", default)]
-    pub organizer_tree: Option<OrganizerTree<DnaElementKey>>,
+    pub organizer_tree: Option<Arc<OrganizerTree<DnaElementKey>>>,
 
     #[serde(default)]
     pub ensnano_version: String,

@@ -203,6 +203,7 @@ pub enum DesignOperation {
         x: isize,
         y: isize,
     },
+    SetOrganizerTree(ensnano_design::OrganizerTree<DnaElementKey>),
 }
 
 /// An action performed on the application

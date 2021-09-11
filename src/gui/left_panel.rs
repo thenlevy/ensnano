@@ -148,7 +148,6 @@ pub enum Message<S> {
     TabSelected(usize),
     OrganizerMessage(OrganizerMessage<DnaElement>),
     ModifiersChanged(ModifiersState),
-    NewTreeApp(OrganizerTree<DnaElementKey>),
     UiSizeChanged(UiSize),
     UiSizePicked(UiSize),
     StapplesRequested,
@@ -586,7 +585,6 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
             Message::ModifiersChanged(modifiers) => self
                 .organizer
                 .new_modifiers(iced_winit::conversion::modifiers(modifiers)),
-            Message::NewTreeApp(tree) => self.organizer.read_tree(tree),
             Message::UiSizePicked(ui_size) => self.requests.lock().unwrap().set_ui_size(ui_size),
             Message::UiSizeChanged(ui_size) => self.ui_size = ui_size,
             Message::SetScaffoldSeqButtonPressed => {
@@ -733,6 +731,13 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
             .iter()
             .filter_map(|e| DnaElementKey::from_selection(e, 0))
             .collect();
+
+        if let Some(tree) = self.application_state.get_reader().get_organizer_tree() {
+            self.organizer.read_tree(tree.as_ref())
+        } else {
+            self.organizer
+                .read_tree(&OrganizerTree::Node(String::from("root"), vec![]))
+        }
         let organizer = self
             .organizer
             .view(selection)
