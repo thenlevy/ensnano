@@ -34,6 +34,7 @@ pub enum DnaElement {
         id: usize,
         group: Option<bool>,
         visible: bool,
+        locked_for_simualtions: bool,
     },
     Nucleotide {
         helix: usize,
@@ -107,7 +108,14 @@ impl OrganizerElement for DnaElement {
 
     fn attributes(&self) -> Vec<DnaAttribute> {
         match self {
-            DnaElement::Helix { group, .. } => vec![DnaAttribute::XoverGroup(*group)],
+            DnaElement::Helix {
+                group,
+                locked_for_simualtions: locked,
+                ..
+            } => vec![
+                DnaAttribute::XoverGroup(*group),
+                DnaAttribute::LockedForSimulations(*locked),
+            ],
             DnaElement::Grid { visible, .. } => vec![DnaAttribute::Visible(*visible)],
             _ => vec![],
         }
@@ -167,6 +175,7 @@ impl ElementKey for DnaElementKey {
 pub enum DnaAttribute {
     Visible(bool),
     XoverGroup(Option<bool>),
+    LockedForSimulations(bool),
 }
 
 #[derive(Clone, Debug, PartialEq, PartialOrd, Ord, Eq, TryFromPrimitive, IntoPrimitive)]
@@ -174,10 +183,14 @@ pub enum DnaAttribute {
 pub enum DnaAttributeRepr {
     Visible,
     XoverGroup,
+    LockedForSimulations,
 }
 
-const ALL_DNA_ATTRIBUTE_REPR: [DnaAttributeRepr; 2] =
-    [DnaAttributeRepr::Visible, DnaAttributeRepr::XoverGroup];
+const ALL_DNA_ATTRIBUTE_REPR: [DnaAttributeRepr; 3] = [
+    DnaAttributeRepr::Visible,
+    DnaAttributeRepr::XoverGroup,
+    DnaAttributeRepr::LockedForSimulations,
+];
 
 impl OrganizerAttributeRepr for DnaAttributeRepr {
     fn all_repr() -> &'static [Self] {
@@ -192,6 +205,7 @@ impl OrganizerAttribute for DnaAttribute {
         match self {
             DnaAttribute::Visible(_) => DnaAttributeRepr::Visible,
             DnaAttribute::XoverGroup(_) => DnaAttributeRepr::XoverGroup,
+            DnaAttribute::LockedForSimulations(_) => DnaAttributeRepr::LockedForSimulations,
         }
     }
 
@@ -199,6 +213,9 @@ impl OrganizerAttribute for DnaAttribute {
         match self {
             DnaAttribute::Visible(b) => AttributeWidget::FlipButton {
                 value_if_pressed: DnaAttribute::Visible(!b),
+            },
+            DnaAttribute::LockedForSimulations(b) => AttributeWidget::FlipButton {
+                value_if_pressed: DnaAttribute::LockedForSimulations(!b),
             },
             DnaAttribute::XoverGroup(None) => AttributeWidget::FlipButton {
                 value_if_pressed: DnaAttribute::XoverGroup(Some(false)),
@@ -228,6 +245,14 @@ impl OrganizerAttribute for DnaAttribute {
                 Some(false) => AttributeDisplay::Text("G".to_owned()),
                 Some(true) => AttributeDisplay::Text("R".to_owned()),
             },
+            DnaAttribute::LockedForSimulations(b) => {
+                let c = if *b {
+                    Icon::Lock.into()
+                } else {
+                    Icon::Unlock.into()
+                };
+                AttributeDisplay::Icon(c)
+            }
         }
     }
 }

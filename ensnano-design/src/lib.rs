@@ -1276,9 +1276,16 @@ pub struct Helix {
     /// Orientation of the helix
     pub orientation: Rotor3,
 
-    #[serde(default = "default_visibility")]
+    /// Indicate wether the helix should be displayed in the 3D view.
+    #[serde(default = "default_visibility", skip_serializing_if = "bool::clone")]
     pub visible: bool,
 
+    #[serde(default, skip_serializing_if = "is_false")]
+    /// Indicate that the helix cannot move during rigid body simulations.
+    pub locked_for_simulations: bool,
+
+    /// The position of the helix on a grid. If this is None, it means that helix is not bound to
+    /// any grid.
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub grid_position: Option<GridPosition>,
 
@@ -1328,6 +1335,7 @@ impl Helix {
             isometry2d: None,
             visible: true,
             roll: 0f32,
+            locked_for_simulations: false,
         }
     }
 
@@ -1398,6 +1406,7 @@ impl Helix {
             visible: true,
             roll: 0f32,
             isometry2d: Some(isometry2d),
+            locked_for_simulations: false,
         })
     }
 }
@@ -1411,6 +1420,7 @@ impl Helix {
             grid_position: None,
             visible: true,
             roll: 0f32,
+            locked_for_simulations: false,
         }
     }
 
@@ -1429,6 +1439,7 @@ impl Helix {
             }),
             visible: true,
             roll: 0f32,
+            locked_for_simulations: false,
         }
     }
 
@@ -1474,6 +1485,7 @@ impl Helix {
             roll: 0.,
             visible: true,
             isometry2d: None,
+            locked_for_simulations: false,
         }
     }
 

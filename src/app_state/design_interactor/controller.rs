@@ -462,11 +462,14 @@ impl Controller {
         attribute: DnaAttribute,
         elements: Vec<DnaElementKey>,
     ) -> Result<Design, ErrOperation> {
-        println!("updating attribute {:?}, {:?}", attribute, elements);
+        log::info!("updating attribute {:?}, {:?}", attribute, elements);
         for elt in elements.iter() {
             match attribute {
                 DnaAttribute::Visible(b) => self.make_element_visible(&mut design, elt, b)?,
                 DnaAttribute::XoverGroup(g) => self.set_xover_group_of_elt(&mut design, elt, g)?,
+                DnaAttribute::LockedForSimulations(locked) => {
+                    self.set_lock_during_simulation(&mut design, elt, locked)?
+                }
             }
         }
         Ok(design)
@@ -527,6 +530,21 @@ impl Controller {
                 new_groups.remove(h_id);
             }
             design.groups = Arc::new(new_groups);
+        }
+        Ok(())
+    }
+
+    fn set_lock_during_simulation(
+        &self,
+        design: &mut Design,
+        element: &DnaElementKey,
+        locked: bool,
+    ) -> Result<(), ErrOperation> {
+        if let DnaElementKey::Helix(h_id) = element {
+            if !design.helices.contains_key(h_id) {
+                return Err(ErrOperation::HelixDoesNotExists(*h_id));
+            }
+            ensnano_design::mutate_one_helix(design, *h_id, |h| h.locked_for_simulations = locked);
         }
         Ok(())
     }

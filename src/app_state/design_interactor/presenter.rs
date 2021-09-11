@@ -184,7 +184,7 @@ impl Presenter {
                             };
                             let basis = sequence.next();
                             let basis_compl = compl(basis);
-                            println!("basis {:?}, basis_compl {:?}", basis, basis_compl);
+                            log::debug!("basis {:?}, basis_compl {:?}", basis, basis_compl);
                             if let Some((basis, basis_compl)) = basis.zip(basis_compl) {
                                 basis_map.insert(nucl, basis);
                                 if self.content.identifier_nucl.contains_key(&nucl.compl()) {
