@@ -116,7 +116,7 @@ pub(crate) fn poll_all<R: DerefMut<Target = Requests>>(
     }*/
 
     if let Some(op) = requests.operation_update.take() {
-        main_state.update_pending_operation(op)
+        main_state.update_pending_operation(op);
     }
 
     if let Some(b) = requests.toggle_persistent_helices.take() {

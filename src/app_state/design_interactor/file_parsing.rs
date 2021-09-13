@@ -45,8 +45,7 @@ impl DesignInteractor {
         let ret = Self {
             design: design_ptr,
             presenter: AddressPointer::new(presenter),
-            controller: Default::default(),
-            simulation_update: None,
+            ..Default::default()
         };
         Ok(ret)
     }

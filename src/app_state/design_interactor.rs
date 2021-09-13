@@ -33,7 +33,7 @@ pub use controller::{
     ShiftOptimizerReader, SimulationInterface, SimulationReader,
 };
 
-use crate::controller::SimulationRequest;
+use crate::{controller::SimulationRequest, gui::CurentOpState};
 pub(super) use controller::ErrOperation;
 use controller::{GridPresenter, HelixPresenter, OkOperation, RollPresenter};
 
@@ -55,6 +55,8 @@ pub struct DesignInteractor {
     /// The structure that handles "write" operations.
     controller: AddressPointer<Controller>,
     simulation_update: Option<Arc<dyn SimulationUpdate>>,
+    current_operation: Option<Arc<dyn Operation>>,
+    current_operation_id: usize,
 }
 
 impl DesignInteractor {
@@ -99,10 +101,15 @@ impl DesignInteractor {
         &self,
         operation: Arc<dyn Operation>,
     ) -> Result<InteractorResult, ErrOperation> {
+        let op_is_new = self.is_in_stable_state();
         let result = self
             .controller
-            .update_pending_operation(self.design.as_ref(), operation);
-        self.handle_operation_result(result)
+            .update_pending_operation(self.design.as_ref(), operation.clone());
+        let mut ret = self.handle_operation_result(result);
+        if let Ok(ret) = ret.as_mut() {
+            ret.set_operation_state(operation, op_is_new)
+        }
+        ret
     }
 
     pub(super) fn start_simulation(
@@ -177,6 +184,13 @@ impl DesignInteractor {
             }
             Err(e) => Err(e),
         }
+    }
+
+    pub(super) fn get_curent_operation_state(&self) -> Option<CurentOpState> {
+        self.current_operation.as_ref().map(|op| CurentOpState {
+            operation_id: self.current_operation_id,
+            current_operation: op.clone(),
+        })
     }
 
     pub(super) fn notify(&self, notification: InteractorNotification) -> Self {
@@ -289,6 +303,20 @@ impl DesignInteractor {
 pub(super) enum InteractorResult {
     Push(DesignInteractor),
     Replace(DesignInteractor),
+}
+
+impl InteractorResult {
+    pub fn set_operation_state(&mut self, operation: Arc<dyn Operation>, new_op: bool) {
+        let interactor = match self {
+            Self::Push(interactor) => interactor,
+            Self::Replace(interactor) => interactor,
+        };
+        if new_op {
+            interactor.current_operation_id += 1;
+            log::info!("New operation id {}", interactor.current_operation_id);
+        }
+        interactor.current_operation = Some(operation);
+    }
 }
 
 /// A reference to a Presenter that is guaranted to always have up to date internal data

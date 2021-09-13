@@ -247,6 +247,7 @@ impl GuiRequests for Requests {
 
     fn update_current_operation(&mut self, operation: Arc<dyn Operation>) {
         self.operation_update = Some(operation);
+        self.suspend_op = Some(());
     }
 
     fn update_hyperboloid_shift(&mut self, shift: f32) {
