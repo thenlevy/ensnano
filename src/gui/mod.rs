@@ -32,6 +32,7 @@ pub mod status_bar;
 mod ui_size;
 pub use ui_size::*;
 mod material_icons_light;
+pub use status_bar::CurentOpState;
 
 mod icon;
 
@@ -854,13 +855,15 @@ impl<S: AppState> IcedMessages<S> {
                 .push_back(left_panel::Message::NewApplicationState(state.clone()));
             self.top_bar
                 .push_back(top_bar::Message::NewApplicationState(top_bar::MainState {
-                    app_state: state,
+                    app_state: state.clone(),
                     can_undo: main_state.can_undo,
                     can_redo: main_state.can_redo,
                     need_save: main_state.need_save,
                     can_reload: main_state.can_reload,
                     can_split2d: main_state.can_split2d,
-                }))
+                }));
+            self.status_bar
+                .push_back(status_bar::Message::NewApplicationState(state.clone()));
         }
     }
 }
@@ -889,6 +892,7 @@ pub trait AppState: Default + PartialEq + Clone + 'static + Send + std::fmt::Deb
     fn get_reader(&self) -> Box<dyn DesignReader>;
     fn design_was_modified(&self, other: &Self) -> bool;
     fn selection_was_updated(&self, other: &Self) -> bool;
+    fn get_curent_operation_state(&self) -> Option<CurentOpState>;
 }
 
 pub trait DesignReader: 'static {
