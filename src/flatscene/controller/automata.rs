@@ -203,7 +203,7 @@ impl<S: AppState> ControllerState<S> for NormalState {
                                 consequences: Consequence::Nothing,
                             }
                         } else {
-                            let stick = if let ActionMode::Build(b) = controller.action_mode {
+                            let _stick = if let ActionMode::Build(b) = controller.action_mode {
                                 b
                             } else {
                                 false
@@ -735,7 +735,7 @@ impl<S: AppState> ControllerState<S> for ReleasedPivot {
                                 consequences: Consequence::Nothing,
                             }
                         } else {
-                            let stick = if let ActionMode::Build(b) = controller.action_mode {
+                            let _stick = if let ActionMode::Build(b) = controller.action_mode {
                                 b
                             } else {
                                 false
@@ -777,7 +777,7 @@ impl<S: AppState> ControllerState<S> for ReleasedPivot {
                             consequences: Consequence::Nothing,
                         }
                     }
-                    ClickResult::CircleWidget { translation_pivot } => {
+                    ClickResult::CircleWidget { .. } => {
                         // Clicked on an other circle
                         let clicked = controller.get_camera(position.y).borrow().screen_to_world(
                             self.mouse_position.x as f32,

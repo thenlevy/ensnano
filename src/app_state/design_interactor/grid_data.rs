@@ -17,11 +17,11 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 
 use ensnano_design::grid::*;
-use ensnano_design::{mutate_in_arc, Design, Domain, Helix, Parameters};
+use ensnano_design::{mutate_in_arc, Design, Helix, Parameters};
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::f32::consts::FRAC_PI_2;
-use std::sync::{Arc, RwLock};
-use ultraviolet::{Rotor3, Vec2, Vec3};
+use std::sync::Arc;
+use ultraviolet::{Rotor3, Vec3};
 
 use super::ErrOperation;
 use crate::scene::GridInstance;
@@ -39,42 +39,8 @@ pub struct GridManager {
 }
 
 impl GridManager {
-    pub fn new(parameters: Parameters) -> Self {
-        Self {
-            grids: Vec::new(),
-            helix_to_pos: HashMap::new(),
-            pos_to_helix: HashMap::new(),
-            parameters,
-            no_phantoms: HashSet::new(),
-            small_spheres: HashSet::new(),
-        }
-    }
-
     pub fn get_visibility(&mut self, g_id: usize) -> bool {
         self.grids.get(g_id).map(|g| !g.invisible).unwrap_or(false)
-    }
-
-    /*
-    pub fn get_helix_at_pos(&self, grid: usize, x: isize, y: isize) -> Option<usize> {
-        for (h, g) in self.helix_to_pos.iter() {
-            if let GridPosition {
-                grid,
-                x,
-                y,
-                ..} = *g {
-                return Some(*h);
-            }
-        }
-        return None;
-    }*/
-
-    pub fn remove_helix(&mut self, h_id: usize) {
-        let pos = self.helix_to_pos.remove(&h_id);
-        if let Some(pos) = pos {
-            self.pos_to_helix.remove(&(pos.grid, pos.x, pos.y));
-        }
-        self.small_spheres.remove(&h_id);
-        self.no_phantoms.remove(&h_id);
     }
 
     pub fn new_from_design(design: &Design) -> Self {
@@ -350,69 +316,6 @@ impl GridManager {
         }
     }
 
-    pub fn grids2d(&self) -> Vec<Arc<RwLock<Grid2D>>> {
-        let mut ret = Vec::new();
-        for (n, g) in self.grids.iter().enumerate() {
-            ret.push(Arc::new(RwLock::new(Grid2D::new(
-                n,
-                g.grid_type.clone(),
-                self.parameters,
-                !self.no_phantoms.contains(&n),
-                self.small_spheres.contains(&n),
-            ))));
-        }
-        ret
-    }
-
-    pub fn delete_last_grid(&mut self) {
-        self.grids.pop();
-    }
-
-    pub fn add_grid(&mut self, desc: GridDescriptor) -> usize {
-        match desc.grid_type {
-            GridTypeDescr::Square => {
-                let grid: Grid = Grid::new(
-                    desc.position,
-                    desc.orientation,
-                    self.parameters,
-                    GridType::square(),
-                );
-                self.grids.push(grid);
-            }
-            GridTypeDescr::Honeycomb => {
-                let grid: Grid = Grid::new(
-                    desc.position,
-                    desc.orientation,
-                    self.parameters,
-                    GridType::honneycomb(),
-                );
-                self.grids.push(grid);
-            }
-            GridTypeDescr::Hyperboloid {
-                radius,
-                shift,
-                length,
-                radius_shift,
-                forced_radius,
-            } => {
-                let grid = Grid::new(
-                    desc.position,
-                    desc.orientation,
-                    self.parameters,
-                    GridType::hyperboloid(Hyperboloid {
-                        radius,
-                        shift,
-                        length,
-                        radius_shift,
-                        forced_radius,
-                    }),
-                );
-                self.grids.push(grid)
-            }
-        }
-        self.grids.len() - 1
-    }
-
     /// Retrun the edge between two grid position. Return None if the position are not in the same
     /// grid.
     pub fn get_edge(&self, pos1: &GridPosition, pos2: &GridPosition) -> Option<Edge> {
@@ -457,131 +360,6 @@ impl GridManager {
         } else {
             None
         }
-    }
-}
-
-/*
-impl Data {
-    pub fn find_parallel_helices(&self) -> HashMap<usize, Vec<usize>> {
-        let mut ret = HashMap::new();
-        let mut merger = GroupMerger::new(self.design.helices.len());
-        let mut candidates: HashMap<(usize, usize), usize> = HashMap::new();
-
-        for s in self.design.strands.values() {
-            let mut current_helix: Option<usize> = None;
-            for d in s.domains.iter() {
-                match d {
-                    Domain::HelixDomain(helix_interval) => {
-                        let new_helix = helix_interval.helix;
-                        if let Some(helix) = current_helix.take() {
-                            if helix != new_helix {
-                                let nb_cross = candidates
-                                    .entry((helix.min(new_helix), helix.max(new_helix)))
-                                    .or_insert(0);
-                                *nb_cross += 1;
-                                if *nb_cross >= 3 {
-                                    merger.union(helix, new_helix);
-                                }
-                            }
-                        }
-                        current_helix = Some(new_helix);
-                    }
-                    _ => (),
-                }
-            }
-        }
-
-        for h_id in self.design.helices.keys() {
-            let group_id = merger.find(*h_id);
-            let group = ret.entry(group_id).or_insert(vec![]);
-            group.push(*h_id);
-        }
-        ret
-    }
-}
-
-struct GroupMerger {
-    parent: Vec<usize>,
-    rank: Vec<usize>,
-}
-
-impl GroupMerger {
-    pub fn new(nb_element: usize) -> Self {
-        Self {
-            parent: (0..nb_element).collect(),
-            rank: vec![0; nb_element],
-        }
-    }
-
-    pub fn find(&mut self, x: usize) -> usize {
-        if self.parent[x] != x {
-            let y = self.find(self.parent[x]);
-            self.parent[x] = y;
-            y
-        } else {
-            x
-        }
-    }
-
-    pub fn union(&mut self, x: usize, y: usize) {
-        let xroot = self.find(x);
-        let yroot = self.find(y);
-        if xroot != yroot {
-            if self.rank[xroot] < self.rank[yroot] {
-                self.parent[xroot] = yroot;
-            } else if self.rank[xroot] > self.rank[yroot] {
-                self.parent[yroot] = xroot;
-            } else {
-                self.parent[yroot] = xroot;
-                self.rank[xroot] += 1;
-            }
-        }
-    }
-}
-*/
-
-pub struct Grid2D {
-    helices: BTreeMap<(isize, isize), usize>,
-    grid_type: GridType,
-    parameters: Parameters,
-    id: usize,
-    pub persistent_phantom: bool,
-    pub small_spheres: bool,
-}
-
-impl Grid2D {
-    pub fn new(
-        id: usize,
-        grid_type: GridType,
-        parameters: Parameters,
-        persistent_phantom: bool,
-        small_spheres: bool,
-    ) -> Self {
-        Self {
-            helices: BTreeMap::new(),
-            grid_type,
-            parameters,
-            id,
-            persistent_phantom,
-            small_spheres,
-        }
-    }
-
-    pub fn update(&mut self, design: &Design) {
-        for (h_id, h) in design.helices.iter() {
-            if let Some(grid_position) = h.grid_position.filter(|gp| gp.grid == self.id) {
-                self.helices
-                    .insert((grid_position.x, grid_position.y), *h_id);
-            }
-        }
-    }
-
-    pub fn helices(&self) -> &BTreeMap<(isize, isize), usize> {
-        &self.helices
-    }
-
-    pub fn helix_position(&self, x: isize, y: isize) -> Vec2 {
-        self.grid_type.origin_helix(&self.parameters, x, y)
     }
 }
 

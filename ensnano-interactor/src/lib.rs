@@ -22,7 +22,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 use ensnano_design::{
     elements::{DnaAttribute, DnaElementKey},
     grid::{GridDescriptor, GridPosition, Hyperboloid},
-    Nucl, Strand,
+    Nucl,
 };
 use ultraviolet::{Isometry2, Rotor3, Vec2, Vec3};
 pub mod graphics;

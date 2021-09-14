@@ -21,7 +21,7 @@ use std::sync::{Arc, Mutex};
 use super::super::{FlatHelix, FlatIdx, FlatNucl, Requests};
 use super::{Flat, HelixVec, Nucl, Strand};
 use ahash::RandomState;
-use ensnano_design::{Design, Extremity, Helix as DesignHelix, Strand as StrandDesign};
+use ensnano_design::{Extremity, Helix as DesignHelix, Strand as StrandDesign};
 use ensnano_interactor::{torsion::Torsion, Referential};
 use ultraviolet::{Isometry2, Rotor2, Vec2, Vec3};
 
@@ -301,18 +301,6 @@ impl Design2d {
 
     pub fn prime5_of(&self, nucl: Nucl) -> Option<usize> {
         self.design.prime5_of_which_strand(nucl)
-    }
-
-    pub fn can_delete_helix(&self, helix: FlatHelix) -> bool {
-        self.design.helix_is_empty(helix.real).unwrap_or(false)
-    }
-
-    pub fn get_raw_helix(&self, helix: FlatHelix) -> Option<Arc<DesignHelix>> {
-        self.design.get_raw_helix(helix.real)
-    }
-
-    pub fn get_strand(&self, s_id: usize) -> Option<StrandDesign> {
-        self.design.get_raw_strand(s_id)
     }
 
     pub fn remake_id_map(&mut self) {

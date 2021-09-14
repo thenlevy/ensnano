@@ -78,14 +78,13 @@ use std::collections::{HashMap, VecDeque};
 use std::env;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 pub type PhySize = iced_winit::winit::dpi::PhysicalSize<u32>;
 
 use controller::{ChanelReader, ChanelReaderUpdate, SimulationRequest};
 use ensnano_design::Nucl;
 use ensnano_interactor::application::{Application, Notification};
-use ensnano_interactor::graphics::FogParameters;
 use ensnano_interactor::{CenterOfSelection, DesignOperation, DesignReader, RigidBodyConstants};
 use iced_native::Event as IcedEvent;
 use iced_wgpu::{wgpu, Backend, Renderer, Settings, Viewport};
@@ -101,16 +100,7 @@ use winit::{
     window::Window,
 };
 
-#[macro_use]
-extern crate serde_derive;
-extern crate serde;
-
-#[cfg(not(test))]
-const MUST_TEST: bool = false;
-
-#[cfg(test)]
-const MUST_TEST: bool = true;
-
+#[allow(unused_imports)]
 #[macro_use]
 extern crate pretty_env_logger;
 
@@ -142,9 +132,7 @@ mod main_tests;
 
 mod app_state;
 mod controller;
-use app_state::{
-    AppState, CopyOperation, ErrOperation, InteractorNotification, PastingStatus, SimulationTarget,
-};
+use app_state::{AppState, CopyOperation, ErrOperation, PastingStatus, SimulationTarget};
 use controller::Action;
 use controller::Controller;
 
@@ -152,7 +140,6 @@ mod requests;
 pub use requests::Requests;
 
 mod dialog;
-use dialog::*;
 
 use flatscene::FlatScene;
 use gui::{ColorOverlay, Gui, IcedMessages, OverlayType, UiSize};

@@ -1,5 +1,4 @@
 use iced::{Container, Element};
-use iced_native::container::Renderer as ContainerRenderer;
 use iced_native::{
     event, layout, overlay, Align, Clipboard, Event, Hasher, Layout, Length, Point, Rectangle,
     Widget,
@@ -43,75 +42,10 @@ impl<'a, Message, K> DragDropTarget<'a, Message, K> {
         }
     }
 
-    /// Sets the padding of the [`Container`] contained in self.
-    pub fn padding(mut self, units: u16) -> Self {
-        self.padding = units;
-        self.content = self.content.padding(units);
-        self
-    }
-
     /// Sets the width of the [`Container`] contained in self.
     pub fn width(mut self, width: Length) -> Self {
         self.width = width.clone();
         self.content = self.content.width(width);
-        self
-    }
-
-    /// Sets the height of the [`Container`].
-    pub fn height(mut self, height: Length) -> Self {
-        self.height = height.clone();
-        self.content = self.content.height(height);
-        self
-    }
-
-    /// Sets the maximum width of the [`Container`].
-    pub fn max_width(mut self, max_width: u32) -> Self {
-        self.max_width = max_width;
-        self.content = self.content.max_width(max_width);
-        self
-    }
-
-    /// Sets the maximum height of the [`Container`] in pixels.
-    pub fn max_height(mut self, max_height: u32) -> Self {
-        self.max_height = max_height;
-        self.content = self.content.max_height(max_height);
-        self
-    }
-
-    /// Sets the content alignment for the horizontal axis of the [`Container`].
-    pub fn align_x(mut self, alignment: Align) -> Self {
-        self.horizontal_alignment = alignment.clone();
-        self.content = self.content.align_x(alignment);
-        self
-    }
-
-    /// Sets the content alignment for the vertical axis of the [`Container`].
-    pub fn align_y(mut self, alignment: Align) -> Self {
-        self.vertical_alignment = alignment.clone();
-        self.content = self.content.align_y(alignment);
-        self
-    }
-
-    /// Centers the contents in the horizontal axis of the [`Container`].
-    pub fn center_x(mut self) -> Self {
-        self.horizontal_alignment = Align::Center;
-        self.content = self.content.center_x();
-        self
-    }
-
-    /// Centers the contents in the vertical axis of the [`Container`].
-    pub fn center_y(mut self) -> Self {
-        self.vertical_alignment = Align::Center;
-        self.content = self.content.center_y();
-        self
-    }
-
-    /// Sets the style of the [`Container`].
-    pub fn style(
-        mut self,
-        style: impl Into<<Renderer as iced_native::container::Renderer>::Style>,
-    ) -> Self {
-        self.content = self.content.style(style);
         self
     }
 }

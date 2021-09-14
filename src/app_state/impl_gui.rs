@@ -107,8 +107,6 @@ impl GuiState for AppState {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     #[ignore]
     #[test]
     fn is_building_hyperboloid_implemented() {

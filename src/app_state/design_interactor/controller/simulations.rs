@@ -595,6 +595,7 @@ impl RigidHelix {
     }
 }
 
+#[allow(dead_code)]
 pub enum ShakeTarget {
     FreeNucl(usize),
     Helix(usize),
@@ -1299,6 +1300,7 @@ pub enum SimulationOperation<'pres, 'reader> {
     UpdateParameters {
         new_parameters: RigidBodyConstants,
     },
+    #[allow(dead_code)]
     Shake(ShakeTarget),
     Stop,
     Reset,
@@ -1331,7 +1333,7 @@ impl SimulationInterface for HelixSystemInterface {
 }
 
 impl SimulationUpdate for RigidHelixState {
-    fn update_design(&self, design: &mut Design) {
+    fn update_design(&self, _design: &mut Design) {
         ()
         // since update positions is implemented, we do not need to move the helices.
     }

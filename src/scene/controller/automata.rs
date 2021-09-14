@@ -17,14 +17,13 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 use super::*;
 use ensnano_interactor::ActionMode;
-use ensnano_organizer::element;
 use std::borrow::Cow;
 use std::cell::RefCell;
 use std::time::Instant;
 
 use super::AppState;
 
-pub(super) type State<S: AppState> = RefCell<Box<dyn ControllerState<S>>>;
+pub(super) type State<S> = RefCell<Box<dyn ControllerState<S>>>;
 
 pub(super) fn initial_state<S: AppState>() -> State<S> {
     RefCell::new(Box::new(NormalState {
@@ -394,7 +393,7 @@ impl<S: AppState> ControllerState<S> for TranslatingCamera {
         position: PhysicalPosition<f64>,
         controller: &Controller<S>,
         _pixel_reader: &mut ElementSelector,
-        app_state: &S,
+        _app_state: &S,
     ) -> Transition<S> {
         match event {
             WindowEvent::MouseInput {
@@ -436,7 +435,7 @@ impl<S: AppState> ControllerState<S> for SettingPivot {
         position: PhysicalPosition<f64>,
         controller: &Controller<S>,
         pixel_reader: &mut ElementSelector,
-        app_state: &S,
+        _app_state: &S,
     ) -> Transition<S> {
         match event {
             WindowEvent::CursorMoved { .. } => {
@@ -517,7 +516,7 @@ impl<S: AppState> ControllerState<S> for RotatingCamera {
         position: PhysicalPosition<f64>,
         controller: &Controller<S>,
         _pixel_reader: &mut ElementSelector,
-        app_state: &S,
+        _app_state: &S,
     ) -> Transition<S> {
         match event {
             WindowEvent::CursorMoved { .. } => {
@@ -601,7 +600,7 @@ impl<S: AppState> ControllerState<S> for Selecting {
         position: PhysicalPosition<f64>,
         controller: &Controller<S>,
         _pixel_reader: &mut ElementSelector,
-        app_state: &S,
+        _app_state: &S,
     ) -> Transition<S> {
         match event {
             WindowEvent::CursorMoved { .. } => {
@@ -677,7 +676,7 @@ impl<S: AppState> ControllerState<S> for WaitDoubleClick {
         position: PhysicalPosition<f64>,
         _controller: &Controller<S>,
         _pixel_reader: &mut ElementSelector,
-        app_state: &S,
+        _app_state: &S,
     ) -> Transition<S> {
         match event {
             WindowEvent::MouseInput {
@@ -723,7 +722,7 @@ impl<S: AppState> ControllerState<S> for TranslatingWidget {
         position: PhysicalPosition<f64>,
         controller: &Controller<S>,
         _pixel_reader: &mut ElementSelector,
-        app_state: &S,
+        _app_state: &S,
     ) -> Transition<S> {
         match event {
             WindowEvent::MouseInput {
@@ -767,8 +766,8 @@ impl<S: AppState> ControllerState<S> for TranslatingHelix {
         event: &WindowEvent,
         position: PhysicalPosition<f64>,
         controller: &Controller<S>,
-        pixel_reader: &mut ElementSelector,
-        app_state: &S,
+        _pixel_reader: &mut ElementSelector,
+        _app_state: &S,
     ) -> Transition<S> {
         match event {
             WindowEvent::MouseInput {
@@ -823,7 +822,7 @@ impl<S: AppState> ControllerState<S> for RotatingWidget {
         position: PhysicalPosition<f64>,
         controller: &Controller<S>,
         _pixel_reader: &mut ElementSelector,
-        app_state: &S,
+        _app_state: &S,
     ) -> Transition<S> {
         match event {
             WindowEvent::MouseInput {
@@ -911,7 +910,7 @@ impl<S: AppState> ControllerState<S> for Xovering {
         position: PhysicalPosition<f64>,
         controller: &Controller<S>,
         pixel_reader: &mut ElementSelector,
-        app_state: &S,
+        _app_state: &S,
     ) -> Transition<S> {
         match event {
             WindowEvent::MouseInput {
@@ -1030,7 +1029,7 @@ impl<S: AppState> ControllerState<S> for Pasting {
         position: PhysicalPosition<f64>,
         _controller: &Controller<S>,
         _pixel_reader: &mut ElementSelector,
-        app_state: &S,
+        _app_state: &S,
     ) -> Transition<S> {
         match event {
             WindowEvent::CursorMoved { .. } => {

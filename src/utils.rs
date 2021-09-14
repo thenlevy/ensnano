@@ -15,10 +15,8 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
-use crate::consts::*;
 use iced_wgpu::wgpu;
 use iced_winit::winit::dpi::{PhysicalPosition, PhysicalSize, Pixel};
-use std::sync::{Arc, Mutex};
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
 
 pub mod bindgroup_manager;
@@ -67,6 +65,7 @@ impl BufferDimensions {
     }
 }
 
+#[allow(dead_code)]
 pub fn new_color(color_idx: &mut usize) -> u32 {
     let color = {
         let hue = (*color_idx as f64 * (1. + 5f64.sqrt()) / 2.).fract() * 360.;

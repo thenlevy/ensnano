@@ -22,7 +22,7 @@ use iced::{
     button, pick_list, slider, text_input, Button, Checkbox, Color, Command, Element, Length,
     PickList, Scrollable, Slider, Text, TextInput,
 };
-use iced::{container, Background, Column, Container, Image, Row};
+use iced::{container, Background, Column, Container, Row};
 use iced_aw::{TabLabel, Tabs};
 use iced_native::{clipboard::Null as NullClipboard, Program};
 use iced_wgpu::{Backend, Renderer};
@@ -37,7 +37,7 @@ use color_space::{Hsv, Rgb};
 use ensnano_design::elements::{DnaElement, DnaElementKey};
 use ensnano_interactor::{
     graphics::{Background3D, RenderingMode},
-    ActionMode, ScaffoldInfo, Selection, SelectionConversion, SelectionMode,
+    ActionMode, SelectionConversion, SelectionMode,
 };
 
 use super::{
@@ -60,7 +60,6 @@ use contextual_panel::ContextualPanel;
 
 use ensnano_interactor::HyperboloidRequest;
 use material_icons::{icon_to_char, Icon as MaterialIcon, FONT as MATERIALFONT};
-use std::collections::BTreeMap;
 use tabs::{
     CameraShortcut, CameraTab, EditionTab, GridTab, ParametersTab, SequenceTab, SimulationTab,
 };
@@ -84,7 +83,6 @@ fn icon(icon: MaterialIcon, ui_size: &UiSize) -> iced::Text {
 const CHECKBOXSPACING: u16 = 5;
 
 pub struct LeftPanel<R: Requests, S: AppState> {
-    dialoging: Arc<Mutex<bool>>,
     logical_size: LogicalSize<f64>,
     #[allow(dead_code)]
     logical_position: LogicalPosition<f64>,
@@ -110,12 +108,10 @@ pub struct LeftPanel<R: Requests, S: AppState> {
 
 #[derive(Debug, Clone)]
 pub enum Message<S> {
-    SelectionModeChanged(SelectionMode),
     Resized(LogicalSize<f64>, LogicalPosition<f64>),
     #[allow(dead_code)]
     OpenColor,
     MakeGrids,
-    ActionModeChanged(ActionMode),
     SequenceChanged(String),
     SequenceFileRequested,
     StrandColorChanged(Color),
@@ -132,13 +128,11 @@ pub enum Message<S> {
     FogRadius(f32),
     FogLength(f32),
     SimRequest,
-    NewDesign,
     DescreteValue {
         factory_id: FactoryId,
         value_id: ValueId,
         value: f32,
     },
-    HelixRoll(f32),
     NewHyperboloid,
     FinalizeHyperboloid,
     RollTargeted(bool),
@@ -184,7 +178,6 @@ impl<R: Requests, S: AppState> LeftPanel<R, S> {
         logical_size: LogicalSize<f64>,
         logical_position: LogicalPosition<f64>,
         first_time: bool,
-        dialoging: Arc<Mutex<bool>>,
     ) -> Self {
         let selected_tab = if first_time { 0 } else { 5 };
         let mut organizer = Organizer::new();
@@ -205,7 +198,6 @@ impl<R: Requests, S: AppState> LeftPanel<R, S> {
             simulation_tab: SimulationTab::new(),
             sequence_tab: SequenceTab::new(),
             parameters_tab: ParametersTab::new(),
-            dialoging,
             contextual_panel: ContextualPanel::new(logical_size.width as u32),
             camera_shortcut: CameraShortcut::new(),
             application_state: Default::default(),
@@ -272,29 +264,6 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
 
     fn update(&mut self, message: Message<S>, _cb: &mut NullClipboard) -> Command<Message<S>> {
         match message {
-            Message::SelectionModeChanged(selection_mode) => {
-                if selection_mode != self.application_state.get_selection_mode() {
-                    self.requests
-                        .lock()
-                        .unwrap()
-                        .change_selection_mode(selection_mode);
-                }
-            }
-            Message::ActionModeChanged(action_mode) => {
-                if self.application_state.get_action_mode() != action_mode {
-                    self.requests
-                        .lock()
-                        .unwrap()
-                        .change_action_mode(action_mode)
-                } else {
-                    match action_mode {
-                        ActionMode::Rotate | ActionMode::Translate => {
-                            self.requests.lock().unwrap().toggle_widget_basis();
-                        }
-                        _ => (),
-                    }
-                }
-            }
             Message::SequenceChanged(s) => {
                 self.requests
                     .lock()
@@ -393,10 +362,6 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
                 let request = self.camera_tab.get_fog_request();
                 self.requests.lock().unwrap().set_fog_parameters(request);
             }
-            Message::NewDesign => {
-                self.show_torsion = false;
-                self.organizer.reset();
-            }
             Message::SimRequest => {
                 if self.application_state.get_simulation_state().is_rolling() {
                     self.requests.lock().unwrap().stop_simulations()
@@ -494,9 +459,6 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
                         .unwrap()
                         .update_rigid_body_simulation_parameters(request);
                 }
-            }
-            Message::HelixRoll(roll) => {
-                self.edition_tab.update_roll(roll);
             }
             Message::NewHyperboloid => {
                 let mut request: Option<HyperboloidRequest> = None;

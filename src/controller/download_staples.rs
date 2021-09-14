@@ -16,10 +16,10 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-use super::{Arc, MainState, Mutex, NormalState, State, TransitionMessage};
+use super::{MainState, NormalState, State, TransitionMessage};
 
 use crate::dialog;
-use dialog::{MustAckMessage, PathInput, YesNoQuestion};
+use dialog::{MustAckMessage, PathInput};
 use std::path::{Path, PathBuf};
 
 #[derive(Default)]
@@ -202,7 +202,7 @@ fn poll_path(path_input: PathInput, design_id: usize) -> Box<dyn State> {
 
 fn download_staples(
     downlader: &dyn StaplesDownloader,
-    design_id: usize,
+    _design_id: usize,
     path: PathBuf,
 ) -> Box<dyn State> {
     downlader.write_staples_xlsx(&path);
@@ -221,6 +221,7 @@ pub trait StaplesDownloader {
 
 pub enum DownloadStappleError {
     /// There are several designs and none is selected.
+    #[allow(dead_code)]
     SeveralDesignNoneSelected,
     /// No strand is set as the scaffold
     NoScaffoldSet,

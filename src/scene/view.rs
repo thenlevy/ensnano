@@ -18,7 +18,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 //! The view module handles the drawing of the scene on texture. The scene can be drawn on the next
 //! frame to be displayed, or on a "fake texture" that is used to map pixels to objects.
 
-use super::{camera, ActionMode};
+use super::camera;
 use crate::consts::*;
 use crate::utils::{bindgroup_manager, texture};
 use crate::{DrawArea, PhySize};

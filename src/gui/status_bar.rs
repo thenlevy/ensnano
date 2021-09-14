@@ -16,10 +16,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 use super::{AppState, Requests, UiSize};
-use ensnano_interactor::{
-    operation::{Operation, ParameterField},
-    Selection,
-};
+use ensnano_interactor::operation::{Operation, ParameterField};
 use iced::{container, slider, Background, Container, Length};
 use iced_native::{pick_list, text_input, Color, PickList, TextInput};
 use iced_winit::{Column, Command, Element, Program, Row, Space, Text};
@@ -73,7 +70,7 @@ pub struct StatusBar<R: Requests, S: AppState> {
     #[allow(dead_code)]
     slider_state: slider::State,
     app_state: S,
-    ui_size: UiSize,
+    _ui_size: UiSize,
 }
 
 impl<R: Requests, S: AppState> StatusBar<R, S> {
@@ -85,7 +82,7 @@ impl<R: Requests, S: AppState> StatusBar<R, S> {
             progress: None,
             slider_state: Default::default(),
             app_state: Default::default(),
-            ui_size: Default::default(),
+            _ui_size: Default::default(),
         }
     }
 
@@ -135,7 +132,6 @@ pub enum Message<S: AppState> {
     Progress(Option<(String, f32)>),
     #[allow(dead_code)]
     SetShift(f32),
-    ClearOp,
     NewApplicationState(S),
 }
 
@@ -166,7 +162,6 @@ impl<R: Requests, S: AppState> Program for StatusBar<R, S> {
                 }
             }
             Message::Progress(progress) => self.progress = progress,
-            Message::ClearOp => self.operation = None,
             Message::SetShift(f) => {
                 self.info_values[2] = f.to_string();
                 self.requests.lock().unwrap().update_hyperboloid_shift(f);
@@ -229,8 +224,6 @@ struct OperationInput {
     parameters: Vec<StatusParameter>,
     op_id: usize,
     operation: Arc<dyn Operation>,
-    /// true if there is a foccused textinput containing an invalid value
-    invalid_input: bool,
 }
 
 impl OperationInput {
@@ -253,7 +246,6 @@ impl OperationInput {
             values,
             values_str,
             operation,
-            invalid_input: false,
         }
     }
 

@@ -18,9 +18,9 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 
 use crate::controller::normal_state::NormalState;
 
-use super::{dialog, Action, Arc, MainState, Mutex, State, TransitionMessage, YesNo};
+use super::{dialog, MainState, State, TransitionMessage, YesNo};
 
-use dialog::{yes_no_dialog, PathInput, YesNoQuestion};
+use dialog::PathInput;
 use std::path::Path;
 
 pub(super) struct Quit {
@@ -312,7 +312,7 @@ impl State for SaveAs {
                 self
             }
         } else {
-            let getter = dialog::save("json", main_state.get_current_design_directory());
+            let getter = dialog::save("ens", main_state.get_current_design_directory());
             self.file_getter = Some(getter);
             self
         }

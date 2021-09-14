@@ -23,7 +23,6 @@ mod download_staples;
 use download_staples::*;
 pub use download_staples::{DownloadStappleError, DownloadStappleOk, StaplesDownloader};
 mod quit;
-use ensnano_interactor::graphics::FogParameters;
 use ensnano_interactor::{application::Notification, DesignOperation};
 use ensnano_interactor::{DesignReader, RigidBodyConstants, Selection};
 use quit::*;
@@ -42,7 +41,6 @@ use super::dialog;
 use super::{gui::UiSize, OverlayType, SplitMode};
 use dialog::MustAckMessage;
 use std::borrow::Cow;
-use std::sync::{Arc, Mutex};
 
 pub struct Controller {
     state: Box<dyn State + 'static>,
@@ -219,8 +217,6 @@ impl<E: std::error::Error> From<E> for SaveDesignError {
         Self(format!("{}", e))
     }
 }
-
-pub enum DesignAction {}
 
 #[derive(Clone, Debug)]
 pub enum SimulationRequest {

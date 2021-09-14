@@ -260,6 +260,7 @@ impl RollSystem {
     }
 }
 
+#[allow(dead_code)]
 fn spring_force(
     me: &Helix,
     other: &Helix,

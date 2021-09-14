@@ -83,7 +83,6 @@ pub struct View {
     char_drawers_bottom: HashMap<char, CharDrawer>,
     char_map_top: HashMap<char, Vec<CharInstance>>,
     char_map_bottom: HashMap<char, Vec<CharInstance>>,
-    selection: FlatSelection,
     show_sec: bool,
     suggestions: Vec<(FlatNucl, FlatNucl)>,
     suggestions_view: Vec<StrandView>,
@@ -224,7 +223,6 @@ impl View {
             char_map_top,
             char_drawers_bottom,
             char_map_bottom,
-            selection: FlatSelection::Nothing,
             show_sec: false,
             suggestions: vec![],
             suggestions_view: vec![],
@@ -422,10 +420,6 @@ impl View {
         } else {
             self.camera_top.borrow().was_updated() | self.was_updated
         }
-    }
-
-    pub fn set_selection(&mut self, selection: FlatSelection) {
-        self.selection = selection;
     }
 
     pub fn set_selected_helices(&mut self, selection: Vec<FlatIdx>) {

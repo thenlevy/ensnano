@@ -19,7 +19,6 @@ use super::super::DesignReader;
 use super::*;
 use ensnano_interactor::Selection;
 use iced::{scrollable, Scrollable};
-use std::borrow::Cow;
 
 pub(super) struct ContextualPanel {
     scroll: scrollable::State,
@@ -108,7 +107,7 @@ impl ContextualPanel {
 
     pub fn selection_value_changed<R: Requests>(
         &mut self,
-        n: usize,
+        _n: usize,
         s: String,
         requests: Arc<Mutex<R>>,
     ) {

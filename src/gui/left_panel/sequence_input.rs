@@ -20,6 +20,7 @@ use iced::{button, text_input, Button, Row, Text, TextInput};
 
 pub struct SequenceInput {
     input: text_input::State,
+    #[allow(dead_code)]
     button_state: button::State,
     sequence: String,
 }
@@ -32,6 +33,8 @@ impl SequenceInput {
             button_state: Default::default(),
         }
     }
+
+    #[allow(dead_code)]
     pub fn view<S: AppState>(&mut self) -> Row<Message<S>> {
         let sequence_input = Row::new()
             .spacing(5)

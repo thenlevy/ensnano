@@ -20,10 +20,9 @@ use super::*;
 use crate::scene::GridInstance;
 use ahash::RandomState;
 use ensnano_design::elements::DnaElement;
-use ensnano_design::grid::GridDescriptor;
 use ensnano_design::grid::GridPosition;
 use ensnano_design::*;
-use ensnano_interactor::{ObjectType, Selection};
+use ensnano_interactor::ObjectType;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::sync::Arc;
 use ultraviolet::Vec3;
@@ -385,7 +384,7 @@ impl DesignContent {
         let mut helix_map = HashMap::default();
         let mut basis_map = HashMap::default();
         let mut id = 0u32;
-        let mut nucl_id = id;
+        let mut nucl_id;
         let mut old_nucl: Option<Nucl> = None;
         let mut old_nucl_id = None;
         let mut red_cubes = HashMap::default();
@@ -541,16 +540,6 @@ impl DesignContent {
                 }
             } else {
                 if let Some(nucl) = old_nucl {
-                    let position_start = design.helices[&nucl.helix].space_pos(
-                        design.parameters.as_ref().unwrap(),
-                        nucl.position,
-                        nucl.forward,
-                    );
-                    let position_end = design.helices[&nucl.helix].space_pos(
-                        design.parameters.as_ref().unwrap(),
-                        nucl.prime3().position,
-                        nucl.forward,
-                    );
                     let color = strand.color;
                     prime3_set.push(Prime3End { nucl, color });
                 }
@@ -628,6 +617,7 @@ impl DesignContent {
         }
     }
 
+    #[allow(dead_code)]
     pub fn get_shift(&self, g_id: usize) -> Option<f32> {
         self.grid_manager
             .grids
@@ -637,23 +627,6 @@ impl DesignContent {
 
     pub fn read_simualtion_update(&mut self, update: &dyn SimulationUpdate) {
         update.update_positions(&self.identifier_nucl, &mut self.space_position)
-    }
-}
-
-fn get_mutable<T: Default + Clone>(new: &mut Option<T>, old: AddressPointer<T>) -> &mut T {
-    if new.is_some() {
-        new.as_mut().unwrap()
-    } else {
-        *new = Some(old.clone_inner());
-        new.as_mut().unwrap()
-    }
-}
-
-fn get_shared<'a, T: Default>(new: &'a Option<T>, old: &'a AddressPointer<T>) -> &'a T {
-    if let Some(new) = new.as_ref() {
-        new
-    } else {
-        old.as_ref()
     }
 }
 
