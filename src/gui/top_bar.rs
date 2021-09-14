@@ -15,9 +15,6 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
-use std::sync::{Arc, Mutex};
-use std::thread;
-
 use super::{AppState, UiSize};
 use ensnano_interactor::{ActionMode, SelectionMode};
 use iced::{container, Background, Container};
@@ -26,6 +23,7 @@ use iced_wgpu::Renderer;
 use iced_winit::winit::dpi::LogicalSize;
 use iced_winit::{button, Button, Color, Command, Element, Length, Program, Row};
 use std::collections::BTreeMap;
+use std::sync::{Arc, Mutex};
 
 use super::material_icons_light;
 use material_icons::{icon_to_char, Icon as MaterialIcon, FONT as MATERIALFONT};
@@ -123,11 +121,7 @@ pub enum Message<S: AppState> {
 }
 
 impl<R: Requests, S: AppState> TopBar<R, S> {
-    pub fn new(
-        requests: Arc<Mutex<R>>,
-        logical_size: LogicalSize<f64>,
-        dialoging: Arc<Mutex<bool>>,
-    ) -> Self {
+    pub fn new(requests: Arc<Mutex<R>>, logical_size: LogicalSize<f64>) -> Self {
         Self {
             button_fit: Default::default(),
             button_add_file: Default::default(),
@@ -450,34 +444,6 @@ pub const BACKGROUND: Color = Color::from_rgb(
 struct TopSizeInfo {
     ui_size: UiSize,
     height: iced::Length,
-}
-
-impl TopSizeInfo {
-    fn new(ui_size: UiSize, height: u16) -> Self {
-        Self {
-            ui_size,
-            height: iced::Length::Units(height),
-        }
-    }
-}
-
-#[allow(unused_imports)]
-use iced::tooltip::Position as ToolTipPosition;
-#[allow(unused_imports)]
-use iced::Tooltip;
-fn bottom_tooltip_icon_btn<'a, M: 'a + Clone>(
-    state: &'a mut button::State,
-    icon_char: MaterialIcon,
-    size: &TopSizeInfo,
-    _tooltip_text: impl ToString,
-    on_press: Option<M>,
-) -> Button<'a, M, Renderer> {
-    let mut button = Button::new(state, icon(icon_char, size.ui_size.clone())).height(size.height);
-    if let Some(on_press) = on_press {
-        button = button.on_press(on_press);
-    }
-    button
-    //Tooltip::new(button, tooltip_text, ToolTipPosition::Bottom).style(ToolTipStyle)
 }
 
 struct ToolTipStyle;

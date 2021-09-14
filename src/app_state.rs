@@ -151,10 +151,12 @@ impl AppState {
         Self(AddressPointer::new(new_state))
     }
 
+    #[allow(dead_code)] //used in tests
     pub fn update_design(&mut self, design: Design) {
         apply_update(self, |s| s.with_updated_design(design))
     }
 
+    #[allow(dead_code)] //used in tests
     pub fn with_updated_design(&self, design: Design) -> Self {
         let mut new_state = self.0.clone_inner();
         let new_interactor = new_state.design.with_updated_design(design);

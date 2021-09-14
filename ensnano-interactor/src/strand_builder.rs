@@ -19,7 +19,6 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 use ensnano_design::{Axis, Domain, Nucl};
 
 use std::cmp::Ordering;
-use std::sync::{Arc, Mutex};
 use ultraviolet::Mat4;
 
 #[derive(Clone, Debug)]

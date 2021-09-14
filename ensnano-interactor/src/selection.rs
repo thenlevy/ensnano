@@ -16,9 +16,8 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 use ensnano_design::grid::GridPosition;
-use ensnano_design::{Design, Nucl};
+use ensnano_design::Nucl;
 use std::collections::BTreeSet;
-use std::sync::{Arc, RwLock};
 
 pub const PHANTOM_RANGE: i32 = 1000;
 

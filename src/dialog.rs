@@ -16,6 +16,14 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+macro_rules! log_err {
+    ($x:expr) => {
+        if $x.is_err() {
+            log::error!("Unexpected error")
+        }
+    };
+}
+
 use std::path::{Path, PathBuf};
 use std::sync::mpsc;
 use std::thread;
@@ -40,19 +48,11 @@ pub fn yes_no_dialog(message: Cow<'static, str>) -> YesNoQuestion {
             println!("thread spawned");
             let ret = msg.await;
             println!("about to send");
-            snd.send(ret);
+            log_err![snd.send(ret)];
         };
         futures::executor::block_on(choice);
     });
     YesNoQuestion(rcv)
-}
-
-pub fn message(message: Cow<'static, str>, level: rfd::MessageLevel) {
-    let msg = rfd::AsyncMessageDialog::new()
-        .set_level(level)
-        .set_description(message.as_ref())
-        .show();
-    thread::spawn(move || futures::executor::block_on(msg));
 }
 
 /// A message that the user must acknowledge
@@ -104,9 +104,9 @@ pub fn save<P: AsRef<Path>>(target_extension: &'static str, starting_path: Optio
                         format!("{}.{}", extension.to_str().unwrap(), target_extension);
                     path_buf.set_extension(new_extension);
                 }
-                snd.send(Some(path_buf));
+                log_err![snd.send(Some(path_buf))];
             } else {
-                snd.send(None);
+                log_err![snd.send(None)];
             }
         };
         futures::executor::block_on(save_op);
@@ -122,9 +122,9 @@ pub fn get_dir() -> PathInput {
             let file = dialog.await;
             if let Some(handle) = file {
                 let path_buf: std::path::PathBuf = handle.path().clone().into();
-                snd.send(Some(path_buf));
+                log_err![snd.send(Some(path_buf))];
             } else {
-                snd.send(None);
+                log_err![snd.send(None)];
             }
         };
         futures::executor::block_on(save_op);
@@ -133,7 +133,9 @@ pub fn get_dir() -> PathInput {
 }
 
 pub fn load<P: AsRef<Path>>(starting_path: Option<P>) -> PathInput {
-    let mut dialog = rfd::AsyncFileDialog::new();
+    let mut dialog = rfd::AsyncFileDialog::new()
+        .add_filter("ENSnano files", &["ens"])
+        .add_filter("json files", &["json"]);
     if let Some(path) = starting_path {
         dialog = dialog.set_directory(path);
     }
@@ -144,24 +146,12 @@ pub fn load<P: AsRef<Path>>(starting_path: Option<P>) -> PathInput {
             let file = future_file.await;
             if let Some(handle) = file {
                 let path_buf: std::path::PathBuf = handle.path().clone().into();
-                snd.send(Some(path_buf));
+                log_err![snd.send(Some(path_buf))];
             } else {
-                snd.send(None);
+                log_err![snd.send(None)];
             }
         };
         futures::executor::block_on(load_op);
     });
     PathInput(rcv)
-}
-
-pub fn save_before_new() -> YesNoQuestion {
-    yes_no_dialog("Do you want to save your design before loading an empty one?".into())
-}
-
-pub fn save_before_open() -> YesNoQuestion {
-    yes_no_dialog("Do you want to save your design before loading a new one?".into())
-}
-
-pub fn save_before_quit() -> YesNoQuestion {
-    yes_no_dialog("Do you want to save your design before exiting the app?".into())
 }

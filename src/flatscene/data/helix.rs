@@ -30,7 +30,7 @@ use lyon::tessellation::{
     FillVertex, FillVertexConstructor, StrokeVertex, StrokeVertexConstructor,
 };
 use std::collections::{BTreeMap, HashMap};
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 use ultraviolet::{Isometry2, Mat2, Rotor2, Vec2, Vec4};
 
 type Vertices = lyon::tessellation::VertexBuffers<GpuVertex, u16>;
@@ -78,8 +78,8 @@ impl Helix {
         flat_id: FlatHelix,
         real_id: usize,
         visible: bool,
-        basis_map: Arc<HashMap<Nucl, char, RandomState>>,
-        groups: Arc<BTreeMap<usize, bool>>,
+        _basis_map: Arc<HashMap<Nucl, char, RandomState>>,
+        _groups: Arc<BTreeMap<usize, bool>>,
     ) -> Self {
         Self {
             left,

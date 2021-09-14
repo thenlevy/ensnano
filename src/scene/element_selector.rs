@@ -17,8 +17,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 use std::rc::Rc;
 
-use super::{AppState, DesignReader};
-use super::{DataPtr, Device, DrawArea, DrawType, Queue, ViewPtr};
+use super::{Device, DrawArea, DrawType, Queue, ViewPtr};
 use crate::utils;
 use ensnano_interactor::{phantom_helix_decoder, PhantomElement};
 use futures::executor;

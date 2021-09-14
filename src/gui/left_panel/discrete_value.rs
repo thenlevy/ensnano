@@ -15,9 +15,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
-use super::{
-    button, slider, AppState, Button, DesactivatedSlider, Element, HelixRoll, Row, Slider, Text,
-};
+use super::{button, slider, AppState, Button, DesactivatedSlider, Element, Row, Slider, Text};
 
 use super::Message;
 use std::collections::BTreeMap;
@@ -243,11 +241,5 @@ impl DiscreteValue {
 
     fn update_value(&mut self, new_val: f32) {
         self.value = new_val
-    }
-}
-
-impl RequestFactory<HelixRoll> {
-    pub fn update_roll(&mut self, roll: f32) {
-        self.values.get_mut(&ValueId(0)).unwrap().update_value(roll);
     }
 }

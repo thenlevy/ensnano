@@ -21,8 +21,6 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 //! happens. In addition to the transistion in the automat, a `Consequence` is returned to the
 //! scene, that describes the consequences that the input must have on the view or the data held by
 //! the scene.
-use self::automata::ReleasedPivot;
-
 use super::data::{ClickResult, FreeEnd};
 use super::{
     ActionMode, AppState, CameraPtr, DataPtr, FlatHelix, FlatNucl, PhySize, PhysicalPosition,
@@ -195,24 +193,6 @@ impl<S: AppState> Controller<S> {
         transition.consequences
     }
 
-    pub fn select_pivots(&mut self, translation_pivots: Vec<FlatNucl>, rotation_pivots: Vec<Vec2>) {
-        let transition = Transition {
-            new_state: Some(Box::new(ReleasedPivot {
-                translation_pivots,
-                rotation_pivots,
-                mouse_position: PhysicalPosition::new(-1., -1.),
-            })),
-            consequences: Consequence::Nothing,
-        };
-        self.state.borrow().transition_from(&self);
-        self.state = RefCell::new(transition.new_state.unwrap());
-        self.state.borrow().transition_to(&self);
-    }
-
-    pub fn set_action_mode(&mut self, action_mode: ActionMode) {
-        self.action_mode = action_mode;
-    }
-
     pub fn process_keyboard(&self, event: &WindowEvent) {
         if let WindowEvent::KeyboardInput {
             input:
@@ -275,13 +255,5 @@ impl<S: AppState> Controller<S> {
             self.state.borrow().transition_to(&self);
         }
         transition.consequences
-    }
-}
-
-fn ctrl(modifiers: &ModifiersState) -> bool {
-    if cfg!(target_os = "macos") {
-        modifiers.logo()
-    } else {
-        modifiers.ctrl()
     }
 }

@@ -16,7 +16,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-use super::{dialog, Arc, MainState, Mutex, State, TransitionMessage, YesNo};
+use super::{dialog, MainState, State, TransitionMessage, YesNo};
 
 use dialog::PathInput;
 use std::path::Path;
@@ -185,7 +185,7 @@ fn set_sequence(
     }
 }
 
-fn optimize_scaffold_position(design_id: usize, main_state: &mut dyn MainState) -> Box<dyn State> {
+fn optimize_scaffold_position(_design_id: usize, main_state: &mut dyn MainState) -> Box<dyn State> {
     main_state.optimize_shift();
     Box::new(super::NormalState)
 }

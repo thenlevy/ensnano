@@ -19,13 +19,13 @@ use iced_wgpu::wgpu;
 use iced_winit::winit;
 use std::cell::RefCell;
 use std::rc::Rc;
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use ultraviolet::{Mat4, Rotor3, Vec3};
 
 use crate::utils;
 use crate::{DrawArea, PhySize, WindowEvent};
-use ensnano_design::{grid::Hyperboloid, Nucl};
+use ensnano_design::Nucl;
 use ensnano_interactor::{
     application::{AppId, Application, Notification},
     list_of_grids, list_of_helices,
@@ -42,7 +42,6 @@ use winit::dpi::PhysicalPosition;
 mod camera;
 /// Display of the scene
 mod view;
-use ensnano_design::grid::GridTypeDescr;
 use view::{
     DrawType, HandleDir, HandleOrientation, HandlesDescriptor, LetterInstance,
     RotationMode as WidgetRotationMode, RotationWidgetDescriptor, RotationWidgetOrientation, View,
@@ -55,14 +54,14 @@ use controller::{Consequence, Controller};
 /// Handling of designs and internal data
 mod data;
 pub use controller::ClickMode;
+use data::Data;
 pub use data::DesignReader;
-use data::{Data, WantWidget};
 mod element_selector;
 use element_selector::{ElementSelector, SceneElement};
 mod maths_3d;
 
 type ViewPtr = Rc<RefCell<View>>;
-type DataPtr<R: DesignReader> = Rc<RefCell<Data<R>>>;
+type DataPtr<R> = Rc<RefCell<Data<R>>>;
 
 /// A structure responsible of the 3D display of the designs
 pub struct Scene<S: AppState> {
@@ -300,51 +299,6 @@ impl<S: AppState> Scene<S> {
         };
     }
 
-    pub fn make_new_grid(&self, grid_type: GridTypeDescr) {
-        let camera = self.view.borrow().get_camera();
-        let position = camera.borrow().position + 10_f32 * camera.borrow().direction();
-        let orientation = camera.borrow().rotor.reversed()
-            * Rotor3::from_rotation_xz(std::f32::consts::FRAC_PI_2);
-        self.requests
-            .lock()
-            .unwrap()
-            .update_opperation(Arc::new(CreateGrid {
-                design_id: 0,
-                position,
-                orientation,
-                grid_type,
-            }));
-        self.requests.lock().unwrap().suspend_op();
-    }
-
-    /*
-    pub fn make_hyperboloid(&self, hyperboloid: Hyperboloid) {
-        let camera = self.view.borrow().get_camera();
-        let position = camera.borrow().position + 40_f32 * camera.borrow().direction();
-        let orientation = camera.borrow().rotor.reversed()
-            * Rotor3::from_rotation_xz(std::f32::consts::FRAC_PI_2);
-        self.requests
-            .lock()
-            .unwrap()
-            .update_opperation(Arc::new(NewHyperboloid {
-                design_id: 0,
-                position,
-                orientation,
-                hyperboloid,
-                delete: false,
-            }));
-        self.data.borrow_mut().set_pivot_position(position);
-        self.requests.lock().unwrap().suspend_op();
-    }*/
-
-    pub fn get_position_for_new_hyperboloid(&self) -> (Vec3, Rotor3) {
-        let camera = self.view.borrow().get_camera();
-        let position = camera.borrow().position + 40_f32 * camera.borrow().direction();
-        let orientation = camera.borrow().rotor.reversed()
-            * Rotor3::from_rotation_xz(std::f32::consts::FRAC_PI_2);
-        (position, orientation)
-    }
-
     /// If a nucleotide is selected, and the clicked_pixel corresponds to an other nucleotide,
     /// request a cross-over between the two nucleotides.
     fn attempt_xover(&mut self, source: Nucl, target: Nucl, design_id: usize) {
@@ -354,7 +308,7 @@ impl<S: AppState> Scene<S> {
             .xover_request(source, target, design_id)
     }
 
-    fn element_center(&mut self, app_state: &S) -> Option<SceneElement> {
+    fn element_center(&mut self, _app_state: &S) -> Option<SceneElement> {
         let clicked_pixel = PhysicalPosition::new(
             self.area.size.width as f64 / 2.,
             self.area.size.height as f64 / 2.,
@@ -558,14 +512,14 @@ impl<S: AppState> Scene<S> {
         &mut self,
         encoder: &mut wgpu::CommandEncoder,
         target: &wgpu::TextureView,
-        app_state: &S,
+        _app_state: &S,
     ) {
         self.view
             .borrow_mut()
             .draw(encoder, target, DrawType::Scene, self.area);
     }
 
-    fn perform_update(&mut self, dt: Duration, app_state: &S) {
+    fn perform_update(&mut self, dt: Duration, _app_state: &S) {
         if self.update.camera_update {
             self.controller.update_camera(dt);
             self.view.borrow_mut().update(ViewUpdate::Camera);

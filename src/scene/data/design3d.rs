@@ -22,7 +22,6 @@ use super::super::view::{
 use super::super::GridInstance;
 use super::{LetterInstance, SceneElement};
 use crate::consts::*;
-use crate::utils;
 use crate::utils::instance::Instance;
 use ensnano_design::{grid::GridPosition, Nucl};
 use ensnano_interactor::{

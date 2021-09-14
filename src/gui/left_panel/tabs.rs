@@ -24,7 +24,7 @@ pub(super) struct EditionTab<S: AppState> {
     scroll: iced::scrollable::State,
     helix_roll_factory: RequestFactory<HelixRoll>,
     color_picker: ColorPicker,
-    sequence_input: SequenceInput,
+    _sequence_input: SequenceInput,
     redim_helices_button: button::State,
     redim_all_helices_button: button::State,
     roll_target_btn: GoStop<S>,
@@ -36,7 +36,7 @@ impl<S: AppState> EditionTab<S> {
             scroll: Default::default(),
             helix_roll_factory: RequestFactory::new(FactoryId::HelixRoll, HelixRoll {}),
             color_picker: ColorPicker::new(),
-            sequence_input: SequenceInput::new(),
+            _sequence_input: SequenceInput::new(),
             redim_helices_button: Default::default(),
             redim_all_helices_button: Default::default(),
             roll_target_btn: GoStop::new(
@@ -49,7 +49,7 @@ impl<S: AppState> EditionTab<S> {
     pub(super) fn view<'a>(
         &'a mut self,
         ui_size: UiSize,
-        width: u16,
+        _width: u16,
         app_state: &S,
     ) -> Element<'a, Message<S>> {
         let mut ret = Column::new().spacing(5);
@@ -114,10 +114,6 @@ impl<S: AppState> EditionTab<S> {
             }
         }
         ret
-    }
-
-    pub(super) fn update_roll(&mut self, roll: f32) {
-        self.helix_roll_factory.update_roll(roll);
     }
 
     pub(super) fn update_roll_request(
@@ -190,7 +186,7 @@ impl GridTab {
     pub(super) fn view<'a, S: AppState>(
         &'a mut self,
         ui_size: UiSize,
-        width: u16,
+        _width: u16,
         app_state: &S,
     ) -> Element<'a, Message<S>> {
         let mut ret = Column::new().spacing(5);
@@ -1117,10 +1113,6 @@ impl SequenceTab {
         } else {
             None
         }
-    }
-
-    pub(super) fn get_scaffold_pos(&self) -> usize {
-        self.scaffold_position
     }
 
     pub fn has_keyboard_priority(&self) -> bool {

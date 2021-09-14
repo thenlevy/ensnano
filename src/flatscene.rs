@@ -30,7 +30,7 @@ use iced_winit::winit;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Arc, Mutex};
 use wgpu::{Device, Queue};
 use winit::dpi::PhysicalPosition;
 
@@ -168,13 +168,6 @@ impl<S: AppState> FlatScene<S> {
         }
         for controller in self.controller.iter_mut() {
             controller.resize(window_size, area.size);
-        }
-    }
-
-    /// Change the action beign performed by the user
-    fn change_action_mode(&mut self, action_mode: ActionMode) {
-        if let Some(controller) = self.controller.get_mut(self.selected_design) {
-            controller.set_action_mode(action_mode)
         }
     }
 
@@ -355,7 +348,7 @@ impl<S: AppState> FlatScene<S> {
             }
             Consequence::AddClick(click, add) => {
                 let mut new_selection = app_state.get_selection().to_vec();
-                let selection = self.data[self.selected_design].borrow_mut().add_selection(
+                self.data[self.selected_design].borrow_mut().add_selection(
                     click,
                     add,
                     &mut new_selection,

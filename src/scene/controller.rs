@@ -22,13 +22,11 @@ use super::{
 use crate::consts::*;
 use crate::{PhySize, PhysicalPosition, WindowEvent};
 use ensnano_design::Nucl;
-use ensnano_interactor::ActionMode;
 use iced_winit::winit::event::*;
 use std::cell::RefCell;
 use ultraviolet::{Rotor3, Vec3};
 
 use super::AppState;
-use super::DesignReader;
 
 use camera::CameraController;
 

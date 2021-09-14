@@ -322,7 +322,6 @@ impl Presenter {}
 
 #[cfg(test)]
 mod tests {
-    use super::*;
 
     #[test]
     #[ignore]

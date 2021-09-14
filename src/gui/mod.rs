@@ -335,14 +335,12 @@ impl<R: Requests, S: AppState> GuiElement<R, S> {
         window: &Window,
         multiplexer: &dyn Multiplexer,
         requests: Arc<Mutex<R>>,
-        dialoging: Arc<Mutex<bool>>,
     ) -> Self {
         let cursor_position = PhysicalPosition::new(-1., -1.);
         let top_bar_area = multiplexer.get_draw_area(ElementType::TopBar).unwrap();
         let top_bar = TopBar::new(
             requests.clone(),
             top_bar_area.size.to_logical(window.scale_factor()),
-            dialoging,
         );
         let mut top_bar_debug = Debug::new();
         let top_bar_state = program::State::new(
@@ -367,7 +365,6 @@ impl<R: Requests, S: AppState> GuiElement<R, S> {
         multiplexer: &dyn Multiplexer,
         requests: Arc<Mutex<R>>,
         first_time: bool,
-        dialoging: Arc<Mutex<bool>>,
     ) -> Self {
         let cursor_position = PhysicalPosition::new(-1., -1.);
         let left_panel_area = multiplexer.get_draw_area(ElementType::LeftPanel).unwrap();
@@ -376,7 +373,6 @@ impl<R: Requests, S: AppState> GuiElement<R, S> {
             left_panel_area.size.to_logical(window.scale_factor()),
             left_panel_area.position.to_logical(window.scale_factor()),
             first_time,
-            dialoging,
         );
         let mut left_panel_debug = Debug::new();
         let left_panel_state = program::State::new(
@@ -505,7 +501,6 @@ pub struct Gui<R: Requests, S: AppState> {
     device: Rc<Device>,
     resized: bool,
     requests: Arc<Mutex<R>>,
-    dialoging: Arc<Mutex<bool>>,
     ui_size: UiSize,
 }
 
@@ -519,27 +514,13 @@ impl<R: Requests, S: AppState> Gui<R, S> {
     ) -> Self {
         let mut renderer = Renderer::new(Backend::new(device.as_ref(), settings.clone()));
         let mut elements = HashMap::new();
-        let dialoging: Arc<Mutex<bool>> = Default::default();
         elements.insert(
             ElementType::TopBar,
-            GuiElement::top_bar(
-                &mut renderer,
-                window,
-                multiplexer,
-                requests.clone(),
-                dialoging.clone(),
-            ),
+            GuiElement::top_bar(&mut renderer, window, multiplexer, requests.clone()),
         );
         elements.insert(
             ElementType::LeftPanel,
-            GuiElement::left_panel(
-                &mut renderer,
-                window,
-                multiplexer,
-                requests.clone(),
-                true,
-                dialoging.clone(),
-            ),
+            GuiElement::left_panel(&mut renderer, window, multiplexer, requests.clone(), true),
         );
         elements.insert(
             ElementType::StatusBar,
@@ -553,7 +534,6 @@ impl<R: Requests, S: AppState> Gui<R, S> {
             renderer,
             device,
             resized: true,
-            dialoging,
             ui_size: Default::default(),
         }
     }
@@ -643,7 +623,6 @@ impl<R: Requests, S: AppState> Gui<R, S> {
                 window,
                 multiplexer,
                 self.requests.clone(),
-                self.dialoging.clone(),
             ),
         );
         self.elements.insert(
@@ -654,7 +633,6 @@ impl<R: Requests, S: AppState> Gui<R, S> {
                 multiplexer,
                 self.requests.clone(),
                 false,
-                self.dialoging.clone(),
             ),
         );
         self.elements.insert(
@@ -790,6 +768,7 @@ impl<S: AppState> IcedMessages<S> {
         }
     }
 
+    #[allow(dead_code)]
     pub fn push_color(&mut self, color: u32) {
         let bytes = color.to_be_bytes();
         // bytes is [A, R, G, B]
@@ -798,11 +777,6 @@ impl<S: AppState> IcedMessages<S> {
             .push_back(left_panel::ColorMessage::StrandColorChanged(color));
         self.left_panel
             .push_back(left_panel::Message::StrandColorChanged(color));
-    }
-
-    pub fn push_sequence(&mut self, sequence: String) {
-        self.left_panel
-            .push_back(left_panel::Message::SequenceChanged(sequence));
     }
 
     pub fn push_progress(&mut self, progress_name: String, progress: f32) {
@@ -816,15 +790,6 @@ impl<S: AppState> IcedMessages<S> {
     pub fn finish_progess(&mut self) {
         self.status_bar
             .push_back(status_bar::Message::Progress(None))
-    }
-
-    pub fn notify_new_design(&mut self) {
-        self.left_panel.push_back(left_panel::Message::NewDesign)
-    }
-
-    pub fn push_roll(&mut self, roll: f32) {
-        self.left_panel
-            .push_back(left_panel::Message::HelixRoll(roll))
     }
 
     pub fn update_modifiers(&mut self, modifiers: ModifiersState) {

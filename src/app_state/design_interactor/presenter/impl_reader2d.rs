@@ -184,7 +184,6 @@ impl Reader2D for DesignReader {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
 
     #[test]
     #[ignore]

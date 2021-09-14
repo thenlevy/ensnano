@@ -25,7 +25,7 @@ use super::gui::UiSize;
 use super::*;
 use ensnano_interactor::CenterOfSelection;
 use ensnano_interactor::{application::AppId, RollRequest, Selection};
-pub use poll::*;
+pub(crate) use poll::poll_all;
 use ultraviolet::Vec3;
 
 use super::gui::OrganizerTree;

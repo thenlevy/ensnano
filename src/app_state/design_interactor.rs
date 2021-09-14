@@ -237,6 +237,7 @@ impl DesignInteractor {
         self
     }
 
+    #[allow(dead_code)] //used in tests
     pub(super) fn with_updated_design(&self, design: Design) -> Self {
         let mut new_interactor = self.clone();
         new_interactor.design = AddressPointer::new(design);
@@ -396,7 +397,7 @@ mod tests {
 
     fn fake_design_update(state: &mut AppState) {
         let design = state.0.design.design.clone_inner();
-        let mut new_state = std::mem::take(state);
+        let new_state = std::mem::take(state);
         *state = new_state.with_updated_design(design);
     }
 
@@ -411,7 +412,6 @@ mod tests {
 
     #[test]
     fn first_update_has_effect() {
-        use crate::scene::AppState as App3d;
         let path = one_helix_path();
         let mut app_state = AppState::import_design(&path).ok().unwrap();
         let old_app_state = app_state.clone();
@@ -422,7 +422,6 @@ mod tests {
 
     #[test]
     fn second_update_has_no_effect() {
-        use crate::scene::AppState as App3d;
         let path = one_helix_path();
         let mut app_state = AppState::import_design(&path).ok().unwrap();
         fake_design_update(&mut app_state);
@@ -778,7 +777,6 @@ mod tests {
 
     #[test]
     fn setting_a_candidate_triggers_update() {
-        use crate::scene::AppState as App3d;
         let mut app_state = pastable_design();
         let old_app_state = app_state.clone();
         assert!(!old_app_state.design_was_modified(&app_state));

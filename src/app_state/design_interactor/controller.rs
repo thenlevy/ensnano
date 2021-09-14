@@ -19,7 +19,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 use super::SimulationUpdate;
 use crate::app_state::AddressPointer;
 use ensnano_design::{
-    elements::{DnaAttribute, DnaElement, DnaElementKey},
+    elements::{DnaAttribute, DnaElementKey},
     grid::{Edge, GridDescriptor, GridPosition, Hyperboloid},
     mutate_in_arc, Design, Domain, DomainJunction, Helix, Nucl, Strand,
 };
@@ -664,6 +664,7 @@ impl Controller {
         shift_optimization::optimize_shift(Arc::new(design.clone()), nucl_map, chanel_reader);
     }
 
+    #[allow(dead_code)]
     pub fn size_of_clipboard(&self) -> usize {
         self.clipboard.size()
     }
@@ -931,7 +932,7 @@ impl Controller {
                     x,
                     y,
                     axis_pos,
-                    roll: 0f32,
+                    roll,
                 });
                 h.position = helix.position;
             });
@@ -1015,7 +1016,7 @@ impl Controller {
     ) -> Design {
         let mut grid_manager = GridManager::new_from_design(&new_design);
         let mut successfull_reattach = true;
-        for (i, h_id) in helices.iter().enumerate() {
+        for h_id in helices.iter() {
             successfull_reattach &=
                 grid_manager.reattach_helix(*h_id, &mut new_design, true, helices);
         }
@@ -1117,7 +1118,6 @@ pub enum ErrOperation {
     NuclDoesNotExist(Nucl),
     XoverBetweenTwoPrime5,
     XoverBetweenTwoPrime3,
-    CouldNotCreateTemplates,
     CouldNotCreateEdges,
     EmptyOrigin,
     EmptyClipboard,
@@ -2168,6 +2168,7 @@ impl Default for ControllerState {
 }
 
 impl ControllerState {
+    #[allow(dead_code)]
     fn state_name(&self) -> &'static str {
         match self {
             Self::Normal => "Normal",

@@ -17,9 +17,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 
 use super::*;
-use crate::controller::{
-    DownloadStappleError, DownloadStappleOk, ScaffoldSetter, StaplesDownloader,
-};
+use crate::controller::{DownloadStappleError, DownloadStappleOk, StaplesDownloader};
 use std::path::PathBuf;
 
 impl StaplesDownloader for DesignReader {

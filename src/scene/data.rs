@@ -27,7 +27,6 @@ use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
-use ensnano_design::grid::GridPosition;
 use ultraviolet::{Rotor3, Vec3};
 
 use super::view::Mesh;
@@ -207,11 +206,6 @@ impl<R: DesignReader> Data<R> {
         self.pivot_update |= self.pivot_element != element;
         self.pivot_element = element;
         self.update_pivot_position(app_state);
-    }
-
-    pub fn set_pivot_position(&mut self, position: Vec3) {
-        self.pivot_position = Some(position);
-        self.pivot_update = true;
     }
 
     #[allow(dead_code)]
@@ -701,11 +695,6 @@ impl<R: DesignReader> Data<R> {
             }
             Some((new_selection, center_of_selection))
         }
-    }
-
-    /// This function must be called when the current movement ends.
-    pub fn end_movement<S: AppState>(&mut self, app_state: &S) {
-        self.update_selected_position(app_state)
     }
 
     /// If source is some nucleotide, target is some nucleotide and both nucleotides are

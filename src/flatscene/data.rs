@@ -18,9 +18,9 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 use super::{
     flattypes::FlatSelection, AppState, Flat, HelixVec, PhantomElement, Requests, ViewPtr,
 };
-use ensnano_design::{Design, Nucl};
-use ensnano_interactor::{Selection, SelectionMode, StrandBuilder};
-use std::sync::{Arc, Mutex, RwLock};
+use ensnano_design::Nucl;
+use ensnano_interactor::{Selection, SelectionMode};
+use std::sync::{Arc, Mutex};
 use ultraviolet::Vec2;
 
 mod helix;
@@ -34,7 +34,7 @@ use crate::utils::camera2d::FitRectangle;
 use ahash::RandomState;
 use design::{Design2d, Helix2d};
 pub use design::{DesignReader, FlatTorsion};
-use ensnano_design::{Helix as DesignHelix, Strand as DesignStrand};
+use ensnano_design::Strand as DesignStrand;
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
 pub struct Data {
@@ -436,10 +436,6 @@ impl Data {
         self.instance_update = true;
     }
 
-    pub fn notify_reset(&mut self) {
-        self.instance_reset = true;
-    }
-
     pub fn can_cross_to(&self, from: FlatNucl, to: FlatNucl) -> bool {
         if from.helix == to.helix {
             if from.prime5() != to && from.prime3() != to {
@@ -551,14 +547,6 @@ impl Data {
             log::error!("Problem during cross-over attempt. If you are not trying to break a cyclic strand please repport a bug");
         }
         (strand_5prime.unwrap(), strand_3prime.unwrap())
-    }
-
-    pub fn get_strand(&self, strand_id: usize) -> Option<DesignStrand> {
-        self.design.get_strand(strand_id)
-    }
-
-    pub fn can_delete_helix(&mut self, helix: FlatHelix) -> bool {
-        self.design.can_delete_helix(helix)
     }
 
     pub fn get_fit_rectangle(&self) -> FitRectangle {

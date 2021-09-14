@@ -523,8 +523,8 @@ use std::collections::HashMap;
 pub trait SimulationUpdate: Send + Sync {
     fn update_positions(
         &self,
-        identifier_nucl: &HashMap<Nucl, u32, ahash::RandomState>,
-        space_position: &mut HashMap<u32, [f32; 3], ahash::RandomState>,
+        _identifier_nucl: &HashMap<Nucl, u32, ahash::RandomState>,
+        _space_position: &mut HashMap<u32, [f32; 3], ahash::RandomState>,
     ) {
     }
 
