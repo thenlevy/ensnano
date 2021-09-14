@@ -83,12 +83,12 @@ impl Design2d {
             }
             let flat_strand = strand
                 .iter()
-                .map(|n| FlatNucl::from_real(n, self.id_map()))
+                .filter_map(|n| FlatNucl::from_real(n, self.id_map()))
                 .collect();
             let insertions = self.design.get_insertions(*strand_id).unwrap_or_default();
             let insertions = insertions
                 .iter()
-                .map(|n| FlatNucl::from_real(n, self.id_map()))
+                .filter_map(|n| FlatNucl::from_real(n, self.id_map()))
                 .collect::<Vec<_>>();
             self.strands.push(Strand::new(
                 color,
@@ -109,7 +109,7 @@ impl Design2d {
                 }
                 let flat_strand = nucls
                     .iter()
-                    .map(|n| FlatNucl::from_real(n, self.id_map()))
+                    .filter_map(|n| FlatNucl::from_real(n, self.id_map()))
                     .collect();
                 Strand::new(color, flat_strand, vec![], 0, true)
             })
@@ -117,8 +117,9 @@ impl Design2d {
 
         for h_id in self.id_map.keys() {
             let visibility = self.design.get_visibility_helix(*h_id);
-            let flat_helix = FlatHelix::from_real(*h_id, &self.id_map);
-            self.helices[flat_helix.flat].visible = visibility.unwrap_or(false);
+            if let Some(flat_helix) = FlatHelix::from_real(*h_id, &self.id_map) {
+                self.helices[flat_helix.flat].visible = visibility.unwrap_or(false);
+            }
         }
 
         for h in self.helices.iter_mut() {
@@ -131,11 +132,8 @@ impl Design2d {
         let suggestions = self.design.get_suggestions();
         suggestions
             .iter()
-            .map(|(n1, n2)| {
-                (
-                    FlatNucl::from_real(n1, &self.id_map),
-                    FlatNucl::from_real(n2, &self.id_map),
-                )
+            .filter_map(|(n1, n2)| {
+                FlatNucl::from_real(n1, &self.id_map).zip(FlatNucl::from_real(n2, &self.id_map))
             })
             .collect()
     }
@@ -342,19 +340,19 @@ impl Design2d {
             let flat_1 = FlatNucl::from_real(n1, &self.id_map);
             let flat_2 = FlatNucl::from_real(n2, &self.id_map);
             let torsion = FlatTorsion::from_real(k, &self.id_map);
-            ((flat_1, flat_2), torsion)
+            flat_1.zip(flat_2).zip(Some(torsion))
         };
-        torsions.iter().map(conversion).collect()
+        torsions.iter().filter_map(conversion).collect()
     }
 
     pub fn get_xovers_list(&self) -> Vec<(usize, (FlatNucl, FlatNucl))> {
         let xovers = self.design.get_xovers_list_with_id();
         xovers
             .iter()
-            .map(|(id, (n1, n2))| {
+            .filter_map(|(id, (n1, n2))| {
                 let flat_1 = FlatNucl::from_real(n1, &self.id_map);
                 let flat_2 = FlatNucl::from_real(n2, &self.id_map);
-                (*id, (flat_1, flat_2))
+                Some(*id).zip(flat_1.zip(flat_2))
             })
             .collect()
     }
@@ -362,7 +360,7 @@ impl Design2d {
     pub fn strand_from_xover(&self, xover: &(Nucl, Nucl), color: u32) -> Strand {
         let flat_nucls = [xover.0, xover.1]
             .iter()
-            .map(|n| FlatNucl::from_real(n, self.id_map()))
+            .filter_map(|n| FlatNucl::from_real(n, self.id_map()))
             .collect();
         Strand::new(0, flat_nucls, vec![], 0, false).highlighted(color)
     }
@@ -419,11 +417,8 @@ impl FlatTorsion {
         Self {
             strength_prime5: real.strength_prime5,
             strength_prime3: real.strength_prime3,
-            friend: real.friend.map(|(n1, n2)| {
-                (
-                    FlatNucl::from_real(&n1, id_map),
-                    FlatNucl::from_real(&n2, id_map),
-                )
+            friend: real.friend.and_then(|(n1, n2)| {
+                FlatNucl::from_real(&n1, id_map).zip(FlatNucl::from_real(&n2, id_map))
             }),
         }
     }

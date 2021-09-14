@@ -126,8 +126,9 @@ impl Data {
                         }
                     }
                     Selection::Helix(_, h) => {
-                        let flat_helix = FlatHelix::from_real(*h as usize, id_map);
-                        selected_helices.push(flat_helix.flat);
+                        if let Some(flat_helix) = FlatHelix::from_real(*h as usize, id_map) {
+                            selected_helices.push(flat_helix.flat);
+                        }
                     }
                     _ => (),
                 }
@@ -147,8 +148,9 @@ impl Data {
                     }
                 }
                 Selection::Helix(_, h) => {
-                    let flat_helix = FlatHelix::from_real(*h as usize, id_map);
-                    candidate_helices.push(flat_helix.flat);
+                    if let Some(flat_helix) = FlatHelix::from_real(*h as usize, id_map) {
+                        candidate_helices.push(flat_helix.flat);
+                    }
                 }
                 _ => (),
             }
@@ -196,18 +198,19 @@ impl Data {
             helix.update(&new_helices[i], id_map);
         }
         for h in new_helices[nb_helix..].iter() {
-            let flat_helix = FlatHelix::from_real(h.id, id_map);
-            self.helices.push(Helix::new(
-                h.left,
-                h.right,
-                h.isometry,
-                flat_helix,
-                h.id,
-                h.visible,
-                design.get_basis_map(),
-                design.get_group_map(),
-            ));
-            self.nb_helices_created += 1;
+            if let Some(flat_helix) = FlatHelix::from_real(h.id, id_map) {
+                self.helices.push(Helix::new(
+                    h.left,
+                    h.right,
+                    h.isometry,
+                    flat_helix,
+                    h.id,
+                    h.visible,
+                    design.get_basis_map(),
+                    design.get_group_map(),
+                ));
+                self.nb_helices_created += 1;
+            }
         }
         let suggestions = self.design.suggestions();
         self.update_suggestion(&suggestions);
@@ -904,11 +907,13 @@ impl Data {
     pub(super) fn xover_to_nuclpair(&self, selection: FlatSelection) -> FlatSelection {
         if let FlatSelection::Xover(d_id, xover_id) = selection {
             if let Some((n1, n2)) = self.design.get_xover_with_id(xover_id) {
-                FlatSelection::Bound(
-                    d_id,
-                    FlatNucl::from_real(&n1, self.id_map()),
-                    FlatNucl::from_real(&n2, self.id_map()),
-                )
+                let flat_1 = FlatNucl::from_real(&n1, self.id_map());
+                let flat_2 = FlatNucl::from_real(&n2, self.id_map());
+                if let Some((flat_1, flat_2)) = flat_1.zip(flat_2) {
+                    FlatSelection::Bound(d_id, flat_1, flat_2)
+                } else {
+                    FlatSelection::Nothing
+                }
             } else {
                 FlatSelection::Nothing
             }

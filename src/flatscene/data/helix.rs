@@ -100,7 +100,11 @@ impl Helix {
         self.right = self.right.max(helix2d.right);
         self.visible = helix2d.visible;
         self.real_id = helix2d.id;
-        self.flat_id = FlatHelix::from_real(self.real_id, id_map);
+        if let Some(flat_id) = FlatHelix::from_real(self.real_id, id_map) {
+            self.flat_id = flat_id
+        } else {
+            log::error!("real id does not exist {}", self.real_id);
+        }
         self.isometry = helix2d.isometry;
     }
 
