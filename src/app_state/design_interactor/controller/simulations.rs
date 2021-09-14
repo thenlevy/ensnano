@@ -126,7 +126,9 @@ impl ExplicitODE<f32> for HelixSystem {
                 ret.push(d_position.x);
                 ret.push(d_position.y);
                 ret.push(d_position.z);
-                log::trace!("angular momentum{} {:?}", i, angular_momentums[i]);
+                if log::log_enabled!(log::Level::Trace) {
+                    log::trace!("angular momentum{} {:?}", i, angular_momentums[i]);
+                }
                 let omega = self.helices[i].inertia_inverse * angular_momentums[i]
                     / self.rigid_parameters.mass;
                 let d_rotation = 0.5
