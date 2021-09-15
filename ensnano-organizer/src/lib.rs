@@ -26,7 +26,7 @@ type HoverableButton<'a, Message> = hoverable_button::Button<'a, Message, iced_w
 
 const LEVEL0_SPACING: u16 = 3;
 const LEVELS_SPACING: u16 = 2;
-const ICON_SIZE: u16 = 8;
+const ICON_SIZE: u16 = 10;
 const SECTION_ID: usize = usize::MAX;
 
 #[derive(Clone, Debug)]
@@ -282,7 +282,10 @@ impl<E: OrganizerElement> Organizer<E> {
                 ));
             }
             OrganizerMessage_::NewGroup => {
-                self.push_content(selection.iter().cloned().collect(), String::from(""));
+                self.push_content(
+                    selection.iter().cloned().collect(),
+                    String::from("New group"),
+                );
                 return Some(OrganizerMessage::NewTree(self.tree()));
             }
             OrganizerMessage_::Delete { id } => {
@@ -876,6 +879,11 @@ impl<E: OrganizerElement> NodeView<E> {
                     .push(Text::new(name.clone()))
                     .push(Space::with_width(iced::Length::Fill));
 
+                row = row.push(
+                    Button::new(eddit_button, eddit_icon())
+                        .on_press(OrganizerMessage::eddit(id.clone())),
+                );
+
                 for ad in self.attribute_displayers.iter_mut() {
                     if let Some(view) = ad.view() {
                         let elt = elements_below.clone();
@@ -884,10 +892,6 @@ impl<E: OrganizerElement> NodeView<E> {
                     }
                 }
 
-                row = row.push(
-                    Button::new(eddit_button, eddit_icon())
-                        .on_press(OrganizerMessage::eddit(id.clone())),
-                );
                 row = row.push(
                     Button::new(delete_button, icon(Icon::Trash.into()))
                         .on_press(OrganizerMessage::delete(id.clone())),
