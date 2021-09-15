@@ -974,25 +974,48 @@ impl Data {
 
     pub fn can_make_auto_xover(&self, nucl: FlatNucl) -> Option<FlatNucl> {
         let strand = self.get_strand_id(nucl)?;
+
+        // Check if the nucleotide on 5' is involved in a crossover ? If so the candidate is the
+        // nucleotide on 5' of the nucl crossed to.
         let prime5_nucl = nucl.prime5();
-        if self.get_strand_id(prime5_nucl) != Some(strand) {
-            if let Some(xover_of_prime5) = self.get_xover_nucl(prime5_nucl) {
-                let candidate = xover_of_prime5.prime5();
+        let strand_of_prime5 = self.get_strand_id(prime5_nucl);
+
+        if let Some(xover_of_prime5) = self.get_xover_nucl(prime5_nucl) {
+            let candidate = xover_of_prime5.prime5();
+            if strand_of_prime5 == Some(strand) {
+                // Special case where auto xover could be closing a cyclic strand
+                if self.design.prime5_of(nucl.to_real()) == Some(strand)
+                    && self.design.prime3_of(candidate.to_real()) == Some(strand)
+                {
+                    return Some(candidate);
+                }
+            } else if strand_of_prime5.is_some() {
                 if self.can_cross_to(nucl, candidate) {
                     return Some(candidate);
                 }
             }
         }
 
+        // Check if the nucleotide on 3' is involved in a crossover ? If so the candidate is the
+        // nucleotide on 3' of the nucl crossed to.
         let prime3_nucl = nucl.prime3();
-        if self.get_strand_id(prime3_nucl) != Some(strand) {
-            if let Some(xover_of_prime3) = self.get_xover_nucl(prime3_nucl) {
-                let candidate = xover_of_prime3.prime3();
+        let strand_of_prime3 = self.get_strand_id(prime3_nucl);
+        if let Some(xover_of_prime3) = self.get_xover_nucl(prime3_nucl) {
+            let candidate = xover_of_prime3.prime3();
+            if strand_of_prime3 == Some(strand) {
+                // Special case where auto xover could be closing a cyclic strand
+                if self.design.prime3_of(nucl.to_real()) == Some(strand)
+                    && self.design.prime5_of(candidate.to_real()) == Some(strand)
+                {
+                    return Some(candidate);
+                }
+            } else if strand_of_prime3.is_some() {
                 if self.can_cross_to(nucl, candidate) {
                     return Some(candidate);
                 }
             }
         }
+
         None
     }
 }
