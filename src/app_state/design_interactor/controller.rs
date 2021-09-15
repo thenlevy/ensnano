@@ -85,11 +85,13 @@ impl Controller {
         design: &Design,
         operation: DesignOperation,
     ) -> Result<(OkOperation, Self), ErrOperation> {
+        log::debug!("operation {:?}", operation);
         match self.check_compatibilty(&operation) {
             OperationCompatibility::Incompatible => return Err(ErrOperation::IncompatibleState),
             OperationCompatibility::FinishFirst => return Err(ErrOperation::FinishFirst),
             OperationCompatibility::Compatible => (),
         }
+        log::debug!("applicable");
         match operation {
             DesignOperation::RecolorStaples => Ok(self.ok_apply(Self::recolor_stapples, design)),
             DesignOperation::SetScaffoldSequence { sequence, shift } => Ok(self.ok_apply(
@@ -726,7 +728,7 @@ impl Controller {
                     OperationCompatibility::Compatible
                 } else {
                     if initializing {
-                        OperationCompatibility::Compatible
+                        OperationCompatibility::FinishFirst
                     } else {
                         OperationCompatibility::Incompatible
                     }

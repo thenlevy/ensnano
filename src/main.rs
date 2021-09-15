@@ -897,6 +897,7 @@ impl MainState {
     }
 
     fn apply_operation(&mut self, operation: DesignOperation) {
+        log::debug!("Applying operation {:?}", operation);
         let result = self.app_state.apply_design_op(operation.clone());
         if let Err(ErrOperation::FinishFirst) = result {
             self.modify_state(
@@ -942,8 +943,15 @@ impl MainState {
     }
 
     fn apply_silent_operation(&mut self, operation: DesignOperation) {
-        match self.app_state.apply_design_op(operation) {
+        match self.app_state.apply_design_op(operation.clone()) {
             Ok(_) => (),
+            Err(ErrOperation::FinishFirst) => {
+                self.modify_state(
+                    |s| s.notified(app_state::InteractorNotification::FinishOperation),
+                    false,
+                );
+                self.apply_silent_operation(operation)
+            }
             Err(e) => log::warn!("{:?}", e),
         }
     }
@@ -993,7 +1001,14 @@ impl MainState {
     }
 
     fn update_pending_operation(&mut self, operation: Arc<dyn Operation>) {
-        let result = self.app_state.update_pending_operation(operation);
+        let result = self.app_state.update_pending_operation(operation.clone());
+        if let Err(ErrOperation::FinishFirst) = result {
+            self.modify_state(
+                |s| s.notified(app_state::InteractorNotification::FinishOperation),
+                false,
+            );
+            self.update_pending_operation(operation)
+        }
         self.apply_operation_result(result);
     }
 
