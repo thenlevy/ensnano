@@ -1,0 +1,23 @@
+[package]
+name = "ensnano_organizer"
+version = "0.1.0"
+authors = ["nlevy <nicolaspierrelevy@gmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+iced = { git = "https://github.com/thenlevy/iced", rev = "5eddea0", features=["image", "wgpu"] }
+iced_wgpu = { git = "https://github.com/thenlevy/iced", rev = "5eddea0" }
+iced_graphics = { git = "https://github.com/thenlevy/iced", rev = "5eddea0" }
+iced_winit = { git = "https://github.com/thenlevy/iced", rev = "5eddea0" }
+iced_native = { git = "https://github.com/thenlevy/iced", rev = "5eddea0" }
+iced_aw = { git = "https://github.com/iced-rs/iced_aw", rev = "84ccfa8", features=["icons", "icon_text"] }
+serde = "1.0.116"
+serde_derive = "1.0.116"
+log = "0.4"
+pretty_env_logger = "0.4"
+
+[dev-dependencies]
+num_enum = "0.5.1"
+

@@ -21,7 +21,7 @@ use ultraviolet::{Mat4, Vec2, Vec3};
 use wgpu::{include_spirv, Device, RenderPass};
 
 use super::{grid_disc::GridDisc, instances_drawer::*, LetterInstance};
-pub use crate::design::{Grid, GridDivision, GridType, GridTypeDescr, Parameters};
+use ensnano_design::grid::{Grid, GridDivision, GridType};
 
 mod texture;
 
@@ -286,6 +286,17 @@ impl GridManager {
             }
         }
         ret
+    }
+
+    pub fn specific_intersect(
+        &self,
+        origin: Vec3,
+        direction: Vec3,
+        grid_id: usize,
+    ) -> Option<GridIntersection> {
+        self.instances
+            .get(grid_id)
+            .and_then(|g| g.ray_intersection(origin, direction))
     }
 
     pub fn set_candidate_grid(&mut self, grids: Vec<(usize, usize)>) {

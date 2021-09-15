@@ -17,8 +17,9 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 use std::rc::Rc;
 
-use super::{DataPtr, Device, DrawArea, DrawType, Queue, ViewPtr};
+use super::{Device, DrawArea, DrawType, Queue, ViewPtr};
 use crate::utils;
+use ensnano_interactor::{phantom_helix_decoder, PhantomElement};
 use futures::executor;
 use iced_wgpu::wgpu;
 use iced_winit::winit::dpi::{PhysicalPosition, PhysicalSize};
@@ -30,7 +31,6 @@ pub struct ElementSelector {
     readers: Vec<SceneReader>,
     window_size: PhysicalSize<u32>,
     view: ViewPtr,
-    data: DataPtr,
     area: DrawArea,
 }
 
@@ -40,7 +40,6 @@ impl ElementSelector {
         queue: Rc<Queue>,
         window_size: PhysicalSize<u32>,
         view: ViewPtr,
-        data: DataPtr,
         area: DrawArea,
     ) -> Self {
         let readers = vec![
@@ -55,7 +54,6 @@ impl ElementSelector {
             window_size,
             readers,
             view,
-            data,
             area,
         }
     }
@@ -120,13 +118,9 @@ impl ElementSelector {
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
 
-        self.view.borrow_mut().draw(
-            &mut encoder,
-            &texture_view,
-            draw_type,
-            self.area,
-            self.data.borrow().get_action_mode(),
-        );
+        self.view
+            .borrow_mut()
+            .draw(&mut encoder, &texture_view, draw_type, self.area);
 
         // create a buffer and fill it with the texture
         let extent = wgpu::Extent3d {
@@ -221,7 +215,7 @@ impl ElementSelector {
 pub enum SceneElement {
     DesignElement(u32, u32),
     WidgetElement(u32),
-    PhantomElement(utils::PhantomElement),
+    PhantomElement(PhantomElement),
     Grid(u32, usize),
     GridCircle(u32, usize, isize, isize),
 }
@@ -272,9 +266,9 @@ impl SceneReader {
             match self.draw_type {
                 DrawType::Grid => Some(SceneElement::Grid(a, color as usize)),
                 DrawType::Design => Some(SceneElement::DesignElement(a, color)),
-                DrawType::Phantom => Some(SceneElement::PhantomElement(
-                    utils::phantom_helix_decoder(color),
-                )),
+                DrawType::Phantom => {
+                    Some(SceneElement::PhantomElement(phantom_helix_decoder(color)))
+                }
                 DrawType::Widget => Some(SceneElement::WidgetElement(color)),
                 DrawType::Scene => unreachable!(),
             }

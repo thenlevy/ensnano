@@ -16,6 +16,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 use super::camera::{CameraPtr, ProjectionPtr};
+pub use ensnano_interactor::graphics::FogParameters;
 use ultraviolet::{Mat4, Vec3, Vec4};
 
 #[repr(C)] // We need this for Rust to store our data correctly for the shaders
@@ -68,27 +69,6 @@ impl Uniforms {
             make_fog: make_fog as u32,
             fog_from_camera: fog.from_camera as u32,
             fog_alt_center: fog.alt_fog_center.unwrap_or(Vec3::zero()),
-        }
-    }
-}
-
-#[derive(Debug)]
-pub struct FogParameters {
-    pub radius: f32,
-    pub length: f32,
-    pub active: bool,
-    pub from_camera: bool,
-    pub alt_fog_center: Option<Vec3>,
-}
-
-impl FogParameters {
-    pub fn new() -> Self {
-        Self {
-            radius: 10.,
-            length: 10.,
-            active: false,
-            from_camera: true,
-            alt_fog_center: None,
         }
     }
 }

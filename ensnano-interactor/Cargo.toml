@@ -1,0 +1,33 @@
+[package]
+name = "ensnano_interactor"
+version = "0.2.1"
+authors = ["thenlevy <nicolaspierrelevy@gmail.com>"]
+edition = "2018"
+license = "GPL-3.0-or-later"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+ultraviolet = { git = "https://github.com/termhn/ultraviolet", rev = "b2fb29e" , features = ["bytemuck", "f64", "serde"] }
+bytemuck = "1.2.0"
+failure = "0.1.8"
+env_logger = "0.7"
+serde_json = "1.0.57"
+futures = "0.3.5"
+serde = "1.0.116"
+serde_derive = "1.0.116"
+color_space = "0.5.2"
+chrono = "0.4"
+image = "0.23"
+ahash = "0.6.2"
+rand = "0.8.3"
+rand_distr = "0.4.0"
+ordered-float = "2.0"
+rfd = "0.4"
+material-icons = "0.1.0"
+num_enum = "0.5.1"
+open = "1"
+ensnano_design = { path = "../ensnano-design" }
+iced_winit = { git = "https://github.com/thenlevy/iced", rev = "5eddea0" }
+iced_wgpu = { git = "https://github.com/thenlevy/iced", rev = "5eddea0" }
+

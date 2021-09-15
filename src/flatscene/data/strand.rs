@@ -383,6 +383,7 @@ impl StrokeVertexConstructor<StrandVertex> for WithAttributes {
     }
 }
 
+#[derive(Debug)]
 pub struct FreeEnd {
     pub strand_id: usize,
     pub point: Vec2,

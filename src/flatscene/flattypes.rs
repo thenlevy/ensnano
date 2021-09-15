@@ -23,7 +23,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 //! reduces the confusion, since erros will be detected by the typechecker.
 
 use super::{HashMap, Nucl, Selection};
-use crate::utils::PhantomElement;
+use ensnano_interactor::PhantomElement;
 
 /// An helix identifier in the flatscene data structures.
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Ord, Eq, Hash)]
@@ -58,11 +58,9 @@ impl std::cmp::Ord for FlatHelix {
 }
 
 impl FlatHelix {
-    pub fn from_real(real: usize, helix_map: &HashMap<usize, FlatIdx>) -> Self {
-        Self {
-            flat: helix_map[&real],
-            real,
-        }
+    pub fn from_real(real: usize, helix_map: &HashMap<usize, FlatIdx>) -> Option<Self> {
+        let flat = *helix_map.get(&real)?;
+        Some(Self { flat, real })
     }
 }
 
@@ -114,12 +112,13 @@ impl FlatNucl {
         }
     }
 
-    pub fn from_real(real: &Nucl, id_map: &HashMap<usize, FlatIdx>) -> Self {
-        Self {
-            helix: FlatHelix::from_real(real.helix, id_map),
+    pub fn from_real(real: &Nucl, id_map: &HashMap<usize, FlatIdx>) -> Option<Self> {
+        let helix = FlatHelix::from_real(real.helix, id_map)?;
+        Some(Self {
+            helix,
             position: real.position,
             forward: real.forward,
-        }
+        })
     }
 
     pub fn prime3(&self) -> Self {
@@ -181,18 +180,30 @@ impl FlatSelection {
         if let Some(selection) = selection {
             match selection {
                 Selection::Nucleotide(d, nucl) => {
-                    Self::Nucleotide(*d as usize, FlatNucl::from_real(nucl, id_map))
+                    if let Some(flat_nucl) = FlatNucl::from_real(nucl, id_map) {
+                        Self::Nucleotide(*d as usize, flat_nucl)
+                    } else {
+                        Self::Nothing
+                    }
                 }
                 Selection::Bound(d, n1, n2) => {
                     let n1 = FlatNucl::from_real(n1, id_map);
                     let n2 = FlatNucl::from_real(n2, id_map);
-                    Self::Bound(*d as usize, n1, n2)
+                    if let Some((n1, n2)) = n1.zip(n2) {
+                        Self::Bound(*d as usize, n1, n2)
+                    } else {
+                        Self::Nothing
+                    }
                 }
                 Selection::Xover(d, xover_id) => Self::Xover(*d as usize, *xover_id),
                 Selection::Design(d) => Self::Design(*d as usize),
                 Selection::Strand(d, s_id) => Self::Strand(*d as usize, *s_id as usize),
                 Selection::Helix(d, h_id) => {
-                    Self::Helix(*d as usize, FlatHelix::from_real(*h_id as usize, id_map))
+                    if let Some(flat_helix) = FlatHelix::from_real(*h_id as usize, id_map) {
+                        Self::Helix(*d as usize, flat_helix)
+                    } else {
+                        Self::Nothing
+                    }
                 }
                 Selection::Grid(d, g_id) => Self::Grid(*d as usize, *g_id),
                 Selection::Phantom(pe) => Self::Phantom(pe.clone()),

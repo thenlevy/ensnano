@@ -15,7 +15,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
-use super::{ColorMessage, Message};
+use super::{AppState, ColorMessage, Message};
 use iced::{Color, Row};
 
 pub struct ColorPicker {
@@ -47,7 +47,7 @@ impl ColorPicker {
         self.hue = hue
     }
 
-    pub fn view(&mut self) -> Row<Message> {
+    pub fn view<S: AppState>(&mut self) -> Row<Message<S>> {
         let color_picker = Row::new()
             .spacing(5)
             .push(HueColumn::new(&mut self.hue_state, Message::HueChanged))
@@ -56,6 +56,7 @@ impl ColorPicker {
                 self.hue as f64,
                 &mut self.light_sat_square_state,
                 Message::StrandColorChanged,
+                Message::FinishChangingColor,
             ));
         color_picker
     }
@@ -76,6 +77,7 @@ impl ColorPicker {
                 self.hue as f64,
                 &mut self.light_sat_square_state,
                 ColorMessage::StrandColorChanged,
+                ColorMessage::FinishChangingColor,
             ));
         color_picker
     }
@@ -295,14 +297,15 @@ mod light_sat_square {
         ]
     }
 
-    pub struct LightSatSquare<'a, Message> {
+    pub struct LightSatSquare<'a, Message: Clone> {
         hue: f64,
         state: &'a mut State,
         on_slide: Box<dyn Fn(Color) -> Message>,
+        on_finish: Message,
     }
 
-    impl<'a, Message> LightSatSquare<'a, Message> {
-        pub fn new<F>(hue: f64, state: &'a mut State, on_slide: F) -> Self
+    impl<'a, Message: Clone> LightSatSquare<'a, Message> {
+        pub fn new<F>(hue: f64, state: &'a mut State, on_slide: F, on_finish: Message) -> Self
         where
             F: 'static + Fn(Color) -> Message,
         {
@@ -310,11 +313,12 @@ mod light_sat_square {
                 hue,
                 state,
                 on_slide: Box::new(on_slide),
+                on_finish,
             }
         }
     }
 
-    impl<'a, Message, B> Widget<Message, Renderer<B>> for LightSatSquare<'a, Message>
+    impl<'a, Message: Clone, B> Widget<Message, Renderer<B>> for LightSatSquare<'a, Message>
     where
         B: Backend,
     {
@@ -441,6 +445,7 @@ mod light_sat_square {
                         if self.state.is_dragging {
                             self.state.is_dragging = false;
                         }
+                        messages.push(self.on_finish.clone());
                         iced_native::event::Status::Captured
                     }
                     mouse::Event::CursorMoved { .. } => {
