@@ -93,7 +93,7 @@ impl Load {
             let yes = save_before_known_path(path.clone());
             let no = Box::new(Load::known_path(path));
             Box::new(YesNo::new(
-                "Do you want to save the current design beore reloading?".into(),
+                "Do you want to save the current design before reloading?".into(),
                 yes,
                 no,
             ))
@@ -141,7 +141,7 @@ fn init_load(need_save: bool) -> Box<dyn State> {
         let yes = save_before_load();
         let no = Load::ask_path();
         Box::new(YesNo::new(
-            "Do you want to save the current design beore loading a new one?".into(),
+            "Do you want to save the current design before loading a new one?".into(),
             yes,
             no,
         ))
