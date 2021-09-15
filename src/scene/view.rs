@@ -18,12 +18,12 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 //! The view module handles the drawing of the scene on texture. The scene can be drawn on the next
 //! frame to be displayed, or on a "fake texture" that is used to map pixels to objects.
 
-use super::{camera, ActionMode};
+use super::camera;
 use crate::consts::*;
-use crate::design::Axis;
 use crate::utils::{bindgroup_manager, texture};
 use crate::{DrawArea, PhySize};
 use camera::{Camera, CameraPtr, Projection, ProjectionPtr};
+use ensnano_design::Axis;
 use iced_wgpu::wgpu;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -54,7 +54,7 @@ use bindgroup_manager::{DynamicBindGroup, UniformBindGroup};
 use direction_cube::*;
 pub use dna_obj::{ConeInstance, DnaObject, RawDnaInstance, SphereInstance, TubeInstance};
 use drawable::{Drawable, Drawer, Vertex};
-pub use grid::{GridInstance, GridIntersection, GridTypeDescr};
+pub use grid::{GridInstance, GridIntersection};
 use grid::{GridManager, GridTextures};
 pub use grid_disc::GridDisc;
 use handle_drawer::HandlesDrawer;
@@ -79,7 +79,7 @@ static MODEL_BG_ENTRY: &'static [wgpu::BindGroupLayoutEntry] = &[wgpu::BindGroup
     count: None,
 }];
 
-use crate::mediator::{Background3D, RenderingMode};
+use ensnano_interactor::graphics::{Background3D, RenderingMode};
 
 /// An object that handles the communication with the GPU to draw the scene.
 pub struct View {
@@ -150,7 +150,7 @@ impl View {
             entries: MODEL_BG_ENTRY,
             label: None,
         };
-        println!("Create letter drawer");
+        log::info!("Create letter drawer");
         let letter_drawer = BASIS_SYMBOLS
             .iter()
             .map(|c| {
@@ -165,7 +165,7 @@ impl View {
                 )
             })
             .collect();
-        println!("Create helix letter drawer");
+        log::info!("Create helix letter drawer");
         let helix_letter_drawer = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
             .iter()
             .map(|c| {
@@ -198,7 +198,7 @@ impl View {
         let models = DynamicBindGroup::new(device.clone(), queue.clone());
 
         let grid_textures = GridTextures::new(device.as_ref(), encoder);
-        println!("Create grid drawer");
+        log::info!("Create grid drawer");
 
         let grid_drawer = InstanceDrawer::new(
             device.clone(),
@@ -219,7 +219,7 @@ impl View {
         );
         let grid_manager = GridManager::new(grid_drawer, fake_grid_drawer);
 
-        println!("Create disc  drawer");
+        log::info!("Create disc  drawer");
         let disc_drawer = InstanceDrawer::new(
             device.clone(),
             queue.clone(),
@@ -229,7 +229,7 @@ impl View {
             false,
         );
 
-        println!("Create dna drawer");
+        log::info!("Create dna drawer");
         let dna_drawers = DnaDrawers::new(
             device.clone(),
             queue.clone(),
@@ -304,7 +304,6 @@ impl View {
                 ));
                 self.handle_drawers
                     .update_camera(self.camera.clone(), self.projection.clone());
-                self.need_redraw_fake = true;
                 let dist = self.projection.borrow().cube_dist();
                 self.direction_cube
                     .new_instances(vec![DirectionCube::new(dist)]);
@@ -325,7 +324,6 @@ impl View {
                     self.camera.clone(),
                     self.projection.clone(),
                 );
-                self.need_redraw_fake = true;
             }
 
             ViewUpdate::RotationWidget(descr) => {
@@ -334,11 +332,9 @@ impl View {
                     self.camera.clone(),
                     self.projection.clone(),
                 );
-                self.need_redraw_fake = true;
             }
             ViewUpdate::ModelMatrices(ref matrices) => {
                 self.models.update(matrices.clone().as_slice());
-                self.need_redraw_fake = true;
             }
             ViewUpdate::Letter(letter) => {
                 for (i, instance) in letter.into_iter().enumerate() {
@@ -359,11 +355,10 @@ impl View {
                 if let Some(mesh) = mesh.to_fake() {
                     let mut instances = instances.as_ref().clone();
                     for i in instances.iter_mut() {
-                        if i.scale.z < 0.99 {
-                            i.scale *= 2.5;
+                        if i.scale.z <= 1. {
+                            i.scale *= crate::consts::SELECT_SCALE_FACTOR;
                         }
                     }
-                    self.need_redraw_fake = true;
                     self.dna_drawers
                         .get_mut(mesh)
                         .new_instances_raw(instances.as_ref());
@@ -400,7 +395,6 @@ impl View {
         target: &wgpu::TextureView,
         draw_type: DrawType,
         area: DrawArea,
-        action_mode: ActionMode,
     ) {
         let fake_color = draw_type.is_fake();
         if let Some(size) = self.new_size.take() {
@@ -542,23 +536,19 @@ impl View {
             }
 
             if draw_type.wants_widget() {
-                if action_mode.wants_handle() {
-                    self.handle_drawers.draw(
-                        &mut render_pass,
-                        viewer_bind_group,
-                        viewer_bind_group_layout,
-                        fake_color,
-                    );
-                }
+                self.handle_drawers.draw(
+                    &mut render_pass,
+                    viewer_bind_group,
+                    viewer_bind_group_layout,
+                    fake_color,
+                );
 
-                if action_mode.wants_rotation() {
-                    self.rotation_widget.draw(
-                        &mut render_pass,
-                        viewer_bind_group,
-                        viewer_bind_group_layout,
-                        fake_color,
-                    );
-                }
+                self.rotation_widget.draw(
+                    &mut render_pass,
+                    viewer_bind_group,
+                    viewer_bind_group_layout,
+                    fake_color,
+                );
             }
 
             if !fake_color && self.draw_letter {
@@ -599,6 +589,7 @@ impl View {
                 self.need_redraw = true;
             } else {
                 self.need_redraw = false;
+                self.need_redraw_fake = true;
             }
         }
         if !fake_color {
@@ -740,9 +731,9 @@ impl View {
     }
 
     /// Initialise the rotation that will be applied on objects affected by the rotation widget.
-    pub fn init_rotation(&mut self, x_coord: f32, y_coord: f32) {
+    pub fn init_rotation(&mut self, mode: RotationMode, x_coord: f32, y_coord: f32) {
         self.need_redraw = true;
-        self.rotation_widget.init_rotation(x_coord, y_coord)
+        self.rotation_widget.init_rotation(x_coord, y_coord, mode)
     }
 
     /// Initialise the translation that will be applied on objects affected by the handle widget.
@@ -753,19 +744,9 @@ impl View {
 
     /// Compute the rotation that needs to be applied to the objects affected by the rotation
     /// widget.
-    pub fn compute_rotation(
-        &self,
-        x: f32,
-        y: f32,
-        mode: RotationMode,
-    ) -> Option<(Rotor3, Vec3, bool)> {
-        self.rotation_widget.compute_rotation(
-            x,
-            y,
-            self.camera.clone(),
-            self.projection.clone(),
-            mode,
-        )
+    pub fn compute_rotation(&self, x: f32, y: f32) -> Option<(Rotor3, Vec3, bool)> {
+        self.rotation_widget
+            .compute_rotation(x, y, self.camera.clone(), self.projection.clone())
     }
 
     pub fn set_widget_candidate(&mut self, selected_id: Option<u32>) {
@@ -795,6 +776,16 @@ impl View {
     pub fn grid_intersection(&self, x_ndc: f32, y_ndc: f32) -> Option<GridIntersection> {
         let ray = maths_3d::cast_ray(x_ndc, y_ndc, self.camera.clone(), self.projection.clone());
         self.grid_manager.intersect(ray.0, ray.1)
+    }
+
+    pub fn specific_grid_intersection(
+        &self,
+        x_ndc: f32,
+        y_ndc: f32,
+        g_id: usize,
+    ) -> Option<GridIntersection> {
+        let ray = maths_3d::cast_ray(x_ndc, y_ndc, self.camera.clone(), self.projection.clone());
+        self.grid_manager.specific_intersect(ray.0, ray.1, g_id)
     }
 
     pub fn set_candidate_grid(&mut self, grids: Vec<(usize, usize)>) {

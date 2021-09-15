@@ -16,15 +16,17 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 use super::{
-    camera, DataPtr, Duration, ElementSelector, HandleDir, SceneElement, ViewPtr,
+    camera, Duration, ElementSelector, HandleDir, SceneElement, ViewPtr,
     WidgetRotationMode as RotationMode,
 };
 use crate::consts::*;
-use crate::design::{Nucl, StrandBuilder};
 use crate::{PhySize, PhysicalPosition, WindowEvent};
+use ensnano_design::Nucl;
 use iced_winit::winit::event::*;
 use std::cell::RefCell;
 use ultraviolet::{Rotor3, Vec3};
+
+use super::AppState;
 
 use camera::CameraController;
 
@@ -39,8 +41,11 @@ pub enum ClickMode {
     RotateCam,
 }
 
+use std::rc::Rc;
+type DataPtr = Rc<RefCell<dyn Data>>;
+
 /// An object handling input and notification for the scene.
-pub struct Controller {
+pub struct Controller<S: AppState> {
     /// A pointer to the View
     view: ViewPtr,
     /// A pointer to the data
@@ -55,8 +60,7 @@ pub struct Controller {
     current_modifiers: ModifiersState,
     /// The effect that dragging the mouse has
     click_mode: ClickMode,
-    state: State,
-    pub(super) pasting: bool,
+    state: State<S>,
 }
 
 pub enum Consequence {
@@ -65,14 +69,14 @@ pub enum Consequence {
     XoverAtempt(Nucl, Nucl, usize),
     Translation(HandleDir, f64, f64),
     MovementEnded,
-    Rotation(RotationMode, f64, f64),
-    InitRotation(f64, f64),
+    Rotation(f64, f64),
+    InitRotation(RotationMode, f64, f64),
     InitTranslation(f64, f64),
     Swing(f64, f64),
     Nothing,
     ToggleWidget,
-    BuildEnded(u32, u32),
-    Building(Box<StrandBuilder>, isize),
+    BuildEnded,
+    Building(isize),
     Undo,
     Redo,
     Candidate(Option<super::SceneElement>),
@@ -92,6 +96,14 @@ pub enum Consequence {
     PasteCandidate(Option<super::SceneElement>),
     Paste(Option<super::SceneElement>),
     DoubleClick(Option<super::SceneElement>),
+    InitBuild(Nucl),
+    HelixTranslated {
+        helix: usize,
+        grid: usize,
+        x: isize,
+        y: isize,
+    },
+    HelixSelected(usize),
 }
 
 enum TransistionConsequence {
@@ -100,8 +112,13 @@ enum TransistionConsequence {
     EndMovement,
 }
 
-impl Controller {
-    pub fn new(view: ViewPtr, data: DataPtr, window_size: PhySize, area_size: PhySize) -> Self {
+impl<S: AppState> Controller<S> {
+    pub(super) fn new(
+        view: ViewPtr,
+        data: DataPtr,
+        window_size: PhySize,
+        area_size: PhySize,
+    ) -> Self {
         let camera_controller = {
             let view = view.borrow();
             CameraController::new(
@@ -120,7 +137,6 @@ impl Controller {
             current_modifiers: ModifiersState::empty(),
             click_mode: ClickMode::TranslateCam,
             state: automata::initial_state(),
-            pasting: false,
         }
     }
 
@@ -147,7 +163,7 @@ impl Controller {
     pub fn check_timers(&mut self) -> Consequence {
         let transition = self.state.borrow_mut().check_timers(&self);
         if let Some(state) = transition.new_state {
-            println!("{}", state.display());
+            log::info!("3D controller state: {}", state.display());
             let csq = self.state.borrow().transition_from(&self);
             self.transition_consequence(csq);
             self.state = RefCell::new(state);
@@ -162,6 +178,7 @@ impl Controller {
         event: &WindowEvent,
         position: PhysicalPosition<f64>,
         pixel_reader: &mut ElementSelector,
+        app_state: &S,
     ) -> Consequence {
         let transition = if let WindowEvent::Focused(false) = event {
             Transition {
@@ -212,11 +229,11 @@ impl Controller {
         } else {
             self.state
                 .borrow_mut()
-                .input(event, position, &self, pixel_reader)
+                .input(event, position, &self, pixel_reader, app_state)
         };
 
         if let Some(state) = transition.new_state {
-            println!("{}", state.display());
+            log::info!("3D controller state: {}", state.display());
             let csq = self.state.borrow().transition_from(&self);
             self.transition_consequence(csq);
             self.state = RefCell::new(state);
@@ -300,6 +317,10 @@ impl Controller {
     fn shift_cam(&mut self) {
         self.camera_controller.shift()
     }
+
+    pub fn stop_camera_movement(&mut self) {
+        self.camera_controller.stop_camera_movement()
+    }
 }
 
 fn ctrl(modifiers: &ModifiersState) -> bool {
@@ -308,4 +329,16 @@ fn ctrl(modifiers: &ModifiersState) -> bool {
     } else {
         modifiers.ctrl()
     }
+}
+
+pub(super) trait Data {
+    fn element_to_nucl(&self, element: &Option<SceneElement>, _: bool) -> Option<(Nucl, usize)>;
+    fn get_nucl_position(&self, nucl: Nucl, d_id: usize) -> Option<Vec3>;
+    fn attempt_xover(
+        &self,
+        source: &Option<SceneElement>,
+        dest: &Option<SceneElement>,
+    ) -> Option<(Nucl, Nucl, usize)>;
+    fn can_start_builder(&self, element: Option<SceneElement>) -> Option<Nucl>;
+    fn get_grid_helix(&self, grid_id: usize, x: isize, y: isize) -> Option<u32>;
 }

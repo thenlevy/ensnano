@@ -19,9 +19,9 @@ use super::super::view::{CharInstance, CircleInstance, InsertionInstance};
 use super::super::{CameraPtr, Flat, FlatHelix, FlatIdx};
 use super::{FlatNucl, Helix2d};
 use crate::consts::*;
-use crate::design::Nucl;
 use crate::utils::instance::Instance;
 use ahash::RandomState;
+use ensnano_design::Nucl;
 use lyon::math::{rect, Point};
 use lyon::path::builder::{BorderRadii, PathBuilder};
 use lyon::path::Path;
@@ -30,7 +30,7 @@ use lyon::tessellation::{
     FillVertex, FillVertexConstructor, StrokeVertex, StrokeVertexConstructor,
 };
 use std::collections::{BTreeMap, HashMap};
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 use ultraviolet::{Isometry2, Mat2, Rotor2, Vec2, Vec4};
 
 type Vertices = lyon::tessellation::VertexBuffers<GpuVertex, u16>;
@@ -45,7 +45,6 @@ pub struct Helix {
     /// The first nucleotide that is not drawn
     right: isize,
     pub isometry: Isometry2,
-    old_isometry: Isometry2,
     scale: f32,
     color: u32,
     z_index: i32,
@@ -54,8 +53,6 @@ pub struct Helix {
     pub flat_id: FlatHelix,
     pub real_id: usize,
     pub visible: bool,
-    basis_map: Arc<RwLock<HashMap<Nucl, char, RandomState>>>,
-    groups: Arc<RwLock<BTreeMap<usize, bool>>>,
 }
 
 impl Flat for Helix {}
@@ -81,14 +78,13 @@ impl Helix {
         flat_id: FlatHelix,
         real_id: usize,
         visible: bool,
-        basis_map: Arc<RwLock<HashMap<Nucl, char, RandomState>>>,
-        groups: Arc<RwLock<BTreeMap<usize, bool>>>,
+        _basis_map: Arc<HashMap<Nucl, char, RandomState>>,
+        _groups: Arc<BTreeMap<usize, bool>>,
     ) -> Self {
         Self {
             left,
             right,
             isometry,
-            old_isometry: isometry,
             scale: 1f32,
             color: HELIX_BORDER_COLOR,
             z_index: 500,
@@ -96,8 +92,6 @@ impl Helix {
             flat_id,
             real_id,
             visible,
-            basis_map,
-            groups,
         }
     }
 
@@ -106,7 +100,12 @@ impl Helix {
         self.right = self.right.max(helix2d.right);
         self.visible = helix2d.visible;
         self.real_id = helix2d.id;
-        self.flat_id = FlatHelix::from_real(self.real_id, id_map);
+        if let Some(flat_id) = FlatHelix::from_real(self.real_id, id_map) {
+            self.flat_id = flat_id
+        } else {
+            log::error!("real id does not exist {}", self.real_id);
+        }
+        self.isometry = helix2d.isometry;
     }
 
     pub fn background_vertices(&self) -> Vertices {
@@ -240,6 +239,7 @@ impl Helix {
             .transform_point2(self.scale * local_position)
     }
 
+    /*
     fn get_old_pivot_position(&self, nucl: &FlatNucl) -> Vec2 {
         let local_position = nucl.position as f32 * Vec2::unit_x()
             + if nucl.forward {
@@ -251,7 +251,7 @@ impl Helix {
         self.old_isometry
             .into_homogeneous_matrix()
             .transform_point2(self.scale * local_position)
-    }
+    }*/
 
     /// Return the nucleotide displayed at position (x, y) or None if (x, y) is outside the helix
     pub fn get_click(&self, x: f32, y: f32) -> Option<(isize, bool)> {
@@ -327,25 +327,29 @@ impl Helix {
 
     /// Return true if (x, y) is on the circle representing self
     pub fn click_on_circle(&self, x: f32, y: f32, camera: &CameraPtr) -> bool {
-        if let Some(center) = self.get_circle(camera) {
+        if let Some(center) = self.get_circle(camera, &BTreeMap::new()) {
             (center.center - Vec2::new(x, y)).mag() < center.radius
         } else {
             false
         }
     }
 
+    /*
     pub fn translate(&mut self, translation: Vec2) {
         self.isometry.translation = self.old_isometry.translation + translation
     }
+    */
 
+    /*
     /// Translate self so that the pivot ends up on position.
     pub fn snap(&mut self, pivot: FlatNucl, translation: Vec2) {
         let old_pos = self.get_old_pivot_position(&pivot);
         let position = old_pos + translation;
         let position = Vec2::new(position.x.round(), position.y.round());
         self.translate(position - old_pos)
-    }
+    }*/
 
+    /*
     pub fn rotate(&mut self, pivot: Vec2, angle: f32) {
         let angle = {
             let k = (angle / std::f32::consts::FRAC_PI_8).round();
@@ -356,15 +360,16 @@ impl Helix {
         self.isometry
             .append_rotation(ultraviolet::Rotor2::from_angle(angle));
         self.isometry.append_translation(pivot);
-    }
+    }*/
 
     pub fn get_pivot(&self, position: isize) -> Vec2 {
         self.isometry * (self.scale * Vec2::new(position as f32, 1.))
     }
 
+    /*
     pub fn end_movement(&mut self) {
         self.old_isometry = self.isometry
-    }
+    }*/
 
     pub fn set_color(&mut self, color: u32) {
         self.color = color
@@ -503,7 +508,11 @@ impl Helix {
     /// * On the left of the helix,
     /// * On the right of the helix,
     /// * On the leftmost visible position of the helix
-    pub fn get_circle(&self, camera: &CameraPtr) -> Option<CircleInstance> {
+    pub fn get_circle(
+        &self,
+        camera: &CameraPtr,
+        groups: &BTreeMap<usize, bool>,
+    ) -> Option<CircleInstance> {
         let (left, right) = self.screen_intersection(camera)?;
         let center = if self.left as f32 > right || (self.right as f32) < left {
             // the helix is invisible
@@ -526,7 +535,7 @@ impl Helix {
         let color = if !self.visible {
             CIRCLE2D_GREY
         } else {
-            match self.groups.read().unwrap().get(&self.real_id) {
+            match groups.get(&self.real_id) {
                 None => CIRCLE2D_BLUE,
                 Some(true) => CIRCLE2D_RED,
                 Some(false) => CIRCLE2D_GREEN,
@@ -552,7 +561,7 @@ impl Helix {
         CircleInstance::new(center, 0.4, self.flat_id.flat.0 as i32, color)
     }
 
-    /// Return the pivot under the center of the helix's circle widget.
+    /// Return the nucl under the center of the helix's circle widget.
     /// See [get_circle](get_circle).
     pub fn get_circle_pivot(&self, camera: &CameraPtr) -> Option<FlatNucl> {
         let (left, right) = self.screen_intersection(camera)?;
@@ -578,6 +587,15 @@ impl Helix {
                 helix: self.flat_id,
                 forward: true,
             })
+        }
+    }
+
+    /// A default nucleotide position for when the helix cannot be seen by the camera
+    pub fn default_pivot(&self) -> FlatNucl {
+        FlatNucl {
+            position: self.left - 3,
+            helix: self.flat_id,
+            forward: true,
         }
     }
 
@@ -634,12 +652,14 @@ impl Helix {
         camera: &CameraPtr,
         char_map: &mut HashMap<char, Vec<CharInstance>>,
         char_drawers: &HashMap<char, crate::utils::chars2d::CharDrawer>,
+        groups: &BTreeMap<usize, bool>,
+        basis_map: &HashMap<Nucl, char, RandomState>,
         show_seq: bool,
     ) {
         let show_seq = show_seq && camera.borrow().get_globals().zoom >= ZOOM_THRESHOLD;
         let size_id = 3.;
         let size_pos = 1.4;
-        let circle = self.get_circle(camera);
+        let circle = self.get_circle(camera, groups);
         if let Some(circle) = circle {
             let nb_chars = self.real_id.to_string().len(); // ok to use len because digits are ascii
             let scale = size_id / nb_chars as f32;
@@ -693,8 +713,6 @@ impl Helix {
                 })
             }
         };
-
-        let basis_map = self.basis_map.read().unwrap();
 
         let mut pos = self.left;
         while pos <= self.right {

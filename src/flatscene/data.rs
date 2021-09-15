@@ -15,10 +15,12 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
-use super::{Flat, HelixVec, PhantomElement, ViewPtr};
-use crate::design::{Design, Nucl, StrandBuilder};
-use crate::mediator::{Selection, SelectionMode};
-use std::sync::{Arc, RwLock};
+use super::{
+    flattypes::FlatSelection, AppState, Flat, HelixVec, PhantomElement, Requests, ViewPtr,
+};
+use ensnano_design::Nucl;
+use ensnano_interactor::{Selection, SelectionMode};
+use std::sync::{Arc, Mutex};
 use ultraviolet::Vec2;
 
 mod helix;
@@ -28,11 +30,11 @@ pub use strand::{FreeEnd, Strand, StrandVertex};
 mod design;
 use super::{CameraPtr, FlatHelix, FlatIdx, FlatNucl};
 use crate::consts::*;
-use crate::design::{Helix as DesignHelix, Strand as DesignStrand};
 use crate::utils::camera2d::FitRectangle;
 use ahash::RandomState;
-pub use design::FlatTorsion;
 use design::{Design2d, Helix2d};
+pub use design::{DesignReader, FlatTorsion};
+use ensnano_design::Strand as DesignStrand;
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
 pub struct Data {
@@ -43,51 +45,46 @@ pub struct Data {
     helices: HelixVec<Helix>,
     selected_helix: Option<FlatIdx>,
     nb_helices_created: usize,
-    basis_map: Arc<RwLock<HashMap<Nucl, char, RandomState>>>,
-    groups: Arc<RwLock<BTreeMap<usize, bool>>>,
     suggestions: HashMap<FlatNucl, HashSet<FlatNucl, RandomState>, RandomState>,
-    selection_mode: SelectionMode,
-    pub selection: Vec<Selection>,
-    pub candidates: Vec<Selection>,
     id: u32,
-    selection_updated: bool,
+    requests: Arc<Mutex<dyn Requests>>,
 }
 
 impl Data {
-    pub fn new(view: ViewPtr, design: Arc<RwLock<Design>>, id: u32) -> Self {
-        let basis_map = design.read().unwrap().get_basis_map();
-        let groups = design.read().unwrap().get_groups();
+    pub fn new<R: DesignReader>(
+        view: ViewPtr,
+        design: R,
+        id: u32,
+        requests: Arc<Mutex<dyn Requests>>,
+    ) -> Self {
         Self {
             view,
-            design: Design2d::new(design),
+            design: Design2d::new(design, requests.clone()),
             instance_update: true,
             instance_reset: false,
             helices: HelixVec::new(),
             selected_helix: None,
             nb_helices_created: 0,
-            basis_map,
-            groups,
             suggestions: Default::default(),
-            selection_mode: SelectionMode::default(),
-            selection: vec![],
-            candidates: vec![],
-            selection_updated: false,
             id,
+            requests,
         }
     }
 
-    pub fn change_selection_mode(&mut self, selection_mode: SelectionMode) {
-        self.selection_mode = selection_mode
-    }
-
-    pub fn perform_update(&mut self) {
+    pub fn perform_update<S: AppState>(&mut self, new_state: &S, old_state: &S) {
         if self.instance_reset {
             self.view.borrow_mut().reset();
             self.instance_reset = false;
         }
-        if self.instance_update || self.view.borrow().needs_redraw() {
-            self.design.update();
-            self.fetch_helices();
+        if new_state.design_was_updated(old_state)
+            || new_state.selection_was_updated(old_state)
+            || new_state.candidate_was_updated(old_state)
+            || self.instance_update
+            || self.view.borrow().needs_redraw()
+        {
+            log::trace!("updating 2d data");
+            self.design.update(new_state.get_design_reader());
+            self.fetch_helices(new_state.get_design_reader());
             self.view.borrow_mut().update_helices(&self.helices);
             self.view
                 .borrow_mut()
@@ -95,9 +92,9 @@ impl Data {
             self.view
                 .borrow_mut()
                 .update_pasted_strand(self.design.get_pasted_strand(), &self.helices);
-            self.update_highlight();
-        } else if self.selection_updated {
-            self.update_highlight();
+            self.update_highlight(new_state);
+        } else if new_state.selection_was_updated(old_state) {
+            self.update_highlight(new_state);
         }
         self.instance_update = false;
     }
@@ -106,7 +103,7 @@ impl Data {
         self.design.id_map()
     }
 
-    pub fn update_highlight(&mut self) {
+    pub fn update_highlight<S: AppState>(&mut self, new_state: &S) {
         let mut selected_strands = HashSet::new();
         let mut candidate_strands = HashSet::new();
         let mut selected_xovers = HashSet::new();
@@ -114,27 +111,30 @@ impl Data {
         let mut selected_helices = Vec::new();
         let mut candidate_helices = Vec::new();
         let id_map = self.design.id_map();
-        for s in self.selection.iter() {
-            match s {
-                Selection::Strand(_, s_id) => {
-                    selected_strands.insert(*s_id as usize);
-                }
-                Selection::Bound(_, n1, n2) => {
-                    selected_xovers.insert((*n1, *n2));
-                }
-                Selection::Xover(_, xover_id) => {
-                    if let Some((n1, n2)) = self.design.get_xover_with_id(*xover_id) {
-                        selected_xovers.insert((n1, n2));
+        if !new_state.is_changing_color() {
+            for s in new_state.get_selection().iter() {
+                match s {
+                    Selection::Strand(_, s_id) => {
+                        selected_strands.insert(*s_id as usize);
                     }
+                    Selection::Bound(_, n1, n2) => {
+                        selected_xovers.insert((*n1, *n2));
+                    }
+                    Selection::Xover(_, xover_id) => {
+                        if let Some((n1, n2)) = self.design.get_xover_with_id(*xover_id) {
+                            selected_xovers.insert((n1, n2));
+                        }
+                    }
+                    Selection::Helix(_, h) => {
+                        if let Some(flat_helix) = FlatHelix::from_real(*h as usize, id_map) {
+                            selected_helices.push(flat_helix.flat);
+                        }
+                    }
+                    _ => (),
                 }
-                Selection::Helix(_, h) => {
-                    let flat_helix = FlatHelix::from_real(*h as usize, id_map);
-                    selected_helices.push(flat_helix.flat);
-                }
-                _ => (),
             }
         }
-        for c in self.candidates.iter() {
+        for c in new_state.get_candidates().iter() {
             match c {
                 Selection::Strand(_, s_id) => {
                     candidate_strands.insert(*s_id as usize);
@@ -148,8 +148,9 @@ impl Data {
                     }
                 }
                 Selection::Helix(_, h) => {
-                    let flat_helix = FlatHelix::from_real(*h as usize, id_map);
-                    candidate_helices.push(flat_helix.flat);
+                    if let Some(flat_helix) = FlatHelix::from_real(*h as usize, id_map) {
+                        candidate_helices.push(flat_helix.flat);
+                    }
                 }
                 _ => (),
             }
@@ -182,10 +183,9 @@ impl Data {
         self.view
             .borrow_mut()
             .set_candidate_helices(candidate_helices);
-        self.selection_updated = false;
     }
 
-    fn fetch_helices(&mut self) {
+    fn fetch_helices<R: DesignReader>(&mut self, design: R) {
         let removed_helices = self.design.get_removed_helices();
         for h in removed_helices.iter().rev() {
             self.helices.remove(*h);
@@ -198,18 +198,19 @@ impl Data {
             helix.update(&new_helices[i], id_map);
         }
         for h in new_helices[nb_helix..].iter() {
-            let flat_helix = FlatHelix::from_real(h.id, id_map);
-            self.helices.push(Helix::new(
-                h.left,
-                h.right,
-                h.isometry,
-                flat_helix,
-                h.id,
-                h.visible,
-                self.basis_map.clone(),
-                self.groups.clone(),
-            ));
-            self.nb_helices_created += 1;
+            if let Some(flat_helix) = FlatHelix::from_real(h.id, id_map) {
+                self.helices.push(Helix::new(
+                    h.left,
+                    h.right,
+                    h.isometry,
+                    flat_helix,
+                    h.id,
+                    h.visible,
+                    design.get_basis_map(),
+                    design.get_group_map(),
+                ));
+                self.nb_helices_created += 1;
+            }
         }
         let suggestions = self.design.suggestions();
         self.update_suggestion(&suggestions);
@@ -219,6 +220,9 @@ impl Data {
         self.view
             .borrow_mut()
             .set_torsions(self.design.get_torsions());
+        self.view
+            .borrow_mut()
+            .update_maps(design.get_group_map(), design.get_basis_map());
     }
 
     fn update_suggestion(&mut self, suggestion: &[(FlatNucl, FlatNucl)]) {
@@ -267,22 +271,62 @@ impl Data {
             .map(|h| h.visible_center(camera).unwrap_or_else(|| h.center()))
     }
 
-    pub fn add_helix_selection(
+    pub(super) fn add_helix_selection<S: AppState>(
         &mut self,
         click_result: ClickResult,
         camera: &CameraPtr,
-    ) -> Option<(Vec<FlatNucl>, Vec<Vec2>)> {
-        self.add_selection(click_result, true);
-        self.get_pivot_of_selected_helices(camera)
+        app_state: &S,
+    ) -> GraphicalSelection {
+        let mut new_selection = app_state.get_selection().to_vec();
+        self.add_selection(
+            click_result,
+            true,
+            &mut new_selection,
+            app_state.get_selection_mode(),
+        );
+        let pivots_opt = self.get_pivot_of_selected_helices(camera, &new_selection);
+        self.requests
+            .lock()
+            .unwrap()
+            .new_selection(new_selection.clone());
+        if let Some((translation_pivots, rotation_pivots)) = pivots_opt {
+            GraphicalSelection {
+                translation_pivots,
+                rotation_pivots,
+                new_selection,
+            }
+        } else {
+            GraphicalSelection::selection_only(new_selection)
+        }
     }
 
-    pub fn set_helix_selection(
+    pub(super) fn set_helix_selection<S: AppState>(
         &mut self,
         click_result: ClickResult,
         camera: &CameraPtr,
-    ) -> Option<(Vec<FlatNucl>, Vec<Vec2>)> {
-        self.add_selection(click_result, false);
-        self.get_pivot_of_selected_helices(camera)
+        app_state: &S,
+    ) -> GraphicalSelection {
+        let mut new_selection = app_state.get_selection().to_vec();
+        self.add_selection(
+            click_result,
+            false,
+            &mut new_selection,
+            app_state.get_selection_mode(),
+        );
+        let pivots_opt = self.get_pivot_of_selected_helices(camera, &new_selection);
+        self.requests
+            .lock()
+            .unwrap()
+            .new_selection(new_selection.clone());
+        if let Some((translation_pivots, rotation_pivots)) = pivots_opt {
+            GraphicalSelection {
+                translation_pivots,
+                rotation_pivots,
+                new_selection,
+            }
+        } else {
+            GraphicalSelection::selection_only(new_selection)
+        }
     }
 
     pub fn get_click_unbounded_helix(&self, x: f32, y: f32, helix: FlatHelix) -> FlatNucl {
@@ -300,6 +344,7 @@ impl Data {
     }
 
     pub fn set_selected_helices(&mut self, helices: Vec<FlatHelix>) {
+        /*
         for h in self.helices.iter_mut() {
             h.set_color(HELIX_BORDER_COLOR);
         }
@@ -307,12 +352,19 @@ impl Data {
             self.helices[h.flat].set_color(SELECTED_HELIX2D_COLOR);
         }
         self.instance_update = true;
+        */
+        let new_selection = helices
+            .into_iter()
+            .map(|flat| Selection::Helix(0, flat.real as u32))
+            .collect();
+        self.requests.lock().unwrap().new_selection(new_selection);
     }
 
+    /*
     pub fn snap_helix(&mut self, pivot: FlatNucl, translation: Vec2) {
         self.helices[pivot.helix.flat].snap(pivot, translation);
         self.instance_update = true;
-    }
+    }*/
 
     pub fn move_handle(&mut self, helix: FlatHelix, handle: HelixHandle, position: Vec2) {
         let (left, right) = self.helices[helix.flat].move_handle(handle, position);
@@ -325,15 +377,11 @@ impl Data {
         self.design.update_helix(helix, left, right);
     }
 
-    pub fn redim_helices(&mut self, all: bool) {
-        if all {
-            for h in self.helices.iter_mut() {
-                let (left, right) = h.redim_zero();
-                self.design.update_helix(h.flat_id, left, right);
-            }
-        } else {
+    /// Shrink the selected helices if selection is Some, or all helices if selection is None.
+    pub fn redim_helices(&mut self, selection: Option<&[Selection]>) {
+        if let Some(selection) = selection {
             let mut ids = Vec::new();
-            for s in self.selection.iter() {
+            for s in selection.iter() {
                 if let Selection::Helix(_, h) = s {
                     if let Some(h) = self.design.id_map().get(&(*h as usize)) {
                         ids.push(*h)
@@ -346,19 +394,27 @@ impl Data {
                     self.design.update_helix(h.flat_id, left, right);
                 }
             }
+        } else {
+            for h in self.helices.iter_mut() {
+                let (left, right) = h.redim_zero();
+                self.design.update_helix(h.flat_id, left, right);
+            }
         }
         self.notify_update();
     }
 
+    /*
     pub fn rotate_helix(&mut self, helix: FlatHelix, pivot: Vec2, angle: f32) {
         self.helices[helix.flat].rotate(pivot, angle);
         self.instance_update = true;
-    }
+    }*/
 
     pub fn end_movement(&mut self) {
+        /*
         for h in self.helices.iter_mut() {
             h.end_movement()
-        }
+        }*/
+        self.requests.lock().unwrap().suspend_op()
     }
 
     pub fn move_helix_forward(&mut self) {
@@ -375,16 +431,12 @@ impl Data {
         }
     }
 
-    pub fn get_builder(&self, nucl: FlatNucl, stick: bool) -> Option<StrandBuilder> {
-        self.design.get_builder(nucl.to_real(), stick)
+    pub fn can_start_builder_at(&self, nucl: FlatNucl) -> bool {
+        self.design.can_start_builder_at(nucl.to_real())
     }
 
     pub fn notify_update(&mut self) {
         self.instance_update = true;
-    }
-
-    pub fn notify_reset(&mut self) {
-        self.instance_reset = true;
     }
 
     pub fn can_cross_to(&self, from: FlatNucl, to: FlatNucl) -> bool {
@@ -495,21 +547,9 @@ impl Data {
             .or(self.design.prime3_of(nucl2));
 
         if strand_3prime.is_none() || strand_5prime.is_none() {
-            println!("Problem during cross-over attempt. If you are not trying to break a cyclic strand please repport a bug");
+            log::error!("Problem during cross-over attempt. If you are not trying to break a cyclic strand please repport a bug");
         }
         (strand_5prime.unwrap(), strand_3prime.unwrap())
-    }
-
-    pub fn get_strand(&self, strand_id: usize) -> Option<DesignStrand> {
-        self.design.get_strand(strand_id)
-    }
-
-    pub fn can_delete_helix(&mut self, helix: FlatHelix) -> Option<(DesignHelix, usize)> {
-        if self.design.can_delete_helix(helix) {
-            self.design.get_raw_helix(helix).zip(Some(helix.real))
-        } else {
-            None
-        }
     }
 
     pub fn get_fit_rectangle(&self) -> FitRectangle {
@@ -559,29 +599,39 @@ impl Data {
         ret
     }
 
-    pub fn select_rectangle(
+    pub(super) fn select_rectangle<S: AppState>(
         &mut self,
         c1: Vec2,
         c2: Vec2,
         camera: &CameraPtr,
         adding: bool,
-    ) -> (Vec<FlatNucl>, Vec<Vec2>) {
-        self.selection_updated = true;
-        if self.selection_mode == SelectionMode::Strand {
-            self.select_strands_rectangle(camera, c1, c2, adding);
-            return (vec![], vec![]);
-        } else if self.selection_mode == SelectionMode::Nucleotide {
-            self.select_xovers_rectangle(camera, c1, c2, adding);
-            return (vec![], vec![]);
+        app_state: &S,
+    ) -> GraphicalSelection {
+        // Initialize the new selection with the current one. It will be cleared later if `adding`
+        // is `false`.
+        let mut new_selection = app_state.get_selection().to_vec();
+        let selection_mode = app_state.get_selection_mode();
+        if selection_mode == SelectionMode::Strand {
+            self.select_strands_rectangle(camera, c1, c2, adding, &mut new_selection);
+            if !new_selection.is_empty() {
+                return GraphicalSelection::selection_only(new_selection);
+            }
+        } else if selection_mode == SelectionMode::Nucleotide {
+            self.select_xovers_rectangle(camera, c1, c2, adding, &mut new_selection);
+            if !new_selection.is_empty() {
+                return GraphicalSelection::selection_only(new_selection);
+            }
         }
-        println!("{:?} {:?}", c1, c2);
+        log::debug!("rectangle selection: {:?} {:?}", c1, c2);
         let mut translation_pivots = vec![];
         let mut rotation_pivots = vec![];
         let mut selection = Vec::new();
         for h in self.helices.iter_mut() {
-            let c = h.get_circle(camera);
+            let c = h.get_circle(camera, &BTreeMap::new());
             if c.map(|c| c.in_rectangle(&c1, &c2)).unwrap_or(false) {
-                let translation_pivot = h.get_circle_pivot(camera).unwrap();
+                let translation_pivot = h
+                    .get_circle_pivot(camera)
+                    .unwrap_or_else(|| h.default_pivot());
                 let rotation_pivot = h.visible_center(camera).unwrap_or_else(|| h.center());
                 h.set_color(SELECTED_HELIX2D_COLOR);
                 translation_pivots.push(translation_pivot);
@@ -590,36 +640,46 @@ impl Data {
             }
         }
         if adding {
-            for s in selection.iter() {
-                if !self.selection.contains(s) {
-                    self.selection.push(*s);
-                }
+            if let Some((mut old_translation_pivots, mut old_rotation_pivots)) =
+                self.get_pivot_of_selected_helices(camera, &new_selection)
+            {
+                apply_symetric_difference_to_pivots(
+                    &mut old_translation_pivots,
+                    &mut old_rotation_pivots,
+                    &selection,
+                );
+                translation_pivots.append(&mut old_translation_pivots);
+                rotation_pivots.append(&mut old_rotation_pivots);
             }
+            apply_symetric_difference_to_selection(&mut selection, &mut new_selection);
+            selection.append(&mut new_selection);
+            new_selection = selection;
         } else {
-            self.selection = selection;
+            new_selection = selection;
         }
-        (translation_pivots, rotation_pivots)
+        GraphicalSelection {
+            translation_pivots,
+            rotation_pivots,
+            new_selection,
+        }
     }
 
     pub fn get_pivot_of_selected_helices(
         &self,
         camera: &CameraPtr,
+        selection: &[Selection],
     ) -> Option<(Vec<FlatNucl>, Vec<Vec2>)> {
         let id_map = self.design.id_map();
 
-        let ret: Option<Vec<(FlatNucl, Vec2)>> = self
-            .selection
+        let ret: Option<Vec<(FlatNucl, Vec2)>> = selection
             .iter()
             .map(|s| match s {
                 Selection::Helix(d_id, h_id) if *d_id == self.id => {
                     if let Some(flat_id) = id_map.get(&(*h_id as usize)) {
                         if let Some(h) = self.helices.get(*flat_id) {
-                            let translation_pivot =
-                                h.get_circle_pivot(camera).unwrap_or(FlatNucl {
-                                    helix: h.flat_id,
-                                    position: 0,
-                                    forward: true,
-                                });
+                            let translation_pivot = h
+                                .get_circle_pivot(camera)
+                                .unwrap_or_else(|| h.default_pivot());
                             let rotation_pivot =
                                 h.visible_center(camera).unwrap_or_else(|| h.center());
                             Some((translation_pivot, rotation_pivot))
@@ -636,14 +696,27 @@ impl Data {
         ret.map(|v| v.iter().cloned().unzip())
     }
 
-    fn select_xovers_rectangle(&mut self, camera: &CameraPtr, c1: Vec2, c2: Vec2, adding: bool) {
+    fn select_xovers_rectangle(
+        &mut self,
+        camera: &CameraPtr,
+        c1: Vec2,
+        c2: Vec2,
+        adding: bool,
+        new_selection: &mut Vec<Selection>,
+    ) {
         let (x1, y1) = camera.borrow().world_to_norm_screen(c1.x, c1.y);
         let (x2, y2) = camera.borrow().world_to_norm_screen(c2.x, c2.y);
         let left = x1.min(x2);
         let right = x1.max(x2);
         let top = y1.min(y2);
         let bottom = y1.max(y2);
-        println!("{}, {}, {}, {}", left, top, right, bottom);
+        log::debug!(
+            "rectangle corners: {}, {}, {}, {}",
+            left,
+            top,
+            right,
+            bottom
+        );
         let mut selection = BTreeSet::new();
         for (xover_id, (flat_1, flat_2)) in self.design.get_xovers_list() {
             let h1 = &self.helices[flat_1.helix.flat];
@@ -663,14 +736,14 @@ impl Data {
         }
         if adding {
             for s in selection.iter() {
-                if !self.selection.contains(s) {
-                    self.selection.push(*s);
+                if !new_selection.contains(s) {
+                    new_selection.push(*s);
                 }
             }
         } else {
-            self.selection = selection;
+            *new_selection = selection;
         }
-        println!("selection {:?}", self.selection);
+        log::debug!("returned selection {:?}", new_selection);
     }
 
     fn add_long_xover_rectangle(&self, selection: &mut Vec<Selection>, c1: Vec2, c2: Vec2) {
@@ -689,14 +762,21 @@ impl Data {
         }
     }
 
-    fn select_strands_rectangle(&mut self, camera: &CameraPtr, c1: Vec2, c2: Vec2, adding: bool) {
+    fn select_strands_rectangle(
+        &mut self,
+        camera: &CameraPtr,
+        c1: Vec2,
+        c2: Vec2,
+        adding: bool,
+        new_selection: &mut Vec<Selection>,
+    ) {
         let (x1, y1) = camera.borrow().world_to_norm_screen(c1.x, c1.y);
         let (x2, y2) = camera.borrow().world_to_norm_screen(c2.x, c2.y);
         let left = x1.min(x2);
         let right = x1.max(x2);
         let top = y1.min(y2);
         let bottom = y1.max(y2);
-        println!("{}, {}, {}, {}", left, top, right, bottom);
+        log::debug!("rectangle corner {}, {}, {}, {}", left, top, right, bottom);
         let mut selection = BTreeSet::new();
         for s in self.design.get_strands().iter() {
             for n in s.points.iter() {
@@ -713,12 +793,12 @@ impl Data {
             .collect();
         if adding {
             for s in selection.iter() {
-                if !self.selection.contains(s) {
-                    self.selection.push(*s);
+                if !new_selection.contains(s) {
+                    new_selection.push(*s);
                 }
             }
         } else {
-            self.selection = selection;
+            *new_selection = selection;
         }
     }
 
@@ -739,44 +819,50 @@ impl Data {
         }
     }
 
-    pub fn add_selection(&mut self, click_result: ClickResult, adding: bool) {
+    pub fn add_selection(
+        &mut self,
+        click_result: ClickResult,
+        adding: bool,
+        new_selection: &mut Vec<Selection>,
+        selection_mode: SelectionMode,
+    ) {
         if !adding {
-            self.selection.clear()
+            new_selection.clear()
         }
         match click_result {
             ClickResult::CircleWidget { translation_pivot } => {
                 let selection = Selection::Helix(self.id, translation_pivot.helix.real as u32);
-                if let Some(pos) = self.selection.iter().position(|x| *x == selection) {
-                    self.selection.remove(pos);
+                if let Some(pos) = new_selection.iter().position(|x| *x == selection) {
+                    new_selection.remove(pos);
                 } else {
-                    self.selection.push(selection);
+                    new_selection.push(selection);
                 }
             }
-            ClickResult::Nucl(nucl) => match self.selection_mode {
+            ClickResult::Nucl(nucl) => match selection_mode {
                 SelectionMode::Strand => {
                     if let Some(s_id) = self.design.get_strand_id(nucl.to_real()) {
                         let selection = Selection::Strand(self.id, s_id as u32);
-                        if let Some(pos) = self.selection.iter().position(|x| *x == selection) {
-                            self.selection.remove(pos);
+                        if let Some(pos) = new_selection.iter().position(|x| *x == selection) {
+                            new_selection.remove(pos);
                         } else {
-                            self.selection.push(selection);
+                            new_selection.push(selection);
                         }
                     }
                 }
                 _ => {
                     if let Some(xover) = self.xover_containing_nucl(&nucl) {
                         let selection = Selection::Xover(self.id, xover);
-                        if let Some(pos) = self.selection.iter().position(|x| *x == selection) {
-                            self.selection.remove(pos);
+                        if let Some(pos) = new_selection.iter().position(|x| *x == selection) {
+                            new_selection.remove(pos);
                         } else {
-                            self.selection.push(selection);
+                            new_selection.push(selection);
                         }
                     } else if let Some(s_id) = self.design.get_strand_id(nucl.to_real()) {
                         let selection = Selection::Strand(self.id, s_id as u32);
-                        if let Some(pos) = self.selection.iter().position(|x| *x == selection) {
-                            self.selection.remove(pos);
+                        if let Some(pos) = new_selection.iter().position(|x| *x == selection) {
+                            new_selection.remove(pos);
                         } else {
-                            self.selection.push(selection);
+                            new_selection.push(selection);
                         }
                     }
                 }
@@ -786,6 +872,7 @@ impl Data {
         }
     }
 
+    /*
     pub fn set_selection(&mut self, mut selection: Vec<Selection>) {
         self.selection = selection.clone();
         if selection.len() == 1 {
@@ -805,11 +892,34 @@ impl Data {
                 ));
         }
         self.selection_updated = true;
-    }
+    }*/
 
+    /*
     pub fn set_candidate(&mut self, candidates: Vec<Selection>) {
         self.candidates = candidates;
         self.selection_updated = true;
+    }*/
+
+    pub(super) fn convert_to_flat(&self, selection: Selection) -> FlatSelection {
+        FlatSelection::from_real(Some(&selection), self.id_map())
+    }
+
+    pub(super) fn xover_to_nuclpair(&self, selection: FlatSelection) -> FlatSelection {
+        if let FlatSelection::Xover(d_id, xover_id) = selection {
+            if let Some((n1, n2)) = self.design.get_xover_with_id(xover_id) {
+                let flat_1 = FlatNucl::from_real(&n1, self.id_map());
+                let flat_2 = FlatNucl::from_real(&n2, self.id_map());
+                if let Some((flat_1, flat_2)) = flat_1.zip(flat_2) {
+                    FlatSelection::Bound(d_id, flat_1, flat_2)
+                } else {
+                    FlatSelection::Nothing
+                }
+            } else {
+                FlatSelection::Nothing
+            }
+        } else {
+            selection
+        }
     }
 
     fn xover_containing_nucl(&self, nucl: &FlatNucl) -> Option<usize> {
@@ -825,9 +935,13 @@ impl Data {
         })
     }
 
-    pub fn phantom_to_selection(&self, phantom: PhantomElement) -> Option<Selection> {
+    pub fn phantom_to_selection(
+        &self,
+        phantom: PhantomElement,
+        selection_mode: SelectionMode,
+    ) -> Option<Selection> {
         if let Some(n_id) = self.design.get_nucl_id(phantom.to_nucl()) {
-            match self.selection_mode {
+            match selection_mode {
                 SelectionMode::Grid => None,
                 SelectionMode::Helix => self
                     .design
@@ -860,25 +974,48 @@ impl Data {
 
     pub fn can_make_auto_xover(&self, nucl: FlatNucl) -> Option<FlatNucl> {
         let strand = self.get_strand_id(nucl)?;
+
+        // Check if the nucleotide on 5' is involved in a crossover ? If so the candidate is the
+        // nucleotide on 5' of the nucl crossed to.
         let prime5_nucl = nucl.prime5();
-        if self.get_strand_id(prime5_nucl) != Some(strand) {
-            if let Some(xover_of_prime5) = self.get_xover_nucl(prime5_nucl) {
-                let candidate = xover_of_prime5.prime5();
+        let strand_of_prime5 = self.get_strand_id(prime5_nucl);
+
+        if let Some(xover_of_prime5) = self.get_xover_nucl(prime5_nucl) {
+            let candidate = xover_of_prime5.prime5();
+            if strand_of_prime5 == Some(strand) {
+                // Special case where auto xover could be closing a cyclic strand
+                if self.design.prime5_of(nucl.to_real()) == Some(strand)
+                    && self.design.prime3_of(candidate.to_real()) == Some(strand)
+                {
+                    return Some(candidate);
+                }
+            } else if strand_of_prime5.is_some() {
                 if self.can_cross_to(nucl, candidate) {
                     return Some(candidate);
                 }
             }
         }
 
+        // Check if the nucleotide on 3' is involved in a crossover ? If so the candidate is the
+        // nucleotide on 3' of the nucl crossed to.
         let prime3_nucl = nucl.prime3();
-        if self.get_strand_id(prime3_nucl) != Some(strand) {
-            if let Some(xover_of_prime3) = self.get_xover_nucl(prime3_nucl) {
-                let candidate = xover_of_prime3.prime3();
+        let strand_of_prime3 = self.get_strand_id(prime3_nucl);
+        if let Some(xover_of_prime3) = self.get_xover_nucl(prime3_nucl) {
+            let candidate = xover_of_prime3.prime3();
+            if strand_of_prime3 == Some(strand) {
+                // Special case where auto xover could be closing a cyclic strand
+                if self.design.prime3_of(nucl.to_real()) == Some(strand)
+                    && self.design.prime5_of(candidate.to_real()) == Some(strand)
+                {
+                    return Some(candidate);
+                }
+            } else if strand_of_prime3.is_some() {
                 if self.can_cross_to(nucl, candidate) {
                     return Some(candidate);
                 }
             }
         }
+
         None
     }
 }
@@ -907,4 +1044,62 @@ pub(super) struct Xover {
     pub design_id: usize,
     pub target_end: Option<bool>,
     pub source_end: Option<bool>,
+}
+
+/// A selection made by interacting with the 2D scene.
+pub(super) struct GraphicalSelection {
+    pub translation_pivots: Vec<FlatNucl>,
+    pub rotation_pivots: Vec<Vec2>,
+    pub new_selection: Vec<Selection>,
+}
+
+impl GraphicalSelection {
+    fn selection_only(selection: Vec<Selection>) -> Self {
+        Self {
+            new_selection: selection,
+            translation_pivots: vec![],
+            rotation_pivots: vec![],
+        }
+    }
+}
+
+/// Remove the element of `old_translation_pivots` and `old_rotation_pivots` that corresponds to an
+/// element existing in `selection`
+fn apply_symetric_difference_to_pivots(
+    old_translation_pivots: &mut Vec<FlatNucl>,
+    old_rotation_pivots: &mut Vec<Vec2>,
+    selection: &[Selection],
+) {
+    if old_translation_pivots.len() != old_rotation_pivots.len() {
+        return;
+    }
+
+    for i in (0..old_rotation_pivots.len()).rev() {
+        let real_helix = old_translation_pivots[i].helix.real;
+        if selection
+            .iter()
+            .find(|s| matches!(s, Selection::Helix(_, h_id) if *h_id == real_helix as u32))
+            .is_some()
+        {
+            old_translation_pivots.remove(i);
+            old_rotation_pivots.remove(i);
+        }
+    }
+}
+
+fn apply_symetric_difference_to_selection(
+    old_selection: &mut Vec<Selection>,
+    new_selection: &mut Vec<Selection>,
+) {
+    let mut to_remove = Vec::new();
+    for s in old_selection.iter() {
+        if new_selection.contains(s) {
+            to_remove.push(s.clone());
+        }
+    }
+
+    let retain_condition = |s: &Selection| !to_remove.contains(s);
+
+    old_selection.retain(retain_condition);
+    new_selection.retain(retain_condition);
 }

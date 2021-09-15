@@ -16,148 +16,79 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 use super::*;
+use ensnano_interactor::{RollRequest, SimulationState};
 use iced::scrollable;
 use iced::Color;
 
-use crate::design::SimulationState;
-
-pub(super) struct EditionTab {
-    selection_mode_state: SelectionModeState,
-    action_mode_state: ActionModeState,
+pub(super) struct EditionTab<S: AppState> {
     scroll: iced::scrollable::State,
     helix_roll_factory: RequestFactory<HelixRoll>,
     color_picker: ColorPicker,
-    sequence_input: SequenceInput,
+    _sequence_input: SequenceInput,
     redim_helices_button: button::State,
     redim_all_helices_button: button::State,
-    roll_target_btn: GoStop,
-    roll_target_helices: Vec<usize>,
+    roll_target_btn: GoStop<S>,
 }
 
-impl EditionTab {
+impl<S: AppState> EditionTab<S> {
     pub(super) fn new() -> Self {
         Self {
-            selection_mode_state: Default::default(),
-            action_mode_state: Default::default(),
             scroll: Default::default(),
             helix_roll_factory: RequestFactory::new(FactoryId::HelixRoll, HelixRoll {}),
             color_picker: ColorPicker::new(),
-            sequence_input: SequenceInput::new(),
+            _sequence_input: SequenceInput::new(),
             redim_helices_button: Default::default(),
             redim_all_helices_button: Default::default(),
             roll_target_btn: GoStop::new(
                 "Autoroll selected helices".to_owned(),
                 Message::RollTargeted,
             ),
-            roll_target_helices: vec![],
         }
     }
 
     pub(super) fn view<'a>(
         &'a mut self,
         ui_size: UiSize,
-        width: u16,
-        app_state: &ApplicationState,
-    ) -> Element<'a, Message> {
+        _width: u16,
+        app_state: &S,
+    ) -> Element<'a, Message<S>> {
         let mut ret = Column::new().spacing(5);
         ret = ret.push(
             Text::new("Edition")
                 .horizontal_alignment(iced::HorizontalAlignment::Center)
                 .size(ui_size.head_text()),
         );
-        let selection_modes = [
-            SelectionMode::Nucleotide,
-            SelectionMode::Strand,
-            SelectionMode::Helix,
-        ];
-
-        let mut selection_buttons: Vec<Button<'a, Message>> = self
-            .selection_mode_state
-            .get_states()
-            .into_iter()
-            .rev()
-            .filter(|(m, _)| selection_modes.contains(m))
-            .map(|(mode, state)| {
-                selection_mode_btn(state, mode, app_state.selection_mode, ui_size.button())
-            })
-            .collect();
-
-        ret = ret.push(Text::new("Selection Mode"));
-        while selection_buttons.len() > 0 {
-            let mut row = Row::new();
-            row = row.push(selection_buttons.pop().unwrap()).spacing(5);
-            let mut space = ui_size.button() + 5;
-            while space + ui_size.button() < width && selection_buttons.len() > 0 {
-                row = row.push(selection_buttons.pop().unwrap()).spacing(5);
-                space += ui_size.button() + 5;
-            }
-            ret = ret.push(row)
-        }
-
-        let action_modes = [
-            ActionMode::Normal,
-            ActionMode::Translate,
-            ActionMode::Rotate,
-        ];
-
-        let mut action_buttons: Vec<Button<'a, Message>> = self
-            .action_mode_state
-            .get_states(0, 0, false)
-            .into_iter()
-            .filter(|(m, _)| action_modes.contains(m))
-            .map(|(mode, state)| {
-                action_mode_btn(
-                    state,
-                    mode,
-                    app_state.action_mode,
-                    ui_size.button(),
-                    app_state.axis_aligned,
-                )
-            })
-            .collect();
-
-        ret = ret.push(Text::new("Action Mode"));
-        while action_buttons.len() > 0 {
-            let mut row = Row::new();
-            row = row.push(action_buttons.remove(0)).spacing(5);
-            let mut space = ui_size.button() + 5;
-            while space + ui_size.button() < width && action_buttons.len() > 0 {
-                row = row.push(action_buttons.remove(0)).spacing(5);
-                space += ui_size.button() + 5;
-            }
-            ret = ret.push(row)
-        }
+        let selection = app_state.get_selection_as_dnaelement();
+        let roll_target_helices = self.get_roll_target_helices(&selection);
 
         for view in self
             .helix_roll_factory
-            .view(self.roll_target_helices.len() == 1)
+            .view(roll_target_helices.len() >= 1)
             .into_iter()
         {
             ret = ret.push(view);
         }
 
-        let sim_state = &app_state.simulation_state;
-        let roll_target_active = sim_state.is_rolling() || self.roll_target_helices.len() > 0;
+        let sim_state = &app_state.get_simulation_state();
+        let roll_target_active = sim_state.is_rolling() || roll_target_helices.len() > 0;
         ret = ret.push(
             self.roll_target_btn
                 .view(roll_target_active, sim_state.is_rolling()),
         );
 
         let color_square = self.color_picker.color_square();
-        if app_state.selection_mode == SelectionMode::Strand {
-            ret = ret
-                .push(self.color_picker.view())
-                .push(
-                    Row::new()
-                        .push(color_square)
-                        .push(iced::Space::new(Length::FillPortion(4), Length::Shrink)),
-                )
-                .push(self.sequence_input.view());
+        if app_state.get_selection_mode() == SelectionMode::Strand {
+            ret = ret.push(self.color_picker.view()).push(
+                Row::new()
+                    .push(color_square)
+                    .push(iced::Space::new(Length::FillPortion(4), Length::Shrink)),
+            )
+            //.push(self.sequence_input.view());
         }
 
         let mut tighten_helices_button =
             text_btn(&mut self.redim_helices_button, "Selected", ui_size.clone());
-        if !self.roll_target_helices.is_empty() {
+        if !roll_target_helices.is_empty() {
             tighten_helices_button =
                 tighten_helices_button.on_press(Message::Redim2dHelices(false));
         }
@@ -175,17 +106,14 @@ impl EditionTab {
         Scrollable::new(&mut self.scroll).push(ret).into()
     }
 
-    pub(super) fn update_selection(&mut self, selection: &[DnaElementKey]) {
-        self.roll_target_helices.clear();
+    fn get_roll_target_helices(&self, selection: &[DnaElementKey]) -> Vec<usize> {
+        let mut ret = vec![];
         for s in selection.iter() {
             if let DnaElementKey::Helix(h) = s {
-                self.roll_target_helices.push(*h)
+                ret.push(*h)
             }
         }
-    }
-
-    pub(super) fn update_roll(&mut self, roll: f32) {
-        self.helix_roll_factory.update_roll(roll);
+        ret
     }
 
     pub(super) fn update_roll_request(
@@ -198,23 +126,20 @@ impl EditionTab {
             .update_request(value_id, value, request);
     }
 
-    pub(super) fn notify_new_design(&mut self) {
-        self.roll_target_helices = vec![];
-    }
-
-    pub(super) fn get_roll_request(&mut self) -> Option<SimulationRequest> {
-        if self.roll_target_helices.len() > 0 {
-            Some(SimulationRequest {
+    pub(super) fn get_roll_request(&mut self, selection: &[DnaElementKey]) -> Option<RollRequest> {
+        let roll_target_helices = self.get_roll_target_helices(selection);
+        if roll_target_helices.len() > 0 {
+            Some(RollRequest {
                 roll: true,
                 springs: false,
-                target_helices: Some(self.roll_target_helices.clone()),
+                target_helices: Some(roll_target_helices.clone()),
             })
         } else {
             None
         }
     }
 
-    pub(super) fn strand_color_change(&mut self, color: Color, color_request: &mut Option<u32>) {
+    pub(super) fn strand_color_change(&mut self, color: Color) -> u32 {
         let red = ((color.r * 255.) as u32) << 16;
         let green = ((color.g * 255.) as u32) << 8;
         let blue = (color.b * 255.) as u32;
@@ -227,7 +152,7 @@ impl EditionTab {
         .h;
         self.color_picker.change_hue(hue as f32);
         let color = red + green + blue;
-        *color_request = Some(color);
+        color
     }
 
     pub(super) fn change_hue(&mut self, hue: f32) {
@@ -236,60 +161,34 @@ impl EditionTab {
 }
 
 pub(super) struct GridTab {
-    action_mode_state: ActionModeState,
     scroll: iced::scrollable::State,
-    helix_pos: isize,
-    helix_length: usize,
-    pos_str: String,
-    length_str: String,
-    builder_input: [text_input::State; 2],
-    building_hyperboloid: bool,
     finalize_hyperboloid_btn: button::State,
     make_square_grid_btn: button::State,
     make_honeycomb_grid_btn: button::State,
     hyperboloid_factory: RequestFactory<Hyperboloid_>,
     start_hyperboloid_btn: button::State,
-    show_strand_menu: bool,
     make_grid_btn: button::State,
-    pub(super) can_make_grid: bool,
 }
 
 impl GridTab {
     pub fn new() -> Self {
-        let default_helix_length = 48;
         Self {
-            action_mode_state: Default::default(),
             scroll: Default::default(),
-            helix_pos: 0,
-            helix_length: default_helix_length,
-            pos_str: "0".to_owned(),
-            length_str: default_helix_length.to_string().to_owned(),
-            builder_input: Default::default(),
             make_square_grid_btn: Default::default(),
             make_honeycomb_grid_btn: Default::default(),
             hyperboloid_factory: RequestFactory::new(FactoryId::Hyperboloid, Hyperboloid_ {}),
             finalize_hyperboloid_btn: Default::default(),
-            building_hyperboloid: false,
             start_hyperboloid_btn: Default::default(),
-            show_strand_menu: false,
             make_grid_btn: Default::default(),
-            can_make_grid: false,
         }
     }
 
-    pub(super) fn view<'a>(
+    pub(super) fn view<'a, S: AppState>(
         &'a mut self,
         ui_size: UiSize,
-        width: u16,
-        app_state: &ApplicationState,
-    ) -> Element<'a, Message> {
-        let action_modes = [
-            ActionMode::Normal,
-            ActionMode::Translate,
-            ActionMode::Rotate,
-            self.get_build_helix_mode(),
-        ];
-
+        _width: u16,
+        app_state: &S,
+    ) -> Element<'a, Message<S>> {
         let mut ret = Column::new().spacing(5);
         ret = ret.push(
             Text::new("Grids")
@@ -317,61 +216,12 @@ impl GridTab {
             .spacing(5);
         ret = ret.push(grid_buttons);
 
-        let mut inputs = self.builder_input.iter_mut();
-        let position_input = TextInput::new(
-            inputs.next().unwrap(),
-            "Position",
-            &self.pos_str,
-            Message::PositionHelicesChanged,
-        )
-        .style(BadValue(self.pos_str == self.helix_pos.to_string()));
-
-        let length_input = TextInput::new(
-            inputs.next().unwrap(),
-            "Length",
-            &self.length_str,
-            Message::LengthHelicesChanged,
-        )
-        .style(BadValue(self.length_str == self.helix_length.to_string()));
-
-        ret = ret.push(right_checkbox(
-            self.show_strand_menu,
-            "Add double strand on helix",
-            Message::AddDoubleStrandHelix,
-            ui_size.clone(),
-        ));
-        let color_white = Color::WHITE;
-        let color_gray = Color {
-            r: 0.6,
-            g: 0.6,
-            b: 0.6,
-            a: 1.0,
-        };
-        let color_choose_strand_start_length = if self.show_strand_menu {
-            color_white
-        } else {
-            color_gray
-        };
-        let row = Row::new()
-            .push(
-                Column::new()
-                    .push(Text::new("Starting nt").color(color_choose_strand_start_length))
-                    .push(position_input)
-                    .width(Length::Units(width / 2)),
-            )
-            .push(
-                Column::new()
-                    .push(Text::new("Length (nt)").color(color_choose_strand_start_length))
-                    .push(length_input),
-            );
-        ret = ret.push(row);
-
         ret = ret.push(iced::Space::with_height(Length::Units(3)));
 
         let nanotube_title = Row::new().push(Text::new("New nanotube"));
 
         ret = ret.push(nanotube_title);
-        let start_hyperboloid_btn = if !self.building_hyperboloid {
+        let start_hyperboloid_btn = if !app_state.is_building_hyperboloid() {
             icon_btn(
                 &mut self.start_hyperboloid_btn,
                 ICON_NANOTUBE,
@@ -390,7 +240,7 @@ impl GridTab {
         )
         .on_press(Message::CancelHyperboloid);
 
-        if self.building_hyperboloid {
+        if app_state.is_building_hyperboloid() {
             ret = ret.push(
                 Row::new()
                     .spacing(3)
@@ -403,39 +253,10 @@ impl GridTab {
 
         for view in self
             .hyperboloid_factory
-            .view(self.building_hyperboloid)
+            .view(app_state.is_building_hyperboloid())
             .into_iter()
         {
             ret = ret.push(view);
-        }
-
-        let mut action_buttons: Vec<Button<'a, Message>> = self
-            .action_mode_state
-            .get_states(self.helix_length, self.helix_pos, self.show_strand_menu)
-            .into_iter()
-            .filter(|(m, _)| action_modes.contains(m))
-            .map(|(mode, state)| {
-                action_mode_btn(
-                    state,
-                    mode,
-                    app_state.action_mode,
-                    ui_size.button(),
-                    app_state.axis_aligned,
-                )
-            })
-            .collect();
-
-        ret = ret.push(iced::Space::with_height(Length::Units(5)));
-        ret = ret.push(Text::new("Action Mode"));
-        while action_buttons.len() > 0 {
-            let mut row = Row::new();
-            row = row.push(action_buttons.remove(0)).spacing(5);
-            let mut space = ui_size.button() + 5;
-            while space + ui_size.button() < width && action_buttons.len() > 0 {
-                row = row.push(action_buttons.remove(0)).spacing(5);
-                space += ui_size.button() + 5;
-            }
-            ret = ret.push(row)
         }
 
         ret = ret.push(iced::Space::with_height(Length::Units(5)));
@@ -444,7 +265,7 @@ impl GridTab {
             Button::new(&mut self.make_grid_btn, iced::Text::new("From Selection"))
                 .height(Length::Units(ui_size.button()));
 
-        if self.can_make_grid {
+        if app_state.can_make_grid() {
             button_make_grid = button_make_grid.on_press(Message::MakeGrids);
         }
 
@@ -454,46 +275,9 @@ impl GridTab {
         Scrollable::new(&mut self.scroll).push(ret).into()
     }
 
-    pub(super) fn update_pos_str(&mut self, position_str: String) -> ActionMode {
-        if let Ok(position) = position_str.parse::<isize>() {
-            self.helix_pos = position;
-        }
-        self.pos_str = position_str;
-        self.set_show_strand(true);
-        ActionMode::BuildHelix {
-            position: self.helix_pos,
-            length: self.helix_length,
-        }
-    }
-
-    pub(super) fn update_length_str(&mut self, length_str: String) -> ActionMode {
-        if let Ok(length) = length_str.parse::<usize>() {
-            self.helix_length = length
-        }
-        self.length_str = length_str;
-        self.set_show_strand(true);
-        ActionMode::BuildHelix {
-            position: self.helix_pos,
-            length: self.helix_length,
-        }
-    }
-
-    pub fn has_keyboard_priority(&self) -> bool {
-        self.builder_input.iter().any(|s| s.is_focused())
-    }
-
     pub fn new_hyperboloid(&mut self, requests: &mut Option<HyperboloidRequest>) {
         self.hyperboloid_factory = RequestFactory::new(FactoryId::Hyperboloid, Hyperboloid_ {});
         self.hyperboloid_factory.make_request(requests);
-        self.building_hyperboloid = true;
-    }
-
-    pub fn finalize_hyperboloid(&mut self) {
-        self.building_hyperboloid = false;
-    }
-
-    pub fn is_building_hyperboloid(&self) -> bool {
-        self.building_hyperboloid
     }
 
     pub fn update_hyperboloid_request(
@@ -505,60 +289,6 @@ impl GridTab {
         self.hyperboloid_factory
             .update_request(value_id, value, request);
     }
-
-    pub fn get_build_helix_mode(&self) -> ActionMode {
-        let (length, position) = if self.show_strand_menu {
-            (self.helix_length, self.helix_pos)
-        } else {
-            (0, 0)
-        };
-        ActionMode::BuildHelix { length, position }
-    }
-
-    pub fn set_show_strand(&mut self, show: bool) {
-        self.show_strand_menu = show;
-    }
-
-    pub(super) fn notify_new_design(&mut self) {
-        self.can_make_grid = false;
-    }
-}
-
-fn selection_mode_btn<'a>(
-    state: &'a mut button::State,
-    mode: SelectionMode,
-    fixed_mode: SelectionMode,
-    button_size: u16,
-) -> Button<'a, Message> {
-    let icon_path = if fixed_mode == mode {
-        mode.icon_on()
-    } else {
-        mode.icon_off()
-    };
-
-    Button::new(state, Image::new(icon_path))
-        .on_press(Message::SelectionModeChanged(mode))
-        .style(ButtonStyle(fixed_mode == mode))
-        .width(Length::Units(button_size))
-}
-
-fn action_mode_btn<'a>(
-    state: &'a mut button::State,
-    mode: ActionMode,
-    fixed_mode: ActionMode,
-    button_size: u16,
-    axis_aligned: bool,
-) -> Button<'a, Message> {
-    let icon_path = if fixed_mode == mode {
-        mode.icon_on(axis_aligned)
-    } else {
-        mode.icon_off(axis_aligned)
-    };
-
-    Button::new(state, Image::new(icon_path))
-        .on_press(Message::ActionModeChanged(mode))
-        .style(ButtonStyle(fixed_mode == mode))
-        .width(Length::Units(button_size))
 }
 
 pub(super) struct CameraShortcut {
@@ -594,7 +324,11 @@ impl CameraShortcut {
         self.xy += xy;
     }
 
-    pub fn view<'a>(&'a mut self, ui_size: UiSize, width: u16) -> Element<'a, Message> {
+    pub fn view<'a, S: AppState>(
+        &'a mut self,
+        ui_size: UiSize,
+        width: u16,
+    ) -> Element<'a, Message<S>> {
         let mut ret = Column::new();
         ret = ret.push(
             Text::new("Camera")
@@ -658,7 +392,9 @@ impl CameraShortcut {
     }
 }
 
-use crate::mediator::{Background3D, RenderingMode, ALL_BACKGROUND3D, ALL_RENDERING_MODE};
+use ensnano_interactor::graphics::{
+    Background3D, RenderingMode, ALL_BACKGROUND3D, ALL_RENDERING_MODE,
+};
 
 pub(super) struct CameraTab {
     fog: FogParameters,
@@ -687,7 +423,7 @@ impl CameraTab {
         }
     }
 
-    pub fn view<'a>(&'a mut self, ui_size: UiSize) -> Element<'a, Message> {
+    pub fn view<'a, S: AppState>(&'a mut self, ui_size: UiSize) -> Element<'a, Message<S>> {
         let mut ret = Column::new().spacing(2);
         ret = ret.push(
             Text::new("Camera")
@@ -764,10 +500,6 @@ impl CameraTab {
     pub(super) fn get_fog_request(&self) -> Fog {
         self.fog.request()
     }
-
-    pub(super) fn notify_new_design(&mut self) {
-        self.fog = Default::default();
-    }
 }
 
 struct FogParameters {
@@ -781,7 +513,7 @@ struct FogParameters {
 }
 
 impl FogParameters {
-    fn view(&mut self, ui_size: &UiSize) -> Column<Message> {
+    fn view<S: AppState>(&mut self, ui_size: &UiSize) -> Column<Message<S>> {
         let mut column = Column::new()
             .push(Text::new("Fog").size(ui_size.intermediate_text()))
             .push(PickList::new(
@@ -867,16 +599,17 @@ impl Default for FogParameters {
     }
 }
 
-pub(super) struct SimulationTab {
+pub(super) struct SimulationTab<S: AppState> {
     rigid_body_factory: RequestFactory<RigidBodyFactory>,
     brownian_factory: RequestFactory<BrownianParametersFactory>,
-    rigid_grid_button: GoStop,
-    rigid_helices_button: GoStop,
+    rigid_grid_button: GoStop<S>,
+    rigid_helices_button: GoStop<S>,
     scroll: scrollable::State,
     physical_simulation: PhysicalSimulation,
+    reset_state: button::State,
 }
 
-impl SimulationTab {
+impl<S: AppState> SimulationTab<S> {
     pub(super) fn new() -> Self {
         let init_brownian = BrownianParametersFactory {
             rate: 0.,
@@ -902,17 +635,17 @@ impl SimulationTab {
             ),
             scroll: Default::default(),
             physical_simulation: Default::default(),
+            reset_state: Default::default(),
         }
     }
 
     pub(super) fn view<'a>(
         &'a mut self,
         ui_size: UiSize,
-        app_state: &ApplicationState,
-    ) -> Element<'a, Message> {
-        let sim_state = &app_state.simulation_state;
+        app_state: &S,
+    ) -> Element<'a, Message<S>> {
+        let sim_state = &app_state.get_simulation_state();
         let grid_active = sim_state.is_none() || sim_state.simulating_grid();
-        let helices_active = sim_state.is_none() || sim_state.simulating_helices();
         let roll_active = sim_state.is_none() || sim_state.is_rolling();
         let mut ret = Column::new().spacing(2);
         ret = ret.push(Text::new("Simulation (Beta)").size(ui_size.head_text()));
@@ -927,10 +660,12 @@ impl SimulationTab {
                 self.rigid_grid_button
                     .view(grid_active, sim_state.simulating_grid()),
             )
-            .push(
-                self.rigid_helices_button
-                    .view(helices_active, sim_state.simulating_helices()),
-            );
+            .push(Self::helix_btns(
+                &mut self.rigid_helices_button,
+                &mut self.reset_state,
+                app_state,
+                ui_size.clone(),
+            ));
 
         let volume_exclusion = self.rigid_body_factory.requestable.volume_exclusion;
         let brownian_motion = self.rigid_body_factory.requestable.brownian_motion;
@@ -958,6 +693,27 @@ impl SimulationTab {
         }
 
         Scrollable::new(&mut self.scroll).push(ret).into()
+    }
+
+    fn helix_btns<'a>(
+        go_stop: &'a mut GoStop<S>,
+        reset_state: &'a mut button::State,
+        app_state: &S,
+        ui_size: UiSize,
+    ) -> Element<'a, Message<S>> {
+        let sim_state = app_state.get_simulation_state();
+        if sim_state.is_paused() {
+            Row::new()
+                .push(go_stop.view(true, false))
+                .spacing(3)
+                .push(text_btn(reset_state, "Reset", ui_size).on_press(Message::ResetSimulation))
+                .into()
+        } else {
+            let helices_active = sim_state.is_none() || sim_state.simulating_helices();
+            go_stop
+                .view(helices_active, sim_state.simulating_helices())
+                .into()
+        }
     }
 
     pub(super) fn set_volume_exclusion(&mut self, volume_exclusion: bool) {
@@ -996,37 +752,42 @@ impl SimulationTab {
         self.rigid_body_factory.make_request(request)
     }
 
-    pub(super) fn get_physical_simulation_request(&self) -> SimulationRequest {
+    pub(super) fn get_physical_simulation_request(&self) -> RollRequest {
         self.physical_simulation.request()
     }
 
-    pub(super) fn leave_tab(
-        &mut self,
-        requests: Arc<Mutex<Requests>>,
-        app_state: &ApplicationState,
-    ) {
-        if app_state.simulation_state == SimulationState::RigidGrid {
-            let request = &mut requests.lock().unwrap().rigid_grid_simulation;
-            self.make_rigid_body_request(request);
+    pub(super) fn leave_tab<R: Requests>(&mut self, requests: Arc<Mutex<R>>, app_state: &S) {
+        if app_state.get_simulation_state() == SimulationState::RigidGrid {
+            self.request_stop_rigid_body_simulation(requests);
             println!("stop grids");
-        } else if app_state.simulation_state == SimulationState::RigidHelices {
-            let request = &mut requests.lock().unwrap().rigid_helices_simulation;
-            self.make_rigid_body_request(request);
+        } else if app_state.get_simulation_state() == SimulationState::RigidHelices {
+            self.request_stop_rigid_body_simulation(requests);
             println!("stop helices");
+        }
+    }
+
+    fn request_stop_rigid_body_simulation<R: Requests>(&mut self, requests: Arc<Mutex<R>>) {
+        let mut request = None;
+        self.make_rigid_body_request(&mut request);
+        if let Some(request) = request {
+            requests
+                .lock()
+                .unwrap()
+                .update_rigid_body_simulation_parameters(request)
         }
     }
 }
 
-struct GoStop {
+struct GoStop<S: AppState> {
     go_stop_button: button::State,
     pub name: String,
-    on_press: Box<dyn Fn(bool) -> Message>,
+    on_press: Box<dyn Fn(bool) -> Message<S>>,
 }
 
-impl GoStop {
+impl<S: AppState> GoStop<S> {
     fn new<F>(name: String, on_press: F) -> Self
     where
-        F: 'static + Fn(bool) -> Message,
+        F: 'static + Fn(bool) -> Message<S>,
     {
         Self {
             go_stop_button: Default::default(),
@@ -1035,7 +796,7 @@ impl GoStop {
         }
     }
 
-    fn view(&mut self, active: bool, running: bool) -> Row<Message> {
+    fn view(&mut self, active: bool, running: bool) -> Row<Message<S>> {
         let button_str = if running {
             "Stop".to_owned()
         } else {
@@ -1056,13 +817,13 @@ struct PhysicalSimulation {
 }
 
 impl PhysicalSimulation {
-    fn view<'a, 'b>(
+    fn view<'a, 'b, S: AppState>(
         &'a mut self,
         _ui_size: &'b UiSize,
         name: &'static str,
         active: bool,
         running: bool,
-    ) -> Row<'a, Message> {
+    ) -> Row<'a, Message<S>> {
         let button_str = if running { "Stop" } else { name };
         let mut button = Button::new(&mut self.go_stop_button, Text::new(button_str))
             .style(ButtonColor::red_green(running));
@@ -1072,8 +833,8 @@ impl PhysicalSimulation {
         Row::new().push(button)
     }
 
-    fn request(&self) -> SimulationRequest {
-        SimulationRequest {
+    fn request(&self) -> RollRequest {
+        RollRequest {
             roll: true,
             springs: false,
             target_helices: None,
@@ -1098,11 +859,11 @@ impl ParametersTab {
         }
     }
 
-    pub(super) fn view<'a>(
+    pub(super) fn view<'a, S: AppState>(
         &'a mut self,
         ui_size: UiSize,
-        app_state: &ApplicationState,
-    ) -> Element<'a, Message> {
+        app_state: &S,
+    ) -> Element<'a, Message<S>> {
         let mut ret = Column::new();
         ret = ret.push(Text::new("Parameters").size(ui_size.head_text()));
         ret = ret.push(Text::new("Font size"));
@@ -1128,7 +889,7 @@ impl ParametersTab {
 
         ret = ret.push(iced::Space::with_height(Length::Units(10)));
         ret = ret.push(Text::new("DNA parameters").size(ui_size.head_text()));
-        for line in app_state.parameter_ptr.as_ref().formated_string().lines() {
+        for line in app_state.get_dna_parameters().formated_string().lines() {
             ret = ret.push(Text::new(line));
         }
         ret = ret.push(iced::Space::with_height(Length::Units(10)));
@@ -1169,11 +930,9 @@ pub struct SequenceTab {
     toggle_text_value: bool,
     scaffold_position_str: String,
     scaffold_position: usize,
-    pub scaffold_info: Option<ScaffoldInfo>,
     scaffold_input: text_input::State,
     button_selection_from_scaffold: button::State,
     button_selection_to_scaffold: button::State,
-    candidate_scaffold_id: Option<usize>,
     button_show_sequence: button::State,
 }
 
@@ -1186,19 +945,26 @@ impl SequenceTab {
             toggle_text_value: false,
             scaffold_position_str: "0".to_string(),
             scaffold_position: 0,
-            scaffold_info: None,
             scaffold_input: Default::default(),
             button_selection_from_scaffold: Default::default(),
             button_selection_to_scaffold: Default::default(),
-            candidate_scaffold_id: None,
             button_show_sequence: Default::default(),
         }
     }
 
-    pub(super) fn view<'a>(&'a mut self, ui_size: UiSize) -> Element<'a, Message> {
+    pub(super) fn view<'a, S: AppState>(
+        &'a mut self,
+        ui_size: UiSize,
+        app_state: &'a S,
+    ) -> Element<'a, Message<S>> {
         let mut ret = Column::new();
         ret = ret.push(Text::new("Sequences").size(ui_size.head_text()));
         ret = ret.push(iced::Space::with_height(Length::Units(3)));
+        if !self.scaffold_input.is_focused() {
+            if let Some(n) = app_state.get_scaffold_info().and_then(|info| info.shift) {
+                self.update_pos_str(n.to_string());
+            }
+        }
         let button_show_sequence = if self.toggle_text_value {
             text_btn(
                 &mut self.button_show_sequence,
@@ -1224,7 +990,7 @@ impl SequenceTab {
                 "Length: {} nt"
             };
         }
-        let (scaffold_text, length_text) = if let Some(info) = self.scaffold_info.as_ref() {
+        let (scaffold_text, length_text) = if let Some(info) = app_state.get_scaffold_info() {
             (
                 format!("Strand #{}", info.id),
                 format!(scaffold_length_fmt!(), info.length),
@@ -1236,7 +1002,7 @@ impl SequenceTab {
             )
         };
         let mut length_text = Text::new(length_text);
-        if self.scaffold_info.is_none() {
+        if app_state.get_scaffold_info().is_none() {
             length_text = length_text.color(innactive_color())
         }
         ret = ret.push(Text::new(scaffold_text).size(ui_size.main_text()));
@@ -1251,11 +1017,12 @@ impl SequenceTab {
             "To selection",
             ui_size.clone(),
         );
-        if self.scaffold_info.is_some() {
+        if app_state.get_scaffold_info().is_some() {
             button_selection_from_scaffold =
                 button_selection_from_scaffold.on_press(Message::SelectScaffold);
         }
-        if let Some(n) = self.candidate_scaffold_id {
+        let selection = app_state.get_selection_as_dnaelement();
+        if let Some(n) = Self::get_candidate_scaffold(&selection) {
             button_selection_to_scaffold =
                 button_selection_to_scaffold.on_press(Message::ScaffoldIdSet(n, true));
         }
@@ -1273,7 +1040,7 @@ impl SequenceTab {
             iced::Text::new("Set scaffold sequence"),
         )
         .height(Length::Units(ui_size.button()))
-        .on_press(Message::ScaffoldSequenceFile);
+        .on_press(Message::SetScaffoldSeqButtonPressed);
         let scaffold_position_text = "Starting position";
         let scaffold_row = Row::new()
             .push(Text::new(scaffold_position_text).width(Length::FillPortion(2)))
@@ -1292,8 +1059,8 @@ impl SequenceTab {
         ret = ret.push(button_scaffold);
         ret = ret.push(iced::Space::with_height(Length::Units(3)));
         ret = ret.push(scaffold_row);
-        let starting_nucl = self
-            .scaffold_info
+        let starting_nucl = app_state
+            .get_scaffold_info()
             .as_ref()
             .and_then(|info| info.starting_nucl);
         macro_rules! nucl_text_fmt {
@@ -1348,47 +1115,25 @@ impl SequenceTab {
         }
     }
 
-    pub(super) fn get_scaffold_pos(&self) -> usize {
-        self.scaffold_position
-    }
-
     pub fn has_keyboard_priority(&self) -> bool {
         self.scaffold_input.is_focused()
     }
 
-    pub(super) fn update_selection(&mut self, selection: &[DnaElementKey]) {
-        self.candidate_scaffold_id = None;
+    fn get_candidate_scaffold(selection: &[DnaElementKey]) -> Option<usize> {
         if selection.len() == 1 {
             if let DnaElementKey::Strand(n) = selection[0] {
-                self.candidate_scaffold_id = Some(n);
+                Some(n)
+            } else {
+                None
             }
+        } else {
+            None
         }
     }
 
-    pub(super) fn set_scaffold_info(&mut self, info: Option<ScaffoldInfo>) {
-        if !self.scaffold_input.is_focused() {
-            if let Some(n) = info.as_ref().and_then(|info| info.shift) {
-                self.update_pos_str(n.to_string());
-            }
-        }
-        self.scaffold_info = info;
+    pub fn get_scaffold_shift(&self) -> usize {
+        self.scaffold_position
     }
-}
-
-fn right_checkbox<'a, F>(
-    is_checked: bool,
-    label: impl Into<String>,
-    f: F,
-    ui_size: UiSize,
-) -> Element<'a, Message>
-where
-    F: 'static + Fn(bool) -> Message,
-{
-    Row::new()
-        .push(Text::new(label))
-        .push(Checkbox::new(is_checked, "", f).size(ui_size.checkbox()))
-        .spacing(CHECKBOXSPACING)
-        .into()
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Copy)]

@@ -23,8 +23,8 @@ use crate::utils::bindgroup_manager::{DynamicBindGroup, UniformBindGroup};
 use crate::utils::texture::Texture;
 use crate::utils::Ndc;
 use crate::{DrawArea, PhySize};
+use ensnano_design::Nucl;
 use iced_wgpu::wgpu;
-use std::collections::{BTreeSet, HashMap};
 use std::rc::Rc;
 use wgpu::{Device, Queue, RenderPipeline};
 
@@ -36,6 +36,7 @@ mod rectangle;
 use super::FlatSelection;
 use crate::consts::SAMPLE_COUNT;
 use crate::utils::{chars2d as chars, circles2d as circles};
+use ahash::RandomState;
 use background::Background;
 use chars::CharDrawer;
 pub use chars::CharInstance;
@@ -45,6 +46,10 @@ use iced_winit::winit::dpi::PhysicalPosition;
 use insertion::InsertionDrawer;
 pub use insertion::InsertionInstance;
 use rectangle::Rectangle;
+use std::{
+    collections::{BTreeMap, BTreeSet, HashMap},
+    sync::Arc,
+};
 
 const SHOW_SUGGESTION: bool = false;
 
@@ -78,7 +83,6 @@ pub struct View {
     char_drawers_bottom: HashMap<char, CharDrawer>,
     char_map_top: HashMap<char, Vec<CharInstance>>,
     char_map_bottom: HashMap<char, Vec<CharInstance>>,
-    selection: FlatSelection,
     show_sec: bool,
     suggestions: Vec<(FlatNucl, FlatNucl)>,
     suggestions_view: Vec<StrandView>,
@@ -90,6 +94,8 @@ pub struct View {
     torsions: HashMap<(FlatNucl, FlatNucl), FlatTorsion>,
     show_torsion: bool,
     rectangle: Rectangle,
+    groups: Arc<BTreeMap<usize, bool>>,
+    basis_map: Arc<HashMap<Nucl, char, RandomState>>,
 }
 
 impl View {
@@ -217,7 +223,6 @@ impl View {
             char_map_top,
             char_drawers_bottom,
             char_map_bottom,
-            selection: FlatSelection::Nothing,
             show_sec: false,
             suggestions: vec![],
             suggestions_view: vec![],
@@ -230,6 +235,8 @@ impl View {
             show_torsion: false,
             rectangle,
             insertion_drawer,
+            groups: Default::default(),
+            basis_map: Default::default(),
         }
     }
 
@@ -415,10 +422,6 @@ impl View {
         }
     }
 
-    pub fn set_selection(&mut self, selection: FlatSelection) {
-        self.selection = selection;
-    }
-
     pub fn set_selected_helices(&mut self, selection: Vec<FlatIdx>) {
         self.selected_helices = selection;
     }
@@ -427,9 +430,10 @@ impl View {
         self.candidate_helices = selection;
     }
 
-    pub fn center_selection(&mut self) -> Option<(FlatNucl, FlatNucl)> {
+    pub fn center_selection(&mut self, selection: FlatSelection) -> Option<(FlatNucl, FlatNucl)> {
         self.camera_top.borrow_mut().zoom_closer();
-        match self.selection {
+        self.was_updated = true;
+        match selection {
             FlatSelection::Bound(_, n1, n2) => {
                 self.helices[n1.helix].make_visible(n1.position, self.camera_top.clone());
                 let world_pos_1 = self.helices[n1.helix].get_nucl_position(&n1, Shift::No);
@@ -869,15 +873,23 @@ impl View {
     /// Add the helices circles to the list of circle instances
     fn collect_helices_circles(&self, circles: &mut Vec<CircleInstance>, camera: &CameraPtr) {
         for h in self.helices.iter() {
-            if let Some(circle) = h.get_circle(camera) {
+            if let Some(circle) = h.get_circle(camera, self.groups.as_ref()) {
                 circles.push(circle);
             }
             for circle in h.handle_circles() {
                 circles.push(circle)
             }
         }
-        for h_id in self.selected_helices.iter() {
-            if let Some(mut circle) = self.helices.get(h_id.0).and_then(|h| h.get_circle(camera)) {
+        for h_id in self
+            .selected_helices
+            .iter()
+            .filter(|h| !self.candidate_helices.contains(h))
+        {
+            if let Some(mut circle) = self
+                .helices
+                .get(h_id.0)
+                .and_then(|h| h.get_circle(camera, self.groups.as_ref()))
+            {
                 circle.set_radius(circle.radius * 1.4);
                 circle.set_color(0xFF_FF0000);
                 circles.push(circle);
@@ -885,7 +897,11 @@ impl View {
         }
 
         for h_id in self.candidate_helices.iter() {
-            if let Some(mut circle) = self.helices.get(h_id.0).and_then(|h| h.get_circle(camera)) {
+            if let Some(mut circle) = self
+                .helices
+                .get(h_id.0)
+                .and_then(|h| h.get_circle(camera, self.groups.as_ref()))
+            {
                 circle.set_radius(circle.radius * 1.4);
                 circle.set_color(0xFF_00FF00);
                 circles.push(circle);
@@ -985,12 +1001,16 @@ impl View {
                 &self.camera_top,
                 &mut self.char_map_top,
                 &self.char_drawers_top,
+                self.groups.as_ref(),
+                self.basis_map.as_ref(),
                 self.show_sec,
             );
             h.add_char_instances(
                 &self.camera_bottom,
                 &mut self.char_map_bottom,
                 &self.char_drawers_bottom,
+                self.groups.as_ref(),
+                self.basis_map.as_ref(),
                 self.show_sec,
             )
         }
@@ -1012,6 +1032,16 @@ impl View {
     pub fn set_wheels(&mut self, wheels: Vec<CircleInstance>) {
         self.was_updated = true;
         self.rotation_widget.new_instances(Rc::new(wheels));
+    }
+
+    pub fn update_maps(
+        &mut self,
+        groups: Arc<BTreeMap<usize, bool>>,
+        basis_map: Arc<HashMap<Nucl, char, RandomState>>,
+    ) {
+        self.was_updated = true;
+        self.groups = groups;
+        self.basis_map = basis_map;
     }
 }
 

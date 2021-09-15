@@ -16,11 +16,10 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 //! This modules defines the type [`Design`](Design) which offers an interface to a DNA nanostructure design.
-use crate::gui::SimulationRequest;
 use ahash::RandomState;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{mpsc, Arc, Mutex, RwLock};
 use ultraviolet::{Mat4, Vec3};
 
 use crate::mediator;
@@ -36,6 +35,7 @@ use controller::Controller;
 pub use controller::{DesignRotation, DesignTranslation, IsometryTarget};
 use data::Data;
 pub use data::*;
+use ensnano_design::grid::GridPosition;
 use ensnano_organizer::OrganizerTree;
 pub use utils::*;
 use view::View;
@@ -62,12 +62,13 @@ impl Design {
         }
     }
 
-    /// Create a new design by reading a file. At the moment only codenano format is supported
-    pub fn new_with_path(id: usize, path: &PathBuf) -> Option<Self> {
+    /// Create a new design by reading a file.
+    #[must_use]
+    pub fn new_with_path(id: usize, path: &PathBuf) -> Result<Self, ParseDesignError> {
         let view = Arc::new(Mutex::new(View::new()));
         let data = Arc::new(Mutex::new(Data::new_with_path(path)?));
         let controller = Controller::new(view.clone(), data.clone());
-        Some(Self {
+        Ok(Self {
             view,
             data,
             controller,
@@ -420,12 +421,15 @@ impl Design {
     }
 
     /// Save the design in icednano format
-    pub fn save_to(&self, path: &PathBuf) {
+    #[must_use]
+    pub fn save_to(&self, path: &PathBuf) -> std::io::Result<()> {
         let result = self.data.lock().unwrap().request_save(path);
+        result
+        /*
         if result.is_err() {
             let text = format!("Could not save_file {:?}", result);
             crate::utils::message(text.into(), rfd::MessageLevel::Error);
-        }
+        }*/
     }
 
     /// Change the collor of a strand
@@ -719,11 +723,8 @@ impl Design {
         self.data.lock().unwrap().set_scaffold_id(scaffold_id)
     }
 
-    pub fn set_scaffold_sequence(&mut self, sequence: String, shift: usize) {
-        self.data
-            .lock()
-            .unwrap()
-            .set_scaffold_sequence(sequence, shift)
+    pub fn set_scaffold_sequence(&mut self, sequence: String) {
+        self.data.lock().unwrap().set_scaffold_sequence(sequence)
     }
 
     pub fn set_scaffold_shift(&mut self, shift: usize) {
@@ -754,8 +755,15 @@ impl Design {
         self.data.lock().unwrap().get_stapples()
     }
 
-    pub fn optimize_shift(&self, channel: std::sync::mpsc::Sender<f32>) -> (usize, String) {
-        self.data.lock().unwrap().optimize_shift(channel)
+    pub fn optimize_shift(
+        &self,
+        progress_channel: mpsc::Sender<f32>,
+        result_channel: mpsc::Sender<ShiftOptimizationResult>,
+    ) {
+        self.data
+            .lock()
+            .unwrap()
+            .optimize_shift(progress_channel, result_channel)
     }
 
     /// Return the map whose keys are the id of strands that are in a group and the values are the
@@ -784,8 +792,9 @@ impl Design {
         self.data.lock().unwrap().recolor_stapples();
     }
 
-    pub fn oxdna_export(&self) {
-        self.data.lock().unwrap().oxdna_export();
+    #[must_use]
+    pub fn oxdna_export(&self) -> Result<(), OxDnaExportError> {
+        self.data.lock().unwrap().oxdna_export()
     }
 
     /// Merge all the consecutives domains in the design

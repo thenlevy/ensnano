@@ -240,6 +240,13 @@ impl CameraController {
             || self.scroll.abs() > 0.
     }
 
+    pub fn stop_camera_movement(&mut self) {
+        self.amount_left = 0.;
+        self.amount_right = 0.;
+        self.amount_up = 0.;
+        self.amount_down = 0.;
+    }
+
     pub fn set_pivot_point(&mut self, point: Option<Vec3>) {
         if let Some(origin) = point {
             self.zoom_plane = Some(Plane {

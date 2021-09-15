@@ -1,0 +1,353 @@
+/*
+ENSnano, a 3d graphical application for DNA nanostructures.
+    Copyright (C) 2021  Nicolas Levy <nicolaspierrelevy@gmail.com> and Nicolas Schabanel <nicolas.schabanel@ens-lyon.fr>
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <https://www.gnu.org/licenses/>.
+*/
+
+//! This modules defines the `AppState` struct which implements various traits used by the
+//! different components of ENSnano.
+//!
+//! The role of AppState is to provide information about the global state of the program, for
+//! example the current selection, or the current state of the design.
+//!
+//! Each component of ENSnano has specific needs and express them via its own `AppState` trait.
+
+use ensnano_interactor::{
+    operation::Operation, ActionMode, CenterOfSelection, Selection, SelectionMode, WidgetBasis,
+};
+
+use std::path::PathBuf;
+use std::sync::Arc;
+mod address_pointer;
+mod design_interactor;
+use crate::apply_update;
+use crate::controller::SimulationRequest;
+use address_pointer::AddressPointer;
+use ensnano_design::Design;
+use ensnano_interactor::{DesignOperation, RigidBodyConstants};
+
+pub use design_interactor::controller::ErrOperation;
+pub use design_interactor::{
+    CopyOperation, DesignReader, InteractorNotification, PastingStatus, ShiftOptimizationResult,
+    ShiftOptimizerReader, SimulationInterface, SimulationReader, SimulationTarget,
+    SimulationUpdate,
+};
+use design_interactor::{DesignInteractor, InteractorResult};
+
+mod impl_app2d;
+mod impl_app3d;
+mod impl_gui;
+
+/// A structure containing the global state of the program.
+///
+/// At each event loop iteration, a new `AppState` may be created. Successive AppState are stored
+/// on an undo/redo stack.
+#[derive(Clone, PartialEq, Eq)]
+pub struct AppState(AddressPointer<AppState_>);
+
+impl std::fmt::Debug for AppState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("AppState").finish()
+    }
+}
+
+impl Default for AppState {
+    fn default() -> Self {
+        let ret = AppState(Default::default());
+        ret.updated()
+    }
+}
+
+impl AppState {
+    pub fn with_selection(&self, selection: Vec<Selection>) -> Self {
+        if self.0.selection.content_equal(&selection) {
+            self.clone()
+        } else {
+            let mut new_state = (*self.0).clone();
+            let selection_len = selection.len();
+            new_state.selection = AddressPointer::new(selection);
+            // Set when the selection is modified, the center of selection is set to None. It is up
+            // to the caller to set it to a certain value when applicable
+            new_state.center_of_selection = None;
+            let mut ret = Self(AddressPointer::new(new_state));
+            if selection_len > 0 {
+                ret = ret.notified(InteractorNotification::NewSelection)
+            }
+            ret
+        }
+    }
+
+    pub fn with_center_of_selection(&self, center: Option<CenterOfSelection>) -> Self {
+        if center == self.0.center_of_selection {
+            self.clone()
+        } else {
+            let mut new_state = (*self.0).clone();
+            new_state.center_of_selection = center;
+            Self(AddressPointer::new(new_state))
+        }
+    }
+
+    pub fn with_candidates(&self, candidates: Vec<Selection>) -> Self {
+        if self.0.candidates.content_equal(&candidates) {
+            self.clone()
+        } else {
+            let mut new_state = (*self.0).clone();
+            new_state.candidates = AddressPointer::new(candidates);
+            Self(AddressPointer::new(new_state))
+        }
+    }
+
+    pub fn with_selection_mode(&self, selection_mode: SelectionMode) -> Self {
+        let mut new_state = (*self.0).clone();
+        new_state.selection_mode = selection_mode;
+        Self(AddressPointer::new(new_state))
+    }
+
+    pub fn with_action_mode(&self, action_mode: ActionMode) -> Self {
+        let mut new_state = (*self.0).clone();
+        new_state.action_mode = action_mode;
+        Self(AddressPointer::new(new_state))
+    }
+
+    pub fn with_strand_on_helix(&self, parameters: Option<(isize, usize)>) -> Self {
+        let new_strand_parameters =
+            parameters.map(|(start, length)| NewHelixStrand { length, start });
+        if let ActionMode::BuildHelix { .. } = self.0.action_mode {
+            let mut new_state = (*self.0).clone();
+            let length = new_strand_parameters
+                .as_ref()
+                .map(|strand| strand.length)
+                .unwrap_or_default();
+            let start = new_strand_parameters
+                .as_ref()
+                .map(|strand| strand.start)
+                .unwrap_or_default();
+            new_state.strand_on_new_helix = new_strand_parameters;
+            new_state.action_mode = ActionMode::BuildHelix {
+                length,
+                position: start,
+            };
+            Self(AddressPointer::new(new_state))
+        } else {
+            self.clone()
+        }
+    }
+
+    pub fn with_toggled_widget_basis(&self) -> Self {
+        let mut new_state = (*self.0).clone();
+        new_state.widget_basis.toggle();
+        Self(AddressPointer::new(new_state))
+    }
+
+    #[allow(dead_code)] //used in tests
+    pub fn update_design(&mut self, design: Design) {
+        apply_update(self, |s| s.with_updated_design(design))
+    }
+
+    #[allow(dead_code)] //used in tests
+    pub fn with_updated_design(&self, design: Design) -> Self {
+        let mut new_state = self.0.clone_inner();
+        let new_interactor = new_state.design.with_updated_design(design);
+        new_state.design = AddressPointer::new(new_interactor);
+        Self(AddressPointer::new(new_state))
+    }
+
+    pub fn import_design(path: &PathBuf) -> Result<Self, design_interactor::ParseDesignError> {
+        let design_interactor = DesignInteractor::new_with_path(path)?;
+        Ok(Self(AddressPointer::new(AppState_ {
+            design: AddressPointer::new(design_interactor),
+            ..Default::default()
+        })))
+    }
+
+    pub(super) fn update(&mut self) {
+        apply_update(self, Self::updated)
+    }
+
+    pub(super) fn apply_simulation_update(&mut self, update: Box<dyn SimulationUpdate>) {
+        apply_update(self, |s| s.with_simualtion_update_applied(update))
+    }
+
+    fn with_simualtion_update_applied(self, update: Box<dyn SimulationUpdate>) -> Self {
+        let mut design = self.0.design.clone_inner();
+        design = design.with_simualtion_update_applied(update);
+        self.with_interactor(design)
+    }
+
+    fn updated(self) -> Self {
+        let mut interactor = self.0.design.clone_inner();
+        interactor = interactor.with_updated_design_reader();
+        self.with_interactor(interactor)
+    }
+
+    fn with_interactor(self, interactor: DesignInteractor) -> Self {
+        let mut new_state = self.0.clone_inner();
+        new_state.design = AddressPointer::new(interactor);
+        Self(AddressPointer::new(new_state))
+    }
+
+    pub(super) fn apply_design_op(
+        &mut self,
+        op: DesignOperation,
+    ) -> Result<Option<Self>, ErrOperation> {
+        let result = self.0.design.apply_operation(op);
+        self.handle_operation_result(result)
+    }
+
+    pub(super) fn apply_copy_operation(
+        &mut self,
+        op: CopyOperation,
+    ) -> Result<Option<Self>, ErrOperation> {
+        let result = self.0.design.apply_copy_operation(op);
+        self.handle_operation_result(result)
+    }
+
+    pub(super) fn update_pending_operation(
+        &mut self,
+        op: Arc<dyn Operation>,
+    ) -> Result<Option<Self>, ErrOperation> {
+        let result = self.0.design.update_pending_operation(op);
+        self.handle_operation_result(result)
+    }
+
+    pub(super) fn start_simulation(
+        &mut self,
+        parameters: RigidBodyConstants,
+        reader: &mut dyn SimulationReader,
+        target: SimulationTarget,
+    ) -> Result<Option<Self>, ErrOperation> {
+        let result = self.0.design.start_simulation(parameters, reader, target);
+        self.handle_operation_result(result)
+    }
+
+    pub(super) fn update_simulation(
+        &mut self,
+        request: SimulationRequest,
+    ) -> Result<Option<Self>, ErrOperation> {
+        let result = self.0.design.update_simulation(request);
+        self.handle_operation_result(result)
+    }
+
+    fn handle_operation_result(
+        &mut self,
+        result: Result<InteractorResult, ErrOperation>,
+    ) -> Result<Option<Self>, ErrOperation> {
+        match result {
+            Ok(InteractorResult::Push(design)) => {
+                let ret = Some(self.clone());
+                let new_state = self.clone().with_interactor(design);
+                *self = new_state;
+                Ok(ret)
+            }
+            Ok(InteractorResult::Replace(design)) => {
+                let new_state = self.clone().with_interactor(design);
+                *self = new_state;
+                Ok(None)
+            }
+            Err(e) => {
+                println!("error");
+                Err(e)
+            }
+        }
+    }
+
+    pub fn notified(&self, notification: InteractorNotification) -> Self {
+        let new_interactor = self.0.design.notify(notification);
+        self.clone().with_interactor(new_interactor)
+    }
+
+    pub fn get_design_reader(&self) -> DesignReader {
+        self.0.design.get_design_reader()
+    }
+
+    pub fn oxdna_export(&self, target_dir: &PathBuf) -> std::io::Result<(PathBuf, PathBuf)> {
+        self.get_design_reader().oxdna_export(target_dir)
+    }
+
+    pub fn get_selection(&self) -> impl AsRef<[Selection]> {
+        self.0.selection.clone()
+    }
+
+    fn is_changing_color(&self) -> bool {
+        self.0.design.as_ref().is_changing_color()
+    }
+
+    pub(super) fn prepare_for_replacement(&mut self, source: &Self) {
+        *self = self.with_candidates(vec![]);
+        *self = self.with_action_mode(source.0.action_mode.clone());
+        *self = self.with_selection_mode(source.0.selection_mode.clone());
+    }
+
+    pub(super) fn is_pasting(&self) -> PastingStatus {
+        self.0.design.is_pasting()
+    }
+
+    pub(super) fn can_iterate_duplication(&self) -> bool {
+        self.0.design.can_iterate_duplication()
+    }
+
+    pub(super) fn optimize_shift(
+        &mut self,
+        reader: &mut dyn ShiftOptimizerReader,
+    ) -> Result<Option<Self>, ErrOperation> {
+        let result = self.0.design.optimize_shift(reader);
+        self.handle_operation_result(result)
+    }
+
+    pub(super) fn is_in_stable_state(&self) -> bool {
+        self.0.design.is_in_stable_state()
+    }
+
+    #[must_use]
+    pub(super) fn set_visibility_sieve(
+        &mut self,
+        selection: Vec<Selection>,
+        compl: bool,
+    ) -> Result<Option<Self>, ErrOperation> {
+        let result = self
+            .0
+            .design
+            .clone_inner()
+            .with_visibility_sieve(selection, compl);
+        self.handle_operation_result(Ok(result))
+    }
+
+    pub fn design_was_modified(&self, other: &Self) -> bool {
+        self.0.design.has_different_design_than(&other.0.design)
+    }
+}
+
+#[derive(Clone, Default)]
+struct AppState_ {
+    /// The set of currently selected objects
+    selection: AddressPointer<Vec<Selection>>,
+    /// The set of objects that are "one click away from beeing selected"
+    candidates: AddressPointer<Vec<Selection>>,
+    selection_mode: SelectionMode,
+    /// A pointer to the design currently beign eddited. The pointed design is never mutatated.
+    /// Instead, when a modification is requested, the design is cloned and the `design` pointer is
+    /// replaced by a pointer to a modified `Design`.
+    design: AddressPointer<DesignInteractor>,
+    action_mode: ActionMode,
+    widget_basis: WidgetBasis,
+    strand_on_new_helix: Option<NewHelixStrand>,
+    center_of_selection: Option<CenterOfSelection>,
+}
+
+#[derive(Clone, PartialEq, Eq)]
+struct NewHelixStrand {
+    length: usize,
+    start: isize,
+}

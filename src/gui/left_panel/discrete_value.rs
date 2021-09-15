@@ -15,7 +15,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
-use super::{button, slider, Button, DesactivatedSlider, Element, HelixRoll, Row, Slider, Text};
+use super::{button, slider, AppState, Button, DesactivatedSlider, Element, Row, Slider, Text};
 
 use super::Message;
 use std::collections::BTreeMap;
@@ -85,7 +85,7 @@ impl<R: Requestable> RequestFactory<R> {
         }
     }
 
-    pub fn view(&mut self, active: bool) -> Vec<Element<Message>> {
+    pub fn view<S: AppState>(&mut self, active: bool) -> Vec<Element<Message<S>>> {
         self.values
             .values_mut()
             .filter(|v| !v.hidden)
@@ -162,7 +162,7 @@ impl DiscreteValue {
         }
     }
 
-    fn view(&mut self, active: bool) -> Element<Message> {
+    fn view<S: AppState>(&mut self, active: bool) -> Element<Message<S>> {
         let decr_button = if active && self.value - self.step > self.min_val {
             Button::new(&mut self.decr_button, Text::new("-")).on_press(Message::DescreteValue {
                 factory_id: self.owner_id,
@@ -241,11 +241,5 @@ impl DiscreteValue {
 
     fn update_value(&mut self, new_val: f32) {
         self.value = new_val
-    }
-}
-
-impl RequestFactory<HelixRoll> {
-    pub fn update_roll(&mut self, roll: f32) {
-        self.values.get_mut(&ValueId(0)).unwrap().update_value(roll);
     }
 }
