@@ -261,9 +261,8 @@ impl<R: Requests, S: AppState> LeftPanel<R, S> {
 impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
     type Renderer = Renderer;
     type Message = Message<S>;
-    type Clipboard = NullClipboard;
 
-    fn update(&mut self, message: Message<S>, _cb: &mut NullClipboard) -> Command<Message<S>> {
+    fn update(&mut self, message: Message<S>) -> Command<Message<S>> {
         match message {
             Message::SequenceChanged(s) => {
                 self.requests
@@ -545,7 +544,7 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
             Message::OrganizerMessage(m) => {
                 let next_message = self.organizer_message(m);
                 if let Some(message) = next_message {
-                    self.update(message, _cb);
+                    self.update(message);
                 }
             }
             Message::ModifiersChanged(modifiers) => self
@@ -779,9 +778,8 @@ pub enum ColorMessage {
 impl<R: Requests> Program for ColorOverlay<R> {
     type Renderer = Renderer;
     type Message = ColorMessage;
-    type Clipboard = NullClipboard;
 
-    fn update(&mut self, message: ColorMessage, _cb: &mut NullClipboard) -> Command<ColorMessage> {
+    fn update(&mut self, message: ColorMessage) -> Command<ColorMessage> {
         match message {
             ColorMessage::StrandColorChanged(color) => {
                 let red = ((color.r * 255.) as u32) << 16;

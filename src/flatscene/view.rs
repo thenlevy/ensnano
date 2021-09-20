@@ -132,7 +132,6 @@ impl View {
                 write_mask: 0,
             },
             bias: Default::default(),
-            clamp_depth: false,
         });
 
         let helices_pipeline = helices_pipeline_descr(
@@ -577,16 +576,16 @@ impl View {
         let bottom = false;
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: None,
-            color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
-                attachment,
+            color_attachments: &[wgpu::RenderPassColorAttachment {
+                view: attachment,
                 resolve_target,
                 ops: wgpu::Operations {
                     load: wgpu::LoadOp::Clear(clear_color),
                     store: true,
                 },
             }],
-            depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachmentDescriptor {
-                attachment: &self.depth_texture.view,
+            depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                view: &self.depth_texture.view,
                 depth_ops: Some(wgpu::Operations {
                     load: wgpu::LoadOp::Clear(1.),
                     store: true,
@@ -645,16 +644,16 @@ impl View {
         drop(render_pass);
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: None,
-            color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
-                attachment,
+            color_attachments: &[wgpu::RenderPassColorAttachment {
+                view: attachment,
                 resolve_target,
                 ops: wgpu::Operations {
                     load: wgpu::LoadOp::Load,
                     store: true,
                 },
             }],
-            depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachmentDescriptor {
-                attachment: &self.depth_texture.view,
+            depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                view: &self.depth_texture.view,
                 depth_ops: Some(wgpu::Operations {
                     load: wgpu::LoadOp::Clear(1.),
                     store: true,
@@ -702,16 +701,16 @@ impl View {
             let bottom = true;
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: None,
-                color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
-                    attachment,
+                color_attachments: &[wgpu::RenderPassColorAttachment {
+                    view: attachment,
                     resolve_target,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Load,
                         store: true,
                     },
                 }],
-                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachmentDescriptor {
-                    attachment: &self.depth_texture.view,
+                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                    view: &self.depth_texture.view,
                     depth_ops: Some(wgpu::Operations {
                         load: wgpu::LoadOp::Clear(1.),
                         store: true,
@@ -773,16 +772,16 @@ impl View {
             drop(render_pass);
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: None,
-                color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
-                    attachment,
+                color_attachments: &[wgpu::RenderPassColorAttachment {
+                    view: attachment,
                     resolve_target,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Load,
                         store: true,
                     },
                 }],
-                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachmentDescriptor {
-                    attachment: &self.depth_texture.view,
+                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                    view: &self.depth_texture.view,
                     depth_ops: Some(wgpu::Operations {
                         load: wgpu::LoadOp::Clear(1.),
                         store: true,
@@ -830,16 +829,16 @@ impl View {
         }
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: None,
-            color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
-                attachment,
+            color_attachments: &[wgpu::RenderPassColorAttachment {
+                view: attachment,
                 resolve_target,
                 ops: wgpu::Operations {
                     load: wgpu::LoadOp::Load,
                     store: true,
                 },
             }],
-            depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachmentDescriptor {
-                attachment: &self.depth_texture.view,
+            depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                view: &self.depth_texture.view,
                 depth_ops: Some(wgpu::Operations {
                     load: wgpu::LoadOp::Clear(1.),
                     store: true,
@@ -1060,14 +1059,13 @@ fn helices_pipeline_descr(
     });
     let color_targets = &[wgpu::ColorTargetState {
         format: wgpu::TextureFormat::Bgra8UnormSrgb,
-        color_blend: wgpu::BlendState::REPLACE,
-        alpha_blend: wgpu::BlendState::REPLACE,
-        write_mask: wgpu::ColorWrite::ALL,
+        blend: Some(wgpu::BlendState::REPLACE),
+        write_mask: wgpu::ColorWrites::ALL,
     }];
     let primitive_state = wgpu::PrimitiveState {
         topology: wgpu::PrimitiveTopology::TriangleList,
         front_face: wgpu::FrontFace::Ccw,
-        cull_mode: wgpu::CullMode::None,
+        cull_mode: None,
         ..Default::default()
     };
 
@@ -1085,8 +1083,8 @@ fn helices_pipeline_descr(
             entry_point: "main",
             buffers: &[wgpu::VertexBufferLayout {
                 array_stride: std::mem::size_of::<GpuVertex>() as u64,
-                step_mode: wgpu::InputStepMode::Vertex,
-                attributes: &wgpu::vertex_attr_array![0 => Float2, 1 => Float2, 2 => Uint, 3 => Uint],
+                step_mode: wgpu::VertexStepMode::Vertex,
+                attributes: &wgpu::vertex_attr_array![0 => Float32x2, 1 => Float32x2, 2 => Uint32, 3 => Uint32],
             }],
         },
         multisample: wgpu::MultisampleState {
@@ -1114,22 +1112,13 @@ fn strand_pipeline_descr(
     });
     let color_targets = &[wgpu::ColorTargetState {
         format: wgpu::TextureFormat::Bgra8UnormSrgb,
-        color_blend: wgpu::BlendState {
-            src_factor: wgpu::BlendFactor::SrcAlpha,
-            dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
-            operation: wgpu::BlendOperation::Add,
-        },
-        alpha_blend: wgpu::BlendState {
-            src_factor: wgpu::BlendFactor::One,
-            dst_factor: wgpu::BlendFactor::One,
-            operation: wgpu::BlendOperation::Add,
-        },
-        write_mask: wgpu::ColorWrite::ALL,
+        blend: Some(wgpu::BlendState::ALPHA_BLENDING),
+        write_mask: wgpu::ColorWrites::ALL,
     }];
 
     let primitive_state = wgpu::PrimitiveState {
         front_face: wgpu::FrontFace::Ccw,
-        cull_mode: wgpu::CullMode::None,
+        cull_mode: None,
         topology: wgpu::PrimitiveTopology::TriangleList,
         ..Default::default()
     };
@@ -1146,8 +1135,8 @@ fn strand_pipeline_descr(
         vertex: wgpu::VertexState {
             buffers: &[wgpu::VertexBufferLayout {
                 array_stride: std::mem::size_of::<StrandVertex>() as u64,
-                step_mode: wgpu::InputStepMode::Vertex,
-                attributes: &wgpu::vertex_attr_array![0 => Float2, 1 => Float2, 2 => Float4, 3 => Float, 4 => Float],
+                step_mode: wgpu::VertexStepMode::Vertex,
+                attributes: &wgpu::vertex_attr_array![0 => Float32x2, 1 => Float32x2, 2 => Float32x4, 3 => Float32, 4 => Float32],
             }],
             module: &vs_module,
             entry_point: "main",

@@ -52,13 +52,13 @@ impl SquareTexture {
             size: wgpu::Extent3d {
                 width: TEXTURE_SIZE,
                 height: TEXTURE_SIZE,
-                depth: 1,
+                depth_or_array_layers: 1,
             },
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
             format: wgpu::TextureFormat::Rgba8UnormSrgb,
-            usage: wgpu::TextureUsage::SAMPLED | wgpu::TextureUsage::RENDER_ATTACHMENT,
+            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::RENDER_ATTACHMENT,
             label: Some("square texture"),
         });
 
@@ -88,13 +88,13 @@ fn fill_square_texture(target: &TextureView, device: &Device, encoder: &mut wgpu
     let vbo = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
         label: None,
         contents: bytemuck::cast_slice(&vertices.vertices),
-        usage: wgpu::BufferUsage::VERTEX,
+        usage: wgpu::BufferUsages::VERTEX,
     });
 
     let ibo = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
         label: None,
         contents: bytemuck::cast_slice(&vertices.indices),
-        usage: wgpu::BufferUsage::INDEX,
+        usage: wgpu::BufferUsages::INDEX,
     });
     let clear_color = wgpu::Color {
         r: 1.,
@@ -132,8 +132,8 @@ fn fill_square_texture(target: &TextureView, device: &Device, encoder: &mut wgpu
     };
     let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
         label: None,
-        color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
-            attachment,
+        color_attachments: &[wgpu::RenderPassColorAttachment {
+            view: attachment,
             resolve_target,
             ops: wgpu::Operations {
                 load: wgpu::LoadOp::Clear(clear_color),
@@ -194,13 +194,13 @@ impl HonneyTexture {
             size: wgpu::Extent3d {
                 width: TEXTURE_SIZE,
                 height: TEXTURE_SIZE,
-                depth: 1,
+                depth_or_array_layers: 1,
             },
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
             format: wgpu::TextureFormat::Rgba8UnormSrgb,
-            usage: wgpu::TextureUsage::SAMPLED | wgpu::TextureUsage::RENDER_ATTACHMENT,
+            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::RENDER_ATTACHMENT,
             label: Some("honneycomb texture"),
         });
 
@@ -234,13 +234,13 @@ fn fill_honneycomb_texture(
     let vbo = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
         label: None,
         contents: bytemuck::cast_slice(&vertices.vertices),
-        usage: wgpu::BufferUsage::VERTEX,
+        usage: wgpu::BufferUsages::VERTEX,
     });
 
     let ibo = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
         label: None,
         contents: bytemuck::cast_slice(&vertices.indices),
-        usage: wgpu::BufferUsage::INDEX,
+        usage: wgpu::BufferUsages::INDEX,
     });
     let clear_color = wgpu::Color {
         r: 0.,
@@ -278,8 +278,8 @@ fn fill_honneycomb_texture(
     };
     let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
         label: None,
-        color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
-            attachment,
+        color_attachments: &[wgpu::RenderPassColorAttachment {
+            view: attachment,
             resolve_target,
             ops: wgpu::Operations {
                 load: wgpu::LoadOp::Clear(clear_color),
@@ -349,15 +349,14 @@ fn pipeline(device: &Device) -> wgpu::RenderPipeline {
     });
     let targets = &[wgpu::ColorTargetState {
         format: wgpu::TextureFormat::Bgra8UnormSrgb,
-        color_blend: wgpu::BlendState::REPLACE,
-        alpha_blend: wgpu::BlendState::REPLACE,
-        write_mask: wgpu::ColorWrite::ALL,
+        blend: Some(wgpu::BlendState::REPLACE),
+        write_mask: wgpu::ColorWrites::ALL,
     }];
 
     let primitive = wgpu::PrimitiveState {
         topology: wgpu::PrimitiveTopology::TriangleList,
         front_face: wgpu::FrontFace::Ccw,
-        cull_mode: wgpu::CullMode::None,
+        cull_mode: None,
         ..Default::default()
     };
 
@@ -368,8 +367,8 @@ fn pipeline(device: &Device) -> wgpu::RenderPipeline {
             entry_point: "main",
             buffers: &[wgpu::VertexBufferLayout {
                 array_stride: std::mem::size_of::<Vertex>() as u64,
-                step_mode: wgpu::InputStepMode::Vertex,
-                attributes: &wgpu::vertex_attr_array![0 => Float2, 1 => Float2],
+                step_mode: wgpu::VertexStepMode::Vertex,
+                attributes: &wgpu::vertex_attr_array![0 => Float32x2, 1 => Float32x2],
             }],
         },
         fragment: Some(wgpu::FragmentState {

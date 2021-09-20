@@ -288,12 +288,12 @@ impl<D: Instanciable> InstanceDrawer<D> {
         let index_buffer = create_buffer_with_data(
             device.as_ref(),
             bytemuck::cast_slice(D::indices().as_slice()),
-            wgpu::BufferUsage::INDEX,
+            wgpu::BufferUsages::INDEX,
         );
         let vertex_buffer = create_buffer_with_data(
             device.as_ref(),
             bytemuck::cast_slice(D::raw_vertices().as_slice()),
-            wgpu::BufferUsage::VERTEX,
+            wgpu::BufferUsages::VERTEX,
         );
 
         let vertex_module = if fake {
@@ -374,14 +374,14 @@ impl<D: Instanciable> InstanceDrawer<D> {
             self.index_buffer = create_buffer_with_data(
                 self.device.as_ref(),
                 bytemuck::cast_slice(indices.as_slice()),
-                wgpu::BufferUsage::INDEX,
+                wgpu::BufferUsages::INDEX,
             );
         }
         if let Some(vertices) = instances.get(0).and_then(D::custom_raw_vertices) {
             self.vertex_buffer = create_buffer_with_data(
                 self.device.as_ref(),
                 bytemuck::cast_slice(vertices.as_slice()),
-                wgpu::BufferUsage::VERTEX,
+                wgpu::BufferUsages::VERTEX,
             );
         }
     }
@@ -404,7 +404,7 @@ impl<D: Instanciable> InstanceDrawer<D> {
         // gather the ressources, [instance, additional ressources]
         let instance_entry = wgpu::BindGroupLayoutEntry {
             binding: 0,
-            visibility: wgpu::ShaderStage::VERTEX,
+            visibility: wgpu::ShaderStages::VERTEX,
             ty: wgpu::BindingType::Buffer {
                 ty: wgpu::BufferBindingType::Storage { read_only: true },
                 has_dynamic_offset: false,
@@ -423,24 +423,10 @@ impl<D: Instanciable> InstanceDrawer<D> {
 
         // We use alpha blending on texture displayed on the frame. For fake texture we simply rely
         // on depth.
-        let color_blend = if !fake {
-            wgpu::BlendState {
-                src_factor: wgpu::BlendFactor::SrcAlpha,
-                dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
-                operation: wgpu::BlendOperation::Add,
-            }
-        } else {
+        let blend_state = if !fake {
             wgpu::BlendState::REPLACE
-        };
-
-        let alpha_blend = if !fake {
-            wgpu::BlendState {
-                src_factor: wgpu::BlendFactor::One,
-                dst_factor: wgpu::BlendFactor::One,
-                operation: wgpu::BlendOperation::Add,
-            }
         } else {
-            wgpu::BlendState::REPLACE
+            wgpu::BlendState::ALPHA_BLENDING
         };
 
         let sample_count = if fake { 1 } else { SAMPLE_COUNT };
@@ -486,9 +472,8 @@ impl<D: Instanciable> InstanceDrawer<D> {
         };
         let targets = &[wgpu::ColorTargetState {
             format,
-            color_blend,
-            alpha_blend,
-            write_mask: wgpu::ColorWrite::ALL,
+            blend: Some(blend_state),
+            write_mask: wgpu::ColorWrites::ALL,
         }];
         let strip_index_format = match primitive_topology {
             PrimitiveTopology::LineStrip | PrimitiveTopology::TriangleStrip => {
@@ -498,9 +483,9 @@ impl<D: Instanciable> InstanceDrawer<D> {
         };
 
         let cull_mode = if outliner {
-            wgpu::CullMode::Front
+            Some(wgpu::Face::Front)
         } else {
-            wgpu::CullMode::None
+            None
         };
 
         let primitive = wgpu::PrimitiveState {
@@ -529,7 +514,6 @@ impl<D: Instanciable> InstanceDrawer<D> {
                 depth_write_enabled: true,
                 depth_compare,
                 stencil: Default::default(),
-                clamp_depth: false,
                 bias: Default::default(),
             }),
             multisample: wgpu::MultisampleState {

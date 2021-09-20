@@ -352,8 +352,8 @@ impl Vertexable for GridVertex {
     fn desc<'a>() -> wgpu::VertexBufferLayout<'a> {
         wgpu::VertexBufferLayout {
             array_stride: std::mem::size_of::<GridVertex>() as wgpu::BufferAddress,
-            step_mode: wgpu::InputStepMode::Vertex,
-            attributes: &wgpu::vertex_attr_array![0 => Float2],
+            step_mode: wgpu::VertexStepMode::Vertex,
+            attributes: &wgpu::vertex_attr_array![0 => Float32x2],
         }
     }
 }
@@ -379,7 +379,7 @@ impl RessourceProvider for GridTextures {
         &[
             wgpu::BindGroupLayoutEntry {
                 binding: 0,
-                visibility: wgpu::ShaderStage::FRAGMENT,
+                visibility: wgpu::ShaderStages::FRAGMENT,
                 ty: wgpu::BindingType::Texture {
                     multisampled: false,
                     view_dimension: wgpu::TextureViewDimension::D2,
@@ -389,7 +389,7 @@ impl RessourceProvider for GridTextures {
             },
             wgpu::BindGroupLayoutEntry {
                 binding: 1,
-                visibility: wgpu::ShaderStage::FRAGMENT,
+                visibility: wgpu::ShaderStages::FRAGMENT,
                 ty: wgpu::BindingType::Sampler {
                     comparison: false,
                     filtering: false,
@@ -398,7 +398,7 @@ impl RessourceProvider for GridTextures {
             },
             wgpu::BindGroupLayoutEntry {
                 binding: 2,
-                visibility: wgpu::ShaderStage::FRAGMENT,
+                visibility: wgpu::ShaderStages::FRAGMENT,
                 ty: wgpu::BindingType::Texture {
                     multisampled: false,
                     view_dimension: wgpu::TextureViewDimension::D2,
@@ -408,7 +408,7 @@ impl RessourceProvider for GridTextures {
             },
             wgpu::BindGroupLayoutEntry {
                 binding: 3,
-                visibility: wgpu::ShaderStage::FRAGMENT,
+                visibility: wgpu::ShaderStages::FRAGMENT,
                 ty: wgpu::BindingType::Sampler {
                     comparison: false,
                     filtering: false,
