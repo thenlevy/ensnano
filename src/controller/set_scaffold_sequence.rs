@@ -16,7 +16,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-use super::{dialog, MainState, State, TransitionMessage, YesNo};
+use super::{dialog, messages, MainState, State, TransitionMessage, YesNo};
 
 use dialog::PathInput;
 use std::path::Path;
@@ -96,7 +96,7 @@ impl State for SetScaffoldSequence {
 fn init_set_scaffold_sequence(shift: usize) -> Box<dyn State> {
     let yes = Box::new(SetScaffoldSequence::use_default(shift));
     let no = Box::new(SetScaffoldSequence::ask_path(shift));
-    Box::new(YesNo::new("Use default m13 sequence?".into(), yes, no))
+    Box::new(YesNo::new(messages::USE_DEFAULT_M13, yes, no))
 }
 
 fn ask_path<P: AsRef<Path>>(
@@ -113,7 +113,7 @@ fn ask_path<P: AsRef<Path>>(
                 })
             } else {
                 TransitionMessage::new(
-                    "Did not recieve any file to load".into(),
+                    messages::NO_FILE_RECIEVED,
                     rfd::MessageLevel::Error,
                     Box::new(super::NormalState),
                 )
@@ -143,11 +143,7 @@ fn got_path(path: PathBuf, shift: usize) -> Box<dyn State> {
     if let Some(n) =
         content.find(|c: char| c != 'A' && c != 'T' && c != 'G' && c != 'C' && !c.is_whitespace())
     {
-        let msg = format!(
-            "This text file does not contain a valid DNA sequence.\n
-             First invalid char at position {}",
-            n
-        );
+        let msg = messages::invalid_sequence_file(n);
         TransitionMessage::new(msg, rfd::MessageLevel::Error, Box::new(super::NormalState))
     } else {
         Box::new(SetScaffoldSequence {
@@ -165,17 +161,13 @@ fn set_sequence(
     let result = scaffold_setter.set_scaffold_sequence(sequence, shift);
     match result {
         Ok(SetScaffoldSequenceOk { default_shift }) => {
-            let message = format!("Optimize the scaffold position ?\n
-              If you chose \"Yes\", ENSnano will position the scaffold in a way that minimizes the \
-              number of anti-patern (G^4, C^4 (A|T)^7) in the stapples sequence. If you chose \"No\", \
-              the scaffold sequence will begin at position {}", default_shift.unwrap_or(0));
-
+            let message = messages::optimize_scaffold_position_msg(default_shift.unwrap_or(0));
             let yes = Box::new(SetScaffoldSequence {
                 step: Step::OptimizeScaffoldPosition { design_id: 0 },
                 shift,
             });
             let no = Box::new(super::NormalState);
-            Box::new(YesNo::new(message.into(), yes, no))
+            Box::new(YesNo::new(message, yes, no))
         }
         Err(err) => TransitionMessage::new(
             format!("{:?}", err),

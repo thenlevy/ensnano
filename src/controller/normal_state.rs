@@ -284,7 +284,7 @@ fn save_as() -> Box<dyn State> {
 
 fn could_not_save_design() -> Box<dyn State> {
     TransitionMessage::new(
-        "Could not save design".into(),
+        messages::SAVE_DESIGN_FAILED,
         rfd::MessageLevel::Error,
         Box::new(NormalState),
     )
@@ -301,7 +301,7 @@ fn quicksave<P: AsRef<Path>>(starting_path: P) -> Box<dyn State> {
 fn oxdna_export() -> Box<dyn State> {
     let on_success = Box::new(NormalState);
     let on_error = TransitionMessage::new(
-        "Export failed".into(),
+        messages::OXDNA_EXPORT_FAILED,
         rfd::MessageLevel::Error,
         Box::new(NormalState),
     );
