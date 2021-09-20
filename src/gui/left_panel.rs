@@ -115,6 +115,7 @@ pub enum Message<S> {
     SequenceChanged(String),
     SequenceFileRequested,
     StrandColorChanged(Color),
+    StrandNameChanged(usize, String),
     FinishChangingColor,
     HueChanged(f32),
     NewGrid(GridTypeDescr),
@@ -270,6 +271,9 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
                     .unwrap()
                     .set_selected_strand_sequence(s.clone());
                 self.sequence_input.update_sequence(s);
+            }
+            Message::StrandNameChanged(s_id, name) => {
+                self.requests.lock().unwrap().set_strand_name(s_id, name)
             }
             Message::SequenceFileRequested => {
                 let dialog = rfd::AsyncFileDialog::new().pick_file();

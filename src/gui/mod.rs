@@ -167,6 +167,7 @@ pub trait Requests: 'static + Send {
     fn reset_simulations(&mut self);
     fn reload_file(&mut self);
     fn add_double_strand_on_new_helix(&mut self, parameters: Option<(isize, usize)>);
+    fn set_strand_name(&mut self, s_id: usize, name: String);
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -543,6 +544,19 @@ impl<R: Requests, S: AppState> Gui<R, S> {
         self.elements.get_mut(&area).unwrap().forward_event(event);
     }
 
+    /// Clear the foccus of all components of the GUI
+    pub fn clear_foccus(&mut self) {
+        for elt in self.elements.values_mut() {
+            use iced_native::mouse::Event;
+            elt.forward_event(iced_native::Event::Mouse(Event::CursorMoved {
+                position: [-1., -1.].into(),
+            }));
+            elt.forward_event(iced_native::Event::Mouse(Event::ButtonPressed(
+                iced_native::mouse::Button::Left,
+            )))
+        }
+    }
+
     pub fn forward_event_all(&mut self, event: iced_native::Event) {
         for e in self.elements.values_mut() {
             e.forward_event(event.clone())
@@ -870,6 +884,7 @@ pub trait DesignReader: 'static {
     fn nucl_is_anchor(&self, nucl: Nucl) -> bool;
     fn get_dna_elements(&self) -> &[DnaElement];
     fn get_organizer_tree(&self) -> Option<Arc<ensnano_design::EnsnTree>>;
+    fn strand_name(&self, s_id: usize) -> String;
 }
 
 pub struct MainState {

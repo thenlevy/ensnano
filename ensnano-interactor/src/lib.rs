@@ -204,6 +204,10 @@ pub enum DesignOperation {
         y: isize,
     },
     SetOrganizerTree(ensnano_design::OrganizerTree<DnaElementKey>),
+    SetStrandName {
+        s_id: usize,
+        name: String,
+    },
 }
 
 /// An action performed on the application

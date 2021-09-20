@@ -436,7 +436,10 @@ fn main() {
                             area if area.is_scene() => {
                                 let cursor_position = multiplexer.get_cursor_position();
                                 let state = main_state.get_app_state();
-                                scheduler.forward_event(&event, area, cursor_position, state)
+                                scheduler.forward_event(&event, area, cursor_position, state);
+                                if matches!(event, winit::event::WindowEvent::MouseInput { .. }) {
+                                    gui.clear_foccus();
+                                }
                             }
                             _ => unreachable!(),
                         }
@@ -972,7 +975,8 @@ impl MainState {
     fn undo(&mut self) {
         if let Some(mut state) = self.undo_stack.pop() {
             state.prepare_for_replacement(&self.app_state);
-            let redo = std::mem::replace(&mut self.app_state, state);
+            let mut redo = std::mem::replace(&mut self.app_state, state);
+            redo = redo.notified(app_state::InteractorNotification::FinishOperation);
             if redo.is_in_stable_state() {
                 self.redo_stack.push(redo);
             }

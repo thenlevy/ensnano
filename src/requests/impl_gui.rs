@@ -289,6 +289,14 @@ impl GuiRequests for Requests {
     fn add_double_strand_on_new_helix(&mut self, parameters: Option<(isize, usize)>) {
         self.new_double_strand_parameters = Some(parameters);
     }
+
+    fn set_strand_name(&mut self, s_id: usize, name: String) {
+        self.keep_proceed
+            .push_back(Action::DesignOperation(DesignOperation::SetStrandName {
+                s_id,
+                name,
+            }));
+    }
 }
 
 fn rigid_parameters(parameters: RigidBodyParametersRequest) -> RigidBodyConstants {

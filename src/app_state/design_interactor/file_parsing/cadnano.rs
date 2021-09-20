@@ -136,6 +136,7 @@ fn make_strand(
         junctions: Vec::new(),
         cyclic,
         color: crate::consts::SCAFFOLD_COLOR,
+        name: None,
     };
 
     let mut insertions = Vec::new();
