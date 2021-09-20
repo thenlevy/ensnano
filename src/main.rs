@@ -87,7 +87,7 @@ use ensnano_design::Nucl;
 use ensnano_interactor::application::{Application, Notification};
 use ensnano_interactor::{CenterOfSelection, DesignOperation, DesignReader, RigidBodyConstants};
 use iced_native::Event as IcedEvent;
-use iced_wgpu::{wgpu, Backend, Renderer, Settings, Viewport};
+use iced_wgpu::{Backend, Renderer, Settings, Viewport};
 use iced_winit::winit::event::VirtualKeyCode;
 use iced_winit::{conversion, futures, program, winit, Debug, Size};
 

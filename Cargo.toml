@@ -13,7 +13,7 @@ resolver = "2"
 
 [dependencies]
 iced = { git = "https://github.com/hecrj/iced", rev = "099981c", features=["image"] }
-iced_wgpu = { git = "https://github.com/hecrj/iced", rev = "099981c" }
+iced_wgpu = { git = "https://github.com/hecrj/iced", rev = "099981c", features = ["spirv"] }
 iced_graphics = { git = "https://github.com/hecrj/iced", rev = "099981c" }
 iced_winit = { git = "https://github.com/hecrj/iced", rev = "099981c" }
 iced_native = { git = "https://github.com/hecrj/iced", rev = "099981c" }

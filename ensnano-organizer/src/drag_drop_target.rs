@@ -65,7 +65,7 @@ impl<'a, E: super::OrganizerElement> Widget<OrganizerMessage<E>, Renderer>
     }
 
     fn layout(&self, renderer: &Renderer, limits: &layout::Limits) -> layout::Node {
-        let padding = f32::from(self.padding);
+        let padding = iced_native::Padding::from(self.padding);
 
         let limits = limits
             .loose()
@@ -78,7 +78,7 @@ impl<'a, E: super::OrganizerElement> Widget<OrganizerMessage<E>, Renderer>
         let mut content = self.content.layout(renderer, &limits.loose());
         let size = limits.resolve(content.size());
 
-        content.move_to(Point::new(padding, padding));
+        content.move_to(Point::new(self.padding as f32, self.padding as f32));
         content.align(self.horizontal_alignment, self.vertical_alignment, size);
 
         layout::Node::with_children(size.pad(padding), vec![content])

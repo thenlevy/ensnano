@@ -256,7 +256,7 @@ impl<E: OrganizerElement> Organizer<E> {
         match &message.0 {
             OrganizerMessage_::Expand { id, expanded } => self.expand(id, *expanded),
             OrganizerMessage_::NodeSelected { id } => {
-                let add = self.modifiers.is_command_pressed() || self.modifiers.shift;
+                let add = self.modifiers.command() || self.modifiers.shift();
                 let new_selection = self.select_node(id, add, selection.clone());
                 return Some(OrganizerMessage::Selection(
                     new_selection.into_iter().collect(),
@@ -269,7 +269,7 @@ impl<E: OrganizerElement> Organizer<E> {
                 return Some(OrganizerMessage::NewTree(self.tree()));
             }
             OrganizerMessage_::ElementSelected { key } => {
-                let new_selection = if self.modifiers.is_command_pressed() || self.modifiers.shift {
+                let new_selection = if self.modifiers.command() || self.modifiers.shift() {
                     let mut new_selection = selection.clone();
                     Self::add_selection(&mut new_selection, key, true);
                     new_selection

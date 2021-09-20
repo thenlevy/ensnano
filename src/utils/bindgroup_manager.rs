@@ -38,7 +38,7 @@ impl DynamicBindGroup {
         let buffer = device.create_buffer(&BufferDescriptor {
             label: None,
             size: 1,
-            usage: wgpu::BufferUsage::STORAGE | wgpu::BufferUsage::COPY_DST,
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
         let capacity = 1;
@@ -47,7 +47,7 @@ impl DynamicBindGroup {
         let layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             entries: &[wgpu::BindGroupLayoutEntry {
                 binding: 0,
-                visibility: wgpu::ShaderStage::VERTEX,
+                visibility: wgpu::ShaderStages::VERTEX,
                 ty: wgpu::BindingType::Buffer {
                     // We don't plan on changing the size of this buffer
                     has_dynamic_offset: false,
@@ -64,11 +64,11 @@ impl DynamicBindGroup {
             layout: &layout,
             entries: &[wgpu::BindGroupEntry {
                 binding: 0,
-                resource: wgpu::BindingResource::Buffer {
+                resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
                     buffer: &buffer,
                     size: None,
                     offset: 0,
-                },
+                }),
             }],
             label: Some("instance_bind_group"),
         });
@@ -92,7 +92,7 @@ impl DynamicBindGroup {
             self.buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
                 label: Some(&format!("capacity = {}", 2 * bytes.len())),
                 size: 2 * bytes.len() as u64,
-                usage: wgpu::BufferUsage::STORAGE | wgpu::BufferUsage::COPY_DST,
+                usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
                 mapped_at_creation: false,
             });
             self.capacity = 2 * bytes.len();
@@ -100,11 +100,11 @@ impl DynamicBindGroup {
                 layout: &self.layout,
                 entries: &[wgpu::BindGroupEntry {
                     binding: 0,
-                    resource: wgpu::BindingResource::Buffer {
+                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
                         buffer: &self.buffer,
                         size: wgpu::BufferSize::new(self.length),
                         offset: 0,
-                    },
+                    }),
                 }],
                 label: None,
             });
@@ -114,11 +114,11 @@ impl DynamicBindGroup {
                 layout: &self.layout,
                 entries: &[wgpu::BindGroupEntry {
                     binding: 0,
-                    resource: wgpu::BindingResource::Buffer {
+                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
                         buffer: &self.buffer,
                         size: wgpu::BufferSize::new(self.length),
                         offset: 0,
-                    },
+                    }),
                 }],
                 label: None,
             });
@@ -152,8 +152,8 @@ pub struct UniformBindGroup {
 
 static UNIFORM_BG_ENTRY: &'static [wgpu::BindGroupLayoutEntry] = &[wgpu::BindGroupLayoutEntry {
     binding: 0,
-    visibility: wgpu::ShaderStage::from_bits_truncate(
-        wgpu::ShaderStage::VERTEX.bits() | wgpu::ShaderStage::FRAGMENT.bits(),
+    visibility: wgpu::ShaderStages::from_bits_truncate(
+        wgpu::ShaderStages::VERTEX.bits() | wgpu::ShaderStages::FRAGMENT.bits(),
     ),
     ty: wgpu::BindingType::Buffer {
         ty: wgpu::BufferBindingType::Uniform,
@@ -168,7 +168,7 @@ impl UniformBindGroup {
         let buffer = create_buffer_with_data(
             &device,
             bytemuck::cast_slice(&[*viewer_data]),
-            wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
+            wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         );
         let layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             entries: UNIFORM_BG_ENTRY,
@@ -181,11 +181,11 @@ impl UniformBindGroup {
                 // perspective and view
                 wgpu::BindGroupEntry {
                     binding: 0,
-                    resource: wgpu::BindingResource::Buffer {
+                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
                         buffer: &buffer,
                         size: None,
                         offset: 0,
-                    },
+                    }),
                 },
             ],
             label: Some("uniform_bind_group"),
