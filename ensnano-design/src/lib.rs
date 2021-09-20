@@ -399,7 +399,7 @@ pub enum DomainJunction {
 }
 
 /// A DNA strand. Strands are represented as sequences of `Domains`.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Strand {
     /// The (ordered) vector of domains, where each domain is a
     /// directed interval of a helix.
@@ -421,6 +421,10 @@ pub struct Strand {
     /// chosen automatically.
     #[serde(default)]
     pub color: u32,
+    /// A name of the strand, used for strand export. If the name is `None`, the exported strand
+    /// will be given a name corresponding to the position of its 5' nucleotide
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub name: Option<Cow<'static, str>>,
 }
 
 /// Return a list of domains that validate the following condition:
@@ -485,6 +489,7 @@ impl Strand {
                 .clone()
                 .unwrap_or_else(|| codenano_strand.default_color())
                 .as_int(),
+            ..Default::default()
         }
     }
 
@@ -513,6 +518,7 @@ impl Strand {
             cyclic,
             junctions,
             sequence,
+            ..Default::default()
         })
     }
 
@@ -532,6 +538,7 @@ impl Strand {
             cyclic: false,
             junctions,
             color,
+            ..Default::default()
         }
     }
 
@@ -769,6 +776,10 @@ impl Strand {
                 panic!("Could not split domain");
             }
         }
+    }
+
+    pub fn set_name<S: Into<Cow<'static, str>>>(&mut self, name: S) {
+        self.name = Some(name.into())
     }
 }
 

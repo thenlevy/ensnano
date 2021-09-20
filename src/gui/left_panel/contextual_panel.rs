@@ -28,6 +28,7 @@ pub(super) struct ContextualPanel {
     help_btn: button::State,
     ens_nano_website: button::State,
     add_strand_menu: AddStrandMenu,
+    strand_name_state: text_input::State,
 }
 
 impl ContextualPanel {
@@ -40,6 +41,7 @@ impl ContextualPanel {
             help_btn: Default::default(),
             ens_nano_website: Default::default(),
             add_strand_menu: Default::default(),
+            strand_name_state: Default::default(),
         }
     }
 
@@ -92,7 +94,12 @@ impl ContextualPanel {
                     column = add_grid_content(column, info_values.as_slice(), ui_size.clone())
                 }
                 Selection::Strand(_, _) => {
-                    column = add_strand_content(column, info_values.as_slice(), ui_size.clone())
+                    column = add_strand_content(
+                        column,
+                        &mut self.strand_name_state,
+                        info_values.as_slice(),
+                        ui_size.clone(),
+                    )
                 }
                 Selection::Nucleotide(_, _) => {
                     let anchor = info_values[0].clone();
@@ -145,7 +152,7 @@ impl ContextualPanel {
     }
 
     pub fn has_keyboard_priority(&self) -> bool {
-        self.add_strand_menu.has_keyboard_priority()
+        self.add_strand_menu.has_keyboard_priority() || self.strand_name_state.is_focused()
     }
 
     pub fn get_build_helix_mode(&self) -> ActionMode {
@@ -187,10 +194,23 @@ fn add_grid_content<'a, S: AppState, I: std::ops::Deref<Target = str>>(
 
 fn add_strand_content<'a, S: AppState, I: std::ops::Deref<Target = str>>(
     mut column: Column<'a, Message<S>>,
+    strand_name_state: &'a mut text_input::State,
     info_values: &[I],
     ui_size: UiSize,
 ) -> Column<'a, Message<S>> {
     let s_id = info_values[2].parse::<usize>().unwrap();
+    let name_row = Row::new()
+        .push(Text::new(format!("Name")).size(ui_size.main_text()))
+        .push(
+            TextInput::new(
+                strand_name_state,
+                "Name",
+                &info_values[4],
+                move |new_name| Message::StrandNameChanged(s_id, new_name),
+            )
+            .size(ui_size.main_text()),
+        );
+    column = column.push(name_row);
     column = column
         .push(Text::new(format!("length {}", info_values[0].deref())).size(ui_size.main_text()));
     column = column.push(Checkbox::new(
@@ -435,6 +455,7 @@ fn values_of_selection(selection: &Selection, reader: &dyn DesignReader) -> Vec<
             format!("{:?}", reader.is_id_of_scaffold(*s_id as usize)),
             s_id.to_string(),
             reader.length_decomposition(*s_id as usize),
+            reader.strand_name(*s_id as usize),
         ],
         Selection::Nucleotide(_, nucl) => {
             vec![format!("{}", reader.nucl_is_anchor(*nucl))]

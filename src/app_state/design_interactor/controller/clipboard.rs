@@ -520,6 +520,7 @@ impl Controller {
                     junctions,
                     sequence: None,
                     cyclic: false,
+                    name: None,
                 };
                 let strand_id = if let Some(n) = design.strands.keys().max() {
                     n + 1

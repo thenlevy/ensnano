@@ -63,4 +63,13 @@ impl ReaderGui for DesignReader {
             .organizer_tree
             .clone()
     }
+
+    fn strand_name(&self, s_id: usize) -> String {
+        self.presenter
+            .current_design
+            .strands
+            .get(&s_id)
+            .and_then(|s| s.name.as_ref().map(|n| n.to_string()))
+            .unwrap_or(String::from("Unamed strand"))
+    }
 }
