@@ -18,7 +18,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 
 use crate::controller::normal_state::NormalState;
 
-use super::{dialog, MainState, State, TransitionMessage, YesNo};
+use super::{dialog, messages, MainState, State, TransitionMessage, YesNo};
 
 use dialog::PathInput;
 use std::path::Path;
@@ -62,7 +62,7 @@ fn init_quit(need_save: bool) -> Box<dyn State> {
     if need_save {
         let quitting = Box::new(Quit::quitting());
         Box::new(YesNo::new(
-            "Do you want to save your design before exiting the program ?".into(),
+            messages::SAVE_BEFORE_EXIT,
             save_before_quit(),
             quitting,
         ))
@@ -92,11 +92,7 @@ impl Load {
         if need_save {
             let yes = save_before_known_path(path.clone());
             let no = Box::new(Load::known_path(path));
-            Box::new(YesNo::new(
-                "Do you want to save the current design before reloading?".into(),
-                yes,
-                no,
-            ))
+            Box::new(YesNo::new(messages::SAVE_BEFORE_RELOAD, yes, no))
         } else {
             Box::new(Load::known_path(path))
         }
@@ -140,11 +136,7 @@ fn init_load(need_save: bool) -> Box<dyn State> {
     if need_save {
         let yes = save_before_load();
         let no = Load::ask_path();
-        Box::new(YesNo::new(
-            "Do you want to save the current design before loading a new one?".into(),
-            yes,
-            no,
-        ))
+        Box::new(YesNo::new(messages::SAVE_BEFORE_LOAD, yes, no))
     } else {
         Load::ask_path()
     }
@@ -174,7 +166,7 @@ fn ask_path<P: AsRef<Path>>(
                 })
             } else {
                 TransitionMessage::new(
-                    "Did not recieve any file to load".into(),
+                    messages::NO_FILE_RECIEVED,
                     rfd::MessageLevel::Error,
                     Box::new(super::NormalState),
                 )
@@ -249,11 +241,7 @@ impl State for NewDesign {
 fn init_new_design() -> Box<dyn State> {
     let yes = save_before_new();
     let no = NewDesign::make_new_design();
-    Box::new(YesNo::new(
-        "Do you want to save the current design before creating a new one?".into(),
-        yes,
-        no,
-    ))
+    Box::new(YesNo::new(messages::SAVE_BEFORE_NEW, yes, no))
 }
 
 fn new_design(main_state: &mut dyn MainState) -> Box<dyn State> {
@@ -366,25 +354,19 @@ impl State for OxDnaExport {
                 if let Some(ref path) = path_opt {
                     match main_state.oxdna_export(path) {
                         Err(err) => TransitionMessage::new(
-                            format!("Failed to save: {:?}", err),
+                            messages::failed_to_save_msg(&err),
                             rfd::MessageLevel::Error,
                             self.on_error,
                         ),
                         Ok((config, topo)) => TransitionMessage::new(
-                            format!(
-                                "Successfully exported to\n
-                            {}\n
-                            {}",
-                                config.to_string_lossy(),
-                                topo.to_string_lossy()
-                            ),
+                            messages::succesfull_oxdna_export_msg(config, topo),
                             rfd::MessageLevel::Info,
                             self.on_success,
                         ),
                     }
                 } else {
                     TransitionMessage::new(
-                        "Error, did not recieve any file".to_string(),
+                        messages::NO_FILE_RECIEVED,
                         rfd::MessageLevel::Error,
                         self.on_error,
                     )

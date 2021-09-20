@@ -30,6 +30,7 @@ mod set_scaffold_sequence;
 use set_scaffold_sequence::*;
 pub use set_scaffold_sequence::{ScaffoldSetter, SetScaffoldSequenceError, SetScaffoldSequenceOk};
 mod chanel_reader;
+mod messages;
 mod normal_state;
 pub use chanel_reader::{ChanelReader, ChanelReaderUpdate};
 pub use normal_state::Action;
@@ -76,20 +77,20 @@ impl State for OhNo {
 /// state.
 struct TransitionMessage {
     level: rfd::MessageLevel,
-    content: String,
+    content: Cow<'static, str>,
     ack: Option<MustAckMessage>,
     transistion_to: Box<dyn State>,
 }
 
 impl TransitionMessage {
-    fn new(
-        content: String,
+    fn new<S: Into<Cow<'static, str>>>(
+        content: S,
         level: rfd::MessageLevel,
         transistion_to: Box<dyn State + 'static>,
     ) -> Box<Self> {
         Box::new(Self {
             level,
-            content,
+            content: content.into(),
             ack: None,
             transistion_to,
         })
@@ -131,9 +132,13 @@ struct YesNo {
 }
 
 impl YesNo {
-    fn new(question: Cow<'static, str>, yes: Box<dyn State>, no: Box<dyn State>) -> Self {
+    fn new<S: Into<Cow<'static, str>>>(
+        question: S,
+        yes: Box<dyn State>,
+        no: Box<dyn State>,
+    ) -> Self {
         Self {
-            question,
+            question: question.into(),
             yes,
             no,
             answer: None,
