@@ -11,13 +11,13 @@ layout(location=3) out vec4 v_id;
 
 layout(set=0, binding=0)
 uniform Uniforms {
-    vec3 u_camera_position;
-    mat4 u_view;
-    mat4 u_proj;
+    readonly vec3 u_camera_position;
+    readonly mat4 u_view;
+    readonly mat4 u_proj;
 };
 
 layout(set=1, binding=0) buffer ModelBlock {
-    mat4 model_matrix2[];
+    readonly mat4 model_matrix2[];
 };
 
 struct Instances {
@@ -29,7 +29,7 @@ struct Instances {
 
 layout(std430, set=2, binding=0) 
 buffer InstancesBlock {
-    Instances instances[];
+    readonly Instances instances[];
 };
 
 const float LOW_CRIT = 1.01;

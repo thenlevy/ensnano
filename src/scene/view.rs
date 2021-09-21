@@ -162,6 +162,7 @@ impl View {
                     &model_bg_desc,
                     letter,
                     false,
+                    "letters",
                 )
             })
             .collect();
@@ -177,6 +178,7 @@ impl View {
                     &model_bg_desc,
                     letter,
                     false,
+                    "helix letters",
                 )
             })
             .collect();
@@ -207,6 +209,7 @@ impl View {
             &model_bg_desc,
             grid_textures,
             false,
+            "grid_drawer",
         );
         let grid_textures = GridTextures::new(device.as_ref(), encoder);
         let fake_grid_drawer = InstanceDrawer::new(
@@ -216,6 +219,7 @@ impl View {
             &model_bg_desc,
             grid_textures,
             true,
+            "fake grid drawer",
         );
         let grid_manager = GridManager::new(grid_drawer, fake_grid_drawer);
 
@@ -227,6 +231,7 @@ impl View {
             &model_bg_desc,
             (),
             false,
+            "disc drawer",
         );
 
         log::info!("Create dna drawer");
@@ -237,6 +242,7 @@ impl View {
             &model_bg_desc,
         );
 
+        log::info!("Create cube drawer");
         let direction_texture = DirectionTexture::new(device.clone(), queue.clone());
         let mut direction_cube = InstanceDrawer::new(
             device.clone(),
@@ -245,9 +251,11 @@ impl View {
             &model_bg_desc,
             direction_texture,
             false,
+            "direction_cube",
         );
         direction_cube.new_instances(vec![Default::default()]);
 
+        log::info!("Create skybox drawer");
         let mut skybox_cube = InstanceDrawer::new(
             device.clone(),
             queue.clone(),
@@ -255,6 +263,7 @@ impl View {
             &model_bg_desc,
             (),
             false,
+            "skybox",
         );
         skybox_cube.new_instances(vec![SkyBox::new(500.)]);
 
@@ -993,6 +1002,7 @@ impl DnaDrawers {
                 model_desc,
                 (),
                 false,
+                "sphere",
             ),
             tube: InstanceDrawer::new(
                 device.clone(),
@@ -1001,6 +1011,7 @@ impl DnaDrawers {
                 model_desc,
                 (),
                 false,
+                "tube",
             ),
             prime3_cones: InstanceDrawer::new(
                 device.clone(),
@@ -1009,6 +1020,7 @@ impl DnaDrawers {
                 model_desc,
                 (),
                 false,
+                "prime_3_cones",
             ),
             outline_sphere: InstanceDrawer::new_outliner(
                 device.clone(),
@@ -1016,6 +1028,7 @@ impl DnaDrawers {
                 viewer_desc,
                 model_desc,
                 (),
+                "outline sphere",
             ),
             outline_tube: InstanceDrawer::new_outliner(
                 device.clone(),
@@ -1023,6 +1036,7 @@ impl DnaDrawers {
                 viewer_desc,
                 model_desc,
                 (),
+                "outline_tube",
             ),
             outline_prime3_cones: InstanceDrawer::new_outliner(
                 device.clone(),
@@ -1030,6 +1044,7 @@ impl DnaDrawers {
                 viewer_desc,
                 model_desc,
                 (),
+                "outline prime3 cones",
             ),
             candidate_sphere: InstanceDrawer::new(
                 device.clone(),
@@ -1038,6 +1053,7 @@ impl DnaDrawers {
                 model_desc,
                 (),
                 false,
+                "candidate spheres",
             ),
             candidate_tube: InstanceDrawer::new(
                 device.clone(),
@@ -1046,6 +1062,7 @@ impl DnaDrawers {
                 model_desc,
                 (),
                 false,
+                "candidate tubes",
             ),
             suggestion_sphere: InstanceDrawer::new(
                 device.clone(),
@@ -1054,6 +1071,7 @@ impl DnaDrawers {
                 model_desc,
                 (),
                 false,
+                "suggestion sphere",
             ),
             suggestion_tube: InstanceDrawer::new(
                 device.clone(),
@@ -1062,6 +1080,7 @@ impl DnaDrawers {
                 model_desc,
                 (),
                 false,
+                "suggestion tube",
             ),
             xover_sphere: InstanceDrawer::new(
                 device.clone(),
@@ -1070,6 +1089,7 @@ impl DnaDrawers {
                 model_desc,
                 (),
                 false,
+                "xover sphere",
             ),
             xover_tube: InstanceDrawer::new(
                 device.clone(),
@@ -1078,6 +1098,7 @@ impl DnaDrawers {
                 model_desc,
                 (),
                 false,
+                "xover tube",
             ),
             pasted_sphere: InstanceDrawer::new(
                 device.clone(),
@@ -1086,6 +1107,7 @@ impl DnaDrawers {
                 model_desc,
                 (),
                 false,
+                "pasted sphere",
             ),
             pasted_tube: InstanceDrawer::new(
                 device.clone(),
@@ -1094,6 +1116,7 @@ impl DnaDrawers {
                 model_desc,
                 (),
                 false,
+                "pasted tube",
             ),
             selected_sphere: InstanceDrawer::new(
                 device.clone(),
@@ -1102,6 +1125,7 @@ impl DnaDrawers {
                 model_desc,
                 (),
                 false,
+                "selected sphere",
             ),
             selected_tube: InstanceDrawer::new(
                 device.clone(),
@@ -1110,6 +1134,7 @@ impl DnaDrawers {
                 model_desc,
                 (),
                 false,
+                "selected tube",
             ),
             pivot_sphere: InstanceDrawer::new(
                 device.clone(),
@@ -1118,6 +1143,7 @@ impl DnaDrawers {
                 model_desc,
                 (),
                 false,
+                "pivot sphere",
             ),
             phantom_sphere: InstanceDrawer::new_wireframe(
                 device.clone(),
@@ -1126,6 +1152,7 @@ impl DnaDrawers {
                 model_desc,
                 (),
                 false,
+                "phantom sphere",
             ),
             phantom_tube: InstanceDrawer::new_wireframe(
                 device.clone(),
@@ -1134,6 +1161,7 @@ impl DnaDrawers {
                 model_desc,
                 (),
                 false,
+                "phantom tube",
             ),
             fake_sphere: InstanceDrawer::new(
                 device.clone(),
@@ -1142,6 +1170,7 @@ impl DnaDrawers {
                 model_desc,
                 (),
                 true,
+                "fake sphere",
             ),
             fake_tube: InstanceDrawer::new(
                 device.clone(),
@@ -1150,6 +1179,7 @@ impl DnaDrawers {
                 model_desc,
                 (),
                 true,
+                "fake tube",
             ),
             fake_phantom_sphere: InstanceDrawer::new(
                 device.clone(),
@@ -1158,6 +1188,7 @@ impl DnaDrawers {
                 model_desc,
                 (),
                 true,
+                "fake phantom sphere",
             ),
             fake_phantom_tube: InstanceDrawer::new(
                 device.clone(),
@@ -1166,6 +1197,7 @@ impl DnaDrawers {
                 model_desc,
                 (),
                 true,
+                "fake phantom tube",
             ),
         }
     }

@@ -392,7 +392,7 @@ impl RessourceProvider for GridTextures {
                 visibility: wgpu::ShaderStages::FRAGMENT,
                 ty: wgpu::BindingType::Sampler {
                     comparison: false,
-                    filtering: false,
+                    filtering: true,
                 },
                 count: None,
             },
@@ -411,7 +411,7 @@ impl RessourceProvider for GridTextures {
                 visibility: wgpu::ShaderStages::FRAGMENT,
                 ty: wgpu::BindingType::Sampler {
                     comparison: false,
-                    filtering: false,
+                    filtering: true,
                 },
                 count: None,
             },

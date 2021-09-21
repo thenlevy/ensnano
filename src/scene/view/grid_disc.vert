@@ -13,7 +13,7 @@ uniform Uniforms {
 };
 
 layout(set=1, binding=0) buffer ModelBlock {
-    mat4 model_matrix2[];
+    readonly mat4 model_matrix2[];
 };
 
 struct Instances {
@@ -25,7 +25,7 @@ struct Instances {
 
 layout(set=2, binding=0) 
 buffer InstancesBlock {
-    Instances instances[];
+    readonly Instances instances[];
 };
 
 void main() {

@@ -216,13 +216,14 @@ pub struct InstanceDrawer<D: Instanciable + ?Sized> {
 }
 
 impl<D: Instanciable> InstanceDrawer<D> {
-    pub fn new(
+    pub fn new<S: AsRef<str>>(
         device: Rc<Device>,
         queue: Rc<Queue>,
         viewer_desc: &BindGroupLayoutDescriptor<'static>,
         models_desc: &BindGroupLayoutDescriptor<'static>,
         ressource: D::Ressource,
         fake: bool,
+        label: S,
     ) -> Self {
         Self::init(
             device,
@@ -233,15 +234,17 @@ impl<D: Instanciable> InstanceDrawer<D> {
             fake,
             false,
             false,
+            label,
         )
     }
 
-    pub fn new_outliner(
+    pub fn new_outliner<S: AsRef<str>>(
         device: Rc<Device>,
         queue: Rc<Queue>,
         viewer_desc: &BindGroupLayoutDescriptor<'static>,
         models_desc: &BindGroupLayoutDescriptor<'static>,
         ressource: D::Ressource,
+        label: S,
     ) -> Self {
         Self::init(
             device,
@@ -252,16 +255,18 @@ impl<D: Instanciable> InstanceDrawer<D> {
             false,
             false,
             true,
+            label,
         )
     }
 
-    pub fn new_wireframe(
+    pub fn new_wireframe<S: AsRef<str>>(
         device: Rc<Device>,
         queue: Rc<Queue>,
         viewer_desc: &BindGroupLayoutDescriptor<'static>,
         models_desc: &BindGroupLayoutDescriptor<'static>,
         ressource: D::Ressource,
         fake: bool,
+        label: S,
     ) -> Self {
         Self::init(
             device,
@@ -272,10 +277,11 @@ impl<D: Instanciable> InstanceDrawer<D> {
             fake,
             true,
             false,
+            label,
         )
     }
 
-    fn init(
+    fn init<S: AsRef<str>>(
         device: Rc<Device>,
         queue: Rc<Queue>,
         viewer_desc: &BindGroupLayoutDescriptor<'static>,
@@ -284,6 +290,7 @@ impl<D: Instanciable> InstanceDrawer<D> {
         fake: bool,
         wireframe: bool,
         outliner: bool,
+        label: S,
     ) -> Self {
         let index_buffer = create_buffer_with_data(
             device.as_ref(),
@@ -331,6 +338,7 @@ impl<D: Instanciable> InstanceDrawer<D> {
             primitive_topology,
             fake,
             outliner,
+            label,
         );
         let instances = DynamicBindGroup::new(device.clone(), queue);
 
@@ -386,7 +394,7 @@ impl<D: Instanciable> InstanceDrawer<D> {
         }
     }
 
-    fn create_pipeline(
+    fn create_pipeline<S: AsRef<str>>(
         device: &Device,
         viewer_bind_group_layout_desc: &wgpu::BindGroupLayoutDescriptor<'static>,
         models_bind_group_layout_desc: &wgpu::BindGroupLayoutDescriptor<'static>,
@@ -395,6 +403,7 @@ impl<D: Instanciable> InstanceDrawer<D> {
         primitive_topology: PrimitiveTopology,
         fake: bool,
         outliner: bool,
+        label: S,
     ) -> RenderPipeline {
         let viewer_bind_group_layout =
             device.create_bind_group_layout(&viewer_bind_group_layout_desc);
@@ -451,7 +460,7 @@ impl<D: Instanciable> InstanceDrawer<D> {
                     &additional_bind_group_layout,
                 ],
                 push_constant_ranges: &[],
-                label: Some("render_pipeline_layout"),
+                label: Some(label.as_ref()),
             })
         } else {
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -521,7 +530,7 @@ impl<D: Instanciable> InstanceDrawer<D> {
                 mask: !0,
                 alpha_to_coverage_enabled: !fake,
             },
-            label: Some("render pipeline"),
+            label: Some(label.as_ref()),
         })
     }
 }

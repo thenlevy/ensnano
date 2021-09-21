@@ -19,10 +19,12 @@ layout(set = 3, binding = 3) uniform sampler s_honney;
 void main() {
     vec4 color;
 
+    vec4 grid_color = texture(sampler2D(t_square, s_square), v_tex_square_coords);
+    vec4 honey_color = texture(sampler2D(t_honney, s_honney), v_tex_honey_coords);
     if (v_grid_type == 0) {
-       color = texture(sampler2D(t_square, s_square), v_tex_square_coords);
+       color = grid_color;
     } else if (v_grid_type == 1) {
-       color = texture(sampler2D(t_honney, s_honney), v_tex_honey_coords);
+       color = honey_color;
     } else {
        color = vec4(1., 1., 1., 0.4);
     }

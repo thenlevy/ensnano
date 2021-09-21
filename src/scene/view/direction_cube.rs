@@ -259,9 +259,9 @@ impl RessourceProvider for DirectionTexture {
                 binding: 0,
                 visibility: wgpu::ShaderStages::FRAGMENT,
                 ty: wgpu::BindingType::Texture {
-                    multisampled: true,
+                    multisampled: false,
                     view_dimension: wgpu::TextureViewDimension::D2,
-                    sample_type: wgpu::TextureSampleType::Uint,
+                    sample_type: wgpu::TextureSampleType::Float { filterable: true },
                 },
                 count: None,
             },
@@ -270,7 +270,7 @@ impl RessourceProvider for DirectionTexture {
                 visibility: wgpu::ShaderStages::FRAGMENT,
                 ty: wgpu::BindingType::Sampler {
                     comparison: false,
-                    filtering: false,
+                    filtering: true,
                 },
                 count: None,
             },
