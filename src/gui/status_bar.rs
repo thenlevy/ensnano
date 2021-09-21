@@ -138,13 +138,8 @@ pub enum Message<S: AppState> {
 impl<R: Requests, S: AppState> Program for StatusBar<R, S> {
     type Message = Message<S>;
     type Renderer = iced_wgpu::Renderer;
-    type Clipboard = iced_native::clipboard::Null;
 
-    fn update(
-        &mut self,
-        message: Message<S>,
-        _cb: &mut iced_native::clipboard::Null,
-    ) -> Command<Message<S>> {
+    fn update(&mut self, message: Message<S>) -> Command<Message<S>> {
         match message {
             Message::ValueStrChanged(n, s) => {
                 if let Some(operation) = self.operation.as_mut() {

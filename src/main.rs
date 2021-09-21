@@ -81,6 +81,7 @@ use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 pub type PhySize = iced_winit::winit::dpi::PhysicalSize<u32>;
+const TEXTURE_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Bgra8UnormSrgb;
 
 use controller::{ChanelReader, ChanelReaderUpdate, SimulationRequest};
 use ensnano_design::Nucl;
@@ -228,8 +229,6 @@ fn main() {
             .expect("Request device")
     });
 
-    let format = wgpu::TextureFormat::Bgra8UnormSrgb;
-
     {
         let size = window.inner_size();
 
@@ -237,7 +236,7 @@ fn main() {
             &device,
             &wgpu::SurfaceConfiguration {
                 usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-                format,
+                format: TEXTURE_FORMAT,
                 width: size.width,
                 height: size.height,
                 present_mode: wgpu::PresentMode::Mailbox,
@@ -251,7 +250,7 @@ fn main() {
         default_font: Some(include_bytes!("../font/ensnano2.ttf")),
         ..Default::default()
     };
-    let mut renderer = Renderer::new(Backend::new(&device, settings.clone(), format));
+    let mut renderer = Renderer::new(Backend::new(&device, settings.clone(), TEXTURE_FORMAT));
     let device = Rc::new(device);
     let queue = Rc::new(queue);
     let mut resized = false;
@@ -535,7 +534,7 @@ fn main() {
                         &device,
                         &wgpu::SurfaceConfiguration {
                             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-                            format,
+                            format: TEXTURE_FORMAT,
                             width: window_size.width,
                             height: window_size.height,
                             present_mode: wgpu::PresentMode::Mailbox,
@@ -555,7 +554,7 @@ fn main() {
                         &device,
                         &wgpu::SurfaceConfiguration {
                             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-                            format,
+                            format: TEXTURE_FORMAT,
                             width: window_size.width,
                             height: window_size.height,
                             present_mode: wgpu::PresentMode::Mailbox,

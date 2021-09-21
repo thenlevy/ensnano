@@ -513,7 +513,11 @@ impl<R: Requests, S: AppState> Gui<R, S> {
         requests: Arc<Mutex<R>>,
         settings: Settings,
     ) -> Self {
-        let mut renderer = Renderer::new(Backend::new(device.as_ref(), settings.clone()));
+        let mut renderer = Renderer::new(Backend::new(
+            device.as_ref(),
+            settings.clone(),
+            crate::TEXTURE_FORMAT,
+        ));
         let mut elements = HashMap::new();
         elements.insert(
             ElementType::TopBar,
@@ -665,7 +669,11 @@ impl<R: Requests, S: AppState> Gui<R, S> {
             default_text_size: text_size,
             ..self.settings.clone()
         };
-        let renderer = Renderer::new(Backend::new(self.device.as_ref(), settings.clone()));
+        let renderer = Renderer::new(Backend::new(
+            self.device.as_ref(),
+            settings.clone(),
+            crate::TEXTURE_FORMAT,
+        ));
         self.settings = settings;
         self.renderer = renderer;
     }

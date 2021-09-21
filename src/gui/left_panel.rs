@@ -24,7 +24,7 @@ use iced::{
 };
 use iced::{container, Background, Column, Container, Row};
 use iced_aw::{TabLabel, Tabs};
-use iced_native::{clipboard::Null as NullClipboard, Program};
+use iced_native::Program;
 use iced_wgpu::{Backend, Renderer};
 use iced_winit::winit::{
     dpi::{LogicalPosition, LogicalSize},

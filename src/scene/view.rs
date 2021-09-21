@@ -70,7 +70,7 @@ pub use rotation_widget::{RotationMode, RotationWidgetDescriptor, RotationWidget
 
 static MODEL_BG_ENTRY: &'static [wgpu::BindGroupLayoutEntry] = &[wgpu::BindGroupLayoutEntry {
     binding: 0,
-    visibility: wgpu::ShaderStage::from_bits_truncate(wgpu::ShaderStage::VERTEX.bits()),
+    visibility: wgpu::ShaderStages::from_bits_truncate(wgpu::ShaderStages::VERTEX.bits()),
     ty: wgpu::BindingType::Buffer {
         has_dynamic_offset: false,
         min_binding_size: None,
@@ -456,16 +456,16 @@ impl View {
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: None,
-                color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
-                    attachment,
+                color_attachments: &[wgpu::RenderPassColorAttachment {
+                    view: attachment,
                     resolve_target,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(clear_color),
                         store: true,
                     },
                 }],
-                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachmentDescriptor {
-                    attachment: &depth_attachement.view,
+                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                    view: &depth_attachement.view,
                     depth_ops: Some(wgpu::Operations {
                         load: wgpu::LoadOp::Clear(1.),
                         store: true,
@@ -595,16 +595,16 @@ impl View {
         if !fake_color {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: None,
-                color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
-                    attachment,
+                color_attachments: &[wgpu::RenderPassColorAttachment {
+                    view: attachment,
                     resolve_target,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Load,
                         store: true,
                     },
                 }],
-                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachmentDescriptor {
-                    attachment: &depth_attachement.view,
+                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                    view: &depth_attachement.view,
                     depth_ops: Some(wgpu::Operations {
                         load: wgpu::LoadOp::Clear(1.),
                         store: true,
@@ -636,8 +636,8 @@ impl View {
             // render pass to draw the grids
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: None,
-                color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
-                    attachment,
+                color_attachments: &[wgpu::RenderPassColorAttachment {
+                    view: attachment,
                     resolve_target,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(clear_color),
@@ -645,8 +645,8 @@ impl View {
                     },
                 }],
                 // Reuse previous depth_stencil_attachment
-                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachmentDescriptor {
-                    attachment: &depth_attachement.view,
+                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                    view: &depth_attachement.view,
                     depth_ops: Some(wgpu::Operations {
                         load: wgpu::LoadOp::Load,
                         store: true,

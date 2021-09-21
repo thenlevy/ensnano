@@ -40,7 +40,7 @@ pub trait DnaObject:
 }
 
 const VERTEX_ATTR_ARRAY: [wgpu::VertexAttribute; 2] =
-    wgpu::vertex_attr_array![0 => Float3, 1 => Float3];
+    wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x3];
 impl Vertexable for DnaVertex {
     type RawType = DnaVertex;
     fn to_raw(&self) -> DnaVertex {
@@ -51,7 +51,7 @@ impl Vertexable for DnaVertex {
         use std::mem;
         wgpu::VertexBufferLayout {
             array_stride: mem::size_of::<DnaVertex>() as wgpu::BufferAddress,
-            step_mode: wgpu::InputStepMode::Vertex,
+            step_mode: wgpu::VertexStepMode::Vertex,
             attributes: &VERTEX_ATTR_ARRAY,
         }
     }
