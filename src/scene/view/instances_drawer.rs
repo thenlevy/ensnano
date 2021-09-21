@@ -432,7 +432,7 @@ impl<D: Instanciable> InstanceDrawer<D> {
 
         // We use alpha blending on texture displayed on the frame. For fake texture we simply rely
         // on depth.
-        let blend_state = if !fake {
+        let blend_state = if fake {
             wgpu::BlendState::REPLACE
         } else {
             wgpu::BlendState::ALPHA_BLENDING

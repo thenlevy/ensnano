@@ -107,6 +107,7 @@ impl ElementSelector {
     }
 
     fn update_fake_pixels(&self, draw_type: DrawType) -> Vec<u8> {
+        log::debug!("update fake pixels");
         let size = wgpu::Extent3d {
             width: self.window_size.width,
             height: self.window_size.height,
@@ -263,6 +264,13 @@ impl SceneReader {
         let r = (*pixels.get(byte0 + 2)? as u32) << 16;
         let g = (*pixels.get(byte0 + 1)? as u32) << 8;
         let b = (*pixels.get(byte0)?) as u32;
+        log::trace!(
+            "pixel color: r {} \n  g  \n {} \n b {}  \n a {}",
+            r,
+            g,
+            b,
+            a
+        );
         let color = r + g + b;
         if a == 0xFF {
             None

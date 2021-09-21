@@ -17,7 +17,7 @@ struct Instances {
 
 layout(set=1, binding=0) 
 buffer InstancesBlock {
-    Instances instances[];
+    readonly Instances instances[];
 };
 
 layout(location = 0) in vec2 a_position;

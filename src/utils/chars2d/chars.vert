@@ -22,7 +22,7 @@ struct Instances {
 
 layout(set=1, binding=0) 
 buffer InstancesBlock {
-    Instances instances[];
+    readonly Instances instances[];
 };
 
 void main() {

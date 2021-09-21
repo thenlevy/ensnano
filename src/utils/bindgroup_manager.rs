@@ -33,15 +33,17 @@ pub struct DynamicBindGroup {
     queue: Rc<Queue>,
 }
 
+const INITIAL_CAPACITY: u64 = 4;
+
 impl DynamicBindGroup {
     pub fn new(device: Rc<Device>, queue: Rc<Queue>) -> Self {
         let buffer = device.create_buffer(&BufferDescriptor {
             label: None,
-            size: 1,
+            size: INITIAL_CAPACITY,
             usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
-        let capacity = 1;
+        let capacity = INITIAL_CAPACITY as usize;
         let length = 0;
 
         let layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
