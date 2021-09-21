@@ -11,9 +11,10 @@ layout(location=3) out vec4 v_id;
 
 layout(set=0, binding=0)
 uniform Uniforms {
-    readonly vec3 u_camera_position;
-    readonly mat4 u_view;
-    readonly mat4 u_proj;
+    vec3 u_camera_position;
+    mat4 u_view;
+    mat4 u_proj;
+    mat4 u_inversed_view;
 };
 
 layout(set=1, binding=0) buffer ModelBlock {

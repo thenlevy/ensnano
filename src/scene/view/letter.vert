@@ -12,6 +12,7 @@ uniform Uniforms {
     vec3 u_camera_position;
     mat4 u_view;
     mat4 u_proj;
+    mat4 u_view_inversed;
 };
 
 layout(set=1, binding=0) buffer ModelBlock {
@@ -41,7 +42,7 @@ void main() {
     model[3] = vec4(instances[gl_InstanceIndex].position, 1.);
 
     //mat4 model_matrix = model_matrix2[model_idx] * instances[gl_InstanceIndex].model;
-    mat4 rotation = mat4(mat3(inverse(u_view)));
+    mat4 rotation = mat4(mat3(u_view_inversed));
     mat4 model_matrix = model_matrix2[model_idx] * model * rotation;
 
     float scale = instances[gl_InstanceIndex].scale;

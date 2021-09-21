@@ -10,6 +10,7 @@ uniform Uniforms {
     vec3 u_camera_position;
     mat4 u_view;
     mat4 u_proj;
+    mat4 u_inverted_view;
 };
 
 layout(set=1, binding=0) buffer ModelBlock {
