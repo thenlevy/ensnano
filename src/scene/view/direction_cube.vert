@@ -29,6 +29,6 @@ buffer InstancesBlock {
 void main() {
     v_tex_pos = a_tex_pos;
     float dist = instances[0].dist;
-    vec4 position = inverse(u_view) * vec4(0., 0., -dist - 1., 0.) + vec4(u_camera_position, 1.) + vec4(a_position, 0.);
+    vec4 position = u_inverted_view * vec4(0., 0., -dist - 1., 0.) + vec4(u_camera_position, 1.) + vec4(a_position, 0.);
     gl_Position = u_proj * u_view * position;
 }
