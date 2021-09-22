@@ -35,7 +35,7 @@ pub enum OrganizerMessage<E: OrganizerElement> {
     Selection(Vec<E::Key>),
     Candidates(Vec<E::Key>),
     ElementUpdate(Vec<BTreeMap<E::Key, E>>),
-    NewAttribute(E::Attribute, BTreeSet<E::Key>),
+    NewAttribute(E::Attribute, Vec<E::Key>),
     NewTree(OrganizerTree<E::Key>),
 }
 
@@ -126,6 +126,13 @@ impl<E: OrganizerElement> OrganizerMessage<E> {
     fn drag_dropped(key: Identifier<E::Key>) -> Self {
         Self::InternalMessage(InternalMessage(OrganizerMessage_::DragDropped(key)))
     }
+
+    fn attribute_selected(attribute: E::Attribute, id: NodeId) -> Self {
+        Self::InternalMessage(InternalMessage(OrganizerMessage_::AttributeSelected {
+            attribute,
+            id,
+        }))
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -142,6 +149,7 @@ enum OrganizerMessage_<E: OrganizerElement> {
     Delete { id: NodeId },
     DragDropped(Identifier<E::Key>),
     Dragging(Identifier<E::Key>),
+    AttributeSelected { attribute: E::Attribute, id: NodeId },
 }
 
 pub struct Organizer<E: OrganizerElement> {
@@ -200,7 +208,6 @@ impl<E: OrganizerElement> Organizer<E> {
     }
 
     pub fn view(&mut self, selection: BTreeSet<E::Key>) -> Element<OrganizerMessage<E>> {
-        self.update_attributes();
         self.hovered_in = None;
         let mut ret = Scrollable::new(&mut self.scroll_state)
             .width(self.width)
@@ -303,6 +310,10 @@ impl<E: OrganizerElement> Organizer<E> {
             }
             OrganizerMessage_::KeyHovered { key, hovered_in } => {
                 return self.key_hover(key.clone(), *hovered_in)
+            }
+            OrganizerMessage_::AttributeSelected { attribute, id } => {
+                let keys = self.get_keys_below(id);
+                return Some(OrganizerMessage::NewAttribute(attribute.clone(), keys));
             }
         }
         None
@@ -490,6 +501,7 @@ impl<E: OrganizerElement> Organizer<E> {
                 self.groups = vec![];
             }
             self.recompute_id();
+            self.update_attributes();
         }
     }
 
@@ -643,6 +655,7 @@ impl<E: OrganizerElement> Organizer<E> {
             let section_id: usize = key.section().into();
             self.sections[section_id].add_element(e.clone());
         }
+        self.update_attributes();
     }
 
     fn update_attributes(&mut self) {
@@ -686,14 +699,9 @@ impl<E: OrganizerElement> Section<E> {
         theme: &Theme,
         selection: &BTreeSet<E::Key>,
     ) -> Container<OrganizerMessage<E>> {
-        let title_row = self.view.view(
-            theme,
-            &self.name,
-            self.id.clone(),
-            self.elements.keys().cloned().collect(),
-            self.expanded,
-            false,
-        );
+        let title_row = self
+            .view
+            .view(theme, &self.name, self.id.clone(), self.expanded, false);
         let mut ret = Column::new()
             .spacing(LEVELS_SPACING)
             .push(Element::new(title_row));
@@ -771,8 +779,10 @@ impl<E: OrganizerElement> ElementView<E> {
             if let Some(view) = ad.view() {
                 let mut elt = BTreeSet::new();
                 elt.insert(element.key());
-                content =
-                    content.push(view.map(move |m| OrganizerMessage::NewAttribute(m, elt.clone())))
+                let elt_key = element.key();
+                content = content.push(
+                    view.map(move |m| OrganizerMessage::NewAttribute(m, vec![elt_key.clone()])),
+                )
             }
         }
         if let Some(id) = deletable.clone() {
@@ -860,7 +870,6 @@ impl<E: OrganizerElement> NodeView<E> {
         theme: &Theme,
         name: &String,
         id: NodeId,
-        elements_below: BTreeSet<E::Key>,
         expanded: bool,
         selected: bool,
     ) -> DragDropTarget<OrganizerMessage<E>, E::Key> {
@@ -886,9 +895,10 @@ impl<E: OrganizerElement> NodeView<E> {
 
                 for ad in self.attribute_displayers.iter_mut() {
                     if let Some(view) = ad.view() {
-                        let elt = elements_below.clone();
-                        row = row
-                            .push(view.map(move |m| OrganizerMessage::NewAttribute(m, elt.clone())))
+                        let id = id.clone();
+                        row = row.push(
+                            view.map(move |m| OrganizerMessage::attribute_selected(m, id.clone())),
+                        )
                     }
                 }
 
@@ -919,9 +929,10 @@ impl<E: OrganizerElement> NodeView<E> {
 
                 for ad in self.attribute_displayers.iter_mut() {
                     if let Some(view) = ad.view() {
-                        let elt = elements_below.clone();
-                        row = row
-                            .push(view.map(move |m| OrganizerMessage::NewAttribute(m, elt.clone())))
+                        let id = id.clone();
+                        row = row.push(
+                            view.map(move |m| OrganizerMessage::attribute_selected(m, id.clone())),
+                        )
                     }
                 }
 
@@ -1013,19 +1024,11 @@ impl<E: OrganizerElement> GroupContent<E> {
                 childrens,
                 view,
                 id,
-                elements_below,
                 ..
             } => {
                 level = id.len();
                 let selected = selected_nodes.contains(id);
-                let title_row = view.view(
-                    theme,
-                    name,
-                    id.clone(),
-                    elements_below.clone(),
-                    *expanded,
-                    selected,
-                );
+                let title_row = view.view(theme, name, id.clone(), *expanded, selected);
                 let mut ret = Column::new()
                     .spacing(LEVELS_SPACING)
                     .push(Element::new(title_row));

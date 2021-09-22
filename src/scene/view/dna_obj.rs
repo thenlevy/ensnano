@@ -244,8 +244,8 @@ impl Instanciable for TubeInstance {
     }
 
     fn to_raw_instance(&self) -> RawDnaInstance {
-        let model =  Mat4::from_translation(self.position)
-                * self.rotor.into_matrix().into_homogeneous();
+        let model =
+            Mat4::from_translation(self.position) * self.rotor.into_matrix().into_homogeneous();
         RawDnaInstance {
             model,
             color: self.color,
@@ -343,8 +343,8 @@ impl Instanciable for ConeInstance {
     }
 
     fn to_raw_instance(&self) -> RawDnaInstance {
-        let model =  Mat4::from_translation(self.position)
-                * self.rotor.into_matrix().into_homogeneous();
+        let model =
+            Mat4::from_translation(self.position) * self.rotor.into_matrix().into_homogeneous();
         RawDnaInstance {
             model,
             color: self.color,
