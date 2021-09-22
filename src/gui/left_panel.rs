@@ -701,7 +701,7 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
             self.organizer.read_tree(tree.as_ref())
         } else {
             self.organizer
-                .read_tree(&OrganizerTree::Node(String::from("root"), vec![]))
+                .read_tree(&OrganizerTree::Node{name: String::from("root"), childrens: vec![], expanded: true })
         }
         let organizer = self
             .organizer

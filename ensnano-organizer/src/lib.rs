@@ -42,7 +42,7 @@ pub enum OrganizerMessage<E: OrganizerElement> {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum OrganizerTree<K> {
     Leaf(K),
-    Node(String, Vec<OrganizerTree<K>>),
+    Node{ name: String, childrens: Vec<OrganizerTree<K>>, expanded: bool },
 }
 
 #[derive(Clone, Debug)]
@@ -489,14 +489,14 @@ impl<E: OrganizerElement> Organizer<E> {
 
     fn tree(&self) -> OrganizerTree<E::Key> {
         let groups = self.groups.iter().filter_map(|g| g.tree()).collect();
-        OrganizerTree::Node("root".to_owned(), groups)
+        OrganizerTree::Node{ name: "root".to_owned(), childrens: groups, expanded: true}
     }
 
     pub fn read_tree(&mut self, tree: &OrganizerTree<E::Key>) {
         if self.last_read_tree != tree {
             self.last_read_tree = tree;
-            if let OrganizerTree::Node(_, groups) = tree {
-                self.groups = groups.iter().map(|g| GroupContent::read_tree(g)).collect();
+            if let OrganizerTree::Node{childrens, ..} = tree {
+                self.groups = childrens.iter().map(|g| GroupContent::read_tree(g)).collect();
             } else {
                 self.groups = vec![];
             }
@@ -1084,13 +1084,13 @@ impl<E: OrganizerElement> GroupContent<E> {
                 view: ElementView::new(),
                 attributes: vec![None; E::all_repr().len()],
             },
-            OrganizerTree::Node(name, content) => {
+            OrganizerTree::Node{name, childrens: content, expanded} => {
                 let childrens = content.iter().map(|c| Self::read_tree(c)).collect();
                 Self::Node {
                     childrens,
                     id: vec![],
                     name: name.clone(),
-                    expanded: false,
+                    expanded: *expanded,
                     view: NodeView::new(),
                     attributes: vec![None; E::all_repr().len()],
                     elements_below: BTreeSet::new(),
@@ -1431,10 +1431,10 @@ impl<E: OrganizerElement> GroupContent<E> {
     fn tree(&self) -> Option<OrganizerTree<E::Key>> {
         match self {
             Self::Node {
-                name, childrens, ..
+                name, childrens, expanded, ..
             } => {
                 let childrens = childrens.iter().filter_map(Self::tree).collect();
-                Some(OrganizerTree::Node(name.clone(), childrens))
+                Some(OrganizerTree::Node{name: name.clone(), childrens, expanded: *expanded })
             }
             Self::Leaf { element, .. } => Some(OrganizerTree::Leaf(element.clone())),
             Self::Placeholder => None,
