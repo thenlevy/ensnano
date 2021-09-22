@@ -282,6 +282,13 @@ impl Presenter {
         ret
     }
 
+    pub fn get_strand_domain(&self, s_id: usize, d_id: usize) -> Option<&ensnano_design::Domain> {
+        self.current_design
+            .strands
+            .get(&s_id)
+            .and_then(|s| s.domains.get(d_id))
+    }
+
     pub(super) fn get_nucl_map(&self) -> AHashMap<Nucl, u32> {
         self.content.identifier_nucl.clone().into()
     }

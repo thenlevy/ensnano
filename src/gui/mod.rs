@@ -32,7 +32,7 @@ pub mod status_bar;
 mod ui_size;
 pub use ui_size::*;
 mod material_icons_light;
-pub use status_bar::CurentOpState;
+pub use status_bar::{CurentOpState, StrandBuildingStatus};
 
 mod icon;
 
@@ -821,9 +821,11 @@ impl<S: AppState> IcedMessages<S> {
 
     pub fn new_ui_size(&mut self, ui_size: UiSize) {
         self.left_panel
-            .push_back(left_panel::Message::UiSizeChanged(ui_size.clone()));
+            .push_back(left_panel::Message::UiSizeChanged(ui_size));
         self.top_bar
-            .push_back(top_bar::Message::UiSizeChanged(ui_size.clone()));
+            .push_back(top_bar::Message::UiSizeChanged(ui_size));
+        self.status_bar
+            .push_back(status_bar::Message::UiSizeChanged(ui_size));
     }
 
     pub fn push_show_tutorial(&mut self) {
@@ -880,6 +882,7 @@ pub trait AppState: Default + PartialEq + Clone + 'static + Send + std::fmt::Deb
     fn design_was_modified(&self, other: &Self) -> bool;
     fn selection_was_updated(&self, other: &Self) -> bool;
     fn get_curent_operation_state(&self) -> Option<CurentOpState>;
+    fn get_strand_building_state(&self) -> Option<StrandBuildingStatus>;
 }
 
 pub trait DesignReader: 'static {

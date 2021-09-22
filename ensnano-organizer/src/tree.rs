@@ -18,9 +18,13 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 
 use serde::Deserialize;
 #[derive(Clone, Debug, Serialize)]
-pub enum OrganizerTree<K > {
+pub enum OrganizerTree<K> {
     Leaf(K),
-    Node{ name: String, childrens: Vec<OrganizerTree<K>>, expanded: bool },
+    Node {
+        name: String,
+        childrens: Vec<OrganizerTree<K>>,
+        expanded: bool,
+    },
 }
 
 // For compatibility reasons, we need to implement Deserialize ourselved for OrganizerTree.
@@ -33,18 +37,25 @@ enum OldOrganizerTree<K> {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-enum NewOrganizerTree<K > {
+enum NewOrganizerTree<K> {
     Leaf(K),
-    Node{ name: String, childrens: Vec<OrganizerTree<K>>, expanded: bool },
+    Node {
+        name: String,
+        childrens: Vec<OrganizerTree<K>>,
+        expanded: bool,
+    },
 }
 
 impl<K> OldOrganizerTree<K> {
     fn to_new(self) -> OrganizerTree<K> {
         match self {
             Self::Leaf(k) => OrganizerTree::Leaf(k),
-            Self::Node(name, childrens) => OrganizerTree::Node { name, childrens, expanded: false },
+            Self::Node(name, childrens) => OrganizerTree::Node {
+                name,
+                childrens,
+                expanded: false,
+            },
         }
-
     }
 }
 
@@ -52,7 +63,15 @@ impl<K> NewOrganizerTree<K> {
     fn to_real(self) -> OrganizerTree<K> {
         match self {
             Self::Leaf(k) => OrganizerTree::Leaf(k),
-            Self::Node{name, childrens, expanded} => OrganizerTree::Node { name, childrens, expanded },
+            Self::Node {
+                name,
+                childrens,
+                expanded,
+            } => OrganizerTree::Node {
+                name,
+                childrens,
+                expanded,
+            },
         }
     }
 }
@@ -67,12 +86,12 @@ enum NewOrOld<K> {
 impl<'de, K: Deserialize<'de>> Deserialize<'de> for OrganizerTree<K> {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
-            D: serde::Deserializer<'de> {
-                match NewOrOld::deserialize(deserializer) {
-                    Ok(NewOrOld::New(new_tree)) => Ok(new_tree.to_real()),
-                    Ok(NewOrOld::Old(old_tree)) => Ok(old_tree.to_new()),
-                    Err(e) => Err(e)
-                }
+        D: serde::Deserializer<'de>,
+    {
+        match NewOrOld::deserialize(deserializer) {
+            Ok(NewOrOld::New(new_tree)) => Ok(new_tree.to_real()),
+            Ok(NewOrOld::Old(old_tree)) => Ok(old_tree.to_new()),
+            Err(e) => Err(e),
+        }
     }
 }
-
