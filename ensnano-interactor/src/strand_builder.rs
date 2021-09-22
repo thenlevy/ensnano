@@ -24,7 +24,7 @@ use ultraviolet::Mat4;
 #[derive(Clone, Debug)]
 pub struct StrandBuilder {
     /// The nucleotide that can move
-    moving_end: Nucl,
+    pub moving_end: Nucl,
     /// The initial position of the moving end
     pub initial_position: isize,
     /// Axis of the support helix on which the domain lies

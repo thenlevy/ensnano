@@ -24,6 +24,7 @@ use ensnano_interactor::{
     application::{AppId, Application, Notification},
     operation::*,
     ActionMode, DesignOperation, PhantomElement, Selection, SelectionMode, StrandBuilder,
+    StrandBuildingStatus,
 };
 use iced_wgpu::wgpu;
 use iced_winit::winit;
@@ -576,6 +577,7 @@ pub trait AppState: Clone {
     fn design_was_updated(&self, other: &Self) -> bool;
     fn is_changing_color(&self) -> bool;
     fn is_pasting(&self) -> bool;
+    fn get_building_state(&self) -> Option<StrandBuildingStatus>;
 }
 
 use ultraviolet::Isometry2;

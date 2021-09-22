@@ -415,3 +415,13 @@ impl Default for WidgetBasis {
         Self::World
     }
 }
+
+/// Information about the domain being elongated
+#[derive(Debug, Clone)]
+pub struct StrandBuildingStatus {
+    pub nt_length: usize,
+    pub nm_length: f32,
+    pub prime3: Nucl,
+    pub prime5: Nucl,
+    pub dragged_nucl: Nucl,
+}

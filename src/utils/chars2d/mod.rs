@@ -174,7 +174,7 @@ impl CharDrawer {
     }
 }
 
-pub fn char_positions(string: String, drawers: &HashMap<char, CharDrawer>) -> Vec<f32> {
+pub fn char_positions_x(string: &str, drawers: &HashMap<char, CharDrawer>) -> Vec<f32> {
     let mut ret = vec![0f32];
     let mut x = 0f32;
     for c in string.chars() {
@@ -184,7 +184,21 @@ pub fn char_positions(string: String, drawers: &HashMap<char, CharDrawer>) -> Ve
     ret
 }
 
-pub fn height(string: String, drawers: &HashMap<char, CharDrawer>) -> f32 {
+pub fn char_positions_y(string: &str, drawers: &HashMap<char, CharDrawer>) -> Vec<f32> {
+    let max_height = height(string, drawers);
+    let mut ret = vec![];
+
+    for c in string.chars() {
+        ret.push(
+            max_height
+                - drawers.get(&c).unwrap().letter.height
+                - drawers.get(&c).unwrap().letter.advance_height,
+        )
+    }
+    ret
+}
+
+pub fn height(string: &str, drawers: &HashMap<char, CharDrawer>) -> f32 {
     let mut ret = 0f32;
     for c in string.chars() {
         ret = ret.max(drawers.get(&c).unwrap().letter.height)

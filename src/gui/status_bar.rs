@@ -15,8 +15,9 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
-use super::{AppState, Nucl, Requests, UiSize};
+use super::{AppState, Requests, UiSize};
 use ensnano_interactor::operation::{Operation, ParameterField};
+pub use ensnano_interactor::StrandBuildingStatus;
 use iced::{container, slider, Background, Container, Length};
 use iced_native::{pick_list, text_input, Color, PickList, TextInput};
 use iced_winit::{Column, Command, Element, Program, Row, Space, Text};
@@ -416,16 +417,11 @@ mod input_color {
     }
 }
 
-/// Information about the domain being elongated
-#[derive(Debug, Clone)]
-pub struct StrandBuildingStatus {
-    pub nt_length: usize,
-    pub nm_length: f32,
-    pub prime3: Nucl,
-    pub prime5: Nucl,
+trait ToInfo {
+    fn to_info(&self) -> String;
 }
 
-impl StrandBuildingStatus {
+impl ToInfo for StrandBuildingStatus {
     fn to_info(&self) -> String {
         format!(
             "Current domain length: {} nt ({:.2} nm). 5': {}, 3': {}",

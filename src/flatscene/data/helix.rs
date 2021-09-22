@@ -19,6 +19,7 @@ use super::super::view::{CharInstance, CircleInstance, InsertionInstance};
 use super::super::{CameraPtr, Flat, FlatHelix, FlatIdx};
 use super::{FlatNucl, Helix2d};
 use crate::consts::*;
+use crate::flatscene::view::EditionInfo;
 use crate::utils::instance::Instance;
 use ahash::RandomState;
 use ensnano_design::Nucl;
@@ -655,6 +656,7 @@ impl Helix {
         groups: &BTreeMap<usize, bool>,
         basis_map: &HashMap<Nucl, char, RandomState>,
         show_seq: bool,
+        edition_info: &Option<EditionInfo>,
     ) {
         let show_seq = show_seq && camera.borrow().get_globals().zoom >= ZOOM_THRESHOLD;
         let size_id = 3.;
@@ -664,8 +666,8 @@ impl Helix {
             let nb_chars = self.real_id.to_string().len(); // ok to use len because digits are ascii
             let scale = size_id / nb_chars as f32;
             let mut advances =
-                crate::utils::chars2d::char_positions(self.real_id.to_string(), char_drawers);
-            let mut height = crate::utils::chars2d::height(self.real_id.to_string(), char_drawers);
+                crate::utils::chars2d::char_positions_x(&self.real_id.to_string(), char_drawers);
+            let mut height = crate::utils::chars2d::height(&self.real_id.to_string(), char_drawers);
             if camera.borrow().get_globals().zoom < ZOOM_THRESHOLD {
                 height *= 2.;
                 for x in advances.iter_mut() {
@@ -688,8 +690,9 @@ impl Helix {
         let mut print_pos = |pos: isize| {
             let nb_chars = pos.to_string().len(); // ok to use len because digits are ascii
             let scale = size_pos;
-            let mut advances = crate::utils::chars2d::char_positions(pos.to_string(), char_drawers);
-            let mut height = crate::utils::chars2d::height(pos.to_string(), char_drawers);
+            let mut advances =
+                crate::utils::chars2d::char_positions_x(&pos.to_string(), char_drawers);
+            let mut height = crate::utils::chars2d::height(&pos.to_string(), char_drawers);
             if camera.borrow().get_globals().zoom < ZOOM_THRESHOLD {
                 height *= 2.;
                 for x in advances.iter_mut() {
@@ -722,6 +725,47 @@ impl Helix {
             pos += 1;
         }
 
+        let mut print_info = |pos: isize, info: &str| {
+            let scale = size_pos;
+            let nb_chars_pos = pos.to_string().len(); // ok to use len because digits are ascii
+            let mut advances = crate::utils::chars2d::char_positions_x(info, char_drawers);
+            let mut height = crate::utils::chars2d::height(info, char_drawers);
+            let mut pos_y = crate::utils::chars2d::char_positions_y(info, char_drawers);
+            if camera.borrow().get_globals().zoom < ZOOM_THRESHOLD {
+                height *= 2.;
+                for x in advances.iter_mut() {
+                    *x *= 2.;
+                }
+                for y in pos_y.iter_mut() {
+                    *y *= 2.;
+                }
+            }
+            let x_shift = if pos >= 0 { 0. } else { -advances[1] / 2. };
+            for (c_idx, c) in info.chars().enumerate() {
+                let instances = char_map.get_mut(&c).unwrap();
+                let center = self.num_position_top(
+                    pos,
+                    advances[nb_chars_pos] * scale,
+                    height * scale,
+                    true,
+                );
+                instances.push(CharInstance {
+                    center: center
+                        + (x_shift + advances[c_idx] * scale) * Vec2::unit_x()
+                        + pos_y[c_idx] * Vec2::unit_y(),
+                    rotation: self.isometry.rotation.into_matrix(),
+                    size: scale,
+                    z_index: self.flat_id.flat.0 as i32,
+                })
+            }
+        };
+
+        if let Some(building) = edition_info {
+            if building.nucl.helix == self.flat_id {
+                print_info(building.nucl.position, &building.to_string())
+            }
+        }
+
         let mut print_basis = |position: isize, forward: bool| {
             let scale = size_pos;
             let nucl = Nucl {
@@ -730,8 +774,9 @@ impl Helix {
                 forward,
             };
             if let Some(c) = basis_map.get(&nucl) {
-                let advances = crate::utils::chars2d::char_positions(pos.to_string(), char_drawers);
-                let height = crate::utils::chars2d::height(c.to_string(), char_drawers);
+                let advances =
+                    crate::utils::chars2d::char_positions_x(&pos.to_string(), char_drawers);
+                let height = crate::utils::chars2d::height(&c.to_string(), char_drawers);
                 let center = if forward {
                     self.char_position_top(position, advances[1] * scale, height * scale)
                 } else {

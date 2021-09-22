@@ -61,6 +61,10 @@ impl App2D for AppState {
     fn is_pasting(&self) -> bool {
         self.is_pasting().is_pasting()
     }
+
+    fn get_building_state(&self) -> Option<ensnano_interactor::StrandBuildingStatus> {
+        self.get_strand_building_state()
+    }
 }
 
 #[cfg(test)]
