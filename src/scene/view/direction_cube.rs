@@ -295,10 +295,10 @@ impl DirectionTexture {
     pub fn new(device: Rc<Device>, queue: Rc<Queue>) -> Self {
         let diffuse_bytes = include_bytes!("../../../icons/direction_cube.png");
         let diffuse_image = image::load_from_memory(diffuse_bytes).unwrap();
-        let rgba = diffuse_image.as_rgba8().unwrap();
+        let dimensions = diffuse_image.dimensions();
+        let bgra = diffuse_image.into_bgra8();
 
         use image::GenericImageView;
-        let dimensions = diffuse_image.dimensions();
 
         let size = wgpu::Extent3d {
             width: dimensions.0,
@@ -311,7 +311,7 @@ impl DirectionTexture {
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Rgba8UnormSrgb,
+            format: crate::TEXTURE_FORMAT,
             usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
         });
 
@@ -322,7 +322,7 @@ impl DirectionTexture {
                 origin: wgpu::Origin3d::ZERO,
                 aspect: Default::default(),
             },
-            rgba,
+            &bgra,
             wgpu::ImageDataLayout {
                 offset: 0,
                 bytes_per_row: (4 * dimensions.0).try_into().ok(),
