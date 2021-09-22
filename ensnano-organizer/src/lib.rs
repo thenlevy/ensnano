@@ -16,7 +16,9 @@ mod drag_drop_target;
 pub mod element;
 mod hoverable_button;
 pub mod theme;
+mod tree;
 
+pub use tree::OrganizerTree;
 pub use element::*;
 use theme::Theme;
 
@@ -39,11 +41,6 @@ pub enum OrganizerMessage<E: OrganizerElement> {
     NewTree(OrganizerTree<E::Key>),
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum OrganizerTree<K> {
-    Leaf(K),
-    Node{ name: String, childrens: Vec<OrganizerTree<K>>, expanded: bool },
-}
 
 #[derive(Clone, Debug)]
 pub struct InternalMessage<E: OrganizerElement>(OrganizerMessage_<E>);
