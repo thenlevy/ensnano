@@ -773,7 +773,7 @@ use std::collections::VecDeque;
 pub struct IcedMessages<S: AppState> {
     left_panel: VecDeque<left_panel::Message<S>>,
     top_bar: VecDeque<top_bar::Message<S>>,
-    color_overlay: VecDeque<left_panel::ColorMessage>,
+    _color_overlay: VecDeque<left_panel::ColorMessage>,
     status_bar: VecDeque<status_bar::Message<S>>,
     application_state: S,
 }
@@ -784,21 +784,10 @@ impl<S: AppState> IcedMessages<S> {
         Self {
             left_panel: VecDeque::new(),
             top_bar: VecDeque::new(),
-            color_overlay: VecDeque::new(),
+            _color_overlay: VecDeque::new(),
             status_bar: VecDeque::new(),
             application_state: Default::default(),
         }
-    }
-
-    #[allow(dead_code)]
-    pub fn push_color(&mut self, color: u32) {
-        let bytes = color.to_be_bytes();
-        // bytes is [A, R, G, B]
-        let color = iced::Color::from_rgb8(bytes[1], bytes[2], bytes[3]);
-        self.color_overlay
-            .push_back(left_panel::ColorMessage::StrandColorChanged(color));
-        self.left_panel
-            .push_back(left_panel::Message::StrandColorChanged(color));
     }
 
     pub fn push_progress(&mut self, progress_name: String, progress: f32) {

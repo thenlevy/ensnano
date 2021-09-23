@@ -32,8 +32,6 @@ use iced_winit::winit::{
 };
 use ultraviolet::Vec3;
 
-use color_space::{Hsv, Rgb};
-
 use ensnano_design::elements::{DnaElement, DnaElementKey};
 use ensnano_interactor::{
     graphics::{Background3D, RenderingMode},
@@ -114,10 +112,10 @@ pub enum Message<S> {
     MakeGrids,
     SequenceChanged(String),
     SequenceFileRequested,
-    StrandColorChanged(Color),
+    HsvSatValueChanged(f64, f64),
     StrandNameChanged(usize, String),
     FinishChangingColor,
-    HueChanged(f32),
+    HueChanged(f64),
     NewGrid(GridTypeDescr),
     FixPoint(Vec3, Vec3),
     RotateCam(f32, f32, f32),
@@ -298,14 +296,22 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
                 .lock()
                 .unwrap()
                 .open_overlay(OverlayType::Color),
-            Message::StrandColorChanged(color) => {
-                let requested_color = self.edition_tab.strand_color_change(color);
+            Message::HsvSatValueChanged(saturation, value) => {
+                self.edition_tab.change_sat_value(saturation, value);
+                let requested_color = self.edition_tab.strand_color_change();
                 self.requests
                     .lock()
                     .unwrap()
                     .change_strand_color(requested_color);
             }
-            Message::HueChanged(x) => self.edition_tab.change_hue(x),
+            Message::HueChanged(x) => {
+                self.edition_tab.change_hue(x);
+                let requested_color = self.edition_tab.strand_color_change();
+                self.requests
+                    .lock()
+                    .unwrap()
+                    .change_strand_color(requested_color);
+            }
             Message::Resized(size, position) => self.resize(size, position),
             Message::NewGrid(grid_type) => {
                 self.requests.lock().unwrap().create_grid(grid_type);
@@ -770,8 +776,8 @@ impl<R: Requests> ColorOverlay<R> {
 
 #[derive(Debug, Clone)]
 pub enum ColorMessage {
-    StrandColorChanged(Color),
-    HueChanged(f32),
+    HsvSatValueChanged(f64, f64),
+    HueChanged(f64),
     #[allow(dead_code)]
     Resized(LogicalSize<f64>),
     FinishChangingColor,
@@ -784,22 +790,8 @@ impl<R: Requests> Program for ColorOverlay<R> {
 
     fn update(&mut self, message: ColorMessage) -> Command<ColorMessage> {
         match message {
-            ColorMessage::StrandColorChanged(color) => {
-                let red = ((color.r * 255.) as u32) << 16;
-                let green = ((color.g * 255.) as u32) << 8;
-                let blue = (color.b * 255.) as u32;
-                self.color_picker.update_color(color);
-                let hue = Hsv::from(Rgb::new(
-                    color.r as f64 * 255.,
-                    color.g as f64 * 255.,
-                    color.b as f64 * 255.,
-                ))
-                .h;
-                self.color_picker.change_hue(hue as f32);
-                let color = red + green + blue;
-                self.requests.lock().unwrap().change_strand_color(color);
-            }
-            ColorMessage::HueChanged(x) => self.color_picker.change_hue(x),
+            ColorMessage::HsvSatValueChanged(_sat, _value) => {}
+            ColorMessage::HueChanged(x) => self.color_picker.change_hue(x as f64),
             ColorMessage::Closed => {
                 self.requests
                     .lock()
