@@ -16,7 +16,8 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 use super::{
-    flattypes::FlatSelection, AppState, Flat, HelixVec, PhantomElement, Requests, ViewPtr,
+    flattypes::FlatSelection, view::EditionInfo, AppState, Flat, HelixVec, PhantomElement,
+    Requests, ViewPtr,
 };
 use ensnano_design::Nucl;
 use ensnano_interactor::{Selection, SelectionMode};
@@ -93,8 +94,7 @@ impl Data {
                 .borrow_mut()
                 .update_pasted_strand(self.design.get_pasted_strand(), &self.helices);
             self.update_highlight(new_state);
-        } else if new_state.selection_was_updated(old_state) {
-            self.update_highlight(new_state);
+            self.update_strand_building_info(new_state.get_building_state());
         }
         self.instance_update = false;
     }
@@ -183,6 +183,13 @@ impl Data {
         self.view
             .borrow_mut()
             .set_candidate_helices(candidate_helices);
+    }
+
+    fn update_strand_building_info(&self, info: Option<super::StrandBuildingStatus>) {
+        let flat_info = info.and_then(|info| info.to_flat(self.id_map()));
+        self.view
+            .borrow_mut()
+            .update_strand_building_info(flat_info);
     }
 
     fn fetch_helices<R: DesignReader>(&mut self, design: R) {
@@ -1102,4 +1109,19 @@ fn apply_symetric_difference_to_selection(
 
     old_selection.retain(retain_condition);
     new_selection.retain(retain_condition);
+}
+
+trait ToFlatInfo {
+    fn to_flat(self, id_map: &HashMap<usize, FlatIdx>) -> Option<super::view::EditionInfo>;
+}
+
+impl ToFlatInfo for super::StrandBuildingStatus {
+    fn to_flat(self, id_map: &HashMap<usize, FlatIdx>) -> Option<super::view::EditionInfo> {
+        let flat_nucl = FlatNucl::from_real(&self.dragged_nucl, id_map)?;
+        Some(EditionInfo {
+            nt_length: self.nt_length,
+            nm_length: self.nm_length,
+            nucl: flat_nucl,
+        })
+    }
 }

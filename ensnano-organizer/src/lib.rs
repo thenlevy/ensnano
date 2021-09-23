@@ -18,9 +18,9 @@ mod hoverable_button;
 pub mod theme;
 mod tree;
 
-pub use tree::OrganizerTree;
 pub use element::*;
 use theme::Theme;
+pub use tree::OrganizerTree;
 
 use drag_drop_target::*;
 
@@ -40,7 +40,6 @@ pub enum OrganizerMessage<E: OrganizerElement> {
     NewAttribute(E::Attribute, Vec<E::Key>),
     NewTree(OrganizerTree<E::Key>),
 }
-
 
 #[derive(Clone, Debug)]
 pub struct InternalMessage<E: OrganizerElement>(OrganizerMessage_<E>);
@@ -486,14 +485,21 @@ impl<E: OrganizerElement> Organizer<E> {
 
     fn tree(&self) -> OrganizerTree<E::Key> {
         let groups = self.groups.iter().filter_map(|g| g.tree()).collect();
-        OrganizerTree::Node{ name: "root".to_owned(), childrens: groups, expanded: true}
+        OrganizerTree::Node {
+            name: "root".to_owned(),
+            childrens: groups,
+            expanded: true,
+        }
     }
 
     pub fn read_tree(&mut self, tree: &OrganizerTree<E::Key>) {
         if self.last_read_tree != tree {
             self.last_read_tree = tree;
-            if let OrganizerTree::Node{childrens, ..} = tree {
-                self.groups = childrens.iter().map(|g| GroupContent::read_tree(g)).collect();
+            if let OrganizerTree::Node { childrens, .. } = tree {
+                self.groups = childrens
+                    .iter()
+                    .map(|g| GroupContent::read_tree(g))
+                    .collect();
             } else {
                 self.groups = vec![];
             }
@@ -1081,7 +1087,11 @@ impl<E: OrganizerElement> GroupContent<E> {
                 view: ElementView::new(),
                 attributes: vec![None; E::all_repr().len()],
             },
-            OrganizerTree::Node{name, childrens: content, expanded} => {
+            OrganizerTree::Node {
+                name,
+                childrens: content,
+                expanded,
+            } => {
                 let childrens = content.iter().map(|c| Self::read_tree(c)).collect();
                 Self::Node {
                     childrens,
@@ -1428,10 +1438,17 @@ impl<E: OrganizerElement> GroupContent<E> {
     fn tree(&self) -> Option<OrganizerTree<E::Key>> {
         match self {
             Self::Node {
-                name, childrens, expanded, ..
+                name,
+                childrens,
+                expanded,
+                ..
             } => {
                 let childrens = childrens.iter().filter_map(Self::tree).collect();
-                Some(OrganizerTree::Node{name: name.clone(), childrens, expanded: *expanded })
+                Some(OrganizerTree::Node {
+                    name: name.clone(),
+                    childrens,
+                    expanded: *expanded,
+                })
             }
             Self::Leaf { element, .. } => Some(OrganizerTree::Leaf(element.clone())),
             Self::Placeholder => None,

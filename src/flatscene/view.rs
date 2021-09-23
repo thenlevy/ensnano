@@ -96,6 +96,13 @@ pub struct View {
     rectangle: Rectangle,
     groups: Arc<BTreeMap<usize, bool>>,
     basis_map: Arc<HashMap<Nucl, char, RandomState>>,
+    edition_info: Option<EditionInfo>,
+}
+
+pub struct EditionInfo {
+    pub nt_length: usize,
+    pub nm_length: f32,
+    pub nucl: FlatNucl,
 }
 
 impl View {
@@ -167,7 +174,8 @@ impl View {
         );
         let rectangle = Rectangle::new(&device, queue.clone());
         let chars = [
-            'A', 'T', 'G', 'C', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '-',
+            'A', 'T', 'G', 'C', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '-', 'n', 't',
+            'm', '.', '/', ' ', '(', ')',
         ];
         let mut char_drawers_top = HashMap::new();
         let mut char_map_top = HashMap::new();
@@ -236,6 +244,7 @@ impl View {
             insertion_drawer,
             groups: Default::default(),
             basis_map: Default::default(),
+            edition_info: Default::default(),
         }
     }
 
@@ -252,6 +261,13 @@ impl View {
     pub fn set_splited(&mut self, splited: bool) {
         self.was_updated = true;
         self.splited = splited;
+    }
+
+    pub fn update_strand_building_info(&mut self, info: Option<EditionInfo>) {
+        if info.as_ref().map(|i| i.nucl) != self.edition_info.as_ref().map(|i| i.nucl) {
+            self.was_updated = true;
+        }
+        self.edition_info = info;
     }
 
     pub fn resize(&mut self, area: DrawArea) {
@@ -1003,6 +1019,7 @@ impl View {
                 self.groups.as_ref(),
                 self.basis_map.as_ref(),
                 self.show_sec,
+                &self.edition_info,
             );
             h.add_char_instances(
                 &self.camera_bottom,
@@ -1011,6 +1028,7 @@ impl View {
                 self.groups.as_ref(),
                 self.basis_map.as_ref(),
                 self.show_sec,
+                &self.edition_info,
             )
         }
 
@@ -1163,4 +1181,13 @@ fn torsion_color(strength: f32) -> u32 {
     let hsv = color_space::Hsv::new(hue as f64, sat.abs() as f64, val.abs() as f64);
     let rgb = color_space::Rgb::from(hsv);
     (0xFF << 24) | ((rgb.r as u32) << 16) | ((rgb.g as u32) << 8) | (rgb.b as u32)
+}
+
+impl ToString for EditionInfo {
+    fn to_string(&self) -> String {
+        format!(
+            "{}({}nt/{:.1}nm)",
+            self.nucl.position, self.nt_length, self.nm_length
+        )
+    }
 }

@@ -61,6 +61,7 @@ pub struct Letter {
     pub bind_group_layout: BindGroupLayout,
     pub advance: f32,
     pub height: f32,
+    pub advance_height: f32,
 }
 
 const MAX_SIZE: u32 = 9;
@@ -87,7 +88,7 @@ impl Letter {
             label: Some("diffuse_texture"),
         });
 
-        let font: &[u8] = if character.is_ascii_alphabetic() {
+        let font: &[u8] = if character.is_ascii_uppercase() {
             include_bytes!("../../font/DejaVuSansMono.ttf")
         } else {
             include_bytes!("../../font/Inconsolata-Regular.ttf")
@@ -125,6 +126,7 @@ impl Letter {
 
         let advance = metrics.advance_width / size.width as f32;
         let height = metrics.height as f32 / size.height as f32;
+        let advance_height = metrics.ymin as f32 / size.height as f32;
         let mut last_pixels = None;
 
         for mip_level in 0..MIP_LEVEL_COUNT {
@@ -254,6 +256,7 @@ impl Letter {
             bind_group_layout: texture_bind_group_layout,
             advance,
             height,
+            advance_height,
         }
     }
 }
