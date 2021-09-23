@@ -32,7 +32,7 @@ pub mod texture;
 pub fn create_buffer_with_data(
     device: &wgpu::Device,
     data: &[u8],
-    usage: wgpu::BufferUsage,
+    usage: wgpu::BufferUsages,
 ) -> wgpu::Buffer {
     let descriptor = BufferInitDescriptor {
         label: Some("descriptor"),

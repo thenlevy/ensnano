@@ -63,7 +63,7 @@ unsafe impl bytemuck::Zeroable for GridDiscVertexRaw {}
 unsafe impl bytemuck::Pod for GridDiscVertexRaw {}
 
 const VERTEX_ATTR_ARRAY: [wgpu::VertexAttribute; 2] =
-    wgpu::vertex_attr_array![0 => Float3, 1 => Float4];
+    wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x4];
 impl super::instances_drawer::Vertexable for GridDiscVertex {
     type RawType = GridDiscVertexRaw;
 
@@ -77,7 +77,7 @@ impl super::instances_drawer::Vertexable for GridDiscVertex {
     fn desc<'a>() -> wgpu::VertexBufferLayout<'a> {
         wgpu::VertexBufferLayout {
             array_stride: std::mem::size_of::<GridDiscVertexRaw>() as wgpu::BufferAddress,
-            step_mode: wgpu::InputStepMode::Vertex,
+            step_mode: wgpu::VertexStepMode::Vertex,
             attributes: &VERTEX_ATTR_ARRAY,
         }
     }

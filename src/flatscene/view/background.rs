@@ -54,13 +54,13 @@ impl Background {
         let bg_vbo = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: None,
             contents: bytemuck::cast_slice(&bg_geometry.vertices),
-            usage: wgpu::BufferUsage::VERTEX,
+            usage: wgpu::BufferUsages::VERTEX,
         });
 
         let bg_ibo = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: None,
             contents: bytemuck::cast_slice(&bg_geometry.indices),
-            usage: wgpu::BufferUsage::INDEX,
+            usage: wgpu::BufferUsages::INDEX,
         });
 
         let bg_vs_module =
@@ -80,15 +80,14 @@ impl Background {
 
         let targets = &[wgpu::ColorTargetState {
             format: wgpu::TextureFormat::Bgra8UnormSrgb,
-            color_blend: wgpu::BlendState::REPLACE,
-            alpha_blend: wgpu::BlendState::REPLACE,
-            write_mask: wgpu::ColorWrite::ALL,
+            blend: Some(wgpu::BlendState::REPLACE),
+            write_mask: wgpu::ColorWrites::ALL,
         }];
 
         let primitive = wgpu::PrimitiveState {
             topology: wgpu::PrimitiveTopology::TriangleList,
             front_face: wgpu::FrontFace::Ccw,
-            cull_mode: wgpu::CullMode::None,
+            cull_mode: None,
             ..Default::default()
         };
 
@@ -99,8 +98,8 @@ impl Background {
                 entry_point: "main",
                 buffers: &[wgpu::VertexBufferLayout {
                     array_stride: std::mem::size_of::<BgPoint>() as u64,
-                    step_mode: wgpu::InputStepMode::Vertex,
-                    attributes: &wgpu::vertex_attr_array![0 => Float2],
+                    step_mode: wgpu::VertexStepMode::Vertex,
+                    attributes: &wgpu::vertex_attr_array![0 => Float32x2],
                 }],
             },
             fragment: Some(wgpu::FragmentState {
@@ -124,8 +123,8 @@ impl Background {
                 entry_point: "main",
                 buffers: &[wgpu::VertexBufferLayout {
                     array_stride: std::mem::size_of::<BgPoint>() as u64,
-                    step_mode: wgpu::InputStepMode::Vertex,
-                    attributes: &wgpu::vertex_attr_array![0 => Float2],
+                    step_mode: wgpu::VertexStepMode::Vertex,
+                    attributes: &wgpu::vertex_attr_array![0 => Float32x2],
                 }],
             },
             fragment: Some(wgpu::FragmentState {

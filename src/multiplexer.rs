@@ -208,8 +208,8 @@ impl Multiplexer {
 
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: None,
-            color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
-                attachment,
+            color_attachments: &[wgpu::RenderPassColorAttachment {
+                view: attachment,
                 resolve_target,
                 ops: wgpu::Operations {
                     load: wgpu::LoadOp::Clear(clear_color),
@@ -697,16 +697,15 @@ fn create_pipeline(device: &Device, bg_layout: &wgpu::BindGroupLayout) -> wgpu::
 
     let targets = &[wgpu::ColorTargetState {
         format: wgpu::TextureFormat::Bgra8UnormSrgb,
-        color_blend: wgpu::BlendState::REPLACE,
-        alpha_blend: wgpu::BlendState::REPLACE,
-        write_mask: wgpu::ColorWrite::ALL,
+        blend: Some(wgpu::BlendState::REPLACE),
+        write_mask: wgpu::ColorWrites::ALL,
     }];
 
     let primitive = wgpu::PrimitiveState {
         topology: wgpu::PrimitiveTopology::TriangleStrip,
         strip_index_format: Some(wgpu::IndexFormat::Uint16),
         front_face: wgpu::FrontFace::Ccw,
-        cull_mode: wgpu::CullMode::None,
+        cull_mode: None,
         ..Default::default()
     };
 

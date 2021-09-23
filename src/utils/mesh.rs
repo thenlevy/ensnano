@@ -38,19 +38,19 @@ impl Vertex for MeshVertex {
         use std::mem;
         wgpu::VertexBufferLayout {
             array_stride: mem::size_of::<MeshVertex>() as wgpu::BufferAddress,
-            step_mode: wgpu::InputStepMode::Vertex,
+            step_mode: wgpu::VertexStepMode::Vertex,
             attributes: &[
                 // Position
                 wgpu::VertexAttribute {
                     offset: 0,
                     shader_location: VERTEX_POSITION_ADRESS,
-                    format: wgpu::VertexFormat::Float3,
+                    format: wgpu::VertexFormat::Float32x3,
                 },
                 // Normal
                 wgpu::VertexAttribute {
                     offset: mem::size_of::<[f32; 3]>() as wgpu::BufferAddress,
                     shader_location: VERTEX_NORMAL_ADRESS,
-                    format: wgpu::VertexFormat::Float3,
+                    format: wgpu::VertexFormat::Float32x3,
                 },
             ],
         }

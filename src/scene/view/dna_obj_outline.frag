@@ -12,6 +12,7 @@ layout(set=0, binding=0) uniform Uniform {
     uniform vec3 u_camera_position;
     mat4 u_view;
     mat4 u_proj;
+    mat4 u_view_inversed;
     float u_fog_radius;
     float u_fog_length;
     uint u_make_fog;

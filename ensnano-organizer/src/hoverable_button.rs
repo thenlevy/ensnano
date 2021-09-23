@@ -45,7 +45,7 @@ where
             height: Length::Shrink,
             min_width: 0,
             min_height: 0,
-            padding: Renderer::DEFAULT_PADDING,
+            padding: Renderer::DEFAULT_PADDING.left,
             style: Renderer::Style::default(),
         }
     }
@@ -131,7 +131,7 @@ where
     }
 
     fn layout(&self, renderer: &Renderer, limits: &layout::Limits) -> layout::Node {
-        let padding = f32::from(self.padding);
+        let padding = iced_native::Padding::from(self.padding);
         let limits = limits
             .min_width(self.min_width)
             .min_height(self.min_height)
@@ -140,7 +140,7 @@ where
             .pad(padding);
 
         let mut content = self.content.layout(renderer, &limits);
-        content.move_to(Point::new(padding, padding));
+        content.move_to(Point::new(self.padding as f32, self.padding as f32));
 
         let size = limits.resolve(content.size()).pad(padding);
 

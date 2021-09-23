@@ -17,6 +17,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 use super::instances_drawer::{Instanciable, RessourceProvider, Vertexable};
 use iced_wgpu::wgpu;
+use std::convert::TryInto;
 use std::rc::Rc;
 use ultraviolet::{Vec2, Vec3};
 use wgpu::{Device, Queue};
@@ -227,7 +228,7 @@ unsafe impl bytemuck::Zeroable for CubeVertex {}
 unsafe impl bytemuck::Pod for CubeVertex {}
 
 const CUBE_VERTEX_ARRAY: [wgpu::VertexAttribute; 2] =
-    wgpu::vertex_attr_array![0 => Float3, 1 => Float2];
+    wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x2];
 impl Vertexable for CubeVertex {
     type RawType = CubeVertex;
 
@@ -239,7 +240,7 @@ impl Vertexable for CubeVertex {
         use std::mem;
         wgpu::VertexBufferLayout {
             array_stride: mem::size_of::<CubeVertex>() as wgpu::BufferAddress,
-            step_mode: wgpu::InputStepMode::Vertex,
+            step_mode: wgpu::VertexStepMode::Vertex,
             attributes: &CUBE_VERTEX_ARRAY,
         }
     }
@@ -256,20 +257,20 @@ impl RessourceProvider for DirectionTexture {
         &[
             wgpu::BindGroupLayoutEntry {
                 binding: 0,
-                visibility: wgpu::ShaderStage::FRAGMENT,
+                visibility: wgpu::ShaderStages::FRAGMENT,
                 ty: wgpu::BindingType::Texture {
-                    multisampled: true,
+                    multisampled: false,
                     view_dimension: wgpu::TextureViewDimension::D2,
-                    sample_type: wgpu::TextureSampleType::Uint,
+                    sample_type: wgpu::TextureSampleType::Float { filterable: true },
                 },
                 count: None,
             },
             wgpu::BindGroupLayoutEntry {
                 binding: 1,
-                visibility: wgpu::ShaderStage::FRAGMENT,
+                visibility: wgpu::ShaderStages::FRAGMENT,
                 ty: wgpu::BindingType::Sampler {
                     comparison: false,
-                    filtering: false,
+                    filtering: true,
                 },
                 count: None,
             },
@@ -294,15 +295,15 @@ impl DirectionTexture {
     pub fn new(device: Rc<Device>, queue: Rc<Queue>) -> Self {
         let diffuse_bytes = include_bytes!("../../../icons/direction_cube.png");
         let diffuse_image = image::load_from_memory(diffuse_bytes).unwrap();
-        let rgba = diffuse_image.as_rgba8().unwrap();
+        let dimensions = diffuse_image.dimensions();
+        let bgra = diffuse_image.into_bgra8();
 
         use image::GenericImageView;
-        let dimensions = diffuse_image.dimensions();
 
         let size = wgpu::Extent3d {
             width: dimensions.0,
             height: dimensions.1,
-            depth: 1,
+            depth_or_array_layers: 1,
         };
         let texture = device.create_texture(&wgpu::TextureDescriptor {
             label: None,
@@ -310,21 +311,22 @@ impl DirectionTexture {
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Rgba8UnormSrgb,
-            usage: wgpu::TextureUsage::SAMPLED | wgpu::TextureUsage::COPY_DST,
+            format: crate::TEXTURE_FORMAT,
+            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
         });
 
         queue.write_texture(
-            wgpu::TextureCopyView {
+            wgpu::ImageCopyTexture {
                 texture: &texture,
                 mip_level: 0,
                 origin: wgpu::Origin3d::ZERO,
+                aspect: Default::default(),
             },
-            rgba,
-            wgpu::TextureDataLayout {
+            &bgra,
+            wgpu::ImageDataLayout {
                 offset: 0,
-                bytes_per_row: 4 * dimensions.0,
-                rows_per_image: dimensions.1,
+                bytes_per_row: (4 * dimensions.0).try_into().ok(),
+                rows_per_image: dimensions.1.try_into().ok(),
             },
             size,
         );

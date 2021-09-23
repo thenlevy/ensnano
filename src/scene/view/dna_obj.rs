@@ -40,7 +40,7 @@ pub trait DnaObject:
 }
 
 const VERTEX_ATTR_ARRAY: [wgpu::VertexAttribute; 2] =
-    wgpu::vertex_attr_array![0 => Float3, 1 => Float3];
+    wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x3];
 impl Vertexable for DnaVertex {
     type RawType = DnaVertex;
     fn to_raw(&self) -> DnaVertex {
@@ -51,7 +51,7 @@ impl Vertexable for DnaVertex {
         use std::mem;
         wgpu::VertexBufferLayout {
             array_stride: mem::size_of::<DnaVertex>() as wgpu::BufferAddress,
-            step_mode: wgpu::InputStepMode::Vertex,
+            step_mode: wgpu::VertexStepMode::Vertex,
             attributes: &VERTEX_ATTR_ARRAY,
         }
     }
@@ -64,6 +64,7 @@ pub struct RawDnaInstance {
     pub color: Vec4,
     pub scale: Vec3,
     pub id: u32,
+    pub inversed_model: Mat4,
 }
 
 unsafe impl bytemuck::Zeroable for RawDnaInstance {}
@@ -139,11 +140,13 @@ impl Instanciable for SphereInstance {
     }
 
     fn to_raw_instance(&self) -> RawDnaInstance {
+        let model = Mat4::from_translation(self.position);
         RawDnaInstance {
-            model: Mat4::from_translation(self.position),
+            model,
             color: self.color,
             scale: Vec3::new(self.radius, self.radius, self.radius),
             id: self.id,
+            inversed_model: model.inversed(),
         }
     }
 
@@ -241,12 +244,14 @@ impl Instanciable for TubeInstance {
     }
 
     fn to_raw_instance(&self) -> RawDnaInstance {
+        let model =
+            Mat4::from_translation(self.position) * self.rotor.into_matrix().into_homogeneous();
         RawDnaInstance {
-            model: Mat4::from_translation(self.position)
-                * self.rotor.into_matrix().into_homogeneous(),
+            model,
             color: self.color,
             scale: Vec3::new(self.length, self.radius, self.radius),
             id: self.id,
+            inversed_model: model.inversed(),
         }
     }
 }
@@ -338,12 +343,14 @@ impl Instanciable for ConeInstance {
     }
 
     fn to_raw_instance(&self) -> RawDnaInstance {
+        let model =
+            Mat4::from_translation(self.position) * self.rotor.into_matrix().into_homogeneous();
         RawDnaInstance {
-            model: Mat4::from_translation(self.position)
-                * self.rotor.into_matrix().into_homogeneous(),
+            model,
             color: self.color,
             scale: Vec3::new(self.length, self.radius, self.radius),
             id: self.id,
+            inversed_model: model.inversed(),
         }
     }
 }

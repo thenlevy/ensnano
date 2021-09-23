@@ -41,7 +41,7 @@ pub trait Drawable {
         *vertex_buffer = Some(create_buffer_with_data(
             device.as_ref(),
             bytemuck::cast_slice(self.raw_vertices(fake).as_slice()),
-            wgpu::BufferUsage::VERTEX,
+            wgpu::BufferUsages::VERTEX,
         ));
     }
     fn raw_vertices(&self, fake: bool) -> Vec<VertexRaw> {
@@ -74,7 +74,7 @@ impl<D: Drawable> Drawer<D> {
         let index_buffer = create_buffer_with_data(
             device.as_ref(),
             bytemuck::cast_slice(D::indices().as_slice()),
-            wgpu::BufferUsage::INDEX,
+            wgpu::BufferUsages::INDEX,
         );
 
         Self {
@@ -166,32 +166,18 @@ impl<D: Drawable> Drawer<D> {
             wgpu::TextureFormat::Bgra8UnormSrgb
         };
 
-        let color_blend = if !fake {
-            wgpu::BlendState {
-                src_factor: wgpu::BlendFactor::SrcAlpha,
-                dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
-                operation: wgpu::BlendOperation::Add,
-            }
-        } else {
+        let blend_state = if fake {
             wgpu::BlendState::REPLACE
-        };
-        let alpha_blend = if !fake {
-            wgpu::BlendState {
-                src_factor: wgpu::BlendFactor::One,
-                dst_factor: wgpu::BlendFactor::One,
-                operation: wgpu::BlendOperation::Add,
-            }
         } else {
-            wgpu::BlendState::REPLACE
+            wgpu::BlendState::ALPHA_BLENDING
         };
 
         let sample_count = if !fake { SAMPLE_COUNT } else { 1 };
 
         let targets = &[wgpu::ColorTargetState {
             format,
-            color_blend,
-            alpha_blend,
-            write_mask: wgpu::ColorWrite::ALL,
+            blend: Some(blend_state),
+            write_mask: wgpu::ColorWrites::ALL,
         }];
         let strip_index_format = match self.primitive_topology {
             wgpu::PrimitiveTopology::LineStrip | wgpu::PrimitiveTopology::TriangleStrip => {
@@ -204,7 +190,7 @@ impl<D: Drawable> Drawer<D> {
             topology: self.primitive_topology,
             strip_index_format,
             front_face: wgpu::FrontFace::Ccw,
-            cull_mode: wgpu::CullMode::None,
+            cull_mode: None,
             ..Default::default()
         };
 
@@ -228,7 +214,6 @@ impl<D: Drawable> Drawer<D> {
                     depth_compare: wgpu::CompareFunction::Less,
                     stencil: Default::default(),
                     bias: Default::default(),
-                    clamp_depth: false,
                 }),
                 multisample: wgpu::MultisampleState {
                     count: sample_count,
@@ -250,12 +235,12 @@ unsafe impl bytemuck::Zeroable for VertexRaw {}
 unsafe impl bytemuck::Pod for VertexRaw {}
 
 const VERTEX_ATTR_ARRAY: [wgpu::VertexAttribute; 2] =
-    wgpu::vertex_attr_array![0 => Float3, 1 => Float4];
+    wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x4];
 impl VertexRaw {
     pub fn buffer_desc<'a>() -> wgpu::VertexBufferLayout<'a> {
         wgpu::VertexBufferLayout {
             array_stride: std::mem::size_of::<VertexRaw>() as wgpu::BufferAddress,
-            step_mode: wgpu::InputStepMode::Vertex,
+            step_mode: wgpu::VertexStepMode::Vertex,
             attributes: &VERTEX_ATTR_ARRAY,
         }
     }

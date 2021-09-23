@@ -166,29 +166,17 @@ impl CircleDrawer {
 
         let format = wgpu::TextureFormat::Bgra8UnormSrgb;
 
-        let color_blend = wgpu::BlendState {
-            src_factor: wgpu::BlendFactor::SrcAlpha,
-            dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
-            operation: wgpu::BlendOperation::Add,
-        };
-
-        let alpha_blend = wgpu::BlendState {
-            src_factor: wgpu::BlendFactor::One,
-            dst_factor: wgpu::BlendFactor::One,
-            operation: wgpu::BlendOperation::Add,
-        };
         let targets = &[wgpu::ColorTargetState {
             format,
-            color_blend,
-            alpha_blend,
-            write_mask: wgpu::ColorWrite::ALL,
+            blend: Some(wgpu::BlendState::ALPHA_BLENDING),
+            write_mask: wgpu::ColorWrites::ALL,
         }];
 
         let primitive = wgpu::PrimitiveState {
             topology: wgpu::PrimitiveTopology::TriangleStrip,
             strip_index_format: Some(wgpu::IndexFormat::Uint16),
             front_face: wgpu::FrontFace::Ccw,
-            cull_mode: wgpu::CullMode::None,
+            cull_mode: None,
             ..Default::default()
         };
 
@@ -212,7 +200,6 @@ impl CircleDrawer {
                     depth_compare: wgpu::CompareFunction::Less,
                     stencil: Default::default(),
                     bias: Default::default(),
-                    clamp_depth: false,
                 }),
                 multisample: wgpu::MultisampleState {
                     count: SAMPLE_COUNT,
