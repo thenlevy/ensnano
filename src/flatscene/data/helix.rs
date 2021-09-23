@@ -683,10 +683,15 @@ impl Helix {
                     rotation: self.isometry.rotation.into_matrix(),
                     size: scale,
                     z_index: self.flat_id.flat.0 as i32,
+                    color: [0., 0., 0., 1.].into(),
                 })
             }
         }
 
+        let moving_pos = edition_info
+            .as_ref()
+            .filter(|info| info.nucl.helix == self.flat_id)
+            .map(|info| info.nucl.position);
         let mut print_pos = |pos: isize| {
             let nb_chars = pos.to_string().len(); // ok to use len because digits are ascii
             let scale = size_pos;
@@ -708,19 +713,21 @@ impl Helix {
                     height * scale,
                     show_seq,
                 );
+                let color = if Some(pos) == moving_pos {
+                    [1., 0., 0., 1.].into()
+                } else {
+                    [0., 0., 0., 1.].into()
+                };
                 instances.push(CharInstance {
                     center: center + (x_shift + advances[c_idx] * scale) * Vec2::unit_x(),
                     rotation: self.isometry.rotation.into_matrix(),
                     size: scale,
                     z_index: self.flat_id.flat.0 as i32,
+                    color,
                 })
             }
         };
 
-        let moving_pos = edition_info
-            .as_ref()
-            .filter(|info| info.nucl.helix == self.flat_id)
-            .map(|info| info.nucl.position);
         let mut pos = self.left;
         while pos <= self.right {
             if ((pos >= 0 && pos % 8 == 0) || (pos < 0 && -pos % 8 == 0)) && moving_pos != Some(pos)
@@ -729,8 +736,8 @@ impl Helix {
             }
             pos += 1;
         }
-        if let Some(pos) = moving_pos {
-            print_pos(pos); //TODO print in an other color
+        if let Some(position) = moving_pos {
+            print_pos(position);
         }
 
         let mut print_info = |pos: isize, info: &str| {
@@ -762,6 +769,7 @@ impl Helix {
                     rotation: self.isometry.rotation.into_matrix(),
                     size: scale,
                     z_index: self.flat_id.flat.0 as i32,
+                    color: [0., 0., 0., 1.].into(),
                 })
             }
         };
@@ -794,6 +802,7 @@ impl Helix {
                     rotation: self.isometry.rotation.into_matrix(),
                     size: scale,
                     z_index: self.flat_id.flat.0 as i32,
+                    color: [0., 0., 0., 1.].into(),
                 })
             }
         };
