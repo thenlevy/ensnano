@@ -11,6 +11,7 @@ of the select strands disappears when changing color.
  * moving helices in the 2d view
 - A "Save As" button has been added with the behavior of the previous "Save" button. The "Save" button now
 save the design with the current file name instead of opening a file picking dialog.
+- Shows the length of the currently edited domain in the 2d view
 
 ## 0.2.1
 - Take loops into account when importing cadnano file
