@@ -1185,9 +1185,6 @@ fn torsion_color(strength: f32) -> u32 {
 
 impl ToString for EditionInfo {
     fn to_string(&self) -> String {
-        format!(
-            "{}({}nt/{:.1}nm)",
-            self.nucl.position, self.nt_length, self.nm_length
-        )
+        format!("{}nt/{:.1}nm", self.nt_length, self.nm_length)
     }
 }

@@ -683,10 +683,15 @@ impl Helix {
                     rotation: self.isometry.rotation.into_matrix(),
                     size: scale,
                     z_index: self.flat_id.flat.0 as i32,
+                    color: [0., 0., 0., 1.].into(),
                 })
             }
         }
 
+        let moving_pos = edition_info
+            .as_ref()
+            .filter(|info| info.nucl.helix == self.flat_id)
+            .map(|info| info.nucl.position);
         let mut print_pos = |pos: isize| {
             let nb_chars = pos.to_string().len(); // ok to use len because digits are ascii
             let scale = size_pos;
@@ -708,26 +713,39 @@ impl Helix {
                     height * scale,
                     show_seq,
                 );
+                let color = if Some(pos) == moving_pos {
+                    [1., 0., 0., 1.].into()
+                } else {
+                    [0., 0., 0., 1.].into()
+                };
                 instances.push(CharInstance {
                     center: center + (x_shift + advances[c_idx] * scale) * Vec2::unit_x(),
                     rotation: self.isometry.rotation.into_matrix(),
                     size: scale,
                     z_index: self.flat_id.flat.0 as i32,
+                    color,
                 })
             }
         };
 
         let mut pos = self.left;
         while pos <= self.right {
-            if (pos >= 0 && pos % 8 == 0) || (pos < 0 && -pos % 8 == 0) {
+            if ((pos >= 0 && pos % 8 == 0) || (pos < 0 && -pos % 8 == 0)) && moving_pos != Some(pos)
+            {
                 print_pos(pos);
             }
             pos += 1;
         }
+        if let Some(position) = moving_pos {
+            print_pos(position);
+        }
 
         let mut print_info = |pos: isize, info: &str| {
             let scale = size_pos;
-            let nb_chars_pos = pos.to_string().len(); // ok to use len because digits are ascii
+            let advance_idx = info
+                .find('/')
+                .map(|n| 2 * n + 1)
+                .unwrap_or_else(|| info.len()); // ok to use len because the str contains only ascii chars
             let mut advances = crate::utils::chars2d::char_positions_x(info, char_drawers);
             let mut height = crate::utils::chars2d::height(info, char_drawers);
             let mut pos_y = crate::utils::chars2d::char_positions_y(info, char_drawers);
@@ -740,29 +758,25 @@ impl Helix {
                     *y *= 2.;
                 }
             }
-            let x_shift = if pos >= 0 { 0. } else { -advances[1] / 2. };
             for (c_idx, c) in info.chars().enumerate() {
                 let instances = char_map.get_mut(&c).unwrap();
-                let center = self.num_position_top(
-                    pos,
-                    advances[nb_chars_pos] * scale,
-                    height * scale,
-                    true,
-                );
+                let center =
+                    self.num_position_top(pos, advances[advance_idx] * scale, height * scale, true);
                 instances.push(CharInstance {
                     center: center
-                        + (x_shift + advances[c_idx] * scale) * Vec2::unit_x()
+                        + (advances[c_idx] * scale) * Vec2::unit_x()
                         + pos_y[c_idx] * Vec2::unit_y(),
                     rotation: self.isometry.rotation.into_matrix(),
                     size: scale,
                     z_index: self.flat_id.flat.0 as i32,
+                    color: [0., 0., 0., 1.].into(),
                 })
             }
         };
 
         if let Some(building) = edition_info {
             if building.nucl.helix == self.flat_id {
-                print_info(building.nucl.position, &building.to_string())
+                print_info(building.nucl.position, &building.to_string());
             }
         }
 
@@ -788,6 +802,7 @@ impl Helix {
                     rotation: self.isometry.rotation.into_matrix(),
                     size: scale,
                     z_index: self.flat_id.flat.0 as i32,
+                    color: [0., 0., 0., 1.].into(),
                 })
             }
         };

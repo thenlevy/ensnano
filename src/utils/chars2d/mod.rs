@@ -18,7 +18,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 use iced_wgpu::wgpu;
 use std::collections::HashMap;
 use std::rc::Rc;
-use ultraviolet::{Mat2, Vec2};
+use ultraviolet::{Mat2, Vec2, Vec4};
 use wgpu::{include_spirv, BindGroupLayout, Device, Queue, RenderPass, RenderPipeline};
 
 use crate::consts::*;
@@ -33,6 +33,7 @@ pub struct CharInstance {
     pub rotation: Mat2,
     pub size: f32,
     pub z_index: i32,
+    pub color: Vec4,
 }
 
 unsafe impl bytemuck::Zeroable for CharInstance {}
@@ -67,6 +68,7 @@ impl CharDrawer {
             rotation: Mat2::identity(),
             z_index: -1,
             size: 1.,
+            color: Vec4::zero(),
         }];
         let mut ret = Self {
             device,
