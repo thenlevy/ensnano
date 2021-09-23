@@ -18,7 +18,6 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 use super::*;
 use ensnano_interactor::{RollRequest, SimulationState};
 use iced::scrollable;
-use iced::Color;
 
 pub(super) struct EditionTab<S: AppState> {
     scroll: iced::scrollable::State,
