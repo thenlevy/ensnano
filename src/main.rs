@@ -892,8 +892,12 @@ impl MainState {
         self.modify_state(|s| s.with_candidates(candidates), false);
     }
 
-    fn update_selection(&mut self, selection: Vec<Selection>) {
-        self.modify_state(|s| s.with_selection(selection), true);
+    fn update_selection(
+        &mut self,
+        selection: Vec<Selection>,
+        group_id: Option<ensnano_organizer::GroupId>,
+    ) {
+        self.modify_state(|s| s.with_selection(selection, group_id), true);
     }
 
     fn update_center_of_selection(&mut self, center: Option<CenterOfSelection>) {
@@ -1267,19 +1271,19 @@ impl<'a> MainStateInteface for MainStateView<'a> {
             selection.as_ref().as_ref(),
             self.get_design_reader().as_ref(),
         ) {
-            self.main_state.update_selection(vec![]);
+            self.main_state.update_selection(vec![], None);
             self.main_state
                 .apply_operation(DesignOperation::RmXovers { xovers: nucl_pairs })
         } else if let Some((_, strand_ids)) =
             ensnano_interactor::list_of_strands(selection.as_ref().as_ref())
         {
-            self.main_state.update_selection(vec![]);
+            self.main_state.update_selection(vec![], None);
             self.main_state
                 .apply_operation(DesignOperation::RmStrands { strand_ids })
         } else if let Some((_, h_ids)) =
             ensnano_interactor::list_of_helices(selection.as_ref().as_ref())
         {
-            self.main_state.update_selection(vec![]);
+            self.main_state.update_selection(vec![], None);
             self.main_state
                 .apply_operation(DesignOperation::RmHelices { h_ids })
         }
@@ -1294,7 +1298,7 @@ impl<'a> MainStateInteface for MainStateView<'a> {
             .map(|info| info.id);
         if let Some(s_id) = scaffold_id {
             self.main_state
-                .update_selection(vec![Selection::Strand(0, s_id as u32)])
+                .update_selection(vec![Selection::Strand(0, s_id as u32)], None)
         }
     }
 

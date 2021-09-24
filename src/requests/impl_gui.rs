@@ -182,7 +182,7 @@ impl GuiRequests for Requests {
     }
 
     fn set_selected_keys(&mut self, selection: Vec<DnaElementKey>) {
-        self.organizer_selection = Some(selection);
+        self.organizer_selection = Some((selection, None));
     }
 
     fn update_organizer_tree(&mut self, tree: OrganizerTree<DnaElementKey>) {

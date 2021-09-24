@@ -37,6 +37,7 @@ use crate::controller::SimulationRequest;
 use address_pointer::AddressPointer;
 use ensnano_design::Design;
 use ensnano_interactor::{DesignOperation, RigidBodyConstants};
+use ensnano_organizer::GroupId;
 
 pub use design_interactor::controller::ErrOperation;
 pub use design_interactor::{
@@ -71,13 +72,22 @@ impl Default for AppState {
 }
 
 impl AppState {
-    pub fn with_selection(&self, selection: Vec<Selection>) -> Self {
-        if self.0.selection.content_equal(&selection) {
+    pub fn with_selection(
+        &self,
+        selection: Vec<Selection>,
+        selected_group: Option<GroupId>,
+    ) -> Self {
+        if self.0.selection.selection.content_equal(&selection)
+            && selected_group == self.0.selection.selected_group
+        {
             self.clone()
         } else {
             let mut new_state = (*self.0).clone();
             let selection_len = selection.len();
-            new_state.selection = AddressPointer::new(selection);
+            new_state.selection = AppStateSelection {
+                selection: AddressPointer::new(selection),
+                selected_group,
+            };
             // Set when the selection is modified, the center of selection is set to None. It is up
             // to the caller to set it to a certain value when applicable
             new_state.center_of_selection = None;
@@ -277,7 +287,7 @@ impl AppState {
     }
 
     pub fn get_selection(&self) -> impl AsRef<[Selection]> {
-        self.0.selection.clone()
+        self.0.selection.selection.clone()
     }
 
     fn is_changing_color(&self) -> bool {
@@ -352,12 +362,16 @@ impl AppState {
             }
         })
     }
+
+    fn selection_content(&self) -> &AddressPointer<Vec<Selection>> {
+        &self.0.selection.selection
+    }
 }
 
 #[derive(Clone, Default)]
 struct AppState_ {
     /// The set of currently selected objects
-    selection: AddressPointer<Vec<Selection>>,
+    selection: AppStateSelection,
     /// The set of objects that are "one click away from beeing selected"
     candidates: AddressPointer<Vec<Selection>>,
     selection_mode: SelectionMode,
@@ -369,6 +383,12 @@ struct AppState_ {
     widget_basis: WidgetBasis,
     strand_on_new_helix: Option<NewHelixStrand>,
     center_of_selection: Option<CenterOfSelection>,
+}
+
+#[derive(Clone, Default)]
+struct AppStateSelection {
+    selection: AddressPointer<Vec<Selection>>,
+    selected_group: Option<ensnano_organizer::GroupId>,
 }
 
 #[derive(Clone, PartialEq, Eq)]

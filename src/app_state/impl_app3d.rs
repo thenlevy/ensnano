@@ -24,7 +24,7 @@ use super::*;
 impl App3D for AppState {
     type DesignReader = DesignReader;
     fn get_selection(&self) -> &[Selection] {
-        self.0.selection.as_slice()
+        self.selection_content().as_slice()
     }
 
     fn get_candidates(&self) -> &[Selection] {
@@ -32,7 +32,7 @@ impl App3D for AppState {
     }
 
     fn selection_was_updated(&self, other: &AppState) -> bool {
-        self.0.selection != other.0.selection
+        self.selection_content() != other.selection_content()
             || self.0.center_of_selection != other.0.center_of_selection
     }
 
@@ -93,7 +93,7 @@ mod tests {
 
         // When a new state is created with this methods it should be considered to have a new
         // selection but the same selection
-        state = state.with_selection(vec![Selection::Strand(0, 0)]);
+        state = state.with_selection(vec![Selection::Strand(0, 0)], None);
         assert!(state.selection_was_updated(&old_state));
         assert!(!state.candidates_set_was_updated(&old_state));
     }
@@ -125,7 +125,7 @@ mod tests {
         let mut state = AppState::default();
         let old_state = state.clone();
 
-        state = state.with_selection(vec![]);
+        state = state.with_selection(vec![], None);
         assert!(!state.design_was_modified(&old_state));
     }
 

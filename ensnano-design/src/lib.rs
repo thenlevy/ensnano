@@ -38,6 +38,7 @@ use scadnano::*;
 pub mod elements;
 use elements::DnaElementKey;
 pub type EnsnTree = OrganizerTree<DnaElementKey>;
+pub mod group_attributes;
 
 mod formating;
 #[cfg(test)]
