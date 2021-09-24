@@ -90,7 +90,11 @@ impl SceneRequests for Requests {
     }
 
     fn translate_group_pivot(&mut self, translation: Vec3) {
-        self.keep_proceed
-            .push_back(Action::TranslateGroupPivot(translation))
+        if let Some(Action::TranslateGroupPivot(t)) = self.keep_proceed.iter_mut().last() {
+            *t = translation
+        } else {
+            self.keep_proceed
+                .push_back(Action::TranslateGroupPivot(translation))
+        }
     }
 }
