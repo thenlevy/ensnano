@@ -178,14 +178,17 @@ impl<S: AppState> Scene<S> {
                 self.attempt_xover(source, target, d_id);
                 self.data.borrow_mut().end_free_xover();
             }
-            Consequence::Translation(dir, x_coord, y_coord) => {
+            Consequence::Translation(dir, x_coord, y_coord, target) => {
                 let translation = self.view.borrow().compute_translation_handle(
                     x_coord as f32,
                     y_coord as f32,
                     dir,
                 );
                 if let Some(t) = translation {
-                    self.translate_selected_design(t, app_state);
+                    match target {
+                        TranslationTarget::Object => self.translate_selected_design(t, app_state),
+                        TranslationTarget::Pivot => self.translate_group_pivot(t),
+                    }
                 }
             }
             Consequence::HelixTranslated { helix, grid, x, y } => {
@@ -438,6 +441,14 @@ impl<S: AppState> Scene<S> {
             .lock()
             .unwrap()
             .update_opperation(translation_op);
+    }
+
+    fn translate_group_pivot(&mut self, translation: Vec3) {
+        self.view.borrow_mut().translate_widgets(translation);
+        self.requests
+            .lock()
+            .unwrap()
+            .translate_group_pivot(translation);
     }
 
     fn rotate_selected_desgin(
@@ -782,4 +793,5 @@ pub trait Requests {
     fn update_builder_position(&mut self, position: isize);
     fn toggle_widget_basis(&mut self);
     fn set_current_group_pivot(&mut self, pivot: GroupPivot);
+    fn translate_group_pivot(&mut self, translation: Vec3);
 }

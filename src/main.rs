@@ -1373,6 +1373,18 @@ impl<'a> MainStateInteface for MainStateView<'a> {
             //TODO
         }
     }
+
+    fn translate_group_pivot(&mut self, translation: Vec3) {
+        use ensnano_interactor::{DesignTranslation, IsometryTarget};
+        if let Some(group_id) = self.main_state.app_state.get_current_group_id() {
+            self.apply_operation(DesignOperation::Translation(DesignTranslation {
+                target: IsometryTarget::GroupPivot(group_id),
+                translation,
+            }))
+        } else {
+            // TODO
+        }
+    }
 }
 
 use controller::{SetScaffoldSequenceError, SetScaffoldSequenceOk};

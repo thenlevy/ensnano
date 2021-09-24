@@ -943,7 +943,26 @@ impl Controller {
             IsometryTarget::Grids(grid_ids) => {
                 Ok(self.translate_grids(design, grid_ids, translation.translation))
             }
+            IsometryTarget::GroupPivot(group_id) => {
+                self.translate_group_pivot(design, translation.translation, group_id)
+            }
         }
+    }
+
+    fn translate_group_pivot(
+        &mut self,
+        mut design: Design,
+        translation: Vec3,
+        group_id: GroupId,
+    ) -> Result<Design, ErrOperation> {
+        self.update_state_and_design(&mut design);
+        let pivot = design
+            .group_attributes
+            .get_mut(&group_id)
+            .and_then(|attributes| attributes.pivot.as_mut())
+            .ok_or(ErrOperation::GroupHasNoPivot(group_id))?;
+        pivot.position += translation;
+        Ok(design)
     }
 
     fn attach_helix(
@@ -998,7 +1017,9 @@ impl Controller {
         rotation: DesignRotation,
     ) -> Result<Design, ErrOperation> {
         match rotation.target {
-            IsometryTarget::Design => Err(ErrOperation::NotImplemented),
+            IsometryTarget::Design | IsometryTarget::GroupPivot(_) => {
+                Err(ErrOperation::NotImplemented)
+            }
             IsometryTarget::Helices(helices, snap) => Ok(self.rotate_helices_3d(
                 design,
                 snap,
@@ -1147,7 +1168,7 @@ impl OkOperation {
 
 #[derive(Debug)]
 pub enum ErrOperation {
-    GroupDoesNotExist(GroupId),
+    GroupHasNoPivot(GroupId),
     NotImplemented,
     NotEnoughHelices {
         actual: usize,

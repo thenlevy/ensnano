@@ -68,7 +68,7 @@ pub enum Consequence {
     CameraMoved,
     CameraTranslated(f64, f64),
     XoverAtempt(Nucl, Nucl, usize),
-    Translation(HandleDir, f64, f64),
+    Translation(HandleDir, f64, f64, TranslationTarget),
     MovementEnded,
     Rotation(f64, f64),
     InitRotation(RotationMode, f64, f64),

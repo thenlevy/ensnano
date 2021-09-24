@@ -201,6 +201,10 @@ impl State for NormalState {
                     main_state.set_current_group_pivot(pivot);
                     self
                 }
+                Action::TranslateGroupPivot(translation) => {
+                    main_state.translate_group_pivot(translation);
+                    self
+                }
                 action => {
                     println!("Not implemented {:?}", action);
                     self
@@ -386,4 +390,5 @@ pub enum Action {
     ReloadFile,
     ClearVisibilitySieve,
     SetGroupPivot(GroupPivot),
+    TranslateGroupPivot(Vec3),
 }

@@ -88,4 +88,9 @@ impl SceneRequests for Requests {
     fn set_current_group_pivot(&mut self, pivot: ensnano_design::group_attributes::GroupPivot) {
         self.keep_proceed.push_back(Action::SetGroupPivot(pivot))
     }
+
+    fn translate_group_pivot(&mut self, translation: Vec3) {
+        self.keep_proceed
+            .push_back(Action::TranslateGroupPivot(translation))
+    }
 }

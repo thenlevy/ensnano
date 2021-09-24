@@ -259,6 +259,8 @@ pub enum IsometryTarget {
     Helices(Vec<usize>, bool),
     /// A grid of the desgin
     Grids(Vec<usize>),
+    /// The pivot of a group
+    GroupPivot(GroupId),
 }
 
 /// A stucture that defines an helix on a grid

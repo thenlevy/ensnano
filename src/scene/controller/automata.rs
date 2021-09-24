@@ -758,7 +758,12 @@ impl<S: AppState> ControllerState<S> for TranslatingWidget {
             WindowEvent::CursorMoved { .. } => {
                 let mouse_x = position.x / controller.area_size.width as f64;
                 let mouse_y = position.y / controller.area_size.height as f64;
-                Transition::consequence(Consequence::Translation(self.direction, mouse_x, mouse_y))
+                Transition::consequence(Consequence::Translation(
+                    self.direction,
+                    mouse_x,
+                    mouse_y,
+                    self.translation_target,
+                ))
             }
             _ => Transition::nothing(),
         }
