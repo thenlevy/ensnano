@@ -366,6 +366,10 @@ impl AppState {
     fn selection_content(&self) -> &AddressPointer<Vec<Selection>> {
         &self.0.selection.selection
     }
+
+    pub fn get_current_group_id(&self) -> Option<GroupId> {
+        self.0.selection.selected_group.clone()
+    }
 }
 
 #[derive(Clone, Default)]

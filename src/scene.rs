@@ -25,7 +25,7 @@ use ultraviolet::{Mat4, Rotor3, Vec3};
 
 use crate::utils;
 use crate::{DrawArea, PhySize, WindowEvent};
-use ensnano_design::Nucl;
+use ensnano_design::{group_attributes::GroupPivot, Nucl};
 use ensnano_interactor::{
     application::{AppId, Application, Notification},
     list_of_grids, list_of_helices,
@@ -50,7 +50,7 @@ use view::{
 pub use view::{FogParameters, GridInstance};
 /// Handling of inputs and notifications
 mod controller;
-use controller::{Consequence, Controller};
+use controller::{Consequence, Controller, TranslationTarget};
 /// Handling of designs and internal data
 mod data;
 pub use controller::ClickMode;
@@ -207,8 +207,13 @@ impl<S: AppState> Scene<S> {
                 .view
                 .borrow_mut()
                 .init_rotation(mode, x as f32, y as f32),
-            Consequence::InitTranslation(x, y) => {
-                self.view.borrow_mut().init_translation(x as f32, y as f32)
+            Consequence::InitTranslation(x, y, target) => {
+                self.view.borrow_mut().init_translation(x as f32, y as f32);
+                if let TranslationTarget::Pivot = target {
+                    if let Some(pivot) = self.view.borrow().get_group_pivot() {
+                        self.requests.lock().unwrap().set_current_group_pivot(pivot)
+                    }
+                }
             }
             Consequence::Rotation(x, y) => {
                 let rotation = self.view.borrow().compute_rotation(x as f32, y as f32);
@@ -776,4 +781,5 @@ pub trait Requests {
     fn redo(&mut self);
     fn update_builder_position(&mut self, position: isize);
     fn toggle_widget_basis(&mut self);
+    fn set_current_group_pivot(&mut self, pivot: GroupPivot);
 }

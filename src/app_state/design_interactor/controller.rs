@@ -21,6 +21,7 @@ use crate::app_state::AddressPointer;
 use ensnano_design::{
     elements::{DnaAttribute, DnaElementKey},
     grid::{Edge, GridDescriptor, GridPosition, Hyperboloid},
+    group_attributes::GroupPivot,
     mutate_in_arc, Design, Domain, DomainJunction, Helix, Nucl, Strand,
 };
 use ensnano_interactor::{operation::Operation, HyperboloidOperation, SimulationState};
@@ -28,6 +29,7 @@ use ensnano_interactor::{
     DesignOperation, DesignRotation, DesignTranslation, DomainIdentifier, IsometryTarget,
     NeighbourDescriptor, NeighbourDescriptorGiver, Selection, StrandBuilder,
 };
+use ensnano_organizer::GroupId;
 use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
@@ -216,6 +218,9 @@ impl Controller {
             )),
             DesignOperation::SetStrandName { s_id, name } => {
                 self.apply(|c, d| c.change_strand_name(d, s_id, name), design)
+            }
+            DesignOperation::SetGroupPivot { group_id, pivot } => {
+                self.apply(|c, d| c.set_group_pivot(d, group_id, pivot), design)
             }
         }
     }
@@ -480,6 +485,18 @@ impl Controller {
             Some(true) => (),
         }
         design.groups = Arc::new(new_groups);
+        Ok(design)
+    }
+
+    fn set_group_pivot(
+        &mut self,
+        mut design: Design,
+        group_id: GroupId,
+        pivot: GroupPivot,
+    ) -> Result<Design, ErrOperation> {
+        let attributes = design.group_attributes.entry(group_id).or_default();
+        attributes.pivot = Some(pivot);
+
         Ok(design)
     }
 
@@ -1130,6 +1147,7 @@ impl OkOperation {
 
 #[derive(Debug)]
 pub enum ErrOperation {
+    GroupDoesNotExist(GroupId),
     NotImplemented,
     NotEnoughHelices {
         actual: usize,

@@ -84,4 +84,8 @@ impl SceneRequests for Requests {
     fn apply_design_operation(&mut self, op: DesignOperation) {
         self.keep_proceed.push_back(Action::DesignOperation(op))
     }
+
+    fn set_current_group_pivot(&mut self, pivot: ensnano_design::group_attributes::GroupPivot) {
+        self.keep_proceed.push_back(Action::SetGroupPivot(pivot))
+    }
 }

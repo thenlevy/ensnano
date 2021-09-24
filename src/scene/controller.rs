@@ -31,6 +31,7 @@ use super::AppState;
 use camera::CameraController;
 
 mod automata;
+pub use automata::TranslationTarget;
 use automata::{NormalState, State, Transition};
 
 /// The effect that draging the mouse have
@@ -71,7 +72,7 @@ pub enum Consequence {
     MovementEnded,
     Rotation(f64, f64),
     InitRotation(RotationMode, f64, f64),
-    InitTranslation(f64, f64),
+    InitTranslation(f64, f64, TranslationTarget),
     Swing(f64, f64),
     Nothing,
     ToggleWidget,

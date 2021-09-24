@@ -291,12 +291,22 @@ impl<S: AppState> ControllerState<S> for NormalState {
                     Some(SceneElement::WidgetElement(widget_id)) => {
                         let mouse_x = position.x / controller.area_size.width as f64;
                         let mouse_y = position.y / controller.area_size.height as f64;
+                        let translation_target = if controller.current_modifiers.shift() {
+                            TranslationTarget::Pivot
+                        } else {
+                            TranslationTarget::Object
+                        };
                         match widget_id {
                             UP_HANDLE_ID | DIR_HANDLE_ID | RIGHT_HANDLE_ID => Transition {
                                 new_state: Some(Box::new(TranslatingWidget {
                                     direction: HandleDir::from_widget_id(widget_id),
+                                    translation_target,
                                 })),
-                                consequences: Consequence::InitTranslation(mouse_x, mouse_y),
+                                consequences: Consequence::InitTranslation(
+                                    mouse_x,
+                                    mouse_y,
+                                    translation_target,
+                                ),
                             },
                             RIGHT_CIRCLE_ID | FRONT_CIRCLE_ID | UP_CIRCLE_ID => Transition {
                                 new_state: Some(Box::new(RotatingWidget {})),
@@ -709,6 +719,16 @@ impl<S: AppState> ControllerState<S> for WaitDoubleClick {
 
 struct TranslatingWidget {
     direction: HandleDir,
+    translation_target: TranslationTarget,
+}
+
+/// What is being affected by the translation
+#[derive(Clone, Debug, Copy)]
+pub enum TranslationTarget {
+    /// The selected elements
+    Object,
+    /// The selection's pivot
+    Pivot,
 }
 
 impl<S: AppState> ControllerState<S> for TranslatingWidget {

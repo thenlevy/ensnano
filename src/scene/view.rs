@@ -23,6 +23,7 @@ use crate::consts::*;
 use crate::utils::{bindgroup_manager, texture};
 use crate::{DrawArea, PhySize};
 use camera::{Camera, CameraPtr, Projection, ProjectionPtr};
+use ensnano_design::group_attributes::GroupPivot;
 use ensnano_design::Axis;
 use iced_wgpu::wgpu;
 use std::cell::RefCell;
@@ -813,6 +814,10 @@ impl View {
     pub fn background3d(&mut self, bg: Background3D) {
         self.background3d = bg;
         self.need_redraw = true;
+    }
+
+    pub fn get_group_pivot(&self) -> Option<GroupPivot> {
+        self.handle_drawers.get_pivot_position()
     }
 }
 

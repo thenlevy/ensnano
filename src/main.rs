@@ -1365,6 +1365,14 @@ impl<'a> MainStateInteface for MainStateView<'a> {
     fn get_current_file_name(&self) -> Option<&Path> {
         self.main_state.get_current_file_name()
     }
+
+    fn set_current_group_pivot(&mut self, pivot: ensnano_design::group_attributes::GroupPivot) {
+        if let Some(group_id) = self.main_state.app_state.get_current_group_id() {
+            self.apply_operation(DesignOperation::SetGroupPivot { group_id, pivot })
+        } else {
+            //TODO
+        }
+    }
 }
 
 use controller::{SetScaffoldSequenceError, SetScaffoldSequenceOk};
