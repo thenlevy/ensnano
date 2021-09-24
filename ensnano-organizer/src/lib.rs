@@ -19,8 +19,9 @@ pub mod theme;
 mod tree;
 
 pub use element::*;
+use rand::{rngs::ThreadRng, Rng};
 use theme::Theme;
-pub use tree::OrganizerTree;
+pub use tree::{GroupId, OrganizerTree};
 
 use drag_drop_target::*;
 
@@ -149,6 +150,7 @@ enum OrganizerMessage_<E: OrganizerElement> {
 }
 
 pub struct Organizer<E: OrganizerElement> {
+    rng_thread: ThreadRng,
     groups: Vec<GroupContent<E>>,
     sections: Vec<Section<E>>,
     scroll_state: scrollable::State,
@@ -161,10 +163,12 @@ pub struct Organizer<E: OrganizerElement> {
     new_group_button: button::State,
     hovered_in: Option<NodeId>,
     last_read_tree: *const OrganizerTree<E::Key>,
+    must_update_tree: bool,
 }
 
 impl<E: OrganizerElement> Organizer<E> {
     pub fn new() -> Self {
+        let rng = rand::thread_rng();
         let mut sections = Vec::new();
         let mut i = 0usize;
         let mut section: Result<<E::Key as ElementKey>::Section, _> = i.try_into();
@@ -176,6 +180,7 @@ impl<E: OrganizerElement> Organizer<E> {
             section = i.try_into();
         }
         Self {
+            rng_thread: rng,
             groups: vec![],
             sections,
             scroll_state: Default::default(),
@@ -188,6 +193,7 @@ impl<E: OrganizerElement> Organizer<E> {
             new_group_button: Default::default(),
             hovered_in: None,
             last_read_tree: std::ptr::null(),
+            must_update_tree: false,
         }
     }
 
@@ -245,7 +251,7 @@ impl<E: OrganizerElement> Organizer<E> {
 
     pub fn push_content(&mut self, content: Vec<E::Key>, group_name: String) {
         let id = vec![self.groups.len()];
-        let new_group = GroupContent::new(content, group_name, id.clone());
+        let new_group = GroupContent::new(content, group_name, id.clone(), &mut self.rng_thread);
         self.groups.push(new_group);
         self.start_edditing(id);
     }
@@ -483,28 +489,37 @@ impl<E: OrganizerElement> Organizer<E> {
         }
     }
 
-    fn tree(&self) -> OrganizerTree<E::Key> {
+    pub fn tree(&self) -> OrganizerTree<E::Key> {
         let groups = self.groups.iter().filter_map(|g| g.tree()).collect();
         OrganizerTree::Node {
             name: "root".to_owned(),
             childrens: groups,
             expanded: true,
+            id: None,
         }
     }
 
-    pub fn read_tree(&mut self, tree: &OrganizerTree<E::Key>) {
+    #[must_use = "If the tree has been updated, the program must be notified"]
+    pub fn read_tree(&mut self, tree: &OrganizerTree<E::Key>) -> bool {
         if self.last_read_tree != tree {
             self.last_read_tree = tree;
             if let OrganizerTree::Node { childrens, .. } = tree {
                 self.groups = childrens
                     .iter()
-                    .map(|g| GroupContent::read_tree(g))
+                    .map(|g| {
+                        GroupContent::read_tree(g, &mut self.rng_thread, &mut self.must_update_tree)
+                    })
                     .collect();
             } else {
                 self.groups = vec![];
             }
             self.recompute_id();
             self.update_attributes();
+            let ret = self.must_update_tree;
+            self.must_update_tree = false;
+            ret
+        } else {
+            false
         }
     }
 
@@ -602,6 +617,7 @@ impl<E: OrganizerElement> Organizer<E> {
         //TODO remove public once this is integrated in GUI
         if let Some(c1) = self.pop_id_no_recompute(id0) {
             if let Some(c2) = self.pop_id_no_recompute(id1) {
+                let new_group_id = self.rng_thread.gen();
                 let content = GroupContent::Node {
                     id: vec![],
                     name: String::from("new group"),
@@ -610,6 +626,7 @@ impl<E: OrganizerElement> Organizer<E> {
                     view: NodeView::new(),
                     attributes: vec![None; E::all_repr().len()],
                     elements_below: BTreeSet::new(),
+                    group_id: new_group_id,
                 };
                 self.replace_id(content, id1);
             } else {
@@ -994,6 +1011,7 @@ enum GroupContent<E: OrganizerElement> {
         childrens: Vec<GroupContent<E>>,
         attributes: Vec<Option<E::Attribute>>,
         elements_below: BTreeSet<E::Key>,
+        group_id: GroupId,
     },
     Placeholder,
 }
@@ -1079,7 +1097,11 @@ impl<E: OrganizerElement> GroupContent<E> {
         }
     }
 
-    fn read_tree(tree: &OrganizerTree<E::Key>) -> Self {
+    fn read_tree(
+        tree: &OrganizerTree<E::Key>,
+        rng: &mut ThreadRng,
+        must_update_tree: &mut bool,
+    ) -> Self {
         match tree {
             OrganizerTree::Leaf(k) => Self::Leaf {
                 id: vec![],
@@ -1091,8 +1113,18 @@ impl<E: OrganizerElement> GroupContent<E> {
                 name,
                 childrens: content,
                 expanded,
+                id,
             } => {
-                let childrens = content.iter().map(|c| Self::read_tree(c)).collect();
+                let childrens = content
+                    .iter()
+                    .map(|c| Self::read_tree(c, rng, must_update_tree))
+                    .collect();
+                let group_id = id.clone().unwrap_or_else(|| {
+                    // when we generate a new identifier, we must notify the program that the tree
+                    // is different
+                    *must_update_tree = true;
+                    rng.gen()
+                });
                 Self::Node {
                     childrens,
                     id: vec![],
@@ -1101,12 +1133,13 @@ impl<E: OrganizerElement> GroupContent<E> {
                     view: NodeView::new(),
                     attributes: vec![None; E::all_repr().len()],
                     elements_below: BTreeSet::new(),
+                    group_id,
                 }
             }
         }
     }
 
-    fn new(content: Vec<E::Key>, name: String, id: NodeId) -> Self {
+    fn new(content: Vec<E::Key>, name: String, id: NodeId, rng: &mut ThreadRng) -> Self {
         let childrens = content
             .into_iter()
             .enumerate()
@@ -1121,6 +1154,7 @@ impl<E: OrganizerElement> GroupContent<E> {
                 }
             })
             .collect();
+        let group_id = rng.gen();
         Self::Node {
             id,
             childrens,
@@ -1129,6 +1163,7 @@ impl<E: OrganizerElement> GroupContent<E> {
             view: NodeView::new(),
             attributes: vec![None; E::all_repr().len()],
             elements_below: BTreeSet::new(),
+            group_id,
         }
     }
 
@@ -1441,6 +1476,7 @@ impl<E: OrganizerElement> GroupContent<E> {
                 name,
                 childrens,
                 expanded,
+                group_id,
                 ..
             } => {
                 let childrens = childrens.iter().filter_map(Self::tree).collect();
@@ -1448,6 +1484,7 @@ impl<E: OrganizerElement> GroupContent<E> {
                     name: name.clone(),
                     childrens,
                     expanded: *expanded,
+                    id: Some(*group_id),
                 })
             }
             Self::Leaf { element, .. } => Some(OrganizerTree::Leaf(element.clone())),
