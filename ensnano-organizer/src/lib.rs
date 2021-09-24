@@ -35,7 +35,7 @@ const SECTION_ID: usize = usize::MAX;
 #[derive(Clone, Debug)]
 pub enum OrganizerMessage<E: OrganizerElement> {
     InternalMessage(InternalMessage<E>),
-    Selection(Vec<E::Key>),
+    Selection(Vec<E::Key>, Option<GroupId>),
     Candidates(Vec<E::Key>),
     ElementUpdate(Vec<BTreeMap<E::Key, E>>),
     NewAttribute(E::Attribute, Vec<E::Key>),
@@ -266,9 +266,10 @@ impl<E: OrganizerElement> Organizer<E> {
             OrganizerMessage_::Expand { id, expanded } => self.expand(id, *expanded),
             OrganizerMessage_::NodeSelected { id } => {
                 let add = self.modifiers.command() || self.modifiers.shift();
-                let new_selection = self.select_node(id, add, selection.clone());
+                let (new_selection, new_group) = self.select_node(id, add, selection.clone());
                 return Some(OrganizerMessage::Selection(
                     new_selection.into_iter().collect(),
+                    new_group,
                 ));
             }
             OrganizerMessage_::Eddit { id } => self.start_edditing(id.clone()),
@@ -288,6 +289,7 @@ impl<E: OrganizerElement> Organizer<E> {
                 };
                 return Some(OrganizerMessage::Selection(
                     new_selection.into_iter().collect(),
+                    None,
                 ));
             }
             OrganizerMessage_::NewGroup => {
@@ -364,8 +366,8 @@ impl<E: OrganizerElement> Organizer<E> {
         id: &NodeId,
         add: bool,
         mut current_selection: BTreeSet<E::Key>,
-    ) -> BTreeSet<E::Key> {
-        if add {
+    ) -> (BTreeSet<E::Key>, Option<GroupId>) {
+        let group_id = if add {
             if self.selected_nodes.contains(id) {
                 let keys: BTreeSet<E::Key> = self.get_keys_below(id).into_iter().collect();
                 for key in keys.iter() {
@@ -378,18 +380,21 @@ impl<E: OrganizerElement> Organizer<E> {
                     Self::add_selection(&mut current_selection, key, false);
                 }
                 self.selected_nodes.insert(id.clone());
-            }
+            };
+            None
         } else {
             if self.selected_nodes.len() == 1 && self.selected_nodes.contains(id) {
                 self.selected_nodes = BTreeSet::new();
                 current_selection = BTreeSet::new();
+                None
             } else {
                 self.selected_nodes = BTreeSet::new();
                 self.selected_nodes.insert(id.clone());
                 current_selection = self.get_keys_below(id).iter().cloned().collect();
+                self.get_group(&id).and_then(|g| g.get_group_id())
             }
-        }
-        current_selection
+        };
+        (current_selection, group_id)
     }
 
     fn get_keys_below(&self, id: &NodeId) -> Vec<E::Key> {
@@ -1488,6 +1493,14 @@ impl<E: OrganizerElement> GroupContent<E> {
                 })
             }
             Self::Leaf { element, .. } => Some(OrganizerTree::Leaf(element.clone())),
+            Self::Placeholder => None,
+        }
+    }
+
+    fn get_group_id(&self) -> Option<GroupId> {
+        match self {
+            Self::Node { group_id, .. } => Some(*group_id),
+            Self::Leaf { .. } => None,
             Self::Placeholder => None,
         }
     }

@@ -228,7 +228,9 @@ impl<R: Requests, S: AppState> LeftPanel<R, S> {
                     .message(&m, &selection)
                     .map(|m_| Message::OrganizerMessage(m_));
             }
-            OrganizerMessage::Selection(s) => self.requests.lock().unwrap().set_selected_keys(s),
+            OrganizerMessage::Selection(s, group_id) => {
+                self.requests.lock().unwrap().set_selected_keys(s, group_id)
+            }
             OrganizerMessage::NewAttribute(a, keys) => {
                 self.requests
                     .lock()

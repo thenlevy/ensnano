@@ -181,8 +181,12 @@ impl GuiRequests for Requests {
         self.organizer_candidates = Some(candidates);
     }
 
-    fn set_selected_keys(&mut self, selection: Vec<DnaElementKey>) {
-        self.organizer_selection = Some((selection, None));
+    fn set_selected_keys(
+        &mut self,
+        selection: Vec<DnaElementKey>,
+        group_id: Option<ensnano_organizer::GroupId>,
+    ) {
+        self.organizer_selection = Some((selection, group_id));
     }
 
     fn update_organizer_tree(&mut self, tree: OrganizerTree<DnaElementKey>) {
