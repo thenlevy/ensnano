@@ -17,13 +17,14 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 
 use super::AddressPointer;
-use ensnano_design::{Design, Parameters};
+use ensnano_design::{group_attributes::GroupAttribute, Design, Parameters};
 use ensnano_interactor::{
     operation::Operation, DesignOperation, RigidBodyConstants, Selection, SimulationState,
     StrandBuilder,
 };
 
 mod presenter;
+use ensnano_organizer::GroupId;
 pub use presenter::SimulationUpdate;
 use presenter::{apply_simulation_update, update_presenter, Presenter};
 pub(super) mod controller;
@@ -344,6 +345,14 @@ impl DesignReader {
 
     pub fn get_strand_domain(&self, s_id: usize, d_id: usize) -> Option<&ensnano_design::Domain> {
         self.presenter.get_strand_domain(s_id, d_id)
+    }
+
+    pub fn get_group_attributes(&self, group_id: GroupId) -> Option<&GroupAttribute> {
+        self.presenter
+            .current_design
+            .as_ref()
+            .group_attributes
+            .get(&group_id)
     }
 }
 

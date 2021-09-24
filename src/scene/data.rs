@@ -157,8 +157,15 @@ impl<R: DesignReader> Data<R> {
 
     fn update_handle<S: AppState>(&self, app_state: &S) {
         log::debug!("updating handle {:?} ", self.selected_element(app_state));
-        let origin = self.get_selected_position();
-        let orientation = self.get_widget_basis(app_state);
+        let pivot = app_state.get_current_group_pivot();
+        let origin = pivot
+            .as_ref()
+            .map(|p| p.position)
+            .or_else(|| self.get_selected_position());
+        let orientation = pivot
+            .as_ref()
+            .map(|p| p.orientation)
+            .or_else(|| self.get_widget_basis(app_state));
         let handle_descr = if app_state.get_action_mode().0.wants_handle() {
             origin
                 .clone()

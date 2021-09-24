@@ -19,7 +19,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 /// All other format supported by ensnano are converted into this format and run-time manipulation
 /// of designs are performed on an `ensnano::Design` structure
 use std::borrow::Cow;
-use std::collections::{BTreeMap, BTreeSet, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::f32::consts::PI;
 use std::sync::Arc;
 
@@ -39,6 +39,7 @@ pub mod elements;
 use elements::DnaElementKey;
 pub type EnsnTree = OrganizerTree<DnaElementKey>;
 pub mod group_attributes;
+use group_attributes::GroupAttribute;
 
 mod formating;
 #[cfg(test)]
@@ -108,6 +109,9 @@ pub struct Design {
 
     #[serde(default)]
     pub ensnano_version: String,
+
+    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
+    pub group_attributes: HashMap<ensnano_organizer::GroupId, GroupAttribute>,
 }
 
 fn ensnano_version() -> String {
@@ -155,6 +159,7 @@ impl Design {
             anchors: Default::default(),
             organizer_tree: None,
             ensnano_version: ensnano_version(),
+            group_attributes: Default::default(),
         }
     }
 
@@ -173,6 +178,7 @@ impl Design {
             anchors: Default::default(),
             organizer_tree: None,
             ensnano_version: ensnano_version(),
+            group_attributes: Default::default(),
         }
     }
 
@@ -374,6 +380,7 @@ impl Design {
             anchors: Default::default(),
             organizer_tree: None,
             ensnano_version: ensnano_version(),
+            group_attributes: Default::default(),
         })
     }
 }

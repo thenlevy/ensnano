@@ -755,6 +755,7 @@ pub trait AppState: Clone {
     fn is_changing_color(&self) -> bool;
     fn is_pasting(&self) -> bool;
     fn get_selected_element(&self) -> Option<CenterOfSelection>;
+    fn get_current_group_pivot(&self) -> Option<ensnano_design::group_attributes::GroupPivot>;
 }
 
 pub trait Requests {

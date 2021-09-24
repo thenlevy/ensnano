@@ -81,6 +81,15 @@ impl App3D for AppState {
     fn get_selected_element(&self) -> Option<CenterOfSelection> {
         self.0.center_of_selection.clone()
     }
+
+    fn get_current_group_pivot(&self) -> Option<ensnano_design::group_attributes::GroupPivot> {
+        let reader = self.get_design_reader();
+        self.0
+            .selection
+            .selected_group
+            .and_then(|g_id| reader.get_group_attributes(g_id))
+            .and_then(|attributes| attributes.pivot.clone())
+    }
 }
 
 #[cfg(test)]
