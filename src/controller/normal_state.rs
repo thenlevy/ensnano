@@ -205,6 +205,10 @@ impl State for NormalState {
                     main_state.translate_group_pivot(translation);
                     self
                 }
+                Action::RotateGroupPivot(rotation) => {
+                    main_state.rotate_group_pivot(rotation);
+                    self
+                }
                 action => {
                     println!("Not implemented {:?}", action);
                     self
@@ -391,4 +395,5 @@ pub enum Action {
     ClearVisibilitySieve,
     SetGroupPivot(GroupPivot),
     TranslateGroupPivot(Vec3),
+    RotateGroupPivot(Rotor3),
 }

@@ -68,6 +68,7 @@ pub struct Data<R: DesignReader> {
     free_xover_update: bool,
     handle_need_opdate: bool,
     last_candidate_disc: Option<SceneElement>,
+    rotating_pivot: bool,
 }
 
 impl<R: DesignReader> Data<R> {
@@ -85,6 +86,7 @@ impl<R: DesignReader> Data<R> {
             free_xover_update: false,
             handle_need_opdate: false,
             last_candidate_disc: None,
+            rotating_pivot: false,
         }
     }
 
@@ -166,7 +168,7 @@ impl<R: DesignReader> Data<R> {
             .as_ref()
             .map(|p| p.orientation)
             .or_else(|| self.get_widget_basis(app_state));
-        let handle_descr = if app_state.get_action_mode().0.wants_handle() {
+        let handle_descr = if app_state.get_action_mode().0.wants_handle() || self.rotating_pivot {
             origin
                 .clone()
                 .zip(orientation.clone())
@@ -1684,6 +1686,14 @@ impl<R: DesignReader> ControllerData for Data<R> {
         self.designs
             .get(0)
             .and_then(|d| d.get_helix_grid(grid_id, x, y))
+    }
+
+    fn notify_rotating_pivot(&mut self) {
+        self.rotating_pivot = true;
+    }
+
+    fn stop_rotating_pivot(&mut self) {
+        self.rotating_pivot = false;
     }
 }
 

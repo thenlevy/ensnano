@@ -97,4 +97,13 @@ impl SceneRequests for Requests {
                 .push_back(Action::TranslateGroupPivot(translation))
         }
     }
+
+    fn rotate_group_pivot(&mut self, rotation: Rotor3) {
+        if let Some(Action::RotateGroupPivot(r)) = self.keep_proceed.iter_mut().last() {
+            *r = rotation;
+        } else {
+            self.keep_proceed
+                .push_back(Action::RotateGroupPivot(rotation))
+        }
+    }
 }

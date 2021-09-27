@@ -520,12 +520,10 @@ impl<E: OrganizerElement> Organizer<E> {
             }
             self.recompute_id();
             self.update_attributes();
-            let ret = self.must_update_tree;
-            self.must_update_tree = false;
-            ret
-        } else {
-            false
         }
+        let ret = self.must_update_tree;
+        self.must_update_tree = false;
+        ret
     }
 
     fn pop_id(&mut self, id: &NodeId) -> Option<GroupContent<E>> {
@@ -654,6 +652,7 @@ impl<E: OrganizerElement> Organizer<E> {
             self.add_at_id(content, dest, from_top);
             self.recompute_id()
         }
+        self.must_update_tree = true;
     }
 
     fn add_key_at(&mut self, key: E::Key, dest: &NodeId) {
@@ -668,6 +667,7 @@ impl<E: OrganizerElement> Organizer<E> {
             }
         }
         self.recompute_id();
+        self.must_update_tree = true;
     }
 
     pub fn update_elements(&mut self, elements: &[E]) {

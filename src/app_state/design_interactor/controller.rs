@@ -965,6 +965,22 @@ impl Controller {
         Ok(design)
     }
 
+    fn rotate_group_pivot(
+        &mut self,
+        mut design: Design,
+        rotation: Rotor3,
+        group_id: GroupId,
+    ) -> Result<Design, ErrOperation> {
+        self.update_state_and_design(&mut design);
+        let pivot = design
+            .group_attributes
+            .get_mut(&group_id)
+            .and_then(|attributes| attributes.pivot.as_mut())
+            .ok_or(ErrOperation::GroupHasNoPivot(group_id))?;
+        pivot.orientation = rotation * pivot.orientation;
+        Ok(design)
+    }
+
     fn attach_helix(
         &mut self,
         mut design: Design,
@@ -1017,8 +1033,9 @@ impl Controller {
         rotation: DesignRotation,
     ) -> Result<Design, ErrOperation> {
         match rotation.target {
-            IsometryTarget::Design | IsometryTarget::GroupPivot(_) => {
-                Err(ErrOperation::NotImplemented)
+            IsometryTarget::Design => Err(ErrOperation::NotImplemented),
+            IsometryTarget::GroupPivot(g_id) => {
+                self.rotate_group_pivot(design, rotation.rotation, g_id)
             }
             IsometryTarget::Helices(helices, snap) => Ok(self.rotate_helices_3d(
                 design,

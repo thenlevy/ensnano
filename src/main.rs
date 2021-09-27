@@ -1382,7 +1382,20 @@ impl<'a> MainStateInteface for MainStateView<'a> {
                 translation,
             }))
         } else {
-            // TODO
+            // TODO translate pivot of current selection
+        }
+    }
+
+    fn rotate_group_pivot(&mut self, rotation: Rotor3) {
+        use ensnano_interactor::{DesignRotation, IsometryTarget};
+        if let Some(group_id) = self.main_state.app_state.get_current_group_id() {
+            self.apply_operation(DesignOperation::Rotation(DesignRotation {
+                target: IsometryTarget::GroupPivot(group_id),
+                rotation,
+                origin: Vec3::zero(),
+            }))
+        } else {
+            // TODO rotate pivot of current selection
         }
     }
 }

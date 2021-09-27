@@ -292,9 +292,9 @@ impl<S: AppState> ControllerState<S> for NormalState {
                         let mouse_x = position.x / controller.area_size.width as f64;
                         let mouse_y = position.y / controller.area_size.height as f64;
                         let translation_target = if controller.current_modifiers.shift() {
-                            TranslationTarget::Pivot
+                            WidgetTarget::Pivot
                         } else {
-                            TranslationTarget::Object
+                            WidgetTarget::Object
                         };
                         match widget_id {
                             UP_HANDLE_ID | DIR_HANDLE_ID | RIGHT_HANDLE_ID => Transition {
@@ -308,14 +308,23 @@ impl<S: AppState> ControllerState<S> for NormalState {
                                     translation_target,
                                 ),
                             },
-                            RIGHT_CIRCLE_ID | FRONT_CIRCLE_ID | UP_CIRCLE_ID => Transition {
-                                new_state: Some(Box::new(RotatingWidget {})),
-                                consequences: Consequence::InitRotation(
-                                    RotationMode::from_widget_id(widget_id),
-                                    mouse_x,
-                                    mouse_y,
-                                ),
-                            },
+                            RIGHT_CIRCLE_ID | FRONT_CIRCLE_ID | UP_CIRCLE_ID => {
+                                let target = if controller.current_modifiers.shift() {
+                                    WidgetTarget::Pivot
+                                } else {
+                                    WidgetTarget::Object
+                                };
+
+                                Transition {
+                                    new_state: Some(Box::new(RotatingWidget { target })),
+                                    consequences: Consequence::InitRotation(
+                                        RotationMode::from_widget_id(widget_id),
+                                        mouse_x,
+                                        mouse_y,
+                                        target,
+                                    ),
+                                }
+                            }
                             _ => {
                                 println!("WARNING UNEXPECTED WIDGET ID");
                                 Transition::nothing()
@@ -719,12 +728,12 @@ impl<S: AppState> ControllerState<S> for WaitDoubleClick {
 
 struct TranslatingWidget {
     direction: HandleDir,
-    translation_target: TranslationTarget,
+    translation_target: WidgetTarget,
 }
 
 /// What is being affected by the translation
-#[derive(Clone, Debug, Copy)]
-pub enum TranslationTarget {
+#[derive(Clone, Debug, Copy, Eq, PartialEq)]
+pub enum WidgetTarget {
     /// The selected elements
     Object,
     /// The selection's pivot
@@ -834,7 +843,9 @@ impl<S: AppState> ControllerState<S> for TranslatingHelix {
     }
 }
 
-struct RotatingWidget {}
+struct RotatingWidget {
+    target: WidgetTarget,
+}
 
 impl<S: AppState> ControllerState<S> for RotatingWidget {
     fn display(&self) -> Cow<'static, str> {
@@ -863,10 +874,24 @@ impl<S: AppState> ControllerState<S> for RotatingWidget {
             WindowEvent::CursorMoved { .. } => {
                 let mouse_x = position.x / controller.area_size.width as f64;
                 let mouse_y = position.y / controller.area_size.height as f64;
-                Transition::consequence(Consequence::Rotation(mouse_x, mouse_y))
+                Transition::consequence(Consequence::Rotation(mouse_x, mouse_y, self.target))
             }
             _ => Transition::nothing(),
         }
+    }
+
+    fn transition_to(&self, controller: &Controller<S>) -> TransistionConsequence {
+        if self.target == WidgetTarget::Pivot {
+            controller.data.borrow_mut().notify_rotating_pivot();
+        }
+        TransistionConsequence::Nothing
+    }
+
+    fn transition_from(&self, controller: &Controller<S>) -> TransistionConsequence {
+        if self.target == WidgetTarget::Pivot {
+            controller.data.borrow_mut().stop_rotating_pivot();
+        }
+        TransistionConsequence::Nothing
     }
 }
 

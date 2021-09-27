@@ -50,7 +50,7 @@ use view::{
 pub use view::{FogParameters, GridInstance};
 /// Handling of inputs and notifications
 mod controller;
-use controller::{Consequence, Controller, TranslationTarget};
+use controller::{Consequence, Controller, WidgetTarget};
 /// Handling of designs and internal data
 mod data;
 pub use controller::ClickMode;
@@ -186,8 +186,8 @@ impl<S: AppState> Scene<S> {
                 );
                 if let Some(t) = translation {
                     match target {
-                        TranslationTarget::Object => self.translate_selected_design(t, app_state),
-                        TranslationTarget::Pivot => self.translate_group_pivot(t),
+                        WidgetTarget::Object => self.translate_selected_design(t, app_state),
+                        WidgetTarget::Pivot => self.translate_group_pivot(t),
                     }
                 }
             }
@@ -206,23 +206,36 @@ impl<S: AppState> Scene<S> {
                 .lock()
                 .unwrap()
                 .set_selection(vec![Selection::Helix(0, h_id as u32)], None),
-            Consequence::InitRotation(mode, x, y) => self
-                .view
-                .borrow_mut()
-                .init_rotation(mode, x as f32, y as f32),
-            Consequence::InitTranslation(x, y, target) => {
-                self.view.borrow_mut().init_translation(x as f32, y as f32);
-                if let TranslationTarget::Pivot = target {
+            Consequence::InitRotation(mode, x, y, target) => {
+                self.view
+                    .borrow_mut()
+                    .init_rotation(mode, x as f32, y as f32);
+                if target == WidgetTarget::Pivot {
                     if let Some(pivot) = self.view.borrow().get_group_pivot() {
                         self.requests.lock().unwrap().set_current_group_pivot(pivot)
                     }
                 }
             }
-            Consequence::Rotation(x, y) => {
+            Consequence::InitTranslation(x, y, target) => {
+                self.view.borrow_mut().init_translation(x as f32, y as f32);
+                if let WidgetTarget::Pivot = target {
+                    if let Some(pivot) = self.view.borrow().get_group_pivot() {
+                        self.requests.lock().unwrap().set_current_group_pivot(pivot)
+                    }
+                }
+            }
+            Consequence::Rotation(x, y, target) => {
                 let rotation = self.view.borrow().compute_rotation(x as f32, y as f32);
                 if let Some((rotation, origin, positive)) = rotation {
                     if rotation.bv.mag() > 1e-3 {
-                        self.rotate_selected_desgin(rotation, origin, positive, app_state)
+                        match target {
+                            WidgetTarget::Object => {
+                                self.rotate_selected_desgin(rotation, origin, positive, app_state)
+                            }
+                            WidgetTarget::Pivot => {
+                                self.requests.lock().unwrap().rotate_group_pivot(rotation)
+                            }
+                        }
                     }
                 } else {
                     log::warn!("Warning rotiation was None")
@@ -804,4 +817,5 @@ pub trait Requests {
     fn toggle_widget_basis(&mut self);
     fn set_current_group_pivot(&mut self, pivot: GroupPivot);
     fn translate_group_pivot(&mut self, translation: Vec3);
+    fn rotate_group_pivot(&mut self, rotation: Rotor3);
 }

@@ -209,6 +209,7 @@ pub(crate) trait MainState: ScaffoldSetter {
     fn get_current_file_name(&self) -> Option<&Path>;
     fn set_current_group_pivot(&mut self, pivot: GroupPivot);
     fn translate_group_pivot(&mut self, translation: Vec3);
+    fn rotate_group_pivot(&mut self, rotation: Rotor3);
 }
 
 pub struct LoadDesignError(String);
