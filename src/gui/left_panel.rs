@@ -245,6 +245,20 @@ impl<R: Requests, S: AppState> LeftPanel<R, S> {
                 .lock()
                 .unwrap()
                 .set_candidates_keys(candidates),
+            OrganizerMessage::NewGroup {
+                group_id,
+                elements_selected,
+                new_tree,
+            } => {
+                self.requests
+                    .lock()
+                    .unwrap()
+                    .update_organizer_tree(new_tree);
+                self.requests
+                    .lock()
+                    .unwrap()
+                    .set_selected_keys(elements_selected, Some(group_id));
+            }
             _ => (),
         }
         None

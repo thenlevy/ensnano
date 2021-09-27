@@ -40,6 +40,11 @@ pub enum OrganizerMessage<E: OrganizerElement> {
     ElementUpdate(Vec<BTreeMap<E::Key, E>>),
     NewAttribute(E::Attribute, Vec<E::Key>),
     NewTree(OrganizerTree<E::Key>),
+    NewGroup {
+        group_id: GroupId,
+        elements_selected: Vec<E::Key>,
+        new_tree: OrganizerTree<E::Key>,
+    },
 }
 
 #[derive(Clone, Debug)]
@@ -249,11 +254,15 @@ impl<E: OrganizerElement> Organizer<E> {
         Container::new(column).style(self.theme.level(0)).into()
     }
 
-    pub fn push_content(&mut self, content: Vec<E::Key>, group_name: String) {
+    pub fn push_content(&mut self, content: Vec<E::Key>, group_name: String) -> GroupId {
         let id = vec![self.groups.len()];
         let new_group = GroupContent::new(content, group_name, id.clone(), &mut self.rng_thread);
+        let ret = new_group
+            .get_group_id()
+            .expect("new group should have an Id");
         self.groups.push(new_group);
         self.start_edditing(id);
+        ret
     }
 
     pub fn message(
@@ -293,11 +302,15 @@ impl<E: OrganizerElement> Organizer<E> {
                 ));
             }
             OrganizerMessage_::NewGroup => {
-                self.push_content(
+                let new_group_id = self.push_content(
                     selection.iter().cloned().collect(),
                     String::from("New group"),
                 );
-                return Some(OrganizerMessage::NewTree(self.tree()));
+                return Some(OrganizerMessage::NewGroup {
+                    new_tree: self.tree(),
+                    group_id: new_group_id,
+                    elements_selected: selection.iter().cloned().collect(),
+                });
             }
             OrganizerMessage_::Delete { id } => {
                 self.stop_edditing();
