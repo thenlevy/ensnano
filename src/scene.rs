@@ -468,26 +468,36 @@ impl<S: AppState> Scene<S> {
             angle *= -1.;
             plane *= -1.;
         }
-        let rotation: Arc<dyn Operation> = match self.data.borrow().get_selected_element(app_state)
-        {
-            Selection::Helix(d_id, h_id) => Arc::new(HelixRotation {
-                helices: vec![h_id as usize],
+        let grids = ensnano_interactor::list_of_grids(app_state.get_selection());
+        let rotation: Arc<dyn Operation> = if let Some((d_id, grid_ids)) = grids {
+            Arc::new(GridRotation {
+                grid_ids,
                 angle,
                 plane,
                 origin,
-                design_id: d_id as usize,
-            }),
-            Selection::Grid(d_id, g_id) => {
-                let grid_id = g_id as usize;
-                Arc::new(GridRotation {
-                    grid_ids: vec![grid_id],
+                design_id: d_id,
+            })
+        } else {
+            match self.data.borrow().get_selected_element(app_state) {
+                Selection::Helix(d_id, h_id) => Arc::new(HelixRotation {
+                    helices: vec![h_id as usize],
                     angle,
                     plane,
                     origin,
                     design_id: d_id as usize,
-                })
+                }),
+                Selection::Grid(d_id, g_id) => {
+                    let grid_id = g_id as usize;
+                    Arc::new(GridRotation {
+                        grid_ids: vec![grid_id],
+                        angle,
+                        plane,
+                        origin,
+                        design_id: d_id as usize,
+                    })
+                }
+                _ => return,
             }
-            _ => return,
         };
 
         self.requests.lock().unwrap().update_opperation(rotation);
