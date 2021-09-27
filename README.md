@@ -21,7 +21,7 @@ For more details about ENSnano you can checkout the paper introducing it in the 
 > <ins> ENSnano: a 3D modeling software for DNA nanostructures </ins>
    Nicolas Levy and Nicolas Schabanel.
    DNA 2021 *Proceedings of the 27th International Conference on DNA Computing and Molecular Programming*
-   [pdf](https://drops.dagstuhl.de/opus/volltexte/2021/14672/pdf/LIPIcs-DNA-27-5.pdf)
+   [ [pdf](https://drops.dagstuhl.de/opus/volltexte/2021/14672/pdf/LIPIcs-DNA-27-5.pdf) ]
 
 You can also see [here](https://www.youtube.com/watch?v=NPH-ukYMhdY) the talk presented at
 the conference.
