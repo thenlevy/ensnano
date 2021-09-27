@@ -17,12 +17,12 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 use super::{AppState, Requests, UiSize};
 use ensnano_interactor::operation::{Operation, ParameterField};
+pub use ensnano_interactor::StrandBuildingStatus;
 use iced::{container, slider, Background, Container, Length};
 use iced_native::{pick_list, text_input, Color, PickList, TextInput};
 use iced_winit::{Column, Command, Element, Program, Row, Space, Text};
 use std::sync::{Arc, Mutex};
 
-const STATUS_FONT_SIZE: u16 = 14;
 const GOLD_ORANGE: iced::Color = iced::Color::from_rgb(0.84, 0.57, 0.20);
 
 #[derive(Debug)]
@@ -70,7 +70,7 @@ pub struct StatusBar<R: Requests, S: AppState> {
     #[allow(dead_code)]
     slider_state: slider::State,
     app_state: S,
-    _ui_size: UiSize,
+    ui_size: UiSize,
 }
 
 impl<R: Requests, S: AppState> StatusBar<R, S> {
@@ -82,8 +82,12 @@ impl<R: Requests, S: AppState> StatusBar<R, S> {
             progress: None,
             slider_state: Default::default(),
             app_state: Default::default(),
-            _ui_size: Default::default(),
+            ui_size: Default::default(),
         }
+    }
+
+    pub fn set_ui_size(&mut self, ui_size: UiSize) {
+        self.ui_size = ui_size;
     }
 
     fn update_operation(&mut self) {
@@ -102,7 +106,8 @@ impl<R: Requests, S: AppState> StatusBar<R, S> {
         let mut row = Row::new();
         let progress = self.progress.as_ref().unwrap();
         row = row.push(
-            Text::new(format!("{}, {:.1}%", progress.0, progress.1 * 100.)).size(STATUS_FONT_SIZE),
+            Text::new(format!("{}, {:.1}%", progress.0, progress.1 * 100.))
+                .size(self.ui_size.main_text()),
         );
 
         row.into()
@@ -133,18 +138,14 @@ pub enum Message<S: AppState> {
     #[allow(dead_code)]
     SetShift(f32),
     NewApplicationState(S),
+    UiSizeChanged(UiSize),
 }
 
 impl<R: Requests, S: AppState> Program for StatusBar<R, S> {
     type Message = Message<S>;
     type Renderer = iced_wgpu::Renderer;
-    type Clipboard = iced_native::clipboard::Null;
 
-    fn update(
-        &mut self,
-        message: Message<S>,
-        _cb: &mut iced_native::clipboard::Null,
-    ) -> Command<Message<S>> {
+    fn update(&mut self, message: Message<S>) -> Command<Message<S>> {
         match message {
             Message::ValueStrChanged(n, s) => {
                 if let Some(operation) = self.operation.as_mut() {
@@ -167,6 +168,7 @@ impl<R: Requests, S: AppState> Program for StatusBar<R, S> {
                 self.requests.lock().unwrap().update_hyperboloid_shift(f);
             }
             Message::NewApplicationState(state) => self.app_state = state,
+            Message::UiSizeChanged(ui_size) => self.set_ui_size(ui_size),
         }
         Command::none()
     }
@@ -175,9 +177,13 @@ impl<R: Requests, S: AppState> Program for StatusBar<R, S> {
         self.update_operation();
         let content = if self.progress.is_some() {
             self.view_progress()
+        } else if let Some(building_info) = self.app_state.get_strand_building_state() {
+            Row::new()
+                .push(Text::new(building_info.to_info()).size(self.ui_size.main_text()))
+                .into()
         } else if let Some(operation) = self.operation.as_mut() {
             log::trace!("operation is some");
-            operation.view()
+            operation.view(self.ui_size)
         } else {
             log::trace!("operation is none");
             Row::new().into() //TODO
@@ -280,10 +286,10 @@ impl OperationInput {
         self.operation = operation;
     }
 
-    fn view<S: AppState>(&mut self) -> Element<Message<S>, iced_wgpu::Renderer> {
+    fn view<S: AppState>(&mut self, ui_size: UiSize) -> Element<Message<S>, iced_wgpu::Renderer> {
         let mut row = Row::new();
         let op = self.operation.as_ref();
-        row = row.push(Text::new(op.description()).size(STATUS_FONT_SIZE));
+        row = row.push(Text::new(op.description()).size(ui_size.main_text()));
         let values = &self.values;
         let str_values = &self.values_str;
         let active_input = (0..values.len())
@@ -300,7 +306,7 @@ impl OperationInput {
                         &format!("{0:.4}", str_values[i]),
                         move |s| Message::ValueStrChanged(i, s),
                     )
-                    .size(STATUS_FONT_SIZE)
+                    .size(ui_size.main_text())
                     .width(Length::Units(40))
                     .on_submit(Message::ValueSet(i, str_values[i].clone()));
                     if active_input.get(i) == Some(&true) {
@@ -317,7 +323,7 @@ impl OperationInput {
                     }
                     row = row
                         .spacing(20)
-                        .push(Text::new(param.name.clone()).size(STATUS_FONT_SIZE))
+                        .push(Text::new(param.name.clone()).size(ui_size.main_text()))
                         .push(input)
                 }
                 ParameterField::Choice(ref v) => {
@@ -328,13 +334,13 @@ impl OperationInput {
                             Some(values[i].clone()),
                             move |s| Message::ValueSet(i, s),
                         )
-                        .text_size(STATUS_FONT_SIZE - 4),
+                        .text_size(ui_size.main_text() - 4),
                     )
                 }
             }
         }
         if need_validation {
-            row = row.push(Text::new("(Press enter to validate change)").size(STATUS_FONT_SIZE));
+            row = row.push(Text::new("(Press enter to validate change)").size(ui_size.main_text()));
         }
         row.into()
     }
@@ -408,5 +414,18 @@ mod input_color {
         fn selection_color(&self) -> Color {
             Color::from_rgb(0.8, 0.8, 1.0)
         }
+    }
+}
+
+trait ToInfo {
+    fn to_info(&self) -> String;
+}
+
+impl ToInfo for StrandBuildingStatus {
+    fn to_info(&self) -> String {
+        format!(
+            "Current domain length: {} nt ({:.2} nm). 5': {}, 3': {}",
+            self.nt_length, self.nm_length, self.prime5.position, self.prime3.position
+        )
     }
 }

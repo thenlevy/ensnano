@@ -23,6 +23,7 @@ use ensnano_design::elements::DnaElement;
 use ensnano_design::grid::GridPosition;
 use ensnano_design::*;
 use ensnano_interactor::ObjectType;
+use std::borrow::Cow;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::sync::Arc;
 use ultraviolet::Vec3;
@@ -170,8 +171,7 @@ impl DesignContent {
 
     pub(super) fn get_staples(&self, design: &Design) -> Vec<Staple> {
         let mut ret = Vec::new();
-        let mut sequences: BTreeMap<(usize, isize, usize, isize), (usize, String)> =
-            Default::default();
+        let mut sequences: BTreeMap<(usize, isize, usize, isize), StapleInfo> = Default::default();
         let basis_map = self.basis_map.as_ref();
         for (s_id, strand) in design.strands.iter() {
             if strand.length() == 0 || design.scaffold_id == Some(*s_id) {
@@ -198,12 +198,19 @@ impl DesignContent {
             let key = if let Some((prim5, prim3)) = strand.get_5prime().zip(strand.get_3prime()) {
                 (prim5.helix, prim5.position, prim3.helix, prim5.position)
             } else {
-                println!("WARNING, STAPPLE WITH NO KEY !!!");
+                log::warn!("WARNING, STAPPLE WITH NO KEY !!!");
                 (0, 0, 0, 0)
             };
-            sequences.insert(key, (*s_id, sequence));
+            sequences.insert(
+                key,
+                StapleInfo {
+                    s_id: *s_id,
+                    sequence,
+                    strand_name: strand.name.clone(),
+                },
+            );
         }
-        for (n, ((h5, nt5, h3, nt3), (s_id, sequence))) in sequences.iter().enumerate() {
+        for (n, ((h5, nt5, h3, nt3), staple_info)) in sequences.iter().enumerate() {
             let plate = n / 96 + 1;
             let row = (n % 96) / 8 + 1;
             let column = match (n % 96) % 8 {
@@ -220,11 +227,14 @@ impl DesignContent {
             ret.push(Staple {
                 plate,
                 well: format!("{}{}", column, row.to_string()),
-                sequence: sequence.clone(),
-                name: format!(
-                    "Staple {:04}; 5':h{}:nt{}>3':h{}:nt{}",
-                    s_id, *h5, *nt5, *h3, *nt3
-                ),
+                sequence: staple_info.sequence.clone(),
+                name: staple_info.strand_name.clone().unwrap_or_else(|| {
+                    format!(
+                        "Staple {:04}; 5':h{}:nt{}>3':h{}:nt{}",
+                        staple_info.s_id, *h5, *nt5, *h3, *nt3
+                    )
+                    .into()
+                }),
             });
         }
         ret
@@ -354,9 +364,15 @@ impl DesignContent {
 #[derive(Debug)]
 pub struct Staple {
     pub well: String,
-    pub name: String,
+    pub name: Cow<'static, str>,
     pub sequence: String,
     pub plate: usize,
+}
+
+struct StapleInfo {
+    s_id: usize,
+    sequence: String,
+    strand_name: Option<Cow<'static, str>>,
 }
 
 #[derive(Clone)]

@@ -24,15 +24,13 @@ use iced::{
 };
 use iced::{container, Background, Column, Container, Row};
 use iced_aw::{TabLabel, Tabs};
-use iced_native::{clipboard::Null as NullClipboard, Program};
+use iced_native::Program;
 use iced_wgpu::{Backend, Renderer};
 use iced_winit::winit::{
     dpi::{LogicalPosition, LogicalSize},
     event::ModifiersState,
 };
 use ultraviolet::Vec3;
-
-use color_space::{Hsv, Rgb};
 
 use ensnano_design::elements::{DnaElement, DnaElementKey};
 use ensnano_interactor::{
@@ -114,9 +112,10 @@ pub enum Message<S> {
     MakeGrids,
     SequenceChanged(String),
     SequenceFileRequested,
-    StrandColorChanged(Color),
+    HsvSatValueChanged(f64, f64),
+    StrandNameChanged(usize, String),
     FinishChangingColor,
-    HueChanged(f32),
+    HueChanged(f64),
     NewGrid(GridTypeDescr),
     FixPoint(Vec3, Vec3),
     RotateCam(f32, f32, f32),
@@ -260,9 +259,8 @@ impl<R: Requests, S: AppState> LeftPanel<R, S> {
 impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
     type Renderer = Renderer;
     type Message = Message<S>;
-    type Clipboard = NullClipboard;
 
-    fn update(&mut self, message: Message<S>, _cb: &mut NullClipboard) -> Command<Message<S>> {
+    fn update(&mut self, message: Message<S>) -> Command<Message<S>> {
         match message {
             Message::SequenceChanged(s) => {
                 self.requests
@@ -270,6 +268,9 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
                     .unwrap()
                     .set_selected_strand_sequence(s.clone());
                 self.sequence_input.update_sequence(s);
+            }
+            Message::StrandNameChanged(s_id, name) => {
+                self.requests.lock().unwrap().set_strand_name(s_id, name)
             }
             Message::SequenceFileRequested => {
                 let dialog = rfd::AsyncFileDialog::new().pick_file();
@@ -295,14 +296,22 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
                 .lock()
                 .unwrap()
                 .open_overlay(OverlayType::Color),
-            Message::StrandColorChanged(color) => {
-                let requested_color = self.edition_tab.strand_color_change(color);
+            Message::HsvSatValueChanged(saturation, value) => {
+                self.edition_tab.change_sat_value(saturation, value);
+                let requested_color = self.edition_tab.strand_color_change();
                 self.requests
                     .lock()
                     .unwrap()
                     .change_strand_color(requested_color);
             }
-            Message::HueChanged(x) => self.edition_tab.change_hue(x),
+            Message::HueChanged(x) => {
+                self.edition_tab.change_hue(x);
+                let requested_color = self.edition_tab.strand_color_change();
+                self.requests
+                    .lock()
+                    .unwrap()
+                    .change_strand_color(requested_color);
+            }
             Message::Resized(size, position) => self.resize(size, position),
             Message::NewGrid(grid_type) => {
                 self.requests.lock().unwrap().create_grid(grid_type);
@@ -541,7 +550,7 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
             Message::OrganizerMessage(m) => {
                 let next_message = self.organizer_message(m);
                 if let Some(message) = next_message {
-                    self.update(message, _cb);
+                    self.update(message);
                 }
             }
             Message::ModifiersChanged(modifiers) => self
@@ -697,8 +706,11 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
         if let Some(tree) = self.application_state.get_reader().get_organizer_tree() {
             self.organizer.read_tree(tree.as_ref())
         } else {
-            self.organizer
-                .read_tree(&OrganizerTree::Node(String::from("root"), vec![]))
+            self.organizer.read_tree(&OrganizerTree::Node {
+                name: String::from("root"),
+                childrens: vec![],
+                expanded: true,
+            })
         }
         let organizer = self
             .organizer
@@ -764,8 +776,8 @@ impl<R: Requests> ColorOverlay<R> {
 
 #[derive(Debug, Clone)]
 pub enum ColorMessage {
-    StrandColorChanged(Color),
-    HueChanged(f32),
+    HsvSatValueChanged(f64, f64),
+    HueChanged(f64),
     #[allow(dead_code)]
     Resized(LogicalSize<f64>),
     FinishChangingColor,
@@ -775,26 +787,11 @@ pub enum ColorMessage {
 impl<R: Requests> Program for ColorOverlay<R> {
     type Renderer = Renderer;
     type Message = ColorMessage;
-    type Clipboard = NullClipboard;
 
-    fn update(&mut self, message: ColorMessage, _cb: &mut NullClipboard) -> Command<ColorMessage> {
+    fn update(&mut self, message: ColorMessage) -> Command<ColorMessage> {
         match message {
-            ColorMessage::StrandColorChanged(color) => {
-                let red = ((color.r * 255.) as u32) << 16;
-                let green = ((color.g * 255.) as u32) << 8;
-                let blue = (color.b * 255.) as u32;
-                self.color_picker.update_color(color);
-                let hue = Hsv::from(Rgb::new(
-                    color.r as f64 * 255.,
-                    color.g as f64 * 255.,
-                    color.b as f64 * 255.,
-                ))
-                .h;
-                self.color_picker.change_hue(hue as f32);
-                let color = red + green + blue;
-                self.requests.lock().unwrap().change_strand_color(color);
-            }
-            ColorMessage::HueChanged(x) => self.color_picker.change_hue(x),
+            ColorMessage::HsvSatValueChanged(_sat, _value) => {}
+            ColorMessage::HueChanged(x) => self.color_picker.change_hue(x as f64),
             ColorMessage::Closed => {
                 self.requests
                     .lock()

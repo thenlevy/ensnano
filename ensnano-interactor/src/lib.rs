@@ -204,6 +204,10 @@ pub enum DesignOperation {
         y: isize,
     },
     SetOrganizerTree(ensnano_design::OrganizerTree<DnaElementKey>),
+    SetStrandName {
+        s_id: usize,
+        name: String,
+    },
 }
 
 /// An action performed on the application
@@ -410,4 +414,14 @@ impl Default for WidgetBasis {
     fn default() -> Self {
         Self::World
     }
+}
+
+/// Information about the domain being elongated
+#[derive(Debug, Clone)]
+pub struct StrandBuildingStatus {
+    pub nt_length: usize,
+    pub nm_length: f32,
+    pub prime3: Nucl,
+    pub prime5: Nucl,
+    pub dragged_nucl: Nucl,
 }

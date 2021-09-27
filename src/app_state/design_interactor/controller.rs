@@ -214,6 +214,9 @@ impl Controller {
                 },
                 design,
             )),
+            DesignOperation::SetStrandName { s_id, name } => {
+                self.apply(|c, d| c.change_strand_name(d, s_id, name), design)
+            }
         }
     }
 
@@ -370,6 +373,21 @@ impl Controller {
             }
         }
         Ok((self.return_design(design), ret))
+    }
+
+    fn change_strand_name(
+        &mut self,
+        mut design: Design,
+        s_id: usize,
+        name: String,
+    ) -> Result<Design, ErrOperation> {
+        let strand = design
+            .strands
+            .get_mut(&s_id)
+            .ok_or(ErrOperation::StrandDoesNotExist(s_id))?;
+        self.state = ControllerState::ChangingStrandName { strand_id: s_id };
+        strand.set_name(name);
+        Ok(design)
     }
 
     fn add_hyperboloid_helices(
@@ -741,6 +759,19 @@ impl Controller {
                     OperationCompatibility::Incompatible
                 }
             }
+            ControllerState::ChangingStrandName {
+                strand_id: current_s_id,
+            } => {
+                if let DesignOperation::SetStrandName { s_id, .. } = operation {
+                    if current_s_id == *s_id {
+                        OperationCompatibility::Compatible
+                    } else {
+                        OperationCompatibility::FinishFirst
+                    }
+                } else {
+                    OperationCompatibility::FinishFirst
+                }
+            }
             _ => OperationCompatibility::Incompatible,
         }
     }
@@ -785,6 +816,7 @@ impl Controller {
             ControllerState::WithPendingXoverDuplication { .. } => StatePersitance::Persistant,
             ControllerState::WithPausedSimulation { .. } => StatePersitance::Persistant,
             ControllerState::SettingRollHelices { .. } => StatePersitance::NeedFinish,
+            ControllerState::ChangingStrandName { .. } => StatePersitance::NeedFinish,
             _ => StatePersitance::Transitory,
         }
     }
@@ -1573,6 +1605,7 @@ impl Controller {
             junctions: prime5_junctions,
             cyclic: false,
             sequence: seq_prim5,
+            name: None,
         };
 
         let strand_3prime = Strand {
@@ -1581,6 +1614,7 @@ impl Controller {
             cyclic: false,
             junctions: prime3_junctions,
             sequence: seq_prim3,
+            name: None,
         };
         let new_id = (*design.strands.keys().max().unwrap_or(&0)).max(id) + 1;
         println!("new id {}, ; id {}", new_id, id);
@@ -1774,6 +1808,7 @@ impl Controller {
                 sequence,
                 junctions,
                 cyclic: false,
+                name: None,
             };
             design.strands.insert(prime5, new_strand);
             Ok(())
@@ -2161,6 +2196,9 @@ enum ControllerState {
         interface: Arc<Mutex<RollInterface>>,
         initial_design: AddressPointer<Design>,
     },
+    ChangingStrandName {
+        strand_id: usize,
+    },
 }
 
 impl Default for ControllerState {
@@ -2191,6 +2229,7 @@ impl ControllerState {
             Self::WithPausedSimulation { .. } => "WithPausedSimulation",
             Self::Rolling { .. } => "Rolling",
             Self::SettingRollHelices => "SettingRollHelices",
+            Self::ChangingStrandName { .. } => "ChangingStrandName",
         }
     }
     fn update_pasting_position(
@@ -2288,8 +2327,9 @@ impl ControllerState {
                 Self::Simulating { .. } => self.clone(),
                 Self::SimulatingGrids { .. } => self.clone(),
                 Self::WithPausedSimulation { .. } => self.clone(),
-                Self::Rolling { .. } => self.clone(),
+                Self::Rolling { .. } => Self::Normal,
                 Self::SettingRollHelices => Self::Normal,
+                Self::ChangingStrandName { .. } => Self::Normal,
             }
         }
     }

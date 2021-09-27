@@ -18,7 +18,6 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 use super::{AppState, UiSize};
 use ensnano_interactor::{ActionMode, SelectionMode};
 use iced::{container, Background, Container};
-use iced_native::clipboard::Null as NullClipBoard;
 use iced_wgpu::Renderer;
 use iced_winit::winit::dpi::LogicalSize;
 use iced_winit::{button, Button, Color, Command, Element, Length, Program, Row};
@@ -159,9 +158,8 @@ impl<R: Requests, S: AppState> TopBar<R, S> {
 impl<R: Requests, S: AppState> Program for TopBar<R, S> {
     type Renderer = Renderer;
     type Message = Message<S>;
-    type Clipboard = NullClipBoard;
 
-    fn update(&mut self, message: Message<S>, _cb: &mut NullClipBoard) -> Command<Message<S>> {
+    fn update(&mut self, message: Message<S>) -> Command<Message<S>> {
         match message {
             Message::SceneFitRequested => {
                 self.requests.lock().unwrap().fit_design_in_scenes();

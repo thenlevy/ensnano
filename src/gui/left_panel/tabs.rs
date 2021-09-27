@@ -18,7 +18,6 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 use super::*;
 use ensnano_interactor::{RollRequest, SimulationState};
 use iced::scrollable;
-use iced::Color;
 
 pub(super) struct EditionTab<S: AppState> {
     scroll: iced::scrollable::State,
@@ -139,23 +138,21 @@ impl<S: AppState> EditionTab<S> {
         }
     }
 
-    pub(super) fn strand_color_change(&mut self, color: Color) -> u32 {
+    pub(super) fn strand_color_change(&mut self) -> u32 {
+        let color = self.color_picker.update_color();
         let red = ((color.r * 255.) as u32) << 16;
         let green = ((color.g * 255.) as u32) << 8;
         let blue = (color.b * 255.) as u32;
-        self.color_picker.update_color(color);
-        let hue = Hsv::from(Rgb::new(
-            color.r as f64 * 255.,
-            color.g as f64 * 255.,
-            color.b as f64 * 255.,
-        ))
-        .h;
-        self.color_picker.change_hue(hue as f32);
-        let color = red + green + blue;
-        color
+        let color_u32 = red + green + blue;
+        color_u32
     }
 
-    pub(super) fn change_hue(&mut self, hue: f32) {
+    pub(super) fn change_sat_value(&mut self, sat: f64, hsv_value: f64) {
+        self.color_picker.set_hsv_value(hsv_value);
+        self.color_picker.set_saturation(sat);
+    }
+
+    pub(super) fn change_hue(&mut self, hue: f64) {
         self.color_picker.change_hue(hue)
     }
 }

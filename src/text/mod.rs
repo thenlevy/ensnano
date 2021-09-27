@@ -18,6 +18,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 //! This module provides utilities for drawing text in the applications
 use fontdue::Font;
 use iced_wgpu::wgpu;
+use std::convert::TryInto;
 use std::rc::Rc;
 use wgpu::{
     util::DeviceExt, BindGroup, BindGroupLayout, Device, Extent3d, Queue, Sampler, Texture,
@@ -35,13 +36,13 @@ unsafe impl bytemuck::Pod for Vertex {}
 unsafe impl bytemuck::Zeroable for Vertex {}
 
 const VERTEX_ATTR_ARRAY: [wgpu::VertexAttribute; 2] =
-    wgpu::vertex_attr_array![0 => Float2, 1 => Float2];
+    wgpu::vertex_attr_array![0 => Float32x2, 1 => Float32x2];
 impl Vertex {
     pub fn desc<'a>() -> wgpu::VertexBufferLayout<'a> {
         use std::mem;
         wgpu::VertexBufferLayout {
             array_stride: mem::size_of::<Vertex>() as wgpu::BufferAddress,
-            step_mode: wgpu::InputStepMode::Vertex,
+            step_mode: wgpu::VertexStepMode::Vertex,
             attributes: &VERTEX_ATTR_ARRAY,
         }
     }
@@ -60,6 +61,7 @@ pub struct Letter {
     pub bind_group_layout: BindGroupLayout,
     pub advance: f32,
     pub height: f32,
+    pub advance_height: f32,
 }
 
 const MAX_SIZE: u32 = 9;
@@ -71,7 +73,7 @@ impl Letter {
         let size = Extent3d {
             width: 1 << MAX_SIZE,
             height: 1 << MAX_SIZE,
-            depth: 1,
+            depth_or_array_layers: 1,
         };
 
         let diffuse_texture = device.create_texture(&wgpu::TextureDescriptor {
@@ -81,12 +83,12 @@ impl Letter {
             mip_level_count: MIP_LEVEL_COUNT,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Rgba8UnormSrgb,
-            usage: wgpu::TextureUsage::SAMPLED | wgpu::TextureUsage::COPY_DST,
+            format: crate::TEXTURE_FORMAT,
+            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
             label: Some("diffuse_texture"),
         });
 
-        let font: &[u8] = if character.is_ascii_alphabetic() {
+        let font: &[u8] = if character.is_ascii_uppercase() {
             include_bytes!("../../font/DejaVuSansMono.ttf")
         } else {
             include_bytes!("../../font/Inconsolata-Regular.ttf")
@@ -124,13 +126,14 @@ impl Letter {
 
         let advance = metrics.advance_width / size.width as f32;
         let height = metrics.height as f32 / size.height as f32;
+        let advance_height = metrics.ymin as f32 / size.height as f32;
         let mut last_pixels = None;
 
         for mip_level in 0..MIP_LEVEL_COUNT {
             let size = Extent3d {
                 width: 1 << (MAX_SIZE - mip_level),
                 height: 1 << (MAX_SIZE - mip_level),
-                depth: 1,
+                depth_or_array_layers: 1,
             };
             let mut pixels = vec![0u8; (size.width * size.height * 4) as usize];
 
@@ -161,17 +164,18 @@ impl Letter {
 
             queue.write_texture(
                 // Tells wgpu where to copy the pixel data
-                wgpu::TextureCopyView {
+                wgpu::ImageCopyTextureBase {
                     texture: &diffuse_texture,
                     mip_level,
                     origin: wgpu::Origin3d::ZERO,
+                    aspect: Default::default(),
                 },
                 &pixels,
                 // The layout of the texture
-                wgpu::TextureDataLayout {
+                wgpu::ImageDataLayout {
                     offset: 0,
-                    bytes_per_row: 4 * size.width,
-                    rows_per_image: size.height,
+                    bytes_per_row: (4 * size.width).try_into().ok(),
+                    rows_per_image: size.height.try_into().ok(),
                 },
                 size,
             );
@@ -196,20 +200,20 @@ impl Letter {
                 entries: &[
                     wgpu::BindGroupLayoutEntry {
                         binding: 0,
-                        visibility: wgpu::ShaderStage::FRAGMENT,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
                         ty: wgpu::BindingType::Texture {
                             multisampled: false,
                             view_dimension: wgpu::TextureViewDimension::D2,
-                            sample_type: wgpu::TextureSampleType::Float { filterable: false },
+                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
                         },
                         count: None,
                     },
                     wgpu::BindGroupLayoutEntry {
                         binding: 1,
-                        visibility: wgpu::ShaderStage::FRAGMENT,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
                         ty: wgpu::BindingType::Sampler {
                             comparison: false,
-                            filtering: false,
+                            filtering: true,
                         },
                         count: None,
                     },
@@ -233,12 +237,12 @@ impl Letter {
         let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Vertex Buffer"),
             contents: bytemuck::cast_slice(vertices),
-            usage: wgpu::BufferUsage::VERTEX,
+            usage: wgpu::BufferUsages::VERTEX,
         });
         let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Index Buffer"),
             contents: bytemuck::cast_slice(INDICES),
-            usage: wgpu::BufferUsage::INDEX,
+            usage: wgpu::BufferUsages::INDEX,
         });
 
         Self {
@@ -252,6 +256,7 @@ impl Letter {
             bind_group_layout: texture_bind_group_layout,
             advance,
             height,
+            advance_height,
         }
     }
 }

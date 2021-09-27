@@ -16,7 +16,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-use super::{MainState, NormalState, State, TransitionMessage};
+use super::{messages, MainState, NormalState, State, TransitionMessage};
 
 use crate::dialog;
 use dialog::{MustAckMessage, PathInput};
@@ -62,48 +62,6 @@ impl State for DownloadStaples {
             }
         }
     }
-
-    /*
-    let result = mediator.download_stapples();
-    match result {
-        Ok(DownloadStappleOk {
-            design_id,
-            warnings,
-        }) => {
-            for warn in warnings {
-                requests
-                    .keep_proceed
-                    .push_back(Action::Warning(warn.dialog()))
-            }
-            requests
-                .keep_proceed
-                .push_back(Action::AskStaplesPath { d_id: design_id })
-        }
-        Err(DownloadStappleError::NoScaffoldSet) => {
-            message(
-                "No scaffold set. \n
-                    Chose a strand and set it as the scaffold by checking the scaffold checkbox\
-                    in the status bar"
-                    .into(),
-                rfd::MessageLevel::Error,
-            );
-        }
-        Err(DownloadStappleError::ScaffoldSequenceNotSet) => {
-            message(
-                "No sequence uploaded for scaffold. \n
-                Upload a sequence for the scaffold by pressing the \"Load scaffold\" button"
-                    .into(),
-                rfd::MessageLevel::Error,
-            );
-        }
-        Err(DownloadStappleError::SeveralDesignNoneSelected) => {
-            message(
-                "No design selected, select a design by selecting one of its elements".into(),
-                rfd::MessageLevel::Error,
-            );
-        }
-    }
-    */
 }
 
 fn get_design_providing_staples(downlader: &dyn StaplesDownloader) -> Box<dyn State> {
@@ -115,24 +73,21 @@ fn get_design_providing_staples(downlader: &dyn StaplesDownloader) -> Box<dyn St
             warning_ack: None,
         }
         .to_state(),
-        Err(DownloadStappleError::NoScaffoldSet) => {
-            let message = "No scaffold set. \n
-                    Chose a strand and set it as the scaffold by checking the scaffold checkbox\
-                    in the status bar"
-                .into();
-            TransitionMessage::new(message, rfd::MessageLevel::Error, Box::new(NormalState))
-        }
-        Err(DownloadStappleError::ScaffoldSequenceNotSet) => {
-            let message = "No sequence uploaded for scaffold. \n
-                Upload a sequence for the scaffold by pressing the \"Load scaffold\" button"
-                .into();
-            TransitionMessage::new(message, rfd::MessageLevel::Error, Box::new(NormalState))
-        }
-        Err(DownloadStappleError::SeveralDesignNoneSelected) => {
-            let message =
-                "No design selected, select a design by selecting one of its elements".into();
-            TransitionMessage::new(message, rfd::MessageLevel::Error, Box::new(NormalState))
-        }
+        Err(DownloadStappleError::NoScaffoldSet) => TransitionMessage::new(
+            messages::NO_SCAFFOLD_SET,
+            rfd::MessageLevel::Error,
+            Box::new(NormalState),
+        ),
+        Err(DownloadStappleError::ScaffoldSequenceNotSet) => TransitionMessage::new(
+            messages::NO_SCAFFOLD_SEQUENCE_SET,
+            rfd::MessageLevel::Error,
+            Box::new(NormalState),
+        ),
+        Err(DownloadStappleError::SeveralDesignNoneSelected) => TransitionMessage::new(
+            messages::NO_DESIGN_SELECTED,
+            rfd::MessageLevel::Error,
+            Box::new(NormalState),
+        ),
     }
 }
 
@@ -187,8 +142,11 @@ fn poll_path(path_input: PathInput, design_id: usize) -> Box<dyn State> {
                 step: Step::Downloading { path, design_id },
             })
         } else {
-            let message = "No target file recieved".to_string();
-            TransitionMessage::new(message, rfd::MessageLevel::Error, Box::new(NormalState))
+            TransitionMessage::new(
+                messages::NO_FILE_RECIEVED,
+                rfd::MessageLevel::Error,
+                Box::new(NormalState),
+            )
         }
     } else {
         Box::new(DownloadStaples {
@@ -206,10 +164,7 @@ fn download_staples(
     path: PathBuf,
 ) -> Box<dyn State> {
     downlader.write_staples_xlsx(&path);
-    let msg = format!(
-        "Successfully wrote staples in {}",
-        path.clone().to_string_lossy()
-    );
+    let msg = messages::successfull_staples_export_msg(&path);
     TransitionMessage::new(msg, rfd::MessageLevel::Error, Box::new(NormalState))
 }
 

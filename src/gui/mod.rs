@@ -32,7 +32,7 @@ pub mod status_bar;
 mod ui_size;
 pub use ui_size::*;
 mod material_icons_light;
-pub use status_bar::CurentOpState;
+pub use status_bar::{CurentOpState, StrandBuildingStatus};
 
 mod icon;
 
@@ -167,6 +167,7 @@ pub trait Requests: 'static + Send {
     fn reset_simulations(&mut self);
     fn reload_file(&mut self);
     fn add_double_strand_on_new_helix(&mut self, parameters: Option<(isize, usize)>);
+    fn set_strand_name(&mut self, s_id: usize, name: String);
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -512,7 +513,11 @@ impl<R: Requests, S: AppState> Gui<R, S> {
         requests: Arc<Mutex<R>>,
         settings: Settings,
     ) -> Self {
-        let mut renderer = Renderer::new(Backend::new(device.as_ref(), settings.clone()));
+        let mut renderer = Renderer::new(Backend::new(
+            device.as_ref(),
+            settings.clone(),
+            crate::TEXTURE_FORMAT,
+        ));
         let mut elements = HashMap::new();
         elements.insert(
             ElementType::TopBar,
@@ -541,6 +546,19 @@ impl<R: Requests, S: AppState> Gui<R, S> {
     /// Forward an event to the appropriate gui component
     pub fn forward_event(&mut self, area: ElementType, event: iced_native::Event) {
         self.elements.get_mut(&area).unwrap().forward_event(event);
+    }
+
+    /// Clear the foccus of all components of the GUI
+    pub fn clear_foccus(&mut self) {
+        for elt in self.elements.values_mut() {
+            use iced_native::mouse::Event;
+            elt.forward_event(iced_native::Event::Mouse(Event::CursorMoved {
+                position: [-1., -1.].into(),
+            }));
+            elt.forward_event(iced_native::Event::Mouse(Event::ButtonPressed(
+                iced_native::mouse::Button::Left,
+            )))
+        }
     }
 
     pub fn forward_event_all(&mut self, event: iced_native::Event) {
@@ -651,7 +669,11 @@ impl<R: Requests, S: AppState> Gui<R, S> {
             default_text_size: text_size,
             ..self.settings.clone()
         };
-        let renderer = Renderer::new(Backend::new(self.device.as_ref(), settings.clone()));
+        let renderer = Renderer::new(Backend::new(
+            self.device.as_ref(),
+            settings.clone(),
+            crate::TEXTURE_FORMAT,
+        ));
         self.settings = settings;
         self.renderer = renderer;
     }
@@ -751,7 +773,7 @@ use std::collections::VecDeque;
 pub struct IcedMessages<S: AppState> {
     left_panel: VecDeque<left_panel::Message<S>>,
     top_bar: VecDeque<top_bar::Message<S>>,
-    color_overlay: VecDeque<left_panel::ColorMessage>,
+    _color_overlay: VecDeque<left_panel::ColorMessage>,
     status_bar: VecDeque<status_bar::Message<S>>,
     application_state: S,
 }
@@ -762,21 +784,10 @@ impl<S: AppState> IcedMessages<S> {
         Self {
             left_panel: VecDeque::new(),
             top_bar: VecDeque::new(),
-            color_overlay: VecDeque::new(),
+            _color_overlay: VecDeque::new(),
             status_bar: VecDeque::new(),
             application_state: Default::default(),
         }
-    }
-
-    #[allow(dead_code)]
-    pub fn push_color(&mut self, color: u32) {
-        let bytes = color.to_be_bytes();
-        // bytes is [A, R, G, B]
-        let color = iced::Color::from_rgb8(bytes[1], bytes[2], bytes[3]);
-        self.color_overlay
-            .push_back(left_panel::ColorMessage::StrandColorChanged(color));
-        self.left_panel
-            .push_back(left_panel::Message::StrandColorChanged(color));
     }
 
     pub fn push_progress(&mut self, progress_name: String, progress: f32) {
@@ -799,9 +810,11 @@ impl<S: AppState> IcedMessages<S> {
 
     pub fn new_ui_size(&mut self, ui_size: UiSize) {
         self.left_panel
-            .push_back(left_panel::Message::UiSizeChanged(ui_size.clone()));
+            .push_back(left_panel::Message::UiSizeChanged(ui_size));
         self.top_bar
-            .push_back(top_bar::Message::UiSizeChanged(ui_size.clone()));
+            .push_back(top_bar::Message::UiSizeChanged(ui_size));
+        self.status_bar
+            .push_back(status_bar::Message::UiSizeChanged(ui_size));
     }
 
     pub fn push_show_tutorial(&mut self) {
@@ -858,6 +871,7 @@ pub trait AppState: Default + PartialEq + Clone + 'static + Send + std::fmt::Deb
     fn design_was_modified(&self, other: &Self) -> bool;
     fn selection_was_updated(&self, other: &Self) -> bool;
     fn get_curent_operation_state(&self) -> Option<CurentOpState>;
+    fn get_strand_building_state(&self) -> Option<StrandBuildingStatus>;
 }
 
 pub trait DesignReader: 'static {
@@ -870,6 +884,7 @@ pub trait DesignReader: 'static {
     fn nucl_is_anchor(&self, nucl: Nucl) -> bool;
     fn get_dna_elements(&self) -> &[DnaElement];
     fn get_organizer_tree(&self) -> Option<Arc<ensnano_design::EnsnTree>>;
+    fn strand_name(&self, s_id: usize) -> String;
 }
 
 pub struct MainState {

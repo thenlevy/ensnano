@@ -5,6 +5,7 @@ layout(location=0) in vec2 a_position;
 layout(location=1) in vec2 a_tex_coords;
 
 layout(location=0) out vec2 v_tex_coords;
+layout(location=1) out vec4 v_color;
 
 layout(set = 0, binding = 0)
 uniform Globals {
@@ -18,11 +19,12 @@ struct Instances {
     mat2 rotation;
     float size;
     int z_index;
+    vec4 color;
 };
 
 layout(set=1, binding=0) 
 buffer InstancesBlock {
-    Instances instances[];
+    readonly Instances instances[];
 };
 
 void main() {
@@ -30,7 +32,9 @@ void main() {
 
     v_tex_coords = a_tex_coords;
 
-    float size = instances[gl_InstanceIndex].size;
+    Instances this_letter = instances[gl_InstanceIndex];
+    float size = this_letter.size;
+    v_color = this_letter.color;
 
     if (u_zoom < 7.) {
        size *= 2.;

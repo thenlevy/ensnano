@@ -16,9 +16,11 @@ mod drag_drop_target;
 pub mod element;
 mod hoverable_button;
 pub mod theme;
+mod tree;
 
 pub use element::*;
 use theme::Theme;
+pub use tree::OrganizerTree;
 
 use drag_drop_target::*;
 
@@ -26,7 +28,7 @@ type HoverableButton<'a, Message> = hoverable_button::Button<'a, Message, iced_w
 
 const LEVEL0_SPACING: u16 = 3;
 const LEVELS_SPACING: u16 = 2;
-const ICON_SIZE: u16 = 8;
+const ICON_SIZE: u16 = 10;
 const SECTION_ID: usize = usize::MAX;
 
 #[derive(Clone, Debug)]
@@ -35,14 +37,8 @@ pub enum OrganizerMessage<E: OrganizerElement> {
     Selection(Vec<E::Key>),
     Candidates(Vec<E::Key>),
     ElementUpdate(Vec<BTreeMap<E::Key, E>>),
-    NewAttribute(E::Attribute, BTreeSet<E::Key>),
+    NewAttribute(E::Attribute, Vec<E::Key>),
     NewTree(OrganizerTree<E::Key>),
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum OrganizerTree<K> {
-    Leaf(K),
-    Node(String, Vec<OrganizerTree<K>>),
 }
 
 #[derive(Clone, Debug)]
@@ -126,6 +122,13 @@ impl<E: OrganizerElement> OrganizerMessage<E> {
     fn drag_dropped(key: Identifier<E::Key>) -> Self {
         Self::InternalMessage(InternalMessage(OrganizerMessage_::DragDropped(key)))
     }
+
+    fn attribute_selected(attribute: E::Attribute, id: NodeId) -> Self {
+        Self::InternalMessage(InternalMessage(OrganizerMessage_::AttributeSelected {
+            attribute,
+            id,
+        }))
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -142,6 +145,7 @@ enum OrganizerMessage_<E: OrganizerElement> {
     Delete { id: NodeId },
     DragDropped(Identifier<E::Key>),
     Dragging(Identifier<E::Key>),
+    AttributeSelected { attribute: E::Attribute, id: NodeId },
 }
 
 pub struct Organizer<E: OrganizerElement> {
@@ -200,7 +204,6 @@ impl<E: OrganizerElement> Organizer<E> {
     }
 
     pub fn view(&mut self, selection: BTreeSet<E::Key>) -> Element<OrganizerMessage<E>> {
-        self.update_attributes();
         self.hovered_in = None;
         let mut ret = Scrollable::new(&mut self.scroll_state)
             .width(self.width)
@@ -256,7 +259,7 @@ impl<E: OrganizerElement> Organizer<E> {
         match &message.0 {
             OrganizerMessage_::Expand { id, expanded } => self.expand(id, *expanded),
             OrganizerMessage_::NodeSelected { id } => {
-                let add = self.modifiers.is_command_pressed() || self.modifiers.shift;
+                let add = self.modifiers.command() || self.modifiers.shift();
                 let new_selection = self.select_node(id, add, selection.clone());
                 return Some(OrganizerMessage::Selection(
                     new_selection.into_iter().collect(),
@@ -269,7 +272,7 @@ impl<E: OrganizerElement> Organizer<E> {
                 return Some(OrganizerMessage::NewTree(self.tree()));
             }
             OrganizerMessage_::ElementSelected { key } => {
-                let new_selection = if self.modifiers.is_command_pressed() || self.modifiers.shift {
+                let new_selection = if self.modifiers.command() || self.modifiers.shift() {
                     let mut new_selection = selection.clone();
                     Self::add_selection(&mut new_selection, key, true);
                     new_selection
@@ -282,7 +285,10 @@ impl<E: OrganizerElement> Organizer<E> {
                 ));
             }
             OrganizerMessage_::NewGroup => {
-                self.push_content(selection.iter().cloned().collect(), String::from(""));
+                self.push_content(
+                    selection.iter().cloned().collect(),
+                    String::from("New group"),
+                );
                 return Some(OrganizerMessage::NewTree(self.tree()));
             }
             OrganizerMessage_::Delete { id } => {
@@ -300,6 +306,10 @@ impl<E: OrganizerElement> Organizer<E> {
             }
             OrganizerMessage_::KeyHovered { key, hovered_in } => {
                 return self.key_hover(key.clone(), *hovered_in)
+            }
+            OrganizerMessage_::AttributeSelected { attribute, id } => {
+                let keys = self.get_keys_below(id);
+                return Some(OrganizerMessage::NewAttribute(attribute.clone(), keys));
             }
         }
         None
@@ -475,18 +485,26 @@ impl<E: OrganizerElement> Organizer<E> {
 
     fn tree(&self) -> OrganizerTree<E::Key> {
         let groups = self.groups.iter().filter_map(|g| g.tree()).collect();
-        OrganizerTree::Node("root".to_owned(), groups)
+        OrganizerTree::Node {
+            name: "root".to_owned(),
+            childrens: groups,
+            expanded: true,
+        }
     }
 
     pub fn read_tree(&mut self, tree: &OrganizerTree<E::Key>) {
         if self.last_read_tree != tree {
             self.last_read_tree = tree;
-            if let OrganizerTree::Node(_, groups) = tree {
-                self.groups = groups.iter().map(|g| GroupContent::read_tree(g)).collect();
+            if let OrganizerTree::Node { childrens, .. } = tree {
+                self.groups = childrens
+                    .iter()
+                    .map(|g| GroupContent::read_tree(g))
+                    .collect();
             } else {
                 self.groups = vec![];
             }
             self.recompute_id();
+            self.update_attributes();
         }
     }
 
@@ -640,6 +658,7 @@ impl<E: OrganizerElement> Organizer<E> {
             let section_id: usize = key.section().into();
             self.sections[section_id].add_element(e.clone());
         }
+        self.update_attributes();
     }
 
     fn update_attributes(&mut self) {
@@ -683,14 +702,9 @@ impl<E: OrganizerElement> Section<E> {
         theme: &Theme,
         selection: &BTreeSet<E::Key>,
     ) -> Container<OrganizerMessage<E>> {
-        let title_row = self.view.view(
-            theme,
-            &self.name,
-            self.id.clone(),
-            self.elements.keys().cloned().collect(),
-            self.expanded,
-            false,
-        );
+        let title_row = self
+            .view
+            .view(theme, &self.name, self.id.clone(), self.expanded, false);
         let mut ret = Column::new()
             .spacing(LEVELS_SPACING)
             .push(Element::new(title_row));
@@ -768,8 +782,10 @@ impl<E: OrganizerElement> ElementView<E> {
             if let Some(view) = ad.view() {
                 let mut elt = BTreeSet::new();
                 elt.insert(element.key());
-                content =
-                    content.push(view.map(move |m| OrganizerMessage::NewAttribute(m, elt.clone())))
+                let elt_key = element.key();
+                content = content.push(
+                    view.map(move |m| OrganizerMessage::NewAttribute(m, vec![elt_key.clone()])),
+                )
             }
         }
         if let Some(id) = deletable.clone() {
@@ -857,7 +873,6 @@ impl<E: OrganizerElement> NodeView<E> {
         theme: &Theme,
         name: &String,
         id: NodeId,
-        elements_below: BTreeSet<E::Key>,
         expanded: bool,
         selected: bool,
     ) -> DragDropTarget<OrganizerMessage<E>, E::Key> {
@@ -876,18 +891,20 @@ impl<E: OrganizerElement> NodeView<E> {
                     .push(Text::new(name.clone()))
                     .push(Space::with_width(iced::Length::Fill));
 
-                for ad in self.attribute_displayers.iter_mut() {
-                    if let Some(view) = ad.view() {
-                        let elt = elements_below.clone();
-                        row = row
-                            .push(view.map(move |m| OrganizerMessage::NewAttribute(m, elt.clone())))
-                    }
-                }
-
                 row = row.push(
                     Button::new(eddit_button, eddit_icon())
                         .on_press(OrganizerMessage::eddit(id.clone())),
                 );
+
+                for ad in self.attribute_displayers.iter_mut() {
+                    if let Some(view) = ad.view() {
+                        let id = id.clone();
+                        row = row.push(
+                            view.map(move |m| OrganizerMessage::attribute_selected(m, id.clone())),
+                        )
+                    }
+                }
+
                 row = row.push(
                     Button::new(delete_button, icon(Icon::Trash.into()))
                         .on_press(OrganizerMessage::delete(id.clone())),
@@ -915,9 +932,10 @@ impl<E: OrganizerElement> NodeView<E> {
 
                 for ad in self.attribute_displayers.iter_mut() {
                     if let Some(view) = ad.view() {
-                        let elt = elements_below.clone();
-                        row = row
-                            .push(view.map(move |m| OrganizerMessage::NewAttribute(m, elt.clone())))
+                        let id = id.clone();
+                        row = row.push(
+                            view.map(move |m| OrganizerMessage::attribute_selected(m, id.clone())),
+                        )
                     }
                 }
 
@@ -1009,19 +1027,11 @@ impl<E: OrganizerElement> GroupContent<E> {
                 childrens,
                 view,
                 id,
-                elements_below,
                 ..
             } => {
                 level = id.len();
                 let selected = selected_nodes.contains(id);
-                let title_row = view.view(
-                    theme,
-                    name,
-                    id.clone(),
-                    elements_below.clone(),
-                    *expanded,
-                    selected,
-                );
+                let title_row = view.view(theme, name, id.clone(), *expanded, selected);
                 let mut ret = Column::new()
                     .spacing(LEVELS_SPACING)
                     .push(Element::new(title_row));
@@ -1077,13 +1087,17 @@ impl<E: OrganizerElement> GroupContent<E> {
                 view: ElementView::new(),
                 attributes: vec![None; E::all_repr().len()],
             },
-            OrganizerTree::Node(name, content) => {
+            OrganizerTree::Node {
+                name,
+                childrens: content,
+                expanded,
+            } => {
                 let childrens = content.iter().map(|c| Self::read_tree(c)).collect();
                 Self::Node {
                     childrens,
                     id: vec![],
                     name: name.clone(),
-                    expanded: false,
+                    expanded: *expanded,
                     view: NodeView::new(),
                     attributes: vec![None; E::all_repr().len()],
                     elements_below: BTreeSet::new(),
@@ -1424,10 +1438,17 @@ impl<E: OrganizerElement> GroupContent<E> {
     fn tree(&self) -> Option<OrganizerTree<E::Key>> {
         match self {
             Self::Node {
-                name, childrens, ..
+                name,
+                childrens,
+                expanded,
+                ..
             } => {
                 let childrens = childrens.iter().filter_map(Self::tree).collect();
-                Some(OrganizerTree::Node(name.clone(), childrens))
+                Some(OrganizerTree::Node {
+                    name: name.clone(),
+                    childrens,
+                    expanded: *expanded,
+                })
             }
             Self::Leaf { element, .. } => Some(OrganizerTree::Leaf(element.clone())),
             Self::Placeholder => None,

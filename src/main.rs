@@ -81,6 +81,7 @@ use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 pub type PhySize = iced_winit::winit::dpi::PhysicalSize<u32>;
+const TEXTURE_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Bgra8UnormSrgb;
 
 use controller::{ChanelReader, ChanelReaderUpdate, SimulationRequest};
 use ensnano_design::Nucl;
@@ -201,7 +202,7 @@ fn main() {
 
     let modifiers = ModifiersState::default();
 
-    let instance = wgpu::Instance::new(wgpu::BackendBit::PRIMARY);
+    let instance = wgpu::Instance::new(wgpu::Backends::PRIMARY);
     let surface = unsafe { instance.create_surface(&window) };
     // Initialize WGPU
     let (device, queue) = futures::executor::block_on(async {
@@ -228,29 +229,28 @@ fn main() {
             .expect("Request device")
     });
 
-    let format = wgpu::TextureFormat::Bgra8UnormSrgb;
-
-    let mut swap_chain = {
+    {
         let size = window.inner_size();
 
-        device.create_swap_chain(
-            &surface,
-            &wgpu::SwapChainDescriptor {
-                usage: wgpu::TextureUsage::RENDER_ATTACHMENT,
-                format,
+        surface.configure(
+            &device,
+            &wgpu::SurfaceConfiguration {
+                usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+                format: TEXTURE_FORMAT,
                 width: size.width,
                 height: size.height,
                 present_mode: wgpu::PresentMode::Mailbox,
             },
         )
-    };
+    }
+
     let settings = Settings {
         antialiasing: Some(iced_graphics::Antialiasing::MSAAx4),
         default_text_size: gui::UiSize::Medium.main_text(),
         default_font: Some(include_bytes!("../font/ensnano2.ttf")),
         ..Default::default()
     };
-    let mut renderer = Renderer::new(Backend::new(&device, settings.clone()));
+    let mut renderer = Renderer::new(Backend::new(&device, settings.clone(), TEXTURE_FORMAT));
     let device = Rc::new(device);
     let queue = Rc::new(queue);
     let mut resized = false;
@@ -436,7 +436,10 @@ fn main() {
                             area if area.is_scene() => {
                                 let cursor_position = multiplexer.get_cursor_position();
                                 let state = main_state.get_app_state();
-                                scheduler.forward_event(&event, area, cursor_position, state)
+                                scheduler.forward_event(&event, area, cursor_position, state);
+                                if matches!(event, winit::event::WindowEvent::MouseInput { .. }) {
+                                    gui.clear_foccus();
+                                }
                             }
                             _ => unreachable!(),
                         }
@@ -527,11 +530,11 @@ fn main() {
                     scheduler.forward_new_size(window.inner_size(), &multiplexer);
                     let window_size = window.inner_size();
 
-                    swap_chain = device.create_swap_chain(
-                        &surface,
-                        &wgpu::SwapChainDescriptor {
-                            usage: wgpu::TextureUsage::RENDER_ATTACHMENT,
-                            format,
+                    surface.configure(
+                        &device,
+                        &wgpu::SurfaceConfiguration {
+                            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+                            format: TEXTURE_FORMAT,
                             width: window_size.width,
                             height: window_size.height,
                             present_mode: wgpu::PresentMode::Mailbox,
@@ -547,11 +550,11 @@ fn main() {
                     scheduler.forward_new_size(window.inner_size(), &multiplexer);
                     let window_size = window.inner_size();
 
-                    swap_chain = device.create_swap_chain(
-                        &surface,
-                        &wgpu::SwapChainDescriptor {
-                            usage: wgpu::TextureUsage::RENDER_ATTACHMENT,
-                            format,
+                    surface.configure(
+                        &device,
+                        &wgpu::SurfaceConfiguration {
+                            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+                            format: TEXTURE_FORMAT,
                             width: window_size.width,
                             height: window_size.height,
                             present_mode: wgpu::PresentMode::Mailbox,
@@ -580,7 +583,7 @@ fn main() {
                 resized = false;
                 scale_factor_changed = false;
 
-                if let Ok(frame) = swap_chain.get_current_frame() {
+                if let Ok(frame) = surface.get_current_frame() {
                     let mut encoder = device
                         .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
 
@@ -597,7 +600,13 @@ fn main() {
                         &mut mouse_interaction,
                     );
 
-                    multiplexer.draw(&mut encoder, &frame.output.view);
+                    multiplexer.draw(
+                        &mut encoder,
+                        &frame
+                            .output
+                            .texture
+                            .create_view(&wgpu::TextureViewDescriptor::default()),
+                    );
                     //overlay_manager.render(&device, &mut staging_belt, &mut encoder, &frame.output.view, &multiplexer, &window, &mut renderer);
 
                     // Then we submit the work
@@ -972,7 +981,8 @@ impl MainState {
     fn undo(&mut self) {
         if let Some(mut state) = self.undo_stack.pop() {
             state.prepare_for_replacement(&self.app_state);
-            let redo = std::mem::replace(&mut self.app_state, state);
+            let mut redo = std::mem::replace(&mut self.app_state, state);
+            redo = redo.notified(app_state::InteractorNotification::FinishOperation);
             if redo.is_in_stable_state() {
                 self.redo_stack.push(redo);
             }

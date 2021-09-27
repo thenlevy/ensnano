@@ -769,10 +769,12 @@ impl<S: AppState> ControllerState<S> for ReleasedPivot {
                             self.mouse_position.y as f32,
                         );
                         Transition {
-                            new_state: Some(Box::new(Translating {
+                            new_state: Some(Box::new(InitHelixTranslation {
                                 translation_pivots: self.translation_pivots.clone(),
                                 world_clicked: clicked.into(),
+                                clicked_position_screen: self.mouse_position,
                                 mouse_position: self.mouse_position,
+                                click_result,
                             })),
                             consequences: Consequence::Nothing,
                         }
@@ -2850,6 +2852,87 @@ impl<S: AppState> ControllerState<S> for AddClickPivots {
             WindowEvent::CursorMoved { .. } => {
                 self.mouse_position = position;
                 Transition::nothing()
+            }
+            WindowEvent::KeyboardInput { .. } => {
+                controller.process_keyboard(event);
+                Transition::nothing()
+            }
+            WindowEvent::MouseWheel { delta, .. } => {
+                controller
+                    .get_camera(position.y)
+                    .borrow_mut()
+                    .process_scroll(delta, self.mouse_position);
+                Transition::nothing()
+            }
+            _ => Transition::nothing(),
+        }
+    }
+}
+
+struct InitHelixTranslation {
+    translation_pivots: Vec<FlatNucl>,
+    clicked_position_screen: PhysicalPosition<f64>,
+    world_clicked: Vec2,
+    mouse_position: PhysicalPosition<f64>,
+    click_result: ClickResult,
+}
+
+impl<S: AppState> ControllerState<S> for InitHelixTranslation {
+    fn display(&self) -> String {
+        String::from("Init Helix Translation")
+    }
+
+    fn transition_to(&self, _controller: &Controller<S>) -> () {}
+
+    fn transition_from(&self, _controller: &Controller<S>) -> () {}
+
+    fn input(
+        &mut self,
+        event: &WindowEvent,
+        position: PhysicalPosition<f64>,
+        controller: &Controller<S>,
+        app_state: &S,
+    ) -> Transition<S> {
+        match event {
+            WindowEvent::MouseInput {
+                button: MouseButton::Left,
+                state,
+                ..
+            } => {
+                /*
+                assert!(
+                    *state == ElementState::Released,
+                    "Pressed mouse button in LeavingPivot state"
+                );*/
+                if *state == ElementState::Pressed {
+                    return Transition::nothing();
+                }
+                let selection = controller.data.borrow_mut().set_helix_selection(
+                    self.click_result.clone(),
+                    &controller.get_camera(position.y),
+                    app_state,
+                );
+                Transition {
+                    new_state: Some(Box::new(NormalState {
+                        mouse_position: self.mouse_position,
+                    })),
+                    consequences: Consequence::SelectionChanged(selection.new_selection),
+                }
+            }
+            WindowEvent::CursorMoved { .. } => {
+                self.mouse_position = position;
+                if position_difference(self.clicked_position_screen, self.mouse_position) > 5. {
+                    Transition {
+                        new_state: Some(Box::new(Translating {
+                            mouse_position: self.mouse_position,
+                            world_clicked: self.world_clicked,
+                            translation_pivots: self.translation_pivots.clone(),
+                        })),
+                        consequences: Consequence::Nothing,
+                    }
+                } else {
+                    Transition::nothing()
+                }
             }
             WindowEvent::KeyboardInput { .. } => {
                 controller.process_keyboard(event);

@@ -134,8 +134,10 @@ pub fn get_dir() -> PathInput {
 
 pub fn load<P: AsRef<Path>>(starting_path: Option<P>) -> PathInput {
     let mut dialog = rfd::AsyncFileDialog::new()
+        .add_filter("All supported files", &["ens", "json", "sc"])
         .add_filter("ENSnano files", &["ens"])
-        .add_filter("json files", &["json"]);
+        .add_filter("json files", &["json"])
+        .add_filter("scadnano files", &["sc"]);
     if let Some(path) = starting_path {
         dialog = dialog.set_directory(path);
     }

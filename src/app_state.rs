@@ -327,6 +327,31 @@ impl AppState {
     pub fn design_was_modified(&self, other: &Self) -> bool {
         self.0.design.has_different_design_than(&other.0.design)
     }
+
+    fn get_strand_building_state(&self) -> Option<crate::gui::StrandBuildingStatus> {
+        use crate::gui::StrandBuildingStatus;
+        let builders = self.0.design.get_strand_builders();
+        builders.get(0).and_then(|b| {
+            let domain_id = b.get_domain_identifier();
+            let reader = self.get_design_reader();
+            let domain = reader.get_strand_domain(domain_id.strand, domain_id.domain)?;
+            let param = self.0.design.get_dna_parameters();
+            if let ensnano_design::Domain::HelixDomain(interval) = domain {
+                let prime5 = interval.prime5();
+                let prime3 = interval.prime3();
+                let nt_length = domain.length();
+                Some(StrandBuildingStatus {
+                    prime5,
+                    prime3,
+                    nt_length,
+                    nm_length: param.z_step * nt_length as f32,
+                    dragged_nucl: b.moving_end,
+                })
+            } else {
+                None
+            }
+        })
+    }
 }
 
 #[derive(Clone, Default)]

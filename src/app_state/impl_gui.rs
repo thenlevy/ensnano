@@ -103,6 +103,10 @@ impl GuiState for AppState {
     fn get_curent_operation_state(&self) -> Option<crate::gui::CurentOpState> {
         self.0.design.get_curent_operation_state()
     }
+
+    fn get_strand_building_state(&self) -> Option<crate::gui::StrandBuildingStatus> {
+        self.get_strand_building_state()
+    }
 }
 
 #[cfg(test)]
