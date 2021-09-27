@@ -545,22 +545,6 @@ impl View {
                 }
             }
 
-            if draw_type.wants_widget() {
-                self.handle_drawers.draw(
-                    &mut render_pass,
-                    viewer_bind_group,
-                    viewer_bind_group_layout,
-                    fake_color,
-                );
-
-                self.rotation_widget.draw(
-                    &mut render_pass,
-                    viewer_bind_group,
-                    viewer_bind_group_layout,
-                    fake_color,
-                );
-            }
-
             if !fake_color && self.draw_letter {
                 for drawer in self.letter_drawer.iter_mut() {
                     drawer.draw(
@@ -590,6 +574,22 @@ impl View {
                         self.models.get_bindgroup(),
                     )
                 }
+            }
+
+            if draw_type.wants_widget() {
+                self.handle_drawers.draw(
+                    &mut render_pass,
+                    viewer_bind_group,
+                    viewer_bind_group_layout,
+                    fake_color,
+                );
+
+                self.rotation_widget.draw(
+                    &mut render_pass,
+                    viewer_bind_group,
+                    viewer_bind_group_layout,
+                    fake_color,
+                );
             }
 
             if fake_color {
