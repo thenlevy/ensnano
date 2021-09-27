@@ -1240,7 +1240,8 @@ impl<'a> MainStateInteface for MainStateView<'a> {
         self.main_state.modify_state(
             |s| s.notified(app_state::InteractorNotification::FinishOperation),
             false,
-        )
+        );
+        self.main_state.app_state.finish_operation();
     }
 
     fn request_copy(&mut self) {
@@ -1370,7 +1371,7 @@ impl<'a> MainStateInteface for MainStateView<'a> {
         if let Some(group_id) = self.main_state.app_state.get_current_group_id() {
             self.apply_operation(DesignOperation::SetGroupPivot { group_id, pivot })
         } else {
-            //TODO
+            self.main_state.app_state.set_current_group_pivot(pivot);
         }
     }
 
@@ -1382,7 +1383,7 @@ impl<'a> MainStateInteface for MainStateView<'a> {
                 translation,
             }))
         } else {
-            // TODO translate pivot of current selection
+            self.main_state.app_state.translate_group_pivot(translation);
         }
     }
 
@@ -1395,7 +1396,7 @@ impl<'a> MainStateInteface for MainStateView<'a> {
                 origin: Vec3::zero(),
             }))
         } else {
-            // TODO rotate pivot of current selection
+            self.main_state.app_state.rotate_group_pivot(rotation);
         }
     }
 }

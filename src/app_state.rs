@@ -24,12 +24,13 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 //!
 //! Each component of ENSnano has specific needs and express them via its own `AppState` trait.
 
+use ensnano_design::group_attributes::GroupPivot;
 use ensnano_interactor::{
     operation::Operation, ActionMode, CenterOfSelection, Selection, SelectionMode, WidgetBasis,
 };
 
 use std::path::PathBuf;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 mod address_pointer;
 mod design_interactor;
 use crate::apply_update;
@@ -87,6 +88,8 @@ impl AppState {
             new_state.selection = AppStateSelection {
                 selection: AddressPointer::new(selection),
                 selected_group,
+                pivot: Arc::new(RwLock::new(None)),
+                old_pivot: Arc::new(RwLock::new(None)),
             };
             // Set when the selection is modified, the center of selection is set to None. It is up
             // to the caller to set it to a certain value when applicable
@@ -278,6 +281,11 @@ impl AppState {
         self.clone().with_interactor(new_interactor)
     }
 
+    pub fn finish_operation(&mut self) {
+        let pivot = self.0.selection.pivot.read().unwrap().clone();
+        *self.0.selection.old_pivot.write().unwrap() = pivot;
+    }
+
     pub fn get_design_reader(&self) -> DesignReader {
         self.0.design.get_design_reader()
     }
@@ -370,6 +378,41 @@ impl AppState {
     pub fn get_current_group_id(&self) -> Option<GroupId> {
         self.0.selection.selected_group.clone()
     }
+
+    pub fn set_current_group_pivot(&mut self, pivot: GroupPivot) {
+        *self.0.selection.pivot.write().unwrap() = Some(pivot);
+        *self.0.selection.old_pivot.write().unwrap() = Some(pivot);
+    }
+
+    pub fn translate_group_pivot(&mut self, translation: ultraviolet::Vec3) {
+        let new_pivot = {
+            if let Some(Some(mut old_pivot)) =
+                self.0.selection.old_pivot.read().as_deref().ok().cloned()
+            {
+                old_pivot.position += translation;
+                old_pivot
+            } else {
+                log::error!("Translating a pivot that does not exist");
+                return;
+            }
+        };
+        *self.0.selection.pivot.write().unwrap() = Some(new_pivot);
+    }
+
+    pub fn rotate_group_pivot(&mut self, rotation: ultraviolet::Rotor3) {
+        let new_pivot = {
+            if let Some(Some(mut old_pivot)) =
+                self.0.selection.old_pivot.read().as_deref().ok().cloned()
+            {
+                old_pivot.orientation = rotation * old_pivot.orientation;
+                old_pivot
+            } else {
+                log::error!("Rotating a pivot that does not exist");
+                return;
+            }
+        };
+        *self.0.selection.pivot.write().unwrap() = Some(new_pivot);
+    }
 }
 
 #[derive(Clone, Default)]
@@ -393,6 +436,8 @@ struct AppState_ {
 struct AppStateSelection {
     selection: AddressPointer<Vec<Selection>>,
     selected_group: Option<ensnano_organizer::GroupId>,
+    pivot: Arc<RwLock<Option<GroupPivot>>>,
+    old_pivot: Arc<RwLock<Option<GroupPivot>>>,
 }
 
 #[derive(Clone, PartialEq, Eq)]

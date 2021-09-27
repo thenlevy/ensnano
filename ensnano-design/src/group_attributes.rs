@@ -25,7 +25,7 @@ pub struct GroupAttribute {
 }
 
 /// The position and orientation of the pivot used to rotate/translate the group
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Copy, Debug, Clone, Serialize, Deserialize)]
 pub struct GroupPivot {
     pub position: Vec3,
     pub orientation: Rotor3,
