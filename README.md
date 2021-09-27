@@ -1,5 +1,5 @@
 ![ensnano-logo](img/ensnano_logo.png)
-![made with iced logo](img/made_with_iced_white.svg)
+<img src="img/made_with_iced_white.svg" width="300">
 
 # About
 
