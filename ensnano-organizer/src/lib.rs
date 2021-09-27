@@ -5,7 +5,7 @@ use iced::{
 pub use iced_aw::Icon;
 use iced_native::keyboard::Modifiers;
 use iced_wgpu::Text;
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::convert::TryInto;
 
 #[macro_use]
@@ -161,7 +161,7 @@ pub struct Organizer<E: OrganizerElement> {
     scroll_state: scrollable::State,
     theme: Theme,
     width: iced::Length,
-    edditing: Option<NodeId>,
+    edditing: Option<GroupId>,
     modifiers: Modifiers,
     selected_nodes: BTreeSet<NodeId>,
     dragging: BTreeSet<Identifier<E::Key>>,
@@ -169,6 +169,7 @@ pub struct Organizer<E: OrganizerElement> {
     hovered_in: Option<NodeId>,
     last_read_tree: *const OrganizerTree<E::Key>,
     must_update_tree: bool,
+    group_to_node: HashMap<GroupId, NodeId>,
 }
 
 impl<E: OrganizerElement> Organizer<E> {
@@ -199,6 +200,7 @@ impl<E: OrganizerElement> Organizer<E> {
             hovered_in: None,
             last_read_tree: std::ptr::null(),
             must_update_tree: false,
+            group_to_node: HashMap::new(),
         }
     }
 
@@ -261,7 +263,7 @@ impl<E: OrganizerElement> Organizer<E> {
             .get_group_id()
             .expect("new group should have an Id");
         self.groups.push(new_group);
-        self.start_edditing(id);
+        self.start_edditing(ret);
         ret
     }
 
@@ -281,7 +283,13 @@ impl<E: OrganizerElement> Organizer<E> {
                     new_group,
                 ));
             }
-            OrganizerMessage_::Eddit { id } => self.start_edditing(id.clone()),
+            OrganizerMessage_::Eddit { id } => {
+                if let Some(group_id) = self.get_group(id).and_then(|g| g.get_group_id()) {
+                    self.start_edditing(group_id)
+                } else {
+                    log::error!("Could not get group id");
+                }
+            }
             OrganizerMessage_::NameInput { name } => self.eddit_name(name.clone()),
             OrganizerMessage_::StopEddit => {
                 self.stop_edditing();
@@ -457,9 +465,14 @@ impl<E: OrganizerElement> Organizer<E> {
         current_selection
     }
 
-    fn start_edditing(&mut self, id: NodeId) {
+    fn start_edditing(&mut self, id: GroupId) {
         self.stop_edditing();
-        if let Some(id_slice) = get_group_id(&id) {
+        if let Some(id_slice) = self
+            .group_to_node
+            .get(&id)
+            .and_then(|node_id| get_group_id(node_id))
+        {
+            log::info!("start edditing {:?}", id);
             self.groups[id_slice[0]].start_edditing(&id_slice[1..]);
             self.edditing = Some(id);
         }
@@ -470,22 +483,24 @@ impl<E: OrganizerElement> Organizer<E> {
     }
 
     fn stop_edditing(&mut self) {
-        if let Some(id) = self
+        let node_id = self
             .edditing
             .as_ref()
-            .and_then(|v| get_group_id(v.as_slice()))
-        {
+            .and_then(|g_id| self.group_to_node.get(g_id).clone())
+            .cloned();
+        if let Some(id) = node_id.as_ref().and_then(|v| get_group_id(v)) {
             self.groups[id[0]].stop_edditing(&id[1..]);
         }
         self.edditing = None;
     }
 
     fn eddit_name(&mut self, name: String) {
-        if let Some(id) = self
+        let node_id = self
             .edditing
             .as_ref()
-            .and_then(|v| get_group_id(v.as_slice()))
-        {
+            .and_then(|g_id| self.group_to_node.get(g_id).clone())
+            .cloned();
+        if let Some(id) = node_id.as_ref().and_then(|v| get_group_id(v)) {
             self.groups[id[0]].eddit_name(&id[1..], name);
         } else {
             println!("ERROR receive name input but self.edditing is None");
@@ -502,8 +517,9 @@ impl<E: OrganizerElement> Organizer<E> {
 
     fn recompute_id(&mut self) {
         self.groups.retain(|c| !c.is_placeholder());
+        self.group_to_node.clear();
         for (i, c) in self.groups.iter_mut().enumerate() {
-            c.recompute_id(vec![i])
+            c.recompute_id(vec![i], &mut self.group_to_node)
         }
     }
 
@@ -889,6 +905,7 @@ impl<E: OrganizerElement> NodeView<E> {
     }
 
     fn start_edditing(&mut self) {
+        log::info!("reached view");
         self.state = GroupState::Edditing {
             input: text_input::State::focused(),
             delete_button: Default::default(),
@@ -1283,21 +1300,23 @@ impl<E: OrganizerElement> GroupContent<E> {
         }
     }
 
-    fn recompute_id(&mut self, id: NodeId) {
+    fn recompute_id(&mut self, id: NodeId, map: &mut HashMap<GroupId, NodeId>) {
         match self {
             Self::Leaf { id: id_ref, .. } => *id_ref = id,
             Self::Node {
                 id: id_ref,
                 childrens,
+                group_id,
                 ..
             } => {
                 childrens.retain(|c| !c.is_placeholder());
                 for (i, c) in childrens.iter_mut().enumerate() {
                     let mut id_child = id.clone();
                     id_child.push(i);
-                    c.recompute_id(id_child);
+                    c.recompute_id(id_child, map);
                 }
-                *id_ref = id;
+                *id_ref = id.clone();
+                map.insert(*group_id, id);
             }
             Self::Placeholder => unreachable!("Recomputing id of a placeholder"),
         }
