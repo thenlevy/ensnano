@@ -15,7 +15,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
-use super::{maths_3d, CameraPtr, Drawable, Drawer, ProjectionPtr, Vertex};
+use super::{maths_3d, CameraPtr, Drawable, Drawer, GroupPivot, ProjectionPtr, Vertex};
 
 use crate::consts::*;
 use iced_wgpu::wgpu;
@@ -225,6 +225,13 @@ impl RotationWidget {
         }
         self.update_drawers()
     }
+
+    pub fn get_pivot_position(&self) -> Option<GroupPivot> {
+        self.descriptor.as_ref().map(|d| GroupPivot {
+            position: d.origin,
+            orientation: d.orientation.into(),
+        })
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -235,9 +242,16 @@ pub struct RotationWidgetDescriptor {
     pub only_right: bool,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum RotationWidgetOrientation {
     Rotor(Rotor3),
+}
+
+impl From<RotationWidgetOrientation> for Rotor3 {
+    fn from(r: RotationWidgetOrientation) -> Self {
+        let RotationWidgetOrientation::Rotor(r) = r;
+        r
+    }
 }
 
 impl RotationWidgetDescriptor {

@@ -200,6 +200,7 @@ impl<S: AppState> Scene<S> {
             }
             Consequence::MovementEnded => {
                 self.requests.lock().unwrap().suspend_op();
+                self.data.borrow_mut().notify_handle_movement();
             }
             Consequence::HelixSelected(h_id) => self
                 .requests
@@ -237,6 +238,7 @@ impl<S: AppState> Scene<S> {
                             }
                         }
                     }
+                    self.data.borrow_mut().notify_handle_movement();
                 } else {
                     log::warn!("Warning rotiation was None")
                 }

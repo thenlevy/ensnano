@@ -1559,6 +1559,10 @@ impl<R: DesignReader> Data<R> {
             SceneElement::WidgetElement(_) => None,
         }
     }
+
+    pub fn notify_handle_movement(&mut self) {
+        self.handle_need_opdate = true;
+    }
 }
 
 pub(super) trait WantWidget: Sized + 'static {

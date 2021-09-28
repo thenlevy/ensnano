@@ -817,7 +817,9 @@ impl View {
     }
 
     pub fn get_group_pivot(&self) -> Option<GroupPivot> {
-        self.handle_drawers.get_pivot_position()
+        self.handle_drawers
+            .get_pivot_position()
+            .or_else(|| self.rotation_widget.get_pivot_position())
     }
 }
 

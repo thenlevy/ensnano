@@ -283,7 +283,14 @@ impl AppState {
 
     pub fn finish_operation(&mut self) {
         let pivot = self.0.selection.pivot.read().unwrap().clone();
+        log::info!("Setting pivot {:?}", pivot);
+        log::info!("was {:?}", self.0.selection.old_pivot.read().unwrap());
         *self.0.selection.old_pivot.write().unwrap() = pivot;
+        log::info!("is {:?}", self.0.selection.old_pivot.read().unwrap());
+        log::debug!(
+            "old pivot after reset {:p}",
+            Arc::as_ptr(&self.0.selection.old_pivot)
+        );
     }
 
     pub fn get_design_reader(&self) -> DesignReader {
@@ -380,11 +387,20 @@ impl AppState {
     }
 
     pub fn set_current_group_pivot(&mut self, pivot: GroupPivot) {
-        *self.0.selection.pivot.write().unwrap() = Some(pivot);
-        *self.0.selection.old_pivot.write().unwrap() = Some(pivot);
+        if self.0.selection.pivot.read().unwrap().is_none() {
+            log::info!("reseting selection pivot {:?}", pivot);
+            *self.0.selection.pivot.write().unwrap() = Some(pivot);
+            *self.0.selection.old_pivot.write().unwrap() = Some(pivot);
+            log::debug!(
+                "old pivot after reset {:p}",
+                Arc::as_ptr(&self.0.selection.old_pivot)
+            );
+        }
     }
 
     pub fn translate_group_pivot(&mut self, translation: ultraviolet::Vec3) {
+        log::debug!("old pivot {:p}", Arc::as_ptr(&self.0.selection.old_pivot));
+        log::info!("is {:?}", self.0.selection.old_pivot.read().unwrap());
         let new_pivot = {
             if let Some(Some(mut old_pivot)) =
                 self.0.selection.old_pivot.read().as_deref().ok().cloned()
@@ -400,6 +416,8 @@ impl AppState {
     }
 
     pub fn rotate_group_pivot(&mut self, rotation: ultraviolet::Rotor3) {
+        log::debug!("old pivot {:p}", Arc::as_ptr(&self.0.selection.old_pivot));
+        log::info!("is {:?}", self.0.selection.old_pivot.read().unwrap());
         let new_pivot = {
             if let Some(Some(mut old_pivot)) =
                 self.0.selection.old_pivot.read().as_deref().ok().cloned()
