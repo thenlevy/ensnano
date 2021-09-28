@@ -15,6 +15,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
+use super::color_picker::ColorState;
 use super::*;
 use ensnano_interactor::{RollRequest, SimulationState};
 use iced::scrollable;
@@ -27,6 +28,7 @@ pub(super) struct EditionTab<S: AppState> {
     redim_helices_button: button::State,
     redim_all_helices_button: button::State,
     roll_target_btn: GoStop<S>,
+    color_square_state: ColorState,
 }
 
 impl<S: AppState> EditionTab<S> {
@@ -42,6 +44,7 @@ impl<S: AppState> EditionTab<S> {
                 "Autoroll selected helices".to_owned(),
                 Message::RollTargeted,
             ),
+            color_square_state: Default::default(),
         }
     }
 
@@ -75,7 +78,7 @@ impl<S: AppState> EditionTab<S> {
                 .view(roll_target_active, sim_state.is_rolling()),
         );
 
-        let color_square = self.color_picker.color_square();
+        let color_square = self.color_picker.color_square(&mut self.color_square_state);
         if app_state.get_selection_mode() == SelectionMode::Strand {
             ret = ret.push(self.color_picker.view()).push(
                 Row::new()

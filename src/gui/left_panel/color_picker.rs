@@ -27,7 +27,7 @@ pub struct ColorPicker {
     hsv_value: f64,
 }
 
-pub use color_square::ColorSquare;
+pub use color_square::{ColorSquare, State as ColorState};
 use hue_column::HueColumn;
 use light_sat_square::LightSatSquare;
 
@@ -84,8 +84,11 @@ impl ColorPicker {
         color_picker
     }
 
-    pub fn color_square<Message>(&self) -> ColorSquare<Message> {
-        ColorSquare::new(self.color)
+    pub fn color_square<'a, Message>(
+        &self,
+        state: &'a mut color_square::State,
+    ) -> ColorSquare<'a, Message> {
+        ColorSquare::new(self.color, state)
     }
 
     pub fn new_view(&mut self) -> Row<ColorMessage> {
@@ -492,6 +495,10 @@ mod light_sat_square {
 }
 
 mod color_square {
+    #[derive(Default, Clone, Eq, PartialEq)]
+    pub struct State {
+        clicked: bool,
+    }
     use super::Color;
     use iced_graphics::{
         triangle::{Mesh2D, Vertex2D},
@@ -503,21 +510,23 @@ mod color_square {
     };
     use std::marker::PhantomData;
 
-    pub struct ColorSquare<Message> {
+    pub struct ColorSquare<'a, Message> {
+        state: &'a mut State,
         color: Color,
         _phantom: PhantomData<Message>,
     }
 
-    impl<Message> ColorSquare<Message> {
-        pub fn new(color: Color) -> Self {
+    impl<'a, Message> ColorSquare<'a, Message> {
+        pub fn new(color: Color, state: &'a mut State) -> Self {
             Self {
+                state,
                 color,
                 _phantom: PhantomData,
             }
         }
     }
 
-    impl<Message, B> Widget<Message, Renderer<B>> for ColorSquare<Message>
+    impl<'a, Message, B> Widget<Message, Renderer<B>> for ColorSquare<'a, Message>
     where
         B: Backend,
     {
@@ -585,18 +594,42 @@ mod color_square {
 
         fn on_event(
             &mut self,
-            _event: Event,
-            _layout: Layout<'_>,
-            _cursor_position: Point,
+            event: Event,
+            layout: Layout<'_>,
+            cursor_position: Point,
             _renderer: &Renderer<B>,
             _clipboard: &mut dyn Clipboard,
-            _messages: &mut Vec<Message>,
+            messages: &mut Vec<Message>,
         ) -> iced_native::event::Status {
-            iced_native::event::Status::Ignored
+            if let Event::Mouse(mouse_event) = event {
+                match mouse_event {
+                    mouse::Event::ButtonPressed(mouse::Button::Left) => {
+                        if layout.bounds().contains(cursor_position) {
+                            self.state.clicked = true;
+                            //messages.push()
+                            iced_native::event::Status::Captured
+                        } else {
+                            iced_native::event::Status::Ignored
+                        }
+                    }
+                    mouse::Event::ButtonReleased(mouse::Button::Left) if self.state.clicked => {
+                        if layout.bounds().contains(cursor_position) {
+                            self.state.clicked = false;
+                            //messages.push()
+                            iced_native::event::Status::Captured
+                        } else {
+                            iced_native::event::Status::Ignored
+                        }
+                    }
+                    _ => iced_native::event::Status::Ignored,
+                }
+            } else {
+                iced_native::event::Status::Ignored
+            }
         }
     }
 
-    impl<'a, Message, B> Into<Element<'a, Message, Renderer<B>>> for ColorSquare<Message>
+    impl<'a, Message, B> Into<Element<'a, Message, Renderer<B>>> for ColorSquare<'a, Message>
     where
         B: Backend,
         Message: 'a + Clone,
