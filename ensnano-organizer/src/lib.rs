@@ -263,7 +263,7 @@ impl<E: OrganizerElement> Organizer<E> {
             .get_group_id()
             .expect("new group should have an Id");
         self.groups.push(new_group);
-        self.start_edditing(ret);
+        self.edditing = Some(ret);
         ret
     }
 
@@ -549,6 +549,9 @@ impl<E: OrganizerElement> Organizer<E> {
             }
             self.recompute_id();
             self.update_attributes();
+            if let Some(group_id) = self.edditing {
+                self.start_edditing(group_id)
+            }
         }
         let ret = self.must_update_tree;
         self.must_update_tree = false;
@@ -911,6 +914,9 @@ impl<E: OrganizerElement> NodeView<E> {
             delete_button: Default::default(),
             eddit_button: Default::default(),
         };
+        if let GroupState::Edditing { input, .. } = &mut self.state {
+            input.select_all()
+        }
     }
 
     fn stop_edditing(&mut self) {
