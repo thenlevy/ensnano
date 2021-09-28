@@ -28,7 +28,6 @@ use crate::{DrawArea, PhySize, WindowEvent};
 use ensnano_design::{group_attributes::GroupPivot, Nucl};
 use ensnano_interactor::{
     application::{AppId, Application, Notification},
-    list_of_grids, list_of_helices,
     operation::*,
     ActionMode, CenterOfSelection, DesignOperation, Selection, SelectionMode, StrandBuilder,
     WidgetBasis,
@@ -417,28 +416,21 @@ impl<S: AppState> Scene<S> {
         let top = Vec3::unit_y().rotated_by(rotor);
         let dir = Vec3::unit_z().rotated_by(rotor);
 
-        let translation_op: Arc<dyn Operation> = match app_state.get_selection().get(0) {
-            Some(Selection::Grid(d_id, g_id)) => {
-                let grids = list_of_grids(app_state.get_selection())
-                    .unwrap_or((0, vec![*g_id as usize]))
-                    .1;
-                Arc::new(GridTranslation {
-                    design_id: *d_id as usize,
-                    grid_ids: grids,
-                    right: Vec3::unit_x().rotated_by(rotor),
-                    top: Vec3::unit_y().rotated_by(rotor),
-                    dir: Vec3::unit_z().rotated_by(rotor),
-                    x: translation.dot(right),
-                    y: translation.dot(top),
-                    z: translation.dot(dir),
-                })
-            }
-            Some(Selection::Helix(d_id, h_id)) => {
-                let helices = list_of_helices(app_state.get_selection())
-                    .unwrap_or((0, vec![*h_id as usize]))
-                    .1;
+        let reader = app_state.get_design_reader();
+        let helices = ensnano_interactor::set_of_helices_containing_selection(
+            app_state.get_selection(),
+            &reader,
+        );
+        let grids = ensnano_interactor::set_of_grids_containing_selection(
+            app_state.get_selection(),
+            &reader,
+        );
+        let at_most_one_grid = grids.as_ref().map(|g| g.len() <= 1).unwrap_or(false);
+
+        let translation_op: Arc<dyn Operation> =
+            if let Some(helices) = helices.filter(|_| at_most_one_grid) {
                 Arc::new(HelixTranslation {
-                    design_id: *d_id as usize,
+                    design_id: 0,
                     helices,
                     right: Vec3::unit_x().rotated_by(rotor),
                     top: Vec3::unit_y().rotated_by(rotor),
@@ -448,9 +440,20 @@ impl<S: AppState> Scene<S> {
                     z: translation.dot(dir),
                     snap: true,
                 })
-            }
-            _ => return,
-        };
+            } else if let Some(grids) = grids {
+                Arc::new(GridTranslation {
+                    design_id: 0,
+                    grid_ids: grids,
+                    right: Vec3::unit_x().rotated_by(rotor),
+                    top: Vec3::unit_y().rotated_by(rotor),
+                    dir: Vec3::unit_z().rotated_by(rotor),
+                    x: translation.dot(right),
+                    y: translation.dot(top),
+                    z: translation.dot(dir),
+                })
+            } else {
+                return;
+            };
 
         self.requests
             .lock()
