@@ -26,6 +26,9 @@ use ultraviolet::Vec2;
 
 type Vertices = lyon::tessellation::VertexBuffers<StrandVertex, u16>;
 
+/// The factor by which the width of hilighted strands is multiplied
+const HIGHLIGHT_FACTOR: f32 = 1.7;
+
 pub struct Strand {
     pub color: u32,
     pub points: Vec<FlatNucl>,
@@ -360,7 +363,7 @@ impl StrokeVertexConstructor<StrandVertex> for WithAttributes {
     fn new_vertex(&mut self, mut vertex: StrokeVertex) -> StrandVertex {
         let mut width = vertex.interpolated_attributes()[1].min(1.).powi(2).max(0.3);
         if self.highlight {
-            width *= 1.3;
+            width *= HIGHLIGHT_FACTOR;
         }
         let color = self.color;
 
