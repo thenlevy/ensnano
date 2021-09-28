@@ -748,10 +748,6 @@ impl<R: DesignReader> Design3D<R> {
         self.design.get_nucl_with_id_relaxed(e_id)
     }
 
-    pub fn helix_is_on_grid(&self, h_id: u32) -> bool {
-        self.design.get_helix_grid_position(h_id).is_some()
-    }
-
     pub fn get_helix_grid_position(&self, h_id: u32) -> Option<GridPosition> {
         self.design.get_helix_grid_position(h_id)
     }

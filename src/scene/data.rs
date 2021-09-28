@@ -781,6 +781,7 @@ impl<R: DesignReader> Data<R> {
         } else {
             log::trace!("Using center_of_selection for updating self.selected_position");
             self.update_selected_position(app_state);
+            self.selected_position = self.selected_position.or(Some(pos / (total_len as f32)));
         }
         self.view.borrow_mut().update(ViewUpdate::RawDna(
             Mesh::SelectedTube,
@@ -1337,7 +1338,8 @@ impl<R: DesignReader> Data<R> {
                     self.designs[*d_id as usize].get_helix_basis(*h_id)
                 }
             }
-            _ => None,
+            Some(_) => Some(Rotor3::identity()),
+            None => None,
         };
         from_selection.or(from_selected_element)
     }
