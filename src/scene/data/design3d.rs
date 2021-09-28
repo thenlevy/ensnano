@@ -853,7 +853,7 @@ fn create_prime3_cone(source: Vec3, dest: Vec3, color: u32) -> RawDnaInstance {
     .to_raw_instance()
 }
 
-pub trait DesignReader: 'static {
+pub trait DesignReader: 'static + ensnano_interactor::DesignReader {
     /// Return the identifier of all the visible nucleotides
     fn get_all_visible_nucl_ids(&self) -> Vec<u32>;
     /// Return the identifier of all the visible bounds
@@ -893,8 +893,6 @@ pub trait DesignReader: 'static {
     fn get_basis(&self) -> Rotor3;
     fn get_identifier_nucl(&self, nucl: &Nucl) -> Option<u32>;
     fn get_identifier_bound(&self, n1: Nucl, n2: Nucl) -> Option<u32>;
-    fn get_xover_with_id(&self, xover_id: usize) -> Option<(Nucl, Nucl)>;
-    fn get_xover_id(&self, xover: &(Nucl, Nucl)) -> Option<usize>;
     fn get_nucl_with_id(&self, e_id: u32) -> Option<Nucl>;
     /// Return the nucleotide with id e_id or the 5' end of the bound with id e_id
     fn get_nucl_with_id_relaxed(&self, e_id: u32) -> Option<Nucl>;

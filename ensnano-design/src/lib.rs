@@ -1116,7 +1116,6 @@ impl Domain {
         }
     }
 
-    #[allow(dead_code)]
     pub fn helix(&self) -> Option<usize> {
         match self {
             Domain::HelixDomain(domain) => Some(domain.helix),

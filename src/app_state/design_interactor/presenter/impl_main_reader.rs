@@ -133,4 +133,16 @@ impl MainReader for DesignReader {
             .get(&h_id)
             .and_then(|h| h.grid_position)
     }
+
+    fn get_strand_with_id(&self, id: usize) -> Option<&ensnano_design::Strand> {
+        self.presenter.current_design.strands.get(&id)
+    }
+
+    fn get_helix_grid(&self, h_id: usize) -> Option<usize> {
+        self.presenter
+            .current_design
+            .helices
+            .get(&h_id)
+            .and_then(|h| h.grid_position.map(|pos| pos.grid))
+    }
 }

@@ -43,10 +43,6 @@ impl Reader3D for DesignReader {
             .cloned()
     }
 
-    fn get_xover_id(&self, xover: &(Nucl, Nucl)) -> Option<usize> {
-        self.presenter.junctions_ids.get_id(xover)
-    }
-
     fn get_grid_basis(&self, g_id: usize) -> Option<Rotor3> {
         self.presenter
             .current_design
@@ -99,10 +95,6 @@ impl Reader3D for DesignReader {
             .grids
             .get(g_id)
             .map(|g| g.position)
-    }
-
-    fn get_xover_with_id(&self, xover_id: usize) -> Option<(Nucl, Nucl)> {
-        self.presenter.junctions_ids.get_element(xover_id)
     }
 
     fn get_grid_instances(&self) -> Vec<GridInstance> {

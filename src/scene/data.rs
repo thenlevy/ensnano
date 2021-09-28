@@ -184,7 +184,7 @@ impl<R: DesignReader> Data<R> {
         self.view
             .borrow_mut()
             .update(ViewUpdate::Handles(handle_descr));
-        let only_right = !self.selection_can_rotate_freely(app_state);
+        let only_right = false;
         let rotation_widget_descr = if app_state.get_action_mode().0.wants_rotation() {
             origin
                 .clone()
@@ -1276,9 +1276,7 @@ impl<R: DesignReader> Data<R> {
 
     pub fn get_widget_basis<S: AppState>(&self, app_state: &S) -> Option<Rotor3> {
         self.get_selected_basis(app_state).map(|b| {
-            if app_state.get_widget_basis().is_axis_aligned()
-                && self.selection_can_rotate_freely(app_state)
-            {
+            if app_state.get_widget_basis().is_axis_aligned() {
                 Rotor3::identity()
             } else {
                 b
@@ -1342,49 +1340,6 @@ impl<R: DesignReader> Data<R> {
             _ => None,
         };
         from_selection.or(from_selected_element)
-    }
-
-    pub fn selection_can_rotate_freely<S: AppState>(&self, app_state: &S) -> bool {
-        let selected_element_can_rotate = match self.selected_element(app_state) {
-            Some(SceneElement::DesignElement(d_id, _)) => {
-                match self.get_sub_selection_mode(app_state) {
-                    SelectionMode::Nucleotide
-                    | SelectionMode::Design
-                    | SelectionMode::Strand
-                    | SelectionMode::Grid => true,
-                    SelectionMode::Helix => {
-                        if let Some(h_id) = self.get_selected_group(app_state) {
-                            !self.designs[d_id as usize].helix_is_on_grid(h_id)
-                        } else {
-                            true
-                        }
-                    }
-                }
-            }
-            Some(SceneElement::PhantomElement(phantom_element)) => {
-                let d_id = phantom_element.design_id;
-                match self.get_sub_selection_mode(app_state) {
-                    SelectionMode::Nucleotide
-                    | SelectionMode::Design
-                    | SelectionMode::Strand
-                    | SelectionMode::Grid => true,
-                    SelectionMode::Helix => {
-                        let h_id = phantom_element.helix_id;
-                        !self.designs[d_id as usize].helix_is_on_grid(h_id)
-                    }
-                }
-            }
-            Some(SceneElement::Grid(_, _)) => true,
-            _ => true,
-        };
-        for s in app_state.get_selection() {
-            if let Selection::Helix(d_id, h_id) = s {
-                if self.designs[*d_id as usize].helix_is_on_grid(*h_id) {
-                    return false;
-                }
-            }
-        }
-        selected_element_can_rotate
     }
 
     pub fn can_start_builder(&self, element: Option<SceneElement>) -> Option<Nucl> {

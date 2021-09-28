@@ -481,14 +481,17 @@ impl<S: AppState> Scene<S> {
             angle *= -1.;
             plane *= -1.;
         }
-        let grids = ensnano_interactor::list_of_grids(app_state.get_selection());
-        let rotation: Arc<dyn Operation> = if let Some((d_id, grid_ids)) = grids {
+        let grids = ensnano_interactor::set_of_grids_containing_selection(
+            app_state.get_selection(),
+            &app_state.get_design_reader(),
+        );
+        let rotation: Arc<dyn Operation> = if let Some(grid_ids) = grids {
             Arc::new(GridRotation {
                 grid_ids,
                 angle,
                 plane,
                 origin,
-                design_id: d_id,
+                design_id: 0,
             })
         } else {
             match self.data.borrow().get_selected_element(app_state) {
