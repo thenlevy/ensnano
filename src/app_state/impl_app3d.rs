@@ -34,6 +34,7 @@ impl App3D for AppState {
     fn selection_was_updated(&self, other: &AppState) -> bool {
         self.0.selection != other.0.selection
             || self.0.center_of_selection != other.0.center_of_selection
+            || self.is_changing_color() != other.is_changing_color()
     }
 
     fn candidates_set_was_updated(&self, other: &AppState) -> bool {
