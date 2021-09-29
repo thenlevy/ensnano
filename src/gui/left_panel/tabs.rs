@@ -15,9 +15,15 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
+use super::color_picker::{ColorSquare, ColorState};
 use super::*;
 use ensnano_interactor::{RollRequest, SimulationState};
 use iced::scrollable;
+use std::collections::VecDeque;
+
+const MEMORY_COLOR_ROWS: usize = 3;
+const MEMORY_COLOR_COLUMN: usize = 8;
+const NB_MEMORY_COLOR: usize = MEMORY_COLOR_ROWS * MEMORY_COLOR_COLUMN;
 
 pub(super) struct EditionTab<S: AppState> {
     scroll: iced::scrollable::State,
@@ -27,6 +33,64 @@ pub(super) struct EditionTab<S: AppState> {
     redim_helices_button: button::State,
     redim_all_helices_button: button::State,
     roll_target_btn: GoStop<S>,
+    color_square_state: ColorState,
+    memory_color_squares: VecDeque<MemoryColorSquare>,
+}
+
+struct MemoryColorSquare {
+    color: Color,
+    state: ColorState,
+}
+
+impl PartialEq<MemoryColorSquare> for MemoryColorSquare {
+    fn eq(&self, other: &MemoryColorSquare) -> bool {
+        self.color == other.color
+    }
+}
+
+impl MemoryColorSquare {
+    fn new(color: Color) -> Self {
+        Self {
+            color,
+            state: Default::default(),
+        }
+    }
+}
+
+fn memory_color_column<'a, S: AppState>(
+    states: &'a mut [MemoryColorSquare],
+) -> Column<'a, Message<S>> {
+    let mut ret = Column::new();
+    let mut right = states;
+    let mut left;
+    for _ in 0..MEMORY_COLOR_ROWS {
+        log::debug!("right len before split {}", right.len());
+        let split_point = right.len().min(MEMORY_COLOR_COLUMN);
+        let (left_, right_) = right.split_at_mut(split_point);
+        left = left_;
+        right = right_;
+        log::debug!("right len after split {}", right.len());
+
+        if left.len() > 0 {
+            let mut row = Row::new();
+            let remaining_space = MEMORY_COLOR_COLUMN - left.len();
+            for state in left.iter_mut() {
+                row = row.push(ColorSquare::new(
+                    state.color,
+                    &mut state.state,
+                    Message::ColorPicked,
+                    Message::FinishChangingColor,
+                ));
+            }
+            if remaining_space > 0 {
+                row = row.push(iced::Space::with_width(Length::FillPortion(
+                    remaining_space as u16,
+                )));
+            }
+            ret = ret.push(row)
+        }
+    }
+    ret
 }
 
 impl<S: AppState> EditionTab<S> {
@@ -42,6 +106,8 @@ impl<S: AppState> EditionTab<S> {
                 "Autoroll selected helices".to_owned(),
                 Message::RollTargeted,
             ),
+            color_square_state: Default::default(),
+            memory_color_squares: VecDeque::new(),
         }
     }
 
@@ -75,12 +141,13 @@ impl<S: AppState> EditionTab<S> {
                 .view(roll_target_active, sim_state.is_rolling()),
         );
 
-        let color_square = self.color_picker.color_square();
+        let color_square = self.color_picker.color_square(&mut self.color_square_state);
         if app_state.get_selection_mode() == SelectionMode::Strand {
             ret = ret.push(self.color_picker.view()).push(
-                Row::new()
-                    .push(color_square)
-                    .push(iced::Space::new(Length::FillPortion(4), Length::Shrink)),
+                Row::new().push(color_square).push(
+                    memory_color_column(self.memory_color_squares.make_contiguous())
+                        .width(Length::FillPortion(4)),
+                ),
             )
             //.push(self.sequence_input.view());
         }
@@ -140,11 +207,7 @@ impl<S: AppState> EditionTab<S> {
 
     pub(super) fn strand_color_change(&mut self) -> u32 {
         let color = self.color_picker.update_color();
-        let red = ((color.r * 255.) as u32) << 16;
-        let green = ((color.g * 255.) as u32) << 8;
-        let blue = (color.b * 255.) as u32;
-        let color_u32 = red + green + blue;
-        color_u32
+        super::color_to_u32(color)
     }
 
     pub(super) fn change_sat_value(&mut self, sat: f64, hsv_value: f64) {
@@ -154,6 +217,17 @@ impl<S: AppState> EditionTab<S> {
 
     pub(super) fn change_hue(&mut self, hue: f64) {
         self.color_picker.change_hue(hue)
+    }
+
+    pub(super) fn add_color(&mut self) {
+        let color = self.color_picker.update_color();
+        let memory_color = MemoryColorSquare::new(color);
+        if !self.memory_color_squares.contains(&memory_color) {
+            log::info!("adding color");
+            self.memory_color_squares.push_front(memory_color);
+            self.memory_color_squares.truncate(NB_MEMORY_COLOR);
+            log::info!("color len {}", self.memory_color_squares.len());
+        }
     }
 }
 
