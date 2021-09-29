@@ -32,6 +32,7 @@ pub mod status_bar;
 mod ui_size;
 pub use ui_size::*;
 mod material_icons_light;
+pub use ensnano_design::{Camera, CameraId};
 pub use status_bar::{CurentOpState, StrandBuildingStatus};
 
 mod icon;
@@ -889,6 +890,8 @@ pub trait DesignReader: 'static {
     fn get_dna_elements(&self) -> &[DnaElement];
     fn get_organizer_tree(&self) -> Option<Arc<ensnano_design::EnsnTree>>;
     fn strand_name(&self, s_id: usize) -> String;
+    fn get_all_cameras(&self) -> &[(CameraId, &str)];
+    fn get_favourite_camera(&self) -> Option<CameraId>;
 }
 
 pub struct MainState {

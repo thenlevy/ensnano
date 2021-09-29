@@ -45,6 +45,11 @@ mod formating;
 #[cfg(test)]
 mod tests;
 
+/// TODO REMOVE THIS AFTER TESTING
+pub const DUMMY_CAMERAS: [(CameraId, &str); 2] = [(CameraId(0), "Fav"), (CameraId(1), "Not Fav")];
+/// TODO REMOVE THIS AFTER TESTING
+pub const FAVORITE_CAMERA: CameraId = CameraId(0);
+
 /// The `ensnano` Design structure.
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Design {
@@ -112,6 +117,16 @@ pub struct Design {
 
     #[serde(default, skip_serializing_if = "HashMap::is_empty")]
     pub group_attributes: HashMap<ensnano_organizer::GroupId, GroupAttribute>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub struct CameraId(u64);
+
+pub struct Camera {
+    pub position: Vec3,
+    pub orientation: Rotor3,
+    pub name: String,
+    pub id: CameraId,
 }
 
 fn ensnano_version() -> String {

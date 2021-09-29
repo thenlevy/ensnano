@@ -17,6 +17,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 use super::color_picker::{ColorSquare, ColorState};
 use super::*;
+use ensnano_design::CameraId;
 use ensnano_interactor::{RollRequest, SimulationState};
 use iced::scrollable;
 use std::collections::VecDeque;
@@ -24,6 +25,27 @@ use std::collections::VecDeque;
 const MEMORY_COLOR_ROWS: usize = 3;
 const MEMORY_COLOR_COLUMN: usize = 8;
 const NB_MEMORY_COLOR: usize = MEMORY_COLOR_ROWS * MEMORY_COLOR_COLUMN;
+
+use super::super::material_icons_light;
+use material_icons_light::LightIcon;
+const LIGHT_ICONFONT: iced::Font = iced::Font::External {
+    name: "IconFontLight",
+    bytes: material_icons_light::MATERIAL_ICON_LIGHT,
+};
+fn light_icon(icon: LightIcon, ui_size: UiSize) -> iced::Text {
+    iced::Text::new(format!("{}", material_icons_light::icon_to_char(icon)))
+        .font(LIGHT_ICONFONT)
+        .size(ui_size.icon())
+}
+
+fn light_icon_btn<'a, Message: Clone>(
+    state: &'a mut button::State,
+    icon: LightIcon,
+    ui_size: UiSize,
+) -> Button<'a, Message> {
+    let content = light_icon(icon, ui_size);
+    Button::new(state, content).height(iced::Length::Units(ui_size.button()))
+}
 
 pub(super) struct EditionTab<S: AppState> {
     scroll: iced::scrollable::State,
@@ -362,6 +384,78 @@ impl GridTab {
     }
 }
 
+struct CameraWidget {
+    name: String,
+    favourite: bool,
+    favourite_btn: button::State,
+    select_camera_btn: button::State,
+    edit_name_btn: button::State,
+    delete_btn: button::State,
+    name_input: text_input::State,
+    being_edited: bool,
+    camera_id: CameraId,
+}
+
+impl CameraWidget {
+    fn new(name: String, favourite: bool, being_edited: bool, camera_id: CameraId) -> Self {
+        Self {
+            name,
+            favourite,
+            being_edited,
+            camera_id,
+            select_camera_btn: Default::default(),
+            edit_name_btn: Default::default(),
+            favourite_btn: Default::default(),
+            delete_btn: Default::default(),
+            name_input: Default::default(),
+        }
+    }
+
+    fn view<S: AppState>(&mut self, ui_size: UiSize, width: u16) -> Element<Message<S>> {
+        let name: Element<Message<S>> = if self.being_edited {
+            TextInput::new(
+                &mut self.name_input,
+                "Camera name",
+                &self.name,
+                Message::EditCameraName,
+            )
+            .on_submit(Message::SubmitCameraName)
+            .into()
+        } else {
+            Text::new(&self.name).into()
+        };
+
+        let favourite_icon = if self.favourite {
+            LightIcon::Star
+        } else {
+            LightIcon::StarOutline
+        };
+
+        let favourite_button = light_icon_btn(&mut self.favourite_btn, favourite_icon, ui_size)
+            .on_press(Message::StartEditCameraName(self.camera_id));
+
+        let select_camera_btn =
+            light_icon_btn(&mut self.select_camera_btn, LightIcon::LocalSee, ui_size)
+                .on_press(Message::SelectCamera(self.camera_id));
+
+        let edit_button = light_icon_btn(&mut self.edit_name_btn, LightIcon::Edit, ui_size)
+            .on_press(Message::StartEditCameraName(self.camera_id));
+
+        let delete_button = light_icon_btn(&mut self.delete_btn, LightIcon::Delete, ui_size)
+            .on_press(Message::DeleteCamera(self.camera_id));
+
+        Row::new()
+            .push(name)
+            .push(iced::Space::with_width(iced::Length::Fill))
+            .push(favourite_button)
+            .push(select_camera_btn)
+            .push(edit_button)
+            .push(delete_button)
+            .width(iced::Length::Units(width))
+            .into()
+    }
+}
+
 pub(super) struct CameraShortcut {
     camera_target_buttons: [button::State; 6],
     camera_rotation_buttons: [button::State; 6],
@@ -369,6 +463,10 @@ pub(super) struct CameraShortcut {
     yz: isize,
     xy: isize,
     scroll: scrollable::State,
+    camera_input_name: Option<String>,
+    camera_being_edited: Option<CameraId>,
+    camera_widgets: Vec<CameraWidget>,
+    new_camera_button: button::State,
 }
 
 impl CameraShortcut {
@@ -380,6 +478,10 @@ impl CameraShortcut {
             yz: 0,
             xy: 0,
             scroll: Default::default(),
+            camera_input_name: None,
+            camera_being_edited: None,
+            camera_widgets: vec![],
+            new_camera_button: Default::default(),
         }
     }
 
@@ -399,7 +501,27 @@ impl CameraShortcut {
         &'a mut self,
         ui_size: UiSize,
         width: u16,
+        app: &S,
     ) -> Element<'a, Message<S>> {
+        let favourite_camera = app.get_reader().get_favourite_camera();
+        self.camera_widgets = app
+            .get_reader()
+            .get_all_cameras()
+            .iter()
+            .map(|cam| {
+                let favourite = favourite_camera == Some(cam.0);
+                let being_edited = self.camera_being_edited == Some(cam.0);
+                let name = if being_edited {
+                    self.camera_input_name
+                        .as_ref()
+                        .map(|s| s.as_str())
+                        .unwrap_or(cam.1)
+                } else {
+                    cam.1
+                };
+                CameraWidget::new(name.to_string(), favourite, being_edited, cam.0)
+            })
+            .collect();
         let mut ret = Column::new();
         ret = ret.push(
             Text::new("Camera")
@@ -459,7 +581,24 @@ impl CameraShortcut {
             ret = ret.spacing(5).push(row)
         }
 
-        Scrollable::new(&mut self.scroll).push(ret).into()
+        let new_camera_button =
+            light_icon_btn(&mut self.new_camera_button, LightIcon::AddAPhoto, ui_size)
+                .on_press(Message::NewCustomCamera);
+        let custom_cameras_row = Row::new()
+            .push(Text::new("Custom cameras").size(ui_size.head_text()))
+            .push(iced::Space::with_width(Length::Fill))
+            .push(new_camera_button);
+
+        ret = ret.push(custom_cameras_row);
+
+        for c in self.camera_widgets.iter_mut() {
+            ret = ret.push(c.view(ui_size, width));
+        }
+
+        Scrollable::new(&mut self.scroll)
+            .push(ret)
+            .width(iced::Length::Units(width))
+            .into()
     }
 }
 

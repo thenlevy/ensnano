@@ -32,7 +32,10 @@ use iced_winit::winit::{
 };
 use ultraviolet::Vec3;
 
-use ensnano_design::elements::{DnaElement, DnaElementKey};
+use ensnano_design::{
+    elements::{DnaElement, DnaElementKey},
+    CameraId,
+};
 use ensnano_interactor::{
     graphics::{Background3D, RenderingMode},
     ActionMode, SelectionConversion, SelectionMode,
@@ -170,6 +173,13 @@ pub enum Message<S> {
     FogChoice(tabs::FogChoice),
     SetScaffoldSeqButtonPressed,
     ResetSimulation,
+    EditCameraName(String),
+    SubmitCameraName,
+    StartEditCameraName(CameraId),
+    SetCameraFavorite(CameraId),
+    DeleteCamera(CameraId),
+    SelectCamera(CameraId),
+    NewCustomCamera,
 }
 
 impl<R: Requests, S: AppState> LeftPanel<R, S> {
@@ -672,6 +682,13 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
             }
             Message::ResetSimulation => self.requests.lock().unwrap().reset_simulations(),
             Message::Nothing => (),
+            Message::SubmitCameraName => todo!(),
+            Message::EditCameraName(_) => todo!(),
+            Message::StartEditCameraName(_) => todo!(),
+            Message::SetCameraFavorite(_) => todo!(),
+            Message::DeleteCamera(_) => todo!(),
+            Message::SelectCamera(_) => todo!(),
+            Message::NewCustomCamera => todo!(),
         };
         Command::none()
     }
@@ -716,7 +733,9 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
             .tab_bar_style(TabStyle)
             .width(Length::Units(width))
             .height(Length::Fill);
-        let camera_shortcut = self.camera_shortcut.view(self.ui_size.clone(), width);
+        let camera_shortcut =
+            self.camera_shortcut
+                .view(self.ui_size.clone(), width, &self.application_state);
         let contextual_menu = self
             .contextual_panel
             .view(self.ui_size.clone(), &self.application_state);
