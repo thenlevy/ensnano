@@ -84,11 +84,16 @@ impl ColorPicker {
         color_picker
     }
 
-    pub fn color_square<'a, Message>(
+    pub fn color_square<'a, S: AppState>(
         &self,
         state: &'a mut color_square::State,
-    ) -> ColorSquare<'a, Message> {
-        ColorSquare::new(self.color, state)
+    ) -> ColorSquare<'a, Message<S>> {
+        ColorSquare::new(
+            self.color,
+            state,
+            Message::ColorPicked,
+            Message::FinishChangingColor,
+        )
     }
 
     pub fn new_view(&mut self) -> Row<ColorMessage> {
@@ -508,25 +513,29 @@ mod color_square {
         layout, mouse, Clipboard, Element, Event, Hasher, Layout, Length, Point, Size, Vector,
         Widget,
     };
-    use std::marker::PhantomData;
 
-    pub struct ColorSquare<'a, Message> {
+    pub struct ColorSquare<'a, Message: Clone> {
         state: &'a mut State,
         color: Color,
-        _phantom: PhantomData<Message>,
+        on_click: Box<dyn Fn(Color) -> Message>,
+        on_release: Message,
     }
 
-    impl<'a, Message> ColorSquare<'a, Message> {
-        pub fn new(color: Color, state: &'a mut State) -> Self {
+    impl<'a, Message: Clone> ColorSquare<'a, Message> {
+        pub fn new<F>(color: Color, state: &'a mut State, on_click: F, on_release: Message) -> Self
+        where
+            F: 'static + Fn(Color) -> Message,
+        {
             Self {
                 state,
                 color,
-                _phantom: PhantomData,
+                on_click: Box::new(on_click),
+                on_release,
             }
         }
     }
 
-    impl<'a, Message, B> Widget<Message, Renderer<B>> for ColorSquare<'a, Message>
+    impl<'a, Message: Clone, B> Widget<Message, Renderer<B>> for ColorSquare<'a, Message>
     where
         B: Backend,
     {
@@ -606,7 +615,7 @@ mod color_square {
                     mouse::Event::ButtonPressed(mouse::Button::Left) => {
                         if layout.bounds().contains(cursor_position) {
                             self.state.clicked = true;
-                            //messages.push()
+                            messages.push((self.on_click)(self.color));
                             iced_native::event::Status::Captured
                         } else {
                             iced_native::event::Status::Ignored
@@ -615,10 +624,19 @@ mod color_square {
                     mouse::Event::ButtonReleased(mouse::Button::Left) if self.state.clicked => {
                         if layout.bounds().contains(cursor_position) {
                             self.state.clicked = false;
-                            //messages.push()
+                            messages.push(self.on_release.clone());
                             iced_native::event::Status::Captured
                         } else {
                             iced_native::event::Status::Ignored
+                        }
+                    }
+                    mouse::Event::CursorMoved { .. } if self.state.clicked => {
+                        if layout.bounds().contains(cursor_position) {
+                            iced_native::event::Status::Ignored
+                        } else {
+                            self.state.clicked = false;
+                            messages.push(self.on_release.clone());
+                            iced_native::event::Status::Captured
                         }
                     }
                     _ => iced_native::event::Status::Ignored,

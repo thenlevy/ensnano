@@ -112,6 +112,7 @@ pub enum Message<S> {
     MakeGrids,
     SequenceChanged(String),
     SequenceFileRequested,
+    ColorPicked(Color),
     HsvSatValueChanged(f64, f64),
     StrandNameChanged(usize, String),
     FinishChangingColor,
@@ -311,6 +312,10 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
                     .lock()
                     .unwrap()
                     .change_strand_color(requested_color);
+            }
+            Message::ColorPicked(color) => {
+                let color_u32 = color_to_u32(color);
+                self.requests.lock().unwrap().change_strand_color(color_u32);
             }
             Message::Resized(size, position) => self.resize(size, position),
             Message::NewGrid(grid_type) => {
@@ -645,7 +650,10 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
                 }
                 self.application_state = state;
             }
-            Message::FinishChangingColor => self.requests.lock().unwrap().finish_changing_color(),
+            Message::FinishChangingColor => {
+                self.edition_tab.add_color();
+                self.requests.lock().unwrap().finish_changing_color();
+            }
             Message::ResetSimulation => self.requests.lock().unwrap().reset_simulations(),
             Message::Nothing => (),
         };
@@ -1331,4 +1339,12 @@ where
         .push(Checkbox::new(is_checked, "", f).size(ui_size.checkbox()))
         .spacing(CHECKBOXSPACING)
         .into()
+}
+
+fn color_to_u32(color: Color) -> u32 {
+    let red = ((color.r * 255.) as u32) << 16;
+    let green = ((color.g * 255.) as u32) << 8;
+    let blue = (color.b * 255.) as u32;
+    let color_u32 = red + green + blue;
+    color_u32
 }
