@@ -23,6 +23,7 @@ use crate::consts::*;
 use crate::utils::{bindgroup_manager, texture};
 use crate::{DrawArea, PhySize};
 use camera::{Camera, CameraPtr, Projection, ProjectionPtr};
+use ensnano_design::group_attributes::GroupPivot;
 use ensnano_design::Axis;
 use iced_wgpu::wgpu;
 use std::cell::RefCell;
@@ -544,22 +545,6 @@ impl View {
                 }
             }
 
-            if draw_type.wants_widget() {
-                self.handle_drawers.draw(
-                    &mut render_pass,
-                    viewer_bind_group,
-                    viewer_bind_group_layout,
-                    fake_color,
-                );
-
-                self.rotation_widget.draw(
-                    &mut render_pass,
-                    viewer_bind_group,
-                    viewer_bind_group_layout,
-                    fake_color,
-                );
-            }
-
             if !fake_color && self.draw_letter {
                 for drawer in self.letter_drawer.iter_mut() {
                     drawer.draw(
@@ -589,6 +574,22 @@ impl View {
                         self.models.get_bindgroup(),
                     )
                 }
+            }
+
+            if draw_type.wants_widget() {
+                self.handle_drawers.draw(
+                    &mut render_pass,
+                    viewer_bind_group,
+                    viewer_bind_group_layout,
+                    fake_color,
+                );
+
+                self.rotation_widget.draw(
+                    &mut render_pass,
+                    viewer_bind_group,
+                    viewer_bind_group_layout,
+                    fake_color,
+                );
             }
 
             if fake_color {
@@ -813,6 +814,12 @@ impl View {
     pub fn background3d(&mut self, bg: Background3D) {
         self.background3d = bg;
         self.need_redraw = true;
+    }
+
+    pub fn get_group_pivot(&self) -> Option<GroupPivot> {
+        self.handle_drawers
+            .get_pivot_position()
+            .or_else(|| self.rotation_widget.get_pivot_position())
     }
 }
 

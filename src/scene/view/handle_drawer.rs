@@ -17,6 +17,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 use super::{CameraPtr, Drawable, Drawer, ProjectionPtr, Vertex};
 use crate::consts::*;
+use ensnano_design::group_attributes::GroupPivot;
 use iced_wgpu::wgpu;
 use std::rc::Rc;
 use ultraviolet::{Rotor3, Vec3};
@@ -29,9 +30,16 @@ pub struct HandlesDescriptor {
     pub size: f32,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum HandleOrientation {
     Rotor(Rotor3),
+}
+
+impl From<HandleOrientation> for Rotor3 {
+    fn from(orientation: HandleOrientation) -> Self {
+        let HandleOrientation::Rotor(r) = orientation;
+        r
+    }
 }
 
 impl HandlesDescriptor {
@@ -212,6 +220,13 @@ impl HandlesDrawer {
             h.translation = translation
         }
         self.update_drawers();
+    }
+
+    pub fn get_pivot_position(&self) -> Option<GroupPivot> {
+        self.descriptor.as_ref().map(|d| GroupPivot {
+            position: d.origin,
+            orientation: d.orientation.into(),
+        })
     }
 }
 #[derive(Clone, Copy, Debug)]

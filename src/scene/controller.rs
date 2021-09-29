@@ -31,6 +31,7 @@ use super::AppState;
 use camera::CameraController;
 
 mod automata;
+pub use automata::WidgetTarget;
 use automata::{NormalState, State, Transition};
 
 /// The effect that draging the mouse have
@@ -67,11 +68,11 @@ pub enum Consequence {
     CameraMoved,
     CameraTranslated(f64, f64),
     XoverAtempt(Nucl, Nucl, usize),
-    Translation(HandleDir, f64, f64),
+    Translation(HandleDir, f64, f64, WidgetTarget),
     MovementEnded,
-    Rotation(f64, f64),
-    InitRotation(RotationMode, f64, f64),
-    InitTranslation(f64, f64),
+    Rotation(f64, f64, WidgetTarget),
+    InitRotation(RotationMode, f64, f64, WidgetTarget),
+    InitTranslation(f64, f64, WidgetTarget),
     Swing(f64, f64),
     Nothing,
     ToggleWidget,
@@ -341,4 +342,6 @@ pub(super) trait Data {
     ) -> Option<(Nucl, Nucl, usize)>;
     fn can_start_builder(&self, element: Option<SceneElement>) -> Option<Nucl>;
     fn get_grid_helix(&self, grid_id: usize, x: isize, y: isize) -> Option<u32>;
+    fn notify_rotating_pivot(&mut self);
+    fn stop_rotating_pivot(&mut self);
 }

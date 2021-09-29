@@ -22,6 +22,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 use ensnano_design::{
     elements::{DnaAttribute, DnaElementKey},
     grid::{GridDescriptor, GridPosition, Hyperboloid},
+    group_attributes::GroupPivot,
     Nucl,
 };
 use ultraviolet::{Isometry2, Rotor3, Vec2, Vec3};
@@ -33,6 +34,7 @@ pub mod operation;
 mod strand_builder;
 pub use strand_builder::*;
 pub mod torsion;
+use ensnano_organizer::GroupId;
 
 #[derive(Clone, Copy, Eq, PartialEq)]
 pub enum ObjectType {
@@ -208,6 +210,10 @@ pub enum DesignOperation {
         s_id: usize,
         name: String,
     },
+    SetGroupPivot {
+        group_id: GroupId,
+        pivot: GroupPivot,
+    },
 }
 
 /// An action performed on the application
@@ -253,6 +259,8 @@ pub enum IsometryTarget {
     Helices(Vec<usize>, bool),
     /// A grid of the desgin
     Grids(Vec<usize>),
+    /// The pivot of a group
+    GroupPivot(GroupId),
 }
 
 /// A stucture that defines an helix on a grid

@@ -204,9 +204,11 @@ impl GridManager {
                         new_grid_position.x,
                         new_grid_position.y,
                     ) {
-                        println!(
+                        log::info!(
                             "{} collides with {}. Authorized collisions are {:?}",
-                            h_id, helix, authorized_collisions
+                            h_id,
+                            helix,
+                            authorized_collisions
                         );
                         if authorized_collisions.contains(&helix) {
                             mutate_in_arc(h, |h| h.grid_position = candidate_position);

@@ -24,6 +24,8 @@ pub enum OrganizerTree<K> {
         name: String,
         childrens: Vec<OrganizerTree<K>>,
         expanded: bool,
+        #[serde(default)]
+        id: Option<GroupId>,
     },
 }
 
@@ -43,6 +45,8 @@ enum NewOrganizerTree<K> {
         name: String,
         childrens: Vec<OrganizerTree<K>>,
         expanded: bool,
+        #[serde(default)]
+        id: Option<GroupId>,
     },
 }
 
@@ -54,6 +58,7 @@ impl<K> OldOrganizerTree<K> {
                 name,
                 childrens,
                 expanded: false,
+                id: None,
             },
         }
     }
@@ -67,10 +72,12 @@ impl<K> NewOrganizerTree<K> {
                 name,
                 childrens,
                 expanded,
+                id,
             } => OrganizerTree::Node {
                 name,
                 childrens,
                 expanded,
+                id,
             },
         }
     }
@@ -93,5 +100,21 @@ impl<'de, K: Deserialize<'de>> Deserialize<'de> for OrganizerTree<K> {
             Ok(NewOrOld::Old(old_tree)) => Ok(old_tree.to_new()),
             Err(e) => Err(e),
         }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+/// The identifier of a group.
+///
+/// Used to map groups to group attributes.
+pub struct GroupId(u64);
+
+use rand::distributions::{Distribution, Standard};
+use rand::Rng;
+
+impl Distribution<GroupId> for Standard {
+    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> GroupId {
+        let id: u64 = rng.gen();
+        GroupId(id)
     }
 }

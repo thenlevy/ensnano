@@ -17,6 +17,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 
 use super::*;
+use ensnano_design::group_attributes::GroupPivot;
 use ensnano_design::Nucl;
 use ensnano_interactor::{graphics::FogParameters, HyperboloidOperation};
 
@@ -195,6 +196,18 @@ impl State for NormalState {
                     } else {
                         self
                     }
+                }
+                Action::SetGroupPivot(pivot) => {
+                    main_state.set_current_group_pivot(pivot);
+                    self
+                }
+                Action::TranslateGroupPivot(translation) => {
+                    main_state.translate_group_pivot(translation);
+                    self
+                }
+                Action::RotateGroupPivot(rotation) => {
+                    main_state.rotate_group_pivot(rotation);
+                    self
                 }
                 action => {
                     println!("Not implemented {:?}", action);
@@ -380,4 +393,7 @@ pub enum Action {
     Split2D,
     ReloadFile,
     ClearVisibilitySieve,
+    SetGroupPivot(GroupPivot),
+    TranslateGroupPivot(Vec3),
+    RotateGroupPivot(Rotor3),
 }

@@ -21,6 +21,7 @@ use crate::app_state::AddressPointer;
 use ensnano_design::{
     elements::{DnaAttribute, DnaElementKey},
     grid::{Edge, GridDescriptor, GridPosition, Hyperboloid},
+    group_attributes::GroupPivot,
     mutate_in_arc, Design, Domain, DomainJunction, Helix, Nucl, Strand,
 };
 use ensnano_interactor::{operation::Operation, HyperboloidOperation, SimulationState};
@@ -28,6 +29,7 @@ use ensnano_interactor::{
     DesignOperation, DesignRotation, DesignTranslation, DomainIdentifier, IsometryTarget,
     NeighbourDescriptor, NeighbourDescriptorGiver, Selection, StrandBuilder,
 };
+use ensnano_organizer::GroupId;
 use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
@@ -216,6 +218,9 @@ impl Controller {
             )),
             DesignOperation::SetStrandName { s_id, name } => {
                 self.apply(|c, d| c.change_strand_name(d, s_id, name), design)
+            }
+            DesignOperation::SetGroupPivot { group_id, pivot } => {
+                self.apply(|c, d| c.set_group_pivot(d, group_id, pivot), design)
             }
         }
     }
@@ -469,7 +474,7 @@ impl Controller {
         helix: usize,
     ) -> Result<Design, ErrOperation> {
         let mut new_groups = BTreeMap::clone(design.groups.as_ref());
-        println!("group {:?}", new_groups.get(&helix));
+        log::info!("setting group {:?}", new_groups.get(&helix));
         match new_groups.remove(&helix) {
             None => {
                 new_groups.insert(helix, false);
@@ -480,6 +485,18 @@ impl Controller {
             Some(true) => (),
         }
         design.groups = Arc::new(new_groups);
+        Ok(design)
+    }
+
+    fn set_group_pivot(
+        &mut self,
+        mut design: Design,
+        group_id: GroupId,
+        pivot: GroupPivot,
+    ) -> Result<Design, ErrOperation> {
+        let attributes = design.group_attributes.entry(group_id).or_default();
+        attributes.pivot = Some(pivot);
+
         Ok(design)
     }
 
@@ -926,7 +943,42 @@ impl Controller {
             IsometryTarget::Grids(grid_ids) => {
                 Ok(self.translate_grids(design, grid_ids, translation.translation))
             }
+            IsometryTarget::GroupPivot(group_id) => {
+                self.translate_group_pivot(design, translation.translation, group_id)
+            }
         }
+    }
+
+    fn translate_group_pivot(
+        &mut self,
+        mut design: Design,
+        translation: Vec3,
+        group_id: GroupId,
+    ) -> Result<Design, ErrOperation> {
+        self.update_state_and_design(&mut design);
+        let pivot = design
+            .group_attributes
+            .get_mut(&group_id)
+            .and_then(|attributes| attributes.pivot.as_mut())
+            .ok_or(ErrOperation::GroupHasNoPivot(group_id))?;
+        pivot.position += translation;
+        Ok(design)
+    }
+
+    fn rotate_group_pivot(
+        &mut self,
+        mut design: Design,
+        rotation: Rotor3,
+        group_id: GroupId,
+    ) -> Result<Design, ErrOperation> {
+        self.update_state_and_design(&mut design);
+        let pivot = design
+            .group_attributes
+            .get_mut(&group_id)
+            .and_then(|attributes| attributes.pivot.as_mut())
+            .ok_or(ErrOperation::GroupHasNoPivot(group_id))?;
+        pivot.orientation = rotation * pivot.orientation;
+        Ok(design)
     }
 
     fn attach_helix(
@@ -982,6 +1034,9 @@ impl Controller {
     ) -> Result<Design, ErrOperation> {
         match rotation.target {
             IsometryTarget::Design => Err(ErrOperation::NotImplemented),
+            IsometryTarget::GroupPivot(g_id) => {
+                self.rotate_group_pivot(design, rotation.rotation, g_id)
+            }
             IsometryTarget::Helices(helices, snap) => Ok(self.rotate_helices_3d(
                 design,
                 snap,
@@ -1130,6 +1185,7 @@ impl OkOperation {
 
 #[derive(Debug)]
 pub enum ErrOperation {
+    GroupHasNoPivot(GroupId),
     NotImplemented,
     NotEnoughHelices {
         actual: usize,
@@ -1526,9 +1582,9 @@ impl Controller {
         let mut prime5_junctions: Vec<DomainJunction> = Vec::new();
         let mut prime3_junctions: Vec<DomainJunction> = Vec::new();
 
-        println!("Spliting");
-        println!("{:?}", strand.domains);
-        println!("{:?}", strand.junctions);
+        log::info!("Spliting");
+        log::info!("{:?}", strand.domains);
+        log::info!("{:?}", strand.junctions);
 
         for (d_id, domain) in strand.domains.iter().enumerate() {
             if domain.prime5_end() == Some(*nucl)
@@ -1594,11 +1650,11 @@ impl Controller {
             seq_prim5 = None;
         }
 
-        println!("prime5 {:?}", prim5_domains);
-        println!("prime5 {:?}", prime5_junctions);
+        log::info!("prime5 {:?}", prim5_domains);
+        log::info!("prime5 {:?}", prime5_junctions);
 
-        println!("prime3 {:?}", prim3_domains);
-        println!("prime3 {:?}", prime3_junctions);
+        log::info!("prime3 {:?}", prim3_domains);
+        log::info!("prime3 {:?}", prime3_junctions);
         let strand_5prime = Strand {
             domains: prim5_domains,
             color: strand.color,
@@ -1617,7 +1673,7 @@ impl Controller {
             name: None,
         };
         let new_id = (*design.strands.keys().max().unwrap_or(&0)).max(id) + 1;
-        println!("new id {}, ; id {}", new_id, id);
+        log::info!("new id {}, ; id {}", new_id, id);
         let (id_5prime, id_3prime) = if !on_3prime {
             (id, new_id)
         } else {
@@ -1991,7 +2047,7 @@ impl Controller {
         if source_nucl.helix == target_nucl.helix {
             return Err(ErrOperation::XoverOnSameHelix);
         }
-        println!("cross over between {:?} and {:?}", source_nucl, target_nucl);
+        log::info!("cross over between {:?} and {:?}", source_nucl, target_nucl);
         let source_id = design
             .get_strand_nucl(&source_nucl)
             .ok_or(ErrOperation::NuclDoesNotExist(source_nucl))?;
@@ -2012,11 +2068,12 @@ impl Controller {
 
         let source_strand_end = design.is_strand_end(&source_nucl);
         let target_strand_end = design.is_strand_end(&target_nucl);
-        println!(
+        log::info!(
             "source strand {:?}, target strand {:?}",
-            source_id, target_id
+            source_id,
+            target_id
         );
-        println!(
+        log::info!(
             "source end {:?}, target end {:?}",
             source_strand_end.to_opt(),
             target_strand_end.to_opt()

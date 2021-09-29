@@ -127,7 +127,11 @@ pub trait Requests: 'static + Send {
     /// Create a new grid in front of the 3D camera
     fn create_grid(&mut self, grid_type_descriptor: GridTypeDescr);
     fn set_candidates_keys(&mut self, candidates: Vec<DnaElementKey>);
-    fn set_selected_keys(&mut self, selection: Vec<DnaElementKey>);
+    fn set_selected_keys(
+        &mut self,
+        selection: Vec<DnaElementKey>,
+        group_id: Option<ensnano_organizer::GroupId>,
+    );
     fn update_organizer_tree(&mut self, tree: OrganizerTree<DnaElementKey>);
     /// Update one attribute of several Dna Elements
     fn update_attribute_of_elements(

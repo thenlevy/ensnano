@@ -892,8 +892,12 @@ impl MainState {
         self.modify_state(|s| s.with_candidates(candidates), false);
     }
 
-    fn update_selection(&mut self, selection: Vec<Selection>) {
-        self.modify_state(|s| s.with_selection(selection), true);
+    fn update_selection(
+        &mut self,
+        selection: Vec<Selection>,
+        group_id: Option<ensnano_organizer::GroupId>,
+    ) {
+        self.modify_state(|s| s.with_selection(selection, group_id), true);
     }
 
     fn update_center_of_selection(&mut self, center: Option<CenterOfSelection>) {
@@ -1236,7 +1240,8 @@ impl<'a> MainStateInteface for MainStateView<'a> {
         self.main_state.modify_state(
             |s| s.notified(app_state::InteractorNotification::FinishOperation),
             false,
-        )
+        );
+        self.main_state.app_state.finish_operation();
     }
 
     fn request_copy(&mut self) {
@@ -1267,19 +1272,19 @@ impl<'a> MainStateInteface for MainStateView<'a> {
             selection.as_ref().as_ref(),
             self.get_design_reader().as_ref(),
         ) {
-            self.main_state.update_selection(vec![]);
+            self.main_state.update_selection(vec![], None);
             self.main_state
                 .apply_operation(DesignOperation::RmXovers { xovers: nucl_pairs })
         } else if let Some((_, strand_ids)) =
             ensnano_interactor::list_of_strands(selection.as_ref().as_ref())
         {
-            self.main_state.update_selection(vec![]);
+            self.main_state.update_selection(vec![], None);
             self.main_state
                 .apply_operation(DesignOperation::RmStrands { strand_ids })
         } else if let Some((_, h_ids)) =
             ensnano_interactor::list_of_helices(selection.as_ref().as_ref())
         {
-            self.main_state.update_selection(vec![]);
+            self.main_state.update_selection(vec![], None);
             self.main_state
                 .apply_operation(DesignOperation::RmHelices { h_ids })
         }
@@ -1294,7 +1299,7 @@ impl<'a> MainStateInteface for MainStateView<'a> {
             .map(|info| info.id);
         if let Some(s_id) = scaffold_id {
             self.main_state
-                .update_selection(vec![Selection::Strand(0, s_id as u32)])
+                .update_selection(vec![Selection::Strand(0, s_id as u32)], None)
         }
     }
 
@@ -1360,6 +1365,39 @@ impl<'a> MainStateInteface for MainStateView<'a> {
 
     fn get_current_file_name(&self) -> Option<&Path> {
         self.main_state.get_current_file_name()
+    }
+
+    fn set_current_group_pivot(&mut self, pivot: ensnano_design::group_attributes::GroupPivot) {
+        if let Some(group_id) = self.main_state.app_state.get_current_group_id() {
+            self.apply_operation(DesignOperation::SetGroupPivot { group_id, pivot })
+        } else {
+            self.main_state.app_state.set_current_group_pivot(pivot);
+        }
+    }
+
+    fn translate_group_pivot(&mut self, translation: Vec3) {
+        use ensnano_interactor::{DesignTranslation, IsometryTarget};
+        if let Some(group_id) = self.main_state.app_state.get_current_group_id() {
+            self.apply_operation(DesignOperation::Translation(DesignTranslation {
+                target: IsometryTarget::GroupPivot(group_id),
+                translation,
+            }))
+        } else {
+            self.main_state.app_state.translate_group_pivot(translation);
+        }
+    }
+
+    fn rotate_group_pivot(&mut self, rotation: Rotor3) {
+        use ensnano_interactor::{DesignRotation, IsometryTarget};
+        if let Some(group_id) = self.main_state.app_state.get_current_group_id() {
+            self.apply_operation(DesignOperation::Rotation(DesignRotation {
+                target: IsometryTarget::GroupPivot(group_id),
+                rotation,
+                origin: Vec3::zero(),
+            }))
+        } else {
+            self.main_state.app_state.rotate_group_pivot(rotation);
+        }
     }
 }
 
