@@ -464,6 +464,10 @@ fn main() {
                     resized: false,
                 };
 
+                if main_state_view.main_state.wants_fit {
+                    main_state_view.notify_apps(Notification::FitRequest);
+                    main_state_view.main_state.wants_fit = false;
+                }
                 controller.make_progress(&mut main_state_view);
                 resized |= main_state_view.resized;
 
@@ -840,6 +844,7 @@ pub(crate) struct MainState {
     focussed_element: Option<ElementType>,
     last_saved_state: AppState,
     path_to_current_design: Option<PathBuf>,
+    wants_fit: bool,
 }
 
 struct MainStateConstructor {
@@ -861,6 +866,7 @@ impl MainState {
             focussed_element: None,
             last_saved_state: app_state.clone(),
             path_to_current_design: None,
+            wants_fit: false,
         }
     }
 
@@ -1162,6 +1168,8 @@ impl<'a> MainStateInteface for MainStateView<'a> {
                 .get_favourite_camera()
             {
                 self.notify_apps(Notification::TeleportCamera(position, orientation));
+            } else {
+                self.main_state.wants_fit = true;
             }
             Ok(())
         } else {
