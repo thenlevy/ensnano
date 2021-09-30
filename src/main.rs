@@ -1433,6 +1433,24 @@ impl<'a> MainStateInteface for MainStateView<'a> {
             log::error!("Could not get camera {:?}", camera_id)
         }
     }
+
+    fn update_camera(&mut self, camera_id: ensnano_design::CameraId) {
+        if let Some((position, orientation)) = self
+            .main_state
+            .applications
+            .get(&ElementType::Scene)
+            .and_then(|s| s.lock().unwrap().get_camera())
+        {
+            self.main_state
+                .apply_operation(DesignOperation::UpdateCamera {
+                    camera_id,
+                    position,
+                    orientation,
+                })
+        } else {
+            log::error!("Could not get current camera position");
+        }
+    }
 }
 
 use controller::{SetScaffoldSequenceError, SetScaffoldSequenceOk};

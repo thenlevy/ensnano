@@ -180,6 +180,7 @@ pub enum Message<S> {
     DeleteCamera(CameraId),
     SelectCamera(CameraId),
     NewCustomCamera,
+    UpdateCamera(CameraId),
 }
 
 impl<R: Requests, S: AppState> LeftPanel<R, S> {
@@ -696,6 +697,9 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
                 self.requests.lock().unwrap().select_camera(camera_id)
             }
             Message::NewCustomCamera => self.requests.lock().unwrap().create_new_camera(),
+            Message::UpdateCamera(camera_id) => {
+                self.requests.lock().unwrap().update_camera(camera_id)
+            }
         };
         Command::none()
     }

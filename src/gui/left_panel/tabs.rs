@@ -398,6 +398,7 @@ struct CameraWidgetState {
     edit_name_btn: button::State,
     delete_btn: button::State,
     name_input: text_input::State,
+    update_camera_btn: button::State,
 }
 
 impl CameraWidget {
@@ -441,6 +442,10 @@ impl CameraWidget {
             light_icon_btn(&mut state.select_camera_btn, LightIcon::LocalSee, ui_size)
                 .on_press(Message::SelectCamera(self.camera_id));
 
+        let update_camera_btn =
+            light_icon_btn(&mut state.update_camera_btn, LightIcon::Recycling, ui_size)
+                .on_press(Message::UpdateCamera(self.camera_id));
+
         let edit_button = light_icon_btn(&mut state.edit_name_btn, LightIcon::Edit, ui_size)
             .on_press(Message::StartEditCameraName(self.camera_id));
 
@@ -452,6 +457,7 @@ impl CameraWidget {
             .push(iced::Space::with_width(iced::Length::Fill))
             .push(favourite_button)
             .push(select_camera_btn)
+            .push(update_camera_btn)
             .push(edit_button)
             .push(delete_button)
             .into()

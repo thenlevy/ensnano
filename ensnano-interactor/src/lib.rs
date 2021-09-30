@@ -220,6 +220,11 @@ pub enum DesignOperation {
         orientation: Rotor3,
     },
     SetFavouriteCamera(ensnano_design::CameraId),
+    UpdateCamera {
+        camera_id: ensnano_design::CameraId,
+        position: Vec3,
+        orientation: Rotor3,
+    },
 }
 
 /// An action performed on the application

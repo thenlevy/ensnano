@@ -232,6 +232,14 @@ impl Controller {
             DesignOperation::SetFavouriteCamera(cam_id) => {
                 self.apply(|c, d| c.set_favourite_camera(d, cam_id), design)
             }
+            DesignOperation::UpdateCamera {
+                camera_id,
+                position,
+                orientation,
+            } => self.apply(
+                |c, d| c.update_camera(d, camera_id, position, orientation),
+                design,
+            ),
         }
     }
 
@@ -946,6 +954,22 @@ impl Controller {
             Err(ErrOperation::CameraDoesNotExist(id))
         } else {
             Ok(design)
+        }
+    }
+
+    fn update_camera(
+        &mut self,
+        mut design: Design,
+        id: CameraId,
+        position: Vec3,
+        orientation: Rotor3,
+    ) -> Result<Design, ErrOperation> {
+        if let Some(camera) = design.get_camera_mut(id) {
+            camera.position = position;
+            camera.orientation = orientation;
+            Ok(design)
+        } else {
+            Err(ErrOperation::CameraDoesNotExist(id))
         }
     }
 
