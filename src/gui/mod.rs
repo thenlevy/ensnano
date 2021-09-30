@@ -178,6 +178,7 @@ pub trait Requests: 'static + Send {
     fn select_camera(&mut self, cam_id: CameraId);
     fn set_favourite_camera(&mut self, cam_id: CameraId);
     fn update_camera(&mut self, cam_id: CameraId);
+    fn set_camera_name(&mut self, cam_id: CameraId, name: String);
 }
 
 #[derive(Clone, Debug, PartialEq)]

@@ -240,6 +240,9 @@ impl Controller {
                 |c, d| c.update_camera(d, camera_id, position, orientation),
                 design,
             ),
+            DesignOperation::SetCameraName { camera_id, name } => {
+                self.apply(|c, d| c.set_camera_name(d, camera_id, name), design)
+            }
         }
     }
 
@@ -967,6 +970,20 @@ impl Controller {
         if let Some(camera) = design.get_camera_mut(id) {
             camera.position = position;
             camera.orientation = orientation;
+            Ok(design)
+        } else {
+            Err(ErrOperation::CameraDoesNotExist(id))
+        }
+    }
+
+    fn set_camera_name(
+        &mut self,
+        mut design: Design,
+        id: CameraId,
+        name: String,
+    ) -> Result<Design, ErrOperation> {
+        if let Some(camera) = design.get_camera_mut(id) {
+            camera.name = name;
             Ok(design)
         } else {
             Err(ErrOperation::CameraDoesNotExist(id))

@@ -326,6 +326,14 @@ impl GuiRequests for Requests {
     fn update_camera(&mut self, cam_id: ensnano_design::CameraId) {
         self.keep_proceed.push_back(Action::UpdateCamera(cam_id))
     }
+
+    fn set_camera_name(&mut self, camera_id: ensnano_design::CameraId, name: String) {
+        self.keep_proceed
+            .push_back(Action::DesignOperation(DesignOperation::SetCameraName {
+                camera_id,
+                name,
+            }))
+    }
 }
 
 fn rigid_parameters(parameters: RigidBodyParametersRequest) -> RigidBodyConstants {

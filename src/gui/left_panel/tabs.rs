@@ -507,6 +507,39 @@ impl CameraShortcut {
         self.xy += xy;
     }
 
+    pub(super) fn set_camera_input_name(&mut self, name: String) {
+        self.camera_input_name = Some(name);
+    }
+
+    pub fn stop_editing(&mut self) -> Option<(CameraId, String)> {
+        let name = self.camera_input_name.take();
+        let id = self.camera_being_edited.take();
+        for s in self.camera_widget_states.iter_mut() {
+            s.name_input.unfocus();
+        }
+        id.zip(name)
+    }
+
+    pub(super) fn start_editing(&mut self, id: CameraId) {
+        for (c, s) in self
+            .camera_widgets
+            .iter()
+            .zip(self.camera_widget_states.iter_mut())
+        {
+            if c.camera_id == id {
+                self.camera_being_edited = Some(id);
+                s.name_input.focus();
+                s.name_input.select_all();
+            }
+        }
+    }
+
+    pub fn has_keyboard_priority(&self) -> bool {
+        self.camera_widget_states
+            .iter()
+            .any(|s| s.name_input.is_focused())
+    }
+
     pub fn view<'a, S: AppState>(
         &'a mut self,
         ui_size: UiSize,

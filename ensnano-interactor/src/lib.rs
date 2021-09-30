@@ -225,6 +225,10 @@ pub enum DesignOperation {
         position: Vec3,
         orientation: Rotor3,
     },
+    SetCameraName {
+        camera_id: ensnano_design::CameraId,
+        name: String,
+    },
 }
 
 /// An action performed on the application

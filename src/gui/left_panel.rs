@@ -281,6 +281,7 @@ impl<R: Requests, S: AppState> LeftPanel<R, S> {
             || self.contextual_panel.has_keyboard_priority()
             || self.organizer.has_keyboard_priority()
             || self.sequence_tab.has_keyboard_priority()
+            || self.camera_shortcut.has_keyboard_priority()
     }
 }
 
@@ -682,9 +683,15 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
             }
             Message::ResetSimulation => self.requests.lock().unwrap().reset_simulations(),
             Message::Nothing => (),
-            Message::SubmitCameraName => todo!(),
-            Message::EditCameraName(_) => todo!(),
-            Message::StartEditCameraName(_) => todo!(),
+            Message::SubmitCameraName => {
+                if let Some((id, name)) = self.camera_shortcut.stop_editing() {
+                    self.requests.lock().unwrap().set_camera_name(id, name);
+                }
+            }
+            Message::EditCameraName(name) => self.camera_shortcut.set_camera_input_name(name),
+            Message::StartEditCameraName(camera_id) => {
+                self.camera_shortcut.start_editing(camera_id)
+            }
             Message::SetCameraFavorite(camera_id) => self
                 .requests
                 .lock()
