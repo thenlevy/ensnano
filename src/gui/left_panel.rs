@@ -684,7 +684,11 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
             Message::SubmitCameraName => todo!(),
             Message::EditCameraName(_) => todo!(),
             Message::StartEditCameraName(_) => todo!(),
-            Message::SetCameraFavorite(_) => todo!(),
+            Message::SetCameraFavorite(camera_id) => self
+                .requests
+                .lock()
+                .unwrap()
+                .set_favourite_camera(camera_id),
             Message::DeleteCamera(camera_id) => {
                 self.requests.lock().unwrap().delete_camera(camera_id)
             }

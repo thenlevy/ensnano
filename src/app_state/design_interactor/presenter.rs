@@ -469,6 +469,13 @@ impl DesignReader {
             .get_camera(cam_id)
             .map(|c| (c.position, c.orientation))
     }
+
+    pub fn get_favourite_camera(&self) -> Option<(Vec3, ultraviolet::Rotor3)> {
+        self.presenter
+            .current_design
+            .get_favourite_camera()
+            .map(|c| (c.position, c.orientation))
+    }
 }
 
 impl HelixPresenter for Presenter {

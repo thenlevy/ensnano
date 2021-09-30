@@ -608,14 +608,19 @@ impl<S: AppState> Scene<S> {
             .data
             .borrow()
             .get_pivot_position()
-            .or(self.data.borrow().get_selected_position());
+            .or(self.data.borrow().get_selected_position())
+            .filter(|r| !r.x.is_nan() && !r.y.is_nan() && !r.z.is_nan());
         let pivot = pivot.or_else(|| {
             let element_center = self.element_center(app_state);
             self.data
                 .borrow_mut()
                 .set_selection(element_center, app_state);
-            self.data.borrow().get_selected_position()
+            self.data
+                .borrow()
+                .get_selected_position()
+                .filter(|r| !r.x.is_nan() && !r.y.is_nan() && !r.z.is_nan())
         });
+        log::info!("pivot {:?}", pivot);
         self.controller.rotate_camera(xz, yz, xy, pivot);
     }
 }

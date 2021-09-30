@@ -219,6 +219,7 @@ pub enum DesignOperation {
         position: Vec3,
         orientation: Rotor3,
     },
+    SetFavouriteCamera(ensnano_design::CameraId),
 }
 
 /// An action performed on the application

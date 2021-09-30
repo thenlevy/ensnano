@@ -316,6 +316,12 @@ impl GuiRequests for Requests {
     fn select_camera(&mut self, cam_id: ensnano_design::CameraId) {
         self.keep_proceed.push_back(Action::SelectCamera(cam_id))
     }
+
+    fn set_favourite_camera(&mut self, cam_id: ensnano_design::CameraId) {
+        self.keep_proceed.push_back(Action::DesignOperation(
+            DesignOperation::SetFavouriteCamera(cam_id),
+        ))
+    }
 }
 
 fn rigid_parameters(parameters: RigidBodyParametersRequest) -> RigidBodyConstants {

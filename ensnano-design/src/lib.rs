@@ -406,6 +406,15 @@ impl Design {
         self.favorite_camera.clone()
     }
 
+    pub fn set_favourite_camera(&mut self, cam_id: CameraId) -> Result<(), ()> {
+        if self.cameras.contains_key(&cam_id) {
+            self.favorite_camera = Some(cam_id);
+            Ok(())
+        } else {
+            Err(())
+        }
+    }
+
     pub fn get_cameras(&self) -> impl Iterator<Item = (&CameraId, &Camera)> {
         self.cameras.iter()
     }

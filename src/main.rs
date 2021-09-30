@@ -1155,6 +1155,14 @@ impl<'a> MainStateInteface for MainStateView<'a> {
         if let Ok(state) = AppState::import_design(&path) {
             self.main_state.clear_app_state(state);
             self.main_state.path_to_current_design = Some(path.clone());
+            if let Some((position, orientation)) = self
+                .main_state
+                .app_state
+                .get_design_reader()
+                .get_favourite_camera()
+            {
+                self.notify_apps(Notification::TeleportCamera(position, orientation));
+            }
             Ok(())
         } else {
             Err(LoadDesignError::from("\"Oh No\"".to_string()))
