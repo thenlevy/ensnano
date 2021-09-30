@@ -12,6 +12,11 @@ of the select strands disappears when changing color.
 - A "Save As" button has been added with the behavior of the previous "Save" button. The "Save" button now
 save the design with the current file name instead of opening a file picking dialog.
 - Shows the length of the currently edited domain in the 2d view
+- When editing a domain, its length (in bp and in nm) is now displayed in the 2d view
+- The `wgpu` dependency is updated to `0.10.1`
+- It is now possible to move helices in the 3d view by doing by grabing and draging the disc at the
+intersection between the grid and the helix
+- Strands can now be given a name for spreadsheet export
 
 ## 0.2.1
 - Take loops into account when importing cadnano file
