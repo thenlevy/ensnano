@@ -73,12 +73,17 @@ impl ReaderGui for DesignReader {
             .unwrap_or(String::from("Unamed strand"))
     }
 
-    fn get_all_cameras(&self) -> &[(CameraId, &str)] {
+    fn get_all_cameras(&self) -> Vec<(CameraId, &str)> {
         //TODO this obviously needs to be updated to relate to the real content
-        &ensnano_design::DUMMY_CAMERAS
+        self.presenter
+            .current_design
+            .get_cameras()
+            .into_iter()
+            .map(|(id, cam)| (*id, cam.name.as_str()))
+            .collect()
     }
 
     fn get_favourite_camera(&self) -> Option<CameraId> {
-        Some(ensnano_design::FAVORITE_CAMERA)
+        self.presenter.current_design.get_favourite_camera_id()
     }
 }

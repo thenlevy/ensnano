@@ -173,6 +173,9 @@ pub trait Requests: 'static + Send {
     fn reload_file(&mut self);
     fn add_double_strand_on_new_helix(&mut self, parameters: Option<(isize, usize)>);
     fn set_strand_name(&mut self, s_id: usize, name: String);
+    fn create_new_camera(&mut self);
+    fn delete_camera(&mut self, cam_id: CameraId);
+    fn select_camera(&mut self, cam_id: CameraId);
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -890,7 +893,7 @@ pub trait DesignReader: 'static {
     fn get_dna_elements(&self) -> &[DnaElement];
     fn get_organizer_tree(&self) -> Option<Arc<ensnano_design::EnsnTree>>;
     fn strand_name(&self, s_id: usize) -> String;
-    fn get_all_cameras(&self) -> &[(CameraId, &str)];
+    fn get_all_cameras(&self) -> Vec<(CameraId, &str)>;
     fn get_favourite_camera(&self) -> Option<CameraId>;
 }
 

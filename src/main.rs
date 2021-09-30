@@ -1399,6 +1399,32 @@ impl<'a> MainStateInteface for MainStateView<'a> {
             self.main_state.app_state.rotate_group_pivot(rotation);
         }
     }
+
+    fn create_new_camera(&mut self) {
+        if let Some((position, orientation)) = self
+            .main_state
+            .applications
+            .get(&ElementType::Scene)
+            .and_then(|s| s.lock().unwrap().get_camera())
+        {
+            self.main_state
+                .apply_operation(DesignOperation::CreateNewCamera {
+                    position,
+                    orientation,
+                })
+        } else {
+            log::error!("Could not get current camera position");
+        }
+    }
+
+    fn select_camera(&mut self, camera_id: ensnano_design::CameraId) {
+        let reader = self.main_state.app_state.get_design_reader();
+        if let Some((position, orientation)) = reader.get_camera_with_id(camera_id) {
+            self.notify_apps(Notification::TeleportCamera(position, orientation))
+        } else {
+            log::error!("Could not get camera {:?}", camera_id)
+        }
+    }
 }
 
 use controller::{SetScaffoldSequenceError, SetScaffoldSequenceOk};

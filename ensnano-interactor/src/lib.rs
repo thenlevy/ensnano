@@ -214,6 +214,11 @@ pub enum DesignOperation {
         group_id: GroupId,
         pivot: GroupPivot,
     },
+    DeleteCamera(ensnano_design::CameraId),
+    CreateNewCamera {
+        position: Vec3,
+        orientation: Rotor3,
+    },
 }
 
 /// An action performed on the application

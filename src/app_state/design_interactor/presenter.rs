@@ -459,6 +459,16 @@ impl DesignReader {
             starting_nucl,
         })
     }
+
+    pub fn get_camera_with_id(
+        &self,
+        cam_id: ensnano_design::CameraId,
+    ) -> Option<(Vec3, ultraviolet::Rotor3)> {
+        self.presenter
+            .current_design
+            .get_camera(cam_id)
+            .map(|c| (c.position, c.orientation))
+    }
 }
 
 impl HelixPresenter for Presenter {

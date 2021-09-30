@@ -714,6 +714,10 @@ impl<S: AppState> Application for Scene<S> {
                 self.set_camera_target(target, up, &older_state);
                 self.notify(SceneNotification::CameraMoved);
             }
+            Notification::TeleportCamera(position, orientation) => {
+                self.controller.teleport_camera(position, orientation);
+                self.notify(SceneNotification::CameraMoved);
+            }
             Notification::CameraRotation(xz, yz, xy) => {
                 self.request_camera_rotation(xz, yz, xy, &older_state);
                 self.notify(SceneNotification::CameraMoved);
@@ -783,6 +787,13 @@ impl<S: AppState> Application for Scene<S> {
         let orientation = camera.borrow().rotor.reversed()
             * Rotor3::from_rotation_xz(std::f32::consts::FRAC_PI_2);
         Some((position, orientation))
+    }
+
+    fn get_camera(&self) -> Option<(Vec3, Rotor3)> {
+        let view = self.view.borrow();
+        let cam = view.get_camera();
+        let ret = Some((cam.borrow().position, cam.borrow().rotor));
+        ret
     }
 }
 

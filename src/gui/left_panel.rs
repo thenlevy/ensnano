@@ -572,7 +572,6 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
                     }
                 }
                 if self.selected_tab == 3 && n != 3 {
-                    println!("leaving simulation tab");
                     self.simulation_tab
                         .leave_tab(self.requests.clone(), &self.application_state);
                 }
@@ -686,9 +685,13 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
             Message::EditCameraName(_) => todo!(),
             Message::StartEditCameraName(_) => todo!(),
             Message::SetCameraFavorite(_) => todo!(),
-            Message::DeleteCamera(_) => todo!(),
-            Message::SelectCamera(_) => todo!(),
-            Message::NewCustomCamera => todo!(),
+            Message::DeleteCamera(camera_id) => {
+                self.requests.lock().unwrap().delete_camera(camera_id)
+            }
+            Message::SelectCamera(camera_id) => {
+                self.requests.lock().unwrap().select_camera(camera_id)
+            }
+            Message::NewCustomCamera => self.requests.lock().unwrap().create_new_camera(),
         };
         Command::none()
     }

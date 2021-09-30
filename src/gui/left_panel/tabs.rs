@@ -387,13 +387,17 @@ impl GridTab {
 struct CameraWidget {
     name: String,
     favourite: bool,
+    being_edited: bool,
+    camera_id: CameraId,
+}
+
+#[derive(Debug, Clone, Default)]
+struct CameraWidgetState {
     favourite_btn: button::State,
     select_camera_btn: button::State,
     edit_name_btn: button::State,
     delete_btn: button::State,
     name_input: text_input::State,
-    being_edited: bool,
-    camera_id: CameraId,
 }
 
 impl CameraWidget {
@@ -403,18 +407,17 @@ impl CameraWidget {
             favourite,
             being_edited,
             camera_id,
-            select_camera_btn: Default::default(),
-            edit_name_btn: Default::default(),
-            favourite_btn: Default::default(),
-            delete_btn: Default::default(),
-            name_input: Default::default(),
         }
     }
 
-    fn view<S: AppState>(&mut self, ui_size: UiSize, width: u16) -> Element<Message<S>> {
+    fn view<'a, S: AppState>(
+        &self,
+        ui_size: UiSize,
+        state: &'a mut CameraWidgetState,
+    ) -> Element<'a, Message<S>> {
         let name: Element<Message<S>> = if self.being_edited {
             TextInput::new(
-                &mut self.name_input,
+                &mut state.name_input,
                 "Camera name",
                 &self.name,
                 Message::EditCameraName,
@@ -431,17 +434,17 @@ impl CameraWidget {
             LightIcon::StarOutline
         };
 
-        let favourite_button = light_icon_btn(&mut self.favourite_btn, favourite_icon, ui_size)
-            .on_press(Message::StartEditCameraName(self.camera_id));
+        let favourite_button = light_icon_btn(&mut state.favourite_btn, favourite_icon, ui_size)
+            .on_press(Message::SetCameraFavorite(self.camera_id));
 
         let select_camera_btn =
-            light_icon_btn(&mut self.select_camera_btn, LightIcon::LocalSee, ui_size)
+            light_icon_btn(&mut state.select_camera_btn, LightIcon::LocalSee, ui_size)
                 .on_press(Message::SelectCamera(self.camera_id));
 
-        let edit_button = light_icon_btn(&mut self.edit_name_btn, LightIcon::Edit, ui_size)
+        let edit_button = light_icon_btn(&mut state.edit_name_btn, LightIcon::Edit, ui_size)
             .on_press(Message::StartEditCameraName(self.camera_id));
 
-        let delete_button = light_icon_btn(&mut self.delete_btn, LightIcon::Delete, ui_size)
+        let delete_button = light_icon_btn(&mut state.delete_btn, LightIcon::Delete, ui_size)
             .on_press(Message::DeleteCamera(self.camera_id));
 
         Row::new()
@@ -451,7 +454,6 @@ impl CameraWidget {
             .push(select_camera_btn)
             .push(edit_button)
             .push(delete_button)
-            .width(iced::Length::Units(width))
             .into()
     }
 }
@@ -467,6 +469,7 @@ pub(super) struct CameraShortcut {
     camera_being_edited: Option<CameraId>,
     camera_widgets: Vec<CameraWidget>,
     new_camera_button: button::State,
+    camera_widget_states: Vec<CameraWidgetState>,
 }
 
 impl CameraShortcut {
@@ -482,6 +485,7 @@ impl CameraShortcut {
             camera_being_edited: None,
             camera_widgets: vec![],
             new_camera_button: Default::default(),
+            camera_widget_states: vec![],
         }
     }
 
@@ -591,8 +595,18 @@ impl CameraShortcut {
 
         ret = ret.push(custom_cameras_row);
 
-        for c in self.camera_widgets.iter_mut() {
-            ret = ret.push(c.view(ui_size, width));
+        if self.camera_widget_states.len() < self.camera_widgets.len() {
+            self.camera_widget_states.extend(vec![
+                CameraWidgetState::default();
+                self.camera_widgets.len()
+            ]);
+        }
+        for (c, s) in self
+            .camera_widgets
+            .iter_mut()
+            .zip(self.camera_widget_states.iter_mut())
+        {
+            ret = ret.push(c.view(ui_size, s));
         }
 
         Scrollable::new(&mut self.scroll)
