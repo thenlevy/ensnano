@@ -22,7 +22,7 @@ use ensnano_design::{
     elements::{DnaAttribute, DnaElementKey},
     grid::{Edge, GridDescriptor, GridPosition, Hyperboloid},
     group_attributes::GroupPivot,
-    mutate_in_arc, Design, Domain, DomainJunction, Helix, Nucl, Strand,
+    mutate_in_arc, CameraId, Design, Domain, DomainJunction, Helix, Nucl, Strand,
 };
 use ensnano_interactor::{operation::Operation, HyperboloidOperation, SimulationState};
 use ensnano_interactor::{
@@ -221,6 +221,27 @@ impl Controller {
             }
             DesignOperation::SetGroupPivot { group_id, pivot } => {
                 self.apply(|c, d| c.set_group_pivot(d, group_id, pivot), design)
+            }
+            DesignOperation::CreateNewCamera {
+                position,
+                orientation,
+            } => Ok(self.ok_apply(|c, d| c.create_camera(d, position, orientation), design)),
+            DesignOperation::DeleteCamera(cam_id) => {
+                self.apply(|c, d| c.delete_camera(d, cam_id), design)
+            }
+            DesignOperation::SetFavouriteCamera(cam_id) => {
+                self.apply(|c, d| c.set_favourite_camera(d, cam_id), design)
+            }
+            DesignOperation::UpdateCamera {
+                camera_id,
+                position,
+                orientation,
+            } => self.apply(
+                |c, d| c.update_camera(d, camera_id, position, orientation),
+                design,
+            ),
+            DesignOperation::SetCameraName { camera_id, name } => {
+                self.apply(|c, d| c.set_camera_name(d, camera_id, name), design)
             }
         }
     }
@@ -914,6 +935,61 @@ impl Controller {
         design
     }
 
+    fn create_camera(&mut self, mut design: Design, position: Vec3, orientation: Rotor3) -> Design {
+        design.add_camera(position, orientation);
+        design
+    }
+
+    fn delete_camera(&mut self, mut design: Design, id: CameraId) -> Result<Design, ErrOperation> {
+        if design.rm_camera(id).is_err() {
+            Err(ErrOperation::CameraDoesNotExist(id))
+        } else {
+            Ok(design)
+        }
+    }
+
+    fn set_favourite_camera(
+        &mut self,
+        mut design: Design,
+        id: CameraId,
+    ) -> Result<Design, ErrOperation> {
+        if design.set_favourite_camera(id).is_err() {
+            Err(ErrOperation::CameraDoesNotExist(id))
+        } else {
+            Ok(design)
+        }
+    }
+
+    fn update_camera(
+        &mut self,
+        mut design: Design,
+        id: CameraId,
+        position: Vec3,
+        orientation: Rotor3,
+    ) -> Result<Design, ErrOperation> {
+        if let Some(camera) = design.get_camera_mut(id) {
+            camera.position = position;
+            camera.orientation = orientation;
+            Ok(design)
+        } else {
+            Err(ErrOperation::CameraDoesNotExist(id))
+        }
+    }
+
+    fn set_camera_name(
+        &mut self,
+        mut design: Design,
+        id: CameraId,
+        name: String,
+    ) -> Result<Design, ErrOperation> {
+        if let Some(camera) = design.get_camera_mut(id) {
+            camera.name = name;
+            Ok(design)
+        } else {
+            Err(ErrOperation::CameraDoesNotExist(id))
+        }
+    }
+
     pub(super) fn is_changing_color(&self) -> bool {
         if let ControllerState::ChangingColor = self.state {
             true
@@ -1218,6 +1294,7 @@ pub enum ErrOperation {
     NoScaffoldSet,
     NoGrids,
     FinishFirst,
+    CameraDoesNotExist(CameraId),
 }
 
 impl Controller {

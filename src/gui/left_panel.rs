@@ -32,7 +32,10 @@ use iced_winit::winit::{
 };
 use ultraviolet::Vec3;
 
-use ensnano_design::elements::{DnaElement, DnaElementKey};
+use ensnano_design::{
+    elements::{DnaElement, DnaElementKey},
+    CameraId,
+};
 use ensnano_interactor::{
     graphics::{Background3D, RenderingMode},
     ActionMode, SelectionConversion, SelectionMode,
@@ -170,6 +173,14 @@ pub enum Message<S> {
     FogChoice(tabs::FogChoice),
     SetScaffoldSeqButtonPressed,
     ResetSimulation,
+    EditCameraName(String),
+    SubmitCameraName,
+    StartEditCameraName(CameraId),
+    SetCameraFavorite(CameraId),
+    DeleteCamera(CameraId),
+    SelectCamera(CameraId),
+    NewCustomCamera,
+    UpdateCamera(CameraId),
 }
 
 impl<R: Requests, S: AppState> LeftPanel<R, S> {
@@ -270,6 +281,7 @@ impl<R: Requests, S: AppState> LeftPanel<R, S> {
             || self.contextual_panel.has_keyboard_priority()
             || self.organizer.has_keyboard_priority()
             || self.sequence_tab.has_keyboard_priority()
+            || self.camera_shortcut.has_keyboard_priority()
     }
 }
 
@@ -562,7 +574,6 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
                     }
                 }
                 if self.selected_tab == 3 && n != 3 {
-                    println!("leaving simulation tab");
                     self.simulation_tab
                         .leave_tab(self.requests.clone(), &self.application_state);
                 }
@@ -672,6 +683,30 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
             }
             Message::ResetSimulation => self.requests.lock().unwrap().reset_simulations(),
             Message::Nothing => (),
+            Message::SubmitCameraName => {
+                if let Some((id, name)) = self.camera_shortcut.stop_editing() {
+                    self.requests.lock().unwrap().set_camera_name(id, name);
+                }
+            }
+            Message::EditCameraName(name) => self.camera_shortcut.set_camera_input_name(name),
+            Message::StartEditCameraName(camera_id) => {
+                self.camera_shortcut.start_editing(camera_id)
+            }
+            Message::SetCameraFavorite(camera_id) => self
+                .requests
+                .lock()
+                .unwrap()
+                .set_favourite_camera(camera_id),
+            Message::DeleteCamera(camera_id) => {
+                self.requests.lock().unwrap().delete_camera(camera_id)
+            }
+            Message::SelectCamera(camera_id) => {
+                self.requests.lock().unwrap().select_camera(camera_id)
+            }
+            Message::NewCustomCamera => self.requests.lock().unwrap().create_new_camera(),
+            Message::UpdateCamera(camera_id) => {
+                self.requests.lock().unwrap().update_camera(camera_id)
+            }
         };
         Command::none()
     }
@@ -716,7 +751,9 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
             .tab_bar_style(TabStyle)
             .width(Length::Units(width))
             .height(Length::Fill);
-        let camera_shortcut = self.camera_shortcut.view(self.ui_size.clone(), width);
+        let camera_shortcut =
+            self.camera_shortcut
+                .view(self.ui_size.clone(), width, &self.application_state);
         let contextual_menu = self
             .contextual_panel
             .view(self.ui_size.clone(), &self.application_state);

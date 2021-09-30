@@ -214,6 +214,21 @@ pub enum DesignOperation {
         group_id: GroupId,
         pivot: GroupPivot,
     },
+    DeleteCamera(ensnano_design::CameraId),
+    CreateNewCamera {
+        position: Vec3,
+        orientation: Rotor3,
+    },
+    SetFavouriteCamera(ensnano_design::CameraId),
+    UpdateCamera {
+        camera_id: ensnano_design::CameraId,
+        position: Vec3,
+        orientation: Rotor3,
+    },
+    SetCameraName {
+        camera_id: ensnano_design::CameraId,
+        name: String,
+    },
 }
 
 /// An action performed on the application

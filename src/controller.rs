@@ -210,6 +210,9 @@ pub(crate) trait MainState: ScaffoldSetter {
     fn set_current_group_pivot(&mut self, pivot: GroupPivot);
     fn translate_group_pivot(&mut self, translation: Vec3);
     fn rotate_group_pivot(&mut self, rotation: Rotor3);
+    fn create_new_camera(&mut self);
+    fn select_camera(&mut self, camera_id: ensnano_design::CameraId);
+    fn update_camera(&mut self, camera_id: ensnano_design::CameraId);
 }
 
 pub struct LoadDesignError(String);

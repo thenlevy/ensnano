@@ -52,6 +52,10 @@ pub trait Application {
     fn get_position_for_new_grid(&self) -> Option<(Vec3, Rotor3)> {
         None
     }
+
+    fn get_camera(&self) -> Option<(Vec3, Rotor3)> {
+        None
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -68,6 +72,7 @@ pub enum Notification {
     Save(usize),
     /// The 3d camera must face a given target
     CameraTarget((Vec3, Vec3)),
+    TeleportCamera(Vec3, Rotor3),
     CameraRotation(f32, f32, f32),
     Centering(Nucl, usize),
     CenterSelection(Selection, AppId),

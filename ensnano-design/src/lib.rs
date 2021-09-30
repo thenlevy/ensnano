@@ -45,6 +45,11 @@ mod formating;
 #[cfg(test)]
 mod tests;
 
+/// TODO REMOVE THIS AFTER TESTING
+pub const DUMMY_CAMERAS: [(CameraId, &str); 2] = [(CameraId(0), "Fav"), (CameraId(1), "Not Fav")];
+/// TODO REMOVE THIS AFTER TESTING
+pub const FAVORITE_CAMERA: CameraId = CameraId(0);
+
 /// The `ensnano` Design structure.
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Design {
@@ -112,6 +117,24 @@ pub struct Design {
 
     #[serde(default, skip_serializing_if = "HashMap::is_empty")]
     pub group_attributes: HashMap<ensnano_organizer::GroupId, GroupAttribute>,
+
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    cameras: BTreeMap<CameraId, Camera>,
+
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    favorite_camera: Option<CameraId>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct CameraId(u64);
+
+/// A saved camera position. This can be use to register intresting point of views of the design.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Camera {
+    pub position: Vec3,
+    pub orientation: Rotor3,
+    pub name: String,
+    pub id: CameraId,
 }
 
 fn ensnano_version() -> String {
@@ -160,6 +183,8 @@ impl Design {
             organizer_tree: None,
             ensnano_version: ensnano_version(),
             group_attributes: Default::default(),
+            cameras: Default::default(),
+            ..Default::default()
         }
     }
 
@@ -179,6 +204,8 @@ impl Design {
             organizer_tree: None,
             ensnano_version: ensnano_version(),
             group_attributes: Default::default(),
+            cameras: Default::default(),
+            favorite_camera: None,
         }
     }
 
@@ -330,6 +357,67 @@ impl Design {
         }
         false
     }
+
+    pub fn add_camera(&mut self, position: Vec3, orientation: Rotor3) {
+        let cam_id = self
+            .cameras
+            .keys()
+            .max()
+            .map(|id| CameraId(id.0 + 1))
+            .unwrap_or(CameraId(0));
+        let new_camera = Camera {
+            position,
+            orientation,
+            name: format!("Camera {}", cam_id.0),
+            id: cam_id,
+        };
+        self.cameras.insert(cam_id, new_camera);
+        if self.favorite_camera.is_none() {
+            self.favorite_camera = Some(cam_id)
+        }
+    }
+
+    pub fn rm_camera(&mut self, cam_id: CameraId) -> Result<(), ()> {
+        if self.cameras.remove(&cam_id).is_some() {
+            if self.favorite_camera == Some(cam_id) {
+                self.favorite_camera = self.cameras.keys().min().cloned();
+            }
+            Ok(())
+        } else {
+            Err(())
+        }
+    }
+
+    pub fn get_camera_mut(&mut self, cam_id: CameraId) -> Option<&mut Camera> {
+        self.cameras.get_mut(&cam_id)
+    }
+
+    pub fn get_camera(&self, cam_id: CameraId) -> Option<&Camera> {
+        self.cameras.get(&cam_id)
+    }
+
+    pub fn get_favourite_camera(&self) -> Option<&Camera> {
+        self.favorite_camera
+            .as_ref()
+            .and_then(|id| self.cameras.get(id))
+    }
+
+    pub fn get_favourite_camera_id(&self) -> Option<CameraId> {
+        self.favorite_camera.clone()
+    }
+
+    pub fn set_favourite_camera(&mut self, cam_id: CameraId) -> Result<(), ()> {
+        if self.cameras.contains_key(&cam_id) {
+            self.favorite_camera = Some(cam_id);
+            Ok(())
+        } else {
+            Err(())
+        }
+    }
+
+    pub fn get_cameras(&self) -> impl Iterator<Item = (&CameraId, &Camera)> {
+        self.cameras.iter()
+    }
 }
 
 impl Design {
@@ -381,6 +469,8 @@ impl Design {
             organizer_tree: None,
             ensnano_version: ensnano_version(),
             group_attributes: Default::default(),
+            cameras: Default::default(),
+            ..Default::default()
         })
     }
 }

@@ -301,6 +301,39 @@ impl GuiRequests for Requests {
                 name,
             }));
     }
+
+    fn create_new_camera(&mut self) {
+        self.keep_proceed.push_back(Action::NewCamera);
+    }
+
+    fn delete_camera(&mut self, cam_id: ensnano_design::CameraId) {
+        self.keep_proceed
+            .push_back(Action::DesignOperation(DesignOperation::DeleteCamera(
+                cam_id,
+            )))
+    }
+
+    fn select_camera(&mut self, cam_id: ensnano_design::CameraId) {
+        self.keep_proceed.push_back(Action::SelectCamera(cam_id))
+    }
+
+    fn set_favourite_camera(&mut self, cam_id: ensnano_design::CameraId) {
+        self.keep_proceed.push_back(Action::DesignOperation(
+            DesignOperation::SetFavouriteCamera(cam_id),
+        ))
+    }
+
+    fn update_camera(&mut self, cam_id: ensnano_design::CameraId) {
+        self.keep_proceed.push_back(Action::UpdateCamera(cam_id))
+    }
+
+    fn set_camera_name(&mut self, camera_id: ensnano_design::CameraId, name: String) {
+        self.keep_proceed
+            .push_back(Action::DesignOperation(DesignOperation::SetCameraName {
+                camera_id,
+                name,
+            }))
+    }
 }
 
 fn rigid_parameters(parameters: RigidBodyParametersRequest) -> RigidBodyConstants {
@@ -313,6 +346,6 @@ fn rigid_parameters(parameters: RigidBodyParametersRequest) -> RigidBodyConstant
         brownian_rate: 10f32.powf(parameters.brownian_rate),
         brownian_amplitude: parameters.brownian_amplitude,
     };
-    println!("{:?}", ret);
+    log::info!("rigid parameters {:?}", ret);
     ret
 }

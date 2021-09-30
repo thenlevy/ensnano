@@ -16,7 +16,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-use ensnano_design::elements::DnaElement;
+use ensnano_design::{elements::DnaElement, CameraId};
 
 use super::*;
 use crate::gui::DesignReader as ReaderGui;
@@ -71,5 +71,19 @@ impl ReaderGui for DesignReader {
             .get(&s_id)
             .and_then(|s| s.name.as_ref().map(|n| n.to_string()))
             .unwrap_or(String::from("Unamed strand"))
+    }
+
+    fn get_all_cameras(&self) -> Vec<(CameraId, &str)> {
+        //TODO this obviously needs to be updated to relate to the real content
+        self.presenter
+            .current_design
+            .get_cameras()
+            .into_iter()
+            .map(|(id, cam)| (*id, cam.name.as_str()))
+            .collect()
+    }
+
+    fn get_favourite_camera(&self) -> Option<CameraId> {
+        self.presenter.current_design.get_favourite_camera_id()
     }
 }

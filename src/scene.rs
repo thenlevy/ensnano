@@ -608,14 +608,19 @@ impl<S: AppState> Scene<S> {
             .data
             .borrow()
             .get_pivot_position()
-            .or(self.data.borrow().get_selected_position());
+            .or(self.data.borrow().get_selected_position())
+            .filter(|r| !r.x.is_nan() && !r.y.is_nan() && !r.z.is_nan());
         let pivot = pivot.or_else(|| {
             let element_center = self.element_center(app_state);
             self.data
                 .borrow_mut()
                 .set_selection(element_center, app_state);
-            self.data.borrow().get_selected_position()
+            self.data
+                .borrow()
+                .get_selected_position()
+                .filter(|r| !r.x.is_nan() && !r.y.is_nan() && !r.z.is_nan())
         });
+        log::info!("pivot {:?}", pivot);
         self.controller.rotate_camera(xz, yz, xy, pivot);
     }
 }
@@ -714,6 +719,10 @@ impl<S: AppState> Application for Scene<S> {
                 self.set_camera_target(target, up, &older_state);
                 self.notify(SceneNotification::CameraMoved);
             }
+            Notification::TeleportCamera(position, orientation) => {
+                self.controller.teleport_camera(position, orientation);
+                self.notify(SceneNotification::CameraMoved);
+            }
             Notification::CameraRotation(xz, yz, xy) => {
                 self.request_camera_rotation(xz, yz, xy, &older_state);
                 self.notify(SceneNotification::CameraMoved);
@@ -783,6 +792,13 @@ impl<S: AppState> Application for Scene<S> {
         let orientation = camera.borrow().rotor.reversed()
             * Rotor3::from_rotation_xz(std::f32::consts::FRAC_PI_2);
         Some((position, orientation))
+    }
+
+    fn get_camera(&self) -> Option<(Vec3, Rotor3)> {
+        let view = self.view.borrow();
+        let cam = view.get_camera();
+        let ret = Some((cam.borrow().position, cam.borrow().rotor));
+        ret
     }
 }
 

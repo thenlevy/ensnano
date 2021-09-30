@@ -209,6 +209,18 @@ impl State for NormalState {
                     main_state.rotate_group_pivot(rotation);
                     self
                 }
+                Action::NewCamera => {
+                    main_state.create_new_camera();
+                    self
+                }
+                Action::SelectCamera(camera_id) => {
+                    main_state.select_camera(camera_id);
+                    self
+                }
+                Action::UpdateCamera(camera_id) => {
+                    main_state.update_camera(camera_id);
+                    self
+                }
                 action => {
                     println!("Not implemented {:?}", action);
                     self
@@ -396,4 +408,7 @@ pub enum Action {
     SetGroupPivot(GroupPivot),
     TranslateGroupPivot(Vec3),
     RotateGroupPivot(Rotor3),
+    NewCamera,
+    SelectCamera(ensnano_design::CameraId),
+    UpdateCamera(ensnano_design::CameraId),
 }
