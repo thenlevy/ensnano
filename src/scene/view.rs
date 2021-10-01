@@ -40,13 +40,13 @@ mod direction_cube;
 mod dna_obj;
 /// This modules defines a trait for drawing widget made of several meshes.
 mod drawable;
+mod gltf_drawer;
 mod grid;
 mod grid_disc;
 /// A HandleDrawer draws the widget for translating objects
 mod handle_drawer;
 mod instances_drawer;
 mod letter;
-mod obj_loader;
 /// A RotationWidget draws the widget for rotating objects
 mod rotation_widget;
 
@@ -56,6 +56,7 @@ use bindgroup_manager::{DynamicBindGroup, UniformBindGroup};
 use direction_cube::*;
 pub use dna_obj::{ConeInstance, DnaObject, RawDnaInstance, SphereInstance, TubeInstance};
 use drawable::{Drawable, Drawer, Vertex};
+use gltf_drawer::GltfDrawer;
 pub use grid::{GridInstance, GridIntersection};
 use grid::{GridManager, GridTextures};
 pub use grid_disc::GridDisc;
@@ -122,6 +123,7 @@ pub struct View {
     fog_parameters: FogParameters,
     rendering_mode: RenderingMode,
     background3d: Background3D,
+    gltf_drawer: GltfDrawer,
 }
 
 impl View {
@@ -269,6 +271,8 @@ impl View {
         );
         skybox_cube.new_instances(vec![SkyBox::new(500.)]);
 
+        log::info!("Create gltf drawer");
+        let gltf_drawer = GltfDrawer::new(&device, &viewer.get_layout_desc());
         Self {
             camera,
             projection,
@@ -295,6 +299,7 @@ impl View {
             fog_parameters: FogParameters::new(),
             rendering_mode: Default::default(),
             background3d: Default::default(),
+            gltf_drawer,
         }
     }
 

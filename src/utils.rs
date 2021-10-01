@@ -27,6 +27,7 @@ pub mod id_generator;
 pub mod instance;
 pub mod light;
 pub mod mesh;
+pub mod obj_loader;
 pub mod texture;
 
 pub fn create_buffer_with_data(

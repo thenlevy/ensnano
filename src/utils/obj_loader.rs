@@ -17,7 +17,6 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 
 use super::wgpu;
-use super::Instanciable;
 use ultraviolet::{Vec3, Vec4};
 
 const OBJ_VERTEX_ARRAY: [wgpu::VertexAttribute; 3] =
@@ -27,12 +26,12 @@ const OBJ_VERTEX_ARRAY: [wgpu::VertexAttribute; 3] =
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct ModelVertex {
     position: Vec3,
-    color: Vec4,
     normal: Vec3,
+    color: Vec4,
 }
 
 impl ModelVertex {
-    fn desc<'a>() -> wgpu::VertexBufferLayout<'a> {
+    pub fn desc<'a>() -> wgpu::VertexBufferLayout<'a> {
         wgpu::VertexBufferLayout {
             array_stride: std::mem::size_of::<ModelVertex>() as wgpu::BufferAddress,
             step_mode: wgpu::VertexStepMode::Vertex,
@@ -41,15 +40,16 @@ impl ModelVertex {
     }
 }
 
-pub struct GltfMesh {
-    vertices: Vec<ModelVertex>,
-    indices: Vec<u32>,
+pub struct GltfFile {
+    pub meshes: Vec<GltfMesh>,
 }
 
-fn load_gltf(path: &'static str) -> Result<GltfMesh, ErrGltf> {
-    let (doc, datas, _) = gltf::import(path).unwrap();
-    let mesh_data = doc.meshes().next().ok_or(ErrGltf::NoMeshes)?;
+pub struct GltfMesh {
+    pub vertices: Vec<ModelVertex>,
+    pub indices: Vec<u32>,
+}
 
+fn read_mesh(mesh_data: &gltf::Mesh, datas: &[gltf::buffer::Data]) -> Result<GltfMesh, ErrGltf> {
     let primitive = mesh_data.primitives().next().ok_or(ErrGltf::NoPrimitive)?;
     let reader = primitive.reader(|b| Some(&datas.get(b.index())?.0[..b.length()]));
 
@@ -79,12 +79,23 @@ fn load_gltf(path: &'static str) -> Result<GltfMesh, ErrGltf> {
     Ok(GltfMesh { vertices, indices })
 }
 
+pub fn load_gltf(path: &'static str) -> Result<GltfFile, ErrGltf> {
+    let (doc, datas, _) = gltf::import(path).ok().ok_or(ErrGltf::CannotReadFile)?;
+    let mesh_data = doc.meshes();
+    let mut meshes = Vec::new();
+    for m in mesh_data {
+        let mesh = read_mesh(&m, &datas)?;
+        meshes.push(mesh)
+    }
+    Ok(GltfFile { meshes })
+}
+
+#[derive(Debug)]
 pub enum ErrGltf {
+    CannotReadFile,
     NoPrimitive,
     NoMeshes,
     NoColor,
     NoNormal,
     NoPosition,
 }
-
-impl Instanciable for GltfMesh {}
