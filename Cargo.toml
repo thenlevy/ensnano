@@ -48,3 +48,5 @@ ensnano_design = { path = "ensnano-design" }
 ensnano_interactor = { path = "ensnano-interactor" }
 log = "0.4"
 pretty_env_logger = "0.4"
+tobj = "3.0"
+gltf = "0.16.0"
