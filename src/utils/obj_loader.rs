@@ -17,17 +17,16 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 
 use super::wgpu;
-use ultraviolet::{Vec3, Vec4};
 
 const OBJ_VERTEX_ARRAY: [wgpu::VertexAttribute; 3] =
-    wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x2, 2 => Float32x3];
+    wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x3, 2 => Float32x4];
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct ModelVertex {
-    position: Vec3,
-    normal: Vec3,
-    color: Vec4,
+    position: [f32 ; 3],
+    normal: [f32 ; 3],
+    color: [f32 ; 4],
 }
 
 impl ModelVertex {
@@ -55,15 +54,15 @@ fn read_mesh(mesh_data: &gltf::Mesh, datas: &[gltf::buffer::Data]) -> Result<Glt
 
     let vertex_positions = {
         let position_iter = reader.read_positions().ok_or(ErrGltf::NoPosition)?;
-        position_iter.map(Vec3::from)
+        position_iter
     };
     let vertex_normals = {
         let normals_iter = reader.read_normals().ok_or(ErrGltf::NoNormal)?;
-        normals_iter.map(Vec3::from)
+        normals_iter
     };
     let vertex_colors = {
         let color_iter = reader.read_colors(0).ok_or(ErrGltf::NoColor)?;
-        color_iter.into_rgba_f32().map(Vec4::from)
+        color_iter.into_rgba_u8().map(|v| [v[0] as f32 / 255., v[1] as f32 / 255., v[2] as f32 / 255., v[3] as f32 /255.])
     };
     let indices = reader.read_indices().unwrap().into_u32().collect();
 
@@ -94,7 +93,6 @@ pub fn load_gltf(path: &'static str) -> Result<GltfFile, ErrGltf> {
 pub enum ErrGltf {
     CannotReadFile,
     NoPrimitive,
-    NoMeshes,
     NoColor,
     NoNormal,
     NoPosition,

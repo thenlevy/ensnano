@@ -272,7 +272,8 @@ impl View {
         skybox_cube.new_instances(vec![SkyBox::new(500.)]);
 
         log::info!("Create gltf drawer");
-        let gltf_drawer = GltfDrawer::new(&device, &viewer.get_layout_desc());
+        let mut gltf_drawer = GltfDrawer::new(&device, &viewer.get_layout_desc());
+        gltf_drawer.add_gltf(&device, "test_gltf.glb");
         Self {
             camera,
             projection,
@@ -596,6 +597,10 @@ impl View {
                     viewer_bind_group_layout,
                     fake_color,
                 );
+            }
+
+            if !fake_color {
+                self.gltf_drawer.draw(&mut &mut render_pass, viewer_bind_group);
             }
 
             if fake_color {

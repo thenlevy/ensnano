@@ -51,7 +51,7 @@ impl GltfDrawer {
 
         let strip_index_format = match primitive_topology {
             wgpu::PrimitiveTopology::LineStrip | wgpu::PrimitiveTopology::TriangleStrip => {
-                Some(wgpu::IndexFormat::Uint16)
+                Some(wgpu::IndexFormat::Uint32)
             }
             _ => None,
         };
