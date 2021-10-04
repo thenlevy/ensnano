@@ -56,7 +56,7 @@ use bindgroup_manager::{DynamicBindGroup, UniformBindGroup};
 use direction_cube::*;
 pub use dna_obj::{ConeInstance, DnaObject, RawDnaInstance, SphereInstance, TubeInstance};
 use drawable::{Drawable, Drawer, Vertex};
-use gltf_drawer::GltfDrawer;
+use gltf_drawer::{GltfDrawer, StlDrawer};
 pub use grid::{GridInstance, GridIntersection};
 use grid::{GridManager, GridTextures};
 pub use grid_disc::GridDisc;
@@ -124,6 +124,7 @@ pub struct View {
     rendering_mode: RenderingMode,
     background3d: Background3D,
     gltf_drawer: GltfDrawer,
+    stl_drawer: StlDrawer,
 }
 
 impl View {
@@ -272,8 +273,10 @@ impl View {
         skybox_cube.new_instances(vec![SkyBox::new(500.)]);
 
         log::info!("Create gltf drawer");
-        let mut gltf_drawer = GltfDrawer::new(&device, &viewer.get_layout_desc());
-        gltf_drawer.add_gltf(&device, "test_gltf.glb");
+        let gltf_drawer = GltfDrawer::new(&device, &viewer.get_layout_desc());
+        log::info!("Create stl drawer");
+        let mut stl_drawer = StlDrawer::new(&device, &viewer.get_layout_desc());
+        stl_drawer.add_stl(&device, "test_stl.stl");
         Self {
             camera,
             projection,
@@ -301,6 +304,7 @@ impl View {
             rendering_mode: Default::default(),
             background3d: Default::default(),
             gltf_drawer,
+            stl_drawer,
         }
     }
 
@@ -600,7 +604,8 @@ impl View {
             }
 
             if !fake_color {
-                self.gltf_drawer.draw(&mut &mut render_pass, viewer_bind_group);
+                self.gltf_drawer.draw(&mut render_pass, viewer_bind_group);
+                self.stl_drawer.draw(&mut render_pass, viewer_bind_group);
             }
 
             if fake_color {

@@ -24,9 +24,9 @@ const OBJ_VERTEX_ARRAY: [wgpu::VertexAttribute; 3] =
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct ModelVertex {
-    position: [f32 ; 3],
-    normal: [f32 ; 3],
-    color: [f32 ; 4],
+    position: [f32; 3],
+    normal: [f32; 3],
+    color: [f32; 4],
 }
 
 impl ModelVertex {
@@ -62,7 +62,14 @@ fn read_mesh(mesh_data: &gltf::Mesh, datas: &[gltf::buffer::Data]) -> Result<Glt
     };
     let vertex_colors = {
         let color_iter = reader.read_colors(0).ok_or(ErrGltf::NoColor)?;
-        color_iter.into_rgba_u8().map(|v| [v[0] as f32 / 255., v[1] as f32 / 255., v[2] as f32 / 255., v[3] as f32 /255.])
+        color_iter.into_rgba_u8().map(|v| {
+            [
+                v[0] as f32 / 255.,
+                v[1] as f32 / 255.,
+                v[2] as f32 / 255.,
+                v[3] as f32 / 255.,
+            ]
+        })
     };
     let indices = reader.read_indices().unwrap().into_u32().collect();
 
@@ -96,4 +103,38 @@ pub enum ErrGltf {
     NoColor,
     NoNormal,
     NoPosition,
+}
+
+pub struct StlMesh {
+    pub vertices: Vec<ModelVertex>,
+}
+
+pub fn load_stl(path: &'static str) -> Result<StlMesh, ErrStl> {
+    use std::fs::File;
+    use std::io::BufReader;
+    use ultraviolet::Vec3;
+    let color = [0.55, 0.20, 0.25, 1.];
+    let file = File::open(path).map_err(|e| ErrStl::FileErr(e))?;
+    let mut stl_buff = BufReader::new(&file);
+    let mesh = nom_stl::parse_stl(&mut stl_buff).map_err(|e| ErrStl::StlParseErr(e))?;
+    let mut vertices = Vec::new();
+    for t in mesh.triangles().iter() {
+        let normal = (Vec3::from(t.vertices()[0]) - Vec3::from(t.vertices()[1]))
+            .cross(Vec3::from(t.vertices()[1]) - Vec3::from(t.vertices()[2]));
+        log::trace!("normal: {:?}", normal);
+        for v in t.vertices() {
+            vertices.push(ModelVertex {
+                color: color.clone(),
+                position: v,
+                normal: normal.into(),
+            });
+        }
+    }
+    Ok(StlMesh { vertices })
+}
+
+#[derive(Debug)]
+pub enum ErrStl {
+    FileErr(std::io::Error),
+    StlParseErr(nom_stl::Error),
 }
