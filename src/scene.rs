@@ -23,6 +23,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use ultraviolet::{Mat4, Rotor3, Vec3};
 
+use crate::scene::camera::FiniteVec3;
 use crate::utils;
 use crate::{DrawArea, PhySize, WindowEvent};
 use ensnano_design::{group_attributes::GroupPivot, Nucl};
@@ -61,6 +62,7 @@ mod maths_3d;
 
 type ViewPtr = Rc<RefCell<View>>;
 type DataPtr<R> = Rc<RefCell<Data<R>>>;
+use std::convert::TryInto;
 
 /// A structure responsible of the 3D display of the designs
 pub struct Scene<S: AppState> {
@@ -243,10 +245,18 @@ impl<S: AppState> Scene<S> {
                 }
             }
             Consequence::Swing(x, y) => {
-                let mut pivot = self.data.borrow().get_pivot_position();
+                let mut pivot: Option<FiniteVec3> = self
+                    .data
+                    .borrow()
+                    .get_pivot_position()
+                    .and_then(|p| p.try_into().ok());
                 if pivot.is_none() {
                     self.data.borrow_mut().try_update_pivot_position(app_state);
-                    pivot = self.data.borrow().get_pivot_position();
+                    pivot = self
+                        .data
+                        .borrow()
+                        .get_pivot_position()
+                        .and_then(|p| p.try_into().ok());
                 }
                 self.controller.set_pivot_point(pivot);
                 self.controller.swing(-x, -y);
@@ -531,7 +541,7 @@ impl<S: AppState> Scene<S> {
         if let Some(position) = camera_position {
             let pivot_point = self.data.borrow().get_middle_point(0);
             self.notify(SceneNotification::NewCameraPosition(position));
-            self.controller.set_pivot_point(Some(pivot_point));
+            self.controller.set_pivot_point(pivot_point.try_into().ok());
             self.controller.set_pivot_point(None);
         }
     }
