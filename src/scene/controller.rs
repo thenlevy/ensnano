@@ -28,7 +28,7 @@ use ultraviolet::{Rotor3, Vec3};
 
 use super::AppState;
 
-use camera::CameraController;
+use camera::{CameraController, FiniteVec3};
 
 mod automata;
 pub use automata::WidgetTarget;
@@ -258,7 +258,7 @@ impl<S: AppState> Controller<S> {
     }
 
     /// Set the pivot point of the camera
-    pub fn set_pivot_point(&mut self, point: Option<Vec3>) {
+    pub fn set_pivot_point(&mut self, point: Option<FiniteVec3>) {
         self.camera_controller.set_pivot_point(point)
     }
 
