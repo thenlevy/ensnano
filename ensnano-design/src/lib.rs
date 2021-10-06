@@ -41,6 +41,8 @@ pub type EnsnTree = OrganizerTree<DnaElementKey>;
 pub mod group_attributes;
 use group_attributes::GroupAttribute;
 
+mod bezier;
+
 mod formating;
 #[cfg(test)]
 mod tests;
