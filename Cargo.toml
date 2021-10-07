@@ -48,3 +48,7 @@ ensnano_design = { path = "ensnano-design" }
 ensnano_interactor = { path = "ensnano-interactor" }
 log = "0.4"
 pretty_env_logger = "0.4"
+
+[features]
+log_after_renderer_setup = []
+dx12_only = []
