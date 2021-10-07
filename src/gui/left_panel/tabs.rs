@@ -1246,7 +1246,33 @@ impl SequenceTab {
         ret = ret.push(button_show_sequence);
         ret = ret.push(iced::Space::with_height(Length::Units(3)));
 
-        ret = ret.push(Text::new("Scaffold").size(ui_size.intermediate_text()));
+        ret = ret.push(Text::new("Scaffold").size(ui_size.head_text()));
+        ret = ret.push(iced::Space::with_height(Length::Units(3)));
+        let mut button_selection_to_scaffold = text_btn(
+            &mut self.button_selection_to_scaffold,
+            "From selection",
+            ui_size.clone(),
+        );
+        let mut button_selection_from_scaffold = text_btn(
+            &mut self.button_selection_from_scaffold,
+            "Show",
+            ui_size.clone(),
+        );
+        if app_state.get_scaffold_info().is_some() {
+            button_selection_from_scaffold =
+                button_selection_from_scaffold.on_press(Message::SelectScaffold);
+        }
+        let selection = app_state.get_selection_as_dnaelement();
+        if let Some(n) = Self::get_candidate_scaffold(&selection) {
+            button_selection_to_scaffold =
+                button_selection_to_scaffold.on_press(Message::ScaffoldIdSet(n, true));
+        }
+        ret = ret.push(
+            Row::new()
+                .push(button_selection_to_scaffold)
+                .push(iced::Space::with_width(Length::Units(5)))
+                .push(button_selection_from_scaffold),
+        );
         ret = ret.push(iced::Space::with_height(Length::Units(3)));
         macro_rules! scaffold_length_fmt {
             () => {
@@ -1270,32 +1296,6 @@ impl SequenceTab {
         }
         ret = ret.push(Text::new(scaffold_text).size(ui_size.main_text()));
         ret = ret.push(length_text);
-        let mut button_selection_to_scaffold = text_btn(
-            &mut self.button_selection_to_scaffold,
-            "From selection",
-            ui_size.clone(),
-        );
-        let mut button_selection_from_scaffold = text_btn(
-            &mut self.button_selection_from_scaffold,
-            "To selection",
-            ui_size.clone(),
-        );
-        if app_state.get_scaffold_info().is_some() {
-            button_selection_from_scaffold =
-                button_selection_from_scaffold.on_press(Message::SelectScaffold);
-        }
-        let selection = app_state.get_selection_as_dnaelement();
-        if let Some(n) = Self::get_candidate_scaffold(&selection) {
-            button_selection_to_scaffold =
-                button_selection_to_scaffold.on_press(Message::ScaffoldIdSet(n, true));
-        }
-        ret = ret.push(iced::Space::with_height(Length::Units(3)));
-        ret = ret.push(
-            Row::new()
-                .push(button_selection_from_scaffold)
-                .push(iced::Space::with_width(Length::Units(5)))
-                .push(button_selection_to_scaffold),
-        );
         ret = ret.push(iced::Space::with_height(Length::Units(3)));
 
         let button_scaffold = Button::new(
