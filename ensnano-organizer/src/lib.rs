@@ -1574,7 +1574,7 @@ const ICONS: iced::Font = iced::Font::External {
 };
 
 fn tabulation() -> Space {
-    Space::with_width(iced::Length::FillPortion(1))
+    Space::with_width(iced::Length::Units(3))
 }
 
 fn merge_attributes<T: Ord + Clone + std::fmt::Debug>(
