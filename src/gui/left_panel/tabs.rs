@@ -653,6 +653,10 @@ impl CameraShortcut {
             .width(iced::Length::Units(width))
             .into()
     }
+
+    pub fn scroll_down(&mut self) {
+        self.scroll.snap_to(1.);
+    }
 }
 
 use ensnano_interactor::graphics::{

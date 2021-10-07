@@ -703,7 +703,10 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
             Message::SelectCamera(camera_id) => {
                 self.requests.lock().unwrap().select_camera(camera_id)
             }
-            Message::NewCustomCamera => self.requests.lock().unwrap().create_new_camera(),
+            Message::NewCustomCamera => {
+                self.requests.lock().unwrap().create_new_camera();
+                self.camera_shortcut.scroll_down()
+            }
             Message::UpdateCamera(camera_id) => {
                 self.requests.lock().unwrap().update_camera(camera_id)
             }
