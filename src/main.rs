@@ -160,6 +160,10 @@ const EARLY_LOG: bool = true;
 #[cfg(feature = "log_after_renderer_setup")]
 const EARLY_LOG: bool = false;
 
+#[cfg(not(feature = "dx12_only"))]
+const BACKEND: wgpu::Backends = wgpu::Backends::PRIMARY;
+#[cfg(feature = "dx12_only")]
+const BACKEND: wgpu::Backends = wgpu::Backends::DX12;
 
 /// Main function. Runs the event loop and holds the framebuffer.
 ///
@@ -210,7 +214,7 @@ fn main() {
 
     let modifiers = ModifiersState::default();
 
-    let instance = wgpu::Instance::new(wgpu::Backends::PRIMARY);
+    let instance = wgpu::Instance::new(BACKEND);
     let surface = unsafe { instance.create_surface(&window) };
     // Initialize WGPU
     let (device, queue) = futures::executor::block_on(async {

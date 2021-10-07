@@ -107,8 +107,7 @@ pub const LCLICK: char = '\u{e918}';
 pub const MCLICK: char = '\u{e91b}';
 pub const RCLICK: char = '\u{e91a}';
 
-pub const WELCOME_MSG: &str = 
-"
+pub const WELCOME_MSG: &str = "
 ==============================================================================
 ==============================================================================
                                WELCOME TO ENSNANO\n
