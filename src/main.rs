@@ -155,6 +155,12 @@ fn convert_size_u32(size: PhySize) -> Size<u32> {
     Size::new(size.width, size.height)
 }
 
+#[cfg(not(feature = "log_after_renderer_setup"))]
+const EARLY_LOG: bool = true;
+#[cfg(feature = "log_after_renderer_setup")]
+const EARLY_LOG: bool = false;
+
+
 /// Main function. Runs the event loop and holds the framebuffer.
 ///
 /// # Intialization
@@ -183,7 +189,9 @@ fn convert_size_u32(size: PhySize) -> Size<u32> {
 ///
 ///
 fn main() {
-    pretty_env_logger::init();
+    if EARLY_LOG {
+        pretty_env_logger::init();
+    }
     // parse arugments, if an argument was given it is treated as a file to open
     let args: Vec<String> = env::args().collect();
     let path = if args.len() >= 2 {
@@ -334,6 +342,11 @@ fn main() {
     main_state.last_saved_state = main_state.app_state.clone();
 
     let mut controller = Controller::new();
+
+    println!("{}", consts::WELCOME_MSG);
+    if !EARLY_LOG {
+        pretty_env_logger::init();
+    }
 
     event_loop.run(move |event, _, control_flow| {
         // Wait for event or redraw a frame every 33 ms (30 frame per seconds)
