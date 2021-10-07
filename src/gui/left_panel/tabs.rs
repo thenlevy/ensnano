@@ -180,7 +180,7 @@ impl<S: AppState> EditionTab<S> {
             tighten_helices_button =
                 tighten_helices_button.on_press(Message::Redim2dHelices(false));
         }
-        ret = ret.push(Text::new("Tighten 2D helices"));
+        ret = ret.push(Text::new("Tighten 2D helices").size(ui_size.intermediate_text()));
         ret = ret.push(
             Row::new()
                 .push(tighten_helices_button)
@@ -289,7 +289,7 @@ impl GridTab {
                 .size(ui_size.head_text()),
         );
 
-        ret = ret.push(Text::new("New Grid"));
+        ret = ret.push(Text::new("New Grid").size(ui_size.intermediate_text()));
         let make_square_grid_btn = icon_btn(
             &mut self.make_square_grid_btn,
             ICON_SQUARE_GRID,
@@ -311,7 +311,8 @@ impl GridTab {
 
         ret = ret.push(iced::Space::with_height(Length::Units(3)));
 
-        let nanotube_title = Row::new().push(Text::new("New nanotube"));
+        let nanotube_title =
+            Row::new().push(Text::new("New nanotube").size(ui_size.intermediate_text()));
 
         ret = ret.push(nanotube_title);
         let start_hyperboloid_btn = if !app_state.is_building_hyperboloid() {
@@ -438,13 +439,19 @@ impl CameraWidget {
         let favourite_button = light_icon_btn(&mut state.favourite_btn, favourite_icon, ui_size)
             .on_press(Message::SetCameraFavorite(self.camera_id));
 
-        let select_camera_btn =
-            light_icon_btn(&mut state.select_camera_btn, LightIcon::LocalSee, ui_size)
-                .on_press(Message::SelectCamera(self.camera_id));
+        let select_camera_btn = light_icon_btn(
+            &mut state.select_camera_btn,
+            LightIcon::CenterFocusStrong,
+            ui_size,
+        )
+        .on_press(Message::SelectCamera(self.camera_id));
 
-        let update_camera_btn =
-            light_icon_btn(&mut state.update_camera_btn, LightIcon::Recycling, ui_size)
-                .on_press(Message::UpdateCamera(self.camera_id));
+        let update_camera_btn = light_icon_btn(
+            &mut state.update_camera_btn,
+            LightIcon::Cameraswitch,
+            ui_size,
+        )
+        .on_press(Message::UpdateCamera(self.camera_id));
 
         let edit_button = light_icon_btn(&mut state.edit_name_btn, LightIcon::Edit, ui_size)
             .on_press(Message::StartEditCameraName(self.camera_id));
@@ -1133,7 +1140,7 @@ impl ParametersTab {
     ) -> Element<'a, Message<S>> {
         let mut ret = Column::new();
         ret = ret.push(Text::new("Parameters").size(ui_size.head_text()));
-        ret = ret.push(Text::new("Font size"));
+        ret = ret.push(Text::new("Font size").size(ui_size.intermediate_text()));
         ret = ret.push(PickList::new(
             &mut self.size_pick_list,
             &super::super::ALL_UI_SIZE[..],
