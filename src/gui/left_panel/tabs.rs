@@ -947,7 +947,11 @@ impl<S: AppState> SimulationTab<S> {
         ret = ret
             .push(Text::new("Parameters for helices simulation").size(ui_size.intermediate_text()));
         ret = ret.push(iced::Space::with_height(Length::Units(2)));
-        for view in self.rigid_body_factory.view(true, ui_size.main_text()).into_iter() {
+        for view in self
+            .rigid_body_factory
+            .view(true, ui_size.main_text())
+            .into_iter()
+        {
             ret = ret.push(view);
         }
         ret = ret.push(right_checkbox(
@@ -962,7 +966,11 @@ impl<S: AppState> SimulationTab<S> {
             Message::BrownianMotion,
             ui_size.clone(),
         ));
-        for view in self.brownian_factory.view(brownian_motion, ui_size.main_text()).into_iter() {
+        for view in self
+            .brownian_factory
+            .view(brownian_motion, ui_size.main_text())
+            .into_iter()
+        {
             ret = ret.push(view);
         }
 
@@ -1150,7 +1158,11 @@ impl ParametersTab {
 
         ret = ret.push(iced::Space::with_height(Length::Units(5)));
         ret = ret.push(Text::new("Scrolling").size(ui_size.intermediate_text()));
-        for view in self.scroll_sensitivity_factory.view(true, ui_size.main_text()).into_iter() {
+        for view in self
+            .scroll_sensitivity_factory
+            .view(true, ui_size.main_text())
+            .into_iter()
+        {
             ret = ret.push(view);
         }
 
