@@ -25,6 +25,7 @@ use std::collections::VecDeque;
 const MEMORY_COLOR_ROWS: usize = 3;
 const MEMORY_COLOR_COLUMN: usize = 8;
 const NB_MEMORY_COLOR: usize = MEMORY_COLOR_ROWS * MEMORY_COLOR_COLUMN;
+const JUMP_SIZE: u16 = 4;
 
 use super::super::material_icons_light;
 use material_icons_light::LightIcon;
@@ -45,6 +46,26 @@ fn light_icon_btn<'a, Message: Clone>(
 ) -> Button<'a, Message> {
     let content = light_icon(icon, ui_size);
     Button::new(state, content).height(iced::Length::Units(ui_size.button()))
+}
+
+macro_rules! section {
+    ($row:ident, $ui_size:ident, $text:tt) => {
+        $row = $row.push(Text::new($text).size($ui_size.head_text()));
+    };
+}
+macro_rules! subsection {
+    ($row:ident, $ui_size:ident, $text:tt) => {
+        $row = $row.push(Text::new($text).size($ui_size.intermediate_text()));
+    };
+}
+
+macro_rules! extra_jump {
+    ($row: ident) => {
+        $row = $row.push(iced::Space::with_height(iced::Length::Units(JUMP_SIZE)))
+    };
+    ($nb: tt, $row: ident) => {
+        $row = $row.push(iced::Space::with_height(iced::Length::Units($nb)))
+    };
 }
 
 pub(super) struct EditionTab<S: AppState> {
@@ -140,11 +161,7 @@ impl<S: AppState> EditionTab<S> {
         app_state: &S,
     ) -> Element<'a, Message<S>> {
         let mut ret = Column::new().spacing(5);
-        ret = ret.push(
-            Text::new("Edition")
-                .horizontal_alignment(iced::HorizontalAlignment::Center)
-                .size(ui_size.head_text()),
-        );
+        section!(ret, ui_size, "Eddition");
         let selection = app_state.get_selection_as_dnaelement();
         let roll_target_helices = self.get_roll_target_helices(&selection);
 
@@ -180,7 +197,7 @@ impl<S: AppState> EditionTab<S> {
             tighten_helices_button =
                 tighten_helices_button.on_press(Message::Redim2dHelices(false));
         }
-        ret = ret.push(Text::new("Tighten 2D helices").size(ui_size.intermediate_text()));
+        subsection!(ret, ui_size, "Tighten 2D helices");
         ret = ret.push(
             Row::new()
                 .push(tighten_helices_button)
@@ -283,13 +300,8 @@ impl GridTab {
         app_state: &S,
     ) -> Element<'a, Message<S>> {
         let mut ret = Column::new().spacing(5);
-        ret = ret.push(
-            Text::new("Grids")
-                .horizontal_alignment(iced::HorizontalAlignment::Center)
-                .size(ui_size.head_text()),
-        );
-
-        ret = ret.push(Text::new("New Grid").size(ui_size.intermediate_text()));
+        section!(ret, ui_size, "Grids");
+        subsection!(ret, ui_size, "New Grid");
         let make_square_grid_btn = icon_btn(
             &mut self.make_square_grid_btn,
             ICON_SQUARE_GRID,
@@ -308,13 +320,8 @@ impl GridTab {
             .push(make_honeycomb_grid_btn)
             .spacing(5);
         ret = ret.push(grid_buttons);
-
-        ret = ret.push(iced::Space::with_height(Length::Units(3)));
-
-        let nanotube_title =
-            Row::new().push(Text::new("New nanotube").size(ui_size.intermediate_text()));
-
-        ret = ret.push(nanotube_title);
+        extra_jump!(ret);
+        subsection!(ret, ui_size, "New nanotube");
         let start_hyperboloid_btn = if !app_state.is_building_hyperboloid() {
             icon_btn(
                 &mut self.start_hyperboloid_btn,
@@ -352,9 +359,8 @@ impl GridTab {
         {
             ret = ret.push(view);
         }
-
-        ret = ret.push(iced::Space::with_height(Length::Units(5)));
-        ret = ret.push(Text::new("Guess grid").size(ui_size.intermediate_text()));
+        extra_jump!(ret);
+        subsection!(ret, ui_size, "Guess grid");
         let mut button_make_grid =
             Button::new(&mut self.make_grid_btn, iced::Text::new("From Selection"))
                 .height(Length::Units(ui_size.button()));
@@ -573,11 +579,7 @@ impl CameraShortcut {
             })
             .collect();
         let mut ret = Column::new();
-        ret = ret.push(
-            Text::new("Camera")
-                .horizontal_alignment(iced::HorizontalAlignment::Center)
-                .size(ui_size.head_text()),
-        );
+        section!(ret, ui_size, "Camera");
         let mut target_buttons: Vec<_> = self
             .camera_target_buttons
             .iter_mut()
@@ -698,15 +700,9 @@ impl CameraTab {
     }
 
     pub fn view<'a, S: AppState>(&'a mut self, ui_size: UiSize) -> Element<'a, Message<S>> {
-        let mut ret = Column::new().spacing(2);
-        ret = ret.push(
-            Text::new("Camera")
-                .horizontal_alignment(iced::HorizontalAlignment::Center)
-                .size(ui_size.head_text()),
-        );
-        ret = ret.push(iced::Space::with_height(Length::Units(2)));
-        ret = ret.push(Text::new("Visibility").size(ui_size.intermediate_text()));
-        ret = ret.push(iced::Space::with_height(Length::Units(2)));
+        let mut ret = Column::new().spacing(5);
+        section!(ret, ui_size, "Camera");
+        subsection!(ret, ui_size, "Visibility");
         ret = ret.push(
             text_btn(
                 &mut self.selection_visibility_btn,
@@ -733,9 +729,7 @@ impl CameraTab {
         );
         ret = ret.push(self.fog.view(&ui_size));
 
-        ret = ret.push(iced::Space::with_height(Length::Units(2)));
-        ret = ret.push(Text::new("Rendering").size(ui_size.intermediate_text()));
-        ret = ret.push(iced::Space::with_height(Length::Units(2)));
+        subsection!(ret, ui_size, "Rendering");
         ret = ret.push(Text::new("Style"));
         ret = ret.push(PickList::new(
             &mut self.rendering_mode_picklist,
@@ -743,7 +737,6 @@ impl CameraTab {
             Some(self.rendering_mode),
             Message::RenderingMode,
         ));
-        ret = ret.push(iced::Space::with_height(Length::Units(2)));
         ret = ret.push(Text::new("Background"));
         ret = ret.push(PickList::new(
             &mut self.background3d_picklist,
@@ -921,8 +914,8 @@ impl<S: AppState> SimulationTab<S> {
         let sim_state = &app_state.get_simulation_state();
         let grid_active = sim_state.is_none() || sim_state.simulating_grid();
         let roll_active = sim_state.is_none() || sim_state.is_rolling();
-        let mut ret = Column::new().spacing(2);
-        ret = ret.push(Text::new("Simulation (Beta)").size(ui_size.head_text()));
+        let mut ret = Column::new().spacing(5);
+        section!(ret, ui_size, "Simulation (Beta)");
         ret = ret.push(self.physical_simulation.view(
             &ui_size,
             "Roll",
@@ -943,10 +936,7 @@ impl<S: AppState> SimulationTab<S> {
 
         let volume_exclusion = self.rigid_body_factory.requestable.volume_exclusion;
         let brownian_motion = self.rigid_body_factory.requestable.brownian_motion;
-        ret = ret.push(iced::Space::with_height(Length::Units(3)));
-        ret = ret
-            .push(Text::new("Parameters for helices simulation").size(ui_size.intermediate_text()));
-        ret = ret.push(iced::Space::with_height(Length::Units(2)));
+        subsection!(ret, ui_size, "Parameters for helices simulation");
         for view in self
             .rigid_body_factory
             .view(true, ui_size.main_text())
@@ -958,13 +948,13 @@ impl<S: AppState> SimulationTab<S> {
             volume_exclusion,
             "Volume exclusion",
             Message::VolumeExclusion,
-            ui_size.clone(),
+            ui_size,
         ));
         ret = ret.push(right_checkbox(
             brownian_motion,
             "Unmatched nt jiggling",
             Message::BrownianMotion,
-            ui_size.clone(),
+            ui_size,
         ));
         for view in self
             .brownian_factory
@@ -1147,8 +1137,9 @@ impl ParametersTab {
         app_state: &S,
     ) -> Element<'a, Message<S>> {
         let mut ret = Column::new();
-        ret = ret.push(Text::new("Parameters").size(ui_size.head_text()));
-        ret = ret.push(Text::new("Font size").size(ui_size.intermediate_text()));
+        section!(ret, ui_size, "Parameters");
+        extra_jump!(ret);
+        subsection!(ret, ui_size, "Font size");
         ret = ret.push(PickList::new(
             &mut self.size_pick_list,
             &super::super::ALL_UI_SIZE[..],
@@ -1156,8 +1147,8 @@ impl ParametersTab {
             Message::UiSizePicked,
         ));
 
-        ret = ret.push(iced::Space::with_height(Length::Units(5)));
-        ret = ret.push(Text::new("Scrolling").size(ui_size.intermediate_text()));
+        extra_jump!(ret);
+        subsection!(ret, ui_size, "Scrolling");
         for view in self
             .scroll_sensitivity_factory
             .view(true, ui_size.main_text())
@@ -1173,8 +1164,8 @@ impl ParametersTab {
             ui_size.clone(),
         ));
 
-        ret = ret.push(iced::Space::with_height(Length::Units(10)));
-        ret = ret.push(Text::new("DNA parameters").size(ui_size.head_text()));
+        extra_jump!(10, ret);
+        section!(ret, ui_size, "DNA parameters");
         for line in app_state.get_dna_parameters().formated_string().lines() {
             ret = ret.push(Text::new(line));
         }
@@ -1184,15 +1175,15 @@ impl ParametersTab {
             "Version {}",
             std::env!("CARGO_PKG_VERSION")
         )));
-        ret = ret.push(iced::Space::with_height(Length::Units(5)));
-        ret = ret.push(Text::new("Development:").size(ui_size.intermediate_text()));
+
+        subsection!(ret, ui_size, "Development:");
         ret = ret.push(Text::new("Nicolas Levy"));
-        ret = ret.push(iced::Space::with_height(Length::Units(5)));
-        ret = ret.push(Text::new("Conception:").size(ui_size.intermediate_text()));
+        extra_jump!(ret);
+        subsection!(ret, ui_size, "Conception:");
         ret = ret.push(Text::new("Nicolas Levy"));
         ret = ret.push(Text::new("Nicolas Schabanel"));
-        ret = ret.push(iced::Space::with_height(Length::Units(5)));
-        ret = ret.push(Text::new("License:").size(ui_size.intermediate_text()));
+        extra_jump!(ret);
+        subsection!(ret, ui_size, "License:");
         ret = ret.push(Text::new("GPLv3"));
 
         Scrollable::new(&mut self.scroll).push(ret).into()
@@ -1244,8 +1235,8 @@ impl SequenceTab {
         app_state: &'a S,
     ) -> Element<'a, Message<S>> {
         let mut ret = Column::new();
-        ret = ret.push(Text::new("Sequences").size(ui_size.head_text()));
-        ret = ret.push(iced::Space::with_height(Length::Units(3)));
+        section!(ret, ui_size, "Sequence");
+        extra_jump!(ret);
         if !self.scaffold_input.is_focused() {
             if let Some(n) = app_state.get_scaffold_info().and_then(|info| info.shift) {
                 self.update_pos_str(n.to_string());
@@ -1267,10 +1258,9 @@ impl SequenceTab {
             .on_press(Message::ToggleText(true))
         };
         ret = ret.push(button_show_sequence);
-        ret = ret.push(iced::Space::with_height(Length::Units(3)));
-
-        ret = ret.push(Text::new("Scaffold").size(ui_size.head_text()));
-        ret = ret.push(iced::Space::with_height(Length::Units(3)));
+        extra_jump!(ret);
+        section!(ret, ui_size, "Scaffold");
+        extra_jump!(ret);
         let mut button_selection_to_scaffold = text_btn(
             &mut self.button_selection_to_scaffold,
             "From selection",
@@ -1296,7 +1286,7 @@ impl SequenceTab {
                 .push(iced::Space::with_width(Length::Units(5)))
                 .push(button_selection_from_scaffold),
         );
-        ret = ret.push(iced::Space::with_height(Length::Units(3)));
+        extra_jump!(ret);
         macro_rules! scaffold_length_fmt {
             () => {
                 "Length: {} nt"
@@ -1319,7 +1309,7 @@ impl SequenceTab {
         }
         ret = ret.push(Text::new(scaffold_text).size(ui_size.main_text()));
         ret = ret.push(length_text);
-        ret = ret.push(iced::Space::with_height(Length::Units(3)));
+        extra_jump!(ret);
 
         let button_scaffold = Button::new(
             &mut self.button_scaffold,
@@ -1343,7 +1333,7 @@ impl SequenceTab {
                 .width(iced::Length::FillPortion(1)),
             );
         ret = ret.push(button_scaffold);
-        ret = ret.push(iced::Space::with_height(Length::Units(3)));
+        extra_jump!(ret);
         ret = ret.push(scaffold_row);
         let starting_nucl = app_state
             .get_scaffold_info()
@@ -1374,9 +1364,9 @@ impl SequenceTab {
         }
         ret = ret.push(nucl_text);
 
-        ret = ret.push(iced::Space::with_height(Length::Units(3)));
-        ret = ret.push(Text::new("Stapples").size(ui_size.head_text()));
-        ret = ret.push(iced::Space::with_height(Length::Units(3)));
+        extra_jump!(ret);
+        section!(ret, ui_size, "Stapples");
+        extra_jump!(ret);
         let button_stapples = Button::new(
             &mut self.button_stapples,
             iced::Text::new("Export Stapples"),
