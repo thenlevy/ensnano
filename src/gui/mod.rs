@@ -24,6 +24,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 
 /// Draw the top bar of the GUI
 pub mod top_bar;
+use ensnano_organizer::GroupId;
 pub use top_bar::TopBar;
 /// Draw the left pannel of the GUI
 pub mod left_panel;
@@ -883,6 +884,7 @@ pub trait AppState: Default + PartialEq + Clone + 'static + Send + std::fmt::Deb
     fn selection_was_updated(&self, other: &Self) -> bool;
     fn get_curent_operation_state(&self) -> Option<CurentOpState>;
     fn get_strand_building_state(&self) -> Option<StrandBuildingStatus>;
+    fn get_selected_group(&self) -> Option<GroupId>;
 }
 
 pub trait DesignReader: 'static {

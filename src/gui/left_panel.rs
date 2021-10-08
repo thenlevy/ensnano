@@ -669,7 +669,8 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
                     self.contextual_panel.state_updated();
                 }
                 if state.selection_was_updated(&self.application_state) {
-                    self.organizer.notify_selection();
+                    let selected_group = state.get_selected_group();
+                    self.organizer.notify_selection(selected_group);
                     self.contextual_panel.state_updated();
                 }
                 if state.get_action_mode() != self.application_state.get_action_mode() {
