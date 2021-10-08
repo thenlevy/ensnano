@@ -1586,7 +1586,9 @@ fn merge_attributes<T: Ord + Clone + std::fmt::Debug>(
         let n = attributes[0].len();
         let ret = (0..n)
             .map(|attr_n| {
-                (0..attributes.len()).fold(None, |a, n| merge_opt(&a, &attributes[n][attr_n]))
+                (0..attributes.len()).fold(None, |a, n| {
+                    merge_opt(&a, attributes[n].get(attr_n).unwrap_or(&None))
+                })
             })
             .collect();
         ret
