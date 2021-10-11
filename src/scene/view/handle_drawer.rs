@@ -28,11 +28,18 @@ pub struct HandlesDescriptor {
     pub origin: Vec3,
     pub orientation: HandleOrientation,
     pub size: f32,
+    pub colors: HandleColors,
 }
 
 #[derive(Debug, Clone, Copy)]
 pub enum HandleOrientation {
     Rotor(Rotor3),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum HandleColors {
+    Rgb,
+    Cym,
 }
 
 impl From<HandleOrientation> for Rotor3 {
@@ -47,10 +54,14 @@ impl HandlesDescriptor {
         let dist = (camera.borrow().position - self.origin).mag();
         let (right, up, dir) = self.make_axis();
         let length = self.size * dist * (projection.borrow().get_fovy() / 2.).tan();
+        let colors = match self.colors {
+            HandleColors::Cym => crate::consts::CYM_HANDLE_COLORS,
+            HandleColors::Rgb => crate::consts::RGB_HANDLE_COLORS,
+        };
         [
-            Handle::new(self.origin, right, up, 0xFF0000, RIGHT_HANDLE_ID, length),
-            Handle::new(self.origin, up, right, 0xFF00, UP_HANDLE_ID, length),
-            Handle::new(self.origin, dir, up, 0xFF, DIR_HANDLE_ID, length),
+            Handle::new(self.origin, right, up, colors[0], RIGHT_HANDLE_ID, length),
+            Handle::new(self.origin, up, right, colors[1], UP_HANDLE_ID, length),
+            Handle::new(self.origin, dir, up, colors[2], DIR_HANDLE_ID, length),
         ]
     }
 

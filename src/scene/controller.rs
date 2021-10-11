@@ -15,6 +15,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
+use super::view::HandleColors;
 use super::{
     camera, Duration, ElementSelector, HandleDir, SceneElement, ViewPtr,
     WidgetRotationMode as RotationMode,
@@ -174,6 +175,17 @@ impl<S: AppState> Controller<S> {
         transition.consequences
     }
 
+    fn handles_color_system(&self) -> HandleColors {
+        self.state
+            .borrow()
+            .handles_color_system()
+            .unwrap_or(if self.current_modifiers.shift() {
+                HandleColors::Cym
+            } else {
+                HandleColors::Rgb
+            })
+    }
+
     pub fn input(
         &mut self,
         event: &WindowEvent,
@@ -322,6 +334,16 @@ impl<S: AppState> Controller<S> {
     pub fn stop_camera_movement(&mut self) {
         self.camera_controller.stop_camera_movement()
     }
+
+    pub fn update_data(&mut self) {
+        self.update_handle_colors();
+    }
+
+    fn update_handle_colors(&self) {
+        self.data
+            .borrow_mut()
+            .update_handle_colors(self.handles_color_system());
+    }
 }
 
 fn ctrl(modifiers: &ModifiersState) -> bool {
@@ -344,4 +366,5 @@ pub(super) trait Data {
     fn get_grid_helix(&self, grid_id: usize, x: isize, y: isize) -> Option<u32>;
     fn notify_rotating_pivot(&mut self);
     fn stop_rotating_pivot(&mut self);
+    fn update_handle_colors(&mut self, colors: HandleColors);
 }

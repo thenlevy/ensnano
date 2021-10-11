@@ -59,7 +59,7 @@ pub use grid::{GridInstance, GridIntersection};
 use grid::{GridManager, GridTextures};
 pub use grid_disc::GridDisc;
 use handle_drawer::HandlesDrawer;
-pub use handle_drawer::{HandleDir, HandleOrientation, HandlesDescriptor};
+pub use handle_drawer::{HandleColors, HandleDir, HandleOrientation, HandlesDescriptor};
 pub use instances_drawer::Instanciable;
 use instances_drawer::{InstanceDrawer, RawDrawer};
 pub use letter::LetterInstance;

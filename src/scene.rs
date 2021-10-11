@@ -551,6 +551,7 @@ impl<S: AppState> Scene<S> {
         if self.controller.camera_is_moving() {
             self.notify(SceneNotification::CameraMoved);
         }
+        self.controller.update_data();
         if self.update.need_update {
             self.perform_update(dt, &new_state);
         }
