@@ -214,3 +214,52 @@ impl Default for FogParameters {
         }
     }
 }
+
+#[derive(Clone, Debug, PartialEq, Eq, Copy)]
+pub enum FogChoice {
+    None,
+    FromCamera,
+    FromPivot,
+}
+
+impl Default for FogChoice {
+    fn default() -> Self {
+        Self::None
+    }
+}
+
+const ALL_FOG_CHOICE: [FogChoice; 3] =
+    [FogChoice::None, FogChoice::FromCamera, FogChoice::FromPivot];
+
+impl std::fmt::Display for FogChoice {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let ret = match self {
+            Self::None => "None",
+            Self::FromCamera => "From Camera",
+            Self::FromPivot => "From Pivot",
+        };
+        write!(f, "{}", ret)
+    }
+}
+
+impl FogChoice {
+    fn from_param(visible: bool, from_camera: bool) -> Self {
+        if visible {
+            if from_camera {
+                Self::FromCamera
+            } else {
+                Self::FromPivot
+            }
+        } else {
+            Self::None
+        }
+    }
+
+    pub fn to_param(&self) -> (bool, bool) {
+        match self {
+            Self::None => (false, false),
+            Self::FromPivot => (true, false),
+            Self::FromCamera => (true, true),
+        }
+    }
+}
