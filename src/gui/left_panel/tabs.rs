@@ -78,6 +78,8 @@ mod camera_tab;
 pub use camera_tab::{CameraTab, FogChoice};
 mod simulation_tab;
 pub use simulation_tab::SimulationTab;
+mod parameters_tab;
+pub use parameters_tab::ParametersTab;
 
 struct GoStop<S: AppState> {
     go_stop_button: button::State,
@@ -109,92 +111,6 @@ impl<S: AppState> GoStop<S> {
             button = button.on_press((self.on_press)(!running));
         }
         Row::new().push(button)
-    }
-}
-
-pub struct ParametersTab {
-    size_pick_list: pick_list::State<UiSize>,
-    scroll: scrollable::State,
-    scroll_sensitivity_factory: RequestFactory<ScrollSentivity>,
-    pub invert_y_scroll: bool,
-}
-
-impl ParametersTab {
-    pub(super) fn new() -> Self {
-        Self {
-            size_pick_list: Default::default(),
-            scroll: Default::default(),
-            scroll_sensitivity_factory: RequestFactory::new(FactoryId::Scroll, ScrollSentivity {}),
-            invert_y_scroll: false,
-        }
-    }
-
-    pub(super) fn view<'a, S: AppState>(
-        &'a mut self,
-        ui_size: UiSize,
-        app_state: &S,
-    ) -> Element<'a, Message<S>> {
-        let mut ret = Column::new();
-        section!(ret, ui_size, "Parameters");
-        extra_jump!(ret);
-        subsection!(ret, ui_size, "Font size");
-        ret = ret.push(PickList::new(
-            &mut self.size_pick_list,
-            &super::super::ALL_UI_SIZE[..],
-            Some(ui_size.clone()),
-            Message::UiSizePicked,
-        ));
-
-        extra_jump!(ret);
-        subsection!(ret, ui_size, "Scrolling");
-        for view in self
-            .scroll_sensitivity_factory
-            .view(true, ui_size.main_text())
-            .into_iter()
-        {
-            ret = ret.push(view);
-        }
-
-        ret = ret.push(right_checkbox(
-            self.invert_y_scroll,
-            "Inverse direction",
-            Message::InvertScroll,
-            ui_size.clone(),
-        ));
-
-        extra_jump!(10, ret);
-        section!(ret, ui_size, "DNA parameters");
-        for line in app_state.get_dna_parameters().formated_string().lines() {
-            ret = ret.push(Text::new(line));
-        }
-        ret = ret.push(iced::Space::with_height(Length::Units(10)));
-        ret = ret.push(Text::new("About").size(ui_size.head_text()));
-        ret = ret.push(Text::new(format!(
-            "Version {}",
-            std::env!("CARGO_PKG_VERSION")
-        )));
-
-        subsection!(ret, ui_size, "Development:");
-        ret = ret.push(Text::new("Nicolas Levy"));
-        extra_jump!(ret);
-        subsection!(ret, ui_size, "Conception:");
-        ret = ret.push(Text::new("Nicolas Levy"));
-        ret = ret.push(Text::new("Nicolas Schabanel"));
-        extra_jump!(ret);
-        subsection!(ret, ui_size, "License:");
-        ret = ret.push(Text::new("GPLv3"));
-
-        Scrollable::new(&mut self.scroll).push(ret).into()
-    }
-
-    pub(super) fn update_scroll_request(
-        &mut self,
-        value_id: ValueId,
-        value: f32,
-        request: &mut Option<f32>,
-    ) {
-        self.scroll_sensitivity_factory
-            .update_request(value_id, value, request);
     }
 }
 
