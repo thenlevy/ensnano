@@ -187,7 +187,12 @@ impl<S: AppState> Scene<S> {
                 );
                 if let Some(t) = translation {
                     match target {
-                        WidgetTarget::Object => self.translate_selected_design(t, app_state),
+                        WidgetTarget::Object => {
+                            self.translate_selected_design(t, app_state);
+                            if app_state.get_current_group_pivot().is_some() {
+                                self.translate_group_pivot(t);
+                            }
+                        }
                         WidgetTarget::Pivot => self.translate_group_pivot(t),
                     }
                 }
@@ -202,6 +207,7 @@ impl<S: AppState> Scene<S> {
             Consequence::MovementEnded => {
                 self.requests.lock().unwrap().suspend_op();
                 self.data.borrow_mut().notify_handle_movement();
+                self.view.borrow_mut().end_movement();
             }
             Consequence::HelixSelected(h_id) => self
                 .requests
@@ -235,7 +241,10 @@ impl<S: AppState> Scene<S> {
                     if rotation.bv.mag() > 1e-3 {
                         match target {
                             WidgetTarget::Object => {
-                                self.rotate_selected_desgin(rotation, origin, positive, app_state)
+                                self.rotate_selected_desgin(rotation, origin, positive, app_state);
+                                if app_state.get_current_group_pivot().is_some() {
+                                    self.requests.lock().unwrap().rotate_group_pivot(rotation);
+                                }
                             }
                             WidgetTarget::Pivot => {
                                 self.requests.lock().unwrap().rotate_group_pivot(rotation)

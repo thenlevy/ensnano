@@ -704,6 +704,10 @@ impl View {
         self.draw_letter = value;
     }
 
+    pub fn end_movement(&mut self) {
+        self.handle_drawers.end_movement()
+    }
+
     /// Compute the translation that needs to be applied to the objects affected by the handle
     /// widget.
     pub fn compute_translation_handle(

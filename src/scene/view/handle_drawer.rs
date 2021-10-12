@@ -150,8 +150,14 @@ impl HandlesDrawer {
         camera: CameraPtr,
         projection: ProjectionPtr,
     ) {
-        self.descriptor = descriptor;
-        self.update_camera(camera, projection);
+        if self.origin_translation.is_none() {
+            self.descriptor = descriptor;
+            self.update_camera(camera, projection);
+        }
+    }
+
+    pub fn end_movement(&mut self) {
+        self.origin_translation = None;
     }
 
     pub fn update_camera(&mut self, camera: CameraPtr, projection: ProjectionPtr) {
