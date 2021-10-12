@@ -16,8 +16,9 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-use ultraviolet::Vec3;
+use ultraviolet::{Mat3, Rotor3, Vec3};
 const EPSILON: f32 = 1e-6;
+const DISCRETISATION_STEP: usize = 100;
 
 pub struct CubicBezier {
     start: Vec3,
@@ -25,6 +26,9 @@ pub struct CubicBezier {
     control2: Vec3,
     end: Vec3,
     polynomial: CubicBezierPolynom,
+    inflexion_points: Vec<f32>,
+    discrete_points: Vec<Vec3>,
+    discrete_axis: Vec<Mat3>,
 }
 
 pub struct CubicBezierConstructor {
@@ -34,21 +38,109 @@ pub struct CubicBezierConstructor {
     pub end: Vec3,
 }
 
+use super::Parameters;
 impl CubicBezier {
-    pub fn new(constructor: CubicBezierConstructor) -> Self {
+    pub fn new(constructor: CubicBezierConstructor, parameters: &Parameters) -> Self {
         let polynomial = CubicBezierPolynom::new(
             constructor.start,
             constructor.control1,
             constructor.control2,
             constructor.end,
         );
-        Self {
+        let inflexion_points = polynomial.inflextion_points();
+        let mut ret = Self {
             start: constructor.start,
             end: constructor.end,
             control1: constructor.control1,
             control2: constructor.control2,
             polynomial,
+            inflexion_points,
+            discrete_axis: vec![],
+            discrete_points: vec![],
+        };
+        ret.discretize(parameters.z_step, DISCRETISATION_STEP);
+        ret
+    }
+
+    pub fn length_by_descretisation(&self, t0: f32, t1: f32, nb_step: usize) -> f32 {
+        if t0 < 0. || t1 > 1. || t0 > t1 {
+            log::error!(
+                "Bad parameters ofr length by descritisation: \n t0 {} \n t1 {} \n nb_step {}",
+                t0,
+                t1,
+                nb_step
+            );
         }
+        let mut p = self.polynomial.evaluate(t0);
+        let mut len = 0f32;
+        for i in 1..=nb_step {
+            let t = t0 + (i as f32) / (nb_step as f32) * (t1 - t0);
+            let q = self.polynomial.evaluate(t);
+            len += (q - p).mag();
+            p = q;
+        }
+        len
+    }
+
+    fn discretize(&mut self, len_segment: f32, nb_step: usize) {
+        let len = self.length_by_descretisation(0., 1., nb_step);
+        let nb_points = (len / len_segment) as usize;
+        let small_step = 1. / (nb_step as f32 * nb_points as f32);
+
+        let mut points = Vec::with_capacity(nb_points + 1);
+        let mut axis = Vec::with_capacity(nb_points + 1);
+        let mut t = 0f32;
+        points.push(self.polynomial.evaluate(t));
+        axis.push(self.axis(t));
+
+        for _ in 0..nb_points {
+            let mut s = 0f32;
+            let mut p = self.polynomial.evaluate(t);
+
+            while s < len_segment {
+                t += small_step;
+                let q = self.polynomial.evaluate(t);
+                s += (q - p).mag();
+                p = q;
+            }
+            points.push(p);
+            axis.push(self.axis(t));
+        }
+
+        self.discrete_axis = axis;
+        self.discrete_points = points;
+    }
+
+    fn axis(&self, t: f32) -> Mat3 {
+        let speed = self.polynomial.derivative(t);
+        let acceleration = self.polynomial.acceleration(t);
+
+        if speed.mag_sq() < EPSILON {
+            let mat = perpendicular_basis(acceleration);
+            return Mat3::new(mat.cols[2], mat.cols[1], mat.cols[0]);
+        }
+        if acceleration.mag_sq() < EPSILON {
+            return perpendicular_basis(speed);
+        }
+
+        let forward = speed.normalized();
+        let _normal = acceleration - (acceleration.dot(forward)) * forward;
+        let mut normal = _normal.normalized();
+
+        if self.inflexion_points.len() > 0 {
+            if t > self.inflexion_points[0] {
+                if self.inflexion_points.len() > 1 {
+                    if t < self.inflexion_points[1] {
+                        normal *= -1.;
+                    }
+                    // else, nothing to do since we are after 2 inflexion points
+                } else {
+                    normal *= -1.;
+                }
+            }
+        }
+
+        Mat3::new(normal, forward.cross(normal), forward)
     }
 }
 
@@ -282,4 +374,38 @@ mod tests {
         });
         assert_eq!(curve.polynomial.inflextion_points().len(), 1)
     }
+
+    #[test]
+    fn length_of_flat_line() {
+        let start = Vec3::zero();
+        let control1 = Vec3::zero();
+        let control2 = Vec3::zero();
+        let end = Vec3::new(74., 96., 29.);
+        let curve = CubicBezier::new(CubicBezierConstructor {
+            start,
+            control1,
+            control2,
+            end,
+        });
+        let len = curve.length_by_descretisation(0., 1., 100);
+        assert!((len - end.mag()) < EPSILON)
+    }
+}
+
+fn perpendicular_basis(point: Vec3) -> Mat3 {
+    let norm = point.mag();
+
+    if norm < EPSILON {
+        return Mat3::identity();
+    }
+
+    let axis_z = point.normalized();
+
+    let mut axis_x = Vec3::unit_x();
+    if axis_z.x >= 1. - EPSILON {
+        axis_x = Vec3::unit_y();
+    }
+    axis_x = (axis_x.cross(axis_z)).normalized();
+
+    Mat3::new(axis_x, axis_x.cross(-axis_z), axis_z)
 }
