@@ -669,7 +669,8 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
                     self.contextual_panel.state_updated();
                 }
                 if state.selection_was_updated(&self.application_state) {
-                    self.organizer.notify_selection();
+                    let selected_group = state.get_selected_group();
+                    self.organizer.notify_selection(selected_group);
                     self.contextual_panel.state_updated();
                 }
                 if state.get_action_mode() != self.application_state.get_action_mode() {
@@ -703,7 +704,10 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
             Message::SelectCamera(camera_id) => {
                 self.requests.lock().unwrap().select_camera(camera_id)
             }
-            Message::NewCustomCamera => self.requests.lock().unwrap().create_new_camera(),
+            Message::NewCustomCamera => {
+                self.requests.lock().unwrap().create_new_camera();
+                self.camera_shortcut.scroll_down()
+            }
             Message::UpdateCamera(camera_id) => {
                 self.requests.lock().unwrap().update_camera(camera_id)
             }

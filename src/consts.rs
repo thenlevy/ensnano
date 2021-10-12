@@ -120,3 +120,6 @@ Please ignore messages of the following form:\n
 ==============================================================================
 ==============================================================================
 ";
+
+pub const RGB_HANDLE_COLORS: [u32; 3] = [0xFF0000, 0xFF00, 0xFF];
+pub const CYM_HANDLE_COLORS: [u32; 3] = [0x00FFFF, 0xFF00FF, 0xFFFF00];

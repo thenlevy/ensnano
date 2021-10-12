@@ -17,6 +17,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 use super::*;
 use ensnano_interactor::ActionMode;
+use std::alloc::handle_alloc_error;
 use std::borrow::Cow;
 use std::cell::RefCell;
 use std::time::Instant;
@@ -75,6 +76,10 @@ pub(super) trait ControllerState<S: AppState> {
 
     fn check_timers(&mut self, _controller: &Controller<S>) -> Transition<S> {
         Transition::nothing()
+    }
+
+    fn handles_color_system(&self) -> Option<HandleColors> {
+        None
     }
 }
 
@@ -743,6 +748,13 @@ pub enum WidgetTarget {
 impl<S: AppState> ControllerState<S> for TranslatingWidget {
     fn display(&self) -> Cow<'static, str> {
         "Translating widget".into()
+    }
+
+    fn handles_color_system(&self) -> Option<HandleColors> {
+        match self.translation_target {
+            WidgetTarget::Pivot => Some(HandleColors::Cym),
+            WidgetTarget::Object => Some(HandleColors::Rgb),
+        }
     }
 
     fn input(

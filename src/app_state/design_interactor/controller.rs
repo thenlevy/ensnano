@@ -516,8 +516,9 @@ impl Controller {
         pivot: GroupPivot,
     ) -> Result<Design, ErrOperation> {
         let attributes = design.group_attributes.entry(group_id).or_default();
-        attributes.pivot = Some(pivot);
-
+        if attributes.pivot.is_none() {
+            attributes.pivot = Some(pivot);
+        }
         Ok(design)
     }
 

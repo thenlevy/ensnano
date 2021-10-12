@@ -212,6 +212,7 @@ pub(crate) trait MainState: ScaffoldSetter {
     fn rotate_group_pivot(&mut self, rotation: Rotor3);
     fn create_new_camera(&mut self);
     fn select_camera(&mut self, camera_id: ensnano_design::CameraId);
+    fn select_favorite_camera(&mut self);
     fn update_camera(&mut self, camera_id: ensnano_design::CameraId);
 }
 
