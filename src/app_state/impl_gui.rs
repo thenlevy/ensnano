@@ -106,6 +106,10 @@ impl GuiState for AppState {
     fn get_strand_building_state(&self) -> Option<crate::gui::StrandBuildingStatus> {
         self.get_strand_building_state()
     }
+
+    fn get_selected_group(&self) -> Option<GroupId> {
+        self.0.selection.selected_group.clone()
+    }
 }
 
 #[cfg(test)]

@@ -331,9 +331,15 @@ pub struct DesignReader {
 use crate::controller::SaveDesignError;
 use std::path::PathBuf;
 impl DesignReader {
-    pub fn save_design(&self, path: &PathBuf) -> Result<(), SaveDesignError> {
+    pub fn save_design(
+        &self,
+        path: &PathBuf,
+        saving_info: ensnano_design::SavingInformation,
+    ) -> Result<(), SaveDesignError> {
         use std::io::Write;
-        let json_content = serde_json::to_string_pretty(&self.presenter.current_design.as_ref())?;
+        let mut design = self.presenter.current_design.clone_inner();
+        design.prepare_for_save(saving_info);
+        let json_content = serde_json::to_string_pretty(&design)?;
         let mut f = std::fs::File::create(path)?;
         f.write_all(json_content.as_bytes())?;
         Ok(())

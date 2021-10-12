@@ -134,7 +134,9 @@ impl<A: OrganizerAttribute> AttributeDisplayer<A> {
                 AttributeWidget::FlipButton { value_if_pressed } => {
                     let content = match self.attribute.as_ref().map(|a| a.char_repr()) {
                         Some(AttributeDisplay::Icon(c)) => super::icon(c),
-                        Some(AttributeDisplay::Text(s)) => Text::new(s.clone()),
+                        Some(AttributeDisplay::Text(s)) => {
+                            Text::new(s.clone()).size(super::ICON_SIZE)
+                        }
                         _ => Text::new("???"),
                     };
                     Some(

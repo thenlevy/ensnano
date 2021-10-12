@@ -84,7 +84,7 @@ pub type PhySize = iced_winit::winit::dpi::PhysicalSize<u32>;
 const TEXTURE_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Bgra8UnormSrgb;
 
 use controller::{ChanelReader, ChanelReaderUpdate, SimulationRequest};
-use ensnano_design::Nucl;
+use ensnano_design::{Camera, Nucl};
 use ensnano_interactor::application::{Application, Notification};
 use ensnano_interactor::{CenterOfSelection, DesignOperation, DesignReader, RigidBodyConstants};
 use iced_native::Event as IcedEvent;
@@ -155,6 +155,16 @@ fn convert_size_u32(size: PhySize) -> Size<u32> {
     Size::new(size.width, size.height)
 }
 
+#[cfg(not(feature = "log_after_renderer_setup"))]
+const EARLY_LOG: bool = true;
+#[cfg(feature = "log_after_renderer_setup")]
+const EARLY_LOG: bool = false;
+
+#[cfg(not(feature = "dx12_only"))]
+const BACKEND: wgpu::Backends = wgpu::Backends::PRIMARY;
+#[cfg(feature = "dx12_only")]
+const BACKEND: wgpu::Backends = wgpu::Backends::DX12;
+
 /// Main function. Runs the event loop and holds the framebuffer.
 ///
 /// # Intialization
@@ -183,7 +193,9 @@ fn convert_size_u32(size: PhySize) -> Size<u32> {
 ///
 ///
 fn main() {
-    pretty_env_logger::init();
+    if EARLY_LOG {
+        pretty_env_logger::init();
+    }
     // parse arugments, if an argument was given it is treated as a file to open
     let args: Vec<String> = env::args().collect();
     let path = if args.len() >= 2 {
@@ -202,7 +214,7 @@ fn main() {
 
     let modifiers = ModifiersState::default();
 
-    let instance = wgpu::Instance::new(wgpu::Backends::PRIMARY);
+    let instance = wgpu::Instance::new(BACKEND);
     let surface = unsafe { instance.create_surface(&window) };
     // Initialize WGPU
     let (device, queue) = futures::executor::block_on(async {
@@ -334,6 +346,11 @@ fn main() {
     main_state.last_saved_state = main_state.app_state.clone();
 
     let mut controller = Controller::new();
+
+    println!("{}", consts::WELCOME_MSG);
+    if !EARLY_LOG {
+        pretty_env_logger::init();
+    }
 
     event_loop.run(move |event, _, control_flow| {
         // Wait for event or redraw a frame every 33 ms (30 frame per seconds)
@@ -1089,7 +1106,20 @@ impl MainState {
     }
 
     fn save_design(&mut self, path: &PathBuf) -> Result<(), SaveDesignError> {
-        self.app_state.get_design_reader().save_design(path)?;
+        let camera = self
+            .applications
+            .get(&ElementType::Scene)
+            .and_then(|s| s.lock().unwrap().get_camera())
+            .map(|(position, orientation)| Camera {
+                id: Default::default(),
+                name: String::from("Saved Camera"),
+                position,
+                orientation,
+            });
+        let save_info = ensnano_design::SavingInformation { camera };
+        self.app_state
+            .get_design_reader()
+            .save_design(path, save_info)?;
         self.last_saved_state = self.app_state.clone();
         self.path_to_current_design = Some(path.clone());
         Ok(())
@@ -1457,6 +1487,15 @@ impl<'a> MainStateInteface for MainStateView<'a> {
                 })
         } else {
             log::error!("Could not get current camera position");
+        }
+    }
+
+    fn select_favorite_camera(&mut self) {
+        let reader = self.main_state.app_state.get_design_reader();
+        if let Some((position, orientation)) = reader.get_favourite_camera() {
+            self.notify_apps(Notification::TeleportCamera(position, orientation))
+        } else {
+            log::error!("Design does not have a favorite camera");
         }
     }
 }

@@ -368,8 +368,13 @@ impl<E: OrganizerElement> Organizer<E> {
         }
     }
 
-    pub fn notify_selection(&mut self) {
+    pub fn notify_selection(&mut self, selected_group: Option<GroupId>) {
+        log::info!("Notified of selection");
+        let selected_node = selected_group.and_then(|g_id| self.group_to_node.get(&g_id).cloned());
         self.selected_nodes = BTreeSet::new();
+        if let Some(node_id) = selected_node {
+            self.selected_nodes.insert(node_id);
+        }
     }
 
     fn add_selection(selection: &mut BTreeSet<E::Key>, key: &E::Key, may_remove: bool) {
@@ -415,6 +420,7 @@ impl<E: OrganizerElement> Organizer<E> {
                 self.get_group(&id).and_then(|g| g.get_group_id())
             }
         };
+        log::info!("Selected nodes = {:?}", self.selected_nodes);
         (current_selection, group_id)
     }
 
@@ -988,6 +994,10 @@ impl<E: OrganizerElement> NodeView<E> {
                     )
                     .push(Space::with_width(iced::Length::Fill));
 
+                row = row.push(
+                    Button::new(eddit_button, eddit_icon())
+                        .on_press(OrganizerMessage::stop_eddit()),
+                );
                 for ad in self.attribute_displayers.iter_mut() {
                     if let Some(view) = ad.view() {
                         let id = id.clone();
@@ -996,11 +1006,6 @@ impl<E: OrganizerElement> NodeView<E> {
                         )
                     }
                 }
-
-                row = row.push(
-                    Button::new(eddit_button, eddit_icon())
-                        .on_press(OrganizerMessage::stop_eddit()),
-                );
                 row = row.push(
                     Button::new(delete_button, icon(Icon::Trash.into()))
                         .on_press(OrganizerMessage::delete(id.clone())),
@@ -1574,7 +1579,7 @@ const ICONS: iced::Font = iced::Font::External {
 };
 
 fn tabulation() -> Space {
-    Space::with_width(iced::Length::FillPortion(1))
+    Space::with_width(iced::Length::Units(3))
 }
 
 fn merge_attributes<T: Ord + Clone + std::fmt::Debug>(
@@ -1586,7 +1591,9 @@ fn merge_attributes<T: Ord + Clone + std::fmt::Debug>(
         let n = attributes[0].len();
         let ret = (0..n)
             .map(|attr_n| {
-                (0..attributes.len()).fold(None, |a, n| merge_opt(&a, &attributes[n][attr_n]))
+                (0..attributes.len()).fold(None, |a, n| {
+                    merge_opt(&a, attributes[n].get(attr_n).unwrap_or(&None))
+                })
             })
             .collect();
         ret

@@ -489,6 +489,13 @@ impl Multiplexer {
                             .keep_proceed
                             .push_back(Action::Exit);
                     }
+                    VirtualKeyCode::Key0 => {
+                        self.requests
+                            .lock()
+                            .unwrap()
+                            .keep_proceed
+                            .push_back(Action::SelectFavoriteCamera);
+                    }
                     VirtualKeyCode::S => {
                         self.requests.lock().unwrap().selection_mode = Some(SelectionMode::Strand)
                     }

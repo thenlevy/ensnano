@@ -85,11 +85,11 @@ impl<R: Requestable> RequestFactory<R> {
         }
     }
 
-    pub fn view<S: AppState>(&mut self, active: bool) -> Vec<Element<Message<S>>> {
+    pub fn view<S: AppState>(&mut self, active: bool, size: u16) -> Vec<Element<Message<S>>> {
         self.values
             .values_mut()
             .filter(|v| !v.hidden)
-            .map(|v| v.view(active))
+            .map(|v| v.view(active, size))
             .collect()
     }
 
@@ -162,7 +162,7 @@ impl DiscreteValue {
         }
     }
 
-    fn view<S: AppState>(&mut self, active: bool) -> Element<Message<S>> {
+    fn view<S: AppState>(&mut self, active: bool, name_size: u16) -> Element<Message<S>> {
         let decr_button = if active && self.value - self.step > self.min_val {
             Button::new(&mut self.decr_button, Text::new("-")).on_press(Message::DescreteValue {
                 factory_id: self.owner_id,
@@ -205,7 +205,7 @@ impl DiscreteValue {
             .style(DesactivatedSlider)
         };
 
-        let mut name_text = Text::new(self.name.clone());
+        let mut name_text = Text::new(self.name.clone()).size(name_size);
 
         if !active {
             name_text = name_text.color([0.6, 0.6, 0.6]);
