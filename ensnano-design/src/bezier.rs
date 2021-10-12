@@ -59,6 +59,14 @@ struct CubicBezierPolynom {
     q3: Vec3,
 }
 
+macro_rules! print_test {
+    ($($arg:tt)*) => {
+        if cfg!(test) {
+            println!($($arg)*)
+        }
+    }
+}
+
 impl CubicBezierPolynom {
     fn new(start: Vec3, control1: Vec3, control2: Vec3, end: Vec3) -> Self {
         let q0 = start;
@@ -91,7 +99,7 @@ impl CubicBezierPolynom {
         let q13 = 6. * self.q1.cross(self.q3);
         let q12 = 2. * self.q1.cross(self.q2);
 
-        if q23.mag() < 1e-6 && q13.mag() < 1e-6 {
+        if q23.mag_sq() < 1e-6 && q13.mag_sq() < 1e-6 {
             vec![]
         } else {
             let x_poly = QuadPoly::new(q23.x, q13.x, q12.x);
@@ -105,24 +113,28 @@ impl CubicBezierPolynom {
             }
 
             if x_poly.never_zeroes() || y_poly.never_zeroes() || z_poly.never_zeroes() {
+                print_test!("never zeroes");
                 vec![]
             } else {
                 let x_roots = x_poly.roots();
                 let y_roots = y_poly.roots();
                 let z_roots = z_poly.roots();
 
-                let roots = if !x_poly.never_zeroes() {
+                let roots = if !x_poly.is_always_zero() {
+                    print_test!("x_roots");
                     &x_roots
                 } else {
-                    if !y_poly.never_zeroes() {
+                    if !y_poly.is_always_zero() {
+                        print_test!("y_roots");
                         &y_roots
                     } else {
+                        print_test!("z_roots");
                         &z_roots
                     }
                 };
                 let mut ret = Vec::new();
                 for t in roots.iter().cloned() {
-                    if x_poly.is_zero(t) && y_poly.is_zero(t) && z_poly.is_zero(t) {
+                    if x_poly.is_zero_at(t) && y_poly.is_zero_at(t) && z_poly.is_zero_at(t) {
                         ret.push(t);
                     }
                 }
@@ -176,7 +188,11 @@ impl QuadPoly {
         }
     }
 
-    fn is_zero(&self, t: f32) -> bool {
+    fn is_always_zero(&self) -> bool {
+        self.a.abs() < EPSILON && self.b.abs() < EPSILON && self.c.abs() < EPSILON
+    }
+
+    fn is_zero_at(&self, t: f32) -> bool {
         (self.a * t.powi(2) + self.b * t + self.c).abs() < EPSILON
     }
 }
@@ -242,12 +258,14 @@ mod tests {
         let classical_evaluation = |t: f32| {
             6. * start * (1. - t)
                 + control1 * 3. * (6. * t - 4.)
-                + control2 * 3. * ((2. - 3. * t) - 3. * t)
+                + control2 * 6. * (1. - 3. * t)
                 + 6. * end * t
         };
-        assert!((poly.acceleration(x) - classical_evaluation(x)).mag() < EPSILON);
-        assert!((poly.acceleration(0.0) - classical_evaluation(0.0)).mag() < EPSILON);
-        assert!((poly.acceleration(1.0) - classical_evaluation(1.0)).mag() < EPSILON);
+        println!("acc {:?}", poly.acceleration(x));
+        println!("classical {:?}", classical_evaluation(x));
+        assert!((poly.acceleration(x) - classical_evaluation(x)).mag_sq() < EPSILON);
+        assert!((poly.acceleration(0.0) - classical_evaluation(0.0)).mag_sq() < EPSILON);
+        assert!((poly.acceleration(1.0) - classical_evaluation(1.0)).mag_sq() < EPSILON);
     }
 
     #[test]
