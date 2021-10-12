@@ -1489,6 +1489,15 @@ impl<'a> MainStateInteface for MainStateView<'a> {
             log::error!("Could not get current camera position");
         }
     }
+
+    fn select_favorite_camera(&mut self) {
+        let reader = self.main_state.app_state.get_design_reader();
+        if let Some((position, orientation)) = reader.get_favourite_camera() {
+            self.notify_apps(Notification::TeleportCamera(position, orientation))
+        } else {
+            log::error!("Design does not have a favorite camera");
+        }
+    }
 }
 
 use controller::{SetScaffoldSequenceError, SetScaffoldSequenceOk};
