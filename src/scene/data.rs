@@ -166,10 +166,13 @@ impl<R: DesignReader> Data<R> {
             .as_ref()
             .map(|p| p.position)
             .or_else(|| self.get_selected_position());
-        let orientation = pivot
-            .as_ref()
-            .map(|p| p.orientation)
-            .or_else(|| self.get_widget_basis(app_state));
+        let forced_orientation = self.get_forced_widget_basis(app_state);
+        let orientation = forced_orientation.or_else(|| {
+            pivot
+                .as_ref()
+                .map(|p| p.orientation)
+                .or_else(|| self.get_widget_basis(app_state))
+        });
         let handle_descr = if app_state.get_action_mode().0.wants_handle() || self.rotating_pivot {
             let colors = if self.rotating_pivot {
                 HandleColors::Rgb
@@ -1292,6 +1295,17 @@ impl<R: DesignReader> Data<R> {
                 b
             }
         })
+    }
+
+    fn get_forced_widget_basis<S: AppState>(&self, app_state: &S) -> Option<Rotor3> {
+        if app_state.get_widget_basis().is_axis_aligned()
+            && !(self.handle_colors == HandleColors::Cym
+                && app_state.get_action_mode().0 == ActionMode::Rotate)
+        {
+            Some(Rotor3::identity())
+        } else {
+            None
+        }
     }
 
     fn get_selected_basis<S: AppState>(&self, app_state: &S) -> Option<Rotor3> {
