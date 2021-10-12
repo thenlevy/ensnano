@@ -123,9 +123,12 @@ pub struct Design {
 
     #[serde(default, skip_serializing_if = "Option::is_none")]
     favorite_camera: Option<CameraId>,
+
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    saved_camera: Option<Camera>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct CameraId(u64);
 
 /// A saved camera position. This can be use to register intresting point of views of the design.
@@ -206,6 +209,7 @@ impl Design {
             group_attributes: Default::default(),
             cameras: Default::default(),
             favorite_camera: None,
+            saved_camera: None,
         }
     }
 
@@ -397,6 +401,7 @@ impl Design {
         self.favorite_camera
             .as_ref()
             .and_then(|id| self.cameras.get(id))
+            .or(self.saved_camera.as_ref())
     }
 
     pub fn get_favourite_camera_id(&self) -> Option<CameraId> {
@@ -419,6 +424,14 @@ impl Design {
     pub fn get_cameras(&self) -> impl Iterator<Item = (&CameraId, &Camera)> {
         self.cameras.iter()
     }
+
+    pub fn prepare_for_save(&mut self, saving_information: SavingInformation) {
+        self.saved_camera = saving_information.camera;
+    }
+}
+
+pub struct SavingInformation {
+    pub camera: Option<Camera>,
 }
 
 impl Design {

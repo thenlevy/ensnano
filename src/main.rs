@@ -84,7 +84,7 @@ pub type PhySize = iced_winit::winit::dpi::PhysicalSize<u32>;
 const TEXTURE_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Bgra8UnormSrgb;
 
 use controller::{ChanelReader, ChanelReaderUpdate, SimulationRequest};
-use ensnano_design::Nucl;
+use ensnano_design::{Camera, Nucl};
 use ensnano_interactor::application::{Application, Notification};
 use ensnano_interactor::{CenterOfSelection, DesignOperation, DesignReader, RigidBodyConstants};
 use iced_native::Event as IcedEvent;
@@ -1106,7 +1106,20 @@ impl MainState {
     }
 
     fn save_design(&mut self, path: &PathBuf) -> Result<(), SaveDesignError> {
-        self.app_state.get_design_reader().save_design(path)?;
+        let camera = self
+            .applications
+            .get(&ElementType::Scene)
+            .and_then(|s| s.lock().unwrap().get_camera())
+            .map(|(position, orientation)| Camera {
+                id: Default::default(),
+                name: String::from("Saved Camera"),
+                position,
+                orientation,
+            });
+        let save_info = ensnano_design::SavingInformation { camera };
+        self.app_state
+            .get_design_reader()
+            .save_design(path, save_info)?;
         self.last_saved_state = self.app_state.clone();
         self.path_to_current_design = Some(path.clone());
         Ok(())
