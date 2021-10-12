@@ -290,7 +290,7 @@ impl CameraWidget {
             .on_press(Message::SetCameraFavorite(self.camera_id));
 
         let select_camera_btn =
-            light_icon_btn(&mut state.select_camera_btn, LightIcon::Videocam, ui_size)
+            light_icon_btn(&mut state.select_camera_btn, LightIcon::Visibility, ui_size)
                 .on_press(Message::SelectCamera(self.camera_id));
 
         let update_camera_btn = light_icon_btn(
@@ -308,6 +308,7 @@ impl CameraWidget {
 
         Row::new()
             .push(name)
+            .push(iced::Space::with_width(iced::Length::Units(3)))
             .push(edit_button)
             .push(iced::Space::with_width(iced::Length::Fill))
             .push(select_camera_btn)
