@@ -372,9 +372,6 @@ impl Design {
             id: cam_id,
         };
         self.cameras.insert(cam_id, new_camera);
-        if self.favorite_camera.is_none() {
-            self.favorite_camera = Some(cam_id)
-        }
     }
 
     pub fn rm_camera(&mut self, cam_id: CameraId) -> Result<(), ()> {
@@ -408,7 +405,11 @@ impl Design {
 
     pub fn set_favourite_camera(&mut self, cam_id: CameraId) -> Result<(), ()> {
         if self.cameras.contains_key(&cam_id) {
-            self.favorite_camera = Some(cam_id);
+            if self.favorite_camera != Some(cam_id) {
+                self.favorite_camera = Some(cam_id);
+            } else {
+                self.favorite_camera = None;
+            }
             Ok(())
         } else {
             Err(())
