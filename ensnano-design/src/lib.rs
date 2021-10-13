@@ -33,7 +33,7 @@ pub mod codenano;
 pub mod grid;
 use grid::{Grid, GridDescriptor, GridPosition};
 pub mod scadnano;
-pub use ensnano_organizer::OrganizerTree;
+pub use ensnano_organizer::{GroupId, OrganizerTree};
 use scadnano::*;
 pub mod elements;
 use elements::DnaElementKey;

@@ -1427,6 +1427,7 @@ impl<'a> MainStateInteface for MainStateView<'a> {
             self.apply_operation(DesignOperation::Translation(DesignTranslation {
                 target: IsometryTarget::GroupPivot(group_id),
                 translation,
+                group_id: None,
             }))
         } else {
             self.main_state.app_state.translate_group_pivot(translation);
@@ -1440,6 +1441,7 @@ impl<'a> MainStateInteface for MainStateView<'a> {
                 target: IsometryTarget::GroupPivot(group_id),
                 rotation,
                 origin: Vec3::zero(),
+                group_id: None,
             }))
         } else {
             self.main_state.app_state.rotate_group_pivot(rotation);

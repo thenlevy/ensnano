@@ -92,6 +92,10 @@ impl App3D for AppState {
             .and_then(|attributes| attributes.pivot.clone())
             .or(self.0.selection.pivot.read().as_deref().unwrap().clone())
     }
+
+    fn get_current_group_id(&self) -> Option<ensnano_design::GroupId> {
+        self.0.selection.selected_group
+    }
 }
 
 #[cfg(test)]

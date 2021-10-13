@@ -16,7 +16,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-use super::{DesignOperation, DesignRotation, DesignTranslation, IsometryTarget};
+use super::{DesignOperation, DesignRotation, DesignTranslation, GroupId, IsometryTarget};
 use ensnano_design::{
     grid::{GridDescriptor, GridTypeDescr},
     Nucl,
@@ -75,6 +75,7 @@ pub struct GridRotation {
     pub grid_ids: Vec<usize>,
     pub angle: f32,
     pub plane: Bivec3,
+    pub group_id: Option<GroupId>,
 }
 
 impl Operation for GridRotation {
@@ -95,6 +96,7 @@ impl Operation for GridRotation {
             rotation: rotor,
             origin: self.origin,
             target: IsometryTarget::Grids(self.grid_ids.clone()),
+            group_id: self.group_id,
         })
     }
 
@@ -125,6 +127,7 @@ pub struct HelixRotation {
     pub helices: Vec<usize>,
     pub angle: f32,
     pub plane: Bivec3,
+    pub group_id: Option<GroupId>,
 }
 
 impl Operation for HelixRotation {
@@ -145,6 +148,7 @@ impl Operation for HelixRotation {
             rotation: rotor,
             origin: self.origin,
             target: IsometryTarget::Helices(self.helices.clone(), false),
+            group_id: self.group_id,
         })
     }
 
@@ -194,6 +198,7 @@ impl Operation for DesignViewRotation {
             rotation: rotor,
             origin: self.origin,
             target: IsometryTarget::Design,
+            group_id: None,
         })
     }
 
@@ -252,6 +257,7 @@ impl Operation for DesignViewTranslation {
         DesignOperation::Translation(DesignTranslation {
             translation,
             target: IsometryTarget::Design,
+            group_id: None,
         })
     }
 
@@ -289,6 +295,7 @@ pub struct HelixTranslation {
     pub y: f32,
     pub z: f32,
     pub snap: bool,
+    pub group_id: Option<GroupId>,
 }
 
 impl Operation for HelixTranslation {
@@ -318,6 +325,7 @@ impl Operation for HelixTranslation {
         DesignOperation::Translation(DesignTranslation {
             translation,
             target: IsometryTarget::Helices(self.helices.clone(), self.snap),
+            group_id: self.group_id,
         })
     }
 
@@ -370,6 +378,7 @@ pub struct GridTranslation {
     pub x: f32,
     pub y: f32,
     pub z: f32,
+    pub group_id: Option<GroupId>,
 }
 
 impl Operation for GridTranslation {
@@ -399,6 +408,7 @@ impl Operation for GridTranslation {
         DesignOperation::Translation(DesignTranslation {
             translation,
             target: IsometryTarget::Grids(self.grid_ids.clone()),
+            group_id: self.group_id,
         })
     }
 

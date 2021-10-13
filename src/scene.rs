@@ -189,9 +189,6 @@ impl<S: AppState> Scene<S> {
                     match target {
                         WidgetTarget::Object => {
                             self.translate_selected_design(t, app_state);
-                            if app_state.get_current_group_pivot().is_some() {
-                                self.translate_group_pivot(t);
-                            }
                         }
                         WidgetTarget::Pivot => self.translate_group_pivot(t),
                     }
@@ -242,9 +239,6 @@ impl<S: AppState> Scene<S> {
                         match target {
                             WidgetTarget::Object => {
                                 self.rotate_selected_desgin(rotation, origin, positive, app_state);
-                                if app_state.get_current_group_pivot().is_some() {
-                                    self.requests.lock().unwrap().rotate_group_pivot(rotation);
-                                }
                             }
                             WidgetTarget::Pivot => {
                                 self.requests.lock().unwrap().rotate_group_pivot(rotation)
@@ -449,6 +443,8 @@ impl<S: AppState> Scene<S> {
         );
         let at_most_one_grid = grids.as_ref().map(|g| g.len() <= 1).unwrap_or(false);
 
+        let group_id = app_state.get_current_group_id();
+
         let translation_op: Arc<dyn Operation> =
             if let Some(helices) = helices.filter(|_| at_most_one_grid) {
                 Arc::new(HelixTranslation {
@@ -461,6 +457,7 @@ impl<S: AppState> Scene<S> {
                     y: translation.dot(top),
                     z: translation.dot(dir),
                     snap: true,
+                    group_id,
                 })
             } else if let Some(grids) = grids {
                 Arc::new(GridTranslation {
@@ -472,6 +469,7 @@ impl<S: AppState> Scene<S> {
                     x: translation.dot(right),
                     y: translation.dot(top),
                     z: translation.dot(dir),
+                    group_id,
                 })
             } else {
                 return;
@@ -512,6 +510,8 @@ impl<S: AppState> Scene<S> {
             app_state.get_selection(),
             &app_state.get_design_reader(),
         );
+        log::debug!("rotating grids {:?}", grids);
+        let group_id = app_state.get_current_group_id();
         let rotation: Arc<dyn Operation> = if let Some(grid_ids) = grids {
             Arc::new(GridRotation {
                 grid_ids,
@@ -519,6 +519,7 @@ impl<S: AppState> Scene<S> {
                 plane,
                 origin,
                 design_id: 0,
+                group_id,
             })
         } else {
             match self.data.borrow().get_selected_element(app_state) {
@@ -528,6 +529,7 @@ impl<S: AppState> Scene<S> {
                     plane,
                     origin,
                     design_id: d_id as usize,
+                    group_id,
                 }),
                 Selection::Grid(d_id, g_id) => {
                     let grid_id = g_id as usize;
@@ -537,6 +539,7 @@ impl<S: AppState> Scene<S> {
                         plane,
                         origin,
                         design_id: d_id as usize,
+                        group_id,
                     })
                 }
                 _ => return,
@@ -842,6 +845,7 @@ pub trait AppState: Clone {
     fn is_pasting(&self) -> bool;
     fn get_selected_element(&self) -> Option<CenterOfSelection>;
     fn get_current_group_pivot(&self) -> Option<ensnano_design::group_attributes::GroupPivot>;
+    fn get_current_group_id(&self) -> Option<ensnano_design::GroupId>;
 }
 
 pub trait Requests {
