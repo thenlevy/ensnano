@@ -286,8 +286,9 @@ impl CameraWidget {
             LightIcon::StarOutline
         };
 
-        let favourite_button = light_icon_btn(&mut state.favourite_btn, favourite_icon, ui_size)
-            .on_press(Message::SetCameraFavorite(self.camera_id));
+        let _favourite_button: Button<'a, Message<S>> =
+            light_icon_btn(&mut state.favourite_btn, favourite_icon, ui_size)
+                .on_press(Message::SetCameraFavorite(self.camera_id));
 
         let select_camera_btn =
             light_icon_btn(&mut state.select_camera_btn, LightIcon::Visibility, ui_size)
@@ -313,7 +314,7 @@ impl CameraWidget {
             .push(iced::Space::with_width(iced::Length::Fill))
             .push(select_camera_btn)
             .push(update_camera_btn)
-            .push(favourite_button)
+            //.push(favourite_button) 😔😔😔
             .push(delete_button)
             .into()
     }
