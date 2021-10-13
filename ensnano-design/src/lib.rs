@@ -45,11 +45,6 @@ mod formating;
 #[cfg(test)]
 mod tests;
 
-/// TODO REMOVE THIS AFTER TESTING
-pub const DUMMY_CAMERAS: [(CameraId, &str); 2] = [(CameraId(0), "Fav"), (CameraId(1), "Not Fav")];
-/// TODO REMOVE THIS AFTER TESTING
-pub const FAVORITE_CAMERA: CameraId = CameraId(0);
-
 /// The `ensnano` Design structure.
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Design {
@@ -368,7 +363,7 @@ impl Design {
             .keys()
             .max()
             .map(|id| CameraId(id.0 + 1))
-            .unwrap_or(CameraId(0));
+            .unwrap_or(CameraId(1));
         let new_camera = Camera {
             position,
             orientation,

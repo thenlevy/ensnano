@@ -217,8 +217,8 @@ impl State for NormalState {
                     main_state.select_camera(camera_id);
                     self
                 }
-                Action::SelectFavoriteCamera => {
-                    main_state.select_favorite_camera();
+                Action::SelectFavoriteCamera(n) => {
+                    main_state.select_favorite_camera(n);
                     self
                 }
                 Action::UpdateCamera(camera_id) => {
@@ -414,6 +414,6 @@ pub enum Action {
     RotateGroupPivot(Rotor3),
     NewCamera,
     SelectCamera(ensnano_design::CameraId),
-    SelectFavoriteCamera,
+    SelectFavoriteCamera(u32),
     UpdateCamera(ensnano_design::CameraId),
 }
