@@ -826,6 +826,10 @@ impl<S: AppState> Application for Scene<S> {
         let ret = Some((cam.borrow().position, cam.borrow().rotor));
         ret
     }
+
+    fn get_current_selection_pivot(&self) -> Option<GroupPivot> {
+        self.view.borrow().get_current_pivot()
+    }
 }
 
 pub trait AppState: Clone {

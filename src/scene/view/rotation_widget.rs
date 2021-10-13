@@ -133,6 +133,7 @@ impl RotationWidget {
                 self.circle_drawers[i].new_object(None);
             }
         }
+        self.select_circle(self.selected);
         self.sphere_drawer.new_object(self.sphere);
     }
 

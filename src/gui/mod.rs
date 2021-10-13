@@ -133,6 +133,7 @@ pub trait Requests: 'static + Send {
         &mut self,
         selection: Vec<DnaElementKey>,
         group_id: Option<ensnano_organizer::GroupId>,
+        new_group: bool,
     );
     fn update_organizer_tree(&mut self, tree: OrganizerTree<DnaElementKey>);
     /// Update one attribute of several Dna Elements

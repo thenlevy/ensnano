@@ -186,6 +186,7 @@ impl HandlesDrawer {
                 self.drawers[i].new_object(None);
             }
         }
+        self.select_handle(self.selected);
         self.big_handle_drawer.new_object(self.big_handle)
     }
 

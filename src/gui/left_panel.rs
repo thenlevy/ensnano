@@ -240,9 +240,11 @@ impl<R: Requests, S: AppState> LeftPanel<R, S> {
                     .message(&m, &selection)
                     .map(|m_| Message::OrganizerMessage(m_));
             }
-            OrganizerMessage::Selection(s, group_id) => {
-                self.requests.lock().unwrap().set_selected_keys(s, group_id)
-            }
+            OrganizerMessage::Selection(s, group_id) => self
+                .requests
+                .lock()
+                .unwrap()
+                .set_selected_keys(s, group_id, false),
             OrganizerMessage::NewAttribute(a, keys) => {
                 self.requests
                     .lock()
@@ -266,10 +268,11 @@ impl<R: Requests, S: AppState> LeftPanel<R, S> {
                     .lock()
                     .unwrap()
                     .update_organizer_tree(new_tree);
-                self.requests
-                    .lock()
-                    .unwrap()
-                    .set_selected_keys(elements_selected, Some(group_id));
+                self.requests.lock().unwrap().set_selected_keys(
+                    elements_selected,
+                    Some(group_id),
+                    true,
+                );
             }
             _ => (),
         }

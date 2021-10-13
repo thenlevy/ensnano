@@ -185,8 +185,9 @@ impl GuiRequests for Requests {
         &mut self,
         selection: Vec<DnaElementKey>,
         group_id: Option<ensnano_organizer::GroupId>,
+        new_group: bool,
     ) {
-        self.organizer_selection = Some((selection, group_id));
+        self.organizer_selection = Some((selection, group_id, new_group));
     }
 
     fn update_organizer_tree(&mut self, tree: OrganizerTree<DnaElementKey>) {

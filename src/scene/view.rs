@@ -690,6 +690,12 @@ impl View {
         }
     }
 
+    pub fn get_current_pivot(&self) -> Option<GroupPivot> {
+        self.handle_drawers
+            .get_pivot_position()
+            .or_else(|| self.rotation_widget.get_pivot_position())
+    }
+
     /// Get a pointer to the camera
     pub fn get_camera(&self) -> CameraPtr {
         self.camera.clone()
