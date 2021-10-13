@@ -17,7 +17,6 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 use super::*;
 use ensnano_interactor::ActionMode;
-use std::alloc::handle_alloc_error;
 use std::borrow::Cow;
 use std::cell::RefCell;
 use std::time::Instant;
