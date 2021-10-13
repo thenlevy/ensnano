@@ -810,6 +810,12 @@ fn keycode_to_num(keycode: VirtualKeyCode) -> Option<u32> {
         && keycode as u32 <= VirtualKeyCode::Key0 as u32
     {
         Some(keycode as u32 - VirtualKeyCode::Key1 as u32)
+    } else if keycode == VirtualKeyCode::Numpad0 {
+        Some(9)
+    } else if keycode as u32 >= VirtualKeyCode::Numpad1 as u32
+        && keycode as u32 <= VirtualKeyCode::Numpad9 as u32
+    {
+        Some(keycode as u32 - VirtualKeyCode::Numpad1 as u32)
     } else {
         None
     }
