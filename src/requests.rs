@@ -87,7 +87,7 @@ pub struct Requests {
     pub rigid_body_parameters: Option<RigidBodyConstants>,
     pub keep_proceed: VecDeque<Action>,
     pub new_shift_hyperboloid: Option<f32>,
-    pub organizer_selection: Option<(Vec<DnaElementKey>, Option<ensnano_organizer::GroupId>)>,
+    pub organizer_selection: Option<(Vec<DnaElementKey>, Option<ensnano_organizer::GroupId>, bool)>,
     pub organizer_candidates: Option<Vec<DnaElementKey>>,
     pub new_attribute: Option<(DnaAttribute, Vec<DnaElementKey>)>,
     pub new_tree: Option<OrganizerTree<DnaElementKey>>,

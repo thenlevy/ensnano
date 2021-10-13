@@ -915,6 +915,17 @@ impl MainState {
         self.modify_state(|s| s.with_candidates(candidates), false);
     }
 
+    fn transfer_selection_pivot_to_group(&mut self, group_id: ensnano_design::GroupId) {
+        use scene::AppState;
+        let scene_pivot = self
+            .applications
+            .get(&ElementType::Scene)
+            .and_then(|app| app.lock().unwrap().get_current_selection_pivot());
+        if let Some(pivot) = self.app_state.get_current_group_pivot().or(scene_pivot) {
+            self.apply_operation(DesignOperation::SetGroupPivot { group_id, pivot })
+        }
+    }
+
     fn update_selection(
         &mut self,
         selection: Vec<Selection>,
