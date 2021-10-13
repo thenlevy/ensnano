@@ -1427,6 +1427,7 @@ impl<'a> MainStateInteface for MainStateView<'a> {
             self.apply_operation(DesignOperation::Translation(DesignTranslation {
                 target: IsometryTarget::GroupPivot(group_id),
                 translation,
+                group_id: None,
             }))
         } else {
             self.main_state.app_state.translate_group_pivot(translation);
@@ -1440,6 +1441,7 @@ impl<'a> MainStateInteface for MainStateView<'a> {
                 target: IsometryTarget::GroupPivot(group_id),
                 rotation,
                 origin: Vec3::zero(),
+                group_id: None,
             }))
         } else {
             self.main_state.app_state.rotate_group_pivot(rotation);
@@ -1490,12 +1492,12 @@ impl<'a> MainStateInteface for MainStateView<'a> {
         }
     }
 
-    fn select_favorite_camera(&mut self) {
+    fn select_favorite_camera(&mut self, n_camera: u32) {
         let reader = self.main_state.app_state.get_design_reader();
-        if let Some((position, orientation)) = reader.get_favourite_camera() {
+        if let Some((position, orientation)) = reader.get_nth_camera(n_camera) {
             self.notify_apps(Notification::TeleportCamera(position, orientation))
         } else {
-            log::error!("Design does not have a favorite camera");
+            log::error!("Design has less than {} cameras", n_camera + 1);
         }
     }
 }
