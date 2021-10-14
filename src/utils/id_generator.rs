@@ -87,6 +87,7 @@ impl<K: Eq + Hash + Clone> IdGenerator<K> {
     }
 
     /// Replace old_key by new_key
+    #[allow(dead_code)] //used in tests
     pub fn update(&mut self, old_key: K, new_key: K) {
         if let Some(id) = self.ids.get(&old_key).cloned() {
             self.ids.insert(new_key.clone(), id);
@@ -95,17 +96,23 @@ impl<K: Eq + Hash + Clone> IdGenerator<K> {
         }
     }
 
+    #[allow(dead_code)] //used in tests
     pub fn remove(&mut self, id: usize) {
         let elt = self.get_element(id).expect("Removing unexisting id");
         self.ids.remove(&elt);
         self.elements.remove(&id);
     }
 
+    #[allow(dead_code)] //used in tests
     pub fn is_empty(&self) -> bool {
         self.ids.is_empty() && self.elements.is_empty()
     }
 
     pub fn get_all_elements(&self) -> Vec<(usize, K)> {
         self.elements.clone().into_iter().collect()
+    }
+
+    pub fn agree_on_next_id(&self, next: &mut Self) {
+        next.next_id = self.next_id;
     }
 }

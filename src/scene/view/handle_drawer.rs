@@ -17,6 +17,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 use super::{CameraPtr, Drawable, Drawer, ProjectionPtr, Vertex};
 use crate::consts::*;
+use ensnano_design::group_attributes::GroupPivot;
 use iced_wgpu::wgpu;
 use std::rc::Rc;
 use ultraviolet::{Rotor3, Vec3};
@@ -27,11 +28,25 @@ pub struct HandlesDescriptor {
     pub origin: Vec3,
     pub orientation: HandleOrientation,
     pub size: f32,
+    pub colors: HandleColors,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum HandleOrientation {
     Rotor(Rotor3),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum HandleColors {
+    Rgb,
+    Cym,
+}
+
+impl From<HandleOrientation> for Rotor3 {
+    fn from(orientation: HandleOrientation) -> Self {
+        let HandleOrientation::Rotor(r) = orientation;
+        r
+    }
 }
 
 impl HandlesDescriptor {
@@ -39,10 +54,14 @@ impl HandlesDescriptor {
         let dist = (camera.borrow().position - self.origin).mag();
         let (right, up, dir) = self.make_axis();
         let length = self.size * dist * (projection.borrow().get_fovy() / 2.).tan();
+        let colors = match self.colors {
+            HandleColors::Cym => crate::consts::CYM_HANDLE_COLORS,
+            HandleColors::Rgb => crate::consts::RGB_HANDLE_COLORS,
+        };
         [
-            Handle::new(self.origin, right, up, 0xFF0000, RIGHT_HANDLE_ID, length),
-            Handle::new(self.origin, up, right, 0xFF00, UP_HANDLE_ID, length),
-            Handle::new(self.origin, dir, up, 0xFF, DIR_HANDLE_ID, length),
+            Handle::new(self.origin, right, up, colors[0], RIGHT_HANDLE_ID, length),
+            Handle::new(self.origin, up, right, colors[1], UP_HANDLE_ID, length),
+            Handle::new(self.origin, dir, up, colors[2], DIR_HANDLE_ID, length),
         ]
     }
 
@@ -131,8 +150,14 @@ impl HandlesDrawer {
         camera: CameraPtr,
         projection: ProjectionPtr,
     ) {
-        self.descriptor = descriptor;
-        self.update_camera(camera, projection);
+        if self.origin_translation.is_none() {
+            self.descriptor = descriptor;
+            self.update_camera(camera, projection);
+        }
+    }
+
+    pub fn end_movement(&mut self) {
+        self.origin_translation = None;
     }
 
     pub fn update_camera(&mut self, camera: CameraPtr, projection: ProjectionPtr) {
@@ -161,6 +186,7 @@ impl HandlesDrawer {
                 self.drawers[i].new_object(None);
             }
         }
+        self.select_handle(self.selected);
         self.big_handle_drawer.new_object(self.big_handle)
     }
 
@@ -212,6 +238,13 @@ impl HandlesDrawer {
             h.translation = translation
         }
         self.update_drawers();
+    }
+
+    pub fn get_pivot_position(&self) -> Option<GroupPivot> {
+        self.descriptor.as_ref().map(|d| GroupPivot {
+            position: d.origin,
+            orientation: d.orientation.into(),
+        })
     }
 }
 #[derive(Clone, Copy, Debug)]

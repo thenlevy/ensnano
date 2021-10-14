@@ -30,11 +30,11 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 //!
 //!
 //! The multiplexer is also in charge of drawing to the frame.
-use super::{save_before_open, save_before_quit};
-use crate::gui::{Requests, UiSize};
-use crate::mediator::{ActionMode, SelectionMode};
+use super::{Action, Requests};
+use crate::gui::UiSize;
 use crate::utils::texture::SampledTexture;
 use crate::PhySize;
+use ensnano_interactor::{ActionMode, SelectionMode};
 use iced_wgpu::wgpu;
 use iced_winit::winit;
 use iced_winit::winit::event::*;
@@ -48,59 +48,8 @@ use winit::{
 };
 
 mod layout_manager;
+use ensnano_interactor::graphics::{DrawArea, ElementType, SplitMode};
 use layout_manager::{LayoutTree, PixelRegion};
-
-/// A structure that represents an area on which an element can be drawn
-#[derive(Clone, Copy, Debug)]
-pub struct DrawArea {
-    /// The top left corner of the element
-    pub position: PhysicalPosition<u32>,
-    /// The *physical* size of the element
-    pub size: PhySize,
-}
-
-/// The different elements represented on the scene. Each element is instanciated once.
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
-pub enum ElementType {
-    /// The top menu bar
-    TopBar,
-    /// The 3D scene
-    Scene,
-    /// The flat Scene
-    FlatScene,
-    /// The Left Panel
-    LeftPanel,
-    /// The status bar
-    StatusBar,
-    GridPanel,
-    /// An overlay area
-    Overlay(usize),
-    /// An area that has not been attributed to an element
-    Unattributed,
-}
-
-impl ElementType {
-    pub fn is_gui(&self) -> bool {
-        match self {
-            ElementType::TopBar | ElementType::LeftPanel | ElementType::StatusBar => true,
-            _ => false,
-        }
-    }
-
-    pub fn is_scene(&self) -> bool {
-        match self {
-            ElementType::Scene | ElementType::FlatScene => true,
-            _ => false,
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum SplitMode {
-    Flat,
-    Scene3D,
-    Both,
-}
 
 /// A structure that handles the division of the window into different `DrawArea`
 pub struct Multiplexer {
@@ -143,6 +92,7 @@ pub struct Multiplexer {
     modifiers: ModifiersState,
     ui_size: UiSize,
     pub invert_y_scroll: bool,
+    pub icon: Option<CursorIcon>,
 }
 
 const MAX_LEFT_PANNEL_WIDTH: f64 = 200.;
@@ -206,6 +156,7 @@ impl Multiplexer {
             modifiers: ModifiersState::empty(),
             ui_size,
             invert_y_scroll: false,
+            icon: None,
         };
         ret.generate_textures();
         ret
@@ -257,8 +208,8 @@ impl Multiplexer {
 
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: None,
-            color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
-                attachment,
+            color_attachments: &[wgpu::RenderPassColorAttachment {
+                view: attachment,
                 resolve_target,
                 ops: wgpu::Operations {
                     load: wgpu::LoadOp::Clear(clear_color),
@@ -359,11 +310,7 @@ impl Multiplexer {
         mut event: WindowEvent<'static>,
         resized: &mut bool,
         scale_factor_changed: &mut bool,
-    ) -> (
-        Option<(WindowEvent<'static>, ElementType)>,
-        Option<CursorIcon>,
-    ) {
-        let mut icon = None;
+    ) -> Option<(WindowEvent<'static>, ElementType)> {
         let mut captured = false;
         match &mut event {
             WindowEvent::CursorMoved { position, .. } => match &mut self.state {
@@ -384,7 +331,7 @@ impl Multiplexer {
                         &clicked_position,
                         *old_proportion,
                     );
-                    icon = Some(CursorIcon::EwResize);
+                    self.icon = Some(CursorIcon::EwResize);
                     captured = true;
                 }
 
@@ -395,11 +342,11 @@ impl Multiplexer {
                         let element = self.pixel_to_element(*position);
                         let area = match element {
                             PixelRegion::Resize(_) => {
-                                icon = Some(CursorIcon::EwResize);
+                                self.icon = Some(CursorIcon::EwResize);
                                 None
                             }
                             PixelRegion::Element(element) => {
-                                icon = Some(CursorIcon::Arrow);
+                                self.icon = None;
                                 self.focus = Some(element);
                                 self.get_draw_area(element)
                             }
@@ -494,17 +441,23 @@ impl Multiplexer {
                     VirtualKeyCode::Escape => {
                         self.requests.lock().unwrap().action_mode = Some(ActionMode::Normal)
                     }
+                    VirtualKeyCode::Z if ctrl(&self.modifiers) => {
+                        self.requests.lock().unwrap().undo = Some(());
+                    }
+                    VirtualKeyCode::R if ctrl(&self.modifiers) => {
+                        self.requests.lock().unwrap().redo = Some(());
+                    }
                     VirtualKeyCode::C if ctrl(&self.modifiers) => {
-                        self.requests.lock().unwrap().copy = true;
+                        self.requests.lock().unwrap().copy = Some(());
                     }
                     VirtualKeyCode::V if ctrl(&self.modifiers) => {
-                        self.requests.lock().unwrap().paste = true;
+                        self.requests.lock().unwrap().paste = Some(());
                     }
                     VirtualKeyCode::J if ctrl(&self.modifiers) => {
-                        self.requests.lock().unwrap().duplication = true;
+                        self.requests.lock().unwrap().duplication = Some(());
                     }
                     VirtualKeyCode::L if ctrl(&self.modifiers) => {
-                        self.requests.lock().unwrap().anchor = true;
+                        self.requests.lock().unwrap().anchor = Some(());
                     }
                     VirtualKeyCode::R if !ctrl(&self.modifiers) => {
                         self.requests.lock().unwrap().action_mode = Some(ActionMode::Rotate)
@@ -523,20 +476,35 @@ impl Multiplexer {
                         self.requests.lock().unwrap().save_shortcut = Some(());
                     }
                     VirtualKeyCode::O if ctrl(&self.modifiers) => {
-                        save_before_open(self.requests.clone());
+                        self.requests
+                            .lock()
+                            .unwrap()
+                            .keep_proceed
+                            .push_back(Action::LoadDesign(None));
                     }
                     VirtualKeyCode::Q if ctrl(&self.modifiers) && cfg!(target_os = "macos") => {
-                        save_before_quit(self.requests.clone());
+                        self.requests
+                            .lock()
+                            .unwrap()
+                            .keep_proceed
+                            .push_back(Action::Exit);
+                    }
+                    keycode if keycode_to_num(keycode).is_some() => {
+                        let n_camera = keycode_to_num(keycode).unwrap();
+                        self.requests
+                            .lock()
+                            .unwrap()
+                            .keep_proceed
+                            .push_back(Action::SelectFavoriteCamera(n_camera));
                     }
                     VirtualKeyCode::S => {
                         self.requests.lock().unwrap().selection_mode = Some(SelectionMode::Strand)
                     }
-                    /*
                     VirtualKeyCode::K => {
-                        self.requests.lock().unwrap().recolor_stapples = true;
-                    }*/
+                        self.requests.lock().unwrap().recolor_stapples = Some(());
+                    }
                     VirtualKeyCode::Delete | VirtualKeyCode::Back => {
-                        self.requests.lock().unwrap().delete_selection = true;
+                        self.requests.lock().unwrap().delete_selection = Some(());
                     }
                     _ => captured = false,
                 }
@@ -557,9 +525,9 @@ impl Multiplexer {
         }
 
         if let Some(focus) = self.focus.filter(|_| !captured) {
-            (Some((event, focus)), icon)
+            Some((event, focus))
         } else {
-            (None, icon)
+            None
         }
     }
 
@@ -737,16 +705,15 @@ fn create_pipeline(device: &Device, bg_layout: &wgpu::BindGroupLayout) -> wgpu::
 
     let targets = &[wgpu::ColorTargetState {
         format: wgpu::TextureFormat::Bgra8UnormSrgb,
-        color_blend: wgpu::BlendState::REPLACE,
-        alpha_blend: wgpu::BlendState::REPLACE,
-        write_mask: wgpu::ColorWrite::ALL,
+        blend: Some(wgpu::BlendState::REPLACE),
+        write_mask: wgpu::ColorWrites::ALL,
     }];
 
     let primitive = wgpu::PrimitiveState {
         topology: wgpu::PrimitiveTopology::TriangleStrip,
         strip_index_format: Some(wgpu::IndexFormat::Uint16),
         front_face: wgpu::FrontFace::Ccw,
-        cull_mode: wgpu::CullMode::None,
+        cull_mode: None,
         ..Default::default()
     };
 
@@ -815,5 +782,41 @@ fn ctrl(modifiers: &ModifiersState) -> bool {
         modifiers.logo()
     } else {
         modifiers.ctrl()
+    }
+}
+
+use crate::gui::Multiplexer as GuiMultiplexer;
+
+impl GuiMultiplexer for Multiplexer {
+    fn get_draw_area(&self, element_type: ElementType) -> Option<DrawArea> {
+        self.get_draw_area(element_type)
+    }
+
+    fn get_texture_view(&self, element_type: ElementType) -> Option<&wgpu::TextureView> {
+        self.get_texture_view(element_type)
+    }
+
+    fn get_cursor_position(&self) -> PhysicalPosition<f64> {
+        self.get_cursor_position()
+    }
+
+    fn foccused_element(&self) -> Option<ElementType> {
+        self.foccused_element()
+    }
+}
+
+fn keycode_to_num(keycode: VirtualKeyCode) -> Option<u32> {
+    if keycode as u32 >= VirtualKeyCode::Key1 as u32
+        && keycode as u32 <= VirtualKeyCode::Key0 as u32
+    {
+        Some(keycode as u32 - VirtualKeyCode::Key1 as u32)
+    } else if keycode == VirtualKeyCode::Numpad0 {
+        Some(9)
+    } else if keycode as u32 >= VirtualKeyCode::Numpad1 as u32
+        && keycode as u32 <= VirtualKeyCode::Numpad9 as u32
+    {
+        Some(keycode as u32 - VirtualKeyCode::Numpad1 as u32)
+    } else {
+        None
     }
 }

@@ -44,8 +44,6 @@ pub const UP_CIRCLE_ID: u32 = 4;
 pub const FRONT_CIRCLE_ID: u32 = 5;
 pub const SPHERE_WIDGET_ID: u32 = 6;
 
-pub const PHANTOM_RANGE: i32 = 1000;
-
 pub const BASIS_SYMBOLS: &[char] = &['A', 'T', 'G', 'C', '*'];
 pub const NB_BASIS_SYMBOLS: usize = BASIS_SYMBOLS.len();
 
@@ -108,3 +106,20 @@ pub const ROTCHAR: char = '\u{e915}';
 pub const LCLICK: char = '\u{e918}';
 pub const MCLICK: char = '\u{e91b}';
 pub const RCLICK: char = '\u{e91a}';
+
+pub const WELCOME_MSG: &str = "
+==============================================================================
+==============================================================================
+                               WELCOME TO ENSNANO\n
+During runtime, the console may print error messages that are useful to the
+to the programer to investigate bugs.\n
+However, because of a current bug in wgpu, some error messages may be prompted
+that could be safely ignored.
+Please ignore messages of the following form:\n
+\"ERROR wgpu_core::validation > Unexpected varying type: Array { ... }\"\n
+==============================================================================
+==============================================================================
+";
+
+pub const RGB_HANDLE_COLORS: [u32; 3] = [0xFF0000, 0xFF00, 0xFF];
+pub const CYM_HANDLE_COLORS: [u32; 3] = [0x00FFFF, 0xFF00FF, 0xFFFF00];

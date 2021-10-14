@@ -1,0 +1,195 @@
+{
+  "helices": {
+    "1": {
+      "position": {
+        "x": -26.358368,
+        "y": 42.603504,
+        "z": 66.83461
+      },
+      "orientation": {
+        "s": 0.66708297,
+        "bv": {
+          "xy": -0.2747608,
+          "xz": -0.6542619,
+          "yz": 0.2268214
+        }
+      },
+      "visible": true,
+      "grid_position": {
+        "grid": 0,
+        "x": 0,
+        "y": -1,
+        "axis_pos": 0,
+        "roll": 0.0
+      },
+      "isometry2d": {
+        "translation": {
+          "x": 0.0,
+          "y": 4.0
+        },
+        "rotation": {
+          "s": 1.0,
+          "bv": {
+            "xy": 0.0
+          }
+        }
+      },
+      "roll": 0.0
+    },
+    "2": {
+      "position": {
+        "x": -26.173464,
+        "y": 40.626293,
+        "z": 68.5893
+      },
+      "orientation": {
+        "s": 0.66708297,
+        "bv": {
+          "xy": -0.2747608,
+          "xz": -0.6542619,
+          "yz": 0.2268214
+        }
+      },
+      "visible": true,
+      "grid_position": {
+        "grid": 0,
+        "x": 0,
+        "y": 0,
+        "axis_pos": 0,
+        "roll": 0.0
+      },
+      "isometry2d": {
+        "translation": {
+          "x": 0.0,
+          "y": 9.0
+        },
+        "rotation": {
+          "s": 1.0,
+          "bv": {
+            "xy": 0.0
+          }
+        }
+      },
+      "roll": 0.0
+    }
+  },
+  "strands": {
+    "0": {
+      "domains": [
+        {
+          "HelixDomain": {
+            "helix": 1,
+            "start": 0,
+            "end": 8,
+            "forward": true,
+            "sequence": null
+          }
+        },
+        {
+          "HelixDomain": {
+            "helix": 2,
+            "start": 0,
+            "end": 8,
+            "forward": false,
+            "sequence": null
+          }
+        }
+      ],
+      "junctions": [
+        {
+          "IdentifiedXover": 0
+        },
+        {
+          "IdentifiedXover": 1
+        }
+      ],
+      "cyclic": true,
+      "color": 4279832335
+    },
+    "2": {
+      "domains": [
+        {
+          "HelixDomain": {
+            "helix": 2,
+            "start": 0,
+            "end": 4,
+            "forward": true,
+            "sequence": null
+          }
+        },
+        {
+          "HelixDomain": {
+            "helix": 1,
+            "start": 0,
+            "end": 4,
+            "forward": false,
+            "sequence": null
+          }
+        }
+      ],
+      "junctions": [
+        {
+          "IdentifiedXover": 2
+        },
+        "Prime3"
+      ],
+      "color": 4290333611
+    },
+    "3": {
+      "domains": [
+        {
+          "HelixDomain": {
+            "helix": 1,
+            "start": 4,
+            "end": 8,
+            "forward": false,
+            "sequence": null
+          }
+        },
+        {
+          "HelixDomain": {
+            "helix": 2,
+            "start": 4,
+            "end": 8,
+            "forward": true,
+            "sequence": null
+          }
+        }
+      ],
+      "junctions": [
+        {
+          "IdentifiedXover": 3
+        },
+        "Prime3"
+      ],
+      "color": 4280040502
+    }
+  },
+  "dna_parameters": {
+    "z_step": 0.332,
+    "helix_radius": 1.0,
+    "bases_per_turn": 10.44,
+    "groove_angle": 2.2175949,
+    "inter_helix_gap": 0.65
+  },
+  "grids": [
+    {
+      "position": {
+        "x": -26.173464,
+        "y": 40.626293,
+        "z": 68.5893
+      },
+      "orientation": {
+        "s": 0.66708297,
+        "bv": {
+          "xy": -0.2747608,
+          "xz": -0.6542619,
+          "yz": 0.2268214
+        }
+      },
+      "grid_type": "Square",
+      "invisible": false
+    }
+  ],
+  "ensnano_version": "0.2.1"
+}

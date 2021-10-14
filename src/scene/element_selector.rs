@@ -17,11 +17,13 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 use std::rc::Rc;
 
-use super::{DataPtr, Device, DrawArea, DrawType, Queue, ViewPtr};
+use super::{Device, DrawArea, DrawType, Queue, ViewPtr};
 use crate::utils;
+use ensnano_interactor::{phantom_helix_decoder, PhantomElement};
 use futures::executor;
 use iced_wgpu::wgpu;
 use iced_winit::winit::dpi::{PhysicalPosition, PhysicalSize};
+use std::convert::TryInto;
 use utils::BufferDimensions;
 
 pub struct ElementSelector {
@@ -30,7 +32,6 @@ pub struct ElementSelector {
     readers: Vec<SceneReader>,
     window_size: PhysicalSize<u32>,
     view: ViewPtr,
-    data: DataPtr,
     area: DrawArea,
 }
 
@@ -40,7 +41,6 @@ impl ElementSelector {
         queue: Rc<Queue>,
         window_size: PhysicalSize<u32>,
         view: ViewPtr,
-        data: DataPtr,
         area: DrawArea,
     ) -> Self {
         let readers = vec![
@@ -55,7 +55,6 @@ impl ElementSelector {
             window_size,
             readers,
             view,
-            data,
             area,
         }
     }
@@ -108,10 +107,11 @@ impl ElementSelector {
     }
 
     fn update_fake_pixels(&self, draw_type: DrawType) -> Vec<u8> {
+        log::debug!("update fake pixels");
         let size = wgpu::Extent3d {
             width: self.window_size.width,
             height: self.window_size.height,
-            depth: 1,
+            depth_or_array_layers: 1,
         };
 
         let (texture, texture_view) = self.create_fake_scene_texture(self.device.as_ref(), size);
@@ -120,42 +120,41 @@ impl ElementSelector {
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
 
-        self.view.borrow_mut().draw(
-            &mut encoder,
-            &texture_view,
-            draw_type,
-            self.area,
-            self.data.borrow().get_action_mode(),
-        );
+        self.view
+            .borrow_mut()
+            .draw(&mut encoder, &texture_view, draw_type, self.area);
 
         // create a buffer and fill it with the texture
         let extent = wgpu::Extent3d {
             width: size.width,
             height: size.height,
-            depth: 1,
+            depth_or_array_layers: 1,
         };
         let buffer_dimensions =
             BufferDimensions::new(extent.width as usize, extent.height as usize);
         let buf_size = buffer_dimensions.padded_bytes_per_row * buffer_dimensions.height;
         let staging_buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
             size: buf_size as u64,
-            usage: wgpu::BufferUsage::MAP_READ | wgpu::BufferUsage::COPY_DST,
+            usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
             label: Some("staging_buffer"),
         });
-        let buffer_copy_view = wgpu::BufferCopyView {
+        let buffer_copy_view = wgpu::ImageCopyBuffer {
             buffer: &staging_buffer,
-            layout: wgpu::TextureDataLayout {
+            layout: wgpu::ImageDataLayout {
                 offset: 0,
-                bytes_per_row: buffer_dimensions.padded_bytes_per_row as u32,
-                rows_per_image: 0,
+                bytes_per_row: (buffer_dimensions.padded_bytes_per_row as u32)
+                    .try_into()
+                    .ok(),
+                rows_per_image: None,
             },
         };
         let origin = wgpu::Origin3d { x: 0, y: 0, z: 0 };
-        let texture_copy_view = wgpu::TextureCopyView {
+        let texture_copy_view = wgpu::ImageCopyTexture {
             texture: &texture,
             mip_level: 0,
             origin,
+            aspect: Default::default(),
         };
 
         encoder.copy_texture_to_buffer(texture_copy_view, buffer_copy_view, extent);
@@ -195,9 +194,9 @@ impl ElementSelector {
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
             format: wgpu::TextureFormat::Bgra8Unorm,
-            usage: wgpu::TextureUsage::RENDER_ATTACHMENT
-                | wgpu::TextureUsage::SAMPLED
-                | wgpu::TextureUsage::COPY_SRC,
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT
+                | wgpu::TextureUsages::TEXTURE_BINDING
+                | wgpu::TextureUsages::COPY_SRC,
             label: Some("desc"),
         };
         let texture_view_descriptor = wgpu::TextureViewDescriptor {
@@ -206,7 +205,7 @@ impl ElementSelector {
             dimension: Some(wgpu::TextureViewDimension::D2),
             aspect: wgpu::TextureAspect::All,
             base_mip_level: 0,
-            level_count: None,
+            mip_level_count: None,
             base_array_layer: 0,
             array_layer_count: None,
         };
@@ -221,7 +220,7 @@ impl ElementSelector {
 pub enum SceneElement {
     DesignElement(u32, u32),
     WidgetElement(u32),
-    PhantomElement(utils::PhantomElement),
+    PhantomElement(PhantomElement),
     Grid(u32, usize),
     GridCircle(u32, usize, isize, isize),
 }
@@ -265,6 +264,13 @@ impl SceneReader {
         let r = (*pixels.get(byte0 + 2)? as u32) << 16;
         let g = (*pixels.get(byte0 + 1)? as u32) << 8;
         let b = (*pixels.get(byte0)?) as u32;
+        log::trace!(
+            "pixel color: r {} \n  g  \n {} \n b {}  \n a {}",
+            r,
+            g,
+            b,
+            a
+        );
         let color = r + g + b;
         if a == 0xFF {
             None
@@ -272,9 +278,9 @@ impl SceneReader {
             match self.draw_type {
                 DrawType::Grid => Some(SceneElement::Grid(a, color as usize)),
                 DrawType::Design => Some(SceneElement::DesignElement(a, color)),
-                DrawType::Phantom => Some(SceneElement::PhantomElement(
-                    utils::phantom_helix_decoder(color),
-                )),
+                DrawType::Phantom => {
+                    Some(SceneElement::PhantomElement(phantom_helix_decoder(color)))
+                }
                 DrawType::Widget => Some(SceneElement::WidgetElement(color)),
                 DrawType::Scene => unreachable!(),
             }

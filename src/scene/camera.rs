@@ -139,10 +139,37 @@ pub struct CameraController {
     camera: CameraPtr,
     cam0: Camera,
     projection: ProjectionPtr,
-    pivot_point: Option<Vec3>,
+    pivot_point: Option<FiniteVec3>,
     zoom_plane: Option<Plane>,
     x_scroll: f32,
     y_scroll: f32,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct FiniteVec3(Vec3);
+
+use std::convert::TryFrom;
+impl TryFrom<Vec3> for FiniteVec3 {
+    type Error = ();
+    fn try_from(value: Vec3) -> Result<Self, Self::Error> {
+        if !value.x.is_finite() || !value.y.is_finite() || !value.z.is_finite() {
+            Err(())
+        } else {
+            Ok(Self(value))
+        }
+    }
+}
+
+impl FiniteVec3 {
+    pub fn zero() -> Self {
+        Self(Vec3::zero())
+    }
+}
+
+impl From<FiniteVec3> for Vec3 {
+    fn from(v: FiniteVec3) -> Self {
+        v.0
+    }
 }
 
 impl CameraController {
@@ -196,7 +223,7 @@ impl CameraController {
                 self.rotate_camera_around(
                     FRAC_PI_2 / 20.,
                     0.,
-                    self.pivot_point.unwrap_or_else(Vec3::zero),
+                    self.pivot_point.unwrap_or_else(FiniteVec3::zero),
                 );
                 self.cam0 = self.camera.borrow().clone();
                 true
@@ -205,7 +232,7 @@ impl CameraController {
                 self.rotate_camera_around(
                     -FRAC_PI_2 / 20.,
                     0.,
-                    self.pivot_point.unwrap_or_else(Vec3::zero),
+                    self.pivot_point.unwrap_or_else(FiniteVec3::zero),
                 );
                 self.cam0 = self.camera.borrow().clone();
                 true
@@ -214,7 +241,7 @@ impl CameraController {
                 self.rotate_camera_around(
                     0.,
                     FRAC_PI_2 / 20.,
-                    self.pivot_point.unwrap_or_else(Vec3::zero),
+                    self.pivot_point.unwrap_or_else(FiniteVec3::zero),
                 );
                 self.cam0 = self.camera.borrow().clone();
                 true
@@ -223,7 +250,7 @@ impl CameraController {
                 self.rotate_camera_around(
                     0.,
                     -FRAC_PI_2 / 20.,
-                    self.pivot_point.unwrap_or_else(Vec3::zero),
+                    self.pivot_point.unwrap_or_else(FiniteVec3::zero),
                 );
                 self.cam0 = self.camera.borrow().clone();
                 true
@@ -240,8 +267,16 @@ impl CameraController {
             || self.scroll.abs() > 0.
     }
 
-    pub fn set_pivot_point(&mut self, point: Option<Vec3>) {
+    pub fn stop_camera_movement(&mut self) {
+        self.amount_left = 0.;
+        self.amount_right = 0.;
+        self.amount_up = 0.;
+        self.amount_down = 0.;
+    }
+
+    pub fn set_pivot_point(&mut self, point: Option<FiniteVec3>) {
         if let Some(origin) = point {
+            let origin: Vec3 = origin.into();
             self.zoom_plane = Some(Plane {
                 origin,
                 normal: (self.camera.borrow().position - origin),
@@ -307,7 +342,8 @@ impl CameraController {
         let up = -self.mouse_vertical;
 
         let scale = if let Some(pivot) = self.pivot_point {
-            (pivot - self.camera.borrow().position).dot(self.camera.borrow().direction())
+            (Vec3::from(pivot) - self.camera.borrow().position)
+                .dot(self.camera.borrow().direction())
         } else if let Some(origin) = self.zoom_plane.as_ref().map(|plane| plane.origin) {
             (origin - self.camera.borrow().position).dot(self.camera.borrow().direction())
         } else {
@@ -410,6 +446,7 @@ impl CameraController {
         self.mouse_horizontal = 0.;
         self.mouse_vertical = 0.;
         if let Some(origin) = self.pivot_point {
+            let origin = Vec3::from(origin);
             self.zoom_plane = Some(Plane {
                 origin,
                 normal: (self.camera.borrow().position - origin),
@@ -449,7 +486,8 @@ impl CameraController {
 
     /// Rotate the camera arround a point.
     /// `point` is given in the world's coordiantes.
-    pub fn rotate_camera_around(&mut self, xz_angle: f32, yz_angle: f32, point: Vec3) {
+    pub fn rotate_camera_around(&mut self, xz_angle: f32, yz_angle: f32, point: FiniteVec3) {
+        let point: Vec3 = point.into();
         // We first modify the camera orientation and then position it at the correct position
         let to_point = point - self.camera.borrow().position;
         let up = to_point.dot(self.camera.borrow().up_vec());

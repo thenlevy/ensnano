@@ -24,230 +24,177 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 
 /// Draw the top bar of the GUI
 pub mod top_bar;
+use ensnano_organizer::GroupId;
 pub use top_bar::TopBar;
 /// Draw the left pannel of the GUI
 pub mod left_panel;
-pub use left_panel::{
-    ColorOverlay, HyperboloidRequest, LeftPanel, RigidBodyParametersRequest, SimulationRequest,
-};
+pub use left_panel::{ColorOverlay, LeftPanel, RigidBodyParametersRequest};
 pub mod status_bar;
 mod ui_size;
-use crate::ApplicationState;
 pub use ui_size::*;
+mod material_icons_light;
+pub use ensnano_design::{Camera, CameraId};
+pub use status_bar::{CurentOpState, StrandBuildingStatus};
+
+mod icon;
 
 use status_bar::StatusBar;
 
-use crate::design::GridTypeDescr;
-use crate::mediator::{ActionMode, Operation, SelectionMode};
 use crate::scene::FogParameters;
-use crate::SplitMode;
-use crate::{DrawArea, ElementType, IcedMessages, Multiplexer};
-use ensnano_organizer::OrganizerTree;
+use ensnano_design::{
+    elements::{DnaAttribute, DnaElement, DnaElementKey},
+    grid::GridTypeDescr,
+    Nucl, Parameters,
+};
+use ensnano_interactor::{
+    graphics::{Background3D, DrawArea, ElementType, RenderingMode, SplitMode},
+    Selection, SimulationState, WidgetBasis,
+};
+use ensnano_interactor::{operation::Operation, ScaffoldInfo};
+use ensnano_interactor::{ActionMode, HyperboloidRequest, RollRequest, SelectionMode};
+pub use ensnano_organizer::OrganizerTree;
 use iced_native::Event;
 use iced_wgpu::{wgpu, Backend, Renderer, Settings, Viewport};
 use iced_winit::{conversion, program, winit, Debug, Size};
-use std::collections::HashMap;
-use std::path::PathBuf;
+use std::collections::{BTreeSet, HashMap};
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 use ultraviolet::Vec3;
 use wgpu::Device;
 use winit::{
     dpi::{PhysicalPosition, PhysicalSize},
+    event::ModifiersState,
     window::Window,
 };
 
-/// A structure that contains all the requests that can be made through the GUI.
-pub struct Requests {
-    /// A change of the rotation mode
-    pub action_mode: Option<ActionMode>,
-    /// A change of the selection mode
-    pub selection_mode: Option<SelectionMode>,
-    /// A request to move the camera so that the frustrum fits the desgin
-    pub fitting: bool,
-    /// A request to load a design into the scene
-    pub file_add: Option<PathBuf>,
-    /// A request to remove all designs
-    pub file_clear: bool,
-    /// A request to save the selected design
-    pub file_save: Option<(PathBuf, Option<KeepProceed>)>,
-    /// A request to change the color of the selcted strand
-    pub strand_color_change: Option<u32>,
-    /// A request to change the sequence of the selected strand
-    pub sequence_change: Option<String>,
-    /// A request to show/hide the sequences
-    pub toggle_text: Option<bool>,
-    /// A request to change the view
-    pub toggle_scene: Option<SplitMode>,
-    /// A request to change the sensitivity of scrolling
-    pub scroll_sensitivity: Option<f32>,
-    pub make_grids: bool,
-    pub overlay_closed: Option<OverlayType>,
-    pub overlay_opened: Option<OverlayType>,
-    pub operation_update: Option<Arc<dyn Operation>>,
-    pub toggle_persistent_helices: Option<bool>,
-    pub new_grid: Option<GridTypeDescr>,
-    pub camera_rotation: Option<(f32, f32, f32)>,
-    pub camera_target: Option<(Vec3, Vec3)>,
-    pub small_spheres: Option<bool>,
-    pub set_scaffold_id: Option<Option<usize>>,
-    pub scaffold_sequence: Option<(String, usize)>,
-    pub stapples_request: bool,
-    pub recolor_stapples: bool,
-    pub clean_requests: bool,
-    pub roll_request: Option<SimulationRequest>,
-    pub show_torsion_request: Option<bool>,
-    pub fog: Option<FogParameters>,
-    pub hyperboloid_update: Option<HyperboloidRequest>,
-    pub new_hyperboloid: Option<HyperboloidRequest>,
-    pub finalize_hyperboloid: bool,
-    pub cancel_hyperboloid: bool,
-    pub helix_roll: Option<f32>,
-    pub copy: bool,
-    pub paste: bool,
-    pub duplication: bool,
-    pub rigid_grid_simulation: Option<RigidBodyParametersRequest>,
-    pub rigid_helices_simulation: Option<RigidBodyParametersRequest>,
-    pub anchor: bool,
-    pub rigid_body_parameters: Option<RigidBodyParametersRequest>,
-    pub stapples_file: Option<(usize, PathBuf)>,
-    pub keep_proceed: Option<KeepProceed>,
-    pub sequence_input: Option<String>,
-    pub new_shift_hyperboloid: Option<f32>,
-    pub organizer_selection: Option<Vec<crate::design::DnaElementKey>>,
-    pub organizer_candidates: Option<Vec<crate::design::DnaElementKey>>,
-    pub new_attribute: Option<(
-        crate::design::DnaAttribute,
-        Vec<crate::design::DnaElementKey>,
-    )>,
-    pub new_tree: Option<OrganizerTree<crate::design::DnaElementKey>>,
-    pub new_ui_size: Option<UiSize>,
-    pub oxdna: bool,
-    pub split2d: bool,
-    pub toggle_visibility: Option<bool>,
-    pub all_visible: bool,
-    pub redim_2d_helices: Option<bool>,
-    pub invert_scroll: Option<bool>,
-    pub stop_roll: bool,
-    pub toggle_widget: bool,
-    pub delete_selection: bool,
-    pub select_scaffold: Option<()>,
-    pub scaffold_shift: Option<usize>,
-    pub rendering_mode: Option<crate::mediator::RenderingMode>,
-    pub background3d: Option<crate::mediator::Background3D>,
-    pub undo: Option<()>,
-    pub redo: Option<()>,
-    pub save_shortcut: Option<()>,
-    pub open_shortcut: Option<()>,
-    pub force_help: Option<()>,
-    pub show_tutorial: Option<()>,
+pub trait Requests: 'static + Send {
+    fn close_overlay(&mut self, overlay_type: OverlayType);
+    fn open_overlay(&mut self, overlay_type: OverlayType);
+    /// Change the color of the selected strands
+    fn change_strand_color(&mut self, color: u32);
+    /// Change the background of the 3D scene
+    fn change_3d_background(&mut self, bg: Background3D);
+    /// Change the rendering mode
+    fn change_3d_rendering_mode(&mut self, rendering_mode: RenderingMode);
+    /// Set the selected strand as the scaffold
+    fn set_scaffold_from_selection(&mut self);
+    /// Cancel the current hyperboloid construction
+    fn cancel_hyperboloid(&mut self);
+    /// Change the scrolling direction
+    fn invert_scroll(&mut self, invert: bool);
+    /// Resize all the 2D helices, or only the selected ones
+    fn resize_2d_helices(&mut self, all: bool);
+    /// Make all elements of the design visible
+    fn make_all_elements_visible(&mut self);
+    /// Toggle the visibility of the selected elements
+    fn toggle_visibility(&mut self, visible: bool);
+    /// Remove empty domains in the design
+    fn remove_empty_domains(&mut self);
+    fn change_action_mode(&mut self, action_mode: ActionMode);
+    fn change_selection_mode(&mut self, selection_mode: SelectionMode);
+    /// Switch widget basis between world and object
+    fn toggle_widget_basis(&mut self);
+    /// Show/hide the DNA sequences
+    fn set_dna_sequences_visibility(&mut self, visible: bool);
+    /// Download the stapples as an xlsx file
+    fn download_stapples(&mut self);
+    fn set_selected_strand_sequence(&mut self, sequence: String);
+    fn set_scaffold_sequence(&mut self, shift: usize);
+    fn set_scaffold_shift(&mut self, shift: usize);
+    /// Change the size of the UI components
+    fn set_ui_size(&mut self, size: UiSize);
+    /// Finalize the currently eddited hyperboloid grid
+    fn finalize_hyperboloid(&mut self);
+    fn stop_roll_simulation(&mut self);
+    fn start_roll_simulation(&mut self, roll_request: RollRequest);
+    /// Make a grid from the set of selected helices
+    fn make_grid_from_selection(&mut self);
+    /// Start of Update the rigid helices simulation
+    fn update_rigid_helices_simulation(&mut self, parameters: RigidBodyParametersRequest);
+    /// Start of Update the rigid grids simulation
+    fn update_rigid_grids_simulation(&mut self, parameters: RigidBodyParametersRequest);
+    /// Update the parameters of the current simulation (rigid grids or helices)
+    fn update_rigid_body_simulation_parameters(&mut self, parameters: RigidBodyParametersRequest);
+    fn create_new_hyperboloid(&mut self, parameters: HyperboloidRequest);
+    /// Update the parameters of the currently eddited hyperboloid grid
+    fn update_current_hyperboloid(&mut self, parameters: HyperboloidRequest);
+    fn update_roll_of_selected_helices(&mut self, roll: f32);
+    fn update_scroll_sensitivity(&mut self, sensitivity: f32);
+    fn set_fog_parameters(&mut self, parameters: FogParameters);
+    /// Show/hide the torsion indications
+    fn set_torsion_visibility(&mut self, visible: bool);
+    /// Set the direction and up vector of the 3D camera
+    fn set_camera_dir_up_vec(&mut self, direction: Vec3, up: Vec3);
+    fn perform_camera_rotation(&mut self, xz: f32, yz: f32, xy: f32);
+    /// Create a new grid in front of the 3D camera
+    fn create_grid(&mut self, grid_type_descriptor: GridTypeDescr);
+    fn set_candidates_keys(&mut self, candidates: Vec<DnaElementKey>);
+    fn set_selected_keys(
+        &mut self,
+        selection: Vec<DnaElementKey>,
+        group_id: Option<ensnano_organizer::GroupId>,
+        new_group: bool,
+    );
+    fn update_organizer_tree(&mut self, tree: OrganizerTree<DnaElementKey>);
+    /// Update one attribute of several Dna Elements
+    fn update_attribute_of_elements(
+        &mut self,
+        attribute: DnaAttribute,
+        keys: BTreeSet<DnaElementKey>,
+    );
+    fn change_split_mode(&mut self, split_mode: SplitMode);
+    fn export_to_oxdna(&mut self);
+    /// Split/Unsplit the 2D view
+    fn toggle_2d_view_split(&mut self);
+    fn undo(&mut self);
+    fn redo(&mut self);
+    /// Display the help message in the contextual panel, regardless of the selection
+    fn force_help(&mut self);
+    /// Show tutorial in the contextual panel
+    fn show_tutorial(&mut self);
+    fn new_design(&mut self);
+    fn save_as(&mut self);
+    fn save(&mut self);
+    fn open_file(&mut self);
+    /// Adjust the 2D and 3D cameras so that the design fit in screen
+    fn fit_design_in_scenes(&mut self);
+    /// Update the parameters of the current operation
+    fn update_current_operation(&mut self, operation: Arc<dyn Operation>);
+    /// Update the shift of the currently seleced hyperbloid grid
+    fn update_hyperboloid_shift(&mut self, shift: f32);
+    fn display_error_msg(&mut self, msg: String);
+    /// Set the scaffold to be the some strand with id `s_id`, or none
+    fn set_scaffold_id(&mut self, s_id: Option<usize>);
+    /// make the spheres of the currently selected grid large/small
+    fn toggle_helices_persistance_of_grid(&mut self, persistant: bool);
+    /// make the spheres of the currently selected grid large/small
+    fn set_small_sphere(&mut self, small: bool);
+    fn finish_changing_color(&mut self);
+    fn stop_simulations(&mut self);
+    fn reset_simulations(&mut self);
+    fn reload_file(&mut self);
+    fn add_double_strand_on_new_helix(&mut self, parameters: Option<(isize, usize)>);
+    fn set_strand_name(&mut self, s_id: usize, name: String);
+    fn create_new_camera(&mut self);
+    fn delete_camera(&mut self, cam_id: CameraId);
+    fn select_camera(&mut self, cam_id: CameraId);
+    fn set_favourite_camera(&mut self, cam_id: CameraId);
+    fn update_camera(&mut self, cam_id: CameraId);
+    fn set_camera_name(&mut self, cam_id: CameraId, name: String);
 }
 
-#[derive(Debug, Clone)]
-pub enum KeepProceed {
-    DefaultScaffold,
-    CustomScaffold,
-    OptimizeShift(usize),
-    Stapples(usize),
-    Quit,
-    LoadDesign,
-    LoadDesignAfterSave,
-    SaveBeforeQuit,
-    SaveBeforeOpen,
-    SaveBeforeNew,
-    NewDesign,
-    NewDesignAfterSave,
-    Other,
-}
-
-impl Requests {
-    /// Initialise the request structures with no requests
-    pub fn new() -> Self {
-        Self {
-            action_mode: None,
-            selection_mode: None,
-            fitting: false,
-            file_add: None,
-            file_clear: false,
-            file_save: None,
-            strand_color_change: None,
-            sequence_change: None,
-            toggle_text: None,
-            toggle_scene: Some(SplitMode::Both),
-            scroll_sensitivity: None,
-            make_grids: false,
-            overlay_closed: None,
-            overlay_opened: None,
-            operation_update: None,
-            toggle_persistent_helices: None,
-            new_grid: None,
-            camera_target: None,
-            camera_rotation: None,
-            small_spheres: None,
-            set_scaffold_id: None,
-            scaffold_sequence: None,
-            stapples_request: false,
-            recolor_stapples: false,
-            clean_requests: false,
-            roll_request: None,
-            show_torsion_request: None,
-            fog: None,
-            hyperboloid_update: None,
-            new_hyperboloid: None,
-            finalize_hyperboloid: false,
-            cancel_hyperboloid: false,
-            helix_roll: None,
-            copy: false,
-            paste: false,
-            duplication: false,
-            rigid_helices_simulation: None,
-            rigid_grid_simulation: None,
-            anchor: false,
-            rigid_body_parameters: None,
-            keep_proceed: None,
-            stapples_file: None,
-            sequence_input: None,
-            new_shift_hyperboloid: None,
-            organizer_selection: None,
-            organizer_candidates: None,
-            new_attribute: None,
-            new_tree: None,
-            new_ui_size: None,
-            oxdna: false,
-            split2d: false,
-            toggle_visibility: None,
-            all_visible: false,
-            redim_2d_helices: None,
-            invert_scroll: None,
-            stop_roll: false,
-            toggle_widget: false,
-            delete_selection: false,
-            select_scaffold: None,
-            scaffold_shift: None,
-            rendering_mode: None,
-            background3d: None,
-            undo: None,
-            redo: None,
-            save_shortcut: None,
-            open_shortcut: None,
-            force_help: None,
-            show_tutorial: None,
-        }
-    }
-}
-
-#[derive(PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum OverlayType {
     Color,
 }
 
-enum GuiState {
-    TopBar(iced_winit::program::State<TopBar>),
-    LeftPanel(iced_winit::program::State<LeftPanel>),
-    StatusBar(iced_winit::program::State<StatusBar>),
+enum GuiState<R: Requests, S: AppState> {
+    TopBar(iced_winit::program::State<TopBar<R, S>>),
+    LeftPanel(iced_winit::program::State<LeftPanel<R, S>>),
+    StatusBar(iced_winit::program::State<StatusBar<R, S>>),
 }
 
-impl GuiState {
+impl<R: Requests, S: AppState> GuiState<R, S> {
     fn queue_event(&mut self, event: Event) {
         match self {
             GuiState::TopBar(state) => state.queue_event(event),
@@ -256,7 +203,7 @@ impl GuiState {
         }
     }
 
-    fn queue_top_bar_message(&mut self, message: top_bar::Message) {
+    fn queue_top_bar_message(&mut self, message: top_bar::Message<S>) {
         if let GuiState::TopBar(ref mut state) = self {
             state.queue_message(message)
         } else {
@@ -264,7 +211,7 @@ impl GuiState {
         }
     }
 
-    fn queue_left_panel_message(&mut self, message: left_panel::Message) {
+    fn queue_left_panel_message(&mut self, message: left_panel::Message<S>) {
         if let GuiState::LeftPanel(ref mut state) = self {
             state.queue_message(message)
         } else {
@@ -272,7 +219,7 @@ impl GuiState {
         }
     }
 
-    fn queue_status_bar_message(&mut self, message: status_bar::Message) {
+    fn queue_status_bar_message(&mut self, message: status_bar::Message<S>) {
         if let GuiState::StatusBar(ref mut state) = self {
             state.queue_message(message)
         } else {
@@ -348,7 +295,7 @@ impl GuiState {
                 );
             }
             GuiState::LeftPanel(ref state) => {
-                renderer.backend_mut().draw(
+                let icon = renderer.backend_mut().draw(
                     device,
                     staging_belt,
                     encoder,
@@ -357,9 +304,12 @@ impl GuiState {
                     state.primitive(),
                     &debug.overlay(),
                 );
+                if icon > *mouse_interaction {
+                    *mouse_interaction = icon;
+                }
             }
             GuiState::StatusBar(ref state) => {
-                renderer.backend_mut().draw(
+                let icon = renderer.backend_mut().draw(
                     device,
                     staging_belt,
                     encoder,
@@ -368,6 +318,9 @@ impl GuiState {
                     state.primitive(),
                     &debug.overlay(),
                 );
+                if icon > *mouse_interaction {
+                    *mouse_interaction = icon;
+                }
             }
         }
     }
@@ -382,28 +335,26 @@ impl GuiState {
 }
 
 /// A Gui component.
-struct GuiElement {
-    state: GuiState,
+struct GuiElement<R: Requests, S: AppState> {
+    state: GuiState<R, S>,
     debug: Debug,
     redraw: bool,
     element_type: ElementType,
 }
 
-impl GuiElement {
+impl<R: Requests, S: AppState> GuiElement<R, S> {
     /// Initialize the top bar gui component
     fn top_bar(
         renderer: &mut Renderer,
         window: &Window,
-        multiplexer: &Multiplexer,
-        requests: Arc<Mutex<Requests>>,
-        dialoging: Arc<Mutex<bool>>,
+        multiplexer: &dyn Multiplexer,
+        requests: Arc<Mutex<R>>,
     ) -> Self {
         let cursor_position = PhysicalPosition::new(-1., -1.);
-        let top_bar_area = multiplexer.get_element_area(ElementType::TopBar).unwrap();
+        let top_bar_area = multiplexer.get_draw_area(ElementType::TopBar).unwrap();
         let top_bar = TopBar::new(
             requests.clone(),
             top_bar_area.size.to_logical(window.scale_factor()),
-            dialoging,
         );
         let mut top_bar_debug = Debug::new();
         let top_bar_state = program::State::new(
@@ -425,21 +376,17 @@ impl GuiElement {
     fn left_panel(
         renderer: &mut Renderer,
         window: &Window,
-        multiplexer: &Multiplexer,
-        requests: Arc<Mutex<Requests>>,
+        multiplexer: &dyn Multiplexer,
+        requests: Arc<Mutex<R>>,
         first_time: bool,
-        dialoging: Arc<Mutex<bool>>,
     ) -> Self {
         let cursor_position = PhysicalPosition::new(-1., -1.);
-        let left_panel_area = multiplexer
-            .get_element_area(ElementType::LeftPanel)
-            .unwrap();
+        let left_panel_area = multiplexer.get_draw_area(ElementType::LeftPanel).unwrap();
         let left_panel = LeftPanel::new(
             requests.clone(),
             left_panel_area.size.to_logical(window.scale_factor()),
             left_panel_area.position.to_logical(window.scale_factor()),
             first_time,
-            dialoging,
         );
         let mut left_panel_debug = Debug::new();
         let left_panel_state = program::State::new(
@@ -460,13 +407,11 @@ impl GuiElement {
     fn status_bar(
         renderer: &mut Renderer,
         window: &Window,
-        multiplexer: &Multiplexer,
-        requests: Arc<Mutex<Requests>>,
+        multiplexer: &dyn Multiplexer,
+        requests: Arc<Mutex<R>>,
     ) -> Self {
         let cursor_position = PhysicalPosition::new(-1., -1.);
-        let status_bar_area = multiplexer
-            .get_element_area(ElementType::StatusBar)
-            .unwrap();
+        let status_bar_area = multiplexer.get_draw_area(ElementType::StatusBar).unwrap();
         let status_bar = StatusBar::new(requests);
         let mut status_bar_debug = Debug::new();
         let status_bar_state = program::State::new(
@@ -488,7 +433,7 @@ impl GuiElement {
         self.state.queue_event(event)
     }
 
-    fn get_state(&mut self) -> &mut GuiState {
+    fn get_state(&mut self) -> &mut GuiState<R, S> {
         &mut self.state
     }
 
@@ -496,7 +441,7 @@ impl GuiElement {
         self.state.has_keyboard_priority()
     }
 
-    fn resize(&mut self, window: &Window, multiplexer: &Multiplexer) {
+    fn resize(&mut self, window: &Window, multiplexer: &dyn Multiplexer) {
         let area = multiplexer.get_draw_area(self.element_type).unwrap();
         self.state.resize(area, window);
         self.redraw = true;
@@ -505,11 +450,11 @@ impl GuiElement {
     fn fetch_change(
         &mut self,
         window: &Window,
-        multiplexer: &Multiplexer,
+        multiplexer: &dyn Multiplexer,
         renderer: &mut Renderer,
         resized: bool,
     ) -> bool {
-        let area = multiplexer.get_element_area(self.element_type).unwrap();
+        let area = multiplexer.get_draw_area(self.element_type).unwrap();
         let cursor = if multiplexer.foccused_element() == Some(self.element_type) {
             multiplexer.get_cursor_position()
         } else {
@@ -536,18 +481,13 @@ impl GuiElement {
         encoder: &mut wgpu::CommandEncoder,
         device: &Device,
         window: &Window,
-        multiplexer: &Multiplexer,
+        multiplexer: &dyn Multiplexer,
         staging_belt: &mut wgpu::util::StagingBelt,
         mouse_interaction: &mut iced::mouse::Interaction,
     ) {
         if self.redraw {
             let viewport = Viewport::with_physical_size(
-                convert_size_u32(
-                    multiplexer
-                        .get_element_area(self.element_type)
-                        .unwrap()
-                        .size,
-                ),
+                convert_size_u32(multiplexer.get_draw_area(self.element_type).unwrap().size),
                 window.scale_factor(),
             );
             let target = multiplexer.get_texture_view(self.element_type).unwrap();
@@ -567,49 +507,38 @@ impl GuiElement {
 }
 
 /// The Gui manager.
-pub struct Gui {
+pub struct Gui<R: Requests, S: AppState> {
     /// HashMap mapping [ElementType](ElementType) to a GuiElement
-    elements: HashMap<ElementType, GuiElement>,
+    elements: HashMap<ElementType, GuiElement<R, S>>,
     renderer: iced_wgpu::Renderer,
     settings: Settings,
     device: Rc<Device>,
     resized: bool,
-    requests: Arc<Mutex<Requests>>,
-    dialoging: Arc<Mutex<bool>>,
+    requests: Arc<Mutex<R>>,
     ui_size: UiSize,
 }
 
-impl Gui {
+impl<R: Requests, S: AppState> Gui<R, S> {
     pub fn new(
         device: Rc<Device>,
         window: &Window,
-        multiplexer: &Multiplexer,
-        requests: Arc<Mutex<Requests>>,
+        multiplexer: &dyn Multiplexer,
+        requests: Arc<Mutex<R>>,
         settings: Settings,
     ) -> Self {
-        let mut renderer = Renderer::new(Backend::new(device.as_ref(), settings.clone()));
+        let mut renderer = Renderer::new(Backend::new(
+            device.as_ref(),
+            settings.clone(),
+            crate::TEXTURE_FORMAT,
+        ));
         let mut elements = HashMap::new();
-        let dialoging: Arc<Mutex<bool>> = Default::default();
         elements.insert(
             ElementType::TopBar,
-            GuiElement::top_bar(
-                &mut renderer,
-                window,
-                multiplexer,
-                requests.clone(),
-                dialoging.clone(),
-            ),
+            GuiElement::top_bar(&mut renderer, window, multiplexer, requests.clone()),
         );
         elements.insert(
             ElementType::LeftPanel,
-            GuiElement::left_panel(
-                &mut renderer,
-                window,
-                multiplexer,
-                requests.clone(),
-                true,
-                dialoging.clone(),
-            ),
+            GuiElement::left_panel(&mut renderer, window, multiplexer, requests.clone(), true),
         );
         elements.insert(
             ElementType::StatusBar,
@@ -623,7 +552,6 @@ impl Gui {
             renderer,
             device,
             resized: true,
-            dialoging,
             ui_size: Default::default(),
         }
     }
@@ -631,6 +559,19 @@ impl Gui {
     /// Forward an event to the appropriate gui component
     pub fn forward_event(&mut self, area: ElementType, event: iced_native::Event) {
         self.elements.get_mut(&area).unwrap().forward_event(event);
+    }
+
+    /// Clear the foccus of all components of the GUI
+    pub fn clear_foccus(&mut self) {
+        for elt in self.elements.values_mut() {
+            use iced_native::mouse::Event;
+            elt.forward_event(iced_native::Event::Mouse(Event::CursorMoved {
+                position: [-1., -1.].into(),
+            }));
+            elt.forward_event(iced_native::Event::Mouse(Event::ButtonPressed(
+                iced_native::mouse::Button::Left,
+            )))
+        }
     }
 
     pub fn forward_event_all(&mut self, event: iced_native::Event) {
@@ -644,7 +585,7 @@ impl Gui {
     }
 
     /// Forward a message to the appropriate gui component
-    pub fn forward_messages(&mut self, messages: &mut IcedMessages) {
+    pub fn forward_messages(&mut self, messages: &mut IcedMessages<S>) {
         for m in messages.top_bar.drain(..) {
             self.elements
                 .get_mut(&ElementType::TopBar)
@@ -669,7 +610,7 @@ impl Gui {
     }
 
     /// Get the new size of each gui component from the multiplexer and forwards them.
-    pub fn resize(&mut self, multiplexer: &Multiplexer, window: &Window) {
+    pub fn resize(&mut self, multiplexer: &dyn Multiplexer, window: &Window) {
         for element in self.elements.values_mut() {
             element.resize(window, multiplexer)
         }
@@ -677,7 +618,7 @@ impl Gui {
     }
 
     /// Ask the gui component to process the event that they have recieved
-    pub fn fetch_change(&mut self, window: &Window, multiplexer: &Multiplexer) -> bool {
+    pub fn fetch_change(&mut self, window: &Window, multiplexer: &dyn Multiplexer) -> bool {
         let mut ret = false;
         for elements in self.elements.values_mut() {
             ret |= elements.fetch_change(window, multiplexer, &mut self.renderer, false);
@@ -686,26 +627,26 @@ impl Gui {
     }
 
     /// Ask the gui component to process the event and messages that they that they have recieved.
-    pub fn update(&mut self, multiplexer: &Multiplexer, window: &Window) {
+    pub fn update(&mut self, multiplexer: &dyn Multiplexer, window: &Window) {
         for elements in self.elements.values_mut() {
             elements.fetch_change(window, multiplexer, &mut self.renderer, self.resized);
         }
         self.resized = false;
     }
 
-    pub fn new_ui_size(&mut self, ui_size: UiSize, window: &Window, multiplexer: &Multiplexer) {
+    pub fn new_ui_size(&mut self, ui_size: UiSize, window: &Window, multiplexer: &dyn Multiplexer) {
         self.set_text_size(ui_size.main_text());
         self.ui_size = ui_size.clone();
 
         self.rebuild_gui(window, multiplexer);
     }
 
-    pub fn notify_scale_factor_change(&mut self, window: &Window, multiplexer: &Multiplexer) {
+    pub fn notify_scale_factor_change(&mut self, window: &Window, multiplexer: &dyn Multiplexer) {
         self.set_text_size(self.ui_size.main_text());
         self.rebuild_gui(window, multiplexer);
     }
 
-    fn rebuild_gui(&mut self, window: &Window, multiplexer: &Multiplexer) {
+    fn rebuild_gui(&mut self, window: &Window, multiplexer: &dyn Multiplexer) {
         self.elements.insert(
             ElementType::TopBar,
             GuiElement::top_bar(
@@ -713,7 +654,6 @@ impl Gui {
                 window,
                 multiplexer,
                 self.requests.clone(),
-                self.dialoging.clone(),
             ),
         );
         self.elements.insert(
@@ -724,7 +664,6 @@ impl Gui {
                 multiplexer,
                 self.requests.clone(),
                 false,
-                self.dialoging.clone(),
             ),
         );
         self.elements.insert(
@@ -743,7 +682,11 @@ impl Gui {
             default_text_size: text_size,
             ..self.settings.clone()
         };
-        let renderer = Renderer::new(Backend::new(self.device.as_ref(), settings.clone()));
+        let renderer = Renderer::new(Backend::new(
+            self.device.as_ref(),
+            settings.clone(),
+            crate::TEXTURE_FORMAT,
+        ));
         self.settings = settings;
         self.renderer = renderer;
     }
@@ -752,7 +695,7 @@ impl Gui {
         &mut self,
         encoder: &mut wgpu::CommandEncoder,
         window: &Window,
-        multiplexer: &Multiplexer,
+        multiplexer: &dyn Multiplexer,
         staging_belt: &mut wgpu::util::StagingBelt,
         mouse_interaction: &mut iced::mouse::Interaction,
     ) {
@@ -836,4 +779,134 @@ mod slider_style {
             self.active()
         }
     }
+}
+
+use std::collections::VecDeque;
+/// Message sent to the gui component
+pub struct IcedMessages<S: AppState> {
+    left_panel: VecDeque<left_panel::Message<S>>,
+    top_bar: VecDeque<top_bar::Message<S>>,
+    _color_overlay: VecDeque<left_panel::ColorMessage>,
+    status_bar: VecDeque<status_bar::Message<S>>,
+    application_state: S,
+}
+
+impl<S: AppState> IcedMessages<S> {
+    #[allow(clippy::new_without_default)]
+    pub fn new() -> Self {
+        Self {
+            left_panel: VecDeque::new(),
+            top_bar: VecDeque::new(),
+            _color_overlay: VecDeque::new(),
+            status_bar: VecDeque::new(),
+            application_state: Default::default(),
+        }
+    }
+
+    pub fn push_progress(&mut self, progress_name: String, progress: f32) {
+        self.status_bar
+            .push_back(status_bar::Message::Progress(Some((
+                progress_name,
+                progress,
+            ))))
+    }
+
+    pub fn finish_progess(&mut self) {
+        self.status_bar
+            .push_back(status_bar::Message::Progress(None))
+    }
+
+    pub fn update_modifiers(&mut self, modifiers: ModifiersState) {
+        self.left_panel
+            .push_back(left_panel::Message::ModifiersChanged(modifiers))
+    }
+
+    pub fn new_ui_size(&mut self, ui_size: UiSize) {
+        self.left_panel
+            .push_back(left_panel::Message::UiSizeChanged(ui_size));
+        self.top_bar
+            .push_back(top_bar::Message::UiSizeChanged(ui_size));
+        self.status_bar
+            .push_back(status_bar::Message::UiSizeChanged(ui_size));
+    }
+
+    pub fn push_show_tutorial(&mut self) {
+        self.left_panel.push_back(left_panel::Message::ShowTutorial);
+    }
+
+    pub fn show_help(&mut self) {
+        self.left_panel.push_back(left_panel::Message::ForceHelp);
+    }
+
+    pub fn push_application_state(&mut self, state: S, main_state: MainState) {
+        let must_update = self.application_state != state;
+        self.application_state = state.clone();
+        if must_update {
+            self.left_panel
+                .push_back(left_panel::Message::NewApplicationState(state.clone()));
+            self.top_bar
+                .push_back(top_bar::Message::NewApplicationState(top_bar::MainState {
+                    app_state: state.clone(),
+                    can_undo: main_state.can_undo,
+                    can_redo: main_state.can_redo,
+                    need_save: main_state.need_save,
+                    can_reload: main_state.can_reload,
+                    can_split2d: main_state.can_split2d,
+                }));
+            self.status_bar
+                .push_back(status_bar::Message::NewApplicationState(state.clone()));
+        }
+    }
+}
+
+/// An object mapping ElementType to DrawArea
+pub trait Multiplexer {
+    fn get_draw_area(&self, element_type: ElementType) -> Option<DrawArea>;
+    fn foccused_element(&self) -> Option<ElementType>;
+    fn get_cursor_position(&self) -> PhysicalPosition<f64>;
+    fn get_texture_view(&self, element_type: ElementType) -> Option<&wgpu::TextureView>;
+}
+
+pub trait AppState: Default + PartialEq + Clone + 'static + Send + std::fmt::Debug {
+    fn get_selection_mode(&self) -> SelectionMode;
+    fn get_action_mode(&self) -> ActionMode;
+    fn get_build_helix_mode(&self) -> ActionMode;
+    fn has_double_strand_on_new_helix(&self) -> bool;
+    fn get_widget_basis(&self) -> WidgetBasis;
+    fn get_simulation_state(&self) -> SimulationState;
+    fn get_dna_parameters(&self) -> Parameters;
+    fn is_building_hyperboloid(&self) -> bool;
+    fn get_scaffold_info(&self) -> Option<ScaffoldInfo>;
+    fn get_selection(&self) -> &[Selection];
+    fn get_selection_as_dnaelement(&self) -> Vec<DnaElementKey>;
+    fn can_make_grid(&self) -> bool;
+    fn get_reader(&self) -> Box<dyn DesignReader>;
+    fn design_was_modified(&self, other: &Self) -> bool;
+    fn selection_was_updated(&self, other: &Self) -> bool;
+    fn get_curent_operation_state(&self) -> Option<CurentOpState>;
+    fn get_strand_building_state(&self) -> Option<StrandBuildingStatus>;
+    fn get_selected_group(&self) -> Option<GroupId>;
+}
+
+pub trait DesignReader: 'static {
+    fn grid_has_persistent_phantom(&self, g_id: usize) -> bool;
+    fn grid_has_small_spheres(&self, g_id: usize) -> bool;
+    fn get_grid_shift(&self, g_id: usize) -> Option<f32>;
+    fn get_strand_length(&self, s_id: usize) -> Option<usize>;
+    fn is_id_of_scaffold(&self, s_id: usize) -> bool;
+    fn length_decomposition(&self, s_id: usize) -> String;
+    fn nucl_is_anchor(&self, nucl: Nucl) -> bool;
+    fn get_dna_elements(&self) -> &[DnaElement];
+    fn get_organizer_tree(&self) -> Option<Arc<ensnano_design::EnsnTree>>;
+    fn strand_name(&self, s_id: usize) -> String;
+    fn get_all_cameras(&self) -> Vec<(CameraId, &str)>;
+    fn get_favourite_camera(&self) -> Option<CameraId>;
+}
+
+pub struct MainState {
+    pub can_undo: bool,
+    pub can_redo: bool,
+    pub need_save: bool,
+    pub can_reload: bool,
+    pub can_split2d: bool,
 }

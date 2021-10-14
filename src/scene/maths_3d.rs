@@ -182,7 +182,7 @@ impl UnalignedBoundaries {
         let y = (self.min_y + self.max_y) / 2.;
         let z = (self.min_z + self.max_z) / 2.;
 
-        if x.is_normal() && y.is_normal() && z.is_normal() {
+        if x.is_finite() && y.is_finite() && z.is_finite() {
             Some(self.basis.convert_point_from_self(Vec3::new(x, y, z)))
         } else {
             None
@@ -195,7 +195,7 @@ impl UnalignedBoundaries {
         let length_z = self.max_z - self.min_z;
 
         let max_length = lenght_x.max(length_y.max(length_z));
-        if max_length.is_normal() {
+        if max_length.is_finite() {
             Some(max_length / 2. * 3f32.sqrt())
         } else {
             None

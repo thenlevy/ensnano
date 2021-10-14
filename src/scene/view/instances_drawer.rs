@@ -216,13 +216,14 @@ pub struct InstanceDrawer<D: Instanciable + ?Sized> {
 }
 
 impl<D: Instanciable> InstanceDrawer<D> {
-    pub fn new(
+    pub fn new<S: AsRef<str>>(
         device: Rc<Device>,
         queue: Rc<Queue>,
         viewer_desc: &BindGroupLayoutDescriptor<'static>,
         models_desc: &BindGroupLayoutDescriptor<'static>,
         ressource: D::Ressource,
         fake: bool,
+        label: S,
     ) -> Self {
         Self::init(
             device,
@@ -233,15 +234,17 @@ impl<D: Instanciable> InstanceDrawer<D> {
             fake,
             false,
             false,
+            label,
         )
     }
 
-    pub fn new_outliner(
+    pub fn new_outliner<S: AsRef<str>>(
         device: Rc<Device>,
         queue: Rc<Queue>,
         viewer_desc: &BindGroupLayoutDescriptor<'static>,
         models_desc: &BindGroupLayoutDescriptor<'static>,
         ressource: D::Ressource,
+        label: S,
     ) -> Self {
         Self::init(
             device,
@@ -252,16 +255,18 @@ impl<D: Instanciable> InstanceDrawer<D> {
             false,
             false,
             true,
+            label,
         )
     }
 
-    pub fn new_wireframe(
+    pub fn new_wireframe<S: AsRef<str>>(
         device: Rc<Device>,
         queue: Rc<Queue>,
         viewer_desc: &BindGroupLayoutDescriptor<'static>,
         models_desc: &BindGroupLayoutDescriptor<'static>,
         ressource: D::Ressource,
         fake: bool,
+        label: S,
     ) -> Self {
         Self::init(
             device,
@@ -272,10 +277,11 @@ impl<D: Instanciable> InstanceDrawer<D> {
             fake,
             true,
             false,
+            label,
         )
     }
 
-    fn init(
+    fn init<S: AsRef<str>>(
         device: Rc<Device>,
         queue: Rc<Queue>,
         viewer_desc: &BindGroupLayoutDescriptor<'static>,
@@ -284,16 +290,17 @@ impl<D: Instanciable> InstanceDrawer<D> {
         fake: bool,
         wireframe: bool,
         outliner: bool,
+        label: S,
     ) -> Self {
         let index_buffer = create_buffer_with_data(
             device.as_ref(),
             bytemuck::cast_slice(D::indices().as_slice()),
-            wgpu::BufferUsage::INDEX,
+            wgpu::BufferUsages::INDEX,
         );
         let vertex_buffer = create_buffer_with_data(
             device.as_ref(),
             bytemuck::cast_slice(D::raw_vertices().as_slice()),
-            wgpu::BufferUsage::VERTEX,
+            wgpu::BufferUsages::VERTEX,
         );
 
         let vertex_module = if fake {
@@ -331,6 +338,7 @@ impl<D: Instanciable> InstanceDrawer<D> {
             primitive_topology,
             fake,
             outliner,
+            label,
         );
         let instances = DynamicBindGroup::new(device.clone(), queue);
 
@@ -374,19 +382,19 @@ impl<D: Instanciable> InstanceDrawer<D> {
             self.index_buffer = create_buffer_with_data(
                 self.device.as_ref(),
                 bytemuck::cast_slice(indices.as_slice()),
-                wgpu::BufferUsage::INDEX,
+                wgpu::BufferUsages::INDEX,
             );
         }
         if let Some(vertices) = instances.get(0).and_then(D::custom_raw_vertices) {
             self.vertex_buffer = create_buffer_with_data(
                 self.device.as_ref(),
                 bytemuck::cast_slice(vertices.as_slice()),
-                wgpu::BufferUsage::VERTEX,
+                wgpu::BufferUsages::VERTEX,
             );
         }
     }
 
-    fn create_pipeline(
+    fn create_pipeline<S: AsRef<str>>(
         device: &Device,
         viewer_bind_group_layout_desc: &wgpu::BindGroupLayoutDescriptor<'static>,
         models_bind_group_layout_desc: &wgpu::BindGroupLayoutDescriptor<'static>,
@@ -395,6 +403,7 @@ impl<D: Instanciable> InstanceDrawer<D> {
         primitive_topology: PrimitiveTopology,
         fake: bool,
         outliner: bool,
+        label: S,
     ) -> RenderPipeline {
         let viewer_bind_group_layout =
             device.create_bind_group_layout(&viewer_bind_group_layout_desc);
@@ -404,7 +413,7 @@ impl<D: Instanciable> InstanceDrawer<D> {
         // gather the ressources, [instance, additional ressources]
         let instance_entry = wgpu::BindGroupLayoutEntry {
             binding: 0,
-            visibility: wgpu::ShaderStage::VERTEX,
+            visibility: wgpu::ShaderStages::VERTEX,
             ty: wgpu::BindingType::Buffer {
                 ty: wgpu::BufferBindingType::Storage { read_only: true },
                 has_dynamic_offset: false,
@@ -423,24 +432,10 @@ impl<D: Instanciable> InstanceDrawer<D> {
 
         // We use alpha blending on texture displayed on the frame. For fake texture we simply rely
         // on depth.
-        let color_blend = if !fake {
-            wgpu::BlendState {
-                src_factor: wgpu::BlendFactor::SrcAlpha,
-                dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
-                operation: wgpu::BlendOperation::Add,
-            }
-        } else {
+        let blend_state = if fake {
             wgpu::BlendState::REPLACE
-        };
-
-        let alpha_blend = if !fake {
-            wgpu::BlendState {
-                src_factor: wgpu::BlendFactor::One,
-                dst_factor: wgpu::BlendFactor::One,
-                operation: wgpu::BlendOperation::Add,
-            }
         } else {
-            wgpu::BlendState::REPLACE
+            wgpu::BlendState::ALPHA_BLENDING
         };
 
         let sample_count = if fake { 1 } else { SAMPLE_COUNT };
@@ -465,7 +460,7 @@ impl<D: Instanciable> InstanceDrawer<D> {
                     &additional_bind_group_layout,
                 ],
                 push_constant_ranges: &[],
-                label: Some("render_pipeline_layout"),
+                label: Some(label.as_ref()),
             })
         } else {
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -486,9 +481,8 @@ impl<D: Instanciable> InstanceDrawer<D> {
         };
         let targets = &[wgpu::ColorTargetState {
             format,
-            color_blend,
-            alpha_blend,
-            write_mask: wgpu::ColorWrite::ALL,
+            blend: Some(blend_state),
+            write_mask: wgpu::ColorWrites::ALL,
         }];
         let strip_index_format = match primitive_topology {
             PrimitiveTopology::LineStrip | PrimitiveTopology::TriangleStrip => {
@@ -498,9 +492,9 @@ impl<D: Instanciable> InstanceDrawer<D> {
         };
 
         let cull_mode = if outliner {
-            wgpu::CullMode::Front
+            Some(wgpu::Face::Front)
         } else {
-            wgpu::CullMode::None
+            None
         };
 
         let primitive = wgpu::PrimitiveState {
@@ -529,7 +523,6 @@ impl<D: Instanciable> InstanceDrawer<D> {
                 depth_write_enabled: true,
                 depth_compare,
                 stencil: Default::default(),
-                clamp_depth: false,
                 bias: Default::default(),
             }),
             multisample: wgpu::MultisampleState {
@@ -537,7 +530,7 @@ impl<D: Instanciable> InstanceDrawer<D> {
                 mask: !0,
                 alpha_to_coverage_enabled: !fake,
             },
-            label: Some("render pipeline"),
+            label: Some(label.as_ref()),
         })
     }
 }

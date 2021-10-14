@@ -14,10 +14,11 @@ uniform Uniforms {
     vec3 u_camera_position;
     mat4 u_view;
     mat4 u_proj;
+    mat4 u_inversed_view;
 };
 
 layout(set=1, binding=0) buffer ModelBlock {
-    mat4 model_matrix2[];
+    readonly mat4 model_matrix2[];
 };
 
 struct Instances {
@@ -25,11 +26,12 @@ struct Instances {
     vec4 color;
     vec3 scale;
     uint id;
+    mat4 inversed_model;
 };
 
 layout(std430, set=2, binding=0) 
 buffer InstancesBlock {
-    Instances instances[];
+    readonly Instances instances[];
 };
 
 const float LOW_CRIT = 1.01;
@@ -40,7 +42,8 @@ void main() {
 
     //mat4 model_matrix = model_matrix2[model_idx] * instances[gl_InstanceIndex].model;
     mat4 model_matrix = model_matrix2[model_idx] * instances[gl_InstanceIndex].model;
-    mat3 normal_matrix = mat3(transpose(inverse(model_matrix)));
+    mat4 inversed_model_matrix = instances[gl_InstanceIndex].inversed_model;
+    mat3 normal_matrix = mat3(transpose(inversed_model_matrix));
 
     /*Note: I'm currently doing things in world space .
     Doing things in view-space also known as eye-space, is more standard as objects can have

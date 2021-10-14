@@ -22,6 +22,8 @@ use std::rc::Rc;
 
 use super::ElementType;
 
+const RESIZE_REGION_WIDTH: f64 = 0.001;
+
 /// A node of a `LayoutTree`
 #[derive(Clone)]
 enum LayoutNode {
@@ -456,9 +458,9 @@ impl LayoutNode {
                 ..
             } => {
                 let separation = *left + *left_proportion * (*right - *left);
-                if let Some(id) =
-                    resizable.filter(|_| x >= separation - 0.005 && x <= separation + 0.005)
-                {
+                if let Some(id) = resizable.filter(|_| {
+                    x >= separation - RESIZE_REGION_WIDTH && x <= separation + RESIZE_REGION_WIDTH
+                }) {
                     PixelRegion::Resize(id)
                 } else {
                     if x <= separation {

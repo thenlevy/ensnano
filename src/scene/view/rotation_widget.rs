@@ -15,7 +15,9 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
-use super::{maths_3d, CameraPtr, Drawable, Drawer, ProjectionPtr, Vertex};
+use super::{
+    maths_3d, CameraPtr, Drawable, Drawer, GroupPivot, HandleColors, ProjectionPtr, Vertex,
+};
 
 use crate::consts::*;
 use iced_wgpu::wgpu;
@@ -50,7 +52,9 @@ pub struct RotationWidget {
     circle_drawers: [Drawer<Circle>; 3],
     big_circle: Option<Circle>,
     big_circle_drawer: Drawer<Circle>,
-    rotation_origin: Option<(f32, f32)>,
+    clicked_origin: Option<(f32, f32)>,
+    rotation_origin: Option<Vec3>,
+    rotation_normal: Option<Vec3>,
     selected: Option<usize>,
 }
 
@@ -68,8 +72,10 @@ impl RotationWidget {
             ],
             big_circle: None,
             big_circle_drawer: Drawer::new(device),
-            rotation_origin: None,
+            clicked_origin: None,
             selected: None,
+            rotation_normal: None,
+            rotation_origin: None,
         }
     }
 
@@ -127,6 +133,7 @@ impl RotationWidget {
                 self.circle_drawers[i].new_object(None);
             }
         }
+        self.select_circle(self.selected);
         self.sphere_drawer.new_object(self.sphere);
     }
 
@@ -161,8 +168,22 @@ impl RotationWidget {
         }
     }
 
-    pub fn init_rotation(&mut self, x: f32, y: f32) {
-        self.rotation_origin = Some((x, y))
+    pub fn init_rotation(&mut self, x: f32, y: f32, mode: RotationMode) {
+        self.clicked_origin = Some((x, y));
+        if let Some(circles) = self.circles.as_ref() {
+            let circle_idx = match mode {
+                RotationMode::Right => 0,
+                RotationMode::Up => 1,
+                RotationMode::Front => 2,
+            };
+            let (origin, normal) = if let Some(circle) = circles.get(circle_idx) {
+                (Some(circle.origin), Some(circle.normal()))
+            } else {
+                (None, None)
+            };
+            self.rotation_origin = origin;
+            self.rotation_normal = normal;
+        }
     }
 
     pub fn compute_rotation(
@@ -171,15 +192,11 @@ impl RotationWidget {
         y: f32,
         camera: CameraPtr,
         projection: ProjectionPtr,
-        mode: RotationMode,
     ) -> Option<(Rotor3, Vec3, bool)> {
-        let (x_init, y_init) = self.rotation_origin?;
-        let circles = &self.circles?;
-        let (origin, normal) = match mode {
-            RotationMode::Right => (circles[0].origin, circles[0].normal()),
-            RotationMode::Up => (circles[1].origin, circles[1].normal()),
-            RotationMode::Front => (circles[2].origin, circles[2].normal()),
-        };
+        let (x_init, y_init) = self.clicked_origin?;
+        let origin = self.rotation_origin?;
+        let normal = self.rotation_normal?;
+        log::debug!("rotation origin {:?}", self.rotation_origin);
         let point_clicked = maths_3d::unproject_point_on_plane(
             origin,
             normal,
@@ -188,8 +205,10 @@ impl RotationWidget {
             x_init,
             y_init,
         )?;
+        log::debug!("Point clicked {:?}", point_clicked);
         let point_moved =
             maths_3d::unproject_point_on_plane(origin, normal, camera, projection, x, y)?;
+        log::debug!("Point moved {:?}", point_moved);
         let rotation = Rotor3::from_rotation_between(
             (point_clicked - origin).normalized(),
             (point_moved - origin).normalized(),
@@ -212,6 +231,13 @@ impl RotationWidget {
         }
         self.update_drawers()
     }
+
+    pub fn get_pivot_position(&self) -> Option<GroupPivot> {
+        self.descriptor.as_ref().map(|d| GroupPivot {
+            position: d.origin,
+            orientation: d.orientation.into(),
+        })
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -220,11 +246,19 @@ pub struct RotationWidgetDescriptor {
     pub orientation: RotationWidgetOrientation,
     pub size: f32,
     pub only_right: bool,
+    pub colors: HandleColors,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum RotationWidgetOrientation {
     Rotor(Rotor3),
+}
+
+impl From<RotationWidgetOrientation> for Rotor3 {
+    fn from(r: RotationWidgetOrientation) -> Self {
+        let RotationWidgetOrientation::Rotor(r) = r;
+        r
+    }
 }
 
 impl RotationWidgetDescriptor {
@@ -233,14 +267,18 @@ impl RotationWidgetDescriptor {
         let (right, up, dir) = self.make_axis();
         let length = self.size * dist * (projection.borrow().get_fovy() / 2.).tan() * 1.1;
         let filter = if self.only_right { 0f32 } else { 1f32 };
+        let colors = match self.colors {
+            HandleColors::Cym => crate::consts::CYM_HANDLE_COLORS,
+            HandleColors::Rgb => crate::consts::RGB_HANDLE_COLORS,
+        };
         [
-            Circle::new(self.origin, length, up, dir, 0xFF_00_00, RIGHT_CIRCLE_ID),
+            Circle::new(self.origin, length, up, dir, colors[0], RIGHT_CIRCLE_ID),
             Circle::new(
                 self.origin,
                 length * filter,
                 right,
                 dir,
-                0xFF_00,
+                colors[1],
                 UP_CIRCLE_ID,
             ),
             Circle::new(
@@ -248,7 +286,7 @@ impl RotationWidgetDescriptor {
                 length * 1.1 * filter,
                 right,
                 up,
-                0xFF_FF_00,
+                colors[2],
                 FRONT_CIRCLE_ID,
             ),
         ]

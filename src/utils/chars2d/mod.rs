@@ -18,7 +18,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 use iced_wgpu::wgpu;
 use std::collections::HashMap;
 use std::rc::Rc;
-use ultraviolet::{Mat2, Vec2};
+use ultraviolet::{Mat2, Vec2, Vec4};
 use wgpu::{include_spirv, BindGroupLayout, Device, Queue, RenderPass, RenderPipeline};
 
 use crate::consts::*;
@@ -33,6 +33,7 @@ pub struct CharInstance {
     pub rotation: Mat2,
     pub size: f32,
     pub z_index: i32,
+    pub color: Vec4,
 }
 
 unsafe impl bytemuck::Zeroable for CharInstance {}
@@ -67,6 +68,7 @@ impl CharDrawer {
             rotation: Mat2::identity(),
             z_index: -1,
             size: 1.,
+            color: Vec4::zero(),
         }];
         let mut ret = Self {
             device,
@@ -129,29 +131,17 @@ impl CharDrawer {
 
         let format = wgpu::TextureFormat::Bgra8UnormSrgb;
 
-        let color_blend = wgpu::BlendState {
-            src_factor: wgpu::BlendFactor::SrcAlpha,
-            dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
-            operation: wgpu::BlendOperation::Add,
-        };
-
-        let alpha_blend = wgpu::BlendState {
-            src_factor: wgpu::BlendFactor::One,
-            dst_factor: wgpu::BlendFactor::One,
-            operation: wgpu::BlendOperation::Add,
-        };
         let targets = &[wgpu::ColorTargetState {
             format,
-            color_blend,
-            alpha_blend,
-            write_mask: wgpu::ColorWrite::ALL,
+            blend: Some(wgpu::BlendState::ALPHA_BLENDING),
+            write_mask: wgpu::ColorWrites::ALL,
         }];
 
         let primitive = wgpu::PrimitiveState {
             topology: wgpu::PrimitiveTopology::TriangleStrip,
             strip_index_format: Some(wgpu::IndexFormat::Uint16),
             front_face: wgpu::FrontFace::Ccw,
-            cull_mode: wgpu::CullMode::None,
+            cull_mode: None,
             ..Default::default()
         };
 
@@ -175,7 +165,6 @@ impl CharDrawer {
                     depth_compare: wgpu::CompareFunction::Less,
                     stencil: Default::default(),
                     bias: Default::default(),
-                    clamp_depth: Default::default(),
                 }),
                 multisample: wgpu::MultisampleState {
                     count: SAMPLE_COUNT,
@@ -187,7 +176,7 @@ impl CharDrawer {
     }
 }
 
-pub fn char_positions(string: String, drawers: &HashMap<char, CharDrawer>) -> Vec<f32> {
+pub fn char_positions_x(string: &str, drawers: &HashMap<char, CharDrawer>) -> Vec<f32> {
     let mut ret = vec![0f32];
     let mut x = 0f32;
     for c in string.chars() {
@@ -197,7 +186,21 @@ pub fn char_positions(string: String, drawers: &HashMap<char, CharDrawer>) -> Ve
     ret
 }
 
-pub fn height(string: String, drawers: &HashMap<char, CharDrawer>) -> f32 {
+pub fn char_positions_y(string: &str, drawers: &HashMap<char, CharDrawer>) -> Vec<f32> {
+    let max_height = height(string, drawers);
+    let mut ret = vec![];
+
+    for c in string.chars() {
+        ret.push(
+            max_height
+                - drawers.get(&c).unwrap().letter.height
+                - drawers.get(&c).unwrap().letter.advance_height,
+        )
+    }
+    ret
+}
+
+pub fn height(string: &str, drawers: &HashMap<char, CharDrawer>) -> f32 {
     let mut ret = 0f32;
     for c in string.chars() {
         ret = ret.max(drawers.get(&c).unwrap().letter.height)

@@ -15,17 +15,19 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
-use super::{ColorMessage, Message};
+use super::{AppState, ColorMessage, Message};
 use iced::{Color, Row};
 
 pub struct ColorPicker {
     hue_state: hue_column::State,
     light_sat_square_state: light_sat_square::State,
     color: Color,
-    hue: f32,
+    hue: f64,
+    saturation: f64,
+    hsv_value: f64,
 }
 
-pub use color_square::ColorSquare;
+pub use color_square::{ColorSquare, State as ColorState};
 use hue_column::HueColumn;
 use light_sat_square::LightSatSquare;
 
@@ -36,18 +38,39 @@ impl ColorPicker {
             light_sat_square_state: Default::default(),
             color: Color::BLACK,
             hue: 0.,
+            saturation: 1.,
+            hsv_value: 1.,
         }
     }
 
-    pub fn update_color(&mut self, color: Color) {
-        self.color = color
+    pub fn update_color(&mut self) -> Color {
+        use color_space::{Hsv, Rgb};
+        let hsv = Hsv::new(self.hue, self.saturation, self.hsv_value);
+        let rgb = Rgb::from(hsv);
+        let color: Color = [
+            rgb.r as f32 / 255.,
+            rgb.g as f32 / 255.,
+            rgb.b as f32 / 255.,
+            1.,
+        ]
+        .into();
+        self.color = color;
+        color
     }
 
-    pub fn change_hue(&mut self, hue: f32) {
+    pub fn change_hue(&mut self, hue: f64) {
         self.hue = hue
     }
 
-    pub fn view(&mut self) -> Row<Message> {
+    pub fn set_saturation(&mut self, saturation: f64) {
+        self.saturation = saturation
+    }
+
+    pub fn set_hsv_value(&mut self, hsv_value: f64) {
+        self.hsv_value = hsv_value
+    }
+
+    pub fn view<S: AppState>(&mut self) -> Row<Message<S>> {
         let color_picker = Row::new()
             .spacing(5)
             .push(HueColumn::new(&mut self.hue_state, Message::HueChanged))
@@ -55,13 +78,22 @@ impl ColorPicker {
             .push(LightSatSquare::new(
                 self.hue as f64,
                 &mut self.light_sat_square_state,
-                Message::StrandColorChanged,
+                Message::HsvSatValueChanged,
+                Message::FinishChangingColor,
             ));
         color_picker
     }
 
-    pub fn color_square<Message>(&self) -> ColorSquare<Message> {
-        ColorSquare::new(self.color)
+    pub fn color_square<'a, S: AppState>(
+        &self,
+        state: &'a mut color_square::State,
+    ) -> ColorSquare<'a, Message<S>> {
+        ColorSquare::new(
+            self.color,
+            state,
+            Message::ColorPicked,
+            Message::FinishChangingColor,
+        )
     }
 
     pub fn new_view(&mut self) -> Row<ColorMessage> {
@@ -75,7 +107,8 @@ impl ColorPicker {
             .push(LightSatSquare::new(
                 self.hue as f64,
                 &mut self.light_sat_square_state,
-                ColorMessage::StrandColorChanged,
+                ColorMessage::HsvSatValueChanged,
+                ColorMessage::FinishChangingColor,
             ));
         color_picker
     }
@@ -108,13 +141,13 @@ mod hue_column {
 
     pub struct HueColumn<'a, Message> {
         state: &'a mut State,
-        on_slide: Box<dyn Fn(f32) -> Message>,
+        on_slide: Box<dyn Fn(f64) -> Message>,
     }
 
     impl<'a, Message> HueColumn<'a, Message> {
         pub fn new<F>(state: &'a mut State, on_slide: F) -> Self
         where
-            F: 'static + Fn(f32) -> Message,
+            F: 'static + Fn(f64) -> Message,
         {
             Self {
                 state,
@@ -220,7 +253,7 @@ mod hue_column {
                 } else {
                     let percent = (cursor_position.y - bounds.y) / bounds.height;
                     let value = percent * 360.;
-                    messages.push((self.on_slide)(value));
+                    messages.push((self.on_slide)(value.into()));
                 }
             };
 
@@ -267,7 +300,6 @@ mod hue_column {
 }
 
 mod light_sat_square {
-    use super::Color;
     use iced_graphics::{
         triangle::{Mesh2D, Vertex2D},
         Backend, Defaults, Primitive, Rectangle, Renderer,
@@ -295,26 +327,28 @@ mod light_sat_square {
         ]
     }
 
-    pub struct LightSatSquare<'a, Message> {
+    pub struct LightSatSquare<'a, Message: Clone> {
         hue: f64,
         state: &'a mut State,
-        on_slide: Box<dyn Fn(Color) -> Message>,
+        on_slide: Box<dyn Fn(f64, f64) -> Message>,
+        on_finish: Message,
     }
 
-    impl<'a, Message> LightSatSquare<'a, Message> {
-        pub fn new<F>(hue: f64, state: &'a mut State, on_slide: F) -> Self
+    impl<'a, Message: Clone> LightSatSquare<'a, Message> {
+        pub fn new<F>(hue: f64, state: &'a mut State, on_slide: F, on_finish: Message) -> Self
         where
-            F: 'static + Fn(Color) -> Message,
+            F: 'static + Fn(f64, f64) -> Message,
         {
             Self {
                 hue,
                 state,
                 on_slide: Box::new(on_slide),
+                on_finish,
             }
         }
     }
 
-    impl<'a, Message, B> Widget<Message, Renderer<B>> for LightSatSquare<'a, Message>
+    impl<'a, Message: Clone, B> Widget<Message, Renderer<B>> for LightSatSquare<'a, Message>
     where
         B: Backend,
     {
@@ -356,10 +390,10 @@ mod light_sat_square {
             let mut vertices = Vec::new();
             let mut indices = Vec::new();
             for i in 0..nb_row {
-                let light = 1. - (i as f64 / nb_row as f64);
+                let value = 1. - (i as f64 / nb_row as f64);
                 for j in 0..nb_column {
-                    let sat = j as f64 / nb_column as f64;
-                    let color = hsv_to_linear(self.hue, sat, light);
+                    let sat = 1. - (j as f64 / nb_column as f64);
+                    let color = hsv_to_linear(self.hue, sat, value);
                     vertices.push(Vertex2D {
                         position: [
                             x_max * (j as f32 / nb_column as f32),
@@ -417,13 +451,9 @@ mod light_sat_square {
                     f64::from(cursor_position.y - bounds.y) / f64::from(bounds.height)
                 };
 
-                let color = Rgb::from(Hsv::new(self.hue, percent_x, 1. - percent_y));
-                let value = Color::from_rgb(
-                    color.r as f32 / 255.,
-                    color.g as f32 / 255.,
-                    color.b as f32 / 255.,
-                );
-                messages.push((self.on_slide)(value));
+                let saturation = 1. - percent_x;
+                let value = 1. - percent_y;
+                messages.push((self.on_slide)(saturation, value));
             };
 
             if let Event::Mouse(mouse_event) = event {
@@ -441,6 +471,7 @@ mod light_sat_square {
                         if self.state.is_dragging {
                             self.state.is_dragging = false;
                         }
+                        messages.push(self.on_finish.clone());
                         iced_native::event::Status::Captured
                     }
                     mouse::Event::CursorMoved { .. } => {
@@ -469,6 +500,10 @@ mod light_sat_square {
 }
 
 mod color_square {
+    #[derive(Default, Clone, Eq, PartialEq)]
+    pub struct State {
+        clicked: bool,
+    }
     use super::Color;
     use iced_graphics::{
         triangle::{Mesh2D, Vertex2D},
@@ -478,23 +513,29 @@ mod color_square {
         layout, mouse, Clipboard, Element, Event, Hasher, Layout, Length, Point, Size, Vector,
         Widget,
     };
-    use std::marker::PhantomData;
 
-    pub struct ColorSquare<Message> {
+    pub struct ColorSquare<'a, Message: Clone> {
+        state: &'a mut State,
         color: Color,
-        _phantom: PhantomData<Message>,
+        on_click: Box<dyn Fn(Color) -> Message>,
+        on_release: Message,
     }
 
-    impl<Message> ColorSquare<Message> {
-        pub fn new(color: Color) -> Self {
+    impl<'a, Message: Clone> ColorSquare<'a, Message> {
+        pub fn new<F>(color: Color, state: &'a mut State, on_click: F, on_release: Message) -> Self
+        where
+            F: 'static + Fn(Color) -> Message,
+        {
             Self {
+                state,
                 color,
-                _phantom: PhantomData,
+                on_click: Box::new(on_click),
+                on_release,
             }
         }
     }
 
-    impl<Message, B> Widget<Message, Renderer<B>> for ColorSquare<Message>
+    impl<'a, Message: Clone, B> Widget<Message, Renderer<B>> for ColorSquare<'a, Message>
     where
         B: Backend,
     {
@@ -528,22 +569,23 @@ mod color_square {
             let b = layout.bounds();
             let x_max = b.width;
             let y_max = b.height;
+            let color = [self.color.r, self.color.g, self.color.b, self.color.a];
             let vertices = vec![
                 Vertex2D {
                     position: [0., 0.],
-                    color: self.color.into_linear(),
+                    color,
                 },
                 Vertex2D {
                     position: [0., y_max],
-                    color: self.color.into_linear(),
+                    color,
                 },
                 Vertex2D {
                     position: [x_max, 0.],
-                    color: self.color.into_linear(),
+                    color,
                 },
                 Vertex2D {
                     position: [x_max, y_max],
-                    color: self.color.into_linear(),
+                    color,
                 },
             ];
             let indices = vec![0, 1, 2, 1, 2, 3];
@@ -561,18 +603,51 @@ mod color_square {
 
         fn on_event(
             &mut self,
-            _event: Event,
-            _layout: Layout<'_>,
-            _cursor_position: Point,
+            event: Event,
+            layout: Layout<'_>,
+            cursor_position: Point,
             _renderer: &Renderer<B>,
             _clipboard: &mut dyn Clipboard,
-            _messages: &mut Vec<Message>,
+            messages: &mut Vec<Message>,
         ) -> iced_native::event::Status {
-            iced_native::event::Status::Ignored
+            if let Event::Mouse(mouse_event) = event {
+                match mouse_event {
+                    mouse::Event::ButtonPressed(mouse::Button::Left) => {
+                        if layout.bounds().contains(cursor_position) {
+                            self.state.clicked = true;
+                            messages.push((self.on_click)(self.color));
+                            iced_native::event::Status::Captured
+                        } else {
+                            iced_native::event::Status::Ignored
+                        }
+                    }
+                    mouse::Event::ButtonReleased(mouse::Button::Left) if self.state.clicked => {
+                        if layout.bounds().contains(cursor_position) {
+                            self.state.clicked = false;
+                            messages.push(self.on_release.clone());
+                            iced_native::event::Status::Captured
+                        } else {
+                            iced_native::event::Status::Ignored
+                        }
+                    }
+                    mouse::Event::CursorMoved { .. } if self.state.clicked => {
+                        if layout.bounds().contains(cursor_position) {
+                            iced_native::event::Status::Ignored
+                        } else {
+                            self.state.clicked = false;
+                            messages.push(self.on_release.clone());
+                            iced_native::event::Status::Captured
+                        }
+                    }
+                    _ => iced_native::event::Status::Ignored,
+                }
+            } else {
+                iced_native::event::Status::Ignored
+            }
         }
     }
 
-    impl<'a, Message, B> Into<Element<'a, Message, Renderer<B>>> for ColorSquare<Message>
+    impl<'a, Message, B> Into<Element<'a, Message, Renderer<B>>> for ColorSquare<'a, Message>
     where
         B: Backend,
         Message: 'a + Clone,

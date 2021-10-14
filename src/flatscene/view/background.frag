@@ -36,13 +36,13 @@ void main() {
 
         vec2 pos = px_position + v_scroll_offset * v_zoom;
 
-        if (mod(pos.x, 20.0 / grid_scale * v_zoom) <= 1.0 ||
-            mod(pos.y, 20.0 / grid_scale * v_zoom) <= 1.0) {
+        if (abs(mod(pos.x, 20.0 / grid_scale * v_zoom)) <= 1.0 ||
+            abs(mod(pos.y, 20.0 / grid_scale * v_zoom)) <= 1.0) {
             out_color /= 1.2;
         }
 
-        if (mod(pos.x, 100.0 / grid_scale * v_zoom) <= 2.0 ||
-            mod(pos.y, 100.0 / grid_scale * v_zoom) <= 2.0) {
+        if (abs(mod(pos.x, 100.0 / grid_scale * v_zoom)) <= 2.0 ||
+            abs(mod(pos.y, 100.0 / grid_scale * v_zoom)) <= 2.0) {
             out_color /= 1.2;
         }
     }

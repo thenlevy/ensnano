@@ -15,10 +15,8 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
-use crate::consts::*;
 use iced_wgpu::wgpu;
 use iced_winit::winit::dpi::{PhysicalPosition, PhysicalSize, Pixel};
-use std::sync::{Arc, Mutex};
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
 
 pub mod bindgroup_manager;
@@ -34,7 +32,7 @@ pub mod texture;
 pub fn create_buffer_with_data(
     device: &wgpu::Device,
     data: &[u8],
-    usage: wgpu::BufferUsage,
+    usage: wgpu::BufferUsages,
 ) -> wgpu::Buffer {
     let descriptor = BufferInitDescriptor {
         label: Some("descriptor"),
@@ -67,94 +65,7 @@ impl BufferDimensions {
     }
 }
 
-pub fn phantom_helix_encoder_nucl(
-    design_id: u32,
-    helix_id: u32,
-    position: i32,
-    forward: bool,
-) -> u32 {
-    let pos_id = (position + PHANTOM_RANGE) as u32 * 4 + if forward { 0 } else { 1 };
-    let max_pos_id = (2 * PHANTOM_RANGE) as u32 * 4 + 3;
-    let helix = helix_id * max_pos_id;
-    assert!(helix <= 0xFF_FF_FF);
-    (helix + pos_id) | (design_id << 24)
-}
-
-pub fn phantom_helix_encoder_bound(
-    design_id: u32,
-    helix_id: u32,
-    position: i32,
-    forward: bool,
-) -> u32 {
-    let pos_id = (position + PHANTOM_RANGE) as u32 * 4 + if forward { 2 } else { 3 };
-    let max_pos_id = (2 * PHANTOM_RANGE) as u32 * 4 + 3;
-    let helix = helix_id * max_pos_id;
-    assert!(helix <= 0xFF_FF_FF);
-    (helix + pos_id) | (design_id << 24)
-}
-
-pub fn phantom_helix_decoder(id: u32) -> PhantomElement {
-    let max_pos_id = (2 * PHANTOM_RANGE) as u32 * 4 + 3;
-    let design_id = id >> 24;
-    let reminder = id & 0xFF_FF_FF;
-    let helix_id = reminder / max_pos_id;
-    let reminder = reminder % max_pos_id;
-    let bound = reminder & 0b10 > 0;
-    let forward = reminder % 2 == 0;
-    let nucl_id = reminder / 4;
-    let position = nucl_id as i32 - PHANTOM_RANGE;
-    PhantomElement {
-        design_id,
-        helix_id,
-        position,
-        bound,
-        forward,
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct PhantomElement {
-    pub design_id: u32,
-    pub helix_id: u32,
-    pub position: i32,
-    pub bound: bool,
-    pub forward: bool,
-}
-
-impl PhantomElement {
-    pub fn to_nucl(&self) -> crate::design::Nucl {
-        crate::design::Nucl {
-            helix: self.helix_id as usize,
-            position: self.position as isize,
-            forward: self.forward,
-        }
-    }
-}
-
-pub fn message(message: Cow<'static, str>, level: rfd::MessageLevel) {
-    let msg = rfd::AsyncMessageDialog::new()
-        .set_level(level)
-        .set_description(message.as_ref())
-        .show();
-    std::thread::spawn(move || futures::executor::block_on(msg));
-}
-
-pub fn blocking_message(
-    message: Cow<'static, str>,
-    level: rfd::MessageLevel,
-    request: Arc<Mutex<Requests>>,
-    keep_proceed: KeepProceed,
-) {
-    let msg = rfd::AsyncMessageDialog::new()
-        .set_level(level)
-        .set_description(message.as_ref())
-        .show();
-    std::thread::spawn(move || {
-        futures::executor::block_on(msg);
-        request.lock().unwrap().keep_proceed = Some(keep_proceed);
-    });
-}
-
+#[allow(dead_code)]
 pub fn new_color(color_idx: &mut usize) -> u32 {
     let color = {
         let hue = (*color_idx as f64 * (1. + 5f64.sqrt()) / 2.).fract() * 360.;
@@ -190,31 +101,4 @@ impl Ndc {
             y: position.y / size.height * -2. + 1.,
         }
     }
-}
-
-use crate::gui::{KeepProceed, Requests};
-use std::borrow::Cow;
-pub fn yes_no_dialog(
-    message: Cow<'static, str>,
-    request: Arc<Mutex<Requests>>,
-    yes: KeepProceed,
-    no: Option<KeepProceed>,
-) {
-    let msg = rfd::AsyncMessageDialog::new()
-        .set_description(message.as_ref())
-        .set_buttons(rfd::MessageButtons::YesNo)
-        .show();
-    std::thread::spawn(move || {
-        let choice = async move {
-            println!("thread spawned");
-            let ret = msg.await;
-            println!("about to send");
-            if ret {
-                request.lock().unwrap().keep_proceed = Some(yes);
-            } else {
-                request.lock().unwrap().keep_proceed = no;
-            }
-        };
-        futures::executor::block_on(choice);
-    });
 }
