@@ -1017,7 +1017,7 @@ fn make_flexible_helices_system(
     let mut mixed_springs = Vec::with_capacity(xovers.len());
     let mut free_springs = Vec::with_capacity(xovers.len());
     for (n1, n2) in xovers {
-        println!("{:?}", (n1, n2));
+        log::debug!("xover {:?}", (n1, n2));
         let free_nucl1 = interval_results.nucl_map[&n1];
         let free_nucl2 = interval_results.nucl_map[&n2];
         if let Some((h1, h2)) = free_nucl1.helix.zip(free_nucl2.helix) {
@@ -1147,7 +1147,7 @@ fn read_intervals(presenter: &dyn HelixPresenter) -> Result<IntervalResult, ErrO
     let mut intervals = Vec::new();
     for s in presenter.get_design().strands.values() {
         for d in s.domains.iter() {
-            println!("New dom");
+            log::debug!("New dom");
             if let Some(nucl) = d.prime5_end() {
                 if !nucl_map.contains_key(&nucl) || !nucl.forward {
                     let starting_doubled = presenter.has_nucl(&nucl.compl());
@@ -1160,10 +1160,10 @@ fn read_intervals(presenter: &dyn HelixPresenter) -> Result<IntervalResult, ErrO
                         None
                     };
                     while presenter.has_nucl(&moving_nucl) {
-                        println!("nucl {:?}", moving_nucl);
+                        log::debug!("nucl {:?}", moving_nucl);
                         let doubled = presenter.has_nucl(&moving_nucl.compl());
                         if doubled && nucl.forward {
-                            println!("has compl");
+                            log::debug!("has compl");
                             let helix = if prev_doubled {
                                 current_helix.unwrap()
                             } else {
@@ -1177,7 +1177,7 @@ fn read_intervals(presenter: &dyn HelixPresenter) -> Result<IntervalResult, ErrO
                                     0
                                 }
                             };
-                            println!("helix {}", helix);
+                            log::debug!("helix {}", helix);
                             nucl_map.insert(
                                 moving_nucl,
                                 FreeNucl::with_helix(&moving_nucl, Some(helix)),
@@ -1189,7 +1189,7 @@ fn read_intervals(presenter: &dyn HelixPresenter) -> Result<IntervalResult, ErrO
                             intervals[helix].0 = intervals[helix].0.min(moving_nucl.position);
                             intervals[helix].1 = intervals[helix].1.max(moving_nucl.position);
                         } else if !doubled {
-                            println!("has not compl");
+                            log::debug!("has not compl");
                             nucl_map.insert(moving_nucl, FreeNucl::with_helix(&moving_nucl, None));
                             free_nucl_ids
                                 .insert(FreeNucl::with_helix(&moving_nucl, None), free_nucls.len());
@@ -1205,10 +1205,10 @@ fn read_intervals(presenter: &dyn HelixPresenter) -> Result<IntervalResult, ErrO
                     prev_doubled = starting_doubled;
                     moving_nucl = starting_nucl.right();
                     while presenter.has_nucl(&moving_nucl) {
-                        println!("nucl {:?}", moving_nucl);
+                        log::debug!("nucl {:?}", moving_nucl);
                         let doubled = presenter.has_nucl(&moving_nucl.compl());
                         if doubled && nucl.forward {
-                            println!("has compl");
+                            log::debug!("has compl");
                             let helix = if prev_doubled {
                                 current_helix.unwrap()
                             } else {
@@ -1230,7 +1230,7 @@ fn read_intervals(presenter: &dyn HelixPresenter) -> Result<IntervalResult, ErrO
                                     }
                                 }
                             };
-                            println!("helix {}", helix);
+                            log::debug!("helix {}", helix);
                             intervals[helix].0 = intervals[helix].0.min(moving_nucl.position);
                             intervals[helix].1 = intervals[helix].1.max(moving_nucl.position);
                             nucl_map.insert(
@@ -1242,7 +1242,7 @@ fn read_intervals(presenter: &dyn HelixPresenter) -> Result<IntervalResult, ErrO
                                 FreeNucl::with_helix(&moving_nucl.compl(), Some(helix)),
                             );
                         } else if !doubled {
-                            println!("has not compl");
+                            log::debug!("has not compl");
                             nucl_map.insert(moving_nucl, FreeNucl::with_helix(&moving_nucl, None));
                             free_nucl_ids
                                 .insert(FreeNucl::with_helix(&moving_nucl, None), free_nucls.len());
@@ -1411,7 +1411,7 @@ impl RigidGrid {
         orientation: Rotor3,
     ) -> Self {
         // Center of mass in the grid coordinates.
-        println!("helices {:?}", helices);
+        log::debug!("helices {:?}", helices);
         let center_of_mass = center_of_mass_helices(&helices);
 
         // Inertia matrix when the orientation is the identity

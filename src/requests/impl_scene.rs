@@ -84,4 +84,26 @@ impl SceneRequests for Requests {
     fn apply_design_operation(&mut self, op: DesignOperation) {
         self.keep_proceed.push_back(Action::DesignOperation(op))
     }
+
+    fn set_current_group_pivot(&mut self, pivot: ensnano_design::group_attributes::GroupPivot) {
+        self.keep_proceed.push_back(Action::SetGroupPivot(pivot))
+    }
+
+    fn translate_group_pivot(&mut self, translation: Vec3) {
+        if let Some(Action::TranslateGroupPivot(t)) = self.keep_proceed.iter_mut().last() {
+            *t = translation
+        } else {
+            self.keep_proceed
+                .push_back(Action::TranslateGroupPivot(translation))
+        }
+    }
+
+    fn rotate_group_pivot(&mut self, rotation: Rotor3) {
+        if let Some(Action::RotateGroupPivot(r)) = self.keep_proceed.iter_mut().last() {
+            *r = rotation;
+        } else {
+            self.keep_proceed
+                .push_back(Action::RotateGroupPivot(rotation))
+        }
+    }
 }

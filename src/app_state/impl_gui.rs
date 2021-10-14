@@ -43,12 +43,11 @@ impl GuiState for AppState {
     }
 
     fn get_selection(&self) -> &[Selection] {
-        self.0.selection.as_ref()
+        self.selection_content().as_ref()
     }
 
     fn get_selection_as_dnaelement(&self) -> Vec<DnaElementKey> {
-        self.0
-            .selection
+        self.selection_content()
             .iter()
             .filter_map(|s| DnaElementKey::from_selection(s, 0))
             .collect()
@@ -63,9 +62,9 @@ impl GuiState for AppState {
     }
 
     fn can_make_grid(&self) -> bool {
-        self.0.selection.len() > 4
+        self.selection_content().len() > 4
             && ensnano_interactor::all_helices_no_grid(
-                self.0.selection.as_ref(),
+                self.selection_content(),
                 &self.get_design_reader(),
             )
     }
@@ -79,7 +78,7 @@ impl GuiState for AppState {
     }
 
     fn selection_was_updated(&self, other: &Self) -> bool {
-        self.0.selection != other.0.selection
+        self.selection_content() != other.selection_content()
     }
 
     fn get_build_helix_mode(&self) -> ActionMode {
@@ -106,6 +105,10 @@ impl GuiState for AppState {
 
     fn get_strand_building_state(&self) -> Option<crate::gui::StrandBuildingStatus> {
         self.get_strand_building_state()
+    }
+
+    fn get_selected_group(&self) -> Option<GroupId> {
+        self.0.selection.selected_group.clone()
     }
 }
 

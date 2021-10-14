@@ -17,13 +17,14 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 
 use super::AddressPointer;
-use ensnano_design::{Design, Parameters};
+use ensnano_design::{group_attributes::GroupAttribute, Design, Parameters};
 use ensnano_interactor::{
     operation::Operation, DesignOperation, RigidBodyConstants, Selection, SimulationState,
     StrandBuilder,
 };
 
 mod presenter;
+use ensnano_organizer::GroupId;
 pub use presenter::SimulationUpdate;
 use presenter::{apply_simulation_update, update_presenter, Presenter};
 pub(super) mod controller;
@@ -330,9 +331,15 @@ pub struct DesignReader {
 use crate::controller::SaveDesignError;
 use std::path::PathBuf;
 impl DesignReader {
-    pub fn save_design(&self, path: &PathBuf) -> Result<(), SaveDesignError> {
+    pub fn save_design(
+        &self,
+        path: &PathBuf,
+        saving_info: ensnano_design::SavingInformation,
+    ) -> Result<(), SaveDesignError> {
         use std::io::Write;
-        let json_content = serde_json::to_string_pretty(&self.presenter.current_design.as_ref())?;
+        let mut design = self.presenter.current_design.clone_inner();
+        design.prepare_for_save(saving_info);
+        let json_content = serde_json::to_string_pretty(&design)?;
         let mut f = std::fs::File::create(path)?;
         f.write_all(json_content.as_bytes())?;
         Ok(())
@@ -344,6 +351,14 @@ impl DesignReader {
 
     pub fn get_strand_domain(&self, s_id: usize, d_id: usize) -> Option<&ensnano_design::Domain> {
         self.presenter.get_strand_domain(s_id, d_id)
+    }
+
+    pub fn get_group_attributes(&self, group_id: GroupId) -> Option<&GroupAttribute> {
+        self.presenter
+            .current_design
+            .as_ref()
+            .group_attributes
+            .get(&group_id)
     }
 }
 

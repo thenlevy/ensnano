@@ -23,12 +23,12 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use ultraviolet::{Mat4, Rotor3, Vec3};
 
+use crate::scene::camera::FiniteVec3;
 use crate::utils;
 use crate::{DrawArea, PhySize, WindowEvent};
-use ensnano_design::Nucl;
+use ensnano_design::{group_attributes::GroupPivot, Nucl};
 use ensnano_interactor::{
     application::{AppId, Application, Notification},
-    list_of_grids, list_of_helices,
     operation::*,
     ActionMode, CenterOfSelection, DesignOperation, Selection, SelectionMode, StrandBuilder,
     WidgetBasis,
@@ -50,7 +50,7 @@ use view::{
 pub use view::{FogParameters, GridInstance};
 /// Handling of inputs and notifications
 mod controller;
-use controller::{Consequence, Controller};
+use controller::{Consequence, Controller, WidgetTarget};
 /// Handling of designs and internal data
 mod data;
 pub use controller::ClickMode;
@@ -62,6 +62,7 @@ mod maths_3d;
 
 type ViewPtr = Rc<RefCell<View>>;
 type DataPtr<R> = Rc<RefCell<Data<R>>>;
+use std::convert::TryInto;
 
 /// A structure responsible of the 3D display of the designs
 pub struct Scene<S: AppState> {
@@ -178,14 +179,19 @@ impl<S: AppState> Scene<S> {
                 self.attempt_xover(source, target, d_id);
                 self.data.borrow_mut().end_free_xover();
             }
-            Consequence::Translation(dir, x_coord, y_coord) => {
+            Consequence::Translation(dir, x_coord, y_coord, target) => {
                 let translation = self.view.borrow().compute_translation_handle(
                     x_coord as f32,
                     y_coord as f32,
                     dir,
                 );
                 if let Some(t) = translation {
-                    self.translate_selected_design(t, app_state);
+                    match target {
+                        WidgetTarget::Object => {
+                            self.translate_selected_design(t, app_state);
+                        }
+                        WidgetTarget::Pivot => self.translate_group_pivot(t),
+                    }
                 }
             }
             Consequence::HelixTranslated { helix, grid, x, y } => {
@@ -197,34 +203,66 @@ impl<S: AppState> Scene<S> {
             }
             Consequence::MovementEnded => {
                 self.requests.lock().unwrap().suspend_op();
+                self.data.borrow_mut().notify_handle_movement();
+                self.view.borrow_mut().end_movement();
             }
             Consequence::HelixSelected(h_id) => self
                 .requests
                 .lock()
                 .unwrap()
                 .set_selection(vec![Selection::Helix(0, h_id as u32)], None),
-            Consequence::InitRotation(mode, x, y) => self
-                .view
-                .borrow_mut()
-                .init_rotation(mode, x as f32, y as f32),
-            Consequence::InitTranslation(x, y) => {
-                self.view.borrow_mut().init_translation(x as f32, y as f32)
+            Consequence::InitRotation(mode, x, y, target) => {
+                self.view
+                    .borrow_mut()
+                    .init_rotation(mode, x as f32, y as f32);
+                if target == WidgetTarget::Pivot {
+                    if let Some(pivot) = self.view.borrow().get_group_pivot() {
+                        self.requests.lock().unwrap().set_current_group_pivot(pivot);
+                        if let WidgetBasis::World = app_state.get_widget_basis() {
+                            self.requests.lock().unwrap().toggle_widget_basis()
+                        }
+                    }
+                }
             }
-            Consequence::Rotation(x, y) => {
+            Consequence::InitTranslation(x, y, target) => {
+                self.view.borrow_mut().init_translation(x as f32, y as f32);
+                if let WidgetTarget::Pivot = target {
+                    if let Some(pivot) = self.view.borrow().get_group_pivot() {
+                        self.requests.lock().unwrap().set_current_group_pivot(pivot)
+                    }
+                }
+            }
+            Consequence::Rotation(x, y, target) => {
                 let rotation = self.view.borrow().compute_rotation(x as f32, y as f32);
                 if let Some((rotation, origin, positive)) = rotation {
                     if rotation.bv.mag() > 1e-3 {
-                        self.rotate_selected_desgin(rotation, origin, positive, app_state)
+                        match target {
+                            WidgetTarget::Object => {
+                                self.rotate_selected_desgin(rotation, origin, positive, app_state);
+                            }
+                            WidgetTarget::Pivot => {
+                                self.requests.lock().unwrap().rotate_group_pivot(rotation)
+                            }
+                        }
                     }
+                    self.data.borrow_mut().notify_handle_movement();
                 } else {
                     log::warn!("Warning rotiation was None")
                 }
             }
             Consequence::Swing(x, y) => {
-                let mut pivot = self.data.borrow().get_pivot_position();
+                let mut pivot: Option<FiniteVec3> = self
+                    .data
+                    .borrow()
+                    .get_pivot_position()
+                    .and_then(|p| p.try_into().ok());
                 if pivot.is_none() {
                     self.data.borrow_mut().try_update_pivot_position(app_state);
-                    pivot = self.data.borrow().get_pivot_position();
+                    pivot = self
+                        .data
+                        .borrow()
+                        .get_pivot_position()
+                        .and_then(|p| p.try_into().ok());
                 }
                 self.controller.set_pivot_point(pivot);
                 self.controller.swing(-x, -y);
@@ -394,28 +432,23 @@ impl<S: AppState> Scene<S> {
         let top = Vec3::unit_y().rotated_by(rotor);
         let dir = Vec3::unit_z().rotated_by(rotor);
 
-        let translation_op: Arc<dyn Operation> = match app_state.get_selection().get(0) {
-            Some(Selection::Grid(d_id, g_id)) => {
-                let grids = list_of_grids(app_state.get_selection())
-                    .unwrap_or((0, vec![*g_id as usize]))
-                    .1;
-                Arc::new(GridTranslation {
-                    design_id: *d_id as usize,
-                    grid_ids: grids,
-                    right: Vec3::unit_x().rotated_by(rotor),
-                    top: Vec3::unit_y().rotated_by(rotor),
-                    dir: Vec3::unit_z().rotated_by(rotor),
-                    x: translation.dot(right),
-                    y: translation.dot(top),
-                    z: translation.dot(dir),
-                })
-            }
-            Some(Selection::Helix(d_id, h_id)) => {
-                let helices = list_of_helices(app_state.get_selection())
-                    .unwrap_or((0, vec![*h_id as usize]))
-                    .1;
+        let reader = app_state.get_design_reader();
+        let helices = ensnano_interactor::set_of_helices_containing_selection(
+            app_state.get_selection(),
+            &reader,
+        );
+        let grids = ensnano_interactor::set_of_grids_containing_selection(
+            app_state.get_selection(),
+            &reader,
+        );
+        let at_most_one_grid = grids.as_ref().map(|g| g.len() <= 1).unwrap_or(false);
+
+        let group_id = app_state.get_current_group_id();
+
+        let translation_op: Arc<dyn Operation> =
+            if let Some(helices) = helices.filter(|_| at_most_one_grid) {
                 Arc::new(HelixTranslation {
-                    design_id: *d_id as usize,
+                    design_id: 0,
                     helices,
                     right: Vec3::unit_x().rotated_by(rotor),
                     top: Vec3::unit_y().rotated_by(rotor),
@@ -424,15 +457,36 @@ impl<S: AppState> Scene<S> {
                     y: translation.dot(top),
                     z: translation.dot(dir),
                     snap: true,
+                    group_id,
                 })
-            }
-            _ => return,
-        };
+            } else if let Some(grids) = grids {
+                Arc::new(GridTranslation {
+                    design_id: 0,
+                    grid_ids: grids,
+                    right: Vec3::unit_x().rotated_by(rotor),
+                    top: Vec3::unit_y().rotated_by(rotor),
+                    dir: Vec3::unit_z().rotated_by(rotor),
+                    x: translation.dot(right),
+                    y: translation.dot(top),
+                    z: translation.dot(dir),
+                    group_id,
+                })
+            } else {
+                return;
+            };
 
         self.requests
             .lock()
             .unwrap()
             .update_opperation(translation_op);
+    }
+
+    fn translate_group_pivot(&mut self, translation: Vec3) {
+        self.view.borrow_mut().translate_widgets(translation);
+        self.requests
+            .lock()
+            .unwrap()
+            .translate_group_pivot(translation);
     }
 
     fn rotate_selected_desgin(
@@ -452,26 +506,44 @@ impl<S: AppState> Scene<S> {
             angle *= -1.;
             plane *= -1.;
         }
-        let rotation: Arc<dyn Operation> = match self.data.borrow().get_selected_element(app_state)
-        {
-            Selection::Helix(d_id, h_id) => Arc::new(HelixRotation {
-                helices: vec![h_id as usize],
+        let grids = ensnano_interactor::set_of_grids_containing_selection(
+            app_state.get_selection(),
+            &app_state.get_design_reader(),
+        );
+        log::debug!("rotating grids {:?}", grids);
+        let group_id = app_state.get_current_group_id();
+        let rotation: Arc<dyn Operation> = if let Some(grid_ids) = grids {
+            Arc::new(GridRotation {
+                grid_ids,
                 angle,
                 plane,
                 origin,
-                design_id: d_id as usize,
-            }),
-            Selection::Grid(d_id, g_id) => {
-                let grid_id = g_id as usize;
-                Arc::new(GridRotation {
-                    grid_ids: vec![grid_id],
+                design_id: 0,
+                group_id,
+            })
+        } else {
+            match self.data.borrow().get_selected_element(app_state) {
+                Selection::Helix(d_id, h_id) => Arc::new(HelixRotation {
+                    helices: vec![h_id as usize],
                     angle,
                     plane,
                     origin,
                     design_id: d_id as usize,
-                })
+                    group_id,
+                }),
+                Selection::Grid(d_id, g_id) => {
+                    let grid_id = g_id as usize;
+                    Arc::new(GridRotation {
+                        grid_ids: vec![grid_id],
+                        angle,
+                        plane,
+                        origin,
+                        design_id: d_id as usize,
+                        group_id,
+                    })
+                }
+                _ => return,
             }
-            _ => return,
         };
 
         self.requests.lock().unwrap().update_opperation(rotation);
@@ -484,7 +556,7 @@ impl<S: AppState> Scene<S> {
         if let Some(position) = camera_position {
             let pivot_point = self.data.borrow().get_middle_point(0);
             self.notify(SceneNotification::NewCameraPosition(position));
-            self.controller.set_pivot_point(Some(pivot_point));
+            self.controller.set_pivot_point(pivot_point.try_into().ok());
             self.controller.set_pivot_point(None);
         }
     }
@@ -494,6 +566,7 @@ impl<S: AppState> Scene<S> {
         if self.controller.camera_is_moving() {
             self.notify(SceneNotification::CameraMoved);
         }
+        self.controller.update_data();
         if self.update.need_update {
             self.perform_update(dt, &new_state);
         }
@@ -561,14 +634,19 @@ impl<S: AppState> Scene<S> {
             .data
             .borrow()
             .get_pivot_position()
-            .or(self.data.borrow().get_selected_position());
+            .or(self.data.borrow().get_selected_position())
+            .filter(|r| !r.x.is_nan() && !r.y.is_nan() && !r.z.is_nan());
         let pivot = pivot.or_else(|| {
             let element_center = self.element_center(app_state);
             self.data
                 .borrow_mut()
                 .set_selection(element_center, app_state);
-            self.data.borrow().get_selected_position()
+            self.data
+                .borrow()
+                .get_selected_position()
+                .filter(|r| !r.x.is_nan() && !r.y.is_nan() && !r.z.is_nan())
         });
+        log::info!("pivot {:?}", pivot);
         self.controller.rotate_camera(xz, yz, xy, pivot);
     }
 }
@@ -667,6 +745,10 @@ impl<S: AppState> Application for Scene<S> {
                 self.set_camera_target(target, up, &older_state);
                 self.notify(SceneNotification::CameraMoved);
             }
+            Notification::TeleportCamera(position, orientation) => {
+                self.controller.teleport_camera(position, orientation);
+                self.notify(SceneNotification::CameraMoved);
+            }
             Notification::CameraRotation(xz, yz, xy) => {
                 self.request_camera_rotation(xz, yz, xy, &older_state);
                 self.notify(SceneNotification::CameraMoved);
@@ -737,6 +819,17 @@ impl<S: AppState> Application for Scene<S> {
             * Rotor3::from_rotation_xz(std::f32::consts::FRAC_PI_2);
         Some((position, orientation))
     }
+
+    fn get_camera(&self) -> Option<(Vec3, Rotor3)> {
+        let view = self.view.borrow();
+        let cam = view.get_camera();
+        let ret = Some((cam.borrow().position, cam.borrow().rotor));
+        ret
+    }
+
+    fn get_current_selection_pivot(&self) -> Option<GroupPivot> {
+        self.view.borrow().get_current_pivot()
+    }
 }
 
 pub trait AppState: Clone {
@@ -755,6 +848,8 @@ pub trait AppState: Clone {
     fn is_changing_color(&self) -> bool;
     fn is_pasting(&self) -> bool;
     fn get_selected_element(&self) -> Option<CenterOfSelection>;
+    fn get_current_group_pivot(&self) -> Option<ensnano_design::group_attributes::GroupPivot>;
+    fn get_current_group_id(&self) -> Option<ensnano_design::GroupId>;
 }
 
 pub trait Requests {
@@ -775,4 +870,7 @@ pub trait Requests {
     fn redo(&mut self);
     fn update_builder_position(&mut self, position: isize);
     fn toggle_widget_basis(&mut self);
+    fn set_current_group_pivot(&mut self, pivot: GroupPivot);
+    fn translate_group_pivot(&mut self, translation: Vec3);
+    fn rotate_group_pivot(&mut self, rotation: Rotor3);
 }

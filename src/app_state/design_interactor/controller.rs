@@ -21,13 +21,15 @@ use crate::app_state::AddressPointer;
 use ensnano_design::{
     elements::{DnaAttribute, DnaElementKey},
     grid::{Edge, GridDescriptor, GridPosition, Hyperboloid},
-    mutate_in_arc, Design, Domain, DomainJunction, Helix, Nucl, Strand,
+    group_attributes::GroupPivot,
+    mutate_in_arc, CameraId, Design, Domain, DomainJunction, Helix, Nucl, Strand,
 };
 use ensnano_interactor::{operation::Operation, HyperboloidOperation, SimulationState};
 use ensnano_interactor::{
     DesignOperation, DesignRotation, DesignTranslation, DomainIdentifier, IsometryTarget,
     NeighbourDescriptor, NeighbourDescriptorGiver, Selection, StrandBuilder,
 };
+use ensnano_organizer::GroupId;
 use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
@@ -216,6 +218,30 @@ impl Controller {
             )),
             DesignOperation::SetStrandName { s_id, name } => {
                 self.apply(|c, d| c.change_strand_name(d, s_id, name), design)
+            }
+            DesignOperation::SetGroupPivot { group_id, pivot } => {
+                self.apply(|c, d| c.set_group_pivot(d, group_id, pivot), design)
+            }
+            DesignOperation::CreateNewCamera {
+                position,
+                orientation,
+            } => Ok(self.ok_apply(|c, d| c.create_camera(d, position, orientation), design)),
+            DesignOperation::DeleteCamera(cam_id) => {
+                self.apply(|c, d| c.delete_camera(d, cam_id), design)
+            }
+            DesignOperation::SetFavouriteCamera(cam_id) => {
+                self.apply(|c, d| c.set_favourite_camera(d, cam_id), design)
+            }
+            DesignOperation::UpdateCamera {
+                camera_id,
+                position,
+                orientation,
+            } => self.apply(
+                |c, d| c.update_camera(d, camera_id, position, orientation),
+                design,
+            ),
+            DesignOperation::SetCameraName { camera_id, name } => {
+                self.apply(|c, d| c.set_camera_name(d, camera_id, name), design)
             }
         }
     }
@@ -469,7 +495,7 @@ impl Controller {
         helix: usize,
     ) -> Result<Design, ErrOperation> {
         let mut new_groups = BTreeMap::clone(design.groups.as_ref());
-        println!("group {:?}", new_groups.get(&helix));
+        log::info!("setting group {:?}", new_groups.get(&helix));
         match new_groups.remove(&helix) {
             None => {
                 new_groups.insert(helix, false);
@@ -480,6 +506,19 @@ impl Controller {
             Some(true) => (),
         }
         design.groups = Arc::new(new_groups);
+        Ok(design)
+    }
+
+    fn set_group_pivot(
+        &mut self,
+        mut design: Design,
+        group_id: GroupId,
+        pivot: GroupPivot,
+    ) -> Result<Design, ErrOperation> {
+        let attributes = design.group_attributes.entry(group_id).or_default();
+        if attributes.pivot.is_none() {
+            attributes.pivot = Some(pivot);
+        }
         Ok(design)
     }
 
@@ -897,6 +936,61 @@ impl Controller {
         design
     }
 
+    fn create_camera(&mut self, mut design: Design, position: Vec3, orientation: Rotor3) -> Design {
+        design.add_camera(position, orientation);
+        design
+    }
+
+    fn delete_camera(&mut self, mut design: Design, id: CameraId) -> Result<Design, ErrOperation> {
+        if design.rm_camera(id).is_err() {
+            Err(ErrOperation::CameraDoesNotExist(id))
+        } else {
+            Ok(design)
+        }
+    }
+
+    fn set_favourite_camera(
+        &mut self,
+        mut design: Design,
+        id: CameraId,
+    ) -> Result<Design, ErrOperation> {
+        if design.set_favourite_camera(id).is_err() {
+            Err(ErrOperation::CameraDoesNotExist(id))
+        } else {
+            Ok(design)
+        }
+    }
+
+    fn update_camera(
+        &mut self,
+        mut design: Design,
+        id: CameraId,
+        position: Vec3,
+        orientation: Rotor3,
+    ) -> Result<Design, ErrOperation> {
+        if let Some(camera) = design.get_camera_mut(id) {
+            camera.position = position;
+            camera.orientation = orientation;
+            Ok(design)
+        } else {
+            Err(ErrOperation::CameraDoesNotExist(id))
+        }
+    }
+
+    fn set_camera_name(
+        &mut self,
+        mut design: Design,
+        id: CameraId,
+        name: String,
+    ) -> Result<Design, ErrOperation> {
+        if let Some(camera) = design.get_camera_mut(id) {
+            camera.name = name;
+            Ok(design)
+        } else {
+            Err(ErrOperation::CameraDoesNotExist(id))
+        }
+    }
+
     pub(super) fn is_changing_color(&self) -> bool {
         if let ControllerState::ChangingColor = self.state {
             true
@@ -918,7 +1012,7 @@ impl Controller {
         design: Design,
         translation: DesignTranslation,
     ) -> Result<Design, ErrOperation> {
-        match translation.target {
+        let mut design = match translation.target {
             IsometryTarget::Design => Err(ErrOperation::NotImplemented),
             IsometryTarget::Helices(helices, snap) => {
                 Ok(self.translate_helices(design, snap, helices, translation.translation))
@@ -926,7 +1020,52 @@ impl Controller {
             IsometryTarget::Grids(grid_ids) => {
                 Ok(self.translate_grids(design, grid_ids, translation.translation))
             }
+            IsometryTarget::GroupPivot(group_id) => {
+                self.translate_group_pivot(design, translation.translation, group_id)
+            }
+        }?;
+
+        if let Some(group_id) = translation.group_id {
+            let pivot = design
+                .group_attributes
+                .get_mut(&group_id)
+                .and_then(|attributes| attributes.pivot.as_mut())
+                .ok_or(ErrOperation::GroupHasNoPivot(group_id))?;
+            pivot.position += translation.translation;
         }
+        Ok(design)
+    }
+
+    fn translate_group_pivot(
+        &mut self,
+        mut design: Design,
+        translation: Vec3,
+        group_id: GroupId,
+    ) -> Result<Design, ErrOperation> {
+        self.update_state_and_design(&mut design);
+        let pivot = design
+            .group_attributes
+            .get_mut(&group_id)
+            .and_then(|attributes| attributes.pivot.as_mut())
+            .ok_or(ErrOperation::GroupHasNoPivot(group_id))?;
+        pivot.position += translation;
+        Ok(design)
+    }
+
+    fn rotate_group_pivot(
+        &mut self,
+        mut design: Design,
+        rotation: Rotor3,
+        group_id: GroupId,
+    ) -> Result<Design, ErrOperation> {
+        self.update_state_and_design(&mut design);
+        let pivot = design
+            .group_attributes
+            .get_mut(&group_id)
+            .and_then(|attributes| attributes.pivot.as_mut())
+            .ok_or(ErrOperation::GroupHasNoPivot(group_id))?;
+        pivot.orientation = rotation * pivot.orientation;
+        Ok(design)
     }
 
     fn attach_helix(
@@ -980,8 +1119,11 @@ impl Controller {
         design: Design,
         rotation: DesignRotation,
     ) -> Result<Design, ErrOperation> {
-        match rotation.target {
+        let mut design = match rotation.target {
             IsometryTarget::Design => Err(ErrOperation::NotImplemented),
+            IsometryTarget::GroupPivot(g_id) => {
+                self.rotate_group_pivot(design, rotation.rotation, g_id)
+            }
             IsometryTarget::Helices(helices, snap) => Ok(self.rotate_helices_3d(
                 design,
                 snap,
@@ -992,7 +1134,16 @@ impl Controller {
             IsometryTarget::Grids(grid_ids) => {
                 Ok(self.rotate_grids(design, grid_ids, rotation.rotation, rotation.origin))
             }
+        }?;
+        if let Some(group_id) = rotation.group_id {
+            let pivot = design
+                .group_attributes
+                .get_mut(&group_id)
+                .and_then(|attributes| attributes.pivot.as_mut())
+                .ok_or(ErrOperation::GroupHasNoPivot(group_id))?;
+            pivot.orientation = rotation.rotation * pivot.orientation;
         }
+        Ok(design)
     }
 
     fn translate_helices(
@@ -1130,6 +1281,7 @@ impl OkOperation {
 
 #[derive(Debug)]
 pub enum ErrOperation {
+    GroupHasNoPivot(GroupId),
     NotImplemented,
     NotEnoughHelices {
         actual: usize,
@@ -1162,6 +1314,7 @@ pub enum ErrOperation {
     NoScaffoldSet,
     NoGrids,
     FinishFirst,
+    CameraDoesNotExist(CameraId),
 }
 
 impl Controller {
@@ -1526,9 +1679,9 @@ impl Controller {
         let mut prime5_junctions: Vec<DomainJunction> = Vec::new();
         let mut prime3_junctions: Vec<DomainJunction> = Vec::new();
 
-        println!("Spliting");
-        println!("{:?}", strand.domains);
-        println!("{:?}", strand.junctions);
+        log::info!("Spliting");
+        log::info!("{:?}", strand.domains);
+        log::info!("{:?}", strand.junctions);
 
         for (d_id, domain) in strand.domains.iter().enumerate() {
             if domain.prime5_end() == Some(*nucl)
@@ -1594,11 +1747,11 @@ impl Controller {
             seq_prim5 = None;
         }
 
-        println!("prime5 {:?}", prim5_domains);
-        println!("prime5 {:?}", prime5_junctions);
+        log::info!("prime5 {:?}", prim5_domains);
+        log::info!("prime5 {:?}", prime5_junctions);
 
-        println!("prime3 {:?}", prim3_domains);
-        println!("prime3 {:?}", prime3_junctions);
+        log::info!("prime3 {:?}", prim3_domains);
+        log::info!("prime3 {:?}", prime3_junctions);
         let strand_5prime = Strand {
             domains: prim5_domains,
             color: strand.color,
@@ -1617,7 +1770,7 @@ impl Controller {
             name: None,
         };
         let new_id = (*design.strands.keys().max().unwrap_or(&0)).max(id) + 1;
-        println!("new id {}, ; id {}", new_id, id);
+        log::info!("new id {}, ; id {}", new_id, id);
         let (id_5prime, id_3prime) = if !on_3prime {
             (id, new_id)
         } else {
@@ -1991,7 +2144,7 @@ impl Controller {
         if source_nucl.helix == target_nucl.helix {
             return Err(ErrOperation::XoverOnSameHelix);
         }
-        println!("cross over between {:?} and {:?}", source_nucl, target_nucl);
+        log::info!("cross over between {:?} and {:?}", source_nucl, target_nucl);
         let source_id = design
             .get_strand_nucl(&source_nucl)
             .ok_or(ErrOperation::NuclDoesNotExist(source_nucl))?;
@@ -2012,11 +2165,12 @@ impl Controller {
 
         let source_strand_end = design.is_strand_end(&source_nucl);
         let target_strand_end = design.is_strand_end(&target_nucl);
-        println!(
+        log::info!(
             "source strand {:?}, target strand {:?}",
-            source_id, target_id
+            source_id,
+            target_id
         );
-        println!(
+        log::info!(
             "source end {:?}, target end {:?}",
             source_strand_end.to_opt(),
             target_strand_end.to_opt()

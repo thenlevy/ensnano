@@ -18,7 +18,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 //! This modules handles internal informations about the scene, such as the selected objects etc..
 //! It also communicates with the desgings to get the position of the objects to draw on the scene.
 
-use super::view::{GridDisc, RawDnaInstance};
+use super::view::{GridDisc, HandleColors, RawDnaInstance};
 use super::{
     HandleOrientation, HandlesDescriptor, LetterInstance, RotationWidgetDescriptor,
     RotationWidgetOrientation, SceneElement, View, ViewUpdate,
@@ -68,6 +68,8 @@ pub struct Data<R: DesignReader> {
     free_xover_update: bool,
     handle_need_opdate: bool,
     last_candidate_disc: Option<SceneElement>,
+    rotating_pivot: bool,
+    handle_colors: HandleColors,
 }
 
 impl<R: DesignReader> Data<R> {
@@ -85,6 +87,8 @@ impl<R: DesignReader> Data<R> {
             free_xover_update: false,
             handle_need_opdate: false,
             last_candidate_disc: None,
+            rotating_pivot: false,
+            handle_colors: HandleColors::Rgb,
         }
     }
 
@@ -157,9 +161,24 @@ impl<R: DesignReader> Data<R> {
 
     fn update_handle<S: AppState>(&self, app_state: &S) {
         log::debug!("updating handle {:?} ", self.selected_element(app_state));
-        let origin = self.get_selected_position();
-        let orientation = self.get_widget_basis(app_state);
-        let handle_descr = if app_state.get_action_mode().0.wants_handle() {
+        let pivot = app_state.get_current_group_pivot();
+        let origin = pivot
+            .as_ref()
+            .map(|p| p.position)
+            .or_else(|| self.get_selected_position());
+        let forced_orientation = self.get_forced_widget_basis(app_state);
+        let orientation = forced_orientation.or_else(|| {
+            pivot
+                .as_ref()
+                .map(|p| p.orientation)
+                .or_else(|| self.get_widget_basis(app_state))
+        });
+        let handle_descr = if app_state.get_action_mode().0.wants_handle() || self.rotating_pivot {
+            let colors = if self.rotating_pivot {
+                HandleColors::Rgb
+            } else {
+                self.handle_colors
+            };
             origin
                 .clone()
                 .zip(orientation.clone())
@@ -167,6 +186,7 @@ impl<R: DesignReader> Data<R> {
                     origin,
                     orientation: HandleOrientation::Rotor(orientation),
                     size: 0.25,
+                    colors,
                 })
         } else {
             None
@@ -175,7 +195,7 @@ impl<R: DesignReader> Data<R> {
         self.view
             .borrow_mut()
             .update(ViewUpdate::Handles(handle_descr));
-        let only_right = !self.selection_can_rotate_freely(app_state);
+        let only_right = false;
         let rotation_widget_descr = if app_state.get_action_mode().0.wants_rotation() {
             origin
                 .clone()
@@ -185,6 +205,7 @@ impl<R: DesignReader> Data<R> {
                     orientation: RotationWidgetOrientation::Rotor(orientation),
                     size: 0.2,
                     only_right,
+                    colors: self.handle_colors,
                 })
         } else {
             None
@@ -772,6 +793,7 @@ impl<R: DesignReader> Data<R> {
         } else {
             log::trace!("Using center_of_selection for updating self.selected_position");
             self.update_selected_position(app_state);
+            self.selected_position = self.selected_position.or(Some(pos / (total_len as f32)));
         }
         self.view.borrow_mut().update(ViewUpdate::RawDna(
             Mesh::SelectedTube,
@@ -1267,14 +1289,23 @@ impl<R: DesignReader> Data<R> {
 
     pub fn get_widget_basis<S: AppState>(&self, app_state: &S) -> Option<Rotor3> {
         self.get_selected_basis(app_state).map(|b| {
-            if app_state.get_widget_basis().is_axis_aligned()
-                && self.selection_can_rotate_freely(app_state)
-            {
+            if app_state.get_widget_basis().is_axis_aligned() {
                 Rotor3::identity()
             } else {
                 b
             }
         })
+    }
+
+    fn get_forced_widget_basis<S: AppState>(&self, app_state: &S) -> Option<Rotor3> {
+        if app_state.get_widget_basis().is_axis_aligned()
+            && !(self.handle_colors == HandleColors::Cym
+                && app_state.get_action_mode().0 == ActionMode::Rotate)
+        {
+            Some(Rotor3::identity())
+        } else {
+            None
+        }
     }
 
     fn get_selected_basis<S: AppState>(&self, app_state: &S) -> Option<Rotor3> {
@@ -1330,52 +1361,10 @@ impl<R: DesignReader> Data<R> {
                     self.designs[*d_id as usize].get_helix_basis(*h_id)
                 }
             }
-            _ => None,
+            Some(_) => Some(Rotor3::identity()),
+            None => None,
         };
         from_selection.or(from_selected_element)
-    }
-
-    pub fn selection_can_rotate_freely<S: AppState>(&self, app_state: &S) -> bool {
-        let selected_element_can_rotate = match self.selected_element(app_state) {
-            Some(SceneElement::DesignElement(d_id, _)) => {
-                match self.get_sub_selection_mode(app_state) {
-                    SelectionMode::Nucleotide
-                    | SelectionMode::Design
-                    | SelectionMode::Strand
-                    | SelectionMode::Grid => true,
-                    SelectionMode::Helix => {
-                        if let Some(h_id) = self.get_selected_group(app_state) {
-                            !self.designs[d_id as usize].helix_is_on_grid(h_id)
-                        } else {
-                            true
-                        }
-                    }
-                }
-            }
-            Some(SceneElement::PhantomElement(phantom_element)) => {
-                let d_id = phantom_element.design_id;
-                match self.get_sub_selection_mode(app_state) {
-                    SelectionMode::Nucleotide
-                    | SelectionMode::Design
-                    | SelectionMode::Strand
-                    | SelectionMode::Grid => true,
-                    SelectionMode::Helix => {
-                        let h_id = phantom_element.helix_id;
-                        !self.designs[d_id as usize].helix_is_on_grid(h_id)
-                    }
-                }
-            }
-            Some(SceneElement::Grid(_, _)) => true,
-            _ => true,
-        };
-        for s in app_state.get_selection() {
-            if let Selection::Helix(d_id, h_id) = s {
-                if self.designs[*d_id as usize].helix_is_on_grid(*h_id) {
-                    return false;
-                }
-            }
-        }
-        selected_element_can_rotate
     }
 
     pub fn can_start_builder(&self, element: Option<SceneElement>) -> Option<Nucl> {
@@ -1593,6 +1582,10 @@ impl<R: DesignReader> Data<R> {
             SceneElement::WidgetElement(_) => None,
         }
     }
+
+    pub fn notify_handle_movement(&mut self) {
+        self.handle_need_opdate = true;
+    }
 }
 
 pub(super) trait WantWidget: Sized + 'static {
@@ -1677,6 +1670,21 @@ impl<R: DesignReader> ControllerData for Data<R> {
         self.designs
             .get(0)
             .and_then(|d| d.get_helix_grid(grid_id, x, y))
+    }
+
+    fn notify_rotating_pivot(&mut self) {
+        self.rotating_pivot = true;
+    }
+
+    fn stop_rotating_pivot(&mut self) {
+        self.rotating_pivot = false;
+    }
+
+    fn update_handle_colors(&mut self, colors: HandleColors) {
+        if self.handle_colors != colors {
+            self.handle_need_opdate = true;
+            self.handle_colors = colors;
+        }
     }
 }
 

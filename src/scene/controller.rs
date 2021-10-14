@@ -15,6 +15,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
+use super::view::HandleColors;
 use super::{
     camera, Duration, ElementSelector, HandleDir, SceneElement, ViewPtr,
     WidgetRotationMode as RotationMode,
@@ -28,9 +29,10 @@ use ultraviolet::{Rotor3, Vec3};
 
 use super::AppState;
 
-use camera::CameraController;
+use camera::{CameraController, FiniteVec3};
 
 mod automata;
+pub use automata::WidgetTarget;
 use automata::{NormalState, State, Transition};
 
 /// The effect that draging the mouse have
@@ -67,11 +69,11 @@ pub enum Consequence {
     CameraMoved,
     CameraTranslated(f64, f64),
     XoverAtempt(Nucl, Nucl, usize),
-    Translation(HandleDir, f64, f64),
+    Translation(HandleDir, f64, f64, WidgetTarget),
     MovementEnded,
-    Rotation(f64, f64),
-    InitRotation(RotationMode, f64, f64),
-    InitTranslation(f64, f64),
+    Rotation(f64, f64, WidgetTarget),
+    InitRotation(RotationMode, f64, f64, WidgetTarget),
+    InitTranslation(f64, f64, WidgetTarget),
     Swing(f64, f64),
     Nothing,
     ToggleWidget,
@@ -173,6 +175,17 @@ impl<S: AppState> Controller<S> {
         transition.consequences
     }
 
+    fn handles_color_system(&self) -> HandleColors {
+        self.state
+            .borrow()
+            .handles_color_system()
+            .unwrap_or(if self.current_modifiers.shift() {
+                HandleColors::Cym
+            } else {
+                HandleColors::Rgb
+            })
+    }
+
     pub fn input(
         &mut self,
         event: &WindowEvent,
@@ -257,7 +270,7 @@ impl<S: AppState> Controller<S> {
     }
 
     /// Set the pivot point of the camera
-    pub fn set_pivot_point(&mut self, point: Option<Vec3>) {
+    pub fn set_pivot_point(&mut self, point: Option<FiniteVec3>) {
         self.camera_controller.set_pivot_point(point)
     }
 
@@ -321,6 +334,16 @@ impl<S: AppState> Controller<S> {
     pub fn stop_camera_movement(&mut self) {
         self.camera_controller.stop_camera_movement()
     }
+
+    pub fn update_data(&mut self) {
+        self.update_handle_colors();
+    }
+
+    fn update_handle_colors(&self) {
+        self.data
+            .borrow_mut()
+            .update_handle_colors(self.handles_color_system());
+    }
 }
 
 fn ctrl(modifiers: &ModifiersState) -> bool {
@@ -341,4 +364,7 @@ pub(super) trait Data {
     ) -> Option<(Nucl, Nucl, usize)>;
     fn can_start_builder(&self, element: Option<SceneElement>) -> Option<Nucl>;
     fn get_grid_helix(&self, grid_id: usize, x: isize, y: isize) -> Option<u32>;
+    fn notify_rotating_pivot(&mut self);
+    fn stop_rotating_pivot(&mut self);
+    fn update_handle_colors(&mut self, colors: HandleColors);
 }

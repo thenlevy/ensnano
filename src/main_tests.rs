@@ -30,8 +30,8 @@ fn new_state() -> MainState {
 fn undoable_selection() {
     let mut state = new_state();
     let selection_1 = vec![Selection::Strand(0, 0), Selection::Strand(0, 1)];
-    state.update_selection(selection_1.clone());
-    state.update_selection(vec![]);
+    state.update_selection(selection_1.clone(), None);
+    state.update_selection(vec![], None);
     state.undo();
     assert_eq!(
         state.app_state.get_selection().as_ref().clone(),
@@ -43,7 +43,7 @@ fn undoable_selection() {
 fn redoable_selection() {
     let mut state = new_state();
     let selection_1 = vec![Selection::Strand(0, 0), Selection::Strand(0, 1)];
-    state.update_selection(selection_1.clone());
+    state.update_selection(selection_1.clone(), None);
     state.undo();
     assert_eq!(state.app_state.get_selection().as_ref().clone(), vec![]);
     state.redo();
@@ -57,9 +57,9 @@ fn redoable_selection() {
 fn empty_selections_dont_pollute_undo_stack() {
     let mut state = new_state();
     let selection_1 = vec![Selection::Strand(0, 0), Selection::Strand(0, 1)];
-    state.update_selection(selection_1.clone());
-    state.update_selection(vec![]);
-    state.update_selection(vec![]);
+    state.update_selection(selection_1.clone(), None);
+    state.update_selection(vec![], None);
+    state.update_selection(vec![], None);
     state.undo();
     assert_eq!(
         state.app_state.get_selection().as_ref().clone(),
@@ -93,7 +93,7 @@ fn duplication_via_requests_correct_status() {
     let mut main_state = new_state();
     let app_state = pastable_design();
     main_state.clear_app_state(app_state);
-    main_state.update_selection(vec![Selection::Strand(0, 0)]);
+    main_state.update_selection(vec![Selection::Strand(0, 0)], None);
     main_state.request_duplication();
     assert_eq!(
         main_state.app_state.is_pasting(),
@@ -116,7 +116,7 @@ fn duplication_via_requests_strands_are_duplicated() {
     let mut main_state = new_state();
     let app_state = pastable_design();
     main_state.clear_app_state(app_state);
-    main_state.update_selection(vec![Selection::Strand(0, 0)]);
+    main_state.update_selection(vec![Selection::Strand(0, 0)], None);
     let initial_amount = main_state
         .get_app_state()
         .get_design_reader()
@@ -160,7 +160,7 @@ fn new_selection_empties_duplication_clipboard() {
     let mut main_state = new_state();
     let app_state = pastable_design();
     main_state.clear_app_state(app_state);
-    main_state.update_selection(vec![Selection::Strand(0, 0)]);
+    main_state.update_selection(vec![Selection::Strand(0, 0)], None);
     main_state.request_duplication();
     main_state.apply_copy_operation(CopyOperation::PositionPastingPoint(Some(Nucl {
         helix: 1,
@@ -170,7 +170,7 @@ fn new_selection_empties_duplication_clipboard() {
     main_state.apply_paste();
     main_state.request_duplication();
     assert_eq!(main_state.app_state.is_pasting(), PastingStatus::None);
-    main_state.update_selection(vec![Selection::Strand(0, 0), Selection::Strand(0, 1)]);
+    main_state.update_selection(vec![Selection::Strand(0, 0), Selection::Strand(0, 1)], None);
     main_state.request_duplication();
     assert_eq!(
         main_state.app_state.is_pasting(),
@@ -184,7 +184,7 @@ fn position_paste_via_requests() {
     let mut main_state = new_state();
     let app_state = pastable_design();
     main_state.clear_app_state(app_state);
-    main_state.update_selection(vec![Selection::Xover(0, 0)]);
+    main_state.update_selection(vec![Selection::Xover(0, 0)], None);
     main_state.request_copy();
     let nucl = Nucl {
         helix: 1,
@@ -217,7 +217,7 @@ fn undo_redo_copy_paste_xover() {
     let mut main_state = new_state();
     let app_state = pastable_design();
     main_state.clear_app_state(app_state);
-    main_state.update_selection(vec![Selection::Xover(0, 0)]);
+    main_state.update_selection(vec![Selection::Xover(0, 0)], None);
     main_state.request_copy();
     let nucl = Nucl {
         helix: 1,
@@ -261,7 +261,7 @@ fn undo_redo_copy_paste_xover_pasting_status() {
     let mut main_state = new_state();
     let app_state = pastable_design();
     main_state.clear_app_state(app_state);
-    main_state.update_selection(vec![Selection::Xover(0, 0)]);
+    main_state.update_selection(vec![Selection::Xover(0, 0)], None);
     main_state.request_copy();
     main_state.apply_copy_operation(CopyOperation::PositionPastingPoint(None));
     assert!(main_state.app_state.is_pasting().is_pasting());
@@ -287,7 +287,7 @@ fn duplicate_xover_pasting_status() {
     let mut main_state = new_state();
     let app_state = pastable_design();
     main_state.clear_app_state(app_state);
-    main_state.update_selection(vec![Selection::Xover(0, 0)]);
+    main_state.update_selection(vec![Selection::Xover(0, 0)], None);
     main_state.request_duplication();
     assert!(main_state.app_state.is_pasting().is_pasting());
     main_state.apply_copy_operation(CopyOperation::PositionPastingPoint(Some(Nucl {
@@ -308,7 +308,7 @@ fn duplicate_xover() {
     let mut main_state = new_state();
     let app_state = pastable_design();
     main_state.clear_app_state(app_state);
-    main_state.update_selection(vec![Selection::Xover(0, 0)]);
+    main_state.update_selection(vec![Selection::Xover(0, 0)], None);
     main_state.request_duplication();
     let n1 = Nucl {
         helix: 1,

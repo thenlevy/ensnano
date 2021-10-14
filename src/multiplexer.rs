@@ -489,6 +489,14 @@ impl Multiplexer {
                             .keep_proceed
                             .push_back(Action::Exit);
                     }
+                    keycode if keycode_to_num(keycode).is_some() => {
+                        let n_camera = keycode_to_num(keycode).unwrap();
+                        self.requests
+                            .lock()
+                            .unwrap()
+                            .keep_proceed
+                            .push_back(Action::SelectFavoriteCamera(n_camera));
+                    }
                     VirtualKeyCode::S => {
                         self.requests.lock().unwrap().selection_mode = Some(SelectionMode::Strand)
                     }
@@ -794,5 +802,21 @@ impl GuiMultiplexer for Multiplexer {
 
     fn foccused_element(&self) -> Option<ElementType> {
         self.foccused_element()
+    }
+}
+
+fn keycode_to_num(keycode: VirtualKeyCode) -> Option<u32> {
+    if keycode as u32 >= VirtualKeyCode::Key1 as u32
+        && keycode as u32 <= VirtualKeyCode::Key0 as u32
+    {
+        Some(keycode as u32 - VirtualKeyCode::Key1 as u32)
+    } else if keycode == VirtualKeyCode::Numpad0 {
+        Some(9)
+    } else if keycode as u32 >= VirtualKeyCode::Numpad1 as u32
+        && keycode as u32 <= VirtualKeyCode::Numpad9 as u32
+    {
+        Some(keycode as u32 - VirtualKeyCode::Numpad1 as u32)
+    } else {
+        None
     }
 }

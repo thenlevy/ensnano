@@ -24,6 +24,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 
 /// Draw the top bar of the GUI
 pub mod top_bar;
+use ensnano_organizer::GroupId;
 pub use top_bar::TopBar;
 /// Draw the left pannel of the GUI
 pub mod left_panel;
@@ -32,6 +33,7 @@ pub mod status_bar;
 mod ui_size;
 pub use ui_size::*;
 mod material_icons_light;
+pub use ensnano_design::{Camera, CameraId};
 pub use status_bar::{CurentOpState, StrandBuildingStatus};
 
 mod icon;
@@ -127,7 +129,12 @@ pub trait Requests: 'static + Send {
     /// Create a new grid in front of the 3D camera
     fn create_grid(&mut self, grid_type_descriptor: GridTypeDescr);
     fn set_candidates_keys(&mut self, candidates: Vec<DnaElementKey>);
-    fn set_selected_keys(&mut self, selection: Vec<DnaElementKey>);
+    fn set_selected_keys(
+        &mut self,
+        selection: Vec<DnaElementKey>,
+        group_id: Option<ensnano_organizer::GroupId>,
+        new_group: bool,
+    );
     fn update_organizer_tree(&mut self, tree: OrganizerTree<DnaElementKey>);
     /// Update one attribute of several Dna Elements
     fn update_attribute_of_elements(
@@ -168,6 +175,12 @@ pub trait Requests: 'static + Send {
     fn reload_file(&mut self);
     fn add_double_strand_on_new_helix(&mut self, parameters: Option<(isize, usize)>);
     fn set_strand_name(&mut self, s_id: usize, name: String);
+    fn create_new_camera(&mut self);
+    fn delete_camera(&mut self, cam_id: CameraId);
+    fn select_camera(&mut self, cam_id: CameraId);
+    fn set_favourite_camera(&mut self, cam_id: CameraId);
+    fn update_camera(&mut self, cam_id: CameraId);
+    fn set_camera_name(&mut self, cam_id: CameraId, name: String);
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -872,6 +885,7 @@ pub trait AppState: Default + PartialEq + Clone + 'static + Send + std::fmt::Deb
     fn selection_was_updated(&self, other: &Self) -> bool;
     fn get_curent_operation_state(&self) -> Option<CurentOpState>;
     fn get_strand_building_state(&self) -> Option<StrandBuildingStatus>;
+    fn get_selected_group(&self) -> Option<GroupId>;
 }
 
 pub trait DesignReader: 'static {
@@ -885,6 +899,8 @@ pub trait DesignReader: 'static {
     fn get_dna_elements(&self) -> &[DnaElement];
     fn get_organizer_tree(&self) -> Option<Arc<ensnano_design::EnsnTree>>;
     fn strand_name(&self, s_id: usize) -> String;
+    fn get_all_cameras(&self) -> Vec<(CameraId, &str)>;
+    fn get_favourite_camera(&self) -> Option<CameraId>;
 }
 
 pub struct MainState {

@@ -23,6 +23,7 @@ mod download_staples;
 use download_staples::*;
 pub use download_staples::{DownloadStappleError, DownloadStappleOk, StaplesDownloader};
 mod quit;
+use ensnano_design::group_attributes::GroupPivot;
 use ensnano_interactor::{application::Notification, DesignOperation};
 use ensnano_interactor::{DesignReader, RigidBodyConstants, Selection};
 use quit::*;
@@ -206,6 +207,13 @@ pub(crate) trait MainState: ScaffoldSetter {
     fn need_save(&self) -> bool;
     fn get_current_design_directory(&self) -> Option<&Path>;
     fn get_current_file_name(&self) -> Option<&Path>;
+    fn set_current_group_pivot(&mut self, pivot: GroupPivot);
+    fn translate_group_pivot(&mut self, translation: Vec3);
+    fn rotate_group_pivot(&mut self, rotation: Rotor3);
+    fn create_new_camera(&mut self);
+    fn select_camera(&mut self, camera_id: ensnano_design::CameraId);
+    fn select_favorite_camera(&mut self, n_camera: u32);
+    fn update_camera(&mut self, camera_id: ensnano_design::CameraId);
 }
 
 pub struct LoadDesignError(String);

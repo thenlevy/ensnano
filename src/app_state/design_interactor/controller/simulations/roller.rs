@@ -94,7 +94,7 @@ impl PhysicalSystem {
         std::thread::spawn(move || {
             while let Some(interface_ptr) = self.interface.upgrade() {
                 let grad = self.roller.solve_one_step(&mut self.data, 1e-3);
-                println!("grad {}", grad);
+                log::trace!("grad {}", grad);
                 interface_ptr.lock().unwrap().stabilized = grad < 0.1;
                 interface_ptr.lock().unwrap().new_state = Some(self.data.get_simulation_state())
             }
@@ -230,7 +230,7 @@ impl RollSystem {
             self.update_rolls(data, dt);
             self.update_speed(dt);
             self.update_acceleration(data);
-            println!("acceleration {:?}", self.acceleration);
+            log::trace!("acceleration {:?}", self.acceleration);
             done = self.acceleration.iter().map(|x| x.abs()).sum::<f32>() < 1e-8;
             nb_step += 1;
         }

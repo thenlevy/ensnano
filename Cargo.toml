@@ -3,7 +3,7 @@ members = [ "ensnano-design", "ensnano-interactor", "ensnano-organizer" ]
 
 [package]
 name = "ensnano"
-version = "0.3.0-alpha"
+version = "0.3.0"
 authors = ["thenlevy <nicolaspierrelevy@gmail.com>"]
 edition = "2018"
 license = "GPL-3.0-or-later"
@@ -48,3 +48,7 @@ ensnano_design = { path = "ensnano-design" }
 ensnano_interactor = { path = "ensnano-interactor" }
 log = "0.4"
 pretty_env_logger = "0.4"
+
+[features]
+log_after_renderer_setup = []
+dx12_only = []

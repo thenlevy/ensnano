@@ -57,7 +57,7 @@ Clone the repo
 Run ensnano with
 
 `cd ensnano`
-`cargo run --release`
+`cargo run --features=log_after_renderer_setup --release`
 
 # Importing Cadnano/Scadnano files
 
@@ -76,6 +76,19 @@ In this cadnano design, deleted nucleotides are removed and loops are replaced b
 In this scadnano design, insertions and loopouts are replaced by single strands
 
 ![scadnano_insert_loopout](img/scadnano_insert_loopout.png) ![ensnano_insert_loopout](img/ensnano_insert_loopout.png)
+
+# Troubleshooting
+
+## Crash on startup on Windows
+By default, ENSnano uses a Vulkan renderer on windows platforms that offer one. However on some
+this Vulkan render does not work properly on some machine.
+
+For this reason it is also possible to use a DirectX12 renderer instead. 
+If your program crashes on startup, try using the `ensnano-windows-dx12` binary.
+
+If you are compiling from source, use a DirectX12 renderer with
+
+`cargo run --release --features="dx12_only log_after_renderer_setup"`
 
 # Thirdparties
 

@@ -18,6 +18,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 
 use super::graphics::*;
 use super::Selection;
+use ensnano_design::group_attributes::GroupPivot;
 use ensnano_design::Nucl;
 use iced_wgpu::wgpu;
 use iced_winit::winit;
@@ -52,6 +53,13 @@ pub trait Application {
     fn get_position_for_new_grid(&self) -> Option<(Vec3, Rotor3)> {
         None
     }
+
+    fn get_camera(&self) -> Option<(Vec3, Rotor3)> {
+        None
+    }
+    fn get_current_selection_pivot(&self) -> Option<GroupPivot> {
+        None
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -68,6 +76,7 @@ pub enum Notification {
     Save(usize),
     /// The 3d camera must face a given target
     CameraTarget((Vec3, Vec3)),
+    TeleportCamera(Vec3, Rotor3),
     CameraRotation(f32, f32, f32),
     Centering(Nucl, usize),
     CenterSelection(Selection, AppId),

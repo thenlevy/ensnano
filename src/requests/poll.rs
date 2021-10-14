@@ -226,9 +226,12 @@ pub(crate) fn poll_all<R: DerefMut<Target = Requests>>(
         main_state.push_action(Action::UpdateHyperboloidShift(f))
     }
 
-    if let Some(s) = requests.organizer_selection.take() {
+    if let Some((s, g_id, new_group)) = requests.organizer_selection.take() {
         let selection = s.into_iter().map(|e| e.to_selection(0)).collect();
-        main_state.update_selection(selection);
+        if new_group && g_id.is_some() {
+            main_state.transfer_selection_pivot_to_group(g_id.unwrap());
+        }
+        main_state.update_selection(selection, g_id);
     }
 
     if let Some(c) = requests.organizer_candidates.take() {
@@ -331,7 +334,7 @@ pub(crate) fn poll_all<R: DerefMut<Target = Requests>>(
     }
 
     if let Some(selection) = requests.new_selection.take() {
-        main_state.update_selection(selection);
+        main_state.update_selection(selection, None);
         if let Some(center) = requests.new_center_of_selection.take() {
             main_state.update_center_of_selection(center);
         }

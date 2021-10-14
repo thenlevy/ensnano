@@ -17,6 +17,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 
 use super::*;
+use ensnano_design::group_attributes::GroupPivot;
 use ensnano_design::Nucl;
 use ensnano_interactor::{graphics::FogParameters, HyperboloidOperation};
 
@@ -195,6 +196,34 @@ impl State for NormalState {
                     } else {
                         self
                     }
+                }
+                Action::SetGroupPivot(pivot) => {
+                    main_state.set_current_group_pivot(pivot);
+                    self
+                }
+                Action::TranslateGroupPivot(translation) => {
+                    main_state.translate_group_pivot(translation);
+                    self
+                }
+                Action::RotateGroupPivot(rotation) => {
+                    main_state.rotate_group_pivot(rotation);
+                    self
+                }
+                Action::NewCamera => {
+                    main_state.create_new_camera();
+                    self
+                }
+                Action::SelectCamera(camera_id) => {
+                    main_state.select_camera(camera_id);
+                    self
+                }
+                Action::SelectFavoriteCamera(n) => {
+                    main_state.select_favorite_camera(n);
+                    self
+                }
+                Action::UpdateCamera(camera_id) => {
+                    main_state.update_camera(camera_id);
+                    self
                 }
                 action => {
                     println!("Not implemented {:?}", action);
@@ -380,4 +409,11 @@ pub enum Action {
     Split2D,
     ReloadFile,
     ClearVisibilitySieve,
+    SetGroupPivot(GroupPivot),
+    TranslateGroupPivot(Vec3),
+    RotateGroupPivot(Rotor3),
+    NewCamera,
+    SelectCamera(ensnano_design::CameraId),
+    SelectFavoriteCamera(u32),
+    UpdateCamera(ensnano_design::CameraId),
 }

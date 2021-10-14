@@ -16,7 +16,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 use ensnano_design::grid::GridPosition;
-use ensnano_design::Nucl;
+use ensnano_design::{Nucl, Strand};
 use std::collections::BTreeSet;
 
 pub const PHANTOM_RANGE: i32 = 1000;
@@ -109,6 +109,40 @@ impl Selection {
             _ => Vec::new(),
         }
     }*/
+
+    fn get_helices_containing_self(&self, reader: &dyn DesignReader) -> Option<Vec<usize>> {
+        match self {
+            Self::Design(_) => None,
+            Self::Grid(_, _) => None,
+            Self::Helix(_, h_id) => Some(vec![*h_id as usize]),
+            Self::Nucleotide(_, nucl) => Some(vec![nucl.helix]),
+            Self::Phantom(pe) => Some(vec![pe.to_nucl().helix]),
+            Self::Strand(_, s_id) => {
+                let strand = reader.get_strand_with_id(*s_id as usize)?;
+                Some(strand.domains.iter().filter_map(|d| d.helix()).collect())
+            }
+            Self::Xover(_, xover_id) => {
+                let (n1, n2) = reader.get_xover_with_id(*xover_id)?;
+                Some(vec![n1.helix, n2.helix])
+            }
+            Self::Bound(_, n1, n2) => Some(vec![n1.helix, n2.helix]),
+            Self::Nothing => Some(vec![]),
+        }
+    }
+
+    fn get_grids_containing_self(&self, reader: &dyn DesignReader) -> Option<Vec<usize>> {
+        if let Self::Grid(_, g_id) = self {
+            Some(vec![*g_id])
+        } else {
+            let helices = self.get_helices_containing_self(reader)?;
+            Some(
+                helices
+                    .iter()
+                    .filter_map(|h| reader.get_helix_grid(*h))
+                    .collect(),
+            )
+        }
+    }
 }
 
 pub fn extract_strands_from_selection(selection: &[Selection]) -> Vec<usize> {
@@ -246,6 +280,34 @@ pub fn list_of_helices(selection: &[Selection]) -> Option<(usize, Vec<usize>)> {
         }
     }
     Some((design_id as usize, helices.into_iter().collect()))
+}
+
+pub fn set_of_helices_containing_selection(
+    selection: &[Selection],
+    reader: &dyn DesignReader,
+) -> Option<Vec<usize>> {
+    let mut ret = Vec::new();
+    for s in selection {
+        let helices = s.get_helices_containing_self(reader)?;
+        ret.extend_from_slice(helices.as_slice());
+    }
+    ret.sort();
+    ret.dedup();
+    Some(ret)
+}
+
+pub fn set_of_grids_containing_selection(
+    selection: &[Selection],
+    reader: &dyn DesignReader,
+) -> Option<Vec<usize>> {
+    let mut ret = Vec::new();
+    for s in selection {
+        let grids = s.get_grids_containing_self(reader)?;
+        ret.extend_from_slice(grids.as_slice());
+    }
+    ret.sort();
+    ret.dedup();
+    Some(ret)
 }
 
 /// Return true iff the selection is only made of helices that are not attached to a grid
@@ -448,6 +510,8 @@ pub trait DesignReader {
     fn get_grid_position_of_helix(&self, h_id: usize) -> Option<GridPosition>;
     fn get_xover_id(&self, pair: &(Nucl, Nucl)) -> Option<usize>;
     fn get_xover_with_id(&self, id: usize) -> Option<(Nucl, Nucl)>;
+    fn get_strand_with_id(&self, id: usize) -> Option<&Strand>;
+    fn get_helix_grid(&self, h_id: usize) -> Option<usize>;
 }
 
 pub trait SelectionConversion: Sized {

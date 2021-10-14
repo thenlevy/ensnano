@@ -23,7 +23,7 @@ use ensnano_interactor::StrandBuilder;
 impl App2D for AppState {
     type Reader = DesignReader;
     fn get_selection(&self) -> &[Selection] {
-        self.0.selection.as_slice()
+        self.selection_content().as_slice()
     }
 
     fn get_candidates(&self) -> &[Selection] {
@@ -31,7 +31,7 @@ impl App2D for AppState {
     }
 
     fn selection_was_updated(&self, other: &Self) -> bool {
-        self.0.selection != other.0.selection
+        self.selection_content() != other.selection_content()
     }
 
     fn candidate_was_updated(&self, other: &Self) -> bool {
@@ -77,7 +77,7 @@ mod tests {
 
         // When a new state is created with this methods it should be considered to have a new
         // selection but the same selection
-        state = state.with_selection(vec![Selection::Strand(0, 0)]);
+        state = state.with_selection(vec![Selection::Strand(0, 0)], None);
         assert!(state.selection_was_updated(&old_state));
     }
 

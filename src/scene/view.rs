@@ -23,6 +23,7 @@ use crate::consts::*;
 use crate::utils::{bindgroup_manager, texture};
 use crate::{DrawArea, PhySize};
 use camera::{Camera, CameraPtr, Projection, ProjectionPtr};
+use ensnano_design::group_attributes::GroupPivot;
 use ensnano_design::Axis;
 use iced_wgpu::wgpu;
 use std::cell::RefCell;
@@ -58,7 +59,7 @@ pub use grid::{GridInstance, GridIntersection};
 use grid::{GridManager, GridTextures};
 pub use grid_disc::GridDisc;
 use handle_drawer::HandlesDrawer;
-pub use handle_drawer::{HandleDir, HandleOrientation, HandlesDescriptor};
+pub use handle_drawer::{HandleColors, HandleDir, HandleOrientation, HandlesDescriptor};
 pub use instances_drawer::Instanciable;
 use instances_drawer::{InstanceDrawer, RawDrawer};
 pub use letter::LetterInstance;
@@ -544,22 +545,6 @@ impl View {
                 }
             }
 
-            if draw_type.wants_widget() {
-                self.handle_drawers.draw(
-                    &mut render_pass,
-                    viewer_bind_group,
-                    viewer_bind_group_layout,
-                    fake_color,
-                );
-
-                self.rotation_widget.draw(
-                    &mut render_pass,
-                    viewer_bind_group,
-                    viewer_bind_group_layout,
-                    fake_color,
-                );
-            }
-
             if !fake_color && self.draw_letter {
                 for drawer in self.letter_drawer.iter_mut() {
                     drawer.draw(
@@ -589,6 +574,22 @@ impl View {
                         self.models.get_bindgroup(),
                     )
                 }
+            }
+
+            if draw_type.wants_widget() {
+                self.handle_drawers.draw(
+                    &mut render_pass,
+                    viewer_bind_group,
+                    viewer_bind_group_layout,
+                    fake_color,
+                );
+
+                self.rotation_widget.draw(
+                    &mut render_pass,
+                    viewer_bind_group,
+                    viewer_bind_group_layout,
+                    fake_color,
+                );
             }
 
             if fake_color {
@@ -689,6 +690,12 @@ impl View {
         }
     }
 
+    pub fn get_current_pivot(&self) -> Option<GroupPivot> {
+        self.handle_drawers
+            .get_pivot_position()
+            .or_else(|| self.rotation_widget.get_pivot_position())
+    }
+
     /// Get a pointer to the camera
     pub fn get_camera(&self) -> CameraPtr {
         self.camera.clone()
@@ -701,6 +708,10 @@ impl View {
 
     pub fn set_draw_letter(&mut self, value: bool) {
         self.draw_letter = value;
+    }
+
+    pub fn end_movement(&mut self) {
+        self.handle_drawers.end_movement()
     }
 
     /// Compute the translation that needs to be applied to the objects affected by the handle
@@ -813,6 +824,12 @@ impl View {
     pub fn background3d(&mut self, bg: Background3D) {
         self.background3d = bg;
         self.need_redraw = true;
+    }
+
+    pub fn get_group_pivot(&self) -> Option<GroupPivot> {
+        self.handle_drawers
+            .get_pivot_position()
+            .or_else(|| self.rotation_widget.get_pivot_position())
     }
 }
 

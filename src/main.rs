@@ -84,7 +84,7 @@ pub type PhySize = iced_winit::winit::dpi::PhysicalSize<u32>;
 const TEXTURE_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Bgra8UnormSrgb;
 
 use controller::{ChanelReader, ChanelReaderUpdate, SimulationRequest};
-use ensnano_design::Nucl;
+use ensnano_design::{Camera, Nucl};
 use ensnano_interactor::application::{Application, Notification};
 use ensnano_interactor::{CenterOfSelection, DesignOperation, DesignReader, RigidBodyConstants};
 use iced_native::Event as IcedEvent;
@@ -155,6 +155,16 @@ fn convert_size_u32(size: PhySize) -> Size<u32> {
     Size::new(size.width, size.height)
 }
 
+#[cfg(not(feature = "log_after_renderer_setup"))]
+const EARLY_LOG: bool = true;
+#[cfg(feature = "log_after_renderer_setup")]
+const EARLY_LOG: bool = false;
+
+#[cfg(not(feature = "dx12_only"))]
+const BACKEND: wgpu::Backends = wgpu::Backends::PRIMARY;
+#[cfg(feature = "dx12_only")]
+const BACKEND: wgpu::Backends = wgpu::Backends::DX12;
+
 /// Main function. Runs the event loop and holds the framebuffer.
 ///
 /// # Intialization
@@ -183,7 +193,9 @@ fn convert_size_u32(size: PhySize) -> Size<u32> {
 ///
 ///
 fn main() {
-    pretty_env_logger::init();
+    if EARLY_LOG {
+        pretty_env_logger::init();
+    }
     // parse arugments, if an argument was given it is treated as a file to open
     let args: Vec<String> = env::args().collect();
     let path = if args.len() >= 2 {
@@ -202,7 +214,7 @@ fn main() {
 
     let modifiers = ModifiersState::default();
 
-    let instance = wgpu::Instance::new(wgpu::Backends::PRIMARY);
+    let instance = wgpu::Instance::new(BACKEND);
     let surface = unsafe { instance.create_surface(&window) };
     // Initialize WGPU
     let (device, queue) = futures::executor::block_on(async {
@@ -335,6 +347,11 @@ fn main() {
 
     let mut controller = Controller::new();
 
+    println!("{}", consts::WELCOME_MSG);
+    if !EARLY_LOG {
+        pretty_env_logger::init();
+    }
+
     event_loop.run(move |event, _, control_flow| {
         // Wait for event or redraw a frame every 33 ms (30 frame per seconds)
         *control_flow = ControlFlow::WaitUntil(Instant::now() + Duration::from_millis(33));
@@ -464,6 +481,10 @@ fn main() {
                     resized: false,
                 };
 
+                if main_state_view.main_state.wants_fit {
+                    main_state_view.notify_apps(Notification::FitRequest);
+                    main_state_view.main_state.wants_fit = false;
+                }
                 controller.make_progress(&mut main_state_view);
                 resized |= main_state_view.resized;
 
@@ -840,6 +861,7 @@ pub(crate) struct MainState {
     focussed_element: Option<ElementType>,
     last_saved_state: AppState,
     path_to_current_design: Option<PathBuf>,
+    wants_fit: bool,
 }
 
 struct MainStateConstructor {
@@ -861,6 +883,7 @@ impl MainState {
             focussed_element: None,
             last_saved_state: app_state.clone(),
             path_to_current_design: None,
+            wants_fit: false,
         }
     }
 
@@ -892,8 +915,23 @@ impl MainState {
         self.modify_state(|s| s.with_candidates(candidates), false);
     }
 
-    fn update_selection(&mut self, selection: Vec<Selection>) {
-        self.modify_state(|s| s.with_selection(selection), true);
+    fn transfer_selection_pivot_to_group(&mut self, group_id: ensnano_design::GroupId) {
+        use scene::AppState;
+        let scene_pivot = self
+            .applications
+            .get(&ElementType::Scene)
+            .and_then(|app| app.lock().unwrap().get_current_selection_pivot());
+        if let Some(pivot) = self.app_state.get_current_group_pivot().or(scene_pivot) {
+            self.apply_operation(DesignOperation::SetGroupPivot { group_id, pivot })
+        }
+    }
+
+    fn update_selection(
+        &mut self,
+        selection: Vec<Selection>,
+        group_id: Option<ensnano_organizer::GroupId>,
+    ) {
+        self.modify_state(|s| s.with_selection(selection, group_id), true);
     }
 
     fn update_center_of_selection(&mut self, center: Option<CenterOfSelection>) {
@@ -1079,7 +1117,20 @@ impl MainState {
     }
 
     fn save_design(&mut self, path: &PathBuf) -> Result<(), SaveDesignError> {
-        self.app_state.get_design_reader().save_design(path)?;
+        let camera = self
+            .applications
+            .get(&ElementType::Scene)
+            .and_then(|s| s.lock().unwrap().get_camera())
+            .map(|(position, orientation)| Camera {
+                id: Default::default(),
+                name: String::from("Saved Camera"),
+                position,
+                orientation,
+            });
+        let save_info = ensnano_design::SavingInformation { camera };
+        self.app_state
+            .get_design_reader()
+            .save_design(path, save_info)?;
         self.last_saved_state = self.app_state.clone();
         self.path_to_current_design = Some(path.clone());
         Ok(())
@@ -1151,6 +1202,16 @@ impl<'a> MainStateInteface for MainStateView<'a> {
         if let Ok(state) = AppState::import_design(&path) {
             self.main_state.clear_app_state(state);
             self.main_state.path_to_current_design = Some(path.clone());
+            if let Some((position, orientation)) = self
+                .main_state
+                .app_state
+                .get_design_reader()
+                .get_favourite_camera()
+            {
+                self.notify_apps(Notification::TeleportCamera(position, orientation));
+            } else {
+                self.main_state.wants_fit = true;
+            }
             Ok(())
         } else {
             Err(LoadDesignError::from("\"Oh No\"".to_string()))
@@ -1236,7 +1297,8 @@ impl<'a> MainStateInteface for MainStateView<'a> {
         self.main_state.modify_state(
             |s| s.notified(app_state::InteractorNotification::FinishOperation),
             false,
-        )
+        );
+        self.main_state.app_state.finish_operation();
     }
 
     fn request_copy(&mut self) {
@@ -1267,19 +1329,19 @@ impl<'a> MainStateInteface for MainStateView<'a> {
             selection.as_ref().as_ref(),
             self.get_design_reader().as_ref(),
         ) {
-            self.main_state.update_selection(vec![]);
+            self.main_state.update_selection(vec![], None);
             self.main_state
                 .apply_operation(DesignOperation::RmXovers { xovers: nucl_pairs })
         } else if let Some((_, strand_ids)) =
             ensnano_interactor::list_of_strands(selection.as_ref().as_ref())
         {
-            self.main_state.update_selection(vec![]);
+            self.main_state.update_selection(vec![], None);
             self.main_state
                 .apply_operation(DesignOperation::RmStrands { strand_ids })
         } else if let Some((_, h_ids)) =
             ensnano_interactor::list_of_helices(selection.as_ref().as_ref())
         {
-            self.main_state.update_selection(vec![]);
+            self.main_state.update_selection(vec![], None);
             self.main_state
                 .apply_operation(DesignOperation::RmHelices { h_ids })
         }
@@ -1294,7 +1356,7 @@ impl<'a> MainStateInteface for MainStateView<'a> {
             .map(|info| info.id);
         if let Some(s_id) = scaffold_id {
             self.main_state
-                .update_selection(vec![Selection::Strand(0, s_id as u32)])
+                .update_selection(vec![Selection::Strand(0, s_id as u32)], None)
         }
     }
 
@@ -1360,6 +1422,94 @@ impl<'a> MainStateInteface for MainStateView<'a> {
 
     fn get_current_file_name(&self) -> Option<&Path> {
         self.main_state.get_current_file_name()
+    }
+
+    fn set_current_group_pivot(&mut self, pivot: ensnano_design::group_attributes::GroupPivot) {
+        if let Some(group_id) = self.main_state.app_state.get_current_group_id() {
+            self.apply_operation(DesignOperation::SetGroupPivot { group_id, pivot })
+        } else {
+            self.main_state.app_state.set_current_group_pivot(pivot);
+        }
+    }
+
+    fn translate_group_pivot(&mut self, translation: Vec3) {
+        use ensnano_interactor::{DesignTranslation, IsometryTarget};
+        if let Some(group_id) = self.main_state.app_state.get_current_group_id() {
+            self.apply_operation(DesignOperation::Translation(DesignTranslation {
+                target: IsometryTarget::GroupPivot(group_id),
+                translation,
+                group_id: None,
+            }))
+        } else {
+            self.main_state.app_state.translate_group_pivot(translation);
+        }
+    }
+
+    fn rotate_group_pivot(&mut self, rotation: Rotor3) {
+        use ensnano_interactor::{DesignRotation, IsometryTarget};
+        if let Some(group_id) = self.main_state.app_state.get_current_group_id() {
+            self.apply_operation(DesignOperation::Rotation(DesignRotation {
+                target: IsometryTarget::GroupPivot(group_id),
+                rotation,
+                origin: Vec3::zero(),
+                group_id: None,
+            }))
+        } else {
+            self.main_state.app_state.rotate_group_pivot(rotation);
+        }
+    }
+
+    fn create_new_camera(&mut self) {
+        if let Some((position, orientation)) = self
+            .main_state
+            .applications
+            .get(&ElementType::Scene)
+            .and_then(|s| s.lock().unwrap().get_camera())
+        {
+            self.main_state
+                .apply_operation(DesignOperation::CreateNewCamera {
+                    position,
+                    orientation,
+                })
+        } else {
+            log::error!("Could not get current camera position");
+        }
+    }
+
+    fn select_camera(&mut self, camera_id: ensnano_design::CameraId) {
+        let reader = self.main_state.app_state.get_design_reader();
+        if let Some((position, orientation)) = reader.get_camera_with_id(camera_id) {
+            self.notify_apps(Notification::TeleportCamera(position, orientation))
+        } else {
+            log::error!("Could not get camera {:?}", camera_id)
+        }
+    }
+
+    fn update_camera(&mut self, camera_id: ensnano_design::CameraId) {
+        if let Some((position, orientation)) = self
+            .main_state
+            .applications
+            .get(&ElementType::Scene)
+            .and_then(|s| s.lock().unwrap().get_camera())
+        {
+            self.main_state
+                .apply_operation(DesignOperation::UpdateCamera {
+                    camera_id,
+                    position,
+                    orientation,
+                })
+        } else {
+            log::error!("Could not get current camera position");
+        }
+    }
+
+    fn select_favorite_camera(&mut self, n_camera: u32) {
+        let reader = self.main_state.app_state.get_design_reader();
+        if let Some((position, orientation)) = reader.get_nth_camera(n_camera) {
+            self.notify_apps(Notification::TeleportCamera(position, orientation))
+        } else {
+            log::error!("Design has less than {} cameras", n_camera + 1);
+        }
     }
 }
 

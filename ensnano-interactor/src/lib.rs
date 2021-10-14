@@ -22,6 +22,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 use ensnano_design::{
     elements::{DnaAttribute, DnaElementKey},
     grid::{GridDescriptor, GridPosition, Hyperboloid},
+    group_attributes::GroupPivot,
     Nucl,
 };
 use ultraviolet::{Isometry2, Rotor3, Vec2, Vec3};
@@ -33,6 +34,7 @@ pub mod operation;
 mod strand_builder;
 pub use strand_builder::*;
 pub mod torsion;
+use ensnano_organizer::GroupId;
 
 #[derive(Clone, Copy, Eq, PartialEq)]
 pub enum ObjectType {
@@ -208,6 +210,25 @@ pub enum DesignOperation {
         s_id: usize,
         name: String,
     },
+    SetGroupPivot {
+        group_id: GroupId,
+        pivot: GroupPivot,
+    },
+    DeleteCamera(ensnano_design::CameraId),
+    CreateNewCamera {
+        position: Vec3,
+        orientation: Rotor3,
+    },
+    SetFavouriteCamera(ensnano_design::CameraId),
+    UpdateCamera {
+        camera_id: ensnano_design::CameraId,
+        position: Vec3,
+        orientation: Rotor3,
+    },
+    SetCameraName {
+        camera_id: ensnano_design::CameraId,
+        name: String,
+    },
 }
 
 /// An action performed on the application
@@ -235,6 +256,7 @@ pub struct DesignRotation {
     pub rotation: Rotor3,
     /// The element of the design on which the rotation will be applied
     pub target: IsometryTarget,
+    pub group_id: Option<GroupId>,
 }
 
 /// A translation of an element of a design
@@ -242,6 +264,7 @@ pub struct DesignRotation {
 pub struct DesignTranslation {
     pub translation: Vec3,
     pub target: IsometryTarget,
+    pub group_id: Option<GroupId>,
 }
 
 /// A element on which an isometry must be applied
@@ -253,6 +276,8 @@ pub enum IsometryTarget {
     Helices(Vec<usize>, bool),
     /// A grid of the desgin
     Grids(Vec<usize>),
+    /// The pivot of a group
+    GroupPivot(GroupId),
 }
 
 /// A stucture that defines an helix on a grid

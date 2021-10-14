@@ -76,6 +76,10 @@ pub(super) trait ControllerState<S: AppState> {
     fn check_timers(&mut self, _controller: &Controller<S>) -> Transition<S> {
         Transition::nothing()
     }
+
+    fn handles_color_system(&self) -> Option<HandleColors> {
+        None
+    }
 }
 
 pub struct NormalState {
@@ -291,21 +295,40 @@ impl<S: AppState> ControllerState<S> for NormalState {
                     Some(SceneElement::WidgetElement(widget_id)) => {
                         let mouse_x = position.x / controller.area_size.width as f64;
                         let mouse_y = position.y / controller.area_size.height as f64;
+                        let translation_target = if controller.current_modifiers.shift() {
+                            WidgetTarget::Pivot
+                        } else {
+                            WidgetTarget::Object
+                        };
                         match widget_id {
                             UP_HANDLE_ID | DIR_HANDLE_ID | RIGHT_HANDLE_ID => Transition {
                                 new_state: Some(Box::new(TranslatingWidget {
                                     direction: HandleDir::from_widget_id(widget_id),
+                                    translation_target,
                                 })),
-                                consequences: Consequence::InitTranslation(mouse_x, mouse_y),
-                            },
-                            RIGHT_CIRCLE_ID | FRONT_CIRCLE_ID | UP_CIRCLE_ID => Transition {
-                                new_state: Some(Box::new(RotatingWidget {})),
-                                consequences: Consequence::InitRotation(
-                                    RotationMode::from_widget_id(widget_id),
+                                consequences: Consequence::InitTranslation(
                                     mouse_x,
                                     mouse_y,
+                                    translation_target,
                                 ),
                             },
+                            RIGHT_CIRCLE_ID | FRONT_CIRCLE_ID | UP_CIRCLE_ID => {
+                                let target = if controller.current_modifiers.shift() {
+                                    WidgetTarget::Pivot
+                                } else {
+                                    WidgetTarget::Object
+                                };
+
+                                Transition {
+                                    new_state: Some(Box::new(RotatingWidget { target })),
+                                    consequences: Consequence::InitRotation(
+                                        RotationMode::from_widget_id(widget_id),
+                                        mouse_x,
+                                        mouse_y,
+                                        target,
+                                    ),
+                                }
+                            }
                             _ => {
                                 println!("WARNING UNEXPECTED WIDGET ID");
                                 Transition::nothing()
@@ -709,11 +732,28 @@ impl<S: AppState> ControllerState<S> for WaitDoubleClick {
 
 struct TranslatingWidget {
     direction: HandleDir,
+    translation_target: WidgetTarget,
+}
+
+/// What is being affected by the translation
+#[derive(Clone, Debug, Copy, Eq, PartialEq)]
+pub enum WidgetTarget {
+    /// The selected elements
+    Object,
+    /// The selection's pivot
+    Pivot,
 }
 
 impl<S: AppState> ControllerState<S> for TranslatingWidget {
     fn display(&self) -> Cow<'static, str> {
         "Translating widget".into()
+    }
+
+    fn handles_color_system(&self) -> Option<HandleColors> {
+        match self.translation_target {
+            WidgetTarget::Pivot => Some(HandleColors::Cym),
+            WidgetTarget::Object => Some(HandleColors::Rgb),
+        }
     }
 
     fn input(
@@ -738,7 +778,12 @@ impl<S: AppState> ControllerState<S> for TranslatingWidget {
             WindowEvent::CursorMoved { .. } => {
                 let mouse_x = position.x / controller.area_size.width as f64;
                 let mouse_y = position.y / controller.area_size.height as f64;
-                Transition::consequence(Consequence::Translation(self.direction, mouse_x, mouse_y))
+                Transition::consequence(Consequence::Translation(
+                    self.direction,
+                    mouse_x,
+                    mouse_y,
+                    self.translation_target,
+                ))
             }
             _ => Transition::nothing(),
         }
@@ -809,7 +854,9 @@ impl<S: AppState> ControllerState<S> for TranslatingHelix {
     }
 }
 
-struct RotatingWidget {}
+struct RotatingWidget {
+    target: WidgetTarget,
+}
 
 impl<S: AppState> ControllerState<S> for RotatingWidget {
     fn display(&self) -> Cow<'static, str> {
@@ -838,10 +885,24 @@ impl<S: AppState> ControllerState<S> for RotatingWidget {
             WindowEvent::CursorMoved { .. } => {
                 let mouse_x = position.x / controller.area_size.width as f64;
                 let mouse_y = position.y / controller.area_size.height as f64;
-                Transition::consequence(Consequence::Rotation(mouse_x, mouse_y))
+                Transition::consequence(Consequence::Rotation(mouse_x, mouse_y, self.target))
             }
             _ => Transition::nothing(),
         }
+    }
+
+    fn transition_to(&self, controller: &Controller<S>) -> TransistionConsequence {
+        if self.target == WidgetTarget::Pivot {
+            controller.data.borrow_mut().notify_rotating_pivot();
+        }
+        TransistionConsequence::Nothing
+    }
+
+    fn transition_from(&self, controller: &Controller<S>) -> TransistionConsequence {
+        if self.target == WidgetTarget::Pivot {
+            controller.data.borrow_mut().stop_rotating_pivot();
+        }
+        TransistionConsequence::Nothing
     }
 }
 

@@ -32,7 +32,10 @@ use iced_winit::winit::{
 };
 use ultraviolet::Vec3;
 
-use ensnano_design::elements::{DnaElement, DnaElementKey};
+use ensnano_design::{
+    elements::{DnaElement, DnaElementKey},
+    CameraId,
+};
 use ensnano_interactor::{
     graphics::{Background3D, RenderingMode},
     ActionMode, SelectionConversion, SelectionMode,
@@ -112,6 +115,7 @@ pub enum Message<S> {
     MakeGrids,
     SequenceChanged(String),
     SequenceFileRequested,
+    ColorPicked(Color),
     HsvSatValueChanged(f64, f64),
     StrandNameChanged(usize, String),
     FinishChangingColor,
@@ -169,6 +173,14 @@ pub enum Message<S> {
     FogChoice(tabs::FogChoice),
     SetScaffoldSeqButtonPressed,
     ResetSimulation,
+    EditCameraName(String),
+    SubmitCameraName,
+    StartEditCameraName(CameraId),
+    SetCameraFavorite(CameraId),
+    DeleteCamera(CameraId),
+    SelectCamera(CameraId),
+    NewCustomCamera,
+    UpdateCamera(CameraId),
 }
 
 impl<R: Requests, S: AppState> LeftPanel<R, S> {
@@ -228,7 +240,11 @@ impl<R: Requests, S: AppState> LeftPanel<R, S> {
                     .message(&m, &selection)
                     .map(|m_| Message::OrganizerMessage(m_));
             }
-            OrganizerMessage::Selection(s) => self.requests.lock().unwrap().set_selected_keys(s),
+            OrganizerMessage::Selection(s, group_id) => self
+                .requests
+                .lock()
+                .unwrap()
+                .set_selected_keys(s, group_id, false),
             OrganizerMessage::NewAttribute(a, keys) => {
                 self.requests
                     .lock()
@@ -243,6 +259,21 @@ impl<R: Requests, S: AppState> LeftPanel<R, S> {
                 .lock()
                 .unwrap()
                 .set_candidates_keys(candidates),
+            OrganizerMessage::NewGroup {
+                group_id,
+                elements_selected,
+                new_tree,
+            } => {
+                self.requests
+                    .lock()
+                    .unwrap()
+                    .update_organizer_tree(new_tree);
+                self.requests.lock().unwrap().set_selected_keys(
+                    elements_selected,
+                    Some(group_id),
+                    true,
+                );
+            }
             _ => (),
         }
         None
@@ -253,6 +284,7 @@ impl<R: Requests, S: AppState> LeftPanel<R, S> {
             || self.contextual_panel.has_keyboard_priority()
             || self.organizer.has_keyboard_priority()
             || self.sequence_tab.has_keyboard_priority()
+            || self.camera_shortcut.has_keyboard_priority()
     }
 }
 
@@ -311,6 +343,10 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
                     .lock()
                     .unwrap()
                     .change_strand_color(requested_color);
+            }
+            Message::ColorPicked(color) => {
+                let color_u32 = color_to_u32(color);
+                self.requests.lock().unwrap().change_strand_color(color_u32);
             }
             Message::Resized(size, position) => self.resize(size, position),
             Message::NewGrid(grid_type) => {
@@ -541,7 +577,6 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
                     }
                 }
                 if self.selected_tab == 3 && n != 3 {
-                    println!("leaving simulation tab");
                     self.simulation_tab
                         .leave_tab(self.requests.clone(), &self.application_state);
                 }
@@ -637,7 +672,8 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
                     self.contextual_panel.state_updated();
                 }
                 if state.selection_was_updated(&self.application_state) {
-                    self.organizer.notify_selection();
+                    let selected_group = state.get_selected_group();
+                    self.organizer.notify_selection(selected_group);
                     self.contextual_panel.state_updated();
                 }
                 if state.get_action_mode() != self.application_state.get_action_mode() {
@@ -645,9 +681,39 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
                 }
                 self.application_state = state;
             }
-            Message::FinishChangingColor => self.requests.lock().unwrap().finish_changing_color(),
+            Message::FinishChangingColor => {
+                self.edition_tab.add_color();
+                self.requests.lock().unwrap().finish_changing_color();
+            }
             Message::ResetSimulation => self.requests.lock().unwrap().reset_simulations(),
             Message::Nothing => (),
+            Message::SubmitCameraName => {
+                if let Some((id, name)) = self.camera_shortcut.stop_editing() {
+                    self.requests.lock().unwrap().set_camera_name(id, name);
+                }
+            }
+            Message::EditCameraName(name) => self.camera_shortcut.set_camera_input_name(name),
+            Message::StartEditCameraName(camera_id) => {
+                self.camera_shortcut.start_editing(camera_id)
+            }
+            Message::SetCameraFavorite(camera_id) => self
+                .requests
+                .lock()
+                .unwrap()
+                .set_favourite_camera(camera_id),
+            Message::DeleteCamera(camera_id) => {
+                self.requests.lock().unwrap().delete_camera(camera_id)
+            }
+            Message::SelectCamera(camera_id) => {
+                self.requests.lock().unwrap().select_camera(camera_id)
+            }
+            Message::NewCustomCamera => {
+                self.requests.lock().unwrap().create_new_camera();
+                self.camera_shortcut.scroll_down()
+            }
+            Message::UpdateCamera(camera_id) => {
+                self.requests.lock().unwrap().update_camera(camera_id)
+            }
         };
         Command::none()
     }
@@ -692,7 +758,9 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
             .tab_bar_style(TabStyle)
             .width(Length::Units(width))
             .height(Length::Fill);
-        let camera_shortcut = self.camera_shortcut.view(self.ui_size.clone(), width);
+        let camera_shortcut =
+            self.camera_shortcut
+                .view(self.ui_size.clone(), width, &self.application_state);
         let contextual_menu = self
             .contextual_panel
             .view(self.ui_size.clone(), &self.application_state);
@@ -703,14 +771,22 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
             .filter_map(|e| DnaElementKey::from_selection(e, 0))
             .collect();
 
-        if let Some(tree) = self.application_state.get_reader().get_organizer_tree() {
-            self.organizer.read_tree(tree.as_ref())
-        } else {
-            self.organizer.read_tree(&OrganizerTree::Node {
-                name: String::from("root"),
-                childrens: vec![],
-                expanded: true,
-            })
+        let notify_new_tree =
+            if let Some(tree) = self.application_state.get_reader().get_organizer_tree() {
+                self.organizer.read_tree(tree.as_ref())
+            } else {
+                self.organizer.read_tree(&OrganizerTree::Node {
+                    name: String::from("root"),
+                    childrens: vec![],
+                    expanded: true,
+                    id: None,
+                })
+            };
+        if notify_new_tree {
+            self.requests
+                .lock()
+                .unwrap()
+                .update_organizer_tree(self.organizer.tree())
         }
         let organizer = self
             .organizer
@@ -1331,4 +1407,12 @@ where
         .push(Checkbox::new(is_checked, "", f).size(ui_size.checkbox()))
         .spacing(CHECKBOXSPACING)
         .into()
+}
+
+fn color_to_u32(color: Color) -> u32 {
+    let red = ((color.r * 255.) as u32) << 16;
+    let green = ((color.g * 255.) as u32) << 8;
+    let blue = (color.b * 255.) as u32;
+    let color_u32 = red + green + blue;
+    color_u32
 }
