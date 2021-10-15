@@ -80,6 +80,7 @@ impl Design {
 
         self.strands = new_strands;
         self.helices = Arc::new(new_helices);
+        self.grids = Arc::new(new_grids);
         Ok(())
     }
 
@@ -102,7 +103,7 @@ impl Design {
         for (s_id, s) in self.strands.iter() {
             let mut insert = true;
             for d in s.domains.iter() {
-                if matches!(d, Domain::HelixDomain(HelixInterval { helix, .. }) if self.helix_is_on_grid(*helix, grid_id))
+                if matches!(d, Domain::HelixDomain(HelixInterval { helix, .. }) if !self.helix_is_on_grid(*helix, grid_id))
                 {
                     insert = false;
                     break;

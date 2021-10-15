@@ -27,6 +27,7 @@ pub(super) enum Clipboard {
     Empty,
     Strands(StrandClipboard),
     Xovers(Vec<(Nucl, Nucl)>),
+    Grid(usize),
 }
 
 impl Clipboard {
@@ -36,6 +37,7 @@ impl Clipboard {
             Self::Empty => 0,
             Self::Strands(strand_clipboard) => strand_clipboard.templates.len(),
             Self::Xovers(xovers) => xovers.len(),
+            Self::Grid(_) => 1,
         }
     }
 
@@ -44,6 +46,7 @@ impl Clipboard {
             Self::Empty => Err(ErrOperation::EmptyClipboard),
             Self::Strands(strand_clipboard) => Ok(strand_clipboard.clone()),
             Self::Xovers(_) => Err(ErrOperation::WrongClipboard),
+            Self::Grid(_) => Err(ErrOperation::WrongClipboard),
         }
     }
 
@@ -106,6 +109,15 @@ enum DomainTemplate {
 }
 
 impl Controller {
+    pub fn copy_grid(&mut self, design: &Design, grid_id: usize) -> Result<(), ErrOperation> {
+        if design.grids.get(grid_id).is_some() {
+            self.clipboard = AddressPointer::new(Clipboard::Grid(grid_id));
+            Ok(())
+        } else {
+            Err(ErrOperation::GridDoesNotExist(grid_id))
+        }
+    }
+
     pub fn set_templates(
         &mut self,
         design: &Design,
@@ -267,6 +279,12 @@ impl Controller {
             }
             Clipboard::Xovers(_) => {
                 self.position_xover_copies(&mut design, nucl)?;
+                Ok(design)
+            }
+            Clipboard::Grid(g_id) => {
+                design
+                    .copy_grid(*g_id, Vec3::zero(), ultraviolet::Rotor3::identity())
+                    .map_err(|e| ErrOperation::GridCopyError(e))?;
                 Ok(design)
             }
             Clipboard::Empty => Err(ErrOperation::EmptyClipboard),
@@ -776,6 +794,7 @@ impl Controller {
 }
 
 pub enum CopyOperation {
+    CopyGrid(usize),
     CopyStrands(Vec<usize>),
     CopyXovers(Vec<(Nucl, Nucl)>),
     InitStrandsDuplication(Vec<usize>),

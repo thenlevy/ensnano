@@ -1081,6 +1081,10 @@ impl MainState {
             &reader,
         ) {
             self.apply_copy_operation(CopyOperation::CopyXovers(xover_ids))
+        } else if let Some(Selection::Grid(_, g_id)) =
+            self.app_state.get_selection().as_ref().get(0)
+        {
+            self.apply_copy_operation(CopyOperation::CopyGrid(*g_id))
         } else {
             let strand_ids = ensnano_interactor::extract_strands_from_selection(
                 self.app_state.get_selection().as_ref(),
