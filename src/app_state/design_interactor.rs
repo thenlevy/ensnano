@@ -370,6 +370,7 @@ mod tests {
     use crate::scene::DesignReader as Reader3d;
     use ensnano_design::grid::GridPosition;
     use ensnano_design::{grid::GridDescriptor, DomainJunction, Nucl, Strand};
+    use ensnano_interactor::DesignReader;
     use ensnano_interactor::operation::GridHelixCreation;
     use std::path::PathBuf;
     use ultraviolet::{Rotor3, Vec3};
