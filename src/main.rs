@@ -352,6 +352,8 @@ fn main() {
         pretty_env_logger::init();
     }
 
+    let mut first_iteration = true;
+
     event_loop.run(move |event, _, control_flow| {
         // Wait for event or redraw a frame every 33 ms (30 frame per seconds)
         *control_flow = ControlFlow::WaitUntil(Instant::now() + Duration::from_millis(33));
@@ -487,6 +489,8 @@ fn main() {
                 }
                 controller.make_progress(&mut main_state_view);
                 resized |= main_state_view.resized;
+                resized |= first_iteration;
+                first_iteration = false;
 
                 for update in main_state.chanel_reader.get_updates() {
                     if let ChanelReaderUpdate::ScaffoldShiftOptimizationProgress(x) = update {
