@@ -17,6 +17,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 
 use super::Parameters;
+mod copy_grid;
 mod hyperboloid;
 pub use hyperboloid::*;
 
