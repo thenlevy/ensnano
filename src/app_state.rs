@@ -270,7 +270,7 @@ impl AppState {
                 Ok(None)
             }
             Err(e) => {
-                println!("error");
+                log::error!("error {:?}", e);
                 Err(e)
             }
         }

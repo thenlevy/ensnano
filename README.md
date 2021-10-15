@@ -79,6 +79,15 @@ In this scadnano design, insertions and loopouts are replaced by single strands
 
 # Troubleshooting
 
+## Compilations errors
+Compilation errors may be happen when using an outdated version of the rust compiler. To solve this run
+
+`rustup update`
+
+It might also happen that you need to update ENSnano's dependencies before compiling. To do so, run
+
+`cargo update`
+
 ## Crash on startup on Windows
 By default, ENSnano uses a Vulkan renderer on windows platforms that offer one. However on some
 this Vulkan render does not work properly on some machine.
