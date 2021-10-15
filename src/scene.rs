@@ -215,21 +215,19 @@ impl<S: AppState> Scene<S> {
                 self.view
                     .borrow_mut()
                     .init_rotation(mode, x as f32, y as f32);
-                if target == WidgetTarget::Pivot {
-                    if let Some(pivot) = self.view.borrow().get_group_pivot() {
-                        self.requests.lock().unwrap().set_current_group_pivot(pivot);
+                if let Some(pivot) = self.view.borrow().get_group_pivot() {
+                    self.requests.lock().unwrap().set_current_group_pivot(pivot);
+                    if target == WidgetTarget::Pivot {
                         if let WidgetBasis::World = app_state.get_widget_basis() {
                             self.requests.lock().unwrap().toggle_widget_basis()
                         }
                     }
                 }
             }
-            Consequence::InitTranslation(x, y, target) => {
+            Consequence::InitTranslation(x, y, _target) => {
                 self.view.borrow_mut().init_translation(x as f32, y as f32);
-                if let WidgetTarget::Pivot = target {
-                    if let Some(pivot) = self.view.borrow().get_group_pivot() {
-                        self.requests.lock().unwrap().set_current_group_pivot(pivot)
-                    }
+                if let Some(pivot) = self.view.borrow().get_group_pivot() {
+                    self.requests.lock().unwrap().set_current_group_pivot(pivot)
                 }
             }
             Consequence::Rotation(x, y, target) => {
