@@ -189,6 +189,9 @@ impl<S: AppState> Scene<S> {
                     match target {
                         WidgetTarget::Object => {
                             self.translate_selected_design(t, app_state);
+                            if app_state.get_current_group_id().is_none() {
+                                self.translate_group_pivot(t)
+                            }
                         }
                         WidgetTarget::Pivot => self.translate_group_pivot(t),
                     }
@@ -237,6 +240,9 @@ impl<S: AppState> Scene<S> {
                         match target {
                             WidgetTarget::Object => {
                                 self.rotate_selected_desgin(rotation, origin, positive, app_state);
+                                if app_state.get_current_group_id().is_none() {
+                                    self.requests.lock().unwrap().rotate_group_pivot(rotation)
+                                }
                             }
                             WidgetTarget::Pivot => {
                                 self.requests.lock().unwrap().rotate_group_pivot(rotation)
