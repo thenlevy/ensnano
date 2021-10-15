@@ -311,7 +311,9 @@ impl Controller {
                 },
                 design,
             ),
-            CopyOperation::CopyGrid(g_id) => self.apply_no_op(|c, d| c.copy_grid(d, g_id), design),
+            CopyOperation::CopyGrids(grid_ids) => {
+                self.apply_no_op(|c, d| c.copy_grids(d, grid_ids), design)
+            }
         }
     }
 
