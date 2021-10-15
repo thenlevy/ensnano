@@ -20,6 +20,8 @@ use super::*;
 use ensnano_interactor::Selection;
 use iced::{scrollable, Scrollable};
 
+mod value_constructor;
+
 pub(super) struct ContextualPanel {
     scroll: scrollable::State,
     width: u32,
