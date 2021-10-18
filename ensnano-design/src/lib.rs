@@ -41,6 +41,8 @@ pub type EnsnTree = OrganizerTree<DnaElementKey>;
 pub mod group_attributes;
 use group_attributes::GroupAttribute;
 
+pub use bezier::CubicBezierConstructor;
+use bezier::InstanciatedBezier;
 mod bezier;
 
 mod formating;
@@ -260,7 +262,7 @@ impl Design {
         if self.ensnano_version == ensnano_version() {
             return;
         } else if self.ensnano_version.is_empty() {
-            // Version < 0.2.0 had no version identifier, and there DNA parameters where different.
+            // Version < 0.2.0 had no version identifier, and the DNA parameters where different.
             // The groove_angle was negative, and the roll was going in the opposite direction
             if let Some(parameters) = self.parameters.as_mut() {
                 parameters.groove_angle *= -1.;
@@ -268,10 +270,6 @@ impl Design {
                 self.parameters = Some(Default::default())
             }
             mutate_all_helices(self, |h| h.roll *= -1.);
-            /*
-            for h in self.helices.values_mut() {
-                h.roll *= -1.;
-            }*/
             self.ensnano_version = ensnano_version();
         }
     }
@@ -1422,6 +1420,12 @@ pub struct Helix {
     /// at point (0., 1., 0.) in the helix's coordinate.
     #[serde(default)]
     pub roll: f32,
+
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bezier: Option<Arc<CubicBezierConstructor>>,
+
+    #[serde(default, skip)]
+    instanciated_bezier: Option<InstanciatedBezier>,
 }
 
 fn default_visibility() -> bool {
@@ -1461,6 +1465,8 @@ impl Helix {
             visible: true,
             roll: 0f32,
             locked_for_simulations: false,
+            bezier: None,
+            instanciated_bezier: None,
         }
     }
 
@@ -1532,6 +1538,8 @@ impl Helix {
             roll: 0f32,
             isometry2d: Some(isometry2d),
             locked_for_simulations: false,
+            bezier: None,
+            instanciated_bezier: None,
         })
     }
 }
@@ -1546,6 +1554,8 @@ impl Helix {
             visible: true,
             roll: 0f32,
             locked_for_simulations: false,
+            bezier: None,
+            instanciated_bezier: None,
         }
     }
 
@@ -1565,6 +1575,38 @@ impl Helix {
             visible: true,
             roll: 0f32,
             locked_for_simulations: false,
+            bezier: None,
+            instanciated_bezier: None,
+        }
+    }
+
+    pub fn new_bezier_two_points(
+        start: Vec3,
+        mut start_axis: Vec3,
+        end: Vec3,
+        mut end_axis: Vec3,
+    ) -> Self {
+        start_axis.normalize();
+        end_axis.normalize();
+        let middle = (start + end) / 2.;
+        let proj_start = start + middle.dot(start_axis) * start_axis;
+        let proj_end = end + middle.dot(end_axis) * end_axis;
+        let constructor = CubicBezierConstructor {
+            start,
+            end,
+            control1: proj_start,
+            control2: proj_end,
+        };
+        Self {
+            position: start,
+            orientation: Rotor3::identity(),
+            isometry2d: None,
+            grid_position: None,
+            visible: true,
+            roll: 0f32,
+            locked_for_simulations: false,
+            bezier: Some(Arc::new(constructor)),
+            instanciated_bezier: None,
         }
     }
 
@@ -1583,6 +1625,13 @@ impl Helix {
     /// 3D position of a nucleotide on this helix. `n` is the position along the axis, and `forward` is true iff the 5' to 3' direction of the strand containing that nucleotide runs in the same direction as the axis of the helix.
     pub fn space_pos(&self, p: &Parameters, n: isize, forward: bool) -> Vec3 {
         let theta = self.theta(n, forward, p);
+        if let Some(curve) = self.instanciated_bezier.as_ref().map(|s| s.curve.as_ref()) {
+            if n >= 0 {
+                if let Some(point) = curve.nucl_pos(n as usize, theta, p) {
+                    return point;
+                }
+            }
+        }
         let mut ret = Vec3::new(
             n as f32 * p.z_step,
             theta.sin() * p.helix_radius,
@@ -1611,6 +1660,8 @@ impl Helix {
             visible: true,
             isometry2d: None,
             locked_for_simulations: false,
+            bezier: None,
+            instanciated_bezier: None,
         }
     }
 
@@ -1642,6 +1693,13 @@ impl Helix {
     }
 
     pub fn axis_position(&self, p: &Parameters, n: isize) -> Vec3 {
+        if let Some(curve) = self.instanciated_bezier.as_ref().map(|s| &s.curve) {
+            if n >= 0 && n <= curve.nb_points() as isize {
+                if let Some(point) = curve.axis_pos(n as usize) {
+                    return point;
+                }
+            }
+        }
         let mut ret = Vec3::new(n as f32 * p.z_step, 0., 0.);
 
         ret = self.rotate_point(ret);

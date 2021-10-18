@@ -16,7 +16,8 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-use ultraviolet::{Mat3, Rotor3, Vec3};
+use super::{Arc, Helix, Parameters};
+use ultraviolet::{Mat3, Vec3};
 const EPSILON: f32 = 1e-6;
 const DISCRETISATION_STEP: usize = 100;
 
@@ -31,6 +32,7 @@ pub struct CubicBezier {
     discrete_axis: Vec<Mat3>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CubicBezierConstructor {
     pub start: Vec3,
     pub control1: Vec3,
@@ -38,7 +40,6 @@ pub struct CubicBezierConstructor {
     pub end: Vec3,
 }
 
-use super::Parameters;
 impl CubicBezier {
     pub fn new(constructor: CubicBezierConstructor, parameters: &Parameters) -> Self {
         let polynomial = CubicBezierPolynom::new(
@@ -141,6 +142,29 @@ impl CubicBezier {
         }
 
         Mat3::new(normal, forward.cross(normal), forward)
+    }
+
+    pub fn nb_points(&self) -> usize {
+        self.discrete_axis.len()
+    }
+
+    pub fn axis_pos(&self, n: usize) -> Option<Vec3> {
+        self.discrete_points.get(n).cloned()
+    }
+
+    pub fn nucl_pos(&self, n: usize, theta: f32, parameters: &Parameters) -> Option<Vec3> {
+        if let Some(matrix) = self.discrete_axis.get(n).cloned() {
+            let mut ret = matrix
+                * Vec3::new(
+                    theta.cos() * parameters.helix_radius,
+                    theta.sin() * parameters.helix_radius,
+                    0.,
+                );
+            ret += self.discrete_points[n];
+            Some(ret)
+        } else {
+            None
+        }
     }
 }
 
@@ -291,6 +315,7 @@ impl QuadPoly {
 
 #[cfg(test)]
 mod tests {
+    const DNA_PARAMETERS: Parameters = Parameters::DEFAULT;
     use super::*;
     #[test]
     fn correct_evaluation() {
@@ -366,12 +391,15 @@ mod tests {
         let control1 = Vec3::new(89., 186., 0.);
         let control2 = Vec3::new(221., 117., 0.);
         let end = Vec3::new(74., 96., 0.);
-        let curve = CubicBezier::new(CubicBezierConstructor {
-            start,
-            control1,
-            control2,
-            end,
-        });
+        let curve = CubicBezier::new(
+            CubicBezierConstructor {
+                start,
+                control1,
+                control2,
+                end,
+            },
+            &DNA_PARAMETERS,
+        );
         assert_eq!(curve.polynomial.inflextion_points().len(), 1)
     }
 
@@ -381,14 +409,55 @@ mod tests {
         let control1 = Vec3::zero();
         let control2 = Vec3::zero();
         let end = Vec3::new(74., 96., 29.);
-        let curve = CubicBezier::new(CubicBezierConstructor {
-            start,
-            control1,
-            control2,
-            end,
-        });
+        let curve = CubicBezier::new(
+            CubicBezierConstructor {
+                start,
+                control1,
+                control2,
+                end,
+            },
+            &DNA_PARAMETERS,
+        );
         let len = curve.length_by_descretisation(0., 1., 100);
         assert!((len - end.mag()) < EPSILON)
+    }
+}
+
+#[derive(Clone)]
+pub(super) struct InstanciatedBezier {
+    source: Arc<CubicBezierConstructor>,
+    pub(super) curve: Arc<CubicBezier>,
+}
+
+impl std::fmt::Debug for InstanciatedBezier {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("InstanciatedBezier")
+            .field("source", &Arc::as_ptr(&self.source))
+            .finish()
+    }
+}
+
+impl Helix {
+    pub fn update_bezier(&mut self, parameters: &Parameters) {
+        let up_to_date = self.bezier.as_ref().map(|source| Arc::as_ptr(source))
+            == self
+                .instanciated_bezier
+                .as_ref()
+                .map(|target| Arc::as_ptr(&target.source));
+        if !up_to_date {
+            if let Some(construtor) = self.bezier.as_ref() {
+                let curve = Arc::new(CubicBezier::new(
+                    CubicBezierConstructor::clone(construtor.as_ref()),
+                    parameters,
+                ));
+                self.instanciated_bezier = Some(InstanciatedBezier {
+                    source: construtor.clone(),
+                    curve,
+                });
+            } else {
+                self.instanciated_bezier = None;
+            }
+        }
     }
 }
 

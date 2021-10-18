@@ -93,6 +93,10 @@ pub enum DesignOperation {
         start: isize,
         length: usize,
     },
+    AddTwoPointsBezier {
+        start: GridPosition,
+        end: GridPosition,
+    },
     RmHelices {
         h_ids: Vec<usize>,
     },
