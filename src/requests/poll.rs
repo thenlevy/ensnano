@@ -349,7 +349,7 @@ pub(crate) fn poll_all<R: DerefMut<Target = Requests>>(
     }
 
     if requests.suspend_op.take().is_some() {
-        main_state.pending_actions.push_back(Action::SuspendOp)
+        requests.keep_proceed.push_back(Action::SuspendOp);
     }
 
     if let Some(all_helices) = requests.redim_2d_helices.take() {

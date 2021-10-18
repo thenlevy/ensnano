@@ -1187,6 +1187,9 @@ struct MainStateView<'a> {
 use controller::{LoadDesignError, MainState as MainStateInteface, StaplesDownloader};
 impl<'a> MainStateInteface for MainStateView<'a> {
     fn pop_action(&mut self) -> Option<Action> {
+        if self.main_state.pending_actions.len() > 0 {
+            log::debug!("pending actions {:?}", self.main_state.pending_actions);
+        }
         self.main_state.pending_actions.pop_front()
     }
 
