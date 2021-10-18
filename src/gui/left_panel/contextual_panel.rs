@@ -55,6 +55,11 @@ impl ContextualPanel {
             .get_selection()
             .get(0)
             .unwrap_or(&Selection::Nothing);
+        let nb_selected = app_state
+            .get_selection()
+            .iter()
+            .filter(|s| !matches!(s, Selection::Nothing))
+            .count();
         let info_values = values_of_selection(selection, app_state.get_reader().as_ref());
         if self.show_tutorial {
             column = column.push(
@@ -76,6 +81,18 @@ impl ContextualPanel {
             column = column.push(strand_menu);
         } else if *selection == Selection::Nothing {
             column = turn_into_help_column(column, ui_size)
+        } else if nb_selected > 1 {
+            let help_btn =
+                text_btn(&mut self.help_btn, "Help", ui_size.clone()).on_press(Message::ForceHelp);
+            column = column.push(
+                Row::new()
+                    .width(Length::Fill)
+                    .push(iced::Space::with_width(Length::FillPortion(1)))
+                    .align_items(iced::Align::Center)
+                    .push(Column::new().width(Length::FillPortion(1)).push(help_btn))
+                    .push(iced::Space::with_width(Length::FillPortion(1))),
+            );
+            column = column.push(Text::new(format!("{} objects selected", nb_selected)));
         } else {
             let help_btn =
                 text_btn(&mut self.help_btn, "Help", ui_size.clone()).on_press(Message::ForceHelp);
