@@ -1910,6 +1910,17 @@ impl Controller {
         );
         helix.update_bezier(&design.parameters.unwrap_or(Parameters::DEFAULT));
         let helix_id = new_helices.keys().last().unwrap_or(&0) + 1;
+        let length = helix.nb_bezier_nucls();
+        if length > 0 {
+            for b in [false, true].iter() {
+                let new_key = self.add_strand(&mut design, helix_id, 0, *b);
+                if let Domain::HelixDomain(ref mut dom) =
+                    design.strands.get_mut(&new_key).unwrap().domains[0]
+                {
+                    dom.end = dom.start + length as isize;
+                }
+            }
+        }
         new_helices.insert(helix_id, Arc::new(helix));
         design.helices = Arc::new(new_helices);
         Ok(design)

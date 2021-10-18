@@ -1588,9 +1588,9 @@ impl Helix {
     ) -> Self {
         start_axis.normalize();
         end_axis.normalize();
-        let middle = (start + end) / 2.;
+        let middle = (end - start) / 2.;
         let proj_start = start + middle.dot(start_axis) * start_axis;
-        let proj_end = end + middle.dot(end_axis) * end_axis;
+        let proj_end = end - middle.dot(end_axis) * end_axis;
         let constructor = CubicBezierConstructor {
             start,
             end,
@@ -1608,6 +1608,13 @@ impl Helix {
             bezier: Some(Arc::new(constructor)),
             instanciated_bezier: None,
         }
+    }
+
+    pub fn nb_bezier_nucls(&self) -> usize {
+        self.instanciated_bezier
+            .as_ref()
+            .map(|c| c.curve.nb_points())
+            .unwrap_or(0)
     }
 
     /// Angle of base number `n` around this helix.
