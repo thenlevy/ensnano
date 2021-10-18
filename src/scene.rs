@@ -621,14 +621,21 @@ impl<S: AppState> Scene<S> {
     }
 
     fn set_camera_target(&mut self, target: Vec3, up: Vec3, app_state: &S) {
-        let pivot = self.data.borrow().get_selected_position();
-        let pivot = pivot.or_else(|| {
-            let element_center = self.element_center(app_state);
-            self.data
-                .borrow_mut()
-                .set_selection(element_center, app_state);
-            self.data.borrow().get_selected_position()
-        });
+        let pivot = self
+            .data
+            .borrow()
+            .get_selected_position()
+            .filter(|v| v.x.is_finite() && v.y.is_finite() && v.z.is_finite());
+        let pivot = pivot
+            .or_else(|| {
+                let element_center = self.element_center(app_state);
+                self.data
+                    .borrow_mut()
+                    .set_selection(element_center, app_state);
+                self.data.borrow().get_selected_position()
+            })
+            .filter(|r| r.x.is_finite() && r.y.is_finite() && r.z.is_finite())
+            .or(Some(Vec3::zero()));
         self.controller.set_camera_target(target, up, pivot);
         self.fit_design();
     }
