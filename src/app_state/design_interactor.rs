@@ -816,6 +816,7 @@ mod tests {
 
     #[test]
     fn positioning_xovers_paste() {
+        use crate::flatscene::DesignReader;
         let mut app_state = pastable_design();
         let (n1, n2) = app_state.get_design_reader().get_xover_with_id(0).unwrap();
         app_state
@@ -849,6 +850,7 @@ mod tests {
 
     #[test]
     fn pasting_when_positioning_xovers() {
+        use crate::flatscene::DesignReader;
         let mut app_state = pastable_design();
         let (n1, n2) = app_state.get_design_reader().get_xover_with_id(0).unwrap();
         app_state
@@ -862,6 +864,7 @@ mod tests {
 
     #[test]
     fn duplicating_xovers() {
+        use crate::flatscene::DesignReader;
         let mut app_state = pastable_design();
         let (n1, n2) = app_state.get_design_reader().get_xover_with_id(0).unwrap();
         app_state
@@ -895,6 +898,7 @@ mod tests {
 
     #[test]
     fn duplicating_xovers_pasting_status() {
+        use crate::flatscene::DesignReader;
         let mut app_state = pastable_design();
         let (n1, n2) = app_state.get_design_reader().get_xover_with_id(0).unwrap();
         app_state

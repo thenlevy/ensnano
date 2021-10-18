@@ -98,6 +98,7 @@ impl State for NormalState {
                 Action::LoadDesign(Some(path)) => Box::new(Load::known_path(path)),
                 Action::LoadDesign(None) => Load::load(main_state.need_save()),
                 Action::SuspendOp => {
+                    log::info!("Suspending operation");
                     main_state.finish_operation();
                     self
                 }
@@ -202,6 +203,7 @@ impl State for NormalState {
                     self
                 }
                 Action::TranslateGroupPivot(translation) => {
+                    log::info!("Translating group pivot {:?}", translation);
                     main_state.translate_group_pivot(translation);
                     self
                 }
