@@ -156,7 +156,7 @@ impl CubicBezier {
         if let Some(matrix) = self.discrete_axis.get(n).cloned() {
             let mut ret = matrix
                 * Vec3::new(
-                    theta.cos() * parameters.helix_radius,
+                    -theta.cos() * parameters.helix_radius,
                     theta.sin() * parameters.helix_radius,
                     0.,
                 );
