@@ -480,6 +480,37 @@ mod tests {
         );
         assert_eq!(curve.inflexion_points.len(), 1);
     }
+
+    #[test]
+    fn inflextion_test_3() {
+        let start = Vec3::new(
+           -32.746403,
+           -3.531776,
+           14.075182
+        );
+        let control1 = Vec3::new(
+           -43.50512,
+           -4.333789,
+           14.498527
+        );
+        let control2 = Vec3::new(
+           -41.66617,
+           6.7431493,
+           -1.5422535
+        );
+        let end = Vec3::new(
+           -56.39627,
+           11.289642,
+           -8.153674
+        );
+        let curve = CubicBezier::new( CubicBezierConstructor {
+            start,
+            control1,
+            control2,
+            end,
+        }, &Parameters::DEFAULT);
+        assert_eq!(curve.inflexion_points.len(), 1);
+    }
 }
 
 #[derive(Clone)]
