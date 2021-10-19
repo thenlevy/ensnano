@@ -235,6 +235,9 @@ impl CubicBezierPolynom {
                 let x_roots = x_poly.roots();
                 let y_roots = y_poly.roots();
                 let z_roots = z_poly.roots();
+                print_test!("x_roots, {:?}", x_roots);
+                print_test!("y_roots, {:?}", y_roots);
+                print_test!("z_roots, {:?}", z_roots);
 
                 let roots = if !x_poly.is_always_zero() {
                     print_test!("x_roots");
@@ -249,9 +252,20 @@ impl CubicBezierPolynom {
                     }
                 };
                 let mut ret = Vec::new();
-                for t in roots.iter().cloned() {
+                for t in roots.iter().cloned().filter(|t| 0. <= *t && *t <= 1.) {
+                    print_test!("t = {}", t);
                     if x_poly.is_zero_at(t) && y_poly.is_zero_at(t) && z_poly.is_zero_at(t) {
                         ret.push(t);
+                    } else if cfg!(test) {
+                        if !x_poly.is_zero_at(t) {
+                            println!("x = {}", x_poly.evaluate(t));
+                        }
+                        if !y_poly.is_zero_at(t) {
+                            println!("y = {}", y_poly.evaluate(t));
+                        }
+                        if !z_poly.is_zero_at(t) {
+                            println!("z = {}", z_poly.evaluate(t));
+                        }
                     }
                 }
                 ret
@@ -282,22 +296,28 @@ impl QuadPoly {
 
     /// Roots the polynomial *without multiplicity*
     fn roots(&self) -> Vec<f32> {
-        if self.a.abs() < EPSILON {
-            let ret = if self.b.abs() < EPSILON {
+        let a: f64 = self.a as f64;
+        let b: f64 = self.b as f64;
+        let c: f64 = self.c as f64;
+        #[allow(non_snake_case)]
+        let EPSILON_64 = EPSILON as f64;
+        if a.abs() < EPSILON_64 {
+            let ret = if b.abs() < EPSILON_64 {
                 vec![]
             } else {
-                vec![-self.c / self.b]
+                vec![(-c / b) as f32]
             };
             return ret;
         }
 
-        let delta = self.b * self.b - 4. * self.a * self.c;
-        if delta > EPSILON {
+        let delta = b * b - 4. * a * c;
+        print_test!("delta {}, sqrt {}", delta, delta.sqrt());
+        if delta > EPSILON_64 {
             vec![
-                (-self.b + delta.sqrt()) / (2. * self.a),
-                (-self.b - delta.sqrt()) / (2. * self.a),
+                ((-b + delta.sqrt()) / (2. * a)) as f32,
+                ((-b - delta.sqrt()) / (2. * a)) as f32,
             ]
-        } else if delta < -EPSILON {
+        } else if delta < -EPSILON_64 {
             vec![]
         } else {
             vec![-self.b / (2. * self.a)]
@@ -309,7 +329,12 @@ impl QuadPoly {
     }
 
     fn is_zero_at(&self, t: f32) -> bool {
-        (self.a * t.powi(2) + self.b * t + self.c).abs() < EPSILON
+        (self.a * t.powi(2) + self.b * t + self.c).powi(2) < EPSILON
+    }
+
+    #[allow(dead_code)] // used in tests
+    fn evaluate(&self, t: f32) -> f32 {
+        self.a * t.powi(2) + self.b * t + self.c
     }
 }
 
@@ -420,6 +445,40 @@ mod tests {
         );
         let len = curve.length_by_descretisation(0., 1., 100);
         assert!((len - end.mag()) < EPSILON)
+    }
+
+    #[test]
+    fn other_s_shape() {
+        let start = Vec3 {
+            x: 2.65,
+            y: 2.35,
+            z: 0.0,
+        };
+        let control1 = Vec3 {
+            x: 2.6499999,
+            y: 2.3500001,
+            z: 19.799992,
+        };
+        let control2 = Vec3 {
+            x: 2.6499999,
+            y: 30.374388,
+            z: 19.799995,
+        };
+        let end = Vec3 {
+            x: 2.6499999,
+            y: 30.374388,
+            z: 39.59999,
+        };
+        let curve = CubicBezier::new(
+            CubicBezierConstructor {
+                start,
+                control1,
+                control2,
+                end,
+            },
+            &Parameters::DEFAULT,
+        );
+        assert_eq!(curve.inflexion_points.len(), 1);
     }
 }
 
