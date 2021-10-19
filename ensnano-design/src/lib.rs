@@ -428,6 +428,20 @@ impl Design {
     pub fn prepare_for_save(&mut self, saving_information: SavingInformation) {
         self.saved_camera = saving_information.camera;
     }
+
+    pub fn update_bezier_helices(&mut self) {
+        let mut need_update = false;
+        for h in self.helices.values() {
+            if h.need_bezier_update() {
+                need_update = true;
+                break;
+            }
+        }
+        if need_update {
+            let parameters = self.parameters.unwrap_or(Parameters::DEFAULT);
+            mutate_all_helices(self, |h| h.update_bezier(&parameters))
+        }
+    }
 }
 
 pub struct SavingInformation {

@@ -438,13 +438,17 @@ impl std::fmt::Debug for InstanciatedBezier {
 }
 
 impl Helix {
-    pub fn update_bezier(&mut self, parameters: &Parameters) {
+    pub(super) fn need_bezier_update(&self) -> bool {
         let up_to_date = self.bezier.as_ref().map(|source| Arc::as_ptr(source))
             == self
                 .instanciated_bezier
                 .as_ref()
                 .map(|target| Arc::as_ptr(&target.source));
-        if !up_to_date {
+        !up_to_date
+    }
+
+    pub fn update_bezier(&mut self, parameters: &Parameters) {
+        if self.need_bezier_update() {
             if let Some(construtor) = self.bezier.as_ref() {
                 let curve = Arc::new(CubicBezier::new(
                     CubicBezierConstructor::clone(construtor.as_ref()),
