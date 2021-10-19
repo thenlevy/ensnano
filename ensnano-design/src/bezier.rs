@@ -92,7 +92,8 @@ impl CubicBezier {
         let mut axis = Vec::with_capacity(nb_points + 1);
         let mut t = 0f32;
         points.push(self.polynomial.evaluate(t));
-        axis.push(self.axis(t));
+        let mut current_axis = self.itterative_axis(t, None);
+        axis.push(current_axis);
 
         for _ in 0..nb_points {
             let mut s = 0f32;
@@ -101,15 +102,38 @@ impl CubicBezier {
             while s < len_segment {
                 t += small_step;
                 let q = self.polynomial.evaluate(t);
+                current_axis = self.itterative_axis(t, Some(&current_axis));
                 s += (q - p).mag();
                 p = q;
             }
             points.push(p);
-            axis.push(self.axis(t));
+            //axis.push(self.axis(t));
+            axis.push(current_axis);
+
         }
 
         self.discrete_axis = axis;
         self.discrete_points = points;
+    }
+
+    fn itterative_axis(&self, t: f32, previous: Option<&Mat3>) -> Mat3 {
+
+        let speed = self.polynomial.derivative(t);
+        if speed.mag_sq() < EPSILON {
+            let acceleration = self.polynomial.acceleration(t);
+            let mat = perpendicular_basis(acceleration);
+            return Mat3::new(mat.cols[2], mat.cols[1], mat.cols[0]);
+        }
+
+        if let Some(previous) = previous {
+            let forward = speed.normalized();
+            let up = forward.cross(previous.cols[0]).normalized();
+            let right = up.cross(forward);
+
+            Mat3::new(right, up, forward)
+        } else {
+            perpendicular_basis(speed)
+        }
     }
 
     fn axis(&self, t: f32) -> Mat3 {
