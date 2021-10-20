@@ -428,6 +428,13 @@ fn main() {
                     if let Some((event, area)) = event {
                         // pass the event to the area on which it happenened
                         if main_state.focussed_element != Some(area) {
+                            if let Some(app) = main_state
+                                .focussed_element
+                                .as_ref()
+                                .and_then(|elt| main_state.applications.get(elt))
+                            {
+                                app.lock().unwrap().on_notify(Notification::WindowFocusLost)
+                            }
                             main_state.focussed_element = Some(area);
                             main_state.update_candidates(vec![]);
                         }

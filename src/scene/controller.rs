@@ -194,6 +194,7 @@ impl<S: AppState> Controller<S> {
         app_state: &S,
     ) -> Consequence {
         let transition = if let WindowEvent::Focused(false) = event {
+            self.camera_controller.stop_camera_movement();
             Transition {
                 new_state: Some(Box::new(NormalState {
                     mouse_position: PhysicalPosition::new(-1., -1.),
