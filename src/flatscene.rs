@@ -18,7 +18,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 //! This module handles the 2D view
 
 //use crate::design::{DesignNotification, DesignNotificationContent, Nucl, StrandBuilder};
-use crate::{DrawArea, Duration, PhySize, WindowEvent};
+use crate::{utils::camera2d::FitRectangle, DrawArea, Duration, PhySize, WindowEvent};
 use ensnano_design::Nucl;
 use ensnano_interactor::{
     application::{AppId, Application, Notification},
@@ -108,20 +108,17 @@ impl<S: AppState> FlatScene<S> {
         } else {
             self.area.size.height as f32
         };
-        let globals_top = Globals {
-            resolution: [self.area.size.width as f32, height],
-            scroll_offset: [-1., -1.],
-            zoom: 80.,
-            _padding: 0.,
-        };
-        let globals_bottom = Globals {
-            resolution: [self.area.size.width as f32, height],
-            scroll_offset: [-1., -1.],
-            zoom: 80.,
-            _padding: 0.,
-        };
+        let globals_top = Globals::default([self.area.size.width as f32, height]);
+        let globals_bottom = Globals::default([self.area.size.width as f32, height]);
+
         let camera_top = Rc::new(RefCell::new(Camera::new(globals_top, false)));
         let camera_bottom = Rc::new(RefCell::new(Camera::new(globals_bottom, true)));
+        camera_top
+            .borrow_mut()
+            .init_fit(FitRectangle::INITIAL_RECTANGLE);
+        camera_bottom
+            .borrow_mut()
+            .init_fit(FitRectangle::INITIAL_RECTANGLE);
         let view = Rc::new(RefCell::new(View::new(
             self.device.clone(),
             self.queue.clone(),

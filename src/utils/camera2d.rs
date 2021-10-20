@@ -212,6 +212,27 @@ impl Camera {
         self.end_movement();
     }
 
+    pub fn init_fit(&mut self, mut rectangle: FitRectangle) {
+        let zoom_x = self.globals.resolution[0] / rectangle.width().unwrap();
+        let zoom_y = self.globals.resolution[1] / rectangle.height().unwrap();
+        if zoom_x < zoom_y {
+            self.globals.zoom = zoom_x;
+            // adjust the height of the rectangle to force the top position
+            rectangle.max_y = Some(
+                rectangle.min_y.unwrap()
+                    + self.globals.resolution[1] * rectangle.width().unwrap()
+                        / self.globals.resolution[0],
+            );
+        } else {
+            self.globals.zoom = zoom_y;
+        }
+        let (center_x, center_y) = rectangle.center().unwrap();
+        self.globals.scroll_offset[0] = center_x;
+        self.globals.scroll_offset[1] = center_y;
+        self.was_updated = true;
+        self.end_movement();
+    }
+
     pub fn can_see_world_point(&self, point: Vec2) -> bool {
         let normalized_coord = self.world_to_norm_screen(point.x, point.y);
         normalized_coord.0 >= 0.015
@@ -227,7 +248,19 @@ pub struct Globals {
     pub resolution: [f32; 2],
     pub scroll_offset: [f32; 2],
     pub zoom: f32,
+    /// For word alignement
     pub _padding: f32,
+}
+
+impl Globals {
+    pub fn default(resolution: [f32; 2]) -> Self {
+        Self {
+            resolution,
+            scroll_offset: [10.0, 40.0],
+            zoom: 16.0,
+            _padding: 0.0,
+        }
+    }
 }
 
 unsafe impl bytemuck::Zeroable for Globals {}
@@ -242,6 +275,13 @@ pub struct FitRectangle {
 }
 
 impl FitRectangle {
+    pub const INITIAL_RECTANGLE: Self = Self {
+        min_x: Some(-7.),
+        max_x: Some(50.),
+        min_y: Some(-1.),
+        max_y: Some(8.),
+    };
+
     pub fn new() -> Self {
         Default::default()
     }
