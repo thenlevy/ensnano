@@ -450,13 +450,14 @@ impl<S: AppState> FlatScene<S> {
         }
     }
 
-    fn toggle_split(&mut self) {
+    fn toggle_split_from_btn(&mut self) {
         self.splited ^= true;
+        for c in self.controller.iter_mut() {
+            c.set_splited(self.splited, true);
+        }
+
         for v in self.view.iter_mut() {
             v.borrow_mut().set_splited(self.splited);
-        }
-        for c in self.controller.iter_mut() {
-            c.set_splited(self.splited);
         }
     }
 
@@ -466,7 +467,7 @@ impl<S: AppState> FlatScene<S> {
             v.borrow_mut().set_splited(self.splited);
         }
         for c in self.controller.iter_mut() {
-            c.set_splited(self.splited);
+            c.set_splited(self.splited, false);
         }
         self.view[self.selected_design]
             .borrow_mut()
@@ -515,7 +516,7 @@ impl<S: AppState> Application for FlatScene<S> {
                     c.update_modifiers(modifiers.clone())
                 }
             }
-            Notification::Split2d => self.toggle_split(),
+            Notification::Split2d => self.toggle_split_from_btn(),
             Notification::Redim2dHelices(b) => {
                 let selection = if b {
                     None

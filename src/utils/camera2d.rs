@@ -240,6 +240,18 @@ impl Camera {
             && normalized_coord.1 >= 0.015
             && normalized_coord.1 <= 1. - 0.015
     }
+
+    pub fn get_visible_rectangle(&self) -> FitRectangle {
+        let top_left: Vec2 = self.screen_to_world(0., 0.).into();
+        let bottom_right: Vec2 = self.norm_screen_to_world(1., 1.).into();
+
+        FitRectangle {
+            min_x: Some(top_left.x),
+            min_y: Some(top_left.y),
+            max_x: Some(bottom_right.x),
+            max_y: Some(bottom_right.y),
+        }
+    }
 }
 
 #[repr(C)]
@@ -343,6 +355,24 @@ impl FitRectangle {
 
     fn min_height() -> f32 {
         35f32
+    }
+
+    pub fn splited_vertically(mut self) -> (Self, Self) {
+        self.finish();
+        let mut top = self.clone();
+        let mut bottom = self.clone();
+
+        let middle = Some((self.max_y.unwrap() + self.min_y.unwrap()) / 2.);
+        top.max_y = middle.clone();
+        bottom.min_y = middle.clone();
+        (top, bottom)
+    }
+
+    pub fn with_double_height(mut self) -> Self {
+        self.finish();
+        let height = self.height().unwrap();
+        self.max_y = Some(self.min_y.unwrap() + height * 2.);
+        self
     }
 }
 
