@@ -105,6 +105,9 @@ use winit::{
 #[macro_use]
 extern crate pretty_env_logger;
 
+#[macro_use]
+extern crate paste;
+
 mod consts;
 /// Design handling
 //mod design;
