@@ -21,6 +21,7 @@ pub use ensnano_interactor::StrandBuildingStatus;
 use iced::{container, slider, Background, Container, Length};
 use iced_native::{pick_list, text_input, Color, PickList, TextInput};
 use iced_winit::{Column, Command, Element, Program, Row, Space, Text};
+use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 const GOLD_ORANGE: iced::Color = iced::Color::from_rgb(0.84, 0.57, 0.20);
@@ -64,6 +65,7 @@ impl StatusParameter {
     fn focus(&mut self) -> bool {
         if let Self::Value(state) = self {
             state.focus();
+            state.select_all();
             true
         } else {
             false
@@ -145,7 +147,13 @@ impl<R: Requests, S: AppState> StatusBar<R, S> {
     }
 
     pub fn process_tab(&mut self) {
-        self.operation.as_mut().map(|op| op.process_tab());
+        let op = self.operation.as_mut().and_then(|op| op.process_tab());
+        if !self.has_keyboard_priority() {
+            log::info!("Updating operation");
+            if let Some(op) = op {
+                self.requests.lock().unwrap().update_current_operation(op)
+            }
+        }
     }
 }
 
@@ -251,6 +259,7 @@ struct OperationInput {
     parameters: Vec<StatusParameter>,
     op_id: usize,
     operation: Arc<dyn Operation>,
+    inputed_values: HashMap<usize, String>,
 }
 
 impl OperationInput {
@@ -273,21 +282,30 @@ impl OperationInput {
             values,
             values_str,
             operation,
+            inputed_values: HashMap::new(),
         }
     }
 
-    pub fn process_tab(&mut self) {
+    #[must_use = "Do not forget to apply the oppertaion"]
+    pub fn process_tab(&mut self) -> Option<Arc<dyn Operation>> {
         let mut was_focus = false;
-        for p in self.parameters.iter_mut() {
+        let mut old_foccussed_idx: Option<usize> = None;
+        for (i, p) in self.parameters.iter_mut().enumerate() {
             if was_focus {
                 was_focus ^= p.focus()
             } else {
                 if p.has_keyboard_priority() {
                     p.unfocus();
+                    old_foccussed_idx = Some(i);
                     was_focus = true;
                 }
             }
         }
+
+        old_foccussed_idx.and_then(|i| {
+            self.inputed_values.insert(i, self.values_str[i].clone());
+            self.update_value(i, self.values_str[i].clone())
+        })
     }
 
     pub fn update(&mut self, operation_state: CurentOpState) {
@@ -314,7 +332,8 @@ impl OperationInput {
                     .map(|p| p.has_keyboard_priority())
                     .unwrap_or(false);
                 if !foccused_parameter {
-                    self.values_str[v_id] = v.clone()
+                    self.values_str[v_id] =
+                        self.inputed_values.get(&v_id).cloned().unwrap_or(v.clone())
                 }
             }
         }
@@ -400,7 +419,12 @@ impl OperationInput {
     }
 
     fn update_value(&mut self, value_id: usize, values_str: String) -> Option<Arc<dyn Operation>> {
-        self.operation.as_ref().with_new_value(value_id, values_str)
+        if let Some(op) = self.operation.as_ref().with_new_value(value_id, values_str) {
+            self.operation = op.clone();
+            Some(op)
+        } else {
+            None
+        }
     }
 
     fn has_keyboard_priority(&self) -> bool {
