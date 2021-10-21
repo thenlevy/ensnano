@@ -60,6 +60,21 @@ impl StatusParameter {
             Self::Value(state) => state.is_focused(),
         }
     }
+
+    fn focus(&mut self) -> bool {
+        if let Self::Value(state) = self {
+            state.focus();
+            true
+        } else {
+            false
+        }
+    }
+
+    fn unfocus(&mut self) {
+        if let Self::Value(state) = self {
+            state.unfocus()
+        }
+    }
 }
 
 pub struct StatusBar<R: Requests, S: AppState> {
@@ -128,6 +143,10 @@ impl<R: Requests, S: AppState> StatusBar<R, S> {
             .map(|op| op.has_keyboard_priority())
             .unwrap_or(false)
     }
+
+    pub fn process_tab(&mut self) {
+        self.operation.as_mut().map(|op| op.process_tab());
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -139,6 +158,7 @@ pub enum Message<S: AppState> {
     SetShift(f32),
     NewApplicationState(S),
     UiSizeChanged(UiSize),
+    TabPressed,
 }
 
 impl<R: Requests, S: AppState> Program for StatusBar<R, S> {
@@ -169,6 +189,7 @@ impl<R: Requests, S: AppState> Program for StatusBar<R, S> {
             }
             Message::NewApplicationState(state) => self.app_state = state,
             Message::UiSizeChanged(ui_size) => self.set_ui_size(ui_size),
+            Message::TabPressed => self.process_tab(),
         }
         Command::none()
     }
@@ -252,6 +273,20 @@ impl OperationInput {
             values,
             values_str,
             operation,
+        }
+    }
+
+    pub fn process_tab(&mut self) {
+        let mut was_focus = false;
+        for p in self.parameters.iter_mut() {
+            if was_focus {
+                was_focus ^= p.focus()
+            } else {
+                if p.has_keyboard_priority() {
+                    p.unfocus();
+                    was_focus = true;
+                }
+            }
         }
     }
 

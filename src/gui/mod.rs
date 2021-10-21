@@ -196,10 +196,24 @@ enum GuiState<R: Requests, S: AppState> {
 
 impl<R: Requests, S: AppState> GuiState<R, S> {
     fn queue_event(&mut self, event: Event) {
-        match self {
-            GuiState::TopBar(state) => state.queue_event(event),
-            GuiState::LeftPanel(state) => state.queue_event(event),
-            GuiState::StatusBar(state) => state.queue_event(event),
+        if let Event::Keyboard(iced::keyboard::Event::KeyPressed {
+            key_code: iced::keyboard::KeyCode::Tab,
+            ..
+        }) = event
+        {
+            match self {
+                GuiState::StatusBar(state) => {
+                    self.queue_status_bar_message(status_bar::Message::TabPressed)
+                }
+                GuiState::TopBar(_) => (),
+                GuiState::LeftPanel(_) => (),
+            }
+        } else {
+            match self {
+                GuiState::TopBar(state) => state.queue_event(event),
+                GuiState::LeftPanel(state) => state.queue_event(event),
+                GuiState::StatusBar(state) => state.queue_event(event),
+            }
         }
     }
 
