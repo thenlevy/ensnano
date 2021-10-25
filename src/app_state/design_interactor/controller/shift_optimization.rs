@@ -94,7 +94,7 @@ fn get_shift_optimization_result(
     progress_channel: std::sync::mpsc::Sender<f32>,
     identifier_nucl: &AHashMap<Nucl, u32>,
 ) -> ShiftOptimizationResult {
-    let mut best_score = 10000;
+    let mut best_score = usize::MAX;
     let mut best_shfit = 0;
     let mut best_result = String::new();
     let len = design
@@ -202,6 +202,7 @@ fn evaluate_shift(design: &Design, basis_map: &BTreeMap<Nucl, char>) -> (usize, 
         }
         result
     };
+    log::debug!("ret {}, {}", ret, result);
     (ret, result)
 }
 
