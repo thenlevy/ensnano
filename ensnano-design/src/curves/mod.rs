@@ -24,6 +24,7 @@ use std::sync::Arc;
 mod bezier;
 mod sphere_like_spiral;
 pub use bezier::CubicBezierConstructor;
+pub use sphere_like_spiral::SphereLikeSpiral;
 
 pub(super) trait Curved {
     fn position(&self, t: f32) -> Vec3;
@@ -164,12 +165,14 @@ fn perpendicular_basis(point: Vec3) -> Mat3 {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum CurveDescriptor {
     Bezier(CubicBezierConstructor),
+    SphereLikeSpiral(SphereLikeSpiral),
 }
 
 impl CurveDescriptor {
     fn into_curve(self, parameters: &Parameters) -> Curve {
         match self {
             Self::Bezier(constructor) => Curve::new(constructor.into_bezier(), parameters),
+            Self::SphereLikeSpiral(spiral) => Curve::new(spiral, parameters),
         }
     }
 }

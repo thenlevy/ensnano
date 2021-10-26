@@ -42,8 +42,8 @@ pub mod group_attributes;
 use group_attributes::GroupAttribute;
 
 mod curves;
-use curves::InstanciatedCurve;
 pub use curves::{CubicBezierConstructor, CurveDescriptor};
+use curves::{InstanciatedCurve, SphereLikeSpiral};
 
 mod formating;
 #[cfg(test)]
@@ -1590,6 +1590,21 @@ impl Helix {
             roll: 0f32,
             locked_for_simulations: false,
             curve: None,
+            instanciated_curve: None,
+        }
+    }
+
+    pub fn new_sphere_like_spiral(radius: f32, theta_0: f32) -> Self {
+        let constructor = SphereLikeSpiral { radius, theta_0 };
+        Self {
+            position: Vec3::zero(),
+            orientation: Rotor3::identity(),
+            isometry2d: None,
+            grid_position: None,
+            visible: true,
+            roll: 0f32,
+            locked_for_simulations: false,
+            curve: Some(Arc::new(CurveDescriptor::SphereLikeSpiral(constructor))),
             instanciated_curve: None,
         }
     }

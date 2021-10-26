@@ -20,9 +20,10 @@ use super::Curved;
 use std::f32::consts::{PI, TAU};
 use ultraviolet::Vec3;
 
-pub(super) struct SphereLikeSpiral {
-    theta_0: f32,
-    radius: f32,
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub struct SphereLikeSpiral {
+    pub theta_0: f32,
+    pub radius: f32,
 }
 
 impl Curved for SphereLikeSpiral {
