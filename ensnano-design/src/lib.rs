@@ -42,8 +42,10 @@ pub mod group_attributes;
 use group_attributes::GroupAttribute;
 
 pub use bezier::CubicBezierConstructor;
-use bezier::InstanciatedBezier;
 mod bezier;
+mod curves;
+pub use curves::CurveDescriptor;
+use curves::{Curve, Curved, InstanciatedCurve};
 
 mod formating;
 #[cfg(test)]
@@ -432,7 +434,7 @@ impl Design {
     pub fn update_bezier_helices(&mut self) {
         let mut need_update = false;
         for h in self.helices.values() {
-            if h.need_bezier_update() {
+            if h.need_curve_update() {
                 need_update = true;
                 break;
             }
@@ -1436,10 +1438,10 @@ pub struct Helix {
     pub roll: f32,
 
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub bezier: Option<Arc<CubicBezierConstructor>>,
+    pub curve: Option<Arc<CurveDescriptor>>,
 
     #[serde(default, skip)]
-    instanciated_bezier: Option<InstanciatedBezier>,
+    instanciated_curve: Option<InstanciatedCurve>,
 }
 
 fn default_visibility() -> bool {
@@ -1479,8 +1481,8 @@ impl Helix {
             visible: true,
             roll: 0f32,
             locked_for_simulations: false,
-            bezier: None,
-            instanciated_bezier: None,
+            curve: None,
+            instanciated_curve: None,
         }
     }
 
@@ -1552,8 +1554,8 @@ impl Helix {
             roll: 0f32,
             isometry2d: Some(isometry2d),
             locked_for_simulations: false,
-            bezier: None,
-            instanciated_bezier: None,
+            curve: None,
+            instanciated_curve: None,
         })
     }
 }
@@ -1568,8 +1570,8 @@ impl Helix {
             visible: true,
             roll: 0f32,
             locked_for_simulations: false,
-            bezier: None,
-            instanciated_bezier: None,
+            curve: None,
+            instanciated_curve: None,
         }
     }
 
@@ -1589,8 +1591,8 @@ impl Helix {
             visible: true,
             roll: 0f32,
             locked_for_simulations: false,
-            bezier: None,
-            instanciated_bezier: None,
+            curve: None,
+            instanciated_curve: None,
         }
     }
 
@@ -1619,15 +1621,15 @@ impl Helix {
             visible: true,
             roll: 0f32,
             locked_for_simulations: false,
-            bezier: Some(Arc::new(constructor)),
-            instanciated_bezier: None,
+            curve: Some(Arc::new(CurveDescriptor::Bezier(constructor))),
+            instanciated_curve: None,
         }
     }
 
     pub fn nb_bezier_nucls(&self) -> usize {
-        self.instanciated_bezier
+        self.instanciated_curve
             .as_ref()
-            .map(|c| c.curve.nb_points())
+            .map(|c| c.curve.as_ref().nb_points())
             .unwrap_or(0)
     }
 
@@ -1646,9 +1648,9 @@ impl Helix {
     /// 3D position of a nucleotide on this helix. `n` is the position along the axis, and `forward` is true iff the 5' to 3' direction of the strand containing that nucleotide runs in the same direction as the axis of the helix.
     pub fn space_pos(&self, p: &Parameters, n: isize, forward: bool) -> Vec3 {
         let theta = self.theta(n, forward, p);
-        if let Some(curve) = self.instanciated_bezier.as_ref().map(|s| s.curve.as_ref()) {
+        if let Some(curve) = self.instanciated_curve.as_ref() {
             if n >= 0 {
-                if let Some(point) = curve.nucl_pos(n as usize, theta, p) {
+                if let Some(point) = curve.as_ref().nucl_pos(n as usize, theta, p) {
                     return point;
                 }
             }
@@ -1681,8 +1683,8 @@ impl Helix {
             visible: true,
             isometry2d: None,
             locked_for_simulations: false,
-            bezier: None,
-            instanciated_bezier: None,
+            curve: None,
+            instanciated_curve: None,
         }
     }
 
@@ -1714,7 +1716,7 @@ impl Helix {
     }
 
     pub fn axis_position(&self, p: &Parameters, n: isize) -> Vec3 {
-        if let Some(curve) = self.instanciated_bezier.as_ref().map(|s| &s.curve) {
+        if let Some(curve) = self.instanciated_curve.as_ref().map(|s| &s.curve) {
             if n >= 0 && n <= curve.nb_points() as isize {
                 if let Some(point) = curve.axis_pos(n as usize) {
                     return point;
