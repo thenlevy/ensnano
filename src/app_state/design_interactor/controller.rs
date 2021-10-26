@@ -1503,7 +1503,7 @@ impl Controller {
             Some(n) if n > 1 => Some(StrandBuilder::init_existing(
                 desc.identifier,
                 nucl,
-                axis,
+                axis.to_owned(),
                 desc.fixed_end,
                 neighbour_desc,
                 stick,
@@ -1514,7 +1514,7 @@ impl Controller {
                     domain: 0,
                 },
                 nucl,
-                axis,
+                axis.to_owned(),
                 neighbour_desc,
                 false,
             )),
@@ -1538,7 +1538,7 @@ impl Controller {
                 domain: 0,
             },
             nucl,
-            axis,
+            axis.to_owned(),
             left.or(right),
             true,
         ))
@@ -1896,11 +1896,13 @@ impl Controller {
         let dumy_start_helix = Helix::new_on_grid(&grid_start, start.x, start.y, start.grid);
         let start_axis = dumy_start_helix
             .get_axis(&design.parameters.unwrap_or(Parameters::DEFAULT))
-            .direction;
+            .direction()
+            .unwrap_or(Vec3::zero());
         let dumy_end_helix = Helix::new_on_grid(&grid_end, end.x, end.y, end.grid);
         let end_axis = dumy_end_helix
             .get_axis(&design.parameters.unwrap_or(Parameters::DEFAULT))
-            .direction;
+            .direction()
+            .unwrap_or(Vec3::zero());
 
         let mut helix = Helix::new_bezier_two_points(
             dumy_start_helix.position,

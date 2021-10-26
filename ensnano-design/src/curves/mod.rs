@@ -142,6 +142,10 @@ impl Curve {
             None
         }
     }
+
+    pub fn points(&self) -> &[Vec3] {
+        &self.positions
+    }
 }
 
 fn perpendicular_basis(point: Vec3) -> Mat3 {

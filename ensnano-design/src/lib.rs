@@ -1721,10 +1721,16 @@ impl Helix {
         new_helix.roll = theta_obj - theta_current;
     }
 
-    pub fn get_axis(&self, p: &Parameters) -> Axis {
-        Axis {
-            origin: self.position,
-            direction: self.axis_position(p, 1) - self.position,
+    pub fn get_axis<'a>(&'a self, p: &Parameters) -> Axis<'a> {
+        if let Some(curve) = self.instanciated_curve.as_ref() {
+            let nb_points = curve.as_ref().nb_points();
+            let points = curve.as_ref().points();
+            Axis::Curve { nb_points, points }
+        } else {
+            Axis::Line {
+                origin: self.position,
+                direction: self.axis_position(p, 1) - self.position,
+            }
         }
     }
 
@@ -1896,16 +1902,71 @@ impl std::fmt::Display for Nucl {
 /// Represents the axis of an helix. At the moment it is a line. In the future it might also be a
 /// bezier curve
 #[derive(Debug, Clone)]
-pub struct Axis {
-    pub origin: Vec3,
-    pub direction: Vec3,
+pub enum Axis<'a> {
+    Line {
+        origin: Vec3,
+        direction: Vec3,
+    },
+    Curve {
+        nb_points: usize,
+        points: &'a [Vec3],
+    },
 }
 
-impl Axis {
+#[derive(Debug, Clone)]
+pub enum OwnedAxis {
+    Line { origin: Vec3, direction: Vec3 },
+    Curve { nb_points: usize, points: Vec<Vec3> },
+}
+
+impl<'a> Axis<'a> {
+    pub fn to_owned(self) -> OwnedAxis {
+        match self {
+            Self::Line { origin, direction } => OwnedAxis::Line { origin, direction },
+            Self::Curve { nb_points, points } => OwnedAxis::Curve {
+                nb_points,
+                points: points.to_vec(),
+            },
+        }
+    }
+}
+
+impl OwnedAxis {
+    pub fn borrow<'a>(&'a self) -> Axis<'a> {
+        match self {
+            Self::Line { origin, direction } => Axis::Line {
+                origin: *origin,
+                direction: *direction,
+            },
+            Self::Curve { nb_points, points } => Axis::Curve {
+                nb_points: *nb_points,
+                points: &points[..],
+            },
+        }
+    }
+}
+
+impl<'a> Axis<'a> {
     pub fn transformed(&self, model_matrix: &Mat4) -> Self {
-        let origin = model_matrix.transform_point3(self.origin);
-        let direction = model_matrix.transform_vec3(self.direction);
-        Self { origin, direction }
+        match self {
+            Self::Line {
+                origin: old_origin,
+                direction: old_direction,
+            } => {
+                let origin = model_matrix.transform_point3(*old_origin);
+                let direction = model_matrix.transform_vec3(*old_direction);
+                Self::Line { origin, direction }
+            }
+            _ => self.clone(),
+        }
+    }
+
+    pub fn direction(&self) -> Option<Vec3> {
+        if let Axis::Line { direction, .. } = self {
+            Some(*direction)
+        } else {
+            None
+        }
     }
 }
 

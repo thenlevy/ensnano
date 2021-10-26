@@ -28,8 +28,6 @@ pub struct SphereLikeSpiral {
 
 const DIST_TURN: f32 = 2. * 2.65;
 
-
-
 impl Curved for SphereLikeSpiral {
     fn position(&self, t: f32) -> Vec3 {
         let phi = t * PI;
@@ -48,9 +46,11 @@ impl Curved for SphereLikeSpiral {
         let nb_turn = self.radius / DIST_TURN;
         let theta = nb_turn * TAU * phi + self.theta_0;
 
-        let x = self.radius * PI * (phi.cos() * theta.cos() - nb_turn * TAU * phi.sin() * theta.sin());
+        let x =
+            self.radius * PI * (phi.cos() * theta.cos() - nb_turn * TAU * phi.sin() * theta.sin());
 
-        let y = self.radius * PI * (phi.cos() * theta.sin() + nb_turn * TAU * phi.sin() * theta.cos());
+        let y =
+            self.radius * PI * (phi.cos() * theta.sin() + nb_turn * TAU * phi.sin() * theta.cos());
 
         let z = -self.radius * PI * phi.sin();
 
@@ -67,14 +67,18 @@ impl Curved for SphereLikeSpiral {
             * PI
             * (-1. * phi.sin() * theta.cos()
                 - phi.cos() * nb_turn * nb_turn * TAU * theta.sin()
-                - nb_turn * TAU * (phi.cos() * theta.sin() + nb_turn * TAU * phi.sin() * theta.cos()));
+                - nb_turn
+                    * TAU
+                    * (phi.cos() * theta.sin() + nb_turn * TAU * phi.sin() * theta.cos()));
 
         let y = self.radius
             * PI
             * PI
             * (-1. * phi.sin() * theta.sin()
                 + phi.cos() * nb_turn * TAU * theta.cos()
-                + nb_turn * TAU * (phi.cos() * theta.cos() - nb_turn * TAU * phi.sin() * theta.sin()));
+                + nb_turn
+                    * TAU
+                    * (phi.cos() * theta.cos() - nb_turn * TAU * phi.sin() * theta.sin()));
 
         let z = -self.radius * PI * PI * phi.cos();
 
