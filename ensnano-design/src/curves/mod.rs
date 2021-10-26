@@ -22,6 +22,7 @@ const DISCRETISATION_STEP: usize = 100;
 use super::{Helix, Parameters};
 use std::sync::Arc;
 mod bezier;
+mod sphere_like_spiral;
 pub use bezier::CubicBezierConstructor;
 
 pub(super) trait Curved {
