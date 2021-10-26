@@ -937,7 +937,7 @@ impl<S: AppState> ControllerState<S> for BuildingStrand {
                     let mouse_x = position.x / controller.area_size.width as f64;
                     let mouse_y = position.y / controller.area_size.height as f64;
                     let position = controller.view.borrow().compute_projection_axis(
-                        &builder.axis,
+                        builder.get_axis(),
                         mouse_x,
                         mouse_y,
                     );

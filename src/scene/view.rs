@@ -49,7 +49,7 @@ mod letter;
 /// A RotationWidget draws the widget for rotating objects
 mod rotation_widget;
 
-use super::maths_3d;
+use super::maths_3d::{self, distance_to_cursor};
 use crate::text::Letter;
 use bindgroup_manager::{DynamicBindGroup, UniformBindGroup};
 use direction_cube::*;
@@ -770,21 +770,44 @@ impl View {
 
     pub fn compute_projection_axis(
         &self,
-        axis: &Axis,
+        axis: Axis<'_>,
         mouse_x: f64,
         mouse_y: f64,
     ) -> Option<isize> {
-        let p1 = unproject_point_on_line(
-            axis.origin,
-            axis.direction,
-            self.camera.clone(),
-            self.projection.clone(),
-            mouse_x as f32,
-            mouse_y as f32,
-        )?;
+        match axis {
+            Axis::Line { origin, direction } => {
+                let p1 = unproject_point_on_line(
+                    origin,
+                    direction,
+                    self.camera.clone(),
+                    self.projection.clone(),
+                    mouse_x as f32,
+                    mouse_y as f32,
+                )?;
 
-        let sign = (p1 - axis.origin).dot(axis.direction).signum();
-        Some(((p1 - axis.origin).mag() * sign / axis.direction.mag()).round() as isize)
+                let sign = (p1 - origin).dot(direction).signum();
+                Some(((p1 - origin).mag() * sign / direction.mag()).round() as isize)
+            }
+            Axis::Curve { nb_points, points } => {
+                let mut ret = 0;
+                let mut opt = f32::INFINITY;
+                for (i, point) in points.iter().enumerate() {
+                    let d = distance_to_cursor(
+                        *point,
+                        self.camera.clone(),
+                        self.projection.clone(),
+                        mouse_x as f32,
+                        mouse_y as f32,
+                    )
+                    .unwrap_or(f32::INFINITY);
+                    if d < opt {
+                        opt = d;
+                        ret = i as isize
+                    }
+                }
+                Some(ret)
+            }
+        }
     }
 
     pub fn grid_intersection(&self, x_ndc: f32, y_ndc: f32) -> Option<GridIntersection> {

@@ -349,6 +349,10 @@ impl StrandBuilder {
     pub fn get_timestamp(&self) -> std::time::SystemTime {
         self.timestamp
     }
+
+    pub fn get_axis<'a>(&'a self) -> Axis<'a> {
+        self.axis.borrow()
+    }
 }
 
 /// The direction in which a moving end can go

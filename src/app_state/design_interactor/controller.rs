@@ -1524,14 +1524,14 @@ impl Controller {
     fn new_strand_builder(&mut self, design: &mut Design, nucl: Nucl) -> Option<StrandBuilder> {
         let left = design.get_neighbour_nucl(nucl.left());
         let right = design.get_neighbour_nucl(nucl.right());
-        let axis = design
-            .helices
-            .get(&nucl.helix)
-            .map(|h| h.get_axis(&design.parameters.unwrap_or_default()))?;
         if left.is_some() && right.is_some() {
             return None;
         }
         let new_key = self.init_strand(design, nucl);
+        let axis = design
+            .helices
+            .get(&nucl.helix)
+            .map(|h| h.get_axis(&design.parameters.unwrap_or_default()))?;
         Some(StrandBuilder::init_empty(
             DomainIdentifier {
                 strand: new_key,
