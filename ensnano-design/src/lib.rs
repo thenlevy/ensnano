@@ -41,11 +41,9 @@ pub type EnsnTree = OrganizerTree<DnaElementKey>;
 pub mod group_attributes;
 use group_attributes::GroupAttribute;
 
-pub use bezier::CubicBezierConstructor;
-mod bezier;
 mod curves;
-pub use curves::CurveDescriptor;
-use curves::{Curve, Curved, InstanciatedCurve};
+use curves::InstanciatedCurve;
+pub use curves::{CubicBezierConstructor, CurveDescriptor};
 
 mod formating;
 #[cfg(test)]

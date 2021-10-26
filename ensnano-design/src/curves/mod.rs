@@ -19,8 +19,10 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 use ultraviolet::{Mat3, Vec3};
 const EPSILON: f32 = 1e-6;
 const DISCRETISATION_STEP: usize = 100;
-use super::{CubicBezierConstructor, Helix, Parameters};
+use super::{Helix, Parameters};
 use std::sync::Arc;
+mod bezier;
+pub use bezier::CubicBezierConstructor;
 
 pub(super) trait Curved {
     fn position(&self, t: f32) -> Vec3;
