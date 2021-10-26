@@ -84,5 +84,11 @@ void main() {
           float((id >> 8) & 0xFF) / 255.,
           float(id & 0xFF) / 255.,
           float((id >> 24) & 0xFF) / 255.);
-    gl_Position = u_proj * u_view * model_space;
+    //gl_Position = u_proj * u_view * model_space;
+    float dist = length(model_space.xyz);
+    vec3 projected = model_space.xyz / dist;
+    gl_Position = vec4(projected.x / (1. - projected.z), projected.y / (1. - projected.z), dist, 1.);
+    //gl_Position = u_proj * u_view * model_space;
+
+
 }
