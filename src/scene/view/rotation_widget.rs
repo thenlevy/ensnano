@@ -133,6 +133,7 @@ impl RotationWidget {
                 self.circle_drawers[i].new_object(None);
             }
         }
+        self.select_circle(self.selected);
         self.sphere_drawer.new_object(self.sphere);
     }
 
@@ -195,6 +196,7 @@ impl RotationWidget {
         let (x_init, y_init) = self.clicked_origin?;
         let origin = self.rotation_origin?;
         let normal = self.rotation_normal?;
+        log::debug!("rotation origin {:?}", self.rotation_origin);
         let point_clicked = maths_3d::unproject_point_on_plane(
             origin,
             normal,
@@ -203,8 +205,10 @@ impl RotationWidget {
             x_init,
             y_init,
         )?;
+        log::debug!("Point clicked {:?}", point_clicked);
         let point_moved =
             maths_3d::unproject_point_on_plane(origin, normal, camera, projection, x, y)?;
+        log::debug!("Point moved {:?}", point_moved);
         let rotation = Rotor3::from_rotation_between(
             (point_clicked - origin).normalized(),
             (point_moved - origin).normalized(),

@@ -470,6 +470,14 @@ impl DesignReader {
             .map(|c| (c.position, c.orientation))
     }
 
+    pub fn get_nth_camera(&self, n: u32) -> Option<(Vec3, ultraviolet::Rotor3)> {
+        self.presenter
+            .current_design
+            .get_cameras()
+            .nth(n as usize)
+            .map(|c| (c.1.position, c.1.orientation))
+    }
+
     pub fn get_favourite_camera(&self) -> Option<(Vec3, ultraviolet::Rotor3)> {
         self.presenter
             .current_design

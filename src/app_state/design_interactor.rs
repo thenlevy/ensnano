@@ -371,6 +371,7 @@ mod tests {
     use ensnano_design::grid::GridPosition;
     use ensnano_design::{grid::GridDescriptor, DomainJunction, Nucl, Strand};
     use ensnano_interactor::operation::GridHelixCreation;
+    use ensnano_interactor::DesignReader;
     use std::path::PathBuf;
     use ultraviolet::{Rotor3, Vec3};
 

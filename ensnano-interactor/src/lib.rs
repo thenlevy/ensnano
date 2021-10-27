@@ -260,6 +260,7 @@ pub struct DesignRotation {
     pub rotation: Rotor3,
     /// The element of the design on which the rotation will be applied
     pub target: IsometryTarget,
+    pub group_id: Option<GroupId>,
 }
 
 /// A translation of an element of a design
@@ -267,6 +268,7 @@ pub struct DesignRotation {
 pub struct DesignTranslation {
     pub translation: Vec3,
     pub target: IsometryTarget,
+    pub group_id: Option<GroupId>,
 }
 
 /// A element on which an isometry must be applied

@@ -297,45 +297,46 @@ impl OperationInput {
             .collect::<Vec<_>>();
         let mut need_validation = false;
         for (i, p) in self.parameters.iter_mut().enumerate() {
-            let param = &op.parameters()[i];
-            match param.field {
-                ParameterField::Value => {
-                    let mut input = TextInput::new(
-                        p.get_value(),
-                        "",
-                        &format!("{0:.4}", str_values[i]),
-                        move |s| Message::ValueStrChanged(i, s),
-                    )
-                    .size(ui_size.main_text())
-                    .width(Length::Units(40))
-                    .on_submit(Message::ValueSet(i, str_values[i].clone()));
-                    if active_input.get(i) == Some(&true) {
-                        use input_color::InputValueState;
-                        let state = if values.get(i) == str_values.get(i) {
-                            InputValueState::Normal
-                        } else if op.with_new_value(i, str_values[i].clone()).is_some() {
-                            need_validation = true;
-                            InputValueState::BeingTyped
-                        } else {
-                            InputValueState::Invalid
-                        };
-                        input = input.style(state);
-                    }
-                    row = row
-                        .spacing(20)
-                        .push(Text::new(param.name.clone()).size(ui_size.main_text()))
-                        .push(input)
-                }
-                ParameterField::Choice(ref v) => {
-                    row = row.spacing(20).push(
-                        PickList::new(
-                            p.get_choice(),
-                            v.clone(),
-                            Some(values[i].clone()),
-                            move |s| Message::ValueSet(i, s),
+            if let Some(param) = op.parameters().get(i) {
+                match param.field {
+                    ParameterField::Value => {
+                        let mut input = TextInput::new(
+                            p.get_value(),
+                            "",
+                            &format!("{0:.4}", str_values[i]),
+                            move |s| Message::ValueStrChanged(i, s),
                         )
-                        .text_size(ui_size.main_text() - 4),
-                    )
+                        .size(ui_size.main_text())
+                        .width(Length::Units(40))
+                        .on_submit(Message::ValueSet(i, str_values[i].clone()));
+                        if active_input.get(i) == Some(&true) {
+                            use input_color::InputValueState;
+                            let state = if values.get(i) == str_values.get(i) {
+                                InputValueState::Normal
+                            } else if op.with_new_value(i, str_values[i].clone()).is_some() {
+                                need_validation = true;
+                                InputValueState::BeingTyped
+                            } else {
+                                InputValueState::Invalid
+                            };
+                            input = input.style(state);
+                        }
+                        row = row
+                            .spacing(20)
+                            .push(Text::new(param.name.clone()).size(ui_size.main_text()))
+                            .push(input)
+                    }
+                    ParameterField::Choice(ref v) => {
+                        row = row.spacing(20).push(
+                            PickList::new(
+                                p.get_choice(),
+                                v.clone(),
+                                Some(values[i].clone()),
+                                move |s| Message::ValueSet(i, s),
+                            )
+                            .text_size(ui_size.main_text() - 4),
+                        )
+                    }
                 }
             }
         }

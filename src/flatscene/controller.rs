@@ -125,9 +125,20 @@ impl<S: AppState> Controller<S> {
         self.update_globals();
     }
 
-    pub fn set_splited(&mut self, splited: bool) {
+    pub fn set_splited(&mut self, splited: bool, refit: bool) {
         self.splited = splited;
+        let old_rectangle_top = self.camera_top.borrow().get_visible_rectangle();
         self.update_globals();
+        if refit {
+            if splited {
+                let (new_top, new_bottom) = old_rectangle_top.splited_vertically();
+                self.camera_top.borrow_mut().fit(new_top);
+                self.camera_bottom.borrow_mut().fit(new_bottom);
+            } else {
+                let new_top = old_rectangle_top.with_double_height();
+                self.camera_top.borrow_mut().fit(new_top);
+            }
+        }
     }
 
     fn update_globals(&mut self) {

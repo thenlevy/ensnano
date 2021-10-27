@@ -78,11 +78,19 @@ void main() {
     }
 
     v_position = model_space.xyz;
+    model_space.xyz -= u_camera_position;
     uint id = instances[gl_InstanceIndex].id;
     v_id = vec4(
           float((id >> 16) & 0xFF) / 255.,
           float((id >> 8) & 0xFF) / 255.,
           float(id & 0xFF) / 255.,
           float((id >> 24) & 0xFF) / 255.);
-    gl_Position = u_proj * u_view * model_space;
+    //gl_Position = u_proj * u_view * model_space;
+    model_space /= 30.;
+    float dist = length(model_space.xyz);
+    vec3 projected = model_space.xyz / dist;
+    gl_Position = vec4(projected.x / (1. - projected.z) / 3., projected.y / (1. - projected.z) / 3., dist, 1.);
+    //gl_Position = u_proj * u_view * model_space;
+
+
 }
