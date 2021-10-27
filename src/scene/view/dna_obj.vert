@@ -78,6 +78,7 @@ void main() {
     }
 
     v_position = model_space.xyz;
+    model_space.xyz -= u_camera_position;
     uint id = instances[gl_InstanceIndex].id;
     v_id = vec4(
           float((id >> 16) & 0xFF) / 255.,
