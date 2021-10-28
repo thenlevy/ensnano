@@ -19,6 +19,7 @@ uniform Uniforms {
     vec3 u_padding2;
     float u_stereography_radius;
     mat4 u_stereography_view;
+    float u_aspect_ratio;
 };
 
 layout(set=1, binding=0) buffer ModelBlock {
@@ -94,11 +95,11 @@ void main() {
         float dist = length(view_space.xyz);
         vec3 projected = view_space.xyz / dist;
         float close_to_pole = 0.0;
-        if (projected.z > 0.9) {
+        if (projected.z > 0.99) {
             close_to_pole = 1.0;
         }
-        float z = max(close_to_pole, sqrt(dist / 3.) - 0.1);
-        gl_Position = vec4(projected.x / (1. - projected.z) / 3., projected.y / (1. - projected.z) / 3., z, 1.);
+        float z = max(close_to_pole, atan(dist) * 2. / 3.14);
+        gl_Position = vec4(projected.x / (1. - projected.z) / 3. / u_aspect_ratio, projected.y / (1. - projected.z) / 3., z, 1.);
     } else {
         gl_Position = u_proj * u_view * model_space;
     }

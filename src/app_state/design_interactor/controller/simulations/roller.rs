@@ -130,14 +130,13 @@ pub(super) fn cross_over_force(
 
     let norm = K_SPRING * (real_dist - dist_ac(parameters));
 
-    let theta_self = me.theta(n_self, b_self, parameters);
-    let theta_other = other.theta(n_other, b_other, parameters);
-
     // vec_self is the derivative of the position of self w.r.t. theta
     // postion of self is [0, sin(theta), cos(theta)]
     // so the derivative is [0, cos(theta), -sin(theta)]
-    let vec_self = me.rotate_point([0., theta_self.cos(), -theta_self.sin()].into());
-    let vec_other = other.rotate_point([0., theta_other.cos(), -theta_other.sin()].into());
+
+    let derivative_shift = std::f32::consts::FRAC_PI_2;
+    let vec_self = me.shifted_space_pos(parameters, n_self, b_self, derivative_shift) - me.axis_position(parameters, n_self);
+    let vec_other = other.shifted_space_pos(parameters, n_other, b_other, derivative_shift) - other.axis_position(parameters, n_other);
 
     (
         (0..3)

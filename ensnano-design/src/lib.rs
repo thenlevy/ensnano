@@ -1656,6 +1656,10 @@ impl Helix {
     /// 3D position of a nucleotide on this helix. `n` is the position along the axis, and `forward` is true iff the 5' to 3' direction of the strand containing that nucleotide runs in the same direction as the axis of the helix.
     pub fn space_pos(&self, p: &Parameters, n: isize, forward: bool) -> Vec3 {
         let theta = self.theta(n, forward, p);
+        self.theta_n_to_space_pos(p, n, theta)
+    }
+
+    fn theta_n_to_space_pos(&self, p: &Parameters, n: isize, theta: f32) -> Vec3 {
         if let Some(curve) = self.instanciated_curve.as_ref() {
             if n >= 0 {
                 if let Some(point) = curve.as_ref().nucl_pos(n as usize, theta, p) {
@@ -1672,6 +1676,12 @@ impl Helix {
         ret = self.rotate_point(ret);
         ret += self.position;
         ret
+
+    }
+
+    pub fn shifted_space_pos(&self, p: &Parameters, n: isize, forward: bool, shift: f32) -> Vec3 {
+        let theta = self.theta(n, forward, p) + shift;
+        self.theta_n_to_space_pos(p, n, theta)
     }
 
     ///Return an helix that makes an ideal cross-over with self at postion n

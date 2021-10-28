@@ -36,6 +36,7 @@ pub struct Uniforms {
     pub fog_alt_center: Vec3,     // 3
     pub stereography_radius: f32, // 0
     pub stereography_view: Mat4,  // 0
+    pub aspect_ratio: f32,
 }
 
 unsafe impl bytemuck::Pod for Uniforms {}
@@ -96,6 +97,7 @@ impl Uniforms {
             fog_alt_center: Vec3::zero(),
             stereography_radius,
             stereography_view,
+            aspect_ratio: projection.borrow().get_ratio(),
         }
     }
 
@@ -128,6 +130,7 @@ impl Uniforms {
             fog_alt_center: fog.alt_fog_center.unwrap_or(Vec3::zero()),
             stereography_view,
             stereography_radius,
+            aspect_ratio: projection.borrow().get_ratio(),
         }
     }
 }
