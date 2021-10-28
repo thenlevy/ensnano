@@ -41,6 +41,7 @@ pub trait Application {
         event: &WindowEvent,
         position: PhysicalPosition<f64>,
         app_state: &Self::AppState,
+        draw_option: DrawOption,
     );
     /// The method is used to forwards redraw_requests to applications
     fn on_redraw_request(

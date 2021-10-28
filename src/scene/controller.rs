@@ -18,7 +18,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 use super::view::HandleColors;
 use super::{
     camera, Duration, ElementSelector, HandleDir, SceneElement, ViewPtr,
-    WidgetRotationMode as RotationMode,
+    WidgetRotationMode as RotationMode, Stereography
 };
 use crate::consts::*;
 use crate::{PhySize, PhysicalPosition, WindowEvent};
@@ -63,6 +63,7 @@ pub struct Controller<S: AppState> {
     /// The effect that dragging the mouse has
     click_mode: ClickMode,
     state: State<S>,
+    stereography: Option<Stereography>,
 }
 
 pub enum Consequence {
@@ -139,7 +140,12 @@ impl<S: AppState> Controller<S> {
             current_modifiers: ModifiersState::empty(),
             click_mode: ClickMode::TranslateCam,
             state: automata::initial_state(),
+            stereography: None,
         }
+    }
+
+    pub fn set_setreography(&mut self, stereography: Option<Stereography>) {
+        self.stereography = stereography;
     }
 
     pub fn update_modifiers(&mut self, modifiers: ModifiersState) {

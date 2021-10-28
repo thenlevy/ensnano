@@ -45,7 +45,7 @@ mod view;
 use view::{
     DrawType, HandleDir, HandleOrientation, HandlesDescriptor, LetterInstance,
     RotationMode as WidgetRotationMode, RotationWidgetDescriptor, RotationWidgetOrientation, View,
-    ViewUpdate,
+    ViewUpdate, Stereography
 };
 pub use view::{FogParameters, GridInstance};
 /// Handling of inputs and notifications
@@ -565,9 +565,8 @@ impl<S: AppState> Scene<S> {
         }
     }
 
-    fn need_redraw(&mut self, dt: Duration, new_state: S, stereographic: bool) -> bool {
+    fn need_redraw(&mut self, dt: Duration, new_state: S) -> bool {
         self.check_timers(&new_state);
-        self.element_selector.set_stereographic(stereographic);
         if self.controller.camera_is_moving() {
             self.notify(SceneNotification::CameraMoved);
         }
@@ -803,7 +802,15 @@ impl<S: AppState> Application for Scene<S> {
         event: &WindowEvent,
         cursor_position: PhysicalPosition<f64>,
         app_state: &S,
+        option: DrawOption,
     ) {
+        self.element_selector.set_stereographic(option.stereography);
+        if option.stereography {
+            let stereography = self.view.borrow().get_stereography();
+            self.controller.set_setreography(Some(stereography));
+        } else {
+            self.controller.set_setreography(None);
+        }
         self.input(event, cursor_position, &app_state)
     }
 
@@ -822,8 +829,8 @@ impl<S: AppState> Application for Scene<S> {
         self.draw_view(encoder, target, &older_state, option.stereography)
     }
 
-    fn needs_redraw(&mut self, dt: Duration, state: S, draw_option: DrawOption) -> bool {
-        self.need_redraw(dt, state, draw_option.stereography)
+    fn needs_redraw(&mut self, dt: Duration, state: S, _draw_option: DrawOption) -> bool {
+        self.need_redraw(dt, state)
     }
 
     fn get_position_for_new_grid(&self) -> Option<(Vec3, Rotor3)> {

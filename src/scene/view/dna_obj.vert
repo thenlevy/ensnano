@@ -93,7 +93,12 @@ void main() {
         view_space /= u_stereography_radius;
         float dist = length(view_space.xyz);
         vec3 projected = view_space.xyz / dist;
-        gl_Position = vec4(projected.x / (1. - projected.z) / 3., projected.y / (1. - projected.z) / 3., sqrt(dist/3.), 1.);
+        float close_to_pole = 0.0;
+        if (projected.z > 0.9) {
+            close_to_pole = 1.0;
+        }
+        float z = max(close_to_pole, sqrt(dist / 3.) - 0.1);
+        gl_Position = vec4(projected.x / (1. - projected.z) / 3., projected.y / (1. - projected.z) / 3., z, 1.);
     } else {
         gl_Position = u_proj * u_view * model_space;
     }

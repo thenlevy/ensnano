@@ -739,6 +739,10 @@ impl View {
         self.handle_drawers.end_movement()
     }
 
+    pub fn get_stereography(&self) -> Stereography {
+        self.stereography.clone()
+    }
+
     /// Compute the translation that needs to be applied to the objects affected by the handle
     /// widget.
     pub fn compute_translation_handle(
@@ -756,6 +760,7 @@ impl View {
             self.projection.clone(),
             x0,
             y0,
+            None, // we don't play with handle in stereographic view
         )?;
         let p2 = unproject_point_on_line(
             origin,
@@ -764,6 +769,7 @@ impl View {
             self.projection.clone(),
             x_coord,
             y_coord,
+            None, // we don't play with handle in stereographic view
         )?;
         Some(p2 - p1)
     }
@@ -804,6 +810,7 @@ impl View {
         axis: Axis<'_>,
         mouse_x: f64,
         mouse_y: f64,
+        stereographic: bool,
     ) -> Option<isize> {
         match axis {
             Axis::Line { origin, direction } => {
@@ -814,6 +821,7 @@ impl View {
                     self.projection.clone(),
                     mouse_x as f32,
                     mouse_y as f32,
+                    Some(&self.stereography).filter(|_| stereographic),
                 )?;
 
                 let sign = (p1 - origin).dot(direction).signum();
@@ -829,6 +837,7 @@ impl View {
                         self.projection.clone(),
                         mouse_x as f32,
                         mouse_y as f32,
+                        Some(&self.stereography).filter(|_| stereographic),
                     )
                     .unwrap_or(f32::INFINITY);
                     if d < opt {
@@ -842,7 +851,9 @@ impl View {
     }
 
     pub fn grid_intersection(&self, x_ndc: f32, y_ndc: f32) -> Option<GridIntersection> {
-        let ray = maths_3d::cast_ray(x_ndc, y_ndc, self.camera.clone(), self.projection.clone());
+        let ray = maths_3d::cast_ray(x_ndc, y_ndc, self.camera.clone(), self.projection.clone()
+            , None // we don't play we grids in stereographic view
+        );
         self.grid_manager.intersect(ray.0, ray.1)
     }
 
@@ -852,7 +863,9 @@ impl View {
         y_ndc: f32,
         g_id: usize,
     ) -> Option<GridIntersection> {
-        let ray = maths_3d::cast_ray(x_ndc, y_ndc, self.camera.clone(), self.projection.clone());
+        let ray = maths_3d::cast_ray(x_ndc, y_ndc, self.camera.clone(), self.projection.clone(),
+        None // No grids in stereographic view
+        );
         self.grid_manager.specific_intersect(ray.0, ray.1, g_id)
     }
 

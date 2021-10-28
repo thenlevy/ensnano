@@ -62,6 +62,9 @@ impl ElementSelector {
     }
 
     pub fn set_stereographic(&mut self, stereographic: bool) {
+        if self.stereographic != stereographic {
+            self.readers[0].pixels = None;
+        }
         self.stereographic = stereographic;
     }
 

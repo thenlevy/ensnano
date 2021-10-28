@@ -61,7 +61,7 @@ impl Scheduler {
         if let Some(app) = self.applications.get_mut(&area) {
             app.lock()
                 .unwrap()
-                .on_event(event, cursor_position, &app_state)
+                .on_event(event, cursor_position, &app_state, area.draw_option())
         }
     }
 

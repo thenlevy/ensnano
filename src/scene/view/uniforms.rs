@@ -41,6 +41,7 @@ pub struct Uniforms {
 unsafe impl bytemuck::Pod for Uniforms {}
 unsafe impl bytemuck::Zeroable for Uniforms {}
 
+#[derive(Clone, Debug)]
 pub struct Stereography {
     pub(super) radius: f32,
     pub(super) position: Option<Vec3>,
