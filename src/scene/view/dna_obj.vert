@@ -9,12 +9,16 @@ layout(location=2) out vec3 v_position;
 layout(location=3) out vec4 v_id;
 
 
-layout(set=0, binding=0)
+layout(std140, set=0, binding=0)
 uniform Uniforms {
     vec3 u_camera_position;
     mat4 u_view;
     mat4 u_proj;
     mat4 u_inversed_view;
+    vec4 u_padding1;
+    vec3 u_padding2;
+    float u_stereography_radius;
+    mat4 u_stereography_view;
 };
 
 layout(set=1, binding=0) buffer ModelBlock {
@@ -78,19 +82,19 @@ void main() {
     }
 
     v_position = model_space.xyz;
-    model_space.xyz -= u_camera_position;
     uint id = instances[gl_InstanceIndex].id;
     v_id = vec4(
           float((id >> 16) & 0xFF) / 255.,
           float((id >> 8) & 0xFF) / 255.,
           float(id & 0xFF) / 255.,
           float((id >> 24) & 0xFF) / 255.);
-    //gl_Position = u_proj * u_view * model_space;
-    model_space /= 30.;
-    float dist = length(model_space.xyz);
-    vec3 projected = model_space.xyz / dist;
-    gl_Position = vec4(projected.x / (1. - projected.z) / 3., projected.y / (1. - projected.z) / 3., dist, 1.);
-    //gl_Position = u_proj * u_view * model_space;
-
-
+    if (u_stereography_radius > 0.0) {
+        vec4 view_space = u_stereography_view * model_space;
+        view_space /= u_stereography_radius;
+        float dist = length(view_space.xyz);
+        vec3 projected = view_space.xyz / dist;
+        gl_Position = vec4(projected.x / (1. - projected.z) / 3., projected.y / (1. - projected.z) / 3., sqrt(dist/3.), 1.);
+    } else {
+        gl_Position = u_proj * u_view * model_space;
+    }
 }

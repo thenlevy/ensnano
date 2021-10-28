@@ -296,6 +296,7 @@ fn main() {
         requests.clone(),
         &mut encoder,
         Default::default(),
+        false,
     )));
     queue.submit(Some(encoder.finish()));
     scheduler.add_application(scene.clone(), ElementType::Scene);

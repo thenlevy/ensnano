@@ -34,7 +34,7 @@ use wgpu::{Device, Queue};
 
 /// A `Uniform` is a structure that manages view and projection matrices.
 mod uniforms;
-pub use uniforms::FogParameters;
+pub use uniforms::{Stereography, FogParameters};
 use uniforms::Uniforms;
 mod direction_cube;
 mod dna_obj;
@@ -121,6 +121,7 @@ pub struct View {
     fog_parameters: FogParameters,
     rendering_mode: RenderingMode,
     background3d: Background3D,
+    stereography: Option<Stereography>,
 }
 
 impl View {
@@ -130,6 +131,7 @@ impl View {
         device: Rc<Device>,
         queue: Rc<Queue>,
         encoder: &mut wgpu::CommandEncoder,
+        stereographic: bool,
     ) -> Self {
         let camera = Rc::new(RefCell::new(Camera::new(
             (0.0, 5.0, 10.0),
@@ -142,10 +144,19 @@ impl View {
             0.1,
             1000.0,
         )));
+        let stereography = if stereographic {
+            Some(Stereography {
+                radius: 30.,
+                orientation: None,
+                position: None,
+            })
+        } else {
+            None
+        };
         let viewer = UniformBindGroup::new(
             device.clone(),
             queue.clone(),
-            &Uniforms::from_view_proj(camera.clone(), projection.clone()),
+            &Uniforms::from_view_proj(camera.clone(), projection.clone(), &stereography),
         );
         let model_bg_desc = wgpu::BindGroupLayoutDescriptor {
             entries: MODEL_BG_ENTRY,
@@ -294,6 +305,7 @@ impl View {
             fog_parameters: FogParameters::new(),
             rendering_mode: Default::default(),
             background3d: Default::default(),
+            stereography,
         }
     }
 
@@ -311,6 +323,7 @@ impl View {
                     self.camera.clone(),
                     self.projection.clone(),
                     &self.fog_parameters,
+                    &self.stereography,
                 ));
                 self.handle_drawers
                     .update_camera(self.camera.clone(), self.projection.clone());
@@ -326,6 +339,7 @@ impl View {
                     self.camera.clone(),
                     self.projection.clone(),
                     &self.fog_parameters,
+                    &self.stereography,
                 ));
             }
             ViewUpdate::Handles(descr) => {
@@ -385,6 +399,7 @@ impl View {
                     self.camera.clone(),
                     self.projection.clone(),
                     &self.fog_parameters,
+                    &self.stereography,
                 ));
             }
         }

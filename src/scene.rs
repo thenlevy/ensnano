@@ -100,6 +100,7 @@ impl<S: AppState> Scene<S> {
         requests: Arc<Mutex<dyn Requests>>,
         encoder: &mut wgpu::CommandEncoder,
         inital_state: S,
+        stereographic: bool,
     ) -> Self {
         let update = SceneUpdate::new();
         let view: ViewPtr = Rc::new(RefCell::new(View::new(
@@ -108,6 +109,7 @@ impl<S: AppState> Scene<S> {
             device.clone(),
             queue.clone(),
             encoder,
+            stereographic,
         )));
         let data: DataPtr<S::DesignReader> = Rc::new(RefCell::new(Data::new(
             inital_state.get_design_reader(),
