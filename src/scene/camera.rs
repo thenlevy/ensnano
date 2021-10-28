@@ -285,7 +285,13 @@ impl CameraController {
         self.pivot_point = point
     }
 
-    pub fn get_projection(&self, origin: Vec3, x: f64, y: f64, streography: Option<&Stereography>) -> Vec3 {
+    pub fn get_projection(
+        &self,
+        origin: Vec3,
+        x: f64,
+        y: f64,
+        streography: Option<&Stereography>,
+    ) -> Vec3 {
         let plane = Plane {
             origin,
             normal: (self.camera.borrow().position - origin),

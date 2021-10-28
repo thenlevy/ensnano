@@ -539,7 +539,13 @@ impl<S: AppState> Application for FlatScene<S> {
         self.resize(window_size, area)
     }
 
-    fn on_event(&mut self, event: &WindowEvent, cursor_position: PhysicalPosition<f64>, state: &S, _: DrawOption) {
+    fn on_event(
+        &mut self,
+        event: &WindowEvent,
+        cursor_position: PhysicalPosition<f64>,
+        state: &S,
+        _: DrawOption,
+    ) {
         self.input(event, cursor_position, state)
     }
 

@@ -135,8 +135,10 @@ pub(super) fn cross_over_force(
     // so the derivative is [0, cos(theta), -sin(theta)]
 
     let derivative_shift = std::f32::consts::FRAC_PI_2;
-    let vec_self = me.shifted_space_pos(parameters, n_self, b_self, derivative_shift) - me.axis_position(parameters, n_self);
-    let vec_other = other.shifted_space_pos(parameters, n_other, b_other, derivative_shift) - other.axis_position(parameters, n_other);
+    let vec_self = me.shifted_space_pos(parameters, n_self, b_self, derivative_shift)
+        - me.axis_position(parameters, n_self);
+    let vec_other = other.shifted_space_pos(parameters, n_other, b_other, derivative_shift)
+        - other.axis_position(parameters, n_other);
 
     (
         (0..3)

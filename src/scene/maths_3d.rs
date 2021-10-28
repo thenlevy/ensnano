@@ -17,8 +17,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 use super::{
     camera::{CameraPtr, ProjectionPtr},
-    Vec3,
-    Stereography,
+    Stereography, Vec3,
 };
 
 /// Use to compute the shortes line between two lines in 3D.
@@ -50,7 +49,7 @@ pub fn unproject_point_on_line(
     projection: ProjectionPtr,
     x_ndc: f32,
     y_ndc: f32,
-    stereography: Option<&Stereography>
+    stereography: Option<&Stereography>,
 ) -> Option<Vec3> {
     let p1 = camera.borrow().position;
     let p2 = ndc_to_world(x_ndc, y_ndc, camera, projection, stereography);
@@ -118,7 +117,13 @@ pub fn unproject_point_on_plane(
 }
 
 /// Convert a point on the screen into a point in the world. Usefull for casting rays
-fn ndc_to_world(x_ndc: f32, y_ndc: f32, camera: CameraPtr, projection: ProjectionPtr, stereography: Option<&Stereography>) -> Vec3 {
+fn ndc_to_world(
+    x_ndc: f32,
+    y_ndc: f32,
+    camera: CameraPtr,
+    projection: ProjectionPtr,
+    stereography: Option<&Stereography>,
+) -> Vec3 {
     let x_screen = 2. * x_ndc - 1.;
     let y_screen = 1. - 2. * y_ndc;
 
@@ -139,7 +144,6 @@ fn ndc_to_world(x_ndc: f32, y_ndc: f32, camera: CameraPtr, projection: Projectio
             p1 + right * x_screen * projection.borrow().get_ratio() + up * y_screen + direction
         };
         p2
-
     }
 }
 

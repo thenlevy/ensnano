@@ -1676,7 +1676,6 @@ impl Helix {
         ret = self.rotate_point(ret);
         ret += self.position;
         ret
-
     }
 
     pub fn shifted_space_pos(&self, p: &Parameters, n: isize, forward: bool, shift: f32) -> Vec3 {

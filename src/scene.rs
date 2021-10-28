@@ -44,8 +44,8 @@ mod camera;
 mod view;
 use view::{
     DrawType, HandleDir, HandleOrientation, HandlesDescriptor, LetterInstance,
-    RotationMode as WidgetRotationMode, RotationWidgetDescriptor, RotationWidgetOrientation, View,
-    ViewUpdate, Stereography
+    RotationMode as WidgetRotationMode, RotationWidgetDescriptor, RotationWidgetOrientation,
+    Stereography, View, ViewUpdate,
 };
 pub use view::{FogParameters, GridInstance};
 /// Handling of inputs and notifications

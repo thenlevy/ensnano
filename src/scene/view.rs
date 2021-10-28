@@ -851,8 +851,12 @@ impl View {
     }
 
     pub fn grid_intersection(&self, x_ndc: f32, y_ndc: f32) -> Option<GridIntersection> {
-        let ray = maths_3d::cast_ray(x_ndc, y_ndc, self.camera.clone(), self.projection.clone()
-            , None // we don't play we grids in stereographic view
+        let ray = maths_3d::cast_ray(
+            x_ndc,
+            y_ndc,
+            self.camera.clone(),
+            self.projection.clone(),
+            None, // we don't play we grids in stereographic view
         );
         self.grid_manager.intersect(ray.0, ray.1)
     }
@@ -863,8 +867,12 @@ impl View {
         y_ndc: f32,
         g_id: usize,
     ) -> Option<GridIntersection> {
-        let ray = maths_3d::cast_ray(x_ndc, y_ndc, self.camera.clone(), self.projection.clone(),
-        None // No grids in stereographic view
+        let ray = maths_3d::cast_ray(
+            x_ndc,
+            y_ndc,
+            self.camera.clone(),
+            self.projection.clone(),
+            None, // No grids in stereographic view
         );
         self.grid_manager.specific_intersect(ray.0, ray.1, g_id)
     }

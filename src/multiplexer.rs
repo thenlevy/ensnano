@@ -337,6 +337,7 @@ impl Multiplexer {
                     clicked_position,
                     old_proportion,
                 } => {
+                    /*
                     *mouse_position = *position;
                     let mut position = position.clone();
                     position.x /= self.window_size.width as f64;
@@ -349,7 +350,7 @@ impl Multiplexer {
                         *old_proportion,
                     );
                     self.icon = Some(CursorIcon::EwResize);
-                    captured = true;
+                    captured = true;*/
                 }
 
                 State::Normal { mouse_position, .. } => {
