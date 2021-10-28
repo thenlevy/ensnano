@@ -119,14 +119,21 @@ fn ndc_to_world(x_ndc: f32, y_ndc: f32, camera: CameraPtr, projection: Projectio
     let y_screen = 1. - 2. * y_ndc;
 
     let p1 = camera.borrow().position;
+    /*
     let p2 = {
         let correction = (projection.borrow().get_fovy() / 2.).tan();
         let right = camera.borrow().right_vec() * correction;
         let up = camera.borrow().up_vec() * correction;
         let direction = camera.borrow().direction();
         p1 + right * x_screen * projection.borrow().get_ratio() + up * y_screen + direction
-    };
-    p2
+    };*/
+    // p2
+    let eta = 3. * y_screen;
+    let khi = 3. * x_screen;
+    let x = 2. * khi / (1. + eta * eta + khi * khi);
+    let y = 2. * eta / (1. + eta * eta + khi * khi);
+    let z = (-1. + eta * eta + khi * khi) / (1. + khi * khi + eta * eta);
+    p1 + Vec3 { x, y, z }
 }
 
 pub fn cast_ray(
