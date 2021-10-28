@@ -17,7 +17,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 use super::camera::{CameraPtr, ProjectionPtr};
 pub use ensnano_interactor::graphics::FogParameters;
-use ultraviolet::{Mat4, Vec3, Vec4, Rotor3};
+use ultraviolet::{Mat4, Rotor3, Vec3, Vec4};
 
 #[repr(C)] // We need this for Rust to store our data correctly for the shaders
 #[derive(Debug, Copy, Clone)] // This is so we can store this in a buffer
@@ -25,26 +25,26 @@ use ultraviolet::{Mat4, Vec3, Vec4, Rotor3};
 /// and View matrices.
 pub struct Uniforms {
     //  name: type, // alignement of the next field
-    pub camera_position: Vec4, //0
-    pub view: Mat4, // 0
-    pub proj: Mat4, // 0 
-    pub inversed_view: Mat4, // 0 
-    pub fog_radius: f32, // 1
-    pub fog_length: f32, // 2
-    pub make_fog: u32, // 3
-    pub fog_from_camera: u32, // 0
-    pub fog_alt_center: Vec3, // 3
-    pub stereography_radius: f32, // 0 
-    pub stereography_view: Mat4, // 0
+    pub camera_position: Vec4,    //0
+    pub view: Mat4,               // 0
+    pub proj: Mat4,               // 0
+    pub inversed_view: Mat4,      // 0
+    pub fog_radius: f32,          // 1
+    pub fog_length: f32,          // 2
+    pub make_fog: u32,            // 3
+    pub fog_from_camera: u32,     // 0
+    pub fog_alt_center: Vec3,     // 3
+    pub stereography_radius: f32, // 0
+    pub stereography_view: Mat4,  // 0
 }
 
 unsafe impl bytemuck::Pod for Uniforms {}
 unsafe impl bytemuck::Zeroable for Uniforms {}
 
 pub struct Stereography {
-    radius: f32,
-    position: Option<Vec3>,
-    orientation: Option<Rotor3>,
+    pub(super) radius: f32,
+    pub(super) position: Option<Vec3>,
+    pub(super) orientation: Option<Rotor3>,
 }
 
 impl Stereography {
@@ -68,17 +68,21 @@ impl Stereography {
     fn up_vec(&self) -> Option<Vec3> {
         Some(self.right_vec()?.cross(self.direction()?))
     }
-
 }
 
 impl Uniforms {
-    pub fn from_view_proj(camera: CameraPtr, projection: ProjectionPtr, stereography: &Option<Stereography>) -> Self {
+    pub fn from_view_proj(
+        camera: CameraPtr,
+        projection: ProjectionPtr,
+        stereography: Option<&Stereography>,
+    ) -> Self {
         let stereography_view = if let Some(s) = stereography {
-            s.calc_matrix().unwrap_or_else(|| camera.borrow().calc_matrix())
+            s.calc_matrix()
+                .unwrap_or_else(|| camera.borrow().calc_matrix())
         } else {
             Mat4::identity()
         };
-        let stereography_radius = stereography.map(|s| s.radius).unwrap_or(0.0);
+        let stereography_radius = stereography.as_ref().map(|s| s.radius).unwrap_or(0.0);
         Self {
             camera_position: camera.borrow().position.into_homogeneous_point(),
             view: camera.borrow().calc_matrix(),
@@ -98,14 +102,15 @@ impl Uniforms {
         camera: CameraPtr,
         projection: ProjectionPtr,
         fog: &FogParameters,
-        stereography: &Option<Stereography>,
+        stereography: Option<&Stereography>,
     ) -> Self {
         let stereography_view = if let Some(s) = stereography {
-            s.calc_matrix().unwrap_or_else(|| camera.borrow().calc_matrix())
+            s.calc_matrix()
+                .unwrap_or_else(|| camera.borrow().calc_matrix())
         } else {
             Mat4::identity()
         };
-        let stereography_radius = stereography.map(|s| s.radius).unwrap_or(0.0);
+        let stereography_radius = stereography.as_ref().map(|s| s.radius).unwrap_or(0.0);
         let mut make_fog = fog.active;
         if !fog.from_camera {
             make_fog &= fog.alt_fog_center.is_some();

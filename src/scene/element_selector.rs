@@ -33,6 +33,7 @@ pub struct ElementSelector {
     window_size: PhysicalSize<u32>,
     view: ViewPtr,
     area: DrawArea,
+    stereographic: bool,
 }
 
 impl ElementSelector {
@@ -56,7 +57,12 @@ impl ElementSelector {
             readers,
             view,
             area,
+            stereographic: false,
         }
+    }
+
+    pub fn set_stereographic(&mut self, stereographic: bool) {
+        self.stereographic = stereographic;
     }
 
     pub fn resize(&mut self, window_size: PhysicalSize<u32>, area: DrawArea) {
@@ -70,7 +76,7 @@ impl ElementSelector {
     ) -> Option<SceneElement> {
         if self.readers[0].pixels.is_none() || self.view.borrow().need_redraw_fake() {
             for i in 0..self.readers.len() {
-                let pixels = self.update_fake_pixels(self.readers[i].draw_type);
+                let pixels = self.update_fake_pixels(self.readers[i].draw_type, self.stereographic);
                 self.readers[i].pixels = Some(pixels)
             }
         }
@@ -106,7 +112,7 @@ impl ElementSelector {
         None
     }
 
-    fn update_fake_pixels(&self, draw_type: DrawType) -> Vec<u8> {
+    fn update_fake_pixels(&self, draw_type: DrawType, stereographic: bool) -> Vec<u8> {
         log::debug!("update fake pixels");
         let size = wgpu::Extent3d {
             width: self.window_size.width,
@@ -120,9 +126,13 @@ impl ElementSelector {
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
 
-        self.view
-            .borrow_mut()
-            .draw(&mut encoder, &texture_view, draw_type, self.area);
+        self.view.borrow_mut().draw(
+            &mut encoder,
+            &texture_view,
+            draw_type,
+            self.area,
+            stereographic,
+        );
 
         // create a buffer and fill it with the texture
         let extent = wgpu::Extent3d {

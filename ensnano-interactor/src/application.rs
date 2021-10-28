@@ -47,9 +47,15 @@ pub trait Application {
         &mut self,
         encoder: &mut wgpu::CommandEncoder,
         target: &wgpu::TextureView,
+        draw_option: DrawOption,
         dt: Duration,
     );
-    fn needs_redraw(&mut self, dt: Duration, app_state: Self::AppState) -> bool;
+    fn needs_redraw(
+        &mut self,
+        dt: Duration,
+        app_state: Self::AppState,
+        draw_option: DrawOption,
+    ) -> bool;
     fn get_position_for_new_grid(&self) -> Option<(Vec3, Rotor3)> {
         None
     }

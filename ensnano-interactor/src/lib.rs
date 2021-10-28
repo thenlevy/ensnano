@@ -35,6 +35,7 @@ mod strand_builder;
 pub use strand_builder::*;
 pub mod torsion;
 use ensnano_organizer::GroupId;
+pub use graphics::DrawOption;
 
 #[derive(Clone, Copy, Eq, PartialEq)]
 pub enum ObjectType {

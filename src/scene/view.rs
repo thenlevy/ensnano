@@ -34,8 +34,8 @@ use wgpu::{Device, Queue};
 
 /// A `Uniform` is a structure that manages view and projection matrices.
 mod uniforms;
-pub use uniforms::{Stereography, FogParameters};
 use uniforms::Uniforms;
+pub use uniforms::{FogParameters, Stereography};
 mod direction_cube;
 mod dna_obj;
 /// This modules defines a trait for drawing widget made of several meshes.
@@ -107,6 +107,7 @@ pub struct View {
     //TODO this is currently only passed to the widgets, it could be passed to the mesh pipeline as
     //well.
     viewer: UniformBindGroup,
+    stereographic_viewer: UniformBindGroup,
     models: DynamicBindGroup,
     redraw_twice: bool,
     need_redraw: bool,
@@ -121,7 +122,7 @@ pub struct View {
     fog_parameters: FogParameters,
     rendering_mode: RenderingMode,
     background3d: Background3D,
-    stereography: Option<Stereography>,
+    stereography: Stereography,
 }
 
 impl View {
@@ -131,7 +132,6 @@ impl View {
         device: Rc<Device>,
         queue: Rc<Queue>,
         encoder: &mut wgpu::CommandEncoder,
-        stereographic: bool,
     ) -> Self {
         let camera = Rc::new(RefCell::new(Camera::new(
             (0.0, 5.0, 10.0),
@@ -144,19 +144,20 @@ impl View {
             0.1,
             1000.0,
         )));
-        let stereography = if stereographic {
-            Some(Stereography {
-                radius: 30.,
-                orientation: None,
-                position: None,
-            })
-        } else {
-            None
+        let stereography = Stereography {
+            radius: 30.,
+            orientation: None,
+            position: None,
         };
         let viewer = UniformBindGroup::new(
             device.clone(),
             queue.clone(),
-            &Uniforms::from_view_proj(camera.clone(), projection.clone(), &stereography),
+            &Uniforms::from_view_proj(camera.clone(), projection.clone(), None),
+        );
+        let stereographic_viewer = UniformBindGroup::new(
+            device.clone(),
+            queue.clone(),
+            &Uniforms::from_view_proj(camera.clone(), projection.clone(), Some(&stereography)),
         );
         let model_bg_desc = wgpu::BindGroupLayoutDescriptor {
             entries: MODEL_BG_ENTRY,
@@ -287,6 +288,7 @@ impl View {
             new_size: None,
             device: device.clone(),
             viewer,
+            stereographic_viewer,
             models,
             handle_drawers: HandlesDrawer::new(device.clone()),
             rotation_widget: RotationWidget::new(device),
@@ -309,6 +311,22 @@ impl View {
         }
     }
 
+    fn update_viewers(&mut self) {
+        self.viewer.update(&Uniforms::from_view_proj_fog(
+            self.camera.clone(),
+            self.projection.clone(),
+            &self.fog_parameters,
+            None,
+        ));
+        self.stereographic_viewer
+            .update(&Uniforms::from_view_proj_fog(
+                self.camera.clone(),
+                self.projection.clone(),
+                &self.fog_parameters,
+                Some(&self.stereography),
+            ));
+    }
+
     /// Notify the view of an update. According to the nature of this update, the view decides if
     /// it needs to be redrawn or not.
     pub fn update(&mut self, view_update: ViewUpdate) {
@@ -319,12 +337,7 @@ impl View {
                 self.need_redraw_fake = true;
             }
             ViewUpdate::Camera => {
-                self.viewer.update(&Uniforms::from_view_proj_fog(
-                    self.camera.clone(),
-                    self.projection.clone(),
-                    &self.fog_parameters,
-                    &self.stereography,
-                ));
+                self.update_viewers();
                 self.handle_drawers
                     .update_camera(self.camera.clone(), self.projection.clone());
                 let dist = self.projection.borrow().cube_dist();
@@ -335,12 +348,7 @@ impl View {
                 let fog_center = self.fog_parameters.alt_fog_center.clone();
                 self.fog_parameters = fog;
                 self.fog_parameters.alt_fog_center = fog_center;
-                self.viewer.update(&Uniforms::from_view_proj_fog(
-                    self.camera.clone(),
-                    self.projection.clone(),
-                    &self.fog_parameters,
-                    &self.stereography,
-                ));
+                self.update_viewers();
             }
             ViewUpdate::Handles(descr) => {
                 self.handle_drawers.update_decriptor(
@@ -395,12 +403,7 @@ impl View {
             }
             ViewUpdate::FogCenter(center) => {
                 self.fog_parameters.alt_fog_center = center;
-                self.viewer.update(&Uniforms::from_view_proj_fog(
-                    self.camera.clone(),
-                    self.projection.clone(),
-                    &self.fog_parameters,
-                    &self.stereography,
-                ));
+                self.update_viewers();
             }
         }
     }
@@ -420,6 +423,7 @@ impl View {
         target: &wgpu::TextureView,
         draw_type: DrawType,
         area: DrawArea,
+        stereographic: bool,
     ) {
         let fake_color = draw_type.is_fake();
         if let Some(size) = self.new_size.take() {
@@ -452,7 +456,13 @@ impl View {
                 a: 1.,
             }
         };
-        let viewer = &self.viewer;
+
+        let viewer = if stereographic {
+            &self.stereographic_viewer
+        } else {
+            &self.viewer
+        };
+
         let viewer_bind_group = viewer.get_bindgroup();
         let viewer_bind_group_layout = viewer.get_layout();
 
@@ -522,7 +532,7 @@ impl View {
                 for drawer in self.dna_drawers.fakes() {
                     drawer.draw(
                         &mut render_pass,
-                        self.viewer.get_bindgroup(),
+                        viewer.get_bindgroup(),
                         self.models.get_bindgroup(),
                     )
                 }
@@ -530,14 +540,14 @@ impl View {
                 if self.background3d == Background3D::Sky {
                     self.skybox_cube.draw(
                         &mut render_pass,
-                        self.viewer.get_bindgroup(),
+                        viewer.get_bindgroup(),
                         self.models.get_bindgroup(),
                     );
                 }
                 for drawer in self.dna_drawers.reals(self.rendering_mode) {
                     drawer.draw(
                         &mut render_pass,
-                        self.viewer.get_bindgroup(),
+                        viewer.get_bindgroup(),
                         self.models.get_bindgroup(),
                     )
                 }
@@ -545,7 +555,7 @@ impl View {
                 for drawer in self.dna_drawers.phantoms() {
                     drawer.draw(
                         &mut render_pass,
-                        self.viewer.get_bindgroup(),
+                        viewer.get_bindgroup(),
                         self.models.get_bindgroup(),
                     )
                 }
@@ -554,7 +564,7 @@ impl View {
                 for drawer in self.dna_drawers.fakes_and_phantoms() {
                     drawer.draw(
                         &mut render_pass,
-                        self.viewer.get_bindgroup(),
+                        viewer.get_bindgroup(),
                         self.models.get_bindgroup(),
                     )
                 }
