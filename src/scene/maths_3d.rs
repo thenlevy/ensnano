@@ -130,7 +130,7 @@ fn ndc_to_world(
     let p1 = camera.borrow().position;
     if stereography.is_some() {
         let eta = 3. * y_screen;
-        let khi = 3. * x_screen;
+        let khi = 3. * x_screen * projection.borrow().get_ratio();
         let x = 2. * khi / (1. + eta * eta + khi * khi);
         let y = 2. * eta / (1. + eta * eta + khi * khi);
         let z = (-1. + eta * eta + khi * khi) / (1. + khi * khi + eta * eta);
