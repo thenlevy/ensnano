@@ -429,7 +429,6 @@ impl<S: AppState> ControllerState<S> for NormalState {
     }
 
     fn transition_to(&self, controller: &Controller<S>) {
-        controller.data.borrow_mut().set_selected_helices(vec![]);
         controller.data.borrow_mut().set_free_end(None);
     }
 
