@@ -31,7 +31,10 @@ impl State for NormalState {
                 Action::NewDesign => Box::new(NewDesign::init(main_state.need_save())),
                 Action::SaveAs => save_as(),
                 Action::QuickSave => {
-                    if let Some(path) = main_state.get_current_file_name() {
+                    if let Some(path) = main_state
+                        .get_current_file_name()
+                        .filter(|p| p.extension() == Some(crate::consts::ENS_EXTENSION.as_ref()))
+                    {
                         quicksave(path)
                     } else {
                         save_as()
