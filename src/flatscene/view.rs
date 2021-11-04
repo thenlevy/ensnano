@@ -77,6 +77,8 @@ pub struct View {
     background: Background,
     circle_drawer_top: CircleDrawer,
     circle_drawer_bottom: CircleDrawer,
+    nucl_highlighter_top: CircleDrawer,
+    nucl_highlighter_bottom: CircleDrawer,
     rotation_widget: CircleDrawer,
     insertion_drawer: InsertionDrawer,
     char_drawers_top: HashMap<char, CharDrawer>,
@@ -90,6 +92,8 @@ pub struct View {
     candidate_strands: Vec<StrandView>,
     selected_helices: Vec<FlatIdx>,
     candidate_helices: Vec<FlatIdx>,
+    candidate_nucl: Vec<FlatNucl>,
+    selected_nucl: Vec<FlatNucl>,
     suggestion_candidate: Option<(FlatNucl, FlatNucl)>,
     torsions: HashMap<(FlatNucl, FlatNucl), FlatTorsion>,
     show_torsion: bool,
@@ -166,6 +170,18 @@ impl View {
             globals_top.get_layout(),
             CircleKind::FullCircle,
         );
+        let nucl_highlighter_top = CircleDrawer::new(
+            device.clone(),
+            queue.clone(),
+            globals_top.get_layout(),
+            CircleKind::FullCircle,
+        );
+        let nucl_highlighter_bottom = CircleDrawer::new(
+            device.clone(),
+            queue.clone(),
+            globals_top.get_layout(),
+            CircleKind::FullCircle,
+        );
         let rotation_widget = CircleDrawer::new(
             device.clone(),
             queue.clone(),
@@ -225,6 +241,8 @@ impl View {
             background,
             circle_drawer_top,
             circle_drawer_bottom,
+            nucl_highlighter_top,
+            nucl_highlighter_bottom,
             rotation_widget,
             char_drawers_top,
             char_map_top,
@@ -245,6 +263,8 @@ impl View {
             groups: Default::default(),
             basis_map: Default::default(),
             edition_info: Default::default(),
+            selected_nucl: vec![],
+            candidate_nucl: vec![],
         }
     }
 
@@ -406,6 +426,14 @@ impl View {
         self.was_updated = true;
     }
 
+    pub fn set_candidate_nucls(&mut self, nucls: Vec<FlatNucl>) {
+        self.candidate_nucl = nucls;
+    }
+
+    pub fn set_selected_nucls(&mut self, nucls: Vec<FlatNucl>) {
+        self.selected_nucl = nucls;
+    }
+
     pub fn update_pasted_strand(&mut self, strand: &[Strand], helices: &[Helix]) {
         self.pasted_strands = strand
             .iter()
@@ -558,6 +586,11 @@ impl View {
             self.circle_drawer_bottom
                 .new_instances(Rc::new(instances_bottom));
             self.generate_char_instances();
+            let nucleotide_highliting = Rc::new(self.generate_nucl_highlighting());
+            self.nucl_highlighter_top
+                .new_instances(nucleotide_highliting.clone());
+            self.nucl_highlighter_bottom
+                .new_instances(nucleotide_highliting);
         }
 
         let clear_color = wgpu::Color {
@@ -658,6 +691,8 @@ impl View {
         for highlight in self.candidate_strands.iter() {
             highlight.draw(&mut render_pass, bottom);
         }
+        render_pass.set_pipeline(&self.helices_pipeline);
+        self.nucl_highlighter_top.draw(&mut render_pass);
         drop(render_pass);
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: None,
@@ -786,6 +821,8 @@ impl View {
             for highlight in self.candidate_strands.iter() {
                 highlight.draw(&mut render_pass, bottom);
             }
+            render_pass.set_pipeline(&self.helices_pipeline);
+            self.nucl_highlighter_bottom.draw(&mut render_pass);
             drop(render_pass);
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: None,
@@ -886,6 +923,12 @@ impl View {
         ret
     }
 
+    fn generate_nucl_highlighting(&self) -> Vec<CircleInstance> {
+        let mut ret = Vec::new();
+        self.collect_nucl_highlight(&mut ret);
+        ret
+    }
+
     /// Add the helices circles to the list of circle instances
     fn collect_helices_circles(&self, circles: &mut Vec<CircleInstance>, camera: &CameraPtr) {
         for h in self.helices.iter() {
@@ -948,6 +991,31 @@ impl View {
             let h2 = &self.helices[n2.helix];
             circles.push(h1.get_circle_nucl(n1.position, n1.forward, color));
             circles.push(h2.get_circle_nucl(n2.position, n2.forward, color));
+        }
+    }
+
+    /// Collect the candidate/selection circles
+    fn collect_nucl_highlight(&self, circles: &mut Vec<CircleInstance>) {
+        for n in self.candidate_nucl.iter() {
+            let candidate_color = crate::consts::CANDIDATE_COLOR;
+            if let Some(h1) = self.helices.get(n.helix.flat.0) {
+                let mut c = h1.get_circle_nucl(n.position, n.forward, candidate_color);
+                c.set_radius(std::f32::consts::FRAC_1_SQRT_2);
+                circles.push(c)
+            } else {
+                log::error!("Could not get flat helix {}", n.helix.flat.0);
+            }
+        }
+
+        for n in self.selected_nucl.iter() {
+            let selected_color = crate::consts::SELECTED_COLOR;
+            if let Some(h1) = self.helices.get(n.helix.flat.0) {
+                let mut c = h1.get_circle_nucl(n.position, n.forward, selected_color);
+                c.set_radius(std::f32::consts::FRAC_1_SQRT_2);
+                circles.push(c)
+            } else {
+                log::error!("Could not get flat helix {}", n.helix.flat.0);
+            }
         }
     }
 
