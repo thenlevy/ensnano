@@ -145,6 +145,27 @@ macro_rules! add_tighten_helices_button {
     };
 }
 
+macro_rules! add_suggestion_parameters_checkboxes {
+    ($ret: ident, $self: ident, $app_state: ident, $ui_size: ident) => {
+        let suggestion_parameters = $app_state.get_suggestion_parameters().clone();
+        $ret = $ret.push(right_checkbox(
+            suggestion_parameters.include_scaffold,
+            "Show suggestions involving scaffold",
+            move |b| {
+                Message::NewSuggestionParameters(suggestion_parameters.with_include_scaffod(b))
+            },
+            $ui_size,
+        ));
+        let suggestion_parameters = $app_state.get_suggestion_parameters().clone();
+        $ret = $ret.push(right_checkbox(
+            suggestion_parameters.include_intra_strand,
+            "Show intra strand suggestions",
+            move |b| Message::NewSuggestionParameters(suggestion_parameters.with_intra_strand(b)),
+            $ui_size,
+        ));
+    };
+}
+
 impl<S: AppState> EditionTab<S> {
     pub fn new() -> Self {
         Self {
@@ -180,6 +201,9 @@ impl<S: AppState> EditionTab<S> {
         if app_state.get_selection_mode() == SelectionMode::Strand {
             add_color_square!(ret, self, color_square);
         }
+
+        subsection!(ret, ui_size, "Suggestions Parameters");
+        add_suggestion_parameters_checkboxes!(ret, self, app_state, ui_size);
 
         subsection!(ret, ui_size, "Tighten 2D helices");
         add_tighten_helices_button!(ret, self, app_state, ui_size, roll_target_helices);

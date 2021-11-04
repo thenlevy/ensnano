@@ -861,6 +861,7 @@ pub trait AppState: Clone {
     fn get_selected_element(&self) -> Option<CenterOfSelection>;
     fn get_current_group_pivot(&self) -> Option<ensnano_design::group_attributes::GroupPivot>;
     fn get_current_group_id(&self) -> Option<ensnano_design::GroupId>;
+    fn suggestion_parameters_were_updated(&self, other: &Self) -> bool;
 }
 
 pub trait Requests {

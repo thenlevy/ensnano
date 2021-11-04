@@ -377,4 +377,8 @@ pub(crate) fn poll_all<R: DerefMut<Target = Requests>>(
     for action in requests.keep_proceed.drain(..) {
         main_state.pending_actions.push_back(action)
     }
+
+    if let Some(param) = requests.new_suggestion_parameters.take() {
+        main_state.set_suggestion_parameters(param);
+    }
 }

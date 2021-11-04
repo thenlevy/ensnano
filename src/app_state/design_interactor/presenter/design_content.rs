@@ -286,11 +286,15 @@ impl DesignContent {
     }
 
     /// Return the list of all suggested crossovers
-    fn get_suggestions(&self, design: &Design) -> Vec<(Nucl, Nucl)> {
+    fn get_suggestions(
+        &self,
+        design: &Design,
+        suggestion_parameters: &SuggestionParameters,
+    ) -> Vec<(Nucl, Nucl)> {
         let mut ret = vec![];
         for blue_nucl in self.blue_nucl.iter() {
             let neighbour = self
-                .get_possible_cross_over(design, blue_nucl)
+                .get_possible_cross_over(design, blue_nucl, suggestion_parameters)
                 .unwrap_or_default();
             for (red_nucl, dist) in neighbour {
                 ret.push((*blue_nucl, red_nucl, dist))
@@ -316,7 +320,12 @@ impl DesignContent {
     }
 
     /// Return all the crossovers of length less than `len_crit` involving `nucl`, and their length.
-    fn get_possible_cross_over(&self, design: &Design, nucl: &Nucl) -> Option<Vec<(Nucl, f32)>> {
+    fn get_possible_cross_over(
+        &self,
+        design: &Design,
+        nucl: &Nucl,
+        suggestion_parameters: &SuggestionParameters,
+    ) -> Option<Vec<(Nucl, f32)>> {
         let mut ret = Vec::new();
         let positions = self
             .identifier_nucl
@@ -343,10 +352,14 @@ impl DesignContent {
                                         .sum::<f32>()
                                         .sqrt();
                                     if dist < len_crit
-                                        && design.get_strand_nucl(nucl) != design.scaffold_id
-                                        && design.get_strand_nucl(red_nucl) != design.scaffold_id
-                                        && design.get_strand_nucl(nucl)
-                                            != design.get_strand_nucl(red_nucl)
+                                        && (suggestion_parameters.include_scaffold
+                                            || design.get_strand_nucl(nucl) != design.scaffold_id)
+                                        && (suggestion_parameters.include_scaffold
+                                            || design.get_strand_nucl(red_nucl)
+                                                != design.scaffold_id)
+                                        && (suggestion_parameters.include_intra_strand
+                                            || design.get_strand_nucl(nucl)
+                                                != design.get_strand_nucl(red_nucl))
                                     {
                                         ret.push((*red_nucl, dist));
                                     }
@@ -387,6 +400,7 @@ impl DesignContent {
         mut design: Design,
         xover_ids: &JunctionsIds,
         old_grid_ptr: &mut Option<usize>,
+        suggestion_parameters: &SuggestionParameters,
     ) -> (Self, Design, JunctionsIds) {
         let groups = design.groups.clone();
         let mut object_type = HashMap::default();
@@ -595,7 +609,7 @@ impl DesignContent {
             grid_manager,
             suggestions: vec![],
         };
-        let suggestions = ret.get_suggestions(&design);
+        let suggestions = ret.get_suggestions(&design, suggestion_parameters);
         ret.suggestions = suggestions;
 
         drop(groups);

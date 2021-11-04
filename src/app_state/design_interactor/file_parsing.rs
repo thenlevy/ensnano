@@ -41,7 +41,9 @@ impl DesignInteractor {
             s.read_junctions(&mut xover_ids, false);
         }
         //let file_name = real_name(json_path);
-        let (presenter, design_ptr) = Presenter::from_new_design(design, &xover_ids);
+        let suggestion_parameters = SuggestionParameters::default();
+        let (presenter, design_ptr) =
+            Presenter::from_new_design(design, &xover_ids, suggestion_parameters);
         let ret = Self {
             design: design_ptr,
             presenter: AddressPointer::new(presenter),

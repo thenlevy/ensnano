@@ -38,7 +38,7 @@ use ensnano_design::{
 };
 use ensnano_interactor::{
     graphics::{Background3D, RenderingMode},
-    ActionMode, SelectionConversion, SelectionMode,
+    ActionMode, SelectionConversion, SelectionMode, SuggestionParameters,
 };
 
 use super::{
@@ -181,6 +181,7 @@ pub enum Message<S> {
     SelectCamera(CameraId),
     NewCustomCamera,
     UpdateCamera(CameraId),
+    NewSuggestionParameters(SuggestionParameters),
 }
 
 impl<R: Requests, S: AppState> LeftPanel<R, S> {
@@ -713,6 +714,12 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
             }
             Message::UpdateCamera(camera_id) => {
                 self.requests.lock().unwrap().update_camera(camera_id)
+            }
+            Message::NewSuggestionParameters(param) => {
+                self.requests
+                    .lock()
+                    .unwrap()
+                    .set_suggestion_parameters(param);
             }
         };
         Command::none()

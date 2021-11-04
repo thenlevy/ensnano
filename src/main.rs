@@ -86,7 +86,9 @@ const TEXTURE_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Bgra8UnormSrgb;
 use controller::{ChanelReader, ChanelReaderUpdate, SimulationRequest};
 use ensnano_design::{Camera, Nucl};
 use ensnano_interactor::application::{Application, Notification};
-use ensnano_interactor::{CenterOfSelection, DesignOperation, DesignReader, RigidBodyConstants};
+use ensnano_interactor::{
+    CenterOfSelection, DesignOperation, DesignReader, RigidBodyConstants, SuggestionParameters,
+};
 use iced_native::Event as IcedEvent;
 use iced_wgpu::{wgpu, Backend, Renderer, Settings, Viewport};
 use iced_winit::winit::event::VirtualKeyCode;
@@ -1177,6 +1179,10 @@ impl MainState {
             .as_ref()
             .filter(|p| p.is_file())
             .map(|p| p.as_ref())
+    }
+
+    fn set_suggestion_parameters(&mut self, param: SuggestionParameters) {
+        self.modify_state(|s| s.with_suggestion_parameters(param), false)
     }
 }
 
