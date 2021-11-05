@@ -41,6 +41,10 @@ pub type EnsnTree = OrganizerTree<DnaElementKey>;
 pub mod group_attributes;
 use group_attributes::GroupAttribute;
 
+mod curves;
+pub use curves::{CubicBezierConstructor, CurveDescriptor};
+use curves::{InstanciatedCurve, SphereLikeSpiral};
+
 mod formating;
 #[cfg(test)]
 mod tests;
@@ -253,7 +257,7 @@ impl Design {
         if self.ensnano_version == ensnano_version() {
             return;
         } else if self.ensnano_version.is_empty() {
-            // Version < 0.2.0 had no version identifier, and there DNA parameters where different.
+            // Version < 0.2.0 had no version identifier, and the DNA parameters where different.
             // The groove_angle was negative, and the roll was going in the opposite direction
             if let Some(parameters) = self.parameters.as_mut() {
                 parameters.groove_angle *= -1.;
@@ -261,10 +265,6 @@ impl Design {
                 self.parameters = Some(Default::default())
             }
             mutate_all_helices(self, |h| h.roll *= -1.);
-            /*
-            for h in self.helices.values_mut() {
-                h.roll *= -1.;
-            }*/
             self.ensnano_version = ensnano_version();
         }
     }
@@ -422,6 +422,20 @@ impl Design {
 
     pub fn prepare_for_save(&mut self, saving_information: SavingInformation) {
         self.saved_camera = saving_information.camera;
+    }
+
+    pub fn update_bezier_helices(&mut self) {
+        let mut need_update = false;
+        for h in self.helices.values() {
+            if h.need_curve_update() {
+                need_update = true;
+                break;
+            }
+        }
+        if need_update {
+            let parameters = self.parameters.unwrap_or(Parameters::DEFAULT);
+            mutate_all_helices(self, |h| h.update_bezier(&parameters))
+        }
     }
 }
 
@@ -1415,6 +1429,12 @@ pub struct Helix {
     /// at point (0., 1., 0.) in the helix's coordinate.
     #[serde(default)]
     pub roll: f32,
+
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub curve: Option<Arc<CurveDescriptor>>,
+
+    #[serde(default, skip)]
+    instanciated_curve: Option<InstanciatedCurve>,
 }
 
 fn default_visibility() -> bool {
@@ -1454,6 +1474,8 @@ impl Helix {
             visible: true,
             roll: 0f32,
             locked_for_simulations: false,
+            curve: None,
+            instanciated_curve: None,
         }
     }
 
@@ -1525,6 +1547,8 @@ impl Helix {
             roll: 0f32,
             isometry2d: Some(isometry2d),
             locked_for_simulations: false,
+            curve: None,
+            instanciated_curve: None,
         })
     }
 }
@@ -1539,6 +1563,8 @@ impl Helix {
             visible: true,
             roll: 0f32,
             locked_for_simulations: false,
+            curve: None,
+            instanciated_curve: None,
         }
     }
 
@@ -1558,7 +1584,61 @@ impl Helix {
             visible: true,
             roll: 0f32,
             locked_for_simulations: false,
+            curve: None,
+            instanciated_curve: None,
         }
+    }
+
+    pub fn new_sphere_like_spiral(radius: f32, theta_0: f32) -> Self {
+        let constructor = SphereLikeSpiral { radius, theta_0 };
+        Self {
+            position: Vec3::zero(),
+            orientation: Rotor3::identity(),
+            isometry2d: None,
+            grid_position: None,
+            visible: true,
+            roll: 0f32,
+            locked_for_simulations: false,
+            curve: Some(Arc::new(CurveDescriptor::SphereLikeSpiral(constructor))),
+            instanciated_curve: None,
+        }
+    }
+
+    pub fn new_bezier_two_points(
+        start: Vec3,
+        mut start_axis: Vec3,
+        end: Vec3,
+        mut end_axis: Vec3,
+    ) -> Self {
+        start_axis.normalize();
+        end_axis.normalize();
+        let middle = (end - start) / 2.;
+        let proj_start = start + middle.dot(start_axis) * start_axis;
+        let proj_end = end - middle.dot(end_axis) * end_axis;
+        let constructor = CubicBezierConstructor {
+            start,
+            end,
+            control1: proj_start,
+            control2: proj_end,
+        };
+        Self {
+            position: start,
+            orientation: Rotor3::identity(),
+            isometry2d: None,
+            grid_position: None,
+            visible: true,
+            roll: 0f32,
+            locked_for_simulations: false,
+            curve: Some(Arc::new(CurveDescriptor::Bezier(constructor))),
+            instanciated_curve: None,
+        }
+    }
+
+    pub fn nb_bezier_nucls(&self) -> usize {
+        self.instanciated_curve
+            .as_ref()
+            .map(|c| c.curve.as_ref().nb_points())
+            .unwrap_or(0)
     }
 
     /// Angle of base number `n` around this helix.
@@ -1576,6 +1656,17 @@ impl Helix {
     /// 3D position of a nucleotide on this helix. `n` is the position along the axis, and `forward` is true iff the 5' to 3' direction of the strand containing that nucleotide runs in the same direction as the axis of the helix.
     pub fn space_pos(&self, p: &Parameters, n: isize, forward: bool) -> Vec3 {
         let theta = self.theta(n, forward, p);
+        self.theta_n_to_space_pos(p, n, theta)
+    }
+
+    fn theta_n_to_space_pos(&self, p: &Parameters, n: isize, theta: f32) -> Vec3 {
+        if let Some(curve) = self.instanciated_curve.as_ref() {
+            if n >= 0 {
+                if let Some(point) = curve.as_ref().nucl_pos(n as usize, theta, p) {
+                    return point;
+                }
+            }
+        }
         let mut ret = Vec3::new(
             n as f32 * p.z_step,
             theta.sin() * p.helix_radius,
@@ -1585,6 +1676,11 @@ impl Helix {
         ret = self.rotate_point(ret);
         ret += self.position;
         ret
+    }
+
+    pub fn shifted_space_pos(&self, p: &Parameters, n: isize, forward: bool, shift: f32) -> Vec3 {
+        let theta = self.theta(n, forward, p) + shift;
+        self.theta_n_to_space_pos(p, n, theta)
     }
 
     ///Return an helix that makes an ideal cross-over with self at postion n
@@ -1604,6 +1700,8 @@ impl Helix {
             visible: true,
             isometry2d: None,
             locked_for_simulations: false,
+            curve: None,
+            instanciated_curve: None,
         }
     }
 
@@ -1627,14 +1725,27 @@ impl Helix {
         new_helix.roll = theta_obj - theta_current;
     }
 
-    pub fn get_axis(&self, p: &Parameters) -> Axis {
-        Axis {
-            origin: self.position,
-            direction: self.axis_position(p, 1) - self.position,
+    pub fn get_axis<'a>(&'a self, p: &Parameters) -> Axis<'a> {
+        if let Some(curve) = self.instanciated_curve.as_ref() {
+            let nb_points = curve.as_ref().nb_points();
+            let points = curve.as_ref().points();
+            Axis::Curve { nb_points, points }
+        } else {
+            Axis::Line {
+                origin: self.position,
+                direction: self.axis_position(p, 1) - self.position,
+            }
         }
     }
 
     pub fn axis_position(&self, p: &Parameters, n: isize) -> Vec3 {
+        if let Some(curve) = self.instanciated_curve.as_ref().map(|s| &s.curve) {
+            if n >= 0 && n <= curve.nb_points() as isize {
+                if let Some(point) = curve.axis_pos(n as usize) {
+                    return point;
+                }
+            }
+        }
         let mut ret = Vec3::new(n as f32 * p.z_step, 0., 0.);
 
         ret = self.rotate_point(ret);
@@ -1795,16 +1906,71 @@ impl std::fmt::Display for Nucl {
 /// Represents the axis of an helix. At the moment it is a line. In the future it might also be a
 /// bezier curve
 #[derive(Debug, Clone)]
-pub struct Axis {
-    pub origin: Vec3,
-    pub direction: Vec3,
+pub enum Axis<'a> {
+    Line {
+        origin: Vec3,
+        direction: Vec3,
+    },
+    Curve {
+        nb_points: usize,
+        points: &'a [Vec3],
+    },
 }
 
-impl Axis {
+#[derive(Debug, Clone)]
+pub enum OwnedAxis {
+    Line { origin: Vec3, direction: Vec3 },
+    Curve { nb_points: usize, points: Vec<Vec3> },
+}
+
+impl<'a> Axis<'a> {
+    pub fn to_owned(self) -> OwnedAxis {
+        match self {
+            Self::Line { origin, direction } => OwnedAxis::Line { origin, direction },
+            Self::Curve { nb_points, points } => OwnedAxis::Curve {
+                nb_points,
+                points: points.to_vec(),
+            },
+        }
+    }
+}
+
+impl OwnedAxis {
+    pub fn borrow<'a>(&'a self) -> Axis<'a> {
+        match self {
+            Self::Line { origin, direction } => Axis::Line {
+                origin: *origin,
+                direction: *direction,
+            },
+            Self::Curve { nb_points, points } => Axis::Curve {
+                nb_points: *nb_points,
+                points: &points[..],
+            },
+        }
+    }
+}
+
+impl<'a> Axis<'a> {
     pub fn transformed(&self, model_matrix: &Mat4) -> Self {
-        let origin = model_matrix.transform_point3(self.origin);
-        let direction = model_matrix.transform_vec3(self.direction);
-        Self { origin, direction }
+        match self {
+            Self::Line {
+                origin: old_origin,
+                direction: old_direction,
+            } => {
+                let origin = model_matrix.transform_point3(*old_origin);
+                let direction = model_matrix.transform_vec3(*old_direction);
+                Self::Line { origin, direction }
+            }
+            _ => self.clone(),
+        }
+    }
+
+    pub fn direction(&self) -> Option<Vec3> {
+        if let Axis::Line { direction, .. } = self {
+            Some(*direction)
+        } else {
+            None
+        }
     }
 }
 

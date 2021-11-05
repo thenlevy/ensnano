@@ -30,8 +30,8 @@ use ensnano_design::{group_attributes::GroupPivot, Nucl};
 use ensnano_interactor::{
     application::{AppId, Application, Notification},
     operation::*,
-    ActionMode, CenterOfSelection, DesignOperation, Selection, SelectionMode, StrandBuilder,
-    WidgetBasis,
+    ActionMode, CenterOfSelection, DesignOperation, DrawOption, Selection, SelectionMode,
+    StrandBuilder, WidgetBasis,
 };
 use instance::Instance;
 use utils::instance;
@@ -44,8 +44,8 @@ mod camera;
 mod view;
 use view::{
     DrawType, HandleDir, HandleOrientation, HandlesDescriptor, LetterInstance,
-    RotationMode as WidgetRotationMode, RotationWidgetDescriptor, RotationWidgetOrientation, View,
-    ViewUpdate,
+    RotationMode as WidgetRotationMode, RotationWidgetDescriptor, RotationWidgetOrientation,
+    Stereography, View, ViewUpdate,
 };
 pub use view::{FogParameters, GridInstance};
 /// Handling of inputs and notifications
@@ -590,10 +590,11 @@ impl<S: AppState> Scene<S> {
         encoder: &mut wgpu::CommandEncoder,
         target: &wgpu::TextureView,
         _app_state: &S,
+        stereographic: bool,
     ) {
         self.view
             .borrow_mut()
-            .draw(encoder, target, DrawType::Scene, self.area);
+            .draw(encoder, target, DrawType::Scene, self.area, stereographic);
     }
 
     fn perform_update(&mut self, dt: Duration, _app_state: &S) {
@@ -801,7 +802,15 @@ impl<S: AppState> Application for Scene<S> {
         event: &WindowEvent,
         cursor_position: PhysicalPosition<f64>,
         app_state: &S,
+        option: DrawOption,
     ) {
+        self.element_selector.set_stereographic(option.stereography);
+        if option.stereography {
+            let stereography = self.view.borrow().get_stereography();
+            self.controller.set_setreography(Some(stereography));
+        } else {
+            self.controller.set_setreography(None);
+        }
         self.input(event, cursor_position, &app_state)
     }
 
@@ -813,13 +822,14 @@ impl<S: AppState> Application for Scene<S> {
         &mut self,
         encoder: &mut wgpu::CommandEncoder,
         target: &wgpu::TextureView,
+        option: DrawOption,
         _dt: Duration,
     ) {
         let older_state = self.older_state.clone();
-        self.draw_view(encoder, target, &older_state)
+        self.draw_view(encoder, target, &older_state, option.stereography)
     }
 
-    fn needs_redraw(&mut self, dt: Duration, state: S) -> bool {
+    fn needs_redraw(&mut self, dt: Duration, state: S, _draw_option: DrawOption) -> bool {
         self.need_redraw(dt, state)
     }
 

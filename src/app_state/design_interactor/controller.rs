@@ -22,9 +22,12 @@ use ensnano_design::{
     elements::{DnaAttribute, DnaElementKey},
     grid::{Edge, GridDescriptor, GridPosition, Hyperboloid},
     group_attributes::GroupPivot,
-    mutate_in_arc, CameraId, Design, Domain, DomainJunction, Helix, Nucl, Strand,
+    mutate_in_arc, CameraId, Design, Domain, DomainJunction, Helix, Nucl, Parameters, Strand,
 };
-use ensnano_interactor::{operation::Operation, HyperboloidOperation, SimulationState};
+use ensnano_interactor::{
+    operation::{Operation, Parameter},
+    HyperboloidOperation, SimulationState,
+};
 use ensnano_interactor::{
     DesignOperation, DesignRotation, DesignTranslation, DomainIdentifier, IsometryTarget,
     NeighbourDescriptor, NeighbourDescriptorGiver, Selection, StrandBuilder,
@@ -152,6 +155,9 @@ impl Controller {
                 length,
                 start,
             } => self.apply(|c, d| c.add_grid_helix(d, position, start, length), design),
+            DesignOperation::AddTwoPointsBezier { start, end } => {
+                self.apply(|c, d| c.add_two_points_bezier(d, start, end), design)
+            }
             DesignOperation::CrossCut {
                 target_3prime,
                 source_id,
@@ -1516,7 +1522,7 @@ impl Controller {
             Some(n) if n > 1 => Some(StrandBuilder::init_existing(
                 desc.identifier,
                 nucl,
-                axis,
+                axis.to_owned(),
                 desc.fixed_end,
                 neighbour_desc,
                 stick,
@@ -1527,7 +1533,7 @@ impl Controller {
                     domain: 0,
                 },
                 nucl,
-                axis,
+                axis.to_owned(),
                 neighbour_desc,
                 false,
             )),
@@ -1537,21 +1543,21 @@ impl Controller {
     fn new_strand_builder(&mut self, design: &mut Design, nucl: Nucl) -> Option<StrandBuilder> {
         let left = design.get_neighbour_nucl(nucl.left());
         let right = design.get_neighbour_nucl(nucl.right());
-        let axis = design
-            .helices
-            .get(&nucl.helix)
-            .map(|h| h.get_axis(&design.parameters.unwrap_or_default()))?;
         if left.is_some() && right.is_some() {
             return None;
         }
         let new_key = self.init_strand(design, nucl);
+        let axis = design
+            .helices
+            .get(&nucl.helix)
+            .map(|h| h.get_axis(&design.parameters.unwrap_or_default()))?;
         Some(StrandBuilder::init_empty(
             DomainIdentifier {
                 strand: new_key,
                 domain: 0,
             },
             nucl,
-            axis,
+            axis.to_owned(),
             left.or(right),
             true,
         ))
@@ -1886,6 +1892,57 @@ impl Controller {
                 }
             }
         }
+        design.helices = Arc::new(new_helices);
+        Ok(design)
+    }
+
+    fn add_two_points_bezier(
+        &mut self,
+        mut design: Design,
+        start: GridPosition,
+        end: GridPosition,
+    ) -> Result<Design, ErrOperation> {
+        let grid_manager = GridManager::new_from_design(&design);
+        let grid_start = grid_manager
+            .grids
+            .get(start.grid)
+            .ok_or(ErrOperation::GridDoesNotExist(start.grid))?;
+        let grid_end = grid_manager
+            .grids
+            .get(end.grid)
+            .ok_or(ErrOperation::GridDoesNotExist(end.grid))?;
+        let mut new_helices = BTreeMap::clone(design.helices.as_ref());
+        let dumy_start_helix = Helix::new_on_grid(&grid_start, start.x, start.y, start.grid);
+        let start_axis = dumy_start_helix
+            .get_axis(&design.parameters.unwrap_or(Parameters::DEFAULT))
+            .direction()
+            .unwrap_or(Vec3::zero());
+        let dumy_end_helix = Helix::new_on_grid(&grid_end, end.x, end.y, end.grid);
+        let end_axis = dumy_end_helix
+            .get_axis(&design.parameters.unwrap_or(Parameters::DEFAULT))
+            .direction()
+            .unwrap_or(Vec3::zero());
+
+        let mut helix = Helix::new_bezier_two_points(
+            dumy_start_helix.position,
+            start_axis,
+            dumy_end_helix.position,
+            end_axis,
+        );
+        helix.update_bezier(&design.parameters.unwrap_or(Parameters::DEFAULT));
+        let helix_id = new_helices.keys().last().unwrap_or(&0) + 1;
+        let length = helix.nb_bezier_nucls();
+        if length > 0 {
+            for b in [false, true].iter() {
+                let new_key = self.add_strand(&mut design, helix_id, 0, *b);
+                if let Domain::HelixDomain(ref mut dom) =
+                    design.strands.get_mut(&new_key).unwrap().domains[0]
+                {
+                    dom.end = dom.start + length as isize;
+                }
+            }
+        }
+        new_helices.insert(helix_id, Arc::new(helix));
         design.helices = Arc::new(new_helices);
         Ok(design)
     }

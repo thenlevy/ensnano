@@ -16,7 +16,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-use ensnano_design::grid::*;
+use ensnano_design::{grid::*, Axis};
 use ensnano_design::{mutate_in_arc, Design, Helix, Parameters};
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::f32::consts::FRAC_PI_2;
@@ -167,8 +167,9 @@ impl GridManager {
                         (roll * grid.orientation_helix(grid_position.x, grid_position.y))
                             .normalized()
                     };
-                    h.position -=
-                        grid_position.axis_pos as f32 * h.get_axis(&self.parameters).direction;
+                    if let Axis::Line { direction, .. } = h.get_axis(&self.parameters) {
+                        h.position -= grid_position.axis_pos as f32 * direction;
+                    }
                 });
             }
         }
@@ -193,41 +194,48 @@ impl GridManager {
         let axis = h.get_axis(&self.parameters);
         if let Some(old_grid_position) = h.grid_position {
             let g = &self.grids[old_grid_position.grid];
-            if g.interpolate_helix(axis.origin, axis.direction).is_some() {
-                let old_roll = h.grid_position.map(|gp| gp.roll).filter(|_| preserve_roll);
-                let candidate_position = g
-                    .find_helix_position(h, old_grid_position.grid)
-                    .map(|g| g.with_roll(old_roll));
-                if let Some(new_grid_position) = candidate_position {
-                    if let Some(helix) = self.pos_to_helix(
-                        new_grid_position.grid,
-                        new_grid_position.x,
-                        new_grid_position.y,
-                    ) {
-                        log::info!(
-                            "{} collides with {}. Authorized collisions are {:?}",
-                            h_id,
-                            helix,
-                            authorized_collisions
-                        );
-                        if authorized_collisions.contains(&helix) {
+            if let Axis::Line { origin, direction } = axis {
+                if g.interpolate_helix(origin, direction).is_some() {
+                    let old_roll = h.grid_position.map(|gp| gp.roll).filter(|_| preserve_roll);
+                    let candidate_position = g
+                        .find_helix_position(h, old_grid_position.grid)
+                        .map(|g| g.with_roll(old_roll));
+                    if let Some(new_grid_position) = candidate_position {
+                        if let Some(helix) = self.pos_to_helix(
+                            new_grid_position.grid,
+                            new_grid_position.x,
+                            new_grid_position.y,
+                        ) {
+                            log::info!(
+                                "{} collides with {}. Authorized collisions are {:?}",
+                                h_id,
+                                helix,
+                                authorized_collisions
+                            );
+                            if authorized_collisions.contains(&helix) {
+                                mutate_in_arc(h, |h| h.grid_position = candidate_position);
+                                mutate_in_arc(h, |h| {
+                                    h.position = g
+                                        .position_helix(new_grid_position.x, new_grid_position.y)
+                                        - h.get_axis(&self.parameters)
+                                            .direction()
+                                            .unwrap_or(Vec3::zero())
+                                            * new_grid_position.axis_pos as f32
+                                });
+                            } else {
+                                return false;
+                            }
+                        } else {
                             mutate_in_arc(h, |h| h.grid_position = candidate_position);
                             mutate_in_arc(h, |h| {
                                 h.position = g
                                     .position_helix(new_grid_position.x, new_grid_position.y)
-                                    - h.get_axis(&self.parameters).direction
+                                    - h.get_axis(&self.parameters)
+                                        .direction()
+                                        .unwrap_or(Vec3::zero())
                                         * new_grid_position.axis_pos as f32
                             });
-                        } else {
-                            return false;
                         }
-                    } else {
-                        mutate_in_arc(h, |h| h.grid_position = candidate_position);
-                        mutate_in_arc(h, |h| {
-                            h.position = g.position_helix(new_grid_position.x, new_grid_position.y)
-                                - h.get_axis(&self.parameters).direction
-                                    * new_grid_position.axis_pos as f32
-                        });
                     }
                 }
             }
@@ -249,7 +257,11 @@ impl GridManager {
         let leader = design.helices.get(&group[0]).unwrap();
         let orientation = Rotor3::from_rotation_between(
             Vec3::unit_x(),
-            leader.get_axis(&parameters).direction.normalized(),
+            leader
+                .get_axis(&parameters)
+                .direction()
+                .unwrap_or(Vec3::zero())
+                .normalized(),
         );
         let mut hex_grid = Grid::new(
             leader.position,
@@ -376,7 +388,9 @@ impl GridApprox for Grid {
         for h_id in group.iter() {
             let helix = design.helices.get(h_id).unwrap();
             let axis = helix.get_axis(&self.parameters);
-            ret += self.error_helix(axis.origin, axis.direction);
+            if let Axis::Line { origin, direction } = axis {
+                ret += self.error_helix(origin, direction);
+            }
         }
         ret
     }

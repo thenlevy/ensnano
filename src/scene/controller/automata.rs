@@ -592,10 +592,12 @@ impl<S: AppState> ControllerState<S> for Selecting {
                     .expect("position nucl");
                 let mouse_x = self.mouse_position.x / controller.area_size.width as f64;
                 let mouse_y = self.mouse_position.y / controller.area_size.height as f64;
-                let projected_pos =
-                    controller
-                        .camera_controller
-                        .get_projection(position_nucl, mouse_x, mouse_y);
+                let projected_pos = controller.camera_controller.get_projection(
+                    position_nucl,
+                    mouse_x,
+                    mouse_y,
+                    controller.stereography.as_ref(),
+                );
 
                 Transition {
                     new_state: Some(Box::new(Xovering {
@@ -943,9 +945,10 @@ impl<S: AppState> ControllerState<S> for BuildingStrand {
                     let mouse_x = position.x / controller.area_size.width as f64;
                     let mouse_y = position.y / controller.area_size.height as f64;
                     let position = controller.view.borrow().compute_projection_axis(
-                        &builder.axis,
+                        builder.get_axis(),
                         mouse_x,
                         mouse_y,
+                        controller.stereography.is_some(),
                     );
                     let consequence = if let Some(position) = position {
                         Consequence::Building(position)
@@ -1015,6 +1018,7 @@ impl<S: AppState> ControllerState<S> for Xovering {
                     self.source_position,
                     mouse_x,
                     mouse_y,
+                    controller.stereography.as_ref(),
                 );
                 Transition::consequence(Consequence::MoveFreeXover(element, projected_pos))
             }

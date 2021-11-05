@@ -1,0 +1,174 @@
+/*
+ENSnano, a 3d graphical application for DNA nanostructures.
+    Copyright (C) 2021  Nicolas Levy <nicolaspierrelevy@gmail.com> and Nicolas Schabanel <nicolas.schabanel@ens-lyon.fr>
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <https://www.gnu.org/licenses/>.
+*/
+
+use ultraviolet::Vec3;
+
+pub struct CubicBezier {
+    polynomial: CubicBezierPolynom,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CubicBezierConstructor {
+    pub start: Vec3,
+    pub control1: Vec3,
+    pub control2: Vec3,
+    pub end: Vec3,
+}
+
+impl CubicBezierConstructor {
+    pub(super) fn into_bezier(self) -> CubicBezier {
+        CubicBezier::new(self)
+    }
+}
+
+impl CubicBezier {
+    pub fn new(constructor: CubicBezierConstructor) -> Self {
+        let polynomial = CubicBezierPolynom::new(
+            constructor.start,
+            constructor.control1,
+            constructor.control2,
+            constructor.end,
+        );
+        let ret = Self { polynomial };
+        ret
+    }
+}
+
+struct CubicBezierPolynom {
+    q0: Vec3,
+    q1: Vec3,
+    q2: Vec3,
+    q3: Vec3,
+}
+
+impl CubicBezierPolynom {
+    fn new(start: Vec3, control1: Vec3, control2: Vec3, end: Vec3) -> Self {
+        let q0 = start;
+        let q1 = 3. * (control1 - start);
+        let q2 = 3. * (control2 - 2. * control1 + start);
+        let q3 = (end - start) + 3. * (control1 - control2);
+        Self { q0, q1, q2, q3 }
+    }
+
+    fn evaluate(&self, t: f32) -> Vec3 {
+        let mut ret = self.q2 + t * self.q3;
+        ret = self.q1 + t * ret;
+        ret = self.q0 + t * ret;
+        ret
+    }
+
+    fn derivative(&self, t: f32) -> Vec3 {
+        let mut ret = (3. * t) * self.q3 + 2. * self.q2;
+        ret = self.q1 + t * ret;
+        ret
+    }
+
+    // a.k.a second order derivative
+    fn acceleration(&self, t: f32) -> Vec3 {
+        (6. * t) * self.q3 + 2. * self.q2
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::super::Parameters;
+    const DNA_PARAMETERS: Parameters = Parameters::DEFAULT;
+    const EPSILON: f32 = 1e-6;
+    use super::*;
+    #[test]
+    fn correct_evaluation() {
+        let start = Vec3::zero();
+        let control1: Vec3 = [1., 2., 3.].into();
+        let control2: Vec3 = [-1., 4., 5.].into();
+        let end: Vec3 = [0., 0., 10.].into();
+
+        let poly = CubicBezierPolynom::new(start, control1, control2, end);
+
+        let x = std::f32::consts::PI / 10.;
+
+        let classical_evaluation = |t: f32| {
+            start * (1. - t).powi(3)
+                + control1 * 3. * (1. - t).powi(2) * t
+                + control2 * 3. * (1. - t) * t.powi(2)
+                + end * t.powi(3)
+        };
+        assert!((poly.evaluate(x) - classical_evaluation(x)).mag() < EPSILON);
+        assert!((poly.evaluate(0.0) - classical_evaluation(0.0)).mag() < EPSILON);
+        assert!((poly.evaluate(1.0) - classical_evaluation(1.0)).mag() < EPSILON);
+    }
+
+    #[test]
+    fn correct_derivative() {
+        let start = Vec3::zero();
+        let control1: Vec3 = [1., 2., 3.].into();
+        let control2: Vec3 = [-1., 4., 5.].into();
+        let end: Vec3 = [0., 0., 10.].into();
+
+        let poly = CubicBezierPolynom::new(start, control1, control2, end);
+
+        let x = std::f32::consts::PI / 10.;
+
+        let classical_evaluation = |t: f32| {
+            -3. * start * (1. - t).powi(2)
+                + control1 * 3. * (3. * t.powi(2) - 4. * t + 1.)
+                + control2 * 3. * t * (2. - 3. * t)
+                + 3. * end * t.powi(2)
+        };
+        assert!((poly.derivative(x) - classical_evaluation(x)).mag() < EPSILON);
+        assert!((poly.derivative(0.0) - classical_evaluation(0.0)).mag() < EPSILON);
+        assert!((poly.derivative(1.0) - classical_evaluation(1.0)).mag() < EPSILON);
+    }
+
+    #[test]
+    fn correct_acceleration() {
+        let start = Vec3::zero();
+        let control1: Vec3 = [1., 2., 3.].into();
+        let control2: Vec3 = [-1., 4., 5.].into();
+        let end: Vec3 = [0., 0., 10.].into();
+
+        let poly = CubicBezierPolynom::new(start, control1, control2, end);
+
+        let x = std::f32::consts::PI / 10.;
+
+        let classical_evaluation = |t: f32| {
+            6. * start * (1. - t)
+                + control1 * 3. * (6. * t - 4.)
+                + control2 * 6. * (1. - 3. * t)
+                + 6. * end * t
+        };
+        println!("acc {:?}", poly.acceleration(x));
+        println!("classical {:?}", classical_evaluation(x));
+        assert!((poly.acceleration(x) - classical_evaluation(x)).mag_sq() < EPSILON);
+        assert!((poly.acceleration(0.0) - classical_evaluation(0.0)).mag_sq() < EPSILON);
+        assert!((poly.acceleration(1.0) - classical_evaluation(1.0)).mag_sq() < EPSILON);
+    }
+}
+
+impl super::Curved for CubicBezier {
+    fn position(&self, t: f32) -> Vec3 {
+        self.polynomial.evaluate(t)
+    }
+
+    fn speed(&self, t: f32) -> Vec3 {
+        self.polynomial.derivative(t)
+    }
+
+    fn acceleration(&self, t: f32) -> Vec3 {
+        self.polynomial.acceleration(t)
+    }
+}

@@ -300,6 +300,7 @@ fn main() {
     )));
     queue.submit(Some(encoder.finish()));
     scheduler.add_application(scene.clone(), ElementType::Scene);
+    scheduler.add_application(scene.clone(), ElementType::StereographicScene);
 
     let flat_scene = Arc::new(Mutex::new(FlatScene::new(
         device.clone(),
@@ -338,6 +339,9 @@ fn main() {
     main_state
         .applications
         .insert(ElementType::FlatScene, flat_scene.clone());
+    main_state
+        .applications
+        .insert(ElementType::StereographicScene, scene.clone());
 
     // Add a design to the scene if one was given as a command line arguement
     if path.is_some() {
