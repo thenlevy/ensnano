@@ -224,6 +224,7 @@ fn main() {
             .request_adapter(&wgpu::RequestAdapterOptions {
                 power_preference: wgpu::PowerPreference::LowPower,
                 compatible_surface: Some(&surface),
+                force_fallback_adapter: false,
             })
             .await
             .expect("Could not get adapter\n
@@ -617,7 +618,7 @@ fn main() {
                 resized = false;
                 scale_factor_changed = false;
 
-                if let Ok(frame) = surface.get_current_frame() {
+                if let Ok(frame) = surface.get_current_texture() {
                     let mut encoder = device
                         .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
 
@@ -637,7 +638,6 @@ fn main() {
                     multiplexer.draw(
                         &mut encoder,
                         &frame
-                            .output
                             .texture
                             .create_view(&wgpu::TextureViewDescriptor::default()),
                     );
@@ -646,6 +646,7 @@ fn main() {
                     // Then we submit the work
                     staging_belt.finish();
                     queue.submit(Some(encoder.finish()));
+                    frame.present();
 
                     // And update the mouse cursor
                     let iced_icon = iced_winit::conversion::mouse_interaction(mouse_interaction);
