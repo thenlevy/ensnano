@@ -456,6 +456,7 @@ pub struct StrandBuildingStatus {
 pub struct SuggestionParameters {
     pub include_scaffold: bool,
     pub include_intra_strand: bool,
+    pub ignore_groups: bool,
 }
 
 impl Default for SuggestionParameters {
@@ -463,6 +464,7 @@ impl Default for SuggestionParameters {
         Self {
             include_intra_strand: true,
             include_scaffold: true,
+            ignore_groups: true,
         }
     }
 }
