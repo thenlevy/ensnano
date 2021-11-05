@@ -4,6 +4,7 @@
 <!-- next-header -->
 ## 0.3.1
 
+- Update wgpu to 0.11
 - Files that do not have an `.ens` extensions won't be overiden when saving a design. This fixes a problem that caused
 ENSnano to overide cadnano files for example.
 - Selected/candidate nucleotide are now highlighted in the 2D view.
