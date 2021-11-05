@@ -113,10 +113,6 @@ pub const WELCOME_MSG: &str = "
                                WELCOME TO ENSNANO\n
 During runtime, the console may print error messages that are useful to the
 programer to investigate bugs.\n
-However, because of a current bug in wgpu, some error messages may be prompted
-that could be safely ignored.
-Please ignore messages of the following form:\n
-\"ERROR wgpu_core::validation > Unexpected varying type: Array { ... }\"\n
 ==============================================================================
 ==============================================================================
 ";
