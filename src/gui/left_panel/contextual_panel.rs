@@ -66,7 +66,7 @@ impl ContextualPanel {
                 Text::new("Tutorials")
                     .size(ui_size.head_text())
                     .width(Length::Fill)
-                    .horizontal_alignment(iced::HorizontalAlignment::Center),
+                    .horizontal_alignment(iced::alignment::Horizontal::Center),
             );
             column = column.push(Text::new("ENSnano website"));
             column = column.push(link_row(
@@ -88,7 +88,7 @@ impl ContextualPanel {
                 Row::new()
                     .width(Length::Fill)
                     .push(iced::Space::with_width(Length::FillPortion(1)))
-                    .align_items(iced::Align::Center)
+                    .align_items(iced::Alignment::Center)
                     .push(Column::new().width(Length::FillPortion(1)).push(help_btn))
                     .push(iced::Space::with_width(Length::FillPortion(1))),
             );
@@ -100,7 +100,7 @@ impl ContextualPanel {
                 Row::new()
                     .width(Length::Fill)
                     .push(iced::Space::with_width(Length::FillPortion(1)))
-                    .align_items(iced::Align::Center)
+                    .align_items(iced::Alignment::Center)
                     .push(Column::new().width(Length::FillPortion(1)).push(help_btn))
                     .push(iced::Space::with_width(Length::FillPortion(1))),
             );
@@ -261,7 +261,7 @@ fn add_help_to_column<'a, M: 'static>(
             column = column.push(
                 Text::new(l)
                     .width(Length::Fill)
-                    .horizontal_alignment(iced::HorizontalAlignment::Center),
+                    .horizontal_alignment(iced::alignment::Horizontal::Center),
             );
         } else {
             column = column.push(
@@ -269,7 +269,7 @@ fn add_help_to_column<'a, M: 'static>(
                     .push(
                         Text::new(l)
                             .width(Length::FillPortion(5))
-                            .horizontal_alignment(iced::HorizontalAlignment::Right),
+                            .horizontal_alignment(iced::alignment::Horizontal::Right),
                     )
                     .push(iced::Space::with_width(Length::FillPortion(1)))
                     .push(Text::new(r).width(Length::FillPortion(5))),
@@ -287,7 +287,7 @@ fn turn_into_help_column<'a, M: 'static>(
         Text::new("Help")
             .size(ui_size.head_text())
             .width(Length::Fill)
-            .horizontal_alignment(iced::HorizontalAlignment::Center),
+            .horizontal_alignment(iced::alignment::Horizontal::Center),
     );
     column = add_help_to_column(column, "3D view", view_3d_help(), ui_size.clone());
     column = column.push(iced::Space::with_height(Length::Units(15)));
