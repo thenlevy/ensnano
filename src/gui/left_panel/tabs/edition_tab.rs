@@ -150,7 +150,7 @@ macro_rules! add_suggestion_parameters_checkboxes {
         let suggestion_parameters = $app_state.get_suggestion_parameters().clone();
         $ret = $ret.push(right_checkbox(
             suggestion_parameters.include_scaffold,
-            "Show suggestions involving scaffold",
+            "Include scaffold",
             move |b| {
                 Message::NewSuggestionParameters(suggestion_parameters.with_include_scaffod(b))
             },
@@ -159,8 +159,15 @@ macro_rules! add_suggestion_parameters_checkboxes {
         let suggestion_parameters = $app_state.get_suggestion_parameters().clone();
         $ret = $ret.push(right_checkbox(
             suggestion_parameters.include_intra_strand,
-            "Show intra strand suggestions",
+            "Intra strand suggestions",
             move |b| Message::NewSuggestionParameters(suggestion_parameters.with_intra_strand(b)),
+            $ui_size,
+        ));
+        let suggestion_parameters = $app_state.get_suggestion_parameters().clone();
+        $ret = $ret.push(right_checkbox(
+            suggestion_parameters.ignore_groups,
+            "All helices",
+            move |b| Message::NewSuggestionParameters(suggestion_parameters.with_ignore_groups(b)),
             $ui_size,
         ));
     };

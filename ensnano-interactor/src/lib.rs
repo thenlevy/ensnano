@@ -464,7 +464,7 @@ impl Default for SuggestionParameters {
         Self {
             include_intra_strand: true,
             include_scaffold: true,
-            ignore_groups: true,
+            ignore_groups: false,
         }
     }
 }
@@ -479,6 +479,12 @@ impl SuggestionParameters {
     pub fn with_intra_strand(&self, intra_strand: bool) -> Self {
         let mut ret = self.clone();
         ret.include_intra_strand = intra_strand;
+        ret
+    }
+
+    pub fn with_ignore_groups(&self, ignore_groups: bool) -> Self {
+        let mut ret = self.clone();
+        ret.ignore_groups = ignore_groups;
         ret
     }
 }
