@@ -581,7 +581,11 @@ impl<S: AppState> Scene<S> {
             .borrow_mut()
             .update_view(&new_state, &self.older_state);
         self.older_state = new_state;
-        self.view.borrow().need_redraw()
+        let ret = self.view.borrow().need_redraw();
+        if ret {
+            log::debug!("Scene requests redraw");
+        }
+        ret
     }
 
     /// Draw the scene

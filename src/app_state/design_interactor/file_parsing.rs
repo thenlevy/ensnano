@@ -60,7 +60,7 @@ fn read_file<P: AsRef<Path> + std::fmt::Debug>(path: P) -> Result<Design, ParseD
     let design: Result<Design, _> = serde_json::from_str(&json_str);
     // First try to read icednano format
     if let Ok(design) = design {
-        println!("ok icednano");
+        log::info!("ok icednano");
         Ok(design)
     } else {
         // If the file is not in icednano format, try the other supported format
@@ -72,11 +72,11 @@ fn read_file<P: AsRef<Path> + std::fmt::Debug>(path: P) -> Result<Design, ParseD
         if let Ok(scadnano) = scadnano_design {
             Design::from_scadnano(&scadnano).map_err(|e| ParseDesignError::ScadnanoError(e))
         } else if let Ok(design) = cdn_design {
-            println!("{:?}", scadnano_design.err());
-            println!("ok codenano");
+            log::error!("{:?}", scadnano_design.err());
+            log::info!("ok codenano");
             Ok(Design::from_codenano(&design))
         } else if let Ok(cadnano) = Cadnano::from_file(path) {
-            println!("ok cadnano");
+            log::info!("ok cadnano");
             Ok(Design::from_cadnano(cadnano))
         } else {
             // The file is not in any supported format

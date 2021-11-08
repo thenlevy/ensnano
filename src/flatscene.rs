@@ -444,7 +444,11 @@ impl<S: AppState> FlatScene<S> {
                 .borrow_mut()
                 .perform_update(&new_state, &self.old_state);
             self.old_state = new_state;
-            view.borrow().needs_redraw()
+            let ret = view.borrow().needs_redraw();
+            if ret {
+                log::debug!("Flatscene requests redraw");
+            }
+            ret
         } else {
             false
         }

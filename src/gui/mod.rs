@@ -204,6 +204,7 @@ impl<R: Requests, S: AppState> GuiState<R, S> {
     }
 
     fn queue_top_bar_message(&mut self, message: top_bar::Message<S>) {
+        log::trace!("Queue top bar {:?}", message);
         if let GuiState::TopBar(ref mut state) = self {
             state.queue_message(message)
         } else {
@@ -212,6 +213,7 @@ impl<R: Requests, S: AppState> GuiState<R, S> {
     }
 
     fn queue_left_panel_message(&mut self, message: left_panel::Message<S>) {
+        log::trace!("Queue left panel {:?}", message);
         if let GuiState::LeftPanel(ref mut state) = self {
             state.queue_message(message)
         } else {
@@ -220,6 +222,7 @@ impl<R: Requests, S: AppState> GuiState<R, S> {
     }
 
     fn queue_status_bar_message(&mut self, message: status_bar::Message<S>) {
+        log::trace!("Queue status_bar {:?}", message);
         if let GuiState::StatusBar(ref mut state) = self {
             state.queue_message(message)
         } else {
@@ -469,6 +472,7 @@ impl<R: Requests, S: AppState> GuiElement<R, S> {
                 renderer,
                 &mut self.debug,
             );
+            log::debug!("GUI request redraw");
             true
         } else {
             false
@@ -839,6 +843,7 @@ impl<S: AppState> IcedMessages<S> {
     }
 
     pub fn push_application_state(&mut self, state: S, main_state: MainState) {
+        log::trace!("Old ptr {:p}, new ptr {:p}", state, self.application_state);
         let must_update = self.application_state != state;
         self.application_state = state.clone();
         if must_update {
@@ -867,7 +872,9 @@ pub trait Multiplexer {
     fn get_texture_view(&self, element_type: ElementType) -> Option<&wgpu::TextureView>;
 }
 
-pub trait AppState: Default + PartialEq + Clone + 'static + Send + std::fmt::Debug {
+pub trait AppState:
+    Default + PartialEq + Clone + 'static + Send + std::fmt::Debug + std::fmt::Pointer
+{
     fn get_selection_mode(&self) -> SelectionMode;
     fn get_action_mode(&self) -> ActionMode;
     fn get_build_helix_mode(&self) -> ActionMode;
