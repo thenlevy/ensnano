@@ -65,6 +65,13 @@ impl std::fmt::Debug for AppState {
     }
 }
 
+impl std::fmt::Pointer for AppState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let ptr = self.0.get_ptr();
+        std::fmt::Pointer::fmt(&ptr, f)
+    }
+}
+
 impl Default for AppState {
     fn default() -> Self {
         let ret = AppState(Default::default());
@@ -200,9 +207,15 @@ impl AppState {
     }
 
     fn updated(self) -> Self {
+        let old_self = self.clone();
         let mut interactor = self.0.design.clone_inner();
         interactor = interactor.with_updated_design_reader();
-        self.with_interactor(interactor)
+        let new = self.with_interactor(interactor);
+        if old_self.design_was_modified(&new) {
+            new
+        } else {
+            old_self
+        }
     }
 
     fn with_interactor(self, interactor: DesignInteractor) -> Self {
