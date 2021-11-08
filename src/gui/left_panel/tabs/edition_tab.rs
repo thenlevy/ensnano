@@ -145,6 +145,34 @@ macro_rules! add_tighten_helices_button {
     };
 }
 
+macro_rules! add_suggestion_parameters_checkboxes {
+    ($ret: ident, $self: ident, $app_state: ident, $ui_size: ident) => {
+        let suggestion_parameters = $app_state.get_suggestion_parameters().clone();
+        $ret = $ret.push(right_checkbox(
+            suggestion_parameters.include_scaffold,
+            "Include scaffold",
+            move |b| {
+                Message::NewSuggestionParameters(suggestion_parameters.with_include_scaffod(b))
+            },
+            $ui_size,
+        ));
+        let suggestion_parameters = $app_state.get_suggestion_parameters().clone();
+        $ret = $ret.push(right_checkbox(
+            suggestion_parameters.include_intra_strand,
+            "Intra strand suggestions",
+            move |b| Message::NewSuggestionParameters(suggestion_parameters.with_intra_strand(b)),
+            $ui_size,
+        ));
+        let suggestion_parameters = $app_state.get_suggestion_parameters().clone();
+        $ret = $ret.push(right_checkbox(
+            suggestion_parameters.ignore_groups,
+            "All helices",
+            move |b| Message::NewSuggestionParameters(suggestion_parameters.with_ignore_groups(b)),
+            $ui_size,
+        ));
+    };
+}
+
 impl<S: AppState> EditionTab<S> {
     pub fn new() -> Self {
         Self {
@@ -172,7 +200,7 @@ impl<S: AppState> EditionTab<S> {
         let mut ret = Column::new().spacing(5);
         let selection = app_state.get_selection_as_dnaelement();
         let roll_target_helices = self.get_roll_target_helices(&selection);
-        section!(ret, ui_size, "Eddition");
+        section!(ret, ui_size, "Edition");
         add_roll_slider!(ret, self, app_state, ui_size);
         add_autoroll_button!(ret, self, app_state, roll_target_helices);
 
@@ -180,6 +208,9 @@ impl<S: AppState> EditionTab<S> {
         if app_state.get_selection_mode() == SelectionMode::Strand {
             add_color_square!(ret, self, color_square);
         }
+
+        subsection!(ret, ui_size, "Suggestions Parameters");
+        add_suggestion_parameters_checkboxes!(ret, self, app_state, ui_size);
 
         subsection!(ret, ui_size, "Tighten 2D helices");
         add_tighten_helices_button!(ret, self, app_state, ui_size, roll_target_helices);

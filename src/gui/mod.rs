@@ -48,7 +48,7 @@ use ensnano_design::{
 };
 use ensnano_interactor::{
     graphics::{Background3D, DrawArea, ElementType, RenderingMode, SplitMode},
-    Selection, SimulationState, WidgetBasis,
+    Selection, SimulationState, SuggestionParameters, WidgetBasis,
 };
 use ensnano_interactor::{operation::Operation, ScaffoldInfo};
 use ensnano_interactor::{ActionMode, HyperboloidRequest, RollRequest, SelectionMode};
@@ -181,6 +181,7 @@ pub trait Requests: 'static + Send {
     fn set_favourite_camera(&mut self, cam_id: CameraId);
     fn update_camera(&mut self, cam_id: CameraId);
     fn set_camera_name(&mut self, cam_id: CameraId, name: String);
+    fn set_suggestion_parameters(&mut self, param: SuggestionParameters);
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -893,6 +894,7 @@ pub trait AppState:
     fn get_curent_operation_state(&self) -> Option<CurentOpState>;
     fn get_strand_building_state(&self) -> Option<StrandBuildingStatus>;
     fn get_selected_group(&self) -> Option<GroupId>;
+    fn get_suggestion_parameters(&self) -> &SuggestionParameters;
 }
 
 pub trait DesignReader: 'static {

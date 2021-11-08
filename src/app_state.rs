@@ -37,7 +37,7 @@ use crate::apply_update;
 use crate::controller::SimulationRequest;
 use address_pointer::AddressPointer;
 use ensnano_design::Design;
-use ensnano_interactor::{DesignOperation, RigidBodyConstants};
+use ensnano_interactor::{DesignOperation, RigidBodyConstants, SuggestionParameters};
 use ensnano_organizer::GroupId;
 
 pub use design_interactor::controller::ErrOperation;
@@ -135,6 +135,12 @@ impl AppState {
         Self(AddressPointer::new(new_state))
     }
 
+    pub fn with_suggestion_parameters(&self, suggestion_parameters: SuggestionParameters) -> Self {
+        let mut new_state = (*self.0).clone();
+        new_state.suggestion_parameters = suggestion_parameters;
+        Self(AddressPointer::new(new_state))
+    }
+
     pub fn with_action_mode(&self, action_mode: ActionMode) -> Self {
         let mut new_state = (*self.0).clone();
         new_state.action_mode = action_mode;
@@ -209,7 +215,7 @@ impl AppState {
     fn updated(self) -> Self {
         let old_self = self.clone();
         let mut interactor = self.0.design.clone_inner();
-        interactor = interactor.with_updated_design_reader();
+        interactor = interactor.with_updated_design_reader(&self.0.suggestion_parameters);
         let new = self.with_interactor(interactor);
         if old_self.design_was_modified(&new) {
             new
@@ -326,6 +332,7 @@ impl AppState {
         *self = self.with_candidates(vec![]);
         *self = self.with_action_mode(source.0.action_mode.clone());
         *self = self.with_selection_mode(source.0.selection_mode.clone());
+        *self = self.with_suggestion_parameters(source.0.suggestion_parameters.clone());
     }
 
     pub(super) fn is_pasting(&self) -> PastingStatus {
@@ -461,6 +468,7 @@ struct AppState_ {
     widget_basis: WidgetBasis,
     strand_on_new_helix: Option<NewHelixStrand>,
     center_of_selection: Option<CenterOfSelection>,
+    suggestion_parameters: SuggestionParameters,
 }
 
 #[derive(Clone, Default)]

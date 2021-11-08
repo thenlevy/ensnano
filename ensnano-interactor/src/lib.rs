@@ -455,3 +455,41 @@ pub struct StrandBuildingStatus {
     pub prime5: Nucl,
     pub dragged_nucl: Nucl,
 }
+
+/// Parameters of strand suggestions
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub struct SuggestionParameters {
+    pub include_scaffold: bool,
+    pub include_intra_strand: bool,
+    pub ignore_groups: bool,
+}
+
+impl Default for SuggestionParameters {
+    fn default() -> Self {
+        Self {
+            include_intra_strand: true,
+            include_scaffold: true,
+            ignore_groups: false,
+        }
+    }
+}
+
+impl SuggestionParameters {
+    pub fn with_include_scaffod(&self, include_scaffold: bool) -> Self {
+        let mut ret = self.clone();
+        ret.include_scaffold = include_scaffold;
+        ret
+    }
+
+    pub fn with_intra_strand(&self, intra_strand: bool) -> Self {
+        let mut ret = self.clone();
+        ret.include_intra_strand = intra_strand;
+        ret
+    }
+
+    pub fn with_ignore_groups(&self, ignore_groups: bool) -> Self {
+        let mut ret = self.clone();
+        ret.ignore_groups = ignore_groups;
+        ret
+    }
+}

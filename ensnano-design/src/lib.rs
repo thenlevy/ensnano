@@ -437,6 +437,15 @@ impl Design {
             mutate_all_helices(self, |h| h.update_bezier(&parameters))
         }
     }
+
+    pub fn get_nucl_position(&self, nucl: Nucl) -> Option<Vec3> {
+        let helix = self.helices.get(&nucl.helix)?;
+        Some(helix.space_pos(
+            &self.parameters.unwrap_or_default(),
+            nucl.position,
+            nucl.forward,
+        ))
+    }
 }
 
 pub struct SavingInformation {
