@@ -1190,6 +1190,7 @@ impl<S: AppState> ControllerState<S> for AddOrXover {
                         mouse_position: self.mouse_position,
                         clicked_time: Instant::now(),
                         click_result,
+                        clicked_position: position,
                     })),
                     consequences: Consequence::Nothing,
                 }
@@ -1385,6 +1386,7 @@ impl<S: AppState> ControllerState<S> for InitBuilding {
                     clicked_time: Instant::now(),
                     click_result: ClickResult::Nucl(self.nucl),
                     mouse_position: self.mouse_position,
+                    clicked_position: position,
                 })),
                 consequences: Consequence::Nothing,
             },
@@ -1863,20 +1865,34 @@ impl<S: AppState> ControllerState<S> for Cutting {
                         .data
                         .borrow()
                         .get_click(x, y, &controller.get_camera(position.y));
-                let consequences = if nucl == ClickResult::Nucl(self.nucl) {
-                    if self.whole_strand {
-                        Consequence::RmStrand(self.nucl)
-                    } else {
-                        Consequence::Cut(self.nucl)
+                let attachement = if let ClickResult::Nucl(nucl) = nucl {
+                    Some(nucl).zip(controller.data.borrow().attachable_neighbour(nucl))
+                } else {
+                    None
+                };
+                if let Some(attachement) = attachement {
+                    Transition {
+                        new_state: Some(Box::new(NormalState {
+                            mouse_position: self.mouse_position,
+                        })),
+                        consequences: Consequence::Xover(attachement.0, attachement.1),
                     }
                 } else {
-                    Consequence::Nothing
-                };
-                Transition {
-                    new_state: Some(Box::new(NormalState {
-                        mouse_position: self.mouse_position,
-                    })),
-                    consequences,
+                    let consequences = if nucl == ClickResult::Nucl(self.nucl) {
+                        if self.whole_strand {
+                            Consequence::RmStrand(self.nucl)
+                        } else {
+                            Consequence::Cut(self.nucl)
+                        }
+                    } else {
+                        Consequence::Nothing
+                    };
+                    Transition {
+                        new_state: Some(Box::new(NormalState {
+                            mouse_position: self.mouse_position,
+                        })),
+                        consequences,
+                    }
                 }
             }
             WindowEvent::CursorMoved { .. } => {
@@ -2597,6 +2613,7 @@ impl<S: AppState> ControllerState<S> for AddClick {
                             mouse_position: self.mouse_position,
                             click_result: self.click_result.clone(),
                             clicked_time: Instant::now(),
+                            clicked_position: position,
                         })),
                         consequences: Consequence::Nothing,
                     }
@@ -2626,34 +2643,21 @@ struct DoubleClicking {
     clicked_time: Instant,
     click_result: ClickResult,
     mouse_position: PhysicalPosition<f64>,
+    clicked_position: PhysicalPosition<f64>,
 }
 
 impl<S: AppState> ControllerState<S> for DoubleClicking {
     fn check_timers(&mut self, controller: &Controller<S>) -> Transition<S> {
         let now = Instant::now();
         if (now - self.clicked_time).as_millis() > 250 {
-            let attachement = if let ClickResult::Nucl(nucl) = self.click_result {
-                Some(nucl).zip(controller.data.borrow().attachable_neighbour(nucl))
-            } else {
-                None
-            };
-            if let Some(attachement) = attachement {
-                Transition {
-                    new_state: Some(Box::new(NormalState {
-                        mouse_position: self.mouse_position,
-                    })),
-                    consequences: Consequence::Xover(attachement.0, attachement.1),
-                }
-            } else {
-                Transition {
-                    new_state: Some(Box::new(NormalState {
-                        mouse_position: self.mouse_position,
-                    })),
-                    consequences: Consequence::AddClick(
-                        self.click_result.clone(),
-                        controller.modifiers.shift(),
-                    ),
-                }
+            Transition {
+                new_state: Some(Box::new(NormalState {
+                    mouse_position: self.mouse_position,
+                })),
+                consequences: Consequence::AddClick(
+                    self.click_result.clone(),
+                    controller.modifiers.shift(),
+                ),
             }
         } else {
             Transition::nothing()
@@ -2701,7 +2705,19 @@ impl<S: AppState> ControllerState<S> for DoubleClicking {
             }
             WindowEvent::CursorMoved { .. } => {
                 self.mouse_position = position;
-                Transition::nothing()
+                if position_difference(self.clicked_position, position) > 5. {
+                    Transition {
+                        new_state: Some(Box::new(NormalState {
+                            mouse_position: self.mouse_position,
+                        })),
+                        consequences: Consequence::AddClick(
+                            self.click_result.clone(),
+                            controller.modifiers.shift(),
+                        ),
+                    }
+                } else {
+                    Transition::nothing()
+                }
             }
             _ => Transition::nothing(),
         }
