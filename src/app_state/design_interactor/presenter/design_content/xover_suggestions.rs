@@ -75,7 +75,7 @@ impl XoverSuggestions {
             self.get_suggestions_groups(&mut ret, design, suggestion_parameters);
         }
         ret.sort_by(|a, b| a.2.partial_cmp(&b.2).unwrap());
-        self.trimm_suggestion(&ret)
+        self.trimm_suggestion(&ret, design)
     }
 
     /// Return the list of all suggested crossovers
@@ -97,14 +97,22 @@ impl XoverSuggestions {
 
     /// Trimm a list of crossovers so that each nucleotide appears at most once in the suggestion
     /// list.
-    fn trimm_suggestion(&self, suggestion: &[(Nucl, Nucl, f32)]) -> Vec<(Nucl, Nucl)> {
+    fn trimm_suggestion(
+        &self,
+        suggestion: &[(Nucl, Nucl, f32)],
+        design: &Design,
+    ) -> Vec<(Nucl, Nucl)> {
         let mut used = HashSet::new();
         let mut ret = vec![];
         for (a, b, _) in suggestion {
             if !used.contains(a) && !used.contains(b) {
-                ret.push((*a, *b));
-                used.insert(a);
-                used.insert(b);
+                let a_end = design.is_strand_end(a).to_opt();
+                let b_end = design.is_strand_end(b).to_opt();
+                if !matches!(a_end.zip(b_end), Some((a, b)) if a == b) {
+                    ret.push((*a, *b));
+                    used.insert(a);
+                    used.insert(b);
+                }
             }
         }
         ret
