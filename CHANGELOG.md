@@ -4,6 +4,7 @@
 <!-- next-header -->
 ## 0.3.1
 
+- Improve flexibility of the cross-over suggestions interface. The parameters are in the "Eddition" tab
 - Update wgpu to 0.11
 - Files that do not have an `.ens` extensions won't be overiden when saving a design. This fixes a problem that caused
 ENSnano to overide cadnano files for example.
