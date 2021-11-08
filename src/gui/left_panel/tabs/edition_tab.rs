@@ -200,7 +200,7 @@ impl<S: AppState> EditionTab<S> {
         let mut ret = Column::new().spacing(5);
         let selection = app_state.get_selection_as_dnaelement();
         let roll_target_helices = self.get_roll_target_helices(&selection);
-        section!(ret, ui_size, "Eddition");
+        section!(ret, ui_size, "Edition");
         add_roll_slider!(ret, self, app_state, ui_size);
         add_autoroll_button!(ret, self, app_state, roll_target_helices);
 
