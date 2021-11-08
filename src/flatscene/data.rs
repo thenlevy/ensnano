@@ -876,8 +876,8 @@ impl Data {
                         } else {
                             new_selection.push(selection);
                         }
-                    } else if let Some(s_id) = self.design.get_strand_id(nucl.to_real()) {
-                        let selection = Selection::Strand(self.id, s_id as u32);
+                    } else {
+                        let selection = Selection::Nucleotide(self.id, nucl.to_real());
                         if let Some(pos) = new_selection.iter().position(|x| *x == selection) {
                             new_selection.remove(pos);
                         } else {
