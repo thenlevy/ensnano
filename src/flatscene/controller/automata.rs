@@ -1074,7 +1074,13 @@ impl<S: AppState> ControllerState<S> for Rotating {
                         &controller.get_camera(position.y),
                     );
                     let consequences = if let ClickResult::Nucl(nucl) = click_result {
-                        Consequence::Cut(nucl)
+                        if let Some(attachement) =
+                            controller.data.borrow().attachable_neighbour(nucl)
+                        {
+                            Consequence::Xover(nucl, attachement)
+                        } else {
+                            Consequence::Cut(nucl)
+                        }
                     } else {
                         Consequence::Nothing
                     };
