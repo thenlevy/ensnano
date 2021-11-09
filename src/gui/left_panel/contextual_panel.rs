@@ -23,6 +23,11 @@ use iced::{scrollable, Scrollable};
 mod value_constructor;
 use value_constructor::{Builder, GridBuilder};
 
+struct InstantiatedBuilder<S: AppState> {
+    selection: Selection,
+    builder: Box<dyn Builder<S>>,
+}
+
 pub(super) struct ContextualPanel<S: AppState> {
     scroll: scrollable::State,
     width: u32,
@@ -32,7 +37,7 @@ pub(super) struct ContextualPanel<S: AppState> {
     ens_nano_website: button::State,
     add_strand_menu: AddStrandMenu,
     strand_name_state: text_input::State,
-    builder: Option<Box<dyn Builder<S>>>,
+    builder: Option<InstantiatedBuilder<S>>,
 }
 
 impl<S: AppState> ContextualPanel<S> {
@@ -52,6 +57,10 @@ impl<S: AppState> ContextualPanel<S> {
 
     pub fn new_width(&mut self, width: u32) {
         self.width = width;
+    }
+
+    fn update_builder(&mut self, selection: Option<Selection>) {
+        todo!()
     }
 
     pub fn view(&mut self, ui_size: UiSize, app_state: &S) -> Element<Message<S>> {
