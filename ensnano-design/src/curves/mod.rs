@@ -81,7 +81,7 @@ impl Curve {
         let mut current_axis = self.itterative_axis(t, None);
         axis.push(current_axis);
 
-        for _ in 0..nb_points {
+        while t < 1. {
             let mut s = 0f32;
             let mut p = self.geometry.position(t);
 
