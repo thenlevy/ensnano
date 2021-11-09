@@ -214,7 +214,7 @@ impl DiscreteValue {
         let left = Row::new()
             .push(name_text)
             .push(iced::Space::with_width(iced::Length::Fill))
-            .align_items(iced::Align::Center)
+            .align_items(iced::Alignment::Center)
             .width(iced::Length::FillPortion(4));
 
         let middle = Row::new()
@@ -231,7 +231,7 @@ impl DiscreteValue {
             .push(left)
             .push(middle)
             .push(right)
-            .align_items(iced::Align::Center)
+            .align_items(iced::Alignment::Center)
             .into()
     }
 

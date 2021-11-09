@@ -114,7 +114,9 @@ impl<R: DesignReader> Data<R> {
         if self.discs_need_update(app_state, older_app_state) {
             self.update_discs(app_state);
         }
-        if app_state.design_was_modified(older_app_state) {
+        if app_state.design_was_modified(older_app_state)
+            || app_state.suggestion_parameters_were_updated(older_app_state)
+        {
             self.update_instances();
         }
 

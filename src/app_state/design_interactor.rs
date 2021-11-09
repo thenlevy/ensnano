@@ -20,7 +20,7 @@ use super::AddressPointer;
 use ensnano_design::{group_attributes::GroupAttribute, Design, Parameters};
 use ensnano_interactor::{
     operation::Operation, DesignOperation, RigidBodyConstants, Selection, SimulationState,
-    StrandBuilder,
+    StrandBuilder, SuggestionParameters,
 };
 
 mod presenter;
@@ -200,12 +200,16 @@ impl DesignInteractor {
         ret
     }
 
-    pub(super) fn with_updated_design_reader(mut self) -> Self {
+    pub(super) fn with_updated_design_reader(
+        mut self,
+        suggestion_parameters: &SuggestionParameters,
+    ) -> Self {
         if cfg!(test) {
             print!("Old design: ");
             self.design.show_address();
         }
-        let (new_presenter, new_design) = update_presenter(&self.presenter, self.design.clone());
+        let (new_presenter, new_design) =
+            update_presenter(&self.presenter, self.design.clone(), suggestion_parameters);
         self.presenter = new_presenter;
         if cfg!(test) {
             print!("New design: ");
@@ -216,7 +220,7 @@ impl DesignInteractor {
             if !self.controller.get_simulation_state().is_runing() {
                 self.simulation_update = None;
             }
-            self.after_applying_simulation_update(update)
+            self.after_applying_simulation_update(update, suggestion_parameters)
         } else {
             self
         }
@@ -230,9 +234,17 @@ impl DesignInteractor {
         self
     }
 
-    fn after_applying_simulation_update(mut self, update: Arc<dyn SimulationUpdate>) -> Self {
-        let (new_presenter, new_design) =
-            apply_simulation_update(&self.presenter, self.design.clone(), update);
+    fn after_applying_simulation_update(
+        mut self,
+        update: Arc<dyn SimulationUpdate>,
+        suggestion_parameters: &SuggestionParameters,
+    ) -> Self {
+        let (new_presenter, new_design) = apply_simulation_update(
+            &self.presenter,
+            self.design.clone(),
+            update,
+            suggestion_parameters,
+        );
         self.presenter = new_presenter;
         self.design = new_design;
         self
@@ -371,6 +383,7 @@ mod tests {
     use ensnano_design::grid::GridPosition;
     use ensnano_design::{grid::GridDescriptor, DomainJunction, Nucl, Strand};
     use ensnano_interactor::operation::GridHelixCreation;
+    use ensnano_interactor::DesignReader;
     use std::path::PathBuf;
     use ultraviolet::{Rotor3, Vec3};
 
@@ -424,7 +437,8 @@ mod tests {
     fn read_one_helix() {
         let path = one_helix_path();
         let interactor = DesignInteractor::new_with_path(&path).ok().unwrap();
-        let interactor = interactor.with_updated_design_reader();
+        let suggestion_parameters = Default::default();
+        let interactor = interactor.with_updated_design_reader(&suggestion_parameters);
         let reader = interactor.get_design_reader();
         assert_eq!(reader.get_all_visible_nucl_ids().len(), 24)
     }

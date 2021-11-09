@@ -260,6 +260,7 @@ pub struct DesignRotation {
     pub rotation: Rotor3,
     /// The element of the design on which the rotation will be applied
     pub target: IsometryTarget,
+    pub group_id: Option<GroupId>,
 }
 
 /// A translation of an element of a design
@@ -267,6 +268,7 @@ pub struct DesignRotation {
 pub struct DesignTranslation {
     pub translation: Vec3,
     pub target: IsometryTarget,
+    pub group_id: Option<GroupId>,
 }
 
 /// A element on which an isometry must be applied
@@ -451,4 +453,50 @@ pub struct StrandBuildingStatus {
     pub prime3: Nucl,
     pub prime5: Nucl,
     pub dragged_nucl: Nucl,
+}
+
+/// Parameters of strand suggestions
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub struct SuggestionParameters {
+    pub include_scaffold: bool,
+    pub include_intra_strand: bool,
+    pub include_xover_ends: bool,
+    pub ignore_groups: bool,
+}
+
+impl Default for SuggestionParameters {
+    fn default() -> Self {
+        Self {
+            include_intra_strand: true,
+            include_scaffold: true,
+            include_xover_ends: false,
+            ignore_groups: false,
+        }
+    }
+}
+
+impl SuggestionParameters {
+    pub fn with_include_scaffod(&self, include_scaffold: bool) -> Self {
+        let mut ret = self.clone();
+        ret.include_scaffold = include_scaffold;
+        ret
+    }
+
+    pub fn with_intra_strand(&self, intra_strand: bool) -> Self {
+        let mut ret = self.clone();
+        ret.include_intra_strand = intra_strand;
+        ret
+    }
+
+    pub fn with_ignore_groups(&self, ignore_groups: bool) -> Self {
+        let mut ret = self.clone();
+        ret.ignore_groups = ignore_groups;
+        ret
+    }
+
+    pub fn with_xover_ends(&self, include_xover_ends: bool) -> Self {
+        let mut ret = self.clone();
+        ret.include_xover_ends = include_xover_ends;
+        ret
+    }
 }

@@ -1018,7 +1018,7 @@ impl Controller {
         design: Design,
         translation: DesignTranslation,
     ) -> Result<Design, ErrOperation> {
-        match translation.target {
+        let mut design = match translation.target {
             IsometryTarget::Design => Err(ErrOperation::NotImplemented),
             IsometryTarget::Helices(helices, snap) => {
                 Ok(self.translate_helices(design, snap, helices, translation.translation))
@@ -1029,7 +1029,17 @@ impl Controller {
             IsometryTarget::GroupPivot(group_id) => {
                 self.translate_group_pivot(design, translation.translation, group_id)
             }
+        }?;
+
+        if let Some(group_id) = translation.group_id {
+            let pivot = design
+                .group_attributes
+                .get_mut(&group_id)
+                .and_then(|attributes| attributes.pivot.as_mut())
+                .ok_or(ErrOperation::GroupHasNoPivot(group_id))?;
+            pivot.position += translation.translation;
         }
+        Ok(design)
     }
 
     fn translate_group_pivot(
@@ -1115,7 +1125,7 @@ impl Controller {
         design: Design,
         rotation: DesignRotation,
     ) -> Result<Design, ErrOperation> {
-        match rotation.target {
+        let mut design = match rotation.target {
             IsometryTarget::Design => Err(ErrOperation::NotImplemented),
             IsometryTarget::GroupPivot(g_id) => {
                 self.rotate_group_pivot(design, rotation.rotation, g_id)
@@ -1130,7 +1140,16 @@ impl Controller {
             IsometryTarget::Grids(grid_ids) => {
                 Ok(self.rotate_grids(design, grid_ids, rotation.rotation, rotation.origin))
             }
+        }?;
+        if let Some(group_id) = rotation.group_id {
+            let pivot = design
+                .group_attributes
+                .get_mut(&group_id)
+                .and_then(|attributes| attributes.pivot.as_mut())
+                .ok_or(ErrOperation::GroupHasNoPivot(group_id))?;
+            pivot.orientation = rotation.rotation * pivot.orientation;
         }
+        Ok(design)
     }
 
     fn translate_helices(

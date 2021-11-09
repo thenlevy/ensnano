@@ -226,8 +226,11 @@ pub(crate) fn poll_all<R: DerefMut<Target = Requests>>(
         main_state.push_action(Action::UpdateHyperboloidShift(f))
     }
 
-    if let Some((s, g_id)) = requests.organizer_selection.take() {
+    if let Some((s, g_id, new_group)) = requests.organizer_selection.take() {
         let selection = s.into_iter().map(|e| e.to_selection(0)).collect();
+        if new_group && g_id.is_some() {
+            main_state.transfer_selection_pivot_to_group(g_id.unwrap());
+        }
         main_state.update_selection(selection, g_id);
     }
 
@@ -346,7 +349,7 @@ pub(crate) fn poll_all<R: DerefMut<Target = Requests>>(
     }
 
     if requests.suspend_op.take().is_some() {
-        main_state.pending_actions.push_back(Action::SuspendOp)
+        requests.keep_proceed.push_back(Action::SuspendOp);
     }
 
     if let Some(all_helices) = requests.redim_2d_helices.take() {
@@ -373,5 +376,9 @@ pub(crate) fn poll_all<R: DerefMut<Target = Requests>>(
 
     for action in requests.keep_proceed.drain(..) {
         main_state.pending_actions.push_back(action)
+    }
+
+    if let Some(param) = requests.new_suggestion_parameters.take() {
+        main_state.set_suggestion_parameters(param);
     }
 }

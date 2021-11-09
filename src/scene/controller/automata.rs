@@ -17,7 +17,6 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 use super::*;
 use ensnano_interactor::ActionMode;
-use std::alloc::handle_alloc_error;
 use std::borrow::Cow;
 use std::cell::RefCell;
 use std::time::Instant;
@@ -862,6 +861,13 @@ struct RotatingWidget {
 impl<S: AppState> ControllerState<S> for RotatingWidget {
     fn display(&self) -> Cow<'static, str> {
         "Rotating widget".into()
+    }
+
+    fn handles_color_system(&self) -> Option<HandleColors> {
+        match self.target {
+            WidgetTarget::Pivot => Some(HandleColors::Cym),
+            WidgetTarget::Object => Some(HandleColors::Rgb),
+        }
     }
 
     fn input(

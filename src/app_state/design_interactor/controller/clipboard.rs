@@ -315,7 +315,7 @@ impl Controller {
         let mut domains_vec = vec![domains_0];
         for n in 1..clipboard.templates.len() {
             let t = clipboard.templates.get(n);
-            println!("updated template {:?}", t);
+            log::info!("updated template {:?}", t);
             let domains = t.as_ref().and_then(|t| {
                 clipboard
                     .template_edges
@@ -760,9 +760,9 @@ impl Controller {
         let (edge, shift) = copy_edge;
         for (n1, n2) in xovers.iter() {
             let copy_1 = self.translate_nucl_by_edge(n1, &edge, shift, design, grid_manager);
-            println!("copy 1 {:?}", copy_1);
+            log::debug!("copy 1 {:?}", copy_1);
             let copy_2 = self.translate_nucl_by_edge(n2, &edge, shift, design, grid_manager);
-            println!("copy 2 {:?}", copy_2);
+            log::debug!("copy 2 {:?}", copy_2);
             if let Some((copy_1, copy_2)) = copy_1.zip(copy_2) {
                 if !design.is_true_xover_end(&copy_1) && !design.is_true_xover_end(&copy_2) {
                     // If general_cross_over returns an error we simply ignore this cross_over

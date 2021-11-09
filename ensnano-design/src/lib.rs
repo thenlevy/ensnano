@@ -33,7 +33,7 @@ pub mod codenano;
 pub mod grid;
 use grid::{Grid, GridDescriptor, GridPosition};
 pub mod scadnano;
-pub use ensnano_organizer::OrganizerTree;
+pub use ensnano_organizer::{GroupId, OrganizerTree};
 use scadnano::*;
 pub mod elements;
 use elements::DnaElementKey;
@@ -48,11 +48,6 @@ use curves::{InstanciatedCurve, SphereLikeSpiral};
 mod formating;
 #[cfg(test)]
 mod tests;
-
-/// TODO REMOVE THIS AFTER TESTING
-pub const DUMMY_CAMERAS: [(CameraId, &str); 2] = [(CameraId(0), "Fav"), (CameraId(1), "Not Fav")];
-/// TODO REMOVE THIS AFTER TESTING
-pub const FAVORITE_CAMERA: CameraId = CameraId(0);
 
 /// The `ensnano` Design structure.
 #[derive(Serialize, Deserialize, Clone)]
@@ -368,7 +363,7 @@ impl Design {
             .keys()
             .max()
             .map(|id| CameraId(id.0 + 1))
-            .unwrap_or(CameraId(0));
+            .unwrap_or(CameraId(1));
         let new_camera = Camera {
             position,
             orientation,
@@ -441,6 +436,15 @@ impl Design {
             let parameters = self.parameters.unwrap_or(Parameters::DEFAULT);
             mutate_all_helices(self, |h| h.update_bezier(&parameters))
         }
+    }
+
+    pub fn get_nucl_position(&self, nucl: Nucl) -> Option<Vec3> {
+        let helix = self.helices.get(&nucl.helix)?;
+        Some(helix.space_pos(
+            &self.parameters.unwrap_or_default(),
+            nucl.position,
+            nucl.forward,
+        ))
     }
 }
 

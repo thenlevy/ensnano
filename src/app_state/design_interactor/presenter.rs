@@ -21,7 +21,9 @@ pub use self::design_content::Staple;
 
 use super::*;
 use ensnano_design::{Extremity, Nucl};
-use ensnano_interactor::{NeighbourDescriptor, NeighbourDescriptorGiver, ScaffoldInfo, Selection};
+use ensnano_interactor::{
+    NeighbourDescriptor, NeighbourDescriptorGiver, ScaffoldInfo, Selection, SuggestionParameters,
+};
 use ultraviolet::Mat4;
 
 use crate::utils::id_generator::IdGenerator;
@@ -48,6 +50,7 @@ use std::collections::{BTreeMap, HashSet};
 /// structures, the strucutres are updated before returning the design reader.
 pub(super) struct Presenter {
     pub current_design: AddressPointer<Design>,
+    current_suggestion_paramters: SuggestionParameters,
     model_matrix: AddressPointer<Mat4>,
     content: AddressPointer<DesignContent>,
     pub junctions_ids: AddressPointer<JunctionsIds>,
@@ -60,6 +63,7 @@ impl Default for Presenter {
     fn default() -> Self {
         Self {
             current_design: Default::default(),
+            current_suggestion_paramters: Default::default(),
             model_matrix: AddressPointer::new(Mat4::identity()),
             content: Default::default(),
             junctions_ids: Default::default(),
@@ -91,9 +95,15 @@ impl Presenter {
         }
     }
 
-    pub fn update(mut self, design: AddressPointer<Design>) -> Self {
-        if self.current_design != design {
-            self.read_design(design);
+    pub fn update(
+        mut self,
+        design: AddressPointer<Design>,
+        suggestion_parameters: &SuggestionParameters,
+    ) -> Self {
+        if self.current_design != design
+            || &self.current_suggestion_paramters != suggestion_parameters
+        {
+            self.read_design(design, suggestion_parameters);
             self.read_scaffold_seq();
             self.update_visibility();
         }
@@ -105,14 +115,20 @@ impl Presenter {
     pub fn from_new_design(
         design: Design,
         old_junctions_ids: &JunctionsIds,
+        suggestion_parameters: SuggestionParameters,
     ) -> (Self, AddressPointer<Design>) {
         let model_matrix = Mat4::identity();
         let mut old_grid_ptr = None;
-        let (content, design, junctions_ids) =
-            DesignContent::make_hash_maps(design, old_junctions_ids, &mut old_grid_ptr);
+        let (content, design, junctions_ids) = DesignContent::make_hash_maps(
+            design,
+            old_junctions_ids,
+            &mut old_grid_ptr,
+            &suggestion_parameters,
+        );
         let design = AddressPointer::new(design);
         let ret = Self {
             current_design: design.clone(),
+            current_suggestion_paramters: suggestion_parameters,
             content: AddressPointer::new(content),
             model_matrix: AddressPointer::new(model_matrix),
             junctions_ids: AddressPointer::new(junctions_ids),
@@ -132,15 +148,21 @@ impl Presenter {
         self.content = AddressPointer::new(new_content);
     }
 
-    fn read_design(&mut self, design: AddressPointer<Design>) {
+    fn read_design(
+        &mut self,
+        design: AddressPointer<Design>,
+        suggestion_parameters: &SuggestionParameters,
+    ) {
         let (content, new_design, new_junctions_ids) = DesignContent::make_hash_maps(
             design.clone_inner(),
             self.junctions_ids.as_ref(),
             &mut self.old_grid_ptr,
+            suggestion_parameters,
         );
         self.current_design = AddressPointer::new(new_design);
         self.content = AddressPointer::new(content);
         self.junctions_ids = AddressPointer::new(new_junctions_ids);
+        self.current_suggestion_paramters = suggestion_parameters.clone();
     }
 
     pub(super) fn has_different_model_matrix_than(&self, other: &Self) -> bool {
@@ -322,12 +344,17 @@ impl Presenter {
 pub(super) fn update_presenter(
     presenter: &AddressPointer<Presenter>,
     design: AddressPointer<Design>,
+    suggestion_parameters: &SuggestionParameters,
 ) -> (AddressPointer<Presenter>, AddressPointer<Design>) {
-    if presenter.current_design != design {
+    if presenter.current_design != design
+        || &presenter.current_suggestion_paramters != suggestion_parameters
+    {
         if cfg!(test) {
             println!("updating presenter");
         }
-        let new_presenter = presenter.clone_inner().update(design);
+        let new_presenter = presenter
+            .clone_inner()
+            .update(design, suggestion_parameters);
         let design = new_presenter.current_design.clone();
         (AddressPointer::new(new_presenter), design)
     } else {
@@ -339,11 +366,15 @@ pub(super) fn apply_simulation_update(
     presenter: &AddressPointer<Presenter>,
     design: AddressPointer<Design>,
     update: impl AsRef<dyn SimulationUpdate>,
+    suggestion_parameters: &SuggestionParameters,
 ) -> (AddressPointer<Presenter>, AddressPointer<Design>) {
     let mut new_design = design.clone_inner();
     update.as_ref().update_design(&mut new_design);
-    let (new_presenter, returned_design) =
-        update_presenter(presenter, AddressPointer::new(new_design));
+    let (new_presenter, returned_design) = update_presenter(
+        presenter,
+        AddressPointer::new(new_design),
+        suggestion_parameters,
+    );
     let mut new_content = new_presenter.content.clone_inner();
     let mut returned_presenter = new_presenter.clone_inner();
     new_content.read_simualtion_update(update.as_ref());
@@ -468,6 +499,14 @@ impl DesignReader {
             .current_design
             .get_camera(cam_id)
             .map(|c| (c.position, c.orientation))
+    }
+
+    pub fn get_nth_camera(&self, n: u32) -> Option<(Vec3, ultraviolet::Rotor3)> {
+        self.presenter
+            .current_design
+            .get_cameras()
+            .nth(n as usize)
+            .map(|c| (c.1.position, c.1.orientation))
     }
 
     pub fn get_favourite_camera(&self) -> Option<(Vec3, ultraviolet::Rotor3)> {

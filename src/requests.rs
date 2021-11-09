@@ -37,7 +37,7 @@ use ensnano_design::{
 };
 use ensnano_interactor::{
     graphics::{Background3D, RenderingMode},
-    HyperboloidRequest, RigidBodyConstants,
+    HyperboloidRequest, RigidBodyConstants, SuggestionParameters,
 };
 
 use std::collections::VecDeque;
@@ -87,7 +87,7 @@ pub struct Requests {
     pub rigid_body_parameters: Option<RigidBodyConstants>,
     pub keep_proceed: VecDeque<Action>,
     pub new_shift_hyperboloid: Option<f32>,
-    pub organizer_selection: Option<(Vec<DnaElementKey>, Option<ensnano_organizer::GroupId>)>,
+    pub organizer_selection: Option<(Vec<DnaElementKey>, Option<ensnano_organizer::GroupId>, bool)>,
     pub organizer_candidates: Option<Vec<DnaElementKey>>,
     pub new_attribute: Option<(DnaAttribute, Vec<DnaElementKey>)>,
     pub new_tree: Option<OrganizerTree<DnaElementKey>>,
@@ -117,4 +117,5 @@ pub struct Requests {
     pub new_paste_candiate: Option<Option<Nucl>>,
     pub new_double_strand_parameters: Option<Option<(isize, usize)>>,
     pub new_center_of_selection: Option<Option<CenterOfSelection>>,
+    pub new_suggestion_parameters: Option<SuggestionParameters>,
 }

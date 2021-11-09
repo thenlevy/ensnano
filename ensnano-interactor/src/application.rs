@@ -18,6 +18,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 
 use super::graphics::*;
 use super::Selection;
+use ensnano_design::group_attributes::GroupPivot;
 use ensnano_design::Nucl;
 use iced_wgpu::wgpu;
 use iced_winit::winit;
@@ -54,6 +55,9 @@ pub trait Application {
     }
 
     fn get_camera(&self) -> Option<(Vec3, Rotor3)> {
+        None
+    }
+    fn get_current_selection_pivot(&self) -> Option<GroupPivot> {
         None
     }
 }

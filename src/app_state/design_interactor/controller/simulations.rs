@@ -34,6 +34,17 @@ use ultraviolet::{Bivec3, Mat3};
 mod roller;
 pub use roller::{PhysicalSystem, RollInterface, RollPresenter};
 
+const MAX_DERIVATIVE_NORM: f32 = 1e4;
+
+macro_rules! bound_derivative {
+    ($obj:ident) => {
+        if $obj.mag() > MAX_DERIVATIVE_NORM {
+            $obj.normalize();
+            $obj *= MAX_DERIVATIVE_NORM;
+        }
+    };
+}
+
 #[derive(Debug)]
 struct HelixSystem {
     springs: Vec<(RigidNucl, RigidNucl)>,
@@ -131,52 +142,63 @@ impl ExplicitODE<f32> for HelixSystem {
                 }
                 let omega = self.helices[i].inertia_inverse * angular_momentums[i]
                     / self.rigid_parameters.mass;
-                let d_rotation = 0.5
+                let mut d_rotation = 0.5
                     * Rotor3::from_quaternion_array([omega.x, omega.y, omega.z, 0f32])
                     * rotations[i];
+
+                bound_derivative!(d_rotation);
 
                 ret.push(d_rotation.s);
                 ret.push(d_rotation.bv.xy);
                 ret.push(d_rotation.bv.xz);
                 ret.push(d_rotation.bv.yz);
 
-                let d_linear_momentum = forces[i]
+                let mut d_linear_momentum = forces[i]
                     - linear_momentums[i] * self.rigid_parameters.k_friction
                         / (self.helices[i].height() * self.rigid_parameters.mass);
+
+                bound_derivative!(d_linear_momentum);
 
                 ret.push(d_linear_momentum.x);
                 ret.push(d_linear_momentum.y);
                 ret.push(d_linear_momentum.z);
 
-                let d_angular_momentum = torques[i]
+                let mut d_angular_momentum = torques[i]
                     - angular_momentums[i] * self.rigid_parameters.k_friction
                         / (self.helices[i].height() * self.rigid_parameters.mass);
+
+                bound_derivative!(d_angular_momentum);
+
                 ret.push(d_angular_momentum.x);
                 ret.push(d_angular_momentum.y);
                 ret.push(d_angular_momentum.z);
             } else {
-                let d_position = linear_momentums[i] / (self.rigid_parameters.mass / 2.);
+                let mut d_position = linear_momentums[i] / (self.rigid_parameters.mass / 2.);
+                bound_derivative!(d_position);
                 ret.push(d_position.x);
                 ret.push(d_position.y);
                 ret.push(d_position.z);
 
-                let d_rotation = Rotor3::from_quaternion_array([0., 0., 0., 0.]);
+                let mut d_rotation = Rotor3::from_quaternion_array([0., 0., 0., 0.]);
+                bound_derivative!(d_rotation);
                 ret.push(d_rotation.s);
                 ret.push(d_rotation.bv.xy);
                 ret.push(d_rotation.bv.xz);
                 ret.push(d_rotation.bv.yz);
 
-                let d_linear_momentum = forces[i]
+                let mut d_linear_momentum = forces[i]
                     - linear_momentums[i] * self.rigid_parameters.k_friction
                         / (self.rigid_parameters.mass / 2.);
+                bound_derivative!(d_linear_momentum);
 
                 ret.push(d_linear_momentum.x);
                 ret.push(d_linear_momentum.y);
                 ret.push(d_linear_momentum.z);
 
-                let d_angular_momentum = torques[i]
+                let mut d_angular_momentum = torques[i]
                     - angular_momentums[i] * self.rigid_parameters.k_friction
                         / (self.rigid_parameters.mass / 2.);
+                bound_derivative!(d_angular_momentum);
                 ret.push(d_angular_momentum.x);
                 ret.push(d_angular_momentum.y);
                 ret.push(d_angular_momentum.z);
@@ -1536,25 +1558,28 @@ impl ExplicitODE<f32> for GridsSystem {
             ret.push(d_position.y);
             ret.push(d_position.z);
             let omega = self.grids[i].inertia_inverse * angular_momentums[i] / self.parameters.mass;
-            let d_rotation = 0.5
+            let mut d_rotation = 0.5
                 * Rotor3::from_quaternion_array([omega.x, omega.y, omega.z, 0f32])
                 * rotations[i];
+            bound_derivative!(d_rotation);
 
             ret.push(d_rotation.s);
             ret.push(d_rotation.bv.xy);
             ret.push(d_rotation.bv.xz);
             ret.push(d_rotation.bv.yz);
 
-            let d_linear_momentum = forces[i]
+            let mut d_linear_momentum = forces[i]
                 - linear_momentums[i] * self.parameters.k_friction
                     / (self.grids[i].mass * self.parameters.mass);
+            bound_derivative!(d_linear_momentum);
 
             ret.push(d_linear_momentum.x);
             ret.push(d_linear_momentum.y);
             ret.push(d_linear_momentum.z);
 
-            let d_angular_momentum = torques[i]
+            let mut d_angular_momentum = torques[i]
                 - angular_momentums[i] * self.parameters.k_friction / (self.parameters.mass);
+            bound_derivative!(d_angular_momentum);
             ret.push(d_angular_momentum.x);
             ret.push(d_angular_momentum.y);
             ret.push(d_angular_momentum.z);

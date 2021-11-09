@@ -31,7 +31,10 @@ impl State for NormalState {
                 Action::NewDesign => Box::new(NewDesign::init(main_state.need_save())),
                 Action::SaveAs => save_as(),
                 Action::QuickSave => {
-                    if let Some(path) = main_state.get_current_file_name() {
+                    if let Some(path) = main_state
+                        .get_current_file_name()
+                        .filter(|p| p.extension() == Some(crate::consts::ENS_EXTENSION.as_ref()))
+                    {
                         quicksave(path)
                     } else {
                         save_as()
@@ -98,6 +101,7 @@ impl State for NormalState {
                 Action::LoadDesign(Some(path)) => Box::new(Load::known_path(path)),
                 Action::LoadDesign(None) => Load::load(main_state.need_save()),
                 Action::SuspendOp => {
+                    log::info!("Suspending operation");
                     main_state.finish_operation();
                     self
                 }
@@ -202,6 +206,7 @@ impl State for NormalState {
                     self
                 }
                 Action::TranslateGroupPivot(translation) => {
+                    log::info!("Translating group pivot {:?}", translation);
                     main_state.translate_group_pivot(translation);
                     self
                 }
@@ -217,8 +222,8 @@ impl State for NormalState {
                     main_state.select_camera(camera_id);
                     self
                 }
-                Action::SelectFavoriteCamera => {
-                    main_state.select_favorite_camera();
+                Action::SelectFavoriteCamera(n) => {
+                    main_state.select_favorite_camera(n);
                     self
                 }
                 Action::UpdateCamera(camera_id) => {
@@ -414,6 +419,6 @@ pub enum Action {
     RotateGroupPivot(Rotor3),
     NewCamera,
     SelectCamera(ensnano_design::CameraId),
-    SelectFavoriteCamera,
+    SelectFavoriteCamera(u32),
     UpdateCamera(ensnano_design::CameraId),
 }
