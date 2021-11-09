@@ -189,6 +189,9 @@ impl<S: AppState> Scene<S> {
                     match target {
                         WidgetTarget::Object => {
                             self.translate_selected_design(t, app_state);
+                            if app_state.get_current_group_id().is_none() {
+                                self.translate_group_pivot(t)
+                            }
                         }
                         WidgetTarget::Pivot => self.translate_group_pivot(t),
                     }
@@ -215,21 +218,19 @@ impl<S: AppState> Scene<S> {
                 self.view
                     .borrow_mut()
                     .init_rotation(mode, x as f32, y as f32);
-                if target == WidgetTarget::Pivot {
-                    if let Some(pivot) = self.view.borrow().get_group_pivot() {
-                        self.requests.lock().unwrap().set_current_group_pivot(pivot);
+                if let Some(pivot) = self.view.borrow().get_group_pivot() {
+                    self.requests.lock().unwrap().set_current_group_pivot(pivot);
+                    if target == WidgetTarget::Pivot {
                         if let WidgetBasis::World = app_state.get_widget_basis() {
                             self.requests.lock().unwrap().toggle_widget_basis()
                         }
                     }
                 }
             }
-            Consequence::InitTranslation(x, y, target) => {
+            Consequence::InitTranslation(x, y, _target) => {
                 self.view.borrow_mut().init_translation(x as f32, y as f32);
-                if let WidgetTarget::Pivot = target {
-                    if let Some(pivot) = self.view.borrow().get_group_pivot() {
-                        self.requests.lock().unwrap().set_current_group_pivot(pivot)
-                    }
+                if let Some(pivot) = self.view.borrow().get_group_pivot() {
+                    self.requests.lock().unwrap().set_current_group_pivot(pivot)
                 }
             }
             Consequence::Rotation(x, y, target) => {
@@ -239,6 +240,9 @@ impl<S: AppState> Scene<S> {
                         match target {
                             WidgetTarget::Object => {
                                 self.rotate_selected_desgin(rotation, origin, positive, app_state);
+                                if app_state.get_current_group_id().is_none() {
+                                    self.requests.lock().unwrap().rotate_group_pivot(rotation)
+                                }
                             }
                             WidgetTarget::Pivot => {
                                 self.requests.lock().unwrap().rotate_group_pivot(rotation)
@@ -577,7 +581,11 @@ impl<S: AppState> Scene<S> {
             .borrow_mut()
             .update_view(&new_state, &self.older_state);
         self.older_state = new_state;
-        self.view.borrow().need_redraw()
+        let ret = self.view.borrow().need_redraw();
+        if ret {
+            log::debug!("Scene requests redraw");
+        }
+        ret
     }
 
     /// Draw the scene
@@ -617,14 +625,21 @@ impl<S: AppState> Scene<S> {
     }
 
     fn set_camera_target(&mut self, target: Vec3, up: Vec3, app_state: &S) {
-        let pivot = self.data.borrow().get_selected_position();
-        let pivot = pivot.or_else(|| {
-            let element_center = self.element_center(app_state);
-            self.data
-                .borrow_mut()
-                .set_selection(element_center, app_state);
-            self.data.borrow().get_selected_position()
-        });
+        let pivot = self
+            .data
+            .borrow()
+            .get_selected_position()
+            .filter(|v| v.x.is_finite() && v.y.is_finite() && v.z.is_finite());
+        let pivot = pivot
+            .or_else(|| {
+                let element_center = self.element_center(app_state);
+                self.data
+                    .borrow_mut()
+                    .set_selection(element_center, app_state);
+                self.data.borrow().get_selected_position()
+            })
+            .filter(|r| r.x.is_finite() && r.y.is_finite() && r.z.is_finite())
+            .or(Some(Vec3::zero()));
         self.controller.set_camera_target(target, up, pivot);
         self.fit_design();
     }
@@ -850,6 +865,7 @@ pub trait AppState: Clone {
     fn get_selected_element(&self) -> Option<CenterOfSelection>;
     fn get_current_group_pivot(&self) -> Option<ensnano_design::group_attributes::GroupPivot>;
     fn get_current_group_id(&self) -> Option<ensnano_design::GroupId>;
+    fn suggestion_parameters_were_updated(&self, other: &Self) -> bool;
 }
 
 pub trait Requests {

@@ -409,8 +409,8 @@ impl<R: Requests, S: AppState> Program for TopBar<R, S> {
             .push(
                 iced::Text::new("\u{e91c}")
                     .width(Length::Fill)
-                    .horizontal_alignment(iced::HorizontalAlignment::Right)
-                    .vertical_alignment(iced::VerticalAlignment::Center),
+                    .horizontal_alignment(iced::alignment::Horizontal::Right)
+                    .vertical_alignment(iced::alignment::Vertical::Center),
             )
             .push(iced::Space::with_width(Length::Units(10)));
 

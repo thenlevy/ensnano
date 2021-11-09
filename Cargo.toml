@@ -12,11 +12,11 @@ resolver = "2"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-iced = { git = "https://github.com/hecrj/iced", rev = "099981c", features=["image"] }
-iced_wgpu = { git = "https://github.com/hecrj/iced", rev = "099981c", features = ["spirv"] }
-iced_graphics = { git = "https://github.com/hecrj/iced", rev = "099981c" }
-iced_winit = { git = "https://github.com/hecrj/iced", rev = "099981c" }
-iced_native = { git = "https://github.com/hecrj/iced", rev = "099981c" }
+iced = { git = "https://github.com/hecrj/iced", rev = "61c747b53589d98f477fea95f85d2ea5349666d3", features=["image"] }
+iced_wgpu = { git = "https://github.com/hecrj/iced", rev = "61c747b53589d98f477fea95f85d2ea5349666d3", features = ["spirv"] }
+iced_graphics = { git = "https://github.com/hecrj/iced", rev = "61c747b53589d98f477fea95f85d2ea5349666d3" }
+iced_winit = { git = "https://github.com/hecrj/iced", rev = "61c747b53589d98f477fea95f85d2ea5349666d3" }
+iced_native = { git = "https://github.com/hecrj/iced", rev = "61c747b53589d98f477fea95f85d2ea5349666d3" }
 ultraviolet = { git = "https://github.com/termhn/ultraviolet", rev = "b2fb29e" , features = ["bytemuck", "f64", "serde"] }
 bytemuck = "1.2.0"
 failure = "0.1.8"
@@ -40,7 +40,7 @@ ordered-float = "2.0"
 rfd = "0.4"
 material-icons = "0.1.0"
 ensnano_organizer = { path = "ensnano-organizer" }
-iced_aw = { git = "https://github.com/thenlevy/iced_aw", rev = "b566bdb" , features = ["tab_bar"]}
+iced_aw = { git = "https://github.com/thenlevy/iced_aw", rev = "4ee0a6ac70633" , features = ["tab_bar"]}
 num_enum = "0.5.1"
 cadnano-format = "0.1.0"
 open = "1"

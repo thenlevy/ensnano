@@ -1550,7 +1550,7 @@ impl<E: OrganizerElement> GroupContent<E> {
 }
 
 fn icon(unicode: char) -> Text {
-    use iced::HorizontalAlignment;
+    use iced::alignment::Horizontal as HorizontalAlignment;
     Text::new(&unicode.to_string())
         .font(ICONS)
         .size(ICON_SIZE)

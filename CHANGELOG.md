@@ -1,6 +1,16 @@
 # Changelog
 
+
 <!-- next-header -->
+## 0.3.1
+
+- Improve flexibility of the cross-over suggestions interface. The parameters are in the "Eddition" tab
+- Update wgpu to 0.11
+- Files that do not have an `.ens` extensions won't be overiden when saving a design. This fixes a problem that caused
+ENSnano to overide cadnano files for example.
+- Selected/candidate nucleotide are now highlighted in the 2D view.
+
+
 ## 0.3.0
 - It is now possible to translate several helices at once.
 - It is now possible to change the color of several strands at once. Moreover, the red hilighting

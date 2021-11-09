@@ -110,28 +110,33 @@ impl Data {
         let mut candidate_xovers = HashSet::new();
         let mut selected_helices = Vec::new();
         let mut candidate_helices = Vec::new();
+        let mut candidate_nucls = Vec::new();
+        let mut selected_nucls = Vec::new();
         let id_map = self.design.id_map();
-        if !new_state.is_changing_color() {
-            for s in new_state.get_selection().iter() {
-                match s {
-                    Selection::Strand(_, s_id) => {
-                        selected_strands.insert(*s_id as usize);
-                    }
-                    Selection::Bound(_, n1, n2) => {
-                        selected_xovers.insert((*n1, *n2));
-                    }
-                    Selection::Xover(_, xover_id) => {
-                        if let Some((n1, n2)) = self.design.get_xover_with_id(*xover_id) {
-                            selected_xovers.insert((n1, n2));
-                        }
-                    }
-                    Selection::Helix(_, h) => {
-                        if let Some(flat_helix) = FlatHelix::from_real(*h as usize, id_map) {
-                            selected_helices.push(flat_helix.flat);
-                        }
-                    }
-                    _ => (),
+        for s in new_state.get_selection().iter() {
+            match s {
+                Selection::Strand(_, s_id) if !new_state.is_changing_color() => {
+                    selected_strands.insert(*s_id as usize);
                 }
+                Selection::Bound(_, n1, n2) => {
+                    selected_xovers.insert((*n1, *n2));
+                }
+                Selection::Xover(_, xover_id) => {
+                    if let Some((n1, n2)) = self.design.get_xover_with_id(*xover_id) {
+                        selected_xovers.insert((n1, n2));
+                    }
+                }
+                Selection::Helix(_, h) => {
+                    if let Some(flat_helix) = FlatHelix::from_real(*h as usize, id_map) {
+                        selected_helices.push(flat_helix.flat);
+                    }
+                }
+                Selection::Nucleotide(_, n) => {
+                    if let Some(flat_nucl) = FlatNucl::from_real(n, id_map) {
+                        selected_nucls.push(flat_nucl);
+                    }
+                }
+                _ => (),
             }
         }
         for c in new_state.get_candidates().iter() {
@@ -150,6 +155,11 @@ impl Data {
                 Selection::Helix(_, h) => {
                     if let Some(flat_helix) = FlatHelix::from_real(*h as usize, id_map) {
                         candidate_helices.push(flat_helix.flat);
+                    }
+                }
+                Selection::Nucleotide(_, n) => {
+                    if let Some(flat_nucl) = FlatNucl::from_real(n, id_map) {
+                        candidate_nucls.push(flat_nucl)
                     }
                 }
                 _ => (),
@@ -183,6 +193,8 @@ impl Data {
         self.view
             .borrow_mut()
             .set_candidate_helices(candidate_helices);
+        self.view.borrow_mut().set_selected_nucls(selected_nucls);
+        self.view.borrow_mut().set_candidate_nucls(candidate_nucls);
     }
 
     fn update_strand_building_info(&self, info: Option<super::StrandBuildingStatus>) {

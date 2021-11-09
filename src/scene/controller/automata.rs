@@ -863,6 +863,13 @@ impl<S: AppState> ControllerState<S> for RotatingWidget {
         "Rotating widget".into()
     }
 
+    fn handles_color_system(&self) -> Option<HandleColors> {
+        match self.target {
+            WidgetTarget::Pivot => Some(HandleColors::Cym),
+            WidgetTarget::Object => Some(HandleColors::Rgb),
+        }
+    }
+
     fn input(
         &mut self,
         event: &WindowEvent,

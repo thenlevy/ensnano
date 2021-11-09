@@ -37,7 +37,7 @@ use ensnano_design::{
 };
 use ensnano_interactor::{
     graphics::{Background3D, RenderingMode},
-    HyperboloidRequest, RigidBodyConstants,
+    HyperboloidRequest, RigidBodyConstants, SuggestionParameters,
 };
 
 use std::collections::VecDeque;
@@ -117,4 +117,5 @@ pub struct Requests {
     pub new_paste_candiate: Option<Option<Nucl>>,
     pub new_double_strand_parameters: Option<Option<(isize, usize)>>,
     pub new_center_of_selection: Option<Option<CenterOfSelection>>,
+    pub new_suggestion_parameters: Option<SuggestionParameters>,
 }

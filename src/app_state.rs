@@ -37,7 +37,7 @@ use crate::apply_update;
 use crate::controller::SimulationRequest;
 use address_pointer::AddressPointer;
 use ensnano_design::Design;
-use ensnano_interactor::{DesignOperation, RigidBodyConstants};
+use ensnano_interactor::{DesignOperation, RigidBodyConstants, SuggestionParameters};
 use ensnano_organizer::GroupId;
 
 pub use design_interactor::controller::ErrOperation;
@@ -62,6 +62,13 @@ pub struct AppState(AddressPointer<AppState_>);
 impl std::fmt::Debug for AppState {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("AppState").finish()
+    }
+}
+
+impl std::fmt::Pointer for AppState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let ptr = self.0.get_ptr();
+        std::fmt::Pointer::fmt(&ptr, f)
     }
 }
 
@@ -125,6 +132,12 @@ impl AppState {
     pub fn with_selection_mode(&self, selection_mode: SelectionMode) -> Self {
         let mut new_state = (*self.0).clone();
         new_state.selection_mode = selection_mode;
+        Self(AddressPointer::new(new_state))
+    }
+
+    pub fn with_suggestion_parameters(&self, suggestion_parameters: SuggestionParameters) -> Self {
+        let mut new_state = (*self.0).clone();
+        new_state.suggestion_parameters = suggestion_parameters;
         Self(AddressPointer::new(new_state))
     }
 
@@ -200,9 +213,15 @@ impl AppState {
     }
 
     fn updated(self) -> Self {
+        let old_self = self.clone();
         let mut interactor = self.0.design.clone_inner();
-        interactor = interactor.with_updated_design_reader();
-        self.with_interactor(interactor)
+        interactor = interactor.with_updated_design_reader(&self.0.suggestion_parameters);
+        let new = self.with_interactor(interactor);
+        if old_self.design_was_modified(&new) {
+            new
+        } else {
+            old_self
+        }
     }
 
     fn with_interactor(self, interactor: DesignInteractor) -> Self {
@@ -270,7 +289,7 @@ impl AppState {
                 Ok(None)
             }
             Err(e) => {
-                println!("error");
+                log::error!("error {:?}", e);
                 Err(e)
             }
         }
@@ -313,6 +332,7 @@ impl AppState {
         *self = self.with_candidates(vec![]);
         *self = self.with_action_mode(source.0.action_mode.clone());
         *self = self.with_selection_mode(source.0.selection_mode.clone());
+        *self = self.with_suggestion_parameters(source.0.suggestion_parameters.clone());
     }
 
     pub(super) fn is_pasting(&self) -> PastingStatus {
@@ -448,6 +468,7 @@ struct AppState_ {
     widget_basis: WidgetBasis,
     strand_on_new_helix: Option<NewHelixStrand>,
     center_of_selection: Option<CenterOfSelection>,
+    suggestion_parameters: SuggestionParameters,
 }
 
 #[derive(Clone, Default)]

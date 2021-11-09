@@ -112,14 +112,12 @@ pub const WELCOME_MSG: &str = "
 ==============================================================================
                                WELCOME TO ENSNANO\n
 During runtime, the console may print error messages that are useful to the
-to the programer to investigate bugs.\n
-However, because of a current bug in wgpu, some error messages may be prompted
-that could be safely ignored.
-Please ignore messages of the following form:\n
-\"ERROR wgpu_core::validation > Unexpected varying type: Array { ... }\"\n
+programer to investigate bugs.\n
 ==============================================================================
 ==============================================================================
 ";
 
 pub const RGB_HANDLE_COLORS: [u32; 3] = [0xFF0000, 0xFF00, 0xFF];
 pub const CYM_HANDLE_COLORS: [u32; 3] = [0x00FFFF, 0xFF00FF, 0xFFFF00];
+
+pub const ENS_EXTENSION: &'static str = "ens";

@@ -86,7 +86,9 @@ const TEXTURE_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Bgra8UnormSrgb;
 use controller::{ChanelReader, ChanelReaderUpdate, SimulationRequest};
 use ensnano_design::{Camera, Nucl};
 use ensnano_interactor::application::{Application, Notification};
-use ensnano_interactor::{CenterOfSelection, DesignOperation, DesignReader, RigidBodyConstants};
+use ensnano_interactor::{
+    CenterOfSelection, DesignOperation, DesignReader, RigidBodyConstants, SuggestionParameters,
+};
 use iced_native::Event as IcedEvent;
 use iced_wgpu::{wgpu, Backend, Renderer, Settings, Viewport};
 use iced_winit::winit::event::VirtualKeyCode;
@@ -225,6 +227,7 @@ fn main() {
             .request_adapter(&wgpu::RequestAdapterOptions {
                 power_preference: wgpu::PowerPreference::LowPower,
                 compatible_surface: Some(&surface),
+                force_fallback_adapter: false,
             })
             .await
             .expect("Could not get adapter\n
@@ -355,6 +358,8 @@ fn main() {
         pretty_env_logger::init();
     }
 
+    let mut first_iteration = true;
+
     event_loop.run(move |event, _, control_flow| {
         // Wait for event or redraw a frame every 33 ms (30 frame per seconds)
         *control_flow = ControlFlow::WaitUntil(Instant::now() + Duration::from_millis(33));
@@ -429,6 +434,13 @@ fn main() {
                     if let Some((event, area)) = event {
                         // pass the event to the area on which it happenened
                         if main_state.focussed_element != Some(area) {
+                            if let Some(app) = main_state
+                                .focussed_element
+                                .as_ref()
+                                .and_then(|elt| main_state.applications.get(elt))
+                            {
+                                app.lock().unwrap().on_notify(Notification::WindowFocusLost)
+                            }
                             main_state.focussed_element = Some(area);
                             main_state.update_candidates(vec![]);
                         }
@@ -490,6 +502,8 @@ fn main() {
                 }
                 controller.make_progress(&mut main_state_view);
                 resized |= main_state_view.resized;
+                resized |= first_iteration;
+                first_iteration = false;
 
                 for update in main_state.chanel_reader.get_updates() {
                     if let ChanelReaderUpdate::ScaffoldShiftOptimizationProgress(x) = update {
@@ -607,7 +621,7 @@ fn main() {
                 resized = false;
                 scale_factor_changed = false;
 
-                if let Ok(frame) = surface.get_current_frame() {
+                if let Ok(frame) = surface.get_current_texture() {
                     let mut encoder = device
                         .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
 
@@ -627,7 +641,6 @@ fn main() {
                     multiplexer.draw(
                         &mut encoder,
                         &frame
-                            .output
                             .texture
                             .create_view(&wgpu::TextureViewDescriptor::default()),
                     );
@@ -636,6 +649,7 @@ fn main() {
                     // Then we submit the work
                     staging_belt.finish();
                     queue.submit(Some(encoder.finish()));
+                    frame.present();
 
                     // And update the mouse cursor
                     let iced_icon = iced_winit::conversion::mouse_interaction(mouse_interaction);
@@ -1170,6 +1184,10 @@ impl MainState {
             .filter(|p| p.is_file())
             .map(|p| p.as_ref())
     }
+
+    fn set_suggestion_parameters(&mut self, param: SuggestionParameters) {
+        self.modify_state(|s| s.with_suggestion_parameters(param), false)
+    }
 }
 
 /// A temporary view of the main state and the control flow.
@@ -1186,6 +1204,9 @@ struct MainStateView<'a> {
 use controller::{LoadDesignError, MainState as MainStateInteface, StaplesDownloader};
 impl<'a> MainStateInteface for MainStateView<'a> {
     fn pop_action(&mut self) -> Option<Action> {
+        if self.main_state.pending_actions.len() > 0 {
+            log::debug!("pending actions {:?}", self.main_state.pending_actions);
+        }
         self.main_state.pending_actions.pop_front()
     }
 
