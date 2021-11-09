@@ -102,7 +102,7 @@ pub struct LeftPanel<R: Requests, S: AppState> {
     simulation_tab: SimulationTab<S>,
     sequence_tab: SequenceTab,
     parameters_tab: ParametersTab,
-    contextual_panel: ContextualPanel,
+    contextual_panel: ContextualPanel<S>,
     camera_shortcut: CameraShortcut,
     application_state: S,
 }

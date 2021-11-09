@@ -21,8 +21,9 @@ use ensnano_interactor::Selection;
 use iced::{scrollable, Scrollable};
 
 mod value_constructor;
+use value_constructor::{Builder, GridBuilder};
 
-pub(super) struct ContextualPanel {
+pub(super) struct ContextualPanel<S: AppState> {
     scroll: scrollable::State,
     width: u32,
     pub force_help: bool,
@@ -31,9 +32,10 @@ pub(super) struct ContextualPanel {
     ens_nano_website: button::State,
     add_strand_menu: AddStrandMenu,
     strand_name_state: text_input::State,
+    builder: Option<Box<dyn Builder<S>>>,
 }
 
-impl ContextualPanel {
+impl<S: AppState> ContextualPanel<S> {
     pub fn new(width: u32) -> Self {
         Self {
             scroll: Default::default(),
@@ -44,6 +46,7 @@ impl ContextualPanel {
             ens_nano_website: Default::default(),
             add_strand_menu: Default::default(),
             strand_name_state: Default::default(),
+            builder: None,
         }
     }
 
@@ -51,7 +54,7 @@ impl ContextualPanel {
         self.width = width;
     }
 
-    pub fn view<S: AppState>(&mut self, ui_size: UiSize, app_state: &S) -> Element<Message<S>> {
+    pub fn view(&mut self, ui_size: UiSize, app_state: &S) -> Element<Message<S>> {
         let mut column = Column::new().max_width(self.width - 2);
         let selection = app_state
             .get_selection()
