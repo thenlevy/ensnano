@@ -75,7 +75,7 @@ impl XoverSuggestions {
             self.get_suggestions_groups(&mut ret, design, suggestion_parameters);
         }
         ret.sort_by(|a, b| a.2.partial_cmp(&b.2).unwrap());
-        self.trimm_suggestion(&ret, design)
+        self.trimm_suggestion(&ret, design, suggestion_parameters)
     }
 
     /// Return the list of all suggested crossovers
@@ -101,6 +101,7 @@ impl XoverSuggestions {
         &self,
         suggestion: &[(Nucl, Nucl, f32)],
         design: &Design,
+        suggestion_parameters: &SuggestionParameters,
     ) -> Vec<(Nucl, Nucl)> {
         let mut used = HashSet::new();
         let mut ret = vec![];
@@ -108,7 +109,10 @@ impl XoverSuggestions {
             if !used.contains(a) && !used.contains(b) {
                 let a_end = design.is_strand_end(a).to_opt();
                 let b_end = design.is_strand_end(b).to_opt();
-                if !matches!(a_end.zip(b_end), Some((a, b)) if a == b) {
+                if !matches!(a_end.zip(b_end), Some((a, b)) if a == b)
+                    && (suggestion_parameters.include_xover_ends
+                        || (!design.is_true_xover_end(a) && !design.is_true_xover_end(b)))
+                {
                     ret.push((*a, *b));
                     used.insert(a);
                     used.insert(b);
