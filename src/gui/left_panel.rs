@@ -57,7 +57,7 @@ use discrete_value::{FactoryId, RequestFactory, Requestable, ValueId};
 mod tabs;
 use crate::consts::*;
 mod contextual_panel;
-use contextual_panel::ContextualPanel;
+use contextual_panel::{ContextualPanel, ValueKind};
 
 use ensnano_interactor::HyperboloidRequest;
 use material_icons::{icon_to_char, Icon as MaterialIcon, FONT as MATERIALFONT};
@@ -182,6 +182,18 @@ pub enum Message<S> {
     NewCustomCamera,
     UpdateCamera(CameraId),
     NewSuggestionParameters(SuggestionParameters),
+    ContextualValueChanged(ValueKind, usize, String),
+    ContextualValueSubmitted(ValueKind),
+}
+
+impl<S: AppState> contextual_panel::BuilderMessage for Message<S> {
+    fn value_changed(kind: ValueKind, n: usize, value: String) -> Self {
+        Self::ContextualValueChanged(kind, n, value)
+    }
+
+    fn value_submitted(kind: ValueKind) -> Self {
+        Self::ContextualValueSubmitted(kind)
+    }
 }
 
 impl<R: Requests, S: AppState> LeftPanel<R, S> {
@@ -720,6 +732,12 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
                     .lock()
                     .unwrap()
                     .set_suggestion_parameters(param);
+            }
+            Message::ContextualValueSubmitted(kind) => {
+                log::info!("ContextualValueSubmitted {:?}", kind);
+            }
+            Message::ContextualValueChanged(kind, n, val) => {
+                log::info!("ContextualValueChanged {:?}, {:?}, {:?})", kind, n, val);
             }
         };
         Command::none()

@@ -24,13 +24,13 @@ use iced_wgpu::Renderer;
 
 pub trait BuilderMessage: Clone + 'static {
     fn value_changed(kind: ValueKind, n: usize, value: String) -> Self;
-    fn value_submitted(kind: ValueKind, n: usize) -> Self;
+    fn value_submitted(kind: ValueKind) -> Self;
 }
 
 use ultraviolet::{Rotor3, Vec3};
 
 macro_rules! type_builder {
-    ($builder_name:ident, $initializer:tt, $($param: ident: $param_type: tt) , *) => {
+    ($builder_name:ident, $initializer:tt, $func:path, $($param: ident: $param_type: tt) , *) => {
         paste! {
             pub struct $builder_name {
                 $(
@@ -71,18 +71,25 @@ macro_rules! type_builder {
                         row = row.push(Text::new(Self::PARAMETER_NAMES[i]));
                         row = row.push(
                             TextInput::new(s, "", str_values[i], move |string| Message::value_changed(value_to_modify, i, string))
-                            .on_submit(Message::value_submitted(value_to_modify, i))
+                            .on_submit(Message::value_submitted(value_to_modify))
                         );
                         ret = ret.push(row)
                     }
                     ret.into()
+                }
+
+                fn submit_value(&mut self) -> Option<$initializer> {
+                    $(
+                        let $param = self.[<$param _string>].parse::<$param_type>().ok()?;
+                    )*
+                        Some($func($($param),*))
                 }
             }
         }
     }
 }
 
-type_builder!(Vec3Builder, Vec3, x: f32, y: f32, z: f32);
+type_builder!(Vec3Builder, Vec3, Vec3::new, x: f32, y: f32, z: f32);
 
 #[derive(Clone, Copy, Debug)]
 pub enum ValueKind {
@@ -90,7 +97,7 @@ pub enum ValueKind {
     GridOrientation,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum InstanciatedValue {
     GridPosition(Vec3),
     GridOrientation(Rotor3),
@@ -105,15 +112,21 @@ impl GridPositionBuilder {
         Self::Cartesian(Vec3Builder::new(ValueKind::GridPosition, position))
     }
 
-    pub fn view<'a, Message: BuilderMessage>(&'a mut self) -> Element<'a, Message, Renderer> {
+    fn view<'a, Message: BuilderMessage>(&'a mut self) -> Element<'a, Message, Renderer> {
         match self {
             Self::Cartesian(builder) => builder.view(),
         }
     }
 
-    pub fn update_str_value(&mut self, n: usize, value_str: String) {
+    fn update_str_value(&mut self, n: usize, value_str: String) {
         match self {
             Self::Cartesian(builder) => builder.update_str_value(n, value_str),
+        }
+    }
+
+    fn submit_value(&mut self) -> Option<InstanciatedValue> {
+        match self {
+            Self::Cartesian(builder) => builder.submit_value().map(InstanciatedValue::GridPosition),
         }
     }
 }
@@ -123,10 +136,35 @@ pub struct GridBuilder {
     //TODO add an orientation builder
 }
 
+impl<S: AppState> Builder<S> for GridBuilder {
+    fn view<'a>(&'a mut self) -> Element<'a, super::Message<S>, Renderer> {
+        let mut ret = Row::new();
+        let position_builder_view = match &mut self.position_builder {
+            GridPositionBuilder::Cartesian(builder) => builder.view(),
+        };
+        ret = ret.push(position_builder_view);
+        ret.into()
+    }
+
+    fn update_str_value(&mut self, value_kind: ValueKind, n: usize, value_str: String) {
+        match value_kind {
+            ValueKind::GridPosition => self.position_builder.update_str_value(n, value_str),
+            ValueKind::GridOrientation => todo!(),
+        }
+    }
+
+    fn submit_value(&mut self, value_kind: ValueKind) -> Option<InstanciatedValue> {
+        match value_kind {
+            ValueKind::GridPosition => self.position_builder.submit_value(),
+            ValueKind::GridOrientation => todo!(),
+        }
+    }
+}
+
 use super::AppState;
 
 pub trait Builder<S: AppState> {
     fn view<'a>(&'a mut self) -> Element<'a, super::Message<S>, Renderer>;
     fn update_str_value(&mut self, value_kind: ValueKind, n: usize, value_str: String);
-    fn submit_value(&mut self, value_kind: ValueKind, n: usize) -> Option<InstanciatedValue>;
+    fn submit_value(&mut self, value_kind: ValueKind) -> Option<InstanciatedValue>;
 }

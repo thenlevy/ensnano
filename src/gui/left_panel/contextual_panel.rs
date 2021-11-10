@@ -22,6 +22,7 @@ use iced::{scrollable, Scrollable};
 
 mod value_constructor;
 use value_constructor::{Builder, GridBuilder};
+pub use value_constructor::{BuilderMessage, InstanciatedValue, ValueKind};
 
 struct InstantiatedBuilder<S: AppState> {
     selection: Selection,
