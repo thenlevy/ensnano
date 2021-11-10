@@ -143,7 +143,7 @@ fn poll_path(path_input: PathInput, design_id: usize) -> Box<dyn State> {
             })
         } else {
             TransitionMessage::new(
-                messages::NO_FILE_RECIEVED,
+                messages::NO_FILE_RECIEVED_STAPPLE,
                 rfd::MessageLevel::Error,
                 Box::new(NormalState),
             )

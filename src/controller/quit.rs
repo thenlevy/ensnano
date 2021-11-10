@@ -166,7 +166,7 @@ fn ask_path<P: AsRef<Path>>(
                 })
             } else {
                 TransitionMessage::new(
-                    messages::NO_FILE_RECIEVED,
+                    messages::NO_FILE_RECIEVED_LOAD,
                     rfd::MessageLevel::Error,
                     Box::new(super::NormalState),
                 )
@@ -291,7 +291,7 @@ impl State for SaveAs {
                     }
                 } else {
                     TransitionMessage::new(
-                        "Save Cancelled".to_string(),
+                        messages::NO_FILE_RECIEVED_SAVE,
                         rfd::MessageLevel::Error,
                         Box::new(super::NormalState),
                     )
@@ -370,7 +370,7 @@ impl State for OxDnaExport {
                     }
                 } else {
                     TransitionMessage::new(
-                        messages::NO_FILE_RECIEVED,
+                        messages::NO_FILE_RECIEVED_OXDNA,
                         rfd::MessageLevel::Error,
                         self.on_error,
                     )
