@@ -17,7 +17,11 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 
 use std::path::Path;
-pub const NO_FILE_RECIEVED: &'static str = "Error, did not recieve any file";
+pub const NO_FILE_RECIEVED_LOAD: &'static str = "Open canceled";
+pub const NO_FILE_RECIEVED_SAVE: &'static str = "Save canceled";
+pub const NO_FILE_RECIEVED_OXDNA: &'static str = "OxDNA export canceled";
+pub const NO_FILE_RECIEVED_SCAFFOLD: &'static str = "Scaffold setting canceled";
+pub const NO_FILE_RECIEVED_STAPPLE: &'static str = "Staple export canceled";
 
 pub fn succesfull_oxdna_export_msg<P: AsRef<Path>>(config: P, topo: P) -> String {
     format!(
