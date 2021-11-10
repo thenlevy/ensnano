@@ -106,7 +106,7 @@ fn ask_path<P: AsRef<Path>>(
         let must_ack = dialog::blocking_message(msg.into(), rfd::MessageLevel::Warning);
         state.with_ack(must_ack)
     } else {
-        let path_input = dialog::save("xlsx", starting_diectory);
+        let path_input = dialog::save("xlsx", starting_diectory, None);
         Box::new(DownloadStaples {
             step: Step::PathAsked {
                 path_input,

@@ -291,16 +291,20 @@ impl State for SaveAs {
                     }
                 } else {
                     TransitionMessage::new(
-                        "Error, did not recieve any file".to_string(),
+                        "Save Cancelled".to_string(),
                         rfd::MessageLevel::Error,
-                        self.on_error,
+                        Box::new(super::NormalState),
                     )
                 }
             } else {
                 self
             }
         } else {
-            let getter = dialog::save("ens", main_state.get_current_design_directory());
+            let getter = dialog::save(
+                crate::consts::ENS_EXTENSION,
+                main_state.get_current_design_directory(),
+                main_state.get_current_file_name(),
+            );
             self.file_getter = Some(getter);
             self
         }
