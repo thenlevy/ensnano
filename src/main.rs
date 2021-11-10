@@ -209,6 +209,7 @@ fn main() {
     // Initialize winit
     let event_loop = EventLoop::new();
     let window = winit::window::Window::new(&event_loop).unwrap();
+    let mut windows_title = String::from("ENSnano");
     window.set_title("ENSnano");
     window.set_min_inner_size(Some(PhySize::new(100, 100)));
 
@@ -536,7 +537,11 @@ fn main() {
                 main_state.update();
                 if let Some(path) = main_state.get_current_file_name() {
                     let path_str = formated_path_end(path);
-                    window.set_title(&format!("ENSnano: {}", path_str));
+                    let new_title = format!("ENSnano {}", path_str);
+                    if windows_title != new_title {
+                        window.set_title(&new_title);
+                        windows_title = new_title;
+                    }
                 }
 
                 // Treat eventual event that happenend in the gui left panel.
@@ -875,6 +880,7 @@ pub(crate) struct MainState {
     focussed_element: Option<ElementType>,
     last_saved_state: AppState,
     path_to_current_design: Option<PathBuf>,
+    file_name: Option<PathBuf>,
     wants_fit: bool,
 }
 
@@ -897,6 +903,7 @@ impl MainState {
             focussed_element: None,
             last_saved_state: app_state.clone(),
             path_to_current_design: None,
+            file_name: None,
             wants_fit: false,
         }
     }
@@ -912,6 +919,7 @@ impl MainState {
     fn new_design(&mut self) {
         self.clear_app_state(Default::default());
         self.path_to_current_design = None;
+        self.update_current_file_name();
     }
 
     fn clear_app_state(&mut self, new_state: AppState) {
@@ -1147,6 +1155,7 @@ impl MainState {
             .save_design(path, save_info)?;
         self.last_saved_state = self.app_state.clone();
         self.path_to_current_design = Some(path.clone());
+        self.update_current_file_name();
         Ok(())
     }
 
@@ -1176,10 +1185,15 @@ impl MainState {
     }
 
     fn get_current_file_name(&self) -> Option<&Path> {
-        self.path_to_current_design
+        self.file_name.as_ref().map(|p| p.as_ref())
+    }
+
+    fn update_current_file_name(&mut self) {
+       self.file_name = self.path_to_current_design
             .as_ref()
             .filter(|p| p.is_file())
-            .map(|p| p.as_ref())
+            .map(|p| p.into())
+
     }
 
     fn set_suggestion_parameters(&mut self, param: SuggestionParameters) {
