@@ -581,7 +581,11 @@ impl<S: AppState> Scene<S> {
             .borrow_mut()
             .update_view(&new_state, &self.older_state);
         self.older_state = new_state;
-        self.view.borrow().need_redraw()
+        let ret = self.view.borrow().need_redraw();
+        if ret {
+            log::debug!("Scene requests redraw");
+        }
+        ret
     }
 
     /// Draw the scene
@@ -861,6 +865,7 @@ pub trait AppState: Clone {
     fn get_selected_element(&self) -> Option<CenterOfSelection>;
     fn get_current_group_pivot(&self) -> Option<ensnano_design::group_attributes::GroupPivot>;
     fn get_current_group_id(&self) -> Option<ensnano_design::GroupId>;
+    fn suggestion_parameters_were_updated(&self, other: &Self) -> bool;
 }
 
 pub trait Requests {

@@ -166,7 +166,7 @@ fn ask_path<P: AsRef<Path>>(
                 })
             } else {
                 TransitionMessage::new(
-                    messages::NO_FILE_RECIEVED,
+                    messages::NO_FILE_RECIEVED_LOAD,
                     rfd::MessageLevel::Error,
                     Box::new(super::NormalState),
                 )
@@ -291,16 +291,20 @@ impl State for SaveAs {
                     }
                 } else {
                     TransitionMessage::new(
-                        "Error, did not recieve any file".to_string(),
+                        messages::NO_FILE_RECIEVED_SAVE,
                         rfd::MessageLevel::Error,
-                        self.on_error,
+                        Box::new(super::NormalState),
                     )
                 }
             } else {
                 self
             }
         } else {
-            let getter = dialog::save("ens", main_state.get_current_design_directory());
+            let getter = dialog::save(
+                crate::consts::ENS_EXTENSION,
+                main_state.get_current_design_directory(),
+                main_state.get_current_file_name(),
+            );
             self.file_getter = Some(getter);
             self
         }
@@ -366,7 +370,7 @@ impl State for OxDnaExport {
                     }
                 } else {
                     TransitionMessage::new(
-                        messages::NO_FILE_RECIEVED,
+                        messages::NO_FILE_RECIEVED_OXDNA,
                         rfd::MessageLevel::Error,
                         self.on_error,
                     )

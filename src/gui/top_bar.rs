@@ -240,11 +240,14 @@ impl<R: Requests, S: AppState> Program for TopBar<R, S> {
         )
         .on_press(Message::OpenFileButtonPressed);
 
-        let button_reload = Button::new(
+        let mut button_reload = Button::new(
             &mut self.button_reload,
             light_icon(LightIcon::RestorePage, self.ui_size),
-        )
-        .on_press(Message::Reload);
+        );
+
+        if self.application_state.can_reload {
+            button_reload = button_reload.on_press(Message::Reload);
+        }
 
         let save_message = Message::FileSaveRequested;
         /*
@@ -409,8 +412,8 @@ impl<R: Requests, S: AppState> Program for TopBar<R, S> {
             .push(
                 iced::Text::new("\u{e91c}")
                     .width(Length::Fill)
-                    .horizontal_alignment(iced::HorizontalAlignment::Right)
-                    .vertical_alignment(iced::VerticalAlignment::Center),
+                    .horizontal_alignment(iced::alignment::Horizontal::Right)
+                    .vertical_alignment(iced::alignment::Vertical::Center),
             )
             .push(iced::Space::with_width(Length::Units(10)));
 

@@ -113,7 +113,7 @@ fn ask_path<P: AsRef<Path>>(
                 })
             } else {
                 TransitionMessage::new(
-                    messages::NO_FILE_RECIEVED,
+                    messages::NO_FILE_RECIEVED_SCAFFOLD,
                     rfd::MessageLevel::Error,
                     Box::new(super::NormalState),
                 )

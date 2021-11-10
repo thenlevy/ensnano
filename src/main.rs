@@ -86,7 +86,9 @@ const TEXTURE_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Bgra8UnormSrgb;
 use controller::{ChanelReader, ChanelReaderUpdate, SimulationRequest};
 use ensnano_design::{Camera, Nucl};
 use ensnano_interactor::application::{Application, Notification};
-use ensnano_interactor::{CenterOfSelection, DesignOperation, DesignReader, RigidBodyConstants};
+use ensnano_interactor::{
+    CenterOfSelection, DesignOperation, DesignReader, RigidBodyConstants, SuggestionParameters,
+};
 use iced_native::Event as IcedEvent;
 use iced_wgpu::{wgpu, Backend, Renderer, Settings, Viewport};
 use iced_winit::winit::event::VirtualKeyCode;
@@ -207,6 +209,7 @@ fn main() {
     // Initialize winit
     let event_loop = EventLoop::new();
     let window = winit::window::Window::new(&event_loop).unwrap();
+    let mut windows_title = String::from("ENSnano");
     window.set_title("ENSnano");
     window.set_min_inner_size(Some(PhySize::new(100, 100)));
 
@@ -222,6 +225,7 @@ fn main() {
             .request_adapter(&wgpu::RequestAdapterOptions {
                 power_preference: wgpu::PowerPreference::LowPower,
                 compatible_surface: Some(&surface),
+                force_fallback_adapter: false,
             })
             .await
             .expect("Could not get adapter\n
@@ -531,9 +535,16 @@ fn main() {
                 }
 
                 main_state.update();
-                if let Some(path) = main_state.get_current_file_name() {
+                let new_title = if let Some(path) = main_state.get_current_file_name() {
                     let path_str = formated_path_end(path);
-                    window.set_title(&format!("ENSnano: {}", path_str));
+                    format!("ENSnano {}", path_str)
+                } else {
+                    format!("ENSnano {}", crate::consts::NO_DESIGN_TITLE)
+                };
+
+                if windows_title != new_title {
+                    window.set_title(&new_title);
+                    windows_title = new_title;
                 }
 
                 // Treat eventual event that happenend in the gui left panel.
@@ -615,7 +626,7 @@ fn main() {
                 resized = false;
                 scale_factor_changed = false;
 
-                if let Ok(frame) = surface.get_current_frame() {
+                if let Ok(frame) = surface.get_current_texture() {
                     let mut encoder = device
                         .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
 
@@ -635,7 +646,6 @@ fn main() {
                     multiplexer.draw(
                         &mut encoder,
                         &frame
-                            .output
                             .texture
                             .create_view(&wgpu::TextureViewDescriptor::default()),
                     );
@@ -644,6 +654,7 @@ fn main() {
                     // Then we submit the work
                     staging_belt.finish();
                     queue.submit(Some(encoder.finish()));
+                    frame.present();
 
                     // And update the mouse cursor
                     let iced_icon = iced_winit::conversion::mouse_interaction(mouse_interaction);
@@ -872,6 +883,7 @@ pub(crate) struct MainState {
     focussed_element: Option<ElementType>,
     last_saved_state: AppState,
     path_to_current_design: Option<PathBuf>,
+    file_name: Option<PathBuf>,
     wants_fit: bool,
 }
 
@@ -894,6 +906,7 @@ impl MainState {
             focussed_element: None,
             last_saved_state: app_state.clone(),
             path_to_current_design: None,
+            file_name: None,
             wants_fit: false,
         }
     }
@@ -909,6 +922,7 @@ impl MainState {
     fn new_design(&mut self) {
         self.clear_app_state(Default::default());
         self.path_to_current_design = None;
+        self.update_current_file_name();
     }
 
     fn clear_app_state(&mut self, new_state: AppState) {
@@ -1144,6 +1158,7 @@ impl MainState {
             .save_design(path, save_info)?;
         self.last_saved_state = self.app_state.clone();
         self.path_to_current_design = Some(path.clone());
+        self.update_current_file_name();
         Ok(())
     }
 
@@ -1173,10 +1188,19 @@ impl MainState {
     }
 
     fn get_current_file_name(&self) -> Option<&Path> {
-        self.path_to_current_design
+        self.file_name.as_ref().map(|p| p.as_ref())
+    }
+
+    fn update_current_file_name(&mut self) {
+        self.file_name = self
+            .path_to_current_design
             .as_ref()
             .filter(|p| p.is_file())
-            .map(|p| p.as_ref())
+            .map(|p| p.into())
+    }
+
+    fn set_suggestion_parameters(&mut self, param: SuggestionParameters) {
+        self.modify_state(|s| s.with_suggestion_parameters(param), false)
     }
 }
 
@@ -1226,6 +1250,7 @@ impl<'a> MainStateInteface for MainStateView<'a> {
             } else {
                 self.main_state.wants_fit = true;
             }
+            self.main_state.update_current_file_name();
             Ok(())
         } else {
             Err(LoadDesignError::from("\"Oh No\"".to_string()))

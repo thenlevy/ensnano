@@ -1,6 +1,6 @@
 use iced::{Container, Element};
 use iced_native::{
-    event, layout, overlay, Align, Clipboard, Event, Hasher, Layout, Length, Point, Rectangle,
+    event, layout, overlay, Alignment, Clipboard, Event, Hasher, Layout, Length, Point, Rectangle,
     Widget,
 };
 use std::hash::Hash;
@@ -17,8 +17,8 @@ pub(super) struct DragDropTarget<'a, Message, K> {
     height: Length,
     max_width: u32,
     max_height: u32,
-    horizontal_alignment: Align,
-    vertical_alignment: Align,
+    horizontal_alignment: Alignment,
+    vertical_alignment: Alignment,
     content: Container<'a, Message>,
     identifier: Identifier<K>,
 }
@@ -35,8 +35,8 @@ impl<'a, Message, K> DragDropTarget<'a, Message, K> {
             height: Length::Shrink,
             max_width: u32::MAX,
             max_height: u32::MAX,
-            horizontal_alignment: Align::Start,
-            vertical_alignment: Align::Start,
+            horizontal_alignment: Alignment::Start,
+            vertical_alignment: Alignment::Start,
             content: Container::new(content).width(Length::Fill),
             identifier,
         }

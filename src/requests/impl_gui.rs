@@ -335,6 +335,10 @@ impl GuiRequests for Requests {
                 name,
             }))
     }
+
+    fn set_suggestion_parameters(&mut self, param: SuggestionParameters) {
+        self.new_suggestion_parameters = Some(param);
+    }
 }
 
 fn rigid_parameters(parameters: RigidBodyParametersRequest) -> RigidBodyConstants {

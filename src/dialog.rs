@@ -83,10 +83,22 @@ impl PathInput {
     }
 }
 
-pub fn save<P: AsRef<Path>>(target_extension: &'static str, starting_path: Option<P>) -> PathInput {
+pub fn save<P: AsRef<Path>>(
+    target_extension: &'static str,
+    starting_path: Option<P>,
+    starting_name: Option<P>,
+) -> PathInput {
     let mut dialog = rfd::AsyncFileDialog::new();
+    let starting_name = starting_name.and_then(|p| {
+        let mut path_buf = p.as_ref().to_path_buf();
+        path_buf.set_extension(target_extension);
+        path_buf.file_name().map(|s| s.to_os_string())
+    });
     if let Some(path) = starting_path {
         dialog = dialog.set_directory(path);
+    }
+    if let Some(name) = starting_name {
+        dialog = dialog.set_file_name(&name.to_string_lossy());
     }
     let future_file = dialog.save_file();
     let (snd, rcv) = mpsc::channel();
