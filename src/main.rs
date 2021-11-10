@@ -535,13 +535,16 @@ fn main() {
                 }
 
                 main_state.update();
-                if let Some(path) = main_state.get_current_file_name() {
+                let new_title = if let Some(path) = main_state.get_current_file_name() {
                     let path_str = formated_path_end(path);
-                    let new_title = format!("ENSnano {}", path_str);
-                    if windows_title != new_title {
-                        window.set_title(&new_title);
-                        windows_title = new_title;
-                    }
+                    format!("ENSnano {}", path_str)
+                } else {
+                    format!("ENSnano")
+                };
+
+                if windows_title != new_title {
+                    window.set_title(&new_title);
+                    windows_title = new_title;
                 }
 
                 // Treat eventual event that happenend in the gui left panel.
@@ -1189,11 +1192,11 @@ impl MainState {
     }
 
     fn update_current_file_name(&mut self) {
-       self.file_name = self.path_to_current_design
+        self.file_name = self
+            .path_to_current_design
             .as_ref()
             .filter(|p| p.is_file())
             .map(|p| p.into())
-
     }
 
     fn set_suggestion_parameters(&mut self, param: SuggestionParameters) {
@@ -1247,6 +1250,7 @@ impl<'a> MainStateInteface for MainStateView<'a> {
             } else {
                 self.main_state.wants_fit = true;
             }
+            self.main_state.update_current_file_name();
             Ok(())
         } else {
             Err(LoadDesignError::from("\"Oh No\"".to_string()))

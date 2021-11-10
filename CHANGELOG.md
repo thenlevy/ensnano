@@ -9,6 +9,7 @@
 - Files that do not have an `.ens` extensions won't be overiden when saving a design. This fixes a problem that caused
 ENSnano to overide cadnano files for example.
 - Selected/candidate nucleotide are now highlighted in the 2D view.
+- Fix a bug that would cause high CPU usage while ENSnano was in the background on MacOS
 
 
 ## 0.3.0
