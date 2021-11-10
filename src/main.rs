@@ -539,7 +539,7 @@ fn main() {
                     let path_str = formated_path_end(path);
                     format!("ENSnano {}", path_str)
                 } else {
-                    format!("ENSnano")
+                    format!("ENSnano {}", crate::consts::NO_DESIGN_TITLE)
                 };
 
                 if windows_title != new_title {
