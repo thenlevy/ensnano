@@ -29,6 +29,51 @@ struct InstantiatedBuilder<S: AppState> {
     builder: Box<dyn Builder<S>>,
 }
 
+impl<S: AppState> InstantiatedBuilder<S> {
+    /// If a builder can be made from the selection, update the builder and return true. Otherwise,
+    /// return false.
+    fn update(&mut self, selection: &Selection, reader: &dyn DesignReader) -> bool {
+        if *selection != self.selection {
+            self.selection = selection.clone();
+            if let Some(builder) = Self::new_builder(selection, reader) {
+                self.builder = builder;
+                true
+            } else {
+                false
+            }
+        } else {
+            true
+        }
+    }
+
+    fn new(selection: &Selection, reader: &dyn DesignReader) -> Option<Self> {
+        if let Some(builder) = Self::new_builder(selection, reader) {
+            Some(Self {
+                builder,
+                selection: selection.clone(),
+            })
+        } else {
+            None
+        }
+    }
+
+    fn new_builder(
+        selection: &Selection,
+        reader: &dyn DesignReader,
+    ) -> Option<Box<dyn Builder<S>>> {
+        match selection {
+            Selection::Grid(_, g_id) => {
+                if let Some(position) = reader.get_grid_position(*g_id) {
+                    Some(Box::new(GridBuilder::new(position)))
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        }
+    }
+}
+
 pub(super) struct ContextualPanel<S: AppState> {
     scroll: scrollable::State,
     width: u32,
@@ -60,8 +105,18 @@ impl<S: AppState> ContextualPanel<S> {
         self.width = width;
     }
 
-    fn update_builder(&mut self, selection: Option<Selection>) {
-        todo!()
+    fn update_builder(&mut self, selection: Option<&Selection>, reader: &dyn DesignReader) {
+        if let Some(s) = selection {
+            if let Some(builder) = &mut self.builder {
+                if !builder.update(s, reader) {
+                    self.builder = None;
+                }
+            } else {
+                self.builder = InstantiatedBuilder::new(s, reader)
+            }
+        } else {
+            self.builder = None;
+        }
     }
 
     pub fn view(&mut self, ui_size: UiSize, app_state: &S) -> Element<Message<S>> {
@@ -75,6 +130,11 @@ impl<S: AppState> ContextualPanel<S> {
             .iter()
             .filter(|s| !matches!(s, Selection::Nothing))
             .count();
+
+        self.update_builder(
+            Some(selection).filter(|_| nb_selected == 1),
+            app_state.get_reader().as_ref(),
+        );
         let info_values = values_of_selection(selection, app_state.get_reader().as_ref());
         if self.show_tutorial {
             column = column.push(
@@ -138,6 +198,9 @@ impl<S: AppState> ContextualPanel<S> {
                     column = column.push(Text::new(format!("Anchor {}", anchor)));
                 }
                 _ => (),
+            }
+            if let Some(builder) = &mut self.builder {
+                column = column.push(builder.builder.view())
             }
         }
 

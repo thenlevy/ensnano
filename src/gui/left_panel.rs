@@ -42,8 +42,8 @@ use ensnano_interactor::{
 };
 
 use super::{
-    icon_btn, slider_style::DesactivatedSlider, text_btn, AppState, FogParameters as Fog,
-    OverlayType, Requests, UiSize,
+    icon_btn, slider_style::DesactivatedSlider, text_btn, AppState, DesignReader,
+    FogParameters as Fog, OverlayType, Requests, UiSize,
 };
 
 use ensnano_design::grid::GridTypeDescr;

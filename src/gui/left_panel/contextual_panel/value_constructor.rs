@@ -136,6 +136,14 @@ pub struct GridBuilder {
     //TODO add an orientation builder
 }
 
+impl GridBuilder {
+    pub fn new(position: Vec3) -> Self {
+        Self {
+            position_builder: GridPositionBuilder::new_cartesian(position),
+        }
+    }
+}
+
 impl<S: AppState> Builder<S> for GridBuilder {
     fn view<'a>(&'a mut self) -> Element<'a, super::Message<S>, Renderer> {
         let mut ret = Row::new();

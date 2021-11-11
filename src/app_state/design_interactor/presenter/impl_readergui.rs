@@ -86,4 +86,12 @@ impl ReaderGui for DesignReader {
     fn get_favourite_camera(&self) -> Option<CameraId> {
         self.presenter.current_design.get_favourite_camera_id()
     }
+
+    fn get_grid_position(&self, g_id: usize) -> Option<Vec3> {
+        self.presenter
+            .current_design
+            .grids
+            .get(g_id)
+            .map(|g| g.position)
+    }
 }

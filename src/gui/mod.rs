@@ -924,6 +924,7 @@ pub trait DesignReader: 'static {
     fn strand_name(&self, s_id: usize) -> String;
     fn get_all_cameras(&self) -> Vec<(CameraId, &str)>;
     fn get_favourite_camera(&self) -> Option<CameraId>;
+    fn get_grid_position(&self, g_id: usize) -> Option<Vec3>;
 }
 
 pub struct MainState {
