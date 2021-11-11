@@ -84,6 +84,11 @@ macro_rules! type_builder {
                     )*
                         Some($func($($param),*))
                 }
+
+                fn has_keyboard_priority(&self) -> bool {
+                    let states = [$(&self.[<$param _input>],)*];
+                    states.iter().any(|s| s.is_focused())
+                }
             }
         }
     }
@@ -129,6 +134,12 @@ impl GridPositionBuilder {
             Self::Cartesian(builder) => builder.submit_value().map(InstanciatedValue::GridPosition),
         }
     }
+
+    fn has_keyboard_priority(&self) -> bool {
+        match self {
+            Self::Cartesian(b) => b.has_keyboard_priority(),
+        }
+    }
 }
 
 pub struct GridBuilder {
@@ -167,6 +178,10 @@ impl<S: AppState> Builder<S> for GridBuilder {
             ValueKind::GridOrientation => todo!(),
         }
     }
+
+    fn has_keyboard_priority(&self) -> bool {
+        self.position_builder.has_keyboard_priority()
+    }
 }
 
 use super::AppState;
@@ -175,4 +190,5 @@ pub trait Builder<S: AppState> {
     fn view<'a>(&'a mut self) -> Element<'a, super::Message<S>, Renderer>;
     fn update_str_value(&mut self, value_kind: ValueKind, n: usize, value_str: String);
     fn submit_value(&mut self, value_kind: ValueKind) -> Option<InstanciatedValue>;
+    fn has_keyboard_priority(&self) -> bool;
 }

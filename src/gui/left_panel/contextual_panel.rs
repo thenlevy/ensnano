@@ -247,7 +247,16 @@ impl<S: AppState> ContextualPanel<S> {
     }
 
     pub fn has_keyboard_priority(&self) -> bool {
-        self.add_strand_menu.has_keyboard_priority() || self.strand_name_state.is_focused()
+        self.add_strand_menu.has_keyboard_priority()
+            || self.strand_name_state.is_focused()
+            || self.builder_has_keyboard_priority()
+    }
+
+    fn builder_has_keyboard_priority(&self) -> bool {
+        self.builder
+            .as_ref()
+            .map(|b| b.builder.has_keyboard_priority())
+            .unwrap_or(false)
     }
 
     pub fn get_build_helix_mode(&self) -> ActionMode {
