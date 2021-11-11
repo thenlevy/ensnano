@@ -339,6 +339,10 @@ impl GuiRequests for Requests {
     fn set_suggestion_parameters(&mut self, param: SuggestionParameters) {
         self.new_suggestion_parameters = Some(param);
     }
+
+    fn set_grid_position(&mut self, grid_id: usize, position: Vec3) {
+        log::info!("Asked to set postion of grid {} to {:?}", grid_id, position);
+    }
 }
 
 fn rigid_parameters(parameters: RigidBodyParametersRequest) -> RigidBodyConstants {

@@ -24,6 +24,38 @@ mod value_constructor;
 use value_constructor::{Builder, GridBuilder};
 pub use value_constructor::{BuilderMessage, InstanciatedValue, ValueKind};
 
+pub enum ValueRequest {
+    GridPosition { grid_id: usize, position: Vec3 },
+}
+
+impl ValueRequest {
+    fn from_value_and_selection(selection: &Selection, value: InstanciatedValue) -> Option<Self> {
+        match value {
+            InstanciatedValue::GridPosition(v) => {
+                if let Selection::Grid(_, g_id) = selection {
+                    Some(Self::GridPosition {
+                        grid_id: *g_id,
+                        position: v,
+                    })
+                } else {
+                    log::error!("Recieved value {:?} with selection {:?}", value, selection);
+                    None
+                }
+            }
+            _ => None,
+        }
+    }
+
+    pub(super) fn make_request(&self, request: Arc<Mutex<dyn Requests>>) {
+        match self {
+            Self::GridPosition { grid_id, position } => request
+                .lock()
+                .unwrap()
+                .set_grid_position(*grid_id, *position),
+        }
+    }
+}
+
 struct InstantiatedBuilder<S: AppState> {
     selection: Selection,
     builder: Box<dyn Builder<S>>,
@@ -269,6 +301,27 @@ impl<S: AppState> ContextualPanel<S> {
 
     pub fn set_show_strand(&mut self, show: bool) {
         self.add_strand_menu.set_show_strand(show)
+    }
+
+    pub fn update_builder_value(&mut self, kind: ValueKind, n: usize, value: String) {
+        if let Some(b) = &mut self.builder {
+            b.builder.update_str_value(kind, n, value)
+        } else {
+            log::error!("Cannot update value: No instanciated builder");
+        }
+    }
+
+    pub fn submit_value(&mut self, kind: ValueKind) -> Option<ValueRequest> {
+        if let Some(b) = &mut self.builder {
+            if let Some(value) = b.builder.submit_value(kind) {
+                ValueRequest::from_value_and_selection(&b.selection, value)
+            } else {
+                None
+            }
+        } else {
+            log::error!("Cannot submit value: No instanciated builder");
+            None
+        }
     }
 }
 

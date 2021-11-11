@@ -734,10 +734,12 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
                     .set_suggestion_parameters(param);
             }
             Message::ContextualValueSubmitted(kind) => {
-                log::info!("ContextualValueSubmitted {:?}", kind);
+                if let Some(request) = self.contextual_panel.submit_value(kind) {
+                    request.make_request(self.requests.clone())
+                }
             }
             Message::ContextualValueChanged(kind, n, val) => {
-                log::info!("ContextualValueChanged {:?}, {:?}, {:?})", kind, n, val);
+                self.contextual_panel.update_builder_value(kind, n, val);
             }
         };
         Command::none()

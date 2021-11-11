@@ -182,6 +182,7 @@ pub trait Requests: 'static + Send {
     fn update_camera(&mut self, cam_id: CameraId);
     fn set_camera_name(&mut self, cam_id: CameraId, name: String);
     fn set_suggestion_parameters(&mut self, param: SuggestionParameters);
+    fn set_grid_position(&mut self, grid_id: usize, position: Vec3);
 }
 
 #[derive(Clone, Debug, PartialEq)]
