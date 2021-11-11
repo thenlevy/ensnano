@@ -243,6 +243,9 @@ impl Controller {
             DesignOperation::SetCameraName { camera_id, name } => {
                 self.apply(|c, d| c.set_camera_name(d, camera_id, name), design)
             }
+            DesignOperation::SetGridPosition { grid_id, position } => {
+                self.apply(|c, d| c.set_grid_position(d, grid_id, position), design)
+            }
         }
     }
 
@@ -2268,6 +2271,21 @@ impl Controller {
             }
         }
         design.helices = Arc::new(new_helices);
+        Ok(design)
+    }
+
+    fn set_grid_position(
+        &mut self,
+        mut design: Design,
+        grid_id: usize,
+        position: Vec3,
+    ) -> Result<Design, ErrOperation> {
+        let mut new_grids = Vec::clone(design.grids.as_ref());
+        let grid = new_grids
+            .get_mut(grid_id)
+            .ok_or(ErrOperation::GridDoesNotExist(grid_id))?;
+        grid.position = position;
+        design.grids = Arc::new(new_grids);
         Ok(design)
     }
 }

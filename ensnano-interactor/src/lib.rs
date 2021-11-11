@@ -229,6 +229,10 @@ pub enum DesignOperation {
         camera_id: ensnano_design::CameraId,
         name: String,
     },
+    SetGridPosition {
+        grid_id: usize,
+        position: Vec3,
+    },
 }
 
 /// An action performed on the application

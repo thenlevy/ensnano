@@ -341,7 +341,11 @@ impl GuiRequests for Requests {
     }
 
     fn set_grid_position(&mut self, grid_id: usize, position: Vec3) {
-        log::info!("Asked to set postion of grid {} to {:?}", grid_id, position);
+        self.keep_proceed
+            .push_back(Action::DesignOperation(DesignOperation::SetGridPosition {
+                grid_id,
+                position,
+            }))
     }
 }
 
