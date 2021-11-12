@@ -100,15 +100,19 @@ macro_rules! type_builder {
     }
 }
 
-struct AngleFormater;
+struct DegreeAngleFormater;
 
-impl AngleFormater {
+impl DegreeAngleFormater {
     fn fmt(angle: &f32) -> String {
-        format!("{:.1}°", angle)
+        format!("{:.1}°", angle.to_degrees())
     }
 
     fn parse(angle_str: &str) -> Option<f32> {
-        angle_str.trim_end_matches("°").parse::<f32>().ok()
+        angle_str
+            .trim_end_matches("°")
+            .parse::<f32>()
+            .ok()
+            .map(f32::to_radians)
     }
 }
 
@@ -144,7 +148,7 @@ type_builder!(
     x: f32 % FloatFormatter,
     y: f32 % FloatFormatter,
     z: f32 % FloatFormatter,
-    angle: f32 % AngleFormater
+    angle: f32 % DegreeAngleFormater
 );
 
 #[derive(Clone, Copy, Debug)]
@@ -310,7 +314,7 @@ impl DirectionAngle {
         let cos_angle = Vec3::unit_z().rotated_by(rotor).dot(real_z);
         let sin_angle = -Vec3::unit_z().rotated_by(rotor).dot(real_y);
         log::info!("cos = {}, sin = {}", cos_angle, sin_angle);
-        let angle = sin_angle.atan2(cos_angle).to_degrees();
+        let angle = sin_angle.atan2(cos_angle);
 
         Self {
             x: direction.x,
@@ -328,7 +332,7 @@ impl DirectionAngle {
         }
         .normalized();
 
-        let angle = self.angle.to_radians();
+        let angle = self.angle;
         let real_z = Self::real_z(direction);
         log::info!("real z {:?}", real_z);
         let z = real_z.rotated_by(Rotor3::from_angle_plane(
