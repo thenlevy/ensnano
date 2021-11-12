@@ -30,7 +30,7 @@ pub trait BuilderMessage: Clone + 'static {
 use ultraviolet::{Rotor3, Vec3};
 
 macro_rules! type_builder {
-    ($builder_name:ident, $initializer:tt, $func:path, $($param: ident: $param_type: tt) , *) => {
+    ($builder_name:ident, $initializer:tt, $internal:tt, $convert_in:path, $convert_out:path, $($param: ident: $param_type: tt) , *) => {
         paste! {
             pub struct $builder_name {
                 $(
@@ -44,10 +44,11 @@ macro_rules! type_builder {
             impl $builder_name {
                 const PARAMETER_NAMES: &'static [&'static str] = &[$(stringify!($param),)*];
                 pub fn new(value_to_modify: ValueKind, initial_value: $initializer) -> Self {
+                    let initial: $internal = $convert_in(initial_value);
                     Self {
                         value_to_modify,
                         $(
-                            $param: initial_value.$param,
+                            $param: initial.$param,
                             [<$param _string>]: initial_value.$param.to_string(),
                             [<$param _input>]: Default::default(),
                         )*
@@ -82,7 +83,13 @@ macro_rules! type_builder {
                     $(
                         let $param = self.[<$param _string>].parse::<$param_type>().ok()?;
                     )*
-                        Some($func($($param),*))
+                    let out: $internal = $internal {
+                        $(
+                            $param,
+                        )*
+                    };
+
+                    Some($convert_out(out))
                 }
 
                 fn has_keyboard_priority(&self) -> bool {
@@ -94,7 +101,16 @@ macro_rules! type_builder {
     }
 }
 
-type_builder!(Vec3Builder, Vec3, Vec3::new, x: f32, y: f32, z: f32);
+type_builder!(
+    Vec3Builder,
+    Vec3,
+    Vec3,
+    std::convert::identity,
+    std::convert::identity,
+    x: f32,
+    y: f32,
+    z: f32
+);
 
 #[derive(Clone, Copy, Debug)]
 pub enum ValueKind {
@@ -191,4 +207,11 @@ pub trait Builder<S: AppState> {
     fn update_str_value(&mut self, value_kind: ValueKind, n: usize, value_str: String);
     fn submit_value(&mut self, value_kind: ValueKind) -> Option<InstanciatedValue>;
     fn has_keyboard_priority(&self) -> bool;
+}
+
+struct Orientation {
+    x: f32,
+    y: f32,
+    z: f32,
+    theta: f32,
 }
