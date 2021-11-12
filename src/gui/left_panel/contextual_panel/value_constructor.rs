@@ -64,14 +64,16 @@ macro_rules! type_builder {
                 fn view<'a ,Message: BuilderMessage>(&'a mut self) -> Element<'a, Message, Renderer> {
                     let str_values = [$(& self.[<$param _string>],)*];
                     let states = vec![$(&mut self.[<$param _input>],)*];
-                    let mut ret = Column::new();
+                    let mut ret = Column::new().width(iced::Length::Fill).align_items(iced::Alignment::End);
                     let value_to_modify = self.value_to_modify;
                     for (i, s) in states.into_iter().enumerate() {
-                        let mut row = Row::new();
+                        let mut row = Row::new().width(iced::Length::Fill);
                         row = row.push(Text::new(Self::PARAMETER_NAMES[i]));
+                        row = row.push(iced::Space::with_width(iced::Length::Units(5)));
                         row = row.push(
                             TextInput::new(s, "", str_values[i], move |string| Message::value_changed(value_to_modify, i, string))
                             .on_submit(Message::value_submitted(value_to_modify))
+                            .width(iced::Length::Units(50))
                         );
                         ret = ret.push(row)
                     }
@@ -252,7 +254,7 @@ impl GridBuilder {
 
 impl<S: AppState> Builder<S> for GridBuilder {
     fn view<'a>(&'a mut self, ui_size: UiSize) -> Element<'a, super::Message<S>, Renderer> {
-        let mut ret = Column::new();
+        let mut ret = Column::new().width(iced::Length::Fill);
         let position_builder_view = self.position_builder.view();
         let orientation_builder_view = self.orientation_builder.view();
         ret = ret.push(Text::new("Position").size(ui_size.intermediate_text()));
