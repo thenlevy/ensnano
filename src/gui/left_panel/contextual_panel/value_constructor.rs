@@ -16,8 +16,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-use std::collections::HashMap;
-use std::hash::Hash;
+use super::UiSize;
 
 use iced_native::{text_input, Column, Element, Row, Text, TextInput};
 use iced_wgpu::Renderer;
@@ -30,7 +29,7 @@ pub trait BuilderMessage: Clone + 'static {
 use ultraviolet::{Bivec3, Mat3, Rotor3, Vec3};
 
 macro_rules! type_builder {
-    ($builder_name:ident, $initializer:tt, $internal:tt, $convert_in:path, $convert_out:path, $($param: ident: $param_type: tt) , *) => {
+    ($builder_name:ident, $initializer:tt, $internal:tt, $convert_in:path, $convert_out:path, $($param: ident: $param_type: tt %$formatter:path) , *) => {
         paste! {
             pub struct $builder_name {
                 $(
@@ -49,7 +48,7 @@ macro_rules! type_builder {
                         value_to_modify,
                         $(
                             $param: initial.$param,
-                            [<$param _string>]: initial.$param.to_string(),
+                            [<$param _string>]: $formatter::fmt(&initial.$param),
                             [<$param _input>]: Default::default(),
                         )*
                     }
@@ -81,7 +80,7 @@ macro_rules! type_builder {
 
                 fn submit_value(&mut self) -> Option<$initializer> {
                     $(
-                        let $param = self.[<$param _string>].parse::<$param_type>().ok()?;
+                        let $param = $formatter::parse(&self.[<$param _string>])?;
                     )*
                     let out: $internal = $internal {
                         $(
@@ -101,15 +100,39 @@ macro_rules! type_builder {
     }
 }
 
+struct AngleFormater;
+
+impl AngleFormater {
+    fn fmt(angle: &f32) -> String {
+        format!("{:.1}°", angle)
+    }
+
+    fn parse(angle_str: &str) -> Option<f32> {
+        angle_str.trim_end_matches("°").parse::<f32>().ok()
+    }
+}
+
+struct FloatFormatter;
+
+impl FloatFormatter {
+    fn fmt(float: &f32) -> String {
+        format!("{:.2}", float)
+    }
+
+    fn parse(float_str: &str) -> Option<f32> {
+        float_str.parse::<f32>().ok()
+    }
+}
+
 type_builder!(
     Vec3Builder,
     Vec3,
     Vec3,
     std::convert::identity,
     std::convert::identity,
-    x: f32,
-    y: f32,
-    z: f32
+    x: f32 % FloatFormatter,
+    y: f32 % FloatFormatter,
+    z: f32 % FloatFormatter
 );
 
 type_builder!(
@@ -118,10 +141,10 @@ type_builder!(
     DirectionAngle,
     DirectionAngle::from_rotor,
     DirectionAngle::to_rotor,
-    x: f32,
-    y: f32,
-    z: f32,
-    angle: f32
+    x: f32 % FloatFormatter,
+    y: f32 % FloatFormatter,
+    z: f32 % FloatFormatter,
+    angle: f32 % AngleFormater
 );
 
 #[derive(Clone, Copy, Debug)]
@@ -224,11 +247,13 @@ impl GridBuilder {
 }
 
 impl<S: AppState> Builder<S> for GridBuilder {
-    fn view<'a>(&'a mut self) -> Element<'a, super::Message<S>, Renderer> {
+    fn view<'a>(&'a mut self, ui_size: UiSize) -> Element<'a, super::Message<S>, Renderer> {
         let mut ret = Column::new();
         let position_builder_view = self.position_builder.view();
         let orientation_builder_view = self.orientation_builder.view();
+        ret = ret.push(Text::new("Position").size(ui_size.intermediate_text()));
         ret = ret.push(position_builder_view);
+        ret = ret.push(Text::new("Orientation").size(ui_size.intermediate_text()));
         ret = ret.push(orientation_builder_view);
         ret.into()
     }
@@ -256,7 +281,7 @@ impl<S: AppState> Builder<S> for GridBuilder {
 use super::AppState;
 
 pub trait Builder<S: AppState> {
-    fn view<'a>(&'a mut self) -> Element<'a, super::Message<S>, Renderer>;
+    fn view<'a>(&'a mut self, ui_size: UiSize) -> Element<'a, super::Message<S>, Renderer>;
     fn update_str_value(&mut self, value_kind: ValueKind, n: usize, value_str: String);
     fn submit_value(&mut self, value_kind: ValueKind) -> Option<InstanciatedValue>;
     fn has_keyboard_priority(&self) -> bool;

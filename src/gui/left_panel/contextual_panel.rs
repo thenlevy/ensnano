@@ -253,7 +253,7 @@ impl<S: AppState> ContextualPanel<S> {
                 _ => (),
             }
             if let Some(builder) = &mut self.builder {
-                column = column.push(builder.builder.view())
+                column = column.push(builder.builder.view(ui_size))
             }
         }
 
