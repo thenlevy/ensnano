@@ -27,7 +27,7 @@ pub trait BuilderMessage: Clone + 'static {
     fn value_submitted(kind: ValueKind) -> Self;
 }
 
-use ultraviolet::{Rotor3, Vec3};
+use ultraviolet::{Bivec3, Mat3, Rotor3, Vec3};
 
 macro_rules! type_builder {
     ($builder_name:ident, $initializer:tt, $internal:tt, $convert_in:path, $convert_out:path, $($param: ident: $param_type: tt) , *) => {
@@ -49,7 +49,7 @@ macro_rules! type_builder {
                         value_to_modify,
                         $(
                             $param: initial.$param,
-                            [<$param _string>]: initial_value.$param.to_string(),
+                            [<$param _string>]: initial.$param.to_string(),
                             [<$param _input>]: Default::default(),
                         )*
                     }
@@ -112,6 +112,18 @@ type_builder!(
     z: f32
 );
 
+type_builder!(
+    DirectionAngleBuilder,
+    Rotor3,
+    DirectionAngle,
+    DirectionAngle::from_rotor,
+    DirectionAngle::to_rotor,
+    x: f32,
+    y: f32,
+    z: f32,
+    angle: f32
+);
+
 #[derive(Clone, Copy, Debug)]
 pub enum ValueKind {
     GridPosition,
@@ -154,6 +166,45 @@ impl GridPositionBuilder {
     fn has_keyboard_priority(&self) -> bool {
         match self {
             Self::Cartesian(b) => b.has_keyboard_priority(),
+        }
+    }
+}
+
+pub enum GridOrientationBuilder {
+    DirectionAngle(DirectionAngleBuilder),
+}
+
+impl GridOrientationBuilder {
+    pub fn new_direction_angle(orientation: Rotor3) -> Self {
+        Self::DirectionAngle(DirectionAngleBuilder::new(
+            ValueKind::GridOrientation,
+            orientation,
+        ))
+    }
+
+    fn view<'a, Message: BuilderMessage>(&'a mut self) -> Element<'a, Message, Renderer> {
+        match self {
+            Self::DirectionAngle(builder) => builder.view(),
+        }
+    }
+
+    fn update_str_value(&mut self, n: usize, value_str: String) {
+        match self {
+            Self::DirectionAngle(builder) => builder.update_str_value(n, value_str),
+        }
+    }
+
+    fn submit_value(&mut self) -> Option<InstanciatedValue> {
+        match self {
+            Self::DirectionAngle(builder) => builder
+                .submit_value()
+                .map(InstanciatedValue::GridOrientation),
+        }
+    }
+
+    fn has_keyboard_priority(&self) -> bool {
+        match self {
+            Self::DirectionAngle(b) => b.has_keyboard_priority(),
         }
     }
 }
@@ -209,9 +260,74 @@ pub trait Builder<S: AppState> {
     fn has_keyboard_priority(&self) -> bool;
 }
 
-struct Orientation {
+#[derive(Debug, Clone, Copy)]
+struct DirectionAngle {
     x: f32,
     y: f32,
     z: f32,
-    theta: f32,
+    angle: f32,
+}
+
+impl DirectionAngle {
+    const CONVERSION_ESPILON: f32 = 1e-6;
+
+    fn from_rotor(rotor: Rotor3) -> Self {
+        let direction = Vec3::unit_z().rotated_by(rotor);
+
+        let real_x = Self::real_x(direction);
+        let real_y = direction.cross(-real_x);
+
+        let cos_angle = Vec3::unit_x().rotated_by(rotor).dot(real_x);
+        let sin_angle = Vec3::unit_x().rotated_by(rotor).dot(real_y);
+        let angle = sin_angle.atan2(cos_angle);
+
+        Self {
+            x: direction.x,
+            y: direction.y,
+            z: direction.z,
+            angle,
+        }
+    }
+
+    fn to_rotor(self) -> Rotor3 {
+        let direction = Vec3 {
+            x: self.x,
+            y: self.y,
+            z: self.z,
+        };
+
+        let real_x = Self::real_x(direction);
+        let real_y = direction.cross(-real_x);
+        let x = real_x.rotated_by(Rotor3::from_angle_plane(
+            self.angle,
+            Bivec3::from_normalized_axis(real_y),
+        ));
+        let y = direction.cross(-x);
+        Mat3::new(x, y, direction).into_rotor3()
+    }
+
+    fn real_x(direction: Vec3) -> Vec3 {
+        let phi = direction.y.asin();
+
+        if direction.y.abs() < 1. - Self::CONVERSION_ESPILON {
+            let radius = phi.cos();
+            let theta = if direction.x > 0. {
+                (direction.z / radius).acos()
+            } else {
+                -(direction.z / radius).acos()
+            };
+
+            Vec3::unit_x()
+                .rotated_by(Rotor3::from_angle_plane(
+                    phi,
+                    Bivec3::from_normalized_axis(Vec3::unit_z()),
+                ))
+                .rotated_by(Rotor3::from_angle_plane(
+                    theta,
+                    Bivec3::from_normalized_axis(Vec3::unit_y()),
+                ))
+        } else {
+            Vec3::unit_x()
+        }
+    }
 }
