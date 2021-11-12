@@ -274,13 +274,17 @@ impl DirectionAngle {
     const CONVERSION_ESPILON: f32 = 1e-6;
 
     fn from_rotor(rotor: Rotor3) -> Self {
-        let direction = Vec3::unit_z().rotated_by(rotor);
+        let direction = Vec3::unit_x().rotated_by(rotor);
+        log::info!("direction {:?}", direction);
 
-        let real_x = Self::real_x(direction);
-        let real_y = direction.cross(-real_x);
+        let real_z = Self::real_z(direction);
+        log::info!("real z {:?}", real_z);
+        let real_y = real_z.cross(direction);
+        log::info!("real y {:?}", real_y);
 
-        let cos_angle = Vec3::unit_x().rotated_by(rotor).dot(real_x);
-        let sin_angle = Vec3::unit_x().rotated_by(rotor).dot(real_y);
+        let cos_angle = Vec3::unit_z().rotated_by(rotor).dot(real_z);
+        let sin_angle = -Vec3::unit_z().rotated_by(rotor).dot(real_y);
+        log::info!("cos = {}, sin = {}", cos_angle, sin_angle);
         let angle = sin_angle.atan2(cos_angle).to_degrees();
 
         Self {
@@ -300,38 +304,41 @@ impl DirectionAngle {
         .normalized();
 
         let angle = self.angle.to_radians();
-        let real_x = Self::real_x(direction);
-        let real_y = direction.cross(-real_x);
-        let x = real_x.rotated_by(Rotor3::from_angle_plane(
+        let real_z = Self::real_z(direction);
+        log::info!("real z {:?}", real_z);
+        let z = real_z.rotated_by(Rotor3::from_angle_plane(
             angle,
-            Bivec3::from_normalized_axis(real_y),
+            Bivec3::from_normalized_axis(direction),
         ));
-        let y = direction.cross(-x);
-        Mat3::new(x, y, direction).into_rotor3()
+        let y = z.cross(direction);
+        log::info!(" x {:?}", direction);
+        log::info!(" y {:?}", y);
+        log::info!(" z {:?}", real_z);
+
+        Mat3::new(direction, y, z).into_rotor3()
     }
 
-    fn real_x(direction: Vec3) -> Vec3 {
-        let phi = direction.y.asin();
+    fn real_z(direction: Vec3) -> Vec3 {
+        let z_angle = direction.y.asin();
+        log::info!("z angle {}", z_angle.to_degrees());
 
         if direction.y.abs() < 1. - Self::CONVERSION_ESPILON {
-            let radius = phi.cos();
-            let theta = if direction.x > 0. {
-                (direction.z / radius).acos()
+            let radius = z_angle.cos();
+            log::info!("radius {}", radius);
+            log::info!("direction.x / radius {}", direction.x / radius);
+            let y_angle = if direction.z > 0. {
+                -(direction.x / radius).min(1.).max(-1.).acos()
             } else {
-                -(direction.z / radius).acos()
+                (direction.x / radius).min(1.).max(-1.).acos()
             };
+            log::info!("y angle {}", y_angle.to_degrees());
 
-            Vec3::unit_x()
-                .rotated_by(Rotor3::from_angle_plane(
-                    phi,
-                    Bivec3::from_normalized_axis(Vec3::unit_z()),
-                ))
-                .rotated_by(Rotor3::from_angle_plane(
-                    theta,
-                    Bivec3::from_normalized_axis(Vec3::unit_y()),
-                ))
+            Vec3::unit_z().rotated_by(Rotor3::from_angle_plane(
+                y_angle,
+                Bivec3::from_normalized_axis(Vec3::unit_y()),
+            ))
         } else {
-            Vec3::unit_x()
+            Vec3::unit_z()
         }
     }
 }
