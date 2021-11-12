@@ -347,6 +347,15 @@ impl GuiRequests for Requests {
                 position,
             }))
     }
+
+    fn set_grid_orientation(&mut self, grid_id: usize, orientation: Rotor3) {
+        self.keep_proceed.push_back(Action::DesignOperation(
+            DesignOperation::SetGridOrientation {
+                grid_id,
+                orientation,
+            },
+        ))
+    }
 }
 
 fn rigid_parameters(parameters: RigidBodyParametersRequest) -> RigidBodyConstants {

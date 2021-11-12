@@ -233,6 +233,10 @@ pub enum DesignOperation {
         grid_id: usize,
         position: Vec3,
     },
+    SetGridOrientation {
+        grid_id: usize,
+        orientation: Rotor3,
+    },
 }
 
 /// An action performed on the application

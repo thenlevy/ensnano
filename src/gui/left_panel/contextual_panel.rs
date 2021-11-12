@@ -24,8 +24,10 @@ mod value_constructor;
 use value_constructor::{Builder, GridBuilder};
 pub use value_constructor::{BuilderMessage, InstanciatedValue, ValueKind};
 
+use ultraviolet::{Rotor3, Vec3};
 pub enum ValueRequest {
     GridPosition { grid_id: usize, position: Vec3 },
+    GridOrientation { grid_id: usize, orientation: Rotor3 },
 }
 
 impl ValueRequest {
@@ -42,7 +44,17 @@ impl ValueRequest {
                     None
                 }
             }
-            _ => None,
+            InstanciatedValue::GridOrientation(orientation) => {
+                if let Selection::Grid(_, g_id) = selection {
+                    Some(Self::GridOrientation {
+                        grid_id: *g_id,
+                        orientation,
+                    })
+                } else {
+                    log::error!("Recieved value {:?} with selection {:?}", value, selection);
+                    None
+                }
+            }
         }
     }
 
@@ -52,6 +64,13 @@ impl ValueRequest {
                 .lock()
                 .unwrap()
                 .set_grid_position(*grid_id, *position),
+            Self::GridOrientation {
+                grid_id,
+                orientation,
+            } => request
+                .lock()
+                .unwrap()
+                .set_grid_orientation(*grid_id, *orientation),
         }
     }
 }
@@ -95,8 +114,10 @@ impl<S: AppState> InstantiatedBuilder<S> {
     ) -> Option<Box<dyn Builder<S>>> {
         match selection {
             Selection::Grid(_, g_id) => {
-                if let Some(position) = reader.get_grid_position(*g_id) {
-                    Some(Box::new(GridBuilder::new(position)))
+                if let Some((position, orientation)) =
+                    reader.get_grid_position_and_orientation(*g_id)
+                {
+                    Some(Box::new(GridBuilder::new(position, orientation)))
                 } else {
                     None
                 }

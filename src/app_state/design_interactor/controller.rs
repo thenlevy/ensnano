@@ -246,6 +246,13 @@ impl Controller {
             DesignOperation::SetGridPosition { grid_id, position } => {
                 self.apply(|c, d| c.set_grid_position(d, grid_id, position), design)
             }
+            DesignOperation::SetGridOrientation {
+                grid_id,
+                orientation,
+            } => self.apply(
+                |c, d| c.set_grid_orientation(d, grid_id, orientation),
+                design,
+            ),
         }
     }
 
@@ -2285,6 +2292,21 @@ impl Controller {
             .get_mut(grid_id)
             .ok_or(ErrOperation::GridDoesNotExist(grid_id))?;
         grid.position = position;
+        design.grids = Arc::new(new_grids);
+        Ok(design)
+    }
+
+    fn set_grid_orientation(
+        &mut self,
+        mut design: Design,
+        grid_id: usize,
+        orientation: Rotor3,
+    ) -> Result<Design, ErrOperation> {
+        let mut new_grids = Vec::clone(design.grids.as_ref());
+        let grid = new_grids
+            .get_mut(grid_id)
+            .ok_or(ErrOperation::GridDoesNotExist(grid_id))?;
+        grid.orientation = orientation;
         design.grids = Arc::new(new_grids);
         Ok(design)
     }

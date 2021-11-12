@@ -211,43 +211,45 @@ impl GridOrientationBuilder {
 
 pub struct GridBuilder {
     position_builder: GridPositionBuilder,
-    //TODO add an orientation builder
+    orientation_builder: GridOrientationBuilder,
 }
 
 impl GridBuilder {
-    pub fn new(position: Vec3) -> Self {
+    pub fn new(position: Vec3, orientation: Rotor3) -> Self {
         Self {
             position_builder: GridPositionBuilder::new_cartesian(position),
+            orientation_builder: GridOrientationBuilder::new_direction_angle(orientation),
         }
     }
 }
 
 impl<S: AppState> Builder<S> for GridBuilder {
     fn view<'a>(&'a mut self) -> Element<'a, super::Message<S>, Renderer> {
-        let mut ret = Row::new();
-        let position_builder_view = match &mut self.position_builder {
-            GridPositionBuilder::Cartesian(builder) => builder.view(),
-        };
+        let mut ret = Column::new();
+        let position_builder_view = self.position_builder.view();
+        let orientation_builder_view = self.orientation_builder.view();
         ret = ret.push(position_builder_view);
+        ret = ret.push(orientation_builder_view);
         ret.into()
     }
 
     fn update_str_value(&mut self, value_kind: ValueKind, n: usize, value_str: String) {
         match value_kind {
             ValueKind::GridPosition => self.position_builder.update_str_value(n, value_str),
-            ValueKind::GridOrientation => todo!(),
+            ValueKind::GridOrientation => self.orientation_builder.update_str_value(n, value_str),
         }
     }
 
     fn submit_value(&mut self, value_kind: ValueKind) -> Option<InstanciatedValue> {
         match value_kind {
             ValueKind::GridPosition => self.position_builder.submit_value(),
-            ValueKind::GridOrientation => todo!(),
+            ValueKind::GridOrientation => self.orientation_builder.submit_value(),
         }
     }
 
     fn has_keyboard_priority(&self) -> bool {
         self.position_builder.has_keyboard_priority()
+            || self.orientation_builder.has_keyboard_priority()
     }
 }
 
@@ -279,7 +281,7 @@ impl DirectionAngle {
 
         let cos_angle = Vec3::unit_x().rotated_by(rotor).dot(real_x);
         let sin_angle = Vec3::unit_x().rotated_by(rotor).dot(real_y);
-        let angle = sin_angle.atan2(cos_angle);
+        let angle = sin_angle.atan2(cos_angle).to_degrees();
 
         Self {
             x: direction.x,
@@ -294,12 +296,14 @@ impl DirectionAngle {
             x: self.x,
             y: self.y,
             z: self.z,
-        };
+        }
+        .normalized();
 
+        let angle = self.angle.to_radians();
         let real_x = Self::real_x(direction);
         let real_y = direction.cross(-real_x);
         let x = real_x.rotated_by(Rotor3::from_angle_plane(
-            self.angle,
+            angle,
             Bivec3::from_normalized_axis(real_y),
         ));
         let y = direction.cross(-x);

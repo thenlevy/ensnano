@@ -59,7 +59,7 @@ use iced_winit::{conversion, program, winit, Debug, Size};
 use std::collections::{BTreeSet, HashMap};
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
-use ultraviolet::Vec3;
+use ultraviolet::{Rotor3, Vec3};
 use wgpu::Device;
 use winit::{
     dpi::{PhysicalPosition, PhysicalSize},
@@ -183,6 +183,7 @@ pub trait Requests: 'static + Send {
     fn set_camera_name(&mut self, cam_id: CameraId, name: String);
     fn set_suggestion_parameters(&mut self, param: SuggestionParameters);
     fn set_grid_position(&mut self, grid_id: usize, position: Vec3);
+    fn set_grid_orientation(&mut self, grid_id: usize, orientation: Rotor3);
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -925,7 +926,7 @@ pub trait DesignReader: 'static {
     fn strand_name(&self, s_id: usize) -> String;
     fn get_all_cameras(&self) -> Vec<(CameraId, &str)>;
     fn get_favourite_camera(&self) -> Option<CameraId>;
-    fn get_grid_position(&self, g_id: usize) -> Option<Vec3>;
+    fn get_grid_position_and_orientation(&self, g_id: usize) -> Option<(Vec3, Rotor3)>;
 }
 
 pub struct MainState {
