@@ -313,6 +313,7 @@ impl DesignContent {
         old_grid_ptr: &mut Option<usize>,
         suggestion_parameters: &SuggestionParameters,
     ) -> (Self, Design, JunctionsIds) {
+        design.update_bezier_helices();
         let groups = design.groups.clone();
         let mut object_type = HashMap::default();
         let mut space_position = HashMap::default();

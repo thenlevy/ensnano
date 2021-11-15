@@ -78,6 +78,7 @@ pub struct Multiplexer {
     /// The texutre on which the flat scene is rendered,
     status_bar_texture: Option<SampledTexture>,
     flat_scene_texture: Option<SampledTexture>,
+    stereographic_scene_texture: Option<SampledTexture>,
     /// The pointer the node that separate the left pannel from the scene
     left_pannel_split: usize,
     /// The pointer to the node that separate the top bar from the scene
@@ -93,6 +94,8 @@ pub struct Multiplexer {
     ui_size: UiSize,
     pub invert_y_scroll: bool,
     pub icon: Option<CursorIcon>,
+    element_3d: ElementType,
+    element_2d: ElementType,
 }
 
 const MAX_LEFT_PANNEL_WIDTH: f64 = 200.;
@@ -141,6 +144,7 @@ impl Multiplexer {
             left_pannel_texture: None,
             grid_panel_texture: None,
             status_bar_texture: None,
+            stereographic_scene_texture: None,
             overlays: Vec::new(),
             overlays_textures: Vec::new(),
             device,
@@ -157,6 +161,8 @@ impl Multiplexer {
             ui_size,
             invert_y_scroll: false,
             icon: None,
+            element_2d: ElementType::StereographicScene,
+            element_3d: ElementType::Scene,
         };
         ret.generate_textures();
         ret
@@ -172,6 +178,9 @@ impl Multiplexer {
             ElementType::GridPanel => self.grid_panel_texture.as_ref().map(|t| &t.view),
             ElementType::FlatScene => self.flat_scene_texture.as_ref().map(|t| &t.view),
             ElementType::StatusBar => self.status_bar_texture.as_ref().map(|t| &t.view),
+            ElementType::StereographicScene => {
+                self.stereographic_scene_texture.as_ref().map(|t| &t.view)
+            }
             ElementType::Unattributed => unreachable!(),
         }
     }
@@ -225,6 +234,7 @@ impl Multiplexer {
                 ElementType::GridPanel,
                 ElementType::Scene,
                 ElementType::FlatScene,
+                ElementType::StereographicScene,
                 ElementType::StatusBar,
             ]
             .iter()
@@ -265,6 +275,13 @@ impl Multiplexer {
             ElementType::GridPanel => &self.grid_panel_texture.as_ref().unwrap().bind_group,
             ElementType::Overlay(n) => &self.overlays_textures[*n].bind_group,
             ElementType::StatusBar => &self.status_bar_texture.as_ref().unwrap().bind_group,
+            ElementType::StereographicScene => {
+                &self
+                    .stereographic_scene_texture
+                    .as_ref()
+                    .unwrap()
+                    .bind_group
+            }
             ElementType::Unattributed => unreachable!(),
         }
     }
@@ -320,6 +337,7 @@ impl Multiplexer {
                     clicked_position,
                     old_proportion,
                 } => {
+                    /*
                     *mouse_position = *position;
                     let mut position = position.clone();
                     position.x /= self.window_size.width as f64;
@@ -332,7 +350,7 @@ impl Multiplexer {
                         *old_proportion,
                     );
                     self.icon = Some(CursorIcon::EwResize);
-                    captured = true;
+                    captured = true;*/
                 }
 
                 State::Normal { mouse_position, .. } => {
@@ -537,40 +555,54 @@ impl Multiplexer {
         self.generate_textures();
     }
 
-    pub fn change_split(&mut self, split_mode: SplitMode) {
-        if split_mode != self.split_mode {
-            match self.split_mode {
-                SplitMode::Both => {
-                    let new_type = match split_mode {
-                        SplitMode::Scene3D => ElementType::Scene,
-                        SplitMode::Flat => ElementType::FlatScene,
-                        SplitMode::Both => unreachable!(),
-                    };
-                    self.layout_manager.merge(ElementType::Scene, new_type);
-                }
-                SplitMode::Scene3D | SplitMode::Flat => {
-                    let id = self
-                        .layout_manager
-                        .get_area_id(ElementType::Scene)
-                        .or(self.layout_manager.get_area_id(ElementType::FlatScene))
-                        .unwrap();
-                    match split_mode {
-                        SplitMode::Both => {
-                            let (scene, flat_scene) = self.layout_manager.vsplit(id, 0.5, true);
-                            self.layout_manager
-                                .attribute_element(scene, ElementType::Scene);
-                            self.layout_manager
-                                .attribute_element(flat_scene, ElementType::FlatScene);
-                        }
-                        SplitMode::Scene3D => self
-                            .layout_manager
-                            .attribute_element(id, ElementType::Scene),
-                        SplitMode::Flat => self
-                            .layout_manager
-                            .attribute_element(id, ElementType::FlatScene),
+    fn change_split_(&mut self, split_mode: SplitMode) {
+        match self.split_mode {
+            SplitMode::Both => {
+                let new_type = match split_mode {
+                    SplitMode::Scene3D => self.element_3d,
+                    SplitMode::Flat => self.element_2d,
+                    SplitMode::Both => unreachable!(),
+                };
+                self.layout_manager.merge(ElementType::Scene, new_type);
+            }
+            SplitMode::Scene3D | SplitMode::Flat => {
+                let id = self
+                    .layout_manager
+                    .get_area_id(self.element_3d)
+                    .or(self.layout_manager.get_area_id(self.element_2d))
+                    .unwrap();
+                match split_mode {
+                    SplitMode::Both => {
+                        let (scene, flat_scene) = self.layout_manager.vsplit(id, 0.5, true);
+                        self.layout_manager
+                            .attribute_element(scene, self.element_3d);
+                        self.layout_manager
+                            .attribute_element(flat_scene, self.element_2d);
                     }
+                    SplitMode::Scene3D => {
+                        self.layout_manager.attribute_element(id, self.element_3d)
+                    }
+                    SplitMode::Flat => self.layout_manager.attribute_element(id, self.element_2d),
                 }
             }
+        }
+    }
+
+    pub fn change_2d_element(&mut self) {
+        let old_element_2d = self.element_2d;
+        if self.element_2d == ElementType::FlatScene {
+            self.element_2d = ElementType::StereographicScene;
+        } else {
+            self.element_2d = ElementType::FlatScene;
+        }
+        if let Some(id) = self.layout_manager.get_area_id(old_element_2d) {
+            self.layout_manager.attribute_element(id, self.element_2d)
+        }
+    }
+
+    pub fn change_split(&mut self, split_mode: SplitMode) {
+        if split_mode != self.split_mode {
+            self.change_split_(split_mode)
         }
         self.split_mode = split_mode;
         self.generate_textures();
@@ -609,6 +641,7 @@ impl Multiplexer {
         self.grid_panel_texture = self.texture(ElementType::GridPanel);
         self.flat_scene_texture = self.texture(ElementType::FlatScene);
         self.status_bar_texture = self.texture(ElementType::StatusBar);
+        self.stereographic_scene_texture = self.texture(ElementType::StereographicScene);
 
         self.overlays_textures.clear();
         for overlay in self.overlays.iter() {
@@ -666,10 +699,10 @@ impl Multiplexer {
     pub fn is_showing(&self, area: &ElementType) -> bool {
         match area {
             ElementType::LeftPanel | ElementType::TopBar | ElementType::StatusBar => true,
-            ElementType::Scene => {
+            t if *t == self.element_3d => {
                 self.split_mode == SplitMode::Scene3D || self.split_mode == SplitMode::Both
             }
-            ElementType::FlatScene => {
+            t if *t == self.element_2d => {
                 self.split_mode == SplitMode::Flat || self.split_mode == SplitMode::Both
             }
             _ => false,

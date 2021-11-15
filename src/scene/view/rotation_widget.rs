@@ -204,10 +204,11 @@ impl RotationWidget {
             projection.clone(),
             x_init,
             y_init,
+            None,
         )?;
         log::debug!("Point clicked {:?}", point_clicked);
         let point_moved =
-            maths_3d::unproject_point_on_plane(origin, normal, camera, projection, x, y)?;
+            maths_3d::unproject_point_on_plane(origin, normal, camera, projection, x, y, None)?;
         log::debug!("Point moved {:?}", point_moved);
         let rotation = Rotor3::from_rotation_between(
             (point_clicked - origin).normalized(),

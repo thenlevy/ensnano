@@ -34,8 +34,8 @@ use wgpu::{Device, Queue};
 
 /// A `Uniform` is a structure that manages view and projection matrices.
 mod uniforms;
-pub use uniforms::FogParameters;
 use uniforms::Uniforms;
+pub use uniforms::{FogParameters, Stereography};
 mod direction_cube;
 mod dna_obj;
 /// This modules defines a trait for drawing widget made of several meshes.
@@ -49,7 +49,7 @@ mod letter;
 /// A RotationWidget draws the widget for rotating objects
 mod rotation_widget;
 
-use super::maths_3d;
+use super::maths_3d::{self, distance_to_cursor};
 use crate::text::Letter;
 use bindgroup_manager::{DynamicBindGroup, UniformBindGroup};
 use direction_cube::*;
@@ -107,6 +107,7 @@ pub struct View {
     //TODO this is currently only passed to the widgets, it could be passed to the mesh pipeline as
     //well.
     viewer: UniformBindGroup,
+    stereographic_viewer: UniformBindGroup,
     models: DynamicBindGroup,
     redraw_twice: bool,
     need_redraw: bool,
@@ -121,6 +122,7 @@ pub struct View {
     fog_parameters: FogParameters,
     rendering_mode: RenderingMode,
     background3d: Background3D,
+    stereography: Stereography,
 }
 
 impl View {
@@ -142,10 +144,20 @@ impl View {
             0.1,
             1000.0,
         )));
+        let stereography = Stereography {
+            radius: 30.,
+            orientation: None,
+            position: None,
+        };
         let viewer = UniformBindGroup::new(
             device.clone(),
             queue.clone(),
-            &Uniforms::from_view_proj(camera.clone(), projection.clone()),
+            &Uniforms::from_view_proj(camera.clone(), projection.clone(), None),
+        );
+        let stereographic_viewer = UniformBindGroup::new(
+            device.clone(),
+            queue.clone(),
+            &Uniforms::from_view_proj(camera.clone(), projection.clone(), Some(&stereography)),
         );
         let model_bg_desc = wgpu::BindGroupLayoutDescriptor {
             entries: MODEL_BG_ENTRY,
@@ -276,6 +288,7 @@ impl View {
             new_size: None,
             device: device.clone(),
             viewer,
+            stereographic_viewer,
             models,
             handle_drawers: HandlesDrawer::new(device.clone()),
             rotation_widget: RotationWidget::new(device),
@@ -294,7 +307,24 @@ impl View {
             fog_parameters: FogParameters::new(),
             rendering_mode: Default::default(),
             background3d: Default::default(),
+            stereography,
         }
+    }
+
+    fn update_viewers(&mut self) {
+        self.viewer.update(&Uniforms::from_view_proj_fog(
+            self.camera.clone(),
+            self.projection.clone(),
+            &self.fog_parameters,
+            None,
+        ));
+        self.stereographic_viewer
+            .update(&Uniforms::from_view_proj_fog(
+                self.camera.clone(),
+                self.projection.clone(),
+                &self.fog_parameters,
+                Some(&self.stereography),
+            ));
     }
 
     /// Notify the view of an update. According to the nature of this update, the view decides if
@@ -307,11 +337,7 @@ impl View {
                 self.need_redraw_fake = true;
             }
             ViewUpdate::Camera => {
-                self.viewer.update(&Uniforms::from_view_proj_fog(
-                    self.camera.clone(),
-                    self.projection.clone(),
-                    &self.fog_parameters,
-                ));
+                self.update_viewers();
                 self.handle_drawers
                     .update_camera(self.camera.clone(), self.projection.clone());
                 let dist = self.projection.borrow().cube_dist();
@@ -322,11 +348,7 @@ impl View {
                 let fog_center = self.fog_parameters.alt_fog_center.clone();
                 self.fog_parameters = fog;
                 self.fog_parameters.alt_fog_center = fog_center;
-                self.viewer.update(&Uniforms::from_view_proj_fog(
-                    self.camera.clone(),
-                    self.projection.clone(),
-                    &self.fog_parameters,
-                ));
+                self.update_viewers();
             }
             ViewUpdate::Handles(descr) => {
                 self.handle_drawers.update_decriptor(
@@ -381,11 +403,7 @@ impl View {
             }
             ViewUpdate::FogCenter(center) => {
                 self.fog_parameters.alt_fog_center = center;
-                self.viewer.update(&Uniforms::from_view_proj_fog(
-                    self.camera.clone(),
-                    self.projection.clone(),
-                    &self.fog_parameters,
-                ));
+                self.update_viewers();
             }
         }
     }
@@ -405,6 +423,7 @@ impl View {
         target: &wgpu::TextureView,
         draw_type: DrawType,
         area: DrawArea,
+        stereographic: bool,
     ) {
         let fake_color = draw_type.is_fake();
         if let Some(size) = self.new_size.take() {
@@ -437,7 +456,13 @@ impl View {
                 a: 1.,
             }
         };
-        let viewer = &self.viewer;
+
+        let viewer = if stereographic {
+            &self.stereographic_viewer
+        } else {
+            &self.viewer
+        };
+
         let viewer_bind_group = viewer.get_bindgroup();
         let viewer_bind_group_layout = viewer.get_layout();
 
@@ -507,7 +532,7 @@ impl View {
                 for drawer in self.dna_drawers.fakes() {
                     drawer.draw(
                         &mut render_pass,
-                        self.viewer.get_bindgroup(),
+                        viewer.get_bindgroup(),
                         self.models.get_bindgroup(),
                     )
                 }
@@ -515,14 +540,14 @@ impl View {
                 if self.background3d == Background3D::Sky {
                     self.skybox_cube.draw(
                         &mut render_pass,
-                        self.viewer.get_bindgroup(),
+                        viewer.get_bindgroup(),
                         self.models.get_bindgroup(),
                     );
                 }
                 for drawer in self.dna_drawers.reals(self.rendering_mode) {
                     drawer.draw(
                         &mut render_pass,
-                        self.viewer.get_bindgroup(),
+                        viewer.get_bindgroup(),
                         self.models.get_bindgroup(),
                     )
                 }
@@ -530,7 +555,7 @@ impl View {
                 for drawer in self.dna_drawers.phantoms() {
                     drawer.draw(
                         &mut render_pass,
-                        self.viewer.get_bindgroup(),
+                        viewer.get_bindgroup(),
                         self.models.get_bindgroup(),
                     )
                 }
@@ -539,7 +564,7 @@ impl View {
                 for drawer in self.dna_drawers.fakes_and_phantoms() {
                     drawer.draw(
                         &mut render_pass,
-                        self.viewer.get_bindgroup(),
+                        viewer.get_bindgroup(),
                         self.models.get_bindgroup(),
                     )
                 }
@@ -714,6 +739,10 @@ impl View {
         self.handle_drawers.end_movement()
     }
 
+    pub fn get_stereography(&self) -> Stereography {
+        self.stereography.clone()
+    }
+
     /// Compute the translation that needs to be applied to the objects affected by the handle
     /// widget.
     pub fn compute_translation_handle(
@@ -731,6 +760,7 @@ impl View {
             self.projection.clone(),
             x0,
             y0,
+            None, // we don't play with handle in stereographic view
         )?;
         let p2 = unproject_point_on_line(
             origin,
@@ -739,6 +769,7 @@ impl View {
             self.projection.clone(),
             x_coord,
             y_coord,
+            None, // we don't play with handle in stereographic view
         )?;
         Some(p2 - p1)
     }
@@ -776,25 +807,57 @@ impl View {
 
     pub fn compute_projection_axis(
         &self,
-        axis: &Axis,
+        axis: Axis<'_>,
         mouse_x: f64,
         mouse_y: f64,
+        stereographic: bool,
     ) -> Option<isize> {
-        let p1 = unproject_point_on_line(
-            axis.origin,
-            axis.direction,
-            self.camera.clone(),
-            self.projection.clone(),
-            mouse_x as f32,
-            mouse_y as f32,
-        )?;
+        match axis {
+            Axis::Line { origin, direction } => {
+                let p1 = unproject_point_on_line(
+                    origin,
+                    direction,
+                    self.camera.clone(),
+                    self.projection.clone(),
+                    mouse_x as f32,
+                    mouse_y as f32,
+                    Some(&self.stereography).filter(|_| stereographic),
+                )?;
 
-        let sign = (p1 - axis.origin).dot(axis.direction).signum();
-        Some(((p1 - axis.origin).mag() * sign / axis.direction.mag()).round() as isize)
+                let sign = (p1 - origin).dot(direction).signum();
+                Some(((p1 - origin).mag() * sign / direction.mag()).round() as isize)
+            }
+            Axis::Curve { nb_points, points } => {
+                let mut ret = 0;
+                let mut opt = f32::INFINITY;
+                for (i, point) in points.iter().enumerate() {
+                    let d = distance_to_cursor(
+                        *point,
+                        self.camera.clone(),
+                        self.projection.clone(),
+                        mouse_x as f32,
+                        mouse_y as f32,
+                        Some(&self.stereography).filter(|_| stereographic),
+                    )
+                    .unwrap_or(f32::INFINITY);
+                    if d < opt {
+                        opt = d;
+                        ret = i as isize
+                    }
+                }
+                Some(ret)
+            }
+        }
     }
 
     pub fn grid_intersection(&self, x_ndc: f32, y_ndc: f32) -> Option<GridIntersection> {
-        let ray = maths_3d::cast_ray(x_ndc, y_ndc, self.camera.clone(), self.projection.clone());
+        let ray = maths_3d::cast_ray(
+            x_ndc,
+            y_ndc,
+            self.camera.clone(),
+            self.projection.clone(),
+            None, // we don't play we grids in stereographic view
+        );
         self.grid_manager.intersect(ray.0, ray.1)
     }
 
@@ -804,7 +867,13 @@ impl View {
         y_ndc: f32,
         g_id: usize,
     ) -> Option<GridIntersection> {
-        let ray = maths_3d::cast_ray(x_ndc, y_ndc, self.camera.clone(), self.projection.clone());
+        let ray = maths_3d::cast_ray(
+            x_ndc,
+            y_ndc,
+            self.camera.clone(),
+            self.projection.clone(),
+            None, // No grids in stereographic view
+        );
         self.grid_manager.specific_intersect(ray.0, ray.1, g_id)
     }
 

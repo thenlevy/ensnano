@@ -16,7 +16,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 use super::maths_3d;
-use super::{ClickMode, PhySize};
+use super::{ClickMode, PhySize, Stereography};
 use iced_winit::winit;
 use std::cell::RefCell;
 use std::f32::consts::{FRAC_PI_2, PI};
@@ -285,7 +285,13 @@ impl CameraController {
         self.pivot_point = point
     }
 
-    pub fn get_projection(&self, origin: Vec3, x: f64, y: f64) -> Vec3 {
+    pub fn get_projection(
+        &self,
+        origin: Vec3,
+        x: f64,
+        y: f64,
+        streography: Option<&Stereography>,
+    ) -> Vec3 {
         let plane = Plane {
             origin,
             normal: (self.camera.borrow().position - origin),
@@ -297,6 +303,7 @@ impl CameraController {
             self.projection.clone(),
             x as f32,
             y as f32,
+            streography,
         )
         .unwrap_or(origin)
     }
@@ -391,6 +398,7 @@ impl CameraController {
                     self.projection.clone(),
                     self.x_scroll,
                     self.y_scroll,
+                    None,
                 )
             } else {
                 None

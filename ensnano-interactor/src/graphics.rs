@@ -124,6 +124,13 @@ pub enum ElementType {
     Overlay(usize),
     /// An area that has not been attributed to an element
     Unattributed,
+    /// A stereographic version of the 3D view
+    StereographicScene,
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct DrawOption {
+    pub stereography: bool,
 }
 
 impl ElementType {
@@ -136,8 +143,18 @@ impl ElementType {
 
     pub fn is_scene(&self) -> bool {
         match self {
-            ElementType::Scene | ElementType::FlatScene => true,
+            ElementType::StereographicScene | ElementType::Scene | ElementType::FlatScene => true,
             _ => false,
+        }
+    }
+
+    pub fn draw_option(&self) -> DrawOption {
+        match self {
+            ElementType::StereographicScene => DrawOption {
+                stereography: true,
+                ..Default::default()
+            },
+            _ => Default::default(),
         }
     }
 }

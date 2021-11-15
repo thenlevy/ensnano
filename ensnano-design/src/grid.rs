@@ -297,35 +297,38 @@ impl Grid {
     }
 
     pub fn find_helix_position(&self, helix: &super::Helix, g_id: usize) -> Option<GridPosition> {
-        let super::Axis { origin, direction } = helix.get_axis(&self.parameters);
-        let (x, y) = self.interpolate_helix(origin, direction)?;
-        let intersection = self.position_helix(x, y);
-        // direction is the vector from the origin of the helix to its first axis position
-        let axis_intersection =
-            ((intersection - origin).dot(direction) / direction.mag_sq()).round() as isize;
-        let nucl_intersection = helix.space_pos(&self.parameters, axis_intersection, false);
-        let projection_nucl = self.project_point(nucl_intersection);
-        let roll = {
-            let x = (projection_nucl - intersection)
-                .dot(Vec3::unit_z().rotated_by(self.orientation))
-                / -self.parameters.helix_radius;
-            let y = (projection_nucl - intersection)
-                .dot(Vec3::unit_y().rotated_by(self.orientation))
-                / -self.parameters.helix_radius;
-            x.atan2(y)
-                - std::f32::consts::PI
-                - axis_intersection as f32 * 2. * std::f32::consts::PI
-                    / self.parameters.bases_per_turn
-        };
-        let roll = (roll + std::f32::consts::PI).rem_euclid(2. * std::f32::consts::PI)
-            - std::f32::consts::PI;
-        Some(GridPosition {
-            grid: g_id,
-            x,
-            y,
-            axis_pos: axis_intersection,
-            roll,
-        })
+        if let super::Axis::Line { origin, direction } = helix.get_axis(&self.parameters) {
+            let (x, y) = self.interpolate_helix(origin, direction)?;
+            let intersection = self.position_helix(x, y);
+            // direction is the vector from the origin of the helix to its first axis position
+            let axis_intersection =
+                ((intersection - origin).dot(direction) / direction.mag_sq()).round() as isize;
+            let nucl_intersection = helix.space_pos(&self.parameters, axis_intersection, false);
+            let projection_nucl = self.project_point(nucl_intersection);
+            let roll = {
+                let x = (projection_nucl - intersection)
+                    .dot(Vec3::unit_z().rotated_by(self.orientation))
+                    / -self.parameters.helix_radius;
+                let y = (projection_nucl - intersection)
+                    .dot(Vec3::unit_y().rotated_by(self.orientation))
+                    / -self.parameters.helix_radius;
+                x.atan2(y)
+                    - std::f32::consts::PI
+                    - axis_intersection as f32 * 2. * std::f32::consts::PI
+                        / self.parameters.bases_per_turn
+            };
+            let roll = (roll + std::f32::consts::PI).rem_euclid(2. * std::f32::consts::PI)
+                - std::f32::consts::PI;
+            Some(GridPosition {
+                grid: g_id,
+                x,
+                y,
+                axis_pos: axis_intersection,
+                roll,
+            })
+        } else {
+            None
+        }
     }
 
     pub fn desc(&self) -> GridDescriptor {
