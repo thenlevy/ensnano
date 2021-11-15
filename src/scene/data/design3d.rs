@@ -848,6 +848,11 @@ impl<R: DesignReader> Design3D<R> {
             (vec![], vec![])
         }
     }
+
+    pub fn get_control_point(&self, helix_id: usize, control: BezierControlPoint) -> Option<Vec3> {
+        let constructor = self.design.get_bezier_controll(helix_id)?;
+        Some(control.get_point(&constructor))
+    }
 }
 
 fn make_bezier_controll(

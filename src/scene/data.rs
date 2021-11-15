@@ -163,7 +163,8 @@ impl<R: DesignReader> Data<R> {
     }
 
     fn update_bezier<S: AppState>(&mut self, app_state: &S) {
-        let selected_helices = ensnano_interactor::extract_helices(app_state.get_selection());
+        let selected_helices =
+            ensnano_interactor::extract_helices_with_controls(app_state.get_selection());
         log::debug!("selected helices {:?}", selected_helices);
         let mut spheres = Vec::new();
         let mut tubes = Vec::new();
@@ -611,6 +612,7 @@ impl<R: DesignReader> Data<R> {
                 .cloned()
                 .collect(),
             Selection::Helix(d_id, h_id) => self.designs[*d_id as usize].get_helix_elements(*h_id),
+            Selection::BezierControlPoint { .. } => HashSet::new(),
             Selection::Strand(d_id, s_id) => {
                 self.designs[*d_id as usize].get_strand_elements(*s_id)
             }
@@ -628,16 +630,26 @@ impl<R: DesignReader> Data<R> {
         referential: Referential,
         selection_mode: SelectionMode,
     ) -> Option<Vec3> {
-        let design_id = element.get_design()?;
-        let design = self.designs.get(design_id as usize)?;
-        match selection_mode {
-            SelectionMode::Helix => design
-                .get_element_axis_position(element, referential)
-                .or(design.get_element_position(element, referential)),
-            SelectionMode::Nucleotide
-            | SelectionMode::Strand
-            | SelectionMode::Design
-            | SelectionMode::Grid => design.get_element_position(element, referential),
+        if let SceneElement::BezierControl {
+            helix_id,
+            bezier_control,
+        } = element
+        {
+            self.designs
+                .get(0)
+                .and_then(|d| d.get_control_point(*helix_id, *bezier_control))
+        } else {
+            let design_id = element.get_design()?;
+            let design = self.designs.get(design_id as usize)?;
+            match selection_mode {
+                SelectionMode::Helix => design
+                    .get_element_axis_position(element, referential)
+                    .or(design.get_element_position(element, referential)),
+                SelectionMode::Nucleotide
+                | SelectionMode::Strand
+                | SelectionMode::Design
+                | SelectionMode::Grid => design.get_element_position(element, referential),
+            }
         }
     }
 
@@ -991,6 +1003,13 @@ impl<R: DesignReader> Data<R> {
                     Selection::Nucleotide(phantom.design_id, phantom.to_nucl())
                 }
             }
+            SceneElement::BezierControl {
+                bezier_control,
+                helix_id,
+            } => Selection::BezierControlPoint {
+                bezier_control: *bezier_control,
+                helix_id: *helix_id,
+            },
             _ => Selection::Nothing,
         }
     }
@@ -1057,6 +1076,15 @@ impl<R: DesignReader> Data<R> {
                         let pos2 = self.designs[d_id as usize].get_nucl_position(n2);
                         self.selected_position = pos1.zip(pos2).map(|(a, b)| (a + b) / 2.);
                     }
+                }
+                Selection::BezierControlPoint {
+                    helix_id,
+                    bezier_control,
+                } => {
+                    self.selected_position = self
+                        .designs
+                        .get(0)
+                        .and_then(|d| d.get_control_point(helix_id, bezier_control))
                 }
                 _ => (),
             }
@@ -1368,6 +1396,7 @@ impl<R: DesignReader> Data<R> {
             Some(SceneElement::GridCircle(d_id, g_id, _, _)) => {
                 self.designs[d_id as usize].get_grid_basis(g_id)
             }
+            Some(SceneElement::BezierControl { .. }) => Some(Rotor3::identity()),
             _ => None,
         };
         let from_selection = match app_state.get_selection().get(0) {

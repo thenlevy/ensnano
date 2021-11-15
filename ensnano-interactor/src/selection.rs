@@ -31,6 +31,10 @@ pub enum Selection {
     Helix(u32, u32),
     Grid(u32, usize),
     Phantom(PhantomElement),
+    BezierControlPoint {
+        helix_id: usize,
+        bezier_control: BezierControlPoint,
+    },
     Nothing,
 }
 
@@ -88,6 +92,7 @@ impl Selection {
             Selection::Grid(d, _) => Some(*d),
             Selection::Phantom(pe) => Some(pe.design_id),
             Selection::Nothing => None,
+            Selection::BezierControlPoint { .. } => Some(0),
             Selection::Xover(d, _) => Some(*d),
         }
     }
@@ -150,6 +155,7 @@ impl Selection {
             }
             Self::Bound(_, n1, n2) => Some(vec![n1.helix, n2.helix]),
             Self::Nothing => Some(vec![]),
+            Self::BezierControlPoint { .. } => None,
         }
     }
 
@@ -310,6 +316,19 @@ pub fn extract_helices(selection: &[Selection]) -> Vec<usize> {
     for s in selection.iter() {
         if let Selection::Helix(_, h_id) = s {
             ret.push(*h_id as usize);
+        }
+    }
+    ret.dedup();
+    ret
+}
+
+pub fn extract_helices_with_controls(selection: &[Selection]) -> Vec<usize> {
+    let mut ret = Vec::new();
+    for s in selection.iter() {
+        if let Selection::Helix(_, h_id) = s {
+            ret.push(*h_id as usize);
+        } else if let Selection::BezierControlPoint { helix_id, .. } = s {
+            ret.push(*helix_id);
         }
     }
     ret.dedup();
@@ -584,6 +603,7 @@ impl SelectionConversion for DnaElementKey {
                     }
                 }
                 Selection::Nothing => None,
+                Selection::BezierControlPoint { .. } => None, //TODO make DNAelement out of these
             }
         } else {
             None

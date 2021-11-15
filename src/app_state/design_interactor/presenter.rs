@@ -283,6 +283,7 @@ impl Presenter {
                     }
                     Selection::Bound(_, n1, n2) => *n1 == nucl || *n2 == nucl,
                     Selection::Phantom(e) => e.to_nucl() == nucl,
+                    Selection::BezierControlPoint { .. } => false,
                 };
         }
         ret
