@@ -805,6 +805,64 @@ impl<R: DesignReader> Design3D<R> {
         }
         ret
     }
+
+    pub fn get_bezier_elements(&self, h_id: usize) -> (Vec<RawDnaInstance>, Vec<RawDnaInstance>) {
+        let mut spheres = Vec::new();
+        let mut tubes = Vec::new();
+        if let Some(constructor) = self.design.get_bezier_controll(h_id) {
+            log::info!("got control");
+            spheres.push(make_bezier_controll(constructor.start, BEZIER_START_COLOR));
+            spheres.push(make_bezier_controll(
+                constructor.control1,
+                BEZIER_CONTROL1_COLOR,
+            ));
+            spheres.push(make_bezier_controll(
+                constructor.control2,
+                BEZIER_CONTROL2_COLOR,
+            ));
+            spheres.push(make_bezier_controll(constructor.end, BEZIER_END_COLOR));
+
+            tubes.push(make_bezier_squelton(
+                constructor.start,
+                constructor.control1,
+            ));
+            tubes.push(make_bezier_squelton(
+                constructor.control1,
+                constructor.control2,
+            ));
+            tubes.push(make_bezier_squelton(constructor.control2, constructor.end));
+
+            (spheres, tubes)
+        } else {
+            (vec![], vec![])
+        }
+    }
+}
+
+fn make_bezier_controll(position: Vec3, color: u32) -> RawDnaInstance {
+    SphereInstance {
+        position,
+        id: 0,
+        color: Instance::color_from_au32(color),
+        radius: BEZIER_CONTROL_RADIUS,
+    }
+    .to_raw_instance()
+}
+
+fn make_bezier_squelton(source: Vec3, dest: Vec3) -> RawDnaInstance {
+    let rotor = Rotor3::from_rotation_between(Vec3::unit_x(), (dest - source).normalized());
+    let position = (dest + source) / 2.;
+    let length = (dest - source).mag();
+
+    TubeInstance {
+        position,
+        color: Instance::color_from_u32(0),
+        id: 0,
+        rotor,
+        radius: BEZIER_SQUELETON_RADIUS,
+        length,
+    }
+    .to_raw_instance()
 }
 
 fn create_dna_bound(
@@ -904,4 +962,5 @@ pub trait DesignReader: 'static + ensnano_interactor::DesignReader {
     fn prime5_of_which_strand(&self, nucl: Nucl) -> Option<usize>;
     fn prime3_of_which_strand(&self, nucl: Nucl) -> Option<usize>;
     fn get_all_prime3_nucl(&self) -> Vec<(Vec3, Vec3, u32)>;
+    fn get_bezier_controll(&self, h_id: usize) -> Option<ensnano_design::CubicBezierConstructor>;
 }

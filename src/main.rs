@@ -624,6 +624,8 @@ fn main() {
                         need_save: main_state.need_save(),
                         can_reload: main_state.get_current_file_name().is_some(),
                         can_split2d: multiplexer.is_showing(&ElementType::FlatScene),
+                        can_toggle_2d: multiplexer.is_showing(&ElementType::FlatScene)
+                            || multiplexer.is_showing(&ElementType::StereographicScene),
                     },
                 );
                 gui.update(&multiplexer, &window);
@@ -1556,6 +1558,12 @@ impl<'a> MainStateInteface for MainStateView<'a> {
         } else {
             log::error!("Design has less than {} cameras", n_camera + 1);
         }
+    }
+
+    fn toggle_2d(&mut self) {
+        self.multiplexer.toggle_2d();
+        self.scheduler
+            .forward_new_size(self.window.inner_size(), self.multiplexer);
     }
 }
 

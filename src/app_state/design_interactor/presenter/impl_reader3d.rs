@@ -308,6 +308,14 @@ impl Reader3D for DesignReader {
             false
         }
     }
+
+    fn get_bezier_controll(&self, h_id: usize) -> Option<ensnano_design::CubicBezierConstructor> {
+        self.presenter
+            .current_design
+            .helices
+            .get(&h_id)
+            .and_then(|h| h.as_ref().get_bezier_controls())
+    }
 }
 
 impl Presenter {}

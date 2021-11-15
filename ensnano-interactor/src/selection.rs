@@ -282,6 +282,17 @@ pub fn list_of_helices(selection: &[Selection]) -> Option<(usize, Vec<usize>)> {
     Some((design_id as usize, helices.into_iter().collect()))
 }
 
+pub fn extract_helices(selection: &[Selection]) -> Vec<usize> {
+    let mut ret = Vec::new();
+    for s in selection.iter() {
+        if let Selection::Helix(_, h_id) = s {
+            ret.push(*h_id as usize);
+        }
+    }
+    ret.dedup();
+    ret
+}
+
 pub fn set_of_helices_containing_selection(
     selection: &[Selection],
     reader: &dyn DesignReader,

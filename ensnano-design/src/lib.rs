@@ -1793,6 +1793,10 @@ impl Helix {
     pub fn set_roll(&mut self, roll: f32) {
         self.roll = roll
     }
+
+    pub fn get_bezier_controls(&self) -> Option<CubicBezierConstructor> {
+        self.curve.as_ref().and_then(|c| c.get_bezier_controls())
+    }
 }
 
 /// Apply a mutating function to the value wrapped in an Arc<Helix>. This will make `helix_ptr`

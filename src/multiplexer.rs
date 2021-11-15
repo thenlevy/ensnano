@@ -329,6 +329,7 @@ impl Multiplexer {
         scale_factor_changed: &mut bool,
     ) -> Option<(WindowEvent<'static>, ElementType)> {
         let mut captured = false;
+        let can_resize = false;
         match &mut event {
             WindowEvent::CursorMoved { position, .. } => match &mut self.state {
                 State::Resizing {
@@ -337,20 +338,21 @@ impl Multiplexer {
                     clicked_position,
                     old_proportion,
                 } => {
-                    /*
-                    *mouse_position = *position;
-                    let mut position = position.clone();
-                    position.x /= self.window_size.width as f64;
-                    position.y /= self.window_size.height as f64;
-                    *resized = true;
-                    self.layout_manager.resize_click(
-                        *region,
-                        &position,
-                        &clicked_position,
-                        *old_proportion,
-                    );
-                    self.icon = Some(CursorIcon::EwResize);
-                    captured = true;*/
+                    if can_resize {
+                        *mouse_position = *position;
+                        let mut position = position.clone();
+                        position.x /= self.window_size.width as f64;
+                        position.y /= self.window_size.height as f64;
+                        *resized = true;
+                        self.layout_manager.resize_click(
+                            *region,
+                            &position,
+                            &clicked_position,
+                            *old_proportion,
+                        );
+                        self.icon = Some(CursorIcon::EwResize);
+                        captured = true;
+                    }
                 }
 
                 State::Normal { mouse_position, .. } => {
@@ -588,7 +590,7 @@ impl Multiplexer {
         }
     }
 
-    pub fn change_2d_element(&mut self) {
+    pub fn toggle_2d(&mut self) {
         let old_element_2d = self.element_2d;
         if self.element_2d == ElementType::FlatScene {
             self.element_2d = ElementType::StereographicScene;
@@ -598,6 +600,7 @@ impl Multiplexer {
         if let Some(id) = self.layout_manager.get_area_id(old_element_2d) {
             self.layout_manager.attribute_element(id, self.element_2d)
         }
+        self.generate_textures();
     }
 
     pub fn change_split(&mut self, split_mode: SplitMode) {

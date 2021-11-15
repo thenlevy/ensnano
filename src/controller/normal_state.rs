@@ -230,6 +230,10 @@ impl State for NormalState {
                     main_state.update_camera(camera_id);
                     self
                 }
+                Action::Toggle2D => {
+                    main_state.toggle_2d();
+                    self
+                }
                 action => {
                     println!("Not implemented {:?}", action);
                     self
@@ -421,4 +425,5 @@ pub enum Action {
     SelectCamera(ensnano_design::CameraId),
     SelectFavoriteCamera(u32),
     UpdateCamera(ensnano_design::CameraId),
+    Toggle2D,
 }

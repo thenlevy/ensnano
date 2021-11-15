@@ -184,6 +184,7 @@ pub trait Requests: 'static + Send {
     fn set_suggestion_parameters(&mut self, param: SuggestionParameters);
     fn set_grid_position(&mut self, grid_id: usize, position: Vec3);
     fn set_grid_orientation(&mut self, grid_id: usize, orientation: Rotor3);
+    fn toggle_2d(&mut self);
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -874,6 +875,7 @@ impl<S: AppState> IcedMessages<S> {
                     need_save: main_state.need_save,
                     can_reload: main_state.can_reload,
                     can_split2d: main_state.can_split2d,
+                    can_toggle_2d: main_state.can_toggle_2d,
                 }));
             self.status_bar
                 .push_back(status_bar::Message::NewApplicationState(state.clone()));
@@ -935,4 +937,5 @@ pub struct MainState {
     pub need_save: bool,
     pub can_reload: bool,
     pub can_split2d: bool,
+    pub can_toggle_2d: bool,
 }

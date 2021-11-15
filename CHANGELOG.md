@@ -2,6 +2,10 @@
 
 
 <!-- next-header -->
+## unreleased
+  - Add a contextual panel to manually enter grid position / orientation
+
+
 ## 0.3.1
 
 - Improve flexibility of the cross-over suggestions interface. The parameters are in the "Eddition" tab

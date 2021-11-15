@@ -356,6 +356,10 @@ impl GuiRequests for Requests {
             },
         ))
     }
+
+    fn toggle_2d(&mut self) {
+        self.keep_proceed.push_back(Action::Toggle2D)
+    }
 }
 
 fn rigid_parameters(parameters: RigidBodyParametersRequest) -> RigidBodyConstants {

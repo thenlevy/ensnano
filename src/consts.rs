@@ -123,3 +123,10 @@ pub const CYM_HANDLE_COLORS: [u32; 3] = [0x00FFFF, 0xFF00FF, 0xFFFF00];
 pub const ENS_EXTENSION: &'static str = "ens";
 
 pub const NO_DESIGN_TITLE: &'static str = "New file";
+
+pub const BEZIER_CONTROL_RADIUS: f32 = 2.5;
+pub const BEZIER_SQUELETON_RADIUS: f32 = 0.5;
+pub const BEZIER_START_COLOR: u32 = 0xFF_B0_21_21;
+pub const BEZIER_END_COLOR: u32 = 0xFF_F0_CA_22;
+pub const BEZIER_CONTROL1_COLOR: u32 = 0xFF_37_85_30;
+pub const BEZIER_CONTROL2_COLOR: u32 = 0xFF_1A_15_70;

@@ -179,6 +179,14 @@ impl CurveDescriptor {
             Self::SphereLikeSpiral(spiral) => Curve::new(spiral, parameters),
         }
     }
+
+    pub fn get_bezier_controls(&self) -> Option<CubicBezierConstructor> {
+        if let Self::Bezier(b) = self {
+            Some(b.clone())
+        } else {
+            None
+        }
+    }
 }
 
 #[derive(Clone)]

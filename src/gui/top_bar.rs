@@ -78,6 +78,7 @@ pub struct TopBar<R: Requests, S: AppState> {
     button_help: button::State,
     button_tutorial: button::State,
     button_reload: button::State,
+    button_toggle_2d: button::State,
     button_new_empty_design: button::State,
     requests: Arc<Mutex<R>>,
     logical_size: LogicalSize<f64>,
@@ -95,6 +96,7 @@ pub struct MainState<S: AppState> {
     pub need_save: bool,
     pub can_reload: bool,
     pub can_split2d: bool,
+    pub can_toggle_2d: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -116,6 +118,7 @@ pub enum Message<S: AppState> {
     ButtonNewEmptyDesignPressed,
     ActionModeChanged(ActionMode),
     SelectionModeChanged(SelectionMode),
+    Toggle2D,
     Reload,
 }
 
@@ -137,6 +140,7 @@ impl<R: Requests, S: AppState> TopBar<R, S> {
             button_tutorial: Default::default(),
             button_new_empty_design: Default::default(),
             button_reload: Default::default(),
+            button_toggle_2d: Default::default(),
             requests,
             logical_size,
             action_mode_state: Default::default(),
@@ -207,6 +211,9 @@ impl<R: Requests, S: AppState> Program for TopBar<R, S> {
                         _ => (),
                     }
                 }
+            }
+            Message::Toggle2D => {
+                self.requests.lock().unwrap().toggle_2d();
             }
         };
         Command::none()
@@ -325,6 +332,14 @@ impl<R: Requests, S: AppState> Program for TopBar<R, S> {
             button_split_2d = button_split_2d.on_press(Message::Split2d);
         }
 
+        let mut button_toggle_2d =
+            Button::new(&mut self.button_toggle_2d, iced::Text::new("Toggle 2D"))
+                .height(Length::Units(self.ui_size.button()));
+
+        if self.application_state.can_toggle_2d {
+            button_toggle_2d = button_toggle_2d.on_press(Message::Toggle2D);
+        }
+
         let button_help = Button::new(&mut self.button_help, iced::Text::new("Help"))
             .height(Length::Units(self.ui_size.button()))
             .on_press(Message::ForceHelp);
@@ -386,6 +401,7 @@ impl<R: Requests, S: AppState> Program for TopBar<R, S> {
             .push(button_2d)
             .push(button_split)
             .push(button_split_2d)
+            .push(button_toggle_2d)
             .push(iced::Space::with_width(Length::Units(10)))
             .push(button_fit)
             .push(iced::Space::with_width(Length::Units(10)))

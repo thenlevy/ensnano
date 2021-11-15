@@ -132,6 +132,7 @@ impl<R: DesignReader> Data<R> {
             || app_state.selection_was_updated(older_app_state)
             || app_state.get_action_mode() != older_app_state.get_action_mode();
         if self.handle_need_opdate {
+            self.update_bezier(app_state);
             self.update_handle(app_state);
             self.handle_need_opdate = false;
         }
@@ -159,6 +160,25 @@ impl<R: DesignReader> Data<R> {
             || self.last_candidate_disc != self.candidate_element;
         self.last_candidate_disc = self.candidate_element.clone();
         ret
+    }
+
+    fn update_bezier<S: AppState>(&mut self, app_state: &S) {
+        let selected_helices = ensnano_interactor::extract_helices(app_state.get_selection());
+        log::debug!("selected helices {:?}", selected_helices);
+        let mut spheres = Vec::new();
+        let mut tubes = Vec::new();
+        for h_id in selected_helices {
+            let (s, t) = self.designs[0].get_bezier_elements(h_id);
+            spheres.extend(s);
+            tubes.extend(t);
+        }
+
+        self.view
+            .borrow_mut()
+            .update(ViewUpdate::RawDna(Mesh::BezierControll, Rc::new(spheres)));
+        self.view
+            .borrow_mut()
+            .update(ViewUpdate::RawDna(Mesh::BezierSqueleton, Rc::new(tubes)));
     }
 
     fn update_handle<S: AppState>(&self, app_state: &S) {

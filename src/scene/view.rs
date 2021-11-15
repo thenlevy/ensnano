@@ -948,6 +948,8 @@ pub enum Mesh {
     XoverTube,
     Prime3Cone,
     Prime3ConeOutline,
+    BezierControll,
+    BezierSqueleton,
 }
 
 impl Mesh {
@@ -995,6 +997,8 @@ struct DnaDrawers {
     xover_tube: InstanceDrawer<TubeInstance>,
     prime3_cones: InstanceDrawer<dna_obj::ConeInstance>,
     outline_prime3_cones: InstanceDrawer<dna_obj::ConeInstance>,
+    bezier_controll_points: InstanceDrawer<dna_obj::SphereInstance>,
+    bezier_squelton: InstanceDrawer<dna_obj::TubeInstance>,
 }
 
 impl DnaDrawers {
@@ -1023,6 +1027,8 @@ impl DnaDrawers {
             Mesh::XoverTube => &mut self.xover_tube,
             Mesh::Prime3Cone => &mut self.prime3_cones,
             Mesh::Prime3ConeOutline => &mut self.outline_prime3_cones,
+            Mesh::BezierControll => &mut self.bezier_controll_points,
+            Mesh::BezierSqueleton => &mut self.bezier_squelton,
         }
     }
 
@@ -1047,6 +1053,8 @@ impl DnaDrawers {
             &mut self.pivot_sphere,
             &mut self.xover_sphere,
             &mut self.xover_tube,
+            &mut self.bezier_squelton,
+            &mut self.bezier_controll_points,
         ];
         if rendering_mode == RenderingMode::Cartoon {
             ret.insert(3, &mut self.outline_tube);
@@ -1284,6 +1292,24 @@ impl DnaDrawers {
                 (),
                 true,
                 "fake phantom tube",
+            ),
+            bezier_controll_points: InstanceDrawer::new(
+                device.clone(),
+                queue.clone(),
+                viewer_desc,
+                model_desc,
+                (),
+                false,
+                "bezier controlle points",
+            ),
+            bezier_squelton: InstanceDrawer::new(
+                device.clone(),
+                queue.clone(),
+                viewer_desc,
+                model_desc,
+                (),
+                false,
+                "bezier squeleton",
             ),
         }
     }
