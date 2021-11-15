@@ -1797,6 +1797,14 @@ impl Helix {
     pub fn get_bezier_controls(&self) -> Option<CubicBezierConstructor> {
         self.curve.as_ref().and_then(|c| c.get_bezier_controls())
     }
+
+    pub fn get_curve_range(&self) -> Option<std::ops::RangeInclusive<isize>> {
+        if let Some(ref curve) = self.instanciated_curve {
+            Some(0..=(curve.curve.nb_points() as isize - 1))
+        } else {
+            None
+        }
+    }
 }
 
 /// Apply a mutating function to the value wrapped in an Arc<Helix>. This will make `helix_ptr`

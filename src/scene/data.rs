@@ -925,7 +925,10 @@ impl<R: DesignReader> Data<R> {
                         }
                     }
                     SceneElement::WidgetElement(_) => unreachable!(),
-                    SceneElement::BezierControl { .. } => (),
+                    SceneElement::BezierControl { helix_id, .. } => {
+                        let set = ret.entry(0).or_insert_with(HashMap::new);
+                        set.insert(helix_id as u32, false);
+                    }
                 }
             }
         }

@@ -367,10 +367,15 @@ impl<R: DesignReader> Design3D<R> {
                 PHANTOM_RANGE / 10
             } else {
                 PHANTOM_RANGE
-            };
+            } as isize;
             for forward in [false, true].iter() {
                 let mut previous_nucl = None;
-                for i in -range_phantom..=range_phantom {
+                let range = self
+                    .design
+                    .get_curve_range(*helix_id as usize)
+                    .unwrap_or(-range_phantom..=range_phantom);
+                for i in range {
+                    let i = i as i32;
                     let nucl_coord = self.design.get_position_of_nucl_on_helix(
                         Nucl {
                             helix: *helix_id as usize,
@@ -985,4 +990,5 @@ pub trait DesignReader: 'static + ensnano_interactor::DesignReader {
     fn prime3_of_which_strand(&self, nucl: Nucl) -> Option<usize>;
     fn get_all_prime3_nucl(&self) -> Vec<(Vec3, Vec3, u32)>;
     fn get_bezier_controll(&self, h_id: usize) -> Option<ensnano_design::CubicBezierConstructor>;
+    fn get_curve_range(&self, h_id: usize) -> Option<std::ops::RangeInclusive<isize>>;
 }

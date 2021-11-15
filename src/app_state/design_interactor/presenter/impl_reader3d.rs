@@ -316,6 +316,14 @@ impl Reader3D for DesignReader {
             .get(&h_id)
             .and_then(|h| h.as_ref().get_bezier_controls())
     }
+
+    fn get_curve_range(&self, h_id: usize) -> Option<std::ops::RangeInclusive<isize>> {
+        self.presenter
+            .current_design
+            .helices
+            .get(&h_id)
+            .and_then(|h| h.as_ref().get_curve_range())
+    }
 }
 
 impl Presenter {}
