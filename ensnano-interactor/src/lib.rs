@@ -291,6 +291,8 @@ pub enum IsometryTarget {
     Grids(Vec<usize>),
     /// The pivot of a group
     GroupPivot(GroupId),
+    /// The control points of bezier curves
+    ControlPoint(Vec<(usize, BezierControlPoint)>),
 }
 
 /// A stucture that defines an helix on a grid

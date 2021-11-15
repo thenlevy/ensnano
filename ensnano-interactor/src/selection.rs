@@ -64,12 +64,24 @@ pub enum BezierControlPoint {
 }
 
 impl BezierControlPoint {
-    pub fn get_point(&self, constuctor: &CubicBezierConstructor) -> ultraviolet::Vec3 {
+    pub fn get_point(&self, constructor: &CubicBezierConstructor) -> ultraviolet::Vec3 {
         match self {
-            Self::Start => constuctor.start,
-            Self::End => constuctor.end,
-            Self::Control1 => constuctor.control1,
-            Self::Control2 => constuctor.control2,
+            Self::Start => constructor.start,
+            Self::End => constructor.end,
+            Self::Control1 => constructor.control1,
+            Self::Control2 => constructor.control2,
+        }
+    }
+
+    pub fn get_point_mut<'a>(
+        &self,
+        constructor: &'a mut CubicBezierConstructor,
+    ) -> &'a mut ultraviolet::Vec3 {
+        match self {
+            Self::Start => &mut constructor.start,
+            Self::End => &mut constructor.end,
+            Self::Control1 => &mut constructor.control1,
+            Self::Control2 => &mut constructor.control2,
         }
     }
 }
@@ -329,6 +341,21 @@ pub fn extract_helices_with_controls(selection: &[Selection]) -> Vec<usize> {
             ret.push(*h_id as usize);
         } else if let Selection::BezierControlPoint { helix_id, .. } = s {
             ret.push(*helix_id);
+        }
+    }
+    ret.dedup();
+    ret
+}
+
+pub fn extract_control_points(selection: &[Selection]) -> Vec<(usize, BezierControlPoint)> {
+    let mut ret = Vec::new();
+    for s in selection.iter() {
+        if let Selection::BezierControlPoint {
+            helix_id,
+            bezier_control,
+        } = s
+        {
+            ret.push((*helix_id, *bezier_control));
         }
     }
     ret.dedup();

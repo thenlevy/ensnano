@@ -445,39 +445,52 @@ impl<S: AppState> Scene<S> {
             app_state.get_selection(),
             &reader,
         );
+        let control_points = ensnano_interactor::extract_control_points(app_state.get_selection());
         let at_most_one_grid = grids.as_ref().map(|g| g.len() <= 1).unwrap_or(false);
 
         let group_id = app_state.get_current_group_id();
 
-        let translation_op: Arc<dyn Operation> =
-            if let Some(helices) = helices.filter(|_| at_most_one_grid) {
-                Arc::new(HelixTranslation {
-                    design_id: 0,
-                    helices,
-                    right: Vec3::unit_x().rotated_by(rotor),
-                    top: Vec3::unit_y().rotated_by(rotor),
-                    dir: Vec3::unit_z().rotated_by(rotor),
-                    x: translation.dot(right),
-                    y: translation.dot(top),
-                    z: translation.dot(dir),
-                    snap: true,
-                    group_id,
-                })
-            } else if let Some(grids) = grids {
-                Arc::new(GridTranslation {
-                    design_id: 0,
-                    grid_ids: grids,
-                    right: Vec3::unit_x().rotated_by(rotor),
-                    top: Vec3::unit_y().rotated_by(rotor),
-                    dir: Vec3::unit_z().rotated_by(rotor),
-                    x: translation.dot(right),
-                    y: translation.dot(top),
-                    z: translation.dot(dir),
-                    group_id,
-                })
-            } else {
-                return;
-            };
+        let translation_op: Arc<dyn Operation> = if control_points.len() > 0 {
+            Arc::new(BezierControlPointTranslation {
+                design_id: 0,
+                control_points,
+                right: Vec3::unit_x().rotated_by(rotor),
+                top: Vec3::unit_y().rotated_by(rotor),
+                dir: Vec3::unit_z().rotated_by(rotor),
+                x: translation.dot(right),
+                y: translation.dot(top),
+                z: translation.dot(dir),
+                snap: true,
+                group_id,
+            })
+        } else if let Some(helices) = helices.filter(|_| at_most_one_grid) {
+            Arc::new(HelixTranslation {
+                design_id: 0,
+                helices,
+                right: Vec3::unit_x().rotated_by(rotor),
+                top: Vec3::unit_y().rotated_by(rotor),
+                dir: Vec3::unit_z().rotated_by(rotor),
+                x: translation.dot(right),
+                y: translation.dot(top),
+                z: translation.dot(dir),
+                snap: true,
+                group_id,
+            })
+        } else if let Some(grids) = grids {
+            Arc::new(GridTranslation {
+                design_id: 0,
+                grid_ids: grids,
+                right: Vec3::unit_x().rotated_by(rotor),
+                top: Vec3::unit_y().rotated_by(rotor),
+                dir: Vec3::unit_z().rotated_by(rotor),
+                x: translation.dot(right),
+                y: translation.dot(top),
+                z: translation.dot(dir),
+                group_id,
+            })
+        } else {
+            return;
+        };
 
         self.requests
             .lock()

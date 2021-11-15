@@ -22,11 +22,12 @@ use ensnano_design::{
     elements::{DnaAttribute, DnaElementKey},
     grid::{Edge, GridDescriptor, GridPosition, Hyperboloid},
     group_attributes::GroupPivot,
-    mutate_in_arc, CameraId, Design, Domain, DomainJunction, Helix, Nucl, Parameters, Strand,
+    mutate_in_arc, CameraId, CurveDescriptor, Design, Domain, DomainJunction, Helix, Nucl,
+    Parameters, Strand,
 };
 use ensnano_interactor::{
     operation::{Operation, Parameter},
-    HyperboloidOperation, SimulationState,
+    BezierControlPoint, HyperboloidOperation, SimulationState,
 };
 use ensnano_interactor::{
     DesignOperation, DesignRotation, DesignTranslation, DomainIdentifier, IsometryTarget,
@@ -1039,6 +1040,9 @@ impl Controller {
             IsometryTarget::GroupPivot(group_id) => {
                 self.translate_group_pivot(design, translation.translation, group_id)
             }
+            IsometryTarget::ControlPoint(control_points) => {
+                Ok(self.translate_control_points(design, control_points, translation.translation))
+            }
         }?;
 
         if let Some(group_id) = translation.group_id {
@@ -1150,6 +1154,7 @@ impl Controller {
             IsometryTarget::Grids(grid_ids) => {
                 Ok(self.rotate_grids(design, grid_ids, rotation.rotation, rotation.origin))
             }
+            IsometryTarget::ControlPoint(_) => Err(ErrOperation::NotImplemented),
         }?;
         if let Some(group_id) = rotation.group_id {
             let pivot = design
@@ -1183,6 +1188,29 @@ impl Controller {
         } else {
             new_design
         }
+    }
+
+    fn translate_control_points(
+        &mut self,
+        mut design: Design,
+        control_points: Vec<(usize, BezierControlPoint)>,
+        translation: Vec3,
+    ) -> Design {
+        self.update_state_and_design(&mut design);
+        let mut new_helices = BTreeMap::clone(design.helices.as_ref());
+        for (h_id, control) in control_points.iter() {
+            if let Some(helix) = new_helices.get_mut(&h_id) {
+                if let Some(mut contructor) = helix.as_ref().get_bezier_controls() {
+                    let point = control.get_point_mut(&mut contructor);
+                    *point += translation;
+                    let mut new_helix = Helix::clone(helix.as_ref());
+                    new_helix.curve = Some(Arc::new(CurveDescriptor::Bezier(contructor)));
+                    *helix = Arc::new(new_helix);
+                }
+            }
+        }
+        design.helices = Arc::new(new_helices);
+        design
     }
 
     fn rotate_helices_3d(
