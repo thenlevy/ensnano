@@ -568,6 +568,12 @@ impl View {
                         self.models.get_bindgroup(),
                     )
                 }
+            } else if draw_type == DrawType::Widget {
+                self.dna_drawers.fake_bezier_control.draw(
+                    &mut render_pass,
+                    viewer_bind_group,
+                    self.models.get_bindgroup(),
+                );
             }
 
             if !fake_color && self.draw_letter {
@@ -950,6 +956,7 @@ pub enum Mesh {
     Prime3ConeOutline,
     BezierControll,
     BezierSqueleton,
+    FakeBezierControl,
 }
 
 impl Mesh {
@@ -959,6 +966,7 @@ impl Mesh {
             Self::Tube => Some(Self::FakeTube),
             Self::PhantomSphere => Some(Self::FakePhantomSphere),
             Self::PhantomTube => Some(Self::FakePhantomTube),
+            Self::BezierControll => Some(Self::FakeBezierControl),
             _ => None,
         }
     }
@@ -999,6 +1007,7 @@ struct DnaDrawers {
     outline_prime3_cones: InstanceDrawer<dna_obj::ConeInstance>,
     bezier_controll_points: InstanceDrawer<dna_obj::SphereInstance>,
     bezier_squelton: InstanceDrawer<dna_obj::TubeInstance>,
+    fake_bezier_control: InstanceDrawer<SphereInstance>,
 }
 
 impl DnaDrawers {
@@ -1029,6 +1038,7 @@ impl DnaDrawers {
             Mesh::Prime3ConeOutline => &mut self.outline_prime3_cones,
             Mesh::BezierControll => &mut self.bezier_controll_points,
             Mesh::BezierSqueleton => &mut self.bezier_squelton,
+            Mesh::FakeBezierControl => &mut self.fake_bezier_control,
         }
     }
 
@@ -1310,6 +1320,15 @@ impl DnaDrawers {
                 (),
                 false,
                 "bezier squeleton",
+            ),
+            fake_bezier_control: InstanceDrawer::new(
+                device.clone(),
+                queue.clone(),
+                viewer_desc,
+                model_desc,
+                (),
+                true,
+                "fake bezier control",
             ),
         }
     }

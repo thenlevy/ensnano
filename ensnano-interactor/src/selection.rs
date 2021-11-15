@@ -16,7 +16,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 use ensnano_design::grid::GridPosition;
-use ensnano_design::{Nucl, Strand};
+use ensnano_design::{CubicBezierConstructor, Nucl, Strand};
 use std::collections::BTreeSet;
 
 pub const PHANTOM_RANGE: i32 = 1000;
@@ -45,6 +45,29 @@ pub enum CenterOfSelection {
         x: isize,
         y: isize,
     },
+    BezierControlPoint {
+        helix_id: usize,
+        bezier_control: BezierControlPoint,
+    },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BezierControlPoint {
+    Start,
+    End,
+    Control1,
+    Control2,
+}
+
+impl BezierControlPoint {
+    pub fn get_point(&self, constuctor: &CubicBezierConstructor) -> ultraviolet::Vec3 {
+        match self {
+            Self::Start => constuctor.start,
+            Self::End => constuctor.end,
+            Self::Control1 => constuctor.control1,
+            Self::Control2 => constuctor.control2,
+        }
+    }
 }
 
 impl Selection {

@@ -19,7 +19,7 @@ use std::rc::Rc;
 
 use super::{Device, DrawArea, DrawType, Queue, ViewPtr};
 use crate::utils;
-use ensnano_interactor::{phantom_helix_decoder, PhantomElement};
+use ensnano_interactor::{phantom_helix_decoder, BezierControlPoint, PhantomElement};
 use futures::executor;
 use iced_wgpu::wgpu;
 use iced_winit::winit::dpi::{PhysicalPosition, PhysicalSize};
@@ -236,6 +236,10 @@ pub enum SceneElement {
     PhantomElement(PhantomElement),
     Grid(u32, usize),
     GridCircle(u32, usize, isize, isize),
+    BezierControl {
+        helix_id: usize,
+        bezier_control: BezierControlPoint,
+    },
 }
 
 impl SceneElement {
@@ -246,6 +250,7 @@ impl SceneElement {
             SceneElement::PhantomElement(p) => Some(p.design_id),
             SceneElement::Grid(d, _) => Some(*d),
             SceneElement::GridCircle(d, _, _, _) => Some(*d),
+            SceneElement::BezierControl { .. } => None,
         }
     }
 
@@ -254,6 +259,21 @@ impl SceneElement {
         match self {
             SceneElement::WidgetElement(_) => true,
             _ => false,
+        }
+    }
+
+    pub fn transform_into_bezier(self) -> Self {
+        if let Self::WidgetElement(id) = self {
+            if let Some((helix_id, bezier_control)) = crate::consts::widget_id_to_bezier(id) {
+                Self::BezierControl {
+                    bezier_control,
+                    helix_id,
+                }
+            } else {
+                self
+            }
+        } else {
+            self
         }
     }
 }
@@ -294,7 +314,9 @@ impl SceneReader {
                 DrawType::Phantom => {
                     Some(SceneElement::PhantomElement(phantom_helix_decoder(color)))
                 }
-                DrawType::Widget => Some(SceneElement::WidgetElement(color)),
+                DrawType::Widget => {
+                    Some(SceneElement::WidgetElement(color).transform_into_bezier())
+                }
                 DrawType::Scene => unreachable!(),
             }
         }

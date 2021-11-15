@@ -25,8 +25,8 @@ use crate::consts::*;
 use crate::utils::instance::Instance;
 use ensnano_design::{grid::GridPosition, Nucl};
 use ensnano_interactor::{
-    phantom_helix_encoder_bound, phantom_helix_encoder_nucl, ObjectType, PhantomElement,
-    Referential, PHANTOM_RANGE,
+    phantom_helix_encoder_bound, phantom_helix_encoder_nucl, BezierControlPoint, ObjectType,
+    PhantomElement, Referential, PHANTOM_RANGE,
 };
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
@@ -456,6 +456,7 @@ impl<R: DesignReader> Design3D<R> {
             }
             SceneElement::WidgetElement(_)
             | SceneElement::Grid(_, _)
+            | SceneElement::BezierControl { .. }
             | SceneElement::GridCircle(_, _, _, _) => None,
         }
     }
@@ -811,16 +812,26 @@ impl<R: DesignReader> Design3D<R> {
         let mut tubes = Vec::new();
         if let Some(constructor) = self.design.get_bezier_controll(h_id) {
             log::info!("got control");
-            spheres.push(make_bezier_controll(constructor.start, BEZIER_START_COLOR));
+            spheres.push(make_bezier_controll(
+                constructor.start,
+                h_id as u32,
+                BezierControlPoint::Start,
+            ));
             spheres.push(make_bezier_controll(
                 constructor.control1,
-                BEZIER_CONTROL1_COLOR,
+                h_id as u32,
+                BezierControlPoint::Control1,
             ));
             spheres.push(make_bezier_controll(
                 constructor.control2,
-                BEZIER_CONTROL2_COLOR,
+                h_id as u32,
+                BezierControlPoint::Control2,
             ));
-            spheres.push(make_bezier_controll(constructor.end, BEZIER_END_COLOR));
+            spheres.push(make_bezier_controll(
+                constructor.end,
+                h_id as u32,
+                BezierControlPoint::End,
+            ));
 
             tubes.push(make_bezier_squelton(
                 constructor.start,
@@ -839,10 +850,16 @@ impl<R: DesignReader> Design3D<R> {
     }
 }
 
-fn make_bezier_controll(position: Vec3, color: u32) -> RawDnaInstance {
+fn make_bezier_controll(
+    position: Vec3,
+    helix_id: u32,
+    bezier_control: BezierControlPoint,
+) -> RawDnaInstance {
+    let id = bezier_widget_id(helix_id, bezier_control);
+    let color = bezier_control_color(bezier_control);
     SphereInstance {
         position,
-        id: 0,
+        id,
         color: Instance::color_from_au32(color),
         radius: BEZIER_CONTROL_RADIUS,
     }

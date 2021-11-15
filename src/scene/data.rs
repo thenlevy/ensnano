@@ -913,6 +913,7 @@ impl<R: DesignReader> Data<R> {
                         }
                     }
                     SceneElement::WidgetElement(_) => unreachable!(),
+                    SceneElement::BezierControl { .. } => (),
                 }
             }
         }
@@ -1522,6 +1523,13 @@ impl<R: DesignReader> Data<R> {
                 x,
                 y,
             } => Some(SceneElement::GridCircle(design, grid_id, x, y)),
+            CenterOfSelection::BezierControlPoint {
+                helix_id,
+                bezier_control,
+            } => Some(SceneElement::BezierControl {
+                helix_id,
+                bezier_control,
+            }),
         }
     }
 
@@ -1602,6 +1610,13 @@ impl<R: DesignReader> Data<R> {
                 })
             }
             SceneElement::WidgetElement(_) => None,
+            SceneElement::BezierControl {
+                helix_id,
+                bezier_control,
+            } => Some(CenterOfSelection::BezierControlPoint {
+                helix_id,
+                bezier_control,
+            }),
         }
     }
 
