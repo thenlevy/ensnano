@@ -720,6 +720,7 @@ impl<R: Requests, S: AppState> Gui<R, S> {
         staging_belt: &mut wgpu::util::StagingBelt,
         mouse_interaction: &mut iced::mouse::Interaction,
     ) {
+        *mouse_interaction = Default::default();
         for element in self.elements.values_mut() {
             element.render(
                 &mut self.renderer,
