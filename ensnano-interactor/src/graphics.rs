@@ -128,11 +128,6 @@ pub enum ElementType {
     StereographicScene,
 }
 
-#[derive(Clone, Debug, Default)]
-pub struct DrawOption {
-    pub stereography: bool,
-}
-
 impl ElementType {
     pub fn is_gui(&self) -> bool {
         match self {
@@ -145,16 +140,6 @@ impl ElementType {
         match self {
             ElementType::StereographicScene | ElementType::Scene | ElementType::FlatScene => true,
             _ => false,
-        }
-    }
-
-    pub fn draw_option(&self) -> DrawOption {
-        match self {
-            ElementType::StereographicScene => DrawOption {
-                stereography: true,
-                ..Default::default()
-            },
-            _ => Default::default(),
         }
     }
 }

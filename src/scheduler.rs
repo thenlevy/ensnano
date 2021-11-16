@@ -61,7 +61,7 @@ impl Scheduler {
         if let Some(app) = self.applications.get_mut(&area) {
             app.lock()
                 .unwrap()
-                .on_event(event, cursor_position, &app_state, area.draw_option())
+                .on_event(event, cursor_position, &app_state)
         }
     }
 
@@ -74,10 +74,7 @@ impl Scheduler {
         self.needs_redraw.clear();
         for (area, app) in self.applications.iter_mut() {
             if multiplexer.is_showing(area)
-                && app
-                    .lock()
-                    .unwrap()
-                    .needs_redraw(dt, app_state.clone(), area.draw_option())
+                && app.lock().unwrap().needs_redraw(dt, app_state.clone())
             {
                 self.needs_redraw.push(*area)
             }
@@ -95,9 +92,7 @@ impl Scheduler {
         for area in self.needs_redraw.iter() {
             let app = self.applications.get_mut(area).unwrap();
             if let Some(target) = multiplexer.get_texture_view(*area) {
-                app.lock()
-                    .unwrap()
-                    .on_redraw_request(encoder, target, area.draw_option(), dt);
+                app.lock().unwrap().on_redraw_request(encoder, target, dt);
             }
         }
     }

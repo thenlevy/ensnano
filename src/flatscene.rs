@@ -23,8 +23,8 @@ use ensnano_design::Nucl;
 use ensnano_interactor::{
     application::{AppId, Application, Notification},
     operation::*,
-    ActionMode, DesignOperation, DrawOption, PhantomElement, Selection, SelectionMode,
-    StrandBuilder, StrandBuildingStatus,
+    ActionMode, DesignOperation, PhantomElement, Selection, SelectionMode, StrandBuilder,
+    StrandBuildingStatus,
 };
 use iced_wgpu::wgpu;
 use iced_winit::winit;
@@ -543,13 +543,7 @@ impl<S: AppState> Application for FlatScene<S> {
         self.resize(window_size, area)
     }
 
-    fn on_event(
-        &mut self,
-        event: &WindowEvent,
-        cursor_position: PhysicalPosition<f64>,
-        state: &S,
-        _: DrawOption,
-    ) {
+    fn on_event(&mut self, event: &WindowEvent, cursor_position: PhysicalPosition<f64>, state: &S) {
         self.input(event, cursor_position, state)
     }
 
@@ -557,14 +551,13 @@ impl<S: AppState> Application for FlatScene<S> {
         &mut self,
         encoder: &mut wgpu::CommandEncoder,
         target: &wgpu::TextureView,
-        _option: DrawOption,
         _dt: Duration,
     ) {
         //println!("draw flatscene");
         self.draw_view(encoder, target)
     }
 
-    fn needs_redraw(&mut self, _: Duration, state: S, _: DrawOption) -> bool {
+    fn needs_redraw(&mut self, _: Duration, state: S) -> bool {
         let now = Instant::now();
         if (now - self.last_update).as_millis() < 25 {
             false

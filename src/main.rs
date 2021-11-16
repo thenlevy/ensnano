@@ -303,10 +303,22 @@ fn main() {
         requests.clone(),
         &mut encoder,
         Default::default(),
+        scene::SceneKind::Cartesian,
     )));
+    let stereographic_scene = Arc::new(Mutex::new(Scene::new(
+        device.clone(),
+        queue.clone(),
+        window.inner_size(),
+        scene_area,
+        requests.clone(),
+        &mut encoder,
+        Default::default(),
+        scene::SceneKind::Stereographic,
+    )));
+
     queue.submit(Some(encoder.finish()));
     scheduler.add_application(scene.clone(), ElementType::Scene);
-    scheduler.add_application(scene.clone(), ElementType::StereographicScene);
+    scheduler.add_application(stereographic_scene.clone(), ElementType::StereographicScene);
 
     let flat_scene = Arc::new(Mutex::new(FlatScene::new(
         device.clone(),
@@ -348,7 +360,7 @@ fn main() {
         .insert(ElementType::FlatScene, flat_scene.clone());
     main_state
         .applications
-        .insert(ElementType::StereographicScene, scene.clone());
+        .insert(ElementType::StereographicScene, stereographic_scene.clone());
 
     // Add a design to the scene if one was given as a command line arguement
     if path.is_some() {

@@ -30,8 +30,8 @@ use ensnano_design::{group_attributes::GroupPivot, Nucl};
 use ensnano_interactor::{
     application::{AppId, Application, Notification},
     operation::*,
-    ActionMode, CenterOfSelection, DesignOperation, DrawOption, Selection, SelectionMode,
-    StrandBuilder, WidgetBasis,
+    ActionMode, CenterOfSelection, DesignOperation, Selection, SelectionMode, StrandBuilder,
+    WidgetBasis,
 };
 use instance::Instance;
 use utils::instance;
@@ -79,6 +79,13 @@ pub struct Scene<S: AppState> {
     element_selector: ElementSelector,
     older_state: S,
     requests: Arc<Mutex<dyn Requests>>,
+    scene_kind: SceneKind,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum SceneKind {
+    Cartesian,
+    Stereographic,
 }
 
 impl<S: AppState> Scene<S> {
@@ -100,6 +107,7 @@ impl<S: AppState> Scene<S> {
         requests: Arc<Mutex<dyn Requests>>,
         encoder: &mut wgpu::CommandEncoder,
         inital_state: S,
+        scene_kind: SceneKind,
     ) -> Self {
         let update = SceneUpdate::new();
         let view: ViewPtr = Rc::new(RefCell::new(View::new(
@@ -131,6 +139,7 @@ impl<S: AppState> Scene<S> {
             requests,
             element_selector,
             older_state: inital_state,
+            scene_kind,
         }
     }
 
@@ -143,6 +152,10 @@ impl<S: AppState> Scene<S> {
     /// Remove all designs
     fn clear_design(&mut self) {
         self.data.borrow_mut().clear_designs()
+    }
+
+    fn is_stereographic(&self) -> bool {
+        matches!(self.scene_kind, SceneKind::Stereographic)
     }
 
     /// Input an event to the scene. The controller parse the event and return the consequence that
@@ -607,11 +620,15 @@ impl<S: AppState> Scene<S> {
         encoder: &mut wgpu::CommandEncoder,
         target: &wgpu::TextureView,
         _app_state: &S,
-        stereographic: bool,
     ) {
-        self.view
-            .borrow_mut()
-            .draw(encoder, target, DrawType::Scene, self.area, stereographic);
+        let is_stereographic = matches!(self.scene_kind, SceneKind::Stereographic);
+        self.view.borrow_mut().draw(
+            encoder,
+            target,
+            DrawType::Scene,
+            self.area,
+            is_stereographic,
+        );
     }
 
     fn perform_update(&mut self, dt: Duration, _app_state: &S) {
@@ -819,10 +836,10 @@ impl<S: AppState> Application for Scene<S> {
         event: &WindowEvent,
         cursor_position: PhysicalPosition<f64>,
         app_state: &S,
-        option: DrawOption,
     ) {
-        self.element_selector.set_stereographic(option.stereography);
-        if option.stereography {
+        self.element_selector
+            .set_stereographic(self.is_stereographic());
+        if self.is_stereographic() {
             let stereography = self.view.borrow().get_stereography();
             self.controller.set_setreography(Some(stereography));
         } else {
@@ -839,14 +856,13 @@ impl<S: AppState> Application for Scene<S> {
         &mut self,
         encoder: &mut wgpu::CommandEncoder,
         target: &wgpu::TextureView,
-        option: DrawOption,
         _dt: Duration,
     ) {
         let older_state = self.older_state.clone();
-        self.draw_view(encoder, target, &older_state, option.stereography)
+        self.draw_view(encoder, target, &older_state)
     }
 
-    fn needs_redraw(&mut self, dt: Duration, state: S, _draw_option: DrawOption) -> bool {
+    fn needs_redraw(&mut self, dt: Duration, state: S) -> bool {
         self.need_redraw(dt, state)
     }
 
