@@ -332,6 +332,7 @@ fn main() {
     // Run event loop
     let mut last_render_time = std::time::Instant::now();
     let mut mouse_interaction = iced::mouse::Interaction::Pointer;
+    let mut multiplexer_cursor = None;
 
     let main_state_constructor = MainStateConstructor {
         messages: messages.clone(),
@@ -481,7 +482,9 @@ fn main() {
             }
             Event::MainEventsCleared => {
                 scale_factor_changed |= multiplexer.check_scale_factor(&window);
-                let mut redraw = resized | scale_factor_changed | multiplexer.icon.is_some();
+                let mut redraw =
+                    resized || scale_factor_changed || multiplexer.icon != multiplexer_cursor;
+                multiplexer_cursor = multiplexer.icon.clone();
                 redraw |= gui.fetch_change(&window, &multiplexer);
 
                 // When there is no more event to deal with
