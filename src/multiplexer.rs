@@ -329,7 +329,6 @@ impl Multiplexer {
         scale_factor_changed: &mut bool,
     ) -> Option<(WindowEvent<'static>, ElementType)> {
         let mut captured = false;
-        let can_resize = false;
         match &mut event {
             WindowEvent::CursorMoved { position, .. } => match &mut self.state {
                 State::Resizing {
@@ -338,21 +337,19 @@ impl Multiplexer {
                     clicked_position,
                     old_proportion,
                 } => {
-                    if can_resize {
-                        *mouse_position = *position;
-                        let mut position = position.clone();
-                        position.x /= self.window_size.width as f64;
-                        position.y /= self.window_size.height as f64;
-                        *resized = true;
-                        self.layout_manager.resize_click(
-                            *region,
-                            &position,
-                            &clicked_position,
-                            *old_proportion,
-                        );
-                        self.icon = Some(CursorIcon::EwResize);
-                        captured = true;
-                    }
+                    *mouse_position = *position;
+                    let mut position = position.clone();
+                    position.x /= self.window_size.width as f64;
+                    position.y /= self.window_size.height as f64;
+                    *resized = true;
+                    self.layout_manager.resize_click(
+                        *region,
+                        &position,
+                        &clicked_position,
+                        *old_proportion,
+                    );
+                    self.icon = Some(CursorIcon::EwResize);
+                    captured = true;
                 }
 
                 State::Normal { mouse_position, .. } => {
