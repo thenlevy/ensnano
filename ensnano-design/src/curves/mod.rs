@@ -23,8 +23,10 @@ use super::{Helix, Parameters};
 use std::sync::Arc;
 mod bezier;
 mod sphere_like_spiral;
+mod twist;
 pub use bezier::CubicBezierConstructor;
 pub use sphere_like_spiral::SphereLikeSpiral;
+pub use twist::Twist;
 
 pub(super) trait Curved {
     fn position(&self, t: f32) -> Vec3;
@@ -170,6 +172,7 @@ fn perpendicular_basis(point: Vec3) -> Mat3 {
 pub enum CurveDescriptor {
     Bezier(CubicBezierConstructor),
     SphereLikeSpiral(SphereLikeSpiral),
+    Twist(Twist),
 }
 
 impl CurveDescriptor {
@@ -177,6 +180,7 @@ impl CurveDescriptor {
         match self {
             Self::Bezier(constructor) => Curve::new(constructor.into_bezier(), parameters),
             Self::SphereLikeSpiral(spiral) => Curve::new(spiral, parameters),
+            Self::Twist(twist) => Curve::new(twist, parameters),
         }
     }
 
