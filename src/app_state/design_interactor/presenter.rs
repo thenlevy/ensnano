@@ -117,6 +117,7 @@ impl Presenter {
         old_junctions_ids: &JunctionsIds,
         suggestion_parameters: SuggestionParameters,
     ) -> (Self, AddressPointer<Design>) {
+        log::info!("new design presenter");
         let model_matrix = Mat4::identity();
         let mut old_grid_ptr = None;
         let (content, design, junctions_ids) = DesignContent::make_hash_maps(
@@ -153,12 +154,14 @@ impl Presenter {
         design: AddressPointer<Design>,
         suggestion_parameters: &SuggestionParameters,
     ) {
+        log::debug!("old grid ptr before: {:?}", self.old_grid_ptr);
         let (content, new_design, new_junctions_ids) = DesignContent::make_hash_maps(
             design.clone_inner(),
             self.junctions_ids.as_ref(),
             &mut self.old_grid_ptr,
             suggestion_parameters,
         );
+        log::debug!("old grid ptr after: {:?}", self.old_grid_ptr);
         self.current_design = AddressPointer::new(new_design);
         self.content = AddressPointer::new(content);
         self.junctions_ids = AddressPointer::new(new_junctions_ids);
@@ -342,14 +345,28 @@ impl Presenter {
     }
 }
 
+pub(super) fn design_need_update(
+    presenter: &AddressPointer<Presenter>,
+    design: &AddressPointer<Design>,
+    suggestion_parameters: &SuggestionParameters,
+) -> bool {
+    if log::log_enabled!(log::Level::Trace) {
+        println!("presenter current design");
+        presenter.current_design.show_address();
+        println!("design address");
+        design.show_address();
+    }
+    presenter.current_design != *design
+        || &presenter.current_suggestion_paramters != suggestion_parameters
+}
+
 pub(super) fn update_presenter(
     presenter: &AddressPointer<Presenter>,
     design: AddressPointer<Design>,
     suggestion_parameters: &SuggestionParameters,
 ) -> (AddressPointer<Presenter>, AddressPointer<Design>) {
-    if presenter.current_design != design
-        || &presenter.current_suggestion_paramters != suggestion_parameters
-    {
+    log::trace!("Calling from presenter");
+    if design_need_update(presenter, &design, suggestion_parameters) {
         if cfg!(test) {
             println!("updating presenter");
         }
@@ -371,6 +388,7 @@ pub(super) fn apply_simulation_update(
 ) -> (AddressPointer<Presenter>, AddressPointer<Design>) {
     let mut new_design = design.clone_inner();
     update.as_ref().update_design(&mut new_design);
+    log::trace!("calling from apply_simulation_update");
     let (new_presenter, returned_design) = update_presenter(
         presenter,
         AddressPointer::new(new_design),

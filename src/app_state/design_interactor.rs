@@ -200,18 +200,22 @@ impl DesignInteractor {
         ret
     }
 
+    pub(super) fn design_need_update(&self, suggestion_parameters: &SuggestionParameters) -> bool {
+        presenter::design_need_update(&self.presenter, &self.design, suggestion_parameters)
+    }
+
     pub(super) fn with_updated_design_reader(
         mut self,
         suggestion_parameters: &SuggestionParameters,
     ) -> Self {
-        if cfg!(test) {
+        if cfg!(test) || log::log_enabled!(log::Level::Trace) {
             print!("Old design: ");
             self.design.show_address();
         }
         let (new_presenter, new_design) =
             update_presenter(&self.presenter, self.design.clone(), suggestion_parameters);
         self.presenter = new_presenter;
-        if cfg!(test) {
+        if cfg!(test) || log::log_enabled!(log::Level::Trace) {
             print!("New design: ");
             new_design.show_address();
         }

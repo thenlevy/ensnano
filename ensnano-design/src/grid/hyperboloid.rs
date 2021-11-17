@@ -79,6 +79,24 @@ impl GridDivision for Hyperboloid {
     fn grid_type(&self) -> GridType {
         GridType::Hyperboloid(self.clone())
     }
+
+    fn curve(
+        &self,
+        x: isize,
+        _y: isize,
+        position: Vec3,
+        orientation: Rotor3,
+        parameters: &Parameters,
+    ) -> Option<Arc<CurveDescriptor>> {
+        if self.nb_turn != 0.0 {
+            let mut ret = self.curve(x as usize, parameters);
+            ret.orientation = orientation;
+            ret.position = position;
+            Some(Arc::new(CurveDescriptor::Twist(ret)))
+        } else {
+            None
+        }
+    }
 }
 
 impl Hyperboloid {
@@ -114,6 +132,7 @@ impl Hyperboloid {
             length: self.length,
             radius_shift: self.radius_shift,
             forced_radius: self.forced_radius,
+            nb_turn: self.nb_turn,
         }
     }
 

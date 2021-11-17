@@ -36,6 +36,7 @@ mod material_icons_light;
 pub use ensnano_design::{Camera, CameraId};
 pub use status_bar::{CurentOpState, StrandBuildingStatus};
 
+mod consts;
 mod icon;
 
 use status_bar::StatusBar;
@@ -185,6 +186,7 @@ pub trait Requests: 'static + Send {
     fn set_grid_position(&mut self, grid_id: usize, position: Vec3);
     fn set_grid_orientation(&mut self, grid_id: usize, orientation: Rotor3);
     fn toggle_2d(&mut self);
+    fn set_nb_turn(&mut self, grid_id: usize, nb_turn: f32);
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -930,6 +932,7 @@ pub trait DesignReader: 'static {
     fn get_all_cameras(&self) -> Vec<(CameraId, &str)>;
     fn get_favourite_camera(&self) -> Option<CameraId>;
     fn get_grid_position_and_orientation(&self, g_id: usize) -> Option<(Vec3, Rotor3)>;
+    fn get_grid_nb_turn(&self, g_id: usize) -> Option<f32>;
 }
 
 pub struct MainState {

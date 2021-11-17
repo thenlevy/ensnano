@@ -35,6 +35,10 @@ impl ReaderGui for DesignReader {
         self.presenter.content.get_grid_shift(g_id)
     }
 
+    fn get_grid_nb_turn(&self, g_id: usize) -> Option<f32> {
+        self.presenter.content.get_grid_nb_turn(g_id)
+    }
+
     fn get_strand_length(&self, s_id: usize) -> Option<usize> {
         self.presenter
             .current_design

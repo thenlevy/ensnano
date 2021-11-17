@@ -57,7 +57,7 @@ use discrete_value::{FactoryId, RequestFactory, Requestable, ValueId};
 mod tabs;
 use crate::consts::*;
 mod contextual_panel;
-use contextual_panel::{ContextualPanel, ValueKind};
+use contextual_panel::{ContextualPanel, InstanciatedValue, ValueKind};
 
 use ensnano_interactor::HyperboloidRequest;
 use material_icons::{icon_to_char, Icon as MaterialIcon, FONT as MATERIALFONT};
@@ -184,6 +184,7 @@ pub enum Message<S> {
     NewSuggestionParameters(SuggestionParameters),
     ContextualValueChanged(ValueKind, usize, String),
     ContextualValueSubmitted(ValueKind),
+    InstanciatedValueSubmitted(InstanciatedValue),
 }
 
 impl<S: AppState> contextual_panel::BuilderMessage for Message<S> {
@@ -740,6 +741,11 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
             }
             Message::ContextualValueChanged(kind, n, val) => {
                 self.contextual_panel.update_builder_value(kind, n, val);
+            }
+            Message::InstanciatedValueSubmitted(value) => {
+                if let Some(request) = self.contextual_panel.request_from_value(value) {
+                    request.make_request(self.requests.clone())
+                }
             }
         };
         Command::none()

@@ -20,7 +20,7 @@ use super::SimulationUpdate;
 use crate::app_state::AddressPointer;
 use ensnano_design::{
     elements::{DnaAttribute, DnaElementKey},
-    grid::{Edge, GridDescriptor, GridPosition, Hyperboloid},
+    grid::{Edge, GridDescriptor, GridPosition, GridTypeDescr, Hyperboloid},
     group_attributes::GroupPivot,
     mutate_in_arc, CameraId, CurveDescriptor, Design, Domain, DomainJunction, Helix, Nucl,
     Parameters, Strand,
@@ -260,6 +260,9 @@ impl Controller {
                 |c, d| c.set_grid_orientation(d, grid_id, orientation),
                 design,
             ),
+            DesignOperation::SetGridNbTurn { grid_id, nb_turn } => {
+                self.apply(|c, d| c.set_grid_nb_turn(d, grid_id, nb_turn), design)
+            }
         }
     }
 
@@ -1368,6 +1371,7 @@ pub enum ErrOperation {
     NoGrids,
     FinishFirst,
     CameraDoesNotExist(CameraId),
+    GridIsNotHyperboloid(usize),
 }
 
 impl Controller {
@@ -2401,6 +2405,25 @@ impl Controller {
             .get_mut(grid_id)
             .ok_or(ErrOperation::GridDoesNotExist(grid_id))?;
         grid.orientation = orientation;
+        design.grids = Arc::new(new_grids);
+        Ok(design)
+    }
+
+    fn set_grid_nb_turn(
+        &mut self,
+        mut design: Design,
+        grid_id: usize,
+        x: f32,
+    ) -> Result<Design, ErrOperation> {
+        let mut new_grids = Vec::clone(design.grids.as_ref());
+        let grid = new_grids
+            .get_mut(grid_id)
+            .ok_or(ErrOperation::GridDoesNotExist(grid_id))?;
+        if let GridTypeDescr::Hyperboloid { nb_turn, .. } = &mut grid.grid_type {
+            *nb_turn = x;
+        } else {
+            return Err(ErrOperation::GridIsNotHyperboloid(grid_id));
+        }
         design.grids = Arc::new(new_grids);
         Ok(design)
     }

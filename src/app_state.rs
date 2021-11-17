@@ -75,7 +75,9 @@ impl std::fmt::Pointer for AppState {
 impl Default for AppState {
     fn default() -> Self {
         let ret = AppState(Default::default());
-        ret.updated()
+        log::trace!("call from default");
+        //ret.updated()
+        ret
     }
 }
 
@@ -199,6 +201,7 @@ impl AppState {
     }
 
     pub(super) fn update(&mut self) {
+        log::trace!("update");
         apply_update(self, Self::updated)
     }
 
@@ -215,9 +218,15 @@ impl AppState {
     fn updated(self) -> Self {
         let old_self = self.clone();
         let mut interactor = self.0.design.clone_inner();
-        interactor = interactor.with_updated_design_reader(&self.0.suggestion_parameters);
-        let new = self.with_interactor(interactor);
-        if old_self.design_was_modified(&new) {
+        log::trace!("calling from updated!!");
+        if self
+            .0
+            .design
+            .design_need_update(&self.0.suggestion_parameters)
+        {
+            log::trace!("design need update");
+            interactor = interactor.with_updated_design_reader(&self.0.suggestion_parameters);
+            let new = self.with_interactor(interactor);
             new
         } else {
             old_self
@@ -226,6 +235,7 @@ impl AppState {
 
     fn with_interactor(self, interactor: DesignInteractor) -> Self {
         let mut new_state = self.0.clone_inner();
+        new_state.updated_once = true;
         new_state.design = AddressPointer::new(interactor);
         Self(AddressPointer::new(new_state))
     }
@@ -276,6 +286,7 @@ impl AppState {
         &mut self,
         result: Result<InteractorResult, ErrOperation>,
     ) -> Result<Option<Self>, ErrOperation> {
+        log::trace!("handle operation result");
         match result {
             Ok(InteractorResult::Push(design)) => {
                 let ret = Some(self.clone());
@@ -370,7 +381,7 @@ impl AppState {
     }
 
     pub fn design_was_modified(&self, other: &Self) -> bool {
-        self.0.design.has_different_design_than(&other.0.design)
+        self.0.design.has_different_design_than(&other.0.design) && self.0.updated_once
     }
 
     fn get_strand_building_state(&self) -> Option<crate::gui::StrandBuildingStatus> {
@@ -469,6 +480,7 @@ struct AppState_ {
     strand_on_new_helix: Option<NewHelixStrand>,
     center_of_selection: Option<CenterOfSelection>,
     suggestion_parameters: SuggestionParameters,
+    updated_once: bool,
 }
 
 #[derive(Clone, Default)]

@@ -241,6 +241,10 @@ pub enum DesignOperation {
         grid_id: usize,
         orientation: Rotor3,
     },
+    SetGridNbTurn {
+        grid_id: usize,
+        nb_turn: f32,
+    },
 }
 
 /// An action performed on the application

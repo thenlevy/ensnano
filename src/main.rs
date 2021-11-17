@@ -556,6 +556,7 @@ fn main() {
                     }
                 }
 
+                log::trace!("call update from main");
                 main_state.update();
                 let new_title = if let Some(path) = main_state.get_current_file_name() {
                     let path_str = formated_path_end(path);
@@ -957,6 +958,7 @@ impl MainState {
     }
 
     fn update(&mut self) {
+        log::trace!("call from main state");
         self.app_state.update()
     }
 

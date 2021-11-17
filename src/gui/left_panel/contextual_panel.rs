@@ -28,6 +28,7 @@ use ultraviolet::{Rotor3, Vec3};
 pub enum ValueRequest {
     GridPosition { grid_id: usize, position: Vec3 },
     GridOrientation { grid_id: usize, orientation: Rotor3 },
+    GridNbTurn { grid_id: usize, nb_turn: f32 },
 }
 
 impl ValueRequest {
@@ -55,6 +56,17 @@ impl ValueRequest {
                     None
                 }
             }
+            InstanciatedValue::GridNbTurn(nb_turn) => {
+                if let Selection::Grid(_, g_id) = selection {
+                    Some(Self::GridNbTurn {
+                        grid_id: *g_id,
+                        nb_turn,
+                    })
+                } else {
+                    log::error!("Recieved value {:?} with selection {:?}", value, selection);
+                    None
+                }
+            }
         }
     }
 
@@ -71,6 +83,9 @@ impl ValueRequest {
                 .lock()
                 .unwrap()
                 .set_grid_orientation(*grid_id, *orientation),
+            Self::GridNbTurn { grid_id, nb_turn } => {
+                request.lock().unwrap().set_nb_turn(*grid_id, *nb_turn)
+            }
         }
     }
 }
@@ -253,7 +268,7 @@ impl<S: AppState> ContextualPanel<S> {
                 _ => (),
             }
             if let Some(builder) = &mut self.builder {
-                column = column.push(builder.builder.view(ui_size))
+                column = column.push(builder.builder.view(ui_size, &selection, app_state))
             }
         }
 
@@ -339,6 +354,15 @@ impl<S: AppState> ContextualPanel<S> {
             } else {
                 None
             }
+        } else {
+            log::error!("Cannot submit value: No instanciated builder");
+            None
+        }
+    }
+
+    pub fn request_from_value(&mut self, value: InstanciatedValue) -> Option<ValueRequest> {
+        if let Some(b) = &mut self.builder {
+            ValueRequest::from_value_and_selection(&b.selection, value)
         } else {
             log::error!("Cannot submit value: No instanciated builder");
             None
@@ -620,7 +644,7 @@ fn values_of_selection(selection: &Selection, reader: &dyn DesignReader) -> Vec<
                     }
                 })
                 .collect();
-            if let Some(f) = reader.get_grid_shift(*g_id) {
+            if let Some(f) = reader.get_grid_nb_turn(*g_id) {
                 ret.push(f.to_string());
             }
             ret

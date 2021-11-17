@@ -141,6 +141,7 @@ impl GridManager {
     }
 
     pub fn reposition_all_helices(&mut self, design: &mut Design) {
+        log::info!("Repositioning all helices");
         let mut new_helices = BTreeMap::clone(design.helices.as_ref());
         for (h_id, h) in new_helices.iter_mut() {
             if let Some(grid_position) = h.grid_position {
@@ -169,6 +170,10 @@ impl GridManager {
                     };
                     if let Axis::Line { direction, .. } = h.get_axis(&self.parameters) {
                         h.position -= grid_position.axis_pos as f32 * direction;
+                    }
+                    if let Some(curve) = grid.make_curve(grid_position.x, grid_position.y) {
+                        log::info!("setting curve");
+                        h.curve = Some(curve)
                     }
                 });
             }

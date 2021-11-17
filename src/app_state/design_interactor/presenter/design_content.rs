@@ -140,6 +140,13 @@ impl DesignContent {
         !self.grid_manager.no_phantoms.contains(&g_id)
     }
 
+    pub(super) fn get_grid_nb_turn(&self, g_id: usize) -> Option<f32> {
+        self.grid_manager
+            .grids
+            .get(g_id)
+            .and_then(|g| g.grid_type.get_nb_turn())
+    }
+
     pub(super) fn get_grid_shift(&self, g_id: usize) -> Option<f32> {
         self.grid_manager
             .grids
@@ -339,6 +346,7 @@ impl DesignContent {
             *old_grid_ptr = Some(Arc::as_ptr(&design.grids) as usize);
             grid_manager.reposition_all_helices(&mut design);
         }
+        design.update_bezier_helices();
         for (s_id, strand) in design.strands.iter_mut() {
             elements.push(elements::DnaElement::Strand { id: *s_id });
             let mut strand_position = 0;

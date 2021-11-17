@@ -16,9 +16,12 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+use crate::CurveDescriptor;
+
 use super::Parameters;
 mod hyperboloid;
 pub use hyperboloid::*;
+use std::sync::Arc;
 
 use ultraviolet::{Rotor3, Vec2, Vec3};
 
@@ -51,6 +54,8 @@ pub enum GridTypeDescr {
         radius_shift: f32,
         #[serde(skip_serializing_if = "Option::is_none", default)]
         forced_radius: Option<f32>,
+        #[serde(default)]
+        nb_turn: f32,
     },
 }
 
@@ -102,13 +107,14 @@ impl GridTypeDescr {
                 forced_radius,
                 length,
                 radius_shift,
+                nb_turn,
             } => GridType::Hyperboloid(Hyperboloid {
                 radius,
-                shift: 0.,
+                shift,
                 forced_radius,
                 length,
                 radius_shift,
-                nb_turn: shift,
+                nb_turn,
             }),
         }
     }
@@ -169,6 +175,20 @@ impl GridDivision for GridType {
             GridType::Hyperboloid(grid) => grid.translate_by_edge(x1, y1, edge),
         }
     }
+
+    fn curve(
+        &self,
+        x: isize,
+        y: isize,
+        position: Vec3,
+        orientation: Rotor3,
+        parameters: &Parameters,
+    ) -> Option<Arc<CurveDescriptor>> {
+        match self {
+            GridType::Hyperboloid(grid) => grid.curve(x, y, position, orientation, parameters),
+            _ => None,
+        }
+    }
 }
 
 impl GridType {
@@ -194,6 +214,7 @@ impl GridType {
                 length: h.length,
                 radius_shift: h.radius_shift,
                 forced_radius: h.forced_radius,
+                nb_turn: h.nb_turn,
             },
         }
     }
@@ -203,6 +224,14 @@ impl GridType {
             GridType::Square(_) => None,
             GridType::Honeycomb(_) => None,
             GridType::Hyperboloid(h) => Some(h.shift),
+        }
+    }
+
+    pub fn get_nb_turn(&self) -> Option<f32> {
+        match self {
+            GridType::Square(_) => None,
+            GridType::Honeycomb(_) => None,
+            GridType::Hyperboloid(h) => Some(h.nb_turn),
         }
     }
 
@@ -340,6 +369,11 @@ impl Grid {
             invisible: self.invisible,
         }
     }
+
+    pub fn make_curve(&self, x: isize, y: isize) -> Option<Arc<CurveDescriptor>> {
+        self.grid_type
+            .curve(x, y, self.position, self.orientation, &self.parameters)
+    }
 }
 
 pub trait GridDivision {
@@ -353,6 +387,17 @@ pub trait GridDivision {
 
     fn orientation_helix(&self, _parameters: &Parameters, _x: isize, _y: isize) -> Rotor3 {
         Rotor3::identity()
+    }
+
+    fn curve(
+        &self,
+        x: isize,
+        y: isize,
+        position: Vec3,
+        orientation: Rotor3,
+        _parameters: &Parameters,
+    ) -> Option<Arc<CurveDescriptor>> {
+        None
     }
 }
 

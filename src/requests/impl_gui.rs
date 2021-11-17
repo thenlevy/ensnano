@@ -360,6 +360,14 @@ impl GuiRequests for Requests {
     fn toggle_2d(&mut self) {
         self.keep_proceed.push_back(Action::Toggle2D)
     }
+
+    fn set_nb_turn(&mut self, grid_id: usize, nb_turn: f32) {
+        self.keep_proceed
+            .push_back(Action::DesignOperation(DesignOperation::SetGridNbTurn {
+                grid_id,
+                nb_turn,
+            }))
+    }
 }
 
 fn rigid_parameters(parameters: RigidBodyParametersRequest) -> RigidBodyConstants {
