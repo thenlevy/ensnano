@@ -1103,10 +1103,11 @@ impl Requestable for Hyperboloid_ {
             length: values[1],
             shift: values[2],
             radius_shift: values[3],
+            nb_turn: values[4],
         }
     }
     fn nb_values(&self) -> usize {
-        4
+        5
     }
     fn initial_value(&self, n: usize) -> f32 {
         match n {
@@ -1114,6 +1115,7 @@ impl Requestable for Hyperboloid_ {
             1 => 30f32,
             2 => 0f32,
             3 => 0.2f32,
+            4 => 0.0f32,
             _ => unreachable!(),
         }
     }
@@ -1124,17 +1126,18 @@ impl Requestable for Hyperboloid_ {
             1 => 1f32,
             2 => -PI + 1f32.to_radians(),
             3 => 0.,
+            4 => -5f32,
             _ => unreachable!(),
         }
     }
 
     fn max_val(&self, n: usize) -> f32 {
-        use std::f32::consts::PI;
         match n {
             0 => 60f32,
-            1 => 200f32,
-            2 => PI - 1f32.to_radians(),
+            1 => 1000f32,
+            2 => 2.,
             3 => 1f32,
+            4 => 5f32,
             _ => unreachable!(),
         }
     }
@@ -1142,8 +1145,9 @@ impl Requestable for Hyperboloid_ {
         match n {
             0 => 1f32,
             1 => 1f32,
-            2 => 1f32.to_radians(),
+            2 => 0.01,
             3 => 0.01,
+            4 => 0.05,
             _ => unreachable!(),
         }
     }
@@ -1151,8 +1155,9 @@ impl Requestable for Hyperboloid_ {
         match n {
             0 => String::from("Nb helices"),
             1 => String::from("Strands length"),
-            2 => String::from("Angle shift"),
+            2 => String::from("Shift"),
             3 => String::from("Tube radius"),
+            4 => String::from("nb turn"),
             _ => unreachable!(),
         }
     }

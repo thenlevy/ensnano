@@ -454,6 +454,14 @@ impl Controller {
             let y_vec = Vec3::unit_y().rotated_by(orientation);
             h.position = position + origin.x * z_vec + origin.y * y_vec;
             h.orientation = orientation * hyperboloid.orientation_helix(&parameters, i as isize, 0);
+            if let Some(curve) = h.curve.as_mut() {
+                mutate_in_arc(curve, |c| {
+                    if let CurveDescriptor::Twist(twist) = c {
+                        twist.orientation = orientation;
+                        twist.position = position;
+                    }
+                })
+            }
             h.grid_position = Some(GridPosition {
                 grid: grid_id,
                 x: i as isize,
@@ -463,7 +471,8 @@ impl Controller {
             });
             new_helices.insert(key, Arc::new(h));
             for b in [true, false].iter() {
-                let new_key = self.add_strand(design, key, -(nb_nucl as isize) / 2, *b);
+                //let new_key = self.add_strand(design, key, -(nb_nucl as isize) / 2, *b);
+                let new_key = self.add_strand(design, key, 0, *b);
                 if let Domain::HelixDomain(ref mut dom) =
                     design.strands.get_mut(&new_key).unwrap().domains[0]
                 {

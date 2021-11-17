@@ -308,6 +308,7 @@ pub struct HyperboloidRequest {
     pub length: f32,
     pub shift: f32,
     pub radius_shift: f32,
+    pub nb_turn: f32,
 }
 
 impl HyperboloidRequest {
@@ -318,6 +319,7 @@ impl HyperboloidRequest {
             shift: self.shift,
             radius_shift: self.radius_shift,
             forced_radius: None,
+            nb_turn: self.nb_turn,
         }
     }
 }

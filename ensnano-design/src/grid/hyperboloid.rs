@@ -16,7 +16,9 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 use super::*;
-use crate::Helix;
+use crate::curves::Twist;
+use crate::{CurveDescriptor, Helix};
+use std::sync::Arc;
 
 use ultraviolet::{Rotor3, Vec2, Vec3};
 
@@ -36,6 +38,7 @@ pub struct Hyperboloid {
     /// A forced grid radius, for when user modifies the shift but still wants the radius in the
     /// center to be constant.
     pub forced_radius: Option<f32>,
+    pub nb_turn: f32,
 }
 
 impl GridDivision for Hyperboloid {
@@ -89,7 +92,8 @@ impl Hyperboloid {
                 Vec3::unit_x(),
                 (right_helix - left_helix).normalized(),
             );
-            let helix = Helix::new(origin, orientation);
+            let mut helix = Helix::new(origin, orientation);
+            helix.curve = Some(Arc::new(CurveDescriptor::Twist(self.curve(i, parameters))));
             ret.push(helix);
         }
         (ret, self.length as usize)
@@ -142,6 +146,19 @@ impl Hyperboloid {
 
     fn radius(&self, parameters: &Parameters) -> f32 {
         self.sheet_radii(parameters).0
+    }
+
+    fn curve(&self, n: usize, parameters: &Parameters) -> Twist {
+        let radius = self.sheet_radii(parameters).1;
+        let angle = std::f32::consts::TAU / self.radius as f32;
+        Twist {
+            theta0: n as f32 * angle,
+            radius,
+            position: Vec3::zero(),
+            orientation: Rotor3::identity(),
+            length_x: self.length,
+            omega: self.nb_turn * std::f32::consts::TAU,
+        }
     }
 
     pub fn grid_radius(&self, parameters: &Parameters) -> f32 {
