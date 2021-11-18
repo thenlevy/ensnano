@@ -21,7 +21,7 @@ use std::f32::consts::TAU;
 use ultraviolet::{Rotor3, Vec3};
 
 const H: f32 =
-    crate::Parameters::DEFAULT.helix_radius / 2. + crate::Parameters::DEFAULT.inter_helix_gap;
+    crate::Parameters::DEFAULT.helix_radius + crate::Parameters::DEFAULT.inter_helix_gap / 2.;
 
 /// A torus
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -36,11 +36,11 @@ pub struct Torus {
 
 impl Torus {
     fn theta(&self, t: f32) -> f32 {
-        TAU * (2. * self.half_nb_helix as f32 + 1.) * t + self.theta0
+        TAU * (2. * self.half_nb_helix as f32) * t / 2. + self.theta0
     }
 
     fn theta_dt(&self) -> f32 {
-        TAU * (2. * self.half_nb_helix as f32 + 1.)
+        TAU * (2. * self.half_nb_helix as f32) / 2.
     }
 
     fn phi(&self, t: f32) -> f32 {
