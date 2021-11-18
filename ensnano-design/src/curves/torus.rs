@@ -63,9 +63,9 @@ impl Curved for Torus {
         let phi = self.phi(t);
 
         Vec3 {
-            x: theta.cos() * (self.big_radius + small_radius * phi.cos()),
-            y: theta.sin() * (self.big_radius + small_radius * phi.cos()),
-            z: phi.sin() * small_radius,
+            z: theta.cos() * (self.big_radius + small_radius * phi.cos()),
+            x: theta.sin() * (self.big_radius + small_radius * phi.cos()),
+            y: phi.sin() * small_radius,
         }
     }
 
@@ -78,11 +78,11 @@ impl Curved for Torus {
         let phi_dt = self.phi_dt();
 
         Vec3 {
-            x: theta.cos() * (-phi.sin() * small_radius * phi_dt)
+            z: theta.cos() * (-phi.sin() * small_radius * phi_dt)
                 - theta.sin() * theta_dt * (self.big_radius + small_radius * phi.cos()),
-            y: theta.sin() * (-phi.sin() * small_radius * phi_dt)
+            x: theta.sin() * (-phi.sin() * small_radius * phi_dt)
                 + theta.cos() * theta_dt * (self.big_radius + small_radius * phi.cos()),
-            z: phi_dt * small_radius * phi.cos(),
+            y: phi_dt * small_radius * phi.cos(),
         }
     }
 
@@ -95,21 +95,21 @@ impl Curved for Torus {
         let phi_dt = self.phi_dt();
 
         Vec3 {
-            x: (-theta_dt * theta.sin() * (-phi.sin() * small_radius * phi_dt)
+            z: (-theta_dt * theta.sin() * (-phi.sin() * small_radius * phi_dt)
                 + theta.cos() * (-phi.cos() * small_radius * phi_dt * phi_dt))
                 - (theta_dt
                     * theta_dt
                     * theta.cos()
                     * (self.big_radius + small_radius * phi.cos())
                     + theta.sin() * theta_dt * (small_radius * -phi_dt * phi.sin())),
-            y: (theta_dt * theta.cos() * (-phi.sin() * small_radius * phi_dt)
+            x: (theta_dt * theta.cos() * (-phi.sin() * small_radius * phi_dt)
                 + theta.sin() * (-phi_dt * phi_dt * small_radius * phi.cos()))
                 + (-theta_dt
                     * theta_dt
                     * theta.sin()
                     * (self.big_radius + small_radius * phi.cos())
                     + theta.cos() * theta_dt * (small_radius * -phi_dt * phi.sin())),
-            z: -phi_dt * phi_dt * small_radius * phi.sin(),
+            y: -phi_dt * phi_dt * small_radius * phi.sin(),
         }
     }
 }
