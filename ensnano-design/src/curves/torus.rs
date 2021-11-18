@@ -34,11 +34,33 @@ pub struct Torus {
     pub big_radius: f32,
 }
 
+impl Torus {
+    fn theta(&self, t: f32) -> f32 {
+        TAU * (2. * self.half_nb_helix as f32 + 1.) * t + self.theta0
+    }
+
+    fn theta_dt(&self) -> f32 {
+        TAU * (2. * self.half_nb_helix as f32 + 1.)
+    }
+
+    fn phi(&self, t: f32) -> f32 {
+        TAU * t
+    }
+
+    fn phi_dt(&self) -> f32 {
+        TAU
+    }
+
+    fn small_radius(&self) -> f32 {
+        4. * H * self.half_nb_helix as f32 / TAU
+    }
+}
+
 impl Curved for Torus {
     fn position(&self, t: f32) -> Vec3 {
-        let theta = 2. * TAU * self.half_nb_helix as f32 * t + self.theta0;
-        let small_radius = 2. * self.half_nb_helix as f32 * H / TAU;
-        let phi = 2. * H * theta / small_radius / TAU;
+        let theta = self.theta(t);
+        let small_radius = self.small_radius();
+        let phi = self.phi(t);
 
         Vec3 {
             x: theta.cos() * (self.big_radius + small_radius * phi.cos()),
@@ -48,12 +70,12 @@ impl Curved for Torus {
     }
 
     fn speed(&self, t: f32) -> Vec3 {
-        let theta = 2. * TAU * self.half_nb_helix as f32 * t + self.theta0;
-        let small_radius = 2. * self.half_nb_helix as f32 * H / TAU;
-        let phi = 2. * H * theta / small_radius / TAU;
+        let theta = self.theta(t);
+        let small_radius = self.small_radius();
+        let phi = self.phi(t);
 
-        let theta_dt = 2. * TAU * self.half_nb_helix as f32;
-        let phi_dt = 2. * H * theta_dt / small_radius / TAU;
+        let theta_dt = self.theta_dt();
+        let phi_dt = self.phi_dt();
 
         Vec3 {
             x: theta.cos() * (-phi.sin() * small_radius * phi_dt)
@@ -65,12 +87,12 @@ impl Curved for Torus {
     }
 
     fn acceleration(&self, t: f32) -> Vec3 {
-        let theta = 2. * TAU * self.half_nb_helix as f32 * t + self.theta0;
-        let small_radius = 2. * self.half_nb_helix as f32 * H / TAU;
-        let phi = 2. * H * theta / small_radius / TAU;
+        let theta = self.theta(t);
+        let small_radius = self.small_radius();
+        let phi = self.phi(t);
 
-        let theta_dt = 2. * TAU * self.half_nb_helix as f32;
-        let phi_dt = 2. * H * theta_dt / small_radius / TAU;
+        let theta_dt = self.theta_dt();
+        let phi_dt = self.phi_dt();
 
         Vec3 {
             x: (-theta_dt * theta.sin() * (-phi.sin() * small_radius * phi_dt)
