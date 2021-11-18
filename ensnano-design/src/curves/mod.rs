@@ -23,9 +23,11 @@ use super::{Helix, Parameters};
 use std::sync::Arc;
 mod bezier;
 mod sphere_like_spiral;
+mod torus;
 mod twist;
 pub use bezier::CubicBezierConstructor;
 pub use sphere_like_spiral::SphereLikeSpiral;
+pub use torus::Torus;
 pub use twist::Twist;
 
 pub(super) trait Curved {
@@ -173,6 +175,7 @@ pub enum CurveDescriptor {
     Bezier(CubicBezierConstructor),
     SphereLikeSpiral(SphereLikeSpiral),
     Twist(Twist),
+    Torus(Torus),
 }
 
 impl CurveDescriptor {
@@ -181,6 +184,7 @@ impl CurveDescriptor {
             Self::Bezier(constructor) => Curve::new(constructor.into_bezier(), parameters),
             Self::SphereLikeSpiral(spiral) => Curve::new(spiral, parameters),
             Self::Twist(twist) => Curve::new(twist, parameters),
+            Self::Torus(torus) => Curve::new(torus, parameters),
         }
     }
 
