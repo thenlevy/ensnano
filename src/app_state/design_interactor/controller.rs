@@ -232,7 +232,11 @@ impl Controller {
             DesignOperation::CreateNewCamera {
                 position,
                 orientation,
-            } => Ok(self.ok_apply(|c, d| c.create_camera(d, position, orientation), design)),
+                pivot_position,
+            } => Ok(self.ok_apply(
+                |c, d| c.create_camera(d, position, orientation, pivot_position),
+                design,
+            )),
             DesignOperation::DeleteCamera(cam_id) => {
                 self.apply(|c, d| c.delete_camera(d, cam_id), design)
             }
@@ -953,8 +957,14 @@ impl Controller {
         design
     }
 
-    fn create_camera(&mut self, mut design: Design, position: Vec3, orientation: Rotor3) -> Design {
-        design.add_camera(position, orientation);
+    fn create_camera(
+        &mut self,
+        mut design: Design,
+        position: Vec3,
+        orientation: Rotor3,
+        pivot_position: Option<Vec3>,
+    ) -> Design {
+        design.add_camera(position, orientation, pivot_position);
         design
     }
 

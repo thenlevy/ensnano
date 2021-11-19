@@ -22,7 +22,8 @@ pub use self::design_content::Staple;
 use super::*;
 use ensnano_design::{Extremity, Nucl};
 use ensnano_interactor::{
-    NeighbourDescriptor, NeighbourDescriptorGiver, ScaffoldInfo, Selection, SuggestionParameters,
+    application::Camera3D, NeighbourDescriptor, NeighbourDescriptorGiver, ScaffoldInfo, Selection,
+    SuggestionParameters,
 };
 use ultraviolet::Mat4;
 
@@ -492,22 +493,28 @@ impl DesignReader {
         })
     }
 
-    pub fn get_camera_with_id(
-        &self,
-        cam_id: ensnano_design::CameraId,
-    ) -> Option<(Vec3, ultraviolet::Rotor3)> {
+    pub fn get_camera_with_id(&self, cam_id: ensnano_design::CameraId) -> Option<Camera3D> {
         self.presenter
             .current_design
             .get_camera(cam_id)
-            .map(|c| (c.position, c.orientation))
+            .cloned()
+            .map(|c| Camera3D {
+                position: c.position,
+                orientation: c.orientation,
+                pivot_position: c.pivot_position,
+            })
     }
 
-    pub fn get_nth_camera(&self, n: u32) -> Option<(Vec3, ultraviolet::Rotor3)> {
+    pub fn get_nth_camera(&self, n: u32) -> Option<Camera3D> {
         self.presenter
             .current_design
             .get_cameras()
             .nth(n as usize)
-            .map(|c| (c.1.position, c.1.orientation))
+            .map(|(_, c)| Camera3D {
+                position: c.position,
+                orientation: c.orientation,
+                pivot_position: c.pivot_position,
+            })
     }
 
     pub fn get_favourite_camera(&self) -> Option<(Vec3, ultraviolet::Rotor3)> {
