@@ -137,6 +137,8 @@ pub struct Camera {
     pub orientation: Rotor3,
     pub name: String,
     pub id: CameraId,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pivot_position: Option<Vec3>,
 }
 
 fn ensnano_version() -> String {
@@ -357,7 +359,12 @@ impl Design {
         false
     }
 
-    pub fn add_camera(&mut self, position: Vec3, orientation: Rotor3) {
+    pub fn add_camera(
+        &mut self,
+        position: Vec3,
+        orientation: Rotor3,
+        pivot_position: Option<Vec3>,
+    ) {
         let cam_id = self
             .cameras
             .keys()
@@ -369,6 +376,7 @@ impl Design {
             orientation,
             name: format!("Camera {}", cam_id.0),
             id: cam_id,
+            pivot_position,
         };
         self.cameras.insert(cam_id, new_camera);
     }
@@ -1444,6 +1452,9 @@ pub struct Helix {
 
     #[serde(default, skip)]
     instanciated_curve: Option<InstanciatedCurve>,
+
+    #[serde(default)]
+    delta_bbpt: f32,
 }
 
 fn default_visibility() -> bool {
@@ -1485,6 +1496,7 @@ impl Helix {
             locked_for_simulations: false,
             curve: None,
             instanciated_curve: None,
+            delta_bbpt: 0.,
         }
     }
 
@@ -1558,6 +1570,7 @@ impl Helix {
             locked_for_simulations: false,
             curve: None,
             instanciated_curve: None,
+            delta_bbpt: 0.,
         })
     }
 }
@@ -1574,6 +1587,7 @@ impl Helix {
             locked_for_simulations: false,
             curve: None,
             instanciated_curve: None,
+            delta_bbpt: 0.,
         }
     }
 
@@ -1595,6 +1609,7 @@ impl Helix {
             locked_for_simulations: false,
             curve: None,
             instanciated_curve: None,
+            delta_bbpt: 0.,
         }
     }
 
@@ -1610,6 +1625,7 @@ impl Helix {
             locked_for_simulations: false,
             curve: Some(Arc::new(CurveDescriptor::SphereLikeSpiral(constructor))),
             instanciated_curve: None,
+            delta_bbpt: 0.,
         }
     }
 
@@ -1640,6 +1656,7 @@ impl Helix {
             locked_for_simulations: false,
             curve: Some(Arc::new(CurveDescriptor::Bezier(constructor))),
             instanciated_curve: None,
+            delta_bbpt: 0.,
         }
     }
 
@@ -1654,7 +1671,8 @@ impl Helix {
     pub fn theta(&self, n: isize, forward: bool, cst: &Parameters) -> f32 {
         // The groove_angle goes from the backward strand to the forward strand
         let shift = if forward { cst.groove_angle } else { 0. };
-        let beta = 2. * PI / cst.bases_per_turn;
+        let bbpt = cst.bases_per_turn + self.delta_bbpt;
+        let beta = 2. * PI / bbpt;
         self.roll
             -n as f32 * beta  // Beta is positive but helix turn clockwise when n increases
             + shift
@@ -1711,6 +1729,7 @@ impl Helix {
             locked_for_simulations: false,
             curve: None,
             instanciated_curve: None,
+            delta_bbpt: 0.,
         }
     }
 

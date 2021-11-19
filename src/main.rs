@@ -1172,11 +1172,12 @@ impl MainState {
             .applications
             .get(&ElementType::Scene)
             .and_then(|s| s.lock().unwrap().get_camera())
-            .map(|(position, orientation)| Camera {
+            .map(|camera| Camera {
                 id: Default::default(),
                 name: String::from("Saved Camera"),
-                position,
-                orientation,
+                position: camera.position,
+                orientation: camera.orientation,
+                pivot_position: camera.pivot_position,
             });
         let save_info = ensnano_design::SavingInformation { camera };
         self.app_state
@@ -1272,7 +1273,13 @@ impl<'a> MainStateInteface for MainStateView<'a> {
                 .get_design_reader()
                 .get_favourite_camera()
             {
-                self.notify_apps(Notification::TeleportCamera(position, orientation));
+                self.notify_apps(Notification::TeleportCamera(
+                    ensnano_interactor::application::Camera3D {
+                        position,
+                        orientation,
+                        pivot_position: None,
+                    },
+                ));
             } else {
                 self.main_state.wants_fit = true;
             }
@@ -1525,7 +1532,7 @@ impl<'a> MainStateInteface for MainStateView<'a> {
     }
 
     fn create_new_camera(&mut self) {
-        if let Some((position, orientation)) = self
+        if let Some(camera) = self
             .main_state
             .applications
             .get(&ElementType::Scene)
@@ -1533,8 +1540,9 @@ impl<'a> MainStateInteface for MainStateView<'a> {
         {
             self.main_state
                 .apply_operation(DesignOperation::CreateNewCamera {
-                    position,
-                    orientation,
+                    position: camera.position,
+                    orientation: camera.orientation,
+                    pivot_position: camera.pivot_position,
                 })
         } else {
             log::error!("Could not get current camera position");
@@ -1543,15 +1551,15 @@ impl<'a> MainStateInteface for MainStateView<'a> {
 
     fn select_camera(&mut self, camera_id: ensnano_design::CameraId) {
         let reader = self.main_state.app_state.get_design_reader();
-        if let Some((position, orientation)) = reader.get_camera_with_id(camera_id) {
-            self.notify_apps(Notification::TeleportCamera(position, orientation))
+        if let Some(camera) = reader.get_camera_with_id(camera_id) {
+            self.notify_apps(Notification::TeleportCamera(camera))
         } else {
             log::error!("Could not get camera {:?}", camera_id)
         }
     }
 
     fn update_camera(&mut self, camera_id: ensnano_design::CameraId) {
-        if let Some((position, orientation)) = self
+        if let Some(camera) = self
             .main_state
             .applications
             .get(&ElementType::Scene)
@@ -1560,8 +1568,8 @@ impl<'a> MainStateInteface for MainStateView<'a> {
             self.main_state
                 .apply_operation(DesignOperation::UpdateCamera {
                     camera_id,
-                    position,
-                    orientation,
+                    position: camera.position,
+                    orientation: camera.orientation,
                 })
         } else {
             log::error!("Could not get current camera position");
@@ -1570,8 +1578,8 @@ impl<'a> MainStateInteface for MainStateView<'a> {
 
     fn select_favorite_camera(&mut self, n_camera: u32) {
         let reader = self.main_state.app_state.get_design_reader();
-        if let Some((position, orientation)) = reader.get_nth_camera(n_camera) {
-            self.notify_apps(Notification::TeleportCamera(position, orientation))
+        if let Some(camera) = reader.get_nth_camera(n_camera) {
+            self.notify_apps(Notification::TeleportCamera(camera))
         } else {
             log::error!("Design has less than {} cameras", n_camera + 1);
         }
