@@ -18,7 +18,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 
 use super::Curved;
 use std::f32::consts::{TAU, PI};
-use ultraviolet::{Rotor3, Vec3};
+use ultraviolet::{Rotor3, Vec3, Vec2};
 
 const H: f32 =
     crate::Parameters::DEFAULT.helix_radius + crate::Parameters::DEFAULT.inter_helix_gap / 2.;
@@ -147,26 +147,47 @@ impl Torus {
     }
 
     // Rotating rectangle
-    let n1 = n&255; // number of helices on the horizontal side
-    let n2 = n>>8; // number of helices on the vertical side
-    let n12 = n1 + n2;
+    fn n1(&self) -> usize { self.half_nb_helix & 255 } // number of helices on the horizontal side
+    fn n2(&self) -> usize { self.half_nb_helix >> 8 } // number of helices on the vertical side
+    fn n12(&self) -> usize { self.n1() + self.n2() }
     
-    let side1 = (n1 - 1) as f32 * 2. * H;
-    let side2 = (n2 - 1) as f32 * 2. * H;
-    let p_rect = 2. * (side1 +  side2);
+    fn side1(&self) -> f32 { (self.n1() - 1) as f32 * 2. * H }
+    fn side2(&self) -> f32  { (self.n2() - 1) as f32 * 2. * H }
+    fn rectangle_perimeter(&self) -> f32 { 2. * (self.side1() + self.side2()) }
 
-    let t1 = side1 / p_rect;
-    let t2 = (side1 + side2) / p_rect;
-    let t3 = (2. * side1 + side2) / p_rect;
+    fn t1(&self) -> f32 { self.side1() / self.rectangle_perimeter() }
+    fn t2(&self) -> f32 { (self.side1() + self.side2()) / self.rectangle_perimeter() }
+    fn t3(&self) -> f32 { (2. * self.side1() + self.side2()) / self.rectangle_perimeter() }
 
-    fn rectangle(t: f32) -> Vec2 {
-        if t < t1 {
-            return t * side1 / t1;
-        } else if t < t2 {
-            return (t-t1) * side2 / (t2 - t1);
-        }  else if t < t3 {
-            return (t-t1) * side2 / (t2 - t1);
-        }
+    fn rectangle(&self, t: f32) -> Vec2 {
+        let (s1, s2) = (self.side1(), self.side2());
+        let mut s = t * 2. * (s1 + s2);
+
+        let c0 = Vec2 { x: s1/2., y: s2/2., };
+        let c1 = Vec2 { x: -s1/2., y: s2/2., };
+        let c2 = Vec2 { x: -s1/2., y: -s2/2., };
+        let c3 = Vec2 { x: s1/2., y: -s2/2., };
+
+        if s < s1 {
+            let u = s / s1;
+            return c0 * (1. - u) + u * c1;
+        } 
+        s -= s1;
+        if s < s2 {
+            let u = s / s2;
+            return c1 * (1. - u) + u * c2;
+        } 
+        s -= s2; 
+        if s < s1  {
+            let u = s / s1;
+            return c2 * (1. - u) + u * c3;
+        } 
+        s -= s1;
+        if s <= s2 {
+            let u = s / s2;
+            return c3 * (1. - u) + u * c0;
+        } 
+        return c0
     }
 
 }
