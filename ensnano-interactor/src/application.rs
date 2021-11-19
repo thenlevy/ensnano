@@ -29,6 +29,13 @@ use winit::{
     event::{ModifiersState, WindowEvent},
 };
 
+#[derive(Clone, Debug)]
+pub struct Camera3D {
+    pub position: Vec3,
+    pub orientation: Rotor3,
+    pub pivot_position: Option<Vec3>,
+}
+
 pub trait Application {
     type AppState;
     /// For notification about the data
@@ -54,7 +61,7 @@ pub trait Application {
         None
     }
 
-    fn get_camera(&self) -> Option<(Vec3, Rotor3)> {
+    fn get_camera(&self) -> Option<Camera3D> {
         None
     }
     fn get_current_selection_pivot(&self) -> Option<GroupPivot> {
@@ -76,7 +83,7 @@ pub enum Notification {
     Save(usize),
     /// The 3d camera must face a given target
     CameraTarget((Vec3, Vec3)),
-    TeleportCamera(Vec3, Rotor3),
+    TeleportCamera(Camera3D),
     CameraRotation(f32, f32, f32),
     Centering(Nucl, usize),
     CenterSelection(Selection, AppId),

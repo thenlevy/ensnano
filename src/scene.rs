@@ -1,3 +1,4 @@
+use ensnano_interactor::application::Camera3D;
 /*
 ENSnano, a 3d graphical application for DNA nanostructures.
     Copyright (C) 2021  Nicolas Levy <nicolaspierrelevy@gmail.com> and Nicolas Schabanel <nicolas.schabanel@ens-lyon.fr>
@@ -791,8 +792,12 @@ impl<S: AppState> Application for Scene<S> {
                 self.set_camera_target(target, up, &older_state);
                 self.notify(SceneNotification::CameraMoved);
             }
-            Notification::TeleportCamera(position, orientation) => {
-                self.controller.teleport_camera(position, orientation);
+            Notification::TeleportCamera(camera) => {
+                self.controller
+                    .teleport_camera(camera.position, camera.orientation);
+                if let Some(pivot) = camera.pivot_position {
+                    self.data.borrow_mut().set_pivot_position(pivot);
+                }
                 self.notify(SceneNotification::CameraMoved);
             }
             Notification::CameraRotation(xz, yz, xy) => {
@@ -874,10 +879,14 @@ impl<S: AppState> Application for Scene<S> {
         Some((position, orientation))
     }
 
-    fn get_camera(&self) -> Option<(Vec3, Rotor3)> {
+    fn get_camera(&self) -> Option<Camera3D> {
         let view = self.view.borrow();
         let cam = view.get_camera();
-        let ret = Some((cam.borrow().position, cam.borrow().rotor));
+        let ret = Some(Camera3D {
+            position: cam.borrow().position,
+            orientation: cam.borrow().rotor,
+            pivot_position: self.data.borrow().get_pivot_position(),
+        });
         ret
     }
 

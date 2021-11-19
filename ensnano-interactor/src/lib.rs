@@ -222,6 +222,7 @@ pub enum DesignOperation {
     CreateNewCamera {
         position: Vec3,
         orientation: Rotor3,
+        pivot_position: Option<Vec3>,
     },
     SetFavouriteCamera(ensnano_design::CameraId),
     UpdateCamera {

@@ -137,6 +137,8 @@ pub struct Camera {
     pub orientation: Rotor3,
     pub name: String,
     pub id: CameraId,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pivot_position: Option<Vec3>,
 }
 
 fn ensnano_version() -> String {
@@ -357,7 +359,12 @@ impl Design {
         false
     }
 
-    pub fn add_camera(&mut self, position: Vec3, orientation: Rotor3) {
+    pub fn add_camera(
+        &mut self,
+        position: Vec3,
+        orientation: Rotor3,
+        pivot_position: Option<Vec3>,
+    ) {
         let cam_id = self
             .cameras
             .keys()
@@ -369,6 +376,7 @@ impl Design {
             orientation,
             name: format!("Camera {}", cam_id.0),
             id: cam_id,
+            pivot_position,
         };
         self.cameras.insert(cam_id, new_camera);
     }

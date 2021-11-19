@@ -294,7 +294,7 @@ impl CameraWidget {
             light_icon_btn(&mut state.select_camera_btn, LightIcon::Visibility, ui_size)
                 .on_press(Message::SelectCamera(self.camera_id));
 
-        let update_camera_btn = light_icon_btn(
+        let update_camera_btn: Button<'a, Message<S>> = light_icon_btn(
             &mut state.update_camera_btn,
             LightIcon::PhotoCamera,
             ui_size,
@@ -313,7 +313,7 @@ impl CameraWidget {
             .push(edit_button)
             .push(iced::Space::with_width(iced::Length::Fill))
             .push(select_camera_btn)
-            .push(update_camera_btn)
+            //.push(update_camera_btn)
             //.push(favourite_button) 😔😔😔
             .push(delete_button)
             .into()
