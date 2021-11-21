@@ -184,7 +184,7 @@ impl Torus {
         let b = 1. * scale;
         let theta = self.theta(t) - self.theta0;
         let theta_dt = self.theta_dt();
-        let s_dtheta = (perimeter / 2. + 4. * H) / TAU; 
+        let s_dtheta = (perimeter / 2. - 4. * H) / TAU; 
         let s = 4. * H * self.theta0 / TAU + s_dtheta * theta;
         let phi = self.t_for_curvilinear_abscissa(s);
         let (t2c, t2s) = ((theta / 2.).cos(), (theta / 2.).sin());
