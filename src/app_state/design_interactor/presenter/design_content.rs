@@ -353,6 +353,20 @@ impl DesignContent {
             let strand_seq = strand.sequence.as_ref().filter(|s| s.is_ascii());
             let color = strand.color;
             let mut last_xover_junction: Option<&mut DomainJunction> = None;
+            let strand_len = if *s_id == 0 {
+                strand.length()
+            } else {
+                0
+            };
+
+            let mut rainbow_iterator = (0..strand_len).map(|i| {
+                let hsv = color_space::Hsv::new(i as f64 * 360. / strand_len as f64, 1., 1.);
+                let rgb = color_space::Rgb::from(hsv);
+                (0xFF << 24)
+                    | ((rgb.r as u32) << 16)
+                    | ((rgb.g  as u32) << 8)
+                    | (rgb.b  as u32)
+            });
             for (i, domain) in strand.domains.iter().enumerate() {
                 if let Some((prime5, prime3)) = old_nucl.clone().zip(domain.prime5_end()) {
                     Self::update_junction(
@@ -398,6 +412,7 @@ impl DesignContent {
                         nucleotide.insert(nucl_id, nucl);
                         identifier_nucl.insert(nucl, nucl_id);
                         strand_map.insert(nucl_id, *s_id);
+                        let color = rainbow_iterator.next().unwrap_or(color);
                         color_map.insert(nucl_id, color);
                         helix_map.insert(nucl_id, nucl.helix);
                         let basis = dom_seq
