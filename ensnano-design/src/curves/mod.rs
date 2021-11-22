@@ -28,12 +28,20 @@ mod twist;
 pub use bezier::CubicBezierConstructor;
 pub use sphere_like_spiral::SphereLikeSpiral;
 pub use torus::Torus;
+use torus::TwistedTorus;
+pub use torus::{CurveDescriptor2D, TwistedTorusDescriptor};
 pub use twist::Twist;
 
+const EPSILON_DERIVATIVE: f32 = 1e-5;
 pub(super) trait Curved {
     fn position(&self, t: f32) -> Vec3;
-    fn speed(&self, t: f32) -> Vec3;
-    fn acceleration(&self, t: f32) -> Vec3;
+    fn speed(&self, t: f32) -> Vec3 {
+        (self.position(t) + self.position(t + EPSILON_DERIVATIVE)) / EPSILON_DERIVATIVE
+    }
+
+    fn acceleration(&self, t: f32) -> Vec3 {
+        (self.speed(t) + self.speed(t + EPSILON_DERIVATIVE)) / EPSILON_DERIVATIVE
+    }
 }
 
 pub(super) struct Curve {
@@ -176,6 +184,7 @@ pub enum CurveDescriptor {
     SphereLikeSpiral(SphereLikeSpiral),
     Twist(Twist),
     Torus(Torus),
+    TwistedTorus(TwistedTorusDescriptor),
 }
 
 impl CurveDescriptor {
@@ -185,6 +194,7 @@ impl CurveDescriptor {
             Self::SphereLikeSpiral(spiral) => Curve::new(spiral, parameters),
             Self::Twist(twist) => Curve::new(twist, parameters),
             Self::Torus(torus) => Curve::new(torus, parameters),
+            Self::TwistedTorus(desc) => Curve::new(TwistedTorus::new(desc), parameters),
         }
     }
 
