@@ -637,11 +637,11 @@ impl TwistedTorus {
         let instanciated_curve = descriptor.curve.clone().instanciate();
         let scale =
             2. * H * descriptor.number_of_helix_per_section as f32 / instanciated_curve.perimeter();
-        let nb_turn_per_helix = descriptor.number_of_helix_per_section
-            / gcd(
-                descriptor.number_of_helix_per_section as isize,
-                descriptor.helix_index_shift_per_turn,
-            );
+        let k = descriptor.helix_index_shift_per_turn;
+        let n = descriptor.number_of_helix_per_section;
+        let q = descriptor.half_twist_count_per_turn;
+        let ρ = instanciated_curve.symetry_order();
+        let nb_turn_per_helix = n as usize / gcd(n as isize, k + (n as isize * q)/ρ as isize);
         Self {
             descriptor,
             scale,
