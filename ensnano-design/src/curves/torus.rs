@@ -615,6 +615,7 @@ pub(super) struct TwistedTorus {
     descriptor: TwistedTorusDescriptor,
     scale: f32,
     perimeter: f32,
+    nb_turn_per_helix: usize,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -636,24 +637,40 @@ impl TwistedTorus {
         let instanciated_curve = descriptor.curve.clone().instanciate();
         let scale =
             2. * H * descriptor.number_of_helix_per_section as f32 / instanciated_curve.perimeter();
+        let nb_turn_per_helix = descriptor.number_of_helix_per_section
+            / gcd(
+                descriptor.number_of_helix_per_section as isize,
+                descriptor.helix_index_shift_per_turn,
+            );
         Self {
             descriptor,
             scale,
             perimeter: instanciated_curve.perimeter(),
             instanciated_curve,
+            nb_turn_per_helix,
         }
     }
 }
 
-impl TwistedTorus {
-    fn theta(&self, t: f32) -> f32 {
-        self.descriptor.number_of_helix_per_section as f32 / 2. * t * TAU
+fn gcd(a: isize, b: isize) -> usize {
+    let mut a = a.abs() as usize;
+    let mut b = b.abs() as usize;
+
+    if a < b {
+        std::mem::swap(&mut a, &mut b);
     }
 
-    fn nb_turn(&self) -> usize {
-        todo!()
+    while b > 0 {
+        let b_ = b;
+        b = a % b;
+        a = b_;
+    }
+    return a;
+}
 
-        //pgcd..
+impl TwistedTorus {
+    fn theta(&self, t: f32) -> f32 {
+        self.nb_turn_per_helix as f32 * t * TAU
     }
 
     fn objective_s(&self, theta: f32) -> f32 {

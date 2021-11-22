@@ -197,7 +197,11 @@ impl CurveDescriptor {
             Self::SphereLikeSpiral(spiral) => Curve::new(spiral, parameters),
             Self::Twist(twist) => Curve::new(twist, parameters),
             Self::Torus(torus) => Curve::new(torus, parameters),
-            Self::TwistedTorus(desc) => Curve::new(TwistedTorus::new(desc), parameters),
+            Self::TwistedTorus(desc) => {
+                let ret = Curve::new(TwistedTorus::new(desc), parameters);
+                println!("Number of nucleotides {}", ret.nb_points());
+                ret
+            }
         }
     }
 
