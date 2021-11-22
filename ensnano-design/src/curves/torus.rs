@@ -491,13 +491,6 @@ impl Curve2D for InstanciatedEllipse {
     fn get_cached_curvlinear_abscissa_mut(&mut self) -> Option<&mut Vec<f32>> {
         Some(&mut self.cached_curvlinear_abscissa)
     }
-
-    fn perimeter(&self) -> f32 {
-        TAU * ((self.semi_minor_axis * self.semi_minor_axis
-            + self.semi_major_axis * self.semi_major_axis)
-            / 2.)
-            .sqrt()
-    }
 }
 
 impl CurveDescriptor2D {
@@ -546,7 +539,7 @@ trait Curve2D {
 
     fn curvilinear_abscissa(&self, t: f32) -> f32 {
         if let Some(cache) = self.get_cached_curvlinear_abscissa() {
-            let idx = (t * cache.len() as f32) as usize;
+            let idx = (t * (cache.len() - 1) as f32) as usize;
             let s = cache[idx];
             let p = self.position(idx as f32 / (cache.len() - 1) as f32);
             let p_ = self.position(t);
@@ -582,7 +575,7 @@ trait Curve2D {
                 let p_ = self.position(t);
                 s += (p - p_).mag();
                 p = p_;
-                cache.push(s)
+                cache.push(s);
             }
             if let Some(saved_cache) = self.get_cached_curvlinear_abscissa_mut() {
                 *saved_cache = cache;
@@ -601,13 +594,13 @@ fn search_dicho(goal: f32, slice: &[f32]) -> Option<usize> {
         let mut b = slice.len() - 1;
         while b - a > 2 {
             let c = (b + a) / 2;
-            if slice[c] > goal {
-                b = c;
-            } else {
+            if slice[c] < goal {
                 a = c;
+            } else {
+                b = c;
             }
         }
-        if slice[b] > goal {
+        if slice[a] < goal {
             Some(a)
         } else {
             Some(b)
@@ -621,6 +614,7 @@ pub(super) struct TwistedTorus {
     instanciated_curve: Arc<dyn Curve2D + Sync + Send>,
     descriptor: TwistedTorusDescriptor,
     scale: f32,
+    perimeter: f32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -643,9 +637,10 @@ impl TwistedTorus {
         let scale =
             2. * H * descriptor.number_of_helix_per_section as f32 / instanciated_curve.perimeter();
         Self {
-            instanciated_curve,
             descriptor,
             scale,
+            perimeter: instanciated_curve.perimeter(),
+            instanciated_curve,
         }
     }
 }
@@ -653,6 +648,12 @@ impl TwistedTorus {
 impl TwistedTorus {
     fn theta(&self, t: f32) -> f32 {
         self.descriptor.number_of_helix_per_section as f32 / 2. * t * TAU
+    }
+
+    fn nb_turn(&self) -> usize {
+        todo!()
+
+        //pgcd..
     }
 
     fn objective_s(&self, theta: f32) -> f32 {
@@ -666,17 +667,21 @@ impl TwistedTorus {
 impl Curved for TwistedTorus {
     fn position(&self, t: f32) -> Vec3 {
         let theta = self.theta(t);
-        let s_theta = self.objective_s(theta);
+        let s_theta = self.objective_s(theta) / self.scale;
 
-        let t_curve = self.instanciated_curve.t_for_curvilinear_abscissa(s_theta);
+        let t_curve = self
+            .instanciated_curve
+            .t_for_curvilinear_abscissa(s_theta.rem_euclid(self.perimeter));
         let point_curve = self.instanciated_curve.position(t_curve) * self.scale;
         let phi = self.descriptor.half_twist_count_per_turn as f32 * theta
             / (self.instanciated_curve.symetry_order() as f32);
 
         Vec3 {
-            x: (point_curve.x * phi.cos() + self.descriptor.big_radius) * theta.cos(),
-            y: point_curve.y * phi.sin(),
-            z: (point_curve.x * phi.cos() + self.descriptor.big_radius) * theta.sin(),
+            x: (point_curve.x * phi.cos() - point_curve.y * phi.sin() + self.descriptor.big_radius)
+                * theta.cos(),
+            y: point_curve.x * phi.sin() + point_curve.y * phi.cos(),
+            z: (point_curve.x * phi.cos() - point_curve.y * phi.sin() + self.descriptor.big_radius)
+                * theta.sin(),
         }
     }
 }

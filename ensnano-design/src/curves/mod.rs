@@ -32,15 +32,18 @@ use torus::TwistedTorus;
 pub use torus::{CurveDescriptor2D, TwistedTorusDescriptor};
 pub use twist::Twist;
 
-const EPSILON_DERIVATIVE: f32 = 1e-5;
+const EPSILON_DERIVATIVE: f32 = 1e-3;
 pub(super) trait Curved {
     fn position(&self, t: f32) -> Vec3;
     fn speed(&self, t: f32) -> Vec3 {
-        (self.position(t) + self.position(t + EPSILON_DERIVATIVE)) / EPSILON_DERIVATIVE
+        (self.position(t + EPSILON_DERIVATIVE / 2.) - self.position(t - EPSILON_DERIVATIVE / 2.))
+            / EPSILON_DERIVATIVE
     }
 
     fn acceleration(&self, t: f32) -> Vec3 {
-        (self.speed(t) + self.speed(t + EPSILON_DERIVATIVE)) / EPSILON_DERIVATIVE
+        ((self.position(t + EPSILON_DERIVATIVE) + self.position(t - EPSILON_DERIVATIVE))
+            - 2. * self.position(t))
+            / (EPSILON_DERIVATIVE * EPSILON_DERIVATIVE)
     }
 }
 
