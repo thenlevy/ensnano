@@ -314,6 +314,7 @@ impl InstanciatedEllipse {
 
 impl Curve2D for InstanciatedEllipse {
     fn position(&self, t: f64) -> DVec2 {
+        let t = TAU * t;
         DVec2 {
             x: self.semi_major_axis * t.cos(),
             y: self.semi_minor_axis * t.sin(),
