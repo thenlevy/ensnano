@@ -1457,6 +1457,9 @@ pub struct Helix {
 
     #[serde(default)]
     delta_bbpt: f32,
+
+    #[serde(default)]
+    initial_nt_index: isize,
 }
 
 fn default_visibility() -> bool {
@@ -1499,6 +1502,7 @@ impl Helix {
             curve: None,
             instanciated_curve: None,
             delta_bbpt: 0.,
+            initial_nt_index: 0,
         }
     }
 
@@ -1573,6 +1577,7 @@ impl Helix {
             curve: None,
             instanciated_curve: None,
             delta_bbpt: 0.,
+            initial_nt_index: 0,
         })
     }
 }
@@ -1590,6 +1595,7 @@ impl Helix {
             curve: None,
             instanciated_curve: None,
             delta_bbpt: 0.,
+            initial_nt_index: 0,
         }
     }
 
@@ -1612,6 +1618,7 @@ impl Helix {
             curve: None,
             instanciated_curve: None,
             delta_bbpt: 0.,
+            initial_nt_index: 0,
         }
     }
 
@@ -1628,6 +1635,7 @@ impl Helix {
             curve: Some(Arc::new(CurveDescriptor::SphereLikeSpiral(constructor))),
             instanciated_curve: None,
             delta_bbpt: 0.,
+            initial_nt_index: 0,
         }
     }
 
@@ -1659,6 +1667,7 @@ impl Helix {
             curve: Some(Arc::new(CurveDescriptor::Bezier(constructor))),
             instanciated_curve: None,
             delta_bbpt: 0.,
+            initial_nt_index: 0,
         }
     }
 
@@ -1684,6 +1693,7 @@ impl Helix {
 
     /// 3D position of a nucleotide on this helix. `n` is the position along the axis, and `forward` is true iff the 5' to 3' direction of the strand containing that nucleotide runs in the same direction as the axis of the helix.
     pub fn space_pos(&self, p: &Parameters, n: isize, forward: bool) -> Vec3 {
+        let n = n + self.initial_nt_index;
         let theta = self.theta(n, forward, p);
         self.theta_n_to_space_pos(p, n, theta)
     }
@@ -1732,6 +1742,7 @@ impl Helix {
             curve: None,
             instanciated_curve: None,
             delta_bbpt: 0.,
+            initial_nt_index: 0,
         }
     }
 
@@ -1757,9 +1768,9 @@ impl Helix {
 
     pub fn get_axis<'a>(&'a self, p: &Parameters) -> Axis<'a> {
         if let Some(curve) = self.instanciated_curve.as_ref() {
-            let nb_points = curve.as_ref().nb_points();
+            let shift = self.initial_nt_index;
             let points = curve.as_ref().points();
-            Axis::Curve { nb_points, points }
+            Axis::Curve { shift, points }
         } else {
             Axis::Line {
                 origin: self.position,
@@ -1769,6 +1780,7 @@ impl Helix {
     }
 
     pub fn axis_position(&self, p: &Parameters, n: isize) -> Vec3 {
+        let n = n + self.initial_nt_index;
         if let Some(curve) = self.instanciated_curve.as_ref().map(|s| &s.curve) {
             if n >= 0 && n <= curve.nb_points() as isize {
                 if let Some(point) = curve.axis_pos(n as usize) {
@@ -1949,34 +1961,22 @@ impl std::fmt::Display for Nucl {
 /// bezier curve
 #[derive(Debug, Clone)]
 pub enum Axis<'a> {
-    Line {
-        origin: Vec3,
-        direction: Vec3,
-    },
-    Curve {
-        nb_points: usize,
-        points: &'a [DVec3],
-    },
+    Line { origin: Vec3, direction: Vec3 },
+    Curve { shift: isize, points: &'a [DVec3] },
 }
 
 #[derive(Debug, Clone)]
 pub enum OwnedAxis {
-    Line {
-        origin: Vec3,
-        direction: Vec3,
-    },
-    Curve {
-        nb_points: usize,
-        points: Vec<DVec3>,
-    },
+    Line { origin: Vec3, direction: Vec3 },
+    Curve { shift: isize, points: Vec<DVec3> },
 }
 
 impl<'a> Axis<'a> {
     pub fn to_owned(self) -> OwnedAxis {
         match self {
             Self::Line { origin, direction } => OwnedAxis::Line { origin, direction },
-            Self::Curve { nb_points, points } => OwnedAxis::Curve {
-                nb_points,
+            Self::Curve { shift, points } => OwnedAxis::Curve {
+                shift,
                 points: points.to_vec(),
             },
         }
@@ -1990,8 +1990,8 @@ impl OwnedAxis {
                 origin: *origin,
                 direction: *direction,
             },
-            Self::Curve { nb_points, points } => Axis::Curve {
-                nb_points: *nb_points,
+            Self::Curve { shift, points } => Axis::Curve {
+                shift: *shift,
                 points: &points[..],
             },
         }
