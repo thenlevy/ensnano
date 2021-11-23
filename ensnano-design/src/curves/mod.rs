@@ -45,12 +45,20 @@ pub(super) trait Curved {
             - 2. * self.position(t))
             / (EPSILON_DERIVATIVE * EPSILON_DERIVATIVE)
     }
+
+    fn curvature(&self, t: f64) -> f64 {
+        let speed = self.speed(t);
+        let numerator = speed.cross(self.acceleration(t)).mag();
+        let denominator = speed.mag().powi(3);
+        numerator / denominator
+    }
 }
 
 pub(super) struct Curve {
     geometry: Box<dyn Curved + Sync + Send>,
     positions: Vec<DVec3>,
     axis: Vec<DMat3>,
+    curvature: Vec<f64>,
 }
 
 impl Curve {
@@ -59,6 +67,7 @@ impl Curve {
             geometry: Box::new(geometry),
             positions: Vec::new(),
             axis: Vec::new(),
+            curvature: Vec::new(),
         };
         ret.discretize(parameters.z_step as f64, DISCRETISATION_STEP);
         ret
@@ -91,10 +100,13 @@ impl Curve {
 
         let mut points = Vec::with_capacity(nb_points + 1);
         let mut axis = Vec::with_capacity(nb_points + 1);
+        let mut curvature = Vec::with_capacity(nb_points + 1);
         let mut t = 0f64;
         points.push(self.geometry.position(t));
         let mut current_axis = self.itterative_axis(t, None);
         axis.push(current_axis);
+        curvature.push(self.geometry.curvature(t));
+        
 
         while t < 1. {
             let mut s = 0f64;
@@ -110,10 +122,12 @@ impl Curve {
             points.push(p);
             //axis.push(self.axis(t));
             axis.push(current_axis);
+            curvature.push(self.geometry.curvature(t));
         }
 
         self.axis = axis;
         self.positions = points;
+        self.curvature = curvature;
     }
 
     fn itterative_axis(&self, t: f64, previous: Option<&DMat3>) -> DMat3 {
@@ -141,6 +155,10 @@ impl Curve {
 
     pub fn axis_pos(&self, n: usize) -> Option<DVec3> {
         self.positions.get(n).cloned()
+    }
+    
+    pub fn curvature(&self, n: usize) -> Option<f64> {
+        self.curvature.get(n).cloned()
     }
 
     pub fn nucl_pos(&self, n: usize, theta: f64, parameters: &Parameters) -> Option<DVec3> {
@@ -199,7 +217,7 @@ impl CurveDescriptor {
             Self::Torus(torus) => Curve::new(torus, parameters),
             Self::TwistedTorus(desc) => {
                 let ret = Curve::new(TwistedTorus::new(desc), parameters);
-                println!("Number of nucleotides {}", ret.nb_points());
+                //println!("Number of nucleotides {}", ret.nb_points());
                 ret
             }
         }
