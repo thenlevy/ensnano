@@ -26,7 +26,7 @@ use std::f64::consts::TAU;
 const H: f64 = crate::Parameters::DEFAULT.helix_radius as f64
     + crate::Parameters::DEFAULT.inter_helix_gap as f64 / 2.;
 
-const NB_STEPS: usize = 1_000;
+const NB_STEPS: usize = 1_000_000;
 
 /// A torus
 #[derive(Debug, Clone, Serialize, Deserialize)]
