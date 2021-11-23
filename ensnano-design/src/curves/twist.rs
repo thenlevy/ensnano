@@ -17,53 +17,58 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 
 use super::Curved;
-use ultraviolet::{Rotor3, Vec3};
+use crate::utils::{rotor_to_drotor, vec_to_dvec};
+use ultraviolet::{DVec3, Rotor3, Vec3};
 
 /// An helicoidal curve
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Twist {
     /// The angle at t=0
-    pub theta0: f32,
+    pub theta0: f64,
     /// d theta / dt
-    pub omega: f32,
+    pub omega: f64,
     /// The center of the circle at t = 0,
     pub position: Vec3,
     /// The orientation of the curve. The normal vector is orientation * unit_x
     pub orientation: Rotor3,
     /// The length of the curve projected on the x axis
-    pub length_x: f32,
+    pub length_x: f64,
     /// The radius of the circle arround which the helix turns
-    pub radius: f32,
+    pub radius: f64,
 }
 
 impl Curved for Twist {
-    fn position(&self, t: f32) -> Vec3 {
+    fn position(&self, t: f64) -> DVec3 {
         let theta = self.theta0 + self.omega * t;
-        let pos_0 = Vec3 {
+        let pos_0 = DVec3 {
             x: self.length_x * t,
             y: self.radius * theta.sin(),
             z: self.radius * theta.cos(),
         };
-        self.orientation * pos_0 + self.position
+        let position = vec_to_dvec(self.position);
+        let orientation = rotor_to_drotor(self.orientation);
+        orientation * pos_0 + position
     }
 
-    fn speed(&self, t: f32) -> Vec3 {
+    fn speed(&self, t: f64) -> DVec3 {
         let theta = self.theta0 + self.omega * t;
-        let pos_0 = Vec3 {
+        let pos_0 = DVec3 {
             x: self.length_x,
             y: self.radius * self.omega * theta.cos(),
             z: self.radius * self.omega * -theta.sin(),
         };
-        self.orientation * pos_0
+        let orientation = rotor_to_drotor(self.orientation);
+        orientation * pos_0
     }
 
-    fn acceleration(&self, t: f32) -> Vec3 {
+    fn acceleration(&self, t: f64) -> DVec3 {
         let theta = self.theta0 + self.omega * t;
-        let pos_0 = Vec3 {
+        let pos_0 = DVec3 {
             x: 0.,
             y: self.radius * self.omega * self.omega * -theta.sin(),
             z: self.radius * self.omega * self.omega * -theta.cos(),
         };
-        self.orientation * pos_0
+        let orientation = rotor_to_drotor(self.orientation);
+        orientation * pos_0
     }
 }

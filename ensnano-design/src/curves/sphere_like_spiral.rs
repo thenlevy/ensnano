@@ -17,31 +17,31 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 
 use super::Curved;
-use std::f32::consts::{PI, TAU};
-use ultraviolet::Vec3;
+use std::f64::consts::{PI, TAU};
+use ultraviolet::DVec3;
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct SphereLikeSpiral {
-    pub theta_0: f32,
-    pub radius: f32,
+    pub theta_0: f64,
+    pub radius: f64,
 }
 
-const DIST_TURN: f32 = 2. * 2.65;
+const DIST_TURN: f64 = 2. * 2.65;
 
 impl Curved for SphereLikeSpiral {
-    fn position(&self, t: f32) -> Vec3 {
+    fn position(&self, t: f64) -> DVec3 {
         let phi = t * PI;
 
         let nb_turn = self.radius / DIST_TURN;
         let theta = nb_turn * TAU * phi + self.theta_0;
-        Vec3 {
+        DVec3 {
             x: self.radius * phi.sin() * theta.cos(),
             y: self.radius * phi.sin() * theta.sin(),
             z: self.radius * phi.cos(),
         }
     }
 
-    fn speed(&self, t: f32) -> Vec3 {
+    fn speed(&self, t: f64) -> DVec3 {
         let phi = t * PI;
         let nb_turn = self.radius / DIST_TURN;
         let theta = nb_turn * TAU * phi + self.theta_0;
@@ -54,10 +54,10 @@ impl Curved for SphereLikeSpiral {
 
         let z = -self.radius * PI * phi.sin();
 
-        Vec3 { x, y, z }
+        DVec3 { x, y, z }
     }
 
-    fn acceleration(&self, t: f32) -> Vec3 {
+    fn acceleration(&self, t: f64) -> DVec3 {
         let phi = t * PI;
         let nb_turn = self.radius / DIST_TURN;
         let theta = nb_turn * TAU * phi + self.theta_0;
@@ -82,6 +82,6 @@ impl Curved for SphereLikeSpiral {
 
         let z = -self.radius * PI * PI * phi.cos();
 
-        Vec3 { x, y, z }
+        DVec3 { x, y, z }
     }
 }

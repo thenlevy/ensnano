@@ -15,6 +15,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
+use crate::utils::dvec_to_vec;
 /// This module defines the ensnano format.
 /// All other format supported by ensnano are converted into this format and run-time manipulation
 /// of designs are performed on an `ensnano::Design` structure
@@ -27,7 +28,7 @@ use std::sync::Arc;
 extern crate serde_derive;
 extern crate serde;
 pub use ultraviolet;
-use ultraviolet::{Isometry2, Mat4, Rotor3, Vec3};
+use ultraviolet::{DVec3, Isometry2, Mat4, Rotor3, Vec3};
 
 pub mod codenano;
 pub mod grid;
@@ -44,6 +45,7 @@ use group_attributes::GroupAttribute;
 mod curves;
 pub use curves::{CubicBezierConstructor, CurveDescriptor};
 use curves::{InstanciatedCurve, SphereLikeSpiral};
+pub mod utils;
 
 mod formating;
 #[cfg(test)]
@@ -1613,7 +1615,7 @@ impl Helix {
         }
     }
 
-    pub fn new_sphere_like_spiral(radius: f32, theta_0: f32) -> Self {
+    pub fn new_sphere_like_spiral(radius: f64, theta_0: f64) -> Self {
         let constructor = SphereLikeSpiral { radius, theta_0 };
         Self {
             position: Vec3::zero(),
@@ -1689,8 +1691,8 @@ impl Helix {
     fn theta_n_to_space_pos(&self, p: &Parameters, n: isize, theta: f32) -> Vec3 {
         if let Some(curve) = self.instanciated_curve.as_ref() {
             if n >= 0 {
-                if let Some(point) = curve.as_ref().nucl_pos(n as usize, theta, p) {
-                    return point;
+                if let Some(point) = curve.as_ref().nucl_pos(n as usize, theta as f64, p) {
+                    return dvec_to_vec(point);
                 }
             }
         }
@@ -1770,7 +1772,7 @@ impl Helix {
         if let Some(curve) = self.instanciated_curve.as_ref().map(|s| &s.curve) {
             if n >= 0 && n <= curve.nb_points() as isize {
                 if let Some(point) = curve.axis_pos(n as usize) {
-                    return point;
+                    return dvec_to_vec(point);
                 }
             }
         }
@@ -1953,14 +1955,20 @@ pub enum Axis<'a> {
     },
     Curve {
         nb_points: usize,
-        points: &'a [Vec3],
+        points: &'a [DVec3],
     },
 }
 
 #[derive(Debug, Clone)]
 pub enum OwnedAxis {
-    Line { origin: Vec3, direction: Vec3 },
-    Curve { nb_points: usize, points: Vec<Vec3> },
+    Line {
+        origin: Vec3,
+        direction: Vec3,
+    },
+    Curve {
+        nb_points: usize,
+        points: Vec<DVec3>,
+    },
 }
 
 impl<'a> Axis<'a> {

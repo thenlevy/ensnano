@@ -169,14 +169,14 @@ impl Hyperboloid {
 
     fn curve(&self, n: usize, parameters: &Parameters) -> Twist {
         let radius = self.sheet_radii(parameters).1;
-        let angle = std::f32::consts::TAU / self.radius as f32;
+        let angle = std::f64::consts::TAU / self.radius as f64;
         Twist {
-            theta0: n as f32 * angle,
-            radius,
+            theta0: n as f64 * angle,
+            radius: radius as f64,
             position: Vec3::zero(),
             orientation: Rotor3::identity(),
-            length_x: self.length,
-            omega: self.nb_turn * std::f32::consts::TAU,
+            length_x: self.length as f64,
+            omega: self.nb_turn as f64 * std::f64::consts::TAU,
         }
     }
 

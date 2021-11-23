@@ -838,7 +838,7 @@ impl View {
                 let mut opt = f32::INFINITY;
                 for (i, point) in points.iter().enumerate() {
                     let d = distance_to_cursor(
-                        *point,
+                        ensnano_design::utils::dvec_to_vec(*point),
                         self.camera.clone(),
                         self.projection.clone(),
                         mouse_x as f32,

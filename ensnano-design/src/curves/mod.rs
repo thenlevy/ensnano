@@ -49,18 +49,18 @@ pub(super) trait Curved {
 
 pub(super) struct Curve {
     geometry: Box<dyn Curved + Sync + Send>,
-    positions: DVec<DVec3>,
-    axis: DVec<DMat3>,
+    positions: Vec<DVec3>,
+    axis: Vec<DMat3>,
 }
 
 impl Curve {
     pub fn new<T: Curved + 'static + Sync + Send>(geometry: T, parameters: &Parameters) -> Self {
         let mut ret = Self {
             geometry: Box::new(geometry),
-            positions: DVec::new(),
-            axis: DVec::new(),
+            positions: Vec::new(),
+            axis: Vec::new(),
         };
-        ret.discretize(parameters.z_step, DISCRETISATION_STEP);
+        ret.discretize(parameters.z_step as f64, DISCRETISATION_STEP);
         ret
     }
 
@@ -147,8 +147,8 @@ impl Curve {
         if let Some(matrix) = self.axis.get(n).cloned() {
             let mut ret = matrix
                 * DVec3::new(
-                    -theta.cos() * parameters.helix_radius,
-                    theta.sin() * parameters.helix_radius,
+                    -theta.cos() * parameters.helix_radius as f64,
+                    theta.sin() * parameters.helix_radius as f64,
                     0.,
                 );
             ret += self.positions[n];
