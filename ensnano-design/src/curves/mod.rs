@@ -217,7 +217,7 @@ impl CurveDescriptor {
             Self::Torus(torus) => Curve::new(torus, parameters),
             Self::TwistedTorus(desc) => {
                 let ret = Curve::new(TwistedTorus::new(desc), parameters);
-                //println!("Number of nucleotides {}", ret.nb_points());
+                println!("Number of nucleotides {}", ret.nb_points());
                 ret
             }
         }
