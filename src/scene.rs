@@ -1,4 +1,3 @@
-use ensnano_interactor::application::Camera3D;
 /*
 ENSnano, a 3d graphical application for DNA nanostructures.
     Copyright (C) 2021  Nicolas Levy <nicolaspierrelevy@gmail.com> and Nicolas Schabanel <nicolas.schabanel@ens-lyon.fr>
@@ -29,7 +28,7 @@ use crate::utils;
 use crate::{DrawArea, PhySize, WindowEvent};
 use ensnano_design::{group_attributes::GroupPivot, Nucl};
 use ensnano_interactor::{
-    application::{AppId, Application, Notification},
+    application::{AppId, Application, Camera3D, Notification},
     operation::*,
     ActionMode, CenterOfSelection, DesignOperation, Selection, SelectionMode, StrandBuilder,
     WidgetBasis,

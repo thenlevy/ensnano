@@ -130,8 +130,6 @@ pub struct CameraController {
     amount_down: f32,
     amount_left: f32,
     amount_right: f32,
-    amount_forward: f32,
-    amount_backward: f32,
     mouse_horizontal: f32,
     mouse_vertical: f32,
     scroll: f32,
@@ -183,8 +181,6 @@ impl CameraController {
             amount_right: 0.0,
             amount_up: 0.0,
             amount_down: 0.0,
-            amount_forward: 0.0,
-            amount_backward: 0.0,
             mouse_horizontal: 0.0,
             mouse_vertical: 0.0,
             scroll: 0.0,
@@ -200,28 +196,15 @@ impl CameraController {
         }
     }
 
-    pub fn process_keyboard(
-        &mut self,
-        key: VirtualKeyCode,
-        state: ElementState,
-        modifier: &ModifiersState,
-    ) -> bool {
+    pub fn process_keyboard(&mut self, key: VirtualKeyCode, state: ElementState) -> bool {
         let amount = if state == ElementState::Pressed {
             1.0
         } else {
             0.0
         };
         match key {
-            VirtualKeyCode::W | VirtualKeyCode::Up if modifier.shift() => {
-                self.amount_forward = amount;
-                true
-            }
             VirtualKeyCode::W | VirtualKeyCode::Up => {
                 self.amount_up = amount;
-                true
-            }
-            VirtualKeyCode::S | VirtualKeyCode::Down if modifier.shift() => {
-                self.amount_backward = amount;
                 true
             }
             VirtualKeyCode::S | VirtualKeyCode::Down => {
@@ -281,8 +264,6 @@ impl CameraController {
             || self.amount_up > 0.
             || self.amount_right > 0.
             || self.amount_left > 0.
-            || self.amount_forward > 0.
-            || self.amount_backward > 0.
             || self.scroll.abs() > 0.
     }
 
@@ -291,8 +272,6 @@ impl CameraController {
         self.amount_right = 0.;
         self.amount_up = 0.;
         self.amount_down = 0.;
-        self.amount_backward = 0.;
-        self.amount_forward = 0.;
     }
 
     pub fn set_pivot_point(&mut self, point: Option<FiniteVec3>) {
@@ -390,7 +369,7 @@ impl CameraController {
     }
 
     /// Move the camera according to the keyboard input
-    fn move_camera(&mut self, dt: Duration) {
+    fn move_camera(&mut self, dt: Duration, modifier: &ModifiersState) {
         let dt = dt.as_secs_f32();
 
         // Move forward/backward and left/right
@@ -398,12 +377,53 @@ impl CameraController {
         let up_vec = self.camera.borrow().up_vec();
         let forward_vec = self.camera.borrow().direction();
 
+        let (amount_right, amount_rotate_right, amount_roll_right) = if modifier.shift() {
+            (0., 0., self.amount_right)
+        } else if modifier.alt() {
+            (0., self.amount_right, 0.)
+        } else {
+            (self.amount_right, 0., 0.)
+        };
+
+        let (amount_left, amount_rotate_left, amount_roll_left) = if modifier.shift() {
+            (0., 0., self.amount_left)
+        } else if modifier.alt() {
+            (0., self.amount_left, 0.)
+        } else {
+            (self.amount_left, 0., 0.)
+        };
+
+        let (amount_up, amount_forward, amount_rotate_up) = if modifier.alt() {
+            (0., 0., self.amount_up)
+        } else if modifier.shift() {
+            (0., self.amount_up, 0.)
+        } else {
+            (self.amount_up, 0., 0.)
+        };
+
+        let (amount_down, amount_backward, amount_rotate_down) = if modifier.alt() {
+            (0., 0., self.amount_down)
+        } else if modifier.shift() {
+            (0., self.amount_down, 0.)
+        } else {
+            (self.amount_down, 0., 0.)
+        };
+
+        let rotation_speed = 0.1;
         {
             let mut camera = self.camera.borrow_mut();
-            camera.position += right * (self.amount_right - self.amount_left) * self.speed * dt;
-            camera.position += up_vec * (self.amount_up - self.amount_down) * self.speed * dt;
-            camera.position +=
-                forward_vec * (self.amount_forward - self.amount_backward) * self.speed * dt;
+            camera.position += right * (amount_right - amount_left) * self.speed * dt;
+            camera.position += up_vec * (amount_up - amount_down) * self.speed * dt;
+            camera.position += forward_vec * (amount_forward - amount_backward) * self.speed * dt;
+            camera.rotor = Rotor3::from_rotation_xz(
+                (amount_rotate_left - amount_rotate_right) * rotation_speed * self.speed * dt,
+            ) * camera.rotor;
+            camera.rotor = Rotor3::from_rotation_yz(
+                (amount_rotate_down - amount_rotate_up) * rotation_speed * self.speed * dt,
+            ) * camera.rotor;
+            camera.rotor = Rotor3::from_rotation_xy(
+                (amount_roll_left - amount_roll_right) * rotation_speed * self.speed * dt,
+            ) * camera.rotor;
         }
 
         let pivot = self.zoom_plane.as_ref().and_then(|plane| {
@@ -456,7 +476,12 @@ impl CameraController {
         self.scroll = 0.;
     }
 
-    pub fn update_camera(&mut self, dt: Duration, click_mode: ClickMode) {
+    pub fn update_camera(
+        &mut self,
+        dt: Duration,
+        click_mode: ClickMode,
+        modifier: &ModifiersState,
+    ) {
         if self.processed_move {
             match click_mode {
                 ClickMode::RotateCam => self.process_angles(),
@@ -464,7 +489,7 @@ impl CameraController {
             }
         }
         if self.is_moving() {
-            self.move_camera(dt);
+            self.move_camera(dt, modifier);
         }
     }
 

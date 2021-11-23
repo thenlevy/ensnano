@@ -238,11 +238,7 @@ impl<S: AppState> Controller<S> {
                     Consequence::ToggleWidget
                 }
                 _ => {
-                    if self.camera_controller.process_keyboard(
-                        *key,
-                        *state,
-                        &self.current_modifiers,
-                    ) {
+                    if self.camera_controller.process_keyboard(*key, *state) {
                         Consequence::CameraMoved
                     } else {
                         Consequence::Nothing
@@ -292,7 +288,8 @@ impl<S: AppState> Controller<S> {
 
     /// Moves the camera according to its speed and the time elapsed since previous frame
     pub fn update_camera(&mut self, dt: Duration) {
-        self.camera_controller.update_camera(dt, self.click_mode);
+        self.camera_controller
+            .update_camera(dt, self.click_mode, &self.current_modifiers);
     }
 
     /// Handles a resizing of the window and/or drawing area
