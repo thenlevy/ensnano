@@ -238,7 +238,11 @@ impl<S: AppState> Controller<S> {
                     Consequence::ToggleWidget
                 }
                 _ => {
-                    if self.camera_controller.process_keyboard(*key, *state) {
+                    if self.camera_controller.process_keyboard(
+                        *key,
+                        *state,
+                        &self.current_modifiers,
+                    ) {
                         Consequence::CameraMoved
                     } else {
                         Consequence::Nothing
