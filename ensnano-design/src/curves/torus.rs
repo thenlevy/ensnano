@@ -19,10 +19,16 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 use super::Curved;
 use std::f32::consts::{PI, TAU};
 use std::sync::Arc;
-use ultraviolet::{Rotor3, Vec2, Vec3};
+use ultraviolet::{Rotor3, Vec2, Vec3, DVec2, DVec3};
+
+const DTAU : f64 = std::f64::consts::TAU;
+const DPI : f64 = std::f64::consts::PI;
 
 const H: f32 =
     crate::Parameters::DEFAULT.helix_radius + crate::Parameters::DEFAULT.inter_helix_gap / 2.;
+
+const DH: f64 =
+    crate::Parameters::DEFAULT.helix_radius as f64 + crate::Parameters::DEFAULT.inter_helix_gap as f64 / 2.;
 
 /// A torus
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -448,22 +454,22 @@ impl MoebiusRing {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum CurveDescriptor2D {
     Ellipse {
-        semi_minor_axis: f32,
-        semi_major_axis: f32,
+        semi_minor_axis: f64,
+        semi_major_axis: f64,
     },
 }
 
 struct InstanciatedEllipse {
-    semi_major_axis: f32,
-    semi_minor_axis: f32,
-    cached_curvlinear_abscissa: Vec<f32>,
+    semi_major_axis: f64,
+    semi_minor_axis: f64,
+    cached_curvlinear_abscissa: Vec<f64>,
 }
 
 impl InstanciatedEllipse {
     fn new(semi_minor_axis: f32, semi_major_axis: f32) -> Self {
         let mut ret = Self {
-            semi_minor_axis,
-            semi_major_axis,
+            semi_minor_axis: semi_minor_axis as f64,
+            semi_major_axis: semi_major_axis as f64,
             cached_curvlinear_abscissa: Vec::new(),
         };
         ret.initialise_cache();
@@ -472,11 +478,19 @@ impl InstanciatedEllipse {
 }
 
 impl Curve2D for InstanciatedEllipse {
-    fn position(&self, t: f32) -> Vec2 {
-        let t = TAU * t;
-        Vec2 {
+    fn Dposition(&self, t: f64) -> DVec2 {
+        let t = DTAU * t;
+        DVec2 {
             x: self.semi_major_axis * t.cos(),
             y: self.semi_minor_axis * t.sin(),
+        }
+    }
+
+    fn position(&self, t: f32) -> Vec2 {
+        let p = self.Dposition(t as f64);
+        Vec2 {
+            x: p.x as f32, 
+            y: p.y as f32, 
         }
     }
 
@@ -484,11 +498,11 @@ impl Curve2D for InstanciatedEllipse {
         2
     }
 
-    fn get_cached_curvlinear_abscissa(&self) -> Option<&[f32]> {
+    fn get_cached_curvlinear_abscissa(&self) -> Option<&[f64]> {
         Some(&self.cached_curvlinear_abscissa)
     }
 
-    fn get_cached_curvlinear_abscissa_mut(&mut self) -> Option<&mut Vec<f32>> {
+    fn get_cached_curvlinear_abscissa_mut(&mut self) -> Option<&mut Vec<f64>> {
         Some(&mut self.cached_curvlinear_abscissa)
     }
 }
@@ -506,18 +520,19 @@ impl CurveDescriptor2D {
 
 trait Curve2D {
     fn position(&self, t: f32) -> Vec2;
+    fn Dposition(&self, t: f64) -> DVec2;
 
     fn symetry_order(&self) -> usize;
 
-    fn get_cached_curvlinear_abscissa_mut(&mut self) -> Option<&mut Vec<f32>>;
+    fn get_cached_curvlinear_abscissa_mut(&mut self) -> Option<&mut Vec<f64>>;
 
-    fn get_cached_curvlinear_abscissa(&self) -> Option<&[f32]>;
+    fn get_cached_curvlinear_abscissa(&self) -> Option<&[f64]>;
 
-    fn t_for_curvilinear_abscissa(&self, s_objective: f32) -> f32 {
+    fn t_for_curvilinear_abscissa(&self, s_objective: f64) -> f64 {
         self.get_cached_curvlinear_abscissa()
             .map(|cache| {
                 let idx = search_dicho(s_objective, cache).expect("search dicho");
-                idx as f32 / (cache.len() - 1) as f32
+                idx as f64 / (cache.len() - 1) as f64
             })
             .unwrap_or_else(|| {
                 let mut sp = s_objective;
@@ -528,7 +543,7 @@ trait Curve2D {
                     if sp <= 0. {
                         return t;
                     }
-                    t = TAU * i as f32 / NB_STEPS as f32;
+                    t = TAU * i as f64 / NB_STEPS as f64;
                     let v = self.position(t);
                     sp -= (v - u).mag();
                     u = v;
@@ -537,11 +552,11 @@ trait Curve2D {
             })
     }
 
-    fn curvilinear_abscissa(&self, t: f32) -> f32 {
+    fn curvilinear_abscissa(&self, t: f64) -> f64 {
         if let Some(cache) = self.get_cached_curvlinear_abscissa() {
-            let idx = (t * (cache.len() - 1) as f32) as usize;
+            let idx = (t * (cache.len() - 1) as f64) as usize;
             let s = cache[idx];
-            let p = self.position(idx as f32 / (cache.len() - 1) as f32);
+            let p = self.position(idx as f64 / (cache.len() - 1) as f64);
             let p_ = self.position(t);
             s + (p - p_).mag()
         } else {
@@ -549,7 +564,7 @@ trait Curve2D {
             let mut p = self.position(0.);
             let t_obj = t;
             for i in 0..NB_STEPS {
-                let t = t_obj * (i as f32 / (NB_STEPS - 1) as f32);
+                let t = t_obj * (i as f64 / (NB_STEPS - 1) as f64);
                 let p_ = self.position(t);
                 s += (p - p_).mag();
                 p = p_;
@@ -571,7 +586,7 @@ trait Curve2D {
             let mut p = self.position(0.);
             cache.push(s);
             for i in 1..len {
-                let t = i as f32 / (len - 1) as f32;
+                let t = i as f64 / (len - 1) as f64;
                 let p_ = self.position(t);
                 s += (p - p_).mag();
                 p = p_;
@@ -583,12 +598,12 @@ trait Curve2D {
         }
     }
 
-    fn perimeter(&self) -> f32 {
+    fn perimeter(&self) -> f64 {
         self.curvilinear_abscissa(1.)
     }
 }
 
-fn search_dicho(goal: f32, slice: &[f32]) -> Option<usize> {
+fn search_dicho(goal: f64, slice: &[f64]) -> Option<usize> {
     if slice.len() > 0 {
         let mut a = 0usize;
         let mut b = slice.len() - 1;
@@ -613,8 +628,8 @@ fn search_dicho(goal: f32, slice: &[f32]) -> Option<usize> {
 pub(super) struct TwistedTorus {
     instanciated_curve: Arc<dyn Curve2D + Sync + Send>,
     descriptor: TwistedTorusDescriptor,
-    scale: f32,
-    perimeter: f32,
+    scale: f64,
+    perimeter: f64,
     nb_turn_per_helix: usize,
 }
 
@@ -636,7 +651,7 @@ impl TwistedTorus {
     pub fn new(descriptor: TwistedTorusDescriptor) -> Self {
         let instanciated_curve = descriptor.curve.clone().instanciate();
         let scale =
-            2. * H * descriptor.number_of_helix_per_section as f32 / instanciated_curve.perimeter();
+            2. * DH * descriptor.number_of_helix_per_section as f64 / instanciated_curve.perimeter();
         let k = descriptor.helix_index_shift_per_turn;
         let n = descriptor.number_of_helix_per_section;
         let q = descriptor.half_twist_count_per_turn;
@@ -669,20 +684,29 @@ fn gcd(a: isize, b: isize) -> usize {
 }
 
 impl TwistedTorus {
-    fn theta(&self, t: f32) -> f32 {
-        self.nb_turn_per_helix as f32 * t * TAU
+    fn theta(&self, t: f64) -> f64 {
+        self.nb_turn_per_helix as f64 * t * DTAU
     }
 
-    fn objective_s(&self, theta: f32) -> f32 {
+    fn objective_s(&self, theta: f64) -> f64 {
         self.descriptor.initial_curvilinear_abscissa
-            + 2. * H
-                * (self.descriptor.helix_index_shift_per_turn as f32 * theta / TAU
-                    + self.descriptor.initial_index_shift as f32)
+            + 2. * DH
+                * (self.descriptor.helix_index_shift_per_turn as f64 * theta / TAU
+                    + self.descriptor.initial_index_shift as f64)
     }
 }
 
 impl Curved for TwistedTorus {
     fn position(&self, t: f32) -> Vec3 {
+        let p = self.Dposition(t as f64);
+        Vec3 {
+            x: p.x as f32,
+            y: p.y as f32,
+            z: p.z as f32,
+        }
+    }
+
+    fn Dposition(&self, t: f64) -> DVec3 {
         let theta = self.theta(t);
         let s_theta = self.objective_s(theta) / self.scale;
 
@@ -690,10 +714,10 @@ impl Curved for TwistedTorus {
             .instanciated_curve
             .t_for_curvilinear_abscissa(s_theta.rem_euclid(self.perimeter));
         let point_curve = self.instanciated_curve.position(t_curve) * self.scale;
-        let phi = self.descriptor.half_twist_count_per_turn as f32 * theta
-            / (self.instanciated_curve.symetry_order() as f32);
+        let phi = self.descriptor.half_twist_count_per_turn as f64 * theta
+            / (self.instanciated_curve.symetry_order() as f64);
 
-        Vec3 {
+        DVec3 {
             x: (point_curve.x * phi.cos() - point_curve.y * phi.sin() + self.descriptor.big_radius)
                 * theta.cos(),
             y: point_curve.x * phi.sin() + point_curve.y * phi.cos(),
