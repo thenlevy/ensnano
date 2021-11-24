@@ -106,7 +106,6 @@ impl Curve {
         let mut current_axis = self.itterative_axis(t, None);
         axis.push(current_axis);
         curvature.push(self.geometry.curvature(t));
-        
 
         while t < 1. {
             let mut s = 0f64;
@@ -156,7 +155,7 @@ impl Curve {
     pub fn axis_pos(&self, n: usize) -> Option<DVec3> {
         self.positions.get(n).cloned()
     }
-    
+
     pub fn curvature(&self, n: usize) -> Option<f64> {
         self.curvature.get(n).cloned()
     }

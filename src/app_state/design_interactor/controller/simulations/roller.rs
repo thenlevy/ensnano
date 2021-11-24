@@ -205,8 +205,18 @@ impl RollSystem {
                 n2.position,
                 n2.forward,
             );
-            self.acceleration[*h1] += delta_1 / MASS_HELIX * self.must_roll[*h1];
-            self.acceleration[*h2] += delta_2 / MASS_HELIX * self.must_roll[*h2];
+
+            if let Some(support_h1) = me.support_helix.and_then(|id| data.helix_map.get(&id)) {
+                self.acceleration[*support_h1] += delta_1 / MASS_HELIX * self.must_roll[*h1];
+            } else {
+                self.acceleration[*h1] += delta_1 / MASS_HELIX * self.must_roll[*h1];
+            }
+
+            if let Some(support_h2) = other.support_helix.and_then(|id| data.helix_map.get(&id)) {
+                self.acceleration[*support_h2] += delta_2 / MASS_HELIX * self.must_roll[*h2];
+            } else {
+                self.acceleration[*h2] += delta_2 / MASS_HELIX * self.must_roll[*h2];
+            }
         }
     }
 
@@ -216,9 +226,27 @@ impl RollSystem {
         }
     }
 
+    fn get_roll_from_support(data: &DesignData, h_id: usize) -> Option<f32> {
+        let child = data.helices.get(h_id)?;
+        let mother_id = child
+            .support_helix
+            .as_ref()
+            .and_then(|id| data.helix_map.get(id))?;
+        let mother = data.helices.get(*mother_id)?;
+        Some(mother.roll_at_pos(-child.initial_nt_index, &data.parameters))
+    }
+
     fn update_rolls(&mut self, data: &mut DesignData, dt: f32) {
         for i in 0..self.speed.len() {
-            data.helices[i].roll(self.speed[i] * dt);
+            if data.helices[i].support_helix.is_none() {
+                data.helices[i].roll(self.speed[i] * dt);
+            }
+        }
+
+        for i in 0..self.speed.len() {
+            if let Some(roll) = Self::get_roll_from_support(&data, i) {
+                data.helices[i].roll = roll;
+            }
         }
     }
 
@@ -241,6 +269,7 @@ impl RollSystem {
     pub fn solve_one_step(&mut self, data: &mut DesignData, lr: f32) -> f32 {
         self.time_scale = 1.;
         self.update_acceleration(data);
+        log::trace!("acceleration {:?}", self.acceleration);
         let grad = self
             .acceleration
             .iter()

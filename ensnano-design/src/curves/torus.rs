@@ -26,7 +26,7 @@ use std::f64::consts::TAU;
 const H: f64 = crate::Parameters::DEFAULT.helix_radius as f64
     + crate::Parameters::DEFAULT.inter_helix_gap as f64 / 2.;
 
-const NB_STEPS: usize = 1_000_000;
+const NB_STEPS: usize = 10_000_000;
 
 /// A torus
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -362,7 +362,7 @@ trait Curve2D {
                 let mut t = idx as f64 / (cache.len() - 1) as f64;
                 if idx < cache.len() - 1 {
                     let s_ = cache[idx + 1];
-                    let interpolation = (s_objective - s)/ (s_ - s);
+                    let interpolation = (s_objective - s) / (s_ - s);
                     t += interpolation / (cache.len() - 1) as f64;
                 }
                 t

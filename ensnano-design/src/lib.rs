@@ -448,6 +448,18 @@ impl Design {
         }
     }
 
+    pub fn update_support_helices(&mut self) {
+        let parameters = self.parameters.unwrap_or_default();
+        let old_helices = self.helices.clone();
+        mutate_all_helices(self, |h| {
+            if let Some(mother_id) = h.support_helix {
+                if let Some(mother) = old_helices.get(&mother_id) {
+                    h.roll = mother.roll_at_pos(-h.initial_nt_index, &parameters);
+                }
+            }
+        })
+    }
+
     pub fn get_nucl_position(&self, nucl: Nucl) -> Option<Vec3> {
         let helix = self.helices.get(&nucl.helix)?;
         Some(helix.space_pos(
@@ -1459,7 +1471,12 @@ pub struct Helix {
     delta_bbpt: f32,
 
     #[serde(default)]
-    initial_nt_index: isize,
+    pub initial_nt_index: isize,
+
+    /// An optional helix whose roll is copied from and to which self transfer forces applying
+    /// to its roll
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub support_helix: Option<usize>,
 }
 
 fn default_visibility() -> bool {
@@ -1503,6 +1520,7 @@ impl Helix {
             instanciated_curve: None,
             delta_bbpt: 0.,
             initial_nt_index: 0,
+            support_helix: None,
         }
     }
 
@@ -1578,6 +1596,7 @@ impl Helix {
             instanciated_curve: None,
             delta_bbpt: 0.,
             initial_nt_index: 0,
+            support_helix: None,
         })
     }
 }
@@ -1596,6 +1615,7 @@ impl Helix {
             instanciated_curve: None,
             delta_bbpt: 0.,
             initial_nt_index: 0,
+            support_helix: None,
         }
     }
 
@@ -1619,6 +1639,7 @@ impl Helix {
             instanciated_curve: None,
             delta_bbpt: 0.,
             initial_nt_index: 0,
+            support_helix: None,
         }
     }
 
@@ -1636,6 +1657,7 @@ impl Helix {
             instanciated_curve: None,
             delta_bbpt: 0.,
             initial_nt_index: 0,
+            support_helix: None,
         }
     }
 
@@ -1668,6 +1690,7 @@ impl Helix {
             instanciated_curve: None,
             delta_bbpt: 0.,
             initial_nt_index: 0,
+            support_helix: None,
         }
     }
 
@@ -1676,6 +1699,12 @@ impl Helix {
             .as_ref()
             .map(|c| c.curve.as_ref().nb_points())
             .unwrap_or(0)
+    }
+
+    pub fn roll_at_pos(&self, n: isize, cst: &Parameters) -> f32 {
+        let bbpt = cst.bases_per_turn + self.delta_bbpt;
+        let beta = 2. * PI / bbpt;
+        self.roll - n as f32 * beta // Beta is positive but helix turn clockwise when n increases
     }
 
     /// Angle of base number `n` around this helix.
@@ -1743,6 +1772,7 @@ impl Helix {
             instanciated_curve: None,
             delta_bbpt: 0.,
             initial_nt_index: 0,
+            support_helix: None,
         }
     }
 

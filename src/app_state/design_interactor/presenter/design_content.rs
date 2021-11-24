@@ -347,6 +347,7 @@ impl DesignContent {
             grid_manager.reposition_all_helices(&mut design);
         }
         design.update_bezier_helices();
+        design.update_support_helices();
         for (s_id, strand) in design.strands.iter_mut() {
             elements.push(elements::DnaElement::Strand { id: *s_id });
             let mut strand_position = 0;
