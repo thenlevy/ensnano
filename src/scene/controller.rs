@@ -70,7 +70,7 @@ pub enum Consequence {
     CameraMoved,
     CameraTranslated(f64, f64),
     XoverAtempt(Nucl, Nucl, usize),
-    QuickXoverAttempt(Nucl),
+    QuickXoverAttempt{ nucl: Nucl, doubled: bool },
     Translation(HandleDir, f64, f64, WidgetTarget),
     MovementEnded,
     Rotation(f64, f64, WidgetTarget),

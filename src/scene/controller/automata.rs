@@ -346,7 +346,7 @@ impl<S: AppState> ControllerState<S> for NormalState {
                         if let Some((nucl, _)) =
                             controller.data.borrow().element_to_nucl(&element, true)
                         {
-                            Transition::consequence(Consequence::QuickXoverAttempt(nucl))
+                            Transition::consequence(Consequence::QuickXoverAttempt { nucl, doubled: controller.current_modifiers.shift()})
                         } else {
                             Transition::nothing()
                         }

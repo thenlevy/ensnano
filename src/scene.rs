@@ -192,13 +192,19 @@ impl<S: AppState> Scene<S> {
                 self.attempt_xover(source, target, d_id);
                 self.data.borrow_mut().end_free_xover();
             }
-            Consequence::QuickXoverAttempt(nucl) => {
+            Consequence::QuickXoverAttempt{nucl, doubled} => {
                 let suggestions = app_state.get_design_reader().get_suggestions();
-                let pair = suggestions
-                    .into_iter()
-                    .find(|(a, b)| *a == nucl || *b == nucl);
+                let mut pair = suggestions
+                    .iter()
+                    .find(|(a, b)| *a == nucl || *b == nucl).cloned();
                 if let Some((n1, n2)) = pair {
-                    self.attempt_xover(n1, n2, 0);
+                    if doubled {
+                        pair = suggestions.iter().find(|(a, b)| *a == n1.prime5() || *b == n1.prime5()).cloned();
+                    }
+                    self.requests.lock().unwrap().apply_design_operation(DesignOperation::MakeSeveralXovers {
+                        xovers: vec![pair.unwrap_or((n1, n2))],
+                        doubled
+                    });
                 } else {
                     log::error!("No suggested cross over target for nucl {:?}", nucl)
                 }
