@@ -1590,6 +1590,13 @@ impl<'a> MainStateInteface for MainStateView<'a> {
         self.scheduler
             .forward_new_size(self.window.inner_size(), self.multiplexer);
     }
+
+    fn make_all_suggested_xover(&mut self, doubled: bool) {
+        use scene::DesignReader;
+        let reader = self.main_state.app_state.get_design_reader();
+        let xovers = reader.get_suggestions();
+        self.apply_operation(DesignOperation::MakeSeveralXovers { xovers, doubled })
+    }
 }
 
 use controller::{SetScaffoldSequenceError, SetScaffoldSequenceOk};

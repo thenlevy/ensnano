@@ -234,6 +234,10 @@ impl State for NormalState {
                     main_state.toggle_2d();
                     self
                 }
+                Action::MakeAllSuggestedXover { doubled } => {
+                    main_state.make_all_suggested_xover(doubled);
+                    self
+                }
                 action => {
                     println!("Not implemented {:?}", action);
                     self
@@ -426,4 +430,7 @@ pub enum Action {
     SelectFavoriteCamera(u32),
     UpdateCamera(ensnano_design::CameraId),
     Toggle2D,
+    MakeAllSuggestedXover {
+        doubled: bool,
+    },
 }

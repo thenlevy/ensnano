@@ -246,6 +246,10 @@ pub enum DesignOperation {
         grid_id: usize,
         nb_turn: f32,
     },
+    MakeSeveralXovers {
+        xovers: Vec<(Nucl, Nucl)>,
+        doubled: bool,
+    },
 }
 
 /// An action performed on the application

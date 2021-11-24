@@ -458,6 +458,13 @@ impl Multiplexer {
                     VirtualKeyCode::Escape => {
                         self.requests.lock().unwrap().action_mode = Some(ActionMode::Normal)
                     }
+                    VirtualKeyCode::X if self.modifiers.alt() => {
+                        self.requests.lock().unwrap().keep_proceed.push_back(
+                            Action::MakeAllSuggestedXover {
+                                doubled: self.modifiers.shift(),
+                            },
+                        )
+                    }
                     VirtualKeyCode::Z if ctrl(&self.modifiers) => {
                         self.requests.lock().unwrap().undo = Some(());
                     }

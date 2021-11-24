@@ -267,6 +267,9 @@ impl Controller {
             DesignOperation::SetGridNbTurn { grid_id, nb_turn } => {
                 self.apply(|c, d| c.set_grid_nb_turn(d, grid_id, nb_turn), design)
             }
+            DesignOperation::MakeSeveralXovers { xovers, doubled } => {
+                self.apply(|c, d| c.apply_several_xovers(d, xovers, doubled), design)
+            }
         }
     }
 
@@ -2250,6 +2253,35 @@ impl Controller {
         target_nucl: Nucl,
     ) -> Result<Design, ErrOperation> {
         self.general_cross_over(&mut design, source_nucl, target_nucl)?;
+        Ok(design)
+    }
+
+    fn apply_several_xovers(
+        &mut self,
+        mut design: Design,
+        pairs: Vec<(Nucl, Nucl)>,
+        doubled: bool,
+    ) -> Result<Design, ErrOperation> {
+        let pairs = if doubled {
+            let mut ret = pairs.clone();
+            for (a, b) in pairs {
+                ret.push((a.prime5(), b.prime5()));
+            }
+            ret.dedup();
+            ret
+        } else {
+            pairs
+        };
+        for (source_nucl, target_nucl) in pairs {
+            if let Err(e) = self.general_cross_over(&mut design, source_nucl, target_nucl) {
+                log::error!(
+                    "when making xover {:?} {:?} : {:?}",
+                    source_nucl,
+                    target_nucl,
+                    e
+                )
+            }
+        }
         Ok(design)
     }
 

@@ -335,7 +335,7 @@ impl<S: AppState> ControllerState<S> for NormalState {
                             }
                         }
                     }
-                    Some(SceneElement::DesignElement(d_id, n_id))
+                    Some(SceneElement::DesignElement(_, _))
                         if ctrl(&controller.current_modifiers)
                             && controller
                                 .data
