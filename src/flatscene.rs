@@ -483,7 +483,8 @@ impl<S: AppState> Application for FlatScene<S> {
     type AppState = S;
     fn on_notify(&mut self, notification: Notification) {
         match notification {
-            Notification::FitRequest => self.controller[self.selected_design].fit(),
+            //Notification::FitRequest => self.controller[self.selected_design].fit(),
+            Notification::FitRequest => (), // Temporarilly don't fit to make the moebius ring
             Notification::Save(d_id) => self.data[d_id].borrow_mut().save_isometry(),
             Notification::ToggleText(b) => {
                 self.view[self.selected_design].borrow_mut().set_show_sec(b)
