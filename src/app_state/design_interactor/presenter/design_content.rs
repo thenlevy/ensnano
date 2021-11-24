@@ -427,6 +427,11 @@ impl DesignContent {
                         let position = [position[0] as f32, position[1] as f32, position[2] as f32];
                         space_position.insert(nucl_id, position);
                         if let Some(old_nucl) = old_nucl.take() {
+                            let color = if old_nucl.helix != nucl.helix {
+                                0xFF_FF_00_00
+                            } else {
+                                color
+                            };
                             let bound_id = id;
                             id += 1;
                             let bound = (old_nucl, nucl);
