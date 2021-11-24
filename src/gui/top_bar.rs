@@ -336,7 +336,7 @@ impl<R: Requests, S: AppState> Program for TopBar<R, S> {
             Button::new(&mut self.button_toggle_2d, iced::Text::new("Toggle 2D"))
                 .height(Length::Units(self.ui_size.button()));
 
-        if self.application_state.can_toggle_2d {
+        if true {
             button_toggle_2d = button_toggle_2d.on_press(Message::Toggle2D);
         }
 
