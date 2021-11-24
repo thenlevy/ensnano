@@ -196,26 +196,30 @@ impl RollSystem {
             let h2 = data.helix_map.get(&n2.helix).unwrap();
             let me = &data.helices[*h1];
             let other = &data.helices[*h2];
-            let (delta_1, delta_2) = cross_over_force(
-                me,
-                other,
-                &data.parameters,
-                n1.position,
-                n1.forward,
-                n2.position,
-                n2.forward,
-            );
 
-            if let Some(support_h1) = me.support_helix.and_then(|id| data.helix_map.get(&id)) {
-                self.acceleration[*support_h1] += delta_1 / MASS_HELIX * self.must_roll[*h1];
-            } else {
-                self.acceleration[*h1] += delta_1 / MASS_HELIX * self.must_roll[*h1];
-            }
+            if me.support_helix.unwrap_or(*h1) != other.support_helix.unwrap_or(*h2) {
+                let (delta_1, delta_2) = cross_over_force(
+                    me,
+                    other,
+                    &data.parameters,
+                    n1.position,
+                    n1.forward,
+                    n2.position,
+                    n2.forward,
+                );
 
-            if let Some(support_h2) = other.support_helix.and_then(|id| data.helix_map.get(&id)) {
-                self.acceleration[*support_h2] += delta_2 / MASS_HELIX * self.must_roll[*h2];
-            } else {
-                self.acceleration[*h2] += delta_2 / MASS_HELIX * self.must_roll[*h2];
+                if let Some(support_h1) = me.support_helix.and_then(|id| data.helix_map.get(&id)) {
+                    self.acceleration[*support_h1] += delta_1 / MASS_HELIX * self.must_roll[*h1];
+                } else {
+                    self.acceleration[*h1] += delta_1 / MASS_HELIX * self.must_roll[*h1];
+                }
+
+                if let Some(support_h2) = other.support_helix.and_then(|id| data.helix_map.get(&id))
+                {
+                    self.acceleration[*support_h2] += delta_2 / MASS_HELIX * self.must_roll[*h2];
+                } else {
+                    self.acceleration[*h2] += delta_2 / MASS_HELIX * self.must_roll[*h2];
+                }
             }
         }
     }
