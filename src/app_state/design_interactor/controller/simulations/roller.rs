@@ -237,7 +237,7 @@ impl RollSystem {
             .as_ref()
             .and_then(|id| data.helix_map.get(id))?;
         let mother = data.helices.get(*mother_id)?;
-        Some(mother.roll_at_pos(-child.initial_nt_index, &data.parameters))
+        Some(mother.roll)
     }
 
     fn update_rolls(&mut self, data: &mut DesignData, dt: f32) {

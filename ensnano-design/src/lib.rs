@@ -454,7 +454,7 @@ impl Design {
         mutate_all_helices(self, |h| {
             if let Some(mother_id) = h.support_helix {
                 if let Some(mother) = old_helices.get(&mother_id) {
-                    h.roll = mother.roll_at_pos(-h.initial_nt_index, &parameters);
+                    h.roll = mother.roll;
                 }
             }
         })
