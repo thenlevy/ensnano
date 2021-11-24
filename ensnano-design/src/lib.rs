@@ -1915,11 +1915,31 @@ where
     Some(())
 }
 
-#[derive(Serialize, Deserialize, Clone, Copy, Eq, PartialEq, Hash, Debug, PartialOrd, Ord)]
+#[derive(Serialize, Deserialize, Clone, Copy, Eq, PartialEq, Hash, Debug)]
 pub struct Nucl {
     pub helix: usize,
     pub position: isize,
     pub forward: bool,
+}
+
+impl std::cmp::PartialOrd for Nucl {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl std::cmp::Ord for Nucl {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        if self.helix != other.helix {
+            self.helix.cmp(&other.helix)
+        } else if self.forward != other.forward {
+            self.forward.cmp(&other.forward)
+        } else if self.forward {
+            self.position.cmp(&other.position)
+        } else {
+            self.position.cmp(&other.position).reverse()
+        }
+    }
 }
 
 impl Nucl {

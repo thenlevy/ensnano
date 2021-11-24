@@ -2256,16 +2256,48 @@ impl Controller {
         Ok(design)
     }
 
+    fn twisted_pair(mut a1: Nucl, mut b1: Nucl, mut a2: Nucl, mut b2: Nucl) -> bool {
+        if a1 > b1 {
+            std::mem::swap(&mut a1, &mut b1);
+        }
+        if a2 > b2 {
+            std::mem::swap(&mut a2, &mut b2);
+        }
+
+        if a1.prime3() == a2 && b1.prime3() == b2 {
+            true
+        } else if a1.prime5() == a2 && b1.prime5() == b2 {
+            true
+        } else {
+            false
+        }
+    }
+
     fn apply_several_xovers(
         &mut self,
         mut design: Design,
-        pairs: Vec<(Nucl, Nucl)>,
+        mut pairs: Vec<(Nucl, Nucl)>,
         doubled: bool,
     ) -> Result<Design, ErrOperation> {
-        let pairs = if doubled {
+        pairs.sort();
+
+        for i in 0..pairs.len() {
+            for j in i..pairs.len() {
+                if Self::twisted_pair(pairs[i].0, pairs[i].1, pairs[j].0, pairs[j].1) {
+                    let (l, r) = pairs.split_at_mut(j);
+                    std::mem::swap(&mut l[i].1, &mut r[0].1);
+                }
+            }
+        }
+
+        pairs = if doubled {
             let mut ret = pairs.clone();
             for (a, b) in pairs {
-                ret.push((a.prime5(), b.prime5()));
+                if !ret.iter().any(|(x, y)| {
+                    *x == a.prime5() || *x == b.prime5() || *y == a.prime5() || *y == b.prime5()
+                }) {
+                    ret.push((a.prime3(), b.prime5()));
+                }
             }
             ret.dedup();
             ret
