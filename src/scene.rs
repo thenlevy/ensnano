@@ -192,6 +192,17 @@ impl<S: AppState> Scene<S> {
                 self.attempt_xover(source, target, d_id);
                 self.data.borrow_mut().end_free_xover();
             }
+            Consequence::QuickXoverAttempt(nucl) => {
+                let suggestions = app_state.get_design_reader().get_suggestions();
+                let pair = suggestions
+                    .into_iter()
+                    .find(|(a, b)| *a == nucl || *b == nucl);
+                if let Some((n1, n2)) = pair {
+                    self.attempt_xover(n1, n2, 0);
+                } else {
+                    log::error!("No suggested cross over target for nucl {:?}", nucl)
+                }
+            }
             Consequence::Translation(dir, x_coord, y_coord, target) => {
                 let translation = self.view.borrow().compute_translation_handle(
                     x_coord as f32,
@@ -355,8 +366,7 @@ impl<S: AppState> Scene<S> {
         };
     }
 
-    /// If a nucleotide is selected, and the clicked_pixel corresponds to an other nucleotide,
-    /// request a cross-over between the two nucleotides.
+    /// Request a cross-over between two nucleotides.
     fn attempt_xover(&mut self, source: Nucl, target: Nucl, design_id: usize) {
         self.requests
             .lock()

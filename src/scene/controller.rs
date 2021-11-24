@@ -70,6 +70,7 @@ pub enum Consequence {
     CameraMoved,
     CameraTranslated(f64, f64),
     XoverAtempt(Nucl, Nucl, usize),
+    QuickXoverAttempt(Nucl),
     Translation(HandleDir, f64, f64, WidgetTarget),
     MovementEnded,
     Rotation(f64, f64, WidgetTarget),
@@ -365,7 +366,11 @@ fn ctrl(modifiers: &ModifiersState) -> bool {
 }
 
 pub(super) trait Data {
-    fn element_to_nucl(&self, element: &Option<SceneElement>, _: bool) -> Option<(Nucl, usize)>;
+    fn element_to_nucl(
+        &self,
+        element: &Option<SceneElement>,
+        non_phantom: bool,
+    ) -> Option<(Nucl, usize)>;
     fn get_nucl_position(&self, nucl: Nucl, d_id: usize) -> Option<Vec3>;
     fn attempt_xover(
         &self,

@@ -335,6 +335,22 @@ impl<S: AppState> ControllerState<S> for NormalState {
                             }
                         }
                     }
+                    Some(SceneElement::DesignElement(d_id, n_id))
+                        if ctrl(&controller.current_modifiers)
+                            && controller
+                                .data
+                                .borrow()
+                                .element_to_nucl(&element, true)
+                                .is_some() =>
+                    {
+                        if let Some((nucl, _)) =
+                            controller.data.borrow().element_to_nucl(&element, true)
+                        {
+                            Transition::consequence(Consequence::QuickXoverAttempt(nucl))
+                        } else {
+                            Transition::nothing()
+                        }
+                    }
                     _ => Transition {
                         new_state: Some(Box::new(Selecting {
                             element,
