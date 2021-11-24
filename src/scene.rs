@@ -774,7 +774,9 @@ impl<S: AppState> Scene<S> {
     }
 
     pub fn fog_request(&mut self, fog: FogParameters) {
-        self.view.borrow_mut().update(ViewUpdate::Fog(fog))
+        if !self.is_stereographic() {
+            self.view.borrow_mut().update(ViewUpdate::Fog(fog))
+        }
     }
 }
 
