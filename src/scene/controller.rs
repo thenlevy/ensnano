@@ -107,6 +107,7 @@ pub enum Consequence {
         y: isize,
     },
     HelixSelected(usize),
+    PivotCenter,
 }
 
 enum TransistionConsequence {
@@ -234,6 +235,7 @@ impl<S: AppState> Controller<S> {
                 {
                     Consequence::Redo
                 }
+                VirtualKeyCode::Q => Consequence::PivotCenter,
                 VirtualKeyCode::Space if *state == ElementState::Pressed => {
                     Consequence::ToggleWidget
                 }

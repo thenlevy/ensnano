@@ -351,6 +351,7 @@ impl<S: AppState> Scene<S> {
             Consequence::InitBuild(nucl) => self.requests.lock().unwrap().apply_design_operation(
                 DesignOperation::RequestStrandBuilders { nucls: vec![nucl] },
             ),
+            Consequence::PivotCenter => self.data.borrow_mut().set_pivot_position(Vec3::zero()),
         };
     }
 
