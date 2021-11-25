@@ -390,6 +390,12 @@ impl<S: AppState> Scene<S> {
                         .apply_design_operation(DesignOperation::CheckXovers { xovers })
                 }
             }
+            Consequence::AlignWithStereo => {
+                if !self.is_stereographic() {
+                    let camera = self.data.borrow().get_aligned_camera();
+                    self.on_notify(Notification::TeleportCamera(camera));
+                }
+            }
         };
     }
 

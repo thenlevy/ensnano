@@ -185,6 +185,12 @@ impl<R: DesignReader> Data<R> {
             .update(ViewUpdate::RawDna(Mesh::StereographicSphere, instances));
     }
 
+    pub fn get_aligned_camera(&self) -> Camera3D {
+        let mut ret = Camera3D::clone(self.stereographic_camera.as_ref());
+        ret.position += ret.orientation.reversed() * (10. * Vec3::unit_z());
+        ret
+    }
+
     fn discs_need_update<S: AppState>(&mut self, app_state: &S, older_app_state: &S) -> bool {
         let ret = app_state.design_was_modified(older_app_state)
             || app_state.selection_was_updated(older_app_state)

@@ -113,6 +113,7 @@ pub enum Consequence {
     HelixSelected(usize),
     PivotCenter,
     CheckXovers,
+    AlignWithStereo,
 }
 
 enum TransistionConsequence {
@@ -230,6 +231,9 @@ impl<S: AppState> Controller<S> {
         } = event
         {
             let csq = match *key {
+                VirtualKeyCode::A if *state == ElementState::Pressed => {
+                    Consequence::AlignWithStereo
+                }
                 VirtualKeyCode::Return if *state == ElementState::Pressed => {
                     Consequence::CheckXovers
                 }
