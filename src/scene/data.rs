@@ -370,7 +370,7 @@ impl<R: DesignReader> Data<R> {
     }*/
 
     /// Return the instances of selected spheres
-    pub fn get_selected_spheres(&self, selection: &[Selection]) -> Rc<Vec<RawDnaInstance>> {
+    pub fn get_selected_spheres(&self, selection: &[Selection]) -> Vec<RawDnaInstance> {
         let mut ret = Vec::new();
         for selection in selection.iter() {
             for element in self
@@ -406,7 +406,7 @@ impl<R: DesignReader> Data<R> {
                 }
             }
         }
-        Rc::new(ret)
+        ret
     }
 
     /// Return the instances of selected tubes
@@ -817,7 +817,7 @@ impl<R: DesignReader> Data<R> {
     /// Notify the view that the selected elements have been modified
     fn update_selection<S: AppState>(&mut self, selection: &[Selection], app_state: &S) {
         log::trace!("Update selection {:?}", selection);
-        let sphere = self.get_selected_spheres(selection);
+        let mut sphere = self.get_selected_spheres(selection);
         let tubes = self.get_selected_tubes(selection);
         let pos: Vec3 = sphere
             .iter()
@@ -834,14 +834,19 @@ impl<R: DesignReader> Data<R> {
             self.update_selected_position(app_state);
             self.selected_position = self.selected_position.or(Some(pos / (total_len as f32)));
         }
+        sphere.extend(
+            self.designs
+                .get(0)
+                .map(|d| d.get_all_checked_xover_instance())
+                .unwrap_or_default(),
+        );
         self.view.borrow_mut().update(ViewUpdate::RawDna(
             Mesh::SelectedTube,
             self.get_selected_tubes(selection),
         ));
-        self.view.borrow_mut().update(ViewUpdate::RawDna(
-            Mesh::SelectedSphere,
-            self.get_selected_spheres(selection),
-        ));
+        self.view
+            .borrow_mut()
+            .update(ViewUpdate::RawDna(Mesh::SelectedSphere, Rc::new(sphere)));
         let (sphere, vec) = self.get_phantom_instances(app_state);
         self.view
             .borrow_mut()

@@ -192,19 +192,25 @@ impl<S: AppState> Scene<S> {
                 self.attempt_xover(source, target, d_id);
                 self.data.borrow_mut().end_free_xover();
             }
-            Consequence::QuickXoverAttempt{nucl, doubled} => {
+            Consequence::QuickXoverAttempt { nucl, doubled } => {
                 let suggestions = app_state.get_design_reader().get_suggestions();
                 let mut pair = suggestions
                     .iter()
-                    .find(|(a, b)| *a == nucl || *b == nucl).cloned();
+                    .find(|(a, b)| *a == nucl || *b == nucl)
+                    .cloned();
                 if let Some((n1, n2)) = pair {
                     if doubled {
-                        pair = suggestions.iter().find(|(a, b)| *a == n1.prime5() || *b == n1.prime5()).cloned();
+                        pair = suggestions
+                            .iter()
+                            .find(|(a, b)| *a == n1.prime5() || *b == n1.prime5())
+                            .cloned();
                     }
-                    self.requests.lock().unwrap().apply_design_operation(DesignOperation::MakeSeveralXovers {
-                        xovers: vec![pair.unwrap_or((n1, n2))],
-                        doubled
-                    });
+                    self.requests.lock().unwrap().apply_design_operation(
+                        DesignOperation::MakeSeveralXovers {
+                            xovers: vec![pair.unwrap_or((n1, n2))],
+                            doubled,
+                        },
+                    );
                 } else {
                     log::error!("No suggested cross over target for nucl {:?}", nucl)
                 }
@@ -369,6 +375,18 @@ impl<S: AppState> Scene<S> {
                 DesignOperation::RequestStrandBuilders { nucls: vec![nucl] },
             ),
             Consequence::PivotCenter => self.data.borrow_mut().set_pivot_position(Vec3::zero()),
+            Consequence::CheckXovers => {
+                let xovers = ensnano_interactor::list_of_xover_ids(
+                    app_state.get_selection(),
+                    &app_state.get_design_reader(),
+                );
+                if let Some((_, xovers)) = xovers {
+                    self.requests
+                        .lock()
+                        .unwrap()
+                        .apply_design_operation(DesignOperation::CheckXovers { xovers })
+                }
+            }
         };
     }
 

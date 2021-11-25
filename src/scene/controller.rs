@@ -70,7 +70,10 @@ pub enum Consequence {
     CameraMoved,
     CameraTranslated(f64, f64),
     XoverAtempt(Nucl, Nucl, usize),
-    QuickXoverAttempt{ nucl: Nucl, doubled: bool },
+    QuickXoverAttempt {
+        nucl: Nucl,
+        doubled: bool,
+    },
     Translation(HandleDir, f64, f64, WidgetTarget),
     MovementEnded,
     Rotation(f64, f64, WidgetTarget),
@@ -109,6 +112,7 @@ pub enum Consequence {
     },
     HelixSelected(usize),
     PivotCenter,
+    CheckXovers,
 }
 
 enum TransistionConsequence {
@@ -226,6 +230,9 @@ impl<S: AppState> Controller<S> {
         } = event
         {
             let csq = match *key {
+                VirtualKeyCode::Return if *state == ElementState::Pressed => {
+                    Consequence::CheckXovers
+                }
                 VirtualKeyCode::Z
                     if ctrl(&self.current_modifiers) && *state == ElementState::Pressed =>
                 {

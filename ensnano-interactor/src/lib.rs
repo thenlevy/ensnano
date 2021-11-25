@@ -250,6 +250,9 @@ pub enum DesignOperation {
         xovers: Vec<(Nucl, Nucl)>,
         doubled: bool,
     },
+    CheckXovers {
+        xovers: Vec<usize>,
+    },
 }
 
 /// An action performed on the application

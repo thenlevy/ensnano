@@ -324,6 +324,22 @@ impl Reader3D for DesignReader {
             .get(&h_id)
             .and_then(|h| h.as_ref().get_curve_range())
     }
+
+    fn get_checked_xovers_ids(&self) -> Vec<u32> {
+        self.presenter
+            .current_design
+            .checked_xovers
+            .iter()
+            .filter_map(|xover_id| {
+                self.presenter
+                    .junctions_ids
+                    .get_element(*xover_id)
+                    .as_ref()
+                    .and_then(|bound_id| self.presenter.content.identifier_bound.get(bound_id))
+            })
+            .cloned()
+            .collect()
+    }
 }
 
 impl Presenter {}

@@ -270,6 +270,10 @@ impl Controller {
             DesignOperation::MakeSeveralXovers { xovers, doubled } => {
                 self.apply(|c, d| c.apply_several_xovers(d, xovers, doubled), design)
             }
+
+            DesignOperation::CheckXovers { xovers } => {
+                self.apply(|c, d| c.check_xovers(d, xovers), design)
+            }
         }
     }
 
@@ -2253,6 +2257,20 @@ impl Controller {
         target_nucl: Nucl,
     ) -> Result<Design, ErrOperation> {
         self.general_cross_over(&mut design, source_nucl, target_nucl)?;
+        Ok(design)
+    }
+
+    fn check_xovers(
+        &mut self,
+        mut design: Design,
+        xovers: Vec<usize>,
+    ) -> Result<Design, ErrOperation> {
+        let xovers_set = &mut design.checked_xovers;
+        for x in xovers {
+            if !xovers_set.insert(x) {
+                xovers_set.remove(&x);
+            }
+        }
         Ok(design)
     }
 

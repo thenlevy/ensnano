@@ -195,6 +195,25 @@ impl<R: DesignReader> Design3D<R> {
         Some(instanciable)
     }
 
+    fn make_checked_xover_instance(&self, id: u32) -> Option<RawDnaInstance> {
+        let referential = Referential::Model;
+        if let Some(ObjectType::Bound(n1, n2)) = self.get_object_type(id) {
+            let pos1 = self.get_design_element_position(n1, referential)?;
+            let pos2 = self.get_design_element_position(n2, referential)?;
+            Some(create_check_bound(pos1, pos2))
+        } else {
+            None
+        }
+    }
+
+    pub fn get_all_checked_xover_instance(&self) -> Vec<RawDnaInstance> {
+        self.design
+            .get_checked_xovers_ids()
+            .into_iter()
+            .filter_map(|id| self.make_checked_xover_instance(id))
+            .collect()
+    }
+
     /// Convert return an instance representing the object with identifier `id`
     pub fn make_raw_instance(&self, id: u32) -> Option<RawDnaInstance> {
         let kind = self.get_object_type(id)?;
@@ -918,6 +937,19 @@ fn create_dna_bound(
     }
 }
 
+fn create_check_bound(source: Vec3, dest: Vec3) -> RawDnaInstance {
+    let radius = (source - dest).mag() / 2. / SPHERE_RADIUS;
+    let position = (source + dest) / 2.;
+    let color = Instance::color_from_au32(CHECKED_XOVER_COLOR);
+    SphereInstance {
+        position,
+        radius,
+        color,
+        id: 0,
+    }
+    .to_raw_instance()
+}
+
 fn create_prime3_cone(source: Vec3, dest: Vec3, color: u32) -> RawDnaInstance {
     let color = Instance::color_from_u32(color);
     let rotor = Rotor3::from_rotation_between(Vec3::unit_x(), (dest - source).normalized());
@@ -991,4 +1023,5 @@ pub trait DesignReader: 'static + ensnano_interactor::DesignReader {
     fn get_all_prime3_nucl(&self) -> Vec<(Vec3, Vec3, u32)>;
     fn get_bezier_controll(&self, h_id: usize) -> Option<ensnano_design::CubicBezierConstructor>;
     fn get_curve_range(&self, h_id: usize) -> Option<std::ops::RangeInclusive<isize>>;
+    fn get_checked_xovers_ids(&self) -> Vec<u32>;
 }

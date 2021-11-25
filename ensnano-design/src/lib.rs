@@ -127,6 +127,9 @@ pub struct Design {
 
     #[serde(default, skip_serializing_if = "Option::is_none")]
     saved_camera: Option<Camera>,
+
+    #[serde(default, skip_serializing_if = "HashSet::is_empty")]
+    pub checked_xovers: HashSet<usize>,
 }
 
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -213,6 +216,7 @@ impl Design {
             cameras: Default::default(),
             favorite_camera: None,
             saved_camera: None,
+            checked_xovers: Default::default(),
         }
     }
 
