@@ -49,7 +49,7 @@ mod letter;
 /// A RotationWidget draws the widget for rotating objects
 mod rotation_widget;
 
-use super::maths_3d::{self, distance_to_cursor};
+use super::maths_3d::{self, distance_to_cursor_with_penalty};
 use crate::text::Letter;
 use bindgroup_manager::{DynamicBindGroup, UniformBindGroup};
 use direction_cube::*;
@@ -837,7 +837,7 @@ impl View {
                 let mut ret = 0;
                 let mut opt = f32::INFINITY;
                 for (i, point) in points.iter().enumerate() {
-                    let d = distance_to_cursor(
+                    let d = distance_to_cursor_with_penalty(
                         ensnano_design::utils::dvec_to_vec(*point),
                         self.camera.clone(),
                         self.projection.clone(),
