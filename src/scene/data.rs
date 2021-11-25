@@ -125,6 +125,8 @@ impl<R: DesignReader> Data<R> {
             self.update_selection(&[], app_state)
         } else if app_state.selection_was_updated(older_app_state)
             || app_state.design_was_modified(older_app_state)
+            || app_state.get_check_xover_parameters()
+                != older_app_state.get_check_xover_parameters()
         {
             self.update_selection(app_state.get_selection(), app_state);
         }
@@ -834,12 +836,22 @@ impl<R: DesignReader> Data<R> {
             self.update_selected_position(app_state);
             self.selected_position = self.selected_position.or(Some(pos / (total_len as f32)));
         }
-        sphere.extend(
-            self.designs
-                .get(0)
-                .map(|d| d.get_all_checked_xover_instance())
-                .unwrap_or_default(),
-        );
+        if app_state.get_check_xover_parameters().wants_checked() {
+            sphere.extend(
+                self.designs
+                    .get(0)
+                    .map(|d| d.get_all_checked_xover_instance(true))
+                    .unwrap_or_default(),
+            );
+        }
+        if app_state.get_check_xover_parameters().wants_unchecked() {
+            sphere.extend(
+                self.designs
+                    .get(0)
+                    .map(|d| d.get_all_checked_xover_instance(false))
+                    .unwrap_or_default(),
+            );
+        }
         self.view.borrow_mut().update(ViewUpdate::RawDna(
             Mesh::SelectedTube,
             self.get_selected_tubes(selection),

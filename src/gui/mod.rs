@@ -49,7 +49,7 @@ use ensnano_design::{
 };
 use ensnano_interactor::{
     graphics::{Background3D, DrawArea, ElementType, RenderingMode, SplitMode},
-    Selection, SimulationState, SuggestionParameters, WidgetBasis,
+    CheckXoversParameter, Selection, SimulationState, SuggestionParameters, WidgetBasis,
 };
 use ensnano_interactor::{operation::Operation, ScaffoldInfo};
 use ensnano_interactor::{ActionMode, HyperboloidRequest, RollRequest, SelectionMode};
@@ -187,6 +187,7 @@ pub trait Requests: 'static + Send {
     fn set_grid_orientation(&mut self, grid_id: usize, orientation: Rotor3);
     fn toggle_2d(&mut self);
     fn set_nb_turn(&mut self, grid_id: usize, nb_turn: f32);
+    fn set_check_xover_parameters(&mut self, paramters: CheckXoversParameter);
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -916,6 +917,7 @@ pub trait AppState:
     fn get_strand_building_state(&self) -> Option<StrandBuildingStatus>;
     fn get_selected_group(&self) -> Option<GroupId>;
     fn get_suggestion_parameters(&self) -> &SuggestionParameters;
+    fn get_checked_xovers_parameters(&self) -> CheckXoversParameter;
 }
 
 pub trait DesignReader: 'static {

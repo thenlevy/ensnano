@@ -368,6 +368,10 @@ impl GuiRequests for Requests {
                 nb_turn,
             }))
     }
+
+    fn set_check_xover_parameters(&mut self, paramters: CheckXoversParameter) {
+        self.check_xover_parameters = Some(paramters);
+    }
 }
 
 fn rigid_parameters(parameters: RigidBodyParametersRequest) -> RigidBodyConstants {

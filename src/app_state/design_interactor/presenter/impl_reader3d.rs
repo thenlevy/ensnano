@@ -325,24 +325,14 @@ impl Reader3D for DesignReader {
             .and_then(|h| h.as_ref().get_curve_range())
     }
 
-    fn get_checked_xovers_ids(&self) -> Vec<u32> {
-        self.presenter
-            .current_design
-            .checked_xovers
-            .iter()
-            .filter_map(|xover_id| {
-                self.presenter
-                    .junctions_ids
-                    .get_element(*xover_id)
-                    .as_ref()
-                    .and_then(|bound_id| self.presenter.content.identifier_bound.get(bound_id))
-            })
-            .cloned()
-            .collect()
+    fn get_checked_xovers_ids(&self, checked: bool) -> Vec<u32> {
+        if checked {
+            self.presenter.get_checked_xovers_ids()
+        } else {
+            self.presenter.get_unchecked_xovers_ids()
+        }
     }
 }
-
-impl Presenter {}
 
 #[cfg(test)]
 mod tests {

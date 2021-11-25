@@ -195,22 +195,22 @@ impl<R: DesignReader> Design3D<R> {
         Some(instanciable)
     }
 
-    fn make_checked_xover_instance(&self, id: u32) -> Option<RawDnaInstance> {
+    fn make_checked_xover_instance(&self, id: u32, checked: bool) -> Option<RawDnaInstance> {
         let referential = Referential::Model;
         if let Some(ObjectType::Bound(n1, n2)) = self.get_object_type(id) {
             let pos1 = self.get_design_element_position(n1, referential)?;
             let pos2 = self.get_design_element_position(n2, referential)?;
-            Some(create_check_bound(pos1, pos2))
+            Some(create_check_bound(pos1, pos2, checked))
         } else {
             None
         }
     }
 
-    pub fn get_all_checked_xover_instance(&self) -> Vec<RawDnaInstance> {
+    pub fn get_all_checked_xover_instance(&self, checked: bool) -> Vec<RawDnaInstance> {
         self.design
-            .get_checked_xovers_ids()
+            .get_checked_xovers_ids(checked)
             .into_iter()
-            .filter_map(|id| self.make_checked_xover_instance(id))
+            .filter_map(|id| self.make_checked_xover_instance(id, checked))
             .collect()
     }
 
@@ -937,10 +937,14 @@ fn create_dna_bound(
     }
 }
 
-fn create_check_bound(source: Vec3, dest: Vec3) -> RawDnaInstance {
+fn create_check_bound(source: Vec3, dest: Vec3, checked: bool) -> RawDnaInstance {
     let radius = (source - dest).mag() / 2. / SPHERE_RADIUS;
     let position = (source + dest) / 2.;
-    let color = Instance::color_from_au32(CHECKED_XOVER_COLOR);
+    let color = if checked {
+        Instance::color_from_au32(CHECKED_XOVER_COLOR)
+    } else {
+        Instance::color_from_au32(UNCHECKED_XOVER_COLOR)
+    };
     SphereInstance {
         position,
         radius,
@@ -1023,5 +1027,5 @@ pub trait DesignReader: 'static + ensnano_interactor::DesignReader {
     fn get_all_prime3_nucl(&self) -> Vec<(Vec3, Vec3, u32)>;
     fn get_bezier_controll(&self, h_id: usize) -> Option<ensnano_design::CubicBezierConstructor>;
     fn get_curve_range(&self, h_id: usize) -> Option<std::ops::RangeInclusive<isize>>;
-    fn get_checked_xovers_ids(&self) -> Vec<u32>;
+    fn get_checked_xovers_ids(&self, checked: bool) -> Vec<u32>;
 }

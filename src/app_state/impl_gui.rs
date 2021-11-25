@@ -114,6 +114,10 @@ impl GuiState for AppState {
     fn get_suggestion_parameters(&self) -> &SuggestionParameters {
         &self.0.suggestion_parameters
     }
+
+    fn get_checked_xovers_parameters(&self) -> CheckXoversParameter {
+        self.0.check_xover_paramters
+    }
 }
 
 #[cfg(test)]

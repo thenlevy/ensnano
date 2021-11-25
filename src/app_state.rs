@@ -26,7 +26,8 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 
 use ensnano_design::group_attributes::GroupPivot;
 use ensnano_interactor::{
-    operation::Operation, ActionMode, CenterOfSelection, Selection, SelectionMode, WidgetBasis,
+    operation::Operation, ActionMode, CenterOfSelection, CheckXoversParameter, Selection,
+    SelectionMode, WidgetBasis,
 };
 
 use std::path::PathBuf;
@@ -344,6 +345,16 @@ impl AppState {
         *self = self.with_action_mode(source.0.action_mode.clone());
         *self = self.with_selection_mode(source.0.selection_mode.clone());
         *self = self.with_suggestion_parameters(source.0.suggestion_parameters.clone());
+        *self = self.with_check_xovers_parameters(source.0.check_xover_paramters);
+    }
+
+    pub fn with_check_xovers_parameters(
+        &self,
+        check_xover_paramters: CheckXoversParameter,
+    ) -> Self {
+        let mut new_state = (*self.0).clone();
+        new_state.check_xover_paramters = check_xover_paramters;
+        Self(AddressPointer::new(new_state))
     }
 
     pub(super) fn is_pasting(&self) -> PastingStatus {
@@ -481,6 +492,7 @@ struct AppState_ {
     center_of_selection: Option<CenterOfSelection>,
     suggestion_parameters: SuggestionParameters,
     updated_once: bool,
+    check_xover_paramters: CheckXoversParameter,
 }
 
 #[derive(Clone, Default)]

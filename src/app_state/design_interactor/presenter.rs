@@ -344,6 +344,42 @@ impl Presenter {
         }
         self.update_visibility();
     }
+
+    pub fn get_checked_xovers_ids(&self) -> Vec<u32> {
+        self.current_design
+            .checked_xovers
+            .iter()
+            .filter_map(|xover_id| {
+                self.junctions_ids
+                    .get_element(*xover_id)
+                    .as_ref()
+                    .and_then(|bound_id| self.content.identifier_bound.get(bound_id))
+            })
+            .cloned()
+            .collect()
+    }
+
+    pub fn get_unchecked_xovers_ids(&self) -> Vec<u32> {
+        let mut checked_nucl = HashSet::new();
+        let mut unchecked_pairs = Vec::new();
+        for (xover_id, (n1, n2)) in self.junctions_ids.get_all_elements() {
+            if self.current_design.checked_xovers.contains(&xover_id) {
+                checked_nucl.insert(n1);
+                checked_nucl.insert(n2);
+            } else {
+                unchecked_pairs.push((n1, n2));
+            }
+        }
+        let mut ret = Vec::new();
+        for (n1, n2) in unchecked_pairs {
+            if !checked_nucl.contains(&n1.prime3()) && !checked_nucl.contains(&n1.prime5()) {
+                if let Some(id) = self.content.identifier_bound.get(&(n1, n2)) {
+                    ret.push(*id)
+                }
+            }
+        }
+        ret
+    }
 }
 
 pub(super) fn design_need_update(

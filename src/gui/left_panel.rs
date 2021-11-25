@@ -59,7 +59,7 @@ use crate::consts::*;
 mod contextual_panel;
 use contextual_panel::{ContextualPanel, InstanciatedValue, ValueKind};
 
-use ensnano_interactor::HyperboloidRequest;
+use ensnano_interactor::{CheckXoversParameter, HyperboloidRequest};
 use material_icons::{icon_to_char, Icon as MaterialIcon, FONT as MATERIALFONT};
 use tabs::{
     CameraShortcut, CameraTab, EditionTab, GridTab, ParametersTab, SequenceTab, SimulationTab,
@@ -185,6 +185,7 @@ pub enum Message<S> {
     ContextualValueChanged(ValueKind, usize, String),
     ContextualValueSubmitted(ValueKind),
     InstanciatedValueSubmitted(InstanciatedValue),
+    CheckXoversParameter(CheckXoversParameter),
 }
 
 impl<S: AppState> contextual_panel::BuilderMessage for Message<S> {
@@ -747,6 +748,11 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
                     request.make_request(self.requests.clone())
                 }
             }
+            Message::CheckXoversParameter(parameters) => self
+                .requests
+                .lock()
+                .unwrap()
+                .set_check_xover_parameters(parameters),
         };
         Command::none()
     }
@@ -766,7 +772,8 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
             )
             .push(
                 TabLabel::Text(format!("{}", icon_to_char(MaterialIcon::Videocam))),
-                self.camera_tab.view(self.ui_size.clone()),
+                self.camera_tab
+                    .view(self.ui_size.clone(), &self.application_state),
             )
             .push(
                 TabLabel::Icon(ICON_PHYSICAL_ENGINE),

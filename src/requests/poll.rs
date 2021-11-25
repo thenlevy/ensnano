@@ -381,4 +381,8 @@ pub(crate) fn poll_all<R: DerefMut<Target = Requests>>(
     if let Some(param) = requests.new_suggestion_parameters.take() {
         main_state.set_suggestion_parameters(param);
     }
+
+    if let Some(param) = requests.check_xover_parameters.take() {
+        main_state.set_check_xovers_parameters(param);
+    }
 }

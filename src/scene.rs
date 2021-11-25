@@ -1,3 +1,4 @@
+use ensnano_interactor::CheckXoversParameter;
 /*
 ENSnano, a 3d graphical application for DNA nanostructures.
     Copyright (C) 2021  Nicolas Levy <nicolaspierrelevy@gmail.com> and Nicolas Schabanel <nicolas.schabanel@ens-lyon.fr>
@@ -950,6 +951,7 @@ pub trait AppState: Clone {
     fn get_current_group_pivot(&self) -> Option<ensnano_design::group_attributes::GroupPivot>;
     fn get_current_group_id(&self) -> Option<ensnano_design::GroupId>;
     fn suggestion_parameters_were_updated(&self, other: &Self) -> bool;
+    fn get_check_xover_parameters(&self) -> CheckXoversParameter;
 }
 
 pub trait Requests {
