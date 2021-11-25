@@ -81,6 +81,7 @@ pub struct Scene<S: AppState> {
     older_state: S,
     requests: Arc<Mutex<dyn Requests>>,
     scene_kind: SceneKind,
+    current_camera: Arc<Camera3D>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -141,6 +142,7 @@ impl<S: AppState> Scene<S> {
             element_selector,
             older_state: inital_state,
             scene_kind,
+            current_camera: Arc::new(Default::default()),
         }
     }
 
@@ -672,8 +674,20 @@ impl<S: AppState> Scene<S> {
             self.controller.update_camera(dt);
             self.view.borrow_mut().update(ViewUpdate::Camera);
             self.update.camera_update = false;
+            self.current_camera = Arc::new(self.get_camera())
         }
         self.update.need_update = false;
+    }
+
+    fn get_camera(&self) -> Camera3D {
+        let view = self.view.borrow();
+        let cam = view.get_camera();
+        let ret = Camera3D {
+            position: cam.borrow().position,
+            orientation: cam.borrow().rotor,
+            pivot_position: self.data.borrow().get_pivot_position(),
+        };
+        ret
     }
 
     /*
@@ -870,6 +884,13 @@ impl<S: AppState> Application for Scene<S> {
             Notification::Background3D(bg) => self.view.borrow_mut().background3d(bg),
             Notification::Fog(fog) => self.fog_request(fog),
             Notification::WindowFocusLost => self.controller.stop_camera_movement(),
+            Notification::NewStereographicCamera(camera_ptr) => {
+                if !self.is_stereographic() {
+                    self.data
+                        .borrow_mut()
+                        .update_stereographic_camera(camera_ptr)
+                }
+            }
         }
     }
 
@@ -916,15 +937,8 @@ impl<S: AppState> Application for Scene<S> {
         Some((position, orientation))
     }
 
-    fn get_camera(&self) -> Option<Camera3D> {
-        let view = self.view.borrow();
-        let cam = view.get_camera();
-        let ret = Some(Camera3D {
-            position: cam.borrow().position,
-            orientation: cam.borrow().rotor,
-            pivot_position: self.data.borrow().get_pivot_position(),
-        });
-        ret
+    fn get_camera(&self) -> Option<Arc<Camera3D>> {
+        Some(self.current_camera.clone())
     }
 
     fn get_current_selection_pivot(&self) -> Option<GroupPivot> {

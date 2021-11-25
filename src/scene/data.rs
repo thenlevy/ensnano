@@ -18,14 +18,17 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 //! This modules handles internal informations about the scene, such as the selected objects etc..
 //! It also communicates with the desgings to get the position of the objects to draw on the scene.
 
-use super::view::{GridDisc, HandleColors, RawDnaInstance};
+use super::view::{
+    GridDisc, HandleColors, Instanciable, RawDnaInstance, StereographicSphereAndPlane,
+};
 use super::{
-    HandleOrientation, HandlesDescriptor, LetterInstance, RotationWidgetDescriptor,
+    Camera3D, HandleOrientation, HandlesDescriptor, LetterInstance, RotationWidgetDescriptor,
     RotationWidgetOrientation, SceneElement, View, ViewUpdate,
 };
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
+use std::sync::Arc;
 
 use ultraviolet::{Rotor3, Vec3};
 
@@ -70,6 +73,8 @@ pub struct Data<R: DesignReader> {
     last_candidate_disc: Option<SceneElement>,
     rotating_pivot: bool,
     handle_colors: HandleColors,
+    stereographic_camera: Arc<Camera3D>,
+    stereographic_camera_need_update: bool,
 }
 
 impl<R: DesignReader> Data<R> {
@@ -89,6 +94,15 @@ impl<R: DesignReader> Data<R> {
             last_candidate_disc: None,
             rotating_pivot: false,
             handle_colors: HandleColors::Rgb,
+            stereographic_camera: Arc::new(Default::default()),
+            stereographic_camera_need_update: false,
+        }
+    }
+
+    pub fn update_stereographic_camera(&mut self, camera_ptr: Arc<Camera3D>) {
+        if Arc::as_ptr(&camera_ptr) != Arc::as_ptr(&self.stereographic_camera) {
+            self.stereographic_camera = camera_ptr;
+            self.stereographic_camera_need_update = true;
         }
     }
 
@@ -118,6 +132,11 @@ impl<R: DesignReader> Data<R> {
             || app_state.suggestion_parameters_were_updated(older_app_state)
         {
             self.update_instances();
+        }
+
+        if self.stereographic_camera_need_update {
+            self.update_stereographic_sphere();
+            self.stereographic_camera_need_update = false;
         }
 
         // If the color of a strand is being modified, we tell the view to highlight nothing.
@@ -153,6 +172,17 @@ impl<R: DesignReader> Data<R> {
         if app_state.design_model_matrix_was_updated(older_app_state) {
             self.update_matrices();
         }
+    }
+
+    fn update_stereographic_sphere(&self) {
+        let instances = Rc::new(vec![StereographicSphereAndPlane {
+            position: self.stereographic_camera.position,
+            orientation: self.stereographic_camera.orientation.reversed(),
+        }
+        .to_raw_instance()]);
+        self.view
+            .borrow_mut()
+            .update(ViewUpdate::RawDna(Mesh::StereographicSphere, instances));
     }
 
     fn discs_need_update<S: AppState>(&mut self, app_state: &S, older_app_state: &S) -> bool {

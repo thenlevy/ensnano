@@ -173,6 +173,87 @@ impl Instanciable for SphereInstance {
 
 impl DnaObject for SphereInstance {}
 
+pub struct StereographicSphereAndPlane {
+    pub position: Vec3,
+    pub orientation: Rotor3,
+}
+
+impl Instanciable for StereographicSphereAndPlane {
+    type Vertex = DnaVertex;
+    type RawInstance = RawDnaInstance;
+    type Ressource = ();
+
+    fn vertices() -> Vec<DnaVertex> {
+        let mut ret = SphereInstance::vertices();
+        let z = -SPHERE_RADIUS;
+        let x = 2. * SPHERE_RADIUS;
+        let y = SPHERE_RADIUS;
+        let normal = Vec3::unit_y();
+
+        ret.push(DnaVertex {
+            position: [-x, -y, z],
+            normal: normal.into(),
+        });
+
+        ret.push(DnaVertex {
+            position: [-x, y, z],
+            normal: normal.into(),
+        });
+
+        ret.push(DnaVertex {
+            position: [x, -y, z],
+            normal: normal.into(),
+        });
+
+        ret.push(DnaVertex {
+            position: [x, y, z],
+            normal: normal.into(),
+        });
+        ret
+    }
+
+    fn indices() -> Vec<u16>
+    where
+        Self: Sized,
+    {
+        let mut ret = SphereInstance::indices();
+        let idx_0 = SphereInstance::vertices().len() as u16;
+        ret.extend([idx_0, idx_0 + 1, idx_0 + 2, idx_0 + 1, idx_0 + 2, idx_0 + 3]);
+        ret
+    }
+
+    fn vertex_module(device: &wgpu::Device) -> wgpu::ShaderModule {
+        device.create_shader_module(&wgpu::include_spirv!("dna_obj.vert.spv"))
+    }
+
+    fn fragment_module(device: &wgpu::Device) -> wgpu::ShaderModule {
+        device.create_shader_module(&wgpu::include_spirv!("dna_obj.frag.spv"))
+    }
+
+    fn primitive_topology() -> wgpu::PrimitiveTopology
+    where
+        Self: Sized,
+    {
+        wgpu::PrimitiveTopology::TriangleList
+    }
+
+    fn to_raw_instance(&self) -> Self::RawInstance {
+        use crate::utils::instance::Instance;
+        let color = Instance::color_from_au32(crate::consts::STEREOGRAPHIC_SPHERE_COLOR);
+        let model = Mat4::from_translation(self.position)
+            * self.orientation.into_matrix().into_homogeneous();
+        let scale =
+            crate::consts::STEREOGRAPHIC_SPHERE_RADIUS / crate::consts::SPHERE_RADIUS * Vec3::one();
+        RawDnaInstance {
+            model,
+            color,
+            scale,
+            id: 0,
+            inversed_model: model.inversed(),
+        }
+    }
+}
+
 pub struct TubeInstance {
     pub position: Vec3,
     pub rotor: Rotor3,

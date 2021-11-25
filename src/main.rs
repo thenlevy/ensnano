@@ -959,6 +959,18 @@ impl MainState {
 
     fn update(&mut self) {
         log::trace!("call from main state");
+        if let Some(camera_ptr) = self
+            .applications
+            .get(&ElementType::StereographicScene)
+            .and_then(|s| s.lock().unwrap().get_camera())
+        {
+            self.applications
+                .get(&ElementType::Scene)
+                .unwrap()
+                .lock()
+                .unwrap()
+                .on_notify(Notification::NewStereographicCamera(camera_ptr));
+        }
         self.app_state.update()
     }
 

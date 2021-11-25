@@ -22,6 +22,7 @@ use ensnano_design::group_attributes::GroupPivot;
 use ensnano_design::Nucl;
 use iced_wgpu::wgpu;
 use iced_winit::winit;
+use std::sync::Arc;
 use std::time::Duration;
 use ultraviolet::{Rotor3, Vec3};
 use winit::{
@@ -34,6 +35,16 @@ pub struct Camera3D {
     pub position: Vec3,
     pub orientation: Rotor3,
     pub pivot_position: Option<Vec3>,
+}
+
+impl Default for Camera3D {
+    fn default() -> Self {
+        Self {
+            position: Vec3::zero(),
+            orientation: Rotor3::identity(),
+            pivot_position: None,
+        }
+    }
 }
 
 pub trait Application {
@@ -61,7 +72,7 @@ pub trait Application {
         None
     }
 
-    fn get_camera(&self) -> Option<Camera3D> {
+    fn get_camera(&self) -> Option<Arc<Camera3D>> {
         None
     }
     fn get_current_selection_pivot(&self) -> Option<GroupPivot> {
@@ -95,6 +106,7 @@ pub enum Notification {
     RenderingMode(RenderingMode),
     Fog(FogParameters),
     WindowFocusLost,
+    NewStereographicCamera(Arc<Camera3D>),
 }
 
 #[derive(PartialEq, Debug, Clone, Copy)]

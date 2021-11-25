@@ -53,7 +53,10 @@ use super::maths_3d::{self, distance_to_cursor_with_penalty};
 use crate::text::Letter;
 use bindgroup_manager::{DynamicBindGroup, UniformBindGroup};
 use direction_cube::*;
-pub use dna_obj::{ConeInstance, DnaObject, RawDnaInstance, SphereInstance, TubeInstance};
+pub use dna_obj::{
+    ConeInstance, DnaObject, RawDnaInstance, SphereInstance, StereographicSphereAndPlane,
+    TubeInstance,
+};
 use drawable::{Drawable, Drawer, Vertex};
 pub use grid::{GridInstance, GridIntersection};
 use grid::{GridManager, GridTextures};
@@ -957,6 +960,7 @@ pub enum Mesh {
     BezierControll,
     BezierSqueleton,
     FakeBezierControl,
+    StereographicSphere,
 }
 
 impl Mesh {
@@ -1008,6 +1012,7 @@ struct DnaDrawers {
     bezier_controll_points: InstanceDrawer<dna_obj::SphereInstance>,
     bezier_squelton: InstanceDrawer<dna_obj::TubeInstance>,
     fake_bezier_control: InstanceDrawer<SphereInstance>,
+    stereographic_sphere: InstanceDrawer<StereographicSphereAndPlane>,
 }
 
 impl DnaDrawers {
@@ -1039,6 +1044,7 @@ impl DnaDrawers {
             Mesh::BezierControll => &mut self.bezier_controll_points,
             Mesh::BezierSqueleton => &mut self.bezier_squelton,
             Mesh::FakeBezierControl => &mut self.fake_bezier_control,
+            Mesh::StereographicSphere => &mut self.stereographic_sphere,
         }
     }
 
@@ -1065,6 +1071,7 @@ impl DnaDrawers {
             &mut self.xover_tube,
             &mut self.bezier_squelton,
             &mut self.bezier_controll_points,
+            &mut self.stereographic_sphere,
         ];
         if rendering_mode == RenderingMode::Cartoon {
             ret.insert(3, &mut self.outline_tube);
@@ -1329,6 +1336,15 @@ impl DnaDrawers {
                 (),
                 true,
                 "fake bezier control",
+            ),
+            stereographic_sphere: InstanceDrawer::new(
+                device.clone(),
+                queue.clone(),
+                viewer_desc,
+                model_desc,
+                (),
+                false,
+                "stereographic_sphere",
             ),
         }
     }

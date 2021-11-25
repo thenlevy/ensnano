@@ -537,6 +537,7 @@ impl<S: AppState> Application for FlatScene<S> {
             Notification::Fog(_) => (),
             Notification::WindowFocusLost => (),
             Notification::TeleportCamera(_) => (),
+            Notification::NewStereographicCamera(_) => (),
         }
     }
 
