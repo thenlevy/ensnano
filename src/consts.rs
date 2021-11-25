@@ -99,7 +99,7 @@ pub const PIVOT_SPHERE_COLOR: u32 = 0xBF_FF_FF_00;
 pub const FREE_XOVER_COLOR: u32 = 0xBF_00_00_FF;
 pub const CHECKED_XOVER_COLOR: u32 = 0xBF_3C_B3_71; //Medium sea green
 pub const UNCHECKED_XOVER_COLOR: u32 = 0xCF_FF_14_93; // Deep pink
-pub const STEREOGRAPHIC_SPHERE_COLOR: u32 = 0xAA_2F_4F_4F; // Slate grey
+pub const STEREOGRAPHIC_SPHERE_COLOR: u32 = 0xDD_2F_4F_4F; // Slate grey
 pub const STEREOGRAPHIC_SPHERE_RADIUS: f32 = 2.;
 
 pub const MAX_ZOOM_2D: f32 = 50.0;
