@@ -243,7 +243,7 @@ impl<S: AppState> Controller<S> {
                 VirtualKeyCode::A if *state == ElementState::Pressed => {
                     Consequence::AlignWithStereo
                 }
-                VirtualKeyCode::Return if *state == ElementState::Pressed => {
+                VirtualKeyCode::C if *state == ElementState::Pressed => {
                     Consequence::CheckXovers
                 }
                 VirtualKeyCode::Z
