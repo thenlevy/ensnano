@@ -51,10 +51,10 @@ impl<S: AppState> Transition<S> {
         }
     }
 
-    pub fn init_building(nucl: Nucl) -> Self {
+    pub fn init_building(nucls: Vec<Nucl>) -> Self {
         Self {
             new_state: Some(Box::new(BuildingStrand)),
-            consequences: Consequence::InitBuild(nucl),
+            consequences: Consequence::InitBuild(nucls),
         }
     }
 }
@@ -667,7 +667,7 @@ impl<S: AppState> ControllerState<S> for Selecting {
                     if let Some(nucl) = controller.data.borrow().can_start_builder(self.element) {
                         Transition {
                             new_state: Some(Box::new(BuildingStrand)),
-                            consequences: Consequence::InitBuild(nucl),
+                            consequences: Consequence::InitBuild(vec![nucl]),
                         }
                     } else {
                         Transition {

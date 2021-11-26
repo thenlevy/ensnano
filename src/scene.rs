@@ -377,9 +377,11 @@ impl<S: AppState> Scene<S> {
                         .request_center_selection(selection, AppId::Scene);
                 }
             }
-            Consequence::InitBuild(nucl) => self.requests.lock().unwrap().apply_design_operation(
-                DesignOperation::RequestStrandBuilders { nucls: vec![nucl] },
-            ),
+            Consequence::InitBuild(nucls) => self
+                .requests
+                .lock()
+                .unwrap()
+                .apply_design_operation(DesignOperation::RequestStrandBuilders { nucls }),
             Consequence::PivotCenter => self.data.borrow_mut().set_pivot_position(Vec3::zero()),
             Consequence::CheckXovers => {
                 let xovers = ensnano_interactor::list_of_xover_ids(

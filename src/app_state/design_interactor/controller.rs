@@ -1686,9 +1686,14 @@ impl Controller {
             initializing,
         } = &mut self.state
         {
+            let delta = builders
+                .get(0)
+                .map(|b| n - b.moving_end.position)
+                .unwrap_or(0);
             let mut design = initial_design.clone_inner();
             for builder in builders.iter_mut() {
-                builder.move_to(n, &mut design)
+                let to = builder.moving_end.position + delta;
+                builder.move_to(to, &mut design)
             }
             *initializing = false;
             Ok(design)

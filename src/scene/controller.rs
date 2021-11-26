@@ -23,6 +23,8 @@ use super::{
 use crate::consts::*;
 use crate::{PhySize, PhysicalPosition, WindowEvent};
 use ensnano_design::Nucl;
+use ensnano_interactor::DesignReader;
+use ensnano_interactor::Selection;
 use iced_winit::winit::event::*;
 use std::cell::RefCell;
 use ultraviolet::{Rotor3, Vec3};
@@ -103,7 +105,7 @@ pub enum Consequence {
     PasteCandidate(Option<super::SceneElement>),
     Paste(Option<super::SceneElement>),
     DoubleClick(Option<super::SceneElement>),
-    InitBuild(Nucl),
+    InitBuild(Vec<Nucl>),
     HelixTranslated {
         helix: usize,
         grid: usize,
@@ -229,7 +231,17 @@ impl<S: AppState> Controller<S> {
                 .borrow()
                 .can_start_builder(self.state.borrow().element_being_selected())
             {
-                Transition::init_building(nucl)
+                Transition::init_building(vec![nucl])
+            } else if let Some(Selection::Nucleotide(_, nucl)) = app_state.get_selection().get(0) {
+                Transition::init_building(vec![*nucl])
+            } else if let Some(Selection::Xover(_, xover_id)) = app_state.get_selection().get(0) {
+                if let Some((n1, n2)) = app_state.get_design_reader().get_xover_with_id(*xover_id) {
+                    Transition::init_building(vec![n1, n2])
+                } else {
+                    self.camera_controller
+                        .process_scroll(delta, mouse_x as f32, mouse_y as f32);
+                    Transition::consequence(Consequence::CameraMoved)
+                }
             } else {
                 self.camera_controller
                     .process_scroll(delta, mouse_x as f32, mouse_y as f32);
