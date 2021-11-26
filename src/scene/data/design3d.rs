@@ -1028,4 +1028,5 @@ pub trait DesignReader: 'static + ensnano_interactor::DesignReader {
     fn get_bezier_controll(&self, h_id: usize) -> Option<ensnano_design::CubicBezierConstructor>;
     fn get_curve_range(&self, h_id: usize) -> Option<std::ops::RangeInclusive<isize>>;
     fn get_checked_xovers_ids(&self, checked: bool) -> Vec<u32>;
+    fn get_id_of_xover_involving_nucl(&self, nucl: Nucl) -> Option<usize>;
 }

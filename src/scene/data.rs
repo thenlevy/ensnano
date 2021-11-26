@@ -1814,6 +1814,12 @@ impl<R: DesignReader> ControllerData for Data<R> {
             self.handle_colors = colors;
         }
     }
+
+    fn element_to_selection(&self, element: &Option<SceneElement>) -> Selection {
+        element
+            .map(|elt| self.element_to_selection(&elt, SelectionMode::Nucleotide))
+            .unwrap_or(Selection::Nothing)
+    }
 }
 
 type DiscPos = (usize, isize, isize);

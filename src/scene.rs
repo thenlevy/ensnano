@@ -377,11 +377,22 @@ impl<S: AppState> Scene<S> {
                         .request_center_selection(selection, AppId::Scene);
                 }
             }
-            Consequence::InitBuild(nucls) => self
-                .requests
-                .lock()
-                .unwrap()
-                .apply_design_operation(DesignOperation::RequestStrandBuilders { nucls }),
+            Consequence::InitBuild(nucls) => {
+                if let Some(xover_id) = nucls.get(0).cloned().and_then(|n| {
+                    app_state
+                        .get_design_reader()
+                        .get_id_of_xover_involving_nucl(n)
+                }) {
+                    self.requests
+                        .lock()
+                        .unwrap()
+                        .set_selection(vec![Selection::Xover(0, xover_id)], None);
+                }
+                self.requests
+                    .lock()
+                    .unwrap()
+                    .apply_design_operation(DesignOperation::RequestStrandBuilders { nucls });
+            }
             Consequence::PivotCenter => self.data.borrow_mut().set_pivot_position(Vec3::zero()),
             Consequence::CheckXovers => {
                 let xovers = ensnano_interactor::list_of_xover_ids(

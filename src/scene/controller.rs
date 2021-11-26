@@ -219,24 +219,41 @@ impl<S: AppState> Controller<S> {
         } else if let WindowEvent::MouseWheel { delta, .. } = event {
             let mouse_x = position.x / self.area_size.width as f64;
             let mouse_y = position.y / self.area_size.height as f64;
-            if let Some(builder) = app_state.get_strand_builders().get(0) {
-                let init_position = builder.get_moving_end_nucl().position;
-                let delta = match delta {
-                    MouseScrollDelta::LineDelta(_, y) => y.signum() as isize,
-                    MouseScrollDelta::PixelDelta(pos) => pos.y.signum() as isize,
-                };
-                Transition::consequence(Consequence::Building(init_position + delta))
-            } else if let Some(nucl) = self
-                .data
-                .borrow()
-                .can_start_builder(self.state.borrow().element_being_selected())
-            {
-                Transition::init_building(vec![nucl])
-            } else if let Some(Selection::Nucleotide(_, nucl)) = app_state.get_selection().get(0) {
-                Transition::init_building(vec![*nucl])
-            } else if let Some(Selection::Xover(_, xover_id)) = app_state.get_selection().get(0) {
-                if let Some((n1, n2)) = app_state.get_design_reader().get_xover_with_id(*xover_id) {
-                    Transition::init_building(vec![n1, n2])
+            if self.current_modifiers.shift() {
+                self.state.borrow_mut().notify_scroll();
+                let element = pixel_reader.set_selected_id(position);
+                if let Some(builder) = app_state.get_strand_builders().get(0) {
+                    let init_position = builder.get_moving_end_nucl().position;
+                    let delta = match delta {
+                        MouseScrollDelta::LineDelta(_, y) => y.signum() as isize,
+                        MouseScrollDelta::PixelDelta(pos) => pos.y.signum() as isize,
+                    };
+                    Transition::consequence(Consequence::Building(init_position + delta))
+                } else if let Some(nucl) = self
+                    .data
+                    .borrow()
+                    .can_start_builder(self.state.borrow().element_being_selected())
+                {
+                    Transition::init_building(vec![nucl], false)
+                } else if let Selection::Nucleotide(_, nucl) =
+                    self.data.borrow().element_to_selection(&element)
+                {
+                    Transition::init_building(vec![nucl], false)
+                } else if let Selection::Xover(_, xover_id) =
+                    self.data.borrow().element_to_selection(&element)
+                {
+                    if let Some((n1, n2)) =
+                        app_state.get_design_reader().get_xover_with_id(xover_id)
+                    {
+                        Transition::init_building(vec![n1, n2], false)
+                    } else {
+                        self.camera_controller.process_scroll(
+                            delta,
+                            mouse_x as f32,
+                            mouse_y as f32,
+                        );
+                        Transition::consequence(Consequence::CameraMoved)
+                    }
                 } else {
                     self.camera_controller
                         .process_scroll(delta, mouse_x as f32, mouse_y as f32);
@@ -418,4 +435,5 @@ pub(super) trait Data {
     fn notify_rotating_pivot(&mut self);
     fn stop_rotating_pivot(&mut self);
     fn update_handle_colors(&mut self, colors: HandleColors);
+    fn element_to_selection(&self, element: &Option<SceneElement>) -> Selection;
 }

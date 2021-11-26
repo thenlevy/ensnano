@@ -332,6 +332,10 @@ impl Reader3D for DesignReader {
             self.presenter.get_unchecked_xovers_ids()
         }
     }
+
+    fn get_id_of_xover_involving_nucl(&self, nucl: Nucl) -> Option<usize> {
+        self.presenter.get_id_of_xover_involving_nucl(nucl)
+    }
 }
 
 #[cfg(test)]

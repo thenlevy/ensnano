@@ -51,9 +51,12 @@ impl<S: AppState> Transition<S> {
         }
     }
 
-    pub fn init_building(nucls: Vec<Nucl>) -> Self {
+    pub fn init_building(nucls: Vec<Nucl>, clicked: bool) -> Self {
         Self {
-            new_state: Some(Box::new(BuildingStrand)),
+            new_state: Some(Box::new(BuildingStrand {
+                clicked,
+                last_scroll: Instant::now(),
+            })),
             consequences: Consequence::InitBuild(nucls),
         }
     }
@@ -90,6 +93,10 @@ pub(super) trait ControllerState<S: AppState> {
 
     fn element_being_selected(&self) -> Option<SceneElement> {
         None
+    }
+
+    fn notify_scroll(&mut self) {
+        ()
     }
 }
 
@@ -666,7 +673,10 @@ impl<S: AppState> ControllerState<S> for Selecting {
                 if position_difference(position, self.clicked_position) > 5. {
                     if let Some(nucl) = controller.data.borrow().can_start_builder(self.element) {
                         Transition {
-                            new_state: Some(Box::new(BuildingStrand)),
+                            new_state: Some(Box::new(BuildingStrand {
+                                clicked: true,
+                                last_scroll: Instant::now(),
+                            })),
                             consequences: Consequence::InitBuild(vec![nucl]),
                         }
                     } else {
@@ -949,10 +959,32 @@ impl<S: AppState> ControllerState<S> for RotatingWidget {
     }
 }
 
-struct BuildingStrand;
+struct BuildingStrand {
+    clicked: bool,
+    last_scroll: Instant,
+}
+
 impl<S: AppState> ControllerState<S> for BuildingStrand {
     fn display(&self) -> Cow<'static, str> {
         "Building Strand".into()
+    }
+
+    fn notify_scroll(&mut self) {
+        self.last_scroll = Instant::now()
+    }
+
+    fn check_timers(&mut self, controller: &Controller<S>) -> Transition<S> {
+        let now = Instant::now();
+        if !self.clicked && (now - self.last_scroll).as_millis() > 1000 {
+            Transition {
+                new_state: Some(Box::new(NormalState {
+                    mouse_position: PhysicalPosition::new(0., 0.),
+                })),
+                consequences: Consequence::BuildEnded,
+            }
+        } else {
+            Transition::nothing()
+        }
     }
 
     fn input(
@@ -974,7 +1006,7 @@ impl<S: AppState> ControllerState<S> for BuildingStrand {
                 })),
                 consequences: Consequence::BuildEnded,
             },
-            WindowEvent::CursorMoved { .. } => {
+            WindowEvent::CursorMoved { .. } if self.clicked => {
                 if let Some(builder) = app_state.get_strand_builders().get(0) {
                     let mouse_x = position.x / controller.area_size.width as f64;
                     let mouse_y = position.y / controller.area_size.height as f64;
