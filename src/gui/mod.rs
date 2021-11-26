@@ -935,6 +935,7 @@ pub trait DesignReader: 'static {
     fn get_favourite_camera(&self) -> Option<CameraId>;
     fn get_grid_position_and_orientation(&self, g_id: usize) -> Option<(Vec3, Rotor3)>;
     fn get_grid_nb_turn(&self, g_id: usize) -> Option<f32>;
+    fn xover_length(&self, xover_id: usize) -> Option<f32>;
 }
 
 pub struct MainState {

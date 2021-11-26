@@ -99,4 +99,21 @@ impl ReaderGui for DesignReader {
             .get(g_id)
             .map(|g| (g.position, g.orientation))
     }
+
+    fn xover_length(&self, xover_id: usize) -> Option<f32> {
+        let (n1, n2) = self.presenter.junctions_ids.get_element(xover_id)?;
+        let pos1 = self
+            .presenter
+            .content
+            .identifier_nucl
+            .get(&n1)
+            .and_then(|id| self.presenter.content.space_position.get(id))?;
+        let pos2 = self
+            .presenter
+            .content
+            .identifier_nucl
+            .get(&n2)
+            .and_then(|id| self.presenter.content.space_position.get(id))?;
+        Some((Vec3::from(pos1) - Vec3::from(pos2)).mag())
+    }
 }

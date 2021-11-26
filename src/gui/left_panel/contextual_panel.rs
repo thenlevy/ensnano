@@ -265,6 +265,11 @@ impl<S: AppState> ContextualPanel<S> {
                     let anchor = info_values[0].clone();
                     column = column.push(Text::new(format!("Anchor {}", anchor)));
                 }
+                Selection::Xover(_, _) => {
+                    if let Some(info) = info_values.get(0) {
+                        column = column.push(Text::new(info));
+                    }
+                }
                 _ => (),
             }
             if let Some(builder) = &mut self.builder {
@@ -661,6 +666,14 @@ fn values_of_selection(selection: &Selection, reader: &dyn DesignReader) -> Vec<
         ],
         Selection::Nucleotide(_, nucl) => {
             vec![format!("{}", reader.nucl_is_anchor(*nucl))]
+        }
+        Selection::Xover(_, xover_id) => {
+            let length_str = if let Some(len) = reader.xover_length(*xover_id) {
+                format!("length {:.2} nm", len)
+            } else {
+                String::from("Error getting length")
+            };
+            vec![length_str]
         }
         _ => Vec::new(),
     }
