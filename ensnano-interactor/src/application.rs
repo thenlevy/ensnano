@@ -72,7 +72,7 @@ pub trait Application {
         None
     }
 
-    fn get_camera(&self) -> Option<Arc<Camera3D>> {
+    fn get_camera(&self) -> Option<Arc<(Camera3D, f32)>> {
         None
     }
     fn get_current_selection_pivot(&self) -> Option<GroupPivot> {
@@ -106,7 +106,7 @@ pub enum Notification {
     RenderingMode(RenderingMode),
     Fog(FogParameters),
     WindowFocusLost,
-    NewStereographicCamera(Arc<Camera3D>),
+    NewStereographicCamera(Arc<(Camera3D, f32)>),
 }
 
 #[derive(PartialEq, Debug, Clone, Copy)]

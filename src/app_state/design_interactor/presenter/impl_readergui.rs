@@ -100,20 +100,35 @@ impl ReaderGui for DesignReader {
             .map(|g| (g.position, g.orientation))
     }
 
-    fn xover_length(&self, xover_id: usize) -> Option<f32> {
+    fn xover_length(&self, xover_id: usize) -> Option<(f32, Option<f32>)> {
         let (n1, n2) = self.presenter.junctions_ids.get_element(xover_id)?;
-        let pos1 = self
+        let len_self = self.presenter.get_xover_len(xover_id)?;
+        let neighbour_id = self
             .presenter
-            .content
-            .identifier_nucl
-            .get(&n1)
-            .and_then(|id| self.presenter.content.space_position.get(id))?;
-        let pos2 = self
-            .presenter
-            .content
-            .identifier_nucl
-            .get(&n2)
-            .and_then(|id| self.presenter.content.space_position.get(id))?;
-        Some((Vec3::from(pos1) - Vec3::from(pos2)).mag())
+            .junctions_ids
+            .get_id(&(n1.prime3(), n2.prime5()))
+            .or_else(|| {
+                self.presenter
+                    .junctions_ids
+                    .get_id(&(n1.prime5(), n2.prime3()))
+            })
+            .or_else(|| {
+                self.presenter
+                    .junctions_ids
+                    .get_id(&(n2.prime5(), n1.prime3()))
+            })
+            .or_else(|| {
+                self.presenter
+                    .junctions_ids
+                    .get_id(&(n2.prime5(), n1.prime3()))
+            });
+
+        let neighbour_len = neighbour_id.and_then(|id| self.presenter.get_xover_len(id));
+
+        Some((len_self, neighbour_len))
+    }
+
+    fn get_id_of_xover_involving_nucl(&self, nucl: Nucl) -> Option<usize> {
+        self.presenter.get_id_of_xover_involving_nucl(nucl)
     }
 }

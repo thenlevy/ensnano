@@ -203,6 +203,16 @@ impl<S: AppState> ContextualPanel<S> {
             Some(selection).filter(|_| nb_selected == 1),
             app_state.get_reader().as_ref(),
         );
+
+        let xover_len = app_state
+            .get_strand_building_state()
+            .map(|b| b.dragged_nucl)
+            .and_then(|nucl| {
+                log::info!("dragged_nucl: {:?}", nucl);
+                app_state.get_reader().get_id_of_xover_involving_nucl(nucl)
+            })
+            .and_then(|id| app_state.get_reader().xover_length(id));
+
         let info_values = values_of_selection(selection, app_state.get_reader().as_ref());
         if self.show_tutorial {
             column = column.push(
@@ -217,12 +227,12 @@ impl<S: AppState> ContextualPanel<S> {
                 "http://ens-lyon.fr/ensnano",
                 ui_size.clone(),
             ));
-        } else if self.force_help {
+        } else if self.force_help && xover_len.is_none() {
             column = turn_into_help_column(column, ui_size)
         } else if app_state.get_action_mode().is_build() {
             let strand_menu = self.add_strand_menu.view(ui_size, self.width as u16);
             column = column.push(strand_menu);
-        } else if *selection == Selection::Nothing {
+        } else if *selection == Selection::Nothing && xover_len.is_none() {
             column = turn_into_help_column(column, ui_size)
         } else if nb_selected > 1 {
             let help_btn =
@@ -247,7 +257,10 @@ impl<S: AppState> ContextualPanel<S> {
                     .push(Column::new().width(Length::FillPortion(1)).push(help_btn))
                     .push(iced::Space::with_width(Length::FillPortion(1))),
             );
-            column = column.push(Text::new(selection.info()).size(ui_size.main_text()));
+
+            if !matches!(selection, Selection::Nothing) {
+                column = column.push(Text::new(selection.info()).size(ui_size.main_text()));
+            }
 
             match selection {
                 Selection::Grid(_, _) => {
@@ -266,14 +279,28 @@ impl<S: AppState> ContextualPanel<S> {
                     column = column.push(Text::new(format!("Anchor {}", anchor)));
                 }
                 Selection::Xover(_, _) => {
-                    if let Some(info) = info_values.get(0) {
-                        column = column.push(Text::new(info));
+                    if xover_len.is_none() {
+                        if let Some(info) = info_values.get(0) {
+                            column = column.push(Text::new(info));
+                        }
+                        if let Some(info) = info_values.get(1) {
+                            column = column.push(Text::new(info));
+                        }
                     }
                 }
                 _ => (),
             }
             if let Some(builder) = &mut self.builder {
                 column = column.push(builder.builder.view(ui_size, &selection, app_state))
+            }
+        }
+
+        if let Some(info_values) = xover_len.map(|v| fmt_xover_len(Some(v))) {
+            if let Some(info) = info_values.get(0) {
+                column = column.push(Text::new(info));
+            }
+            if let Some(info) = info_values.get(1) {
+                column = column.push(Text::new(info));
             }
         }
 
@@ -667,15 +694,19 @@ fn values_of_selection(selection: &Selection, reader: &dyn DesignReader) -> Vec<
         Selection::Nucleotide(_, nucl) => {
             vec![format!("{}", reader.nucl_is_anchor(*nucl))]
         }
-        Selection::Xover(_, xover_id) => {
-            let length_str = if let Some(len) = reader.xover_length(*xover_id) {
-                format!("length {:.2} nm", len)
-            } else {
-                String::from("Error getting length")
-            };
-            vec![length_str]
-        }
+        Selection::Xover(_, xover_id) => fmt_xover_len(reader.xover_length(*xover_id)),
         _ => Vec::new(),
+    }
+}
+
+fn fmt_xover_len(info: Option<(f32, Option<f32>)>) -> Vec<String> {
+    match info {
+        Some((len_self, Some(len_neighbour))) => vec![
+            format!("length {:.2} nm", len_self),
+            format!("{:.2} nm", len_neighbour),
+        ],
+        Some((len, None)) => vec![format!("length {:.2} nm", len)],
+        None => vec![String::from("Error getting length")],
     }
 }
 

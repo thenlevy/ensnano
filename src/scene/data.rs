@@ -73,7 +73,7 @@ pub struct Data<R: DesignReader> {
     last_candidate_disc: Option<SceneElement>,
     rotating_pivot: bool,
     handle_colors: HandleColors,
-    stereographic_camera: Arc<Camera3D>,
+    stereographic_camera: Arc<(Camera3D, f32)>,
     stereographic_camera_need_update: bool,
 }
 
@@ -94,12 +94,12 @@ impl<R: DesignReader> Data<R> {
             last_candidate_disc: None,
             rotating_pivot: false,
             handle_colors: HandleColors::Rgb,
-            stereographic_camera: Arc::new(Default::default()),
+            stereographic_camera: Arc::new((Default::default(), 1.)),
             stereographic_camera_need_update: false,
         }
     }
 
-    pub fn update_stereographic_camera(&mut self, camera_ptr: Arc<Camera3D>) {
+    pub fn update_stereographic_camera(&mut self, camera_ptr: Arc<(Camera3D, f32)>) {
         if Arc::as_ptr(&camera_ptr) != Arc::as_ptr(&self.stereographic_camera) {
             self.stereographic_camera = camera_ptr;
             self.stereographic_camera_need_update = true;
@@ -176,8 +176,9 @@ impl<R: DesignReader> Data<R> {
 
     fn update_stereographic_sphere(&self) {
         let instances = Rc::new(vec![StereographicSphereAndPlane {
-            position: self.stereographic_camera.position,
-            orientation: self.stereographic_camera.orientation.reversed(),
+            position: self.stereographic_camera.0.position,
+            orientation: self.stereographic_camera.0.orientation.reversed(),
+            ratio: self.stereographic_camera.1,
         }
         .to_raw_instance()]);
         self.view
@@ -186,7 +187,7 @@ impl<R: DesignReader> Data<R> {
     }
 
     pub fn get_aligned_camera(&self) -> Camera3D {
-        let mut ret = Camera3D::clone(self.stereographic_camera.as_ref());
+        let mut ret = Camera3D::clone(&self.stereographic_camera.0);
         ret.position += ret.orientation.reversed() * (10. * Vec3::unit_z());
         ret
     }

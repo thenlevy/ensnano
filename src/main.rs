@@ -1187,9 +1187,9 @@ impl MainState {
             .map(|camera| Camera {
                 id: Default::default(),
                 name: String::from("Saved Camera"),
-                position: camera.position,
-                orientation: camera.orientation,
-                pivot_position: camera.pivot_position,
+                position: camera.0.position,
+                orientation: camera.0.orientation,
+                pivot_position: camera.0.pivot_position,
             });
         let save_info = ensnano_design::SavingInformation { camera };
         self.app_state
@@ -1556,9 +1556,9 @@ impl<'a> MainStateInteface for MainStateView<'a> {
         {
             self.main_state
                 .apply_operation(DesignOperation::CreateNewCamera {
-                    position: camera.position,
-                    orientation: camera.orientation,
-                    pivot_position: camera.pivot_position,
+                    position: camera.0.position,
+                    orientation: camera.0.orientation,
+                    pivot_position: camera.0.pivot_position,
                 })
         } else {
             log::error!("Could not get current camera position");
@@ -1584,8 +1584,8 @@ impl<'a> MainStateInteface for MainStateView<'a> {
             self.main_state
                 .apply_operation(DesignOperation::UpdateCamera {
                     camera_id,
-                    position: camera.position,
-                    orientation: camera.orientation,
+                    position: camera.0.position,
+                    orientation: camera.0.orientation,
                 })
         } else {
             log::error!("Could not get current camera position");

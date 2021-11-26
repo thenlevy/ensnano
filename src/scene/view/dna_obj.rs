@@ -176,6 +176,7 @@ impl DnaObject for SphereInstance {}
 pub struct StereographicSphereAndPlane {
     pub position: Vec3,
     pub orientation: Rotor3,
+    pub ratio: f32,
 }
 
 impl Instanciable for StereographicSphereAndPlane {
@@ -186,7 +187,7 @@ impl Instanciable for StereographicSphereAndPlane {
     fn vertices() -> Vec<DnaVertex> {
         let mut ret = SphereInstance::vertices();
         let z = -SPHERE_RADIUS;
-        let x = 2. * SPHERE_RADIUS;
+        let x = SPHERE_RADIUS;
         let y = SPHERE_RADIUS;
         let normal = Vec3::unit_y();
 
@@ -242,8 +243,8 @@ impl Instanciable for StereographicSphereAndPlane {
         let color = Instance::color_from_au32(crate::consts::STEREOGRAPHIC_SPHERE_COLOR);
         let model = Mat4::from_translation(self.position)
             * self.orientation.into_matrix().into_homogeneous();
-        let scale =
-            crate::consts::STEREOGRAPHIC_SPHERE_RADIUS / crate::consts::SPHERE_RADIUS * Vec3::one();
+        let scale = crate::consts::STEREOGRAPHIC_SPHERE_RADIUS / crate::consts::SPHERE_RADIUS
+            * Vec3::new(self.ratio, 1., 1.);
         RawDnaInstance {
             model,
             color,

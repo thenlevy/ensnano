@@ -183,6 +183,14 @@ impl RollSystem {
         }
     }
 
+    fn support_helix_data_idx(helix: &Helix, data: &DesignData) -> Option<usize> {
+        helix
+            .support_helix
+            .as_ref()
+            .and_then(|h_id| data.helix_map.get(h_id))
+            .cloned()
+    }
+
     fn update_acceleration(&mut self, data: &DesignData) {
         let cross_overs = &data.xovers;
         for i in 0..self.acceleration.len() {
@@ -197,7 +205,9 @@ impl RollSystem {
             let me = &data.helices[*h1];
             let other = &data.helices[*h2];
 
-            if me.support_helix.unwrap_or(*h1) != other.support_helix.unwrap_or(*h2) {
+            if Self::support_helix_data_idx(&me, data).unwrap_or(*h1)
+                != Self::support_helix_data_idx(&other, data).unwrap_or(*h2)
+            {
                 let (delta_1, delta_2) = cross_over_force(
                     me,
                     other,

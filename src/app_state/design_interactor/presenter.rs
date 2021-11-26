@@ -380,6 +380,29 @@ impl Presenter {
         }
         ret
     }
+
+    pub fn get_xover_len(&self, xover_id: usize) -> Option<f32> {
+        let (n1, n2) = self.junctions_ids.get_element(xover_id)?;
+        let pos1 = self
+            .content
+            .identifier_nucl
+            .get(&n1)
+            .and_then(|id| self.content.space_position.get(id))?;
+        let pos2 = self
+            .content
+            .identifier_nucl
+            .get(&n2)
+            .and_then(|id| self.content.space_position.get(id))?;
+        Some((Vec3::from(pos1) - Vec3::from(pos2)).mag())
+    }
+
+    pub fn get_id_of_xover_involving_nucl(&self, nucl: Nucl) -> Option<usize> {
+        self.junctions_ids
+            .get_all_elements()
+            .into_iter()
+            .find(|(_, pair)| pair.0 == nucl || pair.1 == nucl)
+            .map(|t| t.0)
+    }
 }
 
 pub(super) fn design_need_update(

@@ -81,7 +81,7 @@ pub struct Scene<S: AppState> {
     older_state: S,
     requests: Arc<Mutex<dyn Requests>>,
     scene_kind: SceneKind,
-    current_camera: Arc<Camera3D>,
+    current_camera: Arc<(Camera3D, f32)>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -142,7 +142,10 @@ impl<S: AppState> Scene<S> {
             element_selector,
             older_state: inital_state,
             scene_kind,
-            current_camera: Arc::new(Default::default()),
+            current_camera: Arc::new((
+                Default::default(),
+                area.size.width as f32 / area.size.height as f32,
+            )),
         }
     }
 
@@ -680,7 +683,10 @@ impl<S: AppState> Scene<S> {
             self.controller.update_camera(dt);
             self.view.borrow_mut().update(ViewUpdate::Camera);
             self.update.camera_update = false;
-            self.current_camera = Arc::new(self.get_camera())
+            self.current_camera = Arc::new((
+                self.get_camera(),
+                self.view.borrow().get_projection().borrow().get_ratio(),
+            ))
         }
         self.update.need_update = false;
     }
@@ -943,7 +949,7 @@ impl<S: AppState> Application for Scene<S> {
         Some((position, orientation))
     }
 
-    fn get_camera(&self) -> Option<Arc<Camera3D>> {
+    fn get_camera(&self) -> Option<Arc<(Camera3D, f32)>> {
         Some(self.current_camera.clone())
     }
 

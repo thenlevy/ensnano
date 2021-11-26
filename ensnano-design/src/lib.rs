@@ -1751,6 +1751,7 @@ impl Helix {
     }
 
     pub fn shifted_space_pos(&self, p: &Parameters, n: isize, forward: bool, shift: f32) -> Vec3 {
+        let n = self.initial_nt_index + n;
         let theta = self.theta(n, forward, p) + shift;
         self.theta_n_to_space_pos(p, n, theta)
     }
