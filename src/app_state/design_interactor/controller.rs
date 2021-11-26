@@ -1997,7 +1997,10 @@ impl Controller {
             dumy_end_helix.position,
             end_axis,
         );
-        helix.update_bezier(&design.parameters.unwrap_or(Parameters::DEFAULT));
+        helix.update_bezier(
+            &design.parameters.unwrap_or(Parameters::DEFAULT),
+            &mut Default::default(),
+        );
         let helix_id = new_helices.keys().last().unwrap_or(&0) + 1;
         let length = helix.nb_bezier_nucls();
         if length > 0 {

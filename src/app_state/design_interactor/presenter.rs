@@ -58,6 +58,7 @@ pub(super) struct Presenter {
     old_grid_ptr: Option<usize>,
     visibility_sive: Option<VisibilitySieve>,
     invisible_nucls: HashSet<Nucl>,
+    curve_cache: ensnano_design::CurveCache,
 }
 
 impl Default for Presenter {
@@ -71,6 +72,7 @@ impl Default for Presenter {
             old_grid_ptr: None,
             visibility_sive: None,
             invisible_nucls: Default::default(),
+            curve_cache: Default::default(),
         }
     }
 }
@@ -121,11 +123,13 @@ impl Presenter {
         log::info!("new design presenter");
         let model_matrix = Mat4::identity();
         let mut old_grid_ptr = None;
+        let mut curve_cache = Default::default();
         let (content, design, junctions_ids) = DesignContent::make_hash_maps(
             design,
             old_junctions_ids,
             &mut old_grid_ptr,
             &suggestion_parameters,
+            &mut curve_cache,
         );
         let design = AddressPointer::new(design);
         let ret = Self {
@@ -137,6 +141,7 @@ impl Presenter {
             old_grid_ptr,
             visibility_sive: None,
             invisible_nucls: Default::default(),
+            curve_cache,
         };
         (ret, design)
     }
@@ -161,6 +166,7 @@ impl Presenter {
             self.junctions_ids.as_ref(),
             &mut self.old_grid_ptr,
             suggestion_parameters,
+            &mut self.curve_cache,
         );
         log::debug!("old grid ptr after: {:?}", self.old_grid_ptr);
         self.current_design = AddressPointer::new(new_design);

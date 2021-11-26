@@ -36,7 +36,7 @@ ahash = "0.6.2"
 mathru = "0.8.4"
 rand = "0.8.3"
 rand_distr = "0.4.0"
-ordered-float = "2.0"
+ordered-float = { version = "2.0", features = ["serde"] }
 rfd = "0.4"
 material-icons = "0.1.0"
 ensnano_organizer = { path = "ensnano-organizer" }

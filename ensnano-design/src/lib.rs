@@ -43,7 +43,7 @@ pub mod group_attributes;
 use group_attributes::GroupAttribute;
 
 mod curves;
-pub use curves::{CubicBezierConstructor, CurveDescriptor};
+pub use curves::{CubicBezierConstructor, CurveCache, CurveDescriptor};
 use curves::{InstanciatedCurve, SphereLikeSpiral};
 pub mod utils;
 
@@ -438,7 +438,7 @@ impl Design {
         self.saved_camera = saving_information.camera;
     }
 
-    pub fn update_bezier_helices(&mut self) {
+    pub fn update_bezier_helices(&mut self, cached_curve: &mut CurveCache) {
         let mut need_update = false;
         for h in self.helices.values() {
             if h.need_curve_update() {
@@ -448,7 +448,11 @@ impl Design {
         }
         if need_update {
             let parameters = self.parameters.unwrap_or(Parameters::DEFAULT);
-            mutate_all_helices(self, |h| h.update_bezier(&parameters))
+            let mut new_helices_map = BTreeMap::clone(&self.helices);
+            for h in new_helices_map.values_mut() {
+                mutate_in_arc(h, |h| h.update_bezier(&parameters, cached_curve))
+            }
+            self.helices = Arc::new(new_helices_map);
         }
     }
 

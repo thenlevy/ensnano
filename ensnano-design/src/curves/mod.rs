@@ -27,6 +27,7 @@ mod torus;
 mod twist;
 pub use bezier::CubicBezierConstructor;
 pub use sphere_like_spiral::SphereLikeSpiral;
+use std::collections::HashMap;
 pub use torus::Torus;
 use torus::TwistedTorus;
 pub use torus::{CurveDescriptor2D, TwistedTorusDescriptor};
@@ -54,8 +55,9 @@ pub(super) trait Curved {
     }
 }
 
+#[derive(Clone)]
 pub(super) struct Curve {
-    geometry: Box<dyn Curved + Sync + Send>,
+    geometry: Arc<dyn Curved + Sync + Send>,
     positions: Vec<DVec3>,
     axis: Vec<DMat3>,
     curvature: Vec<f64>,
@@ -64,7 +66,7 @@ pub(super) struct Curve {
 impl Curve {
     pub fn new<T: Curved + 'static + Sync + Send>(geometry: T, parameters: &Parameters) -> Self {
         let mut ret = Self {
-            geometry: Box::new(geometry),
+            geometry: Arc::new(geometry),
             positions: Vec::new(),
             axis: Vec::new(),
             curvature: Vec::new(),
@@ -208,16 +210,21 @@ pub enum CurveDescriptor {
 }
 
 impl CurveDescriptor {
-    fn into_curve(self, parameters: &Parameters) -> Curve {
+    fn into_curve(self, parameters: &Parameters, cache: &mut CurveCache) -> Curve {
         match self {
             Self::Bezier(constructor) => Curve::new(constructor.into_bezier(), parameters),
             Self::SphereLikeSpiral(spiral) => Curve::new(spiral, parameters),
             Self::Twist(twist) => Curve::new(twist, parameters),
             Self::Torus(torus) => Curve::new(torus, parameters),
-            Self::TwistedTorus(desc) => {
-                let ret = Curve::new(TwistedTorus::new(desc), parameters);
-                println!("Number of nucleotides {}", ret.nb_points());
-                ret
+            Self::TwistedTorus(ref desc) => {
+                if let Some(curve) = cache.0.get(desc) {
+                    Curve::clone(curve)
+                } else {
+                    let ret = Curve::new(TwistedTorus::new(desc.clone()), parameters);
+                    println!("Number of nucleotides {}", ret.nb_points());
+                    cache.0.insert(desc.clone(), ret.clone());
+                    ret
+                }
             }
         }
     }
@@ -230,6 +237,9 @@ impl CurveDescriptor {
         }
     }
 }
+
+#[derive(Default, Clone)]
+pub struct CurveCache(HashMap<TwistedTorusDescriptor, Curve>);
 
 #[derive(Clone)]
 pub(super) struct InstanciatedCurve {
@@ -261,10 +271,12 @@ impl Helix {
         !up_to_date
     }
 
-    pub fn update_bezier(&mut self, parameters: &Parameters) {
+    pub fn update_bezier(&mut self, parameters: &Parameters, cached_curve: &mut CurveCache) {
         if self.need_curve_update() {
             if let Some(construtor) = self.curve.as_ref() {
-                let curve = Arc::new(CurveDescriptor::clone(construtor).into_curve(parameters));
+                let curve = Arc::new(
+                    CurveDescriptor::clone(construtor).into_curve(parameters, cached_curve),
+                );
                 self.instanciated_curve = Some(InstanciatedCurve {
                     source: construtor.clone(),
                     curve,

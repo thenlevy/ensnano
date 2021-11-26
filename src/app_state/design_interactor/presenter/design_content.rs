@@ -319,8 +319,9 @@ impl DesignContent {
         xover_ids: &JunctionsIds,
         old_grid_ptr: &mut Option<usize>,
         suggestion_parameters: &SuggestionParameters,
+        curve_cache: &mut CurveCache,
     ) -> (Self, Design, JunctionsIds) {
-        design.update_bezier_helices();
+        design.update_bezier_helices(curve_cache);
         let groups = design.groups.clone();
         let mut object_type = HashMap::default();
         let mut space_position = HashMap::default();
@@ -346,7 +347,7 @@ impl DesignContent {
             *old_grid_ptr = Some(Arc::as_ptr(&design.grids) as usize);
             grid_manager.reposition_all_helices(&mut design);
         }
-        design.update_bezier_helices();
+        design.update_bezier_helices(curve_cache);
         design.update_support_helices();
         for (s_id, strand) in design.strands.iter_mut() {
             elements.push(elements::DnaElement::Strand { id: *s_id });

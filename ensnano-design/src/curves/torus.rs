@@ -20,6 +20,7 @@ use super::Curved;
 use std::sync::Arc;
 use ultraviolet::{DVec2, DVec3, Rotor3, Vec2};
 
+use ordered_float::OrderedFloat;
 use std::f64::consts::PI;
 use std::f64::consts::TAU;
 
@@ -286,11 +287,11 @@ impl Curved for Torus {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum CurveDescriptor2D {
     Ellipse {
-        semi_minor_axis: f64,
-        semi_major_axis: f64,
+        semi_minor_axis: OrderedFloat<f64>,
+        semi_major_axis: OrderedFloat<f64>,
     },
 }
 
@@ -340,7 +341,7 @@ impl CurveDescriptor2D {
             Self::Ellipse {
                 semi_minor_axis,
                 semi_major_axis,
-            } => Arc::new(InstanciatedEllipse::new(semi_minor_axis, semi_major_axis)),
+            } => Arc::new(InstanciatedEllipse::new(*semi_minor_axis, *semi_major_axis)),
         }
     }
 }
@@ -466,17 +467,17 @@ pub(super) struct TwistedTorus {
     nb_turn_per_helix: usize,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct TwistedTorusDescriptor {
     pub curve: CurveDescriptor2D,
     /// Number of half rotation of the Ellipse per turn
     pub half_twist_count_per_turn: isize,
     /// Radius of the structure,
-    pub big_radius: f64,
+    pub big_radius: OrderedFloat<f64>,
     pub number_of_helix_per_section: usize,
     pub helix_index_shift_per_turn: isize,
     // Common to all helices of the shape
-    pub initial_curvilinear_abscissa: f64,
+    pub initial_curvilinear_abscissa: OrderedFloat<f64>,
     pub initial_index_shift: isize,
 }
 
@@ -522,7 +523,7 @@ impl TwistedTorus {
     }
 
     fn objective_s(&self, theta: f64) -> f64 {
-        self.descriptor.initial_curvilinear_abscissa
+        *self.descriptor.initial_curvilinear_abscissa
             + 2. * H
                 * (self.descriptor.helix_index_shift_per_turn as f64 * theta / TAU
                     + self.descriptor.initial_index_shift as f64)
@@ -542,10 +543,12 @@ impl Curved for TwistedTorus {
             / (self.instanciated_curve.symetry_order() as f64);
 
         DVec3 {
-            x: (point_curve.x * phi.cos() - point_curve.y * phi.sin() + self.descriptor.big_radius)
+            x: (point_curve.x * phi.cos() - point_curve.y * phi.sin()
+                + *self.descriptor.big_radius)
                 * theta.cos(),
             y: point_curve.x * phi.sin() + point_curve.y * phi.cos(),
-            z: (point_curve.x * phi.cos() - point_curve.y * phi.sin() + self.descriptor.big_radius)
+            z: (point_curve.x * phi.cos() - point_curve.y * phi.sin()
+                + *self.descriptor.big_radius)
                 * theta.sin(),
         }
     }
