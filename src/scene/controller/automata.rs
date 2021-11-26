@@ -50,6 +50,13 @@ impl<S: AppState> Transition<S> {
             consequences,
         }
     }
+
+    pub fn init_building(nucl: Nucl) -> Self {
+        Self {
+            new_state: Some(Box::new(BuildingStrand)),
+            consequences: Consequence::InitBuild(nucl),
+        }
+    }
 }
 
 pub(super) trait ControllerState<S: AppState> {
@@ -78,6 +85,10 @@ pub(super) trait ControllerState<S: AppState> {
     }
 
     fn handles_color_system(&self) -> Option<HandleColors> {
+        None
+    }
+
+    fn element_being_selected(&self) -> Option<SceneElement> {
         None
     }
 }
@@ -596,9 +607,13 @@ impl<S: AppState> ControllerState<S> for Selecting {
         "Selecting".into()
     }
 
+    fn element_being_selected(&self) -> Option<SceneElement> {
+        self.element.clone()
+    }
+
     fn check_timers(&mut self, controller: &Controller<S>) -> Transition<S> {
         let now = Instant::now();
-        if (now - self.click_date).as_millis() > 250 {
+        if (now - self.click_date).as_millis() > 350 {
             if let Some((nucl, d_id)) = controller
                 .data
                 .borrow()

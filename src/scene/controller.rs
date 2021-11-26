@@ -224,6 +224,12 @@ impl<S: AppState> Controller<S> {
                     MouseScrollDelta::PixelDelta(pos) => pos.y.signum() as isize,
                 };
                 Transition::consequence(Consequence::Building(init_position + delta))
+            } else if let Some(nucl) = self
+                .data
+                .borrow()
+                .can_start_builder(self.state.borrow().element_being_selected())
+            {
+                Transition::init_building(nucl)
             } else {
                 self.camera_controller
                     .process_scroll(delta, mouse_x as f32, mouse_y as f32);
@@ -243,9 +249,7 @@ impl<S: AppState> Controller<S> {
                 VirtualKeyCode::A if *state == ElementState::Pressed => {
                     Consequence::AlignWithStereo
                 }
-                VirtualKeyCode::C if *state == ElementState::Pressed => {
-                    Consequence::CheckXovers
-                }
+                VirtualKeyCode::C if *state == ElementState::Pressed => Consequence::CheckXovers,
                 VirtualKeyCode::Z
                     if ctrl(&self.current_modifiers) && *state == ElementState::Pressed =>
                 {
