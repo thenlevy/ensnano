@@ -99,6 +99,7 @@ pub fn distance_to_cursor_with_penalty(
     projection: ProjectionPtr,
     x_ndc: f32,
     y_ndc: f32,
+    initial_position: Option<Vec3>,
     stereography: Option<&Stereography>,
 ) -> Option<f32> {
     let p1 = camera.borrow().position;
@@ -107,6 +108,11 @@ pub fn distance_to_cursor_with_penalty(
     let direction = (p2 - p1).normalized();
 
     let point = objective - p1;
+    let penalty = if initial_position.is_some() {
+        100. * DIST_TO_CAMERA_PENALTY
+    } else {
+        DIST_TO_CAMERA_PENALTY
+    };
 
     if point.dot(direction) < 0.0 {
         None
@@ -114,7 +120,7 @@ pub fn distance_to_cursor_with_penalty(
         let projected_point = direction * point.dot(direction);
         Some(
             (projected_point - point).mag()
-                + DIST_TO_CAMERA_PENALTY * (projected_point - p1).mag_sq(),
+                + penalty * (projected_point - initial_position.unwrap_or(p1)).mag_sq(),
         )
     }
 }

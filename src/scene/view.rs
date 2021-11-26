@@ -819,6 +819,7 @@ impl View {
         axis: Axis<'_>,
         mouse_x: f64,
         mouse_y: f64,
+        initial_position: Option<Vec3>,
         stereographic: bool,
     ) -> Option<isize> {
         match axis {
@@ -846,6 +847,7 @@ impl View {
                         self.projection.clone(),
                         mouse_x as f32,
                         mouse_y as f32,
+                        initial_position,
                         Some(&self.stereography).filter(|_| stereographic),
                     )
                     .unwrap_or(f32::INFINITY);

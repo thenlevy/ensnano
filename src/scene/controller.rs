@@ -217,9 +217,18 @@ impl<S: AppState> Controller<S> {
         } else if let WindowEvent::MouseWheel { delta, .. } = event {
             let mouse_x = position.x / self.area_size.width as f64;
             let mouse_y = position.y / self.area_size.height as f64;
-            self.camera_controller
-                .process_scroll(delta, mouse_x as f32, mouse_y as f32);
-            Transition::consequence(Consequence::CameraMoved)
+            if let Some(builder) = app_state.get_strand_builders().get(0) {
+                let init_position = builder.get_moving_end_nucl().position;
+                let delta = match delta {
+                    MouseScrollDelta::LineDelta(_, y) => y.signum() as isize,
+                    MouseScrollDelta::PixelDelta(pos) => pos.y.signum() as isize,
+                };
+                Transition::consequence(Consequence::Building(init_position + delta))
+            } else {
+                self.camera_controller
+                    .process_scroll(delta, mouse_x as f32, mouse_y as f32);
+                Transition::consequence(Consequence::CameraMoved)
+            }
         } else if let WindowEvent::KeyboardInput {
             input:
                 KeyboardInput {

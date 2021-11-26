@@ -945,7 +945,7 @@ impl<S: AppState> ControllerState<S> for BuildingStrand {
         event: &WindowEvent,
         position: PhysicalPosition<f64>,
         controller: &Controller<S>,
-        _pixel_reader: &mut ElementSelector,
+        pixel_reader: &mut ElementSelector,
         app_state: &S,
     ) -> Transition<S> {
         match event {
@@ -963,12 +963,24 @@ impl<S: AppState> ControllerState<S> for BuildingStrand {
                 if let Some(builder) = app_state.get_strand_builders().get(0) {
                     let mouse_x = position.x / controller.area_size.width as f64;
                     let mouse_y = position.y / controller.area_size.height as f64;
-                    let position = controller.view.borrow().compute_projection_axis(
-                        builder.get_axis(),
-                        mouse_x,
-                        mouse_y,
-                        controller.stereography.is_some(),
-                    );
+                    let element = pixel_reader.set_selected_id(position);
+                    let nucl = controller
+                        .data
+                        .borrow()
+                        .element_to_nucl(&element, false)
+                        .filter(|p| p.0.helix == builder.get_initial_nucl().helix);
+                    let initial_position =
+                        nucl.and_then(|nucl| controller.data.borrow().get_nucl_position(nucl.0, 0));
+
+                    let position = nucl.map(|n| n.0.position).or_else(|| {
+                        controller.view.borrow().compute_projection_axis(
+                            builder.get_axis(),
+                            mouse_x,
+                            mouse_y,
+                            initial_position,
+                            controller.stereography.is_some(),
+                        )
+                    });
                     let consequence = if let Some(position) = position {
                         Consequence::Building(position)
                     } else {
