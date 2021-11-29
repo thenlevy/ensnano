@@ -27,6 +27,7 @@ macro_rules! log_err {
 use std::path::{Path, PathBuf};
 use std::sync::mpsc;
 use std::thread;
+pub type Filters = &'static [(&'static str, &'static [&'static str])];
 
 use std::borrow::Cow;
 /// A question to which the user must answer yes or no
@@ -144,12 +145,11 @@ pub fn get_dir() -> PathInput {
     PathInput(rcv)
 }
 
-pub fn load<P: AsRef<Path>>(starting_path: Option<P>) -> PathInput {
-    let mut dialog = rfd::AsyncFileDialog::new()
-        .add_filter("All supported files", &["ens", "json", "sc"])
-        .add_filter("ENSnano files", &["ens"])
-        .add_filter("json files", &["json"])
-        .add_filter("scadnano files", &["sc"]);
+pub fn load<P: AsRef<Path>>(starting_path: Option<P>, filters: Filters) -> PathInput {
+    let mut dialog = rfd::AsyncFileDialog::new();
+    for filter in filters.iter() {
+        dialog = dialog.add_filter(filter.0, filter.1);
+    }
     if let Some(path) = starting_path {
         dialog = dialog.set_directory(path);
     }
