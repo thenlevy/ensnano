@@ -59,7 +59,7 @@ impl StaplesDownloader for DesignReader {
             .map(|s| s.len())
             .unwrap();
         if scaffold_length != sequence_length {
-            warnings.push(warn_scaffold_seq_mismatch(sequence_length, sequence_length));
+            warnings.push(warn_scaffold_seq_mismatch(scaffold_length, sequence_length));
         }
         Ok(DownloadStappleOk { warnings })
     }

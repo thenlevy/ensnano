@@ -79,3 +79,13 @@ pub fn invalid_sequence_file(first_invalid_char_position: usize) -> String {
         first_invalid_char_position
     )
 }
+
+use crate::dialog::Filters;
+pub const DESIGN_FILTERS: Filters = &[
+    ("All supported files", &["ens", "json", "sc"]),
+    ("ENSnano files", &["ens"]),
+    ("json files", &["json"]),
+    ("scadnano files", &["sc"]),
+];
+
+pub const SEQUENCE_FILTERS: Filters = &[("Text files", &["txt"])];
