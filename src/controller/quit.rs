@@ -179,7 +179,7 @@ fn ask_path<P: AsRef<Path>>(
             })
         }
     } else {
-        let path_input = dialog::load(starting_directory);
+        let path_input = dialog::load(starting_directory, messages::DESIGN_FILTERS);
         Box::new(Load {
             step: LoadStep::AskPath {
                 path_input: Some(path_input),

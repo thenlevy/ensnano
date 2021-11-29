@@ -132,7 +132,7 @@ impl Presenter {
             &mut curve_cache,
         );
         let design = AddressPointer::new(design);
-        let ret = Self {
+        let mut ret = Self {
             current_design: design.clone(),
             current_suggestion_paramters: suggestion_parameters,
             content: AddressPointer::new(content),
@@ -143,6 +143,7 @@ impl Presenter {
             invisible_nucls: Default::default(),
             curve_cache,
         };
+        ret.read_scaffold_seq();
         (ret, design)
     }
 
