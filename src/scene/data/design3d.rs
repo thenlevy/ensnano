@@ -17,7 +17,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 use super::super::maths_3d::{Basis3D, UnalignedBoundaries};
 use super::super::view::{
-    ConeInstance, Instanciable, RawDnaInstance, SphereInstance, TubeInstance,
+    ConeInstance, Ellipsoid, Instanciable, RawDnaInstance, SphereInstance, TubeInstance,
 };
 use super::super::GridInstance;
 use super::{LetterInstance, SceneElement};
@@ -193,6 +193,55 @@ impl<R: DesignReader> Design3D<R> {
             }
         };
         Some(instanciable)
+    }
+
+    /// Return (h bonds instances, ellipoids instances)
+    pub fn get_all_hbond(&self) -> (Vec<RawDnaInstance>, Vec<RawDnaInstance>) {
+        let mut hbonds = Vec::new();
+        let mut ellipsoids = Vec::new();
+        for hbond in self.design.get_all_h_bonds() {
+            let forward_bond = create_dna_bound(
+                hbond.forward.backbone,
+                hbond.forward.center_of_mass,
+                hbond.forward.backbone_color,
+                0,
+                false,
+            );
+            let backward_bond = create_dna_bound(
+                hbond.backward.backbone,
+                hbond.backward.center_of_mass,
+                hbond.backward.backbone_color,
+                0,
+                false,
+            );
+            let forward_ellipsoid = Ellipsoid {
+                orientation: forward_bond.rotor,
+                scale: BASIS_SCALE,
+                sphere: SphereInstance {
+                    position: hbond.forward.center_of_mass,
+                    color: Instance::color_from_u32(basis_color(hbond.forward.base.unwrap_or('?'))),
+                    radius: 1.,
+                    id: 0,
+                },
+            };
+            let backward_ellipsoid = Ellipsoid {
+                orientation: backward_bond.rotor,
+                scale: BASIS_SCALE,
+                sphere: SphereInstance {
+                    position: hbond.backward.center_of_mass,
+                    color: Instance::color_from_u32(basis_color(
+                        hbond.backward.base.unwrap_or('?'),
+                    )),
+                    radius: 1.,
+                    id: 0,
+                },
+            };
+            hbonds.push(forward_bond.to_raw_instance());
+            hbonds.push(backward_bond.to_raw_instance());
+            ellipsoids.push(backward_ellipsoid.to_raw_instance());
+            ellipsoids.push(forward_ellipsoid.to_raw_instance());
+        }
+        (hbonds, ellipsoids)
     }
 
     /// Convert return an instance representing the object with identifier `id`
@@ -849,6 +898,20 @@ fn create_prime3_cone(source: Vec3, dest: Vec3, color: u32) -> RawDnaInstance {
     .to_raw_instance()
 }
 
+#[derive(Debug, Clone)]
+pub struct HalfHBond {
+    pub backbone: Vec3,
+    pub center_of_mass: Vec3,
+    pub base: Option<char>,
+    pub backbone_color: u32,
+}
+
+#[derive(Debug, Clone)]
+pub struct HBond {
+    pub forward: HalfHBond,
+    pub backward: HalfHBond,
+}
+
 pub trait DesignReader: 'static + ensnano_interactor::DesignReader {
     /// Return the identifier of all the visible nucleotides
     fn get_all_visible_nucl_ids(&self) -> Vec<u32>;
@@ -904,4 +967,5 @@ pub trait DesignReader: 'static + ensnano_interactor::DesignReader {
     fn prime5_of_which_strand(&self, nucl: Nucl) -> Option<usize>;
     fn prime3_of_which_strand(&self, nucl: Nucl) -> Option<usize>;
     fn get_all_prime3_nucl(&self) -> Vec<(Vec3, Vec3, u32)>;
+    fn get_all_h_bonds(&self) -> &[HBond];
 }

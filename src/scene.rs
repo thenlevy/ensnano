@@ -55,7 +55,7 @@ use controller::{Consequence, Controller, WidgetTarget};
 mod data;
 pub use controller::ClickMode;
 use data::Data;
-pub use data::DesignReader;
+pub use data::{DesignReader, HBond, HalfHBond};
 mod element_selector;
 use element_selector::{ElementSelector, SceneElement};
 mod maths_3d;

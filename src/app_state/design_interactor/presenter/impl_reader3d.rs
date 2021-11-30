@@ -308,6 +308,10 @@ impl Reader3D for DesignReader {
             false
         }
     }
+
+    fn get_all_h_bonds(&self) -> &[HBond] {
+        self.presenter.bonds.as_ref()
+    }
 }
 
 impl Presenter {}

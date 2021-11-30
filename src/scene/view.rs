@@ -53,7 +53,9 @@ use super::maths_3d;
 use crate::text::Letter;
 use bindgroup_manager::{DynamicBindGroup, UniformBindGroup};
 use direction_cube::*;
-pub use dna_obj::{ConeInstance, DnaObject, RawDnaInstance, SphereInstance, TubeInstance};
+pub use dna_obj::{
+    ConeInstance, DnaObject, Ellipsoid, RawDnaInstance, SphereInstance, TubeInstance,
+};
 use drawable::{Drawable, Drawer, Vertex};
 pub use grid::{GridInstance, GridIntersection};
 use grid::{GridManager, GridTextures};
@@ -880,6 +882,10 @@ pub enum Mesh {
     XoverTube,
     Prime3Cone,
     Prime3ConeOutline,
+    BaseEllipsoid,
+    EllipsoidOutline,
+    HBond,
+    HBondOutline,
 }
 
 impl Mesh {
@@ -898,6 +904,8 @@ impl Mesh {
             Self::Sphere => Some(Self::OutlineSphere),
             Self::Tube => Some(Self::OutlineTube),
             Self::Prime3Cone => Some(Self::Prime3ConeOutline),
+            Self::BaseEllipsoid => Some(Self::EllipsoidOutline),
+            Self::HBond => Some(Self::HBondOutline),
             _ => None,
         }
     }
@@ -927,6 +935,10 @@ struct DnaDrawers {
     xover_tube: InstanceDrawer<TubeInstance>,
     prime3_cones: InstanceDrawer<dna_obj::ConeInstance>,
     outline_prime3_cones: InstanceDrawer<dna_obj::ConeInstance>,
+    base_ellipsoid: InstanceDrawer<dna_obj::Ellipsoid>,
+    outline_base_ellipsoid: InstanceDrawer<dna_obj::Ellipsoid>,
+    hbond: InstanceDrawer<dna_obj::TubeInstance>,
+    outline_hbond: InstanceDrawer<dna_obj::TubeInstance>,
 }
 
 impl DnaDrawers {
@@ -955,6 +967,10 @@ impl DnaDrawers {
             Mesh::XoverTube => &mut self.xover_tube,
             Mesh::Prime3Cone => &mut self.prime3_cones,
             Mesh::Prime3ConeOutline => &mut self.outline_prime3_cones,
+            Mesh::HBond => &mut self.hbond,
+            Mesh::BaseEllipsoid => &mut self.base_ellipsoid,
+            Mesh::EllipsoidOutline => &mut self.outline_base_ellipsoid,
+            Mesh::HBondOutline => &mut self.outline_hbond,
         }
     }
 
@@ -966,6 +982,8 @@ impl DnaDrawers {
             &mut self.sphere,
             &mut self.tube,
             &mut self.prime3_cones,
+            &mut self.hbond,
+            &mut self.base_ellipsoid,
             &mut self.candidate_sphere,
             &mut self.candidate_tube,
             &mut self.selected_sphere,
@@ -980,10 +998,13 @@ impl DnaDrawers {
             &mut self.xover_sphere,
             &mut self.xover_tube,
         ];
+        let last_solid_item = 4;
         if rendering_mode == RenderingMode::Cartoon {
-            ret.insert(3, &mut self.outline_tube);
-            ret.insert(4, &mut self.outline_sphere);
-            ret.insert(5, &mut self.outline_prime3_cones);
+            ret.insert(last_solid_item + 1, &mut self.outline_tube);
+            ret.insert(last_solid_item + 2, &mut self.outline_sphere);
+            ret.insert(last_solid_item + 3, &mut self.outline_prime3_cones);
+            ret.insert(last_solid_item + 4, &mut self.outline_hbond);
+            ret.insert(last_solid_item + 5, &mut self.outline_base_ellipsoid);
         }
 
         ret
@@ -1031,6 +1052,24 @@ impl DnaDrawers {
                 false,
                 "tube",
             ),
+            hbond: InstanceDrawer::new(
+                device.clone(),
+                queue.clone(),
+                viewer_desc,
+                model_desc,
+                (),
+                false,
+                "hbond",
+            ),
+            base_ellipsoid: InstanceDrawer::new(
+                device.clone(),
+                queue.clone(),
+                viewer_desc,
+                model_desc,
+                (),
+                false,
+                "base_ellipsoid",
+            ),
             prime3_cones: InstanceDrawer::new(
                 device.clone(),
                 queue.clone(),
@@ -1063,6 +1102,22 @@ impl DnaDrawers {
                 model_desc,
                 (),
                 "outline prime3 cones",
+            ),
+            outline_hbond: InstanceDrawer::new_outliner(
+                device.clone(),
+                queue.clone(),
+                viewer_desc,
+                model_desc,
+                (),
+                "outline hbond",
+            ),
+            outline_base_ellipsoid: InstanceDrawer::new_outliner(
+                device.clone(),
+                queue.clone(),
+                viewer_desc,
+                model_desc,
+                (),
+                "outline base_ellipsoid",
             ),
             candidate_sphere: InstanceDrawer::new(
                 device.clone(),
