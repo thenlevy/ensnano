@@ -140,7 +140,7 @@ impl AppState {
 
     pub fn with_suggestion_parameters(&self, suggestion_parameters: SuggestionParameters) -> Self {
         let mut new_state = (*self.0).clone();
-        new_state.suggestion_parameters = suggestion_parameters;
+        new_state.parameters.suggestion_parameters = suggestion_parameters;
         Self(AddressPointer::new(new_state))
     }
 
@@ -223,10 +223,11 @@ impl AppState {
         if self
             .0
             .design
-            .design_need_update(&self.0.suggestion_parameters)
+            .design_need_update(&self.0.parameters.suggestion_parameters)
         {
             log::trace!("design need update");
-            interactor = interactor.with_updated_design_reader(&self.0.suggestion_parameters);
+            interactor =
+                interactor.with_updated_design_reader(&self.0.parameters.suggestion_parameters);
             let new = self.with_interactor(interactor);
             new
         } else {
@@ -344,8 +345,8 @@ impl AppState {
         *self = self.with_candidates(vec![]);
         *self = self.with_action_mode(source.0.action_mode.clone());
         *self = self.with_selection_mode(source.0.selection_mode.clone());
-        *self = self.with_suggestion_parameters(source.0.suggestion_parameters.clone());
-        *self = self.with_check_xovers_parameters(source.0.check_xover_paramters);
+        *self = self.with_suggestion_parameters(source.0.parameters.suggestion_parameters.clone());
+        *self = self.with_check_xovers_parameters(source.0.parameters.check_xover_paramters);
     }
 
     pub fn with_check_xovers_parameters(
@@ -353,7 +354,7 @@ impl AppState {
         check_xover_paramters: CheckXoversParameter,
     ) -> Self {
         let mut new_state = (*self.0).clone();
-        new_state.check_xover_paramters = check_xover_paramters;
+        new_state.parameters.check_xover_paramters = check_xover_paramters;
         Self(AddressPointer::new(new_state))
     }
 
@@ -476,6 +477,13 @@ impl AppState {
 }
 
 #[derive(Clone, Default)]
+struct AppStateParameters {
+    suggestion_parameters: SuggestionParameters,
+    check_xover_paramters: CheckXoversParameter,
+    follow_stereography: bool,
+}
+
+#[derive(Clone, Default)]
 struct AppState_ {
     /// The set of currently selected objects
     selection: AppStateSelection,
@@ -490,9 +498,8 @@ struct AppState_ {
     widget_basis: WidgetBasis,
     strand_on_new_helix: Option<NewHelixStrand>,
     center_of_selection: Option<CenterOfSelection>,
-    suggestion_parameters: SuggestionParameters,
     updated_once: bool,
-    check_xover_paramters: CheckXoversParameter,
+    parameters: AppStateParameters,
 }
 
 #[derive(Clone, Default)]
