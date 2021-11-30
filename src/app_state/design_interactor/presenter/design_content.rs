@@ -58,6 +58,7 @@ pub(super) struct DesignContent {
     pub elements: Vec<DnaElement>,
     pub suggestions: Vec<(Nucl, Nucl)>,
     pub(super) grid_manager: GridManager,
+    pub virtual_nucl_map: HashMap<VirtualNucl, Nucl, RandomState>,
 }
 
 impl DesignContent {
@@ -341,6 +342,7 @@ impl DesignContent {
         let mut prime3_set = Vec::new();
         let mut new_junctions: JunctionsIds = Default::default();
         let mut suggestion_maker = XoverSuggestions::default();
+        let mut virtual_nucl_map = HashMap::default();
         xover_ids.agree_on_next_id(&mut new_junctions);
         let mut grid_manager = GridManager::new_from_design(&design);
         if *old_grid_ptr != Some(Arc::as_ptr(&design.grids) as usize) {
@@ -396,6 +398,16 @@ impl DesignContent {
                             forward: domain.forward,
                             helix: domain.helix,
                         };
+                        let virtual_nucl = Nucl::map_to_virtual_nucl(nucl, &design.helices);
+                        if let Some(v_nucl) = virtual_nucl {
+                            let previous = virtual_nucl_map.insert(v_nucl, nucl);
+                            if previous.is_some() && previous != Some(nucl) {
+                                log::error!("NUCLEOTIDE CONFLICTS: nucls {:?} and {:?} are mapped to the same virtual postition {:?}", previous, nucl, v_nucl);
+                            }
+                        } else {
+                            log::error!("Could not get virtual nucl corresponding to {:?}", nucl);
+                        }
+
                         elements.push(DnaElement::Nucleotide {
                             helix: nucl.helix,
                             position: nucl.position,
@@ -531,6 +543,7 @@ impl DesignContent {
             elements,
             grid_manager,
             suggestions: vec![],
+            virtual_nucl_map,
         };
         let suggestions = suggestion_maker.get_suggestions(&design, suggestion_parameters);
         ret.suggestions = suggestions;

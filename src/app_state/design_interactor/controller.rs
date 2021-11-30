@@ -23,7 +23,7 @@ use ensnano_design::{
     grid::{Edge, GridDescriptor, GridPosition, GridTypeDescr, Hyperboloid},
     group_attributes::GroupPivot,
     mutate_in_arc, CameraId, CurveDescriptor, Design, Domain, DomainJunction, Helix, Nucl,
-    Parameters, Strand,
+    Parameters, Strand, VirtualNucl,
 };
 use ensnano_interactor::{
     operation::{Operation, Parameter},
@@ -739,7 +739,7 @@ impl Controller {
     pub(super) fn optimize_shift(
         &self,
         chanel_reader: &mut dyn ShiftOptimizerReader,
-        nucl_map: Arc<AHashMap<Nucl, u32>>,
+        virtual_nucl_map: Arc<AHashMap<VirtualNucl, Nucl>>,
         design: &Design,
     ) -> Result<(OkOperation, Self), ErrOperation> {
         if let OperationCompatibility::Incompatible =
@@ -748,7 +748,7 @@ impl Controller {
             return Err(ErrOperation::IncompatibleState);
         }
         Ok(self.ok_no_op(
-            |c, d| c.start_shift_optimization(d, chanel_reader, nucl_map),
+            |c, d| c.start_shift_optimization(d, chanel_reader, virtual_nucl_map),
             design,
         ))
     }
@@ -757,10 +757,14 @@ impl Controller {
         &mut self,
         design: &Design,
         chanel_reader: &mut dyn ShiftOptimizerReader,
-        nucl_map: Arc<AHashMap<Nucl, u32>>,
+        virtual_nucl_map: Arc<AHashMap<VirtualNucl, Nucl>>,
     ) {
         self.state = ControllerState::OptimizingScaffoldPosition;
-        shift_optimization::optimize_shift(Arc::new(design.clone()), nucl_map, chanel_reader);
+        shift_optimization::optimize_shift(
+            Arc::new(design.clone()),
+            virtual_nucl_map,
+            chanel_reader,
+        );
     }
 
     #[allow(dead_code)]

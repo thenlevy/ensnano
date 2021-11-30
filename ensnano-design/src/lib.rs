@@ -1952,6 +1952,23 @@ impl std::cmp::Ord for Nucl {
 }
 
 impl Nucl {
+    pub fn map_to_virtual_nucl<P: AsRef<Helix>, H: AsRef<BTreeMap<usize, P>>>(
+        nucl: Nucl,
+        helices: H,
+    ) -> Option<VirtualNucl> {
+        let h = helices.as_ref().get(&nucl.helix)?;
+        let support_helix_id = h
+            .as_ref()
+            .support_helix
+            .or(Some(nucl.helix))
+            .filter(|h_id| helices.as_ref().contains_key(h_id))?;
+        Some(VirtualNucl(Nucl {
+            helix: support_helix_id,
+            position: nucl.position + h.as_ref().initial_nt_index,
+            forward: nucl.forward,
+        }))
+    }
+
     pub fn new(helix: usize, position: isize, forward: bool) -> Self {
         Self {
             helix,
@@ -2013,6 +2030,19 @@ impl Nucl {
 impl std::fmt::Display for Nucl {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "({}, {}, {})", self.helix, self.position, self.forward)
+    }
+}
+
+/// The virtual position of a nucleotide.
+///
+/// Two nucleotides on different helices with the same support helix will be mapped
+/// to the same `VirtualNucl` if they are at the same position on that support helix
+#[derive(Serialize, Deserialize, Clone, Copy, Eq, PartialEq, Hash, Debug, PartialOrd, Ord)]
+pub struct VirtualNucl(Nucl);
+
+impl VirtualNucl {
+    pub fn compl(&self) -> Self {
+        Self(self.0.compl())
     }
 }
 

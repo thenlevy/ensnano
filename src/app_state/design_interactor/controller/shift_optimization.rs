@@ -16,12 +16,14 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+use ensnano_design::VirtualNucl;
+
 use super::*;
 use std::sync::mpsc;
 
 fn read_scaffold_seq(
     design: &Design,
-    identifier_nucl: &AHashMap<Nucl, u32>,
+    virtual_nucl_map: &AHashMap<VirtualNucl, Nucl>,
     shift: usize,
 ) -> Result<BTreeMap<Nucl, char>, ErrOperation> {
     let nb_skip = if let Some(sequence) = design.scaffold_sequence.as_ref() {
@@ -53,11 +55,17 @@ fn read_scaffold_seq(
                     };
                     let basis = sequence.next();
                     let basis_compl = compl(basis);
-                    if let Some((basis, basis_compl)) = basis.zip(basis_compl) {
-                        basis_map.insert(nucl, basis);
-                        if identifier_nucl.contains_key(&nucl.compl()) {
-                            basis_map.insert(nucl.compl(), basis_compl);
+                    if let Some(virtual_compl) =
+                        Nucl::map_to_virtual_nucl(nucl.compl(), &design.helices)
+                    {
+                        if let Some((basis, basis_compl)) = basis.zip(basis_compl) {
+                            basis_map.insert(nucl, basis);
+                            if let Some(real_compl) = virtual_nucl_map.get(&virtual_compl) {
+                                basis_map.insert(*real_compl, basis_compl);
+                            }
                         }
+                    } else {
+                        log::error!("Could not get virtual mapping of {:?}", nucl.compl());
                     }
                 }
             } else if let Domain::Insertion(n) = domain {
@@ -75,7 +83,7 @@ fn read_scaffold_seq(
 /// Shift the scaffold at an optimized poisition and return the corresponding score
 pub fn optimize_shift(
     design: Arc<Design>,
-    identifier_nucl: Arc<AHashMap<Nucl, u32>>,
+    virtual_nucl_map: Arc<AHashMap<VirtualNucl, Nucl>>,
     chanel_reader: &mut dyn ShiftOptimizerReader,
 ) {
     let (progress_snd, progress_rcv) = std::sync::mpsc::channel();
@@ -84,7 +92,7 @@ pub fn optimize_shift(
     chanel_reader.attach_progress_chanel(progress_rcv);
     std::thread::spawn(move || {
         let result =
-            get_shift_optimization_result(design.as_ref(), progress_snd, identifier_nucl.as_ref());
+            get_shift_optimization_result(design.as_ref(), progress_snd, virtual_nucl_map.as_ref());
         result_snd.send(result).unwrap();
     });
 }
@@ -92,7 +100,7 @@ pub fn optimize_shift(
 fn get_shift_optimization_result(
     design: &Design,
     progress_channel: std::sync::mpsc::Sender<f32>,
-    identifier_nucl: &AHashMap<Nucl, u32>,
+    virtual_nucl_map: &AHashMap<VirtualNucl, Nucl>,
 ) -> ShiftOptimizationResult {
     let mut best_score = usize::MAX;
     let mut best_shfit = 0;
@@ -106,7 +114,7 @@ fn get_shift_optimization_result(
         if shift % 100 == 0 {
             progress_channel.send(shift as f32 / len as f32).unwrap();
         }
-        let char_map = read_scaffold_seq(design, identifier_nucl, shift)?;
+        let char_map = read_scaffold_seq(design, virtual_nucl_map, shift)?;
         let (score, result) = evaluate_shift(design, &char_map);
         if score < best_score {
             println!("shift {} score {}", shift, score);

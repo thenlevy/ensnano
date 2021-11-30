@@ -20,7 +20,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 pub use self::design_content::Staple;
 
 use super::*;
-use ensnano_design::{Extremity, Nucl};
+use ensnano_design::{Extremity, Nucl, VirtualNucl};
 use ensnano_interactor::{
     application::Camera3D, NeighbourDescriptor, NeighbourDescriptorGiver, ScaffoldInfo, Selection,
     SuggestionParameters,
@@ -220,9 +220,18 @@ impl Presenter {
                             log::debug!("basis {:?}, basis_compl {:?}", basis, basis_compl);
                             if let Some((basis, basis_compl)) = basis.zip(basis_compl) {
                                 basis_map.insert(nucl, basis);
-                                if self.content.identifier_nucl.contains_key(&nucl.compl()) {
-                                    basis_map.insert(nucl.compl(), basis_compl);
+                                if let Some(virtual_compl) = Nucl::map_to_virtual_nucl(
+                                    nucl.compl(),
+                                    &self.current_design.helices,
+                                ) {
+                                    if let Some(real_compl) =
+                                        self.content.virtual_nucl_map.get(&virtual_compl)
+                                    {
+                                        basis_map.insert(*real_compl, basis_compl);
+                                    }
                                 }
+                            } else {
+                                log::error!("Could not get virtual mapping of {:?}", nucl.compl())
                             }
                         }
                     } else if let ensnano_design::Domain::Insertion(n) = domain {
@@ -325,6 +334,10 @@ impl Presenter {
 
     pub(super) fn get_nucl_map(&self) -> AHashMap<Nucl, u32> {
         self.content.identifier_nucl.clone().into()
+    }
+
+    pub(super) fn get_virtual_nucl_map(&self) -> AHashMap<VirtualNucl, Nucl> {
+        self.content.virtual_nucl_map.clone().into()
     }
 
     fn whole_selection_is_visible(&self, selection: &[Selection], compl: bool) -> bool {
