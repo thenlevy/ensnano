@@ -377,7 +377,7 @@ impl CameraController {
         let up_vec = self.camera.borrow().up_vec();
         let forward_vec = self.camera.borrow().direction();
 
-        let (amount_right, amount_rotate_right, amount_roll_right) = if modifier.shift() {
+        let (amount_right, amount_roll_right, amount_rotate_right) = if modifier.shift() {
             (0., 0., self.amount_right)
         } else if modifier.alt() {
             (0., self.amount_right, 0.)
@@ -385,7 +385,7 @@ impl CameraController {
             (self.amount_right, 0., 0.)
         };
 
-        let (amount_left, amount_rotate_left, amount_roll_left) = if modifier.shift() {
+        let (amount_left, amount_roll_left, amount_rotate_left) = if modifier.shift() {
             (0., 0., self.amount_left)
         } else if modifier.alt() {
             (0., self.amount_left, 0.)
