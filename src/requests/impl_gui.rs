@@ -372,6 +372,10 @@ impl GuiRequests for Requests {
     fn set_check_xover_parameters(&mut self, paramters: CheckXoversParameter) {
         self.check_xover_parameters = Some(paramters);
     }
+
+    fn follow_stereographic_camera(&mut self, follow: bool) {
+        self.follow_stereographic_camera = Some(follow);
+    }
 }
 
 fn rigid_parameters(parameters: RigidBodyParametersRequest) -> RigidBodyConstants {

@@ -1245,6 +1245,10 @@ impl MainState {
     fn set_check_xovers_parameters(&mut self, param: CheckXoversParameter) {
         self.modify_state(|s| s.with_check_xovers_parameters(param), false)
     }
+
+    fn set_follow_stereographic_camera(&mut self, follow: bool) {
+        self.modify_state(|s| s.with_follow_stereographic_camera(follow), false)
+    }
 }
 
 /// A temporary view of the main state and the control flow.

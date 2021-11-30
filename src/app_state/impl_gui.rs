@@ -112,11 +112,15 @@ impl GuiState for AppState {
     }
 
     fn get_suggestion_parameters(&self) -> &SuggestionParameters {
-        &self.0.suggestion_parameters
+        &self.0.parameters.suggestion_parameters
     }
 
     fn get_checked_xovers_parameters(&self) -> CheckXoversParameter {
-        self.0.check_xover_paramters
+        self.0.parameters.check_xover_paramters
+    }
+
+    fn follow_stereographic_camera(&self) -> bool {
+        self.0.parameters.follow_stereography
     }
 }
 

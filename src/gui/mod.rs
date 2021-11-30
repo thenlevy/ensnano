@@ -188,6 +188,7 @@ pub trait Requests: 'static + Send {
     fn toggle_2d(&mut self);
     fn set_nb_turn(&mut self, grid_id: usize, nb_turn: f32);
     fn set_check_xover_parameters(&mut self, paramters: CheckXoversParameter);
+    fn follow_stereographic_camera(&mut self, follow: bool);
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -918,6 +919,7 @@ pub trait AppState:
     fn get_selected_group(&self) -> Option<GroupId>;
     fn get_suggestion_parameters(&self) -> &SuggestionParameters;
     fn get_checked_xovers_parameters(&self) -> CheckXoversParameter;
+    fn follow_stereographic_camera(&self) -> bool;
 }
 
 pub trait DesignReader: 'static {

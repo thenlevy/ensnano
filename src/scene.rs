@@ -1,4 +1,3 @@
-use ensnano_interactor::CheckXoversParameter;
 /*
 ENSnano, a 3d graphical application for DNA nanostructures.
     Copyright (C) 2021  Nicolas Levy <nicolaspierrelevy@gmail.com> and Nicolas Schabanel <nicolas.schabanel@ens-lyon.fr>
@@ -31,8 +30,8 @@ use ensnano_design::{group_attributes::GroupPivot, Nucl};
 use ensnano_interactor::{
     application::{AppId, Application, Camera3D, Notification},
     operation::*,
-    ActionMode, CenterOfSelection, DesignOperation, Selection, SelectionMode, StrandBuilder,
-    WidgetBasis,
+    ActionMode, CenterOfSelection, CheckXoversParameter, DesignOperation, Selection, SelectionMode,
+    StrandBuilder, WidgetBasis,
 };
 use instance::Instance;
 use utils::instance;
@@ -913,7 +912,11 @@ impl<S: AppState> Application for Scene<S> {
                 if !self.is_stereographic() {
                     self.data
                         .borrow_mut()
-                        .update_stereographic_camera(camera_ptr)
+                        .update_stereographic_camera(camera_ptr);
+                    if self.older_state.follow_stereographic_camera() {
+                        let camera = self.data.borrow().get_aligned_camera();
+                        self.on_notify(Notification::TeleportCamera(camera));
+                    }
                 }
             }
         }
@@ -991,6 +994,7 @@ pub trait AppState: Clone {
     fn get_current_group_id(&self) -> Option<ensnano_design::GroupId>;
     fn suggestion_parameters_were_updated(&self, other: &Self) -> bool;
     fn get_check_xover_parameters(&self) -> CheckXoversParameter;
+    fn follow_stereographic_camera(&self) -> bool;
 }
 
 pub trait Requests {

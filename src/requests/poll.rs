@@ -385,4 +385,8 @@ pub(crate) fn poll_all<R: DerefMut<Target = Requests>>(
     if let Some(param) = requests.check_xover_parameters.take() {
         main_state.set_check_xovers_parameters(param);
     }
+
+    if let Some(b) = requests.follow_stereographic_camera.take() {
+        main_state.set_follow_stereographic_camera(b);
+    }
 }

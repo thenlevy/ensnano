@@ -119,4 +119,5 @@ pub struct Requests {
     pub new_center_of_selection: Option<Option<CenterOfSelection>>,
     pub new_suggestion_parameters: Option<SuggestionParameters>,
     pub check_xover_parameters: Option<CheckXoversParameter>,
+    pub follow_stereographic_camera: Option<bool>,
 }

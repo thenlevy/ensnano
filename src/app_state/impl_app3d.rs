@@ -98,11 +98,15 @@ impl App3D for AppState {
     }
 
     fn suggestion_parameters_were_updated(&self, other: &Self) -> bool {
-        self.0.suggestion_parameters != other.0.suggestion_parameters
+        self.0.parameters.suggestion_parameters != other.0.parameters.suggestion_parameters
     }
 
     fn get_check_xover_parameters(&self) -> CheckXoversParameter {
-        self.0.check_xover_paramters
+        self.0.parameters.check_xover_paramters
+    }
+
+    fn follow_stereographic_camera(&self) -> bool {
+        self.0.parameters.follow_stereography
     }
 }
 

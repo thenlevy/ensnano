@@ -358,6 +358,12 @@ impl AppState {
         Self(AddressPointer::new(new_state))
     }
 
+    pub fn with_follow_stereographic_camera(&self, follow: bool) -> Self {
+        let mut new_state = (*self.0).clone();
+        new_state.parameters.follow_stereography = follow;
+        Self(AddressPointer::new(new_state))
+    }
+
     pub(super) fn is_pasting(&self) -> PastingStatus {
         self.0.design.is_pasting()
     }

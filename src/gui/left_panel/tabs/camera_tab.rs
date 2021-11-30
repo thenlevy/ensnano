@@ -84,6 +84,13 @@ impl CameraTab {
         );
         ret = ret.push(self.fog.view(&ui_size));
 
+        ret = ret.push(right_checkbox(
+            app_state.follow_stereographic_camera(),
+            "Follow stereographic camera",
+            Message::FollowStereographicCamera,
+            ui_size,
+        ));
+
         subsection!(ret, ui_size, "Highlight Xovers");
         ret = ret.push(PickList::new(
             &mut self.check_xover_picklist,

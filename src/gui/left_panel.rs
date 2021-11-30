@@ -186,6 +186,7 @@ pub enum Message<S> {
     ContextualValueSubmitted(ValueKind),
     InstanciatedValueSubmitted(InstanciatedValue),
     CheckXoversParameter(CheckXoversParameter),
+    FollowStereographicCamera(bool),
 }
 
 impl<S: AppState> contextual_panel::BuilderMessage for Message<S> {
@@ -753,6 +754,9 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
                 .lock()
                 .unwrap()
                 .set_check_xover_parameters(parameters),
+            Message::FollowStereographicCamera(b) => {
+                self.requests.lock().unwrap().follow_stereographic_camera(b)
+            }
         };
         Command::none()
     }
