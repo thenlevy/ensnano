@@ -518,7 +518,7 @@ impl<S: AppState> Scene<S> {
         );
         log::debug!("rotating grids {:?}", grids);
         let group_id = app_state.get_current_group_id();
-        let rotation: Arc<dyn Operation> = if let Some(grid_ids) = grids {
+        let rotation: Arc<dyn Operation> = if let Some(grid_ids) = grids.filter(|v| v.len() > 0) {
             Arc::new(GridRotation {
                 grid_ids,
                 angle,
