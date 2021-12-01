@@ -32,7 +32,8 @@ pub struct Rectangle {
     queue: Rc<Queue>,
 }
 
-#[derive(Default, Clone, Copy, Debug)]
+#[derive(Default, Clone, Copy, Debug, bytemuck::Pod, bytemuck::Zeroable)]
+#[repr(C)]
 struct Vertex {
     pub position: [f32; 2],
     pub color: [f32; 4],
@@ -49,9 +50,6 @@ impl Vertex {
         }
     }
 }
-
-unsafe impl bytemuck::Zeroable for Vertex {}
-unsafe impl bytemuck::Pod for Vertex {}
 
 impl Rectangle {
     pub fn new(device: &Device, queue: Rc<Queue>) -> Self {
