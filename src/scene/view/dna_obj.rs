@@ -25,14 +25,11 @@ use ultraviolet::{Mat4, Rotor3, Vec3, Vec4};
 
 /// The vertex type for the meshes used to draw DNA.
 #[repr(C)]
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct DnaVertex {
     position: [f32; 3],
     normal: [f32; 3],
 }
-
-unsafe impl bytemuck::Pod for DnaVertex {}
-unsafe impl bytemuck::Zeroable for DnaVertex {}
 
 pub trait DnaObject:
     Instanciable<Ressource = (), Vertex = DnaVertex, RawInstance = RawDnaInstance>
@@ -58,7 +55,7 @@ impl Vertexable for DnaVertex {
 }
 
 #[repr(C)]
-#[derive(Clone, Debug, Copy)]
+#[derive(Clone, Debug, Copy, bytemuck::Zeroable, bytemuck::Pod)]
 pub struct RawDnaInstance {
     pub model: Mat4,
     pub color: Vec4,
@@ -66,9 +63,6 @@ pub struct RawDnaInstance {
     pub id: u32,
     pub inversed_model: Mat4,
 }
-
-unsafe impl bytemuck::Zeroable for RawDnaInstance {}
-unsafe impl bytemuck::Pod for RawDnaInstance {}
 
 pub struct SphereInstance {
     /// The position in space

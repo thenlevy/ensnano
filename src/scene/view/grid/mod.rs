@@ -187,7 +187,7 @@ impl GridInstance {
 }
 
 #[repr(C)]
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct GridInstanceRaw {
     pub model: Mat4,          // padding 0
     pub min_x: f32,           // padding 1
@@ -201,9 +201,6 @@ pub struct GridInstanceRaw {
     pub design_id: u32,       // padding 3,
     pub _padding: u32,
 }
-
-unsafe impl bytemuck::Zeroable for GridInstanceRaw {}
-unsafe impl bytemuck::Pod for GridInstanceRaw {}
 
 /// A structure that manages the pipepline that draw the grids
 pub struct GridManager {
@@ -334,13 +331,10 @@ pub struct GridIntersection {
 }
 
 #[repr(C)]
-#[derive(Clone, Debug, Copy)]
+#[derive(Clone, Debug, Copy, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct GridVertex {
     pub position: Vec2,
 }
-
-unsafe impl bytemuck::Zeroable for GridVertex {}
-unsafe impl bytemuck::Pod for GridVertex {}
 
 impl Vertexable for GridVertex {
     type RawType = GridVertex;

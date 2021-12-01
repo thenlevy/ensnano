@@ -547,6 +547,7 @@ impl<S: AppState> Scene<S> {
                 z: translation.dot(dir),
                 snap: true,
                 group_id,
+                replace: false,
             })
         } else if let Some(grids) = grids {
             Arc::new(GridTranslation {
@@ -559,6 +560,7 @@ impl<S: AppState> Scene<S> {
                 y: translation.dot(top),
                 z: translation.dot(dir),
                 group_id,
+                replace: false,
             })
         } else {
             return;
@@ -601,7 +603,7 @@ impl<S: AppState> Scene<S> {
         );
         log::debug!("rotating grids {:?}", grids);
         let group_id = app_state.get_current_group_id();
-        let rotation: Arc<dyn Operation> = if let Some(grid_ids) = grids {
+        let rotation: Arc<dyn Operation> = if let Some(grid_ids) = grids.filter(|v| v.len() > 0) {
             Arc::new(GridRotation {
                 grid_ids,
                 angle,
@@ -609,6 +611,7 @@ impl<S: AppState> Scene<S> {
                 origin,
                 design_id: 0,
                 group_id,
+                replace: false,
             })
         } else {
             match self.data.borrow().get_selected_element(app_state) {
@@ -619,6 +622,7 @@ impl<S: AppState> Scene<S> {
                     origin,
                     design_id: d_id as usize,
                     group_id,
+                    replace: false,
                 }),
                 Selection::Grid(d_id, g_id) => {
                     let grid_id = g_id as usize;
@@ -629,6 +633,7 @@ impl<S: AppState> Scene<S> {
                         origin,
                         design_id: d_id as usize,
                         group_id,
+                        replace: false,
                     })
                 }
                 _ => return,

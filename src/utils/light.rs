@@ -21,7 +21,7 @@ use ultraviolet::Vec3;
 use wgpu::{BindGroup, BindGroupLayout, Device};
 
 #[repr(C)]
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct Light {
     position: Vec3,
     // Due to uniforms requiring 16 byte (4 float) spacing, we need to use a padding field here
@@ -79,6 +79,3 @@ pub fn create_light(device: &Device) -> (BindGroup, BindGroupLayout) {
     });
     (light_bind_group, light_bind_group_layout)
 }
-
-unsafe impl bytemuck::Zeroable for Light {}
-unsafe impl bytemuck::Pod for Light {}

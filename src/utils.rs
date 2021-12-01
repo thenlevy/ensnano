@@ -80,14 +80,11 @@ pub fn new_color(color_idx: &mut usize) -> u32 {
 }
 
 #[repr(C)]
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct Ndc {
     pub x: f32,
     pub y: f32,
 }
-
-unsafe impl bytemuck::Zeroable for Ndc {}
-unsafe impl bytemuck::Pod for Ndc {}
 
 impl Ndc {
     pub fn from_physical<S: Pixel, T: Pixel>(

@@ -24,14 +24,11 @@ pub trait Vertex {
 }
 
 #[repr(C)]
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct MeshVertex {
     position: [f32; 3],
     normal: [f32; 3],
 }
-
-unsafe impl bytemuck::Pod for MeshVertex {}
-unsafe impl bytemuck::Zeroable for MeshVertex {}
 
 impl Vertex for MeshVertex {
     fn desc<'a>() -> wgpu::VertexBufferLayout<'a> {

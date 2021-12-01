@@ -59,7 +59,7 @@ pub struct Helix {
 impl Flat for Helix {}
 
 #[repr(C)]
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct HelixModel {
     color: Vec4,       // padding 0
     position: Vec2,    // padding 2
@@ -67,9 +67,6 @@ pub struct HelixModel {
     z_index: i32,      // padding 3
     stroke_width: f32, // padding 0
 }
-
-unsafe impl bytemuck::Zeroable for HelixModel {}
-unsafe impl bytemuck::Pod for HelixModel {}
 
 impl Helix {
     pub fn new(
@@ -940,15 +937,13 @@ impl Helix {
 }
 
 #[repr(C)]
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct GpuVertex {
     position: [f32; 2],
     normal: [f32; 2],
     prim_id: u32,
     background: u32,
 }
-unsafe impl bytemuck::Pod for GpuVertex {}
-unsafe impl bytemuck::Zeroable for GpuVertex {}
 
 struct VertexAttribute {
     id: u32,
