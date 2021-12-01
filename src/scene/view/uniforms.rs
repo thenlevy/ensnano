@@ -20,7 +20,7 @@ pub use ensnano_interactor::graphics::FogParameters;
 use ultraviolet::{Mat4, Rotor3, Vec3, Vec4};
 
 #[repr(C)] // We need this for Rust to store our data correctly for the shaders
-#[derive(Debug, Copy, Clone)] // This is so we can store this in a buffer
+#[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)] // This is so we can store this in a buffer
 /// Hold informations relative to camera: The camera position and the Projection,
 /// and View matrices.
 pub struct Uniforms {
@@ -38,9 +38,6 @@ pub struct Uniforms {
     pub stereography_view: Mat4,  // 0
     pub aspect_ratio: f32,
 }
-
-unsafe impl bytemuck::Pod for Uniforms {}
-unsafe impl bytemuck::Zeroable for Uniforms {}
 
 #[derive(Clone, Debug)]
 pub struct Stereography {
