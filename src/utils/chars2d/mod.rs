@@ -27,7 +27,7 @@ use crate::utils::bindgroup_manager::DynamicBindGroup;
 use crate::utils::texture::Texture;
 
 #[repr(C)]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct CharInstance {
     pub center: Vec2,
     pub rotation: Mat2,
@@ -35,9 +35,6 @@ pub struct CharInstance {
     pub z_index: i32,
     pub color: Vec4,
 }
-
-unsafe impl bytemuck::Zeroable for CharInstance {}
-unsafe impl bytemuck::Pod for CharInstance {}
 
 pub struct CharDrawer {
     device: Rc<Device>,

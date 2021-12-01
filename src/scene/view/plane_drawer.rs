@@ -36,14 +36,12 @@ const INTER_HELIX_GAP: f32 = 0.65;
 const LINE_COLOR: u32 = 0xA0000000;
 const LINE_WIDTH: f32 = INTER_HELIX_GAP / 100.;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, bytemuck::Zeroable, bytemuck::Pod)]
+#[repr(C)]
 struct VertexRaw {
     pub position: [f32 ; 3],
     pub color: [f32 ; 4],
 }
-
-unsafe impl bytemuck::Zeroable for VertexRaw {}
-unsafe impl bytemuck::Pod for VertexRaw {}
 
 impl VertexRaw {
     pub fn buffer_desc<'a>() -> wgpu::VertexBufferDescriptor<'a> {

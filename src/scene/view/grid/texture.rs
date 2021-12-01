@@ -27,16 +27,14 @@ use iced_wgpu::wgpu;
 use wgpu::util::DeviceExt;
 use wgpu::{Device, Sampler, Texture, TextureView};
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, bytemuck::Zeroable, bytemuck::Pod)]
+#[repr(C)]
 pub struct Vertex {
     #[allow(dead_code)] // the values are used in the shader
     position: [f32; 2],
     #[allow(dead_code)] // the values are used in the shader
     normal: [f32; 2],
 }
-
-unsafe impl bytemuck::Zeroable for Vertex {}
-unsafe impl bytemuck::Pod for Vertex {}
 
 type Vertices = lyon::tessellation::VertexBuffers<Vertex, u16>;
 

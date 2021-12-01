@@ -225,14 +225,12 @@ impl<D: Drawable> Drawer<D> {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
+#[repr(C)]
 pub struct VertexRaw {
     pub position: [f32; 3],
     pub color: [f32; 4],
 }
-
-unsafe impl bytemuck::Zeroable for VertexRaw {}
-unsafe impl bytemuck::Pod for VertexRaw {}
 
 const VERTEX_ATTR_ARRAY: [wgpu::VertexAttribute; 2] =
     wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x4];

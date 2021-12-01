@@ -255,7 +255,7 @@ impl Camera {
 }
 
 #[repr(C)]
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct Globals {
     pub resolution: [f32; 2],
     pub scroll_offset: [f32; 2],
@@ -274,9 +274,6 @@ impl Globals {
         }
     }
 }
-
-unsafe impl bytemuck::Zeroable for Globals {}
-unsafe impl bytemuck::Pod for Globals {}
 
 #[derive(Debug, Clone, Copy, Default)]
 pub struct FitRectangle {

@@ -20,7 +20,7 @@ pub use ensnano_interactor::graphics::FogParameters;
 use ultraviolet::{Mat4, Vec3, Vec4};
 
 #[repr(C)] // We need this for Rust to store our data correctly for the shaders
-#[derive(Debug, Copy, Clone)] // This is so we can store this in a buffer
+#[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)] // This is so we can store this in a buffer
 /// Hold informations relative to camera: The camera position and the Projection,
 /// and View matrices.
 pub struct Uniforms {
@@ -34,9 +34,6 @@ pub struct Uniforms {
     pub fog_from_camera: u32,
     pub fog_alt_center: Vec3,
 }
-
-unsafe impl bytemuck::Pod for Uniforms {}
-unsafe impl bytemuck::Zeroable for Uniforms {}
 
 impl Uniforms {
     pub fn from_view_proj(camera: CameraPtr, projection: ProjectionPtr) -> Self {

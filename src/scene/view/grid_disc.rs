@@ -31,7 +31,7 @@ pub struct GridDisc {
 }
 
 #[repr(C)]
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct GridDiscRaw {
     model_matrix: Mat4,
     color: Vec4,
@@ -39,9 +39,6 @@ pub struct GridDiscRaw {
     model_id: u32,
     _padding: [u32; 2],
 }
-
-unsafe impl bytemuck::Zeroable for GridDiscRaw {}
-unsafe impl bytemuck::Pod for GridDiscRaw {}
 
 const NB_EDGE: usize = 50;
 
@@ -53,14 +50,11 @@ pub struct GridDiscVertex {
 }
 
 #[repr(C)]
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct GridDiscVertexRaw {
     position: Vec3,
     color: Vec4,
 }
-
-unsafe impl bytemuck::Zeroable for GridDiscVertexRaw {}
-unsafe impl bytemuck::Pod for GridDiscVertexRaw {}
 
 const VERTEX_ATTR_ARRAY: [wgpu::VertexAttribute; 2] =
     wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x4];
