@@ -46,18 +46,6 @@ pub trait Operation: std::fmt::Debug + Sync + Send {
         None
     }
 
-    fn must_reverse(&self) -> bool {
-        true
-    }
-
-    fn drop_undo(&self) -> bool {
-        false
-    }
-
-    fn redoable(&self) -> bool {
-        true
-    }
-
     /// The set of parameters that can be modified via a GUI component
     fn parameters(&self) -> Vec<Parameter> {
         vec![]
@@ -65,6 +53,11 @@ pub trait Operation: std::fmt::Debug + Sync + Send {
     /// The values associated to the parameters.
     fn values(&self) -> Vec<String> {
         vec![]
+    }
+
+    /// If true, this new operation is applied to the last initial state instead
+    fn replace_previous(&self) -> bool {
+        false
     }
 }
 
@@ -76,6 +69,7 @@ pub struct GridRotation {
     pub angle: f32,
     pub plane: Bivec3,
     pub group_id: Option<GroupId>,
+    pub replace: bool,
 }
 
 impl Operation for GridRotation {
@@ -112,11 +106,16 @@ impl Operation for GridRotation {
             let degrees: f32 = val.parse().ok()?;
             Some(Arc::new(Self {
                 angle: degrees.to_radians(),
+                replace: true,
                 ..self.clone()
             }))
         } else {
             None
         }
+    }
+
+    fn replace_previous(&self) -> bool {
+        self.replace
     }
 }
 
@@ -128,6 +127,7 @@ pub struct HelixRotation {
     pub angle: f32,
     pub plane: Bivec3,
     pub group_id: Option<GroupId>,
+    pub replace: bool,
 }
 
 impl Operation for HelixRotation {
@@ -164,11 +164,16 @@ impl Operation for HelixRotation {
             let degrees: f32 = val.parse().ok()?;
             Some(Arc::new(Self {
                 angle: degrees.to_radians(),
+                replace: true,
                 ..self.clone()
             }))
         } else {
             None
         }
+    }
+
+    fn replace_previous(&self) -> bool {
+        self.replace
     }
 }
 
@@ -296,6 +301,7 @@ pub struct HelixTranslation {
     pub z: f32,
     pub snap: bool,
     pub group_id: Option<GroupId>,
+    pub replace: bool,
 }
 
 impl Operation for HelixTranslation {
@@ -342,6 +348,7 @@ impl Operation for HelixTranslation {
                 let new_x: f32 = val.parse().ok()?;
                 Some(Arc::new(Self {
                     x: new_x,
+                    replace: true,
                     ..self.clone()
                 }))
             }
@@ -349,6 +356,7 @@ impl Operation for HelixTranslation {
                 let new_y: f32 = val.parse().ok()?;
                 Some(Arc::new(Self {
                     y: new_y,
+                    replace: true,
                     ..self.clone()
                 }))
             }
@@ -356,6 +364,7 @@ impl Operation for HelixTranslation {
                 let new_z: f32 = val.parse().ok()?;
                 Some(Arc::new(Self {
                     z: new_z,
+                    replace: true,
                     ..self.clone()
                 }))
             }
@@ -363,8 +372,8 @@ impl Operation for HelixTranslation {
         }
     }
 
-    fn must_reverse(&self) -> bool {
-        false
+    fn replace_previous(&self) -> bool {
+        self.replace
     }
 }
 
@@ -379,6 +388,7 @@ pub struct GridTranslation {
     pub y: f32,
     pub z: f32,
     pub group_id: Option<GroupId>,
+    pub replace: bool,
 }
 
 impl Operation for GridTranslation {
@@ -425,6 +435,7 @@ impl Operation for GridTranslation {
                 let new_x: f32 = val.parse().ok()?;
                 Some(Arc::new(Self {
                     x: new_x,
+                    replace: true,
                     ..self.clone()
                 }))
             }
@@ -432,6 +443,7 @@ impl Operation for GridTranslation {
                 let new_y: f32 = val.parse().ok()?;
                 Some(Arc::new(Self {
                     y: new_y,
+                    replace: true,
                     ..self.clone()
                 }))
             }
@@ -439,11 +451,16 @@ impl Operation for GridTranslation {
                 let new_z: f32 = val.parse().ok()?;
                 Some(Arc::new(Self {
                     z: new_z,
+                    replace: true,
                     ..self.clone()
                 }))
             }
             _ => None,
         }
+    }
+
+    fn replace_previous(&self) -> bool {
+        self.replace
     }
 }
 

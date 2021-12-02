@@ -23,7 +23,7 @@ use ultraviolet::{Vec2, Vec3};
 use wgpu::{Device, Queue};
 
 #[repr(C)]
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct SkyBox {
     size: f32,
 }
@@ -32,9 +32,6 @@ impl SkyBox {
         Self { size }
     }
 }
-
-unsafe impl bytemuck::Zeroable for SkyBox {}
-unsafe impl bytemuck::Pod for SkyBox {}
 
 impl Instanciable for SkyBox {
     type RawInstance = SkyBox;
@@ -67,7 +64,7 @@ impl Instanciable for SkyBox {
 }
 
 #[repr(C)]
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Copy, Default, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct DirectionCube {
     dist: f32,
 }
@@ -77,9 +74,6 @@ impl DirectionCube {
         Self { dist }
     }
 }
-
-unsafe impl bytemuck::Zeroable for DirectionCube {}
-unsafe impl bytemuck::Pod for DirectionCube {}
 
 impl Instanciable for DirectionCube {
     type RawInstance = DirectionCube;
@@ -218,14 +212,11 @@ impl Instanciable for DirectionCube {
 }
 
 #[repr(C)]
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct CubeVertex {
     position: Vec3,
     texture_position: Vec2,
 }
-
-unsafe impl bytemuck::Zeroable for CubeVertex {}
-unsafe impl bytemuck::Pod for CubeVertex {}
 
 const CUBE_VERTEX_ARRAY: [wgpu::VertexAttribute; 2] =
     wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x2];

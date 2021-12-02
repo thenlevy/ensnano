@@ -42,8 +42,8 @@ use ensnano_interactor::{
 };
 
 use super::{
-    icon_btn, slider_style::DesactivatedSlider, text_btn, AppState, FogParameters as Fog,
-    OverlayType, Requests, UiSize,
+    icon_btn, slider_style::DesactivatedSlider, text_btn, AppState, DesignReader,
+    FogParameters as Fog, OverlayType, Requests, UiSize,
 };
 
 use ensnano_design::grid::GridTypeDescr;
@@ -57,7 +57,7 @@ use discrete_value::{FactoryId, RequestFactory, Requestable, ValueId};
 mod tabs;
 use crate::consts::*;
 mod contextual_panel;
-use contextual_panel::ContextualPanel;
+use contextual_panel::{ContextualPanel, ValueKind};
 
 use ensnano_interactor::HyperboloidRequest;
 use material_icons::{icon_to_char, Icon as MaterialIcon, FONT as MATERIALFONT};
@@ -102,7 +102,7 @@ pub struct LeftPanel<R: Requests, S: AppState> {
     simulation_tab: SimulationTab<S>,
     sequence_tab: SequenceTab,
     parameters_tab: ParametersTab,
-    contextual_panel: ContextualPanel,
+    contextual_panel: ContextualPanel<S>,
     camera_shortcut: CameraShortcut,
     application_state: S,
 }
@@ -182,6 +182,18 @@ pub enum Message<S> {
     NewCustomCamera,
     UpdateCamera(CameraId),
     NewSuggestionParameters(SuggestionParameters),
+    ContextualValueChanged(ValueKind, usize, String),
+    ContextualValueSubmitted(ValueKind),
+}
+
+impl<S: AppState> contextual_panel::BuilderMessage for Message<S> {
+    fn value_changed(kind: ValueKind, n: usize, value: String) -> Self {
+        Self::ContextualValueChanged(kind, n, value)
+    }
+
+    fn value_submitted(kind: ValueKind) -> Self {
+        Self::ContextualValueSubmitted(kind)
+    }
 }
 
 impl<R: Requests, S: AppState> LeftPanel<R, S> {
@@ -720,6 +732,14 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
                     .lock()
                     .unwrap()
                     .set_suggestion_parameters(param);
+            }
+            Message::ContextualValueSubmitted(kind) => {
+                if let Some(request) = self.contextual_panel.submit_value(kind) {
+                    request.make_request(self.requests.clone())
+                }
+            }
+            Message::ContextualValueChanged(kind, n, val) => {
+                self.contextual_panel.update_builder_value(kind, n, val);
             }
         };
         Command::none()

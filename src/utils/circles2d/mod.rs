@@ -25,7 +25,7 @@ use crate::utils::bindgroup_manager::DynamicBindGroup;
 use crate::utils::texture::Texture;
 
 #[repr(C)]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct CircleInstance {
     pub center: Vec2,
     pub radius: f32,
@@ -74,9 +74,6 @@ impl CircleInstance {
             || (self.center - Vec2::new(max_x, max_y)).mag() <= self.radius
     }
 }
-
-unsafe impl bytemuck::Zeroable for CircleInstance {}
-unsafe impl bytemuck::Pod for CircleInstance {}
 
 pub struct CircleDrawer {
     device: Rc<Device>,

@@ -32,7 +32,7 @@ pub struct LetterInstance {
 }
 
 #[repr(C)]
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, bytemuck::Zeroable, bytemuck::Pod)]
 pub struct RawLetter {
     pub position: Vec3,
     pub design_id: u32,
@@ -40,9 +40,6 @@ pub struct RawLetter {
     pub shift: Vec3,
     pub scale: f32,
 }
-
-unsafe impl bytemuck::Zeroable for RawLetter {}
-unsafe impl bytemuck::Pod for RawLetter {}
 
 impl RessourceProvider for Letter {
     fn ressources_layout() -> &'static [wgpu::BindGroupLayoutEntry] {
@@ -101,13 +98,10 @@ impl RessourceProvider for Letter {
 }
 
 #[repr(C)]
-#[derive(Clone, Debug, Copy)]
+#[derive(Clone, Debug, Copy, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct LetterVertex {
     pub position: Vec2,
 }
-
-unsafe impl bytemuck::Zeroable for LetterVertex {}
-unsafe impl bytemuck::Pod for LetterVertex {}
 
 impl Vertexable for LetterVertex {
     type RawType = LetterVertex;

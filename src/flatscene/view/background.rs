@@ -166,12 +166,10 @@ impl Background {
 }
 
 #[repr(C)]
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 struct BgPoint {
     point: [f32; 2],
 }
-unsafe impl bytemuck::Pod for BgPoint {}
-unsafe impl bytemuck::Zeroable for BgPoint {}
 
 pub struct Custom;
 

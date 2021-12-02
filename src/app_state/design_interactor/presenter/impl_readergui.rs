@@ -20,6 +20,7 @@ use ensnano_design::{elements::DnaElement, CameraId};
 
 use super::*;
 use crate::gui::DesignReader as ReaderGui;
+use ultraviolet::Rotor3;
 
 impl ReaderGui for DesignReader {
     fn grid_has_small_spheres(&self, g_id: usize) -> bool {
@@ -85,5 +86,13 @@ impl ReaderGui for DesignReader {
 
     fn get_favourite_camera(&self) -> Option<CameraId> {
         self.presenter.current_design.get_favourite_camera_id()
+    }
+
+    fn get_grid_position_and_orientation(&self, g_id: usize) -> Option<(Vec3, Rotor3)> {
+        self.presenter
+            .current_design
+            .grids
+            .get(g_id)
+            .map(|g| (g.position, g.orientation))
     }
 }

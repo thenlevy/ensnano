@@ -168,7 +168,7 @@ macro_rules! add_download_staples_button {
     ($ret: ident, $self: ident, $ui_size: ident) => {
         let button_stapples = Button::new(
             &mut $self.button_stapples,
-            iced::Text::new("Export Stapples"),
+            iced::Text::new("Export Staples"),
         )
         .height(Length::Units($ui_size.button()))
         .on_press(Message::StapplesRequested);
@@ -221,7 +221,7 @@ impl SequenceTab {
 
         add_scaffold_start_position!(ret, ui_size, app_state);
         extra_jump!(ret);
-        section!(ret, ui_size, "Stapples");
+        section!(ret, ui_size, "Staples");
         extra_jump!(ret);
         add_download_staples_button!(ret, self, ui_size);
         Scrollable::new(&mut self.scroll).push(ret).into()

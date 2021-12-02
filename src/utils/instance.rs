@@ -29,16 +29,13 @@ pub struct Instance {
 }
 
 #[repr(C)]
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct InstanceRaw {
     /// The model matrix of the instance
     pub model: Mat4,
     pub color: Vec4,
     pub id: Vec4,
 }
-
-unsafe impl bytemuck::Pod for InstanceRaw {}
-unsafe impl bytemuck::Zeroable for InstanceRaw {}
 
 impl Instance {
     pub fn color_from_u32(color: u32) -> Vec4 {

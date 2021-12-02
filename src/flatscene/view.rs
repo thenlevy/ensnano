@@ -101,6 +101,7 @@ pub struct View {
     groups: Arc<BTreeMap<usize, bool>>,
     basis_map: Arc<HashMap<Nucl, char, RandomState>>,
     edition_info: Option<EditionInfo>,
+    hovered_nucl: Option<FlatNucl>,
 }
 
 pub struct EditionInfo {
@@ -265,6 +266,7 @@ impl View {
             edition_info: Default::default(),
             selected_nucl: vec![],
             candidate_nucl: vec![],
+            hovered_nucl: None,
         }
     }
 
@@ -1057,6 +1059,11 @@ impl View {
         }
     }
 
+    pub fn set_hovered_nucl(&mut self, hovered_nucl: Option<FlatNucl>) {
+        self.was_updated |= hovered_nucl != self.hovered_nucl;
+        self.hovered_nucl = hovered_nucl;
+    }
+
     pub fn set_candidate_suggestion(
         &mut self,
         candidate: Option<FlatNucl>,
@@ -1089,6 +1096,7 @@ impl View {
                 self.basis_map.as_ref(),
                 self.show_sec,
                 &self.edition_info,
+                &self.hovered_nucl,
             );
             h.add_char_instances(
                 &self.camera_bottom,
@@ -1098,6 +1106,7 @@ impl View {
                 self.basis_map.as_ref(),
                 self.show_sec,
                 &self.edition_info,
+                &self.hovered_nucl,
             )
         }
 

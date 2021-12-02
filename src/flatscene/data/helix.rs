@@ -59,7 +59,7 @@ pub struct Helix {
 impl Flat for Helix {}
 
 #[repr(C)]
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct HelixModel {
     color: Vec4,       // padding 0
     position: Vec2,    // padding 2
@@ -67,9 +67,6 @@ pub struct HelixModel {
     z_index: i32,      // padding 3
     stroke_width: f32, // padding 0
 }
-
-unsafe impl bytemuck::Zeroable for HelixModel {}
-unsafe impl bytemuck::Pod for HelixModel {}
 
 impl Helix {
     pub fn new(
@@ -657,7 +654,11 @@ impl Helix {
         basis_map: &HashMap<Nucl, char, RandomState>,
         show_seq: bool,
         edition_info: &Option<EditionInfo>,
+        hovered_nucl: &Option<FlatNucl>,
     ) {
+        let candidate_pos: Option<isize> = hovered_nucl
+            .filter(|n| n.helix == self.flat_id)
+            .map(|n| n.position);
         let show_seq = show_seq && camera.borrow().get_globals().zoom >= ZOOM_THRESHOLD;
         let size_id = 3.;
         let size_pos = 1.4;
@@ -713,7 +714,7 @@ impl Helix {
                     height * scale,
                     show_seq,
                 );
-                let color = if Some(pos) == moving_pos {
+                let color = if Some(pos) == moving_pos || candidate_pos == Some(pos) {
                     [1., 0., 0., 1.].into()
                 } else {
                     [0., 0., 0., 1.].into()
@@ -731,6 +732,7 @@ impl Helix {
         let mut pos = self.left;
         while pos <= self.right {
             if ((pos >= 0 && pos % 8 == 0) || (pos < 0 && -pos % 8 == 0)) && moving_pos != Some(pos)
+                || candidate_pos == Some(pos)
             {
                 print_pos(pos);
             }
@@ -940,15 +942,13 @@ impl Helix {
 }
 
 #[repr(C)]
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct GpuVertex {
     position: [f32; 2],
     normal: [f32; 2],
     prim_id: u32,
     background: u32,
 }
-unsafe impl bytemuck::Pod for GpuVertex {}
-unsafe impl bytemuck::Zeroable for GpuVertex {}
 
 struct VertexAttribute {
     id: u32,

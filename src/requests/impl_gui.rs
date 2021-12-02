@@ -339,6 +339,23 @@ impl GuiRequests for Requests {
     fn set_suggestion_parameters(&mut self, param: SuggestionParameters) {
         self.new_suggestion_parameters = Some(param);
     }
+
+    fn set_grid_position(&mut self, grid_id: usize, position: Vec3) {
+        self.keep_proceed
+            .push_back(Action::DesignOperation(DesignOperation::SetGridPosition {
+                grid_id,
+                position,
+            }))
+    }
+
+    fn set_grid_orientation(&mut self, grid_id: usize, orientation: Rotor3) {
+        self.keep_proceed.push_back(Action::DesignOperation(
+            DesignOperation::SetGridOrientation {
+                grid_id,
+                orientation,
+            },
+        ))
+    }
 }
 
 fn rigid_parameters(parameters: RigidBodyParametersRequest) -> RigidBodyConstants {

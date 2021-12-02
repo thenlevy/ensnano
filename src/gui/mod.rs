@@ -59,7 +59,7 @@ use iced_winit::{conversion, program, winit, Debug, Size};
 use std::collections::{BTreeSet, HashMap};
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
-use ultraviolet::Vec3;
+use ultraviolet::{Rotor3, Vec3};
 use wgpu::Device;
 use winit::{
     dpi::{PhysicalPosition, PhysicalSize},
@@ -182,6 +182,8 @@ pub trait Requests: 'static + Send {
     fn update_camera(&mut self, cam_id: CameraId);
     fn set_camera_name(&mut self, cam_id: CameraId, name: String);
     fn set_suggestion_parameters(&mut self, param: SuggestionParameters);
+    fn set_grid_position(&mut self, grid_id: usize, position: Vec3);
+    fn set_grid_orientation(&mut self, grid_id: usize, orientation: Rotor3);
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -197,10 +199,24 @@ enum GuiState<R: Requests, S: AppState> {
 
 impl<R: Requests, S: AppState> GuiState<R, S> {
     fn queue_event(&mut self, event: Event) {
-        match self {
-            GuiState::TopBar(state) => state.queue_event(event),
-            GuiState::LeftPanel(state) => state.queue_event(event),
-            GuiState::StatusBar(state) => state.queue_event(event),
+        if let Event::Keyboard(iced::keyboard::Event::KeyPressed {
+            key_code: iced::keyboard::KeyCode::Tab,
+            ..
+        }) = event
+        {
+            match self {
+                GuiState::StatusBar(state) => {
+                    self.queue_status_bar_message(status_bar::Message::TabPressed)
+                }
+                GuiState::TopBar(_) => (),
+                GuiState::LeftPanel(_) => (),
+            }
+        } else {
+            match self {
+                GuiState::TopBar(state) => state.queue_event(event),
+                GuiState::LeftPanel(state) => state.queue_event(event),
+                GuiState::StatusBar(state) => state.queue_event(event),
+            }
         }
     }
 
@@ -704,6 +720,7 @@ impl<R: Requests, S: AppState> Gui<R, S> {
         staging_belt: &mut wgpu::util::StagingBelt,
         mouse_interaction: &mut iced::mouse::Interaction,
     ) {
+        *mouse_interaction = Default::default();
         for element in self.elements.values_mut() {
             element.render(
                 &mut self.renderer,
@@ -910,6 +927,7 @@ pub trait DesignReader: 'static {
     fn strand_name(&self, s_id: usize) -> String;
     fn get_all_cameras(&self) -> Vec<(CameraId, &str)>;
     fn get_favourite_camera(&self) -> Option<CameraId>;
+    fn get_grid_position_and_orientation(&self, g_id: usize) -> Option<(Vec3, Rotor3)>;
 }
 
 pub struct MainState {

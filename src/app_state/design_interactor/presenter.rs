@@ -126,7 +126,7 @@ impl Presenter {
             &suggestion_parameters,
         );
         let design = AddressPointer::new(design);
-        let ret = Self {
+        let mut ret = Self {
             current_design: design.clone(),
             current_suggestion_paramters: suggestion_parameters,
             content: AddressPointer::new(content),
@@ -136,6 +136,7 @@ impl Presenter {
             visibility_sive: None,
             invisible_nucls: Default::default(),
         };
+        ret.read_scaffold_seq();
         (ret, design)
     }
 

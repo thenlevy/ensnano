@@ -21,6 +21,7 @@ pub use ensnano_interactor::StrandBuildingStatus;
 use iced::{container, slider, Background, Container, Length};
 use iced_native::{pick_list, text_input, Color, PickList, TextInput};
 use iced_winit::{Column, Command, Element, Program, Row, Space, Text};
+use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 const GOLD_ORANGE: iced::Color = iced::Color::from_rgb(0.84, 0.57, 0.20);
@@ -58,6 +59,22 @@ impl StatusParameter {
         match self {
             Self::Choice(_) => false,
             Self::Value(state) => state.is_focused(),
+        }
+    }
+
+    fn focus(&mut self) -> bool {
+        if let Self::Value(state) = self {
+            state.focus();
+            state.select_all();
+            true
+        } else {
+            false
+        }
+    }
+
+    fn unfocus(&mut self) {
+        if let Self::Value(state) = self {
+            state.unfocus()
         }
     }
 }
@@ -128,6 +145,16 @@ impl<R: Requests, S: AppState> StatusBar<R, S> {
             .map(|op| op.has_keyboard_priority())
             .unwrap_or(false)
     }
+
+    pub fn process_tab(&mut self) {
+        let op = self.operation.as_mut().and_then(|op| op.process_tab());
+        if !self.has_keyboard_priority() {
+            log::info!("Updating operation");
+            if let Some(op) = op {
+                self.requests.lock().unwrap().update_current_operation(op)
+            }
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -139,6 +166,7 @@ pub enum Message<S: AppState> {
     SetShift(f32),
     NewApplicationState(S),
     UiSizeChanged(UiSize),
+    TabPressed,
 }
 
 impl<R: Requests, S: AppState> Program for StatusBar<R, S> {
@@ -169,6 +197,7 @@ impl<R: Requests, S: AppState> Program for StatusBar<R, S> {
             }
             Message::NewApplicationState(state) => self.app_state = state,
             Message::UiSizeChanged(ui_size) => self.set_ui_size(ui_size),
+            Message::TabPressed => self.process_tab(),
         }
         Command::none()
     }
@@ -230,6 +259,7 @@ struct OperationInput {
     parameters: Vec<StatusParameter>,
     op_id: usize,
     operation: Arc<dyn Operation>,
+    inputed_values: HashMap<usize, String>,
 }
 
 impl OperationInput {
@@ -252,7 +282,30 @@ impl OperationInput {
             values,
             values_str,
             operation,
+            inputed_values: HashMap::new(),
         }
+    }
+
+    #[must_use = "Do not forget to apply the oppertaion"]
+    pub fn process_tab(&mut self) -> Option<Arc<dyn Operation>> {
+        let mut was_focus = false;
+        let mut old_foccussed_idx: Option<usize> = None;
+        for (i, p) in self.parameters.iter_mut().enumerate() {
+            if was_focus {
+                was_focus ^= p.focus()
+            } else {
+                if p.has_keyboard_priority() {
+                    p.unfocus();
+                    old_foccussed_idx = Some(i);
+                    was_focus = true;
+                }
+            }
+        }
+
+        old_foccussed_idx.and_then(|i| {
+            self.inputed_values.insert(i, self.values_str[i].clone());
+            self.update_value(i, self.values_str[i].clone())
+        })
     }
 
     pub fn update(&mut self, operation_state: CurentOpState) {
@@ -279,7 +332,8 @@ impl OperationInput {
                     .map(|p| p.has_keyboard_priority())
                     .unwrap_or(false);
                 if !foccused_parameter {
-                    self.values_str[v_id] = v.clone()
+                    self.values_str[v_id] =
+                        self.inputed_values.get(&v_id).cloned().unwrap_or(v.clone())
                 }
             }
         }
@@ -366,7 +420,12 @@ impl OperationInput {
     }
 
     fn update_value(&mut self, value_id: usize, values_str: String) -> Option<Arc<dyn Operation>> {
-        self.operation.as_ref().with_new_value(value_id, values_str)
+        if let Some(op) = self.operation.as_ref().with_new_value(value_id, values_str) {
+            self.operation = op.clone();
+            Some(op)
+        } else {
+            None
+        }
     }
 
     fn has_keyboard_priority(&self) -> bool {

@@ -127,7 +127,7 @@ fn ask_path<P: AsRef<Path>>(
             })
         }
     } else {
-        let path_input = dialog::load(starting_directory);
+        let path_input = dialog::load(starting_directory, messages::SEQUENCE_FILTERS);
         Box::new(SetScaffoldSequence {
             step: Step::AskPath {
                 path_input: Some(path_input),

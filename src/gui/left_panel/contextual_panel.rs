@@ -20,7 +20,114 @@ use super::*;
 use ensnano_interactor::Selection;
 use iced::{scrollable, Scrollable};
 
-pub(super) struct ContextualPanel {
+mod value_constructor;
+use value_constructor::{Builder, GridBuilder};
+pub use value_constructor::{BuilderMessage, InstanciatedValue, ValueKind};
+
+use ultraviolet::{Rotor3, Vec3};
+pub enum ValueRequest {
+    GridPosition { grid_id: usize, position: Vec3 },
+    GridOrientation { grid_id: usize, orientation: Rotor3 },
+}
+
+impl ValueRequest {
+    fn from_value_and_selection(selection: &Selection, value: InstanciatedValue) -> Option<Self> {
+        match value {
+            InstanciatedValue::GridPosition(v) => {
+                if let Selection::Grid(_, g_id) = selection {
+                    Some(Self::GridPosition {
+                        grid_id: *g_id,
+                        position: v,
+                    })
+                } else {
+                    log::error!("Recieved value {:?} with selection {:?}", value, selection);
+                    None
+                }
+            }
+            InstanciatedValue::GridOrientation(orientation) => {
+                if let Selection::Grid(_, g_id) = selection {
+                    Some(Self::GridOrientation {
+                        grid_id: *g_id,
+                        orientation,
+                    })
+                } else {
+                    log::error!("Recieved value {:?} with selection {:?}", value, selection);
+                    None
+                }
+            }
+        }
+    }
+
+    pub(super) fn make_request(&self, request: Arc<Mutex<dyn Requests>>) {
+        match self {
+            Self::GridPosition { grid_id, position } => request
+                .lock()
+                .unwrap()
+                .set_grid_position(*grid_id, *position),
+            Self::GridOrientation {
+                grid_id,
+                orientation,
+            } => request
+                .lock()
+                .unwrap()
+                .set_grid_orientation(*grid_id, *orientation),
+        }
+    }
+}
+
+struct InstantiatedBuilder<S: AppState> {
+    selection: Selection,
+    builder: Box<dyn Builder<S>>,
+}
+
+impl<S: AppState> InstantiatedBuilder<S> {
+    /// If a builder can be made from the selection, update the builder and return true. Otherwise,
+    /// return false.
+    fn update(&mut self, selection: &Selection, reader: &dyn DesignReader) -> bool {
+        if *selection != self.selection {
+            self.selection = selection.clone();
+            if let Some(builder) = Self::new_builder(selection, reader) {
+                self.builder = builder;
+                true
+            } else {
+                false
+            }
+        } else {
+            true
+        }
+    }
+
+    fn new(selection: &Selection, reader: &dyn DesignReader) -> Option<Self> {
+        if let Some(builder) = Self::new_builder(selection, reader) {
+            Some(Self {
+                builder,
+                selection: selection.clone(),
+            })
+        } else {
+            None
+        }
+    }
+
+    fn new_builder(
+        selection: &Selection,
+        reader: &dyn DesignReader,
+    ) -> Option<Box<dyn Builder<S>>> {
+        match selection {
+            Selection::Grid(_, g_id) => {
+                if let Some((position, orientation)) =
+                    reader.get_grid_position_and_orientation(*g_id)
+                {
+                    Some(Box::new(GridBuilder::new(position, orientation)))
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        }
+    }
+}
+
+pub(super) struct ContextualPanel<S: AppState> {
     scroll: scrollable::State,
     width: u32,
     pub force_help: bool,
@@ -29,9 +136,10 @@ pub(super) struct ContextualPanel {
     ens_nano_website: button::State,
     add_strand_menu: AddStrandMenu,
     strand_name_state: text_input::State,
+    builder: Option<InstantiatedBuilder<S>>,
 }
 
-impl ContextualPanel {
+impl<S: AppState> ContextualPanel<S> {
     pub fn new(width: u32) -> Self {
         Self {
             scroll: Default::default(),
@@ -42,6 +150,7 @@ impl ContextualPanel {
             ens_nano_website: Default::default(),
             add_strand_menu: Default::default(),
             strand_name_state: Default::default(),
+            builder: None,
         }
     }
 
@@ -49,7 +158,21 @@ impl ContextualPanel {
         self.width = width;
     }
 
-    pub fn view<S: AppState>(&mut self, ui_size: UiSize, app_state: &S) -> Element<Message<S>> {
+    fn update_builder(&mut self, selection: Option<&Selection>, reader: &dyn DesignReader) {
+        if let Some(s) = selection {
+            if let Some(builder) = &mut self.builder {
+                if !builder.update(s, reader) {
+                    self.builder = None;
+                }
+            } else {
+                self.builder = InstantiatedBuilder::new(s, reader)
+            }
+        } else {
+            self.builder = None;
+        }
+    }
+
+    pub fn view(&mut self, ui_size: UiSize, app_state: &S) -> Element<Message<S>> {
         let mut column = Column::new().max_width(self.width - 2);
         let selection = app_state
             .get_selection()
@@ -60,6 +183,11 @@ impl ContextualPanel {
             .iter()
             .filter(|s| !matches!(s, Selection::Nothing))
             .count();
+
+        self.update_builder(
+            Some(selection).filter(|_| nb_selected == 1),
+            app_state.get_reader().as_ref(),
+        );
         let info_values = values_of_selection(selection, app_state.get_reader().as_ref());
         if self.show_tutorial {
             column = column.push(
@@ -124,6 +252,9 @@ impl ContextualPanel {
                 }
                 _ => (),
             }
+            if let Some(builder) = &mut self.builder {
+                column = column.push(builder.builder.view(ui_size))
+            }
         }
 
         Scrollable::new(&mut self.scroll).push(column).into()
@@ -169,7 +300,16 @@ impl ContextualPanel {
     }
 
     pub fn has_keyboard_priority(&self) -> bool {
-        self.add_strand_menu.has_keyboard_priority() || self.strand_name_state.is_focused()
+        self.add_strand_menu.has_keyboard_priority()
+            || self.strand_name_state.is_focused()
+            || self.builder_has_keyboard_priority()
+    }
+
+    fn builder_has_keyboard_priority(&self) -> bool {
+        self.builder
+            .as_ref()
+            .map(|b| b.builder.has_keyboard_priority())
+            .unwrap_or(false)
     }
 
     pub fn get_build_helix_mode(&self) -> ActionMode {
@@ -182,6 +322,27 @@ impl ContextualPanel {
 
     pub fn set_show_strand(&mut self, show: bool) {
         self.add_strand_menu.set_show_strand(show)
+    }
+
+    pub fn update_builder_value(&mut self, kind: ValueKind, n: usize, value: String) {
+        if let Some(b) = &mut self.builder {
+            b.builder.update_str_value(kind, n, value)
+        } else {
+            log::error!("Cannot update value: No instanciated builder");
+        }
+    }
+
+    pub fn submit_value(&mut self, kind: ValueKind) -> Option<ValueRequest> {
+        if let Some(b) = &mut self.builder {
+            if let Some(value) = b.builder.submit_value(kind) {
+                ValueRequest::from_value_and_selection(&b.selection, value)
+            } else {
+                None
+            }
+        } else {
+            log::error!("Cannot submit value: No instanciated builder");
+            None
+        }
     }
 }
 

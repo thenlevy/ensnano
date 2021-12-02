@@ -243,6 +243,16 @@ impl Controller {
             DesignOperation::SetCameraName { camera_id, name } => {
                 self.apply(|c, d| c.set_camera_name(d, camera_id, name), design)
             }
+            DesignOperation::SetGridPosition { grid_id, position } => {
+                self.apply(|c, d| c.set_grid_position(d, grid_id, position), design)
+            }
+            DesignOperation::SetGridOrientation {
+                grid_id,
+                orientation,
+            } => self.apply(
+                |c, d| c.set_grid_orientation(d, grid_id, orientation),
+                design,
+            ),
         }
     }
 
@@ -252,6 +262,15 @@ impl Controller {
         operation: Arc<dyn Operation>,
     ) -> Result<(OkOperation, Self), ErrOperation> {
         let effect = operation.effect();
+        let design = if operation.replace_previous() {
+            if let ControllerState::WithPendingOp { design, .. } = &self.state {
+                design.as_ref()
+            } else {
+                design
+            }
+        } else {
+            design
+        };
         let mut ret = self.apply_operation(design, effect)?;
         ret.1.state.update_operation(operation);
         Ok(ret)
@@ -763,7 +782,7 @@ impl Controller {
                     OperationCompatibility::Incompatible
                 }
             }
-            ControllerState::WithPendingOp(_) => OperationCompatibility::Compatible,
+            ControllerState::WithPendingOp { .. } => OperationCompatibility::Compatible,
             ControllerState::WithPendingDuplication { .. } => OperationCompatibility::Compatible,
             ControllerState::ChangingColor => {
                 if let DesignOperation::ChangeColor { .. } = operation {
@@ -850,7 +869,7 @@ impl Controller {
     pub(super) fn is_in_persistant_state(&self) -> StatePersitance {
         match self.state {
             ControllerState::Normal => StatePersitance::Persistant,
-            ControllerState::WithPendingOp(_) => StatePersitance::Persistant,
+            ControllerState::WithPendingOp { .. } => StatePersitance::Persistant,
             ControllerState::WithPendingDuplication { .. } => StatePersitance::Persistant,
             ControllerState::WithPendingXoverDuplication { .. } => StatePersitance::Persistant,
             ControllerState::WithPausedSimulation { .. } => StatePersitance::Persistant,
@@ -2270,6 +2289,36 @@ impl Controller {
         design.helices = Arc::new(new_helices);
         Ok(design)
     }
+
+    fn set_grid_position(
+        &mut self,
+        mut design: Design,
+        grid_id: usize,
+        position: Vec3,
+    ) -> Result<Design, ErrOperation> {
+        let mut new_grids = Vec::clone(design.grids.as_ref());
+        let grid = new_grids
+            .get_mut(grid_id)
+            .ok_or(ErrOperation::GridDoesNotExist(grid_id))?;
+        grid.position = position;
+        design.grids = Arc::new(new_grids);
+        Ok(design)
+    }
+
+    fn set_grid_orientation(
+        &mut self,
+        mut design: Design,
+        grid_id: usize,
+        orientation: Rotor3,
+    ) -> Result<Design, ErrOperation> {
+        let mut new_grids = Vec::clone(design.grids.as_ref());
+        let grid = new_grids
+            .get_mut(grid_id)
+            .ok_or(ErrOperation::GridDoesNotExist(grid_id))?;
+        grid.orientation = orientation;
+        design.grids = Arc::new(new_grids);
+        Ok(design)
+    }
 }
 
 fn nucl_pos_2d(design: &Design, nucl: &Nucl) -> Option<Vec2> {
@@ -2299,7 +2348,10 @@ enum ControllerState {
     },
     ChangingColor,
     SettingRollHelices,
-    WithPendingOp(Arc<dyn Operation>),
+    WithPendingOp {
+        operation: Arc<dyn Operation>,
+        design: AddressPointer<Design>,
+    },
     ApplyingOperation {
         design: AddressPointer<Design>,
         operation: Option<Arc<dyn Operation>>,
@@ -2369,7 +2421,7 @@ impl ControllerState {
             Self::MakingHyperboloid { .. } => "MakingHyperboloid",
             Self::BuildingStrand { .. } => "BuildingStrand",
             Self::ChangingColor => "ChangingColor",
-            Self::WithPendingOp(_) => "WithPendingOp",
+            Self::WithPendingOp { .. } => "WithPendingOp",
             Self::ApplyingOperation { .. } => "ApplyingOperation",
             Self::PositioningPastingPoint { .. } => "PositioningPastingPoint",
             Self::PositioningDuplicationPoint { .. } => "PositioningDuplicationPoint",
@@ -2393,7 +2445,7 @@ impl ControllerState {
         duplication_edge: Option<(Edge, isize)>,
     ) -> Result<(), ErrOperation> {
         match self {
-            Self::PositioningPastingPoint { .. } | Self::Normal | Self::WithPendingOp(_) => {
+            Self::PositioningPastingPoint { .. } | Self::Normal | Self::WithPendingOp { .. } => {
                 *self = Self::PositioningPastingPoint {
                     pasting_point: point,
                     pasted_strands: strands,
@@ -2433,7 +2485,7 @@ impl ControllerState {
                 *duplication_edge = edge;
                 Ok(())
             }
-            Self::Normal | Self::WithPendingOp(_) | Self::WithPendingDuplication { .. } => {
+            Self::Normal | Self::WithPendingOp { .. } | Self::WithPendingDuplication { .. } => {
                 *self = Self::PastingXovers {
                     pasting_point: point,
                     initial_design: AddressPointer::new(design.clone()),
@@ -2447,7 +2499,7 @@ impl ControllerState {
     fn update_operation(&mut self, op: Arc<dyn Operation>) {
         match self {
             Self::ApplyingOperation { operation, .. } => *operation = Some(op),
-            Self::WithPendingOp(old_op) => *old_op = op,
+            Self::WithPendingOp { operation, .. } => *operation = op,
             _ => (),
         }
     }
@@ -2455,36 +2507,39 @@ impl ControllerState {
     fn get_operation(&self) -> Option<Arc<dyn Operation>> {
         match self {
             Self::ApplyingOperation { operation, .. } => operation.clone(),
-            Self::WithPendingOp(op) => Some(op.clone()),
+            Self::WithPendingOp { operation, .. } => Some(operation.clone()),
             _ => None,
         }
     }
 
     fn finish(&self) -> Self {
-        if let Some(op) = self.get_operation() {
-            Self::WithPendingOp(op)
-        } else {
-            match self {
-                Self::Normal => Self::Normal,
-                Self::MakingHyperboloid { .. } => self.clone(),
-                Self::BuildingStrand { .. } => Self::Normal,
-                Self::ChangingColor => Self::Normal,
-                Self::WithPendingOp(_) => Self::Normal,
-                Self::ApplyingOperation { .. } => Self::Normal,
-                Self::PositioningPastingPoint { .. } => self.clone(),
-                Self::PositioningDuplicationPoint { .. } => self.clone(),
-                Self::WithPendingDuplication { .. } => self.clone(),
-                Self::WithPendingXoverDuplication { .. } => self.clone(),
-                Self::PastingXovers { .. } => self.clone(),
-                Self::DoingFirstXoversDuplication { .. } => self.clone(),
-                Self::OptimizingScaffoldPosition => self.clone(),
-                Self::Simulating { .. } => self.clone(),
-                Self::SimulatingGrids { .. } => self.clone(),
-                Self::WithPausedSimulation { .. } => self.clone(),
-                Self::Rolling { .. } => Self::Normal,
-                Self::SettingRollHelices => Self::Normal,
-                Self::ChangingStrandName { .. } => Self::Normal,
-            }
+        match self {
+            Self::Normal => Self::Normal,
+            Self::MakingHyperboloid { .. } => self.clone(),
+            Self::BuildingStrand { .. } => Self::Normal,
+            Self::ChangingColor => Self::Normal,
+            Self::WithPendingOp { operation, design } => self.clone(),
+            Self::ApplyingOperation {
+                operation: Some(op),
+                design,
+            } => Self::WithPendingOp {
+                operation: op.clone(),
+                design: design.clone(),
+            },
+            Self::ApplyingOperation { .. } => Self::Normal,
+            Self::PositioningPastingPoint { .. } => self.clone(),
+            Self::PositioningDuplicationPoint { .. } => self.clone(),
+            Self::WithPendingDuplication { .. } => self.clone(),
+            Self::WithPendingXoverDuplication { .. } => self.clone(),
+            Self::PastingXovers { .. } => self.clone(),
+            Self::DoingFirstXoversDuplication { .. } => self.clone(),
+            Self::OptimizingScaffoldPosition => self.clone(),
+            Self::Simulating { .. } => self.clone(),
+            Self::SimulatingGrids { .. } => self.clone(),
+            Self::WithPausedSimulation { .. } => self.clone(),
+            Self::Rolling { .. } => Self::Normal,
+            Self::SettingRollHelices => Self::Normal,
+            Self::ChangingStrandName { .. } => Self::Normal,
         }
     }
 

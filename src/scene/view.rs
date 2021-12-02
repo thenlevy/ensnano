@@ -707,6 +707,7 @@ impl View {
     }
 
     pub fn set_draw_letter(&mut self, value: bool) {
+        self.need_redraw = true;
         self.draw_letter = value;
     }
 

@@ -343,7 +343,7 @@ impl Strand {
 }
 
 #[repr(C)]
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct StrandVertex {
     position: [f32; 2],
     normal: [f32; 2],
@@ -351,8 +351,6 @@ pub struct StrandVertex {
     depth: f32,
     width: f32,
 }
-unsafe impl bytemuck::Pod for StrandVertex {}
-unsafe impl bytemuck::Zeroable for StrandVertex {}
 
 pub struct WithAttributes {
     color: [f32; 4],

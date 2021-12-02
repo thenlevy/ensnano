@@ -108,17 +108,14 @@ impl InsertionDrawer {
 }
 
 #[repr(C)]
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct InsertionVertex {
     pub position: [f32; 2],
     pub normal: [f32; 2],
 }
 
-unsafe impl bytemuck::Zeroable for InsertionVertex {}
-unsafe impl bytemuck::Pod for InsertionVertex {}
-
 #[repr(C)]
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct InsertionInstance {
     pub position: Vec2,
     pub depth: f32,
@@ -126,9 +123,6 @@ pub struct InsertionInstance {
     pub orientation: Mat2,
     pub color: [f32; 4],
 }
-
-unsafe impl bytemuck::Zeroable for InsertionInstance {}
-unsafe impl bytemuck::Pod for InsertionInstance {}
 
 impl InsertionInstance {
     pub fn new(position: Vec2, depth: f32, orientation: ultraviolet::Rotor2, color: u32) -> Self {
