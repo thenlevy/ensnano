@@ -182,6 +182,7 @@ impl<S: AppState> Controller<S> {
         position: PhysicalPosition<f64>,
         app_state: &S,
     ) -> Consequence {
+        self.update_hovered_nucl(position);
         let transition = if let WindowEvent::Focused(false) = event {
             Transition {
                 new_state: Some(Box::new(NormalState {
@@ -202,6 +203,23 @@ impl<S: AppState> Controller<S> {
             self.state.borrow().transition_to(&self);
         }
         transition.consequences
+    }
+
+    fn update_hovered_nucl(&self, position: PhysicalPosition<f64>) {
+        let (x, y) = self
+            .get_camera(position.y)
+            .borrow()
+            .screen_to_world(position.x as f32, position.y as f32);
+        let click_result = self
+            .data
+            .borrow()
+            .get_click(x, y, &self.get_camera(position.y));
+        let nucl = if let ClickResult::Nucl(n) = click_result {
+            Some(n)
+        } else {
+            None
+        };
+        self.view.borrow_mut().set_hovered_nucl(nucl);
     }
 
     pub fn process_keyboard(&self, event: &WindowEvent) {
