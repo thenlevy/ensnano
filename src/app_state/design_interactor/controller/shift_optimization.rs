@@ -16,6 +16,14 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+macro_rules! log_err {
+    ($x:expr) => {
+        if $x.is_err() {
+            log::error!("Unexpected error")
+        }
+    };
+}
+
 use super::*;
 use std::sync::mpsc;
 
@@ -85,7 +93,7 @@ pub fn optimize_shift(
     std::thread::spawn(move || {
         let result =
             get_shift_optimization_result(design.as_ref(), progress_snd, identifier_nucl.as_ref());
-        result_snd.send(result).unwrap();
+        log_err!(result_snd.send(result));
     });
 }
 
