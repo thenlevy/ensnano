@@ -112,7 +112,7 @@ fn get_shift_optimization_result(
         .ok_or(ErrOperation::NoScaffoldSet)?;
     for shift in 0..len {
         if shift % 100 == 0 {
-            progress_channel.send(shift as f32 / len as f32).unwrap();
+            log_err!(progress_channel.send(shift as f32 / len as f32))
         }
         let char_map = read_scaffold_seq(design, identifier_nucl, shift)?;
         let (score, result) = evaluate_shift(design, &char_map);
