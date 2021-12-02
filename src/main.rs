@@ -110,6 +110,13 @@ extern crate pretty_env_logger;
 #[macro_use]
 extern crate paste;
 
+#[cfg(not(target_env = "msvc"))]
+use jemallocator::Jemalloc;
+
+#[cfg(not(target_env = "msvc"))]
+#[global_allocator]
+static GLOBAL: Jemalloc = Jemalloc;
+
 mod consts;
 /// Design handling
 //mod design;

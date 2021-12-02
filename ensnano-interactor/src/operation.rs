@@ -366,7 +366,6 @@ impl Operation for BezierControlPointTranslation {
             _ => None,
         }
     }
-
 }
 
 #[derive(Debug, Clone)]
