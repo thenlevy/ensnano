@@ -2,19 +2,21 @@
 
 
 <!-- next-header -->
-## unreleased
-  - Add a contextual panel to manually enter grid position / orientation
 
+## 0.3.2
+- Use jemalloc alocator to prevent crash in macOS
+- Add a contextual pannel to position objects in space
+- Load immediatly scaffold sequence when loading a file
+- Fix the filter for scaffold sequence files
+- Always show the position of the hovered nucleotide in the 2D view
 
 ## 0.3.1
-
 - Improve flexibility of the cross-over suggestions interface. The parameters are in the "Eddition" tab
 - Update wgpu to 0.11
 - Files that do not have an `.ens` extensions won't be overiden when saving a design. This fixes a problem that caused
 ENSnano to overide cadnano files for example.
 - Selected/candidate nucleotide are now highlighted in the 2D view.
 - Fix a bug that would cause high CPU usage while ENSnano was in the background on MacOS
-
 
 ## 0.3.0
 - It is now possible to translate several helices at once.

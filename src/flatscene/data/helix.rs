@@ -654,7 +654,11 @@ impl Helix {
         basis_map: &HashMap<Nucl, char, RandomState>,
         show_seq: bool,
         edition_info: &Option<EditionInfo>,
+        hovered_nucl: &Option<FlatNucl>,
     ) {
+        let candidate_pos: Option<isize> = hovered_nucl
+            .filter(|n| n.helix == self.flat_id)
+            .map(|n| n.position);
         let show_seq = show_seq && camera.borrow().get_globals().zoom >= ZOOM_THRESHOLD;
         let size_id = 3.;
         let size_pos = 1.4;
@@ -710,7 +714,7 @@ impl Helix {
                     height * scale,
                     show_seq,
                 );
-                let color = if Some(pos) == moving_pos {
+                let color = if Some(pos) == moving_pos || candidate_pos == Some(pos) {
                     [1., 0., 0., 1.].into()
                 } else {
                     [0., 0., 0., 1.].into()
@@ -728,6 +732,7 @@ impl Helix {
         let mut pos = self.left;
         while pos <= self.right {
             if ((pos >= 0 && pos % 8 == 0) || (pos < 0 && -pos % 8 == 0)) && moving_pos != Some(pos)
+                || candidate_pos == Some(pos)
             {
                 print_pos(pos);
             }
