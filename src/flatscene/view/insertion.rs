@@ -114,7 +114,6 @@ pub struct InsertionVertex {
     pub normal: [f32; 2],
 }
 
-
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Default, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct InsertionInstance {
