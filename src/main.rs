@@ -586,6 +586,11 @@ fn main() {
                     scheduler.forward_new_size(window.inner_size(), &multiplexer);
                     let window_size = window.inner_size();
 
+                    if multiplexer.resize(window.inner_size(), window.scale_factor()) {
+                        window.request_redraw();
+                        return;
+                    }
+
                     surface.configure(
                         &device,
                         &wgpu::SurfaceConfiguration {
@@ -661,6 +666,7 @@ fn main() {
                         &frame
                             .texture
                             .create_view(&wgpu::TextureViewDescriptor::default()),
+                        &window,
                     );
                     //overlay_manager.render(&device, &mut staging_belt, &mut encoder, &frame.output.view, &multiplexer, &window, &mut renderer);
 

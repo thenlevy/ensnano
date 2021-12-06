@@ -180,7 +180,12 @@ impl Multiplexer {
         self.modifiers = modifiers
     }
 
-    pub fn draw(&mut self, encoder: &mut wgpu::CommandEncoder, target: &wgpu::TextureView) {
+    pub fn draw(
+        &mut self,
+        encoder: &mut wgpu::CommandEncoder,
+        target: &wgpu::TextureView,
+        window: &crate::Window,
+    ) {
         if self.pipeline.is_none() {
             let bg_layout = &self.top_bar_texture.as_ref().unwrap().bg_layout;
             self.pipeline = Some(create_pipeline(self.device.as_ref(), bg_layout));
@@ -243,11 +248,11 @@ impl Multiplexer {
                     let width = area
                         .size
                         .width
-                        .min(self.window_size.width - area.position.x);
+                        .min(window.inner_size().width - area.position.x);
                     let height = area
                         .size
                         .height
-                        .min(self.window_size.height - area.position.y);
+                        .min(window.inner_size().height - area.position.y);
                     render_pass.set_scissor_rect(area.position.x, area.position.y, width, height);
                     render_pass.set_pipeline(self.pipeline.as_ref().unwrap());
                     render_pass.draw(0..4, 0..1);
@@ -576,7 +581,8 @@ impl Multiplexer {
         self.generate_textures();
     }
 
-    fn resize(&mut self, window_size: PhySize, scale_factor: f64) {
+    pub fn resize(&mut self, window_size: PhySize, scale_factor: f64) -> bool {
+        let ret = self.window_size != window_size;
         let top_pannel_prop = exact_proportion(
             self.ui_size.top_bar() * scale_factor,
             window_size.height as f64,
@@ -594,6 +600,7 @@ impl Multiplexer {
             .resize(self.top_bar_split, top_pannel_prop);
         self.layout_manager
             .resize(self.status_bar_split, 1. - status_bar_prop);
+        ret
     }
 
     fn texture(&mut self, element_type: ElementType) -> Option<SampledTexture> {
