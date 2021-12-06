@@ -277,7 +277,14 @@ impl Multiplexer {
     fn get_bind_group(&self, element_type: &ElementType) -> &wgpu::BindGroup {
         match element_type {
             ElementType::TopBar => &self.top_bar_texture.as_ref().unwrap().texture.bind_group,
-            ElementType::LeftPanel => &self.left_pannel_texture.as_ref().unwrap().texture.bind_group,
+            ElementType::LeftPanel => {
+                &self
+                    .left_pannel_texture
+                    .as_ref()
+                    .unwrap()
+                    .texture
+                    .bind_group
+            }
             ElementType::Scene => &self.scene_texture.as_ref().unwrap().texture.bind_group,
             ElementType::FlatScene => &self.flat_scene_texture.as_ref().unwrap().texture.bind_group,
             ElementType::GridPanel => &self.grid_panel_texture.as_ref().unwrap().texture.bind_group,
@@ -619,10 +626,7 @@ impl Multiplexer {
     fn texture(&mut self, element_type: ElementType) -> Option<MultiplexerTexture> {
         let area = self.get_draw_area(element_type)?;
         let texture = SampledTexture::create_target_texture(self.device.as_ref(), &area.size);
-        Some( MultiplexerTexture {
-            area,
-            texture
-        })
+        Some(MultiplexerTexture { area, texture })
     }
 
     pub fn generate_textures(&mut self) {
@@ -638,14 +642,13 @@ impl Multiplexer {
             let size = overlay.size;
             let texture = SampledTexture::create_target_texture(self.device.as_ref(), &size);
 
-            self.overlays_textures
-                .push(MultiplexerTexture {
-                    texture,
-                    area: DrawArea {
-                        size,
-                        position: overlay.position
-                    },
-                });
+            self.overlays_textures.push(MultiplexerTexture {
+                texture,
+                area: DrawArea {
+                    size,
+                    position: overlay.position,
+                },
+            });
         }
     }
 
@@ -684,14 +687,13 @@ impl Multiplexer {
         for overlay in self.overlays.iter_mut() {
             let size = overlay.size;
             let texture = SampledTexture::create_target_texture(self.device.as_ref(), &size);
-            self.overlays_textures
-                .push(MultiplexerTexture {
-                    texture,
-                    area: DrawArea {
-                        size,
-                        position: overlay.position
-                    }
-                });
+            self.overlays_textures.push(MultiplexerTexture {
+                texture,
+                area: DrawArea {
+                    size,
+                    position: overlay.position,
+                },
+            });
         }
     }
 

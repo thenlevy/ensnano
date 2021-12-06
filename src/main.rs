@@ -586,7 +586,6 @@ fn main() {
                     scheduler.forward_new_size(window.inner_size(), &multiplexer);
                     let window_size = window.inner_size();
 
-
                     surface.configure(
                         &device,
                         &wgpu::SurfaceConfiguration {
@@ -599,7 +598,11 @@ fn main() {
                     );
 
                     gui.resize(&multiplexer, &window);
-                    log::trace!("Will draw on texture of size {}x {}", window_size.width, window_size.height);
+                    log::trace!(
+                        "Will draw on texture of size {}x {}",
+                        window_size.width,
+                        window_size.height
+                    );
                 }
                 if scale_factor_changed {
                     multiplexer.generate_textures();
