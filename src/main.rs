@@ -586,10 +586,6 @@ fn main() {
                     scheduler.forward_new_size(window.inner_size(), &multiplexer);
                     let window_size = window.inner_size();
 
-                    if multiplexer.resize(window.inner_size(), window.scale_factor()) {
-                        window.request_redraw();
-                        return;
-                    }
 
                     surface.configure(
                         &device,
@@ -603,6 +599,7 @@ fn main() {
                     );
 
                     gui.resize(&multiplexer, &window);
+                    log::trace!("Will draw on texture of size {}x {}", window_size.width, window_size.height);
                 }
                 if scale_factor_changed {
                     multiplexer.generate_textures();
@@ -661,6 +658,12 @@ fn main() {
                         &mut mouse_interaction,
                     );
 
+                    if multiplexer.resize(window.inner_size(), window.scale_factor()) {
+                        resized = true;
+                        window.request_redraw();
+                        return;
+                    }
+                    log::trace!("window size {:?}", window.inner_size());
                     multiplexer.draw(
                         &mut encoder,
                         &frame
