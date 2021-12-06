@@ -235,8 +235,8 @@ impl Camera {
 
     pub fn can_see_world_point(&self, point: Vec2) -> bool {
         let normalized_coord = self.world_to_norm_screen(point.x, point.y);
-        normalized_coord.0 >= 0.015
-            && normalized_coord.0 <= 1. - 0.015
+        normalized_coord.0 >= 0.
+            && normalized_coord.0 <= 1.
             && normalized_coord.1 >= 0.015
             && normalized_coord.1 <= 1. - 0.015
     }
