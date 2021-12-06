@@ -1265,6 +1265,7 @@ impl<S: AppState> ControllerState<S> for InitCutting {
                                     strand_id,
                                     point: Vec2::new(x, y),
                                     prime3: true,
+                                    candidates: vec![self.nucl],
                                 }),
                             ),
                         }
@@ -1496,6 +1497,7 @@ impl<S: AppState> ControllerState<S> for InitBuilding {
                                     strand_id: builder.get_strand_id(),
                                     point: Vec2::new(x, y),
                                     prime3: b,
+                                    candidates: vec![self.nucl, nucl],
                                 })),
                             }
                         }
@@ -1512,6 +1514,7 @@ impl<S: AppState> ControllerState<S> for InitBuilding {
                                         strand_id: builder.get_strand_id(),
                                         point: Vec2::new(x, y),
                                         prime3,
+                                        candidates: vec![self.nucl],
                                     })),
                                 }
                             } else {
@@ -1533,6 +1536,7 @@ impl<S: AppState> ControllerState<S> for InitBuilding {
                                             strand_id: builder.get_strand_id(),
                                             point: Vec2::new(x, y),
                                             prime3,
+                                            candidates: vec![self.nucl],
                                         }),
                                     ),
                                 }
@@ -1636,6 +1640,7 @@ impl<S: AppState> ControllerState<S> for MovingFreeEnd {
                                 strand_id: self.strand_id,
                                 point: Vec2::new(x, y),
                                 prime3: self.prime3,
+                                candidates: vec![self.from, nucl],
                             })),
                         }
                     }
@@ -1656,6 +1661,7 @@ impl<S: AppState> ControllerState<S> for MovingFreeEnd {
                                 strand_id: self.strand_id,
                                 point: Vec2::new(x, y),
                                 prime3: self.prime3,
+                                candidates: vec![self.from, nucl],
                             })),
                         }
                     }
@@ -1663,6 +1669,7 @@ impl<S: AppState> ControllerState<S> for MovingFreeEnd {
                         strand_id: self.strand_id,
                         point: Vec2::new(x, y),
                         prime3: self.prime3,
+                        candidates: vec![self.from],
                     }))),
                 }
             }
@@ -1860,6 +1867,7 @@ impl<S: AppState> ControllerState<S> for Crossing {
                         strand_id: self.strand_id,
                         point: Vec2::new(x, y),
                         prime3: self.from3prime,
+                        candidates: vec![self.from, self.to],
                     })))
                 }
             }

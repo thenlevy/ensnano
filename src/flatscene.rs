@@ -214,9 +214,21 @@ impl<S: AppState> FlatScene<S> {
                         }))
                 }
             }
-            Consequence::FreeEnd(free_end) => self.data[self.selected_design]
-                .borrow_mut()
-                .set_free_end(free_end),
+            Consequence::FreeEnd(free_end) => {
+                let candidates = free_end
+                    .as_ref()
+                    .map(|fe| {
+                        fe.candidates
+                            .iter()
+                            .map(|c| Selection::Nucleotide(0, c.to_real()))
+                            .collect()
+                    })
+                    .unwrap_or(Vec::new());
+                self.data[self.selected_design]
+                    .borrow_mut()
+                    .set_free_end(free_end);
+                self.requests.lock().unwrap().new_candidates(candidates);
+            }
             Consequence::CutFreeEnd(nucl, free_end) => {
                 let strand_id = self.data[self.selected_design].borrow().get_strand_id(nucl);
                 if let Some(strand_id) = strand_id {

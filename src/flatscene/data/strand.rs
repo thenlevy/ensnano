@@ -82,6 +82,7 @@ impl Strand {
                 point,
                 strand_id,
                 prime3,
+                ..
             }) if *strand_id == self.id && !prime3 => {
                 alternative_position(*point, my_cam, other_cam).or(Some(*point))
             }
@@ -191,6 +192,7 @@ impl Strand {
                 strand_id,
                 point: position,
                 prime3,
+                ..
             }) if *strand_id == self.id && *prime3 => {
                 let depth = 1e-4;
                 let last_pos = last_point.unwrap();
@@ -389,6 +391,7 @@ pub struct FreeEnd {
     pub strand_id: usize,
     pub point: Vec2,
     pub prime3: bool,
+    pub candidates: Vec<FlatNucl>,
 }
 
 /// If nucl is visible on cam2, and not on cam 1, convert the position of the nucl in cam2

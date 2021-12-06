@@ -131,7 +131,7 @@ impl<R: DesignReader> Data<R> {
         if app_state.design_was_modified(older_app_state)
             || app_state.suggestion_parameters_were_updated(older_app_state)
         {
-            self.update_instances();
+            self.update_instances(app_state);
         }
 
         if self.stereographic_camera_need_update {
@@ -164,8 +164,8 @@ impl<R: DesignReader> Data<R> {
             self.update_pivot();
             self.pivot_update = false;
         }
-        if self.free_xover_update {
-            self.update_free_xover();
+        if self.free_xover_update || app_state.candidates_set_was_updated(older_app_state) {
+            self.update_free_xover(app_state.get_candidates());
             self.free_xover_update = false;
         }
 
@@ -1193,12 +1193,17 @@ impl<R: DesignReader> Data<R> {
             .update(ViewUpdate::RawDna(Mesh::PivotSphere, Rc::new(spheres)));
     }
 
-    fn update_free_xover(&mut self) {
+    fn update_free_xover(&mut self, candidates: &[Selection]) {
         let mut spheres = vec![];
         let mut tubes = vec![];
         let mut pos1 = None;
         let mut pos2 = None;
-        if let Some(xover) = self.free_xover.as_ref() {
+        if let Some(xover) = self
+            .free_xover
+            .clone()
+            .or_else(|| candidate_xover(candidates))
+            .as_ref()
+        {
             if let Some((pos, sphere)) = self.convert_free_end(&xover.source, xover.design_id) {
                 pos1 = Some(pos);
                 if let Some(s) = sphere {
@@ -1238,7 +1243,7 @@ impl<R: DesignReader> Data<R> {
     }
 
     /// Notify the view that the set of instances have been modified.
-    fn update_instances(&mut self) {
+    fn update_instances<S: AppState>(&mut self, app_state: &S) {
         let mut spheres = Vec::with_capacity(self.get_number_spheres());
         let mut tubes = Vec::with_capacity(self.get_number_tubes());
         let mut suggested_spheres = Vec::with_capacity(1000);
@@ -1277,7 +1282,7 @@ impl<R: DesignReader> Data<R> {
                 cones.push(cone);
             }
         }
-        self.update_free_xover();
+        self.update_free_xover(app_state.get_candidates());
         self.view
             .borrow_mut()
             .update(ViewUpdate::RawDna(Mesh::Tube, Rc::new(tubes)));
@@ -1747,12 +1752,14 @@ impl WantWidget for ActionMode {
     }
 }
 
+#[derive(Clone, Debug)]
 struct FreeXover {
     source: FreeXoverEnd,
     target: FreeXoverEnd,
     design_id: usize,
 }
 
+#[derive(Clone, Debug)]
 enum FreeXoverEnd {
     Free(Vec3),
     Nucl(Nucl),
@@ -1877,5 +1884,23 @@ fn add_discs<R: DesignReader>(pos: DiscPos, discs: Discs<R>, level: DiscLevel) {
         }
     } else {
         log::error!("Could not get grid {:?}", pos.0);
+    }
+}
+
+fn candidate_xover(candidates: &[Selection]) -> Option<FreeXover> {
+    if candidates.len() == 2 {
+        if let (Selection::Nucleotide(_, n1), Selection::Nucleotide(_, n2)) =
+            (candidates[0], candidates[1])
+        {
+            Some(FreeXover {
+                source: FreeXoverEnd::Nucl(n1),
+                target: FreeXoverEnd::Nucl(n2),
+                design_id: 0,
+            })
+        } else {
+            None
+        }
+    } else {
+        None
     }
 }
