@@ -126,6 +126,8 @@ impl Strand {
                 }
                 let last_pos = last_point.unwrap();
                 let alternate = must_use_alternate(last_pos, position, my_cam, other_cam);
+                let must_draw = my_cam.borrow().can_see_world_point(last_pos)
+                    || my_cam.borrow().can_see_world_point(position);
                 let xover_origin = if alternate {
                     if let Some(alt) = alternative_position(last_pos, my_cam, other_cam) {
                         cut = true;
@@ -165,11 +167,16 @@ impl Strand {
                     cross_split_builder.end(false);
                 } else {
                     sign *= -1.;
-                    builder.quadratic_bezier_to(
-                        Point::new(control.x, control.y),
-                        Point::new(xover_target.x, xover_target.y),
-                        &[depth, sign],
-                    );
+                    if must_draw {
+                        builder.quadratic_bezier_to(
+                            Point::new(control.x, control.y),
+                            Point::new(xover_target.x, xover_target.y),
+                            &[depth, sign],
+                        );
+                    } else {
+                        builder.end(false);
+                        builder.begin(Point::new(xover_target.x, xover_target.y), &[depth, sign]);
+                    }
                 }
                 if cut {
                     builder.end(false);

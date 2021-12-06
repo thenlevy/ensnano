@@ -171,9 +171,10 @@ impl Multiplexer {
     /// Return a view of the texture on which the element must be rendered
     pub fn get_texture_view(&self, element_type: ElementType) -> Option<&wgpu::TextureView> {
         match element_type {
-            ElementType::StereographicScene => {
-                self.stereographic_scene_texture.as_ref().map(|t| &t.texture.view)
-            }
+            ElementType::StereographicScene => self
+                .stereographic_scene_texture
+                .as_ref()
+                .map(|t| &t.texture.view),
             ElementType::Scene => self.scene_texture.as_ref().map(|t| &t.texture.view),
             ElementType::LeftPanel => self.left_pannel_texture.as_ref().map(|t| &t.texture.view),
             ElementType::TopBar => self.top_bar_texture.as_ref().map(|t| &t.texture.view),
@@ -194,7 +195,9 @@ impl Multiplexer {
             ElementType::GridPanel => self.grid_panel_texture.as_ref().map(|t| t.area),
             ElementType::FlatScene => self.flat_scene_texture.as_ref().map(|t| t.area),
             ElementType::StatusBar => self.status_bar_texture.as_ref().map(|t| t.area),
-            ElementType::StereographicScene => self.stereographic_scene_texture.as_ref().map(|t| t.area),
+            ElementType::StereographicScene => {
+                self.stereographic_scene_texture.as_ref().map(|t| t.area)
+            }
             ElementType::Unattributed => unreachable!(),
         }
     }
