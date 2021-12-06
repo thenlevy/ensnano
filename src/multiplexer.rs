@@ -66,18 +66,18 @@ pub struct Multiplexer {
     /// The area that are drawn on top of the application
     overlays: Vec<Overlay>,
     /// The texture on which the scene is rendered
-    scene_texture: Option<SampledTexture>,
+    scene_texture: Option<MultiplexerTexture>,
     /// The texture on which the top bar gui is rendered
-    top_bar_texture: Option<SampledTexture>,
+    top_bar_texture: Option<MultiplexerTexture>,
     /// The texture on which the left pannel is rendered
-    left_pannel_texture: Option<SampledTexture>,
+    left_pannel_texture: Option<MultiplexerTexture>,
     /// The textures on which the overlays are rendered
-    overlays_textures: Vec<SampledTexture>,
+    overlays_textures: Vec<MultiplexerTexture>,
     /// The texture on wich the grid is rendered
-    grid_panel_texture: Option<SampledTexture>,
+    grid_panel_texture: Option<MultiplexerTexture>,
     /// The texutre on which the flat scene is rendered,
-    status_bar_texture: Option<SampledTexture>,
-    flat_scene_texture: Option<SampledTexture>,
+    status_bar_texture: Option<MultiplexerTexture>,
+    flat_scene_texture: Option<MultiplexerTexture>,
     /// The pointer the node that separate the left pannel from the scene
     left_pannel_split: usize,
     /// The pointer to the node that separate the top bar from the scene
@@ -165,13 +165,26 @@ impl Multiplexer {
     /// Return a view of the texture on which the element must be rendered
     pub fn get_texture_view(&self, element_type: ElementType) -> Option<&wgpu::TextureView> {
         match element_type {
-            ElementType::Scene => self.scene_texture.as_ref().map(|t| &t.view),
-            ElementType::LeftPanel => self.left_pannel_texture.as_ref().map(|t| &t.view),
-            ElementType::TopBar => self.top_bar_texture.as_ref().map(|t| &t.view),
-            ElementType::Overlay(n) => Some(&self.overlays_textures[n].view),
-            ElementType::GridPanel => self.grid_panel_texture.as_ref().map(|t| &t.view),
-            ElementType::FlatScene => self.flat_scene_texture.as_ref().map(|t| &t.view),
-            ElementType::StatusBar => self.status_bar_texture.as_ref().map(|t| &t.view),
+            ElementType::Scene => self.scene_texture.as_ref().map(|t| &t.texture.view),
+            ElementType::LeftPanel => self.left_pannel_texture.as_ref().map(|t| &t.texture.view),
+            ElementType::TopBar => self.top_bar_texture.as_ref().map(|t| &t.texture.view),
+            ElementType::Overlay(n) => Some(&self.overlays_textures[n].texture.view),
+            ElementType::GridPanel => self.grid_panel_texture.as_ref().map(|t| &t.texture.view),
+            ElementType::FlatScene => self.flat_scene_texture.as_ref().map(|t| &t.texture.view),
+            ElementType::StatusBar => self.status_bar_texture.as_ref().map(|t| &t.texture.view),
+            ElementType::Unattributed => unreachable!(),
+        }
+    }
+
+    fn get_texture_size(&self, element_type: ElementType) -> Option<DrawArea> {
+        match element_type {
+            ElementType::Scene => self.scene_texture.as_ref().map(|t| t.area),
+            ElementType::LeftPanel => self.left_pannel_texture.as_ref().map(|t| t.area),
+            ElementType::TopBar => self.top_bar_texture.as_ref().map(|t| t.area),
+            ElementType::Overlay(n) => Some(self.overlays_textures[n].area),
+            ElementType::GridPanel => self.grid_panel_texture.as_ref().map(|t| t.area),
+            ElementType::FlatScene => self.flat_scene_texture.as_ref().map(|t| t.area),
+            ElementType::StatusBar => self.status_bar_texture.as_ref().map(|t| t.area),
             ElementType::Unattributed => unreachable!(),
         }
     }
@@ -187,7 +200,7 @@ impl Multiplexer {
         window: &crate::Window,
     ) {
         if self.pipeline.is_none() {
-            let bg_layout = &self.top_bar_texture.as_ref().unwrap().bg_layout;
+            let bg_layout = &self.top_bar_texture.as_ref().unwrap().texture.bg_layout;
             self.pipeline = Some(create_pipeline(self.device.as_ref(), bg_layout));
         }
         let clear_color = wgpu::Color {
@@ -234,7 +247,7 @@ impl Multiplexer {
             ]
             .iter()
             {
-                if let Some(area) = self.get_draw_area(*element) {
+                if let Some(area) = self.get_texture_size(*element) {
                     render_pass.set_bind_group(0, self.get_bind_group(element), &[]);
 
                     render_pass.set_viewport(
@@ -263,13 +276,13 @@ impl Multiplexer {
 
     fn get_bind_group(&self, element_type: &ElementType) -> &wgpu::BindGroup {
         match element_type {
-            ElementType::TopBar => &self.top_bar_texture.as_ref().unwrap().bind_group,
-            ElementType::LeftPanel => &self.left_pannel_texture.as_ref().unwrap().bind_group,
-            ElementType::Scene => &self.scene_texture.as_ref().unwrap().bind_group,
-            ElementType::FlatScene => &self.flat_scene_texture.as_ref().unwrap().bind_group,
-            ElementType::GridPanel => &self.grid_panel_texture.as_ref().unwrap().bind_group,
-            ElementType::Overlay(n) => &self.overlays_textures[*n].bind_group,
-            ElementType::StatusBar => &self.status_bar_texture.as_ref().unwrap().bind_group,
+            ElementType::TopBar => &self.top_bar_texture.as_ref().unwrap().texture.bind_group,
+            ElementType::LeftPanel => &self.left_pannel_texture.as_ref().unwrap().texture.bind_group,
+            ElementType::Scene => &self.scene_texture.as_ref().unwrap().texture.bind_group,
+            ElementType::FlatScene => &self.flat_scene_texture.as_ref().unwrap().texture.bind_group,
+            ElementType::GridPanel => &self.grid_panel_texture.as_ref().unwrap().texture.bind_group,
+            ElementType::Overlay(n) => &self.overlays_textures[*n].texture.bind_group,
+            ElementType::StatusBar => &self.status_bar_texture.as_ref().unwrap().texture.bind_group,
             ElementType::Unattributed => unreachable!(),
         }
     }
@@ -603,10 +616,13 @@ impl Multiplexer {
         ret
     }
 
-    fn texture(&mut self, element_type: ElementType) -> Option<SampledTexture> {
-        self.get_draw_area(element_type)
-            .filter(|a| a.size.height > 0 && a.size.width > 0)
-            .map(|a| SampledTexture::create_target_texture(self.device.as_ref(), &a.size))
+    fn texture(&mut self, element_type: ElementType) -> Option<MultiplexerTexture> {
+        let area = self.get_draw_area(element_type)?;
+        let texture = SampledTexture::create_target_texture(self.device.as_ref(), &area.size);
+        Some( MultiplexerTexture {
+            area,
+            texture
+        })
     }
 
     pub fn generate_textures(&mut self) {
@@ -620,11 +636,16 @@ impl Multiplexer {
         self.overlays_textures.clear();
         for overlay in self.overlays.iter() {
             let size = overlay.size;
+            let texture = SampledTexture::create_target_texture(self.device.as_ref(), &size);
+
             self.overlays_textures
-                .push(SampledTexture::create_target_texture(
-                    self.device.as_ref(),
-                    &size,
-                ));
+                .push(MultiplexerTexture {
+                    texture,
+                    area: DrawArea {
+                        size,
+                        position: overlay.position
+                    },
+                });
         }
     }
 
@@ -662,11 +683,15 @@ impl Multiplexer {
         self.overlays_textures.clear();
         for overlay in self.overlays.iter_mut() {
             let size = overlay.size;
+            let texture = SampledTexture::create_target_texture(self.device.as_ref(), &size);
             self.overlays_textures
-                .push(SampledTexture::create_target_texture(
-                    self.device.as_ref(),
-                    &size,
-                ));
+                .push(MultiplexerTexture {
+                    texture,
+                    area: DrawArea {
+                        size,
+                        position: overlay.position
+                    }
+                });
         }
     }
 
@@ -796,7 +821,7 @@ use crate::gui::Multiplexer as GuiMultiplexer;
 
 impl GuiMultiplexer for Multiplexer {
     fn get_draw_area(&self, element_type: ElementType) -> Option<DrawArea> {
-        self.get_draw_area(element_type)
+        self.get_texture_size(element_type)
     }
 
     fn get_texture_view(&self, element_type: ElementType) -> Option<&wgpu::TextureView> {
@@ -826,4 +851,9 @@ fn keycode_to_num(keycode: VirtualKeyCode) -> Option<u32> {
     } else {
         None
     }
+}
+
+struct MultiplexerTexture {
+    area: DrawArea,
+    texture: SampledTexture,
 }
