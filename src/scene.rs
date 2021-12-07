@@ -172,6 +172,20 @@ impl<S: AppState> Scene<S> {
             Consequence::Nothing => (),
             Consequence::CameraMoved => self.notify(SceneNotification::CameraMoved),
             Consequence::CameraTranslated(dx, dy) => {
+                let mut pivot: Option<FiniteVec3> = self
+                    .data
+                    .borrow()
+                    .get_pivot_position()
+                    .and_then(|p| p.try_into().ok());
+                if pivot.is_none() {
+                    self.data.borrow_mut().try_update_pivot_position(app_state);
+                    pivot = self
+                        .data
+                        .borrow()
+                        .get_pivot_position()
+                        .and_then(|p| p.try_into().ok());
+                }
+                self.controller.set_pivot_point(pivot);
                 self.controller.translate_camera(dx, dy);
                 self.notify(SceneNotification::CameraMoved);
             }
@@ -566,7 +580,6 @@ impl<S: AppState> Scene<S> {
             let pivot_point = self.data.borrow().get_middle_point(0);
             self.notify(SceneNotification::NewCameraPosition(position));
             self.controller.set_pivot_point(pivot_point.try_into().ok());
-            self.controller.set_pivot_point(None);
         }
     }
 
