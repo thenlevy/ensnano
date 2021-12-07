@@ -910,6 +910,7 @@ pub(crate) struct MainState {
     path_to_current_design: Option<PathBuf>,
     file_name: Option<PathBuf>,
     wants_fit: bool,
+    last_backup_date: Instant,
 }
 
 struct MainStateConstructor {
@@ -933,6 +934,7 @@ impl MainState {
             path_to_current_design: None,
             file_name: None,
             wants_fit: false,
+            last_backup_date: Instant::now(),
         }
     }
 
@@ -1187,6 +1189,39 @@ impl MainState {
         Ok(())
     }
 
+    fn save_backup(&mut self) -> Result<(), SaveDesignError> {
+        let camera = self
+            .applications
+            .get(&ElementType::Scene)
+            .and_then(|s| s.lock().unwrap().get_camera())
+            .map(|(position, orientation)| Camera {
+                id: Default::default(),
+                name: String::from("Saved Camera"),
+                position,
+                orientation,
+            });
+        let save_info = ensnano_design::SavingInformation { camera };
+        let path = if let Some(mut path) = self.path_to_current_design.clone() {
+            path.set_extension(crate::consts::ENS_BACKUP_EXTENSION);
+            path
+        } else {
+            let mut ret = dirs::document_dir().or(dirs::home_dir()).ok_or_else(|| {
+                self.last_backup_date =
+                    Instant::now() + Duration::from_secs(crate::consts::SEC_PER_YEAR);
+                SaveDesignError::cannot_open_default_dir()
+            })?;
+            ret.push(crate::consts::ENS_UNAMED_FILE_NAME);
+            ret.set_extension(crate::consts::ENS_BACKUP_EXTENSION);
+            ret
+        };
+        self.app_state
+            .get_design_reader()
+            .save_design(&path, save_info)?;
+
+        println!("Saved backup to {}", path.to_string_lossy());
+        Ok(())
+    }
+
     fn change_selection_mode(&mut self, mode: SelectionMode) {
         self.modify_state(|s| s.with_selection_mode(mode), false)
     }
@@ -1249,6 +1284,11 @@ impl<'a> MainStateInteface for MainStateView<'a> {
         self.main_state.pending_actions.pop_front()
     }
 
+    fn need_backup(&self) -> bool {
+        Instant::now() - self.main_state.last_backup_date
+            > Duration::from_secs(crate::consts::SEC_BETWEEN_BACKUPS)
+    }
+
     fn exit_control_flow(&mut self) {
         *self.control_flow = ControlFlow::Exit
     }
@@ -1261,9 +1301,14 @@ impl<'a> MainStateInteface for MainStateView<'a> {
         self.main_state.app_state.oxdna_export(path)
     }
 
-    fn load_design(&mut self, path: PathBuf) -> Result<(), LoadDesignError> {
+    fn load_design(&mut self, mut path: PathBuf) -> Result<(), LoadDesignError> {
         if let Ok(state) = AppState::import_design(&path) {
             self.main_state.clear_app_state(state);
+            if path.extension().map(|s| s.to_string_lossy())
+                == Some(crate::consts::ENS_BACKUP_EXTENSION.into())
+            {
+                path.set_extension(crate::consts::ENS_EXTENSION);
+            }
             self.main_state.path_to_current_design = Some(path.clone());
             if let Some((position, orientation)) = self
                 .main_state
@@ -1308,6 +1353,13 @@ impl<'a> MainStateInteface for MainStateView<'a> {
 
     fn save_design(&mut self, path: &PathBuf) -> Result<(), SaveDesignError> {
         self.main_state.save_design(path)?;
+        self.main_state.last_backup_date = Instant::now();
+        Ok(())
+    }
+
+    fn save_backup(&mut self) -> Result<(), SaveDesignError> {
+        self.main_state.save_backup()?;
+        self.main_state.last_backup_date = Instant::now();
         Ok(())
     }
 

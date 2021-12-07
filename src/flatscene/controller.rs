@@ -170,6 +170,18 @@ impl<S: AppState> Controller<S> {
         }
     }
 
+    pub fn get_other_camera(&self, y: f64) -> Option<CameraPtr> {
+        if self.splited {
+            if y > self.area_size.height as f64 / 2. {
+                Some(self.camera_top.clone())
+            } else {
+                Some(self.camera_bottom.clone())
+            }
+        } else {
+            None
+        }
+    }
+
     pub fn fit(&mut self) {
         let rectangle = self.data.borrow().get_fit_rectangle();
         self.camera_top.borrow_mut().fit(rectangle);

@@ -583,10 +583,17 @@ impl<S: AppState> ControllerState<S> for MovingCamera {
                     / controller.area_size.width as f32;
                 let mouse_dy = (position.y as f32 - self.clicked_position_screen.y as f32)
                     / controller.get_height() as f32;
-                controller
+                let (x, y) = controller
                     .get_camera(self.clicked_position_screen.y)
                     .borrow_mut()
                     .process_mouse(mouse_dx, mouse_dy);
+                if let Some(other_camera) = controller
+                    .get_other_camera(self.clicked_position_screen.y)
+                    .filter(|_| controller.modifiers.shift())
+                {
+                    other_camera.borrow_mut().translate_by_vec(x, y);
+                }
+
                 Transition::nothing()
             }
             WindowEvent::KeyboardInput { .. } => {
