@@ -65,8 +65,13 @@ impl Camera {
 
     /// Moves the camera, according to a mouse movement expressed in *normalized screen
     /// coordinates*
-    pub fn process_mouse(&mut self, delta_x: f32, delta_y: f32) {
+    pub fn process_mouse(&mut self, delta_x: f32, delta_y: f32) -> (f32, f32) {
         let (x, y) = self.transform_vec(delta_x, delta_y);
+        self.translate_by_vec(x, y);
+        (x, y)
+    }
+
+    pub fn translate_by_vec(&mut self, x: f32, y: f32) {
         self.globals.scroll_offset[0] = self.old_globals.scroll_offset[0] - x;
         self.globals.scroll_offset[1] = self.old_globals.scroll_offset[1] - y;
         self.was_updated = true;
