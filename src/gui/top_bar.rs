@@ -95,6 +95,7 @@ pub struct MainState<S: AppState> {
     pub need_save: bool,
     pub can_reload: bool,
     pub can_split2d: bool,
+    pub splited_2d: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -317,9 +318,17 @@ impl<R: Requests, S: AppState> Program for TopBar<R, S> {
             .on_press(Message::OxDNARequested);
         let oxdna_tooltip = button_oxdna;
 
-        let mut button_split_2d =
-            Button::new(&mut self.button_split_2d, iced::Text::new("(Un)split"))
-                .height(Length::Units(self.ui_size.button()));
+        let split_icon = if self.application_state.splited_2d {
+            LightIcon::BorderOuter
+        } else {
+            LightIcon::BorderHorizontal
+        };
+
+        let mut button_split_2d = Button::new(
+            &mut self.button_split_2d,
+            light_icon(split_icon, self.ui_size),
+        )
+        .height(Length::Units(self.ui_size.button()));
 
         if self.application_state.can_split2d {
             button_split_2d = button_split_2d.on_press(Message::Split2d);
