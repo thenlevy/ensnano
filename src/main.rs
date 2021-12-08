@@ -385,6 +385,7 @@ fn main() {
 
     let mut first_iteration = true;
 
+    let mut last_gui_state = main_state.gui_state(&multiplexer);
     event_loop.run(move |event, _, control_flow| {
         // Wait for event or redraw a frame every 33 ms (30 frame per seconds)
         *control_flow = ControlFlow::WaitUntil(Instant::now() + Duration::from_millis(33));
@@ -589,6 +590,11 @@ fn main() {
                 let now = std::time::Instant::now();
                 let dt = now - last_render_time;
                 redraw |= scheduler.check_redraw(&multiplexer, dt, main_state.get_app_state());
+                let new_gui_state = main_state.gui_state(&multiplexer);
+                if new_gui_state != last_gui_state {
+                    last_gui_state = new_gui_state;
+                    redraw = true;
+                };
                 last_render_time = now;
 
                 if redraw {
@@ -646,15 +652,7 @@ fn main() {
                 // If there are events pending
                 messages.lock().unwrap().push_application_state(
                     main_state.get_app_state().clone(),
-                    gui::MainState {
-                        can_undo: !main_state.undo_stack.is_empty(),
-                        can_redo: !main_state.redo_stack.is_empty(),
-                        need_save: main_state.need_save(),
-                        can_reload: main_state.get_current_file_name().is_some(),
-                        can_split2d: multiplexer.is_showing(&ElementType::FlatScene),
-                        can_toggle_2d: multiplexer.is_showing(&ElementType::FlatScene)
-                            || multiplexer.is_showing(&ElementType::StereographicScene),
-                    },
+                    last_gui_state.clone(),
                 );
                 gui.update(&multiplexer, &window);
 
@@ -1303,6 +1301,23 @@ impl MainState {
 
     fn set_follow_stereographic_camera(&mut self, follow: bool) {
         self.modify_state(|s| s.with_follow_stereographic_camera(follow), false)
+    }
+
+    fn gui_state(&self, multiplexer: &Multiplexer) -> gui::MainState {
+        gui::MainState {
+            can_undo: !self.undo_stack.is_empty(),
+            can_redo: !self.redo_stack.is_empty(),
+            need_save: self.need_save(),
+            can_reload: self.get_current_file_name().is_some(),
+            can_split2d: multiplexer.is_showing(&ElementType::FlatScene),
+            splited_2d: self
+                .applications
+                .get(&ElementType::FlatScene)
+                .map(|app| app.lock().unwrap().is_splited())
+                .unwrap_or(false),
+            can_toggle_2d: multiplexer.is_showing(&ElementType::FlatScene)
+                || multiplexer.is_showing(&ElementType::StereographicScene),
+        }
     }
 }
 

@@ -67,11 +67,17 @@ impl std::fmt::Display for RenderingMode {
     }
 }
 
+pub mod fog_kind {
+    pub const NO_FOG: u32 = 0;
+    pub const TRANSPARENT_FOG: u32 = 1;
+    pub const DARK_FOG: u32 = 2;
+}
+
 #[derive(Debug, Clone)]
 pub struct FogParameters {
     pub radius: f32,
     pub length: f32,
-    pub active: bool,
+    pub fog_kind: u32,
     pub from_camera: bool,
     pub alt_fog_center: Option<Vec3>,
 }
@@ -81,7 +87,7 @@ impl FogParameters {
         Self {
             radius: 10.,
             length: 10.,
-            active: false,
+            fog_kind: fog_kind::NO_FOG,
             from_camera: true,
             alt_fog_center: None,
         }

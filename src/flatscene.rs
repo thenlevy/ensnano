@@ -580,6 +580,10 @@ impl<S: AppState> Application for FlatScene<S> {
             self.needs_redraw_(state)
         }
     }
+
+    fn is_splited(&self) -> bool {
+        self.splited
+    }
 }
 
 pub trait AppState: Clone {

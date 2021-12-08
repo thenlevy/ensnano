@@ -78,6 +78,8 @@ pub trait Application {
     fn get_current_selection_pivot(&self) -> Option<GroupPivot> {
         None
     }
+
+    fn is_splited(&self) -> bool;
 }
 
 #[derive(Clone, Debug)]

@@ -990,6 +990,10 @@ impl<S: AppState> Application for Scene<S> {
     fn get_current_selection_pivot(&self) -> Option<GroupPivot> {
         self.view.borrow().get_current_pivot()
     }
+
+    fn is_splited(&self) -> bool {
+        false
+    }
 }
 
 pub trait AppState: Clone {

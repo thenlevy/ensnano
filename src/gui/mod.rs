@@ -816,6 +816,8 @@ pub struct IcedMessages<S: AppState> {
     _color_overlay: VecDeque<left_panel::ColorMessage>,
     status_bar: VecDeque<status_bar::Message<S>>,
     application_state: S,
+    last_main_state: MainState,
+    redraw: bool,
 }
 
 impl<S: AppState> IcedMessages<S> {
@@ -827,6 +829,8 @@ impl<S: AppState> IcedMessages<S> {
             _color_overlay: VecDeque::new(),
             status_bar: VecDeque::new(),
             application_state: Default::default(),
+            last_main_state: Default::default(),
+            redraw: false,
         }
     }
 
@@ -867,8 +871,10 @@ impl<S: AppState> IcedMessages<S> {
 
     pub fn push_application_state(&mut self, state: S, main_state: MainState) {
         log::trace!("Old ptr {:p}, new ptr {:p}", state, self.application_state);
-        let must_update = self.application_state != state;
         self.application_state = state.clone();
+        self.redraw |= main_state != self.last_main_state;
+        self.last_main_state = main_state.clone();
+        let must_update = self.application_state != state || self.redraw;
         if must_update {
             self.left_panel
                 .push_back(left_panel::Message::NewApplicationState(state.clone()));
@@ -881,6 +887,7 @@ impl<S: AppState> IcedMessages<S> {
                     can_reload: main_state.can_reload,
                     can_split2d: main_state.can_split2d,
                     can_toggle_2d: main_state.can_toggle_2d,
+                    splited_2d: main_state.splited_2d,
                 }));
             self.status_bar
                 .push_back(status_bar::Message::NewApplicationState(state.clone()));
@@ -941,6 +948,7 @@ pub trait DesignReader: 'static {
     fn get_id_of_xover_involving_nucl(&self, nucl: Nucl) -> Option<usize>;
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct MainState {
     pub can_undo: bool,
     pub can_redo: bool,
@@ -948,4 +956,5 @@ pub struct MainState {
     pub can_reload: bool,
     pub can_split2d: bool,
     pub can_toggle_2d: bool,
+    pub splited_2d: bool,
 }
