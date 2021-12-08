@@ -82,6 +82,7 @@ pub struct Projection {
     fovy: f32,
     znear: f32,
     zfar: f32,
+    pub stereographic_zoom: f32,
 }
 
 pub type ProjectionPtr = Rc<RefCell<Projection>>;
@@ -93,6 +94,7 @@ impl Projection {
             fovy,
             znear,
             zfar,
+            stereographic_zoom: crate::consts::DEFAULT_STEREOGRAPHIC_ZOOM,
         }
     }
 
@@ -322,6 +324,14 @@ impl CameraController {
             MouseScrollDelta::LineDelta(_, scroll) => scroll.min(1.).max(-1.) * 10.,
             MouseScrollDelta::PixelDelta(PhysicalPosition { y: scroll, .. }) => *scroll as f32,
         };
+    }
+
+    pub fn update_stereographic_zoom(&mut self, delta: &MouseScrollDelta) {
+        let direction = match delta {
+            MouseScrollDelta::LineDelta(_, scroll) => scroll.signum(),
+            MouseScrollDelta::PixelDelta(PhysicalPosition{y: scroll, ..}) => scroll.signum() as f32,
+        };
+        self.projection.borrow_mut().stereographic_zoom *= crate::consts::STEREOGRAPHIC_ZOOM_STEP.powf(direction);
     }
 
     /// Rotate the head of the camera on its yz plane and xz plane according to the values of

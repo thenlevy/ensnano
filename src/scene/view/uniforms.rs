@@ -36,7 +36,8 @@ pub struct Uniforms {
     pub fog_alt_center: Vec3,     // 3
     pub stereography_radius: f32, // 0
     pub stereography_view: Mat4,  // 0
-    pub aspect_ratio: f32,
+    pub aspect_ratio: f32,      // 1
+    pub stereography_zoom: f32
 }
 
 #[derive(Clone, Debug)]
@@ -95,6 +96,7 @@ impl Uniforms {
             stereography_radius,
             stereography_view,
             aspect_ratio: projection.borrow().get_ratio(),
+            stereography_zoom: projection.borrow().stereographic_zoom,
         }
     }
 
@@ -128,6 +130,7 @@ impl Uniforms {
             stereography_view,
             stereography_radius,
             aspect_ratio: projection.borrow().get_ratio(),
+            stereography_zoom: projection.borrow().stereographic_zoom,
         }
     }
 }

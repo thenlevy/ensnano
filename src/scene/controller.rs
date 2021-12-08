@@ -219,7 +219,10 @@ impl<S: AppState> Controller<S> {
         } else if let WindowEvent::MouseWheel { delta, .. } = event {
             let mouse_x = position.x / self.area_size.width as f64;
             let mouse_y = position.y / self.area_size.height as f64;
-            if self.current_modifiers.shift() {
+            if ctrl(&self.current_modifiers) {
+                self.camera_controller.update_stereographic_zoom(delta);
+                Transition::consequence(Consequence::CameraMoved)
+            } else if self.current_modifiers.shift() {
                 self.state.borrow_mut().notify_scroll();
                 let element = pixel_reader.set_selected_id(position);
                 if let Some(builder) = app_state.get_strand_builders().get(0) {
