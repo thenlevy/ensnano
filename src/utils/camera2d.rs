@@ -257,6 +257,12 @@ impl Camera {
             max_y: Some(bottom_right.y),
         }
     }
+
+    pub fn swap(&mut self, other: &mut Self) {
+        std::mem::swap(&mut self.globals, &mut other.globals);
+        self.was_updated = true;
+        other.was_updated = true;
+    }
 }
 
 #[repr(C)]
