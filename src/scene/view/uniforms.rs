@@ -55,9 +55,9 @@ impl Uniforms {
         projection: ProjectionPtr,
         fog: &FogParameters,
     ) -> Self {
-        let mut make_fog = fog.active;
-        if !fog.from_camera {
-            make_fog &= fog.alt_fog_center.is_some();
+        let mut make_fog = fog.fog_kind;
+        if !fog.from_camera && fog.alt_fog_center.is_none() {
+            make_fog = ensnano_interactor::graphics::fog_kind::NO_FOG;
         }
         Self {
             camera_position: camera.borrow().position.into_homogeneous_point(),
@@ -66,7 +66,7 @@ impl Uniforms {
             inversed_view: camera.borrow().calc_matrix().inversed(),
             fog_length: fog.length,
             fog_radius: fog.radius,
-            make_fog: make_fog as u32,
+            make_fog,
             fog_from_camera: fog.from_camera as u32,
             fog_alt_center: fog.alt_fog_center.unwrap_or(Vec3::zero()),
         }
