@@ -230,6 +230,10 @@ impl State for NormalState {
                     main_state.update_camera(camera_id);
                     self
                 }
+                Action::FlipSplitViews => {
+                    main_state.flip_split_views();
+                    self
+                }
                 action => {
                     println!("Not implemented {:?}", action);
                     self
@@ -421,4 +425,5 @@ pub enum Action {
     SelectCamera(ensnano_design::CameraId),
     SelectFavoriteCamera(u32),
     UpdateCamera(ensnano_design::CameraId),
+    FlipSplitViews,
 }

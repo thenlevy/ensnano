@@ -815,6 +815,7 @@ impl<S: AppState> Application for Scene<S> {
             Notification::Background3D(bg) => self.view.borrow_mut().background3d(bg),
             Notification::Fog(fog) => self.fog_request(fog),
             Notification::WindowFocusLost => self.controller.stop_camera_movement(),
+            Notification::FlipSplitViews => (),
         }
     }
 

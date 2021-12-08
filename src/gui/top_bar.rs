@@ -75,6 +75,7 @@ pub struct TopBar<R: Requests, S: AppState> {
     button_split: button::State,
     button_oxdna: button::State,
     button_split_2d: button::State,
+    button_flip_split: button::State,
     button_help: button::State,
     button_tutorial: button::State,
     button_reload: button::State,
@@ -118,6 +119,7 @@ pub enum Message<S: AppState> {
     ActionModeChanged(ActionMode),
     SelectionModeChanged(SelectionMode),
     Reload,
+    FlipSplitViews,
 }
 
 impl<R: Requests, S: AppState> TopBar<R, S> {
@@ -134,6 +136,7 @@ impl<R: Requests, S: AppState> TopBar<R, S> {
             button_split: Default::default(),
             button_oxdna: Default::default(),
             button_split_2d: Default::default(),
+            button_flip_split: Default::default(),
             button_help: Default::default(),
             button_tutorial: Default::default(),
             button_new_empty_design: Default::default(),
@@ -209,6 +212,7 @@ impl<R: Requests, S: AppState> Program for TopBar<R, S> {
                     }
                 }
             }
+            Message::FlipSplitViews => self.requests.lock().unwrap().flip_split_views(),
         };
         Command::none()
     }
@@ -334,6 +338,15 @@ impl<R: Requests, S: AppState> Program for TopBar<R, S> {
             button_split_2d = button_split_2d.on_press(Message::Split2d);
         }
 
+        let mut button_flip_split = Button::new(
+            &mut self.button_flip_split,
+            light_icon(LightIcon::SwapVert, self.ui_size),
+        )
+        .height(Length::Units(self.ui_size.button()));
+        if self.application_state.splited_2d {
+            button_flip_split = button_flip_split.on_press(Message::FlipSplitViews);
+        }
+
         let button_help = Button::new(&mut self.button_help, iced::Text::new("Help"))
             .height(Length::Units(self.ui_size.button()))
             .on_press(Message::ForceHelp);
@@ -395,6 +408,7 @@ impl<R: Requests, S: AppState> Program for TopBar<R, S> {
             .push(button_2d)
             .push(button_split)
             .push(button_split_2d)
+            .push(button_flip_split)
             .push(iced::Space::with_width(Length::Units(10)))
             .push(button_fit)
             .push(iced::Space::with_width(Length::Units(10)))

@@ -90,6 +90,7 @@ pub enum Notification {
     RenderingMode(RenderingMode),
     Fog(FogParameters),
     WindowFocusLost,
+    FlipSplitViews,
 }
 
 #[derive(PartialEq, Debug, Clone, Copy)]

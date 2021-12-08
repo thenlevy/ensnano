@@ -1642,6 +1642,10 @@ impl<'a> MainStateInteface for MainStateView<'a> {
             log::error!("Design has less than {} cameras", n_camera + 1);
         }
     }
+
+    fn flip_split_views(&mut self) {
+        self.notify_apps(Notification::FlipSplitViews)
+    }
 }
 
 use controller::{SetScaffoldSequenceError, SetScaffoldSequenceOk};

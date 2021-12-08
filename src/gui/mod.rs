@@ -184,6 +184,7 @@ pub trait Requests: 'static + Send {
     fn set_suggestion_parameters(&mut self, param: SuggestionParameters);
     fn set_grid_position(&mut self, grid_id: usize, position: Vec3);
     fn set_grid_orientation(&mut self, grid_id: usize, orientation: Rotor3);
+    fn flip_split_views(&mut self);
 }
 
 #[derive(Clone, Debug, PartialEq)]

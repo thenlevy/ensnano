@@ -222,6 +222,7 @@ pub(crate) trait MainState: ScaffoldSetter {
     fn select_favorite_camera(&mut self, n_camera: u32);
     fn update_camera(&mut self, camera_id: ensnano_design::CameraId);
     fn need_backup(&self) -> bool;
+    fn flip_split_views(&mut self);
 }
 
 pub struct LoadDesignError(String);
