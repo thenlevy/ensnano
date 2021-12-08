@@ -299,9 +299,8 @@ impl<S: AppState> Controller<S> {
     }
 
     pub fn flip_split_views(&mut self) {
-        self.camera_bottom.swap(&self.camera_top);
-        // this notifies the camera that they have been updated
-        self.camera_top.borrow_mut().translate_by_vec(0., 0.);
-        self.camera_bottom.borrow_mut().translate_by_vec(0., 0.);
+        self.camera_bottom
+            .borrow_mut()
+            .swap(&mut self.camera_top.borrow_mut())
     }
 }
