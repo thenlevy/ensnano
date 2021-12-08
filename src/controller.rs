@@ -224,6 +224,7 @@ pub(crate) trait MainState: ScaffoldSetter {
     fn toggle_2d(&mut self);
     fn make_all_suggested_xover(&mut self, doubled: bool);
     fn need_backup(&self) -> bool;
+    fn flip_split_views(&mut self);
 }
 
 pub struct LoadDesignError(String);

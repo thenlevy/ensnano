@@ -234,8 +234,14 @@ impl State for NormalState {
                     main_state.toggle_2d();
                     self
                 }
+
                 Action::MakeAllSuggestedXover { doubled } => {
                     main_state.make_all_suggested_xover(doubled);
+                    self
+                }
+
+                Action::FlipSplitViews => {
+                    main_state.flip_split_views();
                     self
                 }
                 action => {
@@ -433,4 +439,5 @@ pub enum Action {
     MakeAllSuggestedXover {
         doubled: bool,
     },
+    FlipSplitViews,
 }

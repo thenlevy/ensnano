@@ -937,6 +937,7 @@ impl<S: AppState> Application for Scene<S> {
                     }
                 }
             }
+            Notification::FlipSplitViews => (),
         }
     }
 

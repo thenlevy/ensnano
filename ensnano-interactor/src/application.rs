@@ -109,6 +109,7 @@ pub enum Notification {
     Fog(FogParameters),
     WindowFocusLost,
     NewStereographicCamera(Arc<(Camera3D, f32)>),
+    FlipSplitViews,
 }
 
 #[derive(PartialEq, Debug, Clone, Copy)]

@@ -189,6 +189,7 @@ pub trait Requests: 'static + Send {
     fn set_nb_turn(&mut self, grid_id: usize, nb_turn: f32);
     fn set_check_xover_parameters(&mut self, paramters: CheckXoversParameter);
     fn follow_stereographic_camera(&mut self, follow: bool);
+    fn flip_split_views(&mut self);
 }
 
 #[derive(Clone, Debug, PartialEq)]

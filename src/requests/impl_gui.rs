@@ -376,6 +376,10 @@ impl GuiRequests for Requests {
     fn follow_stereographic_camera(&mut self, follow: bool) {
         self.follow_stereographic_camera = Some(follow);
     }
+
+    fn flip_split_views(&mut self) {
+        self.keep_proceed.push_back(Action::FlipSplitViews);
+    }
 }
 
 fn rigid_parameters(parameters: RigidBodyParametersRequest) -> RigidBodyConstants {

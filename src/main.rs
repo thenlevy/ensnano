@@ -1704,6 +1704,10 @@ impl<'a> MainStateInteface for MainStateView<'a> {
         let xovers = reader.get_suggestions();
         self.apply_operation(DesignOperation::MakeSeveralXovers { xovers, doubled })
     }
+
+    fn flip_split_views(&mut self) {
+        self.notify_apps(Notification::FlipSplitViews)
+    }
 }
 
 use controller::{SetScaffoldSequenceError, SetScaffoldSequenceOk};
