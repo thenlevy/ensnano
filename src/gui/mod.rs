@@ -470,6 +470,7 @@ impl<R: Requests, S: AppState> GuiElement<R, S> {
     fn resize(&mut self, window: &Window, multiplexer: &dyn Multiplexer) {
         let area = multiplexer.get_draw_area(self.element_type).unwrap();
         self.state.resize(area, window);
+        log::debug!("resizing {:?}", area);
         self.redraw = true;
     }
 

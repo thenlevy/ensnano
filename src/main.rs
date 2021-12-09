@@ -594,6 +594,10 @@ fn main() {
                 let new_gui_state = main_state.gui_state(&multiplexer);
                 if new_gui_state != last_gui_state {
                     last_gui_state = new_gui_state;
+                    messages.lock().unwrap().push_application_state(
+                        main_state.get_app_state().clone(),
+                        last_gui_state.clone(),
+                    );
                     redraw = true;
                 };
                 last_render_time = now;
@@ -651,10 +655,6 @@ fn main() {
                 // Get viewports from the partition
 
                 // If there are events pending
-                messages.lock().unwrap().push_application_state(
-                    main_state.get_app_state().clone(),
-                    last_gui_state.clone(),
-                );
                 gui.update(&multiplexer, &window);
 
                 overlay_manager.process_event(&mut renderer, resized, &multiplexer, &window);
