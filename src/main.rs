@@ -254,6 +254,7 @@ fn main() {
             .await
             .expect("Request device")
     });
+    device.on_uncaptured_error(|e| log::error!("wgpu error {:?}", e));
 
     {
         let size = window.inner_size();
