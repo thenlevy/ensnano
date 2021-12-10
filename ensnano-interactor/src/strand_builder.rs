@@ -201,7 +201,7 @@ impl StrandBuilder {
     }
 
     /// Increase the postion of the moving end by one, and update the neighbour in consequences.
-    fn incr_position(&mut self, design: &Design) {
+    fn incr_position(&mut self, design: &Design, ignored_domains: &[DomainIdentifier]) {
         // Eventually detach from neighbour
         if let Some(desc) = self.neighbour_strand.as_mut() {
             if desc.initial_moving_end == self.moving_end.position - 1
@@ -213,7 +213,9 @@ impl StrandBuilder {
             }
         }
         self.moving_end.position += 1;
-        let desc = design.get_neighbour_nucl(self.moving_end.right());
+        let desc = design
+            .get_neighbour_nucl(self.moving_end.right())
+            .filter(|neighbour| !ignored_domains.contains(&neighbour.identifier));
         if let Some(ref desc) = desc {
             if self.attach_neighbour(desc) {
                 self.max_pos = self.max_pos.or(Some(desc.fixed_end - 1));
@@ -222,7 +224,7 @@ impl StrandBuilder {
     }
 
     /// Decrease the postion of the moving end by one, and update the neighbour in consequences.
-    fn decr_position(&mut self, design: &Design) {
+    fn decr_position(&mut self, design: &Design, ignored_domains: &[DomainIdentifier]) {
         // Update neighbour and eventually detach from it
         if let Some(desc) = self.neighbour_strand.as_mut() {
             if desc.initial_moving_end == self.moving_end.position + 1
@@ -234,7 +236,9 @@ impl StrandBuilder {
             }
         }
         self.moving_end.position -= 1;
-        let desc = design.get_neighbour_nucl(self.moving_end.left());
+        let desc = design
+            .get_neighbour_nucl(self.moving_end.left())
+            .filter(|neighbour| !ignored_domains.contains(&neighbour.identifier));
         if let Some(ref desc) = desc {
             if self.attach_neighbour(desc) {
                 self.min_pos = self.min_pos.or(Some(desc.fixed_end + 1));
@@ -244,18 +248,23 @@ impl StrandBuilder {
 
     /// Move the moving end to an objective position. If this position cannot be reached by the
     /// moving end, it will go as far as possible.
-    pub fn move_to(&mut self, objective: isize, design: &mut Design) {
+    pub fn move_to(
+        &mut self,
+        objective: isize,
+        design: &mut Design,
+        ignored_domains: &[DomainIdentifier],
+    ) {
         let mut need_update = true;
         match objective.cmp(&self.moving_end.position) {
             Ordering::Greater => {
                 while self.moving_end.position < objective.min(self.max_pos.unwrap_or(objective)) {
-                    self.incr_position(design);
+                    self.incr_position(design, ignored_domains);
                     need_update = true;
                 }
             }
             Ordering::Less => {
                 while self.moving_end.position > objective.max(self.min_pos.unwrap_or(objective)) {
-                    self.decr_position(design);
+                    self.decr_position(design, ignored_domains);
                     need_update = true;
                 }
             }
@@ -293,8 +302,12 @@ impl StrandBuilder {
         let domain =
             &mut design.strands.get_mut(&identifier.strand).unwrap().domains[identifier.domain];
         if let Domain::HelixDomain(domain) = domain {
-            domain.start = start;
-            domain.end = end;
+            if identifier.start != Some(false) {
+                domain.start = start;
+            }
+            if identifier.start != Some(true) {
+                domain.end = end;
+            }
         }
     }
 
@@ -375,6 +388,7 @@ pub struct NeighbourDescriptor {
 pub struct DomainIdentifier {
     pub strand: usize,
     pub domain: usize,
+    pub start: Option<bool>,
 }
 
 use ensnano_design::Design;
@@ -387,10 +401,16 @@ impl NeighbourDescriptorGiver for Design {
         for (s_id, s) in self.strands.iter() {
             for (d_id, d) in s.domains.iter().enumerate() {
                 if let Some(other) = d.other_end(nucl) {
+                    let start = if let Domain::HelixDomain(i) = d {
+                        Some(i.start)
+                    } else {
+                        None
+                    };
                     return Some(NeighbourDescriptor {
                         identifier: DomainIdentifier {
                             strand: *s_id,
                             domain: d_id,
+                            start: start.map(|s| s == nucl.position),
                         },
                         fixed_end: other,
                         initial_moving_end: nucl.position,

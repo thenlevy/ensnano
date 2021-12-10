@@ -1487,9 +1487,17 @@ impl Controller {
         nucls: Vec<Nucl>,
     ) -> Result<Design, ErrOperation> {
         let mut builders = Vec::with_capacity(nucls.len());
+        let ignored_domains: Vec<_> = nucls
+            .iter()
+            .filter_map(|nucl| {
+                design
+                    .get_neighbour_nucl(*nucl)
+                    .map(|neighbour| neighbour.identifier)
+            })
+            .collect();
         for nucl in nucls.into_iter() {
             builders.push(
-                self.request_one_builder(&mut design, nucl)
+                self.request_one_builder(&mut design, nucl, &ignored_domains)
                     .ok_or(ErrOperation::CannotBuildOn(nucl))?,
             );
         }
@@ -1498,14 +1506,20 @@ impl Controller {
             initializing: true,
             // The initial design is indeed the one AFTER adding the new strands
             initial_design: AddressPointer::new(design.clone()),
+            ignored_domains,
         };
         Ok(design)
     }
 
-    fn request_one_builder(&mut self, design: &mut Design, nucl: Nucl) -> Option<StrandBuilder> {
+    fn request_one_builder(
+        &mut self,
+        design: &mut Design,
+        nucl: Nucl,
+        ignored_domains: &[DomainIdentifier],
+    ) -> Option<StrandBuilder> {
         // if there is a strand that passes through the nucleotide
         if design.get_strand_nucl(&nucl).is_some() {
-            self.strand_builder_on_exisiting(design, nucl)
+            self.strand_builder_on_exisiting(design, nucl, ignored_domains)
         } else {
             self.new_strand_builder(design, nucl)
         }
@@ -1515,9 +1529,14 @@ impl Controller {
         &mut self,
         design: &Design,
         nucl: Nucl,
+        ignored_domains: &[DomainIdentifier],
     ) -> Option<StrandBuilder> {
-        let left = design.get_neighbour_nucl(nucl.left());
-        let right = design.get_neighbour_nucl(nucl.right());
+        let left = design
+            .get_neighbour_nucl(nucl.left())
+            .filter(|n| !ignored_domains.contains(&n.identifier));
+        let right = design
+            .get_neighbour_nucl(nucl.right())
+            .filter(|n| !ignored_domains.contains(&n.identifier));
         let axis = design
             .helices
             .get(&nucl.helix)
@@ -1544,6 +1563,7 @@ impl Controller {
                 DomainIdentifier {
                     strand: strand_id,
                     domain: 0,
+                    start: None,
                 },
                 nucl,
                 axis,
@@ -1568,6 +1588,7 @@ impl Controller {
             DomainIdentifier {
                 strand: new_key,
                 domain: 0,
+                start: None,
             },
             nucl,
             axis,
@@ -1629,11 +1650,17 @@ impl Controller {
             initial_design,
             builders,
             initializing,
+            ignored_domains,
         } = &mut self.state
         {
+            let delta = builders
+                .get(0)
+                .map(|b| n - b.get_moving_end_position())
+                .unwrap_or(0);
             let mut design = initial_design.clone_inner();
             for builder in builders.iter_mut() {
-                builder.move_to(n, &mut design)
+                let to = builder.get_moving_end_position() + delta;
+                builder.move_to(to, &mut design, &ignored_domains)
             }
             *initializing = false;
             Ok(design)
@@ -2345,6 +2372,7 @@ enum ControllerState {
         builders: Vec<StrandBuilder>,
         initial_design: AddressPointer<Design>,
         initializing: bool,
+        ignored_domains: Vec<DomainIdentifier>,
     },
     ChangingColor,
     SettingRollHelices,
