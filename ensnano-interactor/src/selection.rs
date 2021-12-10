@@ -145,6 +145,33 @@ impl Selection {
     }
 }
 
+pub fn extract_nucls_and_xover_ends(
+    selection: &[Selection],
+    reader: &dyn DesignReader,
+) -> Vec<Nucl> {
+    let mut ret = Vec::with_capacity(2 * selection.len());
+    for s in selection.iter() {
+        match s {
+            Selection::Nucleotide(_, n) => ret.push(*n),
+            Selection::Bound(_, n1, n2) => {
+                ret.push(*n1);
+                ret.push(*n2);
+            }
+            Selection::Xover(_, xover_id) => {
+                if let Some((n1, n2)) = reader.get_xover_with_id(*xover_id) {
+                    ret.push(n1);
+                    ret.push(n2);
+                } else {
+                    //log::error!("No xover with id {}", xover_id);
+                }
+            }
+            _ => (),
+        }
+    }
+    ret.dedup();
+    ret
+}
+
 pub fn extract_strands_from_selection(selection: &[Selection]) -> Vec<usize> {
     selection.iter().filter_map(extract_one_strand).collect()
 }

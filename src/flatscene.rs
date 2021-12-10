@@ -411,11 +411,18 @@ impl<S: AppState> FlatScene<S> {
                 )
             }
             Consequence::InitBuilding(nucl) => {
-                self.requests.lock().unwrap().apply_design_operation(
-                    DesignOperation::RequestStrandBuilders {
-                        nucls: vec![nucl.to_real()],
-                    },
-                )
+                let mut nucls = ensnano_interactor::extract_nucls_and_xover_ends(
+                    app_state.get_selection(),
+                    &app_state.get_design_reader(),
+                );
+                let nucl = nucl.to_real();
+                if !nucls.contains(&nucl) {
+                    nucls.push(nucl);
+                }
+                self.requests
+                    .lock()
+                    .unwrap()
+                    .apply_design_operation(DesignOperation::RequestStrandBuilders { nucls })
             }
             Consequence::MoveBuilders(n) => self
                 .requests
@@ -586,7 +593,7 @@ impl<S: AppState> Application for FlatScene<S> {
 }
 
 pub trait AppState: Clone {
-    type Reader: DesignReader;
+    type Reader: DesignReader + ensnano_interactor::DesignReader;
     fn selection_was_updated(&self, other: &Self) -> bool;
     fn candidate_was_updated(&self, other: &Self) -> bool;
     fn get_selection(&self) -> &[Selection];
