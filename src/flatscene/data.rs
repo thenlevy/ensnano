@@ -736,20 +736,27 @@ impl Data {
             right,
             bottom
         );
-        let mut selection = BTreeSet::new();
+        let mut selection = Vec::new();
         for (xover_id, (flat_1, flat_2)) in self.design.get_xovers_list() {
             let h1 = &self.helices[flat_1.helix.flat];
             let h2 = &self.helices[flat_2.helix.flat];
-            if h1.rectangle_has_nucl(flat_1, left, top, right, bottom, camera)
-                && h2.rectangle_has_nucl(flat_2, left, top, right, bottom, camera)
-            {
-                selection.insert(xover_id);
+            let flat_1_in = h1.rectangle_has_nucl(flat_1, left, top, right, bottom, camera);
+            let flat_2_in = h2.rectangle_has_nucl(flat_1, left, top, right, bottom, camera);
+            if flat_1_in && flat_2_in {
+                selection.push(Selection::Xover(self.id, xover_id));
+            } else if flat_1_in {
+                selection.push(Selection::Nucleotide(self.id, flat_1.to_real()));
+            } else if flat_2_in {
+                selection.push(Selection::Nucleotide(self.id, flat_2.to_real()));
             }
         }
-        let mut selection: Vec<Selection> = selection
-            .iter()
-            .map(|xover_id| Selection::Xover(self.id, *xover_id))
-            .collect();
+        for end in self.design.get_strand_ends() {
+            let h1 = &self.helices[end.helix.flat];
+            if h1.rectangle_has_nucl(end, left, top, right, bottom, camera) {
+                selection.push(Selection::Nucleotide(self.id, end.to_real()))
+            }
+        }
+        selection.dedup();
         if selection.is_empty() {
             self.add_long_xover_rectangle(&mut selection, c1, c2);
         }

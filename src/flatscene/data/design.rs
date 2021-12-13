@@ -380,6 +380,14 @@ impl Design2d {
     pub fn get_xover_with_id(&self, xover_id: usize) -> Option<(Nucl, Nucl)> {
         self.design.get_xover_with_id(xover_id)
     }
+
+    pub fn get_strand_ends(&self) -> Vec<FlatNucl> {
+        self.design
+            .get_strand_ends()
+            .iter()
+            .filter_map(|n| FlatNucl::from_real(n, &self.id_map))
+            .collect()
+    }
 }
 
 /// Store the informations needed to represent an helix from the design
@@ -460,4 +468,5 @@ pub trait DesignReader: 'static {
     fn get_helices_on_grid(&self, g_id: usize) -> Option<HashSet<usize>>;
     fn get_basis_map(&self) -> Arc<HashMap<Nucl, char, RandomState>>;
     fn get_group_map(&self) -> Arc<BTreeMap<usize, bool>>;
+    fn get_strand_ends(&self) -> Vec<Nucl>;
 }
