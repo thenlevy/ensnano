@@ -162,7 +162,14 @@ pub fn extract_nucls_and_xover_ends(
                     ret.push(n1);
                     ret.push(n2);
                 } else {
-                    //log::error!("No xover with id {}", xover_id);
+                    log::error!("No xover with id {}", xover_id);
+                }
+            }
+            Selection::Strand(_, s_id) => {
+                if let Some(ends) = reader.get_domain_ends(*s_id as usize) {
+                    ret.extend(ends);
+                } else {
+                    log::error!("No strand with id {}", s_id);
                 }
             }
             _ => (),
@@ -539,6 +546,7 @@ pub trait DesignReader {
     fn get_xover_with_id(&self, id: usize) -> Option<(Nucl, Nucl)>;
     fn get_strand_with_id(&self, id: usize) -> Option<&Strand>;
     fn get_helix_grid(&self, h_id: usize) -> Option<usize>;
+    fn get_domain_ends(&self, s_id: usize) -> Option<Vec<Nucl>>;
 }
 
 pub trait SelectionConversion: Sized {

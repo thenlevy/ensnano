@@ -897,6 +897,14 @@ impl Strand {
     pub fn set_name<S: Into<Cow<'static, str>>>(&mut self, name: S) {
         self.name = Some(name.into())
     }
+
+    pub fn domain_ends(&self) -> Vec<Nucl> {
+        self.domains
+            .iter()
+            .filter_map(|d| Some([d.prime5_end()?, d.prime3_end()?]))
+            .flatten()
+            .collect()
+    }
 }
 
 fn is_false(x: &bool) -> bool {
