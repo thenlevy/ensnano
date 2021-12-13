@@ -440,7 +440,7 @@ impl DomainIdentifier {
         }
     }
 
-    fn is_same_domain_than(&self, other: &Self) -> bool {
+    pub fn is_same_domain_than(&self, other: &Self) -> bool {
         self.strand == other.strand && self.domain == other.domain
     }
 }
