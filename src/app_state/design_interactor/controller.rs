@@ -1926,6 +1926,7 @@ impl Controller {
                 .strands
                 .remove(&prime3)
                 .ok_or(ErrOperation::StrandDoesNotExist(prime3))?;
+            let name = strand5prime.name.or(strand3prime.name);
             let len = strand5prime.domains.len() + strand3prime.domains.len();
             let mut domains = Vec::with_capacity(len);
             let mut junctions = Vec::with_capacity(len);
@@ -1980,7 +1981,7 @@ impl Controller {
                 sequence,
                 junctions,
                 cyclic: false,
-                name: None,
+                name,
             };
             design.strands.insert(prime5, new_strand);
             Ok(())
