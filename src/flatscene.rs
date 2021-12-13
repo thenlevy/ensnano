@@ -416,8 +416,13 @@ impl<S: AppState> FlatScene<S> {
                     &app_state.get_design_reader(),
                 );
                 let nucl = nucl.to_real();
-                if !nucls.contains(&nucl) {
-                    nucls.push(nucl);
+
+                if let Some(idx) = (0..nucls.len()).find(|i| nucls[*i] == nucl) {
+                    // the nucleotide we start building on should be the first in the vec
+                    nucls.swap(idx, 0);
+                } else {
+                    // If we start building on a non selected nucleotide, we ignore the selection
+                    nucls = vec![nucl];
                 }
                 self.requests
                     .lock()
