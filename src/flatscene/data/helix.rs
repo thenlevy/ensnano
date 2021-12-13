@@ -210,6 +210,24 @@ impl Helix {
                         Vec2::new(0.7, 1.4)
                     }
                 }
+                Shift::Prime5Outsided => {
+                    if nucl.forward {
+                        // on the left and below the center
+                        Vec2::new(0.3, -0.2)
+                    } else {
+                        // on the right and above the center
+                        Vec2::new(0.7, 2.2)
+                    }
+                }
+                Shift::Prime3Outsided => {
+                    if nucl.forward {
+                        // on the right and below the center
+                        Vec2::new(0.7, -0.2)
+                    } else {
+                        // on the left and above the center
+                        Vec2::new(0.3, 2.2)
+                    }
+                }
                 Shift::No => {
                     if nucl.forward {
                         Vec2::new(0.5, 0.5)
@@ -1027,6 +1045,10 @@ pub enum Shift {
     Prime5,
     /// The returned point will be slightly shifted in the 3' direction
     Prime3,
+    /// The returned point will be slightly shifted in the 5' direction outside the helix
+    Prime5Outsided,
+    /// The returned point will be slightly shifted in the 3' direction outside the helix
+    Prime3Outsided,
 }
 
 #[derive(Debug, Clone, Copy)]

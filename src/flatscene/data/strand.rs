@@ -90,7 +90,7 @@ impl Strand {
         };
 
         let mut last_depth = None;
-        let mut sign = 1.;
+        let mut sign = 10.;
         let mut nb_point_helix = 0;
 
         for (i, nucl) in self.points.iter().enumerate() {
@@ -114,9 +114,10 @@ impl Strand {
             } else if xover {
                 let depth = depth.min(last_depth.unwrap_or(depth));
                 let mut cut = false;
-                if let Some(nucl) = last_nucl {
+                if let Some(last_nucl) = last_nucl {
                     // We are drawing a xover
-                    let point = helices[nucl.helix].get_nucl_position(&nucl, Shift::Prime3);
+                    let point =
+                        helices[last_nucl.helix].get_nucl_position(&last_nucl, Shift::Prime3);
                     last_point = Some(point);
                     builder.line_to(Point::new(point.x, point.y), &[depth, sign]);
                 } else {
@@ -150,9 +151,26 @@ impl Strand {
 
                 let normal = {
                     let diff = (xover_target - xover_origin).normalized();
-                    Vec2::new(diff.y, diff.x)
+                    Vec2::new(diff.y, -diff.x)
                 };
-                let control = (xover_origin + xover_target) / 2. + normal / 3.;
+                let dir = (xover_target - xover_origin).normalized();
+                let dist = (xover_target - xover_origin).mag();
+                let normal_1 = if let Some(last_nucl) = last_nucl {
+                    let pos = helices[last_nucl.helix]
+                        .get_nucl_position(&last_nucl.prime5(), Shift::Prime3Outsided);
+                    (pos - xover_origin).normalized()
+                } else {
+                    normal
+                };
+                let normal_2 = {
+                    let pos = helices[nucl.helix]
+                        .get_nucl_position(&nucl.prime3(), Shift::Prime5Outsided);
+                    (pos - xover_target).normalized()
+                };
+                //let control_1 = xover_origin - (dist / 2.) * dir + normal_1;
+                //let control_2 = xover_target + (dist / 2.) * dir + normal_2;
+                let control_1 = xover_origin + (dist.sqrt() / 2.) * normal_1;
+                let control_2 = xover_target + (dist.sqrt() / 2.) * normal_2;
                 if cut {
                     cross_split_builder
                         .begin(Point::new(xover_origin.x, xover_origin.y), &[depth, 5.]);
@@ -165,8 +183,9 @@ impl Strand {
                     cross_split_builder.end(false);
                 } else {
                     sign *= -1.;
-                    builder.quadratic_bezier_to(
-                        Point::new(control.x, control.y),
+                    builder.cubic_bezier_to(
+                        Point::new(control_1.x, control_1.y),
+                        Point::new(control_2.x, control_2.y),
                         Point::new(xover_target.x, xover_target.y),
                         &[depth, sign],
                     );
@@ -361,7 +380,12 @@ pub struct WithAttributes {
 
 impl StrokeVertexConstructor<StrandVertex> for WithAttributes {
     fn new_vertex(&mut self, mut vertex: StrokeVertex) -> StrandVertex {
-        let mut width = vertex.interpolated_attributes()[1].min(1.).powi(2).max(0.3);
+        let mut width = (vertex.interpolated_attributes()[1] / 3.)
+            .min(1.)
+            .max(-1.)
+            .abs()
+            .powf(2.)
+            .max(0.3);
         if self.highlight {
             width *= HIGHLIGHT_FACTOR;
         }
