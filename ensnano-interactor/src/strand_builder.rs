@@ -123,17 +123,19 @@ impl StrandBuilder {
         identifier: DomainIdentifier,
         nucl: Nucl,
         axis: Axis,
-        other_end: isize,
+        other_end: Option<isize>,
         neighbour: Option<NeighbourDescriptor>,
         stick: bool,
     ) -> Self {
         let mut min_pos = None;
         let mut max_pos = None;
         let initial_position = nucl.position;
-        if initial_position < other_end {
-            max_pos = Some(other_end);
-        } else {
-            min_pos = Some(other_end);
+        if let Some(other_end) = other_end {
+            if initial_position < other_end {
+                max_pos = Some(other_end);
+            } else {
+                min_pos = Some(other_end);
+            }
         }
         let neighbour_strand;
         let neighbour_direction;
@@ -155,12 +157,12 @@ impl StrandBuilder {
             neighbour_strand = None;
             neighbour_direction = None;
         }
-        Self {
+        let ret = Self {
             moving_end: nucl,
             initial_position,
             axis,
             identifier,
-            fixed_end: Some(other_end),
+            fixed_end: other_end,
             neighbour_strand,
             neighbour_direction,
             max_pos,
@@ -169,7 +171,9 @@ impl StrandBuilder {
             design_id: 0,
             timestamp: std::time::SystemTime::now(),
             de_novo: false,
-        }
+        };
+        log::info!("builder {:?}", ret);
+        ret
     }
 
     /// Detach the neighbour, this function must be called when the moving end goes to a position
@@ -184,7 +188,7 @@ impl StrandBuilder {
     fn attach_neighbour(&mut self, descriptor: &NeighbourDescriptor) -> bool {
         // To prevent attaching to self or attaching to the same neighbour or attaching to a
         // neighbour in the wrong direction
-        if self.identifier == descriptor.identifier
+        if self.identifier.is_same_domain_than(&descriptor.identifier)
             || self.neighbour_strand.is_some()
             || descriptor.moving_end > self.max_pos.unwrap_or(descriptor.moving_end)
             || descriptor.moving_end < self.min_pos.unwrap_or(descriptor.moving_end)
@@ -254,6 +258,8 @@ impl StrandBuilder {
         design: &mut Design,
         ignored_domains: &[DomainIdentifier],
     ) {
+        log::info!("self {:?}", self);
+        log::info!("move to {}", objective);
         let mut need_update = true;
         match objective.cmp(&self.moving_end.position) {
             Ordering::Greater => {
@@ -272,6 +278,24 @@ impl StrandBuilder {
         }
         if need_update {
             self.update(design)
+        }
+    }
+
+    pub fn try_incr(&mut self, design: &Design, ignored_domains: &[DomainIdentifier]) -> bool {
+        if self.moving_end.position < self.max_pos.unwrap_or(isize::MAX) {
+            self.incr_position(design, ignored_domains);
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn try_decr(&mut self, design: &Design, ignored_domains: &[DomainIdentifier]) -> bool {
+        if self.moving_end.position > self.min_pos.unwrap_or(isize::MIN) {
+            self.decr_position(design, ignored_domains);
+            true
+        } else {
+            false
         }
     }
 
@@ -297,16 +321,28 @@ impl StrandBuilder {
         position: isize,
         fixed_position: isize,
     ) {
-        let start = position.min(fixed_position);
-        let end = position.max(fixed_position) + 1;
+        log::info!(
+            "updating {:?}, position {}, fixed_position {}",
+            identifier,
+            position,
+            fixed_position
+        );
         let domain =
             &mut design.strands.get_mut(&identifier.strand).unwrap().domains[identifier.domain];
         if let Domain::HelixDomain(domain) = domain {
-            if identifier.start != Some(false) {
-                domain.start = start;
-            }
-            if identifier.start != Some(true) {
-                domain.end = end;
+            match identifier.start {
+                None => {
+                    let start = position.min(fixed_position);
+                    let end = position.max(fixed_position) + 1;
+                    domain.start = start;
+                    domain.end = end;
+                }
+                Some(false) => {
+                    domain.end = position + 1;
+                }
+                Some(true) => {
+                    domain.start = position;
+                }
             }
         }
     }
@@ -389,6 +425,24 @@ pub struct DomainIdentifier {
     pub strand: usize,
     pub domain: usize,
     pub start: Option<bool>,
+}
+
+impl DomainIdentifier {
+    pub fn other_end(&self) -> Option<Self> {
+        if let Some(end) = self.start {
+            Some(Self {
+                strand: self.strand,
+                domain: self.domain,
+                start: Some(!end),
+            })
+        } else {
+            None
+        }
+    }
+
+    fn is_same_domain_than(&self, other: &Self) -> bool {
+        self.strand == other.strand && self.domain == other.domain
+    }
 }
 
 use ensnano_design::Design;

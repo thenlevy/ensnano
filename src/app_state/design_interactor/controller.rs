@@ -1550,12 +1550,18 @@ impl Controller {
             // TODO maybe we should do something else ?
             return None;
         }
+        let other_end = desc
+            .identifier
+            .other_end()
+            .filter(|d| !ignored_domains.contains(d))
+            .is_some()
+            .then(|| desc.fixed_end);
         match design.strands.get(&strand_id).map(|s| s.length()) {
             Some(n) if n > 1 => Some(StrandBuilder::init_existing(
                 desc.identifier,
                 nucl,
                 axis,
-                desc.fixed_end,
+                other_end,
                 neighbour_desc,
                 stick,
             )),
@@ -1645,7 +1651,11 @@ impl Controller {
         new_key
     }
 
-    fn move_strand_builders(&mut self, _: Design, n: isize) -> Result<Design, ErrOperation> {
+    fn move_strand_builders(
+        &mut self,
+        current_design: Design,
+        n: isize,
+    ) -> Result<Design, ErrOperation> {
         if let ControllerState::BuildingStrand {
             initial_design,
             builders,
@@ -1658,9 +1668,42 @@ impl Controller {
                 .map(|b| n - b.get_moving_end_position())
                 .unwrap_or(0);
             let mut design = initial_design.clone_inner();
-            for builder in builders.iter_mut() {
-                let to = builder.get_moving_end_position() + delta;
-                builder.move_to(to, &mut design, &ignored_domains)
+            if builders.len() > 1 {
+                let sign = delta.signum();
+                let mut blocked = false;
+                if delta != 0 {
+                    for i in 0..(sign * delta) {
+                        let mut copy_builder = builders.clone();
+                        for builder in copy_builder.iter_mut() {
+                            if sign > 0 && !builder.try_incr(&current_design, ignored_domains) {
+                                blocked = true;
+                                break;
+                            } else if sign < 0
+                                && !builder.try_decr(&current_design, ignored_domains)
+                            {
+                                blocked = true;
+                                break;
+                            }
+                        }
+                        if blocked {
+                            if i == 0 {
+                                return Ok(current_design);
+                            }
+                            break;
+                        }
+                        *builders = copy_builder;
+                        for builder in builders.iter_mut() {
+                            builder.update(&mut design);
+                        }
+                    }
+                } else {
+                    return Ok(current_design);
+                }
+            } else {
+                for builder in builders.iter_mut() {
+                    let to = builder.get_moving_end_position() + delta;
+                    builder.move_to(to, &mut design, &ignored_domains)
+                }
             }
             *initializing = false;
             Ok(design)

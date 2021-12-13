@@ -31,4 +31,4 @@ ensnano_design = { path = "../ensnano-design" }
 ensnano_organizer = { path = "../ensnano-organizer" }
 iced_wgpu = { git = "https://github.com/hecrj/iced", rev = "61c747b53589d98f477fea95f85d2ea5349666d3" }
 iced_winit = { git = "https://github.com/hecrj/iced", rev = "61c747b53589d98f477fea95f85d2ea5349666d3" }
-
+log = "0.4"
