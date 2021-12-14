@@ -322,14 +322,13 @@ struct StrandVertexBuilder<'a> {
     splited_cross_over_builder: BuilderWithAttributes,
     /// The current position of the path builders
     last_point: Option<Vec2>,
-    /// The depth attribute is used to generate the z coordinate of the vertices
-    last_depth: Option<f32>,
     /// The sign attribute is used to handle the width of the path. The sign should be flipped
     /// between each extremity of a stroke that should be thin in the middle.
     sign: f32,
     main_camera: &'a CameraPtr,
     alternative_camera: &'a CameraPtr,
     main_builder_is_drawing: bool,
+    /// The depth attribute is used to generate the z coordinate of the vertices
     depth: f32,
 }
 
@@ -364,7 +363,6 @@ impl<'a> StrandVertexBuilder<'a> {
             main_path_builder,
             splited_cross_over_builder,
             last_point,
-            last_depth: None,
             sign: 1.0,
             main_camera: initializer.main_camera,
             alternative_camera: initializer.alternative_camera,
@@ -419,9 +417,9 @@ impl<'a> StrandVertexBuilder<'a> {
                 {
                     self.stop_drawing();
                     self.splited_cross_over_builder
-                        .begin(Point::new(from.x, from.y), attributes!(self));
+                        .begin(Point::new(from.x, from.y), &[self.depth, 5.0]);
                     self.splited_cross_over_builder
-                        .line_to(Point::new(to.x, to.y), attributes!(self));
+                        .line_to(Point::new(to.x, to.y), &[self.depth, 5.0]);
                     self.splited_cross_over_builder.end(false);
                 } else {
                     let origin = self.last_point.expect("last point");
