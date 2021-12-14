@@ -358,7 +358,8 @@ impl Design2d {
     }
 
     pub fn strand_from_xover(&self, xover: &(Nucl, Nucl), color: u32) -> Strand {
-        let flat_nucls = [xover.0, xover.1]
+        // pretend it's a strand with two size one domains
+        let flat_nucls = [xover.0, xover.0, xover.1, xover.1]
             .iter()
             .filter_map(|n| FlatNucl::from_real(n, self.id_map()))
             .collect();
@@ -379,6 +380,14 @@ impl Design2d {
 
     pub fn get_xover_with_id(&self, xover_id: usize) -> Option<(Nucl, Nucl)> {
         self.design.get_xover_with_id(xover_id)
+    }
+
+    pub fn get_strand_ends(&self) -> Vec<FlatNucl> {
+        self.design
+            .get_strand_ends()
+            .iter()
+            .filter_map(|n| FlatNucl::from_real(n, &self.id_map))
+            .collect()
     }
 }
 
@@ -460,4 +469,5 @@ pub trait DesignReader: 'static {
     fn get_helices_on_grid(&self, g_id: usize) -> Option<HashSet<usize>>;
     fn get_basis_map(&self) -> Arc<HashMap<Nucl, char, RandomState>>;
     fn get_group_map(&self) -> Arc<BTreeMap<usize, bool>>;
+    fn get_strand_ends(&self) -> Vec<Nucl>;
 }

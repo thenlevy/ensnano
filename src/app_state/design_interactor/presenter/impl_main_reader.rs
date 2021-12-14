@@ -145,4 +145,12 @@ impl MainReader for DesignReader {
             .get(&h_id)
             .and_then(|h| h.grid_position.map(|pos| pos.grid))
     }
+
+    fn get_domain_ends(&self, s_id: usize) -> Option<Vec<Nucl>> {
+        self.presenter
+            .current_design
+            .strands
+            .get(&s_id)
+            .map(|s| s.domain_ends())
+    }
 }

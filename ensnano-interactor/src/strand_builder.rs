@@ -28,7 +28,7 @@ pub struct StrandBuilder {
     /// The initial position of the moving end
     pub initial_position: isize,
     /// Axis of the support helix on which the domain lies
-    axis: OwnedAxis,
+    pub axis: OwnedAxis,
     /// The identifier of the domain being eddited
     identifier: DomainIdentifier,
     /// The fixed_end of the domain being eddited, `None` if the domain is new and can go in both
@@ -123,17 +123,19 @@ impl StrandBuilder {
         identifier: DomainIdentifier,
         nucl: Nucl,
         axis: OwnedAxis,
-        other_end: isize,
+        other_end: Option<isize>,
         neighbour: Option<NeighbourDescriptor>,
         stick: bool,
     ) -> Self {
         let mut min_pos = None;
         let mut max_pos = None;
         let initial_position = nucl.position;
-        if initial_position < other_end {
-            max_pos = Some(other_end);
-        } else {
-            min_pos = Some(other_end);
+        if let Some(other_end) = other_end {
+            if initial_position < other_end {
+                max_pos = Some(other_end);
+            } else {
+                min_pos = Some(other_end);
+            }
         }
         let neighbour_strand;
         let neighbour_direction;
@@ -155,12 +157,12 @@ impl StrandBuilder {
             neighbour_strand = None;
             neighbour_direction = None;
         }
-        Self {
+        let ret = Self {
             moving_end: nucl,
             initial_position,
             axis,
             identifier,
-            fixed_end: Some(other_end),
+            fixed_end: other_end,
             neighbour_strand,
             neighbour_direction,
             max_pos,
@@ -169,7 +171,9 @@ impl StrandBuilder {
             design_id: 0,
             timestamp: std::time::SystemTime::now(),
             de_novo: false,
-        }
+        };
+        log::info!("builder {:?}", ret);
+        ret
     }
 
     /// Detach the neighbour, this function must be called when the moving end goes to a position
@@ -184,7 +188,7 @@ impl StrandBuilder {
     fn attach_neighbour(&mut self, descriptor: &NeighbourDescriptor) -> bool {
         // To prevent attaching to self or attaching to the same neighbour or attaching to a
         // neighbour in the wrong direction
-        if self.identifier == descriptor.identifier
+        if self.identifier.is_same_domain_than(&descriptor.identifier)
             || self.neighbour_strand.is_some()
             || descriptor.moving_end > self.max_pos.unwrap_or(descriptor.moving_end)
             || descriptor.moving_end < self.min_pos.unwrap_or(descriptor.moving_end)
@@ -201,7 +205,7 @@ impl StrandBuilder {
     }
 
     /// Increase the postion of the moving end by one, and update the neighbour in consequences.
-    fn incr_position(&mut self, design: &Design) {
+    fn incr_position(&mut self, design: &Design, ignored_domains: &[DomainIdentifier]) {
         // Eventually detach from neighbour
         if let Some(desc) = self.neighbour_strand.as_mut() {
             if desc.initial_moving_end == self.moving_end.position - 1
@@ -213,7 +217,9 @@ impl StrandBuilder {
             }
         }
         self.moving_end.position += 1;
-        let desc = design.get_neighbour_nucl(self.moving_end.right());
+        let desc = design
+            .get_neighbour_nucl(self.moving_end.right())
+            .filter(|neighbour| !ignored_domains.contains(&neighbour.identifier));
         if let Some(ref desc) = desc {
             if self.attach_neighbour(desc) {
                 self.max_pos = self.max_pos.or(Some(desc.fixed_end - 1));
@@ -222,7 +228,7 @@ impl StrandBuilder {
     }
 
     /// Decrease the postion of the moving end by one, and update the neighbour in consequences.
-    fn decr_position(&mut self, design: &Design) {
+    fn decr_position(&mut self, design: &Design, ignored_domains: &[DomainIdentifier]) {
         // Update neighbour and eventually detach from it
         if let Some(desc) = self.neighbour_strand.as_mut() {
             if desc.initial_moving_end == self.moving_end.position + 1
@@ -234,7 +240,9 @@ impl StrandBuilder {
             }
         }
         self.moving_end.position -= 1;
-        let desc = design.get_neighbour_nucl(self.moving_end.left());
+        let desc = design
+            .get_neighbour_nucl(self.moving_end.left())
+            .filter(|neighbour| !ignored_domains.contains(&neighbour.identifier));
         if let Some(ref desc) = desc {
             if self.attach_neighbour(desc) {
                 self.min_pos = self.min_pos.or(Some(desc.fixed_end + 1));
@@ -244,18 +252,25 @@ impl StrandBuilder {
 
     /// Move the moving end to an objective position. If this position cannot be reached by the
     /// moving end, it will go as far as possible.
-    pub fn move_to(&mut self, objective: isize, design: &mut Design) {
+    pub fn move_to(
+        &mut self,
+        objective: isize,
+        design: &mut Design,
+        ignored_domains: &[DomainIdentifier],
+    ) {
+        log::info!("self {:?}", self);
+        log::info!("move to {}", objective);
         let mut need_update = true;
         match objective.cmp(&self.moving_end.position) {
             Ordering::Greater => {
                 while self.moving_end.position < objective.min(self.max_pos.unwrap_or(objective)) {
-                    self.incr_position(design);
+                    self.incr_position(design, ignored_domains);
                     need_update = true;
                 }
             }
             Ordering::Less => {
                 while self.moving_end.position > objective.max(self.min_pos.unwrap_or(objective)) {
-                    self.decr_position(design);
+                    self.decr_position(design, ignored_domains);
                     need_update = true;
                 }
             }
@@ -263,6 +278,24 @@ impl StrandBuilder {
         }
         if need_update {
             self.update(design)
+        }
+    }
+
+    pub fn try_incr(&mut self, design: &Design, ignored_domains: &[DomainIdentifier]) -> bool {
+        if self.moving_end.position < self.max_pos.unwrap_or(isize::MAX) {
+            self.incr_position(design, ignored_domains);
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn try_decr(&mut self, design: &Design, ignored_domains: &[DomainIdentifier]) -> bool {
+        if self.moving_end.position > self.min_pos.unwrap_or(isize::MIN) {
+            self.decr_position(design, ignored_domains);
+            true
+        } else {
+            false
         }
     }
 
@@ -288,13 +321,29 @@ impl StrandBuilder {
         position: isize,
         fixed_position: isize,
     ) {
-        let start = position.min(fixed_position);
-        let end = position.max(fixed_position) + 1;
+        log::info!(
+            "updating {:?}, position {}, fixed_position {}",
+            identifier,
+            position,
+            fixed_position
+        );
         let domain =
             &mut design.strands.get_mut(&identifier.strand).unwrap().domains[identifier.domain];
         if let Domain::HelixDomain(domain) = domain {
-            domain.start = start;
-            domain.end = end;
+            match identifier.start {
+                None => {
+                    let start = position.min(fixed_position);
+                    let end = position.max(fixed_position) + 1;
+                    domain.start = start;
+                    domain.end = end;
+                }
+                Some(false) => {
+                    domain.end = position + 1;
+                }
+                Some(true) => {
+                    domain.start = position;
+                }
+            }
         }
     }
 
@@ -306,6 +355,10 @@ impl StrandBuilder {
             axis: new_axis,
             ..self
         }
+    }
+
+    pub fn get_axis<'a>(&'a self) -> Axis<'a> {
+        self.axis.borrow()
     }
 
     /// Return the identifier of the design being eddited
@@ -349,10 +402,6 @@ impl StrandBuilder {
     pub fn get_timestamp(&self) -> std::time::SystemTime {
         self.timestamp
     }
-
-    pub fn get_axis<'a>(&'a self) -> Axis<'a> {
-        self.axis.borrow()
-    }
 }
 
 /// The direction in which a moving end can go
@@ -379,6 +428,25 @@ pub struct NeighbourDescriptor {
 pub struct DomainIdentifier {
     pub strand: usize,
     pub domain: usize,
+    pub start: Option<bool>,
+}
+
+impl DomainIdentifier {
+    pub fn other_end(&self) -> Option<Self> {
+        if let Some(end) = self.start {
+            Some(Self {
+                strand: self.strand,
+                domain: self.domain,
+                start: Some(!end),
+            })
+        } else {
+            None
+        }
+    }
+
+    pub fn is_same_domain_than(&self, other: &Self) -> bool {
+        self.strand == other.strand && self.domain == other.domain
+    }
 }
 
 use ensnano_design::Design;
@@ -391,10 +459,17 @@ impl NeighbourDescriptorGiver for Design {
         for (s_id, s) in self.strands.iter() {
             for (d_id, d) in s.domains.iter().enumerate() {
                 if let Some(other) = d.other_end(nucl) {
+                    let start = if let Domain::HelixDomain(i) = d {
+                        // if the domain has length one, we are not at a specific end
+                        (d.length() > 1).then(|| i.start)
+                    } else {
+                        None
+                    };
                     return Some(NeighbourDescriptor {
                         identifier: DomainIdentifier {
                             strand: *s_id,
                             domain: d_id,
+                            start: start.map(|s| s == nucl.position),
                         },
                         fixed_end: other,
                         initial_moving_end: nucl.position,

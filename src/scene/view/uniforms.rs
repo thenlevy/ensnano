@@ -36,8 +36,8 @@ pub struct Uniforms {
     pub fog_alt_center: Vec3,     // 3
     pub stereography_radius: f32, // 0
     pub stereography_view: Mat4,  // 0
-    pub aspect_ratio: f32,      // 1
-    pub stereography_zoom: f32
+    pub aspect_ratio: f32,        // 1
+    pub stereography_zoom: f32,
 }
 
 #[derive(Clone, Debug)]

@@ -329,9 +329,12 @@ impl CameraController {
     pub fn update_stereographic_zoom(&mut self, delta: &MouseScrollDelta) {
         let direction = match delta {
             MouseScrollDelta::LineDelta(_, scroll) => scroll.signum(),
-            MouseScrollDelta::PixelDelta(PhysicalPosition{y: scroll, ..}) => scroll.signum() as f32,
+            MouseScrollDelta::PixelDelta(PhysicalPosition { y: scroll, .. }) => {
+                scroll.signum() as f32
+            }
         };
-        self.projection.borrow_mut().stereographic_zoom *= crate::consts::STEREOGRAPHIC_ZOOM_STEP.powf(direction);
+        self.projection.borrow_mut().stereographic_zoom *=
+            crate::consts::STEREOGRAPHIC_ZOOM_STEP.powf(direction);
     }
 
     /// Rotate the head of the camera on its yz plane and xz plane according to the values of

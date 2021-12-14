@@ -1555,9 +1555,17 @@ impl Controller {
         nucls: Vec<Nucl>,
     ) -> Result<Design, ErrOperation> {
         let mut builders = Vec::with_capacity(nucls.len());
+        let ignored_domains: Vec<_> = nucls
+            .iter()
+            .filter_map(|nucl| {
+                design
+                    .get_neighbour_nucl(*nucl)
+                    .map(|neighbour| neighbour.identifier)
+            })
+            .collect();
         for nucl in nucls.into_iter() {
             builders.push(
-                self.request_one_builder(&mut design, nucl)
+                self.request_one_builder(&mut design, nucl, &ignored_domains)
                     .ok_or(ErrOperation::CannotBuildOn(nucl))?,
             );
         }
@@ -1566,14 +1574,20 @@ impl Controller {
             initializing: true,
             // The initial design is indeed the one AFTER adding the new strands
             initial_design: AddressPointer::new(design.clone()),
+            ignored_domains,
         };
         Ok(design)
     }
 
-    fn request_one_builder(&mut self, design: &mut Design, nucl: Nucl) -> Option<StrandBuilder> {
+    fn request_one_builder(
+        &mut self,
+        design: &mut Design,
+        nucl: Nucl,
+        ignored_domains: &[DomainIdentifier],
+    ) -> Option<StrandBuilder> {
         // if there is a strand that passes through the nucleotide
         if design.get_strand_nucl(&nucl).is_some() {
-            self.strand_builder_on_exisiting(design, nucl)
+            self.strand_builder_on_exisiting(design, nucl, ignored_domains)
         } else {
             self.new_strand_builder(design, nucl)
         }
@@ -1583,28 +1597,41 @@ impl Controller {
         &mut self,
         design: &Design,
         nucl: Nucl,
+        ignored_domains: &[DomainIdentifier],
     ) -> Option<StrandBuilder> {
-        let left = design.get_neighbour_nucl(nucl.left());
-        let right = design.get_neighbour_nucl(nucl.right());
+        let left = design
+            .get_neighbour_nucl(nucl.left())
+            .filter(|n| !ignored_domains.contains(&n.identifier));
+        let right = design
+            .get_neighbour_nucl(nucl.right())
+            .filter(|n| !ignored_domains.contains(&n.identifier));
         let axis = design
             .helices
             .get(&nucl.helix)
             .map(|h| h.get_axis(&design.parameters.unwrap_or_default()))?;
         let desc = design.get_neighbour_nucl(nucl)?;
         let strand_id = desc.identifier.strand;
-        let filter = |d: &NeighbourDescriptor| d.identifier != desc.identifier;
+        let filter =
+            |d: &NeighbourDescriptor| !(d.identifier.is_same_domain_than(&desc.identifier));
         let neighbour_desc = left.filter(filter).or(right.filter(filter));
+        // sticking to the neighbour if it is in the same strand is usefull when moving xovers
         let stick = neighbour_desc.map(|d| d.identifier.strand) == Some(strand_id);
         if left.filter(filter).and(right.filter(filter)).is_some() {
             // TODO maybe we should do something else ?
             return None;
         }
+        let other_end = desc
+            .identifier
+            .other_end()
+            .filter(|d| !ignored_domains.contains(d))
+            .is_some()
+            .then(|| desc.fixed_end);
         match design.strands.get(&strand_id).map(|s| s.length()) {
             Some(n) if n > 1 => Some(StrandBuilder::init_existing(
                 desc.identifier,
                 nucl,
                 axis.to_owned(),
-                desc.fixed_end,
+                other_end,
                 neighbour_desc,
                 stick,
             )),
@@ -1612,6 +1639,7 @@ impl Controller {
                 DomainIdentifier {
                     strand: strand_id,
                     domain: 0,
+                    start: None,
                 },
                 nucl,
                 axis.to_owned(),
@@ -1636,6 +1664,7 @@ impl Controller {
             DomainIdentifier {
                 strand: new_key,
                 domain: 0,
+                start: None,
             },
             nucl,
             axis.to_owned(),
@@ -1692,21 +1721,59 @@ impl Controller {
         new_key
     }
 
-    fn move_strand_builders(&mut self, _: Design, n: isize) -> Result<Design, ErrOperation> {
+    fn move_strand_builders(
+        &mut self,
+        current_design: Design,
+        n: isize,
+    ) -> Result<Design, ErrOperation> {
         if let ControllerState::BuildingStrand {
             initial_design,
             builders,
             initializing,
+            ignored_domains,
         } = &mut self.state
         {
             let delta = builders
                 .get(0)
-                .map(|b| n - b.moving_end.position)
+                .map(|b| n - b.get_moving_end_position())
                 .unwrap_or(0);
             let mut design = initial_design.clone_inner();
-            for builder in builders.iter_mut() {
-                let to = builder.moving_end.position + delta;
-                builder.move_to(to, &mut design)
+            if builders.len() > 1 {
+                let sign = delta.signum();
+                let mut blocked = false;
+                if delta != 0 {
+                    for i in 0..(sign * delta) {
+                        let mut copy_builder = builders.clone();
+                        for builder in copy_builder.iter_mut() {
+                            if sign > 0 && !builder.try_incr(&current_design, ignored_domains) {
+                                blocked = true;
+                                break;
+                            } else if sign < 0
+                                && !builder.try_decr(&current_design, ignored_domains)
+                            {
+                                blocked = true;
+                                break;
+                            }
+                        }
+                        if blocked {
+                            if i == 0 {
+                                return Ok(current_design);
+                            }
+                            break;
+                        }
+                        *builders = copy_builder;
+                        for builder in builders.iter_mut() {
+                            builder.update(&mut design);
+                        }
+                    }
+                } else {
+                    return Ok(current_design);
+                }
+            } else {
+                for builder in builders.iter_mut() {
+                    let to = builder.get_moving_end_position() + delta;
+                    builder.move_to(to, &mut design, &ignored_domains)
+                }
             }
             *initializing = false;
             Ok(design)
@@ -1751,6 +1818,7 @@ impl Controller {
             .ok_or(ErrOperation::CutInexistingStrand)?;
 
         let strand = design.strands.remove(&id).expect("strand");
+        let name = strand.name.clone();
         if strand.cyclic {
             let new_strand = Self::break_cycle(strand.clone(), *nucl, force_end);
             design.strands.insert(id, new_strand);
@@ -1850,7 +1918,7 @@ impl Controller {
             junctions: prime5_junctions,
             cyclic: false,
             sequence: seq_prim5,
-            name: None,
+            name: name.clone(),
         };
 
         let strand_3prime = Strand {
@@ -1859,7 +1927,7 @@ impl Controller {
             cyclic: false,
             junctions: prime3_junctions,
             sequence: seq_prim3,
-            name: None,
+            name,
         };
         let new_id = (*design.strands.keys().max().unwrap_or(&0)).max(id) + 1;
         log::info!("new id {}, ; id {}", new_id, id);
@@ -2053,6 +2121,7 @@ impl Controller {
                 .strands
                 .remove(&prime3)
                 .ok_or(ErrOperation::StrandDoesNotExist(prime3))?;
+            let name = strand5prime.name.or(strand3prime.name);
             let len = strand5prime.domains.len() + strand3prime.domains.len();
             let mut domains = Vec::with_capacity(len);
             let mut junctions = Vec::with_capacity(len);
@@ -2107,7 +2176,7 @@ impl Controller {
                 sequence,
                 junctions,
                 cyclic: false,
-                name: None,
+                name,
             };
             design.strands.insert(prime5, new_strand);
             Ok(())
@@ -2566,6 +2635,7 @@ enum ControllerState {
         builders: Vec<StrandBuilder>,
         initial_design: AddressPointer<Design>,
         initializing: bool,
+        ignored_domains: Vec<DomainIdentifier>,
     },
     ChangingColor,
     SettingRollHelices,

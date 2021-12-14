@@ -615,6 +615,10 @@ impl<S: AppState> Scene<S> {
             app_state.get_selection(),
             &app_state.get_design_reader(),
         );
+        let helices = ensnano_interactor::set_of_helices_containing_selection(
+            app_state.get_selection(),
+            &app_state.get_design_reader(),
+        );
         log::debug!("rotating grids {:?}", grids);
         let group_id = app_state.get_current_group_id();
         let rotation: Arc<dyn Operation> = if let Some(grid_ids) = grids.filter(|v| v.len() > 0) {
@@ -630,7 +634,7 @@ impl<S: AppState> Scene<S> {
         } else {
             match self.data.borrow().get_selected_element(app_state) {
                 Selection::Helix(d_id, h_id) => Arc::new(HelixRotation {
-                    helices: vec![h_id as usize],
+                    helices: helices.unwrap_or(vec![h_id as usize]),
                     angle,
                     plane,
                     origin,

@@ -386,7 +386,10 @@ fn main() {
 
     let mut first_iteration = true;
 
-    let mut last_gui_state = main_state.gui_state(&multiplexer);
+    let mut last_gui_state = (
+        main_state.app_state.clone(),
+        main_state.gui_state(&multiplexer),
+    );
     event_loop.run(move |event, _, control_flow| {
         // Wait for event or redraw a frame every 33 ms (30 frame per seconds)
         *control_flow = ControlFlow::WaitUntil(Instant::now() + Duration::from_millis(33));
@@ -591,12 +594,15 @@ fn main() {
                 let now = std::time::Instant::now();
                 let dt = now - last_render_time;
                 redraw |= scheduler.check_redraw(&multiplexer, dt, main_state.get_app_state());
-                let new_gui_state = main_state.gui_state(&multiplexer);
+                let new_gui_state = (
+                    main_state.app_state.clone(),
+                    main_state.gui_state(&multiplexer),
+                );
                 if new_gui_state != last_gui_state {
                     last_gui_state = new_gui_state;
                     messages.lock().unwrap().push_application_state(
                         main_state.get_app_state().clone(),
-                        last_gui_state.clone(),
+                        last_gui_state.1.clone(),
                     );
                     redraw = true;
                 };
