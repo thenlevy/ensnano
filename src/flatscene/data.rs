@@ -49,6 +49,7 @@ pub struct Data {
     suggestions: HashMap<FlatNucl, HashSet<FlatNucl, RandomState>, RandomState>,
     id: u32,
     requests: Arc<Mutex<dyn Requests>>,
+    last_clicked_nucl: Option<FlatNucl>,
 }
 
 impl Data {
@@ -69,6 +70,7 @@ impl Data {
             suggestions: Default::default(),
             id,
             requests,
+            last_clicked_nucl: None,
         }
     }
 
@@ -883,8 +885,18 @@ impl Data {
                         } else {
                             new_selection.push(selection);
                         }
-                    } else if let Some(s_id) = self.design.get_strand_id(nucl.to_real()) {
-                        let selection = Selection::Strand(self.id, s_id as u32);
+                    } else {
+                        let selection = if Some(nucl) == self.last_clicked_nucl {
+                            if let Some(s_id) = self.get_strand_id(nucl) {
+                                self.last_clicked_nucl = None;
+                                Selection::Strand(self.id, s_id as u32)
+                            } else {
+                                Selection::Nucleotide(self.id, nucl.to_real())
+                            }
+                        } else {
+                            self.last_clicked_nucl = Some(nucl);
+                            Selection::Nucleotide(self.id, nucl.to_real())
+                        };
                         if let Some(pos) = new_selection.iter().position(|x| *x == selection) {
                             new_selection.remove(pos);
                         } else {
