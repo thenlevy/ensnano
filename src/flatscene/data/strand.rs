@@ -85,216 +85,23 @@ impl Strand {
         let color = self.get_path_color();
         let mut stroke_tess = lyon::tessellation::StrokeTessellator::new();
 
-        let mut builder = Path::builder_with_attributes(2);
-        let mut cross_split_builder = Path::builder_with_attributes(2);
-        let mut last_nucl: Option<FlatNucl> = None;
-        let mut last_point = match free_end {
-            Some(FreeEnd {
-                point,
-                strand_id,
-                prime3,
-                ..
-            }) if *strand_id == self.id && !prime3 => {
-                alternative_position(*point, my_cam, other_cam).or(Some(*point))
-            }
-            _ => None,
-        };
+        let filtered_free_end = FilteredFreeEnd::read(free_end, self.id);
+        let mut strand_vertex_builder = StrandVertexBuilder::init(StrandVertexBuilderInitializer {
+            main_camera: my_cam,
+            alternative_camera: other_cam,
+            free_end: &filtered_free_end,
+        });
+        let mut strand_topology_reader = StrandTopologyReader::init(helices);
 
-        let mut last_depth = None;
-        let mut sign = 10.;
-        let mut nb_point_helix = 0;
-
-        for (i, nucl) in self.points.iter().enumerate() {
-            let position = helices[nucl.helix].get_nucl_position(&nucl, Shift::Prime5);
-            let depth = helices[nucl.helix].get_depth();
-            let point = Point::new(position.x, position.y);
-            let xover = if last_point.is_some() {
-                if Some(nucl.helix) == last_nucl.map(|n| n.helix) {
-                    nb_point_helix += 1;
-                    nb_point_helix % 2 == 0
-                } else {
-                    nb_point_helix = 0;
-                    true
-                }
-            } else {
-                false
-            };
-            if i == 0 && last_point.is_none() {
-                builder.begin(point, &[depth, sign]);
-            //} else if last_point.is_some() && Some(nucl.helix) != last_nucl.map(|n| n.helix) {
-            } else if xover {
-                let depth = depth.min(last_depth.unwrap_or(depth));
-                let mut cut = false;
-                if let Some(last_nucl) = last_nucl {
-                    // We are drawing a xover
-                    let point =
-                        helices[last_nucl.helix].get_nucl_position(&last_nucl, Shift::Prime3);
-                    last_point = Some(point);
-                    builder.line_to(Point::new(point.x, point.y), &[depth, sign]);
-                } else {
-                    // We are drawing the free end
-                    let position = last_point.unwrap();
-                    builder.begin(Point::new(position.x, position.y), &[depth, sign]);
-                }
-                let last_pos = last_point.unwrap();
-                let alternate = one_point_one_camera(TwoCameraAndPoints {
-                    point_1: last_pos,
-                    point_2: position,
-                    cam_1: my_cam,
-                    cam_2: other_cam,
-                });
-                let xover_origin = if alternate {
-                    if let Some(alt) = alternative_position(last_pos, my_cam, other_cam) {
-                        cut = true;
-                        alt
-                    } else {
-                        last_pos
-                    }
-                } else {
-                    last_pos
-                };
-
-                let xover_target = if alternate {
-                    if let Some(alt) = alternative_position(position, my_cam, other_cam) {
-                        cut = true;
-                        alt
-                    } else {
-                        position
-                    }
-                } else {
-                    position
-                };
-
-                let normal = {
-                    let diff = (xover_target - xover_origin).normalized();
-                    Vec2::new(diff.y, -diff.x)
-                };
-                let dir = (xover_target - xover_origin).normalized();
-                let dist = (xover_target - xover_origin).mag();
-                let normal_1 = if let Some(last_nucl) = last_nucl {
-                    let pos = helices[last_nucl.helix]
-                        .get_nucl_position(&last_nucl.prime5(), Shift::Prime3Outsided);
-                    (pos - xover_origin).normalized()
-                } else {
-                    normal
-                };
-                let normal_2 = {
-                    let pos = helices[nucl.helix]
-                        .get_nucl_position(&nucl.prime3(), Shift::Prime5Outsided);
-                    (pos - xover_target).normalized()
-                };
-                //let control_1 = xover_origin - (dist / 2.) * dir + normal_1;
-                //let control_2 = xover_target + (dist / 2.) * dir + normal_2;
-                let control_1 = xover_origin + (dist.sqrt() / 2.) * normal_1;
-                let control_2 = xover_target + (dist.sqrt() / 2.) * normal_2;
-                if cut {
-                    cross_split_builder
-                        .begin(Point::new(xover_origin.x, xover_origin.y), &[depth, 5.]);
-                    cross_split_builder.line_to(
-                        Point::new(xover_origin.x + 0.01, xover_origin.y + 0.01),
-                        &[depth, 5.],
-                    );
-                    cross_split_builder
-                        .line_to(Point::new(xover_target.x, xover_target.y), &[depth, 5.]);
-                    cross_split_builder.end(false);
-                } else {
-                    sign *= -1.;
-                    builder.cubic_bezier_to(
-                        Point::new(control_1.x, control_1.y),
-                        Point::new(control_2.x, control_2.y),
-                        Point::new(xover_target.x, xover_target.y),
-                        &[depth, sign],
-                    );
-                }
-                if cut {
-                    builder.end(false);
-                    builder.begin(point, &[depth, sign]);
-                }
-            } else {
-                builder.line_to(point, &[depth, sign]);
-            }
-            last_point = Some(position);
-            last_nucl = Some(*nucl);
-            last_depth = Some(depth);
+        for nucl in self.points.iter() {
+            let instruction = strand_topology_reader.read_nucl(*nucl);
+            strand_vertex_builder.draw(instruction);
         }
-        if let Some(nucl) = last_nucl {
-            let point = helices[nucl.helix].get_nucl_position(&nucl, Shift::Prime3);
-            last_point = Some(point);
-            builder.line_to(Point::new(point.x, point.y), &[last_depth.unwrap(), sign]);
+        if let Some(instruction) = strand_topology_reader.finish(&filtered_free_end) {
+            strand_vertex_builder.draw(instruction);
         }
-        match free_end {
-            Some(FreeEnd {
-                strand_id,
-                point: position,
-                prime3,
-                ..
-            }) if *strand_id == self.id && *prime3 => {
-                let depth = 1e-4;
-                let last_pos = last_point.unwrap();
-                let mut cut = false;
-                let alternate = one_point_one_camera(TwoCameraAndPoints {
-                    point_1: last_pos,
-                    point_2: *position,
-                    cam_1: my_cam,
-                    cam_2: other_cam,
-                });
-                let xover_origin = if alternate {
-                    if let Some(alt) = alternative_position(last_pos, my_cam, other_cam) {
-                        cut = true;
-                        alt
-                    } else {
-                        last_pos
-                    }
-                } else {
-                    last_pos
-                };
-                let xover_target = if alternate {
-                    if let Some(alt) = alternative_position(*position, my_cam, other_cam) {
-                        cut = true;
-                        alt
-                    } else {
-                        *position
-                    }
-                } else {
-                    *position
-                };
 
-                let normal = {
-                    let diff = (xover_target - xover_origin).normalized();
-                    Vec2::new(diff.y, diff.x)
-                };
-                let control = (xover_origin + xover_target) / 2. + normal / 3.;
-                if cut {
-                    cross_split_builder
-                        .begin(Point::new(xover_origin.x, xover_origin.y), &[depth, 5.]);
-                    cross_split_builder.line_to(
-                        Point::new(xover_origin.x + 0.01, xover_origin.y + 0.01),
-                        &[depth, 5.],
-                    );
-                    cross_split_builder
-                        .line_to(Point::new(xover_target.x, xover_target.y), &[depth, 5.]);
-                    cross_split_builder.end(false);
-                } else {
-                    sign *= -1.;
-                    builder.quadratic_bezier_to(
-                        Point::new(control.x, control.y),
-                        Point::new(xover_target.x, xover_target.y),
-                        &[depth, sign],
-                    );
-                }
-            }
-            _ => {
-                // Draw the tick of the 3' end if the strand is not empty
-                if let Some(nucl) = last_nucl {
-                    let position = helices[nucl.helix].get_arrow_end(&nucl);
-                    let point = Point::new(position.x, position.y);
-                    builder.line_to(point, &[last_depth.unwrap(), sign]);
-                }
-            }
-        }
-        builder.end(false);
-        let path = builder.build();
-        let cross_split_path = cross_split_builder.build();
+        let (path, cross_split_path) = strand_vertex_builder.build();
         stroke_tess
             .tessellate_path(
                 &path,
@@ -442,7 +249,6 @@ pub struct FreeEnd {
 struct FilteredFreeEnd {
     pub point: Vec2,
     pub prime3: bool,
-    pub candidates: Vec<FlatNucl>,
 }
 
 impl FilteredFreeEnd {
@@ -453,7 +259,6 @@ impl FilteredFreeEnd {
             .map(|free_end| Self {
                 point: free_end.point,
                 prime3: free_end.prime3,
-                candidates: free_end.candidates.clone(),
             })
     }
 }
@@ -550,7 +355,7 @@ impl<'a> StrandVertexBuilder<'a> {
             splited_cross_over_builder,
             last_point,
             last_depth: None,
-            sign: 1.0,
+            sign: 10.0,
             main_camera: initializer.main_camera,
             alternative_camera: initializer.alternative_camera,
             main_builder_is_drawing: false,
@@ -654,11 +459,17 @@ impl<'a> StrandVertexBuilder<'a> {
             cam_1: self.main_camera,
             cam_2: self.alternative_camera,
         }) {
-            alternative_position(from, self.main_camera, self.alternative_camera)
-                .zip(alternative_position(to, self.main_camera, self.main_camera))
+            Some((
+                self.alternative_position_one_point(from),
+                self.alternative_position_one_point(to),
+            ))
         } else {
             None
         }
+    }
+
+    fn alternative_position_one_point(&self, point: Vec2) -> Vec2 {
+        alternative_position(point, self.main_camera, self.alternative_camera).unwrap_or(point)
     }
 
     fn start_drawing_on(&mut self, pos: Vec2) {
@@ -675,8 +486,12 @@ impl<'a> StrandVertexBuilder<'a> {
         self.main_builder_is_drawing = false;
     }
 
-    pub fn finish(&mut self) {
+    pub fn build(mut self) -> (Path, Path) {
         self.stop_drawing();
+        (
+            self.main_path_builder.build(),
+            self.splited_cross_over_builder.build(),
+        )
     }
 }
 
