@@ -19,6 +19,7 @@ use super::super::view::InsertionInstance;
 use super::helix::{Helix, Shift};
 use super::{CameraPtr, FlatNucl};
 use lyon::math::Point;
+use lyon::path::path::BuilderWithAttributes;
 use lyon::path::Path;
 use lyon::tessellation;
 use lyon::tessellation::{StrokeVertex, StrokeVertexConstructor};
@@ -28,6 +29,12 @@ type Vertices = lyon::tessellation::VertexBuffers<StrandVertex, u16>;
 
 /// The factor by which the width of hilighted strands is multiplied
 const HIGHLIGHT_FACTOR: f32 = 1.7;
+
+macro_rules! point {
+    ($point: ident) => {
+        Point::new($point.x, $point.y)
+    };
+}
 
 pub struct Strand {
     pub color: u32,
@@ -54,6 +61,15 @@ impl Strand {
         }
     }
 
+    fn get_path_color(&self) -> [f32; 4] {
+        let color = if self.highlight {
+            crate::utils::instance::Instance::color_from_au32(self.color)
+        } else {
+            crate::utils::instance::Instance::color_from_u32(self.color)
+        };
+        [color.x, color.y, color.z, color.w]
+    }
+
     pub fn to_vertices(
         &self,
         helices: &[Helix],
@@ -66,195 +82,26 @@ impl Strand {
         if self.points.len() == 0 {
             return (vertices, cross_split_vertices);
         }
-        let color = if self.highlight {
-            crate::utils::instance::Instance::color_from_au32(self.color)
-        } else {
-            crate::utils::instance::Instance::color_from_u32(self.color)
-        };
-        let color = [color.x, color.y, color.z, color.w];
+        let color = self.get_path_color();
         let mut stroke_tess = lyon::tessellation::StrokeTessellator::new();
 
-        let mut builder = Path::builder_with_attributes(2);
-        let mut cross_split_builder = Path::builder_with_attributes(2);
-        let mut last_nucl: Option<FlatNucl> = None;
-        let mut last_point = match free_end {
-            Some(FreeEnd {
-                point,
-                strand_id,
-                prime3,
-                ..
-            }) if *strand_id == self.id && !prime3 => {
-                alternative_position(*point, my_cam, other_cam).or(Some(*point))
-            }
-            _ => None,
-        };
+        let filtered_free_end = FilteredFreeEnd::read(free_end, self.id);
+        let mut strand_vertex_builder = StrandVertexBuilder::init(StrandVertexBuilderInitializer {
+            main_camera: my_cam,
+            alternative_camera: other_cam,
+            free_end: &filtered_free_end,
+        });
+        let mut strand_topology_reader = StrandTopologyReader::init(helices);
 
-        let mut last_depth = None;
-        let mut sign = 1.;
-        let mut nb_point_helix = 0;
-
-        for (i, nucl) in self.points.iter().enumerate() {
-            let position = helices[nucl.helix].get_nucl_position(&nucl, Shift::Prime5);
-            let depth = helices[nucl.helix].get_depth();
-            let point = Point::new(position.x, position.y);
-            let xover = if last_point.is_some() {
-                if Some(nucl.helix) == last_nucl.map(|n| n.helix) {
-                    nb_point_helix += 1;
-                    nb_point_helix % 2 == 0
-                } else {
-                    nb_point_helix = 0;
-                    true
-                }
-            } else {
-                false
-            };
-            if i == 0 && last_point.is_none() {
-                builder.begin(point, &[depth, sign]);
-            //} else if last_point.is_some() && Some(nucl.helix) != last_nucl.map(|n| n.helix) {
-            } else if xover {
-                let depth = depth.min(last_depth.unwrap_or(depth));
-                let mut cut = false;
-                if let Some(nucl) = last_nucl {
-                    // We are drawing a xover
-                    let point = helices[nucl.helix].get_nucl_position(&nucl, Shift::Prime3);
-                    last_point = Some(point);
-                    builder.line_to(Point::new(point.x, point.y), &[depth, sign]);
-                } else {
-                    // We are drawing the free end
-                    let position = last_point.unwrap();
-                    builder.begin(Point::new(position.x, position.y), &[depth, sign]);
-                }
-                let last_pos = last_point.unwrap();
-                let alternate = must_use_alternate(last_pos, position, my_cam, other_cam);
-                let xover_origin = if alternate {
-                    if let Some(alt) = alternative_position(last_pos, my_cam, other_cam) {
-                        cut = true;
-                        alt
-                    } else {
-                        last_pos
-                    }
-                } else {
-                    last_pos
-                };
-
-                let xover_target = if alternate {
-                    if let Some(alt) = alternative_position(position, my_cam, other_cam) {
-                        cut = true;
-                        alt
-                    } else {
-                        position
-                    }
-                } else {
-                    position
-                };
-
-                let normal = {
-                    let diff = (xover_target - xover_origin).normalized();
-                    Vec2::new(diff.y, diff.x)
-                };
-                let control = (xover_origin + xover_target) / 2. + normal / 3.;
-                if cut {
-                    cross_split_builder
-                        .begin(Point::new(xover_origin.x, xover_origin.y), &[depth, 5.]);
-                    cross_split_builder.line_to(
-                        Point::new(xover_origin.x + 0.01, xover_origin.y + 0.01),
-                        &[depth, 5.],
-                    );
-                    cross_split_builder
-                        .line_to(Point::new(xover_target.x, xover_target.y), &[depth, 5.]);
-                    cross_split_builder.end(false);
-                } else {
-                    sign *= -1.;
-                    builder.quadratic_bezier_to(
-                        Point::new(control.x, control.y),
-                        Point::new(xover_target.x, xover_target.y),
-                        &[depth, sign],
-                    );
-                }
-                if cut {
-                    builder.end(false);
-                    builder.begin(point, &[depth, sign]);
-                }
-            } else {
-                builder.line_to(point, &[depth, sign]);
-            }
-            last_point = Some(position);
-            last_nucl = Some(*nucl);
-            last_depth = Some(depth);
+        for nucl in self.points.iter() {
+            let instruction = strand_topology_reader.read_nucl(*nucl);
+            strand_vertex_builder.draw(instruction);
         }
-        if let Some(nucl) = last_nucl {
-            let point = helices[nucl.helix].get_nucl_position(&nucl, Shift::Prime3);
-            last_point = Some(point);
-            builder.line_to(Point::new(point.x, point.y), &[last_depth.unwrap(), sign]);
+        if let Some(instruction) = strand_topology_reader.finish(&filtered_free_end) {
+            strand_vertex_builder.draw(instruction);
         }
-        match free_end {
-            Some(FreeEnd {
-                strand_id,
-                point: position,
-                prime3,
-                ..
-            }) if *strand_id == self.id && *prime3 => {
-                let depth = 1e-4;
-                let last_pos = last_point.unwrap();
-                let mut cut = false;
-                let alternate = must_use_alternate(last_pos, *position, my_cam, other_cam);
-                let xover_origin = if alternate {
-                    if let Some(alt) = alternative_position(last_pos, my_cam, other_cam) {
-                        cut = true;
-                        alt
-                    } else {
-                        last_pos
-                    }
-                } else {
-                    last_pos
-                };
-                let xover_target = if alternate {
-                    if let Some(alt) = alternative_position(*position, my_cam, other_cam) {
-                        cut = true;
-                        alt
-                    } else {
-                        *position
-                    }
-                } else {
-                    *position
-                };
 
-                let normal = {
-                    let diff = (xover_target - xover_origin).normalized();
-                    Vec2::new(diff.y, diff.x)
-                };
-                let control = (xover_origin + xover_target) / 2. + normal / 3.;
-                if cut {
-                    cross_split_builder
-                        .begin(Point::new(xover_origin.x, xover_origin.y), &[depth, 5.]);
-                    cross_split_builder.line_to(
-                        Point::new(xover_origin.x + 0.01, xover_origin.y + 0.01),
-                        &[depth, 5.],
-                    );
-                    cross_split_builder
-                        .line_to(Point::new(xover_target.x, xover_target.y), &[depth, 5.]);
-                    cross_split_builder.end(false);
-                } else {
-                    sign *= -1.;
-                    builder.quadratic_bezier_to(
-                        Point::new(control.x, control.y),
-                        Point::new(xover_target.x, xover_target.y),
-                        &[depth, sign],
-                    );
-                }
-            }
-            _ => {
-                // Draw the tick of the 3' end if the strand is not empty
-                if let Some(nucl) = last_nucl {
-                    let position = helices[nucl.helix].get_arrow_end(&nucl);
-                    let point = Point::new(position.x, position.y);
-                    builder.line_to(point, &[last_depth.unwrap(), sign]);
-                }
-            }
-        }
-        builder.end(false);
-        let path = builder.build();
-        let cross_split_path = cross_split_builder.build();
+        let (path, cross_split_path) = strand_vertex_builder.build();
         stroke_tess
             .tessellate_path(
                 &path,
@@ -359,9 +206,17 @@ pub struct WithAttributes {
     highlight: bool,
 }
 
+const THINNING_POWER: f32 = 1.3;
+const MINIMUM_THICKNESS: f32 = 0.7;
+
 impl StrokeVertexConstructor<StrandVertex> for WithAttributes {
     fn new_vertex(&mut self, mut vertex: StrokeVertex) -> StrandVertex {
-        let mut width = vertex.interpolated_attributes()[1].min(1.).powi(2).max(0.3);
+        let mut width = (vertex.interpolated_attributes()[1] * 3.)
+            .min(1.)
+            .max(-1.)
+            .abs()
+            .powf(THINNING_POWER)
+            .max(MINIMUM_THICKNESS);
         if self.highlight {
             width *= HIGHLIGHT_FACTOR;
         }
@@ -394,6 +249,23 @@ pub struct FreeEnd {
     pub candidates: Vec<FlatNucl>,
 }
 
+struct FilteredFreeEnd {
+    pub point: Vec2,
+    pub prime3: bool,
+}
+
+impl FilteredFreeEnd {
+    fn read(free_end: &Option<FreeEnd>, strand_id: usize) -> Option<Self> {
+        free_end
+            .as_ref()
+            .filter(|f| f.strand_id == strand_id)
+            .map(|free_end| Self {
+                point: free_end.point,
+                prime3: free_end.prime3,
+            })
+    }
+}
+
 /// If nucl is visible on cam2, and not on cam 1, convert the position of the nucl in cam2
 /// screen coordinate then back to cam1 world coordinate
 fn alternative_position(position: Vec2, cam1: &CameraPtr, cam2: &CameraPtr) -> Option<Vec2> {
@@ -418,7 +290,21 @@ fn alternative_position(position: Vec2, cam1: &CameraPtr, cam2: &CameraPtr) -> O
     }
 }
 
-fn must_use_alternate(a: Vec2, b: Vec2, my_cam: &CameraPtr, other_cam: &CameraPtr) -> bool {
+struct TwoCameraAndPoints<'a> {
+    point_1: Vec2,
+    point_2: Vec2,
+    cam_1: &'a CameraPtr,
+    cam_2: &'a CameraPtr,
+}
+
+/// Return true if `a` and `b` are both visible by exactly one camera, and each camera can see
+/// exactly one of the points.
+fn one_point_one_camera<'a>(input: TwoCameraAndPoints<'a>) -> bool {
+    let a = input.point_1;
+    let b = input.point_2;
+    let my_cam = input.cam_1;
+    let other_cam = input.cam_2;
+
     if my_cam.borrow().can_see_world_point(a) && !other_cam.borrow().can_see_world_point(a) {
         !my_cam.borrow().can_see_world_point(b) && other_cam.borrow().can_see_world_point(b)
     } else if !my_cam.borrow().can_see_world_point(a) && other_cam.borrow().can_see_world_point(a) {
@@ -426,4 +312,320 @@ fn must_use_alternate(a: Vec2, b: Vec2, my_cam: &CameraPtr, other_cam: &CameraPt
     } else {
         false
     }
+}
+
+/// An object that builds the vertices used to draw a strand
+struct StrandVertexBuilder<'a> {
+    /// The Builder that builds normal path of the strand
+    main_path_builder: BuilderWithAttributes,
+    /// The Builder that builds the vertices of the splied cross overs
+    splited_cross_over_builder: BuilderWithAttributes,
+    /// The current position of the path builders
+    last_point: Option<Vec2>,
+    /// The sign attribute is used to handle the width of the path. The sign should be flipped
+    /// between each extremity of a stroke that should be thin in the middle.
+    sign: f32,
+    main_camera: &'a CameraPtr,
+    alternative_camera: &'a CameraPtr,
+    main_builder_is_drawing: bool,
+    /// The depth attribute is used to generate the z coordinate of the vertices
+    depth: f32,
+}
+
+struct StrandVertexBuilderInitializer<'a> {
+    main_camera: &'a CameraPtr,
+    alternative_camera: &'a CameraPtr,
+    free_end: &'a Option<FilteredFreeEnd>,
+}
+
+// We need to use this macro to appease the borrow checker
+macro_rules! attributes {
+    ($self: ident) => {
+        &[$self.depth, $self.sign]
+    };
+}
+
+struct MainXoverDescriptor {
+    origin: Vec2,
+    target: Vec2,
+    normal_source: Vec2,
+    normal_target: Vec2,
+}
+
+impl<'a> StrandVertexBuilder<'a> {
+    /// Initialise the builder.
+    pub fn init(initializer: StrandVertexBuilderInitializer<'a>) -> Self {
+        let main_path_builder = Path::builder_with_attributes(2);
+        let splited_cross_over_builder = Path::builder_with_attributes(2);
+        let last_point = Self::read_free_end(&initializer);
+
+        Self {
+            main_path_builder,
+            splited_cross_over_builder,
+            last_point,
+            sign: 1.0,
+            main_camera: initializer.main_camera,
+            alternative_camera: initializer.alternative_camera,
+            main_builder_is_drawing: false,
+            depth: 0.0,
+        }
+    }
+
+    fn read_free_end(initializer: &StrandVertexBuilderInitializer) -> Option<Vec2> {
+        match initializer.free_end {
+            Some(FilteredFreeEnd { point, prime3, .. }) if !prime3 => alternative_position(
+                *point,
+                initializer.main_camera,
+                initializer.alternative_camera,
+            )
+            .or(Some(*point)),
+            _ => None,
+        }
+    }
+
+    pub fn draw(&mut self, instruction: DrawingInstruction) {
+        match instruction {
+            DrawingInstruction::StartAt {
+                position: to,
+                depth,
+            } => {
+                self.depth = depth;
+                if let Some(from) = self.last_point {
+                    self.draw_free_end(from, to);
+                } else {
+                    self.start_drawing_on(to);
+                }
+                self.last_point = Some(to);
+            }
+            DrawingInstruction::LineTo { position, depth } => {
+                self.depth = depth;
+                self.start_drawing_on(self.last_point.expect("last point"));
+                self.main_path_builder
+                    .line_to(Point::new(position.x, position.y), attributes!(self));
+                self.last_point = Some(position);
+            }
+            DrawingInstruction::XoverTo {
+                normal_source,
+                normal_target,
+                to,
+                depth_to,
+            } => {
+                // We use the smallest depth between the two extremities to be above both helices
+                self.depth = self.depth.min(depth_to);
+                if let Some((from, to)) =
+                    self.alternative_positions(self.last_point.expect("last point"), to)
+                {
+                    self.stop_drawing();
+                    self.splited_cross_over_builder
+                        .begin(Point::new(from.x, from.y), &[self.depth, 5.0]);
+                    self.splited_cross_over_builder
+                        .line_to(Point::new(to.x, to.y), &[self.depth, 5.0]);
+                    self.splited_cross_over_builder.end(false);
+                } else {
+                    let origin = self.last_point.expect("last point");
+                    if self.can_see(to) || self.can_see(origin) {
+                        self.draw_xover_with_main_builder(MainXoverDescriptor {
+                            target: to,
+                            origin,
+                            normal_source,
+                            normal_target,
+                        })
+                    } else {
+                        // We do not draw cross overs whose extremities are both out of sight
+                        self.stop_drawing()
+                    }
+                }
+                self.depth = depth_to;
+                self.last_point = Some(to);
+            }
+            DrawingInstruction::FreeEndPrime3(to) => {
+                if let Some(from) = self.last_point.take() {
+                    self.draw_free_end(from, to);
+                }
+            }
+        }
+    }
+
+    fn draw_xover_with_main_builder(&mut self, xover: MainXoverDescriptor) {
+        // We flip the sign so that the curve will be thin in its middle
+        self.sign *= -1.0;
+
+        let dist = (xover.target - xover.origin).mag();
+        let normal_1 = (xover.normal_source - xover.origin).normalized();
+        let normal_2 = (xover.normal_target - xover.target).normalized();
+        let control_1 = xover.origin + (dist.sqrt() / 2.) * normal_1;
+        let control_2 = xover.target + (dist.sqrt() / 2.) * normal_2;
+        let target = xover.target;
+        self.main_path_builder.cubic_bezier_to(
+            point!(control_1),
+            point!(control_2),
+            point!(target),
+            attributes!(self),
+        );
+    }
+
+    fn can_see(&self, point: Vec2) -> bool {
+        self.main_camera.borrow().can_see_world_point(point)
+            || self.alternative_camera.borrow().can_see_world_point(point)
+    }
+
+    fn draw_free_end(&mut self, from: Vec2, to: Vec2) {
+        if let Some((from, to)) = self.alternative_positions(from, to) {
+            self.splited_cross_over_builder
+                .begin(Point::new(from.x, from.y), attributes!(self));
+            self.splited_cross_over_builder
+                .line_to(Point::new(to.x, to.y), attributes!(self));
+            self.splited_cross_over_builder.end(false);
+        } else {
+            self.depth = 1e-4;
+            self.start_drawing_on(from);
+            self.main_path_builder
+                .line_to(point!(to), attributes!(self));
+        }
+    }
+
+    fn alternative_positions(&self, from: Vec2, to: Vec2) -> Option<(Vec2, Vec2)> {
+        if one_point_one_camera(TwoCameraAndPoints {
+            point_1: from,
+            point_2: to,
+            cam_1: self.main_camera,
+            cam_2: self.alternative_camera,
+        }) {
+            Some((
+                self.alternative_position_one_point(from),
+                self.alternative_position_one_point(to),
+            ))
+        } else {
+            None
+        }
+    }
+
+    fn alternative_position_one_point(&self, point: Vec2) -> Vec2 {
+        alternative_position(point, self.main_camera, self.alternative_camera).unwrap_or(point)
+    }
+
+    fn start_drawing_on(&mut self, pos: Vec2) {
+        if !self.main_builder_is_drawing {
+            self.main_path_builder.begin(point!(pos), attributes!(self));
+        }
+        self.main_builder_is_drawing = true;
+    }
+
+    fn stop_drawing(&mut self) {
+        if self.main_builder_is_drawing {
+            self.main_path_builder.end(false);
+        }
+        self.main_builder_is_drawing = false;
+    }
+
+    pub fn build(mut self) -> (Path, Path) {
+        self.stop_drawing();
+        (
+            self.main_path_builder.build(),
+            self.splited_cross_over_builder.build(),
+        )
+    }
+}
+
+/// An object that reads nucleotides and decide weither drawing the next nucleotide means drawing a
+/// cross-over or a strand's domain.
+struct StrandTopologyReader<'a> {
+    /// The number of points that have been drawn on the current helix
+    nb_point_helix: usize,
+    /// The last nucleotide that has been drawn to
+    last_nucl: Option<FlatNucl>,
+    /// The the helices that can translate nucleotide to points in the plane
+    helices: &'a [Helix],
+}
+
+impl<'a> StrandTopologyReader<'a> {
+    pub fn init(helices: &'a [Helix]) -> Self {
+        Self {
+            nb_point_helix: 0,
+            last_nucl: None,
+            helices,
+        }
+    }
+
+    pub fn read_nucl(&mut self, nucl: FlatNucl) -> DrawingInstruction {
+        if let Some(last_nucl) = self.last_nucl.replace(nucl) {
+            if last_nucl.helix == nucl.helix {
+                self.nb_point_helix += 1;
+            } else {
+                self.nb_point_helix = 0;
+            }
+            if self.nb_point_helix % 2 == 0 {
+                self.xover_instruction(last_nucl, nucl)
+            } else {
+                self.domain_instruction(nucl)
+            }
+        } else {
+            let position = self.helices[nucl.helix].get_nucl_position(&nucl, Shift::Prime5);
+            DrawingInstruction::StartAt {
+                position,
+                depth: self.get_depth(nucl),
+            }
+        }
+    }
+
+    fn xover_instruction(&self, last_nucl: FlatNucl, nucl: FlatNucl) -> DrawingInstruction {
+        // we start the xover at the 3' end of the source and we go to the 5' end of the target
+        let normal_source = self.helices[last_nucl.helix]
+            .get_nucl_position(&last_nucl.prime5(), Shift::Prime3Outsided);
+        let normal_target =
+            self.helices[nucl.helix].get_nucl_position(&nucl.prime3(), Shift::Prime5Outsided);
+        let to = self.helices[nucl.helix].get_nucl_position(&nucl, Shift::Prime5);
+        DrawingInstruction::XoverTo {
+            normal_source,
+            normal_target,
+            to,
+            depth_to: self.get_depth(nucl),
+        }
+    }
+
+    fn domain_instruction(&self, nucl: FlatNucl) -> DrawingInstruction {
+        // We go the the 3' end of the domain that we are drawing
+        let position = self.helices[nucl.helix].get_nucl_position(&nucl, Shift::Prime3);
+        DrawingInstruction::LineTo {
+            position,
+            depth: self.get_depth(nucl),
+        }
+    }
+
+    fn get_depth(&self, nucl: FlatNucl) -> f32 {
+        self.helices[nucl.helix].get_depth()
+    }
+
+    fn finish(&mut self, free_end: &Option<FilteredFreeEnd>) -> Option<DrawingInstruction> {
+        if let Some(free_end) = free_end.as_ref().filter(|free_end| free_end.prime3) {
+            Some(DrawingInstruction::FreeEndPrime3(free_end.point))
+        } else {
+            self.last_nucl.take().map(|nucl| {
+                let position = self.helices[nucl.helix].get_arrow_end(&nucl);
+                DrawingInstruction::LineTo {
+                    position,
+                    depth: self.get_depth(nucl),
+                }
+            })
+        }
+    }
+}
+
+enum DrawingInstruction {
+    StartAt {
+        position: Vec2,
+        depth: f32,
+    },
+    LineTo {
+        position: Vec2,
+        depth: f32,
+    },
+    XoverTo {
+        normal_source: Vec2,
+        normal_target: Vec2,
+        to: Vec2,
+        depth_to: f32,
+    },
+    /// End the drawing by drawing a free end
+    FreeEndPrime3(Vec2),
 }

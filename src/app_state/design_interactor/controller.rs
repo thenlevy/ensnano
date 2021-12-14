@@ -1750,6 +1750,7 @@ impl Controller {
             .ok_or(ErrOperation::CutInexistingStrand)?;
 
         let strand = design.strands.remove(&id).expect("strand");
+        let name = strand.name.clone();
         if strand.cyclic {
             let new_strand = Self::break_cycle(strand.clone(), *nucl, force_end);
             design.strands.insert(id, new_strand);
@@ -1849,7 +1850,7 @@ impl Controller {
             junctions: prime5_junctions,
             cyclic: false,
             sequence: seq_prim5,
-            name: None,
+            name: name.clone(),
         };
 
         let strand_3prime = Strand {
@@ -1858,7 +1859,7 @@ impl Controller {
             cyclic: false,
             junctions: prime3_junctions,
             sequence: seq_prim3,
-            name: None,
+            name,
         };
         let new_id = (*design.strands.keys().max().unwrap_or(&0)).max(id) + 1;
         log::info!("new id {}, ; id {}", new_id, id);
@@ -1998,6 +1999,7 @@ impl Controller {
                 .strands
                 .remove(&prime3)
                 .ok_or(ErrOperation::StrandDoesNotExist(prime3))?;
+            let name = strand5prime.name.or(strand3prime.name);
             let len = strand5prime.domains.len() + strand3prime.domains.len();
             let mut domains = Vec::with_capacity(len);
             let mut junctions = Vec::with_capacity(len);
@@ -2052,7 +2054,7 @@ impl Controller {
                 sequence,
                 junctions,
                 cyclic: false,
-                name: None,
+                name,
             };
             design.strands.insert(prime5, new_strand);
             Ok(())
