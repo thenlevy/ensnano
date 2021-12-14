@@ -206,14 +206,17 @@ pub struct WithAttributes {
     highlight: bool,
 }
 
+const THINNING_POWER: f32 = 1.3;
+const MINIMUM_THICKNESS: f32 = 0.7;
+
 impl StrokeVertexConstructor<StrandVertex> for WithAttributes {
     fn new_vertex(&mut self, mut vertex: StrokeVertex) -> StrandVertex {
-        let mut width = (vertex.interpolated_attributes()[1] / 3.)
+        let mut width = (vertex.interpolated_attributes()[1] * 3.)
             .min(1.)
             .max(-1.)
             .abs()
-            .powf(2.)
-            .max(0.3);
+            .powf(THINNING_POWER)
+            .max(MINIMUM_THICKNESS);
         if self.highlight {
             width *= HIGHLIGHT_FACTOR;
         }
@@ -362,7 +365,7 @@ impl<'a> StrandVertexBuilder<'a> {
             splited_cross_over_builder,
             last_point,
             last_depth: None,
-            sign: 10.0,
+            sign: 1.0,
             main_camera: initializer.main_camera,
             alternative_camera: initializer.alternative_camera,
             main_builder_is_drawing: false,
@@ -409,7 +412,8 @@ impl<'a> StrandVertexBuilder<'a> {
                 to,
                 depth_to,
             } => {
-                self.depth = depth_to;
+                // We use the smallest depth between the two extremities to be above both helices
+                self.depth = self.depth.min(depth_to);
                 if let Some((from, to)) =
                     self.alternative_positions(self.last_point.expect("last point"), to)
                 {
@@ -422,17 +426,18 @@ impl<'a> StrandVertexBuilder<'a> {
                 } else {
                     let origin = self.last_point.expect("last point");
                     if self.can_see(to) || self.can_see(origin) {
-                        self.draw_xover_with_main_builder(MainXoverDescriptor{
+                        self.draw_xover_with_main_builder(MainXoverDescriptor {
                             target: to,
                             origin,
                             normal_source,
-                            normal_target
+                            normal_target,
                         })
                     } else {
                         // We do not draw cross overs whose extremities are both out of sight
                         self.stop_drawing()
                     }
                 }
+                self.depth = depth_to;
                 self.last_point = Some(to);
             }
             DrawingInstruction::FreeEndPrime3(to) => {
@@ -462,7 +467,8 @@ impl<'a> StrandVertexBuilder<'a> {
     }
 
     fn can_see(&self, point: Vec2) -> bool {
-        self.main_camera.borrow().can_see_world_point(point) || self.alternative_camera.borrow().can_see_world_point(point)
+        self.main_camera.borrow().can_see_world_point(point)
+            || self.alternative_camera.borrow().can_see_world_point(point)
     }
 
     fn draw_free_end(&mut self, from: Vec2, to: Vec2) {
@@ -566,10 +572,10 @@ impl<'a> StrandTopologyReader<'a> {
 
     fn xover_instruction(&self, last_nucl: FlatNucl, nucl: FlatNucl) -> DrawingInstruction {
         // we start the xover at the 3' end of the source and we go to the 5' end of the target
-        let normal_source =
-            self.helices[last_nucl.helix].get_nucl_position(&last_nucl, Shift::Prime3Outsided);
+        let normal_source = self.helices[last_nucl.helix]
+            .get_nucl_position(&last_nucl.prime5(), Shift::Prime3Outsided);
         let normal_target =
-            self.helices[nucl.helix].get_nucl_position(&nucl, Shift::Prime5Outsided);
+            self.helices[nucl.helix].get_nucl_position(&nucl.prime3(), Shift::Prime5Outsided);
         let to = self.helices[nucl.helix].get_nucl_position(&nucl, Shift::Prime5);
         DrawingInstruction::XoverTo {
             normal_source,
