@@ -743,7 +743,7 @@ impl Data {
             let h1 = &self.helices[flat_1.helix.flat];
             let h2 = &self.helices[flat_2.helix.flat];
             let flat_1_in = h1.rectangle_has_nucl(flat_1, left, top, right, bottom, camera);
-            let flat_2_in = h2.rectangle_has_nucl(flat_1, left, top, right, bottom, camera);
+            let flat_2_in = h2.rectangle_has_nucl(flat_2, left, top, right, bottom, camera);
             if flat_1_in && flat_2_in {
                 selection.push(Selection::Xover(self.id, xover_id));
             } else if flat_1_in {
