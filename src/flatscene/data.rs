@@ -139,6 +139,7 @@ impl Data {
                 _ => (),
             }
         }
+        let mut suggestions = Vec::new();
         for c in new_state.get_candidates().iter() {
             match c {
                 Selection::Strand(_, s_id) => {
@@ -159,7 +160,12 @@ impl Data {
                 }
                 Selection::Nucleotide(_, n) => {
                     if let Some(flat_nucl) = FlatNucl::from_real(n, id_map) {
-                        candidate_nucls.push(flat_nucl)
+                        candidate_nucls.push(flat_nucl);
+                        let mut other = self.get_best_suggestion(flat_nucl);
+                        other = other.or(self.can_make_auto_xover(flat_nucl));
+                        if let Some(other) = other {
+                            suggestions.push((flat_nucl, other));
+                        }
                     }
                 }
                 _ => (),
@@ -195,6 +201,10 @@ impl Data {
             .set_candidate_helices(candidate_helices);
         self.view.borrow_mut().set_selected_nucls(selected_nucls);
         self.view.borrow_mut().set_candidate_nucls(candidate_nucls);
+        self.view.borrow_mut().set_candidate_suggestion(
+            suggestions.last().map(|t| t.0),
+            suggestions.last().map(|t| t.1),
+        );
     }
 
     fn update_strand_building_info(&self, info: Option<super::StrandBuildingStatus>) {

@@ -278,19 +278,6 @@ impl<S: AppState> FlatScene<S> {
                     bound: false,
                     design_id: self.selected_design as u32,
                 });
-                let mut other = candidate.and_then(|candidate| {
-                    self.data[self.selected_design]
-                        .borrow()
-                        .get_best_suggestion(candidate)
-                });
-                other = other.or(candidate.and_then(|n| {
-                    self.data[self.selected_design]
-                        .borrow()
-                        .can_make_auto_xover(n)
-                }));
-                self.view[self.selected_design]
-                    .borrow_mut()
-                    .set_candidate_suggestion(candidate, other);
                 let candidate = if let Some(selection) = phantom.and_then(|p| {
                     self.data[self.selected_design]
                         .borrow()
@@ -427,13 +414,15 @@ impl<S: AppState> FlatScene<S> {
                 self.requests
                     .lock()
                     .unwrap()
-                    .apply_design_operation(DesignOperation::RequestStrandBuilders { nucls })
+                    .apply_design_operation(DesignOperation::RequestStrandBuilders { nucls });
             }
-            Consequence::MoveBuilders(n) => self
-                .requests
-                .lock()
-                .unwrap()
-                .apply_design_operation(DesignOperation::MoveBuilders(n)),
+            Consequence::MoveBuilders(n) => {
+                self.requests
+                    .lock()
+                    .unwrap()
+                    .apply_design_operation(DesignOperation::MoveBuilders(n));
+                self.requests.lock().unwrap().new_candidates(vec![]);
+            }
             Consequence::NewHelixCandidate(flat_helix) => self
                 .requests
                 .lock()
