@@ -546,9 +546,9 @@ fn view_2d_help() -> Vec<(String, String)> {
             "Translate camera".to_owned(),
         ),
         (String::new(), String::new()),
-        (format!("{}", RCLICK), "Select".to_owned()),
+        (format!("{}", LCLICK), "Select".to_owned()),
         (
-            format!("{} + {}", SHIFT, RCLICK),
+            format!("{} + {}", SHIFT, LCLICK),
             "Multiple Select".to_owned(),
         ),
         (
@@ -573,7 +573,7 @@ fn view_2d_help() -> Vec<(String, String)> {
         (String::new(), String::new()),
         ("On nucleotides".to_owned(), String::new()),
         (
-            format!("{}", LCLICK),
+            format!("{}", RCLICK),
             "cut/glue strand or double xover".to_owned(),
         ),
         (
