@@ -358,7 +358,8 @@ impl Design2d {
     }
 
     pub fn strand_from_xover(&self, xover: &(Nucl, Nucl), color: u32) -> Strand {
-        let flat_nucls = [xover.0, xover.1]
+        // pretend it's a strand with two size one domains
+        let flat_nucls = [xover.0, xover.0, xover.1, xover.1]
             .iter()
             .filter_map(|n| FlatNucl::from_real(n, self.id_map()))
             .collect();

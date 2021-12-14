@@ -456,7 +456,8 @@ impl NeighbourDescriptorGiver for Design {
             for (d_id, d) in s.domains.iter().enumerate() {
                 if let Some(other) = d.other_end(nucl) {
                     let start = if let Domain::HelixDomain(i) = d {
-                        Some(i.start)
+                        // if the domain has length one, we are not at a specific end
+                        (d.length() > 1).then(|| i.start)
                     } else {
                         None
                     };
