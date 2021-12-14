@@ -343,6 +343,13 @@ macro_rules! attributes {
     };
 }
 
+struct MainXoverDescriptor {
+    origin: Vec2,
+    target: Vec2,
+    normal_source: Vec2,
+    normal_target: Vec2,
+}
+
 impl<'a> StrandVertexBuilder<'a> {
     /// Initialise the builder.
     pub fn init(initializer: StrandVertexBuilderInitializer<'a>) -> Self {
@@ -390,8 +397,8 @@ impl<'a> StrandVertexBuilder<'a> {
                 self.last_point = Some(to);
             }
             DrawingInstruction::LineTo { position, depth } => {
-                self.start_drawing_on(self.last_point.expect("last point"));
                 self.depth = depth;
+                self.start_drawing_on(self.last_point.expect("last point"));
                 self.main_path_builder
                     .line_to(Point::new(position.x, position.y), attributes!(self));
                 self.last_point = Some(position);
@@ -413,20 +420,18 @@ impl<'a> StrandVertexBuilder<'a> {
                         .line_to(Point::new(to.x, to.y), attributes!(self));
                     self.splited_cross_over_builder.end(false);
                 } else {
-                    self.sign *= -1.0;
-                    let xover_target = to;
-                    let xover_origin = self.last_point.expect("last point");
-                    let dist = (xover_target - xover_origin).mag();
-                    let normal_1 = (normal_source - xover_origin).normalized();
-                    let normal_2 = (normal_target - xover_target).normalized();
-                    let control_1 = xover_origin + (dist.sqrt() / 2.) * normal_1;
-                    let control_2 = xover_target + (dist.sqrt() / 2.) * normal_2;
-                    self.main_path_builder.cubic_bezier_to(
-                        point!(control_1),
-                        point!(control_2),
-                        point!(to),
-                        attributes!(self),
-                    );
+                    let origin = self.last_point.expect("last point");
+                    if self.can_see(to) || self.can_see(origin) {
+                        self.draw_xover_with_main_builder(MainXoverDescriptor{
+                            target: to,
+                            origin,
+                            normal_source,
+                            normal_target
+                        })
+                    } else {
+                        // We do not draw cross overs whose extremities are both out of sight
+                        self.stop_drawing()
+                    }
                 }
                 self.last_point = Some(to);
             }
@@ -438,6 +443,28 @@ impl<'a> StrandVertexBuilder<'a> {
         }
     }
 
+    fn draw_xover_with_main_builder(&mut self, xover: MainXoverDescriptor) {
+        // We flip the sign so that the curve will be thin in its middle
+        self.sign *= -1.0;
+
+        let dist = (xover.target - xover.origin).mag();
+        let normal_1 = (xover.normal_source - xover.origin).normalized();
+        let normal_2 = (xover.normal_target - xover.target).normalized();
+        let control_1 = xover.origin + (dist.sqrt() / 2.) * normal_1;
+        let control_2 = xover.target + (dist.sqrt() / 2.) * normal_2;
+        let target = xover.target;
+        self.main_path_builder.cubic_bezier_to(
+            point!(control_1),
+            point!(control_2),
+            point!(target),
+            attributes!(self),
+        );
+    }
+
+    fn can_see(&self, point: Vec2) -> bool {
+        self.main_camera.borrow().can_see_world_point(point) || self.alternative_camera.borrow().can_see_world_point(point)
+    }
+
     fn draw_free_end(&mut self, from: Vec2, to: Vec2) {
         if let Some((from, to)) = self.alternative_positions(from, to) {
             self.splited_cross_over_builder
@@ -446,6 +473,7 @@ impl<'a> StrandVertexBuilder<'a> {
                 .line_to(Point::new(to.x, to.y), attributes!(self));
             self.splited_cross_over_builder.end(false);
         } else {
+            self.depth = 1e-4;
             self.start_drawing_on(from);
             self.main_path_builder
                 .line_to(point!(to), attributes!(self));
