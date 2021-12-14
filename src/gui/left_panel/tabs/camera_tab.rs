@@ -266,7 +266,7 @@ const ALL_FOG_CHOICE: &'static [FogChoice] = &[
     FogChoice::FromCamera,
     FogChoice::FromPivot,
     FogChoice::DarkFromCamera,
-    FogChoice::DarkFromCamera,
+    FogChoice::DarkFromPivot,
 ];
 
 impl std::fmt::Display for FogChoice {
