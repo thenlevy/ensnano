@@ -1546,8 +1546,11 @@ impl Controller {
         let filter =
             |d: &NeighbourDescriptor| !(d.identifier.is_same_domain_than(&desc.identifier));
         let neighbour_desc = left.filter(filter).or(right.filter(filter));
-        // sticking to the neighbour if it is in the same strand is usefull when moving xovers
-        let stick = neighbour_desc.map(|d| d.identifier.strand) == Some(strand_id);
+        // stick to the neighbour if it is its direct neighbour. This is because we want don't want
+        // to create a gap between neighbouring domains
+        let stick = neighbour_desc
+            .filter(|d| (d.identifier.domain as isize - desc.identifier.domain as isize).abs() < 1)
+            .is_some();
         if left.filter(filter).and(right.filter(filter)).is_some() {
             // TODO maybe we should do something else ?
             return None;
