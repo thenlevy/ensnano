@@ -710,21 +710,56 @@ impl<S: AppState> ControllerState<S> for ReleasedPivot {
                                 false
                             };
                             if controller.data.borrow().can_start_builder_at(nucl) {
-                                Transition {
-                                    new_state: Some(Box::new(InitBuilding {
-                                        mouse_position: self.mouse_position,
-                                        nucl,
-                                        end: controller.data.borrow().is_strand_end(nucl),
-                                    })),
-                                    consequences: Consequence::InitBuilding(nucl),
+                                if !controller.data.borrow().has_nucl(nucl) {
+                                    // If the builder is not on an existing strand, we transition
+                                    // directly to building state
+                                    Transition {
+                                        new_state: Some(Box::new(Building {
+                                            mouse_position: self.mouse_position,
+                                            nucl,
+                                            can_attach: false,
+                                        })),
+                                        consequences: Consequence::InitBuilding(nucl),
+                                    }
+                                } else {
+                                    Transition {
+                                        new_state: Some(Box::new(InitBuilding {
+                                            mouse_position: self.mouse_position,
+                                            nucl,
+                                            end: controller.data.borrow().is_strand_end(nucl),
+                                        })),
+                                        consequences: Consequence::InitBuilding(nucl),
+                                    }
                                 }
-                            } else {
+                            } else if let Some(attachement) =
+                                controller.data.borrow().attachable_neighbour(nucl)
+                            {
+                                Transition {
+                                    new_state: Some(Box::new(InitAttachement {
+                                        mouse_position: self.mouse_position,
+                                        from: nucl,
+                                        to: attachement,
+                                    })),
+                                    consequences: Consequence::Nothing,
+                                }
+                            } else if controller.data.borrow().has_nucl(nucl)
+                                && controller.data.borrow().is_xover_end(&nucl).is_none()
+                            {
                                 Transition {
                                     new_state: Some(Box::new(AddOrXover {
                                         mouse_position: self.mouse_position,
                                         nucl,
                                     })),
-                                    consequences: Consequence::InitBuilding(nucl),
+                                    consequences: Consequence::Nothing,
+                                }
+                            } else {
+                                Transition {
+                                    new_state: Some(Box::new(DraggingSelection {
+                                        mouse_position: self.mouse_position,
+                                        fixed_corner: self.mouse_position,
+                                        adding: false,
+                                    })),
+                                    consequences: Consequence::Nothing,
                                 }
                             }
                         }
@@ -1402,7 +1437,7 @@ impl<S: AppState> ControllerState<S> for InitBuilding {
                     mouse_position: self.mouse_position,
                     clicked_position: position,
                 })),
-                consequences: Consequence::Nothing,
+                consequences: Consequence::Built,
             },
             WindowEvent::CursorMoved { .. } => {
                 self.mouse_position = position;

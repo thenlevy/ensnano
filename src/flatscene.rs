@@ -215,6 +215,7 @@ impl<S: AppState> FlatScene<S> {
                 }
             }
             Consequence::FreeEnd(free_end) => {
+                self.requests.lock().unwrap().suspend_op();
                 let candidates = free_end
                     .as_ref()
                     .map(|fe| {
