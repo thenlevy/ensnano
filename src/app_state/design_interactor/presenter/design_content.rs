@@ -195,7 +195,7 @@ impl DesignContent {
                 }
             }
             let key = if let Some((prim5, prim3)) = strand.get_5prime().zip(strand.get_3prime()) {
-                (prim5.helix, prim5.position, prim3.helix, prim5.position)
+                (prim5.helix, prim5.position, prim3.helix, prim3.position)
             } else {
                 log::warn!("WARNING, STAPPLE WITH NO KEY !!!");
                 (0, 0, 0, 0)
