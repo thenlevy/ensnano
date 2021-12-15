@@ -112,13 +112,25 @@ impl<S: AppState> ControllerState<S> for NormalState {
                         .borrow()
                         .get_click(x, y, &controller.get_camera(position.y));
                 if let ClickResult::Nucl(nucl) = click_result {
-                    Transition {
-                        new_state: Some(Box::new(Cutting {
-                            mouse_position: self.mouse_position,
-                            nucl,
-                            whole_strand: false,
-                        })),
-                        consequences: Consequence::Nothing,
+                    if controller.data.borrow().can_make_auto_xover(nucl).is_some() {
+                        Transition {
+                            new_state: Some(Box::new(FollowingSuggestion {
+                                nucl,
+                                mouse_position: self.mouse_position,
+                                double: false,
+                                button: MouseButton::Right,
+                            })),
+                            consequences: Consequence::Nothing,
+                        }
+                    } else {
+                        Transition {
+                            new_state: Some(Box::new(Cutting {
+                                mouse_position: self.mouse_position,
+                                nucl,
+                                whole_strand: false,
+                            })),
+                            consequences: Consequence::Nothing,
+                        }
                     }
                 } else {
                     Transition::nothing()
@@ -181,6 +193,7 @@ impl<S: AppState> ControllerState<S> for NormalState {
                                 nucl,
                                 mouse_position: self.mouse_position,
                                 double: controller.modifiers.shift(),
+                                button: MouseButton::Left,
                             })),
                             consequences: Consequence::Nothing,
                         }
@@ -193,6 +206,7 @@ impl<S: AppState> ControllerState<S> for NormalState {
                                 nucl,
                                 mouse_position: self.mouse_position,
                                 double: false,
+                                button: MouseButton::Left,
                             })),
                             consequences: Consequence::Nothing,
                         }
@@ -689,6 +703,7 @@ impl<S: AppState> ControllerState<S> for ReleasedPivot {
                                 nucl,
                                 mouse_position: self.mouse_position,
                                 double: false,
+                                button: MouseButton::Left,
                             })),
                             consequences: Consequence::Nothing,
                         }
@@ -840,13 +855,25 @@ impl<S: AppState> ControllerState<S> for ReleasedPivot {
                         &controller.get_camera(position.y),
                     );
                     if let ClickResult::Nucl(nucl) = click_result {
-                        Transition {
-                            new_state: Some(Box::new(Cutting {
-                                mouse_position: self.mouse_position,
-                                nucl,
-                                whole_strand: false,
-                            })),
-                            consequences: Consequence::Nothing,
+                        if controller.data.borrow().can_make_auto_xover(nucl).is_some() {
+                            Transition {
+                                new_state: Some(Box::new(FollowingSuggestion {
+                                    nucl,
+                                    mouse_position: self.mouse_position,
+                                    double: false,
+                                    button: MouseButton::Right,
+                                })),
+                                consequences: Consequence::Nothing,
+                            }
+                        } else {
+                            Transition {
+                                new_state: Some(Box::new(Cutting {
+                                    mouse_position: self.mouse_position,
+                                    nucl,
+                                    whole_strand: false,
+                                })),
+                                consequences: Consequence::Nothing,
+                            }
                         }
                     } else {
                         Transition::nothing()
@@ -1116,7 +1143,9 @@ impl<S: AppState> ControllerState<S> for Rotating {
                         &controller.get_camera(position.y),
                     );
                     let consequences = if let ClickResult::Nucl(nucl) = click_result {
-                        if let Some(attachement) =
+                        if let Some(nucl) = controller.data.borrow().can_make_auto_xover(nucl) {
+                            Consequence::FollowingSuggestion(nucl, false)
+                        } else if let Some(attachement) =
                             controller.data.borrow().attachable_neighbour(nucl)
                         {
                             Consequence::Xover(nucl, attachement)
@@ -2225,6 +2254,7 @@ struct FollowingSuggestion {
     mouse_position: PhysicalPosition<f64>,
     nucl: FlatNucl,
     double: bool,
+    button: MouseButton,
 }
 
 impl<S: AppState> ControllerState<S> for FollowingSuggestion {
@@ -2249,17 +2279,10 @@ impl<S: AppState> ControllerState<S> for FollowingSuggestion {
     ) -> Transition<S> {
         match event {
             WindowEvent::MouseInput {
-                button: MouseButton::Left,
-                state,
+                button,
+                state: ElementState::Released,
                 ..
-            } => {
-                /*assert!(
-                    *state == ElementState::Released,
-                    "Pressed mouse button in Cutting state"
-                );*/
-                if *state == ElementState::Pressed {
-                    return Transition::nothing();
-                }
+            } if button == &self.button => {
                 let (x, y) = controller
                     .get_camera(position.y)
                     .borrow()
