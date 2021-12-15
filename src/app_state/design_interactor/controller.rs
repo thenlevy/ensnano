@@ -1408,17 +1408,7 @@ impl Controller {
     fn recolor_stapples(&mut self, mut design: Design) -> Design {
         for (s_id, strand) in design.strands.iter_mut() {
             if Some(*s_id) != design.scaffold_id {
-                let color = {
-                    let hue = (self.color_idx as f64 * (1. + 5f64.sqrt()) / 2.).fract() * 360.;
-                    let saturation =
-                        (self.color_idx as f64 * 7. * (1. + 5f64.sqrt() / 2.)).fract() * 0.4 + 0.4;
-                    let value =
-                        (self.color_idx as f64 * 11. * (1. + 5f64.sqrt() / 2.)).fract() * 0.7 + 0.1;
-                    let hsv = color_space::Hsv::new(hue, saturation, value);
-                    let rgb = color_space::Rgb::from(hsv);
-                    (0xFF << 24) | ((rgb.r as u32) << 16) | ((rgb.g as u32) << 8) | (rgb.b as u32)
-                };
-                self.color_idx += 1;
+                let color = crate::utils::new_color(&mut self.color_idx);
                 strand.color = color;
             }
         }
@@ -1614,8 +1604,11 @@ impl Controller {
         let filter =
             |d: &NeighbourDescriptor| !(d.identifier.is_same_domain_than(&desc.identifier));
         let neighbour_desc = left.filter(filter).or(right.filter(filter));
-        // sticking to the neighbour if it is in the same strand is usefull when moving xovers
-        let stick = neighbour_desc.map(|d| d.identifier.strand) == Some(strand_id);
+        // stick to the neighbour if it is its direct neighbour. This is because we want don't want
+        // to create a gap between neighbouring domains
+        let stick = neighbour_desc
+            .filter(|d| (d.identifier.domain as isize - desc.identifier.domain as isize).abs() < 1)
+            .is_some();
         if left.filter(filter).and(right.filter(filter)).is_some() {
             // TODO maybe we should do something else ?
             return None;
@@ -1675,16 +1668,7 @@ impl Controller {
 
     fn init_strand(&mut self, design: &mut Design, nucl: Nucl) -> usize {
         let s_id = design.strands.keys().max().map(|n| n + 1).unwrap_or(0);
-        let color = {
-            let hue = (self.color_idx as f64 * (1. + 5f64.sqrt()) / 2.).fract() * 360.;
-            let saturation =
-                (self.color_idx as f64 * 7. * (1. + 5f64.sqrt() / 2.)).fract() * 0.4 + 0.4;
-            let value = (self.color_idx as f64 * 11. * (1. + 5f64.sqrt() / 2.)).fract() * 0.7 + 0.1;
-            let hsv = color_space::Hsv::new(hue, saturation, value);
-            let rgb = color_space::Rgb::from(hsv);
-            (0xFF << 24) | ((rgb.r as u32) << 16) | ((rgb.g as u32) << 8) | (rgb.b as u32)
-        };
-        self.color_idx += 1;
+        let color = crate::utils::new_color(&mut self.color_idx);
         design.strands.insert(
             s_id,
             Strand::init(nucl.helix, nucl.position, nucl.forward, color),
@@ -1704,17 +1688,7 @@ impl Controller {
         } else {
             0
         };
-        let color = {
-            let hue = (self.color_idx as f64 * (1. + 5f64.sqrt()) / 2.).fract() * 360.;
-            let saturation =
-                (self.color_idx as f64 * 7. * (1. + 5f64.sqrt() / 2.)).fract() * 0.4 + 0.4;
-            let value = (self.color_idx as f64 * 11. * (1. + 5f64.sqrt() / 2.)).fract() * 0.7 + 0.1;
-            let hsv = color_space::Hsv::new(hue, saturation, value);
-            let rgb = color_space::Rgb::from(hsv);
-            (0xFF << 24) | ((rgb.r as u32) << 16) | ((rgb.g as u32) << 8) | (rgb.b as u32)
-        };
-        self.color_idx += 1;
-
+        let color = crate::utils::new_color(&mut self.color_idx);
         design
             .strands
             .insert(new_key, Strand::init(helix, position, forward, color));

@@ -49,7 +49,7 @@ pub struct Data {
     suggestions: HashMap<FlatNucl, HashSet<FlatNucl, RandomState>, RandomState>,
     id: u32,
     requests: Arc<Mutex<dyn Requests>>,
-    last_clicked_nucl: Option<FlatNucl>,
+    last_click: LastClick,
 }
 
 impl Data {
@@ -70,7 +70,7 @@ impl Data {
             suggestions: Default::default(),
             id,
             requests,
-            last_clicked_nucl: None,
+            last_click: Default::default(),
         }
     }
 
@@ -141,6 +141,7 @@ impl Data {
                 _ => (),
             }
         }
+        let mut suggestions = Vec::new();
         for c in new_state.get_candidates().iter() {
             match c {
                 Selection::Strand(_, s_id) => {
@@ -161,7 +162,12 @@ impl Data {
                 }
                 Selection::Nucleotide(_, n) => {
                     if let Some(flat_nucl) = FlatNucl::from_real(n, id_map) {
-                        candidate_nucls.push(flat_nucl)
+                        candidate_nucls.push(flat_nucl);
+                        let mut other = self.get_best_suggestion(flat_nucl);
+                        other = other.or(self.can_make_auto_xover(flat_nucl));
+                        if let Some(other) = other {
+                            suggestions.push((flat_nucl, other));
+                        }
                     }
                 }
                 _ => (),
@@ -197,6 +203,10 @@ impl Data {
             .set_candidate_helices(candidate_helices);
         self.view.borrow_mut().set_selected_nucls(selected_nucls);
         self.view.borrow_mut().set_candidate_nucls(candidate_nucls);
+        self.view.borrow_mut().set_candidate_suggestion(
+            suggestions.last().map(|t| t.0),
+            suggestions.last().map(|t| t.1),
+        );
     }
 
     fn update_strand_building_info(&self, info: Option<super::StrandBuildingStatus>) {
@@ -878,31 +888,24 @@ impl Data {
                     }
                 }
                 _ => {
+                    self.last_click.click_on(nucl);
+                    let mut selection_pool = vec![Selection::Nucleotide(self.id, nucl.to_real())];
                     if let Some(xover) = self.xover_containing_nucl(&nucl) {
-                        let selection = Selection::Xover(self.id, xover);
-                        if let Some(pos) = new_selection.iter().position(|x| *x == selection) {
-                            new_selection.remove(pos);
-                        } else {
-                            new_selection.push(selection);
-                        }
-                    } else {
-                        let selection = if Some(nucl) == self.last_clicked_nucl {
-                            if let Some(s_id) = self.get_strand_id(nucl) {
-                                self.last_clicked_nucl = None;
-                                Selection::Strand(self.id, s_id as u32)
-                            } else {
-                                Selection::Nucleotide(self.id, nucl.to_real())
-                            }
-                        } else {
-                            self.last_clicked_nucl = Some(nucl);
-                            Selection::Nucleotide(self.id, nucl.to_real())
-                        };
-                        if let Some(pos) = new_selection.iter().position(|x| *x == selection) {
-                            new_selection.remove(pos);
-                        } else {
-                            new_selection.push(selection);
-                        }
+                        selection_pool.push(Selection::Xover(self.id, xover));
                     }
+                    if let Some(s_id) = self.get_strand_id(nucl) {
+                        selection_pool.push(Selection::Strand(self.id, s_id as u32));
+                    }
+                    log::info!("selection pool {:?}", selection_pool);
+                    let selection = self.last_click.select(&mut selection_pool);
+                    log::info!(
+                        "selected {:?}, selection_pool {:?}",
+                        selection,
+                        selection_pool
+                    );
+
+                    new_selection.push(selection);
+                    new_selection.retain(|s| !selection_pool.contains(s));
                 }
             },
             ClickResult::HelixHandle { .. } => (),
@@ -1154,5 +1157,31 @@ impl ToFlatInfo for super::StrandBuildingStatus {
             nm_length: self.nm_length,
             nucl: flat_nucl,
         })
+    }
+}
+
+#[derive(Default)]
+struct LastClick {
+    counter: usize,
+    nucl: Option<FlatNucl>,
+}
+
+impl LastClick {
+    pub fn click_on(&mut self, nucl: FlatNucl) {
+        if self.nucl == Some(nucl) {
+            self.counter += 1;
+        } else {
+            self.counter = 0;
+            self.nucl = Some(nucl);
+        }
+    }
+
+    pub fn select(&self, pool: &mut Vec<Selection>) -> Selection {
+        if pool.len() == 0 {
+            Selection::Nothing
+        } else {
+            let id = self.counter % pool.len();
+            pool.remove(id)
+        }
     }
 }
