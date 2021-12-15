@@ -1340,17 +1340,7 @@ impl Controller {
     fn recolor_stapples(&mut self, mut design: Design) -> Design {
         for (s_id, strand) in design.strands.iter_mut() {
             if Some(*s_id) != design.scaffold_id {
-                let color = {
-                    let hue = (self.color_idx as f64 * (1. + 5f64.sqrt()) / 2.).fract() * 360.;
-                    let saturation =
-                        (self.color_idx as f64 * 7. * (1. + 5f64.sqrt() / 2.)).fract() * 0.4 + 0.4;
-                    let value =
-                        (self.color_idx as f64 * 11. * (1. + 5f64.sqrt() / 2.)).fract() * 0.7 + 0.1;
-                    let hsv = color_space::Hsv::new(hue, saturation, value);
-                    let rgb = color_space::Rgb::from(hsv);
-                    (0xFF << 24) | ((rgb.r as u32) << 16) | ((rgb.g as u32) << 8) | (rgb.b as u32)
-                };
-                self.color_idx += 1;
+                let color = crate::utils::new_color(&mut self.color_idx);
                 strand.color = color;
             }
         }
@@ -1610,16 +1600,7 @@ impl Controller {
 
     fn init_strand(&mut self, design: &mut Design, nucl: Nucl) -> usize {
         let s_id = design.strands.keys().max().map(|n| n + 1).unwrap_or(0);
-        let color = {
-            let hue = (self.color_idx as f64 * (1. + 5f64.sqrt()) / 2.).fract() * 360.;
-            let saturation =
-                (self.color_idx as f64 * 7. * (1. + 5f64.sqrt() / 2.)).fract() * 0.4 + 0.4;
-            let value = (self.color_idx as f64 * 11. * (1. + 5f64.sqrt() / 2.)).fract() * 0.7 + 0.1;
-            let hsv = color_space::Hsv::new(hue, saturation, value);
-            let rgb = color_space::Rgb::from(hsv);
-            (0xFF << 24) | ((rgb.r as u32) << 16) | ((rgb.g as u32) << 8) | (rgb.b as u32)
-        };
-        self.color_idx += 1;
+        let color = crate::utils::new_color(&mut self.color_idx);
         design.strands.insert(
             s_id,
             Strand::init(nucl.helix, nucl.position, nucl.forward, color),
@@ -1639,17 +1620,7 @@ impl Controller {
         } else {
             0
         };
-        let color = {
-            let hue = (self.color_idx as f64 * (1. + 5f64.sqrt()) / 2.).fract() * 360.;
-            let saturation =
-                (self.color_idx as f64 * 7. * (1. + 5f64.sqrt() / 2.)).fract() * 0.4 + 0.4;
-            let value = (self.color_idx as f64 * 11. * (1. + 5f64.sqrt() / 2.)).fract() * 0.7 + 0.1;
-            let hsv = color_space::Hsv::new(hue, saturation, value);
-            let rgb = color_space::Rgb::from(hsv);
-            (0xFF << 24) | ((rgb.r as u32) << 16) | ((rgb.g as u32) << 8) | (rgb.b as u32)
-        };
-        self.color_idx += 1;
-
+        let color = crate::utils::new_color(&mut self.color_idx);
         design
             .strands
             .insert(new_key, Strand::init(helix, position, forward, color));
