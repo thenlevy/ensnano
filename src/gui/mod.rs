@@ -190,6 +190,7 @@ pub trait Requests: 'static + Send {
     fn set_check_xover_parameters(&mut self, paramters: CheckXoversParameter);
     fn follow_stereographic_camera(&mut self, follow: bool);
     fn flip_split_views(&mut self);
+    fn set_rainbow_scaffold(&mut self, rainbow: bool);
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -948,6 +949,7 @@ pub trait DesignReader: 'static {
     fn get_grid_nb_turn(&self, g_id: usize) -> Option<f32>;
     fn xover_length(&self, xover_id: usize) -> Option<(f32, Option<f32>)>;
     fn get_id_of_xover_involving_nucl(&self, nucl: Nucl) -> Option<usize>;
+    fn rainbow_scaffold(&self) -> bool;
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]

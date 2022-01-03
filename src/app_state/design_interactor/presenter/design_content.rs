@@ -351,19 +351,28 @@ impl DesignContent {
         }
         design.update_bezier_helices(curve_cache);
         design.update_support_helices();
+        let rainbow_strand = design.scaffold_id.filter(|_| design.rainbow_scaffold);
+
         for (s_id, strand) in design.strands.iter_mut() {
             elements.push(elements::DnaElement::Strand { id: *s_id });
             let mut strand_position = 0;
             let strand_seq = strand.sequence.as_ref().filter(|s| s.is_ascii());
             let color = strand.color;
             let mut last_xover_junction: Option<&mut DomainJunction> = None;
-            let strand_len = if *s_id == 0 { strand.length() } else { 0 };
 
-            let mut rainbow_iterator = (0..strand_len).map(|i| {
-                let hsv = color_space::Hsv::new(i as f64 * 360. / strand_len as f64, 1., 1.);
+            let rainbow_len = if Some(*s_id) == rainbow_strand {
+                strand.length()
+            } else {
+                0
+            };
+            // If the strand is not the rainbow strand, the rainbow iterator will be empty and the
+            // real strand color will be used.
+            let mut rainbow_iterator = (0..rainbow_len).map(|i| {
+                let hsv = color_space::Hsv::new(i as f64 * 360. / rainbow_len as f64, 1., 1.);
                 let rgb = color_space::Rgb::from(hsv);
                 (0xFF << 24) | ((rgb.r as u32) << 16) | ((rgb.g as u32) << 8) | (rgb.b as u32)
             });
+
             for (i, domain) in strand.domains.iter().enumerate() {
                 if let Some((prime5, prime3)) = old_nucl.clone().zip(domain.prime5_end()) {
                     Self::update_junction(

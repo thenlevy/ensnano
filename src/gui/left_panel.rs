@@ -187,6 +187,7 @@ pub enum Message<S> {
     InstanciatedValueSubmitted(InstanciatedValue),
     CheckXoversParameter(CheckXoversParameter),
     FollowStereographicCamera(bool),
+    RainbowScaffold(bool),
 }
 
 impl<S: AppState> contextual_panel::BuilderMessage for Message<S> {
@@ -758,6 +759,7 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
             Message::FollowStereographicCamera(b) => {
                 self.requests.lock().unwrap().follow_stereographic_camera(b)
             }
+            Message::RainbowScaffold(b) => self.requests.lock().unwrap().set_rainbow_scaffold(b),
         };
         Command::none()
     }

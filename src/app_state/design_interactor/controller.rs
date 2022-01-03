@@ -274,6 +274,13 @@ impl Controller {
             DesignOperation::CheckXovers { xovers } => {
                 self.apply(|c, d| c.check_xovers(d, xovers), design)
             }
+            DesignOperation::SetRainbowScaffold(b) => Ok(self.ok_apply(
+                |_c, mut d| {
+                    d.rainbow_scaffold = b;
+                    d
+                },
+                design,
+            )),
         }
     }
 

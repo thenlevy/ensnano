@@ -130,6 +130,10 @@ pub struct Design {
 
     #[serde(default, skip_serializing_if = "HashSet::is_empty")]
     pub checked_xovers: HashSet<usize>,
+
+    /// True if the colors of the scaffold's nucleotides should make a rainbow
+    #[serde(default)]
+    pub rainbow_scaffold: bool,
 }
 
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -181,18 +185,6 @@ impl Design {
             helices: Arc::new(helices),
             strands,
             parameters: Some(parameters),
-            grids: Default::default(),
-            scaffold_id: None,
-            scaffold_sequence: None,
-            scaffold_shift: None,
-            groups: Default::default(),
-            small_spheres: Default::default(),
-            no_phantoms: Default::default(),
-            anchors: Default::default(),
-            organizer_tree: None,
-            ensnano_version: ensnano_version(),
-            group_attributes: Default::default(),
-            cameras: Default::default(),
             ..Default::default()
         }
     }
@@ -217,6 +209,7 @@ impl Design {
             favorite_camera: None,
             saved_camera: None,
             checked_xovers: Default::default(),
+            rainbow_scaffold: false,
         }
     }
 

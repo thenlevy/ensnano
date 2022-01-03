@@ -176,6 +176,17 @@ macro_rules! add_download_staples_button {
     };
 }
 
+macro_rules! add_rainbow_scaffold_checkbox {
+    ($ret: ident, $ui_size: ident, $app_state: ident) => {
+        $ret = $ret.push(right_checkbox(
+            $app_state.get_reader().rainbow_scaffold(),
+            "Rainbow Scaffold",
+            Message::RainbowScaffold,
+            $ui_size,
+        ));
+    };
+}
+
 impl SequenceTab {
     pub fn new() -> Self {
         Self {
@@ -213,6 +224,9 @@ impl SequenceTab {
         add_scaffold_from_to_selection_buttons!(ret, self, ui_size, app_state);
         extra_jump!(ret);
         add_scaffold_info!(ret, self, ui_size, app_state);
+        extra_jump!(ret);
+
+        add_rainbow_scaffold_checkbox!(ret, ui_size, app_state);
         extra_jump!(ret);
 
         add_set_scaffold_sequence_button!(ret, self, ui_size);

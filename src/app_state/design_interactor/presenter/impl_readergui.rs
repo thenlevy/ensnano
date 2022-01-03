@@ -131,4 +131,8 @@ impl ReaderGui for DesignReader {
     fn get_id_of_xover_involving_nucl(&self, nucl: Nucl) -> Option<usize> {
         self.presenter.get_id_of_xover_involving_nucl(nucl)
     }
+
+    fn rainbow_scaffold(&self) -> bool {
+        self.presenter.current_design.rainbow_scaffold
+    }
 }

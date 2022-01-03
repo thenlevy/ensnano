@@ -380,6 +380,12 @@ impl GuiRequests for Requests {
     fn flip_split_views(&mut self) {
         self.keep_proceed.push_back(Action::FlipSplitViews);
     }
+
+    fn set_rainbow_scaffold(&mut self, rainbow: bool) {
+        self.keep_proceed.push_back(Action::DesignOperation(
+            DesignOperation::SetRainbowScaffold(rainbow),
+        ))
+    }
 }
 
 fn rigid_parameters(parameters: RigidBodyParametersRequest) -> RigidBodyConstants {

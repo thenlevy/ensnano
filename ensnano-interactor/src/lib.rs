@@ -256,6 +256,7 @@ pub enum DesignOperation {
     CheckXovers {
         xovers: Vec<usize>,
     },
+    SetRainbowScaffold(bool),
 }
 
 /// An action performed on the application
