@@ -161,7 +161,7 @@ impl Multiplexer {
             ui_size,
             invert_y_scroll: false,
             icon: None,
-            element_2d: ElementType::StereographicScene,
+            element_2d: ElementType::FlatScene,
             element_3d: ElementType::Scene,
         };
         ret.generate_textures();
