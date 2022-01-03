@@ -487,6 +487,7 @@ struct AppStateParameters {
     suggestion_parameters: SuggestionParameters,
     check_xover_paramters: CheckXoversParameter,
     follow_stereography: bool,
+    show_stereography: bool,
 }
 
 #[derive(Clone, Default)]

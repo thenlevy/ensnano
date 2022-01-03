@@ -625,6 +625,7 @@ impl Multiplexer {
     }
 
     pub fn toggle_2d(&mut self) {
+        log::info!("Toggle 2d");
         let old_element_2d = self.element_2d;
         if self.element_2d == ElementType::FlatScene {
             self.element_2d = ElementType::StereographicScene;
@@ -634,6 +635,7 @@ impl Multiplexer {
         if let Some(id) = self.layout_manager.get_area_id(old_element_2d) {
             self.layout_manager.attribute_element(id, self.element_2d)
         }
+        log::info!("new element_2d {:?}", self.element_2d);
         self.generate_textures();
     }
 
@@ -668,7 +670,9 @@ impl Multiplexer {
     }
 
     fn texture(&mut self, element_type: ElementType) -> Option<MultiplexerTexture> {
+        log::info!("texture of {:?}", element_type);
         let area = self.get_draw_area(element_type)?;
+        log::info!("area = {:?}", area);
         let texture = SampledTexture::create_target_texture(self.device.as_ref(), &area.size);
         Some(MultiplexerTexture { area, texture })
     }

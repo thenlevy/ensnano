@@ -390,6 +390,11 @@ fn main() {
         main_state.app_state.clone(),
         main_state.gui_state(&multiplexer),
     );
+    messages
+        .lock()
+        .unwrap()
+        .push_application_state(main_state.get_app_state().clone(), last_gui_state.1.clone());
+
     event_loop.run(move |event, _, control_flow| {
         // Wait for event or redraw a frame every 33 ms (30 frame per seconds)
         *control_flow = ControlFlow::WaitUntil(Instant::now() + Duration::from_millis(33));
