@@ -104,8 +104,6 @@ pub enum Notification {
     ModifersChanged(ModifiersState),
     Split2d,
     Redim2dHelices(bool),
-    Background3D(Background3D),
-    RenderingMode(RenderingMode),
     Fog(FogParameters),
     WindowFocusLost,
     NewStereographicCamera(Arc<(Camera3D, f32)>),

@@ -546,8 +546,6 @@ impl<S: AppState> Application for FlatScene<S> {
                     .borrow_mut()
                     .redim_helices(selection)
             }
-            Notification::RenderingMode(_) => (),
-            Notification::Background3D(_) => (),
             Notification::Fog(_) => (),
             Notification::WindowFocusLost => (),
             Notification::TeleportCamera(_) => (),

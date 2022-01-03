@@ -187,6 +187,7 @@ pub enum Message<S> {
     InstanciatedValueSubmitted(InstanciatedValue),
     CheckXoversParameter(CheckXoversParameter),
     FollowStereographicCamera(bool),
+    ShowStereographicCamera(bool),
     RainbowScaffold(bool),
 }
 
@@ -758,6 +759,12 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
                 .set_check_xover_parameters(parameters),
             Message::FollowStereographicCamera(b) => {
                 self.requests.lock().unwrap().follow_stereographic_camera(b)
+            }
+            Message::ShowStereographicCamera(b) => {
+                self.requests
+                    .lock()
+                    .unwrap()
+                    .set_show_stereographic_camera(b);
             }
             Message::RainbowScaffold(b) => self.requests.lock().unwrap().set_rainbow_scaffold(b),
         };

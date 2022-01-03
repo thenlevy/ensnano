@@ -302,11 +302,11 @@ pub(crate) fn poll_all<R: DerefMut<Target = Requests>>(
     }
 
     if let Some(mode) = requests.rendering_mode.take() {
-        main_state.push_action(Action::NotifyApps(Notification::RenderingMode(mode)))
+        main_state.set_rendering_mode(mode);
     }
 
     if let Some(bg) = requests.background3d.take() {
-        main_state.push_action(Action::NotifyApps(Notification::Background3D(bg)))
+        main_state.set_background_3d(bg);
     }
 
     if requests.undo.take().is_some() {
@@ -388,5 +388,9 @@ pub(crate) fn poll_all<R: DerefMut<Target = Requests>>(
 
     if let Some(b) = requests.follow_stereographic_camera.take() {
         main_state.set_follow_stereographic_camera(b);
+    }
+
+    if let Some(b) = requests.set_show_stereographic_camera.take() {
+        main_state.set_show_stereographic_camera(b);
     }
 }

@@ -120,4 +120,5 @@ pub struct Requests {
     pub new_suggestion_parameters: Option<SuggestionParameters>,
     pub check_xover_parameters: Option<CheckXoversParameter>,
     pub follow_stereographic_camera: Option<bool>,
+    pub set_show_stereographic_camera: Option<bool>,
 }

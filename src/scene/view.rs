@@ -123,9 +123,14 @@ pub struct View {
     direction_cube: InstanceDrawer<DirectionCube>,
     skybox_cube: InstanceDrawer<SkyBox>,
     fog_parameters: FogParameters,
-    rendering_mode: RenderingMode,
-    background3d: Background3D,
     stereography: Stereography,
+}
+
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
+pub struct DrawOptions {
+    pub rendering_mode: RenderingMode,
+    pub background3d: Background3D,
+    pub show_stereographic_camera: bool,
 }
 
 impl View {
@@ -308,8 +313,6 @@ impl View {
             direction_cube,
             skybox_cube,
             fog_parameters: FogParameters::new(),
-            rendering_mode: Default::default(),
-            background3d: Default::default(),
             stereography,
         }
     }
@@ -427,6 +430,7 @@ impl View {
         draw_type: DrawType,
         area: DrawArea,
         stereographic: bool,
+        draw_options: DrawOptions,
     ) {
         let fake_color = draw_type.is_fake();
         if let Some(size) = self.new_size.take() {
@@ -444,7 +448,7 @@ impl View {
                 None
             };
         }
-        let clear_color = if fake_color || self.background3d == Background3D::White {
+        let clear_color = if fake_color || draw_options.background3d == Background3D::White {
             // 0xFF_FF_FF_FF is the "default" color for the fake texture
             wgpu::Color {
                 r: 1.,
@@ -543,14 +547,17 @@ impl View {
                     )
                 }
             } else if draw_type == DrawType::Scene {
-                if self.background3d == Background3D::Sky {
+                if draw_options.background3d == Background3D::Sky {
                     self.skybox_cube.draw(
                         &mut render_pass,
                         viewer.get_bindgroup(),
                         self.models.get_bindgroup(),
                     );
                 }
-                for drawer in self.dna_drawers.reals(self.rendering_mode) {
+                for drawer in self.dna_drawers.reals(
+                    draw_options.rendering_mode,
+                    draw_options.show_stereographic_camera,
+                ) {
                     drawer.draw(
                         &mut render_pass,
                         viewer.get_bindgroup(),
@@ -900,16 +907,6 @@ impl View {
         self.grid_manager.set_selected_grid(grids)
     }
 
-    pub fn rendering_mode(&mut self, mode: RenderingMode) {
-        self.rendering_mode = mode;
-        self.need_redraw = true;
-    }
-
-    pub fn background3d(&mut self, bg: Background3D) {
-        self.background3d = bg;
-        self.need_redraw = true;
-    }
-
     pub fn get_group_pivot(&self) -> Option<GroupPivot> {
         self.handle_drawers
             .get_pivot_position()
@@ -1057,6 +1054,7 @@ impl DnaDrawers {
     pub fn reals(
         &mut self,
         rendering_mode: RenderingMode,
+        show_stereographic_camera: bool,
     ) -> Vec<&mut dyn RawDrawer<RawInstance = RawDnaInstance>> {
         let mut ret: Vec<&mut dyn RawDrawer<RawInstance = RawDnaInstance>> = vec![
             &mut self.sphere,
@@ -1077,12 +1075,14 @@ impl DnaDrawers {
             &mut self.xover_tube,
             &mut self.bezier_squelton,
             &mut self.bezier_controll_points,
-            &mut self.stereographic_sphere,
         ];
         if rendering_mode == RenderingMode::Cartoon {
             ret.insert(3, &mut self.outline_tube);
             ret.insert(4, &mut self.outline_sphere);
             ret.insert(5, &mut self.outline_prime3_cones);
+        }
+        if show_stereographic_camera {
+            ret.push(&mut self.stereographic_sphere)
         }
 
         ret

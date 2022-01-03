@@ -16,7 +16,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-use crate::scene::AppState as App3D;
+use crate::scene::{AppState as App3D, DrawOptions};
 use ensnano_interactor::StrandBuilder;
 
 use super::*;
@@ -107,6 +107,18 @@ impl App3D for AppState {
 
     fn follow_stereographic_camera(&self) -> bool {
         self.0.parameters.follow_stereography
+    }
+
+    fn get_draw_options(&self) -> DrawOptions {
+        DrawOptions {
+            background3d: self.0.parameters.background3d,
+            rendering_mode: self.0.parameters.rendering_mode,
+            show_stereographic_camera: self.0.parameters.show_stereography,
+        }
+    }
+
+    fn draw_options_were_updated(&self, other: &Self) -> bool {
+        self.get_draw_options() != other.get_draw_options()
     }
 }
 

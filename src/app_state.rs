@@ -25,6 +25,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 //! Each component of ENSnano has specific needs and express them via its own `AppState` trait.
 
 use ensnano_design::group_attributes::GroupPivot;
+use ensnano_interactor::graphics::{Background3D, RenderingMode};
 use ensnano_interactor::{
     operation::Operation, ActionMode, CenterOfSelection, CheckXoversParameter, Selection,
     SelectionMode, WidgetBasis,
@@ -347,20 +348,38 @@ impl AppState {
         *self = self.with_selection_mode(source.0.selection_mode.clone());
         *self = self.with_suggestion_parameters(source.0.parameters.suggestion_parameters.clone());
         *self = self.with_check_xovers_parameters(source.0.parameters.check_xover_paramters);
+        *self = self.with_updated_parameters(|p| *p = source.0.parameters.clone());
     }
 
     pub fn with_check_xovers_parameters(
         &self,
         check_xover_paramters: CheckXoversParameter,
     ) -> Self {
-        let mut new_state = (*self.0).clone();
-        new_state.parameters.check_xover_paramters = check_xover_paramters;
-        Self(AddressPointer::new(new_state))
+        self.with_updated_parameters(|p| p.check_xover_paramters = check_xover_paramters)
     }
 
     pub fn with_follow_stereographic_camera(&self, follow: bool) -> Self {
+        self.with_updated_parameters(|p| p.follow_stereography = follow)
+    }
+
+    pub fn with_show_stereographic_camera(&self, show: bool) -> Self {
+        self.with_updated_parameters(|p| p.show_stereography = show)
+    }
+
+    pub fn with_background3d(&self, bg: Background3D) -> Self {
+        self.with_updated_parameters(|p| p.background3d = bg)
+    }
+
+    pub fn with_rendering_mode(&self, rendering_mode: RenderingMode) -> Self {
+        self.with_updated_parameters(|p| p.rendering_mode = rendering_mode)
+    }
+
+    fn with_updated_parameters<F>(&self, update: F) -> Self
+    where
+        F: Fn(&mut AppStateParameters),
+    {
         let mut new_state = (*self.0).clone();
-        new_state.parameters.follow_stereography = follow;
+        update(&mut new_state.parameters);
         Self(AddressPointer::new(new_state))
     }
 
@@ -488,6 +507,8 @@ struct AppStateParameters {
     check_xover_paramters: CheckXoversParameter,
     follow_stereography: bool,
     show_stereography: bool,
+    rendering_mode: RenderingMode,
+    background3d: Background3D,
 }
 
 #[derive(Clone, Default)]

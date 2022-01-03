@@ -1315,6 +1315,18 @@ impl MainState {
         self.modify_state(|s| s.with_follow_stereographic_camera(follow), false)
     }
 
+    fn set_show_stereographic_camera(&mut self, show: bool) {
+        self.modify_state(|s| s.with_show_stereographic_camera(show), false)
+    }
+
+    fn set_background_3d(&mut self, bg: ensnano_interactor::graphics::Background3D) {
+        self.modify_state(|s| s.with_background3d(bg), false)
+    }
+
+    fn set_rendering_mode(&mut self, rendering_mode: ensnano_interactor::graphics::RenderingMode) {
+        self.modify_state(|s| s.with_rendering_mode(rendering_mode), false)
+    }
+
     fn gui_state(&self, multiplexer: &Multiplexer) -> gui::MainState {
         gui::MainState {
             can_undo: !self.undo_stack.is_empty(),

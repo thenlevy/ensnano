@@ -122,6 +122,10 @@ impl GuiState for AppState {
     fn follow_stereographic_camera(&self) -> bool {
         self.0.parameters.follow_stereography
     }
+
+    fn show_stereographic_camera(&self) -> bool {
+        self.0.parameters.show_stereography
+    }
 }
 
 #[cfg(test)]

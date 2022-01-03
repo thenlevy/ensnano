@@ -386,6 +386,10 @@ impl GuiRequests for Requests {
             DesignOperation::SetRainbowScaffold(rainbow),
         ))
     }
+
+    fn set_show_stereographic_camera(&mut self, show: bool) {
+        self.set_show_stereographic_camera = Some(show);
+    }
 }
 
 fn rigid_parameters(parameters: RigidBodyParametersRequest) -> RigidBodyConstants {

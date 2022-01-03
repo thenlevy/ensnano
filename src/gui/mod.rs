@@ -189,6 +189,7 @@ pub trait Requests: 'static + Send {
     fn set_nb_turn(&mut self, grid_id: usize, nb_turn: f32);
     fn set_check_xover_parameters(&mut self, paramters: CheckXoversParameter);
     fn follow_stereographic_camera(&mut self, follow: bool);
+    fn set_show_stereographic_camera(&mut self, show: bool);
     fn flip_split_views(&mut self);
     fn set_rainbow_scaffold(&mut self, rainbow: bool);
 }
@@ -930,6 +931,7 @@ pub trait AppState:
     fn get_suggestion_parameters(&self) -> &SuggestionParameters;
     fn get_checked_xovers_parameters(&self) -> CheckXoversParameter;
     fn follow_stereographic_camera(&self) -> bool;
+    fn show_stereographic_camera(&self) -> bool;
 }
 
 pub trait DesignReader: 'static {

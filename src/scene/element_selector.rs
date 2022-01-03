@@ -135,6 +135,8 @@ impl ElementSelector {
             draw_type,
             self.area,
             stereographic,
+            // The draw options are irrelevant for the fake scene
+            Default::default(),
         );
 
         // create a buffer and fill it with the texture

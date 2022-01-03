@@ -42,12 +42,12 @@ use winit::dpi::PhysicalPosition;
 mod camera;
 /// Display of the scene
 mod view;
+pub use view::{DrawOptions, FogParameters, GridInstance};
 use view::{
     DrawType, HandleDir, HandleOrientation, HandlesDescriptor, LetterInstance,
     RotationMode as WidgetRotationMode, RotationWidgetDescriptor, RotationWidgetOrientation,
     Stereography, View, ViewUpdate,
 };
-pub use view::{FogParameters, GridInstance};
 /// Handling of inputs and notifications
 mod controller;
 use controller::{Consequence, Controller, WidgetTarget};
@@ -687,8 +687,9 @@ impl<S: AppState> Scene<S> {
         self.data
             .borrow_mut()
             .update_view(&new_state, &self.older_state);
+        let mut ret = new_state.draw_options_were_updated(&self.older_state);
         self.older_state = new_state;
-        let ret = self.view.borrow().need_redraw();
+        ret |= self.view.borrow().need_redraw();
         if ret {
             log::debug!("Scene requests redraw");
         }
@@ -700,7 +701,7 @@ impl<S: AppState> Scene<S> {
         &mut self,
         encoder: &mut wgpu::CommandEncoder,
         target: &wgpu::TextureView,
-        _app_state: &S,
+        app_state: &S,
     ) {
         let is_stereographic = matches!(self.scene_kind, SceneKind::Stereographic);
         self.view.borrow_mut().draw(
@@ -709,6 +710,7 @@ impl<S: AppState> Scene<S> {
             DrawType::Scene,
             self.area,
             is_stereographic,
+            app_state.get_draw_options(),
         );
     }
 
@@ -926,8 +928,6 @@ impl<S: AppState> Application for Scene<S> {
             Notification::ModifersChanged(modifiers) => self.controller.update_modifiers(modifiers),
             Notification::Split2d => (),
             Notification::Redim2dHelices(_) => (),
-            Notification::RenderingMode(mode) => self.view.borrow_mut().rendering_mode(mode),
-            Notification::Background3D(bg) => self.view.borrow_mut().background3d(bg),
             Notification::Fog(fog) => self.fog_request(fog),
             Notification::WindowFocusLost => self.controller.stop_camera_movement(),
             Notification::NewStereographicCamera(camera_ptr) => {
@@ -1022,6 +1022,8 @@ pub trait AppState: Clone {
     fn suggestion_parameters_were_updated(&self, other: &Self) -> bool;
     fn get_check_xover_parameters(&self) -> CheckXoversParameter;
     fn follow_stereographic_camera(&self) -> bool;
+    fn get_draw_options(&self) -> DrawOptions;
+    fn draw_options_were_updated(&self, other: &Self) -> bool;
 }
 
 pub trait Requests {

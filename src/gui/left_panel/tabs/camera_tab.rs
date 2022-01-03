@@ -85,6 +85,13 @@ impl CameraTab {
         ret = ret.push(self.fog.view(&ui_size));
 
         ret = ret.push(right_checkbox(
+            app_state.show_stereographic_camera(),
+            "Show stereographic camera",
+            Message::ShowStereographicCamera,
+            ui_size,
+        ));
+
+        ret = ret.push(right_checkbox(
             app_state.follow_stereographic_camera(),
             "Follow stereographic camera",
             Message::FollowStereographicCamera,
