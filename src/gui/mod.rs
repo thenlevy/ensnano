@@ -377,12 +377,14 @@ impl<R: Requests, S: AppState> GuiElement<R, S> {
         window: &Window,
         multiplexer: &dyn Multiplexer,
         requests: Arc<Mutex<R>>,
+        app_state: top_bar::MainState<S>,
     ) -> Self {
         let cursor_position = PhysicalPosition::new(-1., -1.);
         let top_bar_area = multiplexer.get_draw_area(ElementType::TopBar).unwrap();
         let top_bar = TopBar::new(
             requests.clone(),
             top_bar_area.size.to_logical(window.scale_factor()),
+            app_state,
         );
         let mut top_bar_debug = Debug::new();
         let top_bar_state = program::State::new(
@@ -439,10 +441,11 @@ impl<R: Requests, S: AppState> GuiElement<R, S> {
         window: &Window,
         multiplexer: &dyn Multiplexer,
         requests: Arc<Mutex<R>>,
+        state: &S,
     ) -> Self {
         let cursor_position = PhysicalPosition::new(-1., -1.);
         let status_bar_area = multiplexer.get_draw_area(ElementType::StatusBar).unwrap();
-        let status_bar = StatusBar::new(requests);
+        let status_bar = StatusBar::new(requests, state);
         let mut status_bar_debug = Debug::new();
         let status_bar_state = program::State::new(
             status_bar,
@@ -558,6 +561,7 @@ impl<R: Requests, S: AppState> Gui<R, S> {
         requests: Arc<Mutex<R>>,
         settings: Settings,
         state: &S,
+        main_state: MainState,
     ) -> Self {
         let mut renderer = Renderer::new(Backend::new(
             device.as_ref(),
@@ -565,9 +569,16 @@ impl<R: Requests, S: AppState> Gui<R, S> {
             crate::TEXTURE_FORMAT,
         ));
         let mut elements = HashMap::new();
+        let top_bar_state = top_bar_main_state(state, main_state);
         elements.insert(
             ElementType::TopBar,
-            GuiElement::top_bar(&mut renderer, window, multiplexer, requests.clone()),
+            GuiElement::top_bar(
+                &mut renderer,
+                window,
+                multiplexer,
+                requests.clone(),
+                top_bar_state,
+            ),
         );
         elements.insert(
             ElementType::LeftPanel,
@@ -582,7 +593,7 @@ impl<R: Requests, S: AppState> Gui<R, S> {
         );
         elements.insert(
             ElementType::StatusBar,
-            GuiElement::status_bar(&mut renderer, window, multiplexer, requests.clone()),
+            GuiElement::status_bar(&mut renderer, window, multiplexer, requests.clone(), state),
         );
 
         Self {
@@ -680,11 +691,12 @@ impl<R: Requests, S: AppState> Gui<R, S> {
         window: &Window,
         multiplexer: &dyn Multiplexer,
         app_state: &S,
+        main_state: MainState,
     ) {
         self.set_text_size(ui_size.main_text());
         self.ui_size = ui_size.clone();
 
-        self.rebuild_gui(window, multiplexer, app_state);
+        self.rebuild_gui(window, multiplexer, app_state, main_state);
     }
 
     pub fn notify_scale_factor_change(
@@ -692,12 +704,19 @@ impl<R: Requests, S: AppState> Gui<R, S> {
         window: &Window,
         multiplexer: &dyn Multiplexer,
         app_state: &S,
+        main_state: MainState,
     ) {
         self.set_text_size(self.ui_size.main_text());
-        self.rebuild_gui(window, multiplexer, app_state);
+        self.rebuild_gui(window, multiplexer, app_state, main_state);
     }
 
-    fn rebuild_gui(&mut self, window: &Window, multiplexer: &dyn Multiplexer, state: &S) {
+    fn rebuild_gui(
+        &mut self,
+        window: &Window,
+        multiplexer: &dyn Multiplexer,
+        state: &S,
+        main_state: MainState,
+    ) {
         self.elements.insert(
             ElementType::TopBar,
             GuiElement::top_bar(
@@ -705,6 +724,7 @@ impl<R: Requests, S: AppState> Gui<R, S> {
                 window,
                 multiplexer,
                 self.requests.clone(),
+                top_bar_main_state(state, main_state),
             ),
         );
         self.elements.insert(
@@ -725,6 +745,7 @@ impl<R: Requests, S: AppState> Gui<R, S> {
                 window,
                 multiplexer,
                 self.requests.clone(),
+                state,
             ),
         );
     }
@@ -905,16 +926,9 @@ impl<S: AppState> IcedMessages<S> {
             self.left_panel
                 .push_back(left_panel::Message::NewApplicationState(state.clone()));
             self.top_bar
-                .push_back(top_bar::Message::NewApplicationState(top_bar::MainState {
-                    app_state: state.clone(),
-                    can_undo: main_state.can_undo,
-                    can_redo: main_state.can_redo,
-                    need_save: main_state.need_save,
-                    can_reload: main_state.can_reload,
-                    can_split2d: main_state.can_split2d,
-                    can_toggle_2d: main_state.can_toggle_2d,
-                    splited_2d: main_state.splited_2d,
-                }));
+                .push_back(top_bar::Message::NewApplicationState(top_bar_main_state(
+                    &state, main_state,
+                )));
             self.status_bar
                 .push_back(status_bar::Message::NewApplicationState(state.clone()));
         }
@@ -955,6 +969,7 @@ pub trait AppState:
     fn follow_stereographic_camera(&self) -> bool;
     fn show_stereographic_camera(&self) -> bool;
     fn get_scroll_sensitivity(&self) -> f32;
+    fn get_invert_y_scroll(&self) -> bool;
 }
 
 pub trait DesignReader: 'static {
@@ -986,4 +1001,17 @@ pub struct MainState {
     pub can_split2d: bool,
     pub can_toggle_2d: bool,
     pub splited_2d: bool,
+}
+
+fn top_bar_main_state<S: AppState>(app_state: &S, main_state: MainState) -> top_bar::MainState<S> {
+    top_bar::MainState {
+        app_state: app_state.clone(),
+        can_undo: main_state.can_undo,
+        can_redo: main_state.can_redo,
+        need_save: main_state.need_save,
+        can_reload: main_state.can_reload,
+        can_split2d: main_state.can_split2d,
+        can_toggle_2d: main_state.can_toggle_2d,
+        splited_2d: main_state.splited_2d,
+    }
 }

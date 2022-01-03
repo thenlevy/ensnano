@@ -91,14 +91,14 @@ pub struct StatusBar<R: Requests, S: AppState> {
 }
 
 impl<R: Requests, S: AppState> StatusBar<R, S> {
-    pub fn new(requests: Arc<Mutex<R>>) -> Self {
+    pub fn new(requests: Arc<Mutex<R>>, state: &S) -> Self {
         Self {
             info_values: Vec::new(),
             operation: None,
             requests,
             progress: None,
             slider_state: Default::default(),
-            app_state: Default::default(),
+            app_state: state.clone(),
             ui_size: Default::default(),
         }
     }

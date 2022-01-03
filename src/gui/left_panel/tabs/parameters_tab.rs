@@ -22,7 +22,6 @@ pub struct ParametersTab {
     size_pick_list: pick_list::State<UiSize>,
     scroll: scrollable::State,
     scroll_sensitivity_factory: RequestFactory<ScrollSentivity>,
-    pub invert_y_scroll: bool,
 }
 
 impl ParametersTab {
@@ -36,7 +35,6 @@ impl ParametersTab {
                     initial_value: app_state.get_scroll_sensitivity(),
                 },
             ),
-            invert_y_scroll: false,
         }
     }
 
@@ -67,7 +65,7 @@ impl ParametersTab {
         }
 
         ret = ret.push(right_checkbox(
-            self.invert_y_scroll,
+            app_state.get_invert_y_scroll(),
             "Inverse direction",
             Message::InvertScroll,
             ui_size.clone(),

@@ -279,10 +279,9 @@ pub(crate) fn poll_all<R: DerefMut<Target = Requests>>(
         main_state.push_action(Action::SetVisiblitySieve { compl: b })
     }
 
-    /*
-    if let Some(b) = requests.invert_scroll.take() {
-        multiplexer.invert_y_scroll = b;
-    }*/
+    if let Some(b) = requests.set_invert_y_scroll.take() {
+        main_state.set_invert_y_scroll(b)
+    }
 
     if requests.delete_selection.take().is_some() {
         main_state.push_action(Action::DeleteSelection)

@@ -92,7 +92,6 @@ pub struct Multiplexer {
     state: State,
     modifiers: ModifiersState,
     ui_size: UiSize,
-    pub invert_y_scroll: bool,
     pub icon: Option<CursorIcon>,
     element_3d: ElementType,
     element_2d: ElementType,
@@ -159,7 +158,6 @@ impl Multiplexer {
             },
             modifiers: ModifiersState::empty(),
             ui_size,
-            invert_y_scroll: false,
             icon: None,
             element_2d: ElementType::FlatScene,
             element_3d: ElementType::Scene,
@@ -571,18 +569,6 @@ impl Multiplexer {
                         self.requests.lock().unwrap().delete_selection = Some(());
                     }
                     _ => captured = false,
-                }
-            }
-            WindowEvent::MouseWheel { delta, .. } => {
-                if self.invert_y_scroll {
-                    match delta {
-                        MouseScrollDelta::LineDelta(_, y) => {
-                            *y *= -1.;
-                        }
-                        MouseScrollDelta::PixelDelta(position) => {
-                            position.y *= -1.;
-                        }
-                    }
                 }
             }
             _ => {}

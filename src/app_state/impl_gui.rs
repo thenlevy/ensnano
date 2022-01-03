@@ -130,6 +130,10 @@ impl GuiState for AppState {
     fn get_scroll_sensitivity(&self) -> f32 {
         self.0.parameters.scroll_sensitivity
     }
+
+    fn get_invert_y_scroll(&self) -> bool {
+        self.0.parameters.inverted_y_scroll
+    }
 }
 
 #[cfg(test)]

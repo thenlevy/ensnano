@@ -378,6 +378,10 @@ impl AppState {
         self.with_updated_parameters(|p| p.scroll_sensitivity = sensitivity)
     }
 
+    pub fn with_inverted_y_scroll(&self, inverted: bool) -> Self {
+        self.with_updated_parameters(|p| p.inverted_y_scroll = inverted)
+    }
+
     fn with_updated_parameters<F>(&self, update: F) -> Self
     where
         F: Fn(&mut AppStateParameters),
@@ -514,6 +518,7 @@ struct AppStateParameters {
     rendering_mode: RenderingMode,
     background3d: Background3D,
     scroll_sensitivity: f32,
+    inverted_y_scroll: bool,
 }
 
 #[derive(Clone, Default)]

@@ -121,4 +121,5 @@ pub struct Requests {
     pub check_xover_parameters: Option<CheckXoversParameter>,
     pub follow_stereographic_camera: Option<bool>,
     pub set_show_stereographic_camera: Option<bool>,
+    pub set_invert_y_scroll: Option<bool>,
 }

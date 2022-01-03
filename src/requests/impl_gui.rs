@@ -54,7 +54,7 @@ impl GuiRequests for Requests {
     }
 
     fn invert_scroll(&mut self, inverted: bool) {
-        self.keep_proceed.push_back(Action::InvertScrollY(inverted));
+        self.set_invert_y_scroll = Some(inverted)
     }
 
     fn resize_2d_helices(&mut self, all: bool) {

@@ -190,7 +190,6 @@ pub(crate) trait MainState: ScaffoldSetter {
     fn toggle_split_mode(&mut self, mode: SplitMode);
     fn oxdna_export(&mut self, path: &PathBuf) -> std::io::Result<(PathBuf, PathBuf)>;
     fn change_ui_size(&mut self, ui_size: UiSize);
-    fn invert_scroll_y(&mut self, inverted: bool);
     fn notify_apps(&mut self, notificiation: Notification);
     fn get_selection(&mut self) -> Box<dyn AsRef<[Selection]>>;
     fn get_design_reader(&mut self) -> Box<dyn DesignReader>;

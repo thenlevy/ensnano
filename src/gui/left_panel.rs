@@ -230,7 +230,7 @@ impl<R: Requests, S: AppState> LeftPanel<R, S> {
             parameters_tab: ParametersTab::new(state),
             contextual_panel: ContextualPanel::new(logical_size.width as u32),
             camera_shortcut: CameraShortcut::new(),
-            application_state: Default::default(),
+            application_state: state.clone(),
         }
     }
 
@@ -641,7 +641,6 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
             Message::Redim2dHelices(b) => self.requests.lock().unwrap().resize_2d_helices(b),
             Message::InvertScroll(b) => {
                 self.requests.lock().unwrap().invert_scroll(b);
-                self.parameters_tab.invert_y_scroll = b;
             }
             Message::CancelHyperboloid => {
                 self.requests.lock().unwrap().cancel_hyperboloid();

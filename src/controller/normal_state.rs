@@ -56,10 +56,6 @@ impl State for NormalState {
                     main_state.change_ui_size(size);
                     self
                 }
-                Action::InvertScrollY(inverted) => {
-                    main_state.invert_scroll_y(inverted);
-                    self
-                }
                 Action::ErrorMsg(msg) => {
                     TransitionMessage::new(msg, rfd::MessageLevel::Error, Box::new(NormalState))
                 }

@@ -353,6 +353,7 @@ fn main() {
         requests.clone(),
         settings,
         &main_state.app_state,
+        Default::default(),
     );
 
     let mut overlay_manager = OverlayManager::new(requests.clone(), &window, &mut renderer);
@@ -647,7 +648,12 @@ fn main() {
                 }
                 if scale_factor_changed {
                     multiplexer.generate_textures();
-                    gui.notify_scale_factor_change(&window, &multiplexer, &main_state.app_state);
+                    gui.notify_scale_factor_change(
+                        &window,
+                        &multiplexer,
+                        &main_state.app_state,
+                        main_state.gui_state(&multiplexer),
+                    );
                     log::info!("Notified of scale factor change: {}", window.scale_factor());
                     scheduler.forward_new_size(window.inner_size(), &multiplexer);
                     let window_size = window.inner_size();
@@ -1333,6 +1339,10 @@ impl MainState {
         self.modify_state(|s| s.with_scroll_sensitivity(sensitivity), false)
     }
 
+    fn set_invert_y_scroll(&mut self, inverted: bool) {
+        self.modify_state(|s| s.with_inverted_y_scroll(inverted), false)
+    }
+
     fn gui_state(&self, multiplexer: &Multiplexer) -> gui::MainState {
         gui::MainState {
             can_undo: !self.undo_stack.is_empty(),
@@ -1469,6 +1479,7 @@ impl<'a> MainStateInteface for MainStateView<'a> {
             self.window,
             self.multiplexer,
             &self.main_state.app_state,
+            self.main_state.gui_state(&self.multiplexer),
         );
         self.multiplexer
             .change_ui_size(ui_size.clone(), self.window);
@@ -1479,10 +1490,6 @@ impl<'a> MainStateInteface for MainStateView<'a> {
             .new_ui_size(ui_size);
         self.resized = true;
         //messages.lock().unwrap().new_ui_size(ui_size);
-    }
-
-    fn invert_scroll_y(&mut self, inverted: bool) {
-        self.multiplexer.invert_y_scroll = inverted;
     }
 
     fn notify_apps(&mut self, notificiation: Notification) {

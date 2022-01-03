@@ -122,7 +122,12 @@ impl App3D for AppState {
     }
 
     fn get_scroll_sensitivity(&self) -> f32 {
-        crate::consts::scroll_sensitivity_convertion(self.0.parameters.scroll_sensitivity)
+        let sign = if self.0.parameters.inverted_y_scroll {
+            -1.0
+        } else {
+            1.0
+        };
+        sign * crate::consts::scroll_sensitivity_convertion(self.0.parameters.scroll_sensitivity)
     }
 }
 

@@ -126,7 +126,11 @@ pub enum Message<S: AppState> {
 }
 
 impl<R: Requests, S: AppState> TopBar<R, S> {
-    pub fn new(requests: Arc<Mutex<R>>, logical_size: LogicalSize<f64>) -> Self {
+    pub fn new(
+        requests: Arc<Mutex<R>>,
+        logical_size: LogicalSize<f64>,
+        application_state: MainState<S>,
+    ) -> Self {
         Self {
             button_fit: Default::default(),
             button_add_file: Default::default(),
@@ -150,7 +154,7 @@ impl<R: Requests, S: AppState> TopBar<R, S> {
             action_mode_state: Default::default(),
             selection_mode_state: Default::default(),
             ui_size: Default::default(),
-            application_state: Default::default(),
+            application_state,
         }
     }
 
