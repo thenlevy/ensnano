@@ -445,6 +445,7 @@ impl View {
             };
         }
         let clear_color = if fake_color || self.background3d == Background3D::White {
+            // 0xFF_FF_FF_FF is the "default" color for the fake texture
             wgpu::Color {
                 r: 1.,
                 g: 1.,
@@ -452,6 +453,8 @@ impl View {
                 a: 1.,
             }
         } else {
+            // Clearing with black is a bit faster than with other colors, so that's what we do
+            // when possible
             wgpu::Color {
                 r: 0.,
                 g: 0.,
@@ -579,7 +582,7 @@ impl View {
                 );
             }
 
-            if !fake_color && self.draw_letter {
+            if !fake_color && !stereographic && self.draw_letter {
                 for drawer in self.letter_drawer.iter_mut() {
                     drawer.draw(
                         &mut render_pass,
@@ -589,7 +592,7 @@ impl View {
                 }
             }
 
-            if !fake_color {
+            if !fake_color && !stereographic {
                 self.grid_manager.draw(
                     &mut render_pass,
                     viewer_bind_group,
@@ -610,7 +613,7 @@ impl View {
                 }
             }
 
-            if draw_type.wants_widget() {
+            if draw_type.wants_widget() && !stereographic {
                 self.handle_drawers.draw(
                     &mut render_pass,
                     viewer_bind_group,

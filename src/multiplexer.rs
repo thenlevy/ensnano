@@ -472,7 +472,9 @@ impl Multiplexer {
                             };
                         }
                         ElementState::Released => {
-                            if matches!(self.state, State::Resizing{..}) && log::log_enabled!(log::Level::Info) {
+                            if matches!(self.state, State::Resizing { .. })
+                                && log::log_enabled!(log::Level::Info)
+                            {
                                 log::info!("Tree after reisze");
                                 self.layout_manager.log_tree();
                             }
