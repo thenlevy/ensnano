@@ -26,11 +26,16 @@ pub struct ParametersTab {
 }
 
 impl ParametersTab {
-    pub fn new() -> Self {
+    pub fn new<S: AppState>(app_state: &S) -> Self {
         Self {
             size_pick_list: Default::default(),
             scroll: Default::default(),
-            scroll_sensitivity_factory: RequestFactory::new(FactoryId::Scroll, ScrollSentivity {}),
+            scroll_sensitivity_factory: RequestFactory::new(
+                FactoryId::Scroll,
+                ScrollSentivity {
+                    initial_value: app_state.get_scroll_sensitivity(),
+                },
+            ),
             invert_y_scroll: false,
         }
     }

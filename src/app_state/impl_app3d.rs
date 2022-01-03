@@ -120,6 +120,10 @@ impl App3D for AppState {
     fn draw_options_were_updated(&self, other: &Self) -> bool {
         self.get_draw_options() != other.get_draw_options()
     }
+
+    fn get_scroll_sensitivity(&self) -> f32 {
+        crate::consts::scroll_sensitivity_convertion(self.0.parameters.scroll_sensitivity)
+    }
 }
 
 #[cfg(test)]

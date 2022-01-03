@@ -101,9 +101,7 @@ pub(crate) fn poll_all<R: DerefMut<Target = Requests>>(
     }
 
     if let Some(sensitivity) = requests.scroll_sensitivity.take() {
-        main_state.push_action(Action::NotifyApps(Notification::NewSensitivity(
-            sensitivity,
-        )))
+        main_state.set_scroll_sensitivity(sensitivity)
     }
 
     /*

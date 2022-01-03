@@ -339,6 +339,12 @@ fn main() {
     scheduler.add_application(flat_scene.clone(), ElementType::FlatScene);
 
     // Initialize the UI
+    //
+    let main_state_constructor = MainStateConstructor {
+        messages: messages.clone(),
+    };
+
+    let mut main_state = MainState::new(main_state_constructor);
 
     let mut gui = gui::Gui::new(
         device.clone(),
@@ -346,6 +352,7 @@ fn main() {
         &multiplexer,
         requests.clone(),
         settings,
+        &main_state.app_state,
     );
 
     let mut overlay_manager = OverlayManager::new(requests.clone(), &window, &mut renderer);
@@ -355,11 +362,6 @@ fn main() {
     let mut mouse_interaction = iced::mouse::Interaction::Pointer;
     let mut multiplexer_cursor = None;
 
-    let main_state_constructor = MainStateConstructor {
-        messages: messages.clone(),
-    };
-
-    let mut main_state = MainState::new(main_state_constructor);
     main_state
         .applications
         .insert(ElementType::Scene, scene.clone());
@@ -645,7 +647,7 @@ fn main() {
                 }
                 if scale_factor_changed {
                     multiplexer.generate_textures();
-                    gui.notify_scale_factor_change(&window, &multiplexer);
+                    gui.notify_scale_factor_change(&window, &multiplexer, &main_state.app_state);
                     log::info!("Notified of scale factor change: {}", window.scale_factor());
                     scheduler.forward_new_size(window.inner_size(), &multiplexer);
                     let window_size = window.inner_size();
@@ -1327,6 +1329,10 @@ impl MainState {
         self.modify_state(|s| s.with_rendering_mode(rendering_mode), false)
     }
 
+    fn set_scroll_sensitivity(&mut self, sensitivity: f32) {
+        self.modify_state(|s| s.with_scroll_sensitivity(sensitivity), false)
+    }
+
     fn gui_state(&self, multiplexer: &Multiplexer) -> gui::MainState {
         gui::MainState {
             can_undo: !self.undo_stack.is_empty(),
@@ -1458,8 +1464,12 @@ impl<'a> MainStateInteface for MainStateView<'a> {
     }
 
     fn change_ui_size(&mut self, ui_size: UiSize) {
-        self.gui
-            .new_ui_size(ui_size.clone(), self.window, self.multiplexer);
+        self.gui.new_ui_size(
+            ui_size.clone(),
+            self.window,
+            self.multiplexer,
+            &self.main_state.app_state,
+        );
         self.multiplexer
             .change_ui_size(ui_size.clone(), self.window);
         self.main_state

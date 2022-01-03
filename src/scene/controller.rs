@@ -346,9 +346,13 @@ impl<S: AppState> Controller<S> {
     }
 
     /// Moves the camera according to its speed and the time elapsed since previous frame
-    pub fn update_camera(&mut self, dt: Duration) {
-        self.camera_controller
-            .update_camera(dt, self.click_mode, &self.current_modifiers);
+    pub fn update_camera(&mut self, dt: Duration, app_state: &S) {
+        self.camera_controller.update_camera(
+            dt,
+            self.click_mode,
+            &self.current_modifiers,
+            app_state,
+        );
     }
 
     /// Handles a resizing of the window and/or drawing area
@@ -372,10 +376,6 @@ impl<S: AppState> Controller<S> {
 
     fn end_movement(&mut self) {
         self.camera_controller.end_movement();
-    }
-
-    pub fn change_sensitivity(&mut self, sensitivity: f32) {
-        self.camera_controller.sensitivity = 10f32.powf(sensitivity / 10.) * BASE_SCROLL_SENSITIVITY
     }
 
     pub fn set_camera_target(&mut self, target: Vec3, up: Vec3, pivot: Option<Vec3>) {

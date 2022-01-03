@@ -714,9 +714,9 @@ impl<S: AppState> Scene<S> {
         );
     }
 
-    fn perform_update(&mut self, dt: Duration, _app_state: &S) {
+    fn perform_update(&mut self, dt: Duration, app_state: &S) {
         if self.update.camera_update {
-            self.controller.update_camera(dt);
+            self.controller.update_camera(dt, app_state);
             self.view.borrow_mut().update(ViewUpdate::Camera);
             self.update.camera_update = false;
             self.current_camera = Arc::new((
@@ -736,21 +736,6 @@ impl<S: AppState> Scene<S> {
             pivot_position: self.data.borrow().get_pivot_position(),
         };
         ret
-    }
-
-    /*
-    fn change_selection_mode(&mut self, selection_mode: SelectionMode) {
-        self.data.borrow_mut().change_selection_mode(selection_mode);
-        self.update_handle();
-    }
-
-    fn change_action_mode(&mut self, action_mode: ActionMode) {
-        self.data.borrow_mut().change_action_mode(action_mode);
-        self.update_handle();
-    }*/
-
-    fn change_sensitivity(&mut self, sensitivity: f32) {
-        self.controller.change_sensitivity(sensitivity)
     }
 
     fn set_camera_target(&mut self, target: Vec3, up: Vec3, app_state: &S) {
@@ -885,7 +870,6 @@ impl<S: AppState> Application for Scene<S> {
             Notification::ClearDesigns => self.clear_design(),
             Notification::ToggleText(value) => self.view.borrow_mut().set_draw_letter(value),
             Notification::FitRequest => self.fit_design(),
-            Notification::NewSensitivity(x) => self.change_sensitivity(x),
             Notification::Save(_) => (),
             Notification::CameraTarget((target, up)) => {
                 self.set_camera_target(target, up, &older_state);
@@ -1024,6 +1008,7 @@ pub trait AppState: Clone {
     fn follow_stereographic_camera(&self) -> bool;
     fn get_draw_options(&self) -> DrawOptions;
     fn draw_options_were_updated(&self, other: &Self) -> bool;
+    fn get_scroll_sensitivity(&self) -> f32;
 }
 
 pub trait Requests {

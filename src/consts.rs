@@ -88,6 +88,10 @@ pub const NB_BASIS_SYMBOLS: usize = BASIS_SYMBOLS.len();
 
 pub const BASE_SCROLL_SENSITIVITY: f32 = 0.12;
 
+pub fn scroll_sensitivity_convertion(sensitivity: f32) -> f32 {
+    10f32.powf(sensitivity / 10.) * BASE_SCROLL_SENSITIVITY
+}
+
 pub const SAMPLE_COUNT: u32 = 4;
 
 pub const HELIX_BORDER_COLOR: u32 = 0xFF_101010;

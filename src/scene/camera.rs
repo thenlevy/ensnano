@@ -127,7 +127,6 @@ impl Projection {
 
 pub struct CameraController {
     speed: f32,
-    pub sensitivity: f32,
     amount_up: f32,
     amount_down: f32,
     amount_left: f32,
@@ -178,7 +177,6 @@ impl CameraController {
     pub fn new(speed: f32, sensitivity: f32, camera: CameraPtr, projection: ProjectionPtr) -> Self {
         Self {
             speed,
-            sensitivity,
             amount_left: 0.0,
             amount_right: 0.0,
             amount_up: 0.0,
@@ -382,7 +380,12 @@ impl CameraController {
     }
 
     /// Move the camera according to the keyboard input
-    fn move_camera(&mut self, dt: Duration, modifier: &ModifiersState) {
+    fn move_camera<S: super::AppState>(
+        &mut self,
+        dt: Duration,
+        modifier: &ModifiersState,
+        app_state: &S,
+    ) {
         let dt = dt.as_secs_f32();
 
         // Move forward/backward and left/right
@@ -483,17 +486,19 @@ impl CameraController {
         };
         {
             let mut camera = self.camera.borrow_mut();
-            camera.position += scrollward * self.scroll * self.speed * self.sensitivity * 33e-3;
+            camera.position +=
+                scrollward * self.scroll * self.speed * app_state.get_scroll_sensitivity() * 33e-3;
         }
         self.cam0 = self.camera.borrow().clone();
         self.scroll = 0.;
     }
 
-    pub fn update_camera(
+    pub fn update_camera<S: super::AppState>(
         &mut self,
         dt: Duration,
         click_mode: ClickMode,
         modifier: &ModifiersState,
+        app_state: &S,
     ) {
         if self.processed_move {
             match click_mode {
@@ -502,7 +507,7 @@ impl CameraController {
             }
         }
         if self.is_moving() {
-            self.move_camera(dt, modifier);
+            self.move_camera(dt, modifier, app_state);
         }
     }
 

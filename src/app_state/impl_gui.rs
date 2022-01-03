@@ -126,6 +126,10 @@ impl GuiState for AppState {
     fn show_stereographic_camera(&self) -> bool {
         self.0.parameters.show_stereography
     }
+
+    fn get_scroll_sensitivity(&self) -> f32 {
+        self.0.parameters.scroll_sensitivity
+    }
 }
 
 #[cfg(test)]

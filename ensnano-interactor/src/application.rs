@@ -87,8 +87,6 @@ pub trait Application {
 pub enum Notification {
     /// The application must show/hide the sequences
     ToggleText(bool),
-    /// The scroll sensitivity has been modified
-    NewSensitivity(f32),
     FitRequest,
     /// The designs have been deleted
     ClearDesigns,

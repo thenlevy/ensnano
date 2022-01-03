@@ -374,6 +374,10 @@ impl AppState {
         self.with_updated_parameters(|p| p.rendering_mode = rendering_mode)
     }
 
+    pub fn with_scroll_sensitivity(&self, sensitivity: f32) -> Self {
+        self.with_updated_parameters(|p| p.scroll_sensitivity = sensitivity)
+    }
+
     fn with_updated_parameters<F>(&self, update: F) -> Self
     where
         F: Fn(&mut AppStateParameters),
@@ -509,6 +513,7 @@ struct AppStateParameters {
     show_stereography: bool,
     rendering_mode: RenderingMode,
     background3d: Background3D,
+    scroll_sensitivity: f32,
 }
 
 #[derive(Clone, Default)]

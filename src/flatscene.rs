@@ -509,7 +509,6 @@ impl<S: AppState> Application for FlatScene<S> {
                 }
             }
             Notification::CameraTarget(_) => (),
-            Notification::NewSensitivity(_) => (),
             Notification::ClearDesigns => (),
             Notification::Centering(_, _) => (),
             Notification::CenterSelection(selection, app_id) => {

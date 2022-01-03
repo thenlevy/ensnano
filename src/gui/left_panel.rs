@@ -207,6 +207,7 @@ impl<R: Requests, S: AppState> LeftPanel<R, S> {
         logical_size: LogicalSize<f64>,
         logical_position: LogicalPosition<f64>,
         first_time: bool,
+        state: &S,
     ) -> Self {
         let selected_tab = if first_time { 0 } else { 5 };
         let mut organizer = Organizer::new();
@@ -226,7 +227,7 @@ impl<R: Requests, S: AppState> LeftPanel<R, S> {
             camera_tab: CameraTab::new(),
             simulation_tab: SimulationTab::new(),
             sequence_tab: SequenceTab::new(),
-            parameters_tab: ParametersTab::new(),
+            parameters_tab: ParametersTab::new(state),
             contextual_panel: ContextualPanel::new(logical_size.width as u32),
             camera_shortcut: CameraShortcut::new(),
             application_state: Default::default(),
@@ -1194,7 +1195,9 @@ impl Requestable for Hyperboloid_ {
     }
 }
 
-struct ScrollSentivity {}
+struct ScrollSentivity {
+    initial_value: f32,
+}
 
 impl Requestable for ScrollSentivity {
     type Request = f32;
@@ -1206,7 +1209,7 @@ impl Requestable for ScrollSentivity {
     }
     fn initial_value(&self, n: usize) -> f32 {
         if n == 0 {
-            0f32
+            self.initial_value
         } else {
             unreachable!()
         }

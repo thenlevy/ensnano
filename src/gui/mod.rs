@@ -407,6 +407,7 @@ impl<R: Requests, S: AppState> GuiElement<R, S> {
         multiplexer: &dyn Multiplexer,
         requests: Arc<Mutex<R>>,
         first_time: bool,
+        state: &S,
     ) -> Self {
         let cursor_position = PhysicalPosition::new(-1., -1.);
         let left_panel_area = multiplexer.get_draw_area(ElementType::LeftPanel).unwrap();
@@ -415,6 +416,7 @@ impl<R: Requests, S: AppState> GuiElement<R, S> {
             left_panel_area.size.to_logical(window.scale_factor()),
             left_panel_area.position.to_logical(window.scale_factor()),
             first_time,
+            state,
         );
         let mut left_panel_debug = Debug::new();
         let left_panel_state = program::State::new(
@@ -555,6 +557,7 @@ impl<R: Requests, S: AppState> Gui<R, S> {
         multiplexer: &dyn Multiplexer,
         requests: Arc<Mutex<R>>,
         settings: Settings,
+        state: &S,
     ) -> Self {
         let mut renderer = Renderer::new(Backend::new(
             device.as_ref(),
@@ -568,7 +571,14 @@ impl<R: Requests, S: AppState> Gui<R, S> {
         );
         elements.insert(
             ElementType::LeftPanel,
-            GuiElement::left_panel(&mut renderer, window, multiplexer, requests.clone(), true),
+            GuiElement::left_panel(
+                &mut renderer,
+                window,
+                multiplexer,
+                requests.clone(),
+                true,
+                state,
+            ),
         );
         elements.insert(
             ElementType::StatusBar,
@@ -664,19 +674,30 @@ impl<R: Requests, S: AppState> Gui<R, S> {
         self.resized = false;
     }
 
-    pub fn new_ui_size(&mut self, ui_size: UiSize, window: &Window, multiplexer: &dyn Multiplexer) {
+    pub fn new_ui_size(
+        &mut self,
+        ui_size: UiSize,
+        window: &Window,
+        multiplexer: &dyn Multiplexer,
+        app_state: &S,
+    ) {
         self.set_text_size(ui_size.main_text());
         self.ui_size = ui_size.clone();
 
-        self.rebuild_gui(window, multiplexer);
+        self.rebuild_gui(window, multiplexer, app_state);
     }
 
-    pub fn notify_scale_factor_change(&mut self, window: &Window, multiplexer: &dyn Multiplexer) {
+    pub fn notify_scale_factor_change(
+        &mut self,
+        window: &Window,
+        multiplexer: &dyn Multiplexer,
+        app_state: &S,
+    ) {
         self.set_text_size(self.ui_size.main_text());
-        self.rebuild_gui(window, multiplexer);
+        self.rebuild_gui(window, multiplexer, app_state);
     }
 
-    fn rebuild_gui(&mut self, window: &Window, multiplexer: &dyn Multiplexer) {
+    fn rebuild_gui(&mut self, window: &Window, multiplexer: &dyn Multiplexer, state: &S) {
         self.elements.insert(
             ElementType::TopBar,
             GuiElement::top_bar(
@@ -694,6 +715,7 @@ impl<R: Requests, S: AppState> Gui<R, S> {
                 multiplexer,
                 self.requests.clone(),
                 false,
+                state,
             ),
         );
         self.elements.insert(
@@ -932,6 +954,7 @@ pub trait AppState:
     fn get_checked_xovers_parameters(&self) -> CheckXoversParameter;
     fn follow_stereographic_camera(&self) -> bool;
     fn show_stereographic_camera(&self) -> bool;
+    fn get_scroll_sensitivity(&self) -> f32;
 }
 
 pub trait DesignReader: 'static {
