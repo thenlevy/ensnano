@@ -459,6 +459,10 @@ impl Multiplexer {
                     }
                     PixelRegion::Resize(_) => {
                         self.state = State::Normal { mouse_position };
+                        if log::log_enabled!(log::Level::Info) {
+                            log::info!("Tree after reisze");
+                            self.layout_manager.log_tree();
+                        }
                     }
                     PixelRegion::Element(element) => match state {
                         ElementState::Pressed => {
@@ -468,6 +472,10 @@ impl Multiplexer {
                             };
                         }
                         ElementState::Released => {
+                            if matches!(self.state, State::Resizing{..}) && log::log_enabled!(log::Level::Info) {
+                                log::info!("Tree after reisze");
+                                self.layout_manager.log_tree();
+                            }
                             self.state = State::Normal { mouse_position };
                         }
                     },
@@ -626,6 +634,10 @@ impl Multiplexer {
 
     pub fn toggle_2d(&mut self) {
         log::info!("Toggle 2d");
+        if log::log_enabled!(log::Level::Info) {
+            println!("Old tree");
+            self.layout_manager.log_tree();
+        }
         let old_element_2d = self.element_2d;
         if self.element_2d == ElementType::FlatScene {
             self.element_2d = ElementType::StereographicScene;
@@ -636,6 +648,10 @@ impl Multiplexer {
             self.layout_manager.attribute_element(id, self.element_2d)
         }
         log::info!("new element_2d {:?}", self.element_2d);
+        if log::log_enabled!(log::Level::Info) {
+            println!("New tree");
+            self.layout_manager.log_tree();
+        }
         self.generate_textures();
     }
 
@@ -653,15 +669,8 @@ impl Multiplexer {
             self.ui_size.top_bar() * scale_factor,
             window_size.height as f64,
         );
-        let left_pannel_prop = proportion(
-            0.2,
-            MAX_LEFT_PANNEL_WIDTH * scale_factor,
-            window_size.width as f64,
-        );
         let scene_height = (1. - top_pannel_prop) * window_size.height as f64;
         let status_bar_prop = exact_proportion(MAX_STATUS_BAR_HEIGHT * scale_factor, scene_height);
-        self.layout_manager
-            .resize(self.left_pannel_split, left_pannel_prop);
         self.layout_manager
             .resize(self.top_bar_split, top_pannel_prop);
         self.layout_manager
