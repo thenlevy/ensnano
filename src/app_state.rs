@@ -35,6 +35,7 @@ use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
 mod address_pointer;
 mod design_interactor;
+mod transitions;
 use crate::apply_update;
 use crate::controller::SimulationRequest;
 use address_pointer::AddressPointer;
@@ -53,6 +54,8 @@ use design_interactor::{DesignInteractor, InteractorResult};
 mod impl_app2d;
 mod impl_app3d;
 mod impl_gui;
+
+pub use transitions::{AppStateTransition, OkOperation, TransitionLabel};
 
 /// A structure containing the global state of the program.
 ///
@@ -246,7 +249,7 @@ impl AppState {
     pub(super) fn apply_design_op(
         &mut self,
         op: DesignOperation,
-    ) -> Result<Option<Self>, ErrOperation> {
+    ) -> Result<OkOperation, ErrOperation> {
         let result = self.0.design.apply_operation(op);
         self.handle_operation_result(result)
     }
@@ -254,7 +257,7 @@ impl AppState {
     pub(super) fn apply_copy_operation(
         &mut self,
         op: CopyOperation,
-    ) -> Result<Option<Self>, ErrOperation> {
+    ) -> Result<OkOperation, ErrOperation> {
         let result = self.0.design.apply_copy_operation(op);
         self.handle_operation_result(result)
     }
@@ -262,7 +265,7 @@ impl AppState {
     pub(super) fn update_pending_operation(
         &mut self,
         op: Arc<dyn Operation>,
-    ) -> Result<Option<Self>, ErrOperation> {
+    ) -> Result<OkOperation, ErrOperation> {
         let result = self.0.design.update_pending_operation(op);
         self.handle_operation_result(result)
     }
@@ -272,7 +275,7 @@ impl AppState {
         parameters: RigidBodyConstants,
         reader: &mut dyn SimulationReader,
         target: SimulationTarget,
-    ) -> Result<Option<Self>, ErrOperation> {
+    ) -> Result<OkOperation, ErrOperation> {
         let result = self.0.design.start_simulation(parameters, reader, target);
         self.handle_operation_result(result)
     }
@@ -280,7 +283,7 @@ impl AppState {
     pub(super) fn update_simulation(
         &mut self,
         request: SimulationRequest,
-    ) -> Result<Option<Self>, ErrOperation> {
+    ) -> Result<OkOperation, ErrOperation> {
         let result = self.0.design.update_simulation(request);
         self.handle_operation_result(result)
     }
@@ -288,19 +291,26 @@ impl AppState {
     fn handle_operation_result(
         &mut self,
         result: Result<InteractorResult, ErrOperation>,
-    ) -> Result<Option<Self>, ErrOperation> {
+    ) -> Result<OkOperation, ErrOperation> {
         log::trace!("handle operation result");
         match result {
             Ok(InteractorResult::Push(design)) => {
                 let ret = Some(self.clone());
                 let new_state = self.clone().with_interactor(design);
                 *self = new_state;
-                Ok(ret)
+                if let Some(state) = ret {
+                    Ok(OkOperation::Undoable {
+                        state,
+                        label: "Unlabeled operation (TODO)".into(),
+                    })
+                } else {
+                    Ok(OkOperation::NotUndoable)
+                }
             }
             Ok(InteractorResult::Replace(design)) => {
                 let new_state = self.clone().with_interactor(design);
                 *self = new_state;
-                Ok(None)
+                Ok(OkOperation::NotUndoable)
             }
             Err(e) => {
                 log::error!("error {:?}", e);
@@ -402,7 +412,7 @@ impl AppState {
     pub(super) fn optimize_shift(
         &mut self,
         reader: &mut dyn ShiftOptimizerReader,
-    ) -> Result<Option<Self>, ErrOperation> {
+    ) -> Result<OkOperation, ErrOperation> {
         let result = self.0.design.optimize_shift(reader);
         self.handle_operation_result(result)
     }
@@ -416,7 +426,7 @@ impl AppState {
         &mut self,
         selection: Vec<Selection>,
         compl: bool,
-    ) -> Result<Option<Self>, ErrOperation> {
+    ) -> Result<OkOperation, ErrOperation> {
         let result = self
             .0
             .design
