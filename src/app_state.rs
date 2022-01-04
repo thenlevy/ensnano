@@ -79,10 +79,12 @@ impl std::fmt::Pointer for AppState {
 
 impl Default for AppState {
     fn default() -> Self {
-        let ret = AppState(Default::default());
+        let mut ret = AppState(Default::default());
         log::trace!("call from default");
-        //ret.updated()
-        ret
+        ret = ret.updated();
+        let mut with_forgot_update = ret.0.clone_inner();
+        with_forgot_update.updated_once = false;
+        AppState(AddressPointer::new(with_forgot_update))
     }
 }
 
@@ -436,7 +438,8 @@ impl AppState {
     }
 
     pub fn design_was_modified(&self, other: &Self) -> bool {
-        self.0.design.has_different_design_than(&other.0.design) && self.0.updated_once
+        self.0.design.has_different_design_than(&other.0.design)
+            && (self.0.updated_once || other.0.updated_once)
     }
 
     fn get_strand_building_state(&self) -> Option<crate::gui::StrandBuildingStatus> {

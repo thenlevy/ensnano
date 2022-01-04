@@ -20,10 +20,63 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 
 use super::*;
 
+struct DummyScene {}
+impl Application for DummyScene {
+    type AppState = AppState;
+    fn on_notify(&mut self, _notification: Notification) {
+        ()
+    }
+
+    fn needs_redraw(&mut self, _dt: Duration, _app_state: Self::AppState) -> bool {
+        false
+    }
+
+    fn on_redraw_request(
+        &mut self,
+        _encoder: &mut wgpu::CommandEncoder,
+        _target: &wgpu::TextureView,
+        _dt: Duration,
+    ) {
+        ()
+    }
+
+    fn is_splited(&self) -> bool {
+        false
+    }
+
+    fn on_event(
+        &mut self,
+        _event: &WindowEvent,
+        _position: PhysicalPosition<f64>,
+        _app_state: &Self::AppState,
+    ) {
+        ()
+    }
+
+    fn on_resize(&mut self, _window_size: PhysicalSize<u32>, _area: DrawArea) {
+        ()
+    }
+
+    fn get_camera(&self) -> Option<Arc<(ensnano_interactor::application::Camera3D, f32)>> {
+        use ensnano_interactor::application::Camera3D;
+        Some(Arc::new((
+            Camera3D {
+                position: Vec3::zero(),
+                orientation: Rotor3::identity(),
+                pivot_position: None,
+            },
+            1.0,
+        )))
+    }
+}
+
 fn new_state() -> MainState {
     let messages = Arc::new(Mutex::new(IcedMessages::new()));
     let constructor = MainStateConstructor { messages };
-    MainState::new(constructor)
+    let mut ret = MainState::new(constructor);
+    ret.applications
+        .insert(ElementType::Scene, Arc::new(Mutex::new(DummyScene {})));
+    ret
 }
 
 #[test]

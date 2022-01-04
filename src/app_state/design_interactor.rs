@@ -381,6 +381,7 @@ impl DesignReader {
 
 #[cfg(test)]
 mod tests {
+    use super::super::OkOperation as TopOkOperation;
     use super::super::*;
     use super::controller::CopyOperation;
     use super::*;
@@ -669,11 +670,12 @@ mod tests {
                 forward: true,
             })))
             .unwrap();
-        assert!(app_state
-            .apply_copy_operation(CopyOperation::Paste)
-            .unwrap()
-            .is_some()); // apply_copy_operation returns Some(self) when the action is
-                         // undoable and nothing otherwise
+        assert!(matches!(
+            app_state
+                .apply_copy_operation(CopyOperation::Paste)
+                .unwrap(),
+            TopOkOperation::Undoable { .. }
+        ));
     }
 
     #[test]
@@ -822,15 +824,16 @@ mod tests {
         app_state
             .apply_copy_operation(CopyOperation::CopyStrands(vec![0]))
             .unwrap();
-        app_state
+        let ret = app_state
             .apply_copy_operation(CopyOperation::PositionPastingPoint(Some(Nucl {
                 helix: 1,
-                position: 5,
+                position: 10,
                 forward: true,
             })))
             .unwrap();
+        println!("{:?}", ret);
         app_state.update();
-        assert!(old_app_state.design_was_modified(&app_state));
+        assert!(app_state.design_was_modified(&old_app_state));
     }
 
     #[test]

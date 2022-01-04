@@ -165,6 +165,7 @@ mod tests {
 
         assert!(!state.design_was_modified(&old_state));
         state.update_design(Default::default());
+        state.update();
         assert!(state.design_was_modified(&old_state));
     }
 

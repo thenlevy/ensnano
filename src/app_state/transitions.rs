@@ -48,6 +48,7 @@ impl AsRef<str> for TransitionLabel {
     }
 }
 
+#[derive(Debug)]
 pub enum OkOperation {
     NotUndoable,
     Undoable {

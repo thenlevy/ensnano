@@ -430,7 +430,7 @@ pub(super) fn design_need_update(
     design: &AddressPointer<Design>,
     suggestion_parameters: &SuggestionParameters,
 ) -> bool {
-    if log::log_enabled!(log::Level::Trace) {
+    if log::log_enabled!(log::Level::Trace) || cfg!(test) {
         println!("presenter current design");
         presenter.current_design.show_address();
         println!("design address");
