@@ -185,3 +185,5 @@ pub const SEC_BETWEEN_BACKUPS: u64 = 60;
 pub const SEC_PER_YEAR: u64 = 31_536_000;
 pub const DEFAULT_STEREOGRAPHIC_ZOOM: f32 = 3.0;
 pub const STEREOGRAPHIC_ZOOM_STEP: f32 = 1.1;
+
+pub const UPDATE_VISIBILITY_SIEVE_LABEL: &'static str = "Update visibility sieve";

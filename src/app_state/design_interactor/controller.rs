@@ -98,7 +98,8 @@ impl Controller {
             OperationCompatibility::Compatible => (),
         }
         log::debug!("applicable");
-        match operation {
+        let label = operation.label();
+        let mut ret = match operation {
             DesignOperation::RecolorStaples => Ok(self.ok_apply(Self::recolor_stapples, design)),
             DesignOperation::SetScaffoldSequence { sequence, shift } => Ok(self.ok_apply(
                 |ctrl, design| ctrl.set_scaffold_sequence(design, sequence, shift),
@@ -281,7 +282,11 @@ impl Controller {
                 },
                 design,
             )),
+        };
+        if let Ok(ret) = &mut ret {
+            ret.0.set_label(label);
         }
+        ret
     }
 
     pub fn update_pending_operation(
@@ -344,7 +349,9 @@ impl Controller {
                 design,
             ),
             CopyOperation::Duplicate => self.apply(|c, d| c.apply_duplication(d), design),
-            CopyOperation::Paste => self.make_undoable(self.apply(|c, d| c.apply_paste(d), design)),
+            CopyOperation::Paste => {
+                self.make_undoable(self.apply(|c, d| c.apply_paste(d), design), "Paste".into())
+            }
             CopyOperation::InitXoverDuplication(xovers) => self.apply_no_op(
                 |c, d| {
                     c.copy_xovers(xovers.clone())?;
@@ -441,11 +448,17 @@ impl Controller {
                 if let ControllerState::WithPausedSimulation { initial_design } = &ret.state {
                     let returned_design = initial_design.clone_inner();
                     ret.state = ControllerState::Normal;
-                    return Ok((OkOperation::Push(returned_design), ret));
+                    return Ok((
+                        OkOperation::Push {
+                            design: returned_design,
+                            label: "Simulation".into(),
+                        },
+                        ret,
+                    ));
                 }
             }
         }
-        Ok((self.return_design(design), ret))
+        Ok((self.return_design(design, "Simulation".into()), ret))
     }
 
     fn change_strand_name(
@@ -889,9 +902,9 @@ impl Controller {
         }
     }
 
-    fn return_design(&self, design: Design) -> OkOperation {
+    fn return_design(&self, design: Design, label: std::borrow::Cow<'static, str>) -> OkOperation {
         if self.is_in_persistant_state().is_persistant() {
-            OkOperation::Push(design)
+            OkOperation::Push { design, label }
         } else {
             OkOperation::Replace(design)
         }
@@ -927,7 +940,10 @@ impl Controller {
     {
         let mut new_controller = self.clone();
         let returned_design = design_op(&mut new_controller, design.clone());
-        (self.return_design(returned_design), new_controller)
+        (
+            self.return_design(returned_design, "".into()),
+            new_controller,
+        )
     }
 
     /// Apply an operation that modifies the interactor and not the design, and that cannot fail.
@@ -947,16 +963,20 @@ impl Controller {
     {
         let mut new_controller = self.clone();
         let returned_design = design_op(&mut new_controller, design.clone())?;
-        Ok((self.return_design(returned_design), new_controller))
+        Ok((
+            self.return_design(returned_design, "".into()),
+            new_controller,
+        ))
     }
 
     fn make_undoable(
         &self,
         result: Result<(OkOperation, Self), ErrOperation>,
+        label: Cow<'static, str>,
     ) -> Result<(OkOperation, Self), ErrOperation> {
         if self.state.is_undoable_once() {
             match result {
-                Ok((ok_op, interactor)) => Ok((ok_op.into_undoable(), interactor)),
+                Ok((ok_op, interactor)) => Ok((ok_op.into_undoable(label), interactor)),
                 Err(e) => Err(e),
             }
         } else {
@@ -1350,7 +1370,11 @@ pub enum OkOperation {
     /// Push the current design on the undo stack and replace it by the wrapped value. This variant
     /// is produced when the operation has been peroformed on a non transitory design and can be
     /// undone.
-    Push(Design),
+    Push {
+        design: Design,
+        /// A description of the operation that was applied
+        label: std::borrow::Cow<'static, str>,
+    },
     /// Replace the current design by the wrapped value. This variant is produced when the
     /// operation has been peroformed on a transitory design and should not been undone.
     ///
@@ -1363,11 +1387,18 @@ pub enum OkOperation {
 }
 
 impl OkOperation {
-    fn into_undoable(self) -> Self {
+    fn into_undoable(self, label: Cow<'static, str>) -> Self {
         match self {
-            Self::Replace(design) => Self::Push(design),
-            Self::Push(design) => Self::Push(design),
+            Self::Replace(design) => Self::Push { design, label },
+            // We do not keep the old label
+            Self::Push { design, .. } => Self::Push { design, label },
             Self::NoOp => Self::NoOp,
+        }
+    }
+
+    fn set_label(&mut self, new_label: Cow<'static, str>) {
+        if let Self::Push { label, .. } = self {
+            *label = new_label;
         }
     }
 }

@@ -172,12 +172,15 @@ impl DesignInteractor {
                 ret.design = AddressPointer::new(design);
                 Ok(InteractorResult::Replace(ret))
             }
-            Ok((OkOperation::Push(design), controller)) => {
+            Ok((OkOperation::Push { design, label }, controller)) => {
                 let mut ret = self.clone();
                 ret.current_operation = None;
                 ret.controller = AddressPointer::new(controller);
                 ret.design = AddressPointer::new(design);
-                Ok(InteractorResult::Push(ret))
+                Ok(InteractorResult::Push {
+                    interactor: ret,
+                    label,
+                })
             }
             Ok((OkOperation::NoOp, controller)) => {
                 let mut ret = self.clone();
@@ -312,7 +315,10 @@ impl DesignInteractor {
         presenter.set_visibility_sieve(selection, compl);
         self.presenter = AddressPointer::new(presenter);
         self.design = AddressPointer::new(self.design.clone_inner());
-        InteractorResult::Push(self)
+        InteractorResult::Push {
+            interactor: self,
+            label: crate::consts::UPDATE_VISIBILITY_SIEVE_LABEL.into(),
+        }
     }
 }
 
@@ -320,14 +326,17 @@ impl DesignInteractor {
 /// interactor. The variants of these enum indicate different ways in which the result should be
 /// handled
 pub(super) enum InteractorResult {
-    Push(DesignInteractor),
+    Push {
+        interactor: DesignInteractor,
+        label: std::borrow::Cow<'static, str>,
+    },
     Replace(DesignInteractor),
 }
 
 impl InteractorResult {
     pub fn set_operation_state(&mut self, operation: Arc<dyn Operation>, new_op: bool) {
         let interactor = match self {
-            Self::Push(interactor) => interactor,
+            Self::Push { interactor, .. } => interactor,
             Self::Replace(interactor) => interactor,
         };
         if new_op {

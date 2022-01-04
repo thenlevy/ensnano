@@ -81,6 +81,8 @@ impl Default for AppState {
     fn default() -> Self {
         let mut ret = AppState(Default::default());
         log::trace!("call from default");
+        // Synchronize all the pointers.
+        // This truns updated_once to true so we must set it back to false afterwards
         ret = ret.updated();
         let mut with_forgot_update = ret.0.clone_inner();
         with_forgot_update.updated_once = false;
@@ -296,14 +298,17 @@ impl AppState {
     ) -> Result<OkOperation, ErrOperation> {
         log::trace!("handle operation result");
         match result {
-            Ok(InteractorResult::Push(design)) => {
+            Ok(InteractorResult::Push {
+                interactor: design,
+                label,
+            }) => {
                 let ret = Some(self.clone());
                 let new_state = self.clone().with_interactor(design);
                 *self = new_state;
                 if let Some(state) = ret {
                     Ok(OkOperation::Undoable {
                         state,
-                        label: "Unlabeled operation (TODO)".into(),
+                        label: label.into(),
                     })
                 } else {
                     Ok(OkOperation::NotUndoable)
