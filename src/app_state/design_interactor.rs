@@ -174,6 +174,7 @@ impl DesignInteractor {
             }
             Ok((OkOperation::Push(design), controller)) => {
                 let mut ret = self.clone();
+                ret.current_operation = None;
                 ret.controller = AddressPointer::new(controller);
                 ret.design = AddressPointer::new(design);
                 Ok(InteractorResult::Push(ret))

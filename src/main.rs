@@ -1135,6 +1135,10 @@ impl MainState {
             let mut redo_state = std::mem::replace(&mut self.app_state, transition.state);
             redo_state = redo_state.notified(app_state::InteractorNotification::FinishOperation);
             self.set_camera_3d(transition.camera_3d.clone());
+            self.messages
+                .lock()
+                .unwrap()
+                .push_message(format!("Undone {}", transition.label.as_ref()));
             if redo_state.is_in_stable_state() {
                 self.redo_stack.push(AppStateTransition {
                     state: redo_state,
@@ -1150,6 +1154,10 @@ impl MainState {
             transition.state.prepare_for_replacement(&self.app_state);
             let undo_state = std::mem::replace(&mut self.app_state, transition.state);
             self.set_camera_3d(transition.camera_3d.clone());
+            self.messages
+                .lock()
+                .unwrap()
+                .push_message(format!("Redone {}", transition.label.as_ref()));
             self.undo_stack.push(AppStateTransition {
                 state: undo_state,
                 camera_3d: transition.camera_3d,
