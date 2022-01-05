@@ -180,6 +180,16 @@ impl Reader2D for DesignReader {
     fn get_helices_map(&self) -> Arc<BTreeMap<usize, Arc<Helix>>> {
         self.presenter.current_design.helices.clone()
     }
+
+    fn get_strand_ends(&self) -> Vec<Nucl> {
+        self.presenter
+            .current_design
+            .strands
+            .values()
+            .flat_map(|s| Some([s.get_5prime()?, s.get_3prime()?]))
+            .flatten()
+            .collect()
+    }
 }
 
 #[cfg(test)]

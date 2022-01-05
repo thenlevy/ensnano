@@ -101,6 +101,10 @@ impl CameraTab {
         self.fog.visible = visible
     }
 
+    pub fn fog_dark(&mut self, dark: bool) {
+        self.fog.dark = dark
+    }
+
     pub fn fog_length(&mut self, length: f32) {
         self.fog.length = length
     }
@@ -121,6 +125,7 @@ impl CameraTab {
 struct FogParameters {
     visible: bool,
     from_camera: bool,
+    dark: bool,
     radius: f32,
     radius_slider: slider::State,
     length: f32,
@@ -135,7 +140,11 @@ impl FogParameters {
             .push(PickList::new(
                 &mut self.picklist,
                 &ALL_FOG_CHOICE[..],
-                Some(FogChoice::from_param(self.visible, self.from_camera)),
+                Some(FogChoice::from_param(
+                    self.visible,
+                    self.from_camera,
+                    self.dark,
+                )),
                 Message::FogChoice,
             ));
 
@@ -193,7 +202,7 @@ impl FogParameters {
     fn request(&self) -> Fog {
         Fog {
             radius: self.radius,
-            active: self.visible,
+            fog_kind: FogChoice::from_param(self.visible, self.from_camera, self.dark).fog_kind(),
             length: self.length,
             from_camera: self.from_camera,
             alt_fog_center: None,
@@ -205,6 +214,7 @@ impl Default for FogParameters {
     fn default() -> Self {
         Self {
             visible: false,
+            dark: false,
             length: 10.,
             radius: 10.,
             length_slider: Default::default(),
@@ -220,6 +230,8 @@ pub enum FogChoice {
     None,
     FromCamera,
     FromPivot,
+    DarkFromCamera,
+    DarkFromPivot,
 }
 
 impl Default for FogChoice {
@@ -228,8 +240,13 @@ impl Default for FogChoice {
     }
 }
 
-const ALL_FOG_CHOICE: [FogChoice; 3] =
-    [FogChoice::None, FogChoice::FromCamera, FogChoice::FromPivot];
+const ALL_FOG_CHOICE: &'static [FogChoice] = &[
+    FogChoice::None,
+    FogChoice::FromCamera,
+    FogChoice::FromPivot,
+    FogChoice::DarkFromCamera,
+    FogChoice::DarkFromPivot,
+];
 
 impl std::fmt::Display for FogChoice {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -237,29 +254,87 @@ impl std::fmt::Display for FogChoice {
             Self::None => "None",
             Self::FromCamera => "From Camera",
             Self::FromPivot => "From Pivot",
+            Self::DarkFromCamera => "Dark from Camera",
+            Self::DarkFromPivot => "Dark from Pivot",
         };
         write!(f, "{}", ret)
     }
 }
 
 impl FogChoice {
-    fn from_param(visible: bool, from_camera: bool) -> Self {
+    fn from_param(visible: bool, from_camera: bool, dark: bool) -> Self {
+        Self::None
+            .visible(visible)
+            .dark(dark)
+            .from_camera(from_camera)
+    }
+
+    pub fn to_param(&self) -> (bool, bool, bool) {
+        (self.is_visible(), self.is_from_camera(), self.is_dark())
+    }
+
+    fn visible(self, visible: bool) -> Self {
         if visible {
-            if from_camera {
-                Self::FromCamera
-            } else {
+            if let Self::None = self {
                 Self::FromPivot
+            } else {
+                self
             }
         } else {
             Self::None
         }
     }
 
-    pub fn to_param(&self) -> (bool, bool) {
+    fn from_camera(self, from_camera: bool) -> Self {
+        if from_camera {
+            match self {
+                Self::FromPivot => Self::FromCamera,
+                Self::DarkFromPivot => Self::DarkFromCamera,
+                _ => self,
+            }
+        } else {
+            match self {
+                Self::FromCamera => Self::FromPivot,
+                Self::DarkFromCamera => Self::DarkFromPivot,
+                _ => self,
+            }
+        }
+    }
+
+    fn dark(self, dark: bool) -> Self {
+        if dark {
+            match self {
+                Self::FromCamera => Self::DarkFromCamera,
+                Self::FromPivot => Self::DarkFromPivot,
+                _ => self,
+            }
+        } else {
+            match self {
+                Self::DarkFromCamera => Self::FromCamera,
+                Self::DarkFromPivot => Self::FromPivot,
+                _ => self,
+            }
+        }
+    }
+
+    fn is_visible(&self) -> bool {
+        !matches!(self, Self::None)
+    }
+
+    fn is_from_camera(&self) -> bool {
+        matches!(self, Self::FromCamera | Self::DarkFromCamera)
+    }
+
+    fn is_dark(&self) -> bool {
+        matches!(self, Self::DarkFromCamera | Self::DarkFromPivot)
+    }
+
+    fn fog_kind(&self) -> u32 {
+        use ensnano_interactor::graphics::fog_kind;
         match self {
-            Self::None => (false, false),
-            Self::FromPivot => (true, false),
-            Self::FromCamera => (true, true),
+            Self::None => fog_kind::NO_FOG,
+            Self::FromCamera | Self::FromPivot => fog_kind::TRANSPARENT_FOG,
+            Self::DarkFromPivot | Self::DarkFromCamera => fog_kind::DARK_FOG,
         }
     }
 }

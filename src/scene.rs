@@ -172,6 +172,20 @@ impl<S: AppState> Scene<S> {
             Consequence::Nothing => (),
             Consequence::CameraMoved => self.notify(SceneNotification::CameraMoved),
             Consequence::CameraTranslated(dx, dy) => {
+                let mut pivot: Option<FiniteVec3> = self
+                    .data
+                    .borrow()
+                    .get_pivot_position()
+                    .and_then(|p| p.try_into().ok());
+                if pivot.is_none() {
+                    self.data.borrow_mut().try_update_pivot_position(app_state);
+                    pivot = self
+                        .data
+                        .borrow()
+                        .get_pivot_position()
+                        .and_then(|p| p.try_into().ok());
+                }
+                self.controller.set_pivot_point(pivot);
                 self.controller.translate_camera(dx, dy);
                 self.notify(SceneNotification::CameraMoved);
             }
@@ -516,6 +530,10 @@ impl<S: AppState> Scene<S> {
             app_state.get_selection(),
             &app_state.get_design_reader(),
         );
+        let helices = ensnano_interactor::set_of_helices_containing_selection(
+            app_state.get_selection(),
+            &app_state.get_design_reader(),
+        );
         log::debug!("rotating grids {:?}", grids);
         let group_id = app_state.get_current_group_id();
         let rotation: Arc<dyn Operation> = if let Some(grid_ids) = grids.filter(|v| v.len() > 0) {
@@ -531,7 +549,7 @@ impl<S: AppState> Scene<S> {
         } else {
             match self.data.borrow().get_selected_element(app_state) {
                 Selection::Helix(d_id, h_id) => Arc::new(HelixRotation {
-                    helices: vec![h_id as usize],
+                    helices: helices.unwrap_or(vec![h_id as usize]),
                     angle,
                     plane,
                     origin,
@@ -566,7 +584,6 @@ impl<S: AppState> Scene<S> {
             let pivot_point = self.data.borrow().get_middle_point(0);
             self.notify(SceneNotification::NewCameraPosition(position));
             self.controller.set_pivot_point(pivot_point.try_into().ok());
-            self.controller.set_pivot_point(None);
         }
     }
 
@@ -802,6 +819,7 @@ impl<S: AppState> Application for Scene<S> {
             Notification::Background3D(bg) => self.view.borrow_mut().background3d(bg),
             Notification::Fog(fog) => self.fog_request(fog),
             Notification::WindowFocusLost => self.controller.stop_camera_movement(),
+            Notification::FlipSplitViews => (),
         }
     }
 
@@ -849,6 +867,10 @@ impl<S: AppState> Application for Scene<S> {
 
     fn get_current_selection_pivot(&self) -> Option<GroupPivot> {
         self.view.borrow().get_current_pivot()
+    }
+
+    fn is_splited(&self) -> bool {
+        false
     }
 }
 

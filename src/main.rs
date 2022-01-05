@@ -254,6 +254,7 @@ fn main() {
             .await
             .expect("Request device")
     });
+    device.on_uncaptured_error(|e| log::error!("wgpu error {:?}", e));
 
     {
         let size = window.inner_size();
@@ -369,6 +370,10 @@ fn main() {
 
     let mut first_iteration = true;
 
+    let mut last_gui_state = (
+        main_state.app_state.clone(),
+        main_state.gui_state(&multiplexer),
+    );
     event_loop.run(move |event, _, control_flow| {
         // Wait for event or redraw a frame every 33 ms (30 frame per seconds)
         *control_flow = ControlFlow::WaitUntil(Instant::now() + Duration::from_millis(33));
@@ -572,6 +577,18 @@ fn main() {
                 let now = std::time::Instant::now();
                 let dt = now - last_render_time;
                 redraw |= scheduler.check_redraw(&multiplexer, dt, main_state.get_app_state());
+                let new_gui_state = (
+                    main_state.app_state.clone(),
+                    main_state.gui_state(&multiplexer),
+                );
+                if new_gui_state != last_gui_state {
+                    last_gui_state = new_gui_state;
+                    messages.lock().unwrap().push_application_state(
+                        main_state.get_app_state().clone(),
+                        last_gui_state.1.clone(),
+                    );
+                    redraw = true;
+                };
                 last_render_time = now;
 
                 if redraw {
@@ -598,6 +615,11 @@ fn main() {
                     );
 
                     gui.resize(&multiplexer, &window);
+                    log::trace!(
+                        "Will draw on texture of size {}x {}",
+                        window_size.width,
+                        window_size.height
+                    );
                 }
                 if scale_factor_changed {
                     multiplexer.generate_textures();
@@ -622,16 +644,6 @@ fn main() {
                 // Get viewports from the partition
 
                 // If there are events pending
-                messages.lock().unwrap().push_application_state(
-                    main_state.get_app_state().clone(),
-                    gui::MainState {
-                        can_undo: !main_state.undo_stack.is_empty(),
-                        can_redo: !main_state.redo_stack.is_empty(),
-                        need_save: main_state.need_save(),
-                        can_reload: main_state.get_current_file_name().is_some(),
-                        can_split2d: multiplexer.is_showing(&ElementType::FlatScene),
-                    },
-                );
                 gui.update(&multiplexer, &window);
 
                 overlay_manager.process_event(&mut renderer, resized, &multiplexer, &window);
@@ -656,11 +668,18 @@ fn main() {
                         &mut mouse_interaction,
                     );
 
+                    if multiplexer.resize(window.inner_size(), window.scale_factor()) {
+                        resized = true;
+                        window.request_redraw();
+                        return;
+                    }
+                    log::trace!("window size {:?}", window.inner_size());
                     multiplexer.draw(
                         &mut encoder,
                         &frame
                             .texture
                             .create_view(&wgpu::TextureViewDescriptor::default()),
+                        &window,
                     );
                     //overlay_manager.render(&device, &mut staging_belt, &mut encoder, &frame.output.view, &multiplexer, &window, &mut renderer);
 
@@ -898,6 +917,7 @@ pub(crate) struct MainState {
     path_to_current_design: Option<PathBuf>,
     file_name: Option<PathBuf>,
     wants_fit: bool,
+    last_backup_date: Instant,
 }
 
 struct MainStateConstructor {
@@ -921,6 +941,7 @@ impl MainState {
             path_to_current_design: None,
             file_name: None,
             wants_fit: false,
+            last_backup_date: Instant::now(),
         }
     }
 
@@ -1175,6 +1196,39 @@ impl MainState {
         Ok(())
     }
 
+    fn save_backup(&mut self) -> Result<(), SaveDesignError> {
+        let camera = self
+            .applications
+            .get(&ElementType::Scene)
+            .and_then(|s| s.lock().unwrap().get_camera())
+            .map(|(position, orientation)| Camera {
+                id: Default::default(),
+                name: String::from("Saved Camera"),
+                position,
+                orientation,
+            });
+        let save_info = ensnano_design::SavingInformation { camera };
+        let path = if let Some(mut path) = self.path_to_current_design.clone() {
+            path.set_extension(crate::consts::ENS_BACKUP_EXTENSION);
+            path
+        } else {
+            let mut ret = dirs::document_dir().or(dirs::home_dir()).ok_or_else(|| {
+                self.last_backup_date =
+                    Instant::now() + Duration::from_secs(crate::consts::SEC_PER_YEAR);
+                SaveDesignError::cannot_open_default_dir()
+            })?;
+            ret.push(crate::consts::ENS_UNAMED_FILE_NAME);
+            ret.set_extension(crate::consts::ENS_BACKUP_EXTENSION);
+            ret
+        };
+        self.app_state
+            .get_design_reader()
+            .save_design(&path, save_info)?;
+
+        println!("Saved backup to {}", path.to_string_lossy());
+        Ok(())
+    }
+
     fn change_selection_mode(&mut self, mode: SelectionMode) {
         self.modify_state(|s| s.with_selection_mode(mode), false)
     }
@@ -1215,6 +1269,21 @@ impl MainState {
     fn set_suggestion_parameters(&mut self, param: SuggestionParameters) {
         self.modify_state(|s| s.with_suggestion_parameters(param), false)
     }
+
+    fn gui_state(&self, multiplexer: &Multiplexer) -> gui::MainState {
+        gui::MainState {
+            can_undo: !self.undo_stack.is_empty(),
+            can_redo: !self.redo_stack.is_empty(),
+            need_save: self.need_save(),
+            can_reload: self.get_current_file_name().is_some(),
+            can_split2d: multiplexer.is_showing(&ElementType::FlatScene),
+            splited_2d: self
+                .applications
+                .get(&ElementType::FlatScene)
+                .map(|app| app.lock().unwrap().is_splited())
+                .unwrap_or(false),
+        }
+    }
 }
 
 /// A temporary view of the main state and the control flow.
@@ -1237,6 +1306,11 @@ impl<'a> MainStateInteface for MainStateView<'a> {
         self.main_state.pending_actions.pop_front()
     }
 
+    fn need_backup(&self) -> bool {
+        Instant::now() - self.main_state.last_backup_date
+            > Duration::from_secs(crate::consts::SEC_BETWEEN_BACKUPS)
+    }
+
     fn exit_control_flow(&mut self) {
         *self.control_flow = ControlFlow::Exit
     }
@@ -1249,9 +1323,14 @@ impl<'a> MainStateInteface for MainStateView<'a> {
         self.main_state.app_state.oxdna_export(path)
     }
 
-    fn load_design(&mut self, path: PathBuf) -> Result<(), LoadDesignError> {
+    fn load_design(&mut self, mut path: PathBuf) -> Result<(), LoadDesignError> {
         if let Ok(state) = AppState::import_design(&path) {
             self.main_state.clear_app_state(state);
+            if path.extension().map(|s| s.to_string_lossy())
+                == Some(crate::consts::ENS_BACKUP_EXTENSION.into())
+            {
+                path.set_extension(crate::consts::ENS_EXTENSION);
+            }
             self.main_state.path_to_current_design = Some(path.clone());
             if let Some((position, orientation)) = self
                 .main_state
@@ -1296,6 +1375,13 @@ impl<'a> MainStateInteface for MainStateView<'a> {
 
     fn save_design(&mut self, path: &PathBuf) -> Result<(), SaveDesignError> {
         self.main_state.save_design(path)?;
+        self.main_state.last_backup_date = Instant::now();
+        Ok(())
+    }
+
+    fn save_backup(&mut self) -> Result<(), SaveDesignError> {
+        self.main_state.save_backup()?;
+        self.main_state.last_backup_date = Instant::now();
         Ok(())
     }
 
@@ -1562,6 +1648,10 @@ impl<'a> MainStateInteface for MainStateView<'a> {
         } else {
             log::error!("Design has less than {} cameras", n_camera + 1);
         }
+    }
+
+    fn flip_split_views(&mut self) {
+        self.notify_apps(Notification::FlipSplitViews)
     }
 }
 

@@ -429,9 +429,10 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
                 }
             }
             Message::FogChoice(choice) => {
-                let (visble, from_camera) = choice.to_param();
+                let (visble, from_camera, dark) = choice.to_param();
                 self.camera_tab.fog_camera(from_camera);
                 self.camera_tab.fog_visible(visble);
+                self.camera_tab.fog_dark(dark);
                 let request = self.camera_tab.get_fog_request();
                 self.requests.lock().unwrap().set_fog_parameters(request);
             }

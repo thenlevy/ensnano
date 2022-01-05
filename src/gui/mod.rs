@@ -184,6 +184,7 @@ pub trait Requests: 'static + Send {
     fn set_suggestion_parameters(&mut self, param: SuggestionParameters);
     fn set_grid_position(&mut self, grid_id: usize, position: Vec3);
     fn set_grid_orientation(&mut self, grid_id: usize, orientation: Rotor3);
+    fn flip_split_views(&mut self);
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -464,6 +465,7 @@ impl<R: Requests, S: AppState> GuiElement<R, S> {
     fn resize(&mut self, window: &Window, multiplexer: &dyn Multiplexer) {
         let area = multiplexer.get_draw_area(self.element_type).unwrap();
         self.state.resize(area, window);
+        log::debug!("resizing {:?}", area);
         self.redraw = true;
     }
 
@@ -811,6 +813,8 @@ pub struct IcedMessages<S: AppState> {
     _color_overlay: VecDeque<left_panel::ColorMessage>,
     status_bar: VecDeque<status_bar::Message<S>>,
     application_state: S,
+    last_main_state: MainState,
+    redraw: bool,
 }
 
 impl<S: AppState> IcedMessages<S> {
@@ -822,6 +826,8 @@ impl<S: AppState> IcedMessages<S> {
             _color_overlay: VecDeque::new(),
             status_bar: VecDeque::new(),
             application_state: Default::default(),
+            last_main_state: Default::default(),
+            redraw: false,
         }
     }
 
@@ -862,8 +868,10 @@ impl<S: AppState> IcedMessages<S> {
 
     pub fn push_application_state(&mut self, state: S, main_state: MainState) {
         log::trace!("Old ptr {:p}, new ptr {:p}", state, self.application_state);
-        let must_update = self.application_state != state;
         self.application_state = state.clone();
+        self.redraw |= main_state != self.last_main_state;
+        self.last_main_state = main_state.clone();
+        let must_update = self.application_state != state || self.redraw;
         if must_update {
             self.left_panel
                 .push_back(left_panel::Message::NewApplicationState(state.clone()));
@@ -875,6 +883,7 @@ impl<S: AppState> IcedMessages<S> {
                     need_save: main_state.need_save,
                     can_reload: main_state.can_reload,
                     can_split2d: main_state.can_split2d,
+                    splited_2d: main_state.splited_2d,
                 }));
             self.status_bar
                 .push_back(status_bar::Message::NewApplicationState(state.clone()));
@@ -930,10 +939,12 @@ pub trait DesignReader: 'static {
     fn get_grid_position_and_orientation(&self, g_id: usize) -> Option<(Vec3, Rotor3)>;
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct MainState {
     pub can_undo: bool,
     pub can_redo: bool,
     pub need_save: bool,
     pub can_reload: bool,
     pub can_split2d: bool,
+    pub splited_2d: bool,
 }

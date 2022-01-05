@@ -356,6 +356,10 @@ impl GuiRequests for Requests {
             },
         ))
     }
+
+    fn flip_split_views(&mut self) {
+        self.keep_proceed.push_back(Action::FlipSplitViews);
+    }
 }
 
 fn rigid_parameters(parameters: RigidBodyParametersRequest) -> RigidBodyConstants {

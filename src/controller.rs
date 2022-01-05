@@ -57,8 +57,14 @@ impl Controller {
     }
 
     pub(crate) fn make_progress(&mut self, main_state: &mut dyn MainState) {
-        let old_state = std::mem::replace(&mut self.state, Box::new(OhNo));
-        self.state = old_state.make_progress(main_state);
+        if main_state.need_backup() {
+            if let Err(e) = main_state.save_backup() {
+                log::error!("{:?}", e);
+            }
+        } else {
+            let old_state = std::mem::replace(&mut self.state, Box::new(OhNo));
+            self.state = old_state.make_progress(main_state);
+        }
     }
 }
 
@@ -174,6 +180,7 @@ pub(crate) trait MainState: ScaffoldSetter {
     fn new_design(&mut self);
     fn load_design(&mut self, path: PathBuf) -> Result<(), LoadDesignError>;
     fn save_design(&mut self, path: &PathBuf) -> Result<(), SaveDesignError>;
+    fn save_backup(&mut self) -> Result<(), SaveDesignError>;
     fn get_chanel_reader(&mut self) -> &mut ChanelReader;
     fn apply_operation(&mut self, operation: DesignOperation);
     fn apply_silent_operation(&mut self, operation: DesignOperation);
@@ -214,9 +221,12 @@ pub(crate) trait MainState: ScaffoldSetter {
     fn select_camera(&mut self, camera_id: ensnano_design::CameraId);
     fn select_favorite_camera(&mut self, n_camera: u32);
     fn update_camera(&mut self, camera_id: ensnano_design::CameraId);
+    fn need_backup(&self) -> bool;
+    fn flip_split_views(&mut self);
 }
 
 pub struct LoadDesignError(String);
+#[derive(Debug)]
 pub struct SaveDesignError(String);
 
 impl From<String> for LoadDesignError {
@@ -228,6 +238,12 @@ impl From<String> for LoadDesignError {
 impl<E: std::error::Error> From<E> for SaveDesignError {
     fn from(e: E) -> Self {
         Self(format!("{}", e))
+    }
+}
+
+impl SaveDesignError {
+    pub fn cannot_open_default_dir() -> Self {
+        Self(crate::consts::CANNOT_OPEN_DEFAULT_DIR.to_string())
     }
 }
 

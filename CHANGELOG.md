@@ -3,6 +3,13 @@
 
 <!-- next-header -->
 
+## 0.4.0
+- Remaps mouse buttons in the 2D view.
+ * Left Clicking on a nucleotide selects it, clicking again selects the strands on which the nucleotide lies
+ * Right Clicking on a nucleotide cuts the strands at that position, or merge it with the neighboring strand (this was the previous behavior of Left Clicking on a nucleotide)
+ * Double Left clicking on a nucleotide center the nucleotide in the 3D view (previously this was done by double right clicking)
+- Make it possible to move several domain ends at once.
+
 ## 0.3.2
 - Use jemalloc alocator to prevent crash in macOS
 - Add a contextual pannel to position objects in space

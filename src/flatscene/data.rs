@@ -49,6 +49,7 @@ pub struct Data {
     suggestions: HashMap<FlatNucl, HashSet<FlatNucl, RandomState>, RandomState>,
     id: u32,
     requests: Arc<Mutex<dyn Requests>>,
+    last_click: LastClick,
 }
 
 impl Data {
@@ -69,6 +70,7 @@ impl Data {
             suggestions: Default::default(),
             id,
             requests,
+            last_click: Default::default(),
         }
     }
 
@@ -139,6 +141,7 @@ impl Data {
                 _ => (),
             }
         }
+        let mut suggestions = Vec::new();
         for c in new_state.get_candidates().iter() {
             match c {
                 Selection::Strand(_, s_id) => {
@@ -159,7 +162,12 @@ impl Data {
                 }
                 Selection::Nucleotide(_, n) => {
                     if let Some(flat_nucl) = FlatNucl::from_real(n, id_map) {
-                        candidate_nucls.push(flat_nucl)
+                        candidate_nucls.push(flat_nucl);
+                        let mut other = self.get_best_suggestion(flat_nucl);
+                        other = other.or(self.can_make_auto_xover(flat_nucl));
+                        if let Some(other) = other {
+                            suggestions.push((flat_nucl, other));
+                        }
                     }
                 }
                 _ => (),
@@ -195,6 +203,10 @@ impl Data {
             .set_candidate_helices(candidate_helices);
         self.view.borrow_mut().set_selected_nucls(selected_nucls);
         self.view.borrow_mut().set_candidate_nucls(candidate_nucls);
+        self.view.borrow_mut().set_candidate_suggestion(
+            suggestions.last().map(|t| t.0),
+            suggestions.last().map(|t| t.1),
+        );
     }
 
     fn update_strand_building_info(&self, info: Option<super::StrandBuildingStatus>) {
@@ -736,20 +748,27 @@ impl Data {
             right,
             bottom
         );
-        let mut selection = BTreeSet::new();
+        let mut selection = Vec::new();
         for (xover_id, (flat_1, flat_2)) in self.design.get_xovers_list() {
             let h1 = &self.helices[flat_1.helix.flat];
             let h2 = &self.helices[flat_2.helix.flat];
-            if h1.rectangle_has_nucl(flat_1, left, top, right, bottom, camera)
-                && h2.rectangle_has_nucl(flat_2, left, top, right, bottom, camera)
-            {
-                selection.insert(xover_id);
+            let flat_1_in = h1.rectangle_has_nucl(flat_1, left, top, right, bottom, camera);
+            let flat_2_in = h2.rectangle_has_nucl(flat_2, left, top, right, bottom, camera);
+            if flat_1_in && flat_2_in {
+                selection.push(Selection::Xover(self.id, xover_id));
+            } else if flat_1_in {
+                selection.push(Selection::Nucleotide(self.id, flat_1.to_real()));
+            } else if flat_2_in {
+                selection.push(Selection::Nucleotide(self.id, flat_2.to_real()));
             }
         }
-        let mut selection: Vec<Selection> = selection
-            .iter()
-            .map(|xover_id| Selection::Xover(self.id, *xover_id))
-            .collect();
+        for end in self.design.get_strand_ends() {
+            let h1 = &self.helices[end.helix.flat];
+            if h1.rectangle_has_nucl(end, left, top, right, bottom, camera) {
+                selection.push(Selection::Nucleotide(self.id, end.to_real()))
+            }
+        }
+        selection.dedup();
         if selection.is_empty() {
             self.add_long_xover_rectangle(&mut selection, c1, c2);
         }
@@ -869,21 +888,24 @@ impl Data {
                     }
                 }
                 _ => {
+                    self.last_click.click_on(nucl);
+                    let mut selection_pool = vec![Selection::Nucleotide(self.id, nucl.to_real())];
                     if let Some(xover) = self.xover_containing_nucl(&nucl) {
-                        let selection = Selection::Xover(self.id, xover);
-                        if let Some(pos) = new_selection.iter().position(|x| *x == selection) {
-                            new_selection.remove(pos);
-                        } else {
-                            new_selection.push(selection);
-                        }
-                    } else if let Some(s_id) = self.design.get_strand_id(nucl.to_real()) {
-                        let selection = Selection::Strand(self.id, s_id as u32);
-                        if let Some(pos) = new_selection.iter().position(|x| *x == selection) {
-                            new_selection.remove(pos);
-                        } else {
-                            new_selection.push(selection);
-                        }
+                        selection_pool.push(Selection::Xover(self.id, xover));
                     }
+                    if let Some(s_id) = self.get_strand_id(nucl) {
+                        selection_pool.push(Selection::Strand(self.id, s_id as u32));
+                    }
+                    log::info!("selection pool {:?}", selection_pool);
+                    let selection = self.last_click.select(&mut selection_pool);
+                    log::info!(
+                        "selected {:?}, selection_pool {:?}",
+                        selection,
+                        selection_pool
+                    );
+
+                    new_selection.push(selection);
+                    new_selection.retain(|s| !selection_pool.contains(s));
                 }
             },
             ClickResult::HelixHandle { .. } => (),
@@ -1135,5 +1157,31 @@ impl ToFlatInfo for super::StrandBuildingStatus {
             nm_length: self.nm_length,
             nucl: flat_nucl,
         })
+    }
+}
+
+#[derive(Default)]
+struct LastClick {
+    counter: usize,
+    nucl: Option<FlatNucl>,
+}
+
+impl LastClick {
+    pub fn click_on(&mut self, nucl: FlatNucl) {
+        if self.nucl == Some(nucl) {
+            self.counter += 1;
+        } else {
+            self.counter = 0;
+            self.nucl = Some(nucl);
+        }
+    }
+
+    pub fn select(&self, pool: &mut Vec<Selection>) -> Selection {
+        if pool.len() == 0 {
+            Selection::Nothing
+        } else {
+            let id = self.counter % pool.len();
+            pool.remove(id)
+        }
     }
 }

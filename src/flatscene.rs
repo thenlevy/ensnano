@@ -214,9 +214,22 @@ impl<S: AppState> FlatScene<S> {
                         }))
                 }
             }
-            Consequence::FreeEnd(free_end) => self.data[self.selected_design]
-                .borrow_mut()
-                .set_free_end(free_end),
+            Consequence::FreeEnd(free_end) => {
+                self.requests.lock().unwrap().suspend_op();
+                let candidates = free_end
+                    .as_ref()
+                    .map(|fe| {
+                        fe.candidates
+                            .iter()
+                            .map(|c| Selection::Nucleotide(0, c.to_real()))
+                            .collect()
+                    })
+                    .unwrap_or(Vec::new());
+                self.data[self.selected_design]
+                    .borrow_mut()
+                    .set_free_end(free_end);
+                self.requests.lock().unwrap().new_candidates(candidates);
+            }
             Consequence::CutFreeEnd(nucl, free_end) => {
                 let strand_id = self.data[self.selected_design].borrow().get_strand_id(nucl);
                 if let Some(strand_id) = strand_id {
@@ -266,19 +279,6 @@ impl<S: AppState> FlatScene<S> {
                     bound: false,
                     design_id: self.selected_design as u32,
                 });
-                let mut other = candidate.and_then(|candidate| {
-                    self.data[self.selected_design]
-                        .borrow()
-                        .get_best_suggestion(candidate)
-                });
-                other = other.or(candidate.and_then(|n| {
-                    self.data[self.selected_design]
-                        .borrow()
-                        .can_make_auto_xover(n)
-                }));
-                self.view[self.selected_design]
-                    .borrow_mut()
-                    .set_candidate_suggestion(candidate, other);
                 let candidate = if let Some(selection) = phantom.and_then(|p| {
                     self.data[self.selected_design]
                         .borrow()
@@ -399,17 +399,31 @@ impl<S: AppState> FlatScene<S> {
                 )
             }
             Consequence::InitBuilding(nucl) => {
-                self.requests.lock().unwrap().apply_design_operation(
-                    DesignOperation::RequestStrandBuilders {
-                        nucls: vec![nucl.to_real()],
-                    },
-                )
+                let mut nucls = ensnano_interactor::extract_nucls_and_xover_ends(
+                    app_state.get_selection(),
+                    &app_state.get_design_reader(),
+                );
+                let nucl = nucl.to_real();
+
+                if let Some(idx) = (0..nucls.len()).find(|i| nucls[*i] == nucl) {
+                    // the nucleotide we start building on should be the first in the vec
+                    nucls.swap(idx, 0);
+                } else {
+                    // If we start building on a non selected nucleotide, we ignore the selection
+                    nucls = vec![nucl];
+                }
+                self.requests
+                    .lock()
+                    .unwrap()
+                    .apply_design_operation(DesignOperation::RequestStrandBuilders { nucls });
             }
-            Consequence::MoveBuilders(n) => self
-                .requests
-                .lock()
-                .unwrap()
-                .apply_design_operation(DesignOperation::MoveBuilders(n)),
+            Consequence::MoveBuilders(n) => {
+                self.requests
+                    .lock()
+                    .unwrap()
+                    .apply_design_operation(DesignOperation::MoveBuilders(n));
+                self.requests.lock().unwrap().new_candidates(vec![]);
+            }
             Consequence::NewHelixCandidate(flat_helix) => self
                 .requests
                 .lock()
@@ -536,6 +550,7 @@ impl<S: AppState> Application for FlatScene<S> {
             Notification::Fog(_) => (),
             Notification::WindowFocusLost => (),
             Notification::TeleportCamera(_, _) => (),
+            Notification::FlipSplitViews => self.controller[0].flip_split_views(),
         }
     }
 
@@ -566,10 +581,14 @@ impl<S: AppState> Application for FlatScene<S> {
             self.needs_redraw_(state)
         }
     }
+
+    fn is_splited(&self) -> bool {
+        self.splited
+    }
 }
 
 pub trait AppState: Clone {
-    type Reader: DesignReader;
+    type Reader: DesignReader + ensnano_interactor::DesignReader;
     fn selection_was_updated(&self, other: &Self) -> bool;
     fn candidate_was_updated(&self, other: &Self) -> bool;
     fn get_selection(&self) -> &[Selection];
