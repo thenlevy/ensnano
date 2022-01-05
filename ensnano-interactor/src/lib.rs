@@ -35,6 +35,7 @@ mod strand_builder;
 pub use strand_builder::*;
 pub mod torsion;
 use ensnano_organizer::GroupId;
+mod operation_labels;
 
 #[macro_use]
 extern crate log;
@@ -257,56 +258,6 @@ pub enum DesignOperation {
         xovers: Vec<usize>,
     },
     SetRainbowScaffold(bool),
-}
-
-impl DesignOperation {
-    pub fn label(&self) -> std::borrow::Cow<'static, str> {
-        match self {
-            Self::Rotation(rotation) => {
-                format!("Rotation of {}", rotation.target.to_string()).into()
-            }
-            Self::Translation(translation) => {
-                format!("Translation of {}", translation.target.to_string()).into()
-            }
-            Self::AddGridHelix { position, .. } => "Helix creation".into(),
-            Self::AddTwoPointsBezier { start, end } => "Bezier curve creation".into(),
-            Self::RmHelices { .. } => "Helix deletion".into(),
-            Self::RmXovers { .. } => "Xover deletion".into(),
-            Self::Cut { nucl, .. } => format!("Cut on {:?}", nucl).into(),
-            Self::GeneralXover { source, target } => {
-                format!("Xover between {:?} and {:?}", source, target).into()
-            }
-            Self::Xover { .. } => "Xover".into(),
-            Self::CrossCut { .. } => "Cut and crossover".into(),
-            Self::RmStrands { .. } => "Strand deletion".into(),
-            Self::AddGrid(_) => "Grid creation".into(),
-            Self::RmGrid(_) => "Grid delection".into(),
-            Self::RecolorStaples => "Staple recoloring".into(),
-            Self::ChangeSequence { .. } => "Sequence update".into(),
-            Self::ChangeColor { .. } => "Color modification".into(),
-            Self::SetScaffoldId(_) => "Scaffold setting".into(),
-            Self::SetScaffoldSequence { .. } => "Scaffold sequence setting".into(),
-            Self::HyperboloidOperation(_) => "Nanotube operation".into(),
-            Self::CleanDesign => "Clean design".into(),
-            Self::HelicesToGrid(_) => "Grid creation from helices".into(),
-            Self::SetHelicesPersistance {
-                persistant: true, ..
-            } => "Show phantom helices".into(),
-            Self::SetHelicesPersistance {
-                persistant: false, ..
-            } => "Hide phantom helices".into(),
-            Self::UpdateAttribute { .. } => "Update attribute from organizer".into(),
-            Self::SetSmallSpheres { small: true, .. } => "Hide nucleotides".into(),
-            Self::SetSmallSpheres { small: false, .. } => "Show nucleotides".into(),
-            Self::SnapHelices { .. } => "Move 2D helices".into(),
-            Self::RotateHelices { .. } => "Translate 2D helices".into(),
-            Self::SetIsometry { .. } => "Set isometry of helices".into(),
-            Self::RequestStrandBuilders { .. } => "Try building".into(),
-            Self::MoveBuilders(_) => "Move builders".into(),
-            Self::SetRollHelices { .. } => "Set roll of helix".into(),
-            _ => "Unanmed operation".into(),
-        }
-    }
 }
 
 /// An action performed on the application

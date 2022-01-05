@@ -1138,7 +1138,7 @@ impl MainState {
             self.messages
                 .lock()
                 .unwrap()
-                .push_message(format!("Undone {}", transition.label.as_ref()));
+                .push_message(format!("UNDO: {}", transition.label.as_ref()));
             if redo_state.is_in_stable_state() {
                 self.redo_stack.push(AppStateTransition {
                     state: redo_state,
@@ -1157,7 +1157,7 @@ impl MainState {
             self.messages
                 .lock()
                 .unwrap()
-                .push_message(format!("Redone {}", transition.label.as_ref()));
+                .push_message(format!("REDO: {}", transition.label.as_ref()));
             self.undo_stack.push(AppStateTransition {
                 state: undo_state,
                 camera_3d: transition.camera_3d,
