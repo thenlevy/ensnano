@@ -25,13 +25,14 @@ mod bezier;
 mod sphere_like_spiral;
 mod torus;
 mod twist;
-pub use bezier::CubicBezierConstructor;
+pub use bezier::{PiecewiseBezier, CubicBezierConstructor};
 pub use sphere_like_spiral::SphereLikeSpiral;
 use std::collections::HashMap;
 pub use torus::Torus;
 use torus::TwistedTorus;
 pub use torus::{CurveDescriptor2D, TwistedTorusDescriptor};
 pub use twist::Twist;
+use super::GridDescriptor;
 
 const EPSILON_DERIVATIVE: f64 = 1e-6;
 /// Types that implements this trait represents curves.
@@ -235,6 +236,17 @@ pub enum CurveDescriptor {
     Twist(Twist),
     Torus(Torus),
     TwistedTorus(TwistedTorusDescriptor),
+    PiecewiseBezier {
+        points: Vec<(usize, isize, isize)>,
+        #[serde(skip, default)]
+        instanciated_descriptor: Option<InstanciatedPiecewiseBezierDescriptor>,
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct InstanciatedPiecewiseBezierDescriptor {
+    desc: PiecewiseBezier,
+    grids: Arc<GridDescriptor>,
 }
 
 impl CurveDescriptor {
@@ -254,6 +266,7 @@ impl CurveDescriptor {
                     ret
                 }
             }
+            Self::PiecewiseBezier { .. } => todo!(),
         }
     }
 
