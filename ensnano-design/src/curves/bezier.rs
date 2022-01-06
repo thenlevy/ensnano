@@ -181,6 +181,21 @@ impl super::Curved for CubicBezier {
 /// p_i and p_{i + 1} and control points (p_i + u_i) and p_{i + 1} - u_{i + 1}
 pub struct PiecewiseBezier(pub Vec<BezierEnd>);
 
+impl PiecewiseBezier {
+    fn t_to_i(&self, t: f64) -> usize {
+        (t.floor() as usize).min(self.0.len() - 1) // for t = self.t_max() we take i = self.t_max() - 1
+    }
+
+    fn ith_cubic_bezier(&self, i: usize) -> CubicBezier {
+        CubicBezier::new(CubicBezierConstructor {
+            start: self.0[i].position,
+            end: self.0[i + 1].position,
+            control1: self.0[i].position + self.0[i].vector,
+            control2: self.0[i + 1].position - self.0[i + 1].vector,
+        })
+    }
+}
+
 /// An endpoint of a piecewise bezier curve.
 ///
 /// Let (p_i, u_i)_{0 <= i < n} be the end points, the curve is defined on [0, n] by
@@ -199,13 +214,20 @@ impl super::Curved for PiecewiseBezier {
     }
 
     fn position(&self, t: f64) -> DVec3 {
-        let i = t.floor() as usize;
-        let b_i = CubicBezier::new(CubicBezierConstructor {
-            start: self.0[i].position,
-            end: self.0[i + 1].position,
-            control1: self.0[i].position + self.0[i].vector,
-            control2: self.0[i + 1].position - self.0[i + 1].vector,
-        });
+        let i = self.t_to_i(t);
+        let b_i = self.ith_cubic_bezier(i);
         b_i.position(t - i as f64)
+    }
+
+    fn speed(&self, t: f64) -> DVec3 {
+        let i = self.t_to_i(t);
+        let b_i = self.ith_cubic_bezier(i);
+        b_i.speed(t - i as f64)
+    }
+
+    fn acceleration(&self, t: f64) -> DVec3 {
+        let i = self.t_to_i(t);
+        let b_i = self.ith_cubic_bezier(i);
+        b_i.acceleration(t - i as f64)
     }
 }
