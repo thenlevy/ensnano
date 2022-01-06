@@ -34,19 +34,42 @@ pub use torus::{CurveDescriptor2D, TwistedTorusDescriptor};
 pub use twist::Twist;
 
 const EPSILON_DERIVATIVE: f64 = 1e-6;
+/// Types that implements this trait represents curves.
 pub(super) trait Curved {
+    /// A function that maps a `0.0 <= t <= Self::t_max` to a point in Space.
     fn position(&self, t: f64) -> DVec3;
+
+    /// The upper bound of the definition domain of `Self::position`.
+    ///
+    /// By default this is 1.0, but for curves that are defined "piecewise"
+    /// it may be more practical to override this value.
+    fn t_max(&self) -> f64 {
+        1.0
+    }
+
+    /// The derivative of `Self::position` with respect to time.
+    ///
+    /// If no implementation is provided, a default implementation is available using numeric
+    /// derivation.
     fn speed(&self, t: f64) -> DVec3 {
         (self.position(t + EPSILON_DERIVATIVE / 2.) - self.position(t - EPSILON_DERIVATIVE / 2.))
             / EPSILON_DERIVATIVE
     }
 
+    /// The second derivative of `Self::position` with respect to time.
+    ///
+    /// If no implementation is provided, a default implementation is provided using numeric
+    /// derivation.
     fn acceleration(&self, t: f64) -> DVec3 {
         ((self.position(t + EPSILON_DERIVATIVE) + self.position(t - EPSILON_DERIVATIVE))
             - 2. * self.position(t))
             / (EPSILON_DERIVATIVE * EPSILON_DERIVATIVE)
     }
 
+    /// The curvature of the curve at point `t`.
+    ///
+    /// This is the radius of the osculating circle of the curve at the point `t`.
+    /// See `https://en.wikipedia.org/wiki/Curvature`
     fn curvature(&self, t: f64) -> f64 {
         let speed = self.speed(t);
         let numerator = speed.cross(self.acceleration(t)).mag();
@@ -56,10 +79,16 @@ pub(super) trait Curved {
 }
 
 #[derive(Clone)]
+/// A discretized Curve, with precomputed curve position, and an orthogonal frame moving along the
+/// curve.
 pub(super) struct Curve {
+    /// The object describing the curve.
     geometry: Arc<dyn Curved + Sync + Send>,
+    /// The precomputed points along the curve
     positions: Vec<DVec3>,
+    /// The precomputed orthgonal frames moving along the curve
     axis: Vec<DMat3>,
+    /// The precomputed values of the curve's curvature
     curvature: Vec<f64>,
 }
 
@@ -76,7 +105,7 @@ impl Curve {
     }
 
     pub fn length_by_descretisation(&self, t0: f64, t1: f64, nb_step: usize) -> f64 {
-        if t0 < 0. || t1 > 1. || t0 > t1 {
+        if t0 < 0. || t1 > self.geometry.t_max() || t0 > t1 {
             log::error!(
                 "Bad parameters ofr length by descritisation: \n t0 {} \n t1 {} \n nb_step {}",
                 t0,
@@ -109,7 +138,7 @@ impl Curve {
         axis.push(current_axis);
         curvature.push(self.geometry.curvature(t));
 
-        while t < 1. {
+        while t < self.geometry.t_max() {
             let mut s = 0f64;
             let mut p = self.geometry.position(t);
 
@@ -121,7 +150,6 @@ impl Curve {
                 p = q;
             }
             points.push(p);
-            //axis.push(self.axis(t));
             axis.push(current_axis);
             curvature.push(self.geometry.curvature(t));
         }

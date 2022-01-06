@@ -173,3 +173,39 @@ impl super::Curved for CubicBezier {
         self.polynomial.acceleration(t)
     }
 }
+
+/// A curve that is the concatenation of several cubic bezier curves.
+///
+/// Let (p_i, u_i)_{0 <= i < n} be the end points, the curve is defined on [0, n] by
+/// C(t) = B_i({t}) where i = 1 -  ⌊t⌋ and {t} = t - ⌊t⌋ and B_i is the bezier curve with extremities
+/// p_i and p_{i + 1} and control points (p_i + u_i) and p_{i + 1} - u_{i + 1}
+pub struct PiecewiseBezier(pub Vec<BezierEnd>);
+
+/// An endpoint of a piecewise bezier curve.
+///
+/// Let (p_i, u_i)_{0 <= i < n} be the end points, the curve is defined on [0, n] by
+/// C(t) = B_i({t}) where i = 1 -  ⌊t⌋ and {t} = t - ⌊t⌋ and B_i is the bezier curve with extremities
+/// p_i and p_{i + 1} and control points (p_i + u_i) and p_{i + 1} - u_{i + 1}
+pub struct BezierEnd {
+    /// The position of the end point, denoted p_i in the above definition
+    pub position: Vec3,
+    /// The control vector, denoted u_i in the above definition
+    pub vector: Vec3,
+}
+
+impl super::Curved for PiecewiseBezier {
+    fn t_max(&self) -> f64 {
+        self.0.len() as f64 - 1.0
+    }
+
+    fn position(&self, t: f64) -> DVec3 {
+        let i = t.floor() as usize;
+        let b_i = CubicBezier::new(CubicBezierConstructor {
+            start: self.0[i].position,
+            end: self.0[i + 1].position,
+            control1: self.0[i].position + self.0[i].vector,
+            control2: self.0[i + 1].position - self.0[i + 1].vector,
+        });
+        b_i.position(t - i as f64)
+    }
+}
