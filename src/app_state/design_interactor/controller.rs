@@ -2095,7 +2095,7 @@ impl Controller {
             dumy_end_helix.position,
             end_axis,
         );
-        helix.update_bezier(
+        helix.update_curve(
             &design.parameters.unwrap_or(Parameters::DEFAULT),
             &mut Default::default(),
         );

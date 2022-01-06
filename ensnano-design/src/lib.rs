@@ -431,7 +431,7 @@ impl Design {
         self.saved_camera = saving_information.camera;
     }
 
-    pub fn update_bezier_helices(&mut self, cached_curve: &mut CurveCache) {
+    pub fn update_curves(&mut self, cached_curve: &mut CurveCache) {
         let mut need_update = false;
         for h in self.helices.values() {
             if h.need_curve_update() {
@@ -443,7 +443,7 @@ impl Design {
             let parameters = self.parameters.unwrap_or(Parameters::DEFAULT);
             let mut new_helices_map = BTreeMap::clone(&self.helices);
             for h in new_helices_map.values_mut() {
-                mutate_in_arc(h, |h| h.update_bezier(&parameters, cached_curve))
+                mutate_in_arc(h, |h| h.update_curve(&parameters, cached_curve))
             }
             self.helices = Arc::new(new_helices_map);
         }

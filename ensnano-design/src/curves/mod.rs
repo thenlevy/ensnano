@@ -299,7 +299,7 @@ impl Helix {
         !up_to_date
     }
 
-    pub fn update_bezier(&mut self, parameters: &Parameters, cached_curve: &mut CurveCache) {
+    pub fn update_curve(&mut self, parameters: &Parameters, cached_curve: &mut CurveCache) {
         if self.need_curve_update() {
             if let Some(construtor) = self.curve.as_ref() {
                 let curve = Arc::new(
