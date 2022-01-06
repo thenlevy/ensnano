@@ -1,3 +1,4 @@
+use ensnano_design::grid::GridPosition;
 /*
 ENSnano, a 3d graphical application for DNA nanostructures.
     Copyright (C) 2021  Nicolas Levy <nicolaspierrelevy@gmail.com> and Nicolas Schabanel <nicolas.schabanel@ens-lyon.fr>
@@ -366,18 +367,32 @@ impl<S: AppState> Scene<S> {
                 x,
                 y,
             } => {
-                self.requests
-                    .lock()
-                    .unwrap()
-                    .update_opperation(Arc::new(GridHelixCreation {
-                        grid_id,
-                        design_id: design_id as usize,
-                        x,
-                        y,
-                        length,
-                        position,
-                    }));
-                self.select(Some(SceneElement::Grid(design_id, grid_id)), app_state);
+                if self.controller.is_building_bezier_curve() {
+                    let point = GridPosition::from_grid_id_x_y(grid_id, x, y);
+                    if let Some((start, end)) = self.controller.add_bezier_point(point) {
+                        self.requests.lock().unwrap().apply_design_operation(
+                            DesignOperation::AddTwoPointsBezier { start, end },
+                        );
+                    } else {
+                        // This is the first point of the bezier curve, select the corresponding
+                        // disc to highlight it.
+                        self.select(Some(SceneElement::GridCircle(0, grid_id, x, y)), app_state)
+                    }
+                } else {
+                    // build regular grid helix
+                    self.requests
+                        .lock()
+                        .unwrap()
+                        .update_opperation(Arc::new(GridHelixCreation {
+                            grid_id,
+                            design_id: design_id as usize,
+                            x,
+                            y,
+                            length,
+                            position,
+                        }));
+                    self.select(Some(SceneElement::Grid(design_id, grid_id)), app_state);
+                }
             }
             Consequence::PasteCandidate(element) => self.pasting_candidate(element),
             Consequence::Paste(element) => self.attempt_paste(element),

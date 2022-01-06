@@ -22,6 +22,7 @@ use super::{
 };
 use crate::consts::*;
 use crate::{PhySize, PhysicalPosition, WindowEvent};
+use ensnano_design::grid::GridPosition;
 use ensnano_design::Nucl;
 use ensnano_interactor::DesignReader;
 use ensnano_interactor::Selection;
@@ -66,6 +67,8 @@ pub struct Controller<S: AppState> {
     click_mode: ClickMode,
     state: State<S>,
     stereography: Option<Stereography>,
+    /// The origin of the two points bezier curve being created.
+    bezier_curve_origin: Option<GridPosition>,
 }
 
 pub enum Consequence {
@@ -150,6 +153,7 @@ impl<S: AppState> Controller<S> {
             click_mode: ClickMode::TranslateCam,
             state: automata::initial_state(),
             stereography: None,
+            bezier_curve_origin: None,
         }
     }
 
@@ -159,6 +163,9 @@ impl<S: AppState> Controller<S> {
 
     pub fn update_modifiers(&mut self, modifiers: ModifiersState) {
         self.current_modifiers = modifiers;
+        if !modifiers.shift() {
+            self.bezier_curve_origin = None;
+        }
     }
 
     /// Replace the camera by a new one.
@@ -410,6 +417,27 @@ impl<S: AppState> Controller<S> {
         self.data
             .borrow_mut()
             .update_handle_colors(self.handles_color_system());
+    }
+
+    pub fn is_building_bezier_curve(&self) -> bool {
+        self.current_modifiers.shift()
+    }
+
+    /// Set the origin or destination of the two point bezier helix being built.
+    ///
+    /// If an origin was set, `point` is treated as a destianation and the pair
+    /// `(origin, destination)` is returned. Otherwise, `point` is treated as an origin and `None`
+    /// is returned.
+    pub fn add_bezier_point(
+        &mut self,
+        point: GridPosition,
+    ) -> Option<(GridPosition, GridPosition)> {
+        if let Some(position) = self.bezier_curve_origin.take() {
+            Some((position, point))
+        } else {
+            self.bezier_curve_origin = Some(point);
+            None
+        }
     }
 }
 
