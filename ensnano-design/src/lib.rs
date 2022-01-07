@@ -59,7 +59,7 @@ pub struct Design {
     /// position and an orientation in 3D.
     pub helices: Arc<BTreeMap<usize, Arc<Helix>>>,
     /// The vector of strands.
-    pub strands: BTreeMap<usize, Strand>,
+    pub strands: Strands,
     /// Parameters of DNA geometry. This can be skipped (in JSON), or
     /// set to `None` in Rust, in which case a default set of
     /// parameters from the literature is used.
@@ -184,7 +184,7 @@ impl Design {
 
         Self {
             helices: Arc::new(helices),
-            strands,
+            strands: Strands(strands),
             parameters: Some(parameters),
             ..Default::default()
         }
@@ -193,7 +193,7 @@ impl Design {
     pub fn new() -> Self {
         Self {
             helices: Default::default(),
-            strands: BTreeMap::new(),
+            strands: Default::default(),
             parameters: Some(Parameters::DEFAULT),
             grids: Default::default(),
             scaffold_id: None,
@@ -214,46 +214,6 @@ impl Design {
         }
     }
 
-    pub fn get_xovers(&self) -> Vec<(Nucl, Nucl)> {
-        let mut ret = vec![];
-        for s in self.strands.values() {
-            for x in s.xovers() {
-                ret.push(x)
-            }
-        }
-        ret
-    }
-
-    pub fn get_intervals(&self) -> BTreeMap<usize, (isize, isize)> {
-        let mut ret = BTreeMap::new();
-        for s in self.strands.values() {
-            for d in s.domains.iter() {
-                if let Domain::HelixDomain(dom) = d {
-                    let left = dom.start;
-                    let right = dom.end - 1;
-                    let interval = ret.entry(dom.helix).or_insert((left, right));
-                    interval.0 = interval.0.min(left);
-                    interval.1 = interval.1.max(right);
-                }
-            }
-        }
-        ret
-    }
-
-    pub fn get_strand_nucl(&self, nucl: &Nucl) -> Option<usize> {
-        for (s_id, s) in self.strands.iter() {
-            if s.has_nucl(nucl) {
-                return Some(*s_id);
-            }
-        }
-        None
-    }
-
-    pub fn remove_empty_domains(&mut self) {
-        for s in self.strands.values_mut() {
-            s.remove_empty_domains()
-        }
-    }
 
     pub fn update_version(&mut self) {
         if self.ensnano_version == ensnano_version() {
@@ -271,21 +231,6 @@ impl Design {
         }
     }
 
-    pub fn has_at_least_on_strand_with_insertions(&self) -> bool {
-        self.strands.values().any(|s| s.has_insertions())
-    }
-
-    /// Return the strand end status of nucl
-    pub fn is_strand_end(&self, nucl: &Nucl) -> Extremity {
-        for s in self.strands.values() {
-            if !s.cyclic && s.get_5prime() == Some(*nucl) {
-                return Extremity::Prime5;
-            } else if !s.cyclic && s.get_3prime() == Some(*nucl) {
-                return Extremity::Prime3;
-            }
-        }
-        return Extremity::No;
-    }
 
     /// Return a list of tuples (n1, n2, M) where n1 and n2 are nuclotides that are not on the same
     /// helix and whose distance is at most `epsilon` and M is the middle of the segment between
@@ -324,40 +269,6 @@ impl Design {
         ret
     }
 
-    pub fn is_domain_end(&self, nucl: &Nucl) -> Extremity {
-        for strand in self.strands.values() {
-            let mut prev_helix = None;
-            for domain in strand.domains.iter() {
-                if domain.prime5_end() == Some(*nucl) && prev_helix != domain.half_helix() {
-                    return Extremity::Prime5;
-                } else if domain.prime3_end() == Some(*nucl) {
-                    return Extremity::Prime3;
-                } else if let Some(_) = domain.has_nucl(nucl) {
-                    return Extremity::No;
-                }
-                prev_helix = domain.half_helix();
-            }
-        }
-        Extremity::No
-    }
-
-    pub fn is_true_xover_end(&self, nucl: &Nucl) -> bool {
-        self.is_domain_end(nucl).to_opt().is_some() && self.is_strand_end(nucl).to_opt().is_none()
-    }
-
-    /// Return true if at least one strand goes through helix h_id
-    pub fn uses_helix(&self, h_id: usize) -> bool {
-        for s in self.strands.values() {
-            for d in s.domains.iter() {
-                if let Domain::HelixDomain(interval) = d {
-                    if interval.helix == h_id {
-                        return true;
-                    }
-                }
-            }
-        }
-        false
-    }
 
     pub fn add_camera(
         &mut self,
@@ -513,7 +424,7 @@ impl Design {
         Ok(Self {
             grids: Arc::new(grids),
             helices: Arc::new(helices),
-            strands,
+            strands: Strands(strands),
             small_spheres: Default::default(),
             scaffold_id: None, //TODO determine this value
             scaffold_sequence: None,
@@ -1293,41 +1204,3 @@ impl<'a> Axis<'a> {
 
 
 
-/// The return type for methods that ask if a nucleotide is the end of a domain/strand/xover
-#[derive(Debug, Clone, Copy)]
-pub enum Extremity {
-    No,
-    Prime3,
-    Prime5,
-}
-
-impl Extremity {
-    pub fn is_3prime(&self) -> bool {
-        match self {
-            Extremity::Prime3 => true,
-            _ => false,
-        }
-    }
-
-    pub fn is_5prime(&self) -> bool {
-        match self {
-            Extremity::Prime5 => true,
-            _ => false,
-        }
-    }
-
-    pub fn is_end(&self) -> bool {
-        match self {
-            Extremity::No => false,
-            _ => true,
-        }
-    }
-
-    pub fn to_opt(&self) -> Option<bool> {
-        match self {
-            Extremity::No => None,
-            Extremity::Prime3 => Some(true),
-            Extremity::Prime5 => Some(false),
-        }
-    }
-}

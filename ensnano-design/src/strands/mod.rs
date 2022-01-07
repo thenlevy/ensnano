@@ -22,6 +22,135 @@ use super::{codenano, Nucl};
 use std::collections::{BTreeSet, BTreeMap};
 mod formating;
 
+/// A collection of strands, that maps strand identifier to strands.
+///
+/// It contains all the information about the "topology of the design".  Information about
+/// cross-over or helix interval are obtained via this structure
+#[derive(Serialize, Deserialize, Clone, Default)]
+pub struct Strands(pub (super) BTreeMap<usize, Strand>);
+
+impl Strands {
+    pub fn get_xovers(&self) -> Vec<(Nucl, Nucl)> {
+        let mut ret = vec![];
+        for s in self.0.values() {
+            for x in s.xovers() {
+                ret.push(x)
+            }
+        }
+        ret
+    }
+
+    pub fn get_intervals(&self) -> BTreeMap<usize, (isize, isize)> {
+        let mut ret = BTreeMap::new();
+        for s in self.0.values() {
+            for d in s.domains.iter() {
+                if let Domain::HelixDomain(dom) = d {
+                    let left = dom.start;
+                    let right = dom.end - 1;
+                    let interval = ret.entry(dom.helix).or_insert((left, right));
+                    interval.0 = interval.0.min(left);
+                    interval.1 = interval.1.max(right);
+                }
+            }
+        }
+        ret
+    }
+
+    pub fn get_strand_nucl(&self, nucl: &Nucl) -> Option<usize> {
+        for (s_id, s) in self.0.iter() {
+            if s.has_nucl(nucl) {
+                return Some(*s_id);
+            }
+        }
+        None
+    }
+
+    pub fn remove_empty_domains(&mut self) {
+        for s in self.0.values_mut() {
+            s.remove_empty_domains()
+        }
+    }
+
+    pub fn has_at_least_on_strand_with_insertions(&self) -> bool {
+        self.0.values().any(|s| s.has_insertions())
+    }
+
+    /// Return the strand end status of nucl
+    pub fn is_strand_end(&self, nucl: &Nucl) -> Extremity {
+        for s in self.0.values() {
+            if !s.cyclic && s.get_5prime() == Some(*nucl) {
+                return Extremity::Prime5;
+            } else if !s.cyclic && s.get_3prime() == Some(*nucl) {
+                return Extremity::Prime3;
+            }
+        }
+        return Extremity::No;
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = (&usize, &Strand)> {
+        self.0.iter()
+    }
+
+    pub fn values(&self) -> impl Iterator<Item = &Strand> {
+        self.0.values()
+    }
+
+    pub fn values_mut(&mut self) -> impl Iterator<Item = &mut Strand> {
+        self.0.values_mut()
+    }
+
+    pub fn is_domain_end(&self, nucl: &Nucl) -> Extremity {
+        for strand in self.0.values() {
+            let mut prev_helix = None;
+            for domain in strand.domains.iter() {
+                if domain.prime5_end() == Some(*nucl) && prev_helix != domain.half_helix() {
+                    return Extremity::Prime5;
+                } else if domain.prime3_end() == Some(*nucl) {
+                    return Extremity::Prime3;
+                } else if let Some(_) = domain.has_nucl(nucl) {
+                    return Extremity::No;
+                }
+                prev_helix = domain.half_helix();
+            }
+        }
+        Extremity::No
+    }
+
+    pub fn is_true_xover_end(&self, nucl: &Nucl) -> bool {
+        self.is_domain_end(nucl).to_opt().is_some() && self.is_strand_end(nucl).to_opt().is_none()
+    }
+
+    /// Return true if at least one strand goes through helix h_id
+    pub fn uses_helix(&self, h_id: usize) -> bool {
+        for s in self.0.values() {
+            for d in s.domains.iter() {
+                if let Domain::HelixDomain(interval) = d {
+                    if interval.helix == h_id {
+                        return true;
+                    }
+                }
+            }
+        }
+        false
+    }
+
+
+    pub fn get(&self, id: &usize) -> Option<&Strand> {
+        self.0.get(id)
+    }
+
+    pub fn get_mut(&mut self, id: &usize) -> Option<&mut Strand> {
+        self.0.get_mut(id)
+    }
+
+    pub fn insert(&mut self, key: usize, strand: Strand) -> Option<Strand> {
+        self.0.insert(key, strand)
+    }
+
+    pub fn keys(&self) -> impl Iterator<Item = &usize> {
+        self.0.keys()
+    }
+}
 
 /// A link between a 5' and a 3' domain.
 ///
@@ -958,5 +1087,44 @@ fn junction(prime5: &HelixInterval, prime3: &HelixInterval) -> DomainJunction {
         DomainJunction::Adjacent
     } else {
         DomainJunction::UnindentifiedXover
+    }
+}
+
+/// The return type for methods that ask if a nucleotide is the end of a domain/strand/xover
+#[derive(Debug, Clone, Copy)]
+pub enum Extremity {
+    No,
+    Prime3,
+    Prime5,
+}
+
+impl Extremity {
+    pub fn is_3prime(&self) -> bool {
+        match self {
+            Extremity::Prime3 => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_5prime(&self) -> bool {
+        match self {
+            Extremity::Prime5 => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_end(&self) -> bool {
+        match self {
+            Extremity::No => false,
+            _ => true,
+        }
+    }
+
+    pub fn to_opt(&self) -> Option<bool> {
+        match self {
+            Extremity::No => None,
+            Extremity::Prime3 => Some(true),
+            Extremity::Prime5 => Some(false),
+        }
     }
 }

@@ -33,7 +33,7 @@ impl DesignInteractor {
         let mut xover_ids: IdGenerator<(Nucl, Nucl)> = Default::default();
         let mut design = read_file(json_path)?;
         design.update_version();
-        design.remove_empty_domains();
+        design.strands.remove_empty_domains();
         for s in design.strands.values_mut() {
             s.read_junctions(&mut xover_ids, true);
         }
