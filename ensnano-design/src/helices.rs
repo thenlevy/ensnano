@@ -33,39 +33,82 @@ use ultraviolet::{DVec3, Isometry2, Mat4, Rotor3, Vec3};
 pub struct Helices(pub(super) Arc<BTreeMap<usize, Arc<Helix>>>);
 
 impl Helices {
-    // Collection methods
-    // ===========================================================================
-    pub fn get(&self, id: &usize) -> Option<&Helix> {
-        self.0.get(id).map(|arc| arc.as_ref())
+    pub fn make_mut<'a>(&'a mut self) -> HelicesMut<'a> {
+        let new_map = BTreeMap::clone(self.0.as_ref());
+        HelicesMut {
+            source: self,
+            new_map,
+        }
+    }
+}
+
+pub trait HelixCollection {
+    fn get(&self, id: &usize) -> Option<&Helix>;
+    fn iter<'a>(&'a self) -> Box<dyn Iterator<Item = (&'a usize, &'a Helix)> + 'a>;
+    fn values<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Helix> + 'a>;
+}
+
+pub trait HasHelixCollection {
+    fn get_collection(&self) -> &BTreeMap<usize, Arc<Helix>>;
+}
+
+impl HasHelixCollection for Helices {
+    fn get_collection(&self) -> &BTreeMap<usize, Arc<Helix>> {
+        &self.0
+    }
+}
+
+impl<'a> HasHelixCollection for HelicesMut<'a> {
+    fn get_collection(&self) -> &BTreeMap<usize, Arc<Helix>> {
+        &self.new_map
+    }
+}
+
+impl<T> HelixCollection for T
+where
+    T: HasHelixCollection,
+{
+    fn get(&self, id: &usize) -> Option<&Helix> {
+        self.get_collection().get(id).map(|arc| arc.as_ref())
     }
 
-    pub fn get_mut(&mut self, id: &usize) -> Option<&mut Helix> {
-        // Ensure that a new map is created so that the modified map is stored at a different
-        // address.
-        // Calling Arc::make_mut directly does not work because we want a new pointer even if
-        // the arc count is 1
-        let new_map = BTreeMap::clone(self.0.as_ref());
-        *self = Helices(Arc::new(new_map));
+    fn iter<'a>(&'a self) -> Box<dyn Iterator<Item = (&'a usize, &'a Helix)> + 'a> {
+        Box::new(
+            self.get_collection()
+                .iter()
+                .map(|(id, arc)| (id, arc.as_ref())),
+        )
+    }
 
-        Arc::make_mut(&mut self.0).get_mut(id).map(|arc| {
+    fn values<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Helix> + 'a> {
+        Box::new(self.get_collection().values().map(|arc| arc.as_ref()))
+    }
+}
+
+pub struct HelicesMut<'a> {
+    source: &'a mut Helices,
+    new_map: BTreeMap<usize, Arc<Helix>>,
+}
+
+impl<'a> HelicesMut<'a> {
+    pub fn get_mut(&mut self, id: &usize) -> Option<&mut Helix> {
+        self.new_map.get_mut(id).map(|arc| {
             // For the same reasons as above, ensure that a new helix is created so that the
             // modified helix is stored at a different address.
+            // Calling Arc::make_mut directly does not work because we want a new pointer even if
+            // the arc count is 1
             let new_helix = Helix::clone(arc.as_ref());
             *arc = Arc::new(new_helix);
 
             Arc::make_mut(arc)
         })
     }
+}
 
-    pub fn iter(&self) -> impl Iterator<Item = (&usize, &Helix)> {
-        self.0.iter().map(|(id, arc)| (id, arc.as_ref()))
+impl<'a> Drop for HelicesMut<'a> {
+    fn drop(&mut self) {
+        *self.source = Helices(Arc::new(std::mem::take(&mut self.new_map)))
     }
-
-    pub fn values(&self) -> impl Iterator<Item = &Helix> {
-        self.0.values().map(|arc| arc.as_ref())
-    }
-
-    // ===========================================================================
 }
 
 /// A DNA helix. All bases of all strands must be on a helix.

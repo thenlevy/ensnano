@@ -19,7 +19,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 use crate::CurveDescriptor;
 use std::collections::{BTreeMap, HashMap, HashSet};
 
-use super::{mutate_in_arc, Axis, Design, Helices, Helix, Parameters};
+use super::{mutate_in_arc, Axis, Design, Helices, Helix, HelixCollection, Parameters};
 mod hyperboloid;
 pub use hyperboloid::*;
 use std::sync::Arc;
