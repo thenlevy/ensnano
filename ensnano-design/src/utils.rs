@@ -48,3 +48,22 @@ pub fn dvec_to_vec(dv: DVec3) -> Vec3 {
         z: dv.z as f32,
     }
 }
+
+// Serialization utils
+//===========================================================================
+pub(super) fn isize_is_zero(x: &isize) -> bool {
+    *x == 0
+}
+
+pub(super) fn f32_is_zero(x: &f32) -> bool {
+    *x == 0.0
+}
+
+pub(super) fn default_visibility() -> bool {
+    true
+}
+
+pub(super) fn is_false(x: &bool) -> bool {
+    !*x
+}
+//===========================================================================

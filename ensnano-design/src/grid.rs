@@ -17,9 +17,9 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 
 use crate::CurveDescriptor;
-use std::collections::{BTreeMap, HashSet, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
-use super::{Design, Helix, Parameters, mutate_in_arc, Axis};
+use super::{mutate_in_arc, Axis, Design, Helices, Helix, Parameters};
 mod hyperboloid;
 pub use hyperboloid::*;
 use std::sync::Arc;
@@ -555,14 +555,13 @@ pub enum Edge {
     Circle(isize),
 }
 
-
-/// A view of the design's grids, with pre-computed maps. 
+/// A view of the design's grids, with pre-computed maps.
 #[derive(Clone)]
-pub struct UpdatedGridData<'a> {
+pub struct GridData {
     // We borrow the grids and helices from the source that was used to build the view. This ensure
     // that the data used to build this view are not modified during the view's lifetime.
-    source_grids: &'a[GridDescriptor],
-    source_helices: &'a BTreeMap<usize, Arc<Helix>>,
+    source_grids: Arc<Vec<GridDescriptor>>,
+    source_helices: Helices,
     pub grids: Vec<Grid>,
     pub helix_to_pos: HashMap<usize, GridPosition>,
     pub pos_to_helix: HashMap<(usize, isize, isize), usize>,
@@ -571,23 +570,23 @@ pub struct UpdatedGridData<'a> {
     pub small_spheres: HashSet<usize>,
 }
 
-impl<'a> UpdatedGridData<'a> {
+impl GridData {
     pub fn get_visibility(&mut self, g_id: usize) -> bool {
         self.grids.get(g_id).map(|g| !g.invisible).unwrap_or(false)
     }
 
-    pub fn new_from_design(design: &'a Design) -> Self {
+    pub fn new_from_design(design: &Design) -> Self {
         let mut grids = Vec::new();
         let mut helix_to_pos = HashMap::new();
         let mut pos_to_helix = HashMap::new();
         let parameters = design.parameters.unwrap_or_default();
-        let source_grids = &design.grids.as_ref();
+        let source_grids = design.grids.clone();
         for desc in source_grids.iter() {
             let grid = desc.to_grid(parameters.clone());
             grids.push(grid);
         }
-        let source_helices = design.helices.as_ref();
-        for (h_id, h) in source_helices.iter() {
+        let source_helices = design.helices.clone();
+        for (h_id, h) in design.helices.iter() {
             if let Some(grid_position) = h.grid_position {
                 helix_to_pos.insert(*h_id, grid_position);
                 pos_to_helix.insert(
@@ -725,6 +724,8 @@ impl<'a> UpdatedGridData<'a> {
     }
     */
 
+    /*
+     * TODO this code should be encapsulated in the code that handles helices translation
     /// Recompute the position of helix `h_id` on its grid. Return false if there is already an
     /// other helix at that position, otherwise return true.
     pub fn reattach_helix(
@@ -792,6 +793,7 @@ impl<'a> UpdatedGridData<'a> {
         design.helices = Arc::new(new_helices);
         true
     }
+    */
 
     fn attach_to(&self, helix: &Helix, g_id: usize) -> Option<GridPosition> {
         let mut ret = None;
