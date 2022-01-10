@@ -28,7 +28,7 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::sync::Arc;
 use ultraviolet::Vec3;
 
-use grid_data::GridManager;
+use ensnano_design::{grid::GridData, HasHelixCollection};
 
 mod xover_suggestions;
 use xover_suggestions::XoverSuggestions;
@@ -57,7 +57,7 @@ pub(super) struct DesignContent {
     pub prime3_set: Vec<Prime3End>,
     pub elements: Vec<DnaElement>,
     pub suggestions: Vec<(Nucl, Nucl)>,
-    pub(super) grid_manager: GridManager,
+    pub(super) grid_manager: GridData,
     pub virtual_nucl_map: HashMap<VirtualNucl, Nucl, RandomState>,
 }
 
@@ -344,14 +344,10 @@ impl DesignContent {
         let mut suggestion_maker = XoverSuggestions::default();
         let mut virtual_nucl_map = HashMap::default();
         xover_ids.agree_on_next_id(&mut new_junctions);
-        let mut grid_manager = GridManager::new_from_design(&design);
-        if *old_grid_ptr != Some(Arc::as_ptr(&design.grids) as usize) {
-            *old_grid_ptr = Some(Arc::as_ptr(&design.grids) as usize);
-            grid_manager.reposition_all_helices(&mut design);
-        }
         design.update_curves(curve_cache);
         design.update_support_helices();
         let rainbow_strand = design.scaffold_id.filter(|_| design.rainbow_scaffold);
+        let grid_manager = design.get_updated_grid_data().clone();
 
         for (s_id, strand) in design.strands.iter_mut() {
             elements.push(elements::DnaElement::Strand { id: *s_id });
@@ -397,7 +393,7 @@ impl DesignContent {
                 if let Domain::HelixDomain(domain) = domain {
                     let dom_seq = domain.sequence.as_ref().filter(|s| s.is_ascii());
                     for (dom_position, nucl_position) in domain.iter().enumerate() {
-                        let position = design.helices[&domain.helix].space_pos(
+                        let position = design.helices.get(&domain.helix).unwrap().space_pos(
                             design.parameters.as_ref().unwrap(),
                             nucl_position,
                             domain.forward,
@@ -689,5 +685,38 @@ mod tests {
                 xover_cpy.get_all_elements()
             );
         }
+    }
+}
+
+trait GridInstancesMaker {
+    fn grid_instances(&self, design_id: usize) -> Vec<GridInstance>;
+}
+
+impl GridInstancesMaker for GridData {
+    fn grid_instances(&self, design_id: usize) -> Vec<GridInstance> {
+        let mut ret = Vec::new();
+        for (n, g) in self.grids.iter().enumerate() {
+            let grid = GridInstance {
+                grid: g.clone(),
+                min_x: -2,
+                max_x: 2,
+                min_y: -2,
+                max_y: 2,
+                color: 0x00_00_FF,
+                design: design_id,
+                id: n,
+                fake: false,
+                visible: !g.invisible,
+            };
+            ret.push(grid);
+        }
+        for grid_position in self.helix_to_pos.values() {
+            let grid = grid_position.grid;
+            ret[grid].min_x = ret[grid].min_x.min(grid_position.x as i32 - 2);
+            ret[grid].max_x = ret[grid].max_x.max(grid_position.x as i32 + 2);
+            ret[grid].min_y = ret[grid].min_y.min(grid_position.y as i32 - 2);
+            ret[grid].max_y = ret[grid].max_y.max(grid_position.y as i32 + 2);
+        }
+        ret
     }
 }

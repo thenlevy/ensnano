@@ -86,7 +86,7 @@ impl FromCadnano for Design {
             }
         }
         println!("color {:?}", colors);
-        design.helices = Arc::new(helices);
+        design._set_helices(helices);
         design
     }
 }

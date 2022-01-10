@@ -368,10 +368,9 @@ pub struct RollState(HashMap<usize, Helix>);
 
 impl super::SimulationUpdate for RollState {
     fn update_design(&self, design: &mut ensnano_design::Design) {
-        let mut new_helices = BTreeMap::clone(design.helices.as_ref());
+        let mut new_helices = design.helices.make_mut();
         for (i, h) in self.0.iter() {
-            new_helices.insert(*i, Arc::new(h.clone()));
+            new_helices.insert(*i, h.clone());
         }
-        design.helices = Arc::new(new_helices)
     }
 }

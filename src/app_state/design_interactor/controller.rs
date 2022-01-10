@@ -23,7 +23,7 @@ use ensnano_design::{
     grid::{Edge, GridDescriptor, GridPosition, GridTypeDescr, Hyperboloid},
     group_attributes::GroupPivot,
     mutate_in_arc, CameraId, CurveDescriptor, Design, Domain, DomainJunction, Helix,
-    HelixCollection, Nucl, Parameters, Strand, VirtualNucl,
+    HelixCollection, Nucl, Parameters, Strand, Strands, VirtualNucl,
 };
 use ensnano_interactor::{
     operation::{Operation, Parameter},
@@ -313,12 +313,15 @@ impl Controller {
         design: &Design,
         operation: CopyOperation,
     ) -> Result<(OkOperation, Self), ErrOperation> {
+        let mut design = design.clone();
+        let mut strand_view = design.mut_strand_and_data();
         match operation {
-            CopyOperation::CopyStrands(strand_ids) => {
-                self.apply_no_op(|c, d| c.set_templates(d, strand_ids), design)
-            }
+            CopyOperation::CopyStrands(strand_ids) => self.apply_no_op(
+                |c, _d| c.set_templates(&mut strand_view, strand_ids),
+                &design,
+            ),
             CopyOperation::CopyXovers(xovers) => {
-                self.apply_no_op(|c, _d| c.copy_xovers(xovers), design)
+                self.apply_no_op(|c, _d| c.copy_xovers(xovers), &design)
             }
             CopyOperation::PositionPastingPoint(nucl) => {
                 if self.get_pasting_point() == Some(nucl) {
@@ -328,14 +331,14 @@ impl Controller {
                     {
                         p.as_ref()
                     } else {
-                        design
+                        &design
                     };
                     self.apply(|c, d| c.position_copy(d, nucl), design_pasted_on)
                 }
             }
             CopyOperation::InitStrandsDuplication(strand_ids) => self.apply_no_op(
                 |c, d| {
-                    c.set_templates(d, strand_ids)?;
+                    c.set_templates(&mut strand_view, strand_ids)?;
                     let clipboard = c.clipboard.as_ref().get_strand_clipboard()?;
                     c.state = ControllerState::PositioningDuplicationPoint {
                         pasted_strands: vec![],
@@ -345,11 +348,11 @@ impl Controller {
                     };
                     Ok(())
                 },
-                design,
+                &design,
             ),
-            CopyOperation::Duplicate => self.apply(|c, d| c.apply_duplication(d), design),
+            CopyOperation::Duplicate => self.apply(|c, d| c.apply_duplication(d), &design),
             CopyOperation::Paste => {
-                self.make_undoable(self.apply(|c, d| c.apply_paste(d), design), "Paste".into())
+                self.make_undoable(self.apply(|c, d| c.apply_paste(d), &design), "Paste".into())
             }
             CopyOperation::InitXoverDuplication(xovers) => self.apply_no_op(
                 |c, d| {
@@ -362,7 +365,7 @@ impl Controller {
                     };
                     Ok(())
                 },
-                design,
+                &design,
             ),
         }
     }
@@ -1741,13 +1744,13 @@ impl Controller {
         xovers: &[(Nucl, Nucl)],
     ) -> Result<Design, ErrOperation> {
         for (n1, _) in xovers.iter() {
-            let _ = Self::split_strand(&mut design, &n1, None)?;
+            let _ = Self::split_strand(&mut design.strands, &n1, None)?;
         }
         Ok(design)
     }
 
     fn cut(&mut self, mut design: Design, nucl: Nucl) -> Result<Design, ErrOperation> {
-        let _ = Self::split_strand(&mut design, &nucl, None)?;
+        let _ = Self::split_strand(&mut design.strands, &nucl, None)?;
         Ok(design)
     }
 
@@ -1762,20 +1765,19 @@ impl Controller {
     /// prime extremity of a crossover, in which case nucl will be on the 3 prime half of the
     /// split.
     fn split_strand(
-        design: &mut Design,
+        strands: &mut Strands,
         nucl: &Nucl,
         force_end: Option<bool>,
     ) -> Result<usize, ErrOperation> {
-        let id = design
-            .strands
+        let id = strands
             .get_strand_nucl(nucl)
             .ok_or(ErrOperation::CutInexistingStrand)?;
 
-        let strand = design.strands.remove(&id).expect("strand");
+        let strand = strands.remove(&id).expect("strand");
         let name = strand.name.clone();
         if strand.cyclic {
             let new_strand = Self::break_cycle(strand.clone(), *nucl, force_end);
-            design.strands.insert(id, new_strand);
+            strands.insert(id, new_strand);
             //self.clean_domains_one_strand(id);
             //println!("Cutting cyclic strand");
             return Ok(id);
@@ -1883,7 +1885,7 @@ impl Controller {
             sequence: seq_prim3,
             name,
         };
-        let new_id = (*design.strands.keys().max().unwrap_or(&0)).max(id) + 1;
+        let new_id = (*strands.keys().max().unwrap_or(&0)).max(id) + 1;
         log::info!("new id {}, ; id {}", new_id, id);
         let (id_5prime, id_3prime) = if !on_3prime {
             (id, new_id)
@@ -1891,10 +1893,10 @@ impl Controller {
             (new_id, id)
         };
         if strand_5prime.domains.len() > 0 {
-            design.strands.insert(id_5prime, strand_5prime);
+            strands.insert(id_5prime, strand_5prime);
         }
         if strand_3prime.domains.len() > 0 {
-            design.strands.insert(id_3prime, strand_3prime);
+            strands.insert(id_3prime, strand_3prime);
         }
         //self.make_hash_maps();
 
@@ -2009,7 +2011,7 @@ impl Controller {
         start: GridPosition,
         end: GridPosition,
     ) -> Result<Design, ErrOperation> {
-        let grid_manager = GridManager::new_from_design(&design);
+        let grid_manager = design.get_updated_grid_data();
         let grid_start = grid_manager
             .grids
             .get(start.grid)
@@ -2018,7 +2020,8 @@ impl Controller {
             .grids
             .get(end.grid)
             .ok_or(ErrOperation::GridDoesNotExist(end.grid))?;
-        let mut new_helices = BTreeMap::clone(design.helices.as_ref());
+        drop(grid_manager);
+        let mut new_helices = design.helices.make_mut();
         let dumy_start_helix = Helix::new_on_grid(&grid_start, start.x, start.y, start.grid);
         let start_axis = dumy_start_helix
             .get_axis(&design.parameters.unwrap_or(Parameters::DEFAULT))
@@ -2040,7 +2043,7 @@ impl Controller {
             &design.parameters.unwrap_or(Parameters::DEFAULT),
             &mut Default::default(),
         );
-        let helix_id = new_helices.keys().last().unwrap_or(&0) + 1;
+        let helix_id = new_helices.push_helix(helix);
         let length = helix.nb_bezier_nucls();
         if length > 0 {
             for b in [false, true].iter() {
@@ -2052,26 +2055,22 @@ impl Controller {
                 }
             }
         }
-        new_helices.insert(helix_id, Arc::new(helix));
-        design.helices = Arc::new(new_helices);
         Ok(design)
     }
 
     /// Merge two strands with identifier prime5 and prime3. The resulting strand will have
     /// identifier prime5.
     fn merge_strands(
-        design: &mut Design,
+        strands: &mut Strands,
         prime5: usize,
         prime3: usize,
     ) -> Result<(), ErrOperation> {
         // We panic, if we can't find the strand, because this means that the program has a bug
         if prime5 != prime3 {
-            let strand5prime = design
-                .strands
+            let strand5prime = strands
                 .remove(&prime5)
                 .ok_or(ErrOperation::StrandDoesNotExist(prime5))?;
-            let strand3prime = design
-                .strands
+            let strand3prime = strands
                 .remove(&prime3)
                 .ok_or(ErrOperation::StrandDoesNotExist(prime3))?;
             let name = strand5prime.name.or(strand3prime.name);
@@ -2131,7 +2130,7 @@ impl Controller {
                 cyclic: false,
                 name,
             };
-            design.strands.insert(prime5, new_strand);
+            strands.insert(prime5, new_strand);
             Ok(())
         } else {
             // To make a cyclic strand use `make_cyclic_strand` instead
@@ -2140,15 +2139,17 @@ impl Controller {
     }
 
     /// Make a strand cyclic by linking the 3' and the 5' end, or undo this operation.
-    fn make_cycle(design: &mut Design, strand_id: usize, cyclic: bool) -> Result<(), ErrOperation> {
-        design
-            .strands
+    fn make_cycle(
+        strands: &mut Strands,
+        strand_id: usize,
+        cyclic: bool,
+    ) -> Result<(), ErrOperation> {
+        strands
             .get_mut(&strand_id)
             .ok_or(ErrOperation::StrandDoesNotExist(strand_id))?
             .cyclic = cyclic;
 
-        let strand = design
-            .strands
+        let strand = strands
             .get_mut(&strand_id)
             .ok_or(ErrOperation::StrandDoesNotExist(strand_id))?;
         if cyclic {
@@ -2208,7 +2209,7 @@ impl Controller {
         target_3prime: bool,
     ) -> Result<Design, ErrOperation> {
         Self::cross_cut(
-            &mut design,
+            &mut design.strands,
             source_strand,
             target_strand,
             nucl,
@@ -2225,9 +2226,9 @@ impl Controller {
         prime3_id: usize,
     ) -> Result<Design, ErrOperation> {
         if prime5_id != prime3_id {
-            Self::merge_strands(&mut design, prime5_id, prime3_id)?;
+            Self::merge_strands(&mut design.strands, prime5_id, prime3_id)?;
         } else {
-            Self::make_cycle(&mut design, prime5_id, true)?;
+            Self::make_cycle(&mut design.strands, prime5_id, true)?;
         }
         self.state = ControllerState::Normal;
         Ok(design)
@@ -2236,59 +2237,54 @@ impl Controller {
     /// Cut the target strand at nucl and the make a cross over from the source strand to the part
     /// that contains nucl
     fn cross_cut(
-        design: &mut Design,
+        strands: &mut Strands,
         source_strand: usize,
         target_strand: usize,
         nucl: Nucl,
         target_3prime: bool,
     ) -> Result<(), ErrOperation> {
-        let new_id = design.strands.keys().max().map(|n| n + 1).unwrap_or(0);
-        let was_cyclic = design
-            .strands
+        let new_id = strands.keys().max().map(|n| n + 1).unwrap_or(0);
+        let was_cyclic = strands
             .get(&target_strand)
             .ok_or(ErrOperation::StrandDoesNotExist(target_strand))?
             .cyclic;
         //println!("half1 {}, ; half0 {}", new_id, target_strand);
-        Self::split_strand(design, &nucl, Some(target_3prime))?;
+        Self::split_strand(strands, &nucl, Some(target_3prime))?;
         //println!("splitted");
 
         if !was_cyclic && source_strand != target_strand {
             if target_3prime {
                 // swap the position of the two half of the target strands so that the merged part is the
                 // new id
-                let half0 = design
-                    .strands
+                let half0 = strands
                     .remove(&target_strand)
                     .ok_or(ErrOperation::StrandDoesNotExist(target_strand))?;
-                let half1 = design
-                    .strands
+                let half1 = strands
                     .remove(&new_id)
                     .ok_or(ErrOperation::StrandDoesNotExist(new_id))?;
-                design.strands.insert(new_id, half0);
-                design.strands.insert(target_strand, half1);
-                Self::merge_strands(design, source_strand, new_id)
+                strands.insert(new_id, half0);
+                strands.insert(target_strand, half1);
+                Self::merge_strands(strands, source_strand, new_id)
             } else {
                 // if the target strand is the 5' end of the merge, we give the new id to the source
                 // strand because it is the one that is lost in the merge.
-                let half0 = design
-                    .strands
+                let half0 = strands
                     .remove(&source_strand)
                     .ok_or(ErrOperation::StrandDoesNotExist(source_strand))?;
-                let half1 = design
-                    .strands
+                let half1 = strands
                     .remove(&new_id)
                     .ok_or(ErrOperation::StrandDoesNotExist(new_id))?;
-                design.strands.insert(new_id, half0);
-                design.strands.insert(source_strand, half1);
-                Self::merge_strands(design, target_strand, new_id)
+                strands.insert(new_id, half0);
+                strands.insert(source_strand, half1);
+                Self::merge_strands(strands, target_strand, new_id)
             }
         } else if source_strand == target_strand {
-            Self::make_cycle(design, source_strand, true)
+            Self::make_cycle(strands, source_strand, true)
         } else {
             if target_3prime {
-                Self::merge_strands(design, source_strand, target_strand)
+                Self::merge_strands(strands, source_strand, target_strand)
             } else {
-                Self::merge_strands(design, target_strand, source_strand)
+                Self::merge_strands(strands, target_strand, source_strand)
             }
         }
     }
@@ -2299,7 +2295,7 @@ impl Controller {
         source_nucl: Nucl,
         target_nucl: Nucl,
     ) -> Result<Design, ErrOperation> {
-        self.general_cross_over(&mut design, source_nucl, target_nucl)?;
+        self.general_cross_over(&mut design.strands, source_nucl, target_nucl)?;
         Ok(design)
     }
 
@@ -2366,7 +2362,7 @@ impl Controller {
             pairs
         };
         for (source_nucl, target_nucl) in pairs {
-            if let Err(e) = self.general_cross_over(&mut design, source_nucl, target_nucl) {
+            if let Err(e) = self.general_cross_over(&mut design.strands, source_nucl, target_nucl) {
                 log::error!(
                     "when making xover {:?} {:?} : {:?}",
                     source_nucl,
@@ -2380,7 +2376,7 @@ impl Controller {
 
     fn general_cross_over(
         &mut self,
-        design: &mut Design,
+        strands: &mut Strands,
         source_nucl: Nucl,
         target_nucl: Nucl,
     ) -> Result<(), ErrOperation> {
@@ -2388,28 +2384,24 @@ impl Controller {
             return Err(ErrOperation::XoverOnSameHelix);
         }
         log::info!("cross over between {:?} and {:?}", source_nucl, target_nucl);
-        let source_id = design
-            .strands
+        let source_id = strands
             .get_strand_nucl(&source_nucl)
             .ok_or(ErrOperation::NuclDoesNotExist(source_nucl))?;
-        let target_id = design
-            .strands
+        let target_id = strands
             .get_strand_nucl(&target_nucl)
             .ok_or(ErrOperation::NuclDoesNotExist(target_nucl))?;
 
-        let source = design
-            .strands
+        let source = strands
             .get(&source_id)
             .cloned()
             .ok_or(ErrOperation::StrandDoesNotExist(source_id))?;
-        let _ = design
-            .strands
+        let _ = strands
             .get(&target_id)
             .cloned()
             .ok_or(ErrOperation::StrandDoesNotExist(target_id))?;
 
-        let source_strand_end = design.strands.is_strand_end(&source_nucl);
-        let target_strand_end = design.strands.is_strand_end(&target_nucl);
+        let source_strand_end = strands.is_strand_end(&source_nucl);
+        let target_strand_end = strands.is_strand_end(&target_nucl);
         log::info!(
             "source strand {:?}, target strand {:?}",
             source_id,
@@ -2426,17 +2418,17 @@ impl Controller {
             (Some(true), Some(false)) => {
                 // We can xover directly
                 if source_id == target_id {
-                    Self::make_cycle(design, source_id, true)?
+                    Self::make_cycle(strands, source_id, true)?
                 } else {
-                    Self::merge_strands(design, source_id, target_id)?
+                    Self::merge_strands(strands, source_id, target_id)?
                 }
             }
             (Some(false), Some(true)) => {
                 // We can xover directly but we must reverse the xover
                 if source_id == target_id {
-                    Self::make_cycle(design, target_id, true)?
+                    Self::make_cycle(strands, target_id, true)?
                 } else {
-                    Self::merge_strands(design, target_id, source_id)?
+                    Self::merge_strands(strands, target_id, source_id)?
                 }
             }
             (Some(b), None) => {
@@ -2444,24 +2436,24 @@ impl Controller {
                 // different
                 let target_3prime = b;
                 if source_nucl.helix != target_nucl.helix {
-                    Self::cross_cut(design, source_id, target_id, target_nucl, target_3prime)?
+                    Self::cross_cut(strands, source_id, target_id, target_nucl, target_3prime)?
                 }
             }
             (None, Some(b)) => {
                 // We can cut cross directly but we need to reverse the xover
                 let target_3prime = b;
                 if source_nucl.helix != target_nucl.helix {
-                    Self::cross_cut(design, target_id, source_id, source_nucl, target_3prime)?
+                    Self::cross_cut(strands, target_id, source_id, source_nucl, target_3prime)?
                 }
             }
             (None, None) => {
                 if source_nucl.helix != target_nucl.helix {
                     if source_id != target_id {
-                        Self::split_strand(design, &source_nucl, None)?;
-                        Self::cross_cut(design, source_id, target_id, target_nucl, true)?;
+                        Self::split_strand(strands, &source_nucl, None)?;
+                        Self::cross_cut(strands, source_id, target_id, target_nucl, true)?;
                     } else if source.cyclic {
-                        Self::split_strand(design, &source_nucl, Some(false))?;
-                        Self::cross_cut(design, source_id, target_id, target_nucl, true)?;
+                        Self::split_strand(strands, &source_nucl, Some(false))?;
+                        Self::cross_cut(strands, source_id, target_id, target_nucl, true)?;
                     } else {
                         // if the two nucleotides are on the same strand care must be taken
                         // because one of them might be on the newly crated strand after the
@@ -2475,11 +2467,11 @@ impl Controller {
                         if pos1 > pos2 {
                             // the source nucl will be on the 5' end of the split and the
                             // target nucl as well
-                            Self::split_strand(design, &source_nucl, Some(false))?;
-                            Self::cross_cut(design, source_id, target_id, target_nucl, true)?;
+                            Self::split_strand(strands, &source_nucl, Some(false))?;
+                            Self::cross_cut(strands, source_id, target_id, target_nucl, true)?;
                         } else {
-                            let new_id = Self::split_strand(design, &source_nucl, Some(false))?;
-                            Self::cross_cut(design, source_id, new_id, target_nucl, true)?;
+                            let new_id = Self::split_strand(strands, &source_nucl, Some(false))?;
+                            Self::cross_cut(strands, source_id, new_id, target_nucl, true)?;
                         }
                     }
                 }
@@ -2504,15 +2496,13 @@ impl Controller {
         mut design: Design,
         helices_id: Vec<usize>,
     ) -> Result<Design, ErrOperation> {
-        let mut new_helices = BTreeMap::clone(design.helices.as_ref());
         for h_id in helices_id.iter() {
             if design.strands.uses_helix(*h_id) {
                 return Err(ErrOperation::HelixNotEmpty(*h_id));
             } else {
-                new_helices.remove(h_id);
+                design.helices.make_mut().remove(h_id);
             }
         }
-        design.helices = Arc::new(new_helices);
         Ok(design)
     }
 

@@ -20,7 +20,7 @@ use super::*;
 
 use crate::flatscene::DesignReader as Reader2D;
 use ahash::RandomState;
-use ensnano_design::{Domain, Extremity, Helix, Strand};
+use ensnano_design::{Domain, Extremity, HasHelixCollection, Helix, Strand};
 use ensnano_interactor::{torsion::Torsion, Referential};
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::sync::Arc;
@@ -77,7 +77,12 @@ impl Reader2D for DesignReader {
     }
 
     fn get_raw_helix(&self, h_id: usize) -> Option<Arc<Helix>> {
-        self.presenter.current_design.helices.get(&h_id).cloned()
+        self.presenter
+            .current_design
+            .helices
+            .get(&h_id)
+            .cloned()
+            .map(|h| Arc::new(h))
     }
 
     fn get_basis_map(&self) -> Arc<HashMap<Nucl, char, RandomState>> {
@@ -178,7 +183,9 @@ impl Reader2D for DesignReader {
     }
 
     fn get_helices_map(&self) -> Arc<BTreeMap<usize, Arc<Helix>>> {
-        self.presenter.current_design.helices.clone()
+        //Arc::new(self.presenter.current_design.helices.get_collection().clone())
+        // We need to find a way to return a pointer
+        todo!()
     }
 
     fn get_strand_ends(&self) -> Vec<Nucl> {

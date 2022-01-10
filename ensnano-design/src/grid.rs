@@ -559,7 +559,7 @@ pub enum Edge {
 }
 
 /// A view of the design's grids, with pre-computed maps.
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct GridData {
     // We borrow the grids and helices from the source that was used to build the view. This ensure
     // that the data used to build this view are not modified during the view's lifetime.
@@ -627,35 +627,6 @@ impl GridData {
         }
         ret
     }
-
-    /* TODO method to be transfered to the main ensnano crate
-    pub fn grid_instances(&self, design_id: usize) -> Vec<GridInstance> {
-        let mut ret = Vec::new();
-        for (n, g) in self.grids.iter().enumerate() {
-            let grid = GridInstance {
-                grid: g.clone(),
-                min_x: -2,
-                max_x: 2,
-                min_y: -2,
-                max_y: 2,
-                color: 0x00_00_FF,
-                design: design_id,
-                id: n,
-                fake: false,
-                visible: !g.invisible,
-            };
-            ret.push(grid);
-        }
-        for grid_position in self.helix_to_pos.values() {
-            let grid = grid_position.grid;
-            ret[grid].min_x = ret[grid].min_x.min(grid_position.x as i32 - 2);
-            ret[grid].max_x = ret[grid].max_x.max(grid_position.x as i32 + 2);
-            ret[grid].min_y = ret[grid].min_y.min(grid_position.y as i32 - 2);
-            ret[grid].max_y = ret[grid].max_y.max(grid_position.y as i32 + 2);
-        }
-        ret
-    }
-    */
 
     /// Reposition all the helices at their correct space position
     fn reposition_all_helices(&mut self) {
@@ -872,7 +843,7 @@ impl GridData {
         self.pos_to_helix.get(&(grid, x, y)).cloned()
     }
 
-    pub(super) fn get_helices_on_grid(&self, g_id: usize) -> Option<HashSet<usize>> {
+    pub fn get_helices_on_grid(&self, g_id: usize) -> Option<HashSet<usize>> {
         if self.grids.len() > g_id {
             Some(
                 self.pos_to_helix

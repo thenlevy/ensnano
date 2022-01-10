@@ -398,6 +398,25 @@ impl Design {
         // value, otherwise it was already some up-to-date data
         self.instanciated_grid_data.as_ref().unwrap()
     }
+
+    pub fn mut_strand_and_data(&mut self) -> MutStrandAndData {
+        self.get_updated_grid_data();
+        MutStrandAndData {
+            strands: &mut self.strands,
+            grid_data: self.instanciated_grid_data.as_ref().unwrap(),
+            helices: &self.helices,
+            parameters: self.parameters.unwrap_or_default(),
+        }
+    }
+}
+
+/// A structure that wraps a mutable reference to the design's strands along with a read only
+/// access to the grid and helices.
+pub struct MutStrandAndData<'a> {
+    pub strands: &'a mut Strands,
+    pub grid_data: &'a GridData,
+    pub helices: &'a Helices,
+    pub parameters: Parameters,
 }
 
 pub struct SavingInformation {
@@ -456,6 +475,10 @@ impl Design {
             cameras: Default::default(),
             ..Default::default()
         })
+    }
+
+    pub fn _set_helices(&mut self, helices: BTreeMap<usize, Arc<Helix>>) {
+        self.helices = Helices(Arc::new(helices));
     }
 }
 

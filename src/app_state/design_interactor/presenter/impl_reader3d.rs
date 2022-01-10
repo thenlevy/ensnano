@@ -314,7 +314,7 @@ impl Reader3D for DesignReader {
             .current_design
             .helices
             .get(&h_id)
-            .and_then(|h| h.as_ref().get_bezier_controls())
+            .and_then(|h| h.get_bezier_controls())
     }
 
     fn get_curve_range(&self, h_id: usize) -> Option<std::ops::RangeInclusive<isize>> {
@@ -322,7 +322,7 @@ impl Reader3D for DesignReader {
             .current_design
             .helices
             .get(&h_id)
-            .and_then(|h| h.as_ref().get_curve_range())
+            .and_then(|h| h.get_curve_range())
     }
 
     fn get_checked_xovers_ids(&self, checked: bool) -> Vec<u32> {

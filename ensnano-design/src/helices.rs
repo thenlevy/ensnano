@@ -123,6 +123,10 @@ impl<'a> HelicesMut<'a> {
         self.new_map.insert(id, Arc::new(helix));
     }
 
+    pub fn remove(&mut self, id: &usize) {
+        self.new_map.remove(id);
+    }
+
     pub fn iter_mut(&mut self) -> impl Iterator<Item = (&usize, &mut Helix)> {
         self.new_map.iter_mut().map(|(id, arc)| {
             let new_helix = Helix::clone(arc.as_ref());
@@ -603,19 +607,15 @@ impl VirtualNucl {
 }
 
 impl Nucl {
-    pub fn map_to_virtual_nucl<P: AsRef<Helix>, H: AsRef<BTreeMap<usize, P>>>(
-        nucl: Nucl,
-        helices: H,
-    ) -> Option<VirtualNucl> {
-        let h = helices.as_ref().get(&nucl.helix)?;
+    pub fn map_to_virtual_nucl(nucl: Nucl, helices: &Helices) -> Option<VirtualNucl> {
+        let h = helices.get(&nucl.helix)?;
         let support_helix_id = h
-            .as_ref()
             .support_helix
             .or(Some(nucl.helix))
-            .filter(|h_id| helices.as_ref().contains_key(h_id))?;
+            .filter(|h_id| helices.contains_key(h_id))?;
         Some(VirtualNucl(Nucl {
             helix: support_helix_id,
-            position: nucl.position + h.as_ref().initial_nt_index,
+            position: nucl.position + h.initial_nt_index,
             forward: nucl.forward,
         }))
     }

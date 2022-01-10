@@ -20,7 +20,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 pub use self::design_content::Staple;
 
 use super::*;
-use ensnano_design::{Extremity, Nucl, VirtualNucl};
+use ensnano_design::{Extremity, HelixCollection, Nucl, VirtualNucl};
 use ensnano_interactor::{
     application::Camera3D, NeighbourDescriptor, NeighbourDescriptorGiver, ScaffoldInfo, Selection,
     SuggestionParameters,
