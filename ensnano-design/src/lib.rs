@@ -214,7 +214,6 @@ impl Design {
         }
     }
 
-
     pub fn update_version(&mut self) {
         if self.ensnano_version == ensnano_version() {
             return;
@@ -230,7 +229,6 @@ impl Design {
             self.ensnano_version = ensnano_version();
         }
     }
-
 
     /// Return a list of tuples (n1, n2, M) where n1 and n2 are nuclotides that are not on the same
     /// helix and whose distance is at most `epsilon` and M is the middle of the segment between
@@ -268,7 +266,6 @@ impl Design {
         }
         ret
     }
-
 
     pub fn add_camera(
         &mut self,
@@ -1201,6 +1198,3 @@ impl<'a> Axis<'a> {
         }
     }
 }
-
-
-

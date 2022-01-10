@@ -624,7 +624,7 @@ impl DesignReader {
 
 impl HelixPresenter for Presenter {
     fn get_xovers_list(&self) -> Vec<(Nucl, Nucl)> {
-        self.current_design.get_xovers()
+        self.current_design.strands.get_xovers()
     }
 
     fn get_design(&self) -> &Design {
@@ -655,7 +655,7 @@ impl GridPresenter for Presenter {
     }
 
     fn get_xovers_list(&self) -> Vec<(Nucl, Nucl)> {
-        self.current_design.get_xovers()
+        self.current_design.strands.get_xovers()
     }
 
     fn get_helices_attached_to_grid(&self, g_id: usize) -> Option<Vec<usize>> {
@@ -675,7 +675,7 @@ impl RollPresenter for Presenter {
     }
 
     fn get_xovers_list(&self) -> Vec<(Nucl, Nucl)> {
-        self.current_design.get_xovers()
+        self.current_design.strands.get_xovers()
     }
 
     fn get_helices(&self) -> BTreeMap<usize, ensnano_design::Helix> {

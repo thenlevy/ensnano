@@ -16,10 +16,10 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-use std::borrow::Cow;
 use super::scadnano::*;
 use super::{codenano, Nucl};
-use std::collections::{BTreeSet, BTreeMap};
+use std::borrow::Cow;
+use std::collections::{BTreeMap, BTreeSet};
 mod formating;
 
 /// A collection of strands, that maps strand identifier to strands.
@@ -27,7 +27,7 @@ mod formating;
 /// It contains all the information about the "topology of the design".  Information about
 /// cross-over or helix interval are obtained via this structure
 #[derive(Serialize, Deserialize, Clone, Default)]
-pub struct Strands(pub (super) BTreeMap<usize, Strand>);
+pub struct Strands(pub(super) BTreeMap<usize, Strand>);
 
 impl Strands {
     pub fn get_xovers(&self) -> Vec<(Nucl, Nucl)> {
@@ -87,18 +87,6 @@ impl Strands {
         return Extremity::No;
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = (&usize, &Strand)> {
-        self.0.iter()
-    }
-
-    pub fn values(&self) -> impl Iterator<Item = &Strand> {
-        self.0.values()
-    }
-
-    pub fn values_mut(&mut self) -> impl Iterator<Item = &mut Strand> {
-        self.0.values_mut()
-    }
-
     pub fn is_domain_end(&self, nucl: &Nucl) -> Extremity {
         for strand in self.0.values() {
             let mut prev_helix = None;
@@ -134,7 +122,8 @@ impl Strands {
         false
     }
 
-
+    // Collection methods
+    //============================================================================================
     pub fn get(&self, id: &usize) -> Option<&Strand> {
         self.0.get(id)
     }
@@ -147,9 +136,30 @@ impl Strands {
         self.0.insert(key, strand)
     }
 
+    pub fn remove(&mut self, key: &usize) -> Option<Strand> {
+        self.0.remove(key)
+    }
+
     pub fn keys(&self) -> impl Iterator<Item = &usize> {
         self.0.keys()
     }
+
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = (&usize, &mut Strand)> {
+        self.0.iter_mut()
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = (&usize, &Strand)> {
+        self.0.iter()
+    }
+
+    pub fn values(&self) -> impl Iterator<Item = &Strand> {
+        self.0.values()
+    }
+
+    pub fn values_mut(&mut self) -> impl Iterator<Item = &mut Strand> {
+        self.0.values_mut()
+    }
+    //============================================================================================
 }
 
 /// A link between a 5' and a 3' domain.
@@ -172,7 +182,6 @@ pub enum DomainJunction {
     /// Indicate that the previous domain is the end of the strand.
     Prime3,
 }
-
 
 // used to serialize `Strand.cyclic`
 fn is_false(x: &bool) -> bool {
@@ -457,7 +466,7 @@ impl Strand {
         ret
     }
 
-    pub (super) fn remove_empty_domains(&mut self) {
+    pub(super) fn remove_empty_domains(&mut self) {
         self.domains.retain(|d| {
             if d.length() > 0 {
                 true

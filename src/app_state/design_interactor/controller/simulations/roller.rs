@@ -52,7 +52,7 @@ impl PhysicalSystem {
         target_helices: Option<Vec<usize>>,
         reader: &mut dyn SimulationReader,
     ) -> Arc<Mutex<RollInterface>> {
-        let intervals_map = presenter.get_design().get_intervals();
+        let intervals_map = presenter.get_design().strands.get_intervals();
         let helices: Vec<Helix> = presenter.get_helices().values().cloned().collect();
         let keys: Vec<usize> = presenter.get_helices().keys().cloned().collect();
         let parameters = presenter

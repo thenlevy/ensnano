@@ -1614,7 +1614,7 @@ impl Controller {
         ignored_domains: &[DomainIdentifier],
     ) -> Option<StrandBuilder> {
         // if there is a strand that passes through the nucleotide
-        if design.get_strand_nucl(&nucl).is_some() {
+        if design.strands.get_strand_nucl(&nucl).is_some() {
             self.strand_builder_on_exisiting(design, nucl, ignored_domains)
         } else {
             self.new_strand_builder(design, nucl)
@@ -1826,6 +1826,7 @@ impl Controller {
         force_end: Option<bool>,
     ) -> Result<usize, ErrOperation> {
         let id = design
+            .strands
             .get_strand_nucl(nucl)
             .ok_or(ErrOperation::CutInexistingStrand)?;
 
@@ -2448,9 +2449,11 @@ impl Controller {
         }
         log::info!("cross over between {:?} and {:?}", source_nucl, target_nucl);
         let source_id = design
+            .strands
             .get_strand_nucl(&source_nucl)
             .ok_or(ErrOperation::NuclDoesNotExist(source_nucl))?;
         let target_id = design
+            .strands
             .get_strand_nucl(&target_nucl)
             .ok_or(ErrOperation::NuclDoesNotExist(target_nucl))?;
 
@@ -2465,8 +2468,8 @@ impl Controller {
             .cloned()
             .ok_or(ErrOperation::StrandDoesNotExist(target_id))?;
 
-        let source_strand_end = design.is_strand_end(&source_nucl);
-        let target_strand_end = design.is_strand_end(&target_nucl);
+        let source_strand_end = design.strands.is_strand_end(&source_nucl);
+        let target_strand_end = design.strands.is_strand_end(&target_nucl);
         log::info!(
             "source strand {:?}, target strand {:?}",
             source_id,
@@ -2563,7 +2566,7 @@ impl Controller {
     ) -> Result<Design, ErrOperation> {
         let mut new_helices = BTreeMap::clone(design.helices.as_ref());
         for h_id in helices_id.iter() {
-            if design.uses_helix(*h_id) {
+            if design.strands.uses_helix(*h_id) {
                 return Err(ErrOperation::HelixNotEmpty(*h_id));
             } else {
                 new_helices.remove(h_id);

@@ -1677,7 +1677,7 @@ fn make_grid_system(
     time_span: (f32, f32),
     rigid_paramaters: RigidBodyConstants,
 ) -> Result<GridsSystem, ErrOperation> {
-    let intervals = presenter.get_design().get_intervals();
+    let intervals = presenter.get_design().strands.get_intervals();
     let parameters = presenter
         .get_design()
         .parameters
