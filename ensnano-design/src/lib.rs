@@ -563,16 +563,25 @@ pub struct Helix {
     #[serde(default, skip)]
     instanciated_curve: Option<InstanciatedCurve>,
 
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "f32_is_zero")]
     delta_bbpt: f32,
 
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "isize_is_zero")]
     pub initial_nt_index: isize,
 
     /// An optional helix whose roll is copied from and to which self transfer forces applying
     /// to its roll
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub support_helix: Option<usize>,
+}
+
+// Used to serialize helices
+fn isize_is_zero(x: &isize) -> bool {
+    *x == 0
+}
+
+fn f32_is_zero(x: &f32) -> bool {
+    *x == 0.0
 }
 
 fn default_visibility() -> bool {
