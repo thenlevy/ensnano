@@ -19,11 +19,17 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 //! The functions that apply thes operations take a mutable reference to the design that they are
 //! modifying and may return an `ErrOperation` if the opperation could not be applied.
 
-use super::Design;
+use super::{grid::*, Design, Helix};
+use ultraviolet::Vec3;
 
 /// An error that occured when trying to apply an operation.
+#[derive(Debug)]
 pub enum ErrOperation {
     NotEnoughHelices { actual: usize, needed: usize },
+    GridPositionAlreadyUsed,
+    HelixDoesNotExists(usize),
+    GridDoesNotExist(usize),
+    HelixCollisionDuringTranslation,
 }
 
 /// The minimum number of helices requiered to infer a grid
@@ -33,4 +39,56 @@ pub const MIN_HELICES_TO_MAKE_GRID: usize = 4;
 pub fn make_grid_from_helices(design: &mut Design, helices: &[usize]) -> Result<(), ErrOperation> {
     super::grid::make_grid_from_helices(design, helices)?;
     Ok(())
+}
+
+/// Attach an helix to a grid. The target grid position must be empty
+pub fn attach_helix_to_grid(
+    design: &mut Design,
+    helix: usize,
+    grid: usize,
+    x: isize,
+    y: isize,
+) -> Result<(), ErrOperation> {
+    let grid_manager = design.get_updated_grid_data();
+    if matches!(grid_manager.pos_to_helix(grid, x, y), Some(h_id) if h_id != helix) {
+        Err(ErrOperation::GridPositionAlreadyUsed)
+    } else {
+        drop(grid_manager);
+        let mut helices_mut = design.helices.make_mut();
+        let helix_ref = helices_mut
+            .get_mut(&helix)
+            .ok_or(ErrOperation::HelixDoesNotExists(helix))?;
+        // take previous axis position if there were one
+        let axis_pos = helix_ref
+            .grid_position
+            .map(|pos| pos.axis_pos)
+            .unwrap_or_default();
+        let roll = helix_ref
+            .grid_position
+            .map(|pos| pos.roll)
+            .unwrap_or_default();
+        helix_ref.grid_position = Some(GridPosition {
+            grid,
+            x,
+            y,
+            axis_pos,
+            roll,
+        });
+        Ok(())
+    }
+}
+
+/// Translate helices by a given translation.
+///
+/// If snap is true, the helices are mapped to grid position.
+/// If this translation would cause helices to compete with other helices for a grid position,
+/// the translation is *not* applied to this helices. Note that no error is returned in this case.
+pub fn translate_helices(
+    design: &mut Design,
+    snap: bool,
+    helices: Vec<usize>,
+    translation: Vec3,
+) -> Result<(), ErrOperation> {
+    let mut helices_translator = HelicesTranslator::from_design(design);
+    helices_translator.translate_helices(snap, helices, translation)
 }

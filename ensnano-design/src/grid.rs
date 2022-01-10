@@ -21,7 +21,7 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 
 use super::{
     design_operations::{ErrOperation, MIN_HELICES_TO_MAKE_GRID},
-    mutate_in_arc, Axis, Design, Helices, Helix, HelixCollection, Parameters,
+    mutate_in_arc, Axis, Design, Helices, HelicesMut, Helix, HelixCollection, Parameters,
 };
 mod hyperboloid;
 pub use hyperboloid::*;
@@ -583,7 +583,7 @@ impl GridData {
         self.grids.get(g_id).map(|g| !g.invisible).unwrap_or(false)
     }
 
-    pub fn new_from_design(design: &Design) -> Self {
+    pub fn new_by_updating_design(design: &mut Design) -> Self {
         let mut grids = Vec::new();
         let mut helix_to_pos = HashMap::new();
         let mut pos_to_helix = HashMap::new();
@@ -604,7 +604,7 @@ impl GridData {
             }
         }
 
-        Self {
+        let mut ret = Self {
             source_grids,
             source_helices,
             grids,
@@ -613,7 +613,10 @@ impl GridData {
             parameters: design.parameters.unwrap_or_default(),
             no_phantoms: design.no_phantoms.clone(),
             small_spheres: design.small_spheres.clone(),
-        }
+        };
+        ret.reposition_all_helices();
+        design.helices = ret.source_helices.clone();
+        ret
     }
 
     #[allow(dead_code)]
@@ -654,14 +657,10 @@ impl GridData {
     }
     */
 
-    /*
-     * TODO this code should be used differently: to produce an up-to date set of helices from a
-     * set of grids.
-     *
     /// Reposition all the helices at their correct space position
-    pub fn all_helices_repositioned(&self) ->  BTreeMap<usize, Arc<Helix>> {
-        let mut new_helices = BTreeMap::clone(self.source_helices);
-        for (h_id, h) in new_helices.iter_mut() {
+    fn reposition_all_helices(&mut self) {
+        let mut helices_mut = self.source_helices.make_mut();
+        for (h_id, h) in helices_mut.iter_mut() {
             if let Some(grid_position) = h.grid_position {
                 self.helix_to_pos.insert(*h_id, grid_position);
                 self.pos_to_helix.insert(
@@ -670,51 +669,43 @@ impl GridData {
                 );
                 let grid = &self.grids[grid_position.grid];
 
-                mutate_in_arc(h, |h| {
-                    h.position = grid.position_helix(grid_position.x, grid_position.y);
-                    h.orientation = {
-                        let orientation = grid.orientation_helix(grid_position.x, grid_position.y);
-                        let normal =
-                            -self.parameters.helix_radius * Vec3::unit_y().rotated_by(orientation);
-                        let actual = -self.parameters.helix_radius
-                            * Vec3::unit_y().rotated_by(orientation)
-                            * grid_position.roll.cos()
-                            - self.parameters.helix_radius
-                                * Vec3::unit_z().rotated_by(orientation)
-                                * grid_position.roll.sin();
-                        let roll = Rotor3::from_rotation_between(normal, actual);
-                        (roll * grid.orientation_helix(grid_position.x, grid_position.y))
-                            .normalized()
-                    };
-                    if let Axis::Line { direction, .. } = h.get_axis(&self.parameters) {
-                        h.position -= grid_position.axis_pos as f32 * direction;
-                    }
-                    if let Some(curve) = grid.make_curve(grid_position.x, grid_position.y) {
-                        log::info!("setting curve");
-                        h.curve = Some(curve)
-                    }
-                });
+                h.position = grid.position_helix(grid_position.x, grid_position.y);
+                h.orientation = {
+                    let orientation = grid.orientation_helix(grid_position.x, grid_position.y);
+                    let normal =
+                        -self.parameters.helix_radius * Vec3::unit_y().rotated_by(orientation);
+                    let actual = -self.parameters.helix_radius
+                        * Vec3::unit_y().rotated_by(orientation)
+                        * grid_position.roll.cos()
+                        - self.parameters.helix_radius
+                            * Vec3::unit_z().rotated_by(orientation)
+                            * grid_position.roll.sin();
+                    let roll = Rotor3::from_rotation_between(normal, actual);
+                    (roll * grid.orientation_helix(grid_position.x, grid_position.y)).normalized()
+                };
+                if let Axis::Line { direction, .. } = h.get_axis(&self.parameters) {
+                    h.position -= grid_position.axis_pos as f32 * direction;
+                }
+                if let Some(curve) = grid.make_curve(grid_position.x, grid_position.y) {
+                    log::info!("setting curve");
+                    h.curve = Some(curve)
+                }
             }
         }
-        new_helices
     }
-    */
 
-    /*
-     * TODO this code should be encapsulated in the code that handles helices translation
     /// Recompute the position of helix `h_id` on its grid. Return false if there is already an
     /// other helix at that position, otherwise return true.
-    pub fn reattach_helix(
+    pub(super) fn reattach_helix<'a>(
         &mut self,
         h_id: usize,
-        design: &mut Design,
         preserve_roll: bool,
         authorized_collisions: &[usize],
-    ) -> bool {
-        let mut new_helices = BTreeMap::clone(design.helices.as_ref());
-        let h = new_helices.get_mut(&h_id);
+    ) -> Result<(), ErrOperation> {
+        let mut helices = self.source_helices.make_mut();
+        let h = helices.get_mut(&h_id);
         if h.is_none() {
-            return false;
+            return Err(ErrOperation::HelixDoesNotExists(h_id));
         }
         let h = h.unwrap();
         let axis = h.get_axis(&self.parameters);
@@ -727,11 +718,11 @@ impl GridData {
                         .find_helix_position(h, old_grid_position.grid)
                         .map(|g| g.with_roll(old_roll));
                     if let Some(new_grid_position) = candidate_position {
-                        if let Some(helix) = self.pos_to_helix(
+                        if let Some(helix) = self.pos_to_helix.get(&(
                             new_grid_position.grid,
                             new_grid_position.x,
                             new_grid_position.y,
-                        ) {
+                        )) {
                             log::info!(
                                 "{} collides with {}. Authorized collisions are {:?}",
                                 h_id,
@@ -739,37 +730,29 @@ impl GridData {
                                 authorized_collisions
                             );
                             if authorized_collisions.contains(&helix) {
-                                mutate_in_arc(h, |h| h.grid_position = candidate_position);
-                                mutate_in_arc(h, |h| {
-                                    h.position = g
-                                        .position_helix(new_grid_position.x, new_grid_position.y)
-                                        - h.get_axis(&self.parameters)
-                                            .direction()
-                                            .unwrap_or(Vec3::zero())
-                                            * new_grid_position.axis_pos as f32
-                                });
-                            } else {
-                                return false;
-                            }
-                        } else {
-                            mutate_in_arc(h, |h| h.grid_position = candidate_position);
-                            mutate_in_arc(h, |h| {
+                                h.grid_position = candidate_position;
                                 h.position = g
                                     .position_helix(new_grid_position.x, new_grid_position.y)
                                     - h.get_axis(&self.parameters)
                                         .direction()
                                         .unwrap_or(Vec3::zero())
-                                        * new_grid_position.axis_pos as f32
-                            });
+                            } else {
+                                return Err(ErrOperation::HelixCollisionDuringTranslation);
+                            }
+                        } else {
+                            h.grid_position = candidate_position;
+                            h.position = g.position_helix(new_grid_position.x, new_grid_position.y)
+                                - h.get_axis(&self.parameters)
+                                    .direction()
+                                    .unwrap_or(Vec3::zero())
+                                    * new_grid_position.axis_pos as f32
                         }
                     }
                 }
             }
         }
-        design.helices = Arc::new(new_helices);
-        true
+        Ok(())
     }
-    */
 
     fn attach_to(&self, helix: &Helix, g_id: usize) -> Option<GridPosition> {
         let mut ret = None;
@@ -965,4 +948,43 @@ pub(super) fn make_grid_from_helices(
     design.grids = Arc::new(new_grids);
     design.helices = new_helices;
     Ok(())
+}
+
+pub(super) struct HelicesTranslator<'a> {
+    design: &'a mut Design,
+    grid_data: GridData,
+}
+
+impl<'a> HelicesTranslator<'a> {
+    pub fn from_design(design: &'a mut Design) -> Self {
+        let grid_data = GridData::new_by_updating_design(design);
+        Self { design, grid_data }
+    }
+
+    pub fn translate_helices(
+        &mut self,
+        snap: bool,
+        helices: Vec<usize>,
+        translation: Vec3,
+    ) -> Result<(), ErrOperation> {
+        let mut new_helices = self.grid_data.source_helices.make_mut();
+        for h_id in helices.iter() {
+            if let Some(h) = new_helices.get_mut(h_id) {
+                h.translate(translation);
+            }
+        }
+        drop(new_helices);
+        if snap {
+            self.attempt_reattach(&helices)
+        } else {
+            Ok(())
+        }
+    }
+
+    fn attempt_reattach(&mut self, helices: &[usize]) -> Result<(), ErrOperation> {
+        for h_id in helices.iter() {
+            self.grid_data.reattach_helix(*h_id, true, helices)?;
+        }
+        Ok(())
+    }
 }

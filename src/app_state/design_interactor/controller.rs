@@ -22,8 +22,8 @@ use ensnano_design::{
     elements::{DnaAttribute, DnaElementKey},
     grid::{Edge, GridDescriptor, GridPosition, GridTypeDescr, Hyperboloid},
     group_attributes::GroupPivot,
-    mutate_in_arc, CameraId, CurveDescriptor, Design, Domain, DomainJunction, Helix, Nucl,
-    Parameters, Strand, VirtualNucl,
+    mutate_in_arc, CameraId, CurveDescriptor, Design, Domain, DomainJunction, Helix,
+    HelixCollection, Nucl, Parameters, Strand, VirtualNucl,
 };
 use ensnano_interactor::{
     operation::{Operation, Parameter},
@@ -489,7 +489,7 @@ impl Controller {
         let (helices, nb_nucl) = hyperboloid.make_helices(&parameters);
         let nb_nucl = nb_nucl.min(5000);
         let mut key = design.helices.keys().max().map(|m| m + 1).unwrap_or(0);
-        let mut new_helices = BTreeMap::clone(design.helices.as_ref());
+        let helices_mut = design.helices.make_mut();
         for (i, mut h) in helices.into_iter().enumerate() {
             let origin = hyperboloid.origin_helix(&parameters, i as isize, 0);
             let z_vec = Vec3::unit_z().rotated_by(orientation);
@@ -511,7 +511,7 @@ impl Controller {
                 axis_pos: 0,
                 roll: 0.,
             });
-            new_helices.insert(key, Arc::new(h));
+            helices_mut.insert(key, h);
             for b in [true, false].iter() {
                 //let new_key = self.add_strand(design, key, -(nb_nucl as isize) / 2, *b);
                 let new_key = self.add_strand(design, key, 0, *b);
@@ -523,7 +523,6 @@ impl Controller {
             }
             key += 1;
         }
-        design.helices = Arc::new(new_helices);
     }
 
     fn set_roll_helices(
@@ -532,17 +531,15 @@ impl Controller {
         helices: Vec<usize>,
         roll: f32,
     ) -> Result<Design, ErrOperation> {
-        let mut new_helices = BTreeMap::clone(design.helices.as_ref());
+        let mut helices_mut = design.helices.make_mut();
         for h in helices.iter() {
-            if let Some(mut helix) = new_helices.get(h).map(|ptr| Helix::clone(ptr)) {
+            if let Some(mut helix) = helices_mut.get_mut(h) {
                 helix.roll = roll;
-                new_helices.insert(*h, Arc::new(helix));
             } else {
                 return Err(ErrOperation::HelixDoesNotExists(*h));
             }
         }
         self.state = ControllerState::SettingRollHelices;
-        design.helices = Arc::new(new_helices);
         Ok(design)
     }
 
@@ -1003,7 +1000,7 @@ impl Controller {
     ) -> Result<Design, ErrOperation> {
         let helices =
             ensnano_interactor::list_of_helices(&selection).ok_or(ErrOperation::BadSelection)?;
-        ensnano_design::design_operations::make_grid_from_helices(&mut design, &helices)?;
+        ensnano_design::design_operations::make_grid_from_helices(&mut design, &helices.1)?;
         Ok(design)
     }
 
@@ -1164,41 +1161,8 @@ impl Controller {
         y: isize,
     ) -> Result<Design, ErrOperation> {
         self.update_state_and_design(&mut design);
-        let grid_manager = GridManager::new_from_design(&design);
-        if matches!(grid_manager.pos_to_helix(grid, x, y), Some(h_id) if h_id != helix) {
-            Err(ErrOperation::GridPositionAlreadyUsed)
-        } else {
-            let mut new_helices = BTreeMap::clone(design.helices.as_ref());
-            let helix_ref = new_helices
-                .get_mut(&helix)
-                .ok_or(ErrOperation::HelixDoesNotExists(helix))?;
-            // take previous axis position if there were one
-            let axis_pos = helix_ref
-                .grid_position
-                .map(|pos| pos.axis_pos)
-                .unwrap_or_default();
-            let roll = helix_ref
-                .grid_position
-                .map(|pos| pos.roll)
-                .unwrap_or_default();
-            let grid_ref = grid_manager
-                .grids
-                .get(grid)
-                .ok_or(ErrOperation::GridDoesNotExist(grid))?;
-            let helix = Helix::new_on_grid(grid_ref, x, y, grid);
-            mutate_in_arc(helix_ref, |h| {
-                h.grid_position = Some(GridPosition {
-                    grid,
-                    x,
-                    y,
-                    axis_pos,
-                    roll,
-                });
-                h.position = helix.position;
-            });
-            design.helices = Arc::new(new_helices);
-            Ok(design)
-        }
+        ensnano_design::design_operations::attach_helix_to_grid(&mut design, helix, grid, x, y)?;
+        Ok(design)
     }
 
     fn apply_rotattion(
@@ -1242,18 +1206,18 @@ impl Controller {
         translation: Vec3,
     ) -> Design {
         self.update_state_and_design(&mut design);
-        let mut new_helices = BTreeMap::clone(design.helices.as_ref());
-        for h_id in helices.iter() {
-            if let Some(h) = new_helices.get_mut(h_id) {
-                mutate_in_arc(h, |h| h.translate(translation));
-            }
-        }
         let mut new_design = design.clone();
-        new_design.helices = Arc::new(new_helices);
-        if snap {
-            self.attempt_reattach(design, new_design, &helices)
-        } else {
+        if ensnano_design::design_operations::translate_helices(
+            &mut new_design,
+            snap,
+            helices,
+            translation,
+        )
+        .is_ok()
+        {
             new_design
+        } else {
+            design
         }
     }
 
@@ -1301,25 +1265,6 @@ impl Controller {
             self.attempt_reattach(design, new_design, &helices)
         } else {
             new_design
-        }
-    }
-
-    fn attempt_reattach(
-        &mut self,
-        design: Design,
-        mut new_design: Design,
-        helices: &[usize],
-    ) -> Design {
-        let mut grid_manager = GridManager::new_from_design(&new_design);
-        let mut successfull_reattach = true;
-        for h_id in helices.iter() {
-            successfull_reattach &=
-                grid_manager.reattach_helix(*h_id, &mut new_design, true, helices);
-        }
-        if successfull_reattach {
-            new_design
-        } else {
-            design
         }
     }
 
@@ -1438,6 +1383,13 @@ pub enum ErrOperation {
     FinishFirst,
     CameraDoesNotExist(CameraId),
     GridIsNotHyperboloid(usize),
+    DesignOperationError(ensnano_design::design_operations::ErrOperation),
+}
+
+impl From<ensnano_design::design_operations::ErrOperation> for ErrOperation {
+    fn from(e: ensnano_design::design_operations::ErrOperation) -> Self {
+        Self::DesignOperationError(e)
+    }
 }
 
 impl Controller {

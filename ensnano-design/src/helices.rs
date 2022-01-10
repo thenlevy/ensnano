@@ -46,7 +46,9 @@ pub trait HelixCollection {
     fn get(&self, id: &usize) -> Option<&Helix>;
     fn iter<'a>(&'a self) -> Box<dyn Iterator<Item = (&'a usize, &'a Helix)> + 'a>;
     fn values<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Helix> + 'a>;
+    fn keys<'a>(&'a self) -> Box<dyn Iterator<Item = &'a usize> + 'a>;
     fn len(&self) -> usize;
+    fn contains_key(&self, id: &usize) -> bool;
 }
 
 pub trait HasHelixCollection {
@@ -81,12 +83,20 @@ where
         )
     }
 
+    fn keys<'a>(&'a self) -> Box<dyn Iterator<Item = &'a usize> + 'a> {
+        Box::new(self.get_collection().keys())
+    }
+
     fn values<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Helix> + 'a> {
         Box::new(self.get_collection().values().map(|arc| arc.as_ref()))
     }
 
     fn len(&self) -> usize {
         self.get_collection().len()
+    }
+
+    fn contains_key(&self, id: &usize) -> bool {
+        self.get_collection().contains_key(id)
     }
 }
 
@@ -106,6 +116,18 @@ impl<'a> HelicesMut<'a> {
             *arc = Arc::new(new_helix);
 
             Arc::make_mut(arc)
+        })
+    }
+
+    pub fn insert(&mut self, id: usize, helix: Helix) {
+        self.new_map.insert(id, Arc::new(helix));
+    }
+
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = (&usize, &mut Helix)> {
+        self.new_map.iter_mut().map(|(id, arc)| {
+            let new_helix = Helix::clone(arc.as_ref());
+            *arc = Arc::new(new_helix);
+            (id, Arc::make_mut(arc))
         })
     }
 }

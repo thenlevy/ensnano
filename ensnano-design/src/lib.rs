@@ -391,7 +391,7 @@ impl Design {
             true
         };
         if need_update {
-            let updated_data = GridData::new_from_design(&self);
+            let updated_data = GridData::new_by_updating_design(self);
             self.instanciated_grid_data = Some(updated_data);
         }
         // unwrap ok: If need_update is true, then instanciated_grid_data has just been given a
