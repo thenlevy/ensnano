@@ -19,7 +19,10 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 use crate::CurveDescriptor;
 use std::collections::{BTreeMap, HashMap, HashSet};
 
-use super::{mutate_in_arc, Axis, Design, Helices, Helix, HelixCollection, Parameters};
+use super::{
+    design_operations::{ErrOperation, MIN_HELICES_TO_MAKE_GRID},
+    mutate_in_arc, Axis, Design, Helices, Helix, HelixCollection, Parameters,
+};
 mod hyperboloid;
 pub use hyperboloid::*;
 use std::sync::Arc;
@@ -571,6 +574,11 @@ pub struct GridData {
 }
 
 impl GridData {
+    pub(super) fn is_up_to_date(&self, design: &Design) -> bool {
+        Arc::ptr_eq(&self.source_grids, &design.grids)
+            && Arc::ptr_eq(&self.source_helices.0, &design.helices.0)
+    }
+
     pub fn get_visibility(&mut self, g_id: usize) -> bool {
         self.grids.get(g_id).map(|g| !g.invisible).unwrap_or(false)
     }
@@ -617,7 +625,7 @@ impl GridData {
         ret
     }
 
-    /* methods to be transfered to design interactor
+    /* TODO method to be transfered to the main ensnano crate
     pub fn grid_instances(&self, design_id: usize) -> Vec<GridInstance> {
         let mut ret = Vec::new();
         for (n, g) in self.grids.iter().enumerate() {
@@ -643,38 +651,6 @@ impl GridData {
             ret[grid].max_y = ret[grid].max_y.max(grid_position.y as i32 + 2);
         }
         ret
-    }
-
-    pub fn make_grid_from_helices(
-        &mut self,
-        design: &mut Design,
-        helices: &[usize],
-    ) -> Result<(), ErrOperation> {
-        if helices.len() < MIN_HELICES_TO_MAKE_GRID {
-            return Err(ErrOperation::NotEnoughHelices {
-                actual: helices.len(),
-                required: MIN_HELICES_TO_MAKE_GRID,
-            });
-        }
-        let desc = self.find_grid_for_group(helices, design);
-        let mut grids = Vec::clone(design.grids.as_ref());
-        grids.push(desc);
-        let grid = desc.to_grid(self.parameters.clone());
-        self.grids.push(grid);
-        let mut new_helices = BTreeMap::clone(&design.helices);
-        for h_id in helices.iter() {
-            if let Some(h) = new_helices.get_mut(h_id) {
-                if h.grid_position.is_some() {
-                    continue;
-                }
-                if let Some(position) = self.attach_to(h, self.grids.len() - 1) {
-                    mutate_in_arc(h, |h| h.grid_position = Some(position))
-                }
-            }
-        }
-        design.helices = Arc::new(new_helices);
-        design.grids = Arc::new(grids);
-        Ok(())
     }
     */
 
@@ -803,10 +779,10 @@ impl GridData {
         ret
     }
 
-    fn find_grid_for_group(&self, group: &[usize], design: &Design) -> GridDescriptor {
+    fn find_grid_for_group(&self, group: &[usize]) -> GridDescriptor {
         use std::f32::consts::FRAC_PI_2;
-        let parameters = design.parameters.unwrap_or_default();
-        let leader = design.helices.get(&group[0]).unwrap();
+        let parameters = self.parameters;
+        let leader = self.source_helices.get(&group[0]).unwrap();
         let orientation = Rotor3::from_rotation_between(
             Vec3::unit_x(),
             leader
@@ -818,10 +794,10 @@ impl GridData {
         let mut hex_grid = Grid::new(
             leader.position,
             orientation,
-            design.parameters.unwrap_or_default(),
+            self.parameters,
             GridType::honneycomb(),
         );
-        let mut best_err = hex_grid.error_group(&group, design);
+        let mut best_err = hex_grid.error_group(&group, &self.source_helices);
         for dx in [-1, 0, 1].iter() {
             for dy in [-1, 0, 1].iter() {
                 let position = hex_grid.position_helix(*dx, *dy);
@@ -831,10 +807,10 @@ impl GridData {
                     let grid = Grid::new(
                         position,
                         orientation.rotated_by(rotor),
-                        design.parameters.unwrap_or_default(),
+                        self.parameters,
                         GridType::honneycomb(),
                     );
-                    let err = grid.error_group(group, design);
+                    let err = grid.error_group(group, &self.source_helices);
                     if err < best_err {
                         hex_grid = grid;
                         best_err = err
@@ -846,20 +822,20 @@ impl GridData {
         let mut square_grid = Grid::new(
             leader.position,
             leader.orientation,
-            design.parameters.unwrap_or_default(),
+            self.parameters,
             GridType::square(),
         );
-        let mut best_square_err = square_grid.error_group(&group, design);
+        let mut best_square_err = square_grid.error_group(&group, &self.source_helices);
         for i in 0..100 {
             let angle = i as f32 * FRAC_PI_2 / 100.;
             let rotor = Rotor3::from_rotation_yz(angle);
             let grid = Grid::new(
                 leader.position,
                 orientation.rotated_by(rotor),
-                design.parameters.unwrap_or_default(),
+                self.parameters,
                 GridType::square(),
             );
-            let err = grid.error_group(group, design);
+            let err = grid.error_group(group, &self.source_helices);
             if err < best_square_err {
                 square_grid = grid;
                 best_square_err = err
@@ -930,15 +906,15 @@ impl GridData {
 }
 
 trait GridApprox {
-    fn error_group(&self, group: &[usize], design: &Design) -> f32;
+    fn error_group(&self, group: &[usize], helices: &Helices) -> f32;
     fn error_helix(&self, origin: Vec3, direction: Vec3) -> f32;
 }
 
 impl GridApprox for Grid {
-    fn error_group(&self, group: &[usize], design: &super::Design) -> f32 {
+    fn error_group(&self, group: &[usize], helices: &Helices) -> f32 {
         let mut ret = 0f32;
         for h_id in group.iter() {
-            let helix = design.helices.get(h_id).unwrap();
+            let helix = helices.get(h_id).unwrap();
             let axis = helix.get_axis(&self.parameters);
             if let Axis::Line { origin, direction } = axis {
                 ret += self.error_helix(origin, direction);
@@ -957,4 +933,36 @@ impl GridApprox for Grid {
             std::f32::INFINITY
         }
     }
+}
+
+pub(super) fn make_grid_from_helices(
+    design: &mut Design,
+    helices: &[usize],
+) -> Result<(), ErrOperation> {
+    if helices.len() < MIN_HELICES_TO_MAKE_GRID {
+        return Err(ErrOperation::NotEnoughHelices {
+            actual: helices.len(),
+            needed: MIN_HELICES_TO_MAKE_GRID,
+        });
+    }
+    let grid_data = design.get_updated_grid_data();
+    let desc = grid_data.find_grid_for_group(helices);
+    let mut new_grids = Vec::clone(grid_data.source_grids.as_ref());
+    let mut new_helices = grid_data.source_helices.clone();
+    new_grids.push(desc);
+    let mut helices_mut = new_helices.make_mut();
+    for h_id in helices.iter() {
+        if let Some(h) = helices_mut.get_mut(h_id) {
+            if h.grid_position.is_some() {
+                continue;
+            }
+            if let Some(position) = grid_data.attach_to(h, grid_data.grids.len() - 1) {
+                h.grid_position = Some(position)
+            }
+        }
+    }
+    drop(helices_mut);
+    design.grids = Arc::new(new_grids);
+    design.helices = new_helices;
+    Ok(())
 }

@@ -45,7 +45,6 @@ use self::simulations::{
     PhysicalSystem, RollInterface,
 };
 
-use super::grid_data::GridManager;
 use ultraviolet::{Isometry2, Rotor3, Vec2, Vec3};
 
 mod clipboard;
@@ -1002,10 +1001,9 @@ impl Controller {
         mut design: Design,
         selection: Vec<Selection>,
     ) -> Result<Design, ErrOperation> {
-        let mut grid_manager = GridManager::new_from_design(&design);
         let helices =
             ensnano_interactor::list_of_helices(&selection).ok_or(ErrOperation::BadSelection)?;
-        grid_manager.make_grid_from_helices(&mut design, &helices.1)?;
+        ensnano_design::design_operations::make_grid_from_helices(&mut design, &helices)?;
         Ok(design)
     }
 

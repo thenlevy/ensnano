@@ -124,6 +124,10 @@ impl Strands {
 
     // Collection methods
     //============================================================================================
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
     pub fn get(&self, id: &usize) -> Option<&Strand> {
         self.0.get(id)
     }

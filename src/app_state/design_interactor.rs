@@ -42,8 +42,6 @@ use std::sync::Arc;
 mod file_parsing;
 pub use file_parsing::ParseDesignError;
 
-mod grid_data;
-
 /// The `DesignInteractor` handles all read/write operations on the design. It is a stateful struct
 /// so it is meant to be unexpansive to clone.
 #[derive(Clone, Default)]
@@ -396,6 +394,7 @@ mod tests {
     use super::*;
     use crate::scene::DesignReader as Reader3d;
     use ensnano_design::grid::GridPosition;
+    use ensnano_design::HelixCollection;
     use ensnano_design::{grid::GridDescriptor, DomainJunction, Nucl, Strand};
     use ensnano_interactor::operation::GridHelixCreation;
     use ensnano_interactor::DesignReader;

@@ -30,7 +30,7 @@ use ultraviolet::{Rotor3, Vec3};
 
 pub mod codenano;
 pub mod grid;
-use grid::GridDescriptor;
+use grid::{GridData, GridDescriptor};
 pub mod scadnano;
 pub use ensnano_organizer::{GroupId, OrganizerTree};
 use scadnano::*;
@@ -47,6 +47,7 @@ pub use helices::*;
 
 mod curves;
 pub use curves::{CubicBezierConstructor, CurveCache, CurveDescriptor};
+pub mod design_operations;
 pub mod utils;
 
 #[cfg(test)]
@@ -135,6 +136,9 @@ pub struct Design {
     /// True if the colors of the scaffold's nucleotides should make a rainbow
     #[serde(default)]
     pub rainbow_scaffold: bool,
+
+    #[serde(skip)]
+    instanciated_grid_data: Option<GridData>,
 }
 
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -211,6 +215,7 @@ impl Design {
             saved_camera: None,
             checked_xovers: Default::default(),
             rainbow_scaffold: false,
+            instanciated_grid_data: None,
         }
     }
 
@@ -377,6 +382,21 @@ impl Design {
             nucl.position,
             nucl.forward,
         ))
+    }
+
+    fn get_updated_grid_data(&mut self) -> &GridData {
+        let need_update = if let Some(data) = self.instanciated_grid_data.as_ref() {
+            !data.is_up_to_date(&self)
+        } else {
+            true
+        };
+        if need_update {
+            let updated_data = GridData::new_from_design(&self);
+            self.instanciated_grid_data = Some(updated_data);
+        }
+        // unwrap ok: If need_update is true, then instanciated_grid_data has just been given a
+        // value, otherwise it was already some up-to-date data
+        self.instanciated_grid_data.as_ref().unwrap()
     }
 }
 

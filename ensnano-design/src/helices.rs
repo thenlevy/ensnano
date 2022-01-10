@@ -46,6 +46,7 @@ pub trait HelixCollection {
     fn get(&self, id: &usize) -> Option<&Helix>;
     fn iter<'a>(&'a self) -> Box<dyn Iterator<Item = (&'a usize, &'a Helix)> + 'a>;
     fn values<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Helix> + 'a>;
+    fn len(&self) -> usize;
 }
 
 pub trait HasHelixCollection {
@@ -82,6 +83,10 @@ where
 
     fn values<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Helix> + 'a> {
         Box::new(self.get_collection().values().map(|arc| arc.as_ref()))
+    }
+
+    fn len(&self) -> usize {
+        self.get_collection().len()
     }
 }
 
