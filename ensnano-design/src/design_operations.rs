@@ -20,7 +20,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 //! modifying and may return an `ErrOperation` if the opperation could not be applied.
 
 use super::{grid::*, Design, Helix};
-use ultraviolet::Vec3;
+use ultraviolet::{Rotor3, Vec3};
 
 /// An error that occured when trying to apply an operation.
 #[derive(Debug)]
@@ -82,7 +82,7 @@ pub fn attach_helix_to_grid(
 ///
 /// If snap is true, the helices are mapped to grid position.
 /// If this translation would cause helices to compete with other helices for a grid position,
-/// the translation is *not* applied to this helices. Note that no error is returned in this case.
+/// an error is returned.
 pub fn translate_helices(
     design: &mut Design,
     snap: bool,
@@ -91,4 +91,20 @@ pub fn translate_helices(
 ) -> Result<(), ErrOperation> {
     let mut helices_translator = HelicesTranslator::from_design(design);
     helices_translator.translate_helices(snap, helices, translation)
+}
+
+/// Rotate helices by a given rotation
+///
+/// If snap is true, the helices are mapped to grid position.
+/// If this rotation would cause helices to compete with other helices for a grid position,
+/// an error is returned.
+pub fn rotate_helices_3d(
+    design: &mut Design,
+    snap: bool,
+    helices: Vec<usize>,
+    rotation: Rotor3,
+    origin: Vec3,
+) -> Result<(), ErrOperation> {
+    let mut helices_translator = HelicesTranslator::from_design(design);
+    helices_translator.rotate_helices_3d(snap, helices, rotation, origin)
 }

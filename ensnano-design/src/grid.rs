@@ -950,9 +950,17 @@ pub(super) fn make_grid_from_helices(
     Ok(())
 }
 
+/// A mutable view to a design and it's grid data.
+/// When this view is droped, the design's helices are automatically updated.
 pub(super) struct HelicesTranslator<'a> {
     design: &'a mut Design,
     grid_data: GridData,
+}
+
+impl<'a> Drop for HelicesTranslator<'a> {
+    fn drop(&mut self) {
+        self.design.helices = self.grid_data.source_helices.clone();
+    }
 }
 
 impl<'a> HelicesTranslator<'a> {
@@ -971,6 +979,27 @@ impl<'a> HelicesTranslator<'a> {
         for h_id in helices.iter() {
             if let Some(h) = new_helices.get_mut(h_id) {
                 h.translate(translation);
+            }
+        }
+        drop(new_helices);
+        if snap {
+            self.attempt_reattach(&helices)
+        } else {
+            Ok(())
+        }
+    }
+
+    pub fn rotate_helices_3d(
+        &mut self,
+        snap: bool,
+        helices: Vec<usize>,
+        rotation: Rotor3,
+        origin: Vec3,
+    ) -> Result<(), ErrOperation> {
+        let mut new_helices = self.grid_data.source_helices.make_mut();
+        for h_id in helices.iter() {
+            if let Some(h) = new_helices.get_mut(h_id) {
+                h.rotate_arround(rotation, origin)
             }
         }
         drop(new_helices);

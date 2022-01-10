@@ -384,7 +384,7 @@ impl Design {
         ))
     }
 
-    fn get_updated_grid_data(&mut self) -> &GridData {
+    pub fn get_updated_grid_data(&mut self) -> &GridData {
         let need_update = if let Some(data) = self.instanciated_grid_data.as_ref() {
             !data.is_up_to_date(&self)
         } else {

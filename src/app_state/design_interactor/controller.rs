@@ -1228,19 +1228,16 @@ impl Controller {
         translation: Vec3,
     ) -> Design {
         self.update_state_and_design(&mut design);
-        let mut new_helices = BTreeMap::clone(design.helices.as_ref());
+        let mut new_helices = design.helices.make_mut();
         for (h_id, control) in control_points.iter() {
             if let Some(helix) = new_helices.get_mut(&h_id) {
-                if let Some(mut contructor) = helix.as_ref().get_bezier_controls() {
+                if let Some(mut contructor) = helix.get_bezier_controls() {
                     let point = control.get_point_mut(&mut contructor);
                     *point += translation;
-                    let mut new_helix = Helix::clone(helix.as_ref());
-                    new_helix.curve = Some(Arc::new(CurveDescriptor::Bezier(contructor)));
-                    *helix = Arc::new(new_helix);
+                    helix.curve = Some(Arc::new(CurveDescriptor::Bezier(contructor)));
                 }
             }
         }
-        design.helices = Arc::new(new_helices);
         design
     }
 
@@ -1253,18 +1250,19 @@ impl Controller {
         origin: Vec3,
     ) -> Design {
         self.update_state_and_design(&mut design);
-        let mut new_helices = BTreeMap::clone(design.helices.as_ref());
-        for h_id in helices.iter() {
-            if let Some(h) = new_helices.get_mut(h_id) {
-                mutate_in_arc(h, |h| h.rotate_arround(rotation, origin))
-            }
-        }
         let mut new_design = design.clone();
-        new_design.helices = Arc::new(new_helices);
-        if snap {
-            self.attempt_reattach(design, new_design, &helices)
-        } else {
+        if ensnano_design::design_operations::rotate_helices_3d(
+            &mut new_design,
+            snap,
+            helices,
+            rotation,
+            origin,
+        )
+        .is_ok()
+        {
             new_design
+        } else {
+            design
         }
     }
 
@@ -1471,29 +1469,25 @@ impl Controller {
 
     fn snap_helices(&mut self, mut design: Design, pivots: Vec<Nucl>, translation: Vec2) -> Design {
         self.update_state_and_design(&mut design);
-        let mut new_helices = BTreeMap::clone(design.helices.as_ref());
+        let mut new_helices = design.helices.make_mut();
         for p in pivots.iter() {
             if let Some(h) = new_helices.get_mut(&p.helix) {
                 if let Some(old_pos) = nucl_pos_2d(&design, p) {
                     let position = old_pos + translation;
                     let position = Vec2::new(position.x.round(), position.y.round());
-                    mutate_in_arc(h, |h| {
-                        if let Some(isometry) = h.isometry2d.as_mut() {
-                            isometry.append_translation(position - old_pos)
-                        }
-                    })
+                    if let Some(isometry) = h.isometry2d.as_mut() {
+                        isometry.append_translation(position - old_pos)
+                    }
                 }
             }
         }
-        design.helices = Arc::new(new_helices);
         design
     }
 
     fn set_isometry(&mut self, mut design: Design, h_id: usize, isometry: Isometry2) -> Design {
-        let mut new_helices = BTreeMap::clone(design.helices.as_ref());
+        let mut new_helices = design.helices.make_mut();
         if let Some(h) = new_helices.get_mut(&h_id) {
-            mutate_in_arc(h, |h| h.isometry2d = Some(isometry));
-            design.helices = Arc::new(new_helices);
+            h.isometry2d = Some(isometry);
         }
         design
     }
@@ -1511,19 +1505,16 @@ impl Controller {
             let k = (angle / step).round();
             k * step
         };
-        let mut new_helices = BTreeMap::clone(design.helices.as_ref());
+        let mut new_helices = design.helices.make_mut();
         for h_id in helices.iter() {
             if let Some(h) = new_helices.get_mut(h_id) {
-                mutate_in_arc(h, |h| {
-                    if let Some(isometry) = h.isometry2d.as_mut() {
-                        isometry.append_translation(-center);
-                        isometry.append_rotation(ultraviolet::Rotor2::from_angle(angle));
-                        isometry.append_translation(center);
-                    }
-                })
+                if let Some(isometry) = h.isometry2d.as_mut() {
+                    isometry.append_translation(-center);
+                    isometry.append_rotation(ultraviolet::Rotor2::from_angle(angle));
+                    isometry.append_translation(center);
+                }
             }
         }
-        design.helices = Arc::new(new_helices);
         design
     }
 
@@ -1984,7 +1975,7 @@ impl Controller {
         start: isize,
         length: usize,
     ) -> Result<Design, ErrOperation> {
-        let grid_manager = GridManager::new_from_design(&design);
+        let grid_manager = design.get_updated_grid_data();
         if grid_manager
             .pos_to_helix(position.grid, position.x, position.y)
             .is_some()
@@ -1995,10 +1986,10 @@ impl Controller {
             .grids
             .get(position.grid)
             .ok_or(ErrOperation::GridDoesNotExist(position.grid))?;
-        let mut new_helices = BTreeMap::clone(design.helices.as_ref());
         let helix = Helix::new_on_grid(grid, position.x, position.y, position.grid);
-        let helix_id = new_helices.keys().last().unwrap_or(&0) + 1;
-        new_helices.insert(helix_id, Arc::new(helix));
+        let mut new_helices = design.helices.make_mut();
+        let helix_id = new_helices.push_helix(helix);
+        drop(new_helices);
         if length > 0 {
             for b in [false, true].iter() {
                 let new_key = self.add_strand(&mut design, helix_id, start, *b);
@@ -2009,7 +2000,6 @@ impl Controller {
                 }
             }
         }
-        design.helices = Arc::new(new_helices);
         Ok(design)
     }
 

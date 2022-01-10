@@ -130,6 +130,14 @@ impl<'a> HelicesMut<'a> {
             (id, Arc::make_mut(arc))
         })
     }
+
+    /// Add an helix to the collection and return the identifier of the added helix in the
+    /// collection.
+    pub fn push_helix(&mut self, helix: Helix) -> usize {
+        let helix_id = self.get_collection().keys().last().unwrap_or(&0) + 1;
+        self.insert(helix_id, helix);
+        helix_id
+    }
 }
 
 impl<'a> Drop for HelicesMut<'a> {
