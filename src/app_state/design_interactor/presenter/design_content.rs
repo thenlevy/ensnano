@@ -318,7 +318,6 @@ impl DesignContent {
     pub(super) fn make_hash_maps(
         mut design: Design,
         xover_ids: &JunctionsIds,
-        old_grid_ptr: &mut Option<usize>,
         suggestion_parameters: &SuggestionParameters,
         curve_cache: &mut CurveCache,
     ) -> (Self, Design, JunctionsIds) {

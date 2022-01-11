@@ -775,7 +775,7 @@ impl Controller {
             let copy_2 = self.translate_nucl_by_edge(n2, &edge, shift, helices, grid_manager);
             log::debug!("copy 2 {:?}", copy_2);
             if let Some((copy_1, copy_2)) = copy_1.zip(copy_2) {
-                if strands.is_true_xover_end(&copy_1) && strands.is_true_xover_end(&copy_2) {
+                if !strands.is_true_xover_end(&copy_1) && !strands.is_true_xover_end(&copy_2) {
                     // If general_cross_over returns an error we simply ignore this cross_over
                     self.general_cross_over(strands, copy_1, copy_2)
                         .unwrap_or_default();
