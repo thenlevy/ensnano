@@ -87,13 +87,19 @@ impl DesignInteractor {
     }
 
     pub(super) fn apply_copy_operation(
-        &self,
+        &mut self,
         operation: CopyOperation,
     ) -> Result<InteractorResult, ErrOperation> {
-        let result = self
-            .controller
-            .apply_copy_operation(self.design.as_ref(), operation);
-        self.handle_operation_result(result)
+        let tried_up_to_date = self.design.try_get_up_to_date();
+        if let Some(up_to_date) = tried_up_to_date {
+            let result = self.controller.apply_copy_operation(up_to_date, operation);
+            self.handle_operation_result(result)
+        } else {
+            let desing_mut = self.design.make_mut();
+            let up_to_date = desing_mut.get_up_to_date();
+            let result = self.controller.apply_copy_operation(up_to_date, operation);
+            self.handle_operation_result(result)
+        }
     }
 
     pub(super) fn update_pending_operation(
@@ -908,18 +914,22 @@ mod tests {
                 forward: true,
             })))
             .unwrap();
+        app_state.update();
         assert_eq!(app_state.0.design.design.strands.len(), 2);
         app_state
             .apply_copy_operation(CopyOperation::Duplicate)
             .unwrap();
+        app_state.update();
         assert_eq!(app_state.0.design.design.strands.len(), 2);
         app_state
             .apply_copy_operation(CopyOperation::Duplicate)
             .unwrap();
+        app_state.update();
         assert_eq!(app_state.0.design.design.strands.len(), 3);
         app_state
             .apply_copy_operation(CopyOperation::Duplicate)
             .unwrap();
+        app_state.update();
         assert_eq!(app_state.0.design.design.strands.len(), 4);
     }
 

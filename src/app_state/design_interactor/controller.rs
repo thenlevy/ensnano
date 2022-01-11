@@ -22,8 +22,8 @@ use ensnano_design::{
     elements::{DnaAttribute, DnaElementKey},
     grid::{Edge, GridDescriptor, GridPosition, GridTypeDescr, Hyperboloid},
     group_attributes::GroupPivot,
-    mutate_in_arc, CameraId, CurveDescriptor, Design, Domain, DomainJunction, Helix,
-    HelixCollection, Nucl, Parameters, Strand, Strands, VirtualNucl,
+    mutate_in_arc, CameraId, CurveDescriptor, Design, Domain, DomainJunction, Helices, Helix,
+    HelixCollection, Nucl, Parameters, Strand, Strands, UpToDateDesign, VirtualNucl,
 };
 use ensnano_interactor::{
     operation::{Operation, Parameter},
@@ -310,18 +310,16 @@ impl Controller {
 
     pub fn apply_copy_operation(
         &self,
-        design: &Design,
+        up_to_date_design: UpToDateDesign<'_>,
         operation: CopyOperation,
     ) -> Result<(OkOperation, Self), ErrOperation> {
-        let mut design = design.clone();
-        let mut strand_view = design.mut_strand_and_data();
         match operation {
             CopyOperation::CopyStrands(strand_ids) => self.apply_no_op(
-                |c, _d| c.set_templates(&mut strand_view, strand_ids),
-                &design,
+                |c, _d| c.set_templates(&up_to_date_design, strand_ids),
+                &up_to_date_design.design,
             ),
             CopyOperation::CopyXovers(xovers) => {
-                self.apply_no_op(|c, _d| c.copy_xovers(xovers), &design)
+                self.apply_no_op(|c, _d| c.copy_xovers(xovers), up_to_date_design.design)
             }
             CopyOperation::PositionPastingPoint(nucl) => {
                 if self.get_pasting_point() == Some(nucl) {
@@ -331,14 +329,14 @@ impl Controller {
                     {
                         p.as_ref()
                     } else {
-                        &design
+                        up_to_date_design.design
                     };
                     self.apply(|c, d| c.position_copy(d, nucl), design_pasted_on)
                 }
             }
             CopyOperation::InitStrandsDuplication(strand_ids) => self.apply_no_op(
-                |c, d| {
-                    c.set_templates(&mut strand_view, strand_ids)?;
+                |c, _d| {
+                    c.set_templates(&up_to_date_design, strand_ids)?;
                     let clipboard = c.clipboard.as_ref().get_strand_clipboard()?;
                     c.state = ControllerState::PositioningDuplicationPoint {
                         pasted_strands: vec![],
@@ -348,12 +346,15 @@ impl Controller {
                     };
                     Ok(())
                 },
-                &design,
+                &up_to_date_design.design,
             ),
-            CopyOperation::Duplicate => self.apply(|c, d| c.apply_duplication(d), &design),
-            CopyOperation::Paste => {
-                self.make_undoable(self.apply(|c, d| c.apply_paste(d), &design), "Paste".into())
+            CopyOperation::Duplicate => {
+                self.apply(|c, d| c.apply_duplication(d), up_to_date_design.design)
             }
+            CopyOperation::Paste => self.make_undoable(
+                self.apply(|c, d| c.apply_paste(d), up_to_date_design.design),
+                "Paste".into(),
+            ),
             CopyOperation::InitXoverDuplication(xovers) => self.apply_no_op(
                 |c, d| {
                     c.copy_xovers(xovers.clone())?;
@@ -365,7 +366,7 @@ impl Controller {
                     };
                     Ok(())
                 },
-                &design,
+                up_to_date_design.design,
             ),
         }
     }
@@ -491,8 +492,8 @@ impl Controller {
         let parameters = design.parameters.unwrap_or_default();
         let (helices, nb_nucl) = hyperboloid.make_helices(&parameters);
         let nb_nucl = nb_nucl.min(5000);
-        let mut key = design.helices.keys().max().map(|m| m + 1).unwrap_or(0);
-        let helices_mut = design.helices.make_mut();
+        let mut helices_mut = design.helices.make_mut();
+        let mut keys = Vec::with_capacity(helices.len());
         for (i, mut h) in helices.into_iter().enumerate() {
             let origin = hyperboloid.origin_helix(&parameters, i as isize, 0);
             let z_vec = Vec3::unit_z().rotated_by(orientation);
@@ -514,7 +515,11 @@ impl Controller {
                 axis_pos: 0,
                 roll: 0.,
             });
-            helices_mut.insert(key, h);
+            let key = helices_mut.push_helix(h);
+            keys.push(key);
+        }
+        drop(helices_mut);
+        for key in keys.into_iter() {
             for b in [true, false].iter() {
                 //let new_key = self.add_strand(design, key, -(nb_nucl as isize) / 2, *b);
                 let new_key = self.add_strand(design, key, 0, *b);
@@ -524,7 +529,6 @@ impl Controller {
                     dom.end = dom.start + nb_nucl as isize;
                 }
             }
-            key += 1;
         }
     }
 
@@ -543,6 +547,7 @@ impl Controller {
             }
         }
         self.state = ControllerState::SettingRollHelices;
+        drop(helices_mut);
         Ok(design)
     }
 
@@ -1241,6 +1246,7 @@ impl Controller {
                 }
             }
         }
+        drop(new_helices);
         design
     }
 
@@ -1474,8 +1480,8 @@ impl Controller {
         self.update_state_and_design(&mut design);
         let mut new_helices = design.helices.make_mut();
         for p in pivots.iter() {
-            if let Some(h) = new_helices.get_mut(&p.helix) {
-                if let Some(old_pos) = nucl_pos_2d(&design, p) {
+            if let Some(old_pos) = nucl_pos_2d(new_helices.as_ref(), p) {
+                if let Some(h) = new_helices.get_mut(&p.helix) {
                     let position = old_pos + translation;
                     let position = Vec2::new(position.x.round(), position.y.round());
                     if let Some(isometry) = h.isometry2d.as_mut() {
@@ -1484,6 +1490,7 @@ impl Controller {
                 }
             }
         }
+        drop(new_helices);
         design
     }
 
@@ -1492,6 +1499,7 @@ impl Controller {
         if let Some(h) = new_helices.get_mut(&h_id) {
             h.isometry2d = Some(isometry);
         }
+        drop(new_helices);
         design
     }
 
@@ -1518,6 +1526,7 @@ impl Controller {
                 }
             }
         }
+        drop(new_helices);
         design
     }
 
@@ -2020,18 +2029,18 @@ impl Controller {
             .grids
             .get(end.grid)
             .ok_or(ErrOperation::GridDoesNotExist(end.grid))?;
-        drop(grid_manager);
-        let mut new_helices = design.helices.make_mut();
         let dumy_start_helix = Helix::new_on_grid(&grid_start, start.x, start.y, start.grid);
         let start_axis = dumy_start_helix
-            .get_axis(&design.parameters.unwrap_or(Parameters::DEFAULT))
+            .get_axis(&grid_manager.parameters)
             .direction()
             .unwrap_or(Vec3::zero());
         let dumy_end_helix = Helix::new_on_grid(&grid_end, end.x, end.y, end.grid);
         let end_axis = dumy_end_helix
-            .get_axis(&design.parameters.unwrap_or(Parameters::DEFAULT))
+            .get_axis(&grid_manager.parameters)
             .direction()
             .unwrap_or(Vec3::zero());
+        drop(grid_manager);
+        let mut new_helices = design.helices.make_mut();
 
         let mut helix = Helix::new_bezier_two_points(
             dumy_start_helix.position,
@@ -2043,8 +2052,9 @@ impl Controller {
             &design.parameters.unwrap_or(Parameters::DEFAULT),
             &mut Default::default(),
         );
-        let helix_id = new_helices.push_helix(helix);
         let length = helix.nb_bezier_nucls();
+        let helix_id = new_helices.push_helix(helix);
+        drop(new_helices);
         if length > 0 {
             for b in [false, true].iter() {
                 let new_key = self.add_strand(&mut design, helix_id, 0, *b);
@@ -2556,14 +2566,14 @@ impl Controller {
     }
 }
 
-fn nucl_pos_2d(design: &Design, nucl: &Nucl) -> Option<Vec2> {
+fn nucl_pos_2d(helices: &Helices, nucl: &Nucl) -> Option<Vec2> {
     let local_position = nucl.position as f32 * Vec2::unit_x()
         + if nucl.forward {
             Vec2::zero()
         } else {
             Vec2::unit_y()
         };
-    let isometry = design.helices.get(&nucl.helix).and_then(|h| h.isometry2d);
+    let isometry = helices.get(&nucl.helix).and_then(|h| h.isometry2d);
 
     isometry.map(|i| i.into_homogeneous_matrix().transform_point2(local_position))
 }

@@ -22,7 +22,7 @@ use super::{
 };
 use ensnano_design::{
     grid::{Edge, GridData},
-    Helices, HelixCollection, MutStrandAndData, Parameters, Strands,
+    Helices, HelixCollection, MutStrandAndData, Parameters, Strands, UpToDateDesign,
 };
 use ultraviolet::Vec3;
 
@@ -111,16 +111,17 @@ enum DomainTemplate {
 impl Controller {
     pub fn set_templates(
         &mut self,
-        data: &mut MutStrandAndData<'_>,
+        data: &UpToDateDesign<'_>,
         strand_ids: Vec<usize>,
     ) -> Result<(), ErrOperation> {
         let mut templates = Vec::with_capacity(strand_ids.len());
         for id in strand_ids.iter() {
             let strand = data
+                .design
                 .strands
                 .get(&id)
                 .ok_or(ErrOperation::StrandDoesNotExist(*id))?;
-            let template = self.strand_to_template(strand, &data.helices, &data.grid_data)?;
+            let template = self.strand_to_template(strand, &data.design.helices, data.grid_data)?;
             templates.push(template);
         }
         let mut edges = vec![];
@@ -132,9 +133,9 @@ impl Controller {
                     edges.push(Self::edge_between_strands(
                         *s_id1,
                         *s_id2,
-                        &data.helices,
-                        &data.strands,
-                        &data.grid_data,
+                        &data.design.helices,
+                        &data.design.strands,
+                        data.grid_data,
                     ));
                 }
             }
@@ -192,7 +193,7 @@ impl Controller {
                         let start = if dom.forward { dom.start } else { dom.end };
                         origin = Some(TemplateOrigin {
                             helix: grid_position,
-                            start: start,
+                            start,
                             forward: dom.forward,
                         });
                         previous_position = Some(grid_position);
@@ -250,7 +251,7 @@ impl Controller {
         mut design: Design,
         nucl: Option<Nucl>,
     ) -> Result<Design, ErrOperation> {
-        let data = design.mut_strand_and_data();
+        let mut data = design.mut_strand_and_data();
         match self.clipboard.as_ref() {
             Clipboard::Strands(_) => {
                 self.position_strand_copies(&mut data, nucl)?;
@@ -604,7 +605,7 @@ impl Controller {
                 duplication_edge,
                 xovers,
             } => {
-                let mut data = design.mut_strand_and_data();
+                let data = design.mut_strand_and_data();
                 let new_duplication_point = self
                     .translate_nucl_by_edge(
                         &last_pasting_point,
@@ -743,6 +744,11 @@ impl Controller {
         self.state
             .update_xover_pasting_position(nucl, edge, design)?;
         let data = design.mut_strand_and_data();
+        if cfg!(test) {
+            if edge.is_none() {
+                println!("EDGE IS NONE");
+            }
+        }
         if let Some(edge) = edge {
             let clipboard = self.clipboard.clone();
             let xovers = match clipboard.as_ref() {

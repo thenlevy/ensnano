@@ -262,7 +262,9 @@ impl AppState {
         &mut self,
         op: CopyOperation,
     ) -> Result<OkOperation, ErrOperation> {
-        let result = self.0.design.apply_copy_operation(op);
+        let self_mut = self.0.make_mut();
+        let design_mut = self_mut.design.make_mut();
+        let result = design_mut.apply_copy_operation(op);
         self.handle_operation_result(result)
     }
 

@@ -144,6 +144,12 @@ impl<'a> HelicesMut<'a> {
     }
 }
 
+impl<'a> AsRef<Helices> for HelicesMut<'a> {
+    fn as_ref(&self) -> &Helices {
+        &self.source
+    }
+}
+
 impl<'a> Drop for HelicesMut<'a> {
     fn drop(&mut self) {
         *self.source = Helices(Arc::new(std::mem::take(&mut self.new_map)))

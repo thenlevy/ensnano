@@ -72,6 +72,12 @@ impl<T: Default> AddressPointer<T> {
     }
 }
 
+impl<T: Default + Clone> AddressPointer<T> {
+    pub fn make_mut(&mut self) -> &mut T {
+        Arc::make_mut(&mut self.0)
+    }
+}
+
 use std::ops::Deref;
 impl<T: Clone + Default> AddressPointer<T> {
     /// Return a clone of the pointed value.

@@ -141,6 +141,56 @@ pub struct Design {
     instanciated_grid_data: Option<GridData>,
 }
 
+/// An immuatable reference to a design whose helices and grid data are guaranteed to be up-to
+/// date.
+pub struct UpToDateDesign<'a> {
+    pub design: &'a Design,
+    pub grid_data: &'a GridData,
+}
+
+impl Design {
+    /// If self is up-to-date return an `UpToDateDesign` reference to self.
+    ///
+    /// If this methods returns `None`, one needs to call `Design::get_up_to_date` to get an
+    /// `UpToDateDesign` reference to the data.
+    /// Having an option to not mutate the design is meant to prevent unecessary run-time cloning
+    /// of the design
+    pub fn try_get_up_to_date<'a>(&'a self) -> Option<UpToDateDesign<'a>> {
+        if let Some(data) = self.instanciated_grid_data.as_ref() {
+            if data.is_up_to_date(&self) {
+                Some(UpToDateDesign {
+                    design: self,
+                    grid_data: data,
+                })
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
+
+    /// Update self if necessary and returns an up-to-date reference to self.
+    pub fn get_up_to_date<'a>(&'a mut self) -> UpToDateDesign<'a> {
+        if self.needs_update() {
+            let grid_data = GridData::new_by_updating_design(self);
+            self.instanciated_grid_data = Some(grid_data);
+        }
+        UpToDateDesign {
+            design: self,
+            grid_data: self.instanciated_grid_data.as_ref().unwrap(),
+        }
+    }
+
+    fn needs_update(&self) -> bool {
+        if let Some(data) = self.instanciated_grid_data.as_ref() {
+            !data.is_up_to_date(self)
+        } else {
+            true
+        }
+    }
+}
+
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct CameraId(u64);
 

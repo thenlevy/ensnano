@@ -568,7 +568,7 @@ pub struct GridData {
     pub grids: Vec<Grid>,
     pub helix_to_pos: HashMap<usize, GridPosition>,
     pub pos_to_helix: HashMap<(usize, isize, isize), usize>,
-    parameters: Parameters,
+    pub parameters: Parameters,
     pub no_phantoms: HashSet<usize>,
     pub small_spheres: HashSet<usize>,
 }
@@ -579,7 +579,7 @@ impl GridData {
             && Arc::ptr_eq(&self.source_helices.0, &design.helices.0)
     }
 
-    pub fn get_visibility(&mut self, g_id: usize) -> bool {
+    pub fn get_visibility(&self, g_id: usize) -> bool {
         self.grids.get(g_id).map(|g| !g.invisible).unwrap_or(false)
     }
 

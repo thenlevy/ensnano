@@ -102,6 +102,7 @@ impl std::convert::From<ScadnanoImportError> for ParseDesignError {
 
 #[cfg(test)]
 mod tests {
+    use ensnano_design::HelixCollection;
 
     fn one_helix_path() -> PathBuf {
         let mut ret = PathBuf::from(std::env!("CARGO_MANIFEST_DIR"));
