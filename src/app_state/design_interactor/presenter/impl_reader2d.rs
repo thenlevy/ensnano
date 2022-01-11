@@ -182,10 +182,8 @@ impl Reader2D for DesignReader {
         self.is_xover_end(nucl)
     }
 
-    fn get_helices_map(&self) -> Arc<BTreeMap<usize, Arc<Helix>>> {
-        //Arc::new(self.presenter.current_design.helices.get_collection().clone())
-        // We need to find a way to return a pointer
-        todo!()
+    fn get_helices_map(&self) -> &ensnano_design::Helices {
+        &self.presenter.current_design.helices
     }
 
     fn get_strand_ends(&self) -> Vec<Nucl> {
